@@ -4,6 +4,7 @@ import {
   "dowdiness/canopy/lang/json/edits" @json_edits,
   "dowdiness/canopy/lang/json/proj" @json_proj,
   "dowdiness/canopy/lang/runtime" @lang_runtime,
+  "dowdiness/event-graph-walker/text",
   "dowdiness/incr",
   "dowdiness/json",
   "dowdiness/loom",

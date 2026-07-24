@@ -5,7 +5,7 @@
 
 ///|
 test "get_view_tree returns ViewNode for non-empty editor" {
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   editor.set_text("f(x)")
   let tree = editor.get_view_tree()
   assert_true(tree is Some(_))
@@ -22,7 +22,7 @@ test "get_view_tree returns ViewNode for non-empty editor" {
 // pins the generic empty-document behavior, which the moved lambda companion
 // test (`editor_view_decorations_test.mbt`) does not cover.
 test "empty generic editor yields an empty-document view and a FullTree patch" {
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   // No text inserted.
   let tree = editor.get_view_tree()
   assert_true(tree is Some(_))
@@ -51,7 +51,7 @@ test "empty generic editor yields an empty-document view and a FullTree patch" {
 // lambda companion test asserts this only against lambda's Module/def-index
 // projection; this pins it for the generic pipeline.
 test "NodeId stable across an unrelated sibling edit" {
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   editor.set_text("f(x y)")
   // root Branch("") -> child Branch("f") -> [Leaf("x"), Leaf("y")]
   let root = editor.get_proj_node().unwrap()
@@ -67,7 +67,7 @@ test "NodeId stable across an unrelated sibling edit" {
 
 ///|
 test "initial state produces FullTree patch" {
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   editor.set_text("f(x)")
   let state = @editor.ViewUpdateState::ViewUpdateState()
   let patches = @editor.compute_view_patches(state, editor)
@@ -85,7 +85,7 @@ test "initial state produces FullTree patch" {
 
 ///|
 test "unchanged tree produces no tree patches" {
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   editor.set_text("f(x)")
   let state = @editor.ViewUpdateState::ViewUpdateState()
   // First call: FullTree
@@ -118,7 +118,7 @@ test "unchanged tree produces no tree patches" {
 // eval-annotation diffs, which the generic pipeline does not produce. Assert
 // the tight shape so diff minimality is actually verified.
 test "single character leaf edit produces a minimal UpdateNode (not ReplaceNode)" {
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   editor.set_text("a")
   let state = @editor.ViewUpdateState::ViewUpdateState()
   let _ = @editor.compute_view_patches(state, editor)
@@ -150,7 +150,7 @@ test "single character leaf edit produces a minimal UpdateNode (not ReplaceNode)
 
 ///|
 test "structural edit produces ReplaceNode" {
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   editor.set_text("x")
   let state = @editor.ViewUpdateState::ViewUpdateState()
   let _ = @editor.compute_view_patches(state, editor)
@@ -171,7 +171,7 @@ test "structural edit produces ReplaceNode" {
 
 ///|
 test "diagnostics are emitted for parse errors" {
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   editor.set_text("foo(") // unclosed '('
   let state = @editor.ViewUpdateState::ViewUpdateState()
   let patches = @editor.compute_view_patches(state, editor)
@@ -190,7 +190,7 @@ test "diagnostics are emitted for parse errors" {
 
 ///|
 test "diagnostics are cleared when parse succeeds" {
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   editor.set_text("foo(") // unclosed '('
   let state = @editor.ViewUpdateState::ViewUpdateState()
   let _ = @editor.compute_view_patches(state, editor)
@@ -212,7 +212,7 @@ test "diagnostics are cleared when parse succeeds" {
 
 ///|
 test "child insertion detected" {
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   editor.set_text("f(a)")
   let state = @editor.ViewUpdateState::ViewUpdateState()
   let _ = @editor.compute_view_patches(state, editor)
@@ -234,7 +234,7 @@ test "child insertion detected" {
 
 ///|
 test "child removal detected" {
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   editor.set_text("f(a b)")
   let state = @editor.ViewUpdateState::ViewUpdateState()
   let _ = @editor.compute_view_patches(state, editor)
@@ -256,7 +256,7 @@ test "child removal detected" {
 
 ///|
 test "proj_to_view_node converts a simple ProjNode tree" {
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   editor.set_text("f(x)")
   let proj_node = editor.get_proj_node().unwrap()
   let source_map = editor.get_source_map()
@@ -272,7 +272,7 @@ test "proj_to_view_node converts a simple ProjNode tree" {
 
 ///|
 test "proj_to_view_node node_count for 10 branches" {
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   let segments : Array[String] = []
   for i = 0; i < 10; i = i + 1 {
     segments.push("f\{i}(x)")

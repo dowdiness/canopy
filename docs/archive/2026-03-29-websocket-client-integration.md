@@ -1,5 +1,10 @@
 # WebSocket Client Integration
 
+> **Superseded 2026-07-22.** The
+> [EGW peer-sync contract spike](2026-07-22-egw-peer-sync-contract-spike.md)
+> replaces this as the active specification. This file remains historical
+> evidence of the earlier transport-first scope.
+
 ## Why
 
 The wire protocol and `SyncEditor` WebSocket lifecycle exist, but the backlog

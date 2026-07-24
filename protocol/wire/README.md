@@ -1,17 +1,18 @@
 # protocol/wire — sync wire protocol
 
-The single definition of canopy's binary sync wire format. **Tier 1 library
-surface** per the
+The single definition of canopy's binary sync wire format. It is a **Tier 1
+library surface** under the
 [library API boundary ADR](../../docs/decisions/2026-06-11-library-api-boundary.md):
 "unused in-tree" is not a deletion trigger here, and API changes follow the
 deprecation idiom with at least one release cycle.
 
-Extracted from `editor/sync_protocol.mbt` in architecture-redesign S1
-([plan](../../docs/plans/2026-06-11-s1-protocol-wire-extraction.md)). `editor`,
-`relay`, and `ephemeral` consume this package exclusively; `editor` retains
-deprecated forwarding shims for the historical `@editor.*` spellings. This
-package imports substrate only (`byte_codec`, core) — never editor, ephemeral,
-relay, or language packages.
+Extracted from `editor/sync_protocol.mbt` in architecture-redesign S1; see the
+[archived plan](../../docs/archive/completed-phases/2026-06-11-s1-protocol-wire-extraction.md).
+
+`editor`, `relay`, and `ephemeral` consume this package exclusively. The editor
+retains deprecated forwarding shims for its historical spellings. This package
+imports substrate only (`byte_codec`, core), never editor, ephemeral, relay, or
+language packages.
 
 ## Frame layout
 
@@ -21,7 +22,7 @@ Every sync frame is:
 [version: u8][msg_type: u8][flags: u8][payload…]
 ```
 
-- `version` — `protocol_version` (currently `0x02`). A frame with any other
+- `version` — `protocol_version` (currently `0x03`). A frame with any other
   version byte is rejected (`ProtocolError::UnsupportedVersion`).
 - `msg_type` — one of:
 
@@ -67,3 +68,10 @@ commit**:
 Adding a message type is backward-tolerant (unknown types decode to
 `ProtocolError::UnknownMessageType` and are dropped) and does not require a
 version bump; changing the layout of an existing type does.
+
+Protocol v3 is a coordinated hard cut from v2 because the two EGW payload
+families are incompatible. Endpoint decoders return `UnsupportedVersion(2)`,
+and the relay drops complete non-v3 frames.
+
+The [protocol v3 ADR](../../docs/decisions/2026-07-22-protocol-v3-hard-cutover.md)
+rejects a v2 decoder, bridge, or mixed-version room mode.

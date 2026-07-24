@@ -1,8 +1,13 @@
 # SyncRequest / SyncResponse Recovery Follow-Up
 
+> **Superseded 2026-07-22.** The
+> [EGW peer-sync contract spike](2026-07-22-egw-peer-sync-contract-spike.md)
+> replaces this as the active specification. This file remains historical
+> evidence of the earlier text-bound recovery design.
+
 ## Status
 
-Ready.
+Superseded.
 
 Unblocked now that the container substrate (egw#21) and Model I
 undo/transactions (egw#28, canopy#187) have landed. Recovery runs on top of a

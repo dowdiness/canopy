@@ -2,7 +2,8 @@
 
 ///|
 fn make_empty_sync_message() -> @text.SyncMessage raise {
-  @text.SyncMessage::from_json_string("{\"runs\":[],\"heads\":[]}")
+  let doc = @text.TextState::new("recovery-message-fixture")
+  doc.sync().export_all()
 }
 
 ///|

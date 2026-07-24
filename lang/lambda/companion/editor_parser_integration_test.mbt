@@ -6,7 +6,7 @@
 
 ///|
 test "parser: get_ast_pretty contains expression" {
-  let se = new_lambda_editor("agent1").0
+  let se = (try! new_lambda_editor("agent1")).0
   se.set_text("42")
   let pretty = get_lambda_ast_pretty(se)
   inspect(pretty.contains("42"), content="true")
@@ -15,7 +15,7 @@ test "parser: get_ast_pretty contains expression" {
 
 ///|
 test "parser: complex expression parses correctly" {
-  let se = new_lambda_editor("agent1").0
+  let se = (try! new_lambda_editor("agent1")).0
   se.set_text("(f, x) => f x")
   inspect(
     @ast.print_term(get_lambda_ast(se)),
@@ -27,7 +27,7 @@ test "parser: complex expression parses correctly" {
 
 ///|
 test "parser: let binding with body" {
-  let se = new_lambda_editor("agent1").0
+  let se = (try! new_lambda_editor("agent1")).0
   se.set_text("let x = 1\nx + 2")
   let ast = get_lambda_ast(se)
   inspect(
@@ -41,14 +41,14 @@ test "parser: let binding with body" {
 
 ///|
 test "parser: if-then-else expression" {
-  let se = new_lambda_editor("agent1").0
+  let se = (try! new_lambda_editor("agent1")).0
   se.set_text("if x then 1 else 2")
   inspect(@ast.print_term(get_lambda_ast(se)), content="if x then 1 else 2")
 }
 
 ///|
 test "parser: arithmetic addition" {
-  let se = new_lambda_editor("agent1").0
+  let se = (try! new_lambda_editor("agent1")).0
   se.set_text("1 + 2 + 3")
   let ast = get_lambda_ast(se)
   inspect(
@@ -61,7 +61,7 @@ test "parser: arithmetic addition" {
 
 ///|
 test "parser: resolution tracks bound and free variables" {
-  let se = new_lambda_editor("agent1").0
+  let se = (try! new_lambda_editor("agent1")).0
   se.set_text("(x) => x + y")
   let res = get_lambda_resolution(se)
   // Verify resolution is populated (bound x, free y)

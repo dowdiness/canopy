@@ -114,9 +114,14 @@ not here.
   [`adapters/editor-adapter/`](../adapters/editor-adapter/), not in the raw FFI
   layer. Where possible, frontends should consume the editor through the
   adapter.
-- **WebSocket recovery is incomplete.** Malformed or incompatible CRDT ops can
-  diverge peers silently; recovery is tracked in
-  `docs/plans/2026-03-29-sync-recovery-followup.md`.
+- **Peer-sync semantics and dependency convergence are complete; product
+  transport is not.** The archived
+  [contract spike](archive/2026-07-22-egw-peer-sync-contract-spike.md)
+  established shared text/container decisions, and the archived
+  [compatibility migration](archive/2026-07-22-egw-companion-canopy-migration.md)
+  aligned EGW, Loom, and Canopy while preserving Tier 1 interfaces.
+  Payload-opaque runtime extraction and provider-backed productization remain
+  deferred.
 
 ## Non-goals
 

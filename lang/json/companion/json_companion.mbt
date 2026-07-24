@@ -22,12 +22,13 @@ let json_spec : @lang_runtime.LanguageSpec[
 
 ///|
 /// Create a new SyncEditor for JSON documents.
+/// Raises `TextError::EmptyReplicaId` when `agent_id` is empty.
 /// Uses the generic 3-memo projection pipeline.
 pub fn new_json_editor(
   agent_id : String,
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
-) -> @editor.SyncEditor[@json.JsonValue] {
+) -> @editor.SyncEditor[@json.JsonValue] raise @text.TextError {
   json_spec.new_editor(agent_id, capture_timeout_ms~, parent_runtime?)
 }
 

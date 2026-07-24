@@ -8,16 +8,15 @@
 ///|
 /// Test helper: construct an empty SyncMessage or fail the current test.
 fn empty_msg_or_fail() -> @text.SyncMessage raise {
-  @text.SyncMessage::from_json_string("{\"runs\":[],\"heads\":[]}") catch {
-    _ => fail("failed to construct empty SyncMessage fixture")
-  }
+  let doc = @text.TextState::new("empty-message-fixture")
+  doc.sync().export_all()
 }
 
 ///|
 /// Fake IO: records sent frames, serves a fresh empty version.
 fn test_io(sent : Array[Bytes]) -> SyncIo {
   SyncIo(send=data => sent.push(data), current_version=() => {
-    @text.TextState::new("io-peer").version()
+    try! @text.TextState::new("io-peer").version()
   })
 }
 
@@ -34,6 +33,47 @@ fn test_host(sent : Array[Bytes], left : Array[String]) -> SyncHost {
     apply_ephemeral=(_, _) => (),
     encode_ephemeral=_ => Bytes::new(0),
     on_peer_leave=peer_id => left.push(peer_id),
+  )
+}
+
+// Retry classification
+
+///|
+test "SyncSession: retries only causal dependency failures" {
+  debug_inspect(
+    [
+      should_retry_sync_error(
+        @text.TextError::SyncFailed(
+          @sync.Failure::MissingDependency(replica_id="peer", sequence=1),
+        ),
+      ),
+      should_retry_sync_error(@text.TextError::VersionNotFound),
+      should_retry_sync_error(
+        @text.TextError::SyncFailed(
+          @sync.Failure::MalformedMessage(detail="bad envelope"),
+        ),
+      ),
+      should_retry_sync_error(
+        @text.TextError::SyncFailed(
+          @sync.Failure::InvalidContent(detail="bad content"),
+        ),
+      ),
+      should_retry_sync_error(
+        @text.TextError::SyncFailed(
+          @sync.Failure::ConflictingIdentity(replica_id="peer", sequence=1),
+        ),
+      ),
+      should_retry_sync_error(
+        @text.TextError::SyncFailed(
+          @sync.Failure::LimitExceeded(
+            kind=@sync.LimitKind::PendingOperations,
+            limit=1,
+            actual=2,
+          ),
+        ),
+      ),
+    ],
+    content="[true, true, false, false, false, false]",
   )
 }
 
@@ -74,7 +114,7 @@ test "SyncSession: RelayedCrdtOps buffers during recovery" {
   session.recovery = Some(RecoveryContext::new("alice", empty_msg, 1))
   // Send RelayedCrdtOps from "alice" — should be buffered, not applied
   let buf = Buffer()
-  buf.write_string_utf16le("{\"runs\":[],\"heads\":[]}".view())
+  buf.write_string_utf16le(empty_msg.to_json_string().view())
   let wire = @wire.encode_relayed_crdt_ops("alice", buf.to_bytes())
   session.on_message(wire, test_host([], []))
   // Message should be buffered

@@ -4,6 +4,7 @@ package "dowdiness/canopy/lang/json/companion"
 import {
   "dowdiness/canopy/editor",
   "dowdiness/canopy/lang/json/edits",
+  "dowdiness/event-graph-walker/text",
   "dowdiness/incr/cells",
   "dowdiness/json",
 }
@@ -11,7 +12,7 @@ import {
 // Values
 pub fn apply_json_edit(@editor.SyncEditor[@json.JsonValue], @edits.JsonEditOp, Int) -> Result[Unit, String]
 
-pub fn new_json_editor(String, capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime) -> @editor.SyncEditor[@json.JsonValue]
+pub fn new_json_editor(String, capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime) -> @editor.SyncEditor[@json.JsonValue] raise @text.TextError
 
 // Errors
 
