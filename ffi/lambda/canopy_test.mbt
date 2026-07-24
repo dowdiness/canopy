@@ -1,6 +1,24 @@
 // Test simulating the exact web editor scenario
 
 ///|
+test "editor creation rejects an empty agent identifier before registration" {
+  let before = create_editor("creation-boundary-before")
+  inspect(create_editor(""), content="-1")
+  inspect(create_editor_with_undo("", 500), content="-1")
+  let after = create_editor("creation-boundary-after")
+  inspect(after == before + 1, content="true")
+  destroy_editor(before)
+  destroy_editor(after)
+}
+
+///|
+test "sync JSON fallback is a valid empty v0.5 envelope" {
+  let all = @text.SyncMessage::from_json_string(export_all_json(-1))
+  let since = @text.SyncMessage::from_json_string(export_since_json(-1, ""))
+  inspect((all.op_count(), since.op_count()), content="(0, 0)")
+}
+
+///|
 test "Web scenario: error persistence bug" {
   // Simulate web editor usage
   let editor_ref : Ref[@editor.SyncEditor[@ast.Term]?] = { val: None }

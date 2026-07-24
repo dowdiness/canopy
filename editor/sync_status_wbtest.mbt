@@ -35,13 +35,13 @@ fn[T : Eq] force_error_exhausted(
 
 ///|
 test "SyncStatus: initial status is Disconnected" {
-  let editor = @probe.new_test_editor("alice")
+  let editor = try! @probe.new_test_editor("alice")
   inspect(editor.get_sync_status(), content="Disconnected")
 }
 
 ///|
 test "SyncStatus: ws_on_open transitions to Idle" {
-  let editor = @probe.new_test_editor("alice")
+  let editor = try! @probe.new_test_editor("alice")
   let ws = make_test_ws()
   editor.ws_on_open(ws)
   inspect(editor.get_sync_status(), content="Idle")
@@ -49,7 +49,7 @@ test "SyncStatus: ws_on_open transitions to Idle" {
 
 ///|
 test "SyncStatus: ws_on_close transitions to Disconnected" {
-  let editor = @probe.new_test_editor("alice")
+  let editor = try! @probe.new_test_editor("alice")
   let ws = make_test_ws()
   editor.ws_on_open(ws)
   editor.ws_on_close()
@@ -60,7 +60,7 @@ test "SyncStatus: ws_on_close transitions to Disconnected" {
 
 ///|
 test "SyncStatus: callback fires on transition" {
-  let editor = @probe.new_test_editor("alice")
+  let editor = try! @probe.new_test_editor("alice")
   let fired : Array[SyncStatus] = []
   editor.set_on_status_change(Some(fn(s) { fired.push(s) }))
   let ws = make_test_ws()
@@ -74,7 +74,7 @@ test "SyncStatus: callback fires on transition" {
 
 ///|
 test "SyncStatus: equality guard suppresses no-op transitions" {
-  let editor = @probe.new_test_editor("alice")
+  let editor = try! @probe.new_test_editor("alice")
   let fired : Array[SyncStatus] = []
   editor.set_on_status_change(Some(fn(s) { fired.push(s) }))
   // ws_on_close when already Disconnected → no emission
@@ -91,7 +91,7 @@ test "SyncStatus: equality guard suppresses no-op transitions" {
 
 ///|
 test "SyncStatus: removing callback disables notifications" {
-  let editor = @probe.new_test_editor("alice")
+  let editor = try! @probe.new_test_editor("alice")
   let fired : Array[SyncStatus] = []
   editor.set_on_status_change(Some(fn(s) { fired.push(s) }))
   let ws = make_test_ws()
@@ -107,8 +107,8 @@ test "SyncStatus: removing callback disables notifications" {
 
 ///|
 test "SyncStatus: Error → Idle on successful apply_sync" {
-  let editor_a = @probe.new_test_editor("alice")
-  let editor_b = @probe.new_test_editor("bob")
+  let editor_a = try! @probe.new_test_editor("alice")
+  let editor_b = try! @probe.new_test_editor("bob")
   let ws = make_test_ws()
   editor_b.ws_on_open(ws)
   // Drive editor_b into Error state through the public surface.
@@ -139,8 +139,8 @@ test "SyncStatus: failed apply_sync leaves Error status intact" {
   // receiving editor: apply_sync raises
   // TextError::SyncFailed(MissingDependency) and the Error → Idle
   // auto-clear must NOT fire.
-  let editor_a = @probe.new_test_editor("alice")
-  let editor_b = @probe.new_test_editor("bob")
+  let editor_a = try! @probe.new_test_editor("alice")
+  let editor_b = try! @probe.new_test_editor("bob")
   let ws = make_test_ws()
   editor_b.ws_on_open(ws)
   // Drive editor_b into Error state through the public surface.
@@ -155,16 +155,14 @@ test "SyncStatus: failed apply_sync leaves Error status intact" {
       return
     }
   }
-  // Apply the orphan delta — must raise TextError::SyncFailed with
-  // SyncFailure::MissingDependency specifically. Any other exception
-  // (or no exception) would mean the test isn't exercising what it claims.
-  let mut raised_missing_dep = false
+  // EGW owns and reports the pending operation. The editor normalizes that
+  // report to the legacy retryable VersionNotFound error for SyncHost.
+  let mut raised_pending = false
   editor_b.apply_sync(orphan_delta) catch {
-    @text.TextError::SyncFailed(@text.SyncFailure::MissingDependency(..)) =>
-      raised_missing_dep = true
-    other => fail("expected MissingDependency, got: \{other}")
+    @text.TextError::VersionNotFound => raised_pending = true
+    other => fail("expected pending dependency, got: \{other}")
   }
-  inspect(raised_missing_dep, content="true")
+  inspect(raised_pending, content="true")
   // Error must persist — the catch branch in apply_sync must not hit the
   // auto-clear tail.
   inspect(
@@ -179,8 +177,8 @@ test "SyncStatus: failed apply_sync leaves Error status intact" {
 
 ///|
 test "SyncStatus: watchdog scheduler receives request_id and timeout on send" {
-  let editor_a = @probe.new_test_editor("alice")
-  let editor = @probe.new_test_editor("bob")
+  let editor_a = try! @probe.new_test_editor("alice")
+  let editor = try! @probe.new_test_editor("bob")
   let ws = make_test_ws()
   editor.ws_on_open(ws)
   let scheduled : Array[(Int, Int)] = []

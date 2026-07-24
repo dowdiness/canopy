@@ -6,7 +6,7 @@
 ///|
 /// Property: New editor is always empty
 test "property: new editor is empty" {
-  let editor = Editor::new("test-agent")
+  let editor = try! Editor::new("test-agent")
   assert_eq(editor.get_text(), "")
   assert_eq(editor.get_cursor(), 0)
 }
@@ -16,7 +16,7 @@ test "property: new editor is empty" {
 test "property: insert updates length correctly" {
   let texts : Array[String] = @quickcheck.samples(20)
   for text in texts {
-    let editor = Editor::new("test-agent")
+    let editor = try! Editor::new("test-agent")
     try! editor.insert(text)
     assert_eq(editor.get_text().length(), text.length())
   }
@@ -27,7 +27,7 @@ test "property: insert updates length correctly" {
 test "property: cursor bounds after insert" {
   let texts : Array[String] = @quickcheck.samples(20)
   for text in texts {
-    let editor = Editor::new("test-agent")
+    let editor = try! Editor::new("test-agent")
     try! editor.insert(text)
     let cursor = editor.get_cursor()
     let len = editor.get_text().length()
@@ -39,7 +39,7 @@ test "property: cursor bounds after insert" {
 ///|
 /// Property: Inserting empty string doesn't change state
 test "property: inserting empty string is no-op" {
-  let editor = Editor::new("test-agent")
+  let editor = try! Editor::new("test-agent")
   let before_text = editor.get_text()
   let before_cursor = editor.get_cursor()
   try! editor.insert("")
@@ -50,7 +50,7 @@ test "property: inserting empty string is no-op" {
 ///|
 /// Property: Delete on empty editor is safe
 test "property: delete on empty editor is safe" {
-  let editor = Editor::new("test-agent")
+  let editor = try! Editor::new("test-agent")
   let result = editor.delete()
   assert_eq(result, false)
   assert_eq(editor.get_text(), "")
@@ -59,7 +59,7 @@ test "property: delete on empty editor is safe" {
 ///|
 /// Property: Backspace on empty editor is safe
 test "property: backspace on empty editor is safe" {
-  let editor = Editor::new("test-agent")
+  let editor = try! Editor::new("test-agent")
   let result = editor.backspace()
   assert_eq(result, false)
   assert_eq(editor.get_text(), "")
@@ -73,7 +73,7 @@ test "property: insert then delete all gives empty" {
     if text.is_empty() {
       continue
     }
-    let editor = Editor::new("test-agent")
+    let editor = try! Editor::new("test-agent")
     try! editor.insert(text)
 
     // Delete all characters one by one
@@ -90,7 +90,7 @@ test "property: insert then delete all gives empty" {
 test "property: text length is never negative" {
   let ops_arrays : Array[Array[Bool]] = @quickcheck.samples(10)
   for ops in ops_arrays {
-    let editor = Editor::new("test-agent")
+    let editor = try! Editor::new("test-agent")
     for is_insert in ops {
       if is_insert {
         try! editor.insert("x")
@@ -109,7 +109,7 @@ test "property: text length is never negative" {
 test "property: cursor move clamps to bounds" {
   let positions : Array[Int] = @quickcheck.samples(20)
   for position in positions {
-    let editor = Editor::new("test-agent")
+    let editor = try! Editor::new("test-agent")
     try! editor.insert("hello")
     editor.move_cursor(position)
     let cursor = editor.get_cursor()
@@ -127,7 +127,7 @@ test "property: insert at start position" {
     if text.is_empty() {
       continue
     }
-    let editor = Editor::new("test-agent")
+    let editor = try! Editor::new("test-agent")
     try! editor.insert("world")
     let original_len = editor.get_text().length()
     editor.move_cursor(0)
@@ -143,7 +143,7 @@ test "property: insert at start position" {
 test "property: multiple inserts accumulate length" {
   let text_arrays : Array[Array[String]] = @quickcheck.samples(10)
   for texts in text_arrays {
-    let editor = Editor::new("test-agent")
+    let editor = try! Editor::new("test-agent")
     let mut expected_len = 0
     for text in texts {
       try! editor.insert(text)
@@ -158,7 +158,7 @@ test "property: multiple inserts accumulate length" {
 test "property: cursor advances after insert" {
   let texts : Array[String] = @quickcheck.samples(15)
   for text in texts {
-    let editor = Editor::new("test-agent")
+    let editor = try! Editor::new("test-agent")
     let start_pos = editor.get_cursor()
     try! editor.insert(text)
     let end_pos = editor.get_cursor()
@@ -176,7 +176,7 @@ test "property: delete reduces length by at most 1" {
     if text.is_empty() {
       continue
     }
-    let editor = Editor::new("test-agent")
+    let editor = try! Editor::new("test-agent")
     try! editor.insert(text)
     let before_len = editor.get_text().length()
     editor.move_cursor(0)
@@ -195,7 +195,7 @@ test "property: delete reduces length by at most 1" {
 test "property: backspace at start is no-op" {
   let texts : Array[String] = @quickcheck.samples(15)
   for text in texts {
-    let editor = Editor::new("test-agent")
+    let editor = try! Editor::new("test-agent")
     try! editor.insert(text)
     editor.move_cursor(0)
     let before_text = editor.get_text()
@@ -211,7 +211,7 @@ test "property: backspace at start is no-op" {
 test "property: sequential operations maintain invariants" {
   let ops_arrays : Array[Array[Int]] = @quickcheck.samples(10)
   for ops in ops_arrays {
-    let editor = Editor::new("test-agent")
+    let editor = try! Editor::new("test-agent")
     for op in ops {
       // Positive: insert, negative: delete, zero: move cursor
       if op > 0 {
@@ -237,7 +237,7 @@ test "property: sequential operations maintain invariants" {
 test "property: cursor invariant holds after operations" {
   let op_sequences : Array[Array[Bool]] = @quickcheck.samples(10)
   for ops in op_sequences {
-    let editor = Editor::new("test-agent")
+    let editor = try! Editor::new("test-agent")
     for is_insert in ops {
       if is_insert {
         try! editor.insert("x")

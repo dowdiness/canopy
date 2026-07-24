@@ -28,13 +28,19 @@ let markdown_registry : @host.HostRegistry[MarkdownHandle] = @host.HostRegistry:
 ///|
 /// Build a Markdown editor on the shared runtime, then atomically register
 /// its protected cells with the coordinator. Returns the freshly-allocated
-/// `EditorId`. Aborting at any step leaves `markdown_registry` untouched
+/// `EditorId`, or `EditorId(-1)` when construction fails. A failed
+/// construction leaves `markdown_registry` untouched
 /// (atomic-boundary observation, spec §3.6).
 fn assemble_markdown_handle(agent_id : String) -> @workspace.EditorId {
   let editor = @md_companion.new_markdown_editor(
     agent_id,
     parent_runtime=coordinator.runtime(),
-  )
+  ) catch {
+    error => {
+      println("assemble_markdown_handle failed: \{error.message()}")
+      return @workspace.EditorId(-1)
+    }
+  }
   let cells = MarkdownProtectedCells::MarkdownProtectedCells(editor)
   let editor_id = coordinator.register_editor(
     agent_id,
@@ -45,6 +51,8 @@ fn assemble_markdown_handle(agent_id : String) -> @workspace.EditorId {
 }
 
 ///|
+/// Create a new Markdown SyncEditor instance.
+/// Returns a unique handle, or `-1` when `agent_id` is invalid.
 pub fn create_markdown_editor(agent_id : String) -> Int {
   assemble_markdown_handle(agent_id).0
 }

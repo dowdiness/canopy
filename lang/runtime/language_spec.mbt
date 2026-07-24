@@ -51,6 +51,7 @@ pub fn[T, Op] LanguageSpec::LanguageSpec(
 
 ///|
 /// Construct a SyncEditor from this spec (standard 3-memo pipeline).
+/// Raises `TextError::EmptyReplicaId` when `agent_id` is empty.
 /// Per-instance capabilities (e.g. lambda's eval/semantic closures capturing
 /// instance memos) are passed here, not stored in the spec.
 pub fn[T, Op] LanguageSpec::new_editor(
@@ -59,7 +60,7 @@ pub fn[T, Op] LanguageSpec::new_editor(
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
   capabilities? : @editor.LanguageCapabilities[T] = @editor.LanguageCapabilities::default(),
-) -> @editor.SyncEditor[T] {
+) -> @editor.SyncEditor[T] raise @text.TextError {
   @editor.SyncEditor::new_generic(
     agent_id,
     self.make_parser,

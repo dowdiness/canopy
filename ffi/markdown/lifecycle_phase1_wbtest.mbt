@@ -26,6 +26,18 @@ fn drain_markdown_handle_after_direct_coordinator_destroy(handle : Int) -> Unit 
 }
 
 ///|
+test "markdown creation rejects an empty agent identifier before registration" {
+  reset_markdown_coordinator_for_phase1_tests()
+  let before = create_markdown_editor("markdown-creation-boundary-before")
+  inspect(create_markdown_editor(""), content="-1")
+  inspect(markdown_registry.get(-1) is None, content="true")
+  let after = create_markdown_editor("markdown-creation-boundary-after")
+  inspect(after == before + 1, content="true")
+  destroy_markdown_editor(before)
+  destroy_markdown_editor(after)
+}
+
+///|
 test "spec §12 #1 (md): each protected cell reads through read_protected" {
   reset_markdown_coordinator_for_phase1_tests()
   let handle = create_markdown_editor("md_test_agent_one")

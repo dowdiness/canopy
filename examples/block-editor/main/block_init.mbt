@@ -28,28 +28,26 @@ fn get_replica_id(handle : Int) -> String {
 }
 
 ///|
-/// Parse "agent:counter" string into a TreeNodeId.
-/// Splits on last ':' so agent IDs without ':' are safe.
+/// Parse the length-prefixed TreeNodeId key produced by `TreeNodeId::key`.
 fn parse_block_id(s : String) -> @container.TreeNodeId {
-  match s.rev_split_once(":") {
-    None => @container.root_id
-    Some((agent, counter_view)) => {
-      // Parse integer directly from StringView — no intermediate String allocation
-      let mut counter = 0
-      let mut neg = false
-      let mut start = 0
-      if counter_view.length() > 0 && counter_view[0] == '-' {
-        neg = true
-        start = 1
-      }
-      for i in start..<counter_view.length() {
-        counter = counter * 10 + (counter_view[i].to_int() - 48)
-      }
-      if neg {
-        counter = -counter
-      }
-      @container.tree_node_id_new(agent.to_owned(), counter)
-    }
+  guard s.split_once(":") is Some((length_view, rest)) else {
+    return @container.root_id
+  }
+  let agent_length : Int = @strconv.from_str(length_view) catch {
+    _ => return @container.root_id
+  }
+  guard agent_length > 0 && rest.length() > agent_length else {
+    return @container.root_id
+  }
+  guard rest[agent_length] == ':' else { return @container.root_id }
+  let agent = rest[:agent_length].to_owned() catch {
+    _ => return @container.root_id
+  }
+  let sequence : Int = @strconv.from_str(rest[agent_length + 1:]) catch {
+    _ => return @container.root_id
+  }
+  @container.TreeNodeId::TreeNodeId(agent, sequence) catch {
+    _ => @container.root_id
   }
 }
 
@@ -75,7 +73,7 @@ fn emit_block_json(
   let bt = doc.get_type(id)
   buf
   ..write_string("{\"id\":\"")
-  ..write_json_escaped(@container.tree_node_id_key(id))
+  ..write_json_escaped(id.key())
   ..write_string("\",\"block_type\":\"")
   ..write_json_escaped(block_type_name(bt))
   .write_string("\",\"level\":\"")
@@ -120,7 +118,7 @@ fn emit_blocks(
   is_first : Ref[Bool],
 ) -> Unit {
   let children = doc.children(parent_id)
-  let parent_key = @container.tree_node_id_key(parent_id)
+  let parent_key = parent_id.key()
   // Indexed loop: i is the sibling index passed to emit_block_json.
   for i in 0..<children.length() {
     let id = children[i]
@@ -221,7 +219,7 @@ pub fn editor_insert_block_after(
       let after_id = parse_block_id(after_id_str)
       let bt = block_type_from_props(block_type_str, fn(_k) { None })
       let new_id = doc.create_block_after(after_id, bt) catch { _ => return "" }
-      @container.tree_node_id_key(new_id)
+      new_id.key()
     }
     None => ""
   }

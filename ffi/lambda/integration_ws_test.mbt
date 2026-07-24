@@ -1,5 +1,5 @@
 // End-to-end integration tests: two SyncEditors wired through a RelayRoom.
-// Tests below cover both happy-path sync and v2 recovery protocol.
+// Tests below cover both happy-path sync and v3 recovery protocol.
 
 ///|
 test "two editors sync via relay" {
@@ -72,11 +72,11 @@ test "peer disconnect cleans up ephemeral via relay" {
 }
 
 // ============================================================================
-// v2 relay: RelayedCrdtOps wrapping
+// v3 relay: RelayedCrdtOps wrapping
 // ============================================================================
 
 ///|
-test "v2 relay: CrdtOps wrapped as RelayedCrdtOps with sender" {
+test "v3 relay: CrdtOps wrapped as RelayedCrdtOps with sender" {
   let editor_a = @lang_lambda.new_lambda_editor("alice").0
   let editor_b = @lang_lambda.new_lambda_editor("bob").0
   let room = @relay.RelayRoom::new()
@@ -84,8 +84,8 @@ test "v2 relay: CrdtOps wrapped as RelayedCrdtOps with sender" {
   let send_to_b : (Bytes) -> Unit = data => editor_b.ws_on_message(data)
   inspect(room.on_connect("alice", send_to_a), content="true")
   inspect(room.on_connect("bob", send_to_b), content="true")
-  // Alice sets text and sends CrdtOps through v2 relay
-  editor_a.set_text("hello v2")
+  // Alice sets text and sends CrdtOps through v3 relay
+  editor_a.set_text("hello v3")
   let crdt_msg = try! editor_a.export_all()
   let json_str = crdt_msg.to_json_string()
   let buf = Buffer()
@@ -94,11 +94,11 @@ test "v2 relay: CrdtOps wrapped as RelayedCrdtOps with sender" {
   // Relay wraps as RelayedCrdtOps and broadcasts
   room.on_message("alice", wire_msg)
   // Bob receives RelayedCrdtOps and applies it
-  inspect(editor_b.get_text(), content="hello v2")
+  inspect(editor_b.get_text(), content="hello v3")
 }
 
 ///|
-test "v2 relay: SyncRequest routed to target peer only" {
+test "v3 relay: SyncRequest routed to target peer only" {
   let _editor_a = @lang_lambda.new_lambda_editor("alice").0
   let editor_b = @lang_lambda.new_lambda_editor("bob").0
   let _editor_c = @lang_lambda.new_lambda_editor("charlie").0
@@ -126,7 +126,7 @@ test "v2 relay: SyncRequest routed to target peer only" {
 }
 
 ///|
-test "v2 relay: three peers sync via RelayedCrdtOps" {
+test "v3 relay: three peers sync via RelayedCrdtOps" {
   let editor_a = @lang_lambda.new_lambda_editor("alice").0
   let editor_b = @lang_lambda.new_lambda_editor("bob").0
   let editor_c = @lang_lambda.new_lambda_editor("charlie").0
@@ -153,7 +153,7 @@ test "v2 relay: three peers sync via RelayedCrdtOps" {
 }
 
 ///|
-test "v2 relay: PeerLeft cleans up ephemeral state" {
+test "v3 relay: PeerLeft cleans up ephemeral state" {
   let editor_a = @lang_lambda.new_lambda_editor("alice").0
   let editor_b = @lang_lambda.new_lambda_editor("bob").0
   let room = @relay.RelayRoom::new()

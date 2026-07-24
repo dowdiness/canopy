@@ -2,9 +2,15 @@
 
 **Date:** 2026-06-11
 **Status:** Accepted (2026-06-11, PR #581; S0 of the architecture redesign)
+
+**Partially superseded:** The [EGW collaboration responsibility boundary](2026-07-21-egw-collaboration-responsibility-boundary.md)
+replaces this record's target ownership assignment for sync wire and session
+policy. The general tier and compatibility rules below remain active.
+
 **Closes:** docs/TODO.md §14 "Canopy library API audit and documentation"
 (boundary-declaration part; the per-symbol audit itself remains §7 work)
 **Related:**
+[EGW and Collaboration Responsibility Boundary](2026-07-21-egw-collaboration-responsibility-boundary.md) ·
 [Architecture redesign proposal](../plans/2026-06-11-architecture-redesign-proposal.md) ·
 [Framework genericity contract](2026-03-29-framework-genericity-contract.md)
 

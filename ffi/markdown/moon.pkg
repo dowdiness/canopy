@@ -8,6 +8,7 @@ import {
   "dowdiness/canopy/lang/markdown/sentinel" @md_sentinel,
   "dowdiness/canopy/protocol",
   "dowdiness/canopy/workspace/coordinator" @workspace,
+  "dowdiness/event-graph-walker/text",
   "dowdiness/loom/core" @loom,
   "dowdiness/seam",
   "dowdiness/markdown" @md,

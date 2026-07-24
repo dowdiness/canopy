@@ -55,7 +55,7 @@ fn first_heading_edit_path_observation(
 
 ///|
 test "sdeg phase0: heading rename goes through Markdown edit path" {
-  let editor = new_markdown_editor("sdeg-edit-path")
+  let editor = try! new_markdown_editor("sdeg-edit-path")
   editor.set_text("# Alpha\n\nBody\n")
   editor.refresh()
   let before = first_heading_edit_path_observation(editor)
@@ -80,7 +80,7 @@ test "sdeg phase0: heading rename goes through Markdown edit path" {
 
 ///|
 test "sdeg phase0: markdown edit path swap is replacement, not reorder provenance" {
-  let editor = new_markdown_editor("sdeg-edit-path-reorder")
+  let editor = try! new_markdown_editor("sdeg-edit-path-reorder")
   editor.set_text("# A\n# B\n")
   editor.refresh()
   let before = heading_edit_path_observations(editor)
@@ -120,7 +120,7 @@ test "sdeg phase0: markdown edit path swap is replacement, not reorder provenanc
 
 ///|
 test "sdeg spike: explicit markdown block move preserves moved heading identity" {
-  let editor = new_markdown_editor("sdeg-edit-path-explicit-move")
+  let editor = try! new_markdown_editor("sdeg-edit-path-explicit-move")
   editor.set_text("# A\n# B\n")
   editor.refresh()
   let before = heading_edit_path_observations(editor)
@@ -149,7 +149,7 @@ test "sdeg spike: explicit markdown block move preserves moved heading identity"
 
 ///|
 test "sdeg phase0: heading level change through edit path has fresh NodeId" {
-  let editor = new_markdown_editor("sdeg-edit-path-level")
+  let editor = try! new_markdown_editor("sdeg-edit-path-level")
   editor.set_text("# Alpha\n\nBody\n")
   editor.refresh()
   let before = first_heading_edit_path_observation(editor)

@@ -4,11 +4,12 @@
 
 ///|
 /// Construct a SyncEditor[@markdown.Block] using the standard 3-memo pipeline.
+/// Raises `TextError::EmptyReplicaId` when `agent_id` is empty.
 pub fn new_markdown_editor(
   agent_id : String,
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
-) -> @editor.SyncEditor[@markdown.Block] {
+) -> @editor.SyncEditor[@markdown.Block] raise @text.TextError {
   let hints_ref : Ref[Array[@core.IdentityTransform]] = Ref([])
   @editor.SyncEditor::new_generic(
     agent_id,

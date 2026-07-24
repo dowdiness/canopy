@@ -8,7 +8,7 @@ test "apply_markdown_edit pin: merge on first block -> silent no-op" {
   // compute_markdown_edit returns Ok(None) for MergeWithPrevious on the
   // first sibling; markdown's on_no_edit maps that to Ok(()) with the
   // document untouched (unlike JSON, which reports an unhandled-op error).
-  let ed = new_markdown_editor("pin")
+  let ed = try! new_markdown_editor("pin")
   ed.set_text("Hello\n\nWorld\n")
   guard ed.get_proj_node() is Some(p) && p.children is [first, ..] else {
     fail("expected projection with children")
@@ -34,12 +34,12 @@ test "apply_markdown_edit pin: merge on first block -> silent no-op" {
 ///|
 test "apply_markdown_edit pin: absent node id -> compute error" {
   // High child id from a donor doc with more blocks than the target has.
-  let donor = new_markdown_editor("donor")
+  let donor = try! new_markdown_editor("donor")
   donor.set_text("A\n\nB\n\nC\n\nD\n")
   guard donor.get_proj_node() is Some(p) && p.children is [.., last] else {
     fail("donor: expected projection with children")
   }
-  let ed = new_markdown_editor("target")
+  let ed = try! new_markdown_editor("target")
   ed.set_text("Hello\n")
   match
     apply_markdown_edit(

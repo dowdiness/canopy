@@ -31,21 +31,32 @@ test "A1: shared peer_id — broadcast is skipped" {
 }
 
 ///|
-/// A2 (CRDT op-ID dedup): When two editors share agent_id and both create
-/// local ops at (shared_agent, seq=0), feeding A's export into B causes
-/// the duplicate RawVersion to be silently dropped (oplog.mbt:327-330).
-/// B's snapshot therefore still reflects only its own first op.
-test "A2: shared agent_id — duplicate RawVersion is silently dropped" {
+/// A2 (CRDT identity conflict): When two editors share agent_id and create
+/// different payloads for overlapping operation identities, feeding A's export
+/// into B is rejected. B's snapshot remains unchanged.
+test "A2: shared agent_id — conflicting RawVersion is rejected" {
   let editor_a = @json_companion.new_json_editor("shared_agent")
   let editor_b = @json_companion.new_json_editor("shared_agent")
   // B gets a local op at (shared_agent, seq 0) first
   try! editor_b.insert("[1]")
-  // A also gets a local op at (shared_agent, seq 0)
+  // A also gets a different local op at (shared_agent, seq 0)
   try! editor_a.insert("[9]")
   // Bypass the transport: directly feed A's entire history to B
-  try! editor_b.apply_sync(try! editor_a.export_all())
-  // Inspect B's snapshot: op_count must remain 3 — A's seq 0 was dropped.
-  // (Each character in "[1]" is one CRDT op: 3 ops total for the 3-char string.)
+  let conflict_detected = try {
+    editor_b.apply_sync(try! editor_a.export_all())
+    false
+  } catch {
+    @text.TextError::SyncFailed(
+      @sync.Failure::ConflictingIdentity(replica_id~, sequence~)
+    ) => {
+      inspect(replica_id, content="shared_agent")
+      inspect(sequence, content="1")
+      true
+    }
+    _ => false
+  }
+  inspect(conflict_detected, content="true")
+  // The rejected message does not alter B's three local character operations.
   let snap = editor_b.causal_snapshot()
   inspect(snap.op_count(), content="3")
   let entry = snap.entry(0).unwrap()

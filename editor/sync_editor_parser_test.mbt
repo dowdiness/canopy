@@ -6,7 +6,7 @@
 
 ///|
 test "parser: initial parse produces AST" {
-  let se = @probe.new_test_editor("agent1")
+  let se = try! @probe.new_test_editor("agent1")
   se.set_text("foo")
   inspect(
     @probe.get_test_ast(se),
@@ -18,7 +18,7 @@ test "parser: initial parse produces AST" {
 
 ///|
 test "parser: edit updates AST" {
-  let se = @probe.new_test_editor("agent1")
+  let se = try! @probe.new_test_editor("agent1")
   se.set_text("foo")
   inspect(
     @probe.get_test_ast(se),
@@ -37,7 +37,7 @@ test "parser: edit updates AST" {
 
 ///|
 test "parser: empty source clears AST" {
-  let se = @probe.new_test_editor("agent1")
+  let se = try! @probe.new_test_editor("agent1")
   se.set_text("foo")
   inspect(
     @probe.get_test_ast(se),
@@ -56,7 +56,7 @@ test "parser: empty source clears AST" {
 
 ///|
 test "parser: parse errors reported" {
-  let se = @probe.new_test_editor("agent1")
+  let se = try! @probe.new_test_editor("agent1")
   se.set_text("foo(") // unclosed '('
   let errors = se.get_errors()
   inspect(errors.is_empty(), content="false")
@@ -64,7 +64,7 @@ test "parser: parse errors reported" {
 
 ///|
 test "parser: valid source has no errors" {
-  let se = @probe.new_test_editor("agent1")
+  let se = try! @probe.new_test_editor("agent1")
   se.set_text("f(x)")
   inspect(se.is_parse_valid(), content="true")
   inspect(se.get_errors().is_empty(), content="true")
@@ -72,7 +72,7 @@ test "parser: valid source has no errors" {
 
 ///|
 test "parser: mark_dirty forces reparse" {
-  let se = @probe.new_test_editor("agent1")
+  let se = try! @probe.new_test_editor("agent1")
   se.set_text("foo")
   let ast1 = @probe.get_test_ast(se)
   inspect(
@@ -88,14 +88,14 @@ test "parser: mark_dirty forces reparse" {
 
 ///|
 test "parser: empty source has no errors" {
-  let se = @probe.new_test_editor("agent1")
+  let se = try! @probe.new_test_editor("agent1")
   se.set_text("")
   inspect(se.get_errors().is_empty(), content="true")
 }
 
 ///|
 test "parser: successive edits maintain consistency" {
-  let se = @probe.new_test_editor("agent1")
+  let se = try! @probe.new_test_editor("agent1")
   se.set_text("a")
   inspect(
     @probe.get_test_ast(se),
@@ -121,8 +121,8 @@ test "parser: successive edits maintain consistency" {
 
 ///|
 test "sync: export and apply roundtrip" {
-  let a = @probe.new_test_editor("agent-a")
-  let b = @probe.new_test_editor("agent-b")
+  let a = try! @probe.new_test_editor("agent-a")
+  let b = try! @probe.new_test_editor("agent-b")
   try! a.insert("h")
   try! a.insert("e")
   try! a.insert("l")
@@ -135,8 +135,8 @@ test "sync: export and apply roundtrip" {
 
 ///|
 test "sync: export_since for incremental sync" {
-  let a = @probe.new_test_editor("agent-a")
-  let b = @probe.new_test_editor("agent-b")
+  let a = try! @probe.new_test_editor("agent-a")
+  let b = try! @probe.new_test_editor("agent-b")
   // Initial content
   try! a.insert("x")
   try! b.apply_sync(try! a.export_all())
@@ -155,8 +155,8 @@ test "sync: export_since for incremental sync" {
 
 ///|
 test "sync: bidirectional sync converges" {
-  let a = @probe.new_test_editor("agent-a")
-  let b = @probe.new_test_editor("agent-b")
+  let a = try! @probe.new_test_editor("agent-a")
+  let b = try! @probe.new_test_editor("agent-b")
   try! a.insert("a")
   try! b.insert("b")
   // Sync both ways
@@ -168,8 +168,8 @@ test "sync: bidirectional sync converges" {
 
 ///|
 test "sync: AST consistent after sync" {
-  let a = @probe.new_test_editor("agent-a")
-  let b = @probe.new_test_editor("agent-b")
+  let a = try! @probe.new_test_editor("agent-a")
+  let b = try! @probe.new_test_editor("agent-b")
   a.set_text("f(x)")
   try! b.apply_sync(try! a.export_all())
   // Both editors should parse to the same AST
@@ -178,14 +178,14 @@ test "sync: AST consistent after sync" {
 
 ///|
 test "sync: empty export_all for empty editor" {
-  let se = @probe.new_test_editor("agent1")
+  let se = try! @probe.new_test_editor("agent1")
   let msg = try! se.export_all()
   inspect(msg.op_count() == 0, content="true")
 }
 
 ///|
 test "sync: version advances after insert" {
-  let se = @probe.new_test_editor("agent1")
+  let se = try! @probe.new_test_editor("agent1")
   let v1 = se.get_version()
   try! se.insert("x")
   let v2 = se.get_version()

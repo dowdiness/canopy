@@ -8,7 +8,7 @@
 /// Helper: build a fresh single-editor scenario with `n` sequential
 /// inserts of "a" by `agent`. LVs run 0..<n in append order.
 fn build_linear(agent : String, n : Int) -> @editor.SyncEditor[@ast.Term] {
-  let (editor, _) = @lambda.new_lambda_editor(agent)
+  let (editor, _) = try! @lambda.new_lambda_editor(agent)
   for i in 0..<n {
     editor.insert_at(i, "a", 0)
   }
@@ -17,7 +17,7 @@ fn build_linear(agent : String, n : Int) -> @editor.SyncEditor[@ast.Term] {
 
 ///|
 test "render_history empty" {
-  let (editor, _) = @lambda.new_lambda_editor("local")
+  let (editor, _) = try! @lambda.new_lambda_editor("local")
   match render_history(editor.causal_snapshot(), "local") {
     Empty => ()
     _ => fail("expected Empty")
@@ -145,9 +145,9 @@ test "render_history 10-op chain terminating at frontier — 9 compressed + 1 si
 
 ///|
 test "render_history two-agent divergence — 3 nodes, 2 edges, two fills, two frontier tips" {
-  let (alice, _) = @lambda.new_lambda_editor("alice")
+  let (alice, _) = try! @lambda.new_lambda_editor("alice")
   alice.insert_at(0, "a", 0) // LV0 by alice → shared root
-  let (bob, _) = @lambda.new_lambda_editor("bob")
+  let (bob, _) = try! @lambda.new_lambda_editor("bob")
   bob.apply_sync(alice.export_all())
   // Now both have alice's LV0 with op_count 1, frontier {0}.
   alice.insert_at(1, "x", 0) // LV1_alice on top of root
@@ -188,9 +188,9 @@ test "render_history two-agent divergence — 3 nodes, 2 edges, two fills, two f
 test "render_history merge — diamond, single frontier" {
   // Build divergence then have alice insert a third op AFTER syncing bob.
   // Result: alice's new op has parents = [alice_tip, bob_tip] ⇒ a merge node.
-  let (alice, _) = @lambda.new_lambda_editor("alice")
+  let (alice, _) = try! @lambda.new_lambda_editor("alice")
   alice.insert_at(0, "a", 0)
-  let (bob, _) = @lambda.new_lambda_editor("bob")
+  let (bob, _) = try! @lambda.new_lambda_editor("bob")
   bob.apply_sync(alice.export_all())
   alice.insert_at(1, "x", 0)
   bob.insert_at(1, "y", 0)
@@ -239,9 +239,9 @@ test "render_history produces parseable DOT for adversarial agent IDs" {
   // the emitted DOT round-trips through `@gv_parser.parse_dot`.
   let me = "me"
   let weird = "evil-\\\"x"
-  let (alice, _) = @lambda.new_lambda_editor(me)
+  let (alice, _) = try! @lambda.new_lambda_editor(me)
   alice.insert_at(0, "a", 0)
-  let (bob, _) = @lambda.new_lambda_editor(weird)
+  let (bob, _) = try! @lambda.new_lambda_editor(weird)
   bob.apply_sync(alice.export_all())
   bob.insert_at(1, "b", 0)
   alice.apply_sync(bob.export_all())
@@ -283,12 +283,12 @@ test "escape_dot_string normalizes newlines and escapes specials" {
 test "collect_history_data reserves index 0 for local agent past 8 collaborators" {
   // 9 distinct non-local agents (a01..a09) collide with index 0 under a
   // naïve `idx % 8` wrap; the 1..7 wrap rule keeps index 0 reserved.
-  let (me, _) = @lambda.new_lambda_editor("me")
+  let (me, _) = try! @lambda.new_lambda_editor("me")
   me.insert_at(0, "a", 0)
   let mut pos = 1
   for i in 1..<=9 {
     let agent = "a0" + i.to_string()
-    let (peer, _) = @lambda.new_lambda_editor(agent)
+    let (peer, _) = try! @lambda.new_lambda_editor(agent)
     peer.apply_sync(me.export_all())
     peer.insert_at(pos, "x", 0)
     me.apply_sync(peer.export_all())

@@ -1,6 +1,7 @@
 import {
   "dowdiness/canopy/editor",
   "dowdiness/canopy/core",
+  "dowdiness/event-graph-walker/text",
   "dowdiness/incr",
   "dowdiness/loom",
   "dowdiness/loom/core" @loomcore,
@@ -14,6 +15,8 @@ import {
   "dowdiness/canopy/protocol",
   "dowdiness/canopy/lang/json/companion" @json_companion,
   "dowdiness/canopy/lang/lambda/edits" @lambda_edits,
+  "dowdiness/event-graph-walker/text",
+  "dowdiness/event-graph-walker/sync",
   "dowdiness/incr",
   "dowdiness/json" @_json_lang,
   "dowdiness/lambda/ast",

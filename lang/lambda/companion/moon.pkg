@@ -8,6 +8,7 @@ import {
   "dowdiness/canopy/lang/lambda/semantic" @lambda_semantic,
   "dowdiness/canopy/editor",
   "dowdiness/canopy/protocol",
+  "dowdiness/event-graph-walker/text",
   "dowdiness/incr",
   "dowdiness/lambda" @parser,
   "dowdiness/lambda/ast",

@@ -189,7 +189,9 @@ fn[T] SyncEditor::apply_replace_span(
 ) -> Bool {
   let item_start = utf16_offset_to_item_pos(old_source, start)
   let item_end = utf16_offset_to_item_pos(old_source, start + deleted_len)
-  let range = @text.Range::from_ints(item_start, item_end)
+  let range = @text.Range::from_ints(item_start, item_end) catch {
+    _ => return false
+  }
   if record_undo {
     self.doc.replace_range_and_record(range, inserted, self.undo, timestamp_ms~) catch {
       _ => return false

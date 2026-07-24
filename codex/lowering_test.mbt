@@ -14,7 +14,7 @@
 /// a single-line `update` diff. Only a grapheme-correct converter both is
 /// accepted by EXACT and reproduces the intended document.
 test "codex lowering: update diff deletes first of two adjacent emoji" {
-  let se = @probe.new_test_editor("codex-agent")
+  let se = try! @probe.new_test_editor("codex-agent")
   se.apply_text_edit(0, 0, "🧑🧒", 0)
   assert_eq(se.get_text(), "🧑🧒")
   let diff =
@@ -38,7 +38,7 @@ test "codex lowering: update diff deletes first of two adjacent emoji" {
 /// `----`; the old "skip any `---` prefix" parser dropped it. With hunk-state
 /// gating the marker is stripped to content `---`, replaced by `***`.
 test "codex lowering: content line starting with dashes is not a file header" {
-  let se = @probe.new_test_editor("codex-agent")
+  let se = try! @probe.new_test_editor("codex-agent")
   se.apply_text_edit(0, 0, "---", 0)
   let diff =
     #|@@ -1 +1 @@
@@ -59,7 +59,7 @@ test "codex lowering: content line starting with dashes is not a file header" {
 /// document unchanged — proving the guard is load-bearing independent of the
 /// converter. Offset 1 is the low surrogate of the first emoji.
 test "codex lowering: EXACT rejects a hand-fed mid-grapheme offset" {
-  let se = @probe.new_test_editor("codex-agent")
+  let se = try! @probe.new_test_editor("codex-agent")
   se.apply_text_edit(0, 0, "🧑🧒", 0)
   let accepted = se.apply_text_edit_exact(1, 2, "", 1)
   assert_false(accepted)
@@ -73,7 +73,7 @@ test "codex lowering: EXACT rejects a hand-fed mid-grapheme offset" {
 /// (line 1) would corrupt line 1 (`c\nb`); tracking the old-side line yields
 /// `a\nc`.
 test "codex lowering: leading context selects the correct old line" {
-  let se = @probe.new_test_editor("codex-agent")
+  let se = try! @probe.new_test_editor("codex-agent")
   se.apply_text_edit(0, 0, "a\nb", 0)
   let diff =
     #|@@ -1,2 +1,2 @@

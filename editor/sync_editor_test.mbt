@@ -19,7 +19,7 @@ fn insert_each_and_record(
 
 ///|
 test "SyncEditor: create and insert text" {
-  let se = @probe.new_test_editor("agent1")
+  let se = try! @probe.new_test_editor("agent1")
   try! se.insert("x")
   inspect(se.get_text(), content="x")
   inspect(
@@ -32,7 +32,7 @@ test "SyncEditor: create and insert text" {
 
 ///|
 test "SyncEditor: sequential inserts update AST" {
-  let se = @probe.new_test_editor("agent1")
+  let se = try! @probe.new_test_editor("agent1")
   try! se.insert("f")
   inspect(
     @probe.get_test_ast(se),
@@ -51,7 +51,7 @@ test "SyncEditor: sequential inserts update AST" {
 
 ///|
 test "SyncEditor: delete updates AST" {
-  let se = @probe.new_test_editor("agent1")
+  let se = try! @probe.new_test_editor("agent1")
   try! insert_each(se, "123")
   inspect(se.get_text(), content="123")
   let deleted = se.backspace()
@@ -61,7 +61,7 @@ test "SyncEditor: delete updates AST" {
 
 ///|
 test "SyncEditor: parse error handling" {
-  let se = @probe.new_test_editor("agent1")
+  let se = try! @probe.new_test_editor("agent1")
   try! insert_each(se, "f(") // unclosed '('
   let _ast = @probe.get_test_ast(se)
   inspect(se.is_parse_valid(), content="false")
@@ -69,7 +69,7 @@ test "SyncEditor: parse error handling" {
 
 ///|
 test "SyncEditor: cursor tracking" {
-  let se = @probe.new_test_editor("agent1")
+  let se = try! @probe.new_test_editor("agent1")
   inspect(se.get_cursor(), content="0")
   try! insert_each(se, "abc")
   inspect(se.get_cursor(), content="3")
@@ -79,8 +79,8 @@ test "SyncEditor: cursor tracking" {
 
 ///|
 test "SyncEditor: concurrent edits converge" {
-  let se1 = @probe.new_test_editor("agent1")
-  let se2 = @probe.new_test_editor("agent2")
+  let se1 = try! @probe.new_test_editor("agent1")
+  let se2 = try! @probe.new_test_editor("agent2")
   try! se1.insert("x")
   try! se2.apply_sync(try! se1.export_all())
   inspect(se1.get_text(), content="x")
@@ -97,8 +97,8 @@ test "SyncEditor: concurrent edits converge" {
 
 ///|
 test "SyncEditor: collaborative editing converges" {
-  let se1 = @probe.new_test_editor("agent1")
-  let se2 = @probe.new_test_editor("agent2")
+  let se1 = try! @probe.new_test_editor("agent1")
+  let se2 = try! @probe.new_test_editor("agent2")
   try! insert_each(se1, "f(")
   try! se2.apply_sync(try! se1.export_all())
   inspect(se1.get_text(), content="f(")
@@ -113,7 +113,7 @@ test "SyncEditor: collaborative editing converges" {
 
 ///|
 test "SyncEditor: incremental parsing vs full reparse" {
-  let se = @probe.new_test_editor("agent1")
+  let se = try! @probe.new_test_editor("agent1")
   try! insert_each(se, "foo(bar)")
   let _ast1 = @probe.get_test_ast(se)
   se.move_cursor(7) // just after 'r'
@@ -129,14 +129,14 @@ test "SyncEditor: incremental parsing vs full reparse" {
 
 ///|
 test "SyncEditor: empty document" {
-  let se = @probe.new_test_editor("agent1")
+  let se = try! @probe.new_test_editor("agent1")
   inspect(se.get_text(), content="")
   let _ast = @probe.get_test_ast(se)
 }
 
 ///|
 test "SyncEditor: backspace at start returns false" {
-  let se = @probe.new_test_editor("agent1")
+  let se = try! @probe.new_test_editor("agent1")
   try! insert_each(se, "abc")
   se.move_cursor(0)
   inspect(se.backspace(), content="false")
@@ -145,7 +145,7 @@ test "SyncEditor: backspace at start returns false" {
 
 ///|
 test "SyncEditor: delete at end returns false" {
-  let se = @probe.new_test_editor("agent1")
+  let se = try! @probe.new_test_editor("agent1")
   try! insert_each(se, "abc")
   se.move_cursor(3)
   inspect(se.delete(), content="false")
@@ -154,7 +154,7 @@ test "SyncEditor: delete at end returns false" {
 
 ///|
 test "SyncEditor: export_all produces non-empty message" {
-  let se = @probe.new_test_editor("agent1")
+  let se = try! @probe.new_test_editor("agent1")
   try! se.insert("x")
   let msg = try! se.export_all()
   inspect(msg.op_count() > 0, content="true")
@@ -162,7 +162,7 @@ test "SyncEditor: export_all produces non-empty message" {
 
 ///|
 test "SyncEditor: lazy AST evaluation" {
-  let se = @probe.new_test_editor("agent1")
+  let se = try! @probe.new_test_editor("agent1")
   try! se.insert("x")
   let _ast1 = @probe.get_test_ast(se)
   inspect(
@@ -175,8 +175,8 @@ test "SyncEditor: lazy AST evaluation" {
 
 ///|
 test "SyncEditor: merge invalidates AST cache" {
-  let se1 = @probe.new_test_editor("agent1")
-  let se2 = @probe.new_test_editor("agent2")
+  let se1 = try! @probe.new_test_editor("agent1")
+  let se2 = try! @probe.new_test_editor("agent2")
   try! se1.insert("x")
   try! se2.apply_sync(try! se1.export_all())
   let _ast1 = @probe.get_test_ast(se1)
@@ -193,7 +193,7 @@ test "SyncEditor: merge invalidates AST cache" {
 
 ///|
 test "SyncEditor: insert_and_record + undo roundtrip" {
-  let se = @probe.new_test_editor("agent1")
+  let se = try! @probe.new_test_editor("agent1")
   try! insert_each_and_record(se, "hello", 1000)
   inspect(se.get_text(), content="hello")
   inspect(se.can_undo(), content="true")
@@ -213,7 +213,7 @@ test "SyncEditor: insert_and_record + undo roundtrip" {
 
 ///|
 test "SyncEditor: backspace_and_record + undo" {
-  let se = @probe.new_test_editor("agent1")
+  let se = try! @probe.new_test_editor("agent1")
   try! insert_each_and_record(se, "abc", 1000)
   let deleted = se.backspace_and_record(2000)
   inspect(deleted, content="true")
@@ -228,7 +228,7 @@ test "SyncEditor: backspace_and_record + undo" {
 
 ///|
 test "SyncEditor: apply_text_edit replaces middle range and updates cursor" {
-  let se = @probe.new_test_editor("agent1")
+  let se = try! @probe.new_test_editor("agent1")
   se.set_text("abc")
   se.move_cursor(0)
   se.apply_text_edit(1, 1, "XYZ", 1000)
@@ -238,7 +238,7 @@ test "SyncEditor: apply_text_edit replaces middle range and updates cursor" {
 
 ///|
 test "SyncEditor: apply_text_edit records undo" {
-  let se = @probe.new_test_editor("agent1")
+  let se = try! @probe.new_test_editor("agent1")
   try! insert_each_and_record(se, "abc", 1000)
   se.apply_text_edit(1, 1, "XYZ", 2000)
   inspect(se.get_text(), content="aXYZc")
@@ -249,7 +249,7 @@ test "SyncEditor: apply_text_edit records undo" {
 
 ///|
 test "SyncEditor: apply_text_edit records multi-character range undo" {
-  let se = @probe.new_test_editor("agent1")
+  let se = try! @probe.new_test_editor("agent1")
   try! insert_each_and_record(se, "abcdef", 1000)
   se.apply_text_edit(1, 3, "XYZ", 2000)
   inspect(se.get_text(), content="aXYZef")
@@ -260,7 +260,7 @@ test "SyncEditor: apply_text_edit records multi-character range undo" {
 
 ///|
 test "SyncEditor: apply_text_edit reuses parser structure on local edit" {
-  let se = @probe.new_test_editor("agent1")
+  let se = try! @probe.new_test_editor("agent1")
   se.set_text("foo(bar)")
   ignore(@probe.get_test_ast(se))
   se.apply_text_edit(6, 1, "z", 1000) // replace 'r' with 'z'
@@ -275,7 +275,7 @@ test "SyncEditor: apply_text_edit reuses parser structure on local edit" {
 
 ///|
 test "SyncEditor: clear_undo empties stacks" {
-  let se = @probe.new_test_editor("agent1")
+  let se = try! @probe.new_test_editor("agent1")
   try! se.insert_and_record("x", 1000)
   inspect(se.can_undo(), content="true")
   se.clear_undo()
@@ -288,8 +288,8 @@ test "SyncEditor: clear_undo empties stacks" {
 
 ///|
 test "SyncEditor: non-numeric agent IDs encode and delete presence" {
-  let alice = @probe.new_test_editor("web-user")
-  let bob = @probe.new_test_editor("local-user")
+  let alice = try! @probe.new_test_editor("web-user")
+  let bob = try! @probe.new_test_editor("local-user")
   alice.set_text("abcd")
   alice.move_cursor(2)
   alice.set_local_presence("Alice", "#ff0000")
@@ -307,8 +307,8 @@ test "SyncEditor: non-numeric agent IDs encode and delete presence" {
 
 ///|
 test "SyncEditor: local edits and undo keep peer cursors in sync" {
-  let local_editor = @probe.new_test_editor("local-user")
-  let remote = @probe.new_test_editor("remote-user")
+  let local_editor = try! @probe.new_test_editor("local-user")
+  let remote = try! @probe.new_test_editor("remote-user")
   local_editor.set_text("abcd")
   try! remote.apply_sync(try! local_editor.export_all())
   remote.move_cursor(3)
@@ -344,8 +344,8 @@ test "SyncEditor: local edits and undo keep peer cursors in sync" {
 
 ///|
 test "SyncEditor: remote sync tracks actual merged text positions" {
-  let viewer = @probe.new_test_editor("viewer")
-  let remote = @probe.new_test_editor("peer-b")
+  let viewer = try! @probe.new_test_editor("viewer")
+  let remote = try! @probe.new_test_editor("peer-b")
   viewer.set_text("abcd")
   try! remote.apply_sync(try! viewer.export_all())
   remote.move_cursor(1)
@@ -373,8 +373,8 @@ test "SyncEditor: remote sync tracks actual merged text positions" {
 
 ///|
 test "SyncEditor: apply_sync does not pollute undo stack" {
-  let se1 = @probe.new_test_editor("alice", capture_timeout_ms=500)
-  let se2 = @probe.new_test_editor("bob", capture_timeout_ms=500)
+  let se1 = try! @probe.new_test_editor("alice", capture_timeout_ms=500)
+  let se2 = try! @probe.new_test_editor("bob", capture_timeout_ms=500)
 
   // Alice types
   try! se1.insert_and_record("hello", 1000)
@@ -388,7 +388,7 @@ test "SyncEditor: apply_sync does not pollute undo stack" {
 
 ///|
 test "SyncEditor: undo returns sync message for peer broadcast" {
-  let se = @probe.new_test_editor("alice", capture_timeout_ms=500)
+  let se = try! @probe.new_test_editor("alice", capture_timeout_ms=500)
 
   // Type some text
   try! se.insert_and_record("hello", 1000)
@@ -406,8 +406,8 @@ test "SyncEditor: undo returns sync message for peer broadcast" {
 
 ///|
 test "SyncEditor: undo sync ops can be applied to peer" {
-  let se1 = @probe.new_test_editor("alice", capture_timeout_ms=500)
-  let se2 = @probe.new_test_editor("bob", capture_timeout_ms=500)
+  let se1 = try! @probe.new_test_editor("alice", capture_timeout_ms=500)
+  let se2 = try! @probe.new_test_editor("bob", capture_timeout_ms=500)
 
   // Alice types
   try! se1.insert_and_record("hello", 1000)

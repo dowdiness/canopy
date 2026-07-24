@@ -103,15 +103,23 @@ proving-ground mode.
 
 ## 2. Collaboration Features
 
-- [ ] Complete WebSocket client integration.
-  Why: the wire protocol exists, but the supported browser-side integration path is not yet treated as a finished, documented workflow.
-  Plan: `docs/plans/2026-03-29-websocket-client-integration.md`
-  Exit: one canonical client flow is implemented, documented, and validated.
+- [x] Prove the cross-driver EGW peer-sync contract before transport productization.
+  Result: a private EGW 0.4 package produced identical text/container decision traces while EGW remained the sole causal pending owner; targeted 15/15 and full 681/681 tests passed.
+  Plan: `docs/archive/2026-07-22-egw-peer-sync-contract-spike.md`
+  Exit: met; the collaboration ADR records a conditional GO.
 
-- [ ] Implement `SyncRequest`/`SyncResponse` recovery so malformed/incompatible `CrdtOps` do not leave peers diverged silently.
-  Why: now unblocked — container Phase 3 (unified sync) shipped via egw#21, so retry/buffering/failure semantics can be aligned against the Document-level sync boundary.
-  Plan: `docs/plans/2026-03-29-sync-recovery-followup.md`
-  Exit: malformed/incompatible ops trigger defined recovery (retry, buffering, or surfaced failure) against the Document sync boundary rather than silent divergence.
+- [x] Publish the EGW companion and migrate Loom/Canopy without Tier 1 drift.
+  Result: EGW v0.5 published the peer-sync companion; Loom, parent Canopy, and the nested typed spreadsheet converged through the required bottom-up sequence. Protocol v3 rejects complete v2 frames at endpoints and the relay, Tier 1 generated interfaces remained unchanged, and clean published-resolution checks passed.
+  Plan: `docs/archive/2026-07-22-egw-companion-canopy-migration.md`
+  Decision: `docs/decisions/2026-07-22-protocol-v3-hard-cutover.md`
+  Exit: met for the compatibility and release scope.
+
+- [ ] Build the payload-opaque collaboration runtime and smallest provider-backed product slice.
+  Why: EGW now owns reusable peer-sync semantics, but Canopy still needs a transport-agnostic runtime boundary and a two-browser spreadsheet path that keeps committed cells authoritative without synchronizing drafts, selection, or focus.
+  Decision: `docs/decisions/2026-07-21-egw-collaboration-responsibility-boundary.md`
+  Product behavior: `docs/superpowers/specs/2026-07-22-typed-spreadsheet-room-join-ux.md`
+  Status: deferred after the completed compatibility migration. Prototype the smallest browser slice before writing a broader UI implementation plan.
+  Exit: two browsers converge through one local/remote projection path; the runtime treats EGW payloads as opaque, providers own transport and room concerns, and EGW core remains the sole causal pending-operation queue.
 
 ---
 
@@ -463,7 +471,7 @@ proving-ground mode.
 - [x] Extract ephemeral subsystem — move ~9 files / ~1500 lines (EphemeralStore, EphemeralHub, EphemeralValue, presence types, cursor view, encoding) from `editor/` to its own package.
   Closed 2026-06-11 (stale entry — already shipped): the top-level `ephemeral/` package owns the subsystem with its own test suite; `editor/` imports it and re-exports via `editor/ephemeral_facade.mbt`. Confirmed during architecture S0 ([docs/plans/2026-06-11-architecture-redesign-proposal.md](plans/2026-06-11-architecture-redesign-proposal.md)).
 
-- [x] Unify sync protocol — `editor/sync_protocol.mbt` and `relay/wire.mbt` independently encode/decode the same binary wire protocol (version 0x02, same message types).
+- [x] Unify sync protocol — `editor/sync_protocol.mbt` and `relay/wire.mbt` independently encode/decode the same binary wire protocol (version 0x03, same message types).
   Resolved: the duplication was resolved — `editor/sync_protocol.mbt` became a `#deprecated` re-export shim over `@wire` (`protocol/wire`), and this branch deletes the shim; `relay/wire.mbt` is a distinct concern (peer-control frames), not a duplicate.
 
 - [x] Extract reusable orchestration out of `examples/ideal/main` (god-package: ~5.4k src lines).

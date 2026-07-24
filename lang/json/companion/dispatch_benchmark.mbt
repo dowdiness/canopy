@@ -48,7 +48,9 @@ fn run_text_intent_dispatch_bench(
   mode : DispatchMode,
 ) -> Unit {
   let source = json_bench_object(member_count)
-  let editor = new_json_editor("bench")
+  let editor = new_json_editor("bench") catch {
+    error => abort("benchmark editor construction failed: \{error.message()}")
+  }
   editor.set_text(source)
   ignore(editor.get_proj_node())
   ignore(editor.get_source_map())

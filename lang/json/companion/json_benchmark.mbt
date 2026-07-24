@@ -47,7 +47,9 @@ fn json_bench_array(element_count : Int) -> String {
 /// ProjNode + SourceMap.
 fn run_json_object_bench(b : @bench.T, member_count : Int) -> Unit {
   let source = json_bench_object(member_count)
-  let editor = new_json_editor("bench")
+  let editor = new_json_editor("bench") catch {
+    error => abort("benchmark editor construction failed: \{error.message()}")
+  }
   editor.set_text(source)
   ignore(editor.get_proj_node())
   ignore(editor.get_source_map())
@@ -73,7 +75,9 @@ fn run_json_object_bench(b : @bench.T, member_count : Int) -> Unit {
 /// Benchmark: incremental edit on JSON array.
 fn run_json_array_bench(b : @bench.T, element_count : Int) -> Unit {
   let source = json_bench_array(element_count)
-  let editor = new_json_editor("bench")
+  let editor = new_json_editor("bench") catch {
+    error => abort("benchmark editor construction failed: \{error.message()}")
+  }
   editor.set_text(source)
   ignore(editor.get_proj_node())
   ignore(editor.get_source_map())

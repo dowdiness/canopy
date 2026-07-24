@@ -118,14 +118,17 @@ pub fn get_diagnostics_json(handle : Int) -> String {
 }
 
 ///|
+const EMPTY_SYNC_JSON : String = "{\"schema\":1,\"format\":\"event-graph-walker/text-sync\",\"operations\":[],\"heads\":[]}"
+
+///|
 /// Export all operations as a SyncMessage JSON string.
 pub fn export_all_json(handle : Int) -> String {
   match lambda_registry.get(handle) {
     Some(h) =>
       h.editor.export_all().to_json_string() catch {
-        _ => "{\"ops\":[],\"heads\":[]}"
+        _ => EMPTY_SYNC_JSON
       }
-    None => "{\"ops\":[],\"heads\":[]}"
+    None => EMPTY_SYNC_JSON
   }
 }
 
@@ -138,9 +141,9 @@ pub fn export_since_json(handle : Int, peer_version_json : String) -> String {
         let ver = @text.Version::from_json_string(peer_version_json)
         h.editor.export_since(ver).to_json_string()
       } catch {
-        _ => "{\"ops\":[],\"heads\":[]}"
+        _ => EMPTY_SYNC_JSON
       }
-    None => "{\"ops\":[],\"heads\":[]}"
+    None => EMPTY_SYNC_JSON
   }
 }
 

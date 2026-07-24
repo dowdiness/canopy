@@ -1,6 +1,7 @@
 import {
   "dowdiness/canopy/protocol/wire",
   "dowdiness/event-graph-walker/text",
+  "dowdiness/event-graph-walker/sync",
   "dowdiness/byte_codec",
   "moonbitlang/core/buffer",
   "moonbitlang/core/debug",

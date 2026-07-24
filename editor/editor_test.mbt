@@ -1,14 +1,22 @@
 ///|
 /// Tests for Editor
 test "create new editor" {
-  let editor = Editor::new("alice")
+  let editor = try! Editor::new("alice")
   inspect(editor.get_text(), content="")
   inspect(editor.get_cursor(), content="0")
 }
 
 ///|
+test "create editor rejects an empty agent identifier" {
+  let result : Result[Editor, @text.TextError] = Ok(Editor::new("")) catch {
+    error => Err(error)
+  }
+  inspect(result is Err(@text.TextError::EmptyReplicaId), content="true")
+}
+
+///|
 test "insert at cursor" {
-  let editor = Editor::new("alice")
+  let editor = try! Editor::new("alice")
   try! editor.insert("Hello")
   inspect(editor.get_text(), content="Hello")
   inspect(editor.get_cursor(), content="5")
@@ -16,7 +24,7 @@ test "insert at cursor" {
 
 ///|
 test "multiple inserts" {
-  let editor = Editor::new("alice")
+  let editor = try! Editor::new("alice")
   try! editor.insert("Hello")
   try! editor.insert(" ")
   try! editor.insert("World")
@@ -26,7 +34,7 @@ test "multiple inserts" {
 
 ///|
 test "insert at specific position" {
-  let editor = Editor::new("alice")
+  let editor = try! Editor::new("alice")
   try! editor.insert("Heo")
   editor.move_cursor(2)
   try! editor.insert("ll")
@@ -35,7 +43,7 @@ test "insert at specific position" {
 
 ///|
 test "move cursor" {
-  let editor = Editor::new("alice")
+  let editor = try! Editor::new("alice")
   try! editor.insert("Hello")
   editor.move_cursor(0)
   inspect(editor.get_cursor(), content="0")
@@ -50,7 +58,7 @@ test "move cursor" {
 
 ///|
 test "delete at cursor" {
-  let editor = Editor::new("alice")
+  let editor = try! Editor::new("alice")
   try! editor.insert("Hello")
   editor.move_cursor(1)
   let success = editor.delete()
@@ -60,7 +68,7 @@ test "delete at cursor" {
 
 ///|
 test "backspace" {
-  let editor = Editor::new("alice")
+  let editor = try! Editor::new("alice")
   try! editor.insert("Hello")
   let success = editor.backspace()
   inspect(success, content="true")
@@ -70,7 +78,7 @@ test "backspace" {
 
 ///|
 test "backspace at start" {
-  let editor = Editor::new("alice")
+  let editor = try! Editor::new("alice")
   try! editor.insert("H")
   editor.move_cursor(0)
   let success = editor.backspace()
@@ -80,7 +88,7 @@ test "backspace at start" {
 
 ///|
 test "delete beyond end" {
-  let editor = Editor::new("alice")
+  let editor = try! Editor::new("alice")
   try! editor.insert("Hi")
   editor.move_cursor(10) // Move beyond end
   let success = editor.delete()
@@ -90,7 +98,7 @@ test "delete beyond end" {
 
 ///|
 test "cursor bounds checking" {
-  let editor = Editor::new("alice")
+  let editor = try! Editor::new("alice")
   try! editor.insert("Hello")
   editor.move_cursor(-5) // Should clamp to 0
   inspect(editor.get_cursor(), content="0")
@@ -99,10 +107,29 @@ test "cursor bounds checking" {
 }
 
 ///|
+test "pending sync clamps cursor after applying ready delete" {
+  let editor = try! Editor::new("receiver")
+  let initial = try! @text.SyncMessage::from_json_string(
+    "{\"schema\":1,\"format\":\"event-graph-walker/text-sync\",\"operations\":[{\"id\":{\"replica_id\":\"remote\",\"sequence\":0},\"parents\":[],\"kind\":\"insert\",\"content\":\"A\",\"origin_left\":null,\"origin_right\":null}],\"heads\":[{\"replica_id\":\"remote\",\"sequence\":0}]}",
+  )
+  try! editor.apply_sync(initial)
+  editor.move_cursor(1)
+  let mixed = try! @text.SyncMessage::from_json_string(
+    "{\"schema\":1,\"format\":\"event-graph-walker/text-sync\",\"operations\":[{\"id\":{\"replica_id\":\"remote\",\"sequence\":1},\"parents\":[{\"replica_id\":\"remote\",\"sequence\":0}],\"kind\":\"delete\",\"content\":null,\"origin_left\":{\"replica_id\":\"remote\",\"sequence\":0},\"origin_right\":null},{\"id\":{\"replica_id\":\"remote\",\"sequence\":3},\"parents\":[{\"replica_id\":\"remote\",\"sequence\":2}],\"kind\":\"insert\",\"content\":\"X\",\"origin_left\":null,\"origin_right\":null}],\"heads\":[{\"replica_id\":\"remote\",\"sequence\":3}]}",
+  )
+  let result : Result[Unit, Error] = Ok(editor.apply_sync(mixed)) catch {
+    error => Err(error)
+  }
+  inspect(result is Err(@text.TextError::VersionNotFound), content="true")
+  inspect(editor.get_text(), content="")
+  inspect(editor.get_cursor(), content="0")
+}
+
+///|
 test "concurrent edits from two editors" {
   // Create two editors
-  let alice = Editor::new("alice")
-  let bob = Editor::new("bob")
+  let alice = try! Editor::new("alice")
+  let bob = try! Editor::new("bob")
 
   // Alice types "Hello"
   try! alice.insert("Hello")
@@ -135,8 +162,8 @@ test "concurrent edits from two editors" {
 ///|
 test "concurrent inserts at same position" {
   // Create two editors with initial text "AC"
-  let alice = Editor::new("alice")
-  let bob = Editor::new("bob")
+  let alice = try! Editor::new("alice")
+  let bob = try! Editor::new("bob")
 
   // Both start with "AC"
   try! alice.insert("A")

@@ -8,7 +8,7 @@ This package is the server-side half of the real-time sync protocol. It runs ins
 
 - `RelayRoom` — peer registry with broadcast routing
 - `RelayRoom::on_connect(peer_id, send_fn)` — register a peer; returns `false` if duplicate or empty ID
-- `RelayRoom::on_message(peer_id, bytes)` — forward `bytes` to all other peers; drops messages from unknown senders
+- `RelayRoom::on_message(peer_id, bytes)` — route v3 frames from room members; drop complete frames from older protocols
 - `RelayRoom::on_disconnect(peer_id)` — deregister a peer and broadcast a `PeerLeft` notification
 - `encode_peer_joined(peer_id)` / `encode_peer_left(peer_id)` — build the binary join/leave notifications sent to all existing peers
 
@@ -19,11 +19,22 @@ This package is the server-side half of the real-time sync protocol. It runs ins
 
 ## Dependencies
 
-`moonbitlang/core/buffer` only — this package is intentionally dependency-light so it can compile to any target.
+The relay imports the canonical `protocol/wire` constants, shared
+`lib/byte-codec` string framing, and `moonbitlang/core/buffer`. It does not own
+a second protocol definition or decode CRDT payloads.
+
+## Protocol behavior
+
+Complete frames whose version byte is not v3 are dropped. Data shorter than the
+three-byte protocol header retains its existing transparent broadcast behavior,
+and unknown message types inside a valid v3 frame remain opaque broadcasts.
+Directed v3 sync requests and responses are routed by their target metadata.
 
 ## Stability
 
-Internal but stable — the `RelayRoom` API is the server-side counterpart to the sync protocol in `editor/sync_protocol.mbt`. Changes here require matching changes in the client-side WebSocket wiring.
+The internal but stable `RelayRoom` API is the server-side counterpart to the
+Tier 1 protocol in `protocol/wire`; version changes require matching endpoint,
+relay, frozen-fixture, and deployment updates.
 
 ## Notes
 

@@ -75,9 +75,14 @@ pub fn RelayRoom::on_message(
   if !self.has_peer(sender) {
     return
   }
-  // Safety: short or non-v2 frames broadcast unchanged
-  if data.length() < 3 || data[0] != protocol_version {
+  // Preserve the existing transparent handling for short non-protocol data.
+  if data.length() < 3 {
     self.broadcast(sender, data)
+    return
+  }
+  // A version cutover is room-wide. Do not let old peers form a parallel
+  // protocol through a newer relay.
+  if data[0] != protocol_version {
     return
   }
   let msg_type = data[1]

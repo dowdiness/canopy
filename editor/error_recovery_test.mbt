@@ -6,7 +6,7 @@
 
 ///|
 test "SyncEditor: error recovery - invalid to valid syntax" {
-  let editor = @probe.new_test_editor("agent1")
+  let editor = try! @probe.new_test_editor("agent1")
 
   // Start with valid syntax
   try! editor.insert("foo")
@@ -26,7 +26,7 @@ test "SyncEditor: error recovery - invalid to valid syntax" {
 
 ///|
 test "SyncEditor: error recovery - multiple edits" {
-  let editor = @probe.new_test_editor("agent2")
+  let editor = try! @probe.new_test_editor("agent2")
 
   // Valid nested expression
   try! editor.insert("a(b)")
@@ -46,7 +46,7 @@ test "SyncEditor: error recovery - multiple edits" {
 
 ///|
 test "SyncEditor: incremental parser is used" {
-  let editor = @probe.new_test_editor("agent3")
+  let editor = try! @probe.new_test_editor("agent3")
 
   // Insert some text
   try! editor.insert("f(x g(y))")

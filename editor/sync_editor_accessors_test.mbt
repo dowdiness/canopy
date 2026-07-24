@@ -10,7 +10,7 @@ test "SyncEditor exposes typed accessors for protected cells" {
   // The `let typed : T = ...` lines pin the return types; the
   // `.read_or_abort()` calls exercise the cells so a regression that
   // makes any of them abort at construction time would fail the test.
-  let editor = @probe.new_test_editor("test")
+  let editor = try! @probe.new_test_editor("test")
   let source_cell : @incr.Derived[String] = editor.parser_source()
   let _ = source_cell.read_or_abort()
   let ast_cell : @incr.Derived[@probe.TestExpr] = editor.parser_ast()

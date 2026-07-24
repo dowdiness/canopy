@@ -18,6 +18,18 @@ fn drain_json_handle_after_direct_coordinator_destroy(handle : Int) -> Unit {
 }
 
 ///|
+test "json creation rejects an empty agent identifier before registration" {
+  reset_json_coordinator_for_phase1_tests()
+  let before = create_json_editor("json-creation-boundary-before")
+  inspect(create_json_editor(""), content="-1")
+  inspect(json_registry.get(-1) is None, content="true")
+  let after = create_json_editor("json-creation-boundary-after")
+  inspect(after == before + 1, content="true")
+  destroy_json_editor(before)
+  destroy_json_editor(after)
+}
+
+///|
 test "spec §12 #1 (json): each protected cell reads through read_protected" {
   reset_json_coordinator_for_phase1_tests()
   let handle = create_json_editor("json_test_agent_one")
