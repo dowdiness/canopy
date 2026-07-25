@@ -111,10 +111,6 @@ main {
   text-decoration: none;
 }
 
-.demo-list a:hover {
-  background: var(--accent-soft);
-}
-
 .demo-copy {
   min-width: 0;
   display: grid;
@@ -151,6 +147,14 @@ main {
 }
 
 @media (hover: hover) and (pointer: fine) {
+  .demo-list a {
+    transition: background-color 160ms ease;
+  }
+
+  .demo-list a:hover {
+    background-color: var(--accent-soft);
+  }
+
   .open-label {
     transition:
       transform 120ms var(--ease-out),
@@ -172,6 +176,10 @@ main {
 }
 
 @media (prefers-reduced-motion: reduce) and (hover: hover) and (pointer: fine) {
+  .demo-list a {
+    transition: background-color 80ms ease;
+  }
+
   .open-label {
     transition: opacity 80ms ease;
   }
