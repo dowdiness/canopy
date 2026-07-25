@@ -73,6 +73,7 @@ export default defineConfig({
         resume: 'resume.html',
         genui: 'genui.html',
         genuiPossibilities: 'genui-possibilities.html',
+        jsonReactBoundaryPrototype: 'json-react-boundary-prototype.html',
       },
     },
   },

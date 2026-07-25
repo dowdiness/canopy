@@ -10,7 +10,19 @@ declare global {
   interface Window { getJsonRoleSpans: () => JsonRoleSpanData[]; }
 }
 
-export function mountJsonEditor(): void {
+export interface JsonEditorOptions {
+  initialText?: string;
+}
+
+export interface JsonEditorController {
+  getText(): string;
+  focus(): void;
+  dispose(): void;
+}
+
+export function mountJsonEditor(
+  options: JsonEditorOptions = {},
+): JsonEditorController {
 const EXAMPLE_FALLBACK = '{"hello": "world"}';
 
 const agentId = `json-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -529,20 +541,43 @@ patchLogHeaderEl.addEventListener('keydown', (event) => {
   if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); togglePatchLog(); }
 });
 
-window.addEventListener('beforeunload', () => {
+let disposed = false;
+function dispose() {
+  if (disposed) return;
+  disposed = true;
+  window.removeEventListener('beforeunload', dispose);
+  if (syncFrame !== null) cancelAnimationFrame(syncFrame);
+  if (gutterScrollFrame !== null) cancelAnimationFrame(gutterScrollFrame);
+  decorationOverlay.dispose();
   adapter.destroy();
+  if (window.getJsonRoleSpans === getJsonRoleSpans) {
+    Reflect.deleteProperty(window, 'getJsonRoleSpans');
+  }
   crdt.destroy_json_editor(handle);
-});
+}
+
+window.addEventListener('beforeunload', dispose);
 
 // ── Init ──────────────────────────────────────────────
 
-const initialText = crdt.json_get_text(handle);
-if (initialText.trim()) editorEl.textContent = initialText;
-else {
-  crdt.json_set_text(handle, EXAMPLE_FALLBACK);
-  editorEl.textContent = EXAMPLE_FALLBACK;
+if (options.initialText !== undefined) {
+  crdt.json_set_text(handle, options.initialText);
+  editorEl.textContent = options.initialText;
+} else {
+  const initialText = crdt.json_get_text(handle);
+  if (initialText.trim()) editorEl.textContent = initialText;
+  else {
+    crdt.json_set_text(handle, EXAMPLE_FALLBACK);
+    editorEl.textContent = EXAMPLE_FALLBACK;
+  }
 }
 adapter.resetCollapseState();
 refresh();
 fetchEditLog();
+
+return {
+  getText: () => crdt.json_get_text(handle),
+  focus: () => editorEl.focus(),
+  dispose,
+};
 }
