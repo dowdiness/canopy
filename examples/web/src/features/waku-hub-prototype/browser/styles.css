@@ -6,6 +6,7 @@
   --accent: oklch(0.43 0.09 215);
   --accent-soft: oklch(0.93 0.025 215);
   --focus: oklch(0.55 0.13 215);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   color-scheme: light;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -149,11 +150,35 @@ main {
   }
 }
 
+@media (hover: hover) and (pointer: fine) {
+  .open-label {
+    transition:
+      transform 120ms var(--ease-out),
+      opacity 120ms ease;
+  }
+
+  .demo-list a:hover:active .open-label {
+    opacity: 0.72;
+    transform: translateX(2px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     scroll-behavior: auto !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) and (hover: hover) and (pointer: fine) {
+  .open-label {
+    transition: opacity 80ms ease;
+  }
+
+  .demo-list a:hover:active .open-label {
+    opacity: 0.82;
+    transform: none;
   }
 }
 
