@@ -1,8 +1,7 @@
 'use client';
 
 /**
- * THROWAWAY WAYFINDER PROTOTYPE — a deliberately simple, data-driven catalog.
- * The Hub explains each demo and follows the existing demo URL directly.
+ * THROWAWAY WAYFINDER PROTOTYPE — a simple, data-driven demo catalog.
  */
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -12,24 +11,12 @@ import './styles.css';
 export function WakuHubPrototype() {
   return (
     <div className="demo-hub">
-      <a className="skip-link" href="#demo-catalog">Skip to demonstrations</a>
-
-      <header className="site-header">
-        <div className="site-identity" aria-label="Canopy demonstrations">
-          <strong>CANOPY</strong>
-          <span>Demos</span>
-        </div>
-        <span className="demo-count">{DEMOS.length} demonstrations</span>
-      </header>
+      <a className="skip-link" href="#demo-catalog">デモ一覧へ移動</a>
 
       <main id="demo-catalog">
         <header className="page-heading">
-          <p className="eyebrow">Working examples</p>
-          <h1>Demonstrations</h1>
-          <p>
-            Explore how Canopy edits structured content, recalls evidence, and
-            keeps generated changes inspectable. Select a demo to open it.
-          </p>
+          <h1>Canopyのデモ</h1>
+          <p>デモを選ぶと、実際に操作できるページへ移動します。</p>
         </header>
 
         <div className="catalog-groups">
@@ -39,10 +26,7 @@ export function WakuHubPrototype() {
 
             return (
               <section key={group.id} className="catalog-group" aria-labelledby={`group-${group.id}`}>
-                <header>
-                  <h2 id={`group-${group.id}`}>{group.title}</h2>
-                  <p>{group.description}</p>
-                </header>
+                <h2 id={`group-${group.id}`}>{group.title}</h2>
                 <ul className="demo-list">
                   {demos.map((demo) => (
                     <li key={demo.id}>
@@ -51,9 +35,7 @@ export function WakuHubPrototype() {
                           <strong>{demo.title}</strong>
                           <span>{demo.description}</span>
                         </span>
-                        <span className="open-label">
-                          Open demo <span aria-hidden="true">→</span>
-                        </span>
+                        <span className="open-label" aria-hidden="true">開く →</span>
                       </a>
                     </li>
                   ))}
@@ -63,11 +45,6 @@ export function WakuHubPrototype() {
           })}
         </div>
       </main>
-
-      <footer>
-        <span>Canopy</span>
-        <a href="https://github.com/dowdiness/canopy">View source</a>
-      </footer>
     </div>
   );
 }

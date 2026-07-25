@@ -3,7 +3,6 @@ export type DemoGroupId = 'editors' | 'memory' | 'generated-change';
 export interface DemoGroup {
   readonly id: DemoGroupId;
   readonly title: string;
-  readonly description: string;
 }
 
 export interface DemoDefinition {
@@ -15,78 +14,66 @@ export interface DemoDefinition {
 }
 
 export const DEMO_GROUPS: readonly DemoGroup[] = [
-  {
-    id: 'editors',
-    title: 'Structured editors',
-    description: 'Edit source while inspecting the structure Canopy maintains underneath.',
-  },
-  {
-    id: 'memory',
-    title: 'Memory and evidence',
-    description: 'Bring earlier material back without losing chronology or provenance.',
-  },
-  {
-    id: 'generated-change',
-    title: 'Generated interfaces and changes',
-    description: 'Inspect generated output and proposed changes before acting on them.',
-  },
+  { id: 'editors', title: 'エディター' },
+  { id: 'memory', title: '記録と振り返り' },
+  { id: 'generated-change', title: '生成UIと変更提案' },
 ];
 
 /** Add one entry here to include another demo in the Hub. */
 export const DEMOS: readonly DemoDefinition[] = [
   {
     id: 'lambda',
-    title: 'Mini-ML editor',
-    description: 'Write a typed program and inspect its syntax tree, evaluation, and diagnostics.',
+    title: 'Mini-ML エディター',
+    description: 'Mini-MLコードを編集し、AST、型エラー、評価結果を確認できます。',
     href: '/index.html',
     group: 'editors',
   },
   {
     id: 'json',
-    title: 'JSON editor',
-    description: 'Edit JSON as text or a structural tree while retaining CRDT identity and edit history.',
+    title: 'JSON エディター',
+    description: 'JSONをテキストまたはツリーとして編集し、変更履歴を確認できます。',
     href: '/json.html',
     group: 'editors',
   },
   {
     id: 'markdown',
-    title: 'Markdown editor',
-    description: 'Move between block, source, and reading views without losing the document or selection.',
+    title: 'Markdown エディター',
+    description: 'Markdownをブロック、ソース、プレビューの3つの表示で編集できます。',
     href: '/markdown.html',
     group: 'editors',
   },
   {
     id: 'memo',
     title: 'Canopy Memo',
-    description: 'Review typo corrections and structured edits against the note they would change.',
+    description: '文章の誤字修正や構造化編集を、適用前に確認できます。',
     href: '/memo.html',
     group: 'memory',
   },
   {
     id: 'posts',
     title: 'Posts',
-    description: 'Capture thoughts locally and surface related older posts while preserving chronology.',
+    description: '短いメモを端末内に保存し、入力内容に関連する過去の投稿を探せます。',
     href: '/posts.html',
     group: 'memory',
   },
   {
     id: 'resume',
     title: 'Session Resume',
-    description: 'Inspect an agent session through its timeline, transcript, sources, and attached context.',
+    description: 'エージェントの作業履歴を、時系列、会話、参照元に分けて確認できます。',
     href: '/resume.html',
     group: 'memory',
   },
   {
     id: 'genui',
     title: 'Generative UI',
-    description: 'Inspect incrementally parsed JSX and evaluate recorded interface candidates with data.',
+    description: 'JSXを編集し、解析結果と生成されたUIを確認できます。',
     href: '/genui.html',
     group: 'generated-change',
   },
   {
     id: 'journey',
-    title: 'Journey responses',
-    description: 'Compare proposed responses, preview their exact effect, then apply or undo deliberately.',
+    title: '旅行プランの変更提案',
+    description: '旅行プランの変更案を比較し、適用結果の確認と取り消しができます。',
     href: '/genui-possibilities.html',
     group: 'generated-change',
   },
