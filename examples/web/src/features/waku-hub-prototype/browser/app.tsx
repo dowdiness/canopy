@@ -11,12 +11,12 @@ import './styles.css';
 export function WakuHubPrototype() {
   return (
     <div className="demo-hub">
-      <a className="skip-link" href="#demo-catalog">デモ一覧へ移動</a>
+      <a className="skip-link" href="#demo-catalog">Skip to demos</a>
 
       <main id="demo-catalog">
         <header className="page-heading">
-          <h1>Canopyのデモ</h1>
-          <p>デモを選ぶと、実際に操作できるページへ移動します。</p>
+          <h1>Canopy demos</h1>
+          <p>Choose a demo to open its interactive page.</p>
         </header>
 
         <div className="catalog-groups">
@@ -35,7 +35,7 @@ export function WakuHubPrototype() {
                           <strong>{demo.title}</strong>
                           <span>{demo.description}</span>
                         </span>
-                        <span className="open-label" aria-hidden="true">開く →</span>
+                        <span className="open-label" aria-hidden="true">Open →</span>
                       </a>
                     </li>
                   ))}

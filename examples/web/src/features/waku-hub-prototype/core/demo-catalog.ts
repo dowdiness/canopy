@@ -14,66 +14,66 @@ export interface DemoDefinition {
 }
 
 export const DEMO_GROUPS: readonly DemoGroup[] = [
-  { id: 'editors', title: 'エディター' },
-  { id: 'memory', title: '記録と振り返り' },
-  { id: 'generated-change', title: '生成UIと変更提案' },
+  { id: 'editors', title: 'Editors' },
+  { id: 'memory', title: 'Notes and history' },
+  { id: 'generated-change', title: 'Generated UI and proposals' },
 ];
 
 /** Add one entry here to include another demo in the Hub. */
 export const DEMOS: readonly DemoDefinition[] = [
   {
     id: 'lambda',
-    title: 'Mini-ML エディター',
-    description: 'Mini-MLコードを編集し、AST、型エラー、評価結果を確認できます。',
+    title: 'Mini-ML Editor',
+    description: 'Edit Mini-ML code and inspect its AST, type errors, and evaluation results.',
     href: '/index.html',
     group: 'editors',
   },
   {
     id: 'json',
-    title: 'JSON エディター',
-    description: 'JSONをテキストまたはツリーとして編集し、変更履歴を確認できます。',
+    title: 'JSON Editor',
+    description: 'Edit JSON as text or a tree and review the edit history.',
     href: '/json.html',
     group: 'editors',
   },
   {
     id: 'markdown',
-    title: 'Markdown エディター',
-    description: 'Markdownをブロック、ソース、プレビューの3つの表示で編集できます。',
+    title: 'Markdown Editor',
+    description: 'Edit Markdown in block, source, and preview views.',
     href: '/markdown.html',
     group: 'editors',
   },
   {
     id: 'memo',
     title: 'Canopy Memo',
-    description: '文章の誤字修正や構造化編集を、適用前に確認できます。',
+    description: 'Review spelling corrections and structured edits before applying them.',
     href: '/memo.html',
     group: 'memory',
   },
   {
     id: 'posts',
     title: 'Posts',
-    description: '短いメモを端末内に保存し、入力内容に関連する過去の投稿を探せます。',
+    description: 'Save short notes locally and find earlier posts related to what you are writing.',
     href: '/posts.html',
     group: 'memory',
   },
   {
     id: 'resume',
     title: 'Session Resume',
-    description: 'エージェントの作業履歴を、時系列、会話、参照元に分けて確認できます。',
+    description: 'Review an agent session by timeline, conversation, and source.',
     href: '/resume.html',
     group: 'memory',
   },
   {
     id: 'genui',
     title: 'Generative UI',
-    description: 'JSXを編集し、解析結果と生成されたUIを確認できます。',
+    description: 'Edit JSX and inspect the parser output and generated interface.',
     href: '/genui.html',
     group: 'generated-change',
   },
   {
     id: 'journey',
-    title: '旅行プランの変更提案',
-    description: '旅行プランの変更案を比較し、適用結果の確認と取り消しができます。',
+    title: 'Journey Proposals',
+    description: 'Compare changes to a travel plan, apply them, and undo them.',
     href: '/genui-possibilities.html',
     group: 'generated-change',
   },
