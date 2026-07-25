@@ -440,7 +440,7 @@ jobs:
     if: needs.changes.outputs.run_e2e == 'true'
     runs-on: ubuntu-latest
     container:
-      image: mcr.microsoft.com/playwright:v1.60.0-noble
+      image: mcr.microsoft.com/playwright:v1.62.0-noble
       options: --ipc=host
     env:
       CANOPY_SKIP_MOON_BUILD: 1
