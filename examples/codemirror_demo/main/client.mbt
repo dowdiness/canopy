@@ -41,6 +41,13 @@ struct Model {
 }
 
 ///|
+/// Preserve the legacy Cell wrapper's always-dirty equality during migration
+/// to component-local state.
+impl Eq for Model with fn equal(_, _) {
+  false
+}
+
+///|
 fn capped_prepend(
   xs : Array[String],
   value : String,
@@ -283,14 +290,18 @@ let initial_model : Model = {
 }
 
 ///|
-#warnings("-alert_unstable")
 #cfg(target="js")
 fn main {
-  let (emit, app) = @rabbita.cell_with_emit(
-    model=initial_model,
-    update~,
-    view~,
-    subscriptions~,
-  )
-  @rabbita.new(app)..with_init(mount_cmd(emit, initial_model)).mount("app")
+  fn app() {
+    let (model, emit) = @rabbita.create_state_with_init(
+      init=emit => (initial_model, mount_cmd(emit, initial_model)),
+      update=(emit, msg, model) => {
+        let (cmd, model) = update(emit, msg, model)
+        (model, cmd)
+      },
+      subscriptions~,
+    )
+    model.map(model => view(emit, model))
+  }
+  @rabbita.new(app).mount("app")
 }

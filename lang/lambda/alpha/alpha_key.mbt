@@ -46,34 +46,34 @@ impl Hash for AlphaKeyRepr with fn hash_combine(self, hasher) {
     }
     KLam(body) => {
       hasher.combine_int(3)
-      body.hash_combine(hasher)
+      Hash::hash_combine(body, hasher)
     }
     KApp(fn_key, arg_key) => {
       hasher.combine_int(4)
-      fn_key.hash_combine(hasher)
-      arg_key.hash_combine(hasher)
+      Hash::hash_combine(fn_key, hasher)
+      Hash::hash_combine(arg_key, hasher)
     }
     KBop(op, lhs_key, rhs_key) => {
       hasher.combine_int(5)
       hasher.combine_int(key_bop_index(op))
-      lhs_key.hash_combine(hasher)
-      rhs_key.hash_combine(hasher)
+      Hash::hash_combine(lhs_key, hasher)
+      Hash::hash_combine(rhs_key, hasher)
     }
     KIf(cond_key, then_key, else_key) => {
       hasher.combine_int(6)
-      cond_key.hash_combine(hasher)
-      then_key.hash_combine(hasher)
-      else_key.hash_combine(hasher)
+      Hash::hash_combine(cond_key, hasher)
+      Hash::hash_combine(then_key, hasher)
+      Hash::hash_combine(else_key, hasher)
     }
     KLetDef(init_key) => {
       hasher.combine_int(7)
-      init_key.hash_combine(hasher)
+      Hash::hash_combine(init_key, hasher)
     }
     KModule(def_keys, body_key) => {
       hasher.combine_int(8)
       hasher.combine_int(def_keys.length())
-      def_keys.iter().each(fn(def_key) { def_key.hash_combine(hasher) })
-      body_key.hash_combine(hasher)
+      def_keys.iter().each(fn(def_key) { Hash::hash_combine(def_key, hasher) })
+      Hash::hash_combine(body_key, hasher)
     }
     KError(message) => {
       hasher.combine_int(9)
@@ -88,7 +88,7 @@ impl Hash for AlphaKeyRepr with fn hash_combine(self, hasher) {
 
 ///|
 pub impl Hash for AlphaKey with fn hash_combine(self, hasher) {
-  self.repr.hash_combine(hasher)
+  Hash::hash_combine(self.repr, hasher)
 }
 
 ///|

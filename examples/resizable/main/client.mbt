@@ -11,6 +11,13 @@ struct Model {
 }
 
 ///|
+/// Preserve the legacy Cell wrapper's always-dirty equality because
+/// `@resizable.Model` does not expose semantic equality.
+impl Eq for Model with fn equal(_, _) {
+  false
+}
+
+///|
 enum Msg {
   Corner(@resizable.Msg)
   Split(@resizable.Msg)
@@ -132,6 +139,16 @@ fn view(emit : Emit[Msg], model : Model) -> Html {
 ///|
 #cfg(target="js")
 fn main {
-  let app = @rabbita.cell(model=initial_model, update~, view~, subscriptions~)
+  fn app() {
+    let (model, emit) = @rabbita.create_state(
+      initial_model,
+      update=(emit, msg, model) => {
+        let (cmd, model) = update(emit, msg, model)
+        (model, cmd)
+      },
+      subscriptions~,
+    )
+    model.map(model => view(emit, model))
+  }
   @rabbita.new(app).mount("app")
 }
