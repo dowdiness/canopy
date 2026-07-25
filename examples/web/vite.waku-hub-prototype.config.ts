@@ -1,14 +1,18 @@
 import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
+import { createWebPlugins, moonbitImportIds } from './server/vite/web-plugins';
 
 /**
  * Isolated delivery shell for the throwaway Demo Hub prototype.
  *
- * The Hub does not import generated MoonBit modules, so loading the main web
- * config would wastefully start five repository-wide MoonBit watch processes.
+ * Existing demo routes still need their normal Vite capabilities and MoonBit
+ * virtual modules. Generated artifacts are built once by the launcher; this
+ * config resolves them without starting repository-wide MoonBit watchers.
  */
 export default defineConfig({
-  plugins: [react()],
+  plugins: createWebPlugins({ watchMoonBit: false }),
+  optimizeDeps: {
+    exclude: ['*.wasm', ...moonbitImportIds],
+  },
   build: {
     target: 'esnext',
     rollupOptions: {
