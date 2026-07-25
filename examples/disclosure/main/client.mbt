@@ -85,6 +85,13 @@ struct Model {
 }
 
 ///|
+/// Preserve the legacy Cell wrapper's always-dirty equality during migration
+/// to component-local state.
+impl Eq for Model with fn equal(_, _) {
+  false
+}
+
+///|
 enum Msg {
   Toggle(Int)
 }
@@ -176,6 +183,9 @@ fn view(emit : Emit[Msg], model : Model) -> Html {
 ///|
 #cfg(target="js")
 fn main {
-  let app = @rabbita.simple_cell(model=initial_model, update~, view~)
+  fn app() {
+    let (model, emit) = @rabbita.create_pure_state(initial_model, update~)
+    model.map(model => view(emit, model))
+  }
   @rabbita.new(app).mount("app")
 }
