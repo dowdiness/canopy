@@ -368,7 +368,7 @@ jobs:
           submodules: recursive
 
       - name: Download MoonBit JS artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: moonbit-js-build
           path: _build/js/release/build/dowdiness
@@ -410,7 +410,7 @@ jobs:
           submodules: recursive
 
       - name: Download MoonBit JS artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: moonbit-js-build
           path: _build/js/release/build/dowdiness
@@ -451,7 +451,7 @@ jobs:
           submodules: recursive
 
       - name: Download MoonBit JS artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: moonbit-js-build
           path: _build/js/release/build/dowdiness
@@ -492,7 +492,7 @@ jobs:
           submodules: recursive
 
       - name: Download MoonBit JS artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: moonbit-js-build
           path: _build/js/release/build/dowdiness
