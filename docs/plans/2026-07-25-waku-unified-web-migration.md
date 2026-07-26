@@ -265,6 +265,10 @@ demo restore the same latest route snapshot.
 The old Vite application remains runnable and tested through Stage 12. Each
 feature keeps its old HTML URL until its canonical Waku route passes its gate.
 A compatibility redirect is enabled only after its destination has parity.
+The root is the special case: through Stage 6, the deployed/default Vite `/`
+and `/index.html` continue to serve Mini-ML while only the pre-production Waku
+runtime serves the Hub there. Do not switch the default command or production
+hostname to the Waku root until `/ml` passes the Stage 7 Mini-ML gate.
 
 ### Stage 0 — Baseline and dual-run harness
 
@@ -300,8 +304,9 @@ server/RSC bundles contain none of them; Vite remains green.
 
 - Move the accepted catalog out of the throwaway prototype into the shared pure
   catalog module and update all links to canonical routes.
-- Add the root document, restrained shared shell, `/`, nonredirecting
-  `/index.html`, and `/404` pages.
+- Add the root document, restrained shared shell, pre-production Waku `/`,
+  nonredirecting `/index.html`, and `/404` pages. The parallel Vite runtime keeps
+  serving Mini-ML at its root during this stage.
 - Implement and deterministically test the route-lifecycle reducer, React
   provider, imperative host, focus manager, and route-level error states.
 - Add placeholder client routes only where needed to exercise navigation; do
