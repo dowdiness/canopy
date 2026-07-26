@@ -121,10 +121,10 @@ Stage 6 remains pre-production. Vite and `markdown.html` remain the defaults and
 
 - `src/features/lambda/route/{lambda-route,lambda-client}.tsx` — server/client seam that reuses the legacy Mini-ML shell, loads Lambda and Graphviz from client-only dynamic imports, and mounts at `/ml` through the imperative host.
 - `src/features/lambda/browser/{editor,mount}.ts` — root-scoped Vite/Waku controller that snapshots source text only and idempotently releases the MoonBit handle, `HTMLAdapter`, `DecorationOverlay`, listeners, animation frame, analysis timer, and request.
-- `src/features/memo/route/{memo-route,memo-client}.tsx` — development route seam that shares the generated Lambda artifact specifier without a cross-feature import; production tree-shakes the client editor and renders a local-only state without credential/provider controls.
+- `src/features/memo/route/{memo-route,memo-client}.tsx` — development route seam that shares the generated Lambda artifact specifier without a cross-feature import; a production-first route gate never imports the development shell/client and renders a local-only state without credential/provider controls.
 - `src/features/memo/browser/{app,mount,view}.ts` — root-scoped controller that snapshots draft, instruction, and completed proposal only; API key and request timing remain ephemeral, listeners are aborted, and late provider responses are invalidated after disposal.
 - `tests/{lambda-editor,memo-editor}.spec.ts` — existing behavior and local-validation contracts, now run against both legacy Vite URLs and canonical Waku routes.
-- `waku-tests/{lambda-route,memo-route}.spec.ts` — inert SSR shells, runtime failures, allowlisted route memory, focus, reload reset, and live-resource disposal coverage. The production bundle/Worker checks prove Mini-ML has no AST endpoint request and Memo has no credential surface.
+- `waku-tests/{lambda-route,memo-route}.spec.ts` — inert SSR shells, runtime failures, allowlisted route memory, focus, reload reset, and live-resource disposal coverage. The production bundle/Worker checks prove Mini-ML has no AST endpoint request and Memo has no development shell, client module, or credential surface; provider fingerprints are permitted only inside the shared Lambda artifact required by Mini-ML.
 
 Stage 7 remains pre-production. Vite `/`/`index.html` and `/memo.html` remain the defaults and are retained. No compatibility redirect, provider proxy, MoonBit API change, or production deployment is active.
 

@@ -1,10 +1,8 @@
-import memoDocument from '../../../../memo.html?raw';
 import { LifecycleLink } from '../../../shared/route-lifecycle/browser/lifecycle-link';
-import { MemoClient } from './memo-client';
 
 const MEMO_SHELL_PATTERN = /<!-- memo-shell:start -->([\s\S]*?)<!-- memo-shell:end -->/;
 
-export function MemoRoute() {
+export async function MemoRoute() {
   if (import.meta.env.PROD) {
     return (
       <main className="route-state" data-memo-production-unavailable>
@@ -22,6 +20,13 @@ export function MemoRoute() {
     );
   }
 
+  const [
+    { default: memoDocument },
+    { MemoClient },
+  ] = await Promise.all([
+    import('../../../../memo.html?raw'),
+    import('./memo-client'),
+  ]);
   const shellMatch = MEMO_SHELL_PATTERN.exec(memoDocument);
   if (shellMatch === null) {
     throw new Error('The canonical Memo document shell is unavailable');

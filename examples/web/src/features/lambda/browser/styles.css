@@ -1,18 +1,16 @@
 .lambda-surface {
+    box-sizing: border-box;
+    margin: 0;
+    font-family: Consolas, Monaco, 'Courier New', monospace;
+    background: #1e1e1e;
+    color: #d4d4d4;
+    min-height: 100vh;
+    padding: 20px;
+
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-    }
-
-    & {
-      box-sizing: border-box;
-      margin: 0;
-      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-      background: #1e1e1e;
-      color: #d4d4d4;
-      min-height: 100vh;
-      padding: 20px;
     }
 
     .container {
@@ -62,7 +60,7 @@
       border-radius: 3px;
       cursor: pointer;
       font-size: 12px;
-      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      font-family: Consolas, Monaco, 'Courier New', monospace;
       transition: background 0.2s;
     }
 
@@ -344,9 +342,7 @@
 
     /* Mobile responsive styles */
     @media (max-width: 768px) {
-      & {
-        padding: 10px;
-      }
+      padding: 10px;
 
       h1 {
         font-size: 20px;
@@ -508,9 +504,7 @@
 
     /* Extra small screens (phones in portrait) */
     @media (max-width: 480px) {
-      & {
-        padding: 8px;
-      }
+      padding: 8px;
 
       h1 {
         font-size: 18px;

@@ -10,8 +10,31 @@ const generatedModules = [
   { id: '@moonbit/graphviz', fingerprint: 'render_dot_to_svg' },
 ];
 
-const forbiddenProductionClientRequests = [
-  { capability: 'Mini-ML AST Grep', requestPath: '/api/ast-grep' },
+const forbiddenProductionClientArtifacts = [
+  { capability: 'Mini-ML AST Grep request', fingerprint: '/api/ast-grep' },
+  { capability: 'Memo development shell', fingerprint: 'data-memo-ready' },
+  {
+    capability: 'Memo client module',
+    fingerprint: 'The Memo runtime is unavailable on the client',
+  },
+  // Mini-ML intentionally reuses the monolithic Lambda artifact. Provider
+  // fingerprints are allowed only inside that generated bundle, never in
+  // route/client glue that would make the production Memo capability reachable.
+  {
+    capability: 'Memo provider URL',
+    fingerprint: 'https://generativelanguage.googleapis.com/v1beta/models/',
+    allowedBundleFingerprint: 'assemble_lambda_handle',
+  },
+  {
+    capability: 'Memo provider function',
+    fingerprint: 'canopy_llm_fix_typos',
+    allowedBundleFingerprint: 'assemble_lambda_handle',
+  },
+  {
+    capability: 'Memo provider function',
+    fingerprint: 'canopy_llm_edit',
+    allowedBundleFingerprint: 'assemble_lambda_handle',
+  },
 ];
 
 export function inspectWakuBundles({ serverBundles, clientBundles }) {
@@ -25,13 +48,17 @@ export function inspectWakuBundles({ serverBundles, clientBundles }) {
       !clientBundles.some(({ source }) => source.includes(fingerprint)),
     )
     .map(({ id }) => id);
-  const productionClientRequestLeaks = forbiddenProductionClientRequests.flatMap(({
+  const productionClientArtifactLeaks = forbiddenProductionClientArtifacts.flatMap(({
     capability,
-    requestPath,
+    fingerprint,
+    allowedBundleFingerprint,
   }) => clientBundles
-    .filter(({ source }) => source.includes(requestPath))
-    .map(({ name }) => ({ capability, requestPath, file: name })));
-  return { serverLeaks, missingClientModules, productionClientRequestLeaks };
+    .filter(({ source }) =>
+      source.includes(fingerprint) &&
+      !(allowedBundleFingerprint && source.includes(allowedBundleFingerprint))
+    )
+    .map(({ name }) => ({ capability, fingerprint, file: name })));
+  return { serverLeaks, missingClientModules, productionClientArtifactLeaks };
 }
 
 function javascriptBundlesBelow(root) {
@@ -55,13 +82,13 @@ function main() {
   for (const id of result.missingClientModules) {
     console.error(`Generated module is missing from Waku client bundles: ${id}`);
   }
-  for (const { capability, requestPath, file } of result.productionClientRequestLeaks) {
-    console.error(`${capability} production request ${requestPath} leaked into client bundle: ${file}`);
+  for (const { capability, fingerprint, file } of result.productionClientArtifactLeaks) {
+    console.error(`${capability} fingerprint ${fingerprint} leaked into production client bundle: ${file}`);
   }
   if (
     result.serverLeaks.length > 0 ||
     result.missingClientModules.length > 0 ||
-    result.productionClientRequestLeaks.length > 0
+    result.productionClientArtifactLeaks.length > 0
   ) {
     process.exitCode = 1;
   } else {
