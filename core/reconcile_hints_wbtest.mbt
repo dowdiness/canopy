@@ -296,28 +296,31 @@ test "a batch of two independent Wrap hints preserves both ids" {
 /// This arises whenever a batch's net effect cancels the edit the hint
 /// describes — wrap then unwrap the same node leaves the tree shaped exactly
 /// as it started, while the wrap hint computed at the first step survives.
+/// It is reachable: hints are cleared exactly once per reparse
+/// (lang/lambda/proj/projection_memo.mbt), the projection is a pull-based
+/// `@incr.Derived`, and the editor's T4 guard drops only a hint whose OWN span
+/// batch produced no text change (editor/sync_editor.mbt) — it cannot see a
+/// later op cancelling an earlier one.
 ///
-/// The two tests below pin CURRENT behaviour, and together they say: supplying
-/// a stale hint is worse than supplying none. That makes "attach a hint
-/// whenever one is available" unsafe as a caller contract.
+/// Exit 1 of the three recorded here has been taken: exclusion from LCS is
+/// decided from hint APPLICABILITY, and `apply_wrap` distinguishes "no trace of
+/// this wrap here" (inert, fall through) from "ambiguous" (degrade, T3).
 ///
-/// Three ways out, at different costs. These tests exist so that whichever is
-/// taken shows up here as a diff.
+/// The two exits NOT taken:
 ///
-/// 1. Consumer side — reconcile refuses a hint whose topology does not match
-///    the new tree and leaves the node to ordinary matching.
 /// 2. Caller contract — hints are required to be fresh, so producing a stale
 ///    one is a caller bug rather than something reconcile absorbs.
 /// 3. Producer side — compose the pending transforms before emitting anything,
 ///    so a batch whose net effect cancels emits NO hint instead of a stale one.
-///    This also recovers the identity that the current all-or-nothing degrade
-///    discards when a batch carries several perfectly describable transforms,
-///    so it answers both failures at once. Its cost is that the transform
-///    vocabulary is a flat set of named topology changes and so is not closed
-///    under composition — the opaque fallback is the honest bottom element of
-///    that. Buying composition means giving the vocabulary a compositional
-///    shape, which is a much larger change than 1 or 2 and should wait for a
-///    consumer that needs it.
+///    This is the generalisation of the editor's existing T4 guard from one
+///    span batch to the whole reparse window. It also recovers the identity
+///    that the all-or-nothing degrade discards when a batch carries several
+///    perfectly describable transforms, so it answers both failures at once.
+///    Its cost is that the transform vocabulary is a flat set of named topology
+///    changes and so is not closed under composition — the opaque fallback is
+///    the honest bottom element of that. Buying composition means giving the
+///    vocabulary a compositional shape, which is a much larger change than 2
+///    and should wait for a consumer that needs it.
 test "without hints, an edit whose net effect is nil preserves identity" {
   let inner = ProjNode(Leaf("x"), 1, 2, 5, [])
   let old = ProjNode(Branch("root", [Leaf("x")]), 0, 3, 1, [inner])
@@ -330,57 +333,72 @@ test "without hints, an edit whose net effect is nil preserves identity" {
 }
 
 ///|
-test "a stale Wrap hint loses identity that the unhinted path keeps" {
+test "a stale Wrap hint is inert: identity survives it" {
   let inner = ProjNode(Leaf("x"), 1, 2, 5, [])
   let old = ProjNode(Branch("root", [Leaf("x")]), 0, 3, 1, [inner])
   let new_inner = ProjNode(Leaf("x"), 1, 2, 90, [])
   let new_ = ProjNode(Branch("root", [Leaf("x")]), 0, 3, 91, [new_inner])
   // The wrap this hint describes was undone later in the same batch: there is
-  // no wrapper in `new_` for #5 to be found inside.
+  // no wrapper in `new_` for #5 to be found inside. Neither the LCS exclusion
+  // nor `structural_pair` may act on it.
   let hints = mk_hints([(5, Wrap(inner=NodeId::from_int(5)))])
   let result = reconcile_hinted(old, new_, Ref(1000), hints)
-  inspect(result.children[0].node_id >= 1000, content="true")
+  inspect(result.children[0].node_id, content="5")
 }
 
 ///|
-/// Weak monotonicity for hints, as a named predicate.
+/// Does supplying `hints` change the identities reconcile assigns, relative to
+/// supplying `base` instead?
+///
+/// Deliberately named for what it computes, not for a property it is claimed to
+/// witness: the claims live in the test names below, which pin it both ways.
+///
+/// The `base` parameter is what makes the property statable. Inertness is a
+/// MARGINAL claim — "this entry changes nothing" — and comparing a whole map
+/// against the empty map cannot express it: any other entry in the map is
+/// entitled to change the result, so the comparison would fail for reasons that
+/// have nothing to do with the entry under test.
+fn hinted_result_is_inert(
+  old : ProjNode[TestExpr],
+  new_ : ProjNode[TestExpr],
+  hints : Map[NodeId, IdentityTransform],
+  base~ : Map[NodeId, IdentityTransform] = Map([]),
+) -> Bool {
+  let without = collect_ids(reconcile_hinted(old, new_, Ref(1000), base))
+  let with_ = collect_ids(reconcile_hinted(old, new_, Ref(1000), hints))
+  without == with_
+}
+
+///|
+/// Weak monotonicity for hints, at the scope that is actually achievable.
 ///
 /// Strong monotonicity — "a hint never makes any node worse off" — is neither
 /// achievable nor wanted: a hint that DOES apply is authoritative and is meant
 /// to override a coincidental LCS match, which can cost some other node the
-/// match it would otherwise have had. The property worth holding is the weaker
-/// one:
+/// match it would otherwise have had.
 ///
-///   **A hint that cannot be applied has no effect.**
+/// The obvious next weakening, "a hint that cannot be APPLIED has no effect",
+/// is also not achievable, and not because of an unfixed defect. An ambiguous
+/// Wrap — two or more same-kind children — cannot be applied, yet the new node
+/// may genuinely be a wrapper, and invariant T3 requires degrading to fresh ids
+/// rather than leaving the preserved id on that wrapper. Inertness would demand
+/// the opposite. The two invariants are in direct conflict for that case, and
+/// T3 wins by design.
 ///
-/// Caller must supply a `hints` map whose entries cannot land in `new_`;
-/// for an applicable hint the two results are expected to differ.
+/// What holds is the properly scoped, MARGINAL statement:
 ///
-/// Returns whether the property HOLDS.
-fn prop_unapplicable_hint_is_inert(
-  old : ProjNode[TestExpr],
-  new_ : ProjNode[TestExpr],
-  hints : Map[NodeId, IdentityTransform],
-) -> Bool {
-  let unhinted = collect_ids(reconcile(old, new_, Ref(1000)))
-  let hinted = collect_ids(reconcile_hinted(old, new_, Ref(1000), hints))
-  unhinted == hinted
-}
-
-///|
-/// The property above does NOT hold today, and this pins that.
+///   **Adding a hint with no applicable target to a hint map changes nothing.**
 ///
-/// The cause is an ordering choice in `reconcile_children`: an old child
-/// carrying a Wrap/Unwrap/Replace/Move hint is removed from LCS by
-/// `lcs_excluded` BEFORE anything checks whether the hint can land, and a hint
-/// that then fails to pair has no route back into ordinary matching.
+/// "No applicable target" is decidable locally and carries no T3 tension: for
+/// `Wrap`, zero same-kind children means the new node is not a wrapper of this
+/// node at all, so ordinary matching is exactly the right decision. For
+/// `Unwrap` it means the kept child is absent from the old wrapper — a mismatch
+/// of KIND is not inapplicability, because the recursion is what interprets it.
 ///
-/// If reconcile is changed so that exclusion is decided from hint
-/// applicability — `hint_pair_counts` already computes very nearly that
-/// predicate, though today it counts only among LCS-unmatched new children —
-/// this flips to "true". When it does: update the pin here, and drop the
-/// stale-hint caveat from the two tests above.
-test "PROPERTY, currently violated: an unapplicable hint is inert" {
+/// Marginal, not absolute: the map may hold other entries that are entitled to
+/// change the result. The second test below is the one that would have caught a
+/// property stated over the whole map instead of the added entry.
+test "PROPERTY: adding a hint with no applicable target is inert" {
   let inner = ProjNode(Leaf("x"), 1, 2, 5, [])
   let old = ProjNode(Branch("root", [Leaf("x")]), 0, 3, 1, [inner])
   // Net effect of the batch was nil, so `new_` has the shape of `old`.
@@ -388,18 +406,81 @@ test "PROPERTY, currently violated: an unapplicable hint is inert" {
   let new_ = ProjNode(Branch("root", [Leaf("x")]), 0, 3, 91, [new_inner])
   // Describes a wrapper that the completed batch left no trace of.
   let hints = mk_hints([(5, Wrap(inner=NodeId::from_int(5)))])
-  inspect(prop_unapplicable_hint_is_inert(old, new_, hints), content="false")
+  inspect(hinted_result_is_inert(old, new_, hints), content="true")
 }
 
 ///|
-/// Known-positive control for the pin above: with no hints at all the two
-/// reconciles are the same call, so the predicate must report "holds". Without
-/// this, a predicate that had become stuck at `false` would let the pin pass
-/// vacuously and the violation above would stop meaning anything.
+/// The property holds against a NON-EMPTY base too: a coexisting `Replace` is
+/// entitled to freshen its own node, and the zero-target `Wrap` added alongside
+/// it must still change nothing. Stated over the whole map against no hints at
+/// all, this comparison would fail — on the `Replace`'s account, not the
+/// `Wrap`'s — and the property would look violated when it is not.
+test "PROPERTY: still inert when the map already carries an applicable hint" {
+  let l5 = ProjNode(Leaf("x"), 1, 2, 5, [])
+  let l6 = ProjNode(Leaf("y"), 2, 3, 6, [])
+  let old = ProjNode(Branch("root", [Leaf("x"), Leaf("y")]), 0, 4, 1, [l5, l6])
+  let n5 = ProjNode(Leaf("x"), 1, 2, 90, [])
+  let n6 = ProjNode(Leaf("y"), 2, 3, 91, [])
+  let new_ = ProjNode(Branch("root", [Leaf("x"), Leaf("y")]), 0, 4, 92, [n5, n6])
+  let base = mk_hints([(6, Replace(old=NodeId::from_int(6)))])
+  let with_stale = mk_hints([
+    (6, Replace(old=NodeId::from_int(6))),
+    (5, Wrap(inner=NodeId::from_int(5))),
+  ])
+  inspect(hinted_result_is_inert(old, new_, with_stale, base~), content="true")
+}
+
+///|
+/// Known-negative control for the pin above. A predicate stuck at `true` would
+/// let the property pass vacuously, so one input on which it MUST report "not
+/// inert" is pinned here: an applicable Wrap changes the result by design.
+test "control: the inertness predicate does report NOT holding when it should" {
+  let inner = ProjNode(Leaf("x"), 0, 1, 5, [])
+  let old = ProjNode(Branch("root", [Leaf("x")]), 0, 5, 1, [inner])
+  let new_inner = ProjNode(Leaf("x"), 1, 2, 90, [])
+  let wrapper = ProjNode(Branch("w", [Leaf("x")]), 1, 3, 91, [new_inner])
+  let new_ = ProjNode(Branch("root", [Branch("w", [Leaf("x")])]), 0, 5, 92, [
+    wrapper,
+  ])
+  let hints = mk_hints([(5, Wrap(inner=NodeId::from_int(5)))])
+  inspect(hinted_result_is_inert(old, new_, hints), content="false")
+}
+
+///|
+/// Known-positive control: with no hints at all the two reconciles are the same
+/// call, so the predicate must report "inert".
 test "control: the inertness predicate does report holding when it should" {
   let inner = ProjNode(Leaf("x"), 1, 2, 5, [])
   let old = ProjNode(Branch("root", [Leaf("x")]), 0, 3, 1, [inner])
   let new_inner = ProjNode(Leaf("x"), 1, 2, 90, [])
   let new_ = ProjNode(Branch("root", [Leaf("x")]), 0, 3, 91, [new_inner])
-  inspect(prop_unapplicable_hint_is_inert(old, new_, Map([])), content="true")
+  inspect(hinted_result_is_inert(old, new_, Map([])), content="true")
+}
+
+///|
+/// Regression pin for an over-tightening that an independent review caught
+/// before it shipped: gating `apply_unwrap` on `same_kind(new, keep)` would
+/// make this batch preserve #10, which is wrong.
+///
+/// The batch is unwrap-then-wrap: #10 is removed and #5 promoted, then #5 is
+/// wrapped in a NEW node. The shape ends up identical to where it started, but
+/// the outer node of the new tree is not #10 — #10 was destroyed and a fresh
+/// wrapper built. Only the recursion can see this: `apply_unwrap` descends to
+/// #5, and #5's own `Wrap` hint consumes the new outer node, retiring #10.
+///
+/// A kind mismatch between `keep` and `new` is therefore NOT inapplicability.
+test "composed unwrap-then-wrap retires the old wrapper id" {
+  let kept = ProjNode(Leaf("x"), 1, 2, 5, [])
+  let old = ProjNode(Branch("w", [Leaf("x")]), 0, 3, 10, [kept])
+  let new_inner = ProjNode(Leaf("x"), 1, 2, 90, [])
+  let new_ = ProjNode(Branch("w2", [Leaf("x")]), 0, 3, 91, [new_inner])
+  let hints = mk_hints([
+    (10, Unwrap(wrapper=NodeId::from_int(10), keep=NodeId::from_int(5))),
+    (5, Wrap(inner=NodeId::from_int(5))),
+  ])
+  let result = reconcile_hinted(old, new_, Ref(1000), hints)
+  // the new outer node is fresh — #10 did not survive its own unwrap
+  inspect(result.node_id >= 1000, content="true")
+  // and #5 rode the wrap into it
+  inspect(result.children[0].node_id, content="5")
 }
