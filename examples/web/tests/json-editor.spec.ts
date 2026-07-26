@@ -1,5 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 
+const jsonEditorUrl = process.env.JSON_EDITOR_URL ?? '/json.html';
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -32,10 +34,21 @@ function editorArea(page: Page) {
 
 let pageErrors: Error[];
 
+async function waitForJsonReady(page: Page): Promise<void> {
+  await expect(page.getByRole('heading', { name: '{} JSON CRDT Editor' })).toBeVisible();
+  await expect(page.locator('[data-json-ready]'))
+    .toHaveAttribute('data-json-ready', 'true');
+  if (jsonEditorUrl === '/json') {
+    await expect(page.locator('[data-route-lifecycle-ready]'))
+      .toHaveAttribute('data-route-lifecycle-ready', 'true');
+  }
+}
+
 test.beforeEach(async ({ page }) => {
   pageErrors = [];
   page.on('pageerror', (error) => pageErrors.push(error));
-  await page.goto('/json.html');
+  await page.goto(jsonEditorUrl);
+  await waitForJsonReady(page);
 });
 
 // ---------------------------------------------------------------------------

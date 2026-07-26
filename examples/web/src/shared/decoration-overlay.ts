@@ -17,18 +17,26 @@ export class DecorationOverlay {
     this.onWidgetClick = onWidgetClick;
     const host = editorEl.parentElement ?? editorEl;
     const hostStyle = window.getComputedStyle(host);
-    if (hostStyle.position === 'static') {
-      host.style.position = 'relative';
-    }
+    const previousHostPosition = host.style.position;
 
     this.overlay = document.createElement('div');
     this.overlay.className = 'decoration-overlay';
     this.overlay.setAttribute('aria-hidden', 'true');
-    host.appendChild(this.overlay);
-
     this.resizeObserver = new ResizeObserver(() => this.scheduleRender());
-    this.resizeObserver.observe(editorEl);
-    window.addEventListener('scroll', this.handleScroll, true);
+    try {
+      if (hostStyle.position === 'static') {
+        host.style.position = 'relative';
+      }
+      host.appendChild(this.overlay);
+      this.resizeObserver.observe(editorEl);
+      window.addEventListener('scroll', this.handleScroll, true);
+    } catch (error) {
+      this.resizeObserver.disconnect();
+      window.removeEventListener('scroll', this.handleScroll, true);
+      this.overlay.remove();
+      host.style.position = previousHostPosition;
+      throw error;
+    }
   }
 
   applyDecorations(decorations: Decoration[]) {

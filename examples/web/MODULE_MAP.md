@@ -47,9 +47,9 @@ Implementation inventory for the current `examples/web` workspace. The source tr
 
 Most of the source tree is intentionally flat: feature ownership is inferred from filenames rather than represented by `src/entries`, `src/features`, and `src/shared` directories. Resume/PKE, Posts, Memo, JSON, Markdown, GenUI, and GenUI Possibilities use the target entry/feature layout. `shared/decoration-overlay.ts` is shared by Lambda and JSON. GenUI keeps deterministic fixtures/flows/schema/recorded candidates in its core, browser DOM/effect code in its browser surface, and Node/provider/Vite capabilities under `server/`. Memo reuses the Lambda generated runtime. Styles are partly per-surface and partly global/adapter-owned. These are inventory facts, not exemptions from the boundary checker.
 
-## Waku migration (pre-production, #970–#973 Stages 0–4)
+## Waku migration (pre-production, #970–#974 Stages 0–5)
 
-Vite remains the default build for all eight HTML surfaces. A parallel Waku 1.0.0-beta.8 + Wrangler 4.114.0 application has landed alongside it. Stage 2 added the Hub, route-lifecycle Module, shell, placeholder routes, and 404; Stages 3–4 migrate Journey and Posts while retaining every old HTML entry.
+Vite remains the default build for all eight HTML surfaces. A parallel Waku 1.0.0-beta.8 + Wrangler 4.114.0 application has landed alongside it. Stage 2 added the Hub, route-lifecycle Module, shell, placeholder routes, and 404; Stages 3–5 migrate Journey, Posts, and JSON while retaining every old HTML entry.
 
 ### Stage 0–1 configuration and artifacts
 
@@ -65,9 +65,10 @@ Vite remains the default build for all eight HTML surfaces. A parallel Waku 1.0.
 
 - `src/pages/index.tsx` — Demo Hub. `/index.html` renders the same Hub without redirect (not a `308`).
 - `src/pages/404.tsx` — accessible true 404 with `aria-labelledby`, `tabIndex={-1}`, semantic heading.
-- `src/pages/{ml,json,markdown,memo,resume,genui}.tsx` — six canonical placeholder routes; each renders `DemoPlaceholder` from the shared shell.
+- `src/pages/{ml,markdown,memo,resume,genui}.tsx` — five canonical placeholder routes; each renders `DemoPlaceholder` from the shared shell.
 - `src/pages/journey.tsx` — canonical Journey route; composes the feature-owned route surface through the shared imperative host.
 - `src/pages/posts.tsx` — canonical Posts route; composes the feature-owned route surface through the shared imperative host.
+- `src/pages/json.tsx` — canonical JSON route; composes the feature-owned editor controller through the shared imperative host.
 - `src/pages/_layout.tsx` — pass-through shared route layout; the provider stays at `_root.tsx` so its in-memory registry survives route render failures.
 - `src/shared/catalog/demo-catalog.ts` — framework-independent catalog data (eight demos, three groups, canonical `DemoPath` routes).
 - `src/shared/shell/` — `DemoHub` and `DemoPlaceholder` React components and shared shell styles.
@@ -94,6 +95,15 @@ Stage 3 remains pre-production. Vite and `genui-possibilities.html` remain the d
 
 Stage 4 remains pre-production. Vite and `posts.html` remain the defaults and are retained. No Posts compatibility redirect is active, and the existing `canopy.posts.v1` and `canopy.post-events.v1` schemas remain unchanged.
 
+### Stage 5 — JSON editor
+
+- `src/features/json/route/{json-route,json-client}.tsx` — server/client route seam that reuses the legacy JSON markup, loads the generated MoonBit runtime only in the client bundle, and mounts through the shared imperative host.
+- `src/features/json/browser/{editor,mount}.ts` — root-scoped controller shared by Waku and Vite; snapshots source text only and owns the MoonBit handle, adapter, overlay, frames, listeners, focus, and global test hook until idempotent disposal.
+- `tests/json-editor.spec.ts` — existing JSON behavior contract, now run against both legacy Vite `/json.html` and Waku `/json`.
+- `waku-tests/json-route.spec.ts` — no-JavaScript inertness, route-memory/reload boundaries, reconstructed mode/collapse/edit-log state, focus restoration, and repeated resource-disposal coverage.
+
+Stage 5 remains pre-production. Vite and `json.html` remain the defaults and are retained. No JSON compatibility redirect is active, and no MoonBit editor API or workflow changed.
+
 Validation runs in parallel with the Vite pipeline:
 
 - `npm run build:waku` — Waku production build from prebuilt MoonBit artifacts.
@@ -104,7 +114,7 @@ Validation runs in parallel with the Vite pipeline:
 - `npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env preview` — preview Waku Worker bundle dry-run.
 - CI jobs `waku-build`, `waku-e2e`, and `waku-workerd` run alongside the existing Vite jobs until Stage 12 (Vite retirement).
 
-Both development modes reuse the same coordinator, which starts one root MoonBit watcher rather than one watcher per virtual module. `npm run dev:dual` runs Vite and Waku side by side behind that single watcher. The five generated modules are loaded only by the client probe on the Waku side.
+Both development modes reuse the same coordinator, which starts one root MoonBit watcher rather than one watcher per virtual module. `npm run dev:dual` runs Vite and Waku side by side behind that single watcher. Generated modules stay client-only on the Waku side; the probe loads all five and the migrated JSON route loads its JSON runtime on demand.
 
 ## Boundary vocabulary and allowed direction
 

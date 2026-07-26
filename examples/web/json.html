@@ -6,11 +6,13 @@
   <title>{} JSON CRDT Editor</title>
 
 </head>
-<body>
+<body class="json-surface">
+  <!-- json-shell:start -->
   <div class="container">
-    <h1>{} JSON CRDT Editor</h1>
+    <h1 data-route-heading tabindex="-1">{} JSON CRDT Editor</h1>
     <p class="subtitle">Structural JSON editing with CRDT collaboration</p>
 
+    <div class="json-app" inert data-json-ready="false">
     <div class="examples-bar">
       <span class="examples-label">Examples:</span>
       <button class="example-btn" data-example='{"hello": "world"}'>Simple</button>
@@ -24,12 +26,12 @@
         <div class="panel-header" style="display:flex;align-items:center;gap:10px">
           <h2>JSON Text</h2>
           <button id="format-btn" class="toolbar-btn" type="button">Format</button>
-          <button id="struct-toggle-btn" class="toolbar-btn" type="button" style="margin-left:auto">▦ Structured</button>
+          <button id="struct-toggle-btn" class="toolbar-btn" type="button" style="margin-left:auto" data-route-focus="structure-toggle">▦ Structured</button>
         </div>
         <div class="editor-shell">
           <div class="editor-wrapper">
             <div id="json-gutter" class="editor-gutter"></div>
-            <div id="json-input" contenteditable="plaintext-only" spellcheck="false" class="json-editor-raw"></div>
+            <div id="json-input" contenteditable="plaintext-only" spellcheck="false" class="json-editor-raw" data-route-focus="editor"></div>
             <div id="json-editor-view" class="json-editor-view" style="display:none"></div>
           </div>
 
@@ -52,7 +54,10 @@
 
     </div>
 
+    </div>
+
   </div>
+  <!-- json-shell:end -->
 
   <script type="module" src="/src/entries/json.ts"></script>
 </body>

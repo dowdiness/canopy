@@ -135,7 +135,7 @@ test('push, Back, and Forward keep one Waku history chain and focus each route h
 
   await page.getByRole('link', { name: /JSON Editor/ }).click();
   await expect(page).toHaveURL(/\/json$/);
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('JSON Editor');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('{} JSON CRDT Editor');
   await expect(page.getByRole('heading', { level: 1 })).toBeFocused();
 
   await page.goBack();
