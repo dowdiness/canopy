@@ -4,6 +4,8 @@
 
 import { test, expect, type Page } from '@playwright/test';
 
+const markdownEditorUrl = process.env.MARKDOWN_EDITOR_URL ?? '/markdown.html';
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -34,8 +36,14 @@ async function loadExample(page: Page, name: 'Hello' | 'Blog' | 'List' | 'Code')
 // ---------------------------------------------------------------------------
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/markdown.html');
+  await page.goto(markdownEditorUrl);
   await expect(page.locator('#block-container .block-text').first()).toBeVisible();
+  if (markdownEditorUrl === '/markdown') {
+    await expect(page.locator('[data-markdown-ready]'))
+      .toHaveAttribute('data-markdown-ready', 'true');
+    await expect(page.locator('[data-route-lifecycle-ready]'))
+      .toHaveAttribute('data-route-lifecycle-ready', 'true');
+  }
 });
 
 test.describe('Markdown Block Editor', () => {

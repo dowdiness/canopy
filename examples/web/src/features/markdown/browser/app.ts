@@ -2,14 +2,20 @@
 
 // Markdown Block Editor — three-mode page wiring FFI → adapters.
 
-import * as crdt from '@moonbit/crdt-markdown';
 import { BlockInput, type BlockSelection } from '@canopy/editor-adapter/block-input';
 import { MarkdownPreview } from '@canopy/editor-adapter/markdown-preview';
 import '@canopy/editor-adapter/block-input.css';
 import type { ViewPatch, UserIntent } from '@canopy/editor-adapter/types';
+import type { MountedImperativeSession } from '../../../shared/route-lifecycle/browser/imperative-session';
 import { stripParagraphSentinels } from './sentinels';
 
-export function mountMarkdownApp(): void {
+export type MarkdownEditorRuntime = typeof import('@moonbit/crdt-markdown');
+
+export function mountMarkdownApp(
+  root: Document | HTMLElement = globalThis.document,
+  restoredSnapshot: unknown,
+  crdt: MarkdownEditorRuntime,
+): MountedImperativeSession {
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -24,24 +30,14 @@ This editor has three modes: raw, block, and preview.
 type Mode = 'raw' | 'block' | 'preview';
 
 // ---------------------------------------------------------------------------
-// State
+// DOM and lifecycle ownership
 // ---------------------------------------------------------------------------
 
-const agentId = `md-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-const handle = crdt.create_markdown_editor(agentId);
-
-let activeMode: Mode = 'block';
-let activeNodeId: number | null = null;
-let savedBlockSelection: BlockSelection | null = null;
-let rawSyncScheduled = false;
-let rawDirty = false;
-
-// ---------------------------------------------------------------------------
-// DOM helpers
-// ---------------------------------------------------------------------------
+const document = root instanceof Document ? root : root.ownerDocument;
+const window = document.defaultView ?? globalThis.window;
 
 function must<T extends HTMLElement>(id: string): T {
-  const el = document.getElementById(id);
+  const el = root.querySelector<HTMLElement>(`#${id}`);
   if (!el) throw new Error(`Missing element #${id}`);
   return el as T;
 }
@@ -60,17 +56,67 @@ const h3Btn = must<HTMLButtonElement>('h3-btn');
 const listBtn = must<HTMLButtonElement>('list-btn');
 const deleteBtn = must<HTMLButtonElement>('delete-btn');
 
-const modeTabs = document.querySelectorAll<HTMLButtonElement>('.mode-tab');
+const modeTabs = Array.from(root.querySelectorAll<HTMLButtonElement>('.mode-tab'));
+const exampleButtons = Array.from(root.querySelectorAll<HTMLButtonElement>('.example-btn'));
+const surfaceCandidate = root.querySelector<HTMLElement>('[data-markdown-ready]');
+if (surfaceCandidate === null) throw new Error('Missing Markdown editor surface');
+const surfaceEl: HTMLElement = surfaceCandidate;
+const listenerAbort = new window.AbortController();
+let disposed = false;
+let rawSyncFrame: number | null = null;
+let releaseHandle: (() => void) | null = null;
+let releaseBlockInput: (() => void) | null = null;
+let releasePreview: (() => void) | null = null;
+
+function dispose(): void {
+  if (disposed) return;
+  disposed = true;
+  surfaceEl.inert = true;
+  surfaceEl.dataset.markdownReady = 'false';
+  listenerAbort.abort();
+  if (rawSyncFrame !== null) {
+    window.cancelAnimationFrame(rawSyncFrame);
+    rawSyncFrame = null;
+  }
+  const releases = [
+    ['preview adapter', releasePreview],
+    ['BlockInput adapter', releaseBlockInput],
+    ['MoonBit handle', releaseHandle],
+  ] as const;
+  releasePreview = null;
+  releaseBlockInput = null;
+  releaseHandle = null;
+  releases.forEach(([resource, release]) => {
+    try {
+      release?.();
+    } catch (error) {
+      console.error(`Failed to dispose Markdown editor ${resource}`, error);
+    }
+  });
+}
+
+try {
+const agentId = `md-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+const handle = crdt.create_markdown_editor(agentId);
+releaseHandle = () => crdt.destroy_markdown_editor(handle);
+
+let activeMode: Mode = 'block';
+let activeNodeId: number | null = null;
+let savedBlockSelection: BlockSelection | null = null;
+let rawDirty = false;
 
 // ---------------------------------------------------------------------------
 // Adapters
 // ---------------------------------------------------------------------------
 
+const paragraphSentinel = crdt.markdown_empty_paragraph_sentinel();
 const blockInput = new BlockInput(blockContainer, {
-  stripParagraphSentinels,
+  stripParagraphSentinels: (text) => stripParagraphSentinels(text, paragraphSentinel),
   getSourceText: () => crdt.markdown_export_text(handle),
 });
+releaseBlockInput = () => blockInput.destroy();
 const preview = new MarkdownPreview(previewContainer);
+releasePreview = () => preview.destroy();
 
 // ---------------------------------------------------------------------------
 // Core functions
@@ -174,14 +220,15 @@ blockInput.onIntent((intent: UserIntent) => {
 
 rawEditor.addEventListener('input', () => {
   rawDirty = true;
-  if (rawSyncScheduled) return;
-  rawSyncScheduled = true;
-  requestAnimationFrame(() => {
-    rawSyncScheduled = false;
+  if (rawSyncFrame !== null) return;
+  rawSyncFrame = window.requestAnimationFrame(() => {
+    rawSyncFrame = null;
+    if (disposed) return;
     crdt.markdown_set_text(handle, rawEditor.value);
     refresh();
+    rawDirty = false;
   });
-});
+}, { signal: listenerAbort.signal });
 
 // ---------------------------------------------------------------------------
 // Mode switching
@@ -199,6 +246,10 @@ function setMode(mode: Mode): void {
   // If they just viewed raw mode without editing, don't write back the
   // ZWSP-stripped display text (which would destroy empty block placeholders).
   if (activeMode === 'raw' && rawDirty) {
+    if (rawSyncFrame !== null) {
+      window.cancelAnimationFrame(rawSyncFrame);
+      rawSyncFrame = null;
+    }
     crdt.markdown_set_text(handle, rawEditor.value);
     refresh();
     rawDirty = false;
@@ -235,7 +286,7 @@ function setMode(mode: Mode): void {
 modeTabs.forEach(tab => {
   tab.addEventListener('click', () => {
     setMode(tab.dataset.mode as Mode);
-  });
+  }, { signal: listenerAbort.signal });
 });
 
 // ---------------------------------------------------------------------------
@@ -259,13 +310,13 @@ function toggleHeading(level: number): void {
   applyEdit('change_heading_level', activeNodeId, '', targetLevel);
 }
 
-h1Btn.addEventListener('click', () => toggleHeading(1));
-h2Btn.addEventListener('click', () => toggleHeading(2));
-h3Btn.addEventListener('click', () => toggleHeading(3));
+h1Btn.addEventListener('click', () => toggleHeading(1), { signal: listenerAbort.signal });
+h2Btn.addEventListener('click', () => toggleHeading(2), { signal: listenerAbort.signal });
+h3Btn.addEventListener('click', () => toggleHeading(3), { signal: listenerAbort.signal });
 
 listBtn.addEventListener('click', () => {
   if (activeNodeId != null) applyEdit('toggle_list_item', activeNodeId, '', 0);
-});
+}, { signal: listenerAbort.signal });
 
 deleteBtn.addEventListener('click', () => {
   if (activeNodeId == null) return;
@@ -281,13 +332,13 @@ deleteBtn.addEventListener('click', () => {
     activeNodeId = null;
     updateToolbar();
   }
-});
+}, { signal: listenerAbort.signal });
 
 // ---------------------------------------------------------------------------
 // Keyboard shortcuts (block mode)
 // ---------------------------------------------------------------------------
 
-document.addEventListener('keydown', (e) => {
+document.addEventListener('keydown', (e: KeyboardEvent) => {
   if (activeMode !== 'block' || activeNodeId === null) return;
   if (e.isComposing) return;
 
@@ -311,13 +362,13 @@ document.addEventListener('keydown', (e) => {
     applyEdit('toggle_list_item', activeNodeId, '', 0);
     return;
   }
-});
+}, { signal: listenerAbort.signal });
 
 // ---------------------------------------------------------------------------
 // Examples
 // ---------------------------------------------------------------------------
 
-document.querySelectorAll<HTMLButtonElement>('.example-btn').forEach(btn => {
+exampleButtons.forEach(btn => {
   btn.addEventListener('click', () => {
     const text = btn.dataset.example ?? DEFAULT_TEXT;
     blockInput.clearSelection();
@@ -327,25 +378,55 @@ document.querySelectorAll<HTMLButtonElement>('.example-btn').forEach(btn => {
     savedBlockSelection = null;
     refresh();
     updateToolbar();
-  });
+  }, { signal: listenerAbort.signal });
 });
 
 // ---------------------------------------------------------------------------
 // Cleanup
 // ---------------------------------------------------------------------------
 
-window.addEventListener('beforeunload', () => {
-  blockInput.destroy();
-  preview.destroy();
-  crdt.destroy_markdown_editor(handle);
-});
+window.addEventListener('beforeunload', dispose, { signal: listenerAbort.signal });
 
 // ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
 
-crdt.markdown_set_text(handle, DEFAULT_TEXT);
+rawPane.hidden = true;
+blockPane.hidden = false;
+previewPane.hidden = true;
+toolbarEl.hidden = false;
+modeTabs.forEach((tab) => {
+  tab.classList.toggle('active', tab.dataset.mode === 'block');
+});
+
+const initialText = typeof restoredSnapshot === 'string'
+  ? restoredSnapshot
+  : DEFAULT_TEXT;
+crdt.markdown_set_text(handle, initialText);
 syncRawFromModel();
 refresh();
 updateToolbar();
+surfaceEl.inert = false;
+surfaceEl.dataset.markdownReady = 'true';
+
+return {
+  snapshot: () => rawDirty || rawSyncFrame !== null
+    ? rawEditor.value
+    : crdt.markdown_export_text(handle),
+  restoreFocus(token): boolean {
+    if (disposed) return false;
+    const modeTarget = modeTabs.find((tab) => tab.dataset.routeFocus === token);
+    const target = modeTarget ?? (
+      token === 'raw-editor' && !rawPane.hidden ? rawEditor : null
+    );
+    if (target === null) return false;
+    target.focus({ preventScroll: true });
+    return document.activeElement === target;
+  },
+  dispose,
+};
+} catch (error) {
+  dispose();
+  throw error;
+}
 }

@@ -1,5 +1,5 @@
-import { DemoPlaceholder } from '../shared/shell/demo-placeholder';
+import { MarkdownRoute } from '../features/markdown/route/markdown-route';
 
 export default function Markdown() {
-  return <DemoPlaceholder demoId="markdown" />;
+  return <MarkdownRoute />;
 }

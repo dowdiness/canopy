@@ -60,6 +60,7 @@ export class BlockInput implements EditorAdapter {
   private intentCb: ((intent: UserIntent) => void) | null = null;
   private stripParagraphSentinels: (s: string) => string;
   private getSourceText: (() => string) | null;
+  private pointerUpAbort: AbortController | null = null;
 
   constructor(container: HTMLElement, opts: BlockInputOptions = {}) {
     this.container = container;
@@ -138,10 +139,14 @@ export class BlockInput implements EditorAdapter {
   }
 
   destroy(): void {
+    this.pointerUpAbort?.abort();
+    this.pointerUpAbort = null;
     this.deactivate();
     this.container.removeEventListener('click', this.onContainerClick);
     this.container.innerHTML = '';
     this.currentTree = null;
+    this.intentCb = null;
+    this.getSourceText = null;
     if (this.textarea) {
       this.textarea.remove();
       this.textarea = null;
@@ -374,17 +379,27 @@ export class BlockInput implements EditorAdapter {
 
     // Deferred blur: bind onblur only after pointerup, skip if target is toolbar
     if (!this.blurBound) {
+      this.pointerUpAbort?.abort();
+      const view = this.container.ownerDocument.defaultView ?? window;
+      const pointerUpAbort = new view.AbortController();
+      this.pointerUpAbort = pointerUpAbort;
       const handler = (e: PointerEvent) => {
+        if (this.pointerUpAbort === pointerUpAbort) this.pointerUpAbort = null;
         // Don't bind blur if click was on toolbar/menu — keeps textarea active
         if ((e.target as Element)?.closest?.('[data-no-blur]')) return;
         if (ta) ta.onblur = () => this.deactivate();
         this.blurBound = true;
       };
-      document.addEventListener('pointerup', handler as EventListener, { once: true });
+      this.container.ownerDocument.addEventListener('pointerup', handler, {
+        once: true,
+        signal: pointerUpAbort.signal,
+      });
     }
   }
 
   private deactivate(): void {
+    this.pointerUpAbort?.abort();
+    this.pointerUpAbort = null;
     if (this.activeBlockId === null) return;
     this.activeBlockId = null;
     this.blurBound = false;
