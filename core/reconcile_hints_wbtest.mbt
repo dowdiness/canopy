@@ -244,3 +244,85 @@ test "Replace hint retires the old id (node is fresh, not preserved)" {
   // same-kind would normally preserve #5; Replace retires it → the node is fresh
   inspect(result.children[0].node_id >= 1000, content="true")
 }
+
+///|
+/// Sequencing: two wraps at different depths, both hints supplied to ONE
+/// reconcile. Neither wrap makes the other's target an ambiguous sibling, so
+/// this isolates "can a batch carry more than one hint" from the ambiguity
+/// degrade tested above.
+test "a batch of two independent Wrap hints preserves both ids" {
+  // old: root#1 -> a#4 -> Leaf#5 ; root#1 -> b#6 -> Leaf#7
+  let x = ProjNode(Leaf("x"), 1, 2, 5, [])
+  let a = ProjNode(Branch("a", [Leaf("x")]), 1, 3, 4, [x])
+  let y = ProjNode(Leaf("y"), 4, 5, 7, [])
+  let b = ProjNode(Branch("b", [Leaf("y")]), 4, 6, 6, [y])
+  let old = ProjNode(
+    Branch("root", [Branch("a", [Leaf("x")]), Branch("b", [Leaf("y")])]),
+    0,
+    7,
+    1,
+    [a, b],
+  )
+  // new: each leaf gained a wrapper; every id is fresh (as after a reparse)
+  let nx = ProjNode(Leaf("x"), 1, 2, 90, [])
+  let wx = ProjNode(Branch("w", [Leaf("x")]), 1, 3, 91, [nx])
+  let na = ProjNode(Branch("a", [Branch("w", [Leaf("x")])]), 1, 4, 92, [wx])
+  let ny = ProjNode(Leaf("y"), 4, 5, 93, [])
+  let wy = ProjNode(Branch("w", [Leaf("y")]), 4, 6, 94, [ny])
+  let nb = ProjNode(Branch("b", [Branch("w", [Leaf("y")])]), 4, 7, 95, [wy])
+  let new_ = ProjNode(
+    Branch("root", [
+      Branch("a", [Branch("w", [Leaf("x")])]),
+      Branch("b", [Branch("w", [Leaf("y")])]),
+    ]),
+    0,
+    8,
+    96,
+    [na, nb],
+  )
+  let hints = mk_hints([
+    (5, Wrap(inner=NodeId::from_int(5))),
+    (7, Wrap(inner=NodeId::from_int(7))),
+  ])
+  let result = reconcile_hinted(old, new_, Ref(1000), hints)
+  // both wrapped leaves keep their ids from the one batched reconcile
+  inspect(result.children[0].children[0].children[0].node_id, content="5")
+  inspect(result.children[1].children[0].children[0].node_id, content="7")
+}
+
+///|
+/// Monotonicity: a hint whose topology no longer matches the new tree.
+///
+/// This arises whenever a batch's net effect cancels the edit the hint
+/// describes — wrap then unwrap the same node leaves the tree shaped exactly
+/// as it started, while the wrap hint computed at the first step survives.
+///
+/// The two tests below pin CURRENT behaviour, and together they say: supplying
+/// a stale hint is worse than supplying none. That makes "attach a hint
+/// whenever one is available" unsafe as a caller contract. Whether to fix this
+/// in reconcile (reject a hint whose topology does not match) or to require
+/// freshness of callers is an open choice; these tests exist so that either
+/// decision shows up here as a diff.
+test "without hints, an edit whose net effect is nil preserves identity" {
+  let inner = ProjNode(Leaf("x"), 1, 2, 5, [])
+  let old = ProjNode(Branch("root", [Leaf("x")]), 0, 3, 1, [inner])
+  // same shape, all ids fresh (a reparse after wrap-then-unwrap)
+  let new_inner = ProjNode(Leaf("x"), 1, 2, 90, [])
+  let new_ = ProjNode(Branch("root", [Leaf("x")]), 0, 3, 91, [new_inner])
+  let result = reconcile(old, new_, Ref(1000))
+  inspect(result.node_id, content="1")
+  inspect(result.children[0].node_id, content="5")
+}
+
+///|
+test "a stale Wrap hint loses identity that the unhinted path keeps" {
+  let inner = ProjNode(Leaf("x"), 1, 2, 5, [])
+  let old = ProjNode(Branch("root", [Leaf("x")]), 0, 3, 1, [inner])
+  let new_inner = ProjNode(Leaf("x"), 1, 2, 90, [])
+  let new_ = ProjNode(Branch("root", [Leaf("x")]), 0, 3, 91, [new_inner])
+  // The wrap this hint describes was undone later in the same batch: there is
+  // no wrapper in `new_` for #5 to be found inside.
+  let hints = mk_hints([(5, Wrap(inner=NodeId::from_int(5)))])
+  let result = reconcile_hinted(old, new_, Ref(1000), hints)
+  inspect(result.children[0].node_id >= 1000, content="true")
+}
