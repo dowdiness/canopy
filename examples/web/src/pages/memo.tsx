@@ -1,5 +1,5 @@
-import { DemoPlaceholder } from '../shared/shell/demo-placeholder';
+import { MemoRoute } from '../features/memo/route/memo-route';
 
 export default function Memo() {
-  return <DemoPlaceholder demoId="memo" />;
+  return <MemoRoute />;
 }

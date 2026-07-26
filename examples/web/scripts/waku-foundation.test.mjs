@@ -110,6 +110,70 @@ test('detects each generated runtime fingerprint in a server/RSC bundle', () => 
   assert.deepEqual(result.missingClientModules, []);
 });
 
+test('rejects the development-only Mini-ML AST Grep request in production bundles', () => {
+  const result = inspectWakuBundles({
+    serverBundles: [],
+    clientBundles: [{
+      name: 'dist/public/assets/ml-a.js',
+      source: 'fetch("/api/ast-grep")',
+    }],
+  });
+  assert.deepEqual(result.productionClientArtifactLeaks, [{
+    capability: 'Mini-ML AST Grep request',
+    fingerprint: '/api/ast-grep',
+    file: 'dist/public/assets/ml-a.js',
+  }]);
+});
+
+test('rejects Memo development and provider capabilities outside the shared Lambda artifact', () => {
+  const providerFingerprints = [
+    'https://generativelanguage.googleapis.com/v1beta/models/',
+    'canopy_llm_fix_typos',
+    'canopy_llm_edit',
+  ];
+  const result = inspectWakuBundles({
+    serverBundles: [],
+    clientBundles: [{
+      name: 'dist/public/assets/memo-route-a.js',
+      source: [
+        'data-memo-ready',
+        'The Memo runtime is unavailable on the client',
+        ...providerFingerprints,
+      ].join('\n'),
+    }, {
+      name: 'dist/public/assets/crdt-lambda-a.js',
+      source: ['assemble_lambda_handle', ...providerFingerprints].join('\n'),
+    }],
+  });
+  assert.deepEqual(result.productionClientArtifactLeaks, [
+    {
+      capability: 'Memo development shell',
+      fingerprint: 'data-memo-ready',
+      file: 'dist/public/assets/memo-route-a.js',
+    },
+    {
+      capability: 'Memo client module',
+      fingerprint: 'The Memo runtime is unavailable on the client',
+      file: 'dist/public/assets/memo-route-a.js',
+    },
+    {
+      capability: 'Memo provider URL',
+      fingerprint: 'https://generativelanguage.googleapis.com/v1beta/models/',
+      file: 'dist/public/assets/memo-route-a.js',
+    },
+    {
+      capability: 'Memo provider function',
+      fingerprint: 'canopy_llm_fix_typos',
+      file: 'dist/public/assets/memo-route-a.js',
+    },
+    {
+      capability: 'Memo provider function',
+      fingerprint: 'canopy_llm_edit',
+      file: 'dist/public/assets/memo-route-a.js',
+    },
+  ]);
+});
+
 test('keeps Vite defaults while exposing explicit dual-run commands', () => {
   const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
   assert.equal(pkg.scripts.dev, 'vite');
@@ -199,4 +263,7 @@ test('isolates the non-deploying Waku foundation from the existing Vite deployme
 
   const smoke = fs.readFileSync(new URL('./smoke-waku-worker.sh', import.meta.url), 'utf8');
   assert.match(smoke, /wrangler dev --config wrangler\.waku\.jsonc --env preview/);
+  assert.match(smoke, /127\.0\.0\.1:\$\{PORT\}\/memo/);
+  assert.match(smoke, /data-memo-production-unavailable/);
+  assert.match(smoke, /id="api-key"\|Fix Typos\|data-imperative-demo-host="memo"/);
 });

@@ -1,5 +1,5 @@
-import { DemoPlaceholder } from '../shared/shell/demo-placeholder';
+import { LambdaRoute } from '../features/lambda/route/lambda-route';
 
 export default function Ml() {
-  return <DemoPlaceholder demoId="lambda" />;
+  return <LambdaRoute />;
 }

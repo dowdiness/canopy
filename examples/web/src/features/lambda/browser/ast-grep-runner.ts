@@ -15,8 +15,7 @@ export async function runAnalysis(
 ): Promise<AstGrepMatch[]> {
   if (text.trim() === '') return [];
 
-  const importMeta = import.meta as ImportMeta & { env?: { DEV?: boolean } };
-  if (!importMeta.env?.DEV) return [];
+  if (!import.meta.env.DEV) return [];
 
   const response = await fetch('/api/ast-grep', {
     method: 'POST',

@@ -11,36 +11,48 @@ export interface MemoView {
   memoText(): string;
   setMemoText(value: string): void;
   apiKey(): string;
+  clearApiKey(): void;
   instruction(): string;
+  setInstruction(value: string): void;
+  focusMemo(): void;
   focusApiKey(): void;
   focusInstruction(): void;
   setStatus(message: string, tone?: StatusTone): void;
   setLoading(loading: boolean): void;
   showDiff(original: string, fixed: string): void;
   hideDiff(): void;
-  bind(handlers: MemoViewHandlers): void;
+  bind(handlers: MemoViewHandlers, signal: AbortSignal): void;
 }
 
-export function createMemoView(document: Document): MemoView {
-  const memoEl = document.getElementById('memo') as HTMLTextAreaElement;
-  const apiKeyEl = document.getElementById('api-key') as HTMLInputElement;
-  const fixTyposBtn = document.getElementById('fix-typos-btn') as HTMLButtonElement;
-  const editBtn = document.getElementById('edit-btn') as HTMLButtonElement;
-  const instructionEl = document.getElementById('instruction') as HTMLInputElement;
-  const statusEl = document.getElementById('status') as HTMLDivElement;
-  const diffSection = document.getElementById('diff-section') as HTMLDivElement;
-  const diffOriginal = document.getElementById('diff-original') as HTMLPreElement;
-  const diffFixed = document.getElementById('diff-fixed') as HTMLPreElement;
-  const acceptBtn = document.getElementById('accept-btn') as HTMLButtonElement;
-  const rejectBtn = document.getElementById('reject-btn') as HTMLButtonElement;
+export function createMemoView(root: Document | HTMLElement): MemoView {
+  function must<T extends HTMLElement>(selector: string): T {
+    const element = root.querySelector<HTMLElement>(selector);
+    if (element === null) throw new Error(`Missing Memo editor element ${selector}`);
+    return element as T;
+  }
+
+  const memoEl = must<HTMLTextAreaElement>('#memo');
+  const apiKeyEl = must<HTMLInputElement>('#api-key');
+  const fixTyposBtn = must<HTMLButtonElement>('#fix-typos-btn');
+  const editBtn = must<HTMLButtonElement>('#edit-btn');
+  const instructionEl = must<HTMLInputElement>('#instruction');
+  const statusEl = must<HTMLDivElement>('#status');
+  const diffSection = must<HTMLDivElement>('#diff-section');
+  const diffOriginal = must<HTMLPreElement>('#diff-original');
+  const diffFixed = must<HTMLPreElement>('#diff-fixed');
+  const acceptBtn = must<HTMLButtonElement>('#accept-btn');
+  const rejectBtn = must<HTMLButtonElement>('#reject-btn');
 
   return {
     memoText: () => memoEl.value,
-    setMemoText: value => { memoEl.value = value; },
+    setMemoText: (value) => { memoEl.value = value; },
     apiKey: () => apiKeyEl.value,
+    clearApiKey: () => { apiKeyEl.value = ''; },
     instruction: () => instructionEl.value,
-    focusApiKey: () => apiKeyEl.focus(),
-    focusInstruction: () => instructionEl.focus(),
+    setInstruction: (value) => { instructionEl.value = value; },
+    focusMemo: () => memoEl.focus({ preventScroll: true }),
+    focusApiKey: () => apiKeyEl.focus({ preventScroll: true }),
+    focusInstruction: () => instructionEl.focus({ preventScroll: true }),
     setStatus(message: string, tone: StatusTone = ''): void {
       statusEl.textContent = message;
       statusEl.className = `status-bar ${tone}`;
@@ -60,12 +72,14 @@ export function createMemoView(document: Document): MemoView {
     },
     hideDiff(): void {
       diffSection.classList.remove('visible');
+      diffOriginal.textContent = '';
+      diffFixed.textContent = '';
     },
-    bind({ fixTypos, edit, accept, reject }): void {
-      fixTyposBtn.addEventListener('click', () => { void fixTypos(); });
-      editBtn.addEventListener('click', () => { void edit(); });
-      acceptBtn.addEventListener('click', accept);
-      rejectBtn.addEventListener('click', reject);
+    bind({ fixTypos, edit, accept, reject }, signal): void {
+      fixTyposBtn.addEventListener('click', () => { void fixTypos(); }, { signal });
+      editBtn.addEventListener('click', () => { void edit(); }, { signal });
+      acceptBtn.addEventListener('click', accept, { signal });
+      rejectBtn.addEventListener('click', reject, { signal });
     },
   };
 }
