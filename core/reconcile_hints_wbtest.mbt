@@ -484,3 +484,147 @@ test "composed unwrap-then-wrap retires the old wrapper id" {
   // and #5 rode the wrap into it
   inspect(result.children[0].node_id, content="5")
 }
+
+// ── Still violated: hints that ARE applicable somewhere ───────────────────
+//
+// The three pins below are NOT covered by the property above, and are recorded
+// so the remaining surface is visible rather than implied by its absence. Each
+// names its own cause. The first is a design decision (T3); the other two are
+// open defects of the same family as the one just fixed — a hint's presence
+// costing identity that plain LCS would have kept.
+
+///|
+/// Cause: T3, deliberately — but note the mechanism, which is NOT `apply_wrap`.
+/// Two candidate wrappers make `hint_pair_counts` return 2, so
+/// `try_unmatched_hint_pair` rejects the candidate and `structural_pair` is
+/// never reached. `apply_wrap`'s own ambiguity branch guards the same principle
+/// one level in (see the same-kind ambiguous-wrap test above, which does reach
+/// it). Making either inert would require leaving #5's id on a node that may
+/// really be its wrapper.
+test "STILL VIOLATED (by design, T3): an ambiguous Wrap hint is not inert" {
+  let inner = ProjNode(Leaf("x"), 1, 2, 5, [])
+  let old = ProjNode(Branch("root", [Leaf("x")]), 0, 3, 1, [inner])
+  // Unhinted, LCS carries #5 into the standalone Leaf. Hinted, #5 is withheld
+  // from LCS for two candidate wrappers and then paired with neither.
+  let plain = ProjNode(Leaf("x"), 1, 2, 90, [])
+  let wa_leaf = ProjNode(Leaf("x"), 2, 3, 91, [])
+  let wa = ProjNode(Branch("w", [Leaf("x")]), 2, 4, 92, [wa_leaf])
+  let wb_leaf = ProjNode(Leaf("x"), 4, 5, 93, [])
+  let wb = ProjNode(Branch("w", [Leaf("x")]), 4, 6, 94, [wb_leaf])
+  let new_ = ProjNode(
+    Branch("root", [
+      Leaf("x"),
+      Branch("w", [Leaf("x")]),
+      Branch("w", [Leaf("x")]),
+    ]),
+    0,
+    7,
+    95,
+    [plain, wa, wb],
+  )
+  let hints = mk_hints([(5, Wrap(inner=NodeId::from_int(5)))])
+  inspect(hinted_result_is_inert(old, new_, hints), content="false")
+}
+
+///|
+/// Cause: domain mismatch across the LCS step. Exclusion asks "does this hint
+/// pair with ANY new child"; pairing afterwards asks "does it pair with an
+/// LCS-UNMATCHED new child". LCS runs in between and can consume the sole
+/// wrapper, leaving the withheld old child with nothing.
+///
+/// Fixing this means reserving hint partners globally BEFORE LCS, so that
+/// exclusion and pairing agree on one domain — a strictly larger change than
+/// the applicability gate, because the reservation must be unique in both
+/// directions and must then also remove the reserved NEW child from LCS.
+test "STILL VIOLATED: LCS can consume the sole wrapper a hint needed" {
+  let l5 = ProjNode(Leaf("x"), 0, 1, 5, [])
+  let b6 = ProjNode(Branch("b", [Leaf("y")]), 1, 3, 6, [
+    ProjNode(Leaf("y"), 1, 2, 7, []),
+  ])
+  let old = ProjNode(
+    Branch("root", [Leaf("x"), Branch("b", [Leaf("y")])]),
+    0,
+    4,
+    1,
+    [l5, b6],
+  )
+  // The wrapper is same_kind as #6, so LCS pairs it with #6 first; #5 was
+  // withheld on that wrapper's account and now has no partner left.
+  let plain = ProjNode(Leaf("x"), 0, 1, 90, [])
+  let w_leaf = ProjNode(Leaf("x"), 2, 3, 91, [])
+  let wrapper = ProjNode(Branch("w", [Leaf("x")]), 2, 4, 92, [w_leaf])
+  let new_ = ProjNode(
+    Branch("root", [Leaf("x"), Branch("w", [Leaf("x")])]),
+    0,
+    5,
+    93,
+    [plain, wrapper],
+  )
+  let hints = mk_hints([(5, Wrap(inner=NodeId::from_int(5)))])
+  inspect(hinted_result_is_inert(old, new_, hints), content="false")
+}
+
+///|
+/// Cause: the same domain mismatch, stated as the caller hazard it actually is.
+/// This one is not measured against the unhinted path but against a SMALLER
+/// hint map: adding a second hint that cannot be satisfied destroys the
+/// identity the first hint was successfully carrying. So hints do not compose,
+/// and "attach every hint you have" remains unsafe even after exit 1.
+test "STILL VIOLATED: an extra unsatisfiable hint destroys a live hint's work" {
+  let l5 = ProjNode(Leaf("x"), 0, 1, 5, [])
+  let l6 = ProjNode(Leaf("x"), 1, 2, 6, [])
+  let old = ProjNode(Branch("root", [Leaf("x"), Leaf("x")]), 0, 3, 1, [l5, l6])
+  let plain = ProjNode(Leaf("x"), 0, 1, 90, [])
+  let w_leaf = ProjNode(Leaf("x"), 2, 3, 91, [])
+  let wrapper = ProjNode(Branch("w", [Leaf("x")]), 2, 4, 92, [w_leaf])
+  let new_ = ProjNode(
+    Branch("root", [Leaf("x"), Branch("w", [Leaf("x")])]),
+    0,
+    5,
+    93,
+    [plain, wrapper],
+  )
+  // With only #6 hinted, #6 rides the hint into the wrapper.
+  let one = mk_hints([(6, Wrap(inner=NodeId::from_int(6)))])
+  let with_one = reconcile_hinted(old, new_, Ref(1000), one)
+  inspect(with_one.children[1].children[0].node_id, content="6")
+  // Adding #5's hint — which cannot be satisfied, both claim the one wrapper —
+  // costs #6 the identity it had.
+  let two = mk_hints([
+    (5, Wrap(inner=NodeId::from_int(5))),
+    (6, Wrap(inner=NodeId::from_int(6))),
+  ])
+  let with_two = reconcile_hinted(old, new_, Ref(1000), two)
+  inspect(with_two.children[1].children[0].node_id >= 1000, content="true")
+}
+
+///|
+/// Cause: `reconcile_hinted` consults `structural_pair` at the ROOT before any
+/// child LCS runs, so the applicability gate — which lives in
+/// `reconcile_children` — never sees this hint. Exit 1 fixes the zero-target
+/// root case (via `apply_wrap`), but an ambiguous root Wrap still freshens the
+/// whole tree where the unhinted path preserves the root id.
+test "STILL VIOLATED: an ambiguous Wrap on the ROOT freshens the whole tree" {
+  let inner = ProjNode(Leaf("x"), 1, 2, 5, [])
+  let old = ProjNode(Branch("root", [Leaf("x")]), 0, 3, 1, [inner])
+  let c1 = ProjNode(Branch("a", [Leaf("x")]), 1, 3, 90, [
+    ProjNode(Leaf("x"), 1, 2, 91, []),
+  ])
+  let c2 = ProjNode(Branch("b", [Leaf("y")]), 3, 5, 92, [
+    ProjNode(Leaf("y"), 3, 4, 93, []),
+  ])
+  let new_ = ProjNode(
+    Branch("root", [Branch("a", [Leaf("x")]), Branch("b", [Leaf("y")])]),
+    0,
+    6,
+    94,
+    [c1, c2],
+  )
+  let hints = mk_hints([(1, Wrap(inner=NodeId::from_int(1)))])
+  // Unhinted the root keeps #1; hinted it does not.
+  inspect(reconcile(old, new_, Ref(1000)).node_id, content="1")
+  inspect(
+    reconcile_hinted(old, new_, Ref(1000), hints).node_id >= 1000,
+    content="true",
+  )
+}
