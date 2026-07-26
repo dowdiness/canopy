@@ -485,43 +485,43 @@ and rollback instructions identify the retained stable Worker/Pages versions.
 
 ## Implementation Work Packages
 
-Create ten child implementation issues that link this plan. Their bodies contain
-scope, dependencies, exit criteria, and validation links; they do not copy the
-whole plan.
+The migration is split into ten child implementation issues. Their bodies
+contain scope, dependencies, exit criteria, and validation links; they do not
+copy the whole plan.
 
-1. **Establish the dual Vite/Waku foundation and MoonBit artifact contract**
+1. **[#970 — Establish the dual Vite/Waku foundation and MoonBit artifact contract](https://github.com/dowdiness/canopy/issues/970)**
    - Scope: Stage 0–1 configuration, scripts, boundary rules, generated binding
      types, lifecycle-hook probe, and parallel CI skeleton.
    - Exit: Stage 1 gate; no feature behavior migration.
 
-2. **Build the Waku Hub, route-lifecycle Module, and common route states**
+2. **[#971 — Build the Waku Hub, route-lifecycle Module, and common route states](https://github.com/dowdiness/canopy/issues/971)**
    - Depends on 1. Scope: Stage 2, route table, catalog, shell, reducer/provider,
      imperative host, 404, focus/error contract tests.
    - Exit: Stage 2 gate; no old HTML removal.
 
-3. **Migrate Journey to `/journey`**
+3. **[#972 — Migrate Journey to `/journey`](https://github.com/dowdiness/canopy/issues/972)**
    - Depends on 2. Scope and exit: Stage 3.
 
-4. **Migrate Posts to `/posts` without storage drift**
+4. **[#973 — Migrate Posts to `/posts` without storage drift](https://github.com/dowdiness/canopy/issues/973)**
    - Depends on 2. Scope and exit: Stage 4.
 
-5. **Migrate JSON to `/json` as the imperative lifecycle reference**
+5. **[#974 — Migrate JSON to `/json` as the imperative lifecycle reference](https://github.com/dowdiness/canopy/issues/974)**
    - Depends on 2. Scope and exit: Stage 5.
 
-6. **Migrate Markdown to `/markdown`**
+6. **[#975 — Migrate Markdown to `/markdown`](https://github.com/dowdiness/canopy/issues/975)**
    - Depends on 5. Scope and exit: Stage 6.
 
-7. **Migrate Mini-ML and Memo with their production capability split**
+7. **[#976 — Migrate Mini-ML and Memo with their production capability split](https://github.com/dowdiness/canopy/issues/976)**
    - Depends on 5. Use separate commits for Mini-ML and Memo. Scope and exit:
      Stage 7.
 
-8. **Migrate Resume to `/resume` with native React snapshot ownership**
+8. **[#977 — Migrate Resume to `/resume` with native React snapshot ownership](https://github.com/dowdiness/canopy/issues/977)**
    - Depends on 2. Scope and exit: Stage 8.
 
-9. **Migrate GenUI to `/genui` and preserve recorded production replay**
+9. **[#978 — Migrate GenUI to `/genui` and preserve recorded production replay](https://github.com/dowdiness/canopy/issues/978)**
    - Depends on 5. Scope and exit: Stage 9.
 
-10. **Deploy the Waku Worker, verify signaling, cut over, and retire Vite**
+10. **[#979 — Deploy the Waku Worker, verify signaling, cut over, and retire Vite](https://github.com/dowdiness/canopy/issues/979)**
     - Depends on 3–9. Scope: Stage 10–12, all seven redirects, staging,
       observability, protected production deployment, rollback, final cleanup.
     - Exit: Stage 12 gate.
