@@ -21,6 +21,7 @@
     "test:foundation": "node --test scripts/waku-foundation.test.mjs scripts/waku-lifecycle-contract.test.mjs",
     "check:waku-bundles": "node scripts/check-waku-bundles.mjs",
     "test:waku:e2e": "playwright test --config=playwright.waku.config.ts",
+    "test:waku:preview": "playwright test --config=playwright.waku-preview.config.ts",
     "dev:dual": "bash scripts/dev-dual.sh",
     "test:waku:workerd": "bash scripts/smoke-waku-worker.sh"
   },

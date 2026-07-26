@@ -6,6 +6,7 @@ if (!Number.isInteger(port) || port < 1 || port > 65_535) {
 }
 
 process.env.GENUI_POSSIBILITIES_URL = '/journey';
+process.env.GENUI_URL = '/genui';
 process.env.POSTS_URL = '/posts';
 process.env.LAMBDA_EDITOR_URL = '/ml';
 process.env.MEMO_EDITOR_URL = '/memo';
@@ -17,6 +18,7 @@ export default defineConfig({
   testDir: '.',
   testMatch: [
     'waku-tests/**/*.spec.ts',
+    'tests/genui.spec.ts',
     'tests/genui-possibilities.spec.ts',
     'tests/lambda-editor.spec.ts',
     'tests/memo-editor.spec.ts',

@@ -472,6 +472,10 @@ jobs:
         working-directory: examples/web
         run: npm run test:waku:e2e
 
+      - name: Run built Waku GenUI preview probes
+        working-directory: examples/web
+        run: npm run test:waku:preview
+
   waku-workerd:
     name: Waku Worker Foundation Smoke
     needs: [waku-build]

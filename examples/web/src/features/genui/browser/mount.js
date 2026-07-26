@@ -23,45 +23,87 @@ const EXAMPLES = [
   `<div class="bg-gradient-to-br from-indigo-500 to-purple-600 text-white p-6 rounded-xl shadow-lg max-w-md">\n  <h1 class="text-2xl font-bold mb-4">Tailwind CSS</h1>\n  <p class="text-indigo-100 mb-3">Classes from input JSX are applied to rendered DOM.</p>\n  <div class="flex gap-2">\n    <span class="bg-white/20 px-3 py-1 rounded-full text-sm">Active</span>\n    <span class="bg-white/10 px-3 py-1 rounded-full text-sm">Pending</span>\n  </div>\n  <p class="mt-4 text-indigo-200 text-sm">Gradient card via Tailwind utilities.</p>\n</div>`,
 ];
 
-const sourceInput = document.getElementById('source-input')
-const streamBtn = document.getElementById('stream-btn')
-const clearBtn = document.getElementById('clear-btn')
-const treeOutput = document.getElementById('tree-output')
-const htmlPreview = document.getElementById('html-preview')
-const errorsList = document.getElementById('errors-list')
-const stepNum = document.getElementById('step-num')
-const htmlStepNum = document.getElementById('html-step-num')
-const htmlNodeCount = document.getElementById('html-node-count')
-const streamProgress = document.getElementById('stream-progress')
-const statusBar = document.getElementById('status-bar')
-const dataFilterInput = document.getElementById('data-filter-input')
-const dataFilterClear = document.getElementById('data-filter-clear')
-const dataJsonSource = document.getElementById('data-json-source')
-const dataCsvSource = document.getElementById('data-csv-source')
+const DEFAULT_RUNTIME = Object.freeze({
+  loadJsx: () => import('@moonbit/crdt-jsx'),
+});
 
-const dataSourceLabel = document.getElementById('data-source-label')
-const dataRowCount = document.getElementById('data-row-count')
-const dataSummaryCount = document.getElementById('data-summary-count')
-const dataSummaryTotal = document.getElementById('data-summary-total')
-const dataSummaryAverage = document.getElementById('data-summary-average')
-const ordersTableBody = document.getElementById('orders-table-body')
-const dataSelectionStatus = document.getElementById('data-selection-status')
-const dataDetailEmpty = document.getElementById('data-detail-empty')
-const dataDetailContent = document.getElementById('data-detail-content')
-const dataDetailId = document.getElementById('data-detail-id')
-const dataDetailName = document.getElementById('data-detail-name')
-const dataDetailStatus = document.getElementById('data-detail-status')
-const dataDetailAmount = document.getElementById('data-detail-amount')
-const feasibilityQuestion = document.getElementById('feasibility-question')
-const feasibilitySource = document.getElementById('feasibility-source')
-const feasibilityRunRecorded = document.getElementById('feasibility-run-recorded')
-const feasibilityStatus = document.getElementById('feasibility-status')
-const feasibilityClassification = document.getElementById('feasibility-classification')
-const feasibilityRevision = document.getElementById('feasibility-revision')
-const feasibilityKeys = document.getElementById('feasibility-keys')
-const feasibilitySummary = document.getElementById('feasibility-summary')
-const feasibilityRubric = document.getElementById('feasibility-rubric')
-const feasibilityHash = document.getElementById('feasibility-hash')
+function splitStreamPrefixes(source) {
+  const prefixes = []
+  let lastSplit = 0
+  for (let index = 0; index < source.length; index += 1) {
+    if (source[index] === '>' && index - lastSplit >= 10) {
+      prefixes.push(source.slice(0, index + 1))
+      lastSplit = index
+    }
+  }
+  if (prefixes[prefixes.length - 1] !== source) prefixes.push(source)
+  return prefixes
+}
+
+function readSnapshot(value) {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+  return value.version === 1 ? value : null;
+}
+
+export function mountGenui(
+  root = globalThis.document,
+  restoredSnapshot = undefined,
+  runtime = DEFAULT_RUNTIME,
+) {
+const document = root.ownerDocument ?? root
+const window = document.defaultView ?? globalThis.window
+const surface = root.querySelector('.genui-surface')
+const snapshot = readSnapshot(restoredSnapshot)
+const listenerController = new window.AbortController()
+const liveRequestControllers = new Set()
+const testSessionHandles = new Set()
+const asyncDriverHandles = new Set()
+const asyncProviderHandles = new Set()
+let disposed = false
+let ready = false
+let pendingFocusToken = null
+let streamDelayCancel = null
+
+const sourceInput = root.querySelector('#source-input')
+const streamBtn = root.querySelector('#stream-btn')
+const clearBtn = root.querySelector('#clear-btn')
+const treeOutput = root.querySelector('#tree-output')
+const htmlPreview = root.querySelector('#html-preview')
+const errorsList = root.querySelector('#errors-list')
+const stepNum = root.querySelector('#step-num')
+const htmlStepNum = root.querySelector('#html-step-num')
+const htmlNodeCount = root.querySelector('#html-node-count')
+const streamProgress = root.querySelector('#stream-progress')
+const statusBar = root.querySelector('#status-bar')
+const dataFilterInput = root.querySelector('#data-filter-input')
+const dataFilterClear = root.querySelector('#data-filter-clear')
+const dataJsonSource = root.querySelector('#data-json-source')
+const dataCsvSource = root.querySelector('#data-csv-source')
+
+const dataSourceLabel = root.querySelector('#data-source-label')
+const dataRowCount = root.querySelector('#data-row-count')
+const dataSummaryCount = root.querySelector('#data-summary-count')
+const dataSummaryTotal = root.querySelector('#data-summary-total')
+const dataSummaryAverage = root.querySelector('#data-summary-average')
+const ordersTableBody = root.querySelector('#orders-table-body')
+const dataSelectionStatus = root.querySelector('#data-selection-status')
+const dataDetailEmpty = root.querySelector('#data-detail-empty')
+const dataDetailContent = root.querySelector('#data-detail-content')
+const dataDetailId = root.querySelector('#data-detail-id')
+const dataDetailName = root.querySelector('#data-detail-name')
+const dataDetailStatus = root.querySelector('#data-detail-status')
+const dataDetailAmount = root.querySelector('#data-detail-amount')
+const feasibilityPreview = root.querySelector('#feasibility-preview')
+const feasibilityQuestion = root.querySelector('#feasibility-question')
+const feasibilitySource = root.querySelector('#feasibility-source')
+const feasibilityRunRecorded = root.querySelector('#feasibility-run-recorded')
+const feasibilityStatus = root.querySelector('#feasibility-status')
+const feasibilityClassification = root.querySelector('#feasibility-classification')
+const feasibilityRevision = root.querySelector('#feasibility-revision')
+const feasibilityKeys = root.querySelector('#feasibility-keys')
+const feasibilitySummary = root.querySelector('#feasibility-summary')
+const feasibilityRubric = root.querySelector('#feasibility-rubric')
+const feasibilityHash = root.querySelector('#feasibility-hash')
 
 let isStreaming = false
 let abortStream = false
@@ -69,60 +111,74 @@ let previousNodeIds = new Set()
 let jsxModule = null
 let jsxSessionHandle = null
 let jsxSessionRevision = null
-let dataRows = ORDER_ROWS
-let dataSource = 'JSON fixture'
-let selectedOrderId = null
+let committedJsxSource = null
+let committedJsxRevision = null
+let dataRows = snapshot?.explorer?.source === 'csv'
+  ? parseOrdersCsv(ORDERS_CSV_FIXTURE)
+  : ORDER_ROWS
+let dataSource = snapshot?.explorer?.source === 'csv' ? 'CSV fixture' : 'JSON fixture'
+let selectedOrderId = selectOrder(dataRows, snapshot?.explorer?.selectedOrderId ?? '')
 
-document.querySelectorAll('[data-example]').forEach(function(btn) {
+if (typeof snapshot?.jsxSource === 'string') sourceInput.value = snapshot.jsxSource
+if (typeof snapshot?.explorer?.filter === 'string') dataFilterInput.value = snapshot.explorer.filter
+if (
+  typeof snapshot?.committed?.source === 'string' &&
+  Number.isInteger(snapshot?.committed?.revision) &&
+  snapshot.committed.revision > 0
+) {
+  committedJsxSource = snapshot.committed.source
+  committedJsxRevision = snapshot.committed.revision
+}
+
+root.querySelectorAll('[data-example]').forEach(function(btn) {
   btn.addEventListener('click', function() {
     if (isStreaming) return;
     sourceInput.value = EXAMPLES[parseInt(btn.dataset.example)];
     resetState();
     statusBar.textContent = 'Example loaded. Click \u25B6 Stream.';
-  });
+  }, { signal: listenerController.signal });
 });
 
-document.querySelectorAll('.view-tab').forEach(function(tab) {
+root.querySelectorAll('.view-tab').forEach(function(tab) {
   tab.addEventListener('click', function() {
     const view = tab.dataset.view;
     tab.parentElement.querySelectorAll('.view-tab').forEach(function(t) { t.classList.remove('active'); });
     tab.classList.add('active');
     tab.parentElement.parentElement.querySelectorAll('.view-panel').forEach(function(p) { p.classList.remove('active'); });
-    const panel = document.getElementById('view-' + view)
+    const panel = root.querySelector('#view-' + view)
     panel.classList.add('active');
     panel.style.display = 'flex';
-  });
+  }, { signal: listenerController.signal });
 });
 
 clearBtn.addEventListener('click', function() {
-  abortStream = true;
-  isStreaming = false;
+  cancelStream();
   streamBtn.disabled = false;
   streamBtn.textContent = '\u25B6 Stream';
   streamBtn.className = 'btn-primary';
   resetState();
   statusBar.textContent = 'Cleared.';
-});
+}, { signal: listenerController.signal });
 
-dataFilterInput.addEventListener('input', renderDataExplorer)
+dataFilterInput.addEventListener('input', renderDataExplorer, { signal: listenerController.signal })
 dataFilterClear.addEventListener('click', function() {
   dataFilterInput.value = '';
   renderDataExplorer();
   dataFilterInput.focus();
-});
+}, { signal: listenerController.signal });
 
 dataJsonSource.addEventListener('click', function() {
   setDataSource(ORDER_ROWS, 'JSON fixture');
-});
+}, { signal: listenerController.signal });
 
 dataCsvSource.addEventListener('click', function() {
   setDataSource(parseOrdersCsv(ORDERS_CSV_FIXTURE), 'CSV fixture');
-});
+}, { signal: listenerController.signal });
 
 function renderDataExplorer() {
   const view = deriveOrderView(dataRows, dataFilterInput.value, selectedOrderId);
   const summary = summarizeOrders(view.rows);
-  const focusedOrderId = document.activeElement instanceof HTMLElement
+  const focusedOrderId = document.activeElement instanceof window.HTMLElement
     ? document.activeElement.dataset.orderId ?? null
     : null;
   dataRowCount.textContent = String(view.rows.length);
@@ -139,13 +195,14 @@ function renderDataExplorer() {
     tr.dataset.testid = 'order-row-' + row.id;
     tr.tabIndex = 0;
     tr.setAttribute('aria-selected', String(row.id === selectedOrderId));
-    tr.addEventListener('click', () => selectDataRow(row.id));
+    tr.dataset.routeFocus = 'order:' + row.id;
+    tr.addEventListener('click', () => selectDataRow(row.id), { signal: listenerController.signal });
     tr.addEventListener('keydown', (event) => {
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
         selectDataRow(row.id);
       }
-    });
+    }, { signal: listenerController.signal });
 
     appendOrderCell(tr, row.id, 'text-canopy-muted');
     appendOrderCell(tr, row.name, 'text-canopy-text');
@@ -160,7 +217,7 @@ function renderDataExplorer() {
 
   if (focusedOrderId !== null) {
     for (const candidate of ordersTableBody.children) {
-      if (candidate instanceof HTMLElement && candidate.dataset.orderId === focusedOrderId) {
+      if (candidate instanceof window.HTMLElement && candidate.dataset.orderId === focusedOrderId) {
         candidate.focus();
         break;
       }
@@ -213,18 +270,30 @@ function formatOrderAmount(amount) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 }
 
-let selectedFeasibilityCaseId = 'orders-pending-attention'
+const restoredCaseIds = new Set([
+  'orders-pending-attention',
+  'inventory-low-stock',
+  'incidents-critical-resolution',
+])
+let selectedFeasibilityCaseId = restoredCaseIds.has(snapshot?.recordedCaseId)
+  ? snapshot.recordedCaseId
+  : 'orders-pending-attention'
 let feasibilitySessionHandle = null
 let feasibilitySessionRevision = null
 let feasibilityBusy = false
 let feasibilityLastSuccessfulResult = null
+let committedRecordedRevision = Number.isInteger(snapshot?.recordedRevision) && snapshot.recordedRevision > 0
+  ? snapshot.recordedRevision
+  : null
+let feasibilityTestApi = null
 
-function setFeasibilityCase(caseId) {
+function setFeasibilityCase(caseId, clearCommitted = true) {
   const input = recordedDemoInput(caseId)
   selectedFeasibilityCaseId = caseId
+  if (clearCommitted) committedRecordedRevision = null
   feasibilityQuestion.textContent = input.fixture.question
   feasibilitySource.textContent = `${input.fixture.sourceFormat} · @${input.fixture.binding} · ${input.fixture.fields.length} fields`
-  document.querySelectorAll('[data-feasibility-case]').forEach((button) => {
+  root.querySelectorAll('[data-feasibility-case]').forEach((button) => {
     button.classList.toggle('active', button.dataset.feasibilityCase === caseId)
   })
   resetFeasibilitySession()
@@ -238,7 +307,7 @@ function resetFeasibilitySession() {
   feasibilitySessionHandle = null
   feasibilitySessionRevision = null
   feasibilityLastSuccessfulResult = null
-  document.getElementById('feasibility-preview').innerHTML =
+  feasibilityPreview.innerHTML =
     '<div class="flex min-h-[180px] items-center justify-center text-center text-[11px] leading-5 text-canopy-muted">Run the recorded candidate to materialize a safe projection.</div>'
 }
 
@@ -252,12 +321,16 @@ function resetFeasibilityEvidence() {
   feasibilityHash.textContent = '—'
 }
 
-async function ensureFeasibilityModule() {
-  if (!jsxModule) jsxModule = await import('@moonbit/crdt-jsx')
+async function ensureJsxModule() {
+  if (jsxModule) return
+  const loaded = await runtime.loadJsx()
+  if (disposed) throw new Error('GenUI session was disposed before the JSX runtime loaded.')
+  jsxModule = loaded
 }
 
 async function ensureFeasibilitySession() {
-  await ensureFeasibilityModule()
+  await ensureJsxModule()
+  if (disposed) throw new Error('GenUI session is disposed.')
   if (feasibilitySessionHandle !== null) return
   const created = JSON.parse(jsxModule.jsx_session_new('<div>initial</div>', 'feasibility-preview'))
   if (!created.success || created.handle === null) {
@@ -273,7 +346,7 @@ async function resetSlotSession() {
 }
 
 async function evaluateFeasibilityCandidate(candidateJson, input) {
-  await ensureFeasibilityModule()
+  await ensureJsxModule()
   return executeFeasibilityCandidate({
     mode: 'evaluate',
     candidateJson,
@@ -335,57 +408,82 @@ function renderFeasibilityEvidence(result) {
 }
 
 async function runFeasibilityAction(candidateJson, input, button, pendingLabel) {
-  if (feasibilityBusy) return
+  if (feasibilityBusy || disposed) return null
   feasibilityBusy = true
   button.disabled = true
   const previousLabel = button.textContent
   button.textContent = pendingLabel
   feasibilityStatus.textContent = 'Preparing candidate…'
   try {
-    renderFeasibilityAttempt(await commitFeasibilityCandidate(candidateJson, input))
+    const result = await commitFeasibilityCandidate(candidateJson, input)
+    if (disposed) return result
+    renderFeasibilityAttempt(result)
+    return result
   } catch (error) {
+    if (disposed) return null
     feasibilityStatus.textContent = `Candidate transaction failed: ${error instanceof Error ? error.message : String(error)}`
     if (feasibilityLastSuccessfulResult === null) {
       feasibilityClassification.textContent = 'client_failure'
       feasibilityClassification.className = 'mt-0.5 text-[#f48771]'
     }
   } finally {
-    button.disabled = false
-    button.textContent = previousLabel
+    if (!disposed) {
+      button.disabled = false
+      button.textContent = previousLabel
+    }
     feasibilityBusy = false
   }
 }
 
-document.querySelectorAll('[data-feasibility-case]').forEach((button) => {
-  button.addEventListener('click', () => setFeasibilityCase(button.dataset.feasibilityCase))
+root.querySelectorAll('[data-feasibility-case]').forEach((button) => {
+  button.addEventListener(
+    'click',
+    () => setFeasibilityCase(button.dataset.feasibilityCase),
+    { signal: listenerController.signal },
+  )
 })
 
-feasibilityRunRecorded.addEventListener('click', () => {
+feasibilityRunRecorded.addEventListener('click', async () => {
   const input = recordedDemoInput(selectedFeasibilityCaseId)
-  return runFeasibilityAction(input.candidateJson, input, feasibilityRunRecorded, 'Replaying…')
-})
+  const result = await runFeasibilityAction(
+    input.candidateJson,
+    input,
+    feasibilityRunRecorded,
+    'Replaying…',
+  )
+  if (result?.classification === 'success' && result.session?.success) {
+    committedRecordedRevision = Number(result.session.revision)
+  }
+}, { signal: listenerController.signal })
 
 if (import.meta.env.DEV) {
-  window.__canopyGenUiFeasibilityTest = Object.freeze({
+  feasibilityTestApi = Object.freeze({
     async runSlot({ studyId, runCapability, caseId, slotId }) {
       const input = recordedDemoInput(caseId)
       const request = buildLiveStudyRequest({ studyId, runCapability, caseId, slotId })
       await resetSlotSession()
-      const response = await fetch('/api/genui-feasibility', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(request),
-      })
-      const provider = await response.json()
-      if (!response.ok || provider.classification !== 'success' || typeof provider.candidateJson !== 'string') {
-        return provider
-      }
-      const result = await commitFeasibilityCandidate(provider.candidateJson, input)
-      return {
-        candidateJson: provider.candidateJson,
-        ...result,
-        revision: result.session?.revision ?? null,
-        provider,
+      const controller = new window.AbortController()
+      liveRequestControllers.add(controller)
+      try {
+        const response = await window.fetch('/api/genui-feasibility', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(request),
+          signal: controller.signal,
+        })
+        const provider = await response.json()
+        if (!response.ok || provider.classification !== 'success' || typeof provider.candidateJson !== 'string') {
+          return provider
+        }
+        const result = await commitFeasibilityCandidate(provider.candidateJson, input)
+        return {
+          candidateJson: provider.candidateJson,
+          ...result,
+          revision: result.session?.revision ?? null,
+          provider,
+        }
+      } finally {
+        liveRequestControllers.delete(controller)
       }
     },
     async commitSavedCandidate({ caseId, candidateJson }) {
@@ -397,18 +495,23 @@ if (import.meta.env.DEV) {
     },
     resetSlotSession,
   })
+  window.__canopyGenUiFeasibilityTest = feasibilityTestApi
 }
 
-setFeasibilityCase(selectedFeasibilityCaseId)
+setFeasibilityCase(selectedFeasibilityCaseId, false)
 
+dataJsonSource.setAttribute('aria-pressed', String(dataSource === 'JSON fixture'))
+dataCsvSource.setAttribute('aria-pressed', String(dataSource === 'CSV fixture'))
 renderDataExplorer();
 
 function resetState() {
   if (jsxModule && jsxSessionHandle !== null) {
     jsxModule.jsx_session_dispose(jsxSessionHandle)
-    jsxSessionHandle = null
-    jsxSessionRevision = null
   }
+  jsxSessionHandle = null
+  jsxSessionRevision = null
+  committedJsxSource = null
+  committedJsxRevision = null
   previousNodeIds = new Set();
   treeOutput.innerHTML = '<div class="text-center py-8 text-canopy-muted text-xs">Stream JSX to see the tree.</div>';
   htmlPreview.innerHTML = '<div class="text-center py-8 text-canopy-muted text-xs">Stream JSX to see rendered output.</div>';
@@ -420,7 +523,7 @@ function resetState() {
 }
 
 async function replayCandidate(candidateJson, capabilitiesJson) {
-  if (!jsxModule) jsxModule = await import('@moonbit/crdt-jsx')
+  await ensureJsxModule()
   if (jsxSessionHandle === null) {
     const created = JSON.parse(jsxModule.jsx_session_new('<div>initial</div>', 'html-preview'))
     if (!created.success || created.handle === null) return created.result
@@ -431,7 +534,7 @@ async function replayCandidate(candidateJson, capabilitiesJson) {
 }
 
 async function replayCandidateAtRevision(baseRevision, candidateJson, capabilitiesJson) {
-  if (!jsxModule) jsxModule = await import('@moonbit/crdt-jsx')
+  await ensureJsxModule()
   if (jsxSessionHandle === null) throw new Error('candidate session is not initialized')
   const split = Math.max(1, Math.floor(candidateJson.length / 2))
   const chunks = candidateJson.slice(0, split) + '\u0000' + candidateJson.slice(split)
@@ -445,6 +548,8 @@ async function replayCandidateAtRevision(baseRevision, candidateJson, capabiliti
   )
   if (result.success) {
     jsxSessionRevision = result.revision
+    committedJsxSource = null
+    committedJsxRevision = null
     htmlNodeCount.textContent = String(result.mounted_ids.length)
   }
   return result
@@ -457,26 +562,33 @@ function requireJsxSession() {
 function sessionNewForTest(rootId) {
   if (!jsxModule) throw new Error('JSX module is not initialized');
   const created = JSON.parse(jsxModule.jsx_session_new('<div>initial</div>', rootId));
-  return {
+  const result = {
     success: created.success,
     handle: Number(created.handle),
     revision: created.result?.revision ?? null,
   };
+  if (result.success && Number.isFinite(result.handle)) testSessionHandles.add(result.handle)
+  return result
 }
 
 function sessionDisposeForTest(handle) {
   if (!jsxModule) throw new Error('JSX module is not initialized');
   jsxModule.jsx_session_dispose(handle);
+  testSessionHandles.delete(handle)
 }
 
 function asyncDriverNewForSession(sessionHandle, baseRevision) {
   if (!jsxModule) throw new Error('JSX module is not initialized');
-  return JSON.parse(jsxModule.__jsx_async_driver_new(sessionHandle, baseRevision));
+  const result = JSON.parse(jsxModule.__jsx_async_driver_new(sessionHandle, baseRevision));
+  asyncDriverHandles.add(result.driver_handle)
+  return result
 }
 
 function asyncDriverNew(baseRevision) {
   requireJsxSession();
-  return JSON.parse(jsxModule.__jsx_async_driver_new(jsxSessionHandle, baseRevision));
+  const result = JSON.parse(jsxModule.__jsx_async_driver_new(jsxSessionHandle, baseRevision));
+  asyncDriverHandles.add(result.driver_handle)
+  return result
 }
 
 function asyncDriverStart(driverHandle) {
@@ -508,7 +620,7 @@ function asyncDriverResolveCurrent(driverHandle) {
 }
 
 function asyncDriverProviderNew(driverHandle, generationId, baseRevision, sequence) {
-  return JSON.parse(
+  const result = JSON.parse(
     jsxModule.__jsx_async_driver_provider_new(
       driverHandle,
       generationId,
@@ -516,18 +628,26 @@ function asyncDriverProviderNew(driverHandle, generationId, baseRevision, sequen
       sequence,
     ),
   );
+  asyncProviderHandles.add(result.provider_handle)
+  return result
 }
 
 async function asyncDriverProviderWait(providerHandle) {
-  return JSON.parse(await jsxModule.__jsx_async_driver_provider_wait(providerHandle));
+  try {
+    return JSON.parse(await jsxModule.__jsx_async_driver_provider_wait(providerHandle));
+  } finally {
+    asyncProviderHandles.delete(providerHandle)
+  }
 }
 
 function asyncDriverProviderReject(providerHandle, code, message) {
   jsxModule.__jsx_async_driver_provider_reject(providerHandle, code, message);
+  asyncProviderHandles.delete(providerHandle)
 }
 
 function asyncDriverProviderAbort(providerHandle) {
   jsxModule.__jsx_async_driver_provider_abort(providerHandle);
+  asyncProviderHandles.delete(providerHandle)
 }
 
 function asyncDriverCancel(driverHandle) {
@@ -542,6 +662,8 @@ function asyncDriverCommit(driverHandle, capabilitiesJson) {
   const result = JSON.parse(jsxModule.__jsx_async_driver_commit(driverHandle, capabilitiesJson));
   if (result.success) {
     jsxSessionRevision = result.revision;
+    committedJsxSource = null
+    committedJsxRevision = null
     htmlNodeCount.textContent = String(result.mounted_ids.length);
   }
   return result;
@@ -553,10 +675,12 @@ function asyncDriverStats(driverHandle) {
 
 function asyncDriverDispose(driverHandle) {
   jsxModule.__jsx_async_driver_dispose(driverHandle);
+  asyncDriverHandles.delete(driverHandle)
 }
 
+let genuiTestApi = null
 if (import.meta.env.DEV) {
-  window.__canopyGenUiTest = Object.freeze({
+  genuiTestApi = Object.freeze({
     sessionNewForTest,
     sessionDisposeForTest,
     asyncDriverNewForSession,
@@ -582,6 +706,7 @@ if (import.meta.env.DEV) {
     asyncDriverStats,
     asyncDriverDispose,
   })
+  window.__canopyGenUiTest = genuiTestApi
 }
 
 
@@ -634,9 +759,35 @@ function collectNodeIds(root) {
   return ids;
 }
 
+function cancelStream() {
+  abortStream = true
+  isStreaming = false
+  streamDelayCancel?.()
+  streamDelayCancel = null
+}
+
+function waitForStreamDelay(delayMs) {
+  return new Promise((resolve) => {
+    let settled = false
+    const finish = () => {
+      if (settled) return
+      settled = true
+      window.clearTimeout(timer)
+      if (streamDelayCancel === finish) streamDelayCancel = null
+      resolve()
+    }
+    const timer = window.setTimeout(finish, delayMs)
+    streamDelayCancel = finish
+  })
+}
+
 // ── Streaming (MoonBit render via a stateful JSX FFI session) ──
 streamBtn.addEventListener('click', async function() {
-  if (isStreaming) { abortStream = true; return; }
+  if (isStreaming) {
+    abortStream = true
+    streamDelayCancel?.()
+    return
+  }
   const fullText = sourceInput.value;
   if (!fullText.trim()) { statusBar.textContent = 'Please enter JSX text.'; return; }
   isStreaming = true; abortStream = false;
@@ -648,17 +799,12 @@ streamBtn.addEventListener('click', async function() {
   // Split at JSX syntactic boundaries (after `>`) so each prefix ends at a
   // complete tag opening or closing, avoiding "truncated tag" / "unterminated
   // attribute" diagnostics from mid-attribute cuts.
-  const prefixes = [];
-  let lastSplit = 0;
-  for (let i = 0; i < fullText.length; i++) { if (fullText[i] === '>' && i - lastSplit >= 10) {
-    prefixes.push(fullText.slice(0, i + 1));
-    lastSplit = i;
-  } }
-  if (prefixes[prefixes.length - 1] !== fullText) prefixes.push(fullText);
+  const prefixes = splitStreamPrefixes(fullText)
 
   try {
-    const JsxMod = await import('@moonbit/crdt-jsx');
-    jsxModule = JsxMod;
+    await ensureJsxModule()
+    if (disposed || abortStream) return
+    const JsxMod = jsxModule
     if (jsxSessionHandle !== null) {
       JsxMod.jsx_session_dispose(jsxSessionHandle);
       jsxSessionHandle = null;
@@ -714,11 +860,17 @@ streamBtn.addEventListener('click', async function() {
       
       statusBar.textContent = 'Step ' + (si + 1) + '/' + prefixes.length + ' \u2014 ' + ids.length + ' DOM nodes';
       if (batch.errors && batch.errors.length > 0) statusBar.textContent += ', ' + batch.errors.length + ' diagnostic(s)';
-      await new Promise(function(r) { setTimeout(r, si < 5 ? 60 : 100); });
+      await waitForStreamDelay(si < 5 ? 60 : 100)
+    }
+    if (disposed) return
+    if (!abortStream) {
+      committedJsxSource = fullText
+      committedJsxRevision = jsxSessionRevision
     }
     statusBar.className = 'mt-2 p-1.5 bg-canopy-bg rounded-md text-[11px] text-canopy-muted';
     statusBar.textContent = abortStream ? 'Stopped.' : 'Complete \u2014 ' + finalIds.length + ' DOM nodes rendered.';
   } catch (err) {
+    if (disposed) return
     console.error(err);
     statusBar.className = 'mt-2 p-1.5 bg-canopy-bg rounded-md text-[11px] text-canopy-red';
     statusBar.textContent = 'Error: ' + err.message;
@@ -727,4 +879,158 @@ streamBtn.addEventListener('click', async function() {
   isStreaming = false;
   streamBtn.textContent = '\u25B6 Stream';
   streamBtn.className = 'btn-primary';
-});
+}, { signal: listenerController.signal });
+
+async function restoreMainCommit() {
+  if (committedJsxSource === null || committedJsxRevision === null) return
+  await ensureJsxModule()
+  if (disposed) return
+  const targetRevision = committedJsxRevision
+  const prefixes = splitStreamPrefixes(committedJsxSource)
+  htmlPreview.replaceChildren()
+  const created = JSON.parse(jsxModule.jsx_session_new(prefixes[0], 'html-preview'))
+  if (!created.success || created.handle === null) {
+    throw new Error(created.result?.error?.message || 'Could not restore the committed JSX session.')
+  }
+  jsxSessionHandle = Number(created.handle)
+  let result = created.result
+  let prefixIndex = 1
+  while (!disposed && Number(result.revision) < targetRevision) {
+    const source = prefixes[prefixIndex] ?? committedJsxSource
+    result = JSON.parse(jsxModule.jsx_session_render(jsxSessionHandle, source))
+    if (!result.success) {
+      throw new Error(result.error?.message || 'Could not restore the committed JSX revision.')
+    }
+    prefixIndex += 1
+  }
+  if (disposed) return
+  jsxSessionRevision = Number(result.revision)
+  htmlNodeCount.textContent = String(result.mounted_ids.length)
+  statusBar.textContent = `Restored committed revision ${jsxSessionRevision}.`
+}
+
+async function restoreRecordedCommit() {
+  if (committedRecordedRevision === null) return
+  const targetRevision = committedRecordedRevision
+  const input = recordedDemoInput(selectedFeasibilityCaseId)
+  let result = null
+  do {
+    result = await commitFeasibilityCandidate(input.candidateJson, input)
+    if (result.classification !== 'success' || !result.session?.success) {
+      throw new Error(result.message || result.session?.error?.message || 'Could not restore recorded replay.')
+    }
+  } while (!disposed && Number(result.session.revision) < targetRevision)
+  if (disposed) return
+  committedRecordedRevision = Number(result.session.revision)
+  renderFeasibilityAttempt(result)
+}
+
+async function restoreCommittedState() {
+  await restoreMainCommit()
+  await restoreRecordedCommit()
+}
+
+function applyFocusToken(token) {
+  if (token === 'source') {
+    sourceInput.focus({ preventScroll: true })
+    return true
+  }
+  if (!token.startsWith('order:')) return false
+  const orderId = token.slice('order:'.length)
+  const row = [...ordersTableBody.children].find(
+    (candidate) => candidate.dataset?.orderId === orderId,
+  )
+  if (!row) return false
+  row.focus({ preventScroll: true })
+  return true
+}
+
+const restoration = restoreCommittedState()
+  .catch((error) => {
+    if (disposed) return
+    if (typeof runtime.reportError === 'function') {
+      runtime.reportError(error)
+      return
+    }
+    statusBar.className = 'mt-2 p-1.5 bg-canopy-bg rounded-md text-[11px] text-canopy-red'
+    statusBar.textContent = `Restore failed: ${error instanceof Error ? error.message : String(error)}`
+  })
+  .finally(() => {
+    if (disposed) return
+    surface?.removeAttribute('inert')
+    if (surface) surface.dataset.genuiReady = 'true'
+    ready = true
+    if (pendingFocusToken !== null) {
+      applyFocusToken(pendingFocusToken)
+      pendingFocusToken = null
+    } else if (document.activeElement === document.body) {
+      root.querySelector('[data-route-heading]')?.focus({ preventScroll: true })
+    }
+  })
+
+return {
+  snapshot() {
+    return {
+      version: 1,
+      jsxSource: sourceInput.value,
+      committed: committedJsxSource === null || committedJsxRevision === null
+        ? null
+        : { source: committedJsxSource, revision: committedJsxRevision },
+      recordedCaseId: selectedFeasibilityCaseId,
+      recordedRevision: committedRecordedRevision,
+      explorer: {
+        source: dataSource === 'CSV fixture' ? 'csv' : 'json',
+        filter: dataFilterInput.value,
+        selectedOrderId,
+      },
+    }
+  },
+  restoreFocus(token) {
+    if (disposed) return false
+    if (!ready) {
+      if (token !== 'source' && !token.startsWith('order:')) return false
+      pendingFocusToken = token
+      return true
+    }
+    return applyFocusToken(token)
+  },
+  dispose() {
+    if (disposed) return
+    disposed = true
+    cancelStream()
+    listenerController.abort()
+    for (const controller of liveRequestControllers) controller.abort()
+    liveRequestControllers.clear()
+    if (jsxModule) {
+      for (const providerHandle of asyncProviderHandles) {
+        try { jsxModule.__jsx_async_driver_provider_abort(providerHandle) } catch {}
+      }
+      for (const driverHandle of asyncDriverHandles) {
+        try { jsxModule.__jsx_async_driver_cancel(driverHandle) } catch {}
+        try { jsxModule.__jsx_async_driver_dispose(driverHandle) } catch {}
+      }
+      for (const handle of testSessionHandles) {
+        try { jsxModule.jsx_session_dispose(handle) } catch {}
+      }
+      if (jsxSessionHandle !== null) jsxModule.jsx_session_dispose(jsxSessionHandle)
+      if (feasibilitySessionHandle !== null) jsxModule.jsx_session_dispose(feasibilitySessionHandle)
+    }
+    asyncProviderHandles.clear()
+    asyncDriverHandles.clear()
+    testSessionHandles.clear()
+    jsxSessionHandle = null
+    feasibilitySessionHandle = null
+    void restoration
+    if (import.meta.env.DEV) {
+      if (window.__canopyGenUiTest === genuiTestApi) {
+        Reflect.deleteProperty(window, '__canopyGenUiTest')
+      }
+      if (window.__canopyGenUiFeasibilityTest === feasibilityTestApi) {
+        Reflect.deleteProperty(window, '__canopyGenUiFeasibilityTest')
+      }
+    }
+    surface?.setAttribute('inert', '')
+    if (surface) surface.dataset.genuiReady = 'false'
+  },
+}
+}

@@ -154,6 +154,34 @@ test('rejects Resume relay requests, secrets, and middleware in production bundl
   })));
 });
 
+test('rejects GenUI live-study endpoints, hooks, and provider markers in production bundles', () => {
+  const fingerprints = [
+    ['GenUI live feasibility request', '/api/genui-feasibility'],
+    ['GenUI feasibility development hook', '__canopyGenUiFeasibilityTest'],
+    ['GenUI development hook', '__canopyGenUiTest'],
+    ['GenUI local provider URL', '127.0.0.1:11434'],
+    ['GenUI local provider model', 'GENUI_OLLAMA_MODEL'],
+  ];
+  const source = fingerprints.map(([, fingerprint]) => fingerprint).join('\n');
+  const result = inspectWakuBundles({
+    serverBundles: [{ name: 'dist/server/worker.js', source }],
+    clientBundles: [{ name: 'dist/public/assets/genui-a.js', source }],
+  });
+  const expected = (file) => fingerprints.map(([capability, fingerprint]) => ({
+    capability,
+    fingerprint,
+    file,
+  }));
+  assert.deepEqual(
+    result.productionClientArtifactLeaks,
+    expected('dist/public/assets/genui-a.js'),
+  );
+  assert.deepEqual(
+    result.productionServerArtifactLeaks,
+    expected('dist/server/worker.js'),
+  );
+});
+
 test('rejects Memo development and provider capabilities outside the shared Lambda artifact', () => {
   const providerFingerprints = [
     'https://generativelanguage.googleapis.com/v1beta/models/',
@@ -213,6 +241,10 @@ test('keeps Vite defaults while exposing explicit dual-run commands', () => {
   assert.equal(pkg.scripts['dev:dual'], 'bash scripts/dev-dual.sh');
   assert.equal(pkg.scripts['build:waku'], 'bash scripts/build-waku.sh');
   assert.equal(
+    pkg.scripts['test:waku:preview'],
+    'playwright test --config=playwright.waku-preview.config.ts',
+  );
+  assert.equal(
     pkg.scripts['generate:waku-types'],
     'wrangler types worker-configuration.d.ts --config wrangler.waku.jsonc',
   );
@@ -250,6 +282,7 @@ test('adds parallel Waku build, browser, and workerd jobs to the repository gate
     /npx wrangler check startup --config wrangler\.waku\.jsonc --env preview/,
   );
   assert.match(ci, /npm run test:waku:e2e/);
+  assert.match(ci, /npm run test:waku:preview/);
   assert.match(ci, /npm run test:waku:workerd/);
   const aggregate = ci.slice(ci.indexOf('  all-checks-passed:'));
   assert.match(aggregate, /^      - waku-build$/m);
@@ -295,4 +328,7 @@ test('isolates the non-deploying Waku foundation from the existing Vite deployme
   assert.match(smoke, /127\.0\.0\.1:\$\{PORT\}\/memo/);
   assert.match(smoke, /data-memo-production-unavailable/);
   assert.match(smoke, /id="api-key"\|Fix Typos\|data-imperative-demo-host="memo"/);
+  assert.match(smoke, /127\.0\.0\.1:\$\{PORT\}\/genui/);
+  assert.match(smoke, /Run recorded candidate/);
+  assert.match(smoke, /127\.0\.0\.1:\$\{PORT\}\/api\/genui-feasibility/);
 });

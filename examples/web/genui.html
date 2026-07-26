@@ -6,9 +6,11 @@
   <title>Generative UI — JSX Incremental Parser Demo</title>
   <link rel="stylesheet" href="/src/tailwind.css" />
 </head>
-<body class="font-mono p-5">
+<body>
+  <!-- genui-shell:start -->
+  <main class="genui-surface min-h-screen bg-canopy-bg text-canopy-text font-mono p-5" data-genui-ready="false" inert>
   <div class="max-w-[1600px] mx-auto">
-    <h1 class="text-canopy-green text-2xl mb-1">Generative UI</h1>
+    <h1 class="text-canopy-green text-2xl mb-1" tabindex="-1" data-route-heading data-route-focus="heading">Generative UI</h1>
     <p class="text-canopy-muted text-[13px] mb-4">
       JSX streamed chunk-by-chunk → <em class="text-canopy-yellow not-italic">real DOM elements</em> appear incrementally.
       Stable NodeIds reuse existing DOM nodes; only new content triggers renders.
@@ -30,7 +32,7 @@
           <button class="btn-primary" id="stream-btn">▶ Stream</button>
           <button class="btn" id="clear-btn">Clear</button>
         </div>
-        <textarea id="source-input" spellcheck="false"
+        <textarea id="source-input" spellcheck="false" data-route-focus="source"
           class="w-full min-h-[80px] flex-1 bg-canopy-bg text-canopy-text border border-canopy-border rounded-md p-2 text-[13px] font-mono resize-y outline-none focus:border-canopy-green">&lt;div class="card"&gt;
   &lt;h1&gt;Hello, World!&lt;/h1&gt;
   &lt;p&gt;Streaming JSX → live DOM.&lt;/p&gt;
@@ -201,6 +203,8 @@
 
   <!-- Tailwind safelist: ensures scanner finds example JSX classes -->
   <div class="hidden bg-gray-800 text-white p-6 rounded-xl shadow-lg max-w-lg text-2xl font-bold text-emerald-400 mb-2 text-gray-300 text-xl text-sky-400 mb-3 underline hover:text-sky-300 space-y-3 bg-gray-700 rounded-lg p-4 text-amber-400 mt-3 list-disc list-inside space-y-1 text-rose-400 bg-amber-500/20 text-amber-300 px-3 py-1 rounded-full text-sm inline-block space-y-4 border-b border-gray-600 pb-3 text-cyan-400 flex gap-4 hover:text-cyan-400 bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg max-w-md text-indigo-100 bg-white/20 bg-white/10 text-indigo-200"></div>
+  </main>
+  <!-- genui-shell:end -->
 
   <script type="module" src="/src/entries/genui.js"></script>
 </body>
