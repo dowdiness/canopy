@@ -1,6 +1,7 @@
 // Contract tests for the neutral TestExpr grammar / editor fixture.
 // Proves new_test_editor parses, round-trips text, and is TOTAL over
-// arbitrary input (garbage / non-BMP / surrogate halves) without aborting.
+// valid Unicode input (garbage / non-BMP) without aborting. Malformed UTF-16
+// is rejected at the text boundary before parsing.
 
 ///|
 test "new_test_editor parses a branch with leaf children" {
@@ -70,21 +71,21 @@ test "total over non-BMP and surrogate input — no abort" {
 }
 
 ///|
-/// A LONE (unpaired) surrogate half — distinct from the well-formed pairs
-/// above. MoonBit rejects lone surrogates as string literals, so at runtime
-/// they only arise from slicing a pair at a code-unit boundary (e.g. a CRDT
-/// merge or FFI input splitting an emoji). The lexer skips the undecodable
-/// code unit into a gap; from_located_tokens classifies the gap via
-/// `is_blank()`, which compares whitespace code units without a full scalar
-/// decode and so does NOT abort on the lone half. This pins the "surrogate
-/// halves" totality claim in the file header so it cannot regress silently.
-test "total over a lone surrogate half — no abort" {
-  let half = "😀".view(start_offset=0, end_offset=1).to_owned() // lone high surrogate
+/// A lone surrogate is malformed UTF-16. The text facade rejects it before
+/// CRDT allocation or parsing, leaving source, cursor, and parsed AST unchanged.
+test "rejects a lone surrogate before parsing without changing text" {
+  let half = "😀".view(start_offset=0, end_offset=1).to_owned()
   let ed = new_test_editor("agent")
-  ed.insert("a" + half + "b")
-  let _ = get_test_ast(ed)
-  // The surrounding idents survive; the lone half does not crash the pipeline.
-  inspect(ed.get_text().length() > 0, content="true")
+  try ed.insert("a" + half + "b") catch {
+    @text.TextError::InvalidText(detail~) =>
+      inspect(detail, content="malformed UTF-16")
+    _ => fail("expected malformed UTF-16 to be rejected")
+  } noraise {
+    _ => fail("lone surrogate insertion must fail")
+  }
+  inspect(ed.get_text(), content="")
+  inspect(ed.get_cursor(), content="0")
+  inspect(get_test_ast(ed), content="Branch(\"\", [])")
 }
 
 ///|
@@ -92,12 +93,13 @@ test "total over a lone surrogate half — no abort" {
 // against TestExpr's SINGLE structural error shape — an unclosed '('. This is
 // by design, not an oversight, and the limitation is documented here so it
 // cannot be mistaken for missing coverage. The grammar is deliberately TOTAL
-// (see test_grammar.mbt header): every other malformed input (stray
-// punctuation, garbage, non-BMP runs, lone surrogate halves) becomes a silent
-// lexer gap rather than a diagnostic. Adding a second error shape would require
-// a non-total parser path and risk the totality invariant the contract tests
-// above pin — so the single trigger is intentional. This test pins both sides:
-// exactly one diagnostic for the one trigger, and zero for silent-gap garbage.
+// over valid Unicode input (see test_grammar.mbt header): stray punctuation,
+// garbage, and non-BMP runs become silent lexer gaps rather than diagnostics.
+// Malformed UTF-16 is rejected by the text facade before reaching this grammar.
+// Adding a second parser error shape would require a non-total parser path and
+// risk the totality invariant the contract tests above pin — so the single
+// trigger is intentional. This test pins both sides: exactly one diagnostic for
+// the one trigger, and zero for silent-gap garbage.
 test "TestExpr reports exactly one structural diagnostic kind (unclosed '(')" {
   let ed = new_test_editor("agent")
   ed.insert("foo(")
