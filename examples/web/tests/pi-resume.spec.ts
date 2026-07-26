@@ -135,12 +135,16 @@ test.describe('PKE workbench', () => {
     await expect(nextAssistantOption).toBeFocused();
     await expect(nextAssistantOption).toHaveAttribute('aria-selected', 'true');
     await nextAssistantOption.press('Home');
-    await expect(conversation.locator('[data-entry-id="00000001"]')).toBeFocused();
+    const firstConversationOption = conversation.locator('[data-entry-id="00000001"]');
+    await expect(firstConversationOption).toBeFocused();
+    await firstConversationOption.press('Enter');
     await page.getByRole('tab', { name: 'Normalized record' }).click();
     await expect(page.locator('.pilot-evidence-normalized')).toContainText('"id": "00000001"');
     await page.getByRole('tab', { name: 'Readable' }).click();
     await page.getByRole('button', { name: /Phase 02/ }).click();
-    await page.locator('#source-0000000b button').click();
+    const failedTimelineButton = page.locator('#source-0000000b button');
+    await failedTimelineButton.click();
+    await expect(failedTimelineButton).toBeFocused();
     await expect(page.locator('#source-0000000b')).toHaveAttribute('aria-current', 'true');
     await expect(page.locator('.pilot-evidence-copy')).toContainText('test failed');
     await expect(page.locator('.pilot-operation-relation')).toContainText(

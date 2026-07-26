@@ -1291,6 +1291,11 @@ function PilotUnderstandingWorkbench({
   const selectConversationAt = (index: number, focus: boolean): void => {
     const item = conversationItems[index];
     if (item === undefined) return;
+    if (item.source.entryId === selectedSource.entryId) {
+      focusConversationSelectionRef.current = false;
+      if (focus) selectedConversationRef.current?.focus({ preventScroll: true });
+      return;
+    }
     focusConversationSelectionRef.current = focus;
     onSelectEntry(item.source.entryId);
   };

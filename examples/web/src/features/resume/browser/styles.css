@@ -45,6 +45,7 @@ body.resume-document {
   --space-3xl: 48px;
   --space-4xl: 64px;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
   min-width: 320px;
   min-height: 100dvh;
   background: var(--bg);
