@@ -10,7 +10,8 @@ export default defineConfig({
           path: '../..',
           output: '_build/js/release/build/dowdiness/canopy/ffi/lambda/lambda.js'
         }
-      ]
+      ],
+      coordinator: { path: '../..' },
     }) as PluginOption
   ],
   resolve: {

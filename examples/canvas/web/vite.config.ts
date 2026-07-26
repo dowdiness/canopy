@@ -10,7 +10,8 @@ export default defineConfig({
           path: '..',
           output: '../../_build/js/release/build/dowdiness/canopy-canvas/main/main.js'
         }
-      ]
+      ],
+      coordinator: { path: '..' },
     }) as PluginOption
   ],
   server: {

@@ -11,6 +11,7 @@ export default defineConfig({
           output: '_build/js/release/build/dowdiness/canopy-block-editor/main/main.js',
         },
       ],
+      coordinator: { path: '../../..' },
     }) as PluginOption,
   ],
   server: {
