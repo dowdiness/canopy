@@ -7,6 +7,7 @@ import {
   evaluateEdge,
   evaluateHtmlEntryScripts,
   htmlEntryAccepted,
+  isClientModule,
   resolveLocalImport,
   staticImports,
 } from './check-boundaries.mjs';
@@ -251,6 +252,66 @@ test('rejects capabilities from declared core and protocol paths', () => {
   assert.match(
     evaluateEdge('src/features/resume/protocol/chat.ts', 'react', 'react')[0],
     /core\/protocol/,
+  );
+});
+
+test('recognizes Waku pages, route surfaces, and server configuration', () => {
+  assert.deepEqual(describePath('src/pages/json.tsx'), { kind: 'page', owner: 'json' });
+  assert.deepEqual(describePath('src/pages/_root.tsx'), { kind: 'page', owner: 'shared' });
+  assert.deepEqual(
+    describePath('src/features/json/route/index.tsx'),
+    { kind: 'feature', owner: 'json', layer: 'route' },
+  );
+  assert.equal(classifyPath('src/waku.server.tsx'), 'server');
+  assert.equal(classifyPath('waku.config.ts'), 'server');
+  assert.equal(classifyPath('worker-configuration.d.ts'), 'server');
+  assert.equal(classifyPath('src/pages.gen.ts'), 'generated');
+});
+
+test('allows Waku pages to compose shared and corresponding route surfaces only', () => {
+  assert.deepEqual(
+    evaluateEdge('src/pages/json.tsx', 'src/features/json/route/index.tsx'),
+    [],
+  );
+  assert.deepEqual(
+    evaluateEdge('src/pages/json.tsx', 'src/shared/shell.tsx'),
+    [],
+  );
+  assert.match(
+    evaluateEdge('src/pages/json.tsx', 'src/features/json/browser/mount.ts')[0],
+    /route surface/,
+  );
+  assert.match(
+    evaluateEdge('src/pages/json.tsx', 'src/features/posts/route/index.tsx')[0],
+    /corresponding feature/,
+  );
+});
+
+test('recognizes use-client directives and confines generated modules below them', () => {
+  assert.equal(isClientModule("'use client';\nimport '@moonbit/crdt-json';"), true);
+  assert.equal(isClientModule('/* comment */\n"use client";\nexport {}'), true);
+  assert.equal(isClientModule("import '@moonbit/crdt-json';\n'use client';"), false);
+  assert.match(
+    evaluateEdge('src/pages/json.tsx', '@moonbit/crdt-json', '@moonbit/crdt-json', false)[0],
+    /use client/,
+  );
+  assert.deepEqual(
+    evaluateEdge(
+      'src/features/json/route/index.tsx',
+      '@moonbit/crdt-json',
+      '@moonbit/crdt-json',
+      true,
+    ),
+    [],
+  );
+  assert.match(
+    evaluateEdge(
+      'src/features/json/browser/editor.ts',
+      '@moonbit/crdt-json',
+      '@moonbit/crdt-json',
+      false,
+    )[0],
+    /use client/,
   );
 });
 

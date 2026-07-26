@@ -319,7 +319,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
           cache-dependency-path: |
             examples/web/package-lock.json
@@ -350,6 +350,158 @@ jobs:
       - name: Type check prosemirror
         working-directory: examples/prosemirror
         run: npx tsc --noEmit
+
+  waku-build:
+    name: Build Waku Web Foundation
+    needs: [build-js, changes]
+    if: needs.changes.outputs.run_e2e == 'true'
+    runs-on: ubuntu-latest
+    env:
+      CANOPY_SKIP_MOON_BUILD: 1
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Download MoonBit JS artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: moonbit-js-build
+          path: _build/js/release/build/dowdiness
+
+      - name: Verify all Waku MoonBit inputs
+        run: |
+          test -f _build/js/release/build/dowdiness/canopy/ffi/lambda/lambda.js
+          test -f _build/js/release/build/dowdiness/canopy/ffi/json/json.js
+          test -f _build/js/release/build/dowdiness/canopy/ffi/markdown/markdown.js
+          test -f _build/js/release/build/dowdiness/canopy/ffi/jsx/jsx.js
+          test -f _build/js/release/build/dowdiness/graphviz/browser/browser.js
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: examples/web/package-lock.json
+
+      - name: Install web dependencies
+        working-directory: examples/web
+        run: npm ci
+
+      - name: Type check Waku sources
+        working-directory: examples/web
+        run: npm run typecheck
+
+      - name: Check and test Waku boundaries
+        working-directory: examples/web
+        run: |
+          npm run check:boundaries
+          npm run test:boundaries
+          npm run test:foundation
+
+      - name: Build Waku from prebuilt MoonBit artifacts
+        working-directory: examples/web
+        run: npm run build:waku
+
+      - name: Assert generated client/server bundle boundaries
+        working-directory: examples/web
+        run: npm run check:waku-bundles
+
+      - name: Check generated Cloudflare binding types
+        working-directory: examples/web
+        run: npm run check:waku-types
+
+      - name: Dry-run the preview Worker bundle
+        working-directory: examples/web
+        run: npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env preview
+
+      - name: Record Worker startup profile
+        working-directory: examples/web
+        run: npx wrangler check startup --config wrangler.waku.jsonc --env preview
+
+      - name: Upload Waku Worker build
+        uses: actions/upload-artifact@v7
+        with:
+          name: waku-web-build
+          path: examples/web/dist
+          retention-days: 7
+
+  waku-e2e:
+    name: Waku Web Foundation E2E
+    needs: [build-js, changes]
+    if: needs.changes.outputs.run_e2e == 'true'
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.61.1-noble
+      options: --ipc=host
+    env:
+      CANOPY_SKIP_MOON_BUILD: 1
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Download MoonBit JS artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: moonbit-js-build
+          path: _build/js/release/build/dowdiness
+
+      - name: Verify all Waku MoonBit inputs
+        run: |
+          test -f _build/js/release/build/dowdiness/canopy/ffi/lambda/lambda.js
+          test -f _build/js/release/build/dowdiness/canopy/ffi/json/json.js
+          test -f _build/js/release/build/dowdiness/canopy/ffi/markdown/markdown.js
+          test -f _build/js/release/build/dowdiness/canopy/ffi/jsx/jsx.js
+          test -f _build/js/release/build/dowdiness/graphviz/browser/browser.js
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: examples/web/package-lock.json
+
+      - name: Install web dependencies
+        working-directory: examples/web
+        run: npm ci
+
+      - name: Run Waku foundation browser probes
+        working-directory: examples/web
+        run: npm run test:waku:e2e
+
+  waku-workerd:
+    name: Waku Worker Foundation Smoke
+    needs: [waku-build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: examples/web/package-lock.json
+
+      - name: Install web dependencies
+        working-directory: examples/web
+        run: npm ci
+
+      - name: Download Waku Worker build
+        uses: actions/download-artifact@v8
+        with:
+          name: waku-web-build
+          path: examples/web/dist
+
+      - name: Smoke built Worker under workerd
+        working-directory: examples/web
+        run: npm run test:waku:workerd
 
   web-e2e:
     name: Web E2E
@@ -382,7 +534,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
           cache-dependency-path: examples/web/package-lock.json
 
@@ -529,6 +681,9 @@ jobs:
       - format-check
       - build-js
       - web-build
+      - waku-build
+      - waku-e2e
+      - waku-workerd
       - web-e2e
       - ideal-web-e2e
       - demo-react-e2e
@@ -547,6 +702,9 @@ jobs:
              ! ok "${{ needs.format-check.result }}" || \
              ! ok "${{ needs.build-js.result }}" || \
              ! ok "${{ needs.web-build.result }}" || \
+             ! ok "${{ needs.waku-build.result }}" || \
+             ! ok "${{ needs.waku-e2e.result }}" || \
+             ! ok "${{ needs.waku-workerd.result }}" || \
              ! ok "${{ needs.web-e2e.result }}" || \
              ! ok "${{ needs.ideal-web-e2e.result }}" || \
              ! ok "${{ needs.demo-react-e2e.result }}" || \

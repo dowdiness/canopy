@@ -18,9 +18,15 @@
       "@moonbit/crdt-json/moonbit": ["../../_build/js/release/build/dowdiness/canopy/ffi/json/moonbit.d.ts"],
       "@moonbit/crdt-markdown": ["../../_build/js/release/build/dowdiness/canopy/ffi/markdown/markdown.d.ts"],
       "@moonbit/crdt-markdown/moonbit": ["../../_build/js/release/build/dowdiness/canopy/ffi/markdown/moonbit.d.ts"],
+      "@moonbit/crdt-jsx": ["../../_build/js/release/build/dowdiness/canopy/ffi/jsx/jsx.d.ts"],
+      "@moonbit/crdt-jsx/moonbit": ["../../_build/js/release/build/dowdiness/canopy/ffi/jsx/moonbit.d.ts"],
       "@moonbit/graphviz": ["../../_build/js/release/build/dowdiness/graphviz/browser/browser.d.ts"]
     }
   },
-  "include": ["src/**/*"],
+  "include": [
+    "src/**/*",
+    "waku.config.ts",
+    "moonbit-artifacts.d.mts"
+  ],
   "exclude": ["node_modules", "../../_build"]
 }

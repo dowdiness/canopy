@@ -1,3 +1,4 @@
+'use client';
 import * as crdt from '@moonbit/crdt-json';
 import { HTMLAdapter } from '@canopy/editor-adapter/html-adapter';
 import { DecorationOverlay } from '../../../shared/decoration-overlay';

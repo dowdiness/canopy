@@ -20,7 +20,8 @@ export default defineConfig({
           path: '..',
           output: idealEditorOutput
         }
-      ]
+      ],
+      coordinator: { path: '..' },
     }) as PluginOption
   ],
   server: {

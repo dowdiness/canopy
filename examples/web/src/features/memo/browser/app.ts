@@ -1,3 +1,4 @@
+'use client';
 import * as crdt from '@moonbit/crdt-lambda';
 import { applyActions, parseLlmResult } from '../core/edit-actions';
 import type { MemoView } from './view';

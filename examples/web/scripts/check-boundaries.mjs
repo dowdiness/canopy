@@ -38,6 +38,20 @@ const ROOT_SERVER_FILES = new Set([
   'signaling-worker.js',
   'vite.config.ts',
   'vite-plugin-moonbit.ts',
+  'moonbit-artifacts.mjs',
+  'moonbit-artifacts.d.mts',
+  'waku.config.ts',
+  'worker-configuration.d.ts',
+]);
+const WAKU_PAGE_OWNERS = new Map([
+  ['ml', 'lambda'],
+  ['json', 'json'],
+  ['markdown', 'markdown'],
+  ['memo', 'memo'],
+  ['posts', 'posts'],
+  ['resume', 'resume'],
+  ['genui', 'genui'],
+  ['journey', 'genui-possibilities'],
 ]);
 
 function normalize(filePath) {
@@ -64,11 +78,24 @@ export function describePath(filePath) {
   if (/\.(test|spec)\./.test(base) || /^(tests|preview-tests)\//.test(normalized)) {
     return { kind: 'test' };
   }
+  if (normalized === 'src/pages.gen.ts') {
+    return { kind: 'generated' };
+  }
   if (
     /(^|\/)server\//.test(normalized) ||
+    /(^|\/)waku\.server\.[^.]+$/.test(normalized) ||
     ROOT_SERVER_FILES.has(normalized)
   ) {
     return { kind: 'server' };
+  }
+
+  const pageMatch = normalized.match(/(^|\/)pages\/([^/]+)\.(?:ts|tsx|js|jsx)$/);
+  if (pageMatch) {
+    const routeName = pageMatch[2];
+    const owner = routeName.startsWith('_') || routeName === '404' || routeName.startsWith('index')
+      ? 'shared'
+      : WAKU_PAGE_OWNERS.get(routeName) ?? routeName;
+    return { kind: 'page', owner };
   }
 
   const entryMatch = normalized.match(/(^|\/)entries\/([^/]+)\.[^.]+$/);
@@ -116,6 +143,21 @@ export function resolveLocalImport(from, specifier, files = new Set()) {
   return candidates.find(candidate => files.has(candidate)) ?? requested;
 }
 
+export function isClientModule(sourceText, fileName = 'file.ts') {
+  const source = ts.createSourceFile(fileName, sourceText, ts.ScriptTarget.Latest, true);
+  for (const statement of source.statements) {
+    if (
+      ts.isExpressionStatement(statement) &&
+      ts.isStringLiteral(statement.expression)
+    ) {
+      if (statement.expression.text === 'use client') return true;
+      continue;
+    }
+    return false;
+  }
+  return false;
+}
+
 export function staticImports(sourceText, fileName = 'file.ts') {
   const source = ts.createSourceFile(fileName, sourceText, ts.ScriptTarget.Latest, true);
   const imports = new Set();
@@ -152,12 +194,18 @@ export function staticImports(sourceText, fileName = 'file.ts') {
   return [...imports];
 }
 
-export function evaluateEdge(from, to, specifier = to) {
+export function evaluateEdge(from, to, specifier = to, clientModule = false) {
   const source = describePath(from);
   const target = describePath(to);
   const violations = [];
 
   if (source.kind === 'unclassified') violations.push('source module has no declared owner');
+  if (
+    specifier.startsWith('@moonbit/') &&
+    (!clientModule || source.kind === 'server' || source.kind === 'page')
+  ) {
+    violations.push("generated MoonBit modules require a 'use client' boundary");
+  }
   if (target.kind === 'unclassified' && specifier.startsWith('.')) {
     violations.push('local dependency has no declared owner');
   }
@@ -181,6 +229,14 @@ export function evaluateEdge(from, to, specifier = to) {
       target.layer !== 'browser'
     ) {
       violations.push('entry can only compose its corresponding feature browser surface');
+    }
+  }
+  if (source.kind === 'page' && target.kind === 'feature') {
+    if (target.layer !== 'route') {
+      violations.push('Waku page can only import a feature route surface');
+    }
+    if (target.owner !== source.owner) {
+      violations.push('Waku page can only import its corresponding feature');
     }
   }
   if (
@@ -240,19 +296,21 @@ export function checkBoundaries({
   for (const file of files) {
     const relative = normalize(path.relative(root, file));
     const source = describePath(relative);
+    const sourceText = readFile(file);
+    const clientModule = isClientModule(sourceText, relative);
     if (source.kind === 'unclassified') {
       violations.push({ from: relative, to: relative, rule: 'source module has no declared owner' });
     }
-    for (const specifier of staticImports(readFile(file), relative)) {
+    for (const specifier of staticImports(sourceText, relative)) {
       const target = resolveLocalImport(relative, specifier, relativeFiles);
       if (target !== null) {
-        violations.push(...evaluateEdge(relative, target, specifier).map(rule => ({
+        violations.push(...evaluateEdge(relative, target, specifier, clientModule).map(rule => ({
           from: relative,
           to: target,
           rule,
         })));
       } else {
-        violations.push(...evaluateEdge(relative, specifier, specifier).map(rule => ({
+        violations.push(...evaluateEdge(relative, specifier, specifier, clientModule).map(rule => ({
           from: relative,
           to: specifier,
           rule,

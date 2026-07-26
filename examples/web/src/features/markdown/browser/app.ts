@@ -1,3 +1,5 @@
+'use client';
+
 // Markdown Block Editor — three-mode page wiring FFI → adapters.
 
 import * as crdt from '@moonbit/crdt-markdown';

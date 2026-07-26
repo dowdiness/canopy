@@ -1,3 +1,5 @@
+'use client';
+
 // Lambda Calculus Editor — thin DOM bridge over MoonBit CRDT backend
 
 import * as crdt from '@moonbit/crdt-lambda';

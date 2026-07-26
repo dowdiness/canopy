@@ -1,0 +1,2 @@
+# Wrangler owns this generated file and currently emits a few blank-at-EOL lines.
+examples/web/worker-configuration.d.ts whitespace=-blank-at-eol
