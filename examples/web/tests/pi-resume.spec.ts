@@ -1,6 +1,13 @@
 import path from 'node:path';
 import { test, expect } from '@playwright/test';
 
+const resumeUrl = process.env.PI_RESUME_URL ?? '/resume.html';
+
+async function gotoResume(page: import('@playwright/test').Page): Promise<void> {
+  await page.goto(resumeUrl);
+  await expect(page.locator('[data-resume-ready="true"]')).toBeVisible();
+}
+
 async function loadFixture(page: import('@playwright/test').Page): Promise<string> {
   const result = await page.evaluate(async () => {
     const response = await fetch('/tests/fixtures/pi-session-v3.jsonl');
@@ -11,13 +18,13 @@ async function loadFixture(page: import('@playwright/test').Page): Promise<strin
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/resume.html');
+  await gotoResume(page);
   await expect(page.locator('.pilot-workbench')).toBeVisible();
 });
 
 test.describe('PKE workbench', () => {
   test('synchronizes Timeline, Conversation, and Evidence without provider or storage access', async ({ page }) => {
-    await page.goto('/resume.html');
+    await gotoResume(page);
 
     await expect(page.locator('.pilot-condition-gate')).toHaveCount(0);
     await expect(page.locator('.pilot-wordmark, .pilot-topbar, .pilot-session-header')).toHaveCount(0);
@@ -164,7 +171,7 @@ test.describe('PKE workbench', () => {
       if (new URL(request.url()).pathname !== '/api/pi-resume-chat' || request.method() !== 'POST') return;
       postedRequests.push(request.postDataJSON());
     });
-    await page.goto('/resume.html');
+    await gotoResume(page);
     const chat = page.locator('.pilot-source-chat');
     const prompt = chat.getByLabel('Chat message');
     await expect(prompt).toBeEnabled();
@@ -208,7 +215,7 @@ test.describe('PKE workbench', () => {
 
   test('retains sensitive-pattern excerpts and warns before explicit egress', async ({ page }) => {
     const fixture = await loadFixture(page);
-    await page.goto('/resume.html');
+    await gotoResume(page);
     const retainedText = 'api_key: fixture-only-value for the retained product direction';
     await page.getByLabel('Open session file').setInputFiles({
       name: 'sensitive-warning-session.jsonl',
@@ -243,7 +250,7 @@ test.describe('PKE workbench', () => {
       if (new URL(request.url()).pathname !== '/api/pi-resume-chat' || request.method() !== 'POST') return;
       postedRequests.push(request.postDataJSON());
     });
-    await page.goto('/resume.html');
+    await gotoResume(page);
     const chat = page.locator('.pilot-source-chat');
     const prompt = chat.getByLabel('Chat message');
     const question = 'What changed across these exact moments?';
@@ -366,7 +373,7 @@ test.describe('PKE workbench', () => {
       if (new URL(request.url()).pathname !== '/api/pi-resume-chat' || request.method() !== 'POST') return;
       postedRequests.push(request.postDataJSON());
     });
-    await page.goto('/resume.html');
+    await gotoResume(page);
     const chat = page.locator('.pilot-source-chat');
     await chat.getByRole('button', { name: /Current path/ }).click();
     await chat.getByLabel('Chat message').fill('Look across the whole current path.');
@@ -389,7 +396,7 @@ test.describe('PKE workbench', () => {
       if (new URL(request.url()).pathname !== '/api/pi-resume-chat' || request.method() !== 'POST') return;
       postedRequests.push(request.postDataJSON());
     });
-    await page.goto('/resume.html');
+    await gotoResume(page);
     const chat = page.locator('.pilot-source-chat');
     await chat.getByRole('button', { name: 'Add current moment' }).click();
     await chat.getByLabel('Chat message').fill('Finish with the context attached to this turn.');
@@ -414,7 +421,7 @@ test.describe('PKE workbench', () => {
       if (new URL(request.url()).pathname !== '/api/pi-resume-chat' || request.method() !== 'POST') return;
       postedRequests.push(request.postDataJSON());
     });
-    await page.goto('/resume.html');
+    await gotoResume(page);
     const chat = page.locator('.pilot-source-chat');
     const prompt = chat.getByLabel('Chat message');
     await chat.getByRole('button', { name: 'Add current moment' }).click();
@@ -452,7 +459,7 @@ test.describe('PKE workbench', () => {
         body: JSON.stringify({ message: 'Fixture relay failure.' }),
       });
     });
-    await page.goto('/resume.html');
+    await gotoResume(page);
     const chat = page.locator('.pilot-source-chat');
     const prompt = chat.getByLabel('Chat message');
     await prompt.fill('Restore this failed message.');
@@ -468,7 +475,7 @@ test.describe('PKE workbench', () => {
   });
 
   test('clears and aborts chat as soon as a new import starts', async ({ page }) => {
-    await page.goto('/resume.html');
+    await gotoResume(page);
     const chat = page.locator('.pilot-source-chat');
     await chat.getByLabel('Chat message').fill('Do not survive a new import.');
     await chat.getByRole('button', { name: 'Send' }).click();
@@ -484,7 +491,7 @@ test.describe('PKE workbench', () => {
   });
 
   test('fails closed at the local source-chat relay boundary', async ({ page }) => {
-    await page.goto('/resume.html');
+    await gotoResume(page);
     const status = await page.request.get('/api/pi-resume-chat/status');
     expect(status.status()).toBe(200);
     await expect(status.json()).resolves.toMatchObject({
@@ -511,7 +518,7 @@ test.describe('PKE workbench', () => {
 
   test('adapts the synchronized workbench to mobile view tabs without losing context', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto('/resume.html');
+    await gotoResume(page);
     await page.getByLabel('Open session file').setInputFiles(
       path.resolve('tests/fixtures/pi-session-v3.jsonl'),
     );
@@ -543,7 +550,7 @@ test.describe('PKE workbench', () => {
 
   test('fully frames desktop scrollers and removes nested scrolling on narrow screens', async ({ page }) => {
     await page.setViewportSize({ width: 1024, height: 768 });
-    await page.goto('/resume.html');
+    await gotoResume(page);
 
     const desktopShell = await page.locator('.pilot-shell').boundingBox();
     const desktopToolbar = await page.locator('.pilot-session-toolbar').boundingBox();
@@ -601,7 +608,7 @@ test.describe('PKE workbench', () => {
       { width: 320, height: 700 },
     ]) {
       await page.setViewportSize(viewport);
-      await page.goto('/resume.html');
+      await gotoResume(page);
       await expect(page.evaluate(() => {
         const panel = document.querySelector<HTMLElement>('.pilot-conversation');
         const heading = panel?.querySelector<HTMLElement>('.pilot-panel-heading');

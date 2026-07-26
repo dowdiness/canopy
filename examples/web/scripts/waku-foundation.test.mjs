@@ -125,6 +125,35 @@ test('rejects the development-only Mini-ML AST Grep request in production bundle
   }]);
 });
 
+test('rejects Resume relay requests, secrets, and middleware in production bundles', () => {
+  const fingerprints = [
+    ['Resume chat request', '/api/pi-resume-chat'],
+    ['Resume chat secret', 'DEEPSEEK_API_KEY'],
+    ['Resume chat relay', 'pi-resume-chat-relay'],
+  ];
+  const source = fingerprints.map(([, fingerprint]) => fingerprint).join('\n');
+  const result = inspectWakuBundles({
+    serverBundles: [{ name: 'dist/server/worker.js', source }],
+    clientBundles: [{ name: 'dist/public/assets/resume-a.js', source }],
+  });
+  assert.deepEqual(result.productionClientArtifactLeaks, fingerprints.map(([
+    capability,
+    fingerprint,
+  ]) => ({
+    capability,
+    fingerprint,
+    file: 'dist/public/assets/resume-a.js',
+  })));
+  assert.deepEqual(result.productionServerArtifactLeaks, fingerprints.map(([
+    capability,
+    fingerprint,
+  ]) => ({
+    capability,
+    fingerprint,
+    file: 'dist/server/worker.js',
+  })));
+});
+
 test('rejects Memo development and provider capabilities outside the shared Lambda artifact', () => {
   const providerFingerprints = [
     'https://generativelanguage.googleapis.com/v1beta/models/',
