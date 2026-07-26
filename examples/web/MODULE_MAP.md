@@ -47,17 +47,34 @@ Implementation inventory for the current `examples/web` workspace. The source tr
 
 Most of the source tree is intentionally flat: feature ownership is inferred from filenames rather than represented by `src/entries`, `src/features`, and `src/shared` directories. Resume/PKE, Posts, Memo, JSON, Markdown, GenUI, and GenUI Possibilities use the target entry/feature layout. `shared/decoration-overlay.ts` is shared by Lambda and JSON. GenUI keeps deterministic fixtures/flows/schema/recorded candidates in its core, browser DOM/effect code in its browser surface, and Node/provider/Vite capabilities under `server/`. Memo reuses the Lambda generated runtime. Styles are partly per-surface and partly global/adapter-owned. These are inventory facts, not exemptions from the boundary checker.
 
-## Waku foundation (pre-production, #970 Stages 0–1)
+## Waku foundation (pre-production, #970 Stages 0–1; #971 Stage 2 in progress)
 
-Vite remains the default build for all eight HTML surfaces. A parallel Waku 1.0.0-beta.8 + Wrangler 4.114.0 foundation has landed alongside it — configuration, a Cloudflare adapter, and a generated-artifact client probe only. No demo, route, deployment, or redirect has been migrated.
+Vite remains the default build for all eight HTML surfaces. A parallel Waku 1.0.0-beta.8 + Wrangler 4.114.0 foundation has landed alongside it. Stage 2 has added the Hub, route-lifecycle Module, shell, placeholder routes, and 404; no demo behavior has been migrated and no old HTML entry has been removed.
+
+### Stage 0–1 configuration and artifacts
 
 - `waku.config.ts` — Waku configuration with the official Cloudflare adapter (`waku/adapters/cloudflare`) and the shared MoonBit artifact plugin.
 - `src/waku.server.tsx` — Waku server entry using `fsRouter` over `pages/**/*.{tsx,ts}`.
-- `src/pages/index.tsx` — foundation probe page that renders only a `MoonbitClientProbe` (generated-artifact boundary check, not a migrated demo).
-- `src/pages/_root.tsx` — Waku root document.
+- `src/pages/foundation.tsx` — foundation probe page (moved from `index.tsx`); renders only a `MoonbitClientProbe` (generated-artifact boundary check, not a migrated demo).
+- `src/pages/_root.tsx` — Waku root document; Stage 2 also anchors shared styles and the long-lived route-lifecycle provider here.
 - `moonbit-artifacts.mjs` — single source of truth for the five generated module records, consumed by both Vite and Waku build pipelines.
 - `wrangler.jsonc` — unchanged existing Vite deployment shell.
 - `wrangler.waku.jsonc` — isolated pre-production Waku preview and production Worker environments.
+
+### Stage 2 — Hub, lifecycle Module, shell, and common states
+
+- `src/pages/index.tsx` — Demo Hub. `/index.html` renders the same Hub without redirect (not a `308`).
+- `src/pages/404.tsx` — accessible true 404 with `aria-labelledby`, `tabIndex={-1}`, semantic heading.
+- `src/pages/{ml,json,markdown,memo,posts,resume,genui,journey}.tsx` — eight canonical placeholder routes; each renders `DemoPlaceholder` from the shared shell. No demo behavior has been migrated.
+- `src/pages/_layout.tsx` — pass-through shared route layout; the provider stays at `_root.tsx` so its in-memory registry survives route render failures.
+- `src/shared/catalog/demo-catalog.ts` — framework-independent catalog data (eight demos, three groups, canonical `DemoPath` routes).
+- `src/shared/shell/` — `DemoHub` and `DemoPlaceholder` React components and shared shell styles.
+- `src/shared/route-lifecycle/core/reducer.ts` — pure `State + Event -> (State, Decision)` reducer.
+- `src/shared/route-lifecycle/browser/` — React provider, imperative host, focus manager, imperative session, route render boundary, and common states.
+- `waku-tests/foundation.spec.ts` and `waku-tests/hub.spec.ts` — deterministic Waku page tests.
+- `scripts/waku-lifecycle-contract.test.mjs` — reducer/provider/focus/error/imperative-host contract tests.
+
+Stage 2 remains pre-production. Vite remains the default and is retained.
 
 Validation runs in parallel with the Vite pipeline:
 

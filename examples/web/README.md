@@ -5,6 +5,10 @@ Lambda (`index.html`), JSON, Markdown, Memo, Posts, Resume/PKE, GenUI, and GenUI
 
 The implementation inventory, source clusters, runtime ownership, tests, Vite relays, generated artifacts, and current boundary debt are documented in [`MODULE_MAP.md`](./MODULE_MAP.md).
 
+## Waku migration (in progress, #971)
+
+A parallel Waku application is being built alongside the existing Vite workspace. Vite remains the default and production deploy path until final cutover. Stage 2 adds the Demo Hub, route-lifecycle Module (reducer, provider, focus manager, imperative host, error boundary), shared shell, eight canonical placeholder routes, and accessible 404. No demo behavior has been migrated; the previous foundation probe moved to `/foundation`, and no old HTML entry has been removed.
+
 ## Development
 
 ```bash
@@ -18,6 +22,7 @@ npm run dev:dual     # both servers with one shared root MoonBit watcher
 `npm run dev` and `npm run build` remain Vite aliases until the final cutover. Both development modes reuse one root MoonBit build/watch coordinator; generated outputs remain namespaced under `_build/js/release/build/dowdiness/`.
 
 ```bash
+(cd ../.. && moon build --target js)
 npm run typecheck
 npm run check:boundaries
 npm run test:boundaries

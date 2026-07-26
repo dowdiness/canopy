@@ -30,11 +30,11 @@ for _ in $(seq 1 120); do
   sleep 1
 done
 
-grep -q 'Canopy Waku foundation' "$BODY_FILE"
+grep -q 'Canopy demos' "$BODY_FILE"
 asset="$(find dist/public/assets -type f -name '*.js' -printf '%f\n' | sort | head -n 1)"
 test -n "$asset"
 curl -fsS -o /dev/null "http://127.0.0.1:${PORT}/assets/${asset}"
 worker_status="$(curl -sS -o /dev/null -w '%{http_code}' \
   "http://127.0.0.1:${PORT}/__canopy_worker_probe_missing")"
 test "$worker_status" = '404'
-echo 'Waku workerd foundation smoke: OK'
+echo 'Waku workerd Hub smoke: OK'

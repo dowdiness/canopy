@@ -110,6 +110,12 @@ export function describePath(filePath) {
     };
   }
 
+  const routeLifecycleMatch = normalized.match(
+    /(^|\/)shared\/route-lifecycle\/(core|browser)\//,
+  );
+  if (routeLifecycleMatch) {
+    return { kind: 'shared', layer: routeLifecycleMatch[2] };
+  }
   if (/(^|\/)shared\//.test(normalized) || base === 'vite-env.d.ts') {
     return { kind: 'shared' };
   }
@@ -214,6 +220,16 @@ export function evaluateEdge(from, to, specifier = to, clientModule = false) {
   }
   if (source.kind === 'shared' && target.kind === 'feature') {
     violations.push('shared code cannot import feature code');
+  }
+  if (
+    source.kind === 'shared' &&
+    source.layer === 'core' &&
+    (
+      (target.kind === 'shared' && target.layer === 'browser') ||
+      capabilityImport(specifier)
+    )
+  ) {
+    violations.push('route-lifecycle core cannot import browser or React capabilities');
   }
   if (
     source.kind === 'feature' &&
