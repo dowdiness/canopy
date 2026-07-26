@@ -5,9 +5,9 @@ Lambda (`index.html`), JSON, Markdown, Memo, Posts, Resume/PKE, GenUI, and GenUI
 
 The implementation inventory, source clusters, runtime ownership, tests, Vite relays, generated artifacts, and current boundary debt are documented in [`MODULE_MAP.md`](./MODULE_MAP.md).
 
-## Waku migration (in progress, #973)
+## Waku migration (in progress, #974)
 
-A parallel Waku application is being built alongside the existing Vite workspace. Vite remains the default and production deploy path until final cutover. Stages 0–2 provide the foundation, Demo Hub, route-lifecycle Module, shared shell, canonical routes, and accessible 404. Stage 3 migrates Journey Proposals to `/journey`; Stage 4 migrates Posts to `/posts` while preserving its two local-storage contracts and route-local draft state. Both use the imperative host and retain their legacy HTML entries; the other six canonical demo routes remain placeholders. No compatibility redirect, production deployment, or Vite removal is active.
+A parallel Waku application is being built alongside the existing Vite workspace. Vite remains the default and production deploy path until final cutover. Stages 0–2 provide the foundation, Demo Hub, route-lifecycle Module, shared shell, canonical routes, and accessible 404. Stages 3–5 migrate Journey Proposals, Posts, and the JSON editor to `/journey`, `/posts`, and `/json`. JSON snapshots source text only and rebuilds its live MoonBit controller state after navigation. All three use the imperative host and retain their legacy HTML entries; the other five canonical demo routes remain placeholders. No compatibility redirect, production deployment, or Vite removal is active.
 
 ## Development
 

@@ -1,5 +1,5 @@
-import { DemoPlaceholder } from '../shared/shell/demo-placeholder';
+import { JsonRoute } from '../features/json/route/json-route';
 
 export default function Json() {
-  return <DemoPlaceholder demoId="json" />;
+  return <JsonRoute />;
 }

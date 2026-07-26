@@ -1,9 +1,9 @@
 'use client';
-import * as crdt from '@moonbit/crdt-json';
 import { HTMLAdapter } from '@canopy/editor-adapter/html-adapter';
 import { DecorationOverlay } from '../../../shared/decoration-overlay';
 import type { Decoration } from '@canopy/editor-adapter/types';
 import type { ViewPatch, ViewNode } from '@canopy/editor-adapter/types';
+import type { MountedImperativeSession } from '../../../shared/route-lifecycle/browser/imperative-session';
 
 interface JsonRoleSpanData { start: number; end: number; role: string }
 
@@ -11,18 +11,25 @@ declare global {
   interface Window { getJsonRoleSpans: () => JsonRoleSpanData[]; }
 }
 
-export function mountJsonEditor(): void {
+export type JsonEditorRuntime = typeof import('@moonbit/crdt-json');
+
+export function mountJsonEditor(
+  root: Document | HTMLElement = globalThis.document,
+  restoredSnapshot: unknown,
+  crdt: JsonEditorRuntime,
+): MountedImperativeSession {
 const EXAMPLE_FALLBACK = '{"hello": "world"}';
 
-const agentId = `json-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-const handle = crdt.create_json_editor(agentId);
+const document = root instanceof Document ? root : root.ownerDocument;
+const window = document.defaultView ?? globalThis.window;
 
 const editorEl = must<HTMLDivElement>('json-input');
+const errorsPanelEl = must<HTMLDivElement>('errors-panel');
 const errorsEl = must<HTMLUListElement>('parse-errors');
 const treeEl = must<HTMLDivElement>('tree-view');
 const formatBtn = must<HTMLButtonElement>('format-btn');
-const viewEl = document.getElementById('json-editor-view')!;
-const gutterEl = document.getElementById('json-gutter');
+const viewEl = must<HTMLDivElement>('json-editor-view');
+const gutterEl = must<HTMLDivElement>('json-gutter');
 
 const patchLogEl = must<HTMLDivElement>('patch-log-body');
 const patchLogHeaderEl = must<HTMLDivElement>('patch-log-header');
@@ -30,19 +37,69 @@ const patchLogToggleEl = must<HTMLSpanElement>('patch-log-toggle');
 const patchLogCountEl = must<HTMLSpanElement>('patch-log-count');
 const patchLogEmptyEl = must<HTMLDivElement>('patch-log-empty');
 const structToggleBtn = must<HTMLButtonElement>('struct-toggle-btn');
+const surfaceCandidate = root.querySelector<HTMLElement>('[data-json-ready]');
+if (surfaceCandidate === null) throw new Error('Missing JSON editor surface');
+const surfaceEl: HTMLElement = surfaceCandidate;
+const exampleButtons = Array.from(root.querySelectorAll<HTMLButtonElement>('.example-btn'));
+const listenerAbort = new window.AbortController();
+let disposed = false;
+let syncFrame: number | null = null;
+let gutterScrollFrame: number | null = null;
+let ownedRoleHook: (() => JsonRoleSpanData[]) | null = null;
+let releaseHandle: (() => void) | null = null;
+let releaseAdapter: (() => void) | null = null;
+let releaseOverlay: (() => void) | null = null;
 
-// Protocol-based tree adapter
-const adapter = new HTMLAdapter(treeEl, errorsEl, true);
-const decorationOverlay = new DecorationOverlay(editorEl);
-
-const collapsedNodes = new Set<number>();
-let structMode = false;
+function dispose() {
+  if (disposed) return;
+  disposed = true;
+  surfaceEl.inert = true;
+  surfaceEl.dataset.jsonReady = 'false';
+  listenerAbort.abort();
+  if (syncFrame !== null) {
+    window.cancelAnimationFrame(syncFrame);
+    syncFrame = null;
+  }
+  if (gutterScrollFrame !== null) {
+    window.cancelAnimationFrame(gutterScrollFrame);
+    gutterScrollFrame = null;
+  }
+  gutterEl.replaceChildren();
+  viewEl.replaceChildren();
+  if (
+    ownedRoleHook !== null &&
+    window.getJsonRoleSpans === ownedRoleHook
+  ) {
+    Reflect.deleteProperty(window, 'getJsonRoleSpans');
+  }
+  ownedRoleHook = null;
+  releaseOverlay?.();
+  releaseOverlay = null;
+  releaseAdapter?.();
+  releaseAdapter = null;
+  releaseHandle?.();
+  releaseHandle = null;
+}
 
 function must<T extends HTMLElement>(id: string): T {
-  const element = document.getElementById(id);
+  const element = root.querySelector<HTMLElement>(`#${id}`);
   if (!element) throw new Error(`Missing element #${id}`);
   return element as T;
 }
+
+try {
+const agentId = `json-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+const handle = crdt.create_json_editor(agentId);
+releaseHandle = () => crdt.destroy_json_editor(handle);
+
+// Protocol-based tree adapter
+const adapter = new HTMLAdapter(treeEl, errorsEl, true);
+releaseAdapter = () => adapter.destroy();
+const decorationOverlay = new DecorationOverlay(editorEl);
+releaseOverlay = () => decorationOverlay.dispose();
+
+const collapsedNodes = new Set<number>();
+let structMode = false;
 
 // ── Role spans ──────────────────────────────────────
 
@@ -57,11 +114,13 @@ const ROLE_TO_CSS_CLASS: Record<string, string> = {
 };
 
 function getJsonRoleSpans(): JsonRoleSpanData[] {
+  if (disposed) return [];
   const raw = crdt.json_get_role_spans_json(handle);
   try { return JSON.parse(raw) as JsonRoleSpanData[]; }
   catch { return []; }
 }
 
+ownedRoleHook = getJsonRoleSpans;
 window.getJsonRoleSpans = getJsonRoleSpans;
 
 function roleSpansToDecorations(spans: JsonRoleSpanData[]): Decoration[] {
@@ -134,7 +193,7 @@ function fetchEditLog(): void {
 // ── Gutter ───────────────────────────────────────────
 
 function findTextPosition(offset: number): { node: Text; offset: number } | null {
-  const walker = document.createTreeWalker(editorEl, NodeFilter.SHOW_TEXT);
+  const walker = document.createTreeWalker(editorEl, window.NodeFilter.SHOW_TEXT);
   let remaining = offset;
   let lastText: Text | null = null;
   for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
@@ -148,7 +207,6 @@ function findTextPosition(offset: number): { node: Text; offset: number } | null
 }
 
 function renderGutter() {
-  if (!gutterEl) return;
   gutterEl.replaceChildren();
   const root = adapter.getTree();
   if (!root) return;
@@ -179,7 +237,7 @@ function renderGutter() {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       applyEdit(w.action === 'add-member' ? { op: 'AddMember', object_id: w.nodeId, key: 'key' } : { op: 'AddElement', array_id: w.nodeId });
-    });
+    }, { signal: listenerAbort.signal });
     gutterEl.appendChild(btn);
   }
 }
@@ -216,8 +274,8 @@ function renderTreeNode(node: ViewNode, isRoot: boolean): HTMLElement {
       if (collapsedNodes.has(node.id)) { collapsedNodes.delete(node.id); toggle.textContent = '▼'; if (body) body.style.display = ''; }
       else { collapsedNodes.add(node.id); toggle.textContent = '▶'; if (body) body.style.display = 'none'; }
     };
-    toggle.addEventListener('click', (e) => { e.stopPropagation(); doToggle(); });
-    toggle.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); doToggle(); } });
+    toggle.addEventListener('click', (e) => { e.stopPropagation(); doToggle(); }, { signal: listenerAbort.signal });
+    toggle.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); doToggle(); } }, { signal: listenerAbort.signal });
     row.appendChild(toggle);
 
     const tag = document.createElement('span');
@@ -240,35 +298,35 @@ function renderTreeNode(node: ViewNode, isRoot: boolean): HTMLElement {
     addBtn.textContent = '+';
     addBtn.title = node.kind_tag === 'Array' ? 'Add element' : 'Add member';
     addBtn.dataset.action = node.kind_tag === 'Array' ? 'add-element' : 'add-member';
-    addBtn.addEventListener('click', (e) => { e.stopPropagation(); applyEdit(node.kind_tag === 'Array' ? { op: 'AddElement', array_id: node.id } : { op: 'AddMember', object_id: node.id, key: 'key' }); });
+    addBtn.addEventListener('click', (e) => { e.stopPropagation(); applyEdit(node.kind_tag === 'Array' ? { op: 'AddElement', array_id: node.id } : { op: 'AddMember', object_id: node.id, key: 'key' }); }, { signal: listenerAbort.signal });
     actions.appendChild(addBtn);
     const delBtn = document.createElement('button');
     delBtn.className = 'node-action-btn';
     delBtn.textContent = '×';
     delBtn.title = 'Delete';
     delBtn.dataset.action = 'delete';
-    delBtn.addEventListener('click', (e) => { e.stopPropagation(); applyEdit({ op: 'Delete', node_id: node.id }); });
+    delBtn.addEventListener('click', (e) => { e.stopPropagation(); applyEdit({ op: 'Delete', node_id: node.id }); }, { signal: listenerAbort.signal });
     actions.appendChild(delBtn);
     const wrapArrBtn = document.createElement('button');
     wrapArrBtn.className = 'node-action-btn';
     wrapArrBtn.textContent = '[]';
     wrapArrBtn.title = 'Wrap in array';
     wrapArrBtn.dataset.action = 'wrap-array';
-    wrapArrBtn.addEventListener('click', (e) => { e.stopPropagation(); applyEdit({ op: 'WrapInArray', node_id: node.id }); });
+    wrapArrBtn.addEventListener('click', (e) => { e.stopPropagation(); applyEdit({ op: 'WrapInArray', node_id: node.id }); }, { signal: listenerAbort.signal });
     actions.appendChild(wrapArrBtn);
     const wrapObjBtn = document.createElement('button');
     wrapObjBtn.className = 'node-action-btn';
     wrapObjBtn.textContent = '{}';
     wrapObjBtn.title = 'Wrap in object';
     wrapObjBtn.dataset.action = 'wrap-object';
-    wrapObjBtn.addEventListener('click', (e) => { e.stopPropagation(); applyEdit({ op: 'WrapInObject', node_id: node.id, key: 'key' }); });
+    wrapObjBtn.addEventListener('click', (e) => { e.stopPropagation(); applyEdit({ op: 'WrapInObject', node_id: node.id, key: 'key' }); }, { signal: listenerAbort.signal });
     actions.appendChild(wrapObjBtn);
     if (node.children.length > 0) {
       const unwrapBtn = document.createElement('button');
       unwrapBtn.className = 'node-action-btn';
       unwrapBtn.textContent = '⇔';
       unwrapBtn.title = 'Unwrap';
-      unwrapBtn.addEventListener('click', (e) => { e.stopPropagation(); applyEdit({ op: 'Unwrap', node_id: node.id }); });
+      unwrapBtn.addEventListener('click', (e) => { e.stopPropagation(); applyEdit({ op: 'Unwrap', node_id: node.id }); }, { signal: listenerAbort.signal });
       actions.appendChild(unwrapBtn);
     }
     row.appendChild(actions);
@@ -287,7 +345,7 @@ function renderTreeNode(node: ViewNode, isRoot: boolean): HTMLElement {
     tag.dataset.nodeId = String(node.id);
     tag.dataset.kind = node.kind_tag;
     tag.style.cursor = 'text';
-    tag.addEventListener('click', (e) => { e.stopPropagation(); startInlineEdit(tag, node); });
+    tag.addEventListener('click', (e) => { e.stopPropagation(); startInlineEdit(tag, node); }, { signal: listenerAbort.signal });
     row.appendChild(tag);
 
     // Type switch
@@ -298,7 +356,7 @@ function renderTreeNode(node: ViewNode, isRoot: boolean): HTMLElement {
       opt.value = t; opt.textContent = t; if (t === kind) opt.selected = true;
       select.appendChild(opt);
     }
-    select.addEventListener('change', () => applyEdit({ op: 'ChangeType', node_id: node.id, new_type: select.value }));
+    select.addEventListener('change', () => applyEdit({ op: 'ChangeType', node_id: node.id, new_type: select.value }), { signal: listenerAbort.signal });
     row.appendChild(select);
 
     const delBtn = document.createElement('button');
@@ -306,7 +364,7 @@ function renderTreeNode(node: ViewNode, isRoot: boolean): HTMLElement {
     delBtn.textContent = '×';
     delBtn.title = 'Delete';
     delBtn.dataset.action = 'delete';
-    delBtn.addEventListener('click', (e) => { e.stopPropagation(); applyEdit({ op: 'Delete', node_id: node.id }); });
+    delBtn.addEventListener('click', (e) => { e.stopPropagation(); applyEdit({ op: 'Delete', node_id: node.id }); }, { signal: listenerAbort.signal });
     row.appendChild(delBtn);
     const idSpan = document.createElement('span');
     idSpan.className = 'node-id';
@@ -352,12 +410,12 @@ function renderTreeNode(node: ViewNode, isRoot: boolean): HTMLElement {
             }
             keyEl.textContent = '"' + keyName + '":';
           };
-          input.addEventListener('blur', () => finish(true));
+          input.addEventListener('blur', () => finish(true), { signal: listenerAbort.signal });
           input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') { e.preventDefault(); finish(true); }
             else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
-          });
-        });
+          }, { signal: listenerAbort.signal });
+        }, { signal: listenerAbort.signal });
         const toggle = childRowEl.querySelector('.node-toggle');
         if (toggle) toggle.after(keyEl);
         else childRowEl.insertBefore(keyEl, childRowEl.firstChild);
@@ -394,11 +452,11 @@ function startInlineEdit(span: HTMLElement, node: ViewNode) {
     if (!display) { span.setAttribute('data-empty', 'true'); span.textContent = ''; }
     else { span.textContent = rawVal; }
   };
-  input.addEventListener('blur', () => finish(true));
+  input.addEventListener('blur', () => finish(true), { signal: listenerAbort.signal });
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); finish(true); }
     else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
-  });
+  }, { signal: listenerAbort.signal });
 }
 
 // ── Refresh ──────────────────────────────────────────
@@ -420,10 +478,7 @@ function refresh() {
   renderGutter();
   if (structMode) renderStructuredView();
   // Show errors panel only when there are actual errors
-  const errorsPanel = document.getElementById('errors-panel');
-  if (errorsPanel) {
-    errorsPanel.style.display = errorsEl.querySelector('.error-item') ? '' : 'none';
-  }
+  errorsPanelEl.style.display = errorsEl.querySelector('.error-item') ? '' : 'none';
 }
 
 // ── Edit & format ────────────────────────────────────
@@ -463,10 +518,9 @@ function syncTextFromModel() {
   if ((editorEl.textContent ?? '') !== text) editorEl.textContent = text;
 }
 
-let syncFrame: number | null = null;
-editorEl.addEventListener('input', () => {
+function handleEditorInput() {
   if (syncFrame !== null) return;
-  syncFrame = requestAnimationFrame(() => {
+  syncFrame = window.requestAnimationFrame(() => {
     syncFrame = null;
     if (!structMode) {
       const text = editorEl.textContent ?? '';
@@ -476,44 +530,46 @@ editorEl.addEventListener('input', () => {
       }
     }
   });
-});
+}
+editorEl.addEventListener('input', handleEditorInput, { signal: listenerAbort.signal });
 
 // ── Mode toggle ──────────────────────────────────────
 
-structToggleBtn.addEventListener('click', () => {
+function toggleStructureMode() {
   structMode = !structMode;
   structToggleBtn.textContent = structMode ? '📝 Raw' : '▦ Structured';
   structToggleBtn.classList.toggle('active', structMode);
   viewEl.style.display = structMode ? '' : 'none';
   editorEl.style.display = structMode ? 'none' : '';
-  if (gutterEl) gutterEl.style.display = structMode ? 'none' : '';
+  gutterEl.style.display = structMode ? 'none' : '';
   formatBtn.disabled = structMode;
   if (structMode) renderStructuredView();
   else { syncTextFromModel(); refresh(); }
-});
+}
+structToggleBtn.addEventListener('click', toggleStructureMode, { signal: listenerAbort.signal });
 
 // ── Event listeners ──────────────────────────────────
 
-let gutterScrollFrame: number | null = null;
-editorEl.addEventListener('scroll', () => {
+function handleEditorScroll() {
   if (gutterScrollFrame !== null) return;
-  gutterScrollFrame = requestAnimationFrame(() => {
+  gutterScrollFrame = window.requestAnimationFrame(() => {
     gutterScrollFrame = null;
     if (!structMode) renderGutter();
   });
-});
+}
+editorEl.addEventListener('scroll', handleEditorScroll, { signal: listenerAbort.signal });
 
-formatBtn.addEventListener('click', formatJson);
+formatBtn.addEventListener('click', formatJson, { signal: listenerAbort.signal });
 
-document.querySelectorAll<HTMLButtonElement>('.example-btn').forEach((button) => {
+for (const button of exampleButtons) {
   button.addEventListener('click', () => {
     const example = button.dataset.example ?? EXAMPLE_FALLBACK;
     crdt.json_set_text(handle, example);
     editorEl.textContent = example;
     adapter.resetCollapseState();
     refresh();
-  });
-});
+  }, { signal: listenerAbort.signal });
+}
 
 // Patch log collapse toggle
 patchLogHeaderEl.setAttribute('role', 'button');
@@ -525,25 +581,67 @@ function togglePatchLog() {
   patchLogToggleEl.classList.toggle('collapsed');
   patchLogHeaderEl.setAttribute('aria-expanded', String(!isHidden));
 }
-patchLogHeaderEl.addEventListener('click', togglePatchLog);
+patchLogHeaderEl.addEventListener('click', togglePatchLog, { signal: listenerAbort.signal });
 patchLogHeaderEl.addEventListener('keydown', (event) => {
   if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); togglePatchLog(); }
-});
+}, { signal: listenerAbort.signal });
 
-window.addEventListener('beforeunload', () => {
-  adapter.destroy();
-  crdt.destroy_json_editor(handle);
-});
+window.addEventListener('beforeunload', dispose, { signal: listenerAbort.signal });
 
 // ── Init ──────────────────────────────────────────────
 
-const initialText = crdt.json_get_text(handle);
-if (initialText.trim()) editorEl.textContent = initialText;
-else {
-  crdt.json_set_text(handle, EXAMPLE_FALLBACK);
-  editorEl.textContent = EXAMPLE_FALLBACK;
+try {
+  structToggleBtn.textContent = '▦ Structured';
+  structToggleBtn.classList.remove('active');
+  viewEl.style.display = 'none';
+  viewEl.replaceChildren();
+  editorEl.style.display = '';
+  gutterEl.style.display = '';
+  formatBtn.disabled = false;
+  patchLogEl.classList.remove('hidden');
+  patchLogToggleEl.classList.remove('collapsed');
+  patchLogHeaderEl.setAttribute('aria-expanded', 'true');
+
+  const restoredText = typeof restoredSnapshot === 'string'
+    ? restoredSnapshot
+    : undefined;
+  if (restoredText !== undefined) {
+    crdt.json_set_text(handle, restoredText);
+    editorEl.textContent = restoredText;
+  } else {
+    const initialText = crdt.json_get_text(handle);
+    if (initialText.trim()) editorEl.textContent = initialText;
+    else {
+      crdt.json_set_text(handle, EXAMPLE_FALLBACK);
+      editorEl.textContent = EXAMPLE_FALLBACK;
+    }
+  }
+  adapter.resetCollapseState();
+  refresh();
+  fetchEditLog();
+  surfaceEl.inert = false;
+  surfaceEl.dataset.jsonReady = 'true';
+} catch (error) {
+  dispose();
+  throw error;
 }
-adapter.resetCollapseState();
-refresh();
-fetchEditLog();
+
+return {
+  snapshot: () => editorEl.textContent ?? '',
+  restoreFocus(token): boolean {
+    const target = token === 'editor'
+      ? editorEl
+      : token === 'structure-toggle'
+        ? structToggleBtn
+        : null;
+    if (target === null) return false;
+    target.focus({ preventScroll: true });
+    return document.activeElement === target;
+  },
+  dispose,
+};
+} catch (error) {
+  dispose();
+  throw error;
+}
 }
