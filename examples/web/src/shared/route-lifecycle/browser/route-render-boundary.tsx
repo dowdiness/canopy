@@ -5,6 +5,7 @@ import { PostCommitRouteError } from './common-states';
 
 interface RouteRenderBoundaryProps {
   readonly children: ReactNode;
+  readonly message: string;
   readonly onError: () => void;
   readonly onRetry: () => void;
 }
@@ -33,6 +34,8 @@ export class RouteRenderBoundary extends Component<
 
   render(): ReactNode {
     if (!this.state.failed) return this.props.children;
-    return <PostCommitRouteError onRetry={this.props.onRetry} />;
+    return (
+      <PostCommitRouteError message={this.props.message} onRetry={this.props.onRetry} />
+    );
   }
 }

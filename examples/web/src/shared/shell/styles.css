@@ -9,6 +9,7 @@
   --error: oklch(0.48 0.15 28);
   --error-soft: oklch(0.94 0.035 28);
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
   color-scheme: light;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }

@@ -54,6 +54,7 @@ interface RouteLifecycleContextValue {
 }
 
 const RouteLifecycleContext = createContext<RouteLifecycleContextValue | null>(null);
+const DEFAULT_ROUTE_ERROR_MESSAGE = 'This demo could not be displayed.';
 
 function safeFocusToken(surface: RegisteredSurface | undefined): string | null {
   if (surface === undefined) return null;
@@ -74,11 +75,14 @@ export function RouteLifecycleProvider({ children }: { readonly children: ReactN
   const [ready, setReady] = useState(false);
   const [mountRevision, setMountRevision] = useState(0);
   const [boundaryRevision, setBoundaryRevision] = useState(0);
+  const [routeErrorMessage, setRouteErrorMessage] = useState(DEFAULT_ROUTE_ERROR_MESSAGE);
 
   const executeDecisions = useCallback((decisions: readonly LifecycleDecision[]) => {
     for (const decision of decisions) {
       if (decision.type === 'dispose-surface') {
         surfaces.current.get(decision.demoId)?.session.dispose();
+      } else if (decision.type === 'show-route-error') {
+        setRouteErrorMessage(decision.message);
       } else if (decision.type === 'navigate') {
         if (decision.mode === 'push') {
           void router.push(decision.to).catch(() => {
@@ -248,13 +252,14 @@ export function RouteLifecycleProvider({ children }: { readonly children: ReactN
     dispatch({
       type: 'render-failed',
       demoId,
-      message: 'This demo could not be displayed.',
+      message: DEFAULT_ROUTE_ERROR_MESSAGE,
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const retryRender = useCallback(() => {
     dispatch({ type: 'retry' });
+    setRouteErrorMessage(DEFAULT_ROUTE_ERROR_MESSAGE);
     setBoundaryRevision((revision) => revision + 1);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -271,6 +276,7 @@ export function RouteLifecycleProvider({ children }: { readonly children: ReactN
         ) : null}
         <RouteRenderBoundary
           key={boundaryRevision}
+          message={routeErrorMessage}
           onError={reportRenderFailure}
           onRetry={retryRender}
         >

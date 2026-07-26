@@ -22,8 +22,10 @@ export function NavigationFailureAlert({
 }
 
 export function PostCommitRouteError({
+  message,
   onRetry,
 }: {
+  readonly message: string;
   readonly onRetry: () => void;
 }): ReactElement {
   return createElement('main', {
@@ -36,9 +38,10 @@ export function PostCommitRouteError({
       'data-route-error-heading': true,
       key: 'heading',
     }, 'This demo could not be displayed'),
+    createElement('p', { key: 'message' }, message),
     createElement(
       'p',
-      { key: 'message' },
+      { key: 'recovery' },
       'The destination remains selected. Retry the demo or return to the catalog.',
     ),
     createElement('div', { className: 'route-state__actions', key: 'actions' }, [

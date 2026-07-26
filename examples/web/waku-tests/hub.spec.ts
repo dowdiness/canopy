@@ -30,11 +30,12 @@ test('/index.html renders the same Hub without redirecting', async ({ request })
 
   expect(compatibility.status()).toBe(200);
   expect(compatibility.headers()).not.toHaveProperty('location');
-  for (const [title, href] of expectedDemos) {
-    expect(rootHtml).toContain(`${title}</strong>`);
-    expect(compatibilityHtml).toContain(`${title}</strong>`);
-    expect(compatibilityHtml).toContain(`href="${href}"`);
-  }
+  const rootCatalog = rootHtml.match(/<main id="demo-catalog">[\s\S]*?<\/main>/)?.[0];
+  const compatibilityCatalog = compatibilityHtml.match(
+    /<main id="demo-catalog">[\s\S]*?<\/main>/,
+  )?.[0];
+  expect(rootCatalog).toBeDefined();
+  expect(compatibilityCatalog).toBe(rootCatalog);
 });
 
 test('unknown routes return the accessible custom page with HTTP 404', async ({ page }) => {

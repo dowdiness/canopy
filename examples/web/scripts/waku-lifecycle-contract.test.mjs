@@ -21,6 +21,10 @@ const wakuPackage = require('waku/package.json');
 const clientSourceUrl = import.meta.resolve('waku/router/client');
 const clientSourcePath = fileURLToPath(clientSourceUrl);
 const clientSource = fs.readFileSync(clientSourcePath, 'utf8');
+const providerSource = fs.readFileSync(
+  fileURLToPath(new URL('../src/shared/route-lifecycle/browser/provider.tsx', import.meta.url)),
+  'utf8',
+);
 const clientTypes = fs.readFileSync(
   clientSourcePath.replace(/\.js$/, '.d.ts'),
   'utf8',
@@ -260,6 +264,19 @@ test('a pre-commit failure retains the source route and announces recovery actio
   }]);
 });
 
+test('a pre-commit retry clears the error and pushes the retained target', () => {
+  const failed = reduceLifecycle(createLifecycleState('lambda'), {
+    type: 'navigation-failed',
+    message: 'The demo could not be loaded.',
+    retryHref: '/json',
+  }).state;
+
+  const retried = reduceLifecycle(failed, { type: 'retry' });
+
+  assert.equal(retried.state.error, null);
+  assert.deepEqual(retried.decisions, [{ type: 'navigate', mode: 'push', to: '/json' }]);
+});
+
 test('a post-commit failure keeps the destination and retries from its retained snapshot', () => {
   const saved = reduceLifecycle(
     createLifecycleState('json'),
@@ -369,11 +386,22 @@ test('common failure states expose accessible recovery without leaking error det
   assert.match(preCommit, />Retry</);
   assert.match(preCommit, /href="\/json"[^>]*>Open directly</);
 
-  const postCommit = renderToStaticMarkup(PostCommitRouteError({ onRetry: () => {} }));
+  const postCommit = renderToStaticMarkup(PostCommitRouteError({
+    message: 'The restored editor state is unavailable.',
+    onRetry: () => {},
+  }));
   assert.match(postCommit, /data-route-error-heading="true"/);
+  assert.match(postCommit, /The restored editor state is unavailable\./);
   assert.match(postCommit, />Retry</);
   assert.match(postCommit, /href="\/"[^>]*>Back to demos</);
   assert.doesNotMatch(postCommit, /stack|payload|exception/i);
+});
+
+test('the provider shell handles the reducer post-commit error decision', () => {
+  assert.match(
+    providerSource,
+    /decision\.type === 'show-route-error'[\s\S]*?setRouteErrorMessage\(decision\.message\)/,
+  );
 });
 
 test('pre-commit recovery records the failure before traversing back', () => {

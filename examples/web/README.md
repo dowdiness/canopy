@@ -22,6 +22,7 @@ npm run dev:dual     # both servers with one shared root MoonBit watcher
 `npm run dev` and `npm run build` remain Vite aliases until the final cutover. Both development modes reuse one root MoonBit build/watch coordinator; generated outputs remain namespaced under `_build/js/release/build/dowdiness/`.
 
 ```bash
+(cd ../.. && moon build --target js)
 npm run typecheck
 npm run check:boundaries
 npm run test:boundaries

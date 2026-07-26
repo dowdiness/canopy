@@ -10,6 +10,7 @@ import { useRouteLifecycle } from './provider';
 
 export type { MountedImperativeSession } from './imperative-session';
 
+/** Keep this callback referentially stable; memoize inline implementations with `useCallback`. */
 export type MountImperativeDemo = (
   container: HTMLElement,
   restoredSnapshot: unknown,
