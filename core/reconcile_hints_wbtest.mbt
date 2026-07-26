@@ -326,3 +326,65 @@ test "a stale Wrap hint loses identity that the unhinted path keeps" {
   let result = reconcile_hinted(old, new_, Ref(1000), hints)
   inspect(result.children[0].node_id >= 1000, content="true")
 }
+
+///|
+/// Weak monotonicity for hints, as a named predicate.
+///
+/// Strong monotonicity — "a hint never makes any node worse off" — is neither
+/// achievable nor wanted: a hint that DOES apply is authoritative and is meant
+/// to override a coincidental LCS match, which can cost some other node the
+/// match it would otherwise have had. The property worth holding is the weaker
+/// one:
+///
+///   **A hint that cannot be applied has no effect.**
+///
+/// Caller must supply a `hints` map whose entries cannot land in `new_`;
+/// for an applicable hint the two results are expected to differ.
+///
+/// Returns whether the property HOLDS.
+fn prop_unapplicable_hint_is_inert(
+  old : ProjNode[TestExpr],
+  new_ : ProjNode[TestExpr],
+  hints : Map[NodeId, IdentityTransform],
+) -> Bool {
+  let unhinted = collect_ids(reconcile(old, new_, Ref(1000)))
+  let hinted = collect_ids(reconcile_hinted(old, new_, Ref(1000), hints))
+  unhinted == hinted
+}
+
+///|
+/// The property above does NOT hold today, and this pins that.
+///
+/// The cause is an ordering choice in `reconcile_children`: an old child
+/// carrying a Wrap/Unwrap/Replace/Move hint is removed from LCS by
+/// `lcs_excluded` BEFORE anything checks whether the hint can land, and a hint
+/// that then fails to pair has no route back into ordinary matching.
+///
+/// If reconcile is changed so that exclusion is decided from hint
+/// applicability — `hint_pair_counts` already computes very nearly that
+/// predicate, though today it counts only among LCS-unmatched new children —
+/// this flips to "true". When it does: update the pin here, and drop the
+/// stale-hint caveat from the two tests above.
+test "PROPERTY, currently violated: an unapplicable hint is inert" {
+  let inner = ProjNode(Leaf("x"), 1, 2, 5, [])
+  let old = ProjNode(Branch("root", [Leaf("x")]), 0, 3, 1, [inner])
+  // Net effect of the batch was nil, so `new_` has the shape of `old`.
+  let new_inner = ProjNode(Leaf("x"), 1, 2, 90, [])
+  let new_ = ProjNode(Branch("root", [Leaf("x")]), 0, 3, 91, [new_inner])
+  // Describes a wrapper that the completed batch left no trace of.
+  let hints = mk_hints([(5, Wrap(inner=NodeId::from_int(5)))])
+  inspect(prop_unapplicable_hint_is_inert(old, new_, hints), content="false")
+}
+
+///|
+/// Known-positive control for the pin above: with no hints at all the two
+/// reconciles are the same call, so the predicate must report "holds". Without
+/// this, a predicate that had become stuck at `false` would let the pin pass
+/// vacuously and the violation above would stop meaning anything.
+test "control: the inertness predicate does report holding when it should" {
+  let inner = ProjNode(Leaf("x"), 1, 2, 5, [])
+  let old = ProjNode(Branch("root", [Leaf("x")]), 0, 3, 1, [inner])
+  let new_inner = ProjNode(Leaf("x"), 1, 2, 90, [])
+  let new_ = ProjNode(Branch("root", [Leaf("x")]), 0, 3, 91, [new_inner])
+  inspect(prop_unapplicable_hint_is_inert(old, new_, Map([])), content="true")
+}
