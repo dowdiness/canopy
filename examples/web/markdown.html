@@ -6,13 +6,15 @@
   <title>Canopy Markdown Editor</title>
 
 </head>
-<body>
+<body class="markdown-surface">
+  <!-- markdown-shell:start -->
   <div class="container">
     <header>
-      <h1><span>&#9649;</span> Markdown Editor</h1>
+      <h1 data-route-heading tabindex="-1"><span>&#9649;</span> Markdown Editor</h1>
       <p class="subtitle">Block-based Markdown editing with three view modes</p>
     </header>
 
+    <div class="markdown-app" inert data-markdown-ready="false">
     <div class="examples-bar">
       <span class="examples-label">Examples:</span>
       <button class="example-btn" data-example="# Hello World&#10;&#10;Welcome to the Canopy Markdown editor.&#10;&#10;This editor has three modes: raw, block, and preview.">Hello</button>
@@ -22,9 +24,9 @@
     </div>
 
     <div class="mode-tabs">
-      <button class="mode-tab active" data-mode="block">Block</button>
-      <button class="mode-tab" data-mode="raw">Raw</button>
-      <button class="mode-tab" data-mode="preview">Preview</button>
+      <button class="mode-tab active" data-mode="block" data-route-focus="mode-block">Block</button>
+      <button class="mode-tab" data-mode="raw" data-route-focus="mode-raw">Raw</button>
+      <button class="mode-tab" data-mode="preview" data-route-focus="mode-preview">Preview</button>
     </div>
 
     <div class="editor-panel">
@@ -45,7 +47,7 @@
       </div>
 
       <div class="editor-pane" id="raw-pane" hidden>
-        <textarea id="raw-editor" placeholder="Type Markdown here..." spellcheck="false"></textarea>
+        <textarea id="raw-editor" data-route-focus="raw-editor" placeholder="Type Markdown here..." spellcheck="false"></textarea>
       </div>
 
       <div class="editor-pane" id="block-pane">
@@ -56,7 +58,9 @@
         <div id="preview-container"></div>
       </div>
     </div>
+    </div>
   </div>
+  <!-- markdown-shell:end -->
 
   <script type="module" src="/src/entries/markdown.ts"></script>
 </body>

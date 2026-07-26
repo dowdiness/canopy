@@ -8,6 +8,7 @@ if (!Number.isInteger(port) || port < 1 || port > 65_535) {
 process.env.GENUI_POSSIBILITIES_URL = '/journey';
 process.env.POSTS_URL = '/posts';
 process.env.JSON_EDITOR_URL = '/json';
+process.env.MARKDOWN_EDITOR_URL = '/markdown';
 
 export default defineConfig({
   testDir: '.',
@@ -15,6 +16,7 @@ export default defineConfig({
     'waku-tests/**/*.spec.ts',
     'tests/genui-possibilities.spec.ts',
     'tests/json-editor.spec.ts',
+    'tests/markdown-editor.spec.ts',
     'tests/post-app.spec.ts',
   ],
   timeout: 30_000,
