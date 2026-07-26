@@ -5,8 +5,14 @@ if (!Number.isInteger(port) || port < 1 || port > 65_535) {
   throw new Error('CANOPY_WAKU_TEST_PORT must be a valid TCP port.');
 }
 
+process.env.GENUI_POSSIBILITIES_URL = '/journey';
+
 export default defineConfig({
-  testDir: './waku-tests',
+  testDir: '.',
+  testMatch: [
+    'waku-tests/**/*.spec.ts',
+    'tests/genui-possibilities.spec.ts',
+  ],
   timeout: 30_000,
   retries: 0,
   use: {

@@ -1,6 +1,6 @@
 'use client';
 
-import { createElement, useLayoutEffect, useRef } from 'react';
+import { createElement, type ReactNode, useLayoutEffect, useRef } from 'react';
 import type { DemoId } from '../../catalog/demo-catalog';
 import {
   type MountedImperativeSession,
@@ -20,10 +20,12 @@ export function ImperativeDemoHost({
   demoId,
   mount,
   className,
+  children,
 }: {
   readonly demoId: DemoId;
   readonly mount: MountImperativeDemo;
   readonly className?: string;
+  readonly children?: ReactNode;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const lifecycle = useRouteLifecycle();
@@ -41,5 +43,5 @@ export function ImperativeDemoHost({
     ref: containerRef,
     className,
     'data-imperative-demo-host': demoId,
-  });
+  }, children);
 }

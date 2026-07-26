@@ -66,6 +66,21 @@ test('resolves relative and Vite root-relative local imports', () => {
   );
 });
 
+test('classifies canonical HTML raw imports under their feature owner', () => {
+  assert.deepEqual(describePath('genui-possibilities.html?raw'), {
+    kind: 'feature',
+    owner: 'genui-possibilities',
+    layer: 'browser',
+  });
+  assert.deepEqual(
+    evaluateEdge(
+      'src/features/genui-possibilities/route/journey-route.tsx',
+      'genui-possibilities.html?raw',
+    ),
+    [],
+  );
+});
+
 test('requires entries to import the matching feature browser surface only', () => {
   assert.deepEqual(
     evaluateEdge('src/entries/genui-possibilities.js', 'src/features/genui-possibilities/browser/mount.js'),

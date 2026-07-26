@@ -55,7 +55,10 @@ const WAKU_PAGE_OWNERS = new Map([
 ]);
 
 function normalize(filePath) {
-  return filePath.replaceAll('\\', '/').replace(/^\.\//, '');
+  return filePath
+    .replaceAll('\\', '/')
+    .replace(/^\.\//, '')
+    .replace(/[?#].*$/, '');
 }
 
 function capabilityImport(specifier) {
@@ -80,6 +83,10 @@ export function describePath(filePath) {
   }
   if (normalized === 'src/pages.gen.ts') {
     return { kind: 'generated' };
+  }
+  const htmlOwner = ENTRY_FEATURES.get(normalized);
+  if (htmlOwner !== undefined) {
+    return { kind: 'feature', owner: htmlOwner, layer: 'browser' };
   }
   if (
     /(^|\/)server\//.test(normalized) ||
