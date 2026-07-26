@@ -5,13 +5,13 @@
 //         | IDENT '(' expr* ')'      -> Branch(tag, children)
 //   root := expr*                    -> Branch("", children)
 //
-// The lexer/parser/fold/projection are TOTAL over arbitrary input: any
-// byte run that is not an identifier or paren becomes a gap (Whitespace
-// trivia for blank gaps, an Error token otherwise), and unparseable spans
-// fold to an error Leaf. This matters because the editor unconditionally
-// converts the syntax tree to a ProjNode and assumes malformed/partial
-// input still yields an AST (e.g. sync_editor_text_wbtest inserts emoji /
-// ZWJ / surrogate halves).
+// The lexer/parser/fold/projection are TOTAL over valid Unicode input: any
+// run that is not an identifier or paren becomes a gap (Whitespace trivia for
+// blank gaps, an Error token otherwise), and unparseable spans fold to an error
+// Leaf. This matters because the editor unconditionally converts the syntax
+// tree to a ProjNode and assumes malformed/partial syntax still yields an AST
+// (e.g. sync_editor_text_wbtest inserts emoji / ZWJ). Malformed UTF-16 is
+// rejected by the text facade before reaching this grammar.
 
 // === Tokens ===
 
