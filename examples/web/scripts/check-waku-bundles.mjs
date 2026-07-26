@@ -10,6 +10,12 @@ const generatedModules = [
   { id: '@moonbit/graphviz', fingerprint: 'render_dot_to_svg' },
 ];
 
+const forbiddenProductionResumeArtifacts = [
+  { capability: 'Resume chat request', fingerprint: '/api/pi-resume-chat' },
+  { capability: 'Resume chat secret', fingerprint: 'DEEPSEEK_API_KEY' },
+  { capability: 'Resume chat relay', fingerprint: 'pi-resume-chat-relay' },
+];
+
 const forbiddenProductionClientArtifacts = [
   { capability: 'Mini-ML AST Grep request', fingerprint: '/api/ast-grep' },
   { capability: 'Memo development shell', fingerprint: 'data-memo-ready' },
@@ -35,6 +41,7 @@ const forbiddenProductionClientArtifacts = [
     fingerprint: 'canopy_llm_edit',
     allowedBundleFingerprint: 'assemble_lambda_handle',
   },
+  ...forbiddenProductionResumeArtifacts,
 ];
 
 export function inspectWakuBundles({ serverBundles, clientBundles }) {
@@ -58,7 +65,18 @@ export function inspectWakuBundles({ serverBundles, clientBundles }) {
       !(allowedBundleFingerprint && source.includes(allowedBundleFingerprint))
     )
     .map(({ name }) => ({ capability, fingerprint, file: name })));
-  return { serverLeaks, missingClientModules, productionClientArtifactLeaks };
+  const productionServerArtifactLeaks = forbiddenProductionResumeArtifacts.flatMap(({
+    capability,
+    fingerprint,
+  }) => serverBundles
+    .filter(({ source }) => source.includes(fingerprint))
+    .map(({ name }) => ({ capability, fingerprint, file: name })));
+  return {
+    serverLeaks,
+    missingClientModules,
+    productionClientArtifactLeaks,
+    productionServerArtifactLeaks,
+  };
 }
 
 function javascriptBundlesBelow(root) {
@@ -85,10 +103,14 @@ function main() {
   for (const { capability, fingerprint, file } of result.productionClientArtifactLeaks) {
     console.error(`${capability} fingerprint ${fingerprint} leaked into production client bundle: ${file}`);
   }
+  for (const { capability, fingerprint, file } of result.productionServerArtifactLeaks) {
+    console.error(`${capability} fingerprint ${fingerprint} leaked into production server bundle: ${file}`);
+  }
   if (
     result.serverLeaks.length > 0 ||
     result.missingClientModules.length > 0 ||
-    result.productionClientArtifactLeaks.length > 0
+    result.productionClientArtifactLeaks.length > 0 ||
+    result.productionServerArtifactLeaks.length > 0
   ) {
     process.exitCode = 1;
   } else {

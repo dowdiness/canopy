@@ -1,4 +1,10 @@
-:root {
+body.resume-document {
+  min-width: 320px;
+  margin: 0;
+  background: #ffffff;
+}
+
+.resume-surface {
   --bg: #ffffff;
   --panel: #f6f6f6;
   --surface: #f6f6f6;
@@ -39,10 +45,22 @@
   --space-3xl: 48px;
   --space-4xl: 64px;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
+  min-width: 320px;
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--text);
   color-scheme: light;
+  font-family: "Noto Sans", "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+  font-feature-settings: normal;
+  letter-spacing: 0.05em;
+  line-height: 1.9;
 }
 
-* { box-sizing: border-box; }
+.resume-surface,
+.resume-surface * { box-sizing: border-box; }
+
+@scope (.resume-surface) {
 
 .visually-hidden {
   position: absolute;
@@ -52,19 +70,6 @@
   clip: rect(0 0 0 0);
   clip-path: inset(50%);
   white-space: nowrap;
-}
-
-html { scroll-behavior: smooth; }
-
-body {
-  margin: 0;
-  min-width: 320px;
-  background: var(--bg);
-  color: var(--text);
-  font-family: "Noto Sans", "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
-  font-feature-settings: normal;
-  letter-spacing: 0.05em;
-  line-height: 1.9;
 }
 
 button, select { font: inherit; }
@@ -1956,4 +1961,6 @@ select {
   .pilot-evidence-metadata {
     grid-template-columns: 1fr;
   }
+}
+
 }

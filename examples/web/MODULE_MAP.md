@@ -11,7 +11,7 @@ Implementation inventory for the current `examples/web` workspace. The source tr
 | Markdown | `markdown.html` | `src/entries/markdown.ts` | `features/markdown/browser/{app,mount,sentinels}.ts`; `features/markdown/route/{markdown-route,markdown-client}.tsx` | `features/markdown/browser/styles.css`, imported by Vite and Waku composition; adapter CSS remains adapter-owned | Browser + generated MoonBit Markdown; `tests/markdown-editor.spec.ts`, `waku-tests/markdown-route.spec.ts` |
 | Memo | `memo.html` | `src/entries/memo.ts` | `features/memo/core/edit-actions.ts`, `features/memo/browser/{app,mount,view}.ts`, `features/memo/route/{memo-route,memo-client}.tsx` | `features/memo/browser/styles.css`, imported by Vite and development Waku composition | Development browser + generated MoonBit Lambda; production local-only state; `tests/memo-editor.spec.ts`, `waku-tests/memo-route.spec.ts` |
 | Posts | `posts.html` | `src/entries/posts.ts` | `features/posts/core/{posts,post-events,post-retrieval}.ts`, `features/posts/browser/{app,mount,post-events,post-store,view}.ts` | `features/posts/browser/styles.css`, imported by `mount.ts` | Browser persistence shell around deterministic retrieval logic; `tests/post-app.spec.ts` |
-| Resume/PKE | `resume.html` | `src/entries/resume.ts` | `features/resume/browser/app.tsx`, `features/resume/browser/components/*`, `features/resume/core/session.ts`, `features/resume/protocol/chat.ts` | `features/resume/browser/styles.css`, imported by `app.tsx` | Browser React + `server/vite/resume-chat.ts` local chat relay; `tests/pi-resume.spec.ts` |
+| Resume/PKE | `resume.html` | `src/entries/resume.ts` | `features/resume/browser/app.tsx`, `features/resume/browser/components/*`, `features/resume/core/session.ts`, `features/resume/protocol/chat.ts`, `features/resume/route/resume-route.tsx` | scoped `features/resume/browser/styles.css`, imported by `app.tsx` | Browser React + development-only `server/vite/resume-chat.ts` relay; `tests/pi-resume.spec.ts`, `waku-tests/resume-route.spec.ts` |
 | GenUI | `genui.html` | `src/entries/genui.js` | `features/genui/browser/mount.js`, deterministic `features/genui/core/*` (fixtures, schema, flow, recorded candidates, data, spikes), `server/genui/feasibility-provider.js`, and `server/vite/genui-feasibility.ts` | `features/genui/browser/styles.css`, imported by `mount.js`; `src/tailwind.css` remains the GenUI Tailwind input | Browser + generated MoonBit JSX, deterministic feasibility core, and a server-only study relay; `tests/genui.spec.ts`, feasibility suites, colocated core/server Node tests, study scripts |
 | GenUI Possibilities | `genui-possibilities.html` | `src/entries/genui-possibilities.js` | `features/genui-possibilities/core/journey-state.js`, `features/genui-possibilities/browser/mount.js` | `features/genui-possibilities/browser/styles.css`, imported by `mount.js` | Deterministic browser state; `tests/genui-possibilities.spec.ts`, `preview-tests/genui-preview.spec.ts` |
 
@@ -47,13 +47,13 @@ Implementation inventory for the current `examples/web` workspace. The source tr
 
 The active surfaces use the target `src/entries`, `src/features`, and `src/shared` ownership layout. `shared/decoration-overlay.ts` is shared by Lambda and JSON. GenUI keeps deterministic fixtures/flows/schema/recorded candidates in its core, browser DOM/effect code in its browser surface, and Node/provider/Vite capabilities under `server/`. Memo reuses the Lambda generated runtime without importing Lambda feature internals. Styles are partly per-surface and partly adapter-owned. These are inventory facts, not exemptions from the boundary checker.
 
-## Waku migration (pre-production, #970–#976 Stages 0–7)
+## Waku migration (pre-production, #970–#977 Stages 0–8)
 
-Vite remains the default build for all eight HTML surfaces. A parallel Waku 1.0.0-beta.8 + Wrangler 4.114.0 application has landed alongside it. Stage 2 added the Hub, route-lifecycle Module, shell, placeholder routes, and 404; Stages 3–7 migrate Journey, Posts, JSON, Markdown, Mini-ML, and Memo while retaining every old HTML entry.
+Vite remains the default build for all eight HTML surfaces. A parallel Waku 1.0.0-beta.8 + Wrangler 4.114.0 application has landed alongside it. Stage 2 added the Hub, route-lifecycle Module, shell, placeholder routes, and 404; Stages 3–8 migrate Journey, Posts, JSON, Markdown, Mini-ML, Memo, and Resume while retaining every old HTML entry.
 
 ### Stage 0–1 configuration and artifacts
 
-- `waku.config.ts` — Waku configuration with the official Cloudflare adapter (`waku/adapters/cloudflare`) and the shared MoonBit artifact plugin.
+- `waku.config.ts` — Waku configuration with the official Cloudflare adapter (`waku/adapters/cloudflare`), shared MoonBit artifact plugin, and serve-only AST/Resume relays used in development.
 - `src/waku.server.tsx` — Waku server entry using `fsRouter` over `pages/**/*.{tsx,ts}`.
 - `src/pages/foundation.tsx` — foundation probe page (moved from `index.tsx`); renders only a `MoonbitClientProbe` (generated-artifact boundary check, not a migrated demo).
 - `src/pages/_root.tsx` — Waku root document; Stage 2 also anchors shared styles and the long-lived route-lifecycle provider here.
@@ -65,7 +65,8 @@ Vite remains the default build for all eight HTML surfaces. A parallel Waku 1.0.
 
 - `src/pages/index.tsx` — Demo Hub. `/index.html` renders the same Hub without redirect (not a `308`).
 - `src/pages/404.tsx` — accessible true 404 with `aria-labelledby`, `tabIndex={-1}`, semantic heading.
-- `src/pages/{resume,genui}.tsx` — two canonical placeholder routes; each renders `DemoPlaceholder` from the shared shell.
+- `src/pages/genui.tsx` — the remaining canonical placeholder route; it renders `DemoPlaceholder` from the shared shell.
+- `src/pages/resume.tsx` — canonical native React Resume route using its feature-owned route surface directly.
 - `src/pages/ml.tsx` — canonical Mini-ML route; composes its feature-owned controller through the shared imperative host.
 - `src/pages/memo.tsx` — canonical Memo route; composes the local client editor in development and the explicit unavailable state in production.
 - `src/pages/journey.tsx` — canonical Journey route; composes the feature-owned route surface through the shared imperative host.
@@ -127,6 +128,16 @@ Stage 6 remains pre-production. Vite and `markdown.html` remain the defaults and
 - `waku-tests/{lambda-route,memo-route}.spec.ts` — inert SSR shells, runtime failures, allowlisted route memory, focus, reload reset, and live-resource disposal coverage. The production bundle/Worker checks prove Mini-ML has no AST endpoint request and Memo has no development shell, client module, or credential surface; provider fingerprints are permitted only inside the shared Lambda artifact required by Mini-ML.
 
 Stage 7 remains pre-production. Vite `/`/`index.html` and `/memo.html` remain the defaults and are retained. No compatibility redirect, provider proxy, MoonBit API change, or production deployment is active.
+
+### Stage 8 — Session Resume
+
+- `src/features/resume/route/resume-route.tsx` — native React route seam that registers directly with the shared snapshot provider, restores stable allowlisted focus tokens, and purges same-document memory through the shared Forget action without using the imperative host.
+- `src/features/resume/browser/app.tsx` — shared Vite/Waku UI that snapshots only the normalized loaded session, selected path/source, and successful atomic chat turns with their frozen source context. Drafts, attachment choices for the next turn, relay state, partial responses, files, DOM, and controllers remain ephemeral.
+- `server/vite/resume-chat.ts` — existing local relay reused by Vite and Waku development through its serve-only plugin. Production keeps the inspection UI, renders chat as explicitly unavailable, and emits no relay endpoint, secret, or middleware fingerprint.
+- `tests/pi-resume.spec.ts` — existing import, synchronized-view, request-preview, stop/continue, focus, responsive, protocol, and persistence contract, now run against both legacy Vite `/resume.html` and Waku `/resume`.
+- `waku-tests/resume-route.spec.ts` — inert SSR inspection, route-memory/Forget, fragment/focus restoration, pending status/chat abort, reload reset, and zero-persistence coverage.
+
+Stage 8 remains pre-production. Vite `/resume.html` remains the default and is retained. No compatibility redirect, production relay/provider, deployment, or Vite removal is active.
 
 Validation runs in parallel with the Vite pipeline:
 

@@ -1,4 +1,5 @@
 import { createDeepSeek } from '@ai-sdk/deepseek';
+import type { ServerResponse } from 'node:http';
 import {
   convertToModelMessages,
   createUIMessageStream,
@@ -71,7 +72,12 @@ function createPkeChatProvider(env: NodeJS.ProcessEnv): PkeChatProvider {
         model: PKE_CHAT_FAKE_MODEL,
         localRelay: true,
       }),
-      respond: async (messages, context, sources, signal) =>
+      respond: async (
+        messages: UIMessage[],
+        context: PkeChatContext,
+        sources: readonly PkeChatSource[],
+        signal: AbortSignal,
+      ) =>
         fakeChatResponse(messages, context, sources, signal, delayMilliseconds),
     });
   }
@@ -96,7 +102,12 @@ function createPkeChatProvider(env: NodeJS.ProcessEnv): PkeChatProvider {
   const deepSeek = createDeepSeek({ apiKey });
   return Object.freeze({
     status,
-    respond: async (messages, context, sources, signal) => {
+    respond: async (
+      messages: UIMessage[],
+      context: PkeChatContext,
+      sources: readonly PkeChatSource[],
+      signal: AbortSignal,
+    ) => {
       const result = streamText({
         model: deepSeek(PKE_CHAT_MODEL),
         system: buildPkeChatSystemPrompt(context, sources),
@@ -114,7 +125,7 @@ function createPkeChatProvider(env: NodeJS.ProcessEnv): PkeChatProvider {
 
 async function statusHandler(
   request: Connect.IncomingMessage,
-  response: Connect.ServerResponse,
+  response: ServerResponse,
   status: PkeChatStatus,
 ): Promise<void> {
   if (request.method !== 'GET') {
@@ -127,7 +138,7 @@ async function statusHandler(
 
 async function chatHandler(
   request: Connect.IncomingMessage,
-  response: Connect.ServerResponse,
+  response: ServerResponse,
   provider: PkeChatProvider,
 ): Promise<void> {
   if (request.method !== 'POST') {
@@ -248,7 +259,7 @@ function fakeChatResponse(
 
 function guardLocalRequest(
   request: Connect.IncomingMessage,
-  response: Connect.ServerResponse,
+  response: ServerResponse,
   requireOrigin: boolean,
 ): boolean {
   const host = request.headers.host;
@@ -268,7 +279,7 @@ function guardLocalRequest(
 
 async function pipeWebResponse(
   source: Response,
-  target: Connect.ServerResponse,
+  target: ServerResponse,
   signal: AbortSignal,
 ): Promise<void> {
   target.statusCode = source.status;
@@ -333,7 +344,7 @@ function isAbortError(error: unknown): boolean {
 }
 
 function sendJson(
-  response: Connect.ServerResponse,
+  response: ServerResponse,
   status: number,
   body: unknown,
 ): void {

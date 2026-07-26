@@ -1,5 +1,5 @@
-import { DemoPlaceholder } from '../shared/shell/demo-placeholder';
+import { ResumeRoute } from '../features/resume/route/resume-route';
 
 export default function Resume() {
-  return <DemoPlaceholder demoId="resume" />;
+  return <ResumeRoute />;
 }

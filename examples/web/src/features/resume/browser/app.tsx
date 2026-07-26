@@ -1,8 +1,9 @@
 import { useChat } from '@ai-sdk/react';
-import { DefaultChatTransport, type UIMessage } from 'ai';
+import { DefaultChatTransport, type ChatTransport, type UIMessage } from 'ai';
 import {
   StrictMode,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useReducer,
   useRef,
@@ -10,6 +11,7 @@ import {
   type ChangeEvent,
   type KeyboardEvent,
   type MouseEvent,
+  type Ref,
 } from 'react';
 import { createRoot } from 'react-dom/client';
 import fixtureSource from '../../../../tests/fixtures/pi-session-v3.jsonl?raw';
@@ -68,13 +70,22 @@ import './styles.css';
 
 const demoSession = reducePiSession(parsePiSessionJsonl(fixtureSource));
 
-const dateTimeFormat = new Intl.DateTimeFormat(undefined, {
+const productionUnavailableChatTransport: ChatTransport<UIMessage> = Object.freeze({
+  sendMessages: async () => {
+    throw new Error('Resume chat is available only in local development.');
+  },
+  reconnectToStream: async () => null,
+});
+
+const dateTimeFormat = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'UTC',
   month: 'short',
   day: 'numeric',
   hour: '2-digit',
   minute: '2-digit',
 });
-const workbenchTimeFormat = new Intl.DateTimeFormat(undefined, {
+const workbenchTimeFormat = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'UTC',
   hour: '2-digit',
   minute: '2-digit',
   second: '2-digit',
@@ -120,6 +131,11 @@ export const initialResumeState: ResumeState = {
   fileInputGeneration: 0,
 };
 
+const forgottenImportStatus: ImportStatus = Object.freeze({
+  message: 'Imported session forgotten. The demo transcript is active again.',
+  tone: 'idle',
+});
+
 export function reduceResumeState(state: ResumeState, event: ResumeEvent): ResumeState {
   switch (event.type) {
     case 'import-reading':
@@ -157,10 +173,7 @@ export function reduceResumeState(state: ResumeState, event: ResumeEvent): Resum
     case 'forget':
       return {
         ...initialResumeState,
-        importStatus: {
-          message: 'Imported session forgotten. The demo transcript is active again.',
-          tone: 'idle',
-        },
+        importStatus: forgottenImportStatus,
         fileInputGeneration: state.fileInputGeneration + 1,
       };
   }
@@ -317,7 +330,14 @@ function PilotSessionToolbar({
           : 'Example restored';
   return (
     <header className="pilot-session-toolbar" aria-label="Session controls">
-      <h1 id="pilot-view-title" className="visually-hidden">{projectName} session</h1>
+      <h1
+        id="pilot-view-title"
+        className="visually-hidden"
+        tabIndex={-1}
+        data-route-heading
+      >
+        {projectName} session
+      </h1>
       <div className="pilot-file-control">
         <label htmlFor="session-file">Open session</label>
         <input
@@ -325,6 +345,7 @@ function PilotSessionToolbar({
           className="file-input"
           id="session-file"
           type="file"
+          data-route-focus="session-file"
           aria-label="Open session file"
           accept=".jsonl,application/json,text/plain"
           disabled={state.isImporting}
@@ -335,6 +356,7 @@ function PilotSessionToolbar({
         <label className="visually-hidden" htmlFor="branch-select">Session path</label>
         <select
           id="branch-select"
+          data-route-focus="branch-select"
           aria-label="Session path"
           disabled={state.isImporting}
           value={selectedLeafId ?? ''}
@@ -371,6 +393,7 @@ function PilotSessionToolbar({
           className="pilot-forget-session"
           type="button"
           disabled={state.isImporting}
+          data-route-focus="forget-session"
           aria-label="Forget session"
           onClick={onForget}
         >
@@ -506,12 +529,84 @@ interface PilotChatTurnContext {
   readonly sources: readonly PkeChatSource[];
 }
 
+interface PkeCompletedChatTextMessage {
+  readonly id: string;
+  readonly role: 'user' | 'assistant';
+  readonly parts: readonly {
+    readonly type: 'text';
+    readonly text: string;
+  }[];
+}
+
+export interface PkeCompletedChatTurn {
+  readonly user: PkeCompletedChatTextMessage & { readonly role: 'user' };
+  readonly assistant: PkeCompletedChatTextMessage & { readonly role: 'assistant' };
+  readonly context: PkeChatContext;
+  readonly sources: readonly PkeChatSource[];
+}
+
+export interface ResumeRouteSnapshot {
+  readonly version: 1;
+  readonly loaded: {
+    readonly session: ReducedPiSession;
+    readonly sourceMode: 'demo' | 'imported';
+    readonly importedFileName?: string;
+  };
+  readonly selectedLeafId: string | null;
+  readonly selectedSourceEntryId: string | null;
+  readonly completedChat: readonly PkeCompletedChatTurn[];
+}
+
+const EMPTY_COMPLETED_CHAT: readonly PkeCompletedChatTurn[] = Object.freeze([]);
+
 const NO_HISTORY_CHAT_CONTEXT: PilotChatTurnContext = Object.freeze({
   context: Object.freeze({ scope: 'none' }),
   sources: Object.freeze([]),
 });
 
 const PKE_CHAT_CITATION_HREF_PREFIX = '#canopy-source-';
+
+function completedChatHistory(
+  messages: readonly UIMessage[],
+  contextByMessageId: ReadonlyMap<string, PilotChatTurnContext>,
+): readonly PkeCompletedChatTurn[] {
+  const textMessages = pkeChatTextMessages(messages);
+  return Object.freeze(textMessages.flatMap((user, index) => {
+    if (index % 2 !== 0 || user.role !== 'user') return [];
+    const assistant = textMessages[index + 1];
+    const turnContext = contextByMessageId.get(user.id);
+    if (
+      assistant?.role !== 'assistant' ||
+      turnContext === undefined ||
+      user.parts.length === 0 ||
+      assistant.parts.length === 0 ||
+      user.parts.some(part => typeof part.text !== 'string') ||
+      assistant.parts.some(part => typeof part.text !== 'string')
+    ) {
+      return [];
+    }
+    return [Object.freeze({
+      user: Object.freeze({
+        id: user.id,
+        role: 'user' as const,
+        parts: Object.freeze(user.parts.map(part => Object.freeze({
+          type: 'text' as const,
+          text: part.text!,
+        }))),
+      }),
+      assistant: Object.freeze({
+        id: assistant.id,
+        role: 'assistant' as const,
+        parts: Object.freeze(assistant.parts.map(part => Object.freeze({
+          type: 'text' as const,
+          text: part.text!,
+        }))),
+      }),
+      context: turnContext.context,
+      sources: turnContext.sources,
+    })];
+  }));
+}
 
 function sourceLinkedChatMarkdown(
   text: string,
@@ -544,21 +639,28 @@ function PilotSourceChat({
   projection,
   selectedSource,
   sourceEntryIds,
+  initialCompletedChat,
   onToggleSource,
   onOpenSource,
+  onCompletedChatChange,
 }: {
   readonly projection: ResumeProjection;
   readonly selectedSource: PilotSourceSelection;
   readonly sourceEntryIds: readonly string[];
+  readonly initialCompletedChat: readonly PkeCompletedChatTurn[];
   readonly onToggleSource: (entryId: string) => void;
   readonly onOpenSource: (entryId: string, leafId: string) => void;
+  readonly onCompletedChatChange: (history: readonly PkeCompletedChatTurn[]) => void;
 }) {
   const [draft, setDraft] = useState('');
   const [draftMessageId, setDraftMessageId] = useState(() => crypto.randomUUID());
   const [contextScope, setContextScope] = useState<PkeChatContext['scope']>('none');
   const [contextByMessageId, setContextByMessageId] = useState<
     ReadonlyMap<string, PilotChatTurnContext>
-  >(() => new Map());
+  >(() => new Map(initialCompletedChat.map(turn => [
+    turn.user.id,
+    Object.freeze({ context: turn.context, sources: turn.sources }),
+  ])));
   const [showPayload, setShowPayload] = useState(false);
   const [relayStatus, setRelayStatus] = useState<PkeChatStatus>();
   const [relayStatusError, setRelayStatusError] = useState<string>();
@@ -599,17 +701,19 @@ function PilotSourceChat({
   );
   const outboundContextRef = useRef<PkeChatContext>(currentContext);
   const outboundSourcesRef = useRef<readonly PkeChatSource[]>(sourcePayload);
-  const transport = useMemo(
-    () => new DefaultChatTransport<UIMessage>({
-      api: '/api/pi-resume-chat',
-      prepareSendMessagesRequest: ({ messages }) => ({
-        body: {
-          messages: pkeChatTextMessages(messages),
-          context: outboundContextRef.current,
-          sources: outboundSourcesRef.current,
-        },
-      }),
-    }),
+  const transport = useMemo<ChatTransport<UIMessage>>(
+    () => import.meta.env.DEV
+      ? new DefaultChatTransport<UIMessage>({
+          api: '/api/pi-resume-chat',
+          prepareSendMessagesRequest: ({ messages }) => ({
+            body: {
+              messages: pkeChatTextMessages(messages),
+              context: outboundContextRef.current,
+              sources: outboundSourcesRef.current,
+            },
+          }),
+        })
+      : productionUnavailableChatTransport,
     [],
   );
   const {
@@ -623,6 +727,15 @@ function PilotSourceChat({
   } = useChat<UIMessage>({
     id: `pke-chat:${projection.sessionId}`,
     transport,
+    messages: initialCompletedChat.flatMap(turn => [turn.user, turn.assistant].map(message => ({
+      id: message.id,
+      role: message.role,
+      parts: message.parts.map(part => ({ type: part.type, text: part.text })),
+    }))),
+    onFinish: ({ messages: completedMessages, isAbort, isDisconnect, isError }) => {
+      if (isAbort || isDisconnect || isError) return;
+      onCompletedChatChange(completedChatHistory(completedMessages, contextByMessageId));
+    },
   });
   const restoreUnansweredUserMessage = (): void => {
     const trailingMessage = messages[messages.length - 1];
@@ -663,6 +776,7 @@ function PilotSourceChat({
     setDraft(current => current.trim().length === 0 ? text : current);
   }, [error, messages, setMessages]);
   useEffect(() => {
+    if (!import.meta.env.DEV) return;
     const controller = new AbortController();
     void fetch('/api/pi-resume-chat/status', { signal: controller.signal })
       .then(async response => {
@@ -710,16 +824,18 @@ function PilotSourceChat({
   const selectedSourceIncluded = sourceEntryIds.includes(selectedSource.entryId);
   const sourceLimitReached = sourceEntryIds.length >= PKE_CHAT_SOURCE_LIMIT;
   const running = status === 'submitted' || status === 'streaming';
-  const relayAvailable = relayStatus?.available === true;
+  const relayAvailable = import.meta.env.DEV && relayStatus?.available === true;
   const requestTooLarge = outboundBytes > PKE_CHAT_REQUEST_MAX_BYTES;
   const messageLimitReached = messages.length >= PKE_CHAT_MESSAGE_LIMIT;
   const canSend = relayAvailable && pendingMessage !== undefined &&
     !requestTooLarge && !messageLimitReached;
-  const providerLabel = relayStatus === undefined
-    ? 'Checking local relay…'
-    : relayStatus.provider === 'fake'
-      ? 'Test model · local relay'
-      : 'DeepSeek V4 Flash · local relay';
+  const providerLabel = !import.meta.env.DEV
+    ? 'Chat unavailable · production'
+    : relayStatus === undefined
+      ? 'Checking local relay…'
+      : relayStatus.provider === 'fake'
+        ? 'Test model · local relay'
+        : 'DeepSeek V4 Flash · local relay';
 
   return (
     <section className="pilot-source-chat" aria-labelledby="pilot-source-chat-title">
@@ -932,12 +1048,20 @@ function PilotSourceChat({
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
-      {relayStatus?.available === false ? (
+      {!import.meta.env.DEV ? (
+        <p
+          className="pilot-chat-unavailable"
+          data-resume-production-chat-unavailable
+          role="status"
+        >
+          Chat is available only in local development. Session inspection remains fully available.
+        </p>
+      ) : relayStatus?.available === false ? (
         <p className="pilot-chat-unavailable" role="status">
           Set DEEPSEEK_API_KEY and restart the local server to send messages.
         </p>
       ) : null}
-      {relayStatusError === undefined ? null : (
+      {!import.meta.env.DEV || relayStatusError === undefined ? null : (
         <p className="pilot-chat-error" role="alert">{relayStatusError}</p>
       )}
       {requestTooLarge ? (
@@ -957,7 +1081,7 @@ function PilotSourceChat({
           <button type="button" onClick={clearError}>Dismiss</button>
         </p>
       )}
-      <PromptInput
+      {!import.meta.env.DEV ? null : <PromptInput
         onSubmit={event => {
           event.preventDefault();
           if (running) {
@@ -986,6 +1110,7 @@ function PilotSourceChat({
         <PromptInputBody>
           <PromptInputTextarea
             aria-label="Chat message"
+            data-route-focus="chat-message"
             disabled={!relayAvailable || running || messageLimitReached}
             maxLength={PKE_CHAT_MESSAGE_TEXT_LIMIT}
             placeholder="Ask anything…"
@@ -1010,7 +1135,7 @@ function PilotSourceChat({
             status={status}
           />
         </PromptInputFooter>
-      </PromptInput>
+      </PromptInput>}
     </section>
   );
 }
@@ -1021,18 +1146,22 @@ function PilotUnderstandingWorkbench({
   selectedSource,
   chatInstanceId,
   chatSourceEntryIds,
+  initialCompletedChat,
   onSelectEntry,
   onSelectChatSource,
   onToggleChatSource,
+  onCompletedChatChange,
 }: {
   readonly projection: ResumeProjection;
   readonly entries: readonly NormalizedEntry[];
   readonly selectedSource: PilotSourceSelection;
   readonly chatInstanceId: string;
   readonly chatSourceEntryIds: readonly string[];
+  readonly initialCompletedChat: readonly PkeCompletedChatTurn[];
   readonly onSelectEntry: (entryId: string) => void;
   readonly onSelectChatSource: (entryId: string, leafId: string) => void;
   readonly onToggleChatSource: (entryId: string) => void;
+  readonly onCompletedChatChange: (history: readonly PkeCompletedChatTurn[]) => void;
 }) {
   const phases = useMemo(
     () => buildPilotTimelinePhases(projection.chronology),
@@ -1085,6 +1214,7 @@ function PilotUnderstandingWorkbench({
   const conversationPanelRef = useRef<HTMLElement | null>(null);
   const selectedConversationRef = useRef<HTMLLIElement | null>(null);
   const revealConversationSelectionRef = useRef(false);
+  const focusConversationSelectionRef = useRef(false);
   const [inspectorMode, setInspectorMode] = useState<PilotInspectorMode>('discuss');
   const [evidenceMode, setEvidenceMode] = useState<PilotEvidenceMode>('readable');
   const selectedItemIndex = Math.max(
@@ -1143,7 +1273,11 @@ function PilotUnderstandingWorkbench({
       } else if (revealConversationSelectionRef.current) {
         target.scrollIntoView({ block: 'center', behavior: 'auto' });
       }
+      if (focusConversationSelectionRef.current) {
+        target.focus({ preventScroll: true });
+      }
       revealConversationSelectionRef.current = false;
+      focusConversationSelectionRef.current = false;
     });
     return () => window.cancelAnimationFrame(frame);
   }, [activePane, selectedSource.entryId]);
@@ -1157,17 +1291,13 @@ function PilotUnderstandingWorkbench({
   const selectConversationAt = (index: number, focus: boolean): void => {
     const item = conversationItems[index];
     if (item === undefined) return;
+    if (item.source.entryId === selectedSource.entryId) {
+      focusConversationSelectionRef.current = false;
+      if (focus) selectedConversationRef.current?.focus({ preventScroll: true });
+      return;
+    }
+    focusConversationSelectionRef.current = focus;
     onSelectEntry(item.source.entryId);
-    if (!focus) return;
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => {
-        const options = conversationPanelRef.current
-          ?.querySelectorAll<HTMLElement>('[data-entry-id]');
-        [...(options ?? [])]
-          .find(option => option.dataset.entryId === item.source.entryId)
-          ?.focus({ preventScroll: true });
-      });
-    });
   };
 
   const handleConversationKeyDown = (
@@ -1319,6 +1449,7 @@ function PilotUnderstandingWorkbench({
                 <li
                   data-role={role}
                   data-entry-id={item.source.entryId}
+                  data-route-focus={`conversation:${item.source.entryId}`}
                   data-anchor={item.anchorKind}
                   data-selected={selected}
                   data-status={item.evidenceStatus}
@@ -1442,7 +1573,9 @@ function PilotUnderstandingWorkbench({
               projection={projection}
               selectedSource={selectedSource}
               sourceEntryIds={chatSourceEntryIds}
+              initialCompletedChat={initialCompletedChat}
               onToggleSource={onToggleChatSource}
+              onCompletedChatChange={onCompletedChatChange}
               onOpenSource={(entryId, leafId) => {
                 onSelectChatSource(entryId, leafId);
                 setActivePane('evidence');
@@ -1557,9 +1690,63 @@ function Diagnostics({ items }: { readonly items: readonly ResumeDiagnostic[] })
   );
 }
 
-export function ResumeApp() {
-  const [state, dispatch] = useReducer(reduceResumeState, initialResumeState);
-  const [pilotState, dispatchPilot] = useReducer(reducePilotViewState, initialPilotViewState);
+interface ResumeAppProps {
+  readonly initialSnapshot?: ResumeRouteSnapshot;
+  readonly initialDemoRestored?: boolean;
+  readonly onSnapshotChange?: (snapshot: ResumeRouteSnapshot) => void;
+  readonly onForgetSnapshot?: () => void;
+  readonly surfaceRef?: Ref<HTMLDivElement>;
+}
+
+export function ResumeApp({
+  initialSnapshot,
+  initialDemoRestored = false,
+  onSnapshotChange,
+  onForgetSnapshot,
+  surfaceRef,
+}: ResumeAppProps = {}) {
+  const restoredState: ResumeState = initialSnapshot === undefined
+    ? initialDemoRestored
+      ? { ...initialResumeState, importStatus: forgottenImportStatus }
+      : initialResumeState
+    : {
+        session: initialSnapshot.loaded.session,
+        sourceMode: initialSnapshot.loaded.sourceMode,
+        ...(initialSnapshot.loaded.importedFileName === undefined
+          ? {}
+          : { importedFileName: initialSnapshot.loaded.importedFileName }),
+        selectedLeafId: initialSnapshot.selectedLeafId,
+        isImporting: false,
+        importStatus: {
+          message: initialSnapshot.loaded.sourceMode === 'imported'
+            ? 'Imported session restored from same-tab memory.'
+            : '',
+          tone: 'idle',
+        },
+        fileInputGeneration: 0,
+      };
+  const restoredPilotState: PilotViewState = initialSnapshot?.selectedSourceEntryId == null
+    ? initialPilotViewState
+    : {
+        selectedSource: { entryId: initialSnapshot.selectedSourceEntryId },
+        chatSourceEntryIds: Object.freeze([]),
+      };
+  const [state, dispatch] = useReducer(reduceResumeState, restoredState);
+  const [pilotState, dispatchPilot] = useReducer(reducePilotViewState, restoredPilotState);
+  const [ready, setReady] = useState(false);
+  useLayoutEffect(() => setReady(true), []);
+  const restoredChatInstanceId = initialSnapshot === undefined
+    ? undefined
+    : `${restoredState.sourceMode}:${restoredState.fileInputGeneration}:${restoredState.session.header.sessionId}`;
+  const [completedChatMemory, setCompletedChatMemory] = useState<{
+    readonly instanceId: string;
+    readonly history: readonly PkeCompletedChatTurn[];
+  } | undefined>(() => restoredChatInstanceId === undefined
+    ? undefined
+    : {
+        instanceId: restoredChatInstanceId,
+        history: initialSnapshot?.completedChat ?? EMPTY_COMPLETED_CHAT,
+      });
   const effectiveLeafId = state.selectedLeafId ?? (
     state.sourceMode === 'demo' ? state.session.terminalPaths[0]?.leafId ?? null : null
   );
@@ -1571,6 +1758,27 @@ export function ResumeApp() {
   const effectivePilotSource: PilotSourceSelection | undefined = pilotState.selectedSource ??
     (defaultItem === undefined ? undefined : { entryId: defaultItem.source.entryId });
   const diagnostics = state.diagnosticOverride ?? projection?.diagnostics ?? state.session.diagnostics;
+  const chatInstanceId = `${state.sourceMode}:${state.fileInputGeneration}:${state.session.header.sessionId}`;
+  const completedChat = completedChatMemory?.instanceId === chatInstanceId
+    ? completedChatMemory.history
+    : EMPTY_COMPLETED_CHAT;
+  const routeSnapshot = useMemo<ResumeRouteSnapshot>(() => Object.freeze({
+    version: 1,
+    loaded: Object.freeze({
+      session: state.session,
+      sourceMode: state.sourceMode,
+      ...(state.importedFileName === undefined
+        ? {}
+        : { importedFileName: state.importedFileName }),
+    }),
+    selectedLeafId: state.selectedLeafId,
+    selectedSourceEntryId: effectivePilotSource?.entryId ?? null,
+    completedChat,
+  }), [completedChat, effectivePilotSource?.entryId, state.importedFileName,
+    state.selectedLeafId, state.session, state.sourceMode]);
+  useLayoutEffect(() => {
+    onSnapshotChange?.(routeSnapshot);
+  }, [onSnapshotChange, routeSnapshot]);
   const importSessionFile = async (file: File): Promise<void> => {
     dispatchPilot({ type: 'reset' });
     dispatch({ type: 'import-reading', fileName: file.name });
@@ -1595,7 +1803,7 @@ export function ResumeApp() {
   const revealSource = (entryId: string): void => {
     if (projection?.chronology.some(item => item.source.entryId === entryId) !== true) return;
     dispatchPilot({ type: 'open-source', entryId });
-    window.history.replaceState(null, '', `#source-${entryId}`);
+    window.history.replaceState(window.history.state, '', `#source-${entryId}`);
   };
   const revealChatSource = (entryId: string, leafId: string): void => {
     if (projection?.leafId === leafId) { revealSource(entryId); return; }
@@ -1603,33 +1811,47 @@ export function ResumeApp() {
         !state.session.entries.some(entry => entry.id === entryId)) return;
     dispatchPilot({ type: 'open-source', entryId });
     dispatch({ type: 'select-leaf', leafId });
-    window.history.replaceState(null, '', `#source-${entryId}`);
+    window.history.replaceState(window.history.state, '', `#source-${entryId}`);
   };
   const forgetSession = (): void => {
+    onForgetSnapshot?.();
+    setCompletedChatMemory(undefined);
     dispatchPilot({ type: 'reset' });
     dispatch({ type: 'forget' });
   };
   return (
-    <main className="pilot-shell">
-      <PilotSessionToolbar
-        state={state} pathLength={projection?.path.length ?? 0} selectedLeafId={effectiveLeafId}
-        onFile={file => void importSessionFile(file)}
-        onSelectPath={leafId => { dispatchPilot({ type: 'reset' }); dispatch({ type: 'select-leaf', leafId }); }}
-        onForget={forgetSession}
-      />
-      <section className="pilot-workspace" data-layout="resume">
-        {state.isImporting || projection === undefined || effectivePilotSource === undefined ? <PilotEmptyWorkspace state={state} /> : (
-          <PilotUnderstandingWorkbench
-            projection={projection} entries={state.session.entries} selectedSource={effectivePilotSource}
-            chatInstanceId={`${state.sourceMode}:${state.fileInputGeneration}:${state.session.header.sessionId}`}
-            chatSourceEntryIds={pilotState.chatSourceEntryIds}
-            onSelectEntry={revealSource} onSelectChatSource={revealChatSource}
-            onToggleChatSource={entryId => dispatchPilot({ type: 'toggle-chat-source', entryId })}
-          />
-        )}
-      </section>
-      <Diagnostics items={diagnostics} />
-    </main>
+    <div
+      className="resume-surface"
+      data-resume-ready={ready ? 'true' : 'false'}
+      inert={ready ? undefined : true}
+      ref={surfaceRef}
+    >
+      <main className="pilot-shell">
+        <PilotSessionToolbar
+          state={state} pathLength={projection?.path.length ?? 0} selectedLeafId={effectiveLeafId}
+          onFile={file => void importSessionFile(file)}
+          onSelectPath={leafId => { dispatchPilot({ type: 'reset' }); dispatch({ type: 'select-leaf', leafId }); }}
+          onForget={forgetSession}
+        />
+        <section className="pilot-workspace" data-layout="resume">
+          {state.isImporting || projection === undefined || effectivePilotSource === undefined ? <PilotEmptyWorkspace state={state} /> : (
+            <PilotUnderstandingWorkbench
+              projection={projection} entries={state.session.entries} selectedSource={effectivePilotSource}
+              chatInstanceId={chatInstanceId}
+              chatSourceEntryIds={pilotState.chatSourceEntryIds}
+              initialCompletedChat={completedChat}
+              onSelectEntry={revealSource} onSelectChatSource={revealChatSource}
+              onToggleChatSource={entryId => dispatchPilot({ type: 'toggle-chat-source', entryId })}
+              onCompletedChatChange={history => setCompletedChatMemory({
+                instanceId: chatInstanceId,
+                history,
+              })}
+            />
+          )}
+        </section>
+        <Diagnostics items={diagnostics} />
+      </main>
+    </div>
   );
 }
 
