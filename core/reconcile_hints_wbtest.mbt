@@ -299,10 +299,25 @@ test "a batch of two independent Wrap hints preserves both ids" {
 ///
 /// The two tests below pin CURRENT behaviour, and together they say: supplying
 /// a stale hint is worse than supplying none. That makes "attach a hint
-/// whenever one is available" unsafe as a caller contract. Whether to fix this
-/// in reconcile (reject a hint whose topology does not match) or to require
-/// freshness of callers is an open choice; these tests exist so that either
-/// decision shows up here as a diff.
+/// whenever one is available" unsafe as a caller contract.
+///
+/// Three ways out, at different costs. These tests exist so that whichever is
+/// taken shows up here as a diff.
+///
+/// 1. Consumer side — reconcile refuses a hint whose topology does not match
+///    the new tree and leaves the node to ordinary matching.
+/// 2. Caller contract — hints are required to be fresh, so producing a stale
+///    one is a caller bug rather than something reconcile absorbs.
+/// 3. Producer side — compose the pending transforms before emitting anything,
+///    so a batch whose net effect cancels emits NO hint instead of a stale one.
+///    This also recovers the identity that the current all-or-nothing degrade
+///    discards when a batch carries several perfectly describable transforms,
+///    so it answers both failures at once. Its cost is that the transform
+///    vocabulary is a flat set of named topology changes and so is not closed
+///    under composition — the opaque fallback is the honest bottom element of
+///    that. Buying composition means giving the vocabulary a compositional
+///    shape, which is a much larger change than 1 or 2 and should wait for a
+///    consumer that needs it.
 test "without hints, an edit whose net effect is nil preserves identity" {
   let inner = ProjNode(Leaf("x"), 1, 2, 5, [])
   let old = ProjNode(Branch("root", [Leaf("x")]), 0, 3, 1, [inner])
