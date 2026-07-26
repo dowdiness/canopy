@@ -689,3 +689,87 @@ production deployment or merge.
 - Add one brief `docs/TODO.md` entry linking this plan while implementation is
   active; do not copy execution detail there.
 - Archive this plan only after Stage 12 is complete and validated.
+
+## Post-Cutover Follow-Up: React Ownership Assessment (Non-Gating)
+
+This section is not a migration stage, not a Stage 12 exit criterion, and does
+not authorize any rewrite of the current Journey, JSON, Markdown, Mini-ML, Memo,
+Posts, Resume, or GenUI implementations. It records the agreed approach for
+future per-demo React ownership evaluation after the Waku cutover is complete
+and Vite is retired. Reactification must not block or delay Waku cutover or
+Vite retirement.
+
+### Principles
+
+- React ownership is assessed per demo, never mandated wholesale across all
+  demos in one effort.
+- Each candidate is tracked in a separate issue and delivered in a separate PR
+  after cutover.
+- Journey is the first candidate: it already has a pure reducer and
+  presentation-only DOM, and proved the imperative lifecycle seam in Stage 3.
+- For each candidate, use React as a thin imperative shell around the existing
+  functional core. The reducer remains the domain source of truth; React renders
+  its returned state and dispatches events into it.
+- Do not mirror into React state: editor or runtime handles, generated MoonBit
+  state, DOM selection, IME composition state, in-flight requests or streams,
+  provider sessions, or any other live imperative resource. These remain behind
+  the imperative adapter.
+- JSON, Markdown, Mini-ML, and GenUI editor/runtime internals remain behind
+  imperative adapters unless separate evidence in a follow-up issue justifies a
+  different ownership seam for a specific demo. Memo and Posts are assessed
+  only where their browser DOM is presentation-only and React would not
+  duplicate provider or persistence ownership. Resume remains React-owned
+  through its existing native route snapshot seam.
+
+### Preservation Requirements
+
+Every React ownership change must preserve:
+
+- Existing reducer semantics and determinism.
+- The verified demo workflow and visual design.
+- Focus, selection, and node identity contracts.
+- Legacy behavior contracts that remain relevant for the demo.
+- Idempotent lifecycle cleanup on unmount, navigation, and route exit.
+
+### Candidate Entry Criteria
+
+A demo is eligible for React ownership assessment only when all of the
+following hold:
+
+- The demo already exposes a pure deterministic transition (`State + Event →
+  State`, optionally with returned decisions) or can be factored into one
+  without changing verified behavior.
+- Route state is serializable and already captured by the route-lifecycle
+  snapshot.
+- The DOM surface is presentation-only — it renders reducer output and
+  dispatches user events, without owning live editor, runtime, or provider
+  handles in React state.
+
+### Candidate Validation and Exit Criteria
+
+Each React ownership PR must demonstrate:
+
+- All existing behavior contracts (Playwright suites, reducer unit tests,
+  boundary checks) still pass unchanged.
+- Route snapshot save and restore works through the new React shell.
+- Full page reload clears all transient state as before; no React-managed
+  cache survives reload.
+- Focus restoration (route heading and per-demo stable token) works after
+  navigation to and from the route.
+- Unmount, Strict Mode double-mount, and repeated navigation cycles dispose
+  all live resources: no leaked handle, adapter, overlay, request, timer,
+  listener, or React root.
+- There is exactly one render implementation — React does not duplicate the
+  imperative adapter's rendering logic. If the imperative adapter is still
+  needed for a portion of the DOM, React delegates to it rather than
+  re-rendering it.
+
+### Scope Boundaries
+
+This follow-up does not:
+
+- Change any Stage 3 exit criterion or the Journey implementation in this plan.
+- Add gating requirements to any stage in the migration sequence.
+- Authorize changes to the five public virtual import IDs, generated MoonBit
+  JavaScript, or the route-lifecycle Module interface.
+- Redesign the signaling, storage, or provider capability contracts.
