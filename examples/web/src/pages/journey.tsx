@@ -1,5 +1,5 @@
-import { DemoPlaceholder } from '../shared/shell/demo-placeholder';
+import { JourneyRoute } from '../features/genui-possibilities/route/journey-route';
 
 export default function Journey() {
-  return <DemoPlaceholder demoId="journey" />;
+  return <JourneyRoute />;
 }

@@ -47,9 +47,9 @@ Implementation inventory for the current `examples/web` workspace. The source tr
 
 Most of the source tree is intentionally flat: feature ownership is inferred from filenames rather than represented by `src/entries`, `src/features`, and `src/shared` directories. Resume/PKE, Posts, Memo, JSON, Markdown, GenUI, and GenUI Possibilities use the target entry/feature layout. `shared/decoration-overlay.ts` is shared by Lambda and JSON. GenUI keeps deterministic fixtures/flows/schema/recorded candidates in its core, browser DOM/effect code in its browser surface, and Node/provider/Vite capabilities under `server/`. Memo reuses the Lambda generated runtime. Styles are partly per-surface and partly global/adapter-owned. These are inventory facts, not exemptions from the boundary checker.
 
-## Waku foundation (pre-production, #970 Stages 0–1; #971 Stage 2 in progress)
+## Waku migration (pre-production, #970–#972 Stages 0–3)
 
-Vite remains the default build for all eight HTML surfaces. A parallel Waku 1.0.0-beta.8 + Wrangler 4.114.0 foundation has landed alongside it. Stage 2 has added the Hub, route-lifecycle Module, shell, placeholder routes, and 404; no demo behavior has been migrated and no old HTML entry has been removed.
+Vite remains the default build for all eight HTML surfaces. A parallel Waku 1.0.0-beta.8 + Wrangler 4.114.0 application has landed alongside it. Stage 2 added the Hub, route-lifecycle Module, shell, placeholder routes, and 404; Stage 3 migrates Journey while retaining every old HTML entry.
 
 ### Stage 0–1 configuration and artifacts
 
@@ -65,7 +65,8 @@ Vite remains the default build for all eight HTML surfaces. A parallel Waku 1.0.
 
 - `src/pages/index.tsx` — Demo Hub. `/index.html` renders the same Hub without redirect (not a `308`).
 - `src/pages/404.tsx` — accessible true 404 with `aria-labelledby`, `tabIndex={-1}`, semantic heading.
-- `src/pages/{ml,json,markdown,memo,posts,resume,genui,journey}.tsx` — eight canonical placeholder routes; each renders `DemoPlaceholder` from the shared shell. No demo behavior has been migrated.
+- `src/pages/{ml,json,markdown,memo,posts,resume,genui}.tsx` — seven canonical placeholder routes; each renders `DemoPlaceholder` from the shared shell.
+- `src/pages/journey.tsx` — canonical Journey route; composes the feature-owned route surface through the shared imperative host.
 - `src/pages/_layout.tsx` — pass-through shared route layout; the provider stays at `_root.tsx` so its in-memory registry survives route render failures.
 - `src/shared/catalog/demo-catalog.ts` — framework-independent catalog data (eight demos, three groups, canonical `DemoPath` routes).
 - `src/shared/shell/` — `DemoHub` and `DemoPlaceholder` React components and shared shell styles.
@@ -74,7 +75,14 @@ Vite remains the default build for all eight HTML surfaces. A parallel Waku 1.0.
 - `waku-tests/foundation.spec.ts` and `waku-tests/hub.spec.ts` — deterministic Waku page tests.
 - `scripts/waku-lifecycle-contract.test.mjs` — reducer/provider/focus/error/imperative-host contract tests.
 
-Stage 2 remains pre-production. Vite remains the default and is retained.
+### Stage 3 — Journey Proposals
+
+- `src/features/genui-possibilities/route/{journey-route,journey-client}.tsx` — server/client route seam that reuses the legacy HTML as canonical Journey markup, preserves content during RSC navigation, and routes the existing wordmark through the lifecycle provider.
+- `src/features/genui-possibilities/browser/mount.js` — shared Vite/Waku mount; scopes DOM ownership to the supplied container and returns the defensive snapshot, stable response-focus, and idempotent disposal session.
+- `tests/genui-possibilities.spec.ts` — unchanged Journey behavior and visual contract, now also run against Waku `/journey`.
+- `waku-tests/journey-route.spec.ts` — route-memory, reload-reset, browser-traversal focus, and repeated timer/listener disposal coverage.
+
+Stage 3 remains pre-production. Vite and `genui-possibilities.html` remain the defaults and are retained. No Journey compatibility redirect is active.
 
 Validation runs in parallel with the Vite pipeline:
 

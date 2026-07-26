@@ -52,20 +52,30 @@ const responses = [
   },
 ];
 
-export function mountGenuiPossibilities() {
-  const itineraryList = document.querySelector('#itinerary-list');
-  const responseList = document.querySelector('#response-list');
-  const selectionDetail = document.querySelector('#selection-detail');
-  const revisionLabel = document.querySelector('#revision-label');
-  const planStatus = document.querySelector('#plan-status');
-  const applyButton = document.querySelector('#apply-button');
-  const clearSelectionButton = document.querySelector('#clear-selection-button');
-  const undoButton = document.querySelector('#undo-button');
-  const toast = document.querySelector('#toast');
+export function mountGenuiPossibilities(
+  root = globalThis.document,
+  restoredSnapshot = undefined,
+) {
+  const document = root.ownerDocument ?? root;
+  const window = document.defaultView ?? globalThis.window;
+  const itineraryList = root.querySelector('#itinerary-list');
+  const responseList = root.querySelector('#response-list');
+  const selectionDetail = root.querySelector('#selection-detail');
+  const revisionLabel = root.querySelector('#revision-label');
+  const planStatus = root.querySelector('#plan-status');
+  const applyButton = root.querySelector('#apply-button');
+  const clearSelectionButton = root.querySelector('#clear-selection-button');
+  const undoButton = root.querySelector('#undo-button');
+  const toast = root.querySelector('#toast');
 
-  let state = createJourneyState();
+  itineraryList.replaceChildren();
+  responseList.replaceChildren();
+
+  let state = restoredSnapshot === undefined
+    ? createJourneyState()
+    : structuredClone(restoredSnapshot);
   let toastTimer;
-  let focusedResponseId = responses[0]?.id ?? null;
+  let focusedResponseId = state.selectedOption ?? responses[0]?.id ?? null;
 
   const itineraryRows = [];
   const responseRows = [];
@@ -161,6 +171,7 @@ export function mountGenuiPossibilities() {
     row.className = `response-row ${response.tone}`;
     row.role = 'radio';
     row.dataset.response = response.id;
+    row.dataset.routeFocus = `response:${response.id}`;
 
     const radioMark = document.createElement('span');
     radioMark.className = 'radio-mark';
@@ -334,13 +345,13 @@ export function mountGenuiPossibilities() {
     render();
   }
 
-  responseList.addEventListener('click', (event) => {
+  function handleResponseClick(event) {
     const response = event.target.closest('[data-response]');
     if (response === null) return;
     selectResponse(response.dataset.response, true);
-  });
+  }
 
-  responseList.addEventListener('keydown', (event) => {
+  function handleResponseKeydown(event) {
     const response = event.target.closest('[data-response]');
     if (response === null) return;
 
@@ -370,9 +381,9 @@ export function mountGenuiPossibilities() {
     const targetId = responses[nextIndex].id;
     focusedResponseId = targetId;
     selectResponse(targetId, true);
-  });
+  }
 
-  applyButton.addEventListener('click', () => {
+  function handleApply() {
     if (state.selectedOption === null) return;
     const chosen = selectedResponse();
     const previousFocus = focusedResponseId;
@@ -382,9 +393,9 @@ export function mountGenuiPossibilities() {
       focusResponse(previousFocus);
     }
     showToast(`${chosen.name} applied to the itinerary. No booking was changed.`);
-  });
+  }
 
-  clearSelectionButton.addEventListener('click', () => {
+  function handleClearSelection() {
     if (state.selectedOption === null) return;
     const previousFocus = focusedResponseId;
     state = transitionJourney(state, { type: 'select_option', option: null });
@@ -393,9 +404,9 @@ export function mountGenuiPossibilities() {
       focusResponse(previousFocus);
     }
     showToast('Selection cleared. Current itinerary unchanged.');
-  });
+  }
 
-  undoButton.addEventListener('click', () => {
+  function handleUndo() {
     const previousFocus = focusedResponseId;
     state = transitionJourney(state, { type: 'undo' });
     render();
@@ -403,7 +414,35 @@ export function mountGenuiPossibilities() {
       focusResponse(previousFocus);
     }
     showToast('Previous itinerary restored as a new revision.');
-  });
+  }
+
+  responseList.addEventListener('click', handleResponseClick);
+  responseList.addEventListener('keydown', handleResponseKeydown);
+  applyButton.addEventListener('click', handleApply);
+  clearSelectionButton.addEventListener('click', handleClearSelection);
+  undoButton.addEventListener('click', handleUndo);
 
   renderAll();
+
+  return {
+    snapshot: () => state,
+    restoreFocus: (token) => {
+      const response = responseRows.find(
+        ({ row }) => row.dataset.routeFocus === token,
+      );
+      if (response === undefined) return false;
+      focusedResponseId = response.id;
+      renderResponses();
+      response.row.focus({ preventScroll: true });
+      return document.activeElement === response.row;
+    },
+    dispose: () => {
+      window.clearTimeout(toastTimer);
+      responseList.removeEventListener('click', handleResponseClick);
+      responseList.removeEventListener('keydown', handleResponseKeydown);
+      applyButton.removeEventListener('click', handleApply);
+      clearSelectionButton.removeEventListener('click', handleClearSelection);
+      undoButton.removeEventListener('click', handleUndo);
+    },
+  };
 }
