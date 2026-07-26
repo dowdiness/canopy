@@ -1,21 +1,12 @@
-// Main entry point for Lambda Calculus CRDT Editor
+'use client';
 
+// Legacy Vite entry point for the Mini-ML editor.
+
+import * as crdt from '@moonbit/crdt-lambda';
+import * as graphviz from '@moonbit/graphviz';
 import './styles.css';
-import { createEditor } from './editor';
+import { mountLambdaEditor } from './editor';
 
 export function mountLambda(): void {
-  const agentId = `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  const editor = createEditor(agentId);
-
-  // Example buttons
-  document.querySelectorAll('.example-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const example = btn.getAttribute('data-example');
-      if (example) editor.setText(example);
-    });
-  });
-
-  const statusEl = document.getElementById('status')!;
-  statusEl.textContent = `Ready! ID: ${agentId}`;
-  statusEl.className = 'status success';
+  mountLambdaEditor(document, undefined, crdt, graphviz);
 }

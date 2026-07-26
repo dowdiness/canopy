@@ -1,4 +1,5 @@
 import { defineConfig } from 'waku/config';
+import { astGrepPlugin } from './server/vite/ast-grep';
 import {
   createMoonbitArtifactsPlugin,
   moonbitImportIds,
@@ -7,7 +8,10 @@ import {
 export default defineConfig({
   unstable_adapter: 'waku/adapters/cloudflare',
   vite: {
-    plugins: [createMoonbitArtifactsPlugin({ watch: true })],
+    plugins: [
+      astGrepPlugin(),
+      createMoonbitArtifactsPlugin({ watch: true }),
+    ],
     server: {
       fs: {
         allow: ['../..'],

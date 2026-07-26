@@ -110,6 +110,21 @@ test('detects each generated runtime fingerprint in a server/RSC bundle', () => 
   assert.deepEqual(result.missingClientModules, []);
 });
 
+test('rejects the development-only Mini-ML AST Grep request in production bundles', () => {
+  const result = inspectWakuBundles({
+    serverBundles: [],
+    clientBundles: [{
+      name: 'dist/public/assets/ml-a.js',
+      source: 'fetch("/api/ast-grep")',
+    }],
+  });
+  assert.deepEqual(result.productionClientRequestLeaks, [{
+    capability: 'Mini-ML AST Grep',
+    requestPath: '/api/ast-grep',
+    file: 'dist/public/assets/ml-a.js',
+  }]);
+});
+
 test('keeps Vite defaults while exposing explicit dual-run commands', () => {
   const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
   assert.equal(pkg.scripts.dev, 'vite');

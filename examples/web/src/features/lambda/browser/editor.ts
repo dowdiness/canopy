@@ -1,159 +1,233 @@
 'use client';
 
-// Lambda Calculus Editor — thin DOM bridge over MoonBit CRDT backend
+// Mini-ML editor — imperative DOM shell over the MoonBit CRDT core.
 
-import * as crdt from '@moonbit/crdt-lambda';
-import * as graphviz from '@moonbit/graphviz';
 import { HTMLAdapter } from '@canopy/editor-adapter/html-adapter';
-import type { Decoration, ViewPatch } from '@canopy/editor-adapter/types';
-import { runAnalysis } from './ast-grep-runner';
+import type { ViewPatch } from '@canopy/editor-adapter/types';
+import type { MountedImperativeSession } from '../../../shared/route-lifecycle/browser/imperative-session';
 import { DecorationOverlay } from '../../../shared/decoration-overlay';
+import { runAnalysis } from './ast-grep-runner';
 
-export function createEditor(agentId: string) {
-  const handle = crdt.create_editor(agentId);
+export type LambdaEditorRuntime = typeof import('@moonbit/crdt-lambda');
+export type GraphvizRuntime = typeof import('@moonbit/graphviz');
 
-  const editorEl = document.getElementById('editor') as HTMLDivElement;
-  const astGraphEl = document.getElementById('ast-graph') as HTMLDivElement;
-  const astOutputEl = document.getElementById('ast-output') as HTMLElement;
-  const errorEl = document.getElementById('error-output') as HTMLUListElement;
+export function mountLambdaEditor(
+  root: Document | HTMLElement = globalThis.document,
+  restoredSnapshot: unknown,
+  crdt: LambdaEditorRuntime,
+  graphviz: GraphvizRuntime,
+): MountedImperativeSession {
+  const document = root instanceof Document ? root : root.ownerDocument;
+  const window = document.defaultView ?? globalThis.window;
 
-  // Protocol-based pretty-print adapter
-  const prettyAdapter = new HTMLAdapter(astOutputEl);
-  const decorationOverlay = new DecorationOverlay(editorEl);
-  const analysisApi = crdt as typeof crdt & {
-    apply_ast_grep_results_json(handle: number, matchesJson: string): string;
-    compute_view_patches_json(handle: number): string;
-  };
+  function must<T extends HTMLElement>(selector: string): T {
+    const element = root.querySelector<HTMLElement>(selector);
+    if (element === null) throw new Error(`Missing Mini-ML editor element ${selector}`);
+    return element as T;
+  }
 
-  let lastText = '';
-  let scheduled = false;
+  const surfaceEl = must<HTMLElement>('[data-lambda-ready]');
+  const editorEl = must<HTMLDivElement>('#editor');
+  const astGraphEl = must<HTMLDivElement>('#ast-graph');
+  const astOutputEl = must<HTMLElement>('#ast-output');
+  const errorEl = must<HTMLUListElement>('#error-output');
+  const statusEl = must<HTMLElement>('#status');
+  const exampleButtons = Array.from(root.querySelectorAll<HTMLButtonElement>('.example-btn'));
+  const listenerAbort = new window.AbortController();
+  const agentId = `user-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+  const restoredSource = typeof restoredSnapshot === 'string' ? restoredSnapshot : '';
+
+  let disposed = false;
+  let inputFrame: number | null = null;
   let analysisGeneration = 0;
   let analysisTimer: number | null = null;
   let analysisAbortController: AbortController | null = null;
+  let releaseHandle: (() => void) | null = null;
+  let releasePrettyAdapter: (() => void) | null = null;
+  let releaseDecorationOverlay: (() => void) | null = null;
 
-  function updateUI() {
-    const text = editorEl.textContent || '';
-    if (text !== lastText) {
-      crdt.set_text(handle, text);
-      lastText = text;
-      applyDecorationPatches(JSON.parse(analysisApi.compute_view_patches_json(handle)));
-      scheduleAnalysis(text);
+  function dispose(): void {
+    if (disposed) return;
+    disposed = true;
+    surfaceEl.inert = true;
+    surfaceEl.dataset.lambdaReady = 'false';
+    listenerAbort.abort();
+    analysisGeneration += 1;
+    if (inputFrame !== null) {
+      window.cancelAnimationFrame(inputFrame);
+      inputFrame = null;
     }
-
-    // AST visualization (DOT → SVG via graphviz module)
-    try {
-      const dot = crdt.get_ast_dot_resolved(handle);
-      const svg = graphviz.render_dot_to_svg(dot);
-      astGraphEl.innerHTML = svg;
-
-      // Dark theme: remove white background from SVG
-      const polygon = astGraphEl.querySelector('g.graph polygon');
-      if (polygon) polygon.setAttribute('fill', 'transparent');
-    } catch (e) {
-      astGraphEl.innerHTML = `<p style="color:#f44">Error: ${e}</p>`;
-    }
-
-    // Pretty-printed AST with syntax highlighting (via protocol)
-    try {
-      const patches: ViewPatch[] = JSON.parse(
-        crdt.compute_pretty_patches_json(handle),
-      );
-      prettyAdapter.applyPatches(patches);
-    } catch (e) {
-      astOutputEl.textContent = `Pretty-print error: ${e}`;
-    }
-
-    // Diagnostics (parse errors + eval warnings). `def_name` is present
-    // on type errors inside a named binding so we can render a badge
-    // instead of string-prefixing the message.
-    const diags: { level: string; message: string; def_name?: string }[] = JSON.parse(
-      crdt.get_diagnostics_json(handle),
-    );
-    if (diags.length === 0) {
-      errorEl.innerHTML = '<li>No errors</li>';
-    } else {
-      errorEl.innerHTML = diags
-        .map(d => {
-          const badge = d.def_name
-            ? `<span class="diag-def-badge">${escapeHTML(d.def_name)}</span> `
-            : '';
-          return `<li class="diag-item diag-${d.level}">${badge}${escapeHTML(d.message)}</li>`;
-        })
-        .join('');
-    }
-  }
-
-  function scheduleAnalysis(text: string) {
-    const generation = ++analysisGeneration;
     if (analysisTimer !== null) {
       window.clearTimeout(analysisTimer);
-    }
-    if (analysisAbortController !== null) {
-      analysisAbortController.abort();
-      analysisAbortController = null;
-    }
-    analysisTimer = window.setTimeout(() => {
       analysisTimer = null;
-      void applyAnalysis(text, generation);
-    }, 150);
-  }
-
-  async function applyAnalysis(text: string, generation: number) {
-    const controller = new AbortController();
-    analysisAbortController = controller;
-    try {
-      const matches = await runAnalysis(text, { signal: controller.signal });
-      if (generation !== analysisGeneration) return;
-
-      const result = analysisApi.apply_ast_grep_results_json(handle, JSON.stringify(matches));
-      if (result !== 'ok') {
-        console.warn(`ast-grep analysis rejected: ${result}`);
-        return;
-      }
-
-      const patches: ViewPatch[] = JSON.parse(analysisApi.compute_view_patches_json(handle));
-      applyDecorationPatches(patches);
-    } catch (error) {
-      if (controller.signal.aborted || generation !== analysisGeneration) return;
-      console.warn('ast-grep analysis failed', error);
-    } finally {
-      if (analysisAbortController === controller) {
-        analysisAbortController = null;
-      }
     }
-  }
+    analysisAbortController?.abort();
+    analysisAbortController = null;
 
-  function applyDecorationPatches(patches: ViewPatch[]) {
-    let decorations: Decoration[] | null = null;
-    for (const patch of patches) {
-      if (patch.type === 'SetDecorations') {
-        decorations = patch.decorations;
+    const releases = [
+      ['decoration overlay', releaseDecorationOverlay],
+      ['pretty-print adapter', releasePrettyAdapter],
+      ['MoonBit handle', releaseHandle],
+    ] as const;
+    releaseDecorationOverlay = null;
+    releasePrettyAdapter = null;
+    releaseHandle = null;
+    releases.forEach(([resource, release]) => {
+      try {
+        release?.();
+      } catch (error) {
+        console.error(`Failed to dispose Mini-ML editor ${resource}`, error);
       }
-    }
-    if (decorations !== null) {
-      decorationOverlay.applyDecorations(decorations);
-    }
-  }
-
-  editorEl.addEventListener('input', () => {
-    if (scheduled) return;
-    scheduled = true;
-    requestAnimationFrame(() => {
-      scheduled = false;
-      updateUI();
     });
-  });
+  }
 
-  return {
-    handle,
-    agentId,
-    updateUI,
-    getText: () => crdt.get_text(handle),
-    setText: (text: string) => {
+  try {
+    const handle = crdt.create_editor(agentId);
+    releaseHandle = () => crdt.destroy_editor(handle);
+    const prettyAdapter = new HTMLAdapter(astOutputEl);
+    releasePrettyAdapter = () => prettyAdapter.destroy();
+    const decorationOverlay = new DecorationOverlay(editorEl);
+    releaseDecorationOverlay = () => decorationOverlay.dispose();
+    const analysisApi = crdt as LambdaEditorRuntime & {
+      apply_ast_grep_results_json(handle: number, matchesJson: string): string;
+      compute_view_patches_json(handle: number): string;
+    };
+    let lastText = '';
+
+    function applyDecorationPatches(patches: ViewPatch[]): void {
+      const decorationPatch = patches.reduce<
+        Extract<ViewPatch, { type: 'SetDecorations' }> | undefined
+      >(
+        (last, patch) => patch.type === 'SetDecorations' ? patch : last,
+        undefined,
+      );
+      if (decorationPatch !== undefined) {
+        decorationOverlay.applyDecorations(decorationPatch.decorations);
+      }
+    }
+
+    async function applyAnalysis(text: string, generation: number): Promise<void> {
+      const controller = new window.AbortController();
+      analysisAbortController = controller;
+      try {
+        const matches = await runAnalysis(text, { signal: controller.signal });
+        if (disposed || generation !== analysisGeneration) return;
+
+        const result = analysisApi.apply_ast_grep_results_json(
+          handle,
+          JSON.stringify(matches),
+        );
+        if (result !== 'ok') {
+          console.warn(`ast-grep analysis rejected: ${result}`);
+          return;
+        }
+        const patches: ViewPatch[] = JSON.parse(
+          analysisApi.compute_view_patches_json(handle),
+        );
+        applyDecorationPatches(patches);
+      } catch (error) {
+        if (controller.signal.aborted || disposed || generation !== analysisGeneration) return;
+        console.warn('ast-grep analysis failed', error);
+      } finally {
+        if (analysisAbortController === controller) analysisAbortController = null;
+      }
+    }
+
+    function scheduleAnalysis(text: string): void {
+      const generation = ++analysisGeneration;
+      if (analysisTimer !== null) window.clearTimeout(analysisTimer);
+      analysisAbortController?.abort();
+      analysisAbortController = null;
+      analysisTimer = window.setTimeout(() => {
+        analysisTimer = null;
+        void applyAnalysis(text, generation);
+      }, 150);
+    }
+
+    function updateUI(): void {
+      if (disposed) return;
+      const text = editorEl.textContent ?? '';
+      if (text !== lastText) {
+        crdt.set_text(handle, text);
+        lastText = text;
+        const patches: ViewPatch[] = JSON.parse(
+          analysisApi.compute_view_patches_json(handle),
+        );
+        applyDecorationPatches(patches);
+        scheduleAnalysis(text);
+      }
+
+      try {
+        const svg = graphviz.render_dot_to_svg(crdt.get_ast_dot_resolved(handle));
+        astGraphEl.innerHTML = svg;
+        astGraphEl.querySelector('g.graph polygon')?.setAttribute('fill', 'transparent');
+      } catch (error) {
+        astGraphEl.textContent = `AST visualization error: ${error}`;
+      }
+
+      try {
+        const patches: ViewPatch[] = JSON.parse(
+          crdt.compute_pretty_patches_json(handle),
+        );
+        prettyAdapter.applyPatches(patches);
+      } catch (error) {
+        astOutputEl.textContent = `Pretty-print error: ${error}`;
+      }
+
+      const diagnostics: { level: string; message: string; def_name?: string }[] = JSON.parse(
+        crdt.get_diagnostics_json(handle),
+      );
+      errorEl.innerHTML = diagnostics.length === 0
+        ? '<li>No errors</li>'
+        : diagnostics.map((diagnostic) => {
+            const badge = diagnostic.def_name
+              ? `<span class="diag-def-badge">${escapeHTML(diagnostic.def_name)}</span> `
+              : '';
+            return `<li class="diag-item diag-${diagnostic.level}">${badge}${escapeHTML(diagnostic.message)}</li>`;
+          }).join('');
+    }
+
+    function setText(text: string): void {
       editorEl.textContent = text;
-      editorEl.dispatchEvent(new Event('input', { bubbles: true }));
-    },
-  };
+      editorEl.dispatchEvent(new window.Event('input', { bubbles: true }));
+    }
+
+    editorEl.addEventListener('input', () => {
+      if (inputFrame !== null) return;
+      inputFrame = window.requestAnimationFrame(() => {
+        inputFrame = null;
+        updateUI();
+      });
+    }, { signal: listenerAbort.signal });
+    exampleButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const example = button.dataset.example;
+        if (example !== undefined) setText(example);
+      }, { signal: listenerAbort.signal });
+    });
+
+    if (restoredSource !== '') {
+      editorEl.textContent = restoredSource;
+      updateUI();
+    }
+    statusEl.textContent = `Ready! ID: ${agentId}`;
+    statusEl.className = 'status success';
+    surfaceEl.inert = false;
+    surfaceEl.dataset.lambdaReady = 'true';
+
+    return {
+      snapshot: () => editorEl.textContent ?? '',
+      restoreFocus(token: string): boolean {
+        if (disposed || token !== 'editor') return false;
+        editorEl.focus({ preventScroll: true });
+        return document.activeElement === editorEl;
+      },
+      dispose,
+    };
+  } catch (error) {
+    dispose();
+    throw error;
+  }
 }
 
 function escapeHTML(text: string): string {

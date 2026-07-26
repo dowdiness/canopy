@@ -23,7 +23,7 @@ let pageErrors: Error[];
 test.beforeEach(async ({ page }) => {
   pageErrors = [];
   page.on('pageerror', (error) => pageErrors.push(error));
-  await page.goto('/');
+  await page.goto(process.env.LAMBDA_EDITOR_URL ?? '/');
   await expect(page.locator('#status')).toContainText('Ready!');
 });
 

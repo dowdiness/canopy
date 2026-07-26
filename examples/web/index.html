@@ -6,11 +6,13 @@
   <title>Mini-ML CRDT Editor</title>
 
 </head>
-<body>
+<body class="lambda-surface">
+  <!-- lambda-shell:start -->
   <div class="container">
-    <h1>Mini-ML CRDT Editor</h1>
+    <h1 data-route-heading tabindex="-1">Mini-ML CRDT Editor</h1>
     <p class="subtitle">Collaborative real-time editor with live evaluation</p>
 
+    <div class="lambda-app" inert data-lambda-ready="false">
     <div id="status" class="status">Loading JavaScript...</div>
 
     <div class="panel network-panel">
@@ -85,7 +87,7 @@ IfThenElse  ::= 'if' Expression 'then' Expression 'else' Expression</pre>
         <button class="example-btn" data-example="fn choose(x : Int) { if x then {&#10;  x + 1&#10;} else {&#10;  42&#10;} }&#10;let a = choose 0&#10;let b = choose 5&#10;a + b">Conditional</button>
         <button class="example-btn" data-example="fn compose(f : Int -> Int, g : Int -> Int, x : Int) {&#10;  f (g x)&#10;}&#10;fn double(x : Int) { x + x }&#10;fn inc(x : Int) { x + 1 }&#10;let f = compose inc double&#10;f 5">Pipeline</button>
       </div>
-      <div id="editor" contenteditable="plaintext-only" spellcheck="false"></div>
+      <div id="editor" contenteditable="plaintext-only" spellcheck="false" data-route-focus="editor"></div>
     </div>
 
     <div class="info-panel">
@@ -110,7 +112,9 @@ IfThenElse  ::= 'if' Expression 'then' Expression 'else' Expression</pre>
         </div>
       </div>
     </div>
+    </div>
   </div>
+  <!-- lambda-shell:end -->
 
   <script type="module" src="/src/entries/lambda.ts"></script>
 </body>
