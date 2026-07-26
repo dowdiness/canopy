@@ -96,6 +96,10 @@ export interface MoonBitPluginOptions {
  * ```
  */
 export function moonbitPlugin(options: MoonBitPluginOptions): Plugin {
+  if (!options.coordinator) {
+    throw new Error('[MoonBit] A build coordinator is required');
+  }
+
   const {
     modules,
     coordinator,

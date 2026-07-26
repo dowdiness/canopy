@@ -7,7 +7,10 @@ import {
   moonbitImportIds,
   moonbitModules,
 } from '../moonbit-artifacts.mjs';
-import { installMoonbitOutputReload } from '../vite-plugin-moonbit.ts';
+import {
+  installMoonbitOutputReload,
+  moonbitPlugin,
+} from '../vite-plugin-moonbit.ts';
 import { inspectWakuBundles } from './check-waku-bundles.mjs';
 
 const expectedModules = [
@@ -43,6 +46,13 @@ test('coordinates one root MoonBit build for all virtual modules', () => {
     buildFlags: [],
   });
   assert.equal(new Set(moonbitModules.map(({ path }) => path)).size, 1);
+});
+
+test('rejects a missing MoonBit build coordinator with a clear error', () => {
+  assert.throws(
+    () => moonbitPlugin({ modules: [] }),
+    { message: '[MoonBit] A build coordinator is required' },
+  );
 });
 
 test('invalidates generated importers and fully reloads after an output write', async () => {
@@ -109,6 +119,14 @@ test('keeps Vite defaults while exposing explicit dual-run commands', () => {
   assert.equal(pkg.scripts['dev:waku'], 'waku dev');
   assert.equal(pkg.scripts['dev:dual'], 'bash scripts/dev-dual.sh');
   assert.equal(pkg.scripts['build:waku'], 'bash scripts/build-waku.sh');
+  assert.equal(
+    pkg.scripts['generate:waku-types'],
+    'wrangler types worker-configuration.d.ts --config wrangler.waku.jsonc',
+  );
+  assert.equal(
+    pkg.scripts['check:waku-types'],
+    'wrangler types --config wrangler.waku.jsonc --check',
+  );
   assert.equal(pkg.dependencies.waku, '1.0.0-beta.8');
   assert.equal(pkg.devDependencies.wrangler, '4.114.0');
   assert.equal(pkg.engines.node, '^24.0.0 || ^22.15.0');
@@ -129,6 +147,7 @@ test('adds parallel Waku build, browser, and workerd jobs to the repository gate
   assert.match(ci, /^  waku-workerd:\n/m);
   assert.match(ci, /npm run build:waku/);
   assert.match(ci, /npm run check:waku-bundles/);
+  assert.match(ci, /npm run check:waku-types/);
   assert.match(
     ci,
     /npx wrangler deploy --config wrangler\.waku\.jsonc --dry-run --env preview/,

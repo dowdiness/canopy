@@ -16,6 +16,8 @@
     "build:vite": "vite build",
     "dev:waku": "waku dev",
     "build:waku": "bash scripts/build-waku.sh",
+    "generate:waku-types": "wrangler types worker-configuration.d.ts --config wrangler.waku.jsonc",
+    "check:waku-types": "wrangler types --config wrangler.waku.jsonc --check",
     "test:foundation": "node --test scripts/waku-foundation.test.mjs scripts/waku-lifecycle-contract.test.mjs",
     "check:waku-bundles": "node scripts/check-waku-bundles.mjs",
     "test:waku:e2e": "playwright test --config=playwright.waku.config.ts",

@@ -65,7 +65,7 @@ Validation runs in parallel with the Vite pipeline:
 - `npm run check:waku-bundles` — asserts generated client/server bundle boundaries.
 - `npm run test:waku:e2e` — Playwright suite under `playwright.waku.config.ts`.
 - `npm run test:waku:workerd` — built Worker/static-asset smoke under local workerd.
-- `npx wrangler types --config wrangler.waku.jsonc --check` — generated Waku Cloudflare binding types.
+- `npm run check:waku-types` — checks generated Waku Cloudflare binding types against the pinned config and build.
 - `npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env preview` — preview Waku Worker bundle dry-run.
 - CI jobs `waku-build`, `waku-e2e`, and `waku-workerd` run alongside the existing Vite jobs until Stage 12 (Vite retirement).
 
