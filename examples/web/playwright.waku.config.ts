@@ -6,12 +6,14 @@ if (!Number.isInteger(port) || port < 1 || port > 65_535) {
 }
 
 process.env.GENUI_POSSIBILITIES_URL = '/journey';
+process.env.POSTS_URL = '/posts';
 
 export default defineConfig({
   testDir: '.',
   testMatch: [
     'waku-tests/**/*.spec.ts',
     'tests/genui-possibilities.spec.ts',
+    'tests/post-app.spec.ts',
   ],
   timeout: 30_000,
   retries: 0,
