@@ -29,4 +29,9 @@ npm run test:waku:e2e
 npm run test:waku:workerd
 ```
 
-For the existing Pages deploy build, use `npm run build:deploy`; it installs MoonBit and builds the generated JavaScript before running Vite. The Waku foundation is not the production deploy path.
+For the existing Pages deploy build, use `npm run build:deploy`; it installs MoonBit and builds the generated JavaScript before running Vite. The default `wrangler.jsonc` remains owned by that Vite deployment. The pre-production Waku foundation is isolated in `wrangler.waku.jsonc` and is not the production deploy path.
+
+```bash
+npx wrangler types --config wrangler.waku.jsonc --check
+npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env preview
+```

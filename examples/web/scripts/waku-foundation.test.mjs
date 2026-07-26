@@ -129,8 +129,14 @@ test('adds parallel Waku build, browser, and workerd jobs to the repository gate
   assert.match(ci, /^  waku-workerd:\n/m);
   assert.match(ci, /npm run build:waku/);
   assert.match(ci, /npm run check:waku-bundles/);
-  assert.match(ci, /npx wrangler deploy --dry-run --env preview/);
-  assert.match(ci, /npx wrangler check startup --env preview/);
+  assert.match(
+    ci,
+    /npx wrangler deploy --config wrangler\.waku\.jsonc --dry-run --env preview/,
+  );
+  assert.match(
+    ci,
+    /npx wrangler check startup --config wrangler\.waku\.jsonc --env preview/,
+  );
   assert.match(ci, /npm run test:waku:e2e/);
   assert.match(ci, /npm run test:waku:workerd/);
   const aggregate = ci.slice(ci.indexOf('  all-checks-passed:'));
@@ -142,24 +148,36 @@ test('adds parallel Waku build, browser, and workerd jobs to the repository gate
   assert.match(aggregate, /needs\.waku-workerd\.result/);
 });
 
-test('declares a non-deploying Waku Worker foundation for both environments', () => {
-  const wrangler = JSON.parse(
+test('isolates the non-deploying Waku foundation from the existing Vite deployment', () => {
+  const legacyWrangler = JSON.parse(
     fs.readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8'),
   );
-  assert.equal(wrangler.main, 'dist/server/index.js');
-  assert.deepEqual(wrangler.compatibility_flags, ['nodejs_compat']);
-  assert.deepEqual(wrangler.assets, {
+  assert.deepEqual(legacyWrangler, {
+    name: 'canopy-lambda-editor',
+    compatibility_date: '2026-01-04',
+    assets: { directory: 'dist' },
+  });
+
+  const wakuWrangler = JSON.parse(
+    fs.readFileSync(new URL('../wrangler.waku.jsonc', import.meta.url), 'utf8'),
+  );
+  assert.equal(wakuWrangler.main, 'dist/server/index.js');
+  assert.deepEqual(wakuWrangler.compatibility_flags, ['nodejs_compat']);
+  assert.deepEqual(wakuWrangler.assets, {
     binding: 'ASSETS',
     directory: './dist/public',
     html_handling: 'drop-trailing-slash',
   });
-  assert.equal(wrangler.no_bundle, true);
-  assert.deepEqual(wrangler.rules, [{
+  assert.equal(wakuWrangler.no_bundle, true);
+  assert.deepEqual(wakuWrangler.rules, [{
     type: 'ESModule',
     globs: ['**/*.js', '**/*.mjs'],
   }]);
-  assert.equal(wrangler.env.preview.name, 'canopy-web-waku-preview');
-  assert.equal(wrangler.env.production.name, 'canopy-web-waku-production');
-  assert.equal(wrangler.services, undefined);
-  assert.equal(wrangler.vars, undefined);
+  assert.equal(wakuWrangler.env.preview.name, 'canopy-web-waku-preview');
+  assert.equal(wakuWrangler.env.production.name, 'canopy-web-waku-production');
+  assert.equal(wakuWrangler.services, undefined);
+  assert.equal(wakuWrangler.vars, undefined);
+
+  const smoke = fs.readFileSync(new URL('./smoke-waku-worker.sh', import.meta.url), 'utf8');
+  assert.match(smoke, /wrangler dev --config wrangler\.waku\.jsonc --env preview/);
 });

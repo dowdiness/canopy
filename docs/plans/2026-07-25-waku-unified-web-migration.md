@@ -141,7 +141,7 @@ examples/web/
     waku/
       signaling-proxy.ts
   waku.config.ts
-  wrangler.jsonc
+  wrangler.waku.jsonc
 ```
 
 `src/pages/index.tsx` and `src/pages/index.html.tsx` reuse the same Hub module.
@@ -286,7 +286,9 @@ one generated-artifact build can serve both modes.
 
 - Add the pinned Waku/Cloudflare dependencies and official Cloudflare adapter.
 - Add `waku.config.ts`, Waku server entry, Worker static-assets output, and
-  preview/production Wrangler environments.
+  preview/production environments in an explicit `wrangler.waku.jsonc`. Keep
+  the existing Vite deployment's default `wrangler.jsonc` unchanged until
+  production cutover.
 - Reuse the existing five public virtual IDs and output paths in Waku's Vite
   environments, including optimizer exclusions and full browser reload after a
   successful output write.
@@ -296,9 +298,9 @@ one generated-artifact build can serve both modes.
   focus, error, and unmount integration. Record the result in tests rather than
   introducing a custom router.
 
-**Gate:** Waku build and `wrangler deploy --dry-run` succeed from prebuilt
-MoonBit artifacts; a client-only probe imports each of the five virtual modules;
-server/RSC bundles contain none of them; Vite remains green.
+**Gate:** Waku build and Waku-configured `wrangler deploy --dry-run` succeed
+from prebuilt MoonBit artifacts; a client-only probe imports each of the five
+virtual modules; server/RSC bundles contain none of them; Vite remains green.
 
 ### Stage 2 — Hub, lifecycle Module, and common states
 
@@ -594,10 +596,10 @@ npx playwright test --config=playwright.preview.config.ts
 ### Waku Worker from `examples/web`
 
 ```bash
-npx wrangler types --check
-npx wrangler deploy --dry-run --env preview
-npx wrangler dev --env preview
-npx wrangler check startup --env preview
+npx wrangler types --config wrangler.waku.jsonc --check
+npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env preview
+npx wrangler dev --config wrangler.waku.jsonc --env preview
+npx wrangler check startup --config wrangler.waku.jsonc --env preview
 ```
 
 The workerd/staging harness added by Work Package 1 supplies the exact automated

@@ -56,7 +56,8 @@ Vite remains the default build for all eight HTML surfaces. A parallel Waku 1.0.
 - `src/pages/index.tsx` — foundation probe page that renders only a `MoonbitClientProbe` (generated-artifact boundary check, not a migrated demo).
 - `src/pages/_root.tsx` — Waku root document.
 - `moonbit-artifacts.mjs` — single source of truth for the five generated module records, consumed by both Vite and Waku build pipelines.
-- `wrangler.jsonc` — preview and production Worker environments.
+- `wrangler.jsonc` — unchanged existing Vite deployment shell.
+- `wrangler.waku.jsonc` — isolated pre-production Waku preview and production Worker environments.
 
 Validation runs in parallel with the Vite pipeline:
 
@@ -64,8 +65,8 @@ Validation runs in parallel with the Vite pipeline:
 - `npm run check:waku-bundles` — asserts generated client/server bundle boundaries.
 - `npm run test:waku:e2e` — Playwright suite under `playwright.waku.config.ts`.
 - `npm run test:waku:workerd` — built Worker/static-asset smoke under local workerd.
-- `npx wrangler types --check` — generated Cloudflare binding types.
-- `npx wrangler deploy --dry-run --env preview` — preview Worker bundle dry-run.
+- `npx wrangler types --config wrangler.waku.jsonc --check` — generated Waku Cloudflare binding types.
+- `npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env preview` — preview Waku Worker bundle dry-run.
 - CI jobs `waku-build`, `waku-e2e`, and `waku-workerd` run alongside the existing Vite jobs until Stage 12 (Vite retirement).
 
 Both development modes reuse the same coordinator, which starts one root MoonBit watcher rather than one watcher per virtual module. `npm run dev:dual` runs Vite and Waku side by side behind that single watcher. The five generated modules are loaded only by the client probe on the Waku side.

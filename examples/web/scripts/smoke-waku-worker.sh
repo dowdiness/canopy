@@ -16,7 +16,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM HUP
 
-setsid npx wrangler dev --env preview --port "$PORT" >"$LOG_FILE" 2>&1 &
+setsid npx wrangler dev --config wrangler.waku.jsonc --env preview --port "$PORT" >"$LOG_FILE" 2>&1 &
 worker_pid="$!"
 
 for _ in $(seq 1 120); do

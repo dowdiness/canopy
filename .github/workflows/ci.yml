@@ -410,15 +410,15 @@ jobs:
 
       - name: Check generated Cloudflare binding types
         working-directory: examples/web
-        run: npx wrangler types --check
+        run: npx wrangler types --config wrangler.waku.jsonc --check
 
       - name: Dry-run the preview Worker bundle
         working-directory: examples/web
-        run: npx wrangler deploy --dry-run --env preview
+        run: npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env preview
 
       - name: Record Worker startup profile
         working-directory: examples/web
-        run: npx wrangler check startup --env preview
+        run: npx wrangler check startup --config wrangler.waku.jsonc --env preview
 
       - name: Upload Waku Worker build
         uses: actions/upload-artifact@v7
