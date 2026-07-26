@@ -9,7 +9,7 @@ const expectedModuleIds = [
 ];
 
 test('loads every generated module only through the Waku client probe', async ({ page }) => {
-  const response = await page.goto('/');
+  const response = await page.goto('/foundation');
   expect(response?.status()).toBe(200);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Canopy Waku foundation');
 

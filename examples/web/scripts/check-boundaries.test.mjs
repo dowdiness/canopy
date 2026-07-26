@@ -287,6 +287,28 @@ test('allows Waku pages to compose shared and corresponding route surfaces only'
   );
 });
 
+test('keeps the shared route-lifecycle core free of React and browser effects', () => {
+  assert.deepEqual(
+    describePath('src/shared/route-lifecycle/core/reducer.ts'),
+    { kind: 'shared', layer: 'core' },
+  );
+  assert.deepEqual(
+    describePath('src/shared/route-lifecycle/browser/provider.tsx'),
+    { kind: 'shared', layer: 'browser' },
+  );
+  assert.match(
+    evaluateEdge('src/shared/route-lifecycle/core/reducer.ts', 'react', 'react')[0],
+    /route-lifecycle core/,
+  );
+  assert.match(
+    evaluateEdge(
+      'src/shared/route-lifecycle/core/reducer.ts',
+      'src/shared/route-lifecycle/browser/provider.tsx',
+    )[0],
+    /route-lifecycle core/,
+  );
+});
+
 test('recognizes use-client directives and confines generated modules below them', () => {
   assert.equal(isClientModule("'use client';\nimport '@moonbit/crdt-json';"), true);
   assert.equal(isClientModule('/* comment */\n"use client";\nexport {}'), true);
