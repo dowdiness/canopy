@@ -5,7 +5,7 @@
     }
 
     .json-surface {
-      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      font-family: Consolas, Monaco, 'Courier New', monospace;
       background: #1e1e1e;
       color: #d4d4d4;
       padding: 20px;
@@ -127,7 +127,7 @@
   border-radius: 0 4px 4px 0;
   position: relative;
   outline: none;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-family: Consolas, Monaco, 'Courier New', monospace;
   font-size: 15px;
   line-height: 1.6;
   overflow: auto;

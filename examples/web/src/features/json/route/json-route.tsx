@@ -1,18 +1,17 @@
 import jsonDocument from '../../../../json.html?raw';
 import { JsonClient } from './json-client';
 
-const shellMatch = jsonDocument.match(
-  /<body[^>]*>([\s\S]*?)\s*<script type="module" src="\/src\/entries\/json\.ts"><\/script>\s*<\/body>/,
-);
-if (shellMatch === null) {
-  throw new Error('The canonical JSON document shell is unavailable');
-}
-const jsonShellMarkup = shellMatch[1];
+const JSON_SHELL_PATTERN = /<!-- json-shell:start -->([\s\S]*?)<!-- json-shell:end -->/;
 
 export function JsonRoute() {
+  const shellMatch = JSON_SHELL_PATTERN.exec(jsonDocument);
+  if (shellMatch === null) {
+    throw new Error('The canonical JSON document shell is unavailable');
+  }
+
   return (
     <JsonClient>
-      <div dangerouslySetInnerHTML={{ __html: jsonShellMarkup }} />
+      <div dangerouslySetInnerHTML={{ __html: shellMatch[1] }} />
     </JsonClient>
   );
 }

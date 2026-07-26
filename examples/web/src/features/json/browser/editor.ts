@@ -73,12 +73,21 @@ function dispose() {
     Reflect.deleteProperty(window, 'getJsonRoleSpans');
   }
   ownedRoleHook = null;
-  releaseOverlay?.();
+  const releases = [
+    ['decoration overlay', releaseOverlay],
+    ['HTML adapter', releaseAdapter],
+    ['MoonBit handle', releaseHandle],
+  ] as const;
   releaseOverlay = null;
-  releaseAdapter?.();
   releaseAdapter = null;
-  releaseHandle?.();
   releaseHandle = null;
+  releases.forEach(([resource, release]) => {
+    try {
+      release?.();
+    } catch (error) {
+      console.error(`Failed to dispose JSON editor ${resource}`, error);
+    }
+  });
 }
 
 function must<T extends HTMLElement>(id: string): T {
