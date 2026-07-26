@@ -31,10 +31,17 @@ for _ in $(seq 1 120); do
 done
 
 grep -q 'Canopy demos' "$BODY_FILE"
+curl -fsS "http://127.0.0.1:${PORT}/memo" >"$BODY_FILE"
+grep -q 'data-memo-production-unavailable' "$BODY_FILE"
+grep -q 'available only in local development' "$BODY_FILE"
+if grep -Eq 'id="api-key"|Fix Typos|data-imperative-demo-host="memo"' "$BODY_FILE"; then
+  echo 'Production Memo route exposed local provider controls' >&2
+  exit 1
+fi
 asset="$(find dist/public/assets -type f -name '*.js' -printf '%f\n' | sort | head -n 1)"
 test -n "$asset"
 curl -fsS -o /dev/null "http://127.0.0.1:${PORT}/assets/${asset}"
 worker_status="$(curl -sS -o /dev/null -w '%{http_code}' \
   "http://127.0.0.1:${PORT}/__canopy_worker_probe_missing")"
 test "$worker_status" = '404'
-echo 'Waku workerd Hub smoke: OK'
+echo 'Waku workerd Hub and production Memo smoke: OK'

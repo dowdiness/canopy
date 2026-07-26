@@ -214,4 +214,7 @@ test('isolates the non-deploying Waku foundation from the existing Vite deployme
 
   const smoke = fs.readFileSync(new URL('./smoke-waku-worker.sh', import.meta.url), 'utf8');
   assert.match(smoke, /wrangler dev --config wrangler\.waku\.jsonc --env preview/);
+  assert.match(smoke, /127\.0\.0\.1:\$\{PORT\}\/memo/);
+  assert.match(smoke, /data-memo-production-unavailable/);
+  assert.match(smoke, /id="api-key"\|Fix Typos\|data-imperative-demo-host="memo"/);
 });

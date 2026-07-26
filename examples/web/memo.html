@@ -6,10 +6,12 @@
   <title>Canopy Memo — AI Editor</title>
 
 </head>
-<body>
+<body class="memo-surface">
+  <!-- memo-shell:start -->
   <div class="container">
-    <h1>Canopy Memo</h1>
+    <h1 data-route-heading tabindex="-1">Canopy Memo</h1>
     <p class="subtitle">AI-powered text editor — typo correction &amp; structured edits</p>
+    <div class="memo-app" inert data-memo-ready="false">
     <div style="background:#2a1a1a;border:1px solid #ff537044;border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#ff8a80;">
       <strong>Local demo only.</strong> API key is sent directly from your browser to Google.
       Do not deploy this page publicly. Production use requires a server-side proxy.
@@ -19,12 +21,12 @@
       <input type="password" id="api-key" placeholder="Enter your API key (stored in memory only)">
     </div>
     <div class="editor-area">
-      <textarea id="memo" placeholder="Type or paste your text here..."></textarea>
+      <textarea id="memo" data-route-focus="memo" placeholder="Type or paste your text here..."></textarea>
       <div class="toolbar">
         <button id="fix-typos-btn" class="btn btn-primary">Fix Typos</button>
       </div>
       <div class="instruction-row">
-        <input type="text" id="instruction" placeholder="Edit instruction (e.g. 3行目をもっと丁寧にして)">
+        <input type="text" id="instruction" data-route-focus="instruction" placeholder="Edit instruction (e.g. 3行目をもっと丁寧にして)">
         <button id="edit-btn" class="btn btn-secondary">Edit</button>
       </div>
       <div class="status-bar" id="status"></div>
@@ -46,7 +48,9 @@
         <button id="reject-btn" class="btn btn-secondary">Reject</button>
       </div>
     </div>
+    </div>
   </div>
+  <!-- memo-shell:end -->
   <script type="module" src="/src/entries/memo.ts"></script>
 </body>
 </html>

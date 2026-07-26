@@ -6,10 +6,10 @@ Implementation inventory for the current `examples/web` workspace. The source tr
 
 | Surface | HTML | Browser entry | Feature-owned source | Styles | Runtime and tests |
 |---|---|---|---|---|---|
-| Lambda | `index.html` | `src/entries/lambda.ts` | `features/lambda/browser/{mount,editor,ast-grep-runner}.ts` (uses shared decoration overlay) | `features/lambda/browser/styles.css`, imported by `mount.ts` | Browser + generated MoonBit Lambda/Graphviz; `tests/lambda-editor.spec.ts` |
+| Lambda | `index.html` | `src/entries/lambda.ts` | `features/lambda/browser/{mount,editor,ast-grep-runner}.ts`, `features/lambda/route/{lambda-route,lambda-client}.tsx` (uses shared decoration overlay) | `features/lambda/browser/styles.css`, imported by Vite and Waku composition | Browser + generated MoonBit Lambda/Graphviz; `tests/lambda-editor.spec.ts`, `waku-tests/lambda-route.spec.ts` |
 | JSON | `json.html` | `src/entries/json.ts` | `features/json/browser/{editor,mount}.ts` (uses shared decoration overlay) | `features/json/browser/styles.css`, imported by `mount.ts` | Browser + generated MoonBit JSON; `tests/json-editor.spec.ts` |
 | Markdown | `markdown.html` | `src/entries/markdown.ts` | `features/markdown/browser/{app,mount,sentinels}.ts`; `features/markdown/route/{markdown-route,markdown-client}.tsx` | `features/markdown/browser/styles.css`, imported by Vite and Waku composition; adapter CSS remains adapter-owned | Browser + generated MoonBit Markdown; `tests/markdown-editor.spec.ts`, `waku-tests/markdown-route.spec.ts` |
-| Memo | `memo.html` | `src/entries/memo.ts` | `features/memo/core/edit-actions.ts`, `features/memo/browser/{app,mount,view}.ts` | `features/memo/browser/styles.css`, imported by `mount.ts` | Browser + generated MoonBit Lambda; `tests/memo-editor.spec.ts` |
+| Memo | `memo.html` | `src/entries/memo.ts` | `features/memo/core/edit-actions.ts`, `features/memo/browser/{app,mount,view}.ts`, `features/memo/route/{memo-route,memo-client}.tsx` | `features/memo/browser/styles.css`, imported by Vite and development Waku composition | Development browser + generated MoonBit Lambda; production local-only state; `tests/memo-editor.spec.ts`, `waku-tests/memo-route.spec.ts` |
 | Posts | `posts.html` | `src/entries/posts.ts` | `features/posts/core/{posts,post-events,post-retrieval}.ts`, `features/posts/browser/{app,mount,post-events,post-store,view}.ts` | `features/posts/browser/styles.css`, imported by `mount.ts` | Browser persistence shell around deterministic retrieval logic; `tests/post-app.spec.ts` |
 | Resume/PKE | `resume.html` | `src/entries/resume.ts` | `features/resume/browser/app.tsx`, `features/resume/browser/components/*`, `features/resume/core/session.ts`, `features/resume/protocol/chat.ts` | `features/resume/browser/styles.css`, imported by `app.tsx` | Browser React + `server/vite/resume-chat.ts` local chat relay; `tests/pi-resume.spec.ts` |
 | GenUI | `genui.html` | `src/entries/genui.js` | `features/genui/browser/mount.js`, deterministic `features/genui/core/*` (fixtures, schema, flow, recorded candidates, data, spikes), `server/genui/feasibility-provider.js`, and `server/vite/genui-feasibility.ts` | `features/genui/browser/styles.css`, imported by `mount.js`; `src/tailwind.css` remains the GenUI Tailwind input | Browser + generated MoonBit JSX, deterministic feasibility core, and a server-only study relay; `tests/genui.spec.ts`, feasibility suites, colocated core/server Node tests, study scripts |
@@ -20,7 +20,7 @@ Implementation inventory for the current `examples/web` workspace. The source tr
 ## Runtime and generated dependencies
 
 - Browser code is TypeScript/TSX/JS bundled by Vite. React and the AI SDK are used by Resume/PKE; GenUI is plain browser JavaScript plus the generated JSX FFI.
-- `server/vite/ast-grep.ts` owns the Lambda-only `/api/ast-grep` development relay. `vite-plugin-moonbit.ts` owns MoonBit build, virtual-module, and HMR behavior only.
+- `server/vite/ast-grep.ts` owns the Lambda-only `/api/ast-grep` development relay for Vite and Waku. Its serve-only plugin is absent from production, where Mini-ML returns no analysis matches without a request. `vite-plugin-moonbit.ts` owns MoonBit build, virtual-module, and HMR behavior only.
 - `server/vite/resume-chat.ts` owns the local Resume/PKE provider relay and consumes the Resume protocol surface. `server/vite/genui-feasibility.ts` owns the local GenUI study relay and imports `server/genui/feasibility-provider.js`; it consumes only GenUI core fixtures and recorded candidates. These Vite adapters are not browser entry dependencies.
 - `signaling-server.js`, `signaling-worker.js`, `wrangler-signaling.toml`, and `wrangler.jsonc` are deployment/integration shells outside the eight browser entry graphs.
 
@@ -45,11 +45,11 @@ Implementation inventory for the current `examples/web` workspace. The source tr
 
 ## Current structural exceptions and debt
 
-Most of the source tree is intentionally flat: feature ownership is inferred from filenames rather than represented by `src/entries`, `src/features`, and `src/shared` directories. Resume/PKE, Posts, Memo, JSON, Markdown, GenUI, and GenUI Possibilities use the target entry/feature layout. `shared/decoration-overlay.ts` is shared by Lambda and JSON. GenUI keeps deterministic fixtures/flows/schema/recorded candidates in its core, browser DOM/effect code in its browser surface, and Node/provider/Vite capabilities under `server/`. Memo reuses the Lambda generated runtime. Styles are partly per-surface and partly global/adapter-owned. These are inventory facts, not exemptions from the boundary checker.
+The active surfaces use the target `src/entries`, `src/features`, and `src/shared` ownership layout. `shared/decoration-overlay.ts` is shared by Lambda and JSON. GenUI keeps deterministic fixtures/flows/schema/recorded candidates in its core, browser DOM/effect code in its browser surface, and Node/provider/Vite capabilities under `server/`. Memo reuses the Lambda generated runtime without importing Lambda feature internals. Styles are partly per-surface and partly adapter-owned. These are inventory facts, not exemptions from the boundary checker.
 
-## Waku migration (pre-production, #970–#975 Stages 0–6)
+## Waku migration (pre-production, #970–#976 Stages 0–7)
 
-Vite remains the default build for all eight HTML surfaces. A parallel Waku 1.0.0-beta.8 + Wrangler 4.114.0 application has landed alongside it. Stage 2 added the Hub, route-lifecycle Module, shell, placeholder routes, and 404; Stages 3–6 migrate Journey, Posts, JSON, and Markdown while retaining every old HTML entry.
+Vite remains the default build for all eight HTML surfaces. A parallel Waku 1.0.0-beta.8 + Wrangler 4.114.0 application has landed alongside it. Stage 2 added the Hub, route-lifecycle Module, shell, placeholder routes, and 404; Stages 3–7 migrate Journey, Posts, JSON, Markdown, Mini-ML, and Memo while retaining every old HTML entry.
 
 ### Stage 0–1 configuration and artifacts
 
@@ -65,7 +65,9 @@ Vite remains the default build for all eight HTML surfaces. A parallel Waku 1.0.
 
 - `src/pages/index.tsx` — Demo Hub. `/index.html` renders the same Hub without redirect (not a `308`).
 - `src/pages/404.tsx` — accessible true 404 with `aria-labelledby`, `tabIndex={-1}`, semantic heading.
-- `src/pages/{ml,memo,resume,genui}.tsx` — four canonical placeholder routes; each renders `DemoPlaceholder` from the shared shell.
+- `src/pages/{resume,genui}.tsx` — two canonical placeholder routes; each renders `DemoPlaceholder` from the shared shell.
+- `src/pages/ml.tsx` — canonical Mini-ML route; composes its feature-owned controller through the shared imperative host.
+- `src/pages/memo.tsx` — canonical Memo route; composes the local client editor in development and the explicit unavailable state in production.
 - `src/pages/journey.tsx` — canonical Journey route; composes the feature-owned route surface through the shared imperative host.
 - `src/pages/posts.tsx` — canonical Posts route; composes the feature-owned route surface through the shared imperative host.
 - `src/pages/json.tsx` — canonical JSON route; composes the feature-owned editor controller through the shared imperative host.
@@ -115,6 +117,17 @@ Stage 5 remains pre-production. Vite and `json.html` remain the defaults and are
 
 Stage 6 remains pre-production. Vite and `markdown.html` remain the defaults and are retained. No Markdown compatibility redirect is active, and no Markdown model, toolbar, mode semantics, or MoonBit API changed.
 
+### Stage 7 — Mini-ML and Memo
+
+- `src/features/lambda/route/{lambda-route,lambda-client}.tsx` — server/client seam that reuses the legacy Mini-ML shell, loads Lambda and Graphviz from client-only dynamic imports, and mounts at `/ml` through the imperative host.
+- `src/features/lambda/browser/{editor,mount}.ts` — root-scoped Vite/Waku controller that snapshots source text only and idempotently releases the MoonBit handle, `HTMLAdapter`, `DecorationOverlay`, listeners, animation frame, analysis timer, and request.
+- `src/features/memo/route/{memo-route,memo-client}.tsx` — development route seam that shares the generated Lambda artifact specifier without a cross-feature import; production tree-shakes the client editor and renders a local-only state without credential/provider controls.
+- `src/features/memo/browser/{app,mount,view}.ts` — root-scoped controller that snapshots draft, instruction, and completed proposal only; API key and request timing remain ephemeral, listeners are aborted, and late provider responses are invalidated after disposal.
+- `tests/{lambda-editor,memo-editor}.spec.ts` — existing behavior and local-validation contracts, now run against both legacy Vite URLs and canonical Waku routes.
+- `waku-tests/{lambda-route,memo-route}.spec.ts` — inert SSR shells, runtime failures, allowlisted route memory, focus, reload reset, and live-resource disposal coverage. The production bundle/Worker checks prove Mini-ML has no AST endpoint request and Memo has no credential surface.
+
+Stage 7 remains pre-production. Vite `/`/`index.html` and `/memo.html` remain the defaults and are retained. No compatibility redirect, provider proxy, MoonBit API change, or production deployment is active.
+
 Validation runs in parallel with the Vite pipeline:
 
 - `npm run build:waku` — Waku production build from prebuilt MoonBit artifacts.
@@ -125,7 +138,7 @@ Validation runs in parallel with the Vite pipeline:
 - `npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env preview` — preview Waku Worker bundle dry-run.
 - CI jobs `waku-build`, `waku-e2e`, and `waku-workerd` run alongside the existing Vite jobs until Stage 12 (Vite retirement).
 
-Both development modes reuse the same coordinator, which starts one root MoonBit watcher rather than one watcher per virtual module. `npm run dev:dual` runs Vite and Waku side by side behind that single watcher. Generated modules stay client-only on the Waku side; the probe loads all five, while the migrated JSON and Markdown routes load only their own runtime on demand.
+Both development modes reuse the same coordinator, which starts one root MoonBit watcher rather than one watcher per virtual module. `npm run dev:dual` runs Vite and Waku side by side behind that single watcher. Generated modules stay client-only on the Waku side; the probe loads all five, JSON and Markdown load their own runtimes on demand, and Mini-ML/Memo share the Lambda artifact specifier without sharing feature internals.
 
 ## Boundary vocabulary and allowed direction
 

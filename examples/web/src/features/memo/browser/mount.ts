@@ -1,7 +1,9 @@
+'use client';
+
+import * as runtime from '@moonbit/crdt-lambda';
+import { mountMemoApp } from './app';
 import './styles.css';
-import { createMemoApp } from './app';
-import { createMemoView } from './view';
 
 export function mountMemo(): void {
-  createMemoApp(createMemoView(document)).mount();
+  mountMemoApp(document, undefined, runtime);
 }
