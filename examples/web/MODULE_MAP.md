@@ -32,7 +32,7 @@ Implementation inventory for the current `examples/web` workspace. The source tr
 | `@moonbit/crdt-jsx` | `_build/js/release/build/dowdiness/canopy/ffi/jsx/jsx.{js,d.ts}` | GenUI |
 | `@moonbit/graphviz` | `_build/js/release/build/dowdiness/graphviz/browser/browser.{js,d.ts}` | Lambda |
 
-`vite.config.ts` defines the runtime mappings, `tsconfig.json` maps generated declarations, `scripts/build-js.sh` checks the expected artifacts, and CI uploads/downloads the same paths. Treat these four locations as one artifact contract.
+`moonbit-artifacts.mjs` centralizes the five generated module definitions and is the canonical source for import IDs and output paths. Both `vite.config.ts` and `waku.config.ts` consume these definitions through `createMoonbitArtifactsPlugin`. `tsconfig.json` maps generated declarations, `scripts/build-js.sh` checks the expected artifacts, and CI uploads/downloads the same paths. Treat these locations as one artifact contract.
 
 ## Test and study ownership
 
@@ -46,6 +46,29 @@ Implementation inventory for the current `examples/web` workspace. The source tr
 ## Current structural exceptions and debt
 
 Most of the source tree is intentionally flat: feature ownership is inferred from filenames rather than represented by `src/entries`, `src/features`, and `src/shared` directories. Resume/PKE, Posts, Memo, JSON, Markdown, GenUI, and GenUI Possibilities use the target entry/feature layout. `shared/decoration-overlay.ts` is shared by Lambda and JSON. GenUI keeps deterministic fixtures/flows/schema/recorded candidates in its core, browser DOM/effect code in its browser surface, and Node/provider/Vite capabilities under `server/`. Memo reuses the Lambda generated runtime. Styles are partly per-surface and partly global/adapter-owned. These are inventory facts, not exemptions from the boundary checker.
+
+## Waku foundation (pre-production, #970 Stages 0–1)
+
+Vite remains the default build for all eight HTML surfaces. A parallel Waku 1.0.0-beta.8 + Wrangler 4.114.0 foundation has landed alongside it — configuration, a Cloudflare adapter, and a generated-artifact client probe only. No demo, route, deployment, or redirect has been migrated.
+
+- `waku.config.ts` — Waku configuration with the official Cloudflare adapter (`waku/adapters/cloudflare`) and the shared MoonBit artifact plugin.
+- `src/waku.server.tsx` — Waku server entry using `fsRouter` over `pages/**/*.{tsx,ts}`.
+- `src/pages/index.tsx` — foundation probe page that renders only a `MoonbitClientProbe` (generated-artifact boundary check, not a migrated demo).
+- `src/pages/_root.tsx` — Waku root document.
+- `moonbit-artifacts.mjs` — single source of truth for the five generated module records, consumed by both Vite and Waku build pipelines.
+- `wrangler.jsonc` — preview and production Worker environments.
+
+Validation runs in parallel with the Vite pipeline:
+
+- `npm run build:waku` — Waku production build from prebuilt MoonBit artifacts.
+- `npm run check:waku-bundles` — asserts generated client/server bundle boundaries.
+- `npm run test:waku:e2e` — Playwright suite under `playwright.waku.config.ts`.
+- `npm run test:waku:workerd` — built Worker/static-asset smoke under local workerd.
+- `npx wrangler types --check` — generated Cloudflare binding types.
+- `npx wrangler deploy --dry-run --env preview` — preview Worker bundle dry-run.
+- CI jobs `waku-build`, `waku-e2e`, and `waku-workerd` run alongside the existing Vite jobs until Stage 12 (Vite retirement).
+
+Both development modes reuse the same coordinator, which starts one root MoonBit watcher rather than one watcher per virtual module. `npm run dev:dual` runs Vite and Waku side by side behind that single watcher. The five generated modules are loaded only by the client probe on the Waku side.
 
 ## Boundary vocabulary and allowed direction
 

@@ -1,10 +1,10 @@
-import { exec, spawn, type ChildProcess } from 'node:child_process';
+import { execFile, spawn, type ChildProcess } from 'node:child_process';
 import { promisify } from 'node:util';
 import { access, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Plugin, ViteDevServer } from 'vite';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 /**
  * Configuration for a MoonBit module
@@ -14,8 +14,8 @@ export interface MoonBitModule {
   name: string;
   /** Path to the MoonBit module directory (relative to Vite root) */
   path: string;
-  /** Path to the built JS file (relative to module path, defaults to '_build/js/release/build/{last-part-of-name}.js') */
-  output?: string;
+  /** Path to the built JS file relative to the module path. */
+  output: string;
   /** Glob patterns to watch for changes (relative to module path, defaults to ['**\/*.mbt']) */
   watch?: string[];
   /** Additional build flags to pass to moon build */
@@ -25,9 +25,45 @@ export interface MoonBitModule {
 /**
  * Vite plugin configuration for MoonBit
  */
+export interface MoonBitBuildCoordinator {
+  /** Workspace root used for the single build/watch process. */
+  path: string;
+  /** Additional flags shared by the coordinated root build. */
+  buildFlags?: string[];
+}
+
+export function installMoonbitOutputReload(
+  server: Pick<ViteDevServer, 'watcher' | 'moduleGraph' | 'ws'>,
+  modules: ReadonlyArray<{ readonly name: string; readonly absoluteOutputPath: string }>,
+): void {
+  for (const module of modules) {
+    server.watcher.add(module.absoluteOutputPath);
+  }
+
+  server.watcher.on('change', (file: string) => {
+    const changedModule = modules.find(
+      (module) => module.absoluteOutputPath === file,
+    );
+    if (!changedModule) return;
+
+    console.log(`[MoonBit] ${changedModule.name} rebuilt, invalidating modules...`);
+    const generatedModule = server.moduleGraph.getModuleById(changedModule.name);
+    if (generatedModule) {
+      server.moduleGraph.invalidateModule(generatedModule);
+      for (const importer of generatedModule.importers) {
+        server.moduleGraph.invalidateModule(importer);
+      }
+    }
+    server.ws.send({ type: 'full-reload', path: '*' });
+    console.log(`[MoonBit] ${changedModule.name} full reload complete`);
+  });
+}
+
 export interface MoonBitPluginOptions {
-  /** Array of MoonBit modules to build and import */
+  /** Array of MoonBit modules to import from the coordinated build output. */
   modules: MoonBitModule[];
+  /** One workspace-root build/watch coordinator for every module. */
+  coordinator: MoonBitBuildCoordinator;
   /** Target for moon build (defaults to 'js') */
   target?: string;
   /** Whether to build in release mode (defaults to true) */
@@ -60,8 +96,17 @@ export interface MoonBitPluginOptions {
  * ```
  */
 export function moonbitPlugin(options: MoonBitPluginOptions): Plugin {
-  const { modules, target = 'js', release = true, watch = true, skipIfExists = false } = options;
-  const watchProcesses: ChildProcess[] = [];
+  const {
+    modules,
+    coordinator,
+    target = 'js',
+    release = true,
+    watch = true,
+    skipIfExists = false,
+  } = options;
+  let initialBuild: Promise<void> | undefined;
+  let watchProcess: ChildProcess | undefined;
+  const reloadServers = new WeakSet<ViteDevServer>();
 
   // Auto-detect CI environment. CANOPY_SKIP_MOON_BUILD=1 is the project-wide
   // signal (see scripts/test-*-e2e.sh) that pre-built JS artifacts already
@@ -69,12 +114,13 @@ export function moonbitPlugin(options: MoonBitPluginOptions): Plugin {
   // container image).
   const isCI = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
   const skipMoonBuild = process.env.CANOPY_SKIP_MOON_BUILD === '1';
-  const shouldSkipBuild = skipIfExists || isCI || skipMoonBuild;
+  const externalWatch = process.env.CANOPY_EXTERNAL_MOON_WATCH === '1';
+  const shouldSkipBuild = skipIfExists || isCI || skipMoonBuild || externalWatch;
 
   // Resolve absolute paths for modules
   const resolvedModules = modules.map(mod => {
     const modulePath = path.resolve(process.cwd(), mod.path);
-    const outputPath = mod.output || inferOutputPath(mod.name, target, release);
+    const outputPath = mod.output;
     const watchPatterns = mod.watch || ['**/*.mbt'];
 
     return {
@@ -84,6 +130,11 @@ export function moonbitPlugin(options: MoonBitPluginOptions): Plugin {
       watchPatterns
     };
   });
+
+  const resolvedCoordinator = {
+    ...coordinator,
+    absolutePath: path.resolve(process.cwd(), coordinator.path),
+  };
 
   // Create module name -> output path map
   const moduleMap = new Map(
@@ -107,8 +158,11 @@ export function moonbitPlugin(options: MoonBitPluginOptions): Plugin {
           missingList,
         );
       }
-      console.log('[MoonBit] Building modules...');
-      await buildAllModules(resolvedModules, target, release);
+      if (!initialBuild) {
+        console.log('[MoonBit] Running one coordinated workspace build...');
+        initialBuild = buildWorkspace(resolvedCoordinator, target, release);
+      }
+      await initialBuild;
     },
 
     resolveId(id: string) {
@@ -135,98 +189,52 @@ export function moonbitPlugin(options: MoonBitPluginOptions): Plugin {
     },
 
     configureServer(server: ViteDevServer) {
-      if (watch && shouldSkipBuild) {
+      if (watch && shouldSkipBuild && !externalWatch) {
         console.log('[MoonBit] Skipping watch mode (CI / CANOPY_SKIP_MOON_BUILD=1), using pre-built modules');
       } else if (watch) {
-        // Start MoonBit watch mode for each module
-        console.log('[MoonBit] Starting watch mode...');
-
-        for (const mod of resolvedModules) {
+        if (!externalWatch && !watchProcess) {
+          // One workspace watcher produces every virtual module output for both
+          // Vite and Waku development modes.
+          console.log('[MoonBit] Starting one coordinated workspace watcher...');
           const flags = [
             'build',
             '--target', target,
             '--watch',
             ...(release ? ['--release'] : []),
-            ...(mod.buildFlags || [])
+            ...(resolvedCoordinator.buildFlags || []),
           ];
-
-          console.log(`[MoonBit] Watching ${mod.name}...`);
-
-          const watchProcess = spawn('moon', flags, {
-            cwd: mod.absolutePath,
-            stdio: ['ignore', 'pipe', 'pipe']
+          watchProcess = spawn('moon', flags, {
+            cwd: resolvedCoordinator.absolutePath,
+            stdio: ['ignore', 'pipe', 'pipe'],
           });
-
-          // Log output
           watchProcess.stdout?.on('data', (data) => {
             const output = data.toString().trim();
-            if (output) {
-              console.log(`[MoonBit:${mod.name}] ${output}`);
-            }
+            if (output) console.log(`[MoonBit] ${output}`);
           });
-
           watchProcess.stderr?.on('data', (data) => {
             const output = data.toString().trim();
-            if (output) {
-              console.error(`[MoonBit:${mod.name}] ${output}`);
-            }
+            if (output) console.error(`[MoonBit] ${output}`);
           });
-
-          watchProcesses.push(watchProcess);
+          server.httpServer?.on('close', () => {
+            console.log('[MoonBit] Stopping workspace watcher...');
+            watchProcess?.kill();
+            watchProcess = undefined;
+          });
         }
 
-        // Watch output files for changes and trigger HMR
-        for (const mod of resolvedModules) {
-          server.watcher.add(mod.absoluteOutputPath);
+        if (externalWatch) {
+          console.log('[MoonBit] Reusing the dual-run root watcher.');
         }
-
-        server.watcher.on('change', async (file: string) => {
-          // Check if a MoonBit output file changed
-          const changedModule = resolvedModules.find(
-            mod => mod.absoluteOutputPath === file
-          );
-
-          if (changedModule) {
-            console.log(`[MoonBit] ${changedModule.name} rebuilt, invalidating modules...`);
-
-            // Invalidate the virtual module in Vite's module graph
-            const mod = server.moduleGraph.getModuleById(changedModule.name);
-            if (mod) {
-              server.moduleGraph.invalidateModule(mod);
-
-              // Invalidate all modules that import this MoonBit module
-              const importers = [...mod.importers];
-              for (const importer of importers) {
-                server.moduleGraph.invalidateModule(importer);
-              }
-            }
-
-            // Trigger HMR update
-            server.ws.send({
-              type: 'full-reload',
-              path: '*'
-            });
-
-            console.log(`[MoonBit] ${changedModule.name} HMR complete`);
-          }
-        });
-
-        // Clean up watch processes when server closes
-        server.httpServer?.on('close', () => {
-          console.log('[MoonBit] Stopping watch processes...');
-          for (const proc of watchProcesses) {
-            proc.kill();
-          }
-        });
+        // A completed output write, rather than source-file churn, owns reload.
+        if (!reloadServers.has(server)) {
+          installMoonbitOutputReload(server, resolvedModules);
+          reloadServers.add(server);
+        }
       }
     }
   };
 }
 
-/**
- * Infer output path from module name and build settings
- */
-///|
 /// Return list of modules whose output files are missing.
 async function findMissingModules(
   modules: Array<MoonBitModule & { absoluteOutputPath: string }>
@@ -243,38 +251,24 @@ async function findMissingModules(
   return missing
 }
 
-/**
- * Build all MoonBit modules
- */
-async function buildAllModules(
-  modules: Array<MoonBitModule & { absolutePath: string }>,
+/** Build every configured output through one workspace-root invocation. */
+async function buildWorkspace(
+  coordinator: MoonBitBuildCoordinator & { absolutePath: string },
   target: string,
-  release: boolean
+  release: boolean,
 ): Promise<void> {
-  await Promise.all(modules.map(mod => buildModule(mod, target, release)));
-  console.log('[MoonBit] All modules built successfully');
-}
-
-/**
- * Build a single MoonBit module
- */
-async function buildModule(
-  mod: MoonBitModule & { absolutePath: string },
-  target: string,
-  release: boolean
-): Promise<void> {
-  const flags = [
+  const args = [
+    'build',
     '--target', target,
     ...(release ? ['--release'] : []),
-    ...(mod.buildFlags || [])
+    ...(coordinator.buildFlags || []),
   ];
 
-  const command = `moon build ${flags.join(' ')}`;
-
   try {
-    await execAsync(command, { cwd: mod.absolutePath });
+    await execFileAsync('moon', args, { cwd: coordinator.absolutePath });
+    console.log('[MoonBit] Coordinated workspace build succeeded');
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to build ${mod.name}: ${message}`);
+    throw new Error(`Coordinated MoonBit build failed: ${message}`);
   }
 }

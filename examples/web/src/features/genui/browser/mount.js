@@ -1,3 +1,4 @@
+'use client';
 import './styles.css';
 import {
   ORDER_ROWS,

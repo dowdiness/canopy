@@ -1,3 +1,5 @@
+'use client';
+
 // Empty-paragraph sentinel wiring for the markdown editor.
 //
 // Sources the sentinel codepoint from the MoonBit FFI bundle so this file

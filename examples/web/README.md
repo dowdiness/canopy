@@ -10,17 +10,23 @@ The implementation inventory, source clusters, runtime ownership, tests, Vite re
 ```bash
 cd examples/web
 npm ci
-npm run dev
+npm run dev:vite     # existing eight-surface application
+npm run dev:waku     # pre-production Waku foundation
+npm run dev:dual     # both servers with one shared root MoonBit watcher
 ```
 
-The Vite configuration relays MoonBit modules from the repository build output and rebuilds them during development when needed. Build artifacts are namespaced under `_build/js/release/build/dowdiness/`.
+`npm run dev` and `npm run build` remain Vite aliases until the final cutover. Both development modes reuse one root MoonBit build/watch coordinator; generated outputs remain namespaced under `_build/js/release/build/dowdiness/`.
 
 ```bash
 npm run typecheck
 npm run check:boundaries
 npm run test:boundaries
-npm run build
-npm run preview
+npm run test:foundation
+npm run build:vite
+npm run build:waku
+npm run check:waku-bundles
+npm run test:waku:e2e
+npm run test:waku:workerd
 ```
 
-For a deploy build, use `npm run build:deploy`; it installs MoonBit and builds the generated JavaScript before running Vite.
+For the existing Pages deploy build, use `npm run build:deploy`; it installs MoonBit and builds the generated JavaScript before running Vite. The Waku foundation is not the production deploy path.

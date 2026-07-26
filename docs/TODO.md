@@ -659,6 +659,12 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
   Plan: `docs/plans/2026-07-02-lambda-name-resolution-consolidation.md`
   Exit: production edit guards, alpha lowering, and free-variable diagnostics all read scope-graph facts; duplicate edit-layer resolvers are removed or test-only; #652's module-end cutoff drift is closed.
 
+- [ ] Migrate the eight Vite HTML surfaces to one routed Waku application.
+  Why: unify delivery without losing verified demo behavior or generated MoonBit contracts.
+  Plan: `docs/plans/2026-07-25-waku-unified-web-migration.md`
+  Status: #970 establishes the dual Vite/Waku foundation; Vite remains the default and no demo, redirect, or deployment has migrated.
+  Exit: the plan's Stage 12 gate passes after production cutover is proven.
+
 ## 22. SDEG Lifecycle
 
 - [x] Distinguish delete from malformed transient absence (#748).
