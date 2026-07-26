@@ -1,11 +1,22 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 const POST_STORAGE_KEY = 'canopy.posts.v1';
 const POST_EVENT_STORAGE_KEY = 'canopy.post-events.v1';
+const postsUrl = process.env.POSTS_URL ?? '/posts.html';
+
+async function waitForPostsReady(page: Page): Promise<void> {
+  await expect(page.getByRole('heading', { name: 'Post to yourself.' })).toBeVisible();
+  await expect(page.locator('#post-form'))
+    .toHaveAttribute('data-posts-ready', 'true');
+  if (postsUrl === '/posts') {
+    await expect(page.locator('[data-route-lifecycle-ready]'))
+      .toHaveAttribute('data-route-lifecycle-ready', 'true');
+  }
+}
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/posts.html');
-  await expect(page.getByRole('heading', { name: 'Post to yourself.' })).toBeVisible();
+  await page.goto(postsUrl);
+  await waitForPostsReady(page);
 });
 
 test.describe('local-first post app', () => {
@@ -30,6 +41,7 @@ test.describe('local-first post app', () => {
     );
 
     await page.reload();
+    await waitForPostsReady(page);
 
     await expect(page.locator('.post-item p')).toHaveText([
       'Remember the product wedge: post exists before retrieval.',
@@ -102,6 +114,7 @@ test.describe('local-first post app', () => {
       },
     );
     await page.reload();
+    await waitForPostsReady(page);
 
     const input = page.getByLabel('Write');
     const relatedPanel = page.locator('#related-panel');
@@ -153,6 +166,7 @@ test.describe('local-first post app', () => {
       },
     );
     await page.reload();
+    await waitForPostsReady(page);
 
     const input = page.getByLabel('Write');
 
@@ -203,6 +217,7 @@ test.describe('local-first post app', () => {
       },
     );
     await page.reload();
+    await waitForPostsReady(page);
 
     const input = page.getByLabel('Write');
     const relatedTexts = page.locator('.related-text');
@@ -217,7 +232,9 @@ test.describe('local-first post app', () => {
       .getByRole('button', { name: /Open related post/ })
       .click();
 
-    await expect(page.locator('.post-item[data-highlighted="true"] p')).toHaveText(olderText);
+    const openedPost = page.locator('.post-item[data-highlighted="true"]');
+    await expect(openedPost.locator('p')).toHaveText(olderText);
+    await expect(openedPost).toBeFocused();
     await expect(relatedTexts).toHaveText([olderText, newerText]);
     await expect(page.locator('.related-item').first().locator('.related-reason')).toContainText([
       'Echoes sync · recovery · policy',

@@ -10,11 +10,33 @@ interface PostsAppDependencies {
   readonly view: PostsView;
 }
 
+export interface PostsSnapshot {
+  readonly draft: string;
+  readonly relatedMode: RelatedPanelMode;
+  readonly highlightedPostId: string | null;
+}
+
+function readPostsSnapshot(snapshot: unknown): PostsSnapshot | undefined {
+  if (snapshot === undefined) return undefined;
+  if (typeof snapshot !== 'object' || snapshot === null) {
+    return { draft: '', relatedMode: 'writing', highlightedPostId: null };
+  }
+  const candidate = snapshot as Record<string, unknown>;
+  return {
+    draft: typeof candidate.draft === 'string' ? candidate.draft : '',
+    relatedMode: candidate.relatedMode === 'ask' ? 'ask' : 'writing',
+    highlightedPostId: typeof candidate.highlightedPostId === 'string'
+      ? candidate.highlightedPostId
+      : null,
+  };
+}
+
 export function createPostsApp({ store, eventStore, view }: PostsAppDependencies) {
   let posts: LocalPost[] = [];
   let highlightedPostId: string | null = null;
   let relatedMode: RelatedPanelMode = 'writing';
   let retrievalIndex = new PostRetrievalIndex(posts, eventStore.engagementByPost());
+  let disposeView: (() => void) | null = null;
 
   function pluralizePosts(count: number): string {
     return count === 1 ? '1 post' : `${count} posts`;
@@ -128,8 +150,12 @@ export function createPostsApp({ store, eventStore, view }: PostsAppDependencies
   }
 
   return {
-    mount(): void {
-      view.bind({
+    mount(restoredSnapshot?: unknown, focusDraft = true): void {
+      const restored = readPostsSnapshot(restoredSnapshot);
+      highlightedPostId = restored?.highlightedPostId ?? null;
+      relatedMode = restored?.relatedMode ?? 'writing';
+      if (restored !== undefined) view.setDraftText(restored.draft);
+      disposeView = view.bind({
         submitDraft,
         askDraft,
         updateDraft(): void {
@@ -140,7 +166,17 @@ export function createPostsApp({ store, eventStore, view }: PostsAppDependencies
       });
       loadPosts();
       view.syncSubmitState();
-      view.focusDraft();
+      if (focusDraft) view.focusDraft();
+    },
+    snapshot: (): PostsSnapshot => ({
+      draft: view.draftText(),
+      relatedMode,
+      highlightedPostId,
+    }),
+    restoreFocus: (token: string) => view.restoreFocus(token),
+    dispose(): void {
+      disposeView?.();
+      disposeView = null;
     },
   };
 }

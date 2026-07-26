@@ -20,8 +20,10 @@ interface PostsViewHandlers {
 
 export interface PostsView {
   draftText(): string;
+  setDraftText(text: string): void;
   clearDraft(): void;
   focusDraft(): void;
+  restoreFocus(token: string): boolean;
   syncSubmitState(): void;
   setStatus(message: string, tone?: StatusTone): void;
   renderTimeline(posts: readonly LocalPost[], highlightedPostId: string | null): void;
@@ -31,7 +33,7 @@ export interface PostsView {
     openRelatedPost: (result: RelatedPost) => void,
   ): number;
   focusTimelinePost(postId: string): void;
-  bind(handlers: PostsViewHandlers): void;
+  bind(handlers: PostsViewHandlers): () => void;
 }
 
 const RELATED_PANEL_COPY: Record<RelatedPanelMode, RelatedPanelCopy> = {
@@ -51,27 +53,31 @@ const RELATED_PANEL_COPY: Record<RelatedPanelMode, RelatedPanelCopy> = {
   },
 };
 
-export function createPostsView(document: Document, window: Window): PostsView {
-  const form = document.getElementById('post-form') as HTMLFormElement;
-  const draft = document.getElementById('post-input') as HTMLTextAreaElement;
-  const askButton = document.getElementById('post-ask') as HTMLButtonElement;
-  const submitButton = document.getElementById('post-submit') as HTMLButtonElement;
-  const statusEl = document.getElementById('post-status') as HTMLParagraphElement;
-  const countEl = document.getElementById('post-count') as HTMLSpanElement;
-  const listEl = document.getElementById('post-list') as HTMLUListElement;
-  const emptyEl = document.getElementById('empty-state') as HTMLDivElement;
-  const relatedPanelEl = document.getElementById('related-panel') as HTMLElement;
-  const relatedKickerEl = document.getElementById('related-kicker') as HTMLParagraphElement;
-  const relatedTitleEl = document.getElementById('related-title') as HTMLHeadingElement;
-  const relatedCountEl = document.getElementById('related-count') as HTMLSpanElement;
-  const relatedEmptyEl = document.getElementById('related-empty') as HTMLParagraphElement;
-  const relatedListEl = document.getElementById('related-list') as HTMLUListElement;
+export function createPostsView(root: Document | HTMLElement, window: Window): PostsView {
+  const document = root instanceof Document ? root : root.ownerDocument;
+  const form = root.querySelector<HTMLFormElement>('#post-form')!;
+  const draft = root.querySelector<HTMLTextAreaElement>('#post-input')!;
+  const askButton = root.querySelector<HTMLButtonElement>('#post-ask')!;
+  const submitButton = root.querySelector<HTMLButtonElement>('#post-submit')!;
+  const statusEl = root.querySelector<HTMLParagraphElement>('#post-status')!;
+  const countEl = root.querySelector<HTMLSpanElement>('#post-count')!;
+  const listEl = root.querySelector<HTMLUListElement>('#post-list')!;
+  const emptyEl = root.querySelector<HTMLDivElement>('#empty-state')!;
+  const relatedPanelEl = root.querySelector<HTMLElement>('#related-panel')!;
+  const relatedKickerEl = root.querySelector<HTMLParagraphElement>('#related-kicker')!;
+  const relatedTitleEl = root.querySelector<HTMLHeadingElement>('#related-title')!;
+  const relatedCountEl = root.querySelector<HTMLSpanElement>('#related-count')!;
+  const relatedEmptyEl = root.querySelector<HTMLParagraphElement>('#related-empty')!;
+  const relatedListEl = root.querySelector<HTMLUListElement>('#related-list')!;
   const dateTimeFormat = new Intl.DateTimeFormat(undefined, {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
   });
+  let focusFrame: number | null = null;
+  let renderedRelatedPosts: readonly RelatedPost[] = [];
+  let openRenderedRelatedPost: ((result: RelatedPost) => void) | null = null;
 
   function formatTimestamp(value: string): string {
     return dateTimeFormat.format(new Date(value));
@@ -83,6 +89,7 @@ export function createPostsView(document: Document, window: Window): PostsView {
     item.dataset.postId = post.id;
     item.tabIndex = -1;
     item.dataset.highlighted = post.id === highlightedPostId ? 'true' : 'false';
+    item.dataset.routeFocus = `timeline:${post.id}`;
 
     const article = document.createElement('article');
     const time = document.createElement('time');
@@ -107,7 +114,6 @@ export function createPostsView(document: Document, window: Window): PostsView {
   function renderRelatedPost(
     result: RelatedPost,
     mode: RelatedPanelMode,
-    openRelatedPost: (result: RelatedPost) => void,
   ): HTMLLIElement {
     const copy = RELATED_PANEL_COPY[mode];
     const item = document.createElement('li');
@@ -128,9 +134,9 @@ export function createPostsView(document: Document, window: Window): PostsView {
     const openButton = document.createElement('button');
     openButton.type = 'button';
     openButton.className = 'related-open';
+    openButton.dataset.postId = result.post.id;
     openButton.textContent = copy.openButtonText;
     openButton.setAttribute('aria-label', `${copy.openLabelPrefix}: ${result.post.text.slice(0, 80)}`);
-    openButton.addEventListener('click', () => openRelatedPost(result));
 
     meta.append(time, reasons);
     article.append(meta, text, openButton);
@@ -140,8 +146,19 @@ export function createPostsView(document: Document, window: Window): PostsView {
 
   return {
     draftText: () => draft.value,
+    setDraftText: (text) => { draft.value = text; },
     clearDraft: () => { draft.value = ''; },
     focusDraft: () => draft.focus(),
+    restoreFocus(token): boolean {
+      const target = token === 'draft'
+        ? draft
+        : Array.from(listEl.querySelectorAll<HTMLLIElement>('.post-item')).find(
+          candidate => candidate.dataset.routeFocus === token,
+        );
+      if (target === undefined) return false;
+      target.focus({ preventScroll: true });
+      return document.activeElement === target;
+    },
     syncSubmitState(): void {
       const isEmpty = draft.value.trim().length === 0;
       askButton.disabled = isEmpty;
@@ -158,6 +175,8 @@ export function createPostsView(document: Document, window: Window): PostsView {
       emptyEl.hidden = posts.length !== 0;
     },
     renderRelated(relatedPosts, mode, openRelatedPost): number {
+      renderedRelatedPosts = relatedPosts;
+      openRenderedRelatedPost = openRelatedPost;
       const copy = RELATED_PANEL_COPY[mode];
       const isAskMode = mode === 'ask';
       const hasResults = relatedPosts.length > 0;
@@ -165,14 +184,16 @@ export function createPostsView(document: Document, window: Window): PostsView {
       relatedTitleEl.textContent = copy.title;
       relatedCountEl.textContent = copy.formatCount(relatedPosts.length);
       relatedListEl.replaceChildren(
-        ...relatedPosts.map(result => renderRelatedPost(result, mode, openRelatedPost)),
+        ...relatedPosts.map(result => renderRelatedPost(result, mode)),
       );
       relatedEmptyEl.hidden = !(isAskMode && !hasResults);
       relatedPanelEl.hidden = !isAskMode && !hasResults;
       return relatedPosts.length;
     },
     focusTimelinePost(postId): void {
-      window.requestAnimationFrame(() => {
+      if (focusFrame !== null) window.cancelAnimationFrame(focusFrame);
+      focusFrame = window.requestAnimationFrame(() => {
+        focusFrame = null;
         const item = Array.from(listEl.querySelectorAll<HTMLLIElement>('.post-item')).find(
           candidate => candidate.dataset.postId === postId,
         );
@@ -180,19 +201,55 @@ export function createPostsView(document: Document, window: Window): PostsView {
         item?.scrollIntoView({ block: 'center', behavior: 'smooth' });
       });
     },
-    bind({ submitDraft, askDraft, updateDraft }): void {
-      form.addEventListener('submit', event => {
+    bind({ submitDraft, askDraft, updateDraft }): () => void {
+      const handleSubmit = (event: SubmitEvent) => {
         event.preventDefault();
         submitDraft();
-      });
-      draft.addEventListener('keydown', event => {
+      };
+      const handleDraftKeydown = (event: KeyboardEvent) => {
         if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
           event.preventDefault();
           submitDraft();
         }
-      });
-      askButton.addEventListener('click', askDraft);
-      draft.addEventListener('input', updateDraft);
+      };
+      const handleAsk = () => askDraft();
+      const handleDraftInput = () => updateDraft();
+      const handleRelatedOpen = (event: MouseEvent) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        const button = target.closest<HTMLButtonElement>('.related-open');
+        const postId = button?.dataset.postId;
+        if (postId === undefined) return;
+        const result = renderedRelatedPosts.find(candidate => candidate.post.id === postId);
+        if (result !== undefined) openRenderedRelatedPost?.(result);
+      };
+
+      form.addEventListener('submit', handleSubmit);
+      draft.addEventListener('keydown', handleDraftKeydown);
+      askButton.addEventListener('click', handleAsk);
+      draft.addEventListener('input', handleDraftInput);
+      relatedListEl.addEventListener('click', handleRelatedOpen);
+      form.inert = false;
+      form.dataset.postsReady = 'true';
+
+      let disposed = false;
+      return () => {
+        if (disposed) return;
+        disposed = true;
+        form.inert = true;
+        form.dataset.postsReady = 'false';
+        if (focusFrame !== null) {
+          window.cancelAnimationFrame(focusFrame);
+          focusFrame = null;
+        }
+        form.removeEventListener('submit', handleSubmit);
+        draft.removeEventListener('keydown', handleDraftKeydown);
+        askButton.removeEventListener('click', handleAsk);
+        draft.removeEventListener('input', handleDraftInput);
+        relatedListEl.removeEventListener('click', handleRelatedOpen);
+        renderedRelatedPosts = [];
+        openRenderedRelatedPost = null;
+      };
     },
   };
 }

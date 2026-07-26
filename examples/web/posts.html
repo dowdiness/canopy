@@ -6,18 +6,18 @@
   <title>Canopy Posts</title>
 
 </head>
-<body>
+<body class="posts-surface">
   <main class="shell">
     <header>
       <p class="eyebrow">Local-first prototype</p>
-      <h1>Post to yourself.</h1>
+      <h1 data-route-heading tabindex="-1">Post to yourself.</h1>
       <p class="lede">One field, no folders, no API key. As you write, a few old posts return quietly underneath; the stream stays newest-first when you just want chronology.</p>
     </header>
 
-    <form class="composer" id="post-form">
+    <form class="composer" id="post-form" inert data-posts-ready="false">
       <label for="post-input">
         Write
-        <textarea id="post-input" name="post" placeholder="A thought, reminder, note, or question for future you…" autocomplete="off"></textarea>
+        <textarea id="post-input" name="post" placeholder="A thought, reminder, note, or question for future you…" autocomplete="off" data-route-focus="draft"></textarea>
       </label>
 
       <div class="composer-actions">
