@@ -468,12 +468,18 @@ jobs:
         working-directory: examples/web
         run: npm ci
 
+      - name: Build Waku for production browser probes
+        working-directory: examples/web
+        run: npm run build:waku
+
       - name: Run Waku foundation browser probes
         working-directory: examples/web
         run: npm run test:waku:e2e
 
       - name: Run built Waku GenUI preview probes
         working-directory: examples/web
+        env:
+          CANOPY_SKIP_WAKU_BUILD: 1
         run: npm run test:waku:preview
 
   waku-workerd:

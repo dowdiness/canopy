@@ -284,6 +284,17 @@ test('adds parallel Waku build, browser, and workerd jobs to the repository gate
   assert.match(ci, /npm run test:waku:e2e/);
   assert.match(ci, /npm run test:waku:preview/);
   assert.match(ci, /npm run test:waku:workerd/);
+  assert.match(
+    ci,
+    /Build Waku for production browser probes[\s\S]*npm run build:waku[\s\S]*npm run test:waku:e2e[\s\S]*CANOPY_SKIP_WAKU_BUILD: 1[\s\S]*npm run test:waku:preview/,
+  );
+  const previewServer = fs.readFileSync(
+    new URL('./serve-waku-preview.sh', import.meta.url),
+    'utf8',
+  );
+  assert.match(previewServer, /CANOPY_SKIP_WAKU_BUILD/);
+  assert.match(previewServer, /test -f dist\/server\/index\.js/);
+  assert.match(previewServer, /test -f dist\/public\/index\.html/);
   const aggregate = ci.slice(ci.indexOf('  all-checks-passed:'));
   assert.match(aggregate, /^      - waku-build$/m);
   assert.match(aggregate, /^      - waku-e2e$/m);
