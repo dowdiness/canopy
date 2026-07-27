@@ -429,7 +429,7 @@ jobs:
 
   waku-e2e:
     name: Waku Web Foundation E2E
-    needs: [build-js, changes]
+    needs: [build-js, changes, waku-build]
     if: needs.changes.outputs.run_e2e == 'true'
     runs-on: ubuntu-latest
     container:
@@ -449,6 +449,12 @@ jobs:
           name: moonbit-js-build
           path: _build/js/release/build/dowdiness
 
+      - name: Download Waku production build
+        uses: actions/download-artifact@v8
+        with:
+          name: waku-web-build
+          path: examples/web/dist
+
       - name: Verify all Waku MoonBit inputs
         run: |
           test -f _build/js/release/build/dowdiness/canopy/ffi/lambda/lambda.js
@@ -467,10 +473,6 @@ jobs:
       - name: Install web dependencies
         working-directory: examples/web
         run: npm ci
-
-      - name: Build Waku for production browser probes
-        working-directory: examples/web
-        run: npm run build:waku
 
       - name: Run Waku foundation browser probes
         working-directory: examples/web
