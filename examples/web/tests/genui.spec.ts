@@ -1149,6 +1149,33 @@ test.describe('Generative UI Demo', () => {
     expect(parseInt(nodeCount ?? '0')).toBeGreaterThan(0);
   });
 
+  test('a cancelled stream cannot overwrite the next run', async ({ page }) => {
+    await openGenui(page);
+    await page.locator('#source-input').fill(
+      `<div>${Array.from({ length: 30 }, (_, index) => `<span>stale-${index}</span>`).join('')}</div>`,
+    );
+    await page.locator('#stream-btn').click();
+    await expect(page.locator('#stream-btn')).toHaveText('■ Stop');
+    await expect(page.locator('#step-num')).not.toHaveText('—');
+
+    await page.evaluate(() => {
+      const source = document.querySelector<HTMLTextAreaElement>('#source-input');
+      const clear = document.querySelector<HTMLButtonElement>('#clear-btn');
+      const stream = document.querySelector<HTMLButtonElement>('#stream-btn');
+      if (source === null || clear === null || stream === null) {
+        throw new Error('GenUI streaming controls are unavailable');
+      }
+      clear.click();
+      source.value = '<section><h2>Newest run</h2></section>';
+      stream.click();
+    });
+
+    await expect(page.locator('#status-bar')).toContainText('DOM nodes rendered');
+    await expect(page.locator('#html-preview')).toContainText('Newest run');
+    await expect(page.locator('#html-preview')).not.toContainText('stale-');
+    await expect(page.locator('#stream-btn')).toHaveText('▶ Stream');
+  });
+
   test('multiple examples produce DOM nodes', async ({ page }) => {
     test.setTimeout(90000);
 

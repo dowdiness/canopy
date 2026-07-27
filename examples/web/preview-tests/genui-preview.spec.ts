@@ -46,13 +46,9 @@ test('production JavaScript assets omit every local provider marker', async ({ r
   const developmentSource = await readFile(new URL('../src/features/genui/browser/mount.js', import.meta.url), 'utf8');
   expect(developmentSource).toContain('/api/genui-feasibility');
 
-  const productionDocument = GENUI_PREVIEW_URL === '/genui'
-    ? '../dist/public/index.html'
-    : '../dist/genui.html';
-  const html = await readFile(
-    new URL(productionDocument, import.meta.url),
-    'utf8',
-  );
+  const documentResponse = await request.get(GENUI_PREVIEW_URL);
+  expect(documentResponse.ok()).toBe(true);
+  const html = await documentResponse.text();
   const assetPaths = [
     ...new Set(
       [...html.matchAll(/["'](\/assets\/[^"']+\.js(?:\?[^"']*)?)["']/g)]

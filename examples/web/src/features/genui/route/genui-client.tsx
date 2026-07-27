@@ -56,7 +56,11 @@ function mountGenuiRoute(
     snapshot: () => controller?.snapshot() ?? restoredSnapshot,
     restoreFocus(token: string): boolean {
       if (controller !== null) return controller.restoreFocus(token);
-      if (token !== 'source' && !token.startsWith('order:')) return false;
+      if (
+        token !== 'heading' &&
+        token !== 'source' &&
+        !token.startsWith('order:')
+      ) return false;
       pendingFocusToken = token;
       return true;
     },

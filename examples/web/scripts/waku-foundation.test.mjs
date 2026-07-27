@@ -12,6 +12,10 @@ import {
   moonbitPlugin,
 } from '../vite-plugin-moonbit.ts';
 import { inspectWakuBundles } from './check-waku-bundles.mjs';
+import {
+  fetchWakuBuildPreviewWithRetry,
+  isWakuBuildPreviewRequest,
+} from './waku-build-fetch-retry.mjs';
 
 const expectedModules = [
   ['@moonbit/crdt-lambda', '../..', '_build/js/release/build/dowdiness/canopy/ffi/lambda/lambda.js'],
@@ -255,6 +259,68 @@ test('keeps Vite defaults while exposing explicit dual-run commands', () => {
   assert.equal(pkg.dependencies.waku, '1.0.0-beta.8');
   assert.equal(pkg.devDependencies.wrangler, '4.114.0');
   assert.equal(pkg.engines.node, '^24.0.0 || ^22.15.0');
+});
+
+test('retries only the Waku adapter internal preview startup race', async () => {
+  assert.equal(
+    isWakuBuildPreviewRequest('http://127.0.0.1:4173/__waku_internal_build_static_files'),
+    true,
+  );
+  assert.equal(isWakuBuildPreviewRequest('http://127.0.0.1:4173/genui'), false);
+  assert.equal(
+    isWakuBuildPreviewRequest('https://example.com/__waku_internal_build_static_files'),
+    false,
+  );
+
+  const calls = [];
+  const waits = [];
+  const response = await fetchWakuBuildPreviewWithRetry(
+    'http://127.0.0.1:4173/__waku_internal_build_static_files',
+    undefined,
+    {
+      attempts: 3,
+      delayMs: 5,
+      fetchFn: async (input) => {
+        calls.push(input);
+        if (calls.length < 3) {
+          throw new TypeError('fetch failed', {
+            cause: Object.assign(new Error('connection refused'), { code: 'ECONNREFUSED' }),
+          });
+        }
+        return new Response('ok');
+      },
+      wait: async (delayMs) => { waits.push(delayMs); },
+    },
+  );
+
+  assert.equal(await response.text(), 'ok');
+  assert.equal(calls.length, 3);
+  assert.deepEqual(waits, [5, 5]);
+
+  for (const [url, code] of [
+    ['http://127.0.0.1:4173/genui', 'ECONNREFUSED'],
+    ['http://127.0.0.1:4173/__waku_internal_build_static_files', 'ECONNRESET'],
+  ]) {
+    let failureCalls = 0;
+    const expectedError = new TypeError('fetch failed', {
+      cause: Object.assign(new Error('non-retryable failure'), { code }),
+    });
+    await assert.rejects(
+      fetchWakuBuildPreviewWithRetry(url, undefined, {
+        fetchFn: async () => {
+          failureCalls += 1;
+          throw expectedError;
+        },
+        wait: async () => { throw new Error('unexpected retry'); },
+      }),
+      (error) => error === expectedError,
+    );
+    assert.equal(failureCalls, 1);
+  }
+
+  const buildScript = fs.readFileSync(new URL('./build-waku.sh', import.meta.url), 'utf8');
+  assert.match(buildScript, /CANOPY_WAKU_BUILD_FETCH_RETRY=1/);
+  assert.match(buildScript, /--import=.\/scripts\/waku-build-fetch-retry\.mjs/);
 });
 
 test('runs both development servers behind one external root watcher', () => {

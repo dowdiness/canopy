@@ -27,6 +27,8 @@ const DEFAULT_RUNTIME = Object.freeze({
   loadJsx: () => import('@moonbit/crdt-jsx'),
 });
 
+const MAX_RECORDED_RESTORE_STEPS = 1_000
+
 function splitStreamPrefixes(source) {
   const prefixes = []
   let lastSplit = 0
@@ -106,9 +108,10 @@ const feasibilityRubric = root.querySelector('#feasibility-rubric')
 const feasibilityHash = root.querySelector('#feasibility-hash')
 
 let isStreaming = false
-let abortStream = false
+let streamRunId = 0
 let previousNodeIds = new Set()
 let jsxModule = null
+let jsxModulePromise = null
 let jsxSessionHandle = null
 let jsxSessionRevision = null
 let committedJsxSource = null
@@ -123,7 +126,7 @@ if (typeof snapshot?.jsxSource === 'string') sourceInput.value = snapshot.jsxSou
 if (typeof snapshot?.explorer?.filter === 'string') dataFilterInput.value = snapshot.explorer.filter
 if (
   typeof snapshot?.committed?.source === 'string' &&
-  Number.isInteger(snapshot?.committed?.revision) &&
+  Number.isSafeInteger(snapshot?.committed?.revision) &&
   snapshot.committed.revision > 0
 ) {
   committedJsxSource = snapshot.committed.source
@@ -282,7 +285,7 @@ let feasibilitySessionHandle = null
 let feasibilitySessionRevision = null
 let feasibilityBusy = false
 let feasibilityLastSuccessfulResult = null
-let committedRecordedRevision = Number.isInteger(snapshot?.recordedRevision) && snapshot.recordedRevision > 0
+let committedRecordedRevision = Number.isSafeInteger(snapshot?.recordedRevision) && snapshot.recordedRevision > 0
   ? snapshot.recordedRevision
   : null
 let feasibilityTestApi = null
@@ -323,7 +326,15 @@ function resetFeasibilityEvidence() {
 
 async function ensureJsxModule() {
   if (jsxModule) return
-  const loaded = await runtime.loadJsx()
+  const loadPromise = jsxModulePromise ?? runtime.loadJsx()
+  jsxModulePromise = loadPromise
+  let loaded
+  try {
+    loaded = await loadPromise
+  } catch (error) {
+    if (jsxModulePromise === loadPromise) jsxModulePromise = null
+    throw error
+  }
   if (disposed) throw new Error('GenUI session was disposed before the JSX runtime loaded.')
   jsxModule = loaded
 }
@@ -760,7 +771,7 @@ function collectNodeIds(root) {
 }
 
 function cancelStream() {
-  abortStream = true
+  streamRunId += 1
   isStreaming = false
   streamDelayCancel?.()
   streamDelayCancel = null
@@ -784,13 +795,16 @@ function waitForStreamDelay(delayMs) {
 // ── Streaming (MoonBit render via a stateful JSX FFI session) ──
 streamBtn.addEventListener('click', async function() {
   if (isStreaming) {
-    abortStream = true
-    streamDelayCancel?.()
+    cancelStream()
+    streamBtn.textContent = '\u25B6 Stream'
+    streamBtn.className = 'btn-primary'
+    statusBar.textContent = 'Stopped.'
     return
   }
   const fullText = sourceInput.value;
   if (!fullText.trim()) { statusBar.textContent = 'Please enter JSX text.'; return; }
-  isStreaming = true; abortStream = false;
+  const runId = ++streamRunId
+  isStreaming = true
   streamBtn.textContent = '\u25A0 Stop'; streamBtn.className = 'btn-primary';
   previousNodeIds = new Set();
   htmlPreview.innerHTML = '';
@@ -803,7 +817,7 @@ streamBtn.addEventListener('click', async function() {
 
   try {
     await ensureJsxModule()
-    if (disposed || abortStream) return
+    if (disposed || runId !== streamRunId) return
     const JsxMod = jsxModule
     if (jsxSessionHandle !== null) {
       JsxMod.jsx_session_dispose(jsxSessionHandle);
@@ -813,7 +827,7 @@ streamBtn.addEventListener('click', async function() {
     statusBar.textContent = 'Streaming ' + prefixes.length + ' steps...';
     let finalIds = [];
     for (let si = 0; si < prefixes.length; si++) {
-      if (abortStream) break;
+      if (disposed || runId !== streamRunId) return
       stepNum.textContent = (si + 1) + ' / ' + prefixes.length;
       htmlStepNum.textContent = (si + 1) + ' / ' + prefixes.length;
       streamProgress.innerHTML = '<span class="text-canopy-muted">Step ' + (si + 1) + ':</span> ' + esc(prefixes[si]);
@@ -861,21 +875,21 @@ streamBtn.addEventListener('click', async function() {
       statusBar.textContent = 'Step ' + (si + 1) + '/' + prefixes.length + ' \u2014 ' + ids.length + ' DOM nodes';
       if (batch.errors && batch.errors.length > 0) statusBar.textContent += ', ' + batch.errors.length + ' diagnostic(s)';
       await waitForStreamDelay(si < 5 ? 60 : 100)
+      if (disposed || runId !== streamRunId) return
     }
-    if (disposed) return
-    if (!abortStream) {
-      committedJsxSource = fullText
-      committedJsxRevision = jsxSessionRevision
-    }
+    if (disposed || runId !== streamRunId) return
+    committedJsxSource = fullText
+    committedJsxRevision = jsxSessionRevision
     statusBar.className = 'mt-2 p-1.5 bg-canopy-bg rounded-md text-[11px] text-canopy-muted';
-    statusBar.textContent = abortStream ? 'Stopped.' : 'Complete \u2014 ' + finalIds.length + ' DOM nodes rendered.';
+    statusBar.textContent = 'Complete \u2014 ' + finalIds.length + ' DOM nodes rendered.';
   } catch (err) {
-    if (disposed) return
+    if (disposed || runId !== streamRunId) return
     console.error(err);
     statusBar.className = 'mt-2 p-1.5 bg-canopy-bg rounded-md text-[11px] text-canopy-red';
     statusBar.textContent = 'Error: ' + err.message;
     treeOutput.innerHTML = '<div class="text-center py-8 text-canopy-red text-xs">Error: ' + esc(err.message) + '</div>';
   }
+  if (runId !== streamRunId) return
   isStreaming = false;
   streamBtn.textContent = '\u25B6 Stream';
   streamBtn.className = 'btn-primary';
@@ -896,14 +910,24 @@ async function restoreMainCommit() {
   let result = created.result
   let prefixIndex = 1
   while (!disposed && Number(result.revision) < targetRevision) {
-    const source = prefixes[prefixIndex] ?? committedJsxSource
-    result = JSON.parse(jsxModule.jsx_session_render(jsxSessionHandle, source))
+    if (prefixIndex >= prefixes.length) {
+      throw new Error(`Could not reach committed JSX revision ${targetRevision}.`)
+    }
+    const previousRevision = Number(result.revision)
+    result = JSON.parse(jsxModule.jsx_session_render(jsxSessionHandle, prefixes[prefixIndex]))
     if (!result.success) {
       throw new Error(result.error?.message || 'Could not restore the committed JSX revision.')
+    }
+    const restoredRevision = Number(result.revision)
+    if (!Number.isSafeInteger(restoredRevision) || restoredRevision <= previousRevision) {
+      throw new Error('Committed JSX restoration did not advance its revision.')
     }
     prefixIndex += 1
   }
   if (disposed) return
+  if (Number(result.revision) !== targetRevision) {
+    throw new Error(`Could not reach committed JSX revision ${targetRevision}.`)
+  }
   jsxSessionRevision = Number(result.revision)
   htmlNodeCount.textContent = String(result.mounted_ids.length)
   statusBar.textContent = `Restored committed revision ${jsxSessionRevision}.`
@@ -912,15 +936,32 @@ async function restoreMainCommit() {
 async function restoreRecordedCommit() {
   if (committedRecordedRevision === null) return
   const targetRevision = committedRecordedRevision
+  if (targetRevision > MAX_RECORDED_RESTORE_STEPS) {
+    throw new Error(`Recorded revision ${targetRevision} exceeds the restore limit.`)
+  }
   const input = recordedDemoInput(selectedFeasibilityCaseId)
   let result = null
+  let previousRevision = 0
+  let restoreSteps = 0
   do {
+    if (restoreSteps >= MAX_RECORDED_RESTORE_STEPS) {
+      throw new Error(`Could not reach recorded revision ${targetRevision}.`)
+    }
     result = await commitFeasibilityCandidate(input.candidateJson, input)
     if (result.classification !== 'success' || !result.session?.success) {
       throw new Error(result.message || result.session?.error?.message || 'Could not restore recorded replay.')
     }
+    const restoredRevision = Number(result.session.revision)
+    if (!Number.isSafeInteger(restoredRevision) || restoredRevision <= previousRevision) {
+      throw new Error('Recorded replay restoration did not advance its revision.')
+    }
+    previousRevision = restoredRevision
+    restoreSteps += 1
   } while (!disposed && Number(result.session.revision) < targetRevision)
   if (disposed) return
+  if (Number(result.session.revision) !== targetRevision) {
+    throw new Error(`Could not reach recorded revision ${targetRevision}.`)
+  }
   committedRecordedRevision = Number(result.session.revision)
   renderFeasibilityAttempt(result)
 }
@@ -931,6 +972,12 @@ async function restoreCommittedState() {
 }
 
 function applyFocusToken(token) {
+  if (token === 'heading') {
+    const heading = root.querySelector('[data-route-heading]')
+    if (!heading) return false
+    heading.focus({ preventScroll: true })
+    return true
+  }
   if (token === 'source') {
     sourceInput.focus({ preventScroll: true })
     return true
@@ -988,7 +1035,7 @@ return {
   restoreFocus(token) {
     if (disposed) return false
     if (!ready) {
-      if (token !== 'source' && !token.startsWith('order:')) return false
+      if (token !== 'heading' && token !== 'source' && !token.startsWith('order:')) return false
       pendingFocusToken = token
       return true
     }
