@@ -1,3 +1,5 @@
+import packageJson from '../package.json' with { type: 'json' };
+
 export const REQUIRED_WAKU_JOBS = Object.freeze([
   'All Checks Passed',
   'Build Waku Web Foundation',
@@ -8,8 +10,8 @@ export const REQUIRED_WAKU_JOBS = Object.freeze([
 const MAX_CANDIDATE_AGE_MS = 30 * 24 * 60 * 60 * 1_000;
 const EXPECTED_REPOSITORY = 'dowdiness/canopy';
 const EXPECTED_WORKFLOW_PATH = '.github/workflows/ci.yml';
-const EXPECTED_WAKU_VERSION = '1.0.0-beta.8';
-const EXPECTED_WRANGLER_VERSION = '4.114.0';
+const EXPECTED_WAKU_VERSION = packageJson.dependencies.waku;
+const EXPECTED_WRANGLER_VERSION = packageJson.devDependencies.wrangler;
 
 export function evaluateWakuReleaseCandidate(facts) {
   const failures = [];

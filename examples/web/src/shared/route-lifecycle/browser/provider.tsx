@@ -11,12 +11,14 @@ import {
   useState,
 } from 'react';
 import { useRouter } from 'waku/router/client';
+import { demoIdForPath, type DemoId } from '../../catalog/demo-catalog';
 import {
-  DEMOS,
-  demoIdForPath,
-  type DemoId,
-  type DemoPath,
-} from '../../catalog/demo-catalog';
+  type CompatibilityRedirectDecision,
+  type CompatibilityRedirectEvent,
+  type CompatibilityRoute,
+  createCompatibilityRedirectState,
+  reduceCompatibilityRedirect,
+} from '../core/compatibility-redirect';
 import {
   createLifecycleState,
   type LifecycleDecision,
@@ -39,12 +41,6 @@ interface RegisteredSurface {
 interface RegisteredReactRoute {
   snapshot(): unknown;
   restoreFocus(token: string): boolean;
-}
-
-interface PendingCompatibilityRedirect {
-  readonly canonicalPath: DemoPath;
-  readonly query: string;
-  readonly hash: string;
 }
 
 interface RouteLifecycleContextValue {
@@ -82,8 +78,7 @@ export function RouteLifecycleProvider({ children }: { readonly children: ReactN
   const nextMode = useRef<'push' | 'pop'>('push');
   const headingBeforeNavigation = useRef<HTMLElement | null>(null);
   const pendingPreCommitFailure = useRef<LifecycleHref | null>(null);
-  const pendingCompatibilityRedirect = useRef<PendingCompatibilityRedirect | null>(null);
-  const activeCompatibilityRepair = useRef<PendingCompatibilityRedirect | null>(null);
+  const compatibilityRedirect = useRef(createCompatibilityRedirectState());
   const [preCommitError, setPreCommitError] = useState<RouteFailure | null>(null);
   const [ready, setReady] = useState(false);
   const [mountRevision, setMountRevision] = useState(0);
@@ -154,26 +149,76 @@ export function RouteLifecycleProvider({ children }: { readonly children: ReactN
 
   useLayoutEffect(() => {
     let disposed = false;
+    compatibilityRedirect.current = createCompatibilityRedirectState();
+
+    function transitionCompatibility(
+      event: CompatibilityRedirectEvent,
+    ): CompatibilityRedirectDecision {
+      const result = reduceCompatibilityRedirect(compatibilityRedirect.current, event);
+      compatibilityRedirect.current = result.state;
+      return result.decision;
+    }
+
+    function executeCompatibilityDecision(
+      decision: CompatibilityRedirectDecision,
+    ): void {
+      if (decision.type === 'observe-history') {
+        requestAnimationFrame(() => {
+          observeCompatibilityHistory(decision.repairId, decision.attempt);
+        });
+      } else if (decision.type === 'replace-history') {
+        void router.replace(decision.href as never).catch(() => {
+          if (disposed) return;
+          executeCompatibilityDecision(transitionCompatibility({
+            type: 'replace-rejected',
+            repairId: decision.repairId,
+          }));
+        });
+      } else if (decision.type === 'recover-navigation') {
+        recoverPreCommitNavigation(router, () => {
+          pendingPreCommitFailure.current = decision.href as LifecycleHref;
+        });
+      } else if (decision.type === 'commit-navigation') {
+        dispatch({
+          type: 'navigation-committed',
+          destination: demoIdForPath(decision.path),
+          fragment: decision.fragment,
+        });
+        if (!decision.reportPendingFailure) return;
+        const failedTarget = pendingPreCommitFailure.current;
+        if (failedTarget !== null) {
+          pendingPreCommitFailure.current = null;
+          dispatch({
+            type: 'navigation-failed',
+            message: 'The demo could not be loaded.',
+            retryHref: failedTarget,
+          });
+          setBoundaryRevision((revision) => revision + 1);
+        }
+      }
+    }
+
+    function observeCompatibilityHistory(repairId: number, attempt: number): void {
+      if (disposed) return;
+      const currentUrl = new URL(window.location.href);
+      executeCompatibilityDecision(transitionCompatibility({
+        type: 'history-observed',
+        repairId,
+        attempt,
+        pathname: currentUrl.pathname,
+        search: currentUrl.search,
+      }));
+    }
+
     const markPop = () => {
       nextMode.current = 'pop';
     };
-    const handleStart = (route: {
-      readonly path: string;
-      readonly query: string;
-      readonly hash: string;
-    }) => {
-      const activeRepair = activeCompatibilityRepair.current;
-      if (
-        activeRepair !== null &&
-        route.path === activeRepair.canonicalPath &&
-        route.query === activeRepair.query &&
-        route.hash === activeRepair.hash
-      ) return;
-      activeCompatibilityRepair.current = null;
-      const compatibilityDemo = DEMOS.find((demo) => demo.legacyHref === route.path);
-      pendingCompatibilityRedirect.current = compatibilityDemo !== undefined && route.hash !== ''
-        ? { canonicalPath: compatibilityDemo.href, query: route.query, hash: route.hash }
-        : null;
+    const handleStart = (route: CompatibilityRoute) => {
+      const compatibilityDecision = transitionCompatibility({
+        type: 'navigation-started',
+        route,
+      });
+      if (compatibilityDecision.type === 'suppress-navigation-start') return;
       headingBeforeNavigation.current = document.querySelector<HTMLElement>('[data-route-heading]');
       const sourceDemo = lifecycle.current.activeDemo;
       const surface = sourceDemo === null ? undefined : surfaces.current.get(sourceDemo);
@@ -206,76 +251,11 @@ export function RouteLifecycleProvider({ children }: { readonly children: ReactN
       });
       nextMode.current = 'push';
     };
-    const handleComplete = (route: {
-      readonly path: string;
-      readonly query: string;
-      readonly hash: string;
-    }) => {
-      const compatibilityRedirect = pendingCompatibilityRedirect.current;
-      if (
-        compatibilityRedirect !== null &&
-        route.path === compatibilityRedirect.canonicalPath &&
-        route.query === compatibilityRedirect.query &&
-        route.hash === ''
-      ) {
-        const query = compatibilityRedirect.query === '' ? '' : `?${compatibilityRedirect.query}`;
-        const restoredHref = `${route.path}${query}${compatibilityRedirect.hash}`;
-        let attempts = 0;
-        const repairAfterWakuHistoryCommit = () => {
-          if (
-            disposed ||
-            pendingCompatibilityRedirect.current !== compatibilityRedirect
-          ) return;
-          const currentUrl = new URL(window.location.href);
-          const historyCommitted = currentUrl.pathname === route.path &&
-            currentUrl.search === query;
-          if (!historyCommitted) {
-            if (attempts < 60) {
-              attempts += 1;
-              requestAnimationFrame(repairAfterWakuHistoryCommit);
-              return;
-            }
-            pendingCompatibilityRedirect.current = null;
-            dispatch({
-              type: 'navigation-committed',
-              destination: demoIdForPath(route.path),
-              fragment: null,
-            });
-            return;
-          }
-          activeCompatibilityRepair.current = compatibilityRedirect;
-          void router.replace(restoredHref as never).catch(() => {
-            if (
-              disposed ||
-              activeCompatibilityRepair.current !== compatibilityRedirect
-            ) return;
-            activeCompatibilityRepair.current = null;
-            pendingCompatibilityRedirect.current = null;
-            recoverPreCommitNavigation(router, () => {
-              pendingPreCommitFailure.current = restoredHref as LifecycleHref;
-            });
-          });
-        };
-        requestAnimationFrame(repairAfterWakuHistoryCommit);
-        return;
-      }
-      activeCompatibilityRepair.current = null;
-      pendingCompatibilityRedirect.current = null;
-      dispatch({
-        type: 'navigation-committed',
-        destination: demoIdForPath(route.path),
-        fragment: route.hash.startsWith('#') ? route.hash.slice(1) : null,
-      });
-      const failedTarget = pendingPreCommitFailure.current;
-      if (failedTarget !== null) {
-        pendingPreCommitFailure.current = null;
-        dispatch({
-          type: 'navigation-failed',
-          message: 'The demo could not be loaded.',
-          retryHref: failedTarget,
-        });
-        setBoundaryRevision((revision) => revision + 1);
-      }
+    const handleComplete = (route: CompatibilityRoute) => {
+      executeCompatibilityDecision(transitionCompatibility({
+        type: 'navigation-completed',
+        route,
+      }));
     };
 
     window.addEventListener('popstate', markPop);
@@ -287,8 +267,7 @@ export function RouteLifecycleProvider({ children }: { readonly children: ReactN
       window.removeEventListener('popstate', markPop);
       router.unstable_events.off('start', handleStart);
       router.unstable_events.off('complete', handleComplete);
-      activeCompatibilityRepair.current = null;
-      pendingCompatibilityRedirect.current = null;
+      transitionCompatibility({ type: 'disposed' });
       for (const surface of surfaces.current.values()) surface.session.dispose();
       surfaces.current.clear();
       reactRoutes.current.clear();

@@ -8,6 +8,11 @@ import {
   createLifecycleState,
   reduceLifecycle,
 } from '../src/shared/route-lifecycle/core/reducer.ts';
+import {
+  createCompatibilityRedirectState,
+  MAX_COMPATIBILITY_HISTORY_ATTEMPTS,
+  reduceCompatibilityRedirect,
+} from '../src/shared/route-lifecycle/core/compatibility-redirect.ts';
 import { applyFocusDecision } from '../src/shared/route-lifecycle/browser/focus-manager.ts';
 import { ownImperativeSession } from '../src/shared/route-lifecycle/browser/imperative-session.ts';
 import {
@@ -415,4 +420,187 @@ test('pre-commit recovery records the failure before traversing back', () => {
     ['remember'],
     ['back'],
   ]);
+});
+
+test('compatibility redirects track only legacy routes carrying fragments', () => {
+  const initial = createCompatibilityRedirectState();
+  const ordinary = reduceCompatibilityRedirect(initial, {
+    type: 'navigation-started',
+    route: { path: '/unknown.html', query: 'source=client', hash: '#focus' },
+  });
+  assert.equal(ordinary.state.pending, null);
+  assert.deepEqual(ordinary.decision, { type: 'none' });
+
+  const withoutFragment = reduceCompatibilityRedirect(initial, {
+    type: 'navigation-started',
+    route: { path: '/json.html', query: 'source=client', hash: '' },
+  });
+  assert.equal(withoutFragment.state.pending, null);
+
+  const completed = reduceCompatibilityRedirect(initial, {
+    type: 'navigation-completed',
+    route: { path: '/json', query: 'source=client', hash: '#focus' },
+  });
+  assert.deepEqual(completed.decision, {
+    type: 'commit-navigation',
+    path: '/json',
+    fragment: 'focus',
+    reportPendingFailure: true,
+  });
+});
+
+test('compatibility redirects wait for the hash-stripped history commit', () => {
+  const started = reduceCompatibilityRedirect(createCompatibilityRedirectState(), {
+    type: 'navigation-started',
+    route: { path: '/json.html', query: 'source=client', hash: '#legacy-focus' },
+  });
+  assert.deepEqual(started.state.pending, {
+    id: 0,
+    canonicalPath: '/json',
+    query: 'source=client',
+    hash: '#legacy-focus',
+  });
+
+  const completed = reduceCompatibilityRedirect(started.state, {
+    type: 'navigation-completed',
+    route: { path: '/json', query: 'source=client', hash: '' },
+  });
+  assert.deepEqual(completed.decision, {
+    type: 'observe-history',
+    repairId: 0,
+    attempt: 0,
+  });
+
+  const retry = reduceCompatibilityRedirect(completed.state, {
+    type: 'history-observed',
+    repairId: 0,
+    attempt: 0,
+    pathname: '/foundation',
+    search: '',
+  });
+  assert.deepEqual(retry.decision, {
+    type: 'observe-history',
+    repairId: 0,
+    attempt: 1,
+  });
+});
+
+test('compatibility redirects restore the fragment and suppress the repair start', () => {
+  const started = reduceCompatibilityRedirect(createCompatibilityRedirectState(), {
+    type: 'navigation-started',
+    route: { path: '/json.html', query: 'source=client', hash: '#legacy-focus' },
+  });
+  const readyToRepair = reduceCompatibilityRedirect(started.state, {
+    type: 'history-observed',
+    repairId: 0,
+    attempt: 2,
+    pathname: '/json',
+    search: '?source=client',
+  });
+  assert.deepEqual(readyToRepair.decision, {
+    type: 'replace-history',
+    repairId: 0,
+    href: '/json?source=client#legacy-focus',
+  });
+
+  const repairStarted = reduceCompatibilityRedirect(readyToRepair.state, {
+    type: 'navigation-started',
+    route: { path: '/json', query: 'source=client', hash: '#legacy-focus' },
+  });
+  assert.deepEqual(repairStarted.decision, { type: 'suppress-navigation-start' });
+
+  const repaired = reduceCompatibilityRedirect(repairStarted.state, {
+    type: 'navigation-completed',
+    route: { path: '/json', query: 'source=client', hash: '#legacy-focus' },
+  });
+  assert.equal(repaired.state.pending, null);
+  assert.deepEqual(repaired.decision, {
+    type: 'commit-navigation',
+    path: '/json',
+    fragment: 'legacy-focus',
+    reportPendingFailure: true,
+  });
+});
+
+test('compatibility redirect polling fails closed after the existing retry limit', () => {
+  const started = reduceCompatibilityRedirect(createCompatibilityRedirectState(), {
+    type: 'navigation-started',
+    route: { path: '/markdown.html', query: '', hash: '#preview' },
+  });
+  const timedOut = reduceCompatibilityRedirect(started.state, {
+    type: 'history-observed',
+    repairId: 0,
+    attempt: MAX_COMPATIBILITY_HISTORY_ATTEMPTS,
+    pathname: '/foundation',
+    search: '',
+  });
+
+  assert.equal(timedOut.state.pending, null);
+  assert.deepEqual(timedOut.decision, {
+    type: 'commit-navigation',
+    path: '/markdown',
+    fragment: null,
+    reportPendingFailure: false,
+  });
+});
+
+test('compatibility redirect replacement failure clears repair state before recovery', () => {
+  const started = reduceCompatibilityRedirect(createCompatibilityRedirectState(), {
+    type: 'navigation-started',
+    route: { path: '/json.html', query: 'source=client', hash: '#legacy-focus' },
+  });
+  const inactiveFailure = reduceCompatibilityRedirect(started.state, {
+    type: 'replace-rejected',
+    repairId: 0,
+  });
+  assert.deepEqual(inactiveFailure.decision, { type: 'none' });
+
+  const active = reduceCompatibilityRedirect(started.state, {
+    type: 'history-observed',
+    repairId: 0,
+    attempt: 0,
+    pathname: '/json',
+    search: '?source=client',
+  });
+  const failed = reduceCompatibilityRedirect(active.state, {
+    type: 'replace-rejected',
+    repairId: 0,
+  });
+  assert.equal(failed.state.pending, null);
+  assert.equal(failed.state.activeRepairId, null);
+  assert.deepEqual(failed.decision, {
+    type: 'recover-navigation',
+    href: '/json?source=client#legacy-focus',
+  });
+});
+
+test('new navigation and disposal invalidate queued compatibility retries', () => {
+  const started = reduceCompatibilityRedirect(createCompatibilityRedirectState(), {
+    type: 'navigation-started',
+    route: { path: '/json.html', query: '', hash: '#focus' },
+  });
+  const superseded = reduceCompatibilityRedirect(started.state, {
+    type: 'navigation-started',
+    route: { path: '/markdown', query: '', hash: '' },
+  });
+  const staleObservation = reduceCompatibilityRedirect(superseded.state, {
+    type: 'history-observed',
+    repairId: 0,
+    attempt: 1,
+    pathname: '/json',
+    search: '',
+  });
+  assert.deepEqual(staleObservation.decision, { type: 'none' });
+
+  const disposed = reduceCompatibilityRedirect(started.state, { type: 'disposed' });
+  const afterDisposal = reduceCompatibilityRedirect(disposed.state, {
+    type: 'history-observed',
+    repairId: 0,
+    attempt: 1,
+    pathname: '/json',
+    search: '',
+  });
+  assert.equal(disposed.state.disposed, true);
+  assert.equal(disposed.state.pending, null);
+  assert.deepEqual(afterDisposal.decision, { type: 'none' });
 });

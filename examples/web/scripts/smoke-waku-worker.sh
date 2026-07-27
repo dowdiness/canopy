@@ -134,6 +134,9 @@ canonical_markers=(
   'Run recorded candidate'
   'How should this journey change?'
 )
+if [[ "${#canonical_paths[@]}" -ne "${#canonical_markers[@]}" ]]; then
+  fail 'Canonical route smoke paths and markers must have equal lengths.'
+fi
 for index in "${!canonical_paths[@]}"; do
   assert_body_contains "${canonical_paths[$index]}" "${canonical_markers[$index]}"
 done
@@ -175,6 +178,9 @@ canonical_alias_targets=(
   '/genui'
   '/journey'
 )
+if [[ "${#legacy_paths[@]}" -ne "${#canonical_alias_targets[@]}" ]]; then
+  fail 'Legacy route smoke paths and canonical targets must have equal lengths.'
+fi
 for index in "${!legacy_paths[@]}"; do
   legacy="${legacy_paths[$index]}"
   canonical="${canonical_alias_targets[$index]}"
@@ -189,6 +195,9 @@ for canonical in '/ml' '/json' '/markdown' '/memo' '/posts' '/resume' '/genui' '
   fi
 done
 
+if [[ ! -d dist/public/assets ]]; then
+  fail 'Waku build did not contain the public assets directory.'
+fi
 asset_file="$(find dist/public/assets -type f -name '*.js' -print -quit)"
 if [[ -z "$asset_file" ]]; then
   fail 'Waku build did not contain a JavaScript asset.'

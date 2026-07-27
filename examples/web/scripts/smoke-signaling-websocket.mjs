@@ -58,7 +58,7 @@ export async function runSignalingHandshake(url, { cloudflareLocal = false } = {
       response.resume();
       fail(new Error(`Signaling upgrade returned HTTP ${response.statusCode}.`));
     });
-    socket.once('error', (error) => {
+    socket.on('error', (error) => {
       if (!handshakeComplete) fail(error);
     });
     socket.once('open', () => {

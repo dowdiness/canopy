@@ -107,7 +107,7 @@ rebuilds source in a privileged workflow.
 
 After the prerequisites are present and an authorized owner enables staging:
 
-1. Download both artifacts by triggering run ID and attempt and verify the
+1. Download both artifacts for the selected run ID and attempt and verify the
    manifest before any Cloudflare command.
 2. Upload a non-production version with pinned Wrangler and capture its JSONL
    record through `WRANGLER_OUTPUT_FILE_PATH`. Require exactly one successful
@@ -127,12 +127,16 @@ and a fail-closed parser.
 Production requires a separate protected approval after staging passes.
 
 1. Record the current production deployment and every active version/traffic
-   weight with `wrangler deployments status --json`.
-2. Upload the already verified artifact as a new version; record the previous
-   stable and new version IDs, CI run ID/attempt, commit SHA, config digest, and
+   weight with `npx wrangler deployments status --config wrangler.waku.jsonc
+   --env production --json`.
+2. Upload the already verified artifact with `npx wrangler versions upload
+   --config wrangler.waku.jsonc --env production`; record the previous stable
+   and new version IDs, CI run ID/attempt, commit SHA, config digest, and
    artifact digest.
-3. Shift a bounded percentage with `wrangler versions deploy`; use versioned
-   Worker assets from the same upload and do not mix artifacts across commits.
+3. Shift a bounded percentage with `npx wrangler versions deploy
+   <version-specs> --config wrangler.waku.jsonc --env production`; use
+   versioned Worker assets from the same upload and do not mix artifacts across
+   commits.
 4. On the configured production hostname, verify canonical routes, aliases,
    RSC navigation, assets, 404/error behavior, availability states,
    state/focus/history, and same-origin signaling.
@@ -141,7 +145,8 @@ Production requires a separate protected approval after staging passes.
    and `errorCategory`. Never log URLs, query strings, headers, payloads,
    imported sessions, API keys, chat text, error messages, or stacks.
 6. Increase traffic only after each smoke and observation gate passes. Record
-   `deployments status --json` after every change.
+   `npx wrangler deployments status --config wrangler.waku.jsonc --env
+   production --json` after every change.
 
 Stage 12 (Vite and legacy-entry retirement) starts only after the production
 acceptance window succeeds. It is not part of a staging deployment.
@@ -153,8 +158,10 @@ canonical-route 5xx, asset/RSC version mismatch, deterministic route smoke
 failure, or failed signaling proxy handshake.
 
 1. Stop further traffic changes.
-2. Restore the recorded previous Waku version with pinned Wrangler and verify
-   the authoritative deployment status JSON.
+2. Restore the recorded previous Waku version with `npx wrangler rollback
+   <previous-version-id> --config wrangler.waku.jsonc --env production`, then
+   verify the authoritative status with `npx wrangler deployments status
+   --config wrangler.waku.jsonc --env production --json`.
 3. Rerun canonical, asset/RSC, error, and same-origin signaling smoke.
 4. If Worker rollback or hostname routing fails, point the production hostname
    back to the retained Pages deployment.

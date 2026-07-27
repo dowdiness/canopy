@@ -27,7 +27,7 @@ test('returns permanent redirects for every legacy document and RSC route', asyn
 test('document redirects preserve query and fragment without an alias Back stop', async ({ page }) => {
   for (const [legacy, canonical] of compatibilityRoutes) {
     await page.goto('/foundation');
-    await page.evaluate((href) => window.location.assign(href), `${legacy}?source=document#legacy-focus`);
+    await page.goto(`${legacy}?source=document#legacy-focus`);
 
     await expect(page).toHaveURL(`${canonical}?source=document#legacy-focus`);
     await page.goBack();

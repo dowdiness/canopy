@@ -356,6 +356,8 @@ jobs:
     needs: [build-js, changes]
     if: needs.changes.outputs.run_e2e == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     env:
       CANOPY_SKIP_MOON_BUILD: 1
     steps:
