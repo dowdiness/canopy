@@ -1,6 +1,10 @@
 import type { DemoId, DemoPath } from '../../catalog/demo-catalog';
 
-export type LifecycleHref = DemoPath | '/';
+export type LifecycleHref =
+  | '/'
+  | DemoPath
+  | `${DemoPath}?${string}`
+  | `${DemoPath}#${string}`;
 
 export interface SnapshotRecord {
   readonly value: unknown;

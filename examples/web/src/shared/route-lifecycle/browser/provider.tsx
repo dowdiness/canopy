@@ -167,7 +167,7 @@ export function RouteLifecycleProvider({ children }: { readonly children: ReactN
           observeCompatibilityHistory(decision.repairId, decision.attempt);
         });
       } else if (decision.type === 'replace-history') {
-        void router.replace(decision.href as never).catch(() => {
+        void router.replace(decision.href).catch(() => {
           if (disposed) return;
           executeCompatibilityDecision(transitionCompatibility({
             type: 'replace-rejected',
@@ -176,7 +176,7 @@ export function RouteLifecycleProvider({ children }: { readonly children: ReactN
         });
       } else if (decision.type === 'recover-navigation') {
         recoverPreCommitNavigation(router, () => {
-          pendingPreCommitFailure.current = decision.href as LifecycleHref;
+          pendingPreCommitFailure.current = decision.href;
         });
       } else if (decision.type === 'commit-navigation') {
         dispatch({
@@ -218,7 +218,10 @@ export function RouteLifecycleProvider({ children }: { readonly children: ReactN
         type: 'navigation-started',
         route,
       });
-      if (compatibilityDecision.type === 'suppress-navigation-start') return;
+      if (compatibilityDecision.type === 'suppress-navigation-start') {
+        nextMode.current = 'push';
+        return;
+      }
       headingBeforeNavigation.current = document.querySelector<HTMLElement>('[data-route-heading]');
       const sourceDemo = lifecycle.current.activeDemo;
       const surface = sourceDemo === null ? undefined : surfaces.current.get(sourceDemo);

@@ -490,6 +490,12 @@ test('compatibility redirects restore the fragment and suppress the repair start
     type: 'navigation-started',
     route: { path: '/json.html', query: 'source=client', hash: '#legacy-focus' },
   });
+  const prematureCanonicalStart = reduceCompatibilityRedirect(started.state, {
+    type: 'navigation-started',
+    route: { path: '/json', query: 'source=client', hash: '#legacy-focus' },
+  });
+  assert.deepEqual(prematureCanonicalStart.decision, { type: 'none' });
+
   const readyToRepair = reduceCompatibilityRedirect(started.state, {
     type: 'history-observed',
     repairId: 0,
@@ -527,6 +533,19 @@ test('compatibility redirect polling fails closed after the existing retry limit
     type: 'navigation-started',
     route: { path: '/markdown.html', query: '', hash: '#preview' },
   });
+  const lastRetry = reduceCompatibilityRedirect(started.state, {
+    type: 'history-observed',
+    repairId: 0,
+    attempt: MAX_COMPATIBILITY_HISTORY_ATTEMPTS - 1,
+    pathname: '/foundation',
+    search: '',
+  });
+  assert.deepEqual(lastRetry.decision, {
+    type: 'observe-history',
+    repairId: 0,
+    attempt: MAX_COMPATIBILITY_HISTORY_ATTEMPTS,
+  });
+
   const timedOut = reduceCompatibilityRedirect(started.state, {
     type: 'history-observed',
     repairId: 0,

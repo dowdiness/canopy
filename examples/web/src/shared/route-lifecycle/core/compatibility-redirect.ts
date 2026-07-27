@@ -1,4 +1,5 @@
 import { DEMOS, type DemoPath } from '../../catalog/demo-catalog.ts';
+import type { LifecycleHref } from './reducer';
 
 export const MAX_COMPATIBILITY_HISTORY_ATTEMPTS = 60;
 
@@ -46,7 +47,7 @@ export type CompatibilityRedirectDecision =
   | {
       readonly type: 'replace-history';
       readonly repairId: number;
-      readonly href: string;
+      readonly href: LifecycleHref;
     }
   | {
       readonly type: 'commit-navigation';
@@ -54,7 +55,7 @@ export type CompatibilityRedirectDecision =
       readonly fragment: string | null;
       readonly reportPendingFailure: boolean;
     }
-  | { readonly type: 'recover-navigation'; readonly href: string };
+  | { readonly type: 'recover-navigation'; readonly href: LifecycleHref };
 
 export interface CompatibilityRedirectResult {
   readonly state: CompatibilityRedirectState;
@@ -67,6 +68,17 @@ export function createCompatibilityRedirectState(): CompatibilityRedirectState {
     pending: null,
     activeRepairId: null,
     disposed: false,
+  };
+}
+
+function compatibilityTarget(pending: PendingCompatibilityRedirect): {
+  readonly search: string;
+  readonly href: LifecycleHref;
+} {
+  const search = pending.query === '' ? '' : `?${pending.query}`;
+  return {
+    search,
+    href: `${pending.canonicalPath}${search}${pending.hash}` as LifecycleHref,
   };
 }
 
@@ -153,24 +165,23 @@ export function reduceCompatibilityRedirect(
     if (state.activeRepairId !== event.repairId) {
       return { state, decision: { type: 'none' } };
     }
-    const query = pending.query === '' ? '' : `?${pending.query}`;
     return {
       state: { ...state, pending: null, activeRepairId: null },
       decision: {
         type: 'recover-navigation',
-        href: `${pending.canonicalPath}${query}${pending.hash}`,
+        href: compatibilityTarget(pending).href,
       },
     };
   }
 
-  const query = pending.query === '' ? '' : `?${pending.query}`;
-  if (event.pathname === pending.canonicalPath && event.search === query) {
+  const target = compatibilityTarget(pending);
+  if (event.pathname === pending.canonicalPath && event.search === target.search) {
     return {
       state: { ...state, activeRepairId: pending.id },
       decision: {
         type: 'replace-history',
         repairId: pending.id,
-        href: `${pending.canonicalPath}${query}${pending.hash}`,
+        href: target.href,
       },
     };
   }
