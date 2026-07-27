@@ -281,6 +281,14 @@ test('adds parallel Waku build, browser, and workerd jobs to the repository gate
     ci,
     /npx wrangler check startup --config wrangler\.waku\.jsonc --env preview/,
   );
+  assert.match(
+    ci,
+    /npx wrangler deploy --config wrangler\.waku\.jsonc --dry-run --env production/,
+  );
+  assert.match(
+    ci,
+    /npx wrangler check startup --config wrangler\.waku\.jsonc --env production/,
+  );
   assert.match(ci, /npm run test:waku:e2e/);
   assert.match(ci, /npm run test:waku:preview/);
   assert.match(ci, /npm run test:waku:workerd/);
@@ -288,9 +296,16 @@ test('adds parallel Waku build, browser, and workerd jobs to the repository gate
   assert.match(wakuE2e, /needs: \[build-js, changes, waku-build\]/);
   assert.match(
     wakuE2e,
-    /Download Waku production build[\s\S]*name: waku-web-build[\s\S]*path: examples\/web\/dist[\s\S]*npm run test:waku:e2e[\s\S]*CANOPY_SKIP_WAKU_BUILD: 1[\s\S]*npm run test:waku:preview/,
+    /Download Waku production build[\s\S]*name: waku-web-build-\$\{\{ github\.run_attempt \}\}[\s\S]*path: examples\/web\/dist[\s\S]*npm run test:waku:e2e[\s\S]*CANOPY_SKIP_WAKU_BUILD: 1[\s\S]*npm run test:waku:preview/,
   );
   assert.doesNotMatch(wakuE2e, /npm run build:waku/);
+  assert.match(ci, /npm run create:waku-release-manifest/);
+  assert.match(ci, /name: waku-web-build-\$\{\{ github\.run_attempt \}\}/);
+  assert.match(
+    ci,
+    /name: waku-web-release-manifest-\$\{\{ github\.run_attempt \}\}/,
+  );
+  assert.match(ci, /retention-days: 30/);
   const previewServer = fs.readFileSync(
     new URL('./serve-waku-preview.sh', import.meta.url),
     'utf8',
@@ -326,6 +341,7 @@ test('isolates the non-deploying Waku foundation from the existing Vite deployme
     binding: 'ASSETS',
     directory: './dist/public',
     html_handling: 'drop-trailing-slash',
+    run_worker_first: true,
   });
   assert.equal(wakuWrangler.no_bundle, true);
   assert.deepEqual(wakuWrangler.rules, [{
@@ -334,15 +350,44 @@ test('isolates the non-deploying Waku foundation from the existing Vite deployme
   }]);
   assert.equal(wakuWrangler.env.preview.name, 'canopy-web-waku-preview');
   assert.equal(wakuWrangler.env.production.name, 'canopy-web-waku-production');
-  assert.equal(wakuWrangler.services, undefined);
+  const signalingBinding = [{
+    binding: 'SIGNALING',
+    service: 'crdt-signaling-server',
+  }];
+  assert.deepEqual(wakuWrangler.services, signalingBinding);
+  assert.deepEqual(wakuWrangler.env.preview.services, signalingBinding);
+  assert.deepEqual(wakuWrangler.env.production.services, signalingBinding);
+  assert.deepEqual(wakuWrangler.version_metadata, { binding: 'WORKER_VERSION' });
+  assert.deepEqual(wakuWrangler.env.preview.version_metadata, {
+    binding: 'WORKER_VERSION',
+  });
+  assert.deepEqual(wakuWrangler.env.production.version_metadata, {
+    binding: 'WORKER_VERSION',
+  });
+  assert.deepEqual(wakuWrangler.observability, {
+    enabled: true,
+    logs: {
+      enabled: true,
+      head_sampling_rate: 1,
+      invocation_logs: false,
+    },
+    traces: { enabled: false },
+  });
   assert.equal(wakuWrangler.vars, undefined);
 
   const smoke = fs.readFileSync(new URL('./smoke-waku-worker.sh', import.meta.url), 'utf8');
-  assert.match(smoke, /wrangler dev --config wrangler\.waku\.jsonc --env preview/);
-  assert.match(smoke, /127\.0\.0\.1:\$\{PORT\}\/memo/);
+  assert.match(
+    smoke,
+    /wrangler dev[\s\S]*-c wrangler\.waku\.jsonc[\s\S]*-c wrangler-signaling\.toml/,
+  );
+  assert.doesNotMatch(smoke, /--env preview/);
+  assert.match(smoke, /canonical_paths=/);
+  assert.match(smoke, /legacy_paths=/);
+  assert.match(smoke, /\/RSC\/R\$\{legacy\}\.txt/);
   assert.match(smoke, /data-memo-production-unavailable/);
   assert.match(smoke, /id="api-key"\|Fix Typos\|data-imperative-demo-host="memo"/);
-  assert.match(smoke, /127\.0\.0\.1:\$\{PORT\}\/genui/);
   assert.match(smoke, /Run recorded candidate/);
-  assert.match(smoke, /127\.0\.0\.1:\$\{PORT\}\/api\/genui-feasibility/);
+  assert.match(smoke, /'\/api\/genui-feasibility'/);
+  assert.match(smoke, /smoke-signaling-websocket\.mjs/);
+  assert.match(smoke, /--cloudflare-local/);
 });

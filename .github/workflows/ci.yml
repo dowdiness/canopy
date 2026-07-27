@@ -356,6 +356,8 @@ jobs:
     needs: [build-js, changes]
     if: needs.changes.outputs.run_e2e == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     env:
       CANOPY_SKIP_MOON_BUILD: 1
     steps:
@@ -420,12 +422,32 @@ jobs:
         working-directory: examples/web
         run: npx wrangler check startup --config wrangler.waku.jsonc --env preview
 
+      - name: Dry-run the production Worker bundle
+        working-directory: examples/web
+        run: npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env production
+
+      - name: Record production Worker startup profile
+        working-directory: examples/web
+        run: npx wrangler check startup --config wrangler.waku.jsonc --env production
+
+      - name: Create Waku release manifest
+        working-directory: examples/web
+        run: npm run create:waku-release-manifest -- "${RUNNER_TEMP}/waku-web-release-manifest.json"
+
       - name: Upload Waku Worker build
         uses: actions/upload-artifact@v7
         with:
-          name: waku-web-build
+          name: waku-web-build-${{ github.run_attempt }}
           path: examples/web/dist
-          retention-days: 7
+          retention-days: 30
+
+      - name: Upload Waku release manifest
+        uses: actions/upload-artifact@v7
+        with:
+          name: waku-web-release-manifest-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/waku-web-release-manifest.json
+          if-no-files-found: error
+          retention-days: 30
 
   waku-e2e:
     name: Waku Web Foundation E2E
@@ -452,7 +474,7 @@ jobs:
       - name: Download Waku production build
         uses: actions/download-artifact@v8
         with:
-          name: waku-web-build
+          name: waku-web-build-${{ github.run_attempt }}
           path: examples/web/dist
 
       - name: Verify all Waku MoonBit inputs
@@ -508,7 +530,7 @@ jobs:
       - name: Download Waku Worker build
         uses: actions/download-artifact@v8
         with:
-          name: waku-web-build
+          name: waku-web-build-${{ github.run_attempt }}
           path: examples/web/dist
 
       - name: Smoke built Worker under workerd

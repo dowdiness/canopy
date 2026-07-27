@@ -1,295 +1,178 @@
-# Cloudflare Deployment Guide
+# Waku Worker cutover and rollback runbook
 
-This guide explains how to deploy the CRDT signaling server to Cloudflare Workers with Durable Objects.
+This is the canonical deployment runbook for `examples/web`. The Waku Worker is
+not yet the production target: local workerd readiness is implemented, but the
+repository and Cloudflare prerequisites below must be completed before any
+staging or production traffic change.
 
-## Architecture Overview
+## Runtime boundary
 
-The deployment uses:
-- **Cloudflare Workers** - Edge compute platform for serverless JavaScript
-- **Durable Objects** - Stateful objects for managing WebSocket connections
-- **WebSockets** - Real-time bidirectional communication for signaling
-
-## Prerequisites
-
-1. **Cloudflare Account** - Sign up at https://dash.cloudflare.com/sign-up
-2. **Wrangler CLI** - Cloudflare's command-line tool
-3. **Node.js** - Version 16 or higher
-
-## Step 1: Install Wrangler
-
-If you haven't already installed Wrangler:
-
-```bash
-npm install -g wrangler
+```text
+browser
+  └─ same-origin /signaling
+       └─ canopy-web-waku-{preview|production}
+            └─ SIGNALING service binding
+                 └─ crdt-signaling-server
+                      └─ SignalingRoom Durable Object
 ```
 
-Or install locally in your project:
+The Waku Worker owns documents, RSC, static assets, compatibility redirects,
+safe error responses, and the same-origin ingress. The existing Signaling
+Worker continues to own its protocol, room state, and Durable Object migration.
+Both Workers must be in the same Cloudflare account. Never deploy or roll back
+the Signaling Worker as a side effect of a Waku release.
+
+`wrangler.waku.jsonc` defines distinct `preview` and `production` Worker names.
+It contains no provider secret and binds the existing `crdt-signaling-server`
+service in both environments.
+
+## Mandatory prerequisites
+
+Do not add or enable a privileged deployment workflow until all of these are
+true:
+
+1. `main` is protected and cannot bypass the repository-owned CI gate.
+2. GitHub `staging` and `production` environments exist, require reviewers, and
+   cannot be created implicitly by a workflow.
+3. Cloudflare credentials are environment-scoped, least-privilege secrets. The
+   token scope and account containing both Workers have been verified.
+4. The preview URL and the production hostname/route are recorded as
+   environment variables. No hostname is inferred from the legacy Pages site.
+5. The target Signaling Worker exists in that account and its independent
+   handshake is healthy.
+6. An owner has approved the observability policy. Structured logs are enabled;
+   automatic traces remain disabled because Cloudflare traces persist URL query
+   strings. Full trace acceptance is blocked until an approved redaction policy
+   exists.
+
+At the time this runbook was written, these repository prerequisites were not
+configured. A push must therefore remain incapable of deploying Waku.
+
+## Pinned local readiness
+
+Use Node 24 and the repository lockfile. Do not install Wrangler globally.
 
 ```bash
 cd examples/web
-npm install -D wrangler
+npm ci
+npm run typecheck
+npm run test:foundation
+npm run build:waku
+npm run check:waku-bundles
+npm run check:waku-types
+npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env preview
+npx wrangler check startup --config wrangler.waku.jsonc --env preview
+npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env production
+npx wrangler check startup --config wrangler.waku.jsonc --env production
+npm run test:waku:workerd
 ```
 
-## Step 2: Authenticate with Cloudflare
+The workerd command starts Waku and the Signaling Worker together with Wrangler
+multi-worker development. It verifies canonical documents and RSC, all seven
+document/RSC aliases, assets, 404s, production capability absence, signaling
+OPTIONS/non-upgrade behavior, and a real join/`peer_list` WebSocket exchange.
+It intentionally omits `--env preview`: pinned Wrangler applies one `--env` to
+every auxiliary config, while `wrangler-signaling.toml` has no named preview
+environment.
 
-Log in to your Cloudflare account:
+## Exact release candidate contract
 
-```bash
-wrangler login
-```
+Only a completed `CI` workflow caused by a push to `main` may become a release
+candidate. Before entering a protected environment, a deployment controller
+must run the pure checks in `scripts/waku-release-gate-core.mjs` and reject the
+candidate unless all of the following are exact:
 
-This will open a browser window for authentication.
+- workflow conclusion is `success`;
+- repository is exactly `dowdiness/canopy` and workflow path is exactly
+  `.github/workflows/ci.yml`; the mutable display name alone is insufficient;
+- `All Checks Passed`, `Build Waku Web Foundation`, `Waku Web Foundation E2E`,
+  and `Waku Worker Foundation Smoke` each occur exactly once and are
+  `completed/success`; each job must carry the selected run ID, attempt, and
+  head SHA, and `skipped` is not accepted;
+- triggering `head_sha`, checked-out SHA, artifact manifest SHA, and current
+  `main` tip are identical;
+- artifacts are selected by explicit run ID and attempt, never “latest by
+  name”; their names are `waku-web-build-<attempt>` and
+  `waku-web-release-manifest-<attempt>`;
+- the manifest's config digest and every extracted `dist` file size/SHA-256
+  recompute exactly;
+- the candidate is no older than the shared 30-day artifact retention window;
+- the target GitHub environment is protected.
 
-## Step 3: Deploy the Signaling Server
+Recheck the current `main` tip immediately before upload and immediately before
+traffic changes. Deployment consumes the verified CI artifact; it never
+rebuilds source in a privileged workflow.
 
-From the `examples/web/` directory:
+## Staging sequence
 
-```bash
-# Deploy the signaling server
-wrangler deploy --config wrangler-signaling.toml
+After the prerequisites are present and an authorized owner enables staging:
 
-# Expected output:
-# Total Upload: XX.XX KiB / gzip: XX.XX KiB
-# Uploaded crdt-signaling-server (X.XX sec)
-# Published crdt-signaling-server (X.XX sec)
-#   https://crdt-signaling-server.<your-subdomain>.workers.dev
-```
+1. Download both artifacts for the selected run ID and attempt and verify the
+   manifest before any Cloudflare command.
+2. Upload a non-production version with pinned Wrangler and capture its JSONL
+   record through `WRANGLER_OUTPUT_FILE_PATH`. Require exactly one successful
+   `version-upload` result and retain its version ID.
+3. Deploy that version only to the configured preview target.
+4. Record `npx wrangler deployments status --config wrangler.waku.jsonc
+   --env preview --json`.
+5. Run the same route and WebSocket smoke contract against the real preview URL.
+6. Stop on any deterministic failure. Do not promote a merely retried result.
 
-**Important**: Copy the deployed URL - you'll need it for the client configuration.
+Do not encode a Wrangler output parser from guessed fixtures. Capture output
+from the pinned version in authorized staging first, then add strict fixtures
+and a fail-closed parser.
 
-## Step 4: Test the Deployment
+## Production sequence
 
-You can test the WebSocket connection using a simple script:
+Production requires a separate protected approval after staging passes.
 
-```javascript
-const ws = new WebSocket('wss://crdt-signaling-server.<your-subdomain>.workers.dev');
+1. Record the current production deployment and every active version/traffic
+   weight with `npx wrangler deployments status --config wrangler.waku.jsonc
+   --env production --json`.
+2. Upload the already verified artifact with `npx wrangler versions upload
+   --config wrangler.waku.jsonc --env production`; record the previous stable
+   and new version IDs, CI run ID/attempt, commit SHA, config digest, and
+   artifact digest.
+3. Shift a bounded percentage with `npx wrangler versions deploy
+   <version-specs> --config wrangler.waku.jsonc --env production`; use
+   versioned Worker assets from the same upload and do not mix artifacts across
+   commits.
+4. On the configured production hostname, verify canonical routes, aliases,
+   RSC navigation, assets, 404/error behavior, availability states,
+   state/focus/history, and same-origin signaling.
+5. Observe structured logs for the agreed window. The only application record
+   fields are `event`, `deploymentVersion`, `routeClass`, `capability`, `status`,
+   and `errorCategory`. Never log URLs, query strings, headers, payloads,
+   imported sessions, API keys, chat text, error messages, or stacks.
+6. Increase traffic only after each smoke and observation gate passes. Record
+   `npx wrangler deployments status --config wrangler.waku.jsonc --env
+   production --json` after every change.
 
-ws.onopen = () => {
-  console.log('Connected!');
-  ws.send(JSON.stringify({ type: 'join', agentId: 'test-client' }));
-};
-
-ws.onmessage = (event) => {
-  console.log('Received:', event.data);
-};
-```
-
-## Step 5: Update Client Code
-
-Update your application to use the Cloudflare Workers URL instead of `localhost:8080`.
-
-### Option A: Environment Variable
-
-Create a `.env` file in the `examples/web/` directory:
-
-```bash
-VITE_SIGNALING_URL=wss://crdt-signaling-server.<your-subdomain>.workers.dev
-```
-
-Then in your code:
-
-```typescript
-const wsUrl = import.meta.env.VITE_SIGNALING_URL || 'ws://localhost:8080';
-await networkSync.connect(wsUrl);
-```
-
-### Option B: Auto-detect
-
-Automatically use Cloudflare in production:
-
-```typescript
-const wsUrl = window.location.hostname === 'localhost'
-  ? 'ws://localhost:8080'
-  : 'wss://crdt-signaling-server.<your-subdomain>.workers.dev';
-
-await networkSync.connect(wsUrl);
-```
-
-## Monitoring and Debugging
-
-### View Logs
-
-Stream real-time logs from your Worker:
-
-```bash
-wrangler tail --config wrangler-signaling.toml
-```
-
-### Check Deployment Status
-
-```bash
-wrangler deployments list --config wrangler-signaling.toml
-```
-
-### View Metrics
-
-Visit the Cloudflare Dashboard:
-1. Go to https://dash.cloudflare.com
-2. Navigate to Workers & Pages
-3. Click on "crdt-signaling-server"
-4. View metrics: requests, errors, CPU time, etc.
-
-## Pricing
-
-Cloudflare Workers pricing (as of 2024):
-
-### Free Tier
-- 100,000 requests/day
-- 10ms CPU time per request
-- Includes Durable Objects:
-  - 1 million requests/month
-  - 400,000 GB-seconds/month
-
-### Paid Plan ($5/month)
-- 10 million requests/month
-- 30 million Durable Object requests/month
-- Additional requests: $0.50 per million
-
-**For most collaborative editing use cases, the free tier is sufficient.**
-
-## Custom Domain (Optional)
-
-To use a custom domain like `signaling.yourdomain.com`:
-
-1. Add your domain to Cloudflare
-2. Update `wrangler-signaling.toml`:
-
-```toml
-routes = [
-  { pattern = "signaling.yourdomain.com", custom_domain = true }
-]
-```
-
-3. Redeploy:
-
-```bash
-wrangler deploy --config wrangler-signaling.toml
-```
-
-## Troubleshooting
-
-### WebSocket Connection Fails
-
-**Check CORS**: The worker includes CORS headers, but if you're still having issues:
-
-```javascript
-// In signaling-worker.js, update the fetch handler:
-headers: {
-  'Access-Control-Allow-Origin': 'https://yourdomain.com',
-  // ...
-}
-```
-
-### "Durable Object not found" Error
-
-This usually means the migration hasn't run. Try:
-
-```bash
-wrangler delete --config wrangler-signaling.toml
-wrangler deploy --config wrangler-signaling.toml
-```
-
-### High Latency
-
-Durable Objects are automatically placed in the optimal region. However, you can specify a location hint:
-
-```javascript
-// Instead of idFromName
-const id = env.SIGNALING_ROOM.idFromName('global-room');
-
-// Use jurisdiction (if needed for compliance)
-const id = env.SIGNALING_ROOM.newUniqueId({ jurisdiction: 'eu' });
-```
-
-## Development Workflow
-
-### Local Development with Wrangler
-
-```bash
-# Start local development server
-wrangler dev --config wrangler-signaling.toml --local
-
-# This starts a local server on http://localhost:8787
-# Update your client to connect to ws://localhost:8787
-```
-
-### Testing Changes
-
-1. Make changes to `signaling-worker.js`
-2. Test locally with `wrangler dev`
-3. Deploy to production with `wrangler deploy`
+Stage 12 (Vite and legacy-entry retirement) starts only after the production
+acceptance window succeeds. It is not part of a staging deployment.
 
 ## Rollback
 
-If you need to rollback to a previous version:
+Roll back immediately for a release-attributable uncaught Worker error,
+canonical-route 5xx, asset/RSC version mismatch, deterministic route smoke
+failure, or failed signaling proxy handshake.
 
-```bash
-# List deployments
-wrangler deployments list --config wrangler-signaling.toml
+1. Stop further traffic changes.
+2. Restore the recorded previous Waku version with `npx wrangler rollback
+   <previous-version-id> --config wrangler.waku.jsonc --env production`, then
+   verify the authoritative status with `npx wrangler deployments status
+   --config wrangler.waku.jsonc --env production --json`.
+3. Rerun canonical, asset/RSC, error, and same-origin signaling smoke.
+4. If Worker rollback or hostname routing fails, point the production hostname
+   back to the retained Pages deployment.
+5. Do not roll back the Signaling Worker and do not clear Posts browser storage.
 
-# Rollback to specific deployment
-wrangler rollback <deployment-id> --config wrangler-signaling.toml
-```
+Retained Pages fallback evidence at the start of #979:
 
-## Security Considerations
+- stable URL: `https://canopy-lambda-editor.pages.dev`
+- immutable preview: `https://f48c4fe0.canopy-lambda-editor.pages.dev`
+- source commit: `54a6118dd8dc98af23580f24784bf480f4e4841a`
+- GitHub Actions run/job: `30228528405` / `89862955038`
 
-### Rate Limiting
-
-Add rate limiting to prevent abuse:
-
-```javascript
-// In SignalingRoom class
-async fetch(request) {
-  const ip = request.headers.get('CF-Connecting-IP');
-
-  // Implement rate limiting logic here
-  // See: https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/
-
-  // ... rest of code
-}
-```
-
-### Authentication (Optional)
-
-For private collaboration sessions, add authentication:
-
-```javascript
-async fetch(request) {
-  const authToken = request.headers.get('Authorization');
-
-  // Validate token
-  if (!isValidToken(authToken)) {
-    return new Response('Unauthorized', { status: 401 });
-  }
-
-  // ... rest of code
-}
-```
-
-## Multi-Region Considerations
-
-Cloudflare automatically routes requests to the nearest data center. However, Durable Objects are single-instance per room, which means:
-
-- All peers in the same room connect to the same Durable Object instance
-- Cross-region latency may occur for geographically distributed teams
-- For global teams, consider implementing regional rooms:
-
-```javascript
-// Use region-specific room names
-const region = getRegionFromRequest(request);
-const id = env.SIGNALING_ROOM.idFromName(`room-${region}`);
-```
-
-## Next Steps
-
-1. **Deploy the static site**: Use the existing `wrangler.jsonc` for Cloudflare Pages
-2. **Set up monitoring**: Configure alerts in Cloudflare Dashboard
-3. **Optimize performance**: Review metrics and adjust as needed
-4. **Add analytics**: Track collaboration sessions and peer connections
-
-## Resources
-
-- [Cloudflare Workers Documentation](https://developers.cloudflare.com/workers/)
-- [Durable Objects Guide](https://developers.cloudflare.com/durable-objects/)
-- [WebSocket API](https://developers.cloudflare.com/workers/runtime-apis/websockets/)
-- [Wrangler CLI Reference](https://developers.cloudflare.com/workers/wrangler/)
+Verify that evidence and hostname ownership again immediately before cutover.
+Keep the Pages deployment available throughout the Waku acceptance window.

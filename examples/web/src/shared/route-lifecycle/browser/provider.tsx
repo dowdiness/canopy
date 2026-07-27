@@ -13,6 +13,13 @@ import {
 import { useRouter } from 'waku/router/client';
 import { demoIdForPath, type DemoId } from '../../catalog/demo-catalog';
 import {
+  type CompatibilityRedirectDecision,
+  type CompatibilityRedirectEvent,
+  type CompatibilityRoute,
+  createCompatibilityRedirectState,
+  reduceCompatibilityRedirect,
+} from '../core/compatibility-redirect';
+import {
   createLifecycleState,
   type LifecycleDecision,
   type LifecycleEvent,
@@ -71,6 +78,7 @@ export function RouteLifecycleProvider({ children }: { readonly children: ReactN
   const nextMode = useRef<'push' | 'pop'>('push');
   const headingBeforeNavigation = useRef<HTMLElement | null>(null);
   const pendingPreCommitFailure = useRef<LifecycleHref | null>(null);
+  const compatibilityRedirect = useRef(createCompatibilityRedirectState());
   const [preCommitError, setPreCommitError] = useState<RouteFailure | null>(null);
   const [ready, setReady] = useState(false);
   const [mountRevision, setMountRevision] = useState(0);
@@ -140,10 +148,80 @@ export function RouteLifecycleProvider({ children }: { readonly children: ReactN
   }
 
   useLayoutEffect(() => {
+    let disposed = false;
+    compatibilityRedirect.current = createCompatibilityRedirectState();
+
+    function transitionCompatibility(
+      event: CompatibilityRedirectEvent,
+    ): CompatibilityRedirectDecision {
+      const result = reduceCompatibilityRedirect(compatibilityRedirect.current, event);
+      compatibilityRedirect.current = result.state;
+      return result.decision;
+    }
+
+    function executeCompatibilityDecision(
+      decision: CompatibilityRedirectDecision,
+    ): void {
+      if (decision.type === 'observe-history') {
+        requestAnimationFrame(() => {
+          observeCompatibilityHistory(decision.repairId, decision.attempt);
+        });
+      } else if (decision.type === 'replace-history') {
+        void router.replace(decision.href).catch(() => {
+          if (disposed) return;
+          executeCompatibilityDecision(transitionCompatibility({
+            type: 'replace-rejected',
+            repairId: decision.repairId,
+          }));
+        });
+      } else if (decision.type === 'recover-navigation') {
+        recoverPreCommitNavigation(router, () => {
+          pendingPreCommitFailure.current = decision.href;
+        });
+      } else if (decision.type === 'commit-navigation') {
+        dispatch({
+          type: 'navigation-committed',
+          destination: demoIdForPath(decision.path),
+          fragment: decision.fragment,
+        });
+        if (!decision.reportPendingFailure) return;
+        const failedTarget = pendingPreCommitFailure.current;
+        if (failedTarget !== null) {
+          pendingPreCommitFailure.current = null;
+          dispatch({
+            type: 'navigation-failed',
+            message: 'The demo could not be loaded.',
+            retryHref: failedTarget,
+          });
+          setBoundaryRevision((revision) => revision + 1);
+        }
+      }
+    }
+
+    function observeCompatibilityHistory(repairId: number, attempt: number): void {
+      if (disposed) return;
+      const currentUrl = new URL(window.location.href);
+      executeCompatibilityDecision(transitionCompatibility({
+        type: 'history-observed',
+        repairId,
+        attempt,
+        pathname: currentUrl.pathname,
+        search: currentUrl.search,
+      }));
+    }
+
     const markPop = () => {
       nextMode.current = 'pop';
     };
-    const handleStart = (route: { readonly path: string }) => {
+    const handleStart = (route: CompatibilityRoute) => {
+      const compatibilityDecision = transitionCompatibility({
+        type: 'navigation-started',
+        route,
+      });
+      if (compatibilityDecision.type === 'suppress-navigation-start') {
+        nextMode.current = 'push';
+        return;
+      }
       headingBeforeNavigation.current = document.querySelector<HTMLElement>('[data-route-heading]');
       const sourceDemo = lifecycle.current.activeDemo;
       const surface = sourceDemo === null ? undefined : surfaces.current.get(sourceDemo);
@@ -176,22 +254,11 @@ export function RouteLifecycleProvider({ children }: { readonly children: ReactN
       });
       nextMode.current = 'push';
     };
-    const handleComplete = (route: { readonly path: string; readonly hash: string }) => {
-      dispatch({
-        type: 'navigation-committed',
-        destination: demoIdForPath(route.path),
-        fragment: route.hash.startsWith('#') ? route.hash.slice(1) : null,
-      });
-      const failedTarget = pendingPreCommitFailure.current;
-      if (failedTarget !== null) {
-        pendingPreCommitFailure.current = null;
-        dispatch({
-          type: 'navigation-failed',
-          message: 'The demo could not be loaded.',
-          retryHref: failedTarget,
-        });
-        setBoundaryRevision((revision) => revision + 1);
-      }
+    const handleComplete = (route: CompatibilityRoute) => {
+      executeCompatibilityDecision(transitionCompatibility({
+        type: 'navigation-completed',
+        route,
+      }));
     };
 
     window.addEventListener('popstate', markPop);
@@ -199,9 +266,11 @@ export function RouteLifecycleProvider({ children }: { readonly children: ReactN
     router.unstable_events.on('complete', handleComplete);
     setReady(true);
     return () => {
+      disposed = true;
       window.removeEventListener('popstate', markPop);
       router.unstable_events.off('start', handleStart);
       router.unstable_events.off('complete', handleComplete);
+      transitionCompatibility({ type: 'disposed' });
       for (const surface of surfaces.current.values()) surface.session.dispose();
       surfaces.current.clear();
       reactRoutes.current.clear();

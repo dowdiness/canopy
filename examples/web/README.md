@@ -5,9 +5,9 @@ Lambda (`index.html`), JSON, Markdown, Memo, Posts, Resume/PKE, GenUI, and GenUI
 
 The implementation inventory, source clusters, runtime ownership, tests, Vite relays, generated artifacts, and current boundary debt are documented in [`MODULE_MAP.md`](./MODULE_MAP.md).
 
-## Waku migration (in progress, #978)
+## Waku migration (in progress, #979)
 
-A parallel Waku application is being built alongside the existing Vite workspace. Vite remains the default and production deploy path until final cutover. Stages 0–2 provide the foundation, Demo Hub, route-lifecycle Module, shared shell, canonical routes, and accessible 404. Stages 3–9 migrate all eight demos to `/journey`, `/posts`, `/json`, `/markdown`, `/ml`, `/memo`, `/resume`, and `/genui`, while retaining every legacy HTML entry. Routes restore only their allowlisted same-document state and rebuild generated-runtime internals after navigation. GenUI preserves JSX/recorded/explorer commits, cancels pending stream and provider work, and keeps live feasibility local to development; production retains deterministic recorded replay without the live endpoint or development hooks. No compatibility redirect, production deployment, or Vite removal is active.
+A parallel Waku application is being built alongside the existing Vite workspace. Vite remains the default and production deploy path until final cutover. Stages 0–2 provide the foundation, Demo Hub, route-lifecycle Module, shared shell, canonical routes, and accessible 404. Stages 3–9 migrate all eight demos to `/journey`, `/posts`, `/json`, `/markdown`, `/ml`, `/memo`, `/resume`, and `/genui`, while retaining every legacy HTML entry. Routes restore only their allowlisted same-document state and rebuild generated-runtime internals after navigation. Stage 10 local readiness adds the seven Waku-only `308` aliases, static asset and same-origin Signaling service bindings, privacy-safe telemetry, multi-worker workerd smoke, and fail-closed release artifacts. No live Waku deployment, hostname cutover, or Vite removal is active; the existing Pages deployment remains the fallback.
 
 ## Development
 
@@ -40,4 +40,10 @@ For the existing Pages deploy build, use `npm run build:deploy`; it installs Moo
 ```bash
 npm run check:waku-types
 npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env preview
+npx wrangler check startup --config wrangler.waku.jsonc --env preview
+npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env production
+npx wrangler check startup --config wrangler.waku.jsonc --env production
 ```
+
+See [`CLOUDFLARE_DEPLOYMENT.md`](./CLOUDFLARE_DEPLOYMENT.md) for the protected
+cutover prerequisites, exact-green artifact contract, and rollback procedure.
