@@ -4,10 +4,20 @@
   "main": "dist/server/index.js",
   "compatibility_date": "2026-07-26",
   "compatibility_flags": ["nodejs_compat"],
+  "version_metadata": {
+    "binding": "WORKER_VERSION"
+  },
+  "services": [
+    {
+      "binding": "SIGNALING",
+      "service": "crdt-signaling-server"
+    }
+  ],
   "assets": {
     "binding": "ASSETS",
     "directory": "./dist/public",
-    "html_handling": "drop-trailing-slash"
+    "html_handling": "drop-trailing-slash",
+    "run_worker_first": true
   },
   "no_bundle": true,
   "rules": [
@@ -18,14 +28,39 @@
   ],
   "observability": {
     "enabled": true,
-    "head_sampling_rate": 1
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "invocation_logs": false
+    },
+    "traces": {
+      "enabled": false
+    }
   },
   "env": {
     "preview": {
-      "name": "canopy-web-waku-preview"
+      "name": "canopy-web-waku-preview",
+      "version_metadata": {
+        "binding": "WORKER_VERSION"
+      },
+      "services": [
+        {
+          "binding": "SIGNALING",
+          "service": "crdt-signaling-server"
+        }
+      ]
     },
     "production": {
-      "name": "canopy-web-waku-production"
+      "name": "canopy-web-waku-production",
+      "version_metadata": {
+        "binding": "WORKER_VERSION"
+      },
+      "services": [
+        {
+          "binding": "SIGNALING",
+          "service": "crdt-signaling-server"
+        }
+      ]
     }
   }
 }

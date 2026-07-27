@@ -18,6 +18,15 @@ export type DemoPath =
   | '/genui'
   | '/journey';
 
+export type LegacyDemoPath =
+  | '/json.html'
+  | '/markdown.html'
+  | '/memo.html'
+  | '/posts.html'
+  | '/resume.html'
+  | '/genui.html'
+  | '/genui-possibilities.html';
+
 export type DemoGroupId = 'editors' | 'memory' | 'generated-change';
 
 export interface DemoGroup {
@@ -30,6 +39,7 @@ export interface DemoDefinition {
   readonly title: string;
   readonly description: string;
   readonly href: DemoPath;
+  readonly legacyHref?: LegacyDemoPath;
   readonly group: DemoGroupId;
 }
 
@@ -53,6 +63,7 @@ export const DEMOS: readonly DemoDefinition[] = [
     title: 'JSON Editor',
     description: 'Edit JSON as text or a tree and review the edit history.',
     href: '/json',
+    legacyHref: '/json.html',
     group: 'editors',
   },
   {
@@ -60,6 +71,7 @@ export const DEMOS: readonly DemoDefinition[] = [
     title: 'Markdown Editor',
     description: 'Edit Markdown in block, source, and preview views.',
     href: '/markdown',
+    legacyHref: '/markdown.html',
     group: 'editors',
   },
   {
@@ -67,6 +79,7 @@ export const DEMOS: readonly DemoDefinition[] = [
     title: 'Canopy Memo',
     description: 'Review spelling corrections and structured edits before applying them.',
     href: '/memo',
+    legacyHref: '/memo.html',
     group: 'memory',
   },
   {
@@ -74,6 +87,7 @@ export const DEMOS: readonly DemoDefinition[] = [
     title: 'Posts',
     description: 'Save short notes locally and find earlier posts related to what you are writing.',
     href: '/posts',
+    legacyHref: '/posts.html',
     group: 'memory',
   },
   {
@@ -81,6 +95,7 @@ export const DEMOS: readonly DemoDefinition[] = [
     title: 'Session Resume',
     description: 'Review an agent session by timeline, conversation, and source.',
     href: '/resume',
+    legacyHref: '/resume.html',
     group: 'memory',
   },
   {
@@ -88,6 +103,7 @@ export const DEMOS: readonly DemoDefinition[] = [
     title: 'Generative UI',
     description: 'Edit JSX and inspect the parser output and generated interface.',
     href: '/genui',
+    legacyHref: '/genui.html',
     group: 'generated-change',
   },
   {
@@ -95,6 +111,7 @@ export const DEMOS: readonly DemoDefinition[] = [
     title: 'Journey Proposals',
     description: 'Compare changes to a travel plan, apply them, and undo them.',
     href: '/journey',
+    legacyHref: '/genui-possibilities.html',
     group: 'generated-change',
   },
 ];

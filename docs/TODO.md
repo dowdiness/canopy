@@ -662,7 +662,7 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
 - [ ] Migrate the eight Vite HTML surfaces to one routed Waku application.
   Why: unify delivery without losing verified demo behavior or generated MoonBit contracts.
   Plan: `docs/plans/2026-07-25-waku-unified-web-migration.md`
-  Status: #970–#971 establish the dual-run foundation and Hub lifecycle; #972–#978 migrate Journey, Posts, JSON, Markdown, Mini-ML, Memo, Resume, and GenUI to `/journey`, `/posts`, `/json`, `/markdown`, `/ml`, `/memo`, `/resume`, and `/genui`. Provider-backed Memo, Resume, and GenUI controls remain development-only; production keeps their usable local or recorded states without provider capabilities. Vite remains the default, and no redirect or production deployment has migrated.
+  Status: #970–#971 establish the dual-run foundation and Hub lifecycle; #972–#978 migrate Journey, Posts, JSON, Markdown, Mini-ML, Memo, Resume, and GenUI to `/journey`, `/posts`, `/json`, `/markdown`, `/ml`, `/memo`, `/resume`, and `/genui`. #979 Stage 10 local readiness now covers the seven Waku document/RSC redirects, static assets, same-origin Signaling service binding, privacy-safe logs, exact-green release artifacts, and multi-worker workerd smoke. Live staging remains blocked on protected GitHub environments, main protection, environment-scoped credentials, and a preview URL; production additionally needs a hostname and approved trace-redaction policy. Vite/Pages remains the default and fallback, with no live Waku traffic shift or Stage 12 removal.
   Exit: the plan's Stage 12 gate passes after production cutover is proven.
 
 ## 22. SDEG Lifecycle

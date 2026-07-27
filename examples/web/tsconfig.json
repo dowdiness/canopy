@@ -28,5 +28,9 @@
     "waku.config.ts",
     "moonbit-artifacts.d.mts"
   ],
-  "exclude": ["node_modules", "../../_build"]
+  "exclude": [
+    "node_modules",
+    "../../_build",
+    "src/waku.server.tsx"
+  ]
 }
