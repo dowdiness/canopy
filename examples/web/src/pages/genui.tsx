@@ -1,5 +1,5 @@
-import { DemoPlaceholder } from '../shared/shell/demo-placeholder';
+import { GenuiRoute } from '../features/genui/route/genui-route';
 
 export default function Genui() {
-  return <DemoPlaceholder demoId="genui" />;
+  return <GenuiRoute />;
 }

@@ -49,10 +49,19 @@ fi
 resume_chat_status="$(curl -sS -o /dev/null -w '%{http_code}' \
   "http://127.0.0.1:${PORT}/api/pi-resume-chat/status")"
 test "$resume_chat_status" = '404'
+curl -fsS "http://127.0.0.1:${PORT}/genui" >"$BODY_FILE"
+grep -q 'Run recorded candidate' "$BODY_FILE"
+if grep -Eq '/api/genui-feasibility|__canopyGenUi(Test|FeasibilityTest)|127\.0\.0\.1:11434|GENUI_OLLAMA_MODEL' "$BODY_FILE"; then
+  echo 'Production GenUI route exposed a local study capability' >&2
+  exit 1
+fi
+genui_feasibility_status="$(curl -sS -o /dev/null -w '%{http_code}' \
+  "http://127.0.0.1:${PORT}/api/genui-feasibility")"
+test "$genui_feasibility_status" = '404'
 asset="$(find dist/public/assets -type f -name '*.js' -printf '%f\n' | sort | head -n 1)"
 test -n "$asset"
 curl -fsS -o /dev/null "http://127.0.0.1:${PORT}/assets/${asset}"
 worker_status="$(curl -sS -o /dev/null -w '%{http_code}' \
   "http://127.0.0.1:${PORT}/__canopy_worker_probe_missing")"
 test "$worker_status" = '404'
-echo 'Waku workerd Hub, production Memo, and production Resume smoke: OK'
+echo 'Waku workerd Hub and production Memo, Resume, and GenUI smoke: OK'

@@ -16,6 +16,19 @@ const forbiddenProductionResumeArtifacts = [
   { capability: 'Resume chat relay', fingerprint: 'pi-resume-chat-relay' },
 ];
 
+const forbiddenProductionGenuiArtifacts = [
+  { capability: 'GenUI live feasibility request', fingerprint: '/api/genui-feasibility' },
+  { capability: 'GenUI feasibility development hook', fingerprint: '__canopyGenUiFeasibilityTest' },
+  { capability: 'GenUI development hook', fingerprint: '__canopyGenUiTest' },
+  { capability: 'GenUI local provider URL', fingerprint: '127.0.0.1:11434' },
+  { capability: 'GenUI local provider model', fingerprint: 'GENUI_OLLAMA_MODEL' },
+];
+
+const forbiddenProductionServerArtifacts = [
+  ...forbiddenProductionResumeArtifacts,
+  ...forbiddenProductionGenuiArtifacts,
+];
+
 const forbiddenProductionClientArtifacts = [
   { capability: 'Mini-ML AST Grep request', fingerprint: '/api/ast-grep' },
   { capability: 'Memo development shell', fingerprint: 'data-memo-ready' },
@@ -42,6 +55,7 @@ const forbiddenProductionClientArtifacts = [
     allowedBundleFingerprint: 'assemble_lambda_handle',
   },
   ...forbiddenProductionResumeArtifacts,
+  ...forbiddenProductionGenuiArtifacts,
 ];
 
 export function inspectWakuBundles({ serverBundles, clientBundles }) {
@@ -65,7 +79,7 @@ export function inspectWakuBundles({ serverBundles, clientBundles }) {
       !(allowedBundleFingerprint && source.includes(allowedBundleFingerprint))
     )
     .map(({ name }) => ({ capability, fingerprint, file: name })));
-  const productionServerArtifactLeaks = forbiddenProductionResumeArtifacts.flatMap(({
+  const productionServerArtifactLeaks = forbiddenProductionServerArtifacts.flatMap(({
     capability,
     fingerprint,
   }) => serverBundles

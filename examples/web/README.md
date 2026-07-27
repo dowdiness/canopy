@@ -5,9 +5,9 @@ Lambda (`index.html`), JSON, Markdown, Memo, Posts, Resume/PKE, GenUI, and GenUI
 
 The implementation inventory, source clusters, runtime ownership, tests, Vite relays, generated artifacts, and current boundary debt are documented in [`MODULE_MAP.md`](./MODULE_MAP.md).
 
-## Waku migration (in progress, #977)
+## Waku migration (in progress, #978)
 
-A parallel Waku application is being built alongside the existing Vite workspace. Vite remains the default and production deploy path until final cutover. Stages 0–2 provide the foundation, Demo Hub, route-lifecycle Module, shared shell, canonical routes, and accessible 404. Stages 3–8 migrate Journey Proposals, Posts, JSON, Markdown, Mini-ML, Memo, and Session Resume to `/journey`, `/posts`, `/json`, `/markdown`, `/ml`, `/memo`, and `/resume`. The editor routes restore only their allowlisted document state and rebuild generated-runtime internals after navigation. Resume retains its normalized session, path/source selection, and completed chat turns in same-document memory while cancelling pending relay work; production keeps inspection available and removes the local chat capability. All seven retain their legacy HTML entries, while GenUI remains a placeholder. No compatibility redirect, production deployment, or Vite removal is active.
+A parallel Waku application is being built alongside the existing Vite workspace. Vite remains the default and production deploy path until final cutover. Stages 0–2 provide the foundation, Demo Hub, route-lifecycle Module, shared shell, canonical routes, and accessible 404. Stages 3–9 migrate all eight demos to `/journey`, `/posts`, `/json`, `/markdown`, `/ml`, `/memo`, `/resume`, and `/genui`, while retaining every legacy HTML entry. Routes restore only their allowlisted same-document state and rebuild generated-runtime internals after navigation. GenUI preserves JSX/recorded/explorer commits, cancels pending stream and provider work, and keeps live feasibility local to development; production retains deterministic recorded replay without the live endpoint or development hooks. No compatibility redirect, production deployment, or Vite removal is active.
 
 ## Development
 
@@ -31,6 +31,7 @@ npm run build:vite
 npm run build:waku
 npm run check:waku-bundles
 npm run test:waku:e2e
+npm run test:waku:preview
 npm run test:waku:workerd
 ```
 

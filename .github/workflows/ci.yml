@@ -429,7 +429,7 @@ jobs:
 
   waku-e2e:
     name: Waku Web Foundation E2E
-    needs: [build-js, changes]
+    needs: [build-js, changes, waku-build]
     if: needs.changes.outputs.run_e2e == 'true'
     runs-on: ubuntu-latest
     container:
@@ -448,6 +448,12 @@ jobs:
         with:
           name: moonbit-js-build
           path: _build/js/release/build/dowdiness
+
+      - name: Download Waku production build
+        uses: actions/download-artifact@v8
+        with:
+          name: waku-web-build
+          path: examples/web/dist
 
       - name: Verify all Waku MoonBit inputs
         run: |
@@ -471,6 +477,12 @@ jobs:
       - name: Run Waku foundation browser probes
         working-directory: examples/web
         run: npm run test:waku:e2e
+
+      - name: Run built Waku GenUI preview probes
+        working-directory: examples/web
+        env:
+          CANOPY_SKIP_WAKU_BUILD: 1
+        run: npm run test:waku:preview
 
   waku-workerd:
     name: Waku Worker Foundation Smoke

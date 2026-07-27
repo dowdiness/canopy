@@ -4,6 +4,8 @@ import {
   getRecordedFeasibilityCandidate,
   recordedFeasibilityCandidateJson,
 } from '../src/features/genui/core/genui-recorded-candidates.js';
+
+const GENUI_URL = process.env.GENUI_URL ?? '/genui.html';
 type GenUiSessionResult = {
   success: boolean;
   revision: number;
@@ -310,15 +312,21 @@ async function feasibilityMarkup(page: Page): Promise<string> {
   return page.locator('#feasibility-preview').innerHTML();
 }
 
+async function openGenui(page: Page): Promise<void> {
+  await page.goto(GENUI_URL);
+  await expect(page.locator('[data-genui-ready]'))
+    .toHaveAttribute('data-genui-ready', 'true');
+}
+
 test.describe('Generative UI Demo', () => {
   test('page loads and shows initial state', async ({ page }) => {
-    await page.goto('/genui.html');
+    await openGenui(page);
     await expect(page.locator('h1')).toHaveText('Generative UI');
     await expect(page.locator('#step-num')).toHaveText('—');
   });
 
   test('loads preset example', async ({ page }) => {
-    await page.goto('/genui.html');
+    await openGenui(page);
     await page.locator('button[data-example="0"]').click();
     const textarea = page.locator('#source-input');
     const val = await textarea.inputValue();
@@ -327,7 +335,7 @@ test.describe('Generative UI Demo', () => {
   });
 
   test('renders the host-owned JSON fixture as a table', async ({ page }) => {
-    await page.goto('/genui.html');
+    await openGenui(page);
     const table = page.getByRole('table', { name: 'Orders' });
     const rows = table.locator('tbody').getByRole('row');
     await expect(rows).toHaveCount(6);
@@ -368,7 +376,7 @@ test.describe('Generative UI Demo', () => {
         }),
       });
     });
-    await page.goto('/genui.html');
+    await openGenui(page);
     await page.getByLabel('Filter name, status, or ID').fill('paid');
     const selectedRow = page.getByTestId('order-row-ord-1003');
     await selectedRow.click();
@@ -431,7 +439,7 @@ test.describe('Generative UI Demo', () => {
         }),
       });
     });
-    await page.goto('/genui.html');
+    await openGenui(page);
     await page.getByLabel('Filter name, status, or ID').fill('paid');
     const selectedRow = page.getByTestId('order-row-ord-1003');
     await selectedRow.click();
@@ -456,7 +464,7 @@ test.describe('Generative UI Demo', () => {
 
   test('feasibility DOM apply failure leaves its dedicated revision uncommitted', async ({ page }) => {
     const candidateJson = recordedFeasibilityCandidateJson('orders-pending-attention');
-    await page.goto('/genui.html');
+    await openGenui(page);
     await page.getByLabel('Filter name, status, or ID').fill('paid');
     const selectedRow = page.getByTestId('order-row-ord-1003');
     await selectedRow.click();
@@ -485,7 +493,7 @@ test.describe('Generative UI Demo', () => {
   });
 
   test('filters rows while preserving a selected host-owned row', async ({ page }) => {
-    await page.goto('/genui.html');
+    await openGenui(page);
     const table = page.getByRole('table', { name: 'Orders' });
     const rows = table.locator('tbody').getByRole('row');
     await page.getByTestId('order-row-ord-1002').click();
@@ -507,7 +515,7 @@ test.describe('Generative UI Demo', () => {
   });
 
   test('preserves keyboard focus when selecting a row', async ({ page }) => {
-    await page.goto('/genui.html');
+    await openGenui(page);
     const row = page.getByTestId('order-row-ord-1003');
     await row.focus();
     await row.press('Enter');
@@ -517,7 +525,7 @@ test.describe('Generative UI Demo', () => {
   });
 
   test('switches to the CSV fixture while preserving detail and selection', async ({ page }) => {
-    await page.goto('/genui.html');
+    await openGenui(page);
     await page.getByTestId('order-row-ord-1004').click();
     await expect(page.getByTestId('data-detail-id')).toHaveText('ord-1004');
     await expect(page.getByTestId('data-detail-amount')).toHaveText('$2,180.00');
@@ -532,7 +540,7 @@ test.describe('Generative UI Demo', () => {
   });
 
   test('async driver rejects cancelled late events and commits only the active generation', async ({ page }) => {
-    await page.goto('/genui.html');
+    await openGenui(page);
     await page.getByTestId('order-row-ord-1002').click();
     await page.getByLabel('Filter name, status, or ID').fill('paid');
     const beforeHostState = await hostState(page);
@@ -679,7 +687,7 @@ test.describe('Generative UI Demo', () => {
   });
 
   test('duplicate async waits reject without consuming the next item', async ({ page }) => {
-    await page.goto('/genui.html');
+    await openGenui(page);
     const initial = await replayCandidate(page, VALID_CANDIDATE, CAPABILITIES);
     expect(initial.success).toBe(true);
     const start = await page.evaluate((revision) => window.__canopyGenUiTest!.asyncDriverNew(revision), initial.revision);
@@ -733,7 +741,7 @@ test.describe('Generative UI Demo', () => {
     await page.evaluate((handle) => window.__canopyGenUiTest!.asyncDriverDispose(handle), start.driver_handle);
   });
   test('cancelled wait continuation cannot clear a restarted wait', async ({ page }) => {
-    await page.goto('/genui.html');
+    await openGenui(page);
     const initial = await replayCandidate(page, VALID_CANDIDATE, CAPABILITIES);
     expect(initial.success).toBe(true);
     const start = await page.evaluate((revision) => window.__canopyGenUiTest!.asyncDriverNew(revision), initial.revision);
@@ -783,7 +791,7 @@ test.describe('Generative UI Demo', () => {
 
 
   test('stale resolve continuation preserves the active wait slot', async ({ page }) => {
-    await page.goto('/genui.html');
+    await openGenui(page);
     const initial = await replayCandidate(page, VALID_CANDIDATE, CAPABILITIES);
     expect(initial.success).toBe(true);
     const start = await page.evaluate((revision) => window.__canopyGenUiTest!.asyncDriverNew(revision), initial.revision);
@@ -825,7 +833,7 @@ test.describe('Generative UI Demo', () => {
   });
 
   test('async provider abort resolves through the real Promise wait path', async ({ page }) => {
-    await page.goto('/genui.html');
+    await openGenui(page);
     const initial = await replayCandidate(page, VALID_CANDIDATE, CAPABILITIES);
     expect(initial.success).toBe(true);
     const start = await page.evaluate((revision) => window.__canopyGenUiTest!.asyncDriverNew(revision), initial.revision);
@@ -861,7 +869,7 @@ test.describe('Generative UI Demo', () => {
   });
 
   test('provider Promise rejection terminalizes the generation before later input', async ({ page }) => {
-    await page.goto('/genui.html');
+    await openGenui(page);
     const initial = await replayCandidate(page, VALID_CANDIDATE, CAPABILITIES);
     expect(initial.success).toBe(true);
     const beforeMarkup = await committedMarkup(page);
@@ -943,7 +951,7 @@ test.describe('Generative UI Demo', () => {
   });
 
   test('async provider failure cancels the generation and cannot commit', async ({ page }) => {
-    await page.goto('/genui.html');
+    await openGenui(page);
     const initial = await replayCandidate(page, VALID_CANDIDATE, CAPABILITIES);
     expect(initial.success).toBe(true);
     const start = await page.evaluate((revision) => window.__canopyGenUiTest!.asyncDriverNew(revision), initial.revision);
@@ -988,7 +996,7 @@ test.describe('Generative UI Demo', () => {
   });
 
   test('property: async drivers isolate two sessions across disposal and late events', async ({ page }) => {
-    await page.goto('/genui.html');
+    await openGenui(page);
     await replayCandidate(page, VALID_CANDIDATE, CAPABILITIES);
     await page.evaluate(() => {
       for (const id of ['async-root-a', 'async-root-b']) {
@@ -1104,7 +1112,7 @@ test.describe('Generative UI Demo', () => {
   test('streaming completes and shows tree + HTML nodes', async ({ page }) => {
     test.setTimeout(60000);
 
-    await page.goto('/genui.html');
+    await openGenui(page);
     await page.locator('button[data-example="0"]').click();
 
     await page.locator('#stream-btn').click();
@@ -1141,10 +1149,37 @@ test.describe('Generative UI Demo', () => {
     expect(parseInt(nodeCount ?? '0')).toBeGreaterThan(0);
   });
 
+  test('a cancelled stream cannot overwrite the next run', async ({ page }) => {
+    await openGenui(page);
+    await page.locator('#source-input').fill(
+      `<div>${Array.from({ length: 30 }, (_, index) => `<span>stale-${index}</span>`).join('')}</div>`,
+    );
+    await page.locator('#stream-btn').click();
+    await expect(page.locator('#stream-btn')).toHaveText('■ Stop');
+    await expect(page.locator('#step-num')).not.toHaveText('—');
+
+    await page.evaluate(() => {
+      const source = document.querySelector<HTMLTextAreaElement>('#source-input');
+      const clear = document.querySelector<HTMLButtonElement>('#clear-btn');
+      const stream = document.querySelector<HTMLButtonElement>('#stream-btn');
+      if (source === null || clear === null || stream === null) {
+        throw new Error('GenUI streaming controls are unavailable');
+      }
+      clear.click();
+      source.value = '<section><h2>Newest run</h2></section>';
+      stream.click();
+    });
+
+    await expect(page.locator('#status-bar')).toContainText('DOM nodes rendered');
+    await expect(page.locator('#html-preview')).toContainText('Newest run');
+    await expect(page.locator('#html-preview')).not.toContainText('stale-');
+    await expect(page.locator('#stream-btn')).toHaveText('▶ Stream');
+  });
+
   test('multiple examples produce DOM nodes', async ({ page }) => {
     test.setTimeout(90000);
 
-    await page.goto('/genui.html');
+    await openGenui(page);
 
     for (let i = 0; i < 3; i++) {
       await page.locator(`button[data-example="${i}"]`).click();
@@ -1153,7 +1188,7 @@ test.describe('Generative UI Demo', () => {
     }
   });
   test('runs and commits the recorded feasibility candidate through the browser action', async ({ page }) => {
-    await page.goto('/genui.html');
+    await openGenui(page);
     await page.getByRole('button', { name: 'Run recorded candidate' }).click();
     await expect(page.locator('#feasibility-status')).toHaveText(
       'Committed after MoonBit preparation, rubric, dry-run, and DOM apply.',
@@ -1167,7 +1202,7 @@ test.describe('Generative UI Demo', () => {
   });
 
   test('rejects invalid candidates without changing committed preview or revision', async ({ page }) => {
-    await page.goto('/genui.html');
+    await openGenui(page);
     const accepted = await replayCandidate(page, VALID_CANDIDATE, CAPABILITIES);
     expect(accepted.success).toBe(true);
     const beforeMarkup = await page.locator('#html-preview').innerHTML();
@@ -1180,7 +1215,7 @@ test.describe('Generative UI Demo', () => {
   });
 
   test('rejects stale candidate bases without changing committed preview or revision', async ({ page }) => {
-    await page.goto('/genui.html');
+    await openGenui(page);
     const accepted = await replayCandidate(page, VALID_CANDIDATE, CAPABILITIES);
     expect(accepted.success).toBe(true);
     const beforeMarkup = await page.locator('#html-preview').innerHTML();
@@ -1198,7 +1233,7 @@ test.describe('Generative UI Demo', () => {
   });
 
   test('keeps failed DOM applies uncommitted and repairs on the next render', async ({ page }) => {
-    await page.goto('/genui.html');
+    await openGenui(page);
     await page.getByLabel('Filter name, status, or ID').fill('paid');
     const selectedRow = page.getByTestId('order-row-ord-1003');
     await selectedRow.click();
@@ -1229,7 +1264,7 @@ test.describe('Generative UI Demo', () => {
   });
 
   test('replays the same candidate deterministically from fresh sessions', async ({ page }) => {
-    await page.goto('/genui.html');
+    await openGenui(page);
     const first = await replayCandidate(page, VALID_CANDIDATE, CAPABILITIES);
     const firstMarkup = await committedMarkup(page);
     await resetSession(page);
@@ -1244,7 +1279,7 @@ test.describe('Generative UI Demo', () => {
 
   test('attaches reproducible GenUI safety measurements', async ({ page }, testInfo) => {
     test.setTimeout(60000);
-    await page.goto('/genui.html');
+    await openGenui(page);
     await page.getByLabel('Filter name, status, or ID').fill('paid');
     const selectedRow = page.getByTestId('order-row-ord-1003');
     await selectedRow.click();

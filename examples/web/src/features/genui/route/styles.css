@@ -1,0 +1,38 @@
+@layer theme, base, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "../../../tailwind-theme.css";
+
+@layer base {
+  .genui-surface,
+  .genui-surface *,
+  .genui-surface *::before,
+  .genui-surface *::after {
+    box-sizing: border-box;
+    border-width: 0;
+    border-style: solid;
+  }
+
+  .genui-surface :where(h1, h2, h3, p, dl, dd) {
+    margin: 0;
+  }
+
+  .genui-surface :where(button, input, textarea) {
+    margin: 0;
+    color: inherit;
+    font: inherit;
+  }
+
+  .genui-surface button {
+    background-color: transparent;
+  }
+
+  .genui-surface table {
+    border-collapse: collapse;
+  }
+
+  .genui-surface [hidden] {
+    display: none !important;
+  }
+}

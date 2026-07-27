@@ -148,20 +148,25 @@ export function parseStudyManifest(source: string): StudyManifest {
   if (!isRecord(value) || typeof value.studyId !== 'string' || !isRecord(value.modelIdentity) || !Array.isArray(value.schedule)) {
     throw new Error('Invalid feasibility study manifest.');
   }
+  const modelIdentity = value.modelIdentity;
+  const schedule = value.schedule;
   const identityKeys = [
     'lookupTag', 'modelManifestSha256', 'showDetailsSha256', 'ollamaVersion',
     'templateSha256', 'parametersSha256',
   ];
-  if (identityKeys.some((key) => typeof value.modelIdentity[key] !== 'string')) {
+  if (identityKeys.some((key) => typeof modelIdentity[key] !== 'string')) {
     throw new Error('Feasibility study manifest has an invalid model identity.');
   }
-  if (!value.schedule.every((entry) =>
-    isRecord(entry) && typeof entry.caseId === 'string' && Number.isInteger(entry.slotId) &&
+  if (!schedule.every((entry) =>
+    isRecord(entry) && typeof entry.caseId === 'string' && typeof entry.slotId === 'number' && Number.isInteger(entry.slotId) &&
     entry.slotId >= 0 && entry.slotId < GENUI_PROVIDER_SETTINGS.slotSeeds.length
   )) {
     throw new Error('Feasibility study manifest has an invalid slot schedule.');
   }
-  const slotKeys = value.schedule.map((entry) => slotKey(entry.caseId as string, entry.slotId as number));
+  const slotKeys = schedule.map((entry) => slotKey(
+    (entry as Record<string, unknown>).caseId as string,
+    (entry as Record<string, unknown>).slotId as number,
+  ));
   if (new Set(slotKeys).size !== slotKeys.length) {
     throw new Error('Feasibility study manifest contains duplicate slots.');
   }
