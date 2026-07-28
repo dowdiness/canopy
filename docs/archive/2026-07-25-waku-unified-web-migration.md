@@ -12,7 +12,7 @@
 
 - **PR:** [#997](https://github.com/dowdiness/canopy/pull/997) squash-merged at 2026-07-28T16:00:20Z.
 - **Merge commit:** `e47aee68677b91cd433b0a0d5253ced715cac62c`.
-- **CI:** repository `All Checks Passed` passed on the final PR head; CodeRabbit's final rerun was pass with reason `Review rate limited`, after its five earlier actionable findings were fixed and local/CI validation reran.
+- **CI:** repository `All Checks Passed` passed on the final PR head; CodeRabbit's final rerun passed with reason `Review rate limited`, after its five earlier actionable findings were fixed and local/CI validation reran.
 - **Deployment:** native Cloudflare Workers Builds produced Worker version `37b75d02-124a-468f-abc4-75d673eb5ac5`, deployment `9453ae99-b0a8-47d9-8976-00fa320a06e1` at 2026-07-28T16:02:06Z, 100% traffic. Previous rollback version: `8fc4338a-b425-430b-a05b-8b91f1b85679`.
 - **Production acceptance:** all nine canonical routes plus `/index.html` returned 200; seven document aliases and their RSC aliases returned 308 with query preservation; unknown route returned 404; Memo production-unavailable boundary, Resume production-chat-unavailable boundary, GenUI recorded replay and production hook exclusion, Waku history/focus, Signaling WebSocket, and error-only live tail all passed. No error invocation appeared for the new version.
 

@@ -660,16 +660,6 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
   Plan: `docs/plans/2026-07-02-lambda-name-resolution-consolidation.md`
   Exit: production edit guards, alpha lowering, and free-variable diagnostics all read scope-graph facts; duplicate edit-layer resolvers are removed or test-only; #652's module-end cutoff drift is closed.
 
-- [x] Migrate the eight Vite HTML surfaces to one routed Waku application.
-  Why: unify delivery without losing verified demo behavior or generated MoonBit contracts.
-  Plan: `docs/archive/2026-07-25-waku-unified-web-migration.md`
-  Shipped: PR #997 (merge `e47aee6`, 2026-07-28). Native Cloudflare
-  deployment `9453ae99-b0a8-47d9-8976-00fa320a06e1` serves Worker version
-  `37b75d02-124a-468f-abc4-75d673eb5ac5` at 100% traffic. Production
-  acceptance passed all canonical routes, aliases, 404, availability boundaries,
-  and signaling.
-  Exit: met.
-
 ## 22. SDEG Lifecycle
 
 - [x] Distinguish delete from malformed transient absence (#748).
