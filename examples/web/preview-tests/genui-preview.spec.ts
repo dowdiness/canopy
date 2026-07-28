@@ -12,7 +12,7 @@ const FORBIDDEN_PROVIDER_MARKERS = [
   '__canopyGenUiTest',
 ] as const;
 
-test('replays the recorded control without exposing the local study runner', async ({ page, request }) => {
+test('replays the recorded control without exposing local production capabilities', async ({ page, request }) => {
   await page.goto(GENUI_PREVIEW_URL);
   await expect(page.locator('[data-genui-ready]'))
     .toHaveAttribute('data-genui-ready', 'true');
@@ -31,18 +31,6 @@ test('replays the recorded control without exposing the local study runner', asy
     }).__canopyGenUiTest,
   }))).toEqual({ feasibility: 'undefined', browser: 'undefined' });
 
-  const response = await request.post('/api/genui-feasibility', {
-    data: {
-      studyId: 'genui-local-v1',
-      runCapability: 'not-available-in-production',
-      caseId: 'orders-pending-attention',
-      slotId: 0,
-    },
-  });
-  expect(response.status()).toBe(404);
-});
-
-test('production JavaScript assets omit every local provider marker', async ({ request }) => {
   const developmentSource = await readFile(new URL('../src/features/genui/browser/mount.js', import.meta.url), 'utf8');
   expect(developmentSource).toContain('/api/genui-feasibility');
 
@@ -67,4 +55,14 @@ test('production JavaScript assets omit every local provider marker', async ({ r
       expect(source, `${assetPath} contains ${marker}`).not.toContain(marker);
     }
   }
+
+  const response = await request.post('/api/genui-feasibility', {
+    data: {
+      studyId: 'genui-local-v1',
+      runCapability: 'not-available-in-production',
+      caseId: 'orders-pending-attention',
+      slotId: 0,
+    },
+  });
+  expect(response.status()).toBe(404);
 });
