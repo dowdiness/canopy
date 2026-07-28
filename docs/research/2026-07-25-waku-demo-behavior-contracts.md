@@ -385,8 +385,10 @@ outbound request preview, and zero browser persistence
 
 ### Known gaps
 
-Production chat availability is unverified by the current preview suites
-([map](../../examples/web/MODULE_MAP.md)).
+Post-merge production acceptance (2026-07-28) verified that Resume renders the
+intentional production-unavailable chat state while session inspection remains
+fully available. A server-side production chat proxy remains out of scope for
+this migration.
 
 ## GenUI
 

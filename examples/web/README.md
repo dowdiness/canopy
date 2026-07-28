@@ -2,8 +2,10 @@
 
 `examples/web` is a Waku 1.0.0-beta.8 application deployed as the
 `canopy-examples` Cloudflare Worker. Cloudflare Workers Builds is configured to
-build and deploy `main` directly at 100%. This PR's post-merge deployment remains
-unverified.
+build and deploy `main` directly at 100%. Native Cloudflare deployment is
+configured and the Stage 12 production cutover was verified; see the
+[archived migration plan](../../docs/archive/2026-07-25-waku-unified-web-migration.md)
+for the acceptance evidence.
 
 ## Canonical routes
 
