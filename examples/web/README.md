@@ -5,9 +5,12 @@ Lambda (`index.html`), JSON, Markdown, Memo, Posts, Resume/PKE, GenUI, and GenUI
 
 The implementation inventory, source clusters, runtime ownership, tests, Vite relays, generated artifacts, and current boundary debt are documented in [`MODULE_MAP.md`](./MODULE_MAP.md).
 
-## Waku migration (in progress, #979)
+## Waku deployment (#979)
 
-A parallel Waku application is being built alongside the existing Vite workspace. Vite remains the default and production deploy path until final cutover. Stages 0–2 provide the foundation, Demo Hub, route-lifecycle Module, shared shell, canonical routes, and accessible 404. Stages 3–9 migrate all eight demos to `/journey`, `/posts`, `/json`, `/markdown`, `/ml`, `/memo`, `/resume`, and `/genui`, while retaining every legacy HTML entry. Routes restore only their allowlisted same-document state and rebuild generated-runtime internals after navigation. Stage 10 local readiness adds the seven Waku-only `308` aliases, static asset and same-origin Signaling service bindings, privacy-safe telemetry, multi-worker workerd smoke, and fail-closed release artifacts. No live Waku deployment, hostname cutover, or Vite removal is active; the existing Pages deployment remains the fallback.
+The Waku application is the production deployment target. Cloudflare Workers
+Builds deploys it to the `canopy-examples` Worker after every push to `main`.
+The Vite workspace and legacy HTML entries remain available during the final
+retirement stage, but GitHub Actions no longer deploys `examples/web` to Pages.
 
 ## Development
 
@@ -15,7 +18,7 @@ A parallel Waku application is being built alongside the existing Vite workspace
 cd examples/web
 npm ci
 npm run dev:vite     # existing eight-surface application
-npm run dev:waku     # pre-production Waku foundation
+npm run dev:waku     # Waku application
 npm run dev:dual     # both servers with one shared root MoonBit watcher
 ```
 
@@ -35,7 +38,11 @@ npm run test:waku:preview
 npm run test:waku:workerd
 ```
 
-For the existing Pages deploy build, use `npm run build:deploy`; it installs MoonBit and builds the generated JavaScript before running Vite. The default `wrangler.jsonc` remains owned by that Vite deployment. The pre-production Waku foundation is isolated in `wrangler.waku.jsonc` and is not the production deploy path.
+`npm run build:deploy:waku` is the Cloudflare Workers Builds production build.
+It initializes the pinned submodules, installs MoonBit dependencies, builds the
+generated JavaScript, and then builds Waku. `npm run build:deploy` retains the
+same setup with a final Vite build for local fallback validation. The production
+Worker configuration is isolated in `wrangler.waku.jsonc`.
 
 ```bash
 npm run check:waku-types
@@ -45,5 +52,5 @@ npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env production
 npx wrangler check startup --config wrangler.waku.jsonc --env production
 ```
 
-See [`CLOUDFLARE_DEPLOYMENT.md`](./CLOUDFLARE_DEPLOYMENT.md) for the protected
-cutover prerequisites, exact-green artifact contract, and rollback procedure.
+See [`CLOUDFLARE_DEPLOYMENT.md`](./CLOUDFLARE_DEPLOYMENT.md) for the native
+Cloudflare Git build settings and rollback procedure.

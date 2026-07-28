@@ -51,7 +51,7 @@
       ]
     },
     "production": {
-      "name": "canopy-web-waku-production",
+      "name": "canopy-examples",
       "version_metadata": {
         "binding": "WORKER_VERSION"
       },
