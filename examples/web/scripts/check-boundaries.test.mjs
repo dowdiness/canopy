@@ -66,7 +66,7 @@ test('resolves relative and Vite root-relative local imports', () => {
   );
 });
 
-test('classifies canonical HTML raw imports under their feature owner', () => {
+test('classifies legacy HTML but rejects route imports of it', () => {
   assert.deepEqual(describePath('genui-possibilities.html?raw'), {
     kind: 'feature',
     owner: 'genui-possibilities',
@@ -77,7 +77,7 @@ test('classifies canonical HTML raw imports under their feature owner', () => {
       'src/features/genui-possibilities/route/journey-route.tsx',
       'genui-possibilities.html?raw',
     ),
-    [],
+    ['feature route cannot import legacy HTML'],
   );
 });
 

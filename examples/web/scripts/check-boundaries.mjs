@@ -240,6 +240,13 @@ export function evaluateEdge(from, to, specifier = to, clientModule = false) {
   }
   if (
     source.kind === 'feature' &&
+    source.layer === 'route' &&
+    normalize(to).endsWith('.html')
+  ) {
+    violations.push('feature route cannot import legacy HTML');
+  }
+  if (
+    source.kind === 'feature' &&
     target.kind === 'feature' &&
     source.owner !== target.owner
   ) {
