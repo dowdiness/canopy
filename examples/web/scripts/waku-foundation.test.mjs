@@ -247,7 +247,7 @@ test('keeps Vite defaults while exposing explicit dual-run commands', () => {
   );
   assert.equal(
     pkg.scripts['test:waku:preview'],
-    'playwright test --config=playwright.waku-preview.config.ts',
+    'playwright test --config=playwright.waku-preview.config.ts && playwright test --config=playwright.waku-preload.config.ts',
   );
   assert.equal(
     pkg.scripts['generate:waku-types'],
