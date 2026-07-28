@@ -9,9 +9,9 @@ pub(all) enum BTreeNode[T] {
 
 ///|
 pub(all) struct BTree[T] {
-  mut root : BTreeNode[T]?
-  min_degree : Int
-  mut size : Int
+  priv mut root : BTreeNode[T]?
+  priv min_degree : Int
+  priv mut size : Int
 } derive(Debug, Eq)
 
 ///|
