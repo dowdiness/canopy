@@ -110,15 +110,24 @@ fn[T : TreeNode + Renderable] reconcile_children(
 ) -> Array[ProjNode[T]] {
   let old_len = old_children.length()
   let new_len = new_children.length()
-  // Old children carrying a wrap/unwrap/replace/move hint are excluded from
-  // ordinary LCS matching: their identity is decided by the hint logic, so they
-  // must not be consumed by a same-kind match against the wrong new sibling
-  // first. Rename / insert / delete / opaque hints stay matchable (LCS already
-  // preserves those). Computed only when hints are present.
+  // Old children whose hint will decide their identity are excluded from
+  // ordinary LCS matching, so they are not consumed by a same-kind match
+  // against the wrong new sibling first. Exclusion is decided from hint
+  // APPLICABILITY, not hint presence: a Wrap/Unwrap hint that can land nowhere
+  // in `new_children` must not cost its node the match plain LCS would have
+  // given it. Computed only when hints are present.
+  //
+  // Cost: this scans every new sibling per hinted old sibling, and each
+  // `hint_pairs` scans that sibling's children. The DP below is already
+  // Θ(old_len × new_len), so this adds a child-count factor to a term that is
+  // there anyway — not a new order of growth. The per-keystroke path takes the
+  // empty-hints branch and pays none of it.
   let excluded_old : Array[Bool] = if hints.is_empty() {
     []
   } else {
-    Array::makei(old_len, oi => lcs_excluded(hints, old_children[oi].id()))
+    Array::makei(old_len, oi => {
+      lcs_excluded(old_children[oi], new_children, hints)
+    })
   }
   let lcs_match = fn(oi : Int, nj : Int) -> Bool {
     @loomcore.TreeNode::same_kind(old_children[oi].kind, new_children[nj].kind) &&
@@ -451,10 +460,15 @@ priv enum HintResult[T] {
 }
 
 ///|
-/// Consult the structural hint keyed by `old.id()`. A `Wrap`/`Unwrap` hint is
-/// authoritative: it either applies or forces a degrade-to-fresh. It never
-/// silently falls through to same-kind reconciliation (which would leave the
-/// preserved id on the new wrapper).
+/// Consult the structural hint keyed by `old.id()`. A `Wrap`/`Unwrap` hint that
+/// the new tree bears a trace of is authoritative: it either applies or forces a
+/// degrade-to-fresh, and does not fall through to same-kind reconciliation
+/// (which would leave the preserved id on the new wrapper).
+///
+/// A hint the new tree bears NO trace of is a different case, and falls through:
+/// it is evidence about an edit that this position does not show, so letting it
+/// veto ordinary matching would destroy identity plain LCS preserves. See
+/// `apply_wrap` for why "no trace" and "ambiguous" must not share an outcome.
 fn[T : TreeNode + Renderable] structural_pair(
   old : ProjNode[T],
   new : ProjNode[T],
@@ -465,7 +479,7 @@ fn[T : TreeNode + Renderable] structural_pair(
   match hints.get(old.id()) {
     Some(Wrap(_)) =>
       match apply_wrap(old, new, counter, hints, trace_ref~) {
-        Some(node) => {
+        Applied(node) => {
           emit_trace(
             trace_ref,
             Wrapped(
@@ -476,11 +490,11 @@ fn[T : TreeNode + Renderable] structural_pair(
           )
           Applied(node)
         }
-        None => Unlocatable
+        other => other
       }
     Some(Unwrap(keep~, ..)) =>
       match apply_unwrap(old, new, counter, hints, keep, trace_ref~) {
-        Some(node) => {
+        Applied(node) => {
           emit_trace(
             trace_ref,
             Unwrapped(
@@ -491,7 +505,7 @@ fn[T : TreeNode + Renderable] structural_pair(
           )
           Applied(node)
         }
-        None => Unlocatable
+        other => other
       }
     // Replace retires the old identity; Move's identity is editor-owned
     // (move_node) and not reconcilable here. Both freshen the node at this
@@ -503,17 +517,34 @@ fn[T : TreeNode + Renderable] structural_pair(
 
 ///|
 /// Whether an old child's hint means "do not let ordinary LCS assign this
-/// identity". Wrap/Unwrap/Replace/Move are handled by the hint logic; rename /
-/// insert / delete / opaque (and no hint) are left to LCS, which already honors
-/// them.
-fn lcs_excluded(hints : Map[NodeId, IdentityTransform], id : NodeId) -> Bool {
-  match hints.get(id) {
+/// identity".
+///
+/// `Replace` / `Move` are authoritative at any position — `structural_pair`
+/// retires or re-owns the identity whichever new sibling they meet — so they are
+/// withheld from LCS unconditionally, which also leaves match room for the other
+/// old children.
+///
+/// `Wrap` / `Unwrap` are withheld only when the hint can actually land in some
+/// new sibling. A hint whose transform the completed batch left no trace of says
+/// nothing about this position, and withholding on its say-so would cost the
+/// node the match plain LCS would have given it — the stale-hint defect.
+///
+/// Rename / insert / delete / opaque (and no hint) are left to LCS, which
+/// already honors them.
+fn[T : TreeNode] lcs_excluded(
+  old_child : ProjNode[T],
+  new_children : Array[ProjNode[T]],
+  hints : Map[NodeId, IdentityTransform],
+) -> Bool {
+  match hints.get(old_child.id()) {
+    Some(Replace(_)) | Some(Move(_)) => true
+    Some(Wrap(_)) | Some(Unwrap(..)) =>
+      new_children.iter().any(n => hint_pairs(old_child, n, hints))
     Some(RenameLeaf(_))
     | Some(InsertSubtree(..))
     | Some(DeleteSubtree(_))
     | Some(Opaque)
     | None => false
-    Some(_) => true
   }
 }
 
@@ -601,13 +632,27 @@ fn[T : TreeNode] hint_pairs(
 ///|
 /// Wrap: `wrapper` introduces a level over the prev subtree `old`. Carry `old`'s
 /// identity into the unique same-kind child; the wrapper itself is fresh.
+///
+/// The target count is the three-way answer, and the two failures are NOT the
+/// same failure:
+///
+/// - none: `wrapper` has no same-kind child, so it is not a wrapper OF `old` and
+///   the tree carries no trace of the wrap this hint describes. The hint is
+///   inert here and ordinary matching decides (`NoStructuralHint`).
+/// - one: the wrapped subtree is located; carry the identity (`Applied`).
+/// - several: `wrapper` may well be a wrapper of `old`, but which child holds it
+///   is not decidable. Degrading to fresh ids is required here (invariant T3) —
+///   falling through instead would leave `old`'s id on the wrapper itself.
+///
+/// That asymmetry is why inertness holds only for the none case; the scoped
+/// property and its counterexamples are pinned in reconcile_hints_wbtest.mbt.
 fn[T : TreeNode + Renderable] apply_wrap(
   old : ProjNode[T],
   wrapper : ProjNode[T],
   counter : Ref[Int],
   hints : Map[NodeId, IdentityTransform],
   trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
-) -> ProjNode[T]? {
+) -> HintResult[T] {
   let targets = [
     for idx, c in wrapper.children if @loomcore.TreeNode::same_kind(
       c.kind,
@@ -642,7 +687,7 @@ fn[T : TreeNode + Renderable] apply_wrap(
           }
         }
       ]
-      Some(
+      Applied(
         ProjNode(
           wrapper.kind,
           wrapper.start,
@@ -652,13 +697,25 @@ fn[T : TreeNode + Renderable] apply_wrap(
         ),
       )
     }
-    _ => None
+    [] => NoStructuralHint
+    _ => Unlocatable
   }
 }
 
 ///|
 /// Unwrap: the prev `wrapper` is removed and its child `keep` promoted to `new`.
 /// Carry `keep`'s identity into `new`; the wrapper id retires.
+///
+/// A `keep` this wrapper does not have is a hint about a subtree that is not
+/// here: it is inert, and ordinary matching decides. That absence is Unwrap's
+/// ONLY inapplicable case. In particular a `keep` whose kind differs from `new`
+/// is still applied, because the recursion is what interprets the difference —
+/// a nested hint on `keep` may legitimately consume it, which is how an
+/// unwrap-then-wrap batch retires the old wrapper id instead of preserving it.
+/// Requiring same-kind here would defeat that composition.
+///
+/// Unwrap has no ambiguous case — `find_child` resolves a single id — so it
+/// never yields `Unlocatable`.
 fn[T : TreeNode + Renderable] apply_unwrap(
   wrapper : ProjNode[T],
   new : ProjNode[T],
@@ -666,10 +723,10 @@ fn[T : TreeNode + Renderable] apply_unwrap(
   hints : Map[NodeId, IdentityTransform],
   keep : NodeId,
   trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
-) -> ProjNode[T]? {
+) -> HintResult[T] {
   match find_child(wrapper, keep) {
-    Some(k) => Some(reconcile_hinted(k, new, counter, hints, trace_ref~))
-    None => None
+    Some(k) => Applied(reconcile_hinted(k, new, counter, hints, trace_ref~))
+    None => NoStructuralHint
   }
 }
 
