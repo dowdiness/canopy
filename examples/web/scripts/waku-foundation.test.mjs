@@ -268,6 +268,8 @@ test('gives Cloudflare Workers Builds an explicit Waku production target', () =>
     'utf8',
   );
   assert.match(deployScript, /DEPLOY_TARGET="\$\{1:-vite\}"/);
+  assert.match(deployScript, /MOONBIT_VERSION="0\.10\.4\+ade96c819"/);
+  assert.match(deployScript, /bash -s -- "\$MOONBIT_VERSION"/);
   assert.match(deployScript, /npm run build:waku/);
   assert.match(deployScript, /npx vite build/);
 
@@ -275,8 +277,11 @@ test('gives Cloudflare Workers Builds an explicit Waku production target', () =>
     new URL('../../../.github/workflows/deploy-cloudflare.yml', import.meta.url),
     'utf8',
   );
-  assert.doesNotMatch(deployWorkflow, /^\s+- name: web$/m);
-  assert.doesNotMatch(deployWorkflow, /project-name: canopy-lambda-editor/);
+  assert.doesNotMatch(deployWorkflow, /^\s+npm-dir:\s*examples\/web\s*$/m);
+  assert.doesNotMatch(
+    deployWorkflow,
+    /^\s+deploy-dir:\s*examples\/web(?:\/dist)?\s*$/m,
+  );
   assert.match(deployWorkflow, /^\s+- name: ideal$/m);
 });
 
