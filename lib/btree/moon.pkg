@@ -2,6 +2,7 @@ import {
   "dowdiness/rle",
   "moonbitlang/core/bench",
   "moonbitlang/core/debug",
+  "moonbitlang/core/int",
 }
 
 import {
