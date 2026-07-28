@@ -20,7 +20,7 @@ not reset, stage, or include those changes.
 | [002](002-enforce-positive-btree-spans.md) | Enforce positive leaf spans at every public construction boundary | P1 | M | MED | 001 | DONE |
 | [003](003-snapshot-leaf-context-neighbors.md) | Make `LeafContext` a mutation-free snapshot | P1 | M | MED | 002 | DONE |
 | [004](004-reuse-btree-bulk-builder.md) | Reuse `BTree::from_sorted` in order-tree and make B-tree state opaque | P2 | L | HIGH | 003 | DONE |
-| [005](005-document-btree-contracts.md) | Document complete construction, mutation, and range contracts | P2 | S | LOW | 001–004 | TODO |
+| [005](005-document-btree-contracts.md) | Document complete construction, mutation, and range contracts | P2 | S | LOW | 001–004 | DONE |
 
 Status values: `TODO` | `IN PROGRESS` | `DONE` | `BLOCKED: <reason>` |
 `REJECTED: <rationale>`.

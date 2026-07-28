@@ -52,20 +52,33 @@ priv struct NodeSplice[T] {
 }
 
 ///|
-/// Read-only context passed to pure leaf splice computations.
+/// Value snapshot passed to a leaf splice callback. It captures the current
+/// leaf and optional adjacent leaf values without exposing a live tree
+/// collection. See the README's API Contracts section.
 pub(all) struct LeafContext[T] {
+  /// Current leaf value.
   elem : T
+  /// Current leaf span.
   span : Int
+  /// Span offset addressed by the mutation.
   offset : Int
+  /// Current leaf index in its parent child array.
   child_idx : Int
   priv left_elem : T?
   priv right_elem : T?
 } derive(Debug)
 
 ///|
+/// Replacement description for a current leaf parent's child array.
+/// `start_idx` and `end_idx` must satisfy
+/// `0 <= start_idx <= end_idx <= parent child count`; invalid indices are not
+/// separately validated.
 pub(all) struct Splice[T] {
+  /// Inclusive child index where replacement begins.
   start_idx : Int
+  /// Exclusive child index where replacement ends.
   end_idx : Int
+  /// Replacement leaves, inserted in order. Every span must be positive.
   new_leaves : Array[(T, Int)]
 } derive(Debug)
 
@@ -77,11 +90,13 @@ priv struct PropagateResult[T] {
 }
 
 ///|
+/// Return the adjacent left leaf value captured in this snapshot, if present.
 pub fn[T] LeafContext::left_neighbor(self : LeafContext[T]) -> T? {
   self.left_elem
 }
 
 ///|
+/// Return the adjacent right leaf value captured in this snapshot, if present.
 pub fn[T] LeafContext::right_neighbor(self : LeafContext[T]) -> T? {
   self.right_elem
 }
