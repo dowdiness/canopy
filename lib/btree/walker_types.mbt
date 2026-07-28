@@ -57,8 +57,9 @@ pub(all) struct LeafContext[T] {
   elem : T
   span : Int
   offset : Int
-  children : Array[BTreeNode[T]]
   child_idx : Int
+  priv left_elem : T?
+  priv right_elem : T?
 } derive(Debug)
 
 ///|
@@ -77,20 +78,12 @@ priv struct PropagateResult[T] {
 
 ///|
 pub fn[T] LeafContext::left_neighbor(self : LeafContext[T]) -> T? {
-  guard self.child_idx > 0 else { return None }
-  match self.children[self.child_idx - 1] {
-    Leaf(elem~, ..) => Some(elem)
-    _ => None
-  }
+  self.left_elem
 }
 
 ///|
 pub fn[T] LeafContext::right_neighbor(self : LeafContext[T]) -> T? {
-  guard self.child_idx + 1 < self.children.length() else { return None }
-  match self.children[self.child_idx + 1] {
-    Leaf(elem~, ..) => Some(elem)
-    _ => None
-  }
+  self.right_elem
 }
 
 ///|
@@ -99,12 +92,21 @@ fn[T] LeafContext::from_cursor(cursor : Cursor[T]) -> LeafContext[T] {
     abort("LeafContext::from_cursor: cursor missing parent frame")
   }
   let frame = cursor.path[cursor.path.length() - 1]
+  let left_elem : T? = match frame.children.get(cursor.child_idx - 1) {
+    Some(Leaf(elem~, ..)) => Some(elem)
+    _ => None
+  }
+  let right_elem : T? = match frame.children.get(cursor.child_idx + 1) {
+    Some(Leaf(elem~, ..)) => Some(elem)
+    _ => None
+  }
   {
     elem: cursor.leaf_elem,
     span: cursor.leaf_span,
     offset: cursor.offset,
-    children: frame.children,
     child_idx: cursor.child_idx,
+    left_elem,
+    right_elem,
   }
 }
 

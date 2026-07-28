@@ -18,7 +18,7 @@ not reset, stage, or include those changes.
 |---|---|---:|---:|---:|---|---|
 | [001](001-bound-btree-min-degree.md) | Bound B-tree degree arithmetic so bulk construction always terminates | P1 | S | LOW | — | DONE |
 | [002](002-enforce-positive-btree-spans.md) | Enforce positive leaf spans at every public construction boundary | P1 | M | MED | 001 | DONE |
-| [003](003-snapshot-leaf-context-neighbors.md) | Make `LeafContext` a mutation-free snapshot | P1 | M | MED | 002 | TODO |
+| [003](003-snapshot-leaf-context-neighbors.md) | Make `LeafContext` a mutation-free snapshot | P1 | M | MED | 002 | DONE |
 | [004](004-reuse-btree-bulk-builder.md) | Reuse `BTree::from_sorted` in order-tree and make B-tree state opaque | P2 | L | HIGH | 003 | TODO |
 | [005](005-document-btree-contracts.md) | Document complete construction, mutation, and range contracts | P2 | S | LOW | 001–004 | TODO |
 
