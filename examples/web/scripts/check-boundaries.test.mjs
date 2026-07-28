@@ -5,8 +5,6 @@ import {
   classifyPath,
   describePath,
   evaluateEdge,
-  evaluateHtmlEntryScripts,
-  htmlEntryAccepted,
   isClientModule,
   resolveLocalImport,
   staticImports,
@@ -57,7 +55,7 @@ test('resolves relative and Vite root-relative local imports', () => {
     'server/vite/provider.ts',
   ]);
   assert.equal(
-    resolveLocalImport('src/entries/posts.ts', '../features/posts/browser/mount', files),
+    resolveLocalImport('src/pages/posts.tsx', '../features/posts/browser/mount', files),
     'src/features/posts/browser/mount.ts',
   );
   assert.equal(
@@ -66,168 +64,13 @@ test('resolves relative and Vite root-relative local imports', () => {
   );
 });
 
-test('classifies legacy HTML but rejects route imports of it', () => {
-  assert.deepEqual(describePath('genui-possibilities.html?raw'), {
-    kind: 'feature',
-    owner: 'genui-possibilities',
-    layer: 'browser',
-  });
+test('rejects feature route imports of legacy HTML', () => {
   assert.deepEqual(
     evaluateEdge(
       'src/features/genui-possibilities/route/journey-route.tsx',
       'genui-possibilities.html?raw',
     ),
     ['feature route cannot import legacy HTML'],
-  );
-});
-
-test('requires entries to import the matching feature browser surface only', () => {
-  assert.deepEqual(
-    evaluateEdge('src/entries/genui-possibilities.js', 'src/features/genui-possibilities/browser/mount.js'),
-    [],
-  );
-  assert.match(
-    evaluateEdge('src/entries/genui-possibilities.js', 'src/features/genui-possibilities/core/journey-state.js')[0],
-    /entry/,
-  );
-
-  assert.deepEqual(
-    evaluateEdge('src/entries/posts.ts', 'src/features/posts/browser/mount.ts'),
-    [],
-  );
-  assert.deepEqual(
-    evaluateEdge('src/entries/json.ts', 'src/features/json/browser/mount.ts'),
-    [],
-  );
-  assert.deepEqual(
-    evaluateEdge('src/entries/markdown.ts', 'src/features/markdown/browser/mount.ts'),
-    [],
-  );
-  assert.deepEqual(
-    evaluateEdge('src/entries/resume.ts', 'src/features/resume/browser/app.tsx'),
-    [],
-  );
-  assert.match(
-    evaluateEdge('src/entries/resume.ts', 'src/features/resume/core/session.ts')[0],
-    /entry/,
-  );
-  assert.match(
-    evaluateEdge('src/entries/posts.ts', 'src/features/posts/core/posts.ts')[0],
-    /entry/,
-  );
-  assert.match(
-    evaluateEdge('src/entries/posts.ts', 'src/shared/browser/date.ts')[0],
-    /entry/,
-  );
-  assert.match(
-    evaluateEdge('src/entries/posts.ts', 'react', 'react')[0],
-    /entry/,
-  );
-});
-
-test('requires HTML to load target-shaped entry modules for migrated features', () => {
-  assert.equal(htmlEntryAccepted('/src/post-app.ts', 'posts', 'src/entries/posts.ts'), false);
-  assert.equal(htmlEntryAccepted('/src/post-store.ts', 'posts', 'src/entries/posts.ts'), false);
-  assert.equal(htmlEntryAccepted('/src/entries/posts.ts', 'posts', 'src/entries/posts.ts'), true);
-  assert.equal(htmlEntryAccepted('/src/features/posts/core/posts.ts', 'posts', 'src/entries/posts.ts'), false);
-  assert.equal(htmlEntryAccepted('/src/entries/resume.tsx', 'posts', 'src/entries/posts.ts'), false);
-  assert.deepEqual(
-    evaluateHtmlEntryScripts('posts.html', 'posts', [], 'src/entries/posts.ts'),
-    [{
-      from: 'posts.html',
-      to: '<missing>',
-      rule: 'HTML entry must load at least one corresponding browser entry module',
-    }],
-  );
-  assert.deepEqual(
-    evaluateHtmlEntryScripts(
-      'posts.html',
-      'posts',
-      ['/src/entries/posts.ts'],
-      'src/entries/posts.ts',
-    ),
-    [],
-  );
-  assert.equal(htmlEntryAccepted('/src/memo-editor.ts', 'memo', 'src/entries/memo.ts'), false);
-  assert.equal(htmlEntryAccepted('/src/entries/memo.ts', 'memo', 'src/entries/memo.ts'), true);
-  assert.deepEqual(
-    evaluateHtmlEntryScripts(
-      'memo.html',
-      'memo',
-      ['/src/entries/memo.ts'],
-      'src/entries/memo.ts',
-    ),
-    [],
-  );
-  assert.equal(htmlEntryAccepted('/src/json-editor.ts', 'json', 'src/entries/json.ts'), false);
-  assert.equal(htmlEntryAccepted('/src/entries/json.ts', 'json', 'src/entries/json.ts'), true);
-  assert.deepEqual(
-    evaluateHtmlEntryScripts(
-      'json.html',
-      'json',
-      ['/src/entries/json.ts'],
-      'src/entries/json.ts',
-    ),
-    [],
-  );
-  assert.equal(
-    htmlEntryAccepted('/src/markdown-editor.ts', 'markdown', 'src/entries/markdown.ts'),
-    false,
-  );
-  assert.equal(
-    htmlEntryAccepted('/src/entries/markdown.ts', 'markdown', 'src/entries/markdown.ts'),
-    true,
-  );
-  assert.deepEqual(
-    evaluateHtmlEntryScripts(
-      'markdown.html',
-      'markdown',
-      ['/src/entries/markdown.ts'],
-      'src/entries/markdown.ts',
-    ),
-    [],
-  );
-  assert.equal(htmlEntryAccepted('/src/genui-possibilities.js', 'genui-possibilities', 'src/entries/genui-possibilities.js'), false);
-  assert.equal(htmlEntryAccepted('/src/entries/genui-possibilities.js', 'genui-possibilities', 'src/entries/genui-possibilities.js'), true);
-  assert.deepEqual(
-    evaluateHtmlEntryScripts(
-      'genui-possibilities.html',
-      'genui-possibilities',
-      ['/src/entries/genui-possibilities.js'],
-      'src/entries/genui-possibilities.js',
-    ),
-    [],
-  );
-  assert.equal(htmlEntryAccepted('/src/resume-app.tsx', 'resume', 'src/entries/resume.ts'), false);
-  assert.equal(htmlEntryAccepted('/src/entries/resume.ts', 'resume', 'src/entries/resume.ts'), true);
-  assert.deepEqual(
-    evaluateHtmlEntryScripts(
-      'resume.html',
-      'resume',
-      ['/src/entries/resume.ts'],
-      'src/entries/resume.ts',
-    ),
-    [],
-  );
-  assert.deepEqual(
-    evaluateHtmlEntryScripts(
-      'genui-possibilities.html',
-      'genui-possibilities',
-      ['/src/genui-possibilities.js'],
-      'src/entries/genui-possibilities.js',
-    ),
-    [
-      {
-        from: 'genui-possibilities.html',
-        to: 'src/genui-possibilities.js',
-        rule: 'HTML entry must load its corresponding browser entry module',
-      },
-      {
-        from: 'genui-possibilities.html',
-        to: '<missing>',
-        rule: 'HTML entry must load at least one corresponding browser entry module',
-      },
-    ],
   );
 });
 
@@ -293,7 +136,7 @@ test('allows Waku pages to compose shared and corresponding route surfaces only'
     [],
   );
   assert.match(
-    evaluateEdge('src/pages/json.tsx', 'src/features/json/browser/mount.ts')[0],
+    evaluateEdge('src/pages/json.tsx', 'src/features/json/browser/editor.ts')[0],
     /route surface/,
   );
   assert.match(
@@ -372,10 +215,6 @@ test('recognizes current exceptions and future top-level runtime vocabulary', ()
   assert.equal(classifyPath('server/vite/ast-grep.ts'), 'server');
   assert.equal(classifyPath('src/shared/decoration-overlay.ts'), 'shared');
   assert.deepEqual(
-    describePath('src/entries/lambda.ts'),
-    { kind: 'entry', owner: 'lambda' },
-  );
-  assert.deepEqual(
     describePath('src/features/json/browser/editor.ts'),
     { kind: 'feature', owner: 'json', layer: 'browser' },
   );
@@ -394,50 +233,4 @@ test('rejects newly added unclassified production modules', () => {
     to: 'src/mystery.ts',
     rule: 'source module has no declared owner',
   }]);
-});
-
-test('Lambda entry respects feature-boundary rules', () => {
-  assert.deepEqual(
-    evaluateEdge('src/entries/lambda.ts', 'src/features/lambda/browser/mount.ts'),
-    [],
-  );
-  assert.match(
-    evaluateEdge('src/entries/lambda.ts', 'src/shared/decoration-overlay.ts')[0],
-    /entry/,
-  );
-});
-
-test('Lambda HTML accepts migrated entry and rejects flat scripts', () => {
-  assert.equal(htmlEntryAccepted('/src/entries/lambda.ts', 'lambda', 'src/entries/lambda.ts'), true);
-  assert.equal(htmlEntryAccepted('/src/main.ts', 'lambda', 'src/entries/lambda.ts'), false);
-  assert.equal(htmlEntryAccepted('/src/editor.ts', 'lambda', 'src/entries/lambda.ts'), false);
-  assert.deepEqual(
-    evaluateHtmlEntryScripts(
-      'index.html',
-      'lambda',
-      ['/src/entries/lambda.ts'],
-      'src/entries/lambda.ts',
-    ),
-    [],
-  );
-  assert.deepEqual(
-    evaluateHtmlEntryScripts(
-      'index.html',
-      'lambda',
-      ['/src/main.ts'],
-      'src/entries/lambda.ts',
-    ),
-    [
-      {
-        from: 'index.html',
-        to: 'src/main.ts',
-        rule: 'HTML entry must load its corresponding browser entry module',
-      },
-      {
-        from: 'index.html',
-        to: '<missing>',
-        rule: 'HTML entry must load at least one corresponding browser entry module',
-      },
-    ],
-  );
 });

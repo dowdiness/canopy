@@ -231,20 +231,18 @@ test('rejects Memo development and provider capabilities outside the shared Lamb
   ]);
 });
 
-test('keeps Vite defaults while exposing explicit dual-run commands', () => {
+test('uses Waku as the default development and build system', () => {
   const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
-  assert.equal(pkg.scripts.dev, 'vite');
-  assert.equal(pkg.scripts.build, 'vite build');
-  assert.equal(pkg.scripts['dev:vite'], 'vite');
-  assert.equal(pkg.scripts['build:vite'], 'vite build');
+  assert.equal(pkg.scripts.dev, 'waku dev');
+  assert.equal(pkg.scripts.build, 'bash scripts/build-waku.sh');
+  assert.equal(pkg.scripts.preview, 'bash scripts/serve-waku-preview.sh');
   assert.equal(pkg.scripts['dev:waku'], 'waku dev');
-  assert.equal(pkg.scripts['dev:dual'], 'bash scripts/dev-dual.sh');
   assert.equal(pkg.scripts['build:waku'], 'bash scripts/build-waku.sh');
   assert.equal(pkg.scripts['build:deploy'], 'sh scripts/build-deploy.sh');
-  assert.equal(
-    pkg.scripts['build:deploy:waku'],
-    'sh scripts/build-deploy.sh waku',
-  );
+  assert.equal(pkg.scripts['build:deploy:waku'], 'sh scripts/build-deploy.sh waku');
+  for (const script of ['dev:vite', 'build:vite', 'dev:dual']) {
+    assert.equal(pkg.scripts[script], undefined, `${script} must be removed`);
+  }
   assert.equal(
     pkg.scripts['test:waku:preview'],
     'playwright test --config=playwright.waku-preview.config.ts && playwright test --config=playwright.waku-preload.config.ts',
@@ -259,7 +257,63 @@ test('keeps Vite defaults while exposing explicit dual-run commands', () => {
   );
   assert.equal(pkg.dependencies.waku, '1.0.0-beta.8');
   assert.equal(pkg.devDependencies.wrangler, '4.114.0');
+  assert.equal(pkg.devDependencies['@tailwindcss/vite'], '^4.3.3');
+  assert.equal(pkg.devDependencies.vite, '^8.1.5');
+  assert.equal(pkg.devDependencies['@vitejs/plugin-react'], undefined);
+  assert.equal(pkg.devDependencies['rollup-plugin-visualizer'], undefined);
   assert.equal(pkg.engines.node, '^24.0.0 || ^22.15.0');
+});
+
+test('retires legacy delivery artifacts while preserving the inactive spike', () => {
+  const retiredPaths = [
+    'index.html',
+    'json.html',
+    'markdown.html',
+    'memo.html',
+    'posts.html',
+    'resume.html',
+    'genui.html',
+    'genui-possibilities.html',
+    'src/entries/lambda.ts',
+    'src/entries/json.ts',
+    'src/entries/markdown.ts',
+    'src/entries/memo.ts',
+    'src/entries/posts.ts',
+    'src/entries/resume.ts',
+    'src/entries/genui.js',
+    'src/entries/genui-possibilities.js',
+    'src/features/lambda/browser/mount.ts',
+    'src/features/json/browser/mount.ts',
+    'src/features/markdown/browser/mount.ts',
+    'src/features/memo/browser/mount.ts',
+    'src/tailwind.css',
+    'vite.config.ts',
+    'playwright.config.ts',
+    'playwright.preview.config.ts',
+    'scripts/dev-dual.sh',
+  ];
+  for (const retiredPath of retiredPaths) {
+    assert.equal(
+      fs.existsSync(new URL(`../${retiredPath}`, import.meta.url)),
+      false,
+      `${retiredPath} must stay retired`,
+    );
+  }
+  assert.equal(
+    fs.existsSync(new URL('../spike-block-input.html', import.meta.url)),
+    true,
+  );
+
+  for (const config of [
+    '../playwright.feasibility.config.ts',
+    '../playwright.minimal-provider.config.ts',
+  ]) {
+    const source = fs.readFileSync(new URL(config, import.meta.url), 'utf8');
+    assert.match(source, /npm run dev:waku/);
+    assert.match(source, /\/genui/);
+    assert.doesNotMatch(source, /npx vite/);
+    assert.doesNotMatch(source, /genui\.html/);
+  }
 });
 
 test('gives Cloudflare Workers Builds an explicit Waku production target', () => {
@@ -267,11 +321,11 @@ test('gives Cloudflare Workers Builds an explicit Waku production target', () =>
     new URL('./build-deploy.sh', import.meta.url),
     'utf8',
   );
-  assert.match(deployScript, /DEPLOY_TARGET="\$\{1:-vite\}"/);
+  assert.match(deployScript, /\$\{1:-waku\}/);
   assert.match(deployScript, /MOONBIT_VERSION="0\.10\.4\+ade96c819"/);
   assert.match(deployScript, /bash -s -- "\$MOONBIT_VERSION"/);
   assert.match(deployScript, /npm run build:waku/);
-  assert.match(deployScript, /npx vite build/);
+  assert.doesNotMatch(deployScript, /vite build/);
 
   const deployWorkflow = fs.readFileSync(
     new URL('../../../.github/workflows/deploy-cloudflare.yml', import.meta.url),
@@ -285,37 +339,30 @@ test('gives Cloudflare Workers Builds an explicit Waku production target', () =>
   assert.match(deployWorkflow, /^\s+- name: ideal$/m);
 });
 
-test('runs both development servers behind one external root watcher', () => {
-  const script = fs.readFileSync(new URL('./dev-dual.sh', import.meta.url), 'utf8');
-  assert.equal(script.match(/moon build --target js --release --watch/g)?.length, 1);
-  assert.equal(script.match(/CANOPY_EXTERNAL_MOON_WATCH=1/g)?.length, 2);
-  assert.match(script, /npm run dev:vite/);
-  assert.match(script, /npm run dev:waku/);
-});
-
-test('adds parallel Waku build, browser, and workerd jobs to the repository gate', () => {
+test('keeps Waku build, browser, and workerd jobs as the web repository gate', () => {
   const ci = fs.readFileSync(new URL('../../../.github/workflows/ci.yml', import.meta.url), 'utf8');
   assert.match(ci, /^  waku-build:\n/m);
   assert.match(ci, /^  waku-e2e:\n/m);
   assert.match(ci, /^  waku-workerd:\n/m);
+  assert.doesNotMatch(ci, /^  web-e2e:\n/m);
   assert.match(ci, /npm run build:waku/);
   assert.match(ci, /npm run check:waku-bundles/);
   assert.match(ci, /npm run check:waku-types/);
   assert.match(
     ci,
-    /npx wrangler deploy --config wrangler\.waku\.jsonc --dry-run --env preview/,
+    /npx wrangler deploy --config wrangler\.waku\.jsonc --dry-run --env preview[\s\S]*--outfile "\$\{RUNNER_TEMP\}\/waku-preview-worker\.bundle"/,
   );
   assert.match(
     ci,
-    /npx wrangler check startup --config wrangler\.waku\.jsonc --env preview/,
+    /npx wrangler check startup[\s\S]*--worker "\$\{RUNNER_TEMP\}\/waku-preview-worker\.bundle"/,
   );
   assert.match(
     ci,
-    /npx wrangler deploy --config wrangler\.waku\.jsonc --dry-run --env production/,
+    /npx wrangler deploy --config wrangler\.waku\.jsonc --dry-run --env production[\s\S]*--outfile "\$\{RUNNER_TEMP\}\/waku-production-worker\.bundle"/,
   );
   assert.match(
     ci,
-    /npx wrangler check startup --config wrangler\.waku\.jsonc --env production/,
+    /npx wrangler check startup[\s\S]*--worker "\$\{RUNNER_TEMP\}\/waku-production-worker\.bundle"/,
   );
   assert.match(ci, /npm run test:waku:e2e/);
   assert.match(ci, /npm run test:waku:preview/);
@@ -348,21 +395,21 @@ test('adds parallel Waku build, browser, and workerd jobs to the repository gate
   assert.match(aggregate, /needs\.waku-build\.result/);
   assert.match(aggregate, /needs\.waku-e2e\.result/);
   assert.match(aggregate, /needs\.waku-workerd\.result/);
+  assert.doesNotMatch(aggregate, /needs\.web-e2e\.result/);
 });
 
-test('keeps the Vite config separate from the Waku production deployment', () => {
-  const legacyWrangler = JSON.parse(
-    fs.readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8'),
+test('uses one canonical Waku production deployment configuration', () => {
+  const canonicalConfig = new URL('../wrangler.jsonc', import.meta.url);
+  const externalCompatibilityConfig = new URL('../wrangler.waku.jsonc', import.meta.url);
+  assert.equal(fs.existsSync(canonicalConfig), true);
+  assert.equal(fs.lstatSync(externalCompatibilityConfig).isSymbolicLink(), true);
+  assert.equal(fs.readlinkSync(externalCompatibilityConfig), 'wrangler.jsonc');
+  assert.equal(
+    fs.readFileSync(externalCompatibilityConfig, 'utf8'),
+    fs.readFileSync(canonicalConfig, 'utf8'),
   );
-  assert.deepEqual(legacyWrangler, {
-    name: 'canopy-lambda-editor',
-    compatibility_date: '2026-01-04',
-    assets: { directory: 'dist' },
-  });
 
-  const wakuWrangler = JSON.parse(
-    fs.readFileSync(new URL('../wrangler.waku.jsonc', import.meta.url), 'utf8'),
-  );
+  const wakuWrangler = JSON.parse(fs.readFileSync(canonicalConfig, 'utf8'));
   assert.equal(wakuWrangler.main, 'dist/server/index.js');
   assert.deepEqual(wakuWrangler.compatibility_flags, ['nodejs_compat']);
   assert.deepEqual(wakuWrangler.assets, {

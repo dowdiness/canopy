@@ -13,30 +13,9 @@ const FEATURE_NAMES = new Set([
   'genui',
   'genui-possibilities',
 ]);
-const ENTRY_FEATURES = new Map([
-  ['index.html', 'lambda'],
-  ['json.html', 'json'],
-  ['markdown.html', 'markdown'],
-  ['memo.html', 'memo'],
-  ['posts.html', 'posts'],
-  ['resume.html', 'resume'],
-  ['genui.html', 'genui'],
-  ['genui-possibilities.html', 'genui-possibilities'],
-]);
-const CURRENT_ENTRY_SCRIPTS = new Map([
-  ['index.html', 'src/entries/lambda.ts'],
-  ['json.html', 'src/entries/json.ts'],
-  ['markdown.html', 'src/entries/markdown.ts'],
-  ['memo.html', 'src/entries/memo.ts'],
-  ['posts.html', 'src/entries/posts.ts'],
-  ['resume.html', 'src/entries/resume.ts'],
-  ['genui.html', 'src/entries/genui.js'],
-  ['genui-possibilities.html', 'src/entries/genui-possibilities.js'],
-]);
 const ROOT_SERVER_FILES = new Set([
   'signaling-server.js',
   'signaling-worker.js',
-  'vite.config.ts',
   'vite-plugin-moonbit.ts',
   'moonbit-artifacts.mjs',
   'moonbit-artifacts.d.mts',
@@ -84,10 +63,6 @@ export function describePath(filePath) {
   if (normalized === 'src/pages.gen.ts') {
     return { kind: 'generated' };
   }
-  const htmlOwner = ENTRY_FEATURES.get(normalized);
-  if (htmlOwner !== undefined) {
-    return { kind: 'feature', owner: htmlOwner, layer: 'browser' };
-  }
   if (
     /(^|\/)server\//.test(normalized) ||
     /(^|\/)waku\.server\.[^.]+$/.test(normalized) ||
@@ -104,9 +79,6 @@ export function describePath(filePath) {
       : WAKU_PAGE_OWNERS.get(routeName) ?? routeName;
     return { kind: 'page', owner };
   }
-
-  const entryMatch = normalized.match(/(^|\/)entries\/([^/]+)\.[^.]+$/);
-  if (entryMatch) return { kind: 'entry', owner: entryMatch[2] };
 
   const featureMatch = normalized.match(/(^|\/)features\/([^/]+)(?:\/([^/]+))?/);
   if (featureMatch) {
@@ -126,7 +98,6 @@ export function describePath(filePath) {
   if (/(^|\/)shared\//.test(normalized) || base === 'vite-env.d.ts') {
     return { kind: 'shared' };
   }
-  if (base === 'tailwind.css') return { kind: 'feature', owner: 'genui' };
   return { kind: 'unclassified' };
 }
 
@@ -252,15 +223,6 @@ export function evaluateEdge(from, to, specifier = to, clientModule = false) {
   ) {
     violations.push('a feature cannot import another feature internals');
   }
-  if (source.kind === 'entry') {
-    if (
-      target.kind !== 'feature' ||
-      target.owner !== source.owner ||
-      target.layer !== 'browser'
-    ) {
-      violations.push('entry can only compose its corresponding feature browser surface');
-    }
-  }
   if (source.kind === 'page' && target.kind === 'feature') {
     if (target.layer !== 'route') {
       violations.push('Waku page can only import a feature route surface');
@@ -351,57 +313,9 @@ export function checkBoundaries({
   return violations;
 }
 
-export function htmlEntryAccepted(script, feature, currentScript) {
-  const relative = script.startsWith('/') ? script.slice(1) : script;
-  const target = describePath(relative);
-  return relative === currentScript ||
-    (target.kind === 'entry' && target.owner === feature);
-}
-
-export function evaluateHtmlEntryScripts(html, feature, scripts, currentScript) {
-  const violations = [];
-  let acceptedCount = 0;
-  for (const script of scripts) {
-    const relative = script.startsWith('/') ? script.slice(1) : script;
-    if (htmlEntryAccepted(script, feature, currentScript)) {
-      acceptedCount += 1;
-    } else {
-      violations.push({
-        from: html,
-        to: relative,
-        rule: 'HTML entry must load its corresponding browser entry module',
-      });
-    }
-  }
-  if (acceptedCount === 0) {
-    violations.push({
-      from: html,
-      to: '<missing>',
-      rule: 'HTML entry must load at least one corresponding browser entry module',
-    });
-  }
-  return violations;
-}
-
-export function checkHtmlEntries(root) {
-  const violations = [];
-  for (const [html, feature] of ENTRY_FEATURES) {
-    const htmlText = fs.readFileSync(path.join(root, html), 'utf8');
-    const scripts = [...htmlText.matchAll(/<script[^>]+src=["']([^"']+)["']/g)]
-      .map(match => match[1]);
-    violations.push(...evaluateHtmlEntryScripts(
-      html,
-      feature,
-      scripts,
-      CURRENT_ENTRY_SCRIPTS.get(html),
-    ));
-  }
-  return violations;
-}
-
 if (import.meta.url === `file://${process.argv[1]}`) {
   const root = path.resolve(process.argv[2] ?? new URL('..', import.meta.url).pathname);
-  const violations = [...checkBoundaries({ root }), ...checkHtmlEntries(root)];
+  const violations = checkBoundaries({ root });
   if (violations.length > 0) {
     for (const violation of violations) {
       console.error(`${violation.from} -> ${violation.to}: ${violation.rule}`);

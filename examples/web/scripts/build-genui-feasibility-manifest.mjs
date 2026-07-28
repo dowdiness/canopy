@@ -132,7 +132,7 @@ export async function buildManifest({
       {
         id: 'development-e2e',
         command: 'npx',
-        args: ['playwright', 'test', 'tests/genui.spec.ts', '--project=chromium', '--grep', 'feasibility'],
+        args: ['playwright', 'test', '--config=playwright.waku.config.ts', 'tests/genui.spec.ts', '--project=chromium', '--grep', 'feasibility'],
         cwd: 'examples/web',
         env: {},
       },
@@ -142,9 +142,8 @@ export async function buildManifest({
         command: 'npx',
         args: [
           'playwright', 'test',
-          '--config=playwright.preview.config.ts',
+          '--config=playwright.waku-preview.config.ts',
           '--project=chromium',
-          '--grep', 'local study runner|local provider marker',
         ],
         cwd: 'examples/web',
         env: {},

@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 
 const POST_STORAGE_KEY = 'canopy.posts.v1';
 const POST_EVENT_STORAGE_KEY = 'canopy.post-events.v1';
-const postsUrl = process.env.POSTS_URL ?? '/posts.html';
+const postsUrl = process.env.POSTS_URL ?? '/posts';
 
 async function waitForPostsReady(page: Page): Promise<void> {
   await expect(page.getByRole('heading', { name: 'Post to yourself.' })).toBeVisible();

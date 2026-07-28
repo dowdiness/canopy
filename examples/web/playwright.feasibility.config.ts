@@ -14,8 +14,8 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   webServer: {
-    command: 'moon build --target js && npx vite --host 127.0.0.1 --port 4174 --strictPort',
-    url: 'http://127.0.0.1:4174/genui.html',
+    command: 'moon build --target js && npm run dev:waku -- --host 127.0.0.1 --port 4174',
+    url: 'http://127.0.0.1:4174/genui',
     reuseExistingServer: false,
     timeout: 120_000,
   },

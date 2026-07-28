@@ -416,19 +416,27 @@ jobs:
 
       - name: Dry-run the preview Worker bundle
         working-directory: examples/web
-        run: npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env preview
+        run: >-
+          npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env preview
+          --outfile "${RUNNER_TEMP}/waku-preview-worker.bundle"
 
       - name: Record Worker startup profile
         working-directory: examples/web
-        run: npx wrangler check startup --config wrangler.waku.jsonc --env preview
+        run: >-
+          npx wrangler check startup
+          --worker "${RUNNER_TEMP}/waku-preview-worker.bundle"
 
       - name: Dry-run the production Worker bundle
         working-directory: examples/web
-        run: npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env production
+        run: >-
+          npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env production
+          --outfile "${RUNNER_TEMP}/waku-production-worker.bundle"
 
       - name: Record production Worker startup profile
         working-directory: examples/web
-        run: npx wrangler check startup --config wrangler.waku.jsonc --env production
+        run: >-
+          npx wrangler check startup
+          --worker "${RUNNER_TEMP}/waku-production-worker.bundle"
 
       - name: Create Waku release manifest
         working-directory: examples/web
@@ -536,48 +544,6 @@ jobs:
       - name: Smoke built Worker under workerd
         working-directory: examples/web
         run: npm run test:waku:workerd
-
-  web-e2e:
-    name: Web E2E
-    needs: [build-js, changes]
-    if: needs.changes.outputs.run_e2e == 'true'
-    runs-on: ubuntu-latest
-    container:
-      image: mcr.microsoft.com/playwright:v1.61.1-noble
-      options: --ipc=host
-    env:
-      CANOPY_SKIP_MOON_BUILD: 1
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-        with:
-          submodules: recursive
-
-      - name: Download MoonBit JS artifacts
-        uses: actions/download-artifact@v8
-        with:
-          name: moonbit-js-build
-          path: _build/js/release/build/dowdiness
-
-      - name: Verify downloaded artifacts
-        run: |
-          test -f _build/js/release/build/dowdiness/canopy/ffi/lambda/lambda.js
-          test -f _build/js/release/build/dowdiness/canopy/ffi/json/json.js
-          echo "All required MoonBit JS artifacts verified"
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: '24'
-          cache: 'npm'
-          cache-dependency-path: examples/web/package-lock.json
-
-      - name: Install web dependencies
-        working-directory: examples/web
-        run: npm ci
-
-      - name: Run web Playwright suite
-        run: ./scripts/test-web-e2e.sh
 
   ideal-web-e2e:
     name: Ideal Web E2E
@@ -718,7 +684,6 @@ jobs:
       - waku-build
       - waku-e2e
       - waku-workerd
-      - web-e2e
       - ideal-web-e2e
       - demo-react-e2e
       - canvas-e2e
@@ -739,7 +704,6 @@ jobs:
              ! ok "${{ needs.waku-build.result }}" || \
              ! ok "${{ needs.waku-e2e.result }}" || \
              ! ok "${{ needs.waku-workerd.result }}" || \
-             ! ok "${{ needs.web-e2e.result }}" || \
              ! ok "${{ needs.ideal-web-e2e.result }}" || \
              ! ok "${{ needs.demo-react-e2e.result }}" || \
              ! ok "${{ needs.canvas-e2e.result }}"; then

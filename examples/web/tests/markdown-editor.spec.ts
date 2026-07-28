@@ -4,7 +4,7 @@
 
 import { test, expect, type Page } from '@playwright/test';
 
-const markdownEditorUrl = process.env.MARKDOWN_EDITOR_URL ?? '/markdown.html';
+const markdownEditorUrl = process.env.MARKDOWN_EDITOR_URL ?? '/markdown';
 
 // ---------------------------------------------------------------------------
 // Helpers

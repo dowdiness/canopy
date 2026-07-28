@@ -1,14 +1,10 @@
 #!/bin/sh
 set -e
 
-DEPLOY_TARGET="${1:-vite}"
-case "$DEPLOY_TARGET" in
-  vite|waku) ;;
-  *)
-    echo "Unknown web deployment target: $DEPLOY_TARGET" >&2
-    exit 2
-    ;;
-esac
+if [ "$#" -gt 1 ] || [ "${1:-waku}" != "waku" ]; then
+  echo "Usage: $0 [waku]" >&2
+  exit 2
+fi
 
 # Install MoonBit CLI
 MOONBIT_VERSION="0.10.4+ade96c819"
@@ -42,9 +38,4 @@ echo "==> Building graphviz module..."
 (cd graphviz && moon build --target js --release)
 
 cd examples/web
-
-if [ "$DEPLOY_TARGET" = "waku" ]; then
-  npm run build:waku
-else
-  npx vite build
-fi
+npm run build:waku

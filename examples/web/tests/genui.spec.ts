@@ -5,7 +5,7 @@ import {
   recordedFeasibilityCandidateJson,
 } from '../src/features/genui/core/genui-recorded-candidates.js';
 
-const GENUI_URL = process.env.GENUI_URL ?? '/genui.html';
+const GENUI_URL = process.env.GENUI_URL ?? '/genui';
 type GenUiSessionResult = {
   success: boolean;
   revision: number;

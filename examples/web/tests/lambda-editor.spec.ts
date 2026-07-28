@@ -74,7 +74,7 @@ test.describe('Lambda Editor — Foundation', () => {
 
   test('every example preset typechecks clean', async ({ page }) => {
     // All five presets now carry `: Type` annotations on every lambda
-    // (see examples/web/index.html). Loading each must produce a clean
+    // Loading each route example must produce a clean
     // typecheck — no diagnostic error items.
     const examples = ['Basics', 'Composition', 'Currying', 'Conditional', 'Pipeline'];
     for (const name of examples) {

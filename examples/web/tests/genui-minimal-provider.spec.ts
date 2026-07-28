@@ -10,7 +10,7 @@ test('minimal provider candidate reaches unchanged commit path', async ({ page }
   const request = JSON.parse(await readFile(join(runRoot, 'request.json'), 'utf8'));
   const candidateJson = await readFile(join(runRoot, 'candidate.json'), 'utf8');
 
-  await page.goto('/genui.html');
+  await page.goto('/genui');
   const result = await page.evaluate(
     ({ caseId, candidateJson }) => window.__canopyGenUiFeasibilityTest.commitSavedCandidate({ caseId, candidateJson }),
     { caseId: request.fixtureId, candidateJson },
