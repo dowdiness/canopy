@@ -240,6 +240,11 @@ test('keeps Vite defaults while exposing explicit dual-run commands', () => {
   assert.equal(pkg.scripts['dev:waku'], 'waku dev');
   assert.equal(pkg.scripts['dev:dual'], 'bash scripts/dev-dual.sh');
   assert.equal(pkg.scripts['build:waku'], 'bash scripts/build-waku.sh');
+  assert.equal(pkg.scripts['build:deploy'], 'sh scripts/build-deploy.sh');
+  assert.equal(
+    pkg.scripts['build:deploy:waku'],
+    'sh scripts/build-deploy.sh waku',
+  );
   assert.equal(
     pkg.scripts['test:waku:preview'],
     'playwright test --config=playwright.waku-preview.config.ts',
@@ -255,6 +260,24 @@ test('keeps Vite defaults while exposing explicit dual-run commands', () => {
   assert.equal(pkg.dependencies.waku, '1.0.0-beta.8');
   assert.equal(pkg.devDependencies.wrangler, '4.114.0');
   assert.equal(pkg.engines.node, '^24.0.0 || ^22.15.0');
+});
+
+test('gives Cloudflare Workers Builds an explicit Waku production target', () => {
+  const deployScript = fs.readFileSync(
+    new URL('./build-deploy.sh', import.meta.url),
+    'utf8',
+  );
+  assert.match(deployScript, /DEPLOY_TARGET="\$\{1:-vite\}"/);
+  assert.match(deployScript, /npm run build:waku/);
+  assert.match(deployScript, /npx vite build/);
+
+  const deployWorkflow = fs.readFileSync(
+    new URL('../../../.github/workflows/deploy-cloudflare.yml', import.meta.url),
+    'utf8',
+  );
+  assert.doesNotMatch(deployWorkflow, /^\s+- name: web$/m);
+  assert.doesNotMatch(deployWorkflow, /project-name: canopy-lambda-editor/);
+  assert.match(deployWorkflow, /^\s+- name: ideal$/m);
 });
 
 test('runs both development servers behind one external root watcher', () => {
@@ -322,7 +345,7 @@ test('adds parallel Waku build, browser, and workerd jobs to the repository gate
   assert.match(aggregate, /needs\.waku-workerd\.result/);
 });
 
-test('isolates the non-deploying Waku foundation from the existing Vite deployment', () => {
+test('keeps the Vite config separate from the Waku production deployment', () => {
   const legacyWrangler = JSON.parse(
     fs.readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8'),
   );
@@ -349,7 +372,7 @@ test('isolates the non-deploying Waku foundation from the existing Vite deployme
     globs: ['**/*.js', '**/*.mjs'],
   }]);
   assert.equal(wakuWrangler.env.preview.name, 'canopy-web-waku-preview');
-  assert.equal(wakuWrangler.env.production.name, 'canopy-web-waku-production');
+  assert.equal(wakuWrangler.env.production.name, 'canopy-examples');
   const signalingBinding = [{
     binding: 'SIGNALING',
     service: 'crdt-signaling-server',

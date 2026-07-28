@@ -6,6 +6,7 @@
     "dev": "vite",
     "build": "vite build",
     "build:deploy": "sh scripts/build-deploy.sh",
+    "build:deploy:waku": "sh scripts/build-deploy.sh waku",
     "preview": "vite preview",
     "signaling": "node signaling-server.js",
     "genui:minimal-provider-e2e": "node scripts/run-genui-minimal-provider-e2e.mjs",

@@ -17,19 +17,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: web
-            project-name: canopy-lambda-editor
-            type: pages
-            # Retry-wrapped: transient mooncakes CDN 403 (issue #467) auto-recovers.
-            moon-update: |
-              "$GITHUB_WORKSPACE/scripts/moon-update.sh"
-              cd graphviz && "$GITHUB_WORKSPACE/scripts/moon-update.sh"
-            moon-build: |
-              moon build --target js --release
-              cd graphviz && moon build --target js --release
-            npm-dir: examples/web
-            deploy-dir: examples/web/dist
-
           - name: ideal
             project-name: canopy-ideal
             type: pages

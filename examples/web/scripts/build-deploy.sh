@@ -1,6 +1,15 @@
 #!/bin/sh
 set -e
 
+DEPLOY_TARGET="${1:-vite}"
+case "$DEPLOY_TARGET" in
+  vite|waku) ;;
+  *)
+    echo "Unknown web deployment target: $DEPLOY_TARGET" >&2
+    exit 2
+    ;;
+esac
+
 # Install MoonBit CLI
 curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
 export PATH="$HOME/.moon/bin:$PATH"
@@ -33,5 +42,8 @@ echo "==> Building graphviz module..."
 
 cd examples/web
 
-# Build with Vite (modules should already exist)
-npx vite build
+if [ "$DEPLOY_TARGET" = "waku" ]; then
+  npm run build:waku
+else
+  npx vite build
+fi

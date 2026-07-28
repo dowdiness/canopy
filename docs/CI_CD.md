@@ -66,13 +66,11 @@ The comparison covers the root module and `event-graph-walker`.
 
 ### `deploy-cloudflare.yml`
 
-Deploys on every push to `main` (and on manual dispatch). The matrix has
-seven entries — six Cloudflare Pages projects and one Cloudflare Workers
-deployment:
+Deploys on every push to `main` (and on manual dispatch). The matrix has six
+entries — five Cloudflare Pages projects and one Cloudflare Workers deployment:
 
 | Matrix name | Cloudflare project | Type | Source directory |
 |-------------|--------------------|------|------------------|
-| `web` | `canopy-lambda-editor` | Pages | `examples/web/dist` |
 | `ideal` | `canopy-ideal` | Pages | `examples/ideal/web/dist` |
 | `prosemirror` | `canopy-prosemirror` | Pages | `examples/prosemirror/dist` |
 | `demo-react` | `canopy-demo-react` | Pages | `examples/demo-react/dist` |
@@ -81,6 +79,12 @@ deployment:
 | `relay-server` | `canopy-relay` | Workers | `examples/relay-server` |
 
 Requires the secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+
+`examples/web` is intentionally absent from this workflow. Cloudflare Workers
+Builds connects directly to GitHub and deploys `examples/web` to the
+`canopy-examples` Worker after every push to `main`; its build and deploy
+settings are documented in
+[`examples/web/CLOUDFLARE_DEPLOYMENT.md`](../examples/web/CLOUDFLARE_DEPLOYMENT.md).
 
 > Earlier revisions of this doc described deployment via GitHub Pages to
 > `dowdiness.github.io/crdt/`. That path is no longer used.

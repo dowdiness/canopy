@@ -42,7 +42,6 @@ npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env production
 npx wrangler check startup --config wrangler.waku.jsonc --env production
 ```
 
-Do not run a live deploy from this guide. Waku production remains blocked until
-protected GitHub environments, main-branch protection, environment-scoped
-credentials, the target hostname, and the observability policy are configured.
-The existing Pages site remains the fallback in the meantime.
+Do not run a live deploy from this guide. Production deployment is owned by the
+Cloudflare Workers Builds GitHub integration described in the deployment
+runbook; pushes to `main` deploy the Waku application to `canopy-examples`.
