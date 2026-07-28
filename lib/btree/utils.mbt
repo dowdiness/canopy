@@ -13,6 +13,17 @@ fn clamp_min_degree(min_degree : Int) -> Int {
 }
 
 ///|
+/// Reject invalid leaf spans before a constructor or splice mutates tree state.
+fn[T] validate_positive_spans(
+  items : Array[(T, Int)],
+  operation : String,
+) -> Unit {
+  guard items.all(pair => pair.1 > 0) else {
+    abort("\{operation}: leaf spans must be positive")
+  }
+}
+
+///|
 /// Wrap an array of child nodes into an Internal node with computed counts/total.
 fn[T] make_internal(children : Array[BTreeNode[T]]) -> BTreeNode[T] {
   let counts : Array[Int] = children.map(fn(n) { n.total() })

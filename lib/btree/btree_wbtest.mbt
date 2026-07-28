@@ -216,6 +216,57 @@ test "panic insert on empty tree aborts" {
   t.mutate_for_insert(0, fn(_ctx) { abort("should not reach callback") })
 }
 
+///|
+test "panic from_sorted rejects zero non-positive span" {
+  let _ : BTree[TItem] = BTree::from_sorted([(make_item(1, 0), 0)])
+}
+
+///|
+test "panic from_sorted rejects negative non-positive span" {
+  let _ : BTree[TItem] = BTree::from_sorted([(make_item(1, -1), -1)])
+}
+
+///|
+test "panic init_root rejects zero non-positive span" {
+  let t : BTree[TItem] = BTree::new()
+  t.init_root(make_item(1, 0), 0)
+}
+
+///|
+test "panic init_root rejects negative non-positive span" {
+  let t : BTree[TItem] = BTree::new()
+  t.init_root(make_item(1, -1), -1)
+}
+
+///|
+test "panic insert splice rejects non-positive span" {
+  let t = build_tree([(1, 1)])
+  // abort is uncatchable, so atomicity is verified by validation-before-splice
+  // source ordering rather than by observing state after the failure.
+  t.mutate_for_insert(1, ctx => {
+    start_idx: ctx.child_idx + 1,
+    end_idx: ctx.child_idx + 1,
+    new_leaves: [(make_item(2, 0), 0)],
+  })
+}
+
+///|
+test "panic delete splice rejects non-positive span" {
+  let t = build_tree([(1, 2)])
+  // abort is uncatchable, so atomicity is verified by validation-before-splice
+  // source ordering rather than by observing state after the failure.
+  let _ = t.mutate_for_delete(0, ctx => {
+    (
+      {
+        start_idx: ctx.child_idx,
+        end_idx: ctx.child_idx + 1,
+        new_leaves: [(make_item(2, -1), -1)],
+      },
+      ctx.elem,
+    )
+  })
+}
+
 // === Iteration ===
 
 ///|
@@ -1392,7 +1443,7 @@ fn[T] check_node_invariants(
   depth : Int,
 ) -> (Bool, Int, Int) {
   match node {
-    Leaf(..) => (true, depth, 1)
+    Leaf(span~, ..) => (span > 0, depth, 1)
     Internal(children~, counts~, total~) => {
       if children is [] {
         return (false, depth, 0)
