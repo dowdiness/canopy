@@ -12,7 +12,7 @@ are implemented by the Waku route and lifecycle surfaces linked below.
 ## Scope
 
 The inventory covers the eight demos listed in the current
-[module map](../../examples/web/MODULE_MAP.md#L5-L16). It records visible
+[module map](../../examples/web/MODULE_MAP.md). It records visible
 workflows, runtime dependencies, state lifetime, accessibility behavior,
 existing verification, development-only capabilities, migration gates, and
 verified gaps. It does not cover the inactive `spike-block-input.html` surface
@@ -22,14 +22,14 @@ or historical files under `docs/archive`.
 
 | Demo | Canonical route and page | Primary job | Runtime boundary | Persistence | Development/production split | Principal test |
 | --- | --- | --- | --- | --- | --- | --- |
-| Lambda | `/ml` ([page](../../examples/web/src/pages/ml.tsx), [map](../../examples/web/MODULE_MAP.md#L8)) | Edit Mini-ML and inspect AST, formatted structure, and diagnostics | Generated Lambda and Graphviz JavaScript virtual modules; local AST Grep adapter | Page memory | AST Grep returns no matches outside development; visible collaboration controls are not bound by the current route surface | [Lambda Playwright](../../examples/web/tests/lambda-editor.spec.ts#L1-L163) |
-| JSON | `/json` ([page](../../examples/web/src/pages/json.tsx), [map](../../examples/web/MODULE_MAP.md#L9)) | Edit JSON as text or a structural tree and inspect edits | Generated JSON JavaScript virtual module and editor adapter | Page memory | No custom server adapter | [JSON Playwright](../../examples/web/tests/json-editor.spec.ts#L1-L291) |
-| Markdown | `/markdown` ([page](../../examples/web/src/pages/markdown.tsx), [map](../../examples/web/MODULE_MAP.md#L10)) | Edit one Markdown document in block, raw, and preview modes | Generated Markdown JavaScript virtual module and editor adapter | Page memory | No custom server adapter | [Markdown Playwright](../../examples/web/tests/markdown-editor.spec.ts#L1-L375) |
-| Memo | `/memo` ([page](../../examples/web/src/pages/memo.tsx), [map](../../examples/web/MODULE_MAP.md#L11)) | Preview and accept or reject typo corrections and structured edits | Generated Lambda JavaScript virtual module; browser-to-Google credential flow | Page memory | Explicitly local-only; production renders unavailable state | [Memo Playwright](../../examples/web/tests/memo-editor.spec.ts#L1-L26) |
-| Posts | `/posts` ([page](../../examples/web/src/pages/posts.tsx), [map](../../examples/web/MODULE_MAP.md#L12)) | Save local posts and retrieve related earlier posts | Browser persistence shell around deterministic TypeScript core | `localStorage` | Same browser implementation in both modes | [Posts Playwright](../../examples/web/tests/post-app.spec.ts#L1-L243) |
-| Resume/PKE | `/resume` ([page](../../examples/web/src/pages/resume.tsx), [map](../../examples/web/MODULE_MAP.md#L13)) | Inspect a session through synchronized timeline, conversation, and evidence; optionally chat with attached context | React 19 browser app and local dev chat relay | Page memory; imported file is not stored | DeepSeek/fake relay is local; production reports unavailable | [Resume Playwright](../../examples/web/tests/pi-resume.spec.ts#L1-L1159) |
-| GenUI | `/genui` ([page](../../examples/web/src/pages/genui.tsx), [map](../../examples/web/MODULE_MAP.md#L14)) | Stream JSX, inspect projection/diagnostics, and replay bounded feasibility candidates | Generated JSX JavaScript virtual module; optional local study relay | Page memory | Preview keeps recorded replay and excludes the development test hook and local study endpoint | [GenUI Playwright](../../examples/web/tests/genui.spec.ts#L1-L1403) |
-| Journey | `/journey` ([page](../../examples/web/src/pages/journey.tsx), [map](../../examples/web/MODULE_MAP.md#L15)) | Compare journey responses, preview a change, apply it, and undo it | Deterministic JavaScript reducer with a DOM shell | Page memory | No custom server adapter | [Journey Playwright](../../examples/web/tests/genui-possibilities.spec.ts#L1-L442) |
+| Lambda | `/ml` ([page](../../examples/web/src/pages/ml.tsx), [map](../../examples/web/MODULE_MAP.md)) | Edit Mini-ML and inspect AST, formatted structure, and diagnostics | Generated Lambda and Graphviz JavaScript virtual modules; local AST Grep adapter | Page memory | AST Grep returns no matches outside development; visible collaboration controls are not bound by the current route surface | [Lambda Playwright](../../examples/web/tests/lambda-editor.spec.ts#L1-L163) |
+| JSON | `/json` ([page](../../examples/web/src/pages/json.tsx), [map](../../examples/web/MODULE_MAP.md)) | Edit JSON as text or a structural tree and inspect edits | Generated JSON JavaScript virtual module and editor adapter | Page memory | No custom server adapter | [JSON Playwright](../../examples/web/tests/json-editor.spec.ts#L1-L291) |
+| Markdown | `/markdown` ([page](../../examples/web/src/pages/markdown.tsx), [map](../../examples/web/MODULE_MAP.md)) | Edit one Markdown document in block, raw, and preview modes | Generated Markdown JavaScript virtual module and editor adapter | Page memory | No custom server adapter | [Markdown Playwright](../../examples/web/tests/markdown-editor.spec.ts#L1-L375) |
+| Memo | `/memo` ([page](../../examples/web/src/pages/memo.tsx), [map](../../examples/web/MODULE_MAP.md)) | Preview and accept or reject typo corrections and structured edits | Generated Lambda JavaScript virtual module; browser-to-Google credential flow | Page memory | Explicitly local-only; production renders unavailable state | [Memo Playwright](../../examples/web/tests/memo-editor.spec.ts#L1-L26) |
+| Posts | `/posts` ([page](../../examples/web/src/pages/posts.tsx), [map](../../examples/web/MODULE_MAP.md)) | Save local posts and retrieve related earlier posts | Browser persistence shell around deterministic TypeScript core | `localStorage` | Same browser implementation in both modes | [Posts Playwright](../../examples/web/tests/post-app.spec.ts#L1-L243) |
+| Resume/PKE | `/resume` ([page](../../examples/web/src/pages/resume.tsx), [map](../../examples/web/MODULE_MAP.md)) | Inspect a session through synchronized timeline, conversation, and evidence; optionally chat with attached context | React 19 browser app and local dev chat relay | Page memory; imported file is not stored | DeepSeek/fake relay is local; production reports unavailable | [Resume Playwright](../../examples/web/tests/pi-resume.spec.ts#L1-L1159) |
+| GenUI | `/genui` ([page](../../examples/web/src/pages/genui.tsx), [map](../../examples/web/MODULE_MAP.md)) | Stream JSX, inspect projection/diagnostics, and replay bounded feasibility candidates | Generated JSX JavaScript virtual module; optional local study relay | Page memory | Preview keeps recorded replay and excludes the development test hook and local study endpoint | [GenUI Playwright](../../examples/web/tests/genui.spec.ts#L1-L1403) |
+| Journey | `/journey` ([page](../../examples/web/src/pages/journey.tsx), [map](../../examples/web/MODULE_MAP.md)) | Compare journey responses, preview a change, apply it, and undo it | Deterministic JavaScript reducer with a DOM shell | Page memory | No custom server adapter | [Journey Playwright](../../examples/web/tests/genui-possibilities.spec.ts#L1-L442) |
 
 ## Lambda calculus editor
 
@@ -84,7 +84,7 @@ mount binds only the editor and preset buttons. Signaling files remain separate 
 shells outside the browser graph
 ([route](../../examples/web/src/pages/ml.tsx),
 [client mount](../../examples/web/src/features/lambda/route/lambda-client.tsx#L20-L53),
-[map](../../examples/web/MODULE_MAP.md#L8-L23)).
+[map](../../examples/web/MODULE_MAP.md)).
 
 ### Migration acceptance gates
 
@@ -116,7 +116,7 @@ structural actions, and an edit log
 The browser imports `@moonbit/crdt-json`, the HTML adapter, adapter view types,
 and the shared decoration overlay
 ([editor](../../examples/web/src/features/json/browser/editor.ts#L1-L4)). No
-server adapter belongs to this surface ([map](../../examples/web/MODULE_MAP.md#L7-L22)).
+server adapter belongs to this surface ([map](../../examples/web/MODULE_MAP.md)).
 
 ### State and lifetime
 
@@ -142,7 +142,7 @@ behavior ([tests](../../examples/web/tests/json-editor.spec.ts#L29-L291)).
 
 The current surface has no custom server adapter; its generated JavaScript
 module and browser code are shared by development and production builds
-([map](../../examples/web/MODULE_MAP.md#L7-L22)).
+([map](../../examples/web/MODULE_MAP.md)).
 
 ### Migration acceptance gates
 
@@ -172,7 +172,7 @@ The browser imports `@moonbit/crdt-markdown`, `BlockInput`, `MarkdownPreview`,
 and adapter protocol types
 ([app](../../examples/web/src/features/markdown/browser/app.ts#L1-L9)). There is
 no custom server adapter for this surface
-([map](../../examples/web/MODULE_MAP.md#L9-L22)).
+([map](../../examples/web/MODULE_MAP.md)).
 
 ### State and lifetime
 
@@ -200,7 +200,7 @@ preview output ([tests](../../examples/web/tests/markdown-editor.spec.ts#L29-L37
 ### Development/production split
 
 The current surface has no custom server capability; the same browser modules
-run in both builds ([map](../../examples/web/MODULE_MAP.md#L9-L22)).
+run in both builds ([map](../../examples/web/MODULE_MAP.md)).
 
 ### Migration acceptance gates
 
@@ -283,7 +283,7 @@ timeline ([route](../../examples/web/src/pages/posts.tsx),
 The browser shell composes deterministic post/event/retrieval core modules with
 DOM and `localStorage` adapters. It has no generated MoonBit or custom server
 dependency ([mount](../../examples/web/src/features/posts/browser/mount.ts#L1-L13),
-[map](../../examples/web/MODULE_MAP.md#L11-L22)).
+[map](../../examples/web/MODULE_MAP.md)).
 
 ### State and lifetime
 
@@ -310,7 +310,7 @@ event shape ([tests](../../examples/web/tests/post-app.spec.ts#L12-L243)).
 ### Development/production split
 
 The feature is browser-only in both modes
-([map](../../examples/web/MODULE_MAP.md#L11-L22)).
+([map](../../examples/web/MODULE_MAP.md)).
 
 ### Migration acceptance gates
 
@@ -386,7 +386,7 @@ outbound request preview, and zero browser persistence
 ### Known gaps
 
 Production chat availability is unverified by the current preview suites
-([map](../../examples/web/MODULE_MAP.md#L18-L23)).
+([map](../../examples/web/MODULE_MAP.md)).
 
 ## GenUI
 
@@ -404,7 +404,7 @@ provides a JSON/CSV order explorer
 The browser uses the generated `@moonbit/crdt-jsx` JavaScript virtual module and
 Tailwind input. The local feasibility adapter consumes deterministic core
 fixtures/candidates and a server-only provider
-([map](../../examples/web/MODULE_MAP.md#L13-L22),
+([map](../../examples/web/MODULE_MAP.md),
 [adapter](../../examples/web/server/vite/genui-feasibility.ts#L1-L25)).
 
 ### State and lifetime
@@ -428,7 +428,7 @@ invalid/stale rejection, DOM-apply recovery, data filtering/selection, and async
 driver cancellation/restart. Colocated core/provider tests cover deterministic
 flow and provider boundaries
 ([browser tests](../../examples/web/tests/genui.spec.ts#L331-L1403),
-[test ownership](../../examples/web/MODULE_MAP.md#L42-L48)).
+[test ownership](../../examples/web/MODULE_MAP.md)).
 
 ### Development/production split
 
@@ -471,7 +471,7 @@ A deterministic `transitionJourney` reducer owns select/apply/undo decisions;
 the browser module renders state and wires effects. No custom server adapter or
 generated MoonBit module belongs to this surface
 ([reducer](../../examples/web/src/features/genui-possibilities/core/journey-state.js#L1-L67),
-[map](../../examples/web/MODULE_MAP.md#L14-L22)).
+[map](../../examples/web/MODULE_MAP.md)).
 
 ### State and lifetime
 
@@ -498,7 +498,7 @@ reduced motion, and forced colors
 ### Development/production split
 
 The current surface is browser-only in both modes
-([map](../../examples/web/MODULE_MAP.md#L14-L22)).
+([map](../../examples/web/MODULE_MAP.md)).
 
 ### Migration acceptance gates
 
@@ -518,15 +518,15 @@ full reload
 
 1. Preserve all nine canonical routes and seven permanent compatibility redirects.
    The seven legacy demo aliases return 308; `/index.html` renders the Hub without redirect
-   ([route table](../../examples/web/MODULE_MAP.md#L8-L16)).
+   ([route table](../../examples/web/MODULE_MAP.md)).
 2. Preserve the five public MoonBit virtual import IDs, generated JavaScript
    artifact paths, declaration mappings, and dependency-optimizer exclusions
    ([Waku config](../../examples/web/waku.config.ts#L1-L30),
-   [map](../../examples/web/MODULE_MAP.md#L24-L40)).
+   [map](../../examples/web/MODULE_MAP.md)).
 3. Keep imperative editor/session ownership inside client-side feature shells.
    Waku pages remain thin, browser code does not import server adapters, and
    local adapters consume only permitted core/protocol surfaces
-   ([map](../../examples/web/MODULE_MAP.md#L50-L71)).
+   ([map](../../examples/web/MODULE_MAP.md)).
 4. Do not clear or silently rewrite Posts data under `canopy.posts.v1` or
    `canopy.post-events.v1`; other demo route memory follows the explicit
    traversal-restore and full-reload-reset lifecycle contracts
@@ -550,7 +550,7 @@ full reload
 
 ## Source register
 
-- [Active-surface and runtime inventory](../../examples/web/MODULE_MAP.md#L1-L74)
+- [Active-surface and runtime inventory](../../examples/web/MODULE_MAP.md)
 - [Waku configuration](../../examples/web/waku.config.ts#L1-L30)
 - [Waku route pages](../../examples/web/src/pages/)
 - [Feature packages](../../examples/web/src/features/)

@@ -38,13 +38,13 @@ JS build artifacts are namespaced under the module path: `_build/js/release/buil
 
 ### Web Development
 ```bash
+moon build --target js              # Build for web
 cd examples/web && npm run dev      # Waku dev server (localhost:3000)
 # Demo Hub:         http://localhost:3000/
 # Mini-ML:          http://localhost:3000/ml
 # JSON editor:      http://localhost:3000/json
 # Markdown editor:  http://localhost:3000/markdown
 # Canonical routes: /journey, /posts, /memo, /resume, /genui
-moon build --target js              # Build for web
 ```
 
 TypeScript front-ends live alongside the MoonBit examples and have separate CI

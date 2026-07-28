@@ -1,6 +1,9 @@
 # examples/web — Waku Worker
 
-`examples/web` is a Waku 1.0.0-beta.8 application deployed as the `canopy-examples` Cloudflare Worker. Every push to `main` builds and deploys at 100% through Cloudflare Workers Builds.
+`examples/web` is a Waku 1.0.0-beta.8 application deployed as the
+`canopy-examples` Cloudflare Worker. Cloudflare Workers Builds is configured to
+build and deploy `main` directly at 100%. This PR's post-merge deployment remains
+unverified.
 
 ## Canonical routes
 

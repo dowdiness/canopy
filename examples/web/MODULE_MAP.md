@@ -111,6 +111,7 @@ Allowed direction is `pages -> corresponding feature route surface -> feature br
 ## Validation
 
 ```bash
+cd examples/web
 npm ci
 npm run typecheck
 npm run check:boundaries

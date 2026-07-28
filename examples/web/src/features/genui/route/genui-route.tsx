@@ -12,7 +12,7 @@ export function GenuiRoute() {
             <p className="text-canopy-muted text-[13px] mb-4">
               JSX streamed chunk-by-chunk → <em className="text-canopy-yellow not-italic">real DOM elements</em> appear incrementally.
               Stable NodeIds reuse existing DOM nodes; only new content triggers renders.
-              <a href="https://github.com/dowdiness/canopy" target="_blank" className="text-canopy-green underline">GitHub</a>
+              <a href="https://github.com/dowdiness/canopy" target="_blank" rel="noopener noreferrer" className="text-canopy-green underline">GitHub</a>
             </p>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -195,6 +195,7 @@ export function GenuiRoute() {
             </section>
           </div>
 
+          {/* Safelist utility classes emitted by streamed and recorded GenUI JSX. */}
           <div className="hidden bg-gray-800 text-white p-6 rounded-xl shadow-lg max-w-lg text-2xl font-bold text-emerald-400 mb-2 text-gray-300 text-xl text-sky-400 mb-3 underline hover:text-sky-300 space-y-3 bg-gray-700 rounded-lg p-4 text-amber-400 mt-3 list-disc list-inside space-y-1 text-rose-400 bg-amber-500/20 text-amber-300 px-3 py-1 rounded-full text-sm inline-block space-y-4 border-b border-gray-600 pb-3 text-cyan-400 flex gap-4 hover:text-cyan-400 bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg max-w-md text-indigo-100 bg-white/20 bg-white/10 text-indigo-200"></div>
         </main>
       </div>
