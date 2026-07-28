@@ -25,7 +25,7 @@
     "test:waku:workerd": "bash scripts/smoke-waku-worker.sh"
   },
   "dependencies": {
-    "@ai-sdk/deepseek": "^3.0.12",
+    "@ai-sdk/deepseek": "^3.0.15",
     "@ai-sdk/react": "^4.0.34",
     "@canopy/editor-adapter": "file:../../adapters/editor-adapter",
     "ai": "^7.0.31",
