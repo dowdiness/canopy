@@ -1,6 +1,6 @@
 # Unified Waku Web Migration
 
-**Status:** ready
+**Status:** final verification
 
 **Map:** [#947](https://github.com/dowdiness/canopy/issues/947)
 
@@ -423,6 +423,14 @@ mismatch, or failed signaling handshake.
 
 ### Stage 12 — Vite retirement
 
+**Status (2026-07-28):** Implementation and local validation complete. Waku
+is now the default dev/build/preview path; legacy Vite HTML inputs,
+`src/entries/`, and dual-build scripts are removed. `wrangler.jsonc` now owns
+the Worker configuration; `wrangler.waku.jsonc` and `build:deploy:waku` remain
+as compatibility aliases for Cloudflare Workers Builds external settings.
+**Remaining gate:** final repository CI and post-merge production verification
+on Cloudflare; issue #979 stays open until both complete.
+
 - Make Waku the default development/build path.
 - Remove old HTML inputs, Vite multi-page configuration, throwaway Hub files,
   and local adapter wiring only after equivalent Waku development adapters or
@@ -586,20 +594,27 @@ npm ci
 npm run typecheck
 npm run check:boundaries
 npm run test:boundaries
-npm run build:vite           # retained until Stage 12
-npm run build:waku           # introduced in Work Package 1
-npx playwright test          # current Vite baseline during migration
-npm run test:waku:e2e        # introduced in Work Package 1
-npx playwright test --config=playwright.preview.config.ts
+npm run test:foundation
+npm run build
+npm run check:waku-bundles
+npm run check:waku-types
+npm run test:waku:e2e
+npm run test:waku:preview
+npm run test:waku:workerd
 ```
 
 ### Waku Worker from `examples/web`
 
 ```bash
 npx wrangler types --config wrangler.waku.jsonc --check
-npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env preview
-npx wrangler dev --config wrangler.waku.jsonc --env preview
-npx wrangler check startup --config wrangler.waku.jsonc --env preview
+npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env preview \
+  --outfile "${TMPDIR:-/tmp}/canopy-waku-preview.bundle"
+npx wrangler check startup \
+  --worker "${TMPDIR:-/tmp}/canopy-waku-preview.bundle"
+npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env production \
+  --outfile "${TMPDIR:-/tmp}/canopy-waku-production.bundle"
+npx wrangler check startup \
+  --worker "${TMPDIR:-/tmp}/canopy-waku-production.bundle"
 ```
 
 The workerd/staging harness added by Work Package 1 supplies the exact automated

@@ -34,21 +34,23 @@ moon info && moon fmt               # Format & update interfaces (NEW_MOON_MOD=0
 `Test Submodules` and `Test MoonBit Examples` matrices list exactly what is
 checked and tested. Read it rather than trusting any list reproduced here.
 
-JS build artifacts are namespaced under the module path: `_build/js/release/build/dowdiness/canopy/ffi/{lambda,json,markdown}/...`. Vite configs, tsconfigs, `scripts/build-js.sh`, `scripts/package-release.sh`, and CI artifact uploads all reference this namespaced path.
+JS build artifacts are namespaced under the module path: `_build/js/release/build/dowdiness/canopy/ffi/{lambda,json,markdown}/...`. `waku.config.ts`, tsconfigs, `scripts/build-js.sh`, `scripts/package-release.sh`, and CI artifact uploads all reference this namespaced path.
 
 ### Web Development
 ```bash
-cd examples/web && npm run dev      # Dev server (localhost:5173)
-# Lambda editor:   http://localhost:5173/
-# JSON editor:     http://localhost:5173/json.html
-# Markdown editor: http://localhost:5173/markdown.html
+cd examples/web && npm run dev      # Waku dev server (localhost:3000)
+# Demo Hub:         http://localhost:3000/
+# Mini-ML:          http://localhost:3000/ml
+# JSON editor:      http://localhost:3000/json
+# Markdown editor:  http://localhost:3000/markdown
+# Canonical routes: /journey, /posts, /memo, /resume, /genui
 moon build --target js              # Build for web
 ```
 
-TypeScript front-ends live alongside the MoonBit examples and are typechecked +
-E2E-tested separately in CI (they are NOT covered by `moon test`):
+TypeScript front-ends live alongside the MoonBit examples and have separate CI
+coverage outside `moon test`:
 
-- **TS typecheck** (`Type Check TS Examples`): `examples/{web,prosemirror,demo-react}`
+- **TS typecheck** (`web-build`): `examples/web`, `examples/prosemirror`
 - **Playwright E2E** jobs: `examples/web`, `examples/ideal/web`,
   `examples/demo-react`, `examples/canvas/web`
 

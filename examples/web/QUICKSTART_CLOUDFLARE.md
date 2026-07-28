@@ -36,10 +36,14 @@ WebSocket join/`peer_list` exchange through `/signaling`.
 Optional non-deploying Cloudflare bundle checks:
 
 ```bash
-npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env preview
-npx wrangler check startup --config wrangler.waku.jsonc --env preview
-npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env production
-npx wrangler check startup --config wrangler.waku.jsonc --env production
+npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env preview \
+  --outfile "${TMPDIR:-/tmp}/canopy-waku-preview.bundle"
+npx wrangler check startup \
+  --worker "${TMPDIR:-/tmp}/canopy-waku-preview.bundle"
+npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env production \
+  --outfile "${TMPDIR:-/tmp}/canopy-waku-production.bundle"
+npx wrangler check startup \
+  --worker "${TMPDIR:-/tmp}/canopy-waku-production.bundle"
 ```
 
 Do not run a live deploy from this guide. Production deployment is owned by the

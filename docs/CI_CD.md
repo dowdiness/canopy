@@ -29,12 +29,15 @@ The main gating workflow. Job names match the file:
 | `prove` | `moon prove` in `lib/semantic/proof` after installing Why3 1.7.2 + Z3 via opam (cached) |
 | `benchmark` | PR only: `moon bench --release` at the root and in `event-graph-walker` |
 | `format-check` | `./scripts/check-agent-doc-links.sh` and `./scripts/run-moon-module.sh fmt-check .` |
-| `build-js` | `./scripts/update-moon-deps.sh`, `./scripts/build-js.sh`; uploads the 9 JS/d.ts/mbti artifacts named below |
-| `web-build` | `./scripts/build-web.sh` (runs `build-js.sh` then `vite build` in `examples/web`) |
-| `web-e2e` | Playwright suite for `examples/web` |
+| `build-js` | `./scripts/update-moon-deps.sh`, `./scripts/build-js.sh`; uploads the generated JS/d.ts/mbti artifacts listed below |
+| `web-build` | Default Waku build plus TypeScript/boundary checks for `examples/web`, then the ProseMirror typecheck |
+| `waku-build` | Builds the production Worker from downloaded MoonBit artifacts, verifies bundle/type boundaries, runs preview/production Wrangler dry-runs and startup analysis, and uploads the release artifacts |
+| `waku-e2e` | Canonical route, lifecycle, compatibility, and production-preview Playwright suites for `examples/web` |
+| `waku-workerd` | Built Worker and same-origin Signaling smoke under local workerd |
+| `ideal-web-e2e` | Playwright suite for `examples/ideal/web` |
 | `demo-react-e2e` | Playwright suite for `examples/demo-react` |
 | `canvas-e2e` | Playwright suite for `examples/canvas/web` |
-| `all-checks-passed` | Aggregation gate; fails unless every listed job above succeeds |
+| `all-checks-passed` | Aggregation gate; fails unless every required job succeeds or is an accepted path-filtered skip |
 
 #### Uploaded artifacts (`build-js`)
 
@@ -109,13 +112,13 @@ make fmt                   # moon fmt && moon info
 make fmt-check             # CI's format gate
 make build                 # moon build --release
 make build-js              # Build the FFI JS artifacts CI uploads
-make build-web             # build-js + npm-driven Vite build in examples/web
-make test-web-e2e          # Playwright suite for examples/web
+make build-web             # build-js + default Waku build in examples/web
+make test-web-e2e          # canonical Waku and production-preview Playwright suites
 make test-demo-react-e2e   # Playwright suite for examples/demo-react
 make test-canvas-e2e       # Playwright suite for examples/canvas/web
 make bench                 # moon bench --release (root + event-graph-walker)
 make ci                    # check-all + test-all
-make web-dev               # build-js then start examples/web Vite dev server
+make web-dev               # build-js then start the examples/web Waku dev server
 make install-hooks         # Install pre-commit hook
 make update                # moon update across root + maintained submodules
 ```

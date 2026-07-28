@@ -89,15 +89,16 @@ proving-ground mode.
   Why: current supported targets are native and JS only.
   Exit: wasm build runs in CI and is documented as supported.
 
-- [x] Add `npx tsc --noEmit` CI job for `examples/{web,prosemirror,demo-react}`.
-  Shipped: `typecheck-ts-examples` matrix job in `.github/workflows/ci.yml`; builds MoonBit JS artifacts, installs deps, runs `npx tsc --noEmit` per example, gated by `all-checks-passed`. Drift it caught on the way in: `examples/demo-react/tsconfig.json` had a deprecated `"baseUrl": "."` (TS 6.0 TS5101 deprecation; redundant under `moduleResolution: "bundler"` since `paths` already resolves relative to the tsconfig); dropped in the same change.
+- [ ] Restore explicit TypeScript CI coverage for `examples/{web,prosemirror,demo-react}`.
+  Status: `web-build` typechecks `examples/web` and `examples/prosemirror`; the current `demo-react-e2e` job installs dependencies and runs Playwright without invoking `tsc`.
+  Exit: all three front-ends run an explicit TypeScript check in required CI and remain gated by `all-checks-passed`.
 
-- [ ] Reduce CRDT JS bundle size for `index.html` / `memo.html` (lambda bundle is 546 kB, 46 kB over 500 kB threshold).
+- [ ] Reduce CRDT JS bundle size for `/ml` and `/memo` (lambda bundle is 546 kB, 46 kB over 500 kB threshold).
   Why: large bundle impacts initial page load for web editors.
   Plan: `docs/plans/2026-04-18-crdt-bundle-split.md`
   Status: Per-entry split landed (PRs #195 / #196). Measured sizes: json 277 kB, markdown 246 kB, lambda 546 kB.
   Follow-ups per plan §7: dynamic import of LLM (−19 kB), lazy egglog Tier-2, lazy lambda typecheck, or revise the budget based on real per-page data.
-  Exit: `index.html` / `memo.html` bundle under 500 kB ungzipped.
+  Exit: `/ml` and `/memo` lambda artifact bundle under 500 kB ungzipped.
 
 ---
 
@@ -662,7 +663,7 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
 - [ ] Migrate the eight Vite HTML surfaces to one routed Waku application.
   Why: unify delivery without losing verified demo behavior or generated MoonBit contracts.
   Plan: `docs/plans/2026-07-25-waku-unified-web-migration.md`
-  Status: #970–#971 establish the dual-run foundation and Hub lifecycle; #972–#978 migrate Journey, Posts, JSON, Markdown, Mini-ML, Memo, Resume, and GenUI to `/journey`, `/posts`, `/json`, `/markdown`, `/ml`, `/memo`, `/resume`, and `/genui`. #979 Stage 10 covers the seven Waku document/RSC redirects, static assets, same-origin Signaling service binding, privacy-safe logs, exact-green CI artifacts, and multi-worker workerd smoke. Cloudflare Workers Builds now deploys every `main` push at 100% to `canopy-examples`; GitHub Actions no longer deploys this application to Pages. Vite and the legacy entries remain available until the separate Stage 12 retirement gate passes.
+  Status: #970–#978 established the Waku foundation, Hub lifecycle, and eight canonical demo routes. #979 added compatibility redirects, static assets, same-origin Signaling, privacy-safe logs, exact-green CI artifacts, and multi-worker workerd smoke. Stage 12 now makes Waku the default, retires the eight legacy HTML/entry graphs and Vite-only delivery, and preserves the Vite plugins Waku still uses. Local build, browser, preview, workerd, Wrangler, and workspace validation pass. The item remains open for final repository CI and post-merge verification of the automatic 100% Cloudflare Workers Build deployment.
   Exit: the plan's Stage 12 gate passes after production cutover is proven.
 
 ## 22. SDEG Lifecycle

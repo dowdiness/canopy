@@ -4,14 +4,14 @@
 
 **Issue:** [#953 — Inventory behavioral acceptance contracts for all eight demos](https://github.com/dowdiness/canopy/issues/953)
 
-This document records the behavior that the `examples/web` Waku migration must
-preserve. It is an inventory of the current checkout, not a route design or an
-implementation plan. Canonical Waku URLs, cross-route state retention, and route
-error behavior remain decisions for issue #952.
+This document records the behavior preserved by the `examples/web` Waku
+migration. It is an inventory of the current checkout, not a route design or an
+implementation plan. Canonical URLs, route-memory behavior, and error recovery
+are implemented by the Waku route and lifecycle surfaces linked below.
 
 ## Scope
 
-The inventory covers the eight active HTML surfaces listed in the current
+The inventory covers the eight demos listed in the current
 [module map](../../examples/web/MODULE_MAP.md#L5-L16). It records visible
 workflows, runtime dependencies, state lifetime, accessibility behavior,
 existing verification, development-only capabilities, migration gates, and
@@ -20,16 +20,16 @@ or historical files under `docs/archive`.
 
 ## Summary
 
-| Demo | Current URL and source | Primary job | Runtime boundary | Persistence | Development/production split | Principal test |
+| Demo | Canonical route and page | Primary job | Runtime boundary | Persistence | Development/production split | Principal test |
 | --- | --- | --- | --- | --- | --- | --- |
-| Lambda | `/`, `/index.html` ([HTML](../../examples/web/index.html#L1-L5), [map](../../examples/web/MODULE_MAP.md#L7)) | Edit Mini-ML and inspect AST, formatted structure, and diagnostics | Generated Lambda and Graphviz JavaScript virtual modules; local AST Grep adapter | Page memory | AST Grep returns no matches outside development; visible collaboration controls are not bound by the current entry graph | [Lambda Playwright](../../examples/web/tests/lambda-editor.spec.ts#L1-L163) |
-| JSON | `/json.html` ([HTML](../../examples/web/json.html#L1-L8), [map](../../examples/web/MODULE_MAP.md#L8)) | Edit JSON as text or a structural tree and inspect edits | Generated JSON JavaScript virtual module and editor adapter | Page memory | No custom server adapter | [JSON Playwright](../../examples/web/tests/json-editor.spec.ts#L1-L291) |
-| Markdown | `/markdown.html` ([HTML](../../examples/web/markdown.html#L1-L9), [map](../../examples/web/MODULE_MAP.md#L9)) | Edit one Markdown document in block, raw, and preview modes | Generated Markdown JavaScript virtual module and editor adapter | Page memory | No custom server adapter | [Markdown Playwright](../../examples/web/tests/markdown-editor.spec.ts#L1-L375) |
-| Memo | `/memo.html` ([HTML](../../examples/web/memo.html#L1-L16), [map](../../examples/web/MODULE_MAP.md#L10)) | Preview and accept or reject typo corrections and structured edits | Generated Lambda JavaScript virtual module; browser-to-Google credential flow | Page memory | Explicitly local-only; current page must not be deployed publicly | [Memo Playwright](../../examples/web/tests/memo-editor.spec.ts#L1-L26) |
-| Posts | `/posts.html` ([HTML](../../examples/web/posts.html#L1-L14), [map](../../examples/web/MODULE_MAP.md#L11)) | Save local posts and retrieve related earlier posts | Browser persistence shell around deterministic TypeScript core | `localStorage` | Same browser implementation in both modes | [Posts Playwright](../../examples/web/tests/post-app.spec.ts#L1-L243) |
-| Resume/PKE | `/resume.html` ([HTML](../../examples/web/resume.html#L1-L14), [map](../../examples/web/MODULE_MAP.md#L12)) | Inspect a session through synchronized timeline, conversation, and evidence; optionally chat with attached context | React 19 browser app and local Vite chat relay | Page memory; imported file is not stored | DeepSeek/fake relay is local; production behavior is unverified | [Resume Playwright](../../examples/web/tests/pi-resume.spec.ts#L1-L1159) |
-| GenUI | `/genui.html` ([HTML](../../examples/web/genui.html#L1-L15), [map](../../examples/web/MODULE_MAP.md#L13)) | Stream JSX, inspect projection/diagnostics, and replay bounded feasibility candidates | Generated JSX JavaScript virtual module; optional local study relay | Page memory | Preview keeps recorded replay and excludes the development test hook and local study endpoint | [GenUI Playwright](../../examples/web/tests/genui.spec.ts#L1-L1403) |
-| Journey | `/genui-possibilities.html` ([HTML](../../examples/web/genui-possibilities.html#L1-L12), [map](../../examples/web/MODULE_MAP.md#L14)) | Compare journey responses, preview a change, apply it, and undo it | Deterministic JavaScript reducer with a DOM shell | Page memory | No custom server adapter | [Journey Playwright](../../examples/web/tests/genui-possibilities.spec.ts#L1-L442) |
+| Lambda | `/ml` ([page](../../examples/web/src/pages/ml.tsx), [map](../../examples/web/MODULE_MAP.md#L8)) | Edit Mini-ML and inspect AST, formatted structure, and diagnostics | Generated Lambda and Graphviz JavaScript virtual modules; local AST Grep adapter | Page memory | AST Grep returns no matches outside development; visible collaboration controls are not bound by the current route surface | [Lambda Playwright](../../examples/web/tests/lambda-editor.spec.ts#L1-L163) |
+| JSON | `/json` ([page](../../examples/web/src/pages/json.tsx), [map](../../examples/web/MODULE_MAP.md#L9)) | Edit JSON as text or a structural tree and inspect edits | Generated JSON JavaScript virtual module and editor adapter | Page memory | No custom server adapter | [JSON Playwright](../../examples/web/tests/json-editor.spec.ts#L1-L291) |
+| Markdown | `/markdown` ([page](../../examples/web/src/pages/markdown.tsx), [map](../../examples/web/MODULE_MAP.md#L10)) | Edit one Markdown document in block, raw, and preview modes | Generated Markdown JavaScript virtual module and editor adapter | Page memory | No custom server adapter | [Markdown Playwright](../../examples/web/tests/markdown-editor.spec.ts#L1-L375) |
+| Memo | `/memo` ([page](../../examples/web/src/pages/memo.tsx), [map](../../examples/web/MODULE_MAP.md#L11)) | Preview and accept or reject typo corrections and structured edits | Generated Lambda JavaScript virtual module; browser-to-Google credential flow | Page memory | Explicitly local-only; production renders unavailable state | [Memo Playwright](../../examples/web/tests/memo-editor.spec.ts#L1-L26) |
+| Posts | `/posts` ([page](../../examples/web/src/pages/posts.tsx), [map](../../examples/web/MODULE_MAP.md#L12)) | Save local posts and retrieve related earlier posts | Browser persistence shell around deterministic TypeScript core | `localStorage` | Same browser implementation in both modes | [Posts Playwright](../../examples/web/tests/post-app.spec.ts#L1-L243) |
+| Resume/PKE | `/resume` ([page](../../examples/web/src/pages/resume.tsx), [map](../../examples/web/MODULE_MAP.md#L13)) | Inspect a session through synchronized timeline, conversation, and evidence; optionally chat with attached context | React 19 browser app and local dev chat relay | Page memory; imported file is not stored | DeepSeek/fake relay is local; production reports unavailable | [Resume Playwright](../../examples/web/tests/pi-resume.spec.ts#L1-L1159) |
+| GenUI | `/genui` ([page](../../examples/web/src/pages/genui.tsx), [map](../../examples/web/MODULE_MAP.md#L14)) | Stream JSX, inspect projection/diagnostics, and replay bounded feasibility candidates | Generated JSX JavaScript virtual module; optional local study relay | Page memory | Preview keeps recorded replay and excludes the development test hook and local study endpoint | [GenUI Playwright](../../examples/web/tests/genui.spec.ts#L1-L1403) |
+| Journey | `/journey` ([page](../../examples/web/src/pages/journey.tsx), [map](../../examples/web/MODULE_MAP.md#L15)) | Compare journey responses, preview a change, apply it, and undo it | Deterministic JavaScript reducer with a DOM shell | Page memory | No custom server adapter | [Journey Playwright](../../examples/web/tests/genui-possibilities.spec.ts#L1-L442) |
 
 ## Lambda calculus editor
 
@@ -37,7 +37,7 @@ or historical files under `docs/archive`.
 
 The page offers five source presets, a plaintext contenteditable editor, an AST
 visualization, formatted structure, and diagnostics
-([HTML](../../examples/web/index.html#L70-L117)). Typing or selecting a preset
+([route](../../examples/web/src/pages/ml.tsx)). Typing or selecting a preset
 updates the generated model and all three outputs
 ([editor](../../examples/web/src/features/lambda/browser/editor.ts#L34-L81),
 [tests](../../examples/web/tests/lambda-editor.spec.ts#L48-L163)).
@@ -52,16 +52,17 @@ request ([runner](../../examples/web/src/features/lambda/browser/ast-grep-runner
 
 ### State and lifetime
 
-Each mount creates a fresh agent ID and editor handle
-([mount](../../examples/web/src/features/lambda/browser/mount.ts#L5-L19),
-[editor](../../examples/web/src/features/lambda/browser/editor.ts#L9-L12)). The
-current controller exposes text read/write operations but no disposal or browser
-storage path ([editor](../../examples/web/src/features/lambda/browser/editor.ts#L138-L151)).
+Each mount creates a fresh agent ID and editor handle. The returned imperative
+session snapshots source text, restores editor focus, and releases listeners,
+frames, requests, adapters, overlays, and the MoonBit handle on disposal; it
+creates no browser storage path
+([editor](../../examples/web/src/features/lambda/browser/editor.ts#L13-L73),
+[session return](../../examples/web/src/features/lambda/browser/editor.ts#L216-L229)).
 
 ### Accessibility and focus
 
 Presets are native buttons and the editor is a focusable plaintext contenteditable
-([HTML](../../examples/web/index.html#L70-L104)). Existing browser tests verify
+([route](../../examples/web/src/pages/ml.tsx)). Existing browser tests verify
 that the editor is visible and focusable, but do not assert screen-reader
 semantics ([tests](../../examples/web/tests/lambda-editor.spec.ts#L44-L52)).
 
@@ -78,12 +79,12 @@ The server adapter is `apply: 'serve'`
 ([adapter](../../examples/web/server/vite/ast-grep.ts#L13-L20)), and the browser
 runner returns an empty match list when `import.meta.env.DEV` is false
 ([runner](../../examples/web/src/features/lambda/browser/ast-grep-runner.ts#L16-L21)).
-The collaboration panel exists in HTML, but the current Lambda mount binds only
-the editor and preset buttons. Signaling files remain separate integration
+The collaboration panel exists in the route-owned shell, but the current Lambda
+mount binds only the editor and preset buttons. Signaling files remain separate integration
 shells outside the browser graph
-([HTML](../../examples/web/index.html#L14-L30),
-[mount](../../examples/web/src/features/lambda/browser/mount.ts#L5-L19),
-[map](../../examples/web/MODULE_MAP.md#L18-L23)).
+([route](../../examples/web/src/pages/ml.tsx),
+[client mount](../../examples/web/src/features/lambda/route/lambda-client.tsx#L20-L53),
+[map](../../examples/web/MODULE_MAP.md#L8-L23)).
 
 ### Migration acceptance gates
 
@@ -96,8 +97,9 @@ fallback rather than attempting the local endpoint
 ### Known gaps
 
 The visible Network Collaboration controls have no event binding in the current
-Lambda entry graph, and no browser test exercises a signaling handshake
-([mount](../../examples/web/src/features/lambda/browser/mount.ts#L5-L19),
+Lambda route surface, and the Lambda feature suite does not exercise the shared
+signaling handshake
+([editor bindings](../../examples/web/src/features/lambda/browser/editor.ts#L188-L204),
 [Lambda suite](../../examples/web/tests/lambda-editor.spec.ts#L1-L163)).
 
 ## JSON editor
@@ -106,7 +108,7 @@ Lambda entry graph, and no browser test exercises a signaling handshake
 
 The page provides presets, raw text editing, formatting, a structured tree,
 structural actions, and an edit log
-([HTML](../../examples/web/json.html#L10-L59),
+([route](../../examples/web/src/pages/json.tsx),
 [editor](../../examples/web/src/features/json/browser/editor.ts#L196-L451)).
 
 ### Runtime and browser dependencies
@@ -161,7 +163,7 @@ The current Playwright suite does not assert rendered edit-log entries or
 
 One document can be edited in Block or Raw mode and read in Preview mode. The
 block toolbar changes headings, toggles list items, and deletes blocks
-([HTML](../../examples/web/markdown.html#L10-L63),
+([route](../../examples/web/src/pages/markdown.tsx),
 [app](../../examples/web/src/features/markdown/browser/app.ts#L180-L279)).
 
 ### Runtime and browser dependencies
@@ -220,7 +222,7 @@ shortcuts or `beforeunload` cleanup
 
 The page accepts text, a Gemini API key, and an edit instruction. It can request
 typo correction or structured edits, then show original/corrected panes with
-Accept and Reject actions ([HTML](../../examples/web/memo.html#L9-L52)).
+Accept and Reject actions ([route](../../examples/web/src/pages/memo.tsx)).
 
 ### Runtime and browser dependencies
 
@@ -228,7 +230,7 @@ The browser imports the generated Lambda module and calls its
 `canopy_llm_fix_typos` and `canopy_llm_edit` functions
 ([app](../../examples/web/src/features/memo/browser/app.ts#L1-L8)). The HTML
 states that the key is sent directly from the browser to Google
-([HTML](../../examples/web/memo.html#L9-L14)).
+([route](../../examples/web/src/pages/memo.tsx)).
 
 ### State and lifetime
 
@@ -252,13 +254,13 @@ text, and instruction ([tests](../../examples/web/tests/memo-editor.spec.ts#L1-L
 
 The page explicitly identifies itself as local-only, warns against public
 deployment, and requires a server-side proxy for production use
-([HTML](../../examples/web/memo.html#L9-L14)).
+([route](../../examples/web/src/pages/memo.tsx)).
 
 ### Migration acceptance gates
 
 Keep the local-only warning and browser validation. Do not expose the current
 credential flow from a production route unless a separately approved server
-boundary replaces it ([HTML](../../examples/web/memo.html#L9-L18),
+boundary replaces it ([route](../../examples/web/src/pages/memo.tsx),
 [tests](../../examples/web/tests/memo-editor.spec.ts#L8-L26)).
 
 ### Known gaps
@@ -273,7 +275,7 @@ length limiting, diff rendering, Accept, or Reject
 
 A person can write and post local text, use Ctrl/Cmd+Enter to submit, use Ask
 without posting, inspect related earlier posts, and fall back to a newest-first
-timeline ([HTML](../../examples/web/posts.html#L10-L60),
+timeline ([route](../../examples/web/src/pages/posts.tsx),
 [tests](../../examples/web/tests/post-app.spec.ts#L12-L243)).
 
 ### Runtime and browser dependencies
@@ -295,7 +297,7 @@ return newest-first data
 
 The status row is polite live text, the related panel and timeline use labelled
 sections/lists, and keyboard submit is documented with `kbd` labels
-([HTML](../../examples/web/posts.html#L17-L60)). The implementation moves focus
+([route](../../examples/web/src/pages/posts.tsx)). The implementation moves focus
 to the matching timeline item when a related post opens
 ([view](../../examples/web/src/features/posts/browser/view.ts#L110-L151)).
 
@@ -393,7 +395,7 @@ Production chat availability is unverified by the current preview suites
 The page accepts JSX presets/input, streams a rendered preview, exposes
 projection and diagnostic views, replays bounded feasibility candidates, and
 provides a JSON/CSV order explorer
-([HTML](../../examples/web/genui.html#L11-L207),
+([route](../../examples/web/src/pages/genui.tsx),
 [stream test](../../examples/web/tests/genui.spec.ts#L1104-L1159),
 [data tests](../../examples/web/tests/genui.spec.ts#L331-L535)).
 
@@ -431,7 +433,7 @@ flow and provider boundaries
 ### Development/production split
 
 The live provider is enabled only with `GENUI_FEASIBILITY_LIVE=1` and is served
-through a Vite-only adapter
+through a serve-only adapter in Waku's Vite integration
 ([adapter](../../examples/web/server/vite/genui-feasibility.ts#L94-L127)). The
 live-study browser API is guarded by `import.meta.env.DEV`
 ([mount](../../examples/web/src/features/genui/browser/mount.js#L367-L393)). The
@@ -460,7 +462,7 @@ screen-reader-specific assertion
 
 The workspace presents a disruption, persistent itinerary, comparable response
 options, a non-mutating preview, explicit Apply, revision status, and Undo
-([HTML](../../examples/web/genui-possibilities.html#L10-L104),
+([route](../../examples/web/src/pages/journey.tsx),
 [tests](../../examples/web/tests/genui-possibilities.spec.ts#L151-L275)).
 
 ### Runtime and browser dependencies
@@ -482,7 +484,7 @@ Reloading creates the initial state again
 
 The page has a skip link, labelled regions, a response radiogroup, polite preview
 and toast feedback, and roving Arrow/Home/End keyboard focus
-([HTML](../../examples/web/genui-possibilities.html#L10-L104),
+([route](../../examples/web/src/pages/journey.tsx),
 [keyboard tests](../../examples/web/tests/genui-possibilities.spec.ts#L155-L205)).
 
 ### Existing verification
@@ -508,28 +510,29 @@ responsive information parity, reduced motion, and forced-colors meaning
 
 ### Known gaps
 
-State intentionally does not persist across reloads; whether a routed app should
-retain it is a #952 decision
-([reducer](../../examples/web/src/features/genui-possibilities/core/journey-state.js#L1-L67)).
+State restores across same-document route traversal and intentionally resets on
+full reload
+([route tests](../../examples/web/waku-tests/journey-route.spec.ts#L1-L35)).
 
 ## Cross-demo invariants
 
-1. Preserve all eight current compatibility URLs until issue #952 explicitly
-   selects canonical routes and redirects. The Vite build currently names all
-   eight HTML inputs ([config](../../examples/web/vite.config.ts#L55-L69)).
+1. Preserve all nine canonical routes and seven permanent compatibility redirects.
+   The seven legacy demo aliases return 308; `/index.html` renders the Hub without redirect
+   ([route table](../../examples/web/MODULE_MAP.md#L8-L16)).
 2. Preserve the five public MoonBit virtual import IDs, generated JavaScript
    artifact paths, declaration mappings, and dependency-optimizer exclusions
-   ([config](../../examples/web/vite.config.ts#L18-L46),
+   ([Waku config](../../examples/web/waku.config.ts#L1-L30),
    [map](../../examples/web/MODULE_MAP.md#L24-L40)).
 3. Keep imperative editor/session ownership inside client-side feature shells.
-   Entries remain thin, browser code does not import server adapters, and local
-   adapters consume only permitted core/protocol surfaces
+   Waku pages remain thin, browser code does not import server adapters, and
+   local adapters consume only permitted core/protocol surfaces
    ([map](../../examples/web/MODULE_MAP.md#L50-L71)).
 4. Do not clear or silently rewrite Posts data under `canopy.posts.v1` or
-   `canopy.post-events.v1`; all other current demo state is page-scoped unless
-   issue #952 chooses a new lifetime
+   `canopy.post-events.v1`; other demo route memory follows the explicit
+   traversal-restore and full-reload-reset lifecycle contracts
    ([post store](../../examples/web/src/features/posts/browser/post-store.ts#L5-L42),
-   [event store](../../examples/web/src/features/posts/browser/post-events.ts#L13-L71)).
+   [event store](../../examples/web/src/features/posts/browser/post-events.ts#L13-L71),
+   [route test ownership](../../examples/web/MODULE_MAP.md#test-ownership)).
 5. Preserve equivalent pointer, keyboard, screen-reader, responsive, and
    reduced-motion evidence where current tests assert it, especially Markdown
    selection restoration, Resume synchronized focus, GenUI row selection, and
@@ -539,8 +542,8 @@ retain it is a #952 decision
    [GenUI](../../examples/web/tests/genui.spec.ts#L489-L535),
    [Journey](../../examples/web/tests/genui-possibilities.spec.ts#L151-L442)).
 6. Retain each capability's current environment split: AST Grep is development
-   only, Resume chat is a local Vite relay with no production contract, and
-   GenUI preview excludes the live study relay while retaining recorded replay
+   only, Resume chat is a local relay exposed through Waku's Vite integration,
+   and GenUI preview excludes the live study relay while retaining recorded replay
    ([AST Grep](../../examples/web/src/features/lambda/browser/ast-grep-runner.ts#L16-L21),
    [Resume](../../examples/web/server/vite/resume-chat.ts#L48-L84),
    [GenUI](../../examples/web/preview-tests/genui-preview.spec.ts#L7-L52)).
@@ -548,9 +551,9 @@ retain it is a #952 decision
 ## Source register
 
 - [Active-surface and runtime inventory](../../examples/web/MODULE_MAP.md#L1-L74)
-- [Vite entry and generated-module configuration](../../examples/web/vite.config.ts#L1-L74)
-- [Browser entries](../../examples/web/src/entries/)
+- [Waku configuration](../../examples/web/waku.config.ts#L1-L30)
+- [Waku route pages](../../examples/web/src/pages/)
 - [Feature packages](../../examples/web/src/features/)
-- [Local Vite adapters](../../examples/web/server/vite/)
+- [Local development adapters](../../examples/web/server/vite/)
 - [Default browser suites](../../examples/web/tests/)
 - [Production-preview suite](../../examples/web/preview-tests/genui-preview.spec.ts#L1-L52)
