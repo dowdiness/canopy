@@ -119,7 +119,7 @@ test('executes the frozen nine-slot feasibility schedule exactly once', async ({
     expect(slot.slotId).toBeLessThan(3);
   }
 
-  await page.goto('/genui.html');
+  await page.goto('/genui');
   const rawSlots: Array<Record<string, unknown>> = [];
   const fakeClassifications: string[] = [];
   try {

@@ -24,9 +24,9 @@ fi
 echo "Running GenUI recipe contract tests..."
 node --test src/features/genui/core/genui-spike-recipe.test.mjs
 
-CI="${CI:-1}" npx playwright test "$@"
+CI="${CI:-1}" npx playwright test --config=playwright.waku.config.ts "$@"
 
 if [ "$#" -eq 0 ]; then
     echo "Running GenUI production preview tests..."
-    CI="${CI:-1}" npx playwright test --config=playwright.preview.config.ts
+    CI="${CI:-1}" npm run test:waku:preview
 fi

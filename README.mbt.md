@@ -69,8 +69,8 @@ moon test
 # Build the JS FFI artifacts the web demo expects.
 make build-js
 
-# Run the web demo at http://localhost:5173 (lambda editor by default; JSON at
-# /json.html, Markdown at /markdown.html).
+# Run the Waku web demo. Canonical routes: /, /ml, /json, /markdown,
+# /journey, /posts, /memo, /resume, /genui.
 cd examples/web && npm install && npm run dev
 ```
 
@@ -155,7 +155,7 @@ examples.
 
 | Example | Description | Live demo |
 |---------|-------------|-----------|
-| [examples/web/](examples/web/) | Vite frontend hosting the lambda, JSON, and Markdown editors | [canopy-lambda-editor.pages.dev](https://canopy-lambda-editor.pages.dev) |
+| [examples/web/](examples/web/) | Waku Worker hosting the lambda, JSON, Markdown, and other editors | deployed as `canopy-examples` Worker |
 | [examples/ideal/](examples/ideal/) | Full-featured editor with inspector and benchmarks | [canopy-ideal.pages.dev](https://canopy-ideal.pages.dev) |
 | [examples/prosemirror/](examples/prosemirror/) | ProseMirror structural-editing integration | [canopy-prosemirror.pages.dev](https://canopy-prosemirror.pages.dev) |
 | [examples/canvas/](examples/canvas/) | Infinite canvas (experimental) | [canopy-canvas.pages.dev](https://canopy-canvas.pages.dev) |
@@ -163,8 +163,8 @@ examples.
 | [examples/demo-react/](examples/demo-react/) | Minimal React integration | [canopy-demo-react.pages.dev](https://canopy-demo-react.pages.dev) |
 | [examples/relay-server/](examples/relay-server/) | Cloudflare Workers relay (collaboration) | deployed as `canopy-relay` |
 
-A few additional unlisted directories (`examples/rabbita/`, the `memo.html` and
-`spike-block-input.html` pages under `examples/web/`) are work-in-progress
+A few additional unlisted directories (`examples/rabbita/`, the
+`spike-block-input.html` spike under `examples/web/`) are work-in-progress
 spikes; treat them as unstable.
 
 ## What to Read Next

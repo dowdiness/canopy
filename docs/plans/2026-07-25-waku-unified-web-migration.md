@@ -1,6 +1,6 @@
 # Unified Waku Web Migration
 
-**Status:** ready
+**Status:** final verification
 
 **Map:** [#947](https://github.com/dowdiness/canopy/issues/947)
 
@@ -57,7 +57,7 @@ Issues track execution status and link here rather than duplicating this detail.
   cookies, or `history.state`.
 - The inactive `spike-block-input.html` surface and the throwaway Hub prototype.
 
-## Current State
+## Baseline State (2026-07-25, `c82368c5`)
 
 - `examples/web/vite.config.ts` names the eight active HTML inputs.
 - `examples/web/src/entries/` contains one thin browser entry per surface.
@@ -406,22 +406,35 @@ Worker startup and binding type checks pass; no provider secret is configured.
 
 ### Stage 11 — Production cutover
 
-- Require the repository-owned `All Checks Passed` aggregate and protected
-  production-environment approval.
-- Upload a version before shifting traffic. Use gradual deployment with version
-  affinity for Worker code and hashed static assets when supported by the
-  pinned toolchain.
+**Resolution (2026-07-28):** Cutover used native Cloudflare Workers Builds from
+`main` and moved the resulting Worker version directly to 100% traffic. The
+repository did not add a GitHub deployment controller, protected environment,
+or gradual traffic split.
+
+- Require the repository-owned `All Checks Passed` aggregate before merging the
+  production candidate.
+- Let the external Cloudflare configuration build and deploy the merged `main`
+  commit.
 - Verify canonical routes, aliases, 404, availability states, static assets,
   RSC navigation, state/focus restoration, and signaling on the production
   hostname.
-- Keep the last successful Pages deployment available as the documented
-  fallback throughout the acceptance window.
+- Retain the previous stable Worker version for immediate rollback. The Pages
+  deployment remains available only through the acceptance window and is
+  retired in Stage 12.
 
 **Gate:** all production smoke checks pass and the observation window contains
 no release-attributable uncaught Worker error, canonical-route 5xx, asset/RSC
 mismatch, or failed signaling handshake.
 
 ### Stage 12 — Vite retirement
+
+**Status (2026-07-28):** Implementation and local validation complete. Waku
+is now the default dev/build/preview path; legacy Vite HTML inputs,
+`src/entries/`, and dual-build scripts are removed. `wrangler.jsonc` now owns
+the Worker configuration; `wrangler.waku.jsonc` and `build:deploy:waku` remain
+as compatibility aliases for Cloudflare Workers Builds external settings.
+**Remaining gate:** final repository CI and post-merge production verification
+on Cloudflare; issue #979 stays open until both complete.
 
 - Make Waku the default development/build path.
 - Remove old HTML inputs, Vite multi-page configuration, throwaway Hub files,
@@ -432,7 +445,7 @@ mismatch, or failed signaling handshake.
 
 **Gate:** a clean checkout passes the final CI matrix using Waku, no active test
 or documentation link depends on an old HTML file except compatibility tests,
-and rollback instructions identify the retained stable Worker/Pages versions.
+and rollback instructions identify the previous stable Waku Worker version.
 
 ## Decision: CI, Deployment, and Rollback (#957)
 
@@ -448,27 +461,34 @@ and rollback instructions identify the retained stable Worker/Pages versions.
 4. Waku browser jobs run the existing per-demo suites against canonical routes
    plus dedicated route-contract tests for aliases, history, state, focus,
    disposal, errors, 404, and production availability.
-5. A workerd job exercises the built Worker locally. A credentialed staging job
-   exercises the real service binding and WebSocket handshake before cutover.
+5. A workerd job exercises the built Worker locally. Production acceptance
+   exercises the real service binding and WebSocket handshake after the native
+   Cloudflare deployment.
 6. Add all required Waku jobs to `All Checks Passed`; path-filtered skips are
    accepted only through the existing aggregate policy.
 
 ### Deployment contract
 
-- Remove the `web` row from the current push-triggered Pages matrix; other
-  examples retain their existing deployment types.
-- Add a separate protected Waku deployment job or workflow triggered by a
-  successful `workflow_run` of CI on `main`. It must verify that the CI
-  `head_sha` is the exact commit being deployed and declare a GitHub
-  `production` environment that requires approval.
+**Stage 12 resolution (2026-07-28):** Production deployment remains native to
+Cloudflare Workers Builds. This supersedes the earlier proposal for a GitHub
+Actions deployment controller, protected-environment approval, and staged
+traffic split.
+
+- The `web` row is removed from the push-triggered Pages matrix; other examples
+  retain their existing deployment types.
+- A successful push to `main` triggers the external Cloudflare Workers Build
+  configuration. It runs `npm run build:deploy:waku`, then deploys
+  `wrangler.waku.jsonc` to 100% traffic. The config path is a compatibility
+  symlink to the canonical `wrangler.jsonc`.
 - Production no longer uses `wrangler pages deploy` for `examples/web`; it uses
-  the Waku Worker `wrangler deploy`/version workflow and `dist/public` assets.
-  A push alone is not sufficient.
+  the Waku Worker `wrangler deploy` workflow and `dist/public` assets.
+- GitHub Actions validates Waku build, browser, bundle-boundary, startup, and
+  workerd behavior but does not own production deployment.
 - Preview and production use distinct Worker names/environments and service
   bindings. The target Signaling Worker must already exist in the same account.
 - `wrangler types --check` guards binding drift. `wrangler deploy --dry-run`
-  guards bundling/configuration. `wrangler check startup` is recorded while the
-  command remains alpha, but is not the sole release gate.
+  guards bundling/configuration. `wrangler check startup` analyzes the emitted
+  multipart Worker bundle but is not the sole release gate.
 - Worker observability is enabled. Structured records include deployment
   version, route class, capability, status, and error category; they exclude
   user-authored content and secrets.
@@ -482,8 +502,7 @@ and rollback instructions identify the retained stable Worker/Pages versions.
   Worker exception, canonical-route 5xx, asset/RSC version mismatch, or failed
   signaling proxy handshake.
 - Waku rollback uses the previous Worker version and its versioned assets.
-  Switching the production hostname back to the retained Pages deployment is
-  the fallback if Worker rollback or routing fails.
+  Stage 12 removes the legacy Pages deployment, so it is no longer a fallback.
 - Never roll back the Signaling Worker automatically with the Waku Worker. Its
   version and Durable Object state are independent; change it only through its
   own tested deployment procedure.
@@ -529,8 +548,9 @@ copy the whole plan.
    - Depends on 5. Scope and exit: Stage 9.
 
 10. **[#979 — Deploy the Waku Worker, verify signaling, cut over, and retire Vite](https://github.com/dowdiness/canopy/issues/979)**
-    - Depends on 3–9. Scope: Stage 10–12, all seven redirects, staging,
-      observability, protected production deployment, rollback, final cleanup.
+    - Depends on 3–9. Scope: Stage 10–12, all seven redirects, production
+      acceptance, observability, native Cloudflare deployment, rollback, and
+      final cleanup.
     - Exit: Stage 12 gate.
 
 ## Acceptance Criteria
@@ -558,8 +578,8 @@ copy the whole plan.
       same-origin handshake passes through the service binding.
 - [ ] Vite remains green until cutover; the final Waku CI jobs join
       `All Checks Passed` before Vite is retired.
-- [ ] Production deployment records version IDs, passes protected staging and
-      smoke gates, and has a verified Worker and Pages fallback procedure.
+- [ ] Production deployment records version IDs, passes production smoke gates,
+      and has a verified previous-Worker-version rollback procedure.
 
 ## Validation
 
@@ -586,20 +606,27 @@ npm ci
 npm run typecheck
 npm run check:boundaries
 npm run test:boundaries
-npm run build:vite           # retained until Stage 12
-npm run build:waku           # introduced in Work Package 1
-npx playwright test          # current Vite baseline during migration
-npm run test:waku:e2e        # introduced in Work Package 1
-npx playwright test --config=playwright.preview.config.ts
+npm run test:foundation
+npm run build
+npm run check:waku-bundles
+npm run check:waku-types
+npm run test:waku:e2e
+npm run test:waku:preview
+npm run test:waku:workerd
 ```
 
 ### Waku Worker from `examples/web`
 
 ```bash
 npx wrangler types --config wrangler.waku.jsonc --check
-npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env preview
-npx wrangler dev --config wrangler.waku.jsonc --env preview
-npx wrangler check startup --config wrangler.waku.jsonc --env preview
+npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env preview \
+  --outfile "${TMPDIR:-/tmp}/canopy-waku-preview.bundle"
+npx wrangler check startup \
+  --worker "${TMPDIR:-/tmp}/canopy-waku-preview.bundle"
+npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env production \
+  --outfile "${TMPDIR:-/tmp}/canopy-waku-production.bundle"
+npx wrangler check startup \
+  --worker "${TMPDIR:-/tmp}/canopy-waku-production.bundle"
 ```
 
 The workerd/staging harness added by Work Package 1 supplies the exact automated
@@ -671,15 +698,16 @@ production deployment or merge.
 - **Development capability drift:** Waku's Vite integration may not run the
   current `configureServer` adapters unchanged. Preserve Vite until each local
   replacement and production fallback has explicit tests.
-- **Static asset/version skew:** gradual Worker deployment must keep code, RSC
-  payloads, and hashed assets on one version. Use platform version affinity and
-  retain immediate rollback.
+- **Static asset/version skew:** the native 100% Worker deployment must keep
+  code, RSC payloads, and hashed assets in one complete build. Verify the
+  deployed version and retain immediate rollback.
 - **Signaling coupling:** the Waku proxy must forward the original upgrade and
   must not become a second signaling implementation. Validate with a real
   service-bound handshake.
-- **Deployment race:** the current push-triggered deploy workflow is independent
-  of CI completion. Production Waku deployment must be tied to the exact green
-  commit and a protected environment before replacing Pages.
+- **Deployment race:** native Cloudflare deployment starts from a merged `main`
+  push independently of repository CI. Require the repository aggregate before
+  merge, verify the deployed commit/version afterward, and roll back on failed
+  production acceptance.
 
 ## Documentation Updates During Execution
 

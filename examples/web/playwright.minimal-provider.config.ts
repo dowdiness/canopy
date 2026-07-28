@@ -14,8 +14,8 @@ export default defineConfig({
   outputDir: join(runRoot, '.playwright'),
   use: { baseURL: 'http://127.0.0.1:4176', trace: 'off' },
   webServer: {
-    command: 'moon build --target js && npx vite --host 127.0.0.1 --port 4176 --strictPort',
-    port: 4176,
+    command: 'moon build --target js && npm run dev:waku -- --host 127.0.0.1 --port 4176',
+    url: 'http://127.0.0.1:4176/genui',
     reuseExistingServer: false,
     timeout: 120_000,
   },

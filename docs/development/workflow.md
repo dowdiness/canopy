@@ -67,18 +67,18 @@ When adding features, consult:
 
 ## Web Development
 
+The web demo is a Waku application served through Cloudflare Workers.
+Canonical routes: `/`, `/ml`, `/json`, `/markdown`, `/journey`, `/posts`, `/memo`, `/resume`, `/genui`.
+Legacy `.html` URLs return permanent redirects to their canonical route (except `/index.html`, which renders the Hub without redirect).
+
 ```bash
 # From the examples/web/ directory
 cd examples/web
 npm install
-npm run dev        # Start development server (http://localhost:5173)
-npm run build      # Build for production (multi-page: index.html + json.html)
+npm run dev        # Start Waku dev server (http://localhost:3000)
+npm run build      # Build Waku for production
 npm run preview    # Preview production build
 ```
-
-Two editor pages are available:
-- **Lambda editor:** `http://localhost:5173/` — lambda calculus with AST visualization
-- **JSON editor:** `http://localhost:5173/json.html` — structural JSON editing with tree view
 
 ### Updating Web JavaScript
 

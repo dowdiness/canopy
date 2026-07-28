@@ -5,7 +5,7 @@ test.describe('Memo editor', () => {
     const pageErrors: Error[] = [];
     page.on('pageerror', error => pageErrors.push(error));
 
-    await page.goto(process.env.MEMO_EDITOR_URL ?? '/memo.html');
+    await page.goto(process.env.MEMO_EDITOR_URL ?? '/memo');
 
     await expect(page.getByRole('heading', { name: 'Canopy Memo' })).toBeVisible();
     await expect(page.locator('#status')).toHaveText('Ready. Enter your API key and start typing.');

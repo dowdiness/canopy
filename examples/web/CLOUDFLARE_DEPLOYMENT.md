@@ -23,10 +23,11 @@ Worker continues to own its protocol, room state, and Durable Object migration.
 Both Workers must be in the same Cloudflare account. Never deploy or roll back
 the Signaling Worker as a side effect of a Waku release.
 
-`wrangler.waku.jsonc` keeps preview and production bindings separate. It
-contains no provider secret and binds the existing `crdt-signaling-server`
-service in both environments. Structured logs remain enabled and automatic
-traces remain disabled.
+`wrangler.jsonc` is the canonical Worker configuration and keeps preview and
+production bindings separate. `wrangler.waku.jsonc` is a compatibility symlink
+for the existing external deploy command. The shared configuration contains no
+provider secret, binds the existing `crdt-signaling-server` service in both
+environments, enables structured logs, and disables automatic traces.
 
 ## Cloudflare Workers Builds settings
 
@@ -62,12 +63,20 @@ npm run test:foundation
 npm run build:waku
 npm run check:waku-bundles
 npm run check:waku-types
-npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env preview
-npx wrangler check startup --config wrangler.waku.jsonc --env preview
-npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env production
-npx wrangler check startup --config wrangler.waku.jsonc --env production
+npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env preview \
+  --outfile "${TMPDIR:-/tmp}/canopy-waku-preview.bundle"
+npx wrangler check startup \
+  --worker "${TMPDIR:-/tmp}/canopy-waku-preview.bundle"
+npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env production \
+  --outfile "${TMPDIR:-/tmp}/canopy-waku-production.bundle"
+npx wrangler check startup \
+  --worker "${TMPDIR:-/tmp}/canopy-waku-production.bundle"
 npm run test:waku:workerd
 ```
+
+Pinned Wrangler 4.114 can resolve the wrong default project when `check startup`
+is given `--config`. Passing the multipart bundle emitted by the matching dry-run
+through `--worker` ensures the intended Waku Worker is analyzed.
 
 The workerd command starts Waku and the Signaling Worker together with Wrangler
 multi-worker development. It verifies canonical documents and RSC, all seven

@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 
-const jsonEditorUrl = process.env.JSON_EDITOR_URL ?? '/json.html';
+const jsonEditorUrl = process.env.JSON_EDITOR_URL ?? '/json';
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
-const prototypeUrl = process.env.GENUI_POSSIBILITIES_URL ?? '/genui-possibilities.html';
+const prototypeUrl = process.env.GENUI_POSSIBILITIES_URL ?? '/journey';
 
 type ResponseContract = {
   name: string;

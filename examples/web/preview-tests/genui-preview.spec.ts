@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
 
-const GENUI_PREVIEW_URL = process.env.GENUI_PREVIEW_URL ?? '/genui.html';
+const GENUI_PREVIEW_URL = process.env.GENUI_PREVIEW_URL ?? '/genui';
 const FORBIDDEN_PROVIDER_MARKERS = [
   '127.0.0.1:11434',
   'GENUI_OLLAMA_MODEL',

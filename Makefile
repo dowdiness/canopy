@@ -39,10 +39,10 @@ build: ## Build main module (default target)
 build-js: ## Build JavaScript artifacts for canopy + graphviz
 	@./scripts/build-js.sh
 
-build-web: ## Build web application (MoonBit + Vite)
+build-web: ## Build web application (MoonBit + Waku)
 	@./scripts/build-web.sh
 
-test-web-e2e: ## Run web Playwright E2E tests
+test-web-e2e: ## Run Waku web Playwright E2E tests
 	@./scripts/test-web-e2e.sh
 
 test-canvas-e2e: ## Run canvas Playwright E2E tests
@@ -57,7 +57,7 @@ benchmark-ideal-editor-response: ## Run realistic ideal editor response benchmar
 setup-ast-grep: ## Build tree-sitter-moonbit for ast-grep custom-language support
 	@./scripts/setup-ast-grep-moonbit.sh
 
-web-dev: build-js ## Build JS artifacts and start the web dev server
+web-dev: build-js ## Build JS artifacts and start the Waku web dev server
 	@cd examples/web && npm run dev
 
 clean: ## Clean build artifacts

@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { test, expect } from '@playwright/test';
 
-const resumeUrl = process.env.PI_RESUME_URL ?? '/resume.html';
+const resumeUrl = process.env.PI_RESUME_URL ?? '/resume';
 
 async function gotoResume(page: import('@playwright/test').Page): Promise<void> {
   await page.goto(resumeUrl);
