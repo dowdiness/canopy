@@ -1,6 +1,6 @@
 # Unified Waku Web Migration
 
-**Status:** final verification
+**Status:** completed
 
 **Map:** [#947](https://github.com/dowdiness/canopy/issues/947)
 
@@ -8,13 +8,21 @@
 
 **Behavior baseline:** [`c82368c5`](https://github.com/dowdiness/canopy/commit/c82368c5)
 
+## Completion Evidence
+
+- **PR:** [#997](https://github.com/dowdiness/canopy/pull/997) squash-merged at 2026-07-28T16:00:20Z.
+- **Merge commit:** `e47aee68677b91cd433b0a0d5253ced715cac62c`.
+- **CI:** repository `All Checks Passed` passed on the final PR head; CodeRabbit's final rerun passed with reason `Review rate limited`, after its five earlier actionable findings were fixed and local/CI validation reran.
+- **Deployment:** native Cloudflare Workers Builds produced Worker version `37b75d02-124a-468f-abc4-75d673eb5ac5`, deployment `9453ae99-b0a8-47d9-8976-00fa320a06e1` at 2026-07-28T16:02:06Z, 100% traffic. Previous rollback version: `8fc4338a-b425-430b-a05b-8b91f1b85679`.
+- **Production acceptance:** all nine canonical routes plus `/index.html` returned 200; seven document aliases and their RSC aliases returned 308 with query preservation; unknown route returned 404; Memo production-unavailable boundary, Resume production-chat-unavailable boundary, GenUI recorded replay and production hook exclusion, Waku history/focus, Signaling WebSocket, and error-only live tail all passed. No error invocation appeared for the new version.
+
 ## Why
 
-`examples/web` currently builds eight independent HTML inputs with Vite. The
-migration must replace those inputs with one routed Waku application without
+`examples/web` originally built eight independent HTML inputs with Vite. The
+migration replaced those inputs with one routed Waku application without
 losing the verified demo workflows, the five generated MoonBit JavaScript
 contracts, the local-development capability split, existing Posts data, or the
-ability to fall back to the current deployment.
+ability to fall back to the prior deployment.
 
 The route decision in #952 adds a stronger requirement than changing URLs:
 navigation must behave as a reversible context switch. User work may survive a
@@ -75,8 +83,9 @@ Issues track execution status and link here rather than duplicating this detail.
   core/protocol, and server capabilities separated.
 - `.github/workflows/ci.yml` builds MoonBit JavaScript, builds and typechecks the
   web example, runs boundary checks, and runs the Playwright suite.
-- `.github/workflows/deploy-cloudflare.yml` currently deploys `examples/web/dist`
-  to the `canopy-lambda-editor` Cloudflare Pages project on pushes to `main`.
+- `.github/workflows/deploy-cloudflare.yml` deployed `examples/web/dist`
+  to the `canopy-lambda-editor` Cloudflare Pages project on pushes to `main`
+  (superseded by the Waku Worker deployment in Stage 12).
 - `examples/web/wrangler-signaling.toml` deploys the separate
   `crdt-signaling-server` Worker and its `SIGNALING_ROOM` Durable Object.
 
@@ -428,13 +437,13 @@ mismatch, or failed signaling handshake.
 
 ### Stage 12 — Vite retirement
 
-**Status (2026-07-28):** Implementation and local validation complete. Waku
-is now the default dev/build/preview path; legacy Vite HTML inputs,
-`src/entries/`, and dual-build scripts are removed. `wrangler.jsonc` now owns
-the Worker configuration; `wrangler.waku.jsonc` and `build:deploy:waku` remain
-as compatibility aliases for Cloudflare Workers Builds external settings.
-**Remaining gate:** final repository CI and post-merge production verification
-on Cloudflare; issue #979 stays open until both complete.
+**Status (2026-07-28):** Complete. Waku is the default dev/build/preview path;
+legacy Vite HTML inputs, `src/entries/`, and dual-build scripts are removed.
+`wrangler.jsonc` owns the Worker configuration; `wrangler.waku.jsonc` and
+`build:deploy:waku` remain as compatibility aliases for Cloudflare Workers
+Builds external settings. Final repository CI passed and post-merge production
+verification on Cloudflare succeeded (see Completion Evidence above). No
+remaining gate.
 
 - Make Waku the default development/build path.
 - Remove old HTML inputs, Vite multi-page configuration, throwaway Hub files,
@@ -555,30 +564,30 @@ copy the whole plan.
 
 ## Acceptance Criteria
 
-- [ ] `/` and `/index.html` server-render equivalent data-driven Hub content and
+- [x] `/` and `/index.html` server-render equivalent data-driven Hub content and
       `/index.html` does not redirect.
-- [ ] All eight canonical demo routes pass their inherited behavior contract.
-- [ ] All seven active legacy HTML URLs return `308`, preserve query/fragment,
+- [x] All eight canonical demo routes pass their inherited behavior contract.
+- [x] All seven active legacy HTML URLs return `308`, preserve query/fragment,
       and lead to the correct canonical route without an extra usable Back stop.
-- [ ] Waku owns navigation; modified clicks and new-tab behavior remain native.
-- [ ] Same-document snapshots restore exactly the allowed per-demo fields and
+- [x] Waku owns navigation; modified clicks and new-tab behavior remain native.
+- [x] Same-document snapshots restore exactly the allowed per-demo fields and
       clear on reload/new tab, except Posts' two unchanged stores.
-- [ ] Every route exit disposes its live resources idempotently; repeated
+- [x] Every route exit disposes its live resources idempotently; repeated
       Strict Mode/navigation cycles leak no handle, adapter, overlay, request,
       timer, listener, React root, or development hook.
-- [ ] Push, pop, fragment, fallback, and route-error focus behavior matches #952.
-- [ ] Unknown routes return HTTP 404; pre-commit and post-commit failures retain
+- [x] Push, pop, fragment, fallback, and route-error focus behavior matches #952.
+- [x] Unknown routes return HTTP 404; pre-commit and post-commit failures retain
       the correct URL/state and provide accessible recovery.
-- [ ] Production exposes no Memo credential flow, AST Grep request, Resume
+- [x] Production exposes no Memo credential flow, AST Grep request, Resume
       provider call, GenUI live endpoint, provider secret, stack, or user content
       in errors/logs.
-- [ ] The five virtual IDs and artifact paths remain unchanged, are absent from
+- [x] The five virtual IDs and artifact paths remain unchanged, are absent from
       server/RSC bundles, and trigger output-driven full reload in development.
-- [ ] The separate Signaling Worker remains independently deployable and a real
+- [x] The separate Signaling Worker remains independently deployable and a real
       same-origin handshake passes through the service binding.
-- [ ] Vite remains green until cutover; the final Waku CI jobs join
+- [x] Vite remains green until cutover; the final Waku CI jobs join
       `All Checks Passed` before Vite is retired.
-- [ ] Production deployment records version IDs, passes production smoke gates,
+- [x] Production deployment records version IDs, passes production smoke gates,
       and has a verified previous-Worker-version rollback procedure.
 
 ## Validation
