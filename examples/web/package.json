@@ -28,7 +28,7 @@
     "@ai-sdk/deepseek": "^3.0.12",
     "@ai-sdk/react": "^4.0.34",
     "@canopy/editor-adapter": "file:../../adapters/editor-adapter",
-    "ai": "^7.0.31",
+    "ai": "^7.0.40",
     "hono": "4.12.32",
     "react": "19.2.8",
     "react-dom": "19.2.8",
