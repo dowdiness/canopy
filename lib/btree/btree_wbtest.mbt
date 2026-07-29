@@ -1726,6 +1726,27 @@ test "BTree::delete_range merges boundary leaves" {
 }
 
 ///|
+test "delete_range repartitions an overfull merged boundary chain" {
+  let ids = [10, 11, 12, 7, 20, 21, 22, 23, 7, 31, 32, 33]
+  let items = ids.map(id => (make_item(id, 1), 1))
+  let t : BTree[TItem] = BTree::from_sorted(items, min_degree=2)
+  // The three leaf parents start at 4 | 4 | 4. Removing the middle parent
+  // merges the two id=7 boundary leaves; the rebuilt seven-child chain must
+  // be repartitioned instead of surviving above the maximum occupancy of four.
+  t.delete_range(4, 8)
+  let expected = [
+    make_item(10, 1),
+    make_item(11, 1),
+    make_item(12, 1),
+    make_item(7, 2),
+    make_item(31, 1),
+    make_item(32, 1),
+    make_item(33, 1),
+  ]
+  inspect(tree_matches_model(t, expected), content="true")
+}
+
+///|
 test "delete_range repair near Int max keeps cumulative span valid" {
   let items = Array::makei(16, fn(i) {
     let span = if i == 0 { @int.MAX_VALUE - 15 } else { 1 }

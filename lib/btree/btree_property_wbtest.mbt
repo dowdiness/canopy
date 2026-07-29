@@ -139,9 +139,13 @@ fn query_matches_model(
 ///|
 fn all_queries_match_model(t : BTree[TItem], model : Array[TItem]) -> Bool {
   let total = model_span(model)
-  if t.view(start=-total - 2, end=total + 2) !=
-    model_view_range(model, -total - 2, total + 2) {
-    return false
+  let middle = total / 2
+  for
+    range in [(-total - 2, total + 2), (1, total - 1), (middle - 1, middle + 2)] {
+    let (start, end_) = range
+    if t.view(start~, end=end_) != model_view_range(model, start, end_) {
+      return false
+    }
   }
   for pos in -1..<(total + 2) {
     if !query_matches_model(t, model, pos, 0, total) {
@@ -546,12 +550,19 @@ fn arbitrary_splice_case_matches_model(case_ : ArbitrarySpliceCase) -> Bool {
         size: donor_count + target_count,
       }
       t.mutate_for_insert(donor_count + 1, _ctx => {
-        start_idx: 0,
+        start_idx: 1,
         end_idx: target_count,
         new_leaves: [],
       })
-      let expected = Array::makei(donor_count, i => make_item(i, 1))
-      tree_matches_model(t, expected)
+      let expected = Array::makei(donor_count + 1, i => make_item(i, 1))
+      let borrowed_to_target = match t.root {
+        Some(Internal(children~, ..)) =>
+          children.length() == 2 &&
+          children[0].child_count() == min_degree + 1 &&
+          children[1].child_count() == min_degree
+        _ => false
+      }
+      borrowed_to_target && tree_matches_model(t, expected)
     }
     Merge => {
       let sibling_count = min_degree
@@ -569,12 +580,16 @@ fn arbitrary_splice_case_matches_model(case_ : ArbitrarySpliceCase) -> Bool {
         size: 2 * sibling_count,
       }
       t.mutate_for_insert(sibling_count + 1, _ctx => {
-        start_idx: 0,
+        start_idx: 1,
         end_idx: sibling_count,
         new_leaves: [],
       })
-      let expected = Array::makei(sibling_count, i => make_item(i, 1))
-      tree_matches_model(t, expected)
+      let expected = Array::makei(sibling_count + 1, i => make_item(i, 1))
+      let merged_with_sibling = match t.root {
+        Some(root) => root.child_count() == min_degree + 1
+        None => false
+      }
+      merged_with_sibling && tree_matches_model(t, expected)
     }
     RepeatedMerge => {
       let old = make_internal(
@@ -608,13 +623,20 @@ fn arbitrary_splice_case_matches_model(case_ : ArbitrarySpliceCase) -> Bool {
       let root = result
         .root_candidate(min_degree, normalize_delete=false)
         .unwrap()
+      let repeatedly_merged = match root {
+        Internal(children~, ..) =>
+          children.length() == 2 &&
+          children[0].child_count() == min_degree + 1 &&
+          children[1].child_count() == 2 * min_degree
+        _ => false
+      }
       let t : BTree[TItem] = {
         root: Some(root),
         min_degree,
         size: new_leaf_count,
       }
       let expected = Array::makei(new_leaf_count, i => make_item(i, 1))
-      tree_matches_model(t, expected)
+      repeatedly_merged && tree_matches_model(t, expected)
     }
   }
 }
@@ -925,7 +947,7 @@ test "arbitrary splice propagation cardinality and repair boundary matrix" {
 
 ///|
 test "quickcheck arbitrary splice generator reaches stress paths" {
-  let samples : Array[ArbitrarySpliceCase] = @quickcheck.samples(400)
+  let samples : Array[ArbitrarySpliceCase] = @quickcheck.samples(800)
   let mut saw_multi_output = false
   let mut saw_extra_root_level = false
   let mut saw_multi_child_underflow_repair = false
@@ -953,7 +975,9 @@ test "quickcheck arbitrary splice generator reaches stress paths" {
         }
       }
       BulkBorrow => {
-        saw_multi_child_underflow_repair = true
+        if case_.min_degree > 2 {
+          saw_multi_child_underflow_repair = true
+        }
         match case_.min_degree {
           2 => saw_bulk_borrow_degree_2 = true
           3 => saw_bulk_borrow_degree_3 = true
