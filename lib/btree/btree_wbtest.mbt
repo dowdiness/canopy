@@ -272,8 +272,8 @@ test "panic init_root rejects repeated initialization" {
 ///|
 test "panic insert splice rejects non-positive span" {
   let t = build_tree([(1, 1)])
-  // abort is uncatchable, so atomicity is verified by validation-before-splice
-  // source ordering rather than by observing state after the failure.
+  // abort is uncatchable, so this test verifies rejection only. In propagate,
+  // validation precedes apply_splice; descent may already have split nodes.
   t.mutate_for_insert(1, ctx => {
     start_idx: ctx.child_idx + 1,
     end_idx: ctx.child_idx + 1,
@@ -284,8 +284,8 @@ test "panic insert splice rejects non-positive span" {
 ///|
 test "panic delete splice rejects non-positive span" {
   let t = build_tree([(1, 2)])
-  // abort is uncatchable, so atomicity is verified by validation-before-splice
-  // source ordering rather than by observing state after the failure.
+  // abort is uncatchable, so this test verifies rejection only. In propagate,
+  // validation precedes apply_splice; descent may already have rebalanced nodes.
   let _ = t.mutate_for_delete(0, ctx => {
     (
       {
