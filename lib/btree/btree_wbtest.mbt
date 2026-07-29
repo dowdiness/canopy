@@ -874,6 +874,20 @@ test "LeafContext neighbors return adjacent siblings" {
 }
 
 ///|
+test "LeafContext snapshot keeps original neighbors" {
+  let children : Array[BTreeNode[TItem]] = [
+    Leaf(elem=make_item(1, 3), span=3),
+    Leaf(elem=make_item(2, 2), span=2),
+    Leaf(elem=make_item(3, 4), span=4),
+  ]
+  let root : BTreeNode[TItem] = Internal(children~, counts=[3, 2, 4], total=9)
+  let cursor = descend(root, 3, 2, prepare_noop, find_slot, false).unwrap()
+  let ctx = LeafContext::from_cursor(cursor)
+  children[0] = Leaf(elem=make_item(9, 3), span=3)
+  @debug.debug_inspect(ctx.left_neighbor(), content="Some({ id: 1, span: 3 })")
+}
+
+///|
 test "LeafContext boundary neighbors are None" {
   let root : BTreeNode[TItem] = Internal(
     children=[

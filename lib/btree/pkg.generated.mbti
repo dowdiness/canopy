@@ -51,8 +51,8 @@ pub(all) struct LeafContext[T] {
   elem : T
   span : Int
   offset : Int
-  children : Array[BTreeNode[T]]
   child_idx : Int
+  // private fields
 } derive(@debug.Debug)
 pub fn[T] LeafContext::left_neighbor(Self[T]) -> T?
 pub fn[T] LeafContext::right_neighbor(Self[T]) -> T?
