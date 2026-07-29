@@ -12,9 +12,7 @@ import {
 
 // Types and methods
 pub(all) struct BTree[T] {
-  mut root : BTreeNode[T]?
-  min_degree : Int
-  mut size : Int
+  // private fields
 } derive(Eq, @debug.Debug)
 pub fn[T : BTreeElem] BTree::delete_range(Self[T], Int, Int) -> Unit
 pub fn[T] BTree::each(Self[T], (T) -> Unit) -> Unit
