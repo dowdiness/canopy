@@ -189,6 +189,7 @@ pub fn[T] BTree::from_sorted(
   items : Array[(T, Int)],
   min_degree? : Int = DEFAULT_MIN_DEGREE,
 ) -> BTree[T] {
+  validate_positive_spans(items, "BTree::from_sorted")
   let min_degree = clamp_min_degree(min_degree)
   let max_degree = 2 * min_degree
   if items.is_empty() {
@@ -227,6 +228,7 @@ pub fn[T] BTree::from_sorted(
 ///|
 /// Initialize root with a single leaf wrapped in an internal node.
 pub fn[T] BTree::init_root(self : BTree[T], elem : T, span : Int) -> Unit {
+  guard span > 0 else { abort("BTree::init_root: leaf span must be positive") }
   let leaf = Leaf(elem~, span~)
   self.root = Some(Internal(children=[leaf], counts=[span], total=span))
   self.size = 1

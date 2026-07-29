@@ -173,6 +173,7 @@ fn[T] propagate(
   min_degree : Int,
 ) -> PropagateResult[T] {
   guard path.length() > 0 else { abort("propagate: empty path") }
+  validate_positive_spans(splice.new_leaves, "BTree splice")
   let leaf_delta = splice.new_leaves.length() -
     (splice.end_idx - splice.start_idx)
   let leaf_parent = path[path.length() - 1]
