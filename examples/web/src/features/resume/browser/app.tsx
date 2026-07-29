@@ -4,7 +4,6 @@ import {
   StrictMode,
   useEffect,
   useMemo,
-  useReducer,
   useRef,
   useState,
   type ChangeEvent,
@@ -12,7 +11,6 @@ import {
   type MouseEvent,
 } from 'react';
 import { createRoot } from 'react-dom/client';
-import fixtureSource from '../../../../tests/fixtures/pi-session-v3.jsonl?raw';
 import {
   Conversation,
   ConversationContent,
@@ -38,16 +36,10 @@ import {
   SourcesTrigger,
 } from './components/sources';
 import {
-  DEFAULT_LIMITS,
   activityTextForDisplay,
   isSensitiveText,
-  parsePiSessionJsonl,
-  projectResume,
-  reducePiSession,
-  PiSessionFormatError,
   type ActivityItem,
   type NormalizedEntry,
-  type ReducedPiSession,
   type ResumeDiagnostic,
   type ResumeProjection,
 } from '../core/session';
@@ -64,9 +56,14 @@ import {
   type PkeChatSource,
   type PkeChatStatus,
 } from '../protocol/chat';
+import {
+  type PilotSourceSelection,
+  type ResumeState,
+} from './resume-state';
+import { useResumeSession } from './use-resume-session';
+import { useConversationSelectionScroll } from './use-conversation-selection-scroll';
 import './styles.css';
 
-const demoSession = reducePiSession(parsePiSessionJsonl(fixtureSource));
 
 const dateTimeFormat = new Intl.DateTimeFormat(undefined, {
   month: 'short',
@@ -80,141 +77,6 @@ const workbenchTimeFormat = new Intl.DateTimeFormat(undefined, {
   second: '2-digit',
 });
 
-type SourceMode = 'demo' | 'imported';
-type StatusTone = 'idle' | 'success' | 'error';
-
-interface ImportStatus {
-  readonly message: string;
-  readonly tone: StatusTone;
-}
-
-export interface ResumeState {
-  readonly session: ReducedPiSession;
-  readonly sourceMode: SourceMode;
-  readonly importedFileName?: string;
-  readonly selectedLeafId: string | null;
-  readonly isImporting: boolean;
-  readonly importStatus: ImportStatus;
-  readonly diagnosticOverride?: readonly ResumeDiagnostic[];
-  readonly fileInputGeneration: number;
-}
-
-export type ResumeEvent =
-  | { readonly type: 'import-reading'; readonly fileName: string }
-  | {
-      readonly type: 'import-succeeded';
-      readonly session: ReducedPiSession;
-      readonly fileName: string;
-      readonly status: ImportStatus;
-    }
-  | { readonly type: 'import-failed'; readonly diagnostic: ResumeDiagnostic; readonly status: ImportStatus }
-  | { readonly type: 'select-leaf'; readonly leafId: string | null }
-  | { readonly type: 'forget' };
-
-export const initialResumeState: ResumeState = {
-  session: demoSession,
-  sourceMode: 'demo',
-  selectedLeafId: null,
-  isImporting: false,
-  importStatus: { message: '', tone: 'idle' },
-  fileInputGeneration: 0,
-};
-
-export function reduceResumeState(state: ResumeState, event: ResumeEvent): ResumeState {
-  switch (event.type) {
-    case 'import-reading':
-      return {
-        ...state,
-        selectedLeafId: null,
-        isImporting: true,
-        importStatus: { message: `Reading ${event.fileName} in this tab…`, tone: 'idle' },
-        fileInputGeneration: state.fileInputGeneration + 1,
-      };
-    case 'import-succeeded': {
-      return {
-        session: event.session,
-        sourceMode: 'imported',
-        importedFileName: event.fileName,
-        selectedLeafId: null,
-        isImporting: false,
-        importStatus: event.status,
-        fileInputGeneration: state.fileInputGeneration,
-      };
-    }
-    case 'import-failed':
-      return {
-        ...initialResumeState,
-        importStatus: event.status,
-        diagnosticOverride: [event.diagnostic],
-        fileInputGeneration: state.fileInputGeneration + 1,
-      };
-    case 'select-leaf':
-      return {
-        ...state,
-        selectedLeafId: event.leafId,
-        diagnosticOverride: undefined,
-      };
-    case 'forget':
-      return {
-        ...initialResumeState,
-        importStatus: {
-          message: 'Imported session forgotten. The demo transcript is active again.',
-          tone: 'idle',
-        },
-        fileInputGeneration: state.fileInputGeneration + 1,
-      };
-  }
-}
-
-interface PilotSourceSelection {
-  readonly entryId: string;
-}
-
-interface PilotViewState {
-  readonly selectedSource?: PilotSourceSelection;
-  readonly chatSourceEntryIds: readonly string[];
-}
-
-type PilotViewEvent =
-  | {
-      readonly type: 'open-source';
-      readonly entryId: string;
-    }
-  | { readonly type: 'toggle-chat-source'; readonly entryId: string }
-  | { readonly type: 'reset' };
-
-const initialPilotViewState: PilotViewState = {
-  chatSourceEntryIds: Object.freeze([]),
-};
-
-function reducePilotViewState(
-  state: PilotViewState,
-  event: PilotViewEvent,
-): PilotViewState {
-  switch (event.type) {
-    case 'open-source':
-      return {
-        ...state,
-        selectedSource: {
-          entryId: event.entryId,
-        },
-      };
-    case 'toggle-chat-source': {
-      const includesSource = state.chatSourceEntryIds.includes(event.entryId);
-      if (!includesSource && state.chatSourceEntryIds.length >= PKE_CHAT_SOURCE_LIMIT) return state;
-      return {
-        ...state,
-        chatSourceEntryIds: Object.freeze(
-          includesSource
-            ? state.chatSourceEntryIds.filter(entryId => entryId !== event.entryId)
-            : [...state.chatSourceEntryIds, event.entryId],
-        ),
-      };
-    }
-    case 'reset':
-      return initialPilotViewState;
-  }
-}
 
 function formatTimestamp(value: string): string {
   return dateTimeFormat.format(new Date(value));
@@ -224,49 +86,6 @@ function formatWorkbenchTime(value: string): string {
   return workbenchTimeFormat.format(new Date(value));
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} bytes`;
-  const units = ['KiB', 'MiB', 'GiB'];
-  let value = bytes;
-  let unitIndex = -1;
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
-    unitIndex += 1;
-  }
-  return `${value.toFixed(1)} ${units[unitIndex]}`;
-}
-
-function formatImportError(error: unknown, file: File): ResumeDiagnostic {
-  if (error instanceof PiSessionFormatError) {
-    const message = (() => {
-      switch (error.code) {
-        case 'file_too_large':
-          return `This session is ${formatBytes(file.size)} (${file.size.toLocaleString()} bytes), above the ${formatBytes(DEFAULT_LIMITS.maxFileBytes)} limit (${DEFAULT_LIMITS.maxFileBytes.toLocaleString()} bytes). Choose a shorter or newer pi session and try again. Nothing was uploaded or saved.`;
-        case 'line_too_large':
-          return 'One entry in this session is too large to import safely. Choose a shorter session or a session with less captured tool output. Nothing was uploaded or saved.';
-        case 'too_many_entries':
-          return `This session has more than ${DEFAULT_LIMITS.maxEntries.toLocaleString()} entries. Choose a shorter session and try again. Nothing was uploaded or saved.`;
-        case 'unsupported_version':
-          return 'This is not a supported pi session v3 file. Choose a v3 .jsonl session snapshot.';
-        case 'invalid_json':
-          return 'This file is not valid JSONL. Choose a pi session .jsonl snapshot rather than a folder or export in another format.';
-        case 'invalid_entry_identity':
-        case 'missing_parent':
-        case 'missing_reference':
-        case 'cycle':
-          return 'This session appears incomplete or malformed. Choose another .jsonl snapshot; the file was not modified.';
-        default:
-          return error.message;
-      }
-    })();
-    return { severity: 'error', code: error.code, message };
-  }
-  return {
-    severity: 'error',
-    code: 'import_failed',
-    message: error instanceof Error ? error.message : String(error),
-  };
-}
 
 function activityKindLabel(item: ActivityItem): string {
   switch (item.kind) {
@@ -1077,14 +896,11 @@ function PilotUnderstandingWorkbench({
     );
   }, [selectedPhaseId]);
   const [activePane, setActivePane] = useState<PilotWorkbenchPane>('conversation');
-  const previousSelectedSourceRef = useRef(selectedSource.entryId);
-  useEffect(() => {
-    const sourceChanged = previousSelectedSourceRef.current !== selectedSource.entryId;
-    previousSelectedSourceRef.current = selectedSource.entryId;
-  }, [selectedSource.entryId]);
-  const conversationPanelRef = useRef<HTMLElement | null>(null);
-  const selectedConversationRef = useRef<HTMLLIElement | null>(null);
-  const revealConversationSelectionRef = useRef(false);
+  const {
+    conversationPanelRef,
+    revealConversationSelection,
+    selectedConversationRef,
+  } = useConversationSelectionScroll(activePane === 'conversation', selectedSource.entryId);
   const [inspectorMode, setInspectorMode] = useState<PilotInspectorMode>('discuss');
   const [evidenceMode, setEvidenceMode] = useState<PilotEvidenceMode>('readable');
   const selectedItemIndex = Math.max(
@@ -1121,35 +937,9 @@ function PilotUnderstandingWorkbench({
       : `Result for ${request.name} requested by source entry ${request.entryId}`;
   }
 
-  useEffect(() => {
-    if (activePane !== 'conversation') return;
-    const frame = window.requestAnimationFrame(() => {
-      const panel = conversationPanelRef.current;
-      const target = selectedConversationRef.current;
-      if (panel === null || target === null) return;
-      const usesInternalScroll = window.getComputedStyle(panel).overflowY !== 'visible';
-      if (usesInternalScroll) {
-        const panelBox = panel.getBoundingClientRect();
-        const targetBox = target.getBoundingClientRect();
-        const headingHeight = panel.querySelector<HTMLElement>('.pilot-panel-heading')
-          ?.getBoundingClientRect().height ?? 0;
-        panel.scrollTo({
-          top: Math.max(
-            0,
-            panel.scrollTop + targetBox.top - panelBox.top - headingHeight - 4,
-          ),
-          behavior: 'auto',
-        });
-      } else if (revealConversationSelectionRef.current) {
-        target.scrollIntoView({ block: 'center', behavior: 'auto' });
-      }
-      revealConversationSelectionRef.current = false;
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [activePane, selectedSource.entryId]);
 
   const selectFromTimeline = (entryId: string): void => {
-    revealConversationSelectionRef.current = true;
+    revealConversationSelection();
     onSelectEntry(entryId);
     setActivePane('conversation');
   };
@@ -1558,63 +1348,26 @@ function Diagnostics({ items }: { readonly items: readonly ResumeDiagnostic[] })
 }
 
 export function ResumeApp() {
-  const [state, dispatch] = useReducer(reduceResumeState, initialResumeState);
-  const [pilotState, dispatchPilot] = useReducer(reducePilotViewState, initialPilotViewState);
-  const effectiveLeafId = state.selectedLeafId ?? (
-    state.sourceMode === 'demo' ? state.session.terminalPaths[0]?.leafId ?? null : null
-  );
-  const projection = useMemo(
-    () => effectiveLeafId === null ? undefined : projectResume(state.session, effectiveLeafId),
-    [effectiveLeafId, state.session],
-  );
-  const defaultItem = projection?.chronology[0];
-  const effectivePilotSource: PilotSourceSelection | undefined = pilotState.selectedSource ??
-    (defaultItem === undefined ? undefined : { entryId: defaultItem.source.entryId });
-  const diagnostics = state.diagnosticOverride ?? projection?.diagnostics ?? state.session.diagnostics;
-  const importSessionFile = async (file: File): Promise<void> => {
-    dispatchPilot({ type: 'reset' });
-    dispatch({ type: 'import-reading', fileName: file.name });
-    try {
-      if (file.size > DEFAULT_LIMITS.maxFileBytes) {
-        throw new PiSessionFormatError('file_too_large', 'The selected file exceeds the file limit.');
-      }
-      const session = reducePiSession(parsePiSessionJsonl(await file.text()));
-      const count = session.diagnostics.length;
-      dispatch({
-        type: 'import-succeeded', session, fileName: file.name,
-        status: { tone: 'success', message: count === 0
-          ? `Imported ${file.name}. Select a terminal path to inspect it.`
-          : `Imported ${file.name} with ${count} import note${count === 1 ? '' : 's'}.` },
-      });
-    } catch (error) {
-      const diagnostic = formatImportError(error, file);
-      dispatch({ type: 'import-failed', diagnostic,
-        status: { tone: 'error', message: `Could not import ${file.name}. ${diagnostic.message} The demo transcript remains active.` } });
-    }
-  };
-  const revealSource = (entryId: string): void => {
-    if (projection?.chronology.some(item => item.source.entryId === entryId) !== true) return;
-    dispatchPilot({ type: 'open-source', entryId });
-    window.history.replaceState(null, '', `#source-${entryId}`);
-  };
-  const revealChatSource = (entryId: string, leafId: string): void => {
-    if (projection?.leafId === leafId) { revealSource(entryId); return; }
-    if (!state.session.entries.some(entry => entry.id === leafId) ||
-        !state.session.entries.some(entry => entry.id === entryId)) return;
-    dispatchPilot({ type: 'open-source', entryId });
-    dispatch({ type: 'select-leaf', leafId });
-    window.history.replaceState(null, '', `#source-${entryId}`);
-  };
-  const forgetSession = (): void => {
-    dispatchPilot({ type: 'reset' });
-    dispatch({ type: 'forget' });
-  };
+  const {
+    diagnostics,
+    effectiveLeafId,
+    effectivePilotSource,
+    forgetSession,
+    importSessionFile,
+    pilotState,
+    projection,
+    revealChatSource,
+    revealSource,
+    selectPath,
+    state,
+    toggleChatSource,
+  } = useResumeSession();
   return (
     <main className="pilot-shell">
       <PilotSessionToolbar
         state={state} pathLength={projection?.path.length ?? 0} selectedLeafId={effectiveLeafId}
         onFile={file => void importSessionFile(file)}
-        onSelectPath={leafId => { dispatchPilot({ type: 'reset' }); dispatch({ type: 'select-leaf', leafId }); }}
+        onSelectPath={selectPath}
         onForget={forgetSession}
       />
       <section className="pilot-workspace" data-layout="resume">
@@ -1624,7 +1377,7 @@ export function ResumeApp() {
             chatInstanceId={`${state.sourceMode}:${state.fileInputGeneration}:${state.session.header.sessionId}`}
             chatSourceEntryIds={pilotState.chatSourceEntryIds}
             onSelectEntry={revealSource} onSelectChatSource={revealChatSource}
-            onToggleChatSource={entryId => dispatchPilot({ type: 'toggle-chat-source', entryId })}
+            onToggleChatSource={toggleChatSource}
           />
         )}
       </section>
