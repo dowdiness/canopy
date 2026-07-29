@@ -2263,6 +2263,21 @@ test "from_sorted clamps invalid min_degree" {
 }
 
 ///|
+test "from_sorted clamps oversized min_degree" {
+  let items : Array[(TItem, Int)] = [(make_item(1, 1), 1), (make_item(2, 1), 1)]
+  let oversized_min_degree = MAX_SAFE_MIN_DEGREE + 1
+  let t : BTree[TItem] = BTree::from_sorted(
+    items,
+    min_degree=oversized_min_degree,
+  )
+  inspect(t.size(), content="2")
+  inspect(t.span(), content="2")
+  inspect(btree_invariants_hold(t), content="true")
+  let empty : BTree[TItem] = BTree::new(min_degree=oversized_min_degree)
+  inspect(empty.min_degree, content=MAX_SAFE_MIN_DEGREE.to_string())
+}
+
+///|
 struct FromSortedCase {
   items : Array[(Int, Int)]
   min_degree : Int

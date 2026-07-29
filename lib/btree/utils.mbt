@@ -4,12 +4,12 @@ fn Array::sum(self : Array[Int]) -> Int {
 }
 
 ///|
+/// Largest minimum degree whose doubling remains within `Int`.
+const MAX_SAFE_MIN_DEGREE : Int = @int.MAX_VALUE / 2
+
+///|
 fn clamp_min_degree(min_degree : Int) -> Int {
-  if min_degree < 2 {
-    2
-  } else {
-    min_degree
-  }
+  min_degree.clamp(min=2, max=MAX_SAFE_MIN_DEGREE)
 }
 
 ///|
