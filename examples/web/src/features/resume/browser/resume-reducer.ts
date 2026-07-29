@@ -52,6 +52,7 @@ export function createResumeReducer(
         return {
           ...state,
           selectedLeafId: null,
+          diagnosticOverride: undefined,
           isImporting: true,
           importStatus: { message: `Reading ${event.fileName} in this tab\u2026`, tone: 'idle' },
           fileInputGeneration: state.fileInputGeneration + 1,

@@ -20,15 +20,20 @@ const dummySession: ReducedPiSession = {
 const baseline = createResumeState(dummySession);
 const reduceResumeState = createResumeReducer(baseline);
 
-test('import-reading sets isImporting and clears selectedLeafId', () => {
+test('import-reading clears selection and stale diagnostics', () => {
   const initial = createResumeState(dummySession);
-  const withSelection: ResumeState = { ...initial, selectedLeafId: 'leaf-1' };
+  const withSelection: ResumeState = {
+    ...initial,
+    selectedLeafId: 'leaf-1',
+    diagnosticOverride: [{ severity: 'error', code: 'old', message: 'old failure' }],
+  };
   const result = reduceResumeState(withSelection, {
     type: 'import-reading',
     fileName: 'session.jsonl',
   });
 
   expect(result.selectedLeafId).toBeNull();
+  expect(result.diagnosticOverride).toBeUndefined();
   expect(result.isImporting).toBe(true);
   expect(result.importStatus.message).toBe('Reading session.jsonl in this tab\u2026');
   expect(result.importStatus.tone).toBe('idle');
