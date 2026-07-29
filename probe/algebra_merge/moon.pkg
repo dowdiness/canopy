@@ -1,0 +1,5 @@
+import {
+  "dowdiness/event-graph-walker/text",
+  "dowdiness/lambda",
+  "moonbitlang/core/debug",
+} for "wbtest"
