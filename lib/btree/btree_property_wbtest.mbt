@@ -471,8 +471,9 @@ fn prop_from_sorted_exact_content(case_ : FromSortedCase) -> Bool {
 ///|
 enum ArbitrarySpliceShape {
   Overflow(Int)
-  Borrow
+  BulkBorrow
   Merge
+  RepeatedMerge
 } derive(Debug)
 
 ///|
@@ -489,7 +490,7 @@ impl @quickcheck.Arbitrary for ArbitrarySpliceCase with fn arbitrary(_size, rs) 
     _ => DEFAULT_MIN_DEGREE
   }
   let max_degree = 2 * min_degree
-  let shape = match rs.split().next_positive_int() % 3 {
+  let shape = match rs.split().next_positive_int() % 4 {
     0 => {
       let cardinalities = [
         0,
@@ -504,8 +505,9 @@ impl @quickcheck.Arbitrary for ArbitrarySpliceCase with fn arbitrary(_size, rs) 
       let idx = rs.split().next_positive_int() % cardinalities.length()
       Overflow(cardinalities[idx])
     }
-    1 => Borrow
-    _ => Merge
+    1 => BulkBorrow
+    2 => Merge
+    _ => RepeatedMerge
   }
   { min_degree, shape }
 }
@@ -527,7 +529,7 @@ fn arbitrary_splice_case_matches_model(case_ : ArbitrarySpliceCase) -> Bool {
       })
       tree_matches_model(t, expected)
     }
-    Borrow => {
+    BulkBorrow => {
       let donor_count = 2 * min_degree
       let target_count = min_degree
       let donor = make_internal(
@@ -543,14 +545,12 @@ fn arbitrary_splice_case_matches_model(case_ : ArbitrarySpliceCase) -> Bool {
         min_degree,
         size: donor_count + target_count,
       }
-      let replacement = make_item(donor_count + target_count, 1)
       t.mutate_for_insert(donor_count + 1, _ctx => {
         start_idx: 0,
         end_idx: target_count,
-        new_leaves: [(replacement, 1)],
+        new_leaves: [],
       })
       let expected = Array::makei(donor_count, i => make_item(i, 1))
-      expected.push(replacement)
       tree_matches_model(t, expected)
     }
     Merge => {
@@ -568,14 +568,52 @@ fn arbitrary_splice_case_matches_model(case_ : ArbitrarySpliceCase) -> Bool {
         min_degree,
         size: 2 * sibling_count,
       }
-      let replacement = make_item(2 * sibling_count, 1)
       t.mutate_for_insert(sibling_count + 1, _ctx => {
         start_idx: 0,
         end_idx: sibling_count,
-        new_leaves: [(replacement, 1)],
+        new_leaves: [],
       })
       let expected = Array::makei(sibling_count, i => make_item(i, 1))
-      expected.push(replacement)
+      tree_matches_model(t, expected)
+    }
+    RepeatedMerge => {
+      let old = make_internal(
+        Array::makei(min_degree, i => Leaf(elem=make_item(1000 + i, 1), span=1)),
+      )
+      let underfull_count = min_degree + 1
+      let new_children : Array[BTreeNode[TItem]] = Array::makei(
+        underfull_count,
+        i => make_internal([Leaf(elem=make_item(i, 1), span=1)]),
+      )
+      new_children.push(
+        make_internal(
+          Array::makei(2 * min_degree, i => {
+            Leaf(elem=make_item(underfull_count + i, 1), span=1)
+          }),
+        ),
+      )
+      let new_leaf_count = underfull_count + 2 * min_degree
+      let result = propagate_node_splice(
+        {
+          prefix: [],
+          children: [old],
+          counts: [old.total()],
+          start_idx: 0,
+          end_idx: 1,
+          new_children,
+          leaf_delta: new_leaf_count - min_degree,
+        },
+        min_degree,
+      )
+      let root = result
+        .root_candidate(min_degree, normalize_delete=false)
+        .unwrap()
+      let t : BTree[TItem] = {
+        root: Some(root),
+        min_degree,
+        size: new_leaf_count,
+      }
+      let expected = Array::makei(new_leaf_count, i => make_item(i, 1))
       tree_matches_model(t, expected)
     }
   }
@@ -848,7 +886,7 @@ test "property: operation sequences match array model" {
 }
 
 ///|
-test "arbitrary callback splice cardinality and repair boundary matrix" {
+test "arbitrary splice propagation cardinality and repair boundary matrix" {
   for min_degree in [2, 3, DEFAULT_MIN_DEGREE] {
     let max_degree = 2 * min_degree
     for
@@ -871,28 +909,35 @@ test "arbitrary callback splice cardinality and repair boundary matrix" {
       )
     }
     inspect(
-      arbitrary_splice_case_matches_model({ min_degree, shape: Borrow }),
+      arbitrary_splice_case_matches_model({ min_degree, shape: BulkBorrow }),
       content="true",
     )
     inspect(
       arbitrary_splice_case_matches_model({ min_degree, shape: Merge }),
       content="true",
     )
+    inspect(
+      arbitrary_splice_case_matches_model({ min_degree, shape: RepeatedMerge }),
+      content="true",
+    )
   }
 }
 
 ///|
-test "quickcheck arbitrary callback splice generator reaches stress paths" {
+test "quickcheck arbitrary splice generator reaches stress paths" {
   let samples : Array[ArbitrarySpliceCase] = @quickcheck.samples(400)
   let mut saw_multi_output = false
   let mut saw_extra_root_level = false
   let mut saw_multi_child_underflow_repair = false
-  let mut saw_borrow_degree_2 = false
-  let mut saw_borrow_degree_3 = false
-  let mut saw_borrow_default_degree = false
+  let mut saw_bulk_borrow_degree_2 = false
+  let mut saw_bulk_borrow_degree_3 = false
+  let mut saw_bulk_borrow_default_degree = false
   let mut saw_merge_degree_2 = false
   let mut saw_merge_degree_3 = false
   let mut saw_merge_default_degree = false
+  let mut saw_repeated_merge_degree_2 = false
+  let mut saw_repeated_merge_degree_3 = false
+  let mut saw_repeated_merge_default_degree = false
   for case_ in samples {
     guard arbitrary_splice_case_matches_model(case_) else {
       fail("generated arbitrary splice diverged from model")
@@ -907,14 +952,12 @@ test "quickcheck arbitrary callback splice generator reaches stress paths" {
           saw_extra_root_level = true
         }
       }
-      Borrow => {
-        if case_.min_degree > 2 {
-          saw_multi_child_underflow_repair = true
-        }
+      BulkBorrow => {
+        saw_multi_child_underflow_repair = true
         match case_.min_degree {
-          2 => saw_borrow_degree_2 = true
-          3 => saw_borrow_degree_3 = true
-          _ => saw_borrow_default_degree = true
+          2 => saw_bulk_borrow_degree_2 = true
+          3 => saw_bulk_borrow_degree_3 = true
+          _ => saw_bulk_borrow_default_degree = true
         }
       }
       Merge =>
@@ -923,17 +966,26 @@ test "quickcheck arbitrary callback splice generator reaches stress paths" {
           3 => saw_merge_degree_3 = true
           _ => saw_merge_default_degree = true
         }
+      RepeatedMerge =>
+        match case_.min_degree {
+          2 => saw_repeated_merge_degree_2 = true
+          3 => saw_repeated_merge_degree_3 = true
+          _ => saw_repeated_merge_default_degree = true
+        }
     }
   }
   inspect(saw_multi_output, content="true")
   inspect(saw_extra_root_level, content="true")
   inspect(saw_multi_child_underflow_repair, content="true")
-  inspect(saw_borrow_degree_2, content="true")
-  inspect(saw_borrow_degree_3, content="true")
-  inspect(saw_borrow_default_degree, content="true")
+  inspect(saw_bulk_borrow_degree_2, content="true")
+  inspect(saw_bulk_borrow_degree_3, content="true")
+  inspect(saw_bulk_borrow_default_degree, content="true")
   inspect(saw_merge_degree_2, content="true")
   inspect(saw_merge_degree_3, content="true")
   inspect(saw_merge_default_degree, content="true")
+  inspect(saw_repeated_merge_degree_2, content="true")
+  inspect(saw_repeated_merge_degree_3, content="true")
+  inspect(saw_repeated_merge_default_degree, content="true")
 }
 
 ///|

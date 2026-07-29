@@ -524,24 +524,24 @@ test "arbitrary insert splice propagates a complete segment through ancestors" {
 }
 
 ///|
-test "arbitrary insert deletion repairs a multi-child underflow deficit" {
+test "arbitrary delete-shaped insert repairs the zero-child underflow counterexample" {
+  // min_degree=3 and occupancies [3] | [4]. Removing the complete left
+  // parent used to borrow only one child and leave an invalid [1] | [3].
   let left = make_internal(
-    Array::makei(6, fn(i) { Leaf(elem=make_item(i, 1), span=1) }),
+    Array::makei(3, fn(i) { Leaf(elem=make_item(i, 1), span=1) }),
   )
   let right = make_internal(
-    Array::makei(3, fn(i) { Leaf(elem=make_item(i + 6, 1), span=1) }),
+    Array::makei(4, fn(i) { Leaf(elem=make_item(i + 3, 1), span=1) }),
   )
   let t : BTree[TItem] = {
     root: Some(make_internal([left, right])),
     min_degree: 3,
-    size: 9,
+    size: 7,
   }
-  let replacement = make_item(9, 1)
-  t.mutate_for_insert(7, fn(_ctx) {
-    { start_idx: 0, end_idx: 3, new_leaves: [(replacement, 1)] }
+  t.mutate_for_insert(0, fn(_ctx) {
+    { start_idx: 0, end_idx: 3, new_leaves: [] }
   })
-  let expected = Array::makei(6, fn(i) { make_item(i, 1) })
-  expected.push(replacement)
+  let expected = Array::makei(4, fn(i) { make_item(i + 3, 1) })
   inspect(tree_matches_model(t, expected), content="true")
 }
 
@@ -1603,30 +1603,46 @@ test "propagate_node_splice repairs underfull node by merging with sibling" {
 }
 
 ///|
-test "propagate_node_splice rechecks repeated adjacent underfull merges" {
-  let old = make_internal(
-    Array::makei(3, i => Leaf(elem=make_item(100 + i, 1), span=1)),
-  )
-  let first = make_internal([Leaf(elem=make_item(0, 1), span=1)])
-  let second = make_internal([Leaf(elem=make_item(1, 1), span=1)])
-  let third = make_internal([Leaf(elem=make_item(2, 1), span=1)])
-  let donor = make_internal(
-    Array::makei(6, i => Leaf(elem=make_item(i + 3, 1), span=1)),
-  )
-  let splice : NodeSplice[TItem] = {
-    prefix: [],
-    children: [old],
-    counts: [old.total()],
-    start_idx: 0,
-    end_idx: 1,
-    new_children: [first, second, third, donor],
-    leaf_delta: 6,
+test "propagate_node_splice rechecks repeated adjacent merges at every degree" {
+  for min_degree in [2, 3, DEFAULT_MIN_DEGREE] {
+    let old = make_internal(
+      Array::makei(min_degree, i => Leaf(elem=make_item(1000 + i, 1), span=1)),
+    )
+    // min_degree + 1 singleton internal nodes force at least two adjacent
+    // merges even when min_degree=2. The final full donor must remain valid.
+    let underfull_count = min_degree + 1
+    let new_children : Array[BTreeNode[TItem]] = Array::makei(underfull_count, i => {
+      make_internal([Leaf(elem=make_item(i, 1), span=1)])
+    })
+    new_children.push(
+      make_internal(
+        Array::makei(2 * min_degree, i => {
+          Leaf(elem=make_item(underfull_count + i, 1), span=1)
+        }),
+      ),
+    )
+    let new_leaf_count = underfull_count + 2 * min_degree
+    let splice : NodeSplice[TItem] = {
+      prefix: [],
+      children: [old],
+      counts: [old.total()],
+      start_idx: 0,
+      end_idx: 1,
+      new_children,
+      leaf_delta: new_leaf_count - min_degree,
+    }
+    let result = propagate_node_splice(splice, min_degree)
+    let root = result
+      .root_candidate(min_degree, normalize_delete=false)
+      .unwrap()
+    let t : BTree[TItem] = {
+      root: Some(root),
+      min_degree,
+      size: new_leaf_count,
+    }
+    let expected = Array::makei(new_leaf_count, i => make_item(i, 1))
+    inspect(tree_matches_model(t, expected), content="true")
   }
-  let result = propagate_node_splice(splice, 3)
-  let root = result.root_candidate(3, normalize_delete=false).unwrap()
-  let t : BTree[TItem] = { root: Some(root), min_degree: 3, size: 9 }
-  let expected = Array::makei(9, i => make_item(i, 1))
-  inspect(tree_matches_model(t, expected), content="true")
 }
 
 // === Post-splice boundary merge ===
