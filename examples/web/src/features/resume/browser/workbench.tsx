@@ -30,10 +30,13 @@ export interface WorkbenchRootProps {
   readonly children: ReactNode;
 }
 
-interface WorkbenchContextValue {
+interface WorkbenchViewContextValue {
   readonly viewModel: WorkbenchViewModel;
   readonly selectedEntryId: string;
   readonly terminalPathId: string;
+}
+
+interface WorkbenchNavigationContextValue {
   readonly activePane: WorkbenchPane;
   readonly setActivePane: (pane: WorkbenchPane) => void;
   readonly selectFromTimeline: (entryId: string) => void;
@@ -43,10 +46,17 @@ interface WorkbenchContextValue {
   readonly conversationPaneRef: RefObject<ConversationPaneHandle | null>;
 }
 
-const WorkbenchContext = createContext<WorkbenchContextValue | null>(null);
+const WorkbenchViewContext = createContext<WorkbenchViewContextValue | null>(null);
+const WorkbenchNavigationContext = createContext<WorkbenchNavigationContextValue | null>(null);
 
-function useWorkbench(): WorkbenchContextValue {
-  const context = useContext(WorkbenchContext);
+function useWorkbenchView(): WorkbenchViewContextValue {
+  const context = useContext(WorkbenchViewContext);
+  if (context === null) throw new Error('Workbench compound children must be inside Workbench.Root.');
+  return context;
+}
+
+function useWorkbenchNavigation(): WorkbenchNavigationContextValue {
+  const context = useContext(WorkbenchNavigationContext);
   if (context === null) throw new Error('Workbench compound children must be inside Workbench.Root.');
   return context;
 }
@@ -62,10 +72,12 @@ export function Root({
 }: WorkbenchRootProps) {
   const [activePane, setActivePane] = useState<WorkbenchPane>('conversation');
   const conversationPaneRef = useRef<ConversationPaneHandle>(null);
-  const context = useMemo<WorkbenchContextValue>(() => ({
+  const viewContext = useMemo<WorkbenchViewContextValue>(() => ({
     viewModel,
     selectedEntryId,
     terminalPathId,
+  }), [selectedEntryId, terminalPathId, viewModel]);
+  const navigationContext = useMemo<WorkbenchNavigationContextValue>(() => ({
     activePane,
     setActivePane,
     selectFromTimeline: entryId => {
@@ -80,26 +92,20 @@ export function Root({
     onSelectEntry,
     onToggleChatSource,
     conversationPaneRef,
-  }), [
-    activePane,
-    onSelectChatSource,
-    onSelectEntry,
-    onToggleChatSource,
-    selectedEntryId,
-    terminalPathId,
-    viewModel,
-  ]);
+  }), [activePane, onSelectChatSource, onSelectEntry, onToggleChatSource]);
   return (
-    <WorkbenchContext.Provider value={context}>
-      <section className="pilot-workbench" aria-labelledby="pilot-workbench-title">
-        {children}
-      </section>
-    </WorkbenchContext.Provider>
+    <WorkbenchViewContext.Provider value={viewContext}>
+      <WorkbenchNavigationContext.Provider value={navigationContext}>
+        <section className="pilot-workbench" aria-labelledby="pilot-workbench-title">
+          {children}
+        </section>
+      </WorkbenchNavigationContext.Provider>
+    </WorkbenchViewContext.Provider>
   );
 }
 
 export function Tabs() {
-  const { activePane, setActivePane } = useWorkbench();
+  const { activePane, setActivePane } = useWorkbenchNavigation();
   return (
     <nav className="pilot-workbench-tabs" aria-label="Session understanding views">
       {(['timeline', 'conversation', 'evidence'] as const).map(pane => (
@@ -117,7 +123,7 @@ export function Tabs() {
   );
 }
 export function Grid({ children }: { readonly children: ReactNode }) {
-  const { activePane } = useWorkbench();
+  const { activePane } = useWorkbenchNavigation();
   return (
     <div className="pilot-workbench-grid" data-active-pane={activePane}>
       {children}
@@ -129,8 +135,8 @@ export function Timeline() {
   const {
     viewModel: { phases, selectedPhase, selectedPhaseId },
     selectedEntryId,
-    selectFromTimeline,
-  } = useWorkbench();
+  } = useWorkbenchView();
+  const { selectFromTimeline } = useWorkbenchNavigation();
   return (
     <TimelinePane
       phases={phases}
@@ -152,10 +158,12 @@ export function Conversation() {
       selectedItemIndex,
     },
     selectedEntryId,
+  } = useWorkbenchView();
+  const {
     activePane,
     conversationPaneRef,
     onSelectEntry,
-  } = useWorkbench();
+  } = useWorkbenchNavigation();
   return (
     <ConversationPane
       ref={conversationPaneRef}
@@ -184,7 +192,7 @@ export function Evidence({ children }: { readonly children: ReactNode }) {
     },
     selectedEntryId,
     terminalPathId,
-  } = useWorkbench();
+  } = useWorkbenchView();
   return (
     <EvidencePane
       chat={children}
@@ -221,4 +229,4 @@ export const Workbench = {
   Evidence,
 } as const;
 
-export { useWorkbench };
+export { useWorkbenchNavigation };

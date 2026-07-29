@@ -59,7 +59,7 @@ import {
 import {
   buildWorkbenchView,
 } from './workbench-view-model';
-import { useWorkbench, Workbench } from './workbench';
+import { useWorkbenchNavigation, Workbench } from './workbench';
 import './styles.css';
 
 
@@ -247,7 +247,7 @@ function PilotSourceChat({
   const {
     onToggleChatSource,
     selectChatSource,
-  } = useWorkbench();
+  } = useWorkbenchNavigation();
   const [contextScope, setContextScope] = useState<PkeChatContext['scope']>('none');
   const [showPayload, setShowPayload] = useState(false);
   const selectedSourceItems = useMemo(
