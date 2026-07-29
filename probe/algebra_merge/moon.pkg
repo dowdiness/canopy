@@ -1,0 +1,10 @@
+import {
+  "dowdiness/event-graph-walker/text",
+  "dowdiness/lambda",
+  "dowdiness/lambda/ast",
+  "dowdiness/seam",
+  "dowdiness/canopy/core",
+  "dowdiness/canopy/lang/lambda/proj" @lambda_proj,
+  "dowdiness/canopy/lang/lambda/edits",
+  "moonbitlang/core/debug",
+} for "wbtest"
