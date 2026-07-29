@@ -1,14 +1,9 @@
-import { useChat } from '@ai-sdk/react';
-import { DefaultChatTransport, type UIMessage } from 'ai';
 import {
   StrictMode,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ChangeEvent,
-  type KeyboardEvent,
-  type MouseEvent,
 } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
@@ -38,7 +33,6 @@ import {
 import {
   activityTextForDisplay,
   isSensitiveText,
-  type ActivityItem,
   type NormalizedEntry,
   type ResumeDiagnostic,
   type ResumeProjection,
@@ -49,19 +43,23 @@ import {
   PKE_CHAT_MODEL,
   PKE_CHAT_REQUEST_MAX_BYTES,
   PKE_CHAT_SOURCE_LIMIT,
-  parsePkeChatStatus,
   pkeChatSourceFromActivity,
   pkeChatTextMessages,
   type PkeChatContext,
-  type PkeChatSource,
-  type PkeChatStatus,
 } from '../protocol/chat';
 import {
   type PilotSourceSelection,
   type ResumeState,
 } from './resume-state';
 import { useResumeSession } from './use-resume-session';
-import { useConversationSelectionScroll } from './use-conversation-selection-scroll';
+import {
+  type PkeChatTurnContext,
+  usePkeChat,
+} from './use-pke-chat';
+import {
+  buildWorkbenchView,
+} from './workbench-view-model';
+import { useWorkbench, Workbench } from './workbench';
 import './styles.css';
 
 
@@ -71,34 +69,14 @@ const dateTimeFormat = new Intl.DateTimeFormat(undefined, {
   hour: '2-digit',
   minute: '2-digit',
 });
-const workbenchTimeFormat = new Intl.DateTimeFormat(undefined, {
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-});
 
 
 function formatTimestamp(value: string): string {
   return dateTimeFormat.format(new Date(value));
 }
 
-function formatWorkbenchTime(value: string): string {
-  return workbenchTimeFormat.format(new Date(value));
-}
 
 
-function activityKindLabel(item: ActivityItem): string {
-  switch (item.kind) {
-    case 'human': return 'human input';
-    case 'assistant-claim': return 'assistant claim';
-    case 'tool-evidence':
-      return item.evidenceStatus === 'observed-failure' ? 'tool failure' : 'tool evidence';
-    case 'checkpoint': return 'accepted anchor';
-    case 'compaction': return 'source summary';
-    case 'branch-summary': return 'branch context';
-    case 'omitted': return 'omitted';
-  }
-}
 
 function PilotSessionToolbar({
   state,
@@ -227,114 +205,12 @@ function PilotEmptyWorkspace({ state }: { readonly state: ResumeState }) {
   );
 }
 
-interface PilotTimelinePhase {
-  readonly id: string;
-  readonly index: number;
-  readonly items: readonly ActivityItem[];
-  readonly recordedKinds: readonly string[];
-}
-
-type PilotWorkbenchPane = 'timeline' | 'conversation' | 'evidence';
-type PilotEvidenceMode = 'readable' | 'normalized';
-type PilotInspectorMode = 'discuss' | 'evidence';
-
-function buildPilotTimelinePhases(
-  chronology: readonly ActivityItem[],
-): readonly PilotTimelinePhase[] {
-  const grouped: ActivityItem[][] = [];
-  let current: ActivityItem[] = [];
-  for (const item of chronology) {
-    if (item.kind === 'human' && current.length > 0) {
-      grouped.push(current);
-      current = [];
-    }
-    current.push(item);
-    if (item.kind === 'compaction') {
-      grouped.push(current);
-      current = [];
-    }
-  }
-  if (current.length > 0) grouped.push(current);
-  return grouped.map((items, index) => {
-    const first = items[0]!;
-    const last = items[items.length - 1]!;
-    const recordedKinds = [...new Set(items.map(activityKindLabel))];
-    return {
-      id: `${first.id}-${last.id}`,
-      index,
-      items: Object.freeze([...items]),
-      recordedKinds: Object.freeze(recordedKinds),
-    };
-  });
-}
-
-function normalizedEntryLabel(entry: NormalizedEntry | undefined): string {
-  if (entry === undefined) return 'withheld entry';
-  switch (entry.kind) {
-    case 'message':
-      if (entry.role === 'user') return 'user message';
-      if (entry.role === 'assistant') return 'assistant message';
-      return 'tool result';
-    case 'bashExecution': return 'bash execution';
-    case 'compaction': return 'conversation summary';
-    case 'branchSummary': return 'branch summary';
-    case 'checkpoint': return `${entry.anchorKind} checkpoint`;
-    case 'omitted': return `omitted ${entry.originalType}`;
-  }
-}
-
-type PilotChatRole = 'user' | 'assistant' | 'tool' | 'checkpoint' | 'system';
-
-function pilotChatRole(item: ActivityItem, entry: NormalizedEntry | undefined): PilotChatRole {
-  if (entry?.kind === 'message') {
-    if (entry.role === 'user') return 'user';
-    if (entry.role === 'assistant') return 'assistant';
-    return 'tool';
-  }
-  if (entry?.kind === 'bashExecution' || item.kind === 'tool-evidence') return 'tool';
-  if (entry?.kind === 'checkpoint' || item.kind === 'checkpoint') return 'checkpoint';
-  return 'system';
-}
-
-function conversationSpeaker(role: PilotChatRole): string {
-  switch (role) {
-    case 'user': return 'You';
-    case 'assistant': return 'Assistant';
-    case 'tool': return 'Tool';
-    case 'checkpoint': return 'Accepted checkpoint';
-    case 'system': return 'Session event';
-  }
-}
-
-function chatAuthorityLabel(item: ActivityItem, role: PilotChatRole): string {
-  switch (role) {
-    case 'user': return 'Recorded user message';
-    case 'assistant': return 'Unverified assistant text';
-    case 'tool': return item.evidenceStatus === 'observed-failure'
-      ? 'Observed failure'
-      : 'Observed result';
-    case 'checkpoint': return item.anchorKind === undefined
-      ? 'Accepted anchor'
-      : `Accepted ${item.anchorKind}`;
-    case 'system': return activityKindLabel(item);
-  }
-}
-
-interface PilotChatTurnContext {
-  readonly context: PkeChatContext;
-  readonly sources: readonly PkeChatSource[];
-}
-
-const NO_HISTORY_CHAT_CONTEXT: PilotChatTurnContext = Object.freeze({
-  context: Object.freeze({ scope: 'none' }),
-  sources: Object.freeze([]),
-});
 
 const PKE_CHAT_CITATION_HREF_PREFIX = '#canopy-source-';
 
 function sourceLinkedChatMarkdown(
   text: string,
-  turnContext: PilotChatTurnContext,
+  turnContext: PkeChatTurnContext,
 ): string {
   if (turnContext.context.scope === 'none') return text;
   const sourceEntryIds = new Set(turnContext.sources.map(source => source.source.entryId));
@@ -363,24 +239,17 @@ function PilotSourceChat({
   projection,
   selectedSource,
   sourceEntryIds,
-  onToggleSource,
-  onOpenSource,
 }: {
   readonly projection: ResumeProjection;
   readonly selectedSource: PilotSourceSelection;
   readonly sourceEntryIds: readonly string[];
-  readonly onToggleSource: (entryId: string) => void;
-  readonly onOpenSource: (entryId: string, leafId: string) => void;
 }) {
-  const [draft, setDraft] = useState('');
-  const [draftMessageId, setDraftMessageId] = useState(() => crypto.randomUUID());
+  const {
+    onToggleChatSource,
+    selectChatSource,
+  } = useWorkbench();
   const [contextScope, setContextScope] = useState<PkeChatContext['scope']>('none');
-  const [contextByMessageId, setContextByMessageId] = useState<
-    ReadonlyMap<string, PilotChatTurnContext>
-  >(() => new Map());
   const [showPayload, setShowPayload] = useState(false);
-  const [relayStatus, setRelayStatus] = useState<PkeChatStatus>();
-  const [relayStatusError, setRelayStatusError] = useState<string>();
   const selectedSourceItems = useMemo(
     () => sourceEntryIds.flatMap(entryId => {
       const item = projection.chronology.find(candidate => candidate.source.entryId === entryId);
@@ -416,106 +285,20 @@ function PilotSourceChat({
         }),
     [contextScope, projection.leafId, projection.sessionId],
   );
-  const outboundContextRef = useRef<PkeChatContext>(currentContext);
-  const outboundSourcesRef = useRef<readonly PkeChatSource[]>(sourcePayload);
-  const transport = useMemo(
-    () => new DefaultChatTransport<UIMessage>({
-      api: '/api/pi-resume-chat',
-      prepareSendMessagesRequest: ({ messages }) => ({
-        body: {
-          messages: pkeChatTextMessages(messages),
-          context: outboundContextRef.current,
-          sources: outboundSourcesRef.current,
-        },
-      }),
-    }),
-    [],
-  );
   const {
-    messages,
-    setMessages,
-    sendMessage,
-    status,
-    stop,
-    error,
     clearError,
-  } = useChat<UIMessage>({
-    id: `pke-chat:${projection.sessionId}`,
-    transport,
-  });
-  const restoreUnansweredUserMessage = (): void => {
-    const trailingMessage = messages[messages.length - 1];
-    if (trailingMessage?.role !== 'user') return;
-    const text = trailingMessage.parts
-      .filter(part => part.type === 'text')
-      .map(part => part.text)
-      .join('');
-    setMessages(messages.slice(0, -1));
-    setContextByMessageId(current => {
-      if (!current.has(trailingMessage.id)) return current;
-      const next = new Map(current);
-      next.delete(trailingMessage.id);
-      return next;
-    });
-    setDraft(current => current.trim().length === 0 ? text : current);
-  };
-  const stopRef = useRef(stop);
-  stopRef.current = stop;
-  useEffect(() => () => {
-    void stopRef.current();
-  }, []);
-  useEffect(() => {
-    if (error === undefined) return;
-    const trailingMessage = messages[messages.length - 1];
-    if (trailingMessage?.role !== 'user') return;
-    const text = trailingMessage.parts
-      .filter(part => part.type === 'text')
-      .map(part => part.text)
-      .join('');
-    setMessages(messages.slice(0, -1));
-    setContextByMessageId(current => {
-      if (!current.has(trailingMessage.id)) return current;
-      const next = new Map(current);
-      next.delete(trailingMessage.id);
-      return next;
-    });
-    setDraft(current => current.trim().length === 0 ? text : current);
-  }, [error, messages, setMessages]);
-  useEffect(() => {
-    const controller = new AbortController();
-    void fetch('/api/pi-resume-chat/status', { signal: controller.signal })
-      .then(async response => {
-        if (!response.ok) throw new Error('Chat relay status is unavailable.');
-        const value = parsePkeChatStatus(await response.json());
-        setRelayStatus(value);
-        setRelayStatusError(undefined);
-      })
-      .catch(cause => {
-        if (cause instanceof DOMException && cause.name === 'AbortError') return;
-        setRelayStatusError(cause instanceof Error ? cause.message : String(cause));
-      });
-    return () => controller.abort();
-  }, []);
-
-  const renderedMessages = useMemo(() => {
-    let turnContext = NO_HISTORY_CHAT_CONTEXT;
-    return messages.map(message => {
-      if (message.role === 'user') {
-        turnContext = contextByMessageId.get(message.id) ?? NO_HISTORY_CHAT_CONTEXT;
-      }
-      return Object.freeze({ message, turnContext });
-    });
-  }, [contextByMessageId, messages]);
-  const pendingMessage = useMemo<UIMessage | undefined>(() => {
-    const text = draft.trim();
-    return text.length === 0
-      ? undefined
-      : {
-          id: draftMessageId,
-          role: 'user',
-          parts: [{ type: 'text', text }],
-        };
-  }, [draft, draftMessageId]);
+    draft,
+    error,
+    messages,
+    pendingMessage,
+    relayStatus,
+    relayStatusError,
+    renderedMessages,
+    setDraft,
+    status,
+    stopAndRestoreDraft,
+    submit,
+  } = usePkeChat(projection.sessionId);
   const outboundPreview = pendingMessage === undefined
     ? undefined
     : {
@@ -579,7 +362,7 @@ function PilotSourceChat({
         aria-pressed={selectedSourceIncluded}
         disabled={!selectedSourceIncluded && sourceLimitReached}
         onClick={() => {
-          onToggleSource(selectedSource.entryId);
+          onToggleChatSource(selectedSource.entryId);
           if (!selectedSourceIncluded) setContextScope('selected');
         }}
       >
@@ -599,14 +382,14 @@ function PilotSourceChat({
             {sourceItems.slice(0, 12).map(item => (
               <article key={item.source.entryId}>
                 <div className="pilot-chat-context-heading">
-                  <Source onClick={() => onOpenSource(item.source.entryId, projection.leafId)}>
+                  <Source onClick={() => selectChatSource(item.source.entryId, projection.leafId)}>
                     source {item.source.entryId} · {item.title}
                   </Source>
                   {contextScope !== 'selected' ? null : (
                     <button
                       type="button"
                       aria-label={`Remove ${item.title} from chat context`}
-                      onClick={() => onToggleSource(item.source.entryId)}
+                      onClick={() => onToggleChatSource(item.source.entryId)}
                     >
                       Remove
                     </button>
@@ -693,7 +476,7 @@ function PilotSourceChat({
                               <Source
                                 aria-label={`Open cited source ${entryId}`}
                                 className="ai-inline-citation"
-                                onClick={() => onOpenSource(entryId, citationLeafId)}
+                                onClick={() => selectChatSource(entryId, citationLeafId)}
                               >
                                 {children}
                               </Source>
@@ -729,7 +512,7 @@ function PilotSourceChat({
                         <Source
                           aria-label={`Open chat source ${source.source.entryId}`}
                           key={source.source.entryId}
-                          onClick={() => onOpenSource(
+                          onClick={() => selectChatSource(
                             source.source.entryId,
                             turnContext.context.scope === 'none'
                               ? projection.leafId
@@ -780,26 +563,12 @@ function PilotSourceChat({
         onSubmit={event => {
           event.preventDefault();
           if (running) {
-            void stop();
-            restoreUnansweredUserMessage();
+            stopAndRestoreDraft();
             return;
           }
-          if (!canSend || pendingMessage === undefined) return;
-          const turnContext: PilotChatTurnContext = Object.freeze({
-            context: currentContext,
-            sources: sourcePayload,
-          });
-          outboundContextRef.current = currentContext;
-          outboundSourcesRef.current = sourcePayload;
-          setContextByMessageId(current => {
-            const next = new Map(current);
-            next.set(pendingMessage.id, turnContext);
-            return next;
-          });
-          setDraft('');
-          setDraftMessageId(crypto.randomUUID());
+          if (!canSend) return;
           setShowPayload(false);
-          void sendMessage(pendingMessage);
+          submit(currentContext, sourcePayload);
         }}
       >
         <PromptInputBody>
@@ -853,448 +622,35 @@ function PilotUnderstandingWorkbench({
   readonly onSelectChatSource: (entryId: string, leafId: string) => void;
   readonly onToggleChatSource: (entryId: string) => void;
 }) {
-  const phases = useMemo(
-    () => buildPilotTimelinePhases(projection.chronology),
-    [projection.chronology],
+  const viewModel = useMemo(
+    () => buildWorkbenchView(projection, entries, selectedSource.entryId),
+    [entries, projection, selectedSource.entryId],
   );
-  const entriesById = useMemo(
-    () => new Map(entries.map(entry => [entry.id, entry])),
-    [entries],
-  );
-  const operationIndex = useMemo(() => {
-    const calls = new Map<string, { readonly entryId: string; readonly name: string }>();
-    const results = new Map<string, { readonly entryId: string; readonly name: string }>();
-    for (const entry of entries) {
-      if (entry.kind === 'message' && entry.role === 'assistant') {
-        for (const call of entry.toolCalls) {
-          calls.set(call.id, { entryId: entry.id, name: call.name });
-        }
-      }
-      if (
-        entry.kind === 'message' &&
-        entry.role === 'toolResult' &&
-        entry.toolCallId !== undefined
-      ) {
-        results.set(entry.toolCallId, {
-          entryId: entry.id,
-          name: entry.toolName ?? 'tool',
-        });
-      }
-    }
-    return { calls, results };
-  }, [entries]);
-  const selectedPhaseId = phases.find(phase =>
-    phase.items.some(item => item.source.entryId === selectedSource.entryId),
-  )?.id;
-  const [expandedPhaseIds, setExpandedPhaseIds] = useState<ReadonlySet<string>>(
-    () => new Set(selectedPhaseId === undefined ? [] : [selectedPhaseId]),
-  );
-  useEffect(() => {
-    if (selectedPhaseId === undefined) return;
-    setExpandedPhaseIds(current =>
-      current.has(selectedPhaseId) ? current : new Set([...current, selectedPhaseId]),
-    );
-  }, [selectedPhaseId]);
-  const [activePane, setActivePane] = useState<PilotWorkbenchPane>('conversation');
-  const {
-    conversationPanelRef,
-    revealConversationSelection,
-    selectedConversationRef,
-  } = useConversationSelectionScroll(activePane === 'conversation', selectedSource.entryId);
-  const [inspectorMode, setInspectorMode] = useState<PilotInspectorMode>('discuss');
-  const [evidenceMode, setEvidenceMode] = useState<PilotEvidenceMode>('readable');
-  const selectedItemIndex = Math.max(
-    0,
-    projection.chronology.findIndex(item => item.source.entryId === selectedSource.entryId),
-  );
-  const selectedItem = projection.chronology[selectedItemIndex];
-  const selectedRecord = selectedItem === undefined
-    ? undefined
-    : entriesById.get(selectedItem.source.entryId);
-  const selectedPhase = phases.find(phase => phase.id === selectedPhaseId);
-  const conversationItems = projection.chronology;
-  const normalizedRecord = selectedRecord === undefined
-    ? 'This entry was withheld by the bounded import policy.'
-    : JSON.stringify(selectedRecord, null, 2);
-  let operationRelationship: string | undefined;
-  if (selectedRecord?.kind === 'message' && selectedRecord.role === 'assistant') {
-    const linkedResults = selectedRecord.toolCalls
-      .map(call => operationIndex.results.get(call.id))
-      .filter((result): result is { readonly entryId: string; readonly name: string } =>
-        result !== undefined,
-      );
-    if (selectedRecord.toolCalls.length > 0) {
-      operationRelationship = `${selectedRecord.toolCalls.map(call => call.name).join(', ')} requested · ${linkedResults.length} matching result${linkedResults.length === 1 ? '' : 's'} recorded`;
-    }
-  } else if (
-    selectedRecord?.kind === 'message' &&
-    selectedRecord.role === 'toolResult' &&
-    selectedRecord.toolCallId !== undefined
-  ) {
-    const request = operationIndex.calls.get(selectedRecord.toolCallId);
-    operationRelationship = request === undefined
-      ? 'Tool result recorded; its request is outside the selected path.'
-      : `Result for ${request.name} requested by source entry ${request.entryId}`;
-  }
-
-
-  const selectFromTimeline = (entryId: string): void => {
-    revealConversationSelection();
-    onSelectEntry(entryId);
-    setActivePane('conversation');
-  };
-
-  const selectConversationAt = (index: number, focus: boolean): void => {
-    const item = conversationItems[index];
-    if (item === undefined) return;
-    onSelectEntry(item.source.entryId);
-    if (!focus) return;
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => {
-        const options = conversationPanelRef.current
-          ?.querySelectorAll<HTMLElement>('[data-entry-id]');
-        [...(options ?? [])]
-          .find(option => option.dataset.entryId === item.source.entryId)
-          ?.focus({ preventScroll: true });
-      });
-    });
-  };
-
-  const handleConversationKeyDown = (
-    event: KeyboardEvent<HTMLLIElement>,
-    index: number,
-  ): void => {
-    let nextIndex: number | undefined;
-    switch (event.key) {
-      case 'Enter':
-      case ' ':
-        nextIndex = index;
-        break;
-      case 'ArrowDown':
-        nextIndex = Math.min(conversationItems.length - 1, index + 1);
-        break;
-      case 'ArrowUp':
-        nextIndex = Math.max(0, index - 1);
-        break;
-      case 'Home':
-        nextIndex = 0;
-        break;
-      case 'End':
-        nextIndex = conversationItems.length - 1;
-        break;
-      default:
-        return;
-    }
-    event.preventDefault();
-    selectConversationAt(nextIndex, true);
-  };
 
   return (
-    <section className="pilot-workbench" aria-labelledby="pilot-workbench-title">
+    <Workbench.Root
+      viewModel={viewModel}
+      selectedEntryId={selectedSource.entryId}
+      terminalPathId={projection.leafId}
+      onSelectEntry={onSelectEntry}
+      onSelectChatSource={onSelectChatSource}
+      onToggleChatSource={onToggleChatSource}
+    >
       <h2 className="visually-hidden" id="pilot-workbench-title">Session understanding</h2>
-      <nav className="pilot-workbench-tabs" aria-label="Session understanding views">
-        {(['timeline', 'conversation', 'evidence'] as const).map(pane => (
-          <button
-            type="button"
-            data-pane={pane}
-            aria-pressed={activePane === pane}
-            key={pane}
-            onClick={() => setActivePane(pane)}
-          >
-            {pane === 'timeline' ? 'Timeline' : pane === 'conversation' ? 'Conversation' : 'Evidence'}
-          </button>
-        ))}
-      </nav>
-      <div className="pilot-workbench-grid" data-active-pane={activePane}>
-        <section
-          className="pilot-workbench-panel pilot-timeline"
-          data-pane="timeline"
-          aria-labelledby="pilot-timeline-title"
-        >
-          <header className="pilot-panel-heading">
-            <div>
-              <h3 id="pilot-timeline-title">Timeline</h3>
-            </div>
-            <p>{phases.length} phases · {projection.chronology.length} recorded events</p>
-          </header>
-          <ol className="pilot-phase-list">
-            {phases.map(phase => {
-              const containsSelection = phase === selectedPhase;
-              const expanded = expandedPhaseIds.has(phase.id);
-              const first = phase.items[0]!;
-              const last = phase.items[phase.items.length - 1]!;
-              return (
-                <li className="pilot-phase" data-selected={containsSelection} key={phase.id}>
-                  <button
-                    className="pilot-phase-toggle"
-                    type="button"
-                    aria-expanded={expanded}
-                    onClick={() => {
-                      setExpandedPhaseIds(current => {
-                        const next = new Set(current);
-                        if (next.has(phase.id)) next.delete(phase.id);
-                        else next.add(phase.id);
-                        return next;
-                      });
-                    }}
-                  >
-                    <span>Phase {String(phase.index + 1).padStart(2, '0')}</span>
-                    <time dateTime={first.timestamp}>
-                      {formatWorkbenchTime(first.timestamp)}–{formatWorkbenchTime(last.timestamp)}
-                    </time>
-                    <strong>{phase.recordedKinds.join(' · ')}</strong>
-                    <i aria-hidden="true">{expanded ? '−' : '+'}</i>
-                  </button>
-                  {expanded ? (
-                    <ol className="pilot-event-list">
-                      {phase.items.map(item => {
-                        const selected = item.source.entryId === selectedSource.entryId;
-                        return (
-                          <li
-                            id={`source-${item.source.entryId}`}
-                            data-selected={selected}
-                            aria-current={selected ? 'true' : undefined}
-                            key={item.id}
-                          >
-                            <button type="button" onClick={() => selectFromTimeline(item.source.entryId)}>
-                              <span>{activityKindLabel(item)}</span>
-                              <time dateTime={item.timestamp}>{formatWorkbenchTime(item.timestamp)}</time>
-                              <strong>{item.title}</strong>
-                              <small>{activityTextForDisplay(item)}</small>
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ol>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ol>
-        </section>
-
-        <section
-          className="pilot-workbench-panel pilot-conversation"
-          data-pane="conversation"
-          aria-labelledby="pilot-conversation-title"
-          ref={conversationPanelRef}
-        >
-          <header className="pilot-panel-heading">
-            <div>
-              <h3 id="pilot-conversation-title">Conversation</h3>
-            </div>
-            <p>
-              Full selected path · {projection.chronology.length} events · selected {selectedItemIndex + 1}
-            </p>
-          </header>
-          <ol
-            className="pilot-conversation-list"
-            role="listbox"
-            aria-label="Recorded conversation"
-          >
-            {conversationItems.map((item, index) => {
-              const selected = item.source.entryId === selectedSource.entryId;
-              const record = entriesById.get(item.source.entryId);
-              const role = pilotChatRole(item, record);
-              const assistantRecord = record?.kind === 'message' && record.role === 'assistant'
-                ? record
-                : undefined;
-              const toolResultRecord = record?.kind === 'message' && record.role === 'toolResult'
-                ? record
-                : undefined;
-              const linkedRequest = toolResultRecord?.toolCallId === undefined
-                ? undefined
-                : operationIndex.calls.get(toolResultRecord.toolCallId);
-              return (
-                <li
-                  data-role={role}
-                  data-entry-id={item.source.entryId}
-                  data-anchor={item.anchorKind}
-                  data-selected={selected}
-                  data-status={item.evidenceStatus}
-                  role="option"
-                  aria-label={`${conversationSpeaker(role)}: ${item.title}, ${formatWorkbenchTime(item.timestamp)}`}
-                  aria-current={selected ? 'true' : undefined}
-                  aria-selected={selected}
-                  aria-keyshortcuts="ArrowUp ArrowDown Home End Enter Space"
-                  tabIndex={selected ? 0 : -1}
-                  key={item.id}
-                  ref={selected ? selectedConversationRef : undefined}
-                  onClick={event => {
-                    const selection = window.getSelection();
-                    const selectedTextIsInside = selection?.isCollapsed === false &&
-                      ((selection.anchorNode !== null && event.currentTarget.contains(selection.anchorNode)) ||
-                        (selection.focusNode !== null && event.currentTarget.contains(selection.focusNode)));
-                    if (selectedTextIsInside) return;
-                    event.currentTarget.focus({ preventScroll: true });
-                    selectConversationAt(index, false);
-                  }}
-                  onKeyDown={event => handleConversationKeyDown(event, index)}
-                >
-                  <article className="pilot-chat-turn">
-                    <header className="pilot-chat-meta">
-                      <div>
-                        <span className="pilot-chat-author">
-                          {conversationSpeaker(role)}
-                        </span>
-                        <span>{chatAuthorityLabel(item, role)}</span>
-                        {selected ? <strong>Selected source</strong> : null}
-                      </div>
-                      <time dateTime={item.timestamp}>{formatWorkbenchTime(item.timestamp)}</time>
-                    </header>
-                    <div className="pilot-chat-bubble">
-                      {role === 'checkpoint' || role === 'system' || role === 'tool' ? (
-                        <strong className="pilot-chat-event-title">{item.title}</strong>
-                      ) : null}
-                      <p>{activityTextForDisplay(item)}</p>
-                      {assistantRecord === undefined || assistantRecord.toolCalls.length === 0 ? null : (
-                        <div className="pilot-chat-tool-calls" aria-label="Tool calls in this assistant message">
-                          {assistantRecord.toolCalls.map(call => {
-                            const result = operationIndex.results.get(call.id);
-                            return (
-                              <div className="pilot-chat-tool-call" key={call.id}>
-                                <div>
-                                  <span>Tool call</span>
-                                  <strong>{call.name}</strong>
-                                  <em>{result === undefined ? 'No result on path' : 'Result recorded'}</em>
-                                </div>
-                                <dl>
-                                  <div><dt>Call</dt><dd>{call.id}</dd></div>
-                                  {call.path === undefined ? null : <div><dt>Path</dt><dd>{call.path}</dd></div>}
-                                  {call.editCount === undefined ? null : <div><dt>Edits</dt><dd>{call.editCount}</dd></div>}
-                                  {call.bashClassification === undefined ? null : (
-                                    <div><dt>Kind</dt><dd>{call.bashClassification}</dd></div>
-                                  )}
-                                  {result === undefined ? null : <div><dt>Result source</dt><dd>{result.entryId}</dd></div>}
-                                </dl>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                      {linkedRequest === undefined ? null : (
-                        <p className="pilot-chat-operation-link">
-                          Result for <strong>{linkedRequest.name}</strong> requested in source {linkedRequest.entryId}
-                        </p>
-                      )}
-                      {record?.kind === 'bashExecution' ? (
-                        <dl className="pilot-chat-command-meta">
-                          <div><dt>Command kind</dt><dd>{record.classification}</dd></div>
-                          <div><dt>Exit</dt><dd>{record.exitCode ?? 'unknown'}</dd></div>
-                          <div><dt>Cancelled</dt><dd>{record.cancelled ? 'yes' : 'no'}</dd></div>
-                        </dl>
-                      ) : null}
-                      <footer>
-                        <span>{normalizedEntryLabel(record)}</span>
-                        <span>source {item.source.entryId}</span>
-                      </footer>
-                    </div>
-                  </article>
-                </li>
-              );
-            })}
-          </ol>
-        </section>
-
-        <section
-          className="pilot-workbench-panel pilot-evidence"
-          data-pane="evidence"
-          id="pilot-inspector"
-          aria-labelledby="pilot-inspector-title"
-        >
-          <header className="pilot-panel-heading">
-            <div>
-              <h3 id="pilot-inspector-title" tabIndex={-1}>Evidence</h3>
-            </div>
-            <p>Selected {selectedItemIndex + 1} of {projection.chronology.length}</p>
-          </header>
-          <div className="pilot-inspector-tabs" role="tablist" aria-label="Evidence panel mode">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={inspectorMode === 'discuss'}
-              onClick={() => setInspectorMode('discuss')}
-            >
-              Discuss
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={inspectorMode === 'evidence'}
-              onClick={() => setInspectorMode('evidence')}
-            >
-              Evidence
-            </button>
-          </div>
-          <div hidden={inspectorMode !== 'discuss'} role="tabpanel">
-            <PilotSourceChat
-              key={chatInstanceId}
-              projection={projection}
-              selectedSource={selectedSource}
-              sourceEntryIds={chatSourceEntryIds}
-              onToggleSource={onToggleChatSource}
-              onOpenSource={(entryId, leafId) => {
-                onSelectChatSource(entryId, leafId);
-                setActivePane('evidence');
-              }}
-            />
-          </div>
-          {inspectorMode !== 'evidence' ? null : (
-            <>
-              <div className="pilot-evidence-tabs" role="tablist" aria-label="Evidence representation">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={evidenceMode === 'readable'}
-                  onClick={() => setEvidenceMode('readable')}
-                >
-                  Readable
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={evidenceMode === 'normalized'}
-                  onClick={() => setEvidenceMode('normalized')}
-                >
-                  Normalized record
-                </button>
-              </div>
-              {evidenceMode === 'readable' ? (
-                <div className="pilot-evidence-readable" role="tabpanel">
-                  <section className="pilot-evidence-copy" aria-labelledby="pilot-evidence-copy-title">
-                    <span className="kicker">Selected recorded entry</span>
-                    <h4 id="pilot-evidence-copy-title">{selectedItem?.title ?? 'Unavailable entry'}</h4>
-                    <p>{selectedItem === undefined
-                      ? 'No recorded entry is selected.'
-                      : activityTextForDisplay(selectedItem)}</p>
-                  </section>
-                  <dl className="pilot-evidence-metadata">
-                    <div><dt>Recorded type</dt><dd>{normalizedEntryLabel(selectedRecord)}</dd></div>
-                    <div><dt>Time</dt><dd>{selectedItem === undefined ? 'Unknown' : formatWorkbenchTime(selectedItem.timestamp)}</dd></div>
-                    <div><dt>Path position</dt><dd>{selectedItemIndex + 1} of {projection.chronology.length}</dd></div>
-                    <div><dt>Terminal path</dt><dd>{projection.leafId}</dd></div>
-                    <div><dt>Source entry</dt><dd>{selectedSource.entryId}</dd></div>
-                  </dl>
-                  {operationRelationship === undefined ? null : (
-                    <div className="pilot-operation-relation">
-                      <strong>Recorded operation relationship</strong>
-                      <p>{operationRelationship}</p>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="pilot-evidence-normalized" role="tabpanel">
-                  <p>
-                    This is the bounded normalized import used by this view, not the unfiltered JSONL line.
-                  </p>
-                  <pre>{normalizedRecord}</pre>
-                </div>
-              )}
-            </>
-          )}
-        </section>
-      </div>
-    </section>
+      <Workbench.Tabs />
+      <Workbench.Grid>
+        <Workbench.Timeline />
+        <Workbench.Conversation />
+        <Workbench.Evidence>
+          <PilotSourceChat
+            key={chatInstanceId}
+            projection={projection}
+            selectedSource={selectedSource}
+            sourceEntryIds={chatSourceEntryIds}
+          />
+        </Workbench.Evidence>
+      </Workbench.Grid>
+    </Workbench.Root>
   );
 }
 
