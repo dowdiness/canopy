@@ -165,6 +165,9 @@ fn tree_matches_model(t : BTree[TItem], model : Array[TItem]) -> Bool {
   if !btree_invariants_hold(t) {
     return false
   }
+  if t.is_empty() != (t.size() == 0) {
+    return false
+  }
   if t.size() != model.length() {
     return false
   }

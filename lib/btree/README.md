@@ -81,6 +81,9 @@ Calling `init_root` on an already initialized tree aborts with
 `BTree::init_root: tree is already initialized` instead of replacing its
 contents.
 
+Every successful mutation preserves the empty-tree lifecycle invariant:
+`size() == 0` if and only if the root is absent and `is_empty() == true`.
+
 `init_root` and every `(element, span)` pair passed to `from_sorted` require a
 strictly positive span. Invalid spans abort with
 `BTree::init_root: leaf span must be positive` or
@@ -130,6 +133,11 @@ The canonical splice shapes are:
 | Replace child `i` | `[i, i + 1)` | `[replacement]` |
 | Delete child `i` | `[i, i + 1)` | `[]` |
 | Split child `i` | `[i, i + 1)` | `[left, right, ...]` |
+
+Both mutation entry points support every structurally valid splice shape in
+this table. Their `insert` and `delete` names describe descent and return-value
+behavior; they do not restrict the callback to cardinality-increasing or
+cardinality-decreasing replacements.
 
 ## Relationship to Other Libraries
 
