@@ -57,6 +57,11 @@ pub fn[T] BTree::mutate_for_insert(
     None =>
       abort("BTree::mutate_for_insert: tree is empty, use init_root first")
     Some(root) => {
+      // Bounds check before descend — prepare_split may mutate the tree, so
+      // reject invalid positions before any structural preparation begins.
+      guard pos >= 0 && pos <= root.total() else {
+        abort("BTree::mutate_for_insert: position out of bounds")
+      }
       let cursor = match
         descend(
           root,

@@ -217,6 +217,30 @@ test "panic insert on empty tree aborts" {
 }
 
 ///|
+test "panic insert rejects negative position" {
+  let t = build_tree([(1, 1)])
+  // abort is uncatchable, so mutation-free failure is also verified by the
+  // bounds-guard-before-descent source ordering in mutate_for_insert.
+  t.mutate_for_insert(-1, ctx => {
+    start_idx: ctx.child_idx,
+    end_idx: ctx.child_idx,
+    new_leaves: [(make_item(2, 1), 1)],
+  })
+}
+
+///|
+test "panic insert rejects position beyond span" {
+  let t = build_tree([(1, 1)])
+  // abort is uncatchable, so mutation-free failure is also verified by the
+  // bounds-guard-before-descent source ordering in mutate_for_insert.
+  t.mutate_for_insert(t.span() + 1, ctx => {
+    start_idx: ctx.child_idx + 1,
+    end_idx: ctx.child_idx + 1,
+    new_leaves: [(make_item(2, 1), 1)],
+  })
+}
+
+///|
 test "panic from_sorted rejects zero non-positive span" {
   let _ : BTree[TItem] = BTree::from_sorted([(make_item(1, 0), 0)])
 }
