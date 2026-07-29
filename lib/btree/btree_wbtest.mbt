@@ -2366,6 +2366,7 @@ test "from_sorted clamps oversized min_degree" {
     items,
     min_degree=oversized_min_degree,
   )
+  inspect(t.min_degree, content=MAX_SAFE_MIN_DEGREE.to_string())
   inspect(t.size(), content="2")
   inspect(t.span(), content="2")
   inspect(btree_invariants_hold(t), content="true")
