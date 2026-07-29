@@ -1,5 +1,5 @@
-// Propagation: after a leaf splice, rebuild ancestors bottom-up,
-// splitting any node that exceeds 2*min_degree children.
+// Propagation: after a splice, rebuild ancestors bottom-up as complete,
+// same-height segments and repair underfull children before packing each level.
 
 ///|
 /// Split a full internal node at its midpoint, producing two balanced halves.
@@ -38,21 +38,17 @@ fn[T] apply_splice(
   children : Array[BTreeNode[T]],
   counts : Array[Int],
   splice : Splice[T],
-) -> Unit {
-  let remove_count = splice.end_idx - splice.start_idx
-  for _ in 0..<remove_count {
-    let _ = children.remove(splice.start_idx)
-    let _ = counts.remove(splice.start_idx)
-  }
-  if splice.new_leaves.length() == 0 {
-    return
-  }
-  // Insert in reverse so each goes to start_idx in correct final order
-  for i in (splice.new_leaves.length() - 1)>=..0 {
-    let (elem, span) = splice.new_leaves[i]
-    children.insert(splice.start_idx, Leaf(elem~, span~))
-    counts.insert(splice.start_idx, span)
-  }
+) -> (Array[BTreeNode[T]], Array[Int]) {
+  let new_children : Array[BTreeNode[T]] = splice.new_leaves.map(pair => {
+    Leaf(elem=pair.0, span=pair.1)
+  })
+  apply_node_splice(
+    children,
+    counts,
+    splice.start_idx,
+    splice.end_idx,
+    new_children,
+  )
 }
 
 ///|
@@ -62,113 +58,88 @@ fn[T] apply_node_splice(
   start_idx : Int,
   end_idx : Int,
   new_children : Array[BTreeNode[T]],
-) -> Unit {
-  let remove_count = end_idx - start_idx
-  for _ in 0..<remove_count {
-    let _ = children.remove(start_idx)
-    let _ = counts.remove(start_idx)
-  }
-  if new_children.length() == 0 {
-    return
-  }
-  for i in (new_children.length() - 1)>=..0 {
-    let child = new_children[i]
-    children.insert(start_idx, child)
-    counts.insert(start_idx, child.total())
-  }
+) -> (Array[BTreeNode[T]], Array[Int]) {
+  let result : Array[BTreeNode[T]] = []
+  let result_counts : Array[Int] = []
+  result.append(children[:start_idx])
+  result_counts.append(counts[:start_idx])
+  result.append(new_children[:])
+  result_counts.append(new_children.map(child => child.total())[:])
+  result.append(children[end_idx:])
+  result_counts.append(counts[end_idx:])
+  (result, result_counts)
 }
 
 ///|
-fn[T] maybe_split(
+/// Return the existing bottom-up grouping policy as scalar chunk sizes.
+/// For `child_count >= min_degree`, every size is in
+/// `[min_degree, 2 * min_degree]` and the sizes sum to `child_count`.
+fn legal_chunk_sizes(child_count : Int, min_degree : Int) -> Array[Int] {
+  guard child_count >= min_degree else {
+    abort("legal_chunk_sizes: child count is underfull")
+  }
+  let max_degree = 2 * min_degree
+  let sizes : Array[Int] = []
+  let mut remaining = child_count
+  while remaining > max_degree {
+    let chunk_size = if remaining - max_degree < min_degree {
+      remaining / 2
+    } else {
+      max_degree
+    }
+    sizes.push(chunk_size)
+    remaining = remaining - chunk_size
+  }
+  sizes.push(remaining)
+  sizes
+}
+
+///|
+/// Pack one level into a complete ordered segment. An empty input stays empty;
+/// one underfull node is carried upward until its parent can repair it.
+fn[T] pack_level(
   children : Array[BTreeNode[T]],
-  counts : Array[Int],
   min_degree : Int,
-) -> (BTreeNode[T], BTreeNode[T]?) {
-  let total = counts.sum()
-  if children.length() > 2 * min_degree {
-    let (left, right) = split_internal(children, counts)
-    (left, Some(right))
-  } else {
-    (Internal(children~, counts~, total~), None)
+) -> Array[BTreeNode[T]] {
+  guard !children.is_empty() else { return [] }
+  if children.length() < min_degree {
+    return [make_internal(children)]
   }
+  let sizes = legal_chunk_sizes(children.length(), min_degree)
+  if sizes.length() == 1 {
+    return [make_internal(children)]
+  }
+  let nodes : Array[BTreeNode[T]] = []
+  let mut offset = 0
+  for size in sizes {
+    nodes.push(make_internal(children[offset:offset + size].to_owned()))
+    offset = offset + size
+  }
+  nodes
 }
 
 ///|
-/// Repair an underfull node after a range splice. Uses < min_degree threshold
-/// (reactive) unlike ensure_min_children which uses <= min_degree (proactive).
-fn[T] ensure_min_after_splice(
-  children : Array[BTreeNode[T]],
-  counts : Array[Int],
-  idx : Int,
-  min_degree : Int,
-) -> Unit {
-  guard children[idx].is_underfull(min_degree) else { return }
-  if idx > 0 && children[idx - 1].can_lend(min_degree) {
-    children[idx - 1] = children[idx - 1].shallow_copy()
-    children[idx] = children[idx].shallow_copy()
-    borrow_from_left(children, counts, idx)
-    return
-  }
-  if idx + 1 < children.length() && children[idx + 1].can_lend(min_degree) {
-    children[idx] = children[idx].shallow_copy()
-    children[idx + 1] = children[idx + 1].shallow_copy()
-    borrow_from_right(children, counts, idx)
-    return
-  }
-  if idx > 0 {
-    children[idx - 1] = children[idx - 1].shallow_copy()
-    children[idx] = children[idx].shallow_copy()
-    merge_children(children, counts, idx - 1)
-  } else if idx + 1 < children.length() {
-    children[idx] = children[idx].shallow_copy()
-    children[idx + 1] = children[idx + 1].shallow_copy()
-    merge_children(children, counts, idx)
-  }
-}
-
-///|
-/// Walk from a node upward through ancestor frames, updating each parent's
-/// child pointer and inserting any overflow sibling from a split below.
-/// Also repairs underfull nodes (< min_degree children) by borrowing or merging.
-/// Splits again if a parent exceeds capacity.
+/// Walk a complete same-height segment upward through ancestor frames.
 fn[T] walk_up_ancestors(
   path : Array[PathFrame[T]],
   start_from : Int,
-  initial_node : BTreeNode[T],
-  initial_overflow : BTreeNode[T]?,
+  initial_segment : Array[BTreeNode[T]],
   min_degree : Int,
-) -> (BTreeNode[T], BTreeNode[T]?) {
-  let mut current_node = initial_node
-  let mut overflow = initial_overflow
+) -> Array[BTreeNode[T]] {
+  let mut segment = initial_segment
   for i in start_from>=..0 {
     let frame = path[i]
-    frame.children[frame.child_idx] = current_node
-    frame.counts[frame.child_idx] = current_node.total()
-    match overflow {
-      Some(sibling) => {
-        frame.children.insert(frame.child_idx + 1, sibling)
-        frame.counts.insert(frame.child_idx + 1, sibling.total())
-      }
-      _ => ()
-    }
-    // Repair underfull child after splice (< min_degree children)
-    if current_node.is_underfull(min_degree) && frame.children.length() > 1 {
-      ensure_min_after_splice(
-        frame.children,
-        frame.counts,
-        frame.child_idx,
-        min_degree,
-      )
-    }
-    let (updated, next_overflow) = maybe_split(
+    let (children, counts) = apply_node_splice(
       frame.children,
       frame.counts,
-      min_degree,
+      frame.child_idx,
+      frame.child_idx + 1,
+      segment,
     )
-    current_node = updated
-    overflow = next_overflow
+    repair_underfull_children(children, counts, min_degree, min_degree)
+    segment = pack_level(children, min_degree)
   }
-  (current_node, overflow)
+  segment
 }
 
 ///|
@@ -185,20 +156,19 @@ fn[T] propagate(
   let leaf_delta = splice.new_leaves.length() -
     (splice.end_idx - splice.start_idx)
   let leaf_parent = path[path.length() - 1]
-  apply_splice(leaf_parent.children, leaf_parent.counts, splice)
-  let (initial_node, initial_overflow) = maybe_split(
+  let (children, _) = apply_splice(
     leaf_parent.children,
     leaf_parent.counts,
-    min_degree,
+    splice,
   )
-  let (node, overflow) = walk_up_ancestors(
+  let initial_segment = pack_level(children, min_degree)
+  let segment = walk_up_ancestors(
     path,
     path.length() - 2,
-    initial_node,
-    initial_overflow,
+    initial_segment,
     min_degree,
   )
-  { node, overflow, leaf_delta }
+  { segment, leaf_delta }
 }
 
 ///|
@@ -207,47 +177,22 @@ fn[T] propagate_node_splice(
   splice : NodeSplice[T],
   min_degree : Int,
 ) -> PropagateResult[T] {
-  let insert_count = splice.new_children.length()
-  let insert_start = splice.start_idx
-  apply_node_splice(
+  let (children, counts) = apply_node_splice(
     splice.children,
     splice.counts,
     splice.start_idx,
     splice.end_idx,
     splice.new_children,
   )
-  // Repair underfull boundary subtree roots at their insertion positions.
-  // Chain repair fixes internal underfull descendants, but the root itself
-  // may still be underfull and needs material from adjacent LCA children.
-  // Only triggers for range-delete boundary subtrees — leaves and valid
-  // internals pass the is_underfull check as no-ops.
-  let mut pos = insert_start
-  for _ in 0..<insert_count {
-    // Loop: one borrow isn't enough for min_degree > 2 when boundary
-    // root is heavily underfull. Keep repairing until valid or merged.
-    while pos < splice.children.length() &&
-          splice.children[pos].is_underfull(min_degree) &&
-          splice.children.length() > 1 {
-      let len_before = splice.children.length()
-      ensure_min_after_splice(splice.children, splice.counts, pos, min_degree)
-      if splice.children.length() < len_before {
-        // Merge removed a sibling — break inner loop, re-check in outer
-        break
-      }
-    }
-    pos += 1
-  }
-  let (initial_node, initial_overflow) = maybe_split(
-    splice.children,
-    splice.counts,
-    min_degree,
-  )
-  let (node, overflow) = walk_up_ancestors(
+  // Boundary-chain repair can leave more than one adjacent subtree root
+  // underfull. Repair the complete replacement before packing it upward.
+  repair_underfull_children(children, counts, min_degree, min_degree)
+  let initial_segment = pack_level(children, min_degree)
+  let segment = walk_up_ancestors(
     splice.prefix,
     splice.prefix.length() - 1,
-    initial_node,
-    initial_overflow,
+    initial_segment,
     min_degree,
   )
-  { node, overflow, leaf_delta: splice.leaf_delta }
+  { segment, leaf_delta: splice.leaf_delta }
 }

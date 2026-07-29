@@ -167,13 +167,15 @@ fn[T] fix_left_border(node : BTreeNode[T], min_degree : Int) -> BTreeNode[T] {
 /// all children at each level. Used for merge_boundary_chain output
 /// where the underfull node can be at an interior position.
 ///
-/// Top-down: at each level, find any underfull child, stock it via
-/// merge-or-bulk-steal, then recurse into the result.
-/// Scan children for underfull nodes and fix via merge-or-bulk-steal.
+/// Top-down: at each level, find any underfull child, stock it to
+/// `target_child_count` via merge-or-bulk-steal, then recurse into the result.
+/// Callers that recurse through the repaired node request `min_degree + 1`;
+/// propagation only needs `min_degree`.
 fn[T] repair_underfull_children(
   children : Array[BTreeNode[T]],
   counts : Array[Int],
   min_degree : Int,
+  target_child_count : Int,
 ) -> Unit {
   let mut i = 0
   while i < children.length() {
@@ -183,12 +185,12 @@ fn[T] repair_underfull_children(
       children[i] = children[i].shallow_copy()
       let r = children[i].child_count()
       let s = children[sibling_idx].child_count()
-      if r + s <= 2 * min_degree {
+      let steal_count = target_child_count - r
+      if s - steal_count < min_degree {
         let merge_idx = if i > 0 { i - 1 } else { 0 }
         merge_children(children, counts, merge_idx)
         i = merge_idx
       } else {
-        let steal_count = min_degree + 1 - r
         if i > 0 {
           bulk_steal_from_left(children, counts, i, steal_count)
         } else {
@@ -210,7 +212,7 @@ fn[T] fix_merged_chain(node : BTreeNode[T], min_degree : Int) -> BTreeNode[T] {
       guard children.length() > 1 else { return node }
       let children = children.copy()
       let counts = counts.copy()
-      repair_underfull_children(children, counts, min_degree)
+      repair_underfull_children(children, counts, min_degree, min_degree + 1)
       // Recurse into all children to fix deeper levels.
       for j in 0..<children.length() {
         let fixed = fix_merged_chain(children[j], min_degree)
@@ -219,7 +221,7 @@ fn[T] fix_merged_chain(node : BTreeNode[T], min_degree : Int) -> BTreeNode[T] {
       }
       // Post-recursion repair: a child merge at depth D+1 can leave
       // a child at depth D with fewer than min_degree children.
-      repair_underfull_children(children, counts, min_degree)
+      repair_underfull_children(children, counts, min_degree, min_degree + 1)
       Internal(children~, counts~, total=counts.sum())
     }
   }

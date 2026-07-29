@@ -139,12 +139,19 @@ fn query_matches_model(
 ///|
 fn all_queries_match_model(t : BTree[TItem], model : Array[TItem]) -> Bool {
   let total = model_span(model)
-  if t.view(start=-total - 2, end=total + 2) !=
-    model_view_range(model, -total - 2, total + 2) {
-    return false
+  let middle = total / 2
+  for
+    range in [(-total - 2, total + 2), (1, total - 1), (middle - 1, middle + 2)] {
+    let (start, end_) = range
+    if t.view(start~, end=end_) != model_view_range(model, start, end_) {
+      return false
+    }
   }
   for pos in -1..<(total + 2) {
-    if !query_matches_model(t, model, pos, 0, total) {
+    // Representative views are checked once above; keep the exhaustive
+    // positional pass linear in the model size.
+    if t.find(pos) != model_find(model, pos) ||
+      t.get_at(pos) != model_get_at(model, pos) {
       return false
     }
   }
@@ -469,6 +476,175 @@ fn prop_from_sorted_exact_content(case_ : FromSortedCase) -> Bool {
 }
 
 ///|
+enum ArbitrarySpliceShape {
+  Overflow(Int)
+  BulkBorrow
+  Merge
+  RepeatedMerge
+} derive(Debug)
+
+///|
+struct ArbitrarySpliceCase {
+  min_degree : Int
+  shape : ArbitrarySpliceShape
+} derive(Debug)
+
+///|
+impl @quickcheck.Arbitrary for ArbitrarySpliceCase with fn arbitrary(_size, rs) {
+  let min_degree = match rs.split().next_positive_int() % 3 {
+    0 => 2
+    1 => 3
+    _ => DEFAULT_MIN_DEGREE
+  }
+  let max_degree = 2 * min_degree
+  let shape = match rs.split().next_positive_int() % 4 {
+    0 => {
+      let cardinalities = [
+        0,
+        1,
+        2,
+        max_degree,
+        max_degree + 1,
+        2 * max_degree,
+        2 * max_degree + 1,
+        max_degree * max_degree + 1,
+      ]
+      let idx = rs.split().next_positive_int() % cardinalities.length()
+      Overflow(cardinalities[idx])
+    }
+    1 => BulkBorrow
+    2 => Merge
+    _ => RepeatedMerge
+  }
+  { min_degree, shape }
+}
+
+///|
+fn arbitrary_splice_case_matches_model(case_ : ArbitrarySpliceCase) -> Bool {
+  let min_degree = case_.min_degree
+  match case_.shape {
+    Overflow(cardinality) => {
+      let t : BTree[TItem] = BTree::from_sorted(
+        [(make_item(0, 1), 1)],
+        min_degree~,
+      )
+      let expected = Array::makei(cardinality, i => make_item(i + 1, 1))
+      t.mutate_for_insert(0, ctx => {
+        start_idx: ctx.child_idx,
+        end_idx: ctx.child_idx + 1,
+        new_leaves: expected.map(item => (item, item.span)),
+      })
+      tree_matches_model(t, expected)
+    }
+    BulkBorrow => {
+      let donor_count = 2 * min_degree
+      let target_count = min_degree
+      let donor = make_internal(
+        Array::makei(donor_count, i => Leaf(elem=make_item(i, 1), span=1)),
+      )
+      let target = make_internal(
+        Array::makei(target_count, i => {
+          Leaf(elem=make_item(donor_count + i, 1), span=1)
+        }),
+      )
+      let t : BTree[TItem] = {
+        root: Some(make_internal([donor, target])),
+        min_degree,
+        size: donor_count + target_count,
+      }
+      t.mutate_for_insert(donor_count + 1, _ctx => {
+        start_idx: 1,
+        end_idx: target_count,
+        new_leaves: [],
+      })
+      let expected = Array::makei(donor_count + 1, i => make_item(i, 1))
+      let borrowed_to_target = match t.root {
+        Some(Internal(children~, ..)) =>
+          children.length() == 2 &&
+          children[0].child_count() == min_degree + 1 &&
+          children[1].child_count() == min_degree
+        _ => false
+      }
+      borrowed_to_target && tree_matches_model(t, expected)
+    }
+    Merge => {
+      let sibling_count = min_degree
+      let left = make_internal(
+        Array::makei(sibling_count, i => Leaf(elem=make_item(i, 1), span=1)),
+      )
+      let right = make_internal(
+        Array::makei(sibling_count, i => {
+          Leaf(elem=make_item(sibling_count + i, 1), span=1)
+        }),
+      )
+      let t : BTree[TItem] = {
+        root: Some(make_internal([left, right])),
+        min_degree,
+        size: 2 * sibling_count,
+      }
+      t.mutate_for_insert(sibling_count + 1, _ctx => {
+        start_idx: 1,
+        end_idx: sibling_count,
+        new_leaves: [],
+      })
+      let expected = Array::makei(sibling_count + 1, i => make_item(i, 1))
+      let merged_with_sibling = match t.root {
+        Some(root) => root.child_count() == min_degree + 1
+        None => false
+      }
+      merged_with_sibling && tree_matches_model(t, expected)
+    }
+    RepeatedMerge => {
+      let old = make_internal(
+        Array::makei(min_degree, i => Leaf(elem=make_item(1000 + i, 1), span=1)),
+      )
+      let underfull_count = min_degree + 1
+      let new_children : Array[BTreeNode[TItem]] = Array::makei(
+        underfull_count,
+        i => make_internal([Leaf(elem=make_item(i, 1), span=1)]),
+      )
+      new_children.push(
+        make_internal(
+          Array::makei(2 * min_degree, i => {
+            Leaf(elem=make_item(underfull_count + i, 1), span=1)
+          }),
+        ),
+      )
+      let new_leaf_count = underfull_count + 2 * min_degree
+      let result = propagate_node_splice(
+        {
+          prefix: [],
+          children: [old],
+          counts: [old.total()],
+          start_idx: 0,
+          end_idx: 1,
+          new_children,
+          leaf_delta: new_leaf_count - min_degree,
+        },
+        min_degree,
+      )
+      let root = result
+        .root_candidate(min_degree, normalize_delete=false)
+        .unwrap()
+      let repeatedly_merged = match root {
+        Internal(children~, ..) =>
+          children.length() == 2 &&
+          children[0].child_count() == min_degree + 1 &&
+          children[1].child_count() == 2 * min_degree
+        _ => false
+      }
+      let t : BTree[TItem] = {
+        root: Some(root),
+        min_degree,
+        size: new_leaf_count,
+      }
+      let expected = Array::makei(new_leaf_count, i => make_item(i, 1))
+      repeatedly_merged && tree_matches_model(t, expected)
+    }
+  }
+}
+
+///|
 enum ModelOp {
   Append(Int, Int)
   Insert(Int, Int, Int)
@@ -732,6 +908,111 @@ test "property: from_sorted exact content matches array model" {
 ///|
 test "property: operation sequences match array model" {
   @qc.quick_check_fn(prop_operation_sequence_matches_model)
+}
+
+///|
+test "arbitrary splice propagation cardinality and repair boundary matrix" {
+  for min_degree in [2, 3, DEFAULT_MIN_DEGREE] {
+    let max_degree = 2 * min_degree
+    for
+      cardinality in [
+        0,
+        1,
+        2,
+        max_degree,
+        max_degree + 1,
+        2 * max_degree,
+        2 * max_degree + 1,
+        max_degree * max_degree + 1,
+      ] {
+      inspect(
+        arbitrary_splice_case_matches_model({
+          min_degree,
+          shape: Overflow(cardinality),
+        }),
+        content="true",
+      )
+    }
+    inspect(
+      arbitrary_splice_case_matches_model({ min_degree, shape: BulkBorrow }),
+      content="true",
+    )
+    inspect(
+      arbitrary_splice_case_matches_model({ min_degree, shape: Merge }),
+      content="true",
+    )
+    inspect(
+      arbitrary_splice_case_matches_model({ min_degree, shape: RepeatedMerge }),
+      content="true",
+    )
+  }
+}
+
+///|
+test "quickcheck arbitrary splice generator reaches stress paths" {
+  let samples : Array[ArbitrarySpliceCase] = @quickcheck.samples(800)
+  let mut saw_multi_output = false
+  let mut saw_extra_root_level = false
+  let mut saw_multi_child_underflow_repair = false
+  let mut saw_bulk_borrow_degree_2 = false
+  let mut saw_bulk_borrow_degree_3 = false
+  let mut saw_bulk_borrow_default_degree = false
+  let mut saw_merge_degree_2 = false
+  let mut saw_merge_degree_3 = false
+  let mut saw_merge_default_degree = false
+  let mut saw_repeated_merge_degree_2 = false
+  let mut saw_repeated_merge_degree_3 = false
+  let mut saw_repeated_merge_default_degree = false
+  for case_ in samples {
+    guard arbitrary_splice_case_matches_model(case_) else {
+      fail("generated arbitrary splice diverged from model")
+    }
+    match case_.shape {
+      Overflow(cardinality) => {
+        let max_degree = 2 * case_.min_degree
+        if cardinality > 2 * max_degree {
+          saw_multi_output = true
+        }
+        if cardinality > max_degree * max_degree {
+          saw_extra_root_level = true
+        }
+      }
+      BulkBorrow => {
+        if case_.min_degree > 2 {
+          saw_multi_child_underflow_repair = true
+        }
+        match case_.min_degree {
+          2 => saw_bulk_borrow_degree_2 = true
+          3 => saw_bulk_borrow_degree_3 = true
+          _ => saw_bulk_borrow_default_degree = true
+        }
+      }
+      Merge =>
+        match case_.min_degree {
+          2 => saw_merge_degree_2 = true
+          3 => saw_merge_degree_3 = true
+          _ => saw_merge_default_degree = true
+        }
+      RepeatedMerge =>
+        match case_.min_degree {
+          2 => saw_repeated_merge_degree_2 = true
+          3 => saw_repeated_merge_degree_3 = true
+          _ => saw_repeated_merge_default_degree = true
+        }
+    }
+  }
+  inspect(saw_multi_output, content="true")
+  inspect(saw_extra_root_level, content="true")
+  inspect(saw_multi_child_underflow_repair, content="true")
+  inspect(saw_bulk_borrow_degree_2, content="true")
+  inspect(saw_bulk_borrow_degree_3, content="true")
+  inspect(saw_bulk_borrow_default_degree, content="true")
+  inspect(saw_merge_degree_2, content="true")
+  inspect(saw_merge_degree_3, content="true")
+  inspect(saw_merge_default_degree, content="true")
+  inspect(saw_repeated_merge_degree_2, content="true")
+  inspect(saw_repeated_merge_degree_3, content="true")
+  inspect(saw_repeated_merge_default_degree, content="true")
 }
 
 ///|

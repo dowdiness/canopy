@@ -56,9 +56,9 @@ tree.init_root({ text: "hello", len: 5 }, 5)
 | `BTree::new(min_degree?)` | Create empty tree (default min_degree=10) | O(1) |
 | `get_at(pos)` | Element at span position | O(log n) |
 | `find(pos)` | Element + offset within element | O(log n) |
-| `mutate_for_insert(pos, callback)` | Insert via leaf splice callback | O(log n) |
-| `mutate_for_delete(pos, callback)` | Delete via leaf splice callback | O(log n) |
-| `delete_range(start, end)` | Delete span range [start, end), with boundary repair/merge | O(log n) path planning/splice; O(n) current worst-case repair* |
+| `mutate_for_insert(pos, callback)` | Insert via leaf splice callback | O(k + log n) at fixed t |
+| `mutate_for_delete(pos, callback)` | Delete via leaf splice callback | O(k + log n) at fixed t |
+| `delete_range(start, end)` | Delete span range [start, end), with boundary repair/merge | O(log n) path planning/splice; O(n) repair worst case |
 | `from_sorted(items, min_degree?)` | Bulk-build from sorted `(elem, span)` pairs | O(n) |
 | `view(start?, end?)` | Slice elements in range | O(k + log n) |
 | `iter()` | Lazy cursor-based iterator | O(n) total |
@@ -67,7 +67,13 @@ tree.init_root({ text: "hello", len: 5 }, 5)
 | `span()` | Total span (cached) | O(1) |
 | `size()` | Number of leaves | O(1) |
 
-*Current worst-case repair can visit every child in the repaired subtree after range deletion.
+For callback splices, `k` is the number of replacement leaves and `t` is the
+minimum degree. More exactly, propagation is linear in the changed segment and
+logarithmic in unaffected height; current bulk underflow repair gives
+`O(k + t² log_t n)`.
+
+Current worst-case range-delete repair can visit every child in the repaired
+subtree.
 
 ## API Contracts
 
@@ -137,7 +143,11 @@ current leaf parent's child array. Callers must maintain
 `0 <= start_idx <= end_idx <= parent child count`; arbitrary invalid indices
 are not separately validated.
 
-`new_leaves` replace that interval in order.
+`new_leaves` replace that interval in order. It may contain any number of
+leaves representable in memory; propagation partitions the complete replacement
+into as many balanced nodes and root levels as required rather than imposing a
+cardinality limit.
+
 Every replacement span must be positive, or propagation aborts with
 `BTree splice: leaf spans must be positive`. Their prospective cumulative
 total must also satisfy the cumulative span range above.

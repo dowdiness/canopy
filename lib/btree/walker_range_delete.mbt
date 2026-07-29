@@ -65,29 +65,31 @@ fn[T] merge_boundary_chain(
   left_path_suffix : Array[PathFrame[T]],
   right_path_suffix : Array[PathFrame[T]],
   leaf : BTreeNode[T],
-) -> BTreeNode[T] {
+  min_degree : Int,
+) -> Array[BTreeNode[T]] {
   if left_path_suffix.length() != right_path_suffix.length() {
     abort("merge_boundary_chain: mismatched suffix heights")
   }
-  let mut current = leaf
+  let mut current : Array[BTreeNode[T]] = [leaf]
   for i in (left_path_suffix.length() - 1)>=..0 {
     let left_frame = left_path_suffix[i]
     let right_frame = right_path_suffix[i]
     let children : Array[BTreeNode[T]] = []
     let counts : Array[Int] = []
-    for j in 0..<left_frame.child_idx {
-      children.push(left_frame.children[j])
-      counts.push(left_frame.counts[j])
-    }
-    children.push(current)
-    counts.push(current.total())
-    for j in (right_frame.child_idx + 1)..<right_frame.children.length() {
-      children.push(right_frame.children[j])
-      counts.push(right_frame.counts[j])
-    }
-    current = Internal(children~, counts~, total=counts.sum())
+    children.append(left_frame.children[:left_frame.child_idx])
+    counts.append(left_frame.counts[:left_frame.child_idx])
+    children.append(current[:])
+    counts.append(current.map(node => node.total())[:])
+    children.append(right_frame.children[right_frame.child_idx + 1:])
+    counts.append(right_frame.counts[right_frame.child_idx + 1:])
+    // The two boundary paths and a two-node carried segment can contribute up
+    // to 4t children. Repair an
+    // underfull carried node, then preserve every balanced output node as a
+    // segment for the next ancestor instead of hiding overfull descendants.
+    repair_underfull_children(children, counts, min_degree, min_degree)
+    current = pack_level(children, min_degree)
   }
-  current
+  current.map(node => fix_merged_chain(node, min_degree))
 }
 
 ///|
@@ -303,11 +305,13 @@ fn[T : BTreeElem] absorb_subtree_gap_merge(
   }
   let merged = @rle.Mergeable::merge(left_edge.elem, right_edge.elem)
   let merged_leaf = Leaf(elem=merged, span=@rle.Spanning::span(merged))
-  let merged_subtree = fix_merged_chain(
-    merge_boundary_chain(left_edge.path, right_edge.path, merged_leaf),
+  let merged_subtrees = merge_boundary_chain(
+    left_edge.path,
+    right_edge.path,
+    merged_leaf,
     min_degree,
   )
-  ([merged_subtree], start_idx - 1, end_idx + 1, true)
+  (merged_subtrees, start_idx - 1, end_idx + 1, true)
 }
 
 ///|
@@ -332,11 +336,12 @@ fn[T : BTreeElem] promote_empty_child_gap_merge(
   }
   let merged = @rle.Mergeable::merge(left_edge.elem, right_edge.elem)
   let merged_leaf = Leaf(elem=merged, span=@rle.Spanning::span(merged))
-  let merged_subtree = fix_merged_chain(
-    merge_boundary_chain(left_edge.path, right_edge.path, merged_leaf),
+  let new_children = merge_boundary_chain(
+    left_edge.path,
+    right_edge.path,
+    merged_leaf,
     min_degree,
   )
-  let new_children : Array[BTreeNode[T]] = [merged_subtree]
   let removed_leaf_count = leaf_count_of_children(
     parent.children,
     child_idx - 1,
@@ -527,9 +532,8 @@ fn[T : BTreeElem] normalize_boundary_merge(
         right.path,
         lca.prefix.length(),
       )
-      let merged_subtree = fix_merged_chain(
-        merge_boundary_chain(left_suffix, right_suffix, merged_leaf),
-        min_degree,
+      let merged_subtrees = merge_boundary_chain(
+        left_suffix, right_suffix, merged_leaf, min_degree,
       )
       let removed_leaf_count = leaf_count_of_children(
         lca.children,
@@ -542,14 +546,13 @@ fn[T : BTreeElem] normalize_boundary_merge(
         counts: lca.counts,
         start_idx: lca.start_idx,
         end_idx: lca.end_idx,
-        new_children: [merged_subtree],
-        leaf_delta: merged_subtree.leaf_count() - removed_leaf_count,
+        new_children: merged_subtrees,
+        leaf_delta: leaf_count_of_array(merged_subtrees) - removed_leaf_count,
       }
       let result = propagate_node_splice(splice, min_degree)
-      let new_root = match result.overflow {
-        None => result.node
-        Some(sibling) => make_internal([result.node, sibling])
-      }
+      let new_root = result
+        .root_candidate(min_degree, normalize_delete=false)
+        .unwrap()
       (new_root, true)
     }
     _ => (root, false)

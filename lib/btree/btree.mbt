@@ -156,19 +156,25 @@ pub fn[T : BTreeElem] BTree::delete_range(
       let propagated = propagate_node_splice(splice, self.min_degree)
       // Keep every range-delete phase on an unpublished candidate. A late
       // boundary-merge or repair rejection must leave the original tree intact.
-      let new_root = propagated.root_candidate(normalize_delete=false).unwrap()
-      let (merged_root, boundary_merged) = normalize_boundary_merge(
-        new_root,
-        start,
-        self.min_degree,
-      )
-      // Collapse unary root wrappers, fix underfull descendants, then
-      // collapse again (fix_merged_chain may create new unary roots via merge).
-      let final_root = match normalize_root_after_delete(merged_root) {
-        None => None
-        Some(collapsed) => {
-          let fixed = fix_merged_chain(collapsed, self.min_degree)
-          normalize_root_after_delete(fixed)
+      let (final_root, boundary_merged) = match
+        propagated.root_candidate(self.min_degree, normalize_delete=false) {
+        None => (None, false)
+        Some(new_root) => {
+          let (merged_root, boundary_merged) = normalize_boundary_merge(
+            new_root,
+            start,
+            self.min_degree,
+          )
+          // Collapse unary root wrappers, fix underfull descendants, then
+          // collapse again (fix_merged_chain may create new unary roots).
+          let final_root = match normalize_root_after_delete(merged_root) {
+            None => None
+            Some(collapsed) => {
+              let fixed = fix_merged_chain(collapsed, self.min_degree)
+              normalize_root_after_delete(fixed)
+            }
+          }
+          (final_root, boundary_merged)
         }
       }
       let final_size = self.size +
@@ -183,16 +189,19 @@ pub fn[T : BTreeElem] BTree::delete_range(
 ///|
 fn[T] PropagateResult::root_candidate(
   self : PropagateResult[T],
+  min_degree : Int,
   normalize_delete~ : Bool,
 ) -> BTreeNode[T]? {
-  match self.overflow {
-    None =>
-      if normalize_delete {
-        normalize_root_after_delete(self.node)
-      } else {
-        Some(self.node)
-      }
-    Some(sibling) => Some(make_internal([self.node, sibling]))
+  guard !self.segment.is_empty() else { return None }
+  let mut segment = self.segment
+  while segment.length() > 1 {
+    segment = pack_level(segment, min_degree)
+  }
+  let root = segment[0]
+  if normalize_delete {
+    normalize_root_after_delete(root)
+  } else {
+    Some(root)
   }
 }
 
@@ -202,7 +211,7 @@ fn[T] BTree::apply_propagated(
   propagated : PropagateResult[T],
   normalize_delete~ : Bool,
 ) -> Unit {
-  let next_root = propagated.root_candidate(normalize_delete~)
+  let next_root = propagated.root_candidate(self.min_degree, normalize_delete~)
   let next_size = self.size + propagated.leaf_delta
   self.root = next_root
   self.size = next_size
@@ -230,27 +239,7 @@ pub fn[T] BTree::from_sorted(
     Leaf(elem=pair.0, span=pair.1)
   })
   while nodes.length() > max_degree {
-    let next : Array[BTreeNode[T]] = []
-    let mut i = 0
-    while i < nodes.length() {
-      let remaining = nodes.length() - i
-      // Redistribute when the leftover would violate min_degree
-      let chunk_size = if remaining > max_degree &&
-        remaining - max_degree < min_degree {
-        remaining / 2
-      } else if remaining <= max_degree {
-        remaining
-      } else {
-        max_degree
-      }
-      let chunk : Array[BTreeNode[T]] = []
-      for j in i..<(i + chunk_size) {
-        chunk.push(nodes[j])
-      }
-      next.push(make_internal(chunk))
-      i = i + chunk_size
-    }
-    nodes = next
+    nodes = pack_level(nodes, min_degree)
   }
   let root = make_internal(nodes)
   { root: Some(root), min_degree, size: items.length() }
