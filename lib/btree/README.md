@@ -92,6 +92,22 @@ strictly positive span. Invalid spans abort with
 `from_sorted` preserves input order but does not merge adjacent elements;
 callers own any no-adjacent-mergeable canonicalization policy.
 
+### Cumulative span range
+
+A valid tree's cumulative span is always in `0..=@int.MAX_VALUE`; zero is the
+empty-tree value, and `@int.MAX_VALUE` itself is supported. Construction or a
+callback splice whose prospective total exceeds that range aborts with
+`BTree: cumulative span must be in 0..=@int.MAX_VALUE` before an invalid root
+can be observed.
+
+Point mutations prepare and propagate through copy-on-write path arrays.
+Range deletion completes its splice, boundary merge, and repair on the same
+unpublished candidate. The tree publishes the candidate only after all
+checked totals succeed, so an overflow rejection leaves its root, size, and
+contents unchanged. A splice callback has already run by the time its returned
+spans can be checked; external side effects performed by that callback are not
+part of the tree-state rollback guarantee.
+
 ### Positions and ranges
 
 Positions are measured in the cumulative units supplied by leaf spans. Ranges
@@ -123,7 +139,8 @@ are not separately validated.
 
 `new_leaves` replace that interval in order.
 Every replacement span must be positive, or propagation aborts with
-`BTree splice: leaf spans must be positive`.
+`BTree splice: leaf spans must be positive`. Their prospective cumulative
+total must also satisfy the cumulative span range above.
 
 The canonical splice shapes are:
 

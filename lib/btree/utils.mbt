@@ -1,6 +1,70 @@
 ///|
+/// Add one non-negative span without allowing `Int` wraparound.
+/// MoonBit core has no checked-add API, so this package keeps the range
+/// decision in a small deterministic helper instead of widening then
+/// truncating through `Int64`.
+fn checked_span_add(total : Int, span : Int) -> Int? {
+  guard total >= 0 && span >= 0 else { return None }
+  guard total <= @int.MAX_VALUE - span else { return None }
+  Some(total + span)
+}
+
+///|
+/// Convert an internal checked-add decision to the package's established
+/// deterministic abort contract without changing any public error signature.
+fn add_spans_or_abort(total : Int, span : Int) -> Int {
+  match checked_span_add(total, span) {
+    Some(result) => result
+    None => abort("BTree: cumulative span must be in 0..=@int.MAX_VALUE")
+  }
+}
+
+///|
+/// Reuse core `ArrayView::fold` to validate and sum cached child spans.
+fn ArrayView::checked_span_sum(self : ArrayView[Int]) -> Int? {
+  self.fold(init=Some(0), fn(total, span) {
+    match total {
+      Some(acc) => checked_span_add(acc, span)
+      None => None
+    }
+  })
+}
+
+///|
+/// Sum cached child spans or reject an invalid cumulative range.
 fn Array::sum(self : Array[Int]) -> Int {
-  self.iter().fold(init=0, fn(acc, x) { acc + x })
+  match self[:].checked_span_sum() {
+    Some(total) => total
+    None => abort("BTree: cumulative span must be in 0..=@int.MAX_VALUE")
+  }
+}
+
+///|
+/// Compute the prospective tree total for a leaf-parent splice without
+/// mutating either the current tree or its copy-on-write candidate path.
+fn[T] checked_splice_total(
+  tree_total : Int,
+  parent_counts : Array[Int],
+  splice : Splice[T],
+) -> Int? {
+  guard splice.start_idx >= 0 &&
+    splice.start_idx <= splice.end_idx &&
+    splice.end_idx <= parent_counts.length() else {
+    return None
+  }
+  let removed = parent_counts[splice.start_idx:splice.end_idx].checked_span_sum()
+  let added = splice.new_leaves.fold(init=Some(0), fn(total, pair) {
+    guard pair.1 > 0 else { return None }
+    match total {
+      Some(acc) => checked_span_add(acc, pair.1)
+      None => None
+    }
+  })
+  match (removed, added) {
+    (Some(removed), Some(added)) if removed <= tree_total =>
+      checked_span_add(tree_total - removed, added)
+    _ => None
+  }
 }
 
 ///|

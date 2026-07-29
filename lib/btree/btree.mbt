@@ -45,7 +45,8 @@ pub fn[T] BTree::find(self : BTree[T], pos : Int) -> FindResult[T]? {
 ///
 /// The callback receives a `LeafContext` snapshot and returns a `Splice`
 /// description. The tree applies it, rebalances, and updates size. Every span
-/// in the returned splice must be positive or propagation aborts.
+/// in the returned splice must be positive. A prospective cumulative span
+/// above `@int.MAX_VALUE` aborts before the copy-on-write candidate is published.
 pub fn[T] BTree::mutate_for_insert(
   self : BTree[T],
   pos : Int,
@@ -70,12 +71,19 @@ pub fn[T] BTree::mutate_for_insert(
           prepare_split,
           find_slot_inclusive,
           true,
+          copy_on_write=true,
         ) {
         Some(c) => c
         None => abort("BTree::mutate_for_insert: descent failed")
       }
       let leaf_ctx = LeafContext::from_cursor(cursor)
       let splice = f(leaf_ctx)
+      validate_positive_spans(splice.new_leaves, "BTree splice")
+      let leaf_parent = cursor.path[cursor.path.length() - 1]
+      guard checked_splice_total(root.total(), leaf_parent.counts, splice)
+        is Some(_) else {
+        abort("BTree: cumulative span must be in 0..=@int.MAX_VALUE")
+      }
       let propagated = propagate(cursor.path, splice, self.min_degree)
       self.apply_propagated(propagated, normalize_delete=true)
     }
@@ -86,7 +94,8 @@ pub fn[T] BTree::mutate_for_insert(
 /// Mutate the leaf containing span position `pos`, where
 /// `0 <= pos < span()`. Returns the callback's payload, or `None` without
 /// calling the callback when the tree is empty or `pos` is out of bounds.
-/// Every span in the returned splice must be positive or propagation aborts.
+/// Every span in the returned splice must be positive. A prospective cumulative
+/// span above `@int.MAX_VALUE` aborts without publishing the candidate tree.
 pub fn[T, R] BTree::mutate_for_delete(
   self : BTree[T],
   pos : Int,
@@ -106,11 +115,18 @@ pub fn[T, R] BTree::mutate_for_delete(
           prepare_ensure_min,
           find_slot,
           false,
+          copy_on_write=true,
         ) {
         None => None
         Some(cursor) => {
           let leaf_ctx = LeafContext::from_cursor(cursor)
           let (splice, payload) = f(leaf_ctx)
+          validate_positive_spans(splice.new_leaves, "BTree splice")
+          let leaf_parent = cursor.path[cursor.path.length() - 1]
+          guard checked_splice_total(root.total(), leaf_parent.counts, splice)
+            is Some(_) else {
+            abort("BTree: cumulative span must be in 0..=@int.MAX_VALUE")
+          }
           let propagated = propagate(cursor.path, splice, self.min_degree)
           self.apply_propagated(propagated, normalize_delete=true)
           Some(payload)
@@ -123,7 +139,8 @@ pub fn[T, R] BTree::mutate_for_delete(
 ///|
 /// Delete the half-open span range `[start, end_)`, clamping an oversized end
 /// to `span()`. This is a no-op for an empty tree, a negative start, an empty
-/// or reversed range, or `start >= span()`.
+/// or reversed range, or `start >= span()`. Splice, boundary merge, and repair
+/// complete on an unpublished copy-on-write candidate before one final update.
 pub fn[T : BTreeElem] BTree::delete_range(
   self : BTree[T],
   start : Int,
@@ -137,9 +154,9 @@ pub fn[T : BTreeElem] BTree::delete_range(
     None => ()
     Some(splice) => {
       let propagated = propagate_node_splice(splice, self.min_degree)
-      // Skip root normalization here — we normalize after boundary merge
-      self.apply_propagated(propagated, normalize_delete=false)
-      guard self.root is Some(new_root) else { return }
+      // Keep every range-delete phase on an unpublished candidate. A late
+      // boundary-merge or repair rejection must leave the original tree intact.
+      let new_root = propagated.root_candidate(normalize_delete=false).unwrap()
       let (merged_root, boundary_merged) = normalize_boundary_merge(
         new_root,
         start,
@@ -154,11 +171,28 @@ pub fn[T : BTreeElem] BTree::delete_range(
           normalize_root_after_delete(fixed)
         }
       }
+      let final_size = self.size +
+        propagated.leaf_delta -
+        (if boundary_merged { 1 } else { 0 })
       self.root = final_root
-      if boundary_merged {
-        self.size = self.size - 1
-      }
+      self.size = final_size
     }
+  }
+}
+
+///|
+fn[T] PropagateResult::root_candidate(
+  self : PropagateResult[T],
+  normalize_delete~ : Bool,
+) -> BTreeNode[T]? {
+  match self.overflow {
+    None =>
+      if normalize_delete {
+        normalize_root_after_delete(self.node)
+      } else {
+        Some(self.node)
+      }
+    Some(sibling) => Some(make_internal([self.node, sibling]))
   }
 }
 
@@ -168,34 +202,19 @@ fn[T] BTree::apply_propagated(
   propagated : PropagateResult[T],
   normalize_delete~ : Bool,
 ) -> Unit {
-  match propagated.overflow {
-    None =>
-      if normalize_delete {
-        self.root = normalize_root_after_delete(propagated.node)
-      } else {
-        self.root = Some(propagated.node)
-      }
-    Some(sibling) => {
-      let left_total = propagated.node.total()
-      let right_total = sibling.total()
-      self.root = Some(
-        Internal(
-          children=[propagated.node, sibling],
-          counts=[left_total, right_total],
-          total=left_total + right_total,
-        ),
-      )
-    }
-  }
-  self.size = self.size + propagated.leaf_delta
+  let next_root = propagated.root_candidate(normalize_delete~)
+  let next_size = self.size + propagated.leaf_delta
+  self.root = next_root
+  self.size = next_size
 }
 
 ///|
 /// Build a `BTree` bottom-up in input order from pre-sorted `(element, span)`
 /// pairs. `min_degree` is normalized to `[2, @int.MAX_VALUE / 2]`.
 ///
-/// Every span must be positive or construction aborts. The caller must
-/// pre-merge adjacent mergeable elements when its canonicalization policy
+/// Every span must be positive and the cumulative total must be at most
+/// `@int.MAX_VALUE`, or construction aborts before publishing a tree. The caller
+/// must pre-merge adjacent mergeable elements when its canonicalization policy
 /// requires that invariant. Runs in O(n), rather than O(n log n) inserts.
 pub fn[T] BTree::from_sorted(
   items : Array[(T, Int)],

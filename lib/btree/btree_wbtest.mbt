@@ -271,6 +271,226 @@ test "panic from_sorted rejects negative non-positive span" {
 }
 
 ///|
+test "panic from_sorted rejects cumulative span overflow" {
+  let _ : BTree[Int] = BTree::from_sorted([(1, @int.MAX_VALUE), (2, 1)])
+}
+
+///|
+test "panic from_sorted rejects multi-level cumulative span overflow" {
+  let items = Array::makei(8, fn(i) {
+    (i, if i == 0 { @int.MAX_VALUE - 3 } else { 1 })
+  })
+  let _ : BTree[Int] = BTree::from_sorted(items, min_degree=2)
+}
+
+///|
+test "from_sorted accepts cumulative span at Int max" {
+  let t : BTree[Int] = BTree::from_sorted([(1, @int.MAX_VALUE - 1), (2, 1)])
+  inspect(t.span(), content="2147483647")
+  @debug.debug_inspect(
+    t.get_at(@int.MAX_VALUE - 1),
+    content=(
+      #|Some(2)
+    ),
+  )
+}
+
+///|
+test "overflow preflight keeps split candidate isolated from original tree" {
+  let items = Array::makei(8, fn(i) {
+    (i, if i == 0 { @int.MAX_VALUE - 7 } else { 1 })
+  })
+  let t : BTree[Int] = BTree::from_sorted(items, min_degree=2)
+  let before_items = t.to_array()
+  let before_debug = @debug.to_string(t)
+  let before_span = t.span()
+  let before_size = t.size()
+  let root = t.root.unwrap()
+  let cursor = descend(
+    root,
+    0,
+    t.min_degree,
+    prepare_split,
+    find_slot_inclusive,
+    true,
+    copy_on_write=true,
+  ).unwrap()
+  let splice : Splice[Int] = {
+    start_idx: cursor.child_idx,
+    end_idx: cursor.child_idx,
+    new_leaves: [(8, 1)],
+  }
+  let leaf_parent = cursor.path[cursor.path.length() - 1]
+  inspect(
+    checked_splice_total(root.total(), leaf_parent.counts, splice) is None,
+    content="true",
+  )
+  inspect(t.span(), content=before_span.to_string())
+  inspect(t.size(), content=before_size.to_string())
+  inspect(t.to_array() == before_items, content="true")
+  inspect(@debug.to_string(t) == before_debug, content="true")
+  inspect(btree_invariants_hold(t), content="true")
+}
+
+///|
+test "overflow preflight keeps borrow candidate isolated from original tree" {
+  let items = Array::makei(5, fn(i) {
+    (i, if i == 0 { @int.MAX_VALUE - 4 } else { 1 })
+  })
+  let t : BTree[Int] = BTree::from_sorted(items, min_degree=2)
+  let before_debug = @debug.to_string(t)
+  let root = t.root.unwrap()
+  let cursor = descend(
+    root,
+    0,
+    t.min_degree,
+    prepare_ensure_min,
+    find_slot,
+    false,
+    copy_on_write=true,
+  ).unwrap()
+  let splice : Splice[Int] = {
+    start_idx: cursor.child_idx,
+    end_idx: cursor.child_idx + 1,
+    new_leaves: [(cursor.leaf_elem, cursor.leaf_span + 1)],
+  }
+  let leaf_parent = cursor.path[cursor.path.length() - 1]
+  inspect(
+    checked_splice_total(root.total(), leaf_parent.counts, splice) is None,
+    content="true",
+  )
+  inspect(@debug.to_string(t) == before_debug, content="true")
+  inspect(btree_invariants_hold(t), content="true")
+}
+
+///|
+test "reactive merge candidate stays isolated until publish" {
+  let left : BTreeNode[Int] = Internal(
+    children=[Leaf(elem=0, span=@int.MAX_VALUE - 3), Leaf(elem=1, span=1)],
+    counts=[@int.MAX_VALUE - 3, 1],
+    total=@int.MAX_VALUE - 2,
+  )
+  let right : BTreeNode[Int] = Internal(
+    children=[Leaf(elem=2, span=1), Leaf(elem=3, span=1)],
+    counts=[1, 1],
+    total=2,
+  )
+  let root : BTreeNode[Int] = Internal(
+    children=[left, right],
+    counts=[@int.MAX_VALUE - 2, 2],
+    total=@int.MAX_VALUE,
+  )
+  let t : BTree[Int] = { root: Some(root), min_degree: 2, size: 4 }
+  let before_debug = @debug.to_string(t)
+  let cursor = descend(
+    root,
+    @int.MAX_VALUE - 2,
+    t.min_degree,
+    prepare_noop,
+    find_slot,
+    false,
+    copy_on_write=true,
+  ).unwrap()
+  let splice : Splice[Int] = {
+    start_idx: cursor.child_idx,
+    end_idx: cursor.child_idx + 1,
+    new_leaves: [],
+  }
+  let _candidate = propagate(cursor.path, splice, t.min_degree)
+  inspect(@debug.to_string(t) == before_debug, content="true")
+  inspect(btree_invariants_hold(t), content="true")
+}
+
+///|
+test "range delete candidate stays isolated until publish" {
+  let t = build_tree([(1, 2), (2, 2), (3, 2)])
+  let before_debug = @debug.to_string(t)
+  let root = t.root.unwrap()
+  let splice = plan_delete_range(root, 1, 3, t.min_degree).unwrap()
+  let _candidate = propagate_node_splice(splice, t.min_degree)
+  inspect(@debug.to_string(t) == before_debug, content="true")
+  inspect(btree_invariants_hold(t), content="true")
+}
+
+///|
+test "panic insert rejects cumulative span overflow" {
+  let t : BTree[Int] = BTree::from_sorted([(1, @int.MAX_VALUE)])
+  t.mutate_for_insert(@int.MAX_VALUE, fn(ctx) {
+    {
+      start_idx: ctx.child_idx + 1,
+      end_idx: ctx.child_idx + 1,
+      new_leaves: [(2, 1)],
+    }
+  })
+}
+
+///|
+test "insert accepts cumulative span at Int max" {
+  let t : BTree[Int] = BTree::from_sorted([(1, @int.MAX_VALUE - 1)])
+  t.mutate_for_insert(@int.MAX_VALUE - 1, fn(ctx) {
+    {
+      start_idx: ctx.child_idx + 1,
+      end_idx: ctx.child_idx + 1,
+      new_leaves: [(2, 1)],
+    }
+  })
+  inspect(t.span(), content="2147483647")
+  inspect(t.to_array() == [1, 2], content="true")
+  inspect(btree_invariants_hold(t), content="true")
+}
+
+///|
+test "insert split and root growth accept cumulative span at Int max" {
+  let items = Array::makei(16, fn(i) {
+    (i, if i == 0 { @int.MAX_VALUE - 16 } else { 1 })
+  })
+  let t : BTree[Int] = BTree::from_sorted(items, min_degree=2)
+  t.mutate_for_insert(0, fn(ctx) {
+    { start_idx: ctx.child_idx, end_idx: ctx.child_idx, new_leaves: [(16, 1)] }
+  })
+  inspect(t.span(), content="2147483647")
+  inspect(t.size(), content="17")
+  inspect(t.root.unwrap().height(), content="3")
+  inspect(btree_invariants_hold(t), content="true")
+}
+
+///|
+test "boundary sweep successful mutations never expose negative span" {
+  for reserve in 1..<33 {
+    let t : BTree[Int] = BTree::from_sorted(
+      [(0, @int.MAX_VALUE - reserve)],
+      min_degree=2,
+    )
+    for i in 0..<reserve {
+      t.mutate_for_insert(t.span(), fn(ctx) {
+        {
+          start_idx: ctx.child_idx + 1,
+          end_idx: ctx.child_idx + 1,
+          new_leaves: [(i + 1, 1)],
+        }
+      })
+      guard t.span() >= 0 && btree_invariants_hold(t) else { fail("insert") }
+    }
+    guard t.span() == @int.MAX_VALUE else { fail("boundary") }
+    for _ in 0..<reserve {
+      let deleted = t.mutate_for_delete(t.span() - 1, fn(ctx) {
+        (
+          {
+            start_idx: ctx.child_idx,
+            end_idx: ctx.child_idx + 1,
+            new_leaves: [],
+          },
+          ctx.elem,
+        )
+      })
+      guard deleted is Some(_) && t.span() >= 0 && btree_invariants_hold(t) else {
+        fail("delete")
+      }
+    }
+  }
+}
+
+///|
 test "panic init_root rejects zero non-positive span" {
   let t : BTree[TItem] = BTree::new()
   t.init_root(make_item(1, 0), 0)
@@ -280,6 +500,15 @@ test "panic init_root rejects zero non-positive span" {
 test "panic init_root rejects negative non-positive span" {
   let t : BTree[TItem] = BTree::new()
   t.init_root(make_item(1, -1), -1)
+}
+
+///|
+test "init_root accepts span at Int max" {
+  let t : BTree[Int] = BTree::new()
+  t.init_root(1, @int.MAX_VALUE)
+  inspect(t.span(), content="2147483647")
+  inspect(t.size(), content="1")
+  inspect(btree_invariants_hold(t), content="true")
 }
 
 ///|
@@ -316,6 +545,98 @@ test "panic delete splice rejects non-positive span" {
       ctx.elem,
     )
   })
+}
+
+///|
+test "panic delete splice rejects cumulative span overflow" {
+  let t : BTree[Int] = BTree::from_sorted([(1, @int.MAX_VALUE - 1), (2, 1)])
+  let _ = t.mutate_for_delete(@int.MAX_VALUE - 1, fn(ctx) {
+    (
+      {
+        start_idx: ctx.child_idx,
+        end_idx: ctx.child_idx + 1,
+        new_leaves: [(ctx.elem, 2)],
+      },
+      (),
+    )
+  })
+}
+
+///|
+test "delete splice update accepts cumulative span at Int max" {
+  let t : BTree[Int] = BTree::from_sorted([(1, @int.MAX_VALUE - 2), (2, 1)])
+  let updated = t.mutate_for_delete(@int.MAX_VALUE - 2, fn(ctx) {
+    (
+      {
+        start_idx: ctx.child_idx,
+        end_idx: ctx.child_idx + 1,
+        new_leaves: [(ctx.elem, 2)],
+      },
+      ctx.elem,
+    )
+  })
+  inspect(updated == Some(2), content="true")
+  inspect(t.span(), content="2147483647")
+  inspect(btree_invariants_hold(t), content="true")
+}
+
+///|
+test "delete preparation borrow accepts cumulative span at Int max" {
+  let items = Array::makei(5, fn(i) {
+    (i, if i == 0 { @int.MAX_VALUE - 4 } else { 1 })
+  })
+  let t : BTree[Int] = BTree::from_sorted(items, min_degree=2)
+  let before_items = t.to_array()
+  let updated = t.mutate_for_delete(0, fn(ctx) {
+    (
+      {
+        start_idx: ctx.child_idx,
+        end_idx: ctx.child_idx + 1,
+        new_leaves: [(ctx.elem, ctx.span)],
+      },
+      ctx.elem,
+    )
+  })
+  inspect(updated == Some(0), content="true")
+  inspect(t.span(), content="2147483647")
+  inspect(t.to_array() == before_items, content="true")
+  inspect(btree_invariants_hold(t), content="true")
+}
+
+///|
+test "delete preparation merge accepts cumulative span at Int max" {
+  let left : BTreeNode[Int] = Internal(
+    children=[Leaf(elem=0, span=@int.MAX_VALUE - 3), Leaf(elem=1, span=1)],
+    counts=[@int.MAX_VALUE - 3, 1],
+    total=@int.MAX_VALUE - 2,
+  )
+  let right : BTreeNode[Int] = Internal(
+    children=[Leaf(elem=2, span=1), Leaf(elem=3, span=1)],
+    counts=[1, 1],
+    total=2,
+  )
+  let root : BTreeNode[Int] = Internal(
+    children=[left, right],
+    counts=[@int.MAX_VALUE - 2, 2],
+    total=@int.MAX_VALUE,
+  )
+  let t : BTree[Int] = { root: Some(root), min_degree: 2, size: 4 }
+  let before_items = t.to_array()
+  let updated = t.mutate_for_delete(0, fn(ctx) {
+    (
+      {
+        start_idx: ctx.child_idx,
+        end_idx: ctx.child_idx + 1,
+        new_leaves: [(ctx.elem, ctx.span)],
+      },
+      ctx.elem,
+    )
+  })
+  inspect(updated == Some(0), content="true")
+  inspect(t.span(), content="2147483647")
+  inspect(t.to_array() == before_items, content="true")
+  inspect(t.root.unwrap().height(), content="1")
+  inspect(btree_invariants_hold(t), content="true")
 }
 
 // === Iteration ===
@@ -1304,6 +1625,20 @@ test "BTree::delete_range merges boundary leaves" {
 }
 
 ///|
+test "delete_range repair near Int max keeps cumulative span valid" {
+  let items = Array::makei(16, fn(i) {
+    let span = if i == 0 { @int.MAX_VALUE - 15 } else { 1 }
+    (make_item(i, span), span)
+  })
+  let t : BTree[TItem] = BTree::from_sorted(items, min_degree=2)
+  t.delete_range(@int.MAX_VALUE - 12, @int.MAX_VALUE - 4)
+  inspect(t.span(), content="2147483639")
+  inspect(t.span() >= 0, content="true")
+  inspect(t.size(), content="8")
+  inspect(btree_invariants_hold(t), content="true")
+}
+
+///|
 test "BTree::delete_range empty range is no-op" {
   let t = build_tree([(1, 2), (2, 3)])
   t.delete_range(2, 2)
@@ -1524,7 +1859,7 @@ fn[T] check_node_invariants(
       }
       let mut expected_leaf_depth = -1
       let mut leaf_count = 0
-      let mut sum = 0
+      let mut sum : Int64 = 0L
       for i in 0..<children.length() {
         if counts[i] != children[i].total() {
           return (false, depth, 0)
@@ -1544,9 +1879,9 @@ fn[T] check_node_invariants(
           return (false, depth, 0)
         }
         leaf_count = leaf_count + child_leaf_count
-        sum = sum + counts[i]
+        sum = sum + counts[i].to_int64()
       }
-      if sum != total {
+      if sum != total.to_int64() {
         return (false, depth, 0)
       }
       (true, expected_leaf_depth, leaf_count)
