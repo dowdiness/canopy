@@ -202,6 +202,26 @@ test "delete single element empties tree" {
 }
 
 ///|
+test "delete-shaped insert splice empties and can reinitialize tree" {
+  let t = build_tree([(1, 3)])
+  t.mutate_for_insert(0, ctx => {
+    start_idx: ctx.child_idx,
+    end_idx: ctx.child_idx + 1,
+    new_leaves: [],
+  })
+  inspect(t.is_empty(), content="true")
+  inspect(t.size(), content="0")
+  inspect(t.span(), content="0")
+  inspect(t.view().is_empty(), content="true")
+  inspect(t.iter().count(), content="0")
+  t.init_root(make_item(2, 2), 2)
+  inspect(t.is_empty(), content="false")
+  inspect(t.size(), content="1")
+  inspect(t.span(), content="2")
+  inspect(t.get_at(0) == Some(make_item(2, 2)), content="true")
+}
+
+///|
 test "delete on empty returns None" {
   let t : BTree[TItem] = BTree::new()
   let result : Unit? = t.mutate_for_delete(0, fn(_ctx) {

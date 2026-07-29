@@ -77,7 +77,7 @@ pub fn[T] BTree::mutate_for_insert(
       let leaf_ctx = LeafContext::from_cursor(cursor)
       let splice = f(leaf_ctx)
       let propagated = propagate(cursor.path, splice, self.min_degree)
-      self.apply_propagated(propagated, normalize_delete=false)
+      self.apply_propagated(propagated, normalize_delete=true)
     }
   }
 }
