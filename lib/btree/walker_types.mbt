@@ -84,8 +84,7 @@ pub(all) struct Splice[T] {
 
 ///|
 priv struct PropagateResult[T] {
-  node : BTreeNode[T]
-  overflow : BTreeNode[T]?
+  segment : Array[BTreeNode[T]]
   leaf_delta : Int
 }
 

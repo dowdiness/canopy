@@ -546,10 +546,9 @@ fn[T : BTreeElem] normalize_boundary_merge(
         leaf_delta: merged_subtree.leaf_count() - removed_leaf_count,
       }
       let result = propagate_node_splice(splice, min_degree)
-      let new_root = match result.overflow {
-        None => result.node
-        Some(sibling) => make_internal([result.node, sibling])
-      }
+      let new_root = result
+        .root_candidate(min_degree, normalize_delete=false)
+        .unwrap()
       (new_root, true)
     }
     _ => (root, false)

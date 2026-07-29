@@ -491,6 +491,61 @@ test "boundary sweep successful mutations never expose negative span" {
 }
 
 ///|
+test "arbitrary insert splice partitions more than two output nodes" {
+  let t : BTree[TItem] = BTree::from_sorted(
+    [(make_item(0, 1), 1)],
+    min_degree=2,
+  )
+  let expected = Array::makei(10, fn(i) { make_item(i + 1, 1) })
+  t.mutate_for_insert(0, fn(ctx) {
+    {
+      start_idx: ctx.child_idx,
+      end_idx: ctx.child_idx + 1,
+      new_leaves: expected.map(item => (item, item.span)),
+    }
+  })
+  inspect(tree_matches_model(t, expected), content="true")
+}
+
+///|
+test "arbitrary insert splice propagates a complete segment through ancestors" {
+  let original = Array::makei(12, i => (make_item(i, 1), 1))
+  let t : BTree[TItem] = BTree::from_sorted(original, min_degree=2)
+  let replacement = Array::makei(9, i => make_item(100 + i, 1))
+  t.mutate_for_insert(0, ctx => {
+    start_idx: ctx.child_idx,
+    end_idx: ctx.child_idx + 1,
+    new_leaves: replacement.map(item => (item, item.span)),
+  })
+  let expected = replacement.copy()
+  let suffix = Array::makei(11, i => make_item(i + 1, 1))
+  expected.append(suffix[:])
+  inspect(tree_matches_model(t, expected), content="true")
+}
+
+///|
+test "arbitrary insert deletion repairs a multi-child underflow deficit" {
+  let left = make_internal(
+    Array::makei(6, fn(i) { Leaf(elem=make_item(i, 1), span=1) }),
+  )
+  let right = make_internal(
+    Array::makei(3, fn(i) { Leaf(elem=make_item(i + 6, 1), span=1) }),
+  )
+  let t : BTree[TItem] = {
+    root: Some(make_internal([left, right])),
+    min_degree: 3,
+    size: 9,
+  }
+  let replacement = make_item(9, 1)
+  t.mutate_for_insert(7, fn(_ctx) {
+    { start_idx: 0, end_idx: 3, new_leaves: [(replacement, 1)] }
+  })
+  let expected = Array::makei(6, fn(i) { make_item(i, 1) })
+  expected.push(replacement)
+  inspect(tree_matches_model(t, expected), content="true")
+}
+
+///|
 test "panic init_root rejects zero non-positive span" {
   let t : BTree[TItem] = BTree::new()
   t.init_root(make_item(1, 0), 0)
@@ -1401,9 +1456,10 @@ test "propagate_node_splice updates ancestor counts after removal" {
     leaf_delta: -1,
   }
   let result = propagate_node_splice(splice, 2)
+  let root = result.root_candidate(2, normalize_delete=false).unwrap()
   inspect(result.leaf_delta, content="-1")
   // Resulting node should have total = 2 + 4 = 6
-  inspect(result.node.total(), content="6")
+  inspect(root.total(), content="6")
 }
 
 // === Underfull propagation repair ===
@@ -1465,11 +1521,12 @@ test "propagate_node_splice repairs underfull node by borrowing from right" {
     leaf_delta: -2,
   }
   let result = propagate_node_splice(splice, 2)
+  let root = result.root_candidate(2, normalize_delete=false).unwrap()
   // After repair: underfull node borrowed from right sibling
   // Total span should be 6 - 2 = 4
-  inspect(result.node.total(), content="4")
+  inspect(root.total(), content="4")
   // Root should still have 2 children (no merge needed at root level)
-  match result.node {
+  match root {
     Internal(children~, ..) => {
       inspect(children.length(), content="2")
       // Each child should have >= 2 children
@@ -1536,12 +1593,40 @@ test "propagate_node_splice repairs underfull node by merging with sibling" {
     leaf_delta: -1,
   }
   let result = propagate_node_splice(splice, 2)
-  inspect(result.node.total(), content="3")
+  let root = result.root_candidate(2, normalize_delete=false).unwrap()
+  inspect(root.total(), content="3")
   // After merge: root has 1 child (will be collapsed by normalize)
-  match result.node {
+  match root {
     Internal(children~, ..) => inspect(children.length(), content="1")
     _ => abort("expected internal root")
   }
+}
+
+///|
+test "propagate_node_splice rechecks repeated adjacent underfull merges" {
+  let old = make_internal(
+    Array::makei(3, i => Leaf(elem=make_item(100 + i, 1), span=1)),
+  )
+  let first = make_internal([Leaf(elem=make_item(0, 1), span=1)])
+  let second = make_internal([Leaf(elem=make_item(1, 1), span=1)])
+  let third = make_internal([Leaf(elem=make_item(2, 1), span=1)])
+  let donor = make_internal(
+    Array::makei(6, i => Leaf(elem=make_item(i + 3, 1), span=1)),
+  )
+  let splice : NodeSplice[TItem] = {
+    prefix: [],
+    children: [old],
+    counts: [old.total()],
+    start_idx: 0,
+    end_idx: 1,
+    new_children: [first, second, third, donor],
+    leaf_delta: 6,
+  }
+  let result = propagate_node_splice(splice, 3)
+  let root = result.root_candidate(3, normalize_delete=false).unwrap()
+  let t : BTree[TItem] = { root: Some(root), min_degree: 3, size: 9 }
+  let expected = Array::makei(9, i => make_item(i, 1))
+  inspect(tree_matches_model(t, expected), content="true")
 }
 
 // === Post-splice boundary merge ===
@@ -1896,15 +1981,18 @@ fn[T] btree_invariants_hold(t : BTree[T]) -> Bool {
     Some(root) =>
       match root {
         Leaf(..) => false
-        Internal(..) => {
-          let (ok, _, leaf_count) = check_node_invariants(
-            root,
-            t.min_degree,
-            true,
-            0,
-          )
-          ok && leaf_count == t.size && root.total() == t.span()
-        }
+        Internal(children~, ..) =>
+          if children is [Internal(..)] {
+            false
+          } else {
+            let (ok, _, leaf_count) = check_node_invariants(
+              root,
+              t.min_degree,
+              true,
+              0,
+            )
+            ok && leaf_count == t.size && root.total() == t.span()
+          }
       }
   }
 }
