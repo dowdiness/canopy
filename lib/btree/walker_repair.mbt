@@ -53,8 +53,9 @@ fn[T] bulk_steal_from_left(
         let count = left_cn.remove(last)
         target_ch.insert(0, child)
         target_cn.insert(0, count)
-        transferred += count
+        transferred = add_spans_or_abort(transferred, count)
       }
+      let new_target_total = add_spans_or_abort(target_total, transferred)
       children[idx - 1] = Internal(
         children=left_ch,
         counts=left_cn,
@@ -63,10 +64,10 @@ fn[T] bulk_steal_from_left(
       children[idx] = Internal(
         children=target_ch,
         counts=target_cn,
-        total=target_total + transferred,
+        total=new_target_total,
       )
       counts[idx - 1] = left_total - transferred
-      counts[idx] = target_total + transferred
+      counts[idx] = new_target_total
     }
     _ => abort("bulk_steal_from_left: expected internal nodes")
   }
@@ -92,19 +93,20 @@ fn[T] bulk_steal_from_right(
         let count = right_cn.remove(0)
         target_ch.push(child)
         target_cn.push(count)
-        transferred += count
+        transferred = add_spans_or_abort(transferred, count)
       }
+      let new_target_total = add_spans_or_abort(target_total, transferred)
       children[idx] = Internal(
         children=target_ch,
         counts=target_cn,
-        total=target_total + transferred,
+        total=new_target_total,
       )
       children[idx + 1] = Internal(
         children=right_ch,
         counts=right_cn,
         total=right_total - transferred,
       )
-      counts[idx] = target_total + transferred
+      counts[idx] = new_target_total
       counts[idx + 1] = right_total - transferred
     }
     _ => abort("bulk_steal_from_right: expected internal nodes")

@@ -1,7 +1,7 @@
 // Walker contract:
-// - descent owns navigation and may mutate internal nodes via prepare hooks
+// - mutation descent copies path arrays before prepare hooks mutate them
 // - leaf actions read LeafContext and return pure Splice descriptions
-// - propagation is the only phase that rewrites ancestors and handles splits
+// - propagation rewrites only the unpublished candidate path and handles splits
 
 ///|
 priv struct PathFrame[T] {

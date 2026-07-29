@@ -369,8 +369,18 @@ fn[T : BTreeElem] plan_delete_range(
     return None
   }
   let clamped_end = if end_ > total { total } else { end_ }
-  let start_cursor = descend_leaf_at(root, start, min_degree)
-  let end_cursor = descend_leaf_at_end_boundary(root, clamped_end, min_degree)
+  let start_cursor = descend_leaf_at(
+    root,
+    start,
+    min_degree,
+    copy_on_write=true,
+  )
+  let end_cursor = descend_leaf_at_end_boundary(
+    root,
+    clamped_end,
+    min_degree,
+    copy_on_write=true,
+  )
   match (start_cursor, end_cursor) {
     (Some(start_leaf), Some(end_leaf)) => {
       let lca = lowest_common_ancestor_range(start_leaf, end_leaf)
@@ -478,9 +488,19 @@ fn[T : BTreeElem] normalize_boundary_merge(
     return (root, false)
   }
   // Descend to the leaf just before the boundary (end-boundary semantics)
-  let left_cursor = descend_leaf_at_end_boundary(root, boundary_pos, min_degree)
+  let left_cursor = descend_leaf_at_end_boundary(
+    root,
+    boundary_pos,
+    min_degree,
+    copy_on_write=true,
+  )
   // Descend to the leaf at the boundary (start semantics)
-  let right_cursor = descend_leaf_at(root, boundary_pos, min_degree)
+  let right_cursor = descend_leaf_at(
+    root,
+    boundary_pos,
+    min_degree,
+    copy_on_write=true,
+  )
   match (left_cursor, right_cursor) {
     (Some(left), Some(right)) => {
       // Check if these are different leaves
@@ -528,15 +548,7 @@ fn[T : BTreeElem] normalize_boundary_merge(
       let result = propagate_node_splice(splice, min_degree)
       let new_root = match result.overflow {
         None => result.node
-        Some(sibling) => {
-          let left_total = result.node.total()
-          let right_total = sibling.total()
-          Internal(
-            children=[result.node, sibling],
-            counts=[left_total, right_total],
-            total=left_total + right_total,
-          )
-        }
+        Some(sibling) => make_internal([result.node, sibling])
       }
       (new_root, true)
     }

@@ -69,7 +69,7 @@ fn[T] borrow_from_left(
       target_ch.insert(0, borrowed_child)
       target_cn.insert(0, borrowed_count)
       let new_left_total = left_total - borrowed_count
-      let new_target_total = target_total + borrowed_count
+      let new_target_total = add_spans_or_abort(target_total, borrowed_count)
       children[idx - 1] = Internal(
         children=left_ch,
         counts=left_cn,
@@ -104,7 +104,7 @@ fn[T] borrow_from_right(
       let borrowed_count = right_cn.remove(0)
       target_ch.push(borrowed_child)
       target_cn.push(borrowed_count)
-      let new_target_total = target_total + borrowed_count
+      let new_target_total = add_spans_or_abort(target_total, borrowed_count)
       let new_right_total = right_total - borrowed_count
       children[idx] = Internal(
         children=target_ch,
@@ -143,7 +143,7 @@ fn[T] merge_children(
       let merged = Internal(
         children=left_ch,
         counts=left_cn,
-        total=left_total + right_total,
+        total=add_spans_or_abort(left_total, right_total),
       )
       children[idx] = merged
       counts[idx] = merged.total()
@@ -191,16 +191,24 @@ fn[T] ensure_min_children(
     return
   }
   if idx > 0 && children[idx - 1].can_lend(min_degree) {
+    children[idx - 1] = children[idx - 1].shallow_copy()
+    children[idx] = children[idx].shallow_copy()
     borrow_from_left(children, counts, idx)
     return
   }
   if idx + 1 < children.length() && children[idx + 1].can_lend(min_degree) {
+    children[idx] = children[idx].shallow_copy()
+    children[idx + 1] = children[idx + 1].shallow_copy()
     borrow_from_right(children, counts, idx)
     return
   }
   if idx > 0 {
+    children[idx - 1] = children[idx - 1].shallow_copy()
+    children[idx] = children[idx].shallow_copy()
     merge_children(children, counts, idx - 1)
   } else {
+    children[idx] = children[idx].shallow_copy()
+    children[idx + 1] = children[idx + 1].shallow_copy()
     merge_children(children, counts, idx)
   }
 }
@@ -257,6 +265,7 @@ fn[T] descend(
   prepare : (Array[BTreeNode[T]], Array[Int], Int, Int) -> Unit,
   find_slot_fn : (Array[Int], Int, Int) -> (Int, Int),
   allow_leaf_end : Bool,
+  copy_on_write? : Bool = false,
 ) -> Cursor[T]? {
   let path : Array[PathFrame[T]] = []
   fn step(current : BTreeNode[T], current_pos : Int) -> Cursor[T]? {
@@ -279,7 +288,17 @@ fn[T] descend(
         } else {
           None
         }
-      Internal(children~, counts~, total~) => {
+      Internal(children=source_children, counts=source_counts, total~) => {
+        let children = if copy_on_write {
+          source_children.copy()
+        } else {
+          source_children
+        }
+        let counts = if copy_on_write {
+          source_counts.copy()
+        } else {
+          source_counts
+        }
         // First pass: find slot to prepare (may be invalidated by prepare)
         let (pre_idx, _) = find_slot_fn(counts, current_pos, total)
         prepare(children, counts, pre_idx, min_degree)
@@ -381,8 +400,18 @@ fn[T] descend_leaf_at(
   node : BTreeNode[T],
   pos : Int,
   min_degree : Int,
+  copy_on_write? : Bool = false,
 ) -> LeafCursor[T]? {
-  match descend(node, pos, min_degree, prepare_noop, find_slot, false) {
+  match
+    descend(
+      node,
+      pos,
+      min_degree,
+      prepare_noop,
+      find_slot,
+      false,
+      copy_on_write~,
+    ) {
     None => None
     Some(cursor) => Some(LeafCursor::from_cursor(cursor))
   }
@@ -393,12 +422,21 @@ fn[T] descend_leaf_at_end_boundary(
   node : BTreeNode[T],
   end_ : Int,
   min_degree : Int,
+  copy_on_write? : Bool = false,
 ) -> LeafCursor[T]? {
   if end_ == 0 {
     return None
   }
   match
-    descend(node, end_, min_degree, prepare_noop, find_slot_inclusive, true) {
+    descend(
+      node,
+      end_,
+      min_degree,
+      prepare_noop,
+      find_slot_inclusive,
+      true,
+      copy_on_write~,
+    ) {
     None => None
     Some(cursor) => Some(LeafCursor::from_cursor(cursor))
   }

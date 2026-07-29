@@ -15,7 +15,7 @@ fn[T] split_internal(
   for i in 0..<mid {
     left_children.push(children[i])
     left_counts.push(counts[i])
-    left_total = left_total + counts[i]
+    left_total = add_spans_or_abort(left_total, counts[i])
   }
   let right_children : Array[BTreeNode[T]] = Array::new(
     capacity=children.length() - mid,
@@ -25,7 +25,7 @@ fn[T] split_internal(
   for i in mid..<children.length() {
     right_children.push(children[i])
     right_counts.push(counts[i])
-    right_total = right_total + counts[i]
+    right_total = add_spans_or_abort(right_total, counts[i])
   }
   (
     Internal(children=left_children, counts=left_counts, total=left_total),
@@ -104,16 +104,24 @@ fn[T] ensure_min_after_splice(
 ) -> Unit {
   guard children[idx].is_underfull(min_degree) else { return }
   if idx > 0 && children[idx - 1].can_lend(min_degree) {
+    children[idx - 1] = children[idx - 1].shallow_copy()
+    children[idx] = children[idx].shallow_copy()
     borrow_from_left(children, counts, idx)
     return
   }
   if idx + 1 < children.length() && children[idx + 1].can_lend(min_degree) {
+    children[idx] = children[idx].shallow_copy()
+    children[idx + 1] = children[idx + 1].shallow_copy()
     borrow_from_right(children, counts, idx)
     return
   }
   if idx > 0 {
+    children[idx - 1] = children[idx - 1].shallow_copy()
+    children[idx] = children[idx].shallow_copy()
     merge_children(children, counts, idx - 1)
   } else if idx + 1 < children.length() {
+    children[idx] = children[idx].shallow_copy()
+    children[idx + 1] = children[idx + 1].shallow_copy()
     merge_children(children, counts, idx)
   }
 }
