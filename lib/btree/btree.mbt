@@ -1,4 +1,6 @@
 ///|
+/// Create an empty tree. `min_degree` is normalized to the inclusive interval
+/// `[2, @int.MAX_VALUE / 2]`.
 pub fn[T] BTree::new(min_degree? : Int = DEFAULT_MIN_DEGREE) -> BTree[T] {
   { root: None, min_degree: clamp_min_degree(min_degree), size: 0 }
 }
@@ -37,11 +39,13 @@ pub fn[T] BTree::find(self : BTree[T], pos : Int) -> FindResult[T]? {
 }
 
 ///|
-/// Descend for insert: splits full nodes during descent, uses inclusive slot
-/// finding, allows leaf-end positions. Tree must be non-empty (use init_root
-/// first). Aborts if pos is out of [0, span] or tree is empty.
-/// The callback receives a LeafContext and returns a Splice describing
-/// what to replace. The tree handles rebalancing and size tracking automatically.
+/// Mutate a non-empty tree at a span position in the inclusive interval
+/// `[0, span()]`; use `init_root` for the first element. An empty tree or a
+/// position outside that interval aborts.
+///
+/// The callback receives a `LeafContext` snapshot and returns a `Splice`
+/// description. The tree applies it, rebalances, and updates size. Every span
+/// in the returned splice must be positive or propagation aborts.
 pub fn[T] BTree::mutate_for_insert(
   self : BTree[T],
   pos : Int,
@@ -53,6 +57,11 @@ pub fn[T] BTree::mutate_for_insert(
     None =>
       abort("BTree::mutate_for_insert: tree is empty, use init_root first")
     Some(root) => {
+      // Bounds check before descend — prepare_split may mutate the tree, so
+      // reject invalid positions before any structural preparation begins.
+      guard pos >= 0 && pos <= root.total() else {
+        abort("BTree::mutate_for_insert: position out of bounds")
+      }
       let cursor = match
         descend(
           root,
@@ -74,10 +83,10 @@ pub fn[T] BTree::mutate_for_insert(
 }
 
 ///|
-/// Descend for delete: ensures min children during descent, uses strict slot
-/// finding. Returns the callback's payload R, or None if pos is out of bounds
-/// or tree is empty. The callback returns (splice, payload) where payload is
-/// any caller-defined data (e.g., the deleted element).
+/// Mutate the leaf containing span position `pos`, where
+/// `0 <= pos < span()`. Returns the callback's payload, or `None` without
+/// calling the callback when the tree is empty or `pos` is out of bounds.
+/// Every span in the returned splice must be positive or propagation aborts.
 pub fn[T, R] BTree::mutate_for_delete(
   self : BTree[T],
   pos : Int,
@@ -112,9 +121,9 @@ pub fn[T, R] BTree::mutate_for_delete(
 }
 
 ///|
-/// Delete all elements in the span range [start, end_).
-/// Handles all cases: single-leaf splice, multi-child LCA splice,
-/// underfull node repair, and post-splice boundary merging.
+/// Delete the half-open span range `[start, end_)`, clamping an oversized end
+/// to `span()`. This is a no-op for an empty tree, a negative start, an empty
+/// or reversed range, or `start >= span()`.
 pub fn[T : BTreeElem] BTree::delete_range(
   self : BTree[T],
   start : Int,
@@ -182,13 +191,17 @@ fn[T] BTree::apply_propagated(
 }
 
 ///|
-/// Build a BTree bottom-up from a pre-sorted array of (element, span) pairs.
-/// O(n) instead of O(n log n) repeated inserts.
-/// Caller must ensure no adjacent items are mergeable (pre-merge if needed).
+/// Build a `BTree` bottom-up in input order from pre-sorted `(element, span)`
+/// pairs. `min_degree` is normalized to `[2, @int.MAX_VALUE / 2]`.
+///
+/// Every span must be positive or construction aborts. The caller must
+/// pre-merge adjacent mergeable elements when its canonicalization policy
+/// requires that invariant. Runs in O(n), rather than O(n log n) inserts.
 pub fn[T] BTree::from_sorted(
   items : Array[(T, Int)],
   min_degree? : Int = DEFAULT_MIN_DEGREE,
 ) -> BTree[T] {
+  validate_positive_spans(items, "BTree::from_sorted")
   let min_degree = clamp_min_degree(min_degree)
   let max_degree = 2 * min_degree
   if items.is_empty() {
@@ -225,8 +238,13 @@ pub fn[T] BTree::from_sorted(
 }
 
 ///|
-/// Initialize root with a single leaf wrapped in an internal node.
+/// Initialize an empty tree with a single root element. `span` must be positive;
+/// a non-positive span or an already initialized tree aborts.
 pub fn[T] BTree::init_root(self : BTree[T], elem : T, span : Int) -> Unit {
+  guard span > 0 else { abort("BTree::init_root: leaf span must be positive") }
+  guard self.is_empty() else {
+    abort("BTree::init_root: tree is already initialized")
+  }
   let leaf = Leaf(elem~, span~)
   self.root = Some(Internal(children=[leaf], counts=[span], total=span))
   self.size = 1
@@ -256,7 +274,10 @@ fn[T] normalize_root_after_delete(root : BTreeNode[T]) -> BTreeNode[T]? {
 }
 
 ///|
-/// View elements in span range [start, end). Slices at boundaries.
+/// Return elements in the half-open span range `[start, end)`, slicing boundary
+/// elements. A negative start clamps to zero; an omitted or oversized end
+/// clamps to `span()`. An empty or reversed range, a negative end, or a start at
+/// or beyond `span()` returns an empty array.
 pub fn[T : BTreeElem] BTree::view(
   self : BTree[T],
   start? : Int = 0,

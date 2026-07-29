@@ -216,6 +216,88 @@ test "panic insert on empty tree aborts" {
   t.mutate_for_insert(0, fn(_ctx) { abort("should not reach callback") })
 }
 
+///|
+test "panic insert rejects negative position" {
+  let t = build_tree([(1, 1)])
+  // abort is uncatchable, so mutation-free failure is also verified by the
+  // bounds-guard-before-descent source ordering in mutate_for_insert.
+  t.mutate_for_insert(-1, ctx => {
+    start_idx: ctx.child_idx,
+    end_idx: ctx.child_idx,
+    new_leaves: [(make_item(2, 1), 1)],
+  })
+}
+
+///|
+test "panic insert rejects position beyond span" {
+  let t = build_tree([(1, 1)])
+  // abort is uncatchable, so mutation-free failure is also verified by the
+  // bounds-guard-before-descent source ordering in mutate_for_insert.
+  t.mutate_for_insert(t.span() + 1, ctx => {
+    start_idx: ctx.child_idx + 1,
+    end_idx: ctx.child_idx + 1,
+    new_leaves: [(make_item(2, 1), 1)],
+  })
+}
+
+///|
+test "panic from_sorted rejects zero non-positive span" {
+  let _ : BTree[TItem] = BTree::from_sorted([(make_item(1, 0), 0)])
+}
+
+///|
+test "panic from_sorted rejects negative non-positive span" {
+  let _ : BTree[TItem] = BTree::from_sorted([(make_item(1, -1), -1)])
+}
+
+///|
+test "panic init_root rejects zero non-positive span" {
+  let t : BTree[TItem] = BTree::new()
+  t.init_root(make_item(1, 0), 0)
+}
+
+///|
+test "panic init_root rejects negative non-positive span" {
+  let t : BTree[TItem] = BTree::new()
+  t.init_root(make_item(1, -1), -1)
+}
+
+///|
+test "panic init_root rejects repeated initialization" {
+  let t : BTree[TItem] = BTree::new()
+  t.init_root(make_item(1, 1), 1)
+  t.init_root(make_item(2, 1), 1)
+}
+
+///|
+test "panic insert splice rejects non-positive span" {
+  let t = build_tree([(1, 1)])
+  // abort is uncatchable, so this test verifies rejection only. In propagate,
+  // validation precedes apply_splice; descent may already have split nodes.
+  t.mutate_for_insert(1, ctx => {
+    start_idx: ctx.child_idx + 1,
+    end_idx: ctx.child_idx + 1,
+    new_leaves: [(make_item(2, 0), 0)],
+  })
+}
+
+///|
+test "panic delete splice rejects non-positive span" {
+  let t = build_tree([(1, 2)])
+  // abort is uncatchable, so this test verifies rejection only. In propagate,
+  // validation precedes apply_splice; descent may already have rebalanced nodes.
+  let _ = t.mutate_for_delete(0, ctx => {
+    (
+      {
+        start_idx: ctx.child_idx,
+        end_idx: ctx.child_idx + 1,
+        new_leaves: [(make_item(2, -1), -1)],
+      },
+      ctx.elem,
+    )
+  })
+}
+
 // === Iteration ===
 
 ///|
@@ -823,6 +905,20 @@ test "LeafContext neighbors return adjacent siblings" {
 }
 
 ///|
+test "LeafContext snapshot keeps original neighbors" {
+  let children : Array[BTreeNode[TItem]] = [
+    Leaf(elem=make_item(1, 3), span=3),
+    Leaf(elem=make_item(2, 2), span=2),
+    Leaf(elem=make_item(3, 4), span=4),
+  ]
+  let root : BTreeNode[TItem] = Internal(children~, counts=[3, 2, 4], total=9)
+  let cursor = descend(root, 3, 2, prepare_noop, find_slot, false).unwrap()
+  let ctx = LeafContext::from_cursor(cursor)
+  children[0] = Leaf(elem=make_item(9, 3), span=3)
+  @debug.debug_inspect(ctx.left_neighbor(), content="Some({ id: 1, span: 3 })")
+}
+
+///|
 test "LeafContext boundary neighbors are None" {
   let root : BTreeNode[TItem] = Internal(
     children=[
@@ -1392,7 +1488,7 @@ fn[T] check_node_invariants(
   depth : Int,
 ) -> (Bool, Int, Int) {
   match node {
-    Leaf(..) => (true, depth, 1)
+    Leaf(span~, ..) => (span > 0, depth, 1)
     Internal(children~, counts~, total~) => {
       if children is [] {
         return (false, depth, 0)
@@ -2260,6 +2356,22 @@ test "from_sorted clamps invalid min_degree" {
     inspect(t.size(), content="2")
     inspect(btree_invariants_hold(t), content="true")
   }
+}
+
+///|
+test "from_sorted clamps oversized min_degree" {
+  let items : Array[(TItem, Int)] = [(make_item(1, 1), 1), (make_item(2, 1), 1)]
+  let oversized_min_degree = MAX_SAFE_MIN_DEGREE + 1
+  let t : BTree[TItem] = BTree::from_sorted(
+    items,
+    min_degree=oversized_min_degree,
+  )
+  inspect(t.min_degree, content=MAX_SAFE_MIN_DEGREE.to_string())
+  inspect(t.size(), content="2")
+  inspect(t.span(), content="2")
+  inspect(btree_invariants_hold(t), content="true")
+  let empty : BTree[TItem] = BTree::new(min_degree=oversized_min_degree)
+  inspect(empty.min_degree, content=MAX_SAFE_MIN_DEGREE.to_string())
 }
 
 ///|
