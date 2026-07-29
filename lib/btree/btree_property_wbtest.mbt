@@ -148,7 +148,10 @@ fn all_queries_match_model(t : BTree[TItem], model : Array[TItem]) -> Bool {
     }
   }
   for pos in -1..<(total + 2) {
-    if !query_matches_model(t, model, pos, 0, total) {
+    // Representative views are checked once above; keep the exhaustive
+    // positional pass linear in the model size.
+    if t.find(pos) != model_find(model, pos) ||
+      t.get_at(pos) != model_get_at(model, pos) {
       return false
     }
   }
