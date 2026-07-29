@@ -238,10 +238,13 @@ pub fn[T] BTree::from_sorted(
 }
 
 ///|
-/// Initialize the tree with a single root element. `span` must be positive or
-/// the operation aborts.
+/// Initialize an empty tree with a single root element. `span` must be positive;
+/// a non-positive span or an already initialized tree aborts.
 pub fn[T] BTree::init_root(self : BTree[T], elem : T, span : Int) -> Unit {
   guard span > 0 else { abort("BTree::init_root: leaf span must be positive") }
+  guard self.is_empty() else {
+    abort("BTree::init_root: tree is already initialized")
+  }
   let leaf = Leaf(elem~, span~)
   self.root = Some(Internal(children=[leaf], counts=[span], total=span))
   self.size = 1

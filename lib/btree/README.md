@@ -77,6 +77,9 @@ Calling `new` creates an empty tree. Both `new` and `from_sorted` normalize
 `min_degree` to the inclusive interval `[2, @int.MAX_VALUE / 2]`.
 Use `init_root` to install the first element before calling
 `mutate_for_insert`; `from_sorted([])` is another empty construction.
+Calling `init_root` on an already initialized tree aborts with
+`BTree::init_root: tree is already initialized` instead of replacing its
+contents.
 
 `init_root` and every `(element, span)` pair passed to `from_sorted` require a
 strictly positive span. Invalid spans abort with

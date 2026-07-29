@@ -263,6 +263,13 @@ test "panic init_root rejects negative non-positive span" {
 }
 
 ///|
+test "panic init_root rejects repeated initialization" {
+  let t : BTree[TItem] = BTree::new()
+  t.init_root(make_item(1, 1), 1)
+  t.init_root(make_item(2, 1), 1)
+}
+
+///|
 test "panic insert splice rejects non-positive span" {
   let t = build_tree([(1, 1)])
   // abort is uncatchable, so atomicity is verified by validation-before-splice
