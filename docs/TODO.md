@@ -232,8 +232,8 @@ proving-ground mode.
   Why: `warren build` can abort while walking Canopy's workspace root when it hits a dangling symlink such as `loom/target -> _build` before `loom/_build` exists: `OSError(@fs.kind(): ".../loom/target": No such file or directory)`.
   Upstream: PR moonbit-community/rabbita#120 merged, but released rabbita-v0.12.4 predates it. Apply by bumping rabbita submodule to a post-v0.12.4 upstream commit once available.
 
-- [x] Upgrade `rle` consumers to `dowdiness/rle` 0.2.1 and constructor-style APIs.
-  Shipped: all consumers (`event-graph-walker@0.2.3`, `lib/btree@0.2.2`) already use constructor-style APIs (`Rle()`, `PrefixSums()`). No `Rle::new()` or `PrefixSums::new()` calls remain. Stale — the TODO itself was the only remaining artifact.
+- [x] Migrate `rle` consumers away from deprecated `new` constructors.
+  Shipped: current `Rle` call sites use `@rle.Rle::Rle()`, and no `Rle::new()` or `PrefixSums::new()` calls remain. The `lib/btree` 0.2.0 release candidate depends on `dowdiness/rle` 0.2.2, while `event-graph-walker` 0.5.0 depends on `dowdiness/rle` 0.2.3. Stale — the TODO itself was the only remaining artifact.
 
 - [x] Extend the aggregator-trim audit from `lang/{lambda,json}` (PR #265) to the rest of the canopy module.
   Shipped across four PRs (2026-05-16):
