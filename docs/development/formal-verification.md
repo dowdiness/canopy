@@ -13,7 +13,7 @@ moon prove  →  moonc (WhyML codegen)  →  Why3  →  z3 (SMT solver)
 ```
 
 **Tested versions:**
-- MoonBit moon 0.1.20260409
+- MoonBit 0.10.4+ade96c819 (repository-pinned toolchain)
 - Why3 1.7.2 (install via `opam install why3.1.7.2`)
 - Z3 4.13.x (install via `pip3 install z3-solver==4.13.4.0` or `opam install z3`)
 
@@ -24,11 +24,11 @@ moon prove  →  moonc (WhyML codegen)  →  Why3  →  z3 (SMT solver)
 ### File structure
 
 ```
-lib/semantic/proof/
-├── moon.mod.json          # Standalone module (no canopy deps)
+lib/{semantic,btree}/proof/
+├── moon.mod               # Standalone module (no Canopy dependencies)
 ├── moon.pkg               # options("proof-enabled": true)
-├── confidence.mbt          # Code + proof_ensure contracts
-├── confidence.mbtp         # Logical predicates (spec-only)
+├── *.mbt                  # Code + proof_ensure contracts
+├── *.mbtp                 # Logical predicates (spec-only)
 └── pkg.generated.mbti
 ```
 
@@ -65,8 +65,8 @@ predicate conflict_is_top(a : T, b : T, result : T) {
 ### Running
 
 ```bash
-cd lib/semantic/proof
-moon prove          # verify all proof_ensure contracts
+cd lib/semantic/proof  # or lib/btree/proof
+moon prove             # verify all proof_ensure contracts
 ```
 
 ## Prover Limitations
@@ -78,6 +78,7 @@ These constraints determine what `moon prove` can and cannot verify:
 | Unbounded integers only | No Float, no overflow modeling | Use Int-specialized mirror types |
 | No `==` on custom enums | Can't write `result == expected` for enum types | Project to Int via `#proof_pure` functions |
 | No method calls in predicates | Only `#proof_pure` functions and primitives | Write pure projection functions |
+| `#proof_pure` functions cannot carry contracts | A projection cannot prove its own postcondition | Put the arithmetic directly in a contracted side-effect-free function; reserve `#proof_pure` for logic-side projections |
 | No Map/Array[T]/closure reasoning | Can't model stateful data structures | Use @qc for these properties |
 | Wildcard `_` codegen bug | `IRuleBased(_) => 2` emits broken WhyML | Use named bindings: `IRuleBased(_v) => 2` |
 | `proof-enabled` cascades to deps | Enabling on a package proves all transitive deps | Isolate proof packages in standalone modules |
@@ -124,6 +125,24 @@ For `Confidence::join`: we proved the lattice laws on `IntConfidence` (the algor
 | `disagreement_yields_conflict` | Different payloads from non-trivial inputs → Conflict |
 | `guessed_max_score` | Guessed+Guessed same payload → Guessed with exact max score, payload preserved |
 
+### Formally verified (lib/btree/proof/)
+
+Nine scalar contracts mirror production decisions without importing the BTree package:
+
+| Function | What it proves |
+|---|---|
+| `splice_leaf_delta` | Leaf delta equals inserted leaves minus the replaced range |
+| `splice_new_count` | Splice cardinality is non-negative and equals `old_count + leaf_delta` under valid indices |
+| `planned_group_size` | Every scalar grouping step emits a value in `[t, 2t]`; nonterminal steps preserve a legal remainder and make progress |
+| `planned_group_total` | The recursive scalar grouping model terminates and its emitted sizes sum to the input count |
+| `advance_group_sum` | The emitted-plus-remaining invariant is preserved and the terminal sum equals the input count |
+| `repaired_node_count` | Merge/steal arithmetic preserves participating child counts; steal and sufficiently large merge restore occupancy, while smaller merges remain conserved intermediate states |
+| `repair_total_with_unaffected` | One repair step preserves the global child total when counts outside the selected sibling pair are held fixed |
+| `span_add_accepted` | Checked-add acceptance exactly matches the supported non-negative mathematical range |
+| `project_root_present` | The scalar publication policy maps zero leaves to no root and requires a present root to have a positive leaf count |
+
+See [`lib/btree/proof/README.md`](../../lib/btree/proof/README.md) for the exact production mapping, preconditions, composition argument, and limitations. Production Array materialization, final repeated-repair occupancy, root-state linkage, recursive tree integration, and MoonBit machine-`Int` behavior remain executable/property-test coverage.
+
 ### Property-tested (@qc)
 
 | Package | File | Properties |
@@ -131,6 +150,7 @@ For `Confidence::join`: we proved the lattice laws on `IntConfidence` (the algor
 | core/ | reconcile_properties_wbtest.mbt | ID uniqueness, ID preservation, kind propagation, idempotency, insert/delete stability |
 | core/ | source_map_properties_wbtest.mbt | Node coverage, range sorting, rebuild consistency, parent enclosure, innermost node minimality |
 | lib/semantic/ | confidence_properties_wbtest.mbt | Commutativity, associativity, idempotency, identity, absorbing top (on real `Confidence[Role]`) |
+| lib/btree/ | btree_property_wbtest.mbt | Cached spans, splice cardinality, occupancy repair, root normalization, and range-delete integration |
 | lib/zipper/ | zipper_properties_wbtest.mbt | Zipper navigation laws |
 | event-graph-walker/ | Various *_properties_test.mbt | CRDT convergence, version vector properties, FractionalIndex ordering |
 
@@ -142,7 +162,6 @@ Candidates ordered by value and feasibility:
 
 | Target | Package | Properties | Why provable |
 |---|---|---|---|
-| B+ tree scalar invariants (#1006, planned) | lib/btree/proof (planned) | Non-root child-group occupancy [t, 2t]; splice and grouping cardinality sums/progress; repair, root-lifecycle, and checked-add laws. Recursive mutable B+ tree integration remains executable/property-test coverage. | Pure Int/Bool arithmetic on child counts and cumulative spans; not yet implemented |
 | delete_range boundaries | lib/btree | Index parameters stay valid through descent | Index math — exactly what z3 excels at |
 | SourceMap range sorting | core/ | Ranges array sorted after rebuild | Int comparisons on array indices |
 | FractionalIndex ordering | event-graph-walker/ | midpoint(a, b) is strictly between a and b | Byte-array arithmetic |
@@ -178,20 +197,20 @@ pip3 install --user z3-solver==4.13.4.0
 # Register z3 with Why3
 why3 config detect
 
-# Run proofs
-cd lib/semantic/proof
+# Run either standalone proof module
+cd lib/semantic/proof  # or lib/btree/proof
 moon prove
 ```
 
 ### CI
 
-The `prove` job in `.github/workflows/ci.yml` uses `ocaml/setup-ocaml@v3` to install OCaml/opam, then installs Why3 1.7.2 and z3. The opam switch is cached across runs.
+The `prove` job in `.github/workflows/ci.yml` installs Why3 1.7.2 and z3 through opam. The opam switch is cached across runs. It currently executes `lib/semantic/proof`; adding `lib/btree/proof` to the gating matrix remains tracked by #1007.
 
 ### Adding a new proof package
 
-1. Create a standalone module with its own `moon.mod.json` (avoids cascading `proof-enabled` to the entire dependency graph)
+1. Create a standalone module with its own `moon.mod` (avoids cascading `proof-enabled` to the entire dependency graph)
 2. Add `options("proof-enabled": true)` to `moon.pkg`
-3. Write `#proof_pure` projection functions for any custom types
+3. Write `#proof_pure` projection functions only when logic predicates must inspect custom types
 4. Write predicates in `.mbtp`
 5. Add `proof_ensure` contracts to the function under verification
 6. Run `moon prove` and iterate

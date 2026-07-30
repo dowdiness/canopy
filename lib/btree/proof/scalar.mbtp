@@ -1,0 +1,164 @@
+// Pure scalar specifications for BTree splice, grouping, repair, checked-add,
+// and root-publication decisions. Why3 interprets Int as an unbounded
+// mathematical integer; machine-Int integration remains executable-test scope.
+
+predicate leaf_delta_law(
+  start : Int,
+  end_ : Int,
+  inserted_count : Int,
+  result : Int,
+) {
+  result == inserted_count - (end_ - start)
+}
+
+predicate valid_splice(
+  old_count : Int,
+  start : Int,
+  end_ : Int,
+  inserted_count : Int,
+) {
+  0 <= start && start <= end_ && end_ <= old_count && inserted_count >= 0
+}
+
+predicate splice_cardinality_law(
+  old_count : Int,
+  start : Int,
+  end_ : Int,
+  inserted_count : Int,
+  result : Int,
+) {
+  result == old_count - (end_ - start) + inserted_count &&
+  result == old_count + (inserted_count - (end_ - start)) &&
+  result >= 0
+}
+
+predicate valid_group_state(remaining : Int, min_degree : Int) {
+  min_degree >= 2 && remaining >= min_degree
+}
+
+predicate grouping_step_law(
+  remaining : Int,
+  min_degree : Int,
+  group_size : Int,
+) {
+  min_degree <= group_size && group_size <= 2 * min_degree &&
+  group_size + (remaining - group_size) == remaining &&
+  remaining - group_size >= 0 &&
+  (remaining <= 2 * min_degree → remaining - group_size == 0) &&
+  (remaining > 2 * min_degree →
+    (remaining - group_size >= min_degree &&
+     remaining - group_size < remaining))
+}
+
+predicate grouping_total_law(remaining : Int, result : Int) {
+  result == remaining
+}
+
+predicate valid_group_accumulator(
+  original_count : Int,
+  emitted_count : Int,
+  remaining : Int,
+  min_degree : Int,
+) {
+  valid_group_state(remaining, min_degree) &&
+  emitted_count >= 0 &&
+  original_count == emitted_count + remaining
+}
+
+predicate grouping_accumulator_law(
+  original_count : Int,
+  emitted_count : Int,
+  remaining : Int,
+  min_degree : Int,
+  result : Int,
+) {
+  min_degree <= result - emitted_count &&
+  result - emitted_count <= 2 * min_degree &&
+  result + (remaining - (result - emitted_count)) == original_count &&
+  (remaining <= 2 * min_degree → result == original_count) &&
+  (remaining > 2 * min_degree →
+    (remaining - (result - emitted_count) >= min_degree &&
+     remaining - (result - emitted_count) < remaining))
+}
+
+predicate valid_repair_state(
+  underfull_count : Int,
+  sibling_count : Int,
+  min_degree : Int,
+  target_count : Int,
+) {
+  min_degree >= 2 &&
+  0 <= underfull_count && underfull_count < min_degree &&
+  0 <= sibling_count && sibling_count <= 2 * min_degree &&
+  min_degree <= target_count && target_count <= min_degree + 1
+}
+
+predicate repair_conservation_law(
+  underfull_count : Int,
+  sibling_count : Int,
+  min_degree : Int,
+  target_count : Int,
+  result : Int,
+) {
+  (sibling_count - (target_count - underfull_count) < min_degree →
+    result == underfull_count + sibling_count) &&
+  (sibling_count - (target_count - underfull_count) >= min_degree →
+    result + (sibling_count - (target_count - underfull_count)) ==
+      underfull_count + sibling_count)
+}
+
+predicate repair_occupancy_law(
+  underfull_count : Int,
+  sibling_count : Int,
+  min_degree : Int,
+  target_count : Int,
+  result : Int,
+) {
+  0 <= result && result <= 2 * min_degree &&
+  ((sibling_count - (target_count - underfull_count) < min_degree &&
+    underfull_count + sibling_count >= min_degree) →
+    result >= min_degree) &&
+  (sibling_count - (target_count - underfull_count) >= min_degree →
+    result >= min_degree) &&
+  (result < min_degree →
+    (sibling_count - (target_count - underfull_count) < min_degree &&
+     result == underfull_count + sibling_count))
+}
+
+predicate repair_donor_law(
+  underfull_count : Int,
+  sibling_count : Int,
+  min_degree : Int,
+  target_count : Int,
+  result : Int,
+) {
+  (sibling_count - (target_count - underfull_count) < min_degree →
+    result == underfull_count + sibling_count) &&
+  (sibling_count - (target_count - underfull_count) >= min_degree →
+    (result == target_count &&
+     sibling_count - (target_count - underfull_count) >= min_degree))
+}
+
+predicate repair_total_with_unaffected_law(
+  unaffected_count : Int,
+  underfull_count : Int,
+  sibling_count : Int,
+  result : Int,
+) {
+  result == unaffected_count + underfull_count + sibling_count
+}
+
+predicate checked_add_law(total : Int, span : Int, accepted : Bool) {
+  (accepted →
+    (total >= 0 && span >= 0 &&
+     total + span >= 0 && total + span <= 2147483647)) &&
+  ((total >= 0 && span >= 0 && total + span <= 2147483647) → accepted) &&
+  ((total >= 0 && span >= 0 && !accepted) → total + span > 2147483647) &&
+  ((total < 0 || span < 0) → !accepted)
+}
+
+predicate root_lifecycle_law(leaf_count : Int, present : Bool) {
+  (leaf_count == 0 → !present) &&
+  (present → leaf_count > 0) &&
+  (leaf_count > 0 → present)
+}

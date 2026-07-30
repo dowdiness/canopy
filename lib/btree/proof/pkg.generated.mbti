@@ -1,0 +1,30 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/btree-proof"
+
+// Values
+pub fn advance_group_sum(Int, Int, Int, Int) -> Int
+
+pub fn planned_group_size(Int, Int) -> Int
+
+pub fn planned_group_total(Int, Int) -> Int
+
+pub fn project_root_present(Int) -> Bool
+
+pub fn repair_total_with_unaffected(Int, Int, Int, Int, Int) -> Int
+
+pub fn repaired_node_count(Int, Int, Int, Int) -> Int
+
+pub fn span_add_accepted(Int, Int) -> Bool
+
+pub fn splice_leaf_delta(Int, Int, Int) -> Int
+
+pub fn splice_new_count(Int, Int, Int, Int) -> Int
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+
