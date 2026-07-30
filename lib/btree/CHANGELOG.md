@@ -2,7 +2,7 @@
 
 All notable changes to `dowdiness/btree` are documented in this file.
 
-## [0.2.0] - Unreleased
+## [0.2.0] - 2026-07-30
 
 ### Breaking changes
 
