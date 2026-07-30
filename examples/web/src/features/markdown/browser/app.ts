@@ -277,7 +277,10 @@ function setMode(mode: Mode): void {
 
   // Update tab styles
   modeTabs.forEach(tab => {
-    tab.classList.toggle('active', tab.dataset.mode === mode);
+    const isActive = tab.dataset.mode === mode;
+    tab.classList.toggle('active', isActive);
+    tab.setAttribute('aria-selected', String(isActive));
+    tab.tabIndex = isActive ? 0 : -1;
   });
 
   updateToolbar();
@@ -287,6 +290,17 @@ modeTabs.forEach(tab => {
   tab.addEventListener('click', () => {
     setMode(tab.dataset.mode as Mode);
   }, { signal: listenerAbort.signal });
+
+  tab.addEventListener('keydown', (event) => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    event.preventDefault();
+    const offset = event.key === 'ArrowRight' ? 1 : -1;
+    const nextIndex = (modeTabs.indexOf(tab) + offset + modeTabs.length) % modeTabs.length;
+    const nextTab = modeTabs[nextIndex];
+    if (nextTab === undefined) return;
+    setMode(nextTab.dataset.mode as Mode);
+    nextTab.focus();
+  }, { signal: listenerAbort.signal });
 });
 
 // ---------------------------------------------------------------------------
@@ -295,11 +309,19 @@ modeTabs.forEach(tab => {
 
 function updateToolbar(): void {
   const hasSelection = activeNodeId !== null && activeMode === 'block';
+  const info = hasSelection ? getActiveBlockInfo() : null;
   h1Btn.disabled = !hasSelection;
   h2Btn.disabled = !hasSelection;
   h3Btn.disabled = !hasSelection;
   listBtn.disabled = !hasSelection;
   deleteBtn.disabled = !hasSelection;
+  h1Btn.setAttribute('aria-pressed', String(info?.level === 1));
+  h2Btn.setAttribute('aria-pressed', String(info?.level === 2));
+  h3Btn.setAttribute('aria-pressed', String(info?.level === 3));
+  listBtn.setAttribute(
+    'aria-pressed',
+    String(info?.kind === 'ListItem' || info?.kind === 'OrderedListItem'),
+  );
 }
 
 /** Toggle heading level: clicking the same level reverts to paragraph (level 0). */
@@ -396,7 +418,10 @@ blockPane.hidden = false;
 previewPane.hidden = true;
 toolbarEl.hidden = false;
 modeTabs.forEach((tab) => {
-  tab.classList.toggle('active', tab.dataset.mode === 'block');
+  const isActive = tab.dataset.mode === 'block';
+  tab.classList.toggle('active', isActive);
+  tab.setAttribute('aria-selected', String(isActive));
+  tab.tabIndex = isActive ? 0 : -1;
 });
 
 const initialText = typeof restoredSnapshot === 'string'
