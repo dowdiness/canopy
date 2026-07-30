@@ -21,7 +21,7 @@ Internal(counts=[5, 3, 4], total=12)
 
 Navigation uses the `counts` array as a cumulative index. To find position 6: `counts[0]=5` (skip), `6-5=1` into child 1 → `Leaf(b)` at offset 1.
 
-Elements implement `BTreeElem` (requires `Spanning` + `Mergeable` + `Sliceable` from `dowdiness/rle`) for slice-aware range operations. `delete_range` merges newly adjacent boundary leaves when their elements are mergeable; insertion callbacks and `from_sorted` callers remain responsible for any broader canonicalization policy.
+Elements implement `BTreeElem` (requires `Spanning` + `Mergeable` + `Sliceable` from `dowdiness/rle`) for slice-aware range operations. `delete_range` normalizes the mergeable closure at its newly exposed boundary. `normalize_boundary_at` needs only `Spanning` + `Mergeable` and closes the mergeable run around one exact leaf boundary. Insertion callbacks and `from_sorted` callers remain responsible for any broader canonicalization policy.
 
 ## Quick Start
 
@@ -59,6 +59,7 @@ tree.init_root({ text: "hello", len: 5 }, 5)
 | `mutate_for_insert(pos, callback)` | Insert via leaf splice callback | O(k + log n) at fixed t |
 | `mutate_for_delete(pos, callback)` | Delete via leaf splice callback | O(k + log n) at fixed t |
 | `delete_range(start, end)` | Delete span range [start, end), with boundary repair/merge | O(log n) path planning/splice; O(n) repair worst case |
+| `normalize_boundary_at(pos)` | Merge the complete mergeable closure around one exact leaf boundary | O((m + 1) log n) at fixed t |
 | `from_sorted(items, min_degree?)` | Bulk-build from sorted `(elem, span)` pairs | O(n) |
 | `view(start?, end?)` | Slice elements in range | O(k + log n) |
 | `iter()` | Lazy cursor-based iterator | O(n) total |
@@ -71,6 +72,10 @@ For callback splices, `k` is the number of replacement leaves and `t` is the
 minimum degree. More exactly, propagation is linear in the changed segment and
 logarithmic in unaffected height; current bulk underflow repair gives
 `O(k + t² log_t n)`.
+
+For boundary normalization, `m` is the number of successful adjacent-leaf
+merges. A stable or invalid boundary still needs at most one pair of tree
+descents.
 
 Current worst-case range-delete repair can visit every child in the repaired
 subtree.
@@ -125,14 +130,26 @@ are half-open `[start, end)`.
 | `mutate_for_insert(pos, callback)` | A non-empty tree and `0 <= pos <= span()`; the end position is valid. | Abort for an empty tree or a position outside the accepted bounds. Use `init_root` for the first element. |
 | `mutate_for_delete(pos, callback)` | `0 <= pos < span()` | Return `None` without calling the callback for an empty tree or an out-of-bounds position. |
 | `delete_range(start, end)` | `0 <= start < end`; `end` is clamped to `span()`. | No-op for an empty tree, a negative start, an empty or reversed range, or `start >= span()`. |
+| `normalize_boundary_at(pos)` | `0 < pos < span()`, where `pos` is an exact leaf boundary. | No-op for an empty tree, an outer or out-of-bounds position, a position inside a leaf, or a stable boundary. |
 | `view(start?, end?)` | Defaults to `[0, span())`; a negative start clamps to `0`, and an omitted or oversized end clamps to `span()`. | Return an empty array when the clamped range is empty or reversed, its end is negative, its start is at or beyond `span()`, or the tree is empty. |
+
+### Boundary normalization
+
+When the two logical leaves at `pos` are mergeable,
+`normalize_boundary_at(pos)` merges them and then continues across both sides
+of the merged result until neither adjacent logical leaf can merge with it.
+The operation can cross leaf-parent and higher subtree boundaries. It preserves
+the total span and element order, decreases `size()` exactly once per merge,
+and restores the B+ tree occupancy and root invariants before publishing the
+result. Calling it again at the same stable boundary is a no-op.
 
 ### Callback and splice contract
 
 `LeafContext` captures the current element, its span, the offset within it,
-its child index, and optional adjacent leaf values. `left_neighbor()` and
-`right_neighbor()` return the captured values; the context exposes no live
-tree collection.
+its child index, and optional adjacent values from the same immediate parent.
+`left_neighbor()` and `right_neighbor()` return those snapshots; they are not
+logical predecessor or successor lookups across a parent boundary. The context
+exposes no live tree collection.
 
 A callback computes and returns a `Splice` description. The
 engine applies that description after the callback returns and performs the
@@ -188,11 +205,11 @@ This is a **counted B+ tree**, also known as an order-statistic tree:
 
 - **B+ tree**: data only in leaves, internal nodes are navigational
 - **Counted**: `counts` array replaces keys — navigation by span position, not key comparison
-- **RLE-aware where requested**: slice-aware range operations can merge newly adjacent boundary leaves
+- **RLE-aware where requested**: range deletion and explicit boundary normalization close affected mergeable runs
 
 The tree maintains these structural invariants:
 - All leaves at the same depth
 - Internal nodes have between `min_degree` and `2 * min_degree` children (root excepted)
 - `counts[i] == children[i].total()` and `total == sum(counts)`
 
-Canonical no-adjacent-mergeable-leaf policy is enforced by higher-level callers (for example `order-tree`) or by insertion/bulk-build callbacks that choose to pre-merge input.
+Canonical no-adjacent-mergeable-leaf policy is enforced by higher-level callers (for example `order-tree`), by calling `normalize_boundary_at` at affected boundaries, or by insertion/bulk-build callbacks that choose to pre-merge input.

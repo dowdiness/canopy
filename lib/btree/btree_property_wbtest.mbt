@@ -645,6 +645,257 @@ fn arbitrary_splice_case_matches_model(case_ : ArbitrarySpliceCase) -> Bool {
 }
 
 ///|
+enum NormalizeBoundaryShape {
+  SameParent
+  CrossParent
+  Cascade
+  EmptyNoOp
+  OuterNoOp
+  InteriorNoOp
+  StableNoOp
+} derive(Debug, Eq)
+
+///|
+struct NormalizeBoundaryCase {
+  min_degree : Int
+  shape : NormalizeBoundaryShape
+  seed : Int
+} derive(Debug)
+
+///|
+impl @quickcheck.Arbitrary for NormalizeBoundaryCase with fn arbitrary(
+  _size,
+  rs,
+) {
+  let min_degree = match rs.split().next_positive_int() % 3 {
+    0 => 2
+    1 => 3
+    _ => DEFAULT_MIN_DEGREE
+  }
+  let shape = match rs.split().next_positive_int() % 7 {
+    0 => SameParent
+    1 => CrossParent
+    2 => Cascade
+    3 => EmptyNoOp
+    4 => OuterNoOp
+    5 => InteriorNoOp
+    _ => StableNoOp
+  }
+  { min_degree, shape, seed: rs.split().next_positive_int() % 1_000 }
+}
+
+///|
+impl @qc.Shrink for NormalizeBoundaryCase with fn shrink(case_) {
+  let results : Array[NormalizeBoundaryCase] = []
+  if case_.seed != 0 {
+    results.push({ ..case_, seed: 0 })
+  }
+  if case_.min_degree == DEFAULT_MIN_DEGREE {
+    results.push({ ..case_, min_degree: 3 })
+    results.push({ ..case_, min_degree: 2 })
+  } else if case_.min_degree > 2 {
+    results.push({ ..case_, min_degree: 2 })
+  }
+  results.iter()
+}
+
+///|
+fn normalization_items(
+  count : Int,
+  run_start : Int,
+  run_end : Int,
+  seed : Int,
+) -> Array[TItem] {
+  Array::makei(count, i => {
+    let id = if i >= run_start && i <= run_end {
+      -1
+    } else {
+      seed * (count + 1) + i + 1
+    }
+    make_item(id, 1 + (seed + i) % 3)
+  })
+}
+
+///|
+fn normalization_boundary_position(
+  items : Array[TItem],
+  right_idx : Int,
+) -> Int {
+  items[:right_idx].fold(init=0, (total, item) => total + item.span)
+}
+
+///|
+fn normalization_case_input(
+  case_ : NormalizeBoundaryCase,
+) -> (Array[TItem], Int) {
+  let max_degree = 2 * case_.min_degree
+  match case_.shape {
+    SameParent => {
+      let items = normalization_items(4, 1, 2, case_.seed)
+      (items, normalization_boundary_position(items, 2))
+    }
+    CrossParent => {
+      let right_idx = max_degree
+      let items = normalization_items(
+        2 * max_degree,
+        right_idx - 1,
+        right_idx,
+        case_.seed,
+      )
+      (items, normalization_boundary_position(items, right_idx))
+    }
+    Cascade => {
+      let right_idx = case_.min_degree * max_degree
+      let items = normalization_items(
+        max_degree * max_degree + 1,
+        right_idx - 2,
+        right_idx + 1,
+        case_.seed,
+      )
+      (items, normalization_boundary_position(items, right_idx))
+    }
+    EmptyNoOp => ([], case_.seed % 3 - 1)
+    OuterNoOp => {
+      let items = normalization_items(4, 0, -1, case_.seed)
+      let total = model_span(items)
+      let pos = match case_.seed % 4 {
+        0 => -1
+        1 => 0
+        2 => total
+        _ => total + 1
+      }
+      (items, pos)
+    }
+    InteriorNoOp => {
+      let items = normalization_items(4, 0, -1, case_.seed)
+      items[0] = { ..items[0], span: 3 }
+      (items, 1)
+    }
+    StableNoOp => {
+      let items = normalization_items(4, 0, -1, case_.seed)
+      (items, normalization_boundary_position(items, 2))
+    }
+  }
+}
+
+///|
+fn model_exact_boundary_index(items : Array[TItem], pos : Int) -> Int? {
+  guard pos > 0 && pos < model_span(items) else { return None }
+  let mut offset = 0
+  for i in 0..<items.length() {
+    offset = offset + items[i].span
+    if offset == pos {
+      return Some(i + 1)
+    }
+    if offset > pos {
+      return None
+    }
+  }
+  None
+}
+
+///|
+/// Independent flat-array oracle for the mergeable closure around one exact
+/// boundary. Mutation is confined to constructing the returned model value.
+fn model_normalize_boundary(items : Array[TItem], pos : Int) -> Array[TItem] {
+  let result = model_copy(items)
+  guard model_exact_boundary_index(result, pos) is Some(right_idx) else {
+    return result
+  }
+  guard right_idx < result.length() else { return result }
+  let left_idx = right_idx - 1
+  guard @rle.Mergeable::can_merge(result[left_idx], result[right_idx]) else {
+    return result
+  }
+  result[left_idx] = @rle.Mergeable::merge(result[left_idx], result[right_idx])
+  let _ = result.remove(right_idx)
+  let mut merged_idx = left_idx
+  // This targeted fixpoint must not merge unrelated runs outside the closure
+  // containing `pos`, as a global declarative grouping fold would.
+  let mut changed = true
+  while changed {
+    changed = false
+    if merged_idx > 0 &&
+      @rle.Mergeable::can_merge(result[merged_idx - 1], result[merged_idx]) {
+      result[merged_idx - 1] = @rle.Mergeable::merge(
+        result[merged_idx - 1],
+        result[merged_idx],
+      )
+      let _ = result.remove(merged_idx)
+      merged_idx = merged_idx - 1
+      changed = true
+    }
+    if merged_idx + 1 < result.length() &&
+      @rle.Mergeable::can_merge(result[merged_idx], result[merged_idx + 1]) {
+      result[merged_idx] = @rle.Mergeable::merge(
+        result[merged_idx],
+        result[merged_idx + 1],
+      )
+      let _ = result.remove(merged_idx + 1)
+      changed = true
+    }
+  }
+  result
+}
+
+///|
+fn normalization_boundary_path_shape(
+  t : BTree[TItem],
+  pos : Int,
+) -> (Int, Int)? {
+  guard t.root is Some(root) else { return None }
+  guard descend_leaf_at_end_boundary(
+      root,
+      pos,
+      t.min_degree,
+      copy_on_write=false,
+    )
+    is Some(left) else {
+    return None
+  }
+  guard descend_leaf_at(root, pos, t.min_degree, copy_on_write=false)
+    is Some(right) else {
+    return None
+  }
+  guard left.offset == left.span && right.offset == 0 else { return None }
+  Some((left.path.length(), shared_prefix_length(left.path, right.path)))
+}
+
+///|
+fn normalization_case_topology_matches(
+  case_ : NormalizeBoundaryCase,
+  t : BTree[TItem],
+  pos : Int,
+) -> Bool {
+  match case_.shape {
+    SameParent => normalization_boundary_path_shape(t, pos) == Some((1, 0))
+    CrossParent => normalization_boundary_path_shape(t, pos) == Some((2, 0))
+    Cascade => normalization_boundary_path_shape(t, pos) == Some((3, 0))
+    _ => true
+  }
+}
+
+///|
+fn prop_normalize_boundary_matches_model(case_ : NormalizeBoundaryCase) -> Bool {
+  let (items, pos) = normalization_case_input(case_)
+  let expected = model_normalize_boundary(items, pos)
+  let t : BTree[TItem] = BTree::from_sorted(
+    items.map(item => (item, item.span)),
+    min_degree=case_.min_degree,
+  )
+  if !normalization_case_topology_matches(case_, t, pos) {
+    abort("normalize_boundary_at generated topology drifted")
+  }
+  t.normalize_boundary_at(pos)
+  if !tree_matches_model(t, expected) {
+    return false
+  }
+  let stable = @debug.to_string(t)
+  t.normalize_boundary_at(pos)
+  @debug.to_string(t) == stable && tree_matches_model(t, expected)
+}
+
+///|
 enum ModelOp {
   Append(Int, Int)
   Insert(Int, Int, Int)
@@ -906,8 +1157,78 @@ test "property: from_sorted exact content matches array model" {
 }
 
 ///|
+test "property: normalize_boundary_at matches closure model and is idempotent" {
+  @qc.quick_check_fn(prop_normalize_boundary_matches_model)
+}
+
+///|
 test "property: operation sequences match array model" {
   @qc.quick_check_fn(prop_operation_sequence_matches_model)
+}
+
+///|
+test "normalize_boundary_at degree and topology matrix matches closure model" {
+  for min_degree in [2, 3, DEFAULT_MIN_DEGREE] {
+    for
+      shape in [
+        SameParent,
+        CrossParent,
+        Cascade,
+        EmptyNoOp,
+        OuterNoOp,
+        InteriorNoOp,
+        StableNoOp,
+      ] {
+      inspect(
+        prop_normalize_boundary_matches_model({ min_degree, shape, seed: 7 }),
+        content="true",
+      )
+    }
+  }
+}
+
+///|
+test "quickcheck normalize_boundary_at generator covers topology and no-op shapes" {
+  let samples : Array[NormalizeBoundaryCase] = @quickcheck.samples(400)
+  let mut saw_degree_2 = false
+  let mut saw_degree_3 = false
+  let mut saw_default_degree = false
+  let mut saw_same_parent = false
+  let mut saw_cross_parent = false
+  let mut saw_cascade = false
+  let mut saw_empty_noop = false
+  let mut saw_outer_noop = false
+  let mut saw_interior_noop = false
+  let mut saw_stable_noop = false
+  for case_ in samples {
+    guard prop_normalize_boundary_matches_model(case_) else {
+      fail("generated normalize_boundary_at case diverged from model")
+    }
+    match case_.min_degree {
+      2 => saw_degree_2 = true
+      3 => saw_degree_3 = true
+      _ => saw_default_degree = true
+    }
+    match case_.shape {
+      SameParent => saw_same_parent = true
+      CrossParent => saw_cross_parent = true
+      Cascade => saw_cascade = true
+      EmptyNoOp => saw_empty_noop = true
+      OuterNoOp => saw_outer_noop = true
+      InteriorNoOp => saw_interior_noop = true
+      StableNoOp => saw_stable_noop = true
+    }
+  }
+  inspect(saw_degree_2, content="true")
+  inspect(saw_degree_3, content="true")
+  inspect(saw_default_degree, content="true")
+  inspect(saw_same_parent, content="true")
+  inspect(saw_cross_parent, content="true")
+  inspect(saw_cascade, content="true")
+  inspect(saw_empty_noop, content="true")
+  inspect(saw_outer_noop, content="true")
+  inspect(saw_interior_noop, content="true")
+  inspect(saw_stable_noop, content="true")
 }
 
 ///|

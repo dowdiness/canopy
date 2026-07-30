@@ -137,6 +137,27 @@ pub fn[T, R] BTree::mutate_for_delete(
 }
 
 ///|
+/// Merge the canonical closure at logical span boundary `pos`. This is a no-op
+/// for an empty tree, an outer boundary, a position inside a leaf, or stable
+/// non-mergeable neighbors. For `m` merged boundaries, runs in
+/// `O((m + 1) log n)` time for a fixed minimum degree.
+pub fn[T : @rle.Spanning + @rle.Mergeable] BTree::normalize_boundary_at(
+  self : BTree[T],
+  pos : Int,
+) -> Unit {
+  guard self.root is Some(root) else { return }
+  let (next_root, leaf_delta) = normalize_boundary_chain(
+    root,
+    pos,
+    self.min_degree,
+  )
+  guard leaf_delta != 0 else { return }
+  let next_size = self.size + leaf_delta
+  self.root = Some(next_root)
+  self.size = next_size
+}
+
+///|
 /// Delete the half-open span range `[start, end_)`, clamping an oversized end
 /// to `span()`. This is a no-op for an empty tree, a negative start, an empty
 /// or reversed range, or `start >= span()`. Splice, boundary merge, and repair
@@ -156,11 +177,11 @@ pub fn[T : BTreeElem] BTree::delete_range(
       let propagated = propagate_node_splice(splice, self.min_degree)
       // Keep every range-delete phase on an unpublished candidate. A late
       // boundary-merge or repair rejection must leave the original tree intact.
-      let (final_root, boundary_merged) = match
+      let (final_root, boundary_leaf_delta) = match
         propagated.root_candidate(self.min_degree, normalize_delete=false) {
-        None => (None, false)
+        None => (None, 0)
         Some(new_root) => {
-          let (merged_root, boundary_merged) = normalize_boundary_merge(
+          let (merged_root, boundary_leaf_delta) = normalize_boundary_chain(
             new_root,
             start,
             self.min_degree,
@@ -174,12 +195,10 @@ pub fn[T : BTreeElem] BTree::delete_range(
               normalize_root_after_delete(fixed)
             }
           }
-          (final_root, boundary_merged)
+          (final_root, boundary_leaf_delta)
         }
       }
-      let final_size = self.size +
-        propagated.leaf_delta -
-        (if boundary_merged { 1 } else { 0 })
+      let final_size = self.size + propagated.leaf_delta + boundary_leaf_delta
       self.root = final_root
       self.size = final_size
     }

@@ -51,6 +51,32 @@ impl @rle.Sliceable for TItem with fn slice(
 impl BTreeElem for TItem
 
 ///|
+struct MergeOnlyItem {
+  id : Int
+  span : Int
+} derive(Debug, Eq)
+
+///|
+impl @rle.HasLength for MergeOnlyItem with fn length(self) -> Int {
+  self.span
+}
+
+///|
+impl @rle.Spanning for MergeOnlyItem with fn span(self) -> Int {
+  self.span
+}
+
+///|
+impl @rle.Mergeable for MergeOnlyItem with fn can_merge(self, other) -> Bool {
+  self.id == other.id
+}
+
+///|
+impl @rle.Mergeable for MergeOnlyItem with fn merge(self, other) -> MergeOnlyItem {
+  { id: self.id, span: self.span + other.span }
+}
+
+///|
 fn make_item(id : Int, span : Int) -> TItem {
   { id, span }
 }
@@ -1648,7 +1674,7 @@ test "propagate_node_splice rechecks repeated adjacent merges at every degree" {
 // === Post-splice boundary merge ===
 
 ///|
-test "normalize_boundary_merge merges adjacent leaves across subtrees" {
+test "normalize_boundary_chain merges adjacent leaves across subtrees" {
   // After splice already removed middle, tree is: [[a(3)]] [[a(3)]]
   let left : BTreeNode[TItem] = Internal(
     children=[Leaf(elem=make_item(1, 3), span=3)],
@@ -1665,8 +1691,8 @@ test "normalize_boundary_merge merges adjacent leaves across subtrees" {
     counts=[3, 3],
     total=6,
   )
-  let (result, merged) = normalize_boundary_merge(root, 3, 2)
-  inspect(merged, content="true")
+  let (result, leaf_delta) = normalize_boundary_chain(root, 3, 2)
+  inspect(leaf_delta, content="-1")
   inspect(result.total(), content="6")
   let items : Array[TItem] = []
   result.each(fn(item) { items.push(item) })
@@ -1675,7 +1701,7 @@ test "normalize_boundary_merge merges adjacent leaves across subtrees" {
 }
 
 ///|
-test "normalize_boundary_merge is no-op when boundaries not mergeable" {
+test "normalize_boundary_chain is no-op when boundaries not mergeable" {
   let left : BTreeNode[TItem] = Internal(
     children=[Leaf(elem=make_item(1, 3), span=3)],
     counts=[3],
@@ -1691,12 +1717,115 @@ test "normalize_boundary_merge is no-op when boundaries not mergeable" {
     counts=[3, 3],
     total=6,
   )
-  let (result, merged) = normalize_boundary_merge(root, 3, 2)
-  inspect(merged, content="false")
+  let (result, leaf_delta) = normalize_boundary_chain(root, 3, 2)
+  inspect(leaf_delta, content="0")
   inspect(result.total(), content="6")
   let items : Array[TItem] = []
   result.each(fn(item) { items.push(item) })
   inspect(items.length(), content="2")
+}
+
+///|
+test "normalize_boundary_at merges logical neighbors across parents" {
+  let items = [
+    make_item(1, 1),
+    make_item(2, 1),
+    make_item(2, 1),
+    make_item(3, 1),
+    make_item(4, 1),
+  ]
+  let t : BTree[TItem] = BTree::from_sorted(
+    items.map(item => (item, item.span)),
+    min_degree=2,
+  )
+  t.normalize_boundary_at(2)
+  let expected = [
+    make_item(1, 1),
+    make_item(2, 2),
+    make_item(3, 1),
+    make_item(4, 1),
+  ]
+  inspect(tree_matches_model(t, expected), content="true")
+}
+
+///|
+test "normalize_boundary_at repartitions a full cross-parent seam" {
+  let items = Array::makei(8, i => {
+    let id = if i == 3 || i == 4 { 100 } else { i }
+    let item = make_item(id, 1)
+    (item, item.span)
+  })
+  let t : BTree[TItem] = BTree::from_sorted(items, min_degree=2)
+  t.normalize_boundary_at(4)
+  let expected = Array::makei(3, i => make_item(i, 1))
+  expected.push(make_item(100, 2))
+  expected.append(Array::makei(3, i => make_item(i + 5, 1)))
+  inspect(tree_matches_model(t, expected), content="true")
+}
+
+///|
+test "normalize_boundary_at closes both sides across a root boundary" {
+  let items = Array::makei(17, i => {
+    let id = if i >= 6 && i <= 9 { 100 } else { i }
+    let item = make_item(id, 1)
+    (item, item.span)
+  })
+  let t : BTree[TItem] = BTree::from_sorted(items, min_degree=2)
+  t.normalize_boundary_at(8)
+  let expected = Array::makei(6, i => make_item(i, 1))
+  expected.push(make_item(100, 4))
+  expected.append(Array::makei(7, i => make_item(i + 10, 1)))
+  inspect(tree_matches_model(t, expected), content="true")
+  let stable = @debug.to_string(t)
+  t.normalize_boundary_at(8)
+  inspect(@debug.to_string(t) == stable, content="true")
+}
+
+///|
+test "normalize_boundary_at ordinary no-op positions preserve the tree" {
+  let empty : BTree[TItem] = BTree::new(min_degree=2)
+  empty.normalize_boundary_at(0)
+  inspect(tree_matches_model(empty, []), content="true")
+  let original = [make_item(1, 3), make_item(2, 2)]
+  let t : BTree[TItem] = BTree::from_sorted(
+    original.map(item => (item, item.span)),
+    min_degree=2,
+  )
+  let stable = @debug.to_string(t)
+  for pos in [-1, 0, 1, 3, 5, 6] {
+    t.normalize_boundary_at(pos)
+    inspect(@debug.to_string(t) == stable, content="true")
+    inspect(tree_matches_model(t, original), content="true")
+  }
+}
+
+///|
+test "normalize_boundary_at requires only spanning and mergeable" {
+  let t : BTree[MergeOnlyItem] = BTree::from_sorted([
+    ({ id: 1, span: 1 }, 1),
+    ({ id: 1, span: 1 }, 1),
+    ({ id: 2, span: 1 }, 1),
+  ])
+  t.normalize_boundary_at(1)
+  inspect(t.size(), content="2")
+  inspect(t.span(), content="3")
+  inspect(
+    t.to_array() == [{ id: 1, span: 2 }, { id: 2, span: 1 }],
+    content="true",
+  )
+}
+
+///|
+test "normalize_boundary_at preserves cached spans independent of element span" {
+  let t : BTree[MergeOnlyItem] = BTree::from_sorted([
+    ({ id: 1, span: 1 }, 2),
+    ({ id: 1, span: 1 }, 3),
+  ])
+  t.normalize_boundary_at(2)
+  inspect(t.size(), content="1")
+  inspect(t.span(), content="5")
+  inspect(t.find(4) is Some(_), content="true")
+  @debug.debug_inspect(t.to_array(), content="[{ id: 1, span: 2 }]")
 }
 
 // === BTree::delete_range ===
