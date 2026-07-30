@@ -142,7 +142,7 @@ Candidates ordered by value and feasibility:
 
 | Target | Package | Properties | Why provable |
 |---|---|---|---|
-| BTree node invariants | lib/btree | Key count in [t-1, 2t-1] after insert/delete | Pure Int arithmetic with loop invariants |
+| B+ tree scalar invariants (#1006, planned) | lib/btree/proof (planned) | Non-root child-group occupancy [t, 2t]; splice and grouping cardinality sums/progress; repair, root-lifecycle, and checked-add laws. Recursive mutable B+ tree integration remains executable/property-test coverage. | Pure Int/Bool arithmetic on child counts and cumulative spans; not yet implemented |
 | delete_range boundaries | lib/btree | Index parameters stay valid through descent | Index math — exactly what z3 excels at |
 | SourceMap range sorting | core/ | Ranges array sorted after rebuild | Int comparisons on array indices |
 | FractionalIndex ordering | event-graph-walker/ | midpoint(a, b) is strictly between a and b | Byte-array arithmetic |
