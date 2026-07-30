@@ -136,6 +136,7 @@ candidate result and run the ordered local gate on that clean HEAD:
 ```sh
 git fetch origin main
 ./scripts/validate-pr-ready.sh --target lang/markdown/proj --target lang/markdown/edits
+git fetch origin main
 ./scripts/validate-pr-ready.sh --verify-evidence
 ```
 
