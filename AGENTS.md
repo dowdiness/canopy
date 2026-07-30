@@ -265,6 +265,10 @@ For current model assignments, prefer the global pi guidance in
 ## Code Review Expectations
 
 - Expect Codex/CodeRabbit reviews on every PR — proactively check for common issues before submitting: correct API usage (e.g., get_result() not read(), get() not peek()), missed callers when refactoring, variant semantics preserved
+- Cite the repository file and section when claiming that a change violates a
+  Canopy rule. Distinguish repository requirements, adopted external standards,
+  reviewer recommendations, and personal preferences. Do not score a
+  recommendation or preference as a repository violation; label it clearly.
 - Run format checks and full test suite before pushing
 
 ## Git & PR Workflow
