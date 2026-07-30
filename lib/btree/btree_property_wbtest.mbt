@@ -810,6 +810,8 @@ fn model_normalize_boundary(items : Array[TItem], pos : Int) -> Array[TItem] {
   result[left_idx] = @rle.Mergeable::merge(result[left_idx], result[right_idx])
   let _ = result.remove(right_idx)
   let mut merged_idx = left_idx
+  // This targeted fixpoint must not merge unrelated runs outside the closure
+  // containing `pos`, as a global declarative grouping fold would.
   let mut changed = true
   while changed {
     changed = false

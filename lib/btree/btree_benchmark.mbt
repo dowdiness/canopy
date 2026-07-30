@@ -152,7 +152,10 @@ fn bench_boundary_merge(
       10,
     )
     variant = (variant + 1) % roots.length()
-    b.keep(if leaf_delta < 0 { root.total() } else { -1 })
+    guard leaf_delta == -1 else {
+      abort("boundary merge benchmark stopped merging")
+    }
+    b.keep(root.total())
   })
 }
 

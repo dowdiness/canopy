@@ -520,6 +520,8 @@ fn[T : @rle.Spanning + @rle.Mergeable] merge_boundary_once(
       guard @rle.Spanning::span(merged) > 0 else {
         abort("BTree boundary merge: merged span must be positive")
       }
+      // A leaf's cached BTree span is independent of its element-reported span,
+      // so preserve the replaced interval instead of changing tree coordinates.
       let merged_leaf : BTreeNode[T] = Leaf(
         elem=merged,
         span=merged_end - merged_start,
