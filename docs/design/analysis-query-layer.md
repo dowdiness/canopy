@@ -1,8 +1,8 @@
 # Analysis Query Layer
 
-**Status:** Phase 1 complete — range-only structural search is wired from
-host-side ast-grep results through normalized analysis facts into lambda editor
-range decorations.
+**Status:** Phase 2 complete — range-only structural facts are wired into the
+lambda-local projection aggregator, and diagnostics deliberately remain outside
+that aggregator pending producer-owned location models.
 **Goal:** bring syntax-pattern search, semantic queries, and previewable refactors
 into Canopy without weakening the core text-CRDT pipeline.
 
@@ -51,7 +51,7 @@ A source snapshot should identify:
 
 - the document and URI being analyzed;
 - the source version observed by the editor;
-- a hash (32-bit `String::hash()`, sufficient for stale-result rejection) of the source text sent to the provider;
+- a source-content hash sufficient for stale-result rejection;
 - the unit-converted length (UTF-16 code unit count) used by Canopy internals;
 - the source-map generation used when correlating ranges with projections; *(Phase 2+)*
 - the raw source text supplied to the provider. *(Phase 2+)*
@@ -164,6 +164,61 @@ milestone. The protocol is a stable frontend contract; changing it should wait
 until several fact families have proven they cannot be represented by existing
 decorations, diagnostics, or annotations.
 
+## Diagnostics boundary
+
+Diagnostics remain outside the analysis projection boundary.
+
+The aggregator continues to compose decorations and node annotations only.
+This decision does not add an internal diagnostic fact, change a producer, or
+widen the public protocol. The decision closes
+[#710](https://github.com/dowdiness/canopy/issues/710).
+
+### Producer capabilities
+
+Current diagnostic producers do not share one trustworthy fact shape:
+
+- syntax diagnostics own structured source evidence and the parse snapshot
+  that validates it;
+- type diagnostics do not yet provide authoritative producer-owned locations;
+- evaluation warnings are display outcomes without source-location identity;
+- semantic resolution failures own a witnessed cause, while their display
+  ranges are resolved during projection.
+
+A common fact introduced now would discard syntax evidence or invent
+provenance for producers that do not own it.
+
+### Ownership rule
+
+Each producer keeps its native result and invalidation policy. An adapter may
+project that result to an existing consumer shape only from information the
+producer or its current snapshot owns.
+
+The projection boundary must not infer locations from messages, names, list
+positions, or other display artifacts. A frontend transport shape must not
+become an internal fact unless it also carries the source ownership and
+snapshot provenance required by the analysis layer.
+
+Warnings without an owned location remain annotations or provider-local output
+rather than ranged diagnostics.
+
+### Revisit gate
+
+Reconsider a typed diagnostic fact only after multiple semantically distinct
+non-syntax producers provide all of the following without consumer-side
+reconstruction:
+
+- an authoritative document identity and source snapshot or equivalent
+  revision;
+- a normalized, producer-owned location with a declared offset unit;
+- severity and message semantics;
+- an invalidation rule that rejects or replaces stale results.
+
+At that point, compare the proven common data instead of promoting any current
+wire shape. A new fact still requires a separate design and independent review.
+Until then, compiler or lint providers keep diagnostics in provider-local
+results and project them to existing surfaces at their adapter boundary.
+
+
 ## Edit plans
 
 Rewrite and rename should be preview-first. A provider may suggest edits, but
@@ -232,25 +287,23 @@ Status: complete for the lambda-local aggregation seam. The completed
 implementation plan is archived at
 [`docs/archive/completed-phases/2026-06-18-analysis-query-phase2-aggregator.md`](../archive/completed-phases/2026-06-18-analysis-query-phase2-aggregator.md).
 
-Route existing language facts through a small internal aggregator:
+Route existing projected analysis through a small internal aggregator:
 
-- structural matches;
-- evaluation results;
-- semantic annotations already produced by language packages;
-- diagnostics.
+- snapshot-bound structural matches;
+- evaluation annotations;
+- semantic annotations and decorations already produced by language packages.
 
-First implementation slice: a lambda-local `AnalysisProjection` object composes
-existing semantic/eval projected outputs with snapshot-bound structural pattern
-facts for decorations and annotations. Diagnostics remain on their existing FFI
-path until a larger diagnostic fact shape is justified.
+The lambda-local aggregator composes these outputs for decorations and
+annotations. Diagnostics stay on producer-specific paths under the boundary
+decision above; they are not a deferred fourth aggregator arm.
 
 JSON was checked as the first cross-language generalization candidate. It only
 has the structural projection stack plus parser diagnostics routed through the
 generic editor view/update surfaces; it has no semantic annotations, language
 decorations, evaluation facts, or snapshot-bound external facts to compose. A
-JSON-local aggregator would therefore be a no-op wrapper, so the common
-`AnalysisProjection` API remains deferred until a second language has multiple
-real projected analysis inputs.
+language-local aggregator would therefore be a no-op wrapper, so a common
+projection API remains deferred until a second language has multiple real
+projected analysis inputs.
 
 The goal is to learn the shape of the common fact model from real in-process
 analyses before committing to a broad provider abstraction.

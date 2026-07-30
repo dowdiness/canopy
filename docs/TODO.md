@@ -638,10 +638,14 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
 
 ## 21. Analysis Query Layer
 
-- [ ] Decide whether diagnostics join the analysis projection aggregator (#710).
-  Why: Phase 2 shipped the lambda-local decoration/annotation aggregation seam in PR #706 and PR #708, but parse/type/eval diagnostics still use existing FFI/protocol paths. That is intentional until a larger diagnostic fact shape is justified.
-  Plan: `docs/archive/completed-phases/2026-06-18-analysis-query-phase2-aggregator.md`
-  Exit: diagnostics are either explicitly kept out of the aggregator with a stable rationale, or routed through a typed diagnostic fact shape without adding public protocol variants.
+- [x] Decide whether diagnostics join the analysis projection aggregator (#710).
+  Decision: keep diagnostics on producer-specific paths. Parser, typecheck,
+  evaluator, and scope-graph results do not yet share producer-owned location,
+  revision, and invalidation data; `AnalysisProjection` remains an
+  annotation/decoration aggregator. See
+  `docs/design/analysis-query-layer.md#diagnostics-boundary`.
+  PR: #1051 records the producer capability comparison, ownership rule, and
+  gate without adding a public protocol variant.
 
 - [x] Implement Phase 1 ast-grep range-only analysis overlay (#692).
   Shipped: PR #699 added `lib/analysis/` and `analysis_bridge/`; PR #704 completed host FFI and lambda editor decoration wiring.
