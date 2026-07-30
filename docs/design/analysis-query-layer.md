@@ -51,7 +51,7 @@ A source snapshot should identify:
 
 - the document and URI being analyzed;
 - the source version observed by the editor;
-- a hash (32-bit `String::hash()`, sufficient for stale-result rejection) of the source text sent to the provider;
+- a source-content hash sufficient for stale-result rejection;
 - the unit-converted length (UTF-16 code unit count) used by Canopy internals;
 - the source-map generation used when correlating ranges with projections; *(Phase 2+)*
 - the raw source text supplied to the provider. *(Phase 2+)*
@@ -166,53 +166,46 @@ decorations, diagnostics, or annotations.
 
 ## Diagnostics boundary
 
-Decision for [#710](https://github.com/dowdiness/canopy/issues/710):
-diagnostics remain outside `AnalysisProjection`. The aggregator continues to
-compose decorations and node annotations only. This decision does not add an
-internal diagnostic fact, change a producer, or widen the public protocol.
+Diagnostics remain outside the analysis projection boundary.
 
-### Current producers
+The aggregator continues to compose decorations and node annotations only.
+This decision does not add an internal diagnostic fact, change a producer, or
+widen the public protocol. The decision closes
+[#710](https://github.com/dowdiness/canopy/issues/710).
 
-| Producer | Stored shape | Location and provenance | Lifecycle | Current surface |
-|---|---|---|---|---|
-| Loom parser and lexer | `DiagnosticSet` containing severity, optional code, message, primary range, labels, notes, and token evidence | The producer owns an optional half-open UTF-16 `TextRange`; an invalid range is retained as a note with no primary range | `Parser::diagnostics()` is derived from the atomically published parse snapshot | Generic editor projection maps the primary range to `SetDiagnostics`; the Lambda FFI separately formats parser messages |
-| Lambda typecheck | `ModuleTypeResult.all_diagnostics : Array[TypeDiagnostic]`, where each item has a message, optional definition name, and optional range | The range field exists, but current inference and duplicate-definition producers set it to `None`; no current producer establishes an authoritative location unit | Per-definition buffers feed an incremental accumulator; rebuilding the definition chain disposes and replaces its scope | Lambda diagnostics JSON labels every item as an error and preserves `def_name`; it does not expose a range |
-| Lambda evaluator | `Array[EvalResult]`, where `Stuck` contains only display text | No diagnostic range or source identity; annotation projection associates result array positions with projected children | Tier 1 and escalation results are derived cells over the current parser analysis | Node annotations show stuck results as warnings; Lambda diagnostics JSON also emits warning messages |
-| Lambda scope graph | `ReachableFailure` containing a name, optional location, and witness | Resolution owns the failure and witness, but `failures()` reconstructs an optional range from the current `SourceMap` | The semantic projection rebuilds the graph from the current projected root and source map | `SemanticProjection` constructs protocol diagnostics directly; its JSON accessor is separate from both `AnalysisProjection` and the generic editor diagnostic patches |
+### Producer capabilities
 
-These producers do not share one trustworthy fact shape. Parser diagnostics
-own structured source evidence, while current type diagnostics have no
-populated location. Evaluation results have neither a location nor diagnostic
-identity.
+Current diagnostic producers do not share one trustworthy fact shape:
 
-Scope failures have a witnessed semantic cause, but their display range comes
-from a projection-time lookup. One common wrapper would therefore discard
-parser evidence or invent provenance for the other producers.
+- syntax diagnostics own structured source evidence and the parse snapshot
+  that validates it;
+- type diagnostics do not yet provide authoritative producer-owned locations;
+- evaluation warnings are display outcomes without source-location identity;
+- semantic resolution failures own a witnessed cause, while their display
+  ranges are resolved during projection.
+
+A common fact introduced now would discard syntax evidence or invent
+provenance for producers that do not own it.
 
 ### Ownership rule
 
-Each producer keeps its native result and invalidation policy. A boundary may
+Each producer keeps its native result and invalidation policy. An adapter may
 project that result to an existing consumer shape only from information the
-producer or its current snapshot owns:
+producer or its current snapshot owns.
 
-- generic parser display projects `DiagnosticSet` to existing
-  `ViewPatch::SetDiagnostics`;
-- the Lambda diagnostics accessor may continue assembling its legacy JSON
-  panel output;
-- semantic projection may continue deriving its protocol diagnostics from the
-  same root and `SourceMap`;
-- evaluation remains an annotation plus legacy warning text, not a ranged
-  diagnostic.
+The projection boundary must not infer locations from messages, names, list
+positions, or other display artifacts. A frontend transport shape must not
+become an internal fact unless it also carries the source ownership and
+snapshot provenance required by the analysis layer.
 
-`AnalysisProjection` must not infer ranges from messages, definition names, or
-array positions. It must not wrap protocol diagnostics as internal facts:
-`@protocol.Diagnostic` is a frontend transport shape and has no snapshot or
-producer provenance.
+Warnings without an owned location remain annotations or provider-local output
+rather than ranged diagnostics.
 
 ### Revisit gate
 
-Reconsider a typed diagnostic fact only after at least two non-parser producers
-provide all of the following without consumer-side reconstruction:
+Reconsider a typed diagnostic fact only after multiple semantically distinct
+non-syntax producers provide all of the following without consumer-side
+reconstruction:
 
 - an authoritative document identity and source snapshot or equivalent
   revision;
@@ -221,7 +214,7 @@ provide all of the following without consumer-side reconstruction:
 - an invalidation rule that rejects or replaces stale results.
 
 At that point, compare the proven common data instead of promoting any current
-wire type. A new fact still requires a separate design and independent review.
+wire shape. A new fact still requires a separate design and independent review.
 Until then, compiler or lint providers keep diagnostics in provider-local
 results and project them to existing surfaces at their adapter boundary.
 
@@ -300,17 +293,17 @@ Route existing projected analysis through a small internal aggregator:
 - evaluation annotations;
 - semantic annotations and decorations already produced by language packages.
 
-The lambda-local `AnalysisProjection` object composes these outputs for
-decorations and annotations. Diagnostics stay on producer-specific paths under
-the boundary decision above; they are not a deferred fourth aggregator arm.
+The lambda-local aggregator composes these outputs for decorations and
+annotations. Diagnostics stay on producer-specific paths under the boundary
+decision above; they are not a deferred fourth aggregator arm.
 
 JSON was checked as the first cross-language generalization candidate. It only
 has the structural projection stack plus parser diagnostics routed through the
 generic editor view/update surfaces; it has no semantic annotations, language
 decorations, evaluation facts, or snapshot-bound external facts to compose. A
-JSON-local aggregator would therefore be a no-op wrapper, so the common
-`AnalysisProjection` API remains deferred until a second language has multiple
-real projected analysis inputs.
+language-local aggregator would therefore be a no-op wrapper, so a common
+projection API remains deferred until a second language has multiple real
+projected analysis inputs.
 
 The goal is to learn the shape of the common fact model from real in-process
 analyses before committing to a broad provider abstraction.
