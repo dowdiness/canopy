@@ -60,8 +60,8 @@ cd "$root_dir"
 # literal list independent from its implementation so artifact-contract drift
 # fails the public validator instead of being reproduced dynamically.
 while IFS= read -r artifact; do
-  artifact_path="$root_dir/$artifact"
   [ -n "$artifact" ] || continue
+  artifact_path="$root_dir/$artifact"
   if [ -e "$artifact_path" ] || [ -L "$artifact_path" ]; then
     continue
   fi

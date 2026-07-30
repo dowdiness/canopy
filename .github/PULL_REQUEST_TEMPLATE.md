@@ -53,7 +53,12 @@ Validated base: `origin/main@<40-character SHA>`
 
 ```bash
 git fetch origin main
-./scripts/validate-pr-ready.sh --target <package-path>
+# Repeat --target for every affected MoonBit package:
+./scripts/validate-pr-ready.sh \
+  --target <package-path> \
+  --target <another-package-path>
+# Use instead when no MoonBit package is affected:
+# ./scripts/validate-pr-ready.sh --no-target "<reason>"
 git fetch origin main
 ./scripts/validate-pr-ready.sh --verify-evidence
 ```

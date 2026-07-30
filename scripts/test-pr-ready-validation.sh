@@ -150,6 +150,7 @@ done
 printf 'pub fn answer() -> Int { 42 }\n' >"$fixture/pkg/main.mbt"
 printf 'package "fixture/pkg"\n' >"$fixture/pkg/moon.pkg"
 printf 'pub fn answer() -> Int\n' >"$fixture/pkg/pkg.generated.mbti"
+printf '{"name":"fixture"}\n' >"$fixture/moon.pkg.json"
 printf '_build/\n' >"$fixture/.gitignore"
 
 git -C "$fixture" init --quiet --initial-branch=main
@@ -268,7 +269,7 @@ node ./scripts/check-export-manifest.mjs
 test-moon-update-wrapper.sh
 update-moon-deps.sh
 moon fmt --check pkg/main.mbt
-moon info --frozen pkg
+moon info --frozen . pkg
 check-strict.sh pkg
 moon test --release pkg
 check-strict.sh

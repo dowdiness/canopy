@@ -172,8 +172,9 @@ on push.
 ## Adding new gating checks
 
 Add the job to `ci.yml`, then add its name to the `needs:` list and status
-predicate under `all-checks-passed`. The aggregation gate accepts `success` or
-an intentional path-filtered `skipped`; a missing entry there silently lets
+predicate under `all-checks-passed`. For `pr-ready-bash3`, the aggregate accepts
+`success`, or `skipped` only when `run_pr_ready_bash3` is exactly `false`;
+unexpected skips fail the aggregate. A missing entry there silently lets
 failures through.
 
 ## Troubleshooting

@@ -380,7 +380,10 @@ run_phase() {
         if [ "$already_seen" -eq 0 ]; then
           package_dirs+=("$package_dir")
         fi
-      done < <(git ls-files -z -- 'moon.pkg' '*/moon.pkg' '*/moon.pkg.json')
+      done < <(
+        git ls-files -z -- \
+          'moon.pkg' 'moon.pkg.json' '*/moon.pkg' '*/moon.pkg.json'
+      )
       if [ "${#package_dirs[@]}" -gt 0 ]; then
         NEW_MOON_MOD=0 moon info --frozen "${package_dirs[@]}"
       fi

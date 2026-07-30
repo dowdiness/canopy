@@ -92,10 +92,13 @@ jobs:
     needs: changes
     if: needs.changes.outputs.run_pr_ready_bash3 == 'true'
     runs-on: macos-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
         with:
+          persist-credentials: false
           submodules: recursive
           fetch-depth: 0
 
@@ -775,9 +778,15 @@ jobs:
       - name: Check all job statuses
         run: |
           ok() { [[ "$1" == "success" || "$1" == "skipped" ]]; }
+          path_filtered_ok() {
+            [[ "$1" == "success" ]] ||
+              [[ "$1" == "skipped" && "$2" == "false" ]]
+          }
           if ! ok "${{ needs.dep-check.result }}" || \
              ! ok "${{ needs.changes.result }}" || \
-             ! ok "${{ needs.pr-ready-bash3.result }}" || \
+             ! path_filtered_ok \
+               "${{ needs.pr-ready-bash3.result }}" \
+               "${{ needs.changes.outputs.run_pr_ready_bash3 }}" || \
              ! ok "${{ needs.test-main.result }}" || \
              ! ok "${{ needs.test-submodules.result }}" || \
              ! ok "${{ needs.test-examples.result }}" || \
