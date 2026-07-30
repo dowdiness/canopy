@@ -62,6 +62,49 @@ fn compute_commit_edit(
 }
 
 ///|
+fn normalize_atx_heading_content(content : String) -> String {
+  let buf = StringBuilder::StringBuilder()
+  let mut previous_was_cr = false
+  for ch in content {
+    if ch == '\r' {
+      buf.write_char(' ')
+      previous_was_cr = true
+    } else if ch == '\n' {
+      if !previous_was_cr {
+        buf.write_char(' ')
+      }
+      previous_was_cr = false
+    } else {
+      buf.write_char(ch)
+      previous_was_cr = false
+    }
+  }
+  buf.to_string()
+}
+
+///|
+fn heading_replacement_terminator(
+  source : String,
+  range_start : Int,
+  range_end : Int,
+) -> String {
+  if range_end > range_start && source[range_end - 1] == '\n' {
+    if range_end - range_start > 1 && source[range_end - 2] == '\r' {
+      "\r\n"
+    } else {
+      "\n"
+    }
+  } else if range_end > range_start && source[range_end - 1] == '\r' {
+    "\r"
+  } else if range_end < source.length() &&
+    (source[range_end] == '\n' || source[range_end] == '\r') {
+    ""
+  } else {
+    "\n"
+  }
+}
+
+///|
 /// Change heading level (1-6) or convert paragraph to/from heading.
 fn compute_change_heading_level(
   source : String,
@@ -95,7 +138,14 @@ fn compute_change_heading_level(
   } else {
     "" // level 0 = paragraph (no prefix)
   }
-  let new_block = new_prefix + content + "\n"
+  let rendered_content = if clamped > 0 {
+    normalize_atx_heading_content(content)
+  } else {
+    content
+  }
+  let new_block = new_prefix +
+    rendered_content +
+    heading_replacement_terminator(source, range.start, range.end)
   Some(
     (
       [
@@ -106,7 +156,7 @@ fn compute_change_heading_level(
         },
       ],
       FocusHint::MoveCursor(
-        position=range.start + new_prefix.length() + content.length(),
+        position=range.start + new_prefix.length() + rendered_content.length(),
       ),
     ),
   )

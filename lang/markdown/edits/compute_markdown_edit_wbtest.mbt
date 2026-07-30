@@ -99,7 +99,67 @@ test "change_heading_level: h1 to h3" {
     source,
     ChangeHeadingLevel(node_id=heading_id, level=3),
   )
-  inspect(result.contains("### Title"), content="true")
+  inspect(result, content="### Title\n")
+}
+
+///|
+test "change_heading_level: setext h2 to ATX h3" {
+  let source = "Title\n---\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let heading_id = proj.children[0].id()
+  let result = apply_edit(
+    source,
+    ChangeHeadingLevel(node_id=heading_id, level=3),
+  )
+  inspect(result, content="### Title\n")
+}
+
+///|
+test "change_heading_level: multiline setext becomes one ATX line" {
+  let source = "Foo\nbar\n---\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let heading_id = proj.children[0].id()
+  let result = apply_edit(
+    source,
+    ChangeHeadingLevel(node_id=heading_id, level=3),
+  )
+  inspect(result, content="### Foo bar\n")
+}
+
+///|
+test "change_heading_level: CRLF setext preserves line ending" {
+  let source = "Title\r\n---\r\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let heading_id = proj.children[0].id()
+  let result = apply_edit(
+    source,
+    ChangeHeadingLevel(node_id=heading_id, level=3),
+  )
+  inspect(result, content="### Title\r\n")
+}
+
+///|
+test "change_heading_level: indented setext drops underline indentation" {
+  let source = "Title\n   ---\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let heading_id = proj.children[0].id()
+  let result = apply_edit(
+    source,
+    ChangeHeadingLevel(node_id=heading_id, level=3),
+  )
+  inspect(result, content="### Title\n")
+}
+
+///|
+test "commit_edit: indented setext preserves underline structure" {
+  let source = "Title\n   ---\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let heading_id = proj.children[0].id()
+  let result = apply_edit(
+    source,
+    CommitEdit(node_id=heading_id, new_text="Renamed"),
+  )
+  inspect(result, content="Renamed\n   ---\n")
 }
 
 ///|

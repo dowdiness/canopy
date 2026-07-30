@@ -911,7 +911,7 @@ test "sdeg phase1: production side table memo holds malformed snapshots" {
   let initial = force_markdown_heading_side_table(side_table, source_map)
   let initial_row = initial.rows[0]
 
-  parser.set_source("# *A\n")
+  parser.set_source("# [unclosed\n")
   let invalid = force_markdown_heading_side_table(side_table, source_map)
   let invalid_row = find_side_table_row(invalid, initial_row.last_live.id).unwrap()
 

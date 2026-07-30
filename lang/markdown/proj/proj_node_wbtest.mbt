@@ -20,6 +20,96 @@ test "projection: heading levels" {
 }
 
 ///|
+test "source map: ATX heading separates marker and text" {
+  let source = "## Title\n"
+  let (proj, errors) = parse_to_proj_node(source)
+  inspect(errors.length(), content="0")
+  let source_map = @core.SourceMap::from_ast(proj)
+  let (cst, diagnostics) = @markdown.parse_cst(source)
+  inspect(diagnostics.length(), content="0")
+  populate_token_spans(source_map, @seam.SyntaxNode::from_cst(cst), proj)
+  let heading = proj.children[0]
+  match source_map.get_token_span(heading.id(), "marker") {
+    Some(span) => inspect(source[span.start:span.end].to_owned(), content="## ")
+    None => fail("expected ATX heading marker span")
+  }
+  match source_map.get_token_span(heading.id(), "text") {
+    Some(span) =>
+      inspect(source[span.start:span.end].to_owned(), content="Title")
+    None => fail("expected ATX heading text span")
+  }
+}
+
+///|
+test "source map: setext heading separates underline and text" {
+  let source = "Title\n---\n"
+  let (proj, errors) = parse_to_proj_node(source)
+  inspect(errors.length(), content="0")
+  let source_map = @core.SourceMap::from_ast(proj)
+  let (cst, diagnostics) = @markdown.parse_cst(source)
+  inspect(diagnostics.length(), content="0")
+  populate_token_spans(source_map, @seam.SyntaxNode::from_cst(cst), proj)
+  let heading = proj.children[0]
+  match source_map.get_token_span(heading.id(), "marker") {
+    Some(span) => inspect(source[span.start:span.end].to_owned(), content="---")
+    None => fail("expected setext heading underline span")
+  }
+  match source_map.get_token_span(heading.id(), "text") {
+    Some(span) =>
+      inspect(source[span.start:span.end].to_owned(), content="Title")
+    None => fail("expected setext heading text span")
+  }
+}
+
+///|
+test "source map: multiline setext text excludes underline separator" {
+  let source = "Foo\nbar\n---\n"
+  let (proj, errors) = parse_to_proj_node(source)
+  inspect(errors.length(), content="0")
+  let source_map = @core.SourceMap::from_ast(proj)
+  let (cst, diagnostics) = @markdown.parse_cst(source)
+  inspect(diagnostics.length(), content="0")
+  populate_token_spans(source_map, @seam.SyntaxNode::from_cst(cst), proj)
+  let heading = proj.children[0]
+  match source_map.get_token_span(heading.id(), "text") {
+    Some(span) =>
+      inspect(source[span.start:span.end].to_owned(), content="Foo\nbar")
+    None => fail("expected multiline setext heading text span")
+  }
+}
+
+///|
+test "source map: indented setext text excludes separator indentation" {
+  let source = "Title\n   ---\n"
+  let (proj, errors) = parse_to_proj_node(source)
+  inspect(errors.length(), content="0")
+  let source_map = @core.SourceMap::from_ast(proj)
+  let (cst, diagnostics) = @markdown.parse_cst(source)
+  inspect(diagnostics.length(), content="0")
+  populate_token_spans(source_map, @seam.SyntaxNode::from_cst(cst), proj)
+  let heading = proj.children[0]
+  match source_map.get_token_span(heading.id(), "text") {
+    Some(span) =>
+      inspect(source[span.start:span.end].to_owned(), content="Title")
+    None => fail("expected indented setext heading text span")
+  }
+}
+
+///|
+test "projection: delimiter resolver preserves italic and bold payloads" {
+  let (proj, errors) = parse_to_proj_node("_em_ and **strong**\n")
+  inspect(errors.length(), content="0")
+  match proj.children[0].kind {
+    Paragraph([Italic([Text(em)]), Text(separator), Bold([Text(strong)])]) => {
+      inspect(em, content="em")
+      inspect(separator, content=" and ")
+      inspect(strong, content="strong")
+    }
+    _ => fail("expected italic and bold paragraph payloads")
+  }
+}
+
+///|
 test "projection: unordered list" {
   let (proj, _) = parse_to_proj_node("- first\n- second\n- third")
   inspect(proj.children.length(), content="1")
