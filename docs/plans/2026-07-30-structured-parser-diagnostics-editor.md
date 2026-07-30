@@ -135,10 +135,11 @@ cd adapters/editor-adapter
 npm ci
 npm run typecheck:cm6
 npm run build:test:cm6
+npm run test:e2e:cm6
 npm run dev:test:cm6
 ```
 
-Drive the last command in a real browser. Require the harness pass signal, inspect `.cm-lintRange-warning` and `.cm-lintPoint-error`, verify clearing, and capture a screenshot.
+`test:e2e:cm6` must automatically assert the range marker, EOF point marker, clearing, and final pass signal. For manual visual inspection, drive `dev:test:cm6` in a real browser and capture a screenshot.
 
 ## Execution Evidence
 
@@ -146,7 +147,8 @@ Executed 2026-07-30 on branch `fix/1034-preserve-parser-diagnostics`.
 
 - Focused MoonBit tests: protocol 42/42, editor 205/205, Lambda companion 101/101.
 - Adapter clean install and build: `npm ci`, `npm run typecheck:cm6`, and `npm run build:test:cm6` passed.
-- Browser harness: one `.cm-lintRange-warning` and one `.cm-lintPoint-error` were present together; after `clearCm6Diagnostics()`, both counts were zero. A 1024×200 screenshot was captured.
+- Automated browser regression: `npm run test:e2e:cm6` passed, asserting one `.cm-lintRange-warning`, one `.cm-lintPoint-error`, clearing both, no page errors, and the final pass signal. The dedicated `CM6 Adapter E2E` job is required by `All Checks Passed`.
+- Manual browser inspection captured both marker forms and their clearing in a 1024×200 screenshot.
 - Workspace validation: `moon check`, `moon test`, and `moon build --target js --release` passed. The only diagnostics were nine pre-existing vendored Rabbita deprecation warnings.
 - Interface/format validation: `NEW_MOON_MOD=0 moon info && NEW_MOON_MOD=0 moon fmt` passed. The intended protocol interface change is nullable `Diagnostic.code`; the test-only probe interface adds `new_empty_diagnostic_test_editor`.
 - Independent review: MoonBit/protocol/editor PASS with no findings (`openai-codex/gpt-5.5`); TypeScript adapter PASS (`mimo-v2.5-free`) after correcting one stale changelog entry.

@@ -5,7 +5,8 @@
   "scripts": {
     "typecheck:cm6": "tsc -p tsconfig.cm6-test.json --noEmit",
     "build:test:cm6": "vite build --config vite.config.cm6-test.ts",
-    "dev:test:cm6": "vite --config vite.config.cm6-test.ts"
+    "dev:test:cm6": "vite --config vite.config.cm6-test.ts",
+    "test:e2e:cm6": "playwright test --config test/playwright.config.ts"
   },
   "description": "UI adapters bridging Canopy's ViewPatch protocol to DOM/CodeMirror/ProseMirror renderers.",
   "license": "Apache-2.0",
@@ -75,6 +76,8 @@
     "@codemirror/lint": "^6.9.7",
     "@codemirror/state": "^6.5.0",
     "@codemirror/view": "^6.35.0",
+    "@playwright/test": "1.61.1",
+    "@types/node": "^24.13.3",
     "typescript": "^6.0.3",
     "vite": "^6.0.0"
   }

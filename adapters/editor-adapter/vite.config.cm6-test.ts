@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+
 import { defineConfig } from "vite";
 
 export default defineConfig({
@@ -5,7 +7,9 @@ export default defineConfig({
     outDir: "dist/cm6-test",
     emptyOutDir: true,
     rollupOptions: {
-      input: new URL("./test/cm6-diagnostics.html", import.meta.url).pathname,
+      input: fileURLToPath(
+        new URL("./test/cm6-diagnostics.html", import.meta.url),
+      ),
     },
   },
 });

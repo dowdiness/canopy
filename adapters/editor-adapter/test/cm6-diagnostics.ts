@@ -60,4 +60,11 @@ async function main(): Promise<void> {
   };
 }
 
-void main();
+void main().catch((error: unknown) => {
+  const result = document.querySelector<HTMLOutputElement>("#result");
+  if (result) {
+    result.dataset.result = "fail";
+    result.textContent = error instanceof Error ? error.message : String(error);
+  }
+  console.error(error);
+});
