@@ -1,6 +1,6 @@
 # Structured Parser Diagnostics in the CodeMirror Editor
 
-Status: ready
+Status: Executed
 
 Canonical issue: [#1034](https://github.com/dowdiness/canopy/issues/1034)
 
@@ -94,17 +94,17 @@ No new MoonBit core helper or type is required.
 
 ## Acceptance Criteria
 
-- [ ] Editor display reads structured `parser_diagnostics()`; it does not call `get_errors()`.
-- [ ] Loom primary UTF-16 range, all four severities, message, and optional code survive conversion.
-- [ ] Only a locationless diagnostic falls back to `0..0`.
-- [ ] `if x then y` renders a visible EOF point marker.
-- [ ] A nonzero diagnostic renders as a lint range.
-- [ ] Correcting input emits `SetDiagnostics([])` and removes markers.
-- [ ] The custom CM6 diagnostic field/plugin and `from < to` filter are gone.
-- [ ] Protocol JSON always contains `code`, covered with both a string and `null`; TypeScript declares `code: string | null`.
-- [ ] `@codemirror/lint` is an optional peer; no nonconsumer manifest is changed.
-- [ ] The adapter-owned browser harness passes without Canopy parser, CST, or editor internals.
-- [ ] No fix, source-ID, semantic, or standalone-renderer API enters this change.
+- [x] Editor display reads structured `parser_diagnostics()`; it does not call `get_errors()`.
+- [x] Loom primary UTF-16 range, all four severities, message, and optional code survive conversion.
+- [x] Only a locationless diagnostic falls back to `0..0`.
+- [x] `if x then y` renders a visible EOF point marker.
+- [x] A nonzero diagnostic renders as a lint range.
+- [x] Correcting input emits `SetDiagnostics([])` and removes markers.
+- [x] The custom CM6 diagnostic field/plugin and `from < to` filter are gone.
+- [x] Protocol JSON always contains `code`, covered with both a string and `null`; TypeScript declares `code: string | null`.
+- [x] `@codemirror/lint` is an optional peer; no nonconsumer manifest is changed.
+- [x] The adapter-owned browser harness passes without Canopy parser, CST, or editor internals.
+- [x] No fix, source-ID, semantic, or standalone-renderer API enters this change.
 
 ## Validation
 
@@ -139,6 +139,17 @@ npm run dev:test:cm6
 ```
 
 Drive the last command in a real browser. Require the harness pass signal, inspect `.cm-lintRange-warning` and `.cm-lintPoint-error`, verify clearing, and capture a screenshot.
+
+## Execution Evidence
+
+Executed 2026-07-30 on branch `fix/1034-preserve-parser-diagnostics`.
+
+- Focused MoonBit tests: protocol 42/42, editor 205/205, Lambda companion 101/101.
+- Adapter clean install and build: `npm ci`, `npm run typecheck:cm6`, and `npm run build:test:cm6` passed.
+- Browser harness: one `.cm-lintRange-warning` and one `.cm-lintPoint-error` were present together; after `clearCm6Diagnostics()`, both counts were zero. A 1024×200 screenshot was captured.
+- Workspace validation: `moon check`, `moon test`, and `moon build --target js --release` passed. The only diagnostics were nine pre-existing vendored Rabbita deprecation warnings.
+- Interface/format validation: `NEW_MOON_MOD=0 moon info && NEW_MOON_MOD=0 moon fmt` passed. The intended protocol interface change is nullable `Diagnostic.code`; the test-only probe interface adds `new_empty_diagnostic_test_editor`.
+- Independent review: MoonBit/protocol/editor PASS with no findings (`openai-codex/gpt-5.5`); TypeScript adapter PASS (`mimo-v2.5-free`) after correcting one stale changelog entry.
 
 ## Risks
 

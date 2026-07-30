@@ -2,6 +2,11 @@
   "name": "@canopy/editor-adapter",
   "version": "0.1.0-alpha.0",
   "type": "module",
+  "scripts": {
+    "typecheck:cm6": "tsc -p tsconfig.cm6-test.json --noEmit",
+    "build:test:cm6": "vite build --config vite.config.cm6-test.ts",
+    "dev:test:cm6": "vite --config vite.config.cm6-test.ts"
+  },
   "description": "UI adapters bridging Canopy's ViewPatch protocol to DOM/CodeMirror/ProseMirror renderers.",
   "license": "Apache-2.0",
   "repository": {
@@ -43,6 +48,7 @@
   "peerDependencies": {
     "@codemirror/commands": "^6.10.0",
     "@codemirror/language": "^6.10.0",
+    "@codemirror/lint": "^6.9.7",
     "@codemirror/state": "^6.5.0",
     "@codemirror/view": "^6.35.0",
     "prosemirror-commands": "^1.6.0",
@@ -55,6 +61,7 @@
   "peerDependenciesMeta": {
     "@codemirror/commands": { "optional": true },
     "@codemirror/language": { "optional": true },
+    "@codemirror/lint": { "optional": true },
     "@codemirror/state": { "optional": true },
     "@codemirror/view": { "optional": true },
     "prosemirror-commands": { "optional": true },
@@ -63,5 +70,12 @@
     "prosemirror-state": { "optional": true },
     "prosemirror-transform": { "optional": true },
     "prosemirror-view": { "optional": true }
+  },
+  "devDependencies": {
+    "@codemirror/lint": "^6.9.7",
+    "@codemirror/state": "^6.5.0",
+    "@codemirror/view": "^6.35.0",
+    "typescript": "^6.0.3",
+    "vite": "^6.0.0"
   }
 }

@@ -30,8 +30,9 @@ pub(all) struct Diagnostic {
   to : Int
   severity : Severity
   message : String
+  code : String?
 } derive(Eq, @debug.Debug)
-pub fn Diagnostic::Diagnostic(from~ : Int, to~ : Int, severity~ : Severity, message~ : String) -> Self
+pub fn Diagnostic::Diagnostic(from~ : Int, to~ : Int, severity~ : Severity, message~ : String, code? : String) -> Self
 pub impl ToJson for Diagnostic
 
 pub(all) enum Severity {

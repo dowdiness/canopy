@@ -87,19 +87,28 @@ pub fn[T : @loom_core.Renderable] compute_view_patches(
       }
   }
   state.previous_decorations = Some(current_decorations)
-  let errors = editor.get_errors()
-  if errors.length() > 0 {
-    let diagnostics : Array[@protocol.Diagnostic] = []
-    for error in errors {
-      diagnostics.push(
-        @protocol.Diagnostic(
-          from=0,
-          to=0,
-          severity=@protocol.SevError,
-          message=error,
-        ),
+  let parser_diagnostics = editor.parser_diagnostics().read_or_abort().items()
+  if !parser_diagnostics.is_empty() {
+    let diagnostics = parser_diagnostics.map(diagnostic => {
+      let (from, to) = match diagnostic.primary {
+        Some(range) => (range.start().value(), range.end().value())
+        None => (0, 0)
+      }
+      let severity = match diagnostic.severity {
+        @loom_core.DiagnosticSeverity::Error => @protocol.SevError
+        @loom_core.DiagnosticSeverity::Warning => @protocol.SevWarning
+        @loom_core.DiagnosticSeverity::Info => @protocol.SevInfo
+        @loom_core.DiagnosticSeverity::Hint => @protocol.SevHint
+      }
+      let code = diagnostic.code.map(code => code.value())
+      @protocol.Diagnostic(
+        from~,
+        to~,
+        severity~,
+        message=diagnostic.message,
+        code?,
       )
-    }
+    })
     patches.push(@protocol.ViewPatch::SetDiagnostics(diagnostics~))
     state.had_errors = true
   } else if state.had_errors {

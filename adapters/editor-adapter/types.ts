@@ -27,6 +27,7 @@ export type Diagnostic = {
   to: number;
   severity: "error" | "warning" | "info" | "hint";
   message: string;
+  code: string | null;
 };
 
 export type ViewPatch =

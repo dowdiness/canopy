@@ -19,7 +19,7 @@ Peer dependencies are optional — install only what you use:
 | Adapter        | Required peers                                                                 |
 |----------------|--------------------------------------------------------------------------------|
 | `HTMLAdapter`  | none                                                                           |
-| `CM6Adapter`   | `@codemirror/state`, `@codemirror/view`, `@codemirror/language`, `@codemirror/commands` |
+| `CM6Adapter`   | `@codemirror/state`, `@codemirror/view`, `@codemirror/language`, `@codemirror/commands`, `@codemirror/lint` |
 | `PMAdapter`    | `prosemirror-state`, `prosemirror-view`, `prosemirror-model`, `prosemirror-transform`, `prosemirror-keymap`, `prosemirror-commands` |
 
 ## Quick start
@@ -95,7 +95,7 @@ mirrors them. Coordinate units and breaking-change rules live in
 
 **Bring your own engine.** Implement `EditorAdapter` directly, or use a built-in adapter and feed it `ViewPatch[]` from any source — a parser, an evaluator, a remote server, a wasm audio engine. The adapter does not know or care where patches come from.
 
-**Diagnostics.** Send `{ type: "SetDiagnostics", diagnostics: [...] }`. Severity is `"error" | "warning" | "info" | "hint"`; the adapter renders them as inline marks plus a hover panel. Parse errors, type errors, runtime errors all use the same path.
+**Diagnostics.** Send `{ type: "SetDiagnostics", diagnostics: [...] }`. Severity is `"error" | "warning" | "info" | "hint"`, and `code` is always `string | null`. The adapter passes diagnostics to `@codemirror/lint`, including zero-width point diagnostics; a non-null code becomes CodeMirror's diagnostic `source`. Parse errors, type errors, and runtime errors all use the same path.
 
 **Custom decorations.** Send `{ type: "SetDecorations", decorations: [...] }` with a `css_class` namespaced to your project (e.g. `moondsp-pattern-cursor`). Style it in your host CSS. Use the `widget` flag for inline DOM widgets.
 

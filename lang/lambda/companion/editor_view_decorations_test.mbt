@@ -168,3 +168,50 @@ test "analysis projection drops stale pattern decorations but keeps semantic dec
     })
   assert_true(has_semantic_without_pattern)
 }
+
+///|
+test "missing else projects an EOF point diagnostic" {
+  let editor = (try! new_lambda_editor("test-missing-else-diagnostic")).0
+  editor.set_text("if x then y")
+  let patches = @editor.compute_view_patches(
+    @editor.ViewUpdateState::ViewUpdateState(),
+    editor,
+  )
+  let patch = patches
+    .iter()
+    .find_first(patch => patch is @protocol.ViewPatch::SetDiagnostics(_))
+    .unwrap()
+  guard patch is @protocol.ViewPatch::SetDiagnostics(diagnostics~) else {
+    fail("expected SetDiagnostics")
+  }
+  let diagnostic = diagnostics
+    .iter()
+    .find_first(diagnostic => diagnostic.message.contains("else"))
+    .unwrap()
+  inspect(diagnostic.from, content="11")
+  inspect(diagnostic.to, content="11")
+  @debug.assert_eq(diagnostic.severity, @protocol.SevError)
+}
+
+///|
+test "coded lexer diagnostic preserves its source range and code" {
+  let editor = (try! new_lambda_editor("test-coded-lexer-diagnostic")).0
+  editor.set_text("@")
+  let patches = @editor.compute_view_patches(
+    @editor.ViewUpdateState::ViewUpdateState(),
+    editor,
+  )
+  let patch = patches
+    .iter()
+    .find_first(patch => patch is @protocol.ViewPatch::SetDiagnostics(_))
+    .unwrap()
+  guard patch is @protocol.ViewPatch::SetDiagnostics(diagnostics~) else {
+    fail("expected SetDiagnostics")
+  }
+  let diagnostic = diagnostics
+    .iter()
+    .find_first(diagnostic => diagnostic.code is Some(_))
+    .unwrap()
+  assert_true(diagnostic.from < diagnostic.to)
+  assert_true(diagnostic.code.unwrap().length() > 0)
+}
