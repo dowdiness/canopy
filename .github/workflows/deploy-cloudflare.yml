@@ -56,7 +56,7 @@ jobs:
             type: pages
             # Build with workspace on. See #335 for target override caveat.
             moon-update: cd examples/canvas && "$GITHUB_WORKSPACE/scripts/moon-update.sh"
-            moon-build: cd examples/canvas && moon build --target js --release
+            moon-build: cd examples/canvas && moon build --target js --release --target-dir "$GITHUB_WORKSPACE/_build"
             npm-dir: examples/canvas/web
             deploy-dir: examples/canvas/web/dist
 
