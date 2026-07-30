@@ -12,7 +12,12 @@ async function switchMode(
   page: Page,
   mode: 'Block' | 'Raw' | 'Preview',
 ): Promise<void> {
-  await page.getByRole('button', { name: mode, exact: true }).click();
+  const accessibleName = {
+    Block: 'Block view',
+    Raw: 'Raw Markdown',
+    Preview: 'Preview',
+  }[mode];
+  await page.getByRole('tab', { name: accessibleName, exact: true }).click();
   const pane = mode === 'Block'
     ? '#block-pane'
     : mode === 'Raw'
@@ -29,7 +34,7 @@ test('keeps the server-rendered Markdown controls inert without client JavaScrip
     const page = await context.newPage();
     const response = await page.goto('/markdown');
     expect(response?.ok()).toBe(true);
-    await expect(page.getByRole('heading', { name: '▱ Markdown Editor' })).toBeVisible();
+    await expect(page.locator('[data-route-heading]')).toBeAttached();
     await expect(page.locator('[data-markdown-ready]')).toHaveAttribute('inert', '');
     await expect(page.locator('[data-markdown-ready]'))
       .toHaveAttribute('data-markdown-ready', 'false');
@@ -64,7 +69,8 @@ test('restores document text and stable control focus while rebuilding mode stat
   await page.getByRole('link', { name: /Markdown Editor/ }).click();
   await waitForMarkdownMount(page);
   await expect(page).toHaveURL(/\/markdown$/);
-  await expect(page.getByRole('heading', { name: '▱ Markdown Editor' })).toBeFocused();
+  await expect(page.locator('[data-route-heading]')).toBeFocused();
+  await expect(page.locator('[data-route-heading]')).toHaveCSS('outline-style', 'solid');
 
   const source = '# Route memory\n\nOnly document text returns.\n';
   await switchMode(page, 'Raw');
@@ -80,14 +86,15 @@ test('restores document text and stable control focus while rebuilding mode stat
 
   await expect(page.locator('#block-pane')).toBeVisible();
   await expect(page.locator('#raw-pane')).toBeHidden();
-  await expect(page.locator('.mode-tab.active')).toHaveText('Block');
+  await expect(page.getByRole('tab', { name: 'Block view' }))
+    .toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('.block-textarea')).toHaveCount(0);
   await expect(previewTab).toBeFocused();
   await switchMode(page, 'Raw');
   await expect(page.locator('#raw-editor')).toHaveValue(source);
 });
 
-test('falls back to the heading when the prior pane is rebuilt', async ({ page }) => {
+test('falls back to the route container when the prior pane is rebuilt', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('[data-route-lifecycle-ready]'))
     .toHaveAttribute('data-route-lifecycle-ready', 'true');
@@ -115,7 +122,8 @@ test('falls back to the heading when the prior pane is rebuilt', async ({ page }
   await page.goForward();
   await waitForMarkdownMount(page);
 
-  await expect(page.getByRole('heading', { name: '▱ Markdown Editor' })).toBeFocused();
+  await expect(page.locator('[data-route-heading]')).toBeFocused();
+  await expect(page.locator('[data-route-heading]')).toHaveCSS('outline-style', 'solid');
   await expect(page.locator('#block-pane')).toBeVisible();
   await switchMode(page, 'Raw');
   await expect(rawEditor).toHaveValue(source);
@@ -132,7 +140,8 @@ test('reload clears route memory and reconstructs Markdown internals', async ({ 
   await waitForMarkdownMount(page);
 
   await expect(page.locator('#block-pane')).toBeVisible();
-  await expect(page.locator('.mode-tab.active')).toHaveText('Block');
+  await expect(page.getByRole('tab', { name: 'Block view' }))
+    .toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('.block-textarea')).toHaveCount(0);
   await switchMode(page, 'Raw');
   await expect(page.locator('#raw-editor')).toHaveValue(new RegExp(DEFAULT_HEADING));

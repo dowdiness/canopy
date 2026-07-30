@@ -17,7 +17,12 @@ async function blockTexts(page: Page): Promise<string[]> {
 
 /** Switch to a mode tab and wait for the pane to appear. */
 async function switchMode(page: Page, mode: 'Block' | 'Raw' | 'Preview') {
-  await page.locator(`button.mode-tab:has-text("${mode}")`).click();
+  const accessibleName = {
+    Block: 'Block view',
+    Raw: 'Raw Markdown',
+    Preview: 'Preview',
+  }[mode];
+  await page.getByRole('tab', { name: accessibleName, exact: true }).click();
   const paneId =
     mode === 'Block' ? '#block-pane' :
     mode === 'Raw' ? '#raw-pane' :
@@ -27,7 +32,7 @@ async function switchMode(page: Page, mode: 'Block' | 'Raw' | 'Preview') {
 
 /** Load an example preset and wait for blocks to render. */
 async function loadExample(page: Page, name: 'Hello' | 'Blog' | 'List' | 'Code') {
-  await page.locator(`button.example-btn:has-text("${name}")`).click();
+  await page.getByRole('button', { name: `Apply ${name} example`, exact: true }).click();
   await expect(page.locator('#block-container .block-text').first()).toBeVisible();
 }
 
@@ -37,16 +42,33 @@ async function loadExample(page: Page, name: 'Hello' | 'Blog' | 'List' | 'Code')
 
 test.beforeEach(async ({ page }) => {
   await page.goto(markdownEditorUrl);
-  await expect(page.locator('#block-container .block-text').first()).toBeVisible();
   if (markdownEditorUrl === '/markdown') {
     await expect(page.locator('[data-markdown-ready]'))
       .toHaveAttribute('data-markdown-ready', 'true');
     await expect(page.locator('[data-route-lifecycle-ready]'))
       .toHaveAttribute('data-route-lifecycle-ready', 'true');
   }
+  await expect(page.locator('#block-container .block-text').first()).toBeVisible();
 });
 
 test.describe('Markdown Block Editor', () => {
+
+  test('mode tabs support arrow-key navigation', async ({ page }) => {
+    const blockTab = page.getByRole('tab', { name: 'Block view' });
+    const rawTab = page.getByRole('tab', { name: 'Raw Markdown' });
+    const previewTab = page.getByRole('tab', { name: 'Preview' });
+
+    await blockTab.focus();
+    await blockTab.press('ArrowRight');
+    await expect(rawTab).toBeFocused();
+    await expect(rawTab).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('#raw-pane')).toBeVisible();
+
+    await rawTab.press('ArrowRight');
+    await expect(previewTab).toBeFocused();
+    await expect(previewTab).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('#preview-pane')).toBeVisible();
+  });
 
   test('blocks render from Markdown source', async ({ page }) => {
     // Default text loads blocks with content
@@ -129,7 +151,7 @@ test.describe('Markdown Block Editor', () => {
     await textarea.evaluate((element: HTMLTextAreaElement) => element.setSelectionRange(1, 3));
 
     await switchMode(page, 'Preview');
-    await page.locator('button.example-btn:has-text("List")').click();
+    await page.getByRole('button', { name: 'Apply List example', exact: true }).click();
     await switchMode(page, 'Block');
 
     await expect(textarea).toHaveCount(0);
