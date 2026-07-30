@@ -644,7 +644,7 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
   revision, and invalidation data; `AnalysisProjection` remains an
   annotation/decoration aggregator. See
   `docs/design/analysis-query-layer.md#diagnostics-boundary`.
-  Shipped: PR #1051 records the producer inventory, ownership rule, and revisit
+  PR: #1051 records the producer inventory, ownership rule, and revisit
   gate without adding a public protocol variant.
 
 - [x] Implement Phase 1 ast-grep range-only analysis overlay (#692).
