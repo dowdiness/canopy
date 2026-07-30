@@ -165,6 +165,20 @@ fn test_parse_root(ctx : @loomcore.ParserContext[TestToken, TestKind]) -> Unit {
 }
 
 ///|
+fn test_parse_empty_diagnostic_root(
+  ctx : @loomcore.ParserContext[TestToken, TestKind],
+) -> Unit {
+  if ctx.at_eof() {
+    ctx.report_at_current(
+      message="empty source",
+      code=Some(@loomcore.DiagnosticCode::DiagnosticCode("test.empty-source")),
+    )
+  } else {
+    test_parse_root(ctx)
+  }
+}
+
+///|
 fn parse_test_expr(ctx : @loomcore.ParserContext[TestToken, TestKind]) -> Unit {
   if ctx.peek_nth(1) is LParen {
     ctx.node(BranchNode, fn() {
@@ -237,6 +251,24 @@ let test_grammar : @loom.Grammar[TestToken, TestKind, TestExpr] = @loom.Grammar:
   incremental_relex_enabled=false,
 )
 
+///|
+let empty_diagnostic_test_spec : @loomcore.LanguageSpec[TestToken, TestKind] = @loomcore.LanguageSpec::new(
+  WhitespaceToken,
+  ErrorNode,
+  RootNode,
+  Eof,
+  parse_root=test_parse_empty_diagnostic_root,
+  reuse_size_threshold=0,
+)
+
+///|
+let empty_diagnostic_test_grammar : @loom.Grammar[TestToken, TestKind, TestExpr] = @loom.Grammar::new(
+  spec=empty_diagnostic_test_spec,
+  lex=lex_test_expr,
+  fold_node=test_fold_node,
+  incremental_relex_enabled=false,
+)
+
 // === Projection (SyntaxNode -> ProjNode[TestExpr]) ===
 
 ///|
@@ -304,6 +336,22 @@ pub fn new_test_editor(
     build_test_projection_memos,
     capture_timeout_ms~,
     parent_runtime?,
+  )
+}
+
+///|
+/// Construct a test-only editor whose empty source emits one structured
+/// diagnostic. This keeps the default neutral grammar unchanged while allowing
+/// consumers to verify that they do not suppress diagnostics by source length.
+pub fn new_empty_diagnostic_test_editor(
+  agent_id : String,
+) -> @editor.SyncEditor[TestExpr] raise @text.TextError {
+  @editor.SyncEditor::new_generic(
+    agent_id,
+    (source, runtime) => {
+      @loom.new_parser(source, empty_diagnostic_test_grammar, runtime?)
+    },
+    build_test_projection_memos,
   )
 }
 

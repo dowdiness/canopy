@@ -57,6 +57,7 @@ pub(all) struct Diagnostic {
   to : Int
   severity : Severity
   message : String
+  code : String?
 } derive(Debug, Eq)
 
 ///|
@@ -65,8 +66,9 @@ pub fn Diagnostic::Diagnostic(
   to~ : Int,
   severity~ : Severity,
   message~ : String,
+  code? : String,
 ) -> Diagnostic {
-  { from, to, severity, message }
+  { from, to, severity, message, code }
 }
 
 ///|
@@ -118,6 +120,10 @@ pub impl ToJson for Diagnostic with fn to_json(self) {
   m["to"] = self.to.to_json()
   m["severity"] = self.severity.to_json()
   m["message"] = self.message.to_json()
+  m["code"] = match self.code {
+    Some(code) => code.to_json()
+    None => Json::null()
+  }
   Json::object(m)
 }
 

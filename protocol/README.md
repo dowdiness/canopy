@@ -48,6 +48,7 @@ so these units stay separate.
 | `ViewPatch.SetSelection.anchor` / `.head` | MoonBit → JS | UTF-16 document code-unit offset | Text selection endpoints. |
 | `Decoration.from` / `.to` | MoonBit → JS | UTF-16 document code-unit offset | Half-open source range for marks or widgets. |
 | `Diagnostic.from` / `.to` | MoonBit → JS | UTF-16 document code-unit offset | Half-open source range for annotations. |
+| `Diagnostic.code` | MoonBit → JS | Nullable string | Stable producer-defined diagnostic identifier; always serialized as `null` or a string. |
 | `SetPmCursor.pm_tree_position` | JS → MoonBit | ProseMirror tree position | Cursor in the PM tree. Convert before using text APIs. |
 | `SetDocCursor.doc_code_unit_offset` | JS → MoonBit | UTF-16 document code-unit offset | Cursor in source text. |
 

@@ -26,17 +26,27 @@ test "Decoration with data and widget to_json" {
 }
 
 ///|
-test "Diagnostic to_json produces object-based JSON" {
-  let diag = @protocol.Diagnostic(
+test "Diagnostic to_json always includes nullable code" {
+  let without_code = @protocol.Diagnostic(
     from=0,
     to=3,
     severity=@protocol.SevError,
     message="unbound var",
   )
-  let s = diag.to_json().stringify()
   inspect(
-    s,
-    content="{\"from\":0,\"to\":3,\"severity\":\"error\",\"message\":\"unbound var\"}",
+    without_code.to_json().stringify(),
+    content="{\"from\":0,\"to\":3,\"severity\":\"error\",\"message\":\"unbound var\",\"code\":null}",
+  )
+  let with_code = @protocol.Diagnostic(
+    from=3,
+    to=3,
+    severity=@protocol.SevHint,
+    message="expected else",
+    code="parse.expected-else",
+  )
+  inspect(
+    with_code.to_json().stringify(),
+    content="{\"from\":3,\"to\":3,\"severity\":\"hint\",\"message\":\"expected else\",\"code\":\"parse.expected-else\"}",
   )
 }
 

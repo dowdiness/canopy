@@ -53,6 +53,7 @@ jobs:
     outputs:
       run_prove: ${{ steps.filter.outputs.run_prove }}
       run_e2e: ${{ steps.filter.outputs.run_e2e }}
+      run_cm6_adapter_e2e: ${{ steps.filter.outputs.run_cm6_adapter_e2e }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -62,6 +63,9 @@ jobs:
         id: filter
         with:
           filters: |
+            run_cm6_adapter_e2e:
+              - 'adapters/editor-adapter/**'
+              - '.github/workflows/ci.yml'
             run_prove:
               - 'lib/semantic/proof/**'
               - '.github/actions/setup-moonbit/**'
@@ -668,6 +672,39 @@ jobs:
       - name: Run canvas Playwright suite
         run: ./scripts/test-canvas-e2e.sh
 
+  cm6-adapter-e2e:
+    name: CM6 Adapter E2E
+    needs: changes
+    if: needs.changes.outputs.run_cm6_adapter_e2e == 'true'
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.61.1-noble
+      options: --ipc=host
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: adapters/editor-adapter/package-lock.json
+
+      - name: Install editor adapter dependencies
+        working-directory: adapters/editor-adapter
+        run: npm ci
+
+      - name: Type check CM6 adapter and harness
+        working-directory: adapters/editor-adapter
+        run: npm run typecheck:cm6
+
+      - name: Run CM6 adapter Playwright suite
+        working-directory: adapters/editor-adapter
+        run: npm run test:e2e:cm6
+
   all-checks-passed:
     name: All Checks Passed
     runs-on: ubuntu-latest
@@ -687,6 +724,7 @@ jobs:
       - ideal-web-e2e
       - demo-react-e2e
       - canvas-e2e
+      - cm6-adapter-e2e
     if: always()
     steps:
       - name: Check all job statuses
@@ -706,7 +744,8 @@ jobs:
              ! ok "${{ needs.waku-workerd.result }}" || \
              ! ok "${{ needs.ideal-web-e2e.result }}" || \
              ! ok "${{ needs.demo-react-e2e.result }}" || \
-             ! ok "${{ needs.canvas-e2e.result }}"; then
+             ! ok "${{ needs.canvas-e2e.result }}" || \
+             ! ok "${{ needs.cm6-adapter-e2e.result }}"; then
             echo "❌ One or more required checks failed"
             exit 1
           fi

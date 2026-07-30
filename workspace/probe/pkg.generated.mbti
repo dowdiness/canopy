@@ -12,6 +12,8 @@ import {
 // Values
 pub fn get_test_ast(@editor.SyncEditor[TestExpr]) -> TestExpr
 
+pub fn new_empty_diagnostic_test_editor(String) -> @editor.SyncEditor[TestExpr] raise @text.TextError
+
 pub fn new_test_editor(String, capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime) -> @editor.SyncEditor[TestExpr] raise @text.TextError
 
 // Errors

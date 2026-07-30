@@ -170,22 +170,49 @@ test "structural edit produces ReplaceNode" {
 }
 
 ///|
-test "diagnostics are emitted for parse errors" {
+test "parser diagnostic preserves EOF range severity message and code" {
   let editor = try! @probe.new_test_editor("test")
-  editor.set_text("foo(") // unclosed '('
+  editor.set_text("foo(") // unclosed '(' at UTF-16 EOF offset 4
   let state = @editor.ViewUpdateState::ViewUpdateState()
   let patches = @editor.compute_view_patches(state, editor)
-  // Should contain SetDiagnostics with errors
-  let has_diagnostics = patches
+  let patch = patches
     .iter()
-    .any(fn(p) {
-      match p {
-        @protocol.ViewPatch::SetDiagnostics(diagnostics~) =>
-          diagnostics.length() > 0
-        _ => false
-      }
-    })
-  assert_true(has_diagnostics)
+    .find_first(patch => patch is @protocol.ViewPatch::SetDiagnostics(_))
+    .unwrap()
+  guard patch is @protocol.ViewPatch::SetDiagnostics(diagnostics~) else {
+    fail("expected SetDiagnostics")
+  }
+  guard diagnostics is [diagnostic] else {
+    fail("expected exactly one parser diagnostic")
+  }
+  inspect(diagnostic.from, content="4")
+  inspect(diagnostic.to, content="4")
+  @debug.assert_eq(diagnostic.severity, @protocol.SevError)
+  inspect(diagnostic.message, content="unclosed '('")
+  @debug.assert_eq(diagnostic.code, None)
+}
+
+///|
+test "empty document does not suppress structured parser diagnostics" {
+  let editor = try! @probe.new_empty_diagnostic_test_editor("test")
+  let patches = @editor.compute_view_patches(
+    @editor.ViewUpdateState::ViewUpdateState(),
+    editor,
+  )
+  let patch = patches
+    .iter()
+    .find_first(patch => patch is @protocol.ViewPatch::SetDiagnostics(_))
+    .unwrap()
+  guard patch is @protocol.ViewPatch::SetDiagnostics(diagnostics~) else {
+    fail("expected SetDiagnostics")
+  }
+  guard diagnostics is [diagnostic] else {
+    fail("expected exactly one empty-document diagnostic")
+  }
+  inspect(diagnostic.from, content="0")
+  inspect(diagnostic.to, content="0")
+  inspect(diagnostic.message, content="empty source")
+  @debug.assert_eq(diagnostic.code, Some("test.empty-source"))
 }
 
 ///|

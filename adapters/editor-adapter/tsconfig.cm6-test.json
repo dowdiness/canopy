@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "types": ["node"]
+  },
+  "include": [
+    "adapter.ts",
+    "cm6-adapter.ts",
+    "types.ts",
+    "test/*.ts",
+    "vite.config.cm6-test.ts"
+  ],
+  "exclude": ["node_modules", "dist"]
+}
