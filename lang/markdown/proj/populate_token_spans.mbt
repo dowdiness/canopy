@@ -22,8 +22,26 @@ fn set_token_span(
 }
 
 ///|
+fn content_end_before_suffix(
+  syntax_node : @seam.SyntaxNode,
+  suffix_start : Int,
+) -> Int {
+  let mut content_end = suffix_start
+  for
+    newline in syntax_node.tokens_of_kind(
+      @markdown.SyntaxKind::NewlineToken.to_raw(),
+    ) {
+    if newline.end() <= suffix_start {
+      content_end = newline.start()
+    }
+  }
+  content_end
+}
+
+///|
 /// Set a "text" span covering all inline content after a structural prefix.
-/// For headings: content starts after HeadingMarkerToken, ends at node end.
+/// For ATX headings, content starts after AtxHeadingMarkerToken. For setext
+/// headings, content ends before SetextHeadingUnderlineToken.
 /// For paragraphs/list items: content starts after ListMarkerToken (if any),
 /// ends at node end. This captures all inline tokens (text, bold, italic, etc.)
 /// as a single contiguous span.
@@ -47,7 +65,7 @@ fn set_content_span(
     Some(kind) =>
       // End before the suffix token (e.g., closing fence)
       match syntax_node.find_token(kind.to_raw()) {
-        Some(tok) => tok.start()
+        Some(tok) => content_end_before_suffix(syntax_node, tok.start())
         None => syntax_node.end()
       }
     None => syntax_node.end()
@@ -81,35 +99,54 @@ fn populate_block(
         populate_block(source_map, syntax_children[i], proj_node.children[i])
       }
     }
-    Heading(_, _) => {
-      set_token_span(source_map, syntax_node, id, "marker", HeadingMarkerToken)
+    Heading(_, _) =>
       match
         syntax_node.find_token(
-          @markdown.SyntaxKind::HeadingMarkerToken.to_raw(),
+          @markdown.SyntaxKind::AtxHeadingMarkerToken.to_raw(),
         ) {
-        // ATX marker prefixes its inline content; setext underline follows it.
-        // Inspect the marker itself because an IndentationToken may precede an
-        // ATX marker inside the same HeadingNode.
-        Some(marker) if marker.text().trim_start().has_prefix("#") =>
+        Some(_) => {
+          set_token_span(
+            source_map,
+            syntax_node,
+            id,
+            "marker",
+            @markdown.SyntaxKind::AtxHeadingMarkerToken,
+          )
           set_content_span(
             source_map,
             syntax_node,
             id,
             "text",
-            Some(HeadingMarkerToken),
+            Some(@markdown.SyntaxKind::AtxHeadingMarkerToken),
           )
-        Some(_) =>
-          set_content_span(
-            source_map,
-            syntax_node,
-            id,
-            "text",
-            None,
-            suffix_kind=Some(@markdown.SyntaxKind::HeadingMarkerToken),
-          )
-        None => ()
+        }
+        None =>
+          match
+            syntax_node.find_token(
+              @markdown.SyntaxKind::SetextHeadingUnderlineToken.to_raw(),
+            ) {
+            Some(_) => {
+              set_token_span(
+                source_map,
+                syntax_node,
+                id,
+                "marker",
+                @markdown.SyntaxKind::SetextHeadingUnderlineToken,
+              )
+              set_content_span(
+                source_map,
+                syntax_node,
+                id,
+                "text",
+                None,
+                suffix_kind=Some(
+                  @markdown.SyntaxKind::SetextHeadingUnderlineToken,
+                ),
+              )
+            }
+            None => ()
+          }
       }
-    }
     Paragraph(_) =>
       // Full inline content (no prefix to skip)
       set_content_span(source_map, syntax_node, id, "text", None)
