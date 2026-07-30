@@ -61,16 +61,18 @@ fn[T : BTreeElem] right_boundary_keep(end_ : LeafCursor[T]) -> T? {
 }
 
 ///|
-fn[T] merge_boundary_chain(
+/// Rebuild a merged seam as a complete same-height segment. Each fresh level
+/// repairs underflow and packs overflow before the segment moves upward.
+fn[T] merge_boundary_segment(
   left_path_suffix : Array[PathFrame[T]],
   right_path_suffix : Array[PathFrame[T]],
   leaf : BTreeNode[T],
   min_degree : Int,
 ) -> Array[BTreeNode[T]] {
   if left_path_suffix.length() != right_path_suffix.length() {
-    abort("merge_boundary_chain: mismatched suffix heights")
+    abort("merge_boundary_segment: mismatched suffix heights")
   }
-  let mut current : Array[BTreeNode[T]] = [leaf]
+  let mut segment : Array[BTreeNode[T]] = [leaf]
   for i in (left_path_suffix.length() - 1)>=..0 {
     let left_frame = left_path_suffix[i]
     let right_frame = right_path_suffix[i]
@@ -78,18 +80,17 @@ fn[T] merge_boundary_chain(
     let counts : Array[Int] = []
     children.append(left_frame.children[:left_frame.child_idx])
     counts.append(left_frame.counts[:left_frame.child_idx])
-    children.append(current[:])
-    counts.append(current.map(node => node.total())[:])
+    children.append(segment[:])
+    counts.append(segment.map(node => node.total())[:])
     children.append(right_frame.children[right_frame.child_idx + 1:])
     counts.append(right_frame.counts[right_frame.child_idx + 1:])
-    // The two boundary paths and a two-node carried segment can contribute up
-    // to 4t children. Repair an
-    // underfull carried node, then preserve every balanced output node as a
-    // segment for the next ancestor instead of hiding overfull descendants.
+    // The two boundary paths and a carried segment can contribute up to 4t
+    // children. Repair underflow and preserve every balanced output node for
+    // the next ancestor rather than hiding an overfull descendant.
     repair_underfull_children(children, counts, min_degree, min_degree)
-    current = pack_level(children, min_degree)
+    segment = pack_level(children, min_degree)
   }
-  current.map(node => fix_merged_chain(node, min_degree))
+  segment
 }
 
 ///|
@@ -305,7 +306,7 @@ fn[T : BTreeElem] absorb_subtree_gap_merge(
   }
   let merged = @rle.Mergeable::merge(left_edge.elem, right_edge.elem)
   let merged_leaf = Leaf(elem=merged, span=@rle.Spanning::span(merged))
-  let merged_subtrees = merge_boundary_chain(
+  let merged_subtrees = merge_boundary_segment(
     left_edge.path,
     right_edge.path,
     merged_leaf,
@@ -336,7 +337,7 @@ fn[T : BTreeElem] promote_empty_child_gap_merge(
   }
   let merged = @rle.Mergeable::merge(left_edge.elem, right_edge.elem)
   let merged_leaf = Leaf(elem=merged, span=@rle.Spanning::span(merged))
-  let new_children = merge_boundary_chain(
+  let new_children = merge_boundary_segment(
     left_edge.path,
     right_edge.path,
     merged_leaf,
@@ -478,28 +479,23 @@ fn[T : BTreeElem] plan_delete_range(
 }
 
 ///|
-/// Post-splice boundary normalization: if the leaves at the splice boundary
-/// are mergeable, merge them and propagate the structural change.
-/// `boundary_pos` is the position where the deleted range started (after deletion,
-/// the left boundary's last leaf ends here and the right boundary's first leaf starts here).
-/// Returns the updated root node and whether a merge occurred (for leaf_delta tracking).
-fn[T : BTreeElem] normalize_boundary_merge(
+/// Merge the two logical leaves at one exact boundary on an unpublished root.
+/// Returns the updated root and the merged leaf's `[start, end)` interval, or
+/// the original root and `None` when the position is not mergeable.
+fn[T : @rle.Spanning + @rle.Mergeable] merge_boundary_once(
   root : BTreeNode[T],
   boundary_pos : Int,
   min_degree : Int,
-) -> (BTreeNode[T], Bool) {
-  // Nothing to merge at boundaries
+) -> (BTreeNode[T], (Int, Int)?) {
   guard boundary_pos > 0 && boundary_pos < root.total() else {
-    return (root, false)
+    return (root, None)
   }
-  // Descend to the leaf just before the boundary (end-boundary semantics)
   let left_cursor = descend_leaf_at_end_boundary(
     root,
     boundary_pos,
     min_degree,
     copy_on_write=true,
   )
-  // Descend to the leaf at the boundary (start semantics)
   let right_cursor = descend_leaf_at(
     root,
     boundary_pos,
@@ -508,37 +504,34 @@ fn[T : BTreeElem] normalize_boundary_merge(
   )
   match (left_cursor, right_cursor) {
     (Some(left), Some(right)) => {
-      // Check if these are different leaves
       if left.path.length() == right.path.length() &&
         shared_prefix_length(left.path, right.path) == left.path.length() {
-        // Same leaf — no boundary merge needed
-        return (root, false)
+        return (root, None)
       }
-      // Not at leaf boundaries — can't merge whole leaves
       guard left.offset == left.span && right.offset == 0 else {
-        return (root, false)
+        return (root, None)
       }
-      // Check if mergeable
       guard @rle.Mergeable::can_merge(left.elem, right.elem) else {
-        return (root, false)
+        return (root, None)
       }
-      // Merge: delete the right leaf, expand the left leaf to absorb it
+      let merged_start = boundary_pos - left.span
+      let merged_end = add_spans_or_abort(boundary_pos, right.span)
       let merged = @rle.Mergeable::merge(left.elem, right.elem)
-      let merged_span = @rle.Spanning::span(merged)
-      let merged_leaf : BTreeNode[T] = Leaf(elem=merged, span=merged_span)
+      guard @rle.Spanning::span(merged) > 0 else {
+        abort("BTree boundary merge: merged span must be positive")
+      }
+      let merged_leaf : BTreeNode[T] = Leaf(
+        elem=merged,
+        span=merged_end - merged_start,
+      )
       let lca = lowest_common_ancestor_range(left, right)
       let left_suffix = path_suffix_after_target(left.path, lca.prefix.length())
       let right_suffix = path_suffix_after_target(
         right.path,
         lca.prefix.length(),
       )
-      let merged_subtrees = merge_boundary_chain(
+      let merged_segment = merge_boundary_segment(
         left_suffix, right_suffix, merged_leaf, min_degree,
-      )
-      let removed_leaf_count = leaf_count_of_children(
-        lca.children,
-        lca.start_idx,
-        lca.end_idx,
       )
       let splice : NodeSplice[T] = {
         prefix: lca.prefix,
@@ -546,15 +539,64 @@ fn[T : BTreeElem] normalize_boundary_merge(
         counts: lca.counts,
         start_idx: lca.start_idx,
         end_idx: lca.end_idx,
-        new_children: merged_subtrees,
-        leaf_delta: leaf_count_of_array(merged_subtrees) - removed_leaf_count,
+        new_children: merged_segment,
+        leaf_delta: -1,
       }
       let result = propagate_node_splice(splice, min_degree)
       let new_root = result
         .root_candidate(min_degree, normalize_delete=false)
         .unwrap()
-      (new_root, true)
+      (new_root, Some((merged_start, merged_end)))
     }
-    _ => (root, false)
+    _ => (root, None)
   }
+}
+
+///|
+/// Normalize only the mergeable closure containing one logical boundary.
+/// Each successful merge rebuilds one pair of boundary paths, so `m` merges
+/// take `O((m + 1) log n)` work for a fixed minimum degree.
+fn[T : @rle.Spanning + @rle.Mergeable] normalize_boundary_chain(
+  root : BTreeNode[T],
+  boundary_pos : Int,
+  min_degree : Int,
+) -> (BTreeNode[T], Int) {
+  let (first_root, first_interval) = merge_boundary_once(
+    root, boundary_pos, min_degree,
+  )
+  guard first_interval is Some((first_start, first_end)) else {
+    return (root, 0)
+  }
+  let mut current = first_root
+  let mut merged_start = first_start
+  let mut merged_end = first_end
+  let mut leaf_delta = -1
+  for ;; {
+    let (left_root, left_interval) = merge_boundary_once(
+      current, merged_start, min_degree,
+    )
+    match left_interval {
+      Some((next_start, next_end)) => {
+        current = left_root
+        merged_start = next_start
+        merged_end = next_end
+        leaf_delta = leaf_delta - 1
+        continue
+      }
+      None => ()
+    }
+    let (right_root, right_interval) = merge_boundary_once(
+      current, merged_end, min_degree,
+    )
+    match right_interval {
+      Some((next_start, next_end)) => {
+        current = right_root
+        merged_start = next_start
+        merged_end = next_end
+        leaf_delta = leaf_delta - 1
+      }
+      None => break
+    }
+  }
+  (normalize_root_after_delete(current).unwrap(), leaf_delta)
 }

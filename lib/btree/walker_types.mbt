@@ -53,8 +53,9 @@ priv struct NodeSplice[T] {
 
 ///|
 /// Value snapshot passed to a leaf splice callback. It captures the current
-/// leaf and optional adjacent leaf values without exposing a live tree
-/// collection. See the README's API Contracts section.
+/// leaf and optional adjacent values from the same immediate parent without
+/// exposing a live tree collection. These values are not guaranteed logical
+/// neighbors across parent boundaries. See the README's API Contracts section.
 pub(all) struct LeafContext[T] {
   /// Current leaf value.
   elem : T
@@ -89,13 +90,15 @@ priv struct PropagateResult[T] {
 }
 
 ///|
-/// Return the adjacent left leaf value captured in this snapshot, if present.
+/// Return the left sibling leaf value captured from the immediate parent, if
+/// present. This is not a cross-parent logical predecessor lookup.
 pub fn[T] LeafContext::left_neighbor(self : LeafContext[T]) -> T? {
   self.left_elem
 }
 
 ///|
-/// Return the adjacent right leaf value captured in this snapshot, if present.
+/// Return the right sibling leaf value captured from the immediate parent, if
+/// present. This is not a cross-parent logical successor lookup.
 pub fn[T] LeafContext::right_neighbor(self : LeafContext[T]) -> T? {
   self.right_elem
 }

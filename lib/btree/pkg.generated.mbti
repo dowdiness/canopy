@@ -25,6 +25,7 @@ pub fn[T] BTree::iter(Self[T]) -> Iter[T]
 pub fn[T, R] BTree::mutate_for_delete(Self[T], Int, (LeafContext[T]) -> (Splice[T], R)) -> R?
 pub fn[T] BTree::mutate_for_insert(Self[T], Int, (LeafContext[T]) -> Splice[T]) -> Unit
 pub fn[T] BTree::new(min_degree? : Int) -> Self[T]
+pub fn[T : @rle.Spanning + @rle.Mergeable] BTree::normalize_boundary_at(Self[T], Int) -> Unit
 pub fn[T] BTree::size(Self[T]) -> Int
 pub fn[T] BTree::span(Self[T]) -> Int
 pub fn[T] BTree::to_array(Self[T]) -> Array[T]

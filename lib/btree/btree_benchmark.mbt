@@ -39,6 +39,32 @@ impl @rle.Sliceable for BItem with fn slice(self, start~ : Int, end~ : Int) -> R
 impl BTreeElem for BItem
 
 ///|
+priv struct MergeBenchItem {
+  value : Int
+  span : Int
+}
+
+///|
+impl @rle.HasLength for MergeBenchItem with fn length(self) -> Int {
+  self.span
+}
+
+///|
+impl @rle.Spanning for MergeBenchItem with fn span(self) -> Int {
+  self.span
+}
+
+///|
+impl @rle.Mergeable for MergeBenchItem with fn can_merge(self, other) -> Bool {
+  self.value == other.value
+}
+
+///|
+impl @rle.Mergeable for MergeBenchItem with fn merge(self, other) -> MergeBenchItem {
+  { value: self.value, span: self.span + other.span }
+}
+
+///|
 fn bi(v : Int) -> BItem {
   { value: v }
 }
@@ -71,6 +97,63 @@ fn build_via_from_sorted(n : Int, min_degree : Int) -> BTree[BItem] {
     items.push((bi(i), 1))
   }
   BTree::from_sorted(items, min_degree~)
+}
+
+///|
+fn build_boundary_merge_root(
+  n : Int,
+  boundary : Int,
+  variant : Int,
+  expect_cross_parent : Bool,
+) -> BTreeNode[MergeBenchItem] {
+  let merge_value = -variant - 1
+  let items = Array::makei(n, i => {
+    let value = if i == boundary - 1 || i == boundary {
+      merge_value
+    } else {
+      variant * n + i + 1
+    }
+    let item : MergeBenchItem = { value, span: 1 }
+    (item, 1)
+  })
+  let t : BTree[MergeBenchItem] = BTree::from_sorted(items, min_degree=10)
+  let root = t.root.unwrap()
+  let left = descend_leaf_at_end_boundary(
+    root,
+    boundary,
+    10,
+    copy_on_write=false,
+  ).unwrap()
+  let right = descend_leaf_at(root, boundary, 10, copy_on_write=false).unwrap()
+  let is_cross_parent = left.path.length() == right.path.length() &&
+    left.path.length() > 0 &&
+    shared_prefix_length(left.path, right.path) < left.path.length() - 1
+  guard is_cross_parent == expect_cross_parent else {
+    abort("boundary merge benchmark topology drifted")
+  }
+  root
+}
+
+///|
+fn bench_boundary_merge(
+  b : @bench.T,
+  n : Int,
+  boundary : Int,
+  expect_cross_parent : Bool,
+) -> Unit {
+  let roots = Array::makei(8, variant => {
+    build_boundary_merge_root(n, boundary, variant, expect_cross_parent)
+  })
+  let mut variant = 0
+  b.bench(fn() {
+    let (root, leaf_delta) = normalize_boundary_chain(
+      roots[variant],
+      boundary,
+      10,
+    )
+    variant = (variant + 1) % roots.length()
+    b.keep(if leaf_delta < 0 { root.total() } else { -1 })
+  })
 }
 
 // === 100 elements ===
@@ -145,4 +228,26 @@ test "bench: delete_range middle 50% (10000)" (b : @bench.T) {
     t.delete_range(2500, 7500)
     b.keep(t.span())
   })
+}
+
+// === isolated boundary merge ===
+
+///|
+test "bench: boundary merge cross-parent (401)" (b : @bench.T) {
+  bench_boundary_merge(b, 401, 200, true)
+}
+
+///|
+test "bench: boundary merge same-parent (401)" (b : @bench.T) {
+  bench_boundary_merge(b, 401, 201, false)
+}
+
+///|
+test "bench: boundary merge cross-parent (8001)" (b : @bench.T) {
+  bench_boundary_merge(b, 8001, 4000, true)
+}
+
+///|
+test "bench: boundary merge same-parent (8001)" (b : @bench.T) {
+  bench_boundary_merge(b, 8001, 4001, false)
 }

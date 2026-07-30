@@ -162,10 +162,10 @@ fn[T] fix_left_border(node : BTreeNode[T], min_degree : Int) -> BTreeNode[T] {
 }
 
 ///|
-/// Fix any underfull child in a merged boundary chain subtree.
+/// Fix any underfull child in a merged boundary segment.
 /// Unlike fix_left/right_border which only walk one edge, this scans
-/// all children at each level. Used for merge_boundary_chain output
-/// where the underfull node can be at an interior position.
+/// all children at each level. Used for merged-segment output where the
+/// underfull node can be at an interior position.
 ///
 /// Top-down: at each level, find any underfull child, stock it to
 /// `target_child_count` via merge-or-bulk-steal, then recurse into the result.
