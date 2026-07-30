@@ -22,7 +22,7 @@ The main gating workflow. Job names match the file:
 
 | Job | What it runs |
 |-----|--------------|
-| `dep-check` | `./scripts/check-deps.sh` (module-scope rules [A]–[E] + canopy package-layering rules [F]–[I]; the rules table lives in the script header), `./scripts/check-shared-substrate.sh`, `./scripts/check-egw-resolver-identity.sh`, `./scripts/check-moon-update-wrapped.sh`, `node ./scripts/check-export-manifest.mjs`, `./scripts/test-moon-update-wrapper.sh` |
+| `dep-check` | `./scripts/check-deps.sh` (module-scope rules [A]–[E] + canopy package-layering rules [F]–[I]; the rules table lives in the script header), `./scripts/check-shared-substrate.sh`, `./scripts/check-egw-resolver-identity.sh`, `./scripts/check-moon-update-wrapped.sh`, `node ./scripts/check-export-manifest.mjs`, `./scripts/test-moon-update-wrapper.sh`, `./scripts/test-pr-ready-validation.sh` |
 | `test-main` | `./scripts/update-moon-deps.sh`, `./scripts/check-agent-doc-links.sh`, `./scripts/run-moon-module.sh check .`, `./scripts/run-moon-module.sh test .`, `moon build --release` |
 | `test-submodules` | Matrix over `event-graph-walker`, `loom/loom`, `svg-dsl`, `graphviz` — each runs `./scripts/run-moon-module.sh ci <path>` |
 | `test-examples` | Matrix over `examples/ideal`, `examples/block-editor`, `examples/canvas` — each runs `./scripts/run-moon-module.sh ci <path>` |
@@ -126,6 +126,31 @@ make update                # moon update across root + maintained submodules
 The shared module helper is `./scripts/run-moon-module.sh <subcommand> <path>`
 where `<subcommand>` is `check`, `test`, `ci`, `fmt-check`, or `bench`. It
 validates that `<path>` is a real MoonBit module before invoking `moon`.
+
+### PR-ready validation
+
+After the targeted edit loop and independent review are complete, commit the
+candidate result and run the ordered local gate on that clean HEAD:
+
+```sh
+git fetch origin main
+./scripts/validate-pr-ready.sh --target lang/markdown/proj --target lang/markdown/edits
+./scripts/validate-pr-ready.sh --verify-evidence
+```
+
+Use `--no-target "<reason>"` instead of `--target` only when no MoonBit package
+is affected. `--list` takes the same target policy and prints the stable phase
+order without executing it. The validator checks that HEAD contains the fetched
+base, fetches and prunes each submodule origin before checking gitlink
+reachability, verifies dependency identity, checks Canopy-owned formatting and
+generated interfaces, runs targeted and full release gates, builds JavaScript,
+and records the validated HEAD, base, and target policy in an ignored,
+worktree-local `_build` file.
+
+Any commit, amend, rebase, cherry-pick, submodule-pointer, manifest, or generated
+interface change makes that evidence stale. Rerun the full validator before
+opening or updating the PR. This local gate deliberately does not replace the
+required CI matrix.
 
 ## Pre-commit hook
 

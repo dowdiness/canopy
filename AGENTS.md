@@ -132,6 +132,38 @@ Hooks enforce `moon check` after every edit and `moon fmt && moon info` before c
 
 <!-- textlint-enable slopless/word-repetition -->
 
+### Required Implementation Order
+
+For implementation PRs, use this order so validation evidence belongs to the
+exact commit that is reviewed:
+
+1. `git fetch origin main`, then create or update a dedicated worktree so its
+   HEAD contains the current `origin/main`.
+2. Initialize submodules recursively and verify their recorded commits,
+   configured-origin reachability, and dependency/version identity before
+   changing behavior. Push changed submodule commits before the parent PR.
+3. Write the behavioral boundary matrix, then add the first failing test. For
+   Markdown stabilization, cover syntax form (ATX, Setext, multiline,
+   indented), terminator (LF, CRLF, CR, EOF), operation (span projection,
+   commit, conversion), and ownership context (top level, container,
+   explicitly unsupported).
+4. Keep the edit loop scoped to affected packages: failing test, implementation,
+   targeted check, targeted release test.
+5. Run independent review in parallel after the targeted loop is green; resolve
+   findings before final validation.
+6. Commit the candidate result, then run the final gate on that clean HEAD:
+   `./scripts/validate-pr-ready.sh --target <package-path>`. Repeat `--target`
+   for each affected MoonBit package. For changes with no MoonBit package,
+   provide `--no-target "<reason>"` instead.
+7. Immediately before opening or updating the PR, run
+   `./scripts/validate-pr-ready.sh --verify-evidence` and copy its HEAD/base
+   evidence into the PR description.
+
+Do not open a PR until the final gate succeeds on the current HEAD. A commit,
+amend, rebase, cherry-pick, submodule-pointer change, manifest change, or
+generated-interface change invalidates earlier evidence; rerun the full gate.
+The validator is a local preflight and does not replace required GitHub CI.
+
 ### Existing API First Rule
 
 Before defining any new function, method, helper, or type in this repository:

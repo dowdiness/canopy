@@ -29,17 +29,38 @@ New helpers added (if any):
 
 <!-- list any new helper names here and explain why each doesn't duplicate an existing API -->
 
-## Test plan
+## Validation scope
 
 <!-- Prefer behavior, state, and explicit readiness signals. Avoid fixed waits and brittle pixel assertions unless the exact value is an intended contract. -->
 
-- [ ] `NEW_MOON_MOD=0 moon check` passes
-- [ ] `NEW_MOON_MOD=0 moon test` passes
-- [ ] `git diff *.mbti` reviewed for unintended API surface changes
-- [ ] JS rebuild run if web is affected (`cd examples/web && npm run build`)
+Boundary matrix / first failing regression:
 
-## Validation
+<!-- List the behavior boundaries covered, or explain why no matrix applies. -->
+
+Target packages:
+
+<!-- List each --target path, or the exact --no-target reason. -->
+
+Additional conditional gates:
+
+<!-- Proof, browser E2E, or other checks not covered by the standard gate. -->
+
+## PR-ready evidence
+
+Validated HEAD: `<40-character SHA>`
+
+Validated base: `origin/main@<40-character SHA>`
 
 ```bash
-NEW_MOON_MOD=0 moon check && NEW_MOON_MOD=0 moon test
+./scripts/validate-pr-ready.sh --target <package-path>
+./scripts/validate-pr-ready.sh --verify-evidence
 ```
+
+- [ ] The full validator passed for the exact HEAD and base above.
+- [ ] `--verify-evidence` passed immediately before this PR was opened or updated.
+- [ ] The committed `.mbti` diff against the validated base was reviewed for
+      unintended API or trait-bound changes.
+- [ ] Any changed submodule commit is pushed and reachable from its remote.
+- [ ] Validation was rerun after every commit, amend, rebase, cherry-pick,
+      submodule-pointer, manifest, or generated-interface change.
+- [ ] Independent review findings were resolved before the final validation.

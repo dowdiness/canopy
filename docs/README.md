@@ -183,6 +183,9 @@ behavior** — check the code before relying on any specific detail.
 - [Completed EGW companion and Canopy compatibility migration](archive/2026-07-22-egw-companion-canopy-migration.md)
   — records EGW v0.5 publication, dependency convergence, Tier 1 preservation,
   and the protocol v3 hard cut; runtime extraction remains active follow-up.
+- [Completed agent PR-ready validation order](archive/2026-07-30-agent-pr-ready-validation.md)
+  — fixes the implementation sequence, fail-fast local gate, and current-HEAD
+  evidence contract used before opening or updating a PR.
 - [Investigation Index](archive/INVESTIGATION_INDEX.md) — earlier investigations.
 - [Branch Variance Investigations](archive/investigations/branch-variance/) —
   historical perf investigations.

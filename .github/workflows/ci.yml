@@ -44,6 +44,9 @@ jobs:
       - name: Test moon update retry wrapper
         run: ./scripts/test-moon-update-wrapper.sh
 
+      - name: Test PR-ready validation contract
+        run: ./scripts/test-pr-ready-validation.sh
+
   changes:
     name: Change Detection
     runs-on: ubuntu-latest
