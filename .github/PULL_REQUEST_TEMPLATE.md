@@ -52,12 +52,15 @@ Validated HEAD: `<40-character SHA>`
 Validated base: `origin/main@<40-character SHA>`
 
 ```bash
+git fetch origin main
 ./scripts/validate-pr-ready.sh --target <package-path>
+git fetch origin main
 ./scripts/validate-pr-ready.sh --verify-evidence
 ```
 
 - [ ] The full validator passed for the exact HEAD and base above.
-- [ ] `--verify-evidence` passed immediately before this PR was opened or updated.
+- [ ] The base was fetched again and `--verify-evidence` passed immediately
+      before this PR was opened, updated, or merged.
 - [ ] The committed `.mbti` diff against the validated base was reviewed for
       unintended API or trait-bound changes.
 - [ ] Any changed submodule commit is pushed and reachable from its remote.

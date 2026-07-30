@@ -151,18 +151,22 @@ exact commit that is reviewed:
    targeted check, targeted release test.
 5. Run independent review in parallel after the targeted loop is green; resolve
    findings before final validation.
-6. Commit the candidate result, then run the final gate on that clean HEAD:
+6. Fetch `origin/main` again. If HEAD no longer contains it, sync the branch and
+   repeat the affected targeted checks and review. Commit the candidate result,
+   then run the final gate on that clean HEAD:
    `./scripts/validate-pr-ready.sh --target <package-path>`. Repeat `--target`
    for each affected MoonBit package. For changes with no MoonBit package,
    provide `--no-target "<reason>"` instead.
-7. Immediately before opening or updating the PR, run
-   `./scripts/validate-pr-ready.sh --verify-evidence` and copy its HEAD/base
-   evidence into the PR description.
+7. Immediately before opening, updating, or merging the PR, fetch `origin/main`
+   once more and run `./scripts/validate-pr-ready.sh --verify-evidence`. If the
+   base moved, repeat step 6; otherwise copy the HEAD/base evidence into the PR
+   description.
 
 Do not open a PR until the final gate succeeds on the current HEAD. A commit,
 amend, rebase, cherry-pick, submodule-pointer change, manifest change, or
-generated-interface change invalidates earlier evidence; rerun the full gate.
-The validator is a local preflight and does not replace required GitHub CI.
+generated-interface change, or fetched base-ref movement invalidates earlier
+evidence; rerun the full gate. The validator is a local preflight and does not
+replace required GitHub CI.
 
 ### Existing API First Rule
 

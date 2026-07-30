@@ -57,6 +57,7 @@ jobs:
       run_prove: ${{ steps.filter.outputs.run_prove }}
       run_e2e: ${{ steps.filter.outputs.run_e2e }}
       run_cm6_adapter_e2e: ${{ steps.filter.outputs.run_cm6_adapter_e2e }}
+      run_pr_ready_bash3: ${{ steps.filter.outputs.run_pr_ready_bash3 }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -82,6 +83,45 @@ jobs:
               - '.github/workflows/ci.yml'
               - 'scripts/build-js.sh'
               - 'scripts/test-*.sh'
+            run_pr_ready_bash3:
+              - 'scripts/**'
+              - '.github/workflows/ci.yml'
+
+  pr-ready-bash3:
+    name: PR-ready Bash 3.2 Contract
+    needs: changes
+    if: needs.changes.outputs.run_pr_ready_bash3 == 'true'
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+
+      - name: Test the system Bash 3.2 contract
+        shell: /bin/bash --noprofile --norc -eo pipefail {0}
+        run: |
+          if [ "${BASH_VERSINFO[0]}" -ne 3 ] || \
+             [ "${BASH_VERSINFO[1]}" -ne 2 ]; then
+            echo "error: expected /bin/bash 3.2, got ${BASH_VERSION}" >&2
+            exit 1
+          fi
+
+          bash32_bin="${RUNNER_TEMP}/canopy-bash32-bin"
+          mkdir -p "$bash32_bin"
+          ln -s /bin/bash "$bash32_bin/bash"
+
+          PATH="$bash32_bin:$PATH" \
+            /bin/bash ./scripts/check-moon-update-wrapped.sh
+          PATH="$bash32_bin:$PATH" \
+            /bin/bash ./scripts/test-pr-ready-validation.sh
+          PATH="$bash32_bin:$PATH" \
+            /bin/bash ./scripts/test-pr-ready-bash32.sh
 
   test-main:
     name: Test Main Module
@@ -714,6 +754,7 @@ jobs:
     needs:
       - dep-check
       - changes
+      - pr-ready-bash3
       - test-main
       - test-submodules
       - test-examples
@@ -735,6 +776,7 @@ jobs:
           ok() { [[ "$1" == "success" || "$1" == "skipped" ]]; }
           if ! ok "${{ needs.dep-check.result }}" || \
              ! ok "${{ needs.changes.result }}" || \
+             ! ok "${{ needs.pr-ready-bash3.result }}" || \
              ! ok "${{ needs.test-main.result }}" || \
              ! ok "${{ needs.test-submodules.result }}" || \
              ! ok "${{ needs.test-examples.result }}" || \

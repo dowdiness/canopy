@@ -19,11 +19,23 @@ cd "$root_dir"
 # build-deploy.sh ran bare `moon update` undetected. Markdown/source/config are
 # excluded by the allowlist (they only mention the command in prose). The wrapper
 # itself is the one legitimate `moon update` caller, so exclude it.
-mapfile -t files < <(
+# Seed the array because Bash 3.2 treats a declared-but-empty array as unbound
+# under `set -u`. Each discovered path overwrites or extends the seed.
+files=("")
+file_count=0
+while IFS= read -r file; do
+  files[file_count]="$file"
+  file_count=$((file_count + 1))
+done < <(
   git ls-files |
     grep -E '(\.(ya?ml|sh|bash|zsh|mk)$)|(^|/)(Makefile|justfile|Taskfile[^/]*)$' |
     grep -vx 'scripts/moon-update.sh'
 )
+
+if [ "$file_count" -eq 0 ]; then
+  echo "error: no command-bearing tracked files found" >&2
+  exit 1
+fi
 
 # `moon-update.sh` (hyphen) never matches `moon update` (space), so the wrapper's
 # own call is ignored for free. Match only command-position `moon update` so that

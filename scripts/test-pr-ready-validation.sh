@@ -155,11 +155,92 @@ printf '_build/\n' >"$fixture/.gitignore"
 git -C "$fixture" init --quiet --initial-branch=main
 git -C "$fixture" config user.email "pr-ready-test@example.invalid"
 git -C "$fixture" config user.name "PR Ready Test"
+
+submodule_origin="$tmp_dir/submodule-origin.git"
+submodule_seed="$tmp_dir/submodule-seed"
+git init --quiet --bare --initial-branch=main "$submodule_origin"
+git init --quiet --initial-branch=main "$submodule_seed"
+git -C "$submodule_seed" config user.email "pr-ready-test@example.invalid"
+git -C "$submodule_seed" config user.name "PR Ready Test"
+printf 'reachable\n' >"$submodule_seed/state.txt"
+git -C "$submodule_seed" add state.txt
+git -C "$submodule_seed" commit --quiet -m "reachable submodule commit"
+git -C "$submodule_seed" remote add origin "$submodule_origin"
+git -C "$submodule_seed" push --quiet --set-upstream origin main
+git -c protocol.file.allow=always -C "$fixture" submodule add --quiet \
+  "$submodule_origin" vendor/test-submodule
+git -C "$fixture/vendor/test-submodule" config protocol.file.allow always
+git -C "$fixture/vendor/test-submodule" config \
+  user.email "pr-ready-test@example.invalid"
+git -C "$fixture/vendor/test-submodule" config user.name "PR Ready Test"
+
 git -C "$fixture" add .
 git -C "$fixture" commit --quiet -m "fixture base"
 git -C "$fixture" tag fixture-base
 git -C "$fixture" switch --quiet -c feature
 git -C "$fixture" commit --quiet --allow-empty -m "fixture feature"
+
+fake_moon_update_guard="$tmp_dir/fake-check-moon-update-wrapped.sh"
+cp "$fixture/scripts/check-moon-update-wrapped.sh" "$fake_moon_update_guard"
+cp "$root_dir/scripts/check-moon-update-wrapped.sh" \
+  "$fixture/scripts/check-moon-update-wrapped.sh"
+git -C "$fixture" add scripts/check-moon-update-wrapped.sh
+git -C "$fixture" commit --quiet -m "exercise the real moon update guard"
+
+bash32_output="$tmp_dir/bash32-output"
+if ! (
+  # Bash 3.2 has no mapfile builtin. Exporting a failing function with that name
+  # gives newer Bash versions the same observable command boundary. The
+  # validator's child Bash process invokes this exported function.
+  # shellcheck disable=SC2329
+  mapfile() { return 127; }
+  export -f mapfile
+  PATH="$fake_bin:$PATH" \
+    PR_READY_TEST_LOG="$execution_log" \
+    "$fixture/scripts/validate-pr-ready.sh" \
+      --base fixture-base \
+      --no-target "Bash 3.2 compatibility probe"
+) >"$bash32_output" 2>&1; then
+  fail "public validator did not complete without the Bash 4 mapfile builtin"
+fi
+grep -q "PR-ready validation passed" "$bash32_output" ||
+  fail "Bash 3.2 compatibility probe did not complete the public CLI"
+grep -q "validated-no-target=Bash 3.2 compatibility probe" "$bash32_output" ||
+  fail "Bash 3.2 compatibility probe did not record its scope"
+
+cp "$fake_moon_update_guard" "$fixture/scripts/check-moon-update-wrapped.sh"
+git -C "$fixture" add scripts/check-moon-update-wrapped.sh
+git -C "$fixture" commit --quiet -m "restore the fake moon update guard"
+
+printf 'not pushed\n' >"$fixture/vendor/test-submodule/state.txt"
+git -C "$fixture/vendor/test-submodule" add state.txt
+git -C "$fixture/vendor/test-submodule" commit --quiet \
+  -m "unpushed submodule commit"
+git -C "$fixture" add vendor/test-submodule
+git -C "$fixture" commit --quiet -m "record the unpushed submodule commit"
+
+: >"$execution_log"
+unpushed_output="$tmp_dir/unpushed-submodule-output"
+if PATH="$fake_bin:$PATH" \
+  PR_READY_TEST_LOG="$execution_log" \
+  "$fixture/scripts/validate-pr-ready.sh" \
+    --base fixture-base \
+    --target pkg >"$unpushed_output" 2>&1; then
+  fail "unpushed submodule commit unexpectedly passed"
+fi
+grep -q "submodule commit is not reachable from origin" "$unpushed_output" ||
+  fail "unpushed submodule diagnostic was not actionable"
+if [ -s "$execution_log" ]; then
+  fail "unpushed submodule failure ran dependency commands"
+fi
+if "$fixture/scripts/validate-pr-ready.sh" \
+  --verify-evidence >"$tmp_dir/unpushed-evidence-output" 2>&1; then
+  fail "unpushed submodule failure unexpectedly preserved evidence"
+fi
+grep -q "evidence is missing" "$tmp_dir/unpushed-evidence-output" ||
+  fail "unpushed submodule failure did not invalidate earlier evidence"
+
+git -C "$fixture/vendor/test-submodule" push --quiet origin HEAD:main
 
 PATH="$fake_bin:$PATH" \
   PR_READY_TEST_LOG="$execution_log" \
@@ -212,6 +293,43 @@ grep -q "validated-head=$validated_head" "$tmp_dir/verified-output" ||
   fail "evidence verification did not report the validated HEAD"
 grep -q "validated-target=pkg" "$tmp_dir/verified-output" ||
   fail "evidence verification did not report the validated target"
+
+submodule_origin_url="$(
+  git -C "$fixture/vendor/test-submodule" remote get-url origin
+)"
+git -C "$fixture/vendor/test-submodule" remote set-url origin \
+  "$tmp_dir/missing-submodule-origin.git"
+: >"$execution_log"
+fetch_failure_output="$tmp_dir/submodule-fetch-failure-output"
+if PATH="$fake_bin:$PATH" \
+  PR_READY_TEST_LOG="$execution_log" \
+  "$fixture/scripts/validate-pr-ready.sh" \
+    --base fixture-base \
+    --target pkg >"$fetch_failure_output" 2>&1; then
+  fail "submodule fetch failure unexpectedly passed"
+fi
+grep -q "could not fetch submodule origin" "$fetch_failure_output" ||
+  fail "submodule fetch failure diagnostic was not actionable"
+if [ -s "$execution_log" ]; then
+  fail "submodule fetch failure ran dependency commands"
+fi
+if "$fixture/scripts/validate-pr-ready.sh" \
+  --verify-evidence >"$tmp_dir/fetch-failure-evidence-output" 2>&1; then
+  fail "submodule fetch failure unexpectedly preserved evidence"
+fi
+grep -q "evidence is missing" "$tmp_dir/fetch-failure-evidence-output" ||
+  fail "submodule fetch failure did not invalidate earlier evidence"
+
+git -C "$fixture/vendor/test-submodule" remote set-url origin \
+  "$submodule_origin_url"
+: >"$execution_log"
+PATH="$fake_bin:$PATH" \
+  PR_READY_TEST_LOG="$execution_log" \
+  "$fixture/scripts/validate-pr-ready.sh" \
+    --base fixture-base \
+    --target pkg >"$tmp_dir/restored-submodule-success-output"
+"$fixture/scripts/validate-pr-ready.sh" \
+  --verify-evidence >"$tmp_dir/restored-submodule-evidence-output"
 
 if "$fixture/scripts/validate-pr-ready.sh" \
   --verify-evidence \

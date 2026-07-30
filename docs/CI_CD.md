@@ -23,6 +23,7 @@ The main gating workflow. Job names match the file:
 | Job | What it runs |
 |-----|--------------|
 | `dep-check` | `./scripts/check-deps.sh` (module-scope rules [A]–[E] + canopy package-layering rules [F]–[I]; the rules table lives in the script header), `./scripts/check-shared-substrate.sh`, `./scripts/check-egw-resolver-identity.sh`, `./scripts/check-moon-update-wrapped.sh`, `node ./scripts/check-export-manifest.mjs`, `./scripts/test-moon-update-wrapper.sh`, `./scripts/test-pr-ready-validation.sh` |
+| `pr-ready-bash3` | Path-filtered macOS check that asserts `/bin/bash` 3.2, exercises local submodule failures, and runs the real PR-ready shell graph with only compiler work faked |
 | `test-main` | `./scripts/update-moon-deps.sh`, `./scripts/check-agent-doc-links.sh`, `./scripts/run-moon-module.sh check .`, `./scripts/run-moon-module.sh test .`, `moon build --release` |
 | `test-submodules` | Matrix over `event-graph-walker`, `loom/loom`, `svg-dsl`, `graphviz` — each runs `./scripts/run-moon-module.sh ci <path>` |
 | `test-examples` | Matrix over `examples/ideal`, `examples/block-editor`, `examples/canvas` — each runs `./scripts/run-moon-module.sh ci <path>` |
@@ -148,9 +149,16 @@ and records the validated HEAD, base, and target policy in an ignored,
 worktree-local `_build` file.
 
 Any commit, amend, rebase, cherry-pick, submodule-pointer, manifest, or generated
-interface change makes that evidence stale. Rerun the full validator before
-opening or updating the PR. This local gate deliberately does not replace the
-required CI matrix.
+interface change, or movement of the fetched base ref makes that evidence stale.
+Fetch the base again immediately before `--verify-evidence`; if it moved, sync
+the branch and rerun the full validator before opening, updating, or merging the
+PR. This local gate deliberately does not replace the required CI matrix.
+
+When `scripts/**` or `ci.yml` changes, the path-filtered `pr-ready-bash3` job
+asserts that the macOS system `/bin/bash` is 3.2, runs the CLI fixture contract,
+and executes the real downstream shell graph with a fake `moon` compiler. It
+verifies orchestration portability only; it does not claim macOS parity for
+MoonBit, JavaScript, proof, or browser gates.
 
 ## Pre-commit hook
 
@@ -162,10 +170,10 @@ on push.
 
 ## Adding new gating checks
 
-Add the job to `ci.yml`, then add its name to the `needs:` list under
-`all-checks-passed`. The aggregation gate verifies each named job's
-`.result == "success"`, so a missing entry there silently lets failures
-through.
+Add the job to `ci.yml`, then add its name to the `needs:` list and status
+predicate under `all-checks-passed`. The aggregation gate accepts `success` or
+an intentional path-filtered `skipped`; a missing entry there silently lets
+failures through.
 
 ## Troubleshooting
 
