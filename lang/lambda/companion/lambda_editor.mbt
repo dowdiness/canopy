@@ -163,6 +163,7 @@ pub fn new_lambda_editor(
     None,
   )
   let source_map_memo_ref : Ref[@incr.Derived[@core.SourceMap]?] = Ref(None)
+  let parser_ref : Ref[@loom.Parser[@ast.Term]?] = Ref(None)
   // Shared structural-edit hint channel: apply_lambda_tree_edit pushes hints
   // here via apply_span_edits; the reconcile closure in build_lambda_projection_memos
   // consumes+clears it once per reparse (T4).
@@ -173,6 +174,7 @@ pub fn new_lambda_editor(
       @loom.new_parser(source_id, source, @parser.lambda_grammar, runtime?)
     },
     fn(parser) {
+      parser_ref.val = Some(parser)
       let (cached_proj_node, registry_memo, source_map_memo) = @lambda_proj.build_lambda_projection_memos(
         parser,
         identity_hints=hints_ref,
@@ -192,7 +194,8 @@ pub fn new_lambda_editor(
     capture_timeout_ms~,
     parent_runtime?,
     capabilities=build_lambda_capabilities(
-      cached_proj_node_ref, source_map_memo_ref, escalation_memo_ref, analysis_projection,
+      cached_proj_node_ref, source_map_memo_ref, escalation_memo_ref, parser_ref,
+      analysis_projection,
     ),
     identity_hints=hints_ref,
   )
@@ -211,6 +214,7 @@ fn build_lambda_capabilities(
   cached_proj_node_ref : Ref[@incr.Derived[@core.ProjNode[@ast.Term]?]?],
   source_map_memo_ref : Ref[@incr.Derived[@core.SourceMap]?],
   escalation_memo_ref : Ref[@incr.Derived[Array[@lambda_eval.EvalResult]]?],
+  parser_ref : Ref[@loom.Parser[@ast.Term]?],
   analysis_projection : AnalysisProjection,
 ) -> @editor.LanguageCapabilities[@ast.Term] {
   @editor.LanguageCapabilities::new(
@@ -251,6 +255,30 @@ fn build_lambda_capabilities(
         _ => []
       }
       analysis_projection.decorations(semantic_decorations)
+    }),
+    get_diagnostics=Some(fn() {
+      guard parser_ref.val is Some(parser) else { return None }
+      let snapshot = parser.snapshot().read_or_abort()
+      guard cached_proj_node_ref.val is Some(cached_proj_memo) else {
+        return None
+      }
+      guard cached_proj_memo.read_or_abort() is Some(root) else { return None }
+      guard source_map_memo_ref.val is Some(source_map_memo) else {
+        return None
+      }
+      Some(
+        (
+          snapshot.source,
+          @lambda_semantic.build_semantic_diagnostics(
+            parser.source_id(),
+            snapshot.source,
+            root,
+            source_map_memo.read_or_abort(),
+          ),
+        ),
+      ) catch {
+        _ => None
+      }
     }),
     pretty_post_process=Some(fn(layout) {
       let eval_results = match escalation_memo_ref.val {

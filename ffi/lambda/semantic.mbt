@@ -18,8 +18,22 @@ fn semantic_node_allows_rename(
 }
 
 ///|
+fn semantic_projection_json(
+  projection : @lambda_semantic.SemanticProjection,
+  diagnostics : Array[@protocol.Diagnostic],
+) -> String {
+  guard projection.to_json() is Json::Object(fields) else {
+    abort("SemanticProjection must serialize to an object")
+  }
+  fields["diagnostics"] = Json::array(
+    diagnostics.map(diagnostic => diagnostic.to_json()),
+  )
+  Json::object(fields).stringify()
+}
+
+///|
 fn empty_semantic_projection_json() -> String {
-  @lambda_semantic.SemanticProjection::empty().to_json().stringify()
+  semantic_projection_json(@lambda_semantic.SemanticProjection::empty(), [])
 }
 
 ///|
@@ -47,9 +61,32 @@ pub fn get_semantic_projection_json(handle : Int) -> String {
           return empty_semantic_projection_json()
         }
       }
-      @lambda_semantic.build_semantic_projection(root, source_map)
-      .to_json()
-      .stringify()
+      let source = match
+        coordinator.read_protected(h.editor_id, h.cells.parser_source) {
+        Ok(source) => source
+        Err(report) => {
+          println("get_semantic_projection_json source read: \{report}")
+          return empty_semantic_projection_json()
+        }
+      }
+      let projection = @lambda_semantic.build_semantic_projection(
+        root, source_map,
+      )
+      let diagnostics = @lambda_semantic.build_semantic_diagnostics(
+        h.editor.parser_source_id(),
+        source,
+        root,
+        source_map,
+      ) catch {
+        _ => @loom.DiagnosticSet::empty()
+      }
+      semantic_projection_json(
+        projection,
+        @editor.project_diagnostics_for_source(
+          h.editor.parser_source_id(),
+          diagnostics,
+        ),
+      )
     }
     None => empty_semantic_projection_json()
   }

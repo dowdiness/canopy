@@ -8,8 +8,8 @@
 /// shared word — see the note's naming-discipline aside (§5).
 ///
 /// - `name`: the unresolved reference's identifier.
-/// - `location`: the reference's source span when recorded; `None` when the
-///   `SourceMap` holds no range for the node (nothing to draw). Diagnostic
+/// - `location`: the reference identifier's exact token span when recorded;
+///   `None` when the `SourceMap` holds no reference-name token span (nothing to draw). Diagnostic
 ///   consumers filter on `location is Some(_)`; impact-query consumers want the
 ///   whole set.
 /// - `witness`: the scopes searched and found NOT to contain `name`
@@ -34,7 +34,7 @@ fn ReachableFailure::ReachableFailure(
 /// Derived view over the scope graph: every unresolved (free) reference,
 /// surfaced as a witnessed `ReachableFailure`. The failure predicate is
 /// `resolution.decl is None`; the witness is `resolution.visited_scopes`; the
-/// location is the reference node's recorded source span.
+/// location is the reference identifier's recorded token span.
 ///
 /// Total over the graph's refs: this is the failure SET that feeds both the
 /// free-variable diagnostic (research note §6 Step 1, which it now sources) and
@@ -49,7 +49,10 @@ pub fn failures(
     for r in g.refs if r.resolution.decl is None => {
       ReachableFailure(
         name=r.name,
-        location=source_map.get_range(r.node_id),
+        location=source_map.get_token_span(
+          r.node_id,
+          @lambda_proj.REFERENCE_NAME_ROLE,
+        ),
         witness=r.resolution.visited_scopes,
       )
     }

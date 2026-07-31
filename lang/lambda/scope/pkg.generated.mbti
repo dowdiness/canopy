@@ -50,6 +50,8 @@ pub fn scope_binder_ui_key(Decl) -> @dowdiness/canopy/core.NodeId
 
 pub fn scope_for_node(ScopeGraph, @dowdiness/canopy/core.NodeId) -> ScopeId?
 
+pub fn scope_span(ScopeGraph, ScopeId, @dowdiness/canopy/core.SourceMap) -> @dowdiness/loom/core.Range?
+
 // Errors
 
 // Types and methods
@@ -99,6 +101,7 @@ pub(all) struct Scope {
   parent : ScopeId?
   decl_ids : Array[DeclId]
   ref_ids : Array[RefId]
+  // private fields
 } derive(@debug.Debug)
 
 pub struct ScopeAnnotation {

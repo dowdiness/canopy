@@ -15,6 +15,33 @@ test "failures: free variable is surfaced with a populated witness" {
 }
 
 ///|
+test "failures: parenthesized free variable uses exact identifier token" {
+  let (_proj, registry, source_map) = build_fixture("((free))")
+  let g = build(registry, source_map)
+  let fs = failures(g, source_map)
+  guard fs[0].location is Some(location) else {
+    fail("expected exact reference location")
+  }
+  inspect(location.start, content="2")
+  inspect(location.end, content="6")
+}
+
+///|
+test "scope_span: every unresolved witness resolves through its owner node" {
+  let (_proj, registry, source_map) = build_fixture("(x) => { let y = 1; z }")
+  let g = build(registry, source_map)
+  let fs = failures(g, source_map)
+  inspect(fs.length(), content="1")
+  inspect(fs[0].witness.length() >= 2, content="true")
+  inspect(
+    fs[0].witness
+    .iter()
+    .all(scope => scope_span(g, scope, source_map) is Some(_)),
+    content="true",
+  )
+}
+
+///|
 test "failures: a fully-resolved program has no failures" {
   let (_proj, registry, source_map) = build_fixture(
     "let x = 1\nlet y = x\nx + y",

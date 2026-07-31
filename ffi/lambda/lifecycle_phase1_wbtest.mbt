@@ -163,7 +163,7 @@ test "workstream 3: get_semantic_projection_json collapses to empty after coordi
   reset_coordinator_for_phase1_tests()
   let handle = create_editor("semantic_projection_coord_destroy_agent")
   set_text(handle, "let x = 1\nx")
-  let empty = @lambda_semantic.SemanticProjection::empty().to_json().stringify()
+  let empty = empty_semantic_projection_json()
   let alive_json = get_semantic_projection_json(handle)
   if alive_json == empty {
     fail("expected live semantic projection JSON before coordinator destroy")

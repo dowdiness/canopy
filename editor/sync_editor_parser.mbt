@@ -133,6 +133,14 @@ pub fn[T] SyncEditor::parser_source_id(
 }
 
 ///|
+/// Reactive view of the parser's complete coherent snapshot.
+pub fn[T] SyncEditor::parser_snapshot(
+  self : SyncEditor[T],
+) -> @incr.Derived[@loom.ParseSnapshot[T]] {
+  self.parser.snapshot()
+}
+
+///|
 /// Reactive view of the parser's recovered CST. Tracked when `.get_or_abort()`
 /// inside a memo closure.
 pub fn[T] SyncEditor::parser_syntax_tree(

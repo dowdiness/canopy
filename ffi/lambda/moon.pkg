@@ -8,6 +8,7 @@ import {
   "dowdiness/canopy/lang/lambda/eval" @lambda_eval,
   "dowdiness/canopy/lang/lambda/semantic" @lambda_semantic,
   "dowdiness/canopy/llm",
+  "dowdiness/canopy/protocol",
   "dowdiness/canopy/relay",
   "dowdiness/canopy/core",
   "dowdiness/canopy/workspace/coordinator" @workspace,

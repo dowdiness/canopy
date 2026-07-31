@@ -26,7 +26,11 @@ test "Lambda missing-else fix applies through revision-bound FFI and clears" {
   inspect(handle_diagnostic_fix_intent(handle, 0, 0, 0, 102), content="false")
   let cleared = compute_view_patches_json(handle)
   inspect(
-    cleared.contains("\"type\":\"SetDiagnostics\",\"diagnostics\":[]"),
+    cleared.contains("\"code\":\"loom.lambda.expected_else\""),
+    content="false",
+  )
+  inspect(
+    cleared.contains("\"code\":\"lambda.unresolved_reference\""),
     content="true",
   )
   destroy_editor(handle)

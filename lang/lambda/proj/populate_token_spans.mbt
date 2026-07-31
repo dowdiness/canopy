@@ -415,6 +415,13 @@ fn collect_token_spans_expr(
           collect_token_spans_expr(source_map, body_syn, proj_node)
         }
     }
+  } else if @parser.VarRefView::cast(syntax_node) is Some(_) {
+    source_map.set_span_from_token(
+      proj_node.id(),
+      REFERENCE_NAME_ROLE,
+      syntax_node,
+      @syntax.IdentToken.to_raw(),
+    )
   }
-  // IntLiteral, VarRef: leaf nodes, no token spans to extract
+  // IntLiteral: leaf node with no token spans to extract
 }

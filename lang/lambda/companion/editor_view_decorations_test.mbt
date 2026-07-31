@@ -215,3 +215,80 @@ test "coded lexer diagnostic preserves its source range and code" {
   assert_true(diagnostic.from < diagnostic.to)
   assert_true(diagnostic.code.unwrap().length() > 0)
 }
+
+///|
+test "unresolved reference publishes the neutral semantic warning" {
+  let editor = (try! new_lambda_editor("test-semantic-diagnostic")).0
+  editor.set_text("(x) => y")
+  let patches = @editor.compute_view_patches(
+    @editor.ViewUpdateState::ViewUpdateState(),
+    editor,
+  )
+  let patch = patches
+    .iter()
+    .find_first(patch => patch is @protocol.ViewPatch::SetDiagnostics(_))
+    .unwrap()
+  guard patch is @protocol.ViewPatch::SetDiagnostics(diagnostics~) else {
+    fail("expected SetDiagnostics")
+  }
+  let semantic = diagnostics
+    .iter()
+    .find_first(diagnostic => {
+      diagnostic.code == Some("lambda.unresolved_reference")
+    })
+    .unwrap()
+  inspect(semantic.from, content="7")
+  inspect(semantic.to, content="8")
+  @debug.assert_eq(semantic.severity, @protocol.SevWarning)
+  inspect(semantic.message.contains("Free variable 'y'"), content="true")
+  inspect(semantic.message.contains("searched lexical scope"), content="true")
+}
+
+///|
+test "parser and semantic diagnostics coexist in one current-source patch" {
+  let editor = (try! new_lambda_editor("test-parser-semantic-coexist")).0
+  editor.set_text("if x then y")
+  let patches = @editor.compute_view_patches(
+    @editor.ViewUpdateState::ViewUpdateState(),
+    editor,
+  )
+  let patch = patches
+    .iter()
+    .find_first(patch => patch is @protocol.ViewPatch::SetDiagnostics(_))
+    .unwrap()
+  guard patch is @protocol.ViewPatch::SetDiagnostics(diagnostics~) else {
+    fail("expected SetDiagnostics")
+  }
+  inspect(
+    diagnostics.iter().any(diagnostic => diagnostic.message.contains("else")),
+    content="true",
+  )
+  inspect(
+    diagnostics
+    .iter()
+    .any(diagnostic => diagnostic.code == Some("lambda.unresolved_reference")),
+    content="true",
+  )
+}
+
+///|
+test "binding an unresolved reference clears its semantic warning" {
+  let editor = (try! new_lambda_editor("test-semantic-diagnostic-clear")).0
+  let state = @editor.ViewUpdateState::ViewUpdateState()
+  editor.set_text("(x) => y")
+  let _ = @editor.compute_view_patches(state, editor)
+  editor.set_text("(x) => x")
+  let patches = @editor.compute_view_patches(state, editor)
+  inspect(
+    patches
+    .iter()
+    .any(patch => {
+      match patch {
+        @protocol.ViewPatch::SetDiagnostics(diagnostics~) =>
+          diagnostics.is_empty()
+        _ => false
+      }
+    }),
+    content="true",
+  )
+}
