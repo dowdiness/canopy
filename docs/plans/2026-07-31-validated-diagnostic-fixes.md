@@ -110,8 +110,10 @@ equal the candidate's source. It then validates every normalized span against
 the untouched input snapshot, in normalized order:
 
 1. `end <= source.length()`;
-2. `String::get_view(start_offset=start, end_offset=end)` succeeds, proving
-   both endpoints are valid UTF-16 boundaries.
+2. `String::get_view(start=start, end=end)` succeeds, proving both endpoints
+   are valid UTF-16 boundaries. This also rejects a zero-width insertion whose
+   offset falls between the two code units of a surrogate pair; the focused
+   test exercises that exact `start == end` case.
 
 No transformation occurs until all replacements pass. Application then folds
 the normalized edits in reverse order, replacing each half-open range with its
@@ -132,7 +134,10 @@ Fix ranges are snapshot-bound evidence. Existing diagnostic shift/drop/replay
 transforms do not remap them. Transform reconstruction preserves fix values
 byte-for-byte, while the host remains responsible for rejecting every fix after
 any source revision change. Parser diagnostic identity includes fixes so replay
-deduplication cannot silently retain an older candidate set.
+deduplication cannot silently retain an older candidate set. Fix identity is
+structural and order-sensitive: candidate order, title, applicability, edit
+order, source ID, range, and replacement text all participate through value
+equality.
 
 Compact formatting and the source-backed renderer remain unchanged: neither
 renders nor applies fixes in #1037.
@@ -161,22 +166,61 @@ renders nor applies fixes in #1037.
 | Diagnostic transform | Labels/token follow current policy; fixes remain unchanged |
 | Parser deduplication | Different fix sets remain different logical diagnostics |
 
-## Tests-first sequence
+## Historical tests-first implementation sequence
 
-1. Add focused Loom core tests for construction, normalization, conflict cases,
-   source mismatch, UTF-16/bounds validation, application, multiple candidates,
-   diagnostic integration, and defensive copies. Confirm failure because the
-   API does not yet exist.
-2. Add deterministic generated cases comparing normalized reverse application
-   with a simple reference splice sequence.
-3. Implement the smallest private-field values, typed error boundary, accessors,
-   structural validation, and pure application needed by those tests.
-4. Add `Diagnostic.fixes`, preserve fixes through diagnostic reconstruction,
-   and include fixes in parser replay identity without changing presentation.
-5. Re-export only the neutral public values through the Loom facade.
-6. Run focused default/JavaScript/native release tests, then full Loom checks,
-   formatting, interface generation, `.mbti` review, and a concrete multi-edit
-   UTF-16 smoke scenario.
+Completed in Loom PR #804:
+
+1. Focused Loom core tests established the failing construction, normalization,
+   conflict, source, UTF-16, application, candidate, integration, and ownership
+   contracts before the API existed.
+2. Deterministic generated cases compared normalized reverse application with
+   a simple reference splice sequence.
+3. Private-field values, typed errors, accessors, structural validation, and
+   pure application were implemented to satisfy those tests.
+4. `Diagnostic.fixes` was integrated without presentation changes; diagnostic
+   reconstruction preserves fixes and parser replay identity includes them.
+5. Only the neutral public values were re-exported through the Loom facade.
+6. Focused default/JavaScript/native tests, full Loom validation, interface
+   review, and the concrete multi-edit UTF-16 scenario passed.
+
+## Executable validation and merge evidence
+
+From the Loom repository, the implementation gate was:
+
+```bash
+NEW_MOON_MOD=0 moon check --deny-warn
+moon test loom/core/diagnostic_fixes_wbtest.mbt --release
+moon test loom/core/diagnostic_fixes_wbtest.mbt --target js --release
+moon test loom/core/diagnostic_fixes_wbtest.mbt --target native --release
+moon test --release
+moon test --target js --release
+NEW_MOON_MOD=0 moon info
+NEW_MOON_MOD=0 moon fmt --check
+git diff -- '*.mbti'
+```
+
+The focused file contains the named multi-edit reverse-application case and the
+zero-width surrogate-interior case. It passed 16/16 on each target. Generated
+interfaces were reviewed as additive core/facade exports with no unintended
+trait-bound or visibility drift.
+
+From the Canopy worktree pinned to the published Loom merge commit, the parent
+gate is:
+
+```bash
+NEW_MOON_MOD=0 moon check
+moon test --release
+./scripts/validate-pr-ready.sh --target loom/loom/core
+git fetch origin main
+./scripts/validate-pr-ready.sh --verify-evidence
+gh pr checks <PR_NUMBER>
+gh pr view <PR_NUMBER> --json mergeable,mergeStateStatus,state,statusCheckRollup
+```
+
+The raw GitHub output must show `All Checks Passed` as `pass`, no
+repository-owned pending/failing check, and `MERGEABLE` / `CLEAN`. A nonzero
+status or pending/failing required check blocks merge; path-filtered skipped
+jobs are acceptable only through the passing aggregate gate.
 
 ## Compatibility cutover
 
@@ -185,6 +229,7 @@ callers keep their behavior. No obsolete fix API exists to retain or shim.
 Current Canopy protocol/editor/CodeMirror callers remain unchanged and do not
 receive fixes in #1037.
 
-The Loom PR must merge before Canopy records its commit. The Canopy PR may point
-only to the published Loom merge commit and closes #1037 after the parent CI and
-merge gates pass. #1038 begins only after that closure and cleanup.
+Loom PR #804 merged first as
+`778965a4c7d015be39a968966863a259330dc36c`. The Canopy PR points only to that
+published merge commit and closes #1037 after the refreshed parent CI and merge
+gates pass. #1038 begins only after that closure and cleanup.
