@@ -81,6 +81,8 @@ pub fn get_version_json(Int) -> String
 
 pub fn get_view_tree_json(Int) -> String
 
+pub fn handle_diagnostic_fix_intent(Int, Int, Int, Int, Int) -> Bool
+
 pub fn handle_redo(Int) -> Bool
 
 pub fn handle_structural_intent(Int, String, String, Int, String) -> String

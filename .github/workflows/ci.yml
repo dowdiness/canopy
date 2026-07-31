@@ -721,7 +721,7 @@ jobs:
 
   cm6-adapter-e2e:
     name: CM6 Adapter E2E
-    needs: changes
+    needs: [build-js, changes]
     if: needs.changes.outputs.run_cm6_adapter_e2e == 'true'
     runs-on: ubuntu-latest
     container:
@@ -732,6 +732,15 @@ jobs:
         uses: actions/checkout@v7
         with:
           submodules: recursive
+
+      - name: Download MoonBit JS artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: moonbit-js-build
+          path: _build/js/release/build/dowdiness
+
+      - name: Verify Lambda diagnostic-fix runtime
+        run: test -f _build/js/release/build/dowdiness/canopy/ffi/lambda/lambda.js
 
       - name: Setup Node.js
         uses: actions/setup-node@v7

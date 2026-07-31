@@ -97,6 +97,32 @@ pub fn handle_text_intent_checked(
 }
 
 ///|
+/// Apply one opaque diagnostic-fix selection against the exact publication
+/// snapshot that produced it. Stale, unknown, or cross-editor IDs are rejected
+/// without changing source text.
+pub fn handle_diagnostic_fix_intent(
+  handle : Int,
+  snapshot_id : Int,
+  diagnostic_id : Int,
+  fix_id : Int,
+  timestamp_ms : Int,
+) -> Bool {
+  match lambda_registry.get(handle) {
+    Some(h) =>
+      lambda_registry
+      .view_state(handle)
+      .apply_diagnostic_fix(
+        h.editor,
+        snapshot_id~,
+        diagnostic_id~,
+        fix_id~,
+        timestamp_ms~,
+      )
+    None => false
+  }
+}
+
+///|
 pub fn handle_undo(handle : Int) -> Bool {
   undo_manager_undo(handle)
 }

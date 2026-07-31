@@ -297,7 +297,9 @@ test "parser diagnostic preserves EOF range severity message and code" {
   inspect(diagnostic.from, content="4")
   inspect(diagnostic.to, content="4")
   @debug.assert_eq(diagnostic.severity, @protocol.SevError)
-  inspect(diagnostic.message, content="unclosed '('")
+  inspect(diagnostic.message.contains("error: unclosed '('"), content="true")
+  inspect(diagnostic.message.contains("--> <input>"), content="true")
+  inspect(diagnostic.message.contains("primary 1:5-1:5"), content="true")
   @debug.assert_eq(diagnostic.code, None)
 }
 
@@ -320,7 +322,12 @@ test "empty document does not suppress structured parser diagnostics" {
   }
   inspect(diagnostic.from, content="0")
   inspect(diagnostic.to, content="0")
-  inspect(diagnostic.message, content="empty source")
+  inspect(
+    diagnostic.message.contains("error[test.empty-source]: empty source"),
+    content="true",
+  )
+  inspect(diagnostic.message.contains("--> <input>"), content="true")
+  inspect(diagnostic.message.contains("primary 1:1-1:1"), content="true")
   @debug.assert_eq(diagnostic.code, Some("test.empty-source"))
 }
 

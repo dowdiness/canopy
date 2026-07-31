@@ -135,6 +135,40 @@ test "UserIntent::CommitEdit round-trip" {
 }
 
 ///|
+test "UserIntent::ApplyDiagnosticFix round-trip" {
+  let intent = @protocol.UserIntent::ApplyDiagnosticFix(
+    snapshot_id=7,
+    diagnostic_id=2,
+    fix_id=1,
+  )
+  inspect(
+    intent.to_json().stringify(),
+    content="{\"type\":\"ApplyDiagnosticFix\",\"snapshot_id\":7,\"diagnostic_id\":2,\"fix_id\":1}",
+  )
+  let decoded : @protocol.UserIntent = @json.from_json(intent.to_json())
+  assert_eq(intent, decoded)
+}
+
+///|
+test "UserIntent::ApplyDiagnosticFix rejects malformed IDs" {
+  let malformed = [
+    "{\"type\":\"ApplyDiagnosticFix\",\"snapshot_id\":7,\"diagnostic_id\":2}", "{\"type\":\"ApplyDiagnosticFix\",\"snapshot_id\":7,\"diagnostic_id\":\"2\",\"fix_id\":1}",
+    "{\"type\":\"ApplyDiagnosticFix\",\"snapshot_id\":7.5,\"diagnostic_id\":2,\"fix_id\":1}",
+    "{\"type\":\"ApplyDiagnosticFix\",\"snapshot_id\":-1,\"diagnostic_id\":2,\"fix_id\":1}",
+    "{\"type\":\"ApplyDiagnosticFix\",\"snapshot_id\":7,\"diagnostic_id\":-2,\"fix_id\":1}",
+    "{\"type\":\"ApplyDiagnosticFix\",\"snapshot_id\":7,\"diagnostic_id\":2,\"fix_id\":-1}",
+  ]
+  malformed.each(encoded => {
+    let result : Result[@protocol.UserIntent, _] = Ok(
+      @json.from_json(@json.parse(encoded)),
+    ) catch {
+      error => Err(error)
+    }
+    assert_true(result is Err(_))
+  })
+}
+
+///|
 test "UserIntent from_json rejects unknown type" {
   let json = @json.parse("{\"type\": \"Unknown\"}")
   let result : Result[@protocol.UserIntent, _] = Ok(@json.from_json(json)) catch {

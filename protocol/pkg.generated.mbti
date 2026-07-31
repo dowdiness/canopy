@@ -31,9 +31,20 @@ pub(all) struct Diagnostic {
   severity : Severity
   message : String
   code : String?
+  snapshot_id : Int?
+  diagnostic_id : Int?
+  fixes : Array[DiagnosticFixSummary]
 } derive(Eq, @debug.Debug)
-pub fn Diagnostic::Diagnostic(from~ : Int, to~ : Int, severity~ : Severity, message~ : String, code? : String) -> Self
+pub fn Diagnostic::Diagnostic(from~ : Int, to~ : Int, severity~ : Severity, message~ : String, code? : String, snapshot_id? : Int, diagnostic_id? : Int, fixes? : Array[DiagnosticFixSummary]) -> Self
 pub impl ToJson for Diagnostic
+
+pub(all) struct DiagnosticFixSummary {
+  id : Int
+  title : String
+  applicability : String
+} derive(Eq, @debug.Debug)
+pub fn DiagnosticFixSummary::DiagnosticFixSummary(id~ : Int, title~ : String, applicability~ : String) -> Self
+pub impl ToJson for DiagnosticFixSummary
 
 pub(all) enum Severity {
   SevError
@@ -60,6 +71,7 @@ pub(all) enum UserIntent {
   Undo
   Redo
   CommitEdit(node_id~ : @dowdiness/canopy/core.NodeId, value~ : String)
+  ApplyDiagnosticFix(snapshot_id~ : Int, diagnostic_id~ : Int, fix_id~ : Int)
 } derive(Eq, @debug.Debug)
 pub impl Show for UserIntent
 pub impl ToJson for UserIntent
