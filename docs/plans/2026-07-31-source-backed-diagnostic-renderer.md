@@ -155,11 +155,12 @@ secondary 4:1-4:4: declared here
 = note: additional context
 ```
 
-- The header is lowercase severity, optional `[code]`, `: `, then the diagnostic
-  message. Producer identity is omitted.
+- The header is lowercase severity, optional `[code]`, a colon, one space, then
+  the diagnostic message. Producer identity is omitted.
 - User-facing lines and columns are one-based; the underlying `LineIndex`
   remains zero-based. The displayed column unit remains UTF-16.
-- A source group begins with `--> ` plus its provider-supplied name.
+- A source group begins with `-->`, followed by one space and its
+  provider-supplied name.
 - Each label has its own subsection. It starts with `primary` or `secondary`,
   its half-open start/end positions, and an optional `: label message`.
 - Primary source markers use `^`; secondary markers use `-`.
