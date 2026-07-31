@@ -349,6 +349,28 @@ pub fn project_diagnostics_for_source(
 }
 
 ///|
+/// Combine diagnostics only when every input belongs to the current source
+/// snapshot. The returned set owns its collection and preserves parser-first
+/// producer order.
+fn merge_current_diagnostics(
+  editor_source : String,
+  parser_source : String,
+  parser_diagnostics : @loom_core.DiagnosticSet,
+  semantic_snapshot : (String, @loom_core.DiagnosticSet)?,
+) -> @loom_core.DiagnosticSet {
+  if editor_source != parser_source {
+    return @loom_core.DiagnosticSet::empty()
+  }
+  let merged = parser_diagnostics.copy()
+  match semantic_snapshot {
+    Some((semantic_source, semantic_diagnostics)) if semantic_source ==
+      parser_source => merged.add_all(semantic_diagnostics)
+    _ => ()
+  }
+  merged
+}
+
+///|
 pub fn[T : @loom_core.Renderable] compute_view_patches(
   state : ViewUpdateState,
   editor : SyncEditor[T],
@@ -377,10 +399,18 @@ pub fn[T : @loom_core.Renderable] compute_view_patches(
       }
   }
   state.previous_decorations = Some(current_decorations)
-  let diagnostics = state.publish_diagnostics(
-    editor,
-    editor.parser_diagnostics().read_or_abort(),
+  let parser_snapshot = editor.parser_snapshot().read_or_abort()
+  let semantic_snapshot = match editor.capabilities.get_diagnostics {
+    Some(get_diagnostics) => get_diagnostics()
+    None => None
+  }
+  let current_diagnostics = merge_current_diagnostics(
+    editor.get_text(),
+    parser_snapshot.source,
+    parser_snapshot.diagnostics,
+    semantic_snapshot,
   )
+  let diagnostics = state.publish_diagnostics(editor, current_diagnostics)
   if !diagnostics.is_empty() {
     patches.push(@protocol.ViewPatch::SetDiagnostics(diagnostics~))
     state.had_errors = true

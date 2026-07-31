@@ -171,3 +171,10 @@ test "populate_token_spans: binary left spine reaches every lambda operand" {
   expect_param_span(source_map, inner_bop.children[1], 15, 16)
   expect_param_span(source_map, proj.children[1], 28, 29)
 }
+
+///|
+test "populate_token_spans: parenthesized VarRef keeps exact identifier span" {
+  let text = "((free))"
+  let (proj, source_map) = parse_proj_with_token_spans(text)
+  expect_role_span(source_map, proj, REFERENCE_NAME_ROLE, 2, 6)
+}

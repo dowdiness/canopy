@@ -60,6 +60,19 @@ pub fn scope_for_node(g : ScopeGraph, node_id : @core.NodeId) -> ScopeId? {
 }
 
 ///|
+/// The source range of the structural node that opened `scope`.
+/// Returns `None` for an invalid graph-local id or when the current SourceMap
+/// has no authoritative range for the owner node.
+pub fn scope_span(
+  g : ScopeGraph,
+  scope : ScopeId,
+  source_map : @core.SourceMap,
+) -> @loomcore.Range? {
+  let ScopeId(index) = scope
+  g.scopes.get(index).bind(owner => source_map.get_range(owner.owner_node_id))
+}
+
+///|
 /// All reference NodeIds whose resolution points at the declaration `decl`.
 /// Identity-based (keyed on `DeclId`, NOT a name match), so shadowing is
 /// respected. Keying on `DeclId` rather than `Decl.node_id` is deliberate:

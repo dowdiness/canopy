@@ -10,6 +10,7 @@ pub struct LanguageCapabilities[T] {
     Array[@protocol.ViewAnnotation],
   ])?
   priv get_decorations : (() -> Array[@protocol.Decoration])?
+  priv get_diagnostics : (() -> (String, @loom_core.DiagnosticSet)?)?
   priv to_view_node : ((
     @core.ProjNode[T],
     @core.SourceMap,
@@ -26,6 +27,7 @@ pub struct LanguageCapabilities[T] {
 pub fn[T] LanguageCapabilities::new(
   get_annotations? : (() -> Map[@core.NodeId, Array[@protocol.ViewAnnotation]])? = None,
   get_decorations? : (() -> Array[@protocol.Decoration])? = None,
+  get_diagnostics? : (() -> (String, @loom_core.DiagnosticSet)?)? = None,
   pretty_post_process? : ((@pretty.Layout[@pretty.SyntaxCategory]) -> @pretty.Layout[
     @pretty.SyntaxCategory,
   ])? = None,
@@ -33,6 +35,7 @@ pub fn[T] LanguageCapabilities::new(
   {
     get_annotations,
     get_decorations,
+    get_diagnostics,
     to_view_node: None,
     pretty_post_process,
     phantom: None,
@@ -52,6 +55,7 @@ pub fn[T] LanguageCapabilities::with_to_view_node(
   {
     get_annotations: self.get_annotations,
     get_decorations: self.get_decorations,
+    get_diagnostics: self.get_diagnostics,
     to_view_node: Some(to_view_node),
     pretty_post_process: self.pretty_post_process,
     phantom: None,
@@ -64,6 +68,7 @@ pub fn[T] LanguageCapabilities::default() -> LanguageCapabilities[T] {
   {
     get_annotations: None,
     get_decorations: None,
+    get_diagnostics: None,
     to_view_node: None,
     pretty_post_process: None,
     phantom: None,

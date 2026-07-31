@@ -7,11 +7,14 @@ fn build_fixture(
   Map[@core.NodeId, @core.ProjNode[@ast.Term]],
   @core.SourceMap,
 ) raise {
-  let (proj, _errs) = @lambda_proj.parse_to_proj_node(
+  let (cst, _) = @parser.parse_cst(
     @loomcore.SourceId("canopy-test:lambda-scope-graph"),
     text,
   )
+  let syntax = @seam.SyntaxNode::from_cst(cst)
+  let proj = @lambda_proj.to_proj_node(syntax, Ref(0))
   let source_map = @core.SourceMap::from_ast(proj)
+  @lambda_proj.populate_token_spans(source_map, syntax, proj)
   let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = Map([])
   @core.collect_registry(proj, registry)
   (proj, registry, source_map)

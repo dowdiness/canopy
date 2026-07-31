@@ -13,6 +13,10 @@ pub const PARAM_ROLE : String = "param"
 pub const LET_DEF_NAME_ROLE : String = "name"
 
 ///|
+/// Role key for a variable reference's exact identifier token.
+pub const REFERENCE_NAME_ROLE : String = "reference:name"
+
+///|
 /// Role key for a typed `fn` binding's keyword token (stored on the `LetDef`).
 pub const FN_BINDING_KEYWORD_ROLE : String = "fn:keyword"
 

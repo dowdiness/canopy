@@ -25,6 +25,7 @@ pub(all) struct Scope {
   parent : ScopeId?
   decl_ids : Array[DeclId]
   ref_ids : Array[RefId]
+  priv owner_node_id : @core.NodeId
 } derive(Debug)
 
 ///|

@@ -8,12 +8,11 @@
 pub struct SemanticProjection {
   annotations : Map[@core.NodeId, Array[@protocol.ViewAnnotation]]
   decorations : Array[@protocol.Decoration]
-  diagnostics : Array[@protocol.Diagnostic]
 } derive(Debug)
 
 ///|
 pub fn SemanticProjection::empty() -> SemanticProjection {
-  { annotations: Map([]), decorations: [], diagnostics: [] }
+  { annotations: Map([]), decorations: [] }
 }
 
 ///|
@@ -28,9 +27,15 @@ pub impl ToJson for SemanticProjection with fn to_json(self) {
   let m : Map[String, Json] = Map([])
   m["annotations"] = Json::array(annotation_entries)
   m["decorations"] = Json::array(self.decorations.map(fn(d) { d.to_json() }))
-  m["diagnostics"] = Json::array(self.diagnostics.map(fn(d) { d.to_json() }))
   Json::object(m)
 }
+
+///|
+/// Failures at the Lambda-to-neutral diagnostic conversion boundary.
+pub(all) suberror SemanticDiagnosticError {
+  InvalidSourceRange(Int, Int, Int)
+  InvalidUtf16Boundary(Int, Int)
+} derive(Eq, Debug)
 
 ///|
 pub fn build_semantic_projection(
@@ -39,41 +44,104 @@ pub fn build_semantic_projection(
 ) -> SemanticProjection {
   let projection = SemanticProjection::empty()
   analyze_node(root, source_map, [], projection)
-  push_scope_failures(root, source_map, projection)
   projection
 }
 
 ///|
-/// Source the free-variable diagnostics from the lambda scope graph rather than
-/// the projection's own environment walk (research note 2026-06-13 §6 Step 1).
-/// Each unresolved reference (`resolution.decl == None`) is a witnessed
-/// `ReachableFailure`; for today's lexical lambda language that failure is
-/// genuinely reachable, so the squiggle now rests on the resolver of record
-/// instead of a parallel `env.contains` check.
-///
-/// The scope graph is reconstructed from `root`. Both the registry and the
-/// diagnostic ranges derive from that same tree, so resolution stays consistent
-/// with the spans where squiggles land. Incremental maintenance (avoiding this
-/// rebuild) is §6 Step 3, benchmark-gated.
-fn push_scope_failures(
+/// Convert one producer-native range after validating it against the exact
+/// source snapshot. The returned range is half-open UTF-16.
+fn semantic_text_range(
+  source : String,
+  range : @loomcore.Range,
+) -> @loomcore.TextRange raise SemanticDiagnosticError {
+  let source_length = source.length()
+  if range.start < 0 || range.end < range.start || range.end > source_length {
+    raise InvalidSourceRange(range.start, range.end, source_length)
+  }
+  guard source.get_view(start=range.start, end=range.end) is Some(_) else {
+    raise InvalidUtf16Boundary(range.start, range.end)
+  }
+  @loomcore.TextRange::from_offsets(range.start, range.end) catch {
+    _ => raise InvalidSourceRange(range.start, range.end, source_length)
+  }
+}
+
+///|
+fn semantic_label(
+  source_id : @loomcore.SourceId,
+  source : String,
+  range : @loomcore.Range,
+  style : @loomcore.LabelStyle,
+  message : String,
+) -> @loomcore.DiagnosticLabel raise SemanticDiagnosticError {
+  @loomcore.DiagnosticLabel::DiagnosticLabel(
+    style,
+    @loomcore.SourceSpan::SourceSpan(
+      source_id,
+      semantic_text_range(source, range),
+    ),
+    Some(message),
+  )
+}
+
+///|
+/// Project the existing witnessed scope failures into Loom's neutral model.
+/// Source text is used only for boundary validation and is never stored in the
+/// returned diagnostics.
+pub fn build_semantic_diagnostics(
+  source_id : @loomcore.SourceId,
+  source : String,
   root : @core.ProjNode[@ast.Term],
   source_map : @core.SourceMap,
-  projection : SemanticProjection,
-) -> Unit {
+) -> @loomcore.DiagnosticSet raise SemanticDiagnosticError {
   let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = Map([])
   @core.collect_registry(root, registry)
   let graph = @lambda_scope.build(registry, source_map)
+  let diagnostics = @loomcore.DiagnosticSet::empty()
   for failure in @lambda_scope.failures(graph, source_map) {
     guard failure.location is Some(range) else { continue }
-    projection.diagnostics.push(
-      @protocol.Diagnostic(
-        from=range.start,
-        to=range.end,
-        severity=@protocol.SevWarning,
+    let labels = [
+      semantic_label(
+        source_id,
+        source,
+        range,
+        @loomcore.LabelStyle::Primary,
+        "unresolved identifier",
+      ),
+    ]
+    let notes : Array[String] = []
+    failure.witness.each(scope => {
+      match @lambda_scope.scope_span(graph, scope, source_map) {
+        Some(scope_range) =>
+          labels.push(
+            semantic_label(
+              source_id,
+              source,
+              scope_range,
+              @loomcore.LabelStyle::Secondary,
+              "searched lexical scope",
+            ),
+          )
+        None => notes.push("searched lexical scope without source span")
+      }
+    })
+    diagnostics.push(
+      @loomcore.Diagnostic::Diagnostic(
+        source=@loomcore.DiagnosticSource::DiagnosticSource("lambda.semantic"),
+        // Imported enum variants are read-only; `all()` is the public value factory.
+        severity=@loomcore.DiagnosticSeverity::all()[1],
         message="Free variable '" + failure.name + "'",
+        code=Some(
+          @loomcore.DiagnosticCode::DiagnosticCode(
+            "lambda.unresolved_reference",
+          ),
+        ),
+        labels~,
+        notes~,
       ),
     )
   }
+  diagnostics
 }
 
 ///|

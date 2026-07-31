@@ -46,9 +46,13 @@ fn Builder::new() -> Builder {
 }
 
 ///|
-fn Builder::add_scope(self : Builder, parent : ScopeId?) -> ScopeId {
+fn Builder::add_scope(
+  self : Builder,
+  parent : ScopeId?,
+  owner_node_id : @core.NodeId,
+) -> ScopeId {
   let id = ScopeId(self.scopes.length())
-  self.scopes.push({ id, parent, decl_ids: [], ref_ids: [] })
+  self.scopes.push({ id, parent, decl_ids: [], ref_ids: [], owner_node_id })
   id
 }
 
@@ -94,7 +98,7 @@ fn root_node(
 /// cutoff is recorded against the scope in `node_cutoffs`, accumulating the
 /// cutoffs of all enclosing module scopes so each gates visibility independently.
 fn Builder::pass2(self : Builder, root : @core.ProjNode[@ast.Term]) -> Unit {
-  let root_scope = self.add_scope(None)
+  let root_scope = self.add_scope(None, root.id())
   match root.kind {
     // Root is the top-level module. Its scope (parent None) and decls are
     // installed above from the root `Module` children — that pre-installation
@@ -166,7 +170,7 @@ fn Builder::walk(
   self.node_cutoffs[node.id()] = cutoffs
   match node.kind {
     @ast.Term::Lam(param, _) => {
-      let lam_scope = self.add_scope(Some(current))
+      let lam_scope = self.add_scope(Some(current), node.id())
       let _ = self.add_decl(
         lam_scope,
         node.id(),
@@ -178,7 +182,7 @@ fn Builder::walk(
       }
     }
     @ast.Term::Module(defs, _) => {
-      let mod_scope = self.add_scope(Some(current))
+      let mod_scope = self.add_scope(Some(current), node.id())
       for i, def in defs {
         let _ = self.add_decl(
           mod_scope,

@@ -16,6 +16,14 @@ fn parse_fixture(
 }
 
 ///|
+fn semantic_diagnostics_fixture(text : String) -> @loomcore.DiagnosticSet raise {
+  let (root, source_map) = parse_fixture(text)
+  build_semantic_diagnostics(
+    lambda_semantic_projection_test_source, text, root, source_map,
+  )
+}
+
+///|
 fn has_annotation(
   projection : SemanticProjection,
   node_id : @core.NodeId,
@@ -33,7 +41,7 @@ test "semantic projection annotates lambda binder and bound use" {
   let projection = build_semantic_projection(root, source_map)
   assert_true(has_annotation(projection, root.id(), "(x) =>"))
   assert_true(has_annotation(projection, root.children[0].id(), "bound x"))
-  inspect(projection.diagnostics.length(), content="0")
+  inspect(semantic_diagnostics_fixture("(x) => x").length(), content="0")
   assert_true(
     projection.decorations
     .iter()
@@ -46,11 +54,17 @@ test "semantic projection annotates lambda binder and bound use" {
 
 ///|
 test "semantic projection reports free variable" {
-  let (root, source_map) = parse_fixture("(x) => y")
+  let text = "(x) => y"
+  let (root, source_map) = parse_fixture(text)
   let projection = build_semantic_projection(root, source_map)
   let body = root.children[0]
   assert_true(has_annotation(projection, body.id(), "free y"))
-  inspect(projection.diagnostics.length(), content="1")
+  inspect(
+    build_semantic_diagnostics(
+      lambda_semantic_projection_test_source, text, root, source_map,
+    ).length(),
+    content="1",
+  )
   assert_true(
     projection.decorations.iter().any(fn(d) { d.css_class == "semantic-free" }),
   )
@@ -63,9 +77,11 @@ test "free-variable diagnostic in a module def is scope-sourced" {
   // lambda route), proving `push_scope_failures` reconstructs and resolves the
   // module-def graph rather than the diagnostic still coming from stale env logic.
   let (root, source_map) = parse_fixture("let a = z\na")
-  let projection = build_semantic_projection(root, source_map)
-  inspect(projection.diagnostics.length(), content="1")
-  inspect(projection.diagnostics[0].message, content="Free variable 'z'")
+  let diagnostics = build_semantic_diagnostics(
+    lambda_semantic_projection_test_source, "let a = z\na", root, source_map,
+  )
+  inspect(diagnostics.length(), content="1")
+  inspect(diagnostics.items()[0].message(), content="Free variable 'z'")
 }
 
 ///|
@@ -171,5 +187,131 @@ test "semantic projection respects sequential module bindings" {
   assert_true(has_annotation(projection, root.children[1].id(), "let y"))
   assert_false(has_annotation(projection, root.id(), "let x"))
   assert_false(has_annotation(projection, root.id(), "let y"))
-  inspect(projection.diagnostics.length(), content="0")
+  inspect(
+    semantic_diagnostics_fixture("let x = 1\nlet y = x\nx + y").length(),
+    content="0",
+  )
+}
+
+///|
+test "semantic diagnostics preserve neutral warning labels and identities" {
+  let text = "(x) => y"
+  let diagnostics = semantic_diagnostics_fixture(text)
+  let diagnostic = diagnostics.items()[0]
+  debug_inspect(diagnostic.severity(), content="Warning")
+  inspect(
+    diagnostic.code().unwrap().value(),
+    content="lambda.unresolved_reference",
+  )
+  inspect(diagnostic.message(), content="Free variable 'y'")
+  inspect(diagnostic.source().name(), content="lambda.semantic")
+  inspect(
+    diagnostic.source().name() == lambda_semantic_projection_test_source.value(),
+    content="false",
+  )
+  let labels = diagnostic.labels()
+  inspect(labels.length() >= 2, content="true")
+  debug_inspect(labels[0].style(), content="Primary")
+  debug_inspect(labels[0].message(), content="Some(\"unresolved identifier\")")
+  inspect(
+    labels[0].span().source_id().value(),
+    content="canopy-test:lambda-semantic-projection",
+  )
+  inspect(labels[0].span().range().start().value(), content="7")
+  inspect(labels[0].span().range().end().value(), content="8")
+  inspect(
+    labels
+    .get_view(start=1)
+    .unwrap()
+    .all(label => {
+      label.style() == @loomcore.LabelStyle::Secondary &&
+      label.message() == Some("searched lexical scope")
+    }),
+    content="true",
+  )
+}
+
+///|
+test "semantic diagnostics keep missing witness locations as notes" {
+  let text = "(x) => y"
+  let (root, populated_source_map) = parse_fixture(text)
+  let sparse_source_map = @core.SourceMap::new()
+  let body = root.children[0]
+  let reference_span = populated_source_map
+    .get_token_span(body.id(), @lambda_proj.REFERENCE_NAME_ROLE)
+    .unwrap()
+  sparse_source_map.set_token_span(
+    body.id(),
+    @lambda_proj.REFERENCE_NAME_ROLE,
+    reference_span,
+  )
+  let diagnostic = build_semantic_diagnostics(
+      lambda_semantic_projection_test_source, text, root, sparse_source_map,
+    ).items()[0]
+  inspect(diagnostic.labels().length(), content="1")
+  inspect(diagnostic.notes().length() >= 1, content="true")
+  inspect(
+    diagnostic
+    .notes()
+    .all(note => note == "searched lexical scope without source span"),
+    content="true",
+  )
+}
+
+///|
+test "semantic diagnostic boundary rejects invalid source ranges" {
+  let text = "(x) => y"
+  let (root, source_map) = parse_fixture(text)
+  let body = root.children[0]
+  let rejected = (range, validation_source) => {
+    source_map.set_token_span(
+      body.id(),
+      @lambda_proj.REFERENCE_NAME_ROLE,
+      range,
+    )
+    try {
+      let _ = build_semantic_diagnostics(
+        lambda_semantic_projection_test_source, validation_source, root, source_map,
+      )
+      false
+    } catch {
+      _ => true
+    }
+  }
+  inspect(rejected(@loomcore.Range::new(-1, 1), text), content="true")
+  inspect(rejected(@loomcore.Range::new(2, 1), text), content="true")
+  inspect(rejected(@loomcore.Range::new(7, 9), text), content="true")
+  inspect(rejected(@loomcore.Range::new(7, 8), "123456😀"), content="true")
+}
+
+///|
+test "semantic diagnostics are defensive copies and render from one neutral value" {
+  let text = "(x) => y"
+  let diagnostics = semantic_diagnostics_fixture(text)
+  let exposed = diagnostics.items()
+  let exposed_labels = exposed[0].labels()
+  let exposed_notes = exposed[0].notes()
+  exposed.clear()
+  exposed_labels.clear()
+  exposed_notes.push("mutated")
+  inspect(diagnostics.length(), content="1")
+  inspect(diagnostics.items()[0].labels().length() >= 2, content="true")
+  inspect(diagnostics.items()[0].notes().contains("mutated"), content="false")
+  let provider = @loomcore.SourceProvider(requested => {
+    if requested == lambda_semantic_projection_test_source {
+      Some(
+        @loomcore.DiagnosticSourceFile(
+          "lambda.mbt",
+          text,
+          @loomcore.LineIndex::new(text),
+        ),
+      )
+    } else {
+      None
+    }
+  })
+  inspect(
+    diagnostics.items()[0].render_plain(provider).contains("Free variable 'y'"),
+    content="true",
+  )
 }
