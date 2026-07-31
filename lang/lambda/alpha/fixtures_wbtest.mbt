@@ -25,7 +25,10 @@ fn graph_for_root(root : @core.ProjNode[@ast.Term]) -> @scope.ScopeGraph {
 fn alpha_parse_fixture(
   text : String,
 ) -> (@core.ProjNode[@ast.Term], @scope.ScopeGraph) raise {
-  let (proj, errors) = @lambda_proj.parse_to_proj_node(text)
+  let (proj, errors) = @lambda_proj.parse_to_proj_node(
+    @loomcore.SourceId("canopy-test:lambda-alpha-fixture"),
+    text,
+  )
   if errors.length() > 0 {
     fail("parse diagnostics in alpha fixture")
   }

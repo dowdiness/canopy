@@ -34,12 +34,13 @@ pub struct SyncEditor[T] {
 ///|
 /// Generic constructor for all languages.
 /// Raises `TextError::EmptyReplicaId` when `agent_id` is empty.
-/// `make_parser` builds a `@loom.Parser[T]` from an initial source string.
+/// `make_parser` builds a `@loom.Parser[T]` from the editor's stable source ID
+/// and initial source string.
 /// `build_memos` receives the parser handle and returns the 3 projection memos
 /// (ProjNode, registry, SourceMap) it wants SyncEditor to own.
 pub fn[T] SyncEditor::new_generic(
   agent_id : String,
-  make_parser : (String, @incr.Runtime?) -> @loom.Parser[T],
+  make_parser : (@loom_core.SourceId, String, @incr.Runtime?) -> @loom.Parser[T],
   build_memos : (@loom.Parser[T]) -> (
     @incr.Derived[@core.ProjNode[T]?],
     @incr.Derived[Map[@core.NodeId, @core.ProjNode[T]]],
@@ -59,7 +60,11 @@ pub fn[T] SyncEditor::new_generic(
     Some(r) => r
     None => Ref([])
   }
-  let parser = make_parser("", parent_runtime)
+  let identity = next_editor_identity()
+  let source_id = @loom_core.SourceId(
+    "canopy-sync-editor:" + identity.to_string(),
+  )
+  let parser = make_parser(source_id, "", parent_runtime)
   let (cached_proj_node, registry_memo, source_map_memo) = build_memos(parser)
   let (hub, cursor_view) = setup_hub_and_cursor(agent_id)
   {
@@ -78,7 +83,7 @@ pub fn[T] SyncEditor::new_generic(
     session: @sync_session.SyncSession::SyncSession(),
     projection_dirty: false,
     pending_transforms,
-    identity: next_editor_identity(),
+    identity,
   }
 }
 

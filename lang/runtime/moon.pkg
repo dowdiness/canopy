@@ -4,6 +4,7 @@ import {
   "dowdiness/event-graph-walker/text",
   "dowdiness/incr",
   "dowdiness/loom",
+  "dowdiness/loom/core" @loom_core,
 }
 
 import {

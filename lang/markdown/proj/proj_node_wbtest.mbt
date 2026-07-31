@@ -1,31 +1,44 @@
 ///| Whitebox tests for Markdown projection.
 
 ///|
+let markdown_projection_test_source : @loomcore.SourceId = @loomcore.SourceId(
+  "canopy-test:markdown-projection",
+)
+
+///|
 test "projection: empty document" {
-  let (proj, errors) = parse_to_proj_node("")
+  let (proj, errors) = parse_to_proj_node(markdown_projection_test_source, "")
   inspect(errors.length(), content="0")
   inspect(proj.children.length(), content="0")
 }
 
 ///|
 test "projection: single paragraph" {
-  let (proj, _) = parse_to_proj_node("Hello world")
+  let (proj, _) = parse_to_proj_node(
+    markdown_projection_test_source, "Hello world",
+  )
   inspect(proj.children.length(), content="1")
 }
 
 ///|
 test "projection: heading levels" {
-  let (proj, _) = parse_to_proj_node("# H1\n\n## H2\n\n### H3")
+  let (proj, _) = parse_to_proj_node(
+    markdown_projection_test_source, "# H1\n\n## H2\n\n### H3",
+  )
   inspect(proj.children.length(), content="3")
 }
 
 ///|
 test "source map: ATX heading separates marker and text" {
   let source = "## Title\n"
-  let (proj, errors) = parse_to_proj_node(source)
+  let (proj, errors) = parse_to_proj_node(
+    markdown_projection_test_source, source,
+  )
   inspect(errors.length(), content="0")
   let source_map = @core.SourceMap::from_ast(proj)
-  let (cst, diagnostics) = @markdown.parse_cst(source)
+  let (cst, diagnostics) = @markdown.parse_cst(
+    markdown_projection_test_source, source,
+  )
   inspect(diagnostics.length(), content="0")
   populate_token_spans(source_map, @seam.SyntaxNode::from_cst(cst), proj)
   let heading = proj.children[0]
@@ -43,10 +56,14 @@ test "source map: ATX heading separates marker and text" {
 ///|
 test "source map: setext heading separates underline and text" {
   let source = "Title\n---\n"
-  let (proj, errors) = parse_to_proj_node(source)
+  let (proj, errors) = parse_to_proj_node(
+    markdown_projection_test_source, source,
+  )
   inspect(errors.length(), content="0")
   let source_map = @core.SourceMap::from_ast(proj)
-  let (cst, diagnostics) = @markdown.parse_cst(source)
+  let (cst, diagnostics) = @markdown.parse_cst(
+    markdown_projection_test_source, source,
+  )
   inspect(diagnostics.length(), content="0")
   populate_token_spans(source_map, @seam.SyntaxNode::from_cst(cst), proj)
   let heading = proj.children[0]
@@ -64,10 +81,14 @@ test "source map: setext heading separates underline and text" {
 ///|
 test "source map: multiline setext text excludes underline separator" {
   let source = "Foo\nbar\n---\n"
-  let (proj, errors) = parse_to_proj_node(source)
+  let (proj, errors) = parse_to_proj_node(
+    markdown_projection_test_source, source,
+  )
   inspect(errors.length(), content="0")
   let source_map = @core.SourceMap::from_ast(proj)
-  let (cst, diagnostics) = @markdown.parse_cst(source)
+  let (cst, diagnostics) = @markdown.parse_cst(
+    markdown_projection_test_source, source,
+  )
   inspect(diagnostics.length(), content="0")
   populate_token_spans(source_map, @seam.SyntaxNode::from_cst(cst), proj)
   let heading = proj.children[0]
@@ -81,10 +102,14 @@ test "source map: multiline setext text excludes underline separator" {
 ///|
 test "source map: indented setext text excludes separator indentation" {
   let source = "Title\n   ---\n"
-  let (proj, errors) = parse_to_proj_node(source)
+  let (proj, errors) = parse_to_proj_node(
+    markdown_projection_test_source, source,
+  )
   inspect(errors.length(), content="0")
   let source_map = @core.SourceMap::from_ast(proj)
-  let (cst, diagnostics) = @markdown.parse_cst(source)
+  let (cst, diagnostics) = @markdown.parse_cst(
+    markdown_projection_test_source, source,
+  )
   inspect(diagnostics.length(), content="0")
   populate_token_spans(source_map, @seam.SyntaxNode::from_cst(cst), proj)
   let heading = proj.children[0]
@@ -97,7 +122,9 @@ test "source map: indented setext text excludes separator indentation" {
 
 ///|
 test "projection: delimiter resolver preserves italic and bold payloads" {
-  let (proj, errors) = parse_to_proj_node("_em_ and **strong**\n")
+  let (proj, errors) = parse_to_proj_node(
+    markdown_projection_test_source, "_em_ and **strong**\n",
+  )
   inspect(errors.length(), content="0")
   match proj.children[0].kind {
     Paragraph([Italic([Text(em)]), Text(separator), Bold([Text(strong)])]) => {
@@ -111,7 +138,9 @@ test "projection: delimiter resolver preserves italic and bold payloads" {
 
 ///|
 test "projection: unordered list" {
-  let (proj, _) = parse_to_proj_node("- first\n- second\n- third")
+  let (proj, _) = parse_to_proj_node(
+    markdown_projection_test_source, "- first\n- second\n- third",
+  )
   inspect(proj.children.length(), content="1")
   let list = proj.children[0]
   inspect(list.children.length(), content="3")
@@ -119,7 +148,9 @@ test "projection: unordered list" {
 
 ///|
 test "projection: ordered list" {
-  let (proj, _) = parse_to_proj_node("1. first\n2. second\n")
+  let (proj, _) = parse_to_proj_node(
+    markdown_projection_test_source, "1. first\n2. second\n",
+  )
   inspect(proj.children.length(), content="1")
   let list = proj.children[0]
   match list.kind {
@@ -132,9 +163,9 @@ test "projection: ordered list" {
 ///|
 test "source map: ordered list item text excludes marker" {
   let source = "1. first\n2. second\n"
-  let (proj, _) = parse_to_proj_node(source)
+  let (proj, _) = parse_to_proj_node(markdown_projection_test_source, source)
   let source_map = @core.SourceMap::from_ast(proj)
-  let (cst, _) = @markdown.parse_cst(source)
+  let (cst, _) = @markdown.parse_cst(markdown_projection_test_source, source)
   populate_token_spans(source_map, @seam.SyntaxNode::from_cst(cst), proj)
   let item = proj.children[0].children[0]
   match source_map.get_token_span(item.id(), "text") {
@@ -147,7 +178,7 @@ test "source map: ordered list item text excludes marker" {
 ///|
 test "view: ordered list keeps ordered kind tag from payload" {
   let source = "1. first\n2. second\n"
-  let (proj, _) = parse_to_proj_node(source)
+  let (proj, _) = parse_to_proj_node(markdown_projection_test_source, source)
   let source_map = @core.SourceMap::from_ast(proj)
   let view = proj_to_view_node(proj, source_map, source_text=Some(source))
   inspect(view.children[0].kind_tag, content="OrderedList")
@@ -156,9 +187,9 @@ test "view: ordered list keeps ordered kind tag from payload" {
 ///|
 test "source map: outer ordered item marker wins over nested bullet" {
   let source = "1. parent\n   - child\n"
-  let (proj, _) = parse_to_proj_node(source)
+  let (proj, _) = parse_to_proj_node(markdown_projection_test_source, source)
   let source_map = @core.SourceMap::from_ast(proj)
-  let (cst, _) = @markdown.parse_cst(source)
+  let (cst, _) = @markdown.parse_cst(markdown_projection_test_source, source)
   populate_token_spans(source_map, @seam.SyntaxNode::from_cst(cst), proj)
   let item = proj.children[0].children[0]
   match source_map.get_token_span(item.id(), "text") {
@@ -170,21 +201,23 @@ test "source map: outer ordered item marker wins over nested bullet" {
 
 ///|
 test "projection: code block" {
-  let (proj, _) = parse_to_proj_node("```js\nconsole.log(42)\n```")
+  let (proj, _) = parse_to_proj_node(
+    markdown_projection_test_source, "```js\nconsole.log(42)\n```",
+  )
   inspect(proj.children.length(), content="1")
 }
 
 ///|
 test "projection: html block" {
   let source = "# Before\n\n<div>\nraw\n</div>\n\nAfter"
-  let (proj, _) = parse_to_proj_node(source)
+  let (proj, _) = parse_to_proj_node(markdown_projection_test_source, source)
   inspect(proj.children.length(), content="3")
   match proj.children[1].kind {
     HtmlBlock(value) => inspect(value, content="<div>\nraw\n</div>\n")
     _ => fail("expected html block payload")
   }
   let source_map = @core.SourceMap::from_ast(proj)
-  let (cst, _) = @markdown.parse_cst(source)
+  let (cst, _) = @markdown.parse_cst(markdown_projection_test_source, source)
   populate_token_spans(source_map, @seam.SyntaxNode::from_cst(cst), proj)
   // Verify the "text" span covers the raw HTML content
   match source_map.get_token_span(proj.children[1].id(), "text") {
@@ -197,21 +230,23 @@ test "projection: html block" {
 ///|
 test "projection: mixed blocks" {
   let source = "# Title\n\nSome text.\n\n- item one\n- item two\n\nMore text."
-  let (proj, _) = parse_to_proj_node(source)
+  let (proj, _) = parse_to_proj_node(markdown_projection_test_source, source)
   inspect(proj.children.length(), content="4")
 }
 
 ///|
 test "projection: node positions span source text" {
   let source = "# Hello\n\nWorld"
-  let (proj, _) = parse_to_proj_node(source)
+  let (proj, _) = parse_to_proj_node(markdown_projection_test_source, source)
   inspect(proj.start, content="0")
   inspect(proj.children[0].start, content="0")
 }
 
 ///|
 test "projection: IDs are unique" {
-  let (proj, _) = parse_to_proj_node("# H1\n\n- a\n- b")
+  let (proj, _) = parse_to_proj_node(
+    markdown_projection_test_source, "# H1\n\n- a\n- b",
+  )
   let ids : Array[Int] = []
   fn collect(node : @core.ProjNode[@markdown.Block]) {
     ids.push(node.node_id)
@@ -234,7 +269,9 @@ test "projection: IDs are unique" {
 ///|
 test "projection: incremental reparse preserves IDs" {
   let source = "# Hello\n\nWorld"
-  let parser = @loom.new_imperative_parser(source, @markdown.markdown_grammar)
+  let parser = @loom.new_imperative_parser(
+    markdown_projection_test_source, source, @markdown.markdown_grammar,
+  )
   let counter : Ref[Int] = Ref(0)
   // Initial parse
   let _ = parser.parse()

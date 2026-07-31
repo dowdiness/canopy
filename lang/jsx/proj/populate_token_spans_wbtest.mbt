@@ -1,13 +1,19 @@
-///| Regression tests for populate_token_spans (Task 2.3), including a
+///|
+/// Regression tests for populate_token_spans (Task 2.3), including a
 /// Codex-review-caught bug (2026-07-11): an unclosed element's lone
 /// open-tag `>` was being recorded as its `close_bracket`, and nested
 /// same-tag elements' `close_bracket` disambiguation was unverified.
+let jsx_token_span_test_source : @loomcore.SourceId = @loomcore.SourceId(
+  "canopy-test:jsx-token-spans",
+)
 
 ///|
 fn source_map_for(
   text : String,
 ) -> (@core.ProjNode[@jsx.JsxNode], @core.SourceMap) {
-  let parser = @loom.new_parser(text, @jsx.jsx_grammar)
+  let parser = @loom.new_parser(
+    jsx_token_span_test_source, text, @jsx.jsx_grammar,
+  )
   let (proj_memo, _, source_map_memo) = build_jsx_projection_memos(parser)
   let root = proj_memo.read_or_abort().unwrap()
   let source_map = source_map_memo.read_or_abort()

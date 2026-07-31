@@ -2,6 +2,7 @@ import {
   "dowdiness/event-graph-walker/text",
   "dowdiness/lambda",
   "dowdiness/lambda/ast",
+  "dowdiness/loom/core" @loomcore,
   "dowdiness/seam",
   "dowdiness/canopy/core",
   "dowdiness/canopy/lang/lambda/proj" @lambda_proj,

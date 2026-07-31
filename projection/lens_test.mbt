@@ -1,15 +1,24 @@
 // Tests for the projection infrastructure after CanonicalModel removal.
 
 ///|
+let projection_lens_test_source : @loomcore.SourceId = @loomcore.SourceId(
+  "canopy-test:projection-lens",
+)
+
+///|
 test "SourceMap from_ast" {
-  let (root, _) = @lambda_proj.parse_to_proj_node("42")
+  let (root, _) = @lambda_proj.parse_to_proj_node(
+    projection_lens_test_source, "42",
+  )
   let source_map = @core.SourceMap::from_ast(root)
   inspect(source_map.node_count() >= 1, content="true")
 }
 
 ///|
 test "parse_to_proj_node preserves child-specific ranges" {
-  let (root, _) = @lambda_proj.parse_to_proj_node("x + 1")
+  let (root, _) = @lambda_proj.parse_to_proj_node(
+    projection_lens_test_source, "x + 1",
+  )
   inspect(root.children.length(), content="2")
   inspect(root.children[0].start < root.children[1].start, content="true")
   inspect(root.children[0].end <= root.children[1].start, content="true")
@@ -17,7 +26,9 @@ test "parse_to_proj_node preserves child-specific ranges" {
 
 ///|
 test "SourceMap innermost_node_at distinguishes operands" {
-  let (root, _) = @lambda_proj.parse_to_proj_node("x + 1")
+  let (root, _) = @lambda_proj.parse_to_proj_node(
+    projection_lens_test_source, "x + 1",
+  )
   let source_map = @core.SourceMap::from_ast(root)
   let left_pos = root.children[0].start
   let right_pos = if root.children[1].end > root.children[1].start {
@@ -37,7 +48,9 @@ test "SourceMap innermost_node_at distinguishes operands" {
 
 ///|
 test "TreeEditorState from_projection" {
-  let (root, _) = @lambda_proj.parse_to_proj_node("x + 1")
+  let (root, _) = @lambda_proj.parse_to_proj_node(
+    projection_lens_test_source, "x + 1",
+  )
   let state = TreeEditorState::from_projection(
     Some(root),
     @core.SourceMap::from_ast(root),
@@ -47,7 +60,9 @@ test "TreeEditorState from_projection" {
 
 ///|
 test "InteractiveTreeNode from AstNode" {
-  let (root, _) = @lambda_proj.parse_to_proj_node("(x) => x")
+  let (root, _) = @lambda_proj.parse_to_proj_node(
+    projection_lens_test_source, "(x) => x",
+  )
   let tree = InteractiveTreeNode::from_term_node(
     root,
     @core.SourceMap::from_ast(root),
@@ -57,8 +72,12 @@ test "InteractiveTreeNode from AstNode" {
 
 ///|
 test "reconcile_ast preserves IDs for matching nodes" {
-  let (old_root, _) = @lambda_proj.parse_to_proj_node("x + 1")
-  let (new_root, _) = @lambda_proj.parse_to_proj_node("x + 2")
+  let (old_root, _) = @lambda_proj.parse_to_proj_node(
+    projection_lens_test_source, "x + 1",
+  )
+  let (new_root, _) = @lambda_proj.parse_to_proj_node(
+    projection_lens_test_source, "x + 2",
+  )
   let reconciled = @core.reconcile(old_root, new_root, Ref(100))
   inspect(reconciled.node_id, content=old_root.node_id.to_string())
   inspect(
@@ -75,8 +94,12 @@ test "reconcile_ast preserves IDs for matching nodes" {
 
 ///|
 test "reconcile_ast preserves IDs across operator-only edits" {
-  let (old_root, _) = @lambda_proj.parse_to_proj_node("x + 1")
-  let (new_root, _) = @lambda_proj.parse_to_proj_node("x - 1")
+  let (old_root, _) = @lambda_proj.parse_to_proj_node(
+    projection_lens_test_source, "x + 1",
+  )
+  let (new_root, _) = @lambda_proj.parse_to_proj_node(
+    projection_lens_test_source, "x - 1",
+  )
   let reconciled = @core.reconcile(old_root, new_root, Ref(100))
   inspect(reconciled.node_id, content=old_root.node_id.to_string())
   inspect(
@@ -97,8 +120,12 @@ test "reconcile_ast preserves IDs across operator-only edits" {
 
 ///|
 test "reconcile_ast shrinks rebuilt source map when children disappear" {
-  let (old_root, _) = @lambda_proj.parse_to_proj_node("1 + 2 + 3")
-  let (new_root, _) = @lambda_proj.parse_to_proj_node("1 + 2")
+  let (old_root, _) = @lambda_proj.parse_to_proj_node(
+    projection_lens_test_source, "1 + 2 + 3",
+  )
+  let (new_root, _) = @lambda_proj.parse_to_proj_node(
+    projection_lens_test_source, "1 + 2",
+  )
   let reconciled = @core.reconcile(old_root, new_root, Ref(100))
   inspect(
     @core.SourceMap::from_ast(reconciled).node_count() <
@@ -109,7 +136,9 @@ test "reconcile_ast shrinks rebuilt source map when children disappear" {
 
 ///|
 test "node_at_position covers parenthesis positions" {
-  let (root, _) = @lambda_proj.parse_to_proj_node("(x)")
+  let (root, _) = @lambda_proj.parse_to_proj_node(
+    projection_lens_test_source, "(x)",
+  )
   let source_map = @core.SourceMap::from_ast(root)
   inspect(source_map.innermost_node_at(0) is None, content="false")
   inspect(source_map.innermost_node_at(2) is None, content="false")

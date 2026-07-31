@@ -1,10 +1,17 @@
 // Whitebox tests for TreeEditorState using ProjNode + SourceMap directly.
 
 ///|
+let tree_editor_test_source : @loomcore.SourceId = @loomcore.SourceId(
+  "canopy-test:projection-tree-editor",
+)
+
+///|
 fn tree_editor_test_state(
   source : String,
 ) -> (ProjNode[@ast.Term], SourceMap, TreeEditorState[@ast.Term]) raise {
-  let (root, _) = @lambda_proj.parse_to_proj_node(source)
+  let (root, _) = @lambda_proj.parse_to_proj_node(
+    tree_editor_test_source, source,
+  )
   let source_map = SourceMap::from_ast(root)
   (root, source_map, TreeEditorState::from_projection(Some(root), source_map))
 }
@@ -71,10 +78,14 @@ fn tree_editor_test_refresh_minimal(
 
 ///|
 test "refresh_node_minimal skips unchanged subtrees" {
-  let (old_root, _) = @lambda_proj.parse_to_proj_node("(1 + 2) + (3 + 4)")
+  let (old_root, _) = @lambda_proj.parse_to_proj_node(
+    tree_editor_test_source, "(1 + 2) + (3 + 4)",
+  )
   let old_source_map = SourceMap::from_ast(old_root)
   let state = TreeEditorState::from_projection(Some(old_root), old_source_map)
-  let (new_root, _) = @lambda_proj.parse_to_proj_node("(1 + 2) + (3 + 5)")
+  let (new_root, _) = @lambda_proj.parse_to_proj_node(
+    tree_editor_test_source, "(1 + 2) + (3 + 5)",
+  )
   let reconciled = @core.reconcile(old_root, new_root, Ref(1000))
   let source_map = SourceMap::from_ast(reconciled)
   let ui_state : TreeUIState = {
@@ -493,10 +504,14 @@ test "from_projection builds structural indexes" {
 
 ///|
 test "refresh rebuilds structural indexes for updated projection" {
-  let (old_root, _) = @lambda_proj.parse_to_proj_node("(1 + 2) + (3 + 4)")
+  let (old_root, _) = @lambda_proj.parse_to_proj_node(
+    tree_editor_test_source, "(1 + 2) + (3 + 4)",
+  )
   let old_source_map = SourceMap::from_ast(old_root)
   let state = TreeEditorState::from_projection(Some(old_root), old_source_map)
-  let (new_root, _) = @lambda_proj.parse_to_proj_node("(1 + 2) + (3 + 5)")
+  let (new_root, _) = @lambda_proj.parse_to_proj_node(
+    tree_editor_test_source, "(1 + 2) + (3 + 5)",
+  )
   let reconciled = @core.reconcile(old_root, new_root, Ref(1000))
   let source_map = SourceMap::from_ast(reconciled)
   let refreshed = state.refresh(Some(reconciled), source_map)
@@ -523,10 +538,14 @@ test "refresh rebuilds structural indexes for updated projection" {
 
 ///|
 test "refresh builder reuses unchanged sibling subtree after unrelated leaf change" {
-  let (old_root, _) = @lambda_proj.parse_to_proj_node("(1 + 2) + (3 + 4)")
+  let (old_root, _) = @lambda_proj.parse_to_proj_node(
+    tree_editor_test_source, "(1 + 2) + (3 + 4)",
+  )
   let old_source_map = SourceMap::from_ast(old_root)
   let state = TreeEditorState::from_projection(Some(old_root), old_source_map)
-  let (new_root, _) = @lambda_proj.parse_to_proj_node("(1 + 2) + (3 + 5)")
+  let (new_root, _) = @lambda_proj.parse_to_proj_node(
+    tree_editor_test_source, "(1 + 2) + (3 + 5)",
+  )
   let reconciled = @core.reconcile(old_root, new_root, Ref(1000))
   let source_map = SourceMap::from_ast(reconciled)
   let ui_state : TreeUIState = {
@@ -667,7 +686,9 @@ test "build_preorder_from_tree matches eagerly-built indexes" {
 
 ///|
 test "TreeEditorState::refresh preserves unchanged sibling subtree through public API" {
-  let (old_root, _) = @lambda_proj.parse_to_proj_node("(1 + 2) + (3 + 4)")
+  let (old_root, _) = @lambda_proj.parse_to_proj_node(
+    tree_editor_test_source, "(1 + 2) + (3 + 4)",
+  )
   let old_source_map = SourceMap::from_ast(old_root)
   let state = TreeEditorState::from_projection(Some(old_root), old_source_map)
   let old_tree = match state.tree {
@@ -678,7 +699,9 @@ test "TreeEditorState::refresh preserves unchanged sibling subtree through publi
   let old_left = old_root_children[0]
   let old_right = old_root_children[1]
 
-  let (new_root, _) = @lambda_proj.parse_to_proj_node("(1 + 2) + (3 + 5)")
+  let (new_root, _) = @lambda_proj.parse_to_proj_node(
+    tree_editor_test_source, "(1 + 2) + (3 + 5)",
+  )
   let reconciled = @core.reconcile(old_root, new_root, Ref(1000))
   let source_map = SourceMap::from_ast(reconciled)
   let refreshed = state.refresh(Some(reconciled), source_map)

@@ -1,8 +1,13 @@
 ///|
+let lambda_semantic_projection_test_source : @loomcore.SourceId = @loomcore.SourceId(
+  "canopy-test:lambda-semantic-projection",
+)
+
+///|
 fn parse_fixture(
   text : String,
 ) -> (@core.ProjNode[@ast.Term], @core.SourceMap) raise {
-  let (cst, _) = @parser.parse_cst(text)
+  let (cst, _) = @parser.parse_cst(lambda_semantic_projection_test_source, text)
   let syntax = @seam.SyntaxNode::from_cst(cst)
   let root = @lambda_proj.to_proj_node(syntax, Ref(0))
   let source_map = @core.SourceMap::from_ast(root)

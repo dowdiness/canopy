@@ -1,6 +1,13 @@
 ///|
+let projection_proj_node_test_source : @loomcore.SourceId = @loomcore.SourceId(
+  "canopy-test:projection-proj-node",
+)
+
+///|
 fn parse_syntax(text : String) -> @seam.SyntaxNode raise {
-  let (cst, _) = @parser.parse_cst(text) catch { _ => fail("parse failed") }
+  let (cst, _) = @parser.parse_cst(projection_proj_node_test_source, text) catch {
+    _ => fail("parse failed")
+  }
   @seam.SyntaxNode::from_cst(cst)
 }
 

@@ -60,7 +60,10 @@ fn build_oracle(
   Map[@core.NodeId, @core.ProjNode[@ast.Term]],
   @scope.ScopeGraph,
 ) raise {
-  let (cst, _errs) = @parser.parse_cst(text)
+  let (cst, _errs) = @parser.parse_cst(
+    @loomcore.SourceId("canopy-test:lambda-scope-resolution-oracle"),
+    text,
+  )
   let syntax = @seam.SyntaxNode::from_cst(cst)
   let counter = Ref(0)
   let proj = to_proj_node(syntax, counter)

@@ -13,7 +13,9 @@ pub fn new_markdown_editor(
   let hints_ref : Ref[Array[@core.IdentityTransform]] = Ref([])
   @editor.SyncEditor::new_generic(
     agent_id,
-    (s, rt) => @loom.new_parser(s, @markdown.markdown_grammar, runtime?=rt),
+    (source_id, source, runtime) => {
+      @loom.new_parser(source_id, source, @markdown.markdown_grammar, runtime?)
+    },
     parser => {
       @md_proj.build_markdown_projection_memos(parser, identity_hints=hints_ref)
     },

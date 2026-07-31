@@ -169,7 +169,9 @@ pub fn new_lambda_editor(
   let hints_ref : Ref[Array[@core.IdentityTransform]] = Ref([])
   let editor = @editor.SyncEditor::new_generic(
     agent_id,
-    fn(s, rt) { @loom.new_parser(s, @parser.lambda_grammar, runtime?=rt) },
+    (source_id, source, runtime) => {
+      @loom.new_parser(source_id, source, @parser.lambda_grammar, runtime?)
+    },
     fn(parser) {
       let (cached_proj_node, registry_memo, source_map_memo) = @lambda_proj.build_lambda_projection_memos(
         parser,

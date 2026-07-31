@@ -125,6 +125,14 @@ pub fn[T] SyncEditor::parser_runtime(self : SyncEditor[T]) -> @incr.Runtime {
 }
 
 ///|
+/// Stable source identity owned by this editor's parser.
+pub fn[T] SyncEditor::parser_source_id(
+  self : SyncEditor[T],
+) -> @loom_core.SourceId {
+  self.parser.source_id()
+}
+
+///|
 /// Reactive view of the parser's recovered CST. Tracked when `.get_or_abort()`
 /// inside a memo closure.
 pub fn[T] SyncEditor::parser_syntax_tree(

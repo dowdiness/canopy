@@ -1,12 +1,17 @@
 ///|
+let lambda_cstfold_test_source : @loomcore.SourceId = @loomcore.SourceId(
+  "canopy-test:lambda-cstfold-parity",
+)
+
+///|
 fn cstfold_term(source : String) -> @ast.Term raise {
-  let (cst, _) = @parser.parse_cst(source)
+  let (cst, _) = @parser.parse_cst(lambda_cstfold_test_source, source)
   @parser.syntax_node_to_term(@seam.SyntaxNode::from_cst(cst))
 }
 
 ///|
 fn cstfold_shallow_first_child(source : String) -> @ast.Term raise {
-  let (cst, _) = @parser.parse_cst(source)
+  let (cst, _) = @parser.parse_cst(lambda_cstfold_test_source, source)
   let root = @seam.SyntaxNode::from_cst(cst)
   match root.children() {
     [expr, ..] => cstfold_projection_compatible_shallow_kind(expr)
@@ -29,7 +34,7 @@ fn assert_term_equal(
 
 ///|
 fn assert_clean_projection_kind_matches_fold(source : String) -> Unit raise {
-  let (proj, errors) = parse_to_proj_node(source)
+  let (proj, errors) = parse_to_proj_node(lambda_cstfold_test_source, source)
   if !errors.is_empty() {
     fail(
       "expected clean parse for " + source + ", got " + @debug.to_string(errors),
@@ -49,7 +54,7 @@ fn assert_projection_fold_classification(
   expected_projection : @ast.Term,
   expected_fold : @ast.Term,
 ) -> Unit raise {
-  let (proj, _errors) = parse_to_proj_node(source)
+  let (proj, _errors) = parse_to_proj_node(lambda_cstfold_test_source, source)
   let folded = cstfold_term(source)
   assert_term_equal(
     "projection classification for " + source,
@@ -65,7 +70,7 @@ fn assert_projection_fold_classification(
 
 ///|
 fn assert_projection_matches_compatible_fold(source : String) -> Unit raise {
-  let (proj, errors) = parse_to_proj_node(source)
+  let (proj, errors) = parse_to_proj_node(lambda_cstfold_test_source, source)
   if !errors.is_empty() {
     fail(
       "expected clean parse for " + source + ", got " + @debug.to_string(errors),
@@ -115,7 +120,7 @@ fn assert_leaf_projection_metadata(
   expected_start : Int,
   expected_end : Int,
 ) -> Unit raise {
-  let (proj, errors) = parse_to_proj_node(source)
+  let (proj, errors) = parse_to_proj_node(lambda_cstfold_test_source, source)
   if !errors.is_empty() {
     fail(
       "expected clean parse for " + source + ", got " + @debug.to_string(errors),
@@ -185,7 +190,7 @@ test "cstfold-backed branch shape does not fold nested if children" {
 ///|
 test "cstfold-backed if projection preserves branch metadata" {
   let source = "if x then 1 else 2"
-  let (proj, errors) = parse_to_proj_node(source)
+  let (proj, errors) = parse_to_proj_node(lambda_cstfold_test_source, source)
   if !errors.is_empty() {
     fail(
       "expected clean parse for " + source + ", got " + @debug.to_string(errors),
@@ -214,7 +219,7 @@ test "cstfold-backed if projection preserves branch metadata" {
 ///|
 test "cstfold-backed if projection preserves recovered child kind" {
   let source = "if 1 + then 2 else 3"
-  let (proj, errors) = parse_to_proj_node(source)
+  let (proj, errors) = parse_to_proj_node(lambda_cstfold_test_source, source)
   if errors.is_empty() {
     fail("expected recovery diagnostics for " + source)
   }
@@ -272,7 +277,7 @@ test "cstfold-backed flat app and bop shallow shapes do not fold nested children
 ///|
 test "app projection preserves left-nested spine metadata" {
   let source = "f x y"
-  let (proj, errors) = parse_to_proj_node(source)
+  let (proj, errors) = parse_to_proj_node(lambda_cstfold_test_source, source)
   if !errors.is_empty() {
     fail(
       "expected clean parse for " + source + ", got " + @debug.to_string(errors),
@@ -311,7 +316,7 @@ test "app projection preserves left-nested spine metadata" {
 ///|
 test "app projection preserves recovered argument child" {
   let source = "f ("
-  let (proj, errors) = parse_to_proj_node(source)
+  let (proj, errors) = parse_to_proj_node(lambda_cstfold_test_source, source)
   if errors.is_empty() {
     fail("expected recovery diagnostics for " + source)
   }
@@ -343,7 +348,7 @@ test "app projection preserves recovered argument child" {
 ///|
 test "bop projection preserves left-nested spine metadata" {
   let source = "1 + 2 - 3"
-  let (proj, errors) = parse_to_proj_node(source)
+  let (proj, errors) = parse_to_proj_node(lambda_cstfold_test_source, source)
   if !errors.is_empty() {
     fail(
       "expected clean parse for " + source + ", got " + @debug.to_string(errors),
@@ -382,7 +387,7 @@ test "bop projection preserves left-nested spine metadata" {
 ///|
 test "bop projection preserves recovered rhs child metadata" {
   let source = "1 +"
-  let (proj, errors) = parse_to_proj_node(source)
+  let (proj, errors) = parse_to_proj_node(lambda_cstfold_test_source, source)
   if errors.is_empty() {
     fail("expected recovery diagnostics for " + source)
   }
@@ -465,7 +470,7 @@ test "cstfold parity: block projection agrees with cstfold; empty-block divergen
 ///|
 test "cstfold parity: recovery divergence is classified separately" {
   let source = "1 +"
-  let (proj, errors) = parse_to_proj_node(source)
+  let (proj, errors) = parse_to_proj_node(lambda_cstfold_test_source, source)
   if errors.is_empty() {
     fail("expected recovery diagnostics for " + source)
   }

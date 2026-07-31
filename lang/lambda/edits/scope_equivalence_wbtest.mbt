@@ -47,7 +47,10 @@ fn graph_of(
 fn graph_and_sm_of(
   text : String,
 ) -> (@core.ProjNode[@ast.Term], @scope.ScopeGraph, SourceMap) raise {
-  let (cst, _errs) = @parser.parse_cst(text)
+  let (cst, _errs) = @parser.parse_cst(
+    @loomcore.SourceId("canopy-test:lambda-scope-equivalence"),
+    text,
+  )
   let syntax = @seam.SyntaxNode::from_cst(cst)
   let proj = to_proj_node(syntax, Ref(0))
   let sm = SourceMap::from_ast(proj)

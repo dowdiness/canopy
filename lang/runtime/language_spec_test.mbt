@@ -24,8 +24,8 @@ fn stub_spec(
   ) = @json_proj.build_json_projection_memos,
 ) -> @runtime.LanguageSpec[@djson.JsonValue, String] {
   @runtime.LanguageSpec::LanguageSpec(
-    make_parser=fn(s, rt) {
-      @loom.new_parser(s, @djson.json_grammar, runtime?=rt)
+    make_parser=(source_id, source, runtime) => {
+      @loom.new_parser(source_id, source, @djson.json_grammar, runtime?)
     },
     build_memos~,
     compute_edit~,

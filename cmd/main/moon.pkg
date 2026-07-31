@@ -1,6 +1,7 @@
 import {
   "dowdiness/canopy/editor",
   "dowdiness/event-graph-walker/text",
+  "dowdiness/loom/core" @loomcore,
   "dowdiness/lambda" @parser,
   "dowdiness/pretty",
   "moonbitlang/core/debug",

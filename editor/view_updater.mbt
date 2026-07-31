@@ -59,6 +59,54 @@ pub fn[T : @loom_core.Renderable] SyncEditor::get_view_tree(
 }
 
 ///|
+/// Narrow Loom diagnostics to the existing current-document protocol shape.
+/// Label and diagnostic order are preserved. A truly locationless diagnostic
+/// keeps the compatibility `0..0` range; labeled diagnostics emit only primary
+/// labels belonging to `source_id`.
+pub fn project_diagnostics_for_source(
+  source_id : @loom_core.SourceId,
+  diagnostics : @loom_core.DiagnosticSet,
+) -> Array[@protocol.Diagnostic] {
+  diagnostics
+  .items()
+  .iter()
+  .flat_map(diagnostic => {
+    let severity = match diagnostic.severity() {
+      @loom_core.DiagnosticSeverity::Error => @protocol.SevError
+      @loom_core.DiagnosticSeverity::Warning => @protocol.SevWarning
+      @loom_core.DiagnosticSeverity::Info => @protocol.SevInfo
+      @loom_core.DiagnosticSeverity::Hint => @protocol.SevHint
+    }
+    let code = diagnostic.code().map(code => code.value())
+    let protocol_diagnostic = (from, to) => {
+      @protocol.Diagnostic(
+        from~,
+        to~,
+        severity~,
+        message=diagnostic.message(),
+        code?,
+      )
+    }
+    let labels = diagnostic.labels()
+    if labels.is_empty() {
+      Iter::singleton(protocol_diagnostic(0, 0))
+    } else {
+      labels
+      .iter()
+      .filter(label => {
+        label.style() == @loom_core.LabelStyle::Primary &&
+        label.span().source_id() == source_id
+      })
+      .map(label => {
+        let range = label.span().range()
+        protocol_diagnostic(range.start().value(), range.end().value())
+      })
+    }
+  })
+  .to_array()
+}
+
+///|
 pub fn[T : @loom_core.Renderable] compute_view_patches(
   state : ViewUpdateState,
   editor : SyncEditor[T],
@@ -87,28 +135,11 @@ pub fn[T : @loom_core.Renderable] compute_view_patches(
       }
   }
   state.previous_decorations = Some(current_decorations)
-  let parser_diagnostics = editor.parser_diagnostics().read_or_abort().items()
-  if !parser_diagnostics.is_empty() {
-    let diagnostics = parser_diagnostics.map(diagnostic => {
-      let (from, to) = match diagnostic.primary {
-        Some(range) => (range.start().value(), range.end().value())
-        None => (0, 0)
-      }
-      let severity = match diagnostic.severity {
-        @loom_core.DiagnosticSeverity::Error => @protocol.SevError
-        @loom_core.DiagnosticSeverity::Warning => @protocol.SevWarning
-        @loom_core.DiagnosticSeverity::Info => @protocol.SevInfo
-        @loom_core.DiagnosticSeverity::Hint => @protocol.SevHint
-      }
-      let code = diagnostic.code.map(code => code.value())
-      @protocol.Diagnostic(
-        from~,
-        to~,
-        severity~,
-        message=diagnostic.message,
-        code?,
-      )
-    })
+  let diagnostics = project_diagnostics_for_source(
+    editor.parser.source_id(),
+    editor.parser_diagnostics().read_or_abort(),
+  )
+  if !diagnostics.is_empty() {
     patches.push(@protocol.ViewPatch::SetDiagnostics(diagnostics~))
     state.had_errors = true
   } else if state.had_errors {

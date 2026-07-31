@@ -1,6 +1,11 @@
 // Benchmark for TreeEditorState::refresh — measures the tree refresh hot path.
 
 ///|
+let tree_refresh_benchmark_source : @loomcore.SourceId = @loomcore.SourceId(
+  "canopy-test:projection-tree-refresh-benchmark",
+)
+
+///|
 fn tree_refresh_bench_source(let_count : Int, tail_literal : String) -> String {
   let segments : Array[String] = []
   for i = 0; i < let_count - 1; i = i + 1 {
@@ -23,10 +28,14 @@ fn tree_refresh_bench_setup(
 ) raise {
   let source_a = tree_refresh_bench_source(let_count, "0")
   let source_b = tree_refresh_bench_source(let_count, "1")
-  let (root_a, _) = @lambda_proj.parse_to_proj_node(source_a)
+  let (root_a, _) = @lambda_proj.parse_to_proj_node(
+    tree_refresh_benchmark_source, source_a,
+  )
   let sm_a = SourceMap::from_ast(root_a)
   let state = TreeEditorState::from_projection(Some(root_a), sm_a)
-  let (root_b, _) = @lambda_proj.parse_to_proj_node(source_b)
+  let (root_b, _) = @lambda_proj.parse_to_proj_node(
+    tree_refresh_benchmark_source, source_b,
+  )
   let reconciled = @core.reconcile(root_a, root_b, Ref(1000))
   let sm_b = SourceMap::from_ast(reconciled)
   (state, root_a, sm_a, reconciled, sm_b)

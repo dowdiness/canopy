@@ -20,11 +20,18 @@
 // def + the trailing body), giving a wide sibling list for the LCS DP.
 
 ///|
+let reconcile_lcs_benchmark_source : @loomcore.SourceId = @loomcore.SourceId(
+  "canopy-test:projection-reconcile-lcs-benchmark",
+)
+
+///|
 fn lcs_setup(n : Int) -> (ProjNode[@ast.Term], ProjNode[@ast.Term]) raise {
   let (root_a, _) = @lambda_proj.parse_to_proj_node(
+    reconcile_lcs_benchmark_source,
     tree_refresh_bench_source(n, "0"),
   )
   let (root_b, _) = @lambda_proj.parse_to_proj_node(
+    reconcile_lcs_benchmark_source,
     tree_refresh_bench_source(n, "1"),
   )
   (root_a, root_b)

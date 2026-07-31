@@ -6,4 +6,5 @@ import {
 
 import {
   "dowdiness/canopy/lang/lambda/proj" @lambda_proj,
+  "dowdiness/loom/core" @loomcore,
 } for "wbtest"

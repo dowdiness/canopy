@@ -19,7 +19,9 @@ fn module_binding_ids(
 ///|
 test "build_lambda_projection_memos: reordered defs preserve binding ids" {
   let parser = @loom.new_parser(
-    "let x = 1\nlet y = 2\nx", @parser.lambda_grammar,
+    @loomcore.SourceId("canopy-test:lambda-projection-memo-reordered"),
+    "let x = 1\nlet y = 2\nx",
+    @parser.lambda_grammar,
   )
   let (proj_memo, _, _) = build_lambda_projection_memos(parser)
   let before = module_binding_ids(proj_memo.read_or_abort().unwrap())
@@ -50,7 +52,9 @@ fn module_binding_ids_in_order(
 ///|
 test "build_lambda_projection_memos: duplicate defs preserve occurrence binding ids" {
   let parser = @loom.new_parser(
-    "let x = 1\nlet x = 2\nx", @parser.lambda_grammar,
+    @loomcore.SourceId("canopy-test:lambda-projection-memo-duplicates"),
+    "let x = 1\nlet x = 2\nx",
+    @parser.lambda_grammar,
   )
   let (proj_memo, _, _) = build_lambda_projection_memos(parser)
   let before = module_binding_ids_in_order(proj_memo.read_or_abort().unwrap())
@@ -64,7 +68,9 @@ test "build_lambda_projection_memos: duplicate defs preserve occurrence binding 
 ///|
 test "build_lambda_projection_memos: inserted def gets fresh id while neighbors stay stable" {
   let parser = @loom.new_parser(
-    "let x = 1\nlet z = 3\nz", @parser.lambda_grammar,
+    @loomcore.SourceId("canopy-test:lambda-projection-memo-inserted"),
+    "let x = 1\nlet z = 3\nz",
+    @parser.lambda_grammar,
   )
   let (proj_memo, _, _) = build_lambda_projection_memos(parser)
   let before = module_binding_ids_in_order(proj_memo.read_or_abort().unwrap())
@@ -77,7 +83,11 @@ test "build_lambda_projection_memos: inserted def gets fresh id while neighbors 
 
 ///|
 test "build_lambda_projection_memos: root module id stays stable across rebuild" {
-  let parser = @loom.new_parser("let x = 1\nx", @parser.lambda_grammar)
+  let parser = @loom.new_parser(
+    @loomcore.SourceId("canopy-test:lambda-projection-memo-root"),
+    "let x = 1\nx",
+    @parser.lambda_grammar,
+  )
   let (proj_memo, _, _) = build_lambda_projection_memos(parser)
   let before = proj_memo.read_or_abort().unwrap().id()
   parser.set_source("let x = 2\nx")
@@ -87,7 +97,11 @@ test "build_lambda_projection_memos: root module id stays stable across rebuild"
 
 ///|
 test "build_lambda_projection_memos: root block module keeps outer span" {
-  let parser = @loom.new_parser("{ let x = 1\n  x }", @parser.lambda_grammar)
+  let parser = @loom.new_parser(
+    @loomcore.SourceId("canopy-test:lambda-projection-memo-block"),
+    "{ let x = 1\n  x }",
+    @parser.lambda_grammar,
+  )
   let (proj_memo, _, _) = build_lambda_projection_memos(parser)
   ignore(proj_memo.read_or_abort())
   parser.set_source("{ let x = 2\n  x }")
@@ -98,7 +112,11 @@ test "build_lambda_projection_memos: root block module keeps outer span" {
 
 ///|
 test "build_lambda_projection_memos: explicit Unit body keeps span" {
-  let parser = @loom.new_parser("let x = 1\n{}", @parser.lambda_grammar)
+  let parser = @loom.new_parser(
+    @loomcore.SourceId("canopy-test:lambda-projection-memo-unit"),
+    "let x = 1\n{}",
+    @parser.lambda_grammar,
+  )
   let (proj_memo, _, _) = build_lambda_projection_memos(parser)
   ignore(proj_memo.read_or_abort())
   parser.set_source("let x = 2\n{}")

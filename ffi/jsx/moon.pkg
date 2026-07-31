@@ -6,6 +6,7 @@ import {
   "dowdiness/canopy/lang/jsx/proj" @jsx_proj,
   "dowdiness/jsx" @jsx_ast,
   "dowdiness/loom",
+  "dowdiness/loom/core" @loomcore,
   "moonbitlang/async/js_async",
   "moonbitlang/core/json",
   "moonbitlang/core/encoding/utf8",

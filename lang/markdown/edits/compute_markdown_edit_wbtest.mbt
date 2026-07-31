@@ -1,16 +1,21 @@
 ///| Whitebox tests for Markdown edit ops (pure compute, no SyncEditor).
 
 ///|
+let markdown_edit_test_source : @loomcore.SourceId = @loomcore.SourceId(
+  "canopy-test:markdown-edits",
+)
+
+///|
 fn compute_edit_result(
   source : String,
   op : MarkdownEditOp,
 ) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
-  let (proj, _) = @md_proj.parse_to_proj_node(source) catch {
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source) catch {
     @loomcore.LexError(msg) => raise @core.EditError::ParseFailed(detail=msg)
   }
   let source_map = @core.SourceMap::from_ast(proj)
   // Re-parse to get the SyntaxNode for populate_token_spans
-  let (cst, _) = @markdown.parse_cst(source) catch {
+  let (cst, _) = @markdown.parse_cst(markdown_edit_test_source, source) catch {
     @loomcore.LexError(msg) => raise @core.EditError::ParseFailed(detail=msg)
   }
   let syntax_root = @seam.SyntaxNode::from_cst(cst)
@@ -72,7 +77,9 @@ fn inspect_edit_error_contains(
 ///|
 test "commit_edit: change paragraph text" {
   let source = "Hello world\n"
-  let (proj, _) = @md_proj.parse_to_proj_node("Hello world\n")
+  let (proj, _) = @md_proj.parse_to_proj_node(
+    markdown_edit_test_source, "Hello world\n",
+  )
   let para_id = proj.children[0].id()
   let result = apply_edit(
     source,
@@ -84,7 +91,9 @@ test "commit_edit: change paragraph text" {
 ///|
 test "change_heading_level: paragraph to h2" {
   let source = "Hello\n"
-  let (proj, _) = @md_proj.parse_to_proj_node("Hello\n")
+  let (proj, _) = @md_proj.parse_to_proj_node(
+    markdown_edit_test_source, "Hello\n",
+  )
   let para_id = proj.children[0].id()
   let result = apply_edit(source, ChangeHeadingLevel(node_id=para_id, level=2))
   inspect(result.contains("## Hello"), content="true")
@@ -93,7 +102,9 @@ test "change_heading_level: paragraph to h2" {
 ///|
 test "change_heading_level: h1 to h3" {
   let source = "# Title\n"
-  let (proj, _) = @md_proj.parse_to_proj_node("# Title\n")
+  let (proj, _) = @md_proj.parse_to_proj_node(
+    markdown_edit_test_source, "# Title\n",
+  )
   let heading_id = proj.children[0].id()
   let result = apply_edit(
     source,
@@ -105,7 +116,7 @@ test "change_heading_level: h1 to h3" {
 ///|
 test "change_heading_level: setext h2 to ATX h3" {
   let source = "Title\n---\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let heading_id = proj.children[0].id()
   let result = apply_edit(
     source,
@@ -117,7 +128,7 @@ test "change_heading_level: setext h2 to ATX h3" {
 ///|
 test "change_heading_level: multiline setext becomes one ATX line" {
   let source = "Foo\nbar\n---\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let heading_id = proj.children[0].id()
   let result = apply_edit(
     source,
@@ -129,7 +140,7 @@ test "change_heading_level: multiline setext becomes one ATX line" {
 ///|
 test "change_heading_level: CRLF setext preserves line ending" {
   let source = "Title\r\n---\r\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let heading_id = proj.children[0].id()
   let result = apply_edit(
     source,
@@ -141,7 +152,7 @@ test "change_heading_level: CRLF setext preserves line ending" {
 ///|
 test "change_heading_level: indented setext drops underline indentation" {
   let source = "Title\n   ---\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let heading_id = proj.children[0].id()
   let result = apply_edit(
     source,
@@ -153,7 +164,7 @@ test "change_heading_level: indented setext drops underline indentation" {
 ///|
 test "commit_edit: indented setext preserves underline structure" {
   let source = "Title\n   ---\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let heading_id = proj.children[0].id()
   let result = apply_edit(
     source,
@@ -165,7 +176,9 @@ test "commit_edit: indented setext preserves underline structure" {
 ///|
 test "toggle_list_item: paragraph to list item" {
   let source = "Hello\n"
-  let (proj, _) = @md_proj.parse_to_proj_node("Hello\n")
+  let (proj, _) = @md_proj.parse_to_proj_node(
+    markdown_edit_test_source, "Hello\n",
+  )
   let para_id = proj.children[0].id()
   let result = apply_edit(source, ToggleListItem(node_id=para_id))
   inspect(result.contains("- Hello"), content="true")
@@ -174,7 +187,9 @@ test "toggle_list_item: paragraph to list item" {
 ///|
 test "delete: remove a block" {
   let source = "# Title\n\nParagraph\n"
-  let (proj, _) = @md_proj.parse_to_proj_node("# Title\n\nParagraph\n")
+  let (proj, _) = @md_proj.parse_to_proj_node(
+    markdown_edit_test_source, "# Title\n\nParagraph\n",
+  )
   let para_id = proj.children[1].id()
   let result = apply_edit(source, Delete(node_id=para_id))
   inspect(result.contains("Paragraph"), content="false")
@@ -183,7 +198,9 @@ test "delete: remove a block" {
 ///|
 test "insert_block_after: adds newline" {
   let source = "Hello\n"
-  let (proj, _) = @md_proj.parse_to_proj_node("Hello\n")
+  let (proj, _) = @md_proj.parse_to_proj_node(
+    markdown_edit_test_source, "Hello\n",
+  )
   let para_id = proj.children[0].id()
   let result = apply_edit(source, InsertBlockAfter(node_id=para_id))
   // Should have extra newline (new block separator)
@@ -193,7 +210,7 @@ test "insert_block_after: adds newline" {
 ///|
 test "split_block: mid-cluster offset snaps to next grapheme boundary" {
   let source = "e\u{0301}x\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let para_id = proj.children[0].id()
   let result = apply_edit(source, SplitBlock(node_id=para_id, offset=1))
   inspect(result, content="é\n\nx\n")
@@ -202,7 +219,7 @@ test "split_block: mid-cluster offset snaps to next grapheme boundary" {
 ///|
 test "split_block: ordered list item keeps ordered marker" {
   let source = "1. first\n2. second\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let item_id = proj.children[0].children[0].id()
   let result = apply_edit(source, SplitBlock(node_id=item_id, offset=2))
   inspect(result, content="1. fi\n2. rst\n2. second\n")
@@ -211,7 +228,9 @@ test "split_block: ordered list item keeps ordered marker" {
 ///|
 test "merge_with_previous: first block is no-op" {
   let source = "Hello\n"
-  let (proj, _) = @md_proj.parse_to_proj_node("Hello\n")
+  let (proj, _) = @md_proj.parse_to_proj_node(
+    markdown_edit_test_source, "Hello\n",
+  )
   let para_id = proj.children[0].id()
   let result = apply_edit(source, MergeWithPrevious(node_id=para_id))
   inspect(result, content="Hello\n")
@@ -220,7 +239,7 @@ test "merge_with_previous: first block is no-op" {
 ///|
 test "move_block: moves sibling before target" {
   let source = "# A\n# B\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let a_id = proj.children[0].id()
   let b_id = proj.children[1].id()
   let result = apply_edit(
@@ -233,7 +252,7 @@ test "move_block: moves sibling before target" {
 ///|
 test "move_block: adjacent after move is no-op" {
   let source = "# A\n# B\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let a_id = proj.children[0].id()
   let b_id = proj.children[1].id()
   let result = apply_edit(
@@ -246,7 +265,7 @@ test "move_block: adjacent after move is no-op" {
 ///|
 test "move_block: adjacent duplicate before move is no-op" {
   let source = "# X\n# X\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let first_id = proj.children[0].id()
   let second_id = proj.children[1].id()
   let result = compute_edit_result(
@@ -263,7 +282,7 @@ test "move_block: adjacent duplicate before move is no-op" {
 ///|
 test "move_block: preserves paragraph blank-line separator before target" {
   let source = "A\n\nB\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let a_id = proj.children[0].id()
   let b_id = proj.children[1].id()
   let result = apply_edit(
@@ -276,7 +295,7 @@ test "move_block: preserves paragraph blank-line separator before target" {
 ///|
 test "move_block: preserves paragraph blank-line separator after target" {
   let source = "A\n\nB\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let a_id = proj.children[0].id()
   let b_id = proj.children[1].id()
   let result = apply_edit(
@@ -289,7 +308,7 @@ test "move_block: preserves paragraph blank-line separator after target" {
 ///|
 test "move_block: preserves separator when moving final block without trailing newline" {
   let source = "# A\n# B"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let a_id = proj.children[0].id()
   let b_id = proj.children[1].id()
   let result = apply_edit(
@@ -302,7 +321,7 @@ test "move_block: preserves separator when moving final block without trailing n
 ///|
 test "move_block: preserves separator when moving first block after EOF block" {
   let source = "# A\n# B"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let a_id = proj.children[0].id()
   let b_id = proj.children[1].id()
   let result = apply_edit(
@@ -315,7 +334,7 @@ test "move_block: preserves separator when moving first block after EOF block" {
 ///|
 test "move_block: preserves paragraph break left behind by moved heading" {
   let source = "A\n\n# B\nC\n\nD\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let heading_id = proj.children[1].id()
   let d_id = proj.children[3].id()
   let result = apply_edit(
@@ -332,7 +351,7 @@ test "move_block: preserves paragraph break left behind by moved heading" {
 ///|
 test "move_block: preserves paragraph break at target insertion" {
   let source = "# H\nP\n\nQ\n\nR\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let p_id = proj.children[1].id()
   let r_id = proj.children[3].id()
   let result = apply_edit(
@@ -345,7 +364,7 @@ test "move_block: preserves paragraph break at target insertion" {
 ///|
 test "move_block: preserves root paragraph after list target" {
   let source = "A\n\n- B\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let paragraph_id = proj.children[0].id()
   let list_id = proj.children[1].id()
   let result = apply_edit(
@@ -362,7 +381,7 @@ test "move_block: preserves root paragraph after list target" {
 ///|
 test "move_block: rejects unclosed fenced code before following sibling" {
   let source = "# A\n```\ncode\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let heading_id = proj.children[0].id()
   let code_id = proj.children[1].id()
   try {
@@ -383,7 +402,7 @@ test "move_block: rejects unclosed fenced code before following sibling" {
 ///|
 test "move_block: preserves unrelated adjacent sibling separator" {
   let source = "# A\n\n\n# B\n# C\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let a_id = proj.children[0].id()
   let c_id = proj.children[2].id()
   let result = apply_edit(
@@ -396,7 +415,7 @@ test "move_block: preserves unrelated adjacent sibling separator" {
 ///|
 test "move_block: rejects inside position" {
   let source = "# A\n# B\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let a_id = proj.children[0].id()
   let b_id = proj.children[1].id()
   inspect_edit_error(
@@ -408,7 +427,7 @@ test "move_block: rejects inside position" {
 ///|
 test "move_block: unordered list item before sibling" {
   let source = "- A\n- B\n- C\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let items = proj.children[0].children
   let result = apply_edit(
     source,
@@ -424,7 +443,7 @@ test "move_block: unordered list item before sibling" {
 ///|
 test "move_block: unordered list item after sibling" {
   let source = "- A\n- B\n- C\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let items = proj.children[0].children
   let result = apply_edit(
     source,
@@ -440,7 +459,7 @@ test "move_block: unordered list item after sibling" {
 ///|
 test "move_block: ordered list item before sibling" {
   let source = "1. A\n2. B\n3. C\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let items = proj.children[0].children
   let result = apply_edit(
     source,
@@ -456,7 +475,7 @@ test "move_block: ordered list item before sibling" {
 ///|
 test "move_block: ordered list item after sibling" {
   let source = "1. A\n2. B\n3. C\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let items = proj.children[0].children
   let result = apply_edit(
     source,
@@ -472,7 +491,7 @@ test "move_block: ordered list item after sibling" {
 ///|
 test "move_block: rejects duplicate list item payloads" {
   let source = "- X\n- X\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let items = proj.children[0].children
   try {
     let _ = compute_edit_result(
@@ -492,7 +511,7 @@ test "move_block: rejects duplicate list item payloads" {
 ///|
 test "move_block: rejects duplicate ordered list item payloads" {
   let source = "1. X\n2. X\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let items = proj.children[0].children
   try {
     let _ = compute_edit_result(
@@ -512,7 +531,7 @@ test "move_block: rejects duplicate ordered list item payloads" {
 ///|
 test "move_block: renumbers ordered list markers consecutively from 1" {
   let source = "1. A\n2. B\n3. C\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let items = proj.children[0].children
   let result = apply_edit(
     source,
@@ -528,7 +547,7 @@ test "move_block: renumbers ordered list markers consecutively from 1" {
 ///|
 test "move_block: renumbers ordered list when first item is empty" {
   let source = "1. \n2. B\n3. C\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let items = proj.children[0].children
   let result = apply_edit(
     source,
@@ -544,7 +563,7 @@ test "move_block: renumbers ordered list when first item is empty" {
 ///|
 test "move_block: moves empty ordered list item with renumbering" {
   let source = "1. A\n2. \n3. C\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let items = proj.children[0].children
   let result = apply_edit(
     source,
@@ -560,7 +579,7 @@ test "move_block: moves empty ordered list item with renumbering" {
 ///|
 test "move_block: preserves ordered list delimiter paren" {
   let source = "1) A\n2) B\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let items = proj.children[0].children
   let result = apply_edit(
     source,
@@ -585,7 +604,7 @@ test "move_block: inserts padding after empty ordered seed marker" {
 test "move_block: preserves ordered list start value" {
   inspect(next_ordered_marker("-1. ").unwrap(), content="0. ")
   let source = "4. A\n5. B\n6. C\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let items = proj.children[0].children
   let result = apply_edit(
     source,
@@ -611,7 +630,7 @@ test "move_block: reindents ordered item continuations after renumbering" {
 ///|
 test "move_block: no-op for adjacent ordered items" {
   let source = "1. A\n2. B\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let items = proj.children[0].children
   let result = compute_edit_result(
     source,
@@ -627,7 +646,7 @@ test "move_block: no-op for adjacent ordered items" {
 ///|
 test "move_block: uses single newline separator between list items" {
   let source = "- A\n- B\n- C\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let items = proj.children[0].children
   let result = apply_edit(
     source,
@@ -643,7 +662,7 @@ test "move_block: uses single newline separator between list items" {
 ///|
 test "move_block: rejects loose list item move" {
   let source = "- A\n\n- B\n- C\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let items = proj.children[0].children
   inspect_edit_error_contains(
     source,
@@ -659,7 +678,7 @@ test "move_block: rejects loose list item move" {
 ///|
 test "move_block: rejects whitespace-blank loose list item move" {
   let source = "1. A\n  \n2. B\n3. C\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let items = proj.children[0].children
   inspect_edit_error_contains(
     source,
@@ -675,7 +694,7 @@ test "move_block: rejects whitespace-blank loose list item move" {
 ///|
 test "move_block: rejects cross-list item move" {
   let source = "- A\n- B\n\nbetween\n\n- C\n- D\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let list1_items = proj.children[0].children
   let list2_items = proj.children[2].children
   inspect_edit_error(
@@ -691,7 +710,7 @@ test "move_block: rejects cross-list item move" {
 ///|
 test "move_block: rejects ordered-to-unordered list item move" {
   let source = "1. A\n2. B\n\n- C\n- D\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let ordered_items = proj.children[0].children
   let unordered_items = proj.children[1].children
   inspect_edit_error(
@@ -707,7 +726,7 @@ test "move_block: rejects ordered-to-unordered list item move" {
 ///|
 test "move_block: rejects list container sources" {
   let source = "# A\n- B\n- C\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let heading_id = proj.children[0].id()
   let list_id = proj.children[1].id()
   inspect_edit_error_contains(
@@ -724,7 +743,7 @@ test "move_block: rejects list container sources" {
 ///|
 test "move_block: rejects ordered list container source" {
   let source = "# H\n1. A\n2. B\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let heading_id = proj.children[0].id()
   let ordered_list_id = proj.children[1].id()
   inspect_edit_error(
@@ -740,7 +759,7 @@ test "move_block: rejects ordered list container source" {
 ///|
 test "move_block: rejects root target for list item source" {
   let source = "- A\n# B\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let item_id = proj.children[0].children[0].id()
   let heading_id = proj.children[1].id()
   inspect_edit_error_contains(
@@ -757,7 +776,7 @@ test "move_block: rejects root target for list item source" {
 ///|
 test "move_block: inside position rejected before list-item checks" {
   let source = "- A\n- B\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let items = proj.children[0].children
   inspect_edit_error(
     source,
@@ -772,7 +791,7 @@ test "move_block: inside position rejected before list-item checks" {
 ///|
 test "move_block: rejects duplicate source payloads" {
   let source = "# X\n# X\n"
-  let (proj, _) = @md_proj.parse_to_proj_node(source)
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
   let first_id = proj.children[0].id()
   let second_id = proj.children[1].id()
   try {

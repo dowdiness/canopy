@@ -1,4 +1,9 @@
 ///|
+let lambda_scope_edit_test_source : @loomcore.SourceId = @loomcore.SourceId(
+  "canopy-test:lambda-scope-edits",
+)
+
+///|
 fn scope_test_registry(
   root : ProjNode[@ast.Term],
 ) -> Map[NodeId, ProjNode[@ast.Term]] {
@@ -34,7 +39,7 @@ fn def_cutoff_at_node_for_test(
 ///|
 test "module_def_references: finds Var references in Module body" {
   let text = "let x = 0\nx + x"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_scope_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = scope_test_registry(proj)
   let g = @scope.build(registry, source_map)
@@ -47,7 +52,7 @@ test "module_def_references: finds Var references in Module body" {
 ///|
 test "module_def_references: respects shadowing by inner Lam" {
   let text = "let x = 0\n(x) => x"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_scope_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = scope_test_registry(proj)
   let g = @scope.build(registry, source_map)
@@ -60,7 +65,7 @@ test "module_def_references: respects shadowing by inner Lam" {
 ///|
 test "module_def_references: later duplicate shadows body only" {
   let text = "let x = 0\nlet x = x\nx"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_scope_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = scope_test_registry(proj)
   let g = @scope.build(registry, source_map)
@@ -80,7 +85,7 @@ test "module_def_references: later duplicate shadows body only" {
 ///|
 test "def_cutoff_at_node: duplicate defs use init-range cutoff" {
   let text = "let x = 0\nlet x = x\nx"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_scope_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let body = proj.children.last().unwrap()
   let index = DefinitionIndex::from_proj_node(proj)

@@ -242,19 +242,18 @@ pub fn markdown_compute_view_patches_json(handle : Int) -> String {
       return "[]"
     }
   }
-  let parse_errors : Array[String] = if h.editor.get_text() == "" {
-    []
-  } else {
-    match coordinator.read_protected(h.editor_id, h.cells.parser_diagnostics) {
-      Ok(d) => d.format()
-      Err(report) => {
-        println(
-          "markdown_compute_view_patches_json diagnostics read: \{report}",
-        )
-        return "[]"
-      }
+  let parser_diagnostics = match
+    coordinator.read_protected(h.editor_id, h.cells.parser_diagnostics) {
+    Ok(diagnostics) => diagnostics
+    Err(report) => {
+      println("markdown_compute_view_patches_json diagnostics read: \{report}")
+      return "[]"
     }
   }
+  let diagnostics = @editor.project_diagnostics_for_source(
+    h.editor.parser_source_id(),
+    parser_diagnostics,
+  )
   let source_text = h.editor.get_text()
   let current : @protocol.ViewNode? = match proj_opt {
     Some(proj) =>
@@ -276,18 +275,7 @@ pub fn markdown_compute_view_patches_json(handle : Int) -> String {
     (Some(_), None) => patches.push(@protocol.ViewPatch::FullTree(root=None))
     (Some(prev), Some(curr)) => diff_view_nodes(prev, curr, patches)
   }
-  if parse_errors.length() > 0 {
-    let diagnostics : Array[@protocol.Diagnostic] = []
-    for error in parse_errors {
-      diagnostics.push(
-        @protocol.Diagnostic(
-          from=0,
-          to=0,
-          severity=@protocol.SevError,
-          message=error,
-        ),
-      )
-    }
+  if diagnostics.length() > 0 {
     patches.push(@protocol.ViewPatch::SetDiagnostics(diagnostics~))
     state.set_had_errors(true)
   } else if state.had_errors {

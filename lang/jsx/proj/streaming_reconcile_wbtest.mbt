@@ -24,7 +24,11 @@ let streaming_prefixes : Array[String] = [
 
 ///|
 test "streaming: element identity stable from first complete-tag-name appearance" {
-  let parser = @loom.new_parser(streaming_prefixes[0], @jsx.jsx_grammar)
+  let parser = @loom.new_parser(
+    @loomcore.SourceId("canopy-test:jsx-streaming-elements"),
+    streaming_prefixes[0],
+    @jsx.jsx_grammar,
+  )
   let (proj_memo, _, _) = build_jsx_projection_memos(parser)
 
   // Prefix 0 ("<di"): the outer element's tag is truncated mid-word — a
@@ -74,7 +78,11 @@ test "streaming: element identity stable from first complete-tag-name appearance
 /// stability across an unclosed prefix growing into a closed one.
 test "streaming: ExprSpan identity stable across unclosed-to-closed growth" {
   let prefixes : Array[String] = ["<h1>{titl", "<h1>{title", "<h1>{title}"]
-  let parser = @loom.new_parser(prefixes[0], @jsx.jsx_grammar)
+  let parser = @loom.new_parser(
+    @loomcore.SourceId("canopy-test:jsx-streaming-unclosed-expression"),
+    prefixes[0],
+    @jsx.jsx_grammar,
+  )
   let (proj_memo, _, _) = build_jsx_projection_memos(parser)
   let root0 = proj_memo.read_or_abort().unwrap()
   let expr0 = root0.children[0].children[0]
@@ -97,7 +105,11 @@ test "streaming: ExprSpan identity stable across unclosed-to-closed growth" {
 /// never passes through an unclosed intermediate state).
 test "streaming: ExprSpan identity stable across closed-content growth" {
   let prefixes : Array[String] = ["<h1>{a}", "<h1>{ab}", "<h1>{abc}"]
-  let parser = @loom.new_parser(prefixes[0], @jsx.jsx_grammar)
+  let parser = @loom.new_parser(
+    @loomcore.SourceId("canopy-test:jsx-streaming-closed-expression"),
+    prefixes[0],
+    @jsx.jsx_grammar,
+  )
   let (proj_memo, _, _) = build_jsx_projection_memos(parser)
   let root0 = proj_memo.read_or_abort().unwrap()
   let expr_id = root0.children[0].children[0].id()
@@ -114,7 +126,9 @@ test "streaming: ExprSpan identity stable across closed-content growth" {
 /// another equal-kind sibling must not retarget the existing two.
 test "streaming: duplicate siblings keep distinct identities" {
   let parser = @loom.new_parser(
-    "<div><span>a</span><span>b</span></div>", @jsx.jsx_grammar,
+    @loomcore.SourceId("canopy-test:jsx-streaming-duplicate-siblings"),
+    "<div><span>a</span><span>b</span></div>",
+    @jsx.jsx_grammar,
   )
   let (proj_memo, _, _) = build_jsx_projection_memos(parser)
   let root0 = proj_memo.read_or_abort().unwrap()

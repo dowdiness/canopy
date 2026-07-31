@@ -10,7 +10,12 @@
 fn build_fixture_with_spans(
   text : String,
 ) -> (ScopeGraph, @core.SourceMap) raise {
-  let (cst, _) = @parser.parse_cst(text) catch { _ => fail("parse failed") }
+  let (cst, _) = @parser.parse_cst(
+    @loomcore.SourceId("canopy-test:lambda-go-to-definition"),
+    text,
+  ) catch {
+    _ => fail("parse failed")
+  }
   let syntax = @seam.SyntaxNode::from_cst(cst)
   let proj = @lambda_proj.to_proj_node(syntax, Ref(0))
   let source_map = @core.SourceMap::from_ast(proj)
@@ -97,7 +102,10 @@ test "go_to_definition: free variable — no jump" {
 test "binder_span: None when token spans were not populated" {
   // A SourceMap built via from_ast without populate_token_spans has no token
   // spans — binder_span must degrade to None, never a wrong location.
-  let (proj, _errs) = @lambda_proj.parse_to_proj_node("let x = 1\nx")
+  let (proj, _errs) = @lambda_proj.parse_to_proj_node(
+    @loomcore.SourceId("canopy-test:lambda-binder-span-no-tokens"),
+    "let x = 1\nx",
+  )
   let source_map = @core.SourceMap::from_ast(proj)
   let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = Map([])
   @core.collect_registry(proj, registry)

@@ -3,6 +3,7 @@ import {
   "dowdiness/canopy/lang/lambda/proj" @lambda_proj,
   "dowdiness/canopy/lang/lambda/scope" @lambda_scope,
   "dowdiness/canopy/protocol",
+  "dowdiness/loom/core" @loomcore,
   "dowdiness/lambda/ast",
   "moonbitlang/core/json",
 }
