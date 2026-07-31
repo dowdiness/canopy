@@ -21,6 +21,7 @@ pub(all) enum UserIntent {
   Undo
   Redo
   CommitEdit(node_id~ : @core.NodeId, value~ : String)
+  ApplyDiagnosticFix(snapshot_id~ : Int, diagnostic_id~ : Int, fix_id~ : Int)
 } derive(Debug, Eq)
 
 ///|
@@ -56,6 +57,34 @@ fn user_intent_string_field(
     _ =>
       raise @json.JsonDecodeError(
         (path.add_key(key), "\{owner}: '\{key}' must be a string"),
+      )
+  }
+}
+
+///|
+fn user_intent_nonnegative_id_field(
+  fields : Map[String, Json],
+  path : @json.JsonPath,
+  key : String,
+  owner : String,
+) -> Int raise @json.JsonDecodeError {
+  match fields.get(key) {
+    Some(Json::Number(number, ..)) => {
+      let value = number.to_int()
+      if value >= 0 && number == Double::from_int(value) {
+        value
+      } else {
+        raise @json.JsonDecodeError(
+          (
+            path.add_key(key),
+            "\{owner}: '\{key}' must be a non-negative integer",
+          ),
+        )
+      }
+    }
+    _ =>
+      raise @json.JsonDecodeError(
+        (path.add_key(key), "\{owner}: '\{key}' must be a non-negative integer"),
       )
   }
 }
@@ -98,6 +127,12 @@ pub impl ToJson for UserIntent with fn to_json(self) {
       m["type"] = "CommitEdit".to_json()
       m["node_id"] = node_id.to_json()
       m["value"] = value.to_json()
+    }
+    ApplyDiagnosticFix(snapshot_id~, diagnostic_id~, fix_id~) => {
+      m["type"] = "ApplyDiagnosticFix".to_json()
+      m["snapshot_id"] = snapshot_id.to_json()
+      m["diagnostic_id"] = diagnostic_id.to_json()
+      m["fix_id"] = fix_id.to_json()
     }
   }
   Json::object(m)
@@ -180,6 +215,18 @@ pub impl @json.FromJson for UserIntent with fn from_json(json, path) {
       )
       let value = user_intent_string_field(m, path, "value", "CommitEdit")
       UserIntent::CommitEdit(node_id~, value~)
+    }
+    "ApplyDiagnosticFix" => {
+      let snapshot_id = user_intent_nonnegative_id_field(
+        m, path, "snapshot_id", "ApplyDiagnosticFix",
+      )
+      let diagnostic_id = user_intent_nonnegative_id_field(
+        m, path, "diagnostic_id", "ApplyDiagnosticFix",
+      )
+      let fix_id = user_intent_nonnegative_id_field(
+        m, path, "fix_id", "ApplyDiagnosticFix",
+      )
+      UserIntent::ApplyDiagnosticFix(snapshot_id~, diagnostic_id~, fix_id~)
     }
     _ =>
       raise @json.JsonDecodeError(

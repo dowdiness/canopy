@@ -248,12 +248,27 @@ export class CM6Adapter implements EditorAdapter {
         const diagnostics: CmDiagnostic[] = patch.diagnostics.map((diagnostic) => {
           const from = Math.min(Math.max(0, diagnostic.from), docLength);
           const to = Math.min(Math.max(from, diagnostic.to), docLength);
+          const actions =
+            diagnostic.snapshot_id != null && diagnostic.diagnostic_id != null
+              ? (diagnostic.fixes ?? []).map((fix) => ({
+                  name: fix.title,
+                  apply: () => {
+                    this.intentCallback?.({
+                      type: "ApplyDiagnosticFix",
+                      snapshot_id: diagnostic.snapshot_id!,
+                      diagnostic_id: diagnostic.diagnostic_id!,
+                      fix_id: fix.id,
+                    });
+                  },
+                }))
+              : [];
           return {
             from,
             to,
             severity: diagnostic.severity,
             message: diagnostic.message,
             source: diagnostic.code ?? undefined,
+            actions: actions.length > 0 ? actions : undefined,
           };
         });
         this.view.dispatch(setDiagnostics(this.view.state, diagnostics));

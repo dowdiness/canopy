@@ -22,12 +22,21 @@ export type Decoration = {
   widget: boolean;
 };
 
+export type DiagnosticFixSummary = {
+  id: number;
+  title: string;
+  applicability: string;
+};
+
 export type Diagnostic = {
   from: number;
   to: number;
   severity: "error" | "warning" | "info" | "hint";
   message: string;
   code: string | null;
+  snapshot_id?: number | null;
+  diagnostic_id?: number | null;
+  fixes?: DiagnosticFixSummary[];
 };
 
 export type ViewPatch =
@@ -50,4 +59,5 @@ export type UserIntent =
   | { type: "SetDocCursor"; doc_code_unit_offset: number }
   | { type: "Undo" }
   | { type: "Redo" }
-  | { type: "CommitEdit"; node_id: number; value: string };
+  | { type: "CommitEdit"; node_id: number; value: string }
+  | { type: "ApplyDiagnosticFix"; snapshot_id: number; diagnostic_id: number; fix_id: number };

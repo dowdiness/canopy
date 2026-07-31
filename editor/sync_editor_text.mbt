@@ -205,6 +205,48 @@ fn[T] SyncEditor::apply_replace_span(
 }
 
 ///|
+/// Commit one prevalidated Loom fix as a single externally observable source
+/// transition. The fix owns source/range validation; this shell records its
+/// replacements end-to-start, then reconciles cursors and the parser once.
+fn[T : Eq] SyncEditor::apply_diagnostic_fix_candidate(
+  self : SyncEditor[T],
+  source_id : @loom_core.SourceId,
+  fix : @loom_core.DiagnosticFix,
+  timestamp_ms : Int,
+) -> Bool {
+  let old_source = self.doc.text()
+  let expected_source = fix.apply(source_id, old_source) catch {
+    _ => return false
+  }
+  let edits = fix.edits()
+  self.taint_pending_transforms()
+  self.undo.stop_capturing()
+  let mut applied = true
+  edits.rev_each(edit => {
+    if applied {
+      let range = edit.span().range()
+      applied = self.apply_replace_span(
+        self.doc.text(),
+        range.start().value(),
+        range.length(),
+        edit.replacement(),
+        timestamp_ms,
+        true,
+      )
+    }
+  })
+  self.undo.stop_capturing()
+  let new_source = self.doc.text()
+  self.cursor = @moji.next_grapheme_boundary(
+    new_source,
+    clamp_utf16_offset(new_source, self.cursor),
+  )
+  self.adjust_peer_cursors_after_text_change(old_source, new_source, None)
+  self.sync_parser_after_text_change(old_source, new_source, None)
+  applied && new_source == expected_source
+}
+
+///|
 fn[T : Eq] SyncEditor::apply_text_edit_with_policy(
   self : SyncEditor[T],
   start : Int,

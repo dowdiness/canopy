@@ -49,6 +49,24 @@ pub impl ToJson for Severity with fn to_json(self) {
 }
 
 ///|
+/// Producer-neutral metadata for one registered diagnostic fix. The opaque
+/// integer `id` is meaningful only with its diagnostic and snapshot IDs.
+pub(all) struct DiagnosticFixSummary {
+  id : Int
+  title : String
+  applicability : String
+} derive(Debug, Eq)
+
+///|
+pub fn DiagnosticFixSummary::DiagnosticFixSummary(
+  id~ : Int,
+  title~ : String,
+  applicability~ : String,
+) -> DiagnosticFixSummary {
+  { id, title, applicability }
+}
+
+///|
 /// A diagnostic message associated with a half-open UTF-16 document code-unit
 /// range `[from, to)`. Used to surface compiler/linter findings to the editor
 /// frontend.
@@ -58,6 +76,9 @@ pub(all) struct Diagnostic {
   severity : Severity
   message : String
   code : String?
+  snapshot_id : Int?
+  diagnostic_id : Int?
+  fixes : Array[DiagnosticFixSummary]
 } derive(Debug, Eq)
 
 ///|
@@ -67,8 +88,20 @@ pub fn Diagnostic::Diagnostic(
   severity~ : Severity,
   message~ : String,
   code? : String,
+  snapshot_id? : Int,
+  diagnostic_id? : Int,
+  fixes? : Array[DiagnosticFixSummary] = [],
 ) -> Diagnostic {
-  { from, to, severity, message, code }
+  {
+    from,
+    to,
+    severity,
+    message,
+    code,
+    snapshot_id,
+    diagnostic_id,
+    fixes: fixes.copy(),
+  }
 }
 
 ///|
@@ -124,6 +157,24 @@ pub impl ToJson for Diagnostic with fn to_json(self) {
     Some(code) => code.to_json()
     None => Json::null()
   }
+  m["snapshot_id"] = match self.snapshot_id {
+    Some(id) => id.to_json()
+    None => Json::null()
+  }
+  m["diagnostic_id"] = match self.diagnostic_id {
+    Some(id) => id.to_json()
+    None => Json::null()
+  }
+  m["fixes"] = Json::array(self.fixes.map(fix => fix.to_json()))
+  Json::object(m)
+}
+
+///|
+pub impl ToJson for DiagnosticFixSummary with fn to_json(self) {
+  let m : Map[String, Json] = Map([])
+  m["id"] = self.id.to_json()
+  m["title"] = self.title.to_json()
+  m["applicability"] = self.applicability.to_json()
   Json::object(m)
 }
 

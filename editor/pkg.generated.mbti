@@ -160,8 +160,10 @@ pub struct ViewUpdateState {
   mut previous : @protocol.ViewNode?
   mut previous_decorations : Array[@protocol.Decoration]?
   mut had_errors : Bool
+  // private fields
 } derive(@debug.Debug)
 pub fn ViewUpdateState::ViewUpdateState() -> Self
+pub fn[T : Eq] ViewUpdateState::apply_diagnostic_fix(Self, SyncEditor[T], snapshot_id~ : Int, diagnostic_id~ : Int, fix_id~ : Int, timestamp_ms~ : Int) -> Bool
 pub fn ViewUpdateState::set_had_errors(Self, Bool) -> Unit
 pub fn ViewUpdateState::set_previous(Self, @protocol.ViewNode?) -> Unit
 

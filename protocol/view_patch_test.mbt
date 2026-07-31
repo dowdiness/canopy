@@ -35,7 +35,7 @@ test "Diagnostic to_json always includes nullable code" {
   )
   inspect(
     without_code.to_json().stringify(),
-    content="{\"from\":0,\"to\":3,\"severity\":\"error\",\"message\":\"unbound var\",\"code\":null}",
+    content="{\"from\":0,\"to\":3,\"severity\":\"error\",\"message\":\"unbound var\",\"code\":null,\"snapshot_id\":null,\"diagnostic_id\":null,\"fixes\":[]}",
   )
   let with_code = @protocol.Diagnostic(
     from=3,
@@ -46,8 +46,59 @@ test "Diagnostic to_json always includes nullable code" {
   )
   inspect(
     with_code.to_json().stringify(),
-    content="{\"from\":3,\"to\":3,\"severity\":\"hint\",\"message\":\"expected else\",\"code\":\"parse.expected-else\"}",
+    content="{\"from\":3,\"to\":3,\"severity\":\"hint\",\"message\":\"expected else\",\"code\":\"parse.expected-else\",\"snapshot_id\":null,\"diagnostic_id\":null,\"fixes\":[]}",
   )
+}
+
+///|
+test "Diagnostic to_json includes opaque IDs and ordered fix summaries" {
+  let diagnostic = @protocol.Diagnostic(
+    from=11,
+    to=11,
+    severity=@protocol.SevError,
+    message="missing else",
+    code="loom.lambda.expected_else",
+    snapshot_id=7,
+    diagnostic_id=2,
+    fixes=[
+      @protocol.DiagnosticFixSummary(
+        id=0,
+        title="Insert missing else branch",
+        applicability="always",
+      ),
+      @protocol.DiagnosticFixSummary(
+        id=1,
+        title="Insert explicit fallback",
+        applicability="maybe-incorrect",
+      ),
+    ],
+  )
+  inspect(
+    diagnostic.to_json().stringify(),
+    content="{\"from\":11,\"to\":11,\"severity\":\"error\",\"message\":\"missing else\",\"code\":\"loom.lambda.expected_else\",\"snapshot_id\":7,\"diagnostic_id\":2,\"fixes\":[{\"id\":0,\"title\":\"Insert missing else branch\",\"applicability\":\"always\"},{\"id\":1,\"title\":\"Insert explicit fallback\",\"applicability\":\"maybe-incorrect\"}]}",
+  )
+}
+
+///|
+test "Diagnostic constructor defensively copies fix summaries" {
+  let fixes = [
+    @protocol.DiagnosticFixSummary(
+      id=0,
+      title="Insert missing else branch",
+      applicability="always",
+    ),
+  ]
+  let diagnostic = @protocol.Diagnostic(
+    from=0,
+    to=0,
+    severity=@protocol.SevError,
+    message="missing else",
+    snapshot_id=1,
+    diagnostic_id=0,
+    fixes~,
+  )
+  fixes.clear()
+  inspect(diagnostic.fixes.length(), content="1")
 }
 
 ///|

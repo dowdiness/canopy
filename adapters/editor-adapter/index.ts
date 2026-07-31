@@ -6,6 +6,7 @@ export type {
   UserIntent,
   Decoration,
   Diagnostic,
+  DiagnosticFixSummary,
 } from './types';
 
 export type { EditorAdapter } from './adapter';

@@ -71,6 +71,7 @@
     "apply_ast_grep_results_json",
     "handle_text_intent",
     "handle_text_intent_checked",
+    "handle_diagnostic_fix_intent",
     "handle_undo",
     "handle_redo",
     "handle_structural_intent",
