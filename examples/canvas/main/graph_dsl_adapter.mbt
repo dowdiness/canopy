@@ -26,9 +26,17 @@ struct SourceBackedGraph {
 }
 
 ///|
-fn SourceBackedGraph::SourceBackedGraph(source : String) -> SourceBackedGraph {
+fn source_graph_source_id(handle : Int) -> @core.SourceId {
+  @core.SourceId("canopy-canvas-source-graph:" + handle.to_string())
+}
+
+///|
+fn SourceBackedGraph::SourceBackedGraph(
+  source_id : @core.SourceId,
+  source : String,
+) -> SourceBackedGraph {
   {
-    attachment: @graph_dsl.GraphAttachment::GraphAttachment(source),
+    attachment: @graph_dsl.GraphAttachment::GraphAttachment(source_id, source),
     source,
     viewport: default_source_graph_viewport(),
     interaction: @graph_model.empty_interaction(),
@@ -1001,8 +1009,10 @@ pub fn sample_graph_dsl_source() -> String {
 
 ///|
 pub fn create_source_graph(source : String) -> Int {
-  _source_registry.push(Some(SourceBackedGraph(source)))
-  _source_registry.length() - 1
+  let handle = _source_registry.length()
+  let source_id = source_graph_source_id(handle)
+  _source_registry.push(Some(SourceBackedGraph(source_id, source)))
+  handle
 }
 
 ///|

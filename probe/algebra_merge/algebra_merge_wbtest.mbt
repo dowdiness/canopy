@@ -1,4 +1,9 @@
 ///|
+let algebra_merge_test_source : @loomcore.SourceId = @loomcore.SourceId(
+  "canopy-test:algebra-merge",
+)
+
+///|
 /// Base document shared by both replicas before they diverge.
 ///
 /// Offsets referenced by the operations below (`fn send(msg, kind) { msg + kind }`):
@@ -90,7 +95,9 @@ fn merge(
 /// parses. This is the semantic judge: a merge can converge and still leave
 /// the program referring to a binder that no longer exists.
 fn free_vars(source : String) -> String {
-  let term = @lambda.parse(source) catch { _ => return "does not parse" }
+  let term = @lambda.parse(algebra_merge_test_source, source) catch {
+    _ => return "does not parse"
+  }
   let (_, resolution) = @lambda.resolve(term)
   let free = resolution.vars
     .values()

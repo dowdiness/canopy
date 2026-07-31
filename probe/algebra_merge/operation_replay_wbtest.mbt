@@ -17,9 +17,14 @@
 ///      layer would happily apply.
 
 ///|
+let operation_replay_test_source : @loomcore.SourceId = @loomcore.SourceId(
+  "canopy-test:algebra-merge-operation-replay",
+)
+
+///|
 /// Parse `text` and assemble the EditContext the shipped lowering needs.
 fn build_ctx(text : String) -> @edits.EditContext[@ast.Term] raise {
-  let (cst, _) = @lambda.parse_cst(text)
+  let (cst, _) = @lambda.parse_cst(operation_replay_test_source, text)
   let syntax = @seam.SyntaxNode::from_cst(cst)
   let proj = @lambda_proj.to_proj_node(syntax, Ref(0))
   let source_map = @core.SourceMap::from_ast(proj)

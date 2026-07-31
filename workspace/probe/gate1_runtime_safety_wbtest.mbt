@@ -56,11 +56,32 @@
 // recommendation update).
 
 ///|
+let next_probe_source_identity : Ref[Int] = { val: 0 }
+
+///|
 fn json_parser_on(
   rt : @incr.Runtime,
   source : String,
 ) -> @loom.Parser[@_json_lang.JsonValue] {
-  @loom.new_parser(source, @_json_lang.json_grammar, runtime=rt)
+  let identity = next_probe_source_identity.val
+  next_probe_source_identity.val = identity + 1
+  @loom.new_parser(
+    @loomcore.SourceId("canopy-test:workspace-probe:" + identity.to_string()),
+    source,
+    @_json_lang.json_grammar,
+    runtime=rt,
+  )
+}
+
+///|
+test "P0a gate #1 source identity is construction-scoped and stable" {
+  let shared_rt = @incr.Runtime()
+  let parser_a = json_parser_on(shared_rt, "[1]")
+  let parser_b = json_parser_on(shared_rt, "[1]")
+  let source_a = parser_a.source_id()
+  inspect(source_a == parser_b.source_id(), content="false")
+  parser_a.set_source("[2]")
+  inspect(parser_a.source_id() == source_a, content="true")
 }
 
 ///|

@@ -7,7 +7,10 @@ fn build_fixture(
   Map[@core.NodeId, @core.ProjNode[@ast.Term]],
   @core.SourceMap,
 ) raise {
-  let (proj, _errs) = @lambda_proj.parse_to_proj_node(text)
+  let (proj, _errs) = @lambda_proj.parse_to_proj_node(
+    @loomcore.SourceId("canopy-test:lambda-scope-graph"),
+    text,
+  )
   let source_map = @core.SourceMap::from_ast(proj)
   let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = Map([])
   @core.collect_registry(proj, registry)

@@ -112,6 +112,18 @@ fn session_test_handle(result : @js.Any) -> Int {
 }
 
 ///|
+test "JSX sessions own distinct stable source identities" {
+  let session_a = new_jsx_session("<div />", "same-root")
+  let session_b = new_jsx_session("<div />", "same-root")
+  let source_a = session_a.parser.source_id()
+  inspect(source_a == session_b.parser.source_id(), content="false")
+  session_a.parser.set_source("<span />")
+  inspect(session_a.parser.source_id() == source_a, content="true")
+  dispose_jsx_session(session_a)
+  dispose_jsx_session(session_b)
+}
+
+///|
 test "render result uses the versioned envelope and string mounted ids" {
   let result = render_result_json(
     true,

@@ -19,7 +19,9 @@
 /// message rendering it needs) stays language-owned and the record stays
 /// unbounded.
 pub struct LanguageSpec[T, Op] {
-  priv make_parser : (String, @incr.Runtime?) -> @loom.Parser[T]
+  priv make_parser : (@loom_core.SourceId, String, @incr.Runtime?) -> @loom.Parser[
+    T,
+  ]
   priv build_memos : (@loom.Parser[T]) -> (
     @incr.Derived[@core.ProjNode[T]?],
     @incr.Derived[Map[@core.NodeId, @core.ProjNode[T]]],
@@ -34,7 +36,9 @@ pub struct LanguageSpec[T, Op] {
 
 ///|
 pub fn[T, Op] LanguageSpec::LanguageSpec(
-  make_parser~ : (String, @incr.Runtime?) -> @loom.Parser[T],
+  make_parser~ : (@loom_core.SourceId, String, @incr.Runtime?) -> @loom.Parser[
+    T,
+  ],
   build_memos~ : (@loom.Parser[T]) -> (
     @incr.Derived[@core.ProjNode[T]?],
     @incr.Derived[Map[@core.NodeId, @core.ProjNode[T]]],

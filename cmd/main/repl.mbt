@@ -5,15 +5,25 @@
 ///| Provides interactive commands for editing and testing
 
 ///|
+let next_repl_source_identity : Ref[Int] = { val: 0 }
+
+///|
 /// REPL state holding the editor
 struct ReplState {
   editor : @editor.Editor
+  source_id : @loomcore.SourceId
 }
 
 ///|
 /// Create a new REPL state
 fn ReplState::new(agent_id : String) -> ReplState raise @text.TextError {
-  { editor: @editor.Editor::new(agent_id) }
+  let editor = @editor.Editor::new(agent_id)
+  let identity = next_repl_source_identity.val
+  next_repl_source_identity.val = identity + 1
+  {
+    editor,
+    source_id: @loomcore.SourceId("canopy-repl:" + identity.to_string()),
+  }
 }
 
 ///|
@@ -68,7 +78,7 @@ fn with_parsed_ast(state : ReplState, f : (@parser.Term) -> Unit) -> Unit {
     println("(empty)")
   } else {
     try {
-      let ast = @parser.parse(text)
+      let ast = @parser.parse(state.source_id, text)
       f(ast)
     } catch {
       err => println("Parse error: \{err}")

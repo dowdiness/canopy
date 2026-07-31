@@ -26,3 +26,16 @@ test "SyncEditor exposes typed accessors for protected cells" {
   let source_map_cell : @incr.Derived[@core.SourceMap] = editor.source_map_memo()
   let _ = source_map_cell.read_or_abort()
 }
+
+///|
+test "SyncEditor source identity is construction-scoped and stable across edits" {
+  let first = try! @probe.new_test_editor("shared-agent")
+  let second = try! @probe.new_test_editor("shared-agent")
+  let initial : @loom_core.SourceId = first.parser_source_id()
+
+  inspect(initial == second.parser_source_id(), content="false")
+  first.set_text("x")
+  inspect(first.parser_source_id() == initial, content="true")
+  first.apply_text_edit(1, 0, "y", 1)
+  inspect(first.parser_source_id() == initial, content="true")
+}

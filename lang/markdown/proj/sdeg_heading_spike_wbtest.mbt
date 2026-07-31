@@ -1,6 +1,11 @@
 ///| Whitebox spike tests for the Stable Document Entity Graph Phase 0 idea.
 
 ///|
+let markdown_heading_spike_test_source : @loomcore.SourceId = @loomcore.SourceId(
+  "canopy-test:markdown-heading-spike",
+)
+
+///|
 /// These tests intentionally do not add a public SDEG API. They treat Markdown
 /// headings as session-local entities backed by existing `NodeId`, `ProjNode`,
 /// and `SourceMap` data, then pin what the current projection identity pipeline
@@ -46,7 +51,7 @@ fn source_map_for(
   proj : @core.ProjNode[@markdown.Block],
 ) -> @core.SourceMap raise @loomcore.LexError {
   let source_map = @core.SourceMap::from_ast(proj)
-  let (cst, _) = @markdown.parse_cst(source)
+  let (cst, _) = @markdown.parse_cst(markdown_heading_spike_test_source, source)
   let syntax_root = @seam.SyntaxNode::from_cst(cst)
   populate_token_spans(source_map, syntax_root, proj)
   source_map
@@ -56,7 +61,7 @@ fn source_map_for(
 fn project_source(
   source : String,
 ) -> (@core.ProjNode[@markdown.Block], @core.SourceMap) raise @loomcore.LexError {
-  let (proj, _) = parse_to_proj_node(source)
+  let (proj, _) = parse_to_proj_node(markdown_heading_spike_test_source, source)
   (proj, source_map_for(source, proj))
 }
 
@@ -66,7 +71,9 @@ fn project_after_reconcile(
   next_source : String,
   counter : Ref[Int],
 ) -> (@core.ProjNode[@markdown.Block], @core.SourceMap) raise @loomcore.LexError {
-  let (cst, _) = @markdown.parse_cst(next_source)
+  let (cst, _) = @markdown.parse_cst(
+    markdown_heading_spike_test_source, next_source,
+  )
   let syntax_root = @seam.SyntaxNode::from_cst(cst)
   let raw = syntax_to_proj_node(syntax_root, counter)
   let reconciled = @core.reconcile(old, raw, counter)
@@ -231,7 +238,9 @@ test "sdeg phase0: heading observation is backed by SourceMap ranges" {
 ///|
 test "sdeg phase0: heading rename preserves session-local NodeId" {
   let counter : Ref[Int] = Ref(0)
-  let (initial_cst, _) = @markdown.parse_cst("# Alpha\n")
+  let (initial_cst, _) = @markdown.parse_cst(
+    markdown_heading_spike_test_source, "# Alpha\n",
+  )
   let initial = syntax_to_proj_node(
     @seam.SyntaxNode::from_cst(initial_cst),
     counter,
@@ -251,7 +260,9 @@ test "sdeg phase0: heading rename preserves session-local NodeId" {
 ///|
 test "sdeg phase0: heading reorder is currently position-stable, not semantic-stable" {
   let counter : Ref[Int] = Ref(0)
-  let (initial_cst, _) = @markdown.parse_cst("# A\n# B\n")
+  let (initial_cst, _) = @markdown.parse_cst(
+    markdown_heading_spike_test_source, "# A\n# B\n",
+  )
   let initial = syntax_to_proj_node(
     @seam.SyntaxNode::from_cst(initial_cst),
     counter,
@@ -292,7 +303,9 @@ test "sdeg phase0: ProjectionIdentityTracker does not solve heading reorder" {
   let counter : Ref[Int] = Ref(0)
   let source = "# A\n# B\n"
   let next_source = "# B\n# A\n"
-  let (initial_cst, _) = @markdown.parse_cst(source)
+  let (initial_cst, _) = @markdown.parse_cst(
+    markdown_heading_spike_test_source, source,
+  )
   let initial = syntax_to_proj_node(
     @seam.SyntaxNode::from_cst(initial_cst),
     counter,
@@ -324,7 +337,9 @@ test "sdeg phase0: ProjectionIdentityTracker does not solve heading reorder" {
 ///|
 test "sdeg phase0: matching evidence detects semantic reorder mismatch" {
   let counter : Ref[Int] = Ref(0)
-  let (initial_cst, _) = @markdown.parse_cst("# A\n# B\n")
+  let (initial_cst, _) = @markdown.parse_cst(
+    markdown_heading_spike_test_source, "# A\n# B\n",
+  )
   let initial = syntax_to_proj_node(
     @seam.SyntaxNode::from_cst(initial_cst),
     counter,
@@ -360,7 +375,9 @@ test "sdeg phase0: matching evidence detects semantic reorder mismatch" {
 ///|
 test "sdeg phase0: semantic side-table matcher follows simple heading reorder" {
   let counter : Ref[Int] = Ref(0)
-  let (initial_cst, _) = @markdown.parse_cst("# A\n# B\n")
+  let (initial_cst, _) = @markdown.parse_cst(
+    markdown_heading_spike_test_source, "# A\n# B\n",
+  )
   let initial = syntax_to_proj_node(
     @seam.SyntaxNode::from_cst(initial_cst),
     counter,
@@ -441,7 +458,9 @@ test "sdeg phase0: retained duplicate headings stay ambiguous after one remains"
 ///|
 test "sdeg phase0: delete and restore currently cannot recover the retired heading id" {
   let counter : Ref[Int] = Ref(0)
-  let (initial_cst, _) = @markdown.parse_cst("# A\n# B\n")
+  let (initial_cst, _) = @markdown.parse_cst(
+    markdown_heading_spike_test_source, "# A\n# B\n",
+  )
   let initial = syntax_to_proj_node(
     @seam.SyntaxNode::from_cst(initial_cst),
     counter,
@@ -472,7 +491,9 @@ test "sdeg phase0: ProjectionIdentityTracker does not recover after committed de
   let initial_source = "# A\n# B\n"
   let deleted_source = "# B\n"
   let restored_source = "# A\n# B\n"
-  let (initial_cst, _) = @markdown.parse_cst(initial_source)
+  let (initial_cst, _) = @markdown.parse_cst(
+    markdown_heading_spike_test_source, initial_source,
+  )
   let initial = syntax_to_proj_node(
     @seam.SyntaxNode::from_cst(initial_cst),
     counter,
@@ -507,7 +528,9 @@ test "sdeg phase0: ProjectionIdentityTracker does not recover after committed de
 ///|
 test "sdeg phase0: matching evidence detects delete-restore recovery candidate" {
   let counter : Ref[Int] = Ref(0)
-  let (initial_cst, _) = @markdown.parse_cst("# A\n# B\n")
+  let (initial_cst, _) = @markdown.parse_cst(
+    markdown_heading_spike_test_source, "# A\n# B\n",
+  )
   let initial = syntax_to_proj_node(
     @seam.SyntaxNode::from_cst(initial_cst),
     counter,
@@ -536,7 +559,9 @@ test "sdeg phase0: matching evidence detects delete-restore recovery candidate" 
 ///|
 test "sdeg phase0: semantic side-table matcher finds delete-restore candidate" {
   let counter : Ref[Int] = Ref(0)
-  let (initial_cst, _) = @markdown.parse_cst("# A\n# B\n")
+  let (initial_cst, _) = @markdown.parse_cst(
+    markdown_heading_spike_test_source, "# A\n# B\n",
+  )
   let initial = syntax_to_proj_node(
     @seam.SyntaxNode::from_cst(initial_cst),
     counter,
@@ -570,7 +595,9 @@ test "sdeg phase0: semantic side-table matcher finds delete-restore candidate" {
 test "sdeg phase0: inline malformed-to-recovered heading preserves heading NodeId" {
   let counter : Ref[Int] = Ref(0)
   let malformed_source = "# **unclosed\n"
-  let (initial_cst, _) = @markdown.parse_cst(malformed_source)
+  let (initial_cst, _) = @markdown.parse_cst(
+    markdown_heading_spike_test_source, malformed_source,
+  )
   let initial = syntax_to_proj_node(
     @seam.SyntaxNode::from_cst(initial_cst),
     counter,
@@ -591,7 +618,9 @@ test "sdeg phase0: inline malformed-to-recovered heading preserves heading NodeI
 ///|
 test "sdeg phase0: format-like whitespace rewrite preserves heading NodeIds" {
   let counter : Ref[Int] = Ref(0)
-  let (initial_cst, _) = @markdown.parse_cst("# A\n\n# B\n")
+  let (initial_cst, _) = @markdown.parse_cst(
+    markdown_heading_spike_test_source, "# A\n\n# B\n",
+  )
   let initial = syntax_to_proj_node(
     @seam.SyntaxNode::from_cst(initial_cst),
     counter,

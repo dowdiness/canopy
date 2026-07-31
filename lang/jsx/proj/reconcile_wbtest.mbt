@@ -1,9 +1,13 @@
-///| Whitebox tests for reconcile — pure DomPatch generation.
+///|
+/// Whitebox tests for reconcile — pure DomPatch generation.
+let jsx_reconcile_test_source : @loomcore.SourceId = @loomcore.SourceId(
+  "canopy-test:jsx-reconcile",
+)
 
 ///|
 /// First render produces patches.
 test "reconcile: first render produces patches" {
-  let (root, _) = parse_to_proj_node("<p>hello</p>")
+  let (root, _) = parse_to_proj_node(jsx_reconcile_test_source, "<p>hello</p>")
   let (patches, reached) = reconcile(root, [])
   inspect(patches.length() > 0, content="true")
   inspect(reached.length() > 0, content="true")
@@ -12,7 +16,9 @@ test "reconcile: first render produces patches" {
 ///|
 /// Empty existing set → all nodes new → all Make patches.
 test "reconcile: empty existing produces Make" {
-  let (root, _) = parse_to_proj_node("<span>text</span>")
+  let (root, _) = parse_to_proj_node(
+    jsx_reconcile_test_source, "<span>text</span>",
+  )
   let (patches, _) = reconcile(root, [])
   for p in patches {
     match p {
@@ -94,7 +100,7 @@ fn count_make_text(patches : Array[DomPatch], expected : String) -> Int {
 ///|
 /// Second render with same text → SetText.
 test "reconcile: existing text produces SetText" {
-  let (root, _) = parse_to_proj_node("<p>hello</p>")
+  let (root, _) = parse_to_proj_node(jsx_reconcile_test_source, "<p>hello</p>")
   let (_, reached) = reconcile(root, [])
   let (patches, _) = reconcile(root, reached)
   inspect(has_patch(patches, "SetText"), content="true")
@@ -104,9 +110,9 @@ test "reconcile: existing text produces SetText" {
 ///|
 /// Text content change → SetText with updated value.
 test "reconcile: text change produces SetText with new value" {
-  let (root, _) = parse_to_proj_node("<p>hello</p>")
+  let (root, _) = parse_to_proj_node(jsx_reconcile_test_source, "<p>hello</p>")
   let (_, reached) = reconcile(root, [])
-  let (root2, _) = parse_to_proj_node("<p>world</p>")
+  let (root2, _) = parse_to_proj_node(jsx_reconcile_test_source, "<p>world</p>")
   let (patches, _) = reconcile(root2, reached)
   inspect(find_text(patches, "world"), content="true")
 }
@@ -114,10 +120,14 @@ test "reconcile: text change produces SetText with new value" {
 ///|
 /// Element with attributes.
 test "reconcile: element attributes" {
-  let (root, _) = parse_to_proj_node("<div class=\"foo\">x</div>")
+  let (root, _) = parse_to_proj_node(
+    jsx_reconcile_test_source, "<div class=\"foo\">x</div>",
+  )
   let (p1, reached) = reconcile(root, [])
   inspect(has_patch(p1, "MakeElement"), content="true")
-  let (root2, _) = parse_to_proj_node("<div class=\"foo\">x</div>")
+  let (root2, _) = parse_to_proj_node(
+    jsx_reconcile_test_source, "<div class=\"foo\">x</div>",
+  )
   let (p2, _) = reconcile(root2, reached)
   inspect(has_patch(p2, "SetAttrs"), content="true")
 }
@@ -125,9 +135,9 @@ test "reconcile: element attributes" {
 ///|
 /// Node removed → Release.
 test "reconcile: removed node produces Release" {
-  let (root, _) = parse_to_proj_node("<p>hello</p>")
+  let (root, _) = parse_to_proj_node(jsx_reconcile_test_source, "<p>hello</p>")
   let (_, reached) = reconcile(root, [])
-  let (root2, _) = parse_to_proj_node("<div></div>")
+  let (root2, _) = parse_to_proj_node(jsx_reconcile_test_source, "<div></div>")
   let (patches, _) = reconcile(root2, reached)
   inspect(has_patch(patches, "Release"), content="true")
 }
@@ -135,7 +145,9 @@ test "reconcile: removed node produces Release" {
 ///|
 /// Nested elements produce the mounted DOM node count.
 test "reconcile: nested elements" {
-  let (root, _) = parse_to_proj_node("<div><h1>title</h1><p>body</p></div>")
+  let (root, _) = parse_to_proj_node(
+    jsx_reconcile_test_source, "<div><h1>title</h1><p>body</p></div>",
+  )
   let (_, reached) = reconcile(root, [])
   inspect(reached.length(), content="5")
 }
@@ -143,7 +155,9 @@ test "reconcile: nested elements" {
 ///|
 /// A trailing `<` is a recoverable parser state, not a valid DOM element.
 test "reconcile: incomplete tag does not produce empty MakeElement" {
-  let (root, _) = parse_to_proj_node("<div><p>text</p>\n<")
+  let (root, _) = parse_to_proj_node(
+    jsx_reconcile_test_source, "<div><p>text</p>\n<",
+  )
   let (patches, _) = reconcile(root, [])
   for patch in patches {
     match patch {
@@ -185,12 +199,12 @@ test "reconcile: empty-tag recovery is transparent and preserves children" {
 /// cross the DOM mount boundary on the second render.
 test "reconcile: append equal-kind sibling mounts only the tail" {
   let (old_root, _) = parse_to_proj_node(
-    "<div><span>a</span><span>b</span></div>",
+    jsx_reconcile_test_source, "<div><span>a</span><span>b</span></div>",
   )
   let (first_patches, _) = reconcile(old_root, [])
   let existing = patch_ids(first_patches)
   let (new_raw, _) = parse_to_proj_node(
-    "<div><span>a</span><span>b</span><span>c</span></div>",
+    jsx_reconcile_test_source, "<div><span>a</span><span>b</span><span>c</span></div>",
   )
   let new_root = reconcile_jsx_projection(old_root, new_raw, Ref(1000), None)
   let (patches, _) = reconcile(new_root, existing)
@@ -206,11 +220,11 @@ test "reconcile: append equal-kind sibling mounts only the tail" {
 /// Exact duplicate sibling keys preserve existing IDs positionally.
 test "reconcile: duplicate exact siblings preserve identity order" {
   let (old_root, _) = parse_to_proj_node(
-    "<div><span>a</span><span>a</span></div>",
+    jsx_reconcile_test_source, "<div><span>a</span><span>a</span></div>",
   )
   let old_div = old_root.children[0]
   let (new_raw, _) = parse_to_proj_node(
-    "<div><span>a</span><span>a</span><span>a</span></div>",
+    jsx_reconcile_test_source, "<div><span>a</span><span>a</span><span>a</span></div>",
   )
   let new_root = reconcile_jsx_projection(old_root, new_raw, Ref(1000), None)
   let new_div = new_root.children[0]
@@ -228,11 +242,11 @@ test "reconcile: duplicate exact siblings preserve identity order" {
 /// Removing an exact duplicate preserves the earliest existing identities.
 test "reconcile: duplicate exact siblings preserve prefix on deletion" {
   let (old_root, _) = parse_to_proj_node(
-    "<div><span>a</span><span>a</span><span>a</span></div>",
+    jsx_reconcile_test_source, "<div><span>a</span><span>a</span><span>a</span></div>",
   )
   let old_div = old_root.children[0]
   let (new_raw, _) = parse_to_proj_node(
-    "<div><span>a</span><span>a</span></div>",
+    jsx_reconcile_test_source, "<div><span>a</span><span>a</span></div>",
   )
   let new_root = reconcile_jsx_projection(old_root, new_raw, Ref(1000), None)
   let new_div = new_root.children[0]
@@ -245,11 +259,11 @@ test "reconcile: duplicate exact siblings preserve prefix on deletion" {
 /// middle insertion does not retarget either existing sibling.
 test "reconcile: attribute-distinct siblings preserve exact identities" {
   let (old_root, _) = parse_to_proj_node(
-    "<div><span class=\"a\"/><span class=\"b\"/></div>",
+    jsx_reconcile_test_source, "<div><span class=\"a\"/><span class=\"b\"/></div>",
   )
   let old_div = old_root.children[0]
   let (new_raw, _) = parse_to_proj_node(
-    "<div><span class=\"a\"/><span class=\"x\"/><span class=\"b\"/></div>",
+    jsx_reconcile_test_source, "<div><span class=\"a\"/><span class=\"x\"/><span class=\"b\"/></div>",
   )
   let new_root = reconcile_jsx_projection(old_root, new_raw, Ref(1000), None)
   let new_div = new_root.children[0]
@@ -351,9 +365,13 @@ test "reconcile: empty-tag recovery removal releases child" {
 ///|
 /// Second render of nested tree produces Update patches.
 test "reconcile: nested second render" {
-  let (root, _) = parse_to_proj_node("<div><h1>title</h1></div>")
+  let (root, _) = parse_to_proj_node(
+    jsx_reconcile_test_source, "<div><h1>title</h1></div>",
+  )
   let (_, reached) = reconcile(root, [])
-  let (root2, _) = parse_to_proj_node("<div><h1>changed</h1></div>")
+  let (root2, _) = parse_to_proj_node(
+    jsx_reconcile_test_source, "<div><h1>changed</h1></div>",
+  )
   let (patches, _) = reconcile(root2, reached)
   inspect(find_text(patches, "changed"), content="true")
 }

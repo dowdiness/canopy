@@ -10,7 +10,9 @@ let json_spec : @lang_runtime.LanguageSpec[
   @json.JsonValue,
   @json_edits.JsonEditOp,
 ] = @lang_runtime.LanguageSpec::LanguageSpec(
-  make_parser=fn(s, rt) { @loom.new_parser(s, @json.json_grammar, runtime?=rt) },
+  make_parser=(source_id, source, runtime) => {
+    @loom.new_parser(source_id, source, @json.json_grammar, runtime?)
+  },
   build_memos=@json_proj.build_json_projection_memos,
   compute_edit=@json_edits.compute_json_edit,
   on_no_edit=op => {

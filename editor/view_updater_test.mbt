@@ -170,6 +170,115 @@ test "structural edit produces ReplaceNode" {
 }
 
 ///|
+test "diagnostic projection emits only current-source primary labels in order" {
+  let current_source = @loom_core.SourceId("current")
+  let other_source = @loom_core.SourceId("other")
+  let severity = @loom_core.Diagnostic::lexer_error("fixture").severity()
+  let current_primary = (start, end) => {
+    @loom_core.DiagnosticLabel(
+      @loom_core.LabelStyle::Primary,
+      @loom_core.SourceSpan(
+        current_source,
+        try! @loom_core.TextRange::from_offsets(start, end),
+      ),
+      None,
+    )
+  }
+  let diagnostic = @loom_core.Diagnostic(
+    source=@loom_core.DiagnosticSource::parser(),
+    severity~,
+    code=Some(@loom_core.DiagnosticCode("test.mixed-sources")),
+    message="mixed source labels",
+    labels=[
+      current_primary(1, 2),
+      @loom_core.DiagnosticLabel(
+        @loom_core.LabelStyle::Primary,
+        @loom_core.SourceSpan(
+          other_source,
+          try! @loom_core.TextRange::from_offsets(3, 4),
+        ),
+        None,
+      ),
+      @loom_core.DiagnosticLabel(
+        @loom_core.LabelStyle::Secondary,
+        @loom_core.SourceSpan(
+          current_source,
+          try! @loom_core.TextRange::from_offsets(5, 6),
+        ),
+        Some("related"),
+      ),
+      current_primary(7, 9),
+    ],
+  )
+
+  let projected = @editor.project_diagnostics_for_source(
+    current_source,
+    @loom_core.DiagnosticSet::single(diagnostic),
+  )
+
+  guard projected is [first, second] else {
+    fail("expected two current-source primary diagnostics")
+  }
+  inspect(first.from, content="1")
+  inspect(first.to, content="2")
+  inspect(second.from, content="7")
+  inspect(second.to, content="9")
+  @debug.assert_eq(first.severity, @protocol.SevError)
+  inspect(first.message, content="mixed source labels")
+  @debug.assert_eq(first.code, Some("test.mixed-sources"))
+}
+
+///|
+test "diagnostic projection keeps locationless compatibility at zero width" {
+  let source_id = @loom_core.SourceId("current")
+  let projected = @editor.project_diagnostics_for_source(
+    source_id,
+    @loom_core.DiagnosticSet::single(
+      @loom_core.Diagnostic::lexer_error("locationless"),
+    ),
+  )
+
+  guard projected is [diagnostic] else {
+    fail("expected one locationless diagnostic")
+  }
+  inspect(diagnostic.from, content="0")
+  inspect(diagnostic.to, content="0")
+  @debug.assert_eq(diagnostic.severity, @protocol.SevError)
+  inspect(diagnostic.message, content="locationless")
+  @debug.assert_eq(diagnostic.code, Some("lex-error"))
+}
+
+///|
+test "diagnostic projection omits foreign-only labeled diagnostics" {
+  let current_source = @loom_core.SourceId("current")
+  let other_source = @loom_core.SourceId("other")
+  let diagnostic = @loom_core.Diagnostic(
+    source=@loom_core.DiagnosticSource::parser(),
+    severity=@loom_core.Diagnostic::lexer_error("fixture").severity(),
+    message="foreign location",
+    labels=[
+      @loom_core.DiagnosticLabel(
+        @loom_core.LabelStyle::Primary,
+        @loom_core.SourceSpan(
+          other_source,
+          try! @loom_core.TextRange::from_offsets(3, 4),
+        ),
+        None,
+      ),
+    ],
+  )
+
+  let projected = @editor.project_diagnostics_for_source(
+    current_source,
+    @loom_core.DiagnosticSet::single(diagnostic),
+  )
+
+  guard projected is [] else {
+    fail("foreign-only labels must not be projected into the current source")
+  }
+}
+
+///|
 test "parser diagnostic preserves EOF range severity message and code" {
   let editor = try! @probe.new_test_editor("test")
   editor.set_text("foo(") // unclosed '(' at UTF-16 EOF offset 4

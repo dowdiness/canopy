@@ -1,8 +1,15 @@
 // Whitebox tests for SourceMap token-level spans
 
 ///|
+let source_map_token_spans_test_source : @loomcore.SourceId = @loomcore.SourceId(
+  "canopy-test:projection-source-map-token-spans",
+)
+
+///|
 fn parse_syntax_for_token_test(text : String) -> @seam.SyntaxNode raise {
-  let (cst, _) = @parser.parse_cst(text) catch { _ => fail("parse failed") }
+  let (cst, _) = @parser.parse_cst(source_map_token_spans_test_source, text) catch {
+    _ => fail("parse failed")
+  }
   @seam.SyntaxNode::from_cst(cst)
 }
 

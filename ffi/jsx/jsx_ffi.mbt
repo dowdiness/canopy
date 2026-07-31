@@ -74,7 +74,10 @@ fn proj_node_to_json(node : @canopy_core.ProjNode[@jsx_ast.JsxNode]) -> Json {
 /// The JSON includes node_ids, kind tags, and structural info so the demo
 /// page can highlight stable-vs-new NodeIds across streaming re-parses.
 pub fn jsx_parse_to_json(text : String) -> String {
-  let (proj, errors) = @jsx_proj.parse_to_proj_node(text) catch {
+  let (proj, errors) = @jsx_proj.parse_to_proj_node(
+    allocate_jsx_source_id(),
+    text,
+  ) catch {
     _ =>
       return Json::object({
         "success": Json::boolean(false),
@@ -103,14 +106,15 @@ pub fn jsx_streaming_to_json(prefixes_input : String) -> String {
   if parts.is_empty() {
     return Json::array([]).stringify()
   }
-  let parser = @loom.new_parser(parts[0], @jsx_ast.jsx_grammar)
+  let source_id = allocate_jsx_source_id()
+  let parser = @loom.new_parser(source_id, parts[0], @jsx_ast.jsx_grammar)
   let (proj_memo, _, _) = @jsx_proj.build_jsx_projection_memos(parser)
   let results : Array[Json] = for i in 0..<parts.length(); acc = [] {
     let prefix = parts[i]
     if i > 0 {
       parser.set_source(prefix)
     }
-    let errors : Array[String] = get_or_empty_errors(prefix)
+    let errors : Array[String] = get_or_empty_errors(source_id, prefix)
     let step = match proj_memo.read_or_abort() {
       Some(proj) =>
         Json::object({
@@ -137,9 +141,12 @@ pub fn jsx_streaming_to_json(prefixes_input : String) -> String {
 ///|
 /// Parse text just to extract diagnostic errors (side-channel from the shared
 /// parser's stream). Returns empty array on LexError.
-fn get_or_empty_errors(text : String) -> Array[String] {
+fn get_or_empty_errors(
+  source_id : @loomcore.SourceId,
+  text : String,
+) -> Array[String] {
   try {
-    let (_, errors) = @jsx_proj.parse_to_proj_node(text)
+    let (_, errors) = @jsx_proj.parse_to_proj_node(source_id, text)
     errors
   } catch {
     _ => []
@@ -152,7 +159,7 @@ fn get_or_empty_errors(text : String) -> Array[String] {
 /// independently on every call and keeps no parser or DOM ownership state.
 pub fn jsx_parse_and_render(text : String, existing_json : String) -> String {
   let parsed : (@canopy_core.ProjNode[@jsx_ast.JsxNode], Array[String])? = Some(
-    @jsx_proj.parse_to_proj_node(text),
+    @jsx_proj.parse_to_proj_node(allocate_jsx_source_id(), text),
   ) catch {
     _ => None
   }

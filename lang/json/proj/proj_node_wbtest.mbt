@@ -1,8 +1,13 @@
 // Whitebox tests for JSON projection builder.
 
 ///|
+let json_projection_test_source : @loomcore.SourceId = @loomcore.SourceId(
+  "canopy-test:json-projection",
+)
+
+///|
 test "parse null → ProjNode with kind Null, 0 children" {
-  let (proj, errors) = parse_to_proj_node("null")
+  let (proj, errors) = parse_to_proj_node(json_projection_test_source, "null")
   inspect(errors.length(), content="0")
   inspect(proj.kind, content="Null")
   inspect(proj.children.length(), content="0")
@@ -12,7 +17,7 @@ test "parse null → ProjNode with kind Null, 0 children" {
 
 ///|
 test "parse number → ProjNode with kind Number" {
-  let (proj, errors) = parse_to_proj_node("42")
+  let (proj, errors) = parse_to_proj_node(json_projection_test_source, "42")
   inspect(errors.length(), content="0")
   inspect(proj.kind, content="Number(42)")
   inspect(proj.children.length(), content="0")
@@ -20,7 +25,9 @@ test "parse number → ProjNode with kind Number" {
 
 ///|
 test "parse string → ProjNode with kind String (unescaped)" {
-  let (proj, errors) = parse_to_proj_node("\"hello\"")
+  let (proj, errors) = parse_to_proj_node(
+    json_projection_test_source, "\"hello\"",
+  )
   inspect(errors.length(), content="0")
   inspect(proj.kind, content="String(\"hello\")")
   inspect(proj.children.length(), content="0")
@@ -28,13 +35,17 @@ test "parse string → ProjNode with kind String (unescaped)" {
 
 ///|
 test "parse string with escapes → properly unescaped" {
-  let (proj, _errors) = parse_to_proj_node("\"hello\\nworld\"")
+  let (proj, _errors) = parse_to_proj_node(
+    json_projection_test_source, "\"hello\\nworld\"",
+  )
   inspect(proj.kind, content="String(\"hello\\nworld\")")
 }
 
 ///|
 test "parse array [1, 2, 3] → Array with 3 children" {
-  let (proj, errors) = parse_to_proj_node("[1, 2, 3]")
+  let (proj, errors) = parse_to_proj_node(
+    json_projection_test_source, "[1, 2, 3]",
+  )
   inspect(errors.length(), content="0")
   inspect(proj.kind, content="Array([Number(1), Number(2), Number(3)])")
   inspect(proj.children.length(), content="3")
@@ -45,7 +56,9 @@ test "parse array [1, 2, 3] → Array with 3 children" {
 
 ///|
 test "parse object {\"a\": 1, \"b\": true} → Object with 2 children" {
-  let (proj, errors) = parse_to_proj_node("{\"a\": 1, \"b\": true}")
+  let (proj, errors) = parse_to_proj_node(
+    json_projection_test_source, "{\"a\": 1, \"b\": true}",
+  )
   inspect(errors.length(), content="0")
   inspect(proj.children.length(), content="2")
   // First child: key "a", value Number(1)
@@ -61,7 +74,9 @@ test "parse object {\"a\": 1, \"b\": true} → Object with 2 children" {
 
 ///|
 test "parse nested {\"data\": [1, 2]} → correct nesting" {
-  let (proj, errors) = parse_to_proj_node("{\"data\": [1, 2]}")
+  let (proj, errors) = parse_to_proj_node(
+    json_projection_test_source, "{\"data\": [1, 2]}",
+  )
   inspect(errors.length(), content="0")
   inspect(proj.children.length(), content="1")
   // The child is a member with Array value
@@ -74,7 +89,7 @@ test "parse nested {\"data\": [1, 2]} → correct nesting" {
 
 ///|
 test "parse empty object {} → 0 children" {
-  let (proj, errors) = parse_to_proj_node("{}")
+  let (proj, errors) = parse_to_proj_node(json_projection_test_source, "{}")
   inspect(errors.length(), content="0")
   inspect(proj.kind, content="Object([])")
   inspect(proj.children.length(), content="0")
@@ -82,7 +97,7 @@ test "parse empty object {} → 0 children" {
 
 ///|
 test "parse empty array [] → 0 children" {
-  let (proj, errors) = parse_to_proj_node("[]")
+  let (proj, errors) = parse_to_proj_node(json_projection_test_source, "[]")
   inspect(errors.length(), content="0")
   inspect(proj.kind, content="Array([])")
   inspect(proj.children.length(), content="0")
@@ -90,15 +105,17 @@ test "parse empty array [] → 0 children" {
 
 ///|
 test "parse true / false → Bool" {
-  let (t, _) = parse_to_proj_node("true")
+  let (t, _) = parse_to_proj_node(json_projection_test_source, "true")
   inspect(t.kind, content="Bool(true)")
-  let (f, _) = parse_to_proj_node("false")
+  let (f, _) = parse_to_proj_node(json_projection_test_source, "false")
   inspect(f.kind, content="Bool(false)")
 }
 
 ///|
 test "parse error recovery {\"a\": } → Object with Error child" {
-  let (proj, errors) = parse_to_proj_node("{\"a\": }")
+  let (proj, errors) = parse_to_proj_node(
+    json_projection_test_source, "{\"a\": }",
+  )
   // Should have parse errors
   inspect(errors.length() > 0, content="true")
   // But still produces an Object node
@@ -109,7 +126,9 @@ test "parse error recovery {\"a\": } → Object with Error child" {
 test "object child ProjNode uses value span (not member span)" {
   // "{\"a\": 1}" — the NumberValue node includes leading trivia (space)
   // so it spans [5, 7), not [1, 7) which would be the MemberNode span
-  let (proj, _errors) = parse_to_proj_node("{\"a\": 1}")
+  let (proj, _errors) = parse_to_proj_node(
+    json_projection_test_source, "{\"a\": 1}",
+  )
   let child = proj.children[0]
   // Object starts at 0, ends at 8
   inspect(proj.start, content="0")
@@ -122,7 +141,9 @@ test "object child ProjNode uses value span (not member span)" {
 
 ///|
 test "SourceMap from_ast produces correct ranges" {
-  let (proj, _errors) = parse_to_proj_node("{\"a\": 1, \"b\": 2}")
+  let (proj, _errors) = parse_to_proj_node(
+    json_projection_test_source, "{\"a\": 1, \"b\": 2}",
+  )
   let sm = @core.SourceMap::from_ast(proj)
   // Root + 2 children = 3 nodes
   inspect(sm.node_count(), content="3")
@@ -136,7 +157,9 @@ test "SourceMap from_ast produces correct ranges" {
 ///|
 test "token spans for object keys stored on Object node" {
   let text = "{\"a\": 1, \"b\": 2}"
-  let (cst, _) = @json.parse_cst(text) catch { _ => abort("parse failed") }
+  let (cst, _) = @json.parse_cst(json_projection_test_source, text) catch {
+    _ => abort("parse failed")
+  }
   let syntax_node = @seam.SyntaxNode::from_cst(cst)
   let counter = Ref(0)
   let proj = syntax_to_proj_node(syntax_node, counter)
@@ -156,8 +179,12 @@ test "token spans for object keys stored on Object node" {
 
 ///|
 test "reconcile preserves IDs on value edit" {
-  let (old_proj, _) = parse_to_proj_node("{\"a\": 1, \"b\": 2}")
-  let (new_proj, _) = parse_to_proj_node("{\"a\": 99, \"b\": 2}")
+  let (old_proj, _) = parse_to_proj_node(
+    json_projection_test_source, "{\"a\": 1, \"b\": 2}",
+  )
+  let (new_proj, _) = parse_to_proj_node(
+    json_projection_test_source, "{\"a\": 99, \"b\": 2}",
+  )
   let counter = Ref(100)
   let reconciled = @core.reconcile(old_proj, new_proj, counter)
   // Object kind matches → old root ID preserved
@@ -171,14 +198,14 @@ test "reconcile preserves IDs on value edit" {
 
 ///|
 test "parse floating point number" {
-  let (proj, errors) = parse_to_proj_node("3.14")
+  let (proj, errors) = parse_to_proj_node(json_projection_test_source, "3.14")
   inspect(errors.length(), content="0")
   inspect(proj.kind, content="Number(3.14)")
 }
 
 ///|
 test "parse negative number" {
-  let (proj, errors) = parse_to_proj_node("-42")
+  let (proj, errors) = parse_to_proj_node(json_projection_test_source, "-42")
   inspect(errors.length(), content="0")
   inspect(proj.kind, content="Number(-42)")
 }

@@ -34,8 +34,11 @@ struct LevelBStack {
 }
 
 ///|
-fn LevelBStack::LevelBStack(source : String) -> LevelBStack {
-  let parser = @loom.new_parser(source, @parser.lambda_grammar)
+fn LevelBStack::LevelBStack(
+  source_id : @loomcore.SourceId,
+  source : String,
+) -> LevelBStack {
+  let parser = @loom.new_parser(source_id, source, @parser.lambda_grammar)
   let (cached_proj_node, registry_memo, source_map_memo) = @lambda_proj.build_lambda_projection_memos(
     parser,
   )
@@ -88,6 +91,7 @@ fn lb_minimal_edit(old : String, new : String) -> @loomcore.Edit {
 ///|
 /// Fresh generic projection rebuild used as the oracle for the live memo stack.
 fn fresh_generic_graph_of(
+  source_id : @loomcore.SourceId,
   text : String,
 ) -> (
   @core.ProjNode[@ast.Term],
@@ -95,7 +99,7 @@ fn fresh_generic_graph_of(
   @scope.ScopeGraph,
   @core.SourceMap,
 ) raise {
-  let (cst, _diags) = @parser.parse_cst(text)
+  let (cst, _diags) = @parser.parse_cst(source_id, text)
   let syntax = @seam.SyntaxNode::from_cst(cst)
   let counter = Ref(0)
   let proj = @lambda_proj.to_proj_node(syntax, counter)
@@ -128,7 +132,10 @@ fn assert_level_b_agrees(
   }
   let g_i = @scope.build(reg_i, sm_i)
   let ranges_i = def_binding_ranges(root)
-  let (proj_f, reg_f, g_f, sm_f) = fresh_generic_graph_of(src)
+  let (proj_f, reg_f, g_f, sm_f) = fresh_generic_graph_of(
+    stack.parser.source_id(),
+    src,
+  )
   let ranges_f = def_binding_ranges(proj_f)
   assert_resolution_agrees(
     ResolutionSide(
@@ -157,7 +164,10 @@ fn assert_level_b_agrees(
 /// agreement after every step.
 fn lb_run_sequence(sources : Array[String]) -> Unit raise {
   guard sources.length() >= 1 else { fail("lb_run_sequence needs >=1 source") }
-  let stack = LevelBStack(sources[0])
+  let stack = LevelBStack(
+    @loomcore.SourceId("canopy-test:lambda-level-b-sequence"),
+    sources[0],
+  )
   assert_level_b_agrees(stack, sources[0], "init:\{sources[0]}")
   for i in 1..<sources.length() {
     stack.apply(sources[i - 1], sources[i])
@@ -169,7 +179,10 @@ fn lb_run_sequence(sources : Array[String]) -> Unit raise {
 ///|
 test "level-B generic: resolution-visible def-init edit agrees with fresh rebuild" {
   let s0 = "let x = 1\nlet y = 2\nx"
-  let stack = LevelBStack(s0)
+  let stack = LevelBStack(
+    @loomcore.SourceId("canopy-test:lambda-level-b-resolution-edit"),
+    s0,
+  )
   assert_level_b_agrees(stack, s0, "init")
   let s1 = "let x = 1\nlet y = x\nx"
   stack.apply(s0, s1)
@@ -180,7 +193,10 @@ test "level-B generic: resolution-visible def-init edit agrees with fresh rebuil
 ///|
 test "level-B generic: skipped registry reads still agree after later edits" {
   let s0 = "let a = 1\nlet b = 2\nb"
-  let stack = LevelBStack(s0)
+  let stack = LevelBStack(
+    @loomcore.SourceId("canopy-test:lambda-level-b-skipped-reads"),
+    s0,
+  )
   ignore(stack.registry_memo.read_or_abort())
   ignore(stack.source_map_memo.read_or_abort())
   assert_level_b_agrees(stack, s0, "init")

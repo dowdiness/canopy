@@ -140,7 +140,10 @@ test "to_node_context: binding context produces new_binding" {
 
 ///|
 test "build_action_context: non-binding node" {
-  let (proj, _) = @lambda_proj.parse_to_proj_node("1")
+  let (proj, _) = @lambda_proj.parse_to_proj_node(
+    @loomcore.SourceId("canopy-test:lambda-action-context-non-binding"),
+    "1",
+  )
   let di = @lambda_proj.DefinitionIndex::from_proj_node(proj)
   let ctx = build_action_context(
     node_id=proj.id(),
@@ -154,7 +157,10 @@ test "build_action_context: non-binding node" {
 
 ///|
 test "build_action_context: let-binding node via parse" {
-  let (proj, _) = @lambda_proj.parse_to_proj_node("let x = 1\nx")
+  let (proj, _) = @lambda_proj.parse_to_proj_node(
+    @loomcore.SourceId("canopy-test:lambda-action-context-binding"),
+    "let x = 1\nx",
+  )
   let di = @lambda_proj.DefinitionIndex::from_proj_node(proj)
   // The first child (index 0) is the LetDef init: Int(1)
   let init_child = proj.children[0]

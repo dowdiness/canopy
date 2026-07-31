@@ -1,6 +1,11 @@
 ///| Whitebox side-table tests for the Stable Document Entity Graph Phase 0 idea.
 
 ///|
+let markdown_side_table_test_source : @loomcore.SourceId = @loomcore.SourceId(
+  "canopy-test:markdown-heading-side-table",
+)
+
+///|
 /// These tests exercise the package-private side-table model and validate the
 /// internal lifecycle sketch in `docs/design/sdeg-nodeid-side-table.md`.
 
@@ -202,7 +207,9 @@ test "sdeg phase0: NodeId side table preserves same-node matches before semantic
   let counter : Ref[Int] = Ref(0)
   let source = "# A\n# B\n"
   let next_source = "# C\n# A\n"
-  let (initial_cst, _) = @markdown.parse_cst(source)
+  let (initial_cst, _) = @markdown.parse_cst(
+    markdown_side_table_test_source, source,
+  )
   let initial = syntax_to_proj_node(
     @seam.SyntaxNode::from_cst(initial_cst),
     counter,
@@ -241,7 +248,9 @@ test "sdeg phase0: NodeId side table records semantic drift on same-node reorder
   let counter : Ref[Int] = Ref(0)
   let source = "# A\n# B\n"
   let next_source = "# B\n# A\n"
-  let (initial_cst, _) = @markdown.parse_cst(source)
+  let (initial_cst, _) = @markdown.parse_cst(
+    markdown_side_table_test_source, source,
+  )
   let initial = syntax_to_proj_node(
     @seam.SyntaxNode::from_cst(initial_cst),
     counter,
@@ -287,7 +296,9 @@ test "sdeg phase0: NodeId side table tombstone recovers delete-restore" {
   let initial_source = "# A\n# B\n"
   let deleted_source = "# B\n"
   let restored_source = "# A\n# B\n"
-  let (initial_cst, _) = @markdown.parse_cst(initial_source)
+  let (initial_cst, _) = @markdown.parse_cst(
+    markdown_side_table_test_source, initial_source,
+  )
   let initial = syntax_to_proj_node(
     @seam.SyntaxNode::from_cst(initial_cst),
     counter,
@@ -359,7 +370,9 @@ test "sdeg phase0: NodeId side table keeps duplicate restore ambiguous" {
   let initial_source = "# A\n# B\n"
   let deleted_source = "# B\n"
   let restored_source = "# A\n# A\n# B\n"
-  let (initial_cst, _) = @markdown.parse_cst(initial_source)
+  let (initial_cst, _) = @markdown.parse_cst(
+    markdown_side_table_test_source, initial_source,
+  )
   let initial = syntax_to_proj_node(
     @seam.SyntaxNode::from_cst(initial_cst),
     counter,
@@ -524,7 +537,9 @@ test "sdeg phase0: NodeId side table invariants hold across lifecycle states" {
   let source = "# A\n# B\n"
   let deleted_source = "# B\n"
   let restored_source = "# A\n# B\n"
-  let (initial_cst, _) = @markdown.parse_cst(source)
+  let (initial_cst, _) = @markdown.parse_cst(
+    markdown_side_table_test_source, source,
+  )
   let initial = syntax_to_proj_node(
     @seam.SyntaxNode::from_cst(initial_cst),
     counter,
@@ -851,7 +866,11 @@ fn completed_cell_label(
 
 ///|
 test "sdeg phase1: public projection memos force heading side table through source map" {
-  let parser = @loom.new_parser("# A\n", @markdown.markdown_grammar)
+  let parser = @loom.new_parser(
+    @loomcore.SourceId("canopy-test:markdown-heading-side-table:invalid-gap"),
+    "# A\n",
+    @markdown.markdown_grammar,
+  )
   let runtime = parser.runtime()
   let completed_labels : Array[String] = []
   try! runtime.on_derived_event(event => {
@@ -880,7 +899,11 @@ test "sdeg phase1: public projection memos force heading side table through sour
 
 ///|
 test "sdeg phase1: production side table memo treats valid delete as absence evidence" {
-  let parser = @loom.new_parser("# A\n", @markdown.markdown_grammar)
+  let parser = @loom.new_parser(
+    @loomcore.SourceId("canopy-test:markdown-heading-side-table:recovery"),
+    "# A\n",
+    @markdown.markdown_grammar,
+  )
   let bundle = build_markdown_projection_memos_with_heading_side_table(parser)
   let source_map = bundle.source_map_memo
   let side_table = bundle.heading_side_table_memo
@@ -904,7 +927,11 @@ test "sdeg phase1: production side table memo treats valid delete as absence evi
 
 ///|
 test "sdeg phase1: production side table memo holds malformed snapshots" {
-  let parser = @loom.new_parser("# A\n", @markdown.markdown_grammar)
+  let parser = @loom.new_parser(
+    @loomcore.SourceId("canopy-test:markdown-heading-side-table:error-node"),
+    "# A\n",
+    @markdown.markdown_grammar,
+  )
   let bundle = build_markdown_projection_memos_with_heading_side_table(parser)
   let source_map = bundle.source_map_memo
   let side_table = bundle.heading_side_table_memo

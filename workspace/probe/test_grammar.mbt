@@ -107,7 +107,10 @@ fn is_ident_char(c : Char) -> Bool {
 }
 
 ///|
-fn lex_test_expr(source : String) -> @loomcore.LexResult[TestToken] {
+fn lex_test_expr(
+  source_id : @loomcore.SourceId,
+  source : String,
+) -> @loomcore.LexResult[TestToken] {
   let located : Array[@loomcore.LocatedToken[TestToken]] = []
   let n = source.length()
   let mut i = 0
@@ -143,6 +146,7 @@ fn lex_test_expr(source : String) -> @loomcore.LexResult[TestToken] {
     }
   }
   @loomcore.LexResult::from_located_tokens(
+    source_id,
     source,
     located,
     gap_token=fn(_text, _start, _end) { Whitespace },
@@ -332,7 +336,9 @@ pub fn new_test_editor(
 ) -> @editor.SyncEditor[TestExpr] raise @text.TextError {
   @editor.SyncEditor::new_generic(
     agent_id,
-    fn(s, rt) { @loom.new_parser(s, test_grammar, runtime?=rt) },
+    (source_id, source, runtime) => {
+      @loom.new_parser(source_id, source, test_grammar, runtime?)
+    },
     build_test_projection_memos,
     capture_timeout_ms~,
     parent_runtime?,
@@ -348,8 +354,13 @@ pub fn new_empty_diagnostic_test_editor(
 ) -> @editor.SyncEditor[TestExpr] raise @text.TextError {
   @editor.SyncEditor::new_generic(
     agent_id,
-    (source, runtime) => {
-      @loom.new_parser(source, empty_diagnostic_test_grammar, runtime?)
+    (source_id, source, runtime) => {
+      @loom.new_parser(
+        source_id,
+        source,
+        empty_diagnostic_test_grammar,
+        runtime?,
+      )
     },
     build_test_projection_memos,
   )

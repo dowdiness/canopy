@@ -1,6 +1,11 @@
 // Whitebox tests for compute_text_edit
 
 ///|
+let lambda_text_edit_test_source : @loomcore.SourceId = @loomcore.SourceId(
+  "canopy-test:lambda-text-edits",
+)
+
+///|
 /// Test adapter: converts compute_text_edit's raise EditError model to
 /// Result[...String] so existing test patterns continue to work unchanged.
 /// Same pattern as the FFI-layer adapters (apply_json_edit, apply_markdown_edit,
@@ -20,7 +25,9 @@ fn test_edit(
 fn parse_with_token_spans(
   text : String,
 ) -> (ProjNode[@ast.Term], SourceMap, Map[NodeId, ProjNode[@ast.Term]]) raise {
-  let (cst, _) = @parser.parse_cst(text) catch { _ => fail("parse failed") }
+  let (cst, _) = @parser.parse_cst(lambda_text_edit_test_source, text) catch {
+    _ => fail("parse failed")
+  }
   let syntax = @seam.SyntaxNode::from_cst(cst)
   let counter = Ref(0)
   let proj = to_proj_node(syntax, counter)
@@ -72,7 +79,7 @@ fn make_edit_ctx(
 ///|
 test "compute_text_edit: CommitEdit replaces single expression" {
   let text = "42"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let root_id = proj.id()
@@ -94,7 +101,7 @@ test "compute_text_edit: CommitEdit replaces single expression" {
 ///|
 test "compute_text_edit: CommitEdit replaces left operand in binary expr" {
   let text = "x + 1"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   // children[0] is the left operand (Var("x")), span [0, 1)
@@ -117,7 +124,7 @@ test "compute_text_edit: CommitEdit replaces left operand in binary expr" {
 ///|
 test "compute_text_edit: CommitEdit inside fn body preserves braces" {
   let text = "fn id(x : Int) { x }\nid 1"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let body = proj.children[0].children[0].children[0]
@@ -135,7 +142,7 @@ test "compute_text_edit: CommitEdit inside fn body preserves braces" {
 ///|
 test "compute_text_edit: no-op ops return empty array" {
   let text = "42"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let result = test_edit(
@@ -148,7 +155,7 @@ test "compute_text_edit: no-op ops return empty array" {
 ///|
 test "compute_text_edit: Delete replaces node with placeholder" {
   let text = "42"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let root_id = proj.id()
@@ -169,7 +176,7 @@ test "compute_text_edit: Delete replaces node with placeholder" {
 ///|
 test "compute_text_edit: Delete replaces Var with placeholder" {
   let text = "x + 1"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   // children[0] is the left operand Var("x"), span [0, 1)
@@ -196,7 +203,7 @@ test "compute_text_edit: Delete replaces Var with placeholder" {
 ///|
 test "compute_text_edit: Delete inside fn body preserves braces" {
   let text = "fn id(x : Int) { x }\nid 1"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let body = proj.children[0].children[0].children[0]
@@ -214,7 +221,7 @@ test "compute_text_edit: Delete inside fn body preserves braces" {
 ///|
 test "compute_text_edit: WrapInLambda wraps node in lambda abstraction" {
   let text = "42"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let root_id = proj.id()
@@ -234,7 +241,7 @@ test "compute_text_edit: WrapInLambda wraps node in lambda abstraction" {
 ///|
 test "compute_text_edit: WrapInLambda parenthesizes subexpression" {
   let text = "f 1"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let func = proj.children[0]
@@ -252,7 +259,7 @@ test "compute_text_edit: WrapInLambda parenthesizes subexpression" {
 ///|
 test "compute_text_edit: WrapInApp wraps node in application" {
   let text = "42"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let root_id = proj.id()
@@ -277,7 +284,7 @@ test "compute_text_edit: WrapInApp wraps node in application" {
 ///|
 test "compute_text_edit: InsertChild into Module inserts def text" {
   let text = "let y = 1\ny"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let root_id = proj.id()
@@ -300,7 +307,7 @@ test "compute_text_edit: InsertChild into Module inserts def text" {
 ///|
 test "compute_text_edit: InsertChild into non-Module re-renders parent" {
   let text = "x + 1"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let root_id = proj.id()
@@ -329,7 +336,7 @@ test "compute_text_edit: InsertChild into non-Module re-renders parent" {
 ///|
 test "compute_text_edit: Drop produces two edits" {
   let text = "x + 1"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   // source = children[0] (Var "x"), target = children[1] (Int 1)
@@ -410,7 +417,7 @@ test "compute_text_edit: Drop LetDef Before moves the whole binding row before t
 ///|
 test "compute_text_edit: Drop with unknown source returns error" {
   let text = "42"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let result = test_edit(
@@ -423,7 +430,7 @@ test "compute_text_edit: Drop with unknown source returns error" {
 ///|
 test "compute_text_edit: Drop synthetic multi-param lambda source is rejected" {
   let text = "(x, y) => x"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let inner_lam = proj.children[0]
@@ -438,7 +445,7 @@ test "compute_text_edit: Drop synthetic multi-param lambda source is rejected" {
 ///|
 test "compute_text_edit: Drop synthetic multi-param lambda target is rejected" {
   let text = "(x, y) => x + z"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let inner_lam = proj.children[0]
@@ -454,7 +461,7 @@ test "compute_text_edit: Drop synthetic multi-param lambda target is rejected" {
 ///|
 test "compute_text_edit: WrapInLambda with unknown node returns error" {
   let text = "42"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let result = test_edit(
@@ -467,7 +474,7 @@ test "compute_text_edit: WrapInLambda with unknown node returns error" {
 ///|
 test "compute_text_edit: CommitEdit with unknown node returns error" {
   let text = "42"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let result = test_edit(
@@ -480,7 +487,7 @@ test "compute_text_edit: CommitEdit with unknown node returns error" {
 ///|
 test "compute_text_edit: Unwrap Lam keeps body" {
   let text = "(x) => 42"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let lam_id = proj.id()
@@ -502,7 +509,7 @@ test "compute_text_edit: Unwrap Lam keeps body" {
 ///|
 test "compute_text_edit: Unwrap synthetic fn lambda is rejected" {
   let text = "fn id(x : Int) { x }\nid 1"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let lam = proj.children[0].children[0]
@@ -516,7 +523,7 @@ test "compute_text_edit: Unwrap synthetic fn lambda is rejected" {
 ///|
 test "compute_text_edit: Unwrap synthetic multi-param lambda is rejected" {
   let text = "(x, y) => x"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let inner_lam = proj.children[0]
@@ -530,7 +537,7 @@ test "compute_text_edit: Unwrap synthetic multi-param lambda is rejected" {
 ///|
 test "compute_text_edit: Unwrap Bop keeps left" {
   let text = "1 + 2"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let bop_id = proj.id()
@@ -547,7 +554,7 @@ test "compute_text_edit: Unwrap Bop keeps left" {
 ///|
 test "compute_text_edit: Unwrap Bop keeps right" {
   let text = "1 + 2"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let bop_id = proj.id()
@@ -564,7 +571,7 @@ test "compute_text_edit: Unwrap Bop keeps right" {
 ///|
 test "compute_text_edit: WrapInIf wraps node in if-then-else" {
   let text = "42"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let root_id = proj.id()
@@ -585,7 +592,7 @@ test "compute_text_edit: WrapInIf wraps node in if-then-else" {
 ///|
 test "compute_text_edit: WrapInBop wraps node in binary operation" {
   let text = "42"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let root_id = proj.id()
@@ -617,7 +624,7 @@ test "compute_text_edit: WrapInBop wraps node in binary operation" {
 ///|
 test "compute_text_edit: ChangeOperator changes Bop operator" {
   let text = "1 + 2"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let root_id = proj.id()
@@ -642,7 +649,7 @@ test "compute_text_edit: ChangeOperator changes Bop operator" {
 ///|
 test "compute_text_edit: SwapChildren swaps Bop operands" {
   let text = "1 + 2"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let root_id = proj.id()
@@ -667,7 +674,7 @@ test "compute_text_edit: SwapChildren swaps Bop operands" {
 ///|
 test "compute_text_edit: DeleteBinding removes first let line" {
   let text = "let x = 0\nlet y = 1\nx + y"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   // Delete first binding
@@ -688,7 +695,7 @@ test "compute_text_edit: DeleteBinding removes first let line" {
 ///|
 test "compute_text_edit: DeleteBinding removes second let line" {
   let text = "let x = 0\nlet y = 1\nx + y"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   // Delete second binding
@@ -709,7 +716,7 @@ test "compute_text_edit: DeleteBinding removes second let line" {
 ///|
 test "compute_text_edit: DeleteBinding removes second fn line" {
   let text = "fn id(x) { x }\nfn apply(f, x) { f x }\napply id 42"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let result = test_edit(
@@ -728,7 +735,7 @@ test "compute_text_edit: DeleteBinding removes second fn line" {
 ///|
 test "compute_text_edit: DeleteBinding removes only binding" {
   let text = "let x = 42\nx"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let binding_id = proj.children[0].id()
@@ -748,7 +755,7 @@ test "compute_text_edit: DeleteBinding removes only binding" {
 ///|
 test "compute_text_edit: DeleteBinding with unknown id returns error" {
   let text = "let x = 0\nx"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let result = test_edit(
@@ -761,7 +768,7 @@ test "compute_text_edit: DeleteBinding with unknown id returns error" {
 ///|
 test "compute_text_edit: DeleteBinding with init id returns error" {
   let text = "let x = 0\nx"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let init_id = proj.children[0].children[0].id()
@@ -775,7 +782,7 @@ test "compute_text_edit: DeleteBinding with init id returns error" {
 ///|
 test "compute_text_edit: DuplicateBinding copies binding with fresh numeric suffix" {
   let text = "let x = 42\nlet y = 1\nx + y"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let binding_id = proj.children[0].id()
@@ -795,7 +802,7 @@ test "compute_text_edit: DuplicateBinding copies binding with fresh numeric suff
 ///|
 test "compute_text_edit: DuplicateBinding on last binding" {
   let text = "let x = 0\nx"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let binding_id = proj.children[0].id()
@@ -835,7 +842,7 @@ test "compute_text_edit: DuplicateBinding preserves typed fn syntax" {
 ///|
 test "compute_text_edit: DuplicateBinding produces lexable name and reparses (root)" {
   let text = "let x = 42\nlet y = 1\nx + y"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let binding_id = proj.children[0].id()
@@ -846,7 +853,7 @@ test "compute_text_edit: DuplicateBinding produces lexable name and reparses (ro
   match result {
     Ok(Some((edits, _))) => {
       let new_text = apply_edits(text, edits)
-      let (_, _) = parse_to_proj_node(new_text) catch {
+      let (_, _) = parse_to_proj_node(lambda_text_edit_test_source, new_text) catch {
         _ => fail("reparse failed: " + new_text)
       }
       inspect(root_def_names(new_text), content="x,x1,y")
@@ -858,7 +865,7 @@ test "compute_text_edit: DuplicateBinding produces lexable name and reparses (ro
 ///|
 test "compute_text_edit: DuplicateBinding skips existing numeric suffix (root)" {
   let text = "let x = 42\nlet x1 = 1\nx + x1"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let binding_id = proj.children[0].id()
@@ -869,7 +876,7 @@ test "compute_text_edit: DuplicateBinding skips existing numeric suffix (root)" 
   match result {
     Ok(Some((edits, _))) => {
       let new_text = apply_edits(text, edits)
-      let (_, _) = parse_to_proj_node(new_text) catch {
+      let (_, _) = parse_to_proj_node(lambda_text_edit_test_source, new_text) catch {
         _ => fail("reparse failed: " + new_text)
       }
       inspect(root_def_names(new_text), content="x,x2,x1")
@@ -881,7 +888,7 @@ test "compute_text_edit: DuplicateBinding skips existing numeric suffix (root)" 
 ///|
 test "compute_text_edit: DuplicateBinding skips suffix that would capture later free reference (root)" {
   let text = "let x = 42\nlet y = x1\ny"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let binding_id = proj.children[0].id()
@@ -892,7 +899,7 @@ test "compute_text_edit: DuplicateBinding skips suffix that would capture later 
   match result {
     Ok(Some((edits, _))) => {
       let new_text = apply_edits(text, edits)
-      let (_, _) = parse_to_proj_node(new_text) catch {
+      let (_, _) = parse_to_proj_node(lambda_text_edit_test_source, new_text) catch {
         _ => fail("reparse failed: " + new_text)
       }
       inspect(root_def_names(new_text), content="x,x2,y")
@@ -904,7 +911,7 @@ test "compute_text_edit: DuplicateBinding skips suffix that would capture later 
 ///|
 test "compute_text_edit: MoveBindingDown swaps two bindings" {
   let text = "let x = 0\nlet y = 1\nx + y"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let binding_id = proj.children[0].id()
@@ -925,7 +932,7 @@ test "compute_text_edit: MoveBindingDown swaps two bindings" {
 test "compute_text_edit: MoveBindingDown rejects when scoping violated" {
   // y uses x, so moving x down past y would break scoping
   let text = "let x = 0\nlet y = x\ny"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let binding_id = proj.children[0].id()
@@ -939,7 +946,7 @@ test "compute_text_edit: MoveBindingDown rejects when scoping violated" {
 ///|
 test "compute_text_edit: MoveBindingDown rejects last binding" {
   let text = "let x = 0\nlet y = 1\nx + y"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let binding_id = proj.children[1].id()
@@ -953,7 +960,7 @@ test "compute_text_edit: MoveBindingDown rejects last binding" {
 ///|
 test "compute_text_edit: MoveBindingUp swaps two bindings" {
   let text = "let x = 0\nlet y = 1\nx + y"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let binding_id = proj.children[1].id()
@@ -973,7 +980,7 @@ test "compute_text_edit: MoveBindingUp swaps two bindings" {
 ///|
 test "compute_text_edit: MoveBindingUp swaps fn bindings" {
   let text = "fn id(x) { x }\nfn apply(f, x) { f x }\napply id 42"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let result = test_edit(
@@ -1000,7 +1007,7 @@ test "compute_text_edit: MoveBindingUp swaps fn bindings" {
 /// botched swap can string-match an expectation while reparsing to a different
 /// structure (see the #649/#650 reparse-gate lesson).
 fn nested_block_def_names(def_index : Int, text : String) -> String raise {
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   match proj.children[def_index].children[0].kind {
     @ast.Term::Module(defs, _) => defs.map(fn(d) { d.0 }).join(",")
     other =>
@@ -1016,7 +1023,7 @@ fn nested_block_def_names(def_index : Int, text : String) -> String raise {
 /// nested_block_def_names for shadowing cases where both root and block scopes
 /// must survive a block-local edit.
 fn root_def_names(text : String) -> String raise {
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   match proj.kind {
     @ast.Term::Module(defs, _) => defs.map(fn(d) { d.0 }).join(",")
     other =>
@@ -1034,7 +1041,7 @@ fn block_local_edit_ctx(
   text : String,
   def_index : Int,
 ) -> (EditContext[@ast.Term], ProjNode[@ast.Term]) raise {
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let block = proj.children[def_index].children[0]
@@ -1059,7 +1066,7 @@ test "compute_text_edit: DeleteBinding removes block-local binding" {
   // it. The block-aware op deletes it and the result reparses to a block with
   // only `a`.
   let text = "let x = 0\nlet z = { let a = 1\n  let b = 2\n  a }\nz"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let block = proj.children[1].children[0]
@@ -1139,7 +1146,7 @@ test "compute_text_edit: MoveBindingUp swaps block-local bindings" {
 ///|
 test "compute_text_edit: MoveBindingUp rejects first block-local binding" {
   let text = "let x = 0\nlet z = { let a = 1\n  let b = 2\n  a }\nz"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let block = proj.children[1].children[0]
@@ -1157,7 +1164,7 @@ test "compute_text_edit: DuplicateBinding on block-local binding" {
   // Block-local duplicate is reachable, produces a lexable fresh name, and keeps
   // the inserted binding aligned with the enclosing block.
   let text = "let x = 0\nlet z = { let a = 1\n  let b = 2\n  a }\nz"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let block = proj.children[1].children[0]
@@ -1182,7 +1189,7 @@ test "compute_text_edit: DuplicateBinding on block-local binding" {
 ///|
 test "compute_text_edit: DuplicateBinding on block-local binding produces lexable name and reparses with correct indentation" {
   let text = "let x = 0\nlet z = { let a = 1\n  let b = 2\n  a }\nz"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let block = proj.children[1].children[0]
@@ -1194,7 +1201,7 @@ test "compute_text_edit: DuplicateBinding on block-local binding produces lexabl
   match result {
     Ok(Some((edits, _))) => {
       let new_text = apply_edits(text, edits)
-      let (_, _) = parse_to_proj_node(new_text) catch {
+      let (_, _) = parse_to_proj_node(lambda_text_edit_test_source, new_text) catch {
         _ => fail("reparse failed: " + new_text)
       }
       inspect(
@@ -1210,7 +1217,7 @@ test "compute_text_edit: DuplicateBinding on block-local binding produces lexabl
 ///|
 test "compute_text_edit: DuplicateBinding skips existing numeric suffix (block-local)" {
   let text = "let z = { let a = 1\n  let a1 = 2\n  a }\nz"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let block = proj.children[0].children[0]
@@ -1222,7 +1229,7 @@ test "compute_text_edit: DuplicateBinding skips existing numeric suffix (block-l
   match result {
     Ok(Some((edits, _))) => {
       let new_text = apply_edits(text, edits)
-      let (_, _) = parse_to_proj_node(new_text) catch {
+      let (_, _) = parse_to_proj_node(lambda_text_edit_test_source, new_text) catch {
         _ => fail("reparse failed: " + new_text)
       }
       inspect(
@@ -1238,7 +1245,7 @@ test "compute_text_edit: DuplicateBinding skips existing numeric suffix (block-l
 ///|
 test "compute_text_edit: DuplicateBinding skips suffix that would capture later free reference (block-local)" {
   let text = "let z = { let a = 1\n  let b = a1\n  b }\nz"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let block = proj.children[0].children[0]
@@ -1250,7 +1257,7 @@ test "compute_text_edit: DuplicateBinding skips suffix that would capture later 
   match result {
     Ok(Some((edits, _))) => {
       let new_text = apply_edits(text, edits)
-      let (_, _) = parse_to_proj_node(new_text) catch {
+      let (_, _) = parse_to_proj_node(lambda_text_edit_test_source, new_text) catch {
         _ => fail("reparse failed: " + new_text)
       }
       inspect(
@@ -1368,7 +1375,7 @@ test "compute_text_edit: MoveBindingUp swaps block-local binding that shadows ro
 /// def after `a`, and block body becomes `y`.
 test "compute_text_edit: ExtractToLet handles block body with block-local free var" {
   let text = "let z = { let a = 1\n  a + 1 }\nz"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let block = proj.children[0].children[0]
@@ -1380,7 +1387,9 @@ test "compute_text_edit: ExtractToLet handles block body with block-local free v
   match result {
     Ok(Some((edits, _))) => {
       let new_text = apply_edits(text, edits)
-      let (result_proj, _) = parse_to_proj_node(new_text) catch {
+      let (result_proj, _) = parse_to_proj_node(
+        lambda_text_edit_test_source, new_text,
+      ) catch {
         _ => fail("reparse failed")
       }
       match result_proj.kind {
@@ -1412,7 +1421,7 @@ test "compute_text_edit: ExtractToLet handles block body with block-local free v
 /// instead of the original `let a = 1`.
 test "compute_text_edit: ExtractToLet refuses block-body extraction when var_name would capture suffix" {
   let text = "let z = { let a = 1\n  (a + 1) + a }\nz"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   // Extract `(a + 1)` from the body: block→body→Add(Add(Var(a),Int(1)), Var(a))
@@ -1436,7 +1445,7 @@ test "compute_text_edit: ExtractToLet refuses block-body extraction when var_nam
 /// produce `let y = a + 1\ny + y` where `y` is now bound.
 test "compute_text_edit: ExtractToLet refuses block-body extraction when var_name would bind free suffix ref" {
   let text = "let z = { let a = 1\n  (a + 1) + y }\nz"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let block = proj.children[0].children[0]
@@ -1457,7 +1466,7 @@ test "compute_text_edit: ExtractToLet refuses block-body extraction when var_nam
 /// unbound `y` now resolves.
 test "compute_text_edit: ExtractToLet refuses block-def extraction when var_name would bind free block ref" {
   let text = "let z = { let a = 1\n  y + a }\nz"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let block = proj.children[0].children[0]
@@ -1480,7 +1489,7 @@ test "compute_text_edit: ExtractToLet refuses block-def extraction when var_name
 /// `y` to 1 instead of the outer binding.
 test "compute_text_edit: ExtractToLet refuses block-def extraction when var_name would capture block ref" {
   let text = "let y = 5\nlet z = { let a = 1\n  y + a }\nz"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   // z is proj.children[1] (second root def); block is z's init
@@ -1502,7 +1511,7 @@ test "compute_text_edit: ExtractToLet refuses block-def extraction when var_name
 /// `a` unbound. The root-relative capture guard catches this case.
 test "compute_text_edit: ExtractToLet refuses block-def extraction with block-local free var" {
   let text = "let z = { let a = 1\n  let b = a + 1\n  b }\nz"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   // Extract `a + 1` (the init of `let b`): block→LetDef("b")→Add(Var("a"), Int(1))
@@ -1524,7 +1533,7 @@ test "compute_text_edit: ExtractToLet refuses block-def extraction with block-lo
 /// Module([("", Lam("x",…))], Unit). Navigation must go through that wrapper.
 test "compute_text_edit: ExtractToLet allows block-def extraction when lambda param is from outside the block" {
   let text = "fn(x) { let y = x\ny }"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   // proj = Module([("", Lam("x", …))], Unit)
@@ -1544,7 +1553,9 @@ test "compute_text_edit: ExtractToLet allows block-def extraction when lambda pa
   match result {
     Ok(Some((edits, _))) => {
       let new_text = apply_edits(text, edits)
-      let (result_proj, _) = parse_to_proj_node(new_text) catch {
+      let (result_proj, _) = parse_to_proj_node(
+        lambda_text_edit_test_source, new_text,
+      ) catch {
         _ => fail("reparse failed: " + new_text)
       }
       // Root still has 1 def (the unnamed lambda binding); lambda body block
@@ -1580,7 +1591,7 @@ test "compute_text_edit: ExtractToLet allows block-def extraction when lambda pa
 /// as its first def.
 test "compute_text_edit: ExtractToLet inserts inside block for block-internal def" {
   let text = "let z = { let a = 1\n  a + 1 }\nz"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   // Int(1) is: proj→LetDef("z")→block→LetDef("a")→Int(1)
@@ -1593,7 +1604,9 @@ test "compute_text_edit: ExtractToLet inserts inside block for block-internal de
   match result {
     Ok(Some((edits, _))) => {
       let new_text = apply_edits(text, edits)
-      let (result_proj, _) = parse_to_proj_node(new_text) catch {
+      let (result_proj, _) = parse_to_proj_node(
+        lambda_text_edit_test_source, new_text,
+      ) catch {
         _ => fail("reparse failed")
       }
       // The let binding must be inside the block, so root still has exactly 1 def.
@@ -1623,7 +1636,7 @@ test "compute_text_edit: ExtractToLet inserts inside block for block-internal de
 /// the first binding still inserts let y before all block defs (at block start).
 test "compute_text_edit: ExtractToLet inserts before all block defs for non-first def" {
   let text = "let z = { let a = 1\n  let b = 2\n  a + b }\nz"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   // Extract Int(2) from `let b = 2`: proj→LetDef("z")→block→LetDef("b")→Int(2)
@@ -1636,7 +1649,9 @@ test "compute_text_edit: ExtractToLet inserts before all block defs for non-firs
   match result {
     Ok(Some((edits, _))) => {
       let new_text = apply_edits(text, edits)
-      let (result_proj, _) = parse_to_proj_node(new_text) catch {
+      let (result_proj, _) = parse_to_proj_node(
+        lambda_text_edit_test_source, new_text,
+      ) catch {
         _ => fail("reparse failed")
       }
       match result_proj.kind {
@@ -1669,7 +1684,7 @@ test "compute_text_edit: ExtractToLet inserts before all block defs for non-firs
 /// Verified by reparsing: root keeps 1 def, block gains a new def `y`.
 test "compute_text_edit: ExtractToLet finds block via ancestor scope for lambda-in-block" {
   let text = "let z = { let a = 1\n(x) => a }\nz"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   // proj→LetDef("z")→block→[LetDef("a"), Lam("x", Var("a"))]; extract Var("a")
@@ -1682,7 +1697,9 @@ test "compute_text_edit: ExtractToLet finds block via ancestor scope for lambda-
   match result {
     Ok(Some((edits, _))) => {
       let new_text = apply_edits(text, edits)
-      let (result_proj, _) = parse_to_proj_node(new_text) catch {
+      let (result_proj, _) = parse_to_proj_node(
+        lambda_text_edit_test_source, new_text,
+      ) catch {
         _ => fail("reparse failed")
       }
       match result_proj.kind {
@@ -1712,7 +1729,7 @@ test "compute_text_edit: ExtractToLet finds block via ancestor scope for lambda-
 /// making the param references unbound.
 test "compute_text_edit: ExtractToLet refuses lambda-param rebind in lambda-in-block" {
   let text = "let z = { let a = 1\n(x) => x + a }\nz"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   // proj→LetDef("z")→block→[LetDef("a"), Lam("x", Add(Var("x"), Var("a")))]; extract body
@@ -1734,7 +1751,7 @@ test "compute_text_edit: ExtractToLet refuses lambda-param rebind in lambda-in-b
 /// Verified by reparsing: root still has 1 def (z), block gains def `y`.
 test "compute_text_edit: ExtractToLet inserts inside empty-def block body" {
   let text = "let z = { 1 + 2 }\nz"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   // After Option B: proj→LetDef("z")→Module([], Add)→[Add→[Int(1), Int(2)]]
@@ -1747,7 +1764,9 @@ test "compute_text_edit: ExtractToLet inserts inside empty-def block body" {
   match result {
     Ok(Some((edits, _))) => {
       let new_text = apply_edits(text, edits)
-      let (result_proj, _) = parse_to_proj_node(new_text) catch {
+      let (result_proj, _) = parse_to_proj_node(
+        lambda_text_edit_test_source, new_text,
+      ) catch {
         _ => fail("reparse failed: " + new_text)
       }
       match result_proj.kind {
@@ -1802,7 +1821,7 @@ fn expect_var_resolves_to(
 ///|
 test "compute_text_edit: ExtractToLet block-body preserves resolution when block-local def shadows outer var [#659]" {
   let text = "let a = 0\nlet z = { let a = 1\n  a + 1 }\nz"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let block = proj.children[1].children[0]
@@ -1814,7 +1833,9 @@ test "compute_text_edit: ExtractToLet block-body preserves resolution when block
   match result {
     Ok(Some((edits, _))) => {
       let new_text = apply_edits(text, edits)
-      let (result_proj, _) = parse_to_proj_node(new_text) catch {
+      let (result_proj, _) = parse_to_proj_node(
+        lambda_text_edit_test_source, new_text,
+      ) catch {
         _ => fail("reparse failed: " + new_text)
       }
       inspect(root_def_names(new_text), content="a,z")
@@ -1837,7 +1858,7 @@ test "compute_text_edit: ExtractToLet block-body preserves resolution when block
 ///|
 test "compute_text_edit: ExtractToLet block-body sub-expr preserves block-local free var resolution [#659]" {
   let text = "let a = 0\nlet z = { let a = 1\n  (a + 2) + a }\nz"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let block = proj.children[1].children[0]
@@ -1850,7 +1871,9 @@ test "compute_text_edit: ExtractToLet block-body sub-expr preserves block-local 
   match result {
     Ok(Some((edits, _))) => {
       let new_text = apply_edits(text, edits)
-      let (result_proj, _) = parse_to_proj_node(new_text) catch {
+      let (result_proj, _) = parse_to_proj_node(
+        lambda_text_edit_test_source, new_text,
+      ) catch {
         _ => fail("reparse failed: " + new_text)
       }
       let g = scope_graph_for_proj(result_proj)
@@ -1871,7 +1894,7 @@ test "compute_text_edit: ExtractToLet block-body sub-expr preserves block-local 
 ///|
 test "compute_text_edit: ExtractToLet block-body preserves mixed inner/outer free var resolution [#659]" {
   let text = "let x = 10\nlet z = { let a = 1\n  a + x }\nz"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let block = proj.children[1].children[0]
@@ -1883,7 +1906,9 @@ test "compute_text_edit: ExtractToLet block-body preserves mixed inner/outer fre
   match result {
     Ok(Some((edits, _))) => {
       let new_text = apply_edits(text, edits)
-      let (result_proj, _) = parse_to_proj_node(new_text) catch {
+      let (result_proj, _) = parse_to_proj_node(
+        lambda_text_edit_test_source, new_text,
+      ) catch {
         _ => fail("reparse failed: " + new_text)
       }
       inspect(root_def_names(new_text), content="x,z")
@@ -1913,7 +1938,7 @@ test "compute_text_edit: ExtractToLet block-body preserves mixed inner/outer fre
 ///|
 test "compute_text_edit: AddBinding adds new let line" {
   let text = "let x = 0\nx"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let module_id = proj.id()
@@ -1933,7 +1958,7 @@ test "compute_text_edit: AddBinding adds new let line" {
 ///|
 test "compute_text_edit: ExtractToLet from body" {
   let text = "let x = 0\nx + 1"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   // Body is Bop(+, Var(x), Int(1)). Extract the whole body expression.
@@ -1961,7 +1986,7 @@ test "compute_text_edit: ExtractToLet from body" {
 ///|
 test "compute_text_edit: ExtractToLet sub-expression from body" {
   let text = "let x = 0\nx + 1"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   // Extract Var("x") from the body (left operand of +)
@@ -1984,7 +2009,7 @@ test "compute_text_edit: ExtractToLet sub-expression from body" {
 test "compute_text_edit: ExtractToLet rejects lambda-captured var" {
   // Inside (x) => (x + 1), trying to extract the body which captures x
   let text = "(x) => x + 1"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   // The body of lambda is Bop(+, Var(x), Int(1)) — child[0] of Lam
@@ -2029,7 +2054,7 @@ test "compute_text_edit: ExtractToLet rejects later module-def shadow capture" {
 ///|
 test "compute_text_edit: ExtractToLet bare expression" {
   let text = "42"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let result = test_edit(
@@ -2079,7 +2104,7 @@ test "compute_text_edit: ExtractToLet defs-empty does not reject block-shadowed 
 ///|
 test "compute_text_edit: InlineDefinition sole usage removes binding" {
   let text = "let x = 42\nx"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   // Body is the last child of Module — Var("x")
@@ -2100,7 +2125,7 @@ test "compute_text_edit: InlineDefinition sole usage removes binding" {
 ///|
 test "compute_text_edit: InlineDefinition nested block uses resolved declaration" {
   let text = "let x = 0\nlet z = { let x = 1\n  x }\nz"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let block = proj.children[1].children[0]
@@ -2121,7 +2146,7 @@ test "compute_text_edit: InlineDefinition nested block uses resolved declaration
 ///|
 test "compute_text_edit: InlineDefinition multiple usages keeps binding" {
   let text = "let x = 42\nx + x"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   // Body is Bop(+, Var(x), Var(x)). Get the left Var.
@@ -2145,7 +2170,7 @@ test "compute_text_edit: InlineAllUsages replaces all refs and removes binding" 
   // Note: right operand range in BinaryExpr may include leading whitespace
   // from the CST, so "x + x" -> "42 +42" — reparsing normalizes spacing.
   let text = "let x = 42\nx + x"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let binding_id = proj.children[0].id()
@@ -2167,7 +2192,7 @@ test "compute_text_edit: InlineAllUsages replaces all refs and removes binding" 
 ///|
 test "compute_text_edit: InlineAllUsages nested block uses binding declaration" {
   let text = "let x = 0\nlet z = { let x = 1\n  x }\nz"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let block = proj.children[1].children[0]
@@ -2188,7 +2213,7 @@ test "compute_text_edit: InlineAllUsages nested block uses binding declaration" 
 ///|
 test "compute_text_edit: InlineDefinition on non-Var returns error" {
   let text = "42"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let result = test_edit(
@@ -2201,7 +2226,7 @@ test "compute_text_edit: InlineDefinition on non-Var returns error" {
 ///|
 test "compute_text_edit: InlineAllUsages with unknown binding returns error" {
   let text = "let x = 0\nx"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let result = test_edit(
@@ -2303,7 +2328,7 @@ test "compute_text_edit: InlineDefinition zero-param fn with lambda body uses bl
 ///|
 test "compute_text_edit: InlineDefinition typed fn rejects missing keyword span" {
   let text = "fn twice(f : Int -> Int, x : Int) { f x }\ntwice"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let body = proj.children[proj.children.length() - 1]
@@ -2321,7 +2346,7 @@ test "compute_text_edit: InlineDefinition typed fn rejects missing keyword span"
 ///|
 test "compute_text_edit: InlineDefinition typed fn rejects missing parameter span" {
   let text = "fn twice(f : Int -> Int, x : Int) { f x }\ntwice"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   source_map.set_token_span(
     proj.children[0].id(),
@@ -2366,7 +2391,7 @@ test "compute_text_edit: InlineAllUsages first duplicate preserves shadowed body
 ///|
 test "compute_text_edit: InlineDefinition on lambda-bound var returns error" {
   let text = "(x) => x"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   // Body is Var("x") — child[0] of Lam
@@ -2381,7 +2406,7 @@ test "compute_text_edit: InlineDefinition on lambda-bound var returns error" {
 ///|
 test "compute_text_edit: InlineAllUsages no usages just removes binding" {
   let text = "let x = 42\n0"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let binding_id = proj.children[0].id()
@@ -2401,7 +2426,7 @@ test "compute_text_edit: InlineAllUsages no usages just removes binding" {
 ///|
 test "compute_text_edit: InlineAllUsages removes unused second fn binding" {
   let text = "fn id(x) { x }\nfn unused(x) { x }\nid 42"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let result = test_edit(
@@ -3075,7 +3100,7 @@ test "compute_text_edit: Unwrap cursor at replacement start" {
   // Unwrap Bop keeps right child — cursor should be at range.start (0),
   // not the original position of the right child
   let text = "1 + 2"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let bop_id = proj.id()
@@ -3123,7 +3148,7 @@ test "compute_text_edit: AddBinding rejects non-Module target" {
 ///|
 test "compute_text_edit: Drop self-drop returns error" {
   let text = "42"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let id = proj.id()
@@ -3139,7 +3164,7 @@ test "compute_text_edit: Drop descendant-drop returns error" {
   // "x + 1" parses as Bop(Var(x), Int(1))
   // Dropping the root Bop onto its child Var(x) is a descendant-drop
   let text = "x + 1"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let child = proj.children[0] // Var(x), inside the Bop
@@ -3156,7 +3181,7 @@ test "compute_text_edit: Drop descendant-drop returns error" {
 ///|
 test "compute_text_edit: Drop with Before position inserts at target start" {
   let text = "x + 1"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   // source = Int(1) at children[1], target = Var(x) at children[0]
@@ -3184,7 +3209,7 @@ test "compute_text_edit: Drop with Before position inserts at target start" {
 ///|
 test "compute_text_edit: Drop with unknown target returns error" {
   let text = "42"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let registry = text_edit_test_registry(proj)
   let result = test_edit(

@@ -2,6 +2,11 @@
 const GRAPH_DSL_SAMPLE = "osc = sine(freq: 440Hz, wave: \"saw\") -> audio\nfilter = lowpass(input: osc, cutoff: 1200Hz, mode: warm)"
 
 ///|
+let graph_dsl_adapter_test_source : @core.SourceId = @core.SourceId(
+  "canopy-test:canvas:graph-dsl-adapter",
+)
+
+///|
 fn ok_graph_doc(
   result : Result[@graph_dsl.GraphDoc, Array[String]],
 ) -> @graph_dsl.GraphDoc {
@@ -142,7 +147,12 @@ fn required_canvas_id_for_binding(
 
 ///|
 test "graph-dsl projection maps into the canvas graph view model" {
-  let doc = ok_graph_doc(@graph_dsl.project_graph_source(GRAPH_DSL_SAMPLE))
+  let doc = ok_graph_doc(
+    @graph_dsl.project_graph_source(
+      graph_dsl_adapter_test_source,
+      GRAPH_DSL_SAMPLE,
+    ),
+  )
   let canvas = canvas_from_graph_doc(doc)
   match canvas.nodes {
     [osc, filter] => {
@@ -235,8 +245,23 @@ test "source-backed compatibility export rejects invalid current source" {
 }
 
 ///|
+test "source-backed graphs own stable distinct source identities" {
+  let handle_a = create_source_graph("osc = sine(freq: 440Hz)")
+  let handle_b = create_source_graph("meter = scope()")
+  let source_a = source_graph_source_id(handle_a)
+  inspect(source_a == source_graph_source_id(handle_b), content="false")
+  set_source_graph_source(handle_a, "osc = sine(freq: 880Hz)")
+  inspect(source_graph_source_id(handle_a) == source_a, content="true")
+  destroy_source_graph(handle_a)
+  destroy_source_graph(handle_b)
+}
+
+///|
 test "SetParam lowers to an exact source edit and preserves graph ids" {
-  let attachment = @graph_dsl.GraphAttachment::GraphAttachment(GRAPH_DSL_SAMPLE)
+  let attachment = @graph_dsl.GraphAttachment::GraphAttachment(
+    @core.SourceId("canopy-test:canvas:set-param"),
+    GRAPH_DSL_SAMPLE,
+  )
   let before = ok_current_graph_doc(attachment.current_result())
   let osc_id = graph_node_id(before, "osc")
   let filter_id = graph_node_id(before, "filter")
@@ -265,14 +290,19 @@ test "SetParam lowers to an exact source edit and preserves graph ids" {
 ///|
 test "ConnectPorts and AddNode lower through source and reparse to canvas graph" {
   let source = "osc = sine(freq: 440Hz)\nmeter = scope()"
-  let doc = ok_graph_doc(@graph_dsl.project_graph_source(source))
+  let doc = ok_graph_doc(
+    @graph_dsl.project_graph_source(graph_dsl_adapter_test_source, source),
+  )
   let connect = ok_lowered(doc.lower_add_connection("meter", "osc"))
   inspect(
     connect.new_source(),
     content="osc = sine(freq: 440Hz)\nmeter = scope(input: osc)",
   )
   let connected = ok_graph_doc(
-    @graph_dsl.project_graph_source(connect.new_source()),
+    @graph_dsl.project_graph_source(
+      graph_dsl_adapter_test_source,
+      connect.new_source(),
+    ),
   )
   let connected_canvas = canvas_from_graph_doc(connected)
   match connected_canvas.edges {
@@ -297,7 +327,10 @@ test "ConnectPorts and AddNode lower through source and reparse to canvas graph"
     content="osc = sine(freq: 440Hz)\nmeter = scope(input: osc)\nreverb = plate()",
   )
   let inserted = ok_graph_doc(
-    @graph_dsl.project_graph_source(insert.new_source()),
+    @graph_dsl.project_graph_source(
+      graph_dsl_adapter_test_source,
+      insert.new_source(),
+    ),
   )
   let inserted_canvas = canvas_from_graph_doc(inserted)
   match inserted_canvas.nodes {
@@ -1048,7 +1081,10 @@ test "source-backed CodeMirror edit reparses editor text when source diverged" {
 
 ///|
 test "invalid source keeps last-good canvas graph available" {
-  let attachment = @graph_dsl.GraphAttachment::GraphAttachment(GRAPH_DSL_SAMPLE)
+  let attachment = @graph_dsl.GraphAttachment::GraphAttachment(
+    @core.SourceId("canopy-test:canvas:last-good"),
+    GRAPH_DSL_SAMPLE,
+  )
   let good = ok_current_graph_doc(attachment.current_result())
   let good_canvas = canvas_from_graph_doc(good)
 

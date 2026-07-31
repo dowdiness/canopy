@@ -2,7 +2,12 @@
 fn parse_proj_with_token_spans(
   text : String,
 ) -> (ProjNode[@ast.Term], SourceMap) raise {
-  let (cst, _) = @parser.parse_cst(text) catch { _ => fail("parse failed") }
+  let (cst, _) = @parser.parse_cst(
+    @loomcore.SourceId("canopy-test:lambda-token-spans"),
+    text,
+  ) catch {
+    _ => fail("parse failed")
+  }
   let syntax = @seam.SyntaxNode::from_cst(cst)
   let proj = to_proj_node(syntax, Ref(0))
   let source_map = SourceMap::from_ast(proj)

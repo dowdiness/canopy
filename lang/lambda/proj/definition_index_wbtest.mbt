@@ -1,7 +1,10 @@
 ///|
 test "DefinitionIndex::binding_for_node: maps LetDef id to binding index" {
   let text = "let x = 0\nlet y = 1\nx + y"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(
+    @loomcore.SourceId("canopy-test:lambda-definition-index-binding"),
+    text,
+  )
   let index = DefinitionIndex::from_proj_node(proj)
   let binding_node_id = proj.children[0].id()
   match index.binding_for_node(binding_node_id) {
@@ -16,7 +19,10 @@ test "DefinitionIndex::binding_for_node: maps LetDef id to binding index" {
 ///|
 test "DefinitionIndex::binding_for_node: init id is not a binding id" {
   let text = "let x = 0\nx"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(
+    @loomcore.SourceId("canopy-test:lambda-definition-index-init"),
+    text,
+  )
   let index = DefinitionIndex::from_proj_node(proj)
   let init_id = proj.children[0].children[0].id()
   inspect(index.binding_for_node(init_id) is None, content="true")
@@ -25,7 +31,10 @@ test "DefinitionIndex::binding_for_node: init id is not a binding id" {
 ///|
 test "DefinitionIndex::binding_for_node: duplicate defs return binding order" {
   let text = "let x = 0\nlet x = x\nx"
-  let (proj, _) = parse_to_proj_node(text)
+  let (proj, _) = parse_to_proj_node(
+    @loomcore.SourceId("canopy-test:lambda-definition-index-duplicates"),
+    text,
+  )
   let index = DefinitionIndex::from_proj_node(proj)
   match index.binding_for_node(proj.children[0].id()) {
     Some((binding_id, def_index)) => {

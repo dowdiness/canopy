@@ -1,4 +1,8 @@
-///| Whitebox tests for JSX projection (Task 2.2 Step 4 checkpoint).
+///|
+/// Whitebox tests for JSX projection (Task 2.2 Step 4 checkpoint).
+let jsx_projection_test_source : @loomcore.SourceId = @loomcore.SourceId(
+  "canopy-test:jsx-projection",
+)
 
 ///|
 test "parse and project basic element" {
@@ -6,7 +10,9 @@ test "parse and project basic element" {
   // prefix can legally have several roots) — the plan's original snippet
   // predates that AST divergence and asserted "Element" directly at the
   // top; check the wrapped element instead.
-  let (root, errors) = parse_to_proj_node("<div>hello</div>")
+  let (root, errors) = parse_to_proj_node(
+    jsx_projection_test_source, "<div>hello</div>",
+  )
   inspect(errors.length(), content="0")
   inspect(root.kind.kind_tag(), content="Root")
   inspect(root.children[0].kind.kind_tag(), content="Element")
@@ -14,14 +20,16 @@ test "parse and project basic element" {
 
 ///|
 test "projection: root wraps top-level nodes" {
-  let (root, _) = parse_to_proj_node("<div/>")
+  let (root, _) = parse_to_proj_node(jsx_projection_test_source, "<div/>")
   inspect(root.kind.kind_tag(), content="Root")
   inspect(root.children.length(), content="1")
 }
 
 ///|
 test "projection: element with text child" {
-  let (root, errors) = parse_to_proj_node("<p>hello world</p>")
+  let (root, errors) = parse_to_proj_node(
+    jsx_projection_test_source, "<p>hello world</p>",
+  )
   inspect(errors.length(), content="0")
   let el = root.children[0]
   inspect(el.children.length(), content="1")
@@ -31,7 +39,7 @@ test "projection: element with text child" {
 ///|
 test "projection: nested elements" {
   let (root, errors) = parse_to_proj_node(
-    "<div><h1>title</h1><p>body</p></div>",
+    jsx_projection_test_source, "<div><h1>title</h1><p>body</p></div>",
   )
   inspect(errors.length(), content="0")
   let div = root.children[0]
@@ -42,7 +50,9 @@ test "projection: nested elements" {
 
 ///|
 test "projection: attrs are excluded from proj children" {
-  let (root, errors) = parse_to_proj_node("<div class=\"a\" id=\"b\">x</div>")
+  let (root, errors) = parse_to_proj_node(
+    jsx_projection_test_source, "<div class=\"a\" id=\"b\">x</div>",
+  )
   inspect(errors.length(), content="0")
   let div = root.children[0]
   // Only the Text child appears — the two attrs must not be counted.
@@ -52,7 +62,9 @@ test "projection: attrs are excluded from proj children" {
 
 ///|
 test "projection: expression span child" {
-  let (root, errors) = parse_to_proj_node("<p>{title}</p>")
+  let (root, errors) = parse_to_proj_node(
+    jsx_projection_test_source, "<p>{title}</p>",
+  )
   inspect(errors.length(), content="0")
   let p = root.children[0]
   inspect(p.children[0].kind.kind_tag(), content="ExprSpan")
@@ -60,7 +72,9 @@ test "projection: expression span child" {
 
 ///|
 test "projection: fragment" {
-  let (root, errors) = parse_to_proj_node("<><span/><span/></>")
+  let (root, errors) = parse_to_proj_node(
+    jsx_projection_test_source, "<><span/><span/></>",
+  )
   inspect(errors.length(), content="0")
   let fragment = root.children[0]
   inspect(fragment.kind.kind_tag(), content="Fragment")
@@ -69,7 +83,9 @@ test "projection: fragment" {
 
 ///|
 test "projection: unclosed element still exposes parsed children" {
-  let (root, errors) = parse_to_proj_node("<div><span>text")
+  let (root, errors) = parse_to_proj_node(
+    jsx_projection_test_source, "<div><span>text",
+  )
   // Design B case 2: diagnostics are pushed, but children are not
   // discarded.
   inspect(errors.length() > 0, content="true")

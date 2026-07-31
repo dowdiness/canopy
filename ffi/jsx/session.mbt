@@ -110,7 +110,11 @@ fn session_envelope_json(handle : Int?, result_json : String) -> String {
 
 ///|
 fn new_jsx_session(source : String, root_id : String) -> JsxSession {
-  let parser = @loom.new_parser(source, @jsx_ast.jsx_grammar)
+  let parser = @loom.new_parser(
+    allocate_jsx_source_id(),
+    source,
+    @jsx_ast.jsx_grammar,
+  )
   let (proj_memo, registry_memo, source_map_memo) = @jsx_proj.build_jsx_projection_memos(
     parser,
   )
@@ -310,7 +314,7 @@ fn render_jsx_session_with_projection_read(
       if update_source {
         session.parser.set_source(source)
       }
-      let diagnostics = get_or_empty_errors(source)
+      let diagnostics = get_or_empty_errors(session.parser.source_id(), source)
       let projection_read = match projection_read_override {
         Some(value) => value
         None => read_source_projection(session)
