@@ -76,7 +76,11 @@ export const scenarios = [
     title: "Rename binder: introduces x",
     before_source: "let x = 1\nx",
     after_source: "let y = 1\nx",
-    attribution: { producer: "agent:demo", edit_id: "rename-binder-1" },
+    attribution: {
+      producer: "agent:demo",
+      edit_id: "rename-binder-1",
+      summary: "Rename binder x to y",
+    },
     applied_edits: [{ start: 4, delete_len: 1, inserted: "y" }],
     before: [],
     after: [failure("x", 10, 11, ["scope:module-root"])],
@@ -86,7 +90,11 @@ export const scenarios = [
     title: "Rename reference: resolves y",
     before_source: "(x) => y",
     after_source: "(x) => x",
-    attribution: { producer: "agent:demo", edit_id: "rename-reference-1" },
+    attribution: {
+      producer: "agent:demo",
+      edit_id: "rename-reference-1",
+      summary: "Rename reference y to x",
+    },
     applied_edits: [{ start: 7, delete_len: 1, inserted: "x" }],
     before: [failure("y", 7, 8, ["scope:lambda", "scope:root"])],
     after: [],
@@ -96,7 +104,11 @@ export const scenarios = [
     title: "Position-only shift: stays empty",
     before_source: "(x) => y",
     after_source: "let w = 0\n(x) => y",
-    attribution: { producer: "agent:demo", edit_id: "prefix-only-1" },
+    attribution: {
+      producer: "agent:demo",
+      edit_id: "prefix-only-1",
+      summary: "Insert unrelated binding before expression",
+    },
     applied_edits: [{ start: 0, delete_len: 0, inserted: "let w = 0\n" }],
     before: [failure("y", 7, 8, ["scope:lambda", "scope:root"])],
     after: [failure("y", 17, 18, ["scope:lambda", "scope:root"])],
@@ -106,7 +118,11 @@ export const scenarios = [
     title: "Identical rebuild: stays empty",
     before_source: "(x) => y",
     after_source: "(x) => y",
-    attribution: { producer: "agent:demo", edit_id: "rebuild-only-1" },
+    attribution: {
+      producer: "agent:demo",
+      edit_id: "rebuild-only-1",
+      summary: "Rebuild unchanged source",
+    },
     applied_edits: [],
     before: [failure("y", 7, 8, ["scope:lambda", "scope:root"])],
     after: [failure("y", 7, 8, ["scope:lambda", "scope:root"])],
@@ -121,4 +137,3 @@ export function evaluateScenario(scenario) {
     after: scenario.after,
   });
 }
-

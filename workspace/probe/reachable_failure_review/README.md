@@ -15,6 +15,12 @@ path, reads the recomputed failures, and returns a detached review value. The
 prototype checks whether that value can remain neutral to the agent producer
 and avoid treating `NodeId` or `DeclId` as durable identity.
 
+**HITL decision: accepted.** The detached value is self-describing through a
+producer-neutral `summary`, but it is not a durable audit schema. A future
+persistence owner must add revision anchoring, schema versioning, and stable
+witness serialization rather than silently treating transient source ranges or
+scope IDs as permanent identity.
+
 This is throwaway decision code. It does not parse Lambda, mutate a real
 `SyncEditor`, or propose production APIs.
 
@@ -36,15 +42,17 @@ x
 
 The reference `x` becomes free. The returned review contains:
 
-- host-supplied attribution (`producer`, `edit_id`);
+- host-supplied attribution (`producer`, `edit_id`, and a `NodeId`-free
+  `summary` such as `Rename binder x to y`);
 - the actual applied `SpanEdit` values, in source coordinates;
 - the existing `FailureDiff`, whose failures already carry witness and
   location.
 
 The original `TreeEditOp` is an input to the shell but is not published in the
 report. This avoids presenting its graph-local target `NodeId` as durable review
-identity. The caller can correlate the report through `edit_id`; the applied
-source edits explain what changed.
+identity. The summary makes the detached value understandable without the host
+log; the caller can correlate it through `edit_id`, and the applied source edits
+explain what changed.
 
 ## Seam comparison
 
@@ -83,7 +91,10 @@ An opt-in `review_lambda_tree_edit`-shaped wrapper would:
 5. return `Result[ReachableFailureReview, TreeEditError]` to the agent host.
 
 The agent host decides whether and where to publish the returned value. Neither
-`AnalysisProjection`, the UI protocol, nor the FFI owns it.
+`AnalysisProjection`, the UI protocol, nor the FFI owns it. Persisting it as an
+audit record is a separate boundary: the host would need to wrap it in a
+versioned envelope with document/revision identity and a stable representation
+of witnesses and locations.
 
 ## Observable test seam
 
@@ -92,4 +103,3 @@ failure resolution, position-only shift, and identical rebuild. One integration
 test around the wrapper proves that the before snapshot is taken before mutation,
 the after snapshot is forced after mutation, and the exact returned `SpanEdit`
 batch is passed to the core.
-

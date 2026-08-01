@@ -28,7 +28,7 @@ function render() {
   console.clear();
   console.log(`${BOLD}PROTOTYPE — ReachableFailure review boundary${RESET}`);
   console.log(
-    `${DIM}Question: should an opt-in Lambda companion wrapper own before/apply/after?${RESET}\n`,
+    `${DIM}Accepted: opt-in Lambda companion wrapper owns before/apply/after.${RESET}\n`,
   );
   console.log(`${BOLD}Chosen seam${RESET}`);
   console.log("lang/lambda/companion::review_lambda_tree_edit (proposed sibling wrapper)");
@@ -42,6 +42,7 @@ function render() {
   console.log(`${BOLD}Detached review value${RESET}`);
   console.log(`producer: ${report.attribution.producer}`);
   console.log(`edit_id:  ${report.attribution.edit_id}`);
+  console.log(`summary:  ${report.attribution.summary}`);
   console.log(`applied:  ${JSON.stringify(report.applied_edits)}`);
   console.log("newly_reachable:");
   console.log(formatFailureList(report.failure_diff.newly_reachable));
@@ -75,4 +76,3 @@ process.stdin.on("keypress", (_text, key) => {
 });
 
 render();
-
