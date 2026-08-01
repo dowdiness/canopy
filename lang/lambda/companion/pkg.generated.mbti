@@ -7,16 +7,20 @@ import {
   "dowdiness/canopy/editor",
   "dowdiness/canopy/lang/lambda/edits",
   "dowdiness/canopy/lang/lambda/eval",
+  "dowdiness/canopy/lang/lambda/scope",
   "dowdiness/canopy/protocol",
   "dowdiness/event-graph-walker/text",
   "dowdiness/incr/cells",
   "dowdiness/lambda",
   "dowdiness/lambda/ast",
   "dowdiness/lambda/typecheck",
+  "moonbitlang/core/debug",
 }
 
 // Values
 pub fn apply_lambda_tree_edit(@editor.SyncEditor[@ast.Term], LambdaCompanion, @edits.TreeEditOp, Int) -> Result[Array[@core.SpanEdit], @editor.TreeEditError]
+
+pub fn apply_lambda_tree_edit_with_reachable_failure_review(@editor.SyncEditor[@ast.Term], LambdaCompanion, @edits.TreeEditOp, Int, ReachableFailureAttribution) -> Result[ReachableFailureReview, @editor.TreeEditError]
 
 pub fn detect_action_context(@editor.SyncEditor[@ast.Term], @core.NodeId) -> @edits.ActionContext?
 
@@ -50,6 +54,19 @@ pub fn LambdaCompanion::get_eval_results(Self) -> Array[@eval.EvalResult]
 pub fn LambdaCompanion::get_structured_changes(Self) -> Array[@core.StructuredChange]
 pub fn LambdaCompanion::set_pattern_analysis(Self, Array[@analysis.PatternMatchFact], @analysis.SourceSnapshot) -> Unit
 pub fn LambdaCompanion::typecheck_output(Self) -> @cells.Derived[@typecheck.ModuleTypeResult]
+
+pub(all) struct ReachableFailureAttribution {
+  producer : String
+  edit_id : String
+  summary : String
+} derive(@debug.Debug)
+
+pub struct ReachableFailureReview {
+  // private fields
+}
+pub fn ReachableFailureReview::attribution(Self) -> ReachableFailureAttribution
+pub fn ReachableFailureReview::diff(Self) -> @scope.FailureDiff
+pub fn ReachableFailureReview::edits(Self) -> Array[@core.SpanEdit]
 
 // Type aliases
 
