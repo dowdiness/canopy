@@ -95,11 +95,7 @@ pub fn compute_view_patches_json(handle : Int) -> String {
         }
       }
       let source = h.editor.get_text()
-      let snapshot = @facts.SourceSnapshot::SourceSnapshot(
-        doc_id=h.editor_id.0.to_string(),
-        version=0,
-        source~,
-      )
+      let snapshot = h.pattern_source_snapshot(source)
       h.companion.clear_stale_pattern_analysis(snapshot)
       let state = lambda_registry.view_state(handle)
       let patches = @editor.compute_view_patches(state, h.editor)

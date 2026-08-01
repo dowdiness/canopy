@@ -69,9 +69,11 @@ semantics ([tests](../../examples/web/tests/lambda-editor.spec.ts#L44-L52)).
 ### Existing verification
 
 The Playwright suite covers page errors, presets, AST rendering, formatted
-output, clean and failing type checks, parse-error suppression, and the AST
-Grep HTTP method/empty-input contract
-([tests](../../examples/web/tests/lambda-editor.spec.ts#L29-L163)).
+output, clean and failing type checks, parse-error suppression, the AST Grep
+HTTP method/empty-input contract, and current/stale structural-match list and
+jump behavior
+([tests](../../examples/web/tests/lambda-editor.spec.ts),
+[route tests](../../examples/web/waku-tests/lambda-route.spec.ts)).
 
 ### Development/production split
 
@@ -79,9 +81,9 @@ The server adapter is `apply: 'serve'`
 ([adapter](../../examples/web/server/vite/ast-grep.ts#L13-L20)), and the browser
 runner returns an empty match list when `import.meta.env.DEV` is false
 ([runner](../../examples/web/src/features/lambda/browser/ast-grep-runner.ts#L16-L21)).
-The collaboration panel exists in the route-owned shell, but the current Lambda
-mount binds only the editor and preset buttons. Signaling files remain separate integration
-shells outside the browser graph
+The collaboration panel exists in the route-owned shell. The current Lambda
+mount binds the editor, preset buttons, and structural-match result list.
+Signaling files remain separate integration shells outside the browser graph
 ([route](../../examples/web/src/pages/ml.tsx),
 [client mount](../../examples/web/src/features/lambda/route/lambda-client.tsx#L20-L53),
 [map](../../examples/web/MODULE_MAP.md)).

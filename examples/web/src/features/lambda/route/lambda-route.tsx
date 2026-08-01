@@ -84,6 +84,15 @@ IfThenElse  ::= 'if' Expression 'then' Expression 'else' Expression</pre>
                 <button className="example-btn" data-example="fn compose(f : Int -> Int, g : Int -> Int, x : Int) {&#10;  f (g x)&#10;}&#10;fn double(x : Int) { x + x }&#10;fn inc(x : Int) { x + 1 }&#10;let f = compose inc double&#10;f 5">Pipeline</button>
               </div>
               <div id="editor" contentEditable="plaintext-only" spellCheck={false} data-route-focus="editor"></div>
+              <section className="structural-search" aria-labelledby="structural-search-heading">
+                <div className="structural-search-heading-row">
+                  <h2 id="structural-search-heading">Structural matches</h2>
+                  <span id="structural-search-status" role="status" aria-live="polite">
+                    No structural matches
+                  </span>
+                </div>
+                <ol id="structural-search-results"></ol>
+              </section>
             </div>
 
             <div className="info-panel">

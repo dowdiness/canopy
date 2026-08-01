@@ -41,6 +41,17 @@ fn AnalysisProjection::clear_stale_pattern_analysis(
 }
 
 ///|
+fn AnalysisProjection::match_list(
+  self : AnalysisProjection,
+  current : @facts.SourceSnapshot,
+) -> Array[@analysis.MatchListEntry] {
+  match self.pattern_analysis_ref.val {
+    Some(analysis) => @analysis.facts_to_match_list(analysis.facts, current)
+    None => []
+  }
+}
+
+///|
 fn AnalysisProjection::decorations(
   self : AnalysisProjection,
   semantic_decorations : Array[@protocol.Decoration],

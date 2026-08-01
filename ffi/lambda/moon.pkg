@@ -22,6 +22,7 @@ import {
   "moonbitlang/async/js_async",
   "moonbitlang/core/buffer",
   "moonbitlang/core/debug",
+  "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/json",
   "moonbitlang/core/string",
 }
@@ -103,6 +104,7 @@ options(
         "get_view_tree_json",
         "compute_view_patches_json",
         "apply_ast_grep_results_json",
+        "get_pattern_matches_json",
         "handle_text_intent",
         "handle_text_intent_checked",
         "handle_diagnostic_fix_intent",

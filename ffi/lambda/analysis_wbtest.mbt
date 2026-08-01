@@ -42,3 +42,39 @@ test "apply_ast_grep_results_json sanitizes pattern ids for css classes" {
   assert_true(patches.contains("\"data\":\"fn/def:α\""))
   destroy_editor(handle)
 }
+
+///|
+test "pattern match list exposes current utf16 ranges and drops stale facts" {
+  let handle = create_editor("analysis-match-list")
+  set_text(handle, "😀\nfn alpha(x : Int) { x }")
+  let result = apply_ast_grep_results_json(
+    handle, "[{\"byte_start\":5,\"byte_end\":13,\"pattern_id\":\"moonbit-fn-def\"}]",
+  )
+  inspect(result, content="ok")
+  let current = get_pattern_matches_json(handle)
+  assert_true(current.contains("\"from\":3"))
+  assert_true(current.contains("\"to\":11"))
+  assert_true(current.contains("\"pattern_id\":\"moonbit-fn-def\""))
+  set_text(handle, "😀\nfn alpha(x : Int) { x } ")
+  inspect(get_pattern_matches_json(handle), content="[]")
+  set_text(handle, "😀\nfn alpha(x : Int) { x }")
+  inspect(get_pattern_matches_json(handle), content="[]")
+  destroy_editor(handle)
+}
+
+///|
+test "ast-grep input rejects invalid byte ranges" {
+  let handle = create_editor("analysis-invalid-byte-ranges")
+  set_text(handle, "éx")
+  for
+    matches_json in [
+      "[{\"byte_start\":-1,\"byte_end\":1,\"pattern_id\":\"negative\"}]", "[{\"byte_start\":2,\"byte_end\":1,\"pattern_id\":\"reversed\"}]",
+      "[{\"byte_start\":0,\"byte_end\":4,\"pattern_id\":\"past-end\"}]", "[{\"byte_start\":1,\"byte_end\":2,\"pattern_id\":\"split-codepoint\"}]",
+    ] {
+    inspect(
+      apply_ast_grep_results_json(handle, matches_json),
+      content="parse error: match byte range is out of bounds",
+    )
+  }
+  destroy_editor(handle)
+}
