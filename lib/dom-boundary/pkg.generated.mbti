@@ -26,9 +26,21 @@ pub fn listen_custom_event_id(String, String, (String) -> Unit) -> CustomEventSu
 
 pub fn listen_custom_event_selector(String, String, (String) -> Unit) -> CustomEventSubscription raise DomBoundaryError
 
+pub fn measure_element_id(String) -> ElementMeasurement raise DomBoundaryError
+
+pub fn measure_element_selector(String) -> ElementMeasurement raise DomBoundaryError
+
+pub fn read_text_selection_id(String) -> TextSelection raise DomBoundaryError
+
+pub fn read_text_selection_selector(String) -> TextSelection raise DomBoundaryError
+
 pub fn scroll_id(String, behavior? : ScrollBehavior, block? : ScrollBlock) -> Unit raise DomBoundaryError
 
 pub fn scroll_selector(String, behavior? : ScrollBehavior, block? : ScrollBlock) -> Unit raise DomBoundaryError
+
+pub fn write_text_selection_id(String, TextSelection) -> Unit raise DomBoundaryError
+
+pub fn write_text_selection_selector(String, TextSelection) -> Unit raise DomBoundaryError
 
 // Errors
 pub(all) suberror DomBoundaryError {
@@ -36,6 +48,7 @@ pub(all) suberror DomBoundaryError {
   InvalidSelector(selector~ : String, detail~ : String)
   ElementNotFound(target~ : DomTarget)
   UnsupportedAction(action~ : DomAction, target~ : DomTarget)
+  InvalidTextSelection(selection~ : TextSelection, value_length~ : Int, target~ : DomTarget)
   ActionFailed(action~ : DomAction, target~ : DomTarget, detail~ : String)
   UnknownStatus(status~ : Int, action~ : DomAction, target~ : DomTarget, detail~ : String)
 } derive(Eq, @debug.Debug)
@@ -52,6 +65,9 @@ pub(all) enum DomAction {
   Focus
   Click
   ScrollIntoView
+  ReadTextSelection
+  WriteTextSelection
+  MeasureElement
   DispatchCustomEvent
   ListenCustomEvent
   RemoveCustomEventListener
@@ -62,6 +78,12 @@ pub(all) enum DomTarget {
   Selector(String)
   EventSubscription
 } derive(Eq, @debug.Debug)
+
+pub struct ElementMeasurement {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn ElementMeasurement::offset_height(Self) -> Double
+pub fn ElementMeasurement::offset_width(Self) -> Double
 
 pub(all) enum ScrollBehavior {
   Auto
@@ -74,6 +96,20 @@ pub(all) enum ScrollBlock {
   Center
   End
   Nearest
+} derive(Eq, @debug.Debug)
+
+pub struct TextSelection {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn TextSelection::TextSelection(Int, Int, TextSelectionDirection) -> Self
+pub fn TextSelection::direction(Self) -> TextSelectionDirection
+pub fn TextSelection::end(Self) -> Int
+pub fn TextSelection::start(Self) -> Int
+
+pub(all) enum TextSelectionDirection {
+  NoDirection
+  Forward
+  Backward
 } derive(Eq, @debug.Debug)
 
 // Type aliases

@@ -10,9 +10,34 @@ pub(all) enum DomAction {
   Focus
   Click
   ScrollIntoView
+  ReadTextSelection
+  WriteTextSelection
+  MeasureElement
   DispatchCustomEvent
   ListenCustomEvent
   RemoveCustomEventListener
+} derive(Debug, Eq)
+
+///|
+pub(all) enum TextSelectionDirection {
+  NoDirection
+  Forward
+  Backward
+} derive(Debug, Eq)
+
+///|
+/// An immutable half-open text selection measured in UTF-16 code units.
+pub struct TextSelection {
+  priv start : Int
+  priv end : Int
+  priv direction : TextSelectionDirection
+} derive(Debug, Eq)
+
+///|
+/// A detached element measurement in CSS pixels.
+pub struct ElementMeasurement {
+  priv offset_width : Double
+  priv offset_height : Double
 } derive(Debug, Eq)
 
 ///|
@@ -36,6 +61,11 @@ pub(all) suberror DomBoundaryError {
   InvalidSelector(selector~ : String, detail~ : String)
   ElementNotFound(target~ : DomTarget)
   UnsupportedAction(action~ : DomAction, target~ : DomTarget)
+  InvalidTextSelection(
+    selection~ : TextSelection,
+    value_length~ : Int,
+    target~ : DomTarget
+  )
   ActionFailed(action~ : DomAction, target~ : DomTarget, detail~ : String)
   UnknownStatus(
     status~ : Int,
@@ -63,6 +93,48 @@ pub struct CustomEventSubscription {
 }
 
 ///|
+pub fn TextSelection::TextSelection(
+  start : Int,
+  end : Int,
+  direction : TextSelectionDirection,
+) -> TextSelection {
+  { start, end, direction }
+}
+
+///|
+pub fn TextSelection::start(self : TextSelection) -> Int {
+  self.start
+}
+
+///|
+pub fn TextSelection::end(self : TextSelection) -> Int {
+  self.end
+}
+
+///|
+pub fn TextSelection::direction(self : TextSelection) -> TextSelectionDirection {
+  self.direction
+}
+
+///|
+fn ElementMeasurement::ElementMeasurement(
+  offset_width : Double,
+  offset_height : Double,
+) -> ElementMeasurement {
+  { offset_width, offset_height }
+}
+
+///|
+pub fn ElementMeasurement::offset_width(self : ElementMeasurement) -> Double {
+  self.offset_width
+}
+
+///|
+pub fn ElementMeasurement::offset_height(self : ElementMeasurement) -> Double {
+  self.offset_height
+}
+
+///|
 pub impl Show for DomBoundaryError with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
@@ -76,6 +148,8 @@ pub fn DomBoundaryError::message(self : DomBoundaryError) -> String {
     ElementNotFound(target~) => "DOM element not found: \{target.describe()}"
     UnsupportedAction(action~, target~) =>
       "DOM element does not support \{action.describe()}: \{target.describe()}"
+    InvalidTextSelection(selection~, value_length~, target~) =>
+      "invalid text selection [\{selection.start()}, \{selection.end()}) for UTF-16 length \{value_length}: \{target.describe()}"
     ActionFailed(action~, target~, detail~) =>
       with_detail(
         "DOM \{action.describe()} failed: \{target.describe()}",
@@ -125,6 +199,55 @@ pub fn scroll_selector(
   block? : ScrollBlock = Nearest,
 ) -> Unit raise DomBoundaryError {
   scroll_target(LOOKUP_SELECTOR, selector, Selector(selector), behavior, block)
+}
+
+///|
+pub fn read_text_selection_id(
+  id : String,
+) -> TextSelection raise DomBoundaryError {
+  read_text_selection_target(LOOKUP_ID, id, Id(id))
+}
+
+///|
+pub fn read_text_selection_selector(
+  selector : String,
+) -> TextSelection raise DomBoundaryError {
+  read_text_selection_target(LOOKUP_SELECTOR, selector, Selector(selector))
+}
+
+///|
+pub fn write_text_selection_id(
+  id : String,
+  selection : TextSelection,
+) -> Unit raise DomBoundaryError {
+  write_text_selection_target(LOOKUP_ID, id, Id(id), selection)
+}
+
+///|
+pub fn write_text_selection_selector(
+  selector : String,
+  selection : TextSelection,
+) -> Unit raise DomBoundaryError {
+  write_text_selection_target(
+    LOOKUP_SELECTOR,
+    selector,
+    Selector(selector),
+    selection,
+  )
+}
+
+///|
+pub fn measure_element_id(
+  id : String,
+) -> ElementMeasurement raise DomBoundaryError {
+  measure_element_target(LOOKUP_ID, id, Id(id))
+}
+
+///|
+pub fn measure_element_selector(
+  selector : String,
+) -> ElementMeasurement raise DomBoundaryError {
+  measure_element_target(LOOKUP_SELECTOR, selector, Selector(selector))
 }
 
 ///|

@@ -146,6 +146,128 @@ extern "js" fn clear_descendant_document() -> Unit =
   #| }
 
 ///|
+extern "js" fn install_text_control_document(
+  id : String,
+  value : String,
+  start : Int,
+  end : Int,
+  direction : String,
+) -> Unit =
+  #| (id, value, start, end, direction) => {
+  #|   const control = {
+  #|     id,
+  #|     value,
+  #|     selectionStart: start,
+  #|     selectionEnd: end,
+  #|     selectionDirection: direction,
+  #|     setSelectionRange(nextStart, nextEnd, nextDirection) {
+  #|       globalThis.__canopyTextSelectionWrites += 1;
+  #|       this.selectionStart = nextStart;
+  #|       this.selectionEnd = nextEnd;
+  #|       this.selectionDirection = nextDirection;
+  #|     },
+  #|   };
+  #|   globalThis.__canopyTextSelectionWrites = 0;
+  #|   globalThis.document = {
+  #|     getElementById: target => target === id ? control : null,
+  #|     querySelector: selector => selector === `#${id}` ? control : null,
+  #|   };
+  #| }
+
+///|
+extern "js" fn install_throwing_capability_document(
+  id : String,
+  message : String,
+) -> Unit =
+  #| (id, message) => {
+  #|   const element = new Proxy({ id }, {
+  #|     get(target, property) {
+  #|       if (property === "id") return target.id;
+  #|       throw new Error(message);
+  #|     },
+  #|   });
+  #|   globalThis.document = {
+  #|     getElementById: target => target === id ? element : null,
+  #|     querySelector: selector => selector === `#${id}` ? element : null,
+  #|   };
+  #| }
+
+///|
+extern "js" fn install_unsupported_text_input_document(id : String) -> Unit =
+  #| (id) => {
+  #|   const input = {
+  #|     id,
+  #|     value: "123",
+  #|     selectionStart: null,
+  #|     selectionEnd: null,
+  #|     selectionDirection: null,
+  #|     setSelectionRange() {
+  #|       throw new Error("selection unsupported");
+  #|     },
+  #|   };
+  #|   globalThis.document = {
+  #|     getElementById: target => target === id ? input : null,
+  #|     querySelector: selector => selector === `#${id}` ? input : null,
+  #|   };
+  #| }
+
+///|
+extern "js" fn update_text_control_selection(
+  id : String,
+  start : Int,
+  end : Int,
+  direction : String,
+) -> Unit =
+  #| (id, start, end, direction) => {
+  #|   const control = globalThis.document.getElementById(id);
+  #|   control.setSelectionRange(start, end, direction);
+  #| }
+
+///|
+extern "js" fn text_control_selection(id : String) -> String =
+  #| (id) => {
+  #|   const control = globalThis.document.getElementById(id);
+  #|   return [
+  #|     control.selectionStart,
+  #|     control.selectionEnd,
+  #|     control.selectionDirection,
+  #|   ].join(":");
+  #| }
+
+///|
+extern "js" fn text_selection_write_count() -> Int =
+  #| () => globalThis.__canopyTextSelectionWrites
+
+///|
+extern "js" fn make_text_selection_write_throw(
+  id : String,
+  message : String,
+) -> Unit =
+  #| (id, message) => {
+  #|   const element = globalThis.document.getElementById(id);
+  #|   element.setSelectionRange = () => { throw new Error(message); };
+  #| }
+
+///|
+extern "js" fn update_element_measurement(
+  id : String,
+  width : Double,
+  height : Double,
+) -> Unit =
+  #| (id, width, height) => {
+  #|   const element = globalThis.document.getElementById(id);
+  #|   element.offsetWidth = width;
+  #|   element.offsetHeight = height;
+  #| }
+
+///|
+extern "js" fn clear_text_control_document() -> Unit =
+  #| () => {
+  #|   delete globalThis.document;
+  #|   delete globalThis.__canopyTextSelectionWrites;
+  #| }
+
+///|
 test "decode_status maps invalid selectors to typed errors" {
   let captured = try {
     decode_status_parts(
@@ -504,4 +626,286 @@ test "action failures preserve action context" {
     ) => ()
     _ => fail("expected dispatch failure")
   }
+}
+
+///|
+test "read_text_selection_id returns a detached UTF-16 selection" {
+  install_text_control_document("editor", "A😀B", 1, 3, "backward")
+  let selection = read_text_selection_id("editor")
+  update_text_control_selection("editor", 0, 0, "none")
+  clear_text_control_document()
+  inspect(selection.start(), content="1")
+  inspect(selection.end(), content="3")
+  guard selection.direction() is Backward else {
+    fail("expected backward selection direction")
+  }
+}
+
+///|
+test "write_text_selection_id applies UTF-16 offsets and direction" {
+  install_text_control_document("editor", "A😀B", 0, 0, "none")
+  write_text_selection_id("editor", TextSelection(1, 3, Backward))
+  let selection = text_control_selection("editor")
+  clear_text_control_document()
+  inspect(selection, content="1:3:backward")
+}
+
+///|
+test "measure_element_id returns a detached immutable measurement" {
+  install_text_control_document("editor", "text", 0, 0, "none")
+  update_element_measurement("editor", 120.5, 48.25)
+  let measurement = measure_element_id("editor")
+  update_element_measurement("editor", 0.0, 0.0)
+  clear_text_control_document()
+  inspect(measurement.offset_width(), content="120.5")
+  inspect(measurement.offset_height(), content="48.25")
+}
+
+///|
+test "selector text controls preserve collapsed forward selections" {
+  install_text_control_document("editor", "A😀B", 1, 3, "backward")
+  write_text_selection_selector("#editor", TextSelection(3, 3, Forward))
+  let selection = read_text_selection_selector("#editor")
+  clear_text_control_document()
+  inspect(selection.start(), content="3")
+  inspect(selection.end(), content="3")
+  guard selection.direction() is Forward else {
+    fail("expected forward selection direction")
+  }
+}
+
+///|
+test "invalid text selection ranges reject atomically" {
+  install_text_control_document("editor", "A😀B", 1, 3, "backward")
+  let negative = try {
+    write_text_selection_id("editor", TextSelection(-1, 1, Forward))
+    None
+  } catch {
+    error => Some(error)
+  }
+  let reversed = try {
+    write_text_selection_id("editor", TextSelection(3, 2, Forward))
+    None
+  } catch {
+    error => Some(error)
+  }
+  let too_long = try {
+    write_text_selection_id("editor", TextSelection(0, 5, Forward))
+    None
+  } catch {
+    error => Some(error)
+  }
+  let selection = text_control_selection("editor")
+  let writes = text_selection_write_count()
+  clear_text_control_document()
+  guard negative is Some(InvalidTextSelection(value_length=4, ..)) else {
+    fail("expected negative selection to be rejected")
+  }
+  guard reversed is Some(InvalidTextSelection(value_length=4, ..)) else {
+    fail("expected reversed selection to be rejected")
+  }
+  guard too_long is Some(InvalidTextSelection(value_length=4, ..)) else {
+    fail("expected overlong selection to be rejected")
+  }
+  inspect(selection, content="1:3:backward")
+  inspect(writes, content="0")
+}
+
+///|
+test "text selection and measurement reject unsupported elements" {
+  install_descendant_document("host", "menu", "item", false, false)
+  let read_error = try {
+    let _ = read_text_selection_id("host")
+    None
+  } catch {
+    error => Some(error)
+  }
+  let write_error = try {
+    write_text_selection_id("host", TextSelection(0, 0, NoDirection))
+    None
+  } catch {
+    error => Some(error)
+  }
+  let measure_error = try {
+    let _ = measure_element_id("host")
+    None
+  } catch {
+    error => Some(error)
+  }
+  clear_descendant_document()
+  guard read_error
+    is Some(UnsupportedAction(action=ReadTextSelection, target=Id("host"))) else {
+    fail("expected unsupported text selection read")
+  }
+  guard write_error
+    is Some(UnsupportedAction(action=WriteTextSelection, target=Id("host"))) else {
+    fail("expected unsupported text selection write")
+  }
+  guard measure_error
+    is Some(UnsupportedAction(action=MeasureElement, target=Id("host"))) else {
+    fail("expected unsupported element measurement")
+  }
+}
+
+///|
+test "write rejects input types without text selection support" {
+  install_unsupported_text_input_document("number-input")
+  let captured = try {
+    write_text_selection_id("number-input", TextSelection(0, 1, NoDirection))
+    None
+  } catch {
+    error => Some(error)
+  }
+  clear_fake_document()
+  guard captured
+    is Some(
+      UnsupportedAction(action=WriteTextSelection, target=Id("number-input"))
+    ) else {
+    fail("expected unsupported input type")
+  }
+}
+
+///|
+test "capability getter exceptions retain action context" {
+  install_throwing_capability_document("editor", "getter failed")
+  let selection_error = try {
+    let _ = read_text_selection_id("editor")
+    None
+  } catch {
+    error => Some(error)
+  }
+  let measurement_error = try {
+    let _ = measure_element_selector("#editor")
+    None
+  } catch {
+    error => Some(error)
+  }
+  clear_fake_document()
+  guard selection_error
+    is Some(
+      ActionFailed(
+        action=ReadTextSelection,
+        target=Id("editor"),
+        detail="getter failed"
+      )
+    ) else {
+    fail("expected selection getter failure")
+  }
+  guard measurement_error
+    is Some(
+      ActionFailed(
+        action=MeasureElement,
+        target=Selector("#editor"),
+        detail="getter failed"
+      )
+    ) else {
+    fail("expected measurement getter failure")
+  }
+}
+
+///|
+test "measure_element_selector resolves selector targets" {
+  install_text_control_document("editor", "text", 0, 0, "none")
+  update_element_measurement("editor", 80.0, 32.0)
+  let measurement = measure_element_selector("#editor")
+  clear_text_control_document()
+  inspect(measurement.offset_width(), content="80")
+  inspect(measurement.offset_height(), content="32")
+}
+
+///|
+test "new DOM actions retain missing and invalid target errors" {
+  install_text_control_document("editor", "text", 0, 0, "none")
+  let missing = try {
+    let _ = read_text_selection_id("missing")
+    None
+  } catch {
+    error => Some(error)
+  }
+  clear_text_control_document()
+  install_throwing_query_document("bad selector")
+  let invalid = try {
+    let _ = measure_element_selector("[")
+    None
+  } catch {
+    error => Some(error)
+  }
+  clear_fake_document()
+  guard missing is Some(ElementNotFound(target=Id("missing"))) else {
+    fail("expected missing text control")
+  }
+  guard invalid is Some(InvalidSelector(selector="[", detail="bad selector")) else {
+    fail("expected invalid measurement selector")
+  }
+}
+
+///|
+test "text selection write exceptions retain action context" {
+  install_text_control_document("editor", "text", 1, 2, "forward")
+  make_text_selection_write_throw("editor", "write failed")
+  let captured = try {
+    write_text_selection_id("editor", TextSelection(0, 2, NoDirection))
+    None
+  } catch {
+    error => Some(error)
+  }
+  let selection = text_control_selection("editor")
+  clear_text_control_document()
+  guard captured
+    is Some(
+      ActionFailed(
+        action=WriteTextSelection,
+        target=Id("editor"),
+        detail="write failed"
+      )
+    ) else {
+    fail("expected text selection write failure")
+  }
+  inspect(selection, content="1:2:forward")
+}
+
+///|
+test "no-direction text selection round-trips" {
+  install_text_control_document("editor", "text", 1, 2, "forward")
+  write_text_selection_id("editor", TextSelection(2, 2, NoDirection))
+  let selection = read_text_selection_id("editor")
+  clear_text_control_document()
+  guard selection.direction() is NoDirection else {
+    fail("expected no-direction selection")
+  }
+}
+
+///|
+test "unknown text selection directions retain action context" {
+  install_text_control_document("editor", "text", 1, 2, "sideways")
+  let captured = try {
+    let _ = read_text_selection_id("editor")
+    None
+  } catch {
+    error => Some(error)
+  }
+  clear_text_control_document()
+  guard captured
+    is Some(
+      ActionFailed(
+        action=ReadTextSelection,
+        target=Id("editor"),
+        detail="unknown text selection direction: sideways"
+      )
+    ) else {
+    fail("expected unknown selection direction failure")
+  }
+}
+
+///|
+test "invalid text selection error message includes UTF-16 context" {
+  let error = InvalidTextSelection(
+    selection=TextSelection(-1, 5, NoDirection),
+    value_length=4,
+    target=Selector("#editor"),
+  )
+  inspect(
+    error.message(),
+    content="invalid text selection [-1, 5) for UTF-16 length 4: #editor",
+  )
 }

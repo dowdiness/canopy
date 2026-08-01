@@ -23,6 +23,14 @@ const LOOKUP_ID : String = "id"
 const LOOKUP_SELECTOR : String = "selector"
 
 ///|
+#external
+priv type DomTextSelection
+
+///|
+#external
+priv type DomElementMeasurement
+
+///|
 /// Resolve an element ID using the host's native lookup when available.
 /// Shadow-root-like scopes lack `getElementById`, so child traversal is the
 /// fallback for those scopes.
@@ -199,6 +207,121 @@ fn scroll_target(
 }
 
 ///|
+fn read_text_selection_target(
+  lookup_kind : String,
+  raw_target : String,
+  target : DomTarget,
+) -> TextSelection raise DomBoundaryError {
+  let element = resolve_target(
+    lookup_kind,
+    raw_target,
+    ReadTextSelection,
+    target,
+  )
+  let supported : Bool = run_dom_operation(ReadTextSelection, target, () => {
+    @js.any(js_text_selection_supported(element))
+  }).cast()
+  guard supported else {
+    raise UnsupportedAction(action=ReadTextSelection, target~)
+  }
+  let raw : DomTextSelection = run_dom_operation(ReadTextSelection, target, () => {
+    @js.any(js_read_text_selection(element))
+  }).cast()
+  TextSelection(
+    dom_text_selection_start(raw),
+    dom_text_selection_end(raw),
+    decode_text_selection_direction(dom_text_selection_direction(raw), target),
+  )
+}
+
+///|
+fn decode_text_selection_direction(
+  direction : String,
+  target : DomTarget,
+) -> TextSelectionDirection raise DomBoundaryError {
+  match direction {
+    "none" => NoDirection
+    "forward" => Forward
+    "backward" => Backward
+    _ =>
+      raise ActionFailed(
+        action=ReadTextSelection,
+        target~,
+        detail="unknown text selection direction: \{direction}",
+      )
+  }
+}
+
+///|
+fn validate_text_selection_range(
+  selection : TextSelection,
+  value_length : Int,
+  target : DomTarget,
+) -> Unit raise DomBoundaryError {
+  guard selection.start() >= 0 &&
+    selection.start() <= selection.end() &&
+    selection.end() <= value_length else {
+    raise InvalidTextSelection(selection~, value_length~, target~)
+  }
+}
+
+///|
+fn write_text_selection_target(
+  lookup_kind : String,
+  raw_target : String,
+  target : DomTarget,
+  selection : TextSelection,
+) -> Unit raise DomBoundaryError {
+  let element = resolve_target(
+    lookup_kind,
+    raw_target,
+    WriteTextSelection,
+    target,
+  )
+  let supported : Bool = run_dom_operation(WriteTextSelection, target, () => {
+    @js.any(js_text_selection_writable(element))
+  }).cast()
+  guard supported else {
+    raise UnsupportedAction(action=WriteTextSelection, target~)
+  }
+  let value_length : Int = run_dom_operation(WriteTextSelection, target, () => {
+    @js.any(js_text_value_utf16_length(element))
+  }).cast()
+  validate_text_selection_range(selection, value_length, target)
+  let _ = run_dom_operation(WriteTextSelection, target, () => {
+    js_write_text_selection(
+      element,
+      selection.start(),
+      selection.end(),
+      selection.direction().to_dom_string(),
+    )
+    @js.undefined()
+  })
+}
+
+///|
+fn measure_element_target(
+  lookup_kind : String,
+  raw_target : String,
+  target : DomTarget,
+) -> ElementMeasurement raise DomBoundaryError {
+  let element = resolve_target(lookup_kind, raw_target, MeasureElement, target)
+  let supported : Bool = run_dom_operation(MeasureElement, target, () => {
+    @js.any(js_element_measurement_supported(element))
+  }).cast()
+  guard supported else {
+    raise UnsupportedAction(action=MeasureElement, target~)
+  }
+  let raw : DomElementMeasurement = run_dom_operation(MeasureElement, target, () => {
+    @js.any(js_measure_element(element))
+  }).cast()
+  ElementMeasurement(
+    dom_element_offset_width(raw),
+    dom_element_offset_height(raw),
+  )
+}
+
+///|
 fn dispatch_custom_event_target(
   lookup_kind : String,
   raw_target : String,
@@ -357,6 +480,9 @@ fn DomAction::describe(self : DomAction) -> String {
     Focus => "focus"
     Click => "click"
     ScrollIntoView => "scrollIntoView"
+    ReadTextSelection => "readTextSelection"
+    WriteTextSelection => "writeTextSelection"
+    MeasureElement => "measureElement"
     DispatchCustomEvent => "dispatchCustomEvent"
     ListenCustomEvent => "listenCustomEvent"
     RemoveCustomEventListener => "removeCustomEventListener"
@@ -379,6 +505,17 @@ fn ScrollBlock::to_dom_string(self : ScrollBlock) -> String {
     Center => "center"
     End => "end"
     Nearest => "nearest"
+  }
+}
+
+///|
+fn TextSelectionDirection::to_dom_string(
+  self : TextSelectionDirection,
+) -> String {
+  match self {
+    NoDirection => "none"
+    Forward => "forward"
+    Backward => "backward"
   }
 }
 
@@ -454,6 +591,84 @@ extern "js" fn js_scroll_into_view(
   #| (element, behavior, block) => {
   #|   element.scrollIntoView({ behavior, block });
   #| }
+
+///|
+extern "js" fn js_text_selection_supported(element : DomElement) -> Bool =
+  #| (element) => typeof element.value === "string" &&
+  #|   typeof element.selectionStart === "number" &&
+  #|   typeof element.selectionEnd === "number" &&
+  #|   typeof element.selectionDirection === "string"
+
+///|
+extern "js" fn js_read_text_selection(element : DomElement) -> DomTextSelection =
+  #| (element) => ({
+  #|   start: element.selectionStart,
+  #|   end: element.selectionEnd,
+  #|   direction: element.selectionDirection,
+  #| })
+
+///|
+extern "js" fn js_text_selection_writable(element : DomElement) -> Bool =
+  #| (element) => typeof element.value === "string" &&
+  #|   typeof element.selectionStart === "number" &&
+  #|   typeof element.selectionEnd === "number" &&
+  #|   typeof element.selectionDirection === "string" &&
+  #|   typeof element.setSelectionRange === "function"
+
+///|
+extern "js" fn js_text_value_utf16_length(element : DomElement) -> Int =
+  #| (element) => element.value.length
+
+///|
+extern "js" fn js_write_text_selection(
+  element : DomElement,
+  start : Int,
+  end : Int,
+  direction : String,
+) -> Unit =
+  #| (element, start, end, direction) => {
+  #|   element.setSelectionRange(start, end, direction);
+  #| }
+
+///|
+extern "js" fn dom_text_selection_start(selection : DomTextSelection) -> Int =
+  #| (selection) => selection.start
+
+///|
+extern "js" fn dom_text_selection_end(selection : DomTextSelection) -> Int =
+  #| (selection) => selection.end
+
+///|
+extern "js" fn dom_text_selection_direction(
+  selection : DomTextSelection,
+) -> String =
+  #| (selection) => selection.direction
+
+///|
+extern "js" fn js_element_measurement_supported(element : DomElement) -> Bool =
+  #| (element) => typeof element.offsetWidth === "number" &&
+  #|   typeof element.offsetHeight === "number"
+
+///|
+extern "js" fn js_measure_element(
+  element : DomElement,
+) -> DomElementMeasurement =
+  #| (element) => ({
+  #|   offsetWidth: element.offsetWidth,
+  #|   offsetHeight: element.offsetHeight,
+  #| })
+
+///|
+extern "js" fn dom_element_offset_width(
+  measurement : DomElementMeasurement,
+) -> Double =
+  #| (measurement) => measurement.offsetWidth
+
+///|
+extern "js" fn dom_element_offset_height(
+  measurement : DomElementMeasurement,
+) -> Double =
+  #| (measurement) => measurement.offsetHeight
 
 ///|
 extern "js" fn js_dispatch_custom_event(
