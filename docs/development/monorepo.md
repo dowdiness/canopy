@@ -1,8 +1,8 @@
 # Monorepo & Git Submodule Guide
 
 Canopy is a monorepo that pulls in eight independent libraries via git
-submodules. The MoonBit module at the repo root (`dowdiness/canopy`) depends on
-several of those submodules through path dependencies in `moon.mod.json`.
+submodules. The MoonBit module at the repo root (`dowdiness/canopy`) declares
+versioned imports in `moon.mod`; its nearest `moon.work` resolves local members.
 
 ## Layout
 
@@ -17,6 +17,7 @@ canopy/                          dowdiness/canopy (root MoonBit module)
 ├── lib/semantic/                workspace member, in-tree library
 ├── adapters/editor-adapter/     in-tree TypeScript adapter package
 ├── examples/                    in-tree example apps (web, ideal, …)
+│   └── canvas/                  standalone MoonBit module with nested workspace
 │
 ├── event-graph-walker/          submodule (CRDT engine)
 ├── loom/                        submodule (parser framework, seam, incr, …)
@@ -42,7 +43,6 @@ canopy/                          dowdiness/canopy (root MoonBit module)
 ./lib/semantic
 ./examples/ideal
 ./examples/block-editor
-./examples/canvas
 ./examples/codemirror_demo
 ```
 
@@ -50,30 +50,19 @@ canopy/                          dowdiness/canopy (root MoonBit module)
 listed members. Everything else (submodules and non-member examples) is a
 separate MoonBit module and needs its own `moon` invocation.
 
-## Path dependencies
+Canvas is intentionally not a root workspace member. Its standalone module and
+local dependency modules are listed in `examples/canvas/moon.work`; run Canvas
+commands from `examples/canvas` (or use `scripts/run-moon-module.sh`) so that
+the nested workspace is selected.
 
-The root `moon.mod.json` references 13 path-based dependencies. The current
-list is in `moon.mod.json`; below is a summary of where each lives:
+## Module and workspace resolution
 
-| Dependency | Path |
-|------------|------|
-| `dowdiness/event-graph-walker` | `./event-graph-walker` (submodule) |
-| `dowdiness/loom` | `./loom/loom` (submodule) |
-| `dowdiness/seam` | `./loom/seam` (submodule) |
-| `dowdiness/incr` | `0.5.2` (registry) |
-| `dowdiness/pretty` | `./loom/pretty` (submodule) |
-| `dowdiness/egglog` | `./loom/egglog` (submodule) |
-| `dowdiness/egraph` | `./loom/egraph` (submodule) |
-| `dowdiness/lambda` | `./loom/examples/lambda` (submodule example module) |
-| `dowdiness/json` | `./loom/examples/json` (submodule example module) |
-| `dowdiness/markdown` | `./loom/examples/markdown` (submodule example module) |
-| `dowdiness/order-tree` | `./order-tree` (submodule) |
-| `dowdiness/text_change` | `./loom/text-change` (loom submodule member) |
-| `dowdiness/zipper` | `./lib/zipper` (in-tree workspace member) |
-| `dowdiness/moji` | `./loom/moji` (loom submodule member) |
-
-`svg-dsl`, `graphviz`, `rabbita`, and `alga` submodules are *not* root path
-dependencies — they are consumed by frontends or by other submodules.
+Each module declares its versioned imports in `moon.mod`. The nearest
+`moon.work` resolves imports to local workspace members, so the root module's
+authoritative pair is the root `moon.mod` and `moon.work`. Canvas is intentionally
+isolated: `examples/canvas/moon.mod` and `examples/canvas/moon.work` form its
+nested module/workspace pair. Vendored submodules retain their own manifests and
+workspace boundaries.
 
 ## Setup
 
@@ -96,6 +85,16 @@ No submodule awareness required:
 ```sh
 moon check
 moon test
+```
+
+### Working on the Canvas module
+
+Canvas has its own nested workspace and should be checked from its module root:
+
+```sh
+cd examples/canvas
+NEW_MOON_MOD=0 moon check main --target js
+NEW_MOON_MOD=0 moon test main --target js --release
 ```
 
 ### Editing a submodule
