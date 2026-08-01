@@ -1,5 +1,6 @@
 members = [
   ".",
+  "./loomark",
   "./rabbita/rabbita",
   "./graphviz",
   "./svg-dsl",

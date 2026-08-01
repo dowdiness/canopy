@@ -1,0 +1,62 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/editor/markdown"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/core/immut/vector",
+}
+
+// Values
+
+// Errors
+pub(all) suberror MarkdownEditorError {
+  InvalidAgentId
+  InitializationFailed(detail~ : String)
+  ProjectionUnavailable
+  InvalidTextRange(start~ : Int, delete_len~ : Int, source_length~ : Int)
+  EditFailed(detail~ : String)
+}
+
+// Types and methods
+pub(all) enum MarkdownCommitResult {
+  Applied(MarkdownDocumentSnapshot)
+  Unchanged(MarkdownDocumentSnapshot)
+} derive(Eq, @debug.Debug)
+
+pub struct MarkdownDocumentSnapshot {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn MarkdownDocumentSnapshot::projection(Self) -> MarkdownProjectionSnapshot
+pub fn MarkdownDocumentSnapshot::source(Self) -> String
+
+pub(all) enum MarkdownEditRequest {
+  ReplaceSource(String)
+  ReplaceText(start~ : Int, delete_len~ : Int, inserted~ : String)
+  CommitEdit(node_id~ : MarkdownNodeId, new_text~ : String)
+  ChangeHeadingLevel(node_id~ : MarkdownNodeId, level~ : Int)
+  ToggleListItem(node_id~ : MarkdownNodeId)
+  Delete(node_id~ : MarkdownNodeId)
+  MergeWithPrevious(node_id~ : MarkdownNodeId)
+} derive(Eq, @debug.Debug)
+
+pub struct MarkdownEditor {
+  // private fields
+}
+pub fn MarkdownEditor::MarkdownEditor(agent_id~ : String, source~ : String) -> Self raise MarkdownEditorError
+pub fn MarkdownEditor::commit(Self, MarkdownEditRequest) -> Result[MarkdownCommitResult, MarkdownEditorError]
+pub fn MarkdownEditor::snapshot(Self) -> MarkdownDocumentSnapshot
+
+pub struct MarkdownNodeId {
+  // private fields
+} derive(Eq, @debug.Debug)
+
+pub struct MarkdownProjectionSnapshot {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn MarkdownProjectionSnapshot::node_ids(Self) -> @vector.Vector[MarkdownNodeId]
+pub fn MarkdownProjectionSnapshot::root_id(Self) -> MarkdownNodeId?
+
+// Type aliases
+
+// Traits
+

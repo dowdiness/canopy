@@ -1,0 +1,99 @@
+///| The pure core proposes source work without owning canonical source.
+
+///|
+test "source request yields an ordered replacement decision" {
+  let state = ApplicationState(Raw)
+  let transition = reduce(
+    state,
+    ApplicationEvent::RequestCanonicalSource(source="# New\r\n"),
+  )
+
+  assert_true(transition.state() == state)
+  assert_eq(transition.decisions().to_array(), [
+    ApplicationDecision::ReplaceCanonicalSource("# New\r\n"),
+  ])
+}
+
+///|
+test "mode selection changes only the proposed mode" {
+  let state = ApplicationState(Raw)
+  let transition = reduce(state, ApplicationEvent::SelectMode(mode=Preview))
+
+  assert_true(transition.state().mode() == Preview)
+  assert_true(transition.decisions().is_empty())
+
+  let repeated = reduce(
+    transition.state(),
+    ApplicationEvent::SelectMode(mode=Preview),
+  )
+  assert_true(repeated.state() == transition.state())
+  assert_true(repeated.decisions().is_empty())
+}
+
+///|
+test "snapshot restore proposes source replacement without storing source" {
+  let state = ApplicationState(Raw)
+  let snapshot = ApplicationStateSnapshot(
+    version=1,
+    source="# New\r\n",
+    mode=Preview,
+  )
+  let transition = reduce(
+    state,
+    ApplicationEvent::RestoreSnapshot(snapshot~, canonical_source="# Old\n"),
+  )
+
+  assert_true(transition.state().mode() == Preview)
+  assert_eq(transition.decisions().to_array(), [
+    ApplicationDecision::ReplaceCanonicalSource("# New\r\n"),
+  ])
+}
+
+///|
+test "snapshot restore with equal source emits no replacement" {
+  let state = ApplicationState(Raw)
+  let snapshot = ApplicationStateSnapshot(
+    version=1,
+    source="# Same\n",
+    mode=Preview,
+  )
+  let transition = reduce(
+    state,
+    ApplicationEvent::RestoreSnapshot(snapshot~, canonical_source="# Same\n"),
+  )
+
+  assert_true(transition.state().mode() == Preview)
+  assert_true(transition.decisions().is_empty())
+}
+
+///|
+test "unsupported snapshot version rejects without changing state" {
+  let state = ApplicationState(Raw)
+  let snapshot = ApplicationStateSnapshot(
+    version=99,
+    source="# New\n",
+    mode=Preview,
+  )
+  let transition = reduce(
+    state,
+    ApplicationEvent::RestoreSnapshot(snapshot~, canonical_source="# Old\n"),
+  )
+
+  assert_true(transition.state() == state)
+  assert_eq(transition.decisions().to_array(), [
+    ApplicationDecision::SnapshotRejected(
+      SnapshotError::UnsupportedSnapshotVersion(99),
+    ),
+  ])
+}
+
+///|
+test "state snapshot carries caller source separately from live state" {
+  let state = ApplicationState(Block)
+  let snapshot = state.snapshot("A🤣B\r\n")
+
+  assert_eq(snapshot.version(), SNAPSHOT_VERSION)
+  assert_eq(snapshot.source(), "A🤣B\r\n")
+  assert_true(snapshot.mode() == Block)
+  assert_true(state.mode() == Block)
+}
