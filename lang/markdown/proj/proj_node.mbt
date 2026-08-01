@@ -104,14 +104,19 @@ fn collect_syntax_children(
 
 ///|
 fn is_block_node(kind : @markdown.SyntaxKind) -> Bool {
+  // Keep this set aligned with markdown_fold_node's Document arms. Containers
+  // without a Block variant (BlockQuote/ThematicBreak) still fold to a
+  // paragraph leaf and must occupy the matching syntax slot.
   match kind {
     HeadingNode
     | ParagraphNode
+    | BlockQuoteNode
     | UnorderedListNode
     | OrderedListNode
     | ListItemNode
     | CodeBlockNode
     | HtmlBlockNode
+    | ThematicBreakNode
     | ErrorNode => true
     _ => false
   }
