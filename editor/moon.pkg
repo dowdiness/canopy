@@ -1,5 +1,6 @@
 import {
   "dowdiness/canopy/protocol/wire",
+  "dowdiness/diagnostic",
   "dowdiness/canopy/transport_ws",
   "dowdiness/canopy/sync_session",
   "dowdiness/text_change",

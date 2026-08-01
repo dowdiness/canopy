@@ -1,5 +1,6 @@
 import {
   "dowdiness/canopy/core",
+  "dowdiness/diagnostic",
   "dowdiness/incr",
   "dowdiness/json",
   "dowdiness/loom",

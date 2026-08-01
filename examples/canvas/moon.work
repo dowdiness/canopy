@@ -1,5 +1,6 @@
 members = [
   ".",
+  "../../loom/diagnostic",
   "../../loom/examples/graph-dsl",
   "../../lib/canvas-graph",
   "../../loom/loom",

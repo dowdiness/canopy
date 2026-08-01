@@ -2,8 +2,8 @@
 fn publication_fixture(message : String) -> @loom_core.DiagnosticSet {
   @loom_core.DiagnosticSet::single(
     @loom_core.Diagnostic(
-      source=@loom_core.DiagnosticSource::parser(),
-      severity=@loom_core.Diagnostic::lexer_error("fixture").severity(),
+      origin=@diagnostic.DiagnosticOrigin("parser"),
+      severity=@diagnostic.DiagnosticSeverity::Error,
       message~,
     ),
   )
@@ -46,8 +46,8 @@ fn rich_publication_fixture() -> @loom_core.DiagnosticSet {
   let source = @loom_core.SourceId("A")
   @loom_core.DiagnosticSet::single(
     @loom_core.Diagnostic(
-      source=@loom_core.DiagnosticSource::parser(),
-      severity=@loom_core.Diagnostic::lexer_error("fixture").severity(),
+      origin=@diagnostic.DiagnosticOrigin("parser"),
+      severity=@diagnostic.DiagnosticSeverity::Error,
       code=Some(@loom_core.DiagnosticCode("fixture.rich")),
       message="retained",
       labels=[
@@ -517,7 +517,13 @@ test "accepted diagnostics retain Loom values and own a defensive copy" {
   let (state, ticket, _) = state.issue(semantic, [source_revision("A", 0)], [])
   let (state, decision) = state.complete(ticket, produced)
   inspect(decision is DiagnosticPublicationDecision::Accepted, content="true")
-  produced.push(@loom_core.Diagnostic::lexer_error("late producer mutation"))
+  produced.push(
+    @diagnostic.Diagnostic(
+      origin=@diagnostic.DiagnosticOrigin("parser"),
+      severity=@diagnostic.DiagnosticSeverity::Error,
+      message="late producer mutation",
+    ),
+  )
   let published = state.display(parser)
   guard published.items() is [diagnostic] else {
     fail("expected one copied diagnostic")
@@ -535,6 +541,12 @@ test "accepted diagnostics retain Loom values and own a defensive copy" {
   inspect(primary.span().range().start().value(), content="1")
   inspect(primary.span().range().end().value(), content="3")
   inspect(published.length(), content="1")
-  published.push(@loom_core.Diagnostic::lexer_error("late display mutation"))
+  published.push(
+    @diagnostic.Diagnostic(
+      origin=@diagnostic.DiagnosticOrigin("parser"),
+      severity=@diagnostic.DiagnosticSeverity::Error,
+      message="late display mutation",
+    ),
+  )
   debug_inspect(messages(state.display(parser)), content="[\"retained\"]")
 }

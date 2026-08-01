@@ -127,7 +127,7 @@ pub fn build_semantic_diagnostics(
     })
     diagnostics.push(
       @loomcore.Diagnostic::Diagnostic(
-        source=@loomcore.DiagnosticSource::DiagnosticSource("lambda.semantic"),
+        origin=@diagnostic.DiagnosticOrigin("lambda.semantic"),
         // Imported enum variants are read-only; `all()` is the public value factory.
         severity=@loomcore.DiagnosticSeverity::all()[1],
         message="Free variable '" + failure.name + "'",

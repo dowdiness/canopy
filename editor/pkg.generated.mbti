@@ -7,6 +7,7 @@ import {
   "dowdiness/canopy/protocol/wire",
   "dowdiness/canopy/sync_session",
   "dowdiness/canopy/transport_ws",
+  "dowdiness/diagnostic",
   "dowdiness/event-graph-walker/history",
   "dowdiness/event-graph-walker/text",
   "dowdiness/incr/cells",
@@ -27,12 +28,12 @@ pub fn[T : @pretty.Pretty] compute_pretty_patches(ViewUpdateState, SyncEditor[T]
 
 pub fn[T : @dowdiness/loom/core.Renderable] compute_view_patches(ViewUpdateState, SyncEditor[T]) -> Array[@protocol.ViewPatch]
 
-pub fn project_diagnostics_for_source(@dowdiness/loom/core.SourceId, @dowdiness/loom/core.DiagnosticSet) -> Array[@protocol.Diagnostic]
+pub fn project_diagnostics_for_source(@diagnostic.SourceId, @dowdiness/loom/core.DiagnosticSet) -> Array[@protocol.Diagnostic]
 
 // Errors
 pub(all) suberror DiagnosticPublicationInputError {
   NoCoveredSources
-  DuplicateSource(@dowdiness/loom/core.SourceId)
+  DuplicateSource(@diagnostic.SourceId)
   DuplicateDependency(DiagnosticDependencyId)
 } derive(Eq, @debug.Debug)
 pub impl Show for DiagnosticPublicationInputError
@@ -98,8 +99,8 @@ pub fn DiagnosticPublicationInputSnapshot::sources(Self) -> Array[DiagnosticPubl
 pub struct DiagnosticPublicationSourceRevision {
   // private fields
 } derive(Eq, @debug.Debug)
-pub fn DiagnosticPublicationSourceRevision::DiagnosticPublicationSourceRevision(@dowdiness/loom/core.SourceId, @text.Version) -> Self
-pub fn DiagnosticPublicationSourceRevision::source(Self) -> @dowdiness/loom/core.SourceId
+pub fn DiagnosticPublicationSourceRevision::DiagnosticPublicationSourceRevision(@diagnostic.SourceId, @text.Version) -> Self
+pub fn DiagnosticPublicationSourceRevision::source(Self) -> @diagnostic.SourceId
 pub fn DiagnosticPublicationSourceRevision::version(Self) -> @text.Version
 
 pub struct Editor {
@@ -181,7 +182,7 @@ pub fn[T] SyncEditor::move_cursor_left_word(Self[T]) -> Unit
 pub fn[T] SyncEditor::move_cursor_right_grapheme(Self[T]) -> Unit
 pub fn[T] SyncEditor::move_cursor_right_word(Self[T]) -> Unit
 pub fn[T : Eq + @dowdiness/loom/core.Renderable] SyncEditor::move_node(Self[T], @dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.DropPosition, Int) -> Result[Array[@dowdiness/canopy/core.SpanEdit], TreeEditError]
-pub fn[T] SyncEditor::new_generic(String, (@dowdiness/loom/core.SourceId, String, @cells.Runtime?) -> @pipeline.Parser[T], (@pipeline.Parser[T]) -> (@cells.Derived[@dowdiness/canopy/core.ProjNode[T]?], @cells.Derived[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[T]]], @cells.Derived[@dowdiness/canopy/core.SourceMap]), capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime, capabilities? : LanguageCapabilities[T], identity_hints? : @ref.Ref[Array[@dowdiness/canopy/core.IdentityTransform]]) -> Self[T] raise @text.TextError
+pub fn[T] SyncEditor::new_generic(String, (@diagnostic.SourceId, String, @cells.Runtime?) -> @pipeline.Parser[T], (@pipeline.Parser[T]) -> (@cells.Derived[@dowdiness/canopy/core.ProjNode[T]?], @cells.Derived[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[T]]], @cells.Derived[@dowdiness/canopy/core.SourceMap]), capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime, capabilities? : LanguageCapabilities[T], identity_hints? : @ref.Ref[Array[@dowdiness/canopy/core.IdentityTransform]]) -> Self[T] raise @text.TextError
 pub fn[T] SyncEditor::node_at_position(Self[T], Int) -> @dowdiness/canopy/core.NodeId?
 pub fn[T] SyncEditor::on_watchdog_fire(Self[T], Int) -> Unit
 pub fn[T] SyncEditor::parser_ast(Self[T]) -> @cells.Derived[T]
@@ -189,7 +190,7 @@ pub fn[T] SyncEditor::parser_diagnostics(Self[T]) -> @cells.Derived[@dowdiness/l
 pub fn[T] SyncEditor::parser_runtime(Self[T]) -> @cells.Runtime
 pub fn[T] SyncEditor::parser_snapshot(Self[T]) -> @cells.Derived[@incremental.ParseSnapshot[T]]
 pub fn[T] SyncEditor::parser_source(Self[T]) -> @cells.Derived[String]
-pub fn[T] SyncEditor::parser_source_id(Self[T]) -> @dowdiness/loom/core.SourceId
+pub fn[T] SyncEditor::parser_source_id(Self[T]) -> @diagnostic.SourceId
 pub fn[T] SyncEditor::parser_syntax_tree(Self[T]) -> @cells.Derived[@seam.SyntaxNode]
 pub fn[T : Eq] SyncEditor::redo(Self[T]) -> Bool
 pub fn[T : Eq] SyncEditor::redo_and_export(Self[T]) -> @text.SyncMessage?

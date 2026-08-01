@@ -7,6 +7,7 @@ import {
   "moonbitlang/x@0.4.38",
   "moonbitlang/async@0.20.1",
   "dowdiness/incr@0.14.2",
+  "dowdiness/diagnostic@0.1.0",
   "dowdiness/event-graph-walker@0.6.0",
   "dowdiness/byte_codec@0.1.0",
   "dowdiness/text_change@0.1.0",

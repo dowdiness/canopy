@@ -4,6 +4,24 @@ let lambda_semantic_projection_test_source : @loomcore.SourceId = @loomcore.Sour
 )
 
 ///|
+priv struct SemanticDiagnosticSourceResolver {
+  source_id : @diagnostic.SourceId
+  snapshot : @diagnostic.SourceSnapshot
+}
+
+///|
+impl @diagnostic.SourceResolver for SemanticDiagnosticSourceResolver with fn resolve_source(
+  self,
+  requested_source_id,
+) {
+  if requested_source_id == self.source_id {
+    Some(self.snapshot)
+  } else {
+    None
+  }
+}
+
+///|
 fn parse_fixture(
   text : String,
 ) -> (@core.ProjNode[@ast.Term], @core.SourceMap) raise {
@@ -204,9 +222,9 @@ test "semantic diagnostics preserve neutral warning labels and identities" {
     content="lambda.unresolved_reference",
   )
   inspect(diagnostic.message(), content="Free variable 'y'")
-  inspect(diagnostic.source().name(), content="lambda.semantic")
+  inspect(diagnostic.origin().name(), content="lambda.semantic")
   inspect(
-    diagnostic.source().name() == lambda_semantic_projection_test_source.value(),
+    diagnostic.origin().name() == lambda_semantic_projection_test_source.value(),
     content="false",
   )
   let labels = diagnostic.labels()
@@ -297,21 +315,16 @@ test "semantic diagnostics are defensive copies and render from one neutral valu
   inspect(diagnostics.length(), content="1")
   inspect(diagnostics.items()[0].labels().length() >= 2, content="true")
   inspect(diagnostics.items()[0].notes().contains("mutated"), content="false")
-  let provider = @loomcore.SourceProvider(requested => {
-    if requested == lambda_semantic_projection_test_source {
-      Some(
-        @loomcore.DiagnosticSourceFile(
-          "lambda.mbt",
-          text,
-          @loomcore.LineIndex::new(text),
-        ),
-      )
-    } else {
-      None
-    }
-  })
+  let resolver = SemanticDiagnosticSourceResolver::{
+    source_id: lambda_semantic_projection_test_source,
+    snapshot: @diagnostic.SourceSnapshot(
+      "lambda.mbt",
+      text,
+      @diagnostic.LineIndex::new(text),
+    ),
+  }
   inspect(
-    diagnostics.items()[0].render_plain(provider).contains("Free variable 'y'"),
+    diagnostics.items()[0].render_plain(resolver).contains("Free variable 'y'"),
     content="true",
   )
 }

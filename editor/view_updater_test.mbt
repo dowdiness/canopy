@@ -173,7 +173,7 @@ test "structural edit produces ReplaceNode" {
 test "diagnostic projection emits only current-source primary labels in order" {
   let current_source = @loom_core.SourceId("current")
   let other_source = @loom_core.SourceId("other")
-  let severity = @loom_core.Diagnostic::lexer_error("fixture").severity()
+  let severity = @diagnostic.DiagnosticSeverity::Error
   let current_primary = (start, end) => {
     @loom_core.DiagnosticLabel(
       @loom_core.LabelStyle::Primary,
@@ -185,7 +185,7 @@ test "diagnostic projection emits only current-source primary labels in order" {
     )
   }
   let diagnostic = @loom_core.Diagnostic(
-    source=@loom_core.DiagnosticSource::parser(),
+    origin=@diagnostic.DiagnosticOrigin("parser"),
     severity~,
     code=Some(@loom_core.DiagnosticCode("test.mixed-sources")),
     message="mixed source labels",
@@ -234,7 +234,12 @@ test "diagnostic projection keeps locationless compatibility at zero width" {
   let projected = @editor.project_diagnostics_for_source(
     source_id,
     @loom_core.DiagnosticSet::single(
-      @loom_core.Diagnostic::lexer_error("locationless"),
+      @diagnostic.Diagnostic(
+        origin=@diagnostic.DiagnosticOrigin("lexer"),
+        severity=@diagnostic.DiagnosticSeverity::Error,
+        code=Some(@diagnostic.DiagnosticCode("lex-error")),
+        message="locationless",
+      ),
     ),
   )
 
@@ -253,8 +258,8 @@ test "diagnostic projection omits foreign-only labeled diagnostics" {
   let current_source = @loom_core.SourceId("current")
   let other_source = @loom_core.SourceId("other")
   let diagnostic = @loom_core.Diagnostic(
-    source=@loom_core.DiagnosticSource::parser(),
-    severity=@loom_core.Diagnostic::lexer_error("fixture").severity(),
+    origin=@diagnostic.DiagnosticOrigin("parser"),
+    severity=@diagnostic.DiagnosticSeverity::Error,
     message="foreign location",
     labels=[
       @loom_core.DiagnosticLabel(

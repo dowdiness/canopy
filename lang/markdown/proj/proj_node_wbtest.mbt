@@ -674,3 +674,54 @@ test "projection: incremental quote insertion keeps following heading identity" 
   assert_eq(incremental.children[1].end, fresh.children[1].end)
   assert_eq(incremental.children[1].node_id, heading_id)
 }
+
+///|
+test "projection: reference definition insertion preserves following blocks" {
+  let prefix = "[ref]: /target\n\n"
+  let source = "# Heading\n\nBody [link][ref].\n"
+  let edited_source = prefix + source
+  let parser = @loom.new_imperative_parser(
+    markdown_projection_test_source, source, @markdown.markdown_grammar,
+  )
+  // Keep one allocator across both projections and reconciliation so IDs stay deterministic.
+  let counter : Ref[Int] = Ref(0)
+  let _ = parser.parse()
+  let initial_syntax = parser.get_syntax_tree().unwrap()
+  let initial = syntax_to_proj_node(initial_syntax, counter)
+  assert_eq(initial.children.length(), 2)
+  let heading_id = initial.children[0].node_id
+  let paragraph_id = initial.children[1].node_id
+  let edit = @loomcore.Edit::new(0, 0, prefix.length())
+  let _ = parser.edit(edit, edited_source)
+  let edited_syntax = parser.get_syntax_tree().unwrap()
+  let raw = syntax_to_proj_node(edited_syntax, counter)
+  let incremental = @core.reconcile(initial, raw, counter)
+  let (fresh, errors) = parse_to_proj_node(
+    markdown_projection_test_source, edited_source,
+  )
+  assert_eq(errors.length(), 0)
+  assert_eq(incremental.children.length(), 2)
+  assert_eq(incremental.equal(fresh), true)
+  assert_eq(
+    source_map_for(edited_source, incremental).equal(
+      source_map_for(edited_source, fresh),
+    ),
+    true,
+  )
+  assert_eq(incremental.children[0].start, prefix.length())
+  assert_eq(incremental.children[0].node_id, heading_id)
+  assert_eq(incremental.children[1].node_id, paragraph_id)
+  match incremental.children {
+    [heading, paragraph] => {
+      match heading.kind {
+        Heading(1, [Text(text)]) => assert_eq(text, "Heading")
+        _ => fail("expected aligned heading after reference definition")
+      }
+      match paragraph.kind {
+        Paragraph(_) => ()
+        _ => fail("expected aligned paragraph after reference definition")
+      }
+    }
+    _ => fail("expected reference definition to stay outside projection")
+  }
+}

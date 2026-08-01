@@ -1,5 +1,6 @@
 import {
   "dowdiness/canopy/core",
+  "dowdiness/diagnostic",
   "dowdiness/canopy/lang/lambda/proj" @lambda_proj,
   "dowdiness/canopy/lang/lambda/scope" @lambda_scope,
   "dowdiness/canopy/protocol",

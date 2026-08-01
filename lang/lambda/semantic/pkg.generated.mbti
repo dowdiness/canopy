@@ -3,12 +3,13 @@ package "dowdiness/canopy/lang/lambda/semantic"
 
 import {
   "dowdiness/canopy/protocol",
+  "dowdiness/diagnostic",
   "dowdiness/lambda/ast",
   "moonbitlang/core/debug",
 }
 
 // Values
-pub fn build_semantic_diagnostics(@dowdiness/loom/core.SourceId, String, @dowdiness/canopy/core.ProjNode[@ast.Term], @dowdiness/canopy/core.SourceMap) -> @dowdiness/loom/core.DiagnosticSet raise SemanticDiagnosticError
+pub fn build_semantic_diagnostics(@diagnostic.SourceId, String, @dowdiness/canopy/core.ProjNode[@ast.Term], @dowdiness/canopy/core.SourceMap) -> @dowdiness/loom/core.DiagnosticSet raise SemanticDiagnosticError
 
 pub fn build_semantic_projection(@dowdiness/canopy/core.ProjNode[@ast.Term], @dowdiness/canopy/core.SourceMap) -> SemanticProjection
 

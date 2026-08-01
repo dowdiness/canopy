@@ -23,8 +23,8 @@ fn test_diagnostic(
   fixes : Array[@loom_core.DiagnosticFix],
 ) -> @loom_core.Diagnostic {
   @loom_core.Diagnostic(
-    source=@loom_core.DiagnosticSource::parser(),
-    severity=@loom_core.Diagnostic::lexer_error("fixture").severity(),
+    origin=@diagnostic.DiagnosticOrigin("parser"),
+    severity=@diagnostic.DiagnosticSeverity::Error,
     code=Some(@loom_core.DiagnosticCode("test.fix")),
     message="replace source",
     labels=[

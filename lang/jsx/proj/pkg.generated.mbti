@@ -2,6 +2,7 @@
 package "dowdiness/canopy/lang/jsx/proj"
 
 import {
+  "dowdiness/diagnostic",
   "dowdiness/incr/cells",
   "dowdiness/jsx",
   "dowdiness/loom/pipeline",
@@ -17,7 +18,7 @@ pub fn dom_patches_to_json(Array[DomPatch]) -> String
 
 pub fn normalize_dom_attribute_value(String, String) -> String
 
-pub fn parse_to_proj_node(@dowdiness/loom/core.SourceId, String) -> (@dowdiness/canopy/core.ProjNode[@jsx.JsxNode], Array[String]) raise @dowdiness/loom/core.LexError
+pub fn parse_to_proj_node(@diagnostic.SourceId, String) -> (@dowdiness/canopy/core.ProjNode[@jsx.JsxNode], Array[String]) raise @dowdiness/loom/core.LexError
 
 pub fn populate_token_spans(@dowdiness/canopy/core.SourceMap, @seam.SyntaxNode, @dowdiness/canopy/core.ProjNode[@jsx.JsxNode]) -> Unit
 

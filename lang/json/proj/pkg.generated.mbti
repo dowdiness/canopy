@@ -2,6 +2,7 @@
 package "dowdiness/canopy/lang/json/proj"
 
 import {
+  "dowdiness/diagnostic",
   "dowdiness/incr/cells",
   "dowdiness/json",
   "dowdiness/loom/pipeline",
@@ -16,7 +17,7 @@ pub fn key_role(Int) -> String
 
 pub fn member_role(Int) -> String
 
-pub fn parse_to_proj_node(@dowdiness/loom/core.SourceId, String) -> (@dowdiness/canopy/core.ProjNode[@json.JsonValue], Array[String]) raise @dowdiness/loom/core.LexError
+pub fn parse_to_proj_node(@diagnostic.SourceId, String) -> (@dowdiness/canopy/core.ProjNode[@json.JsonValue], Array[String]) raise @dowdiness/loom/core.LexError
 
 pub fn populate_token_spans(@dowdiness/canopy/core.SourceMap, @seam.SyntaxNode, @dowdiness/canopy/core.ProjNode[@json.JsonValue]) -> Unit
 

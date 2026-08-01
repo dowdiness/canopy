@@ -152,3 +152,27 @@ test "empty replica identity is a categorized construction failure" {
     _ => fail("expected InvalidAgentId")
   }
 }
+
+///|
+test "reference definition insertion preserves facade block identities" {
+  let prefix = "[ref]: /target\n\n"
+  let source = "# Heading\n\nBody [link][ref].\n"
+  let editor = try! MarkdownEditor(agent_id="reference-definition", source~)
+  let before_ids = editor.snapshot().projection().node_ids()
+  assert_eq(before_ids.length(), 3)
+
+  let result = editor.commit(
+    MarkdownEditRequest::ReplaceText(start=0, delete_len=0, inserted=prefix),
+  )
+
+  match result {
+    Ok(MarkdownCommitResult::Applied(after)) => {
+      assert_eq(after.source(), prefix + source)
+      let after_ids = after.projection().node_ids()
+      assert_eq(after_ids.length(), 3)
+      assert_eq(after_ids.get(1), before_ids.get(1))
+      assert_eq(after_ids.get(2), before_ids.get(2))
+    }
+    _ => fail("expected reference definition insertion to apply")
+  }
+}

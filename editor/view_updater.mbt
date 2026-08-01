@@ -109,23 +109,36 @@ fn current_source_diagnostic_fixes(
 }
 
 ///|
-fn diagnostic_source_provider(
-  source_id : @loom_core.SourceId,
+priv struct CurrentSourceResolver {
+  source_id : @diagnostic.SourceId
+  snapshot : @diagnostic.SourceSnapshot
+}
+
+///|
+impl @diagnostic.SourceResolver for CurrentSourceResolver with fn resolve_source(
+  self,
+  requested_source_id,
+) {
+  if requested_source_id == self.source_id {
+    Some(self.snapshot)
+  } else {
+    None
+  }
+}
+
+///|
+fn diagnostic_source_resolver(
+  source_id : @diagnostic.SourceId,
   source : String,
-) -> @loom_core.SourceProvider {
-  @loom_core.SourceProvider(requested_source_id => {
-    if requested_source_id == source_id {
-      Some(
-        @loom_core.DiagnosticSourceFile(
-          "<input>",
-          source,
-          @loom_core.LineIndex::new(source),
-        ),
-      )
-    } else {
-      None
-    }
-  })
+) -> CurrentSourceResolver {
+  {
+    source_id,
+    snapshot: @diagnostic.SourceSnapshot(
+      "<input>",
+      source,
+      @diagnostic.LineIndex::new(source),
+    ),
+  }
 }
 
 ///|
@@ -200,11 +213,11 @@ fn[T] ViewUpdateState::publish_diagnostics(
   self.next_diagnostic_snapshot_id += 1
   let source_id = editor.parser_source_id()
   let source = editor.get_text()
-  let provider = diagnostic_source_provider(source_id, source)
+  let resolver = diagnostic_source_resolver(source_id, source)
   let published = diagnostics
     .items()
     .mapi((id, diagnostic) => {
-      let rendered_message : String? = Some(diagnostic.render_plain(provider)) catch {
+      let rendered_message : String? = Some(diagnostic.render_plain(resolver)) catch {
         _ => None
       }
       let fixes = match rendered_message {
