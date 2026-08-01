@@ -657,7 +657,13 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
   Shipped: PR #699 added `SourceSnapshot::matches`; PR #704 clears stale lambda pattern facts before view patches are computed.
 
 - [x] Add structural-search match list projection (#695).
-  Shipped: PR #699 — `facts_to_match_list` supplies `from`/`to`/`pattern_id` for future host list/jump rendering. Host-side list UI remains a follow-up.
+  Shipped: PR #699 — `facts_to_match_list` supplies normalized
+  `from`/`to`/`pattern_id` entries for host rendering.
+
+- [x] Add structural-search host match list and jump-to-range UI (#818).
+  The Lambda host renders current facts with source-line context, clears stale
+  results while analysis is pending, and selects the normalized UTF-16 range
+  without adding a protocol variant.
 
 - [ ] Consolidate Lambda name resolution on `lang/lambda/scope` (#129).
   Why: edit free-variable guards and module-end lookup still carry local name-resolution walks that can drift from the canonical scope graph.

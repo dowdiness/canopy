@@ -68,6 +68,18 @@ fn parse_ast_grep_matches(
 }
 
 ///|
+fn LambdaHandle::pattern_source_snapshot(
+  self : LambdaHandle,
+  source : String,
+) -> @facts.SourceSnapshot {
+  @facts.SourceSnapshot::SourceSnapshot(
+    doc_id=self.editor_id.0.to_string(),
+    version=self.editor.get_version().to_json_string().hash(),
+    source~,
+  )
+}
+
+///|
 /// Apply JSON-encoded ast-grep results for a lambda editor handle.
 ///
 /// The JSON shape is:
@@ -90,14 +102,44 @@ pub fn apply_ast_grep_results_json(
     Err(e) => return "parse error: " + e
   }
   let source = h.editor.get_text()
-  let snapshot = @facts.SourceSnapshot::SourceSnapshot(
-    doc_id=h.editor_id.0.to_string(),
-    version=0,
-    source~,
-  )
+  let source_byte_length = @utf8.encode(source).length()
+  guard matches
+    .iter()
+    .all(entry => {
+      entry.byte_start >= 0 &&
+      entry.byte_start <= entry.byte_end &&
+      entry.byte_end <= source_byte_length
+    }) else {
+    return "parse error: match byte range is out of bounds"
+  }
+  let snapshot = h.pattern_source_snapshot(source)
   h.companion.set_pattern_analysis(
     @analysis.from_ast_grep_matches(matches, source, snapshot),
     snapshot,
   )
   "ok"
+}
+
+///|
+/// Return current structural-search matches as normalized UTF-16 ranges.
+/// Stale provider facts collapse to an empty array.
+pub fn get_pattern_matches_json(handle : Int) -> String {
+  match lambda_registry.get(handle) {
+    Some(h) => {
+      let source = h.editor.get_text()
+      let snapshot = h.pattern_source_snapshot(source)
+      Json::array(
+        h.companion
+        .get_pattern_matches(snapshot)
+        .map(entry => {
+          Json::object({
+            "from": entry.from.to_json(),
+            "to": entry.to.to_json(),
+            "pattern_id": entry.pattern_id.to_json(),
+          })
+        }),
+      ).stringify()
+    }
+    None => "[]"
+  }
 }

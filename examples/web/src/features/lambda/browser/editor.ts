@@ -11,6 +11,17 @@ import { runAnalysis } from './ast-grep-runner';
 export type LambdaEditorRuntime = typeof import('@moonbit/crdt-lambda');
 export type GraphvizRuntime = typeof import('@moonbit/graphviz');
 
+type PatternMatchEntry = {
+  from: number;
+  to: number;
+  pattern_id: string;
+};
+
+type StructuralSearchResult = PatternMatchEntry & {
+  line: number;
+  snippet: string;
+};
+
 export function mountLambdaEditor(
   root: Document | HTMLElement = globalThis.document,
   restoredSnapshot: unknown,
@@ -32,6 +43,8 @@ export function mountLambdaEditor(
   const astOutputEl = must<HTMLElement>('#ast-output');
   const errorEl = must<HTMLUListElement>('#error-output');
   const statusEl = must<HTMLElement>('#status');
+  const structuralSearchStatusEl = must<HTMLElement>('#structural-search-status');
+  const structuralSearchResultsEl = must<HTMLOListElement>('#structural-search-results');
   const exampleButtons = Array.from(root.querySelectorAll<HTMLButtonElement>('.example-btn'));
   const listenerAbort = new window.AbortController();
   const agentId = `user-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
@@ -91,8 +104,39 @@ export function mountLambdaEditor(
     const analysisApi = crdt as LambdaEditorRuntime & {
       apply_ast_grep_results_json(handle: number, matchesJson: string): string;
       compute_view_patches_json(handle: number): string;
+      get_pattern_matches_json(handle: number): string;
     };
     let lastText = '';
+
+    function renderStructuralSearchState(message: string): void {
+      structuralSearchResultsEl.replaceChildren();
+      structuralSearchStatusEl.textContent = message;
+    }
+
+    function renderStructuralMatches(source: string): void {
+      const entries = JSON.parse(
+        analysisApi.get_pattern_matches_json(handle),
+      ) as PatternMatchEntry[];
+      const results = toStructuralSearchResults(source, entries);
+      structuralSearchResultsEl.replaceChildren(...results.map((result) => {
+        const item = document.createElement('li');
+        const button = document.createElement('button');
+        const meta = document.createElement('span');
+        const snippet = document.createElement('code');
+        button.type = 'button';
+        button.dataset.from = String(result.from);
+        button.dataset.to = String(result.to);
+        meta.className = 'structural-match-meta';
+        meta.textContent = `${result.pattern_id} · L${result.line}`;
+        snippet.textContent = result.snippet;
+        button.append(meta, snippet);
+        item.append(button);
+        return item;
+      }));
+      structuralSearchStatusEl.textContent = results.length === 0
+        ? 'No structural matches'
+        : `${results.length} structural ${results.length === 1 ? 'match' : 'matches'}`;
+    }
 
     function applyDecorationPatches(patches: ViewPatch[]): void {
       const decorationPatch = patches.reduce<
@@ -125,8 +169,10 @@ export function mountLambdaEditor(
           analysisApi.compute_view_patches_json(handle),
         );
         applyDecorationPatches(patches);
+        renderStructuralMatches(text);
       } catch (error) {
         if (controller.signal.aborted || disposed || generation !== analysisGeneration) return;
+        renderStructuralSearchState('Structural search unavailable');
         console.warn('ast-grep analysis failed', error);
       } finally {
         if (analysisAbortController === controller) analysisAbortController = null;
@@ -154,6 +200,7 @@ export function mountLambdaEditor(
           analysisApi.compute_view_patches_json(handle),
         );
         applyDecorationPatches(patches);
+        renderStructuralSearchState('Searching…');
         scheduleAnalysis(text);
       }
 
@@ -199,6 +246,17 @@ export function mountLambdaEditor(
         updateUI();
       });
     }, { signal: listenerAbort.signal });
+    structuralSearchResultsEl.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof window.Element)) return;
+      const button = target.closest<HTMLButtonElement>('button[data-from][data-to]');
+      if (button === null) return;
+      const from = Number(button.dataset.from);
+      const to = Number(button.dataset.to);
+      if (selectUtf16Range(editorEl, from, to)) {
+        editorEl.scrollIntoView({ block: 'nearest' });
+      }
+    }, { signal: listenerAbort.signal });
     exampleButtons.forEach((button) => {
       button.addEventListener('click', () => {
         const example = button.dataset.example;
@@ -235,4 +293,72 @@ function escapeHTML(text: string): string {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+}
+
+function toStructuralSearchResults(
+  source: string,
+  entries: PatternMatchEntry[],
+): StructuralSearchResult[] {
+  return entries.flatMap((entry) => {
+    if (
+      !Number.isInteger(entry.from) ||
+      !Number.isInteger(entry.to) ||
+      entry.from < 0 ||
+      entry.to < entry.from ||
+      entry.to > source.length
+    ) return [];
+    const lineStart = source.lastIndexOf('\n', entry.from - 1) + 1;
+    const followingBreak = source.indexOf('\n', entry.from);
+    const lineEnd = followingBreak === -1 ? source.length : followingBreak;
+    return [{
+      ...entry,
+      line: source.slice(0, entry.from).split('\n').length,
+      snippet: source.slice(lineStart, lineEnd).trim(),
+    }];
+  });
+}
+
+function selectUtf16Range(
+  editor: HTMLElement,
+  from: number,
+  to: number,
+): boolean {
+  const document = editor.ownerDocument;
+  const window = document.defaultView;
+  if (
+    window === null ||
+    !Number.isInteger(from) ||
+    !Number.isInteger(to) ||
+    from < 0 ||
+    to < from ||
+    to > (editor.textContent ?? '').length
+  ) return false;
+  const walker = document.createTreeWalker(editor, window.NodeFilter.SHOW_TEXT);
+  let node = walker.nextNode();
+  let position = 0;
+  let start: { node: Text; offset: number } | null = null;
+  let end: { node: Text; offset: number } | null = null;
+  while (node !== null) {
+    const text = node as Text;
+    const nextPosition = position + text.data.length;
+    if (start === null && from <= nextPosition) {
+      start = { node: text, offset: from - position };
+    }
+    if (to <= nextPosition) {
+      end = { node: text, offset: to - position };
+      break;
+    }
+    position = nextPosition;
+    node = walker.nextNode();
+  }
+  if (start === null || end === null) return false;
+  const range = document.createRange();
+  range.setStart(start.node, start.offset);
+  range.setEnd(end.node, end.offset);
+  const selection = window.getSelection();
+  if (selection === null) return false;
+  editor.focus({ preventScroll: true });
+  selection.removeAllRanges();
+  selection.addRange(range);
+  return true;
 }

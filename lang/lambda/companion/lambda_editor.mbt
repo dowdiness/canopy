@@ -71,6 +71,15 @@ pub fn LambdaCompanion::clear_stale_pattern_analysis(
 }
 
 ///|
+/// Project host-provided pattern facts that still match the current source.
+pub fn LambdaCompanion::get_pattern_matches(
+  self : LambdaCompanion,
+  current : @facts.SourceSnapshot,
+) -> Array[@analysis.MatchListEntry] {
+  self.analysis_projection.match_list(current)
+}
+
+///|
 pub fn LambdaCompanion::get_eval_results(
   self : LambdaCompanion,
 ) -> Array[@lambda_eval.EvalResult] {

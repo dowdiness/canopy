@@ -378,6 +378,5 @@ intent-level operations.
 - Stale provider results are rejected deterministically. ✅
 - Byte offsets are converted to UTF-16 ranges before entering analysis state. ✅
 - Non-ASCII test cases prove range conversion correctness. ✅
-- The UI can list matches and jump to a normalized range. *(Data projection is
-  available; host-side list/jump rendering remains a follow-up.)*
+- The UI can list matches and jump to a normalized range. ✅
 - No changes are required to the public protocol. ✅

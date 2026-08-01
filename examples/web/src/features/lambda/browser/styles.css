@@ -112,6 +112,80 @@
       color: #6a6a6a;
     }
 
+    .structural-search {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #3c3c3c;
+    }
+
+    .structural-search-heading-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .structural-search h2 {
+      color: #d4d4d4;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    #structural-search-status {
+      color: #858585;
+      font-size: 12px;
+    }
+
+    #structural-search-results {
+      display: grid;
+      gap: 4px;
+      max-height: 220px;
+      overflow-y: auto;
+      list-style: none;
+    }
+
+    #structural-search-results button {
+      display: grid;
+      grid-template-columns: minmax(150px, 0.4fr) minmax(0, 1fr);
+      align-items: baseline;
+      gap: 12px;
+      width: 100%;
+      padding: 7px 8px;
+      border: 1px solid transparent;
+      border-radius: 3px;
+      background: transparent;
+      color: #d4d4d4;
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    #structural-search-results button:hover {
+      background: #2d2d30;
+      border-color: #3c3c3c;
+    }
+
+    #structural-search-results button:focus-visible {
+      outline: 2px solid #82aaff;
+      outline-offset: -2px;
+    }
+
+    .structural-match-meta {
+      color: #82aaff;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    #structural-search-results code {
+      overflow: hidden;
+      color: #c8c8c8;
+      font: inherit;
+      text-overflow: ellipsis;
+      white-space: pre;
+    }
+
     /* Syntax highlighting */
     .lambda { color: #c586c0; font-weight: bold; }
     .variable { color: #9cdcfe; }
@@ -354,6 +428,11 @@
 
       .editor-container {
         padding: 10px;
+      }
+
+      #structural-search-results button {
+        grid-template-columns: 1fr;
+        gap: 3px;
       }
 
       .examples-bar {

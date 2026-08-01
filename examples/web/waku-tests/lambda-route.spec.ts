@@ -222,3 +222,47 @@ test('aborts an in-flight development AST Grep request on route exit', async ({ 
   )).toBe(true);
   expect(pageErrors).toEqual([]);
 });
+
+test('lists structural matches, jumps to utf16 ranges, and removes stale results', async ({ page }) => {
+  const source = '😀\nfn alpha(x : Int) {\n  x\n}\nfn beta(y : Int) { y }';
+  let requestCount = 0;
+  let releaseSecondResponse: (() => void) | undefined;
+  const secondResponseGate = new Promise<void>((resolve) => {
+    releaseSecondResponse = resolve;
+  });
+  await page.route('**/api/ast-grep', async (route) => {
+    requestCount += 1;
+    if (requestCount > 1) await secondResponseGate;
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        matches: requestCount === 1
+          ? [
+              { byte_start: 5, byte_end: 30, pattern_id: 'moonbit-fn-def' },
+              { byte_start: 31, byte_end: 53, pattern_id: 'moonbit-fn-def' },
+            ]
+          : [],
+      }),
+    });
+  });
+
+  await page.goto('/ml');
+  await waitForLambdaMount(page);
+  await replaceSource(page, source);
+
+  const results = page.locator('#structural-search-results button');
+  await expect(results).toHaveCount(2);
+  await expect(results.first()).toContainText('L2');
+  await expect(results.first().locator('code')).toHaveText('fn alpha(x : Int) {');
+  await results.nth(1).click();
+  await expect(page.locator('#editor')).toBeFocused();
+  await expect.poll(() => page.evaluate(
+    () => window.getSelection()?.toString(),
+  )).toBe('fn beta(y : Int) { y }');
+
+  await replaceSource(page, `${source} `);
+  await expect(results).toHaveCount(0);
+  await expect(page.locator('#structural-search-status')).toHaveText('Searching…');
+  releaseSecondResponse?.();
+  await expect(page.locator('#structural-search-status')).toHaveText('No structural matches');
+});

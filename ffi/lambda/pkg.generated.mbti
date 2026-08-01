@@ -65,6 +65,8 @@ pub fn get_errors_json(Int) -> String
 
 pub fn get_lambda_companion() -> @companion.LambdaCompanion?
 
+pub fn get_pattern_matches_json(Int) -> String
+
 pub fn get_pretty_view_json(Int) -> String
 
 pub fn get_proj_node_json(Int) -> String

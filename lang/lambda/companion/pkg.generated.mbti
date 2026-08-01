@@ -3,6 +3,7 @@ package "dowdiness/canopy/lang/lambda/companion"
 
 import {
   "dowdiness/analysis",
+  "dowdiness/canopy/analysis_bridge",
   "dowdiness/canopy/core",
   "dowdiness/canopy/editor",
   "dowdiness/canopy/lang/lambda/edits",
@@ -51,6 +52,7 @@ pub fn LambdaCompanion::dispose_analysis_attachment(Self) -> Unit
 pub fn LambdaCompanion::escalation_memo(Self) -> @cells.Derived[Array[@eval.EvalResult]]
 pub fn LambdaCompanion::get_eval_annotations(Self, @core.ProjNode[@ast.Term]?) -> Map[@core.NodeId, Array[@protocol.ViewAnnotation]]
 pub fn LambdaCompanion::get_eval_results(Self) -> Array[@eval.EvalResult]
+pub fn LambdaCompanion::get_pattern_matches(Self, @analysis.SourceSnapshot) -> Array[@analysis_bridge.MatchListEntry]
 pub fn LambdaCompanion::get_structured_changes(Self) -> Array[@core.StructuredChange]
 pub fn LambdaCompanion::set_pattern_analysis(Self, Array[@analysis.PatternMatchFact], @analysis.SourceSnapshot) -> Unit
 pub fn LambdaCompanion::typecheck_output(Self) -> @cells.Derived[@typecheck.ModuleTypeResult]
