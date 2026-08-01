@@ -1,5 +1,52 @@
 import { LambdaClient } from './lambda-client';
 
+const SIGNAL_LAB_EXAMPLE = `fn increment(x : Int) {
+  x + 1
+}
+
+fn decrement(x : Int) {
+  x - 1
+}
+
+fn double(x : Int) {
+  x + x
+}
+
+fn triple(x : Int) {
+  x + x + x
+}
+
+fn compose(f : Int -> Int, g : Int -> Int, x : Int) {
+  f (g x)
+}
+
+fn twice(f : Int -> Int, x : Int) {
+  f (f x)
+}
+
+fn fourTimes(f : Int -> Int, x : Int) {
+  twice f (twice f x)
+}
+
+fn choose(flag : Int, yes : Int, no : Int) {
+  if flag then {
+    yes
+  } else {
+    no
+  }
+}
+
+let calibrate = compose increment double
+let amplify = compose triple calibrate
+let stabilize = fourTimes increment
+
+let rawSignal = 4
+let stableSignal = stabilize rawSignal
+let amplifiedSignal = amplify stableSignal
+let output = choose 1 amplifiedSignal (decrement amplifiedSignal)
+
+output`;
+
 export function LambdaRoute() {
   return (
     <LambdaClient>
@@ -82,6 +129,7 @@ IfThenElse  ::= 'if' Expression 'then' Expression 'else' Expression</pre>
                 <button className="example-btn" data-example="fn add(x : Int, y : Int) { x + y }&#10;let add5 = add 5&#10;let sum = add5 10&#10;sum">Currying</button>
                 <button className="example-btn" data-example="fn choose(x : Int) { if x then {&#10;  x + 1&#10;} else {&#10;  42&#10;} }&#10;let a = choose 0&#10;let b = choose 5&#10;a + b">Conditional</button>
                 <button className="example-btn" data-example="fn compose(f : Int -> Int, g : Int -> Int, x : Int) {&#10;  f (g x)&#10;}&#10;fn double(x : Int) { x + x }&#10;fn inc(x : Int) { x + 1 }&#10;let f = compose inc double&#10;f 5">Pipeline</button>
+                <button className="example-btn" data-example={SIGNAL_LAB_EXAMPLE}>Signal Lab</button>
               </div>
               <div id="editor" contentEditable="plaintext-only" spellCheck={false} data-route-focus="editor"></div>
               <section className="structural-search" aria-labelledby="structural-search-heading">

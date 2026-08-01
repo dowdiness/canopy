@@ -94,6 +94,32 @@ test('reload clears Mini-ML route memory and creates a fresh editor', async ({ p
   expect(await page.locator('#status').textContent()).not.toBe(firstAgent);
 });
 
+test('loads the Signal Lab preset and exposes its function matches', async ({ page }) => {
+  await page.route('**/api/ast-grep', async (route) => {
+    const payload = route.request().postDataJSON() as { text?: unknown };
+    const text = typeof payload.text === 'string' ? payload.text : '';
+    const matches = Array.from(text.matchAll(/^fn .+$/gm), (match) => ({
+      byte_start: match.index,
+      byte_end: match.index + match[0].length,
+      pattern_id: 'moonbit-fn-def',
+    }));
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ matches }),
+    });
+  });
+  await page.goto('/ml');
+  await waitForLambdaMount(page);
+
+  await page.getByRole('button', { name: 'Signal Lab' }).click();
+
+  await expect(page.locator('#editor')).toContainText('fn fourTimes');
+  await expect(page.locator('#editor')).toContainText('let output = choose');
+  await expect(page.locator('#structural-search-results button')).toHaveCount(8);
+  await expect(page.locator('#structural-search-status')).toHaveText('8 structural matches');
+  await expect(page.locator('#error-output')).toHaveText('No errors');
+});
+
 test('repeated route cycles release the surface, overlay, frame, and timer', async ({ page }) => {
   const pageErrors: Error[] = [];
   page.on('pageerror', (error) => pageErrors.push(error));

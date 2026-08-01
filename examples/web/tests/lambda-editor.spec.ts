@@ -52,7 +52,14 @@ test.describe('Lambda Editor — Foundation', () => {
   });
 
   test('example buttons populate editor', async ({ page }) => {
-    const examples = ['Basics', 'Composition', 'Currying', 'Conditional', 'Pipeline'];
+    const examples = [
+      'Basics',
+      'Composition',
+      'Currying',
+      'Conditional',
+      'Pipeline',
+      'Signal Lab',
+    ];
     for (const name of examples) {
       await page.locator(`.example-btn:has-text("${name}")`).click();
       const text = await page.locator('#editor').textContent();
@@ -73,10 +80,17 @@ test.describe('Lambda Editor — Foundation', () => {
   });
 
   test('every example preset typechecks clean', async ({ page }) => {
-    // All five presets now carry `: Type` annotations on every lambda
+    // All presets carry the annotations required by their parameter forms.
     // Loading each route example must produce a clean
     // typecheck — no diagnostic error items.
-    const examples = ['Basics', 'Composition', 'Currying', 'Conditional', 'Pipeline'];
+    const examples = [
+      'Basics',
+      'Composition',
+      'Currying',
+      'Conditional',
+      'Pipeline',
+      'Signal Lab',
+    ];
     for (const name of examples) {
       await loadExample(page, name);
       await expect(page.locator('#error-output')).toContainText('No errors');
