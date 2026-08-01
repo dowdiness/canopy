@@ -2,8 +2,8 @@
 fn semantic_merge_test_set(message : String) -> @loom_core.DiagnosticSet {
   @loom_core.DiagnosticSet::single(
     @loom_core.Diagnostic(
-      source=@loom_core.DiagnosticSource(message),
-      severity=@loom_core.Diagnostic::lexer_error("fixture").severity(),
+      origin=@diagnostic.DiagnosticOrigin(message),
+      severity=@diagnostic.DiagnosticSeverity::Error,
       message~,
     ),
   )
@@ -60,7 +60,19 @@ test "diagnostic merge owns a defensive result" {
     parser,
     Some(("current", semantic)),
   )
-  parser.push(@loom_core.Diagnostic::lexer_error("late parser mutation"))
-  semantic.push(@loom_core.Diagnostic::lexer_error("late semantic mutation"))
+  parser.push(
+    @diagnostic.Diagnostic(
+      origin=@diagnostic.DiagnosticOrigin("parser"),
+      severity=@diagnostic.DiagnosticSeverity::Error,
+      message="late parser mutation",
+    ),
+  )
+  semantic.push(
+    @diagnostic.Diagnostic(
+      origin=@diagnostic.DiagnosticOrigin("semantic"),
+      severity=@diagnostic.DiagnosticSeverity::Error,
+      message="late semantic mutation",
+    ),
+  )
   inspect(merged.length(), content="2")
 }

@@ -2,6 +2,7 @@
 package "dowdiness/canopy/lang/lambda/proj"
 
 import {
+  "dowdiness/diagnostic",
   "dowdiness/incr/cells",
   "dowdiness/lambda/ast",
   "dowdiness/loom/pipeline",
@@ -28,7 +29,7 @@ pub fn build_lambda_projection_memos(@pipeline.Parser[@ast.Term], identity_hints
 
 pub fn module_name_role(Int) -> String
 
-pub fn parse_to_proj_node(@dowdiness/loom/core.SourceId, String) -> (@dowdiness/canopy/core.ProjNode[@ast.Term], Array[String]) raise @dowdiness/loom/core.LexError
+pub fn parse_to_proj_node(@diagnostic.SourceId, String) -> (@dowdiness/canopy/core.ProjNode[@ast.Term], Array[String]) raise @dowdiness/loom/core.LexError
 
 pub fn populate_token_spans(@dowdiness/canopy/core.SourceMap, @seam.SyntaxNode, @dowdiness/canopy/core.ProjNode[@ast.Term]) -> Unit
 

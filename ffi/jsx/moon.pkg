@@ -16,6 +16,7 @@ import {
 }
 
 import {
+  "dowdiness/diagnostic",
   "moonbitlang/async",
   "moonbitlang/core/quickcheck",
   "moonbitlang/core/quickcheck/splitmix",

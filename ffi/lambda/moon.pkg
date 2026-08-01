@@ -31,6 +31,10 @@ import {
   "dowdiness/canopy/protocol/wire",
 } for "test"
 
+import {
+  "dowdiness/diagnostic",
+} for "wbtest"
+
 // `cells` field of LambdaHandle is read in production by Phase 1b accessors
 // (`get_diagnostics_json`, view/pretty/semantic projection accessors, and
 // `rename_semantic_node`) and by whitebox tests
