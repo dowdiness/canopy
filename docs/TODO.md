@@ -126,6 +126,17 @@ proving-ground mode.
 
 ## 3. Incremental Parsing Optimization
 
+- [ ] Deliver the source-canonical Loomark Markdown application train.
+  Why: reusable MoonBit/Rabbita ownership, the generated Browser Session, and
+  atomic Waku adoption need one dependency-ordered implementation contract.
+  Plan: `docs/plans/2026-08-01-loomark-application-handoff.md`
+  Status: lifecycle-independent application behavior may proceed through a
+  private disposable single-mount host after #142 adoption; Rabbita #141 still
+  gates the public Browser Session, teardown/remount claims, adapters, and Waku.
+  Exit: the plan's Foundation, #1073 → #1074 → #1075 train, canonical Session
+  migration, adapters, atomic Waku cutover, legacy removal, and final
+  cross-host evidence are complete.
+
 - [ ] Flat edits on tiny nodes — JSON 20-member flat edit is 2× batch.
   Why: per-node reuse overhead exceeds parse cost for 3-token members. Grammar-level tradeoff, not a framework bug.
   Options: (a) accept for tiny structures, (b) batch-reparse fallback when reuse count is zero, (c) amortized threshold that learns from reuse hit rate. Needs a decision (tracked in `docs/decisions-needed.md`).
