@@ -1,0 +1,62 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/core"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/core/immut/vector",
+}
+
+// Values
+pub const SNAPSHOT_VERSION : Int = 1
+
+pub fn reduce(ApplicationState, ApplicationEvent) -> ProposedTransition
+
+// Errors
+
+// Types and methods
+pub(all) enum ApplicationDecision {
+  ReplaceCanonicalSource(String)
+  SnapshotRejected(SnapshotError)
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ApplicationEvent {
+  RequestCanonicalSource(source~ : String)
+  SelectMode(mode~ : ApplicationMode)
+  RestoreSnapshot(snapshot~ : ApplicationStateSnapshot, canonical_source~ : String)
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ApplicationMode {
+  Raw
+  Block
+  Preview
+} derive(Eq, @debug.Debug)
+
+pub struct ApplicationState {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn ApplicationState::ApplicationState(ApplicationMode) -> Self
+pub fn ApplicationState::mode(Self) -> ApplicationMode
+pub fn ApplicationState::snapshot(Self, String) -> ApplicationStateSnapshot
+
+pub struct ApplicationStateSnapshot {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn ApplicationStateSnapshot::ApplicationStateSnapshot(version~ : Int, source~ : String, mode~ : ApplicationMode) -> Self
+pub fn ApplicationStateSnapshot::mode(Self) -> ApplicationMode
+pub fn ApplicationStateSnapshot::source(Self) -> String
+pub fn ApplicationStateSnapshot::version(Self) -> Int
+
+pub struct ProposedTransition {
+  // private fields
+}
+pub fn ProposedTransition::decisions(Self) -> @vector.Vector[ApplicationDecision]
+pub fn ProposedTransition::state(Self) -> ApplicationState
+
+pub(all) enum SnapshotError {
+  UnsupportedSnapshotVersion(Int)
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+

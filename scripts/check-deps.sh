@@ -18,7 +18,8 @@
 #       canopy-internal imports must stay within {core/**, protocol/**},
 #       and no language grammar.
 #   [G] editor/** must not import dowdiness/canopy/lang/* or a language
-#       grammar in ANY scope, test/wbtest included.
+#       grammar in ANY scope, test/wbtest included, except exact imports
+#       registered for a canonical Tier 1 language façade below.
 #   [H] relay/** imports only protocol/wire, byte_codec, its own subtree,
 #       and moonbitlang/* — never editor.
 #   [I] lang/** must not import dowdiness/canopy/ffi/*; a language
@@ -229,6 +230,25 @@ GRAMMAR_MODULES = {
     "dowdiness/markdown": "markdown",
 }
 
+# Canonical Tier 1 editor façades are language-owned boundaries inside
+# editor/**, not language-neutral editor internals. Keep this allowlist exact
+# and scope-aware so adding a façade does not weaken Rule G for siblings.
+EDITOR_LANGUAGE_FACADE_IMPORTS = {
+    ("editor/markdown", "normal",
+     CANOPY + "/lang/markdown/companion"),
+    ("editor/markdown", "normal",
+     CANOPY + "/lang/markdown/edits"),
+    ("editor/markdown", "normal", "dowdiness/markdown"),
+}
+editor_language_facade_imports_used = set()
+
+def allowed_editor_language_facade_import(pkg, scope, sym):
+    key = (pkg, scope, sym)
+    if key in EDITOR_LANGUAGE_FACADE_IMPORTS:
+        editor_language_facade_imports_used.add(key)
+        return True
+    return False
+
 def grammar_lang(sym):
     """Owning language of an out-of-module grammar import, or None."""
     for root, lang in GRAMMAR_MODULES.items():
@@ -264,7 +284,9 @@ def check_canopy_layering(pkg, scope, sym):
     if under(pkg, ("editor",)):
         is_lang_import = (target is not None and under(target, ("lang",))) \
             or glang is not None
-        if is_lang_import and not waived("G", pkg, scope, sym):
+        if is_lang_import \
+                and not allowed_editor_language_facade_import(pkg, scope, sym) \
+                and not waived("G", pkg, scope, sym):
             yield (f"[G] {pkg} ({scope}) → {sym} "
                    f"(editor must not import lang/* or a language grammar)")
     if under(pkg, ("relay",)) \
@@ -333,6 +355,14 @@ for mmj in iter_manifests():
             violations.append(f"[E] submodule mod {name} has path-dep → {dep_name}")
 
 # --- Report ---
+for pkg, scope, sym in sorted(
+        EDITOR_LANGUAGE_FACADE_IMPORTS
+        - editor_language_facade_imports_used):
+    violations.append(
+        f"[G] STALE façade import: {pkg} ({scope}) → {sym} no longer "
+        f"matches any import — remove it from "
+        f"EDITOR_LANGUAGE_FACADE_IMPORTS")
+
 for key in sorted(EXCEPTIONS):
     rule, pkg, scope, sym = key
     if key in exceptions_used:

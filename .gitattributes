@@ -3,3 +3,7 @@ examples/web/worker-configuration.d.ts whitespace=-blank-at-eol
 
 # MoonBit owns this empty generated interface and emits a final blank line.
 probe/diagnostic_portability/pkg.generated.mbti whitespace=-blank-at-eof
+
+# MoonBit owns these generated interfaces and emits a final blank line.
+editor/markdown/pkg.generated.mbti whitespace=-blank-at-eof
+loomark/core/pkg.generated.mbti whitespace=-blank-at-eof

@@ -1,0 +1,15 @@
+import {
+  "dowdiness/canopy/lang/markdown/companion" @md_companion,
+  "dowdiness/canopy/lang/markdown/edits" @md_edits,
+  "dowdiness/canopy/core",
+  "dowdiness/canopy/editor",
+  "dowdiness/markdown" @md_markdown,
+  "dowdiness/event-graph-walker/text",
+  "moonbitlang/core/immut/vector",
+}
+
+warnings = "-7-29"
+
+options(
+  is_main: false,
+)
