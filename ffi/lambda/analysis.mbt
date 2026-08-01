@@ -80,6 +80,16 @@ fn LambdaHandle::pattern_source_snapshot(
 }
 
 ///|
+fn is_utf8_byte_boundary(bytes : Bytes, offset : Int) -> Bool {
+  guard offset >= 0 && offset <= bytes.length() else { return false }
+  try @utf8.decode(bytes.view(end=offset)) catch {
+    _ => false
+  } noraise {
+    _ => true
+  }
+}
+
+///|
 /// Apply JSON-encoded ast-grep results for a lambda editor handle.
 ///
 /// The JSON shape is:
@@ -102,13 +112,15 @@ pub fn apply_ast_grep_results_json(
     Err(e) => return "parse error: " + e
   }
   let source = h.editor.get_text()
-  let source_byte_length = @utf8.encode(source).length()
+  let source_bytes = @utf8.encode(source)
   guard matches
     .iter()
     .all(entry => {
       entry.byte_start >= 0 &&
       entry.byte_start <= entry.byte_end &&
-      entry.byte_end <= source_byte_length
+      entry.byte_end <= source_bytes.length() &&
+      is_utf8_byte_boundary(source_bytes, entry.byte_start) &&
+      is_utf8_byte_boundary(source_bytes, entry.byte_end)
     }) else {
     return "parse error: match byte range is out of bounds"
   }

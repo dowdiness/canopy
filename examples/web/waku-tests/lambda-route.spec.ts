@@ -227,12 +227,19 @@ test('lists structural matches, jumps to utf16 ranges, and removes stale results
   const source = '😀\nfn alpha(x : Int) {\n  x\n}\nfn beta(y : Int) { y }';
   let requestCount = 0;
   let releaseSecondResponse: (() => void) | undefined;
+  let markSecondRequestStarted: (() => void) | undefined;
   const secondResponseGate = new Promise<void>((resolve) => {
     releaseSecondResponse = resolve;
   });
+  const secondRequestStarted = new Promise<void>((resolve) => {
+    markSecondRequestStarted = resolve;
+  });
   await page.route('**/api/ast-grep', async (route) => {
     requestCount += 1;
-    if (requestCount > 1) await secondResponseGate;
+    if (requestCount > 1) {
+      markSecondRequestStarted?.();
+      await secondResponseGate;
+    }
     await route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify({
@@ -263,6 +270,24 @@ test('lists structural matches, jumps to utf16 ranges, and removes stale results
   await replaceSource(page, `${source} `);
   await expect(results).toHaveCount(0);
   await expect(page.locator('#structural-search-status')).toHaveText('Searching…');
+  await secondRequestStarted;
   releaseSecondResponse?.();
   await expect(page.locator('#structural-search-status')).toHaveText('No structural matches');
+});
+
+test('reports structural-search provider rejections', async ({ page }) => {
+  await page.route('**/api/ast-grep', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        matches: [{ byte_start: 0, byte_end: 100_000, pattern_id: 'invalid' }],
+      }),
+    });
+  });
+
+  await page.goto('/ml');
+  await waitForLambdaMount(page);
+  await replaceSource(page, 'fn rejected(x : Int) { x }');
+  await expect(page.locator('#structural-search-status'))
+    .toHaveText('Structural search unavailable');
 });

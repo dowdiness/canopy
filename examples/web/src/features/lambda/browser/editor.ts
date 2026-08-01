@@ -163,6 +163,7 @@ export function mountLambdaEditor(
         );
         if (result !== 'ok') {
           console.warn(`ast-grep analysis rejected: ${result}`);
+          renderStructuralSearchState('Structural search unavailable');
           return;
         }
         const patches: ViewPatch[] = JSON.parse(

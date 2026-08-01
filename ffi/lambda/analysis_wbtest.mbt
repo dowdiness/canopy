@@ -69,7 +69,7 @@ test "ast-grep input rejects invalid byte ranges" {
   for
     matches_json in [
       "[{\"byte_start\":-1,\"byte_end\":1,\"pattern_id\":\"negative\"}]", "[{\"byte_start\":2,\"byte_end\":1,\"pattern_id\":\"reversed\"}]",
-      "[{\"byte_start\":0,\"byte_end\":4,\"pattern_id\":\"past-end\"}]",
+      "[{\"byte_start\":0,\"byte_end\":4,\"pattern_id\":\"past-end\"}]", "[{\"byte_start\":1,\"byte_end\":2,\"pattern_id\":\"split-codepoint\"}]",
     ] {
     inspect(
       apply_ast_grep_results_json(handle, matches_json),
