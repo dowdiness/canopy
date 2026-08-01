@@ -1,0 +1,59 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/probe/markdown_application_core"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/core/immut/vector",
+}
+
+// Values
+pub const SNAPSHOT_VERSION : Int = 1
+
+pub fn reduce(ApplicationState, ApplicationEvent) -> Transition
+
+// Errors
+
+// Types and methods
+pub(all) enum ApplicationDecision {
+  ReplaceCanonicalSource(String)
+  SnapshotRejected(SnapshotError)
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ApplicationEvent {
+  CanonicalSourceCommitted(String)
+  SelectMode(ApplicationMode)
+  RestoreSnapshot(ApplicationSnapshot)
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ApplicationMode {
+  Raw
+  Preview
+} derive(Eq, @debug.Debug)
+
+pub struct ApplicationSnapshot {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn ApplicationSnapshot::new(Int, String, ApplicationMode) -> Self
+
+pub struct ApplicationState {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn ApplicationState::mode(Self) -> ApplicationMode
+pub fn ApplicationState::new(String, ApplicationMode) -> Self
+pub fn ApplicationState::snapshot(Self) -> ApplicationSnapshot
+pub fn ApplicationState::source(Self) -> String
+
+pub(all) enum SnapshotError {
+  UnsupportedSnapshotVersion(Int)
+} derive(Eq, @debug.Debug)
+
+pub struct Transition {
+  // private fields
+}
+pub fn Transition::decisions(Self) -> @vector.Vector[ApplicationDecision]
+pub fn Transition::state(Self) -> ApplicationState
+
+// Type aliases
+
+// Traits
+
