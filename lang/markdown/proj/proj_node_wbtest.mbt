@@ -28,6 +28,288 @@ test "projection: heading levels" {
   inspect(proj.children.length(), content="3")
 }
 
+/// Block quotes keep their existing flattened paragraph payload as an aligned
+/// leaf. Nested headings under unsupported containers are intentionally omitted
+/// with their semantic/syntax descendants; direct document headings stay
+/// editable and retain their own source range.
+
+///|
+test "projection: block quote before heading preserves payload alignment" {
+  let source = "> quoted\n\n# Heading\n"
+  let (proj, errors) = parse_to_proj_node(
+    markdown_projection_test_source, source,
+  )
+  inspect(errors.length(), content="0")
+  match proj.children {
+    [quote, heading] => {
+      match quote.kind {
+        Paragraph([Text(text)]) => inspect(text, content="> quoted")
+        _ => fail("expected flattened block quote paragraph payload")
+      }
+      match heading.kind {
+        Heading(level, [Text(text)]) => {
+          inspect(level, content="1")
+          inspect(text, content="Heading")
+        }
+        _ => fail("expected heading payload")
+      }
+      inspect(quote.start, content="0")
+      inspect(quote.end, content="9")
+      inspect(heading.start, content="10")
+    }
+    _ => fail("expected aligned quote and heading projection children")
+  }
+}
+
+///|
+test "projection: heading before block quote preserves payload alignment" {
+  let source = "# Heading\n\n> quoted\n"
+  let (proj, errors) = parse_to_proj_node(
+    markdown_projection_test_source, source,
+  )
+  inspect(errors.length(), content="0")
+  match proj.children {
+    [heading, quote] => {
+      match heading.kind {
+        Heading(level, [Text(text)]) => {
+          inspect(level, content="1")
+          inspect(text, content="Heading")
+        }
+        _ => fail("expected heading payload")
+      }
+      match quote.kind {
+        Paragraph([Text(text)]) => inspect(text, content="> quoted")
+        _ => fail("expected flattened block quote paragraph payload")
+      }
+      inspect(heading.start, content="0")
+      inspect(heading.end, content="10")
+      inspect(quote.start, content="11")
+    }
+    _ => fail("expected aligned heading and quote projection children")
+  }
+}
+
+///|
+test "projection: block quote before and after setext heading stays aligned" {
+  let before_source = "> quoted\n\nTitle\n---\n"
+  let (before, before_errors) = parse_to_proj_node(
+    markdown_projection_test_source, before_source,
+  )
+  assert_eq(before_errors.length(), 0)
+  match before.children {
+    [quote, heading] => {
+      match quote.kind {
+        Paragraph([Text(text)]) => assert_eq(text, "> quoted")
+        _ => fail("expected flattened block quote paragraph payload")
+      }
+      match heading.kind {
+        Heading(2, [Text(text)]) => assert_eq(text, "Title")
+        _ => fail("expected setext heading payload")
+      }
+    }
+    _ => fail("expected quote and setext heading children")
+  }
+  let after_source = "Title\n---\n\n> quoted\n"
+  let (after, after_errors) = parse_to_proj_node(
+    markdown_projection_test_source, after_source,
+  )
+  assert_eq(after_errors.length(), 0)
+  match after.children {
+    [heading, quote] => {
+      match heading.kind {
+        Heading(2, [Text(text)]) => assert_eq(text, "Title")
+        _ => fail("expected setext heading payload")
+      }
+      match quote.kind {
+        Paragraph([Text(text)]) => assert_eq(text, "> quoted")
+        _ => fail("expected flattened block quote paragraph payload")
+      }
+    }
+    _ => fail("expected setext heading and quote children")
+  }
+}
+
+///|
+test "projection: thematic break keeps neighboring heading alignment" {
+  let source = "# Before\n\n---\n\n## After\n"
+  let (proj, errors) = parse_to_proj_node(
+    markdown_projection_test_source, source,
+  )
+  inspect(errors.length(), content="0")
+  match proj.children {
+    [before, thematic, after] => {
+      match before.kind {
+        Heading(1, [Text(text)]) => inspect(text, content="Before")
+        _ => fail("expected leading heading payload")
+      }
+      match thematic.kind {
+        Paragraph([Text(text)]) => inspect(text, content="---")
+        _ => fail("expected thematic-break paragraph payload")
+      }
+      match after.kind {
+        Heading(2, [Text(text)]) => inspect(text, content="After")
+        _ => fail("expected trailing heading payload")
+      }
+      inspect(before.start, content="0")
+      inspect(thematic.start, content="10")
+      inspect(after.start, content="15")
+    }
+    _ => fail("expected aligned heading and thematic-break children")
+  }
+}
+
+///|
+test "projection: quote and heading terminators preserve alignment" {
+  let cases : Array[(String, Int)] = [
+    ("> quoted\n\n# Heading\n", 10),
+    ("> quoted\r\n\r\n# Heading", 12),
+    ("> quoted\r\r# Heading", 10),
+    ("> quoted\n\n# Heading", 10),
+  ]
+  for case in cases {
+    let source = case.0
+    let (proj, errors) = parse_to_proj_node(
+      markdown_projection_test_source, source,
+    )
+    assert_eq(errors.length(), 0)
+    match proj.children {
+      [quote, heading] => {
+        match quote.kind {
+          Paragraph([Text(text)]) => assert_eq(text, "> quoted")
+          _ => fail("expected flattened block quote payload")
+        }
+        match heading.kind {
+          Heading(1, [Text(text)]) => assert_eq(text, "Heading")
+          _ => fail("expected heading payload")
+        }
+        assert_eq(heading.start, case.1)
+      }
+      _ => fail("expected aligned quote and heading projection children")
+    }
+  }
+}
+
+/// Nested headings under unsupported containers remain intentionally omitted:
+/// the container's flattened semantic payload and its direct CST node are the
+/// only projected value, so no descendant can shift a later direct heading.
+
+///|
+test "projection: quoted nested heading is omitted without shifting direct heading" {
+  let source = "> # Nested\n\n# Direct\n"
+  let (proj, errors) = parse_to_proj_node(
+    markdown_projection_test_source, source,
+  )
+  inspect(errors.length(), content="0")
+  match proj.children {
+    [quote, heading] => {
+      match quote.kind {
+        Paragraph([Text(text)]) => inspect(text, content="> # Nested")
+        _ => fail("expected flattened block quote payload")
+      }
+      match heading.kind {
+        Heading(1, [Text(text)]) => inspect(text, content="Direct")
+        _ => fail("expected direct heading payload")
+      }
+      inspect(heading.start, content="12")
+    }
+    _ => fail("expected nested quote heading to stay omitted")
+  }
+}
+
+///|
+test "projection: listed nested heading is omitted without shifting direct heading" {
+  let source = "- item\n  # Nested\n\n# Direct\n"
+  let (proj, errors) = parse_to_proj_node(
+    markdown_projection_test_source, source,
+  )
+  inspect(errors.length(), content="0")
+  match proj.children {
+    [list, heading] => {
+      match list.kind {
+        UnorderedList([UnorderedListItem([Text(text)])]) =>
+          inspect(text, content="item")
+        _ => fail("expected list item payload")
+      }
+      match heading.kind {
+        Heading(1, [Text(text)]) => inspect(text, content="Direct")
+        _ => fail("expected direct heading payload")
+      }
+      inspect(heading.start, content="19")
+    }
+    _ => fail("expected nested list heading to stay omitted")
+  }
+}
+
+///|
+test "projection: ordered nested heading is omitted without shifting direct heading" {
+  let source = "1. item\n   ## Nested\n\n# Direct\n"
+  let (proj, errors) = parse_to_proj_node(
+    markdown_projection_test_source, source,
+  )
+  inspect(errors.length(), content="0")
+  match proj.children {
+    [list, heading] => {
+      match list.kind {
+        OrderedList([OrderedListItem([Text(text)], Some(_))], Some(_)) =>
+          inspect(text, content="item")
+        _ => fail("expected ordered list item payload")
+      }
+      match heading.kind {
+        Heading(1, [Text(text)]) => inspect(text, content="Direct")
+        _ => fail("expected direct heading payload")
+      }
+      inspect(heading.start, content="22")
+    }
+    _ => fail("expected nested ordered heading to stay omitted")
+  }
+}
+
+///|
+test "projection: quoted setext heading is omitted without shifting direct heading" {
+  let source = "> Nested\n> ---\n\n# Direct\n"
+  let (proj, errors) = parse_to_proj_node(
+    markdown_projection_test_source, source,
+  )
+  inspect(errors.length(), content="0")
+  match proj.children {
+    [quote, heading] => {
+      match quote.kind {
+        Paragraph([Text(text)]) => inspect(text, content="> Nested\n> ---")
+        _ => fail("expected flattened block quote payload")
+      }
+      match heading.kind {
+        Heading(1, [Text(text)]) => inspect(text, content="Direct")
+        _ => fail("expected direct heading payload")
+      }
+      inspect(heading.start, content="16")
+    }
+    _ => fail("expected nested quote setext heading to stay omitted")
+  }
+}
+
+///|
+test "projection: listed setext heading is omitted without shifting direct heading" {
+  let source = "- item\n  Nested\n  ---\n\n# Direct\n"
+  let (proj, errors) = parse_to_proj_node(
+    markdown_projection_test_source, source,
+  )
+  inspect(errors.length(), content="0")
+  match proj.children {
+    [list, heading] => {
+      match list.kind {
+        UnorderedList([UnorderedListItem(_)]) => ()
+        _ => fail("expected list item payload")
+      }
+      match heading.kind {
+        Heading(1, [Text(text)]) => inspect(text, content="Direct")
+        _ => fail("expected direct heading payload")
+      }
+      inspect(heading.start, content="23")
+    }
+    _ => fail("expected nested list setext heading to stay omitted")
+  }
+}
+
 ///|
 test "source map: ATX heading separates marker and text" {
   let source = "## Title\n"
@@ -50,6 +332,45 @@ test "source map: ATX heading separates marker and text" {
     Some(span) =>
       inspect(source[span.start:span.end].to_owned(), content="Title")
     None => fail("expected ATX heading text span")
+  }
+}
+
+///|
+test "source map: aligned block quote and heading keep matching ranges" {
+  let source = "> quote\n\n# Heading\n"
+  let (proj, errors) = parse_to_proj_node(
+    markdown_projection_test_source, source,
+  )
+  inspect(errors.length(), content="0")
+  let source_map = @core.SourceMap::from_ast(proj)
+  let (cst, diagnostics) = @markdown.parse_cst(
+    markdown_projection_test_source, source,
+  )
+  inspect(diagnostics.length(), content="0")
+  populate_token_spans(source_map, @seam.SyntaxNode::from_cst(cst), proj)
+  let quote = proj.children[0]
+  let heading = proj.children[1]
+  match source_map.get_range(quote.id()) {
+    Some(range) => {
+      assert_eq(range.start, 0)
+      assert_eq(range.end, 8)
+    }
+    None => fail("expected block quote range")
+  }
+  match source_map.get_range(heading.id()) {
+    Some(range) => {
+      assert_eq(range.start, 9)
+      assert_eq(range.end, 19)
+    }
+    None => fail("expected heading range")
+  }
+  match source_map.get_token_span(heading.id(), "marker") {
+    Some(span) => assert_eq(source[span.start:span.end].to_owned(), "# ")
+    None => fail("expected heading marker span")
+  }
+  match source_map.get_token_span(heading.id(), "text") {
+    Some(span) => assert_eq(source[span.start:span.end].to_owned(), "Heading")
+    None => fail("expected heading text span")
   }
 }
 
@@ -292,4 +613,64 @@ test "projection: incremental reparse preserves IDs" {
   inspect(proj2.children[0].node_id == heading_id, content="true")
   // Paragraph content changed, but structure is same — ID preserved
   inspect(proj2.children[1].node_id == para_id, content="true")
+}
+
+///|
+test "projection: incremental quote edit matches fresh shape ranges and identity" {
+  let source = "> quote\n\n# Heading\n"
+  let edited_source = "> quoted\n\n# Heading\n"
+  let parser = @loom.new_imperative_parser(
+    markdown_projection_test_source, source, @markdown.markdown_grammar,
+  )
+  let counter : Ref[Int] = Ref(0)
+  let _ = parser.parse()
+  let syntax1 = parser.get_syntax_tree().unwrap()
+  let initial = syntax_to_proj_node(syntax1, counter)
+  let quote_id = initial.children[0].node_id
+  let heading_id = initial.children[1].node_id
+  let edit = @loomcore.Edit::new(2, 5, 6)
+  let _ = parser.edit(edit, edited_source)
+  let syntax2 = parser.get_syntax_tree().unwrap()
+  let raw = syntax_to_proj_node(syntax2, counter)
+  let incremental = @core.reconcile(initial, raw, counter)
+  let (fresh, _) = parse_to_proj_node(
+    markdown_projection_test_source, edited_source,
+  )
+  let incremental_map = source_map_for(edited_source, incremental)
+  let fresh_map = source_map_for(edited_source, fresh)
+  assert_eq(incremental.equal(fresh), true)
+  assert_eq(incremental_map.equal(fresh_map), true)
+  assert_eq(incremental.children[0].node_id, quote_id)
+  assert_eq(incremental.children[1].node_id, heading_id)
+  match incremental.children[1].kind {
+    Heading(1, [Text(text)]) => assert_eq(text, "Heading")
+    _ => fail("expected matching heading payload after incremental edit")
+  }
+}
+
+///|
+test "projection: incremental quote insertion keeps following heading identity" {
+  let source = "# Heading\n"
+  let edited_source = "> quote\n\n# Heading\n"
+  let parser = @loom.new_imperative_parser(
+    markdown_projection_test_source, source, @markdown.markdown_grammar,
+  )
+  let counter : Ref[Int] = Ref(0)
+  let _ = parser.parse()
+  let syntax1 = parser.get_syntax_tree().unwrap()
+  let initial = syntax_to_proj_node(syntax1, counter)
+  let heading_id = initial.children[0].node_id
+  let edit = @loomcore.Edit::new(0, 0, edited_source.length())
+  let _ = parser.edit(edit, edited_source)
+  let syntax2 = parser.get_syntax_tree().unwrap()
+  let raw = syntax_to_proj_node(syntax2, counter)
+  let incremental = @core.reconcile(initial, raw, counter)
+  let (fresh, _) = parse_to_proj_node(
+    markdown_projection_test_source, edited_source,
+  )
+  assert_eq(incremental.children.length(), fresh.children.length())
+  assert_eq(incremental.children[1].kind, fresh.children[1].kind)
+  assert_eq(incremental.children[1].start, fresh.children[1].start)
+  assert_eq(incremental.children[1].end, fresh.children[1].end)
+  assert_eq(incremental.children[1].node_id, heading_id)
 }
