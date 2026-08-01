@@ -344,6 +344,41 @@ pub fn apply_lambda_tree_edit(
 }
 
 ///|
+/// Apply one Lambda edit and return an opt-in, detached scope-failure review
+/// for the agent host. Ordinary editor and protocol paths remain on
+/// `apply_lambda_tree_edit` and do not pay the two scope snapshots.
+pub fn apply_lambda_tree_edit_with_reachable_failure_review(
+  editor : @editor.SyncEditor[@ast.Term],
+  companion : LambdaCompanion,
+  op : @lambda_edits.TreeEditOp,
+  timestamp_ms : Int,
+  attribution : ReachableFailureAttribution,
+) -> Result[ReachableFailureReview, @editor.TreeEditError] {
+  let before = snapshot_reachable_failures(editor)
+  match apply_lambda_tree_edit(editor, companion, op, timestamp_ms) {
+    Err(error) => Err(error)
+    Ok(edits) => {
+      editor.refresh()
+      let after = snapshot_reachable_failures(editor)
+      Ok(build_reachable_failure_review(attribution, edits, before, after))
+    }
+  }
+}
+
+///|
+/// The imperative shell reads the current projection capabilities; scope
+/// construction and failure collection themselves remain deterministic.
+fn snapshot_reachable_failures(
+  editor : @editor.SyncEditor[@ast.Term],
+) -> Array[@lambda_scope.ReachableFailure] {
+  let source_map = editor.get_source_map()
+  @lambda_scope.failures(
+    @lambda_scope.build(editor.get_registry(), source_map),
+    source_map,
+  )
+}
+
+///|
 /// Map a language edit error to the editor-level error type.
 fn map_edit_error(e : @core.EditError) -> @editor.TreeEditError {
   match e {
