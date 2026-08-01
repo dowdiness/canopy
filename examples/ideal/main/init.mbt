@@ -71,7 +71,7 @@ fn init_model() -> Model raise {
 }
 
 ///|
-fn subscriptions(emit : Emit[Msg], model : Model) -> Sub {
+fn subscriptions(model : Model, emit : Emit[Msg]) -> Sub {
   let editor_events = editor_dom_event_subscriptions(emit)
   let cm_events = if model.mounted {
     @cm.listen(
@@ -98,17 +98,17 @@ fn root_init(emit : Emit[Msg]) -> (RootState, Cmd) {
 
 ///|
 fn root_update(
-  emit : Emit[Msg],
-  msg : Msg,
   state : RootState,
+  msg : Msg,
+  emit : Emit[Msg],
 ) -> (RootState, Cmd) {
   let (cmd, model) = update(emit, msg, state.0)
   (RootState(model, next_root_revision(state.1)), cmd)
 }
 
 ///|
-fn root_subscriptions(emit : Emit[Msg], state : RootState) -> Sub {
-  subscriptions(emit, state.0)
+fn root_subscriptions(state : RootState, emit : Emit[Msg]) -> Sub {
+  subscriptions(state.0, emit)
 }
 
 ///|
@@ -117,7 +117,7 @@ fn main {
     let (model, emit) = @rabbita.create_state_with_init(
       init=root_init,
       update=root_update,
-      subscriptions=(emit, state) => root_subscriptions(emit, state),
+      subscriptions=root_subscriptions,
     )
     model.map(state => view(emit, state.0))
   })

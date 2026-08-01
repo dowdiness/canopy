@@ -107,7 +107,7 @@ fn mount_cmd(emit : Emit[Msg], model : Model) -> Cmd {
 }
 
 ///|
-fn update(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
+fn update(model : Model, msg : Msg, emit : Emit[Msg]) -> (Cmd, Model) {
   match msg {
     Mounted =>
       (@rabbita.none, with_status({ ..model, mounted: true }, "mounted editor"))
@@ -175,7 +175,7 @@ fn update(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
 }
 
 ///|
-fn subscriptions(emit : Emit[Msg], model : Model) -> Sub {
+fn subscriptions(model : Model, emit : Emit[Msg]) -> Sub {
   guard model.mounted else { return @sub.none }
   let doc_tagger : Emit[String] = if model.use_variant_b {
     emit.map(text => DocChangedB(text))
@@ -295,8 +295,8 @@ fn main {
   fn app() {
     let (model, emit) = @rabbita.create_state_with_init(
       init=emit => (initial_model, mount_cmd(emit, initial_model)),
-      update=(emit, msg, model) => {
-        let (cmd, model) = update(emit, msg, model)
+      update=(model, msg, emit) => {
+        let (cmd, model) = update(model, msg, emit)
         (model, cmd)
       },
       subscriptions~,

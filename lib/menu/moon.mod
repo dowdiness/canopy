@@ -3,7 +3,7 @@ name = "dowdiness/rabbita-menu"
 version = "0.1.0"
 
 import {
-  "moonbit-community/rabbita@0.12.4",
+  "moonbit-community/rabbita@0.14.1",
   "dowdiness/dom_boundary@0.1.0",
 }
 

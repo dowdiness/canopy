@@ -3,7 +3,7 @@ name = "dowdiness/ideal-editor"
 version = "0.1.0"
 
 import {
-  "moonbit-community/rabbita@0.12.4",
+  "moonbit-community/rabbita@0.14.1",
   "dowdiness/rabbita_codemirror@0.0.1",
   "dowdiness/rabbita-menu@0.1.0",
   "dowdiness/rabbita-tabs@0.1.0",
