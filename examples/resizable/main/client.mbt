@@ -40,7 +40,7 @@ let initial_model : Model = {
 }
 
 ///|
-fn update(_emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
+fn update(model : Model, msg : Msg, _emit : Emit[Msg]) -> (Cmd, Model) {
   match msg {
     Corner(resize_msg) => {
       let corner = model.corner.update(resize_msg)
@@ -54,7 +54,7 @@ fn update(_emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
 }
 
 ///|
-fn subscriptions(emit : Emit[Msg], model : Model) -> @sub.Sub {
+fn subscriptions(model : Model, emit : Emit[Msg]) -> @sub.Sub {
   @sub.batch([
     model.corner.subscriptions(msg => emit(Corner(msg))),
     model.split.subscriptions(msg => emit(Split(msg))),
@@ -142,8 +142,8 @@ fn main {
   fn app() {
     let (model, emit) = @rabbita.create_state(
       initial_model,
-      update=(emit, msg, model) => {
-        let (cmd, model) = update(emit, msg, model)
+      update=(model, msg, emit) => {
+        let (cmd, model) = update(model, msg, emit)
         (model, cmd)
       },
       subscriptions~,

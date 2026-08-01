@@ -218,9 +218,9 @@ test "root reactive wrapper distinguishes adjacent updates" {
   let state = RootState(model, 0)
   inspect(state == state, content="true")
   let (next, _) = root_update(
-    test_parent_emit(),
-    OutlineNavigate("not-a-node-id"),
     state,
+    OutlineNavigate("not-a-node-id"),
+    test_parent_emit(),
   )
   inspect(state == next, content="false")
   inspect(next.1, content="1")

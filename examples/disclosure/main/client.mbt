@@ -119,7 +119,7 @@ let initial_model : Model = {
 }
 
 ///|
-fn update(msg : Msg, model : Model) -> Model {
+fn update(model : Model, msg : Msg) -> Model {
   match msg {
     Toggle(i) =>
       {
@@ -136,7 +136,7 @@ fn update(msg : Msg, model : Model) -> Model {
 
 ///|
 test "toggle updates selected section only" {
-  let toggled = update(Toggle(0), initial_model)
+  let toggled = update(initial_model, Toggle(0))
   match toggled.sections {
     [first, second, third] => {
       assert_eq(first.disclosure.open, true)
@@ -166,7 +166,7 @@ fn section_view(emit : Emit[Msg], index : Int, section : Section) -> Html {
 fn view(emit : Emit[Msg], model : Model) -> Html {
   div(class="page", [
     div(class="hero", [
-      p(class="eyebrow", "Headless UI · rabbita 0.12.4"),
+      p(class="eyebrow", "Headless UI · rabbita 0.14.1"),
       h1("Disclosure"),
       p(
         class="subtitle",

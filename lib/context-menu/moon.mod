@@ -4,7 +4,7 @@ version = "0.1.0"
 
 import {
   "dowdiness/rabbita-menu@0.1.0",
-  "moonbit-community/rabbita@0.12.4",
+  "moonbit-community/rabbita@0.14.1",
 }
 
 readme = "README.md"
