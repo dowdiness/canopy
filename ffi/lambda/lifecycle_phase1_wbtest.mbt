@@ -44,8 +44,15 @@ test "spec §12 #1: each protected cell reads through read_protected" {
   let id = h.editor_id
   // Spec compliance: every cell wired into the bundle must reach
   // `read_protected` with Ok(_) on a freshly-created editor. Reading
-  // all 9 (not a spot-check) guarantees a wiring defect on any single
+  // all 10 (not a spot-check) guarantees a wiring defect on any single
   // cell fails this test instead of slipping past.
+  match coordinator.read_protected(id, h.cells.diagnostic_source_revision) {
+    Ok(source_revision) => {
+      assert_eq(source_revision.source(), h.editor.parser_source_id())
+      assert_eq(source_revision.version(), h.editor.get_version())
+    }
+    Err(report) => fail("diagnostic_source_revision: \{report}")
+  }
   match coordinator.read_protected(id, h.cells.parser_syntax_tree) {
     Ok(_) => ()
     Err(report) => fail("parser_syntax_tree: \{report}")

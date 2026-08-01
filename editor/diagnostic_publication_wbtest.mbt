@@ -14,12 +14,12 @@ fn publication_channel(
   producer : String,
   name? : String = "diagnostics",
 ) -> DiagnosticPublicationChannel {
-  DiagnosticPublicationChannel::new(DiagnosticProducerId::new(producer), name)
+  DiagnosticPublicationChannel::new(DiagnosticProducerId(producer), name)
 }
 
 ///|
 fn publication_state() -> DiagnosticPublicationState {
-  DiagnosticPublicationState::new(DiagnosticConfigurationId::new("config-0"))
+  DiagnosticPublicationState::new(DiagnosticConfigurationId("config-0"))
 }
 
 ///|
@@ -78,7 +78,7 @@ test "publication rejects the original completion after A0 A1 A0" {
   let parser = publication_channel("parser")
   let a0_text = "same source"
   let state = with_source(
-    DiagnosticPublicationState::new(DiagnosticConfigurationId::new("config-0")),
+    DiagnosticPublicationState::new(DiagnosticConfigurationId("config-0")),
     "A",
     0,
   )
@@ -94,7 +94,7 @@ test "publication rejects the original completion after A0 A1 A0" {
   )
   let (state, old_ticket, _) = state.issue(
     DiagnosticPublicationChannel::new(
-      DiagnosticProducerId::new("semantic"),
+      DiagnosticProducerId("semantic"),
       "diagnostics",
     ),
     [DiagnosticSourceRevision::new(source_a, 0)],
@@ -188,7 +188,7 @@ test "display sorts producer and channel as a lexicographic pair" {
 
 ///|
 test "producer restart cancels active channels in lexical pair order" {
-  let producer = DiagnosticProducerId::new("semantic")
+  let producer = DiagnosticProducerId("semantic")
   let later = DiagnosticPublicationChannel::new(producer, "z-channel")
   let earlier = DiagnosticPublicationChannel::new(producer, "a-channel")
   let state = with_source(publication_state(), "A", 0)
@@ -216,7 +216,7 @@ test "coverage invalidation is precise for source dependency configuration and t
   let semantic = publication_channel("semantic")
   let state = with_source(with_source(publication_state(), "A", 0), "B", 0)
   let state = state.set_dependency_identity(
-    DiagnosticDependencyId::new("project"),
+    DiagnosticDependencyId("project"),
     "dep-0",
   )
   let (state, unrelated, _) = state.issue(semantic, [source_revision("A", 0)], [])
@@ -232,15 +232,10 @@ test "coverage invalidation is precise for source dependency configuration and t
   let (state, dependency_ticket, _) = state.issue(
     semantic,
     [source_revision("A", 0)],
-    [
-      DiagnosticDependencyRevision::new(
-        DiagnosticDependencyId::new("project"),
-        "dep-0",
-      ),
-    ],
+    [DiagnosticDependencyRevision(DiagnosticDependencyId("project"), "dep-0")],
   )
   let state = state.set_dependency_identity(
-    DiagnosticDependencyId::new("project"),
+    DiagnosticDependencyId("project"),
     "dep-1",
   )
   let (state, dependency_decision) = state.complete(
@@ -256,9 +251,7 @@ test "coverage invalidation is precise for source dependency configuration and t
     [source_revision("A", 0)],
     [],
   )
-  let state = state.set_configuration(
-    DiagnosticConfigurationId::new("config-1"),
-  )
+  let state = state.set_configuration(DiagnosticConfigurationId("config-1"))
   let (state, config_decision) = state.complete(
     config_ticket,
     publication_fixture("stale-config"),
@@ -334,7 +327,7 @@ test "newer cancellation restart and duplicate completions never revive older wo
     [],
   )
   let (state, restart_commands) = state.restart_producer(
-    DiagnosticProducerId::new("semantic"),
+    DiagnosticProducerId("semantic"),
   )
   inspect(restart_commands.length(), content="1")
   let (state, restart_decision) = state.complete(
@@ -463,7 +456,7 @@ test "fake async shell executes issue cancellation restart and reordered complet
     content="true",
   )
   let previous_generation = shell.issue(semantic)
-  shell.restart(DiagnosticProducerId::new("semantic"))
+  shell.restart(DiagnosticProducerId("semantic"))
   let restart_decision = shell.complete(
     previous_generation,
     publication_fixture("pre-restart"),
