@@ -30,6 +30,13 @@ pub fn[T : @dowdiness/loom/core.Renderable] compute_view_patches(ViewUpdateState
 pub fn project_diagnostics_for_source(@dowdiness/loom/core.SourceId, @dowdiness/loom/core.DiagnosticSet) -> Array[@protocol.Diagnostic]
 
 // Errors
+pub(all) suberror DiagnosticPublicationInputError {
+  NoCoveredSources
+  DuplicateSource(@dowdiness/loom/core.SourceId)
+  DuplicateDependency(DiagnosticDependencyId)
+} derive(Eq, @debug.Debug)
+pub impl Show for DiagnosticPublicationInputError
+
 pub(all) suberror TreeEditError {
   ExpectedJsonObject
   MissingField(field~ : String)
@@ -47,6 +54,54 @@ pub(all) suberror TreeEditError {
 pub fn TreeEditError::message(Self) -> String
 
 // Types and methods
+pub struct DiagnosticConfigurationId {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn DiagnosticConfigurationId::DiagnosticConfigurationId(String) -> Self
+pub fn DiagnosticConfigurationId::to_string(Self) -> String
+
+pub struct DiagnosticDependencyId {
+  // private fields
+} derive(Eq, Hash, @debug.Debug)
+pub fn DiagnosticDependencyId::DiagnosticDependencyId(String) -> Self
+pub fn DiagnosticDependencyId::to_string(Self) -> String
+
+pub struct DiagnosticDependencyRevision {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn DiagnosticDependencyRevision::DiagnosticDependencyRevision(DiagnosticDependencyId, String) -> Self
+pub fn DiagnosticDependencyRevision::dependency(Self) -> DiagnosticDependencyId
+pub fn DiagnosticDependencyRevision::identity(Self) -> String
+
+pub struct DiagnosticProducerGeneration {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn DiagnosticProducerGeneration::DiagnosticProducerGeneration(Int) -> Self
+pub fn DiagnosticProducerGeneration::to_int(Self) -> Int
+
+pub struct DiagnosticProducerId {
+  // private fields
+} derive(Eq, Hash, @debug.Debug)
+pub fn DiagnosticProducerId::DiagnosticProducerId(String) -> Self
+pub fn DiagnosticProducerId::to_string(Self) -> String
+
+pub struct DiagnosticPublicationInputSnapshot {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn DiagnosticPublicationInputSnapshot::DiagnosticPublicationInputSnapshot(DiagnosticProducerId, DiagnosticProducerGeneration, Array[DiagnosticPublicationSourceRevision], Array[DiagnosticDependencyRevision], DiagnosticConfigurationId) -> Self raise DiagnosticPublicationInputError
+pub fn DiagnosticPublicationInputSnapshot::configuration(Self) -> DiagnosticConfigurationId
+pub fn DiagnosticPublicationInputSnapshot::dependencies(Self) -> Array[DiagnosticDependencyRevision]
+pub fn DiagnosticPublicationInputSnapshot::generation(Self) -> DiagnosticProducerGeneration
+pub fn DiagnosticPublicationInputSnapshot::producer(Self) -> DiagnosticProducerId
+pub fn DiagnosticPublicationInputSnapshot::sources(Self) -> Array[DiagnosticPublicationSourceRevision]
+
+pub struct DiagnosticPublicationSourceRevision {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn DiagnosticPublicationSourceRevision::DiagnosticPublicationSourceRevision(@dowdiness/loom/core.SourceId, @text.Version) -> Self
+pub fn DiagnosticPublicationSourceRevision::source(Self) -> @dowdiness/loom/core.SourceId
+pub fn DiagnosticPublicationSourceRevision::version(Self) -> @text.Version
+
 pub struct Editor {
   doc : @text.TextState
   mut cursor : Int
@@ -93,6 +148,7 @@ pub fn[T : Eq] SyncEditor::delete_and_record(Self[T], Int) -> Bool
 pub fn[T : Eq] SyncEditor::delete_at(Self[T], Int, Int) -> Bool
 pub fn[T] SyncEditor::delete_local_presence(Self[T]) -> Unit
 pub fn[T : Eq + @dowdiness/loom/core.Renderable] SyncEditor::delete_node(Self[T], @dowdiness/canopy/core.NodeId, Int) -> Result[Unit, TreeEditError]
+pub fn[T] SyncEditor::diagnostic_publication_source_revision(Self[T]) -> @cells.Derived[DiagnosticPublicationSourceRevision]
 pub fn[T] SyncEditor::encode_ephemeral_all(Self[T]) -> Bytes
 pub fn[T] SyncEditor::export_all(Self[T]) -> @text.SyncMessage raise
 pub fn[T] SyncEditor::export_since(Self[T], @text.Version) -> @text.SyncMessage raise

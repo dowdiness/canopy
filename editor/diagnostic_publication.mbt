@@ -1,18 +1,20 @@
 ///|
 /// Host-only identity for a diagnostic producer. It is intentionally distinct
 /// from both source and display-channel identity.
-priv struct DiagnosticProducerId(String) derive(Eq, Hash)
+pub struct DiagnosticProducerId {
+  priv value : String
+} derive(Eq, Hash, @debug.Debug)
 
 ///|
-#warnings("-unused_value")
-fn DiagnosticProducerId::new(value : String) -> DiagnosticProducerId {
-  DiagnosticProducerId(value)
+pub fn DiagnosticProducerId::DiagnosticProducerId(
+  value : String,
+) -> DiagnosticProducerId {
+  { value, }
 }
 
 ///|
-fn DiagnosticProducerId::to_string(self : DiagnosticProducerId) -> String {
-  let DiagnosticProducerId(value) = self
-  value
+pub fn DiagnosticProducerId::to_string(self : DiagnosticProducerId) -> String {
+  self.value
 }
 
 ///|
@@ -25,21 +27,60 @@ fn DiagnosticSourceId::new(value : String) -> DiagnosticSourceId {
 }
 
 ///|
-priv struct DiagnosticDependencyId(String) derive(Eq, Hash)
+pub struct DiagnosticDependencyId {
+  priv value : String
+} derive(Eq, Hash, @debug.Debug)
 
 ///|
-#warnings("-unused_value")
-fn DiagnosticDependencyId::new(value : String) -> DiagnosticDependencyId {
-  DiagnosticDependencyId(value)
+pub fn DiagnosticDependencyId::DiagnosticDependencyId(
+  value : String,
+) -> DiagnosticDependencyId {
+  { value, }
 }
 
 ///|
-priv struct DiagnosticConfigurationId(String) derive(Eq)
+pub fn DiagnosticDependencyId::to_string(
+  self : DiagnosticDependencyId,
+) -> String {
+  self.value
+}
 
 ///|
-#warnings("-unused_value")
-fn DiagnosticConfigurationId::new(value : String) -> DiagnosticConfigurationId {
-  DiagnosticConfigurationId(value)
+pub struct DiagnosticConfigurationId {
+  priv value : String
+} derive(Eq, @debug.Debug)
+
+///|
+pub fn DiagnosticConfigurationId::DiagnosticConfigurationId(
+  value : String,
+) -> DiagnosticConfigurationId {
+  { value, }
+}
+
+///|
+pub fn DiagnosticConfigurationId::to_string(
+  self : DiagnosticConfigurationId,
+) -> String {
+  self.value
+}
+
+///|
+pub struct DiagnosticProducerGeneration {
+  priv value : Int
+} derive(Eq, @debug.Debug)
+
+///|
+pub fn DiagnosticProducerGeneration::DiagnosticProducerGeneration(
+  value : Int,
+) -> DiagnosticProducerGeneration {
+  { value, }
+}
+
+///|
+pub fn DiagnosticProducerGeneration::to_int(
+  self : DiagnosticProducerGeneration,
+) -> Int {
+  self.value
 }
 
 ///|
@@ -88,18 +129,31 @@ fn DiagnosticSourceRevision::new(
 }
 
 ///|
-priv struct DiagnosticDependencyRevision {
-  dependency : DiagnosticDependencyId
-  identity : String
-}
+pub struct DiagnosticDependencyRevision {
+  priv dependency : DiagnosticDependencyId
+  priv identity : String
+} derive(Eq, @debug.Debug)
 
 ///|
-#warnings("-unused_value")
-fn DiagnosticDependencyRevision::new(
+pub fn DiagnosticDependencyRevision::DiagnosticDependencyRevision(
   dependency : DiagnosticDependencyId,
   identity : String,
 ) -> DiagnosticDependencyRevision {
   { dependency, identity }
+}
+
+///|
+pub fn DiagnosticDependencyRevision::dependency(
+  self : DiagnosticDependencyRevision,
+) -> DiagnosticDependencyId {
+  self.dependency
+}
+
+///|
+pub fn DiagnosticDependencyRevision::identity(
+  self : DiagnosticDependencyRevision,
+) -> String {
+  self.identity
 }
 
 ///|

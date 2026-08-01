@@ -17,6 +17,7 @@ fn[T : Eq] SyncEditor::sync_parser_after_text_change(
   new_source : String,
   known_edit : @loom_core.Edit?,
 ) -> Unit {
+  self.document_version.set(self.doc.version())
   // Short-circuits mark_projection_dirty; Parser does its own identity check.
   guard old_source != new_source else { return }
   if new_source == "" {
@@ -99,6 +100,7 @@ fn[T : Eq] SyncEditor::apply_local_text_change(
 
 ///|
 pub fn[T : Eq] SyncEditor::mark_dirty(self : SyncEditor[T]) -> Unit {
+  self.document_version.set(self.doc.version())
   self.parser.set_source(self.doc.text())
   self.mark_projection_dirty()
 }

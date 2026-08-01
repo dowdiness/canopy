@@ -18,8 +18,10 @@ import {
   "dowdiness/seam",
   "dowdiness/event-graph-walker/text",
   "dowdiness/analysis" @facts,
+  "dowdiness/incr",
   "moonbitlang/async/js_async",
   "moonbitlang/core/buffer",
+  "moonbitlang/core/debug",
   "moonbitlang/core/json",
   "moonbitlang/core/string",
 }
@@ -27,11 +29,6 @@ import {
 import {
   "dowdiness/canopy/protocol/wire",
 } for "test"
-
-import {
-  "dowdiness/incr",
-  "moonbitlang/core/debug",
-} for "wbtest"
 
 // `cells` field of LambdaHandle is read in production by Phase 1b accessors
 // (`get_diagnostics_json`, view/pretty/semantic projection accessors, and

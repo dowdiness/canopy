@@ -6,6 +6,10 @@ pub struct SyncEditor[T] {
   priv doc : @text.TextState
   priv undo : @undo.UndoManager
   priv parser : @loom.Parser[T]
+  // Reactive causal authority for host-owned snapshots. This is separate
+  // from parser source because CRDT history can advance without changing the
+  // rendered text.
+  priv document_version : @incr.Input[@text.Version]
   priv mut cursor : Int
   priv cached_proj_node : @incr.Derived[@core.ProjNode[T]?]
   priv registry_memo : @incr.Derived[Map[@core.NodeId, @core.ProjNode[T]]]
@@ -65,12 +69,18 @@ pub fn[T] SyncEditor::new_generic(
     "canopy-sync-editor:" + identity.to_string(),
   )
   let parser = make_parser(source_id, "", parent_runtime)
+  let document_version = @incr.Input(
+    parser.runtime(),
+    doc.version(),
+    label="sync_editor_document_version",
+  )
   let (cached_proj_node, registry_memo, source_map_memo) = build_memos(parser)
   let (hub, cursor_view) = setup_hub_and_cursor(agent_id)
   {
     doc,
     undo: @undo.UndoManager::new(agent_id, capture_timeout_ms~),
     parser,
+    document_version,
     cursor: 0,
     cached_proj_node,
     registry_memo,

@@ -16,6 +16,9 @@
 /// cross-package consumer (e.g., a separate workspace introspection
 /// crate) needs the bundle, promote to `pub` then.
 priv struct LambdaProtectedCells {
+  diagnostic_source_revision : @workspace.ProtectedCell[
+    @editor.DiagnosticPublicationSourceRevision,
+  ]
   parser_syntax_tree : @workspace.ProtectedCell[@seam.SyntaxNode]
   parser_ast : @workspace.ProtectedCell[@ast.Term]
   parser_source : @workspace.ProtectedCell[String]
@@ -35,6 +38,10 @@ fn LambdaProtectedCells::LambdaProtectedCells(
   companion : @lang_lambda.LambdaCompanion,
 ) -> LambdaProtectedCells {
   {
+    diagnostic_source_revision: @workspace.ProtectedCell::from_derived(
+      "diagnostic_publication_source_revision",
+      editor.diagnostic_publication_source_revision(),
+    ),
     parser_syntax_tree: @workspace.ProtectedCell::from_derived(
       "parser_syntax_view",
       editor.parser_syntax_tree(),
@@ -81,6 +88,7 @@ fn LambdaProtectedCells::to_protected_reads(
   self : LambdaProtectedCells,
 ) -> Array[@workspace.ProtectedRead] {
   [
+    self.diagnostic_source_revision.erase(),
     self.parser_syntax_tree.erase(),
     self.parser_ast.erase(),
     self.parser_source.erase(),
