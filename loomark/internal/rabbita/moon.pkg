@@ -1,0 +1,20 @@
+import {
+  "dowdiness/canopy/editor/markdown",
+  "dowdiness/dom_boundary",
+  "dowdiness/loomark/core",
+  "moonbit-community/rabbita" @rabbita_runtime,
+  "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/common",
+  "moonbit-community/rabbita/html",
+  "moonbit-community/rabbita/sub",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/json",
+  "moonbitlang/core/ref",
+  "moonbitlang/core/string",
+}
+
+supported_targets = "js"
+
+options(
+  targets: { "*.mbt": [ "js" ] },
+)

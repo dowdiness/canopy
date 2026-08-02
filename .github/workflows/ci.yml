@@ -57,6 +57,7 @@ jobs:
       run_prove: ${{ steps.filter.outputs.run_prove }}
       run_e2e: ${{ steps.filter.outputs.run_e2e }}
       run_cm6_adapter_e2e: ${{ steps.filter.outputs.run_cm6_adapter_e2e }}
+      run_loomark_dev_host_e2e: ${{ steps.filter.outputs.run_loomark_dev_host_e2e }}
       run_pr_ready_bash3: ${{ steps.filter.outputs.run_pr_ready_bash3 }}
     steps:
       - uses: actions/checkout@v7
@@ -70,6 +71,14 @@ jobs:
             run_cm6_adapter_e2e:
               - 'adapters/editor-adapter/**'
               - '.github/workflows/ci.yml'
+            run_loomark_dev_host_e2e:
+              - 'loomark/**'
+              - 'editor/markdown/**'
+              - 'lib/dom-boundary/**'
+              - 'lib/js-ffi/**'
+              - 'rabbita/**'
+              - '.github/workflows/ci.yml'
+              - 'scripts/test-loomark-dev-host-e2e.sh'
             run_prove:
               - 'lib/semantic/proof/**'
               - '.github/actions/setup-moonbit/**'
@@ -761,6 +770,32 @@ jobs:
         working-directory: adapters/editor-adapter
         run: npm run test:e2e:cm6
 
+  loomark-dev-host-e2e:
+    name: Loomark Dev Host E2E
+    needs: [changes]
+    if: needs.changes.outputs.run_loomark_dev_host_e2e == 'true'
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.61.1-noble
+      options: --ipc=host
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Set up MoonBit
+        uses: ./.github/actions/setup-moonbit
+
+      - name: Verify MoonBit installation
+        run: moon version --all
+
+      - name: Update MoonBit dependencies
+        run: ./scripts/update-moon-deps.sh
+
+      - name: Run Loomark dev-host browser suite
+        run: ./scripts/test-loomark-dev-host-e2e.sh
+
   all-checks-passed:
     name: All Checks Passed
     runs-on: ubuntu-latest
@@ -782,6 +817,7 @@ jobs:
       - demo-react-e2e
       - canvas-e2e
       - cm6-adapter-e2e
+      - loomark-dev-host-e2e
     if: always()
     steps:
       - name: Check all job statuses
@@ -809,7 +845,10 @@ jobs:
              ! ok "${{ needs.ideal-web-e2e.result }}" || \
              ! ok "${{ needs.demo-react-e2e.result }}" || \
              ! ok "${{ needs.canvas-e2e.result }}" || \
-             ! ok "${{ needs.cm6-adapter-e2e.result }}"; then
+             ! ok "${{ needs.cm6-adapter-e2e.result }}" || \
+             ! path_filtered_ok \
+               "${{ needs.loomark-dev-host-e2e.result }}" \
+               "${{ needs.changes.outputs.run_loomark_dev_host_e2e }}"; then
             echo "❌ One or more required checks failed"
             exit 1
           fi

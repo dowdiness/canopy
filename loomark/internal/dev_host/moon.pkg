@@ -1,0 +1,25 @@
+import {
+  "dowdiness/loomark/internal/rabbita" @app,
+}
+
+supported_targets = "js"
+
+options(
+  link: {
+    "js": {
+      "exports": [
+        "mount_dev_host",
+        "dev_host_snapshot",
+        "dev_host_request_source",
+        "dev_host_select_preview",
+        "dev_host_focus_preview",
+        "dev_host_write_selection",
+        "dev_host_write_selection_failure",
+        "dev_host_measure_preview",
+        "dev_host_measure_failure",
+        "dev_host_stop_listening",
+        "dev_host_fail",
+      ],
+    },
+  },
+)
