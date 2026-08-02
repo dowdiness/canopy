@@ -15,13 +15,47 @@ pub fn dev_host_request_source(source : String) -> Unit {
 }
 
 ///|
+pub fn dev_host_select_raw() -> Unit {
+  @app.select_raw()
+}
+
+///|
 pub fn dev_host_select_preview() -> Unit {
   @app.select_preview()
 }
 
 ///|
+pub fn dev_host_restore_snapshot(
+  version : Int,
+  source : String,
+  mode : String,
+) -> Unit {
+  @app.restore_snapshot(version, source, mode)
+}
+
+///|
+pub fn dev_host_force_editor_failure() -> Unit {
+  @app.force_editor_failure()
+}
+
+///|
 pub fn dev_host_focus_preview() -> Unit {
   @app.focus_preview()
+}
+
+///|
+pub fn dev_host_focus_raw() -> Unit {
+  @app.focus_raw()
+}
+
+///|
+pub fn dev_host_capture_focus() -> String {
+  @app.capture_focus()
+}
+
+///|
+pub fn dev_host_restore_focus(token : String) -> Unit {
+  @app.restore_focus(token)
 }
 
 ///|

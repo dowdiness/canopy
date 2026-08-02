@@ -2,9 +2,15 @@
 package "dowdiness/loomark/internal/rabbita"
 
 // Values
+pub fn capture_focus() -> String
+
 pub fn fail(String) -> Unit
 
 pub fn focus_preview() -> Unit
+
+pub fn focus_raw() -> Unit
+
+pub fn force_editor_failure() -> Unit
 
 pub fn measure_failure() -> Unit
 
@@ -14,7 +20,13 @@ pub fn mount(String, String) -> String
 
 pub fn request_source(String) -> Unit
 
+pub fn restore_focus(String) -> Unit
+
+pub fn restore_snapshot(Int, String, String) -> Unit
+
 pub fn select_preview() -> Unit
+
+pub fn select_raw() -> Unit
 
 pub fn snapshot() -> String
 
