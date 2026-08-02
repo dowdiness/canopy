@@ -65,6 +65,7 @@ pub fn FocusLocator::FocusLocator(target~ : FocusTarget, source_revision~ : Int)
 
 pub(all) enum FocusTarget {
   RawEditor
+  BlockEditor
   PreviewControl
 } derive(Eq, @debug.Debug)
 

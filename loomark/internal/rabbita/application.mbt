@@ -3,8 +3,18 @@
 priv enum DriverEvent {
   ReplaceSource(String)
   SelectRaw
+  SelectBlock
   SelectPreview
   RawInput(String)
+  BlockInput(
+    node_id~ : @markdown.MarkdownNodeId,
+    text~ : String,
+    selection_offset~ : Int
+  )
+  BlockSplit(node_id~ : @markdown.MarkdownNodeId, offset~ : Int)
+  BlockMerge(node_id~ : @markdown.MarkdownNodeId)
+  BlockSelectionRejected(String)
+  ProbeBlockSelection(String)
   EditorFailure
   RestoreSnapshot(
     version~ : Int,
@@ -12,6 +22,7 @@ priv enum DriverEvent {
     mode~ : @core.ApplicationMode
   )
   FocusPreview
+  FocusBlock
   FocusRaw
   RestoreFocus(String)
   FocusRejected(@core.FocusDecisionError)
@@ -50,6 +61,7 @@ priv suberror DriverSubscription {
 priv struct DriverModel {
   state : @core.ApplicationState
   document : @markdown.MarkdownDocumentSnapshot
+  replica_id : String
   source_revision : Int
   fatal : Bool
   error : String?
@@ -60,6 +72,8 @@ priv struct DriverModel {
   fail_next_editor_commit : Bool
   /// Rendering epoch used only to remount Raw after a rejected commit.
   raw_surface_revision : Int
+  /// Rendering epoch used only to remount Block controls after rejection.
+  block_surface_revision : Int
   resize_count : Int
   selection : String?
   measurement : String?
@@ -93,6 +107,11 @@ let detached_focus_token : @ref.Ref[String] = { val: "" }
 const FOCUS_TOKEN_VERSION : Int = 1
 
 ///|
+/// Allocate one globally unique CRDT replica identity per mount.
+extern "js" fn js_replica_uuid() -> String =
+  #| () => globalThis.crypto.randomUUID()
+
+///|
 fn mode_name(mode : @core.ApplicationMode) -> String {
   match mode {
     @core.Raw => "raw"
@@ -106,6 +125,7 @@ fn mode_name(mode : @core.ApplicationMode) -> String {
 fn focus_target_id(target : @core.FocusTarget) -> String {
   match target {
     @core.RawEditor => "loomark-input"
+    @core.BlockEditor => "loomark-block-input"
     @core.PreviewControl => "loomark-focus-target"
   }
 }
@@ -114,6 +134,7 @@ fn focus_target_id(target : @core.FocusTarget) -> String {
 fn focus_target_name(target : @core.FocusTarget) -> String {
   match target {
     @core.RawEditor => "raw"
+    @core.BlockEditor => "block"
     @core.PreviewControl => "preview"
   }
 }
@@ -148,6 +169,7 @@ fn decode_focus_token(
   }
   let target = match parts[1] {
     "raw" => @core.RawEditor
+    "block" => @core.BlockEditor
     "preview" => @core.PreviewControl
     _ => return Err(FocusTokenError::Ambiguous)
   }
@@ -254,7 +276,7 @@ fn commit_source(
     @markdown.MarkdownEditRequest::ReplaceSource(source)
   }
   match editor.commit(request) {
-    Ok(@markdown.Applied(document)) =>
+    Ok(@markdown.Applied(document, _)) =>
       (
         {
           ..next,
@@ -282,9 +304,58 @@ fn commit_source(
 }
 
 ///|
+/// Commit one typed block request through the atomic façade boundary.
+/// Structural callers receive the deep selection outcome without reading
+/// SyncEditor cursor state in this shell.
+fn commit_block_request(
+  editor : @markdown.MarkdownEditor,
+  model : DriverModel,
+  request : @markdown.MarkdownEditRequest,
+  operation : String,
+) -> (DriverModel, @markdown.MarkdownBlockSelection?) {
+  let fail_commit = model.fail_next_editor_commit
+  let next = { ..model, fail_next_editor_commit: false }
+  let request = if fail_commit {
+    @markdown.MarkdownEditRequest::ReplaceText(
+      start=-1,
+      delete_len=0,
+      inserted="",
+    )
+  } else {
+    request
+  }
+  match editor.commit(request) {
+    Ok(@markdown.Applied(document, selection)) =>
+      (
+        {
+          ..next,
+          document,
+          source_revision: model.source_revision + 1,
+          committed_change_count: model.committed_change_count + 1,
+        },
+        selection,
+      )
+    Ok(@markdown.Unchanged(document)) => ({ ..next, document, }, None)
+    Err(error) => {
+      let failed = record_error(
+        next,
+        "editor-commit-failed",
+        operation,
+        "editor commit failed: " + editor_error_detail(error),
+      )
+      (
+        { ..failed, block_surface_revision: model.block_surface_revision + 1 },
+        None,
+      )
+    }
+  }
+}
+
+///|
 fn publish(model : DriverModel) -> Unit {
   let fields : Map[String, Json] = {
     "source": model.document.source().to_json(),
+    "replica_id": model.replica_id.to_json(),
     "version": @core.SNAPSHOT_VERSION.to_json(),
     "mode": mode_name(model.state.mode()).to_json(),
     "source_revision": model.source_revision.to_json(),
@@ -300,6 +371,7 @@ fn publish(model : DriverModel) -> Unit {
     "error_count": model.error_count.to_json(),
     "committed_change_count": model.committed_change_count.to_json(),
     "editor_failure_armed": model.fail_next_editor_commit.to_json(),
+    "block_surface_revision": model.block_surface_revision.to_json(),
     "resize_count": model.resize_count.to_json(),
     "selection": match model.selection {
       Some(selection) => selection.to_json()
@@ -360,14 +432,67 @@ fn editor_surface(
         ),
       }
     @core.Block =>
-      {
-        "block": @html.pre(
-          id="loomark-block",
-          attrs=@html.Attrs::build().data_set("loomark-source", source),
-          source,
+      Map([
+        (
+          "block|" + model.block_surface_revision.to_string(),
+          block_surface(model, emit),
         ),
-      }
+      ])
   }
+}
+
+///|
+fn block_split_command(
+  block : @markdown.MarkdownBlockSnapshot,
+  input_id : String,
+  emit : @cmd.Emit[DriverEvent],
+) -> @cmd.Cmd {
+  @cmd.custom_cmd(scheduler => {
+    let selection = @dom_boundary.read_text_selection_id(input_id) catch {
+      error => {
+        scheduler.add(emit(EffectFailed(error.message())))
+        return
+      }
+    }
+    if selection.start() != selection.end() {
+      scheduler.add(
+        emit(
+          BlockSelectionRejected("block split requires a collapsed selection"),
+        ),
+      )
+    } else {
+      scheduler.add(
+        emit(BlockSplit(node_id=block.node_id(), offset=selection.start())),
+      )
+    }
+  })
+}
+
+///|
+/// Capture the DOM caret before the controlled textarea is rendered again.
+fn block_input_command(
+  block : @markdown.MarkdownBlockSnapshot,
+  input_id : String,
+  text : String,
+  emit : @cmd.Emit[DriverEvent],
+) -> @cmd.Cmd {
+  @cmd.custom_cmd(scheduler => {
+    let selection = @dom_boundary.read_text_selection_id(input_id) catch {
+      error => {
+        scheduler.add(emit(EffectFailed(error.message())))
+        return
+      }
+    }
+    scheduler.add(
+      emit(
+        BlockInput(
+          node_id=block.node_id(),
+          text~,
+          selection_offset=selection.end(),
+        ),
+      ),
+    )
+  })
 }
 
 ///|
@@ -386,6 +511,12 @@ fn preview_view(
     type_="button",
     on_click=emit(SelectPreview),
     "Preview",
+  )
+  let block_button = @html.button(
+    id="loomark-mode-block",
+    type_="button",
+    on_click=emit(SelectBlock),
+    "Block",
   )
   let focus_button = @html.button(
     id="loomark-focus-target",
@@ -414,7 +545,7 @@ fn preview_view(
   }
   @html.div(id="loomark-root", [
     @html.h1("Loomark"),
-    @html.nav(id="loomark-toolbar", [raw_button, preview_button]),
+    @html.nav(id="loomark-toolbar", [raw_button, block_button, preview_button]),
     mode,
     @html.div(id="loomark-surface", editor_surface(model, emit)),
     event_button,
@@ -436,6 +567,60 @@ fn after_render(
       }
     },
     kind=@cmd.AfterRender,
+  )
+}
+
+///|
+/// Revalidate a structural selection after the edited blocks are rendered,
+/// then focus the exact block and restore its relative UTF-16 caret.
+fn block_selection_after_render(
+  selection : BlockSelection,
+  source_revision : Int,
+  emit : @cmd.Emit[DriverEvent],
+) -> @cmd.Cmd {
+  after_render(
+    scheduler => {
+      match detached_model.val {
+        Some(model) =>
+          if model.state.mode() != @core.Block {
+            scheduler.add(
+              emit(BlockSelectionRejected("block selection mode is stale")),
+            )
+          } else if model.source_revision != source_revision {
+            scheduler.add(
+              emit(BlockSelectionRejected("block selection is stale")),
+            )
+          } else {
+            match block_selection_target(model.document, selection) {
+              Some(index) => {
+                let id = block_input_id(index)
+                @dom_boundary.focus_id(id)
+                @dom_boundary.write_text_selection_id(
+                  id,
+                  @dom_boundary.TextSelection(
+                    selection.offset,
+                    selection.offset,
+                    @dom_boundary.NoDirection,
+                  ),
+                )
+              }
+              None =>
+                scheduler.add(
+                  emit(
+                    BlockSelectionRejected(
+                      "block selection target is unavailable",
+                    ),
+                  ),
+                )
+            }
+          }
+        None =>
+          scheduler.add(
+            emit(BlockSelectionRejected("block selection model unavailable")),
+          )
+      }
+    },
+    emit,
   )
 }
 
@@ -477,11 +662,18 @@ fn driver_event_name(event : DriverEvent) -> String {
   match event {
     ReplaceSource(_) => "source"
     SelectRaw => "select-raw"
+    SelectBlock => "select-block"
     SelectPreview => "select-preview"
     RawInput(_) => "raw-input"
+    BlockInput(..) => "block-input"
+    BlockSplit(..) => "block-split"
+    BlockMerge(..) => "block-merge"
+    BlockSelectionRejected(_) => "block-selection-rejected"
+    ProbeBlockSelection(_) => "probe-block-selection"
     EditorFailure => "editor-failure"
     RestoreSnapshot(..) => "restore-snapshot"
     FocusPreview => "focus-preview"
+    FocusBlock => "focus-block"
     FocusRaw => "focus-raw"
     RestoreFocus(_) => "restore-focus"
     FocusRejected(_) => "focus-rejected"
@@ -509,12 +701,20 @@ fn driver_event_name(event : DriverEvent) -> String {
 fn parse_driver_event(detail : String) -> DriverEvent {
   if detail == "select-raw" {
     SelectRaw
+  } else if detail == "select-block" {
+    SelectBlock
   } else if detail == "select-preview" {
     SelectPreview
   } else if detail == "focus-preview" {
     FocusPreview
+  } else if detail == "focus-block" {
+    FocusBlock
   } else if detail == "focus-raw" {
     FocusRaw
+  } else if detail == "probe-stale-block-selection" {
+    ProbeBlockSelection("stale")
+  } else if detail == "probe-deleted-block-selection" {
+    ProbeBlockSelection("deleted")
   } else if detail == "write-selection-failure" {
     WriteSelectionFailure
   } else if detail == "measure-preview" {
@@ -550,6 +750,7 @@ fn parse_driver_event(detail : String) -> DriverEvent {
           Some(Json::String(value)) =>
             match value {
               "raw" => @core.Raw
+              "block" => @core.Block
               "preview" => @core.Preview
               _ => return InvalidRequest("restore-snapshot")
             }
@@ -612,6 +813,18 @@ fn update_model(
     publish(next)
     return (next, @rabbita_runtime.none)
   }
+  if model.state.mode() != @core.Block &&
+    (
+      event is BlockInput(..) ||
+      event is BlockSplit(..) ||
+      event is BlockMerge(..)
+    ) {
+    let next = record_error(
+      model, "mode-inapplicable", "editor-dispatch", "Block editing is unavailable outside Block mode",
+    )
+    publish(next)
+    return (next, @rabbita_runtime.none)
+  }
   match event {
     ReplaceSource(source) | RawInput(source) => {
       let transition = @core.reduce(
@@ -639,6 +852,131 @@ fn update_model(
       }
       publish(next)
       (next, @rabbita_runtime.none)
+    }
+    BlockInput(node_id~, text~, selection_offset~) => {
+      let (next, committed_selection) = commit_block_request(
+        editor,
+        model,
+        @markdown.MarkdownEditRequest::CommitTextControlEdit(
+          node_id~,
+          new_text=text,
+        ),
+        "editor-dispatch",
+      )
+      let selection = match committed_selection {
+        Some(selection) =>
+          block_selection_from_commit(
+            next.document,
+            selection,
+            offset=selection_offset,
+          )
+        None => None
+      }
+      let next = {
+        ..next,
+        selection: match selection {
+          Some(selection) => Some(block_selection_label(selection))
+          None => None
+        },
+      }
+      publish(next)
+      match selection {
+        Some(selection) =>
+          (
+            next,
+            block_selection_after_render(selection, next.source_revision, emit),
+          )
+        None => (next, @rabbita_runtime.none)
+      }
+    }
+    BlockSplit(node_id~, offset~) => {
+      let (next, committed_selection) = commit_block_request(
+        editor,
+        model,
+        @markdown.MarkdownEditRequest::SplitBlock(node_id~, offset~),
+        "editor-dispatch",
+      )
+      let selection = match committed_selection {
+        Some(selection) => block_selection_from_commit(next.document, selection)
+        None => None
+      }
+      let next = {
+        ..next,
+        selection: match selection {
+          Some(selection) => Some(block_selection_label(selection))
+          None => None
+        },
+      }
+      publish(next)
+      match selection {
+        Some(selection) =>
+          (
+            next,
+            block_selection_after_render(selection, next.source_revision, emit),
+          )
+        None => (next, @rabbita_runtime.none)
+      }
+    }
+    BlockMerge(node_id~) => {
+      let (next, committed_selection) = commit_block_request(
+        editor,
+        model,
+        @markdown.MarkdownEditRequest::MergeWithPrevious(node_id~),
+        "editor-dispatch",
+      )
+      let selection = match committed_selection {
+        Some(selection) => block_selection_from_commit(next.document, selection)
+        None => None
+      }
+      let next = {
+        ..next,
+        selection: match selection {
+          Some(selection) => Some(block_selection_label(selection))
+          None => None
+        },
+      }
+      publish(next)
+      match selection {
+        Some(selection) =>
+          (
+            next,
+            block_selection_after_render(selection, next.source_revision, emit),
+          )
+        None => (next, @rabbita_runtime.none)
+      }
+    }
+    ProbeBlockSelection(kind) => {
+      let blocks = model.document.blocks().to_array()
+      if blocks.is_empty() {
+        let next = record_error(
+          model, "block-selection-rejected", "browser-effect", "block selection probe has no target",
+        )
+        publish(next)
+        (next, @rabbita_runtime.none)
+      } else {
+        let block = blocks[0]
+        let selection = BlockSelection::{
+          key: block.key(),
+          index: 0,
+          offset: 0,
+        }
+        let previous_revision = model.source_revision
+        let source = if kind == "deleted" { "" } else { "replacement\n" }
+        let (next, _) = commit_source(
+          editor,
+          model,
+          model.state,
+          source,
+          "editor-dispatch",
+        )
+        publish(next)
+        let expected_revision = if kind == "stale" {
+          previous_revision
+        } else {
+          next.source_revision
+        }
+        (next, block_selection_after_render(selection, expected_revision, emit))
+      }
     }
     EditorFailure => {
       let next = { ..model, fail_next_editor_commit: true }
@@ -691,9 +1029,10 @@ fn update_model(
       publish(next)
       (next, @rabbita_runtime.none)
     }
-    SelectRaw | SelectPreview => {
+    SelectRaw | SelectBlock | SelectPreview => {
       let mode = match event {
         SelectRaw => @core.Raw
+        SelectBlock => @core.Block
         SelectPreview => @core.Preview
         _ => @core.Raw
       }
@@ -705,9 +1044,10 @@ fn update_model(
       publish(next)
       (next, @rabbita_runtime.none)
     }
-    FocusRaw | FocusPreview => {
+    FocusRaw | FocusBlock | FocusPreview => {
       let target = match event {
         FocusRaw => @core.RawEditor
+        FocusBlock => @core.BlockEditor
         FocusPreview => @core.PreviewControl
         _ => @core.PreviewControl
       }
@@ -833,6 +1173,13 @@ fn update_model(
     EffectFailed(message) => {
       let next = record_error(
         model, "browser-effect-failed", "browser-effect", message,
+      )
+      publish(next)
+      (next, @rabbita_runtime.none)
+    }
+    BlockSelectionRejected(message) => {
+      let next = record_error(
+        model, "block-selection-rejected", "browser-effect", message,
       )
       publish(next)
       (next, @rabbita_runtime.none)
@@ -1064,12 +1411,14 @@ pub fn mount(host_id : String, source : String) -> String {
   if mounted.val {
     return "{\"ok\":false,\"error\":\"host-already-mounted\"}"
   }
-  let editor = @markdown.MarkdownEditor(agent_id="loomark-dev-host", source~) catch {
+  let replica_id = "loomark-dev-host-" + js_replica_uuid()
+  let editor = @markdown.MarkdownEditor(agent_id=replica_id, source~) catch {
     _ => return "{\"ok\":false,\"error\":\"editor-initialization-failed\"}"
   }
   let initial : DriverModel = {
     state: @core.ApplicationState::ApplicationState(@core.Raw),
     document: editor.snapshot(),
+    replica_id,
     source_revision: 0,
     fatal: false,
     error: None,
@@ -1079,6 +1428,7 @@ pub fn mount(host_id : String, source : String) -> String {
     committed_change_count: 0,
     fail_next_editor_commit: false,
     raw_surface_revision: 0,
+    block_surface_revision: 0,
     resize_count: 0,
     selection: None,
     measurement: None,
@@ -1126,6 +1476,12 @@ pub fn select_raw() -> Unit {
 }
 
 ///|
+/// Queue the Block mode transition through the typed application event.
+pub fn select_block() -> Unit {
+  dispatch_driver("select-block")
+}
+
+///|
 /// Queue the Preview mode transition through the typed application event.
 pub fn select_preview() -> Unit {
   dispatch_driver("select-preview")
@@ -1158,6 +1514,24 @@ pub fn focus_preview() -> Unit {
 /// Queue the Raw editor focus operation; the DOM write is AfterRender.
 pub fn focus_raw() -> Unit {
   dispatch_driver("focus-raw")
+}
+
+///|
+/// Queue the Block editor focus operation; the DOM write is AfterRender.
+pub fn focus_block() -> Unit {
+  dispatch_driver("focus-block")
+}
+
+///|
+/// Queue a stale Block selection probe for the private browser harness.
+pub fn probe_stale_block_selection() -> Unit {
+  dispatch_driver("probe-stale-block-selection")
+}
+
+///|
+/// Queue a deleted Block selection probe for the private browser harness.
+pub fn probe_deleted_block_selection() -> Unit {
+  dispatch_driver("probe-deleted-block-selection")
 }
 
 ///|

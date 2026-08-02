@@ -18,14 +18,37 @@ pub(all) suberror MarkdownEditorError {
 }
 
 // Types and methods
+pub(all) enum MarkdownBlockKind {
+  Paragraph
+  Heading(level~ : Int)
+} derive(Eq, @debug.Debug)
+
+pub struct MarkdownBlockSelection {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn MarkdownBlockSelection::node_id(Self) -> MarkdownNodeId
+pub fn MarkdownBlockSelection::offset(Self) -> Int
+
+pub struct MarkdownBlockSnapshot {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn MarkdownBlockSnapshot::key(Self) -> String
+pub fn MarkdownBlockSnapshot::kind(Self) -> MarkdownBlockKind
+pub fn MarkdownBlockSnapshot::marker_range(Self) -> (Int, Int)?
+pub fn MarkdownBlockSnapshot::node_id(Self) -> MarkdownNodeId
+pub fn MarkdownBlockSnapshot::source_range(Self) -> (Int, Int)
+pub fn MarkdownBlockSnapshot::text(Self) -> String
+pub fn MarkdownBlockSnapshot::text_range(Self) -> (Int, Int)
+
 pub(all) enum MarkdownCommitResult {
-  Applied(MarkdownDocumentSnapshot)
+  Applied(MarkdownDocumentSnapshot, MarkdownBlockSelection?)
   Unchanged(MarkdownDocumentSnapshot)
 } derive(Eq, @debug.Debug)
 
 pub struct MarkdownDocumentSnapshot {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn MarkdownDocumentSnapshot::blocks(Self) -> @vector.Vector[MarkdownBlockSnapshot]
 pub fn MarkdownDocumentSnapshot::projection(Self) -> MarkdownProjectionSnapshot
 pub fn MarkdownDocumentSnapshot::source(Self) -> String
 
@@ -33,6 +56,8 @@ pub(all) enum MarkdownEditRequest {
   ReplaceSource(String)
   ReplaceText(start~ : Int, delete_len~ : Int, inserted~ : String)
   CommitEdit(node_id~ : MarkdownNodeId, new_text~ : String)
+  CommitTextControlEdit(node_id~ : MarkdownNodeId, new_text~ : String)
+  SplitBlock(node_id~ : MarkdownNodeId, offset~ : Int)
   ChangeHeadingLevel(node_id~ : MarkdownNodeId, level~ : Int)
   ToggleListItem(node_id~ : MarkdownNodeId)
   Delete(node_id~ : MarkdownNodeId)
@@ -49,6 +74,7 @@ pub fn MarkdownEditor::snapshot(Self) -> MarkdownDocumentSnapshot
 pub struct MarkdownNodeId {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn MarkdownNodeId::key(Self) -> String
 
 pub struct MarkdownProjectionSnapshot {
   // private fields

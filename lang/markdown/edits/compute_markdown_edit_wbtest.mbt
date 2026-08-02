@@ -89,6 +89,91 @@ test "commit_edit: change paragraph text" {
 }
 
 ///|
+test "commit_edit: unsupported block quote is rejected atomically" {
+  let source = "> quoted\n\n# Heading\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
+  let quote_id = proj.children[0].id()
+  inspect_edit_error_contains(
+    source,
+    CommitEdit(node_id=quote_id, new_text="changed"),
+    "no editable span",
+  )
+}
+
+///|
+test "change_heading_level: fenced code is an unsupported target" {
+  let source = "```moonbit\nvalue\n```\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
+  let code_id = proj.children[0].id()
+  try {
+    let _ = compute_edit_result(
+      source,
+      ChangeHeadingLevel(node_id=code_id, level=2),
+    )
+    fail("expected fenced code heading-level change to fail")
+  } catch {
+    @core.EditError::UnsupportedOperation(detail~) =>
+      assert_eq(
+        detail, "change heading level requires a paragraph or heading block",
+      )
+    _ => fail("expected UnsupportedOperation for fenced code")
+  }
+}
+
+///|
+test "toggle_list_item: fenced code is an unsupported target" {
+  let source = "```moonbit\nvalue\n```\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
+  let code_id = proj.children[0].id()
+  try {
+    let _ = compute_edit_result(source, ToggleListItem(node_id=code_id))
+    fail("expected fenced code list toggle to fail")
+  } catch {
+    @core.EditError::UnsupportedOperation(detail~) =>
+      assert_eq(
+        detail, "toggle list item requires a paragraph or list item block",
+      )
+    _ => fail("expected UnsupportedOperation for fenced code")
+  }
+}
+
+///|
+test "merge: paragraph after thematic break rejects missing predecessor text" {
+  let source = "---\n\nBody\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
+  let current = proj.children[1]
+  inspect_edit_error_contains(
+    source,
+    MergeWithPrevious(node_id=current.id()),
+    "previous block",
+  )
+}
+
+///|
+test "merge: heading after block quote rejects missing predecessor text" {
+  let source = "> quoted\n\n# Heading\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
+  let current = proj.children[1]
+  inspect_edit_error_contains(
+    source,
+    MergeWithPrevious(node_id=current.id()),
+    "previous block",
+  )
+}
+
+///|
+test "merge: paragraph after html block rejects unsupported predecessor" {
+  let source = "<div>html</div>\n\nBody\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
+  let current = proj.children[1]
+  inspect_edit_error_contains(
+    source,
+    MergeWithPrevious(node_id=current.id()),
+    "previous block",
+  )
+}
+
+///|
 test "change_heading_level: paragraph to h2" {
   let source = "Hello\n"
   let (proj, _) = @md_proj.parse_to_proj_node(
@@ -196,6 +281,15 @@ test "delete: remove a block" {
 }
 
 ///|
+test "delete: range-only thematic break remains deletable" {
+  let source = "---\n\nBody\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
+  let thematic_break_id = proj.children[0].id()
+  let result = apply_edit(source, Delete(node_id=thematic_break_id))
+  inspect(result, content="\nBody\n")
+}
+
+///|
 test "insert_block_after: adds newline" {
   let source = "Hello\n"
   let (proj, _) = @md_proj.parse_to_proj_node(
@@ -205,6 +299,18 @@ test "insert_block_after: adds newline" {
   let result = apply_edit(source, InsertBlockAfter(node_id=para_id))
   // Should have extra newline (new block separator)
   inspect(result.length() > source.length(), content="true")
+}
+
+///|
+test "insert_block_after: range-only block quote accepts an empty block" {
+  let source = "> quoted\n\nBody\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
+  let quote_id = proj.children[0].id()
+  let result = apply_edit(source, InsertBlockAfter(node_id=quote_id))
+  assert_eq(
+    result,
+    "> quoted\n\n" + @md_sentinel.EMPTY_PARAGRAPH_SENTINEL + "\n\nBody\n",
+  )
 }
 
 ///|

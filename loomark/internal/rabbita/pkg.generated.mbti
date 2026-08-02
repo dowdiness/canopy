@@ -6,6 +6,8 @@ pub fn capture_focus() -> String
 
 pub fn fail(String) -> Unit
 
+pub fn focus_block() -> Unit
+
 pub fn focus_preview() -> Unit
 
 pub fn focus_raw() -> Unit
@@ -18,11 +20,17 @@ pub fn measure_preview() -> Unit
 
 pub fn mount(String, String) -> String
 
+pub fn probe_deleted_block_selection() -> Unit
+
+pub fn probe_stale_block_selection() -> Unit
+
 pub fn request_source(String) -> Unit
 
 pub fn restore_focus(String) -> Unit
 
 pub fn restore_snapshot(Int, String, String) -> Unit
+
+pub fn select_block() -> Unit
 
 pub fn select_preview() -> Unit
 

@@ -91,6 +91,14 @@ fn populate_block(
   proj_node : @core.ProjNode[@markdown.Block],
 ) -> Unit {
   let id = proj_node.id()
+  // BlockQuoteNode and ThematicBreakNode flatten to Paragraph payloads for
+  // projection alignment, but have no editable payload span. Keep the source
+  // range mapped while leaving "text"/"code" absent as the edit contract.
+  let syntax_kind = @markdown.SyntaxKind::from_raw(syntax_node.kind())
+  if syntax_kind == @markdown.SyntaxKind::BlockQuoteNode ||
+    syntax_kind == @markdown.SyntaxKind::ThematicBreakNode {
+    return
+  }
   match proj_node.kind {
     Document(_) => {
       let syntax_children = collect_block_children(syntax_node)

@@ -357,6 +357,8 @@ test "source map: aligned block quote and heading keep matching ranges" {
     }
     None => fail("expected block quote range")
   }
+  assert_true(source_map.get_token_span(quote.id(), "text") is None)
+  assert_true(source_map.get_token_span(quote.id(), "code") is None)
   match source_map.get_range(heading.id()) {
     Some(range) => {
       assert_eq(range.start, 9)
@@ -372,6 +374,24 @@ test "source map: aligned block quote and heading keep matching ranges" {
     Some(span) => assert_eq(source[span.start:span.end].to_owned(), "Heading")
     None => fail("expected heading text span")
   }
+}
+
+///|
+test "source map: thematic break has no editable payload span" {
+  let source = "# Before\n\n---\n\n## After\n"
+  let (proj, errors) = parse_to_proj_node(
+    markdown_projection_test_source, source,
+  )
+  inspect(errors.length(), content="0")
+  let source_map = @core.SourceMap::from_ast(proj)
+  let (cst, diagnostics) = @markdown.parse_cst(
+    markdown_projection_test_source, source,
+  )
+  inspect(diagnostics.length(), content="0")
+  populate_token_spans(source_map, @seam.SyntaxNode::from_cst(cst), proj)
+  let thematic = proj.children[1]
+  assert_true(source_map.get_token_span(thematic.id(), "text") is None)
+  assert_true(source_map.get_token_span(thematic.id(), "code") is None)
 }
 
 ///|
