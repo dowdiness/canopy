@@ -13,17 +13,14 @@ it, and whether edits belong in this repository or in a submodule repository.
 ## Manifest formats
 
 MoonBit now supports the newer `moon.mod` manifest format. The older
-`moon.mod.json` format is legacy. This repository is migrating Canopy-owned
-module manifests to `moon.mod` where the newer format can preserve the same
-dependency semantics; submodules keep whatever manifest format their own
-repository currently uses.
+`moon.mod.json` format is legacy, and all tracked Canopy-owned module manifests
+use `moon.mod`. Vendored submodules and dependency caches keep whatever manifest
+format their owning repositories use.
 
-Current exception: the newer `moon.mod` format expects registry-style imports
-and local-module resolution through `moon.work`, while several Canopy-owned
-modules still rely on legacy `moon.mod.json` path dependencies to submodules or
-other in-repo modules that are not workspace members. Those manifests stay on
-`moon.mod.json` until a later workspace/path-dependency migration can preserve
-behavior without changing workspace topology.
+Module-local dependencies use versioned imports in `moon.mod` and are resolved
+through the nearest `moon.work`. The Canvas example is a nested workspace:
+`examples/canvas/moon.mod` and `examples/canvas/moon.work` resolve its local
+members independently of the root `moon.work`.
 
 `moon.pkg` files are package manifests. They do not define module boundaries;
 they define compilation units inside the nearest enclosing module manifest.
@@ -99,41 +96,16 @@ name rather than from `dowdiness/canopy/lib/...`.
 `lib/text-change/` is intentionally documented here even though it is not
 currently a tracked Canopy-owned workspace member. Do **not** delete it or treat
 that path as stale without a later, separate audit proving it is dead. The active
-text-change dependency for the root module currently resolves through the loom
-submodule path dependency `./loom/text-change`.
+text-change dependency for the root module is declared as a versioned import in
+the root `moon.mod` and resolved to the loom `text-change` workspace member.
 
 ## Canopy-owned manifest migration status
 
-Converted to the newer `moon.mod` format:
-
-- `lib/analysis/`
-- `lib/btree/`
-- `lib/byte-codec/`
-- `lib/canvas-graph/`
-- `lib/cognition/` (already newer format)
-- `lib/context-menu/` (workspace-resolved dep on `rabbita/rabbita` and
-  `dowdiness/rabbita-menu`)
-- `lib/dom-boundary/`
-- `lib/js-ffi/`
-- `lib/menu/` (workspace-resolved dep on `rabbita/rabbita`)
-- `lib/rabbita_codemirror/` (workspace-resolved dep on `rabbita/rabbita`)
-- `lib/resizable/` (workspace-resolved dep on `rabbita/rabbita`)
-- `lib/semantic/proof/`
-- `lib/status/` (workspace-resolved dep on `rabbita/rabbita`)
-- `lib/tabs/` (workspace-resolved dep on `rabbita/rabbita`)
-- `lib/treeview/` (workspace-resolved dep on `rabbita/rabbita`)
-- `lib/zipper/`
-- `examples/disclosure/` (workspace-resolved dep on `rabbita/rabbita`)
-
-Still on legacy `moon.mod.json` because they contain local path dependencies
-whose behavior cannot be represented in `moon.mod` without changing workspace
-membership or relying on unpublished registry modules:
-
-- the root module (`moon.mod.json`)
-- MoonBit examples: `examples/block-editor/`, `examples/canvas/`,
-  `examples/codemirror_demo/`, `examples/ideal/`,
-  `examples/resizable/`
-- `lib/semantic/`, `lib/visualizer/`
+All tracked Canopy-owned module manifests use `moon.mod`. Canvas is the
+nested-workspace case: its `moon.mod` works with the local members in
+`examples/canvas/moon.work`, while the root module uses the root `moon.mod` and
+`moon.work`. Vendored submodules and dependency-cache artifacts retain the
+manifest formats owned by their respective projects.
 
 ## Git submodules
 
@@ -157,8 +129,11 @@ submodule change in that submodule's own workflow.
 
 Examples fall into two broad groups:
 
-- **MoonBit workspace example modules**: listed in `moon.work`, checked by root
-  workspace commands, and CI's MoonBit example matrix.
+- **MoonBit workspace example modules**: listed in the root `moon.work`, checked
+  by root workspace commands, and covered by CI's MoonBit example matrix.
+- **Nested-workspace MoonBit modules**: `examples/canvas/` owns its `moon.mod`
+  and `moon.work`; run its checks and tests from that directory rather than
+  treating it as a root workspace member.
 - **Frontend/TypeScript/browser examples**: npm/Vite/Playwright projects that
   require built MoonBit JS artifacts before TypeScript typechecks or browser
   tests run.
