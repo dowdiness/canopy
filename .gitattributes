@@ -7,3 +7,5 @@ probe/diagnostic_portability/pkg.generated.mbti whitespace=-blank-at-eof
 # MoonBit owns these generated interfaces and emits a final blank line.
 editor/markdown/pkg.generated.mbti whitespace=-blank-at-eof
 loomark/core/pkg.generated.mbti whitespace=-blank-at-eof
+loomark/internal/dev_host/pkg.generated.mbti whitespace=-blank-at-eof
+loomark/internal/rabbita/pkg.generated.mbti whitespace=-blank-at-eof

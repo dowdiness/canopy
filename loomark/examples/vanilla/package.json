@@ -1,0 +1,13 @@
+{
+  "name": "loomark-private-vanilla-host",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck:dev-host": "tsc --noEmit -p tsconfig.dev-host.json",
+    "test:dev-host": "playwright test --config=playwright.dev-host.config.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.61.1",
+    "typescript": "5.9.3"
+  }
+}
