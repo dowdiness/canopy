@@ -70,6 +70,66 @@ pub fn ApplicationState::snapshot(
 }
 
 ///|
+/// A logical focus target contains no DOM or session identity.
+pub(all) enum FocusTarget {
+  RawEditor
+  PreviewControl
+} derive(Eq, Debug)
+
+///|
+/// An opaque logical focus locator validated by the imperative shell.
+pub struct FocusLocator {
+  priv target : FocusTarget
+  priv source_revision : Int
+} derive(Eq, Debug)
+
+///|
+pub fn FocusLocator::FocusLocator(
+  target~ : FocusTarget,
+  source_revision~ : Int,
+) -> FocusLocator {
+  { target, source_revision }
+}
+
+///|
+/// Reasons a typed logical locator is not compatible with current state.
+pub(all) enum FocusDecisionError {
+  Stale
+  ModeInapplicable
+} derive(Eq, Debug)
+
+///|
+/// Pure focus proposal for the imperative DOM shell.
+pub(all) enum FocusDecision {
+  Compatible(FocusTarget)
+  Rejected(FocusDecisionError)
+} derive(Eq, Debug)
+
+///|
+fn focus_target_mode(target : FocusTarget) -> ApplicationMode {
+  match target {
+    RawEditor => Raw
+    PreviewControl => Preview
+  }
+}
+
+///|
+/// Decide whether a typed logical focus locator may be restored.
+pub fn decide_focus(
+  state : ApplicationState,
+  source_revision : Int,
+  locator : FocusLocator,
+) -> FocusDecision {
+  if locator.source_revision != source_revision {
+    FocusDecision::Rejected(FocusDecisionError::Stale)
+  } else if focus_target_mode(locator.target) != state.mode() {
+    FocusDecision::Rejected(FocusDecisionError::ModeInapplicable)
+  } else {
+    FocusDecision::Compatible(locator.target)
+  }
+}
+
+///|
 /// Snapshot validation failures reported as immutable decisions.
 pub(all) enum SnapshotError {
   UnsupportedSnapshotVersion(Int)

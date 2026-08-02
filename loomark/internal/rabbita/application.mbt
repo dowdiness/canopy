@@ -2,8 +2,19 @@
 /// Private pre-`MountedApp` application and test-driver seam.
 priv enum DriverEvent {
   ReplaceSource(String)
+  SelectRaw
   SelectPreview
+  RawInput(String)
+  EditorFailure
+  RestoreSnapshot(
+    version~ : Int,
+    source~ : String,
+    mode~ : @core.ApplicationMode
+  )
   FocusPreview
+  FocusRaw
+  RestoreFocus(String)
+  FocusRejected(@core.FocusDecisionError)
   WriteSelection(start~ : Int, end~ : Int)
   WriteSelectionFailure
   MeasurePreview
@@ -22,6 +33,14 @@ priv enum DriverEvent {
 }
 
 ///|
+/// Versioned errors owned by the private focus-token codec.
+priv enum FocusTokenError {
+  Malformed
+  UnsupportedVersion(Int)
+  Ambiguous
+}
+
+///|
 priv suberror DriverSubscription {
   Control(@cmd.Emit[DriverEvent])
   Test(@cmd.Emit[String], @cmd.Emit[DriverEvent])
@@ -31,8 +50,16 @@ priv suberror DriverSubscription {
 priv struct DriverModel {
   state : @core.ApplicationState
   document : @markdown.MarkdownDocumentSnapshot
+  source_revision : Int
   fatal : Bool
   error : String?
+  error_code : String?
+  error_operation : String?
+  error_count : Int
+  committed_change_count : Int
+  fail_next_editor_commit : Bool
+  /// Rendering epoch used only to remount Raw after a rejected commit.
+  raw_surface_revision : Int
   resize_count : Int
   selection : String?
   measurement : String?
@@ -54,6 +81,18 @@ let mounted : @ref.Ref[Bool] = { val: false }
 let detached_snapshot : @ref.Ref[String] = { val: "{}" }
 
 ///|
+/// Latest committed model for deferred browser effects in this private shell.
+let detached_model : @ref.Ref[DriverModel?] = { val: None }
+
+///|
+/// Detached logical focus state for the private driver only.
+let detached_focus_token : @ref.Ref[String] = { val: "" }
+
+///|
+/// Focus tokens have a private wire version independent from snapshots.
+const FOCUS_TOKEN_VERSION : Int = 1
+
+///|
 fn mode_name(mode : @core.ApplicationMode) -> String {
   match mode {
     @core.Raw => "raw"
@@ -63,11 +102,204 @@ fn mode_name(mode : @core.ApplicationMode) -> String {
 }
 
 ///|
+/// The private driver maps a pure focus target to one mounted control.
+fn focus_target_id(target : @core.FocusTarget) -> String {
+  match target {
+    @core.RawEditor => "loomark-input"
+    @core.PreviewControl => "loomark-focus-target"
+  }
+}
+
+///|
+fn focus_target_name(target : @core.FocusTarget) -> String {
+  match target {
+    @core.RawEditor => "raw"
+    @core.PreviewControl => "preview"
+  }
+}
+
+///|
+/// Serialize a known focus target and revision at the private shell boundary.
+fn encode_focus_token(
+  target : @core.FocusTarget,
+  source_revision : Int,
+) -> String {
+  "v" +
+  FOCUS_TOKEN_VERSION.to_string() +
+  "|" +
+  focus_target_name(target) +
+  "|" +
+  source_revision.to_string()
+}
+
+///|
+/// Decode a token exactly once before handing its typed locator to the core.
+fn decode_focus_token(
+  token : String,
+) -> Result[@core.FocusLocator, FocusTokenError] {
+  let parts = token.split("|").to_array()
+  guard parts.length() == 3 else { return Err(FocusTokenError::Malformed) }
+  guard parts[0].has_prefix("v") else { return Err(FocusTokenError::Malformed) }
+  let version = @string.parse_int(parts[0][1:], base=10) catch {
+    _ => return Err(FocusTokenError::Malformed)
+  }
+  if version != FOCUS_TOKEN_VERSION {
+    return Err(FocusTokenError::UnsupportedVersion(version))
+  }
+  let target = match parts[1] {
+    "raw" => @core.RawEditor
+    "preview" => @core.PreviewControl
+    _ => return Err(FocusTokenError::Ambiguous)
+  }
+  let source_revision = @string.parse_int(parts[2], base=10) catch {
+    _ => return Err(FocusTokenError::Malformed)
+  }
+  Ok(@core.FocusLocator(target~, source_revision~))
+}
+
+///|
+/// Map codec failures to one private-driver error category.
+fn focus_token_error(error : FocusTokenError) -> (String, String) {
+  match error {
+    FocusTokenError::Malformed => ("malformed-focus", "malformed focus token")
+    FocusTokenError::UnsupportedVersion(version) =>
+      (
+        "unsupported-focus-version",
+        "unsupported focus token version: " + version.to_string(),
+      )
+    FocusTokenError::Ambiguous => ("ambiguous-focus", "ambiguous focus target")
+  }
+}
+
+///|
+/// Map pure focus compatibility rejections to one private-driver category.
+fn focus_rejection(error : @core.FocusDecisionError) -> (String, String) {
+  match error {
+    @core.Stale => ("stale-focus", "stale focus token")
+    @core.ModeInapplicable =>
+      (
+        "focus-mode-inapplicable", "focus target is inapplicable in current mode",
+      )
+  }
+}
+
+///|
+fn record_error(
+  model : DriverModel,
+  code : String,
+  operation : String,
+  message : String,
+) -> DriverModel {
+  {
+    ..model,
+    error: Some(message),
+    error_code: Some(code),
+    error_operation: Some(operation),
+    error_count: model.error_count + 1,
+  }
+}
+
+///|
+fn reject_focus(
+  model : DriverModel,
+  error : @core.FocusDecisionError,
+) -> (DriverModel, @cmd.Cmd) {
+  let (code, message) = focus_rejection(error)
+  let next = record_error(model, code, "browser-effect", message)
+  publish(next)
+  (next, @rabbita_runtime.none)
+}
+
+///|
+fn reject_focus_token(
+  model : DriverModel,
+  error : FocusTokenError,
+) -> (DriverModel, @cmd.Cmd) {
+  let (code, message) = focus_token_error(error)
+  let next = record_error(model, code, "browser-effect", message)
+  publish(next)
+  (next, @rabbita_runtime.none)
+}
+
+///|
+/// Keep editor failures categorized without exposing the editor error value.
+fn editor_error_detail(error : @markdown.MarkdownEditorError) -> String {
+  match error {
+    @markdown.InvalidAgentId => "invalid-agent-id"
+    @markdown.InitializationFailed(detail~) => detail
+    @markdown.ProjectionUnavailable => "projection-unavailable"
+    @markdown.InvalidTextRange(..) => "invalid text range"
+    @markdown.EditFailed(detail~) => detail
+  }
+}
+
+///|
+/// Commit one canonical source request and install state only after success.
+fn commit_source(
+  editor : @markdown.MarkdownEditor,
+  model : DriverModel,
+  state : @core.ApplicationState,
+  source : String,
+  operation : String,
+) -> (DriverModel, Bool) {
+  let fail_commit = model.fail_next_editor_commit
+  let next = { ..model, fail_next_editor_commit: false }
+  let request = if fail_commit {
+    @markdown.MarkdownEditRequest::ReplaceText(
+      start=-1,
+      delete_len=0,
+      inserted="",
+    )
+  } else {
+    @markdown.MarkdownEditRequest::ReplaceSource(source)
+  }
+  match editor.commit(request) {
+    Ok(@markdown.Applied(document)) =>
+      (
+        {
+          ..next,
+          state,
+          document,
+          source_revision: model.source_revision + 1,
+          committed_change_count: model.committed_change_count + 1,
+        },
+        true,
+      )
+    Ok(@markdown.Unchanged(document)) => ({ ..next, state, document }, true)
+    Err(error) => {
+      let failed = record_error(
+        next,
+        "editor-commit-failed",
+        operation,
+        "editor commit failed: " + editor_error_detail(error),
+      )
+      (
+        { ..failed, raw_surface_revision: model.raw_surface_revision + 1 },
+        false,
+      )
+    }
+  }
+}
+
+///|
 fn publish(model : DriverModel) -> Unit {
   let fields : Map[String, Json] = {
     "source": model.document.source().to_json(),
+    "version": @core.SNAPSHOT_VERSION.to_json(),
     "mode": mode_name(model.state.mode()).to_json(),
+    "source_revision": model.source_revision.to_json(),
     "fatal": model.fatal.to_json(),
+    "error_code": match model.error_code {
+      Some(code) => code.to_json()
+      None => Json::null()
+    },
+    "error_operation": match model.error_operation {
+      Some(operation) => operation.to_json()
+      None => Json::null()
+    },
+    "error_count": model.error_count.to_json(),
+    "committed_change_count": model.committed_change_count.to_json(),
+    "editor_failure_armed": model.fail_next_editor_commit.to_json(),
     "resize_count": model.resize_count.to_json(),
     "selection": match model.selection {
       Some(selection) => selection.to_json()
@@ -96,6 +328,46 @@ fn publish(model : DriverModel) -> Unit {
     },
   }
   detached_snapshot.val = Json::object(fields).stringify()
+  detached_model.val = Some(model)
+}
+
+///|
+fn editor_surface(
+  model : DriverModel,
+  emit : @cmd.Emit[DriverEvent],
+) -> Map[String, @rabbita_runtime.Html] {
+  let source = model.document.source()
+  match model.state.mode() {
+    @core.Raw =>
+      Map([
+        (
+          "raw|" + model.raw_surface_revision.to_string(),
+          @html.textarea(
+            id="loomark-input",
+            value=source,
+            rows=4,
+            on_input=emit.map(source => RawInput(source)),
+            "",
+          ),
+        ),
+      ])
+    @core.Preview =>
+      {
+        "preview": @html.pre(
+          id="loomark-preview",
+          attrs=@html.Attrs::build().data_set("loomark-source", source),
+          source,
+        ),
+      }
+    @core.Block =>
+      {
+        "block": @html.pre(
+          id="loomark-block",
+          attrs=@html.Attrs::build().data_set("loomark-source", source),
+          source,
+        ),
+      }
+  }
 }
 
 ///|
@@ -103,6 +375,18 @@ fn preview_view(
   model : DriverModel,
   emit : @cmd.Emit[DriverEvent],
 ) -> @rabbita_runtime.Html {
+  let raw_button = @html.button(
+    id="loomark-mode-raw",
+    type_="button",
+    on_click=emit(SelectRaw),
+    "Raw",
+  )
+  let preview_button = @html.button(
+    id="loomark-mode-preview",
+    type_="button",
+    on_click=emit(SelectPreview),
+    "Preview",
+  )
   let focus_button = @html.button(
     id="loomark-focus-target",
     type_="button",
@@ -112,21 +396,6 @@ fn preview_view(
   let mode = @html.p(
     id="loomark-mode",
     "mode: " + mode_name(model.state.mode()),
-  )
-  let preview = @html.pre(
-    id="loomark-preview",
-    attrs=@html.Attrs::build().data_set(
-      "loomark-source",
-      model.document.source(),
-    ),
-    model.document.source(),
-  )
-  let input = @html.textarea(
-    id="loomark-input",
-    value=model.document.source(),
-    rows=4,
-    read_only=true,
-    "",
   )
   let event_button = @html.button(
     id="loomark-event-target",
@@ -145,9 +414,9 @@ fn preview_view(
   }
   @html.div(id="loomark-root", [
     @html.h1("Loomark"),
+    @html.nav(id="loomark-toolbar", [raw_button, preview_button]),
     mode,
-    preview,
-    input,
+    @html.div(id="loomark-surface", editor_surface(model, emit)),
     event_button,
     driver_button,
     focus_button,
@@ -171,11 +440,51 @@ fn after_render(
 }
 
 ///|
+/// Revalidate the latest model after rendering, then perform the final DOM
+/// write without queuing a state update after it.
+fn focus_latest_after_render(
+  locator : @core.FocusLocator,
+  token : String,
+  emit : @cmd.Emit[DriverEvent],
+) -> @cmd.Cmd {
+  after_render(
+    scheduler => {
+      match detached_model.val {
+        Some(model) =>
+          match
+            @core.decide_focus(model.state, model.source_revision, locator) {
+            @core.Compatible(target) => {
+              let previous_token = detached_focus_token.val
+              detached_focus_token.val = token
+              @dom_boundary.focus_id(focus_target_id(target)) catch {
+                error => {
+                  detached_focus_token.val = previous_token
+                  scheduler.add(emit(EffectFailed(error.message())))
+                }
+              }
+            }
+            @core.Rejected(error) => scheduler.add(emit(FocusRejected(error)))
+          }
+        None => scheduler.add(emit(EffectFailed("focus model unavailable")))
+      }
+    },
+    emit,
+  )
+}
+
+///|
 fn driver_event_name(event : DriverEvent) -> String {
   match event {
     ReplaceSource(_) => "source"
+    SelectRaw => "select-raw"
     SelectPreview => "select-preview"
+    RawInput(_) => "raw-input"
+    EditorFailure => "editor-failure"
+    RestoreSnapshot(..) => "restore-snapshot"
     FocusPreview => "focus-preview"
+    FocusRaw => "focus-raw"
+    RestoreFocus(_) => "restore-focus"
+    FocusRejected(_) => "focus-rejected"
     WriteSelection(..) => "write-selection"
     WriteSelectionFailure => "write-selection-failure"
     MeasurePreview => "measure-preview"
@@ -198,10 +507,14 @@ fn driver_event_name(event : DriverEvent) -> String {
 /// Decode the private DOM transport without exposing a mutable application
 /// handle to the generated JavaScript boundary.
 fn parse_driver_event(detail : String) -> DriverEvent {
-  if detail == "select-preview" {
+  if detail == "select-raw" {
+    SelectRaw
+  } else if detail == "select-preview" {
     SelectPreview
   } else if detail == "focus-preview" {
     FocusPreview
+  } else if detail == "focus-raw" {
+    FocusRaw
   } else if detail == "write-selection-failure" {
     WriteSelectionFailure
   } else if detail == "measure-preview" {
@@ -212,6 +525,40 @@ fn parse_driver_event(detail : String) -> DriverEvent {
     StopListening
   } else if detail.has_prefix("source|") {
     ReplaceSource(detail["source|".length():].to_owned())
+  } else if detail.has_prefix("raw-input|") {
+    RawInput(detail["raw-input|".length():].to_owned())
+  } else if detail == "editor-failure" {
+    EditorFailure
+  } else if detail.has_prefix("restore-focus|") {
+    RestoreFocus(detail["restore-focus|".length():].to_owned())
+  } else if detail.has_prefix("restore-snapshot|") {
+    let payload = detail["restore-snapshot|".length():].to_owned()
+    let parsed = @json.parse(payload) catch {
+      _ => return InvalidRequest("restore-snapshot")
+    }
+    match parsed {
+      Json::Object(fields) => {
+        let version = match fields.get("version") {
+          Some(Json::Number(value, ..)) => value.to_int()
+          _ => return InvalidRequest("restore-snapshot")
+        }
+        let source = match fields.get("source") {
+          Some(Json::String(value)) => value
+          _ => return InvalidRequest("restore-snapshot")
+        }
+        let mode = match fields.get("mode") {
+          Some(Json::String(value)) =>
+            match value {
+              "raw" => @core.Raw
+              "preview" => @core.Preview
+              _ => return InvalidRequest("restore-snapshot")
+            }
+          _ => return InvalidRequest("restore-snapshot")
+        }
+        RestoreSnapshot(version~, source~, mode~)
+      }
+      _ => InvalidRequest("restore-snapshot")
+    }
   } else if detail.has_prefix("write-selection|") {
     let parts = detail["write-selection|".length():].split("|").to_array()
     guard parts.length() == 2 else { return InvalidRequest("write-selection") }
@@ -258,62 +605,139 @@ fn update_model(
     publish(next)
     return (next, @rabbita_runtime.none)
   }
+  if model.state.mode() != @core.Raw && event is RawInput(_) {
+    let next = record_error(
+      model, "mode-inapplicable", "editor-dispatch", "Raw input is unavailable outside Raw mode",
+    )
+    publish(next)
+    return (next, @rabbita_runtime.none)
+  }
   match event {
-    ReplaceSource(source) => {
+    ReplaceSource(source) | RawInput(source) => {
       let transition = @core.reduce(
         model.state,
         @core.ApplicationEvent::RequestCanonicalSource(source~),
       )
       let mut next = model
-      let mut command = @rabbita_runtime.none
       for decision in transition.decisions() {
         match decision {
-          @core.ReplaceCanonicalSource(source) =>
-            match
-              editor.commit(
-                @markdown.MarkdownEditRequest::ReplaceSource(source),
-              ) {
-              Ok(result) => {
-                let snapshot = match result {
-                  @markdown.Applied(snapshot) | @markdown.Unchanged(snapshot) =>
-                    snapshot
-                }
-                next = { ..next, state: transition.state(), document: snapshot }
-              }
-              Err(_) => {
-                next = { ..next, error: Some("editor commit failed") }
-                command = @rabbita_runtime.none
-              }
-            }
+          @core.ReplaceCanonicalSource(source) => {
+            let (committed, _) = commit_source(
+              editor,
+              next,
+              transition.state(),
+              source,
+              "editor-dispatch",
+            )
+            next = committed
+          }
           @core.SnapshotRejected(_) =>
-            next = { ..next, error: Some("snapshot rejected") }
+            next = record_error(
+              next, "invalid-snapshot", "editor-dispatch", "snapshot rejected",
+            )
         }
       }
       publish(next)
-      (next, command)
+      (next, @rabbita_runtime.none)
     }
-    SelectPreview => {
+    EditorFailure => {
+      let next = { ..model, fail_next_editor_commit: true }
+      publish(next)
+      (next, @rabbita_runtime.none)
+    }
+    RestoreSnapshot(version~, source~, mode~) => {
+      let snapshot = @core.ApplicationStateSnapshot::ApplicationStateSnapshot(
+        version~,
+        source~,
+        mode~,
+      )
       let transition = @core.reduce(
         model.state,
-        @core.ApplicationEvent::SelectMode(mode=@core.Preview),
+        @core.ApplicationEvent::RestoreSnapshot(
+          snapshot~,
+          canonical_source=model.document.source(),
+        ),
+      )
+      let mut next = model
+      let mut accepted = true
+      for decision in transition.decisions() {
+        match decision {
+          @core.ReplaceCanonicalSource(source) => {
+            let (committed, commit_accepted) = commit_source(
+              editor,
+              next,
+              transition.state(),
+              source,
+              "restore-snapshot",
+            )
+            next = committed
+            accepted = accepted && commit_accepted
+          }
+          @core.SnapshotRejected(error) => {
+            accepted = false
+            let message = match error {
+              @core.UnsupportedSnapshotVersion(version) =>
+                "unsupported snapshot version: " + version.to_string()
+            }
+            next = record_error(
+              next, "unsupported-snapshot-version", "restore-snapshot", message,
+            )
+          }
+        }
+      }
+      if accepted {
+        next = { ..next, state: transition.state() }
+      }
+      publish(next)
+      (next, @rabbita_runtime.none)
+    }
+    SelectRaw | SelectPreview => {
+      let mode = match event {
+        SelectRaw => @core.Raw
+        SelectPreview => @core.Preview
+        _ => @core.Raw
+      }
+      let transition = @core.reduce(
+        model.state,
+        @core.ApplicationEvent::SelectMode(mode~),
       )
       let next = { ..model, state: transition.state() }
       publish(next)
       (next, @rabbita_runtime.none)
     }
-    FocusPreview => {
-      publish(model)
-      (
-        model,
-        after_render(
-          scheduler => {
-            ignore(scheduler)
-            @dom_boundary.focus_id("loomark-focus-target")
-          },
-          emit,
-        ),
+    FocusRaw | FocusPreview => {
+      let target = match event {
+        FocusRaw => @core.RawEditor
+        FocusPreview => @core.PreviewControl
+        _ => @core.PreviewControl
+      }
+      let locator = @core.FocusLocator(
+        target~,
+        source_revision=model.source_revision,
       )
+      let token = encode_focus_token(target, model.source_revision)
+      match @core.decide_focus(model.state, model.source_revision, locator) {
+        @core.Compatible(_) => {
+          publish(model)
+          (model, focus_latest_after_render(locator, token, emit))
+        }
+        @core.Rejected(error) => reject_focus(model, error)
+      }
     }
+    FocusRejected(error) => reject_focus(model, error)
+    RestoreFocus(token) =>
+      match decode_focus_token(token) {
+        Ok(locator) =>
+          match
+            @core.decide_focus(model.state, model.source_revision, locator) {
+            @core.Compatible(_) => {
+              publish(model)
+              (model, focus_latest_after_render(locator, token, emit))
+            }
+            @core.Rejected(error) => reject_focus(model, error)
+          }
+        Err(error) => reject_focus_token(model, error)
+      }
     WriteSelection(start~, end~) => {
       publish(model)
       (
@@ -407,7 +831,9 @@ fn update_model(
       (next, @rabbita_runtime.none)
     }
     EffectFailed(message) => {
-      let next = { ..model, error: Some(message) }
+      let next = record_error(
+        model, "browser-effect-failed", "browser-effect", message,
+      )
       publish(next)
       (next, @rabbita_runtime.none)
     }
@@ -436,7 +862,17 @@ fn update_model(
       (next, @rabbita_runtime.none)
     }
     InvalidRequest(message) => {
-      let next = { ..model, error: Some("invalid driver request: " + message) }
+      let code = if message == "restore-snapshot" {
+        "invalid-snapshot"
+      } else {
+        "invalid-request"
+      }
+      let next = record_error(
+        model,
+        code,
+        "editor-dispatch",
+        "invalid driver request: " + message,
+      )
       publish(next)
       (next, @rabbita_runtime.none)
     }
@@ -634,8 +1070,15 @@ pub fn mount(host_id : String, source : String) -> String {
   let initial : DriverModel = {
     state: @core.ApplicationState::ApplicationState(@core.Raw),
     document: editor.snapshot(),
+    source_revision: 0,
     fatal: false,
     error: None,
+    error_code: None,
+    error_operation: None,
+    error_count: 0,
+    committed_change_count: 0,
+    fail_next_editor_commit: false,
+    raw_surface_revision: 0,
     resize_count: 0,
     selection: None,
     measurement: None,
@@ -647,6 +1090,8 @@ pub fn mount(host_id : String, source : String) -> String {
     listening: true,
     rejection: None,
   }
+  detached_model.val = None
+  detached_focus_token.val = ""
   publish(initial)
   let update = (model, event, emit) => update_model(editor, model, event, emit)
   let app = @rabbita_runtime.new(() => {
@@ -675,15 +1120,56 @@ pub fn request_source(source : String) -> Unit {
 }
 
 ///|
-/// Queue the read-only Preview mode transition.
+/// Queue the Raw mode transition through the typed application event.
+pub fn select_raw() -> Unit {
+  dispatch_driver("select-raw")
+}
+
+///|
+/// Queue the Preview mode transition through the typed application event.
 pub fn select_preview() -> Unit {
   dispatch_driver("select-preview")
 }
 
 ///|
-/// Queue the focus operation; the DOM write is AfterRender.
+/// Queue a versioned source/mode snapshot restore through one transaction.
+pub fn restore_snapshot(version : Int, source : String, mode : String) -> Unit {
+  let payload : Map[String, Json] = {
+    "version": version.to_json(),
+    "source": source.to_json(),
+    "mode": mode.to_json(),
+  }
+  dispatch_driver("restore-snapshot|" + Json::object(payload).stringify())
+}
+
+///|
+/// Arm the next real editor transaction to use a failing editor request.
+pub fn force_editor_failure() -> Unit {
+  dispatch_driver("editor-failure")
+}
+
+///|
+/// Queue the Preview focus operation; the DOM write is AfterRender.
 pub fn focus_preview() -> Unit {
   dispatch_driver("focus-preview")
+}
+
+///|
+/// Queue the Raw editor focus operation; the DOM write is AfterRender.
+pub fn focus_raw() -> Unit {
+  dispatch_driver("focus-raw")
+}
+
+///|
+/// Return the last committed logical focus token, detached from the DOM.
+pub fn capture_focus() -> String {
+  detached_focus_token.val
+}
+
+///|
+/// Queue a logical focus restoration through the private driver.
+pub fn restore_focus(token : String) -> Unit {
+  dispatch_driver("restore-focus|" + token)
 }
 
 ///|

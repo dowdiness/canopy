@@ -9,6 +9,8 @@ import {
 // Values
 pub const SNAPSHOT_VERSION : Int = 1
 
+pub fn decide_focus(ApplicationState, Int, FocusLocator) -> FocusDecision
+
 pub fn reduce(ApplicationState, ApplicationEvent) -> ProposedTransition
 
 // Errors
@@ -45,6 +47,26 @@ pub fn ApplicationStateSnapshot::ApplicationStateSnapshot(version~ : Int, source
 pub fn ApplicationStateSnapshot::mode(Self) -> ApplicationMode
 pub fn ApplicationStateSnapshot::source(Self) -> String
 pub fn ApplicationStateSnapshot::version(Self) -> Int
+
+pub(all) enum FocusDecision {
+  Compatible(FocusTarget)
+  Rejected(FocusDecisionError)
+} derive(Eq, @debug.Debug)
+
+pub(all) enum FocusDecisionError {
+  Stale
+  ModeInapplicable
+} derive(Eq, @debug.Debug)
+
+pub struct FocusLocator {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn FocusLocator::FocusLocator(target~ : FocusTarget, source_revision~ : Int) -> Self
+
+pub(all) enum FocusTarget {
+  RawEditor
+  PreviewControl
+} derive(Eq, @debug.Debug)
 
 pub struct ProposedTransition {
   // private fields

@@ -97,3 +97,30 @@ test "state snapshot carries caller source separately from live state" {
   assert_true(snapshot.mode() == Block)
   assert_true(state.mode() == Block)
 }
+
+///|
+test "focus decision accepts a compatible typed locator" {
+  let locator = FocusLocator(target=RawEditor, source_revision=0)
+  match decide_focus(ApplicationState(Raw), 0, locator) {
+    FocusDecision::Compatible(FocusTarget::RawEditor) => ()
+    _ => fail("expected a compatible Raw focus locator")
+  }
+}
+
+///|
+test "focus decision rejects stale source revisions" {
+  let locator = FocusLocator(target=RawEditor, source_revision=1)
+  match decide_focus(ApplicationState(Raw), 2, locator) {
+    FocusDecision::Rejected(FocusDecisionError::Stale) => ()
+    _ => fail("expected stale focus locator")
+  }
+}
+
+///|
+test "focus decision rejects mode-inapplicable controls" {
+  let locator = FocusLocator(target=RawEditor, source_revision=0)
+  match decide_focus(ApplicationState(Preview), 0, locator) {
+    FocusDecision::Rejected(FocusDecisionError::ModeInapplicable) => ()
+    _ => fail("expected mode-inapplicable focus locator")
+  }
+}
