@@ -37,8 +37,8 @@ test("renders range and point diagnostics, then clears both", async ({ page }) =
         fix_id: 0,
       },
     ],
-    text: "if x then y else _",
-    crdtText: "if x then y else _",
+    text: "if 1 then 2 else _",
+    crdtText: "if 1 then 2 else _",
     replayAccepted: false,
   });
 

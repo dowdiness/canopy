@@ -11,7 +11,7 @@ async function main(): Promise<void> {
     throw new Error("diagnostic harness DOM is incomplete");
   }
 
-  const initialSource = "if x then y";
+  const initialSource = "if 1 then 2";
   const handle = crdt.create_editor("cm6-diagnostic-fix-e2e");
   crdt.set_text(handle, initialSource);
   const state = EditorState.create({
