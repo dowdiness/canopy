@@ -26,8 +26,8 @@ pub(all) suberror MarkdownEditorError {
 
 // Types and methods
 pub(all) enum MarkdownAdmitReport {
-  Complete
-  Withheld
+  Complete(applied~ : Int)
+  Withheld(applied~ : Int, withheld~ : Int)
 } derive(Eq, @debug.Debug)
 
 pub(all) enum MarkdownBlockKind {

@@ -39,8 +39,8 @@
         "question": "Can one surface treat missing prerequisites as an ordinary state for a peer exchange and as a defect for an archive?",
         "procedure": "Cut a history at a version, hand the increment to a document that never saw the operations before that cut, and observe both admitting it directly and opening a document from it.",
         "result": "confirmed",
-        "observed": "Admission returned Withheld without raising. Opening the same increment raised IncompleteArchive.",
-        "bearingOn": "The distinction the design asks for is a judgment about one report rather than two mechanisms. It also shows the façade no longer propagates the substrate's shape, where the same situation arrives as an error carrying no count (F6)."
+        "observed": "Admission returned Withheld with exact counts -- nothing applied, one operation held -- without raising. Opening the same increment raised IncompleteArchive.",
+        "bearingOn": "The distinction the design asks for is a judgment about one report rather than two mechanisms. The counts are asserted exactly rather than as a mere distinction, which is what shows the report is carried through rather than reconstructed from the presence of an error (F6)."
       },
       {
         "id": "F4-payload-closed-to-outsiders",
@@ -71,8 +71,9 @@
         "question": "How does the substrate report a history whose causal prerequisites are absent?",
         "procedure": "Export an increment since a version, then apply it to a replica that never saw the operations before that version.",
         "result": "confirmed",
-        "observed": "apply_sync raised TextError::VersionNotFound. No count of admitted versus withheld operations is available to the caller through that channel.",
-        "bearingOn": "The design treats received-but-not-yet-applicable operations as real state the envelope must eventually retain. An admission that raises cannot report a partial take, so the state the design reserves room for has no way to reach the application."
+        "observed": "apply_sync raised TextError::VersionNotFound. The report carrying the counts existed one layer down and was discarded before the raise.",
+        "bearingOn": "The design treats received-but-not-yet-applicable operations as real state the envelope must eventually retain. An admission that raises cannot report a partial take, so the state the design reserves room for had no way to reach the application.",
+        "resolution": "Addressed 2026-08-03 by making admission the primitive in editor/ and apply_sync a completeness policy over it, so the report is no longer discarded. The counts now reach the façade (F9). apply_sync keeps its raising behaviour and every existing call site is untouched; what remains is that its name does not say which policy it applies, a rename reaching 81 call sites."
       },
       {
         "id": "F7-single-consumer-coupling",

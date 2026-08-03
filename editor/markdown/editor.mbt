@@ -125,11 +125,10 @@ pub(all) suberror MarkdownArchiveError {
 /// it, and an archive that claims to be complete is contradicted by it.
 pub(all) enum MarkdownAdmitReport {
   /// Every operation in the history was applied.
-  Complete
+  Complete(applied~ : Int)
   /// Some operations were applied; others await prerequisites that did not
-  /// arrive. The count of each exists one layer down and is discarded before
-  /// it reaches here, so this reports the distinction and not the sizes.
-  Withheld
+  /// arrive and are held until they do.
+  Withheld(applied~ : Int, withheld~ : Int)
 } derive(Eq, Debug)
 
 ///|
@@ -325,8 +324,8 @@ pub fn MarkdownEditor::open(
   }
   let document = { editor, }
   match document.admit(history) {
-    MarkdownAdmitReport::Complete => document
-    MarkdownAdmitReport::Withheld =>
+    MarkdownAdmitReport::Complete(_) => document
+    MarkdownAdmitReport::Withheld(..) =>
       raise MarkdownArchiveError::IncompleteArchive
   }
 }
@@ -343,17 +342,17 @@ pub fn MarkdownEditor::admit(
   self : Self,
   history : MarkdownDocumentHistory,
 ) -> MarkdownAdmitReport raise MarkdownArchiveError {
-  let report = try {
-    self.editor.apply_sync(history.message)
-    MarkdownAdmitReport::Complete
-  } catch {
-    @text.TextError::VersionNotFound => MarkdownAdmitReport::Withheld
+  let report = self.editor.admit(history.message) catch {
     error => raise MarkdownArchiveError::AdmitFailed(detail="\{error}")
   }
   // Applicable operations are committed before the withheld ones are counted,
   // so the projection is rebuilt on both paths.
   self.editor.refresh()
-  report
+  let applied = report.applied_operations()
+  match report.pending_operations() {
+    0 => MarkdownAdmitReport::Complete(applied~)
+    withheld => MarkdownAdmitReport::Withheld(applied~, withheld~)
+  }
 }
 
 ///|

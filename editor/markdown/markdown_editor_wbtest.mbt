@@ -1033,8 +1033,8 @@ test "reopened and original converge after divergent edits" {
 
   let from_b = try! b.history_since()
   let from_a = try! a.history_since()
-  assert_eq(try! a.admit(from_b), MarkdownAdmitReport::Complete)
-  assert_eq(try! b.admit(from_a), MarkdownAdmitReport::Complete)
+  assert_true(try! (a.admit(from_b) is MarkdownAdmitReport::Complete(_)))
+  assert_true(try! (b.admit(from_a) is MarkdownAdmitReport::Complete(_)))
 
   assert_eq(a.snapshot().source(), b.snapshot().source())
   let history_a = try! a.history_since()
@@ -1062,7 +1062,12 @@ test "withheld operations are reported by admit and refused by open" {
   let gapped = try! source.history_since(version=cut)
 
   let receiver = try! MarkdownEditor(agent_id="gap-receiver", source="")
-  assert_eq(try! receiver.admit(gapped), MarkdownAdmitReport::Withheld)
+  // Exact counts, not merely the distinction: the increment carries one
+  // operation, whose parent is absent, so nothing lands and one is held.
+  assert_eq(
+    try! receiver.admit(gapped),
+    MarkdownAdmitReport::Withheld(applied=0, withheld=1),
+  )
 
   let refused : Result[MarkdownEditor, MarkdownArchiveError] = Ok(
     MarkdownEditor::open(agent_id="gap-open", history=gapped),
