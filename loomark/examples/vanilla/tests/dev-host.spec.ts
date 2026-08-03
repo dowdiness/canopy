@@ -341,7 +341,7 @@ test("Block mode preserves untouched CRLF separators during a partial multiline 
   }
 })
 
-test("Block typing preserves a mid-text UTF-16 caret across CRLF normalization", async ({ browser }) => {
+test("Rapid Block typing preserves a mid-text UTF-16 caret across CRLF normalization", async ({ browser }) => {
   const host = await mountHost(browser, "A😀B\r\nC")
   try {
     await selectBlock(host.page)
@@ -351,13 +351,39 @@ test("Block typing preserves a mid-text UTF-16 caret across CRLF normalization",
       const textarea = element as HTMLTextAreaElement
       textarea.setSelectionRange(3, 3)
     })
-    await host.page.keyboard.type("XY")
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.value = "A😀XB\nC"
+      textarea.setSelectionRange(4, 4)
+      textarea.dispatchEvent(new InputEvent("input", {
+        bubbles: true,
+        data: "X",
+        inputType: "insertText",
+      }))
+      textarea.value = "A😀XYB\nC"
+      textarea.setSelectionRange(5, 5)
+      textarea.dispatchEvent(new InputEvent("input", {
+        bubbles: true,
+        data: "Y",
+        inputType: "insertText",
+      }))
+    })
+    // The first frame drains the LIFO AfterRender selection callbacks. A stale
+    // callback used to enqueue a rejection render, so the second frame exposes
+    // the focus loss instead of letting pre-render focus satisfy the assertion.
+    await host.page.evaluate(() => new Promise<void>(resolve => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    }))
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("A😀XYB\r\nC")
     await expect.poll(() => host.page.evaluate(() => document.activeElement?.id)).toBe("loomark-block-input")
     await expect.poll(() => host.page.evaluate(() => {
       const textarea = document.activeElement as HTMLTextAreaElement | null
       return textarea === null ? "missing" : `${textarea.selectionStart}:${textarea.selectionEnd}`
     })).toBe("5:5")
+    expect(await snapshot(host.page)).toMatchObject({
+      error_code: null,
+      error_count: 0,
+    })
   } finally {
     await host.context.close()
   }
