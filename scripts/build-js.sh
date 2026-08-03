@@ -12,7 +12,7 @@ echo "Building canopy JavaScript artifacts..."
 # workspace _build/, not in graphviz/_build/.
 moon build --target js --release
 echo "Building canvas JavaScript artifacts..."
-(cd "$PROJECT_ROOT/examples/canvas" && moon build --target js --release --target-dir "$PROJECT_ROOT/_build")
+(cd "$PROJECT_ROOT/apps/canvas" && moon build --target js --release --target-dir "$PROJECT_ROOT/_build")
 
 EXPECTED_ARTIFACTS=(
     "_build/js/release/build/dowdiness/canopy/ffi/lambda/lambda.js"

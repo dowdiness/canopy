@@ -30,12 +30,12 @@ These principles were established during brainstorming and guide all decisions:
 ## Scope
 
 In:
-- `examples/ideal/main/` — `ScopeAnnotation` struct, new Rabbita view function,
+- `apps/ideal/main/` — `ScopeAnnotation` struct, new Rabbita view function,
   model extensions (scope_map, outline_mode, highlight_set), outline mode toggle
 - `lang/lambda/edits/scope.mbt` — existing `resolve_binder` / `find_usages`
   (consumed, not modified)
 - `core/proj_node.mbt` — ProjNode[T] used as rose tree for generic zipper navigation
-- `examples/ideal/` CSS — binder palette, selection states, def-site weight
+- `apps/ideal/` CSS — binder palette, selection states, def-site weight
 
 Out:
 - Tooltips / popups (future task, see TODO.md)
@@ -43,12 +43,12 @@ Out:
 - Font size variation by structural role
 - Expand/collapse of complex expressions
 - Scope rails, nested frames, or other layout decorations
-- `examples/web/` HTMLAdapter (Phase 1 targets the ideal editor only)
+- `apps/web/` HTMLAdapter (Phase 1 targets the ideal editor only)
 - Changes to `protocol/view_node.mbt` (framework genericity contract)
 
 ## Current State
 
-- **Tree rendering**: `examples/ideal/main/view_outline.mbt` renders an
+- **Tree rendering**: `apps/ideal/main/view_outline.mbt` renders an
   indented tree using Rabbita from `InteractiveTreeNode[Term]` (not ViewNode).
   Each node is a `div.tree-row` with kind-based CSS class, click handler, and
   collapse toggle. The tree data is refreshed via `refresh()` in `main.mbt`
@@ -62,7 +62,7 @@ Out:
   navigation via `navigate_proj(cursor, direction, proj_root) -> NodeId?`.
   Uses path arithmetic — O(n) DFS to find path, O(depth) to compute neighbor.
   The old Term-level Huet zipper (`lang/lambda/zipper/`) was removed in PR #133.
-- **Model state**: `examples/ideal/main/model.mbt` has `selected_node : String?`,
+- **Model state**: `apps/ideal/main/model.mbt` has `selected_node : String?`,
   `outline_state : TreeEditorState[Term]`, and the editor provides
   `get_proj_node()`, `get_source_map()`, and term access.
 - **Free variables**: `lang/lambda/edits/free_vars.mbt` computes free variable
@@ -100,7 +100,7 @@ disruptive than a new panel, and lets users compare the two views.
 **Decision:** Do NOT add binder fields to `protocol/view_node.mbt`. ViewNode
 is part of the framework-agnostic protocol layer (see ADR: Framework Genericity
 Contract). Instead, create a Rabbita-local struct `ScopeAnnotation` in
-`examples/ideal/main/` that maps `NodeId` to binder info:
+`apps/ideal/main/` that maps `NodeId` to binder info:
 
 ```
 struct ScopeAnnotation {
@@ -215,7 +215,7 @@ a `+` operator doesn't have a scope answer, so the view goes quiet.
 
 **Layer 1: Scope annotation (Rabbita-local)**
 
-`ScopeAnnotation` struct in `examples/ideal/main/`, populated inside the
+`ScopeAnnotation` struct in `apps/ideal/main/`, populated inside the
 existing `refresh()` function in `main.mbt`. `refresh()` already has access to
 `editor.get_proj_node()` and `editor.get_source_map()`. The new code:
 
@@ -355,7 +355,7 @@ User clicks "Compact" tab in outline panel
 
 ## Steps
 
-1. Define `ScopeAnnotation` struct in `examples/ideal/main/` with `binder_id`,
+1. Define `ScopeAnnotation` struct in `apps/ideal/main/` with `binder_id`,
    `is_definition`, `color_index`, `usage_ids`.
 2. **Define let-definition render identity.** In `view_compact_tree`, each
    module def line maps to the init expression's NodeId (from
@@ -382,7 +382,7 @@ User clicks "Compact" tab in outline panel
 9. Apply `"highlighted"` / `"dimmed"` classes in `view_compact_tree` based on
    `highlight_set`.
 10. Implement ProjNode rose tree zipper (`ProjZipper[T]`) in
-    `examples/ideal/main/` (or extract to a shared module). Types:
+    `apps/ideal/main/` (or extract to a shared module). Types:
     `RoseCtx[T]` (parent data + left/right siblings), `RoseZipper[T]`
     (focus + path). Navigation: `go_up`, `go_down(i)`, `go_left`, `go_right`.
 11. **Zipper initialization from selection.** On click or pointer selection:
@@ -443,7 +443,7 @@ User clicks "Compact" tab in outline panel
 ```bash
 moon check
 moon test
-cd examples/ideal && npm run dev  # Visual verification
+cd apps/ideal && npm run dev  # Visual verification
 ```
 
 ## Risks
@@ -466,7 +466,7 @@ cd examples/ideal && npm run dev  # Visual verification
   during implementation by testing with real expressions.
 - **ProjNode zipper is new code**: The generic rose tree zipper doesn't exist
   yet as a standalone module. Phase 1 can implement it locally in
-  `examples/ideal/main/` and extract to a library later (TODO.md §11).
+  `apps/ideal/main/` and extract to a library later (TODO.md §11).
 
 ## Future Layers (not in scope)
 
@@ -486,7 +486,7 @@ These build on Phase 1's foundation:
 
 - Design explored in brainstorming session 2026-04-04. Visual mockups in
   `.superpowers/brainstorm/` (if preserved).
-- The existing `view_outline_node` in `examples/ideal/main/view_outline.mbt`
+- The existing `view_outline_node` in `apps/ideal/main/view_outline.mbt`
   is the code template — same patterns (recursive Html, class interpolation,
   dispatch) apply to the compact view.
 - Binder resolution and usage tracking are already implemented and tested in

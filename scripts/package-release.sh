@@ -33,6 +33,6 @@ tar -czf "$RELEASE_DIR/canopy-moonbit-${VERSION}.tar.gz" \
     LICENSE
 
 tar -czf "$RELEASE_DIR/canopy-web-${VERSION}.tar.gz" \
-    -C "$PROJECT_ROOT/examples/web/dist" .
+    -C "$PROJECT_ROOT/apps/web/dist" .
 
 echo "Release artifacts created in $RELEASE_DIR"

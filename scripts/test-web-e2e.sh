@@ -14,7 +14,7 @@ if [[ "${CANOPY_SKIP_MOON_BUILD:-0}" != "1" ]]; then
 fi
 
 echo "Running web Playwright E2E..."
-cd examples/web
+cd apps/web
 
 if [ ! -d node_modules ]; then
     echo "Installing web dependencies..."

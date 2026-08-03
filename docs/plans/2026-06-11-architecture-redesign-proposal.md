@@ -49,7 +49,7 @@ generate disproportionate change cost:
    but re-implemented per language. The lambda family (7 packages) diverged so
    far that `ADDING_A_LANGUAGE.md` warns against copying it.
 4. **Two write paths and two export layers at the app seam.**
-   `examples/ideal/main` calls typed APIs directly while TS calls JSON FFI
+   `apps/ideal/main` calls typed APIs directly while TS calls JSON FFI
    through the hand-maintained `crdt_reexport.mbt` (31 wrappers, exists for
    per-entry bundle splitting). Documented bug history at this seam: #554,
    #555/#558, #571, runtime TypeError on missed second export layer.

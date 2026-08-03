@@ -52,18 +52,18 @@ test-demo-react-e2e: ## Run demo-react Playwright E2E tests
 	@./scripts/test-demo-react-e2e.sh
 
 benchmark-ideal-editor-response: ## Run realistic ideal editor response benchmarks
-	@cd examples/ideal/web && npm run test:perf
+	@cd apps/ideal/web && npm run test:perf
 
 setup-ast-grep: ## Build tree-sitter-moonbit for ast-grep custom-language support
 	@./scripts/setup-ast-grep-moonbit.sh
 
 web-dev: build-js ## Build JS artifacts and start the Waku web dev server
-	@cd examples/web && npm run dev
+	@cd apps/web && npm run dev
 
 clean: ## Clean build artifacts
 	moon clean
 	rm -rf target _build
-	rm -rf examples/web/dist release
+	rm -rf apps/web/dist release
 
 install-hooks: ## Install git pre-commit hooks
 	@./scripts/install-hooks.sh

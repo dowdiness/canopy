@@ -14,14 +14,14 @@ cd "$PROJECT_ROOT"
 
 if [[ "${CANOPY_SKIP_MOON_BUILD:-0}" != "1" ]]; then
     (
-        cd examples/ideal
+        cd apps/ideal
         # Retry-wrapped: transient mooncakes CDN 403 (issue #467) auto-recovers.
         "$SCRIPT_DIR/moon-update.sh"
     )
 fi
 
 echo "Running Ideal editor Playwright E2E..."
-cd examples/ideal/web
+cd apps/ideal/web
 
 if [ ! -d node_modules ]; then
     echo "Installing Ideal editor web dependencies..."

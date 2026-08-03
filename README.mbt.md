@@ -71,7 +71,7 @@ make build-js
 
 # Run the Waku web demo. Canonical routes: /, /ml, /json, /markdown,
 # /journey, /posts, /memo, /resume, /genui.
-cd examples/web && npm install && npm run dev
+cd apps/web && npm install && npm run dev
 ```
 
 The targets currently exercised in CI are **JavaScript** (web demo, FFI) and
@@ -146,16 +146,16 @@ include [`event-graph-walker/`](event-graph-walker/), [`loom/`](loom/), and
 
 | Example | Description | Live demo |
 |---------|-------------|-----------|
-| [examples/web/](examples/web/) | Waku Worker hosting the lambda, JSON, Markdown, and other editors | deployed as `canopy-examples` Worker |
-| [examples/ideal/](examples/ideal/) | Full-featured editor with inspector and benchmarks | [canopy-ideal.pages.dev](https://canopy-ideal.pages.dev) |
+| [apps/web/](apps/web/) | Waku Worker hosting the lambda, JSON, Markdown, and other editors | deployed as `canopy-examples` Worker |
+| [apps/ideal/](apps/ideal/) | Full-featured editor with inspector and benchmarks | [canopy-ideal.pages.dev](https://canopy-ideal.pages.dev) |
 | [examples/prosemirror/](examples/prosemirror/) | ProseMirror structural-editing integration | [canopy-prosemirror.pages.dev](https://canopy-prosemirror.pages.dev) |
-| [examples/canvas/](examples/canvas/) | Infinite canvas (experimental) | [canopy-canvas.pages.dev](https://canopy-canvas.pages.dev) |
-| [examples/block-editor/](examples/block-editor/) | Block-based structural editing | [canopy-block-editor.pages.dev](https://canopy-block-editor.pages.dev) |
+| [apps/canvas/](apps/canvas/) | Infinite canvas (experimental) | [canopy-canvas.pages.dev](https://canopy-canvas.pages.dev) |
+| [apps/block-editor/](apps/block-editor/) | Block-based structural editing | [canopy-block-editor.pages.dev](https://canopy-block-editor.pages.dev) |
 | [examples/demo-react/](examples/demo-react/) | Minimal React integration | [canopy-demo-react.pages.dev](https://canopy-demo-react.pages.dev) |
-| [examples/relay-server/](examples/relay-server/) | Cloudflare Workers relay (collaboration) | deployed as `canopy-relay` |
+| [apps/relay-server/](apps/relay-server/) | Cloudflare Workers relay (collaboration) | deployed as `canopy-relay` |
 
 A few additional unlisted directories (`examples/rabbita/`, the
-`spike-block-input.html` spike under `examples/web/`) are work-in-progress
+`spike-block-input.html` spike under `apps/web/`) are work-in-progress
 spikes; treat them as unstable.
 
 ## What to Read Next

@@ -37,31 +37,31 @@ The design consequence is that the editor needs two operation layers:
 
 | Surface | Role today | Useful pieces | Limits for node-graph work |
 | --- | --- | --- | --- |
-| `examples/web` | Vite demos for Lambda, JSON, and Markdown. | Simple text-to-model sync, `HTMLAdapter`, JSON structural toolbar, Graphviz SVG preview, markdown block/preview modes. | Mostly direct FFI calls; JSON structural toolbar bypasses `UserIntent` for richer edit payloads. |
-| `examples/ideal` | Main integrated editor shell. | Rabbita app state, CodeMirror text mode, ProseMirror structure mode, outline, inspector, bottom panels, CRDT bridge, RAF reconcile, performance taps. | Structure mode currently failed in the local browser smoke test with a ProseMirror content error; fix before using it as the graph integration host. |
+| `apps/web` | Vite demos for Lambda, JSON, and Markdown. | Simple text-to-model sync, `HTMLAdapter`, JSON structural toolbar, Graphviz SVG preview, markdown block/preview modes. | Mostly direct FFI calls; JSON structural toolbar bypasses `UserIntent` for richer edit payloads. |
+| `apps/ideal` | Main integrated editor shell. | Rabbita app state, CodeMirror text mode, ProseMirror structure mode, outline, inspector, bottom panels, CRDT bridge, RAF reconcile, performance taps. | Structure mode currently failed in the local browser smoke test with a ProseMirror content error; fix before using it as the graph integration host. |
 | `examples/prosemirror` | Minimal protocol-pure structural editor. | `ViewPatch[] -> PMAdapter`, `UserIntent -> engine` loop, protocol-only keymap. | Generic tree rendering only; not suited to free-form graph pan/zoom. |
-| `examples/canvas` | Workflow node canvas prototype. | MoonBit-owned `CanvasState`, typed `WorkflowAction`, ports, edges, validation, pan/zoom, drag, connection gestures, action log, DOM maps keyed by node/edge IDs. | Not connected to `SyncEditor`, `ViewPatch`, source maps, or Canopy language companions yet. |
-| `examples/block-editor` | Block-level document editor. | contenteditable blocks keyed by IDs, drag handles, focused-block preservation, Markdown import/export path. | Document model is block CRDT-specific and not protocol-driven. |
-| `examples/codemirror_demo` and `modules/rabbita_codemirror` | Rabbita binding smoke test for CodeMirror. | Function-based MoonBit API, `Cmd`/`Sub` lifecycle, editor handle registry, guarded programmatic updates. | Text surface only; use for source pane and inline fields, not graph topology. |
+| `apps/canvas` | Workflow node canvas prototype. | MoonBit-owned `CanvasState`, typed `WorkflowAction`, ports, edges, validation, pan/zoom, drag, connection gestures, action log, DOM maps keyed by node/edge IDs. | Not connected to `SyncEditor`, `ViewPatch`, source maps, or Canopy language companions yet. |
+| `apps/block-editor` | Block-level document editor. | contenteditable blocks keyed by IDs, drag handles, focused-block preservation, Markdown import/export path. | Document model is block CRDT-specific and not protocol-driven. |
+| `examples/codemirror` and `modules/rabbita_codemirror` | Rabbita binding smoke test for CodeMirror. | Function-based MoonBit API, `Cmd`/`Sub` lifecycle, editor handle registry, guarded programmatic updates. | Text surface only; use for source pane and inline fields, not graph topology. |
 | `adapters/editor` | Framework-agnostic patch/intent boundary. | `EditorAdapter`, `CM6Adapter`, `PMAdapter`, `HTMLAdapter`, stable TS protocol types. | README explicitly scopes non-text custom surfaces out of this package; graph work should be a separate adapter. |
 | `graphviz` and `modules/visualizer` | DOT parse/layout/render to SVG. | Read-only graph inspection, diagnostics and history visualization. | SVG Graphviz is not an interactive graph editor; do not use it as the primary node canvas. |
 
 Browser smoke observations:
 
-- `examples/web` ran Lambda, JSON, and Markdown pages. JSON selection enabled
+- `apps/web` ran Lambda, JSON, and Markdown pages. JSON selection enabled
   structural toolbar buttons, and Markdown rendered block/preview content.
-- `examples/ideal` ran the integrated shell, text editor, outline, inspector,
+- `apps/ideal` ran the integrated shell, text editor, outline, inspector,
   and bottom panels. Switching to Structure mode logged
   `RangeError: Invalid content for node module: <>` from the ProseMirror
   structure path in this environment.
-- `examples/canvas` ran the workflow canvas. Adding a node updated the visible
+- `apps/canvas` ran the workflow canvas. Adding a node updated the visible
   canvas and the action count, confirming the operation-log path is live.
-- `examples/block-editor` ran the contenteditable block editor with import and
+- `apps/block-editor` ran the contenteditable block editor with import and
   export controls.
 - `examples/prosemirror` ran the minimal protocol editor and displayed the
   Lambda structure through `PMAdapter`.
 
-The local `examples/web` dev server also hit the OS file-watch limit after its
+The local `apps/web` dev server also hit the OS file-watch limit after its
 initial MoonBit build. That is a development environment issue, but it makes
 long-running multi-demo investigation noisy.
 
@@ -123,10 +123,10 @@ or projection IDs. A mixed UI should therefore use:
 
 | Technology | Recommendation | Reasoning |
 | --- | --- | --- |
-| Rabbita | Use for the application shell, panels, state coordination, and subscriptions. | `examples/ideal` already uses Rabbita to coordinate mode tabs, outline, inspector, bottom panels, CRDT state, and refresh commands. |
+| Rabbita | Use for the application shell, panels, state coordination, and subscriptions. | `apps/ideal` already uses Rabbita to coordinate mode tabs, outline, inspector, bottom panels, CRDT state, and refresh commands. |
 | CodeMirror 6 | Use for source text, inline expression fields, and possibly editable graph parameter fields. | `CM6Adapter` and `rabbita_codemirror` already guard programmatic updates and emit document/cursor changes. |
 | ProseMirror | Keep for structured tree editing, not for node graph topology. | It is good at document/tree selection and node views, but free-form pan/zoom/ports fit poorly. |
-| Canvas DOM + SVG from `examples/canvas` | Use as the first node graph substrate. | It already has pan, zoom, nodes, ports, edges, validation, action logs, RAF scheduling, and keyed DOM/SVG maps. |
+| Canvas DOM + SVG from `apps/canvas` | Use as the first node graph substrate. | It already has pan, zoom, nodes, ports, edges, validation, action logs, RAF scheduling, and keyed DOM/SVG maps. |
 | Graphviz/SVG | Use for read-only inspectors and debug graph exports. | Layout is useful for history/dependency visualization, but direct manipulation requires a separate interaction layer. |
 | `adapters/editor` | Reuse the interface shape, but create a separate GraphAdapter. | The package intentionally excludes non-text custom surfaces. A graph adapter can still expose `applyPatches`, `onIntent`, and `destroy`. |
 
@@ -147,7 +147,7 @@ GraphAdapter
 
 ## Proposed operation model
 
-Start from the `examples/canvas/main/canvas_state.mbt` precedent:
+Start from the `apps/canvas/main/canvas_state.mbt` precedent:
 `WorkflowAction` already models durable actions such as `AddNode`,
 `MoveNodes`, `ConnectPorts`, `SelectNodes`, and `SetViewport`.
 
@@ -218,13 +218,13 @@ graph layout metadata belongs in source, a sidecar document, or CRDT metadata.
 
 Existing useful patterns:
 
-- `examples/ideal/main/main.mbt` already measures refresh stages such as total
+- `apps/ideal/main/main.mbt` already measures refresh stages such as total
   refresh, projection, source map, tree editor refresh, scope map, and
   highlight set.
-- `examples/canvas/web/src/main.ts` schedules rendering through
+- `apps/canvas/web/src/main.ts` schedules rendering through
   `requestAnimationFrame`, stores DOM nodes in `Map<NodeId, HTMLElement>`, and
   stores edge paths in `Map<EdgeId, SVGPathElement>`.
-- `examples/canvas/main/canvas_update.mbt` computes pan/drag from absolute
+- `apps/canvas/main/canvas_update.mbt` computes pan/drag from absolute
   start positions to avoid floating-point accumulation.
 - `CM6Adapter` remaps unchanged decorations across document changes instead of
   rebuilding everything.
@@ -251,9 +251,9 @@ prefer MoonDsp control bindings rather than graph recompilation.
 
 Reuse directly:
 
-- `examples/canvas` data model and interaction logic as the first graph UI
+- `apps/canvas` data model and interaction logic as the first graph UI
   substrate.
-- `examples/ideal` shell concepts: mode tabs, outline, inspector, bottom
+- `apps/ideal` shell concepts: mode tabs, outline, inspector, bottom
   panels, patch/op logs, performance taps, and CRDT bridge shape.
 - `CM6Adapter` or `rabbita_codemirror` for the source pane.
 - `ViewNode`, `ViewPatch`, diagnostics, decorations, and selection patches for
@@ -281,7 +281,7 @@ Build new:
   after an explicit compatibility decision.
 - `layout_to_view_tree` creates display-local IDs. It should not be used as
   the primary identity source for graph editing.
-- `examples/ideal` Structure mode must be fixed or bypassed before it can host
+- `apps/ideal` Structure mode must be fixed or bypassed before it can host
   a graph pane reliably.
 - There is no graph-specific patch type yet. `ViewPatch` can drive tree views,
   but node graph updates need positions, ports, edge routes, hover/selection
@@ -300,7 +300,7 @@ Build new:
 
 | Repository | Issue | Responsibility |
 | --- | --- | --- |
-| Canopy | [#428](https://github.com/dowdiness/canopy/issues/428) | Fix `examples/ideal` Structure mode before using it as the graph-editor host. |
+| Canopy | [#428](https://github.com/dowdiness/canopy/issues/428) | Fix `apps/ideal` Structure mode before using it as the graph-editor host. |
 | Canopy | [#429](https://github.com/dowdiness/canopy/issues/429) | Extract the canvas operation model and GraphAdapter prototype. |
 | Canopy | [#430](https://github.com/dowdiness/canopy/issues/430) | Add source/graph roundtrip smoke tests for the audio graph UI. |
 | incr | [#143](https://github.com/dowdiness/incr/issues/143) | Benchmark durable vs ephemeral graph-editor recomputation paths. |
@@ -309,9 +309,9 @@ Build new:
 
 ## Recommended next work
 
-1. Fix or isolate the `examples/ideal` Structure-mode ProseMirror content
+1. Fix or isolate the `apps/ideal` Structure-mode ProseMirror content
    error so the integrated editor shell is trustworthy.
-2. Extract the `examples/canvas` operation model into a reusable
+2. Extract the `apps/canvas` operation model into a reusable
    graph-operation package or module with JSON roundtrip tests.
 3. Build a `GraphAdapter` prototype that accepts a normalized graph view model
    and emits typed `GraphOperation` values.

@@ -57,7 +57,7 @@ there is no network or Gemini dependency.
 - `ffi/jsx/generative_ui_async_driver.mbt`: private driver and deterministic
   JS Promise/Abort scripted transport.
 - `ffi/jsx/*_wbtest.mbt`: failing/green shell and isolation tests.
-- `examples/web/src/genui.js` and `examples/web/tests/genui.spec.ts`: thin
+- `apps/web/src/genui.js` and `apps/web/tests/genui.spec.ts`: thin
   browser observability wrapper and staged cancellation/late-event assertions.
 - `docs/plans/evidence/2026-07-13-generative-ui-safety-metrics.json` plus the
   relevant plan: record the new deterministic counts and AC-12/AC-14 evidence.
@@ -76,7 +76,7 @@ there is no network or Gemini dependency.
 
 - [x] `NEW_MOON_MOD=0 moon check ffi/jsx`
 - [x] `NEW_MOON_MOD=0 moon test ffi/jsx --target js` — 52/52
-- [x] `npx tsc --noEmit -p tsconfig.json` in `examples/web`
+- [x] `npx tsc --noEmit -p tsconfig.json` in `apps/web`
 - [x] Playwright focused async/session scenarios — 7/7
 - [x] Playwright complete GenUI suite — 21/21
 - [x] Deterministic safety metrics updated with zero stale revision/markup,

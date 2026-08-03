@@ -150,7 +150,7 @@
 
 **Files:**
 - Modify only if generated output changes: `ffi/jsx/pkg.generated.mbti`
-- Modify only if browser coverage needs a new observable regression: `examples/web/tests/genui.spec.ts`
+- Modify only if browser coverage needs a new observable regression: `apps/web/tests/genui.spec.ts`
 
 **Interfaces:**
 - Consumes: all three prior tasks and the existing GenUI replay-browser action.
@@ -170,7 +170,7 @@
 - [x] **Step 3: Rebuild and run browser coverage.**
   - Run `bash scripts/build-js.sh` so the JS-only `ffi/jsx` package is exercised in its deployment target.
   - Run `CANOPY_SKIP_MOON_BUILD=1 bash scripts/test-web-e2e.sh tests/genui.spec.ts`.
-  - If `examples/web/tests/genui.spec.ts` changed, ensure it observes one end-to-end special-text candidate result instead of asserting implementation details.
+  - If `apps/web/tests/genui.spec.ts` changed, ensure it observes one end-to-end special-text candidate result instead of asserting implementation details.
 
 - [x] **Step 4: Run workspace safety verification.**
   - Run `moon check` and record the expected pre-existing reserved-keyword warning separately from this change.

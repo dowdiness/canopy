@@ -24,7 +24,7 @@ The two S4 deliverables are deliberately separated by PR gate:
 - PR2 introduces declared export manifests and a discrepancy-reporting check
   while keeping the current hand-maintained export files authoritative.
 
-Deletion of `examples/ideal/main/crdt_reexport.mbt` is out of scope for S4. It
+Deletion of `apps/ideal/main/crdt_reexport.mbt` is out of scope for S4. It
 is a later PR after one release of parallel-run, gated on TS typecheck CI,
 bundle measurement, and runtime smoke across lambda, JSON, and Markdown FFI
 surfaces.
@@ -150,7 +150,7 @@ Verification:
 - `NEW_MOON_MOD=0 moon check`
 - `NEW_MOON_MOD=0 moon test -p dowdiness/canopy/ffi/json`
 - `NEW_MOON_MOD=0 moon info` and inspect `git diff 'ffi/json/pkg.generated.mbti' 'ffi/host/pkg.generated.mbti'`
-- `cd examples/web && npm run build`; record JSON, Markdown, and Lambda chunk
+- `cd apps/web && npm run build`; record JSON, Markdown, and Lambda chunk
   sizes even though only JSON was migrated
 
 ## Step 3 — Migrate Markdown FFI onto `ffi/host`
@@ -182,7 +182,7 @@ Verification:
 - `NEW_MOON_MOD=0 moon check`
 - `NEW_MOON_MOD=0 moon test -p dowdiness/canopy/ffi/markdown`
 - `NEW_MOON_MOD=0 moon info` and inspect `git diff 'ffi/markdown/pkg.generated.mbti' 'ffi/host/pkg.generated.mbti'`
-- `cd examples/web && npm run build`; record JSON, Markdown, and Lambda chunk
+- `cd apps/web && npm run build`; record JSON, Markdown, and Lambda chunk
   sizes
 
 ## Step 4 — Migrate Lambda FFI onto `ffi/host`
@@ -230,7 +230,7 @@ Verification:
 - `NEW_MOON_MOD=0 moon check`
 - `NEW_MOON_MOD=0 moon test -p dowdiness/canopy/ffi/lambda`
 - `NEW_MOON_MOD=0 moon info` and inspect `git diff 'ffi/lambda/pkg.generated.mbti' 'ffi/host/pkg.generated.mbti'`
-- `cd examples/web && npm run build`; record JSON, Markdown, and Lambda chunk
+- `cd apps/web && npm run build`; record JSON, Markdown, and Lambda chunk
   sizes
 
 ## Step 5 — Host extraction integration sweep
@@ -255,7 +255,7 @@ Verification:
 - `NEW_MOON_MOD=0 moon check`
 - `NEW_MOON_MOD=0 moon test`
 - `NEW_MOON_MOD=0 moon info` and inspect all `git diff '*.mbti'`
-- `cd examples/web && npm run build`; include the required PR body table with
+- `cd apps/web && npm run build`; include the required PR body table with
   rows JSON, Markdown, Lambda and columns clean main, with change, delta, gzip
 
 ## Step 6 — Add declared export manifests and discrepancy check
@@ -263,7 +263,7 @@ Verification:
 In a separate PR, introduce a declared manifest per app as the single source of
 truth for expected FFI exports. Start with the lambda app seam because it has
 both live layers today: `ffi/lambda/moon.pkg` and
-`examples/ideal/main/crdt_reexport.mbt` plus `examples/ideal/main/moon.pkg`.
+`apps/ideal/main/crdt_reexport.mbt` plus `apps/ideal/main/moon.pkg`.
 The manifest format should be simple, reviewable, and not code-generated in
 this stage. Keep it close to the app or docs path chosen for export-surface
 ownership, and document that the existing hand-maintained files remain
@@ -295,7 +295,7 @@ Verification:
 - `NEW_MOON_MOD=0 moon check`
 - `NEW_MOON_MOD=0 moon test`
 - `NEW_MOON_MOD=0 moon info` and inspect `git diff '*.mbti'`
-- `cd examples/web && npm run build`; include the required PR body table with
+- `cd apps/web && npm run build`; include the required PR body table with
   rows JSON, Markdown, Lambda and columns clean main, with change, delta, gzip
 
 ## PR slicing and merge gates
@@ -318,7 +318,7 @@ measurement, and runtime smoke across all three FFI surfaces.
 
 Every PR body must include a bundle-size table with columns `clean main`,
 `with change`, `delta`, and `gzip`; rows `json`, `markdown`, and `lambda`; and
-measurements from `cd examples/web && npm run build`.
+measurements from `cd apps/web && npm run build`.
 
 ## Gates and acceptance criteria
 
@@ -339,7 +339,7 @@ measurements from `cd examples/web && npm run build`.
   explains and justifies the variance.
 - The export manifest check reports symbol-level discrepancies across the
   declared manifest, `ffi/lambda/moon.pkg`, `crdt_reexport.mbt`, and
-  `examples/ideal/main/moon.pkg`.
+  `apps/ideal/main/moon.pkg`.
 - `crdt_reexport.mbt` remains present after S4.
 
 ## Baseline correction note
@@ -350,7 +350,7 @@ reproducible: a fresh build at S0 commit `979c2fe` (the proposal's own date)
 yields 370.29 / 333.17 / 683.92 kB — within ~1 kB of current main, proving
 S1–S3 added almost nothing and the recorded numbers came from a different
 method or toolchain. The operative gate is the 2026-06-12 clean-main
-measurement (`examples/web` Vite chunks, minified, pinned submodules):
+measurement (`apps/web` Vite chunks, minified, pinned submodules):
 
 - JSON: 370.6 kB, gzip 89.0 kB
 - Markdown: 333.6 kB, gzip 80.8 kB
@@ -380,4 +380,4 @@ The spike delta evidence was JSON +0.26 kB, Markdown +0.26 kB, and Lambda
   review for exported strings.
 - Manifest false confidence: a manifest that only checks one layer could miss
   the current two-layer export bug class. Mitigation: compare against both
-  `ffi/lambda` and `examples/ideal/main` live layers with symbol-level output.
+  `ffi/lambda` and `apps/ideal/main` live layers with symbol-level output.

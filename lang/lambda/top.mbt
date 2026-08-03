@@ -1,7 +1,7 @@
 // Lambda language facade — unified entry point for lambda editor types.
 //
 // Only re-exports symbols that are actually consumed today (by editor/,
-// ffi/lambda/, and examples/ideal). The previous version re-exported the full
+// ffi/lambda/, and apps/ideal). The previous version re-exported the full
 // surface of the proj/edits/eval/flat/companion subpackages, but most of
 // those re-exports had no callers — they were vestiges of an earlier wiring.
 // Removed re-exports can be re-added when a new consumer needs them.

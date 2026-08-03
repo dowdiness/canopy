@@ -54,7 +54,7 @@ Representative seams:
   families.
 - `adapters/editor/` translates primary-module interfaces for
   TypeScript consumers.
-- `examples/ideal/` and `examples/canvas/` are runnable applications with their
+- `apps/ideal/` and `apps/canvas/` are runnable applications with their
   own lifecycle and verification.
 
 These examples explain the layers; they are not an inventory.

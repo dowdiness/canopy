@@ -131,7 +131,7 @@ any API; this plan expects no new API.
 - Do not add authentication, room authorization, rate limits, or observability;
   those belong to the hosting shell and Plan 003's retirement decision.
 - Do not edit `protocol/wire` or `sync_session`.
-- Do not modify `examples/relay-server` in this slice.
+- Do not modify `apps/relay-server` in this slice.
 - Preserve the pre-existing dirty worktree by using an isolated worktree.
 
 ## Git workflow
@@ -265,7 +265,7 @@ Existing tests must continue to cover:
 The CI-equivalent release workspace suite must run through
 `scripts/check-test-baseline.sh`; bare `moon test` is not the repository's
 machine-checkable full-suite gate because known vendored failures are tracked
-separately. Rebuild JS because `examples/relay-server` consumes relay through
+separately. Rebuild JS because `apps/relay-server` consumes relay through
 `ffi/lambda`. No snapshot updates are allowed.
 
 ## Done criteria

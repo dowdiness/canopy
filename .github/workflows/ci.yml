@@ -72,7 +72,7 @@ jobs:
               - 'adapters/editor/**'
               - '.github/workflows/ci.yml'
             run_loomark_dev_host_e2e:
-              - 'loomark/**'
+              - 'apps/loomark/**'
               - 'editor/markdown/**'
               - 'modules/dom-boundary/**'
               - 'modules/js-ffi/**'
@@ -85,10 +85,10 @@ jobs:
               - '.github/workflows/ci.yml'
               - 'scripts/moon-update.sh'
             run_e2e:
-              - 'examples/web/**'
-              - 'examples/ideal/**'
+              - 'apps/web/**'
+              - 'apps/ideal/**'
               - 'examples/demo-react/**'
-              - 'examples/canvas/**'
+              - 'apps/canvas/**'
               - '.github/workflows/ci.yml'
               - 'scripts/build-js.sh'
               - 'scripts/test-*.sh'
@@ -215,16 +215,16 @@ jobs:
       matrix:
         include:
           - name: ideal
-            path: examples/ideal
+            path: apps/ideal
             mode: ci-lenient
           - name: block-editor
-            path: examples/block-editor
+            path: apps/block-editor
             mode: ci-lenient
           - name: canvas
-            path: examples/canvas
+            path: apps/canvas
             mode: ci-lenient
           - name: codemirror_demo
-            path: examples/codemirror_demo
+            path: examples/codemirror
             mode: ci-lenient
     steps:
       - name: Checkout code
@@ -384,7 +384,7 @@ jobs:
           node-version: '24'
           cache: 'npm'
           cache-dependency-path: |
-            examples/web/package-lock.json
+            apps/web/package-lock.json
             examples/prosemirror/package-lock.json
 
       - name: Update MoonBit dependencies
@@ -394,15 +394,15 @@ jobs:
         run: ./scripts/build-web.sh
 
       - name: Type check web
-        working-directory: examples/web
+        working-directory: apps/web
         run: npm run typecheck
 
       - name: Check web dependency boundaries
-        working-directory: examples/web
+        working-directory: apps/web
         run: npm run check:boundaries
 
       - name: Test web dependency boundaries
-        working-directory: examples/web
+        working-directory: apps/web
         run: npm run test:boundaries
 
       - name: Install prosemirror dependencies
@@ -447,68 +447,68 @@ jobs:
         with:
           node-version: '24'
           cache: 'npm'
-          cache-dependency-path: examples/web/package-lock.json
+          cache-dependency-path: apps/web/package-lock.json
 
       - name: Install web dependencies
-        working-directory: examples/web
+        working-directory: apps/web
         run: npm ci
 
       - name: Type check Waku sources
-        working-directory: examples/web
+        working-directory: apps/web
         run: npm run typecheck
 
       - name: Check and test Waku boundaries
-        working-directory: examples/web
+        working-directory: apps/web
         run: |
           npm run check:boundaries
           npm run test:boundaries
           npm run test:foundation
 
       - name: Build Waku from prebuilt MoonBit artifacts
-        working-directory: examples/web
+        working-directory: apps/web
         run: npm run build:waku
 
       - name: Assert generated client/server bundle boundaries
-        working-directory: examples/web
+        working-directory: apps/web
         run: npm run check:waku-bundles
 
       - name: Check generated Cloudflare binding types
-        working-directory: examples/web
+        working-directory: apps/web
         run: npm run check:waku-types
 
       - name: Dry-run the preview Worker bundle
-        working-directory: examples/web
+        working-directory: apps/web
         run: >-
           npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env preview
           --outfile "${RUNNER_TEMP}/waku-preview-worker.bundle"
 
       - name: Record Worker startup profile
-        working-directory: examples/web
+        working-directory: apps/web
         run: >-
           npx wrangler check startup
           --worker "${RUNNER_TEMP}/waku-preview-worker.bundle"
 
       - name: Dry-run the production Worker bundle
-        working-directory: examples/web
+        working-directory: apps/web
         run: >-
           npx wrangler deploy --config wrangler.waku.jsonc --dry-run --env production
           --outfile "${RUNNER_TEMP}/waku-production-worker.bundle"
 
       - name: Record production Worker startup profile
-        working-directory: examples/web
+        working-directory: apps/web
         run: >-
           npx wrangler check startup
           --worker "${RUNNER_TEMP}/waku-production-worker.bundle"
 
       - name: Create Waku release manifest
-        working-directory: examples/web
+        working-directory: apps/web
         run: npm run create:waku-release-manifest -- "${RUNNER_TEMP}/waku-web-release-manifest.json"
 
       - name: Upload Waku Worker build
         uses: actions/upload-artifact@v7
         with:
           name: waku-web-build-${{ github.run_attempt }}
-          path: examples/web/dist
+          path: apps/web/dist
           retention-days: 30
 
       - name: Upload Waku release manifest
@@ -545,7 +545,7 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: waku-web-build-${{ github.run_attempt }}
-          path: examples/web/dist
+          path: apps/web/dist
 
       - name: Verify all Waku MoonBit inputs
         run: |
@@ -560,18 +560,18 @@ jobs:
         with:
           node-version: '24'
           cache: 'npm'
-          cache-dependency-path: examples/web/package-lock.json
+          cache-dependency-path: apps/web/package-lock.json
 
       - name: Install web dependencies
-        working-directory: examples/web
+        working-directory: apps/web
         run: npm ci
 
       - name: Run Waku foundation browser probes
-        working-directory: examples/web
+        working-directory: apps/web
         run: npm run test:waku:e2e
 
       - name: Run built Waku GenUI preview probes
-        working-directory: examples/web
+        working-directory: apps/web
         env:
           CANOPY_SKIP_WAKU_BUILD: 1
         run: npm run test:waku:preview
@@ -591,20 +591,20 @@ jobs:
         with:
           node-version: '24'
           cache: 'npm'
-          cache-dependency-path: examples/web/package-lock.json
+          cache-dependency-path: apps/web/package-lock.json
 
       - name: Install web dependencies
-        working-directory: examples/web
+        working-directory: apps/web
         run: npm ci
 
       - name: Download Waku Worker build
         uses: actions/download-artifact@v8
         with:
           name: waku-web-build-${{ github.run_attempt }}
-          path: examples/web/dist
+          path: apps/web/dist
 
       - name: Smoke built Worker under workerd
-        working-directory: examples/web
+        working-directory: apps/web
         run: npm run test:waku:workerd
 
   ideal-web-e2e:
@@ -639,10 +639,10 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: examples/ideal/web/package-lock.json
+          cache-dependency-path: apps/ideal/web/package-lock.json
 
       - name: Install web dependencies
-        working-directory: examples/ideal/web
+        working-directory: apps/ideal/web
         run: npm ci
 
       - name: Run Ideal editor Playwright suite
@@ -721,10 +721,10 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: examples/canvas/web/package-lock.json
+          cache-dependency-path: apps/canvas/web/package-lock.json
 
       - name: Install canvas web dependencies
-        working-directory: examples/canvas/web
+        working-directory: apps/canvas/web
         run: npm ci
 
       - name: Run canvas Playwright suite

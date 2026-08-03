@@ -448,7 +448,7 @@ This is convention-only; no schema change. Downstream tooling can filter CRDT hi
 
 ### 6.2 Minimum scope
 
-- **Single browser page**, two editors side-by-side: a Markdown spec editor (already exists at `examples/web/markdown.html` per `CLAUDE.md`) and the Lambda editor (already exists).
+- **Single browser page**, two editors side-by-side: a Markdown spec editor (already exists at `apps/web/markdown.html` per `CLAUDE.md`) and the Lambda editor (already exists).
 - **Manual links only** in the prototype. Anchor syntax in the spec: `[ref:<lambda-node-id>]` as a Markdown inline form.
 - **One graph relation:** `IMPLEMENTS` from spec → code.
 - **One impact rule:** "any code node referenced by a changed spec node is affected."
@@ -474,8 +474,8 @@ workspace/dep_graph/                              (NEW sub-package — incr-back
   snapshot.mbt                                    relation_to_adjacency_map for one-shot alga algorithms
 llm/structural.mbt                                NEW: prompt + parse Array[UserIntent::StructuralEdit]
 ffi/workspace.mbt                                 NEW: FFI entry points for the workspace
-examples/web/spec-aware.html                      NEW: two-pane demo
-examples/web/src/spec-aware.ts                    NEW: glue
+apps/web/spec-aware.html                      NEW: two-pane demo
+apps/web/src/spec-aware.ts                    NEW: glue
 ```
 
 ### 6.4 Files to extend (existing)
@@ -499,7 +499,7 @@ examples/web/src/spec-aware.ts                    NEW: glue
 
 ### 6.6 Validation workflow
 
-1. Open `examples/web/spec-aware.html`. Confirm both panels render initial content.
+1. Open `apps/web/spec-aware.html`. Confirm both panels render initial content.
 2. In the spec panel, edit the heading text of a `[ref:<id>]`-anchored requirement. Confirm the corresponding code definition acquires an `Impact` annotation (verifiable by CSS class or visible badge).
 3. Press "propose." Confirm the side panel shows ≥1 `UserIntent::StructuralEdit` JSON entry within 10 seconds.
 4. Accept the proposal. Confirm the code panel updates and the underlying CRDT text changes (verifiable via `editor.get_text()`).
@@ -688,7 +688,7 @@ These three experiments answer load-bearing questions that Codex's review flagge
 8. **Extend `LambdaCompanion` with `get_impact_annotations`** mirroring the existing `get_eval_annotations`. (Estimated: 2 days.)
 9. **Add `llm/structural.mbt`** — prompt + parser for `Array[UserIntent::StructuralEdit]`, restricted to §5.2 Layer A ops (`Rename`, `ExtractToLet`, `CommitEdit`). Includes validation: reject any LLM-emitted op outside the Layer A set; reject unknown NodeIds. (Estimated: 1 week. Risk: prompt engineering iterations.)
 10. **Add `ffi/workspace.mbt`** — FFI surface for `workspace_create`, `workspace_get_impact`, `workspace_propose_patches`, `workspace_accept`. (Estimated: 2–3 days.)
-11. **Build `examples/web/spec-aware.html` + `spec-aware.ts`** demo with two panels + proposal pane. (Estimated: 1 week.)
+11. **Build `apps/web/spec-aware.html` + `spec-aware.ts`** demo with two panels + proposal pane. (Estimated: 1 week.)
 
 **P1 — Quality and durability (Phase 2)**
 

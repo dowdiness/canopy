@@ -39,7 +39,7 @@ JS build artifacts are namespaced under the module path: `_build/js/release/buil
 ### Web Development
 ```bash
 moon build --target js              # Build for web
-cd examples/web && npm run dev      # Waku dev server (localhost:3000)
+cd apps/web && npm run dev      # Waku dev server (localhost:3000)
 # Demo Hub:         http://localhost:3000/
 # Mini-ML:          http://localhost:3000/ml
 # JSON editor:      http://localhost:3000/json
@@ -50,9 +50,9 @@ cd examples/web && npm run dev      # Waku dev server (localhost:3000)
 TypeScript front-ends live alongside the MoonBit examples and have separate CI
 coverage outside `moon test`:
 
-- **TS typecheck** (`web-build`): `examples/web`, `examples/prosemirror`
-- **Playwright E2E** jobs: `examples/web`, `examples/ideal/web`,
-  `examples/demo-react`, `examples/canvas/web`
+- **TS typecheck** (`web-build`): `apps/web`, `examples/prosemirror`
+- **Playwright E2E** jobs: `apps/web`, `apps/ideal/web`,
+  `examples/demo-react`, `apps/canvas/web`
 
 JS artifacts must be built (`moon build --target js`) before these run. See the
 matching jobs in `.github/workflows/ci.yml` for the exact commands and the

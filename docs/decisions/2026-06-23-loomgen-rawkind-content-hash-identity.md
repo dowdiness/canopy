@@ -70,11 +70,11 @@ none carrying CST structure:
   `RelayedCrdtOps` / `SyncResponse`, with `SyncRequest` carrying only the version
   frontier. This class travels over *several* transports, all auditing identically:
   the dev SQLite op log
-  ([`store.ts`](../../examples/ideal/web/server/store.ts)), the Cloudflare relay's
-  Durable Object SQL ([`relay-worker.js`](../../examples/ideal/web/relay-worker.js)),
+  ([`store.ts`](../../apps/ideal/web/server/store.ts)), the Cloudflare relay's
+  Durable Object SQL ([`relay-worker.js`](../../apps/ideal/web/relay-worker.js)),
   the ideal web app's `localStorage` snapshot + peer sync via `crdt.export_all_json`
-  / `apply_sync_json` ([`main.ts`](../../examples/ideal/web/src/main.ts):128/:449,
-  [`sync.ts`](../../examples/ideal/web/src/sync.ts):120), and the `SyncEditor` WS
+  / `apply_sync_json` ([`main.ts`](../../apps/ideal/web/src/main.ts):128/:449,
+  [`sync.ts`](../../apps/ideal/web/src/sync.ts):120), and the `SyncEditor` WS
   broadcast ([`sync_editor_ws.mbt`](../../editor/sync_editor_ws.mbt):59-65).
 - **(c) ephemeral / control metadata** — `EphemeralUpdate` (cursor & presence:
   I64 text offsets + name/color/peer-id) and `PeerJoined` / `PeerLeft` (peer-id
@@ -87,8 +87,8 @@ Evidence (as of 2026-06-23):
 
 | Surface | What it carries | Keys off seam hash? |
 |---------|-----------------|---------------------|
-| Op log persistence — dev relay ([`examples/ideal/web/server/store.ts`](../../examples/ideal/web/server/store.ts)) | opaque relayed op strings, `(id, room_id, data)` | no |
-| Op log persistence — Cloudflare relay DO SQL ([`examples/ideal/web/relay-worker.js`](../../examples/ideal/web/relay-worker.js):18-22,:65-69) | opaque relayed op strings, `operations(id, data)`, stored on `"operation"` and replayed verbatim on `"join"` — never parsed | no |
+| Op log persistence — dev relay ([`apps/ideal/web/server/store.ts`](../../apps/ideal/web/server/store.ts)) | opaque relayed op strings, `(id, room_id, data)` | no |
+| Op log persistence — Cloudflare relay DO SQL ([`apps/ideal/web/relay-worker.js`](../../apps/ideal/web/relay-worker.js):18-22,:65-69) | opaque relayed op strings, `operations(id, data)`, stored on `"operation"` and replayed verbatim on `"join"` — never parsed | no |
 | Full CRDT state: `localStorage` snapshot + peer sync ([`ffi/lambda/diagnostics.mbt`](../../ffi/lambda/diagnostics.mbt) `export_all_json`/`apply_sync_json` → `@text.SyncMessage`) | `{ runs : Array[@core.OpRun], heads : Array[@core.RawVersion] }` — text op runs + agent/seq version frontier (eg-walker `@core`, **not** seam; `event-graph-walker/text/sync.mbt`) | no — text-CRDT ops, upstream of parsing |
 | `SyncEditor` WS broadcast ([`editor/sync_editor_ws.mbt`](../../editor/sync_editor_ws.mbt):59-65 `ws_broadcast_edit` → `@wire.CrdtOps`) | `export_all().to_json_string()` — the same `@text.SyncMessage` payload, UTF-16LE framed | no — same text-CRDT op stream |
 | Ephemeral cursor/presence (`@wire.EphemeralUpdate`; [`editor/sync_editor.mbt`](../../editor/sync_editor.mbt):126-157 `set_local_presence`, `sync_editor_ws.mbt:69-73`) | `cursor`/`selection` as I64 **text offsets** + `peer_id`/`name`/`color` strings | no — positions + presence metadata, no NodeId or kind |

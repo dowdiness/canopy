@@ -65,7 +65,7 @@ removal—not for a mutable exact version copied into prose.
 | canopy `moon.mod.json` (root) | 0.9.0 | registry, JSON |
 | canopy `modules/visualizer/moon.mod.json` | 0.9.0 | registry, JSON |
 | canopy `modules/cognition/moon.mod` | 0.9.0 | registry, TOML `import` |
-| canopy `examples/canvas/moon.mod.json` | 0.9.0 | registry, JSON |
+| canopy `apps/canvas/moon.mod.json` | 0.9.0 | registry, JSON |
 | loom `loom/`, `egglog`, `examples/*`, vendored `incr` | 0.9.0 | registry pins + vendored gitlink |
 | moondsp `moon.mod` (root lib, v0.5.1) | 0.9.0 | registry, TOML `import` |
 | moondsp `specs/loom-backend-canary`, `specs/loom-mini-cst` | — | **path-dep** into `../../../canopy/loom/incr/incr`; excluded from the published module |

@@ -71,7 +71,7 @@ The events are collected during the recursive `reconcile_children` / `reconcile_
 
 - **Core layer** — `core/reconcile.mbt`: emit `ReconcileTraceEvent` at each decision point inside `reconcile_children` / `structural_pair` / `assign_fresh_ids`
 - **Core layer** — `core/projection_memo.mbt`: add `trace_ref` parameter to `build_projection_memos`, thread it into reconciliation
-- **View layer** — `examples/ideal/main/`: Patch panel reads `trace_ref` and renders `StructuredChange` events
+- **View layer** — `apps/ideal/main/`: Patch panel reads `trace_ref` and renders `StructuredChange` events
 
 ### Exit criteria
 

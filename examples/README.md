@@ -12,10 +12,10 @@ workspace members:
 
 | Example | Purpose | CI mechanism |
 | --- | --- | --- |
-| `ideal/` | Main Ideal editor example and MoonBit/JS bridge. | `scripts/run-moon-module.sh ci examples/ideal`; also has browser E2E under `ideal/web/`. |
-| `block-editor/` | Block editor MoonBit example. | `scripts/run-moon-module.sh ci examples/block-editor`. |
-| `canvas/` | Canvas graph editor MoonBit example. | `scripts/run-moon-module.sh ci examples/canvas`; also builds JS for `canvas/web/`. |
-| `codemirror_demo/` | CodeMirror binding demo module. | `scripts/run-moon-module.sh ci examples/codemirror_demo`; also has a small Vite app. |
+| `ideal/` | Main Ideal editor example and MoonBit/JS bridge. | `scripts/run-moon-module.sh ci apps/ideal`; also has browser E2E under `ideal/web/`. |
+| `block-editor/` | Block editor MoonBit example. | `scripts/run-moon-module.sh ci apps/block-editor`. |
+| `canvas/` | Canvas graph editor MoonBit example. | `scripts/run-moon-module.sh ci apps/canvas`; also builds JS for `canvas/web/`. |
+| `codemirror_demo/` | CodeMirror binding demo module. | `scripts/run-moon-module.sh ci examples/codemirror`; also has a small Vite app. |
 | `resizable/` | Rabbita resizable example module. | Covered by root workspace commands. |
 | `disclosure/` | Rabbita disclosure example module. | Covered by root workspace commands. |
 
@@ -39,8 +39,8 @@ moon build --target js
 | Example | Tooling | Notes |
 | --- | --- | --- |
 | `web/` | Vite + TypeScript + Playwright | Main browser demo pages for Lambda, JSON, and Markdown editors. CI runs TypeScript typecheck and Playwright. |
-| `ideal/web/` | Vite + Playwright | Browser E2E suite for the Ideal editor; paired with the `examples/ideal` MoonBit module. |
-| `canvas/web/` | Vite + TypeScript + Playwright | Browser UI for `examples/canvas`; CI builds canvas MoonBit JS from `examples/canvas` before typecheck/E2E. |
+| `ideal/web/` | Vite + Playwright | Browser E2E suite for the Ideal editor; paired with the `apps/ideal` MoonBit module. |
+| `canvas/web/` | Vite + TypeScript + Playwright | Browser UI for `apps/canvas`; CI builds canvas MoonBit JS from `apps/canvas` before typecheck/E2E. |
 | `demo-react/` | React/Vite + TypeScript + Vitest + Playwright | React demo plus local WebSocket server helpers. |
 | `prosemirror/` | Vite + TypeScript | ProseMirror integration example; CI typechecks it. |
 | `codemirror_demo/` | Vite | Browser wrapper around the MoonBit CodeMirror demo module. |
@@ -50,7 +50,7 @@ moon build --target js
 Typical frontend workflow:
 
 ```sh
-cd examples/web
+cd apps/web
 npm ci
 npm run dev
 ```

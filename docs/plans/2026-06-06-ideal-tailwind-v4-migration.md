@@ -20,14 +20,14 @@ Future slices must follow the Ideal Tailwind style-management conventions in
 ## Scope
 
 In:
-- `examples/ideal/web/package.json`
-- `examples/ideal/web/package-lock.json`
-- `examples/ideal/web/vite.config.ts`
-- `examples/ideal/web/index.html` or `examples/ideal/web/styles/editor.css`
+- `apps/ideal/web/package.json`
+- `apps/ideal/web/package-lock.json`
+- `apps/ideal/web/vite.config.ts`
+- `apps/ideal/web/index.html` or `apps/ideal/web/styles/editor.css`
   depending on the documented Tailwind v4/Vite entrypoint
-- `examples/ideal/web/styles/editor.css`
-- `examples/ideal/web/e2e/structural-editing.spec.ts`
-- `examples/ideal/main/view_actions.mbt` for the first migration slice
+- `apps/ideal/web/styles/editor.css`
+- `apps/ideal/web/e2e/structural-editing.spec.ts`
+- `apps/ideal/main/view_actions.mbt` for the first migration slice
 
 Out:
 - non-Ideal example apps
@@ -40,17 +40,17 @@ Out:
 
 ## Current State
 
-- `examples/ideal/web/styles/editor.css` is the live light-DOM stylesheet and
+- `apps/ideal/web/styles/editor.css` is the live light-DOM stylesheet and
   now contains the Tailwind v4 entry, token bridge, and explicit `@source` list.
-- `examples/ideal/web/styles/editor-shadow.css` is the live shadow stylesheet and
+- `apps/ideal/web/styles/editor-shadow.css` is the live shadow stylesheet and
   is adopted into `<canopy-editor>` shadow roots.
 - The action overlay and name prompt are light DOM, not shadow DOM.
-- PR #534 installed Tailwind v4.3.0 under `examples/ideal/web` only and migrated
+- PR #534 installed Tailwind v4.3.0 under `apps/ideal/web` only and migrated
   the action overlay/name-prompt declarations to static `.mbt` utility bundles.
 - Tailwind source detection is deliberately narrow today:
   `@source "../../main/view_actions_classes.mbt"`; no broad `main/**/*.mbt` scan
   is enabled yet.
-- There are roughly 150 `class=` surfaces in `examples/ideal/main/**/*.mbt`, so
+- There are roughly 150 `class=` surfaces in `apps/ideal/main/**/*.mbt`, so
   a broad all-at-once utility rewrite remains unnecessary risk.
 
 ## Desired State
@@ -132,23 +132,23 @@ tokens instead.
    - Record the exact docs/version in the PR description.
 
 2. **Install Tailwind for Ideal web only**
-   - Add Tailwind v4 dev dependencies under `examples/ideal/web` only.
-   - Update `examples/ideal/web/package-lock.json` from that directory.
-   - Wire the Vite plugin in `examples/ideal/web/vite.config.ts` per docs.
+   - Add Tailwind v4 dev dependencies under `apps/ideal/web` only.
+   - Update `apps/ideal/web/package-lock.json` from that directory.
+   - Wire the Vite plugin in `apps/ideal/web/vite.config.ts` per docs.
    - Do not touch workspace-level package metadata.
 
 3. **Create the Tailwind entry + token bridge**
    - Keep the existing `/styles/editor.css` light-DOM delivery path unless docs
      require a different Vite-processed entry.
    - Add Tailwind imports and explicit `@source` entries for each migrated
-     source file from `examples/ideal/web/styles/editor.css`; the first slice
+     source file from `apps/ideal/web/styles/editor.css`; the first slice
      starts with `../../main/view_actions_classes.mbt` only.
    - Add the first theme-token bridge to existing `--canopy-*` variables.
    - Add a temporary sentinel utility during local validation only; remove it
      before commit.
 
 4. **Migrate the action overlay/name prompt slice**
-   - Update `examples/ideal/main/view_actions.mbt` class strings to include
+   - Update `apps/ideal/main/view_actions.mbt` class strings to include
      Tailwind utilities while preserving semantic classes.
    - Cover:
      - scrim
@@ -165,7 +165,7 @@ tokens instead.
      owner.
 
 5. **Add style ownership assertions**
-   - Extend `examples/ideal/web/e2e/structural-editing.spec.ts` with computed
+   - Extend `apps/ideal/web/e2e/structural-editing.spec.ts` with computed
      style checks for the light-DOM overlay, e.g. background, border color,
      min-width, z-index, and input focus ring.
    - Keep existing behavioral overlay tests unchanged.
@@ -178,7 +178,7 @@ tokens instead.
      the built CSS by more than about 10 KiB uncompressed.
 
 7. **Prepare later slices only after the first PR is green**
-   - Establish the Ideal-local UI recipe layer (`examples/ideal/main/ui/*`) as
+   - Establish the Ideal-local UI recipe layer (`apps/ideal/main/ui/*`) as
      described in `docs/development/ideal-tailwind-style-management.md`.
    - Toolbar/app shell or action-button chrome.
    - Outline panel and tree rows.
@@ -190,7 +190,7 @@ tokens instead.
 
 ## Acceptance Criteria
 
-- [x] Tailwind v4 is installed only in `examples/ideal/web`.
+- [x] Tailwind v4 is installed only in `apps/ideal/web`.
 - [x] The Ideal Vite build generates Tailwind utilities from `.mbt` source.
 - [x] Tailwind theme tokens bridge to the existing Canopy CSS custom properties.
 - [x] The action overlay/name-prompt visual declarations are Tailwind-owned.
@@ -208,16 +208,16 @@ tokens instead.
 git status --short
 moon check
 moon test
-cd examples/ideal/web && npm run build
-cd examples/ideal/web && npx playwright test e2e/structural-editing.spec.ts --reporter=line
+cd apps/ideal/web && npm run build
+cd apps/ideal/web && npx playwright test e2e/structural-editing.spec.ts --reporter=line
 ```
 
 For the PR body, also include:
 
 ```bash
-cd examples/ideal/web && wc -c dist/assets/*.css
-rg -n "tailwind|@tailwindcss/vite|@source|@theme" examples/ideal/web
-rg -n "action-overlay|name-prompt" examples/ideal/web/styles/editor.css examples/ideal/main/view_actions.mbt
+cd apps/ideal/web && wc -c dist/assets/*.css
+rg -n "tailwind|@tailwindcss/vite|@source|@theme" apps/ideal/web
+rg -n "action-overlay|name-prompt" apps/ideal/web/styles/editor.css apps/ideal/main/view_actions.mbt
 ```
 
 ## Rollback Criteria

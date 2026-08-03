@@ -14,6 +14,6 @@ The library owns:
 
 The library does **not** own browser DOM/SVG rendering, TypeScript event
 listeners, JS handle registries, or demo-specific workflow validation copy. The
-`examples/canvas` package keeps the incr runtime, JSON DTO lowering, inspector
+`apps/canvas` package keeps the incr runtime, JSON DTO lowering, inspector
 text, and FFI exports so applications can choose their own rendering and
 validation surfaces while reusing the model and reducers here.

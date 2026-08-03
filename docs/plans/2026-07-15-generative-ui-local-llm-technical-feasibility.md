@@ -33,7 +33,7 @@ evaluation are separate later work.
 - **v2 retained evidence:** The frozen manifest and aggregate evidence remain
   immutable and must not be rerun, replaced, or overwritten. The ignored
   journal and raw-slot archive were validated after execution but were later
-  deleted when Playwright cleaned `examples/web/test-results`. They were not
+  deleted when Playwright cleaned `apps/web/test-results`. They were not
   reconstructed. The retention incident is recorded in
   `docs/evidence/2026-07-16-generative-ui-local-llm-feasibility-v2-retention-incident.json`.
   The aggregate evidence supports the conservative decision, but v2 is no

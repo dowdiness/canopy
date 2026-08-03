@@ -136,14 +136,14 @@ MoonDsp は Strudel/TidalCycles を明示的なインスピレーション源と
 
 ### 3.1 コーパス前提の訂正: Canopy は「メモリのみ」ではない
 
-旗艦 Ideal エディタは CRDT スナップショットを localStorage に永続化している。`examples/ideal/web/src/main.ts:117-118,131-132` が `crdt.export_all_json(handle)` を呼び、エクスポートした op-log 全体を room キー（`STORAGE_KEY_PREFIX='canopy-doc-'`）で localStorage に書き、:339-349 でロード時に復元、reset 時にキー削除する。`export_all_json` は実 FFI export（`ffi/lambda/moon.pkg`, `.mbti` 行50で `pub fn export_all_json(Int) -> String`）である。
+旗艦 Ideal エディタは CRDT スナップショットを localStorage に永続化している。`apps/ideal/web/src/main.ts:117-118,131-132` が `crdt.export_all_json(handle)` を呼び、エクスポートした op-log 全体を room キー（`STORAGE_KEY_PREFIX='canopy-doc-'`）で localStorage に書き、:339-349 でロード時に復元、reset 時にキー削除する。`export_all_json` は実 FFI export（`ffi/lambda/moon.pkg`, `.mbti` 行50で `pub fn export_all_json(Int) -> String`）である。
 
 ただし以下の caveat が根底のギャップを大部分残す:
 - `export_all_json` FFI export は **`ffi/lambda` のみ**。json と markdown バンドルには存在しない。
-- localStorage 永続化は **`examples/ideal/web` のみ**。
+- localStorage 永続化は **`apps/ideal/web` のみ**。
 - 保存ごとの**全スナップショット書き換え**であり、増分 op append ではない → 無制限 op-log 成長を継承し、毎回直列化ログ全体を書き直す。
 - relay Durable Object はドキュメント状態を保持しない（メンバシップ/ルーティングのみ）。
-- ローカル開発 relay には **SQLite-backed op store**（`examples/ideal/web/server/store.ts`, better-sqlite3, `MAX_OPS = 10_000` + `evictOldOps`）が存在する。
+- ローカル開発 relay には **SQLite-backed op store**（`apps/ideal/web/server/store.ts`, better-sqlite3, `MAX_OPS = 10_000` + `evictOldOps`）が存在する。
 
 > **正確な言明**: Cloudflare 本番デプロイ（relay-server Durable Object）は durable persistence なし。ローカル開発 relay は SQLite による永続化を持つ（capped 10,000 ops, eviction 付き）。client-side CRDT スナップショット/compaction が真のギャップ。
 
@@ -174,7 +174,7 @@ MoonDsp は Strudel/TidalCycles を明示的なインスピレーション源と
 
 ### 3.5 serverless vs central-server — 両者とも Cloudflare static+DO で serverless-first
 
-- **Canopy**: relay は Cloudflare Worker + Durable Object。全 room ロジックは MoonBit `relay/relay_room.mbt`（`RelayRoom` は live peer の send callback のみ保持、設計上ステートレス）。JS グルー（`examples/relay-server/src/index.ts`）は86行。DO はドキュメント状態を保持しない。
+- **Canopy**: relay は Cloudflare Worker + Durable Object。全 room ロジックは MoonBit `relay/relay_room.mbt`（`RelayRoom` は live peer の send callback のみ保持、設計上ステートレス）。JS グルー（`apps/relay-server/src/index.ts`）は86行。DO はドキュメント状態を保持しない。
 - **MoonDsp**: `wrangler.jsonc` の `moondsp` worker には Worker スクリプトがない（Vite バンドルの純静的アセット配信）。COOP/COEP ヘッダなし → SharedArrayBuffer + Atomics を使えない。
 
 **軸の結論**: 両者に central-server profile を提供するために欠けているピースは同一 — 同じ `SyncMessage`/op-log ワイヤ形式を broadcast-only（P2P/serverless）にも DO storage への append（central）にもできる、ステートレス-relay-OR-ステートフル-DO トグル。Canopy の `pub(open) trait SyncTransport`（`editor/sync_protocol.mbt:2`）が正しい seam。MoonDsp にはまだ等価なトランスポート抽象がない。
@@ -489,7 +489,7 @@ public 関数は runtime 目的で bare Array[DspNode] を決して受け取ら�
 | TextBlock sparse-array メモリ増幅 | `container/text_block.mbt:3-6` | 低 | perf | 4a | dense-ItemId refactor |
 | vendoring SHA ドリフト（types.ts 9df029d vs cm6-adapter.ts 6f1d5c2） | moondsp `web/live/src/canopy/` | 低 | maintenance | 5.1 | スナップショット規律 |
 
-> **訂正済の正の事実**（過大主張を繰り返さないため）: relay op-log は `MAX_OPS=10_000` + `evictOldOps` で**有界**（`examples/ideal/web/server/ws-server.ts`）。ローカル SQLite store は存在する。真のギャップは client-side CRDT compaction。
+> **訂正済の正の事実**（過大主張を繰り返さないため）: relay op-log は `MAX_OPS=10_000` + `evictOldOps` で**有界**（`apps/ideal/web/server/ws-server.ts`）。ローカル SQLite store は存在する。真のギャップは client-side CRDT compaction。
 
 ### 7.3 クロスリポジトリ調整機構（具体設計）
 

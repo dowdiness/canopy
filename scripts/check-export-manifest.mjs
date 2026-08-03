@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// Compare the declared FFI export manifest (examples/ideal/export-manifest.json)
+// Compare the declared FFI export manifest (apps/ideal/export-manifest.json)
 // against the three hand-maintained live layers of the lambda app seam:
 //
 //   1. ffi/lambda/moon.pkg            — JS "exports" array of the FFI package
-//   2. examples/ideal/main/moon.pkg   — JS "exports" array of the app package
-//   3. examples/ideal/main/crdt_reexport.mbt — `pub fn` wrapper definitions
+//   2. apps/ideal/main/moon.pkg   — JS "exports" array of the app package
+//   3. apps/ideal/main/crdt_reexport.mbt — `pub fn` wrapper definitions
 //
 // Parallel-run contract (S4 PR2): the live files remain authoritative; this
 // check reports symbol-level discrepancies in each direction (manifest-only,
@@ -18,7 +18,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
-const MANIFEST_PATH = "examples/ideal/export-manifest.json";
+const MANIFEST_PATH = "apps/ideal/export-manifest.json";
 
 function read(rel) {
   return readFileSync(join(repoRoot, rel), "utf8");
@@ -129,7 +129,7 @@ for (const s of manifest.app_reexports) {
 if (failed) {
   console.error(
     "\nexport-manifest check FAILED. Fix the live file if the symbol is a real" +
-    " discrepancy, or update examples/ideal/export-manifest.json if the seam" +
+    " discrepancy, or update apps/ideal/export-manifest.json if the seam" +
     " intentionally changed. Do not weaken this check.",
   );
   process.exit(1);

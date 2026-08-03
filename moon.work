@@ -1,6 +1,6 @@
 members = [
   ".",
-  "./loomark",
+  "./apps/loomark",
   "./rabbita/rabbita",
   "./rabbita/rui",
   "./graphviz",
@@ -39,9 +39,9 @@ members = [
   "./modules/semantic",
   "./modules/cognition",
   "./modules/generative-ui-document",
-  "./examples/ideal",
-  "./examples/block-editor",
-  "./examples/codemirror_demo",
+  "./apps/ideal",
+  "./apps/block-editor",
+  "./examples/codemirror",
   "./examples/resizable",
   "./examples/disclosure",
 ]

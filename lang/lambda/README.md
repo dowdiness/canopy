@@ -8,7 +8,7 @@ consumers that need it import the subpackage directly.
 
 The facade was originally much larger; in 2026-05 it was trimmed to the symbols
 with live callers. Consumers that need more reach should import subpackages
-directly (see `examples/ideal/main/moon.pkg`).
+directly (see `apps/ideal/main/moon.pkg`).
 
 ## Public API
 
@@ -37,7 +37,7 @@ Re-exported from `lang/lambda/eval`:
   `apply_lambda_tree_edit`, `parse_tree_edit_op`, and the AST/pretty accessors.
 - `editor/` (blackbox tests only) — uses `@lambda.get_lambda_ast` and related
   accessors to drive integration tests.
-- `examples/ideal/main/` — additionally uses `LambdaCompanion`, `EvalResult`,
+- `apps/ideal/main/` — additionally uses `LambdaCompanion`, `EvalResult`,
   `DropPosition`, `TreeEditOp`; imports `lang/lambda/edits` directly for the
   rest.
 

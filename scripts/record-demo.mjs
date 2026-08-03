@@ -2,7 +2,7 @@
 // Usage: node scripts/record-demo.mjs
 // Requires: vite dev server running on localhost, playwright installed
 
-import { chromium } from '../examples/web/node_modules/playwright/index.mjs';
+import { chromium } from '../apps/web/node_modules/playwright/index.mjs';
 import { mkdirSync, existsSync, unlinkSync, readdirSync } from 'fs';
 import { join } from 'path';
 

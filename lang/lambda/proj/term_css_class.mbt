@@ -1,10 +1,10 @@
 // Typed CSS-class mapping for lambda Term variants.
-// Replaces the label-string-parsing `kind_of` in examples/ideal/main/view_outline.mbt.
+// Replaces the label-string-parsing `kind_of` in apps/ideal/main/view_outline.mbt.
 // See docs/plans/2026-05-16-show-unification.md (Task 1, PR 2).
 
 ///|
 /// Map a `Term` to its CSS class fragment for the outline
-/// `.tree-row.kind-<X>` selectors in `examples/ideal/web/styles/editor.css`.
+/// `.tree-row.kind-<X>` selectors in `apps/ideal/web/styles/editor.css`.
 /// One-to-one with the 12 variants; lower-cased for consistency with the
 /// existing CSS taxonomy (`kind-lambda`, `kind-binop`, etc.).
 ///

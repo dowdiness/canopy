@@ -472,10 +472,10 @@ its own JS bundle with its own coordinator instance. Add the import to
 `ffi/moon.pkg`.
 
 **TypeScript adapter** (`@canopy/editor-adapter` package at `adapters/editor/`,
-or `examples/web/src/`): Import the FFI functions, wire to your UI. Consumer projects
+or `apps/web/src/`): Import the FFI functions, wire to your UI. Consumer projects
 depend on the adapter via `"@canopy/editor-adapter": "file:../../adapters/editor"`
 and import submodules like `import { HTMLAdapter } from '@canopy/editor-adapter/html-adapter'`.
-See `examples/web/src/markdown-editor.ts` for the full pattern.
+See `apps/web/src/markdown-editor.ts` for the full pattern.
 
 ---
 

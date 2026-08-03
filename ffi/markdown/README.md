@@ -17,7 +17,7 @@ This package contains no logic — it delegates entirely to `editor`, `lang/mark
 
 ## Consumers
 
-No other MoonBit package imports `ffi/markdown`. The generated JavaScript API is consumed by the Markdown frontend in `examples/web/src/features/markdown/browser/`.
+No other MoonBit package imports `ffi/markdown`. The generated JavaScript API is consumed by the Markdown frontend in `apps/web/src/features/markdown/browser/`.
 
 ## Dependencies
 

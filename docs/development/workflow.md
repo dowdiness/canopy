@@ -74,8 +74,8 @@ Canonical routes: `/`, `/ml`, `/json`, `/markdown`, `/journey`, `/posts`, `/memo
 Legacy `.html` URLs return permanent redirects to their canonical route (except `/index.html`, which renders the Hub without redirect).
 
 ```bash
-# From the examples/web/ directory
-cd examples/web
+# From the apps/web/ directory
+cd apps/web
 npm install
 npm run dev        # Start Waku dev server (http://localhost:3000)
 npm run build      # Build Waku for production

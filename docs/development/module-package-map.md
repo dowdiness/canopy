@@ -19,7 +19,7 @@ format their owning repositories use.
 
 Module-local dependencies use versioned imports in `moon.mod` and are resolved
 through the nearest `moon.work`. The Canvas example is a nested workspace:
-`examples/canvas/moon.mod` and `examples/canvas/moon.work` resolve its local
+`apps/canvas/moon.mod` and `apps/canvas/moon.work` resolve its local
 members independently of the root `moon.work`.
 
 `moon.pkg` files are package manifests. They do not define module boundaries;
@@ -49,7 +49,7 @@ The script locates the primary module by its unique name,
 `dowdiness/canopy`, rather than assuming that its manifest remains at the
 repository root. It fails when that name is missing or ambiguous.
 
-Nested workspaces such as `examples/canvas/moon.work` are intentionally outside
+Nested workspaces such as `apps/canvas/moon.work` are intentionally outside
 the root-workspace section. Read their own manifest and workspace file when
 working in those directories.
 
@@ -87,7 +87,7 @@ and tools may also own module manifests. Their import paths come from their own
 | --- | --- | --- |
 | `lib/` | `analysis`, `btree`, `semantic`, `zipper` | Reusable modules with independent package and publication ownership. |
 | `examples/` | `ideal`, `block-editor`, `codemirror_demo` | Runnable or learning surfaces with their own module lifecycle. |
-| `loomark/` | `loomark` | Product/tool module whose ownership does not fit the reusable-library or example categories. |
+| `apps/loomark/` | `loomark` | Product/tool module whose ownership does not fit the reusable-library or example categories. |
 
 Use `./scripts/package-overview.sh` for the complete current member list and
 read each listed module manifest for its canonical module name.
@@ -96,7 +96,7 @@ read each listed module manifest for its canonical module name.
 
 All tracked Canopy-owned module manifests use `moon.mod`. Canvas is the
 nested-workspace case: its `moon.mod` works with the local members in
-`examples/canvas/moon.work`, while the root module uses the root `moon.mod` and
+`apps/canvas/moon.work`, while the root module uses the root `moon.mod` and
 `moon.work`. Vendored submodules and dependency-cache artifacts retain the
 manifest formats owned by their respective projects.
 
@@ -124,7 +124,7 @@ Examples fall into two broad groups:
 
 - **MoonBit workspace example modules**: listed in the root `moon.work`, checked
   by root workspace commands, and covered by CI's MoonBit example matrix.
-- **Nested-workspace MoonBit modules**: `examples/canvas/` owns its `moon.mod`
+- **Nested-workspace MoonBit modules**: `apps/canvas/` owns its `moon.mod`
   and `moon.work`; run its checks and tests from that directory rather than
   treating it as a root workspace member.
 - **Frontend/TypeScript/browser examples**: npm/Vite/Playwright projects that

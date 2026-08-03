@@ -6,7 +6,7 @@
 
 **Architecture:** Remove `node_context : NodeActionContext?` from `OverlayState`; replace with `kind : @ast.Term`. Add `context : NodeActionContext?` to `ActionOverlayHost` (alongside `runtime`). Drop `context~` from `OverlayOutput::ExecuteAction` and read it from `model.overlay.context` in the parent handler. All 7 affected files change together — field removal cascades immediately.
 
-**Tech Stack:** MoonBit, Rabbita TEA framework. Working directory: `examples/ideal/main/`. Build: `NEW_MOON_MOD=0 moon check`, `NEW_MOON_MOD=0 moon test`, `NEW_MOON_MOD=0 moon info && NEW_MOON_MOD=0 moon fmt`.
+**Tech Stack:** MoonBit, Rabbita TEA framework. Working directory: `apps/ideal/main/`. Build: `NEW_MOON_MOD=0 moon check`, `NEW_MOON_MOD=0 moon test`, `NEW_MOON_MOD=0 moon info && NEW_MOON_MOD=0 moon fmt`.
 
 ## Global Constraints
 
@@ -22,13 +22,13 @@
 All changes are cascade-coupled: removing `node_context` from `OverlayState` breaks callers in all other files simultaneously. Make all edits, then verify compile and tests pass as a unit.
 
 **Files:**
-- Modify: `examples/ideal/main/model.mbt:67-78`
-- Modify: `examples/ideal/main/action_overlay_runtime.mbt:1-20`
-- Modify: `examples/ideal/main/action_overlay_flow.mbt:13-22, 63-69, 267-295`
-- Modify: `examples/ideal/main/action_overlay_state.mbt:98-121`
-- Modify: `examples/ideal/main/action_overlay_update.mbt:47-54`
-- Modify: `examples/ideal/main/view_actions.mbt:186-191`
-- Modify: `examples/ideal/main/main_wbtest.mbt:29-43, 165-178`
+- Modify: `apps/ideal/main/model.mbt:67-78`
+- Modify: `apps/ideal/main/action_overlay_runtime.mbt:1-20`
+- Modify: `apps/ideal/main/action_overlay_flow.mbt:13-22, 63-69, 267-295`
+- Modify: `apps/ideal/main/action_overlay_state.mbt:98-121`
+- Modify: `apps/ideal/main/action_overlay_update.mbt:47-54`
+- Modify: `apps/ideal/main/view_actions.mbt:186-191`
+- Modify: `apps/ideal/main/main_wbtest.mbt:29-43, 165-178`
 
 **Interfaces:**
 - Produces: `ActionOverlayHost::mount(context : NodeActionContext, runtime : ActionOverlayRuntime) -> ActionOverlayHost`
@@ -353,7 +353,7 @@ Expected: no errors. If errors appear, read the error message and trace to the e
 - [ ] **Step 9: Run `moon test` — expect all tests pass**
 
 ```bash
-NEW_MOON_MOD=0 moon test -p examples/ideal/main
+NEW_MOON_MOD=0 moon test -p apps/ideal/main
 ```
 
 Expected: all existing tests pass, including the snapshot tests and overlay token tests. No new test cases are added — the refactor is behaviour-preserving by construction (the parent always had the context; we are only changing where it is stored).
@@ -380,13 +380,13 @@ The `OverlayOutput`, `OverlayState`, and `ActionOverlayHost` types are package-i
 
 ```bash
 git -C /home/antisatori/ghq/github.com/dowdiness/canopy-ideal-overlay add \
-  examples/ideal/main/model.mbt \
-  examples/ideal/main/action_overlay_runtime.mbt \
-  examples/ideal/main/action_overlay_flow.mbt \
-  examples/ideal/main/action_overlay_state.mbt \
-  examples/ideal/main/action_overlay_update.mbt \
-  examples/ideal/main/view_actions.mbt \
-  examples/ideal/main/main_wbtest.mbt
+  apps/ideal/main/model.mbt \
+  apps/ideal/main/action_overlay_runtime.mbt \
+  apps/ideal/main/action_overlay_flow.mbt \
+  apps/ideal/main/action_overlay_state.mbt \
+  apps/ideal/main/action_overlay_update.mbt \
+  apps/ideal/main/view_actions.mbt \
+  apps/ideal/main/main_wbtest.mbt
 
 git -C /home/antisatori/ghq/github.com/dowdiness/canopy-ideal-overlay commit -m \
   "refactor(ideal): move NodeActionContext from child OverlayState to parent ActionOverlayHost

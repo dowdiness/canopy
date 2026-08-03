@@ -22,7 +22,7 @@ Dry-run failure remains covered by the existing pure/session contract tests. The
 
 ## Architecture
 
-`examples/web/src/genui.js` remains the host shell. It may expose a thin underscored observability surface for browser tests that only calls existing functions and reports current session state:
+`apps/web/src/genui.js` remains the host shell. It may expose a thin underscored observability surface for browser tests that only calls existing functions and reports current session state:
 
 - replay a candidate through the existing `jsx_session_replay_candidate_json` export;
 - replay at an explicitly supplied base revision for stale-revision tests;

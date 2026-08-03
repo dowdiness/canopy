@@ -43,8 +43,8 @@ member. Root `moon test`, `moon check`, and `moon fmt` follow `moon.work`, not
 repository ownership.
 
 Canvas is intentionally outside the root workspace. Its standalone module and
-local dependency modules are listed in `examples/canvas/moon.work`; run Canvas
-commands from `examples/canvas` (or use `scripts/run-moon-module.sh`) so that
+local dependency modules are listed in `apps/canvas/moon.work`; run Canvas
+commands from `apps/canvas` (or use `scripts/run-moon-module.sh`) so that
 the nested workspace is selected.
 
 ## Module and workspace resolution
@@ -52,7 +52,7 @@ the nested workspace is selected.
 Each module declares its versioned imports in `moon.mod`. The nearest
 `moon.work` resolves imports to local workspace members, so the root module's
 authoritative pair is the root `moon.mod` and `moon.work`. Canvas is intentionally
-isolated: `examples/canvas/moon.mod` and `examples/canvas/moon.work` form its
+isolated: `apps/canvas/moon.mod` and `apps/canvas/moon.work` form its
 nested module/workspace pair. Vendored submodules retain their own manifests and
 workspace boundaries.
 
@@ -84,7 +84,7 @@ moon test
 Canvas has its own nested workspace and should be checked from its module root:
 
 ```sh
-cd examples/canvas
+cd apps/canvas
 NEW_MOON_MOD=0 moon check main --target js
 NEW_MOON_MOD=0 moon test main --target js --release
 ```

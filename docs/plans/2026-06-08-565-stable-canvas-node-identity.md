@@ -2,7 +2,7 @@
 
 ## Problem
 
-Current behavior is driven by a dual-identity model: positional node IDs in the canvas model coexist with source-layer reparsing and a separate binding-recovery shim. The canvas ID path is currently created from indices (for example `NodeId(index + 1)`) while source-side remapping relies on binding maps (`examples/canvas/main/graph_dsl_adapter.mbt:170-176`, `:240-246`, `:226-230`). That split makes selection/inspector/action IDs fragile when ordering changes because the canonical tracker authority is not consistently used end-to-end (`examples/canvas/main/graph_dsl_adapter.mbt:551-605`, `:623-641`, `:901-930`).  
+Current behavior is driven by a dual-identity model: positional node IDs in the canvas model coexist with source-layer reparsing and a separate binding-recovery shim. The canvas ID path is currently created from indices (for example `NodeId(index + 1)`) while source-side remapping relies on binding maps (`apps/canvas/main/graph_dsl_adapter.mbt:170-176`, `:240-246`, `:226-230`). That split makes selection/inspector/action IDs fragile when ordering changes because the canonical tracker authority is not consistently used end-to-end (`apps/canvas/main/graph_dsl_adapter.mbt:551-605`, `:623-641`, `:901-930`).
 
 `GraphNode::id()` is not unstable in a clean delete; observed churn appears when the reparse path is coarse-grained (atomic whole-source or atomic replace semantics). The Loom `ProjectionIdentityTracker` keeps IDs stable by edit-window realignment of positional changes, with fresh allocation only when the edit crosses its continuity guarantees (`loom/loom/src/core/projection_identity.mbt:625-631`, `:657-667`, `:710-759`, `:815-824`).
 
@@ -25,7 +25,7 @@ The row above is consistent with `GraphNode::id()` being token-based binding ide
 
 1. `NodeId/EdgeId` are shared model primitives with JSON contracts and are currently `pub(all) struct Int` wrappers in `modules/canvas-graph/graph_model/model.mbt:6,38`. Codec paths currently serialize numeric identifiers (`modules/canvas-graph/graph_model/model.mbt:25-35`, `:55-65`, `:57-67`, `:174-183`, `:288-329`).
 
-2. The source panel currently exposes a whole-document path: `EditorChanged(String)` is fed through `set_source_graph_source_checked` and `attachment.set_source` (`examples/canvas/main/source_demo.mbt:42-43`, `:101-107`, `:192-203`), with parse/reparse paths that are coarse and can trigger churn (`examples/canvas/main/graph_dsl_adapter.mbt:901-929`).
+2. The source panel currently exposes a whole-document path: `EditorChanged(String)` is fed through `set_source_graph_source_checked` and `attachment.set_source` (`apps/canvas/main/source_demo.mbt:42-43`, `:101-107`, `:192-203`), with parse/reparse paths that are coarse and can trigger churn (`apps/canvas/main/graph_dsl_adapter.mbt:901-929`).
 
 3. Duplicate-binding rejection is present in the source projection and is non-negotiable for token identity correctness (`loom/examples/graph-dsl/src/projection.mbt:283-292`).
 
@@ -41,18 +41,18 @@ Collapse identity to a single authority: Loom `ProjectionIdentityTracker` tokens
 - `EdgeId` is derived deterministically from `(source_node_id, target_node_id, target_port)`; there is no mutable `Int` allocator for edges and no global edge registry.  
 - Delete all intern-table/recovery behavior, because identity is now intrinsic in tokens and does not need remapping from a secondary map.
 
-This replaces current positional minting (`NodeId(index + 1)`) in canvas projection and source adapter (`examples/canvas/main/graph_dsl_adapter.mbt:170-176`, `:226-230`, `:240-246`) and aligns JS/TS payload surfaces with the shared model’s adapter contract.
+This replaces current positional minting (`NodeId(index + 1)`) in canvas projection and source adapter (`apps/canvas/main/graph_dsl_adapter.mbt:170-176`, `:226-230`, `:240-246`) and aligns JS/TS payload surfaces with the shared model’s adapter contract.
 
 Because ID is now tracker-owned:
-- `examples/canvas/main/canvas_init.mbt` must produce string IDs from pointer events for the hand-built canvas (`examples/canvas/main/canvas_init.mbt:1-32`).
-- `examples/canvas/web/src/graph-adapter.ts` should carry opaque string handles in source-backed operations and pointer data attributes.
+- `apps/canvas/main/canvas_init.mbt` must produce string IDs from pointer events for the hand-built canvas (`apps/canvas/main/canvas_init.mbt:1-32`).
+- `apps/canvas/web/src/graph-adapter.ts` should carry opaque string handles in source-backed operations and pointer data attributes.
 
-Rename behavior: rename churn is expected in the tracker (`GraphNode::id()` token changes), so a local hook is required to rewrite selection/inspector/action references from old NodeId to new NodeId inside the canvas operation path. The existing precedent is `rename_layout_binding` (`examples/canvas/main/graph_dsl_adapter.mbt:608-620`). This is a rename-specific continuation step, not binding-recovery.
+Rename behavior: rename churn is expected in the tracker (`GraphNode::id()` token changes), so a local hook is required to rewrite selection/inspector/action references from old NodeId to new NodeId inside the canvas operation path. The existing precedent is `rename_layout_binding` (`apps/canvas/main/graph_dsl_adapter.mbt:608-620`). This is a rename-specific continuation step, not binding-recovery.
 
 ### Layer 2 — Feed the tracker edits (delta editor)
 
 Canvas source editing must provide per-change deltas into the tracker:
-- Current canvas demos already have CM6 plumbing that produces ordered changes (`examples/ideal/web/src/cm-inline.ts:20-27`, `examples/ideal/web/src/leaf-editor.ts:37-38`, `examples/ideal/web/src/bridge.ts:68`, `examples/ideal/web/src/bridge.ts:155-186`) and maps to `@core.Edit` (`examples/ideal/main/crdt_reexport.mbt:171-181`, `editor/sync_editor_text.mbt:323-339`).
+- Current canvas demos already have CM6 plumbing that produces ordered changes (`apps/ideal/web/src/cm-inline.ts:20-27`, `apps/ideal/web/src/leaf-editor.ts:37-38`, `apps/ideal/web/src/bridge.ts:68`, `apps/ideal/web/src/bridge.ts:155-186`) and maps to `@core.Edit` (`apps/ideal/main/crdt_reexport.mbt:171-181`, `editor/sync_editor_text.mbt:323-339`).
 - `modules/rabbita_codemirror/codemirror.mbt:634-652` currently emits only whole-doc deltas, so we must extend the binding to expose structured `{from, to, insert}` edit payloads through `listen`.
 
 Binding implementation requirements:
@@ -98,16 +98,16 @@ Multi-selects spanning churned nodes still degrade to fresh identities on the af
 
 All listed tests remain source-backed design-level checks; assertions migrate to string IDs where currently numeric.
 
-- Selection/inspector survive delta-driven source reorder with no remap call (`examples/canvas/main/graph_dsl_adapter_wbtest.mbt:493`).
-- Selection survives delete of an earlier node and does not remap via binding helpers (`examples/canvas/main/graph_dsl_adapter_wbtest.mbt:441-490`).
-- A node keeps identity across unrelated parameter edits (`loom/loom/src/core/projection_identity.mbt` behavior + `examples/canvas/main/graph_dsl_adapter_wbtest.mbt` existing reorder/delete probes).
+- Selection/inspector survive delta-driven source reorder with no remap call (`apps/canvas/main/graph_dsl_adapter_wbtest.mbt:493`).
+- Selection survives delete of an earlier node and does not remap via binding helpers (`apps/canvas/main/graph_dsl_adapter_wbtest.mbt:441-490`).
+- A node keeps identity across unrelated parameter edits (`loom/loom/src/core/projection_identity.mbt` behavior + `apps/canvas/main/graph_dsl_adapter_wbtest.mbt` existing reorder/delete probes).
 - New node IDs are never reused; deleted node IDs are never resurfaced.
-- Rename preserves identity through the rename-local hook (`examples/canvas/main/graph_dsl_adapter.mbt:608-620`).
-- Existing source-backed wbtests continue: clear/delete/multi-select order/invalid-source no-remap (`examples/canvas/main/graph_dsl_adapter_wbtest.mbt:441-490`, `:529-543`, `:564-607`).
+- Rename preserves identity through the rename-local hook (`apps/canvas/main/graph_dsl_adapter.mbt:608-620`).
+- Existing source-backed wbtests continue: clear/delete/multi-select order/invalid-source no-remap (`apps/canvas/main/graph_dsl_adapter_wbtest.mbt:441-490`, `:529-543`, `:564-607`).
 
 Additional structural checks:
 - `modules/canvas-graph/graph_model/model.mbt:25-35`, `:55-65`, `:288-329` updated to string JSON handling without semantic downgrade.
-- `examples/canvas/web/src/graph-adapter.ts` pointer and payload paths updated to opaque string IDs.
+- `apps/canvas/web/src/graph-adapter.ts` pointer and payload paths updated to opaque string IDs.
 - `modules/rabbita_codemirror/codemirror.mbt` and JS binding layer accept and emit structured deltas with suberror-safe callback semantics.
 
 ## Open questions

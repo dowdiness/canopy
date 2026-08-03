@@ -11,14 +11,14 @@ cd "$PROJECT_ROOT"
 
 if [[ "${CANOPY_SKIP_MOON_BUILD:-0}" != "1" ]]; then
     (
-        cd examples/canvas
+        cd apps/canvas
         # Retry-wrapped: transient mooncakes CDN 403 (issue #467) auto-recovers.
         "$SCRIPT_DIR/moon-update.sh"
     )
 fi
 
 echo "Running canvas Playwright E2E..."
-cd examples/canvas/web
+cd apps/canvas/web
 
 if [ ! -d node_modules ]; then
     echo "Installing canvas web dependencies..."

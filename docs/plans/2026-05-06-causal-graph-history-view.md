@@ -15,7 +15,7 @@ the real structure, don't simulate a flat one.
 
 The infrastructure is already in place: `CausalGraph` implements
 `@alga.DirectedGraph`, the graphviz pipeline (parse → layout → SVG) is wired
-in `examples/ideal/main/view_bottom.mbt`, and the bottom-panel scaffold has a
+in `apps/ideal/main/view_bottom.mbt`, and the bottom-panel scaffold has a
 working tab system. Phase 1 lights up that machinery for the causal DAG.
 
 ## Design Principles
@@ -37,10 +37,10 @@ working tab system. Phase 1 lights up that machinery for the causal DAG.
 ## Scope
 
 In:
-- New module `examples/ideal/main/view_history.mbt` — DOT generation from
+- New module `apps/ideal/main/view_history.mbt` — DOT generation from
   `CausalSnapshot`, frontier highlighting, agent coloring, chain compression.
-- `examples/ideal/main/view_bottom.mbt` — wire a new `History` tab variant.
-- `examples/ideal/main/model.mbt` — extend `BottomTab` with `History`.
+- `apps/ideal/main/view_bottom.mbt` — wire a new `History` tab variant.
+- `apps/ideal/main/model.mbt` — extend `BottomTab` with `History`.
 - New CSS rules in the ideal editor stylesheet for agent-colored nodes and
   frontier emphasis.
 - Whitebox tests for DOT generation (snapshot a small constructed graph).
@@ -51,7 +51,7 @@ Out (deferred to later phases):
 - Swimlane / git-log-style custom layout.
 - Operation detail popovers (insert/delete content preview).
 - Replacing the existing `OpLog` tab — `History` is added alongside.
-- Wiring into `examples/web/` (ideal editor only for Phase 1).
+- Wiring into `apps/web/` (ideal editor only for Phase 1).
 - Changes to egw public API. Phase 1 reads only existing accessors.
 
 ## Current State
@@ -325,7 +325,7 @@ surface or implementing alga's trait on the snapshot itself.
 **Phase 1b — UI integration.**
 - Add `BottomTab::History`, `view_history`, `history_render_cmd`.
 - CSS for agent palette and frontier emphasis.
-- Manual verification in `examples/ideal` dev server: linear edits, undo,
+- Manual verification in `apps/ideal` dev server: linear edits, undo,
   simulated multi-agent merge (whatever harness the existing CRDT tests use).
 - Acceptance: visual inspection of three scenarios (single-agent linear,
   two-agent diverge, two-agent merge) shows correct structure.
@@ -441,7 +441,7 @@ Manual (Phase 1b):
 
 - `event-graph-walker/internal/causal_graph/directed_graph.mbt` —
   alga `DirectedGraph` impl for `CausalGraph`.
-- `examples/ideal/main/view_bottom.mbt` — reference graphviz pipeline
+- `apps/ideal/main/view_bottom.mbt` — reference graphviz pipeline
   integration.
 - `docs/plans/2026-04-04-scope-colored-tree-view-design.md` — analogous
   visual-feature spec for principle reuse.

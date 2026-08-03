@@ -1521,7 +1521,7 @@ Expected: PASS. Likely errors:
 
 Run: `NEW_MOON_MOD=0 moon test`
 
-Expected: green. Pre-existing JSON consumers (e.g. examples/web/src/json-editor.ts) call the FFI through the JS bundle, not via MoonBit tests, so the only test coverage that exercises the JSON FFI is what we'll add in C6.
+Expected: green. Pre-existing JSON consumers (e.g. apps/web/src/json-editor.ts) call the FFI through the JS bundle, not via MoonBit tests, so the only test coverage that exercises the JSON FFI is what we'll add in C6.
 
 - [ ] **Step 4: Commit**
 

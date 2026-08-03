@@ -20,8 +20,8 @@ All symbols in this package are flat free functions exported via the link block.
 
 ## Consumers
 
-- `examples/web/` — TypeScript/Vite web bundle; the primary consumer, calls every JS export
-- `examples/ideal/main/` — separate MoonBit module that imports this package as `@ffi` to construct and recover the singleton editor handle
+- `apps/web/` — TypeScript/Vite web bundle; the primary consumer, calls every JS export
+- `apps/ideal/main/` — separate MoonBit module that imports this package as `@ffi` to construct and recover the singleton editor handle
 
 ## Dependencies
 
@@ -39,7 +39,7 @@ All symbols in this package are flat free functions exported via the link block.
 
 ## Stability
 
-Unstable — route through `ffi/lambda`. The exported function list changes whenever the editor gains new features. The JS import site (`examples/web/`) must be updated in lockstep.
+Unstable — route through `ffi/lambda`. The exported function list changes whenever the editor gains new features. The JS import site (`apps/web/`) must be updated in lockstep.
 
 ## Notes
 

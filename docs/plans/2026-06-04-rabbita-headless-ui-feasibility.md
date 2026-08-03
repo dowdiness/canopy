@@ -161,7 +161,7 @@ compatibility fix introduced during the 0.12.3 upgrade remains sufficient for
 0.12.4:
 
 - **One breaking call site** from upstream PR #117 (void elements lose `children`):
-  `examples/ideal/main/view_actions.mbt` — removed a trailing `[@html.text("")]`
+  `apps/ideal/main/view_actions.mbt` — removed a trailing `[@html.text("")]`
   positional child from `@html.input(...)`. (Two more in
   `loom/incr/examples/typed_spreadsheet_rabbita_demo/view.mbt` — loom submodule,
   not a canopy workspace member; only matters if loom's examples are built.)

@@ -15,18 +15,18 @@ _build
 *.db-wal
 .wrangler/
 .vite/
-examples/web/src/pages.gen.ts
-examples/web/worker-startup.cpuprofile
+apps/web/src/pages.gen.ts
+apps/web/worker-startup.cpuprofile
 
 .playwright-mcp/
 .playwright-cli/
 examples/demo-react/playwright-report/
 examples/demo-react/test-results/
-examples/canvas/web/playwright-report/
-examples/canvas/web/test-results/
-examples/ideal/web/playwright-report/
-examples/ideal/web/test-results/
-examples/web/test-results/
+apps/canvas/web/playwright-report/
+apps/canvas/web/test-results/
+apps/ideal/web/playwright-report/
+apps/ideal/web/test-results/
+apps/web/test-results/
 test-results/
 .grepai/
 .ast-grep/

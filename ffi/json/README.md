@@ -15,7 +15,7 @@ This package contains no logic — it delegates entirely to `editor`, `lang/json
 
 ## Consumers
 
-No other MoonBit package imports `ffi/json`. Consumed by `examples/web/json.html` and associated TypeScript.
+No other MoonBit package imports `ffi/json`. Consumed by `apps/web/json.html` and associated TypeScript.
 
 ## Dependencies
 

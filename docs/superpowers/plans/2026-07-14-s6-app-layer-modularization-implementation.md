@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-14
 **Design:** `docs/superpowers/specs/2026-07-11-s6-app-layer-modularization-design.md`
-**Scope:** `examples/ideal/main/`, plus the minimal supporting package manifests
+**Scope:** `apps/ideal/main/`, plus the minimal supporting package manifests
 and boundary adapters required to compile, target, and test the extracted
 package (`js_ffi`, `modules/dom-boundary`, `modules/rabbita-menu/menu`)
 **Status:** Executed; the supporting boundary scope is included in the migration.
@@ -20,7 +20,7 @@ Remove Ideal's legacy root and overlay `Cell` usage without changing editor,
 CRDT, selection, overlay, or browser behavior. The root app becomes a
 `create_state_with_init` application. Overlay state becomes a pure state slice
 of that root graph and is extracted with its view into the
-`examples/ideal/main/action_overlay/` package. No `Cell`, nested
+`apps/ideal/main/action_overlay/` package. No `Cell`, nested
 `Cell::view()`, runtime-held `Emit`, or runtime-held `Cmd` remains in Ideal.
 
 ## Invariants
@@ -89,8 +89,8 @@ hidden acceptance criterion.
 
 ### 1. Characterize the current root and overlay contracts
 
-Files: `examples/ideal/main/main_wbtest.mbt`,
-`examples/ideal/main/action_overlay_*.mbt`.
+Files: `apps/ideal/main/main_wbtest.mbt`,
+`apps/ideal/main/action_overlay_*.mbt`.
 
 First inventory the existing whitebox tests as a variant-by-responsibility
 gap matrix. The current `main_wbtest.mbt` already covers `SetError` with both
@@ -114,7 +114,7 @@ pin failures separately; do not modify `rabbita/` or unrelated examples.
 
 ### 2. Migrate the root application lifecycle
 
-Files: `examples/ideal/main/main.mbt` and the root-init/view files after any
+Files: `apps/ideal/main/main.mbt` and the root-init/view files after any
 Phase 3 rename is chosen.
 
 - Replace the root `cell_with_emit` construction with
@@ -165,7 +165,7 @@ symbols.
 
 ### 4. Extract the overlay package with separate core and view layers
 
-Create `examples/ideal/main/action_overlay/moon.pkg`. Move the overlay's
+Create `apps/ideal/main/action_overlay/moon.pkg`. Move the overlay's
 functional-core modules separately from its framework-facing view adapter:
 
 - **Core:** flow types, state types, constructors, transition functions, and
@@ -217,8 +217,8 @@ Run, from the repository root:
 2. `moon test -p dowdiness/ideal-editor/main` (or the package's current
    equivalent discovered from its manifest).
 3. `moon build --target js`.
-4. `cd examples/ideal/web && npm install` only if dependencies are absent.
-5. `cd examples/ideal/web && npx playwright test e2e/structure-mode-switch.spec.ts e2e/structural-editing.spec.ts`.
+4. `cd apps/ideal/web && npm install` only if dependencies are absent.
+5. `cd apps/ideal/web && npx playwright test e2e/structure-mode-switch.spec.ts e2e/structural-editing.spec.ts`.
 6. `moon info && moon fmt`; inspect generated interface diffs.
 
 The detached-Rabbita `tea_wbtest.mbt` `diff_subs` error and any unrelated

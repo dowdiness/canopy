@@ -1,7 +1,7 @@
-# S6 — App-Layer Modularization: `examples/ideal/main/` (Design)
+# S6 — App-Layer Modularization: `apps/ideal/main/` (Design)
 
 **Date:** 2026-07-11
-**Scope:** `examples/ideal/main/` — de-duplication, action-overlay package
+**Scope:** `apps/ideal/main/` — de-duplication, action-overlay package
 extraction, feature-scoped file renames, pure-computation `internal/`
 packages. The migration may update the minimal supporting package manifests
 and boundary adapters (`js_ffi`, `modules/dom-boundary`, `modules/rabbita-menu/menu`) required
@@ -32,7 +32,7 @@ functions (`handle_workspace`, `handle_structural`, `handle_outline`,
 `handle_codemirror`), each matching its own `Msg` subset — there is no
 single monolithic `update` to split.
 
-The real, confirmed problem is navigability: `examples/ideal/main/` is 31
+The real, confirmed problem is navigability: `apps/ideal/main/` is 31
 flat files in one package; file names don't reliably indicate which of
 several bundled concerns live inside (`update_handlers.mbt` hides 7
 handlers behind one generic name; `main.mbt` hides five unrelated
@@ -338,7 +338,7 @@ checked against the three-axis test, not a scope cut.
 
 ## Resolved implementation decisions
 
-- Extract the overlay as `examples/ideal/main/action_overlay/`, a sibling
+- Extract the overlay as `apps/ideal/main/action_overlay/`, a sibling
   package to `ui/`. It is a feature package, not an `internal/` computation
   package, because it owns the overlay view and state machine.
 - Use narrow constructors/accessors for `OverlayMsg`, `OverlayError`, and

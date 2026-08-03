@@ -1,5 +1,5 @@
 // Whitebox tests for action_context.mbt — action domain logic extracted
-// from examples/ideal/main.
+// from apps/ideal/main.
 
 ///|
 fn test_ctx() -> ActionContext {

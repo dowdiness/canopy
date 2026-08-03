@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Build the examples/web app against the current MoonBit JS outputs.
+# Build the apps/web app against the current MoonBit JS outputs.
 
 set -euo pipefail
 
@@ -11,8 +11,8 @@ cd "$PROJECT_ROOT"
 
 "$SCRIPT_DIR/build-js.sh"
 
-echo "Building examples/web..."
-cd examples/web
+echo "Building apps/web..."
+cd apps/web
 
 if [ ! -d node_modules ]; then
     echo "Installing web dependencies..."

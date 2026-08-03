@@ -5,11 +5,11 @@ base = os.path.dirname(os.path.abspath(__file__))
 project = "/home/antisatori/ghq/github.com/dowdiness/crdt"
 
 servers = {
-    "start-web.sh": "examples/web",
+    "start-web.sh": "apps/web",
     "start-demo-react.sh": "examples/demo-react",
     "start-rabbita.sh": "examples/rabbita",
     "start-prosemirror.sh": "examples/prosemirror",
-    "start-ideal-web.sh": "examples/ideal/web",
+    "start-ideal-web.sh": "apps/ideal/web",
 }
 
 for name, subdir in servers.items():
