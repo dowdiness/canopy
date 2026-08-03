@@ -1,0 +1,180 @@
+{
+  "evidenceVersion": 1,
+  "subject": "docs/design/local-first-document-ownership.md",
+  "purpose": "Source observations behind the design document's load-bearing claims. The document itself carries no source-line citations, per the docs/design convention that direction documents are not pinned to current code. This record restores auditability without pinning the document.",
+  "recordedAt": "2026-08-03",
+  "observedAt": {
+    "canopy": "3efe5b2c60268244473e05a6e3fbb342695e14ac",
+    "event-graph-walker": "fadc41b1e99753129be816c37393afee2175e23f",
+    "loom": "d9cac9b29568595d1717f05e0ee0b530db064e24"
+  },
+  "readingNotes": [
+    "Line numbers are true only at the commits above. Treat a mismatch as drift to re-verify, not as a defect in the design document: the document states requirements and invariants, which a code change may violate rather than invalidate.",
+    "Every claim below was read directly in the source at the commits above. Claims surfaced by an independent reviewer are marked, but the observation recorded here is the direct read, not the reviewer's report."
+  ],
+  "claims": [
+    {
+      "id": "closed-wire-field-set",
+      "claim": "The history payload's serialization is a closed contract that neither carries nor tolerates application metadata, so document identity and archive versioning must live in an outer envelope.",
+      "observation": "The sync envelope decoder rejects any object whose field set is not exactly schema/format/operations/heads; the encoder emits exactly those four.",
+      "sites": [
+        "event-graph-walker/text/sync.mbt:982-985 (exact_object_fields guard)",
+        "event-graph-walker/text/sync.mbt:886-896 (to_json_string emits the four fields)"
+      ],
+      "surfacedBy": "self",
+      "verifiedBy": "direct read"
+    },
+    {
+      "id": "no-document-identity-on-wire",
+      "claim": "Wire operations carry writer identity but no document identity.",
+      "observation": "op_json emits id, parents, kind, content, origin_left, origin_right. Nothing names the document.",
+      "sites": ["event-graph-walker/text/sync.mbt:865-882"],
+      "surfacedBy": "codex-review-2",
+      "verifiedBy": "direct read"
+    },
+    {
+      "id": "version-is-high-water-mark",
+      "claim": "A version frontier is a per-writer high-water mark, not a summary of content; two histories can agree on text and frontier while containing different operations.",
+      "observation": "Version::from_ops retains only the maximum sequence per replica and discards content, parents, and origins.",
+      "sites": ["event-graph-walker/text/types.mbt:99-117"],
+      "surfacedBy": "codex-review-2",
+      "verifiedBy": "direct read",
+      "consequence": "An acceptance oracle comparing source and version is weaker than it appears. Compare the canonical history, and assert a merge after restore."
+    },
+    {
+      "id": "replay-is-equivalent-not-identical",
+      "claim": "Replay reproduces an equivalent document, not an identical in-memory structure; process-local bookkeeping is reconstructed rather than transported.",
+      "observation": "Op carries a private lv field documented as 'Local version when this op was created'. The wire encoder does not emit it.",
+      "sites": [
+        "event-graph-walker/internal/core/operation.mbt:18-26 (priv lv)",
+        "event-graph-walker/text/sync.mbt:865-882 (op_json omits lv)"
+      ],
+      "surfacedBy": "codex-review-1",
+      "verifiedBy": "direct read",
+      "note": "Previously carried into the design unverified; verified 2026-08-03."
+    },
+    {
+      "id": "limits-are-receiver-policy",
+      "claim": "Resource limits are receiver policy applied at sync admission, not a property of reading a history back. No archive restore path exists to inherit them, so restore must state its own limit deliberately.",
+      "observation": "The structural decoder documents in its own doc comment that limits are enforced by apply, not by decoding; prepare_sync raises LimitExceeded on encoded bytes and decoded operation count.",
+      "sites": [
+        "event-graph-walker/text/sync.mbt:1026-1027 (doc comment)",
+        "event-graph-walker/text/sync.mbt:1093-1115 (prepare_sync limit checks)"
+      ],
+      "surfacedBy": "codex-review-3",
+      "verifiedBy": "direct read",
+      "correctedClaim": "An earlier draft asserted that a document has a maximum size beyond which it cannot be reopened. That was wrong and is the reason this section was rewritten."
+    },
+    {
+      "id": "inference-artifact-granularity",
+      "claim": "Submitting a whole document makes the recorded granularity an artifact of the inference algorithm rather than a record of what the user did.",
+      "observation": "The current inference removes the common prefix and suffix and returns one middle replacement, so any two distant changes in a single submission delete and reinsert everything between them. The editor path that accepts a whole document routes through it.",
+      "sites": [
+        "loom/text-change/text_change.mbt:79-91 (compute_text_change)",
+        "editor/sync_editor_text.mbt:399-417 (set_text)",
+        "editor/sync_editor_text.mbt:388-398 (doc comment directing interactive editing elsewhere)"
+      ],
+      "surfacedBy": "self",
+      "verifiedBy": "direct read",
+      "note": "The single-splice shape is today's algorithm. The design states the algorithm-independent requirement; this record preserves what motivated it."
+    },
+    {
+      "id": "text-unchanged-is-not-no-operation",
+      "claim": "An operation that leaves the text unchanged still advanced the document, so persistence must trigger on history rather than on text.",
+      "observation": "The Markdown facade classifies a commit as Unchanged purely by comparing the resulting source against the prior source, after the operation has already been applied.",
+      "sites": ["editor/markdown/editor.mbt:139-143", "editor/markdown/editor.mbt:189-193"],
+      "surfacedBy": "self",
+      "verifiedBy": "direct read"
+    },
+    {
+      "id": "transient-pending-outside-history",
+      "claim": "Operations received but not yet applicable are not part of the history and are not carried by a history export.",
+      "observation": "TextState holds pending_sync_records as a field distinct from the oplog; export_all reads only get_all_ops.",
+      "sites": [
+        "event-graph-walker/text/text_doc.mbt:36-39 (pending_sync_records)",
+        "event-graph-walker/text/sync.mbt:1053-1059 (export_all)"
+      ],
+      "surfacedBy": "codex-review-2",
+      "verifiedBy": "direct read"
+    },
+    {
+      "id": "undo-history-outside-oplog",
+      "claim": "Undo history is not captured by a history export, so undo across restart is not obtainable from a checkpoint alone.",
+      "observation": "UndoManager owns mutable undo_stack and redo_stack arrays alongside its own agent_id; none of it is part of the oplog.",
+      "sites": ["event-graph-walker/undo/undo_manager.mbt:4-12"],
+      "surfacedBy": "codex-review-2",
+      "verifiedBy": "direct read",
+      "note": "Previously carried into the design unverified; verified 2026-08-03."
+    },
+    {
+      "id": "one-identity-four-roles",
+      "claim": "One writer identity per writing instance is required, because the identity supplied at construction is simultaneously the CRDT replica, the undo owner, the ephemeral hub identity, and the peer identity.",
+      "observation": "A single agent_id parameter is passed to TextState::new, UndoManager::new, setup_hub_and_cursor, and stored as peer_id, in one constructor.",
+      "sites": ["editor/sync_editor.mbt:62-91"],
+      "surfacedBy": "codex-review-1",
+      "verifiedBy": "direct read",
+      "note": "Previously carried into the design unverified; verified 2026-08-03."
+    }
+  ],
+  "executedProbes": {
+    "method": "A disposable probe was written into workspace/probe, run, and deleted. It is not in the tree. It exercised @editor.Editor directly, because the Markdown facade does not expose version or history transport; the design proposes adding exactly that, so the probe measures the layer the facade would delegate to.",
+    "command": "NEW_MOON_MOD=0 moon test -p dowdiness/canopy/workspace/probe",
+    "result": "Total tests: 42, passed: 42, failed: 0",
+    "instrumentControl": {
+      "why": "A green run proves nothing if the probe never executed. Before trusting the result, one assertion was deliberately falsified.",
+      "observed": "Total tests: 42, passed: 41, failed: 1, failing at workspace/probe/throwaway_archive_probe_wbtest.mbt:11 by name. Restoring the assertion returned the suite to 42/42.",
+      "conclusion": "The probe executed; the green run is not vacuous."
+    },
+    "findings": [
+      {
+        "id": "E1-roundtrip",
+        "question": "Does a checkpoint round-trip through JSON into a fresh editor restore the document?",
+        "procedure": "Build a document, edit it, export_all -> to_json_string, construct a different editor, from_json_string -> apply_sync.",
+        "result": "confirmed",
+        "observed": "Restored text equals the original, restored version equals the original, and canonical history bytes are equal in both directions.",
+        "bearingOn": "The design's central mechanism works at the layer the facade would delegate to."
+      },
+      {
+        "id": "E2-no-pending-on-restore",
+        "question": "Does applying a complete checkpoint to a fresh editor leave causally pending operations?",
+        "procedure": "apply_sync raises VersionNotFound when pending > 0, so a clean return is the observation.",
+        "result": "confirmed",
+        "observed": "apply_sync returned without raising.",
+        "bearingOn": "Restore of an intact checkpoint does not hit the pending-operations path. This was previously an argument; it is now an observation."
+      },
+      {
+        "id": "E3-weak-oracle",
+        "question": "Can two histories agree on text AND version while differing in content?",
+        "procedure": "Two editors constructed with the SAME writer identity insert different characters, then delete them.",
+        "result": "confirmed",
+        "observed": "Texts are equal and versions are equal, while canonical history bytes DIFFER.",
+        "bearingOn": "Demonstrates that an acceptance oracle built on text plus version would accept a document that is not a continuation. This is the finding that changed the design's stated oracle, and it is now empirical rather than reasoned."
+      },
+      {
+        "id": "E4-text-preserving-edit-advances",
+        "question": "Does an edit that leaves the text unchanged still advance the document?",
+        "procedure": "Delete a character and reinsert the same character.",
+        "result": "confirmed",
+        "observed": "Text returns to its prior value while the version does not.",
+        "bearingOn": "Persistence triggered by text comparison would skip this save. Supports the design's requirement that persistence triggers on history."
+      }
+    ]
+  },
+  "notVerified": [
+    {
+      "claim": "Parser coverage limits what can be structurally edited rather than what can be held.",
+      "status": "reasoned from the architecture (text is authority, no layer writes back) and from the Loom CommonMark completion contract; not executed",
+      "wouldRequire": "a round-trip probe over the CommonMark corpus asserting source preservation across an edit session"
+    },
+    {
+      "claim": "The archive shape is implementable through the Markdown facade as stated.",
+      "status": "partially demonstrated. The round-trip is confirmed at the editor layer (E1/E2). It is not confirmed through the facade, which today exposes neither version nor history transport.",
+      "wouldRequire": "surfacing version and history transport on the facade, then repeating E1 through it"
+    },
+    {
+      "claim": "Restore-specific resource limits behave as the design requires.",
+      "status": "not exercised. The probe restored a small document; no limit was approached.",
+      "wouldRequire": "a probe that grows a history past a chosen ceiling and observes what the restore path reports"
+    }
+  ]
+}

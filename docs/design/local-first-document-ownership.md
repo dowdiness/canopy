@@ -221,6 +221,20 @@ contract should say so plainly: everything is preserved, structure editing
 applies to what was recognized, unrecognized regions are never rewritten
 without an explicit user action, and saving never reformats.
 
+## Verification
+
+This document states invariants and requirements, and deliberately carries no
+source-line citations, so that code movement does not make it wrong. The
+observations behind its load-bearing claims — including which were read, which
+were executed, and which remain unverified — are recorded separately, dated and
+pinned to the commits they were taken at:
+
+- [`docs/evidence/2026-08-03-local-first-document-ownership-claims.json`](../evidence/2026-08-03-local-first-document-ownership-claims.json)
+
+A mismatch between that record and current code is drift to re-check, not a
+defect in this document: a requirement can be violated by a change without
+being invalidated by it.
+
 ## Related
 
 - [Grand Design](GRAND_DESIGN.md) — vision, principles, implementation order
