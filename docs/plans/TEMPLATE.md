@@ -3,12 +3,22 @@
 Use this template for any non-trivial task that should be executable by a coding
 agent across sessions.
 
-Keep one plan file per task and link it from the canonical GitHub issue. If the
-task is complete or superseded, move the plan to `docs/archive/` and record the
-outcome in the issue.
+Keep one plan file per task. Link the plan from the canonical GitHub issue and
+link the issue from the plan — the links are reciprocal and required in both
+directions. If the task is complete or superseded, move the plan to
+`docs/archive/` and record the outcome in the issue.
 
 ```md
 # <Task Title>
+
+## GitHub Issue
+
+Canonical issue: <https://github.com/dowdiness/canopy/issues/N>
+
+The issue and this plan MUST link each other (reciprocal link): the issue
+points to this plan, and this plan points back to the issue above. A shared
+queue issue is not closed when this plan completes unless the whole issue is
+done.
 
 ## Why
 

@@ -37,6 +37,10 @@ def read_module(manifest):
     )
 
 
+# Read the filesystem here (not tracked_files/modules) because those cover only
+# parent-repo manifests: manifests inside submodule working trees are not listed
+# by the parent's `git ls-files`, yet those submodules can still be moon.work
+# members whose module name the overview must resolve.
 def module_at(directory):
     for filename in ("moon.mod", "moon.mod.json"):
         manifest = root / directory / filename

@@ -164,8 +164,8 @@ behavior** — check the code before relying on any specific detail.
   — the three distinct parse/projection identity mechanisms, the #396 source-span
   tension, and why the BAND 2b cliff fix (#449) is an optimization, not a refactor.
 - [Shared-substrate `incr` version lock](decisions/2026-06-10-shared-substrate-incr-version-lock.md)
-  — requires aligned Canopy/Loom/moondsp consumption, defines the bottom-up
-  paired-bump protocol and drift guard, and defers cross-repo CI until
+  — requires Canopy/Loom/moondsp consumption to remain aligned, defines the
+  bottom-up paired-bump protocol and drift guard, and defers cross-repo CI until
   shared-runtime work needs it (closes #441).
 - [Lambda edit bridge boundary](decisions/2026-06-15-lambda-edit-bridge-boundary.md)
   — keeps Lambda's typed-error, patch-trace, editor-coupled bridge outside

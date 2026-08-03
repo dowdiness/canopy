@@ -30,7 +30,7 @@ If an architecture doc needs to reference code, link to the file — don't inlin
 
 1. Written before implementation with concrete details
 2. Executed task by task
-3. Archived to `docs/archive/completed-phases/` on completion
+3. Archived to `docs/archive/` on completion
 4. Marked with `**Status:** Complete` at the top
 
 Staleness is a non-issue because archived docs are explicitly historical. If someone reads an archived plan, they know it describes the state at implementation time, not the current state.

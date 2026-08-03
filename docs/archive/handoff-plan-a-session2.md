@@ -1,5 +1,13 @@
 # Plan A Handoff — Session 2026-07-02 (Session 2, updated)
 
+> **ARCHIVED — historical handoff, not current execution guidance.** This file
+> records the 2026-07-02 session-2 handoff verbatim. It is kept as historical
+> evidence: the file and the `docs/TODO.md` update command it lists below were
+> genuinely part of that handoff. `docs/TODO.md` has since been retired
+> (snapshot at `docs/archive/TODO-snapshot-2026-08-03.md`), so none of the
+> commands, paths, or statuses here are current. Active task status lives in
+> GitHub Issues; treat everything below as a dated snapshot.
+
 ## State: Steps 5-6 complete (9/10 quality), Step 7 partial, Step 8 pending
 
 ### Done
@@ -26,10 +34,10 @@
 ### Remaining Work (Steps 7-8)
 
 #### compute_markdown_edit.mbt — 9 Ok wrappers + compute_move_block call
-```
+```text
 Lines with Ok(:
   47, 94, 139, 167, 204, 247, 291, 377, 408
-  
+
 Line 25: compute_move_block(...) returns old Result type — needs compute_move_block.mbt converted first
 ```
 

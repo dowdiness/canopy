@@ -895,7 +895,8 @@ cross-container legality:
 
 The archived TODO snapshot §10 recorded cross-container / list-container legality
 and loose-list separator preservation as narrow follow-ups. They are outside
-closed issue #724 and open issue #1082; work requires a dedicated GitHub issue.
+closed issue #724, associated with open issue #1082, and need a dedicated
+implementation issue rather than being folded into either.
 
 ---
 

@@ -94,8 +94,12 @@ scope, and observable exit condition.
 2. Create `docs/plans/<date>-<slug>.md` from [TEMPLATE.md](../plans/TEMPLATE.md).
 3. Link the issue and plan in both directions.
 4. Execute against the plan and attach validation evidence to the pull request.
-5. Move the completed plan to `docs/archive/` and close the issue through the
-   pull request.
+5. Move the completed plan to `docs/archive/`. Close the issue through the pull
+   request only when the issue is wholly completed: the PR body then carries a
+   literal `Closes #N`. A shared queue issue that covers more than the task
+   just completed is not closed — update its checklist or status instead and
+   link the PR, so the tracker reflects the reciprocal change without a false
+   closure.
 
 ## Writing Good Issues
 

@@ -87,7 +87,7 @@ and tools may also own module manifests. Their import paths come from their own
 | --- | --- | --- |
 | `lib/` | `analysis`, `btree`, `semantic`, `zipper` | Reusable modules with independent package and publication ownership. |
 | `examples/` | `ideal`, `block-editor`, `codemirror_demo` | Runnable or learning surfaces with their own module lifecycle. |
-| repository root | `loomark` | Product/tool module whose ownership does not fit the reusable-library or example categories. |
+| `loomark/` | `loomark` | Product/tool module whose ownership does not fit the reusable-library or example categories. |
 
 Use `./scripts/package-overview.sh` for the complete current member list and
 read each listed module manifest for its canonical module name.

@@ -10,7 +10,7 @@
 > `git diff --stat f6e3a0a5..HEAD -- README.md docs/development/monorepo.md docs/development/module-package-map.md docs/development/workflow.md docs/architecture/modules.md moon.work moon.mod .gitmodules scripts/package-overview.sh scripts/check-strict.sh .github/actions/setup-moonbit/action.yml .github/workflows/ci.yml`
 > Re-read live manifests and CI even when the diff is empty; copied topology is
 > exactly what this plan is eliminating.
-
+>
 > **Resolution (2026-08-03)**: Integrated into repository-layout Phase 2.
 > Phase 1 commit `eec6decc` and Phase 2 commits `75e12e24` / `a4d2fc64`
 > replaced copied topology with live authorities, added lifecycle enforcement,

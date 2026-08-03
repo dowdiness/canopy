@@ -156,7 +156,7 @@ The guard must be rewritten to:
 
 New guard logic sketch:
 
-```
+```bash
 direct_sha=$(git rev-parse HEAD:event-graph-walker)
 pinned_version=$(git -C event-graph-walker show "${direct_sha}:moon.mod" \
   | sed -n 's/^version = "\(.*\)"/\1/p')
@@ -220,6 +220,7 @@ Closes: #TBD"
 
 ## Verification
 
+```bash
 # Phase 1 (within loom submodule)
 cd loom
 moon check                           # workspace lint — must pass
@@ -233,6 +234,13 @@ moon test                            # workspace tests — must pass
 scripts/check-egw-resolver-identity.sh  # guard script must exit 0
 NEW_MOON_MOD=0 moon info && git diff '*.mbti'  # no unexpected API changes
 ```
+
+> **Historical evidence, not current verification.** This is the verification
+> command block recorded at execution time (2026-07-05). It deliberately checks
+> only the S5b-relevant subset, so its narrow scope should not be mistaken for
+> a full workspace gate. For current verification, use the repository's live
+> tooling — CI (`.github/workflows/ci.yml`) and the scripts under `scripts/` —
+> rather than re-running these commands as recorded.
 
 **Known timing:** The first `moon check` after removing egw from loom's
 workspace will actually resolve from registry for the first time (the

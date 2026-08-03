@@ -44,7 +44,8 @@ assert_contains "dowdiness/canopy/workspace/coordinator"
 assert_absent "pub symbols"
 
 fixture="$(mktemp -d)"
-trap 'rm -rf "$fixture"' EXIT
+negative=""
+trap 'rm -rf "$fixture" "$negative"' EXIT
 mkdir -p \
   "$fixture/scripts" \
   "$fixture/modules/canopy/src/core" \
@@ -92,5 +93,81 @@ assert_contains "dowdiness/canopy/core"
 assert_absent "dowdiness/canopy/src/core"
 assert_contains "Root workspace modules (2)"
 assert_contains "Git submodules (1)"
+
+# Negative fixture: no primary module manifest.
+negative="$(mktemp -d)"
+mkdir -p \
+  "$negative/missing/scripts" \
+  "$negative/missing/modules/other/pkg"
+cp "$root_dir/scripts/package-overview.sh" "$negative/missing/scripts/package-overview.sh"
+cat >"$negative/missing/modules/other/moon.mod.json" <<'EOF'
+{"name":"example/other"}
+EOF
+cat >"$negative/missing/modules/other/pkg/moon.pkg.json" <<'EOF'
+{}
+EOF
+cat >"$negative/missing/moon.work" <<'EOF'
+members = ["./modules/other"]
+EOF
+git init -q "$negative/missing"
+git -C "$negative/missing" add .
+if output="$("$negative/missing/scripts/package-overview.sh" 2>"$negative/missing/err")"; then
+  printf 'expected missing primary module to fail\n' >&2
+  exit 1
+fi
+grep -Fq 'error: expected one dowdiness/canopy module manifest, found 0' \
+  "$negative/missing/err"
+
+# Negative fixture: two primary module manifests.
+mkdir -p \
+  "$negative/ambiguous/scripts" \
+  "$negative/ambiguous/modules/one/src" \
+  "$negative/ambiguous/modules/two/src"
+cp "$root_dir/scripts/package-overview.sh" "$negative/ambiguous/scripts/package-overview.sh"
+cat >"$negative/ambiguous/modules/one/moon.mod" <<'EOF'
+name = "dowdiness/canopy"
+source = "src"
+EOF
+cat >"$negative/ambiguous/modules/two/moon.mod" <<'EOF'
+name = "dowdiness/canopy"
+source = "src"
+EOF
+cat >"$negative/ambiguous/moon.work" <<'EOF'
+members = ["./modules/one", "./modules/two"]
+EOF
+git init -q "$negative/ambiguous"
+git -C "$negative/ambiguous" add .
+if output="$("$negative/ambiguous/scripts/package-overview.sh" 2>"$negative/ambiguous/err")"; then
+  printf 'expected ambiguous primary module to fail\n' >&2
+  exit 1
+fi
+grep -Fq 'error: expected one dowdiness/canopy module manifest, found 2' \
+  "$negative/ambiguous/err"
+
+# Negative fixture: root moon.work without a members array.
+mkdir -p \
+  "$negative/no-members/scripts" \
+  "$negative/no-members/modules/canopy/src/core"
+cp "$root_dir/scripts/package-overview.sh" "$negative/no-members/scripts/package-overview.sh"
+cat >"$negative/no-members/modules/canopy/moon.mod" <<'EOF'
+name = "dowdiness/canopy"
+source = "src"
+EOF
+cat >"$negative/no-members/modules/canopy/src/moon.pkg" <<'EOF'
+options(is_main: false)
+EOF
+cat >"$negative/no-members/modules/canopy/src/core/moon.pkg" <<'EOF'
+options(is_main: false)
+EOF
+cat >"$negative/no-members/moon.work" <<'EOF'
+version = "0.1.0"
+EOF
+git init -q "$negative/no-members"
+git -C "$negative/no-members" add .
+if output="$("$negative/no-members/scripts/package-overview.sh" 2>"$negative/no-members/err")"; then
+  printf 'expected moon.work without members array to fail\n' >&2
+  exit 1
+fi
+grep -Fq 'error: root moon.work has no members array' "$negative/no-members/err"
 
 printf 'ok: package overview reflects live repository topology\n'

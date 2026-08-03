@@ -10,7 +10,7 @@
 > `git diff --stat f6e3a0a5..HEAD -- docs/decisions/2026-06-10-shared-substrate-incr-version-lock.md docs/decisions/2026-06-12-substrate-governance.md moon.mod moon.work scripts/check-shared-substrate.sh .github/workflows/ci.yml`
 > If an in-scope document changed, compare the live status claims with the
 > evidence below and stop on a semantic mismatch.
-
+>
 > **Resolution (2026-08-03)**: Integrated into repository-layout Phase 2.
 > The accepted ADRs now distinguish dated `incr` evidence from live manifest
 > authority, `scripts/check-shared-substrate.sh` remains the executable

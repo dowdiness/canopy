@@ -101,13 +101,23 @@ service. A live consumer requires a separate threat model and migration plan.
 
 | Purpose | Command | Expected on success |
 |---|---|---|
-| Reachability | `rg --hidden -n "signaling-worker|wrangler-signaling|VITE_SIGNALING_URL|SIGNALING_ROOM|WebSocketServer|SIGNALING service binding" examples/web docs .github README.md --glob '!**/node_modules/**' --glob '!docs/archive/**' --glob '!docs/plans/advisory/**' --glob '!.git/**'` | before: only listed legacy files/docs plus prospective Waku scope; after: no active legacy signaling references |
+| Reachability | run the scan below from the repo root | before: only listed legacy files/docs plus prospective Waku scope; after: no active legacy signaling references |
 | Install | `cd examples/web && npm ci` | exits 0 |
 | Generated artifacts | `NEW_MOON_MOD=0 ./scripts/build-js.sh` | exits 0 and produces the five web MoonBit modules |
 | Typecheck | `cd examples/web && npm run typecheck` | exits 0, no TypeScript errors |
 | Boundary tests | `cd examples/web && npm run test:boundaries` | 18 tests pass |
 | Boundary check | `cd examples/web && npm run check:boundaries` | prints `Web dependency boundaries: OK` |
 | Lock integrity | `cd examples/web && npm install --package-lock-only --ignore-scripts` | exits 0; lock root no longer declares direct `ws` or `@types/ws` |
+
+Run the reachability scan from the repository root, before and after the
+change:
+
+```bash
+rg --hidden -n "signaling-worker|wrangler-signaling|VITE_SIGNALING_URL|SIGNALING_ROOM|WebSocketServer|SIGNALING service binding" \
+  examples/web docs .github README.md \
+  --glob '!**/node_modules/**' --glob '!docs/archive/**' --glob '!docs/plans/advisory/**' \
+  --glob '!.git/**'
+```
 
 ## Suggested executor toolkit
 

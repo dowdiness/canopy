@@ -63,4 +63,14 @@ mv "$fixture/docs/plans/advisory/implemented.md" \
 git -C "$fixture" add -A
 "$repo_root/scripts/check-documentation-lifecycle.sh" "$fixture"
 
+printf '# Bad plan\n\n\377\376\n' > "$fixture/docs/plans/bad-utf8.md"
+git -C "$fixture" add docs/plans/bad-utf8.md
+if "$repo_root/scripts/check-documentation-lifecycle.sh" "$fixture" >"$fixture/output" 2>&1; then
+  printf 'expected invalid UTF-8 active plan to fail\n' >&2
+  exit 1
+fi
+grep -Fq 'docs/plans/bad-utf8.md cannot be read as UTF-8:' "$fixture/output"
+rm "$fixture/docs/plans/bad-utf8.md"
+git -C "$fixture" add -u
+
 printf 'ok: documentation lifecycle guard rejects legacy backlog surfaces and terminal active plans\n'

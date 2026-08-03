@@ -149,16 +149,9 @@ The canonical CI fan-out is in `.github/workflows/ci.yml`.
 
 ## Submodule reference
 
-| Path | Repository | Role |
-|------|------------|------|
-| `event-graph-walker/` | [dowdiness/event-graph-walker](https://github.com/dowdiness/event-graph-walker) | CRDT engine |
-| `loom/` | [dowdiness/loom](https://github.com/dowdiness/loom) | Parser framework, CST library, reactive signals, pretty-printer, egglog/egraph, example languages |
-| `rle/` | [dowdiness/rle](https://github.com/dowdiness/rle) | Run-length encoded sequence |
-| `order-tree/` | [dowdiness/order-tree](https://github.com/dowdiness/order-tree) | Counted/order-statistic tree |
-| `graphviz/` | [dowdiness/graphviz](https://github.com/dowdiness/graphviz) | Graphviz renderer for the inspector |
-| `svg-dsl/` | [dowdiness/svg-dsl](https://github.com/dowdiness/svg-dsl) | SVG DSL |
-| `alga/` | [dowdiness/alga](https://github.com/dowdiness/alga) | Graph algebra |
-| `rabbita/` | [dowdiness/rabbita](https://github.com/dowdiness/rabbita) | Elm-style UI runtime and bindings |
+The root [`.gitmodules`](../../.gitmodules) is authoritative for submodule
+membership, paths, and URLs, and `git submodule status --recursive` shows the
+live pins and working-tree state. Do not copy the inventory into this guide.
 
 ## Why submodules
 

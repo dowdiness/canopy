@@ -7,7 +7,7 @@
 [Shared-substrate incr version lock](../decisions/2026-06-10-shared-substrate-incr-version-lock.md) ·
 [Framework genericity contract](../decisions/2026-03-29-framework-genericity-contract.md) ·
 [Identity and reuse mechanisms](../decisions/2026-06-01-identity-and-reuse-mechanisms.md) ·
-TODO §14 (library identity) · TODO §15 (editor decoupling) · TODO §18 (shared-runtime workspace)
+[Archived TODO snapshot](../archive/TODO-snapshot-2026-08-03.md) §14 (library identity) · §15 (editor decoupling) · §18 (shared-runtime workspace)
 
 This is the umbrella proposal plus staged migration index — a `docs/plans/`
 execution spec, **not** a `docs/architecture/` record. Concrete files, types,
