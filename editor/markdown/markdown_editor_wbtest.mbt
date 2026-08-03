@@ -1143,6 +1143,24 @@ test "supported typed delete lowers through the Markdown edit companion" {
 }
 
 ///|
+test "typed delete selects the next surviving block" {
+  let editor = try! MarkdownEditor(
+    agent_id="delete-survivor-selection",
+    source="First\n\nSecond\n",
+  )
+  let first = editor.snapshot().blocks().get(0).unwrap()
+
+  match editor.commit(MarkdownEditRequest::Delete(node_id=first.node_id())) {
+    Ok(MarkdownCommitResult::Applied(snapshot, Some(selection))) => {
+      let survivor = snapshot.blocks().get(0).unwrap()
+      assert_eq(selection.node_id(), survivor.node_id())
+      assert_eq(selection.offset(), survivor.text().length())
+    }
+    _ => fail("expected a typed selection for the surviving block")
+  }
+}
+
+///|
 test "empty replica identity is a categorized construction failure" {
   let result : Result[MarkdownEditor, MarkdownEditorError] = Ok(
     MarkdownEditor(agent_id="", source=""),

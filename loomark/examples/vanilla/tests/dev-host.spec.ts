@@ -13,6 +13,7 @@ import { expect, test, type Browser, type BrowserContext, type Page } from "@pla
  * | semantic Preview | heading, paragraph, fenced code, list fallback | RUI-aligned read-only semantic DOM without invented list containers |
  * | production chrome | Raw/Block/Preview, desktop/narrow | one labelled region, tablist, selected panel, and keyboard navigation |
  * | example presets | Hello/Blog/List/Code from any mode | replace canonical source without changing the selected mode |
+ * | Block formatting | focused paragraph/heading/list item | typed heading/list/delete requests update source and restore a valid target |
  * | interactive chrome | normal, focus, error | only application controls are visible; Preview owns focus; errors appear on demand |
  * | Raw <-> Block <-> Preview | new/same source | one canonical source, no marker leakage |
  * | ownership | fresh page/container | termination only; no cleanup claim |
@@ -346,6 +347,125 @@ test("application status stays quiet until an error needs attention", async ({ b
     await expect(error).toHaveText("error: fatal test")
     await expect(error).toHaveAttribute("role", "alert")
     await expect(error).toHaveAttribute("data-slot", "alert")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Block toolbar toggles a focused paragraph and heading through typed edits", async ({ browser }) => {
+  const host = await mountHost(browser, "Title\n\nBody\n")
+  try {
+    await selectBlock(host.page)
+    const toolbar = host.page.getByRole("toolbar", { name: "Block formatting" })
+    const heading2 = toolbar.getByRole("button", { name: "Heading 2, Ctrl+2" })
+    await expect(heading2).toBeDisabled()
+
+    const input = host.page.locator("#loomark-block-input")
+    await input.focus()
+    await expect(heading2).toBeEnabled()
+    await expect(heading2).toHaveAttribute("aria-pressed", "false")
+    await heading2.click()
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("## Title\n\nBody\n")
+    await expect(heading2).toHaveAttribute("aria-pressed", "true")
+    await expect.poll(() => host.page.evaluate(() => document.activeElement?.id)).toBe(
+      "loomark-block-input",
+    )
+
+    await heading2.click()
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("Title\n\nBody\n")
+    await expect(heading2).toHaveAttribute("aria-pressed", "false")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Block toolbar toggles a focused paragraph and list item through typed edits", async ({ browser }) => {
+  const host = await mountHost(browser, "Item\n\nTail\n")
+  try {
+    await selectBlock(host.page)
+    const toolbar = host.page.getByRole("toolbar", { name: "Block formatting" })
+    const toggleList = toolbar.getByRole("button", { name: "Toggle list, Ctrl+Shift+L" })
+    await expect(toggleList).toBeDisabled()
+
+    await host.page.locator("#loomark-block-input").focus()
+    await expect(toggleList).toBeEnabled()
+    await expect(toggleList).toHaveAttribute("aria-pressed", "false")
+    await toggleList.click()
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("- Item\n\nTail\n")
+    await expect(toggleList).toHaveAttribute("aria-pressed", "true")
+    await expect.poll(() => host.page.evaluate(() => document.activeElement?.id)).toBe(
+      "loomark-block-input",
+    )
+
+    await toggleList.click()
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("Item\n\nTail\n")
+    await expect(toggleList).toHaveAttribute("aria-pressed", "false")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Block toolbar deletes the active block and focuses the surviving typed target", async ({ browser }) => {
+  const host = await mountHost(browser, "First\n\nSecond\n")
+  try {
+    await selectBlock(host.page)
+    const toolbar = host.page.getByRole("toolbar", { name: "Block formatting" })
+    const deleteBlock = toolbar.getByRole("button", { name: "Delete selected block" })
+    await expect(deleteBlock).toBeDisabled()
+
+    await host.page.locator("#loomark-block-input").focus()
+    await expect(deleteBlock).toBeEnabled()
+    await deleteBlock.click()
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("\nSecond\n")
+    await expect(host.page.locator("#loomark-block-input")).toHaveValue("Second")
+    await expect.poll(() => host.page.evaluate(() => document.activeElement?.id)).toBe(
+      "loomark-block-input",
+    )
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Block toolbar enables only edits accepted for the active typed block", async ({ browser }) => {
+  const host = await mountHost(browser, "```moonbit\nvalue\n```\n")
+  try {
+    await selectBlock(host.page)
+    const toolbar = host.page.getByRole("toolbar", { name: "Block formatting" })
+    const input = host.page.locator("#loomark-block-input")
+    await input.focus()
+
+    await expect(toolbar.getByRole("button", { name: "Heading 2, Ctrl+2" })).toBeDisabled()
+    await expect(toolbar.getByRole("button", { name: "Toggle list, Ctrl+Shift+L" })).toBeDisabled()
+    await expect(toolbar.getByRole("button", { name: "Delete selected block" })).toBeEnabled()
+    await input.press("Control+2")
+    await input.press("Control+Shift+L")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("```moonbit\nvalue\n```\n")
+    await expect.poll(async () => (await snapshot(host.page)).error_count).toBe(0)
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Block formatting shortcuts dispatch the same typed edits", async ({ browser }) => {
+  const host = await mountHost(browser, "Title\n")
+  try {
+    await selectBlock(host.page)
+    const input = host.page.locator("#loomark-block-input")
+    await input.focus()
+
+    await input.press("Control+2")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("## Title\n")
+    await input.press("Control+2")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("Title\n")
+    await input.press("Control+Shift+L")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("- Title\n")
+
+    await input.dispatchEvent("keydown", {
+      key: "2",
+      ctrlKey: true,
+      isComposing: true,
+    })
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("- Title\n")
   } finally {
     await host.context.close()
   }

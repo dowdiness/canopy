@@ -314,6 +314,26 @@ test "toggle_list_item: paragraph to list item" {
 }
 
 ///|
+test "toggle_list_item: round trip preserves the following block separator" {
+  let source = "Item\n\nTail\n"
+  let (paragraph_proj, _) = @md_proj.parse_to_proj_node(
+    markdown_edit_test_source, source,
+  )
+  let list_source = apply_edit(
+    source,
+    ToggleListItem(node_id=paragraph_proj.children[0].id()),
+  )
+  let (list_proj, _) = @md_proj.parse_to_proj_node(
+    markdown_edit_test_source, list_source,
+  )
+  let restored = apply_edit(
+    list_source,
+    ToggleListItem(node_id=list_proj.children[0].children[0].id()),
+  )
+  inspect(restored, content="Item\n\nTail\n")
+}
+
+///|
 test "delete: remove a block" {
   let source = "# Title\n\nParagraph\n"
   let (proj, _) = @md_proj.parse_to_proj_node(

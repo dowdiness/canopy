@@ -27,6 +27,49 @@ fn block_kind_name(kind : @markdown.MarkdownBlockKind) -> String {
 }
 
 ///|
+fn block_allows_heading(kind : @markdown.MarkdownBlockKind) -> Bool {
+  kind is @markdown.Paragraph || kind is @markdown.Heading(_)
+}
+
+///|
+fn block_allows_list(kind : @markdown.MarkdownBlockKind) -> Bool {
+  kind is @markdown.Paragraph ||
+  kind is @markdown.UnorderedListItem ||
+  kind is @markdown.OrderedListItem(..)
+}
+
+///|
+/// Decode a keyboard value without reading or mutating the DOM.
+fn block_shortcut_event(
+  kind : @markdown.MarkdownBlockKind,
+  key : String,
+  ctrl : Bool,
+  shift : Bool,
+  alt : Bool,
+  meta : Bool,
+  composing : Bool,
+  repeated : Bool,
+) -> DriverEvent? {
+  guard ctrl && !alt && !meta && !composing && !repeated else { return None }
+  if shift {
+    if block_allows_list(kind) && (key == "l" || key == "L") {
+      Some(BlockToggleList)
+    } else {
+      None
+    }
+  } else if block_allows_heading(kind) {
+    match key {
+      "1" => Some(BlockHeading(1))
+      "2" => Some(BlockHeading(2))
+      "3" => Some(BlockHeading(3))
+      _ => None
+    }
+  } else {
+    None
+  }
+}
+
+///|
 fn block_selection_label(selection : BlockSelection) -> String {
   "block|" + selection.key + "|" + selection.offset.to_string()
 }
@@ -71,12 +114,37 @@ fn block_selection_target(
 fn block_input(
   block : @markdown.MarkdownBlockSnapshot,
   index : Int,
+  active : Bool,
   emit : @cmd.Emit[DriverEvent],
 ) -> @rabbita_runtime.Html {
   let input_id = block_input_id(index)
   let attrs = @html.Attrs::build()
     .data_set("loomark-block-id", block.key())
     .data_set("loomark-block-kind", block_kind_name(block.kind()))
+    .on_keydown(event => {
+      let shortcut = block_shortcut_event(
+        block.kind(),
+        event.key(),
+        event.ctrl_key(),
+        event.shift_key(),
+        event.alt_key(),
+        event.meta_key(),
+        event.is_composing(),
+        event.repeat(),
+      )
+      match shortcut {
+        Some(shortcut) => {
+          event.prevent_default()
+          emit(shortcut)
+        }
+        None => @rabbita_runtime.none
+      }
+    })
+  let attrs = if active {
+    attrs
+  } else {
+    attrs.on_focus(_ => emit(BlockFocused(block.key())))
+  }
   let input = @html.textarea(
     id=input_id,
     value=block.text(),
@@ -111,7 +179,12 @@ fn block_surface(
 ) -> @rabbita_runtime.Html {
   let controls : Map[String, @rabbita_runtime.Html] = Map([])
   for index, block in model.document.blocks().to_array() {
-    controls[block.key()] = block_input(block, index, emit)
+    controls[block.key()] = block_input(
+      block,
+      index,
+      model.active_block_key == Some(block.key()),
+      emit,
+    )
   }
   @html.div(
     id="loomark-block",

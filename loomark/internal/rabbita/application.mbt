@@ -5,6 +5,10 @@ priv enum DriverEvent {
   SelectRaw
   SelectBlock
   SelectPreview
+  BlockFocused(String)
+  BlockHeading(Int)
+  BlockToggleList
+  BlockDelete
   RawInput(String)
   BlockInput(
     node_id~ : @markdown.MarkdownNodeId,
@@ -61,6 +65,7 @@ priv suberror DriverSubscription {
 priv struct DriverModel {
   state : @core.ApplicationState
   document : @markdown.MarkdownDocumentSnapshot
+  active_block_key : String?
   replica_id : String
   source_revision : Int
   fatal : Bool
@@ -393,6 +398,59 @@ fn commit_block_request(
 }
 
 ///|
+/// Reconcile one toolbar commit with the immutable block view and schedule
+/// the typed selection only after Rabbita renders that committed document.
+fn commit_block_toolbar_request(
+  editor : @markdown.MarkdownEditor,
+  model : DriverModel,
+  request : @markdown.MarkdownEditRequest,
+  control_id : String,
+  emit : @cmd.Emit[DriverEvent],
+) -> (DriverModel, @cmd.Cmd) {
+  let (committed, committed_selection) = commit_block_request(
+    editor, model, request, "editor-dispatch",
+  )
+  let selection = committed_selection.bind(selection => {
+    block_selection_from_commit(committed.document, selection)
+  })
+  let applied = committed.source_revision != model.source_revision
+  let next = {
+    ..committed,
+    active_block_key: match selection {
+      Some(selection) => Some(selection.key)
+      None => if applied { None } else { model.active_block_key }
+    },
+    selection: match selection {
+      Some(selection) => Some(block_selection_label(selection))
+      None => if applied { None } else { committed.selection }
+    },
+  }
+  publish(next)
+  match selection {
+    Some(selection) =>
+      (
+        next,
+        block_selection_after_render(selection, next.source_revision, emit),
+      )
+    None =>
+      if applied {
+        (next, @rabbita_runtime.none)
+      } else {
+        (
+          next,
+          after_render(
+            scheduler => {
+              ignore(scheduler)
+              @dom_boundary.focus_id(control_id)
+            },
+            emit,
+          ),
+        )
+      }
+  }
+}
+
+///|
 fn publish(model : DriverModel) -> Unit {
   let fields : Map[String, Json] = {
     "source": model.document.source().to_json(),
@@ -677,11 +735,27 @@ fn preview_view(
                   .role("tabpanel")
                   .aria_labelledby(panel_labelledby),
                 style=["min-width:0;flex:1;display:flex"],
-                @html.div(
-                  id="loomark-surface",
-                  style=["width:100%;min-width:0;display:flex"],
-                  editor_surface(model, emit),
-                ),
+                if model.state.mode() == @core.Block {
+                  @html.div(
+                    style=[
+                      "width:100%;min-width:0;display:flex;flex-direction:column",
+                    ],
+                    [
+                      block_format_toolbar(model, emit),
+                      @html.div(
+                        id="loomark-surface",
+                        style=["width:100%;min-width:0;display:flex"],
+                        editor_surface(model, emit),
+                      ),
+                    ],
+                  )
+                } else {
+                  @html.div(
+                    id="loomark-surface",
+                    style=["width:100%;min-width:0;display:flex"],
+                    editor_surface(model, emit),
+                  )
+                },
               ),
             ],
           ),
@@ -812,6 +886,10 @@ fn driver_event_name(event : DriverEvent) -> String {
     SelectRaw => "select-raw"
     SelectBlock => "select-block"
     SelectPreview => "select-preview"
+    BlockFocused(_) => "block-focused"
+    BlockHeading(_) => "block-heading"
+    BlockToggleList => "block-toggle-list"
+    BlockDelete => "block-delete"
     RawInput(_) => "raw-input"
     BlockInput(..) => "block-input"
     BlockSplit(..) => "block-split"
@@ -965,7 +1043,11 @@ fn update_model(
     (
       event is BlockInput(..) ||
       event is BlockSplit(..) ||
-      event is BlockMerge(..)
+      event is BlockMerge(..) ||
+      event is BlockFocused(_) ||
+      event is BlockHeading(_) ||
+      event is BlockToggleList ||
+      event is BlockDelete
     ) {
     let next = record_error(
       model, "mode-inapplicable", "editor-dispatch", "Block editing is unavailable outside Block mode",
@@ -1001,6 +1083,111 @@ fn update_model(
       publish(next)
       (next, @rabbita_runtime.none)
     }
+    BlockFocused(key) =>
+      if model.active_block_key == Some(key) {
+        publish(model)
+        (model, @rabbita_runtime.none)
+      } else {
+        let (_, selected_index) = model.document
+          .blocks()
+          .fold(init=(0, None), (state, block) => {
+            let (index, found) = state
+            (
+              index + 1,
+              match found {
+                Some(_) => found
+                None => if block.key() == key { Some(index) } else { None }
+              },
+            )
+          })
+        match selected_index {
+          None => {
+            let next = record_error(
+              model, "block-selection-rejected", "editor-dispatch", "focused block is unavailable",
+            )
+            publish(next)
+            (next, @rabbita_runtime.none)
+          }
+          Some(index) => {
+            let next = { ..model, active_block_key: Some(key) }
+            publish(next)
+            (
+              next,
+              after_render(
+                scheduler => {
+                  ignore(scheduler)
+                  @dom_boundary.focus_id(block_input_id(index))
+                },
+                emit,
+              ),
+            )
+          }
+        }
+      }
+    BlockHeading(requested_level) =>
+      match active_block(model) {
+        None => {
+          let next = record_error(
+            model, "block-selection-rejected", "editor-dispatch", "formatting requires an active block",
+          )
+          publish(next)
+          (next, @rabbita_runtime.none)
+        }
+        Some(block) => {
+          let target_level = match block.kind() {
+            @markdown.Heading(level~) if level == requested_level => 0
+            _ => requested_level
+          }
+          commit_block_toolbar_request(
+            editor,
+            model,
+            @markdown.MarkdownEditRequest::ChangeHeadingLevel(
+              node_id=block.node_id(),
+              level=target_level,
+            ),
+            "loomark-heading-" + requested_level.to_string(),
+            emit,
+          )
+        }
+      }
+    BlockToggleList =>
+      match active_block(model) {
+        None => {
+          let next = record_error(
+            model, "block-selection-rejected", "editor-dispatch", "formatting requires an active block",
+          )
+          publish(next)
+          (next, @rabbita_runtime.none)
+        }
+        Some(block) =>
+          commit_block_toolbar_request(
+            editor,
+            model,
+            @markdown.MarkdownEditRequest::ToggleListItem(
+              node_id=block.node_id(),
+            ),
+            "loomark-toggle-list",
+            emit,
+          )
+      }
+    BlockDelete =>
+      match active_block(model) {
+        None => {
+          let next = record_error(
+            model, "block-selection-rejected", "editor-dispatch", "deletion requires an active block",
+          )
+          publish(next)
+          (next, @rabbita_runtime.none)
+        }
+        Some(block) =>
+          commit_block_toolbar_request(
+            editor,
+            model,
+            @markdown.MarkdownEditRequest::Delete(node_id=block.node_id()),
+            "loomark-delete-block",
+            emit,
+          )
+      }
     BlockInput(node_id~, text~, selection_offset~) => {
       let (next, committed_selection) = commit_block_request(
         editor,
@@ -1022,6 +1209,10 @@ fn update_model(
       }
       let next = {
         ..next,
+        active_block_key: match selection {
+          Some(selection) => Some(selection.key)
+          None => model.active_block_key
+        },
         selection: match selection {
           Some(selection) => Some(block_selection_label(selection))
           None => None
@@ -1055,6 +1246,10 @@ fn update_model(
       }
       let next = {
         ..next,
+        active_block_key: match selection {
+          Some(selection) => Some(selection.key)
+          None => model.active_block_key
+        },
         selection: match selection {
           Some(selection) => Some(block_selection_label(selection))
           None => None
@@ -1088,6 +1283,10 @@ fn update_model(
       }
       let next = {
         ..next,
+        active_block_key: match selection {
+          Some(selection) => Some(selection.key)
+          None => model.active_block_key
+        },
         selection: match selection {
           Some(selection) => Some(block_selection_label(selection))
           None => None
@@ -1229,8 +1428,18 @@ fn update_model(
       let token = encode_focus_token(target, model.source_revision)
       match @core.decide_focus(model.state, model.source_revision, locator) {
         @core.Compatible(_) => {
-          publish(model)
-          (model, focus_latest_after_render(locator, token, emit))
+          let next = match target {
+            @core.BlockEditor => {
+              let active_block_key = model.document
+                .blocks()
+                .get(0)
+                .map(block => block.key())
+              { ..model, active_block_key, }
+            }
+            _ => model
+          }
+          publish(next)
+          (next, focus_latest_after_render(locator, token, emit))
         }
         @core.Rejected(error) => reject_focus(model, error)
       }
@@ -1241,9 +1450,19 @@ fn update_model(
         Ok(locator) =>
           match
             @core.decide_focus(model.state, model.source_revision, locator) {
-            @core.Compatible(_) => {
-              publish(model)
-              (model, focus_latest_after_render(locator, token, emit))
+            @core.Compatible(target) => {
+              let next = match target {
+                @core.BlockEditor => {
+                  let active_block_key = model.document
+                    .blocks()
+                    .get(0)
+                    .map(block => block.key())
+                  { ..model, active_block_key, }
+                }
+                _ => model
+              }
+              publish(next)
+              (next, focus_latest_after_render(locator, token, emit))
             }
             @core.Rejected(error) => reject_focus(model, error)
           }
@@ -1589,6 +1808,7 @@ pub fn mount(host_id : String, source : String) -> String {
   let initial : DriverModel = {
     state: @core.ApplicationState::ApplicationState(@core.Raw),
     document: editor.snapshot(),
+    active_block_key: None,
     replica_id,
     source_revision: 0,
     fatal: false,

@@ -745,7 +745,11 @@ fn MarkdownEditor::commit_structural_recording_transforms(
         // A no-op never authorizes a new caret move for the caller.
         MarkdownCommitResult::Unchanged(snapshot)
       } else {
-        let selection = selection_for_cursor(snapshot, self.editor.get_cursor())
+        let selection = selection_for_cursor(
+          snapshot,
+          self.editor.get_cursor(),
+          allow_nearest=op is @md_edits.Delete(_),
+        )
         MarkdownCommitResult::Applied(snapshot, selection)
       }
       Ok((result, sequential_text_transforms(edits)))
@@ -864,14 +868,36 @@ fn reconcile_text_control_edit(
 fn selection_for_cursor(
   snapshot : MarkdownDocumentSnapshot,
   cursor : Int,
+  allow_nearest~ : Bool,
 ) -> MarkdownBlockSelection? {
-  for block in snapshot.blocks().to_array() {
-    let (start, end) = block.text_range()
-    if cursor >= start && cursor <= end {
-      return Some({ node_id: block.node_id(), offset: cursor - start })
-    }
-  }
-  None
+  let closest : (Int, MarkdownBlockSelection)? = snapshot
+    .blocks()
+    .fold(init=None, (closest, block) => {
+      let (start, end) = block.text_range()
+      let (distance, offset) = if cursor < start {
+        (start - cursor, 0)
+      } else if cursor > end {
+        (cursor - end, end - start)
+      } else {
+        (0, cursor - start)
+      }
+      let candidate = MarkdownBlockSelection::{
+        node_id: block.node_id(),
+        offset,
+      }
+      if distance != 0 && !allow_nearest {
+        closest
+      } else {
+        match closest {
+          Some((closest_distance, _)) if closest_distance <= distance => closest
+          _ => Some((distance, candidate))
+        }
+      }
+    })
+  closest.map(pair => {
+    let (_, selection) = pair
+    selection
+  })
 }
 
 ///|
