@@ -28,7 +28,9 @@
       "id": "no-document-identity-on-wire",
       "claim": "Wire operations carry writer identity but no document identity.",
       "observation": "op_json emits id, parents, kind, content, origin_left, origin_right. Nothing names the document.",
-      "sites": ["event-graph-walker/text/sync.mbt:865-882"],
+      "sites": [
+        "event-graph-walker/text/sync.mbt:865-882"
+      ],
       "surfacedBy": "codex-review-2",
       "verifiedBy": "direct read"
     },
@@ -36,7 +38,9 @@
       "id": "version-is-high-water-mark",
       "claim": "A version frontier is a per-writer high-water mark, not a summary of content; two histories can agree on text and frontier while containing different operations.",
       "observation": "Version::from_ops retains only the maximum sequence per replica and discards content, parents, and origins.",
-      "sites": ["event-graph-walker/text/types.mbt:99-117"],
+      "sites": [
+        "event-graph-walker/text/types.mbt:99-117"
+      ],
       "surfacedBy": "codex-review-2",
       "verifiedBy": "direct read",
       "consequence": "An acceptance oracle comparing source and version is weaker than it appears. Compare the canonical history, and assert a merge after restore."
@@ -82,7 +86,10 @@
       "id": "text-unchanged-is-not-no-operation",
       "claim": "An operation that leaves the text unchanged still advanced the document, so persistence must trigger on history rather than on text.",
       "observation": "The Markdown facade classifies a commit as Unchanged purely by comparing the resulting source against the prior source, after the operation has already been applied.",
-      "sites": ["editor/markdown/editor.mbt:139-143", "editor/markdown/editor.mbt:189-193"],
+      "sites": [
+        "editor/markdown/editor.mbt:139-143",
+        "editor/markdown/editor.mbt:189-193"
+      ],
       "surfacedBy": "self",
       "verifiedBy": "direct read"
     },
@@ -101,7 +108,9 @@
       "id": "undo-history-outside-oplog",
       "claim": "Undo history is not captured by a history export, so undo across restart is not obtainable from a checkpoint alone.",
       "observation": "UndoManager owns mutable undo_stack and redo_stack arrays alongside its own agent_id; none of it is part of the oplog.",
-      "sites": ["event-graph-walker/undo/undo_manager.mbt:4-12"],
+      "sites": [
+        "event-graph-walker/undo/undo_manager.mbt:4-12"
+      ],
       "surfacedBy": "codex-review-2",
       "verifiedBy": "direct read",
       "note": "Previously carried into the design unverified; verified 2026-08-03."
@@ -110,19 +119,21 @@
       "id": "one-identity-four-roles",
       "claim": "One writer identity per writing instance is required, because the identity supplied at construction is simultaneously the CRDT replica, the undo owner, the ephemeral hub identity, and the peer identity.",
       "observation": "A single agent_id parameter is passed to TextState::new, UndoManager::new, setup_hub_and_cursor, and stored as peer_id, in one constructor.",
-      "sites": ["editor/sync_editor.mbt:62-91"],
+      "sites": [
+        "editor/sync_editor.mbt:62-91"
+      ],
       "surfacedBy": "codex-review-1",
       "verifiedBy": "direct read",
       "note": "Previously carried into the design unverified; verified 2026-08-03."
     }
   ],
   "executedProbes": {
-    "method": "A disposable probe was written into workspace/probe, run, and deleted. It is not in the tree. It exercised @editor.Editor directly, because the Markdown facade does not expose version or history transport; the design proposes adding exactly that, so the probe measures the layer the facade would delegate to.",
+    "method": "Written first as a disposable probe, then kept: the three questions it answers are assumptions the design reasons from, so they are now drift detectors in workspace/probe/document_ownership_assumptions_wbtest.mbt rather than a one-off measurement. They exercise @editor.Editor directly, because the Markdown facade exposes neither version nor history transport; the design proposes adding exactly that, so they measure the layer the facade would delegate to.",
     "command": "NEW_MOON_MOD=0 moon test -p dowdiness/canopy/workspace/probe",
     "result": "Total tests: 42, passed: 42, failed: 0",
     "instrumentControl": {
       "why": "A green run proves nothing if the probe never executed. Before trusting the result, one assertion was deliberately falsified.",
-      "observed": "Total tests: 42, passed: 41, failed: 1, failing at workspace/probe/throwaway_archive_probe_wbtest.mbt:11 by name. Restoring the assertion returned the suite to 42/42.",
+      "observed": "Deliberately falsifying one assertion produced 42 tests, 41 passed, 1 failed, naming document_ownership_assumptions_wbtest.mbt:20 and its test. Restoring it returned the suite to 42/42. Run once against the disposable probe and again against the kept file.",
       "conclusion": "The probe executed; the green run is not vacuous."
     },
     "findings": [
@@ -158,7 +169,8 @@
         "observed": "Text returns to its prior value while the version does not.",
         "bearingOn": "Persistence triggered by text comparison would skip this save. Supports the design's requirement that persistence triggers on history."
       }
-    ]
+    ],
+    "keptAs": "workspace/probe/document_ownership_assumptions_wbtest.mbt"
   },
   "notVerified": [
     {
