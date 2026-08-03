@@ -67,7 +67,7 @@ Proof packages are standalone modules with `"proof-enabled": true`. Run `moon pr
 ### Benchmarks
 ```bash
 moon bench --release                # Always use --release
-cd event-graph-walker && moon bench --release
+cd deps/event-graph-walker && moon bench --release
 cd deps/loom/examples/lambda && moon bench --release
 ```
 

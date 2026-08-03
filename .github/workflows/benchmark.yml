@@ -39,7 +39,7 @@ jobs:
               - 'deps/loom/**'
               - 'deps/order-tree/**'
               - 'deps/rabbita/**'
-              - 'rle'
+              - 'deps/event-graph-walker/rle/**'
               - 'deps/svg-dsl/**'
               - '.github/actions/setup-moonbit/**'
               - '.github/workflows/benchmark.yml'

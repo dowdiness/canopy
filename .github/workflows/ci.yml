@@ -714,6 +714,9 @@ jobs:
       - name: Verify downloaded artifacts
         run: |
           test -f _build/js/release/build/dowdiness/canopy-canvas/main/main.js
+          mkdir -p apps/canvas
+          ln -sfn "$GITHUB_WORKSPACE/_build" "$GITHUB_WORKSPACE/apps/canvas/_build"
+          test -f apps/canvas/_build/js/release/build/dowdiness/canopy-canvas/main/main.js
           echo "All required MoonBit JS artifacts verified"
 
       - name: Setup Node.js

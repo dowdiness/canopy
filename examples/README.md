@@ -12,17 +12,17 @@ workspace members:
 
 | Example | Purpose | CI mechanism |
 | --- | --- | --- |
-| `ideal/` | Main Ideal editor example and MoonBit/JS bridge. | `scripts/run-moon-module.sh ci apps/ideal`; also has browser E2E under `ideal/web/`. |
-| `block-editor/` | Block editor MoonBit example. | `scripts/run-moon-module.sh ci apps/block-editor`. |
-| `canvas/` | Canvas graph editor MoonBit example. | `scripts/run-moon-module.sh ci apps/canvas`; also builds JS for `canvas/web/`. |
-| `codemirror_demo/` | CodeMirror binding demo module. | `scripts/run-moon-module.sh ci examples/codemirror`; also has a small Vite app. |
-| `resizable/` | Rabbita resizable example module. | Covered by root workspace commands. |
-| `disclosure/` | Rabbita disclosure example module. | Covered by root workspace commands. |
+| `apps/ideal/` | Main Ideal editor application and MoonBit/JS bridge. | `scripts/run-moon-module.sh ci apps/ideal`; browser E2E is under `apps/ideal/web/`. |
+| `apps/block-editor/` | Block editor application. | `scripts/run-moon-module.sh ci apps/block-editor`. |
+| `apps/canvas/` | Canvas graph editor application. | `scripts/run-moon-module.sh ci apps/canvas`; browser UI is under `apps/canvas/web/`. |
+| `examples/codemirror/` | CodeMirror binding demo module. | `scripts/run-moon-module.sh ci examples/codemirror`; browser wrapper is in the same directory. |
+| `examples/resizable/` | Rabbita resizable example module. | Covered by root workspace commands. |
+| `examples/disclosure/` | Rabbita disclosure example module. | Covered by root workspace commands. |
 
 Run a single MoonBit example directly with:
 
 ```sh
-cd examples/<name>
+cd examples/<name>       # or apps/<name> for an application
 moon check
 moon test
 ```
@@ -36,16 +36,13 @@ repository root when they import Canopy-generated JS:
 moon build --target js
 ```
 
-| Example | Tooling | Notes |
+| Frontend | Tooling | Notes |
 | --- | --- | --- |
-| `web/` | Vite + TypeScript + Playwright | Main browser demo pages for Lambda, JSON, and Markdown editors. CI runs TypeScript typecheck and Playwright. |
-| `ideal/web/` | Vite + Playwright | Browser E2E suite for the Ideal editor; paired with the `apps/ideal` MoonBit module. |
-| `canvas/web/` | Vite + TypeScript + Playwright | Browser UI for `apps/canvas`; CI builds canvas MoonBit JS from `apps/canvas` before typecheck/E2E. |
-| `demo-react/` | React/Vite + TypeScript + Vitest + Playwright | React demo plus local WebSocket server helpers. |
-| `prosemirror/` | Vite + TypeScript | ProseMirror integration example; CI typechecks it. |
-| `codemirror_demo/` | Vite | Browser wrapper around the MoonBit CodeMirror demo module. |
-| `relay-server/` | Wrangler | Cloudflare Worker relay-server example. |
-| `rabbita/` | npm / vendored rabbita tooling | Rabbita-specific example area; check local package scripts and rabbita docs. |
+| `apps/web/` | Vite + TypeScript + Playwright | Main browser demo pages for Lambda, JSON, and Markdown editors. |
+| `apps/ideal/web/` | Vite + Playwright | Browser E2E suite for the Ideal editor. |
+| `apps/canvas/web/` | Vite + TypeScript + Playwright | Browser UI for the Canvas application. |
+| `examples/demo-react/` | React/Vite + TypeScript + Vitest + Playwright | React integration demo plus local WebSocket helpers. |
+| `examples/prosemirror/` | Vite + TypeScript | ProseMirror integration example. |
 
 Typical frontend workflow:
 

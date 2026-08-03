@@ -102,7 +102,7 @@ jobs:
           esac
           if [ -n "$MOD" ]; then
             SRC="$GITHUB_WORKSPACE/_build/js/release/build/$MOD/main"
-            DST="$GITHUB_WORKSPACE/examples/$EXAMPLE/_build/js/release/build/main"
+            DST="$GITHUB_WORKSPACE/apps/$EXAMPLE/_build/js/release/build/main"
             if [ -d "$SRC" ]; then
               mkdir -p "$(dirname "$DST")"
               ln -sfn "$SRC" "$DST"
