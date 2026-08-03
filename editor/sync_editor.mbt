@@ -454,10 +454,16 @@ fn[T] SyncEditor::adjust_cursor(self : SyncEditor[T]) -> Unit {
 }
 
 ///|
-pub fn[T : Eq] SyncEditor::apply_sync(
+/// Take a peer's operations into this document, reporting what landed.
+///
+/// Operations whose causal prerequisites are absent are retained rather than
+/// rejected, and counted in the returned report. That is a state, not a
+/// failure. Callers that require a message to be complete apply that policy
+/// themselves — `apply_sync` is the one that does.
+pub fn[T : Eq] SyncEditor::admit(
   self : SyncEditor[T],
   msg : @text.SyncMessage,
-) -> Unit raise {
+) -> @text.SyncReport raise {
   self.taint_pending_transforms()
   let old_source = self.doc.text()
   self.undo.set_tracking(false)
@@ -473,18 +479,32 @@ pub fn[T : Eq] SyncEditor::apply_sync(
   self.adjust_cursor()
   self.adjust_peer_cursors_after_text_change(old_source, new_source, None)
   self.sync_parser_after_text_change(old_source, new_source, None)
-  // Keep the legacy Unit-raising SyncHost seam while EGW remains the sole
-  // owner of causally pending operations.
   let report = match report_result {
     Ok(report) => report
     Err(error) => raise error
   }
-  if report.pending_operations() > 0 {
+  if report.pending_operations() == 0 {
+    // Clear a prior Error status once any sync applies — another peer
+    // (via RelayedCrdtOps) having filled the causal gap counts as recovery.
+    // A message that still leaves a gap is not recovery, so the status stands.
+    self.session.note_sync_applied()
+  }
+  report
+}
+
+///|
+/// Apply a SyncMessage from a peer, requiring it to be complete.
+///
+/// This is `admit` plus a completeness policy. The name does not say so; it
+/// predates the distinction and is kept because its callers depend on the
+/// raise.
+pub fn[T : Eq] SyncEditor::apply_sync(
+  self : SyncEditor[T],
+  msg : @text.SyncMessage,
+) -> Unit raise {
+  if self.admit(msg).pending_operations() > 0 {
     raise @text.TextError::VersionNotFound
   }
-  // Clear a prior Error status once any sync applies — another peer
-  // (via RelayedCrdtOps) having filled the causal gap counts as recovery.
-  self.session.note_sync_applied()
 }
 
 ///|

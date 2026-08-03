@@ -139,8 +139,18 @@ pub fn Editor::export_since(
 }
 
 ///|
-/// Sync: Apply a SyncMessage from a peer
-pub fn Editor::apply_sync(self : Editor, msg : @text.SyncMessage) -> Unit raise {
+/// Sync: take a peer's operations into this document, reporting what landed.
+///
+/// Operations whose causal prerequisites are absent are retained rather than
+/// rejected, and counted in the returned report. That is a state, not a
+/// failure: a caller that cannot tell a document waiting for prerequisites
+/// from a broken one cannot decide what to do next. Callers that require a
+/// message to be complete apply that policy themselves — `apply_sync` is the
+/// one that does.
+pub fn Editor::admit(
+  self : Editor,
+  msg : @text.SyncMessage,
+) -> @text.SyncReport raise {
   let report_result : Result[@text.SyncReport, @text.TextError] = Ok(
     self.doc.sync().apply(msg),
   ) catch {
@@ -149,11 +159,20 @@ pub fn Editor::apply_sync(self : Editor, msg : @text.SyncMessage) -> Unit raise 
   // EGW may apply ready operations before reporting an error or retaining
   // causal orphans, so repair shell state before propagating either outcome.
   self.adjust_cursor()
-  let report = match report_result {
+  match report_result {
     Ok(report) => report
     Err(error) => raise error
   }
-  if report.pending_operations() > 0 {
+}
+
+///|
+/// Sync: apply a SyncMessage from a peer, requiring it to be complete.
+///
+/// This is `admit` plus a completeness policy. The name does not say so; it
+/// predates the distinction and is kept because its callers depend on the
+/// raise.
+pub fn Editor::apply_sync(self : Editor, msg : @text.SyncMessage) -> Unit raise {
+  if self.admit(msg).pending_operations() > 0 {
     raise @text.TextError::VersionNotFound
   }
 }
