@@ -29,7 +29,7 @@ The row above is consistent with `GraphNode::id()` being token-based binding ide
 
 3. Duplicate-binding rejection is present in the source projection and is non-negotiable for token identity correctness (`loom/examples/graph-dsl/src/projection.mbt:283-292`).  
 
-4. Rabbitita binding direction says reusable bindings should expose subscription-shaped APIs via `@sub` (rather than raw FFI consumption), with payload-tagging semantics and stable subscription keys (`rabbita/rabbita/sub/design.md:1-77`, `rabbita/doc/using_subscriptions/readme.mbt.md:1-155`, `rabbita/rabbita/websocket/listen.mbt:1-117`). The existing `lib/rabbita_codemirror/codemirror.mbt:634-652` listen signature currently emits whole-doc only, so extension must occur in the binding layer.
+4. Rabbitita binding direction says reusable bindings should expose subscription-shaped APIs via `@sub` (rather than raw FFI consumption), with payload-tagging semantics and stable subscription keys (`rabbita/rabbita/sub/design.md:1-77`, `rabbita/doc/using_subscriptions/readme.mbt.md:1-155`, `rabbita/rabbita/websocket/listen.mbt:1-117`). The existing `modules/rabbita_codemirror/codemirror.mbt:634-652` listen signature currently emits whole-doc only, so extension must occur in the binding layer.
 
 ## Design
 
@@ -53,7 +53,7 @@ Rename behavior: rename churn is expected in the tracker (`GraphNode::id()` toke
 
 Canvas source editing must provide per-change deltas into the tracker:
 - Current canvas demos already have CM6 plumbing that produces ordered changes (`examples/ideal/web/src/cm-inline.ts:20-27`, `examples/ideal/web/src/leaf-editor.ts:37-38`, `examples/ideal/web/src/bridge.ts:68`, `examples/ideal/web/src/bridge.ts:155-186`) and maps to `@core.Edit` (`examples/ideal/main/crdt_reexport.mbt:171-181`, `editor/sync_editor_text.mbt:323-339`).
-- `lib/rabbita_codemirror/codemirror.mbt:634-652` currently emits only whole-doc deltas, so we must extend the binding to expose structured `{from, to, insert}` edit payloads through `listen`.  
+- `modules/rabbita_codemirror/codemirror.mbt:634-652` currently emits only whole-doc deltas, so we must extend the binding to expose structured `{from, to, insert}` edit payloads through `listen`.
 
 Binding implementation requirements:
 - Follow canonical Sub-binding pattern in `rabbita/rabbita/websocket/listen.mbt` (private `suberror`, `let mut tagger`, `update_tagger`, function-based API, and key that tracks presence only, not tagger identity) (`rabbita/rabbita/websocket/listen.mbt:1-117`).
@@ -108,7 +108,7 @@ All listed tests remain source-backed design-level checks; assertions migrate to
 Additional structural checks:
 - `lib/canvas-graph/graph_model/model.mbt:25-35`, `:55-65`, `:288-329` updated to string JSON handling without semantic downgrade.
 - `examples/canvas/web/src/graph-adapter.ts` pointer and payload paths updated to opaque string IDs.
-- `lib/rabbita_codemirror/codemirror.mbt` and JS binding layer accept and emit structured deltas with suberror-safe callback semantics.
+- `modules/rabbita_codemirror/codemirror.mbt` and JS binding layer accept and emit structured deltas with suberror-safe callback semantics.
 
 ## Open questions
 

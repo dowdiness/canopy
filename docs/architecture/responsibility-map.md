@@ -109,7 +109,7 @@ column is the actual update boundary; "Integration" is where Canopy consumes it.
 |---|---|---|---|
 | `graphviz` (`dowdiness/graphviz`) | DOT parser + layout engine + SVG renderer | standalone submodule | loom viz, `lib/visualizer`, `examples/ideal`; depends on `svg-dsl` |
 | `svg-dsl` (`dowdiness/svg-dsl`) | Programmatic SVG generation DSL | standalone submodule | base layer under `graphviz` |
-| `rabbita` (`moonbit-community/rabbita`) | Functional Web UI framework (TEA) for MoonBit; submodule also holds `warren` | standalone submodule (vendored community lib) | `lib/rabbita_codemirror` adapter + `examples/*` |
+| `rabbita` (`moonbit-community/rabbita`) | Functional Web UI framework (TEA) for MoonBit; submodule also holds `warren` | standalone submodule (vendored community lib) | `modules/rabbita_codemirror` adapter + `examples/*` |
 
 ## Priority Issues
 

@@ -1,6 +1,6 @@
 ---
 name: rabbita
-description: "Rabbita binding and idiom reference. Use BEFORE designing, implementing, or reviewing any code that uses @sub, @cmd, @html, @dom, @http, or that authors or modifies a rabbita binding (e.g. lib/rabbita_codemirror). Requires reading the local rabbita repository's authoritative docs before answering. Triggers on 'rabbita', '@sub', '@cmd', '@html', '@dom', '@http', 'custom_sub', 'custom_cmd', 'suberror', 'Emit', 'Sub binding', 'TEA', 'rabbita_codemirror', 'rabbita_xterm'."
+description: "Rabbita binding and idiom reference. Use BEFORE designing, implementing, or reviewing any code that uses @sub, @cmd, @html, @dom, @http, or that authors or modifies a rabbita binding (e.g. modules/rabbita_codemirror). Requires reading the local rabbita repository's authoritative docs before answering. Triggers on 'rabbita', '@sub', '@cmd', '@html', '@dom', '@http', 'custom_sub', 'custom_cmd', 'suberror', 'Emit', 'Sub binding', 'TEA', 'rabbita_codemirror', 'rabbita_xterm'."
 ---
 
 # Rabbita skill (canopy-local)
@@ -47,7 +47,7 @@ explicitly.
 ## Authoritative inline rules (from `rabbita/skills/rabbita.md`)
 
 These rules apply to **consumer-facing code** (canopy app code, examples).
-**Bindings themselves** (`lib/rabbita_codemirror/`, future libraries) are
+**Bindings themselves** (`modules/rabbita_codemirror/`, future libraries) are
 the escape-hatch shell — they legitimately use the listed escape hatches
 internally. The rules below describe what consumer code must not do.
 
@@ -82,7 +82,7 @@ when actually writing HTTP code.)
 
 ## Binding-authoring patterns (canonical)
 
-When authoring a binding (e.g. `lib/rabbita_codemirror/`), follow the
+When authoring a binding (e.g. `modules/rabbita_codemirror/`), follow the
 patterns in `rabbita/rabbita/websocket/`:
 
 ### Two-package shape

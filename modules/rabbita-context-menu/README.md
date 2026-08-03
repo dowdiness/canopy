@@ -62,7 +62,7 @@ consumer. For navigation messages, call `Model::update`; when
 model.
 
 `Model::focus_cmd_within(root_id=...)` only scopes active-item focus through the
-same lookup strategy as `lib/menu`. It does not make the full context-menu flow
+same lookup strategy as `modules/rabbita-menu`. It does not make the full context-menu flow
 shadow-root-ready: `position_cmd()` and `subscriptions()` still resolve the panel
 from `document.getElementById(self.id)`, so context-menu panels should remain
 document-visible until scoped positioning and dismissal APIs exist.

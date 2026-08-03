@@ -335,7 +335,7 @@ fn view_outline_tree(dispatch : Emit[Msg], model : Model) -> Html {
   // via `navigate_proj`), NOT the WAI-ARIA APG expand/collapse-on-arrow model.
   // The locked outline E2E asserts these navigate_proj semantics; `@treeview`
   // keeps its `TreeCommand`s direction-named precisely so this consumer can
-  // assign that meaning. See `lib/treeview` for the rationale.
+  // assign that meaning. See `modules/rabbita-treeview` for the rationale.
   let handle_keydown = fn(kb : @html.Keyboard) {
     let key = kb.key()
     match @treeview.command_for_key(key) {

@@ -64,11 +64,11 @@ fn expanded_value(expansion : Expansion) -> String? {
 ///|
 /// Headless tree behavior: owns only the stable treeitem DOM-id scheme.
 ///
-/// Like `lib/tabs`, the behavior is derived, not a store. There is no durable
+/// Like `modules/rabbita-tabs`, the behavior is derived, not a store. There is no durable
 /// state here — selection and expansion live in the consumer's own model and are
 /// passed in per render. `Model` carries just the id prefix so the
 /// container's `aria-activedescendant` and each row's `id` stay internally
-/// consistent (mirrors `lib/tabs`' private `tab_button_id`).
+/// consistent (mirrors `modules/rabbita-tabs`' private `tab_button_id`).
 pub struct Model {
   priv id : String
 }

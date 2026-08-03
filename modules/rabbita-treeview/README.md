@@ -11,7 +11,7 @@ The behavior is **derived, not a store**: there is no `Msg`/`update` loop and no
 durable state. Selection and expansion live in the consumer's own model and are
 passed in per render — a `Model` only carries the stable id prefix so the
 container's `aria-activedescendant` and each row's `id` agree. This mirrors
-`lib/tabs`. It works because the tree's navigation target is necessarily
+`modules/rabbita-tabs`. It works because the tree's navigation target is necessarily
 domain-specific (it depends on the consumer's tree shape), so the behavior never
 needs to hold the tree; it reports a *command* and the consumer maps it onto its
 own domain.
@@ -88,7 +88,7 @@ pass `depth + 1` for a zero-based depth. `Leaf` nodes emit no `aria-expanded`.
 
 ## Scope boundaries
 
-Behavior-only, like `lib/tabs`:
+Behavior-only, like `modules/rabbita-tabs`:
 
 - **Not owned:** node data, labels, selection/expansion state, navigation target
   computation, click/drag/structural-edit (Delete/Backspace) handling, drag-drop

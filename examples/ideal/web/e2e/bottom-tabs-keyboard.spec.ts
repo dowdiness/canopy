@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 // Keyboard navigation for the bottom-panel tablist, now driven by the headless
-// `@tabs` behavior (lib/tabs). Automatic activation: Arrow/Home/End immediately
+// `@tabs` behavior (modules/rabbita-tabs). Automatic activation: Arrow/Home/End immediately
 // move selection AND focus. Horizontal model only — ArrowUp/Down are ignored
 // (APG reserves them for scrolling).
 
@@ -71,7 +71,7 @@ test.describe('Bottom Panel Tabs — keyboard navigation', () => {
   // don't suppress page scroll (no over-eager preventDefault) is guaranteed
   // structurally — nav_target returns None for these keys, so the keydown handler
   // never calls prevent_default — and is asserted at the unit level by the
-  // "nav_target ignores vertical arrows" test in lib/tabs/src/tabs/tabs_wbtest.mbt.
+  // "nav_target ignores vertical arrows" test in modules/rabbita-tabs/tabs/tabs_wbtest.mbt.
   test('ArrowUp / ArrowDown do not change the selected tab', async ({ page }) => {
     const problems = page.getByRole('tab', { name: 'Problems' });
 

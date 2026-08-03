@@ -46,7 +46,7 @@ pub fn Model::new(id~ : String, tab_count~ : Int, selected~ : Int) -> Model {
 ///|
 /// The stable DOM id for the tab button at `index`. Internal: the behavior owns
 /// the button-id scheme, so `tab_attrs`/`panel_attrs`/`focus_cmd` stay
-/// internally consistent (matches `lib/menu`'s private `item_id`).
+/// internally consistent (matches `modules/rabbita-menu`'s private `item_id`).
 fn Model::tab_button_id(self : Model, index : Int) -> String {
   self.id + "-tab-" + index.to_string()
 }

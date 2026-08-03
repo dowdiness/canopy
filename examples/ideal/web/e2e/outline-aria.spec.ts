@@ -1,5 +1,5 @@
 // E2E test: WAI-ARIA tree semantics emitted by the headless `@treeview`
-// behavior (lib/treeview). The behavior's `tree_attrs` / `treeitem_attrs` return
+// behavior (modules/rabbita-treeview). The behavior's `tree_attrs` / `treeitem_attrs` return
 // opaque `@html.Attrs`, so the rendered DOM is their only coverage. These tests
 // pin the active-descendant tree pattern: focus stays on the container, the
 // active row is tracked by `aria-activedescendant`, and rows carry
