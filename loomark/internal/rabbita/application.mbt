@@ -107,6 +107,18 @@ let detached_focus_token : @ref.Ref[String] = { val: "" }
 const FOCUS_TOKEN_VERSION : Int = 1
 
 ///|
+const HELLO_EXAMPLE_SOURCE : String = "# Hello World\n\nWelcome to the Canopy Markdown editor.\n\nThis editor has three modes: raw, block, and preview.\n"
+
+///|
+const BLOG_EXAMPLE_SOURCE : String = "# Getting Started\n\nCanopy is an incremental projectional editor.\n\n## Features\n\nThe editor supports real-time collaboration via CRDT.\n\nEvery keystroke is incrementally parsed and projected into a structured view."
+
+///|
+const LIST_EXAMPLE_SOURCE : String = "# Shopping List\n\nThings to pick up:\n\n- Apples\n- Bread\n- Coffee\n- Dark chocolate"
+
+///|
+const CODE_EXAMPLE_SOURCE : String = "# README\n\nA minimal example project.\n\n## Install\n\n```bash\nnpm install\n```\n\n## Usage\n\n- Run the dev server\n- Open the browser\n- Start editing"
+
+///|
 /// Allocate one globally unique CRDT replica identity per mount.
 extern "js" fn js_replica_uuid() -> String =
   #| () => globalThis.crypto.randomUUID()
@@ -118,6 +130,35 @@ fn mode_name(mode : @core.ApplicationMode) -> String {
     @core.Block => "block"
     @core.Preview => "preview"
   }
+}
+
+///|
+/// Render one decorative mode glyph; the owning tab supplies its accessible
+/// name and interaction semantics.
+fn mode_icon(path : String) -> @html.Html {
+  @html.span(
+    attrs=@html.Attrs::build().aria_hidden("true"),
+    style=[
+      "display:inline-flex;width:1.125rem;height:1.125rem;align-items:center;justify-content:center;pointer-events:none",
+    ],
+    @svg.svg(
+      width=18,
+      height=18,
+      view_box="0 0 24 24",
+      style=["display:block;width:100%;height:100%"],
+      [
+        @svg.path(
+          d=path,
+          fill="none",
+          stroke="currentColor",
+          stroke_width=2,
+          attrs=@svg.Attrs::build()
+            .stroke_linecap("round")
+            .stroke_linejoin("round"),
+        ),
+      ],
+    ),
+  )
 }
 
 ///|
@@ -414,12 +455,15 @@ fn editor_surface(
       Map([
         (
           "raw|" + model.raw_surface_revision.to_string(),
-          @html.textarea(
+          @rui.textarea(
             id="loomark-input",
             value=source,
             rows=4,
+            attrs=@html.Attrs::build().aria_label("Raw Markdown source"),
+            style=[
+              "min-height:clamp(24rem,70vh,36rem);flex:1;field-sizing:fixed;resize:none;--rui-control-base-border:transparent;--rui-control-base-shadow:none;border-radius:0;background:transparent;padding:1rem;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,\"Liberation Mono\",\"Courier New\",monospace;font-size:0.875rem;line-height:1.65",
+            ],
             on_input=emit.map(source => RawInput(source)),
-            "",
           ),
         ),
       ])
@@ -496,26 +540,78 @@ fn preview_view(
   let raw_selected = model.state.mode() == @core.Raw
   let block_selected = model.state.mode() == @core.Block
   let preview_selected = model.state.mode() == @core.Preview
-  let raw_button = @rui.button(
+  let raw_button = @rui.tabs_trigger(
+    value="raw",
     id="loomark-mode-raw",
-    variant=if raw_selected { @rui.Secondary } else { @rui.Ghost },
-    attrs=@html.Attrs::build().aria_pressed(raw_selected.to_string()),
-    on_click=emit(SelectRaw),
-    "Raw",
+    selected=raw_selected,
+    attrs=@html.Attrs::build()
+      .aria_label("Raw Markdown")
+      .on_click(_ => emit(SelectRaw)),
+    style=["min-height:2.75rem;flex:0 0 3.25rem;padding:0"],
+    mode_icon("m8 9-3 3 3 3m8-6 3 3-3 3m-2-8-4 16"),
   )
-  let preview_button = @rui.button(
+  let preview_button = @rui.tabs_trigger(
+    value="preview",
     id="loomark-mode-preview",
-    variant=if preview_selected { @rui.Secondary } else { @rui.Ghost },
-    attrs=@html.Attrs::build().aria_pressed(preview_selected.to_string()),
-    on_click=emit(SelectPreview),
-    "Preview",
+    selected=preview_selected,
+    attrs=@html.Attrs::build()
+      .aria_label("Preview")
+      .on_click(_ => emit(SelectPreview)),
+    style=["min-height:2.75rem;flex:0 0 3.25rem;padding:0"],
+    mode_icon(
+      "M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Zm10 3a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
+    ),
   )
-  let block_button = @rui.button(
+  let block_button = @rui.tabs_trigger(
+    value="block",
     id="loomark-mode-block",
-    variant=if block_selected { @rui.Secondary } else { @rui.Ghost },
-    attrs=@html.Attrs::build().aria_pressed(block_selected.to_string()),
-    on_click=emit(SelectBlock),
-    "Block",
+    selected=block_selected,
+    attrs=@html.Attrs::build()
+      .aria_label("Block view")
+      .on_click(_ => emit(SelectBlock)),
+    style=["min-height:2.75rem;flex:0 0 3.25rem;padding:0"],
+    mode_icon("M4 4h6v6H4V4Zm10 0h6v6h-6V4ZM4 14h6v6H4v-6Zm10 0h6v6h-6v-6Z"),
+  )
+  let (panel_id, panel_labelledby) = match model.state.mode() {
+    @core.Raw => ("loomark-panel-raw", "loomark-mode-raw")
+    @core.Block => ("loomark-panel-block", "loomark-mode-block")
+    @core.Preview => ("loomark-panel-preview", "loomark-mode-preview")
+  }
+  let examples = @html.div(
+    attrs=@html.Attrs::build().role("toolbar").aria_label("Example documents"),
+    style=[
+      "display:flex;min-height:2.5rem;align-items:center;justify-content:flex-end;gap:0.125rem;flex-wrap:wrap;padding-inline:0.25rem",
+    ],
+    [
+      @rui.button(
+        variant=@rui.Ghost,
+        size=@rui.Xs,
+        attrs=@html.Attrs::build().aria_label("Apply Hello example"),
+        on_click=emit(ReplaceSource(HELLO_EXAMPLE_SOURCE)),
+        "Hello",
+      ),
+      @rui.button(
+        variant=@rui.Ghost,
+        size=@rui.Xs,
+        attrs=@html.Attrs::build().aria_label("Apply Blog example"),
+        on_click=emit(ReplaceSource(BLOG_EXAMPLE_SOURCE)),
+        "Guide",
+      ),
+      @rui.button(
+        variant=@rui.Ghost,
+        size=@rui.Xs,
+        attrs=@html.Attrs::build().aria_label("Apply List example"),
+        on_click=emit(ReplaceSource(LIST_EXAMPLE_SOURCE)),
+        "List",
+      ),
+      @rui.button(
+        variant=@rui.Ghost,
+        size=@rui.Xs,
+        attrs=@html.Attrs::build().aria_label("Apply Code example"),
+        on_click=emit(ReplaceSource(CODE_EXAMPLE_SOURCE)),
+        "Code",
+      ),
+    ],
   )
   let event_button = @html.button(
     id="loomark-event-target",
@@ -540,20 +636,56 @@ fn preview_view(
   }
   @rui.theme(
     id="loomark-root",
+    attrs=@html.Attrs::build()
+      .role("region")
+      .aria_label("Loomark Markdown Editor"),
     style=[
-      "min-height:100vh;max-width:64rem;margin-inline:auto;padding:clamp(1rem,4vw,3rem)",
+      "min-height:100vh;min-height:100dvh;box-sizing:border-box;background:oklch(0.968 0.008 85);color:oklch(0.24 0.018 265);padding:clamp(0.5rem,2vw,1.5rem);--rui-background:oklch(0.991 0.004 85);--rui-foreground:oklch(0.24 0.018 265);--rui-muted:oklch(0.94 0.01 85);--rui-muted-foreground:oklch(0.5 0.02 265);--rui-border:oklch(0.86 0.012 85);--rui-primary:oklch(0.48 0.12 276);--rui-radius:0.5rem",
     ],
     [
-      @rui.typography_h1(style=["text-align:start"], "Loomark"),
-      @html.nav(
-        id="loomark-toolbar",
-        style=["display:flex;gap:0.25rem;margin-block:1.5rem"],
-        [raw_button, block_button, preview_button],
-      ),
       @html.div(
-        id="loomark-surface",
-        style=["margin-block:1.5rem"],
-        editor_surface(model, emit),
+        id="loomark-editor-shell",
+        style=[
+          "width:min(100%,53.75rem);min-height:calc(100dvh - clamp(1rem,4vw,3rem));margin-inline:auto;display:flex;flex-direction:column",
+        ],
+        [
+          @rui.tabs_root(
+            value=mode_name(model.state.mode()),
+            id="loomark-editor-frame",
+            style=[
+              "flex:1;gap:0;overflow:hidden;border:1px solid var(--rui-border);border-radius:var(--rui-radius);background:var(--rui-background);box-shadow:0 1px 2px rgb(31 35 48 / 0.06),0 10px 30px rgb(31 35 48 / 0.05)",
+            ],
+            [
+              @html.div(
+                style=[
+                  "display:flex;min-width:0;align-items:center;justify-content:space-between;gap:0.25rem;flex-wrap:wrap;padding-inline:0.5rem;border-bottom:1px solid var(--rui-border)",
+                ],
+                [
+                  @rui.tabs_list(
+                    variant=@rui.TabsLine,
+                    aria_label="Editor view",
+                    id="loomark-toolbar",
+                    style=["min-height:3.25rem;padding:0;overflow:visible"],
+                    [block_button, raw_button, preview_button],
+                  ),
+                  examples,
+                ],
+              ),
+              @html.div(
+                id=panel_id,
+                attrs=@html.Attrs::build()
+                  .role("tabpanel")
+                  .aria_labelledby(panel_labelledby),
+                style=["min-width:0;flex:1;display:flex"],
+                @html.div(
+                  id="loomark-surface",
+                  style=["width:100%;min-width:0;display:flex"],
+                  editor_surface(model, emit),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       event_button,
       driver_button,

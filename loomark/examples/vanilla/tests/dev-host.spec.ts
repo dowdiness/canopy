@@ -11,7 +11,9 @@ import { expect, test, type Browser, type BrowserContext, type Page } from "@pla
  * | unsupported containers | quote/thematic/list | reject atomically; neighbors/ranges/focus unchanged |
  * | tight list / fenced code | unordered, ordered `)`, tilde fence, mixed CRLF | typed payload controls preserve markers, delimiters, and line endings |
  * | semantic Preview | heading, paragraph, fenced code, list fallback | RUI-aligned read-only semantic DOM without invented list containers |
- * | interactive chrome | normal, focus, error | only mode controls are visible; Preview owns focus; errors appear on demand |
+ * | production chrome | Raw/Block/Preview, desktop/narrow | one labelled region, tablist, selected panel, and keyboard navigation |
+ * | example presets | Hello/Blog/List/Code from any mode | replace canonical source without changing the selected mode |
+ * | interactive chrome | normal, focus, error | only application controls are visible; Preview owns focus; errors appear on demand |
  * | Raw <-> Block <-> Preview | new/same source | one canonical source, no marker leakage |
  * | ownership | fresh page/container | termination only; no cleanup claim |
  */
@@ -206,11 +208,11 @@ test("Preview renders supported blocks as RUI-aligned semantic HTML", async ({ b
   const host = await mountHost(browser, source)
   try {
     await expect(host.page.locator("#loomark-root")).toHaveAttribute("data-rui-theme", "")
-    await expect(host.page.locator('#loomark-toolbar button[data-slot="button"]')).toHaveCount(3)
-    await expect(host.page.locator("#loomark-mode-raw")).toHaveAttribute("aria-pressed", "true")
+    await expect(host.page.locator('#loomark-toolbar button[role="tab"]')).toHaveCount(3)
+    await expect(host.page.locator("#loomark-mode-raw")).toHaveAttribute("aria-selected", "true")
     await selectPreview(host.page)
-    await expect(host.page.locator("#loomark-mode-raw")).toHaveAttribute("aria-pressed", "false")
-    await expect(host.page.locator("#loomark-mode-preview")).toHaveAttribute("aria-pressed", "true")
+    await expect(host.page.locator("#loomark-mode-raw")).toHaveAttribute("aria-selected", "false")
+    await expect(host.page.locator("#loomark-mode-preview")).toHaveAttribute("aria-selected", "true")
     const preview = host.page.locator("#loomark-preview")
     await expect(preview).toHaveAttribute("data-loomark-source", source)
     await expect(preview.locator("[data-loomark-preview-notice]")).toContainText(
@@ -232,14 +234,92 @@ test("Preview renders supported blocks as RUI-aligned semantic HTML", async ({ b
   }
 })
 
+test("production chrome exposes one accessible editor view at a time", async ({ browser }) => {
+  const host = await mountHost(browser, "# Accessible editor\n")
+  try {
+    const region = host.page.getByRole("region", { name: "Loomark Markdown Editor" })
+    await expect(region).toBeVisible()
+    const tabs = region.getByRole("tablist", { name: "Editor view" })
+    await expect(tabs.getByRole("tab")).toHaveCount(3)
+    await expect(tabs.locator("svg")).toHaveCount(3)
+    const blockTab = tabs.getByRole("tab", { name: "Block view" })
+    const rawTab = tabs.getByRole("tab", { name: "Raw Markdown" })
+    const previewTab = tabs.getByRole("tab", { name: "Preview" })
+    await expect(rawTab).toHaveAttribute("aria-selected", "true")
+    await expect(rawTab).not.toHaveAttribute("aria-controls")
+    await expect(blockTab).not.toHaveAttribute("aria-controls")
+    await expect(previewTab).not.toHaveAttribute("aria-controls")
+    await expect(region.getByRole("tabpanel", { name: "Raw Markdown" })).toBeVisible()
+
+    await rawTab.focus()
+    await rawTab.press("ArrowRight")
+    await expect(previewTab).toBeFocused()
+    await expect(previewTab).toHaveAttribute("aria-selected", "true")
+    await expect(region.getByRole("tabpanel", { name: "Preview" })).toBeVisible()
+    await expect.poll(async () => (await snapshot(host.page)).mode).toBe("preview")
+    await expect(blockTab).toHaveAttribute("aria-selected", "false")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("example presets replace canonical source without changing the selected mode", async ({ browser }) => {
+  const host = await mountHost(browser, "initial\n")
+  try {
+    await selectPreview(host.page)
+    const examples = host.page.getByRole("toolbar", { name: "Example documents" })
+    const presets = [
+      {
+        name: "Apply Hello example",
+        source: "# Hello World\n\nWelcome to the Canopy Markdown editor.\n\nThis editor has three modes: raw, block, and preview.\n",
+      },
+      {
+        name: "Apply Blog example",
+        source: "# Getting Started\n\nCanopy is an incremental projectional editor.\n\n## Features\n\nThe editor supports real-time collaboration via CRDT.\n\nEvery keystroke is incrementally parsed and projected into a structured view.",
+      },
+      {
+        name: "Apply List example",
+        source: "# Shopping List\n\nThings to pick up:\n\n- Apples\n- Bread\n- Coffee\n- Dark chocolate",
+      },
+      {
+        name: "Apply Code example",
+        source: "# README\n\nA minimal example project.\n\n## Install\n\n```bash\nnpm install\n```\n\n## Usage\n\n- Run the dev server\n- Open the browser\n- Start editing",
+      },
+    ]
+
+    for (const preset of presets) {
+      await examples.getByRole("button", { name: preset.name }).click()
+      await expect.poll(async () => (await snapshot(host.page)).source).toBe(preset.source)
+      await expect.poll(async () => (await snapshot(host.page)).mode).toBe("preview")
+      await expectPreviewSource(host.page, preset.source)
+    }
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("production chrome keeps its controls inside a narrow viewport", async ({ browser }) => {
+  const host = await mountHost(browser, "# Narrow editor\n")
+  try {
+    await host.page.setViewportSize({ width: 360, height: 720 })
+    const region = host.page.getByRole("region", { name: "Loomark Markdown Editor" })
+    await expect(region.getByRole("toolbar", { name: "Example documents" })).toBeVisible()
+    await expect(region.getByRole("tablist", { name: "Editor view" })).toBeVisible()
+    expect(await host.page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360)
+    const frame = await host.page.locator("#loomark-editor-frame").boundingBox()
+    expect(frame).not.toBeNull()
+    expect(frame!.x).toBeGreaterThanOrEqual(0)
+    expect(frame!.x + frame!.width).toBeLessThanOrEqual(360)
+  } finally {
+    await host.context.close()
+  }
+})
+
 test("interactive chrome hides driver controls and focuses the Preview surface", async ({ browser }) => {
   const host = await mountHost(browser, "# Focusable preview\n")
   try {
-    await expect(host.page.locator("#loomark-root button:visible")).toHaveText([
-      "Raw",
-      "Block",
-      "Preview",
-    ])
+    await expect(host.page.getByRole("toolbar", { name: "Example documents" }).getByRole("button")).toHaveCount(4)
+    await expect(host.page.getByRole("tablist", { name: "Editor view" }).getByRole("tab")).toHaveCount(3)
     await expect(host.page.locator("#loomark-event-target")).toBeHidden()
     await expect(host.page.locator("#loomark-focus-target")).toHaveCount(0)
     await expect(host.page.locator("#loomark-mode")).toHaveCount(0)
@@ -247,11 +327,6 @@ test("interactive chrome hides driver controls and focuses the Preview surface",
     const preview = host.page.locator("#loomark-preview")
     await expect(preview).toHaveAttribute("tabindex", "0")
     await expect(preview).toHaveAttribute("aria-label", "Markdown preview")
-    await host.page.locator("#loomark-mode-preview").focus()
-    await host.page.keyboard.press("Tab")
-    await expect.poll(() => host.page.evaluate(() => document.activeElement?.id)).toBe(
-      "loomark-preview",
-    )
     await host.page.locator("#loomark-mode-preview").focus()
     await focusPreview(host.page)
     await expect.poll(() => host.page.evaluate(() => document.activeElement?.id)).toBe(
@@ -695,13 +770,18 @@ test("Raw textarea input uses the atomic editor transaction and mode toolbar", a
   try {
     await selectRaw(host.page)
     await expect(host.page.locator("#loomark-input")).toHaveCount(1)
+    await expect(host.page.locator("#loomark-input")).toHaveAttribute("data-slot", "textarea")
+    await expect(host.page.locator("#loomark-input")).toHaveAttribute(
+      "aria-label",
+      "Raw Markdown source",
+    )
     await host.page.locator("#loomark-input").fill("edited\nsource")
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("edited\nsource")
     await expect.poll(async () => (await snapshot(host.page)).committed_change_count).toBe(1)
     await selectPreview(host.page)
     await expect(host.page.locator("#loomark-input")).toHaveCount(0)
     await expect(host.page.locator("#loomark-mode-preview")).toHaveAttribute(
-      "aria-pressed",
+      "aria-selected",
       "true",
     )
     await expectPreviewSource(host.page, "edited\nsource")
@@ -949,7 +1029,7 @@ test("keeps source and mode state separate from after-render focus and DOM effec
     await requestSource(host.page, "# Updated\n")
     await selectPreview(host.page)
     await expect(host.page.locator("#loomark-mode-preview")).toHaveAttribute(
-      "aria-pressed",
+      "aria-selected",
       "true",
     )
     await expectPreviewSource(host.page, "# Updated\n")
