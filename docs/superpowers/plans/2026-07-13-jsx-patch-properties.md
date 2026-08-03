@@ -17,7 +17,7 @@
 - Do not change `DomPatch`, `DryRunModel::apply`, or the JSX session API. Change generic exact-key reconciliation only because the independent duplicate-sibling regression exposed a real identity defect.
 - Keep the existing explicit release-before-insert regression test.
 - Add QuickCheck imports only to `lang/jsx/proj/moon.pkg` under `for "wbtest"`.
-- Run `NEW_MOON_MOD=0 moon check lang/jsx/proj` after every MoonBit edit.
+- Run `NEW_MOON_MOD=0 moon check modules/canopy/lang/jsx/proj` after every MoonBit edit.
 - Record any QuickCheck seed or shrunk counterexample if a property fails.
 
 ## Existing API Reuse Check
@@ -57,7 +57,7 @@ import {
 Run:
 
 ```bash
-NEW_MOON_MOD=0 moon check lang/jsx/proj
+NEW_MOON_MOD=0 moon check modules/canopy/lang/jsx/proj
 ```
 
 Expected: the package still checks successfully; no production behavior changes.
@@ -130,8 +130,8 @@ Use one deterministic old/new transition with an insertion, corrupt exactly one 
 Run:
 
 ```bash
-NEW_MOON_MOD=0 moon check lang/jsx/proj
-NEW_MOON_MOD=0 moon test lang/jsx/proj
+NEW_MOON_MOD=0 moon check modules/canopy/lang/jsx/proj
+NEW_MOON_MOD=0 moon test modules/canopy/lang/jsx/proj
 ```
 
 Expected: the new fixed cases and QuickCheck property pass. If the property exposes a real defect, retain the failure seed/counterexample, then change the smallest production boundary required by that counterexample.
@@ -150,16 +150,16 @@ Expected: the new fixed cases and QuickCheck property pass. If the property expo
 - [x] **Step 1: Run focused package validation**
 
 ```bash
-NEW_MOON_MOD=0 moon check lang/jsx/proj
-NEW_MOON_MOD=0 moon test lang/jsx/proj
-NEW_MOON_MOD=0 moon test ffi/jsx
+NEW_MOON_MOD=0 moon check modules/canopy/lang/jsx/proj
+NEW_MOON_MOD=0 moon test modules/canopy/lang/jsx/proj
+NEW_MOON_MOD=0 moon test modules/canopy/ffi/jsx
 ```
 
 - [x] **Step 2: Run formatting and interface generation**
 
 ```bash
-NEW_MOON_MOD=0 moon fmt lang/jsx/proj
-NEW_MOON_MOD=0 moon info lang/jsx/proj
+NEW_MOON_MOD=0 moon fmt modules/canopy/lang/jsx/proj
+NEW_MOON_MOD=0 moon info modules/canopy/lang/jsx/proj
 ```
 
 Inspect `lang/jsx/proj/pkg.generated.mbti`; the new helpers are test-only, so no public API change is expected.

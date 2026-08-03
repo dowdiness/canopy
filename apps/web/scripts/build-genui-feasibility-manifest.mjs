@@ -101,8 +101,8 @@ export async function buildManifest({
       normalizerSourceSha256: digestFile('apps/web/src/features/genui/core/genui-feasibility-fixtures.js'),
       capabilitiesSha256: sha256Hex(capabilitiesCanonical),
       promptSha256: sha256Hex(promptsCanonical),
-      rubricSourceSha256: digestFile('ffi/jsx/generative_ui_feasibility_rubric.mbt'),
-      preparationCoreSourceSha256: digestFile('ffi/jsx/generative_ui_feasibility_adapter.mbt'),
+      rubricSourceSha256: digestFile('modules/canopy/ffi/jsx/generative_ui_feasibility_rubric.mbt'),
+      preparationCoreSourceSha256: digestFile('modules/canopy/ffi/jsx/generative_ui_feasibility_adapter.mbt'),
     },
     decisionRule: {
       positive: 'all_checks_pass_and_each_fixture_has_success',
@@ -112,7 +112,7 @@ export async function buildManifest({
       replayRequiredForEveryCandidate: true,
     },
     validationCommands: [
-      { id: 'moonbit-tests', command: 'moon', args: ['test', 'ffi/jsx'], cwd: '.', env: { NEW_MOON_MOD: '0' } },
+      { id: 'moonbit-tests', command: 'moon', args: ['test', 'modules/canopy/ffi/jsx'], cwd: '.', env: { NEW_MOON_MOD: '0' } },
       {
         id: 'node-tests',
         command: 'node',

@@ -38,7 +38,7 @@ run_test() {
 }
 
 # Test main module
-run_test "." "Main Module (canopy)"
+run_test "modules/canopy" "Main Module (canopy)"
 
 # Test submodules
 run_test "event-graph-walker" "event-graph-walker"

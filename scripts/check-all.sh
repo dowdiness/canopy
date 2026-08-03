@@ -49,7 +49,7 @@ check_module() {
 }
 
 # Check main module
-check_module "." "Main Module (canopy)"
+check_module "modules/canopy" "Main Module (canopy)"
 
 # Check submodules
 check_module "event-graph-walker" "event-graph-walker"

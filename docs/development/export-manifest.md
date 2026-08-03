@@ -8,7 +8,7 @@ Status: parallel-run since S4 PR2 (see
 `apps/ideal/export-manifest.json` declares the expected FFI export
 surface of the lambda app seam:
 
-- `ffi_exports` — the symbols `ffi/lambda/moon.pkg` must export to JS
+- `ffi_exports` — the symbols `modules/canopy/ffi/lambda/moon.pkg` must export to JS
 - `app_reexports` — the subset the ideal app re-exports through
   `apps/ideal/main/crdt_reexport.mbt` wrappers and the
   `apps/ideal/main/moon.pkg` export array
@@ -23,7 +23,7 @@ that every app re-export exists in the FFI export surface.
 ## Parallel-run contract
 
 During parallel-run the **hand-maintained files remain authoritative**:
-`ffi/lambda/moon.pkg`, `apps/ideal/main/crdt_reexport.mbt`, and
+`modules/canopy/ffi/lambda/moon.pkg`, `apps/ideal/main/crdt_reexport.mbt`, and
 `apps/ideal/main/moon.pkg`. The manifest is a declared mirror that makes
 drift between the layers visible; it is not code-generated and nothing is
 generated from it. Codegen or wrapper deletion is reserved for the S4 PR3

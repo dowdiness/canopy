@@ -50,8 +50,8 @@ the nested workspace is selected.
 ## Module and workspace resolution
 
 Each module declares its versioned imports in `moon.mod`. The nearest
-`moon.work` resolves imports to local workspace members, so the root module's
-authoritative pair is the root `moon.mod` and `moon.work`. Canvas is intentionally
+`moon.work` resolves imports to local workspace members, so the primary module's
+authoritative pair is `modules/canopy/moon.mod` and root `moon.work`. Canvas is intentionally
 isolated: `apps/canvas/moon.mod` and `apps/canvas/moon.work` form its
 nested module/workspace pair. Vendored submodules retain their own manifests and
 workspace boundaries.

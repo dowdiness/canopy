@@ -87,9 +87,9 @@ The patch protocol is intentionally minimal. Three rules every engine must respe
 2. **Idempotent re-application.** Applying the same patch sequence twice from the same starting state yields the same result. Adapters may dedupe but engines must not rely on it.
 3. **Synchronous intents.** `UserIntent` events fire synchronously from input. Consumers may respond async, but ordering across an input gesture is preserved.
 
-The MoonBit `ToJson` impls in `protocol/` define the wire format. `types.ts`
+The MoonBit `ToJson` impls in `modules/canopy/protocol/` define the wire format. `types.ts`
 mirrors them. Coordinate units and breaking-change rules live in
-[`protocol/README.md`](../../protocol/README.md#position-and-offset-units).
+[`modules/canopy/protocol/README.md`](../../modules/canopy/protocol/README.md#position-and-offset-units).
 
 ## Extension points
 

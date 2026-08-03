@@ -94,7 +94,7 @@
       "command": "moon",
       "args": [
         "test",
-        "ffi/jsx"
+        "modules/canopy/ffi/jsx"
       ],
       "cwd": ".",
       "env": {

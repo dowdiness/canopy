@@ -1,5 +1,5 @@
 members = [
-  ".",
+  "./modules/canopy",
   "./apps/loomark",
   "./rabbita/rabbita",
   "./rabbita/rui",

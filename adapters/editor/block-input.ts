@@ -67,7 +67,7 @@ export class BlockInput implements EditorAdapter {
     // Literal U+200B fallback when no FFI-sourced strip function is wired.
     // Do NOT refactor to a shared constant — keeping this codepoint inline
     // is the documented backwards-compat path; the canonical source is
-    // `markdown_empty_paragraph_sentinel()` exported by `ffi/markdown/`.
+    // `markdown_empty_paragraph_sentinel()` exported by `modules/canopy/ffi/markdown/`.
     this.stripParagraphSentinels =
       opts.stripParagraphSentinels ?? ((s) => s.replace(/​/g, ''));
     this.getSourceText = opts.getSourceText ?? null;

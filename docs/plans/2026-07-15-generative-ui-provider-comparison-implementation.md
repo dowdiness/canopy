@@ -604,7 +604,7 @@ manifest freeze, scored execution, and evidence closure.
   check:
 
   ```bash
-  NEW_MOON_MOD=0 moon test ffi/jsx
+  NEW_MOON_MOD=0 moon test modules/canopy/ffi/jsx
   NEW_MOON_MOD=0 moon check
   ```
 

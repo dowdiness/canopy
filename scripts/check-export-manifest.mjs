@@ -2,7 +2,7 @@
 // Compare the declared FFI export manifest (apps/ideal/export-manifest.json)
 // against the three hand-maintained live layers of the lambda app seam:
 //
-//   1. ffi/lambda/moon.pkg            — JS "exports" array of the FFI package
+//   1. modules/canopy/ffi/lambda/moon.pkg — JS "exports" array of the FFI package
 //   2. apps/ideal/main/moon.pkg   — JS "exports" array of the app package
 //   3. apps/ideal/main/crdt_reexport.mbt — `pub fn` wrapper definitions
 //

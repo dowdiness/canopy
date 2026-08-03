@@ -45,9 +45,9 @@ Canopy:
 - `/home/antisatori/ghq/github.com/dowdiness/canopy/.gitmodules`: root submodules include `event-graph-walker` and `loom`.
 - `/home/antisatori/ghq/github.com/dowdiness/canopy/loom/.gitmodules`: nested submodules include `event-graph-walker`.
 - `/home/antisatori/ghq/github.com/dowdiness/canopy/loom/examples/lambda/moon.mod.json`: nested `event-graph-walker` path dependency currently points to `../../event-graph-walker`.
-- `/home/antisatori/ghq/github.com/dowdiness/canopy/core/reconcile.mbt`: generic LCS reconciliation with O(m*n) child matching.
+- `/home/antisatori/ghq/github.com/dowdiness/canopy/modules/canopy/core/reconcile.mbt`: generic LCS reconciliation with O(m*n) child matching.
 - `/home/antisatori/ghq/github.com/dowdiness/canopy/lang/lambda/proj/projection_memo.mbt`: Lambda editor-facing projection memo wrapper around `@core.build_projection_memos` (#633), now with the direct root-`Module` reconcile hook. The older flat module projection helper was removed after #633 cleanup.
-- `/home/antisatori/ghq/github.com/dowdiness/canopy/core/projection_memo.mbt`: shared generic projection memo helper; Lambda's old `lang/lambda/flat` revision/changed-index stack was removed by #633.
+- `/home/antisatori/ghq/github.com/dowdiness/canopy/modules/canopy/core/projection_memo.mbt`: shared generic projection memo helper; Lambda's old `lang/lambda/flat` revision/changed-index stack was removed by #633.
 - `/home/antisatori/ghq/github.com/dowdiness/canopy/projection/tree_refresh_benchmark_wbtest.mbt`: existing benchmark package pattern using `@bench`.
 - `/home/antisatori/ghq/github.com/dowdiness/canopy/.github/workflows/ci.yml`: canonical CI fan-out.
 
@@ -154,7 +154,7 @@ Steps:
 
 1. Preflight dependency health from Canopy root.
    - Run `NEW_MOON_MOD=0 moon check --deny-warn`.
-   - Run `NEW_MOON_MOD=0 moon ide outline /home/antisatori/ghq/github.com/dowdiness/canopy/core` and equivalent outlines for the first packages to be touched.
+   - Run `NEW_MOON_MOD=0 moon ide outline /home/antisatori/ghq/github.com/dowdiness/canopy/modules/canopy/core` and equivalent outlines for the first packages to be touched.
    - Record the reuse check in the PR: likely candidate APIs are `@incr.Derived`, `@incr.ReachableDerived`, `@incr.DerivedMap`, `@incr.Input`, and `@incr.Watch`.
    - If the preflight fails before the version bump, stop and either fix an unrelated baseline failure in a separate PR or rebase.
 
@@ -166,7 +166,7 @@ Steps:
 3. Run the `incr` codemod in dry-run mode from its real path.
    - Command shape:
      ```bash
-     python3 /home/antisatori/ghq/github.com/dowdiness/canopy/loom/incr/scripts/migrate-to-target-facades.py /home/antisatori/ghq/github.com/dowdiness/canopy/core /home/antisatori/ghq/github.com/dowdiness/canopy/editor /home/antisatori/ghq/github.com/dowdiness/canopy/lang /home/antisatori/ghq/github.com/dowdiness/canopy/lib /home/antisatori/ghq/github.com/dowdiness/canopy/workspace /home/antisatori/ghq/github.com/dowdiness/canopy/ffi
+     python3 /home/antisatori/ghq/github.com/dowdiness/canopy/loom/incr/scripts/migrate-to-target-facades.py /home/antisatori/ghq/github.com/dowdiness/canopy/modules/canopy/core /home/antisatori/ghq/github.com/dowdiness/canopy/editor /home/antisatori/ghq/github.com/dowdiness/canopy/lang /home/antisatori/ghq/github.com/dowdiness/canopy/lib /home/antisatori/ghq/github.com/dowdiness/canopy/workspace /home/antisatori/ghq/github.com/dowdiness/canopy/ffi
      ```
    - Review report-only findings before applying. The script reports context-sensitive reads that need a manual strict-vs-permissive choice.
    - Do not scan `loom/incr` itself as part of Canopy consumer migration.

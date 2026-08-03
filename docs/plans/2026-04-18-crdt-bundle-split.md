@@ -117,7 +117,7 @@ _build/js/release/build/ffi/lambda/lambda.js
 - [ ] **Step 2:** `cd apps/web && npm run build` and record the `dist/assets/crdt-*.js` byte size as the baseline.
 - [ ] **Step 3:** `grep -rn "_build/js/release/build/ffi/ffi.js" .` from canopy root. Record every hit — each is a migration target.
 - [ ] **Step 4:** `grep -rn "@moonbit/crdt" .` from canopy root, excluding `node_modules` and `_build`. Record every hit.
-- [ ] **Step 5:** `moon ide outline ffi/` to confirm the current public surface.
+- [ ] **Step 5:** `moon ide outline modules/canopy/ffi/` to confirm the current public surface.
 - [ ] **Step 6:** If any of 1–5 surprises you, stop and reconcile before starting Phase 1.
 
 ---
@@ -298,7 +298,7 @@ Mirror Tasks 1.3 through 1.7 for markdown:
 - [ ] **Step 1:** Create each file, moving content from the corresponding `ffi/canopy_*.mbt`.
 - [ ] **Step 2:** After every 2-3 files, `moon check`. Fix errors before continuing (incremental edit rule from `CLAUDE.md`).
 - [ ] **Step 3:** Pay special attention to `ffi/canopy_view.mbt`: the JSON half was already migrated in PR 1 (or will be via the common stub); the lambda half moves here. The `view_states : Map[Int, ...]` binding stays; the `json_view_states` binding is now in `ffi/json/view.mbt`.
-- [ ] **Step 4:** Test files: update any `@ffi.` or `dowdiness/canopy/ffi` references inside them to `@lambda.` or `dowdiness/canopy/ffi/lambda`. Run `moon test ffi/lambda/`.
+- [ ] **Step 4:** Test files: update any `@ffi.` or `dowdiness/canopy/ffi` references inside them to `@lambda.` or `dowdiness/canopy/ffi/lambda`. Run `moon test modules/canopy/ffi/lambda/`.
 
 ### Task 3.3: Decommission root `ffi/`
 
@@ -309,7 +309,7 @@ Mirror Tasks 1.3 through 1.7 for markdown:
 
 - [ ] **Step 1:** After Task 3.2 builds green, delete the root `ffi/*.mbt` and `ffi/moon.pkg`.
 - [ ] **Step 2:** `moon check && moon test` from canopy root. Expected: green across the whole workspace.
-- [ ] **Step 3:** `moon ide outline ffi/lambda` + `ffi/json` + `ffi/markdown`. Confirm the three public surfaces sum to the original `ffi/` public surface (no FFI function lost).
+- [ ] **Step 3:** `moon ide outline modules/canopy/ffi/lambda` + `modules/canopy/ffi/json` + `modules/canopy/ffi/markdown`. Confirm the three public surfaces sum to the original `ffi/` public surface (no FFI function lost).
 
 ### Task 3.4: Vite + switchover
 

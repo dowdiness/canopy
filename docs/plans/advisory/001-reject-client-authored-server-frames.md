@@ -95,8 +95,8 @@ old-version frames remain dropped.
 
 | Purpose | Command | Expected on success |
 |---|---|---|
-| Baseline relay tests | `NEW_MOON_MOD=0 moon test relay` | `Total tests: 46, passed: 46, failed: 0` before edits |
-| Targeted relay tests | `NEW_MOON_MOD=0 moon test relay` | 48 tests pass after adding two regressions |
+| Baseline relay tests | `NEW_MOON_MOD=0 moon test modules/canopy/relay` | `Total tests: 46, passed: 46, failed: 0` before edits |
+| Targeted relay tests | `NEW_MOON_MOD=0 moon test modules/canopy/relay` | 48 tests pass after adding two regressions |
 | Strict lint | `NEW_MOON_MOD=0 ./scripts/check-strict.sh` | exits 0 |
 | CI-equivalent full tests | `NEW_MOON_MOD=0 ./scripts/check-test-baseline.sh 7 moon test --release` | exits 0; no non-vendored failure and at most seven known vendored failures |
 | JS integration build | `NEW_MOON_MOD=0 ./scripts/build-js.sh` | exits 0 and rebuilds the relay consumer in `ffi/lambda` |
@@ -170,7 +170,7 @@ Before the fix, Bob receives the forged control frame, so the new test must fail
 **Verify red state**:
 
 ```bash
-NEW_MOON_MOD=0 moon test relay
+NEW_MOON_MOD=0 moon test modules/canopy/relay
 ```
 
 Expected: exactly the two new tests fail; all 46 pre-existing tests still pass.
@@ -201,7 +201,7 @@ _ => self.broadcast(sender, data)
 **Verify green state**:
 
 ```bash
-NEW_MOON_MOD=0 moon test relay
+NEW_MOON_MOD=0 moon test modules/canopy/relay
 ```
 
 Expected: `Total tests: 48, passed: 48, failed: 0`.
@@ -232,7 +232,7 @@ Expected: all four boundaries are discoverable in the README.
 NEW_MOON_MOD=0 moon info
 NEW_MOON_MOD=0 moon fmt
 NEW_MOON_MOD=0 ./scripts/check-strict.sh
-NEW_MOON_MOD=0 moon test relay
+NEW_MOON_MOD=0 moon test modules/canopy/relay
 NEW_MOON_MOD=0 ./scripts/check-test-baseline.sh 7 moon test --release
 NEW_MOON_MOD=0 ./scripts/build-js.sh
 
@@ -273,7 +273,7 @@ separately. Rebuild JS because `apps/relay-server` consumes relay through
 - [ ] A connected client cannot broadcast type `0x05` or `0x06`.
 - [ ] Legitimate client `0x01` still becomes a server-authored `0x06` frame.
 - [ ] Unknown valid-v3 types and short frames retain existing behavior.
-- [ ] `NEW_MOON_MOD=0 moon test relay` reports 48/48 passing tests.
+- [ ] `NEW_MOON_MOD=0 moon test modules/canopy/relay` reports 48/48 passing tests.
 - [ ] The strict wrapper and CI-equivalent release-test baseline exit 0.
 - [ ] `NEW_MOON_MOD=0 ./scripts/build-js.sh` exits 0.
 - [ ] `moon info` and `moon fmt` exit 0 with no relay `.mbti` diff.

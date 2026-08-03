@@ -4,7 +4,7 @@
 
 S4 implements the host-binding part of the architecture redesign after S3's
 language-runtime boundary work. The target is narrow: extract repeated
-Tier-3 FFI host wiring from `ffi/lambda`, `ffi/json`, and `ffi/markdown` into a
+Tier-3 FFI host wiring from `ffi/lambda`, `modules/canopy/ffi/json`, and `modules/canopy/ffi/markdown` into a
 shared internal `ffi/host` package while preserving each `ffi/<L>` package as
 its own MoonBit JS link root. The extraction must not change the editor sync
 surfaces frozen in S2, the `lang/runtime` design from S3, the lambda language
@@ -137,7 +137,7 @@ tests into `ffi/host`; host cannot know the seven typed cells.
 
 Expected compile breakpoints: references to `json_handles` and
 `json_view_states` fail after the globals are removed; fix package by package
-inside `ffi/json` before touching other languages. If field access into the
+inside `modules/canopy/ffi/json` before touching other languages. If field access into the
 registry fails due to cross-package read-only rules, add a host method for the
 specific operation.
 
@@ -155,7 +155,7 @@ Verification:
 
 ## Step 3 — Migrate Markdown FFI onto `ffi/host`
 
-Repeat the JSON migration for `ffi/markdown`, keeping the Markdown-local
+Repeat the JSON migration for `modules/canopy/ffi/markdown`, keeping the Markdown-local
 coordinator, `MarkdownHandle`, `MarkdownProtectedCells`,
 `assemble_markdown_handle`, structural-edit parsing, sentinel export, and
 manual Markdown view-patch construction unchanged.
@@ -163,7 +163,7 @@ manual Markdown view-patch construction unchanged.
 The Markdown view path is not identical to JSON: it computes patches manually
 from protected reads, source text, diagnostics, and `diff_view_nodes`. Only the
 state storage moves to `ffi/host`; the patch algorithm stays in
-`ffi/markdown`. This protects the Markdown-specific empty paragraph sentinel
+`modules/canopy/ffi/markdown`. This protects the Markdown-specific empty paragraph sentinel
 and diagnostic behavior from being pulled into a generic host API.
 
 Rewrite `ffi/markdown/lifecycle_phase1_wbtest.mbt` cleanup and direct
@@ -324,7 +324,7 @@ measurements from `cd apps/web && npm run build`.
 
 - `ffi/host` exists as an internal shared dependency with no language imports
   and no JS exports.
-- `ffi/json`, `ffi/markdown`, and `ffi/lambda` remain separate MoonBit link
+- `modules/canopy/ffi/json`, `modules/canopy/ffi/markdown`, and `ffi/lambda` remain separate MoonBit link
   roots with unchanged JS export surfaces.
 - Ordinary handle maps, ordinary view-state maps, and coordinator destroy
   gateway behavior are shared through `ffi/host`.

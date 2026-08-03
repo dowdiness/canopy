@@ -73,7 +73,7 @@ jobs:
               - '.github/workflows/ci.yml'
             run_loomark_dev_host_e2e:
               - 'apps/loomark/**'
-              - 'editor/markdown/**'
+              - 'modules/canopy/editor/markdown/**'
               - 'modules/dom-boundary/**'
               - 'modules/js-ffi/**'
               - 'rabbita/**'

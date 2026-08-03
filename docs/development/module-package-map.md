@@ -96,8 +96,8 @@ read each listed module manifest for its canonical module name.
 
 All tracked Canopy-owned module manifests use `moon.mod`. Canvas is the
 nested-workspace case: its `moon.mod` works with the local members in
-`apps/canvas/moon.work`, while the root module uses the root `moon.mod` and
-`moon.work`. Vendored submodules and dependency-cache artifacts retain the
+`apps/canvas/moon.work`, while the primary module uses
+`modules/canopy/moon.mod` and root `moon.work`. Vendored submodules and dependency-cache artifacts retain the
 manifest formats owned by their respective projects.
 
 ## Git submodules

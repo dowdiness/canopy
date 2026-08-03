@@ -2,13 +2,13 @@
   "_doc": [
     "Declared FFI export manifest for the lambda app seam (S4 PR2, parallel-run).",
     "During parallel-run the hand-maintained files remain authoritative:",
-    "ffi/lambda/moon.pkg (JS export array) and apps/ideal/main/crdt_reexport.mbt",
+    "modules/canopy/ffi/lambda/moon.pkg (JS export array) and apps/ideal/main/crdt_reexport.mbt",
     "plus apps/ideal/main/moon.pkg. This manifest declares the expected seam;",
     "scripts/check-export-manifest.mjs reports symbol-level discrepancies.",
     "Not code-generated. Edit by hand alongside any export-surface change."
   ],
   "app": "lambda",
-  "ffi_package": "ffi/lambda/moon.pkg",
+  "ffi_package": "modules/canopy/ffi/lambda/moon.pkg",
   "app_package": "apps/ideal/main/moon.pkg",
   "wrapper_file": "apps/ideal/main/crdt_reexport.mbt",
   "ffi_exports": [

@@ -74,8 +74,8 @@ there is no network or Gemini dependency.
 
 ## Verification record
 
-- [x] `NEW_MOON_MOD=0 moon check ffi/jsx`
-- [x] `NEW_MOON_MOD=0 moon test ffi/jsx --target js` — 52/52
+- [x] `NEW_MOON_MOD=0 moon check modules/canopy/ffi/jsx`
+- [x] `NEW_MOON_MOD=0 moon test modules/canopy/ffi/jsx --target js` — 52/52
 - [x] `npx tsc --noEmit -p tsconfig.json` in `apps/web`
 - [x] Playwright focused async/session scenarios — 7/7
 - [x] Playwright complete GenUI suite — 21/21

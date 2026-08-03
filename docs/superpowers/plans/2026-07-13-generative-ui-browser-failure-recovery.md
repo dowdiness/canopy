@@ -108,7 +108,7 @@ Expected: invalid/stale/apply-failure/recovery/determinism tests pass.
 
 ## Verification record
 
-- `NEW_MOON_MOD=0 moon check modules/cognition ffi/jsx lang/jsx/proj` passed.
+- `NEW_MOON_MOD=0 moon check modules/cognition modules/canopy/ffi/jsx modules/canopy/lang/jsx/proj` passed.
 - Focused MoonBit tests passed: cognition `120/120`, ffi/jsx `52/52`, and
   lang/jsx/proj `43/43`.
 - Scoped `moon fmt` and `moon info` passed with no generated interface drift.

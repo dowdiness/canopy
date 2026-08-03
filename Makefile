@@ -12,26 +12,26 @@ check-agent-doc-links: ## Verify CLAUDE.md is a symlink to AGENTS.md
 	@bash ./scripts/check-agent-doc-links.sh
 
 test: ## Run tests for main module
-	@./scripts/run-moon-module.sh test .
+	@./scripts/run-moon-module.sh test modules/canopy
 
 test-all: ## Run tests for all modules (including submodules)
 	@./scripts/test-all.sh
 
 check: ## Run moon check for main module
 	@bash ./scripts/check-agent-doc-links.sh
-	@./scripts/run-moon-module.sh check .
+	@./scripts/run-moon-module.sh check modules/canopy
 
 check-all: ## Run moon check and fmt for all modules
 	@bash ./scripts/check-agent-doc-links.sh
 	@./scripts/check-all.sh
 
 fmt: ## Format code with moon fmt
-	moon fmt
-	moon info
+	cd modules/canopy && moon fmt
+	cd modules/canopy && moon info
 
 fmt-check: ## Check formatting for the main module without keeping changes
 	@bash ./scripts/check-agent-doc-links.sh
-	@./scripts/run-moon-module.sh fmt-check .
+	@./scripts/run-moon-module.sh fmt-check modules/canopy
 
 build: ## Build main module (default target)
 	moon build --release
