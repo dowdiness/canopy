@@ -2,11 +2,11 @@
 # Scope-aware dependency-rule checker.
 #
 # Module-scope rules (see docs/plans/2026-04-22-moonbit-workspace-reorganization.md):
-#   [A] lib/*         must not import dowdiness/canopy/*
-#   [B] lib/*         must not import example modules
-#   [C] submodule/*   must not import dowdiness/canopy/*
-#   [D] submodule/*   must not import example modules
-#   [E] submodule/*   must not path-dep into dowdiness/canopy (moon.mod.json or moon.mod)
+#   [A] reusable modules must not import dowdiness/canopy/*
+#   [B] reusable modules must not import example modules
+#   [C] submodule/*    must not import dowdiness/canopy/*
+#   [D] submodule/*    must not import example modules
+#   [E] submodule/*    must not path-dep into dowdiness/canopy (moon.mod.json or moon.mod)
 #
 # Package-level layering rules inside the dowdiness/canopy module (see
 # docs/plans/2026-06-11-architecture-redesign-proposal.md, "Dependency and
@@ -170,9 +170,9 @@ def classify(rel_path):
     for sm in submodule_paths:
         if rel == sm or rel.startswith(sm + "/"):
             return "submodule"
-    if rel.startswith("lib/"):
+    if rel.startswith("lib/") or rel.startswith("modules/"):
         return "lib"
-    if rel.startswith("examples/"):
+    if rel.startswith("examples/") or rel.startswith("apps/"):
         return "example"
     if rel == ".":
         return "canopy"
