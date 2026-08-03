@@ -1,7 +1,7 @@
 import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test"
 
 /**
- * #1074 behavioral boundary matrix (each row gets a fresh BrowserContext,
+ * #1075 behavioral boundary matrix (each row gets a fresh BrowserContext,
  * page, and connected mount container; no case clears/reuses/remounts it):
  *
  * | syntax/operation | source shape | result |
@@ -9,6 +9,7 @@ import { expect, test, type Browser, type BrowserContext, type Page } from "@pla
  * | exact text / split / merge | supported top-level blocks | atomic commit + deterministic focus/selection |
  * | projection | full/incremental/fresh | payload, SourceMap ranges, and identity stay attached |
  * | unsupported containers | quote/thematic/list | reject atomically; neighbors/ranges/focus unchanged |
+ * | tight list / fenced code | unordered, ordered `)`, tilde fence, mixed CRLF | typed payload controls preserve markers, delimiters, and line endings |
  * | Raw <-> Block <-> Preview | new/same source | one canonical source, no marker leakage |
  * | ownership | fresh page/container | termination only; no cleanup claim |
  */
@@ -225,6 +226,41 @@ test("Block mode edits a paragraph payload while preserving CRLF source", async 
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("Changed\r\n")
     await selectPreview(host.page)
     await expect(host.page.locator("#loomark-preview")).toHaveText("Changed\r\n")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Block mode edits ordered/unordered lists and fenced code in one mixed document", async ({ browser }) => {
+  const source = "- one\r\n\r\n7) two\r\n~~~moonbit\r\nold\r\n~~~\r\n"
+  const host = await mountHost(browser, source)
+  try {
+    await selectBlock(host.page)
+    await expect(host.page.locator('[data-loomark-block-kind="unordered-list-item"]')).toHaveCount(1)
+    await expect(host.page.locator('[data-loomark-block-kind="ordered-list-item"]')).toHaveCount(1)
+    await expect(host.page.locator('[data-loomark-block-kind="code"]')).toHaveCount(1)
+    await expect(host.page.locator('[data-loomark-block-kind="unordered-list-item"]')).toHaveValue("one")
+    await expect(host.page.locator('[data-loomark-block-kind="ordered-list-item"]')).toHaveValue("two")
+    await expect(host.page.locator('[data-loomark-block-kind="code"]')).toHaveValue("old")
+
+    await host.page.locator('[data-loomark-block-kind="unordered-list-item"]').fill("ONE")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe(
+      "- ONE\r\n\r\n7) two\r\n~~~moonbit\r\nold\r\n~~~\r\n",
+    )
+    await host.page.locator('[data-loomark-block-kind="ordered-list-item"]').fill("TWO")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe(
+      "- ONE\r\n\r\n7) TWO\r\n~~~moonbit\r\nold\r\n~~~\r\n",
+    )
+    await host.page.locator('[data-loomark-block-kind="code"]').fill("new")
+    const committed = "- ONE\r\n\r\n7) TWO\r\n~~~moonbit\r\nnew\r\n~~~\r\n"
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe(committed)
+
+    await selectRaw(host.page)
+    await expect(host.page.locator("#loomark-input")).toHaveValue(committed.replaceAll("\r\n", "\n"))
+    await selectPreview(host.page)
+    await expect(host.page.locator("#loomark-preview")).toHaveText(committed)
+    await selectBlock(host.page)
+    await expect(host.page.locator("#loomark-block")).toHaveAttribute("data-loomark-source", committed)
   } finally {
     await host.context.close()
   }
@@ -501,14 +537,14 @@ test("Block focus targets the typed first block and rejects stale mode restores"
 })
 
 test("Block mode omits unsupported containers without shifting direct block neighbors", async ({ browser }) => {
-  const host = await mountHost(browser, "- listed\n\n> quoted\n\n---\n\n# Direct\n")
+  const host = await mountHost(browser, "- listed\n  - nested\n\n> quoted\n\n---\n\n# Direct\n")
   try {
     await selectBlock(host.page)
     await expect(host.page.locator("[data-loomark-block-kind]")).toHaveCount(1)
     await expect(host.page.locator("#loomark-block-input")).toHaveValue("Direct")
     await expect(host.page.locator("#loomark-block")).toHaveAttribute(
       "data-loomark-source",
-      "- listed\n\n> quoted\n\n---\n\n# Direct\n",
+      "- listed\n  - nested\n\n> quoted\n\n---\n\n# Direct\n",
     )
   } finally {
     await host.context.close()

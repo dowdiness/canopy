@@ -89,6 +89,50 @@ test "commit_edit: change paragraph text" {
 }
 
 ///|
+test "commit_edit: list payloads and fenced code retain source delimiters" {
+  let source = "- old\r\n\r\n7) next\r\n\r\n~~~js\r\ncode\r\n~~~\r\n"
+  let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)
+  let unordered = proj.children[0].children[0].id()
+  let ordered = proj.children[1].children[0].id()
+  let code = proj.children[2].id()
+
+  assert_eq(
+    apply_edit(source, CommitEdit(node_id=unordered, new_text="OLD")),
+    "- OLD\r\n\r\n7) next\r\n\r\n~~~js\r\ncode\r\n~~~\r\n",
+  )
+  assert_eq(
+    apply_edit(source, CommitEdit(node_id=ordered, new_text="NEXT")),
+    "- old\r\n\r\n7) NEXT\r\n\r\n~~~js\r\ncode\r\n~~~\r\n",
+  )
+  assert_eq(
+    apply_edit(source, CommitEdit(node_id=code, new_text="new")),
+    "- old\r\n\r\n7) next\r\n\r\n~~~js\r\nnew\r\n~~~\r\n",
+  )
+}
+
+///|
+test "commit_edit: empty fenced payload newlines keep a separate fence boundary" {
+  let cases : Array[(String, String, String)] = [
+    ("~~~\n~~~\n", "x\n", "~~~\nx\n\n~~~\n"),
+    ("~~~\r\n~~~\r\n", "x\r\n", "~~~\r\nx\r\n\r\n~~~\r\n"),
+    ("~~~\r~~~\r", "x\r", "~~~\rx\r\r~~~\r"),
+  ]
+  for case in cases {
+    let (proj, _) = @md_proj.parse_to_proj_node(
+      markdown_edit_test_source,
+      case.0,
+    )
+    assert_eq(
+      apply_edit(
+        case.0,
+        CommitEdit(node_id=proj.children[0].id(), new_text=case.1),
+      ),
+      case.2,
+    )
+  }
+}
+
+///|
 test "commit_edit: unsupported block quote is rejected atomically" {
   let source = "> quoted\n\n# Heading\n"
   let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source)

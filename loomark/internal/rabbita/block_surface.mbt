@@ -20,6 +20,9 @@ fn block_kind_name(kind : @markdown.MarkdownBlockKind) -> String {
   match kind {
     @markdown.Paragraph => "paragraph"
     @markdown.Heading(_) => "heading"
+    @markdown.UnorderedListItem => "unordered-list-item"
+    @markdown.OrderedListItem(..) => "ordered-list-item"
+    @markdown.CodeBlock(_) => "code"
   }
 }
 
@@ -82,17 +85,23 @@ fn block_input(
     on_input=@cmd.Emit(text => block_input_command(block, input_id, text, emit)),
     "",
   )
-  let split = @html.button(
-    attrs=@html.Attrs::build().data_set("loomark-block-split", block.key()),
-    on_click=block_split_command(block, input_id, emit),
-    "Split",
-  )
-  let merge = @html.button(
-    attrs=@html.Attrs::build().data_set("loomark-block-merge", block.key()),
-    on_click=emit(BlockMerge(node_id=block.node_id())),
-    "Merge",
-  )
-  @html.div([input, split, merge])
+  let structure_controls = match block.kind() {
+    @markdown.Paragraph | @markdown.Heading(_) => {
+      let split = @html.button(
+        attrs=@html.Attrs::build().data_set("loomark-block-split", block.key()),
+        on_click=block_split_command(block, input_id, emit),
+        "Split",
+      )
+      let merge = @html.button(
+        attrs=@html.Attrs::build().data_set("loomark-block-merge", block.key()),
+        on_click=emit(BlockMerge(node_id=block.node_id())),
+        "Merge",
+      )
+      [split, merge]
+    }
+    _ => []
+  }
+  @html.div([input, ..structure_controls])
 }
 
 ///|

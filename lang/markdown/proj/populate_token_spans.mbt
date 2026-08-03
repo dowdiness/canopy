@@ -162,13 +162,19 @@ fn populate_block(
       // Full inline content after this item's own marker. Compare marker
       // positions so a nested sublist marker never wins over the outer item
       // marker when both token kinds are present in the item CST.
-      set_content_span(
-        source_map,
-        syntax_node,
-        id,
-        "text",
-        list_item_marker_kind(syntax_node),
-      )
+      match list_item_marker_kind(syntax_node) {
+        Some(marker_kind) => {
+          set_token_span(source_map, syntax_node, id, "marker", marker_kind)
+          set_content_span(
+            source_map,
+            syntax_node,
+            id,
+            "text",
+            Some(marker_kind),
+          )
+        }
+        None => ()
+      }
     UnorderedList(_) | OrderedList(_, _) => {
       let syntax_children = collect_syntax_children(
         syntax_node,
@@ -187,10 +193,9 @@ fn populate_block(
         "fence_open",
         CodeFenceOpenToken,
       )
-      // Code content between fences, excluding the mandatory newlines
-      // after the opening fence and before the closing fence.
-      // set_content_span can't handle this because find_token returns
-      // the first NewlineToken (after fence open), not the last one.
+      // Code content between fences, excluding the exact line terminators
+      // after the opening fence and before the closing fence. Newline tokens
+      // carry one- or two-code-unit spans, so CR/LF/CRLF are preserved.
       let fence_open_end = match
         syntax_node.find_token(
           @markdown.SyntaxKind::CodeFenceOpenToken.to_raw(),
@@ -205,12 +210,27 @@ fn populate_block(
         Some(tok) => tok.start()
         None => syntax_node.end()
       }
-      // Skip newline after opening fence, skip newline before closing fence
-      let code_start = fence_open_end + 1
-      let code_end = if fence_close_start > code_start && fence_close_start > 0 {
-        fence_close_start - 1
-      } else {
-        fence_close_start
+      let mut opening_newline : @seam.SyntaxToken? = None
+      for
+        newline in syntax_node.tokens_of_kind(
+          @markdown.SyntaxKind::NewlineToken.to_raw(),
+        ) {
+        if opening_newline is None && newline.start() >= fence_open_end {
+          opening_newline = Some(newline)
+        }
+      }
+      let code_start = match opening_newline {
+        Some(newline) => newline.end()
+        None => fence_open_end
+      }
+      let mut code_end = fence_close_start
+      for
+        newline in syntax_node.tokens_of_kind(
+          @markdown.SyntaxKind::NewlineToken.to_raw(),
+        ) {
+        if newline.start() >= code_start && newline.end() <= fence_close_start {
+          code_end = newline.start()
+        }
       }
       if code_start <= code_end {
         source_map.set_token_span(

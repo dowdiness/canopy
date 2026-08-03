@@ -9,7 +9,7 @@ pub fn compute_markdown_edit(
 ) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
   match op {
     CommitEdit(node_id~, new_text~) =>
-      compute_commit_edit(source_map, node_id, new_text)
+      compute_commit_edit(source, source_map, node_id, new_text)
     ChangeHeadingLevel(node_id~, level~) =>
       compute_change_heading_level(source, proj, source_map, node_id, level)
     ToggleListItem(node_id~) =>
@@ -31,22 +31,28 @@ pub fn compute_markdown_edit(
 ///|
 /// Replace the editable "text" span of a block with new content.
 fn compute_commit_edit(
+  source : String,
   source_map : SourceMap,
   node_id : NodeId,
   new_text : String,
 ) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
   ensure_editable_target(source_map, node_id)
-  // Try "text" role first, fall back to "code" for code blocks
-  let range = match source_map.get_token_span(node_id, "text") {
-    Some(r) => r
+  // Try "text" role first, fall back to "code" for code blocks.
+  let (range, is_code) = match source_map.get_token_span(node_id, "text") {
+    Some(r) => (r, false)
     None =>
       match source_map.get_token_span(node_id, "code") {
-        Some(r) => r
+        Some(r) => (r, true)
         None =>
           raise @core.EditError::SourceSpanMissing(
             detail="no editable span for node " + node_id.to_string(),
           )
       }
+  }
+  let inserted = if is_code {
+    code_payload_for_commit(source, range.start, range.end, new_text)
+  } else {
+    new_text
   }
   Some(
     (
@@ -54,12 +60,35 @@ fn compute_commit_edit(
         SpanEdit::{
           start: range.start,
           delete_len: range.end - range.start,
-          inserted: new_text,
+          inserted,
         },
       ],
-      FocusHint::MoveCursor(position=range.start + new_text.length()),
+      FocusHint::MoveCursor(position=range.start + inserted.length()),
     ),
   )
+}
+
+///|
+/// Add the opening fence's line terminator when filling an empty code span.
+fn code_payload_for_commit(
+  source : String,
+  range_start : Int,
+  range_end : Int,
+  new_text : String,
+) -> String {
+  if range_start != range_end || new_text.is_empty() || range_start == 0 {
+    return new_text
+  }
+  let terminator = if range_start >= 2 &&
+    source[range_start - 2] == '\r' &&
+    source[range_start - 1] == '\n' {
+    "\r\n"
+  } else if source[range_start - 1] == '\r' {
+    "\r"
+  } else {
+    "\n"
+  }
+  new_text + terminator
 }
 
 ///|
