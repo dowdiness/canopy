@@ -12,8 +12,13 @@ ARTIFACT="$SOURCE/js/release/build/dowdiness/canopy-canvas/main/main.js"
   echo "Missing Canvas artifact: $ARTIFACT" >&2
   exit 1
 }
-# `_build` is ignored generated output; replacing a real directory is safe.
+# `_build` is ignored generated output; only replace it when Git confirms that
+# the exact destination is disposable.
 if [ -e "$DEST" ] && [ ! -L "$DEST" ]; then
+  git -C "$PROJECT_ROOT" check-ignore -q "$DEST" || {
+    echo "Refusing to replace non-ignored directory: $DEST" >&2
+    exit 1
+  }
   rm -rf "$DEST"
 fi
 ln -sfnT "$SOURCE" "$DEST"
