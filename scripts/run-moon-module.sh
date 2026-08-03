@@ -36,10 +36,10 @@ DENY_WARN_FLAGS=(--deny-warn)
 # Vendored submodules built standalone still use deprecated `try?` ([0020])
 # and MoonBit 0.10.4's [0082]/[0083] diagnostics; Canopy does not own their
 # source. Keep Canopy-owned example modules on the narrower [0020] exemption.
-module_root="${MODULE_DIR%%/*}"
 is_vendored_module=0
 for vendored_dir in $VENDORED_DIRS; do
-    if [ "$module_root" = "$vendored_dir" ]; then
+    if [ "$MODULE_DIR" = "$vendored_dir" ] ||
+       [[ "$MODULE_DIR" == "$vendored_dir/"* ]]; then
         is_vendored_module=1
         break
     fi

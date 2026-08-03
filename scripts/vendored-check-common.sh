@@ -68,7 +68,6 @@ run_moon_check_with_vendored_filter() {
         if [[ "$path" == "$repo_root/"* ]]; then
             relative_path="${path#"$repo_root"/}"
         fi
-        local repo_dir="${relative_path%%/*}"
         local is_vendored=0
         if [ -n "$keep_dir" ] &&
            { [ "$relative_path" = "$keep_dir" ] ||
@@ -77,7 +76,9 @@ run_moon_check_with_vendored_filter() {
             is_vendored=0
         else
             for dir in $VENDORED_DIRS; do
-                if [ -n "$repo_dir" ] && [ "$repo_dir" = "$dir" ]; then
+                if [ -n "$relative_path" ] &&
+                   { [ "$relative_path" = "$dir" ] ||
+                     [[ "$relative_path" == "$dir/"* ]]; }; then
                     is_vendored=1
                     break
                 fi

@@ -55,8 +55,8 @@ _build/js/release/build/dowdiness/canopy/ffi/json/moonbit.d.ts
 _build/js/release/build/dowdiness/canopy/ffi/markdown/markdown.js
 _build/js/release/build/dowdiness/canopy/ffi/markdown/markdown.d.ts
 _build/js/release/build/dowdiness/canopy/ffi/markdown/moonbit.d.ts
-deps/graphviz/_build/js/release/build/browser/browser.js
-deps/graphviz/_build/js/release/build/browser/browser.d.ts
+_build/js/release/build/dowdiness/graphviz/browser/browser.js
+_build/js/release/build/dowdiness/graphviz/browser/browser.d.ts
 ```
 
 Retention: default for the workflow (7 days at time of writing — check
@@ -135,7 +135,7 @@ candidate result and run the ordered local gate on that clean HEAD:
 
 ```sh
 git fetch origin main
-./scripts/validate-pr-ready.sh --target lang/markdown/proj --target lang/markdown/edits
+./scripts/validate-pr-ready.sh --target modules/canopy/lang/markdown/proj --target modules/canopy/lang/markdown/edits
 git fetch origin main
 ./scripts/validate-pr-ready.sh --verify-evidence
 ```
