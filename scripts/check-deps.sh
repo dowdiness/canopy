@@ -173,9 +173,9 @@ def classify(rel_path):
     for sm in submodule_paths:
         if rel == sm or rel.startswith(sm + "/"):
             return "submodule"
-    if rel in (".", CANOPY_MODULE_ROOT):
+    if rel == CANOPY_MODULE_ROOT:
         return "canopy"
-    if rel.startswith("lib/") or rel.startswith("modules/"):
+    if rel.startswith("modules/"):
         return "lib"
     if rel.startswith("examples/") or rel.startswith("apps/"):
         return "example"

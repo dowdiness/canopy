@@ -1,26 +1,44 @@
 # Monorepo & Git Submodule Guide
 
-Canopy combines a primary MoonBit module, in-tree workspace modules, nested
-workspaces, and independent libraries recorded as Git submodules. The primary
-module (`dowdiness/canopy`) declares versioned imports in `moon.mod`; its nearest
-`moon.work` resolves local members.
+Canopy combines a primary MoonBit module at `modules/canopy/`, in-tree reusable
+modules under `modules/`, nested workspaces, and independent libraries recorded
+as Git submodules under `deps/`. The primary module (`dowdiness/canopy`)
+declares versioned imports in `modules/canopy/moon.mod`; the root `moon.work`
+resolves local members.
 
 ## Layout
 
 ```
-canopy/                          dowdiness/canopy (root MoonBit module)
-├── core/  editor/  protocol/    monorepo packages (see docs/architecture.md)
-├── projection/  relay/  ffi/
-├── lang/{lambda,json,markdown}/
-├── llm/  echo/  cmd/main/       monorepo packages
-├── modules/btree/               workspace member, in-tree library
-├── modules/zipper/              workspace member, in-tree library
-├── modules/semantic/                workspace member, in-tree library
-├── adapters/editor/             in-tree TypeScript adapter package
-├── examples/                    in-tree example apps (web, ideal, …)
-│   └── canvas/                  standalone MoonBit module with nested workspace
-│
-└── <Git submodules>/           independent repositories; see .gitmodules
+canopy/
+├── modules/
+│   ├── canopy/                   dowdiness/canopy (primary MoonBit module)
+│   │   ├── core/  editor/  protocol/  projection/
+│   │   ├── lang/{lambda,json,markdown}/
+│   │   ├── ffi/  relay/  llm/  echo/  cmd/main/
+│   │   └── ...                     see package-overview.sh
+│   ├── btree/  zipper/  semantic/   reusable Canopy-owned modules
+│   ├── analysis/  cognition/  js-ffi/  dom-boundary/  ...
+│   └── rabbita_codemirror/  rabbita-menu/  ...
+├── apps/
+│   ├── web/                      Waku Worker web demo (TypeScript)
+│   ├── ideal/                    MoonBit module + browser E2E
+│   ├── canvas/                   nested workspace (moon.mod + moon.work)
+│   ├── block-editor/             MoonBit module
+│   ├── loomark/                  MoonBit module
+│   └── relay-server/             Cloudflare Workers relay (TypeScript)
+├── examples/                     removable learning/integration examples
+│   ├── codemirror/  resizable/  disclosure/   MoonBit workspace members
+│   └── prosemirror/  demo-react/              TypeScript/browser
+├── adapters/
+│   └── editor/                   TypeScript adapter package
+├── deps/                         Git submodules (separate repositories)
+│   ├── event-graph-walker/  loom/  rabbita/
+│   ├── svg-dsl/  graphviz/  order-tree/  alga/
+│   └── ...                     see .gitmodules
+├── rules/                        policy definitions
+├── scripts/                      operations and tooling
+├── moon.work                     root workspace membership
+└── .gitmodules                   submodule ownership
 ```
 
 ## Live topology
@@ -34,27 +52,27 @@ Generate the current repository views from their authoritative manifests:
 
 The output distinguishes:
 
-- packages owned by the primary `dowdiness/canopy` module,
+- packages owned by the primary `dowdiness/canopy` module (at `modules/canopy/`),
 - modules covered by repository-root workspace commands,
-- repositories owned through `.gitmodules`.
+- repositories owned through `.gitmodules` (under `deps/`).
 
-The last two sets may overlap: a Git submodule can also be a root-workspace
-member. Root `moon test`, `moon check`, and `moon fmt` follow `moon.work`, not
-repository ownership.
+The last two sets may overlap: a Git submodule under `deps/` can also be a
+root-workspace member. Root `moon test`, `moon check`, and `moon fmt` follow
+`moon.work`, not repository ownership.
 
 Canvas is intentionally outside the root workspace. Its standalone module and
 local dependency modules are listed in `apps/canvas/moon.work`; run Canvas
-commands from `apps/canvas` (or use `scripts/run-moon-module.sh`) so that
-the nested workspace is selected.
+commands with `moon -C apps/canvas ...` so that the nested workspace is
+selected.
 
 ## Module and workspace resolution
 
 Each module declares its versioned imports in `moon.mod`. The nearest
 `moon.work` resolves imports to local workspace members, so the primary module's
-authoritative pair is `modules/canopy/moon.mod` and root `moon.work`. Canvas is intentionally
-isolated: `apps/canvas/moon.mod` and `apps/canvas/moon.work` form its
-nested module/workspace pair. Vendored submodules retain their own manifests and
-workspace boundaries.
+authoritative pair is `modules/canopy/moon.mod` and root `moon.work`. Canvas is
+intentionally isolated: `apps/canvas/moon.mod` and `apps/canvas/moon.work`
+form its nested module/workspace pair. Vendored submodules under `deps/` retain
+their own manifests and workspace boundaries.
 
 ## Setup
 
@@ -70,13 +88,31 @@ git submodule update --init --recursive
 
 ## Daily workflow
 
-### Working on a monorepo package
+### Working on the primary module
 
-No submodule awareness required:
+The primary module lives at `modules/canopy/`. Workspace-root commands cover it
+along with all other root-workspace members:
 
 ```sh
 moon check
 moon test
+```
+
+To target only the primary module:
+
+```sh
+moon -C modules/canopy check
+moon -C modules/canopy test
+```
+
+### Working on a reusable module
+
+Other `modules/*` members (btree, zipper, semantic, etc.) are also covered by
+root workspace commands. To target a specific module:
+
+```sh
+moon -C modules/btree test
+moon -C modules/semantic check
 ```
 
 ### Working on the Canvas module
@@ -84,27 +120,26 @@ moon test
 Canvas has its own nested workspace and should be checked from its module root:
 
 ```sh
-cd apps/canvas
-NEW_MOON_MOD=0 moon check main --target js
-NEW_MOON_MOD=0 moon test main --target js --release
+moon -C apps/canvas check --target js
+moon -C apps/canvas test --target js --release
 ```
 
 ### Editing a submodule
 
-Each submodule is its own repository. Changes inside a submodule are committed
-to *that* repo; the parent repo records the new submodule commit hash. You
-always make two commits.
+Each submodule under `deps/` is its own repository. Changes inside a submodule
+are committed to *that* repo; the parent repo records the new submodule commit
+hash. You always make two commits.
 
 ```sh
-cd event-graph-walker
+cd deps/event-graph-walker
 git checkout main                  # avoid editing on detached HEAD
 # … edit, moon check, moon test …
 git add -A
 git commit -m "feat: …"
 git push origin main               # always via PR if the submodule has one
 
-cd ..
-git add event-graph-walker          # records the new commit pointer
+cd ../..
+git add deps/event-graph-walker     # records the new commit pointer
 git commit -m "chore: update event-graph-walker submodule"
 ```
 
@@ -155,8 +190,9 @@ live pins and working-tree state. Do not copy the inventory into this guide.
 
 ## Why submodules
 
-1. **Reusability** — `event-graph-walker`, `loom`, and `rle` are usable from
-   other MoonBit projects without pulling in the editor.
+1. **Reusability** — `deps/event-graph-walker`, `deps/loom`, and similar
+   libraries are usable from other MoonBit projects without pulling in the
+   editor.
 2. **Independent versioning** — each library releases on its own cadence.
 3. **Focused testing** — each library owns its CI and benchmarks.
 4. **Clear ownership boundaries** — debt routing (below) is enforced by the
@@ -172,17 +208,18 @@ live pins and working-tree state. Do not copy the inventory into this guide.
 - **Stale submodule after `git pull`.** If `moon check` fails with missing
   packages, run `git submodule update --init --recursive`.
 - **`git status` from the root only shows pointer changes.** Use
-  `cd <submodule> && git status` to see file-level changes.
+  `cd deps/<name> && git status` to see file-level changes.
 
 ## Debt routing
 
-When a problem appears in a root package, do not assume the fix belongs there.
+When a problem appears in a primary-module package, do not assume the fix
+belongs there.
 
-- Missing text-edit primitives belong in `event-graph-walker/`.
-- Parser or edit-semantics belong in `loom/`.
-- Pretty-printer changes belong in `loom/pretty/`.
-- Run-length encoding belongs in `rle/`.
-- Root-module helpers exist only when multiple root packages need them.
-- Submodules never grow upward dependencies on the root.
+- Missing text-edit primitives belong in `deps/event-graph-walker/`.
+- Parser or edit-semantics belong in `deps/loom/`.
+- Pretty-printer changes belong in `deps/loom/pretty/`.
+- Primary-module helpers exist only when multiple primary packages need them.
+- Submodules under `deps/` never grow upward dependencies on the primary
+  module.
 
 See [Paying Technical Debt](technical-debt.md) for the full strategy.

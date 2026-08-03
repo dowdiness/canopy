@@ -1,14 +1,27 @@
 # Module, Package, Workspace, and Submodule Map
 
-Canopy has four overlapping shapes that are easy to confuse:
+Canopy's repository is organised into seven zones. Four overlapping identity
+systems are easy to confuse:
 
-1. **MoonBit packages inside the root module** (`dowdiness/canopy`).
-2. **Standalone workspace modules** listed by `moon.work`.
-3. **Git submodules** that are separate repositories.
-4. **Examples**, split between MoonBit modules and TypeScript/browser apps.
+1. **MoonBit modules** under `modules/`, each with its own `moon.mod`.
+2. **Packages** inside a module, defined by `moon.pkg` files.
+3. **Workspace membership** declared by `moon.work`.
+4. **Git submodule ownership** declared by `.gitmodules`.
 
 Use this page to decide which manifest owns a directory, which commands cover
 it, and whether edits belong in this repository or in a submodule repository.
+
+## Zone overview
+
+| Zone | Path | Purpose |
+|------|------|---------|
+| Modules | `modules/` | Reusable, publishable MoonBit modules; includes the primary `modules/canopy` (`dowdiness/canopy`) |
+| Applications | `apps/` | Runnable or deployable vertical slices |
+| Examples | `examples/` | Removable learning and integration examples |
+| Adapters | `adapters/` | Non-MoonBit runtime and interface adapters |
+| Dependencies | `deps/` | Separately owned Git submodules |
+| Rules | `rules/` | Policy definitions |
+| Scripts | `scripts/` | Operations and tooling |
 
 ## Manifest formats
 
@@ -18,7 +31,7 @@ use `moon.mod`. Vendored submodules and dependency caches keep whatever manifest
 format their owning repositories use.
 
 Module-local dependencies use versioned imports in `moon.mod` and are resolved
-through the nearest `moon.work`. The Canvas example is a nested workspace:
+through the nearest `moon.work`. The Canvas app is a nested workspace:
 `apps/canvas/moon.mod` and `apps/canvas/moon.work` resolve its local
 members independently of the root `moon.work`.
 
@@ -46,48 +59,32 @@ The command derives three independent views:
   questions.
 
 The script locates the primary module by its unique name,
-`dowdiness/canopy`, rather than assuming that its manifest remains at the
-repository root. It fails when that name is missing or ambiguous.
+`dowdiness/canopy`, which lives at `modules/canopy/moon.mod`. It fails when
+that name is missing or ambiguous.
 
 Nested workspaces such as `apps/canvas/moon.work` are intentionally outside
 the root-workspace section. Read their own manifest and workspace file when
 working in those directories.
 
-## Primary `dowdiness/canopy` packages
+## Primary `dowdiness/canopy` module
 
-At present the primary module manifest is at the repository root. A tracked
-package belongs to it when the nearest enclosing module manifest names
-`dowdiness/canopy`.
+The primary module manifest is at `modules/canopy/moon.mod`. A tracked package
+belongs to it when the nearest enclosing module manifest names
+`dowdiness/canopy`. Package directories live under `modules/canopy/`
+(e.g. `modules/canopy/core/`, `modules/canopy/editor/`,
+`modules/canopy/protocol/`).
 
-Important root-module package groups include:
+Use `./scripts/package-overview.sh` for the complete current package list.
+A root package may live more than one directory deep; for example
+`modules/canopy/lang/lambda/companion/` imports as
+`dowdiness/canopy/lang/lambda/companion`.
 
-| Directory | Import-path shape | Role |
-| --- | --- | --- |
-| `core/` | `dowdiness/canopy/core` | Language-agnostic projection primitives. |
-| `editor/` | `dowdiness/canopy/editor` | Generic editor facade and sync integration. |
-| `projection/` | `dowdiness/canopy/projection` | Interactive projection/tree UI state. |
-| `protocol/`, `protocol/wire/` | `dowdiness/canopy/protocol[/wire]` | User-intent and wire protocol types. |
-| `lang/{json,lambda,markdown}/...` | `dowdiness/canopy/lang/...` | Language-specific projection, edit, companion, and semantic packages. |
-| `ffi/{host,io,json,lambda,markdown}/` | `dowdiness/canopy/ffi/...` | JS/host-facing FFI surfaces. |
-| `transport_ws/`, `sync_session/`, `ephemeral/` | `dowdiness/canopy/...` | Collaboration transport/session and ephemeral state. |
-| `workspace/{coordinator,probe}/` | `dowdiness/canopy/workspace/...` | Multi-editor workspace coordination and probes. |
-| `analysis_bridge/` | `dowdiness/canopy/analysis_bridge` | Bridge from analysis facts to Canopy decorations and match lists. |
-| `codex/`, `llm/`, `echo/`, `relay/`, `cmd/main/` | `dowdiness/canopy/...` | Tooling, experiments, relay, and executable packages. |
+## Canopy-owned reusable modules
 
-A root package may live more than one directory deep. For example
-`lang/lambda/companion/` imports as `dowdiness/canopy/lang/lambda/companion`.
-
-## Standalone modules
-
-Canopy-owned standalone modules currently live mainly under `lib/`; examples
-and tools may also own module manifests. Their import paths come from their own
-`moon.mod`, not from their repository directory. Representative groups:
-
-| Directory family | Examples | Placement meaning |
-| --- | --- | --- |
-| `lib/` | `analysis`, `btree`, `semantic`, `zipper` | Reusable modules with independent package and publication ownership. |
-| `examples/` | `ideal`, `block-editor`, `codemirror_demo` | Runnable or learning surfaces with their own module lifecycle. |
-| `apps/loomark/` | `loomark` | Product/tool module whose ownership does not fit the reusable-library or example categories. |
+Canopy-owned reusable modules live under `modules/` alongside the primary
+module. Each has its own `moon.mod` and independent publication ownership.
+Representative members include `modules/btree/`, `modules/zipper/`,
+`modules/semantic/`, `modules/analysis/`, and `modules/cognition/`.
 
 Use `./scripts/package-overview.sh` for the complete current member list and
 read each listed module manifest for its canonical module name.
@@ -97,14 +94,16 @@ read each listed module manifest for its canonical module name.
 All tracked Canopy-owned module manifests use `moon.mod`. Canvas is the
 nested-workspace case: its `moon.mod` works with the local members in
 `apps/canvas/moon.work`, while the primary module uses
-`modules/canopy/moon.mod` and root `moon.work`. Vendored submodules and dependency-cache artifacts retain the
-manifest formats owned by their respective projects.
+`modules/canopy/moon.mod` and root `moon.work`. Vendored submodules and
+dependency-cache artifacts retain the manifest formats owned by their
+respective projects.
 
 ## Git submodules
 
-`.gitmodules` is authoritative for submodule membership. These directories are
-separate repositories; edit and commit them inside their own repo first, push the
-submodule commit, then update the parent pointer in Canopy.
+`.gitmodules` is authoritative for submodule membership. All submodules live
+under `deps/`. These directories are separate repositories; edit and commit them
+inside their own repo first, push the submodule commit, then update the parent
+pointer in Canopy.
 
 For the current submodule list, use the source file or generated git output
 rather than a copied table:
@@ -118,35 +117,67 @@ Submodule manifests are not Canopy-owned for manifest migrations. Do not convert
 or edit them from the parent repository unless you are intentionally making a
 submodule change in that submodule's own workflow.
 
+## Applications
+
+Apps under `apps/` are runnable or deployable vertical slices. Some have their
+own MoonBit module and workspace:
+
+- `apps/canvas/` owns a nested workspace (`apps/canvas/moon.mod` and
+  `apps/canvas/moon.work`). Run its checks and tests from that directory or
+  with `moon -C apps/canvas ...`.
+- `apps/ideal/`, `apps/block-editor/`, and `apps/loomark/` have their own
+  `moon.mod` and are listed in the root `moon.work`.
+- `apps/web/` and `apps/relay-server/` are TypeScript/Worker projects, not
+  MoonBit modules.
+
 ## Examples
 
-Examples fall into two broad groups:
+Examples under `examples/` fall into two broad groups:
 
 - **MoonBit workspace example modules**: listed in the root `moon.work`, checked
   by root workspace commands, and covered by CI's MoonBit example matrix.
-- **Nested-workspace MoonBit modules**: `apps/canvas/` owns its `moon.mod`
-  and `moon.work`; run its checks and tests from that directory rather than
-  treating it as a root workspace member.
+  Examples include `examples/codemirror/`, `examples/resizable/`, and
+  `examples/disclosure/`.
 - **Frontend/TypeScript/browser examples**: npm/Vite/Playwright projects that
   require built MoonBit JS artifacts before TypeScript typechecks or browser
-  tests run.
+  tests run. Examples include `examples/prosemirror/` and
+  `examples/demo-react/`.
 
 See [`examples/README.md`](../../examples/README.md) for the example-by-example
 classification and commands.
 
 ## Experimental and compatibility surfaces
 
-Some directories are intentionally more experimental or compatibility-oriented
-than the core editor packages:
+Some areas are intentionally more experimental or compatibility-oriented than
+the core editor packages:
 
-- `codex/`, `llm/`, `echo/`, and `relay/` are integration/tooling surfaces rather
-  than core editor data structures.
-- `workspace/probe/` contains probe and regression packages for workspace-level
-  behavior.
+- `modules/canopy/codex/`, `modules/canopy/llm/`, `modules/canopy/echo/`, and
+  `modules/canopy/relay/` are integration/tooling surfaces rather than core
+  editor data structures.
+- `modules/canopy/workspace/probe/` contains probe and regression packages for
+  workspace-level behavior.
 - `examples/*` are allowed to be more application-shaped than reusable library
   modules.
-- `rabbita/` is vendored as a submodule fork; treat its docs and conventions as
-  authoritative for rabbita work.
+- `deps/rabbita/` is vendored as a submodule fork; treat its docs and
+  conventions as authoritative for rabbita work.
 
 When in doubt, prefer the owning module's manifest and `moon.pkg` imports over
 repository layout guesses.
+
+## Command forms
+
+Workspace-root commands (run from the repository root) follow `moon.work`:
+
+```sh
+moon test          # all root-workspace members
+moon check         # all root-workspace members
+moon fmt           # all root-workspace members
+```
+
+Module-local commands target a specific module:
+
+```sh
+moon -C modules/canopy test      # primary module only
+moon -C modules/canopy check     # primary module only
+moon -C apps/canvas check        # Canvas nested workspace
+```

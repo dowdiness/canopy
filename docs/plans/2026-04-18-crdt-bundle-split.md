@@ -332,7 +332,7 @@ Mirror Tasks 1.3 through 1.7 for markdown:
 - `examples/demo-react/` configs + path aliases
 - `release/` packaging scripts
 - `CI_CD_SETUP.md`
-- `post-merge-docs.sh`
+- `scripts/post-merge-docs.sh`
 
 - [ ] **Step 1:** For each hit, update the path to point at one of the three new outputs (the lambda one is the closest semantic replacement for the old `ffi.js` in most contexts).
 - [ ] **Step 2:** Run the deploy/release script in dry-run mode if one exists.

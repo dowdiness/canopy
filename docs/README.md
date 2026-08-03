@@ -37,8 +37,8 @@ Read in order to build a mental model of the system.
    pipeline, package responsibilities, key invariants, and extension points.
 6. **[System Architecture Diagram](architecture/ARCHITECTURE_DIAGRAM.md)** —
    high-level data flow: Text CRDT → Incremental Parse → Projection → Rendering.
-7. **[Module Structure](architecture/modules.md)** — how the monorepo and
-   submodules map onto that pipeline.
+7. **[Module Structure](architecture/modules.md)** — how the seven repository
+   zones map onto the architecture and dependency direction.
 8. **[Responsibility Map](architecture/responsibility-map.md)** — ownership
    boundaries, reuse-first APIs, and the current extension priority order.
 9. **[Incremental Hylomorphism](architecture/Incremental-Hylomorphism.md)** —
@@ -87,8 +87,8 @@ Only needed if you are modifying Canopy itself.
 - **[Workflow](development/workflow.md)** — development process and common commands.
 - **[Conventions](development/conventions.md)** — MoonBit coding standards.
 - **[Testing](development/testing.md)** — testing guide and best practices.
-- **[Module / Package Map](development/module-package-map.md)** — distinguish
-  root packages, workspace modules, examples, and submodules.
+- **[Module / Package Map](development/module-package-map.md)** — the seven-zone
+  layout, module/package/workspace/submodule identity, and command forms.
 - **[Monorepo & Submodules](development/monorepo.md)** — git submodule setup and
   daily cheat sheet.
 - **[Task Tracking](development/task-tracking.md)** — rules for TODOs, plans,

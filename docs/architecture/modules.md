@@ -1,7 +1,20 @@
 # Module Structure
 
-Canopy's repository layout expresses four independent concerns. Treating them
-as one directory hierarchy is the main source of topology confusion.
+Canopy's repository layout expresses independent concerns through seven zones.
+Treating them as one directory hierarchy is the main source of topology
+confusion.
+
+## Zones
+
+| Zone | Path | Purpose |
+|------|------|---------|
+| Modules | `modules/` | Reusable, publishable MoonBit modules; includes the primary `modules/canopy` |
+| Applications | `apps/` | Runnable or deployable vertical slices |
+| Examples | `examples/` | Removable learning and integration examples |
+| Adapters | `adapters/` | Non-MoonBit runtime and interface adapters |
+| Dependencies | `deps/` | Separately owned Git submodules |
+| Rules | `rules/` | Policy definitions |
+| Scripts | `scripts/` | Operations and tooling |
 
 ## Ownership layers
 
@@ -15,8 +28,8 @@ as one directory hierarchy is the main source of topology confusion.
    submodule may also be a workspace member.
 
 These layers intentionally overlap. For example, a separately owned parser
-module can participate in Canopy's root workspace without becoming part of the
-`dowdiness/canopy` module or the Canopy Git repository.
+module under `deps/` can participate in Canopy's root workspace without
+becoming part of the `dowdiness/canopy` module or the Canopy Git repository.
 
 ## Sources of truth
 
@@ -35,23 +48,40 @@ overview reports the live paths; the
 [module/package map](../development/module-package-map.md) explains operational
 placement rules.
 
+## Placement principles
+
+1. **Reusable substrate or product logic?** Reusable, publishable MoonBit
+   modules go in `modules/`. The primary `modules/canopy` module composes
+   substrate into projection, protocol, editor, language, and collaboration
+   packages.
+2. **Runnable or deployable?** Vertical slices that run or deploy go in
+   `apps/`. Some apps (Canvas) own a nested workspace.
+3. **Learning or integration example?** Removable examples go in `examples/`.
+4. **Non-MoonBit runtime or interface bridge?** Adapters go in `adapters/`.
+5. **Separately owned library?** Git submodules go in `deps/`.
+
 ## Dependency direction
 
-Reusable parsing, CRDT, rendering, and data-structure modules form the substrate.
-The primary `dowdiness/canopy` module composes that substrate into projection,
-protocol, editor, language, and collaboration packages. Adapters and runnable
-applications consume those interfaces.
+Reusable parsing, CRDT, rendering, and data-structure modules form the
+substrate. Substrate lives in `deps/` (separately owned) or `modules/`
+(Canopy-owned reusable libraries). The primary `modules/canopy` module
+composes that substrate into projection, protocol, editor, language, and
+collaboration packages. Adapters and runnable applications in `apps/` consume
+those interfaces.
 
-Dependencies should point toward reusable substrate and must not grow upward
-into application code. Code that needs a product runtime, deployment target, or
+Dependencies point toward reusable substrate and must not grow upward into
+application code. Code that needs a product runtime, deployment target, or
 specific frontend belongs in an adapter or application rather than a reusable
+module. Submodules under `deps/` never grow upward dependencies on the primary
 module.
 
 Representative seams:
 
-- `event-graph-walker/` and `loom/` are separately owned substrate repositories.
-- `core/`, `editor/`, `projection/`, and `protocol/` are primary-module package
-  families.
+- `deps/event-graph-walker/` and `deps/loom/` are separately owned substrate
+  repositories.
+- `modules/canopy/core/`, `modules/canopy/editor/`,
+  `modules/canopy/projection/`, and `modules/canopy/protocol/` are
+  primary-module package families.
 - `adapters/editor/` translates primary-module interfaces for
   TypeScript consumers.
 - `apps/ideal/` and `apps/canvas/` are runnable applications with their
@@ -63,12 +93,12 @@ These examples explain the layers; they are not an inventory.
 
 Before adding a directory, answer in order:
 
-1. Which repository owns and releases it?
-2. Which MoonBit module owns its package identity?
-3. Is it reusable substrate, primary product logic, an adapter, or a runnable
+1. Which zone does it belong in?
+2. Which repository owns and releases it?
+3. Which MoonBit module owns its package identity?
+4. Is it reusable substrate, primary product logic, an adapter, or a runnable
    application?
-4. Which workspace must execute its checks?
+5. Which workspace must execute its checks?
 
-If those answers require different owners, use the corresponding existing
-seams rather than inferring ownership from a broad folder name such as `lib/`
-or `examples/`.
+If those answers require different owners, use the corresponding zone rather
+than inferring ownership from a broad folder name.
