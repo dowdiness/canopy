@@ -19,6 +19,8 @@
     "findings": [
       {
         "id": "F1-facade-roundtrip",
+        "surfacedBy": "self",
+        "verifiedBy": "executed test",
         "question": "Does the editor-layer checkpoint round-trip (E1) hold through the Markdown façade?",
         "procedure": "Construct a façade document, commit a text edit, read version, cut the whole history, reopen it into a second façade document under a different writer identity, then compare source, version, and history.",
         "result": "confirmed",
@@ -28,6 +30,8 @@
       },
       {
         "id": "F8-reopened-document-converges",
+        "surfacedBy": "codex-review-2026-08-03",
+        "verifiedBy": "executed test",
         "question": "Does a reopened document share a future with the one it came from, or only a past?",
         "procedure": "Seed a second façade document by reopening the first one's history, let each commit a text edit at a different offset, confirm their sources have diverged, then have each admit the other's history and compare source and canonical history.",
         "result": "confirmed",
@@ -37,6 +41,8 @@
       },
       {
         "id": "F10-admission-is-idempotent",
+        "surfacedBy": "self, while reviewing this slice after it was written",
+        "verifiedBy": "executed test",
         "question": "Does taking back a history the document already holds change it?",
         "procedure": "Build and edit a document, cut its whole history, admit that history back into the same document, and compare source, version, and history against the values before.",
         "result": "confirmed",
@@ -45,6 +51,8 @@
       },
       {
         "id": "F9-withheld-reported-and-refused",
+        "surfacedBy": "self",
+        "verifiedBy": "executed test",
         "question": "Can one surface treat missing prerequisites as an ordinary state for a peer exchange and as a defect for an archive?",
         "procedure": "Cut a history at a version, hand the increment to a document that never saw the operations before that cut, and observe both admitting it directly and opening a document from it.",
         "result": "confirmed",
@@ -53,6 +61,8 @@
       },
       {
         "id": "F4-payload-closed-to-outsiders",
+        "surfacedBy": "codex-review-2026-08-03, which reported the property unverified",
+        "verifiedBy": "compile-failure probe, since removed",
         "question": "Is the history payload actually unreadable and unconstructible from another package, or does the interface merely look closed?",
         "procedure": "Known-positive control rather than an interface diff: a temporary probe in workspace/probe imported the façade and attempted both forbidden operations -- reading the payload field and constructing the type from a SyncMessage obtained at the editor layer. The probe was compiled, its rejection observed, then removed.",
         "result": "confirmed",
@@ -61,6 +71,8 @@
       },
       {
         "id": "F2-weak-oracle-at-facade",
+        "surfacedBy": "self",
+        "verifiedBy": "executed test",
         "question": "Does the weak-oracle result (E3) reproduce at the façade, where a caller would be tempted to check a restore by source and version?",
         "procedure": "Two façade editors sharing a writer identity each insert a different character through ReplaceText, then delete it.",
         "result": "confirmed",
@@ -69,6 +81,8 @@
       },
       {
         "id": "F5-restore-is-admission-into-empty",
+        "surfacedBy": "self",
+        "verifiedBy": "disposable probe, since removed",
         "question": "Is restoring an archive a different operation from merging a peer's history, or the same operation with a different receiver?",
         "procedure": "Disposable probe at the editor layer, since the façade has no merge. Seed a second replica from a full export, let both diverge with one insert each, exchange full histories in both directions, and compare.",
         "result": "confirmed",
@@ -77,6 +91,8 @@
       },
       {
         "id": "F6-pending-arrives-as-an-error",
+        "surfacedBy": "self",
+        "verifiedBy": "disposable probe, since removed",
         "question": "How does the substrate report a history whose causal prerequisites are absent?",
         "procedure": "Export an increment since a version, then apply it to a replica that never saw the operations before that version.",
         "result": "confirmed",
@@ -86,6 +102,8 @@
       },
       {
         "id": "F7-single-consumer-coupling",
+        "surfacedBy": "self",
+        "verifiedBy": "grep over the consumer",
         "question": "How tightly is the application coupled to the current façade shape?",
         "procedure": "Grep loomark for façade construction and result matching.",
         "result": "confirmed",
@@ -94,6 +112,8 @@
       },
       {
         "id": "F3-unchanged-verdict-hides-an-advance",
+        "surfacedBy": "self",
+        "verifiedBy": "executed test",
         "question": "What does the façade report for a text-preserving edit, and does the version agree?",
         "procedure": "Replace the first character of \"hello\" with itself and read the commit result and the version.",
         "result": "confirmed",
