@@ -230,7 +230,7 @@ Each stop condition requires a short written decision: change the attachment mec
 - [Personal knowledge environment direction](../architecture/personal-knowledge-environment-direction.md)
 - [Human-centered product principles](../architecture/human-centered-product-principles.md)
 - [Product vision](../architecture/product-vision.md)
-- [Pi session activity → Resume view prototype](2026-07-16-pi-activity-capture-resume-prototype.md)
+- [Pi session activity → Resume view prototype](../archive/2026-07-16-pi-activity-capture-resume-prototype.md)
 
 ## Notes
 

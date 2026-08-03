@@ -120,10 +120,10 @@ reference-by-reference differential oracle against the semantic env-walk
 
 Caveat to track: the exactness claim holds *for today's lexical lambda language*. If
 lambda gains open/extensible modules or dynamic binding, scope resolution becomes
-approximate and the genuine-reachable property weakens. Separately, the `edits/`
-rename/refactor resolver still reads `ModuleDef(def_index)` as root-relative, so it
-does **not** yet resolve block-local bindings correctly — tracked in `docs/TODO.md`
-§20.
+approximate and the genuine-reachable property weakens. At the time of this
+note, the `edits/` rename/refactor resolver still treated
+`ModuleDef(def_index)` as root-relative. Issue #129 later consolidated that
+resolution path, and the block-local rename soundness test now guards the fix.
 
 ## 5. What exists vs. what's missing (Codex corrections folded in)
 

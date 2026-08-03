@@ -893,9 +893,9 @@ cross-container legality:
 | tests: `- B` before `- A`, ordered moves, ordered/unordered + duplicate ambiguity, marker renumbering, synthesized separators | #731 (`compute_markdown_edit_wbtest.mbt`) |
 | #723 root-move tests + #726 blocker regressions still pass | green on `main` |
 
-The remaining cross-container / list-container legality and loose-list separator
-preservation are tracked as narrow follow-ups under the drag-drop-foundation item
-in `docs/TODO.md` (§10), not under a still-open #724.
+The archived TODO snapshot §10 recorded cross-container / list-container legality
+and loose-list separator preservation as narrow follow-ups. They are outside
+closed issue #724 and open issue #1082; work requires a dedicated GitHub issue.
 
 ---
 

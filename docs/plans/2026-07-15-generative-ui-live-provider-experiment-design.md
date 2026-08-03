@@ -1026,7 +1026,7 @@ not tests and never run in CI, on page load, or in a production build.
 ## References
 
 - [Generative UI direction](../architecture/generative-ui-direction.md)
-- [Generative UI input vertical slice](2026-07-12-generative-ui-input-vertical-slice.md)
+- [Generative UI input vertical slice](../archive/2026-07-12-generative-ui-input-vertical-slice.md)
 - [Cognition provider boundary design](2026-05-26-cognition-provider-boundary-design.md)
 - [Gemini API overview](https://ai.google.dev/gemini-api/docs/api-overview)
 - [Gemini API key security](https://ai.google.dev/gemini-api/docs/generate-content/api-key)

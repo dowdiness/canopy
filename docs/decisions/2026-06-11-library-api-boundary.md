@@ -7,8 +7,8 @@
 replaces this record's target ownership assignment for sync wire and session
 policy. The general tier and compatibility rules below remain active.
 
-**Closes:** docs/TODO.md §14 "Canopy library API audit and documentation"
-(boundary-declaration part; the per-symbol audit itself remains §7 work)
+**Historical source:** archived TODO snapshot §14. This record closed the
+boundary-declaration part; per-symbol audit work requires a canonical GitHub issue.
 **Related:**
 [EGW and Collaboration Responsibility Boundary](2026-07-21-egw-collaboration-responsibility-boundary.md) ·
 [Architecture redesign proposal](../plans/2026-06-11-architecture-redesign-proposal.md) ·
@@ -103,10 +103,10 @@ candidates for narrowing, not for external documentation.
 
 ## Deferred
 
-- The per-symbol audit sweep itself (TODO §7 aggregator-trim item) — now
-  executable against this boundary.
-- A release plan / first published version milestone (TODO §14 optional
-  exit) — separate decision once Tier 1 `.mbti` surfaces are stable.
+- The per-symbol audit sweep itself — executable against this boundary, but not
+  active until a canonical GitHub issue claims it.
+- A release plan / first published version milestone — a separate decision once
+  Tier 1 `.mbti` surfaces are stable.
 - Tier assignment for `ffi/host` and `lang/runtime` packages that do not
   exist yet — assigned in their introducing PRs (expected: ffi/host Tier 3,
   lang/runtime Tier 2). `sync_session` (Tier 1) and `transport_ws` (Tier 3)

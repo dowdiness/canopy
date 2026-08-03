@@ -50,8 +50,9 @@ If a plan file exists in `docs/plans/` for this work, move it to `docs/archive/`
 
 ### Step 7: Update docs
 
-- Mark the item complete in `docs/TODO.md`
-- Update any test counts in docs to match `moon test` output
+- Confirm the canonical GitHub issue is closed; add final validation evidence if
+  the pull request did not already record it.
+- Update any test counts in docs to match `moon test` output.
 
 ### Step 8: Commit and push
 

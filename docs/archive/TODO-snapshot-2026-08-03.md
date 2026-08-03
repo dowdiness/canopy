@@ -1,22 +1,12 @@
-# Project TODO
+# Project TODO — archived snapshot (2026-08-03)
 
-Active backlog for Canopy — the incremental projectional editor with CRDT
-collaboration. Only currently-open items are listed. Completed work is kept
-for historical context in the snapshot linked at the bottom.
+> Historical snapshot of the retired Markdown backlog. Entries and status
+> language below record the repository state at capture; they are not active
+> work or current guidance. GitHub Issues is the canonical active backlog.
 
-## How To Read This File
-
-`docs/TODO.md` is the active backlog index, not the full implementation spec.
-
-For coding-agent-friendly execution:
-
-- keep each active item short,
-- link one canonical plan doc in `docs/plans/` for non-trivial work,
-- define an observable exit condition,
-- move completed or superseded execution detail to `docs/archive/`.
-
-Tracking guide: [Task Tracking](development/task-tracking.md)
-Plan template: [Plan Template](plans/TEMPLATE.md)
+Current guidance:
+[Task Tracking](../development/task-tracking.md) ·
+[Plan Template](../plans/TEMPLATE.md)
 
 ## Priority Legend
 
@@ -454,7 +444,7 @@ proving-ground mode.
   Exit: all architecture docs feel like they were written by the same person for the same audience.
 
 - [ ] Canopy library API audit and documentation.
-  Plan: boundary declared in [docs/decisions/2026-06-11-library-api-boundary.md](decisions/2026-06-11-library-api-boundary.md) (Accepted 2026-06-11; S0 of [docs/plans/2026-06-11-architecture-redesign-proposal.md](plans/2026-06-11-architecture-redesign-proposal.md)) — three tiers, `*_internal` convention, audit defaults. Remaining here: the per-symbol audit sweep (§7 aggregator-trim item, now executable against the boundary) and the optional release milestone.
+  Plan: boundary declared in [docs/decisions/2026-06-11-library-api-boundary.md](../decisions/2026-06-11-library-api-boundary.md) (Accepted 2026-06-11; S0 of [docs/plans/2026-06-11-architecture-redesign-proposal.md](../plans/2026-06-11-architecture-redesign-proposal.md)) — three tiers, `*_internal` convention, audit defaults. Remaining here: the per-symbol audit sweep (§7 aggregator-trim item, now executable against the boundary) and the optional release milestone.
   Why: canopy is currently used as an internal monorepo, but the aspirational direction is to publish it as a general projectional editor library consumable by external MoonBit modules. The audit framing — what's "unused" vs "library API surface" — depends on which direction is committed. Many `pub` symbols in `editor/`, `core/`, `projection/`, and `protocol/` are canonical library API (constructor methods, structural-edit operations, error accessors, query primitives, wire-protocol encoders) that look "unused" under an internal-tool lens because no in-tree consumer exercises them, but are exactly what external library users would call. Without a documented decision, every audit re-relitigates the framing.
   Exit:
   - Document the intended library boundary: which packages are public API for external consumers (`core`, `editor`, `projection`, `protocol`) vs internal implementation (`ffi/*`, `editor/*_internal` symbols, etc.).
@@ -481,7 +471,7 @@ proving-ground mode.
   - Adding a new language requires a `Renderable` impl (already required) plus an optional language-specific `term_css_class` for accent colors — framework views unchanged.
 
 - [x] Extract ephemeral subsystem — move ~9 files / ~1500 lines (EphemeralStore, EphemeralHub, EphemeralValue, presence types, cursor view, encoding) from `editor/` to its own package.
-  Closed 2026-06-11 (stale entry — already shipped): the top-level `ephemeral/` package owns the subsystem with its own test suite; `editor/` imports it and re-exports via `editor/ephemeral_facade.mbt`. Confirmed during architecture S0 ([docs/plans/2026-06-11-architecture-redesign-proposal.md](plans/2026-06-11-architecture-redesign-proposal.md)).
+  Closed 2026-06-11 (stale entry — already shipped): the top-level `ephemeral/` package owns the subsystem with its own test suite; `editor/` imports it and re-exports via `editor/ephemeral_facade.mbt`. Confirmed during architecture S0 ([docs/plans/2026-06-11-architecture-redesign-proposal.md](../plans/2026-06-11-architecture-redesign-proposal.md)).
 
 - [x] Unify sync protocol — `editor/sync_protocol.mbt` and `relay/wire.mbt` independently encode/decode the same binary wire protocol (version 0x03, same message types).
   Resolved: the duplication was resolved — `editor/sync_protocol.mbt` became a `#deprecated` re-export shim over `@wire` (`protocol/wire`), and this branch deletes the shim; `relay/wire.mbt` is a distinct concern (peer-control frames), not a duplicate.
@@ -502,7 +492,7 @@ library (`loom/moji/`, [#250](https://github.com/dowdiness/canopy/issues/250))
 landed Phases 1-3 (UCD 15.1: 1187/1187 GraphemeBreakTest +
 1826/1826 WordBreakTest pass) and was wired into the editor's diff
 layer + cursor invariant + arrow-key API + FFI variants.
-The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
+The [moji API spec](completed-phases/2026-05-10-moji-api-spec.md) is now
 "implemented in #251."
 
 - [x] Migrate `examples/ideal/web/src/bridge.ts` per-char `insert_at`/`delete_at` loop onto `handle_text_intent`.
@@ -691,7 +681,7 @@ The [moji API spec](plans/2026-05-10-moji-api-spec.md) is now
 ## Shipped history
 
 Completed items (with PR references and shipping notes) are preserved in
-[docs/archive/TODO-snapshot-2026-04-21.md](archive/TODO-snapshot-2026-04-21.md).
+[docs/archive/TODO-snapshot-2026-04-21.md](TODO-snapshot-2026-04-21.md).
 When marking work done going forward, move the completed entry into a new
 dated snapshot or an existing archive plan doc rather than accumulating it
 here.

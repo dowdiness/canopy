@@ -355,9 +355,8 @@ pub fn[T] SyncEditor::get_node(
 ///|
 /// Editor-level cousin of `core/source_map.mbt::SourceMap::nodes_at_position`.
 /// Returns only the innermost node (not the full outermost→innermost chain).
-/// Natural foundation for click-to-select / hover features; see docs/TODO.md §9
-/// "Wire SourceMap query API into editor click-path" — Inspector traceability
-/// workstream.
+/// Natural foundation for click-to-select / hover features. No UI consumer is
+/// currently committed; wire it only from an accepted interaction issue.
 pub fn[T] SyncEditor::node_at_position(
   self : SyncEditor[T],
   position : Int,

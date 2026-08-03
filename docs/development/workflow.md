@@ -30,12 +30,14 @@ The short version:
 
 ## Tracking Work
 
-Before starting medium or large work, decide the canonical tracking surface:
+GitHub Issues is the canonical active backlog:
 
-- use [Task Tracking](task-tracking.md) for the repo's tracking rules,
+- follow [Task Tracking](task-tracking.md) for issue and plan ownership,
+- search [open and closed issues](https://github.com/dowdiness/canopy/issues)
+  before claiming work,
 - create a plan in [`docs/plans/`](../plans/) from
-  [TEMPLATE.md](../plans/TEMPLATE.md) when the task is non-trivial,
-- keep [`docs/TODO.md`](../TODO.md) as the short active backlog index.
+  [TEMPLATE.md](../plans/TEMPLATE.md) when implementation is non-trivial, then
+  link the issue and plan in both directions.
 
 ## Working with the Parser
 
@@ -54,7 +56,7 @@ Causal graph (graph ops, eg-walker traversal, version vectors), operation log,
 FugueMax sequence CRDT, branch system with merge, and document model.
 See `event-graph-walker/README.md` for the full package map.
 
-**Application layer (crdt module):**
+**Application layer (`dowdiness/canopy` root module):**
 - `editor/sync_editor*.mbt` - Active editor facade and parser/sync/undo orchestration
 - `editor/text_diff.mbt` - Text diffing utilities
 - `loom/text-change/` - Shared leaf contiguous text-change module
@@ -125,8 +127,7 @@ When creating a pull request:
 moon build                  # Build all
 moon build --target js      # JavaScript build
 
-moon test                   # Test crdt module
-cd event-graph-walker && moon test  # Test CRDT library
+moon test                   # Test Canopy and all root workspace members
 moon test --update          # Update test snapshots
 moon coverage analyze > uncovered.log  # Coverage
 ```

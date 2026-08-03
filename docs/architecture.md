@@ -107,7 +107,7 @@ not here.
 ## Known limitations
 
 - **WebAssembly is not a supported build target.** Build and CI only cover
-  JavaScript and native. See `docs/TODO.md` §1.
+  JavaScript and native.
 - **The JS FFI surface is unstable.** `ffi/{lambda,json,markdown}` together
   export roughly a hundred functions; the wire-format contract lives in
   [`protocol/`](../protocol/) and
@@ -125,12 +125,12 @@ not here.
 
 ## Non-goals
 
-Inferred from the absence of supporting code and from `docs/TODO.md`:
+Current implementation boundaries:
 
 - The framework is not a general-purpose IDE — there is no language-server
   protocol, debugger, or workspace concept.
-- The CRDT engine is not optimised for documents with hundreds of thousands of
-  operations without lazy loading (see TODO §5).
+- The CRDT engine does not currently support lazy loading for documents with
+  hundreds of thousands of operations.
 - The projection layer does not implement collaborative cursor *prediction* —
   ephemeral cursors are broadcast as-is.
 

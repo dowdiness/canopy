@@ -18,6 +18,10 @@ Today:
 This task prepares both editors so later drag UI work is thin and local rather
 than pushing correctness into DOM event handlers.
 
+Tracking: legacy candidate pending validation in
+[issue #1124](https://github.com/dowdiness/canopy/issues/1124); this plan is not
+active until that issue links a dedicated task.
+
 ## Scope
 
 In:
@@ -29,7 +33,6 @@ In:
 - `lang/lambda/edits/`
 - `projection/`
 - `event-graph-walker/tree/`
-- `docs/TODO.md`
 
 Out:
 - Full polished drag UI for either editor

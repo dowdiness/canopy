@@ -75,8 +75,8 @@ cd examples/web && npm install && npm run dev
 ```
 
 The targets currently exercised in CI are **JavaScript** (web demo, FFI) and
-**native** (CLI, tests). WebAssembly is not a supported build target — see
-`docs/TODO.md`.
+**native** (CLI, tests). WebAssembly is not a supported build target; see the
+[CI/CD guide](docs/CI_CD.md) for the current target matrix.
 
 ## The Bigger Picture
 
@@ -178,7 +178,7 @@ highlights:
 **Development:**
 - [Development Workflow](docs/development/workflow.md) — how to make changes, run tests, manage submodules
 - [Conventions](docs/development/conventions.md) — MoonBit coding patterns
-- [TODO](docs/TODO.md) — active backlog
+- [GitHub Issues](https://github.com/dowdiness/canopy/issues) — active backlog
 
 ## Contributing
 

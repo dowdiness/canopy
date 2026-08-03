@@ -43,22 +43,23 @@ cat >"$expected_list" <<'EXPECTED_LIST'
 06 dependencies.egw-resolver-identity
 07 dependencies.moon-update-wrapper
 08 dependencies.agent-doc-links
-09 dependencies.export-manifest
-10 dependencies.update-wrapper-test
-11 dependencies.sync
-12 format.canopy
-13 interfaces.canopy
-14 target.check lang/markdown/proj
-15 target.test lang/markdown/proj
-16 target.check lang/markdown/edits
-17 target.test lang/markdown/edits
-18 suite.check
-19 suite.manifest-compat
-20 suite.test
-21 suite.build
-22 build.js
-23 diff.whitespace origin/main...HEAD
-24 evidence.record
+09 dependencies.documentation-lifecycle
+10 dependencies.export-manifest
+11 dependencies.update-wrapper-test
+12 dependencies.sync
+13 format.canopy
+14 interfaces.canopy
+15 target.check lang/markdown/proj
+16 target.test lang/markdown/proj
+17 target.check lang/markdown/edits
+18 target.test lang/markdown/edits
+19 suite.check
+20 suite.manifest-compat
+21 suite.test
+22 suite.build
+23 build.js
+24 diff.whitespace origin/main...HEAD
+25 evidence.record
 EXPECTED_LIST
 assert_files_equal "$expected_list" "$list_output" "--list order changed"
 
@@ -123,6 +124,7 @@ for script_name in \
   check-egw-resolver-identity.sh \
   check-moon-update-wrapped.sh \
   check-agent-doc-links.sh \
+  check-documentation-lifecycle.sh \
   test-moon-update-wrapper.sh \
   update-moon-deps.sh \
   check-strict.sh \
@@ -265,6 +267,7 @@ check-shared-substrate.sh
 check-egw-resolver-identity.sh
 check-moon-update-wrapped.sh
 check-agent-doc-links.sh
+check-documentation-lifecycle.sh
 node ./scripts/check-export-manifest.mjs
 test-moon-update-wrapper.sh
 update-moon-deps.sh

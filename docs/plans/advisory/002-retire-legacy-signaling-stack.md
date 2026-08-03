@@ -3,8 +3,8 @@
 > **Executor instructions**: Follow this plan step by step. Run every
 > verification command and confirm the expected result before proceeding. Do
 > not harden or replace the legacy Worker in place: current reachability shows
-> it has no browser consumer. Stop if that assumption has changed. Update this
-> plan's row in `README.md` when done unless a reviewer owns the index.
+> it has no browser consumer. Stop if that assumption has changed. Record the
+> result in [issue #1125](https://github.com/dowdiness/canopy/issues/1125).
 >
 > **Drift check (run first)**:
 > `git diff --stat f6e3a0a5..HEAD -- examples/web/.env.example examples/web/signaling-server.js examples/web/signaling-worker.js examples/web/wrangler-signaling.toml examples/web/CLOUDFLARE_DEPLOYMENT.md examples/web/QUICKSTART_CLOUDFLARE.md examples/web/package.json examples/web/package-lock.json examples/web/src/vite-env.d.ts examples/web/MODULE_MAP.md examples/web/scripts/check-boundaries.mjs docs/plans/2026-07-25-waku-unified-web-migration.md docs/research/2026-07-25-waku-demo-behavior-contracts.md .github`

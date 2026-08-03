@@ -3,9 +3,9 @@
 Use this template for any non-trivial task that should be executable by a coding
 agent across sessions.
 
-Keep one plan file per task. If the task is complete or superseded, move the
-plan to `docs/archive/` and leave a short note in the originating issue or
-TODO item.
+Keep one plan file per task and link it from the canonical GitHub issue. If the
+task is complete or superseded, move the plan to `docs/archive/` and record the
+outcome in the issue.
 
 ```md
 # <Task Title>

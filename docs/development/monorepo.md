@@ -1,8 +1,9 @@
 # Monorepo & Git Submodule Guide
 
-Canopy is a monorepo that pulls in eight independent libraries via git
-submodules. The MoonBit module at the repo root (`dowdiness/canopy`) declares
-versioned imports in `moon.mod`; its nearest `moon.work` resolves local members.
+Canopy combines a primary MoonBit module, in-tree workspace modules, nested
+workspaces, and independent libraries recorded as Git submodules. The primary
+module (`dowdiness/canopy`) declares versioned imports in `moon.mod`; its nearest
+`moon.work` resolves local members.
 
 ## Layout
 
@@ -19,38 +20,29 @@ canopy/                          dowdiness/canopy (root MoonBit module)
 ├── examples/                    in-tree example apps (web, ideal, …)
 │   └── canvas/                  standalone MoonBit module with nested workspace
 │
-├── event-graph-walker/          submodule (CRDT engine)
-├── loom/                        submodule (parser framework, seam, incr, …)
-├── rle/                         submodule
-├── order-tree/                  submodule
-├── graphviz/                    submodule
-├── svg-dsl/                     submodule
-├── alga/                        submodule
-└── rabbita/                     submodule
+└── <Git submodules>/           independent repositories; see .gitmodules
 ```
 
-## Workspace members
+## Live topology
 
-`moon.work` lists the modules that root commands operate on:
+Do not copy the workspace-member or submodule inventory into documentation.
+Generate the current repository views from their authoritative manifests:
 
-```
-.                  (the canopy module)
-./lib/zipper
-./lib/btree
-./lib/rabbita_codemirror
-./lib/dom-boundary
-./lib/visualizer
-./lib/semantic
-./examples/ideal
-./examples/block-editor
-./examples/codemirror_demo
+```sh
+./scripts/package-overview.sh
 ```
 
-`moon test`, `moon check`, `moon fmt`, etc. at the repo root run against all
-listed members. Everything else (submodules and non-member examples) is a
-separate MoonBit module and needs its own `moon` invocation.
+The output distinguishes:
 
-Canvas is intentionally not a root workspace member. Its standalone module and
+- packages owned by the primary `dowdiness/canopy` module,
+- modules covered by repository-root workspace commands,
+- repositories owned through `.gitmodules`.
+
+The last two sets may overlap: a Git submodule can also be a root-workspace
+member. Root `moon test`, `moon check`, and `moon fmt` follow `moon.work`, not
+repository ownership.
+
+Canvas is intentionally outside the root workspace. Its standalone module and
 local dependency modules are listed in `examples/canvas/moon.work`; run Canvas
 commands from `examples/canvas` (or use `scripts/run-moon-module.sh`) so that
 the nested workspace is selected.
@@ -142,27 +134,10 @@ Workspace root:
 moon test
 ```
 
-Each submodule:
-
-```sh
-cd event-graph-walker && moon test
-cd loom/loom          && moon test
-cd loom/seam          && moon test
-cd loom/incr          && moon test
-cd loom/text-change   && moon test
-cd loom/moji          && moon test
-cd loom/pretty        && moon test
-cd loom/egglog        && moon test
-cd loom/egraph        && moon test
-cd loom/examples/lambda   && moon test
-cd loom/examples/json     && moon test
-cd loom/examples/markdown && moon test
-cd svg-dsl   && moon test
-cd graphviz  && moon test
-cd rle       && moon test
-cd order-tree && moon test
-cd alga      && moon test
-```
+For isolated submodule debugging, enter the owning module root and run its
+repository-specific test command. Derive the current ownership paths from
+`.gitmodules` and workspace membership from `moon.work`; do not maintain a
+copied submodule command list here.
 
 Proof modules:
 
@@ -170,7 +145,7 @@ Proof modules:
 cd lib/semantic/proof && moon prove   # needs Why3 + z3
 ```
 
-The canonical fan-out (subset of the above) is in `.github/workflows/ci.yml`.
+The canonical CI fan-out is in `.github/workflows/ci.yml`.
 
 ## Submodule reference
 

@@ -2,12 +2,20 @@
 set -euo pipefail
 
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-output="$($root_dir/scripts/package-overview.sh)"
+output="$("$root_dir/scripts/package-overview.sh")"
 
 assert_contains() {
   local expected=$1
   if ! grep -Fq -- "$expected" <<<"$output"; then
     printf 'missing expected package-overview output: %s\n' "$expected" >&2
+    exit 1
+  fi
+}
+
+assert_matches() {
+  local expected=$1
+  if ! grep -Eq -- "$expected" <<<"$output"; then
+    printf 'missing expected package-overview pattern: %s\n' "$expected" >&2
     exit 1
   fi
 }
@@ -21,9 +29,9 @@ assert_absent() {
 }
 
 assert_contains "Primary module: dowdiness/canopy (.)"
-assert_contains "Primary module packages (47)"
-assert_contains "Root workspace modules (44)"
-assert_contains "Git submodules (7)"
+assert_matches '^=== Primary module packages \([0-9]+\) ===$'
+assert_matches '^=== Root workspace modules \([0-9]+\) ===$'
+assert_matches '^=== Git submodules \([0-9]+\) ===$'
 
 # These literals represent package families the old hand-maintained list missed.
 assert_contains "dowdiness/canopy/ephemeral"
@@ -76,7 +84,7 @@ EOF
 
 git init -q "$fixture"
 git -C "$fixture" add .
-output="$($fixture/scripts/package-overview.sh)"
+output="$("$fixture/scripts/package-overview.sh")"
 
 assert_contains "Primary module: dowdiness/canopy (modules/canopy)"
 assert_contains "Primary module packages (2)"

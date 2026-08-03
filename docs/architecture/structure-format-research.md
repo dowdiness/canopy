@@ -252,7 +252,7 @@ which patterns earn their keep.
 - `vision-projectional-bridge.md` — the "why": bridging syntax to mental model
 - `multi-representation-system.md` — the text-format family (solved) and expression problem
 - `docs/plans/2026-04-02-lambda-evaluator-design.md` — evaluator as semantic model foundation
-- `docs/TODO.md` §13 — concrete semantic projection candidates
+- [Issue #1124](https://github.com/dowdiness/canopy/issues/1124) — triage of legacy semantic-projection candidates
 
 ## References
 

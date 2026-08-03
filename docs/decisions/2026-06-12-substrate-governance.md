@@ -79,7 +79,7 @@ workspace directory) · `submodule` (path-dep into a vendored submodule) ·
 
 | Dependency | Mechanism | Policy notes |
 |------------|-----------|--------------|
-| `dowdiness/incr` | registry 0.13.0 | Governed by the 2026-06-10 version-lock ADR; intra-repo drift guard `check-shared-substrate.sh` |
+| `dowdiness/incr` | registry (version in manifests) | Governed by the 2026-06-10 version-lock ADR; intra-repo drift guard `check-shared-substrate.sh` |
 | `dowdiness/event-graph-walker` | submodule (`./event-graph-walker`) | Former dual-source exception, resolved by S5b (2026-07-05). Guard `check-egw-resolver-identity.sh` now checks version consistency across workspace members. |
 | loom family: `loom`, `seam`, `pretty`, `text_change`, `moji`, `lambda`, `json`, `markdown`, `egglog`, `egraph`, `graph-dsl` | submodule (`./loom/...`) | Single mechanism — every consumer path-deps into the one vendored loom tree |
 | in-repo libs: `byte_codec`, `zipper`, `btree`, `visualizer`, `dom_boundary`, `canopy-canvas-graph`, `rabbita_codemirror`, `rabbita-menu`, `rabbita-tabs`, `rabbita-treeview`, `rabbita-resizable`, `rabbita-status`, `rabbita-context-menu` | in-repo | Single mechanism — workspace members path-dep'ing each other |

@@ -2537,7 +2537,7 @@ test "compute_text_edit: Rename module binding via Var" {
 }
 
 ///|
-/// Block-local rename soundness (docs/TODO.md §20 exit criterion).
+/// Block-local rename soundness (issue #129 regression contract).
 /// Root `x` (def_index 0) and the block-local `x` (also def_index 0) collide on
 /// index, so a root-relative resolver renames the WRONG binding. The only
 /// `Var("x")` in the whole tree is the block body usage, so we locate it by

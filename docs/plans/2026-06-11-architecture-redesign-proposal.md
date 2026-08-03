@@ -302,5 +302,5 @@ for `handle_text_intent` (S3), per-entry bundle budgets (S4).
   (boundaries are mostly honored — this is consolidation).
 - Evidence base: live `moon.pkg` import-graph extraction, git churn
   2026-03→06, `.gitmodules` at both nesting levels, four bounded package-map
-  research passes, `docs/TODO.md` §14/§15/§18, graphify graph over loom
+  research passes, the archived TODO snapshot §14/§15/§18, and the graphify graph over loom
   (no import cycles; `Runtime`/`Signal`/`Memo` as expected god nodes).

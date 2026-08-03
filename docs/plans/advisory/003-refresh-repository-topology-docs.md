@@ -3,8 +3,8 @@
 > **Executor instructions**: This is a documentation-only plan. Follow each
 > step, verify every path and command against the repository, and do not change
 > manifests or source code to make stale prose true. Stop on drift rather than
-> guessing. Update this plan's status in `README.md` when done unless a
-> reviewer owns the index.
+> guessing. Record the result in
+> [issue #1125](https://github.com/dowdiness/canopy/issues/1125).
 >
 > **Drift check (run first)**:
 > `git diff --stat f6e3a0a5..HEAD -- README.md docs/development/monorepo.md docs/development/module-package-map.md docs/development/workflow.md docs/architecture/modules.md moon.work moon.mod .gitmodules scripts/package-overview.sh scripts/check-strict.sh .github/actions/setup-moonbit/action.yml .github/workflows/ci.yml`

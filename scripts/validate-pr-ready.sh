@@ -227,6 +227,7 @@ build_plan() {
   add_phase "dependencies.egw-resolver-identity"
   add_phase "dependencies.moon-update-wrapper"
   add_phase "dependencies.agent-doc-links"
+  add_phase "dependencies.documentation-lifecycle"
   add_phase "dependencies.export-manifest"
   add_phase "dependencies.update-wrapper-test"
   add_phase "dependencies.sync"
@@ -337,6 +338,9 @@ run_phase() {
       ;;
     dependencies.agent-doc-links)
       bash ./scripts/check-agent-doc-links.sh
+      ;;
+    dependencies.documentation-lifecycle)
+      ./scripts/check-documentation-lifecycle.sh
       ;;
     dependencies.export-manifest)
       node ./scripts/check-export-manifest.mjs
