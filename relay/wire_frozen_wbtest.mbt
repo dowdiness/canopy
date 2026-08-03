@@ -3,7 +3,7 @@
 // These pin the EXACT on-the-wire bytes relay produces, asserted against
 // hand-derived byte literals — NOT re-derived by calling the code under test.
 // They are the safety net for migrating relay's hand-rolled varint/string
-// codec onto `lib/byte-codec`: the migration is only byte-safe if every literal
+// codec onto `modules/byte-codec`: the migration is only byte-safe if every literal
 // below still matches after the rewrite. relay's frames are transmitted between
 // peers, so a silent format change is a correctness break.
 //

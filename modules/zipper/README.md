@@ -15,7 +15,7 @@ This is a foundational data structure, used wherever code needs to express navig
 
 ## Consumers
 
-`lib/zipper` is in-tree but is not imported by any package in the canopy module today. It is a workspace member (declared in `moon.work`) and a path dependency in the root `moon.mod.json`, kept available for future projection / structural-edit work.
+`modules/zipper` is in-tree but is not imported by any package in the canopy module today. It is a workspace member (declared in `moon.work`) and a path dependency in the root `moon.mod.json`, kept available for future projection / structural-edit work.
 
 ## Dependencies
 

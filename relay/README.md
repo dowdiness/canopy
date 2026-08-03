@@ -20,7 +20,7 @@ This package is the server-side half of the real-time sync protocol. It runs ins
 ## Dependencies
 
 The relay imports the canonical `protocol/wire` constants, shared
-`lib/byte-codec` string framing, and `moonbitlang/core/buffer`. It does not own
+`modules/byte-codec` string framing, and `moonbitlang/core/buffer`. It does not own
 a second protocol definition or decode CRDT payloads.
 
 ## Protocol behavior

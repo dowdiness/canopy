@@ -6,15 +6,15 @@ This standalone module proves the integer decisions behind BTree splice cardinal
 
 | Proof-model function | Production source | Mirrored decision and preconditions | Proved postcondition |
 |---|---|---|---|
-| `splice_leaf_delta` | `lib/btree/walker_propagate.mbt`, `propagate` | `inserted_count - (end_idx - start_idx)` | The returned delta equals the replacement formula. |
-| `splice_new_count` | `lib/btree/walker_propagate.mbt`, `propagate`; callers publishing `size` | `0 <= start <= end <= old_count`, `inserted_count >= 0` | `new_count = old_count - (end - start) + inserted_count = old_count + leaf_delta`, and the result is non-negative. |
-| `planned_group_size` | `lib/btree/walker_propagate.mbt`, `legal_chunk_sizes` | `min_degree >= 2`, `remaining >= min_degree`; terminal push or the loop's next chunk | Every emitted group is in `[min_degree, 2 * min_degree]`; a non-terminal remainder stays at least `min_degree` and strictly decreases. |
-| `planned_group_total` | `lib/btree/walker_propagate.mbt`, repeated `legal_chunk_sizes` steps | The same grouping preconditions and the strictly decreasing remainder | The recursive scalar planner terminates and all emitted group sizes sum exactly to the input child count. |
-| `advance_group_sum` | `lib/btree/walker_propagate.mbt`, `legal_chunk_sizes` | `original_count = emitted_count + remaining` and the grouping preconditions | One step preserves `emitted + remaining = original_count`; a terminal step emits exactly `original_count`. |
-| `repaired_node_count` | `lib/btree/walker_repair.mbt`, `repair_underfull_children`, `bulk_steal_from_left`, and `bulk_steal_from_right` | Reactive underfull count in `[0, t)`, sibling in `[0, 2t]`, target in `[t, t + 1]` | Every merge or steal preserves the participating child total and keeps the result in `[0, 2t]`. A steal restores both occupancies. A merge at or above `t` restores occupancy; a smaller adjacent-underfull merge remains a conserved candidate for another repair step. |
-| `repair_total_with_unaffected` | One iteration of `lib/btree/walker_repair.mbt`, `repair_underfull_children` | A non-negative count outside the selected pair and the same reactive repair preconditions | `unaffected + participating pair` is unchanged by either branch, so each new loop decomposition preserves the global child total. |
-| `span_add_accepted` | `lib/btree/utils.mbt`, `checked_span_add` | The exact non-negative guard against the mathematical constant `2147483647` (`@int.MAX_VALUE`) | Acceptance implies a sum in `[0, MAX]`; every non-negative sum in range is accepted; rejection of non-negative inputs is equivalent to a sum above `MAX`; negative inputs are rejected. |
-| `project_root_present` | Leaf-count policy abstracted from `lib/btree/btree.mbt`, `PropagateResult::root_candidate` and `normalize_root_after_delete` | `leaf_count >= 0`; executable properties establish that production segment/root state corresponds to this count | In the scalar policy, zero leaves project to no root and every present root has a positive leaf count. |
+| `splice_leaf_delta` | `modules/btree/walker_propagate.mbt`, `propagate` | `inserted_count - (end_idx - start_idx)` | The returned delta equals the replacement formula. |
+| `splice_new_count` | `modules/btree/walker_propagate.mbt`, `propagate`; callers publishing `size` | `0 <= start <= end <= old_count`, `inserted_count >= 0` | `new_count = old_count - (end - start) + inserted_count = old_count + leaf_delta`, and the result is non-negative. |
+| `planned_group_size` | `modules/btree/walker_propagate.mbt`, `legal_chunk_sizes` | `min_degree >= 2`, `remaining >= min_degree`; terminal push or the loop's next chunk | Every emitted group is in `[min_degree, 2 * min_degree]`; a non-terminal remainder stays at least `min_degree` and strictly decreases. |
+| `planned_group_total` | `modules/btree/walker_propagate.mbt`, repeated `legal_chunk_sizes` steps | The same grouping preconditions and the strictly decreasing remainder | The recursive scalar planner terminates and all emitted group sizes sum exactly to the input child count. |
+| `advance_group_sum` | `modules/btree/walker_propagate.mbt`, `legal_chunk_sizes` | `original_count = emitted_count + remaining` and the grouping preconditions | One step preserves `emitted + remaining = original_count`; a terminal step emits exactly `original_count`. |
+| `repaired_node_count` | `modules/btree/walker_repair.mbt`, `repair_underfull_children`, `bulk_steal_from_left`, and `bulk_steal_from_right` | Reactive underfull count in `[0, t)`, sibling in `[0, 2t]`, target in `[t, t + 1]` | Every merge or steal preserves the participating child total and keeps the result in `[0, 2t]`. A steal restores both occupancies. A merge at or above `t` restores occupancy; a smaller adjacent-underfull merge remains a conserved candidate for another repair step. |
+| `repair_total_with_unaffected` | One iteration of `modules/btree/walker_repair.mbt`, `repair_underfull_children` | A non-negative count outside the selected pair and the same reactive repair preconditions | `unaffected + participating pair` is unchanged by either branch, so each new loop decomposition preserves the global child total. |
+| `span_add_accepted` | `modules/btree/utils.mbt`, `checked_span_add` | The exact non-negative guard against the mathematical constant `2147483647` (`@int.MAX_VALUE`) | Acceptance implies a sum in `[0, MAX]`; every non-negative sum in range is accepted; rejection of non-negative inputs is equivalent to a sum above `MAX`; negative inputs are rejected. |
+| `project_root_present` | Leaf-count policy abstracted from `modules/btree/btree.mbt`, `PropagateResult::root_candidate` and `normalize_root_after_delete` | `leaf_count >= 0`; executable properties establish that production segment/root state corresponds to this count | In the scalar policy, zero leaves project to no root and every present root has a positive leaf count. |
 
 ## Why the grouping proof is scalar
 
@@ -48,14 +48,14 @@ Why3 integers are unbounded mathematical integers. These proofs establish the sc
 - MoonBit machine-`Int` overflow semantics;
 - cross-parent OrderTree canonicalization.
 
-Production deterministic/property tests cover those integration boundaries, including adjacent-underfull repair and grouping arrays. In particular, `lib/btree/btree_wbtest.mbt` retains exact `@int.MAX_VALUE` acceptance and `@int.MAX_VALUE + 1` rejection regressions.
+Production deterministic/property tests cover those integration boundaries, including adjacent-underfull repair and grouping arrays. In particular, `modules/btree/btree_wbtest.mbt` retains exact `@int.MAX_VALUE` acceptance and `@int.MAX_VALUE + 1` rejection regressions.
 
 ## Run
 
 The repository pins MoonBit `0.10.4+ade96c819`; the proof toolchain uses Why3 1.7.2 and Z3 4.13.x.
 
 ```bash
-cd lib/btree/proof
+cd modules/btree/proof
 NEW_MOON_MOD=0 moon check --deny-warn
 NEW_MOON_MOD=0 moon test --release
 NEW_MOON_MOD=0 moon info

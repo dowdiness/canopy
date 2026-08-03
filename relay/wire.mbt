@@ -1,6 +1,6 @@
 ///|
 /// LEB128 varints + length-prefixed UTF-16LE strings come from the shared
-/// `lib/byte-codec` package. relay keeps only its own framing here; the
+/// `modules/byte-codec` package. relay keeps only its own framing here; the
 /// generic codec lives in one place (see docs/plans/2026-05-29-byte-codec-package-design.md).
 using @byte_codec {type Reader, read_string, write_string}
 

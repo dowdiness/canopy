@@ -59,7 +59,7 @@ test "encode_peer_joined encodes peer_id bytes" {
 
 ///|
 // Note: uvarint byte-layout tests (small one-byte values, two-byte 128) now
-// live in lib/byte-codec, which owns the varint codec relay delegates to.
+// live in modules/byte-codec, which owns the varint codec relay delegates to.
 
 ///|
 test "encode_peer_joined with empty peer_id" {

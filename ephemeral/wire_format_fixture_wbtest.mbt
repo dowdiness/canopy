@@ -6,7 +6,7 @@
 /// are frozen literals; the test compares freshly-encoded bytes against them
 /// and never re-derives the reference by calling the code under refactor. The
 /// generic primitive layouts (varint, string, f64, …) are pinned by the
-/// fixtures in `lib/byte-codec`.
+/// fixtures in `modules/byte-codec`.
 
 ///|
 test "wire fixture: ephemeral_value byte layout" {

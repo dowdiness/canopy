@@ -24,7 +24,7 @@ moon prove  →  moonc (WhyML codegen)  →  Why3  →  z3 (SMT solver)
 ### File structure
 
 ```
-lib/{semantic,btree}/proof/
+lib/semantic/proof/ or modules/btree/proof/
 ├── moon.mod               # Standalone module (no Canopy dependencies)
 ├── moon.pkg               # options("proof-enabled": true)
 ├── *.mbt                  # Code + proof_ensure contracts
@@ -65,7 +65,7 @@ predicate conflict_is_top(a : T, b : T, result : T) {
 ### Running
 
 ```bash
-cd lib/semantic/proof  # or lib/btree/proof
+cd lib/semantic/proof  # or modules/btree/proof
 moon prove             # verify all proof_ensure contracts
 ```
 
@@ -125,7 +125,7 @@ For `Confidence::join`: we proved the lattice laws on `IntConfidence` (the algor
 | `disagreement_yields_conflict` | Different payloads from non-trivial inputs → Conflict |
 | `guessed_max_score` | Guessed+Guessed same payload → Guessed with exact max score, payload preserved |
 
-### Formally verified (lib/btree/proof/)
+### Formally verified (modules/btree/proof/)
 
 Nine scalar contracts mirror production decisions without importing the BTree package:
 
@@ -141,7 +141,7 @@ Nine scalar contracts mirror production decisions without importing the BTree pa
 | `span_add_accepted` | Checked-add acceptance exactly matches the supported non-negative mathematical range |
 | `project_root_present` | The scalar publication policy maps zero leaves to no root and requires a present root to have a positive leaf count |
 
-See [`lib/btree/proof/README.md`](../../lib/btree/proof/README.md) for the exact production mapping, preconditions, composition argument, and limitations. Production Array materialization, final repeated-repair occupancy, root-state linkage, recursive tree integration, and MoonBit machine-`Int` behavior remain executable/property-test coverage.
+See [`modules/btree/proof/README.md`](../../modules/btree/proof/README.md) for the exact production mapping, preconditions, composition argument, and limitations. Production Array materialization, final repeated-repair occupancy, root-state linkage, recursive tree integration, and MoonBit machine-`Int` behavior remain executable/property-test coverage.
 
 ### Property-tested (@qc)
 
@@ -150,8 +150,8 @@ See [`lib/btree/proof/README.md`](../../lib/btree/proof/README.md) for the exact
 | core/ | reconcile_properties_wbtest.mbt | ID uniqueness, ID preservation, kind propagation, idempotency, insert/delete stability |
 | core/ | source_map_properties_wbtest.mbt | Node coverage, range sorting, rebuild consistency, parent enclosure, innermost node minimality |
 | lib/semantic/ | confidence_properties_wbtest.mbt | Commutativity, associativity, idempotency, identity, absorbing top (on real `Confidence[Role]`) |
-| lib/btree/ | btree_property_wbtest.mbt | Cached spans, splice cardinality, occupancy repair, root normalization, and range-delete integration |
-| lib/zipper/ | zipper_properties_wbtest.mbt | Zipper navigation laws |
+| modules/btree/ | btree_property_wbtest.mbt | Cached spans, splice cardinality, occupancy repair, root normalization, and range-delete integration |
+| modules/zipper/ | zipper_properties_wbtest.mbt | Zipper navigation laws |
 | event-graph-walker/ | Various *_properties_test.mbt | CRDT convergence, version vector properties, FractionalIndex ordering |
 
 ## Future Proof Targets
@@ -162,7 +162,7 @@ Candidates ordered by value and feasibility:
 
 | Target | Package | Properties | Why provable |
 |---|---|---|---|
-| delete_range boundaries | lib/btree | Index parameters stay valid through descent | Index math — exactly what z3 excels at |
+| delete_range boundaries | modules/btree | Index parameters stay valid through descent | Index math — exactly what z3 excels at |
 | SourceMap range sorting | core/ | Ranges array sorted after rebuild | Int comparisons on array indices |
 | FractionalIndex ordering | event-graph-walker/ | midpoint(a, b) is strictly between a and b | Byte-array arithmetic |
 
@@ -198,13 +198,13 @@ pip3 install --user z3-solver==4.13.4.0
 why3 config detect
 
 # Run either standalone proof module
-cd lib/semantic/proof  # or lib/btree/proof
+cd lib/semantic/proof  # or modules/btree/proof
 moon prove
 ```
 
 ### CI
 
-The `prove` job in `.github/workflows/ci.yml` installs Why3 1.7.2 and z3 through opam. The opam switch is cached across runs. It currently executes `lib/semantic/proof`; adding `lib/btree/proof` to the gating matrix remains tracked by #1007.
+The `prove` job in `.github/workflows/ci.yml` installs Why3 1.7.2 and z3 through opam. The opam switch is cached across runs. It currently executes `lib/semantic/proof`; adding `modules/btree/proof` to the gating matrix remains tracked by #1007.
 
 ### Adding a new proof package
 
