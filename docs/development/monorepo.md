@@ -15,7 +15,7 @@ canopy/                          dowdiness/canopy (root MoonBit module)
 ├── llm/  echo/  cmd/main/       monorepo packages
 ├── modules/btree/               workspace member, in-tree library
 ├── modules/zipper/              workspace member, in-tree library
-├── lib/semantic/                workspace member, in-tree library
+├── modules/semantic/                workspace member, in-tree library
 ├── adapters/editor-adapter/     in-tree TypeScript adapter package
 ├── examples/                    in-tree example apps (web, ideal, …)
 │   └── canvas/                  standalone MoonBit module with nested workspace
@@ -142,7 +142,7 @@ copied submodule command list here.
 Proof modules:
 
 ```sh
-cd lib/semantic/proof && moon prove   # needs Why3 + z3
+cd modules/semantic/proof && moon prove   # needs Why3 + z3
 ```
 
 The canonical CI fan-out is in `.github/workflows/ci.yml`.

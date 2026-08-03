@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Keep typed JSX construction in `ffi/jsx`; `lib/cognition` remains renderer-neutral.
+- Keep typed JSX construction in `ffi/jsx`; `modules/cognition` remains renderer-neutral.
 - Do not add a candidate-only token, grammar rule, or hidden DOM attribute side effect.
 - Preserve the replay adapter’s existing unknown/disposed/stale-session rejection before candidate or capabilities decoding.
 - Synthetic Root uses node ID `0`; every mounted candidate node uses one unique preorder ID in `[-1025, -2]`; `-1` remains the root-container parent sentinel.

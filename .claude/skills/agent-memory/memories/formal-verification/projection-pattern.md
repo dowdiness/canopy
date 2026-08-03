@@ -2,7 +2,7 @@
 summary: "Pattern for proving enum properties: #proof_pure projection functions (rank/payload/score) bridge custom enums to the prover's Int world"
 created: 2026-04-12
 tags: [moon-prove, design-pattern, proof-pure]
-related: [lib/semantic/proof/confidence.mbt]
+related: [modules/semantic/proof/confidence.mbt]
 ---
 
 # Projection Pattern for Enum Verification

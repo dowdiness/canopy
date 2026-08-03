@@ -3,7 +3,7 @@ summary: "moon prove requires Why3 1.7.2 + z3 4.13.x; specific version constrain
 created: 2026-04-12
 status: resolved
 tags: [moon-prove, why3, z3, toolchain]
-related: [lib/semantic/proof/, docs/development/formal-verification.md]
+related: [modules/semantic/proof/, docs/development/formal-verification.md]
 ---
 
 # moon prove Toolchain Setup

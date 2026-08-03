@@ -29,7 +29,7 @@ candidate projection against a previous candidate or parser projection.
 ## Typed projection construction
 
 - Construct `@jsx_ast.JsxNode::Root`, `Element`, and `Text` values directly in
-  `ffi/jsx`; `lib/cognition` remains renderer-neutral and exposes only the
+  `ffi/jsx`; `modules/cognition` remains renderer-neutral and exposes only the
   validated candidate tree.
 - Construct matching `@canopy_core.ProjNode` values with synthetic source spans
   of `0..0`; source maps are not exposed for generated candidates.

@@ -137,7 +137,7 @@ from their live manifests:
 
 See [Module, Package, Workspace, and Submodule Map](docs/development/module-package-map.md)
 for placement rules and ownership boundaries. Representative reusable modules
-include [`modules/btree/`](modules/btree/), [`lib/semantic/`](lib/semantic/), and
+include [`modules/btree/`](modules/btree/), [`modules/semantic/`](modules/semantic/), and
 [`modules/zipper/`](modules/zipper/); representative separately owned dependencies
 include [`event-graph-walker/`](event-graph-walker/), [`loom/`](loom/), and
 [`rabbita/`](rabbita/).

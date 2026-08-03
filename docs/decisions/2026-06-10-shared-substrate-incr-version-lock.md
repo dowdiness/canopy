@@ -63,8 +63,8 @@ removal—not for a mutable exact version copied into prose.
 | Repo / member | incr pin | Form |
 |---------------|----------|------|
 | canopy `moon.mod.json` (root) | 0.9.0 | registry, JSON |
-| canopy `lib/visualizer/moon.mod.json` | 0.9.0 | registry, JSON |
-| canopy `lib/cognition/moon.mod` | 0.9.0 | registry, TOML `import` |
+| canopy `modules/visualizer/moon.mod.json` | 0.9.0 | registry, JSON |
+| canopy `modules/cognition/moon.mod` | 0.9.0 | registry, TOML `import` |
 | canopy `examples/canvas/moon.mod.json` | 0.9.0 | registry, JSON |
 | loom `loom/`, `egglog`, `examples/*`, vendored `incr` | 0.9.0 | registry pins + vendored gitlink |
 | moondsp `moon.mod` (root lib, v0.5.1) | 0.9.0 | registry, TOML `import` |
@@ -77,7 +77,7 @@ Two facts from this topology shape the enforcement decision below:
    they cannot pin a divergent registry version; they consume whatever incr canopy
    provides. moondsp therefore has **no intra-repo skew surface** to guard.
 2. **canopy has four registry pins across two manifest formats** (JSON ×3 + TOML ×1),
-   which historically skewed — `lib/cognition`'s TOML pin evaded a grep-based bump.
+   which historically skewed — `modules/cognition`'s TOML pin evaded a grep-based bump.
    That multiplicity is exactly why canopy needs an intra-repo guard and moondsp does
    not.
 

@@ -2,7 +2,7 @@ members = [
   ".",
   "../../loom/diagnostic",
   "../../loom/examples/graph-dsl",
-  "../../lib/canvas-graph",
+  "../../modules/canvas-graph",
   "../../loom/loom",
   "../../modules/rabbita_codemirror",
   "../../loom/incr/incr",

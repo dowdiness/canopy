@@ -99,7 +99,7 @@ Expected: invalid/stale/apply-failure/recovery/determinism tests pass.
 **Files:**
 - No source changes.
 
-- [x] Step 1: Run focused MoonBit checks/tests for `lib/cognition`, `ffi/jsx`, and `lang/jsx/proj`.
+- [x] Step 1: Run focused MoonBit checks/tests for `modules/cognition`, `ffi/jsx`, and `lang/jsx/proj`.
 - [x] Step 2: Run scoped `moon fmt` and `moon info` only if MoonBit files changed; inspect generated interface drift.
 - [x] Step 3: Run `npm run build` from `examples/web`.
 - [x] Step 4: Run the complete `examples/web/tests/genui.spec.ts` suite.
@@ -108,7 +108,7 @@ Expected: invalid/stale/apply-failure/recovery/determinism tests pass.
 
 ## Verification record
 
-- `NEW_MOON_MOD=0 moon check lib/cognition ffi/jsx lang/jsx/proj` passed.
+- `NEW_MOON_MOD=0 moon check modules/cognition ffi/jsx lang/jsx/proj` passed.
 - Focused MoonBit tests passed: cognition `120/120`, ffi/jsx `52/52`, and
   lang/jsx/proj `43/43`.
 - Scoped `moon fmt` and `moon info` passed with no generated interface drift.

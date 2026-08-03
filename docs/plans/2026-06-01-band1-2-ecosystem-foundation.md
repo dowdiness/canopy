@@ -21,7 +21,7 @@ This plan is the step-ordered HOW for BAND 1-2 of the converged MoonDsp + Canopy
 
 In scope, exactly from §7.1:
 
-- 1a. `incr` version convergence: Canopy root `dowdiness/incr` 0.5.2 to 0.6.0, resolving the Canopy root vs `lib/cognition`/MoonDsp skew.
+- 1a. `incr` version convergence: Canopy root `dowdiness/incr` 0.5.2 to 0.6.0, resolving the Canopy root vs `modules/cognition`/MoonDsp skew.
 - 1b. Cross-repository coordination mechanism: shared `incr` version-lock file plus CI checks as recommended by §7.3.
 - 1c. Submodule nesting flattening and dependency hygiene: remove the `event-graph-walker` double vendoring at `canopy/event-graph-walker` and `canopy/loom/event-graph-walker`; close the loom#150-style standalone dependency problem.
 - 2a. MoonDsp `DspNode`/`CompiledTemplate` `Eq`: a MoonDsp NaN-equality policy decision must precede implementation.
@@ -40,7 +40,7 @@ Out of scope:
 Canopy:
 
 - `/home/antisatori/ghq/github.com/dowdiness/canopy/moon.mod.json`: root depends on `dowdiness/incr` 0.5.2.
-- `/home/antisatori/ghq/github.com/dowdiness/canopy/lib/cognition/moon.mod`: `dowdiness/incr@0.6.0`.
+- `/home/antisatori/ghq/github.com/dowdiness/canopy/modules/cognition/moon.mod`: `dowdiness/incr@0.6.0`.
 - `/home/antisatori/ghq/github.com/dowdiness/canopy/loom/incr/scripts/migrate-to-target-facades.py`: actual `incr` codemod path. It is not in Canopy root `scripts/`.
 - `/home/antisatori/ghq/github.com/dowdiness/canopy/.gitmodules`: root submodules include `event-graph-walker` and `loom`.
 - `/home/antisatori/ghq/github.com/dowdiness/canopy/loom/.gitmodules`: nested submodules include `event-graph-walker`.
@@ -131,12 +131,12 @@ If any breakpoint fails, fix at that point before editing the next logical file.
 
 ## PR A1: Canopy `incr` Version Convergence (1a)
 
-Goal: align Canopy root with `lib/cognition` and MoonDsp on `dowdiness/incr` 0.6.0, while migrating Canopy-owned call sites toward 0.6 target facades where the codemod can do so safely.
+Goal: align Canopy root with `modules/cognition` and MoonDsp on `dowdiness/incr` 0.6.0, while migrating Canopy-owned call sites toward 0.6 target facades where the codemod can do so safely.
 
 Primary files:
 
 - `moon.mod.json`
-- `lib/cognition/moon.mod`
+- `modules/cognition/moon.mod`
 - `core/projection_memo.mbt`
 - `lang/lambda/proj/projection_memo.mbt`
 - `core/projection_memo.mbt`
@@ -145,8 +145,8 @@ Primary files:
 - `editor/sync_editor*.mbt`
 - `workspace/coordinator/*.mbt`
 - `workspace/probe/*.mbt`
-- `lib/cognition/*.mbt`
-- `lib/visualizer/incr_tap.mbt`
+- `modules/cognition/*.mbt`
+- `modules/visualizer/incr_tap.mbt`
 - `ffi/lambda/workspace_memo_*_wbtest.mbt`
 - generated `pkg.generated.mbti` files only as produced by `NEW_MOON_MOD=0 moon info`
 
@@ -160,7 +160,7 @@ Steps:
 
 2. Update the Canopy root dependency pin.
    - Change `moon.mod.json` `dowdiness/incr` from `0.5.2` to `0.6.0`.
-   - Do not change `lib/cognition/moon.mod` unless the lock mechanism in PR B1 changes how pins are represented.
+   - Do not change `modules/cognition/moon.mod` unless the lock mechanism in PR B1 changes how pins are represented.
    - Breakpoint: `NEW_MOON_MOD=0 moon check --deny-warn`.
 
 3. Run the `incr` codemod in dry-run mode from its real path.
@@ -198,7 +198,7 @@ Steps:
 
 Acceptance criteria:
 
-- Canopy root, `lib/cognition`, and MoonDsp all resolve to `dowdiness/incr` 0.6.0.
+- Canopy root, `modules/cognition`, and MoonDsp all resolve to `dowdiness/incr` 0.6.0.
 - No Canopy `moon.mod.json` file is accidentally converted to `moon.mod`.
 - All manually migrated read sites have explicit tracked/outside-read rationale.
 - Generated interface diffs are reviewed and intentional.
@@ -224,7 +224,7 @@ Primary Canopy files:
 - new `scripts/check-shared-substrate.py` or `scripts/check-shared-substrate.sh`
 - `.github/workflows/ci.yml`
 - `moon.mod.json`
-- `lib/cognition/moon.mod`
+- `modules/cognition/moon.mod`
 
 Primary MoonDsp files:
 
@@ -249,7 +249,7 @@ Steps:
    - The ADR must state that Single-Runtime compatibility requires same `incr` build as a downstream BAND 3+ precondition, but the current mechanism enforces only same minor/pin discipline.
 
 2. Add local validation.
-   - The script must parse Canopy `moon.mod.json` JSON and `lib/cognition/moon.mod`.
+   - The script must parse Canopy `moon.mod.json` JSON and `modules/cognition/moon.mod`.
    - The script must parse MoonDsp `moon.mod`.
    - The script must fail when any local pin disagrees with the lock file's exact version or allowed minor.
    - If the script supports a peer repo path, it should compare both repos when both are checked out, but local validation must be useful by itself.
@@ -566,7 +566,7 @@ Risks covered:
 
 | Source | Risk or cliff | Task |
 | --- | --- | --- |
-| §7.2 | `incr` skew across Canopy root, `lib/cognition`, MoonDsp | A1, B1/B2 |
+| §7.2 | `incr` skew across Canopy root, `modules/cognition`, MoonDsp | A1, B1/B2 |
 | §7.2 | compatibility-handle removal timeline missing | A1 partial, B1/B2 direct |
 | §5.4, §8.3 | `event-graph-walker` double vendoring | C1/C2/C3 |
 | §7.2 | loom wasm-gc AudioWorklet build unproven | Not solved here; 1c only removes a dependency hygiene blocker |

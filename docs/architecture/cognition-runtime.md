@@ -24,9 +24,9 @@ backed by the existing `dowdiness/incr` runtime instead of a second incremental
 engine. Reverse edges make invalidation cheap: when an input changes, all
 transitive dependents can be marked dirty without scanning every artifact.
 
-The current implementation lives in `lib/cognition`; its generated package
+The current implementation lives in `modules/cognition`; its generated package
 interface is the source of truth for concrete API names. Package-level examples
-live in `lib/cognition/README.mbt.md` and are checked by `moon test`.
+live in `modules/cognition/README.mbt.md` and are checked by `moon test`.
 
 ## Mock recomputation rules
 

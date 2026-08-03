@@ -16,7 +16,7 @@ git submodule update --init --recursive
 ### Test & Build
 ```bash
 # Workspace-root commands cover every in-repo module listed in `moon.work`
-# (canopy root + all lib/* and examples/* members). Read `moon.work` for the
+# (canopy root + all modules/* and examples/* members). Read `moon.work` for the
 # current member list — do not maintain a copy here; it drifts.
 moon test                           # All workspace members
 moon check                          # Lint across workspace
@@ -60,7 +60,7 @@ pinned Playwright container per suite.
 
 ### Formal Verification
 ```bash
-cd lib/semantic/proof && moon prove  # Requires Why3 + z3 on PATH
+cd modules/semantic/proof && moon prove  # Requires Why3 + z3 on PATH
 ```
 Proof packages are standalone modules with `"proof-enabled": true`. Run `moon prove` from within the proof package directory. Requires Why3 1.7.2 and z3 4.13.x on PATH (`eval $(opam env)`). See [docs/development/formal-verification.md](docs/development/formal-verification.md) for setup and decision guide.
 

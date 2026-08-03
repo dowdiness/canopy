@@ -80,7 +80,7 @@ jobs:
               - '.github/workflows/ci.yml'
               - 'scripts/test-loomark-dev-host-e2e.sh'
             run_prove:
-              - 'lib/semantic/proof/**'
+              - 'modules/semantic/proof/**'
               - '.github/actions/setup-moonbit/**'
               - '.github/workflows/ci.yml'
               - 'scripts/moon-update.sh'
@@ -280,12 +280,12 @@ jobs:
           why3 config detect
 
       - name: Update MoonBit dependencies
-        working-directory: lib/semantic/proof
+        working-directory: modules/semantic/proof
         run: |
           "$GITHUB_WORKSPACE/scripts/moon-update.sh"
 
       - name: Run moon prove
-        working-directory: lib/semantic/proof
+        working-directory: modules/semantic/proof
         run: |
           eval $(opam env)
           moon prove

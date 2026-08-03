@@ -23,11 +23,11 @@ The row above is consistent with `GraphNode::id()` being token-based binding ide
 
 ## Constraints
 
-1. `NodeId/EdgeId` are shared model primitives with JSON contracts and are currently `pub(all) struct Int` wrappers in `lib/canvas-graph/graph_model/model.mbt:6,38`. Codec paths currently serialize numeric identifiers (`lib/canvas-graph/graph_model/model.mbt:25-35`, `:55-65`, `:57-67`, `:174-183`, `:288-329`).  
+1. `NodeId/EdgeId` are shared model primitives with JSON contracts and are currently `pub(all) struct Int` wrappers in `modules/canvas-graph/graph_model/model.mbt:6,38`. Codec paths currently serialize numeric identifiers (`modules/canvas-graph/graph_model/model.mbt:25-35`, `:55-65`, `:57-67`, `:174-183`, `:288-329`).
 
-2. The source panel currently exposes a whole-document path: `EditorChanged(String)` is fed through `set_source_graph_source_checked` and `attachment.set_source` (`examples/canvas/main/source_demo.mbt:42-43`, `:101-107`, `:192-203`), with parse/reparse paths that are coarse and can trigger churn (`examples/canvas/main/graph_dsl_adapter.mbt:901-929`).  
+2. The source panel currently exposes a whole-document path: `EditorChanged(String)` is fed through `set_source_graph_source_checked` and `attachment.set_source` (`examples/canvas/main/source_demo.mbt:42-43`, `:101-107`, `:192-203`), with parse/reparse paths that are coarse and can trigger churn (`examples/canvas/main/graph_dsl_adapter.mbt:901-929`).
 
-3. Duplicate-binding rejection is present in the source projection and is non-negotiable for token identity correctness (`loom/examples/graph-dsl/src/projection.mbt:283-292`).  
+3. Duplicate-binding rejection is present in the source projection and is non-negotiable for token identity correctness (`loom/examples/graph-dsl/src/projection.mbt:283-292`).
 
 4. Rabbitita binding direction says reusable bindings should expose subscription-shaped APIs via `@sub` (rather than raw FFI consumption), with payload-tagging semantics and stable subscription keys (`rabbita/rabbita/sub/design.md:1-77`, `rabbita/doc/using_subscriptions/readme.mbt.md:1-155`, `rabbita/rabbita/websocket/listen.mbt:1-117`). The existing `modules/rabbita_codemirror/codemirror.mbt:634-652` listen signature currently emits whole-doc only, so extension must occur in the binding layer.
 
@@ -106,7 +106,7 @@ All listed tests remain source-backed design-level checks; assertions migrate to
 - Existing source-backed wbtests continue: clear/delete/multi-select order/invalid-source no-remap (`examples/canvas/main/graph_dsl_adapter_wbtest.mbt:441-490`, `:529-543`, `:564-607`).
 
 Additional structural checks:
-- `lib/canvas-graph/graph_model/model.mbt:25-35`, `:55-65`, `:288-329` updated to string JSON handling without semantic downgrade.
+- `modules/canvas-graph/graph_model/model.mbt:25-35`, `:55-65`, `:288-329` updated to string JSON handling without semantic downgrade.
 - `examples/canvas/web/src/graph-adapter.ts` pointer and payload paths updated to opaque string IDs.
 - `modules/rabbita_codemirror/codemirror.mbt` and JS binding layer accept and emit structured deltas with suberror-safe callback semantics.
 

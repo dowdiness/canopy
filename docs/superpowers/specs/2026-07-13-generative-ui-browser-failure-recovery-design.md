@@ -29,7 +29,7 @@ Dry-run failure remains covered by the existing pure/session contract tests. The
 - dispose/reset the existing session through the existing disposal path;
 - read the current session revision and handle without owning commit policy.
 
-No lifecycle transitions, validation, revision decisions, recovery logic, or candidate construction policy move into JavaScript. `lib/cognition` and `ffi/jsx` remain authoritative.
+No lifecycle transitions, validation, revision decisions, recovery logic, or candidate construction policy move into JavaScript. `modules/cognition` and `ffi/jsx` remain authoritative.
 
 DOM apply failure is induced only in Playwright by temporarily replacing the test page root's `appendChild`/`insertBefore` operation with a throwing wrapper. The existing `catch_js` and `DomApplyError` path must observe the failure. The test restores the DOM method before invoking the next real render; no production fault-injection API is added.
 

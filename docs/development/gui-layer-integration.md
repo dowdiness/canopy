@@ -44,7 +44,7 @@ The design consequence is that the editor needs two operation layers:
 | `examples/block-editor` | Block-level document editor. | contenteditable blocks keyed by IDs, drag handles, focused-block preservation, Markdown import/export path. | Document model is block CRDT-specific and not protocol-driven. |
 | `examples/codemirror_demo` and `modules/rabbita_codemirror` | Rabbita binding smoke test for CodeMirror. | Function-based MoonBit API, `Cmd`/`Sub` lifecycle, editor handle registry, guarded programmatic updates. | Text surface only; use for source pane and inline fields, not graph topology. |
 | `adapters/editor-adapter` | Framework-agnostic patch/intent boundary. | `EditorAdapter`, `CM6Adapter`, `PMAdapter`, `HTMLAdapter`, stable TS protocol types. | README explicitly scopes non-text custom surfaces out of this package; graph work should be a separate adapter. |
-| `graphviz` and `lib/visualizer` | DOT parse/layout/render to SVG. | Read-only graph inspection, diagnostics and history visualization. | SVG Graphviz is not an interactive graph editor; do not use it as the primary node canvas. |
+| `graphviz` and `modules/visualizer` | DOT parse/layout/render to SVG. | Read-only graph inspection, diagnostics and history visualization. | SVG Graphviz is not an interactive graph editor; do not use it as the primary node canvas. |
 
 Browser smoke observations:
 
