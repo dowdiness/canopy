@@ -1033,13 +1033,43 @@ test "reopened and original converge after divergent edits" {
 
   let from_b = try! b.history_since()
   let from_a = try! a.history_since()
-  assert_true(try! (a.admit(from_b) is MarkdownAdmitReport::Complete(_)))
-  assert_true(try! (b.admit(from_a) is MarkdownAdmitReport::Complete(_)))
+  // Each side is handed the other's whole history, most of which it already
+  // holds. Operations already present are neither applied again nor withheld.
+  assert_eq(try! a.admit(from_b), MarkdownAdmitReport::Complete)
+  assert_eq(try! b.admit(from_a), MarkdownAdmitReport::Complete)
 
   assert_eq(a.snapshot().source(), b.snapshot().source())
   let history_a = try! a.history_since()
   let history_b = try! b.history_since()
   assert_true(history_a == history_b)
+}
+
+///|
+/// Taking back a history the document already holds changes nothing.
+///
+/// The convergence test above traverses this path -- each side is sent the
+/// other's whole history -- without ever pinning it, so a document that
+/// re-applied operations it already had would have converged anyway and gone
+/// unnoticed. Admission is idempotent, and that is asserted here rather than
+/// relied on there.
+test "re-admitting a held history advances nothing" {
+  let document = try! MarkdownEditor(agent_id="idempotent", source="# Title\n")
+  assert_true(
+    document.commit(
+      MarkdownEditRequest::ReplaceText(start=8, delete_len=0, inserted="body\n"),
+    )
+    is Ok(_),
+  )
+  let before_source = document.snapshot().source()
+  let before_version = document.version()
+  let held = try! document.history_since()
+
+  assert_eq(try! document.admit(held), MarkdownAdmitReport::Complete)
+
+  assert_eq(document.snapshot().source(), before_source)
+  assert_true(document.version() == before_version)
+  let after = try! document.history_since()
+  assert_true(after == held)
 }
 
 ///|

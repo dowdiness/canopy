@@ -26,7 +26,7 @@ pub(all) suberror MarkdownEditorError {
 
 // Types and methods
 pub(all) enum MarkdownAdmitReport {
-  Complete(applied~ : Int)
+  Complete
   Withheld(applied~ : Int, withheld~ : Int)
 } derive(Eq, @debug.Debug)
 

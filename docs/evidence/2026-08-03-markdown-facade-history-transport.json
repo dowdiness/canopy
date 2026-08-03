@@ -4,17 +4,17 @@
   "purpose": "Observations from the first implementation slice: version and history transport on the Markdown façade. Extends 2026-08-03-local-first-document-ownership-claims.json, which recorded the same round-trip one layer lower and listed the façade version as not yet demonstrated.",
   "recordedAt": "2026-08-03",
   "observedAt": {
-    "canopy": "e97f7e3aa1261610e1edac90d7e0eb61f0753cfe plus the uncommitted editor/markdown slice these observations were taken from",
+    "canopy": "the editor/markdown and editor changes committed on top of e97f7e3aa1261610e1edac90d7e0eb61f0753cfe; observations were taken as each landed, and the counts here are from the final state",
     "event-graph-walker": "fadc41b1e99753129be816c37393afee2175e23f",
     "loom": "d9cac9b29568595d1717f05e0ee0b530db064e24"
   },
   "executedProbes": {
     "command": "NEW_MOON_MOD=0 moon test -p dowdiness/canopy/editor/markdown",
-    "result": "Total tests: 16, passed: 16, failed: 0",
+    "result": "Total tests: 17, passed: 17, failed: 0",
     "instrumentControl": {
       "why": "The new assertions are the whole point of the slice; a green suite proves nothing unless they ran.",
-      "observed": "Falsifying the canonical-history oracle produced 13 of 14 passing, naming its assertion line. After the surface was reshaped, falsifying both of the added assertions -- convergence, and the withheld report -- produced 14 of 16 passing, naming markdown_editor_wbtest.mbt:219 ('true is not false') and :242 ('Withheld != Complete'). Restoring each returned the suite to green.",
-      "conclusion": "Every assertion these findings rest on executes; the green runs are not vacuous. The second control also shows the admit report really is Withheld rather than defaulting."
+      "observed": "Falsified once per added assertion, each time restoring the suite to green afterwards. The canonical-history oracle: 13 of 14 passing, naming its line. Convergence and the withheld report: 14 of 16 passing, the second reporting 'Withheld != Complete'. Idempotence, falsified one assertion at a time because the first failure ends the test: 16 of 17 passing for the version claim, then again for the history claim. The probe's direct pending count: 41 of 42.",
+      "conclusion": "Every assertion these findings rest on executes; the green runs are not vacuous. The withheld control also shows the report really is Withheld with those counts rather than a default."
     },
     "findings": [
       {
@@ -32,7 +32,16 @@
         "procedure": "Seed a second façade document by reopening the first one's history, let each commit a text edit at a different offset, confirm their sources have diverged, then have each admit the other's history and compare source and canonical history.",
         "result": "confirmed",
         "observed": "Both admissions reported Complete. Sources diverged before the exchange and were equal after it, and the two histories were equal under canonical-history equality.",
-        "bearingOn": "Closes the second half of the design's oracle, which equality alone cannot reach: equal history shows agreement about the past, and only an exchange of subsequent operations shows the reopened document is a replica rather than a copy that happens to match. The pre-exchange divergence assertion is what keeps this from passing vacuously."
+        "bearingOn": "Closes the second half of the design's oracle, which equality alone cannot reach: equal history shows agreement about the past, and only an exchange of subsequent operations shows the reopened document is a replica rather than a copy that happens to match. The pre-exchange divergence assertion is what keeps this from passing vacuously.",
+        "note": "Each side is handed the other's whole history, so this traverses the already-held path without pinning it; a document that re-applied operations it already had would converge here anyway. F10 pins it separately."
+      },
+      {
+        "id": "F10-admission-is-idempotent",
+        "question": "Does taking back a history the document already holds change it?",
+        "procedure": "Build and edit a document, cut its whole history, admit that history back into the same document, and compare source, version, and history against the values before.",
+        "result": "confirmed",
+        "observed": "Admission reported Complete, and source, version, and canonical history were all unchanged.",
+        "bearingOn": "This was traversed but unasserted by F8, and was the case that made an earlier report shape misleading: Complete once carried a count of newly applied operations, which reads as 'everything in the history was applied' and is false whenever the sender includes operations the receiver already holds. The count is no longer carried on that variant. Non-vacuous only in suite context -- an admission that applied nothing at all would also pass here, and F8 and F9 are what rule that out."
       },
       {
         "id": "F9-withheld-reported-and-refused",

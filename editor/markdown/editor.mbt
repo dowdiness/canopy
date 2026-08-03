@@ -124,10 +124,20 @@ pub(all) suberror MarkdownArchiveError {
 /// Whether it is acceptable is the caller's judgment: a peer exchange expects
 /// it, and an archive that claims to be complete is contradicted by it.
 pub(all) enum MarkdownAdmitReport {
-  /// Every operation in the history was applied.
-  Complete(applied~ : Int)
-  /// Some operations were applied; others await prerequisites that did not
-  /// arrive and are held until they do.
+  /// Nothing is held: every operation in the history is now in this document.
+  ///
+  /// This carries no count. How many operations were new rather than already
+  /// present depends on what the sender chose to include, which says nothing
+  /// about this document, and whether the document advanced is answered by its
+  /// version — a signal that does not need a count to be read.
+  Complete
+  /// Some operations await prerequisites that did not arrive, and are held
+  /// until they do.
+  ///
+  /// Both counts are carried because the partial and total cases call for
+  /// different responses: `applied` is how many operations were new to this
+  /// document, so zero means nothing landed at all, and that reading holds
+  /// whatever else the message contained.
   Withheld(applied~ : Int, withheld~ : Int)
 } derive(Eq, Debug)
 
@@ -324,7 +334,7 @@ pub fn MarkdownEditor::open(
   }
   let document = { editor, }
   match document.admit(history) {
-    MarkdownAdmitReport::Complete(_) => document
+    MarkdownAdmitReport::Complete => document
     MarkdownAdmitReport::Withheld(..) =>
       raise MarkdownArchiveError::IncompleteArchive
   }
@@ -348,10 +358,13 @@ pub fn MarkdownEditor::admit(
   // Applicable operations are committed before the withheld ones are counted,
   // so the projection is rebuilt on both paths.
   self.editor.refresh()
-  let applied = report.applied_operations()
   match report.pending_operations() {
-    0 => MarkdownAdmitReport::Complete(applied~)
-    withheld => MarkdownAdmitReport::Withheld(applied~, withheld~)
+    0 => MarkdownAdmitReport::Complete
+    withheld =>
+      MarkdownAdmitReport::Withheld(
+        applied=report.applied_operations(),
+        withheld~,
+      )
   }
 }
 
