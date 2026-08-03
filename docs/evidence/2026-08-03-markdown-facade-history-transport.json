@@ -10,21 +10,37 @@
   },
   "executedProbes": {
     "command": "NEW_MOON_MOD=0 moon test -p dowdiness/canopy/editor/markdown",
-    "result": "Total tests: 14, passed: 14, failed: 0",
+    "result": "Total tests: 16, passed: 16, failed: 0",
     "instrumentControl": {
       "why": "The new assertions are the whole point of the slice; a green suite proves nothing unless they ran.",
-      "observed": "Falsifying the canonical-history oracle (assert_true -> assert_false on the restored-equals-exported comparison) produced 14 tests, 13 passed, 1 failed, naming markdown_editor_wbtest.mbt:182 and its test. Restoring it returned the suite to 14/14.",
-      "conclusion": "The façade oracle executes; the green run is not vacuous."
+      "observed": "Falsifying the canonical-history oracle produced 13 of 14 passing, naming its assertion line. After the surface was reshaped, falsifying both of the added assertions -- convergence, and the withheld report -- produced 14 of 16 passing, naming markdown_editor_wbtest.mbt:219 ('true is not false') and :242 ('Withheld != Complete'). Restoring each returned the suite to green.",
+      "conclusion": "Every assertion these findings rest on executes; the green runs are not vacuous. The second control also shows the admit report really is Withheld rather than defaulting."
     },
     "findings": [
       {
         "id": "F1-facade-roundtrip",
         "question": "Does the editor-layer checkpoint round-trip (E1) hold through the Markdown façade?",
-        "procedure": "Construct a façade editor, commit a text edit, read version, export history, restore into a second façade editor under a different writer identity, then compare source, version, and exported history.",
+        "procedure": "Construct a façade document, commit a text edit, read version, cut the whole history, reopen it into a second façade document under a different writer identity, then compare source, version, and history.",
         "result": "confirmed",
-        "observed": "Restored source and version equal the exported ones, and the restored document's exported history is equal to the exported history under canonical-history equality.",
+        "observed": "Reopened source and version equal the exported ones, and the reopened document's history is equal to the exported history under canonical-history equality.",
         "bearingOn": "Closes the prior record's notVerified entry 'The archive shape is implementable through the Markdown facade as stated.' Its stated wouldRequire -- surfacing version and history transport on the façade, then repeating E1 through it -- is what this slice did.",
-        "limitation": "This is one of the two checks the design names, not both. See openQuestions/restore-merge-not-expressible."
+        "limitation": "This is one of the two checks the design names. The other is F8."
+      },
+      {
+        "id": "F8-reopened-document-converges",
+        "question": "Does a reopened document share a future with the one it came from, or only a past?",
+        "procedure": "Seed a second façade document by reopening the first one's history, let each commit a text edit at a different offset, confirm their sources have diverged, then have each admit the other's history and compare source and canonical history.",
+        "result": "confirmed",
+        "observed": "Both admissions reported Complete. Sources diverged before the exchange and were equal after it, and the two histories were equal under canonical-history equality.",
+        "bearingOn": "Closes the second half of the design's oracle, which equality alone cannot reach: equal history shows agreement about the past, and only an exchange of subsequent operations shows the reopened document is a replica rather than a copy that happens to match. The pre-exchange divergence assertion is what keeps this from passing vacuously."
+      },
+      {
+        "id": "F9-withheld-reported-and-refused",
+        "question": "Can one surface treat missing prerequisites as an ordinary state for a peer exchange and as a defect for an archive?",
+        "procedure": "Cut a history at a version, hand the increment to a document that never saw the operations before that cut, and observe both admitting it directly and opening a document from it.",
+        "result": "confirmed",
+        "observed": "Admission returned Withheld without raising. Opening the same increment raised IncompleteArchive.",
+        "bearingOn": "The distinction the design asks for is a judgment about one report rather than two mechanisms. It also shows the façade no longer propagates the substrate's shape, where the same situation arrives as an error carrying no count (F6)."
       },
       {
         "id": "F4-payload-closed-to-outsiders",
@@ -87,14 +103,14 @@
         "docs/evidence/2026-08-03-local-first-document-ownership-claims.json (version-is-high-water-mark, consequence)",
         "editor/markdown/markdown_editor_wbtest.mbt:157-183 (round-trip test ends at history equality)"
       ],
-      "bearingOn": "Canonical-history equality shows the restored document has the same past. Only a merge shows it can share a future, which is the loss the design exists to prevent. Until the façade can admit a history into an existing document, the stronger half of the oracle is asserted nowhere above the editor layer. Not closed in this slice: it requires a fourth façade operation beyond the three this slice was scoped to.",
-      "status": "open"
+      "bearingOn": "Canonical-history equality shows the restored document has the same past. Only a merge shows it can share a future, which is the loss the design exists to prevent.",
+      "status": "resolved 2026-08-03. The surface was reshaped so that admission is the general operation and opening is its empty-receiver case; the merge check is F8. The finding stands as the reason the reshape happened."
     },
     {
       "id": "restore-inherits-receiver-policy",
-      "raisedBy": "implementing MarkdownEditor::restore",
-      "question": "What ceiling does restore state, given that the only available replay path applies the receiver's sync limits?",
-      "observation": "Restore replays through SyncEditor::apply_sync -> SyncSession::apply, which calls prepare_sync with the document's sync_limits and raises LimitExceeded on encoded bytes and decoded operation count. Those limits are fixed per TextState at construction (TextState::new_with_sync_limits) and cannot be varied per call, so a restore-specific ceiling is not separable from the ceiling applied to remote traffic for the rest of the session.",
+      "raisedBy": "implementing the façade's admission path",
+      "question": "What policy does admission state, given that the only available path applies the receiver's sync limits?",
+      "observation": "Admission goes through SyncEditor::apply_sync -> SyncSession::apply, which calls prepare_sync with the document's sync_limits and raises LimitExceeded on encoded bytes and decoded operation count. Those limits are fixed per TextState at construction (TextState::new_with_sync_limits) and cannot be varied per call, so opening an archive and admitting remote traffic cannot state different policies. The completeness half of the policy is now stated at the call -- opening refuses withheld operations, admission reports them -- but the resource half is not.",
       "sites": [
         "event-graph-walker/text/sync.mbt:1213-1224 (SyncSession::apply passes self.doc.sync_limits)",
         "event-graph-walker/text/sync.mbt:1099-1116 (prepare_sync limit checks)",
@@ -105,9 +121,9 @@
     },
     {
       "id": "archive-failure-taxonomy-placement",
-      "raisedBy": "implementing MarkdownEditor::export_history and ::restore",
+      "raisedBy": "implementing the façade's archive operations",
       "question": "Where do archive failures belong relative to editing failures?",
-      "observation": "Adding ExportFailed/RestoreFailed to MarkdownEditorError breaks loomark/internal/rabbita/application.mbt:226, which matches that suberror exhaustively and without a wildcard in order to keep failures categorized. This slice instead introduced a separate MarkdownArchiveError, so the editing taxonomy and its one consumer are untouched.",
+      "observation": "Adding archive failures to MarkdownEditorError breaks loomark/internal/rabbita/application.mbt:226, which matches that suberror exhaustively and without a wildcard in order to keep failures categorized. This slice instead introduced a separate MarkdownArchiveError, so the editing taxonomy and its one consumer are untouched.",
       "bearingOn": "Consistent with the design's separation of the archive from the editing session, but the consumer-facing categorization of a restore failure -- in particular the design's requirement that a reader distinguish 'written by a newer release' from 'damaged' -- is not decided here and belongs with the envelope.",
       "status": "open"
     }

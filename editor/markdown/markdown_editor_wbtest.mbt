@@ -975,6 +975,162 @@ test "empty replica identity is a categorized construction failure" {
 }
 
 ///|
+/// Repeats the probe's checkpoint round-trip through the façade.
+///
+/// workspace/probe pinned this at the editor layer because the façade exposed
+/// neither version nor history transport. It now does, so the same claim is
+/// asserted where the application actually stands.
+test "facade history round-trips into a reopened document" {
+  let original = try! MarkdownEditor(
+    agent_id="owner-1",
+    source="# Title\n\nbody text\n",
+  )
+  let edited = original.commit(
+    MarkdownEditRequest::ReplaceText(start=8, delete_len=0, inserted="!"),
+  )
+  assert_true(edited is Ok(MarkdownCommitResult::Applied(_)))
+  let want_source = original.snapshot().source()
+  let want_version = original.version()
+  let history = try! original.history_since()
+
+  let reopened = try! MarkdownEditor::open(agent_id="owner-2", history~)
+
+  assert_eq(reopened.snapshot().source(), want_source)
+  assert_true(reopened.version() == want_version)
+  // Same past. Source and version are asserted above as consequences, and
+  // would not on their own distinguish a continuation from a document that
+  // merely looks alike -- see the next test. Sharing a future is a separate
+  // claim, asserted by the convergence test below.
+  let reopened_history = try! reopened.history_since()
+  assert_true(reopened_history == history)
+}
+
+///|
+/// A reopened document still shares a future with the one it came from.
+///
+/// This is the half of the design's oracle that equality cannot reach. Equal
+/// history shows the two agree about the past; only an exchange of subsequent
+/// operations shows the reopened document is a replica rather than a copy that
+/// happens to match.
+test "reopened and original converge after divergent edits" {
+  let a = try! MarkdownEditor(agent_id="peer-a", source="hello world")
+  let seed = try! a.history_since()
+  let b = try! MarkdownEditor::open(agent_id="peer-b", history=seed)
+
+  assert_true(
+    a.commit(
+      MarkdownEditRequest::ReplaceText(start=0, delete_len=0, inserted="A"),
+    )
+    is Ok(_),
+  )
+  assert_true(
+    b.commit(
+      MarkdownEditRequest::ReplaceText(start=11, delete_len=0, inserted="B"),
+    )
+    is Ok(_),
+  )
+  assert_false(a.snapshot().source() == b.snapshot().source())
+
+  let from_b = try! b.history_since()
+  let from_a = try! a.history_since()
+  assert_eq(try! a.admit(from_b), MarkdownAdmitReport::Complete)
+  assert_eq(try! b.admit(from_a), MarkdownAdmitReport::Complete)
+
+  assert_eq(a.snapshot().source(), b.snapshot().source())
+  let history_a = try! a.history_since()
+  let history_b = try! b.history_since()
+  assert_true(history_a == history_b)
+}
+
+///|
+/// A history missing its prerequisites is a state, not a failure -- and an
+/// archive claiming to be whole is contradicted by it.
+///
+/// The same increment produces both outcomes. Admission reports what it could
+/// not place; opening refuses it. Nothing separates the two but the judgment
+/// each makes about the same report.
+test "withheld operations are reported by admit and refused by open" {
+  let source = try! MarkdownEditor(agent_id="gap-source", source="x")
+  let cut = source.version()
+  assert_true(
+    source.commit(
+      MarkdownEditRequest::ReplaceText(start=1, delete_len=0, inserted="y"),
+    )
+    is Ok(_),
+  )
+  // Everything after the cut, whose parents the receiver never saw.
+  let gapped = try! source.history_since(version=cut)
+
+  let receiver = try! MarkdownEditor(agent_id="gap-receiver", source="")
+  assert_eq(try! receiver.admit(gapped), MarkdownAdmitReport::Withheld)
+
+  let refused : Result[MarkdownEditor, MarkdownArchiveError] = Ok(
+    MarkdownEditor::open(agent_id="gap-open", history=gapped),
+  ) catch {
+    error => Err(error)
+  }
+  match refused {
+    Err(MarkdownArchiveError::IncompleteArchive) => ()
+    _ => fail("expected IncompleteArchive")
+  }
+}
+
+///|
+/// Equal source and equal version do not make one document a continuation.
+///
+/// Two façade editors sharing a writer identity reach the same source and the
+/// same frontier while holding different histories. This is why restore is
+/// checked by comparing history, and it fails first if that ever stops being
+/// true.
+test "equal source and version do not imply equal history" {
+  let one = try! MarkdownEditor(agent_id="same-identity", source="")
+  let two = try! MarkdownEditor(agent_id="same-identity", source="")
+  for writer in [(one, "A"), (two, "B")] {
+    let (editor, inserted) = writer
+    assert_true(
+      editor.commit(
+        MarkdownEditRequest::ReplaceText(start=0, delete_len=0, inserted~),
+      )
+      is Ok(_),
+    )
+    assert_true(
+      editor.commit(
+        MarkdownEditRequest::ReplaceText(start=0, delete_len=1, inserted=""),
+      )
+      is Ok(_),
+    )
+  }
+
+  assert_eq(one.snapshot().source(), two.snapshot().source())
+  assert_true(one.version() == two.version())
+  let history_one = try! one.history_since()
+  let history_two = try! two.history_since()
+  assert_false(history_one == history_two)
+}
+
+///|
+/// A commit reported as Unchanged still advanced the document.
+///
+/// The façade classifies a commit by comparing source, so it says Unchanged
+/// here. The version says otherwise, and the version is what persistence must
+/// trigger on: saving on the façade's own verdict would skip this.
+test "text-preserving commit reports Unchanged while the version advances" {
+  let editor = try! MarkdownEditor(agent_id="advance", source="hello")
+  let before_version = editor.version()
+
+  let result = editor.commit(
+    MarkdownEditRequest::ReplaceText(start=0, delete_len=1, inserted="h"),
+  )
+
+  match result {
+    Ok(MarkdownCommitResult::Unchanged(snapshot)) =>
+      assert_eq(snapshot.source(), "hello")
+    _ => fail("expected Unchanged")
+  }
+  assert_false(editor.version() == before_version)
+}
+
+///|
 test "reference definition insertion preserves facade block identities" {
   let prefix = "[ref]: /target\n\n"
   let source = "# Heading\n\nBody [link][ref].\n"

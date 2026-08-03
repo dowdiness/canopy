@@ -9,6 +9,13 @@ import {
 // Values
 
 // Errors
+pub(all) suberror MarkdownArchiveError {
+  InvalidAgentId
+  ExportFailed(detail~ : String)
+  AdmitFailed(detail~ : String)
+  IncompleteArchive
+}
+
 pub(all) suberror MarkdownEditorError {
   InvalidAgentId
   InitializationFailed(detail~ : String)
@@ -18,6 +25,11 @@ pub(all) suberror MarkdownEditorError {
 }
 
 // Types and methods
+pub(all) enum MarkdownAdmitReport {
+  Complete
+  Withheld
+} derive(Eq, @debug.Debug)
+
 pub(all) enum MarkdownBlockKind {
   Paragraph
   Heading(level~ : Int)
@@ -50,12 +62,21 @@ pub(all) enum MarkdownCommitResult {
   Unchanged(MarkdownDocumentSnapshot)
 } derive(Eq, @debug.Debug)
 
+pub struct MarkdownDocumentHistory {
+  // private fields
+}
+pub impl Eq for MarkdownDocumentHistory
+
 pub struct MarkdownDocumentSnapshot {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn MarkdownDocumentSnapshot::blocks(Self) -> @vector.Vector[MarkdownBlockSnapshot]
 pub fn MarkdownDocumentSnapshot::projection(Self) -> MarkdownProjectionSnapshot
 pub fn MarkdownDocumentSnapshot::source(Self) -> String
+
+pub struct MarkdownDocumentVersion {
+  // private fields
+} derive(Eq, @debug.Debug)
 
 pub(all) enum MarkdownEditRequest {
   ReplaceSource(String)
@@ -73,8 +94,12 @@ pub struct MarkdownEditor {
   // private fields
 }
 pub fn MarkdownEditor::MarkdownEditor(agent_id~ : String, source~ : String) -> Self raise MarkdownEditorError
+pub fn MarkdownEditor::admit(Self, MarkdownDocumentHistory) -> MarkdownAdmitReport raise MarkdownArchiveError
 pub fn MarkdownEditor::commit(Self, MarkdownEditRequest) -> Result[MarkdownCommitResult, MarkdownEditorError]
+pub fn MarkdownEditor::history_since(Self, version? : MarkdownDocumentVersion) -> MarkdownDocumentHistory raise MarkdownArchiveError
+pub fn MarkdownEditor::open(agent_id~ : String, history~ : MarkdownDocumentHistory) -> Self raise MarkdownArchiveError
 pub fn MarkdownEditor::snapshot(Self) -> MarkdownDocumentSnapshot
+pub fn MarkdownEditor::version(Self) -> MarkdownDocumentVersion
 
 pub struct MarkdownNodeId {
   // private fields
