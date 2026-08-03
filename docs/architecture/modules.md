@@ -1,186 +1,74 @@
 # Module Structure
 
-The codebase is organized as a **monorepo with git submodules**:
+Canopy's repository layout expresses four independent concerns. Treating them
+as one directory hierarchy is the main source of topology confusion.
 
-## Git Submodules (Standalone Libraries)
+## Ownership layers
 
-`.gitmodules` is authoritative for which submodules exist; this table adds the
-GitHub repo and MoonBit-module mapping on top of that list.
+1. A **MoonBit module manifest** owns package identity, versioning, publication,
+   and external dependencies.
+2. A **package manifest** defines a compilation unit inside its nearest
+   enclosing module.
+3. A **workspace file** selects modules for one command context. Membership
+   does not imply repository ownership.
+4. A **Git submodule entry** assigns a subtree to another repository. A
+   submodule may also be a workspace member.
 
-| Submodule | GitHub Repo | MoonBit Module |
-|---|---|---|
-| `event-graph-walker/` | [dowdiness/event-graph-walker](https://github.com/dowdiness/event-graph-walker) | `dowdiness/event-graph-walker` |
-| `loom/` | [dowdiness/loom](https://github.com/dowdiness/loom) | `dowdiness/loom`, `dowdiness/seam`, `dowdiness/incr`, `dowdiness/text_change`, `dowdiness/moji`, `dowdiness/pretty`, `dowdiness/lambda` (loom is itself a nested monorepo — see the `loom/` section below) |
-| `svg-dsl/` | [dowdiness/svg-dsl](https://github.com/dowdiness/svg-dsl) | `dowdiness/svg-dsl` |
-| `graphviz/` | [dowdiness/graphviz](https://github.com/dowdiness/graphviz) | `dowdiness/graphviz` |
-| `rle/` | [dowdiness/rle](https://github.com/dowdiness/rle) | `dowdiness/rle` |
-| `order-tree/` | [dowdiness/order-tree](https://github.com/dowdiness/order-tree) | `dowdiness/order-tree` (backs event-graph-walker) |
-| `alga/` | [dowdiness/alga](https://github.com/dowdiness/alga) | `dowdiness/alga` (backs event-graph-walker) |
-| `rabbita/` | [dowdiness/rabbita](https://github.com/dowdiness/rabbita) | vendored community UI library — not a root `moon.mod` dependency |
+These layers intentionally overlap. For example, a separately owned parser
+module can participate in Canopy's root workspace without becoming part of the
+`dowdiness/canopy` module or the Canopy Git repository.
 
-## `event-graph-walker/` Module (Core CRDT Library)
+## Sources of truth
 
-A reusable CRDT library implementing the eg-walker algorithm. Contains 5 packages:
+| Question | Source |
+| --- | --- |
+| Which module owns a package? | Nearest `moon.mod` or `moon.mod.json`. |
+| Which compilation unit owns source files? | Nearest `moon.pkg` or `moon.pkg.json` within that module. |
+| Which modules do root commands cover? | Root `moon.work`. |
+| Which repository owns a directory? | `.gitmodules` and the nearest Git root. |
+| What does a module import? | Its module manifest and package manifests. |
+| What is the current combined inventory? | `./scripts/package-overview.sh`. |
 
-### `causal_graph/`
-Causal graph data structure for tracking operation dependencies.
+Do not maintain complete package, workspace-member, submodule, or dependency
+lists in architecture prose. They drift from the manifests. The generated
+overview reports the live paths; the
+[module/package map](../development/module-package-map.md) explains operational
+placement rules.
 
-- Maintains parent relationships and Lamport timestamps
-- Implements transitive closure, graph diffing, and ancestry checks
-- **Event graph walker** (`walker.mbt`) - Core eg-walker algorithm for topological traversal
-- **Version vectors** (`version_vector.mbt`) - Compact representation of version frontiers for efficient network sync
+## Dependency direction
 
-### `oplog/`
-Operation log for append-only storage of edit operations.
+Reusable parsing, CRDT, rendering, and data-structure modules form the substrate.
+The primary `dowdiness/canopy` module composes that substrate into projection,
+protocol, editor, language, and collaboration packages. Adapters and runnable
+applications consume those interfaces.
 
-### `fugue/`
-FugueMax tree implementation (ordered sequence CRDT).
+Dependencies should point toward reusable substrate and must not grow upward
+into application code. Code that needs a product runtime, deployment target, or
+specific frontend belongs in an adapter or application rather than a reusable
+module.
 
-### `branch/`
-Branch/snapshot system for efficient document state reconstruction and merging.
+Representative seams:
 
-### `document/`
-CRDT document model (general-purpose text document).
+- `event-graph-walker/` and `loom/` are separately owned substrate repositories.
+- `core/`, `editor/`, `projection/`, and `protocol/` are primary-module package
+  families.
+- `adapters/editor-adapter/` translates primary-module interfaces for
+  TypeScript consumers.
+- `examples/ideal/` and `examples/canvas/` are runnable applications with their
+  own lifecycle and verification.
 
-**See:** [event-graph-walker/README.md](../../event-graph-walker/README.md) for detailed documentation.
+These examples explain the layers; they are not an inventory.
 
-## `loom/` module (lambda calculus parser + framework)
+## Placement test
 
-Monorepo containing the incremental parser framework and lambda calculus example.
-The `crdt` module depends on `dowdiness/lambda` (`loom/examples/lambda/`) and `dowdiness/loom` (`loom/loom/`).
+Before adding a directory, answer in order:
 
-- `loom/loom/` — `dowdiness/loom`: generic parser framework (core, bridge, pipeline, incremental, viz)
-- `loom/seam/` — `dowdiness/seam`: language-agnostic CST (`CstNode`, `SyntaxNode`)
-- `loom/incr/` — `dowdiness/incr`: reactive signals (`Signal`, `Memo`)
-- `loom/text-change/` — `dowdiness/text_change`: pure contiguous text-change utilities
-- `loom/moji/` — `dowdiness/moji`: UAX #29 grapheme and word-boundary segmentation
-- `loom/pretty/` — `dowdiness/pretty`: Wadler-Lindig pretty-printer
-- `loom/examples/lambda/` — `dowdiness/lambda`: lambda calculus tokenizer, grammar, AST, benchmarks
+1. Which repository owns and releases it?
+2. Which MoonBit module owns its package identity?
+3. Is it reusable substrate, primary product logic, an adapter, or a runnable
+   application?
+4. Which workspace must execute its checks?
 
-This covers the loom packages most central to the editor; it is **not** exhaustive
-— the root also consumes `dowdiness/json`, `dowdiness/markdown`, `dowdiness/egglog`,
-and `dowdiness/egraph` from loom. `loom` is itself a nested monorepo:
-`loom/.gitmodules` declares `incr`/`egraph`/`egglog`/`event-graph-walker` as
-submodules and `loom/examples/` adds `json`/`markdown`. loom has no top-level
-module file — each package owns its own `moon.mod`; `loom/.gitmodules` plus
-the root `moon.mod` are authoritative for loom's package set and what the
-root consumes.
-
-**See:** [loom/README.md](../../loom/README.md) for detailed documentation.
-
-## `crdt/` module (Canopy — projectional editor application)
-
-Application layer that uses event-graph-walker and parser as path dependencies.
-
-### `/` (root)
-JavaScript FFI bindings that expose the editor API to JavaScript.
-
-### `framework/core/`
-Generic projectional editing primitives, independent of any language.
-
-- NodeId, ProjNode[T], SourceMap, reconcile, assign_fresh_ids, get_node_in_tree
-- ToJson for ProjNode and SourceMap
-- Zero dependencies on `@ast` or `@lambda` — the load-bearing check for framework genericity
-- Uses `TreeNode`/`Renderable` traits from `dowdiness/loom/core`
-
-### `editor/`
-High-level editor abstractions.
-
-- `SyncEditor[T]` — generic facade composing `TextState`, `UndoManager`, `ImperativeParser`, and memo-derived projection views
-- Lambda-specific wiring: projection memo builder, tree edit bridge, tree edit JSON
-
-### `projection/`
-Interactive tree editor state and projection UI logic.
-
-- `TreeEditorState[T]` — interactive tree UI state, refresh/reuse algorithm
-- `InteractiveTreeNode[T]` — decorated tree node for UI rendering
-
-### `lang/*/proj/`
-Projection builders — CST-to-ProjNode conversion, token span extraction, memo pipeline setup. One per language (lambda, json, markdown). Depends on core + parser.
-
-### `lang/*/edits/`
-Pure edit computation — edit op enums and span-edit calculators. No editor dependency; takes source text + ProjNode + SourceMap, returns SpanEdits. One per language.
-
-### `lang/*/companion/`
-Editor bridge — factory functions and edit application. Depends on editor + edits + proj. Delegates to `SyncEditor::apply_span_edits()` after computing edits. One per language.
-
-### `cmd/main/`
-Command-line entry points and REPL.
-
-### Trait placement
-
-`TreeNode` and `Renderable` are defined in `dowdiness/loom/core` (the parser framework
-defines how editors inspect ASTs). `dowdiness/lambda/ast` implements them for `Term`
-(the type owner imports the traits). This resolves MoonBit's orphan rule cleanly:
-neither side is "foreign" at the impl site.
-
-## Dependencies
-
-```
-svg-dsl (independent)
-   ↑
-graphviz (depends on svg-dsl via path ../svg-dsl)
-   ↑
-   ├── loom/viz (depends on graphviz via path ../../graphviz)
-
-loom/text-change + loom/moji (leaf modules in the loom submodule)
-   ↑
-   ├── loom/core
-   └── crdt (depends on text-change/moji via path ./loom/...)
-
-rle (independent, quickcheck only)
-   ↑
-event-graph-walker (depends on rle + quickcheck)
-
-crdt (depends on event-graph-walker + dowdiness/lambda + dowdiness/json + dowdiness/loom + dowdiness/text_change via path deps)
-  ├── framework/core (depends on loom/core — generic types + traits + SpanEdit + FocusHint)
-  ├── lang/lambda/proj (depends on framework/core + incr + lambda + loom + seam)
-  ├── lang/lambda/edits (depends on core + lang/lambda/proj + lambda)
-  ├── lang/lambda/companion (depends on core + editor + lang/lambda/edits + lang/lambda/proj + lang/lambda/eval + incr + lambda + loom + seam)
-  ├── lang/json/proj (depends on framework/core + json + loom + seam + incr)
-  ├── lang/json/edits (depends on core + lang/json/proj + json)
-  ├── lang/json/companion (depends on editor + lang/json/edits + lang/json/proj + json + loom)
-  ├── lang/markdown/edits (depends on core + markdown)
-  ├── lang/markdown/companion (depends on editor + lang/markdown/edits + lang/markdown/proj + markdown + loom)
-  ├── projection (interactive tree UI state: depends on core + loom/core)
-  └── editor (depends on core + loom/core + event-graph-walker + loom + incr)
-```
-
-## MoonBit Module Configuration
-
-The root [`moon.mod`](../../moon.mod) is the **authoritative** list of
-`dowdiness/*` dependencies — do not re-curate the full set here, or it re-drifts
-(this section previously listed 5 of 15 deps and went stale).
-
-```toml
-import {
-  # path dep — resolved via moon.work workspace membership
-  "dowdiness/loom@0.1.0",
-  # registry dep — pinned to a published mooncakes version
-  "dowdiness/incr@0.11.0",
-}
-```
-Most `dowdiness/*` deps are path deps via workspace membership in `moon.work`; `incr` is the
-notable exception, consumed as a registry version. For the complete, current
-list, read `moon.mod` directly.
-
-## Run Tests
-
-```bash
-moon test                                    # crdt module
-cd loom/text-change && moon test             # Shared text-change leaf
-cd loom/moji && moon test                    # Unicode segmentation leaf
-cd event-graph-walker && moon test          # CRDT library
-cd loom/loom && moon test                   # Parser framework
-cd loom/examples/lambda && moon test        # Lambda example
-```
-
-## Design Rationale
-
-### Why Submodules?
-
-1. **Reusability**: Libraries can be used independently in other projects
-2. **Separation of concerns**: Core CRDT logic is independent of lambda calculus
-3. **Independent versioning**: Each library can be versioned and released separately
-4. **Testing**: Each library tested independently
-5. **Clarity**: Makes dependencies explicit
+If those answers require different owners, use the corresponding existing
+seams rather than inferring ownership from a broad folder name such as `lib/`
+or `examples/`.

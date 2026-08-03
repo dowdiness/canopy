@@ -383,3 +383,27 @@ generated. When topology changes, update manifests and generated tooling first;
 prose should describe durable rules and point to those authorities. Historical
 plans and ADR evidence remain historical and should not be mass-edited by this
 plan.
+
+### Temporary migration inventory lifecycle
+
+The manifest-discovery implementation in `scripts/package-overview.sh` and its
+`scripts/test-package-overview.sh` contract test are migration instruments, not
+permanent repository tooling. Their current single-file implementation is
+intentional: do not split or generalize code that will be deleted.
+
+Keep them only until all repository-layout migration phases satisfy these exit
+conditions:
+
+1. Every planned module, application, example, and submodule move is complete.
+2. The final package/import mapping and root workspace membership pass their
+   build, test, and CI gates without relying on migration-era before/after
+   counts.
+3. SessionStart and contributor navigation no longer depend on the generated
+   migration inventory, or have a replacement based on the final layout.
+
+At that point, delete `scripts/test-package-overview.sh` and the temporary
+manifest-discovery implementation. Remove or replace links to
+`scripts/package-overview.sh` in `README.mbt.md`,
+`docs/development/module-package-map.md`, and
+`docs/architecture/modules.md` in the same cleanup change so no dead navigation
+remains. Retain the durable ownership principles in the documentation.

@@ -25,28 +25,39 @@ members independently of the root `moon.work`.
 `moon.pkg` files are package manifests. They do not define module boundaries;
 they define compilation units inside the nearest enclosing module manifest.
 
-## What `moon.work` means
+## Live inventory
 
-`moon.work` lists **workspace member modules**, not every package in the repo.
-A command such as `moon check` or `moon test` from the repository root runs over
-those workspace members. It does not automatically include every example,
-submodule, generated build directory, or vendored dependency cache.
-
-Read `moon.work` for the authoritative list before adding or removing a member.
-For a generated view rather than a hand-maintained copy, run:
+Run the repository inventory instead of copying package, workspace, or
+submodule lists into documentation:
 
 ```sh
-moon work list 2>/dev/null || sed -n '/members = \[/,/\]/p' moon.work
+./scripts/package-overview.sh
 ```
 
-The SessionStart package overview (`scripts/package-overview.sh`) also reports
-workspace members from the current `moon.work` file.
+The command derives three independent views:
 
-## Root `dowdiness/canopy` packages
+- **Primary-module ownership** from tracked `moon.mod`/`moon.mod.json` and
+  `moon.pkg`/`moon.pkg.json` files. Each package belongs to its nearest module
+  manifest.
+- **Root-workspace membership** from the root `moon.work`. This is the set
+  covered by repository-root workspace commands.
+- **Repository ownership** from `.gitmodules`. A submodule can also be a root
+  workspace member; overlap is expected because the two lists answer different
+  questions.
 
-The root module is the `.` workspace member. Any directory under the repository
-root with a `moon.pkg` and no intervening `moon.mod`/`moon.mod.json` is a package
-whose import path starts with `dowdiness/canopy`.
+The script locates the primary module by its unique name,
+`dowdiness/canopy`, rather than assuming that its manifest remains at the
+repository root. It fails when that name is missing or ambiguous.
+
+Nested workspaces such as `examples/canvas/moon.work` are intentionally outside
+the root-workspace section. Read their own manifest and workspace file when
+working in those directories.
+
+## Primary `dowdiness/canopy` packages
+
+At present the primary module manifest is at the repository root. A tracked
+package belongs to it when the nearest enclosing module manifest names
+`dowdiness/canopy`.
 
 Important root-module package groups include:
 
@@ -66,38 +77,20 @@ Important root-module package groups include:
 A root package may live more than one directory deep. For example
 `lang/lambda/companion/` imports as `dowdiness/canopy/lang/lambda/companion`.
 
-## Standalone `lib/*` modules
+## Standalone modules
 
-Most Canopy-owned directories under `lib/` are standalone MoonBit modules with
-their own module manifest and one or more packages. They are workspace members
-when listed in `moon.work`, and their import paths come from their own module
-name rather than from `dowdiness/canopy/lib/...`.
+Canopy-owned standalone modules currently live mainly under `lib/`; examples
+and tools may also own module manifests. Their import paths come from their own
+`moon.mod`, not from their repository directory. Representative groups:
 
-| Directory | Module | Notes |
+| Directory family | Examples | Placement meaning |
 | --- | --- | --- |
-| `lib/analysis/` | `dowdiness/analysis` | Snapshot-bound analysis facts and UTF-16 conversion primitives. |
-| `lib/btree/` | `dowdiness/btree` | In-tree B-tree support module. |
-| `lib/byte-codec/` | `dowdiness/byte_codec` | Byte encoding/decoding utilities. |
-| `lib/canvas-graph/` | `dowdiness/canopy-canvas-graph` | Canvas graph model packages. |
-| `lib/cognition/` | `dowdiness/cognition` | Incremental cognition graph runtime; already uses `moon.mod`. |
-| `lib/context-menu/` | `dowdiness/rabbita-context-menu` | Rabbita context-menu package under `context_menu/`. |
-| `lib/dom-boundary/` | `dowdiness/dom_boundary` | DOM boundary helpers. |
-| `lib/js-ffi/` | `dowdiness/js_ffi` | Shared JavaScript/FFI substrate for standalone bindings. |
-| `lib/menu/` | `dowdiness/rabbita-menu` | Rabbita menu package under `menu/`. |
-| `lib/rabbita_codemirror/` | `dowdiness/rabbita_codemirror` | CodeMirror binding packages. |
-| `lib/resizable/` | `dowdiness/rabbita-resizable` | Rabbita resizable package under `resizable/`. |
-| `lib/semantic/` | `dowdiness/semantic` | Semantic graph/query packages; has standalone proof module under `proof/`. |
-| `lib/status/` | `dowdiness/rabbita-status` | Rabbita status package under `status/`. |
-| `lib/tabs/` | `dowdiness/rabbita-tabs` | Rabbita tabs package under `tabs/`. |
-| `lib/treeview/` | `dowdiness/rabbita-treeview` | Rabbita treeview package under `treeview/`. |
-| `lib/visualizer/` | `dowdiness/visualizer` | Visualization helpers. |
-| `lib/zipper/` | `dowdiness/zipper` | AST zipper utilities. |
+| `lib/` | `analysis`, `btree`, `semantic`, `zipper` | Reusable modules with independent package and publication ownership. |
+| `examples/` | `ideal`, `block-editor`, `codemirror_demo` | Runnable or learning surfaces with their own module lifecycle. |
+| repository root | `loomark` | Product/tool module whose ownership does not fit the reusable-library or example categories. |
 
-`lib/text-change/` is intentionally documented here even though it is not
-currently a tracked Canopy-owned workspace member. Do **not** delete it or treat
-that path as stale without a later, separate audit proving it is dead. The active
-text-change dependency for the root module is declared as a versioned import in
-the root `moon.mod` and resolved to the loom `text-change` workspace member.
+Use `./scripts/package-overview.sh` for the complete current member list and
+read each listed module manifest for its canonical module name.
 
 ## Canopy-owned manifest migration status
 
