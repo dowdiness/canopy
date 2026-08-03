@@ -6,6 +6,8 @@ pub fn dev_host_capture_focus() -> String
 
 pub fn dev_host_fail(String) -> Unit
 
+pub fn dev_host_focus_block() -> Unit
+
 pub fn dev_host_focus_preview() -> Unit
 
 pub fn dev_host_focus_raw() -> Unit
@@ -16,11 +18,17 @@ pub fn dev_host_measure_failure() -> Unit
 
 pub fn dev_host_measure_preview() -> Unit
 
+pub fn dev_host_probe_deleted_block_selection() -> Unit
+
+pub fn dev_host_probe_stale_block_selection() -> Unit
+
 pub fn dev_host_request_source(String) -> Unit
 
 pub fn dev_host_restore_focus(String) -> Unit
 
 pub fn dev_host_restore_snapshot(Int, String, String) -> Unit
+
+pub fn dev_host_select_block() -> Unit
 
 pub fn dev_host_select_preview() -> Unit
 

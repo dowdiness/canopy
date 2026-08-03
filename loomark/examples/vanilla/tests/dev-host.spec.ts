@@ -1,14 +1,15 @@
 import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test"
 
 /**
- * #1073 behavioral boundary matrix (each row gets a fresh BrowserContext,
+ * #1074 behavioral boundary matrix (each row gets a fresh BrowserContext,
  * page, and connected mount container; no case clears/reuses/remounts it):
  *
- * | mode/event | source shape | result |
- * | Raw -> Preview | new/same, LF/CRLF/CR/EOF | exact source, one commit only when changed |
- * | snapshot restore | v1 / unknown version | source+mode atomic / no transaction |
- * | editor commit | success / failure | install+change / unchanged+one categorized error |
- * | focus | control/stale/malformed/mode-inapplicable | exact compatible target / no move |
+ * | syntax/operation | source shape | result |
+ * | paragraph/ATX/Setext block edit | LF/CRLF/CR/EOF, multiline | payload excludes markers; canonical source + Preview converge |
+ * | exact text / split / merge | supported top-level blocks | atomic commit + deterministic focus/selection |
+ * | projection | full/incremental/fresh | payload, SourceMap ranges, and identity stay attached |
+ * | unsupported containers | quote/thematic/list | reject atomically; neighbors/ranges/focus unchanged |
+ * | Raw <-> Block <-> Preview | new/same source | one canonical source, no marker leakage |
  * | ownership | fresh page/container | termination only; no cleanup claim |
  */
 
@@ -24,8 +25,7 @@ type Host = {
   mountResult: string
 }
 
-async function mountHost(browser: Browser, source: string): Promise<Host> {
-  const context = await browser.newContext()
+async function mountPage(context: BrowserContext, source: string): Promise<Omit<Host, "context">> {
   const page = await context.newPage()
   await page.goto(pageUrl)
   const mountResult = await page.evaluate(
@@ -35,7 +35,12 @@ async function mountHost(browser: Browser, source: string): Promise<Host> {
   )
   await expect(page.locator("#loomark-root")).toBeVisible()
   await expect.poll(async () => (await snapshot(page)).control_ready).toBe(true)
-  return { context, page, mountResult }
+  return { page, mountResult }
+}
+
+async function mountHost(browser: Browser, source: string): Promise<Host> {
+  const context = await browser.newContext()
+  return { context, ...await mountPage(context, source) }
 }
 
 async function snapshot(page: Page): Promise<Record<string, unknown>> {
@@ -64,12 +69,17 @@ async function selectPreview(page: Page): Promise<void> {
     import(moduleUrl).then(module => module.dev_host_select_preview()), moduleUrl)
 }
 
+async function selectBlock(page: Page): Promise<void> {
+  await page.evaluate(moduleUrl =>
+    import(moduleUrl).then(module => module.dev_host_select_block()), moduleUrl)
+}
+
 async function selectRaw(page: Page): Promise<void> {
   await page.evaluate(moduleUrl =>
     import(moduleUrl).then(module => module.dev_host_select_raw()), moduleUrl)
 }
 
-async function restoreSnapshot(page: Page, version: number, source: string, mode: "raw" | "preview"): Promise<void> {
+async function restoreSnapshot(page: Page, version: number, source: string, mode: "raw" | "block" | "preview"): Promise<void> {
   await page.evaluate(
     ({ moduleUrl, version, source, mode }) =>
       import(moduleUrl).then(module => module.dev_host_restore_snapshot(version, source, mode)),
@@ -90,6 +100,21 @@ async function focusPreview(page: Page): Promise<void> {
 async function focusRaw(page: Page): Promise<void> {
   await page.evaluate(moduleUrl =>
     import(moduleUrl).then(module => module.dev_host_focus_raw()), moduleUrl)
+}
+
+async function focusBlock(page: Page): Promise<void> {
+  await page.evaluate(moduleUrl =>
+    import(moduleUrl).then(module => module.dev_host_focus_block()), moduleUrl)
+}
+
+async function probeStaleBlockSelection(page: Page): Promise<void> {
+  await page.evaluate(moduleUrl =>
+    import(moduleUrl).then(module => module.dev_host_probe_stale_block_selection()), moduleUrl)
+}
+
+async function probeDeletedBlockSelection(page: Page): Promise<void> {
+  await page.evaluate(moduleUrl =>
+    import(moduleUrl).then(module => module.dev_host_probe_deleted_block_selection()), moduleUrl)
 }
 
 async function focusRawThenSelectPreview(page: Page): Promise<void> {
@@ -164,6 +189,327 @@ test("Raw input preserves canonical source and Preview follows a committed edit"
     await selectPreview(host.page)
     await expect(host.page.locator("#loomark-input")).toHaveCount(0)
     await expect(host.page.locator("#loomark-preview")).toHaveText("after\r\n")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Block mode edits a heading payload without leaking its marker", async ({ browser }) => {
+  const host = await mountHost(browser, "# Title\n")
+  try {
+    await selectBlock(host.page)
+    await expect(host.page.locator("#loomark-block-input")).toHaveValue("Title")
+    await expect(host.page.locator("#loomark-block-input")).toHaveAttribute(
+      "data-loomark-block-kind",
+      "heading",
+    )
+    await host.page.locator("#loomark-block-input").fill("Retitled")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("# Retitled\n")
+    await selectPreview(host.page)
+    await expect(host.page.locator("#loomark-preview")).toHaveText("# Retitled\n")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Block mode edits a paragraph payload while preserving CRLF source", async ({ browser }) => {
+  const host = await mountHost(browser, "Body\r\n")
+  try {
+    await selectBlock(host.page)
+    await expect(host.page.locator("#loomark-block-input")).toHaveValue("Body")
+    await expect(host.page.locator("#loomark-block-input")).toHaveAttribute(
+      "data-loomark-block-kind",
+      "paragraph",
+    )
+    await host.page.locator("#loomark-block-input").fill("Changed")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("Changed\r\n")
+    await selectPreview(host.page)
+    await expect(host.page.locator("#loomark-preview")).toHaveText("Changed\r\n")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("clearing the only Block keeps an empty control editable", async ({ browser }) => {
+  const host = await mountHost(browser, "Hello\n")
+  try {
+    await selectBlock(host.page)
+    const input = host.page.locator("#loomark-block-input")
+    await input.fill("")
+    await expect(input).toHaveValue("")
+    await expect(host.page.locator("[data-loomark-block-id]")).toHaveCount(1)
+    await host.page.keyboard.type("Again")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("Again\n")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Block mode edits a Setext heading payload without replacing its underline", async ({ browser }) => {
+  const host = await mountHost(browser, "Title\n---\n")
+  try {
+    await selectBlock(host.page)
+    await expect(host.page.locator("#loomark-block-input")).toHaveValue("Title")
+    await expect(host.page.locator("#loomark-block-input")).toHaveAttribute(
+      "data-loomark-block-kind",
+      "heading",
+    )
+    await host.page.locator("#loomark-block-input").fill("Renamed")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("Renamed\n---\n")
+    await selectPreview(host.page)
+    await expect(host.page.locator("#loomark-preview")).toHaveText("Renamed\n---\n")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Block mode preserves CR Setext equals markers and multiline payloads", async ({ browser }) => {
+  const host = await mountHost(browser, "Foo\rbar\r=\r")
+  try {
+    await selectBlock(host.page)
+    await expect(host.page.locator("#loomark-block-input")).toHaveValue("Foo\nbar")
+    await expect(host.page.locator("#loomark-block-input")).toHaveAttribute(
+      "data-loomark-block-kind",
+      "heading",
+    )
+    await host.page.locator("#loomark-block-input").fill("Renamed")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("Renamed\r=\r")
+    await selectPreview(host.page)
+    await expect(host.page.locator("#loomark-preview")).toHaveText("Renamed\r=\r")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Block mode preserves untouched CR separators during a partial multiline edit", async ({ browser }) => {
+  const host = await mountHost(browser, "Foo\rbar")
+  try {
+    await selectBlock(host.page)
+    await expect(host.page.locator("#loomark-block-input")).toHaveValue("Foo\nbar")
+    await host.page.locator("#loomark-block-input").fill("Foo\nChanged")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("Foo\rChanged")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Block mode preserves untouched CRLF separators during a partial multiline edit", async ({ browser }) => {
+  const host = await mountHost(browser, "Foo\r\nbar\r\nbaz")
+  try {
+    await selectBlock(host.page)
+    await expect(host.page.locator("#loomark-block-input")).toHaveValue("Foo\nbar\nbaz")
+    await host.page.locator("#loomark-block-input").fill("Foo\nbar\nChanged")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("Foo\r\nbar\r\nChanged")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Block typing preserves a mid-text UTF-16 caret across CRLF normalization", async ({ browser }) => {
+  const host = await mountHost(browser, "A😀B\r\nC")
+  try {
+    await selectBlock(host.page)
+    const input = host.page.locator("#loomark-block-input")
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(3, 3)
+    })
+    await host.page.keyboard.type("XY")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("A😀XYB\r\nC")
+    await expect.poll(() => host.page.evaluate(() => document.activeElement?.id)).toBe("loomark-block-input")
+    await expect.poll(() => host.page.evaluate(() => {
+      const textarea = document.activeElement as HTMLTextAreaElement | null
+      return textarea === null ? "missing" : `${textarea.selectionStart}:${textarea.selectionEnd}`
+    })).toBe("5:5")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Block mode preserves an ATX marker at EOF", async ({ browser }) => {
+  const host = await mountHost(browser, "# Title")
+  try {
+    await selectBlock(host.page)
+    await expect(host.page.locator("#loomark-block-input")).toHaveValue("Title")
+    await host.page.locator("#loomark-block-input").fill("Retitled")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("# Retitled")
+    await selectPreview(host.page)
+    await expect(host.page.locator("#loomark-preview")).toHaveText("# Retitled")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Block input editor failure preserves its committed payload atomically", async ({ browser }) => {
+  const host = await mountHost(browser, "Stable\n")
+  try {
+    await selectBlock(host.page)
+    await forceEditorFailure(host.page)
+    await expect.poll(async () => (await snapshot(host.page)).editor_failure_armed).toBe(true)
+    await host.page.locator("#loomark-block-input").fill("Rejected")
+    await expect.poll(async () => (await snapshot(host.page)).error_code).toBe("editor-commit-failed")
+    expect(await snapshot(host.page)).toMatchObject({
+      source: "Stable\n",
+      source_revision: 0,
+      committed_change_count: 0,
+      editor_failure_armed: false,
+    })
+    await expect(host.page.locator("#loomark-block-input")).toHaveValue("Stable")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Block split rejects a non-collapsed selection without changing source", async ({ browser }) => {
+  const host = await mountHost(browser, "Hello\n")
+  try {
+    await selectBlock(host.page)
+    const input = host.page.locator("#loomark-block-input")
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(0, 2)
+    })
+    await host.page.locator("[data-loomark-block-split]").first().click()
+    await expect.poll(async () => (await snapshot(host.page)).error_code).toBe("block-selection-rejected")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("Hello\n")
+    await expect(host.page.locator("#loomark-block-input")).toHaveValue("Hello")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Block split at the start creates and focuses an empty previous block", async ({ browser }) => {
+  const host = await mountHost(browser, "Hello\n")
+  try {
+    await selectBlock(host.page)
+    const input = host.page.locator("#loomark-block-input")
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(0, 0)
+    })
+    await host.page.locator("[data-loomark-block-split]").click()
+    await expect(host.page.locator("[data-loomark-block-id]")).toHaveCount(2)
+    await expect(host.page.locator("#loomark-block-input")).toHaveValue("")
+    await expect(host.page.locator("#loomark-block-input-1")).toHaveValue("Hello")
+    await expect.poll(() => host.page.evaluate(() => document.activeElement?.id)).toBe("loomark-block-input")
+    await expect.poll(() => host.page.evaluate(() => {
+      const textarea = document.activeElement as HTMLTextAreaElement | null
+      return textarea === null ? "missing" : `${textarea.selectionStart}:${textarea.selectionEnd}`
+    })).toBe("0:0")
+    await host.page.keyboard.type("Before")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("Before\n\nHello\n")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Block split and merge use typed structural edits and deterministic selection", async ({ browser }) => {
+  const host = await mountHost(browser, "Hello\n\nWorld\n")
+  try {
+    await selectBlock(host.page)
+    const firstInput = host.page.locator("#loomark-block-input")
+    await firstInput.focus()
+    await firstInput.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(2, 2)
+    })
+    await host.page.locator("[data-loomark-block-split]").first().click()
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("He\n\nllo\n\nWorld\n")
+    await expect.poll(() => host.page.evaluate(() => document.activeElement?.id)).toBe("loomark-block-input-1")
+    await expect.poll(() => host.page.evaluate(() => {
+      const textarea = document.activeElement as HTMLTextAreaElement | null
+      return textarea === null ? "missing" : `${textarea.selectionStart}:${textarea.selectionEnd}`
+    })).toBe("0:0")
+    const splitFirstKey = await host.page.locator("#loomark-block-input").getAttribute("data-loomark-block-id")
+    const secondKey = await host.page.locator("#loomark-block-input-1").getAttribute("data-loomark-block-id")
+    expect(splitFirstKey).not.toBe(secondKey)
+    await expect.poll(async () => (await snapshot(host.page)).selection).toBe(`block|${secondKey}|0`)
+    await expect(host.page.locator('[data-loomark-block-kind="paragraph"]')).toHaveCount(3)
+
+    await host.page.locator("[data-loomark-block-merge]").nth(1).click()
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("Hello\n\nWorld\n")
+    await expect.poll(() => host.page.evaluate(() => document.activeElement?.id)).toBe("loomark-block-input")
+    await expect.poll(() => host.page.evaluate(() => {
+      const textarea = document.activeElement as HTMLTextAreaElement | null
+      return textarea === null ? "missing" : `${textarea.selectionStart}:${textarea.selectionEnd}`
+    })).toBe("2:2")
+    const mergedKey = await host.page.locator("#loomark-block-input").getAttribute("data-loomark-block-id")
+    await expect.poll(async () => (await snapshot(host.page)).selection).toBe(`block|${mergedKey}|2`)
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("typing after an end split does not leak the empty-block placeholder", async ({ browser }) => {
+  const host = await mountHost(browser, "Hello\n")
+  try {
+    await selectBlock(host.page)
+    const input = host.page.locator("#loomark-block-input")
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length)
+    })
+    await host.page.locator("[data-loomark-block-split]").click()
+    await expect.poll(() => host.page.evaluate(() => document.activeElement?.id)).toBe("loomark-block-input-1")
+    await expect(host.page.locator("#loomark-block-input-1")).toHaveValue("")
+    await host.page.keyboard.type("X")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("Hello\n\nX\n")
+    await selectRaw(host.page)
+    await expect(host.page.locator("#loomark-input")).toHaveValue("Hello\n\nX\n")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Block structural focus rejects stale and deleted targets after render", async ({ browser }) => {
+  const host = await mountHost(browser, "Hello\n")
+  try {
+    await selectBlock(host.page)
+    await probeStaleBlockSelection(host.page)
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("replacement\n")
+    await expect.poll(async () => (await snapshot(host.page)).error_code).toBe("block-selection-rejected")
+    await expect.poll(async () => (await snapshot(host.page)).error).toBe("block selection is stale")
+
+    await probeDeletedBlockSelection(host.page)
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("")
+    await expect.poll(async () => (await snapshot(host.page)).error_code).toBe("block-selection-rejected")
+    await expect.poll(async () => (await snapshot(host.page)).error).toBe("block selection target is unavailable")
+    await expect(host.page.locator("[data-loomark-block-id]")).toHaveCount(0)
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Block focus targets the typed first block and rejects stale mode restores", async ({ browser }) => {
+  const host = await mountHost(browser, "# Focus\n")
+  try {
+    await selectBlock(host.page)
+    await focusBlock(host.page)
+    await expect.poll(() => host.page.evaluate(() => document.activeElement?.id)).toBe("loomark-block-input")
+    const token = await captureFocus(host.page)
+    expect(token).toMatch(/^v1\|block\|0$/)
+    await selectPreview(host.page)
+    await restoreFocus(host.page, token)
+    await expect.poll(async () => (await snapshot(host.page)).error_code).toBe("focus-mode-inapplicable")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Block mode omits unsupported containers without shifting direct block neighbors", async ({ browser }) => {
+  const host = await mountHost(browser, "- listed\n\n> quoted\n\n---\n\n# Direct\n")
+  try {
+    await selectBlock(host.page)
+    await expect(host.page.locator("[data-loomark-block-kind]")).toHaveCount(1)
+    await expect(host.page.locator("#loomark-block-input")).toHaveValue("Direct")
+    await expect(host.page.locator("#loomark-block")).toHaveAttribute(
+      "data-loomark-source",
+      "- listed\n\n> quoted\n\n---\n\n# Direct\n",
+    )
   } finally {
     await host.context.close()
   }
@@ -384,6 +730,21 @@ test("mounts one fresh connected container and exposes a detached snapshot", asy
     await expect.poll(() => host.page.evaluate(() => document.getElementById("app")?.isConnected)).toBe(true)
   } finally {
     await host.context.close()
+  }
+})
+
+test("two mounted tabs own distinct replica identities", async ({ browser }) => {
+  const context = await browser.newContext()
+  try {
+    const first = await mountPage(context, "first\n")
+    const second = await mountPage(context, "second\n")
+    const firstReplica = (await snapshot(first.page)).replica_id
+    const secondReplica = (await snapshot(second.page)).replica_id
+    expect(firstReplica).toEqual(expect.any(String))
+    expect(secondReplica).toEqual(expect.any(String))
+    expect(firstReplica).not.toBe(secondReplica)
+  } finally {
+    await context.close()
   }
 })
 

@@ -11,7 +11,7 @@ pub fn compute_markdown_edit(
     CommitEdit(node_id~, new_text~) =>
       compute_commit_edit(source_map, node_id, new_text)
     ChangeHeadingLevel(node_id~, level~) =>
-      compute_change_heading_level(source, source_map, node_id, level)
+      compute_change_heading_level(source, proj, source_map, node_id, level)
     ToggleListItem(node_id~) =>
       compute_toggle_list_item(source, proj, source_map, node_id)
     Delete(node_id~) => compute_delete(source_map, node_id)
@@ -35,6 +35,7 @@ fn compute_commit_edit(
   node_id : NodeId,
   new_text : String,
 ) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
+  ensure_editable_target(source_map, node_id)
   // Try "text" role first, fall back to "code" for code blocks
   let range = match source_map.get_token_span(node_id, "text") {
     Some(r) => r
@@ -59,6 +60,28 @@ fn compute_commit_edit(
       FocusHint::MoveCursor(position=range.start + new_text.length()),
     ),
   )
+}
+
+///|
+/// Require the existing editable payload contract without classifying syntax
+/// nodes through a cross-package SourceMap role. Code and list payloads stay
+/// available to their lower-level edit contracts.
+fn ensure_editable_target(
+  source_map : SourceMap,
+  node_id : NodeId,
+) -> Unit raise @core.EditError {
+  guard source_map.get_range(node_id) is Some(_) else {
+    raise @core.EditError::NodeNotFound(
+      action="compute_markdown_edit",
+      node_id~,
+    )
+  }
+  if source_map.get_token_span(node_id, "text") is None &&
+    source_map.get_token_span(node_id, "code") is None {
+    raise @core.EditError::SourceSpanMissing(
+      detail="no editable span for node " + node_id.to_string(),
+    )
+  }
 }
 
 ///|
@@ -108,10 +131,13 @@ fn heading_replacement_terminator(
 /// Change heading level (1-6) or convert paragraph to/from heading.
 fn compute_change_heading_level(
   source : String,
+  proj : ProjNode[@markdown.Block],
   source_map : SourceMap,
   node_id : NodeId,
   level : Int,
 ) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
+  ensure_change_heading_target(proj, node_id)
+  ensure_editable_target(source_map, node_id)
   let range = match source_map.get_range(node_id) {
     Some(r) => r
     None =>
@@ -163,6 +189,29 @@ fn compute_change_heading_level(
 }
 
 ///|
+fn ensure_change_heading_target(
+  proj : ProjNode[@markdown.Block],
+  node_id : NodeId,
+) -> Unit raise @core.EditError {
+  match @core.get_node_in_tree(proj, node_id) {
+    Some(node) =>
+      if node.kind is @markdown.Block::Paragraph(_) ||
+        node.kind is @markdown.Block::Heading(_, _) {
+        ()
+      } else {
+        raise @core.EditError::UnsupportedOperation(
+          detail="change heading level requires a paragraph or heading block",
+        )
+      }
+    None =>
+      raise @core.EditError::NodeNotFound(
+        action="compute_markdown_edit",
+        node_id~,
+      )
+  }
+}
+
+///|
 /// Toggle paragraph to/from list item.
 fn compute_toggle_list_item(
   source : String,
@@ -170,6 +219,8 @@ fn compute_toggle_list_item(
   source_map : SourceMap,
   node_id : NodeId,
 ) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
+  ensure_toggle_list_item_target(proj, node_id)
+  ensure_editable_target(source_map, node_id)
   let range = match source_map.get_range(node_id) {
     Some(r) => r
     None =>
@@ -207,6 +258,29 @@ fn compute_toggle_list_item(
       ),
     ),
   )
+}
+
+///|
+fn ensure_toggle_list_item_target(
+  proj : ProjNode[@markdown.Block],
+  node_id : NodeId,
+) -> Unit raise @core.EditError {
+  match @core.get_node_in_tree(proj, node_id) {
+    Some(node) =>
+      if node.kind is @markdown.Block::Paragraph(_) ||
+        is_markdown_list_item(node.kind) {
+        ()
+      } else {
+        raise @core.EditError::UnsupportedOperation(
+          detail="toggle list item requires a paragraph or list item block",
+        )
+      }
+    None =>
+      raise @core.EditError::NodeNotFound(
+        action="compute_markdown_edit",
+        node_id~,
+      )
+  }
 }
 
 ///|
@@ -290,6 +364,7 @@ fn compute_split_block(
   node_id : NodeId,
   offset : Int,
 ) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
+  ensure_editable_target(source_map, node_id)
   let text_range = match source_map.get_token_span(node_id, "text") {
     Some(r) => r
     None =>
@@ -310,7 +385,13 @@ fn compute_split_block(
     let insert_pos = range.start
     return Some(
       (
-        [SpanEdit::{ start: insert_pos, delete_len: 0, inserted: "\n" }],
+        [
+          SpanEdit::{
+            start: insert_pos,
+            delete_len: 0,
+            inserted: @md_sentinel.EMPTY_PARAGRAPH_SENTINEL + "\n\n",
+          },
+        ],
         FocusHint::MoveCursor(position=insert_pos),
       ),
     )
@@ -371,6 +452,14 @@ fn is_markdown_list_item(block : @markdown.Block) -> Bool {
 }
 
 ///|
+/// Keep merge lowering limited to block kinds with text-merge semantics.
+fn is_mergeable_text_block(block : @markdown.Block) -> Bool {
+  block is @markdown.Block::Paragraph(_) ||
+  block is @markdown.Block::Heading(_, _) ||
+  is_markdown_list_item(block)
+}
+
+///|
 /// Return the marker prefix to use when splitting a Markdown list item.
 ///
 /// Preserve the concrete source marker instead of synthesizing an unordered
@@ -427,6 +516,7 @@ fn compute_merge_with_previous(
   source_map : SourceMap,
   node_id : NodeId,
 ) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
+  ensure_editable_target(source_map, node_id)
   // Find the parent that contains this node, then find sibling index
   let (siblings, idx) = find_sibling_context(proj, node_id)
   if idx < 0 {
@@ -439,7 +529,21 @@ fn compute_merge_with_previous(
   if idx == 0 {
     return None
   }
+  let curr_text_range = match source_map.get_token_span(node_id, "text") {
+    Some(range) => range
+    None =>
+      raise @core.EditError::SourceSpanMissing(
+        detail="no editable text span for merge target " + node_id.to_string(),
+      )
+  }
   let prev_node = siblings[idx - 1]
+  let curr_node = siblings[idx]
+  guard is_mergeable_text_block(prev_node.kind) &&
+    is_mergeable_text_block(curr_node.kind) else {
+    raise @core.EditError::UnsupportedOperation(
+      detail="merge requires a mergeable current and previous block",
+    )
+  }
   let curr_range = match source_map.get_range(node_id) {
     Some(r) => r
     None =>
@@ -448,23 +552,15 @@ fn compute_merge_with_previous(
         node_id~,
       )
   }
-  let curr_text = match source_map.get_token_span(node_id, "text") {
-    Some(r) => source[r.start:r.end].to_owned()
-    None => ""
-  }
+  let curr_text = source[curr_text_range.start:curr_text_range.end].to_owned()
   // End of previous block's text content — merge point
   let prev_text_end = match source_map.get_token_span(prev_node.id(), "text") {
     Some(r) => r.end
     None =>
-      // No text span — use full block range end as fallback
-      match source_map.get_range(prev_node.id()) {
-        Some(r) => r.end
-        None =>
-          raise @core.EditError::NodeNotInSourceMap(
-            action="compute_markdown_edit",
-            node_id=prev_node.id(),
-          )
-      }
+      raise @core.EditError::SourceSpanMissing(
+        detail="no editable text span for previous block " +
+          prev_node.id().to_string(),
+      )
   }
   // Strip empty-paragraph sentinel placeholder (from InsertBlockAfter)
   let clean_text = if @md_sentinel.is_empty_paragraph_text(curr_text) {

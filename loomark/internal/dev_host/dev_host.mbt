@@ -20,6 +20,11 @@ pub fn dev_host_select_raw() -> Unit {
 }
 
 ///|
+pub fn dev_host_select_block() -> Unit {
+  @app.select_block()
+}
+
+///|
 pub fn dev_host_select_preview() -> Unit {
   @app.select_preview()
 }
@@ -46,6 +51,21 @@ pub fn dev_host_focus_preview() -> Unit {
 ///|
 pub fn dev_host_focus_raw() -> Unit {
   @app.focus_raw()
+}
+
+///|
+pub fn dev_host_focus_block() -> Unit {
+  @app.focus_block()
+}
+
+///|
+pub fn dev_host_probe_stale_block_selection() -> Unit {
+  @app.probe_stale_block_selection()
+}
+
+///|
+pub fn dev_host_probe_deleted_block_selection() -> Unit {
+  @app.probe_deleted_block_selection()
 }
 
 ///|

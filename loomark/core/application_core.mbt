@@ -73,6 +73,7 @@ pub fn ApplicationState::snapshot(
 /// A logical focus target contains no DOM or session identity.
 pub(all) enum FocusTarget {
   RawEditor
+  BlockEditor
   PreviewControl
 } derive(Eq, Debug)
 
@@ -109,6 +110,7 @@ pub(all) enum FocusDecision {
 fn focus_target_mode(target : FocusTarget) -> ApplicationMode {
   match target {
     RawEditor => Raw
+    BlockEditor => Block
     PreviewControl => Preview
   }
 }

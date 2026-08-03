@@ -124,3 +124,16 @@ test "focus decision rejects mode-inapplicable controls" {
     _ => fail("expected mode-inapplicable focus locator")
   }
 }
+
+///|
+test "focus decision accepts the Block editor target only in Block mode" {
+  let locator = FocusLocator(target=BlockEditor, source_revision=0)
+  match decide_focus(ApplicationState(Block), 0, locator) {
+    FocusDecision::Compatible(FocusTarget::BlockEditor) => ()
+    _ => fail("expected a compatible Block focus locator")
+  }
+  match decide_focus(ApplicationState(Preview), 0, locator) {
+    FocusDecision::Rejected(FocusDecisionError::ModeInapplicable) => ()
+    _ => fail("expected a mode-inapplicable Block focus locator")
+  }
+}

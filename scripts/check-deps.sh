@@ -238,6 +238,8 @@ EDITOR_LANGUAGE_FACADE_IMPORTS = {
      CANOPY + "/lang/markdown/companion"),
     ("editor/markdown", "normal",
      CANOPY + "/lang/markdown/edits"),
+    ("editor/markdown", "normal",
+     CANOPY + "/lang/markdown/sentinel"),
     ("editor/markdown", "normal", "dowdiness/markdown"),
 }
 editor_language_facade_imports_used = set()
