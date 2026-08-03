@@ -11,6 +11,20 @@
 > Re-read live manifests and CI even when the diff is empty; copied topology is
 > exactly what this plan is eliminating.
 
+> **Resolution (2026-08-03)**: Integrated into repository-layout Phase 2.
+> Phase 1 commit `eec6decc` and Phase 2 commits `75e12e24` / `a4d2fc64`
+> replaced copied topology with live authorities, added lifecycle enforcement,
+> and corrected the remaining active guidance. The original documentation-only
+> file boundary was superseded by the approved Phase 2 integration; the source,
+> CI, script, ADR, and historical-document changes are separated by purpose in
+> the reviewed branch history.
+>
+> Verification on clean detached HEAD `a4d2fc64` against
+> `origin/main` `0263aa79`: `validate-pr-ready.sh` passed for `core`, `editor`,
+> `lang/lambda/edits`, `lang/markdown/edits`, and `sync_session`; targeted tests
+> passed 151/151, 231/231, 257/257, 59/59, and 29/29; the workspace baseline
+> reported zero failures.
+
 ## Status
 
 - **Priority**: P2
@@ -351,18 +365,20 @@ Do not run formatters that rewrite MoonBit source.
 
 ## Done criteria
 
-- [ ] Root and development docs identify `moon.mod` and `moon.work` correctly.
-- [ ] No active guide copies an exhaustive workspace/dependency list that can
+- [x] Root and development docs identify `moon.mod` and `moon.work` correctly.
+- [x] No active guide copies an exhaustive workspace/dependency list that can
   drift independently.
-- [ ] Root commands are documented as covering current workspace members.
-- [ ] Architecture modules page contains principles, not volatile type/path
+- [x] Root commands are documented as covering current workspace members.
+- [x] Architecture modules page contains principles, not volatile type/path
   inventory.
-- [ ] The unsupported `moon work list` command is gone.
-- [ ] Removed `rle` and `framework/core` topology is not presented as current.
-- [ ] `./scripts/package-overview.sh`, link guard, `moon check`, and the strict
+- [x] The unsupported `moon work list` command is gone.
+- [x] Removed `rle` and `framework/core` topology is not presented as current.
+- [x] `./scripts/package-overview.sh`, link guard, `moon check`, and the strict
   wrapper exit 0.
-- [ ] Workflow docs link to the CI toolchain pin and do not duplicate it.
-- [ ] No manifest, source, CI, script, ADR, or historical doc changed.
+- [x] Workflow docs link to the CI toolchain pin and do not duplicate it.
+- [x] ~~No manifest, source, CI, script, ADR, or historical doc changed.~~
+  Superseded by the approved integrated Phase 2 scope; the broader changes and
+  their verification are recorded in the resolution above.
 
 ## STOP conditions
 

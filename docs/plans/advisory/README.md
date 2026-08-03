@@ -23,26 +23,20 @@ executors must run sequentially in one worktree, never concurrently.
 |---|---:|---|---|---|---|
 | [001](001-reject-client-authored-server-frames.md) | 1 | Reject client-authored server-only relay frames | P1 | S | — |
 | [002](002-retire-legacy-signaling-stack.md) | 2 | Retire the unreachable legacy WebRTC signaling stack | P1 | M | 001 |
-| [003](003-refresh-repository-topology-docs.md) | 5 | Make topology docs derive from live manifests | P2 | M | — |
-| [004](004-reconcile-backlog-and-dependency-decisions.md) | 6 | Reconcile legacy backlog candidates and substrate decisions | P2 | S | 003 |
 
 ## Dependency notes
 
 ```text
 001 relay boundary hardening
 └── 002 legacy signaling retirement
-
-003 topology and verification documentation
-└── 004 backlog and ADR reconciliation
 ```
 
 - **001 before 002:** after retiring the old WebRTC signaling stack, the
   MoonBit-backed relay is the remaining documented collaboration server path;
   reject server-authored frame spoofing first.
-- **003 before 004:** reconcile broad topology and contributor authorities
-  before tightening narrower decision/backlog summaries.
-- The security and documentation tracks are otherwise independent. Do not run
-  editing agents concurrently in the same worktree.
+- Plans 003 and 004 completed sequentially in repository-layout Phase 2 and are
+  preserved under `docs/archive/`.
+- Editing executors must not run concurrently in the same worktree.
 
 ## Scope summary
 
@@ -53,14 +47,12 @@ executors must run sequentially in one worktree, never concurrently.
   correct the Waku behavior inventory and remove prospective
   service-binding/handshake scope throughout the Waku migration plan; no
   Cloudflare remote action.
-- **003:** Phase 1 (`eec6decc`) made the package overview manifest-driven and
-  updated the root/module topology guidance. The current repository-layout
-  branch also updates monorepo/workflow guidance and archives the Markdown
-  backlog; strict-verification documentation and final migration cleanup remain
-  until their gates pass.
-- **004:** issue
-  [#1124](https://github.com/dowdiness/canopy/issues/1124) owns legacy backlog
-  triage; this plan retains only the accepted-decision reconciliation steps.
+- **Completed documentation track:** [Plan 003](../../archive/2026-07-25-advisory-003-refresh-repository-topology-docs.md)
+  made package and topology guidance derive from live authorities; [Plan
+  004](../../archive/2026-07-25-advisory-004-reconcile-backlog-and-dependency-decisions.md)
+  reconciled substrate decisions with manifest and executable-guard authority.
+  Issue [#1124](https://github.com/dowdiness/canopy/issues/1124) owns any
+  remaining legacy backlog validation.
 
 ## Finding resolved during reconciliation
 
@@ -71,7 +63,7 @@ executors must run sequentially in one worktree, never concurrently.
   Main contains only two `T::same_kind` calls, both in single-`TreeNode`-bound
   helpers and not diagnosed. No MoonBit source migration remains. The useful
   contributor guidance—run the strict wrapper and link the CI pin's single
-  source—has been folded into Plan 003.
+  source—was folded into archived Plan 003.
 
 ## Findings considered and rejected
 

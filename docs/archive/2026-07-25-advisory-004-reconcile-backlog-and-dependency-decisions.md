@@ -11,6 +11,18 @@
 > If an in-scope document changed, compare the live status claims with the
 > evidence below and stop on a semantic mismatch.
 
+> **Resolution (2026-08-03)**: Integrated into repository-layout Phase 2.
+> The accepted ADRs now distinguish dated `incr` evidence from live manifest
+> authority, `scripts/check-shared-substrate.sh` remains the executable
+> consistency guard, and issue
+> [#1124](https://github.com/dowdiness/canopy/issues/1124) owns legacy backlog
+> validation.
+>
+> Verification on clean detached HEAD `a4d2fc64` against
+> `origin/main` `0263aa79`: the shared-substrate gate found ten consumers aligned
+> on minor `0.14`; the documentation lifecycle and agent-link guards passed;
+> the full workspace baseline reported zero failures.
+
 ## Status
 
 - **Priority**: P2
@@ -234,11 +246,13 @@ remain untouched.
 
 ## Done criteria
 
-- [ ] The incr ADR preserves 0.9.0 as dated historical evidence only.
-- [ ] Current pin authority is manifests plus the shared-substrate guard.
-- [ ] Governance and docs-index summaries do not duplicate mutable incr versions.
-- [ ] `./scripts/check-shared-substrate.sh` and link checks exit 0.
-- [ ] No source, CI, manifest, script, test, or out-of-scope doc changed.
+- [x] The incr ADR preserves 0.9.0 as dated historical evidence only.
+- [x] Current pin authority is manifests plus the shared-substrate guard.
+- [x] Governance and docs-index summaries do not duplicate mutable incr versions.
+- [x] `./scripts/check-shared-substrate.sh` and link checks exit 0.
+- [x] ~~No source, CI, manifest, script, test, or out-of-scope doc changed.~~
+  Superseded by the approved integrated Phase 2 scope; this plan's ADR changes
+  remain documentation-only and the broader changes are recorded separately.
 
 ## STOP conditions
 
