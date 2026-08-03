@@ -132,6 +132,10 @@ behavior** — check the code before relying on any specific detail.
 - [Analysis Query Layer](design/analysis-query-layer.md) — conservative design
   for ast-grep-style syntax search, `moon ide`-style semantic queries, and
   previewable refactors through snapshot-bound internal facts.
+- [Local-first Document Ownership](design/local-first-document-ownership.md) —
+  direction for owning a document on the user's device: persisting operation
+  history rather than text, the archive envelope boundary, durability states,
+  and the requirements an editing path must meet before archives exist.
 - [Stable Document Entity Graph](design/stable-document-entity-graph.md) —
   direction for growing a stable editing-entity layer from the existing
   projection identity pipeline.
