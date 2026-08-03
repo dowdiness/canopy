@@ -4,25 +4,25 @@
     {
       "name": "web",
       "runtimeExecutable": "wsl.exe",
-      "runtimeArgs": ["--", "/home/antisatori/ghq/github.com/dowdiness/canopy/.claude/start-web.sh"],
+      "runtimeArgs": ["--", "${workspaceFolder}/.claude/start-web.sh"],
       "port": 5173
     },
     {
       "name": "demo-react",
       "runtimeExecutable": "wsl.exe",
-      "runtimeArgs": ["--", "/home/antisatori/ghq/github.com/dowdiness/canopy/.claude/start-demo-react.sh"],
+      "runtimeArgs": ["--", "${workspaceFolder}/.claude/start-demo-react.sh"],
       "port": 5174
     },
     {
       "name": "prosemirror",
       "runtimeExecutable": "wsl.exe",
-      "runtimeArgs": ["--", "/home/antisatori/ghq/github.com/dowdiness/canopy/.claude/start-prosemirror.sh"],
+      "runtimeArgs": ["--", "${workspaceFolder}/.claude/start-prosemirror.sh"],
       "port": 5173
     },
     {
       "name": "ideal-web",
       "runtimeExecutable": "wsl.exe",
-      "runtimeArgs": ["--", "/home/antisatori/ghq/github.com/dowdiness/canopy/.claude/start-ideal-web.sh"],
+      "runtimeArgs": ["--", "${workspaceFolder}/.claude/start-ideal-web.sh"],
       "port": 5173,
       "autoPort": true
     }

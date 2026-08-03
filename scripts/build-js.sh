@@ -13,6 +13,7 @@ echo "Building canopy JavaScript artifacts..."
 moon build --target js --release
 echo "Building canvas JavaScript artifacts..."
 (cd "$PROJECT_ROOT/apps/canvas" && moon build --target js --release --target-dir "$PROJECT_ROOT/_build")
+("$SCRIPT_DIR/link-canvas-artifacts.sh")
 
 EXPECTED_ARTIFACTS=(
     "_build/js/release/build/dowdiness/canopy/ffi/lambda/lambda.js"
