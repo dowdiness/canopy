@@ -111,6 +111,10 @@ pub fn MarkdownBlockSnapshot::fence_close_range(self : Self) -> (Int, Int)? {
 /// taxonomy is how document recovery quietly becomes a session concern.
 pub(all) suberror MarkdownArchiveError {
   InvalidAgentId
+  /// No writing instance could be created, so nothing was attempted. Distinct
+  /// from `AdmitFailed`, which means a history was taken in and the taking
+  /// failed.
+  WriterUnavailable(detail~ : String)
   ExportFailed(detail~ : String)
   AdmitFailed(detail~ : String)
   IncompleteArchive
@@ -330,7 +334,8 @@ pub fn MarkdownEditor::open(
   let editor = @md_companion.new_markdown_editor(agent_id) catch {
     @text.TextError::EmptyReplicaId =>
       raise MarkdownArchiveError::InvalidAgentId
-    error => raise MarkdownArchiveError::AdmitFailed(detail=error.message())
+    error =>
+      raise MarkdownArchiveError::WriterUnavailable(detail=error.message())
   }
   let document = { editor, }
   match document.admit(history) {
@@ -353,7 +358,7 @@ pub fn MarkdownEditor::admit(
   history : MarkdownDocumentHistory,
 ) -> MarkdownAdmitReport raise MarkdownArchiveError {
   let report = self.editor.admit(history.message) catch {
-    error => raise MarkdownArchiveError::AdmitFailed(detail="\{error}")
+    error => raise MarkdownArchiveError::AdmitFailed(detail=error.message())
   }
   // Applicable operations are committed before the withheld ones are counted,
   // so the projection is rebuilt on both paths.
@@ -401,6 +406,8 @@ pub fn MarkdownEditor::history_since(
       Some(cut) => self.editor.export_since(cut.value)
     }
   } catch {
+    // The export methods widen to the supertype, so the binder has no
+    // `message()` here as it does at the admission and construction sites.
     error => raise MarkdownArchiveError::ExportFailed(detail="\{error}")
   }
   { message, }

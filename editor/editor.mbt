@@ -150,7 +150,7 @@ pub fn Editor::export_since(
 pub fn Editor::admit(
   self : Editor,
   msg : @text.SyncMessage,
-) -> @text.SyncReport raise {
+) -> @text.SyncReport raise @text.TextError {
   let report_result : Result[@text.SyncReport, @text.TextError] = Ok(
     self.doc.sync().apply(msg),
   ) catch {

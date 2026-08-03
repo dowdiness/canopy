@@ -11,6 +11,7 @@ import {
 // Errors
 pub(all) suberror MarkdownArchiveError {
   InvalidAgentId
+  WriterUnavailable(detail~ : String)
   ExportFailed(detail~ : String)
   AdmitFailed(detail~ : String)
   IncompleteArchive

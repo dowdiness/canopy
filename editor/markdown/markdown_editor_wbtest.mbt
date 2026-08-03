@@ -1045,6 +1045,31 @@ test "reopened and original converge after divergent edits" {
 }
 
 ///|
+/// Opening blames the writer it could not create, not the history.
+///
+/// The two failures are reported at the same moment and read alike from the
+/// outside, so the categories are easy to collapse -- and this one did, until
+/// the mapping was corrected. An admission failure means a history was taken
+/// in and the taking failed; here nothing was ever attempted.
+test "open categorizes a bad writer identity as such" {
+  let document = try! MarkdownEditor(agent_id="identity-source", source="# T\n")
+  let history = try! document.history_since()
+
+  let refused : Result[MarkdownEditor, MarkdownArchiveError] = Ok(
+    MarkdownEditor::open(agent_id="", history~),
+  ) catch {
+    error => Err(error)
+  }
+
+  match refused {
+    Err(MarkdownArchiveError::InvalidAgentId) => ()
+    Err(MarkdownArchiveError::AdmitFailed(detail~)) =>
+      fail("blamed admission for a writer that was never created: \{detail}")
+    _ => fail("expected InvalidAgentId")
+  }
+}
+
+///|
 /// Taking back a history the document already holds changes nothing.
 ///
 /// The convergence test above traverses this path -- each side is sent the

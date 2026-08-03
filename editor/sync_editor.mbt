@@ -463,7 +463,7 @@ fn[T] SyncEditor::adjust_cursor(self : SyncEditor[T]) -> Unit {
 pub fn[T : Eq] SyncEditor::admit(
   self : SyncEditor[T],
   msg : @text.SyncMessage,
-) -> @text.SyncReport raise {
+) -> @text.SyncReport raise @text.TextError {
   self.taint_pending_transforms()
   let old_source = self.doc.text()
   self.undo.set_tracking(false)
