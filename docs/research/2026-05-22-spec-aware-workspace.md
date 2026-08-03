@@ -44,7 +44,7 @@ Text CRDT ─► Incremental parse ─► Projection ─► View patches ─► 
 | Projection | `core/proj_node.mbt:7` | `ProjNode[T] { node_id, kind: T, children, start, end }` |
 | Reactive memo layer | `loom/incr/incr.mbt:25–48` | `Signal[T]`, `Memo[T]`, `Runtime`, `Observer`, `Watch` |
 | Wire protocol | `protocol/view_patch.mbt:79–95` | `ViewPatch` (10 variants) + `ViewNode { id, kind_tag, label, text, children, annotations, ... }` |
-| Adapter | `adapters/editor-adapter/adapter.ts:5–14` | `EditorAdapter { applyPatches, onIntent, destroy }` |
+| Adapter | `adapters/editor/adapter.ts:5–14` | `EditorAdapter { applyPatches, onIntent, destroy }` |
 
 The single per-language coordinator is `SyncEditor[T]` (`editor/sync_editor.mbt:9–34`), which owns the `TextState`, the `ImperativeParser`, and three derived memos (`cached_proj_node`, `registry_memo`, `source_map_memo`). It exposes 49 public methods across 6 files.
 
@@ -109,7 +109,7 @@ For a workspace-scale dependency graph, the right pattern is **`MemoMap[NodeIdQ,
 | Text is ground truth | `docs/architecture.md:80–82` | Spec must also be text-backed (or wrapped to look like text from the CRDT's perspective) |
 | Single-document `SyncEditor` | `editor/sync_editor.mbt:9–34`; `docs/architecture.md:128` ("no workspace concept") | A multi-document workspace owner does not exist and must be added |
 | NodeId is per-document | `core/types.mbt:6`; `core/reconcile.mbt:5` | Cross-document refs need qualified IDs |
-| Adapter is single-view | `adapters/editor-adapter/adapter.ts:5–14` | A "spec/code split-pane" needs a new adapter composition or a host-side layout |
+| Adapter is single-view | `adapters/editor/adapter.ts:5–14` | A "spec/code split-pane" needs a new adapter composition or a host-side layout |
 | No labeled edges in alga | `alga/src/graph_expr.mbt:47–52` (Graph algebra over `Int` vertices) | Dependency graph needs per-relation graphs or a labeled-graph wrapper |
 
 ---
@@ -742,5 +742,5 @@ These three experiments answer load-bearing questions that Codex's review flagge
 ## Provenance
 
 - All file:line citations verified during research session 2026-05-22 against worktree base `origin/main @ 72e5391` (path `/home/antisatori/ghq/github.com/dowdiness/canopy/.claude/worktrees/research-from-main`).
-- Source inventories produced by four parallel Explore sub-agents reading respectively: (1) `core/` + `event-graph-walker/`, (2) `projection/` + `editor/` + `protocol/`, (3) `llm/` + `lang/{lambda,json,markdown}/`, (4) `loom/{incr,loom,seam}` + `alga/` + `adapters/editor-adapter/`.
+- Source inventories produced by four parallel Explore sub-agents reading respectively: (1) `core/` + `event-graph-walker/`, (2) `projection/` + `editor/` + `protocol/`, (3) `llm/` + `lang/{lambda,json,markdown}/`, (4) `loom/{incr,loom,seam}` + `alga/` + `adapters/editor/`.
 - Where the report distinguishes Fact / Interpretation / Speculation, the labels mark which claims are revisable.

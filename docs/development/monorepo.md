@@ -16,7 +16,7 @@ canopy/                          dowdiness/canopy (root MoonBit module)
 ├── modules/btree/               workspace member, in-tree library
 ├── modules/zipper/              workspace member, in-tree library
 ├── modules/semantic/                workspace member, in-tree library
-├── adapters/editor-adapter/     in-tree TypeScript adapter package
+├── adapters/editor/             in-tree TypeScript adapter package
 ├── examples/                    in-tree example apps (web, ideal, …)
 │   └── canvas/                  standalone MoonBit module with nested workspace
 │

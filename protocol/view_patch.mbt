@@ -109,7 +109,7 @@ pub fn Diagnostic::Diagnostic(
 ///
 /// A patch describes one change to the editor's view. Patches are JSON
 /// serialisable; the canonical mapping is defined by `ToJson for ViewPatch`
-/// below and consumed by `adapters/editor-adapter` on the TypeScript side.
+/// below and consumed by `adapters/editor` on the TypeScript side.
 /// Frontends must treat unknown variants as no-ops so the protocol can be
 /// extended without a breaking change.
 pub(all) enum ViewPatch {

@@ -69,7 +69,7 @@ Before changing stable `ViewPatch`, `UserIntent`, `Decoration`, or
   the break; for unit changes, cite PR #555-style context.
 - For any MoonBit protocol change, run `moon info` and review
   `protocol/pkg.generated.mbti` for unintended API diffs.
-- Update `adapters/editor-adapter/types.ts`, adapter emit/apply paths, and
+- Update `adapters/editor/types.ts`, adapter emit/apply paths, and
   serialization or round-trip tests in the same change.
 - Build Canopy demos and known external consumers before release.
 

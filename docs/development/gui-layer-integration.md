@@ -43,7 +43,7 @@ The design consequence is that the editor needs two operation layers:
 | `examples/canvas` | Workflow node canvas prototype. | MoonBit-owned `CanvasState`, typed `WorkflowAction`, ports, edges, validation, pan/zoom, drag, connection gestures, action log, DOM maps keyed by node/edge IDs. | Not connected to `SyncEditor`, `ViewPatch`, source maps, or Canopy language companions yet. |
 | `examples/block-editor` | Block-level document editor. | contenteditable blocks keyed by IDs, drag handles, focused-block preservation, Markdown import/export path. | Document model is block CRDT-specific and not protocol-driven. |
 | `examples/codemirror_demo` and `modules/rabbita_codemirror` | Rabbita binding smoke test for CodeMirror. | Function-based MoonBit API, `Cmd`/`Sub` lifecycle, editor handle registry, guarded programmatic updates. | Text surface only; use for source pane and inline fields, not graph topology. |
-| `adapters/editor-adapter` | Framework-agnostic patch/intent boundary. | `EditorAdapter`, `CM6Adapter`, `PMAdapter`, `HTMLAdapter`, stable TS protocol types. | README explicitly scopes non-text custom surfaces out of this package; graph work should be a separate adapter. |
+| `adapters/editor` | Framework-agnostic patch/intent boundary. | `EditorAdapter`, `CM6Adapter`, `PMAdapter`, `HTMLAdapter`, stable TS protocol types. | README explicitly scopes non-text custom surfaces out of this package; graph work should be a separate adapter. |
 | `graphviz` and `modules/visualizer` | DOT parse/layout/render to SVG. | Read-only graph inspection, diagnostics and history visualization. | SVG Graphviz is not an interactive graph editor; do not use it as the primary node canvas. |
 
 Browser smoke observations:
@@ -128,7 +128,7 @@ or projection IDs. A mixed UI should therefore use:
 | ProseMirror | Keep for structured tree editing, not for node graph topology. | It is good at document/tree selection and node views, but free-form pan/zoom/ports fit poorly. |
 | Canvas DOM + SVG from `examples/canvas` | Use as the first node graph substrate. | It already has pan, zoom, nodes, ports, edges, validation, action logs, RAF scheduling, and keyed DOM/SVG maps. |
 | Graphviz/SVG | Use for read-only inspectors and debug graph exports. | Layout is useful for history/dependency visualization, but direct manipulation requires a separate interaction layer. |
-| `adapters/editor-adapter` | Reuse the interface shape, but create a separate GraphAdapter. | The package intentionally excludes non-text custom surfaces. A graph adapter can still expose `applyPatches`, `onIntent`, and `destroy`. |
+| `adapters/editor` | Reuse the interface shape, but create a separate GraphAdapter. | The package intentionally excludes non-text custom surfaces. A graph adapter can still expose `applyPatches`, `onIntent`, and `destroy`. |
 
 The pragmatic split is:
 

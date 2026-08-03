@@ -84,7 +84,7 @@ The MoonBit dispatch already exists in the FFI layer (`ffi/lambda/intent.mbt`):
 
 So the `from/to→deleted_len` collapse and the snap/exact choice are MoonBit
 concerns, not TypeScript. The TS adapter
-(`adapters/editor-adapter/cm6-adapter.ts:255`) only produces the
+(`adapters/editor/cm6-adapter.ts:255`) only produces the
 `{type:"TextEdit", from, to, insert}` JSON — i.e. the **CM6 bridge** computes
 `from/to` on the **TS** side (strategy (a)-like, §4). The `codex/` prototype is
 different: it computes the splice **entirely in MoonBit** from the diff string,

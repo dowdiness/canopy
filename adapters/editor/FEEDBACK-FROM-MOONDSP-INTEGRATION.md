@@ -99,7 +99,7 @@ the vendor copy.
 **Resolved:** the publish-prep commit (`eb4e10b`, on `main` since alpha.0)
 already dropped `private: true`, bumped to `0.1.0-alpha.0`, and added the
 license / repository / homepage / bugs / keywords / files allowlist. The
-`0.1.0-alpha.x` tag carries the pre-stable signal. `file:../canopy/adapters/editor-adapter`
+`0.1.0-alpha.x` tag carries the pre-stable signal. `file:../canopy/adapters/editor`
 deps now work for sibling-checkout consumers; `npm publish` remains the
 follow-on step if/when the package goes registry-public.
 
@@ -110,7 +110,7 @@ follow-on step if/when the package goes registry-public.
 **File:** `package.json`
 
 The package is currently `private: true`. Even consumers willing to
-take a `file:../canopy/adapters/editor-adapter` dep run into npm
+take a `file:../canopy/adapters/editor` dep run into npm
 refusing to install a private package without `workspaces` or
 `installPrivate` flags. moondsp went the vendor-copy route partly to
 sidestep this. Either:

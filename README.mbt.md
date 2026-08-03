@@ -124,7 +124,7 @@ in-tree libraries and submodules, is summarised below. See
 | [echo/](echo/) | Tokenisation engine used by the echo similarity experiment |
 
 The FFI stability surface is intentionally narrow: JS frontends should consume
-the editor through [`adapters/editor-adapter`](adapters/editor-adapter/) where
+the editor through [`adapters/editor`](adapters/editor/) where
 practical.
 
 Workspace membership and Git-submodule ownership are different axes: some

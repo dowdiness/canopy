@@ -13,9 +13,9 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dowdiness/canopy.git",
-    "directory": "adapters/editor-adapter"
+    "directory": "adapters/editor"
   },
-  "homepage": "https://github.com/dowdiness/canopy/tree/main/adapters/editor-adapter#readme",
+  "homepage": "https://github.com/dowdiness/canopy/tree/main/adapters/editor#readme",
   "bugs": {
     "url": "https://github.com/dowdiness/canopy/issues"
   },

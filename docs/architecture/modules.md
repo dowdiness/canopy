@@ -52,7 +52,7 @@ Representative seams:
 - `event-graph-walker/` and `loom/` are separately owned substrate repositories.
 - `core/`, `editor/`, `projection/`, and `protocol/` are primary-module package
   families.
-- `adapters/editor-adapter/` translates primary-module interfaces for
+- `adapters/editor/` translates primary-module interfaces for
   TypeScript consumers.
 - `examples/ideal/` and `examples/canvas/` are runnable applications with their
   own lifecycle and verification.
