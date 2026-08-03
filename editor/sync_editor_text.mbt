@@ -323,10 +323,10 @@ fn[T : Eq] SyncEditor::apply_text_edit_with_policy(
 ///|
 /// Implementation-detail funnel for all text-changing paths (insert, delete,
 /// backspace, apply_text_edit_with_policy, structural edits). The `_internal`
-/// suffix marks it as private API per the Canopy library API convention
-/// (docs/TODO.md §14 "Canopy library API audit"); external library consumers
-/// should call the higher-level `apply_text_edit_*` / `insert` / `delete`
-/// methods instead.
+/// suffix marks it as private API per the Canopy library API boundary decision
+/// (`docs/decisions/2026-06-11-library-api-boundary.md`). External library
+/// consumers should call the higher-level `apply_text_edit_*` / `insert` /
+/// `delete` methods instead.
 fn[T : Eq] SyncEditor::apply_text_edit_internal(
   self : SyncEditor[T],
   start : Int,

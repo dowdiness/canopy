@@ -238,9 +238,8 @@ pub fn SourceMap::apply_edit(
 ///|
 /// Recovery / debug API: full SourceMap regeneration from a fresh projection tree.
 /// Property-tested in `source_map_properties_wbtest.mbt`. No production consumer
-/// today; intended for stale-map diagnostics or replay/resync flows if those
-/// surface. Not bundled into the click-path wiring TODO (docs/TODO.md §9) since
-/// no UI consumer is currently committed.
+/// exists today; stale-map diagnostics or replay/resync flows may use it later.
+/// It is not bundled into click-path wiring because no UI consumer is committed.
 ///
 /// Note: this clears token_spans. Call populate_token_spans() afterward
 /// if token-level spans are needed.

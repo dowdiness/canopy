@@ -3,13 +3,27 @@
 > **Executor instructions**: This is a documentation-only plan. Follow each
 > step, verify every path and command against the repository, and do not change
 > manifests or source code to make stale prose true. Stop on drift rather than
-> guessing. Update this plan's status in `plans/README.md` when done unless a
-> reviewer owns the index.
+> guessing. Record the result in
+> [issue #1125](https://github.com/dowdiness/canopy/issues/1125).
 >
 > **Drift check (run first)**:
 > `git diff --stat f6e3a0a5..HEAD -- README.md docs/development/monorepo.md docs/development/module-package-map.md docs/development/workflow.md docs/architecture/modules.md moon.work moon.mod .gitmodules scripts/package-overview.sh scripts/check-strict.sh .github/actions/setup-moonbit/action.yml .github/workflows/ci.yml`
 > Re-read live manifests and CI even when the diff is empty; copied topology is
 > exactly what this plan is eliminating.
+>
+> **Resolution (2026-08-03)**: Integrated into repository-layout Phase 2.
+> Phase 1 commit `eec6decc` and Phase 2 commits `75e12e24` / `a4d2fc64`
+> replaced copied topology with live authorities, added lifecycle enforcement,
+> and corrected the remaining active guidance. The original documentation-only
+> file boundary was superseded by the approved Phase 2 integration; the source,
+> CI, script, ADR, and historical-document changes are separated by purpose in
+> the reviewed branch history.
+>
+> Verification on clean detached HEAD `a4d2fc64` against
+> `origin/main` `0263aa79`: `validate-pr-ready.sh` passed for `core`, `editor`,
+> `lang/lambda/edits`, `lang/markdown/edits`, and `sync_session`; targeted tests
+> passed 151/151, 231/231, 257/257, 59/59, and 29/29; the workspace baseline
+> reported zero failures.
 
 ## Status
 
@@ -109,7 +123,7 @@ Confirmed stale prose:
 - `docs/development/module-package-map.md`
 - `docs/development/workflow.md`
 - `docs/architecture/modules.md`
-- `plans/README.md` status row only
+- `README.md` status row only
 
 **Read-only sources of truth**:
 
@@ -351,18 +365,20 @@ Do not run formatters that rewrite MoonBit source.
 
 ## Done criteria
 
-- [ ] Root and development docs identify `moon.mod` and `moon.work` correctly.
-- [ ] No active guide copies an exhaustive workspace/dependency list that can
+- [x] Root and development docs identify `moon.mod` and `moon.work` correctly.
+- [x] No active guide copies an exhaustive workspace/dependency list that can
   drift independently.
-- [ ] Root commands are documented as covering current workspace members.
-- [ ] Architecture modules page contains principles, not volatile type/path
+- [x] Root commands are documented as covering current workspace members.
+- [x] Architecture modules page contains principles, not volatile type/path
   inventory.
-- [ ] The unsupported `moon work list` command is gone.
-- [ ] Removed `rle` and `framework/core` topology is not presented as current.
-- [ ] `./scripts/package-overview.sh`, link guard, `moon check`, and the strict
+- [x] The unsupported `moon work list` command is gone.
+- [x] Removed `rle` and `framework/core` topology is not presented as current.
+- [x] `./scripts/package-overview.sh`, link guard, `moon check`, and the strict
   wrapper exit 0.
-- [ ] Workflow docs link to the CI toolchain pin and do not duplicate it.
-- [ ] No manifest, source, CI, script, ADR, or historical doc changed.
+- [x] Workflow docs link to the CI toolchain pin and do not duplicate it.
+- [x] ~~No manifest, source, CI, script, ADR, or historical doc changed.~~
+  Superseded by the approved integrated Phase 2 scope; the broader changes and
+  their verification are recorded in the resolution above.
 
 ## STOP conditions
 
@@ -383,3 +399,27 @@ generated. When topology changes, update manifests and generated tooling first;
 prose should describe durable rules and point to those authorities. Historical
 plans and ADR evidence remain historical and should not be mass-edited by this
 plan.
+
+### Temporary migration inventory lifecycle
+
+The manifest-discovery implementation in `scripts/package-overview.sh` and its
+`scripts/test-package-overview.sh` contract test are migration instruments, not
+permanent repository tooling. Their current single-file implementation is
+intentional: do not split or generalize code that will be deleted.
+
+Keep them only until all repository-layout migration phases satisfy these exit
+conditions:
+
+1. Every planned module, application, example, and submodule move is complete.
+2. The final package/import mapping and root workspace membership pass their
+   build, test, and CI gates without relying on migration-era before/after
+   counts.
+3. SessionStart and contributor navigation no longer depend on the generated
+   migration inventory, or have a replacement based on the final layout.
+
+At that point, delete `scripts/test-package-overview.sh` and the temporary
+manifest-discovery implementation. Remove or replace links to
+`scripts/package-overview.sh` in `README.mbt.md`,
+`docs/development/module-package-map.md`, and
+`docs/architecture/modules.md` in the same cleanup change so no dead navigation
+remains. Retain the durable ownership principles in the documentation.

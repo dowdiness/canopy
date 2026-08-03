@@ -294,9 +294,9 @@ fn rename_binding_by_id(
 /// root-relative `def_index` — so every lookup (references, binder location,
 /// sibling collision) stays scoped to the declaration's own block.
 ///
-/// Capture analysis is conservative (sound — never mis-renames — but may reject
-/// some legal renames; precise scope-bounded analysis is tracked in
-/// docs/TODO.md §20). It rejects in both directions:
+/// Capture analysis is deliberately conservative: it never mis-renames, but
+/// may reject legal renames until a dedicated issue defines a precise
+/// scope-bounded contract. It rejects in both directions:
 /// - D's own references rebinding OUTWARD: `new_name` visible in any enclosing
 ///   scope at a usage site (`name_captured_at_node`), including an ancestor the
 ///   renamed binder would shadow;

@@ -5,7 +5,7 @@
 **Amended by:** [Substrate governance: one consumption policy per dependency](2026-06-12-substrate-governance.md)
 (2026-06-12 — generalizes this record's single-dependency policy to all
 `dowdiness/*` substrate and adds the `event-graph-walker` resolver-identity
-guard alongside the incr drift guard; the lock value, bump protocol, and
+guard alongside the incr drift guard; the alignment policy, bump protocol, and
 deferred cross-repo extension point below remain authoritative here)
 **Closes:** [#441](https://github.com/dowdiness/canopy/issues/441) (BAND 1b — cross-repo `incr` version-lock)
 **Related:**
@@ -38,13 +38,21 @@ the BAND 1–2 spec).
 > claims in this record are point-in-time facts, not standing guarantees — re-verify
 > before the next bump.
 
-## The lock (verified 2026-06-10)
+## Live pin authority
 
-| Field | Value |
-|-------|-------|
+Exact current versions live in the consumer manifests. Within Canopy, run
+`scripts/check-shared-substrate.sh` to enumerate current consumers and verify
+that they agree on one major/minor. This ADR remains authoritative for alignment
+policy, bump order, paired-repository coordination, and compatibility-handle
+removal—not for a mutable exact version copied into prose.
+
+## Initial lock snapshot (verified 2026-06-10)
+
+| Field | Historical value |
+|-------|------------------|
 | Dependency | `dowdiness/incr` |
-| Exact target | **0.9.0** |
-| Required minor | **0.9** (consumers must agree on major.minor) |
+| Initial exact target | **0.9.0** |
+| Initial required minor | **0.9** (consumers agreed on major.minor) |
 | Consumer repos | canopy (incl. vendored `loom`), `dowdiness/moondsp` |
 | Compat-handle status | `Signal` / `Memo` / `HybridMemo` / `MemoMap` still present as of 0.9.0 — **no announced removal date, no deprecation attribute** |
 | Removal policy | Removal of any compat handle requires updating *this* ADR with a dated removal target **before** the incr release that drops it, plus a paired consumer-migration plan |
@@ -75,9 +83,9 @@ Two facts from this topology shape the enforcement decision below:
 
 ## Decision
 
-1. **Lock the shared substrate at incr minor 0.9** across canopy, loom, and moondsp,
-   with 0.9.0 as the current exact target. This record is the single source of truth
-   for that value.
+1. **Keep the shared substrate aligned on one major/minor** across canopy, loom,
+   and moondsp. Version 0.9.0 was the initial acceptance baseline; current exact
+   versions are read from manifests and checked within Canopy by the drift guard.
 
 2. **Enforce the canopy-internal invariant per-PR** via `scripts/check-shared-substrate.sh`
    (shipped in #574): canopy CI fails when its members disagree on the incr major.minor.

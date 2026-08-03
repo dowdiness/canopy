@@ -30,7 +30,7 @@ If an architecture doc needs to reference code, link to the file — don't inlin
 
 1. Written before implementation with concrete details
 2. Executed task by task
-3. Archived to `docs/archive/completed-phases/` on completion
+3. Archived to `docs/archive/` on completion
 4. Marked with `**Status:** Complete` at the top
 
 Staleness is a non-issue because archived docs are explicitly historical. If someone reads an archived plan, they know it describes the state at implementation time, not the current state.
@@ -65,11 +65,11 @@ When a major optimization lands, old performance docs are not updated — they'r
 | Plans | `docs/plans/` | Struct defs, code, file paths, perf targets | Until completion | None (archived) |
 | Archive | `docs/archive/` | Completed plans, old measurements | Permanent (historical) | N/A (explicitly past) |
 | Performance | `docs/performance/` | Dated benchmark results | Permanent (snapshot) | Low (dated, not updated) |
-| TODO | `docs/TODO.md` | Prioritized work items with status | Ongoing | Medium (re-validate perf claims) |
+| Active backlog | GitHub Issues | Prioritized work and status | Until closure | Medium (re-validate claims) |
 
 ## Rules
 
 1. **Architecture docs never reference specific types, fields, or line numbers.** Link to files instead.
 2. **Plans are archived on completion.** Same commit that marks the last task done.
-3. **Performance claims in TODOs include when they were measured.** Stale numbers lead to wasted optimization effort.
+3. **Performance claims in issues include when they were measured.** Stale numbers lead to wasted optimization effort.
 4. **Code is the source of truth.** If a doc and the code disagree, the doc is wrong.

@@ -277,7 +277,7 @@ and `20,500,000` total bytes in the captured sample. The attached raw JSON
 also contains matching before/after host-state snapshots and failed/repaired
 DOM result summaries; fixed denominators and every latency sample are retained.
 The exact final-run JSON is tracked at
-[`docs/plans/evidence/2026-07-13-generative-ui-safety-metrics.json`](evidence/2026-07-13-generative-ui-safety-metrics.json).
+[`docs/plans/evidence/2026-07-13-generative-ui-safety-metrics.json`](../plans/evidence/2026-07-13-generative-ui-safety-metrics.json).
 
 ## Test Matrix
 

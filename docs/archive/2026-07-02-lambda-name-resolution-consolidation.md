@@ -233,23 +233,45 @@ Known constraints and invariants:
 
 ## Acceptance Criteria
 
-- [ ] Differential tests pin agreement between old duplicate edit computations
-      and graph-backed facts before production migration.
-- [ ] `lang/lambda/edits/free_vars.mbt` is no longer used by production edit
-      guards, or it is removed entirely from the package surface.
-- [ ] `declaration_id_for_name_from_scope` and
+Checked against the completion record below (Steps 1–8, executed 2026-07-02).
+Criteria are checked only where the recorded evidence supports them; anything
+not evidenced by that record is explicitly labelled as unverified here.
+
+- [x] Differential tests pin agreement between old duplicate edit computations
+      and graph-backed facts before production migration. *(Verified: 22
+      differential tests in `scope_resolution_differential_wbtest.mbt`; the
+      `Unbound` divergence was recorded as explicit behavior.)*
+- [x] `lang/lambda/edits/free_vars.mbt` is no longer used by production edit
+      guards, or it is removed entirely from the package surface. *(Verified:
+      `free_vars.mbt` deleted; the function lives on as a wbtest-local oracle in
+      `scope_resolution_differential_wbtest.mbt` and was removed from
+      `pkg.generated.mbti`.)*
+- [x] `declaration_id_for_name_from_scope` and
       `declaration_id_for_name_at_module_end` no longer recompute binding
-      visibility outside `lang/lambda/scope`.
-- [ ] Module-end lookup reads builder-owned scope/cutoff state, closing the
-      drift class in #652.
+      visibility outside `lang/lambda/scope`. *(Verified: both deleted from
+      `edits/scope.mbt`; the call site migrated to
+      `@scope.declaration_for_name_at_module_end`.)*
+- [x] Module-end lookup reads builder-owned scope/cutoff state, closing the
+      drift class in #652. *(Verified: #652 closed; the query landed in
+      `scope/query.mbt` per Steps 2 and 5. The builder-owned cutoff mechanism
+      itself is not separately re-verified in the completion record.)*
 - [ ] Extract, inline, rename, and binding move guards remain conservative:
-      every previously rejected unsafe capture/rebind fixture is still rejected.
-- [ ] `alpha/lower` continues to lower references through `@scope.declaration`,
-      with shadowing and sequential module fixtures.
-- [ ] Semantic free-variable diagnostics continue to source unresolved refs
-      from `@scope.failures`.
-- [ ] `moon info` public API diffs are reviewed, especially
-      `lang/lambda/edits/pkg.generated.mbti` and `lang/lambda/scope/pkg.generated.mbti`.
+      every previously rejected unsafe capture/rebind fixture is still
+      rejected. *(Not verified by the completion record: the migrations kept
+      the existing guard suites, but no re-run of the rejection fixtures is
+      recorded.)*
+- [x] `alpha/lower` continues to lower references through `@scope.declaration`,
+      with shadowing and sequential module fixtures. *(Verified: alpha lowering
+      confirmed graph-backed and a nested block lowering test was added;
+      shadowing/sequential-module fixtures are covered via the Step 1
+      differential tests.)*
+- [x] Semantic free-variable diagnostics continue to source unresolved refs
+      from `@scope.failures`. *(Verified: semantic diagnostics confirmed
+      graph-backed.)*
+- [x] `moon info` public API diffs are reviewed, especially
+      `lang/lambda/edits/pkg.generated.mbti` and
+      `lang/lambda/scope/pkg.generated.mbti`. *(Verified: `free_vars` removed
+      from `pkg.generated.mbti`; a fresh `moon info` review is not re-recorded.)*
 
 ## Validation
 

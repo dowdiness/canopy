@@ -75,8 +75,8 @@ cd examples/web && npm install && npm run dev
 ```
 
 The targets currently exercised in CI are **JavaScript** (web demo, FFI) and
-**native** (CLI, tests). WebAssembly is not a supported build target — see
-`docs/TODO.md`.
+**native** (CLI, tests). WebAssembly is not a supported build target; see the
+[CI/CD guide](docs/CI_CD.md) for the current target matrix.
 
 ## The Bigger Picture
 
@@ -127,29 +127,20 @@ The FFI stability surface is intentionally narrow: JS frontends should consume
 the editor through [`adapters/editor-adapter`](adapters/editor-adapter/) where
 practical.
 
-**Workspace members** (built by `moon test` at the repo root, per `moon.work`):
+Workspace membership and Git-submodule ownership are different axes: some
+submodules are also built as root-workspace members. Generate the current lists
+from their live manifests:
 
-`./` (canopy), `./lib/zipper`, `./lib/btree`, `./lib/rabbita_codemirror`,
-`./lib/dom-boundary`, `./lib/visualizer`, `./lib/semantic`, and selected
-examples.
+```sh
+./scripts/package-overview.sh
+```
 
-| Library | Purpose |
-|---------|---------|
-| [lib/btree/](lib/btree/) | Counted B+ tree with O(log n) position-indexed access |
-| [lib/zipper/](lib/zipper/) | Rose-tree zipper |
-| [lib/semantic/](lib/semantic/) | `Confidence[T]` lattice for merging multi-source annotations |
-
-**Git submodules** (separately owned repositories):
-
-| Path | Repository | Role |
-|------|------------|------|
-| [event-graph-walker/](event-graph-walker/) | `dowdiness/event-graph-walker` | CRDT engine (eg-walker + FugueMax) |
-| [loom/](loom/) | `dowdiness/loom` | Incremental parser framework, CST library, reactive signals, pretty-printer, text-change and Unicode segmentation utilities |
-| [rle/](rle/) | `dowdiness/rle` | Run-length encoded sequence |
-| [order-tree/](order-tree/) | `dowdiness/order-tree` | Counted/order-statistic tree |
-| [graphviz/](graphviz/) | `dowdiness/graphviz` | Graphviz renderer (used in the inspector) |
-| [svg-dsl/](svg-dsl/) | `dowdiness/svg-dsl` | SVG DSL |
-| [alga/](alga/) | `dowdiness/alga` | Graph algebra |
+See [Module, Package, Workspace, and Submodule Map](docs/development/module-package-map.md)
+for placement rules and ownership boundaries. Representative reusable modules
+include [`lib/btree/`](lib/btree/), [`lib/semantic/`](lib/semantic/), and
+[`lib/zipper/`](lib/zipper/); representative separately owned dependencies
+include [`event-graph-walker/`](event-graph-walker/), [`loom/`](loom/), and
+[`rabbita/`](rabbita/).
 
 **Examples:**
 
@@ -187,7 +178,7 @@ highlights:
 **Development:**
 - [Development Workflow](docs/development/workflow.md) — how to make changes, run tests, manage submodules
 - [Conventions](docs/development/conventions.md) — MoonBit coding patterns
-- [TODO](docs/TODO.md) — active backlog
+- [GitHub Issues](https://github.com/dowdiness/canopy/issues) — active backlog
 
 ## Contributing
 

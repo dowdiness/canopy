@@ -7,7 +7,7 @@
 - [Generative UI direction](../architecture/generative-ui-direction.md)
 - [Stable Document Entity Graph](stable-document-entity-graph.md)
 - [JSX DOM patch contract](../decisions/2026-07-13-jsx-dom-patch-contract.md)
-- [Input vertical slice](../plans/2026-07-12-generative-ui-input-vertical-slice.md)
+- [Input vertical slice](../archive/2026-07-12-generative-ui-input-vertical-slice.md)
 - [Responsibility Map](../architecture/responsibility-map.md)
 - [Human-centered product principles](../architecture/human-centered-product-principles.md)
 

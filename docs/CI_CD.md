@@ -97,7 +97,7 @@ settings are documented in
 
 Packages release artifacts using `./scripts/package-release.sh`. Currently
 covers **native** and **JavaScript**; WebAssembly is not part of the release
-workflow (see `docs/TODO.md` §1).
+workflow.
 
 ## Running locally
 
@@ -195,4 +195,4 @@ failures through.
 - [GitHub Actions Documentation](https://docs.github.com/en/actions)
 - [MoonBit CLI Reference](https://docs.moonbitlang.com)
 - [Workflow files](../.github/workflows/) — authoritative
-- [TODO list](TODO.md)
+- [Active backlog](https://github.com/dowdiness/canopy/issues)

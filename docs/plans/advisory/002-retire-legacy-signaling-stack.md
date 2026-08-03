@@ -3,8 +3,8 @@
 > **Executor instructions**: Follow this plan step by step. Run every
 > verification command and confirm the expected result before proceeding. Do
 > not harden or replace the legacy Worker in place: current reachability shows
-> it has no browser consumer. Stop if that assumption has changed. Update this
-> plan's row in `plans/README.md` when done unless a reviewer owns the index.
+> it has no browser consumer. Stop if that assumption has changed. Record the
+> result in [issue #1125](https://github.com/dowdiness/canopy/issues/1125).
 >
 > **Drift check (run first)**:
 > `git diff --stat f6e3a0a5..HEAD -- examples/web/.env.example examples/web/signaling-server.js examples/web/signaling-worker.js examples/web/wrangler-signaling.toml examples/web/CLOUDFLARE_DEPLOYMENT.md examples/web/QUICKSTART_CLOUDFLARE.md examples/web/package.json examples/web/package-lock.json examples/web/src/vite-env.d.ts examples/web/MODULE_MAP.md examples/web/scripts/check-boundaries.mjs docs/plans/2026-07-25-waku-unified-web-migration.md docs/research/2026-07-25-waku-demo-behavior-contracts.md .github`
@@ -16,7 +16,7 @@
 - **Priority**: P1
 - **Effort**: M
 - **Risk**: MED
-- **Depends on**: `plans/001-reject-client-authored-server-frames.md`
+- **Depends on**: `001-reject-client-authored-server-frames.md`
 - **Category**: security / tech-debt
 - **Audit finding**: 2
 - **Planned at**: commit `f6e3a0a5`, 2026-07-25
@@ -101,13 +101,23 @@ service. A live consumer requires a separate threat model and migration plan.
 
 | Purpose | Command | Expected on success |
 |---|---|---|
-| Reachability | `rg --hidden -n "signaling-worker|wrangler-signaling|VITE_SIGNALING_URL|SIGNALING_ROOM|WebSocketServer|SIGNALING service binding" examples/web docs .github README.md --glob '!**/node_modules/**' --glob '!docs/archive/**' --glob '!plans/**' --glob '!.git/**'` | before: only listed legacy files/docs plus prospective Waku scope; after: no active legacy signaling references |
+| Reachability | run the scan below from the repo root | before: only listed legacy files/docs plus prospective Waku scope; after: no active legacy signaling references |
 | Install | `cd examples/web && npm ci` | exits 0 |
 | Generated artifacts | `NEW_MOON_MOD=0 ./scripts/build-js.sh` | exits 0 and produces the five web MoonBit modules |
 | Typecheck | `cd examples/web && npm run typecheck` | exits 0, no TypeScript errors |
 | Boundary tests | `cd examples/web && npm run test:boundaries` | 18 tests pass |
 | Boundary check | `cd examples/web && npm run check:boundaries` | prints `Web dependency boundaries: OK` |
 | Lock integrity | `cd examples/web && npm install --package-lock-only --ignore-scripts` | exits 0; lock root no longer declares direct `ws` or `@types/ws` |
+
+Run the reachability scan from the repository root, before and after the
+change:
+
+```bash
+rg --hidden -n "signaling-worker|wrangler-signaling|VITE_SIGNALING_URL|SIGNALING_ROOM|WebSocketServer|SIGNALING service binding" \
+  examples/web docs .github README.md \
+  --glob '!**/node_modules/**' --glob '!docs/archive/**' --glob '!docs/plans/advisory/**' \
+  --glob '!.git/**'
+```
 
 ## Suggested executor toolkit
 
@@ -141,7 +151,7 @@ service. A live consumer requires a separate threat model and migration plan.
   obsolete signaling service-binding scope throughout the plan)
 - `docs/research/2026-07-25-waku-demo-behavior-contracts.md` (correct the Lambda
   behavior inventory after retiring the unreachable shells)
-- `plans/README.md` status row only
+- `README.md` status row only
 
 **Read-only references**:
 
@@ -181,7 +191,7 @@ Run from the repository root:
 rg --hidden -n \
   "signaling-worker|wrangler-signaling|SIGNALING_ROOM|VITE_SIGNALING_URL|WebSocketServer|crdt-signaling-server|SIGNALING service binding" \
   examples/web docs .github README.md \
-  --glob '!**/node_modules/**' --glob '!docs/archive/**' --glob '!plans/**' \
+  --glob '!**/node_modules/**' --glob '!docs/archive/**' --glob '!docs/plans/advisory/**' \
   --glob '!.git/**'
 
 rg --hidden -n "from ['\"]ws['\"]|require\(['\"]ws['\"]\)|WebSocketServer" \
@@ -370,7 +380,7 @@ Run the repository-wide hidden-file search first:
 ! rg --hidden -n \
   "signaling-worker|wrangler-signaling|SIGNALING_ROOM|VITE_SIGNALING_URL|crdt-signaling-server|SIGNALING service binding" \
   examples/web docs .github README.md \
-  --glob '!**/node_modules/**' --glob '!docs/archive/**' --glob '!plans/**' \
+  --glob '!**/node_modules/**' --glob '!docs/archive/**' --glob '!docs/plans/advisory/**' \
   --glob '!.git/**'
 ```
 

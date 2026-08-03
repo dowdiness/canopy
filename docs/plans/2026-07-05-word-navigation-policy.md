@@ -2,17 +2,17 @@
 
 **Status:** Design approved 2026-07-05 (interview-driven brainstorm).
 **Experimental** — user decision 2026-07-05: real chance of deletion within
-a month; the design is constrained to be cheap to throw away. Closes the
-first unchecked item of [TODO §16](../TODO.md) ("Word-navigation policy on top
-of moji's raw UAX boundaries").
+a month; the design is constrained to be cheap to throw away. It originated
+from the word-navigation candidate preserved in the
+[legacy TODO snapshot](../archive/TODO-snapshot-2026-08-03.md).
 
 **Keep/delete decision rule (2026-08-05 review):** this feature cannot
 generate usage signal on its own (zero consumers reach these methods), so
 the review judges consumer existence, not "experiment success". Delete per
 the disposal inventory below **unless** by 2026-08-05 either (a) some
 surface actually binds word navigation to these methods, or (b) an open
-GitHub issue, linked from TODO §16, names a headless `SyncEditor` consumer
-and the surface that will bind these methods. The
+GitHub issue names a headless `SyncEditor` consumer and the surface that will
+bind these methods. The
 grapheme post-snap survives deletion regardless (pre-existing bug fix).
 Do not let the library-framing KEEP default override this rule — the rule
 was set precisely because that default would otherwise decide by inertia.

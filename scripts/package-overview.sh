@@ -1,57 +1,168 @@
 #!/usr/bin/env bash
-# Compact package overview for SessionStart hook.
-# Outputs package paths, pub symbol counts, key public types, and submodule deps.
+# Manifest-driven repository topology overview for the SessionStart hook.
 set -euo pipefail
-cd "$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 
-# Capture outline once per package; reuse for both count and type extraction.
-declare -A pkg_types
+repo_root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 
-# Canopy-internal packages (sub-packages of the main module).
-canopy_pkgs=(
-  . core editor protocol projection relay
-  ffi/host ffi/json ffi/lambda ffi/markdown
-  lang/lambda lang/lambda/proj lang/lambda/eval lang/lambda/scope
-  lang/lambda/semantic lang/lambda/edits lang/lambda/companion
-  lang/json lang/json/proj lang/json/edits cmd/main
+exec python3 - "$repo_root" <<'PY'
+import configparser
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path, PurePosixPath
+
+PRIMARY_MODULE = "dowdiness/canopy"
+root = Path(sys.argv[1])
+
+
+def tracked_files():
+    output = subprocess.check_output(
+        ["git", "-C", str(root), "ls-files", "-z"],
+    ).decode()
+    return [PurePosixPath(path) for path in output.split("\0") if path]
+
+
+def read_module(manifest):
+    path = root / manifest
+    if manifest.name == "moon.mod.json":
+        data = json.loads(path.read_text())
+        return data.get("name"), data.get("source")
+    text = path.read_text()
+    name_match = re.search(r'(?m)^\s*name\s*=\s*"([^"]+)"', text)
+    source_match = re.search(r'(?m)^\s*source\s*=\s*"([^"]+)"', text)
+    return (
+        name_match.group(1) if name_match else None,
+        source_match.group(1) if source_match else None,
+    )
+
+
+# Read the filesystem here (not tracked_files/modules) because those cover only
+# parent-repo manifests: manifests inside submodule working trees are not listed
+# by the parent's `git ls-files`, yet those submodules can still be moon.work
+# members whose module name the overview must resolve.
+def module_at(directory):
+    for filename in ("moon.mod", "moon.mod.json"):
+        manifest = root / directory / filename
+        if manifest.is_file():
+            name, _ = read_module(PurePosixPath(directory) / filename)
+            return name
+    return None
+
+
+files = tracked_files()
+module_files = [
+    path for path in files if path.name in ("moon.mod", "moon.mod.json")
+]
+package_manifests = [
+    path for path in files if path.name in ("moon.pkg", "moon.pkg.json")
+]
+
+# Prefer the current manifest when both formats exist during a migration.
+modules = {}
+for manifest in sorted(module_files, key=lambda path: path.name == "moon.mod.json"):
+    directory = manifest.parent
+    if directory not in modules:
+        name, source = read_module(manifest)
+        modules[directory] = {
+            "manifest": manifest,
+            "name": name,
+            "source": PurePosixPath(source) if source else None,
+        }
+
+packages = {}
+for manifest in sorted(
+    package_manifests,
+    key=lambda path: path.name == "moon.pkg.json",
+):
+    packages.setdefault(manifest.parent, manifest)
+package_files = list(packages.values())
+
+primary_roots = [
+    directory
+    for directory, module in modules.items()
+    if module["name"] == PRIMARY_MODULE
+]
+if len(primary_roots) != 1:
+    print(
+        f"error: expected one {PRIMARY_MODULE} module manifest, found "
+        f"{len(primary_roots)}",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+
+primary_root = primary_roots[0]
+primary = modules[primary_root]
+
+
+def owner_of(package):
+    package_dir = package.parent
+    candidates = [
+        directory
+        for directory in modules
+        if directory == package_dir or directory in package_dir.parents
+    ]
+    return max(candidates, key=lambda directory: len(directory.parts), default=None)
+
+
+def import_path(package):
+    relative = package.parent.relative_to(primary_root)
+    source = primary["source"]
+    if source and (relative == source or source in relative.parents):
+        relative = relative.relative_to(source)
+    if str(relative) == ".":
+        return PRIMARY_MODULE
+    return f"{PRIMARY_MODULE}/{relative.as_posix()}"
+
+
+primary_packages = sorted(
+    (package for package in package_files if owner_of(package) == primary_root),
+    key=lambda package: package.parent.as_posix(),
 )
 
-# Workspace members from moon.work (lib/*, examples/*) — excludes root "." already above.
-mapfile -t workspace_pkgs < <(grep -oE '"\.\/[^"]*"' moon.work | tr -d '"' | sed 's|^\./||')
+work_text = (root / "moon.work").read_text()
+members_match = re.search(r"members\s*=\s*\[(.*?)\]", work_text, re.S)
+if not members_match:
+    print("error: root moon.work has no members array", file=sys.stderr)
+    raise SystemExit(1)
+workspace_members = [
+    PurePosixPath(member)
+    for member in re.findall(r'"([^"]+)"', members_match.group(1))
+]
 
-echo "=== Package Map (live) ==="
-for dir in "${canopy_pkgs[@]}" "${workspace_pkgs[@]}"; do
-  outline=$(NEW_MOON_MOD=0 moon ide outline "$dir" 2>/dev/null || true)
-  count=$(printf '%s\n' "$outline" | grep -c "pub" || true)
-  printf "  %-38s %s pub symbols\n" "$dir/" "${count:-0}"
-  case "$dir" in core|editor|protocol|projection|relay)
-    # Stop at `{` or `(` to capture the full type name including multi-param generics.
-    pkg_types[$dir]=$(printf '%s\n' "$outline" \
-      | grep -E '[|] pub (struct|enum|trait) ' \
-      | sed -E 's/.*[|] pub (struct|enum|trait) ([^{(]+).*/\2/' \
-      | sed 's/[[:space:]]*$//' \
-      || true)
-    ;;
-  esac
-done
+submodules = []
+config = configparser.ConfigParser()
+config.read(root / ".gitmodules")
+for section in config.sections():
+    if not section.startswith("submodule "):
+        continue
+    submodules.append((config[section]["path"], config[section].get("url", "")))
+submodules.sort()
 
-echo ""
-echo "=== Key Public Types (struct/enum/trait) ==="
-for pkg in core editor protocol projection relay; do
-  raw=${pkg_types[$pkg]:-}
-  if [ -n "$raw" ]; then
-    total=$(printf '%s\n' "$raw" | wc -l | tr -d ' ')
-    displayed=$(printf '%s\n' "$raw" | head -8 | tr '\n' ' ')
-    suffix=""
-    [ "$total" -gt 8 ] && suffix="..."
-    printf "  %-14s %s%s\n" "$pkg:" "$displayed" "$suffix"
-  fi
-done
+primary_display = "." if str(primary_root) == "." else primary_root.as_posix()
+print("=== Repository Topology (live manifests) ===")
+print(f"Primary module: {PRIMARY_MODULE} ({primary_display})")
+print("")
+print(f"=== Primary module packages ({len(primary_packages)}) ===")
+for package in primary_packages:
+    physical = package.parent.as_posix()
+    print(f"  {import_path(package):<58} {physical}/")
 
-echo ""
-echo "=== Submodule deps ==="
-grep 'path = ' .gitmodules 2>/dev/null | sed 's/.*= /  /' || echo "  (none)"
+print("")
+print(f"=== Root workspace modules ({len(workspace_members)}) ===")
+for member in workspace_members:
+    normalized = PurePosixPath(".") if str(member) in (".", "./") else member
+    name = module_at(normalized)
+    label = name or "(manifest unavailable)"
+    print(f"  {normalized.as_posix():<46} {label}")
 
-echo ""
-echo "=== Use 'NEW_MOON_MOD=0 moon ide outline <path>' for package details ==="
-echo "=== See 'docs/api-map.md' for task→API index ==="
+print("")
+print(f"=== Git submodules ({len(submodules)}) ===")
+for path, url in submodules:
+    print(f"  {path:<30} {url}")
+
+print("")
+print("=== Ownership and workspace membership are independent axes; overlap is expected ===")
+print("=== Sources: moon.mod[.json], moon.pkg[.json], moon.work, .gitmodules ===")
+print("=== See docs/development/module-package-map.md for placement rules ===")
+PY

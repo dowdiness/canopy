@@ -342,7 +342,7 @@ Mirror Tasks 1.3 through 1.7 for markdown:
 - [ ] **Step 1:** `npm run dev`, manually test all four pages: `index.html`, `json.html`, `markdown.html`, `memo.html`. Cross-page navigation, CRDT peer sync between two open tabs, markdown DnD, JSON structural intent.
 - [ ] **Step 2:** `npx playwright test` — full suite.
 - [ ] **Step 3:** `npm run build` and record bundle sizes: all three `crdt-*` chunks.
-- [ ] **Step 4:** Update `docs/TODO.md §1` with the measured sizes and the note about the remaining 515 kB lambda floor.
+- [ ] **Step 4:** Record the measured sizes and remaining lambda floor in the canonical GitHub issue.
 
 ### Task 3.7: PR 3 commit + review
 
@@ -365,9 +365,12 @@ The subtractive measurement already told us the lambda-only floor is 515 kB. Spl
 1. **Dynamic import of LLM** (−19 kB measured). `canopy_llm_fix_typos` / `canopy_llm_edit` are called lazily from the TS side only when the user invokes the LLM action. Move to a code-split chunk via `const { ... } = await import('@moonbit/crdt-lambda-llm')`. Cheapest single-win path.
 2. **Lazy egglog Tier-2 evaluator.** Symbol-prefix tally in the measurement pass showed substantial `dowdiness/egglog/examples/lambda_-eval/*` footprint. If egglog tier 2 is only needed when escalated from tier 1, move the escalation path behind a dynamic import. Non-trivial — touches `editor/` or `lang/lambda/companion`.
 3. **Lambda typecheck lazy.** Diagnostics are polled on demand. Check whether `typecheck` is reachable only from polled diagnostic paths; if so, lazy-load.
-4. **Revisit the budget.** 500 kB was chosen without data. After splitting, the per-page reality is known — propose a revised per-page budget in `docs/TODO.md §1`.
+4. **Revisit the budget.** 500 kB was chosen without data. After splitting,
+   the per-page reality is known—open a focused GitHub issue proposing a revised
+   budget only if the measured impact still justifies work.
 
-Track these as separate TODO items after PR 3 lands, informed by the real numbers.
+Track surviving follow-ups as separate GitHub issues after PR 3 lands, informed
+by the real numbers.
 
 ---
 

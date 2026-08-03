@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-13  
 **Status:** Accepted and frozen (V1 JSX DOM adapter contract)  
-**Related:** [Generative UI input vertical slice](../plans/2026-07-12-generative-ui-input-vertical-slice.md) · [Generative UI direction](../architecture/generative-ui-direction.md)
+**Related:** [Generative UI input vertical slice](../archive/2026-07-12-generative-ui-input-vertical-slice.md) · [Generative UI direction](../architecture/generative-ui-direction.md)
 
 ## Why this record exists
 

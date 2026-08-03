@@ -2,22 +2,18 @@
 
 ## Test Coverage
 
-Run tests per module:
-
-- `moon test` — crdt module (editor, projection)
-- `cd event-graph-walker && moon test` — Core CRDT library
-- `cd loom/loom && moon test` — Parser framework
-- `cd loom/examples/lambda && moon test` — Lambda calculus parser
-
-## Running Tests
-
-### Run All Tests
+The root workspace includes Canopy-owned packages, examples, and the vendored
+workspace members listed in `moon.work`. Run the complete workspace suite from
+the repository root:
 
 ```bash
-# From crdt/ directory
-moon test                           # Test crdt module (226 tests)
-cd event-graph-walker && moon test # Test CRDT library (103 tests)
+moon test
 ```
+
+Use a filesystem path to narrow an investigation to one package or module.
+The root `moon test` remains the final regression check. See
+`.github/workflows/ci.yml` for frontend, example, and submodule-specific CI
+matrices that are not represented by one copied list here.
 
 ### Run Specific Package Tests
 

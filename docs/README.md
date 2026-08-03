@@ -102,9 +102,16 @@ Only needed if you are modifying Canopy itself.
 
 **Backlog and active work:**
 
-- [TODO](TODO.md) — active backlog index.
-- [docs/plans/](plans/) — executable plans (use
+- [GitHub Issues](https://github.com/dowdiness/canopy/issues) — canonical active
+  backlog, prioritization, and status.
+- [docs/plans/](plans/) — implementation specifications linked from issues (use
   [plans/TEMPLATE.md](plans/TEMPLATE.md) when adding a new one).
+- [Advisory plans](plans/advisory/) — dependency-ordered specifications for
+  [issue #1125](https://github.com/dowdiness/canopy/issues/1125).
+- [Legacy TODO snapshot](archive/TODO-snapshot-2026-08-03.md) — historical
+  candidates being triaged in
+  [issue #1124](https://github.com/dowdiness/canopy/issues/1124), not active
+  backlog.
 
 **Performance:**
 
@@ -157,8 +164,9 @@ behavior** — check the code before relying on any specific detail.
   — the three distinct parse/projection identity mechanisms, the #396 source-span
   tension, and why the BAND 2b cliff fix (#449) is an optimization, not a refactor.
 - [Shared-substrate `incr` version lock](decisions/2026-06-10-shared-substrate-incr-version-lock.md)
-  — locks canopy/loom/moondsp at incr minor 0.9, the bottom-up paired-bump protocol,
-  and why cross-repo CI is deferred until shared-runtime work needs it (closes #441).
+  — requires Canopy/Loom/moondsp consumption to remain aligned, defines the
+  bottom-up paired-bump protocol and drift guard, and defers cross-repo CI until
+  shared-runtime work needs it (closes #441).
 - [Lambda edit bridge boundary](decisions/2026-06-15-lambda-edit-bridge-boundary.md)
   — keeps Lambda's typed-error, patch-trace, editor-coupled bridge outside
   `LanguageSpec` after `ModuleProjection` removal (closes #634).

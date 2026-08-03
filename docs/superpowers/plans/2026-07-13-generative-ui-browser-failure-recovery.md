@@ -77,7 +77,7 @@ Expected: invalid/stale/apply-failure/recovery/determinism tests pass.
 ### Task 4: Record safety metrics and acceptance evidence
 
 **Files:**
-- Modify: `docs/plans/2026-07-12-generative-ui-input-vertical-slice.md`
+- Modify: `docs/archive/2026-07-12-generative-ui-input-vertical-slice.md`
 - Modify: `examples/web/tests/genui.spec.ts`
 
 **Interfaces:**

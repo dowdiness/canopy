@@ -3,8 +3,8 @@
 > **Executor instructions**: Follow this plan step by step. Run every
 > verification command and confirm the expected result before moving on. Stop
 > on any condition listed below instead of broadening the protocol change. When
-> done, update this plan's status in `plans/README.md`, unless a reviewer owns
-> the index.
+> done, record the validation result in
+> [issue #1125](https://github.com/dowdiness/canopy/issues/1125).
 >
 > **Drift check (run first)**:
 > `git diff --stat f6e3a0a5..HEAD -- relay/relay_room.mbt relay/relay_room_wbtest.mbt relay/README.md protocol/wire/wire.mbt sync_session/sync_session.mbt`
@@ -115,7 +115,7 @@ any API; this plan expects no new API.
 - `relay/relay_room.mbt`
 - `relay/relay_room_wbtest.mbt`
 - `relay/README.md`
-- `plans/README.md` status row only
+- `README.md` status row only
 
 **Read-only references**:
 

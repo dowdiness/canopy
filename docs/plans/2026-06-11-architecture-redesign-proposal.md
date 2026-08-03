@@ -7,7 +7,7 @@
 [Shared-substrate incr version lock](../decisions/2026-06-10-shared-substrate-incr-version-lock.md) ·
 [Framework genericity contract](../decisions/2026-03-29-framework-genericity-contract.md) ·
 [Identity and reuse mechanisms](../decisions/2026-06-01-identity-and-reuse-mechanisms.md) ·
-TODO §14 (library identity) · TODO §15 (editor decoupling) · TODO §18 (shared-runtime workspace)
+[Archived TODO snapshot](../archive/TODO-snapshot-2026-08-03.md) §14 (library identity) · §15 (editor decoupling) · §18 (shared-runtime workspace)
 
 This is the umbrella proposal plus staged migration index — a `docs/plans/`
 execution spec, **not** a `docs/architecture/` record. Concrete files, types,
@@ -302,5 +302,5 @@ for `handle_text_intent` (S3), per-entry bundle budgets (S4).
   (boundaries are mostly honored — this is consolidation).
 - Evidence base: live `moon.pkg` import-graph extraction, git churn
   2026-03→06, `.gitmodules` at both nesting levels, four bounded package-map
-  research passes, `docs/TODO.md` §14/§15/§18, graphify graph over loom
+  research passes, the archived TODO snapshot §14/§15/§18, and the graphify graph over loom
   (no import cycles; `Runtime`/`Signal`/`Memo` as expected god nodes).

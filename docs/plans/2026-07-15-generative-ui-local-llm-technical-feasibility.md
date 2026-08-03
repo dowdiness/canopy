@@ -83,7 +83,7 @@ missing criterion selects `NOT_YET_FEASIBLE`.
 
 The deterministic input vertical slice already establishes the request,
 validation, dry-run, commit, cancellation, replay, and recovery boundaries. See
-[Generative UI input vertical slice](2026-07-12-generative-ui-input-vertical-slice.md).
+[Generative UI input vertical slice](../archive/2026-07-12-generative-ui-input-vertical-slice.md).
 
 The architectural ownership rules remain canonical in
 [Generative UI direction](../architecture/generative-ui-direction.md).

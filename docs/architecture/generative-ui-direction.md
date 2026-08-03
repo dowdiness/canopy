@@ -158,7 +158,7 @@ Concrete research and execution details live in their bounded documents:
 
 - [Generative UI opportunity discovery](../plans/2026-07-17-generative-ui-opportunity-discovery-design.md)
   defines sampling, evidence, comparison, and stop rules.
-- [Generative UI input vertical slice](../plans/2026-07-12-generative-ui-input-vertical-slice.md)
+- [Generative UI input vertical slice](../archive/2026-07-12-generative-ui-input-vertical-slice.md)
   records the completed bounded implementation sequence and its technical
   acceptance criteria.
 - [Structured-data bounded-provider experiment](../plans/2026-07-15-generative-ui-live-provider-experiment-design.md)

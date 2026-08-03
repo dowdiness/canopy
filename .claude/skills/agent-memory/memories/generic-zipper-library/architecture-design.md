@@ -3,7 +3,7 @@ summary: "Generic tree library architecture — rose zipper (immutable, navigati
 created: 2026-04-04
 updated: 2026-04-08
 tags: [zipper, btree, architecture, library-design, rose-tree]
-related: [core/proj_node.mbt, order-tree/src/walker_types.mbt, docs/TODO.md]
+related: [core/proj_node.mbt, order-tree/src/walker_types.mbt, "https://github.com/dowdiness/canopy/issues/1005"]
 ---
 
 # Generic Tree Library Architecture

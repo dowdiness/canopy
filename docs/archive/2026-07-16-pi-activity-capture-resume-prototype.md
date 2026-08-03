@@ -6,7 +6,7 @@ by the current PKE direction and plan.
 
 **Note:** This plan's product framing (resumable technical memory as the
 near-term PKE wedge) is superseded by
-[Agent history as thinking environment](2026-07-18-agent-history-thinking-environment.md),
+[Agent history as thinking environment](../plans/2026-07-18-agent-history-thinking-environment.md),
 which reorients the PKE toward three-scale movement (Trace, Shape, Meaning)
 over agent histories. The technical baseline, decoder, WorkBench source
 inspection, and provenance evidence in this plan remain valid as historical
@@ -210,7 +210,7 @@ semantic briefing study, which failed because cardinality and content complexity
 defeated byte-only chunking; no Cloudflare or study runtime remains in this PR.
 The fixed viewer remains available as the comparison baseline; product framing
 is superseded by
-[Agent history as thinking environment](2026-07-18-agent-history-thinking-environment.md).
+[Agent history as thinking environment](../plans/2026-07-18-agent-history-thinking-environment.md).
 
 ### Phase 3 — Project-local extension (gated)
 

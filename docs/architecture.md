@@ -1,8 +1,9 @@
 # Canopy Architecture
 
-Single-page summary of how Canopy is structured. Each section names the
-packages and types involved so that code remains the source of truth; longer
-prose lives under [docs/architecture/](architecture/).
+Single-page summary of Canopy's stable architectural principles and seams.
+Implementation inventory belongs in the live manifests and generated package
+overview; longer design reasoning lives under
+[docs/architecture/](architecture/).
 
 > If a claim here disagrees with the code, the code wins. Update this file
 > rather than the code.
@@ -15,124 +16,67 @@ Text CRDT ─► Incremental parse ─► Projection ─► View patches ─► 
    └────────────── structural edits feed back ───────────────────────┘
 ```
 
-1. The document is stored in a FugueMax sequence CRDT
-   (submodule [`event-graph-walker`](../event-graph-walker/)).
-2. The incremental parser
-   (submodule [`loom`](../loom/)) reparses only affected regions.
-3. Each language's `lang/<lang>/proj/` builders map the parse tree to
-   `ProjNode` trees with stable identity (the shared primitives come from
-   [`core/`](../core/); [`projection/`](../projection/) layers interactive
-   tree-editor state on top).
-4. [`editor/`](../editor/) computes incremental `ViewPatch` sequences from the
-   `ProjNode` tree; [`protocol/`](../protocol/) defines the wire types and
-   converts `ProjNode → ViewNode` before serialization.
-5. Structural edits go back through the CRDT as text edits, closing the loop.
+1. Durable text state is the source of truth.
+2. Incremental parsing derives reusable syntax structure from text changes.
+3. Projection derives stable editor identity and language-specific structure.
+4. The editor derives view changes; protocol modules serialize the frontend
+   boundary.
+5. Structural actions become text edits before entering durable state, closing
+   the loop.
 
-## Package responsibility map (canopy module)
+## Responsibility seams
 
-| Package | Owns |
-|---------|------|
-| [`core/`](../core/) | Tree-projection primitives: `NodeId`, `ProjNode[T]`, `SourceMap`, `SpanEdit`, `GenericTreeOp` |
-| [`editor/`](../editor/) | `SyncEditor[T]`, view-patch computation, undo, ephemeral cursors, websocket plumbing |
-| [`protocol/`](../protocol/) | Wire-format types: `ViewPatch`, `ViewNode`, `UserIntent`, `Decoration`, `Diagnostic` |
-| [`projection/`](../projection/) | `TreeEditorState[T]`, `InteractiveTreeNode[T]`, interactive tree edits |
-| [`relay/`](../relay/) | Minimal byte-buffer relay used by `editor/` collaboration |
-| [`ffi/lambda`](../ffi/lambda/), [`ffi/json`](../ffi/json/), [`ffi/markdown`](../ffi/markdown/) | JS export surfaces (JS target only) |
-| [`lang/lambda/*`](../lang/lambda/) | Lambda calculus pipeline (`proj`, `edits`, `eval`, `flat`, `companion`) |
-| [`lang/json/*`](../lang/json/) | JSON projectional editor (`proj`, `edits`, `companion`) |
-| [`lang/markdown/*`](../lang/markdown/) | Markdown projectional editor (`proj`, `edits`, `companion`) |
-| [`llm/`](../llm/) | Optional fetch-based LLM client (JS only); consumed by `ffi/lambda` |
-| [`cmd/main/`](../cmd/main/) | Native CLI entry point |
-| [`echo/`](../echo/), [`echo/tokenizer/`](../echo/tokenizer/) | Tokenisation + similarity engine for the echo experiment |
+- The CRDT substrate owns replicated document semantics; Canopy composes it
+  rather than reimplementing it.
+- The parser substrate owns lossless, incrementally reusable syntax structure.
+- Canopy owns projection identity, language behavior, editor state, and the
+  protocol-facing view boundary.
+- Frontend adapters own rendering and input translation, not parsing or
+  replicated-state semantics.
+- Language packages own syntax-specific projection and edit calculation, not
+  transport or global editor state.
 
-### Workspace libraries (`moon.work` members)
+For concrete ownership and placement, use the
+[module/package map](development/module-package-map.md). For exhaustive current
+inventory, read [`moon.work`](../moon.work), [`.gitmodules`](../.gitmodules),
+and `.github/workflows/ci.yml`, or run
+[`scripts/package-overview.sh`](../scripts/package-overview.sh).
 
-| Package | Role |
-|---------|------|
-| [`lib/btree/`](../lib/btree/) | Counted B+ tree, O(log n) position lookup |
-| [`lib/zipper/`](../lib/zipper/) | Rose-tree zipper |
-| [`lib/semantic/`](../lib/semantic/) | `Confidence[T]` lattice for merging multi-source annotations |
+## Invariants
 
-[`lib/semantic/proof/`](../lib/semantic/proof/) is a proof-enabled module and
-must be proved separately with Why3 and z3.
+- **Text is ground truth.** Structural actions are translated into text edits
+  before they enter durable replicated state.
+- **Derived identity is stable across reparses.** Unchanged structure retains
+  identity so interface state does not flicker when nearby text changes.
+- **Syntax structure is position-independent.** Relative widths permit
+  unchanged subtrees to be reused after edits.
+- **The serialized view boundary is explicit.** Frontends consume protocol
+  output rather than parser internals or language-specific syntax nodes.
+- **Package interfaces protect construction invariants.** Cross-package
+  creation goes through intentionally exposed constructors.
 
-### Submodules
+## Extension principles
 
-Submodules are independent repositories pulled in via path dependencies. See
-[`development/monorepo.md`](development/monorepo.md) for the daily workflow.
+- A new language supplies parsing, projection, and edit behavior while reusing
+  the shared editor and protocol seams.
+- A new frontend consumes protocol output and translates user input without
+  taking ownership of parsing or replicated state.
+- A new representation extends language behavior without introducing a
+  parallel document model.
 
-| Path | Role |
-|------|------|
-| `event-graph-walker/` | CRDT engine (eg-walker, FugueMax) |
-| `loom/` | Incremental parser framework, CST library (`loom/seam`), reactive signals (`loom/incr`), pretty-printer (`loom/pretty`), example languages, egglog/egraph |
-| `rle/` | Run-length encoded sequence |
-| `order-tree/` | Counted tree |
-| `graphviz/`, `svg-dsl/` | Visualisation in the inspector |
-| `alga/` | Graph algebra |
-
-## Key types and invariants
-
-These are framework-level invariants. Specific field names belong in the code,
-not here.
-
-- **Text is ground truth.** The CRDT's text content is authoritative;
-  everything else is computed. Structural edits are first translated into text
-  edits before they enter the CRDT.
-- **Projection identity is stable across reparses.** `NodeId` survives
-  reparsing, so UI state (selection, scroll, drag) does not flicker when the
-  underlying tree changes. Reconciliation lives in `core/`.
-- **CST nodes are position-independent.** The parser stores relative widths,
-  not absolute positions; unchanged subtrees are reused on reparse.
-- **Protocol types are JSON-serialisable.** Anything that crosses the FFI is
-  declared in [`protocol/`](../protocol/); the TypeScript counterpart lives in
-  [`adapters/editor-adapter/types.ts`](../adapters/editor-adapter/types.ts).
-- **Cross-package struct construction needs `pub(all)` or a named constructor.**
-  Plain `pub struct` is read-only outside the defining package.
-
-## Extension points
-
-- **Adding a language** — implement a parser in a `loom/examples/<lang>/`
-  module and a projection layer in `lang/<lang>/proj/`, then a JS FFI in
-  `ffi/<lang>/`. The reference implementation is Markdown; see
-  [`development/ADDING_A_LANGUAGE.md`](development/ADDING_A_LANGUAGE.md).
-- **Adding an editor frontend** — implement an adapter in
-  [`adapters/editor-adapter/`](../adapters/editor-adapter/) against the
-  `ViewPatch`/`UserIntent` protocol. CM6, ProseMirror, and HTML adapters
-  already exist.
-- **Adding a representation** — the `Printable` family
-  ([`docs/architecture/multi-representation-system.md`](architecture/multi-representation-system.md))
-  describes how new text formats (`Show`, `Source`, `Pretty`) are added per
-  language.
-
-## Known limitations
-
-- **WebAssembly is not a supported build target.** Build and CI only cover
-  JavaScript and native. See `docs/TODO.md` §1.
-- **The JS FFI surface is unstable.** `ffi/{lambda,json,markdown}` together
-  export roughly a hundred functions; the wire-format contract lives in
-  [`protocol/`](../protocol/) and
-  [`adapters/editor-adapter/`](../adapters/editor-adapter/), not in the raw FFI
-  layer. Where possible, frontends should consume the editor through the
-  adapter.
-- **Peer-sync semantics and dependency convergence are complete; product
-  transport is not.** The archived
-  [contract spike](archive/2026-07-22-egw-peer-sync-contract-spike.md)
-  established shared text/container decisions, and the archived
-  [compatibility migration](archive/2026-07-22-egw-companion-canopy-migration.md)
-  aligned EGW, Loom, and Canopy while preserving Tier 1 interfaces.
-  Payload-opaque runtime extraction and provider-backed productization remain
-  deferred.
+See [Adding a Language](development/ADDING_A_LANGUAGE.md) for the current
+integration procedure and
+[Multi-Representation System](architecture/multi-representation-system.md) for
+the representation model.
 
 ## Non-goals
 
-Inferred from the absence of supporting code and from `docs/TODO.md`:
-
-- The framework is not a general-purpose IDE — there is no language-server
-  protocol, debugger, or workspace concept.
-- The CRDT engine is not optimised for documents with hundreds of thousands of
-  operations without lazy loading (see TODO §5).
-- The projection layer does not implement collaborative cursor *prediction* —
-  ephemeral cursors are broadcast as-is.
+- Canopy does not replace its parser, CRDT, or incremental-runtime substrates.
+- The core editor is not a general-purpose IDE platform.
+- Product transport, provider integration, and frontend rendering remain
+  outside the core document and projection semantics.
+- Collaborative presence is ephemeral interface state, not predicted durable
+  document content.
 
 ## Where to read next
 

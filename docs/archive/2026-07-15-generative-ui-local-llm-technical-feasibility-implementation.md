@@ -731,7 +731,7 @@ all nine slots as `not_run_preflight_failure`, and prohibited a v1 rerun.
 
 - Create: `docs/evidence/2026-07-15-generative-ui-local-llm-feasibility-v2.json`
 - Modify: `docs/plans/2026-07-15-generative-ui-local-llm-technical-feasibility.md`
-- Modify: `docs/plans/2026-07-15-generative-ui-local-llm-technical-feasibility-implementation.md`
+- Modify: `docs/archive/2026-07-15-generative-ui-local-llm-technical-feasibility-implementation.md`
 
 **Interfaces:**
 
@@ -805,7 +805,7 @@ all nine slots as `not_run_preflight_failure`, and prohibited a v1 rerun.
   ```bash
   git add docs/evidence/2026-07-15-generative-ui-local-llm-feasibility-v2.json \
     docs/plans/2026-07-15-generative-ui-local-llm-technical-feasibility.md \
-    docs/plans/2026-07-15-generative-ui-local-llm-technical-feasibility-implementation.md
+    docs/archive/2026-07-15-generative-ui-local-llm-technical-feasibility-implementation.md
   git commit -m "docs(genui): record corrected local feasibility result"
   ```
 

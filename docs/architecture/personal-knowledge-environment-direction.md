@@ -168,7 +168,7 @@ this direction. The current execution plan is
 [Agent history as thinking environment](../plans/2026-07-18-agent-history-thinking-environment.md).
 The earlier Resume prototype retains its technical and source-inspection
 evidence:
-[Pi session activity → Resume view prototype](../plans/2026-07-16-pi-activity-capture-resume-prototype.md).
+[Pi session activity → Resume view prototype](../archive/2026-07-16-pi-activity-capture-resume-prototype.md).
 The direct long-context semantic briefing study failed because cardinality
 and content complexity defeated byte-only chunking; no Cloudflare or study
 runtime remains in this PR.

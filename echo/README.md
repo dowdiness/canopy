@@ -25,7 +25,7 @@ No production package imports `echo`. The included `*_test.mbt` files exercise i
 
 ## Stability
 
-Experimental. Tracked under "Echo Similarity Library" in project memory ([`project_echo_improvement_paths`](../../docs/TODO.md)) as a research direction. The API may change as we evaluate BM25, BPE, MeCab, etc.
+Experimental. Closed issue #593 records the related-posts product investigation; no production consumer is currently committed. The API may change as we evaluate BM25, BPE, MeCab, etc.
 
 ## Notes
 

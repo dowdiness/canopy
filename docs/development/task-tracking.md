@@ -16,24 +16,25 @@ Local and CI validation should preserve the `CLAUDE.md -> AGENTS.md` symlink.
 
 ## Canonical Tracking Surfaces
 
-### `docs/TODO.md`
+### GitHub Issues
 
-Use `docs/TODO.md` as the active backlog index only.
+Use [GitHub Issues](https://github.com/dowdiness/canopy/issues) as the canonical
+active backlog. Every active task must have one issue that owns:
 
-Each active item should be brief:
+- the problem and why it matters,
+- prioritization and current status,
+- an observable exit condition,
+- links to its implementation plan and pull request when they exist.
 
-- one problem statement,
-- one reason it matters,
-- one link to the canonical plan or GitHub issue,
-- one concrete exit condition if no plan exists yet.
-
-Do not turn `docs/TODO.md` into the full implementation spec.
+Search open and closed issues before creating one. A recorded intention in an
+archived document is not an active task until current evidence justifies an
+issue. Use issue state, assignees, linked pull requests, and repository labels
+instead of maintaining status in a Markdown backlog.
 
 ### `docs/plans/*.md`
 
-Use one plan file per non-trivial task.
-
-A plan is the canonical implementation spec for coding agents. It should define:
+Use one plan file per non-trivial task. The issue owns backlog status; the plan
+is the canonical implementation spec for coding agents and should define:
 
 - exact scope,
 - out-of-scope boundaries,
@@ -43,22 +44,16 @@ A plan is the canonical implementation spec for coding agents. It should define:
 - acceptance criteria,
 - validation commands.
 
-If a task is complete or no longer active, move the plan to `docs/archive/`.
+Link the issue and plan in both directions. If a task is complete or no longer
+active, move its plan to `docs/archive/`; keep the issue as the durable status
+and discussion record.
 
-### GitHub Issues
+### Archived backlog snapshots
 
-Use GitHub issues for durable backlog tracking, prioritization, and cross-session
-visibility.
-
-Open an issue when the work is:
-
-- a bug,
-- medium or large in scope,
-- likely to span sessions,
-- something you want visible outside the repo docs.
-
-Keep implementation detail in the plan doc. Keep prioritization and status in
-the issue.
+Files such as `docs/archive/TODO-snapshot-2026-08-03.md` preserve historical
+intent only. They must not carry active status or be treated as an execution
+queue. Issue [#1124](https://github.com/dowdiness/canopy/issues/1124) owns the
+one-time triage of that snapshot.
 
 ### `docs/development/technical-debt.md`
 
@@ -67,7 +62,7 @@ Use `technical-debt.md` for policy, not for per-task execution details.
 It should answer:
 
 - where debt should be fixed,
-- how to decide the owning boundary,
+- how to decide the owning seam,
 - what kinds of compatibility layers should be retired.
 
 It should not become the active backlog.
@@ -89,51 +84,35 @@ Agents perform much better when "done" is observable and local.
 
 ### Small task
 
-Use a single `docs/TODO.md` item if the work is small enough to finish in one
-session and does not need design discussion.
-
-Example:
-
-```md
-- [ ] Update `docs/development/API_REFERENCE.md` constructor signature
-  Why: docs drift from live `SyncEditor::new` API.
-  Exit: constructor docs match the current exported API.
-```
+Open or identify the GitHub issue. For a task that fits one session and needs no
+design discussion, the issue itself is sufficient when it states the problem,
+scope, and observable exit condition.
 
 ### Medium or large task
 
-1. Open or identify the GitHub issue if needed.
+1. Open or identify the GitHub issue.
 2. Create `docs/plans/<date>-<slug>.md` from [TEMPLATE.md](../plans/TEMPLATE.md).
-3. Add a short TODO item linking to that plan.
-4. Execute against the plan.
-5. Archive the plan when done.
+3. Link the issue and plan in both directions.
+4. Execute against the plan and attach validation evidence to the pull request.
+5. Move the completed plan to `docs/archive/`. Close the issue through the pull
+   request only when the issue is wholly completed: the PR body then carries a
+   literal `Closes #N`. A shared queue issue that covers more than the task
+   just completed is not closed — update its checklist or status instead and
+   link the PR, so the tracker reflects the reciprocal change without a false
+   closure.
 
-Example:
+## Writing Good Issues
 
-```md
-- [ ] Retire `projection/` backward-compat facade
-  Why: ownership is split across facade re-exports and canonical framework/lang packages.
-  Plan: `docs/plans/2026-03-29-projection-facade-retirement.md`
-  Exit: active callers import canonical packages directly; compatibility aliases removed or explicitly deferred.
-```
+An executable issue should contain:
 
-## Writing Good TODO Items
+- a concrete problem rather than a proposed mechanism,
+- current source or documentation evidence,
+- explicit in-scope and out-of-scope boundaries,
+- an observable exit condition,
+- the canonical plan link when implementation needs a separate plan.
 
-Prefer this format:
-
-```md
-- [ ] <task title>
-  Why: <why it matters>
-  Plan: <path or GitHub issue>
-  Exit: <observable done state>
-```
-
-Avoid:
-
-- vague items like "improve parser",
-- umbrella items with many unrelated subproblems,
-- implementation diaries in `docs/TODO.md`,
-- multiple active docs describing the same task differently.
+Avoid vague requests, unrelated umbrella lists, implementation diaries, and
+duplicate issues for work already tracked elsewhere.
 
 ## Writing Good Plan Docs
 
@@ -149,32 +128,28 @@ Additional guidance:
 
 ## Status Conventions
 
-Use consistent status language across docs and issues:
+GitHub owns active status:
 
-- `backlog` — recognized, not ready
-- `ready` — scoped, can be executed
-- `in_progress` — active work
-- `blocked` — waiting on an external dependency or decision
-- `done` — complete and validated
+- open issue — recognized work,
+- `ready-for-agent` label — scoped and executable without unresolved product
+  decisions,
+- assignee or linked work-in-progress pull request — execution in progress,
+- blocked label or issue comment — waiting on a named external condition,
+- closed issue — completed, rejected, duplicated, or superseded with the reason
+  recorded.
 
-`docs/TODO.md` can continue using checkboxes, but keep the wording above in
-issues and plan docs when status needs to be explicit.
+Plan documents may describe execution progress, but must link to the issue
+rather than create a second backlog status.
 
 ## Source Of Truth Rule
 
-For any active task, there must be exactly one canonical implementation spec.
+For any active task:
 
-Allowed patterns:
+- the GitHub issue owns backlog membership, priority, and status,
+- one plan may own the non-trivial implementation spec,
+- the pull request owns the reviewed diff and validation evidence,
+- archived documents preserve history only.
 
-- TODO item only, for a trivial task
-- TODO item + plan doc
-- GitHub issue + plan doc
-
-Avoid parallel active specs across:
-
-- `docs/TODO.md`,
-- an issue body,
-- a plan doc,
-- a PR description.
-
-If multiple exist, the plan doc wins and the others should link to it.
+Do not maintain parallel active status tables in repository Markdown. When an
+issue, plan, and pull request coexist, link them instead of copying their
+contents.

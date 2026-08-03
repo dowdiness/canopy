@@ -118,10 +118,10 @@ fn list_payload_blocker(blocked : String) -> String {
   // boundary, so cross-container / list-container moves stay rejected. This is a
   // proof-backed standing decision (#724), not a temporary gate; see
   // docs/design/sdeg-invariant-review.md "Decision: Markdown move-provenance
-  // scope" and the drag-drop-foundation follow-up in docs/TODO.md.
+  // scope". Any wider move contract requires a dedicated GitHub issue.
   "markdown block move rejects " +
   blocked +
-  ": cannot preserve identity across a container boundary; see docs/design/sdeg-invariant-review.md (Decision: Markdown move-provenance scope) and docs/TODO.md"
+  ": cannot preserve identity across a container boundary; see docs/design/sdeg-invariant-review.md (Decision: Markdown move-provenance scope)"
 }
 
 ///|

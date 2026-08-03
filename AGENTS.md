@@ -109,7 +109,8 @@ Browse `docs/` for architecture, decisions, development guides, and performance 
 
 - Architecture docs = principles only, never reference specific types/fields/lines
 - Code is the source of truth — if a doc and the code disagree, the doc is wrong
-- `docs/TODO.md` = active backlog index; `docs/plans/*.md` = execution specs
+- GitHub Issues = canonical active backlog and status; `docs/plans/*.md` =
+  implementation specs linked from issues
 - `docs/archive/` = completed work. Do not search here unless asked for historical context.
 
 ## Development Workflow
