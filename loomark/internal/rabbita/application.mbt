@@ -423,14 +423,7 @@ fn editor_surface(
           ),
         ),
       ])
-    @core.Preview =>
-      {
-        "preview": @html.pre(
-          id="loomark-preview",
-          attrs=@html.Attrs::build().data_set("loomark-source", source),
-          source,
-        ),
-      }
+    @core.Preview => { "preview": preview_surface(model.document) }
     @core.Block =>
       Map([
         (
@@ -500,37 +493,43 @@ fn preview_view(
   model : DriverModel,
   emit : @cmd.Emit[DriverEvent],
 ) -> @rabbita_runtime.Html {
-  let raw_button = @html.button(
+  let raw_selected = model.state.mode() == @core.Raw
+  let block_selected = model.state.mode() == @core.Block
+  let preview_selected = model.state.mode() == @core.Preview
+  let raw_button = @rui.button(
     id="loomark-mode-raw",
-    type_="button",
+    variant=if raw_selected { @rui.Secondary } else { @rui.Ghost },
+    attrs=@html.Attrs::build().aria_pressed(raw_selected.to_string()),
     on_click=emit(SelectRaw),
     "Raw",
   )
-  let preview_button = @html.button(
+  let preview_button = @rui.button(
     id="loomark-mode-preview",
-    type_="button",
+    variant=if preview_selected { @rui.Secondary } else { @rui.Ghost },
+    attrs=@html.Attrs::build().aria_pressed(preview_selected.to_string()),
     on_click=emit(SelectPreview),
     "Preview",
   )
-  let block_button = @html.button(
+  let block_button = @rui.button(
     id="loomark-mode-block",
-    type_="button",
+    variant=if block_selected { @rui.Secondary } else { @rui.Ghost },
+    attrs=@html.Attrs::build().aria_pressed(block_selected.to_string()),
     on_click=emit(SelectBlock),
     "Block",
   )
-  let focus_button = @html.button(
+  let focus_button = @rui.button(
     id="loomark-focus-target",
-    type_="button",
+    variant=@rui.Outline,
     on_click=emit(FocusPreview),
     "Focus preview",
   )
-  let mode = @html.p(
+  let mode = @rui.typography_muted(
     id="loomark-mode",
     "mode: " + mode_name(model.state.mode()),
   )
-  let event_button = @html.button(
+  let event_button = @rui.button(
     id="loomark-event-target",
-    type_="button",
+    variant=@rui.Outline,
     "Dispatch event",
   )
   let driver_button = @html.button(
@@ -543,16 +542,30 @@ fn preview_view(
     Some(error) => "error: " + error
     None => "ready"
   }
-  @html.div(id="loomark-root", [
-    @html.h1("Loomark"),
-    @html.nav(id="loomark-toolbar", [raw_button, block_button, preview_button]),
-    mode,
-    @html.div(id="loomark-surface", editor_surface(model, emit)),
-    event_button,
-    driver_button,
-    focus_button,
-    @html.p(id="loomark-error", error_text),
-  ])
+  @rui.theme(
+    id="loomark-root",
+    style=[
+      "min-height:100vh;max-width:64rem;margin-inline:auto;padding:clamp(1rem,4vw,3rem)",
+    ],
+    [
+      @rui.typography_h1(style=["text-align:start"], "Loomark"),
+      @html.nav(
+        id="loomark-toolbar",
+        style=["display:flex;gap:0.25rem;margin-block:1.5rem"],
+        [raw_button, block_button, preview_button],
+      ),
+      mode,
+      @html.div(
+        id="loomark-surface",
+        style=["margin-block:1.5rem"],
+        editor_surface(model, emit),
+      ),
+      event_button,
+      driver_button,
+      focus_button,
+      @rui.typography_muted(id="loomark-error", error_text),
+    ],
+  )
 }
 
 ///|

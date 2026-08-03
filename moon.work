@@ -2,6 +2,7 @@ members = [
   ".",
   "./loomark",
   "./rabbita/rabbita",
+  "./rabbita/rui",
   "./graphviz",
   "./svg-dsl",
   "./alga",

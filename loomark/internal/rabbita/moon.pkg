@@ -7,6 +7,7 @@ import {
   "moonbit-community/rabbita/common",
   "moonbit-community/rabbita/html",
   "moonbit-community/rabbita/sub",
+  "Yoorkin/rui",
   "moonbitlang/core/debug",
   "moonbitlang/core/json",
   "moonbitlang/core/ref",

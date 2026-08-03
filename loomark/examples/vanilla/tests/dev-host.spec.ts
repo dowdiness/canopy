@@ -10,6 +10,7 @@ import { expect, test, type Browser, type BrowserContext, type Page } from "@pla
  * | projection | full/incremental/fresh | payload, SourceMap ranges, and identity stay attached |
  * | unsupported containers | quote/thematic/list | reject atomically; neighbors/ranges/focus unchanged |
  * | tight list / fenced code | unordered, ordered `)`, tilde fence, mixed CRLF | typed payload controls preserve markers, delimiters, and line endings |
+ * | semantic Preview | heading, paragraph, fenced code, list fallback | RUI-aligned read-only semantic DOM without invented list containers |
  * | Raw <-> Block <-> Preview | new/same source | one canonical source, no marker leakage |
  * | ownership | fresh page/container | termination only; no cleanup claim |
  */
@@ -68,6 +69,10 @@ async function rawInput(page: Page, source: string): Promise<void> {
 async function selectPreview(page: Page): Promise<void> {
   await page.evaluate(moduleUrl =>
     import(moduleUrl).then(module => module.dev_host_select_preview()), moduleUrl)
+}
+
+async function expectPreviewSource(page: Page, source: string): Promise<void> {
+  await expect(page.locator("#loomark-preview")).toHaveAttribute("data-loomark-source", source)
 }
 
 async function selectBlock(page: Page): Promise<void> {
@@ -189,7 +194,38 @@ test("Raw input preserves canonical source and Preview follows a committed edit"
     await expect(host.page.locator("#loomark-input")).toHaveValue("after\n")
     await selectPreview(host.page)
     await expect(host.page.locator("#loomark-input")).toHaveCount(0)
-    await expect(host.page.locator("#loomark-preview")).toHaveText("after\r\n")
+    await expectPreviewSource(host.page, "after\r\n")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Preview renders supported blocks as RUI-aligned semantic HTML", async ({ browser }) => {
+  const source = "# Semantic title\n\nReadable body.\n\n~~~moonbit\nlet answer = 42\n~~~\n\n- one\n- two\n"
+  const host = await mountHost(browser, source)
+  try {
+    await expect(host.page.locator("#loomark-root")).toHaveAttribute("data-rui-theme", "")
+    await expect(host.page.locator('#loomark-toolbar button[data-slot="button"]')).toHaveCount(3)
+    await expect(host.page.locator("#loomark-mode-raw")).toHaveAttribute("aria-pressed", "true")
+    await selectPreview(host.page)
+    await expect(host.page.locator("#loomark-mode-raw")).toHaveAttribute("aria-pressed", "false")
+    await expect(host.page.locator("#loomark-mode-preview")).toHaveAttribute("aria-pressed", "true")
+    const preview = host.page.locator("#loomark-preview")
+    await expect(preview).toHaveAttribute("data-loomark-source", source)
+    await expect(preview.locator("[data-loomark-preview-notice]")).toContainText(
+      "supported top-level blocks",
+    )
+    await expect(preview.locator('h1[data-slot="typography-h1"]')).toHaveText("Semantic title")
+    await expect(preview.locator('p[data-slot="typography-p"]')).toHaveText("Readable body.")
+    await expect(preview.locator('pre code[data-loomark-code-info="moonbit"]')).toHaveText(
+      "let answer = 42",
+    )
+    await expect(preview.locator("ul, ol")).toHaveCount(0)
+    const rawListItems = preview.locator('[data-loomark-preview-raw-list-item="unordered"]')
+    await expect(rawListItems).toHaveCount(2)
+    await expect(rawListItems.nth(0)).toContainText("- one")
+    await expect(rawListItems.nth(1)).toContainText("- two")
+    await expect(preview.locator("textarea, input, button")).toHaveCount(0)
   } finally {
     await host.context.close()
   }
@@ -207,7 +243,7 @@ test("Block mode edits a heading payload without leaking its marker", async ({ b
     await host.page.locator("#loomark-block-input").fill("Retitled")
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("# Retitled\n")
     await selectPreview(host.page)
-    await expect(host.page.locator("#loomark-preview")).toHaveText("# Retitled\n")
+    await expectPreviewSource(host.page, "# Retitled\n")
   } finally {
     await host.context.close()
   }
@@ -225,7 +261,7 @@ test("Block mode edits a paragraph payload while preserving CRLF source", async 
     await host.page.locator("#loomark-block-input").fill("Changed")
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("Changed\r\n")
     await selectPreview(host.page)
-    await expect(host.page.locator("#loomark-preview")).toHaveText("Changed\r\n")
+    await expectPreviewSource(host.page, "Changed\r\n")
   } finally {
     await host.context.close()
   }
@@ -258,7 +294,7 @@ test("Block mode edits ordered/unordered lists and fenced code in one mixed docu
     await selectRaw(host.page)
     await expect(host.page.locator("#loomark-input")).toHaveValue(committed.replaceAll("\r\n", "\n"))
     await selectPreview(host.page)
-    await expect(host.page.locator("#loomark-preview")).toHaveText(committed)
+    await expectPreviewSource(host.page, committed)
     await selectBlock(host.page)
     await expect(host.page.locator("#loomark-block")).toHaveAttribute("data-loomark-source", committed)
   } finally {
@@ -293,7 +329,7 @@ test("Block mode edits a Setext heading payload without replacing its underline"
     await host.page.locator("#loomark-block-input").fill("Renamed")
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("Renamed\n---\n")
     await selectPreview(host.page)
-    await expect(host.page.locator("#loomark-preview")).toHaveText("Renamed\n---\n")
+    await expectPreviewSource(host.page, "Renamed\n---\n")
   } finally {
     await host.context.close()
   }
@@ -311,7 +347,7 @@ test("Block mode preserves CR Setext equals markers and multiline payloads", asy
     await host.page.locator("#loomark-block-input").fill("Renamed")
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("Renamed\r=\r")
     await selectPreview(host.page)
-    await expect(host.page.locator("#loomark-preview")).toHaveText("Renamed\r=\r")
+    await expectPreviewSource(host.page, "Renamed\r=\r")
   } finally {
     await host.context.close()
   }
@@ -397,7 +433,7 @@ test("Block mode preserves an ATX marker at EOF", async ({ browser }) => {
     await host.page.locator("#loomark-block-input").fill("Retitled")
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("# Retitled")
     await selectPreview(host.page)
-    await expect(host.page.locator("#loomark-preview")).toHaveText("# Retitled")
+    await expectPreviewSource(host.page, "# Retitled")
   } finally {
     await host.context.close()
   }
@@ -588,7 +624,7 @@ test("Raw textarea input uses the atomic editor transaction and mode toolbar", a
     await selectPreview(host.page)
     await expect(host.page.locator("#loomark-input")).toHaveCount(0)
     await expect(host.page.locator("#loomark-mode")).toHaveText("mode: preview")
-    await expect(host.page.locator("#loomark-preview")).toHaveText("edited\nsource")
+    await expectPreviewSource(host.page, "edited\nsource")
     await rawInput(host.page, "must-not-commit\n")
     await expect.poll(async () => (await snapshot(host.page)).error_code).toBe("mode-inapplicable")
     expect(await snapshot(host.page)).toMatchObject({
@@ -647,7 +683,7 @@ test("Raw textarea editor failure can be retried and reflected in Preview", asyn
     await host.page.locator("#loomark-input").fill("retried edit\n")
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("retried edit\n")
     await selectPreview(host.page)
-    await expect(host.page.locator("#loomark-preview")).toHaveText("retried edit\n")
+    await expectPreviewSource(host.page, "retried edit\n")
   } finally {
     await host.context.close()
   }
@@ -692,7 +728,7 @@ test("valid snapshot restore commits source and mode atomically while unknown ve
     await expect.poll(async () => (await snapshot(host.page)).mode).toBe("preview")
     await expect.poll(async () => (await snapshot(host.page)).committed_change_count).toBe(1)
     await expect(host.page.locator("#loomark-input")).toHaveCount(0)
-    await expect(host.page.locator("#loomark-preview")).toHaveText("new\r\n")
+    await expectPreviewSource(host.page, "new\r\n")
     const committed = await snapshot(host.page)
 
     await restoreSnapshot(host.page, 99, "must-not-commit\n", "raw")
@@ -788,7 +824,8 @@ test("mounts one fresh connected container and exposes a detached snapshot", asy
     expect(host.mountResult).toBe('{"ok":true}')
     expect(await snapshot(host.page)).toMatchObject({ source: "# Loomark\n", mode: "raw" })
     await selectPreview(host.page)
-    await expect(host.page.locator("#app")).toContainText("# Loomark")
+    await expectPreviewSource(host.page, "# Loomark\n")
+    await expect(host.page.locator('#loomark-preview h1[data-slot="typography-h1"]')).toHaveText("Loomark")
     await expect.poll(() => host.page.evaluate(() => document.getElementById("app")?.isConnected)).toBe(true)
   } finally {
     await host.context.close()
@@ -820,7 +857,7 @@ test("rejects a second mount without clearing or reusing the first host", async 
     expect(secondMount).toBe('{"ok":false,"error":"host-already-mounted"}')
     await expect(host.page.locator("#loomark-root")).toHaveCount(1)
     await selectPreview(host.page)
-    await expect(host.page.locator("#loomark-preview")).toHaveText("first\n")
+    await expectPreviewSource(host.page, "first\n")
   } finally {
     await host.context.close()
   }
@@ -832,7 +869,7 @@ test("keeps source and mode state separate from after-render focus and DOM effec
     await requestSource(host.page, "# Updated\n")
     await selectPreview(host.page)
     await expect(host.page.locator("#loomark-mode")).toHaveText("mode: preview")
-    await expect(host.page.locator("#loomark-preview")).toHaveText("# Updated\n")
+    await expectPreviewSource(host.page, "# Updated\n")
 
     await focusPreview(host.page)
     await expect.poll(() => host.page.evaluate(() => document.activeElement?.id)).toBe("loomark-focus-target")
@@ -871,7 +908,7 @@ test("installs one custom listener, refreshes its tagger, and cleans up repeated
 
     await requestSource(host.page, "events-updated\n")
     await selectPreview(host.page)
-    await expect(host.page.locator("#loomark-preview")).toHaveText("events-updated\n")
+    await expectPreviewSource(host.page, "events-updated\n")
     await dispatchDriverEvent(host.page, "new")
     await expect.poll(async () => (await snapshot(host.page)).event_count).toBe(2)
     expect(await snapshot(host.page)).toMatchObject({
