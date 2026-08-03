@@ -16,6 +16,37 @@ fn active_block(model : DriverModel) -> @markdown.MarkdownBlockSnapshot? {
 }
 
 ///|
+/// Resolve a keyboard event's stable typed target before falling back to the
+/// toolbar selection, whose focus event may still be queued.
+fn block_format_target(
+  model : DriverModel,
+  selection : BlockSelection?,
+) -> @markdown.MarkdownBlockSnapshot? {
+  match selection {
+    None => active_block(model)
+    Some(selection) => {
+      let exact = model.document
+        .blocks()
+        .fold(init=None, (selected, block) => {
+          match selected {
+            Some(_) => selected
+            None =>
+              if block.key() == selection.key {
+                Some(block)
+              } else {
+                None
+              }
+          }
+        })
+      match exact {
+        Some(_) => exact
+        None => active_block(model)
+      }
+    }
+  }
+}
+
+///|
 fn heading_toolbar_button(
   level : Int,
   selected_level : Int?,
@@ -34,7 +65,7 @@ fn heading_toolbar_button(
       .aria_label(label)
       .aria_keyshortcuts(shortcut)
       .aria_pressed((selected_level == Some(level)).to_string()),
-    on_click=emit(BlockHeading(level)),
+    on_click=emit(BlockHeading(level, None)),
     "H" + level.to_string(),
   )
 }
@@ -56,7 +87,7 @@ fn list_toolbar_button(
       .aria_label(label)
       .aria_keyshortcuts("Control+Shift+L")
       .aria_pressed(selected.to_string()),
-    on_click=emit(BlockToggleList),
+    on_click=emit(BlockToggleList(None)),
     mode_icon("M6 6h11M6 10h11M6 14h11M3 6h.01M3 10h.01M3 14h.01"),
   )
 }
@@ -68,7 +99,7 @@ fn delete_toolbar_button(
 ) -> @html.Html {
   @rui.button(
     id="loomark-delete-block",
-    variant=@rui.Destructive,
+    variant=@rui.Ghost,
     size=@rui.IconSm,
     disabled~,
     title="Delete block",

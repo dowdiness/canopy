@@ -6,8 +6,8 @@ priv enum DriverEvent {
   SelectBlock
   SelectPreview
   BlockFocused(String)
-  BlockHeading(Int)
-  BlockToggleList
+  BlockHeading(Int, BlockSelection?)
+  BlockToggleList(BlockSelection?)
   BlockDelete
   RawInput(String)
   BlockInput(
@@ -16,8 +16,9 @@ priv enum DriverEvent {
     selection_offset~ : Int
   )
   BlockSplit(node_id~ : @markdown.MarkdownNodeId, offset~ : Int)
-  BlockMerge(node_id~ : @markdown.MarkdownNodeId)
-  BlockSelectionRejected(String)
+  BlockMerge(node_id~ : @markdown.MarkdownNodeId, selection~ : BlockSelection)
+  BlockNavigate(key~ : String, direction~ : Int)
+  BlockSelectionRejected(String, BlockSelection?)
   ProbeBlockSelection(String)
   EditorFailure
   RestoreSnapshot(
@@ -430,7 +431,12 @@ fn commit_block_toolbar_request(
     Some(selection) =>
       (
         next,
-        block_selection_after_render(selection, next.source_revision, emit),
+        block_selection_after_render(
+          selection,
+          next.source_revision,
+          skip_stale_revision=true,
+          emit,
+        ),
       )
     None =>
       if applied {
@@ -534,33 +540,6 @@ fn editor_surface(
         ),
       ])
   }
-}
-
-///|
-fn block_split_command(
-  block : @markdown.MarkdownBlockSnapshot,
-  input_id : String,
-  emit : @cmd.Emit[DriverEvent],
-) -> @cmd.Cmd {
-  @cmd.custom_cmd(scheduler => {
-    let selection = @dom_boundary.read_text_selection_id(input_id) catch {
-      error => {
-        scheduler.add(emit(EffectFailed(error.message())))
-        return
-      }
-    }
-    if selection.start() != selection.end() {
-      scheduler.add(
-        emit(
-          BlockSelectionRejected("block split requires a collapsed selection"),
-        ),
-      )
-    } else {
-      scheduler.add(
-        emit(BlockSplit(node_id=block.node_id(), offset=selection.start())),
-      )
-    }
-  })
 }
 
 ///|
@@ -800,7 +779,9 @@ fn block_selection_after_render(
         Some(model) =>
           if model.state.mode() != @core.Block {
             scheduler.add(
-              emit(BlockSelectionRejected("block selection mode is stale")),
+              emit(
+                BlockSelectionRejected("block selection mode is stale", None),
+              ),
             )
           } else if model.source_revision != source_revision {
             // Rapid input can queue several post-render selections in one
@@ -809,7 +790,7 @@ fn block_selection_after_render(
             // second render after the newest selection restored the caret.
             if report_superseded {
               scheduler.add(
-                emit(BlockSelectionRejected("block selection is stale")),
+                emit(BlockSelectionRejected("block selection is stale", None)),
               )
             }
           } else {
@@ -820,8 +801,8 @@ fn block_selection_after_render(
                 @dom_boundary.write_text_selection_id(
                   id,
                   @dom_boundary.TextSelection(
-                    selection.offset,
-                    selection.offset,
+                    selection.start,
+                    selection.end,
                     @dom_boundary.NoDirection,
                   ),
                 )
@@ -831,6 +812,7 @@ fn block_selection_after_render(
                   emit(
                     BlockSelectionRejected(
                       "block selection target is unavailable",
+                      None,
                     ),
                   ),
                 )
@@ -838,7 +820,9 @@ fn block_selection_after_render(
           }
         None =>
           scheduler.add(
-            emit(BlockSelectionRejected("block selection model unavailable")),
+            emit(
+              BlockSelectionRejected("block selection model unavailable", None),
+            ),
           )
       }
     },
@@ -887,14 +871,15 @@ fn driver_event_name(event : DriverEvent) -> String {
     SelectBlock => "select-block"
     SelectPreview => "select-preview"
     BlockFocused(_) => "block-focused"
-    BlockHeading(_) => "block-heading"
-    BlockToggleList => "block-toggle-list"
+    BlockHeading(_, _) => "block-heading"
+    BlockToggleList(_) => "block-toggle-list"
     BlockDelete => "block-delete"
     RawInput(_) => "raw-input"
     BlockInput(..) => "block-input"
     BlockSplit(..) => "block-split"
     BlockMerge(..) => "block-merge"
-    BlockSelectionRejected(_) => "block-selection-rejected"
+    BlockNavigate(..) => "block-navigate"
+    BlockSelectionRejected(_, _) => "block-selection-rejected"
     ProbeBlockSelection(_) => "probe-block-selection"
     EditorFailure => "editor-failure"
     RestoreSnapshot(..) => "restore-snapshot"
@@ -1044,9 +1029,10 @@ fn update_model(
       event is BlockInput(..) ||
       event is BlockSplit(..) ||
       event is BlockMerge(..) ||
+      event is BlockNavigate(..) ||
       event is BlockFocused(_) ||
-      event is BlockHeading(_) ||
-      event is BlockToggleList ||
+      event is BlockHeading(_, _) ||
+      event is BlockToggleList(_) ||
       event is BlockDelete
     ) {
     let next = record_error(
@@ -1124,8 +1110,8 @@ fn update_model(
           }
         }
       }
-    BlockHeading(requested_level) =>
-      match active_block(model) {
+    BlockHeading(requested_level, originating_selection) =>
+      match block_format_target(model, originating_selection) {
         None => {
           let next = record_error(
             model, "block-selection-rejected", "editor-dispatch", "formatting requires an active block",
@@ -1134,6 +1120,32 @@ fn update_model(
           (next, @rabbita_runtime.none)
         }
         Some(block) => {
+          guard block_allows_heading(block.kind()) else {
+            publish(model)
+            let command = originating_selection
+              .map(selection => {
+                block_selection_after_render(
+                  selection,
+                  model.source_revision,
+                  emit,
+                )
+              })
+              .unwrap_or(@rabbita_runtime.none)
+            return (model, command)
+          }
+          if requested_level == 0 && block.kind() is @markdown.Paragraph {
+            publish(model)
+            let command = originating_selection
+              .map(selection => {
+                block_selection_after_render(
+                  selection,
+                  model.source_revision,
+                  emit,
+                )
+              })
+              .unwrap_or(@rabbita_runtime.none)
+            return (model, command)
+          }
           let target_level = match block.kind() {
             @markdown.Heading(level~) if level == requested_level => 0
             _ => requested_level
@@ -1150,8 +1162,8 @@ fn update_model(
           )
         }
       }
-    BlockToggleList =>
-      match active_block(model) {
+    BlockToggleList(originating_selection) =>
+      match block_format_target(model, originating_selection) {
         None => {
           let next = record_error(
             model, "block-selection-rejected", "editor-dispatch", "formatting requires an active block",
@@ -1159,7 +1171,20 @@ fn update_model(
           publish(next)
           (next, @rabbita_runtime.none)
         }
-        Some(block) =>
+        Some(block) => {
+          guard block_allows_list(block.kind()) else {
+            publish(model)
+            let command = originating_selection
+              .map(selection => {
+                block_selection_after_render(
+                  selection,
+                  model.source_revision,
+                  emit,
+                )
+              })
+              .unwrap_or(@rabbita_runtime.none)
+            return (model, command)
+          }
           commit_block_toolbar_request(
             editor,
             model,
@@ -1169,6 +1194,7 @@ fn update_model(
             "loomark-toggle-list",
             emit,
           )
+        }
       }
     BlockDelete =>
       match active_block(model) {
@@ -1270,30 +1296,30 @@ fn update_model(
         None => (next, @rabbita_runtime.none)
       }
     }
-    BlockMerge(node_id~) => {
+    BlockMerge(node_id~, selection=originating_selection) => {
       let (next, committed_selection) = commit_block_request(
         editor,
         model,
         @markdown.MarkdownEditRequest::MergeWithPrevious(node_id~),
         "editor-dispatch",
       )
-      let selection = match committed_selection {
+      let resolved_selection = match committed_selection {
         Some(selection) => block_selection_from_commit(next.document, selection)
         None => None
       }
       let next = {
         ..next,
-        active_block_key: match selection {
+        active_block_key: match resolved_selection {
           Some(selection) => Some(selection.key)
           None => model.active_block_key
         },
-        selection: match selection {
+        selection: match resolved_selection {
           Some(selection) => Some(block_selection_label(selection))
           None => None
         },
       }
       publish(next)
-      match selection {
+      match resolved_selection {
         Some(selection) =>
           (
             next,
@@ -1304,9 +1330,36 @@ fn update_model(
               emit,
             ),
           )
-        None => (next, @rabbita_runtime.none)
+        None =>
+          (
+            next,
+            block_selection_after_render(
+              originating_selection,
+              next.source_revision,
+              emit,
+            ),
+          )
       }
     }
+    BlockNavigate(key~, direction~) =>
+      match block_navigation_selection(model.document, key, direction) {
+        None => {
+          publish(model)
+          (model, @rabbita_runtime.none)
+        }
+        Some(selection) => {
+          let next = {
+            ..model,
+            active_block_key: Some(selection.key),
+            selection: Some(block_selection_label(selection)),
+          }
+          publish(next)
+          (
+            next,
+            block_selection_after_render(selection, next.source_revision, emit),
+          )
+        }
+      }
     ProbeBlockSelection(kind) => {
       let blocks = model.document.blocks().to_array()
       if blocks.is_empty() {
@@ -1320,7 +1373,8 @@ fn update_model(
         let selection = BlockSelection::{
           key: block.key(),
           index: 0,
-          offset: 0,
+          start: 0,
+          end: 0,
         }
         let previous_revision = model.source_revision
         let source = if kind == "deleted" { "" } else { "replacement\n" }
@@ -1567,12 +1621,17 @@ fn update_model(
       publish(next)
       (next, @rabbita_runtime.none)
     }
-    BlockSelectionRejected(message) => {
+    BlockSelectionRejected(message, selection) => {
       let next = record_error(
         model, "block-selection-rejected", "browser-effect", message,
       )
       publish(next)
-      (next, @rabbita_runtime.none)
+      let command = match selection {
+        Some(selection) =>
+          block_selection_after_render(selection, next.source_revision, emit)
+        None => @rabbita_runtime.none
+      }
+      (next, command)
     }
     CustomEvent(detail) => {
       let next = {

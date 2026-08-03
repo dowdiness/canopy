@@ -14,6 +14,7 @@ import { expect, test, type Browser, type BrowserContext, type Page } from "@pla
  * | production chrome | Raw/Block/Preview, desktop/narrow | one labelled region, tablist, selected panel, and keyboard navigation |
  * | example presets | Hello/Blog/List/Code from any mode | replace canonical source without changing the selected mode |
  * | Block formatting | focused paragraph/heading/list item | typed heading/list/delete requests update source and restore a valid target |
+ * | Block keyboard editing | collapsed caret at start/middle/end | Enter splits, boundary arrows navigate, empty-start Backspace merges, and focus/caret follow the typed target |
  * | interactive chrome | normal, focus, error | only application controls are visible; Preview owns focus; errors appear on demand |
  * | Raw <-> Block <-> Preview | new/same source | one canonical source, no marker leakage |
  * | ownership | fresh page/container | termination only; no cleanup claim |
@@ -316,6 +317,27 @@ test("production chrome keeps its controls inside a narrow viewport", async ({ b
   }
 })
 
+test("Block surface presents typed blocks as compact RUI editing rows", async ({ browser }) => {
+  const source = "# Title\n\nBody\n\n3) Third\n\n```moonbit\nlet x = 1\n```\n"
+  const host = await mountHost(browser, source)
+  try {
+    await selectBlock(host.page)
+    const block = host.page.locator("#loomark-block")
+    await expect(block.locator('[data-slot="block-editor-input"]')).toHaveCount(4)
+    await expect(block.getByRole("textbox", { name: "Heading 1 block 1" })).toHaveValue("Title")
+    await expect(block.getByRole("textbox", { name: "Paragraph block 2" })).toHaveValue("Body")
+    await expect(block.locator('[data-loomark-block-marker="ordered"]')).toHaveText("3)")
+    await expect(block.getByRole("textbox", { name: "Ordered list item 3" })).toHaveValue("Third")
+    await expect(block.getByRole("textbox", { name: "moonbit code block 4" })).toHaveValue(
+      "let x = 1",
+    )
+    await expect(block.getByRole("button", { name: "Split" })).toHaveCount(0)
+    await expect(block.getByRole("button", { name: "Merge" })).toHaveCount(0)
+  } finally {
+    await host.context.close()
+  }
+})
+
 test("interactive chrome hides driver controls and focuses the Preview surface", async ({ browser }) => {
   const host = await mountHost(browser, "# Focusable preview\n")
   try {
@@ -437,7 +459,7 @@ test("Block toolbar enables only edits accepted for the active typed block", asy
     await expect(toolbar.getByRole("button", { name: "Heading 2, Ctrl+2" })).toBeDisabled()
     await expect(toolbar.getByRole("button", { name: "Toggle list, Ctrl+Shift+L" })).toBeDisabled()
     await expect(toolbar.getByRole("button", { name: "Delete selected block" })).toBeEnabled()
-    await input.press("Control+2")
+    await input.dispatchEvent("keydown", { key: "2", ctrlKey: true })
     await input.press("Control+Shift+L")
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("```moonbit\nvalue\n```\n")
     await expect.poll(async () => (await snapshot(host.page)).error_count).toBe(0)
@@ -453,11 +475,37 @@ test("Block formatting shortcuts dispatch the same typed edits", async ({ browse
     const input = host.page.locator("#loomark-block-input")
     await input.focus()
 
-    await input.press("Control+2")
+    await input.dispatchEvent("keydown", { key: "2", ctrlKey: true })
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("## Title\n")
-    await input.press("Control+2")
+    await expect.poll(async () => (await snapshot(host.page)).committed_change_count).toBe(1)
+    await expect(input).toHaveAttribute("aria-label", "Heading 2 block 1")
+    await expect(input).toBeFocused()
+    await input.dispatchEvent("keydown", { key: "2", ctrlKey: true })
+    await expect.poll(async () => (await snapshot(host.page)).committed_change_count).toBe(2)
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("Title\n")
-    await input.press("Control+Shift+L")
+    await expect(input).toHaveAttribute("aria-label", "Paragraph block 1")
+    await expect(input).toBeFocused()
+    await input.dispatchEvent("keydown", { key: "4", ctrlKey: true })
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("#### Title\n")
+    await expect(input).toHaveAttribute("aria-label", "Heading 4 block 1")
+    await expect(input).toBeFocused()
+    await input.dispatchEvent("keydown", { key: "5", ctrlKey: true })
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("##### Title\n")
+    await expect(input).toHaveAttribute("aria-label", "Heading 5 block 1")
+    await expect(input).toBeFocused()
+    await input.dispatchEvent("keydown", { key: "6", ctrlKey: true })
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("###### Title\n")
+    await expect(input).toHaveAttribute("aria-label", "Heading 6 block 1")
+    await expect(input).toBeFocused()
+    await input.dispatchEvent("keydown", { key: "0", ctrlKey: true })
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("Title\n")
+    await expect(input).toHaveAttribute("aria-label", "Paragraph block 1")
+    await expect(input).toBeFocused()
+    await input.dispatchEvent("keydown", { key: "0", ctrlKey: true })
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("Title\n")
+    await expect.poll(async () => (await snapshot(host.page)).error_count).toBe(0)
+    await expect(input).toBeFocused()
+    await input.dispatchEvent("keydown", { key: "L", ctrlKey: true, shiftKey: true })
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("- Title\n")
 
     await input.dispatchEvent("keydown", {
@@ -466,6 +514,25 @@ test("Block formatting shortcuts dispatch the same typed edits", async ({ browse
       isComposing: true,
     })
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("- Title\n")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("same-frame formatting callbacks reduce against the latest model", async ({ browser }) => {
+  const host = await mountHost(browser, "Title\n")
+  try {
+    await selectBlock(host.page)
+    const input = host.page.locator("#loomark-block-input")
+    await input.focus()
+    await input.evaluate(element => {
+      element.dispatchEvent(new KeyboardEvent("keydown", { key: "2", ctrlKey: true, bubbles: true }))
+      element.dispatchEvent(new KeyboardEvent("keydown", { key: "2", ctrlKey: true, bubbles: true }))
+    })
+
+    await expect.poll(async () => (await snapshot(host.page)).committed_change_count).toBe(2)
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("Title\n")
+    await expect.poll(async () => (await snapshot(host.page)).error_count).toBe(0)
   } finally {
     await host.context.close()
   }
@@ -731,6 +798,172 @@ test("Block input editor failure preserves its committed payload atomically", as
   }
 })
 
+test("Enter splits the active text block at the caret and focuses the new block", async ({ browser }) => {
+  const host = await mountHost(browser, "Hello\n\nWorld\n")
+  try {
+    await selectBlock(host.page)
+    const input = host.page.locator("#loomark-block-input")
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(2, 2)
+    })
+
+    await input.press("Enter")
+
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("He\n\nllo\n\nWorld\n")
+    await expect.poll(() => host.page.evaluate(() => document.activeElement?.id)).toBe(
+      "loomark-block-input-1",
+    )
+    await expect.poll(() => host.page.evaluate(() => {
+      const textarea = document.activeElement as HTMLTextAreaElement | null
+      return textarea === null ? "missing" : `${textarea.selectionStart}:${textarea.selectionEnd}`
+    })).toBe("0:0")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Backspace at the start of an empty text block merges into the previous block", async ({ browser }) => {
+  const host = await mountHost(browser, "First\n\nSecond\n")
+  try {
+    await selectBlock(host.page)
+    const first = host.page.locator("#loomark-block-input")
+    await first.focus()
+    await first.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length)
+    })
+    await first.press("Enter")
+    const empty = host.page.locator("#loomark-block-input-1")
+    await expect(empty).toBeFocused()
+    await expect(empty).toHaveValue("")
+
+    await empty.press("Backspace")
+
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("First\n\nSecond\n")
+    await expect(host.page.locator("[data-loomark-block-id]")).toHaveCount(2)
+    await expect(first).toBeFocused()
+    await expect.poll(() => first.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      return `${textarea.selectionStart}:${textarea.selectionEnd}`
+    })).toBe("5:5")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Backspace preserves focus when an unsupported predecessor rejects merge", async ({ browser }) => {
+  const host = await mountHost(browser, "First\n\n---\n\nBody\n")
+  try {
+    await selectBlock(host.page)
+    const input = host.page.locator("#loomark-block-input-1")
+    await input.fill("")
+    await expect(input).toHaveValue("")
+    const source = (await snapshot(host.page)).source
+
+    await input.press("Backspace")
+
+    await expect.poll(async () => (await snapshot(host.page)).error_code).toBe(
+      "editor-commit-failed",
+    )
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe(source)
+    await expect(input).toBeFocused()
+    await expect.poll(() => input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      return `${textarea.selectionStart}:${textarea.selectionEnd}`
+    })).toBe("0:0")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("boundary keys navigate between text blocks without changing source", async ({ browser }) => {
+  const source = "First\n\nSecond\n\nThird\n"
+  const host = await mountHost(browser, source)
+  try {
+    await selectBlock(host.page)
+    const first = host.page.locator("#loomark-block-input")
+    const second = host.page.locator("#loomark-block-input-1")
+    await second.focus()
+    await second.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(0, 0)
+    })
+
+    await second.press("ArrowLeft")
+    await expect(first).toBeFocused()
+    await expect.poll(() => first.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      return `${textarea.selectionStart}:${textarea.selectionEnd}`
+    })).toBe("5:5")
+
+    await first.press("ArrowDown")
+    await expect(second).toBeFocused()
+    await expect.poll(() => second.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      return `${textarea.selectionStart}:${textarea.selectionEnd}`
+    })).toBe("0:0")
+
+    await second.press("Backspace")
+    await expect(first).toBeFocused()
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe(source)
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Enter rejects unsupported list structure changes without mutating source", async ({ browser }) => {
+  const source = "- Item\n\nTail\n"
+  const host = await mountHost(browser, source)
+  try {
+    await selectBlock(host.page)
+    const item = host.page.locator("#loomark-block-input")
+    await item.focus()
+    await item.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length)
+    })
+
+    await item.press("Enter")
+
+    await expect.poll(async () => (await snapshot(host.page)).error_code).toBe(
+      "block-selection-rejected",
+    )
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe(source)
+    await expect(item).toBeFocused()
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Enter edits fenced code payload without splitting its typed block", async ({ browser }) => {
+  const host = await mountHost(browser, "```moonbit\nab\n```\n")
+  try {
+    await selectBlock(host.page)
+    const code = host.page.locator("#loomark-block-input")
+    await code.focus()
+    await code.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(1, 1)
+    })
+
+    await code.press("Enter")
+
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe(
+      "```moonbit\na\nb\n```\n",
+    )
+    await expect(host.page.locator('[data-loomark-block-kind="code"]')).toHaveCount(1)
+    await expect(code).toBeFocused()
+    await expect.poll(() => code.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      return `${textarea.selectionStart}:${textarea.selectionEnd}`
+    })).toBe("2:2")
+  } finally {
+    await host.context.close()
+  }
+})
+
 test("Block split rejects a non-collapsed selection without changing source", async ({ browser }) => {
   const host = await mountHost(browser, "Hello\n")
   try {
@@ -741,10 +974,15 @@ test("Block split rejects a non-collapsed selection without changing source", as
       const textarea = element as HTMLTextAreaElement
       textarea.setSelectionRange(0, 2)
     })
-    await host.page.locator("[data-loomark-block-split]").first().click()
+    await input.press("Enter")
     await expect.poll(async () => (await snapshot(host.page)).error_code).toBe("block-selection-rejected")
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("Hello\n")
     await expect(host.page.locator("#loomark-block-input")).toHaveValue("Hello")
+    await expect(input).toBeFocused()
+    await expect.poll(() => input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      return `${textarea.selectionStart}:${textarea.selectionEnd}`
+    })).toBe("0:2")
   } finally {
     await host.context.close()
   }
@@ -760,7 +998,7 @@ test("Block split at the start creates and focuses an empty previous block", asy
       const textarea = element as HTMLTextAreaElement
       textarea.setSelectionRange(0, 0)
     })
-    await host.page.locator("[data-loomark-block-split]").click()
+    await input.press("Enter")
     await expect(host.page.locator("[data-loomark-block-id]")).toHaveCount(2)
     await expect(host.page.locator("#loomark-block-input")).toHaveValue("")
     await expect(host.page.locator("#loomark-block-input-1")).toHaveValue("Hello")
@@ -776,7 +1014,7 @@ test("Block split at the start creates and focuses an empty previous block", asy
   }
 })
 
-test("Block split and merge use typed structural edits and deterministic selection", async ({ browser }) => {
+test("Block split uses a typed structural edit and deterministic selection", async ({ browser }) => {
   const host = await mountHost(browser, "Hello\n\nWorld\n")
   try {
     await selectBlock(host.page)
@@ -786,7 +1024,7 @@ test("Block split and merge use typed structural edits and deterministic selecti
       const textarea = element as HTMLTextAreaElement
       textarea.setSelectionRange(2, 2)
     })
-    await host.page.locator("[data-loomark-block-split]").first().click()
+    await firstInput.press("Enter")
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("He\n\nllo\n\nWorld\n")
     await expect.poll(() => host.page.evaluate(() => document.activeElement?.id)).toBe("loomark-block-input-1")
     await expect.poll(() => host.page.evaluate(() => {
@@ -799,15 +1037,6 @@ test("Block split and merge use typed structural edits and deterministic selecti
     await expect.poll(async () => (await snapshot(host.page)).selection).toBe(`block|${secondKey}|0`)
     await expect(host.page.locator('[data-loomark-block-kind="paragraph"]')).toHaveCount(3)
 
-    await host.page.locator("[data-loomark-block-merge]").nth(1).click()
-    await expect.poll(async () => (await snapshot(host.page)).source).toBe("Hello\n\nWorld\n")
-    await expect.poll(() => host.page.evaluate(() => document.activeElement?.id)).toBe("loomark-block-input")
-    await expect.poll(() => host.page.evaluate(() => {
-      const textarea = document.activeElement as HTMLTextAreaElement | null
-      return textarea === null ? "missing" : `${textarea.selectionStart}:${textarea.selectionEnd}`
-    })).toBe("2:2")
-    const mergedKey = await host.page.locator("#loomark-block-input").getAttribute("data-loomark-block-id")
-    await expect.poll(async () => (await snapshot(host.page)).selection).toBe(`block|${mergedKey}|2`)
   } finally {
     await host.context.close()
   }
@@ -823,7 +1052,7 @@ test("typing after an end split does not leak the empty-block placeholder", asyn
       const textarea = element as HTMLTextAreaElement
       textarea.setSelectionRange(textarea.value.length, textarea.value.length)
     })
-    await host.page.locator("[data-loomark-block-split]").click()
+    await input.press("Enter")
     await expect.poll(() => host.page.evaluate(() => document.activeElement?.id)).toBe("loomark-block-input-1")
     await expect(host.page.locator("#loomark-block-input-1")).toHaveValue("")
     await host.page.keyboard.type("X")
