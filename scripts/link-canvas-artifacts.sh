@@ -12,7 +12,10 @@ ARTIFACT="$SOURCE/js/release/build/dowdiness/canopy-canvas/main/main.js"
   echo "Missing Canvas artifact: $ARTIFACT" >&2
   exit 1
 }
-
-ln -sfn "$SOURCE" "$DEST"
+if [ -e "$DEST" ] && [ ! -L "$DEST" ]; then
+  echo "Refusing to replace real directory: $DEST" >&2
+  exit 1
+fi
+ln -sfnT "$SOURCE" "$DEST"
 [ -f "$DEST/js/release/build/dowdiness/canopy-canvas/main/main.js" ]
 echo "ok: Canvas artifacts linked at $DEST"
