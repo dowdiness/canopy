@@ -136,14 +136,44 @@ identifies one writing instance and is fresh per mount.
 
 `DocumentId` lives in the archive envelope, never in the checkpoint.
 
-At the time of writing, every Loomark mount passed the same hardcoded id
-(`loomark/internal/rabbita/application.mbt:1067`, `"loomark-dev-host"`), which
-becomes the `TextState` replica, the undo owner, the ephemeral hub id, and the
-peer identity at once (`editor/sync_editor.mbt:62-91`) — two browser tabs were
-one replica. A fix is in flight separately from this design. It breaks nothing
-that this design depends on, because nothing persists or recovers that id
-today; this design simply requires that the fix land before any archive is
-written, or every archive records a replica identity that is not unique.
+### Requirements on the input path, which is not yet written
+
+Loomark's public input path does not exist yet. `loomark/internal/dev_host` is
+a temporary private link root that the handoff plan schedules for deletion, and
+its operations are test drivers rather than the product's editing path. Nothing
+below reports a defect in it; each item states what must hold when the real path
+is wired, because each is cheap to satisfy then and expensive to retrofit after
+archives exist.
+
+**One replica id per writing instance.** The id passed at construction becomes
+the `TextState` replica, the undo owner, the ephemeral hub id, and the peer
+identity at once (`editor/sync_editor.mbt:62-91`). Two concurrently writing
+tabs must therefore be two ids. The current driver passes one constant
+(`loomark/internal/rabbita/application.mbt:1067`), which is adequate for a
+single-mount test driver and inadequate for the product; a change is in flight
+separately. This design depends on it only in one direction: the wiring must
+land before any archive is written, or archives record a replica identity that
+is not unique — and that cannot be repaired afterwards from the archive alone.
+
+**Edits reach the editor as edits, not as whole documents.** Passing a full
+source string routes through `set_text`, which reduces old-versus-new to a
+single contiguous splice via common prefix and suffix
+(`loom/text-change/text_change.mbt:83-90`). Two distant changes submitted in one
+round therefore delete and reinsert everything between them. The text is
+byte-identical, so nothing is observable locally; what is lost is operation
+identity for the untouched span, which matters on merge and for undo
+granularity. `set_text` already documents this and directs interactive editing
+to the per-edit path (`editor/sync_editor_text.mbt:394-397`), and the façade
+already offers it as `MarkdownEditRequest::ReplaceText`
+(`editor/markdown/editor.mbt:120-147`). The intended direction is to send diffs
+where practical; how the browser computes them is undecided and out of scope
+here.
+
+This requirement is stronger under persistence than without it. An archive
+records the operation graph, so a coarse input path does not merely degrade a
+live session — it durably stores a history of whole-document replacements in
+place of the user's actual edits. Later work that reads intent from that history
+cannot recover granularity the archive never captured.
 
 ### What V1 deliberately does not need
 
