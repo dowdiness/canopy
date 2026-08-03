@@ -105,6 +105,8 @@ Only needed if you are modifying Canopy itself.
 - [TODO](TODO.md) — active backlog index.
 - [docs/plans/](plans/) — executable plans (use
   [plans/TEMPLATE.md](plans/TEMPLATE.md) when adding a new one).
+- [Advisory plans](plans/advisory/) — dependency-ordered implementation plans
+  produced by repository audits; their local index records audit status.
 
 **Performance:**
 

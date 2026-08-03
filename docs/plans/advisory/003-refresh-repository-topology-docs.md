@@ -3,7 +3,7 @@
 > **Executor instructions**: This is a documentation-only plan. Follow each
 > step, verify every path and command against the repository, and do not change
 > manifests or source code to make stale prose true. Stop on drift rather than
-> guessing. Update this plan's status in `plans/README.md` when done unless a
+> guessing. Update this plan's status in `README.md` when done unless a
 > reviewer owns the index.
 >
 > **Drift check (run first)**:
@@ -109,7 +109,7 @@ Confirmed stale prose:
 - `docs/development/module-package-map.md`
 - `docs/development/workflow.md`
 - `docs/architecture/modules.md`
-- `plans/README.md` status row only
+- `README.md` status row only
 
 **Read-only sources of truth**:
 

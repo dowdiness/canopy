@@ -4,7 +4,7 @@
 > Preserve historical evidence while removing claims that mutable versions or
 > shipped status are current when they are not. Run every verification command
 > and stop instead of editing code or CI. Update this plan's status in
-> `plans/README.md` when done unless a reviewer owns the index.
+> `README.md` when done unless a reviewer owns the index.
 >
 > **Drift check (run first)**:
 > `git diff --stat f6e3a0a5..HEAD -- docs/TODO.md docs/README.md docs/decisions/2026-06-10-shared-substrate-incr-version-lock.md docs/decisions/2026-06-12-substrate-governance.md docs/decisions/2026-07-11-structure-mode-completion-state.md moon.mod moon.work scripts/check-shared-substrate.sh .github/workflows/ci.yml`
@@ -16,7 +16,7 @@
 - **Priority**: P2
 - **Effort**: S
 - **Risk**: LOW
-- **Depends on**: `plans/003-refresh-repository-topology-docs.md`
+- **Depends on**: `003-refresh-repository-topology-docs.md`
 - **Category**: docs / governance
 - **Audit finding**: 6
 - **Planned at**: commit `f6e3a0a5`, 2026-07-25
@@ -100,7 +100,7 @@ implementation worker: this plan changes only status and decision prose.
 - `docs/README.md`
 - `docs/decisions/2026-06-10-shared-substrate-incr-version-lock.md`
 - `docs/decisions/2026-06-12-substrate-governance.md`
-- `plans/README.md` status row only
+- `README.md` status row only
 
 **Read-only evidence**:
 

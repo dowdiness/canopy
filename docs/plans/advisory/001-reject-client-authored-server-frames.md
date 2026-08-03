@@ -3,7 +3,7 @@
 > **Executor instructions**: Follow this plan step by step. Run every
 > verification command and confirm the expected result before moving on. Stop
 > on any condition listed below instead of broadening the protocol change. When
-> done, update this plan's status in `plans/README.md`, unless a reviewer owns
+> done, update this plan's status in `README.md`, unless a reviewer owns
 > the index.
 >
 > **Drift check (run first)**:
@@ -115,7 +115,7 @@ any API; this plan expects no new API.
 - `relay/relay_room.mbt`
 - `relay/relay_room_wbtest.mbt`
 - `relay/README.md`
-- `plans/README.md` status row only
+- `README.md` status row only
 
 **Read-only references**:
 
