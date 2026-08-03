@@ -11,6 +11,7 @@ import { expect, test, type Browser, type BrowserContext, type Page } from "@pla
  * | unsupported containers | quote/thematic/list | reject atomically; neighbors/ranges/focus unchanged |
  * | tight list / fenced code | unordered, ordered `)`, tilde fence, mixed CRLF | typed payload controls preserve markers, delimiters, and line endings |
  * | semantic Preview | heading, paragraph, fenced code, list fallback | RUI-aligned read-only semantic DOM without invented list containers |
+ * | interactive chrome | normal, focus, error | only mode controls are visible; Preview owns focus; errors appear on demand |
  * | Raw <-> Block <-> Preview | new/same source | one canonical source, no marker leakage |
  * | ownership | fresh page/container | termination only; no cleanup claim |
  */
@@ -231,6 +232,50 @@ test("Preview renders supported blocks as RUI-aligned semantic HTML", async ({ b
   }
 })
 
+test("interactive chrome hides driver controls and focuses the Preview surface", async ({ browser }) => {
+  const host = await mountHost(browser, "# Focusable preview\n")
+  try {
+    await expect(host.page.locator("#loomark-root button:visible")).toHaveText([
+      "Raw",
+      "Block",
+      "Preview",
+    ])
+    await expect(host.page.locator("#loomark-event-target")).toBeHidden()
+    await expect(host.page.locator("#loomark-focus-target")).toHaveCount(0)
+    await expect(host.page.locator("#loomark-mode")).toHaveCount(0)
+    await selectPreview(host.page)
+    const preview = host.page.locator("#loomark-preview")
+    await expect(preview).toHaveAttribute("tabindex", "0")
+    await expect(preview).toHaveAttribute("aria-label", "Markdown preview")
+    await host.page.locator("#loomark-mode-preview").focus()
+    await host.page.keyboard.press("Tab")
+    await expect.poll(() => host.page.evaluate(() => document.activeElement?.id)).toBe(
+      "loomark-preview",
+    )
+    await host.page.locator("#loomark-mode-preview").focus()
+    await focusPreview(host.page)
+    await expect.poll(() => host.page.evaluate(() => document.activeElement?.id)).toBe(
+      "loomark-preview",
+    )
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("application status stays quiet until an error needs attention", async ({ browser }) => {
+  const host = await mountHost(browser, "stable\n")
+  try {
+    await expect(host.page.locator("#loomark-error")).toHaveCount(0)
+    await failHost(host.page, "fatal test")
+    const error = host.page.locator("#loomark-error")
+    await expect(error).toHaveText("error: fatal test")
+    await expect(error).toHaveAttribute("role", "alert")
+    await expect(error).toHaveAttribute("data-slot", "alert")
+  } finally {
+    await host.context.close()
+  }
+})
+
 test("Block mode edits a heading payload without leaking its marker", async ({ browser }) => {
   const host = await mountHost(browser, "# Title\n")
   try {
@@ -420,6 +465,38 @@ test("Rapid Block typing preserves a mid-text UTF-16 caret across CRLF normaliza
       error_code: null,
       error_count: 0,
     })
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("a superseded Block caret restore yields to a same-frame deletion", async ({ browser }) => {
+  const host = await mountHost(browser, "A")
+  try {
+    await selectBlock(host.page)
+    const input = host.page.locator("#loomark-block-input")
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.value = "AB"
+      textarea.setSelectionRange(2, 2)
+      textarea.dispatchEvent(new InputEvent("input", { bubbles: true, data: "B" }))
+      textarea.value = "A"
+      textarea.setSelectionRange(1, 1)
+      textarea.dispatchEvent(new InputEvent("input", {
+        bubbles: true,
+        inputType: "deleteContentBackward",
+      }))
+    })
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("A")
+    await expect.poll(() => host.page.evaluate(() => document.activeElement?.id)).toBe(
+      "loomark-block-input",
+    )
+    await expect.poll(() => host.page.evaluate(() => {
+      const textarea = document.activeElement as HTMLTextAreaElement | null
+      return textarea === null ? "missing" : `${textarea.selectionStart}:${textarea.selectionEnd}`
+    })).toBe("1:1")
+    await expect.poll(async () => (await snapshot(host.page)).error).toBeNull()
   } finally {
     await host.context.close()
   }
@@ -623,7 +700,10 @@ test("Raw textarea input uses the atomic editor transaction and mode toolbar", a
     await expect.poll(async () => (await snapshot(host.page)).committed_change_count).toBe(1)
     await selectPreview(host.page)
     await expect(host.page.locator("#loomark-input")).toHaveCount(0)
-    await expect(host.page.locator("#loomark-mode")).toHaveText("mode: preview")
+    await expect(host.page.locator("#loomark-mode-preview")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
     await expectPreviewSource(host.page, "edited\nsource")
     await rawInput(host.page, "must-not-commit\n")
     await expect.poll(async () => (await snapshot(host.page)).error_code).toBe("mode-inapplicable")
@@ -868,11 +948,16 @@ test("keeps source and mode state separate from after-render focus and DOM effec
   try {
     await requestSource(host.page, "# Updated\n")
     await selectPreview(host.page)
-    await expect(host.page.locator("#loomark-mode")).toHaveText("mode: preview")
+    await expect(host.page.locator("#loomark-mode-preview")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
     await expectPreviewSource(host.page, "# Updated\n")
 
     await focusPreview(host.page)
-    await expect.poll(() => host.page.evaluate(() => document.activeElement?.id)).toBe("loomark-focus-target")
+    await expect.poll(() => host.page.evaluate(() => document.activeElement?.id)).toBe(
+      "loomark-preview",
+    )
 
     await selectRaw(host.page)
     await expect(host.page.locator("#loomark-input")).toHaveCount(1)

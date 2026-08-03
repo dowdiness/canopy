@@ -126,7 +126,7 @@ fn focus_target_id(target : @core.FocusTarget) -> String {
   match target {
     @core.RawEditor => "loomark-input"
     @core.BlockEditor => "loomark-block-input"
-    @core.PreviewControl => "loomark-focus-target"
+    @core.PreviewControl => "loomark-preview"
   }
 }
 
@@ -517,20 +517,11 @@ fn preview_view(
     on_click=emit(SelectBlock),
     "Block",
   )
-  let focus_button = @rui.button(
-    id="loomark-focus-target",
-    variant=@rui.Outline,
-    on_click=emit(FocusPreview),
-    "Focus preview",
-  )
-  let mode = @rui.typography_muted(
-    id="loomark-mode",
-    "mode: " + mode_name(model.state.mode()),
-  )
-  let event_button = @rui.button(
+  let event_button = @html.button(
     id="loomark-event-target",
-    variant=@rui.Outline,
-    "Dispatch event",
+    type_="button",
+    hidden=true,
+    "Driver event",
   )
   let driver_button = @html.button(
     id="loomark-driver-target",
@@ -538,9 +529,14 @@ fn preview_view(
     hidden=true,
     "Driver",
   )
-  let error_text = match model.error {
-    Some(error) => "error: " + error
-    None => "ready"
+  let error_view = match model.error {
+    Some(error) =>
+      @rui.alert(
+        id="loomark-error",
+        variant=@rui.Destructive,
+        @rui.alert_description("error: " + error),
+      )
+    None => @html.nothing
   }
   @rui.theme(
     id="loomark-root",
@@ -554,7 +550,6 @@ fn preview_view(
         style=["display:flex;gap:0.25rem;margin-block:1.5rem"],
         [raw_button, block_button, preview_button],
       ),
-      mode,
       @html.div(
         id="loomark-surface",
         style=["margin-block:1.5rem"],
@@ -562,8 +557,7 @@ fn preview_view(
       ),
       event_button,
       driver_button,
-      focus_button,
-      @rui.typography_muted(id="loomark-error", error_text),
+      error_view,
     ],
   )
 }
@@ -586,6 +580,8 @@ fn after_render(
 ///|
 /// Revalidate a structural selection after the edited blocks are rendered,
 /// then focus the exact block and restore its relative UTF-16 caret.
+/// Routine input may follow a newer render when keystrokes overtake one frame;
+/// its superseded callback yields while structural edits report stale revisions.
 fn block_selection_after_render(
   selection : BlockSelection,
   source_revision : Int,

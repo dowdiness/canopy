@@ -99,7 +99,10 @@ fn preview_surface(
   }
   @html.div(
     id="loomark-preview",
-    attrs=@html.Attrs::build().data_set("loomark-source", source),
+    attrs=@html.Attrs::build()
+      .data_set("loomark-source", source)
+      .tabindex(0)
+      .aria_label("Markdown preview"),
     style=["display:grid;gap:1rem"],
     blocks,
   )
