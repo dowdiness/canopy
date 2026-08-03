@@ -15,8 +15,9 @@
 /// cannot be built the way the design describes.
 ///
 /// This also pins that restoring an intact checkpoint leaves no causally
-/// pending operations: apply_sync raises when pending remain, so a clean
-/// return is the observation.
+/// pending operations. That was once observed indirectly, through a call that
+/// raised when any remained; admission now reports the count, so the assertion
+/// is the count itself.
 test "ownership: checkpoint round-trips into a fresh editor" {
   let original = @editor.Editor::new("assumption-writer-1")
   original.insert_at(0, "# Title\n\nbody text\n")
@@ -26,13 +27,8 @@ test "ownership: checkpoint round-trips into a fresh editor" {
   let checkpoint_json = original.export_all().to_json_string()
   let restored = @editor.Editor::new("assumption-writer-2")
   let decoded = @text.SyncMessage::from_json_string(checkpoint_json)
-  let applied = try {
-    restored.apply_sync(decoded)
-    true
-  } catch {
-    _ => false
-  }
-  inspect(applied, content="true")
+  let report = restored.admit(decoded)
+  inspect(report.pending_operations(), content="0")
   inspect(restored.get_text() == want_text, content="true")
   inspect(
     restored.get_version().to_json_string() == want_version.to_json_string(),

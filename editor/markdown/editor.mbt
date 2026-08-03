@@ -103,6 +103,49 @@ pub fn MarkdownBlockSnapshot::fence_close_range(self : Self) -> (Int, Int)? {
 }
 
 ///|
+/// A categorized failure at the archive boundary.
+///
+/// Kept separate from `MarkdownEditorError` because an archive is a different
+/// authority from an editing session: a failure to reopen a document is not an
+/// editing failure, and the two are acted on at different moments. Sharing one
+/// taxonomy is how document recovery quietly becomes a session concern.
+pub(all) suberror MarkdownArchiveError {
+  InvalidAgentId
+  /// No writing instance could be created, so nothing was attempted. Distinct
+  /// from `AdmitFailed`, which means a history was taken in and the taking
+  /// failed.
+  WriterUnavailable(detail~ : String)
+  ExportFailed(detail~ : String)
+  AdmitFailed(detail~ : String)
+  IncompleteArchive
+}
+
+///|
+/// What an admission took, and what it is still holding.
+///
+/// Operations can arrive whose causal prerequisites have not. That is ordinary
+/// between replicas and is not a failure, so it is reported rather than raised.
+/// Whether it is acceptable is the caller's judgment: a peer exchange expects
+/// it, and an archive that claims to be complete is contradicted by it.
+pub(all) enum MarkdownAdmitReport {
+  /// Nothing is held: every operation in the history is now in this document.
+  ///
+  /// This carries no count. How many operations were new rather than already
+  /// present depends on what the sender chose to include, which says nothing
+  /// about this document, and whether the document advanced is answered by its
+  /// version — a signal that does not need a count to be read.
+  Complete
+  /// Some operations await prerequisites that did not arrive, and are held
+  /// until they do.
+  ///
+  /// Both counts are carried because the partial and total cases call for
+  /// different responses: `applied` is how many operations were new to this
+  /// document, so zero means nothing landed at all, and that reading holds
+  /// whatever else the message contained.
+  Withheld(applied~ : Int, withheld~ : Int)
+} derive(Eq, Debug)
+
+///|
 /// Opaque identity of a projected Markdown node.
 pub struct MarkdownNodeId {
   priv value : @core.NodeId
@@ -192,6 +235,41 @@ pub fn MarkdownDocumentSnapshot::blocks(
 }
 
 ///|
+/// The document's version frontier, as a façade-owned value.
+///
+/// This is the signal persistence triggers on: an operation that leaves the
+/// source unchanged still moves it. Equality here means "has not advanced",
+/// never "is the same document" — two different histories can share a
+/// frontier, so continuation is decided by `MarkdownDocumentHistory` instead.
+pub struct MarkdownDocumentVersion {
+  priv value : @text.Version
+} derive(Eq, Debug)
+
+///|
+/// One document's operation history, carried as a value the caller cannot
+/// interpret.
+///
+/// The payload's own serialization is a closed CRDT contract that admits no
+/// application metadata, so document identity and archive versioning cannot
+/// be carried here — they belong to an outer envelope this façade does not
+/// define. Keeping the payload opaque is what stops that envelope from being
+/// skipped once one exists.
+pub struct MarkdownDocumentHistory {
+  priv message : @text.SyncMessage
+}
+
+///|
+/// Equality is canonical-history equality: the honest check that one document
+/// continues another. Comparing source and version instead would accept a
+/// document that merely looks the same.
+pub impl Eq for MarkdownDocumentHistory with fn equal(
+  self : MarkdownDocumentHistory,
+  other : MarkdownDocumentHistory,
+) -> Bool {
+  self.message.to_canonical_bytes() == other.message.to_canonical_bytes()
+}
+
+///|
 /// Result of one atomic editor commit.
 pub(all) enum MarkdownCommitResult {
   Applied(MarkdownDocumentSnapshot, MarkdownBlockSelection?)
@@ -205,7 +283,15 @@ pub struct MarkdownEditor {
 }
 
 ///|
-/// Construct a Markdown editor and install its initial canonical source.
+/// Create a new document from text.
+///
+/// This is the importing path, and it is the lossy one: the result has no past
+/// and shares no future with whatever produced the source. Continuing a
+/// document you already own is `open`.
+///
+/// The name does not yet say so. Renaming it to `import`, and letting the
+/// document mint its own writer identity instead of accepting one, both reach
+/// the single application call site and are deferred with it.
 pub fn MarkdownEditor::MarkdownEditor(
   agent_id~ : String,
   source~ : String,
@@ -221,9 +307,110 @@ pub fn MarkdownEditor::MarkdownEditor(
 }
 
 ///|
+/// Continue a document you already own, from its history.
+///
+/// This is admission into a document that holds nothing yet. It composes the
+/// general operation rather than standing beside it, because opening and
+/// merging differ only in what the receiver already holds — a surface that
+/// exposed only this case would make merging inexpressible, and merging is the
+/// only way to show a reopened document still shares a future.
+///
+/// Opening is where the completeness policy is stated. An archive presenting
+/// itself as whole is contradicted by operations it cannot satisfy, so withheld
+/// operations are refused here — while the same report is an expected outcome
+/// for a peer exchange. Nothing separates the two but this judgment.
+///
+/// The writer identity is supplied rather than carried by the history: a
+/// reopened document is a new writing instance, and reusing the exporter's
+/// identity would make the two indistinguishable in what they go on to write.
+///
+/// Not yet stated here: the admission policy. This passes through the path
+/// that admits remote traffic and inherits the resource limits written for it,
+/// which the design requires it not to. See the evidence record.
+pub fn MarkdownEditor::open(
+  agent_id~ : String,
+  history~ : MarkdownDocumentHistory,
+) -> MarkdownEditor raise MarkdownArchiveError {
+  let editor = @md_companion.new_markdown_editor(agent_id) catch {
+    @text.TextError::EmptyReplicaId =>
+      raise MarkdownArchiveError::InvalidAgentId
+    error =>
+      raise MarkdownArchiveError::WriterUnavailable(detail=error.message())
+  }
+  let document = { editor, }
+  match document.admit(history) {
+    MarkdownAdmitReport::Complete => document
+    MarkdownAdmitReport::Withheld(..) =>
+      raise MarkdownArchiveError::IncompleteArchive
+  }
+}
+
+///|
+/// Take a history into this document, whatever it already holds.
+///
+/// One operation covers restoring and merging; the receiver's prior contents
+/// are the only difference. Withheld operations are reported rather than
+/// raised, because a document waiting for prerequisites is in a state, not in
+/// a failure, and a caller that cannot tell those apart cannot decide what to
+/// do next.
+pub fn MarkdownEditor::admit(
+  self : Self,
+  history : MarkdownDocumentHistory,
+) -> MarkdownAdmitReport raise MarkdownArchiveError {
+  let report = self.editor.admit(history.message) catch {
+    error => raise MarkdownArchiveError::AdmitFailed(detail=error.message())
+  }
+  // Applicable operations are committed before the withheld ones are counted,
+  // so the projection is rebuilt on both paths.
+  self.editor.refresh()
+  match report.pending_operations() {
+    0 => MarkdownAdmitReport::Complete
+    withheld =>
+      MarkdownAdmitReport::Withheld(
+        applied=report.applied_operations(),
+        withheld~,
+      )
+  }
+}
+
+///|
 /// Read the last committed canonical source without exposing editor state.
 pub fn MarkdownEditor::snapshot(self : Self) -> MarkdownDocumentSnapshot {
   document_snapshot(self.editor)
+}
+
+///|
+/// Read the current version frontier without exposing editor state.
+pub fn MarkdownEditor::version(self : Self) -> MarkdownDocumentVersion {
+  { value: self.editor.get_version() }
+}
+
+///|
+/// Cut the history at a version and hand back everything after it.
+///
+/// The increment is the primitive and the whole history is the degenerate case
+/// of cutting at nothing. Saving triggers on the document advancing, so an
+/// export that could only produce everything would make the cost of saving
+/// grow with the age of the document rather than the size of the change — and
+/// the base-plus-increment shape that answers scale is the same shape that
+/// answers routine saving, not a later addition.
+///
+/// What comes back is a value the caller keeps but cannot read.
+pub fn MarkdownEditor::history_since(
+  self : Self,
+  version? : MarkdownDocumentVersion,
+) -> MarkdownDocumentHistory raise MarkdownArchiveError {
+  let message = try {
+    match version {
+      None => self.editor.export_all()
+      Some(cut) => self.editor.export_since(cut.value)
+    }
+  } catch {
+    // The export methods widen to the supertype, so the binder has no
+    // `message()` here as it does at the admission and construction sites.
+    error => raise MarkdownArchiveError::ExportFailed(detail="\{error}")
+  }
+  { message, }
 }
 
 ///|

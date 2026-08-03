@@ -1,0 +1,161 @@
+{
+  "evidenceVersion": 1,
+  "subject": "docs/design/local-first-document-ownership.md",
+  "purpose": "Observations from the first implementation slice: version and history transport on the Markdown façade. Extends 2026-08-03-local-first-document-ownership-claims.json, which recorded the same round-trip one layer lower and listed the façade version as not yet demonstrated.",
+  "recordedAt": "2026-08-03",
+  "observedAt": {
+    "canopy": "the editor/markdown and editor changes committed on top of e97f7e3aa1261610e1edac90d7e0eb61f0753cfe; observations were taken as each landed, and the counts here are from the final state",
+    "event-graph-walker": "fadc41b1e99753129be816c37393afee2175e23f",
+    "loom": "d9cac9b29568595d1717f05e0ee0b530db064e24"
+  },
+  "executedProbes": {
+    "command": "NEW_MOON_MOD=0 moon test -p dowdiness/canopy/editor/markdown",
+    "result": "Total tests: 17, passed: 17, failed: 0",
+    "instrumentControl": {
+      "why": "The new assertions are the whole point of the slice; a green suite proves nothing unless they ran.",
+      "observed": "Falsified once per added assertion, each time restoring the suite to green afterwards. The canonical-history oracle: 13 of 14 passing, naming its line. Convergence and the withheld report: 14 of 16 passing, the second reporting 'Withheld != Complete'. Idempotence, falsified one assertion at a time because the first failure ends the test: 16 of 17 passing for the version claim, then again for the history claim. The probe's direct pending count: 41 of 42.",
+      "conclusion": "Every assertion these findings rest on executes; the green runs are not vacuous. The withheld control also shows the report really is Withheld with those counts rather than a default."
+    },
+    "findings": [
+      {
+        "id": "F1-facade-roundtrip",
+        "surfacedBy": "self",
+        "verifiedBy": "executed test",
+        "question": "Does the editor-layer checkpoint round-trip (E1) hold through the Markdown façade?",
+        "procedure": "Construct a façade document, commit a text edit, read version, cut the whole history, reopen it into a second façade document under a different writer identity, then compare source, version, and history.",
+        "result": "confirmed",
+        "observed": "Reopened source and version equal the exported ones, and the reopened document's history is equal to the exported history under canonical-history equality.",
+        "bearingOn": "Closes the prior record's notVerified entry 'The archive shape is implementable through the Markdown facade as stated.' Its stated wouldRequire -- surfacing version and history transport on the façade, then repeating E1 through it -- is what this slice did.",
+        "limitation": "This is one of the two checks the design names. The other is F8."
+      },
+      {
+        "id": "F8-reopened-document-converges",
+        "surfacedBy": "codex-review-2026-08-03",
+        "verifiedBy": "executed test",
+        "question": "Does a reopened document share a future with the one it came from, or only a past?",
+        "procedure": "Seed a second façade document by reopening the first one's history, let each commit a text edit at a different offset, confirm their sources have diverged, then have each admit the other's history and compare source and canonical history.",
+        "result": "confirmed",
+        "observed": "Both admissions reported Complete. Sources diverged before the exchange and were equal after it, and the two histories were equal under canonical-history equality.",
+        "bearingOn": "Closes the second half of the design's oracle, which equality alone cannot reach: equal history shows agreement about the past, and only an exchange of subsequent operations shows the reopened document is a replica rather than a copy that happens to match. The pre-exchange divergence assertion is what keeps this from passing vacuously.",
+        "note": "Each side is handed the other's whole history, so this traverses the already-held path without pinning it; a document that re-applied operations it already had would converge here anyway. F10 pins it separately."
+      },
+      {
+        "id": "F10-admission-is-idempotent",
+        "surfacedBy": "self, while reviewing this slice after it was written",
+        "verifiedBy": "executed test",
+        "question": "Does taking back a history the document already holds change it?",
+        "procedure": "Build and edit a document, cut its whole history, admit that history back into the same document, and compare source, version, and history against the values before.",
+        "result": "confirmed",
+        "observed": "Admission reported Complete, and source, version, and canonical history were all unchanged.",
+        "bearingOn": "This was traversed but unasserted by F8, and was the case that made an earlier report shape misleading: Complete once carried a count of newly applied operations, which reads as 'everything in the history was applied' and is false whenever the sender includes operations the receiver already holds. The count is no longer carried on that variant. Non-vacuous only in suite context -- an admission that applied nothing at all would also pass here, and F8 and F9 are what rule that out."
+      },
+      {
+        "id": "F9-withheld-reported-and-refused",
+        "surfacedBy": "self",
+        "verifiedBy": "executed test",
+        "question": "Can one surface treat missing prerequisites as an ordinary state for a peer exchange and as a defect for an archive?",
+        "procedure": "Cut a history at a version, hand the increment to a document that never saw the operations before that cut, and observe both admitting it directly and opening a document from it.",
+        "result": "confirmed",
+        "observed": "Admission returned Withheld with exact counts -- nothing applied, one operation held -- without raising. Opening the same increment raised IncompleteArchive.",
+        "bearingOn": "The distinction the design asks for is a judgment about one report rather than two mechanisms. The counts are asserted exactly rather than as a mere distinction, which is what shows the report is carried through rather than reconstructed from the presence of an error (F6)."
+      },
+      {
+        "id": "F4-payload-closed-to-outsiders",
+        "surfacedBy": "codex-review-2026-08-03, which reported the property unverified",
+        "verifiedBy": "compile-failure probe, since removed",
+        "question": "Is the history payload actually unreadable and unconstructible from another package, or does the interface merely look closed?",
+        "procedure": "Known-positive control rather than an interface diff: a temporary probe in workspace/probe imported the façade and attempted both forbidden operations -- reading the payload field and constructing the type from a SyncMessage obtained at the editor layer. The probe was compiled, its rejection observed, then removed.",
+        "result": "confirmed",
+        "observed": "NEW_MOON_MOD=0 moon check workspace/probe reported [4091] 'The type ...MarkdownDocumentHistory has no field message' for the read and [4036] plus [4033] for the construction. Three errors, no warnings.",
+        "bearingOn": "Closes the gap a .mbti diff cannot show: a pub struct can hide construction while leaving fields readable. Here the field is priv, so both doors are shut and the caller is left with equality alone."
+      },
+      {
+        "id": "F2-weak-oracle-at-facade",
+        "surfacedBy": "self",
+        "verifiedBy": "executed test",
+        "question": "Does the weak-oracle result (E3) reproduce at the façade, where a caller would be tempted to check a restore by source and version?",
+        "procedure": "Two façade editors sharing a writer identity each insert a different character through ReplaceText, then delete it.",
+        "result": "confirmed",
+        "observed": "Sources are equal and versions are equal while the exported histories are not.",
+        "bearingOn": "The façade's own acceptance check must compare history. This is why MarkdownDocumentHistory defines equality as canonical-history equality and exposes nothing else."
+      },
+      {
+        "id": "F5-restore-is-admission-into-empty",
+        "surfacedBy": "self",
+        "verifiedBy": "disposable probe, since removed",
+        "question": "Is restoring an archive a different operation from merging a peer's history, or the same operation with a different receiver?",
+        "procedure": "Disposable probe at the editor layer, since the façade has no merge. Seed a second replica from a full export, let both diverge with one insert each, exchange full histories in both directions, and compare.",
+        "result": "confirmed",
+        "observed": "Both replicas reached the same text and the same canonical history bytes. The same call that restores an empty replica merges a divergent one.",
+        "bearingOn": "The distinction between restore and merge is not in the operation but in what the receiver already holds. A surface that exposes only the empty-receiver case makes the general case inexpressible, which is why the merge half of the design's oracle could not be asserted."
+      },
+      {
+        "id": "F6-pending-arrives-as-an-error",
+        "surfacedBy": "self",
+        "verifiedBy": "disposable probe, since removed",
+        "question": "How does the substrate report a history whose causal prerequisites are absent?",
+        "procedure": "Export an increment since a version, then apply it to a replica that never saw the operations before that version.",
+        "result": "confirmed",
+        "observed": "apply_sync raised TextError::VersionNotFound. The report carrying the counts existed one layer down and was discarded before the raise.",
+        "bearingOn": "The design treats received-but-not-yet-applicable operations as real state the envelope must eventually retain. An admission that raises cannot report a partial take, so the state the design reserves room for had no way to reach the application.",
+        "resolution": "Addressed 2026-08-03 by making admission the primitive in editor/ and apply_sync a completeness policy over it, so the report is no longer discarded. The counts now reach the façade (F9). apply_sync keeps its raising behaviour and every existing call site is untouched; what remains is that its name does not say which policy it applies, a rename reaching 81 call sites."
+      },
+      {
+        "id": "F7-single-consumer-coupling",
+        "surfacedBy": "self",
+        "verifiedBy": "grep over the consumer",
+        "question": "How tightly is the application coupled to the current façade shape?",
+        "procedure": "Grep loomark for façade construction and result matching.",
+        "result": "confirmed",
+        "observed": "One construction site, passing the fixed literal agent identity \"loomark-dev-host\". MarkdownCommitResult is matched nowhere in loomark; MarkdownEditorError is matched at exactly one site.",
+        "bearingOn": "The writer identity the design requires to be unique per writing instance is in practice a constant supplied by the caller. The coupling is small enough that the surface is not what constrains a redesign."
+      },
+      {
+        "id": "F3-unchanged-verdict-hides-an-advance",
+        "surfacedBy": "self",
+        "verifiedBy": "executed test",
+        "question": "What does the façade report for a text-preserving edit, and does the version agree?",
+        "procedure": "Replace the first character of \"hello\" with itself and read the commit result and the version.",
+        "result": "confirmed",
+        "observed": "The façade reports MarkdownCommitResult::Unchanged while the version advances.",
+        "bearingOn": "Sharpens the design's 'persistence triggers on history, not on text' from a requirement about text comparison into a concrete hazard about this façade's own verdict: a writer that saves when commit reports Applied would skip this operation. The façade's Unchanged classification is a source-level statement and is not a durability signal."
+      }
+    ]
+  },
+  "openQuestions": [
+    {
+      "id": "restore-merge-not-expressible",
+      "raisedBy": "independent review (Codex, GPT-5), 2026-08-03; confirmed by direct read",
+      "question": "How is the design's second acceptance check -- a merge performed after restore -- asserted through the façade?",
+      "observation": "The design names two honest checks, a canonical comparison of the history and a merge after restore; the prior evidence record repeats both as the consequence of the high-water-mark finding. This slice asserts only the first. A merge check needs an entry point that combines two divergent histories, and the façade has none: it gained a version reader, a history export, and a restore into a fresh editor, and restore is the only consumer of a history value.",
+      "sites": [
+        "docs/design/local-first-document-ownership.md:112-118",
+        "docs/evidence/2026-08-03-local-first-document-ownership-claims.json (version-is-high-water-mark, consequence)",
+        "editor/markdown/markdown_editor_wbtest.mbt:157-183 (round-trip test ends at history equality)"
+      ],
+      "bearingOn": "Canonical-history equality shows the restored document has the same past. Only a merge shows it can share a future, which is the loss the design exists to prevent.",
+      "status": "resolved 2026-08-03. The surface was reshaped so that admission is the general operation and opening is its empty-receiver case; the merge check is F8. The finding stands as the reason the reshape happened."
+    },
+    {
+      "id": "restore-inherits-receiver-policy",
+      "raisedBy": "implementing the façade's admission path",
+      "question": "What policy does admission state, given that the only available path applies the receiver's sync limits?",
+      "observation": "Admission goes through SyncEditor::apply_sync -> SyncSession::apply, which calls prepare_sync with the document's sync_limits and raises LimitExceeded on encoded bytes and decoded operation count. Those limits are fixed per TextState at construction (TextState::new_with_sync_limits) and cannot be varied per call, so opening an archive and admitting remote traffic cannot state different policies. The completeness half of the policy is now stated at the call -- opening refuses withheld operations, admission reports them -- but the resource half is not.",
+      "sites": [
+        "event-graph-walker/text/sync.mbt:1213-1224 (SyncSession::apply passes self.doc.sync_limits)",
+        "event-graph-walker/text/sync.mbt:1099-1116 (prepare_sync limit checks)",
+        "editor/sync_editor.mbt:457-465 (apply_sync delegates to sync().apply)"
+      ],
+      "bearingOn": "The design's 'Scale limits are a choice restore must make deliberately' states that restore must not inherit a policy written for a different threat, and its Verification section expects the restore ceiling to become a parameter with no default. Neither is expressible without a change under event-graph-walker, and no measurement exists to choose a ceiling from. Recorded rather than resolved: no default was chosen in this slice.",
+      "status": "open"
+    },
+    {
+      "id": "archive-failure-taxonomy-placement",
+      "raisedBy": "implementing the façade's archive operations",
+      "question": "Where do archive failures belong relative to editing failures?",
+      "observation": "Adding archive failures to MarkdownEditorError breaks loomark/internal/rabbita/application.mbt:226, which matches that suberror exhaustively and without a wildcard in order to keep failures categorized. This slice instead introduced a separate MarkdownArchiveError, so the editing taxonomy and its one consumer are untouched.",
+      "bearingOn": "Consistent with the design's separation of the archive from the editing session, but the consumer-facing categorization of a restore failure -- in particular the design's requirement that a reader distinguish 'written by a newer release' from 'damaged' -- is not decided here and belongs with the envelope.",
+      "status": "open"
+    }
+  ]
+}

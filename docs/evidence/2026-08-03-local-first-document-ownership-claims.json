@@ -180,7 +180,7 @@
     },
     {
       "claim": "The archive shape is implementable through the Markdown facade as stated.",
-      "status": "partially demonstrated. The round-trip is confirmed at the editor layer (E1/E2). It is not confirmed through the facade, which today exposes neither version nor history transport.",
+      "status": "confirmed 2026-08-03 by docs/evidence/2026-08-03-markdown-facade-history-transport.json (F1), which surfaced version and history transport on the facade and repeated E1 through it. Was: partially demonstrated at the editor layer only.",
       "wouldRequire": "surfacing version and history transport on the facade, then repeating E1 through it"
     },
     {

@@ -975,6 +975,222 @@ test "empty replica identity is a categorized construction failure" {
 }
 
 ///|
+/// Repeats the probe's checkpoint round-trip through the façade.
+///
+/// workspace/probe pinned this at the editor layer because the façade exposed
+/// neither version nor history transport. It now does, so the same claim is
+/// asserted where the application actually stands.
+test "facade history round-trips into a reopened document" {
+  let original = try! MarkdownEditor(
+    agent_id="owner-1",
+    source="# Title\n\nbody text\n",
+  )
+  let edited = original.commit(
+    MarkdownEditRequest::ReplaceText(start=8, delete_len=0, inserted="!"),
+  )
+  assert_true(edited is Ok(MarkdownCommitResult::Applied(_)))
+  let want_source = original.snapshot().source()
+  let want_version = original.version()
+  let history = try! original.history_since()
+
+  let reopened = try! MarkdownEditor::open(agent_id="owner-2", history~)
+
+  assert_eq(reopened.snapshot().source(), want_source)
+  assert_true(reopened.version() == want_version)
+  // Same past. Source and version are asserted above as consequences, and
+  // would not on their own distinguish a continuation from a document that
+  // merely looks alike -- see the next test. Sharing a future is a separate
+  // claim, asserted by the convergence test below.
+  let reopened_history = try! reopened.history_since()
+  assert_true(reopened_history == history)
+}
+
+///|
+/// A reopened document still shares a future with the one it came from.
+///
+/// This is the half of the design's oracle that equality cannot reach. Equal
+/// history shows the two agree about the past; only an exchange of subsequent
+/// operations shows the reopened document is a replica rather than a copy that
+/// happens to match.
+test "reopened and original converge after divergent edits" {
+  let a = try! MarkdownEditor(agent_id="peer-a", source="hello world")
+  let seed = try! a.history_since()
+  let b = try! MarkdownEditor::open(agent_id="peer-b", history=seed)
+
+  assert_true(
+    a.commit(
+      MarkdownEditRequest::ReplaceText(start=0, delete_len=0, inserted="A"),
+    )
+    is Ok(_),
+  )
+  assert_true(
+    b.commit(
+      MarkdownEditRequest::ReplaceText(start=11, delete_len=0, inserted="B"),
+    )
+    is Ok(_),
+  )
+  assert_false(a.snapshot().source() == b.snapshot().source())
+
+  let from_b = try! b.history_since()
+  let from_a = try! a.history_since()
+  // Each side is handed the other's whole history, most of which it already
+  // holds. Operations already present are neither applied again nor withheld.
+  assert_eq(try! a.admit(from_b), MarkdownAdmitReport::Complete)
+  assert_eq(try! b.admit(from_a), MarkdownAdmitReport::Complete)
+
+  assert_eq(a.snapshot().source(), b.snapshot().source())
+  let history_a = try! a.history_since()
+  let history_b = try! b.history_since()
+  assert_true(history_a == history_b)
+}
+
+///|
+/// Opening blames the writer it could not create, not the history.
+///
+/// The two failures are reported at the same moment and read alike from the
+/// outside, so the categories are easy to collapse -- and this one did, until
+/// the mapping was corrected. An admission failure means a history was taken
+/// in and the taking failed; here nothing was ever attempted.
+test "open categorizes a bad writer identity as such" {
+  let document = try! MarkdownEditor(agent_id="identity-source", source="# T\n")
+  let history = try! document.history_since()
+
+  let refused : Result[MarkdownEditor, MarkdownArchiveError] = Ok(
+    MarkdownEditor::open(agent_id="", history~),
+  ) catch {
+    error => Err(error)
+  }
+
+  match refused {
+    Err(MarkdownArchiveError::InvalidAgentId) => ()
+    Err(MarkdownArchiveError::AdmitFailed(detail~)) =>
+      fail("blamed admission for a writer that was never created: \{detail}")
+    _ => fail("expected InvalidAgentId")
+  }
+}
+
+///|
+/// Taking back a history the document already holds changes nothing.
+///
+/// The convergence test above traverses this path -- each side is sent the
+/// other's whole history -- without ever pinning it, so a document that
+/// re-applied operations it already had would have converged anyway and gone
+/// unnoticed. Admission is idempotent, and that is asserted here rather than
+/// relied on there.
+test "re-admitting a held history advances nothing" {
+  let document = try! MarkdownEditor(agent_id="idempotent", source="# Title\n")
+  assert_true(
+    document.commit(
+      MarkdownEditRequest::ReplaceText(start=8, delete_len=0, inserted="body\n"),
+    )
+    is Ok(_),
+  )
+  let before_source = document.snapshot().source()
+  let before_version = document.version()
+  let held = try! document.history_since()
+
+  assert_eq(try! document.admit(held), MarkdownAdmitReport::Complete)
+
+  assert_eq(document.snapshot().source(), before_source)
+  assert_true(document.version() == before_version)
+  let after = try! document.history_since()
+  assert_true(after == held)
+}
+
+///|
+/// A history missing its prerequisites is a state, not a failure -- and an
+/// archive claiming to be whole is contradicted by it.
+///
+/// The same increment produces both outcomes. Admission reports what it could
+/// not place; opening refuses it. Nothing separates the two but the judgment
+/// each makes about the same report.
+test "withheld operations are reported by admit and refused by open" {
+  let source = try! MarkdownEditor(agent_id="gap-source", source="x")
+  let cut = source.version()
+  assert_true(
+    source.commit(
+      MarkdownEditRequest::ReplaceText(start=1, delete_len=0, inserted="y"),
+    )
+    is Ok(_),
+  )
+  // Everything after the cut, whose parents the receiver never saw.
+  let gapped = try! source.history_since(version=cut)
+
+  let receiver = try! MarkdownEditor(agent_id="gap-receiver", source="")
+  // Exact counts, not merely the distinction: the increment carries one
+  // operation, whose parent is absent, so nothing lands and one is held.
+  assert_eq(
+    try! receiver.admit(gapped),
+    MarkdownAdmitReport::Withheld(applied=0, withheld=1),
+  )
+
+  let refused : Result[MarkdownEditor, MarkdownArchiveError] = Ok(
+    MarkdownEditor::open(agent_id="gap-open", history=gapped),
+  ) catch {
+    error => Err(error)
+  }
+  match refused {
+    Err(MarkdownArchiveError::IncompleteArchive) => ()
+    _ => fail("expected IncompleteArchive")
+  }
+}
+
+///|
+/// Equal source and equal version do not make one document a continuation.
+///
+/// Two façade editors sharing a writer identity reach the same source and the
+/// same frontier while holding different histories. This is why restore is
+/// checked by comparing history, and it fails first if that ever stops being
+/// true.
+test "equal source and version do not imply equal history" {
+  let one = try! MarkdownEditor(agent_id="same-identity", source="")
+  let two = try! MarkdownEditor(agent_id="same-identity", source="")
+  for writer in [(one, "A"), (two, "B")] {
+    let (editor, inserted) = writer
+    assert_true(
+      editor.commit(
+        MarkdownEditRequest::ReplaceText(start=0, delete_len=0, inserted~),
+      )
+      is Ok(_),
+    )
+    assert_true(
+      editor.commit(
+        MarkdownEditRequest::ReplaceText(start=0, delete_len=1, inserted=""),
+      )
+      is Ok(_),
+    )
+  }
+
+  assert_eq(one.snapshot().source(), two.snapshot().source())
+  assert_true(one.version() == two.version())
+  let history_one = try! one.history_since()
+  let history_two = try! two.history_since()
+  assert_false(history_one == history_two)
+}
+
+///|
+/// A commit reported as Unchanged still advanced the document.
+///
+/// The façade classifies a commit by comparing source, so it says Unchanged
+/// here. The version says otherwise, and the version is what persistence must
+/// trigger on: saving on the façade's own verdict would skip this.
+test "text-preserving commit reports Unchanged while the version advances" {
+  let editor = try! MarkdownEditor(agent_id="advance", source="hello")
+  let before_version = editor.version()
+
+  let result = editor.commit(
+    MarkdownEditRequest::ReplaceText(start=0, delete_len=1, inserted="h"),
+  )
+
+  match result {
+    Ok(MarkdownCommitResult::Unchanged(snapshot)) =>
+      assert_eq(snapshot.source(), "hello")
+    _ => fail("expected Unchanged")
+  }
+  assert_false(editor.version() == before_version)
+}
+
+///|
 test "reference definition insertion preserves facade block identities" {
   let prefix = "[ref]: /target\n\n"
   let source = "# Heading\n\nBody [link][ref].\n"

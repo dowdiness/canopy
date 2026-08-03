@@ -107,6 +107,7 @@ pub struct Editor {
   doc : @text.TextState
   mut cursor : Int
 } derive(@debug.Debug)
+pub fn Editor::admit(Self, @text.SyncMessage) -> @text.SyncReport raise @text.TextError
 pub fn Editor::apply_sync(Self, @text.SyncMessage) -> Unit raise
 pub fn Editor::backspace(Self) -> Bool
 pub fn Editor::delete(Self) -> Bool
@@ -130,6 +131,7 @@ pub fn[T] LanguageCapabilities::with_to_view_node(Self[T], (@dowdiness/canopy/co
 pub struct SyncEditor[T] {
   // private fields
 }
+pub fn[T : Eq] SyncEditor::admit(Self[T], @text.SyncMessage) -> @text.SyncReport raise @text.TextError
 pub fn[T] SyncEditor::apply_ephemeral(Self[T], Bytes) -> Unit
 pub fn[T : Eq] SyncEditor::apply_span_edits(Self[T], Array[@dowdiness/canopy/core.SpanEdit], @dowdiness/canopy/core.FocusHint, Int, hint? : @dowdiness/canopy/core.IdentityTransform) -> Unit
 pub fn[T : Eq] SyncEditor::apply_sync(Self[T], @text.SyncMessage) -> Unit raise
