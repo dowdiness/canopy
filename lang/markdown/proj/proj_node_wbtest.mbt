@@ -336,6 +336,111 @@ test "source map: ATX heading separates marker and text" {
 }
 
 ///|
+test "source map: top-level list items separate marker and payload" {
+  let source = "- one\n\n7) two\n"
+  let (proj, errors) = parse_to_proj_node(
+    markdown_projection_test_source, source,
+  )
+  inspect(errors.length(), content="0")
+  let source_map = @core.SourceMap::from_ast(proj)
+  let (cst, diagnostics) = @markdown.parse_cst(
+    markdown_projection_test_source, source,
+  )
+  inspect(diagnostics.length(), content="0")
+  populate_token_spans(source_map, @seam.SyntaxNode::from_cst(cst), proj)
+  let unordered = proj.children[0].children[0]
+  let ordered = proj.children[1].children[0]
+  match source_map.get_token_span(unordered.id(), "marker") {
+    Some(span) => assert_eq(source[span.start:span.end].to_owned(), "- ")
+    None => fail("expected unordered marker span")
+  }
+  match source_map.get_token_span(unordered.id(), "text") {
+    Some(span) => assert_eq(source[span.start:span.end].to_owned(), "one")
+    None => fail("expected unordered text span")
+  }
+  match source_map.get_token_span(ordered.id(), "marker") {
+    Some(span) => assert_eq(source[span.start:span.end].to_owned(), "7) ")
+    None => fail("expected ordered marker span")
+  }
+  match source_map.get_token_span(ordered.id(), "text") {
+    Some(span) => assert_eq(source[span.start:span.end].to_owned(), "two")
+    None => fail("expected ordered text span")
+  }
+}
+
+///|
+test "source map: fenced code spans preserve all line terminators" {
+  let cases : Array[(String, (Int, Int), (Int, Int), (Int, Int))] = [
+    ("```js\nline\n```\n", (6, 10), (11, 15), (0, 5)),
+    ("```js\r\nline\r\n```\r\n", (7, 11), (13, 18), (0, 5)),
+    ("```js\rline\r```\r", (6, 10), (11, 15), (0, 5)),
+    ("```js\nline\n```", (6, 10), (11, 14), (0, 5)),
+  ]
+  for case in cases {
+    let source = case.0
+    let (proj, errors) = parse_to_proj_node(
+      markdown_projection_test_source, source,
+    )
+    inspect(errors.length(), content="0")
+    let source_map = @core.SourceMap::from_ast(proj)
+    let (cst, diagnostics) = @markdown.parse_cst(
+      markdown_projection_test_source, source,
+    )
+    inspect(diagnostics.length(), content="0")
+    populate_token_spans(source_map, @seam.SyntaxNode::from_cst(cst), proj)
+    let code = proj.children[0]
+    match source_map.get_token_span(code.id(), "code") {
+      Some(span) => assert_eq((span.start, span.end), case.1)
+      None => fail("expected fenced code span")
+    }
+    match source_map.get_token_span(code.id(), "fence_close") {
+      Some(span) => assert_eq((span.start, span.end), case.2)
+      None => fail("expected closing fence span")
+    }
+    match source_map.get_token_span(code.id(), "fence_open") {
+      Some(span) => assert_eq((span.start, span.end), case.3)
+      None => fail("expected opening fence span")
+    }
+  }
+}
+
+///|
+test "source map: empty fenced code spans retain zero-length payloads" {
+  let cases : Array[(String, (Int, Int), (Int, Int), (Int, Int))] = [
+    ("```\n```\n", (4, 4), (4, 8), (0, 3)),
+    ("~~~\r\n~~~\r\n", (5, 5), (5, 10), (0, 3)),
+    ("```\r```\r", (4, 4), (4, 8), (0, 3)),
+    ("~~~\n~~~", (4, 4), (4, 7), (0, 3)),
+  ]
+  for case in cases {
+    let source = case.0
+    let (proj, errors) = parse_to_proj_node(
+      markdown_projection_test_source, source,
+    )
+    inspect(errors.length(), content="0")
+    let source_map = @core.SourceMap::from_ast(proj)
+    let (cst, diagnostics) = @markdown.parse_cst(
+      markdown_projection_test_source, source,
+    )
+    inspect(diagnostics.length(), content="0")
+    populate_token_spans(source_map, @seam.SyntaxNode::from_cst(cst), proj)
+    let code = proj.children[0]
+    match source_map.get_token_span(code.id(), "code") {
+      Some(span) => assert_eq((span.start, span.end), case.1)
+      None => fail("expected zero-length fenced code span")
+    }
+    match source_map.get_token_span(code.id(), "fence_close") {
+      Some(span) => assert_eq((span.start, span.end), case.2)
+      None => fail("expected closing fence span")
+    }
+    match source_map.get_token_span(code.id(), "fence_open") {
+      Some(span) => assert_eq((span.start, span.end), case.3)
+      None => fail("expected opening fence span")
+    }
+  }
+}
+
+///|
 test "source map: aligned block quote and heading keep matching ranges" {
   let source = "> quote\n\n# Heading\n"
   let (proj, errors) = parse_to_proj_node(

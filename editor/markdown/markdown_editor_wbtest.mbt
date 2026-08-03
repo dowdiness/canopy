@@ -1,5 +1,131 @@
 ///| The first public headless Markdown façade seam.
 
+/// #1075 behavioral boundary matrix
+/// Syntax: tight top-level unordered and ordered (`.`/`)`, non-1) list items,
+/// fenced backtick/tilde code; terminators: LF/CRLF/CR/EOF; operations:
+/// full/incremental projection and typed payload commits; modes: Raw/Block/
+/// Preview; ownership: direct top-level supported nodes only, with nested,
+/// loose, indented-code, and unsupported containers rejected atomically.
+/// Every accepted snapshot carries stable identity plus exact source, payload,
+/// marker, and fence spans; focus/selection success or rejection and fresh /
+/// incremental parity are checked here or at the private disposable seam.
+
+///|
+test "1075 RED: mixed list and fenced-code snapshots expose typed ranges" {
+  let source = "- one\r\n\r\n7) two\r\n~~~moonbit\r\nold\r\n~~~\r\n"
+  let editor = try! MarkdownEditor(agent_id="1075-red", source~)
+  let blocks = editor.snapshot().blocks().to_array()
+
+  assert_eq(blocks.length(), 3)
+  match blocks[0].kind() {
+    MarkdownBlockKind::UnorderedListItem => ()
+    _ => fail("expected an unordered list item snapshot")
+  }
+  match blocks[1].kind() {
+    MarkdownBlockKind::OrderedListItem(start~, delimiter~) => {
+      assert_eq(start, 7)
+      assert_eq(delimiter, ")")
+    }
+    _ => fail("expected a non-1 ordered list item snapshot")
+  }
+  match blocks[2].kind() {
+    MarkdownBlockKind::CodeBlock(info~) => assert_eq(info, "moonbit")
+    _ => fail("expected a fenced-code snapshot")
+  }
+  assert_eq(blocks[0].text(), "one")
+  assert_eq(blocks[1].text(), "two")
+  assert_eq(blocks[2].text(), "old")
+  assert_eq(blocks[0].marker_range(), Some((0, 2)))
+  assert_eq(blocks[1].marker_range(), Some((9, 12)))
+  assert_eq(blocks[2].fence_open_range(), Some((17, 27)))
+  assert_eq(blocks[2].text_range(), (29, 32))
+  assert_eq(blocks[2].fence_close_range(), Some((34, 39)))
+
+  let unordered = blocks[0].node_id()
+  let ordered = blocks[1].node_id()
+  let code = blocks[2].node_id()
+  match
+    editor.commit(
+      MarkdownEditRequest::CommitEdit(node_id=unordered, new_text="ONE"),
+    ) {
+    Ok(MarkdownCommitResult::Applied(snapshot, _)) =>
+      assert_eq(
+        snapshot.source(),
+        "- ONE\r\n\r\n7) two\r\n~~~moonbit\r\nold\r\n~~~\r\n",
+      )
+    _ => fail("expected unordered payload commit")
+  }
+  match
+    editor.commit(
+      MarkdownEditRequest::CommitEdit(node_id=ordered, new_text="TWO"),
+    ) {
+    Ok(MarkdownCommitResult::Applied(snapshot, _)) =>
+      assert_eq(
+        snapshot.source(),
+        "- ONE\r\n\r\n7) TWO\r\n~~~moonbit\r\nold\r\n~~~\r\n",
+      )
+    _ => fail("expected ordered payload commit")
+  }
+  match
+    editor.commit(MarkdownEditRequest::CommitEdit(node_id=code, new_text="new")) {
+    Ok(MarkdownCommitResult::Applied(snapshot, _)) =>
+      assert_eq(
+        snapshot.source(),
+        "- ONE\r\n\r\n7) TWO\r\n~~~moonbit\r\nnew\r\n~~~\r\n",
+      )
+    _ => fail("expected fenced-code payload commit")
+  }
+}
+
+///|
+test "mixed list and fenced-code projection keeps identity and fresh parity" {
+  let source = "- one\r\n\r\n7) two\r\n~~~moonbit\r\nold\r\n~~~\r\n"
+  let editor = try! MarkdownEditor(agent_id="1075-identity", source~)
+  let before = editor.snapshot().blocks().to_array()
+  let unordered = before[0].node_id()
+  let ordered = before[1].node_id()
+  let code = before[2].node_id()
+
+  match
+    editor.commit(
+      MarkdownEditRequest::CommitEdit(node_id=unordered, new_text="ONE"),
+    ) {
+    Ok(MarkdownCommitResult::Applied(snapshot, _)) => {
+      let after = snapshot.blocks().to_array()
+      assert_eq(after.length(), 3)
+      assert_eq(after[1].node_id(), ordered)
+      assert_eq(after[2].node_id(), code)
+    }
+    _ => fail("expected list payload edit")
+  }
+
+  match
+    editor.commit(MarkdownEditRequest::CommitEdit(node_id=code, new_text="new")) {
+    Ok(MarkdownCommitResult::Applied(snapshot, _)) => {
+      let fresh = try! MarkdownEditor(
+        agent_id="1075-identity-fresh",
+        source=snapshot.source(),
+      )
+      let actual = snapshot.blocks().to_array()
+      let expected = fresh.snapshot().blocks().to_array()
+      assert_eq(actual.length(), expected.length())
+      for i in 0..<actual.length() {
+        assert_eq(actual[i].kind(), expected[i].kind())
+        assert_eq(actual[i].text(), expected[i].text())
+        assert_eq(actual[i].source_range(), expected[i].source_range())
+        assert_eq(actual[i].text_range(), expected[i].text_range())
+        assert_eq(actual[i].marker_range(), expected[i].marker_range())
+        assert_eq(actual[i].fence_open_range(), expected[i].fence_open_range())
+        assert_eq(
+          actual[i].fence_close_range(),
+          expected[i].fence_close_range(),
+        )
+      }
+    }
+    _ => fail("expected fenced-code payload edit")
+  }
+}
+
 ///|
 test "headless facade commits exact source and exposes snapshot" {
   let editor = try! MarkdownEditor(agent_id="red", source="before")
@@ -248,6 +374,124 @@ test "snapshot omits unsupported container payloads" {
     MarkdownBlockKind::Heading(level~) => assert_eq(level, 1)
     _ => fail("expected direct heading block")
   }
+}
+
+///|
+test "snapshot rejects nested and loose lists and indented code" {
+  let nested = try! MarkdownEditor(
+    agent_id="nested-list-unsupported",
+    source="- parent\n  - child\n\n# Direct\n",
+  )
+  let nested_blocks = nested.snapshot().blocks().to_array()
+  assert_eq(nested_blocks.length(), 1)
+  assert_eq(nested_blocks[0].text(), "Direct")
+
+  let loose = try! MarkdownEditor(
+    agent_id="loose-list-unsupported",
+    source="- one\n\n- two\n\n# Direct\n",
+  )
+  let loose_blocks = loose.snapshot().blocks().to_array()
+  assert_eq(loose_blocks.length(), 1)
+  assert_eq(loose_blocks[0].text(), "Direct")
+
+  let indented = try! MarkdownEditor(
+    agent_id="indented-code-unsupported",
+    source="    code\n\n# Direct\n",
+  )
+  let indented_blocks = indented.snapshot().blocks().to_array()
+  assert_eq(indented_blocks.length(), 1)
+  assert_eq(indented_blocks[0].text(), "Direct")
+}
+
+///|
+test "empty fenced code exposes a zero-length payload and preserves delimiters" {
+  let source = "~~~\r\n~~~\r\n"
+  let editor = try! MarkdownEditor(agent_id="empty-fenced-code", source~)
+  let blocks = editor.snapshot().blocks().to_array()
+  assert_eq(blocks.length(), 1)
+  match blocks[0].kind() {
+    MarkdownBlockKind::CodeBlock(info~) => assert_eq(info, "")
+    _ => fail("expected an empty fenced-code snapshot")
+  }
+  assert_eq(blocks[0].text(), "")
+  assert_eq(blocks[0].text_range(), (5, 5))
+  assert_eq(blocks[0].fence_open_range(), Some((0, 3)))
+  assert_eq(blocks[0].fence_close_range(), Some((5, 10)))
+
+  match
+    editor.commit(
+      MarkdownEditRequest::CommitEdit(
+        node_id=blocks[0].node_id(),
+        new_text="filled",
+      ),
+    ) {
+    Ok(MarkdownCommitResult::Applied(snapshot, _)) =>
+      assert_eq(snapshot.source(), "~~~\r\nfilled\r\n~~~\r\n")
+    _ => fail("expected empty fenced-code payload commit")
+  }
+}
+
+///|
+test "empty fenced code preserves terminal payload newlines and boundaries" {
+  let cases : Array[(String, String, String)] = [
+    ("~~~\n~~~\n", "x\n", "~~~\nx\n\n~~~\n"),
+    ("~~~\r\n~~~\r\n", "x\r\n", "~~~\r\nx\r\n\r\n~~~\r\n"),
+    ("~~~\r~~~\r", "x\r", "~~~\rx\r\r~~~\r"),
+  ]
+  for case in cases {
+    let editor = try! MarkdownEditor(
+      agent_id="empty-fenced-terminal-newline",
+      source=case.0,
+    )
+    let block = editor.snapshot().blocks().to_array()[0]
+    match
+      editor.commit(
+        MarkdownEditRequest::CommitEdit(
+          node_id=block.node_id(),
+          new_text=case.1,
+        ),
+      ) {
+      Ok(MarkdownCommitResult::Applied(snapshot, _)) => {
+        assert_eq(snapshot.source(), case.2)
+        assert_eq(snapshot.blocks().to_array()[0].text(), case.1)
+      }
+      _ => fail("expected terminal-newline fenced payload commit")
+    }
+  }
+}
+
+///|
+test "headless facade rejects CommitEdit for nested list items atomically" {
+  let source = "- parent\n  - child\n\n# Direct\n"
+  let editor = try! MarkdownEditor(agent_id="nested-list-commit-edit", source~)
+  let nested_id = editor.snapshot().projection().node_ids().get(2).unwrap()
+  let before = editor.snapshot()
+
+  match
+    editor.commit(
+      MarkdownEditRequest::CommitEdit(node_id=nested_id, new_text="changed"),
+    ) {
+    Err(MarkdownEditorError::EditFailed(_)) => ()
+    _ => fail("expected nested list CommitEdit to fail")
+  }
+  assert_true(editor.snapshot() == before)
+}
+
+///|
+test "headless facade rejects CommitEdit for loose list items atomically" {
+  let source = "- one\n\n- two\n\n# Direct\n"
+  let editor = try! MarkdownEditor(agent_id="loose-list-commit-edit", source~)
+  let loose_id = editor.snapshot().projection().node_ids().get(2).unwrap()
+  let before = editor.snapshot()
+
+  match
+    editor.commit(
+      MarkdownEditRequest::CommitEdit(node_id=loose_id, new_text="changed"),
+    ) {
+    Err(MarkdownEditorError::EditFailed(_)) => ()
+    _ => fail("expected loose list CommitEdit to fail")
+  }
+  assert_true(editor.snapshot() == before)
 }
 
 ///|

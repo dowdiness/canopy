@@ -13,6 +13,9 @@ pub(all) suberror MarkdownEditorError {
 pub(all) enum MarkdownBlockKind {
   Paragraph
   Heading(level~ : Int)
+  UnorderedListItem
+  OrderedListItem(start~ : Int, delimiter~ : String)
+  CodeBlock(info~ : String)
 } derive(Eq, Debug)
 
 ///|
@@ -27,6 +30,10 @@ pub struct MarkdownBlockSnapshot {
   priv text_end : Int
   priv marker_start : Int?
   priv marker_end : Int?
+  priv fence_open_start : Int?
+  priv fence_open_end : Int?
+  priv fence_close_start : Int?
+  priv fence_close_end : Int?
 } derive(Eq, Debug)
 
 ///|
@@ -72,6 +79,24 @@ pub fn MarkdownBlockSnapshot::text_range(self : Self) -> (Int, Int) {
 ///|
 pub fn MarkdownBlockSnapshot::marker_range(self : Self) -> (Int, Int)? {
   match (self.marker_start, self.marker_end) {
+    (Some(start), Some(end)) => Some((start, end))
+    _ => None
+  }
+}
+
+///|
+/// Exact opening-fence span for a fenced code block, including its info string.
+pub fn MarkdownBlockSnapshot::fence_open_range(self : Self) -> (Int, Int)? {
+  match (self.fence_open_start, self.fence_open_end) {
+    (Some(start), Some(end)) => Some((start, end))
+    _ => None
+  }
+}
+
+///|
+/// Exact closing-fence span for a fenced code block.
+pub fn MarkdownBlockSnapshot::fence_close_range(self : Self) -> (Int, Int)? {
+  match (self.fence_close_start, self.fence_close_end) {
     (Some(start), Some(end)) => Some((start, end))
     _ => None
   }
@@ -245,9 +270,21 @@ pub fn MarkdownEditor::commit(
       }
     }
     CommitEdit(node_id~, new_text~) =>
-      self.commit_structural(
-        @md_edits.MarkdownEditOp::CommitEdit(node_id=node_id.value, new_text~),
-      )
+      match self.editable_block_text(node_id) {
+        Some(_) =>
+          self.commit_structural(
+            @md_edits.MarkdownEditOp::CommitEdit(
+              node_id=node_id.value,
+              new_text~,
+            ),
+          )
+        None =>
+          Err(
+            MarkdownEditorError::EditFailed(
+              detail="no editable span for Markdown block target",
+            ),
+          )
+      }
     CommitTextControlEdit(node_id~, new_text~) =>
       match self.editable_block_text(node_id) {
         Some(canonical_text) => {
@@ -353,7 +390,15 @@ fn MarkdownEditor::editable_block_target(
   self : Self,
   node_id : MarkdownNodeId,
 ) -> Bool {
-  self.editable_block_text(node_id) is Some(_)
+  for block in self.snapshot().blocks().to_array() {
+    if block.node_id() == node_id {
+      return match block.kind() {
+        MarkdownBlockKind::Paragraph | MarkdownBlockKind::Heading(_) => true
+        _ => false
+      }
+    }
+  }
+  false
 }
 
 ///|
@@ -480,49 +525,166 @@ fn editable_block_snapshots(
       let source_map = editor.get_source_map()
       let blocks : Array[MarkdownBlockSnapshot] = []
       for node in root.children {
-        let kind = match node.kind {
-          @md_markdown.Paragraph(_) => Some(MarkdownBlockKind::Paragraph)
+        match node.kind {
+          @md_markdown.UnorderedList(_) | @md_markdown.OrderedList(_, _) =>
+            if tight_top_level_list(source, node, source_map) {
+              for item in node.children {
+                match item.kind {
+                  @md_markdown.UnorderedListItem(_) =>
+                    append_editable_block_snapshot(
+                      blocks,
+                      item,
+                      MarkdownBlockKind::UnorderedListItem,
+                      source,
+                      source_map,
+                    )
+                  @md_markdown.OrderedListItem(_, marker) => {
+                    guard marker is Some(_) else { continue }
+                    let marker = match marker {
+                      Some(marker) => marker
+                      None => continue
+                    }
+                    append_editable_block_snapshot(
+                      blocks,
+                      item,
+                      MarkdownBlockKind::OrderedListItem(
+                        start=marker.start(),
+                        delimiter=ordered_marker_delimiter(marker),
+                      ),
+                      source,
+                      source_map,
+                    )
+                  }
+                  _ => ()
+                }
+              }
+            }
+          @md_markdown.Paragraph(_) =>
+            append_editable_block_snapshot(
+              blocks,
+              node,
+              MarkdownBlockKind::Paragraph,
+              source,
+              source_map,
+            )
           @md_markdown.Heading(level, _) =>
-            Some(MarkdownBlockKind::Heading(level~))
-          _ => None
-        }
-        match kind {
-          None => ()
-          Some(kind) => {
-            guard source_map.get_range(node.id()) is Some(source_range) else {
-              continue
-            }
-            guard source_map.get_token_span(node.id(), "text")
-              is Some(text_span) else {
-              continue
-            }
-            let text_range = (text_span.start, text_span.end)
-            let marker_range = match
-              source_map.get_token_span(node.id(), "marker") {
-              Some(range) => Some((range.start, range.end))
-              None => None
-            }
-            blocks.push({
-              node_id: { value: node.id() },
-              kind,
-              text: source[text_range.0:text_range.1].to_owned(),
-              source_start: source_range.start,
-              source_end: source_range.end,
-              text_start: text_range.0,
-              text_end: text_range.1,
-              marker_start: match marker_range {
-                Some(range) => Some(range.0)
-                None => None
-              },
-              marker_end: match marker_range {
-                Some(range) => Some(range.1)
-                None => None
-              },
-            })
-          }
+            append_editable_block_snapshot(
+              blocks,
+              node,
+              MarkdownBlockKind::Heading(level~),
+              source,
+              source_map,
+            )
+          @md_markdown.CodeBlock(info, _) =>
+            append_editable_block_snapshot(
+              blocks,
+              node,
+              MarkdownBlockKind::CodeBlock(info~),
+              source,
+              source_map,
+            )
+          _ => ()
         }
       }
       @vector.Vector(blocks[:])
     }
+  }
+}
+
+///|
+/// Append one block whose SourceMap roles satisfy the typed façade contract.
+fn append_editable_block_snapshot(
+  blocks : Array[MarkdownBlockSnapshot],
+  node : @core.ProjNode[@md_markdown.Block],
+  kind : MarkdownBlockKind,
+  source : String,
+  source_map : @core.SourceMap,
+) -> Unit {
+  guard source_map.get_range(node.id()) is Some(source_range) else { return }
+  let text_span = match source_map.get_token_span(node.id(), "text") {
+    Some(span) => span
+    None =>
+      match source_map.get_token_span(node.id(), "code") {
+        Some(span) => span
+        None => return
+      }
+  }
+  let marker_range = source_map.get_token_span(node.id(), "marker")
+  let fence_open_range = source_map.get_token_span(node.id(), "fence_open")
+  let fence_close_range = source_map.get_token_span(node.id(), "fence_close")
+  if kind is MarkdownBlockKind::CodeBlock(_) &&
+    (fence_open_range is None || fence_close_range is None) {
+    return
+  }
+  blocks.push({
+    node_id: { value: node.id() },
+    kind,
+    text: source[text_span.start:text_span.end].to_owned(),
+    source_start: source_range.start,
+    source_end: source_range.end,
+    text_start: text_span.start,
+    text_end: text_span.end,
+    marker_start: marker_range.map(r => r.start),
+    marker_end: marker_range.map(r => r.end),
+    fence_open_start: fence_open_range.map(r => r.start),
+    fence_open_end: fence_open_range.map(r => r.end),
+    fence_close_start: fence_close_range.map(r => r.start),
+    fence_close_end: fence_close_range.map(r => r.end),
+  })
+}
+
+///|
+/// A list is editable only when every direct item is a simple, tight item.
+fn tight_top_level_list(
+  source : String,
+  list : @core.ProjNode[@md_markdown.Block],
+  source_map : @core.SourceMap,
+) -> Bool {
+  for item in list.children {
+    if !(item.kind is @md_markdown.Block::UnorderedListItem(_) ||
+      item.kind is @md_markdown.Block::OrderedListItem(_, _)) {
+      return false
+    }
+    if item.children.length() != 0 ||
+      source_map.get_token_span(item.id(), "text") is None ||
+      source_map.get_token_span(item.id(), "marker") is None {
+      return false
+    }
+    let text_span = match source_map.get_token_span(item.id(), "text") {
+      Some(span) => span
+      None => return false
+    }
+    let payload = source[text_span.start:text_span.end]
+    if payload.contains("\n".view()) || payload.contains("\r".view()) {
+      return false
+    }
+  }
+  for i in 0..<(list.children.length() - 1) {
+    let current = list.children[i]
+    let next = list.children[i + 1]
+    let current_range = match source_map.get_range(current.id()) {
+      Some(range) => range
+      None => return false
+    }
+    let next_range = match source_map.get_range(next.id()) {
+      Some(range) => range
+      None => return false
+    }
+    let gap = source[current_range.end:next_range.start].to_owned()
+    let normalized = gap
+      .replace_all(old="\r\n", new="\n")
+      .replace_all(old="\r", new="\n")
+    if normalized.contains("\n\n".view()) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn ordered_marker_delimiter(marker : @md_markdown.OrderedListMarker) -> String {
+  match marker.delimiter() {
+    @md_markdown.Period => "."
+    @md_markdown.Paren => ")"
   }
 }

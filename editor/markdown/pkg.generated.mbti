@@ -21,6 +21,9 @@ pub(all) suberror MarkdownEditorError {
 pub(all) enum MarkdownBlockKind {
   Paragraph
   Heading(level~ : Int)
+  UnorderedListItem
+  OrderedListItem(start~ : Int, delimiter~ : String)
+  CodeBlock(info~ : String)
 } derive(Eq, @debug.Debug)
 
 pub struct MarkdownBlockSelection {
@@ -32,6 +35,8 @@ pub fn MarkdownBlockSelection::offset(Self) -> Int
 pub struct MarkdownBlockSnapshot {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn MarkdownBlockSnapshot::fence_close_range(Self) -> (Int, Int)?
+pub fn MarkdownBlockSnapshot::fence_open_range(Self) -> (Int, Int)?
 pub fn MarkdownBlockSnapshot::key(Self) -> String
 pub fn MarkdownBlockSnapshot::kind(Self) -> MarkdownBlockKind
 pub fn MarkdownBlockSnapshot::marker_range(Self) -> (Int, Int)?
