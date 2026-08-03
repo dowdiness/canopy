@@ -68,7 +68,7 @@ Proof packages are standalone modules with `"proof-enabled": true`. Run `moon pr
 ```bash
 moon bench --release                # Always use --release
 cd event-graph-walker && moon bench --release
-cd loom/examples/lambda && moon bench --release
+cd deps/loom/examples/lambda && moon bench --release
 ```
 
 ## Submodule Workflow
@@ -83,10 +83,10 @@ Use PRs for submodule changes; never push to a submodule's main without asking.
 
 <!-- textlint-disable slopless/word-repetition -->
 
-Rabbita is vendored at `./rabbita/` (fork of `moonbit-community/rabbita` with the
+Rabbita is vendored at `./deps/rabbita/` (fork of `moonbit-community/rabbita` with the
 `diff_subs` `update_tagger` patch — see
 `docs/plans/2026-05-18-codemirror-rabbita-binding-phase2.md` §P2.0). Its docs
-(`rabbita/doc/*`, `rabbita/rabbita/*/{README.mbt.md,design.md}`) are
+(`deps/rabbita/doc/*`, `deps/rabbita/rabbita/*/{README.mbt.md,design.md}`) are
 authoritative: when they disagree with a plan or pasted spec, the docs win.
 
 <!-- textlint-enable slopless/word-repetition -->

@@ -41,10 +41,10 @@ run_test() {
 run_test "modules/canopy" "Main Module (canopy)"
 
 # Test submodules
-run_test "event-graph-walker" "event-graph-walker"
-run_test "loom/loom" "loom"
-run_test "svg-dsl" "svg-dsl"
-run_test "graphviz" "graphviz"
+run_test "deps/event-graph-walker" "event-graph-walker"
+run_test "deps/loom/loom" "loom"
+run_test "deps/svg-dsl" "svg-dsl"
+run_test "deps/graphviz" "graphviz"
 
 # Summary
 echo "╔════════════════════════════════════════════════════════════╗"

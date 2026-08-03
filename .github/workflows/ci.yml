@@ -76,7 +76,7 @@ jobs:
               - 'modules/canopy/editor/markdown/**'
               - 'modules/dom-boundary/**'
               - 'modules/js-ffi/**'
-              - 'rabbita/**'
+              - 'deps/rabbita/**'
               - '.github/workflows/ci.yml'
               - 'scripts/test-loomark-dev-host-e2e.sh'
             run_prove:
@@ -178,16 +178,16 @@ jobs:
       matrix:
         include:
           - name: event-graph-walker
-            path: event-graph-walker
+            path: deps/event-graph-walker
             mode: ci-lenient
           - name: loom
-            path: loom/loom
+            path: deps/loom/loom
             mode: ci-lenient
           - name: svg-dsl
-            path: svg-dsl
+            path: deps/svg-dsl
             mode: ci-lenient
           - name: graphviz
-            path: graphviz
+            path: deps/graphviz
             mode: ci-lenient
     steps:
       - name: Checkout code
@@ -307,7 +307,7 @@ jobs:
           bash ./scripts/check-agent-doc-links.sh
           ./scripts/check-documentation-lifecycle.sh
           NEW_MOON_MOD=0 moon fmt
-          VENDORED='^(alga|event-graph-walker|graphviz|loom|order-tree|rabbita|rle|svg-dsl)(/.*)?$'
+          VENDORED='^(deps/(alga|event-graph-walker|graphviz|loom|order-tree|rabbita|svg-dsl)|rle)(/.*)?$'
           CHANGED=$(git diff --name-only)
           if [ -z "$CHANGED" ]; then
             echo "Format check passed (no changes)."

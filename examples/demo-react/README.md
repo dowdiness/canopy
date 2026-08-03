@@ -2,7 +2,7 @@
 
 A demonstration of integrating React with Canopy's MoonBit EditorProtocol FFI.
 
-Part of the [dowdiness/canopy](https://github.com/dowdiness/canopy) monorepo. Depends on the root MoonBit JS build and the [event-graph-walker](../../event-graph-walker/) submodule.
+Part of the [dowdiness/canopy](https://github.com/dowdiness/canopy) monorepo. Depends on the root MoonBit JS build and the [event-graph-walker](../../deps/event-graph-walker/) submodule.
 
 ## Features
 

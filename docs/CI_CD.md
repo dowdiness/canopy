@@ -25,10 +25,10 @@ The main gating workflow. Job names match the file:
 | `dep-check` | `./scripts/check-deps.sh` (module-scope rules [A]–[E] + canopy package-layering rules [F]–[I]; the rules table lives in the script header), `./scripts/check-shared-substrate.sh`, `./scripts/check-egw-resolver-identity.sh`, `./scripts/check-moon-update-wrapped.sh`, `node ./scripts/check-export-manifest.mjs`, `./scripts/test-moon-update-wrapper.sh`, `./scripts/test-pr-ready-validation.sh` |
 | `pr-ready-bash3` | Path-filtered macOS check that asserts `/bin/bash` 3.2, exercises local submodule failures, and runs the real PR-ready shell graph with only compiler work faked |
 | `test-main` | `./scripts/update-moon-deps.sh`, `./scripts/check-agent-doc-links.sh`, `./scripts/run-moon-module.sh check modules/canopy`, `./scripts/run-moon-module.sh test modules/canopy`, `moon build --release` |
-| `test-submodules` | Matrix over `event-graph-walker`, `loom/loom`, `svg-dsl`, `graphviz` — each runs `./scripts/run-moon-module.sh ci <path>` |
+| `test-submodules` | Matrix over `deps/event-graph-walker`, `deps/loom/loom`, `deps/svg-dsl`, `deps/graphviz` — each runs `./scripts/run-moon-module.sh ci <path>` |
 | `test-examples` | Matrix over `apps/ideal`, `apps/block-editor`, `apps/canvas` — each runs `./scripts/run-moon-module.sh ci <path>` |
 | `prove` | `moon prove` in `modules/semantic/proof` after installing Why3 1.7.2 + Z3 via opam (cached) |
-| `benchmark` | PR only: `moon bench --release` at the root and in `event-graph-walker` |
+| `benchmark` | PR only: `moon bench --release` at the root and in `deps/event-graph-walker` |
 | `format-check` | `./scripts/check-agent-doc-links.sh` and `./scripts/run-moon-module.sh fmt-check modules/canopy` |
 | `build-js` | `./scripts/update-moon-deps.sh`, `./scripts/build-js.sh`; uploads the generated JS/d.ts/mbti artifacts listed below |
 | `web-build` | Default Waku build plus TypeScript/boundary checks for `apps/web`, then the ProseMirror typecheck |
@@ -55,8 +55,8 @@ _build/js/release/build/dowdiness/canopy/ffi/json/moonbit.d.ts
 _build/js/release/build/dowdiness/canopy/ffi/markdown/markdown.js
 _build/js/release/build/dowdiness/canopy/ffi/markdown/markdown.d.ts
 _build/js/release/build/dowdiness/canopy/ffi/markdown/moonbit.d.ts
-graphviz/_build/js/release/build/browser/browser.js
-graphviz/_build/js/release/build/browser/browser.d.ts
+deps/graphviz/_build/js/release/build/browser/browser.js
+deps/graphviz/_build/js/release/build/browser/browser.d.ts
 ```
 
 Retention: default for the workflow (7 days at time of writing — check

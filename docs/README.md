@@ -75,8 +75,8 @@ For users calling Canopy from MoonBit or JavaScript.
 
 Per-module READMEs:
 
-- [event-graph-walker](../event-graph-walker/README.md) — CRDT engine.
-- [loom](../loom/README.md) — incremental parser framework.
+- [event-graph-walker](../deps/event-graph-walker/README.md) — CRDT engine.
+- [loom](../deps/loom/README.md) — incremental parser framework.
 
 ---
 

@@ -19,11 +19,11 @@ cd "$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 
 fail() { echo "check-egw-resolver-identity: $*" >&2; exit 1; }
 
-direct_sha=$(git rev-parse HEAD:event-graph-walker) \
-  || fail "cannot read gitlink HEAD:event-graph-walker"
+direct_sha=$(git rev-parse HEAD:deps/event-graph-walker) \
+  || fail "cannot read gitlink HEAD:deps/event-graph-walker"
 
 # Extract pinned version from the submodule commit's moon.mod
-pinned_version=$(git -C event-graph-walker show "${direct_sha}:moon.mod" \
+pinned_version=$(git -C deps/event-graph-walker show "${direct_sha}:moon.mod" \
   | sed -n 's/^version = "\(.*\)"/\1/p') \
   || fail "cannot read moon.mod from event-graph-walker at ${direct_sha}
   (submodule object store missing the pinned commit? run:
@@ -33,14 +33,14 @@ pinned_version=$(git -C event-graph-walker show "${direct_sha}:moon.mod" \
 
 # Extract loom's registry pin from examples/lambda/moon.mod
 lam_version=$(sed -n 's/.*dowdiness\/event-graph-walker@\([^"]*\).*/\1/p' \
-  loom/examples/lambda/moon.mod 2>/dev/null) \
-  || fail "cannot read moon.mod at loom/examples/lambda/moon.mod"
+  deps/loom/examples/lambda/moon.mod 2>/dev/null) \
+  || fail "cannot read moon.mod at deps/loom/examples/lambda/moon.mod"
 [ -n "${lam_version}" ] \
-  || fail "loom/examples/lambda/moon.mod does not declare dowdiness/event-graph-walker"
+  || fail "deps/loom/examples/lambda/moon.mod does not declare dowdiness/event-graph-walker"
 
 if [ "${pinned_version}" != "${lam_version}" ]; then
   fail "version mismatch between canopy submodule and loom's registry pin:
-    canopy submodule (HEAD:event-graph-walker):    version ${pinned_version}
+    canopy submodule (HEAD:deps/event-graph-walker):    version ${pinned_version}
     loom registry pin   (examples/lambda/moon.mod): version ${lam_version}
   Both must agree. Bump order: egw submodule → loom moon.mod → canopy pointer."
 fi

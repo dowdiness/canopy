@@ -1,21 +1,21 @@
 [submodule "event-graph-walker"]
-	path = event-graph-walker
+	path = deps/event-graph-walker
 	url = https://github.com/dowdiness/event-graph-walker.git
 [submodule "loom"]
-	path = loom
+	path = deps/loom
 	url = https://github.com/dowdiness/loom.git
 [submodule "svg-dsl"]
-	path = svg-dsl
+	path = deps/svg-dsl
 	url = https://github.com/dowdiness/svg-dsl.git
 [submodule "graphviz"]
-	path = graphviz
+	path = deps/graphviz
 	url = https://github.com/dowdiness/graphviz.git
 [submodule "order-tree"]
-	path = order-tree
+	path = deps/order-tree
 	url = https://github.com/dowdiness/order-tree.git
 [submodule "alga"]
-	path = alga
+	path = deps/alga
 	url = https://github.com/dowdiness/alga.git
 [submodule "rabbita"]
-	path = rabbita
+	path = deps/rabbita
 	url = https://github.com/moonbit-community/rabbita.git

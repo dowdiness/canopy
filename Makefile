@@ -76,14 +76,14 @@ MOON_UPDATE := $(CURDIR)/scripts/moon-update.sh
 
 update: ## Update MoonBit dependencies
 	$(MOON_UPDATE)
-	cd event-graph-walker && $(MOON_UPDATE)
-	cd loom/loom && $(MOON_UPDATE)
-	cd svg-dsl && $(MOON_UPDATE)
-	cd graphviz && $(MOON_UPDATE)
+	cd deps/event-graph-walker && $(MOON_UPDATE)
+	cd deps/loom/loom && $(MOON_UPDATE)
+	cd deps/svg-dsl && $(MOON_UPDATE)
+	cd deps/graphviz && $(MOON_UPDATE)
 
 bench: ## Run benchmarks
 	moon bench --release
-	cd event-graph-walker && moon bench --release
+	cd deps/event-graph-walker && moon bench --release
 
 release-artifacts: ## Package release artifacts (set VERSION=x.y.z)
 	@test -n "$(VERSION)" || (echo "VERSION is required" && exit 1)

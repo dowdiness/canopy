@@ -88,7 +88,7 @@ export interface MoonBitPluginOptions {
  *     },
  *     {
  *       name: '@moonbit/graphviz',
- *       path: '../graphviz',
+ *       path: '../deps/graphviz',
  *       output: '_build/js/release/build/browser/browser.js'
  *     }
  *   ]

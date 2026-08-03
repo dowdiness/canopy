@@ -61,6 +61,6 @@ the files inside `docs/architecture/`.
 ## References
 
 - [eg-walker paper](https://arxiv.org/abs/2409.14252) — the CRDT algorithm.
-- [event-graph-walker README](../../event-graph-walker/README.md) — the CRDT
+- [event-graph-walker README](../../deps/event-graph-walker/README.md) — the CRDT
   implementation.
-- [loom README](../../loom/README.md) — the incremental parser framework.
+- [loom README](../../deps/loom/README.md) — the incremental parser framework.

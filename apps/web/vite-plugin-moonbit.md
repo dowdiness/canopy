@@ -452,7 +452,7 @@ Debug builds are faster but larger and include debug symbols.
 Add to `.eslintignore`:
 ```
 ../_build/
-../graphviz/_build/
+../deps/graphviz/_build/
 ```
 
 ### Prettier
@@ -460,7 +460,7 @@ Add to `.eslintignore`:
 Add to `.prettierignore`:
 ```
 ../_build/
-../graphviz/_build/
+../deps/graphviz/_build/
 ```
 
 ### Git

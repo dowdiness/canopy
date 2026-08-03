@@ -9,7 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 moon_update="$SCRIPT_DIR/moon-update.sh"
 
 "$moon_update"
-cd event-graph-walker && "$moon_update"
+cd deps/event-graph-walker && "$moon_update"
 cd ../loom/loom && "$moon_update"
 cd ../../svg-dsl && "$moon_update"
 cd ../graphviz && "$moon_update"
