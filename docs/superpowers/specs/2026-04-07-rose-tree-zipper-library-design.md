@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-07
 **Status:** Phase 1 design
-**Module:** `dowdiness/zipper` at `lib/zipper/`
+**Module:** `dowdiness/zipper` at `modules/zipper/`
 
 ## Goal
 
@@ -139,7 +139,7 @@ Navigate from root following child indices. Returns `None` if any index is out o
 ## Module Structure
 
 ```text
-lib/zipper/
+modules/zipper/
   moon.mod.json         -- name: "dowdiness/zipper", deps: moonbitlang/core
   moon.pkg              -- is_main: false
   rose_node.mbt         -- RoseNode[T], RoseCtx[T], RoseZipper[T] (types + constructors)

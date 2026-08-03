@@ -57,13 +57,13 @@ Today `Reader::read_byte` etc. `raise EphemeralError`. A generic `byte-codec` **
 Both `ephemeral`'s and `relay`'s byte formats are **transmitted/persisted** (CRDT sync + relay). Unification must be **byte-exact** for each existing format. Risk: `relay` encodes `Int` uvarints, `ephemeral` encodes `UInt64`; the LEB128 algorithms must be confirmed identical for the overlapping value range before relay is migrated onto the shared primitive. **Pin both formats with round-trip property tests *before* any migration** (per *refactoring-safety* §1) — a frozen-bytes fixture, not a re-derivation.
 
 ### 4. Package location
-- `lib/byte-codec` (sibling of future `lib/*` shared utils) — matches the "shared low-level utility" role and the `lib/range` precedent. **Recommended.**
-- top-level `dowdiness/canopy/byte-codec` — fine but `lib/` better signals "general-purpose, no domain knowledge" (per *design-principles* §6: a framework's generality is what it excludes — `byte-codec` must exclude all presence/relay concepts).
+- `modules/byte-codec` (sibling of future `modules/*` shared utils) — matches the "shared low-level utility" role and the `modules/range` precedent. **Recommended.**
+- top-level `dowdiness/canopy/byte-codec` — fine but `modules/` better signals "general-purpose, no domain knowledge" (per *design-principles* §6: a framework's generality is what it excludes — `byte-codec` must exclude all presence/relay concepts).
 
 ## Options
 
 ### Option A — narrow (solve the #387 leak only)
-Extract the generic primitives into `lib/byte-codec` with its own `CodecError`. `ephemeral` and `editor` consume it directly (editor no longer reaches through `ephemeral`; `ephemeral`'s `Reader`/`read_string`/`write_string` `pub`s disappear). **`relay` untouched.**
+Extract the generic primitives into `modules/byte-codec` with its own `CodecError`. `ephemeral` and `editor` consume it directly (editor no longer reaches through `ephemeral`; `ephemeral`'s `Reader`/`read_string`/`write_string` `pub`s disappear). **`relay` untouched.**
 - *Pro:* small, removes the facade leak, no wire-format risk for relay.
 - *Con:* leaves relay's duplicate in place — the deeper duplication persists.
 
@@ -82,12 +82,12 @@ Option A, then migrate `relay/wire.mbt` onto `byte-codec`, deleting `read_relay_
 
 ## Verification strategy (for whichever option proceeds)
 1. **Before moving anything:** add round-trip property tests (`@quickcheck.samples`) over `EphemeralValue` and a frozen-bytes fixture for both ephemeral and relay frames — these pin the wire formats and must use frozen literals, never re-call the code under refactor (per the drift-detector lesson in memory).
-2. New `lib/byte-codec/pkg.generated.mbti` is self-contained (no `@ephemeral`/`@relay`/`@editor` refs).
+2. New `modules/byte-codec/pkg.generated.mbti` is self-contained (no `@ephemeral`/`@relay`/`@editor` refs).
 3. `ephemeral` and `editor` `.mbti` diffs: `ephemeral` loses the `Reader`/`read_string`/`write_string` pubs; editor unchanged.
 4. Full workspace `moon test` count unchanged.
 5. (Option B) relay's frozen-bytes fixtures pass unchanged after migration — the proof the format is byte-identical.
 
 ## Decisions (confirmed 2026-05-29)
-- **Scope: A then B.** Ship Option A first (extract `lib/byte-codec`, fix the #387 leak, no relay wire-format risk), then migrate `relay` as a separate guarded PR. Each persisted-format change is verified independently.
-- **Location: `lib/byte-codec`** (general-purpose, no domain knowledge — must exclude all presence/relay concepts per *design-principles* §6).
+- **Scope: A then B.** Ship Option A first (extract `modules/byte-codec`, fix the #387 leak, no relay wire-format risk), then migrate `relay` as a separate guarded PR. Each persisted-format change is verified independently.
+- **Location: `modules/byte-codec`** (general-purpose, no domain knowledge — must exclude all presence/relay concepts per *design-principles* §6).
 - Implementation deferred to a follow-up session; this doc is the design of record. The Option-A implementation plan (file moves, `CodecError` boundary, consumer rewiring, verification gates) is written when that work starts.
