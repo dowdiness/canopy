@@ -4,7 +4,7 @@
 **Design:** `docs/superpowers/specs/2026-07-11-s6-app-layer-modularization-design.md`
 **Scope:** `examples/ideal/main/`, plus the minimal supporting package manifests
 and boundary adapters required to compile, target, and test the extracted
-package (`js_ffi`, `lib/dom-boundary`, `lib/menu/menu`)
+package (`js_ffi`, `modules/dom-boundary`, `lib/menu/menu`)
 **Status:** Executed; the supporting boundary scope is included in the migration.
 
 ## Scope amendment

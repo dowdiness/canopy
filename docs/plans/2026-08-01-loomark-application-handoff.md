@@ -197,7 +197,7 @@ Focus tokens are opaque logical locators, not DOM/session identity. Their privat
 | supported/rejected MoveBlock | lang/markdown/edits/compute_markdown_edit_wbtest.mbt | edit + approved Waku subset |
 | IME final commit, version/errors/reentrancy | absent | #1076 core + Vanilla contract |
 | mount ownership/full remount | absent | #1072 Vanilla contract; Waku cutover subset |
-| selection/measurement/listener | lib/dom-boundary additions | boundary; Rabbita wiring only |
+| selection/measurement/listener | modules/dom-boundary additions | boundary; Rabbita wiring only |
 | React/Vue | absent | lifecycle tests plus real-binding smoke |
 
 ## Ordered graph
@@ -214,7 +214,7 @@ Rabbita #141 is intentionally not an Application Train gate. It remains the nati
 ### Foundation
 
 1. #1102 adds the opaque editor/markdown façade over existing companion/edit/projection/SyncEditor internals and creates the standalone Loomark module/core skeleton.
-2. #1071 implements the accepted generic UTF-16 text-control selection and measurement capabilities in lib/dom-boundary with boundary tests.
+2. #1071 implements the accepted generic UTF-16 text-control selection and measurement capabilities in modules/dom-boundary with boundary tests.
 3. #1103, after adopting a selected Rabbita identity containing #142, creates Loomark's private Rabbita application, read-only Preview, mount-once development adapter, temporary `internal/dev_host` link root, disposable Vanilla browser harness, shared `test-loomark-dev-host-e2e.sh` command, and `loomark-dev-host` CI job. It adds no public Browser App/Session declaration or lifecycle claim.
 
 ### Application Train
@@ -236,7 +236,7 @@ Each ticket begins with behavioral matrix and first RED test, makes one logical 
 
 Each ticket names package/file ownership, In/Out, behavioral matrix (syntax form, terminator where relevant, operation, lifecycle/ownership, success/error/event order, authority), first failing test, generated-artifact impact, exact native dependency identity, validation, and deferred cases. Browser tickets additionally specify host scope, reentrancy, the lifecycle guarantees they do and do not claim, and the error channel.
 
-Before new APIs, search/report at least two candidates. Reuse lang/markdown/companion (new_markdown_editor, apply_markdown_edit, export_markdown_text), lang/markdown/edits/proj; SyncEditor/protocol.ViewPatch behind façade only; Loom typed values; Rabbita Cmd/Sub after-render/unload; lib/dom-boundary targets/errors/focus/subscription; ffi/jsx session/error patterns; concrete Option/Result, String/StringView, Array/ArrayView, Map/Set, and builders. Reject public raw SyncEditor, TreeEditorState, projection collections, generic traits, direct Rabbita App.mount lifecycle, and legacy FFI JSON/handles. New helpers only lower façade commands, construct pure transitions, or adapt typed browser/FFI codecs. Justify remaining imperative code.
+Before new APIs, search/report at least two candidates. Reuse lang/markdown/companion (new_markdown_editor, apply_markdown_edit, export_markdown_text), lang/markdown/edits/proj; SyncEditor/protocol.ViewPatch behind façade only; Loom typed values; Rabbita Cmd/Sub after-render/unload; modules/dom-boundary targets/errors/focus/subscription; ffi/jsx session/error patterns; concrete Option/Result, String/StringView, Array/ArrayView, Map/Set, and builders. Reject public raw SyncEditor, TreeEditorState, projection collections, generic traits, direct Rabbita App.mount lifecycle, and legacy FFI JSON/handles. New helpers only lower façade commands, construct pure transitions, or adapt typed browser/FFI codecs. Justify remaining imperative code.
 
 ## Validation
 

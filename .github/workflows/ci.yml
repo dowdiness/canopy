@@ -74,8 +74,8 @@ jobs:
             run_loomark_dev_host_e2e:
               - 'loomark/**'
               - 'editor/markdown/**'
-              - 'lib/dom-boundary/**'
-              - 'lib/js-ffi/**'
+              - 'modules/dom-boundary/**'
+              - 'modules/js-ffi/**'
               - 'rabbita/**'
               - '.github/workflows/ci.yml'
               - 'scripts/test-loomark-dev-host-e2e.sh'
