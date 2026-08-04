@@ -4,7 +4,7 @@ version = "0.1.0"
 
 import {
   "dowdiness/canopy@0.1.0",
-  "dowdiness/event-graph-walker@0.6.0",
+  "dowdiness/event-graph-walker@0.7.1",
 }
 
 preferred_target = "js"
