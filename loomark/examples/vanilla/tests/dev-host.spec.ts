@@ -449,6 +449,29 @@ test("Block toolbar deletes the active block and focuses the surviving typed tar
   }
 })
 
+test("Block delete focuses the adjacent survivor instead of a stale editor cursor", async ({ browser }) => {
+  const host = await mountHost(browser, "First\n\nSecond\n\nThird\n")
+  try {
+    await selectBlock(host.page)
+    const first = host.page.locator("#loomark-block-input")
+    await first.fill("Changed")
+    const third = host.page.locator("#loomark-block-input-2")
+    await third.focus()
+
+    await host.page.getByRole("button", { name: "Delete selected block" }).click()
+
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("Changed\n\nSecond\n\n")
+    const second = host.page.locator("#loomark-block-input-1")
+    await expect(second).toBeFocused()
+    await expect.poll(() => second.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      return `${textarea.selectionStart}:${textarea.selectionEnd}`
+    })).toBe("6:6")
+  } finally {
+    await host.context.close()
+  }
+})
+
 test("Block toolbar enables only edits accepted for the active typed block", async ({ browser }) => {
   const host = await mountHost(browser, "```moonbit\nvalue\n```\n")
   try {

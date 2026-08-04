@@ -721,6 +721,15 @@ fn MarkdownEditor::commit_structural_recording_transforms(
   guard self.editor.get_proj_node() is Some(proj) else {
     return Err(MarkdownEditorError::ProjectionUnavailable)
   }
+  let deleted_block_index = match op {
+    @md_edits.Delete(node_id~) =>
+      self
+      .snapshot()
+      .blocks()
+      .to_array()
+      .search_by(block => block.node_id().value == node_id)
+    _ => None
+  }
   let computed = Ok(
     @md_edits.compute_markdown_edit(
       op,
@@ -745,11 +754,25 @@ fn MarkdownEditor::commit_structural_recording_transforms(
         // A no-op never authorizes a new caret move for the caller.
         MarkdownCommitResult::Unchanged(snapshot)
       } else {
-        let selection = selection_for_cursor(
-          snapshot,
-          self.editor.get_cursor(),
-          allow_nearest=op is @md_edits.Delete(_),
-        )
+        let selection = match deleted_block_index {
+          Some(index) => {
+            let blocks = snapshot.blocks().to_array()
+            let survivor = match blocks.get(index) {
+              Some(block) => Some(block)
+              None => blocks.get(index - 1)
+            }
+            survivor.map(block => MarkdownBlockSelection::{
+              node_id: block.node_id(),
+              offset: block.text().length(),
+            })
+          }
+          None =>
+            selection_for_cursor(
+              snapshot,
+              self.editor.get_cursor(),
+              allow_nearest=false,
+            )
+        }
         MarkdownCommitResult::Applied(snapshot, selection)
       }
       Ok((result, sequential_text_transforms(edits)))
