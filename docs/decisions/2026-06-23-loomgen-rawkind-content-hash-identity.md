@@ -57,7 +57,7 @@ settles it.
 
 **What survives — or is transmitted — across a loomgen build boundary?** The
 transmitted frames are a **closed enum** — `@wire.SyncMessage`
-([`protocol/wire/wire.mbt`](../../protocol/wire/wire.mbt):5-13): `CrdtOps`,
+([`protocol/wire/wire.mbt`](../../modules/canopy/protocol/wire/wire.mbt):5-13): `CrdtOps`,
 `RelayedCrdtOps`, `SyncRequest`, `SyncResponse`, `EphemeralUpdate`, `PeerJoined`,
 `PeerLeft` — and persistence stores those frames' payloads (or source text)
 verbatim. Walking the *whole* enum, every frame falls into one of **three classes**,
@@ -70,12 +70,12 @@ none carrying CST structure:
   `RelayedCrdtOps` / `SyncResponse`, with `SyncRequest` carrying only the version
   frontier. This class travels over *several* transports, all auditing identically:
   the dev SQLite op log
-  ([`store.ts`](../../examples/ideal/web/server/store.ts)), the Cloudflare relay's
-  Durable Object SQL ([`relay-worker.js`](../../examples/ideal/web/relay-worker.js)),
+  ([`store.ts`](../../apps/ideal/web/server/store.ts)), the Cloudflare relay's
+  Durable Object SQL ([`relay-worker.js`](../../apps/ideal/web/relay-worker.js)),
   the ideal web app's `localStorage` snapshot + peer sync via `crdt.export_all_json`
-  / `apply_sync_json` ([`main.ts`](../../examples/ideal/web/src/main.ts):128/:449,
-  [`sync.ts`](../../examples/ideal/web/src/sync.ts):120), and the `SyncEditor` WS
-  broadcast ([`sync_editor_ws.mbt`](../../editor/sync_editor_ws.mbt):59-65).
+  / `apply_sync_json` ([`main.ts`](../../apps/ideal/web/src/main.ts):128/:449,
+  [`sync.ts`](../../apps/ideal/web/src/sync.ts):120), and the `SyncEditor` WS
+  broadcast ([`sync_editor_ws.mbt`](../../modules/canopy/editor/sync_editor_ws.mbt):59-65).
 - **(c) ephemeral / control metadata** — `EphemeralUpdate` (cursor & presence:
   I64 text offsets + name/color/peer-id) and `PeerJoined` / `PeerLeft` (peer-id
   strings, connection control). No document structure at all.
@@ -87,15 +87,15 @@ Evidence (as of 2026-06-23):
 
 | Surface | What it carries | Keys off seam hash? |
 |---------|-----------------|---------------------|
-| Op log persistence — dev relay ([`examples/ideal/web/server/store.ts`](../../examples/ideal/web/server/store.ts)) | opaque relayed op strings, `(id, room_id, data)` | no |
-| Op log persistence — Cloudflare relay DO SQL ([`examples/ideal/web/relay-worker.js`](../../examples/ideal/web/relay-worker.js):18-22,:65-69) | opaque relayed op strings, `operations(id, data)`, stored on `"operation"` and replayed verbatim on `"join"` — never parsed | no |
-| Full CRDT state: `localStorage` snapshot + peer sync ([`ffi/lambda/diagnostics.mbt`](../../ffi/lambda/diagnostics.mbt) `export_all_json`/`apply_sync_json` → `@text.SyncMessage`) | `{ runs : Array[@core.OpRun], heads : Array[@core.RawVersion] }` — text op runs + agent/seq version frontier (eg-walker `@core`, **not** seam; `event-graph-walker/text/sync.mbt`) | no — text-CRDT ops, upstream of parsing |
-| `SyncEditor` WS broadcast ([`editor/sync_editor_ws.mbt`](../../editor/sync_editor_ws.mbt):59-65 `ws_broadcast_edit` → `@wire.CrdtOps`) | `export_all().to_json_string()` — the same `@text.SyncMessage` payload, UTF-16LE framed | no — same text-CRDT op stream |
-| Ephemeral cursor/presence (`@wire.EphemeralUpdate`; [`editor/sync_editor.mbt`](../../editor/sync_editor.mbt):126-157 `set_local_presence`, `sync_editor_ws.mbt:69-73`) | `cursor`/`selection` as I64 **text offsets** + `peer_id`/`name`/`color` strings | no — positions + presence metadata, no NodeId or kind |
-| Peer/connection control (`@wire.PeerJoined`/`PeerLeft`; [`protocol/wire/wire.mbt`](../../protocol/wire/wire.mbt):5-13) | peer-id strings; join triggers ephemeral + full-CRDT catch-up (audited above) | no — control frames carry no document data |
-| The op itself ([`protocol/user_intent.mbt`](../../protocol/user_intent.mbt) `UserIntent`) | `TextEdit(from, to, insert)` (text edits) + `StructuralEdit`/`SelectNode`/`CommitEdit` addressing by `@core.NodeId` | no |
-| `NodeId` ([`core/types.mbt`](../../core/types.mbt) `struct NodeId(Int)`) | allocation-order int (`assign_fresh_ids` counter), "survives reparses" | no — not hash-derived |
-| Wire view/annotation ([`protocol/view_node.mbt`](../../protocol/view_node.mbt)) | `ViewNode.kind_tag : String` (AST variant **name**), `ViewAnnotation.kind/label/severity : String`, `TokenSpan.role : String`, UTF-16 offsets | no — keys off **names** + NodeId |
+| Op log persistence — dev relay ([`apps/ideal/web/server/store.ts`](../../apps/ideal/web/server/store.ts)) | opaque relayed op strings, `(id, room_id, data)` | no |
+| Op log persistence — Cloudflare relay DO SQL ([`apps/ideal/web/relay-worker.js`](../../apps/ideal/web/relay-worker.js):18-22,:65-69) | opaque relayed op strings, `operations(id, data)`, stored on `"operation"` and replayed verbatim on `"join"` — never parsed | no |
+| Full CRDT state: `localStorage` snapshot + peer sync ([`ffi/lambda/diagnostics.mbt`](../../modules/canopy/ffi/lambda/diagnostics.mbt) `export_all_json`/`apply_sync_json` → `@text.SyncMessage`) | `{ runs : Array[@core.OpRun], heads : Array[@core.RawVersion] }` — text op runs + agent/seq version frontier (eg-walker `@core`, **not** seam; `event-graph-walker/text/sync.mbt`) | no — text-CRDT ops, upstream of parsing |
+| `SyncEditor` WS broadcast ([`editor/sync_editor_ws.mbt`](../../modules/canopy/editor/sync_editor_ws.mbt):59-65 `ws_broadcast_edit` → `@wire.CrdtOps`) | `export_all().to_json_string()` — the same `@text.SyncMessage` payload, UTF-16LE framed | no — same text-CRDT op stream |
+| Ephemeral cursor/presence (`@wire.EphemeralUpdate`; [`editor/sync_editor.mbt`](../../modules/canopy/editor/sync_editor.mbt):126-157 `set_local_presence`, `sync_editor_ws.mbt:69-73`) | `cursor`/`selection` as I64 **text offsets** + `peer_id`/`name`/`color` strings | no — positions + presence metadata, no NodeId or kind |
+| Peer/connection control (`@wire.PeerJoined`/`PeerLeft`; [`protocol/wire/wire.mbt`](../../modules/canopy/protocol/wire/wire.mbt):5-13) | peer-id strings; join triggers ephemeral + full-CRDT catch-up (audited above) | no — control frames carry no document data |
+| The op itself ([`protocol/user_intent.mbt`](../../modules/canopy/protocol/user_intent.mbt) `UserIntent`) | `TextEdit(from, to, insert)` (text edits) + `StructuralEdit`/`SelectNode`/`CommitEdit` addressing by `@core.NodeId` | no |
+| `NodeId` ([`core/types.mbt`](../../modules/canopy/core/types.mbt) `struct NodeId(Int)`) | allocation-order int (`assign_fresh_ids` counter), "survives reparses" | no — not hash-derived |
+| Wire view/annotation ([`protocol/view_node.mbt`](../../modules/canopy/protocol/view_node.mbt)) | `ViewNode.kind_tag : String` (AST variant **name**), `ViewAnnotation.kind/label/severity : String`, `TokenSpan.role : String`, UTF-16 offsets | no — keys off **names** + NodeId |
 | Source map (`core/source_map.mbt` `to_json`) | node id / range / token-role spans | no raw kind |
 | Persistent identity (`ProjectionIdentityTracker`, see [identity ADR](2026-06-01-identity-and-reuse-mechanisms.md) mechanism #2) | **source offset + key** windows | no |
 | `content_hash` / `structural_path` / `.md.annotations.json` | — | **do not exist** in code or on disk; named only as the loom §4.5 inferred open question |

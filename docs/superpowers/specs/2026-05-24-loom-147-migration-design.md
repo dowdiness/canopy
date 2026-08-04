@@ -64,7 +64,7 @@ Verify valtio's CI (if any) passes. After merge, valtio becomes more-standalone-
 
 *Path-dep rewrites (2 files — Codex Finding 3 confirmed only these directly consume text_change/moji):*
 - `moon.mod.json:12` (root) — text_change + moji paths → `loom/text-change`, `loom/moji`
-- `examples/ideal/moon.mod.json:21` — text_change path → `loom/text-change`
+- `apps/ideal/moon.mod.json:21` — text_change path → `loom/text-change`
 
 *Workspace + metadata edits:*
 - `moon.work` — remove `./lib/text-change` from members; do NOT re-add `./loom/text-change` (matches existing submodules-stay-out-of-workspace rule per `moonbit_workspace_behavior` memory)
@@ -75,7 +75,7 @@ Verify valtio's CI (if any) passes. After merge, valtio becomes more-standalone-
 - `valtio` → merged-PR-B SHA
 
 **Explicit non-rewrites (Codex Finding 3):**
-- `examples/block-editor/moon.mod.json` — does NOT directly depend on text_change/moji; only canopy + EGW. Block-editor is a transitive integration check via canopy root, no direct rewrite needed.
+- `apps/block-editor/moon.mod.json` — does NOT directly depend on text_change/moji; only canopy + EGW. Block-editor is a transitive integration check via canopy root, no direct rewrite needed.
 
 **Verification:** full canopy CI fan-out per `.github/workflows/ci.yml` green locally before push. Includes the loom submodule fan-out steps that now exercise the relocated modules.
 
@@ -124,5 +124,5 @@ Codex did not flag `moon`'s resolver behavior when both old and new paths transi
 ## Citations
 
 - Codex review thread: 019e592f-7f09-7953-90d5-6bb3368c2f2c (2026-05-24)
-- Verified file/line refs from Codex: `loom/examples/json/moon.mod.json:6`, `loom/examples/markdown/moon.mod.json:6`, `loom/examples/lambda/moon.mod.json:10`, `examples/block-editor/moon.mod.json:5,9`, `examples/ideal/moon.mod.json:21`, `valtio/moon.mod.json:5`, `moon.mod.json:12`, `loom/docs/archive/completed-phases/2026-03-02-rabbita-style-monorepo.md:101,103`
+- Verified file/line refs from Codex: `loom/examples/json/moon.mod.json:6`, `loom/examples/markdown/moon.mod.json:6`, `loom/examples/lambda/moon.mod.json:10`, `apps/block-editor/moon.mod.json:5,9`, `apps/ideal/moon.mod.json:21`, `valtio/moon.mod.json:5`, `moon.mod.json:12`, `loom/docs/archive/completed-phases/2026-03-02-rabbita-style-monorepo.md:101,103`
 - Memory citations: `moonbit_workspace_behavior.md` (workspace rule), `project_loom_framework_improvements.md` (module list).

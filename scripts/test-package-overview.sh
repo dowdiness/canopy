@@ -28,7 +28,7 @@ assert_absent() {
   fi
 }
 
-assert_contains "Primary module: dowdiness/canopy (.)"
+assert_contains "Primary module: dowdiness/canopy (modules/canopy)"
 assert_matches '^=== Primary module packages \([0-9]+\) ===$'
 assert_matches '^=== Root workspace modules \([0-9]+\) ===$'
 assert_matches '^=== Git submodules \([0-9]+\) ===$'

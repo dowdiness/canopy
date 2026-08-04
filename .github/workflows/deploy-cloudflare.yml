@@ -21,10 +21,10 @@ jobs:
             project-name: canopy-ideal
             type: pages
             # Build with workspace on. See #335 for target override caveat.
-            moon-update: cd examples/ideal && "$GITHUB_WORKSPACE/scripts/moon-update.sh"
-            moon-build: cd examples/ideal && moon build --target js --release
-            npm-dir: examples/ideal/web
-            deploy-dir: examples/ideal/web/dist
+            moon-update: cd apps/ideal && "$GITHUB_WORKSPACE/scripts/moon-update.sh"
+            moon-build: cd apps/ideal && moon build --target js --release
+            npm-dir: apps/ideal/web
+            deploy-dir: apps/ideal/web/dist
 
           - name: prosemirror
             project-name: canopy-prosemirror
@@ -46,26 +46,26 @@ jobs:
             project-name: canopy-block-editor
             type: pages
             # Build with workspace on. See #335 for target override caveat.
-            moon-update: cd examples/block-editor && "$GITHUB_WORKSPACE/scripts/moon-update.sh"
-            moon-build: cd examples/block-editor && moon build --target js --release
-            npm-dir: examples/block-editor/web
-            deploy-dir: examples/block-editor/web/dist
+            moon-update: cd apps/block-editor && "$GITHUB_WORKSPACE/scripts/moon-update.sh"
+            moon-build: cd apps/block-editor && moon build --target js --release
+            npm-dir: apps/block-editor/web
+            deploy-dir: apps/block-editor/web/dist
 
           - name: canvas
             project-name: canopy-canvas
             type: pages
             # Build with workspace on. See #335 for target override caveat.
-            moon-update: cd examples/canvas && "$GITHUB_WORKSPACE/scripts/moon-update.sh"
-            moon-build: cd examples/canvas && moon build --target js --release --target-dir "$GITHUB_WORKSPACE/_build"
-            npm-dir: examples/canvas/web
-            deploy-dir: examples/canvas/web/dist
+            moon-update: cd apps/canvas && "$GITHUB_WORKSPACE/scripts/moon-update.sh"
+            moon-build: cd apps/canvas && moon build --target js --release --target-dir "$GITHUB_WORKSPACE/_build"
+            npm-dir: apps/canvas/web
+            deploy-dir: apps/canvas/web/dist
 
           - name: relay-server
             project-name: canopy-relay
             type: workers
             moon-update: '"$GITHUB_WORKSPACE/scripts/moon-update.sh"'
             moon-build: moon build --target js --release
-            npm-dir: examples/relay-server
+            npm-dir: apps/relay-server
             deploy-dir: ""
 
     steps:
@@ -102,7 +102,7 @@ jobs:
           esac
           if [ -n "$MOD" ]; then
             SRC="$GITHUB_WORKSPACE/_build/js/release/build/$MOD/main"
-            DST="$GITHUB_WORKSPACE/examples/$EXAMPLE/_build/js/release/build/main"
+            DST="$GITHUB_WORKSPACE/apps/$EXAMPLE/_build/js/release/build/main"
             if [ -d "$SRC" ]; then
               mkdir -p "$(dirname "$DST")"
               ln -sfn "$SRC" "$DST"

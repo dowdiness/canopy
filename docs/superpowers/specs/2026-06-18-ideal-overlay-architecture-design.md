@@ -1,7 +1,7 @@
 # Ideal Overlay Architecture — Reference Design
 
 **Date:** 2026-06-18  
-**Scope:** `examples/ideal/main/` — action overlay refactor  
+**Scope:** `apps/ideal/main/` — action overlay refactor
 **Status:** Approved for implementation
 
 ---

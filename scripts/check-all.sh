@@ -7,6 +7,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 cd "$PROJECT_ROOT"
+echo "Checking live layout paths..."
+"$SCRIPT_DIR/check-layout-paths.sh"
+echo ""
 
 FAILED=()
 
@@ -49,13 +52,13 @@ check_module() {
 }
 
 # Check main module
-check_module "." "Main Module (canopy)"
+check_module "modules/canopy" "Main Module (canopy)"
 
 # Check submodules
-check_module "event-graph-walker" "event-graph-walker"
-check_module "loom/loom" "loom"
-check_module "svg-dsl" "svg-dsl"
-check_module "graphviz" "graphviz"
+check_module "deps/event-graph-walker" "event-graph-walker"
+check_module "deps/loom/loom" "loom"
+check_module "deps/svg-dsl" "svg-dsl"
+check_module "deps/graphviz" "graphviz"
 
 # Summary
 echo "╔════════════════════════════════════════════════════════════╗"

@@ -22,7 +22,7 @@
 
 Interpretation: the **lambda-only floor is ~515 kB** — shared infrastructure (editor, core, event-graph-walker internals, loom parser, lambda typecheck, egglog evaluator, moonbitlang/core runtime). Splitting will drop `json.html` and `markdown.html` well below 500 kB but **will not bring `index.html` under the budget by itself**. See §7.
 
-**Scope boundary:** `ffi/` tree and `examples/web/` wiring only. No changes to `lang/`, `editor/`, `core/`, `event-graph-walker/`, or any MoonBit backend package.
+**Scope boundary:** `ffi/` tree and `apps/web/` wiring only. No changes to `lang/`, `editor/`, `core/`, `event-graph-walker/`, or any MoonBit backend package.
 
 **Out of scope:**
 - Reducing the 515 kB lambda floor (tracked as a follow-up — see §7).
@@ -98,11 +98,11 @@ _build/js/release/build/ffi/lambda/lambda.js
 
 ### Modified files (per PR)
 
-- `examples/web/vite.config.ts` — register new virtual modules
-- `examples/web/src/*-editor.ts` — switch import from `@moonbit/crdt` to entry-specific virtual module
+- `apps/web/vite.config.ts` — register new virtual modules
+- `apps/web/src/*-editor.ts` — switch import from `@moonbit/crdt` to entry-specific virtual module
 - `lib/editor-adapter/*.ts` — parameterize over the `crdt` namespace (today the adapter imports `@moonbit/crdt` at module scope; it needs to accept the namespace as a constructor/factory argument so each entry can pass its own)
-- `examples/web/scripts/build-deploy.sh` — update output paths if referenced
-- `examples/web/playwright.config.ts` + tests — adjust fixtures if they reference the old path
+- `apps/web/scripts/build-deploy.sh` — update output paths if referenced
+- `apps/web/playwright.config.ts` + tests — adjust fixtures if they reference the old path
 - `CI_CD_SETUP.md` — documentation sweep
 
 ---
@@ -114,10 +114,10 @@ _build/js/release/build/ffi/lambda/lambda.js
 **Files:** none — this is a read-and-confirm phase.
 
 - [ ] **Step 1:** `moon check && moon test` from canopy root. Expected: green.
-- [ ] **Step 2:** `cd examples/web && npm run build` and record the `dist/assets/crdt-*.js` byte size as the baseline.
+- [ ] **Step 2:** `cd apps/web && npm run build` and record the `dist/assets/crdt-*.js` byte size as the baseline.
 - [ ] **Step 3:** `grep -rn "_build/js/release/build/ffi/ffi.js" .` from canopy root. Record every hit — each is a migration target.
 - [ ] **Step 4:** `grep -rn "@moonbit/crdt" .` from canopy root, excluding `node_modules` and `_build`. Record every hit.
-- [ ] **Step 5:** `moon ide outline ffi/` to confirm the current public surface.
+- [ ] **Step 5:** `moon ide outline modules/canopy/ffi/` to confirm the current public surface.
 - [ ] **Step 6:** If any of 1–5 surprises you, stop and reconcile before starting Phase 1.
 
 ---
@@ -156,24 +156,24 @@ Do not modify function bodies. The only change is the module they live in. The 1
 ### Task 1.3: Register `@moonbit/crdt-json` in Vite
 
 **Files:**
-- Modify: `examples/web/vite.config.ts`
+- Modify: `apps/web/vite.config.ts`
 
 **Intent:** add a third entry to `moonbitPlugin({ modules: [...] })` pointing `@moonbit/crdt-json` at `_build/js/release/build/ffi/json/json.js`. Add `'@moonbit/crdt-json'` to the `optimizeDeps.exclude` array.
 
 - [ ] **Step 1:** Edit `vite.config.ts` per the sketch.
-- [ ] **Step 2:** `cd examples/web && npm run build`. Expected: build succeeds. A new `dist/assets/json-*.js` chunk is produced that references the new MoonBit output. The original `crdt-*.js` chunk may or may not still appear (depends on whether any other entry still imports `@moonbit/crdt` — at this point both `index.html` and `markdown.html` do, so yes).
+- [ ] **Step 2:** `cd apps/web && npm run build`. Expected: build succeeds. A new `dist/assets/json-*.js` chunk is produced that references the new MoonBit output. The original `crdt-*.js` chunk may or may not still appear (depends on whether any other entry still imports `@moonbit/crdt` — at this point both `index.html` and `markdown.html` do, so yes).
 - [ ] **Step 3:** Record the new `ffi/json/json.js` size on disk (`stat -c%s _build/js/release/build/ffi/json/json.js`) and the post-minification chunk size in `dist/`.
 
 ### Task 1.4: Switch `json.html` to the new module
 
 **Files:**
-- Modify: `examples/web/src/json-editor.ts`
+- Modify: `apps/web/src/json-editor.ts`
 - Possibly modify: `lib/editor-adapter/*.ts` if the JSON entry uses them
 
 **Intent:** change `import * as crdt from '@moonbit/crdt'` to `import * as crdt from '@moonbit/crdt-json'` in `json-editor.ts`. If any shared adapter in `lib/editor-adapter/` is imported only by `json-editor.ts`, switch that import too; if it's shared across entries, see Task 1.5.
 
 - [ ] **Step 1:** Update the import in `src/json-editor.ts`.
-- [ ] **Step 2:** `cd examples/web && npm run build`. Expected: new json chunk links only the new JSON ffi.
+- [ ] **Step 2:** `cd apps/web && npm run build`. Expected: new json chunk links only the new JSON ffi.
 - [ ] **Step 3:** Record the `json-*.js` chunk byte size. This is the Phase 1 measurement — target is well under 500 kB.
 
 ### Task 1.5: Parameterize shared adapters (if any)
@@ -191,7 +191,7 @@ Do not modify function bodies. The only change is the module they live in. The 1
 **Files:** none — verification.
 
 - [ ] **Step 1:** `npm run dev` and manually open `json.html`. Check: editor loads, text edits work, diagnostics show, view patches render. If broken, go back to Task 1.2 and double-check the file-split preserved all refs.
-- [ ] **Step 2:** `npx playwright test` (or the project's JSON-editor subset) from `examples/web/`. Expected: all JSON tests pass.
+- [ ] **Step 2:** `npx playwright test` (or the project's JSON-editor subset) from `apps/web/`. Expected: all JSON tests pass.
 - [ ] **Step 3:** Confirm `index.html` and `markdown.html` still work (they still use the monolithic `@moonbit/crdt` — zero change expected).
 - [ ] **Step 4:** Record final bundle sizes: new `json-*.js` chunk, old `crdt-*.js` chunk (still monolithic at this point, minus zero bytes because json.html no longer imports it but the other two entries still do).
 
@@ -241,7 +241,7 @@ Wait — after PR 1, what's in `ffi/ffi.js`? The monolithic build still *compile
 Mirror Tasks 1.3 through 1.7 for markdown:
 
 - [ ] **Step 1:** Register `@moonbit/crdt-markdown` in Vite.
-- [ ] **Step 2:** Switch `examples/web/src/markdown-editor.ts` to the new module.
+- [ ] **Step 2:** Switch `apps/web/src/markdown-editor.ts` to the new module.
 - [ ] **Step 3:** Update any shared adapters used by markdown (same logic as Task 1.5).
 - [ ] **Step 4:** `npm run dev` + open `markdown.html` manually, then run Playwright markdown tests.
 - [ ] **Step 5:** Record bundle sizes. Target: well under 500 kB.
@@ -298,7 +298,7 @@ Mirror Tasks 1.3 through 1.7 for markdown:
 - [ ] **Step 1:** Create each file, moving content from the corresponding `ffi/canopy_*.mbt`.
 - [ ] **Step 2:** After every 2-3 files, `moon check`. Fix errors before continuing (incremental edit rule from `CLAUDE.md`).
 - [ ] **Step 3:** Pay special attention to `ffi/canopy_view.mbt`: the JSON half was already migrated in PR 1 (or will be via the common stub); the lambda half moves here. The `view_states : Map[Int, ...]` binding stays; the `json_view_states` binding is now in `ffi/json/view.mbt`.
-- [ ] **Step 4:** Test files: update any `@ffi.` or `dowdiness/canopy/ffi` references inside them to `@lambda.` or `dowdiness/canopy/ffi/lambda`. Run `moon test ffi/lambda/`.
+- [ ] **Step 4:** Test files: update any `@ffi.` or `dowdiness/canopy/ffi` references inside them to `@lambda.` or `dowdiness/canopy/ffi/lambda`. Run `moon test modules/canopy/ffi/lambda/`.
 
 ### Task 3.3: Decommission root `ffi/`
 
@@ -309,13 +309,13 @@ Mirror Tasks 1.3 through 1.7 for markdown:
 
 - [ ] **Step 1:** After Task 3.2 builds green, delete the root `ffi/*.mbt` and `ffi/moon.pkg`.
 - [ ] **Step 2:** `moon check && moon test` from canopy root. Expected: green across the whole workspace.
-- [ ] **Step 3:** `moon ide outline ffi/lambda` + `ffi/json` + `ffi/markdown`. Confirm the three public surfaces sum to the original `ffi/` public surface (no FFI function lost).
+- [ ] **Step 3:** `moon ide outline modules/canopy/ffi/lambda` + `modules/canopy/ffi/json` + `modules/canopy/ffi/markdown`. Confirm the three public surfaces sum to the original `ffi/` public surface (no FFI function lost).
 
 ### Task 3.4: Vite + switchover
 
 **Files:**
-- Modify: `examples/web/vite.config.ts` — register `@moonbit/crdt-lambda`, remove the old `@moonbit/crdt` entry
-- Modify: `examples/web/src/editor.ts`, `examples/web/src/memo-editor.ts`
+- Modify: `apps/web/vite.config.ts` — register `@moonbit/crdt-lambda`, remove the old `@moonbit/crdt` entry
+- Modify: `apps/web/src/editor.ts`, `apps/web/src/memo-editor.ts`
 - Modify: any remaining `lib/editor-adapter/*.ts` that still imports `@moonbit/crdt`
 
 **Intent:** after this task, the virtual module name `@moonbit/crdt` no longer exists. Nothing imports it.
@@ -323,16 +323,16 @@ Mirror Tasks 1.3 through 1.7 for markdown:
 - [ ] **Step 1:** Swap the Vite entry.
 - [ ] **Step 2:** Update `editor.ts`, `memo-editor.ts`, and any remaining shared adapters.
 - [ ] **Step 3:** `npm run build`. Expected: three crdt-shaped chunks (`crdt-lambda-*.js`, `crdt-json-*.js`, `crdt-markdown-*.js`), no monolithic `crdt-*.js`.
-- [ ] **Step 4:** `grep -rn "@moonbit/crdt[^-]" examples/web/ lib/editor-adapter/` — should return zero hits.
+- [ ] **Step 4:** `grep -rn "@moonbit/crdt[^-]" apps/web/ lib/editor-adapter/` — should return zero hits.
 
 ### Task 3.5: External-reference sweep
 
 **Files:** determined at Phase 0 Step 3. Candidates:
-- `examples/web/scripts/build-deploy.sh`
+- `apps/web/scripts/build-deploy.sh`
 - `examples/demo-react/` configs + path aliases
 - `release/` packaging scripts
 - `CI_CD_SETUP.md`
-- `post-merge-docs.sh`
+- `scripts/post-merge-docs.sh`
 
 - [ ] **Step 1:** For each hit, update the path to point at one of the three new outputs (the lambda one is the closest semantic replacement for the old `ffi.js` in most contexts).
 - [ ] **Step 2:** Run the deploy/release script in dry-run mode if one exists.

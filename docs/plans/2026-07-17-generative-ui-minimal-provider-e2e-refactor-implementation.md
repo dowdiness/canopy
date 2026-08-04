@@ -27,7 +27,7 @@
 ### Task 1: Pin injectable lifecycle timing
 
 **Files:**
-- Modify: `examples/web/scripts/run-genui-minimal-provider-e2e.test.mjs`
+- Modify: `apps/web/scripts/run-genui-minimal-provider-e2e.test.mjs`
 
 **Interfaces:**
 - Consumes: existing `runProviderAttempt(run, options, deps)` test seam.
@@ -50,9 +50,9 @@ Run the remaining lifecycle tests individually: exact one invocation, live desce
 ### Task 2: Extract the provider process lifecycle
 
 **Files:**
-- Create: `examples/web/scripts/genui-minimal-provider-process.mjs`
-- Modify: `examples/web/scripts/run-genui-minimal-provider-e2e.mjs`
-- Test: `examples/web/scripts/run-genui-minimal-provider-e2e.test.mjs`
+- Create: `apps/web/scripts/genui-minimal-provider-process.mjs`
+- Modify: `apps/web/scripts/run-genui-minimal-provider-e2e.mjs`
+- Test: `apps/web/scripts/run-genui-minimal-provider-e2e.test.mjs`
 
 **Interfaces:**
 - Consumes: run paths, selected model, timeout, fixed provider invocation descriptor, and injectable process capabilities.
@@ -92,9 +92,9 @@ Commit the support module, runner delegation, and lifecycle test changes as one 
 ### Task 3: Verify unchanged product and evidence boundaries
 
 **Files:**
-- Verify: `examples/web/scripts/genui-minimal-provider-process.mjs`
-- Verify: `examples/web/scripts/run-genui-minimal-provider-e2e.mjs`
-- Verify: `examples/web/tests/genui-minimal-provider.spec.ts`
+- Verify: `apps/web/scripts/genui-minimal-provider-process.mjs`
+- Verify: `apps/web/scripts/run-genui-minimal-provider-e2e.mjs`
+- Verify: `apps/web/tests/genui-minimal-provider.spec.ts`
 - Update remotely: PR #908 description only if its validation wording is ambiguous.
 
 **Interfaces:**

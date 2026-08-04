@@ -26,13 +26,13 @@ until a separate provider-client plan names the backend and driver boundary.
 
 In:
 - `docs/architecture/cognition-runtime.md`
-- `lib/cognition/types.mbt`
-- `lib/cognition/provider.mbt`
-- `lib/cognition/ranker.mbt`
-- `lib/cognition/store.mbt`
-- `lib/cognition/reactive.mbt`
-- `lib/cognition/*_test.mbt`
-- `lib/cognition/README.mbt.md`
+- `modules/cognition/types.mbt`
+- `modules/cognition/provider.mbt`
+- `modules/cognition/ranker.mbt`
+- `modules/cognition/store.mbt`
+- `modules/cognition/reactive.mbt`
+- `modules/cognition/*_test.mbt`
+- `modules/cognition/README.mbt.md`
 
 Out:
 - real LLM calls
@@ -424,11 +424,11 @@ For the design-only PR:
 git diff --check
 ```
 
-For the first implementation PR that changes `lib/cognition`:
+For the first implementation PR that changes `modules/cognition`:
 
 ```bash
-moon -C lib/cognition check --deny-warn
-moon -C lib/cognition test
+moon -C modules/cognition check --deny-warn
+moon -C modules/cognition test
 moon check
 moon test
 moon info

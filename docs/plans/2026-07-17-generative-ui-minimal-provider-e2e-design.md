@@ -68,17 +68,17 @@ value.
 The minimal command reuses rather than duplicates:
 
 - `GENUI_CANDIDATE_SCHEMA` from
-  `examples/web/src/genui-candidate-schema.js`.
+  `apps/web/src/genui-candidate-schema.js`.
 - `buildFeasibilityPrompt` and `GENUI_PROVIDER_SETTINGS.maxCandidateBytes` from
-  `examples/web/src/genui-feasibility-provider.js`.
+  `apps/web/src/genui-feasibility-provider.js`.
 - Existing fixture lookup and normalized capability/dataset JSON from
-  `examples/web/src/genui-feasibility-fixtures.js`.
+  `apps/web/src/genui-feasibility-fixtures.js`.
 - `runFeasibilityCandidate` from
-  `examples/web/src/genui-feasibility-flow.js`.
+  `apps/web/src/genui-feasibility-flow.js`.
 - The existing browser-loaded MoonBit evaluator and session commit path in
-  `examples/web/src/genui.js`.
+  `apps/web/src/genui.js`.
 - The existing Playwright Chromium dependency and the dev-server command pattern
-  in `examples/web/playwright.feasibility.config.ts`.
+  in `apps/web/playwright.feasibility.config.ts`.
 
 No general provider interface is introduced. A second live provider is required
 before a shared provider abstraction can be justified.

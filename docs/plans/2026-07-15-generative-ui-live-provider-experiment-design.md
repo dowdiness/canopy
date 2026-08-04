@@ -112,7 +112,7 @@ provider or renderer-neutral API.
 
 ### 1. Session-owned functional projection — selected
 
-Use the local `examples/web` host and existing async lifecycle, but do not retain
+Use the local `apps/web` host and existing async lifecycle, but do not retain
 two visible representations of the candidate. After validation, the JSX session
 adapter renders the actual table, filter, summary, and rows inside its own root.
 A private trusted host context supplies synthetic fixture rows and current
@@ -801,7 +801,7 @@ If any shape fails materialization, the experiment does not start.
 
 ### F1: `json-overview`
 
-Input: `examples/web/src/fixtures/orders.json`.
+Input: `apps/web/src/fixtures/orders.json`.
 
 Task: produce a useful order overview with one `orders` table, columns for
 `name`, `status`, and `amount`, and a `sum` summary for `amount`.
@@ -812,7 +812,7 @@ Unsupported or duplicate primary tables fail.
 
 ### F2: `csv-status-filter`
 
-Input: `examples/web/src/fixtures/orders.csv` through the existing host parser.
+Input: `apps/web/src/fixtures/orders.csv` through the existing host parser.
 
 Task: produce one filterable `orders` table with `name`, `status`, and `amount`
 columns and a `status` filter using `contains`.

@@ -30,8 +30,8 @@ list_output="$tmp_dir/list-output"
 "$validator" \
   --list \
   --base origin/main \
-  --target lang/markdown/proj \
-  --target lang/markdown/edits >"$list_output"
+  --target modules/canopy/lang/markdown/proj \
+  --target modules/canopy/lang/markdown/edits >"$list_output"
 
 expected_list="$tmp_dir/expected-list"
 cat >"$expected_list" <<'EXPECTED_LIST'
@@ -49,10 +49,10 @@ cat >"$expected_list" <<'EXPECTED_LIST'
 12 dependencies.sync
 13 format.canopy
 14 interfaces.canopy
-15 target.check lang/markdown/proj
-16 target.test lang/markdown/proj
-17 target.check lang/markdown/edits
-18 target.test lang/markdown/edits
+15 target.check modules/canopy/lang/markdown/proj
+16 target.test modules/canopy/lang/markdown/proj
+17 target.check modules/canopy/lang/markdown/edits
+18 target.test modules/canopy/lang/markdown/edits
 19 suite.check
 20 suite.manifest-compat
 21 suite.test
@@ -78,7 +78,7 @@ grep -q "not a MoonBit package directory" "$invalid_target_output" ||
   fail "non-package target diagnostic was not actionable"
 
 duplicate_target_output="$tmp_dir/duplicate-target-output"
-if "$validator" --list --target lang/markdown/proj --target lang/markdown/proj \
+if "$validator" --list --target modules/canopy/lang/markdown/proj --target modules/canopy/lang/markdown/proj \
   >"$duplicate_target_output" 2>&1; then
   fail "--list unexpectedly accepted a duplicate target"
 fi

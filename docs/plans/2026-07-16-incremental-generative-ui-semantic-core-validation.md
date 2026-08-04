@@ -26,11 +26,11 @@ Create one private module:
 
 | Area | Planned files |
 | --- | --- |
-| Workspace/module | `moon.work`, `lib/generative-ui-document/moon.mod`, `moon.pkg` |
+| Workspace/module | `moon.work`, `modules/generative-ui-document/moon.mod`, `moon.pkg` |
 | Core | `types.mbt`, `graph.mbt`, `operation.mbt`, `transition.mbt`, `replay.mbt` |
 | Test model | `reference_model_wbtest.mbt`, `fixed_scenario_wbtest.mbt` |
 | Properties | `operation_properties_wbtest.mbt`, `transition_properties_wbtest.mbt`, `replay_wbtest.mbt` |
-| Optional proof | standalone `lib/generative-ui-document-proof/` for scalar decisions only |
+| Optional proof | standalone `modules/generative-ui-document-proof/` for scalar decisions only |
 | CI/docs | `.github/workflows/ci.yml`, design gate link, TODO completion |
 
 The module supports JS and native and pins `moonbitlang/quickcheck` for
@@ -52,13 +52,13 @@ Out of scope:
 
 | Existing code | Use in this plan |
 | --- | --- |
-| `lib/cognition/generative_ui.mbt` | Reducer lifecycle and terminal-state precedent; no dependency. |
+| `modules/cognition/generative_ui.mbt` | Reducer lifecycle and terminal-state precedent; no dependency. |
 | `generative_ui_candidate.mbt` | Fail-closed capability validation precedent; candidate types stay adapter-specific. |
 | `generative_ui_replay.mbt` | Fixed replay-log and cursor precedent. |
-| `lib/canvas-graph/graph_model/model.mbt` | Pure operation replay example; different domain invariants. |
+| `modules/canvas-graph/graph_model/model.mbt` | Pure operation replay example; different domain invariants. |
 | `core/reconcile_properties_wbtest.mbt` | Bounded generators and explicit shrinkers. |
 | `ffi/jsx/render_baseline_wbtest.mbt` | Generated lifecycle traces and reachable invariants. |
-| `lib/semantic/proof/` | Standalone proof layout and documented collection/state limits. |
+| `modules/semantic/proof/` | Standalone proof layout and documented collection/state limits. |
 | JSX DOM patch contract | Existing V1 session contract; unchanged by this plan. |
 
 ## Core and shell boundary
@@ -193,7 +193,7 @@ Project precedents reused:
 - `GenerativeUiReplaySource` for replay-log/cursor structure;
 - `@qc.quick_check_fn`, `@quickcheck.Arbitrary`, `@qc.Shrink`, and SplitMix
   patterns from existing property tests;
-- the standalone proof-module pattern from `lib/semantic/proof`.
+- the standalone proof-module pattern from `modules/semantic/proof`.
 
 Checked but not reused:
 
@@ -303,7 +303,7 @@ next adapter layer.
 
 ### Phase 6 — Optional scalar proof
 
-- Create `lib/generative-ui-document-proof` outside `moon.work` only after one
+- Create `modules/generative-ui-document-proof` outside `moon.work` only after one
   explicit `proof_ensure` compilation spike succeeds.
 - Limit proofs to scalar terminal-outcome or effect-classification decisions.
   Keep trees, maps, arrays, canonical encoding, inverse laws, and stateful traces
@@ -314,7 +314,7 @@ next adapter layer.
 ### Phase 7 — Gate decision
 
 - Run JS/native validation, inspect `.mbti` and dependency edges, and add CI
-  steps that check and test `lib/generative-ui-document` explicitly on both
+  steps that check and test `modules/generative-ui-document` explicitly on both
   targets.
 - Record the transcript and evidence-matrix result without claiming adapter,
   host-trust, or product safety.
@@ -351,8 +351,8 @@ next adapter layer.
 Before definitions:
 
 ```bash
-NEW_MOON_MOD=0 moon ide outline lib/cognition
-NEW_MOON_MOD=0 moon ide outline lib/canvas-graph/graph_model
+NEW_MOON_MOD=0 moon ide outline modules/cognition
+NEW_MOON_MOD=0 moon ide outline modules/canvas-graph/graph_model
 NEW_MOON_MOD=0 moon ide doc "Map::*"
 NEW_MOON_MOD=0 moon ide doc "Set::*"
 NEW_MOON_MOD=0 moon ide doc "Array::*"
@@ -368,10 +368,10 @@ NEW_MOON_MOD=0 moon ide doc "@quickcheck"
 During each core PR:
 
 ```bash
-NEW_MOON_MOD=0 moon check --target js lib/generative-ui-document
-NEW_MOON_MOD=0 moon check --target native lib/generative-ui-document
-NEW_MOON_MOD=0 moon test --target js lib/generative-ui-document
-NEW_MOON_MOD=0 moon test --target native lib/generative-ui-document
+NEW_MOON_MOD=0 moon check --target js modules/generative-ui-document
+NEW_MOON_MOD=0 moon check --target native modules/generative-ui-document
+NEW_MOON_MOD=0 moon test --target js modules/generative-ui-document
+NEW_MOON_MOD=0 moon test --target native modules/generative-ui-document
 ```
 
 Before merge:

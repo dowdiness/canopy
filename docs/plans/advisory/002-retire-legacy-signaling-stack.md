@@ -7,7 +7,7 @@
 > result in [issue #1125](https://github.com/dowdiness/canopy/issues/1125).
 >
 > **Drift check (run first)**:
-> `git diff --stat f6e3a0a5..HEAD -- examples/web/.env.example examples/web/signaling-server.js examples/web/signaling-worker.js examples/web/wrangler-signaling.toml examples/web/CLOUDFLARE_DEPLOYMENT.md examples/web/QUICKSTART_CLOUDFLARE.md examples/web/package.json examples/web/package-lock.json examples/web/src/vite-env.d.ts examples/web/MODULE_MAP.md examples/web/scripts/check-boundaries.mjs docs/plans/2026-07-25-waku-unified-web-migration.md docs/research/2026-07-25-waku-demo-behavior-contracts.md .github`
+> `git diff --stat f6e3a0a5..HEAD -- apps/web/.env.example apps/web/signaling-server.js apps/web/signaling-worker.js apps/web/wrangler-signaling.toml apps/web/CLOUDFLARE_DEPLOYMENT.md apps/web/QUICKSTART_CLOUDFLARE.md apps/web/package.json apps/web/package-lock.json apps/web/src/vite-env.d.ts apps/web/MODULE_MAP.md apps/web/scripts/check-boundaries.mjs docs/plans/2026-07-25-waku-unified-web-migration.md docs/research/2026-07-25-waku-demo-behavior-contracts.md .github`
 > If any listed file differs from the excerpts below, compare the live content
 > before proceeding and stop on a semantic mismatch rather than overwriting it.
 
@@ -24,13 +24,13 @@
 
 ## Why this matters
 
-`examples/web` contains a deployable Cloudflare Durable Object signaling server
+`apps/web` contains a deployable Cloudflare Durable Object signaling server
 with no authentication, one global room, client-selected identities, and
 production deployment instructions. Repository-wide reachability finds no
 browser code consuming `VITE_SIGNALING_URL`; references are confined to the
 legacy implementation, docs, environment example, type declaration, inventory,
 and a not-yet-executed Waku migration requirement. Canopy now has a separate
-`examples/relay-server` integration around the MoonBit relay. Deleting the
+`apps/relay-server` integration around the MoonBit relay. Deleting the
 unreachable legacy WebRTC stack removes the unsafe publication path without
 inventing a second collaboration architecture, but the same change must also
 remove the obsolete signaling service-binding work from the Waku migration plan
@@ -38,32 +38,32 @@ so that plan remains executable and internally consistent.
 
 ## Current state
 
-- `examples/web/signaling-worker.js:52-85` trusts `data.agentId`, overwrites the
+- `apps/web/signaling-worker.js:52-85` trusts `data.agentId`, overwrites the
   map entry for duplicate IDs, broadcasts peer membership, and forwards offers,
   answers, and ICE candidates to arbitrary `data.to` values.
-- `examples/web/signaling-worker.js:163` routes every request to:
+- `apps/web/signaling-worker.js:163` routes every request to:
 
   ```js
   const id = env.SIGNALING_ROOM.idFromName('global-room');
   ```
 
-- `examples/web/wrangler-signaling.toml` makes the code directly deployable as
+- `apps/web/wrangler-signaling.toml` makes the code directly deployable as
   `crdt-signaling-server` with a `SignalingRoom` Durable Object.
-- `examples/web/CLOUDFLARE_DEPLOYMENT.md` and
-  `examples/web/QUICKSTART_CLOUDFLARE.md` repeatedly instruct contributors to
+- `apps/web/CLOUDFLARE_DEPLOYMENT.md` and
+  `apps/web/QUICKSTART_CLOUDFLARE.md` repeatedly instruct contributors to
   run `wrangler deploy --config wrangler-signaling.toml` and call the result a
   production path.
-- `examples/web/signaling-server.js` is the matching local Node signaling
+- `apps/web/signaling-server.js` is the matching local Node signaling
   server. It is reached only by the `"signaling"` package script.
-- `examples/web/package.json` has a direct `ws` dependency and direct
+- `apps/web/package.json` has a direct `ws` dependency and direct
   `@types/ws` development dependency used only by that local file.
-- `examples/web/src/vite-env.d.ts` declares `VITE_SIGNALING_URL`, but no browser
+- `apps/web/src/vite-env.d.ts` declares `VITE_SIGNALING_URL`, but no browser
   source reads it.
-- Hidden file `examples/web/.env.example` contains only commented examples for
+- Hidden file `apps/web/.env.example` contains only commented examples for
   `VITE_SIGNALING_URL` and the legacy Worker URL.
-- `examples/web/MODULE_MAP.md` correctly describes these as shells outside all
+- `apps/web/MODULE_MAP.md` correctly describes these as shells outside all
   eight browser entry graphs.
-- `examples/relay-server/src/index.ts` is the current collaboration server shell
+- `apps/relay-server/src/index.ts` is the current collaboration server shell
   and delegates sync routing to the MoonBit `relay` package. It is not a WebRTC
   offer/answer signaling replacement and must not be edited in this plan.
 - `docs/plans/2026-07-25-waku-unified-web-migration.md` currently depends on the
@@ -89,11 +89,11 @@ The retirement decision is valid only while all these are true:
 4. No CI or deployment workflow invokes `wrangler-signaling.toml`.
 5. The Waku service-binding/handshake work is prospective plan scope, not
    implemented runtime behavior.
-6. The current collaboration deployment is `examples/relay-server`, not
-   `examples/web/signaling-worker.js`.
+6. The current collaboration deployment is `apps/relay-server`, not
+   `apps/web/signaling-worker.js`.
 
 If any condition is false, stop. Do not improvise an authentication design or
-point Waku at `examples/relay-server`: the modern binary CRDT relay is not a
+point Waku at `apps/relay-server`: the modern binary CRDT relay is not a
 protocol-compatible replacement for the old WebRTC offer/answer signaling
 service. A live consumer requires a separate threat model and migration plan.
 
@@ -102,19 +102,19 @@ service. A live consumer requires a separate threat model and migration plan.
 | Purpose | Command | Expected on success |
 |---|---|---|
 | Reachability | run the scan below from the repo root | before: only listed legacy files/docs plus prospective Waku scope; after: no active legacy signaling references |
-| Install | `cd examples/web && npm ci` | exits 0 |
+| Install | `cd apps/web && npm ci` | exits 0 |
 | Generated artifacts | `NEW_MOON_MOD=0 ./scripts/build-js.sh` | exits 0 and produces the five web MoonBit modules |
-| Typecheck | `cd examples/web && npm run typecheck` | exits 0, no TypeScript errors |
-| Boundary tests | `cd examples/web && npm run test:boundaries` | 18 tests pass |
-| Boundary check | `cd examples/web && npm run check:boundaries` | prints `Web dependency boundaries: OK` |
-| Lock integrity | `cd examples/web && npm install --package-lock-only --ignore-scripts` | exits 0; lock root no longer declares direct `ws` or `@types/ws` |
+| Typecheck | `cd apps/web && npm run typecheck` | exits 0, no TypeScript errors |
+| Boundary tests | `cd apps/web && npm run test:boundaries` | 18 tests pass |
+| Boundary check | `cd apps/web && npm run check:boundaries` | prints `Web dependency boundaries: OK` |
+| Lock integrity | `cd apps/web && npm install --package-lock-only --ignore-scripts` | exits 0; lock root no longer declares direct `ws` or `@types/ws` |
 
 Run the reachability scan from the repository root, before and after the
 change:
 
 ```bash
 rg --hidden -n "signaling-worker|wrangler-signaling|VITE_SIGNALING_URL|SIGNALING_ROOM|WebSocketServer|SIGNALING service binding" \
-  examples/web docs .github README.md \
+  apps/web docs .github README.md \
   --glob '!**/node_modules/**' --glob '!docs/archive/**' --glob '!docs/plans/advisory/**' \
   --glob '!.git/**'
 ```
@@ -131,22 +131,22 @@ rg --hidden -n "signaling-worker|wrangler-signaling|VITE_SIGNALING_URL|SIGNALING
 
 **Delete**:
 
-- `examples/web/signaling-server.js`
-- `examples/web/signaling-worker.js`
-- `examples/web/wrangler-signaling.toml`
-- `examples/web/CLOUDFLARE_DEPLOYMENT.md`
-- `examples/web/QUICKSTART_CLOUDFLARE.md`
-- `examples/web/.env.example` (it contains only legacy signaling examples at
+- `apps/web/signaling-server.js`
+- `apps/web/signaling-worker.js`
+- `apps/web/wrangler-signaling.toml`
+- `apps/web/CLOUDFLARE_DEPLOYMENT.md`
+- `apps/web/QUICKSTART_CLOUDFLARE.md`
+- `apps/web/.env.example` (it contains only legacy signaling examples at
   plan time; if unrelated variables have been added, keep the file and remove
   only the signaling block)
 
 **Modify**:
 
-- `examples/web/package.json`
-- `examples/web/package-lock.json`
-- `examples/web/src/vite-env.d.ts`
-- `examples/web/MODULE_MAP.md`
-- `examples/web/scripts/check-boundaries.mjs`
+- `apps/web/package.json`
+- `apps/web/package-lock.json`
+- `apps/web/src/vite-env.d.ts`
+- `apps/web/MODULE_MAP.md`
+- `apps/web/scripts/check-boundaries.mjs`
 - `docs/plans/2026-07-25-waku-unified-web-migration.md` (required: remove the
   obsolete signaling service-binding scope throughout the plan)
 - `docs/research/2026-07-25-waku-demo-behavior-contracts.md` (correct the Lambda
@@ -155,9 +155,9 @@ rg --hidden -n "signaling-worker|wrangler-signaling|VITE_SIGNALING_URL|SIGNALING
 
 **Read-only references**:
 
-- `examples/relay-server/**`
+- `apps/relay-server/**`
 - `README.md`
-- `examples/web/scripts/check-boundaries.test.mjs`
+- `apps/web/scripts/check-boundaries.test.mjs`
 - `.github/workflows/**` (search for reachability; do not edit)
 
 **Out of scope**:
@@ -165,11 +165,11 @@ rg --hidden -n "signaling-worker|wrangler-signaling|VITE_SIGNALING_URL|SIGNALING
 - Do not deploy or remotely delete a Cloudflare Worker. Remote resource cleanup
   requires explicit operator authorization and account context.
 - Do not modify, rename, secure, or add Waku integration for
-  `examples/relay-server`. It uses a different binary CRDT relay protocol and is
+  `apps/relay-server`. It uses a different binary CRDT relay protocol and is
   not a drop-in signaling replacement.
 - Do not add auth, origin checks, room tokens, rate limiting, WebRTC, a new
   signaling service, `SIGNALING` service binding, or Waku WebSocket proxy.
-- Do not remove the unrelated `examples/web/wrangler.jsonc` Waku configuration.
+- Do not remove the unrelated `apps/web/wrangler.jsonc` Waku configuration.
 - Do not change browser application behavior or collaboration wire protocol.
 - Preserve all pre-existing Waku prototype edits; use an isolated worktree or
   coordinate with their owner before touching currently modified files.
@@ -190,12 +190,12 @@ Run from the repository root:
 ```bash
 rg --hidden -n \
   "signaling-worker|wrangler-signaling|SIGNALING_ROOM|VITE_SIGNALING_URL|WebSocketServer|crdt-signaling-server|SIGNALING service binding" \
-  examples/web docs .github README.md \
+  apps/web docs .github README.md \
   --glob '!**/node_modules/**' --glob '!docs/archive/**' --glob '!docs/plans/advisory/**' \
   --glob '!.git/**'
 
 rg --hidden -n "from ['\"]ws['\"]|require\(['\"]ws['\"]\)|WebSocketServer" \
-  examples/web --glob '!**/node_modules/**' --glob '!package-lock.json' \
+  apps/web --glob '!**/node_modules/**' --glob '!package-lock.json' \
   --glob '!.git/**'
 ```
 
@@ -215,47 +215,47 @@ If another consumer appears, stop and report its path and call graph.
 ### Step 2: Delete the legacy implementation and deployment instructions
 
 Delete the six legacy-only files in the Delete scope, including hidden
-`examples/web/.env.example`. If `.env.example` has gained unrelated variables,
+`apps/web/.env.example`. If `.env.example` has gained unrelated variables,
 remove only its signaling section and retain the file. Do not replace deleted
 files with redirects or new deployment instructions. The separate collaboration
-shell remains visible at `examples/relay-server` through the root README, but it
+shell remains visible at `apps/relay-server` through the root README, but it
 is not wired into Waku by this plan.
 
 **Verify**:
 
 ```bash
-test ! -e examples/web/signaling-server.js
-test ! -e examples/web/signaling-worker.js
-test ! -e examples/web/wrangler-signaling.toml
-test ! -e examples/web/CLOUDFLARE_DEPLOYMENT.md
-test ! -e examples/web/QUICKSTART_CLOUDFLARE.md
+test ! -e apps/web/signaling-server.js
+test ! -e apps/web/signaling-worker.js
+test ! -e apps/web/wrangler-signaling.toml
+test ! -e apps/web/CLOUDFLARE_DEPLOYMENT.md
+test ! -e apps/web/QUICKSTART_CLOUDFLARE.md
 # At plan time .env.example is signaling-only and should be deleted.
-test ! -e examples/web/.env.example || ! rg -n 'VITE_SIGNALING_URL|crdt-signaling-server' examples/web/.env.example
+test ! -e apps/web/.env.example || ! rg -n 'VITE_SIGNALING_URL|crdt-signaling-server' apps/web/.env.example
 ```
 
 Expected: all commands exit 0.
 
 ### Step 3: Remove dead package and environment surface
 
-In `examples/web/package.json`:
+In `apps/web/package.json`:
 
 - remove the `"signaling": "node signaling-server.js"` script;
 - remove the direct `"ws"` dependency;
 - remove the direct `"@types/ws"` development dependency;
 - retain all other scripts and dependencies exactly.
 
-In `examples/web/src/vite-env.d.ts`, remove only the
+In `apps/web/src/vite-env.d.ts`, remove only the
 `VITE_SIGNALING_URL?: string` declaration.
 
 Regenerate lock metadata without running package lifecycle scripts:
 
 ```bash
-cd examples/web
+cd apps/web
 npm install --package-lock-only --ignore-scripts
 cd ../..
 ```
 
-Inspect `examples/web/package-lock.json`. The root package entry must no longer
+Inspect `apps/web/package-lock.json`. The root package entry must no longer
 list `ws` or `@types/ws` directly. Transitive packages with either name may
 remain if another dependency legitimately requires them; do not hand-delete
 transitive entries.
@@ -264,26 +264,26 @@ transitive entries.
 
 ```bash
 node - <<'NODE'
-const p = require('./examples/web/package.json');
+const p = require('./apps/web/package.json');
 if (p.scripts.signaling !== undefined) process.exit(1);
 if (p.dependencies.ws !== undefined || p.devDependencies?.ws !== undefined) process.exit(1);
 if (p.devDependencies?.['@types/ws'] !== undefined) process.exit(1);
-const lock = require('./examples/web/package-lock.json');
+const lock = require('./apps/web/package-lock.json');
 const root = lock.packages?.[''] ?? {};
 if (root.dependencies?.ws !== undefined || root.devDependencies?.ws !== undefined) process.exit(1);
 if (root.devDependencies?.['@types/ws'] !== undefined) process.exit(1);
 NODE
-! rg -n 'VITE_SIGNALING_URL' examples/web/src/vite-env.d.ts
+! rg -n 'VITE_SIGNALING_URL' apps/web/src/vite-env.d.ts
 ```
 
 Expected: both commands exit 0.
 
 ### Step 4: Remove stale inventory and boundary classifications
 
-- In `examples/web/MODULE_MAP.md`, remove legacy signaling files from the
+- In `apps/web/MODULE_MAP.md`, remove legacy signaling files from the
   deployment/integration-shell inventory. Keep `wrangler.jsonc` and unrelated
   Waku text intact.
-- In `examples/web/scripts/check-boundaries.mjs`, remove
+- In `apps/web/scripts/check-boundaries.mjs`, remove
   `signaling-server.js` and `signaling-worker.js` from `ROOT_SERVER_FILES`.
   Do not change classification rules.
 - In `docs/research/2026-07-25-waku-demo-behavior-contracts.md`, update only the
@@ -299,7 +299,7 @@ Expected: both commands exit 0.
 ```bash
 ! rg --hidden -n \
   "signaling-worker|wrangler-signaling|SIGNALING_ROOM|VITE_SIGNALING_URL|crdt-signaling-server" \
-  examples/web --glob '!**/node_modules/**' --glob '!.git/**'
+  apps/web --glob '!**/node_modules/**' --glob '!.git/**'
 ! rg -n 'Signaling files remain separate|signaling handshake' \
   docs/research/2026-07-25-waku-demo-behavior-contracts.md
 rg -n 'collaboration transport.*outside|outside.*collaboration transport' \
@@ -307,14 +307,14 @@ rg -n 'collaboration transport.*outside|outside.*collaboration transport' \
 ```
 
 Expected: no legacy signaling implementation, configuration, environment, or
-inventory reference remains under `examples/web`; the behavior contract records
+inventory reference remains under `apps/web`; the behavior contract records
 the deliberate non-capability rather than a missing Waku handshake.
 
 ### Step 5: Remove the obsolete signaling seam from the Waku migration plan
 
 Edit `docs/plans/2026-07-25-waku-unified-web-migration.md` as one coherent
 scope correction. Do not merely replace the old Worker name with
-`examples/relay-server`; the protocols differ and there is no active browser
+`apps/relay-server`; the protocols differ and there is no active browser
 consumer to preserve.
 
 Make all of these changes:
@@ -363,7 +363,7 @@ rg -n 'collaboration relay.*outside|outside.*collaboration relay' \
   docs/plans/2026-07-25-waku-unified-web-migration.md
 ! rg -ni 'signaling|SIGNALING|websocket handshake|service-bound WebSocket|signaling-proxy' \
   docs/plans/2026-07-25-waku-unified-web-migration.md
-! rg -n 'SIGNALING' examples/web/wrangler.jsonc examples/web/worker-configuration.d.ts 2>/dev/null
+! rg -n 'SIGNALING' apps/web/wrangler.jsonc apps/web/worker-configuration.d.ts 2>/dev/null
 rg -n 'Stage 10 — Cloudflare staging|protected.*staging|rollback' \
   docs/plans/2026-07-25-waku-unified-web-migration.md
 ```
@@ -379,7 +379,7 @@ Run the repository-wide hidden-file search first:
 ```bash
 ! rg --hidden -n \
   "signaling-worker|wrangler-signaling|SIGNALING_ROOM|VITE_SIGNALING_URL|crdt-signaling-server|SIGNALING service binding" \
-  examples/web docs .github README.md \
+  apps/web docs .github README.md \
   --glob '!**/node_modules/**' --glob '!docs/archive/**' --glob '!docs/plans/advisory/**' \
   --glob '!.git/**'
 ```
@@ -392,7 +392,7 @@ Then build the generated modules and run web validation:
 
 ```bash
 NEW_MOON_MOD=0 ./scripts/build-js.sh
-cd examples/web
+cd apps/web
 npm ci
 npm run typecheck
 npm run test:boundaries
@@ -419,7 +419,7 @@ No new runtime test is required because the retired implementation has no
 runtime importer. Existing boundary tests and static reachability checks prove
 that deletion does not break an entry graph. Validation consists of:
 
-- a repository-wide `rg --hidden` scan across `examples/web`, `docs`, `.github`,
+- a repository-wide `rg --hidden` scan across `apps/web`, `docs`, `.github`,
   and `README.md`;
 - zero active references to deleted paths/config/binding/environment variable;
 - the Waku behavior inventory records collaboration transport as absent and
@@ -438,7 +438,7 @@ adding tests around the legacy service.
 
 - [ ] All six legacy-only implementation/deployment/environment files are
   deleted, or `.env.example` is retained only if unrelated settings remain.
-- [ ] `examples/web` has no `signaling` script, direct `ws`/`@types/ws`
+- [ ] `apps/web` has no `signaling` script, direct `ws`/`@types/ws`
   dependency, `VITE_SIGNALING_URL` declaration/example, or legacy Worker URL.
 - [ ] No active docs or `.github` workflow references `wrangler-signaling.toml`.
 - [ ] The Waku behavior contract no longer says signaling shells remain or
@@ -449,7 +449,7 @@ adding tests around the legacy service.
 - [ ] Boundary inventory no longer classifies nonexistent files.
 - [ ] `npm run typecheck`, `npm run test:boundaries`, and
   `npm run check:boundaries` pass.
-- [ ] `examples/relay-server` and `examples/web/wrangler.jsonc` are unchanged.
+- [ ] `apps/relay-server` and `apps/web/wrangler.jsonc` are unchanged.
 - [ ] No Cloudflare deployment or remote deletion was performed.
 - [ ] No out-of-scope file changed except the plan index status.
 
@@ -470,7 +470,7 @@ Stop and report if:
   threat model and hardening/migration plan is required;
 - lock regeneration changes unrelated dependency versions or package metadata;
 - current Waku edits cannot be cleanly separated from this deletion;
-- completing the task appears to require changing `examples/relay-server`.
+- completing the task appears to require changing `apps/relay-server`.
 
 ## Maintenance notes
 

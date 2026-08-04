@@ -643,7 +643,7 @@ respectively.
 The App Server client, external sandbox, Ollama qualification harness, immutable
 manifest, comparison runner, finalizer, and focused tests are expected to add or
 change roughly 1,500–2,500 lines across 12–15 files. The work should remain under
-`examples/web` except for the design, manifest, and evidence records.
+`apps/web` except for the design, manifest, and evidence records.
 
 This range is deliberately wider than the earlier 500–780-line estimate: the comparable
 existing provider, manifest, runner, finalizer, and focused-test modules already

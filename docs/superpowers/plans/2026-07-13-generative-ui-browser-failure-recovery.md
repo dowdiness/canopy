@@ -4,7 +4,7 @@
 
 **Goal:** Add browser evidence for invalid/stale candidate rejection and real DOM apply failure/recovery through the existing GenUI session boundary, then record safety metrics and acceptance evidence without adding a provider or parallel lifecycle.
 
-**Architecture:** Keep lifecycle, validation, dry-run, revision, and recovery policy in the existing MoonBit packages. Add only a thin underscored browser observability surface in `examples/web/src/genui.js` that calls existing FFI exports. Playwright induces DOM failure by monkeypatching the page root, then restores the method and invokes the same real session API for recovery. Cancellation and late candidate chunks remain cognition-only because the current candidate replay export is synchronous.
+**Architecture:** Keep lifecycle, validation, dry-run, revision, and recovery policy in the existing MoonBit packages. Add only a thin underscored browser observability surface in `apps/web/src/genui.js` that calls existing FFI exports. Playwright induces DOM failure by monkeypatching the page root, then restores the method and invokes the same real session API for recovery. Cancellation and late candidate chunks remain cognition-only because the current candidate replay export is synchronous.
 
 **Tech Stack:** MoonBit (`NEW_MOON_MOD=0`), Vite, TypeScript, Playwright, existing `@moonbit/crdt-jsx` FFI exports, Markdown evidence.
 
@@ -24,7 +24,7 @@
 ### Task 1: Add thin browser observability
 
 **Files:**
-- Modify: `examples/web/src/genui.js`
+- Modify: `apps/web/src/genui.js`
 
 **Interfaces:**
 - Produces `window.__canopyGenUiTest` with call-through methods only:
@@ -37,7 +37,7 @@
 - [x] Step 1: Add the underscored test surface beside the existing candidate/session functions.
 - [x] Step 2: Run the web TypeScript check or Vite build to catch syntax/import errors.
 
-Run: `npm run build` from `examples/web`
+Run: `npm run build` from `apps/web`
 Expected: Vite build succeeds.
 
 - [x] Step 3: Re-read the edited region and verify the surface contains no duplicated policy.
@@ -45,7 +45,7 @@ Expected: Vite build succeeds.
 ### Task 2: Add failing browser scenarios
 
 **Files:**
-- Modify: `examples/web/tests/genui.spec.ts`
+- Modify: `apps/web/tests/genui.spec.ts`
 
 **Interfaces:**
 - Consumes `window.__canopyGenUiTest` from Task 1.
@@ -66,10 +66,10 @@ Expected before implementation: failing tests due to missing test surface or ass
 ### Task 3: Implement the minimum browser support
 
 **Files:**
-- Modify: `examples/web/src/genui.js`
+- Modify: `apps/web/src/genui.js`
 
 - [x] Step 1: Implement only the call-through methods specified in Task 1.
-- [x] Step 2: Run `npm run build` from `examples/web`.
+- [x] Step 2: Run `npm run build` from `apps/web`.
 - [x] Step 3: Run the focused Playwright scenarios from Task 2.
 
 Expected: invalid/stale/apply-failure/recovery/determinism tests pass.
@@ -78,7 +78,7 @@ Expected: invalid/stale/apply-failure/recovery/determinism tests pass.
 
 **Files:**
 - Modify: `docs/archive/2026-07-12-generative-ui-input-vertical-slice.md`
-- Modify: `examples/web/tests/genui.spec.ts`
+- Modify: `apps/web/tests/genui.spec.ts`
 
 **Interfaces:**
 - Records concrete evidence for AC-01 through AC-15.
@@ -99,16 +99,16 @@ Expected: invalid/stale/apply-failure/recovery/determinism tests pass.
 **Files:**
 - No source changes.
 
-- [x] Step 1: Run focused MoonBit checks/tests for `lib/cognition`, `ffi/jsx`, and `lang/jsx/proj`.
+- [x] Step 1: Run focused MoonBit checks/tests for `modules/cognition`, `ffi/jsx`, and `lang/jsx/proj`.
 - [x] Step 2: Run scoped `moon fmt` and `moon info` only if MoonBit files changed; inspect generated interface drift.
-- [x] Step 3: Run `npm run build` from `examples/web`.
-- [x] Step 4: Run the complete `examples/web/tests/genui.spec.ts` suite.
+- [x] Step 3: Run `npm run build` from `apps/web`.
+- [x] Step 4: Run the complete `apps/web/tests/genui.spec.ts` suite.
 - [x] Step 5: Run `git diff --check` and inspect the final diff for only the intended files.
 - [x] Step 6: Report that live-provider work remains gated on the recorded evidence.
 
 ## Verification record
 
-- `NEW_MOON_MOD=0 moon check lib/cognition ffi/jsx lang/jsx/proj` passed.
+- `NEW_MOON_MOD=0 moon check modules/cognition modules/canopy/ffi/jsx modules/canopy/lang/jsx/proj` passed.
 - Focused MoonBit tests passed: cognition `120/120`, ffi/jsx `52/52`, and
   lang/jsx/proj `43/43`.
 - Scoped `moon fmt` and `moon info` passed with no generated interface drift.

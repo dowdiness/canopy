@@ -12,7 +12,7 @@ updates:
 
   # Web frontend dependencies
   - package-ecosystem: "npm"
-    directory: "/examples/web"
+    directory: "/apps/web"
     schedule:
       interval: "weekly"
     labels:

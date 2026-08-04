@@ -12,26 +12,26 @@ check-agent-doc-links: ## Verify CLAUDE.md is a symlink to AGENTS.md
 	@bash ./scripts/check-agent-doc-links.sh
 
 test: ## Run tests for main module
-	@./scripts/run-moon-module.sh test .
+	@./scripts/run-moon-module.sh test modules/canopy
 
 test-all: ## Run tests for all modules (including submodules)
 	@./scripts/test-all.sh
 
 check: ## Run moon check for main module
 	@bash ./scripts/check-agent-doc-links.sh
-	@./scripts/run-moon-module.sh check .
+	@./scripts/run-moon-module.sh check modules/canopy
 
 check-all: ## Run moon check and fmt for all modules
 	@bash ./scripts/check-agent-doc-links.sh
 	@./scripts/check-all.sh
 
 fmt: ## Format code with moon fmt
-	moon fmt
-	moon info
+	cd modules/canopy && moon fmt
+	cd modules/canopy && moon info
 
 fmt-check: ## Check formatting for the main module without keeping changes
 	@bash ./scripts/check-agent-doc-links.sh
-	@./scripts/run-moon-module.sh fmt-check .
+	@./scripts/run-moon-module.sh fmt-check modules/canopy
 
 build: ## Build main module (default target)
 	moon build --release
@@ -52,18 +52,18 @@ test-demo-react-e2e: ## Run demo-react Playwright E2E tests
 	@./scripts/test-demo-react-e2e.sh
 
 benchmark-ideal-editor-response: ## Run realistic ideal editor response benchmarks
-	@cd examples/ideal/web && npm run test:perf
+	@cd apps/ideal/web && npm run test:perf
 
 setup-ast-grep: ## Build tree-sitter-moonbit for ast-grep custom-language support
 	@./scripts/setup-ast-grep-moonbit.sh
 
 web-dev: build-js ## Build JS artifacts and start the Waku web dev server
-	@cd examples/web && npm run dev
+	@cd apps/web && npm run dev
 
 clean: ## Clean build artifacts
 	moon clean
 	rm -rf target _build
-	rm -rf examples/web/dist release
+	rm -rf apps/web/dist release
 
 install-hooks: ## Install git pre-commit hooks
 	@./scripts/install-hooks.sh
@@ -76,14 +76,14 @@ MOON_UPDATE := $(CURDIR)/scripts/moon-update.sh
 
 update: ## Update MoonBit dependencies
 	$(MOON_UPDATE)
-	cd event-graph-walker && $(MOON_UPDATE)
-	cd loom/loom && $(MOON_UPDATE)
-	cd svg-dsl && $(MOON_UPDATE)
-	cd graphviz && $(MOON_UPDATE)
+	cd deps/event-graph-walker && $(MOON_UPDATE)
+	cd deps/loom/loom && $(MOON_UPDATE)
+	cd deps/svg-dsl && $(MOON_UPDATE)
+	cd deps/graphviz && $(MOON_UPDATE)
 
 bench: ## Run benchmarks
 	moon bench --release
-	cd event-graph-walker && moon bench --release
+	cd deps/event-graph-walker && moon bench --release
 
 release-artifacts: ## Package release artifacts (set VERSION=x.y.z)
 	@test -n "$(VERSION)" || (echo "VERSION is required" && exit 1)

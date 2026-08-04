@@ -24,7 +24,7 @@ below.
 
 `dowdiness/event-graph-walker` is declared from four manifests in a canopy
 workspace build: three path-dep the **direct submodule** `./event-graph-walker`
-(canopy root, `examples/ideal`, `examples/block-editor`) and one path-deps
+(canopy root, `apps/ideal`, `apps/block-editor`) and one path-deps
 **loom's nested copy** `loom/event-graph-walker` (`loom/examples/lambda`,
 via `../../event-graph-walker`). Probe findings, against the canopy CI
 toolchain on this date:

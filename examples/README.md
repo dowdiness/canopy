@@ -12,12 +12,9 @@ workspace members:
 
 | Example | Purpose | CI mechanism |
 | --- | --- | --- |
-| `ideal/` | Main Ideal editor example and MoonBit/JS bridge. | `scripts/run-moon-module.sh ci examples/ideal`; also has browser E2E under `ideal/web/`. |
-| `block-editor/` | Block editor MoonBit example. | `scripts/run-moon-module.sh ci examples/block-editor`. |
-| `canvas/` | Canvas graph editor MoonBit example. | `scripts/run-moon-module.sh ci examples/canvas`; also builds JS for `canvas/web/`. |
-| `codemirror_demo/` | CodeMirror binding demo module. | `scripts/run-moon-module.sh ci examples/codemirror_demo`; also has a small Vite app. |
-| `resizable/` | Rabbita resizable example module. | Covered by root workspace commands. |
-| `disclosure/` | Rabbita disclosure example module. | Covered by root workspace commands. |
+| `examples/codemirror/` | CodeMirror binding demo module. | `scripts/run-moon-module.sh ci examples/codemirror`; browser wrapper is in the same directory. |
+| `examples/resizable/` | Rabbita resizable example module. | Covered by root workspace commands. |
+| `examples/disclosure/` | Rabbita disclosure example module. | Covered by root workspace commands. |
 
 Run a single MoonBit example directly with:
 
@@ -29,28 +26,22 @@ moon test
 
 ## Frontend / TypeScript / browser examples
 
-These examples use npm tooling. Build the MoonBit JS artifacts first from the
-repository root when they import Canopy-generated JS:
+These examples use npm tooling. Build the MoonBit JavaScript artifacts first
+from the repository root when they import Canopy-generated output:
 
 ```sh
 moon build --target js
 ```
 
-| Example | Tooling | Notes |
+| Frontend | Tooling | Notes |
 | --- | --- | --- |
-| `web/` | Vite + TypeScript + Playwright | Main browser demo pages for Lambda, JSON, and Markdown editors. CI runs TypeScript typecheck and Playwright. |
-| `ideal/web/` | Vite + Playwright | Browser E2E suite for the Ideal editor; paired with the `examples/ideal` MoonBit module. |
-| `canvas/web/` | Vite + TypeScript + Playwright | Browser UI for `examples/canvas`; CI builds canvas MoonBit JS from `examples/canvas` before typecheck/E2E. |
-| `demo-react/` | React/Vite + TypeScript + Vitest + Playwright | React demo plus local WebSocket server helpers. |
-| `prosemirror/` | Vite + TypeScript | ProseMirror integration example; CI typechecks it. |
-| `codemirror_demo/` | Vite | Browser wrapper around the MoonBit CodeMirror demo module. |
-| `relay-server/` | Wrangler | Cloudflare Worker relay-server example. |
-| `rabbita/` | npm / vendored rabbita tooling | Rabbita-specific example area; check local package scripts and rabbita docs. |
+| `examples/demo-react/` | React/Vite + TypeScript + Vitest + Playwright | React integration demo plus local WebSocket helpers. |
+| `examples/prosemirror/` | Vite + TypeScript | ProseMirror integration example. |
 
 Typical frontend workflow:
 
 ```sh
-cd examples/web
+cd examples/demo-react
 npm ci
 npm run dev
 ```
@@ -60,6 +51,7 @@ container versions. See `.github/workflows/ci.yml` for the current matrices.
 
 ## Relationship to module/package map
 
-For the repository-level distinction between root packages, standalone
-`lib/*` modules, examples, and git submodules, see
+For the repository-level distinction between primary packages, reusable
+`modules/*`, product `apps/*`, integration `examples/*`, and repository
+dependencies under `deps/*`, see
 [`docs/development/module-package-map.md`](../docs/development/module-package-map.md).

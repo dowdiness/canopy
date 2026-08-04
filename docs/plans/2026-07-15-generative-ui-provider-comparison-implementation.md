@@ -31,7 +31,7 @@ bubblewrap 0.9.0, Playwright, Vite, TypeScript, MoonBit JS target, SHA-256.
 
 - Preserve the existing `GenerativeUiCandidate::validate`, preparation,
   materialization, rubric, replay, and session-commit path.
-- Keep all runtime code experiment-private under `examples/web`; add no public
+- Keep all runtime code experiment-private under `apps/web`; add no public
   Canopy, MoonBit, provider-neutral, or renderer-neutral API.
 - Use `codex-cli 0.144.4`, stdio JSONL, model `gpt-5.6-luna`, reasoning effort
   `medium`, and the existing Codex login.
@@ -85,56 +85,56 @@ bubblewrap 0.9.0, Playwright, Vite, TypeScript, MoonBit JS target, SHA-256.
 
 ### New runtime and policy files
 
-- `examples/web/src/genui-codex-app-server.js` — App Server request construction,
+- `apps/web/src/genui-codex-app-server.js` — App Server request construction,
   JSONL lifecycle state, identity checks, terminal-item validation, candidate-byte
   extraction, and normalized provider result.
-- `examples/web/scripts/genui-codex-sandbox.mjs` — private Codex home, minimal
+- `apps/web/scripts/genui-codex-sandbox.mjs` — private Codex home, minimal
   configuration, bubblewrap argv/environment, process lifecycle, canary checks,
   and cleanup.
-- `examples/web/scripts/genui-provider-comparison.mjs` — pure branch and schedule
+- `apps/web/scripts/genui-provider-comparison.mjs` — pure branch and schedule
   generation, Stage 1 eligibility, provider qualification, transcript
   normalization, raw artifact digesting, aggregate evidence, and finalizer CLI.
-- `examples/web/scripts/build-genui-provider-comparison-manifest.mjs` — immutable
+- `apps/web/scripts/build-genui-provider-comparison-manifest.mjs` — immutable
   diagnostic-selected branch manifest construction and exclusive file creation.
-- `examples/web/scripts/run-genui-provider-comparison-study.mjs` — preflight,
+- `apps/web/scripts/run-genui-provider-comparison-study.mjs` — preflight,
   branch-specific sequential execution, browser/MoonBit handoff, journal writes,
   global stops, Stage 1 gate, and finalization.
-- `examples/web/scripts/smoke-genui-codex-provider.mjs` — exactly one
+- `apps/web/scripts/smoke-genui-codex-provider.mjs` — exactly one
   credentialed synthetic request through the production sandbox, protocol, and
   unchanged browser/MoonBit path before the scored manifest exists.
-- `examples/web/scripts/diagnose-genui-ollama.mjs` — ordered seven-step diagnostic,
+- `apps/web/scripts/diagnose-genui-ollama.mjs` — ordered seven-step diagnostic,
   known-working-model runtime control, one-variable-at-a-time probe records, and
   the all-three-fixture development qualification result.
 
 ### New test files
 
-- `examples/web/src/genui-codex-app-server.test.mjs` — deterministic JSONL
+- `apps/web/src/genui-codex-app-server.test.mjs` — deterministic JSONL
   protocol and terminal-result fixtures.
-- `examples/web/scripts/genui-codex-sandbox.test.mjs` — mount, config, credential,
+- `apps/web/scripts/genui-codex-sandbox.test.mjs` — mount, config, credential,
   cleanup, and known-positive detector controls.
-- `examples/web/scripts/genui-provider-comparison.test.mjs` — paired and
+- `apps/web/scripts/genui-provider-comparison.test.mjs` — paired and
   Codex-only branches, stage gates, thresholds, global stops, transcript
   redaction, raw-loss downgrade, manifest, runner, and finalizer tests.
-- `examples/web/scripts/diagnose-genui-ollama.test.mjs` — diagnostic probe order,
+- `apps/web/scripts/diagnose-genui-ollama.test.mjs` — diagnostic probe order,
   single-dimension changes, runtime-control branching, private evidence, and
   three-fixture exit-gate tests.
 
 ### Existing files to modify
 
-- `examples/web/src/genui-feasibility-provider.js` — extract and export the frozen
+- `apps/web/src/genui-feasibility-provider.js` — extract and export the frozen
   Ollama request builder so normal generation and diagnostics share exact bytes.
-- `examples/web/src/genui-feasibility-provider.test.mjs` — prove the extraction is
+- `apps/web/src/genui-feasibility-provider.test.mjs` — prove the extraction is
   byte-equivalent and that HTTP failures remain terminal and unretried.
-- `examples/web/scripts/build-genui-feasibility-manifest.mjs` — export the existing
+- `apps/web/scripts/build-genui-feasibility-manifest.mjs` — export the existing
   clean-repository and digest helpers for the comparison manifest builder; do not
   change the frozen v2 manifest shape.
-- `examples/web/scripts/run-genui-feasibility-study.mjs` — reuse existing exported
+- `apps/web/scripts/run-genui-feasibility-study.mjs` — reuse existing exported
   preflight, environment-isolation, durable-journal, capability, and repository
   checks; modify only if a comparison test proves an export is missing.
 
 ### Frozen and result artifacts
 
-- `examples/web/studies/2026-07-15-genui-provider-comparison-v1.json` — reviewed
+- `apps/web/studies/2026-07-15-genui-provider-comparison-v1.json` — reviewed
   60-slot branching manifest with diagnostic digest, active/not-run
   classification, numeric limits, and all identity/input/contract digests.
 - `docs/evidence/2026-07-15-generative-ui-provider-comparison-v1-transcript.jsonl`
@@ -151,18 +151,18 @@ bubblewrap 0.9.0, Playwright, Vite, TypeScript, MoonBit JS target, SHA-256.
 
 - Reuse `buildFeasibilityPrompt`, `canonicalJson`, `sha256Hex`,
   `GENUI_PROVIDER_SETTINGS`, and `readOllamaIdentity` from
-  `examples/web/src/genui-feasibility-provider.js`.
+  `apps/web/src/genui-feasibility-provider.js`.
 - Preserve `callOllamaSlot` and its three-slot contract. Extract its request and
   provider lifecycle into an explicit-seed `callOllamaAttempt` core for the
   comparison instead of passing repeated indices 3–9 to `callOllamaSlot`.
 - Reuse `GENUI_FEASIBILITY_FIXTURES` and `capabilitiesJsonForFixture` from
-  `examples/web/src/genui-feasibility-fixtures.js` and `GENUI_CANDIDATE_SCHEMA`
-  from `examples/web/src/genui-candidate-schema.js`.
+  `apps/web/src/genui-feasibility-fixtures.js` and `GENUI_CANDIDATE_SCHEMA`
+  from `apps/web/src/genui-candidate-schema.js`.
 - Reuse `createRunCapability`, `buildValidationEnv`, `appendJournalEvent`,
   `verifyFrozenRepository`, and `runDeterministicPreflight` from
-  `examples/web/scripts/run-genui-feasibility-study.mjs`.
+  `apps/web/scripts/run-genui-feasibility-study.mjs`.
 - Reuse `parseJournal` from
-  `examples/web/scripts/finalize-genui-feasibility-study.mjs`; do not reuse its
+  `apps/web/scripts/finalize-genui-feasibility-study.mjs`; do not reuse its
   nine-slot validation or old positive/negative decision rule.
 - Reuse the existing Playwright request gate, browser transaction, MoonBit
   preparation/materialization/rubric/replay, and session commit unchanged.
@@ -191,8 +191,8 @@ manifest freeze, scored execution, and evidence closure.
 ### Task 1: Codex App Server protocol boundary
 
 **Files:**
-- Create: `examples/web/src/genui-codex-app-server.js`
-- Create: `examples/web/src/genui-codex-app-server.test.mjs`
+- Create: `apps/web/src/genui-codex-app-server.js`
+- Create: `apps/web/src/genui-codex-app-server.test.mjs`
 
 **Interfaces:**
 
@@ -228,7 +228,7 @@ manifest freeze, scored execution, and evidence closure.
 - [ ] Run the focused test and confirm failure because the module is absent:
 
   ```bash
-  cd examples/web
+  cd apps/web
   node --test src/genui-codex-app-server.test.mjs
   ```
 
@@ -246,16 +246,16 @@ manifest freeze, scored execution, and evidence closure.
 - [ ] Run `moon check`; commit only the protocol module and its test:
 
   ```bash
-  git add examples/web/src/genui-codex-app-server.js \
-    examples/web/src/genui-codex-app-server.test.mjs
+  git add apps/web/src/genui-codex-app-server.js \
+    apps/web/src/genui-codex-app-server.test.mjs
   git commit -m "feat(genui): add fail-closed Codex app server client"
   ```
 
 ### Task 2: External Codex sandbox and credential lifecycle
 
 **Files:**
-- Create: `examples/web/scripts/genui-codex-sandbox.mjs`
-- Create: `examples/web/scripts/genui-codex-sandbox.test.mjs`
+- Create: `apps/web/scripts/genui-codex-sandbox.mjs`
+- Create: `apps/web/scripts/genui-codex-sandbox.test.mjs`
 
 **Interfaces:**
 
@@ -284,7 +284,7 @@ manifest freeze, scored execution, and evidence closure.
 - [ ] Run the focused test and confirm failure because the launcher is absent:
 
   ```bash
-  cd examples/web
+  cd apps/web
   node --test scripts/genui-codex-sandbox.test.mjs
   ```
 
@@ -297,16 +297,16 @@ manifest freeze, scored execution, and evidence closure.
 - [ ] Run `moon check`; commit the launcher and test:
 
   ```bash
-  git add examples/web/scripts/genui-codex-sandbox.mjs \
-    examples/web/scripts/genui-codex-sandbox.test.mjs
+  git add apps/web/scripts/genui-codex-sandbox.mjs \
+    apps/web/scripts/genui-codex-sandbox.test.mjs
   git commit -m "feat(genui): isolate Codex provider process"
   ```
 
 ### Task 3: Pure comparison policy and evidence finalizer
 
 **Files:**
-- Create: `examples/web/scripts/genui-provider-comparison.mjs`
-- Create: `examples/web/scripts/genui-provider-comparison.test.mjs`
+- Create: `apps/web/scripts/genui-provider-comparison.mjs`
+- Create: `apps/web/scripts/genui-provider-comparison.test.mjs`
 
 **Interfaces:**
 
@@ -347,7 +347,7 @@ manifest freeze, scored execution, and evidence closure.
 - [ ] Run the focused test and confirm failure because the policy module is absent:
 
   ```bash
-  cd examples/web
+  cd apps/web
   node --test scripts/genui-provider-comparison.test.mjs
   ```
 
@@ -358,17 +358,17 @@ manifest freeze, scored execution, and evidence closure.
 - [ ] Run `moon check`; commit the policy and tests:
 
   ```bash
-  git add examples/web/scripts/genui-provider-comparison.mjs \
-    examples/web/scripts/genui-provider-comparison.test.mjs
+  git add apps/web/scripts/genui-provider-comparison.mjs \
+    apps/web/scripts/genui-provider-comparison.test.mjs
   git commit -m "feat(genui): add provider comparison policy"
   ```
 
 ### Task 4: Immutable comparison manifest builder
 
 **Files:**
-- Create: `examples/web/scripts/build-genui-provider-comparison-manifest.mjs`
-- Modify: `examples/web/scripts/build-genui-feasibility-manifest.mjs`
-- Modify: `examples/web/scripts/genui-provider-comparison.test.mjs`
+- Create: `apps/web/scripts/build-genui-provider-comparison-manifest.mjs`
+- Modify: `apps/web/scripts/build-genui-feasibility-manifest.mjs`
+- Modify: `apps/web/scripts/genui-provider-comparison.test.mjs`
 
 **Interfaces:**
 
@@ -399,7 +399,7 @@ manifest freeze, scored execution, and evidence closure.
 - [ ] Run the focused test and confirm failure at the missing builder import:
 
   ```bash
-  cd examples/web
+  cd apps/web
   node --test scripts/genui-provider-comparison.test.mjs
   ```
 
@@ -412,18 +412,18 @@ manifest freeze, scored execution, and evidence closure.
 - [ ] Run focused tests and `moon check`; commit the builder separately:
 
   ```bash
-  git add examples/web/scripts/build-genui-provider-comparison-manifest.mjs \
-    examples/web/scripts/build-genui-feasibility-manifest.mjs \
-    examples/web/scripts/genui-provider-comparison.test.mjs
+  git add apps/web/scripts/build-genui-provider-comparison-manifest.mjs \
+    apps/web/scripts/build-genui-feasibility-manifest.mjs \
+    apps/web/scripts/genui-provider-comparison.test.mjs
   git commit -m "feat(genui): build immutable provider manifest"
   ```
 
 ### Task 5: Comparison runner and credentialed smoke entry point
 
 **Files:**
-- Create: `examples/web/scripts/run-genui-provider-comparison-study.mjs`
-- Create: `examples/web/scripts/smoke-genui-codex-provider.mjs`
-- Modify: `examples/web/scripts/genui-provider-comparison.test.mjs`
+- Create: `apps/web/scripts/run-genui-provider-comparison-study.mjs`
+- Create: `apps/web/scripts/smoke-genui-codex-provider.mjs`
+- Modify: `apps/web/scripts/genui-provider-comparison.test.mjs`
 
 **Interfaces:**
 
@@ -463,7 +463,7 @@ manifest freeze, scored execution, and evidence closure.
 - [ ] Run focused and old feasibility tests to prove no baseline drift:
 
   ```bash
-  cd examples/web
+  cd apps/web
   node --test scripts/genui-provider-comparison.test.mjs \
     scripts/run-genui-feasibility-study.test.mjs
   ```
@@ -471,18 +471,18 @@ manifest freeze, scored execution, and evidence closure.
 - [ ] Run `moon check`; commit runner and smoke separately from the manifest:
 
   ```bash
-  git add examples/web/scripts/run-genui-provider-comparison-study.mjs \
-    examples/web/scripts/smoke-genui-codex-provider.mjs \
-    examples/web/scripts/genui-provider-comparison.test.mjs
+  git add apps/web/scripts/run-genui-provider-comparison-study.mjs \
+    apps/web/scripts/smoke-genui-codex-provider.mjs \
+    apps/web/scripts/genui-provider-comparison.test.mjs
   git commit -m "feat(genui): orchestrate provider comparison"
   ```
 ### Task 6: Byte-equivalent Ollama request-core extraction
 
 **Files:**
-- Modify: `examples/web/src/genui-feasibility-provider.js`
-- Modify: `examples/web/src/genui-feasibility-provider.test.mjs`
-- Modify: `examples/web/scripts/genui-provider-comparison.test.mjs`
-- Modify: `examples/web/scripts/run-genui-provider-comparison-study.mjs`
+- Modify: `apps/web/src/genui-feasibility-provider.js`
+- Modify: `apps/web/src/genui-feasibility-provider.test.mjs`
+- Modify: `apps/web/scripts/genui-provider-comparison.test.mjs`
+- Modify: `apps/web/scripts/run-genui-provider-comparison-study.mjs`
 
 **Interfaces:**
 
@@ -507,20 +507,20 @@ manifest freeze, scored execution, and evidence closure.
 - [ ] Run focused tests and `moon check`; commit the byte-equivalent extraction:
 
   ```bash
-  git add examples/web/src/genui-feasibility-provider.js \
-    examples/web/src/genui-feasibility-provider.test.mjs \
-    examples/web/scripts/run-genui-provider-comparison-study.mjs \
-    examples/web/scripts/genui-provider-comparison.test.mjs
+  git add apps/web/src/genui-feasibility-provider.js \
+    apps/web/src/genui-feasibility-provider.test.mjs \
+    apps/web/scripts/run-genui-provider-comparison-study.mjs \
+    apps/web/scripts/genui-provider-comparison.test.mjs
   git commit -m "refactor(genui): extract explicit-seed Ollama attempt"
   ```
 
 ### Task 7: Seven-step Ollama diagnostic and three-fixture gate
 
 **Files:**
-- Create: `examples/web/scripts/diagnose-genui-ollama.mjs`
-- Create: `examples/web/scripts/diagnose-genui-ollama.test.mjs`
-- Modify: `examples/web/scripts/build-genui-provider-comparison-manifest.mjs`
-- Modify: `examples/web/scripts/genui-provider-comparison.test.mjs`
+- Create: `apps/web/scripts/diagnose-genui-ollama.mjs`
+- Create: `apps/web/scripts/diagnose-genui-ollama.test.mjs`
+- Modify: `apps/web/scripts/build-genui-provider-comparison-manifest.mjs`
+- Modify: `apps/web/scripts/genui-provider-comparison.test.mjs`
 
 **Interfaces:**
 
@@ -559,7 +559,7 @@ manifest freeze, scored execution, and evidence closure.
   diagnostic module and qualification contract:
 
   ```bash
-  cd examples/web
+  cd apps/web
   node --test scripts/diagnose-genui-ollama.test.mjs \
     scripts/genui-provider-comparison.test.mjs
   ```
@@ -575,10 +575,10 @@ manifest freeze, scored execution, and evidence closure.
 - [ ] Run focused tests and `moon check`; commit the diagnostic gate separately:
 
   ```bash
-  git add examples/web/scripts/diagnose-genui-ollama.mjs \
-    examples/web/scripts/diagnose-genui-ollama.test.mjs \
-    examples/web/scripts/build-genui-provider-comparison-manifest.mjs \
-    examples/web/scripts/genui-provider-comparison.test.mjs
+  git add apps/web/scripts/diagnose-genui-ollama.mjs \
+    apps/web/scripts/diagnose-genui-ollama.test.mjs \
+    apps/web/scripts/build-genui-provider-comparison-manifest.mjs \
+    apps/web/scripts/genui-provider-comparison.test.mjs
   git commit -m "feat(genui): qualify Ollama comparison request"
   ```
 ### Task 8: Deterministic verification and pre-credential review
@@ -588,7 +588,7 @@ manifest freeze, scored execution, and evidence closure.
 - [ ] Run the complete focused Node suite:
 
   ```bash
-  cd examples/web
+  cd apps/web
   node --test src/genui-feasibility-fixtures.test.mjs \
     src/genui-feasibility-provider.test.mjs \
     src/genui-feasibility-demo.test.mjs \
@@ -604,7 +604,7 @@ manifest freeze, scored execution, and evidence closure.
   check:
 
   ```bash
-  NEW_MOON_MOD=0 moon test ffi/jsx
+  NEW_MOON_MOD=0 moon test modules/canopy/ffi/jsx
   NEW_MOON_MOD=0 moon check
   ```
 
@@ -612,7 +612,7 @@ manifest freeze, scored execution, and evidence closure.
 
   ```bash
   NEW_MOON_MOD=0 moon build --target js
-  cd examples/web
+  cd apps/web
   npx tsc --noEmit
   npx playwright test tests/genui.spec.ts --project=chromium --grep feasibility
   ```
@@ -621,7 +621,7 @@ manifest freeze, scored execution, and evidence closure.
   marker without weakening existing assertions:
 
   ```bash
-  cd examples/web
+  cd apps/web
   NEW_MOON_MOD=0 npm run build
   npx playwright test --config=playwright.preview.config.ts \
     --project=chromium --grep "local study runner|local provider marker"
@@ -640,9 +640,9 @@ manifest freeze, scored execution, and evidence closure.
 ### Task 9: One credentialed Codex smoke and conservative budget freeze
 
 **Files:**
-- Modify: `examples/web/scripts/build-genui-provider-comparison-manifest.mjs`
-- Modify: `examples/web/scripts/genui-provider-comparison.test.mjs`
-- Execute: `examples/web/scripts/smoke-genui-codex-provider.mjs`, created and
+- Modify: `apps/web/scripts/build-genui-provider-comparison-manifest.mjs`
+- Modify: `apps/web/scripts/genui-provider-comparison.test.mjs`
+- Execute: `apps/web/scripts/smoke-genui-codex-provider.mjs`, created and
   reviewed in Task 5; this task does not modify it.
 - Create private smoke artifacts under `$RUN_ROOT/smoke/`, where `RUN_ROOT` is an
   absolute descendant of `$XDG_STATE_HOME/canopy/genui-provider-benchmark/`.
@@ -660,7 +660,7 @@ manifest freeze, scored execution, and evidence closure.
   builder, schema, timeout, MoonBit preparation path, and XDG run root:
 
   ```bash
-  cd examples/web
+  cd apps/web
   export RUN_ROOT="${XDG_STATE_HOME:?XDG_STATE_HOME must be set}/canopy/genui-provider-benchmark/2026-07-15-provider-comparison-v1"
   install -d -m 0700 "$RUN_ROOT/smoke"
   node scripts/smoke-genui-codex-provider.mjs \
@@ -699,18 +699,18 @@ manifest freeze, scored execution, and evidence closure.
   never private smoke artifacts:
 
   ```bash
-  cd examples/web
+  cd apps/web
   node --test scripts/genui-provider-comparison.test.mjs
   cd ../..
   moon check
-  git add examples/web/scripts/build-genui-provider-comparison-manifest.mjs \
-    examples/web/scripts/genui-provider-comparison.test.mjs
+  git add apps/web/scripts/build-genui-provider-comparison-manifest.mjs \
+    apps/web/scripts/genui-provider-comparison.test.mjs
   git commit -m "test(genui): freeze conservative comparison budgets"
   ```
 ### Task 10: Execute Ollama diagnosis and freeze the manifest
 
 **Files:**
-- Create: `examples/web/studies/2026-07-15-genui-provider-comparison-v1.json`
+- Create: `apps/web/studies/2026-07-15-genui-provider-comparison-v1.json`
 - Create private diagnostic artifacts under `$RUN_ROOT/diagnostics/`; no raw
   diagnostic path may be inside the repository.
 
@@ -725,7 +725,7 @@ manifest freeze, scored execution, and evidence closure.
 - [ ] Execute the diagnostic with the reviewed XDG run root:
 
   ```bash
-  cd examples/web
+  cd apps/web
   node scripts/diagnose-genui-ollama.mjs \
     --manifest studies/2026-07-15-genui-local-llm-v2.json \
     --run-root "$RUN_ROOT" \
@@ -771,7 +771,7 @@ manifest freeze, scored execution, and evidence closure.
   Stage 1 must run from that exact clean commit:
 
   ```bash
-  git add examples/web/studies/2026-07-15-genui-provider-comparison-v1.json
+  git add apps/web/studies/2026-07-15-genui-provider-comparison-v1.json
   git commit -m "experiment(genui): freeze provider comparison manifest"
   ```
 ### Task 11: Execute Stage 1 and conditional Stage 2
@@ -786,7 +786,7 @@ manifest freeze, scored execution, and evidence closure.
 - [ ] Execute Stage 1 once:
 
   ```bash
-  cd examples/web
+  cd apps/web
   node scripts/run-genui-provider-comparison-study.mjs \
     --manifest studies/2026-07-15-genui-provider-comparison-v1.json \
     --run-root "$RUN_ROOT" \
@@ -836,7 +836,7 @@ manifest freeze, scored execution, and evidence closure.
   output creation:
 
   ```bash
-  cd examples/web
+  cd apps/web
   node scripts/genui-provider-comparison.mjs \
     --manifest studies/2026-07-15-genui-provider-comparison-v1.json \
     --run-root "$RUN_ROOT" \

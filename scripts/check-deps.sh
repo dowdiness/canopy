@@ -2,11 +2,11 @@
 # Scope-aware dependency-rule checker.
 #
 # Module-scope rules (see docs/plans/2026-04-22-moonbit-workspace-reorganization.md):
-#   [A] lib/*         must not import dowdiness/canopy/*
-#   [B] lib/*         must not import example modules
-#   [C] submodule/*   must not import dowdiness/canopy/*
-#   [D] submodule/*   must not import example modules
-#   [E] submodule/*   must not path-dep into dowdiness/canopy (moon.mod.json or moon.mod)
+#   [A] reusable modules must not import dowdiness/canopy/*
+#   [B] reusable modules must not import example modules
+#   [C] submodule/*    must not import dowdiness/canopy/*
+#   [D] submodule/*    must not import example modules
+#   [E] submodule/*    must not path-dep into dowdiness/canopy (moon.mod.json or moon.mod)
 #
 # Package-level layering rules inside the dowdiness/canopy module (see
 # docs/plans/2026-06-11-architecture-redesign-proposal.md, "Dependency and
@@ -165,17 +165,20 @@ with open(os.path.join(ROOT, ".gitmodules")) as f:
         if line.startswith("path = "):
             submodule_paths.add(line[len("path = "):])
 
+
+CANOPY_MODULE_ROOT = "modules/canopy"
+
 def classify(rel_path):
     rel = rel_path.replace(os.sep, "/")
     for sm in submodule_paths:
         if rel == sm or rel.startswith(sm + "/"):
             return "submodule"
-    if rel.startswith("lib/"):
-        return "lib"
-    if rel.startswith("examples/"):
-        return "example"
-    if rel == ".":
+    if rel == CANOPY_MODULE_ROOT:
         return "canopy"
+    if rel.startswith("modules/"):
+        return "lib"
+    if rel.startswith("examples/") or rel.startswith("apps/"):
+        return "example"
     return "other"
 
 module_category = {}  # name -> category
@@ -212,6 +215,14 @@ def canopy_pkg(sym):
     if sym.startswith(CANOPY + "/"):
         return sym[len(CANOPY) + 1:]
     return None
+
+def canopy_relative_pkg(pkg_rel):
+    if pkg_rel == CANOPY_MODULE_ROOT:
+        return "."
+    if pkg_rel.startswith(CANOPY_MODULE_ROOT + "/"):
+        return pkg_rel[len(CANOPY_MODULE_ROOT) + 1:]
+    return pkg_rel
+
 
 SUBSTRATE_ONLY_ROOTS = ("core", "protocol")  # [F] — protocol covers protocol/wire
 RELAY_ALLOWED_ROOTS = (  # [H] — each allows its own subpackages
@@ -323,8 +334,9 @@ for pkg_file in iter_files("moon.pkg"):
     cat = module_category.get(mod_name, "other")
     pkg_rel = (os.path.relpath(os.path.dirname(pkg_file), ROOT) or ".") \
         .replace(os.sep, "/")
+    canopy_rel = canopy_relative_pkg(pkg_rel) if cat == "canopy" else pkg_rel
     if cat == "canopy":
-        canopy_import_counts.setdefault(pkg_rel, 0)
+        canopy_import_counts.setdefault(canopy_rel, 0)
     for scope, sym in parse_imports(pkg_file):
         if cat == "lib" and is_canopy(sym):
             violations.append(f"[A] lib pkg {pkg_rel} ({mod_name}, {scope}) → {sym}")
@@ -335,8 +347,8 @@ for pkg_file in iter_files("moon.pkg"):
         if cat == "submodule" and is_example(sym):
             violations.append(f"[D] submodule pkg {pkg_rel} ({mod_name}, {scope}) → {sym}")
         if cat == "canopy":
-            canopy_import_counts[pkg_rel] += 1
-            violations.extend(check_canopy_layering(pkg_rel, scope, sym))
+            canopy_import_counts[canopy_rel] += 1
+            violations.extend(check_canopy_layering(canopy_rel, scope, sym))
 
 # --- Scan module path-deps ---
 scanned_mods = 0

@@ -1,4 +1,5 @@
 #!/bin/bash
 export PATH="/home/antisatori/.moon/bin:/usr/bin:$PATH"
-cd /home/antisatori/ghq/github.com/dowdiness/crdt/examples/prosemirror
-exec /home/antisatori/ghq/github.com/dowdiness/crdt/examples/prosemirror/node_modules/.bin/vite
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+cd "$PROJECT_ROOT/examples/prosemirror"
+exec "$PROJECT_ROOT/examples/prosemirror/node_modules/.bin/vite"

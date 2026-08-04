@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-06
 **Status:** Foundation shipped in PR #532; Tailwind migration approved for incremental execution (see `docs/plans/2026-06-06-ideal-tailwind-v4-migration.md`)
-**Scope:** `examples/ideal/` only. The other four apps (`demo-react`, `codemirror_demo`, `resizable`, `disclosure`) are untouched.
+**Scope:** `apps/ideal/` only. The other four apps (`demo-react`, `codemirror_demo`, `resizable`, `disclosure`) are untouched.
 
 This is a design document: it states *what* to build and *why*. The step-ordered *how* lives in the archived implementation plan (`docs/archive/2026-06-06-ideal-css-dedup-foundation-plan.md`).
 
@@ -10,8 +10,8 @@ This is a design document: it states *what* to build and *why*. The step-ordered
 
 The Ideal editor maintains the same visual rules twice:
 
-- `examples/ideal/web/styles/editor.css` — light DOM, 1463 lines.
-- A `SHADOW_STYLES` template-literal constant in `examples/ideal/web/src/canopy-editor.ts` (definition at line 248, injected via `<style>.textContent` into a `mode: 'open'` shadow root at lines 42–46).
+- `apps/ideal/web/styles/editor.css` — light DOM, 1463 lines.
+- A `SHADOW_STYLES` template-literal constant in `apps/ideal/web/src/canopy-editor.ts` (definition at line 248, injected via `<style>.textContent` into a `mode: 'open'` shadow root at lines 42–46).
 
 Renaming or editing a shared rule requires touching both, or shadow-rendered elements silently go unstyled. This duplication is documented (`project_ideal_overlay_css_dual_location`) and was caught by Codex in PR #530.
 
@@ -58,7 +58,7 @@ The shipped foundation still follows the design's core direction: `editor-shadow
 
 The original cheap experiment targeted the **action overlay** because its classes are generated in `.mbt` (`view_actions.mbt`). After PR #532, the technical questions separate cleanly:
 
-- **Scan:** Can Tailwind v4 extract class strings from `.mbt` source via an `@source` glob over `examples/ideal/**/*.mbt`? Yes — the throwaway spike proved `@source "../main"` picks up `.mbt` class tokens, with a negative control.
+- **Scan:** Can Tailwind v4 extract class strings from `.mbt` source via an `@source` glob over `apps/ideal/**/*.mbt`? Yes — the throwaway spike proved `@source "../main"` picks up `.mbt` class tokens, with a negative control.
 - **Deliver:** Can generated CSS land inside the `canopy-editor` shadow root? Yes in the generic sense — PR #532 proves the adopted-stylesheet transport with a computed-style assertion on shadow-rendered `.structure-block`. The overlay itself is light DOM, so it does not need shadow delivery.
 
 **Decision gate (explicit):** a full Tailwind migration should proceed only if the maintainability/token-enforcement payoff justifies the large `class="…"` rewrite. The foundation already delivered the duplication fix, so migration remains optional.
@@ -74,7 +74,7 @@ The broad migration is not part of PR #532, but is now approved as an incrementa
 
 ## Non-goals / scope fence
 
-- No changes outside `examples/ideal/`.
+- No changes outside `apps/ideal/`.
 - No "while we're here" cleanup of PR #530/#529 CSS — those rules move byte-stable.
 - No restructuring of the `leaf-editor.ts`/`text-nodeview.ts` CM6 injection path.
 - No commitment to Tailwind. Step 1 stands on its own; Tailwind is evaluated, not assumed.

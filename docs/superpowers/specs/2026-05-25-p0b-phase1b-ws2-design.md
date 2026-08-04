@@ -82,7 +82,7 @@ Mirrors `ffi/lambda/protected_cells.mbt` lines 18–101 for the SyncEditor-gener
 
 ### 5.1.1 Handle namespace change (verified non-issue)
 
-The legacy Markdown/JSON FFIs allocated handles from offset bases (`markdown_next_handle = 20000`, `json_next_handle = 10000`) "to avoid collision with lambda registry" per the file headers. Under coordinator-allocated `EditorId`s, each per-language coordinator allocates from 0 independently — Lambda already shipped this change in PR4. JS-side consumers (`examples/web/src/json-editor.ts:11`, `markdown-editor.ts:28`) store the handle returned from `create_*_editor` in a const and never compare against a literal, so the offset's defensive role (rejecting cross-FFI handle confusion) is not exercised in practice. ESM module isolation already ensures each FFI bundle's accessors are only callable from JS code that imported THAT bundle. The offsets are dropped.
+The legacy Markdown/JSON FFIs allocated handles from offset bases (`markdown_next_handle = 20000`, `json_next_handle = 10000`) "to avoid collision with lambda registry" per the file headers. Under coordinator-allocated `EditorId`s, each per-language coordinator allocates from 0 independently — Lambda already shipped this change in PR4. JS-side consumers (`apps/web/src/json-editor.ts:11`, `markdown-editor.ts:28`) store the handle returned from `create_*_editor` in a const and never compare against a literal, so the offset's defensive role (rejecting cross-FFI handle confusion) is not exercised in practice. ESM module isolation already ensures each FFI bundle's accessors are only callable from JS code that imported THAT bundle. The offsets are dropped.
 
 ### 5.2 `<Lang>Handle` (3 fields) and `assemble_<lang>_handle`
 

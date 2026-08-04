@@ -58,20 +58,20 @@ approval, and collaborative commit.
 
 ### Cognition tracks requests without running an agent
 
-The cognition store (`lib/cognition/store.mbt`) keeps revisioned context,
+The cognition store (`modules/cognition/store.mbt`) keeps revisioned context,
 dependencies, dirty state, and request records deterministic. Provider-neutral
-values are defined in `lib/cognition/provider_boundary.mbt`; their store
-operations live in `lib/cognition/provider_boundary_store.mbt`.
+values are defined in `modules/cognition/provider_boundary.mbt`; their store
+operations live in `modules/cognition/provider_boundary_store.mbt`.
 
 The reactive next-action machinery and `ProviderDriverAction` remain private in
-`lib/cognition/provider_boundary_reactive.mbt`. This is a planning seam, not a
+`modules/cognition/provider_boundary_reactive.mbt`. This is a planning seam, not a
 public driver contract for a coding-agent process.
 
 ### Generative UI distrusts generated data
 
-`lib/cognition/generative_ui.mbt` already tracks generation identity, revision,
+`modules/cognition/generative_ui.mbt` already tracks generation identity, revision,
 cancellation, chunk order, validation, dry-run, and stale results.
-`lib/cognition/generative_ui_candidate.mbt` validates untrusted candidate data.
+`modules/cognition/generative_ui_candidate.mbt` validates untrusted candidate data.
 
 The JSX path goes further. `ffi/jsx/generative_ui_adapter.mbt` lowers validated
 data into typed JSX, and `ffi/jsx/session.mbt` commits only after dry-run and DOM

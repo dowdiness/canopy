@@ -303,7 +303,7 @@ Key invariants:
 - Validate that selection survives heading rename and whitespace rewrite
   in the browser.
 - Validation: `moon build --target js`, `npx tsc --noEmit` in
-  `examples/web`, Playwright E2E in `examples/ideal/web`.
+  `apps/web`, Playwright E2E in `apps/ideal/web`.
 
 ## Exit Criteria
 

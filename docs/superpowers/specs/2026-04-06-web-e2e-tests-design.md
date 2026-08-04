@@ -1,12 +1,12 @@
 # Web E2E Tests — Lambda & JSON Editors
 
 **Date:** 2026-04-06
-**Scope:** Playwright E2E tests for `examples/web/` Lambda and JSON editors
+**Scope:** Playwright E2E tests for `apps/web/` Lambda and JSON editors
 **Approach:** Two-layer (Foundation + Ad-hoc) per editor, one file per editor
 
 ## Context
 
-The `examples/web/` directory has four HTML entry points. Only the Markdown
+The `apps/web/` directory has four HTML entry points. Only the Markdown
 block editor (`markdown.html`) has Playwright coverage. The Lambda editor
 (`index.html`) and JSON editor (`json.html`) are untested. The existing
 `playwright.config.ts` (port 5190, Chromium, `./tests` dir) and the markdown

@@ -3,7 +3,7 @@ summary: "Future work proposals for structural editing UI — outline selection 
 created: 2026-03-22
 status: backlog
 tags: [structural-editing, ideal-editor, future-work]
-related: [examples/ideal/main/main.mbt, examples/ideal/web/src/keymap.ts, projection/actions.mbt, examples/ideal/web/e2e/structural-editing.spec.ts]
+related: [apps/ideal/main/main.mbt, apps/ideal/web/src/keymap.ts, projection/actions.mbt, apps/ideal/web/e2e/structural-editing.spec.ts]
 ---
 
 # Structural Editing — Future Work

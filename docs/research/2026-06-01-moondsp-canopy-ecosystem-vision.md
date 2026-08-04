@@ -136,14 +136,14 @@ MoonDsp は Strudel/TidalCycles を明示的なインスピレーション源と
 
 ### 3.1 コーパス前提の訂正: Canopy は「メモリのみ」ではない
 
-旗艦 Ideal エディタは CRDT スナップショットを localStorage に永続化している。`examples/ideal/web/src/main.ts:117-118,131-132` が `crdt.export_all_json(handle)` を呼び、エクスポートした op-log 全体を room キー（`STORAGE_KEY_PREFIX='canopy-doc-'`）で localStorage に書き、:339-349 でロード時に復元、reset 時にキー削除する。`export_all_json` は実 FFI export（`ffi/lambda/moon.pkg`, `.mbti` 行50で `pub fn export_all_json(Int) -> String`）である。
+旗艦 Ideal エディタは CRDT スナップショットを localStorage に永続化している。`apps/ideal/web/src/main.ts:117-118,131-132` が `crdt.export_all_json(handle)` を呼び、エクスポートした op-log 全体を room キー（`STORAGE_KEY_PREFIX='canopy-doc-'`）で localStorage に書き、:339-349 でロード時に復元、reset 時にキー削除する。`export_all_json` は実 FFI export（`ffi/lambda/moon.pkg`, `.mbti` 行50で `pub fn export_all_json(Int) -> String`）である。
 
 ただし以下の caveat が根底のギャップを大部分残す:
 - `export_all_json` FFI export は **`ffi/lambda` のみ**。json と markdown バンドルには存在しない。
-- localStorage 永続化は **`examples/ideal/web` のみ**。
+- localStorage 永続化は **`apps/ideal/web` のみ**。
 - 保存ごとの**全スナップショット書き換え**であり、増分 op append ではない → 無制限 op-log 成長を継承し、毎回直列化ログ全体を書き直す。
 - relay Durable Object はドキュメント状態を保持しない（メンバシップ/ルーティングのみ）。
-- ローカル開発 relay には **SQLite-backed op store**（`examples/ideal/web/server/store.ts`, better-sqlite3, `MAX_OPS = 10_000` + `evictOldOps`）が存在する。
+- ローカル開発 relay には **SQLite-backed op store**（`apps/ideal/web/server/store.ts`, better-sqlite3, `MAX_OPS = 10_000` + `evictOldOps`）が存在する。
 
 > **正確な言明**: Cloudflare 本番デプロイ（relay-server Durable Object）は durable persistence なし。ローカル開発 relay は SQLite による永続化を持つ（capped 10,000 ops, eviction 付き）。client-side CRDT スナップショット/compaction が真のギャップ。
 
@@ -174,7 +174,7 @@ MoonDsp は Strudel/TidalCycles を明示的なインスピレーション源と
 
 ### 3.5 serverless vs central-server — 両者とも Cloudflare static+DO で serverless-first
 
-- **Canopy**: relay は Cloudflare Worker + Durable Object。全 room ロジックは MoonBit `relay/relay_room.mbt`（`RelayRoom` は live peer の send callback のみ保持、設計上ステートレス）。JS グルー（`examples/relay-server/src/index.ts`）は86行。DO はドキュメント状態を保持しない。
+- **Canopy**: relay は Cloudflare Worker + Durable Object。全 room ロジックは MoonBit `relay/relay_room.mbt`（`RelayRoom` は live peer の send callback のみ保持、設計上ステートレス）。JS グルー（`apps/relay-server/src/index.ts`）は86行。DO はドキュメント状態を保持しない。
 - **MoonDsp**: `wrangler.jsonc` の `moondsp` worker には Worker スクリプトがない（Vite バンドルの純静的アセット配信）。COOP/COEP ヘッダなし → SharedArrayBuffer + Atomics を使えない。
 
 **軸の結論**: 両者に central-server profile を提供するために欠けているピースは同一 — 同じ `SyncMessage`/op-log ワイヤ形式を broadcast-only（P2P/serverless）にも DO storage への append（central）にもできる、ステートレス-relay-OR-ステートフル-DO トグル。Canopy の `pub(open) trait SyncTransport`（`editor/sync_protocol.mbt:2`）が正しい seam。MoonDsp にはまだ等価なトランスポート抽象がない。
@@ -249,7 +249,7 @@ MoonDsp は Strudel/TidalCycles を明示的なインスピレーション源と
 
 | コンポーネント | クラス | 状態と判断 |
 |---------------|--------|-----------|
-| Graphviz / SVG-DSL | 低リスク first-party | `lib/visualizer` の `VisualGraph` 背後に既に抽象化。維持・無対応。Sugiyama レイアウト品質の C Graphviz 差は品質リスク（保守リスクではない） |
+| Graphviz / SVG-DSL | 低リスク first-party | `modules/visualizer` の `VisualGraph` 背後に既に抽象化。維持・無対応。Sugiyama レイアウト品質の C Graphviz 差は品質リスク（保守リスクではない） |
 | Rabbita | 最高長寿リスク | un-upstream フォーク（`heads/patch/diff-subs-update-tagger` ブランチ pin、release tag でない）、JS-only、Canopy-only（MoonDsp は CM6+Lezer TS で MoonBit UI フレームワーク不使用）。editor-adapter seam 背後に封じ込め、パッチ upstream か恒久保守かを決定 |
 | ProseMirror+CodeMirror | 成熟 upstream・深い境界負債 | 両プロダクトで共有（MoonDsp は canopy CM6Adapter を vendoring）。リスクは upstream 放棄でなく型チェックなしの MoonBit↔TS↔PM seam。patch protocol 硬化（`Map[String,Json]` 拡幅、`SetCursor` 座標系曖昧性解消）が共有投資 |
 
@@ -259,7 +259,7 @@ MoonDsp は Strudel/TidalCycles を明示的なインスピレーション源と
 
 検証済:
 - canopy root `moon.mod.json:24`: `dowdiness/incr` **0.5.2**
-- `lib/cognition/moon.mod`: incr **0.6.0**
+- `modules/cognition/moon.mod`: incr **0.6.0**
 - MoonDsp `moon.mod`: incr **0.6.0**
 
 つまり canopy のメインワークスペースは自身の cognition ライブラリと MoonDsp の両方から1マイナー遅れ、かつ **canopy 内部でもスキュー**している。0.6.0 は target-facade コンストラクタ（`Input`/`Derived`/`ReachableDerived`/`DerivedMap`）を追加し `Derived` read シグネチャを変更、互換ハンドル（`Signal`/`Memo`/`HybridMemo`/`MemoMap`）は**削除日なし・deprecation 属性なし**で残存。
@@ -295,7 +295,7 @@ loom は Canopy では production path-dep（全3言語が `LanguageSpec[T,K]` �
 | `loom` + `seam` | shared substrate（Canopy production / MoonDsp 評価） | **registry-pinned**（公開後） | 4g 完了まで Canopy は path-dep、MoonDsp は spike 隔離 | wasm-gc ビルド証明（ADR-0012）が通り次第 registry 公開し両者を pin |
 | `rabbita`（vendored fork） | 周辺（Canopy のみ、JS） | **contain-or-upstream** | editor-adapter seam 背後に封じ込め。`patch/diff-subs-update-tagger` ブランチ pin | パッチを upstream に PR するか、恒久 fork を宣言。release tag が出たら pin を tag へ昇格 |
 | ProseMirror / CodeMirror(6) | 周辺（両者、TS、成熟 upstream） | **track-stable, boundary-hardened** | semver minor は随時追従。リスクは upstream でなく MoonBit↔TS↔PM seam | patch protocol 硬化（`Map[String,Json]` 拡幅、座標系曖昧性解消）を共有投資として優先 |
-| Graphviz / `svg-dsl` | first-party / 周辺 | **abstracted, low-risk** | `lib/visualizer` の `VisualGraph` 抽象背後。差し替え可能 | レイアウト品質要件が上がった時のみ再評価。保守トリガなし |
+| Graphviz / `svg-dsl` | first-party / 周辺 | **abstracted, low-risk** | `modules/visualizer` の `VisualGraph` 抽象背後。差し替え可能 | レイアウト品質要件が上がった時のみ再評価。保守トリガなし |
 | vendored canopy adapter（MoonDsp 側） | snapshot コピー | **snapshot-disciplined** | 単一 SHA から vendoring し SHA を記録（現状 `types.ts` 9df029d / `cm6-adapter.ts` 6f1d5c2 とドリフト） | コピー時に元 SHA を明記。ドリフトを CI でフラグ |
 
 ポリシー原則: **shared-substrate（incr/loom）は coordinated bump、周辺は contain-behind-seam**。後者は seam があるため遅延追従が許容され、前者はバージョン整合が共有 Runtime の前提（§5.2）。
@@ -474,7 +474,7 @@ public 関数は runtime 目的で bare Array[DspNode] を決して受け取ら�
 
 | リスク | 出所（repo/file） | 影響 | クラス | 担当バンド | 軽減策 |
 |--------|-------------------|------|--------|-----------|--------|
-| incr バージョンスキュー（0.5.2 vs 0.6.0 + cognition 内部スキュー） | canopy `moon.mod.json:24`, `lib/cognition/moon.mod`, moondsp `moon.mod` | 高 | maintenance/correctness | 1a/1b | codemod 整列 + 調整機構 |
+| incr バージョンスキュー（0.5.2 vs 0.6.0 + cognition 内部スキュー） | canopy `moon.mod.json:24`, `modules/cognition/moon.mod`, moondsp `moon.mod` | 高 | maintenance/correctness | 1a/1b | codemod 整列 + 調整機構 |
 | 互換ハンドル削除タイムラインなし | incr CHANGELOG | 高 | maintenance | 1b | 削除前に target-facade へ移行 + バージョンロック |
 | recovery バッファ32上限が収束を恒久破壊 | `editor/recovery.mbt:5,51-54` | 高 | correctness | durable rollout 前 | 上限引き上げ or バックプレッシャ |
 | 32ビット seq/LV オーバーフロー（ガードなし、両リポジトリ） | `internal/causal_graph/graph.mbt:13` | 中 | correctness | durable rollout 前 | Int64 へ移行 |
@@ -489,7 +489,7 @@ public 関数は runtime 目的で bare Array[DspNode] を決して受け取ら�
 | TextBlock sparse-array メモリ増幅 | `container/text_block.mbt:3-6` | 低 | perf | 4a | dense-ItemId refactor |
 | vendoring SHA ドリフト（types.ts 9df029d vs cm6-adapter.ts 6f1d5c2） | moondsp `web/live/src/canopy/` | 低 | maintenance | 5.1 | スナップショット規律 |
 
-> **訂正済の正の事実**（過大主張を繰り返さないため）: relay op-log は `MAX_OPS=10_000` + `evictOldOps` で**有界**（`examples/ideal/web/server/ws-server.ts`）。ローカル SQLite store は存在する。真のギャップは client-side CRDT compaction。
+> **訂正済の正の事実**（過大主張を繰り返さないため）: relay op-log は `MAX_OPS=10_000` + `evictOldOps` で**有界**（`apps/ideal/web/server/ws-server.ts`）。ローカル SQLite store は存在する。真のギャップは client-side CRDT compaction。
 
 ### 7.3 クロスリポジトリ調整機構（具体設計）
 

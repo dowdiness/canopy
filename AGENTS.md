@@ -16,7 +16,7 @@ git submodule update --init --recursive
 ### Test & Build
 ```bash
 # Workspace-root commands cover every in-repo module listed in `moon.work`
-# (canopy root + all lib/* and examples/* members). Read `moon.work` for the
+# (canopy root + all modules/* and examples/* members). Read `moon.work` for the
 # current member list — do not maintain a copy here; it drifts.
 moon test                           # All workspace members
 moon check                          # Lint across workspace
@@ -39,7 +39,7 @@ JS build artifacts are namespaced under the module path: `_build/js/release/buil
 ### Web Development
 ```bash
 moon build --target js              # Build for web
-cd examples/web && npm run dev      # Waku dev server (localhost:3000)
+cd apps/web && npm run dev      # Waku dev server (localhost:3000)
 # Demo Hub:         http://localhost:3000/
 # Mini-ML:          http://localhost:3000/ml
 # JSON editor:      http://localhost:3000/json
@@ -50,9 +50,9 @@ cd examples/web && npm run dev      # Waku dev server (localhost:3000)
 TypeScript front-ends live alongside the MoonBit examples and have separate CI
 coverage outside `moon test`:
 
-- **TS typecheck** (`web-build`): `examples/web`, `examples/prosemirror`
-- **Playwright E2E** jobs: `examples/web`, `examples/ideal/web`,
-  `examples/demo-react`, `examples/canvas/web`
+- **TS typecheck** (`web-build`): `apps/web`, `examples/prosemirror`
+- **Playwright E2E** jobs: `apps/web`, `apps/ideal/web`,
+  `examples/demo-react`, `apps/canvas/web`
 
 JS artifacts must be built (`moon build --target js`) before these run. See the
 matching jobs in `.github/workflows/ci.yml` for the exact commands and the
@@ -60,15 +60,15 @@ pinned Playwright container per suite.
 
 ### Formal Verification
 ```bash
-cd lib/semantic/proof && moon prove  # Requires Why3 + z3 on PATH
+cd modules/semantic/proof && moon prove  # Requires Why3 + z3 on PATH
 ```
 Proof packages are standalone modules with `"proof-enabled": true`. Run `moon prove` from within the proof package directory. Requires Why3 1.7.2 and z3 4.13.x on PATH (`eval $(opam env)`). See [docs/development/formal-verification.md](docs/development/formal-verification.md) for setup and decision guide.
 
 ### Benchmarks
 ```bash
 moon bench --release                # Always use --release
-cd event-graph-walker && moon bench --release
-cd loom/examples/lambda && moon bench --release
+cd deps/event-graph-walker && moon bench --release
+cd deps/loom/examples/lambda && moon bench --release
 ```
 
 ## Submodule Workflow
@@ -83,10 +83,10 @@ Use PRs for submodule changes; never push to a submodule's main without asking.
 
 <!-- textlint-disable slopless/word-repetition -->
 
-Rabbita is vendored at `./rabbita/` (fork of `moonbit-community/rabbita` with the
+Rabbita is vendored at `./deps/rabbita/` (fork of `moonbit-community/rabbita` with the
 `diff_subs` `update_tagger` patch — see
 `docs/plans/2026-05-18-codemirror-rabbita-binding-phase2.md` §P2.0). Its docs
-(`rabbita/doc/*`, `rabbita/rabbita/*/{README.mbt.md,design.md}`) are
+(`deps/rabbita/doc/*`, `deps/rabbita/rabbita/*/{README.mbt.md,design.md}`) are
 authoritative: when they disagree with a plan or pasted spec, the docs win.
 
 <!-- textlint-enable slopless/word-repetition -->

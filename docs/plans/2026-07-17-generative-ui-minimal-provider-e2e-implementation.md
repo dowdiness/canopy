@@ -28,21 +28,21 @@
 
 ## File responsibility map
 
-- `examples/web/src/genui.js`: expose only the DEV-only injected-candidate commit hook; existing commit semantics remain private and authoritative.
-- `examples/web/playwright.minimal-provider.config.ts`: isolate the dedicated browser process, fixed private output root, no trace, no reuse of an existing server.
-- `examples/web/tests/genui-minimal-provider.spec.ts`: bridge one candidate file to the DEV hook and write one browser result file; contain no provider logic.
-- `examples/web/scripts/run-genui-minimal-provider-e2e.mjs`: own CLI validation, private artifacts, exact Codex process lifecycle, candidate byte/JSON checks, Playwright lifecycle, terminal classification, and final cleanup.
-- `examples/web/scripts/run-genui-minimal-provider-e2e.test.mjs`: defend runner boundaries with fake processes and temporary directories.
-- `examples/web/package.json`: expose the local developer command only.
+- `apps/web/src/genui.js`: expose only the DEV-only injected-candidate commit hook; existing commit semantics remain private and authoritative.
+- `apps/web/playwright.minimal-provider.config.ts`: isolate the dedicated browser process, fixed private output root, no trace, no reuse of an existing server.
+- `apps/web/tests/genui-minimal-provider.spec.ts`: bridge one candidate file to the DEV hook and write one browser result file; contain no provider logic.
+- `apps/web/scripts/run-genui-minimal-provider-e2e.mjs`: own CLI validation, private artifacts, exact Codex process lifecycle, candidate byte/JSON checks, Playwright lifecycle, terminal classification, and final cleanup.
+- `apps/web/scripts/run-genui-minimal-provider-e2e.test.mjs`: defend runner boundaries with fake processes and temporary directories.
+- `apps/web/package.json`: expose the local developer command only.
 
 ---
 
 ### Task 1: Minimal browser commit adapter
 
 **Files:**
-- Modify: `examples/web/src/genui.js:366-394`
-- Create: `examples/web/playwright.minimal-provider.config.ts`
-- Create: `examples/web/tests/genui-minimal-provider.spec.ts`
+- Modify: `apps/web/src/genui.js:366-394`
+- Create: `apps/web/playwright.minimal-provider.config.ts`
+- Create: `apps/web/tests/genui-minimal-provider.spec.ts`
 
 **Interfaces:**
 - Consumes: `recordedDemoInput(caseId)`, `resetSlotSession()`, and `commitFeasibilityCandidate(candidateJson, input)` already in `genui.js`.
@@ -63,7 +63,7 @@ Declare the browser-side type locally in the test; do not change a production pu
 
 - [ ] **Step 2: Run the test and observe the missing hook**
 
-Run from `examples/web` with a temporary external run directory and an existing recorded candidate copied into it:
+Run from `apps/web` with a temporary external run directory and an existing recorded candidate copied into it:
 
 ```bash
 GENUI_MINIMAL_PROVIDER_RUN_DIR="$RUN_DIR" \
@@ -110,7 +110,7 @@ Expected: 0 errors; existing vendored warnings are allowed.
 - [ ] **Step 6: Commit the browser adapter**
 
 ```bash
-git add examples/web/src/genui.js examples/web/playwright.minimal-provider.config.ts examples/web/tests/genui-minimal-provider.spec.ts
+git add apps/web/src/genui.js apps/web/playwright.minimal-provider.config.ts apps/web/tests/genui-minimal-provider.spec.ts
 git commit -m "feat(genui): expose minimal provider commit adapter"
 ```
 
@@ -119,8 +119,8 @@ git commit -m "feat(genui): expose minimal provider commit adapter"
 ### Task 2: CLI and private artifact boundary
 
 **Files:**
-- Create: `examples/web/scripts/run-genui-minimal-provider-e2e.mjs`
-- Create: `examples/web/scripts/run-genui-minimal-provider-e2e.test.mjs`
+- Create: `apps/web/scripts/run-genui-minimal-provider-e2e.mjs`
+- Create: `apps/web/scripts/run-genui-minimal-provider-e2e.test.mjs`
 
 **Interfaces:**
 - Produces: `parseMinimalProviderArgs(argv, { repositoryRoot }) -> { fixtureId, fixture, model, outputDir, timeoutMs }`.
@@ -142,7 +142,7 @@ Each rejection must assert the stable `configuration_error` code and one diagnos
 - [ ] **Step 2: Run the focused tests and confirm failure**
 
 ```bash
-cd examples/web
+cd apps/web
 node --test --test-name-pattern='CLI|output path|pre-run' scripts/run-genui-minimal-provider-e2e.test.mjs
 ```
 
@@ -180,7 +180,7 @@ Use `crypto.createHash`, `fs.open(..., 'wx', 0o600)`, `FileHandle.writeFile`, an
 node --test --test-name-pattern='CLI|output path|pre-run|artifact|final' scripts/run-genui-minimal-provider-e2e.test.mjs
 cd ../..
 NEW_MOON_MOD=0 moon check
-git add examples/web/scripts/run-genui-minimal-provider-e2e.mjs examples/web/scripts/run-genui-minimal-provider-e2e.test.mjs
+git add apps/web/scripts/run-genui-minimal-provider-e2e.mjs apps/web/scripts/run-genui-minimal-provider-e2e.test.mjs
 git commit -m "feat(genui): add private minimal E2E boundary"
 ```
 
@@ -191,8 +191,8 @@ Expected: focused Node tests pass; MoonBit check reports 0 errors.
 ### Task 3: Single provider process lifecycle
 
 **Files:**
-- Modify: `examples/web/scripts/run-genui-minimal-provider-e2e.mjs`
-- Modify: `examples/web/scripts/run-genui-minimal-provider-e2e.test.mjs`
+- Modify: `apps/web/scripts/run-genui-minimal-provider-e2e.mjs`
+- Modify: `apps/web/scripts/run-genui-minimal-provider-e2e.test.mjs`
 
 **Interfaces:**
 - Produces: `runProviderAttempt(run, options, deps) -> Promise<{ classification, exitCode, signal, timedOut, interrupted, invocationCount }>`; every `result.json` records the observed `invocationCount`.
@@ -239,7 +239,7 @@ Provider timeout starts immediately after successful spawn and is cleared exactl
 - [ ] **Step 4: Verify no orphan and no retry**
 
 ```bash
-cd examples/web
+cd apps/web
 node --test --test-name-pattern='provider|timeout|interrupt|process tree|retry' scripts/run-genui-minimal-provider-e2e.test.mjs
 cd ../..
 NEW_MOON_MOD=0 moon check
@@ -250,7 +250,7 @@ Expected: all focused tests pass; the fake grandchild liveness assertion proves 
 - [ ] **Step 5: Commit the provider lifecycle**
 
 ```bash
-git add examples/web/scripts/run-genui-minimal-provider-e2e.mjs examples/web/scripts/run-genui-minimal-provider-e2e.test.mjs
+git add apps/web/scripts/run-genui-minimal-provider-e2e.mjs apps/web/scripts/run-genui-minimal-provider-e2e.test.mjs
 git commit -m "feat(genui): enforce one provider process tree"
 ```
 
@@ -259,8 +259,8 @@ git commit -m "feat(genui): enforce one provider process tree"
 ### Task 4: Candidate and MoonBit result orchestration
 
 **Files:**
-- Modify: `examples/web/scripts/run-genui-minimal-provider-e2e.mjs`
-- Modify: `examples/web/scripts/run-genui-minimal-provider-e2e.test.mjs`
+- Modify: `apps/web/scripts/run-genui-minimal-provider-e2e.mjs`
+- Modify: `apps/web/scripts/run-genui-minimal-provider-e2e.test.mjs`
 
 **Interfaces:**
 - Produces: `classifyCandidate(candidatePath, maxBytes) -> Promise<{ classification } | { candidateJson, bytes }>`.
@@ -287,7 +287,7 @@ Feed each existing classification named in the design through an injected browse
 
 Use `stat.size` before reading, `TextDecoder('utf-8', { fatal: true })`, then `JSON.parse` only to establish syntactic JSON. Pass the original decoded string unchanged to Playwright.
 
-Spawn exactly one dedicated Playwright process with the four environment variables from Task 1. Capture its stdout/stderr only in bounded memory for a safe failure message. Await process exit, exclusively read and parse the browser-result file, and then delete browser-result and Playwright output in final cleanup. Never write trace, screenshots, reports, or results under `examples/web`.
+Spawn exactly one dedicated Playwright process with the four environment variables from Task 1. Capture its stdout/stderr only in bounded memory for a safe failure message. Await process exit, exclusively read and parse the browser-result file, and then delete browser-result and Playwright output in final cleanup. Never write trace, screenshots, reports, or results under `apps/web`.
 
 - [ ] **Step 4: Complete terminal orchestration**
 
@@ -305,7 +305,7 @@ Implement this ordered decision table without fallthrough or retry:
 - [ ] **Step 5: Run the complete deterministic Node suite**
 
 ```bash
-cd examples/web
+cd apps/web
 node --test scripts/run-genui-minimal-provider-e2e.test.mjs
 cd ../..
 NEW_MOON_MOD=0 moon check
@@ -316,7 +316,7 @@ Expected: all tests pass; MoonBit check reports 0 errors.
 - [ ] **Step 6: Commit orchestration**
 
 ```bash
-git add examples/web/scripts/run-genui-minimal-provider-e2e.mjs examples/web/scripts/run-genui-minimal-provider-e2e.test.mjs
+git add apps/web/scripts/run-genui-minimal-provider-e2e.mjs apps/web/scripts/run-genui-minimal-provider-e2e.test.mjs
 git commit -m "feat(genui): commit provider candidates through MoonBit"
 ```
 
@@ -325,8 +325,8 @@ git commit -m "feat(genui): commit provider candidates through MoonBit"
 ### Task 5: End-to-end fake provider and developer command
 
 **Files:**
-- Modify: `examples/web/scripts/run-genui-minimal-provider-e2e.test.mjs`
-- Modify: `examples/web/package.json:5-11`
+- Modify: `apps/web/scripts/run-genui-minimal-provider-e2e.test.mjs`
+- Modify: `apps/web/package.json:5-11`
 
 **Interfaces:**
 - Produces: `npm run genui:minimal-provider-e2e -- --fixture "$FIXTURE_ID" --model "$MODEL_SLUG" --output-dir "$ABSOLUTE_OUTPUT_DIR" --timeout-ms "$TIMEOUT_MS"`.
@@ -341,14 +341,14 @@ Assert:
 - the real browser hook returns `classification: "success"`, `rubric.passed: true`, and `session.success: true`;
 - exit code is zero;
 - the completed directory contains exactly the four durable files;
-- no `examples/web/test-results` or other repository Playwright output exists.
+- no `apps/web/test-results` or other repository Playwright output exists.
 
 Name the test `fake provider traverses real browser and MoonBit commit path` so it can run alone.
 
 - [ ] **Step 2: Run the integration test and confirm its initial failure**
 
 ```bash
-cd examples/web
+cd apps/web
 node --test --test-name-pattern='fake provider traverses real browser' scripts/run-genui-minimal-provider-e2e.test.mjs
 ```
 
@@ -385,7 +385,7 @@ Expected: deterministic runner, TypeScript, production build, existing browser c
 - [ ] **Step 5: Commit the developer command**
 
 ```bash
-git add examples/web/package.json examples/web/scripts/run-genui-minimal-provider-e2e.test.mjs
+git add apps/web/package.json apps/web/scripts/run-genui-minimal-provider-e2e.test.mjs
 git commit -m "test(genui): prove minimal provider E2E"
 ```
 
@@ -419,7 +419,7 @@ Select one literal model slug from the locally authenticated Codex catalog befor
 mkdir -p "$XDG_STATE_HOME/canopy/genui-minimal-provider-e2e"
 RUN_DIR="$XDG_STATE_HOME/canopy/genui-minimal-provider-e2e/$(date -u +%Y%m%dT%H%M%SZ)"
 test ! -e "$RUN_DIR"
-cd examples/web
+cd apps/web
 npm run genui:minimal-provider-e2e -- \
   --fixture orders-pending-attention \
   --model "$MODEL_SLUG" \

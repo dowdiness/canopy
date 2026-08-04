@@ -23,7 +23,7 @@
 #
 # Entries are repository-root names rather than package paths so nested
 # workspace members (for example loom/*) share one suppression boundary.
-VENDORED_DIRS="${VENDORED_DIRS:-alga event-graph-walker graphviz loom order-tree rabbita svg-dsl}"
+VENDORED_DIRS="${VENDORED_DIRS:-deps/alga deps/event-graph-walker deps/graphviz deps/loom deps/order-tree deps/rabbita deps/svg-dsl}"
 
 run_moon_check_with_vendored_filter() {
     # Parse --keep=<dir> to exclude a directory from vendored suppression.
@@ -68,7 +68,6 @@ run_moon_check_with_vendored_filter() {
         if [[ "$path" == "$repo_root/"* ]]; then
             relative_path="${path#"$repo_root"/}"
         fi
-        local repo_dir="${relative_path%%/*}"
         local is_vendored=0
         if [ -n "$keep_dir" ] &&
            { [ "$relative_path" = "$keep_dir" ] ||
@@ -77,7 +76,9 @@ run_moon_check_with_vendored_filter() {
             is_vendored=0
         else
             for dir in $VENDORED_DIRS; do
-                if [ -n "$repo_dir" ] && [ "$repo_dir" = "$dir" ]; then
+                if [ -n "$relative_path" ] &&
+                   { [ "$relative_path" = "$dir" ] ||
+                     [[ "$relative_path" == "$dir/"* ]]; }; then
                     is_vendored=1
                     break
                 fi

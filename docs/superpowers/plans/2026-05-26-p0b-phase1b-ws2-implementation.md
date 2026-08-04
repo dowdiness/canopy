@@ -149,9 +149,9 @@ options(
 
 - [ ] **Step 2: Verify check still compiles (no source-side users yet)**
 
-Run: `NEW_MOON_MOD=0 moon check ffi/markdown`
+Run: `NEW_MOON_MOD=0 moon check modules/canopy/ffi/markdown`
 
-Expected: PASS. Any "unused import" warnings on the new imports are silenced by `warnings = "-7"` (variant `7` covers unused-imports; matches Lambda's carve-out at `ffi/lambda/moon.pkg:29`). If `moon check` complains about an unknown variant number, run `NEW_MOON_MOD=0 moon check ffi/markdown 2>&1 | head -20` and adjust the warnings line to match the Lambda comment's intent (silence per-field unused warnings until all 7 cells are read by production accessors).
+Expected: PASS. Any "unused import" warnings on the new imports are silenced by `warnings = "-7"` (variant `7` covers unused-imports; matches Lambda's carve-out at `ffi/lambda/moon.pkg:29`). If `moon check` complains about an unknown variant number, run `NEW_MOON_MOD=0 moon check modules/canopy/ffi/markdown 2>&1 | head -20` and adjust the warnings line to match the Lambda comment's intent (silence per-field unused warnings until all 7 cells are read by production accessors).
 
 - [ ] **Step 3: Commit**
 
@@ -249,7 +249,7 @@ fn MarkdownProtectedCells::to_protected_reads(
 
 - [ ] **Step 2: Add `@seam` import if `moon check` complains**
 
-Run: `NEW_MOON_MOD=0 moon check ffi/markdown`
+Run: `NEW_MOON_MOD=0 moon check modules/canopy/ffi/markdown`
 
 Expected: PASS (the file is syntactically valid and `@seam.SyntaxNode` is already transitively imported via `@editor`, but if `moon check` reports `unknown package "seam"`, append `"dowdiness/seam"` to the imports block in `ffi/markdown/moon.pkg` to make the type explicit and re-run).
 
@@ -345,7 +345,7 @@ fn diff_view_nodes(
 
 - [ ] **Step 2: Verify it compiles standalone**
 
-Run: `NEW_MOON_MOD=0 moon check ffi/markdown`
+Run: `NEW_MOON_MOD=0 moon check modules/canopy/ffi/markdown`
 
 Expected: PASS. The `for ... { ... }` C-style loop is current MoonBit (see `editor/view_updater.mbt:117-141` — same syntax). The `diff_view_nodes` symbol is unused so far; it'll wire into `markdown_compute_view_patches_json` in B6. The `warnings = "-7"` carve-out covers unused-function warnings.
 
@@ -565,7 +565,7 @@ pub fn markdown_compute_view_patches_json(handle : Int) -> String {
 
 - [ ] **Step 2: Run `moon check`**
 
-Run: `NEW_MOON_MOD=0 moon check ffi/markdown`
+Run: `NEW_MOON_MOD=0 moon check modules/canopy/ffi/markdown`
 
 Expected: PASS. If you get errors, do not proceed. Common pitfalls:
 - `markdown_editors` referenced anywhere — search `git grep markdown_editors -- ffi/markdown` and replace each site with the new `markdown_handles`-based lookup.
@@ -724,7 +724,7 @@ Notes on construction:
 
 - [ ] **Step 2: Run `moon check`**
 
-Run: `NEW_MOON_MOD=0 moon check ffi/markdown`
+Run: `NEW_MOON_MOD=0 moon check modules/canopy/ffi/markdown`
 
 Expected: PASS. Likely errors and fixes:
 - `proj_to_view_node` argument order — verify against `protocol/pkg.generated.mbti:13`. Current signature: `proj_to_view_node(proj, source_map, annotations? : Map[...], source_text? : String?)`. The call above passes `source_text=Some(source_text), annotations={}` as labelled args after the positionals — verify against the .mbti, swap order if needed.
@@ -878,7 +878,7 @@ test "spec §12 #4 (md): read_protected rejects cells from a different editor" {
 
 - [ ] **Step 2: Run the tests — expect them to PASS immediately**
 
-Run: `NEW_MOON_MOD=0 moon test ffi/markdown`
+Run: `NEW_MOON_MOD=0 moon test modules/canopy/ffi/markdown`
 
 Expected: 4 new tests pass (the structural infrastructure is already in place from B5; these tests verify it). Test count delta: +4.
 
@@ -886,7 +886,7 @@ If any test fails, the failure points at a concrete defect in B5 (e.g. cells not
 
 - [ ] **Step 3: Verify test count delta against the report**
 
-Run: `NEW_MOON_MOD=0 moon test ffi/markdown 2>&1 | tail -5`
+Run: `NEW_MOON_MOD=0 moon test modules/canopy/ffi/markdown 2>&1 | tail -5`
 
 Look for the summary like `Total tests: N, passed: N, failed: 0`. The 4 new tests must appear in the count — per `[[feedback-test-count-delta]]`, "moon test passes" is not the same as "tests ran".
 
@@ -941,7 +941,7 @@ test "workstream 2 (md): compute_view_patches initial render emits FullTree with
 }
 ```
 
-Run: `NEW_MOON_MOD=0 moon test ffi/markdown`
+Run: `NEW_MOON_MOD=0 moon test modules/canopy/ffi/markdown`
 
 Expected: PASS. If it fails, the failure isolates which side of the pipeline diverges from baseline.
 
@@ -984,7 +984,7 @@ test "workstream 2 (md): compute_view_patches second call emits incremental patc
 }
 ```
 
-Run: `NEW_MOON_MOD=0 moon test ffi/markdown`
+Run: `NEW_MOON_MOD=0 moon test modules/canopy/ffi/markdown`
 
 Expected: PASS.
 
@@ -1033,7 +1033,7 @@ test "workstream 2 (md): compute_view_patches collapses to [] after coordinator 
 }
 ```
 
-Run: `NEW_MOON_MOD=0 moon test ffi/markdown`
+Run: `NEW_MOON_MOD=0 moon test modules/canopy/ffi/markdown`
 
 Expected: PASS. Test count delta from B7 + B8 combined: +7 in `ffi/markdown/lifecycle_phase1_wbtest.mbt`.
 
@@ -1109,8 +1109,8 @@ gh pr create --title "feat(ffi/markdown): §P0b Phase 1b WS2 — coordinator-rou
 - Per spec §4 (empirical JS-bundle verification): per-language coordinator only, no cross-language runtime sharing in WS2.
 
 ## Test plan
-- [x] `NEW_MOON_MOD=0 moon check ffi/markdown` — clean
-- [x] `NEW_MOON_MOD=0 moon test ffi/markdown` — 4 structural + 3 regression tests, all green
+- [x] `NEW_MOON_MOD=0 moon check modules/canopy/ffi/markdown` — clean
+- [x] `NEW_MOON_MOD=0 moon test modules/canopy/ffi/markdown` — 4 structural + 3 regression tests, all green
 - [x] `NEW_MOON_MOD=0 moon test` — workspace-wide green
 - [x] `bash scripts/build-js.sh` — `markdown.js` artifact still produced
 - [ ] Codex scoped review of WS2 PR-B (pre-merge)
@@ -1202,7 +1202,7 @@ options(
 
 - [ ] **Step 2: Verify check passes**
 
-Run: `NEW_MOON_MOD=0 moon check ffi/json`
+Run: `NEW_MOON_MOD=0 moon check modules/canopy/ffi/json`
 
 Expected: PASS (with `warnings = "-7"` silencing any unused-import warning on the just-added imports).
 
@@ -1304,7 +1304,7 @@ fn JsonProtectedCells::to_protected_reads(
 
 - [ ] **Step 2: Check compiles (add `"dowdiness/seam"` import if needed, same as B3)**
 
-Run: `NEW_MOON_MOD=0 moon check ffi/json`
+Run: `NEW_MOON_MOD=0 moon check modules/canopy/ffi/json`
 
 Expected: PASS.
 
@@ -1511,7 +1511,7 @@ pub fn json_compute_view_patches_json(handle : Int) -> String {
 
 - [ ] **Step 2: Run `moon check`**
 
-Run: `NEW_MOON_MOD=0 moon check ffi/json`
+Run: `NEW_MOON_MOD=0 moon check modules/canopy/ffi/json`
 
 Expected: PASS. Likely errors:
 - `json_editors` or `json_next_handle` referenced elsewhere — search `git grep json_editors -- ffi/json && git grep json_next_handle -- ffi/json` and fix.
@@ -1521,7 +1521,7 @@ Expected: PASS. Likely errors:
 
 Run: `NEW_MOON_MOD=0 moon test`
 
-Expected: green. Pre-existing JSON consumers (e.g. examples/web/src/json-editor.ts) call the FFI through the JS bundle, not via MoonBit tests, so the only test coverage that exercises the JSON FFI is what we'll add in C6.
+Expected: green. Pre-existing JSON consumers (e.g. apps/web/src/json-editor.ts) call the FFI through the JS bundle, not via MoonBit tests, so the only test coverage that exercises the JSON FFI is what we'll add in C6.
 
 - [ ] **Step 4: Commit**
 
@@ -1577,7 +1577,7 @@ Do **not** introduce a new `let ed = h.editor` binding — keep the call sites s
 - [ ] **Step 3: Check and test**
 
 ```bash
-NEW_MOON_MOD=0 moon check ffi/json
+NEW_MOON_MOD=0 moon check modules/canopy/ffi/json
 NEW_MOON_MOD=0 moon test
 ```
 
@@ -1718,14 +1718,14 @@ test "spec §12 #4 (json): read_protected rejects cells from a different editor"
 - [ ] **Step 2: Run tests, expect 4 new passing**
 
 ```bash
-NEW_MOON_MOD=0 moon test ffi/json
+NEW_MOON_MOD=0 moon test modules/canopy/ffi/json
 ```
 
 Expected: 4 tests pass.
 
 - [ ] **Step 3: Confirm test count delta via summary**
 
-Run: `NEW_MOON_MOD=0 moon test ffi/json 2>&1 | tail -5`
+Run: `NEW_MOON_MOD=0 moon test modules/canopy/ffi/json 2>&1 | tail -5`
 
 Verify 4 new tests in the report — not just "passes".
 
@@ -1769,7 +1769,7 @@ test "workstream 2 (json): json_get_errors returns [] for empty source" {
 }
 ```
 
-Run: `NEW_MOON_MOD=0 moon test ffi/json`
+Run: `NEW_MOON_MOD=0 moon test modules/canopy/ffi/json`
 
 Expected: PASS.
 
@@ -1801,7 +1801,7 @@ test "workstream 2 (json): json_get_errors returns non-empty array for parse err
 }
 ```
 
-Run: `NEW_MOON_MOD=0 moon test ffi/json`
+Run: `NEW_MOON_MOD=0 moon test modules/canopy/ffi/json`
 
 Expected: PASS. If `has_prefix` / `has_suffix` aren't on String in current MoonBit, substitute with `out.get(0) == Some('[')` and length-based suffix checks, or use `out.contains("[") && out.contains("]")` as the looser fallback. (Same shape as the workspace-wide pattern; verify against the workspace stdlib version in scope.)
 
@@ -1845,7 +1845,7 @@ test "workstream 2 (json): json_get_errors collapses to [] after coordinator des
 }
 ```
 
-Run: `NEW_MOON_MOD=0 moon test ffi/json`
+Run: `NEW_MOON_MOD=0 moon test modules/canopy/ffi/json`
 
 Expected: PASS. Test count delta C6 + C7 combined: +7 in `ffi/json/lifecycle_phase1_wbtest.mbt`.
 
@@ -1915,8 +1915,8 @@ gh pr create --title "feat(ffi/json): §P0b Phase 1b WS2 — coordinator-routed 
 - Per spec §4: per-language coordinator only, no cross-language runtime sharing in WS2.
 
 ## Test plan
-- [x] `NEW_MOON_MOD=0 moon check ffi/json` — clean
-- [x] `NEW_MOON_MOD=0 moon test ffi/json` — 4 structural + 3 regression tests, all green
+- [x] `NEW_MOON_MOD=0 moon check modules/canopy/ffi/json` — clean
+- [x] `NEW_MOON_MOD=0 moon test modules/canopy/ffi/json` — 4 structural + 3 regression tests, all green
 - [x] `NEW_MOON_MOD=0 moon test` — workspace-wide green
 - [x] `bash scripts/build-js.sh` — `json.js` artifact still produced
 - [ ] Codex scoped review of WS2 PR-C (pre-merge)

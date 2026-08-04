@@ -33,21 +33,21 @@ jobs:
               - '**/moon.mod'
               - '**/moon.mod.json'
               - 'moon.work'
-              - 'alga'
-              - 'event-graph-walker'
-              - 'graphviz'
-              - 'loom'
-              - 'order-tree'
-              - 'rabbita'
-              - 'rle'
-              - 'svg-dsl'
+              - 'deps/alga/**'
+              - 'deps/event-graph-walker/**'
+              - 'deps/graphviz/**'
+              - 'deps/loom/**'
+              - 'deps/order-tree/**'
+              - 'deps/rabbita/**'
+              - 'deps/event-graph-walker/rle/**'
+              - 'deps/svg-dsl/**'
               - '.github/actions/setup-moonbit/**'
               - '.github/workflows/benchmark.yml'
               - 'scripts/moon-update.sh'
               - 'scripts/run-moon-module.sh'
             run_editor_response:
-              - 'examples/ideal/**'
-              - 'examples/web/vite-plugin-moonbit.ts'
+              - 'apps/ideal/**'
+              - 'apps/web/vite-plugin-moonbit.ts'
               - '.github/actions/setup-moonbit/**'
               - '.github/workflows/benchmark.yml'
               - 'scripts/moon-update.sh'
@@ -313,11 +313,11 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: examples/ideal/web/package-lock.json
+          cache-dependency-path: apps/ideal/web/package-lock.json
 
       - name: Install web dependencies
         if: needs.benchmark-gate.outputs.run_editor_response == 'true' || github.event_name == 'workflow_dispatch'
-        working-directory: examples/ideal/web
+        working-directory: apps/ideal/web
         run: npm ci
 
       - name: Cache Playwright browsers
@@ -325,22 +325,22 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('examples/ideal/web/package-lock.json') }}
+          key: playwright-${{ runner.os }}-${{ hashFiles('apps/ideal/web/package-lock.json') }}
       - name: Install Playwright browser
         if: needs.benchmark-gate.outputs.run_editor_response == 'true' || github.event_name == 'workflow_dispatch'
-        working-directory: examples/ideal/web
+        working-directory: apps/ideal/web
         run: npx playwright install --with-deps chromium
 
       - name: Update MoonBit dependencies
         if: needs.benchmark-gate.outputs.run_editor_response == 'true' || github.event_name == 'workflow_dispatch'
-        working-directory: examples/ideal
+        working-directory: apps/ideal
         # Retry-wrapped: transient mooncakes CDN 403 (issue #467) auto-recovers.
         run: |
           "$GITHUB_WORKSPACE/scripts/moon-update.sh"
 
       - name: Run realistic editor response benchmark
         if: needs.benchmark-gate.outputs.run_editor_response == 'true' || github.event_name == 'workflow_dispatch'
-        working-directory: examples/ideal/web
+        working-directory: apps/ideal/web
         env:
           # CI-only paint budget for the 10% trimmed-mean gate (#460, the durable
           # fix for the single-run-p95 flakiness #458/#459 papered over with a 175

@@ -1,0 +1,84 @@
+{
+  "name": "@canopy/editor-adapter",
+  "version": "0.1.0-alpha.0",
+  "type": "module",
+  "scripts": {
+    "typecheck:cm6": "tsc -p tsconfig.cm6-test.json --noEmit",
+    "build:test:cm6": "vite build --config vite.config.cm6-test.ts",
+    "dev:test:cm6": "vite --config vite.config.cm6-test.ts",
+    "test:e2e:cm6": "playwright test --config test/playwright.config.ts"
+  },
+  "description": "UI adapters bridging Canopy's ViewPatch protocol to DOM/CodeMirror/ProseMirror renderers.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dowdiness/canopy.git",
+    "directory": "adapters/editor"
+  },
+  "homepage": "https://github.com/dowdiness/canopy/tree/main/adapters/editor#readme",
+  "bugs": {
+    "url": "https://github.com/dowdiness/canopy/issues"
+  },
+  "keywords": [
+    "canopy",
+    "editor",
+    "codemirror",
+    "prosemirror",
+    "viewpatch",
+    "structural-editor"
+  ],
+  "files": [
+    "*.ts",
+    "*.css",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": "./index.ts",
+    "./adapter": "./adapter.ts",
+    "./types": "./types.ts",
+    "./html-adapter": "./html-adapter.ts",
+    "./cm6-adapter": "./cm6-adapter.ts",
+    "./pm-adapter": "./pm-adapter.ts",
+    "./markdown-preview": "./markdown-preview.ts",
+    "./block-input": "./block-input.ts",
+    "./block-input.css": "./block-input.css",
+    "./package.json": "./package.json"
+  },
+  "peerDependencies": {
+    "@codemirror/commands": "^6.10.0",
+    "@codemirror/language": "^6.10.0",
+    "@codemirror/lint": "^6.9.7",
+    "@codemirror/state": "^6.5.0",
+    "@codemirror/view": "^6.35.0",
+    "prosemirror-commands": "^1.6.0",
+    "prosemirror-keymap": "^1.2.0",
+    "prosemirror-model": "^1.24.0",
+    "prosemirror-state": "^1.4.0",
+    "prosemirror-transform": "^1.10.0",
+    "prosemirror-view": "^1.37.0"
+  },
+  "peerDependenciesMeta": {
+    "@codemirror/commands": { "optional": true },
+    "@codemirror/language": { "optional": true },
+    "@codemirror/lint": { "optional": true },
+    "@codemirror/state": { "optional": true },
+    "@codemirror/view": { "optional": true },
+    "prosemirror-commands": { "optional": true },
+    "prosemirror-keymap": { "optional": true },
+    "prosemirror-model": { "optional": true },
+    "prosemirror-state": { "optional": true },
+    "prosemirror-transform": { "optional": true },
+    "prosemirror-view": { "optional": true }
+  },
+  "devDependencies": {
+    "@codemirror/lint": "^6.9.7",
+    "@codemirror/state": "^6.5.0",
+    "@codemirror/view": "^6.35.0",
+    "@playwright/test": "1.61.1",
+    "@types/node": "^24.13.3",
+    "typescript": "^6.0.3",
+    "vite": "^6.0.0"
+  }
+}

@@ -3,7 +3,7 @@
 // The "behavior layer" (DisclosureModel + its *_attrs methods) carries state
 // and ARIA only — no styling. The consumer's `view` spreads those attrs onto
 // its own elements via `attrs=...` and supplies all classes locally. This
-// mirrors `examples/resizable` / `lib/resizable`, which is canopy's existing
+// mirrors `examples/resizable` / `modules/rabbita-resizable`, which is Canopy's
 // instance of the same pattern (Zag `connect()` / Radix prop-spreading).
 // This PoC keeps the behavior layer package-private; P2 extraction would be the
 // point where these helpers become a library API.

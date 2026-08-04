@@ -4,9 +4,9 @@
 # Invariant: every canopy workspace member that depends on dowdiness/incr must
 # pin the SAME major.minor. incr's Single-Runtime constraint means a mixed-minor
 # graph aborts at runtime on cross-runtime reads, so a silent skew (e.g. the
-# lib/cognition TOML pin that evaded the #572 bump grep) is a latent break.
+# modules/cognition TOML pin that evaded the #572 bump grep) is a latent break.
 #
-# Scope: all members enumerated in moon.work, which includes root, lib/*,
+# Scope: all members enumerated in moon.work, which includes root, modules/*,
 # examples/*, and loom/* packages (loom's workspace members were added in #740
 # and are subject to the same Single-Runtime constraint). event-graph-walker is
 # also a workspace member but does not depend on incr. Worktrees and the
@@ -50,7 +50,7 @@ def load_manifest(path):
     spec: the version string for registry deps, or a {"path": ...} dict for
     path-deps. Extends check-deps.sh's load_manifest: the TOML branch there drops
     the `@version` (returns "registry"); here we KEEP it, since version drift is
-    exactly what we check (the lib/cognition TOML pin is the #572 evader)."""
+    exactly what we check (the modules/cognition TOML pin is the #572 evader)."""
     # Unlike check-deps.sh, parse failures are FATAL here: this is a drift
     # guard, so silently dropping an unreadable member (returning {}) would be
     # a false-OK. Surface the failure instead.

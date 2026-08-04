@@ -41,31 +41,32 @@ GitHub Issues is the canonical active backlog:
 
 ## Working with the Parser
 
-The parser lives in `loom/examples/lambda/`. The framework is in `loom/loom/`. When modifying:
+The parser lives in `deps/loom/examples/lambda/`. The framework is in
+`deps/loom/loom/`. When modifying:
 
 - Check error recovery behavior with malformed input
 - Test incremental parsing with loom's test suites
-- Benchmark performance with `cd loom/examples/lambda && moon bench --release`
+- Benchmark performance with `cd deps/loom/examples/lambda && moon bench --release`
 
 ## Working with the CRDT
 
 The CRDT implementation is split across two modules:
 
-**Core CRDT library (`event-graph-walker/`):**
+**Core CRDT library (`deps/event-graph-walker/`):**
 Causal graph (graph ops, eg-walker traversal, version vectors), operation log,
 FugueMax sequence CRDT, branch system with merge, and document model.
-See `event-graph-walker/README.md` for the full package map.
+See `deps/event-graph-walker/README.md` for the full package map.
 
-**Application layer (`dowdiness/canopy` root module):**
-- `editor/sync_editor*.mbt` - Active editor facade and parser/sync/undo orchestration
-- `editor/text_diff.mbt` - Text diffing utilities
-- `loom/text-change/` - Shared leaf contiguous text-change module
+**Application layer (`modules/canopy`):**
+- `modules/canopy/editor/sync_editor*.mbt` - Active editor facade and parser/sync/undo orchestration
+- `modules/canopy/editor/text_diff.mbt` - Text diffing utilities
+- `deps/loom/text-change/` - Shared leaf contiguous text-change module
 
-The shared `text-change` module now lives in the `loom` submodule so parser
+The shared `text-change` module now lives in the `deps/loom` submodule so parser
 and editor packages resolve the same leaf dependency.
 
 When adding features, consult:
-- [event-graph-walker/README.md](../../event-graph-walker/README.md)
+- [event-graph-walker/README.md](../../deps/event-graph-walker/README.md)
 
 ## Web Development
 
@@ -74,8 +75,8 @@ Canonical routes: `/`, `/ml`, `/json`, `/markdown`, `/journey`, `/posts`, `/memo
 Legacy `.html` URLs return permanent redirects to their canonical route (except `/index.html`, which renders the Hub without redirect).
 
 ```bash
-# From the examples/web/ directory
-cd examples/web
+# From the apps/web/ directory
+cd apps/web
 npm install
 npm run dev        # Start Waku dev server (http://localhost:3000)
 npm run build      # Build Waku for production
@@ -144,11 +145,11 @@ moon info && moon fmt       # Recommended before commit
 ```bash
 # Always use --release for accurate measurements
 moon bench --release
-cd event-graph-walker && moon bench --release
+cd deps/event-graph-walker && moon bench --release
 
 # Specific packages
-cd loom/examples/lambda && moon bench --release
-cd event-graph-walker
+cd deps/loom/examples/lambda && moon bench --release
+cd deps/event-graph-walker
 moon bench --package causal_graph --release
 moon bench --package branch --release
 ```

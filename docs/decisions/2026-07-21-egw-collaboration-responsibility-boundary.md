@@ -50,9 +50,9 @@ package placement is not the target architecture:
 Implementation evidence:
 
 - [EGW network boundary](../../event-graph-walker/docs/NETWORK_SYNC.md)
-- [Canopy sync session](../../sync_session/README.md)
-- [Wire protocol](../../protocol/wire/README.md)
-- [Relay](../../relay/README.md)
+- [Canopy sync session](../../modules/canopy/sync_session/README.md)
+- [Wire protocol](../../modules/canopy/protocol/wire/README.md)
+- [Relay](../../modules/canopy/relay/README.md)
 
 These sources and older ADRs describe the current system. They do not prove
 that its package boundaries are ideal.

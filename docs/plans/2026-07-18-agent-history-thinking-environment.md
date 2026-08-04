@@ -192,7 +192,7 @@ Do not authorize the next gate inside this plan.
 ## Validation
 
 ```bash
-cd examples/web
+cd apps/web
 npx tsc --noEmit
 npm run build
 node --test src/*.test.mjs scripts/*.test.mjs

@@ -1,1 +1,1 @@
-README.mbt.md
+modules/canopy/README.mbt.md

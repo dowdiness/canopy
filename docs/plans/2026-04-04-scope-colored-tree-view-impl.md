@@ -17,34 +17,34 @@
 ### New files
 | File | Responsibility |
 |------|---------------|
-| `examples/ideal/main/rose_zipper.mbt` | Generic `RoseCtx[T]`, `RoseZipper[T]`, navigation functions |
-| `examples/ideal/main/rose_zipper_wbtest.mbt` | Zipper unit tests |
-| `examples/ideal/main/scope_annotation.mbt` | `ScopeAnnotation` struct, `build_scope_map`, `compute_highlight_set` |
-| `examples/ideal/main/scope_annotation_wbtest.mbt` | Scope map + highlight set tests |
-| `examples/ideal/main/view_compact.mbt` | `view_compact_tree` Rabbita view function |
+| `apps/ideal/main/rose_zipper.mbt` | Generic `RoseCtx[T]`, `RoseZipper[T]`, navigation functions |
+| `apps/ideal/main/rose_zipper_wbtest.mbt` | Zipper unit tests |
+| `apps/ideal/main/scope_annotation.mbt` | `ScopeAnnotation` struct, `build_scope_map`, `compute_highlight_set` |
+| `apps/ideal/main/scope_annotation_wbtest.mbt` | Scope map + highlight set tests |
+| `apps/ideal/main/view_compact.mbt` | `view_compact_tree` Rabbita view function |
 
 ### Modified files
 | File | Change |
 |------|--------|
-| `examples/ideal/main/model.mbt` | Add `scope_map`, `outline_mode`, `highlight_set`, `zipper` fields |
-| `examples/ideal/main/msg.mbt` | Add `OutlineMode` enum, `SetOutlineMode`, `ClearSelection` messages |
-| `examples/ideal/main/main.mbt` | Extend `refresh()` and `update()` with scope_map building, zipper lifecycle, selection logic |
-| `examples/ideal/main/view_outline.mbt` | Mode toggle in panel header, dispatch to compact view |
-| `examples/ideal/main/moon.pkg` | Add `@lambda_proj` and `@canopy_core` imports |
-| `examples/ideal/web/index.html` | Binder palette CSS, selection state CSS, def-site weight |
+| `apps/ideal/main/model.mbt` | Add `scope_map`, `outline_mode`, `highlight_set`, `zipper` fields |
+| `apps/ideal/main/msg.mbt` | Add `OutlineMode` enum, `SetOutlineMode`, `ClearSelection` messages |
+| `apps/ideal/main/main.mbt` | Extend `refresh()` and `update()` with scope_map building, zipper lifecycle, selection logic |
+| `apps/ideal/main/view_outline.mbt` | Mode toggle in panel header, dispatch to compact view |
+| `apps/ideal/main/moon.pkg` | Add `@lambda_proj` and `@canopy_core` imports |
+| `apps/ideal/web/index.html` | Binder palette CSS, selection state CSS, def-site weight |
 
 ---
 
 ## Task 1: ProjNode Rose Tree Zipper
 
 **Files:**
-- Create: `examples/ideal/main/rose_zipper.mbt`
-- Create: `examples/ideal/main/rose_zipper_wbtest.mbt`
+- Create: `apps/ideal/main/rose_zipper.mbt`
+- Create: `apps/ideal/main/rose_zipper_wbtest.mbt`
 
 - [ ] **Step 1: Write failing tests for zipper navigation**
 
 ```moonbit
-// examples/ideal/main/rose_zipper_wbtest.mbt
+// apps/ideal/main/rose_zipper_wbtest.mbt
 
 ///|
 test "go_down focuses first child" {
@@ -169,7 +169,7 @@ Expected: Compilation error — `RoseZipper` not defined
 - [ ] **Step 3: Implement rose tree zipper**
 
 ```moonbit
-// examples/ideal/main/rose_zipper.mbt
+// apps/ideal/main/rose_zipper.mbt
 
 ///|
 /// One-hole context for a rose tree (ProjNode[T]).
@@ -381,7 +381,7 @@ Expected: No errors
 - [ ] **Step 6: Commit**
 
 ```bash
-git add examples/ideal/main/rose_zipper.mbt examples/ideal/main/rose_zipper_wbtest.mbt
+git add apps/ideal/main/rose_zipper.mbt apps/ideal/main/rose_zipper_wbtest.mbt
 git commit -m "feat(ideal): add ProjNode rose tree zipper for compact view navigation"
 ```
 
@@ -390,13 +390,13 @@ git commit -m "feat(ideal): add ProjNode rose tree zipper for compact view navig
 ## Task 2: ScopeAnnotation and scope_map builder
 
 **Files:**
-- Create: `examples/ideal/main/scope_annotation.mbt`
-- Create: `examples/ideal/main/scope_annotation_wbtest.mbt`
-- Modify: `examples/ideal/main/moon.pkg` (add `@lambda_proj` import)
+- Create: `apps/ideal/main/scope_annotation.mbt`
+- Create: `apps/ideal/main/scope_annotation_wbtest.mbt`
+- Modify: `apps/ideal/main/moon.pkg` (add `@lambda_proj` import)
 
 - [ ] **Step 1: Add `@lambda_proj` import to moon.pkg**
 
-Add to `examples/ideal/main/moon.pkg` imports:
+Add to `apps/ideal/main/moon.pkg` imports:
 
 ```
 "dowdiness/canopy/lang/lambda/proj" @lambda_proj,
@@ -406,7 +406,7 @@ Add to `examples/ideal/main/moon.pkg` imports:
 - [ ] **Step 2: Write failing tests for scope_map building**
 
 ```moonbit
-// examples/ideal/main/scope_annotation_wbtest.mbt
+// apps/ideal/main/scope_annotation_wbtest.mbt
 
 ///|
 test "color_index is stable across calls" {
@@ -463,7 +463,7 @@ Expected: Compilation error — `ScopeAnnotation` not defined
 - [ ] **Step 4: Implement ScopeAnnotation, build_scope_map, compute_highlight_set**
 
 ```moonbit
-// examples/ideal/main/scope_annotation.mbt
+// apps/ideal/main/scope_annotation.mbt
 
 ///|
 /// Scope annotation for a single node. Rabbita-local — does not modify ViewNode.
@@ -680,7 +680,7 @@ Expected: No errors
 - [ ] **Step 7: Commit**
 
 ```bash
-git add examples/ideal/main/scope_annotation.mbt examples/ideal/main/scope_annotation_wbtest.mbt examples/ideal/main/moon.pkg
+git add apps/ideal/main/scope_annotation.mbt apps/ideal/main/scope_annotation_wbtest.mbt apps/ideal/main/moon.pkg
 git commit -m "feat(ideal): add ScopeAnnotation, build_scope_map, compute_highlight_set"
 ```
 
@@ -689,12 +689,12 @@ git commit -m "feat(ideal): add ScopeAnnotation, build_scope_map, compute_highli
 ## Task 3: Model Extensions + Msg Additions
 
 **Files:**
-- Modify: `examples/ideal/main/model.mbt`
-- Modify: `examples/ideal/main/msg.mbt`
+- Modify: `apps/ideal/main/model.mbt`
+- Modify: `apps/ideal/main/msg.mbt`
 
 - [ ] **Step 1: Add OutlineMode enum and new fields to Model**
 
-In `examples/ideal/main/model.mbt`, add the `OutlineMode` enum before the `Model` struct:
+In `apps/ideal/main/model.mbt`, add the `OutlineMode` enum before the `Model` struct:
 
 ```moonbit
 ///|
@@ -715,7 +715,7 @@ Add four fields to the `Model` struct (after `overlay : OverlayState`):
 
 - [ ] **Step 2: Update init_model() in main.mbt**
 
-In `examples/ideal/main/main.mbt`, in `init_model()`, add the new fields to the model literal:
+In `apps/ideal/main/main.mbt`, in `init_model()`, add the new fields to the model literal:
 
 ```moonbit
   scope_map: {},
@@ -726,7 +726,7 @@ In `examples/ideal/main/main.mbt`, in `init_model()`, add the new fields to the 
 
 - [ ] **Step 3: Add new Msg variants**
 
-In `examples/ideal/main/msg.mbt`, add to the `Msg` enum:
+In `apps/ideal/main/msg.mbt`, add to the `Msg` enum:
 
 ```moonbit
   SetOutlineMode(OutlineMode)
@@ -736,7 +736,7 @@ In `examples/ideal/main/msg.mbt`, add to the `Msg` enum:
 
 - [ ] **Step 4: Add placeholder match arms in update() to avoid compile error**
 
-In `examples/ideal/main/main.mbt`, add to the `update()` match (temporary — Task 6 will implement real logic):
+In `apps/ideal/main/main.mbt`, add to the `update()` match (temporary — Task 6 will implement real logic):
 
 ```moonbit
     SetOutlineMode(_) => (@rabbita.none, model)
@@ -752,7 +752,7 @@ Expected: No errors.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add examples/ideal/main/model.mbt examples/ideal/main/msg.mbt examples/ideal/main/main.mbt
+git add apps/ideal/main/model.mbt apps/ideal/main/msg.mbt apps/ideal/main/main.mbt
 git commit -m "feat(ideal): add OutlineMode, scope_map, highlight_set, zipper to Model"
 ```
 
@@ -761,11 +761,11 @@ git commit -m "feat(ideal): add OutlineMode, scope_map, highlight_set, zipper to
 ## Task 4: Extend refresh() + Zipper Lifecycle
 
 **Files:**
-- Modify: `examples/ideal/main/main.mbt`
+- Modify: `apps/ideal/main/main.mbt`
 
 - [ ] **Step 1: Extend refresh() to build scope_map and manage zipper**
 
-Replace the `refresh()` function in `examples/ideal/main/main.mbt` (lines 43-48):
+Replace the `refresh()` function in `apps/ideal/main/main.mbt` (lines 43-48):
 
 ```moonbit
 ///|
@@ -818,7 +818,7 @@ Expected: No errors (warnings about unmatched Msg ok)
 - [ ] **Step 3: Commit**
 
 ```bash
-git add examples/ideal/main/main.mbt
+git add apps/ideal/main/main.mbt
 git commit -m "feat(ideal): extend refresh() with scope_map building and zipper lifecycle"
 ```
 
@@ -827,11 +827,11 @@ git commit -m "feat(ideal): extend refresh() with scope_map building and zipper 
 ## Task 5: CSS — Binder Palette + Selection States
 
 **Files:**
-- Modify: `examples/ideal/web/index.html`
+- Modify: `apps/ideal/web/index.html`
 
 - [ ] **Step 1: Add binder palette and selection CSS**
 
-Add inside the `<style>` tag in `examples/ideal/web/index.html`:
+Add inside the `<style>` tag in `apps/ideal/web/index.html`:
 
 ```css
 /* Binder palette — 8 hues */
@@ -906,7 +906,7 @@ Add inside the `<style>` tag in `examples/ideal/web/index.html`:
 - [ ] **Step 2: Commit**
 
 ```bash
-git add examples/ideal/web/index.html
+git add apps/ideal/web/index.html
 git commit -m "feat(ideal): add binder palette CSS, selection states, compact view styles"
 ```
 
@@ -915,14 +915,14 @@ git commit -m "feat(ideal): add binder palette CSS, selection states, compact vi
 ## Task 6: Compact View Rendering + Mode Toggle
 
 **Files:**
-- Create: `examples/ideal/main/view_compact.mbt`
-- Modify: `examples/ideal/main/view_outline.mbt`
-- Modify: `examples/ideal/main/main.mbt`
+- Create: `apps/ideal/main/view_compact.mbt`
+- Modify: `apps/ideal/main/view_outline.mbt`
+- Modify: `apps/ideal/main/main.mbt`
 
 - [ ] **Step 1: Implement view_compact_tree**
 
 ```moonbit
-// examples/ideal/main/view_compact.mbt
+// apps/ideal/main/view_compact.mbt
 
 ///|
 using @rabbita {type Dispatch, type Html}
@@ -1154,7 +1154,7 @@ fn highlight_class(
 
 - [ ] **Step 2: Add mode toggle to outline panel header**
 
-In `examples/ideal/main/view_outline.mbt`, modify `view_outline_content` to check `model.outline_mode` and dispatch to the appropriate view. Add at the top of `view_outline_content`:
+In `apps/ideal/main/view_outline.mbt`, modify `view_outline_content` to check `model.outline_mode` and dispatch to the appropriate view. Add at the top of `view_outline_content`:
 
 ```moonbit
   // Mode toggle buttons
@@ -1185,7 +1185,7 @@ And switch the body based on mode:
 
 - [ ] **Step 3: Handle new Msg variants in update()**
 
-In `examples/ideal/main/main.mbt`, add to the `update()` match:
+In `apps/ideal/main/main.mbt`, add to the `update()` match:
 
 ```moonbit
     SetOutlineMode(mode) => (@rabbita.none, { ..model, outline_mode: mode })
@@ -1230,7 +1230,7 @@ Expected: All tests pass
 - [ ] **Step 6: Commit**
 
 ```bash
-git add examples/ideal/main/view_compact.mbt examples/ideal/main/view_outline.mbt examples/ideal/main/main.mbt
+git add apps/ideal/main/view_compact.mbt apps/ideal/main/view_outline.mbt apps/ideal/main/main.mbt
 git commit -m "feat(ideal): add compact tree view with binder coloring and mode toggle"
 ```
 
@@ -1239,8 +1239,8 @@ git commit -m "feat(ideal): add compact tree view with binder coloring and mode 
 ## Task 7: Keyboard Navigation
 
 **Files:**
-- Modify: `examples/ideal/main/view_compact.mbt`
-- Modify: `examples/ideal/main/main.mbt`
+- Modify: `apps/ideal/main/view_compact.mbt`
+- Modify: `apps/ideal/main/main.mbt`
 
 - [ ] **Step 1: Add keyboard handler to compact view**
 
@@ -1266,7 +1266,7 @@ In `view_compact_tree`, add a keyboard handler to the root div:
 
 - [ ] **Step 2: Add CompactNavigate Msg variant**
 
-In `examples/ideal/main/msg.mbt`, add:
+In `apps/ideal/main/msg.mbt`, add:
 
 ```moonbit
   CompactNavigate(String)
@@ -1274,7 +1274,7 @@ In `examples/ideal/main/msg.mbt`, add:
 
 - [ ] **Step 3: Handle CompactNavigate in update()**
 
-In `examples/ideal/main/main.mbt`, add to the `update()` match:
+In `apps/ideal/main/main.mbt`, add to the `update()` match:
 
 ```moonbit
     CompactNavigate(direction) => {
@@ -1335,7 +1335,7 @@ Expected: No errors
 - [ ] **Step 5: Commit**
 
 ```bash
-git add examples/ideal/main/view_compact.mbt examples/ideal/main/msg.mbt examples/ideal/main/main.mbt
+git add apps/ideal/main/view_compact.mbt apps/ideal/main/msg.mbt apps/ideal/main/main.mbt
 git commit -m "feat(ideal): add keyboard navigation via persistent ProjNode zipper"
 ```
 
@@ -1369,7 +1369,7 @@ Expected: New exports visible (ScopeAnnotation, RoseZipper, OutlineMode, etc.)
 
 - [ ] **Step 5: Start dev server for visual verification**
 
-Run: `cd examples/ideal/web && npm run dev`
+Run: `cd apps/ideal/web && npm run dev`
 Expected: Server starts at localhost. Open browser and verify:
 - Outline panel shows Tree/Compact toggle
 - Compact mode renders inline definitions with binder colors

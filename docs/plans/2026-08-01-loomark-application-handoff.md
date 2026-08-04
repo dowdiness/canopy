@@ -20,7 +20,7 @@ Out:
 
 ## Current state and ownership
 
-examples/web/src/features/markdown/browser/app.ts is migration evidence only: it owns mode, toolbar, Raw sync, BlockInput, Preview, focus, listeners, frames, handles, and cleanup. examples/web/src/shared/route-lifecycle/browser/imperative-session.ts remains Waku’s generic defensive snapshot/focus/idempotent-dispose seam and maps its dispose to the canonical unmount at cutover. ffi/markdown/markdown_ffi.mbt global handles/string commands/JSON ViewPatch path is replaced, never wrapped. ffi/jsx/session.mbt and ffi/jsx/apply_patches.mbt are only precedents for session-private ownership, atomic initial publication, structured errors, and JS exception quarantine.
+apps/web/src/features/markdown/browser/app.ts is migration evidence only: it owns mode, toolbar, Raw sync, BlockInput, Preview, focus, listeners, frames, handles, and cleanup. apps/web/src/shared/route-lifecycle/browser/imperative-session.ts remains Waku’s generic defensive snapshot/focus/idempotent-dispose seam and maps its dispose to the canonical unmount at cutover. ffi/markdown/markdown_ffi.mbt global handles/string commands/JSON ViewPatch path is replaced, never wrapped. ffi/jsx/session.mbt and ffi/jsx/apply_patches.mbt are only precedents for session-private ownership, atomic initial publication, structured errors, and JS exception quarantine.
 
     Loom parser / recovered CST / diagnostics / Markdown semantics
                                   ↓
@@ -28,9 +28,9 @@ examples/web/src/features/markdown/browser/app.ts is migration evidence only: it
                                   ↓
                    dowdiness/loomark/core (pure reducer)
                              ↓                 ↓
-         loomark/internal/rabbita      loomark/browser
+         apps/loomark/internal/rabbita      apps/loomark/browser
                              \                 /
-                        loomark/ffi (one JS link root)
+                        apps/loomark/ffi (one JS link root)
                                   ↓
                   Vanilla → React/Vue/Waku adapters
 
@@ -50,7 +50,7 @@ Canopy never imports Loomark. The application transaction runs identically in th
 The provisional application/markdown and canopy-markdown-application names are superseded:
 
     editor/markdown/                         # dowdiness/canopy/editor/markdown
-    loomark/
+    apps/loomark/
       moon.mod                               # name = "dowdiness/loomark"
       core/                                  # dowdiness/loomark/core
       browser/                               # dowdiness/loomark/browser
@@ -61,7 +61,7 @@ The provisional application/markdown and canopy-markdown-application names are s
       adapters/vue/                          # @dowdiness/loomark-vue, unpublished
       examples/{vanilla,react,vue}/
 
-Add only ./loomark to moon.work. Its manifest imports public Canopy façade, selected Rabbita identity, dowdiness/dom_boundary, dowdiness/js_ffi, and used Rabbita modules. Core imports neither Rabbita, DOM, JS FFI, framework, clock, nor host state. Before #1103, reconcile one selected Rabbita identity containing #142 with the existing CodeMirror, tabs, status, menu, and resizable module declarations. Before #1072, move that same identity to a release containing #141 without creating incompatible workspace versions. A submodule change follows the repository's upstream-PR/push-first stop rule.
+Add only ./apps/loomark to moon.work. Its manifest imports public Canopy façade, selected Rabbita identity, dowdiness/dom_boundary, dowdiness/js_ffi, and used Rabbita modules. Core imports neither Rabbita, DOM, JS FFI, framework, clock, nor host state. Before #1103, reconcile one selected Rabbita identity containing #142 with the existing CodeMirror, tabs, status, menu, and resizable module declarations. Before #1072, move that same identity to a release containing #141 without creating incompatible workspace versions. A submodule change follows the repository's upstream-PR/push-first stop rule.
 
 The sole public generated runtime/declaration contract is:
 
@@ -69,13 +69,13 @@ The sole public generated runtime/declaration contract is:
     _build/js/release/build/dowdiness/loomark/ffi/ffi.d.ts
     _build/js/release/build/dowdiness/loomark/ffi/moonbit.d.ts
 
-Add all three paths to scripts/build-js.sh, its Bash-3 fake-compiler fixture in scripts/test-pr-ready-bash32.sh, and the explicit build-js upload list in .github/workflows/ci.yml. All hosts consume this one runtime and generated types, never beside canopy/ffi/markdown/markdown.js. Later Waku cutover alone updates examples/web/moonbit-artifacts.mjs, examples/web/tsconfig.json, src/shared/browser/moonbit-client-probe.tsx, waku-tests/foundation.spec.ts, MODULE_MAP.md, Waku artifact verification, and bundle checks. scripts/package-release.sh later makes separate loomark-browser-version.tar.gz containing Loomark artifacts, manifest, README, and notices, not the legacy Markdown payload. Add a Node-24 loomark-hosts job to All Checks Passed; path filters include loomark, editor/markdown, dom-boundary, Rabbita pointer, build and CI files.
+Add all three paths to scripts/build-js.sh, its Bash-3 fake-compiler fixture in scripts/test-pr-ready-bash32.sh, and the explicit build-js upload list in .github/workflows/ci.yml. All hosts consume this one runtime and generated types, never beside canopy/ffi/markdown/markdown.js. Later Waku cutover alone updates apps/web/moonbit-artifacts.mjs, apps/web/tsconfig.json, src/shared/browser/moonbit-client-probe.tsx, waku-tests/foundation.spec.ts, MODULE_MAP.md, Waku artifact verification, and bundle checks. scripts/package-release.sh later makes separate loomark-browser-version.tar.gz containing Loomark artifacts, manifest, README, and notices, not the legacy Markdown payload. Add a Node-24 loomark-hosts job to All Checks Passed; path filters include loomark, editor/markdown, dom-boundary, Rabbita pointer, build and CI files.
 
-Before #141, `loomark/internal/dev_host` is the only temporary JS link root. It produces `_build/js/release/build/dowdiness/loomark/internal/dev_host/dev_host.js` solely for the disposable test page. It is never added to `scripts/build-js.sh`, CI artifact uploads, release payloads, host declarations, or production examples. #1103 adds `scripts/test-loomark-dev-host-e2e.sh`, which builds that package and runs the exact private Vanilla typecheck/browser commands below. It also adds a path-filtered `loomark-dev-host` Playwright job to All Checks Passed. #1072 deletes the private package, wrapper, and job while adding the public `loomark/ffi` artifact and `loomark-hosts` job; the two link roots never coexist in a candidate commit.
+Before #141, `apps/loomark/internal/dev_host` is the only temporary JS link root. It produces `_build/js/release/build/dowdiness/loomark/internal/dev_host/dev_host.js` solely for the disposable test page. It is never added to `scripts/build-js.sh`, CI artifact uploads, release payloads, host declarations, or production examples. #1103 adds `scripts/test-loomark-dev-host-e2e.sh`, which builds that package and runs the exact private Vanilla typecheck/browser commands below. It also adds a path-filtered `loomark-dev-host` Playwright job to All Checks Passed. #1072 deletes the private package, wrapper, and job while adding the public `apps/loomark/ffi` artifact and `loomark-hosts` job; the two link roots never coexist in a candidate commit.
 
 ## Pre-#141 private development host
 
-#1103 creates one package-private adapter, the temporary `loomark/internal/dev_host` link root, and one disposable Vanilla test page for application development. The adapter mounts exactly once into a fresh connected container. The browser page or test process owns lifetime termination; the container is never cleared, reused, remounted, or transferred. Tests create a fresh Playwright page and BrowserContext per isolated case. This bounded test-only lifetime is not a cleanup implementation and is not permitted in Waku, React, Vue, examples presented as production hosts, or the generated public declaration.
+#1103 creates one package-private adapter, the temporary `apps/loomark/internal/dev_host` link root, and one disposable Vanilla test page for application development. The adapter mounts exactly once into a fresh connected container. The browser page or test process owns lifetime termination; the container is never cleared, reused, remounted, or transferred. Tests create a fresh Playwright page and BrowserContext per isolated case. This bounded test-only lifetime is not a cleanup implementation and is not permitted in Waku, React, Vue, examples presented as production hosts, or the generated public declaration.
 
 The development host may expose only test-driver operations needed to submit typed application events, inspect detached snapshots/errors, and assert rendered behavior. It exposes no `MarkdownApp`, `MarkdownSession`, `unmount`, raw Rabbita value, DOM handle, global handle registry, or success result implying cleanup. It uses the same pure reducer, editor transaction, event ordering, focus decisions, and private Rabbita view that the canonical Session will use. Fatal errors stop further driver operations but do not claim that Rabbita subscriptions or callbacks were released.
 
@@ -188,8 +188,8 @@ Focus tokens are opaque logical locators, not DOM/session identity. Their privat
 
 | Behavior | Current evidence / gap | Final authority |
 | --- | --- | --- |
-| SSR inert controls/runtime-load error | examples/web/waku-tests/markdown-route.spec.ts | Waku route |
-| mode navigation/Raw-Block round trip | examples/web/tests/markdown-editor.spec.ts | private host + core, then Waku Playwright |
+| SSR inert controls/runtime-load error | apps/web/waku-tests/markdown-route.spec.ts | Waku route |
+| mode navigation/Raw-Block round trip | apps/web/tests/markdown-editor.spec.ts | private host + core, then Waku Playwright |
 | caret/block fallback and snapshot/focus decisions | existing Markdown/Waku tests | private host + core, then Browser Session |
 | route cleanup, teardown, remount, host reuse | existing Waku tests; unavailable through Rabbita today | #1072 Browser Session + Waku lifecycle |
 | heading identity, markers, fences | lang/markdown/proj/proj_node_wbtest.mbt and editor suite | projection/editor + Waku scenario |
@@ -197,7 +197,7 @@ Focus tokens are opaque logical locators, not DOM/session identity. Their privat
 | supported/rejected MoveBlock | lang/markdown/edits/compute_markdown_edit_wbtest.mbt | edit + approved Waku subset |
 | IME final commit, version/errors/reentrancy | absent | #1076 core + Vanilla contract |
 | mount ownership/full remount | absent | #1072 Vanilla contract; Waku cutover subset |
-| selection/measurement/listener | lib/dom-boundary additions | boundary; Rabbita wiring only |
+| selection/measurement/listener | modules/dom-boundary additions | boundary; Rabbita wiring only |
 | React/Vue | absent | lifecycle tests plus real-binding smoke |
 
 ## Ordered graph
@@ -214,7 +214,7 @@ Rabbita #141 is intentionally not an Application Train gate. It remains the nati
 ### Foundation
 
 1. #1102 adds the opaque editor/markdown façade over existing companion/edit/projection/SyncEditor internals and creates the standalone Loomark module/core skeleton.
-2. #1071 implements the accepted generic UTF-16 text-control selection and measurement capabilities in lib/dom-boundary with boundary tests.
+2. #1071 implements the accepted generic UTF-16 text-control selection and measurement capabilities in modules/dom-boundary with boundary tests.
 3. #1103, after adopting a selected Rabbita identity containing #142, creates Loomark's private Rabbita application, read-only Preview, mount-once development adapter, temporary `internal/dev_host` link root, disposable Vanilla browser harness, shared `test-loomark-dev-host-e2e.sh` command, and `loomark-dev-host` CI job. It adds no public Browser App/Session declaration or lifecycle claim.
 
 ### Application Train
@@ -236,7 +236,7 @@ Each ticket begins with behavioral matrix and first RED test, makes one logical 
 
 Each ticket names package/file ownership, In/Out, behavioral matrix (syntax form, terminator where relevant, operation, lifecycle/ownership, success/error/event order, authority), first failing test, generated-artifact impact, exact native dependency identity, validation, and deferred cases. Browser tickets additionally specify host scope, reentrancy, the lifecycle guarantees they do and do not claim, and the error channel.
 
-Before new APIs, search/report at least two candidates. Reuse lang/markdown/companion (new_markdown_editor, apply_markdown_edit, export_markdown_text), lang/markdown/edits/proj; SyncEditor/protocol.ViewPatch behind façade only; Loom typed values; Rabbita Cmd/Sub after-render/unload; lib/dom-boundary targets/errors/focus/subscription; ffi/jsx session/error patterns; concrete Option/Result, String/StringView, Array/ArrayView, Map/Set, and builders. Reject public raw SyncEditor, TreeEditorState, projection collections, generic traits, direct Rabbita App.mount lifecycle, and legacy FFI JSON/handles. New helpers only lower façade commands, construct pure transitions, or adapt typed browser/FFI codecs. Justify remaining imperative code.
+Before new APIs, search/report at least two candidates. Reuse lang/markdown/companion (new_markdown_editor, apply_markdown_edit, export_markdown_text), lang/markdown/edits/proj; SyncEditor/protocol.ViewPatch behind façade only; Loom typed values; Rabbita Cmd/Sub after-render/unload; modules/dom-boundary targets/errors/focus/subscription; ffi/jsx session/error patterns; concrete Option/Result, String/StringView, Array/ArrayView, Map/Set, and builders. Reject public raw SyncEditor, TreeEditorState, projection collections, generic traits, direct Rabbita App.mount lifecycle, and legacy FFI JSON/handles. New helpers only lower façade commands, construct pure transitions, or adapt typed browser/FFI codecs. Justify remaining imperative code.
 
 ## Validation
 
@@ -251,8 +251,8 @@ Targeted RED-to-green:
 
 The wrapper runs these commands in order and forwards optional Playwright selectors after `--` to the final command:
 
-    NEW_MOON_MOD=0 moon build --target js --release loomark/internal/dev_host
-    cd loomark/examples/vanilla && npm ci
+    NEW_MOON_MOD=0 moon build --target js --release apps/loomark/internal/dev_host
+    cd apps/loomark/examples/vanilla && npm ci
     npm run typecheck:dev-host
     npm run test:dev-host
 
@@ -264,12 +264,12 @@ After #1072 deletes the private entry point and exposes the canonical Session, r
 
 After artifact exists, run:
 
-    cd loomark/examples/vanilla && npm run typecheck && npm test
-    cd examples/web && npm run typecheck
-    cd examples/web && npm run test:boundaries
-    cd examples/web && npm run test:foundation
-    cd examples/web && npm run build:waku
-    cd examples/web && npm run test:waku:e2e
+    cd apps/loomark/examples/vanilla && npm run typecheck && npm test
+    cd apps/web && npm run typecheck
+    cd apps/web && npm run test:boundaries
+    cd apps/web && npm run test:foundation
+    cd apps/web && npm run build:waku
+    cd apps/web && npm run test:waku:e2e
 
 On clean candidate HEAD: moon fmt, moon info, inspect generated mbti diff, moon check, moon test, then scripts/validate-pr-ready.sh with each affected target. Fetch origin/main first; repeat after base movement; end with scripts/validate-pr-ready.sh --verify-evidence.
 

@@ -3,7 +3,7 @@ summary: "moon prove limitations discovered: no enum ==, no method calls in pred
 created: 2026-04-12
 status: resolved
 tags: [moon-prove, limitations, workarounds]
-related: [lib/semantic/proof/confidence.mbt, lib/semantic/proof/confidence.mbtp]
+related: [modules/semantic/proof/confidence.mbt, modules/semantic/proof/confidence.mbtp]
 ---
 
 # moon prove Prover Limitations
@@ -30,7 +30,7 @@ Match arms like `IRuleBased(_) => 2` generate broken WhyML: `IRuleBased -> 2` (m
 
 ## `proof-enabled` cascades to all transitive dependencies
 
-Setting `"proof-enabled": true` in moon.pkg causes moonc to attempt proving all transitive deps, not just the current package. For a package like lib/semantic that depends on loom (huge dep tree), this hits compiler bugs.
+Setting `"proof-enabled": true` in moon.pkg causes moonc to attempt proving all transitive deps, not just the current package. For a package like modules/semantic that depends on loom (huge dep tree), this hits compiler bugs.
 
 **Workaround:** Isolate proof code in standalone modules with their own moon.mod.json and zero project dependencies. The proof package mirrors the types it needs.
 

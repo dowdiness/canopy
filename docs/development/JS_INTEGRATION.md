@@ -6,11 +6,11 @@ This document describes how to integrate the MoonBit CRDT editor into a JavaScri
 
 The browser integration uses the generated JavaScript build, not WebAssembly. The `crdt.mbt` file defines the JavaScript FFI exposed through the JS build output.
 
-The canonical browser example lives under `examples/web/`, where the Vite plugin exposes three per-page virtual modules: `@moonbit/crdt-lambda` (at `_build/js/release/build/dowdiness/canopy/ffi/lambda/lambda.js`), `@moonbit/crdt-json` (at `_build/js/release/build/dowdiness/canopy/ffi/json/json.js`), and `@moonbit/crdt-markdown` (at `_build/js/release/build/dowdiness/canopy/ffi/markdown/markdown.js`). The lambda module is the closest replacement for the old monolithic `@moonbit/crdt`.
+The canonical browser example lives under `apps/web/`, where the Vite plugin exposes three per-page virtual modules: `@moonbit/crdt-lambda` (at `_build/js/release/build/dowdiness/canopy/ffi/lambda/lambda.js`), `@moonbit/crdt-json` (at `_build/js/release/build/dowdiness/canopy/ffi/json/json.js`), and `@moonbit/crdt-markdown` (at `_build/js/release/build/dowdiness/canopy/ffi/markdown/markdown.js`). The lambda module is the closest replacement for the old monolithic `@moonbit/crdt`.
 
 ### Loading the JavaScript Module
 
-Refer to the `examples/web/` directory for a complete integration example using Vite.
+Refer to the `apps/web/` directory for a complete integration example using Vite.
 
 ```ts
 import * as crdt from '@moonbit/crdt-lambda';

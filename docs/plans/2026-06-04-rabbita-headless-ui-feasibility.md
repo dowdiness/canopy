@@ -22,7 +22,7 @@ component library fits rabbita's TEA model cleanly via a two-layer split:
 - **Design-system layer** = Tailwind `@utility` presets + CSS variables + a thin
   MoonBit `enum Variant → to_class() -> String` helper. Lives in CSS, not types.
 
-Canopy **already ships this exact pattern** in `lib/resizable` + `examples/resizable`
+Canopy **already ships this exact pattern** in `modules/rabbita-resizable` + `examples/resizable`
 (`@resizable.Model::container_attrs()/handle_attrs()`). The PoC reproduces it for
 Disclosure. Radix's `asChild` (React `cloneElement`) cannot be reproduced at the
 type level (MoonBit traits: no type params / associated types / HKT), but its
@@ -84,7 +84,7 @@ Key design decisions, each grounded in a verified fact:
 5. **Splitter/drag** is the one real `custom_sub` case: `on_mouse_move` exists at
    document level (fact d) but document `mouseup` does not — mirror the canonical
    `rabbita/rabbita/websocket/listen.mbt` SubLoader (or an overlay with
-   `Attrs::on_mouseup`). `lib/resizable` already does exactly this.
+   `Attrs::on_mouseup`). `modules/rabbita-resizable` already does exactly this.
 
 The design-system layer is MoonBit-independent: rabbita view emits `class="…"`
 strings, so Skeleton's approach (preset = Tailwind `@utility`, theme = CSS vars +
@@ -161,7 +161,7 @@ compatibility fix introduced during the 0.12.3 upgrade remains sufficient for
 0.12.4:
 
 - **One breaking call site** from upstream PR #117 (void elements lose `children`):
-  `examples/ideal/main/view_actions.mbt` — removed a trailing `[@html.text("")]`
+  `apps/ideal/main/view_actions.mbt` — removed a trailing `[@html.text("")]`
   positional child from `@html.input(...)`. (Two more in
   `loom/incr/examples/typed_spreadsheet_rabbita_demo/view.mbt` — loom submodule,
   not a canopy workspace member; only matters if loom's examples are built.)
@@ -182,14 +182,14 @@ a maintained-fork adoption, not an upstream-only release adoption: the
 - **P1 — Polish Disclosure**: expand/collapse animation via CSS `data-state` +
   grid-rows; keep `aria-expanded`/`hidden` as the source of truth.
 - **P2 — Extract `lib/disclosure`** (`dowdiness/rabbita-disclosure`), mirroring
-  `lib/resizable/src/resizable`: `Model`, `Msg`, `update`, `*_attrs`, `new`.
+  `modules/rabbita-resizable/src/resizable`: `Model`, `Msg`, `update`, `*_attrs`, `new`.
   Cell-ize only when composing stateful instances.
 - **P3 — Dialog primitive** on native `<dialog>`: spike complete (§5). Before
   extracting anything, wait for a real consumer and decide cancel-close policy,
   controlled vs uncontrolled shape (consumer `open` + `on_open_change`, or
   self-held in a `cell`), and light-dismiss strategy (`@html.dialog(closedby="any", ...)`
   where supported vs explicit backdrop handling).
-- **P4 — Splitter primitive**: reuse `lib/resizable`'s document-`mouseup`
+- **P4 — Splitter primitive**: reuse `modules/rabbita-resizable`'s document-`mouseup`
   `custom_sub` pattern; confirm it generalizes.
 - **P5 — Design-system layer**: Tailwind `@utility` presets + CSS-var theme +
   `enum Variant → to_class()`. No variant logic in types.

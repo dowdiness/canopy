@@ -1,13 +1,13 @@
 ---
 name: rabbita
-description: "Rabbita binding and idiom reference. Use BEFORE designing, implementing, or reviewing any code that uses @sub, @cmd, @html, @dom, @http, or that authors or modifies a rabbita binding (e.g. lib/rabbita_codemirror). Requires reading the local rabbita repository's authoritative docs before answering. Triggers on 'rabbita', '@sub', '@cmd', '@html', '@dom', '@http', 'custom_sub', 'custom_cmd', 'suberror', 'Emit', 'Sub binding', 'TEA', 'rabbita_codemirror', 'rabbita_xterm'."
+description: "Rabbita binding and idiom reference. Use BEFORE designing, implementing, or reviewing any code that uses @sub, @cmd, @html, @dom, @http, or that authors or modifies a rabbita binding (e.g. modules/rabbita_codemirror). Requires reading the local rabbita repository's authoritative docs before answering. Triggers on 'rabbita', '@sub', '@cmd', '@html', '@dom', '@http', 'custom_sub', 'custom_cmd', 'suberror', 'Emit', 'Sub binding', 'TEA', 'rabbita_codemirror', 'rabbita_xterm'."
 ---
 
 # Rabbita skill (canopy-local)
 
-Rabbita is canopy's vendored TEA-style UI framework at `./rabbita/`
+Rabbita is canopy's vendored TEA-style UI framework at `./deps/rabbita/`
 (submodule, fork of `moonbit-community/rabbita`). The local docs and the
-shipping bindings under `rabbita/rabbita/*` are the **authoritative**
+shipping bindings under `deps/rabbita/rabbita/*` are the **authoritative**
 source of truth for idioms — not training data, not the rabbita_xterm
 spec, not any prior plan in this repo.
 
@@ -21,21 +21,21 @@ TEA loop.
 
 | # | Path | Why |
 |---|---|---|
-| 1 | `rabbita/skills/rabbita.md` | Upstream's own skill: basic conventions + HTTP anti-patterns. Inlined below for reference, but read the file if it has been updated. |
-| 2 | `rabbita/doc/001_intro/readme.mbt.md` | TEA shape: Model / Msg / update / view / Cmd. |
-| 3 | `rabbita/doc/002_writing_html/readme.mbt.md` | HTML wrappers, labeled args, `Attrs::build()` as workaround, keyed children, `nothing`. |
-| 4 | `rabbita/doc/004_using_command/readme.mbt.md` | `Cmd`, `none`, `batch`, `perform`, `attempt`, `delay`, `effect`. `simple_cell` vs `cell`. |
-| 5 | `rabbita/doc/005_http/readme.mbt.md` | HTTP idioms (in addition to the inlined anti-patterns below). |
-| 6 | `rabbita/doc/using_subscriptions/readme.mbt.md` | `Sub`, `subscriptions(emit, model)`, `@sub.batch`, `@sub.none`, builtin Subs. |
-| 7 | `rabbita/doc/suberror_as_extensible_enum/readme.mbt.md` | `suberror` as extensible enum — the payload pattern for `custom_sub`. |
-| 8 | `rabbita/rabbita/sub/design.md` | Why `Sub`s diff via a `Ref[Callback]` and `update_tagger` — the mechanism that requires our `diff_subs` patch. |
-| 9 | `rabbita/rabbita/sub/README.mbt.md` | Public Sub API summary. |
-| 10 | `rabbita/rabbita/html/design.md` + `rabbita/rabbita/html/README.mbt.md` | HTML EDSL rationale. |
-| 11 | `rabbita/rabbita/websocket/listen.mbt` | **Canonical Sub-binding pattern.** Function-based public API + `priv suberror` payload + `let mut tagger` + `update_tagger` rebind. Mirror this pattern when authoring any new `@sub.custom_sub`-using binding. |
-| 12 | `rabbita/rabbita/websocket/websocket.mbt` | **Canonical Cmd-binding pattern.** `pub fn op(id, ...) -> Cmd` + internal `Map[String, Entry]` registry. Mirror this when authoring any new binding's lifecycle / mutation ops. |
-| 13 | `rabbita/examples/shiki_editor/main/client.mbt` | Editor-binding analog: async load via `with_init`, `Highlighter.code_to_html(...)`, sub-free editor (since shiki is highlight-only). |
-| 14 | `rabbita/examples/subscriptions/main/client.mbt` | Multi-sub composition with `@sub.batch`. |
-| 15 | `rabbita/examples/websocket/main/client.mbt` | End-to-end consumer of a function-based binding. |
+| 1 | `deps/rabbita/skills/rabbita.md` | Upstream's own skill: basic conventions + HTTP anti-patterns. Inlined below for reference, but read the file if it has been updated. |
+| 2 | `deps/rabbita/doc/001_intro/readme.mbt.md` | TEA shape: Model / Msg / update / view / Cmd. |
+| 3 | `deps/rabbita/doc/002_writing_html/readme.mbt.md` | HTML wrappers, labeled args, `Attrs::build()` as workaround, keyed children, `nothing`. |
+| 4 | `deps/rabbita/doc/004_using_command/readme.mbt.md` | `Cmd`, `none`, `batch`, `perform`, `attempt`, `delay`, `effect`. `simple_cell` vs `cell`. |
+| 5 | `deps/rabbita/doc/005_http/readme.mbt.md` | HTTP idioms (in addition to the inlined anti-patterns below). |
+| 6 | `deps/rabbita/doc/using_subscriptions/readme.mbt.md` | `Sub`, `subscriptions(emit, model)`, `@sub.batch`, `@sub.none`, builtin Subs. |
+| 7 | `deps/rabbita/doc/suberror_as_extensible_enum/readme.mbt.md` | `suberror` as extensible enum — the payload pattern for `custom_sub`. |
+| 8 | `deps/rabbita/rabbita/sub/design.md` | Why `Sub`s diff via a `Ref[Callback]` and `update_tagger` — the mechanism that requires our `diff_subs` patch. |
+| 9 | `deps/rabbita/rabbita/sub/README.mbt.md` | Public Sub API summary. |
+| 10 | `deps/rabbita/rabbita/html/design.md` + `deps/rabbita/rabbita/html/README.mbt.md` | HTML EDSL rationale. |
+| 11 | `deps/rabbita/rabbita/websocket/listen.mbt` | **Canonical Sub-binding pattern.** Function-based public API + `priv suberror` payload + `let mut tagger` + `update_tagger` rebind. Mirror this pattern when authoring any new `@sub.custom_sub`-using binding. |
+| 12 | `deps/rabbita/rabbita/websocket/websocket.mbt` | **Canonical Cmd-binding pattern.** `pub fn op(id, ...) -> Cmd` + internal `Map[String, Entry]` registry. Mirror this pattern when authoring any new binding's lifecycle / mutation ops. |
+| 13 | `deps/rabbita/examples/shiki_editor/main/client.mbt` | Editor-binding analog: async load via `with_init`, `Highlighter.code_to_html(...)`, sub-free editor (since shiki is highlight-only). |
+| 14 | `deps/rabbita/examples/subscriptions/main/client.mbt` | Multi-sub composition with `@sub.batch`. |
+| 15 | `deps/rabbita/examples/websocket/main/client.mbt` | End-to-end consumer of a function-based binding. |
 
 After this reading: cite the specific file paths you used when
 justifying any design decision. If the rabbita docs disagree with
@@ -44,10 +44,10 @@ in by the user, **the rabbita docs win** — the plans should be revised,
 not the other way around. Canopy's `docs/plans/2026-05-18-codemirror-rabbita-binding-phase1-audit.md` and `…phase2.md` already encode this rule
 explicitly.
 
-## Authoritative inline rules (from `rabbita/skills/rabbita.md`)
+## Authoritative inline rules (from `deps/rabbita/skills/rabbita.md`)
 
 These rules apply to **consumer-facing code** (canopy app code, examples).
-**Bindings themselves** (`lib/rabbita_codemirror/`, future libraries) are
+**Bindings themselves** (`modules/rabbita_codemirror/`, future libraries) are
 the escape-hatch shell — they legitimately use the listed escape hatches
 internally. The rules below describe what consumer code must not do.
 
@@ -77,22 +77,22 @@ internally. The rules below describe what consumer code must not do.
 - Wrapping HTTP construction in a helper function — chain inline
   through `update` instead.
 
-(Examples for each are in `rabbita/skills/rabbita.md`; read that file
+(Examples for each are in `deps/rabbita/skills/rabbita.md`; read that file
 when actually writing HTTP code.)
 
 ## Binding-authoring patterns (canonical)
 
-When authoring a binding (e.g. `lib/rabbita_codemirror/`), follow the
-patterns in `rabbita/rabbita/websocket/`:
+When authoring a binding (e.g. `modules/rabbita_codemirror/`), follow the
+patterns in `deps/rabbita/rabbita/websocket/`:
 
 ### Two-package shape
 
 ```
-lib/<name>/js/          extern "js" only, opaque newtypes, Disposable
-lib/<name>/             public fn-returning-Cmd API + priv registry +
-                        priv suberror payloads + priv sub loader
-lib/<name>/addon/X/     optional typed payload wrappers per extension
-                        family (e.g. Theme, Keymap); imports js/ only
+modules/<name>/js/          extern "js" only, opaque newtypes, Disposable
+modules/<name>/             public fn-returning-Cmd API + priv registry +
+                            priv suberror payloads + priv sub loader
+modules/<name>/addon/X/     optional typed payload wrappers per extension
+                            family (e.g. Theme, Keymap); imports js/ only
 ```
 
 ### Function-based public API
@@ -145,7 +145,7 @@ pub fn listen(id : String, on_x? : Emit[X], on_y? : Emit[Y]) -> Sub {
 ```
 
 This pattern depends on Rabbita's `diff_subs` calling `update_tagger`
-on the preserved sub. **Canopy's `rabbita/` submodule includes the
+on the preserved sub. **Canopy's `deps/rabbita/` submodule includes the
 patch that makes this work** (`patch/diff-subs-update-tagger` branch).
 Upstream Rabbita 0.12.2 does not. See
 `docs/plans/2026-05-18-codemirror-rabbita-binding-phase2.md` §P2.0.

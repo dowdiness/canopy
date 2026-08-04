@@ -3,7 +3,7 @@
 **Date:** 2026-06-13
 **Status:** Accepted
 **Closes:** GitHub issue #415 once the documentation slice lands
-**Related:** GitHub issue #216 · PR #555 · [API position units](../development/API_REFERENCE.md#position-units) · [protocol unit table](../../protocol/README.md#position-and-offset-units)
+**Related:** GitHub issue #216 · PR #555 · [API position units](../development/API_REFERENCE.md#position-units) · [protocol unit table](../../modules/canopy/protocol/README.md#position-and-offset-units)
 
 ## Why this record exists
 

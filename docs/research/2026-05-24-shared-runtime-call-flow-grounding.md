@@ -153,7 +153,7 @@ the same runtime.
 `new_lambda_editor`: 222 grep hits across 23 non-build files. Three
 production sites (the two FFI ctors in §1.1 plus
 `lang/lambda/top.mbt:17` which is a `pub using` re-export). Remaining
-19 files are tests and demos (`examples/ideal/main/`) consuming
+19 files are tests and demos (`apps/ideal/main/`) consuming
 `(editor, _) = ...` or `.0` — none construct typecheck.
 
 Sister-language ctors take only `agent_id` + `capture_timeout_ms?`:

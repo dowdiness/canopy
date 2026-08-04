@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Keep typed JSX construction in `ffi/jsx`; `lib/cognition` remains renderer-neutral.
+- Keep typed JSX construction in `ffi/jsx`; `modules/cognition` remains renderer-neutral.
 - Do not add a candidate-only token, grammar rule, or hidden DOM attribute side effect.
 - Preserve the replay adapter’s existing unknown/disposed/stale-session rejection before candidate or capabilities decoding.
 - Synthetic Root uses node ID `0`; every mounted candidate node uses one unique preorder ID in `[-1025, -2]`; `-1` remains the root-container parent sentinel.
@@ -18,7 +18,7 @@
 - `committed_source` remains paired with the parser and is never overwritten by a candidate commit.
 - Dry-run failure preserves physical DOM. DOM-apply failure preserves only logical source/revision/mounted-ID state, marks dirty, and relies on the next successful remount; do not claim DOM rollback.
 - Use `@qc.quick_check_fn` only over states reachable from the reducer constructor. Record the failure seed or shrunk counterexample when a property fails.
-- Run `moon check ffi/jsx` immediately after every MoonBit source/test/package edit.
+- Run `moon check modules/canopy/ffi/jsx` immediately after every MoonBit source/test/package edit.
 
 ---
 
@@ -46,7 +46,7 @@
 
 - [x] **Step 2: Verify the tests fail before implementation.**
   - Add the existing QuickCheck dependencies to `ffi/jsx/moon.pkg` under `for "wbtest"`, matching `core/moon.pkg`.
-  - Run `moon test ffi/jsx`.
+  - Run `moon test modules/canopy/ffi/jsx`.
   - Confirm the test compile fails because `candidate_to_projection` is absent or because the old string-lowering contract cannot satisfy the typed assertions.
 
 - [x] **Step 3: Implement the minimal typed lowering.**
@@ -58,8 +58,8 @@
   - Lower `GenerativeUiCandidateNode::Text` directly to `JsxNode::Text(value)` with exact `String` equality. Do not parse candidate text and do not reject syntax characters.
 
 - [x] **Step 4: Verify the pure projection boundary.**
-  - Run `moon check ffi/jsx`.
-  - Run `moon test ffi/jsx`.
+  - Run `moon check modules/canopy/ffi/jsx`.
+  - Run `moon test modules/canopy/ffi/jsx`.
   - Confirm special-character text, ID properties, and metadata transport tests pass. On any QuickCheck failure, retain its seed/counterexample in the failing test output before changing production code.
 
 - [x] **Step 5: Commit the pure lowering slice.**
@@ -86,7 +86,7 @@
   - Property assertions: candidate attempts remount; any dirty baseline remounts; first source attempt after a candidate success remounts; failures do not advance revision or replace mounted origin; successes advance revision once; source failures retain Candidate origin; source `ProjectionFail` emits `RestoreCommittedSource`.
 
 - [x] **Step 2: Verify the baseline tests fail.**
-  - Run `moon test ffi/jsx`.
+  - Run `moon test modules/canopy/ffi/jsx`.
   - Confirm missing `SessionBaseline`, render-plan, and outcome interfaces prevent compilation.
 
 - [x] **Step 3: Implement the pure planning/reduction boundary.**
@@ -96,8 +96,8 @@
   - On `Success`, increment revision exactly once and set origin to the completed render kind. On `DryRunFail` and `DomFail`, retain revision/origin and make the resulting baseline dirty. On `ProjectionFail`, retain revision/origin/dirty and emit `RestoreCommittedSource` only for Source rendering.
 
 - [x] **Step 4: Verify the functional core.**
-  - Run `moon check ffi/jsx`.
-  - Run `moon test ffi/jsx`.
+  - Run `moon check modules/canopy/ffi/jsx`.
+  - Run `moon test modules/canopy/ffi/jsx`.
   - Confirm all example transitions and generated reachable-state properties pass.
 
 - [x] **Step 5: Commit the baseline slice.**
@@ -125,7 +125,7 @@
   - Preserve/update existing dry-run and DOM-apply failure tests: dry-run failure leaves physical DOM intact; DOM-apply failure makes no physical rollback assertion but preserves logical revision/mounted IDs and repairs on the next successful remount.
 
 - [x] **Step 2: Verify the integration tests fail.**
-  - Run `moon test ffi/jsx`.
+  - Run `moon test modules/canopy/ffi/jsx`.
   - Confirm the current `jsx_session_commit_candidate` still calls source-string lowering and cannot satisfy direct-text, candidate-origin, and remount assertions.
 
 - [x] **Step 3: Refactor the session as a thin shell over the baseline.**
@@ -138,9 +138,9 @@
   - Keep the replay adapter’s first handle/revision lookup before chunk splitting, candidate decode, capability decode, and candidate validation.
 
 - [x] **Step 4: Verify the session boundary.**
-  - Run `moon check ffi/jsx` after the session edit.
-  - Run `moon test ffi/jsx` and inspect all session-contract, typed-projection, and QuickCheck properties.
-  - Run `moon test lang/jsx/proj` to confirm the reused patch and dry-run contract remains valid.
+  - Run `moon check modules/canopy/ffi/jsx` after the session edit.
+  - Run `moon test modules/canopy/ffi/jsx` and inspect all session-contract, typed-projection, and QuickCheck properties.
+  - Run `moon test modules/canopy/lang/jsx/proj` to confirm the reused patch and dry-run contract remains valid.
 
 - [x] **Step 5: Commit the shell integration slice.**
   - Stage only the session, replay-adapter changes if any, and targeted session tests.
@@ -150,27 +150,27 @@
 
 **Files:**
 - Modify only if generated output changes: `ffi/jsx/pkg.generated.mbti`
-- Modify only if browser coverage needs a new observable regression: `examples/web/tests/genui.spec.ts`
+- Modify only if browser coverage needs a new observable regression: `apps/web/tests/genui.spec.ts`
 
 **Interfaces:**
 - Consumes: all three prior tasks and the existing GenUI replay-browser action.
 - Produces: verified JS build artifacts and an intentional interface diff, if any.
 
 - [x] **Step 1: Run focused formatting and interface generation.**
-  - Run `moon fmt ffi/jsx`.
-  - Run `moon info ffi/jsx`.
+  - Run `moon fmt modules/canopy/ffi/jsx`.
+  - Run `moon info modules/canopy/ffi/jsx`.
   - Inspect `ffi/jsx/pkg.generated.mbti`; no new public candidate/session API is expected because the typed projection and baseline helpers are package-private. Investigate any unexpected public interface drift before retaining it.
 
 - [x] **Step 2: Run focused MoonBit validation.**
-  - Run `moon check ffi/jsx`.
-  - Run `moon test ffi/jsx`.
-  - Run `moon test lang/jsx/proj`.
+  - Run `moon check modules/canopy/ffi/jsx`.
+  - Run `moon test modules/canopy/ffi/jsx`.
+  - Run `moon test modules/canopy/lang/jsx/proj`.
   - Run `git diff --check` and confirm no staged or unstaged change includes the pre-existing `loom` or `rabbita` submodule pointers.
 
 - [x] **Step 3: Rebuild and run browser coverage.**
   - Run `bash scripts/build-js.sh` so the JS-only `ffi/jsx` package is exercised in its deployment target.
   - Run `CANOPY_SKIP_MOON_BUILD=1 bash scripts/test-web-e2e.sh tests/genui.spec.ts`.
-  - If `examples/web/tests/genui.spec.ts` changed, ensure it observes one end-to-end special-text candidate result instead of asserting implementation details.
+  - If `apps/web/tests/genui.spec.ts` changed, ensure it observes one end-to-end special-text candidate result instead of asserting implementation details.
 
 - [x] **Step 4: Run workspace safety verification.**
   - Run `moon check` and record the expected pre-existing reserved-keyword warning separately from this change.

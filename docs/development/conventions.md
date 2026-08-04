@@ -127,7 +127,7 @@ Each module should have:
 When making changes that affect the public API or architecture, update the corresponding documentation:
 
 - **API Changes**: Update `docs/development/API_REFERENCE.md`.
-- **JS FFI Changes**: Update `docs/development/JS_INTEGRATION.md` and `examples/web/`.
+- **JS FFI Changes**: Update `docs/development/JS_INTEGRATION.md` and `apps/web/`.
 - **Structural Editing**: Update `docs/development/TREE_EDIT_MANUAL.md`.
 - **Architecture**: Update `docs/architecture/ARCHITECTURE_DIAGRAM.md` or `modules.md` if dependency graph changes.
 

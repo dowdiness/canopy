@@ -1,0 +1,59 @@
+{
+  "name": "lambda-crdt-editor",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "waku dev",
+    "build": "bash scripts/build-waku.sh",
+    "build:deploy": "sh scripts/build-deploy.sh",
+    "build:deploy:waku": "sh scripts/build-deploy.sh waku",
+    "preview": "bash scripts/serve-waku-preview.sh",
+    "signaling": "node signaling-server.js",
+    "genui:minimal-provider-e2e": "node scripts/run-genui-minimal-provider-e2e.mjs",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.worker.json",
+    "check:boundaries": "node scripts/check-boundaries.mjs",
+    "test:boundaries": "node --test scripts/check-boundaries.test.mjs",
+    "dev:waku": "waku dev",
+    "build:waku": "bash scripts/build-waku.sh",
+    "generate:waku-types": "wrangler types worker-configuration.d.ts --config wrangler.waku.jsonc",
+    "check:waku-types": "wrangler types --config wrangler.waku.jsonc --check",
+    "test:foundation": "node --test scripts/waku-foundation.test.mjs scripts/waku-lifecycle-contract.test.mjs scripts/create-waku-release-manifest.test.mjs scripts/waku-release-gate-core.test.mjs scripts/smoke-signaling-websocket.test.mjs server/waku/request-policy.test.mjs",
+    "create:waku-release-manifest": "node scripts/create-waku-release-manifest.mjs",
+    "check:waku-bundles": "node scripts/check-waku-bundles.mjs",
+    "test:waku:e2e": "playwright test --config=playwright.waku.config.ts",
+    "test:waku:preview": "playwright test --config=playwright.waku-preview.config.ts && playwright test --config=playwright.waku-preload.config.ts",
+    "test:waku:workerd": "bash scripts/smoke-waku-worker.sh"
+  },
+  "dependencies": {
+    "@ai-sdk/deepseek": "^3.0.12",
+    "@ai-sdk/react": "^4.0.34",
+    "@canopy/editor-adapter": "file:../../adapters/editor",
+    "ai": "^7.0.31",
+    "hono": "4.12.32",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-markdown": "^10.1.0",
+    "react-server-dom-webpack": "19.2.8",
+    "remark-gfm": "^4.0.1",
+    "remend": "^1.3.0",
+    "use-stick-to-bottom": "^1.1.6",
+    "waku": "1.0.0-beta.8",
+    "ws": "^8.21.1"
+  },
+  "devDependencies": {
+    "@ast-grep/cli": "^0.44.1",
+    "@playwright/test": "^1.61.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@types/ws": "^8.5.12",
+    "playwright": "^1.57.0",
+    "tailwindcss": "^4.3.2",
+    "typescript": "^6.0.3",
+    "vite": "^8.1.5",
+    "wrangler": "4.114.0"
+  },
+  "engines": {
+    "node": "^24.0.0 || ^22.15.0"
+  }
+}

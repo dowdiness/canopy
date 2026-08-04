@@ -142,7 +142,7 @@ In rough priority order, all gated on shipping Option (i):
 5. **Audit other languages' patch shapes** before relying on the
    "Map[String, Json] is sufficient" claim. The probe is Lambda-specific.
    Markdown's structural patches today carry only scalars
-   (`examples/web/src/markdown-editor.ts:135-152`), but JSON and any
+   (`apps/web/src/markdown-editor.ts:135-152`), but JSON and any
    future language with structured payloads need their own audit.
 
 ---

@@ -655,7 +655,7 @@ estimate for this step)
   `markdown_fold_node` — jsx's `pkg.generated.mbti` doesn't export one.
 - [x] **Step 3:** Added `parse_to_proj_node(text : String)` — done
   2026-07-11, matches the guide's signature exactly.
-- [x] **Step 4:** `moon check lang/jsx/proj` — done 2026-07-11, clean (0
+- [x] **Step 4:** `moon check modules/canopy/lang/jsx/proj` — done 2026-07-11, clean (0
   errors; `@incr`/`@loom` unused-import warnings expected until Task 2.3
   consumes them).
 
@@ -694,7 +694,7 @@ estimate for this step)
   each get their own distinct `close_bracket` span. Confirmed red
   (`Some({start: 4, end: 5})` instead of `None`) against the pre-fix code
   before reapplying the fix, per test-first discipline.
-- [x] **Step 3:** `moon check lang/jsx/proj` — done 2026-07-11, clean.
+- [x] **Step 3:** `moon check modules/canopy/lang/jsx/proj` — done 2026-07-11, clean.
   Re-verified 2026-07-11 after the close_bracket fix above: `moon check`
   workspace-wide clean, `moon test -p dowdiness/canopy/lang/jsx/proj` →
   14/14 passed (11 original + 3 new regression tests).
@@ -733,7 +733,7 @@ estimate for this step)
   2026-07-11, delegates to `@core.build_projection_memos` with no
   `reconcile_node` override (uses its default, `@core.reconcile`), exactly
   per the guide's basic template — no hand-rolled reconciliation.
-- [x] **Step 2:** `moon check lang/jsx/proj --deny-warn` — done
+- [x] **Step 2:** `moon check modules/canopy/lang/jsx/proj --deny-warn` — done
   2026-07-11, clean (the `@incr`/`@loom` unused-import warnings from Task
   2.1 Step 4 are gone now that this step consumes them).
 

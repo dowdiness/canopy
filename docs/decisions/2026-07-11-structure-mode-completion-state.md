@@ -19,29 +19,29 @@ Playwright regression suites) were never folded back into that judgment.
 **Structure mode is a complete, actively maintained feature — not a stub.**
 The 2026-03-31 "unclear" judgment is stale. Evidence, as of this commit:
 
-- `examples/ideal/main/model.mbt`: `EditorMode::Structure` is a first-class
+- `apps/ideal/main/model.mbt`: `EditorMode::Structure` is a first-class
   mode alongside `Text`, carried on `Model.mode`.
-- `examples/ideal/main/msg.mbt`: dedicated `Msg` variants
+- `apps/ideal/main/msg.mbt`: dedicated `Msg` variants
   (`StructureNodeSelected`, `StructureStructuralEdit`) route Web Component
   events back into the TEA loop.
-- `examples/ideal/main/update_handlers.mbt`: `handle_structure_mode` (lines
+- `apps/ideal/main/update_handlers.mbt`: `handle_structure_mode` (lines
   366-419) is one of seven already-split per-feature update handlers.
-- `examples/ideal/main/bridge_ffi.mbt`: `js_set_editor_mode` /
+- `apps/ideal/main/bridge_ffi.mbt`: `js_set_editor_mode` /
   `js_set_editor_selected_node` wire mode switches and node selection to the
   mounted `<canopy-editor>` Web Component; comment at bridge_ffi.mbt:191
   ("Structure mode focuses the ProseMirror view after selecting the node")
   documents intended behavior, matched by test behavior below.
-- **Lazy-loading, verified:** `examples/ideal/web/src/canopy-editor.ts:154`
+- **Lazy-loading, verified:** `apps/ideal/web/src/canopy-editor.ts:154`
   dynamically imports the ProseMirror runtime — `import('./structure-runtime')`
   — so Text-mode users never pay the ProseMirror bundle cost. This directly
   satisfies the TODO.md §9 checkbox's "verify lazy-loading works" clause.
 - **Tested, verified:** two Playwright E2E suites exist and exercise real
   behavior, not smoke checks:
-  - `examples/ideal/web/e2e/structure-mode-switch.spec.ts` — Text→Structure
+  - `apps/ideal/web/e2e/structure-mode-switch.spec.ts` — Text→Structure
     mount, no uncaught errors, node click updates the inspector, plus a
     unit-level test of the `buildStructureDoc` fallback path (regression
     for #428, shipped in PR #433).
-  - `examples/ideal/web/e2e/structural-editing.spec.ts` (13.3K) — structural
+  - `apps/ideal/web/e2e/structural-editing.spec.ts` (13.3K) — structural
     editing overlay across multiple node types (int, var, lambda, app, let,
     module), including node-type-specific selection behavior (compound
     nodes → `NodeSelection`, leaf nodes → inline CM6 editors).
@@ -60,7 +60,7 @@ blanket completion-state unknown.
   prerequisite: structure-mode code (`handle_structure_mode`,
   `bridge_ffi.mbt`'s structure-mode externs, `model.mbt`'s `EditorMode`) is
   stable, tested application logic and can be split into feature modules
-  like any other mature area of `examples/ideal/main/` — no special
+  like any other mature area of `apps/ideal/main/` — no special
   in-progress handling needed.
 - `docs/decisions-needed.md`'s structure-mode entry is removed as resolved.
 

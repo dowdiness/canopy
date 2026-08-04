@@ -5,13 +5,13 @@ Status: parallel-run since S4 PR2 (see
 
 ## What it is
 
-`examples/ideal/export-manifest.json` declares the expected FFI export
+`apps/ideal/export-manifest.json` declares the expected FFI export
 surface of the lambda app seam:
 
-- `ffi_exports` — the symbols `ffi/lambda/moon.pkg` must export to JS
+- `ffi_exports` — the symbols `modules/canopy/ffi/lambda/moon.pkg` must export to JS
 - `app_reexports` — the subset the ideal app re-exports through
-  `examples/ideal/main/crdt_reexport.mbt` wrappers and the
-  `examples/ideal/main/moon.pkg` export array
+  `apps/ideal/main/crdt_reexport.mbt` wrappers and the
+  `apps/ideal/main/moon.pkg` export array
 
 `scripts/check-export-manifest.mjs` (run in CI's Dependency Rules job and
 locally via `node scripts/check-export-manifest.mjs`) parses the two
@@ -23,8 +23,8 @@ that every app re-export exists in the FFI export surface.
 ## Parallel-run contract
 
 During parallel-run the **hand-maintained files remain authoritative**:
-`ffi/lambda/moon.pkg`, `examples/ideal/main/crdt_reexport.mbt`, and
-`examples/ideal/main/moon.pkg`. The manifest is a declared mirror that makes
+`modules/canopy/ffi/lambda/moon.pkg`, `apps/ideal/main/crdt_reexport.mbt`, and
+`apps/ideal/main/moon.pkg`. The manifest is a declared mirror that makes
 drift between the layers visible; it is not code-generated and nothing is
 generated from it. Codegen or wrapper deletion is reserved for the S4 PR3
 decision, gated on at least one release of this parallel-run.
@@ -33,5 +33,5 @@ decision, gated on at least one release of this parallel-run.
 
 The failure names the exact symbol and the layer it is missing from. Fix the
 live file if the symbol is a real discrepancy (a forgotten export or
-wrapper), or update `examples/ideal/export-manifest.json` if the seam
+wrapper), or update `apps/ideal/export-manifest.json` if the seam
 intentionally changed. Do not weaken the check.

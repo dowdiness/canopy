@@ -24,20 +24,20 @@ The main gating workflow. Job names match the file:
 |-----|--------------|
 | `dep-check` | `./scripts/check-deps.sh` (module-scope rules [A]–[E] + canopy package-layering rules [F]–[I]; the rules table lives in the script header), `./scripts/check-shared-substrate.sh`, `./scripts/check-egw-resolver-identity.sh`, `./scripts/check-moon-update-wrapped.sh`, `node ./scripts/check-export-manifest.mjs`, `./scripts/test-moon-update-wrapper.sh`, `./scripts/test-pr-ready-validation.sh` |
 | `pr-ready-bash3` | Path-filtered macOS check that asserts `/bin/bash` 3.2, exercises local submodule failures, and runs the real PR-ready shell graph with only compiler work faked |
-| `test-main` | `./scripts/update-moon-deps.sh`, `./scripts/check-agent-doc-links.sh`, `./scripts/run-moon-module.sh check .`, `./scripts/run-moon-module.sh test .`, `moon build --release` |
-| `test-submodules` | Matrix over `event-graph-walker`, `loom/loom`, `svg-dsl`, `graphviz` — each runs `./scripts/run-moon-module.sh ci <path>` |
-| `test-examples` | Matrix over `examples/ideal`, `examples/block-editor`, `examples/canvas` — each runs `./scripts/run-moon-module.sh ci <path>` |
-| `prove` | `moon prove` in `lib/semantic/proof` after installing Why3 1.7.2 + Z3 via opam (cached) |
-| `benchmark` | PR only: `moon bench --release` at the root and in `event-graph-walker` |
-| `format-check` | `./scripts/check-agent-doc-links.sh` and `./scripts/run-moon-module.sh fmt-check .` |
+| `test-main` | `./scripts/update-moon-deps.sh`, `./scripts/check-agent-doc-links.sh`, `./scripts/run-moon-module.sh check modules/canopy`, `./scripts/run-moon-module.sh test modules/canopy`, `moon build --release` |
+| `test-submodules` | Matrix over `deps/event-graph-walker`, `deps/loom/loom`, `deps/svg-dsl`, `deps/graphviz` — each runs `./scripts/run-moon-module.sh ci <path>` |
+| `test-examples` | Matrix over `apps/ideal`, `apps/block-editor`, `apps/canvas` — each runs `./scripts/run-moon-module.sh ci <path>` |
+| `prove` | `moon prove` in `modules/semantic/proof` after installing Why3 1.7.2 + Z3 via opam (cached) |
+| `benchmark` | PR only: `moon bench --release` at the root and in `deps/event-graph-walker` |
+| `format-check` | `./scripts/check-agent-doc-links.sh` and `./scripts/run-moon-module.sh fmt-check modules/canopy` |
 | `build-js` | `./scripts/update-moon-deps.sh`, `./scripts/build-js.sh`; uploads the generated JS/d.ts/mbti artifacts listed below |
-| `web-build` | Default Waku build plus TypeScript/boundary checks for `examples/web`, then the ProseMirror typecheck |
+| `web-build` | Default Waku build plus TypeScript/boundary checks for `apps/web`, then the ProseMirror typecheck |
 | `waku-build` | Builds the production Worker from downloaded MoonBit artifacts, verifies bundle/type boundaries, runs preview/production Wrangler dry-runs and startup analysis, and uploads the release artifacts |
-| `waku-e2e` | Canonical route, lifecycle, compatibility, and production-preview Playwright suites for `examples/web` |
+| `waku-e2e` | Canonical route, lifecycle, compatibility, and production-preview Playwright suites for `apps/web` |
 | `waku-workerd` | Built Worker and same-origin Signaling smoke under local workerd |
-| `ideal-web-e2e` | Playwright suite for `examples/ideal/web` |
+| `ideal-web-e2e` | Playwright suite for `apps/ideal/web` |
 | `demo-react-e2e` | Playwright suite for `examples/demo-react` |
-| `canvas-e2e` | Playwright suite for `examples/canvas/web` |
+| `canvas-e2e` | Playwright suite for `apps/canvas/web` |
 | `all-checks-passed` | Aggregation gate; fails unless every required job succeeds or is an accepted path-filtered skip |
 
 #### Uploaded artifacts (`build-js`)
@@ -55,8 +55,8 @@ _build/js/release/build/dowdiness/canopy/ffi/json/moonbit.d.ts
 _build/js/release/build/dowdiness/canopy/ffi/markdown/markdown.js
 _build/js/release/build/dowdiness/canopy/ffi/markdown/markdown.d.ts
 _build/js/release/build/dowdiness/canopy/ffi/markdown/moonbit.d.ts
-graphviz/_build/js/release/build/browser/browser.js
-graphviz/_build/js/release/build/browser/browser.d.ts
+_build/js/release/build/dowdiness/graphviz/browser/browser.js
+_build/js/release/build/dowdiness/graphviz/browser/browser.d.ts
 ```
 
 Retention: default for the workflow (7 days at time of writing — check
@@ -75,20 +75,20 @@ entries — five Cloudflare Pages projects and one Cloudflare Workers deployment
 
 | Matrix name | Cloudflare project | Type | Source directory |
 |-------------|--------------------|------|------------------|
-| `ideal` | `canopy-ideal` | Pages | `examples/ideal/web/dist` |
+| `ideal` | `canopy-ideal` | Pages | `apps/ideal/web/dist` |
 | `prosemirror` | `canopy-prosemirror` | Pages | `examples/prosemirror/dist` |
 | `demo-react` | `canopy-demo-react` | Pages | `examples/demo-react/dist` |
-| `block-editor` | `canopy-block-editor` | Pages | `examples/block-editor/web/dist` |
-| `canvas` | `canopy-canvas` | Pages | `examples/canvas/web/dist` |
-| `relay-server` | `canopy-relay` | Workers | `examples/relay-server` |
+| `block-editor` | `canopy-block-editor` | Pages | `apps/block-editor/web/dist` |
+| `canvas` | `canopy-canvas` | Pages | `apps/canvas/web/dist` |
+| `relay-server` | `canopy-relay` | Workers | `apps/relay-server` |
 
 Requires the secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
 
-`examples/web` is intentionally absent from this workflow. Cloudflare Workers
-Builds connects directly to GitHub and deploys `examples/web` to the
+`apps/web` is intentionally absent from this workflow. Cloudflare Workers
+Builds connects directly to GitHub and deploys `apps/web` to the
 `canopy-examples` Worker after every push to `main`; its build and deploy
 settings are documented in
-[`examples/web/CLOUDFLARE_DEPLOYMENT.md`](../examples/web/CLOUDFLARE_DEPLOYMENT.md).
+[`apps/web/CLOUDFLARE_DEPLOYMENT.md`](../apps/web/CLOUDFLARE_DEPLOYMENT.md).
 
 > Earlier revisions of this doc described deployment via GitHub Pages to
 > `dowdiness.github.io/crdt/`. That path is no longer used.
@@ -113,13 +113,13 @@ make fmt                   # moon fmt && moon info
 make fmt-check             # CI's format gate
 make build                 # moon build --release
 make build-js              # Build the FFI JS artifacts CI uploads
-make build-web             # build-js + default Waku build in examples/web
+make build-web             # build-js + default Waku build in apps/web
 make test-web-e2e          # canonical Waku and production-preview Playwright suites
 make test-demo-react-e2e   # Playwright suite for examples/demo-react
-make test-canvas-e2e       # Playwright suite for examples/canvas/web
+make test-canvas-e2e       # Playwright suite for apps/canvas/web
 make bench                 # moon bench --release (root + event-graph-walker)
 make ci                    # check-all + test-all
-make web-dev               # build-js then start the examples/web Waku dev server
+make web-dev               # build-js then start the apps/web Waku dev server
 make install-hooks         # Install pre-commit hook
 make update                # moon update across root + maintained submodules
 ```
@@ -135,7 +135,7 @@ candidate result and run the ordered local gate on that clean HEAD:
 
 ```sh
 git fetch origin main
-./scripts/validate-pr-ready.sh --target lang/markdown/proj --target lang/markdown/edits
+./scripts/validate-pr-ready.sh --target modules/canopy/lang/markdown/proj --target modules/canopy/lang/markdown/edits
 git fetch origin main
 ./scripts/validate-pr-ready.sh --verify-evidence
 ```

@@ -2,16 +2,16 @@
 
 ## Why
 
-Both `examples/ideal` and `examples/block-editor` need relocation UX, but the
+Both `apps/ideal` and `apps/block-editor` need relocation UX, but the
 hard part is not the browser gesture. The missing foundation is a canonical
 move contract and backend support for safe, undoable, model-level relocation.
 
 Today:
 
-- `examples/block-editor` renders a flat root-level block list and exposes
+- `apps/block-editor` renders a flat root-level block list and exposes
   create/delete/type/text operations, but it does not expose positioned moves
   for sibling reorder.
-- `examples/ideal` already has drag-related tree edit variants and text-edit
+- `apps/ideal` already has drag-related tree edit variants and text-edit
   support for `Drop`, but its JSON/bridge/event path is incomplete and the
   drop path needs legality validation before it becomes a UI feature.
 
@@ -25,10 +25,10 @@ active until that issue links a dedicated task.
 ## Scope
 
 In:
-- `examples/block-editor/main/`
-- `examples/block-editor/web/src/`
-- `examples/ideal/main/`
-- `examples/ideal/web/src/`
+- `apps/block-editor/main/`
+- `apps/block-editor/web/src/`
+- `apps/ideal/main/`
+- `apps/ideal/web/src/`
 - `editor/`
 - `lang/lambda/edits/`
 - `projection/`
@@ -42,12 +42,12 @@ Out:
 
 ## Current State
 
-- `examples/block-editor/main/block_doc.mbt` exposes `create_block_after(...)`
+- `apps/block-editor/main/block_doc.mbt` exposes `create_block_after(...)`
   but `move_block(...)` only moves to a parent as last child, so root-level
   reorder is not a first-class model operation.
-- `examples/block-editor/main/block_init.mbt` emits a flat render payload from
+- `apps/block-editor/main/block_init.mbt` emits a flat render payload from
   `get_render_state(...)` with no parent/depth/path metadata for drop targeting.
-- `examples/block-editor/web/src/main.ts` renders direct `contenteditable`
+- `apps/block-editor/web/src/main.ts` renders direct `contenteditable`
   blocks and has no dedicated drag handle or drop-indicator state.
 - `lang/lambda/edits/tree_lens.mbt` already declares `StartDrag`, `DragOver`,
   and `Drop`.
@@ -55,10 +55,10 @@ Out:
   it does not enforce self/descendant/invalid-target rules.
 - `editor/tree_edit_json.mbt` does not parse `Drop`, so web clients cannot send
   drag/drop tree edits through the existing JSON bridge.
-- `examples/ideal/web/src/bridge.ts` only exposes a narrow
+- `apps/ideal/web/src/bridge.ts` only exposes a narrow
   `handleStructuralEdit(opType, nodeId, extra?)` path oriented around
   `{ type, node_id }`.
-- `examples/ideal/main/main.mbt` only resolves `"WrapInLambda"` and `"Delete"`
+- `apps/ideal/main/main.mbt` only resolves `"WrapInLambda"` and `"Delete"`
   from `StructuralEditRequested`, so the MoonBit-side event path is not yet a
   general structural edit router.
 
@@ -88,7 +88,7 @@ Out:
    `MarkdownEditOp::MoveBlock(source, target, position)` with `Before`/`After`
    only, lowered to source-text splices plus `IdentityTransform::Move`.
 2. Add positioned move primitives to the movable-tree path used by
-   `examples/block-editor`.
+   `apps/block-editor`.
    Prefer `move_before` / `move_after` or a single `move_between` primitive
    that reuses the same fractional-index logic as `create_node_after(...)`.
 3. Expose block-editor relocation state cleanly.
@@ -109,10 +109,10 @@ Out:
 ## Acceptance Criteria
 
 - [ ] A single documented move contract exists for drag/drop preparation across
-      `examples/ideal` and `examples/block-editor`.
-- [ ] `examples/block-editor` exposes model-level positioned block moves for
+      `apps/ideal` and `apps/block-editor`.
+- [ ] `apps/block-editor` exposes model-level positioned block moves for
       sibling reorder instead of relying on append-only parent moves.
-- [ ] `examples/block-editor` render state includes enough structural metadata
+- [ ] `apps/block-editor` render state includes enough structural metadata
       for future drop targeting.
 - [ ] `editor/tree_edit_json.mbt` and the `ideal` web bridge accept `Drop`
       through the canonical tree-edit path.
@@ -134,7 +134,7 @@ tests where the interaction becomes user-visible.
 
 ## Risks
 
-- `examples/block-editor` may need tree-layer API expansion in
+- `apps/block-editor` may need tree-layer API expansion in
   `event-graph-walker`, not just local wrapper changes.
 - `ideal` currently routes structural edits through text transformations, so
   naive `Drop` support can create syntactically valid but semantically wrong
