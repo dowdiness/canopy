@@ -1,5 +1,9 @@
 # Task 1 Report
 
+> Archived 2026-08-04 after Task 1 completed. Paths and commands below record
+> the pre-layout execution environment and are historical evidence, not current
+> repository instructions.
+
 ## Files changed
 - `ffi/jsx/generative_ui_replay_adapter.mbt` - extracted one shared decode/validate boundary and one opaque validated-candidate session transaction while preserving replay behavior.
 - `ffi/jsx/session_contract_wbtest.mbt` - added regression coverage for precedence, diagnostics, lifecycle outcomes, invalid replay result fields, and the validated-candidate transaction boundary.

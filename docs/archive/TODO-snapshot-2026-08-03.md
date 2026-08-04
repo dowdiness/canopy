@@ -85,7 +85,7 @@ proving-ground mode.
 
 - [ ] Reduce CRDT JS bundle size for `/ml` and `/memo` (lambda bundle is 546 kB, 46 kB over 500 kB threshold).
   Why: large bundle impacts initial page load for web editors.
-  Plan: `docs/plans/2026-04-18-crdt-bundle-split.md`
+  Plan: `docs/archive/2026-04-18-crdt-bundle-split.md`
   Status: Per-entry split landed (PRs #195 / #196). Measured sizes: json 277 kB, markdown 246 kB, lambda 546 kB.
   Follow-ups per plan §7: dynamic import of LLM (−19 kB), lazy egglog Tier-2, lazy lambda typecheck, or revise the budget based on real per-page data.
   Exit: `/ml` and `/memo` lambda artifact bundle under 500 kB ungzipped.

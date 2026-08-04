@@ -68,7 +68,7 @@ Plan template: [Plan Template](plans/TEMPLATE.md)
 - [x] Fix local `fmt-check` to use `moon fmt --check` instead of mutating the worktree and diffing git state
 - [ ] Reduce CRDT JS bundle size for `index.html` / `memo.html` (lambda bundle is 546 kB, 46 kB over 500 kB threshold)
   Why: large bundle impacts initial page load for web editors.
-  Status: Split into per-entry packages landed (PRs #195 / #196 / TBD) per `docs/plans/2026-04-18-crdt-bundle-split.md`. Measured sizes: json 277 kB, markdown 246 kB, lambda 546 kB.
+  Status: Split into per-entry packages landed (PRs #195 / #196 / TBD) per `docs/archive/2026-04-18-crdt-bundle-split.md`. Measured sizes: json 277 kB, markdown 246 kB, lambda 546 kB.
   Follow-ups per plan §7: dynamic import of LLM (−19 kB), lazy egglog Tier-2, lazy lambda typecheck, or revise the budget based on real per-page data.
   Exit: `index.html` / `memo.html` bundle under 500 kB ungzipped.
 

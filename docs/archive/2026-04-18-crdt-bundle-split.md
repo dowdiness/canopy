@@ -1,5 +1,9 @@
 # CRDT Bundle Split Plan
 
+> Archived 2026-08-04 after the per-entry split landed in PRs #195 and #196.
+> Paths, measurements, and unchecked steps below record the pre-layout plan and
+> are historical evidence, not current execution instructions.
+
 > **For agentic workers:** This is a combined design + implementation plan. Steps use checkbox (`- [ ]`) syntax for tracking. Land as three separate PRs in the order below; do not batch.
 
 **Goal:** replace the single monolithic `ffi/ffi.js` (currently 648 kB minified, exceeds the 500 kB budget by 148 kB) with three per-entry MoonBit FFI packages — one per language page — so each `.html` loads only the machinery it actually needs.

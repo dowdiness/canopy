@@ -36,10 +36,8 @@ Text CRDT ─► Incremental parse ─► Projection ─► View patches ─► 
 - Language packages own syntax-specific projection and edit calculation, not
   transport or global editor state.
 
-For concrete ownership and placement, use the
-[module/package map](development/module-package-map.md). For exhaustive current
-inventory, read [`moon.work`](../moon.work), [`.gitmodules`](../.gitmodules),
-the nearest module/package manifests, and `.github/workflows/ci.yml`.
+Concrete repository placement is documented outside this principles overview in
+the [module/package map](development/module-package-map.md).
 
 ## Invariants
 
