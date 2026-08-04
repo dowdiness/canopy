@@ -6,20 +6,14 @@ JavaScript artifacts.
 
 ## MoonBit workspace example modules
 
-These directories have their own MoonBit module manifest and are listed in the
-root `moon.work`, so root-level `moon check` / `moon test` covers them as
-workspace members:
-
-| Example | Purpose | CI mechanism |
-| --- | --- | --- |
-| `examples/codemirror/` | CodeMirror binding demo module. | `scripts/run-moon-module.sh ci examples/codemirror`; browser wrapper is in the same directory. |
-| `examples/resizable/` | Rabbita resizable example module. | Covered by root workspace commands. |
-| `examples/disclosure/` | Rabbita disclosure example module. | Covered by root workspace commands. |
+MoonBit examples have their own module manifests. Root commands cover only the
+members declared by [`../moon.work`](../moon.work); read the nearest `moon.mod`
+and `moon.pkg` for module and package dependencies.
 
 Run a single MoonBit example directly with:
 
 ```sh
-cd examples/<name>
+cd examples/NAME
 moon check
 moon test
 ```
@@ -33,21 +27,18 @@ from the repository root when they import Canopy-generated output:
 moon build --target js
 ```
 
-| Frontend | Tooling | Notes |
-| --- | --- | --- |
-| `examples/demo-react/` | React/Vite + TypeScript + Vitest + Playwright | React integration demo plus local WebSocket helpers. |
-| `examples/prosemirror/` | Vite + TypeScript | ProseMirror integration example. |
-
 Typical frontend workflow:
 
 ```sh
-cd examples/demo-react
+cd examples/NAME
 npm ci
 npm run dev
 ```
 
-CI is the source of truth for the exact frontend fan-out and pinned Playwright
-container versions. See `.github/workflows/ci.yml` for the current matrices.
+CI is the source of truth for the exact frontend fan-out and pinned browser
+test environment. See
+[`../.github/workflows/ci.yml`](../.github/workflows/ci.yml) for the current
+matrices.
 
 ## Relationship to module/package map
 

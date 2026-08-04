@@ -107,24 +107,25 @@ The repository is organised into seven zones:
 
 | Zone | Path | Purpose |
 |------|------|---------|
-| Modules | `modules/` | Reusable, publishable MoonBit modules; includes the primary `modules/canopy` |
-| Applications | `apps/` | Runnable or deployable vertical slices |
-| Examples | `examples/` | Removable learning and integration examples |
-| Adapters | `adapters/` | Non-MoonBit runtime and interface adapters |
-| Dependencies | `deps/` | Separately owned Git submodules |
-| Rules | `rules/` | Policy definitions |
-| Scripts | `scripts/` | Operations and tooling |
+| [Modules](../../modules/) | `modules/` | Reusable, publishable MoonBit modules; includes the primary `modules/canopy` |
+| [Applications](../../apps/) | `apps/` | Runnable or deployable vertical slices |
+| [Examples](../../examples/) | `examples/` | Removable learning and integration examples |
+| [Adapters](../../adapters/) | `adapters/` | Non-MoonBit runtime and interface adapters |
+| [Dependencies](../../deps/) | `deps/` | Separately owned Git submodules |
+| [Rules](../../rules/) | `rules/` | Policy definitions |
+| [Scripts](../../scripts/) | `scripts/` | Operations and tooling |
 
 Workspace membership is declared by [`moon.work`](../../moon.work); Git
 submodule ownership by [`.gitmodules`](../../.gitmodules). The two axes
 intentionally overlap: a submodule under `deps/` can also be a root-workspace
 member.
 
-For the exact package inventory, inspect the `moon.pkg` manifests under
-`modules/canopy/` and use `moon ide outline <path>` for a package's public
-interface. The [Module / Package Map](../../docs/development/module-package-map.md)
-explains placement rules; the [API Map](../../docs/api-map.md) is the task-first
-index for calling Canopy from MoonBit or JavaScript.
+Each zone README explains what belongs there without copying its current
+inventory. For concrete ownership, read `moon.work`, `.gitmodules`, and the
+nearest `moon.mod` and `moon.pkg`; use `moon ide outline <path>` to inspect a
+package's public interface. The
+[Module / Package Map](../../docs/development/module-package-map.md) explains
+the placement rules and how these sources overlap.
 
 The FFI stability surface is intentionally narrow: JS frontends should consume
 the editor through [`adapters/editor`](../../adapters/editor/) where

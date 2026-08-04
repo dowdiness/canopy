@@ -125,17 +125,13 @@ own MoonBit module and workspace:
 
 Examples under `examples/` fall into two broad groups:
 
-- **MoonBit workspace example modules**: listed in the root `moon.work`, checked
-  by root workspace commands, and covered by CI's MoonBit example matrix.
-  Examples include `examples/codemirror/`, `examples/resizable/`, and
-  `examples/disclosure/`.
-- **Frontend/TypeScript/browser examples**: npm/Vite/Playwright projects that
-  require built MoonBit JS artifacts before TypeScript typechecks or browser
-  tests run. Examples include `examples/prosemirror/` and
-  `examples/demo-react/`.
+- **MoonBit workspace example modules**: declared by the root `moon.work` and
+  their nearest MoonBit manifests.
+- **Frontend/TypeScript/browser examples**: declared by their local package and
+  build configuration, with CI coverage defined in `.github/workflows/ci.yml`.
 
-See [`examples/README.md`](../../examples/README.md) for the example-by-example
-classification and commands.
+See [`examples/README.md`](../../examples/README.md) for the two workflow
+categories and their generic commands.
 
 ## Experimental and compatibility surfaces
 
