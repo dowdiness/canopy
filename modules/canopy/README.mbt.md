@@ -4,7 +4,7 @@
 
 Structure emerges visibly and reversibly; you remain the author.
 
-![Demo: type code, see evaluation results update live](../../docs/demo.gif)
+![Demo: type code, see evaluation results update live](https://raw.githubusercontent.com/dowdiness/canopy/main/docs/demo.gif)
 
 Canopy reads your code as a live structure rather than flat text. As you type, it reparses incrementally, tracks scope and types, evaluates expressions, and formats the result — without breaking your flow. Two people can edit the same document at once with no server, and edits merge automatically.
 
