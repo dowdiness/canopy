@@ -58,6 +58,20 @@ pub fn MarkdownBlockSnapshot::source_range(Self) -> (Int, Int)
 pub fn MarkdownBlockSnapshot::text(Self) -> String
 pub fn MarkdownBlockSnapshot::text_range(Self) -> (Int, Int)
 
+pub(all) enum MarkdownCommitOrigin {
+  Local
+} derive(Eq, @debug.Debug)
+
+pub struct MarkdownCommitReceipt {
+  // private fields
+}
+pub fn MarkdownCommitReceipt::after_version(Self) -> MarkdownDocumentVersion
+pub fn MarkdownCommitReceipt::before_version(Self) -> MarkdownDocumentVersion
+pub fn MarkdownCommitReceipt::history(Self) -> MarkdownDocumentHistory?
+pub fn MarkdownCommitReceipt::origin(Self) -> MarkdownCommitOrigin
+pub fn MarkdownCommitReceipt::result(Self) -> MarkdownCommitResult
+pub fn MarkdownCommitReceipt::transforms(Self) -> @vector.Vector[MarkdownTextTransform]
+
 pub(all) enum MarkdownCommitResult {
   Applied(MarkdownDocumentSnapshot, MarkdownBlockSelection?)
   Unchanged(MarkdownDocumentSnapshot)
@@ -97,6 +111,7 @@ pub struct MarkdownEditor {
 pub fn MarkdownEditor::MarkdownEditor(agent_id~ : String, source~ : String) -> Self raise MarkdownEditorError
 pub fn MarkdownEditor::admit(Self, MarkdownDocumentHistory) -> MarkdownAdmitReport raise MarkdownArchiveError
 pub fn MarkdownEditor::commit(Self, MarkdownEditRequest) -> Result[MarkdownCommitResult, MarkdownEditorError]
+pub fn MarkdownEditor::commit_with_receipt(Self, MarkdownEditRequest) -> Result[MarkdownCommitReceipt, MarkdownEditorError] raise MarkdownArchiveError
 pub fn MarkdownEditor::history_since(Self, version? : MarkdownDocumentVersion) -> MarkdownDocumentHistory raise MarkdownArchiveError
 pub fn MarkdownEditor::open(agent_id~ : String, history~ : MarkdownDocumentHistory) -> Self raise MarkdownArchiveError
 pub fn MarkdownEditor::snapshot(Self) -> MarkdownDocumentSnapshot
@@ -112,6 +127,13 @@ pub struct MarkdownProjectionSnapshot {
 } derive(Eq, @debug.Debug)
 pub fn MarkdownProjectionSnapshot::node_ids(Self) -> @vector.Vector[MarkdownNodeId]
 pub fn MarkdownProjectionSnapshot::root_id(Self) -> MarkdownNodeId?
+
+pub struct MarkdownTextTransform {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn MarkdownTextTransform::delete_len(Self) -> Int
+pub fn MarkdownTextTransform::inserted(Self) -> String
+pub fn MarkdownTextTransform::start(Self) -> Int
 
 // Type aliases
 

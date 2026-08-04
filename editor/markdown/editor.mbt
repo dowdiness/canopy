@@ -277,6 +277,98 @@ pub(all) enum MarkdownCommitResult {
 } derive(Eq, Debug)
 
 ///|
+/// Origin of a committed Markdown change.
+///
+/// This ticket reports only edits produced by this writing instance. Keeping
+/// origin explicit prevents a future remote admission from entering a local
+/// persistence outbox by accident.
+pub(all) enum MarkdownCommitOrigin {
+  Local
+} derive(Eq, Debug)
+
+///|
+/// One source transform for downstream presence coordinates.
+///
+/// `start` and `delete_len` are UTF-16 code-unit coordinates, and
+/// `inserted.length()` is the inserted UTF-16 length. The first transform is
+/// relative to the source immediately before the commit; each later transform
+/// is relative to the source produced by every preceding transform. Applying
+/// the ordered sequence yields the receipt's post-commit snapshot source.
+pub struct MarkdownTextTransform {
+  priv change : @text_change.TextChange
+} derive(Eq, Debug)
+
+///|
+pub fn MarkdownTextTransform::start(self : Self) -> Int {
+  self.change.start
+}
+
+///|
+pub fn MarkdownTextTransform::delete_len(self : Self) -> Int {
+  self.change.delete_len
+}
+
+///|
+pub fn MarkdownTextTransform::inserted(self : Self) -> String {
+  self.change.inserted
+}
+
+///|
+/// Causal receipt for one successful local commit attempt.
+///
+/// The legacy result remains source-oriented for compatibility. Advancement is
+/// reported independently through the before/after versions: when they differ,
+/// `history` is exactly the opaque increment since `before_version`; when they
+/// are equal, `history` is absent and `transforms` is empty.
+pub struct MarkdownCommitReceipt {
+  priv result : MarkdownCommitResult
+  priv before_version : MarkdownDocumentVersion
+  priv after_version : MarkdownDocumentVersion
+  priv origin : MarkdownCommitOrigin
+  priv history : MarkdownDocumentHistory?
+  priv transforms : @vector.Vector[MarkdownTextTransform]
+}
+
+///|
+pub fn MarkdownCommitReceipt::result(self : Self) -> MarkdownCommitResult {
+  self.result
+}
+
+///|
+pub fn MarkdownCommitReceipt::before_version(
+  self : Self,
+) -> MarkdownDocumentVersion {
+  self.before_version
+}
+
+///|
+pub fn MarkdownCommitReceipt::after_version(
+  self : Self,
+) -> MarkdownDocumentVersion {
+  self.after_version
+}
+
+///|
+pub fn MarkdownCommitReceipt::origin(self : Self) -> MarkdownCommitOrigin {
+  self.origin
+}
+
+///|
+/// Opaque history increment cut at `before_version`, present only when the
+/// document version advanced.
+pub fn MarkdownCommitReceipt::history(self : Self) -> MarkdownDocumentHistory? {
+  self.history
+}
+
+///|
+/// Ordered UTF-16 transforms for downstream presence updates.
+pub fn MarkdownCommitReceipt::transforms(
+  self : Self,
+) -> @vector.Vector[MarkdownTextTransform] {
+  self.transforms
+}
+
+///|
 /// Opaque, headless Markdown editor façade.
 pub struct MarkdownEditor {
   priv editor : @editor.SyncEditor[@md_markdown.Block]
@@ -415,19 +507,83 @@ pub fn MarkdownEditor::history_since(
 
 ///|
 /// Apply one façade-owned request atomically.
+///
+/// This compatibility method intentionally returns only the existing
+/// source-oriented result. Call `commit_with_receipt` when causal advancement
+/// and presence transforms are needed.
 pub fn MarkdownEditor::commit(
   self : Self,
   request : MarkdownEditRequest,
 ) -> Result[MarkdownCommitResult, MarkdownEditorError] {
-  match request {
-    ReplaceSource(source) =>
-      if self.editor.get_text() == source {
-        Ok(MarkdownCommitResult::Unchanged(self.snapshot()))
+  self.commit_recording_transforms(request).map(pair => pair.0)
+}
+
+///|
+/// Apply one request and report causal advancement without changing `commit`.
+///
+/// History export can fail independently after the local edit has committed,
+/// so archive failures remain raised while edit failures keep the legacy
+/// `Result` channel.
+pub fn MarkdownEditor::commit_with_receipt(
+  self : Self,
+  request : MarkdownEditRequest,
+) -> Result[MarkdownCommitReceipt, MarkdownEditorError] raise MarkdownArchiveError {
+  let before_version = self.version()
+  match self.commit_recording_transforms(request) {
+    Err(error) => Err(error)
+    Ok((result, transforms)) => {
+      let after_version = self.version()
+      if after_version == before_version {
+        Ok({
+          result,
+          before_version,
+          after_version,
+          origin: MarkdownCommitOrigin::Local,
+          history: None,
+          transforms: @vector.new(),
+        })
       } else {
+        Ok({
+          result,
+          before_version,
+          after_version,
+          origin: MarkdownCommitOrigin::Local,
+          history: Some(self.history_since(version=before_version)),
+          transforms,
+        })
+      }
+    }
+  }
+}
+
+///|
+/// Keep the mutation shell shared by legacy commits and causal receipts.
+fn MarkdownEditor::commit_recording_transforms(
+  self : Self,
+  request : MarkdownEditRequest,
+) -> Result[
+  (MarkdownCommitResult, @vector.Vector[MarkdownTextTransform]),
+  MarkdownEditorError,
+] {
+  match request {
+    ReplaceSource(source) => {
+      let before = self.editor.get_text()
+      if before == source {
+        Ok((MarkdownCommitResult::Unchanged(self.snapshot()), @vector.new()))
+      } else {
+        // set_text uses this same shared splice contract. Computing it here is
+        // the only path without caller- or lowering-supplied edit information.
+        let change = @text_change.compute_text_change(before, source)
         self.editor.set_text(source)
         self.editor.refresh()
-        Ok(MarkdownCommitResult::Applied(self.snapshot(), None))
+        Ok(
+          (
+            MarkdownCommitResult::Applied(self.snapshot(), None),
+            @vector.Vector::singleton(MarkdownTextTransform::{ change, }),
+          ),
+        )
       }
+    }
     ReplaceText(start~, delete_len~, inserted~) => {
       let source = self.editor.get_text()
       let source_length = source.length()
@@ -447,11 +603,19 @@ pub fn MarkdownEditor::commit(
         ) {
         self.editor.refresh()
         let snapshot = self.snapshot()
-        if snapshot.source() == source {
-          Ok(MarkdownCommitResult::Unchanged(snapshot))
+        let result = if snapshot.source() == source {
+          MarkdownCommitResult::Unchanged(snapshot)
         } else {
-          Ok(MarkdownCommitResult::Applied(snapshot, None))
+          MarkdownCommitResult::Applied(snapshot, None)
         }
+        Ok(
+          (
+            result,
+            @vector.Vector::singleton(MarkdownTextTransform::{
+              change: @text_change.TextChange::{ start, delete_len, inserted },
+            }),
+          ),
+        )
       } else {
         Err(MarkdownEditorError::EditFailed(detail="text edit rejected"))
       }
@@ -459,7 +623,7 @@ pub fn MarkdownEditor::commit(
     CommitEdit(node_id~, new_text~) =>
       match self.editable_block_text(node_id) {
         Some(_) =>
-          self.commit_structural(
+          self.commit_structural_recording_transforms(
             @md_edits.MarkdownEditOp::CommitEdit(
               node_id=node_id.value,
               new_text~,
@@ -487,7 +651,7 @@ pub fn MarkdownEditor::commit(
           } else {
             reconciled
           }
-          self.commit_structural(
+          self.commit_structural_recording_transforms(
             @md_edits.MarkdownEditOp::CommitEdit(
               node_id=node_id.value,
               new_text~,
@@ -503,7 +667,7 @@ pub fn MarkdownEditor::commit(
       }
     SplitBlock(node_id~, offset~) =>
       if self.editable_block_target(node_id) {
-        self.commit_structural(
+        self.commit_structural_recording_transforms(
           @md_edits.MarkdownEditOp::SplitBlock(node_id=node_id.value, offset~),
         )
       } else {
@@ -514,23 +678,23 @@ pub fn MarkdownEditor::commit(
         )
       }
     ChangeHeadingLevel(node_id~, level~) =>
-      self.commit_structural(
+      self.commit_structural_recording_transforms(
         @md_edits.MarkdownEditOp::ChangeHeadingLevel(
           node_id=node_id.value,
           level~,
         ),
       )
     ToggleListItem(node_id~) =>
-      self.commit_structural(
+      self.commit_structural_recording_transforms(
         @md_edits.MarkdownEditOp::ToggleListItem(node_id=node_id.value),
       )
     Delete(node_id~) =>
-      self.commit_structural(
+      self.commit_structural_recording_transforms(
         @md_edits.MarkdownEditOp::Delete(node_id=node_id.value),
       )
     MergeWithPrevious(node_id~) =>
       if self.editable_block_target(node_id) {
-        self.commit_structural(
+        self.commit_structural_recording_transforms(
           @md_edits.MarkdownEditOp::MergeWithPrevious(node_id=node_id.value),
         )
       } else {
@@ -544,29 +708,68 @@ pub fn MarkdownEditor::commit(
 }
 
 ///|
-/// Lower typed structural requests without exposing Tier-2 edit values.
-fn MarkdownEditor::commit_structural(
+/// Lower one typed request once, apply the same spans, and retain their exact
+/// order for the receipt without re-diffing the resulting source.
+fn MarkdownEditor::commit_structural_recording_transforms(
   self : Self,
   op : @md_edits.MarkdownEditOp,
-) -> Result[MarkdownCommitResult, MarkdownEditorError] {
+) -> Result[
+  (MarkdownCommitResult, @vector.Vector[MarkdownTextTransform]),
+  MarkdownEditorError,
+] {
   let source = self.editor.get_text()
-  guard self.editor.get_proj_node() is Some(_) else {
+  guard self.editor.get_proj_node() is Some(proj) else {
     return Err(MarkdownEditorError::ProjectionUnavailable)
   }
-  match @md_companion.apply_markdown_edit(self.editor, op, 0) {
+  let computed = Ok(
+    @md_edits.compute_markdown_edit(
+      op,
+      source,
+      proj,
+      self.editor.get_source_map(),
+    ),
+  ) catch {
+    error => Err(error.message())
+  }
+  match computed {
     Err(detail) => Err(MarkdownEditorError::EditFailed(detail~))
-    Ok(_) => {
+    Ok(lowered) => {
+      let (edits, focus_hint) = match lowered {
+        Some(pair) => pair
+        None => ([], @core.FocusHint::RestoreCursor)
+      }
+      self.editor.apply_span_edits(edits, focus_hint, 0)
       self.editor.refresh()
       let snapshot = self.snapshot()
-      if snapshot.source() == source {
+      let result = if snapshot.source() == source {
         // A no-op never authorizes a new caret move for the caller.
-        Ok(MarkdownCommitResult::Unchanged(snapshot))
+        MarkdownCommitResult::Unchanged(snapshot)
       } else {
         let selection = selection_for_cursor(snapshot, self.editor.get_cursor())
-        Ok(MarkdownCommitResult::Applied(snapshot, selection))
+        MarkdownCommitResult::Applied(snapshot, selection)
       }
+      Ok((result, sequential_text_transforms(edits)))
     }
   }
+}
+
+///|
+/// Mirror SyncEditor's reverse-document-order application as a sequential,
+/// immutable façade value. Local mutation only sorts a private copy used to
+/// build the returned vector.
+fn sequential_text_transforms(
+  edits : Array[@core.SpanEdit],
+) -> @vector.Vector[MarkdownTextTransform] {
+  let ordered = edits.copy()
+  ordered.sort_by((a, b) => b.start.compare(a.start))
+  let transforms = ordered.map(edit => MarkdownTextTransform::{
+    change: @text_change.TextChange::{
+      start: edit.start,
+      delete_len: edit.delete_len,
+      inserted: edit.inserted,
+    },
+  })
+  @vector.Vector(transforms[:])
 }
 
 ///|

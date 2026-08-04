@@ -145,6 +145,42 @@ test "headless facade commits exact source and exposes snapshot" {
 }
 
 ///|
+test "source-changing receipt carries history and a UTF-16 transform" {
+  let editor = try! MarkdownEditor(
+    agent_id="receipt-source-change",
+    source="A🤣B\r\n",
+  )
+  let before_version = editor.version()
+
+  let receipt = match
+    (try! editor.commit_with_receipt(
+      MarkdownEditRequest::ReplaceSource("AéB\r\n"),
+    )) {
+    Ok(receipt) => receipt
+    Err(_) => fail("expected receipt commit to succeed")
+  }
+
+  match receipt.result() {
+    MarkdownCommitResult::Applied(snapshot, None) =>
+      assert_eq(snapshot.source(), "AéB\r\n")
+    _ => fail("expected legacy Applied result")
+  }
+  assert_false(receipt.after_version() == before_version)
+  match receipt.history() {
+    Some(history) => {
+      let expected = try! editor.history_since(version=before_version)
+      assert_true(history == expected)
+    }
+    None => fail("expected incremental history")
+  }
+  let transforms = receipt.transforms().to_array()
+  assert_eq(transforms.length(), 1)
+  assert_eq(transforms[0].start(), 1)
+  assert_eq(transforms[0].delete_len(), 2)
+  assert_eq(transforms[0].inserted(), "é")
+}
+
+///|
 test "headless facade reports unchanged source atomically" {
   let editor = try! MarkdownEditor(agent_id="unchanged", source="before")
   let before = editor.snapshot()
@@ -156,6 +192,30 @@ test "headless facade reports unchanged source atomically" {
     _ => fail("expected Unchanged")
   }
   assert_true(editor.snapshot() == before)
+}
+
+///|
+test "true no-op receipt has unchanged version and no history" {
+  let editor = try! MarkdownEditor(agent_id="receipt-no-op", source="before")
+  let before_version = editor.version()
+
+  let receipt = match
+    (try! editor.commit_with_receipt(
+      MarkdownEditRequest::ReplaceSource("before"),
+    )) {
+    Ok(receipt) => receipt
+    Err(_) => fail("expected no-op receipt commit to succeed")
+  }
+
+  match receipt.result() {
+    MarkdownCommitResult::Unchanged(snapshot) =>
+      assert_eq(snapshot.source(), "before")
+    _ => fail("expected legacy Unchanged result")
+  }
+  assert_true(receipt.before_version() == before_version)
+  assert_true(receipt.after_version() == before_version)
+  assert_true(receipt.history() is None)
+  assert_true(receipt.transforms().is_empty())
 }
 
 ///|
@@ -492,6 +552,128 @@ test "headless facade rejects CommitEdit for loose list items atomically" {
     _ => fail("expected loose list CommitEdit to fail")
   }
   assert_true(editor.snapshot() == before)
+}
+
+///|
+test "typed block receipt carries the lowered transform and selection" {
+  let editor = try! MarkdownEditor(
+    agent_id="receipt-typed-block",
+    source="# Title\n",
+  )
+  let block = editor.snapshot().blocks().to_array()[0]
+  let before_version = editor.version()
+
+  let receipt = match
+    (try! editor.commit_with_receipt(
+      MarkdownEditRequest::CommitEdit(
+        node_id=block.node_id(),
+        new_text="Renamed",
+      ),
+    )) {
+    Ok(receipt) => receipt
+    Err(_) => fail("expected typed block receipt")
+  }
+
+  match receipt.result() {
+    MarkdownCommitResult::Applied(snapshot, Some(selection)) => {
+      assert_eq(snapshot.source(), "# Renamed\n")
+      assert_eq(selection.node_id(), snapshot.blocks().to_array()[0].node_id())
+      assert_eq(selection.offset(), 7)
+    }
+    _ => fail("expected typed block commit to apply with a selection")
+  }
+  let typed_history = try! editor.history_since(version=before_version)
+  match receipt.history() {
+    Some(history) => assert_true(history == typed_history)
+    None => fail("expected typed block history increment")
+  }
+  let transforms = receipt.transforms().to_array()
+  assert_eq(transforms.length(), 1)
+  assert_eq(transforms[0].start(), 2)
+  assert_eq(transforms[0].delete_len(), 5)
+  assert_eq(transforms[0].inserted(), "Renamed")
+}
+
+///|
+test "split and merge receipts retain exact sequential lowering transforms" {
+  let editor = try! MarkdownEditor(
+    agent_id="receipt-block-structure",
+    source="Hello\n\nWorld\n",
+  )
+  let first = editor.snapshot().blocks().to_array()[0].node_id()
+  let before_split = editor.version()
+
+  let split = match
+    (try! editor.commit_with_receipt(
+      MarkdownEditRequest::SplitBlock(node_id=first, offset=2),
+    )) {
+    Ok(receipt) => receipt
+    Err(_) => fail("expected split receipt")
+  }
+  match split.result() {
+    MarkdownCommitResult::Applied(snapshot, Some(selection)) => {
+      assert_eq(snapshot.source(), "He\n\nllo\n\nWorld\n")
+      assert_eq(selection.node_id(), snapshot.blocks().to_array()[1].node_id())
+      assert_eq(selection.offset(), 0)
+    }
+    _ => fail("expected split to apply with a selection")
+  }
+  let split_history = try! editor.history_since(version=before_split)
+  assert_true(split.history().unwrap() == split_history)
+  let split_transforms = split.transforms().to_array()
+  assert_eq(split_transforms.length(), 1)
+  assert_eq(split_transforms[0].start(), 2)
+  assert_eq(split_transforms[0].delete_len(), 4)
+  assert_eq(split_transforms[0].inserted(), "\n\nllo\n")
+
+  let before_merge = editor.version()
+  let second = editor.snapshot().blocks().to_array()[1].node_id()
+  let merge = match
+    (try! editor.commit_with_receipt(
+      MarkdownEditRequest::MergeWithPrevious(node_id=second),
+    )) {
+    Ok(receipt) => receipt
+    Err(_) => fail("expected merge receipt")
+  }
+  match merge.result() {
+    MarkdownCommitResult::Applied(snapshot, Some(selection)) => {
+      assert_eq(snapshot.source(), "Hello\n\nWorld\n")
+      assert_eq(selection.node_id(), snapshot.blocks().to_array()[0].node_id())
+      assert_eq(selection.offset(), 2)
+    }
+    _ => fail("expected merge to apply with a selection")
+  }
+  let merge_history = try! editor.history_since(version=before_merge)
+  assert_true(merge.history().unwrap() == merge_history)
+  let merge_transforms = merge.transforms().to_array()
+  assert_eq(merge_transforms.length(), 1)
+  assert_eq(merge_transforms[0].start(), 2)
+  assert_eq(merge_transforms[0].delete_len(), 6)
+  assert_eq(merge_transforms[0].inserted(), "llo\n")
+}
+
+///|
+test "receipt transforms use sequential reverse-document order" {
+  let transforms = sequential_text_transforms([
+    @core.SpanEdit::{ start: 1, delete_len: 1, inserted: "X" },
+    @core.SpanEdit::{ start: 4, delete_len: 0, inserted: "!" },
+  ]).to_array()
+
+  assert_eq(transforms.length(), 2)
+  assert_eq(transforms[0].start(), 4)
+  assert_eq(transforms[0].delete_len(), 0)
+  assert_eq(transforms[0].inserted(), "!")
+  assert_eq(transforms[1].start(), 1)
+  assert_eq(transforms[1].delete_len(), 1)
+  assert_eq(transforms[1].inserted(), "X")
+
+  // Every coordinate is read against the source left by the prior transform.
+  let source = "abcde"
+  let after_first = source[:4].to_owned() + "!" + source[4:].to_owned()
+  let after_second = after_first[:1].to_owned() +
+    "X" +
+    after_first[2:].to_owned()
+  assert_eq(after_second, "aXcd!e")
 }
 
 ///|
@@ -1169,25 +1351,44 @@ test "equal source and version do not imply equal history" {
 }
 
 ///|
-/// A commit reported as Unchanged still advanced the document.
+/// A source-preserving commit still carries the history it advanced.
 ///
-/// The façade classifies a commit by comparing source, so it says Unchanged
-/// here. The version says otherwise, and the version is what persistence must
-/// trigger on: saving on the façade's own verdict would skip this.
-test "text-preserving commit reports Unchanged while the version advances" {
+/// Replacing one character with itself emits a real CRDT operation even though
+/// the detached source is equal. The receipt must follow the version frontier,
+/// not the legacy result's source-based `Unchanged` classification.
+test "text-preserving commit receipt carries advanced history" {
   let editor = try! MarkdownEditor(agent_id="advance", source="hello")
   let before_version = editor.version()
 
-  let result = editor.commit(
-    MarkdownEditRequest::ReplaceText(start=0, delete_len=1, inserted="h"),
-  )
-
-  match result {
-    Ok(MarkdownCommitResult::Unchanged(snapshot)) =>
-      assert_eq(snapshot.source(), "hello")
-    _ => fail("expected Unchanged")
+  let receipt = match
+    (try! editor.commit_with_receipt(
+      MarkdownEditRequest::ReplaceText(start=0, delete_len=1, inserted="h"),
+    )) {
+    Ok(receipt) => receipt
+    Err(_) => fail("expected receipt commit to succeed")
   }
-  assert_false(editor.version() == before_version)
+
+  match receipt.result() {
+    MarkdownCommitResult::Unchanged(snapshot) =>
+      assert_eq(snapshot.source(), "hello")
+    _ => fail("expected legacy Unchanged result")
+  }
+  assert_true(receipt.origin() is MarkdownCommitOrigin::Local)
+  assert_true(receipt.before_version() == before_version)
+  assert_false(receipt.after_version() == before_version)
+  assert_true(receipt.after_version() == editor.version())
+  match receipt.history() {
+    Some(history) => {
+      let expected = try! editor.history_since(version=before_version)
+      assert_true(history == expected)
+    }
+    None => fail("expected incremental history from the before-version")
+  }
+  let transforms = receipt.transforms().to_array()
+  assert_eq(transforms.length(), 1)
+  assert_eq(transforms[0].start(), 0)
+  assert_eq(transforms[0].delete_len(), 1)
+  assert_eq(transforms[0].inserted(), "h")
 }
 
 ///|
