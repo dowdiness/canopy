@@ -135,7 +135,7 @@ fn normalize_atx_heading_content(content : String) -> String {
 }
 
 ///|
-fn heading_replacement_terminator(
+fn block_replacement_terminator(
   source : String,
   range_start : Int,
   range_end : Int,
@@ -200,7 +200,7 @@ fn compute_change_heading_level(
   }
   let new_block = new_prefix +
     rendered_content +
-    heading_replacement_terminator(source, range.start, range.end)
+    block_replacement_terminator(source, range.start, range.end)
   Some(
     (
       [
@@ -266,12 +266,13 @@ fn compute_toggle_list_item(
     Some(node) => is_markdown_list_item(node.kind)
     None => false
   }
+  let terminator = block_replacement_terminator(source, range.start, range.end)
   let (new_text, prefix_len) = if is_list_item {
     // List item -> paragraph: just content
-    (content + "\n", 0)
+    (content + terminator, 0)
   } else {
     // Paragraph -> list item: add "- " prefix
-    ("- " + content + "\n", 2)
+    ("- " + content + terminator, 2)
   }
   Some(
     (
