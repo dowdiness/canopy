@@ -2,6 +2,7 @@ members = [
   "./modules/canopy",
   "./apps/loomark",
   "./deps/rabbita/rabbita",
+  "./deps/rabbita/rui",
   "./deps/graphviz",
   "./deps/svg-dsl",
   "./deps/alga",
