@@ -140,10 +140,10 @@ test "P0a gate #1 §A control — single registered callback fires once per bump
 
 ///|
 // ============================================================
-// §B — gc() collects unrooted Memos; observer-rooted Memos survive.
+// §B — gc() collects unrooted Deriveds; watch-rooted Deriveds survive.
 //
 // Holding a MoonBit parser binding does NOT pin its Runtime-side cells —
-// gc_roots are explicit (`add_gc_root`, exposed via `Memo::observe`)
+// gc_roots are explicit (`add_gc_root`, exposed via `Derived::watch`)
 // plus implicit (gc_role = Root cells, i.e. Effects). Production canopy
 // creates zero Effects in the editor/parser stack, and Memos are
 // `gc_role = Interior` (memo_data.mbt:46-48). So a shared-runtime
@@ -151,7 +151,7 @@ test "P0a gate #1 §A control — single registered callback fires once per bump
 // surviving editor's.
 //
 // To attribute the collect to "parser A specifically" we root parser
-// B's source view through Observer (observer.mbt:64-79).
+// B's source view through Watch.
 //
 // Trick — calling rt.gc() requires `phase is Idle`. set_source ran
 // inside rt.batch internally; the batch closes before set_source
@@ -161,7 +161,7 @@ test "P0a gate #1 §A control — single registered callback fires once per bump
 // ============================================================
 
 ///|
-test "P0a gate #1 §B — gc collects unrooted Memos; observer-rooted Memos survive" {
+test "P0a gate #1 §B — gc collects unrooted Deriveds; watch-rooted Deriveds survive" {
   let shared_rt = @incr.Runtime()
   let parser_a = json_parser_on(shared_rt, "[1]")
   let parser_b = json_parser_on(shared_rt, "[2]")
@@ -176,9 +176,9 @@ test "P0a gate #1 §B — gc collects unrooted Memos; observer-rooted Memos surv
   inspect(shared_rt.cell_info(id_a) is Some(_), content="true")
   inspect(shared_rt.cell_info(id_b) is Some(_), content="true")
 
-  // Root parser B's source view through an Observer; leave parser A
+  // Root parser B's source view through a Watch; leave parser A
   // unobserved.
-  let observer_b = parser_b.source().observe()
+  let watch_b = parser_b.source().watch()
 
   // gc() twice (Codex finding (d) — second call drains any post-mark
   // broadcast queue).
@@ -188,7 +188,7 @@ test "P0a gate #1 §B — gc collects unrooted Memos; observer-rooted Memos surv
   // Verdict: parser A's source was collected; parser B's survived.
   inspect(shared_rt.cell_info(id_a) is None, content="true")
   inspect(shared_rt.cell_info(id_b) is Some(_), content="true")
-  observer_b.dispose()
+  watch_b.dispose()
 }
 
 ///|
@@ -197,7 +197,7 @@ test "P0a gate #1 §B — gc collects unrooted Memos; observer-rooted Memos surv
 /// (expected on a shared runtime with no explicit roots) from "gc only
 /// removed parser A" (which would require an attributable explanation
 /// the test does not provide).
-test "P0a gate #1 §B control — gc with no observers collects ALL Memos" {
+test "P0a gate #1 §B control — gc with no watches collects ALL Deriveds" {
   let shared_rt = @incr.Runtime()
   let parser_a = json_parser_on(shared_rt, "[1]")
   let parser_b = json_parser_on(shared_rt, "[2]")
@@ -215,9 +215,9 @@ test "P0a gate #1 §B control — gc with no observers collects ALL Memos" {
 // ============================================================
 // §C — Cross-editor Memo: rooted transitively pins both inputs.
 //
-// A workspace dependency-graph MemoMap or workspace-scoped Memo that
+// A workspace dependency-graph DerivedMap or workspace-scoped Derived that
 // reads multiple editors' Memos joins them into one reachability cone:
-// rooting the cross-Memo (via observer or further downstream reachable
+// rooting the cross-Derived (via Watch or further downstream reachable
 // roots) keeps both editors' input Memos alive via gc_dependencies BFS
 // (kernel/gc.mbt:63-87). This is the "self-rooting" property workspace
 // surfaces would rely on.
@@ -238,11 +238,11 @@ test "P0a gate #1 §C — rooting a cross-editor Memo transitively pins both inp
     .source()
     .map2(parser_b.source(), (a, b) => a.length() + b.length(), label="cross")
   // Force first computation via read_or_abort (outside-the-graph read) so
-  // cross's dependency list is populated before observe/gc.
+  // cross's dependency list is populated before watch/gc.
   let initial : Int = cross.read_or_abort()
   inspect(initial, content="6")
   let id_cross : @incr.CellId = cross.id()
-  let cross_observer = cross.observe()
+  let cross_watch = cross.watch()
   shared_rt.gc()
   shared_rt.gc()
   // cross is rooted → alive.
@@ -253,11 +253,11 @@ test "P0a gate #1 §C — rooting a cross-editor Memo transitively pins both inp
   // Live cross can still be read after gc.
   parser_a.set_source("[11]")
   inspect(cross.read_or_abort(), content="7")
-  cross_observer.dispose()
+  cross_watch.dispose()
 }
 
 ///|
-/// Negative control for §C: cross-editor Memo NOT observed → gc collects
+/// Negative control for §C: cross-editor Derived NOT watched → gc collects
 /// it AND, since cross was the only thing keeping the source views
 /// reachable through gc_dependencies, both source views collected too.
 test "P0a gate #1 §C control — unrooted cross-Memo + inputs all collected" {
