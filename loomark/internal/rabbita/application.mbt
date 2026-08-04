@@ -576,6 +576,7 @@ fn after_render(
 fn block_selection_after_render(
   selection : BlockSelection,
   source_revision : Int,
+  report_superseded~ : Bool,
   emit : @cmd.Emit[DriverEvent],
 ) -> @cmd.Cmd {
   after_render(
@@ -587,9 +588,15 @@ fn block_selection_after_render(
               emit(BlockSelectionRejected("block selection mode is stale")),
             )
           } else if model.source_revision != source_revision {
-            scheduler.add(
-              emit(BlockSelectionRejected("block selection is stale")),
-            )
+            // Rapid input can queue several post-render selections in one
+            // frame. Rabbita runs AfterRender effects newest-first, so an older
+            // superseded selection must not emit a message that schedules a
+            // second render after the newest selection restored the caret.
+            if report_superseded {
+              scheduler.add(
+                emit(BlockSelectionRejected("block selection is stale")),
+              )
+            }
           } else {
             match block_selection_target(model.document, selection) {
               Some(index) => {
@@ -884,7 +891,12 @@ fn update_model(
         Some(selection) =>
           (
             next,
-            block_selection_after_render(selection, next.source_revision, emit),
+            block_selection_after_render(
+              selection,
+              next.source_revision,
+              report_superseded=false,
+              emit,
+            ),
           )
         None => (next, @rabbita_runtime.none)
       }
@@ -912,7 +924,12 @@ fn update_model(
         Some(selection) =>
           (
             next,
-            block_selection_after_render(selection, next.source_revision, emit),
+            block_selection_after_render(
+              selection,
+              next.source_revision,
+              report_superseded=false,
+              emit,
+            ),
           )
         None => (next, @rabbita_runtime.none)
       }
@@ -940,7 +957,12 @@ fn update_model(
         Some(selection) =>
           (
             next,
-            block_selection_after_render(selection, next.source_revision, emit),
+            block_selection_after_render(
+              selection,
+              next.source_revision,
+              report_superseded=false,
+              emit,
+            ),
           )
         None => (next, @rabbita_runtime.none)
       }
@@ -975,7 +997,15 @@ fn update_model(
         } else {
           next.source_revision
         }
-        (next, block_selection_after_render(selection, expected_revision, emit))
+        (
+          next,
+          block_selection_after_render(
+            selection,
+            expected_revision,
+            report_superseded=true,
+            emit,
+          ),
+        )
       }
     }
     EditorFailure => {
