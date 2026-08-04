@@ -49,12 +49,6 @@
             "type": "command",
             "command": "moon update",
             "timeout": 30
-          },
-          {
-            "type": "command",
-            "command": "test -f scripts/package-overview.sh && bash scripts/package-overview.sh || true",
-            "timeout": 30,
-            "statusMessage": "Discovering package structure..."
           }
         ]
       }

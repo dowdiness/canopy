@@ -39,8 +39,7 @@ Text CRDT ─► Incremental parse ─► Projection ─► View patches ─► 
 For concrete ownership and placement, use the
 [module/package map](development/module-package-map.md). For exhaustive current
 inventory, read [`moon.work`](../moon.work), [`.gitmodules`](../.gitmodules),
-and `.github/workflows/ci.yml`, or run
-[`scripts/package-overview.sh`](../scripts/package-overview.sh).
+the nearest module/package manifests, and `.github/workflows/ci.yml`.
 
 ## Invariants
 

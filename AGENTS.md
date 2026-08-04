@@ -101,7 +101,11 @@ See [docs/development/ADDING_A_LANGUAGE.md](docs/development/ADDING_A_LANGUAGE.m
 
 ## Package Map
 
-The SessionStart hook runs `scripts/package-overview.sh` which provides a live package map at the start of every session. Use `moon ide outline <path>` to explore any package's public API before modifying it. Read `moon.mod` for module dependencies.
+Use `docs/development/module-package-map.md` for placement rules, `moon.work`
+for exhaustive root-workspace membership, and `.gitmodules` for repository
+ownership. Use `moon ide outline <path>` to explore a package's public interface
+before modifying it, and read the nearest `moon.mod` and `moon.pkg` for its
+module ownership and dependencies.
 
 ## Documentation
 

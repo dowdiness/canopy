@@ -38,33 +38,23 @@ members independently of the root `moon.work`.
 `moon.pkg` files are package manifests. They do not define module boundaries;
 they define compilation units inside the nearest enclosing module manifest.
 
-## Live inventory
+## Inventory sources
 
-Run the repository inventory instead of copying package, workspace, or
-submodule lists into documentation:
+Do not copy exhaustive package, workspace, or submodule lists into
+documentation. Read each identity from its authoritative manifest:
 
-```sh
-./scripts/package-overview.sh
-```
-
-The command derives three independent views:
-
-- **Primary-module ownership** from tracked `moon.mod`/`moon.mod.json` and
-  `moon.pkg`/`moon.pkg.json` files. Each package belongs to its nearest module
-  manifest.
-- **Root-workspace membership** from the root `moon.work`. This is the set
+- **Primary-module ownership:** the nearest enclosing `moon.mod` or
+  `moon.mod.json`, plus `moon.pkg` or `moon.pkg.json` for each compilation unit.
+- **Root-workspace membership:** the root `moon.work`, which defines the modules
   covered by repository-root workspace commands.
-- **Repository ownership** from `.gitmodules`. A submodule can also be a root
-  workspace member; overlap is expected because the two lists answer different
-  questions.
+- **Repository ownership:** `.gitmodules` and the nearest Git root. A submodule
+  can also be a root workspace member; overlap is expected because these answer
+  different questions.
 
-The script locates the primary module by its unique name,
-`dowdiness/canopy`, which lives at `modules/canopy/moon.mod`. It fails when
-that name is missing or ambiguous.
-
-Nested workspaces such as `apps/canvas/moon.work` are intentionally outside
-the root-workspace section. Read their own manifest and workspace file when
-working in those directories.
+Use `moon ide outline <path>` when exploring a package's public interface.
+Nested workspaces such as `apps/canvas/moon.work` are intentionally separate
+from the root workspace; read their own manifests when working in those
+directories.
 
 ## Primary `dowdiness/canopy` module
 
@@ -74,7 +64,8 @@ belongs to it when the nearest enclosing module manifest names
 (e.g. `modules/canopy/core/`, `modules/canopy/editor/`,
 `modules/canopy/protocol/`).
 
-Use `./scripts/package-overview.sh` for the complete current package list.
+Inspect the package manifests under `modules/canopy/` for the complete current
+package list.
 A root package may live more than one directory deep; for example
 `modules/canopy/lang/lambda/companion/` imports as
 `dowdiness/canopy/lang/lambda/companion`.
@@ -86,8 +77,8 @@ module. Each has its own `moon.mod` and independent publication ownership.
 Representative members include `modules/btree/`, `modules/zipper/`,
 `modules/semantic/`, `modules/analysis/`, and `modules/cognition/`.
 
-Use `./scripts/package-overview.sh` for the complete current member list and
-read each listed module manifest for its canonical module name.
+Read `moon.work` for the complete current member list and each member's module
+manifest for its canonical module name.
 
 ## Canopy-owned manifest migration status
 

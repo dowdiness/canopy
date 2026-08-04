@@ -120,11 +120,11 @@ submodule ownership by [`.gitmodules`](../../.gitmodules). The two axes
 intentionally overlap: a submodule under `deps/` can also be a root-workspace
 member.
 
-For the exact package inventory of the primary module, run
-`./scripts/package-overview.sh` rather than relying on a hand-maintained list.
-The [Module / Package Map](../../docs/development/module-package-map.md)
-explains placement rules; the [API Map](../../docs/api-map.md) is the
-task-first index for calling Canopy from MoonBit or JavaScript.
+For the exact package inventory, inspect the `moon.pkg` manifests under
+`modules/canopy/` and use `moon ide outline <path>` for a package's public
+interface. The [Module / Package Map](../../docs/development/module-package-map.md)
+explains placement rules; the [API Map](../../docs/api-map.md) is the task-first
+index for calling Canopy from MoonBit or JavaScript.
 
 The FFI stability surface is intentionally narrow: JS frontends should consume
 the editor through [`adapters/editor`](../../adapters/editor/) where
