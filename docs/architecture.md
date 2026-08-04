@@ -1,8 +1,9 @@
 # Canopy Architecture
 
 Single-page summary of Canopy's stable architectural principles and seams.
-Implementation inventory belongs in the live manifests and generated package
-overview; longer design reasoning lives under
+Implementation inventory belongs in live manifests; the
+[module/package map](development/module-package-map.md) explains how to read
+them. Longer design reasoning lives under
 [docs/architecture/](architecture/).
 
 > If a claim here disagrees with the code, the code wins. Update this file
