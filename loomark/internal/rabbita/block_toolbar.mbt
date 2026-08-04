@@ -54,7 +54,12 @@ fn heading_toolbar_button(
   emit : @cmd.Emit[DriverEvent],
 ) -> @html.Html {
   let shortcut = "Control+" + level.to_string()
-  let label = "Heading " + level.to_string() + ", Ctrl+" + level.to_string()
+  let visible_label = "H" + level.to_string()
+  let label = visible_label +
+    ": Heading " +
+    level.to_string() +
+    ", Ctrl+" +
+    level.to_string()
   @rui.button(
     id="loomark-heading-" + level.to_string(),
     variant=@rui.Ghost,
@@ -66,7 +71,7 @@ fn heading_toolbar_button(
       .aria_keyshortcuts(shortcut)
       .aria_pressed((selected_level == Some(level)).to_string()),
     on_click=emit(BlockHeading(level, None)),
-    "H" + level.to_string(),
+    visible_label,
   )
 }
 

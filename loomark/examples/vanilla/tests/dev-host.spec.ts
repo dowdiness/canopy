@@ -276,7 +276,7 @@ test("example presets replace canonical source without changing the selected mod
         source: "# Hello World\n\nWelcome to the Canopy Markdown editor.\n\nThis editor has three modes: raw, block, and preview.\n",
       },
       {
-        name: "Apply Blog example",
+        name: "Guide: Apply Blog example",
         source: "# Getting Started\n\nCanopy is an incremental projectional editor.\n\n## Features\n\nThe editor supports real-time collaboration via CRDT.\n\nEvery keystroke is incrementally parsed and projected into a structured view.",
       },
       {
@@ -350,6 +350,7 @@ test("interactive chrome hides driver controls and focuses the Preview surface",
     const preview = host.page.locator("#loomark-preview")
     await expect(preview).toHaveAttribute("tabindex", "0")
     await expect(preview).toHaveAttribute("aria-label", "Markdown preview")
+    await expect(host.page.getByRole("region", { name: "Markdown preview" })).toBeVisible()
     await host.page.locator("#loomark-mode-preview").focus()
     await focusPreview(host.page)
     await expect.poll(() => host.page.evaluate(() => document.activeElement?.id)).toBe(
@@ -379,7 +380,7 @@ test("Block toolbar toggles a focused paragraph and heading through typed edits"
   try {
     await selectBlock(host.page)
     const toolbar = host.page.getByRole("toolbar", { name: "Block formatting" })
-    const heading2 = toolbar.getByRole("button", { name: "Heading 2, Ctrl+2" })
+    const heading2 = toolbar.getByRole("button", { name: "H2: Heading 2, Ctrl+2" })
     await expect(heading2).toBeDisabled()
 
     const input = host.page.locator("#loomark-block-input")
@@ -456,7 +457,7 @@ test("Block toolbar enables only edits accepted for the active typed block", asy
     const input = host.page.locator("#loomark-block-input")
     await input.focus()
 
-    await expect(toolbar.getByRole("button", { name: "Heading 2, Ctrl+2" })).toBeDisabled()
+    await expect(toolbar.getByRole("button", { name: "H2: Heading 2, Ctrl+2" })).toBeDisabled()
     await expect(toolbar.getByRole("button", { name: "Toggle list, Ctrl+Shift+L" })).toBeDisabled()
     await expect(toolbar.getByRole("button", { name: "Delete selected block" })).toBeEnabled()
     await input.dispatchEvent("keydown", { key: "2", ctrlKey: true })
@@ -514,6 +515,49 @@ test("Block formatting shortcuts dispatch the same typed edits", async ({ browse
       isComposing: true,
     })
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("- Title\n")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("failed Block formatting shortcut restores its originating selection", async ({ browser }) => {
+  const host = await mountHost(browser, "Title\n")
+  try {
+    await selectBlock(host.page)
+    const input = host.page.locator("#loomark-block-input")
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(2, 2)
+    })
+    await forceEditorFailure(host.page)
+    await input.dispatchEvent("keydown", { key: "2", ctrlKey: true })
+
+    await expect.poll(async () => (await snapshot(host.page)).error_code).toBe("editor-commit-failed")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("Title\n")
+    await expect(input).toBeFocused()
+    await expect.poll(() => input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      return `${textarea.selectionStart}:${textarea.selectionEnd}`
+    })).toBe("2:2")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("failed Block toolbar edit returns focus to its invoked control", async ({ browser }) => {
+  const host = await mountHost(browser, "Title\n")
+  try {
+    await selectBlock(host.page)
+    const input = host.page.locator("#loomark-block-input")
+    await input.focus()
+    const heading2 = host.page.getByRole("button", { name: "H2: Heading 2, Ctrl+2" })
+    await forceEditorFailure(host.page)
+    await heading2.click()
+
+    await expect.poll(async () => (await snapshot(host.page)).error_code).toBe("editor-commit-failed")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("Title\n")
+    await expect(heading2).toBeFocused()
   } finally {
     await host.context.close()
   }

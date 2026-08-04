@@ -405,6 +405,7 @@ fn commit_block_toolbar_request(
   editor : @markdown.MarkdownEditor,
   model : DriverModel,
   request : @markdown.MarkdownEditRequest,
+  originating_selection : BlockSelection?,
   control_id : String,
   emit : @cmd.Emit[DriverEvent],
 ) -> (DriverModel, @cmd.Cmd) {
@@ -434,7 +435,7 @@ fn commit_block_toolbar_request(
         block_selection_after_render(
           selection,
           next.source_revision,
-          skip_stale_revision=true,
+          report_superseded=false,
           emit,
         ),
       )
@@ -442,16 +443,29 @@ fn commit_block_toolbar_request(
       if applied {
         (next, @rabbita_runtime.none)
       } else {
-        (
-          next,
-          after_render(
-            scheduler => {
-              ignore(scheduler)
-              @dom_boundary.focus_id(control_id)
-            },
-            emit,
-          ),
-        )
+        match originating_selection {
+          Some(selection) =>
+            (
+              next,
+              block_selection_after_render(
+                selection,
+                next.source_revision,
+                report_superseded=true,
+                emit,
+              ),
+            )
+          None =>
+            (
+              next,
+              after_render(
+                scheduler => {
+                  ignore(scheduler)
+                  @dom_boundary.focus_id(control_id)
+                },
+                emit,
+              ),
+            )
+        }
       }
   }
 }
@@ -630,7 +644,7 @@ fn preview_view(
       @rui.button(
         variant=@rui.Ghost,
         size=@rui.Xs,
-        attrs=@html.Attrs::build().aria_label("Apply Blog example"),
+        attrs=@html.Attrs::build().aria_label("Guide: Apply Blog example"),
         on_click=emit(ReplaceSource(BLOG_EXAMPLE_SOURCE)),
         "Guide",
       ),
@@ -1127,6 +1141,7 @@ fn update_model(
                 block_selection_after_render(
                   selection,
                   model.source_revision,
+                  report_superseded=true,
                   emit,
                 )
               })
@@ -1140,6 +1155,7 @@ fn update_model(
                 block_selection_after_render(
                   selection,
                   model.source_revision,
+                  report_superseded=true,
                   emit,
                 )
               })
@@ -1157,6 +1173,7 @@ fn update_model(
               node_id=block.node_id(),
               level=target_level,
             ),
+            originating_selection,
             "loomark-heading-" + requested_level.to_string(),
             emit,
           )
@@ -1179,6 +1196,7 @@ fn update_model(
                 block_selection_after_render(
                   selection,
                   model.source_revision,
+                  report_superseded=true,
                   emit,
                 )
               })
@@ -1191,6 +1209,7 @@ fn update_model(
             @markdown.MarkdownEditRequest::ToggleListItem(
               node_id=block.node_id(),
             ),
+            originating_selection,
             "loomark-toggle-list",
             emit,
           )
@@ -1210,6 +1229,7 @@ fn update_model(
             editor,
             model,
             @markdown.MarkdownEditRequest::Delete(node_id=block.node_id()),
+            None,
             "loomark-delete-block",
             emit,
           )
@@ -1336,6 +1356,7 @@ fn update_model(
             block_selection_after_render(
               originating_selection,
               next.source_revision,
+              report_superseded=true,
               emit,
             ),
           )
@@ -1356,7 +1377,12 @@ fn update_model(
           publish(next)
           (
             next,
-            block_selection_after_render(selection, next.source_revision, emit),
+            block_selection_after_render(
+              selection,
+              next.source_revision,
+              report_superseded=true,
+              emit,
+            ),
           )
         }
       }
@@ -1628,7 +1654,12 @@ fn update_model(
       publish(next)
       let command = match selection {
         Some(selection) =>
-          block_selection_after_render(selection, next.source_revision, emit)
+          block_selection_after_render(
+            selection,
+            next.source_revision,
+            report_superseded=true,
+            emit,
+          )
         None => @rabbita_runtime.none
       }
       (next, command)
