@@ -10,6 +10,36 @@ pub fn new_markdown_editor(
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
 ) -> @editor.SyncEditor[@markdown.Block] raise @text.TextError {
+  new_markdown_editor_impl(agent_id, capture_timeout_ms~, parent_runtime?)
+}
+
+///|
+/// Construct the standard Markdown editor and one semantic attachment over
+/// the exact parser created for it. No parser or reactive handle escapes this
+/// Markdown-specific companion boundary.
+pub fn new_markdown_editor_with_semantic_attachment(
+  agent_id : String,
+  capture_timeout_ms? : Int = 500,
+  parent_runtime? : @incr.Runtime,
+) -> (@editor.SyncEditor[@markdown.Block], @markdown.MarkdownSemanticAttachment) raise @text.TextError {
+  let attachment : Ref[@markdown.MarkdownSemanticAttachment?] = Ref(None)
+  let editor = new_markdown_editor_impl(
+    agent_id,
+    capture_timeout_ms~,
+    parent_runtime?,
+    semantic_attachment=attachment,
+  )
+  (editor, attachment.val.unwrap())
+}
+
+///|
+/// Shared construction implementation for the ordinary and semantic paths.
+fn new_markdown_editor_impl(
+  agent_id : String,
+  capture_timeout_ms? : Int = 500,
+  parent_runtime? : @incr.Runtime,
+  semantic_attachment? : Ref[@markdown.MarkdownSemanticAttachment?],
+) -> @editor.SyncEditor[@markdown.Block] raise @text.TextError {
   let hints_ref : Ref[Array[@core.IdentityTransform]] = Ref([])
   @editor.SyncEditor::new_generic(
     agent_id,
@@ -17,7 +47,20 @@ pub fn new_markdown_editor(
       @loom.new_parser(source_id, source, @markdown.markdown_grammar, runtime?)
     },
     parser => {
-      @md_proj.build_markdown_projection_memos(parser, identity_hints=hints_ref)
+      let memos = @md_proj.build_markdown_projection_memos(
+        parser,
+        identity_hints=hints_ref,
+      )
+      match semantic_attachment {
+        Some(sink) =>
+          sink.val = Some(
+            @markdown.MarkdownSemanticAttachment::MarkdownSemanticAttachment(
+              parser,
+            ),
+          )
+        None => ()
+      }
+      memos
     },
     capture_timeout_ms~,
     parent_runtime?,

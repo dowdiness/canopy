@@ -14,6 +14,12 @@ pub struct SyncEditor[T] {
   priv cached_proj_node : @incr.Derived[@core.ProjNode[T]?]
   priv registry_memo : @incr.Derived[Map[@core.NodeId, @core.ProjNode[T]]]
   priv source_map_memo : @incr.Derived[@core.SourceMap]
+  // These private roots give the projection graph the same page/process
+  // lifetime as its owning editor. A shared-runtime attachment may run
+  // runtime-wide collection without sweeping editor-owned memos.
+  priv projection_anchor : @incr.Watch[@core.ProjNode[T]?]
+  priv registry_anchor : @incr.Watch[Map[@core.NodeId, @core.ProjNode[T]]]
+  priv source_map_anchor : @incr.Watch[@core.SourceMap]
   priv capabilities : LanguageCapabilities[T]
   priv hub : EphemeralHub
   priv cursor_view : PeerCursorView
@@ -75,6 +81,9 @@ pub fn[T] SyncEditor::new_generic(
     label="sync_editor_document_version",
   )
   let (cached_proj_node, registry_memo, source_map_memo) = build_memos(parser)
+  let projection_anchor = cached_proj_node.watch()
+  let registry_anchor = registry_memo.watch()
+  let source_map_anchor = source_map_memo.watch()
   let (hub, cursor_view) = setup_hub_and_cursor(agent_id)
   {
     doc,
@@ -85,6 +94,9 @@ pub fn[T] SyncEditor::new_generic(
     cached_proj_node,
     registry_memo,
     source_map_memo,
+    projection_anchor,
+    registry_anchor,
+    source_map_anchor,
     capabilities,
     hub,
     cursor_view,

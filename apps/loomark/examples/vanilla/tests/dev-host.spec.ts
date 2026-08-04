@@ -10,7 +10,7 @@ import { expect, test, type Browser, type BrowserContext, type Page } from "@pla
  * | projection | full/incremental/fresh | payload, SourceMap ranges, and identity stay attached |
  * | unsupported containers | quote/thematic/list | reject atomically; neighbors/ranges/focus unchanged |
  * | tight list / fenced code | unordered, ordered `)`, tilde fence, mixed CRLF | typed payload controls preserve markers, delimiters, and line endings |
- * | semantic Preview | heading, paragraph, fenced code, list fallback | RUI-aligned read-only semantic DOM without invented list containers |
+ * | semantic Preview | blocks, inline forms, recovery, unsafe URLs | RUI-aligned read-only semantic DOM from the committed MarkdownIR |
  * | production chrome | Raw/Block/Preview, desktop/narrow | one labelled region, tablist, selected panel, and keyboard navigation |
  * | example presets | Hello/Blog/List/Code from any mode | replace canonical source without changing the selected mode |
  * | Block formatting | focused paragraph/heading/list item | typed heading/list/delete requests update source and restore a valid target |
@@ -200,13 +200,16 @@ test("Raw input preserves canonical source and Preview follows a committed edit"
     await selectPreview(host.page)
     await expect(host.page.locator("#loomark-input")).toHaveCount(0)
     await expectPreviewSource(host.page, "after\r\n")
+    await selectPreview(host.page)
+    await expect(host.page.locator("#loomark-preview")).toHaveCount(1)
+    await expectPreviewSource(host.page, "after\r\n")
   } finally {
     await host.context.close()
   }
 })
 
-test("Preview renders supported blocks as RUI-aligned semantic HTML", async ({ browser }) => {
-  const source = "# Semantic title\n\nReadable body.\n\n~~~moonbit\nlet answer = 42\n~~~\n\n- one\n- two\n"
+test("Preview renders committed MarkdownIR as semantic HTML with source-aware forms", async ({ browser }) => {
+  const source = "# Semantic title\n\nReadable body with a [reference][docs].  \nnext line\n\n~~~moonbit\nlet answer = 42\n~~~\n\n- one\n- two\n\n3. three\n4. four\n\n> quoted\n\n---\n\n[docs]: https://example.test/docs \"Documentation\"\n"
   const host = await mountHost(browser, source)
   try {
     await expect(host.page.locator("#loomark-root")).toHaveAttribute("data-rui-theme", "")
@@ -217,20 +220,97 @@ test("Preview renders supported blocks as RUI-aligned semantic HTML", async ({ b
     await expect(host.page.locator("#loomark-mode-preview")).toHaveAttribute("aria-selected", "true")
     const preview = host.page.locator("#loomark-preview")
     await expect(preview).toHaveAttribute("data-loomark-source", source)
-    await expect(preview.locator("[data-loomark-preview-notice]")).toContainText(
-      "supported top-level blocks",
-    )
     await expect(preview.locator('h1[data-slot="typography-h1"]')).toHaveText("Semantic title")
-    await expect(preview.locator('p[data-slot="typography-p"]')).toHaveText("Readable body.")
+    await expect(preview.locator('p[data-slot="typography-p"]').first()).toContainText(
+      "Readable body with a reference.",
+    )
     await expect(preview.locator('pre code[data-loomark-code-info="moonbit"]')).toHaveText(
       "let answer = 42",
     )
-    await expect(preview.locator("ul, ol")).toHaveCount(0)
-    const rawListItems = preview.locator('[data-loomark-preview-raw-list-item="unordered"]')
-    await expect(rawListItems).toHaveCount(2)
-    await expect(rawListItems.nth(0)).toContainText("- one")
-    await expect(rawListItems.nth(1)).toContainText("- two")
+    await expect(preview.locator('ul[data-loomark-list-marker="-"] > li')).toHaveText(["one", "two"])
+    await expect(preview.locator('ol[data-loomark-list-marker="3."]')).toHaveAttribute("start", "3")
+    await expect(preview.locator('ol[data-loomark-list-marker="3."] > li')).toHaveText(["three", "four"])
+    await expect(preview.locator("blockquote")).toHaveText("quoted")
+    await expect(preview.locator("hr")).toHaveCount(1)
+    await expect(preview.locator('a[data-loomark-link-reference-form="full-reference"]')).toHaveAttribute(
+      "href",
+      "https://example.test/docs",
+    )
+    await expect(preview.locator('a[data-loomark-link-reference-form="full-reference"]')).toHaveAttribute(
+      "title",
+      "Documentation",
+    )
+    await expect(preview.locator('[data-loomark-hard-break-surface="trailing-spaces"]')).toHaveCount(1)
     await expect(preview.locator("textarea, input, button")).toHaveCount(0)
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Preview refreshes semantic DOM and source metadata after a committed source shift", async ({ browser }) => {
+  const initial = "[Docs][docs]\n\n[docs]: https://old.example.test \"Old title\"\n"
+  const shifted = "# Prepended\n\n[Docs][docs]\n\n[docs]: https://new.example.test/path \"New title\"\n"
+  const host = await mountHost(browser, initial)
+  try {
+    await selectPreview(host.page)
+    const preview = host.page.locator("#loomark-preview")
+    const link = preview.locator('a[data-loomark-link-reference-form="full-reference"]')
+    await expect(link).toHaveAttribute("href", "https://old.example.test")
+    await requestSource(host.page, shifted)
+    await expectPreviewSource(host.page, shifted)
+    await expect(preview.locator('h1[data-slot="typography-h1"]')).toHaveText("Prepended")
+    await expect(link).toHaveAttribute("href", "https://new.example.test/path")
+    await expect(link).toHaveAttribute("title", "New title")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Preview replaces stale semantic DOM with recovered diagnostics and restores it on exact reversal", async ({ browser }) => {
+  const source = "# Good\n\n- one\n- two\n"
+  const host = await mountHost(browser, source)
+  try {
+    await selectPreview(host.page)
+    const preview = host.page.locator("#loomark-preview")
+    await expect(preview.locator("ul > li")).toHaveText(["one", "two"])
+    await requestSource(host.page, "[unclosed\n")
+    await expectPreviewSource(host.page, "[unclosed\n")
+    await expect(preview.locator('[data-loomark-preview-fallback="recovered"]')).toContainText(
+      "Recovered Markdown:",
+    )
+    await expect(preview.locator("[data-loomark-preview-diagnostic]")).toContainText("Diagnostic:")
+    await expect(preview.locator('h1[data-slot="typography-h1"], ul[data-loomark-list-marker] > li')).toHaveCount(0)
+    await requestSource(host.page, source)
+    await expectPreviewSource(host.page, source)
+    await expect(preview.locator('h1[data-slot="typography-h1"]')).toHaveText("Good")
+    await expect(preview.locator("ul > li")).toHaveText(["one", "two"])
+    await expect(preview.locator('[data-loomark-preview-fallback="recovered"]')).toHaveCount(0)
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Preview escapes HTML and rejects dangerous link, image, and autolink destinations", async ({ browser }) => {
+  const source = "<script>window.loomarkScriptExecuted = true</script>\n\ninline <i>markup</i>\n\n[link](javascript:alert(1)) ![image](javascript:alert(1)) <javascript:alert(1)>\n"
+  const host = await mountHost(browser, source)
+  try {
+    await selectPreview(host.page)
+    const preview = host.page.locator("#loomark-preview")
+    await expect(preview.locator("script")).toHaveCount(0)
+    await expect(preview).toContainText("<script>window.loomarkScriptExecuted = true</script>")
+    await expect(preview.locator('[data-loomark-preview-html="block"]')).toHaveText(
+      "<script>window.loomarkScriptExecuted = true</script>",
+    )
+    await expect(preview.locator('[data-loomark-preview-html="inline"]')).toHaveText(["<i>", "</i>"])
+    expect(await host.page.evaluate(() => (
+      window as Window & { loomarkScriptExecuted?: boolean }
+    ).loomarkScriptExecuted)).toBeUndefined()
+    await expect(preview.locator('[data-loomark-preview-url-rejected="link"]')).toHaveText("link")
+    await expect(preview.locator('[data-loomark-preview-url-rejected="image"]')).toContainText("image")
+    await expect(preview.locator('[data-loomark-preview-url-rejected="autolink"]')).toHaveText(
+      "javascript:alert(1)",
+    )
+    await expect(preview.locator('a[href^="javascript:"], img[src^="javascript:"]')).toHaveCount(0)
   } finally {
     await host.context.close()
   }
@@ -1299,12 +1379,15 @@ test("canonical source keeps LF, CRLF, CR, and EOF bytes and collapses same-sour
 test("valid snapshot restore commits source and mode atomically while unknown versions do nothing", async ({ browser }) => {
   const host = await mountHost(browser, "old\r\n")
   try {
-    await restoreSnapshot(host.page, 1, "new\r\n", "preview")
-    await expect.poll(async () => (await snapshot(host.page)).source).toBe("new\r\n")
+    const restored = "# Restored\n\n> semantic quote\n"
+    await restoreSnapshot(host.page, 1, restored, "preview")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe(restored)
     await expect.poll(async () => (await snapshot(host.page)).mode).toBe("preview")
     await expect.poll(async () => (await snapshot(host.page)).committed_change_count).toBe(1)
     await expect(host.page.locator("#loomark-input")).toHaveCount(0)
-    await expectPreviewSource(host.page, "new\r\n")
+    await expectPreviewSource(host.page, restored)
+    await expect(host.page.locator('#loomark-preview h1[data-slot="typography-h1"]')).toHaveText("Restored")
+    await expect(host.page.locator("#loomark-preview blockquote")).toHaveText("semantic quote")
     const committed = await snapshot(host.page)
 
     await restoreSnapshot(host.page, 99, "must-not-commit\n", "raw")

@@ -4,6 +4,23 @@
 using @md_edits {type MarkdownEditOp}
 
 ///|
+test "semantic companion factory follows its editor parser" {
+  let (editor, attachment) = try! new_markdown_editor_with_semantic_attachment(
+    "semantic-companion",
+  )
+  editor.set_text("# Before\n")
+  let before = attachment.document()
+  editor.set_text("# After\n")
+  let after = attachment.document()
+
+  assert_eq(before.kind_tag(), "Document")
+  assert_true(before != after)
+  assert_true(editor.get_proj_node() is Some(_))
+  let _ = editor.get_source_map()
+  attachment.dispose()
+}
+
+///|
 test "round-trip: new_markdown_editor + apply_markdown_edit" {
   let ed = try! new_markdown_editor("test")
   ed.set_text("# Hello\n\nWorld\n")

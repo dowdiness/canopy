@@ -1,6 +1,8 @@
 import {
   "dowdiness/canopy/editor/markdown",
+  "dowdiness/diagnostic",
   "dowdiness/dom_boundary",
+  "dowdiness/markdown" @md_markdown,
   "dowdiness/loomark/core",
   "moonbit-community/rabbita" @rabbita_runtime,
   "moonbit-community/rabbita/cmd",
@@ -9,11 +11,16 @@ import {
   "moonbit-community/rabbita/sub",
   "moonbit-community/rabbita/svg",
   "Yoorkin/rui",
+  "moonbitlang/core/bench",
   "moonbitlang/core/debug",
   "moonbitlang/core/json",
   "moonbitlang/core/ref",
   "moonbitlang/core/string",
 }
+
+import {
+  "dowdiness/loom",
+} for "wbtest"
 
 supported_targets = "js"
 

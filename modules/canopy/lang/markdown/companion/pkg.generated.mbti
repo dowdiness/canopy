@@ -16,6 +16,8 @@ pub fn export_markdown_text(@editor.SyncEditor[@markdown.Block]) -> String
 
 pub fn new_markdown_editor(String, capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime) -> @editor.SyncEditor[@markdown.Block] raise @text.TextError
 
+pub fn new_markdown_editor_with_semantic_attachment(String, capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime) -> (@editor.SyncEditor[@markdown.Block], @markdown.MarkdownSemanticAttachment) raise @text.TextError
+
 // Errors
 
 // Types and methods
