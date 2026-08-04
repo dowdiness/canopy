@@ -147,12 +147,12 @@ See [`modules/btree/proof/README.md`](../../modules/btree/proof/README.md) for t
 
 | Package | File | Properties |
 |---|---|---|
-| core/ | reconcile_properties_wbtest.mbt | ID uniqueness, ID preservation, kind propagation, idempotency, insert/delete stability |
-| core/ | source_map_properties_wbtest.mbt | Node coverage, range sorting, rebuild consistency, parent enclosure, innermost node minimality |
+| modules/canopy/core/ | reconcile_properties_wbtest.mbt | ID uniqueness, ID preservation, kind propagation, idempotency, insert/delete stability |
+| modules/canopy/core/ | source_map_properties_wbtest.mbt | Node coverage, range sorting, rebuild consistency, parent enclosure, innermost node minimality |
 | modules/semantic/ | confidence_properties_wbtest.mbt | Commutativity, associativity, idempotency, identity, absorbing top (on real `Confidence[Role]`) |
 | modules/btree/ | btree_property_wbtest.mbt | Cached spans, splice cardinality, occupancy repair, root normalization, and range-delete integration |
 | modules/zipper/ | zipper_properties_wbtest.mbt | Zipper navigation laws |
-| event-graph-walker/ | Various *_properties_test.mbt | CRDT convergence, version vector properties, FractionalIndex ordering |
+| deps/event-graph-walker/ | Various *_properties_test.mbt | CRDT convergence, version vector properties, FractionalIndex ordering |
 
 ## Future Proof Targets
 
@@ -163,17 +163,17 @@ Candidates ordered by value and feasibility:
 | Target | Package | Properties | Why provable |
 |---|---|---|---|
 | delete_range boundaries | modules/btree | Index parameters stay valid through descent | Index math — exactly what z3 excels at |
-| SourceMap range sorting | core/ | Ranges array sorted after rebuild | Int comparisons on array indices |
-| FractionalIndex ordering | event-graph-walker/ | midpoint(a, b) is strictly between a and b | Byte-array arithmetic |
+| SourceMap range sorting | modules/canopy/core/ | Ranges array sorted after rebuild | Int comparisons on array indices |
+| FractionalIndex ordering | deps/event-graph-walker/ | midpoint(a, b) is strictly between a and b | Byte-array arithmetic |
 
 ### High value, better as @qc
 
 | Target | Package | Properties | Why not provable |
 |---|---|---|---|
-| Reconcile ID uniqueness | core/ | No duplicate NodeIds after reconcile | Involves Map, recursive trees, counters |
-| CRDT convergence | event-graph-walker/ | Two peers converge regardless of op order | Multi-step stateful interactions |
-| Projection idempotence | projection/ | project → reconcile → project is stable | Full pipeline with many moving parts |
-| Projection stability | projection/ | Same input → same output across rebuilds | Depends on mutable SourceMap state |
+| Reconcile ID uniqueness | modules/canopy/core/ | No duplicate NodeIds after reconcile | Involves Map, recursive trees, counters |
+| CRDT convergence | deps/event-graph-walker/ | Two peers converge regardless of op order | Multi-step stateful interactions |
+| Projection idempotence | modules/canopy/projection/ | project → reconcile → project is stable | Full pipeline with many moving parts |
+| Projection stability | modules/canopy/projection/ | Same input → same output across rebuilds | Depends on mutable SourceMap state |
 
 ### Not worth verifying (unit/snapshot tests sufficient)
 

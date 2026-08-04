@@ -371,7 +371,7 @@ test('keeps Waku build, browser, and workerd jobs as the web repository gate', (
   assert.match(wakuE2e, /needs: \[build-js, changes, waku-build\]/);
   assert.match(
     wakuE2e,
-    /Download Waku production build[\s\S]*name: waku-web-build-\$\{\{ github\.run_attempt \}\}[\s\S]*path: examples\/web\/dist[\s\S]*npm run test:waku:e2e[\s\S]*CANOPY_SKIP_WAKU_BUILD: 1[\s\S]*npm run test:waku:preview/,
+    /Download Waku production build[\s\S]*name: waku-web-build-\$\{\{ github\.run_attempt \}\}[\s\S]*path: apps\/web\/dist[\s\S]*npm run test:waku:e2e[\s\S]*CANOPY_SKIP_WAKU_BUILD: 1[\s\S]*npm run test:waku:preview/,
   );
   assert.doesNotMatch(wakuE2e, /npm run build:waku/);
   assert.match(ci, /npm run create:waku-release-manifest/);

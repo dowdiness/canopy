@@ -21,6 +21,9 @@ if [ -e "$DEST" ] && [ ! -L "$DEST" ]; then
   }
   rm -rf "$DEST"
 fi
-ln -sfnT "$SOURCE" "$DEST"
+if [ -L "$DEST" ]; then
+  rm -f "$DEST"
+fi
+ln -s "$SOURCE" "$DEST"
 [ -f "$DEST/js/release/build/dowdiness/canopy-canvas/main/main.js" ]
 echo "ok: Canvas artifacts linked at $DEST"
