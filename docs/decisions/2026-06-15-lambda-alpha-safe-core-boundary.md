@@ -6,7 +6,7 @@
 [Lambda edit bridge boundary](2026-06-15-lambda-edit-bridge-boundary.md) ·
 [Identity and reuse mechanisms](2026-06-01-identity-and-reuse-mechanisms.md) ·
 [`lang/lambda/scope` design](../superpowers/specs/2026-05-30-lambda-scope-graph-design.md) ·
-loom ADR [Lambda rename consumer](../../loom/docs/decisions/2026-05-20-lambda-rename-consumer.md)
+loom ADR [Lambda rename consumer](../../deps/loom/docs/decisions/2026-05-20-lambda-rename-consumer.md)
 
 ## Context
 

@@ -40,13 +40,12 @@ becoming part of the `dowdiness/canopy` module or the Canopy Git repository.
 | Which modules do root commands cover? | Root `moon.work`. |
 | Which repository owns a directory? | `.gitmodules` and the nearest Git root. |
 | What does a module import? | Its module manifest and package manifests. |
-| What is the current combined inventory? | `./scripts/package-overview.sh`. |
+| What is the current combined inventory? | `moon.work`, `.gitmodules`, and the nearest module/package manifests. |
 
 Do not maintain complete package, workspace-member, submodule, or dependency
-lists in architecture prose. They drift from the manifests. The generated
-overview reports the live paths; the
-[module/package map](../development/module-package-map.md) explains operational
-placement rules.
+lists in architecture prose. They drift from the manifests. The
+[module/package map](../development/module-package-map.md) explains how to read
+the authoritative manifests and apply the operational placement rules.
 
 ## Placement principles
 

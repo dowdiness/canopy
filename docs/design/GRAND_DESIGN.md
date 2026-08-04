@@ -201,7 +201,7 @@ Phase 1 works without these via `parser.set_source(doc.text())` and string-based
 ## References
 
 - [eg-walker paper](https://arxiv.org/abs/2409.14252)
-- [loom ROADMAP](../../loom/ROADMAP.md)
-- [Projectional Editing Architecture](../architecture/PROJECTIONAL_EDITING.md)
+- [loom ROADMAP](../../deps/loom/ROADMAP.md)
+- [Architecture overview](../architecture.md)
 - [Module Structure](../architecture/modules.md)
-- [event-graph-walker README](../../event-graph-walker/README.md)
+- [event-graph-walker README](../../deps/event-graph-walker/README.md)

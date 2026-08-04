@@ -6,8 +6,8 @@
 canopy [#729](https://github.com/dowdiness/canopy/issues/729) (the L1-A fix in `07-loomgen-design.md`) ·
 [`07-loomgen-design.md`](../design/07-loomgen-design.md) ·
 [2026-06-01 identity-and-reuse-mechanisms](2026-06-01-identity-and-reuse-mechanisms.md) ·
-loom analysis [`2026-06-20-parser-generation-direction.md` §4.5](../../loom/docs/analysis/2026-06-20-parser-generation-direction.md) ·
-loom ADR [`2026-03-14-physical-equal-interner`](../../loom/docs/decisions/2026-03-14-physical-equal-interner.md)
+loom analysis [`2026-06-20-parser-generation-direction.md` §4.5](../../deps/loom/docs/analysis/2026-06-20-parser-generation-direction.md) ·
+loom ADR [`2026-03-14-physical-equal-interner`](../../deps/loom/docs/decisions/2026-03-14-physical-equal-interner.md)
 
 ## Why this record exists
 
@@ -27,7 +27,7 @@ Two statements in the codebase collide:
    sequential `to_raw` integers, never reads `.g.mbt` as input."*
 
 2. **The real hand-maintained registry**
-   ([`loom/examples/lambda/syntax/syntax_kind.mbt`](../../loom/examples/lambda/syntax/syntax_kind.mbt),
+   ([`deps/loom/examples/lambda/syntax/syntax_kind.mbt`](../../deps/loom/examples/lambda/syntax/syntax_kind.mbt),
    as of 2026-06-23): `to_raw` is an **append-only stability registry**, not a
    sequence. Raw `24` and `26` are skipped (`LetKeyword => 23`, `EqToken => 25`,
    `LetDef => 27`); `FnKeyword => 43` and `FatArrowToken => 44` are appended despite
@@ -38,7 +38,7 @@ any `Term`-enum edit (insert a variant mid-enum → every later kind shifts) —
 undoing the discipline the gaps and comments encode.
 
 **Why this is identity-affecting, not cosmetic.** Seam bakes the raw int into
-structural identity ([`loom/seam/cst_node.mbt`](../../loom/seam/cst_node.mbt), as of
+structural identity ([`deps/loom/seam/cst_node.mbt`](../../deps/loom/seam/cst_node.mbt), as of
 2026-06-23): `CstToken::CstToken` computes
 `combine_hash(combine_hash(k, string_hash(text)), provenance)` with `k = RawKind.inner`
 (`:48`); `CstNode::new` seeds the recursive structural hash with `let mut h = k`

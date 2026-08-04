@@ -1,8 +1,9 @@
 # Canopy Architecture
 
 Single-page summary of Canopy's stable architectural principles and seams.
-Implementation inventory belongs in the live manifests and generated package
-overview; longer design reasoning lives under
+Implementation inventory belongs in live manifests; the
+[module/package map](development/module-package-map.md) explains how to read
+them. Longer design reasoning lives under
 [docs/architecture/](architecture/).
 
 > If a claim here disagrees with the code, the code wins. Update this file
@@ -36,11 +37,8 @@ Text CRDT ─► Incremental parse ─► Projection ─► View patches ─► 
 - Language packages own syntax-specific projection and edit calculation, not
   transport or global editor state.
 
-For concrete ownership and placement, use the
-[module/package map](development/module-package-map.md). For exhaustive current
-inventory, read [`moon.work`](../moon.work), [`.gitmodules`](../.gitmodules),
-and `.github/workflows/ci.yml`, or run
-[`scripts/package-overview.sh`](../scripts/package-overview.sh).
+Concrete repository placement is documented outside this principles overview in
+the [module/package map](development/module-package-map.md).
 
 ## Invariants
 

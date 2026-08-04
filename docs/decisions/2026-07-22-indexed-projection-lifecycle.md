@@ -12,7 +12,7 @@ completed implementation.
 - [Library API boundary](2026-06-11-library-api-boundary.md)
 - [Archived EGW companion and Canopy migration](../archive/2026-07-22-egw-companion-canopy-migration.md)
 - [Protocol v3 hard cutover](2026-07-22-protocol-v3-hard-cutover.md)
-- [Eg-walker formal specification](../../event-graph-walker/docs/FORMAL_SPECIFICATION.md)
+- [Eg-walker formal specification](../../deps/event-graph-walker/docs/FORMAL_SPECIFICATION.md)
 - [Eg-walker paper](https://arxiv.org/abs/2409.14252)
 
 **Reader:** Maintainers designing or reviewing CRDT state management,
@@ -35,7 +35,7 @@ complexity or performance regression.
 
 The eg-walker CRDT system stores collaborative document state across several
 interdependent structures. The [eg-walker paper](https://arxiv.org/abs/2409.14252)
-and the [formal specification](../../event-graph-walker/docs/FORMAL_SPECIFICATION.md)
+and the [formal specification](../../deps/event-graph-walker/docs/FORMAL_SPECIFICATION.md)
 establish that the event graph (causal graph), operation log (oplog), and
 frontier together form the canonical, authoritative state. Everything else —
 the visible text, the FugueTree ordering, position caches — is derived.
@@ -302,7 +302,7 @@ overhead without benefit.
 
 - [Eg-walker paper](https://arxiv.org/abs/2409.14252) — the CRDT algorithm
   and merge semantics.
-- [Eg-walker formal specification](../../event-graph-walker/docs/FORMAL_SPECIFICATION.md)
+- [Eg-walker formal specification](../../deps/event-graph-walker/docs/FORMAL_SPECIFICATION.md)
   — layer model, laws, and merge procedure.
 - [EGW collaboration responsibility boundary](2026-07-21-egw-collaboration-responsibility-boundary.md)
   — layer ownership and canonical state invariants.

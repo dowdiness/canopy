@@ -14,16 +14,17 @@ check-agent-doc-links: ## Verify CLAUDE.md is a symlink to AGENTS.md
 test: ## Run tests for main module
 	@./scripts/run-moon-module.sh test modules/canopy
 
-test-all: ## Run tests for all modules (including submodules)
-	@./scripts/test-all.sh
+test-all: ## Run tests for the root MoonBit workspace
+	@moon test
 
 check: ## Run moon check for main module
 	@bash ./scripts/check-agent-doc-links.sh
 	@./scripts/run-moon-module.sh check modules/canopy
 
-check-all: ## Run moon check and fmt for all modules
+check-all: ## Run strict checks and formatting for the root MoonBit workspace
 	@bash ./scripts/check-agent-doc-links.sh
-	@./scripts/check-all.sh
+	@./scripts/check-strict.sh
+	@NEW_MOON_MOD=0 moon fmt --check
 
 fmt: ## Format code with moon fmt
 	cd modules/canopy && moon fmt

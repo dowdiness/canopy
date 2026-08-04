@@ -15,7 +15,7 @@ canopy/
 │   │   ├── core/  editor/  protocol/  projection/
 │   │   ├── lang/{lambda,json,markdown}/
 │   │   ├── ffi/  relay/  llm/  echo/  cmd/main/
-│   │   └── ...                     see package-overview.sh
+│   │   └── ...                     inspect moon.pkg manifests for the full set
 │   ├── btree/  zipper/  semantic/   reusable Canopy-owned modules
 │   ├── analysis/  cognition/  js-ffi/  dom-boundary/  ...
 │   └── rabbita_codemirror/  rabbita-menu/  ...
@@ -43,18 +43,14 @@ canopy/
 
 ## Live topology
 
-Do not copy the workspace-member or submodule inventory into documentation.
-Generate the current repository views from their authoritative manifests:
+Do not copy the exhaustive workspace-member or submodule inventory into
+documentation. Read the authoritative manifests directly:
 
-```sh
-./scripts/package-overview.sh
-```
+- package ownership from the nearest `moon.mod` and `moon.pkg`,
+- root-workspace coverage from `moon.work`,
+- repository ownership from `.gitmodules`.
 
-The output distinguishes:
-
-- packages owned by the primary `dowdiness/canopy` module (at `modules/canopy/`),
-- modules covered by repository-root workspace commands,
-- repositories owned through `.gitmodules` (under `deps/`).
+Use `moon ide outline <path>` to inspect a package's public interface.
 
 The last two sets may overlap: a Git submodule under `deps/` can also be a
 root-workspace member. Root `moon test`, `moon check`, and `moon fmt` follow

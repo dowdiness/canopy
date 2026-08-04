@@ -2,12 +2,12 @@
 
 The single definition of canopy's binary sync wire format. It is a **Tier 1
 library surface** under the
-[library API boundary ADR](../../docs/decisions/2026-06-11-library-api-boundary.md):
+[library API boundary ADR](../../../../docs/decisions/2026-06-11-library-api-boundary.md):
 "unused in-tree" is not a deletion trigger here, and API changes follow the
 deprecation idiom with at least one release cycle.
 
 Extracted from `editor/sync_protocol.mbt` in architecture-redesign S1; see the
-[archived plan](../../docs/archive/completed-phases/2026-06-11-s1-protocol-wire-extraction.md).
+[archived plan](../../../../docs/archive/completed-phases/2026-06-11-s1-protocol-wire-extraction.md).
 
 `editor`, `relay`, and `ephemeral` consume this package exclusively. The editor
 retains deprecated forwarding shims for its historical spellings. This package
@@ -73,5 +73,5 @@ Protocol v3 is a coordinated hard cut from v2 because the two EGW payload
 families are incompatible. Endpoint decoders return `UnsupportedVersion(2)`,
 and the relay drops complete non-v3 frames.
 
-The [protocol v3 ADR](../../docs/decisions/2026-07-22-protocol-v3-hard-cutover.md)
+The [protocol v3 ADR](../../../../docs/decisions/2026-07-22-protocol-v3-hard-cutover.md)
 rejects a v2 decoder, bridge, or mixed-version room mode.

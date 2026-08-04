@@ -4,7 +4,7 @@
 **Status:** Accepted (decision record; see "Source of truth on drift" below)
 **Related:** [#449](https://github.com/dowdiness/canopy/issues/449) ·
 [BAND 2b hot-path baseline](../performance/2026-06-01-band2-canopy-hotpath-baseline.md) ·
-loom ADR [`2026-03-14-physical-equal-interner`](../../loom/docs/decisions/2026-03-14-physical-equal-interner.md) ·
+loom ADR [`2026-03-14-physical-equal-interner`](../../deps/loom/docs/decisions/2026-03-14-physical-equal-interner.md) ·
 [Responsibility Map](../architecture/responsibility-map.md)
 
 > 2026-06-14 update: #633 removed mechanism #3 from Lambda's editor-facing
@@ -64,7 +64,7 @@ Mechanism #3 cannot use pointer identity (`physical_equal`) even though the reus
 subtree came from an incremental reparse, because of a **deliberate** earlier
 decision:
 
-- The loom ADR [`2026-03-14-physical-equal-interner`](../../loom/docs/decisions/2026-03-14-physical-equal-interner.md)
+- The loom ADR [`2026-03-14-physical-equal-interner`](../../deps/loom/docs/decisions/2026-03-14-physical-equal-interner.md)
   made `physical_equal` collapse structural compares to O(1) **during the initial
   interned parse** (position-independent interned `CstNode`s).
 - **#396 (`4875da6`) intentionally dropped canonical physical identity** so CSTs

@@ -4,11 +4,11 @@
 //
 // The caller supplies the sentinel sourced from the MoonBit FFI bundle so this
 // pure display transformation and `modules/canopy/lang/markdown/sentinel/` +
-// `loom/moji/codepoints.mbt` agree by construction. The build graph routes:
+// `deps/loom/moji/codepoints.mbt` agree by construction. The build graph routes:
 //
-//   loom/moji/codepoints.mbt          (canonical const: ZERO_WIDTH_SPACE)
+//   deps/loom/moji/codepoints.mbt     (canonical const: ZERO_WIDTH_SPACE)
 //     → modules/canopy/lang/markdown/sentinel/       (role-name layer: EMPTY_PARAGRAPH_SENTINEL)
-//       → ffi/markdown/markdown_ffi   (JS export: markdown_empty_paragraph_sentinel)
+//       → modules/canopy/ffi/markdown/markdown_ffi   (JS export: markdown_empty_paragraph_sentinel)
 //         → @moonbit/crdt-markdown    (client-only generated module)
 //           → app runtime injection   (captures the value once)
 //             → this pure function

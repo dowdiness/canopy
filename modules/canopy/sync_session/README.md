@@ -2,10 +2,10 @@
 
 The sync state machine was extracted from `editor/` in architecture-redesign
 S2; see the
-[archived plan](../docs/archive/completed-phases/2026-06-11-s2-sync-session-transport-ws-extraction.md).
+[archived plan](../../../docs/archive/completed-phases/2026-06-11-s2-sync-session-transport-ws-extraction.md).
 
 It is a **Tier 1 library surface** under the
-[library API boundary ADR](../docs/decisions/2026-06-11-library-api-boundary.md):
+[library API boundary ADR](../../../docs/decisions/2026-06-11-library-api-boundary.md):
 "unused in-tree" is not a deletion trigger here, and API changes follow the
 deprecation idiom with at least one release cycle.
 
