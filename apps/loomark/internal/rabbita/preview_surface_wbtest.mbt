@@ -1,22 +1,10 @@
 ///|
-fn fresh_preview_ir(source : String) -> @md_markdown.MarkdownIR {
-  let parser = @loom.new_parser(
-    @loom.SourceId("loomark-preview-ssr"),
-    source,
-    @md_markdown.markdown_grammar,
-  )
-  let snapshot = parser.snapshot().read_or_abort()
-  @md_markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
-    parser.source_id(),
-    snapshot.syntax,
-    snapshot.diagnostics,
-  )
-}
-
-///|
 #warnings("-alert_unstable")
 fn render_preview(source : String) -> String {
-  let preview = preview_surface(source, fresh_preview_ir(source))
+  let preview = preview_surface(
+    source,
+    wbtest_markdown_ir(@loom.SourceId("loomark-preview-ssr"), source),
+  )
   @rabbita_runtime.render_to_string(() => {
     @rabbita_runtime.Val::constant(preview)
   })
@@ -159,7 +147,9 @@ test "semantic preview SSR distinguishes tight and loose list paragraphs" {
   let tight = render_preview("- one\n- two\n")
   let loose = render_preview("- one\n\n- two\n")
   let nested = render_preview("- outer\n  - inner\n")
-  assert_true(!tight.contains("<li data-loomark-list-item-spread=\"false\"><p"))
+  assert_true(!tight.contains("<p"))
+  assert_preview_contains(tight, "data-loomark-list-item-spread=\"false\"")
+  assert_preview_contains(tight, ">one</li>")
   assert_preview_contains(loose, "data-loomark-list-item-spread=\"true\"")
   assert_preview_contains(loose, "<p")
   assert_preview_contains(nested, "<ul")

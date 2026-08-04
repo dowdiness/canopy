@@ -24,7 +24,7 @@ fn preview_surface_benchmark_replace_middle(source : String) -> String {
 }
 
 ///|
-fn preview_surface_benchmark_ir(
+fn wbtest_markdown_ir(
   source_id : @loom.SourceId,
   source : String,
 ) -> @md_markdown.MarkdownIR {
@@ -54,11 +54,11 @@ fn preview_surface_benchmark_input() -> PreviewSurfaceBenchmarkInput {
   {
     source,
     edited,
-    source_ir: preview_surface_benchmark_ir(
+    source_ir: wbtest_markdown_ir(
       @loom.SourceId("loomark-preview-materialize"),
       source,
     ),
-    edited_ir: preview_surface_benchmark_ir(
+    edited_ir: wbtest_markdown_ir(
       @loom.SourceId("loomark-preview-materialize"),
       edited,
     ),
@@ -75,12 +75,6 @@ test "loomark Preview materialization: initial 2500 blocks" (b : @bench.T) {
 test "loomark Preview materialization: edited IR 2500 blocks" (b : @bench.T) {
   let input = preview_surface_benchmark_input()
   b.bench(() => b.keep(preview_surface(input.edited, input.edited_ir)))
-}
-
-///|
-test "loomark Preview materialization: reversal IR 2500 blocks" (b : @bench.T) {
-  let input = preview_surface_benchmark_input()
-  b.bench(() => b.keep(preview_surface(input.source, input.source_ir)))
 }
 
 ///|

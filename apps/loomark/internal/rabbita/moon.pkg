@@ -11,7 +11,6 @@ import {
   "moonbit-community/rabbita/sub",
   "moonbit-community/rabbita/svg",
   "Yoorkin/rui",
-  "moonbitlang/core/bench",
   "moonbitlang/core/debug",
   "moonbitlang/core/json",
   "moonbitlang/core/ref",
@@ -20,6 +19,7 @@ import {
 
 import {
   "dowdiness/loom",
+  "moonbitlang/core/bench",
 } for "wbtest"
 
 supported_targets = "js"

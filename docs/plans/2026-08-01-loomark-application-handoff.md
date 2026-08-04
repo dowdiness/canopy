@@ -227,7 +227,7 @@ Each ticket begins with behavioral matrix and first RED test, makes one logical 
 
 ### Source-aware semantic Preview
 
-#1145 follows the completed private Application Train and does not wait for
+Issue #1145 follows the completed private Application Train and does not wait for
 Rabbita #141. It attaches one `MarkdownSemanticAttachment` to the exact parser
 created for the private Loomark editor and retains it for the existing
 page/process lifetime. Raw and Block keep the editable `Block` projection;
