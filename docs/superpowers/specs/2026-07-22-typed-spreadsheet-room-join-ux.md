@@ -6,7 +6,7 @@
 
 **Related:**
 [EGW collaboration responsibility boundary](../../decisions/2026-07-21-egw-collaboration-responsibility-boundary.md) ·
-[Typed spreadsheet EGW register and projection boundary](../../../loom/incr/docs/decisions/2026-07-20-typed-spreadsheet-egw-register-projection.md)
+[Typed spreadsheet EGW register and projection boundary](../../../deps/loom/incr/docs/decisions/2026-07-20-typed-spreadsheet-egw-register-projection.md)
 
 **Reader:** Designers and implementers building the first collaborative
 room/join flow for the typed spreadsheet product pilot.

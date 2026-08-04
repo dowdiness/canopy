@@ -10,7 +10,7 @@ publication, and EGW v0.5 dependency convergence completed (2026-07-23)
 - [Library API boundary](2026-06-11-library-api-boundary.md)
 - [Archived EGW companion and Canopy migration](../archive/2026-07-22-egw-companion-canopy-migration.md)
 - [Archived peer-sync contract spike](../archive/2026-07-22-egw-peer-sync-contract-spike.md)
-- [Typed spreadsheet EGW register and projection boundary](../../loom/incr/docs/decisions/2026-07-20-typed-spreadsheet-egw-register-projection.md)
+- [Typed spreadsheet EGW register and projection boundary](../../deps/loom/incr/docs/decisions/2026-07-20-typed-spreadsheet-egw-register-projection.md)
 - [Protocol v3 hard cutover](2026-07-22-protocol-v3-hard-cutover.md)
 
 **Reader:** Maintainers designing or reviewing CRDT synchronization,
@@ -49,7 +49,7 @@ package placement is not the target architecture:
 
 Implementation evidence:
 
-- [EGW network boundary](../../event-graph-walker/docs/NETWORK_SYNC.md)
+- [EGW network boundary](../../deps/event-graph-walker/docs/NETWORK_SYNC.md)
 - [Canopy sync session](../../modules/canopy/sync_session/README.md)
 - [Wire protocol](../../modules/canopy/protocol/wire/README.md)
 - [Relay](../../modules/canopy/relay/README.md)

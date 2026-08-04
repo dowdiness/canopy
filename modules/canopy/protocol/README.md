@@ -53,7 +53,7 @@ so these units stay separate.
 | `SetDocCursor.doc_code_unit_offset` | JS → MoonBit | UTF-16 document code-unit offset | Cursor in source text. |
 
 Editor code may snap UTF-16 offsets to grapheme boundaries before it converts
-them to eg-walker item-space. See [Position Units](../docs/development/API_REFERENCE.md#position-units).
+them to eg-walker item-space. See [Position Units](../../../docs/development/API_REFERENCE.md#position-units).
 
 ## Stability
 
