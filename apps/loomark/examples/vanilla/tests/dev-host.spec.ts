@@ -15,7 +15,7 @@ import { expect, test, type Browser, type BrowserContext, type Page } from "@pla
  * | production chrome | Raw/Block/Preview, desktop/narrow | one labelled region, tablist, selected panel, and keyboard navigation |
  * | example presets | Hello/Blog/List/Code from any mode | replace canonical source without changing the selected mode |
  * | Block formatting | focused paragraph/heading/list item | typed heading/list/delete requests update source and restore a valid target |
- * | Block keyboard editing | collapsed caret at start/middle/end | Enter splits, boundary arrows navigate, empty-start Backspace merges, and focus/caret follow the typed target |
+ * | Block keyboard editing | collapsed text cursor at start/middle/end | Enter splits, native direction keys preserve text cursor movement, boundary arrows navigate, empty-start Backspace merges, and focus/text cursor follow the typed target |
  * | interactive chrome | normal, focus, error | only application controls are visible; Preview owns focus; errors appear on demand |
  * | Raw <-> Block <-> Preview | new/same source | one canonical source, no marker leakage |
  * | ownership | fresh page/container | termination only; no cleanup claim |
@@ -1257,6 +1257,31 @@ test("boundary keys navigate between text blocks without changing source", async
 
     await second.press("Backspace")
     await expect(first).toBeFocused()
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe(source)
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("a direction key keeps native text cursor movement inside a Block editor", async ({ browser }) => {
+  const source = "ABCDE\n"
+  const host = await mountHost(browser, source)
+  try {
+    await selectBlock(host.page)
+    const input = host.page.locator("#loomark-block-input")
+    await expect(input).toHaveValue("ABCDE")
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(3, 3)
+    })
+
+    await input.press("ArrowLeft")
+    await expect(input).toBeFocused()
+    await expect.poll(() => input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      return `${textarea.selectionStart}:${textarea.selectionEnd}`
+    })).toBe("2:2")
     await expect.poll(async () => (await snapshot(host.page)).source).toBe(source)
   } finally {
     await host.context.close()

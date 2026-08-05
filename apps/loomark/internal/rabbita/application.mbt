@@ -67,16 +67,6 @@ priv suberror DriverSubscription {
 }
 
 ///|
-/// Pure preview read-model decision. The shell reads the attachment only when
-/// this boundary returns `PreviewDocumentRead`.
-#warnings("-unused_value")
-priv enum PreviewDocumentDecision {
-  PreviewDocumentRead
-  PreviewDocumentKeep
-  PreviewDocumentClear
-} derive(Eq, Debug)
-
-///|
 /// The imported model hides drag origin/base/edge state that affects future
 /// updates, so every replacement remains observable to Rabbita.
 priv struct SplitResizeState {
@@ -86,68 +76,6 @@ priv struct SplitResizeState {
 ///|
 impl Eq for SplitResizeState with fn equal(_, _) {
   false
-}
-
-///|
-fn preview_document_decision(
-  old_requested : Bool,
-  next_requested : Bool,
-  accepted~ : Bool,
-  changed~ : Bool,
-) -> PreviewDocumentDecision {
-  if !accepted {
-    PreviewDocumentKeep
-  } else if !next_requested {
-    PreviewDocumentClear
-  } else if !old_requested || changed {
-    PreviewDocumentRead
-  } else {
-    PreviewDocumentKeep
-  }
-}
-
-///|
-/// Map one live offset from a rejected contiguous edit back into the accepted
-/// text's UTF-16 coordinates.
-fn rejected_text_offset(
-  accepted_source : String,
-  rejected_source : String,
-  offset : Int,
-) -> Int {
-  let change = @text_change.compute_text_change(
-    accepted_source, rejected_source,
-  )
-  let inserted_len = change.inserted.length()
-  let inserted_end = change.start + inserted_len
-  let mapped = if offset <= change.start {
-    offset
-  } else if offset >= inserted_end {
-    offset - inserted_len + change.delete_len
-  } else {
-    change.start
-  }
-  mapped.clamp(min=0, max=accepted_source.length())
-}
-
-///|
-/// Map a live selection from one rejected contiguous edit back into the
-/// accepted source's UTF-16 coordinates.
-fn rejected_text_selection(
-  accepted_source : String,
-  rejected_source : String,
-  selection : @dom_boundary.TextSelection,
-) -> @dom_boundary.TextSelection {
-  let start = rejected_text_offset(
-    accepted_source,
-    rejected_source,
-    selection.start(),
-  )
-  let end = rejected_text_offset(
-    accepted_source,
-    rejected_source,
-    selection.end(),
-  ).clamp(min=start, max=accepted_source.length())
-  @dom_boundary.TextSelection(start, end, selection.direction())
 }
 
 ///|
@@ -224,12 +152,6 @@ fn mode_name(mode : @core.ApplicationMode) -> String {
     @core.Block => "block"
     @core.Preview => "preview"
   }
-}
-
-///|
-/// Aggregate document-level Preview demand independently from the active mode.
-fn preview_requested(model : DriverModel) -> Bool {
-  model.state.mode() == @core.Preview || model.split_preview_open
 }
 
 ///|
@@ -440,34 +362,6 @@ fn commit_source(
       )
       (failed, false, false)
     }
-  }
-}
-
-///|
-/// Imperative shell around `preview_document_decision`; this is the sole
-/// application read site for the mount-owned semantic attachment.
-fn update_preview_document(
-  attachment : @md_markdown.MarkdownSemanticAttachment,
-  model : DriverModel,
-  old_requested : Bool,
-  accepted~ : Bool,
-  changed~ : Bool,
-) -> DriverModel {
-  match
-    preview_document_decision(
-      old_requested,
-      preview_requested(model),
-      accepted~,
-      changed~,
-    ) {
-    PreviewDocumentRead =>
-      {
-        ..model,
-        semantic_document: Some(attachment.document()),
-        semantic_read_count: model.semantic_read_count + 1,
-      }
-    PreviewDocumentKeep => model
-    PreviewDocumentClear => { ..model, semantic_document: None }
   }
 }
 
@@ -716,52 +610,6 @@ fn editor_surface(
     @core.Preview => preview_document_surface(model)
     @core.Block => block_surface(model, emit)
   }
-}
-
-///|
-/// Capture the live Raw selection before the accepted model may need to repair
-/// a rejected controlled value on the same textarea node.
-fn raw_input_command(
-  source : String,
-  emit : @cmd.Emit[DriverEvent],
-) -> @cmd.Cmd {
-  @cmd.custom_cmd(scheduler => {
-    let selection = @dom_boundary.read_text_selection_id("loomark-input") catch {
-      error => {
-        scheduler.add(emit(EffectFailed(error.message())))
-        return
-      }
-    }
-    scheduler.add(emit(RawInput(source, Some(selection))))
-  })
-}
-
-///|
-/// Capture the DOM caret before the controlled textarea is rendered again.
-fn block_input_command(
-  block : @markdown.MarkdownBlockSnapshot,
-  input_id : String,
-  text : String,
-  emit : @cmd.Emit[DriverEvent],
-) -> @cmd.Cmd {
-  @cmd.custom_cmd(scheduler => {
-    let selection = @dom_boundary.read_text_selection_id(input_id) catch {
-      error => {
-        scheduler.add(emit(EffectFailed(error.message())))
-        return
-      }
-    }
-    scheduler.add(
-      emit(
-        BlockInput(
-          node_id=block.node_id(),
-          input_id~,
-          text~,
-          selection_offset=selection.end(),
-        ),
-      ),
-    )
-  })
 }
 
 ///|
