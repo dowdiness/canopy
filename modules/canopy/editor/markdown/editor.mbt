@@ -259,6 +259,29 @@ pub struct MarkdownDocumentHistory {
 }
 
 ///|
+/// A malformed opaque history payload at the Markdown façade boundary.
+pub(all) suberror MarkdownHistoryCodecError {
+  Malformed(detail~ : String)
+}
+
+///|
+/// Encode the opaque CRDT history without exposing its wire representation.
+pub fn MarkdownDocumentHistory::to_json_string(self : Self) -> String {
+  self.message.to_json_string()
+}
+
+///|
+/// Decode an opaque CRDT history without exposing its wire representation.
+pub fn MarkdownDocumentHistory::from_json_string(
+  json : String,
+) -> MarkdownDocumentHistory raise MarkdownHistoryCodecError {
+  let message = @text.SyncMessage::from_json_string(json) catch {
+    error => raise MarkdownHistoryCodecError::Malformed(detail=error.message())
+  }
+  { message, }
+}
+
+///|
 /// Equality is canonical-history equality: the honest check that one document
 /// continues another. Comparing source and version instead would accept a
 /// document that merely looks the same.
@@ -495,6 +518,12 @@ pub fn MarkdownEditor::admit(
 /// Read the last committed canonical source without exposing editor state.
 pub fn MarkdownEditor::snapshot(self : Self) -> MarkdownDocumentSnapshot {
   document_snapshot(self.editor)
+}
+
+///|
+/// Return portable Markdown with façade-owned empty-block sentinels removed.
+pub fn MarkdownEditor::portable_markdown(self : Self) -> String {
+  @md_companion.export_markdown_text(self.editor)
 }
 
 ///|

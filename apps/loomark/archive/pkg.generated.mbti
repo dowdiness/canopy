@@ -1,0 +1,53 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/archive"
+
+import {
+  "dowdiness/canopy/editor/markdown",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub const LOOMARK_ARCHIVE_SCHEMA_VERSION : Int = 1
+
+// Errors
+pub(all) suberror LoomarkArchiveCaptureError {
+  InvalidValidationAgentId
+  HistoryUnavailable(detail~ : String)
+  CorruptHistory(detail~ : String)
+  PortableTextHistoryMismatch
+}
+
+pub(all) suberror LoomarkArchiveDecodeError {
+  UnsupportedNewerVersion(version~ : String)
+  MalformedEnvelope(detail~ : String)
+  EmptyDocumentId
+  CorruptHistory(detail~ : String)
+  PortableTextHistoryMismatch
+  InvalidValidationAgentId
+}
+
+pub(all) suberror LoomarkDocumentIdError {
+  Empty
+}
+
+// Types and methods
+pub struct LoomarkDocumentArchive {
+  // private fields
+}
+pub fn LoomarkDocumentArchive::capture(document_id~ : LoomarkDocumentId, editor~ : @markdown.MarkdownEditor, validation_agent_id~ : String) -> Self raise LoomarkArchiveCaptureError
+pub fn LoomarkDocumentArchive::document_id(Self) -> LoomarkDocumentId
+pub fn LoomarkDocumentArchive::from_json_string(String, validation_agent_id~ : String) -> Self raise LoomarkArchiveDecodeError
+pub fn LoomarkDocumentArchive::history(Self) -> @markdown.MarkdownDocumentHistory
+pub fn LoomarkDocumentArchive::portable_markdown(Self) -> String
+pub fn LoomarkDocumentArchive::to_json_string(Self) -> String
+
+pub struct LoomarkDocumentId {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn LoomarkDocumentId::from_string(String) -> Self raise LoomarkDocumentIdError
+pub fn LoomarkDocumentId::value(Self) -> String
+
+// Type aliases
+
+// Traits
+

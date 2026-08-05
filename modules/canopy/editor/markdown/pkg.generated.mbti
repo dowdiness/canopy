@@ -25,6 +25,10 @@ pub(all) suberror MarkdownEditorError {
   EditFailed(detail~ : String)
 }
 
+pub(all) suberror MarkdownHistoryCodecError {
+  Malformed(detail~ : String)
+}
+
 // Types and methods
 pub(all) enum MarkdownAdmitReport {
   Complete
@@ -80,6 +84,8 @@ pub(all) enum MarkdownCommitResult {
 pub struct MarkdownDocumentHistory {
   // private fields
 }
+pub fn MarkdownDocumentHistory::from_json_string(String) -> Self raise MarkdownHistoryCodecError
+pub fn MarkdownDocumentHistory::to_json_string(Self) -> String
 pub impl Eq for MarkdownDocumentHistory
 
 pub struct MarkdownDocumentSnapshot {
@@ -114,6 +120,7 @@ pub fn MarkdownEditor::commit(Self, MarkdownEditRequest) -> Result[MarkdownCommi
 pub fn MarkdownEditor::commit_with_receipt(Self, MarkdownEditRequest) -> Result[MarkdownCommitReceipt, MarkdownEditorError] raise MarkdownArchiveError
 pub fn MarkdownEditor::history_since(Self, version? : MarkdownDocumentVersion) -> MarkdownDocumentHistory raise MarkdownArchiveError
 pub fn MarkdownEditor::open(agent_id~ : String, history~ : MarkdownDocumentHistory) -> Self raise MarkdownArchiveError
+pub fn MarkdownEditor::portable_markdown(Self) -> String
 pub fn MarkdownEditor::snapshot(Self) -> MarkdownDocumentSnapshot
 pub fn MarkdownEditor::version(Self) -> MarkdownDocumentVersion
 pub fn MarkdownEditor::with_semantic_attachment(agent_id~ : String, source~ : String) -> (Self, @dowdiness/markdown.MarkdownSemanticAttachment) raise MarkdownEditorError

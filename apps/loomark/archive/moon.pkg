@@ -1,0 +1,10 @@
+import {
+  "dowdiness/canopy/editor/markdown",
+  "moonbitlang/core/json",
+}
+
+warnings = "-7-29"
+
+options(
+  is_main: false,
+)
