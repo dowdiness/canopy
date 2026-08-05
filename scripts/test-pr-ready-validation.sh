@@ -231,7 +231,7 @@ if PATH="$fake_bin:$PATH" \
     --target pkg >"$unpushed_output" 2>&1; then
   fail "unpushed submodule commit unexpectedly passed"
 fi
-grep -q "submodule commit is not reachable from origin" "$unpushed_output" ||
+grep -q "submodule commit is not fetchable from origin" "$unpushed_output" ||
   fail "unpushed submodule diagnostic was not actionable"
 if [ -s "$execution_log" ]; then
   fail "unpushed submodule failure ran dependency commands"
@@ -243,8 +243,23 @@ fi
 grep -q "evidence is missing" "$tmp_dir/unpushed-evidence-output" ||
   fail "unpushed submodule failure did not invalidate earlier evidence"
 
+git -C "$fixture/vendor/test-submodule" push --quiet \
+  origin HEAD:refs/pull/144/head
+: >"$execution_log"
+pull_ref_output="$tmp_dir/pull-ref-submodule-output"
+if ! PATH="$fake_bin:$PATH" \
+  PR_READY_TEST_LOG="$execution_log" \
+  "$fixture/scripts/validate-pr-ready.sh" \
+    --base fixture-base \
+    --target pkg >"$pull_ref_output" 2>&1; then
+  fail "submodule commit fetchable only by exact SHA was rejected"
+fi
+grep -q "PR-ready validation passed" "$pull_ref_output" ||
+  fail "exact-SHA-fetchable submodule did not complete validation"
+
 git -C "$fixture/vendor/test-submodule" push --quiet origin HEAD:main
 
+: >"$execution_log"
 PATH="$fake_bin:$PATH" \
   PR_READY_TEST_LOG="$execution_log" \
   "$fixture/scripts/validate-pr-ready.sh" \

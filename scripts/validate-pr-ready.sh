@@ -318,9 +318,12 @@ run_phase() {
           exit 1
         fi
         if [ -z "$(git for-each-ref --format="%(refname)" --contains HEAD refs/remotes/origin)" ]; then
-          echo "error: submodule commit is not reachable from origin: $displaypath" >&2
-          echo "push its branch to the configured origin before the parent PR" >&2
-          exit 1
+          sha="$(git rev-parse HEAD)"
+          if ! git fetch --quiet --no-tags --refetch origin "$sha"; then
+            echo "error: submodule commit is not fetchable from origin: $displaypath" >&2
+            echo "push the commit to the configured origin before the parent PR" >&2
+            exit 1
+          fi
         fi
       ' || die "submodule remote reachability check failed"
       ;;

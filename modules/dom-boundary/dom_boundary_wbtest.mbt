@@ -235,6 +235,10 @@ extern "js" fn text_control_selection(id : String) -> String =
   #| }
 
 ///|
+extern "js" fn text_control_value(id : String) -> String =
+  #| (id) => globalThis.document.getElementById(id).value
+
+///|
 extern "js" fn text_selection_write_count() -> Int =
   #| () => globalThis.__canopyTextSelectionWrites
 
@@ -651,6 +655,24 @@ test "write_text_selection_id applies UTF-16 offsets and direction" {
 }
 
 ///|
+test "write_text_value_id updates an existing text control" {
+  install_text_control_document("editor", "rejected", 8, 8, "none")
+  write_text_value_id("editor", "accepted")
+  let value = text_control_value("editor")
+  clear_text_control_document()
+  inspect(value, content="accepted")
+}
+
+///|
+test "write_text_value_selector resolves an existing text control" {
+  install_text_control_document("editor", "before", 6, 6, "none")
+  write_text_value_selector("#editor", "after")
+  let value = text_control_value("editor")
+  clear_text_control_document()
+  inspect(value, content="after")
+}
+
+///|
 test "measure_element_id returns a detached immutable measurement" {
   install_text_control_document("editor", "text", 0, 0, "none")
   update_element_measurement("editor", 120.5, 48.25)
@@ -726,6 +748,12 @@ test "text selection and measurement reject unsupported elements" {
   } catch {
     error => Some(error)
   }
+  let value_error = try {
+    write_text_value_id("host", "value")
+    None
+  } catch {
+    error => Some(error)
+  }
   let measure_error = try {
     let _ = measure_element_id("host")
     None
@@ -740,6 +768,10 @@ test "text selection and measurement reject unsupported elements" {
   guard write_error
     is Some(UnsupportedAction(action=WriteTextSelection, target=Id("host"))) else {
     fail("expected unsupported text selection write")
+  }
+  guard value_error
+    is Some(UnsupportedAction(action=WriteTextValue, target=Id("host"))) else {
+    fail("expected unsupported text value write")
   }
   guard measure_error
     is Some(UnsupportedAction(action=MeasureElement, target=Id("host"))) else {
