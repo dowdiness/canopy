@@ -116,6 +116,7 @@ pub fn MarkdownEditor::history_since(Self, version? : MarkdownDocumentVersion) -
 pub fn MarkdownEditor::open(agent_id~ : String, history~ : MarkdownDocumentHistory) -> Self raise MarkdownArchiveError
 pub fn MarkdownEditor::snapshot(Self) -> MarkdownDocumentSnapshot
 pub fn MarkdownEditor::version(Self) -> MarkdownDocumentVersion
+pub fn MarkdownEditor::with_semantic_attachment(agent_id~ : String, source~ : String) -> (Self, @dowdiness/markdown.MarkdownSemanticAttachment) raise MarkdownEditorError
 
 pub struct MarkdownNodeId {
   // private fields

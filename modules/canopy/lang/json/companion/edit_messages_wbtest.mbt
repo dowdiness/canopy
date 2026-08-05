@@ -1,7 +1,7 @@
 // Message-contract pins for apply_json_edit error paths (S3 lang/runtime
 // migration safety net — docs/plans/2026-06-11-s3-lang-runtime-extraction.md
-// Step 2). Expectations are frozen string literals; do not regenerate them
-// by calling the migrated path.
+// Step 2). Message templates are frozen; runtime-owned NodeId values are
+// interpolated from the request target rather than global construction order.
 
 // Note: the bridge's "no projection available" guard and the
 // "unhandled edit op" policy branch are unreachable through the JSON surface
@@ -49,12 +49,7 @@ test "apply_json_edit message pin: absent node id -> compute error" {
   editor.set_text("42")
   match apply_json_edit(editor, JsonEditOp::Delete(node_id=absent_id), 0) {
     Err(msg) =>
-      inspect(
-        msg,
-        content=(
-          #|compute_json_edit: node NodeId(5) not in source map
-        ),
-      )
+      assert_eq(msg, "compute_json_edit: node \{absent_id} not in source map")
     Ok(_) => fail("expected Err for absent node id")
   }
 }

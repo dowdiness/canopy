@@ -181,6 +181,9 @@ behavior** — check the code before relying on any specific detail.
 - [Protocol v3 hard cutover](decisions/2026-07-22-protocol-v3-hard-cutover.md)
   — rejects v2 frames at endpoints and the relay rather than bridging the
   incompatible EGW 0.3 and 0.4 identity schemas.
+- [Markdown semantic Preview ownership](decisions/2026-08-04-markdown-semantic-preview-ownership.md)
+  — keeps the ordinary Markdown editor attachment-free while the private
+  single-mount Loomark host retains one same-parser semantic Preview read model.
 
 ## Historical / Archive
 

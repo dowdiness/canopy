@@ -1,0 +1,110 @@
+///|
+test "preview document decision matrix preserves accepted preview reads" {
+  assert_eq(
+    preview_document_decision(
+      @core.Raw,
+      @core.Preview,
+      accepted=true,
+      changed=false,
+    ),
+    PreviewDocumentRead,
+  )
+  assert_eq(
+    preview_document_decision(
+      @core.Preview,
+      @core.Preview,
+      accepted=true,
+      changed=true,
+    ),
+    PreviewDocumentRead,
+  )
+  assert_eq(
+    preview_document_decision(
+      @core.Preview,
+      @core.Preview,
+      accepted=true,
+      changed=false,
+    ),
+    PreviewDocumentKeep,
+  )
+  assert_eq(
+    preview_document_decision(
+      @core.Preview,
+      @core.Preview,
+      accepted=false,
+      changed=true,
+    ),
+    PreviewDocumentKeep,
+  )
+}
+
+///|
+test "preview document decision matrix clears outside preview" {
+  assert_eq(
+    preview_document_decision(
+      @core.Preview,
+      @core.Raw,
+      accepted=true,
+      changed=false,
+    ),
+    PreviewDocumentClear,
+  )
+  assert_eq(
+    preview_document_decision(
+      @core.Preview,
+      @core.Block,
+      accepted=true,
+      changed=true,
+    ),
+    PreviewDocumentClear,
+  )
+  assert_eq(
+    preview_document_decision(
+      @core.Raw,
+      @core.Block,
+      accepted=true,
+      changed=false,
+    ),
+    PreviewDocumentClear,
+  )
+}
+
+///|
+test "preview document decision matrix restores and repeats deterministically" {
+  assert_eq(
+    preview_document_decision(
+      @core.Block,
+      @core.Preview,
+      accepted=true,
+      changed=true,
+    ),
+    PreviewDocumentRead,
+  )
+  assert_eq(
+    preview_document_decision(
+      @core.Block,
+      @core.Preview,
+      accepted=true,
+      changed=false,
+    ),
+    PreviewDocumentRead,
+  )
+  assert_eq(
+    preview_document_decision(
+      @core.Preview,
+      @core.Preview,
+      accepted=true,
+      changed=false,
+    ),
+    PreviewDocumentKeep,
+  )
+  assert_eq(
+    preview_document_decision(
+      @core.Raw,
+      @core.Preview,
+      accepted=false,
+      changed=true,
+    ),
+    PreviewDocumentKeep,
+  )
+}

@@ -393,6 +393,32 @@ pub fn MarkdownEditor::MarkdownEditor(
     error =>
       raise MarkdownEditorError::InitializationFailed(detail=error.message())
   }
+  initialize_markdown_editor(editor, source)
+}
+
+///|
+/// Create a Markdown façade and a semantic attachment over the same live
+/// parser. The ordinary constructor remains attachment-free.
+pub fn MarkdownEditor::with_semantic_attachment(
+  agent_id~ : String,
+  source~ : String,
+) -> (MarkdownEditor, @md_markdown.MarkdownSemanticAttachment) raise MarkdownEditorError {
+  let (editor, attachment) = @md_companion.new_markdown_editor_with_semantic_attachment(
+    agent_id,
+  ) catch {
+    @text.TextError::EmptyReplicaId => raise MarkdownEditorError::InvalidAgentId
+    error =>
+      raise MarkdownEditorError::InitializationFailed(detail=error.message())
+  }
+  (initialize_markdown_editor(editor, source), attachment)
+}
+
+///|
+/// Seed source and projection identically for every façade construction path.
+fn initialize_markdown_editor(
+  editor : @editor.SyncEditor[@md_markdown.Block],
+  source : String,
+) -> MarkdownEditor {
   editor.set_text(source)
   editor.refresh()
   { editor, }

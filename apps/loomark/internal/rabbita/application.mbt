@@ -63,9 +63,38 @@ priv suberror DriverSubscription {
 }
 
 ///|
+/// Pure preview read-model decision. The shell reads the attachment only when
+/// this boundary returns `PreviewDocumentRead`.
+#warnings("-unused_value")
+priv enum PreviewDocumentDecision {
+  PreviewDocumentRead
+  PreviewDocumentKeep
+  PreviewDocumentClear
+} derive(Eq, Debug)
+
+///|
+fn preview_document_decision(
+  old_mode : @core.ApplicationMode,
+  next_mode : @core.ApplicationMode,
+  accepted~ : Bool,
+  changed~ : Bool,
+) -> PreviewDocumentDecision {
+  if !accepted {
+    PreviewDocumentKeep
+  } else if next_mode != @core.Preview {
+    PreviewDocumentClear
+  } else if old_mode != @core.Preview || changed {
+    PreviewDocumentRead
+  } else {
+    PreviewDocumentKeep
+  }
+}
+
+///|
 priv struct DriverModel {
   state : @core.ApplicationState
   document : @markdown.MarkdownDocumentSnapshot
+  semantic_document : @md_markdown.MarkdownIR?
   active_block_key : String?
   replica_id : String
   source_revision : Int
@@ -310,7 +339,7 @@ fn commit_source(
   state : @core.ApplicationState,
   source : String,
   operation : String,
-) -> (DriverModel, Bool) {
+) -> (DriverModel, Bool, Bool) {
   let fail_commit = model.fail_next_editor_commit
   let next = { ..model, fail_next_editor_commit: false }
   let request = if fail_commit {
@@ -333,8 +362,10 @@ fn commit_source(
           committed_change_count: model.committed_change_count + 1,
         },
         true,
+        true,
       )
-    Ok(@markdown.Unchanged(document)) => ({ ..next, state, document }, true)
+    Ok(@markdown.Unchanged(document)) =>
+      ({ ..next, state, document }, true, false)
     Err(error) => {
       let failed = record_error(
         next,
@@ -345,8 +376,28 @@ fn commit_source(
       (
         { ..failed, raw_surface_revision: model.raw_surface_revision + 1 },
         false,
+        false,
       )
     }
+  }
+}
+
+///|
+/// Imperative shell around `preview_document_decision`; this is the sole
+/// application read site for the mount-owned semantic attachment.
+fn update_preview_document(
+  attachment : @md_markdown.MarkdownSemanticAttachment,
+  model : DriverModel,
+  old_mode : @core.ApplicationMode,
+  accepted~ : Bool,
+  changed~ : Bool,
+) -> DriverModel {
+  match
+    preview_document_decision(old_mode, model.state.mode(), accepted~, changed~) {
+    PreviewDocumentRead =>
+      { ..model, semantic_document: Some(attachment.document()) }
+    PreviewDocumentKeep => model
+    PreviewDocumentClear => { ..model, semantic_document: None }
   }
 }
 
@@ -545,7 +596,25 @@ fn editor_surface(
           ),
         ),
       ])
-    @core.Preview => { "preview": preview_surface(model.document) }
+    @core.Preview =>
+      match model.semantic_document {
+        Some(document) => { "preview": preview_surface(source, document) }
+        None =>
+          {
+            "preview": @html.div(
+              id="loomark-preview",
+              attrs=@html.Attrs::build()
+                .data_set("loomark-preview-fallback", "unavailable")
+                .role("region")
+                .tabindex(0)
+                .aria_label("Markdown preview"),
+              style=["display:grid;gap:1rem"],
+              @rui.typography_muted(
+                "Preview is unavailable for the current accepted document.",
+              ),
+            ),
+          }
+      }
     @core.Block =>
       Map([
         (
@@ -1017,6 +1086,7 @@ fn dispatch_driver(detail : String) -> Unit {
 ///|
 fn update_model(
   editor : @markdown.MarkdownEditor,
+  attachment : @md_markdown.MarkdownSemanticAttachment,
   model : DriverModel,
   event : DriverEvent,
   emit : @cmd.Emit[DriverEvent],
@@ -1065,14 +1135,21 @@ fn update_model(
       for decision in transition.decisions() {
         match decision {
           @core.ReplaceCanonicalSource(source) => {
-            let (committed, _) = commit_source(
+            let old_mode = next.state.mode()
+            let (committed, accepted, changed) = commit_source(
               editor,
               next,
               transition.state(),
               source,
               "editor-dispatch",
             )
-            next = committed
+            next = update_preview_document(
+              attachment,
+              committed,
+              old_mode,
+              accepted~,
+              changed~,
+            )
           }
           @core.SnapshotRejected(_) =>
             next = record_error(
@@ -1404,12 +1481,19 @@ fn update_model(
         }
         let previous_revision = model.source_revision
         let source = if kind == "deleted" { "" } else { "replacement\n" }
-        let (next, _) = commit_source(
+        let (committed, accepted, changed) = commit_source(
           editor,
           model,
           model.state,
           source,
           "editor-dispatch",
+        )
+        let next = update_preview_document(
+          attachment,
+          committed,
+          model.state.mode(),
+          accepted~,
+          changed~,
         )
         publish(next)
         let expected_revision = if kind == "stale" {
@@ -1448,10 +1532,11 @@ fn update_model(
       )
       let mut next = model
       let mut accepted = true
+      let mut source_changed = false
       for decision in transition.decisions() {
         match decision {
           @core.ReplaceCanonicalSource(source) => {
-            let (committed, commit_accepted) = commit_source(
+            let (committed, commit_accepted, changed) = commit_source(
               editor,
               next,
               transition.state(),
@@ -1460,6 +1545,7 @@ fn update_model(
             )
             next = committed
             accepted = accepted && commit_accepted
+            source_changed = source_changed || changed
           }
           @core.SnapshotRejected(error) => {
             accepted = false
@@ -1476,6 +1562,13 @@ fn update_model(
       if accepted {
         next = { ..next, state: transition.state() }
       }
+      next = update_preview_document(
+        attachment,
+        next,
+        model.state.mode(),
+        accepted~,
+        changed=source_changed,
+      )
       publish(next)
       (next, @rabbita_runtime.none)
     }
@@ -1490,7 +1583,13 @@ fn update_model(
         model.state,
         @core.ApplicationEvent::SelectMode(mode~),
       )
-      let next = { ..model, state: transition.state() }
+      let next = update_preview_document(
+        attachment,
+        { ..model, state: transition.state() },
+        model.state.mode(),
+        accepted=true,
+        changed=false,
+      )
       publish(next)
       (next, @rabbita_runtime.none)
     }
@@ -1892,12 +1991,16 @@ pub fn mount(host_id : String, source : String) -> String {
     return "{\"ok\":false,\"error\":\"host-already-mounted\"}"
   }
   let replica_id = "loomark-dev-host-" + js_replica_uuid()
-  let editor = @markdown.MarkdownEditor(agent_id=replica_id, source~) catch {
+  let (editor, attachment) = @markdown.MarkdownEditor::with_semantic_attachment(
+    agent_id=replica_id,
+    source~,
+  ) catch {
     _ => return "{\"ok\":false,\"error\":\"editor-initialization-failed\"}"
   }
   let initial : DriverModel = {
     state: @core.ApplicationState::ApplicationState(@core.Raw),
     document: editor.snapshot(),
+    semantic_document: None,
     active_block_key: None,
     replica_id,
     source_revision: 0,
@@ -1924,7 +2027,9 @@ pub fn mount(host_id : String, source : String) -> String {
   detached_model.val = None
   detached_focus_token.val = ""
   publish(initial)
-  let update = (model, event, emit) => update_model(editor, model, event, emit)
+  let update = (model, event, emit) => {
+    update_model(editor, attachment, model, event, emit)
+  }
   let app = @rabbita_runtime.new(() => {
     let (model, emit) = @rabbita_runtime.create_state(
       initial,

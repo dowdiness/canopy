@@ -1,5 +1,44 @@
 ///| The first public headless Markdown façade seam.
 
+///|
+fn fresh_markdown_ir(source : String) -> @md_markdown.MarkdownIR {
+  let parser = @loom.new_parser(
+    @loom.SourceId("markdown-editor-semantic-fresh"),
+    source,
+    @md_markdown.markdown_grammar,
+  )
+  let snapshot = parser.snapshot().read_or_abort()
+  @md_markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
+    parser.source_id(),
+    snapshot.syntax,
+    snapshot.diagnostics,
+  )
+}
+
+///|
+test "semantic attachment follows MarkdownEditor source commits" {
+  let source = "# Heading [ref]\n\nBefore\n\n[ref]: /one \"title\"\n"
+  let (editor, attachment) = try! MarkdownEditor::with_semantic_attachment(
+    agent_id="markdown-semantic-facade",
+    source~,
+  )
+
+  assert_eq(attachment.document(), fresh_markdown_ir(source))
+
+  let updated = "# Heading [ref]\n\nAfter\n\n[ref]: /two \"changed\"\n"
+  match editor.commit(MarkdownEditRequest::ReplaceSource(updated)) {
+    Ok(MarkdownCommitResult::Applied(_, None)) => ()
+    _ => fail("expected source replacement to commit")
+  }
+  // snapshot observes both the projection and its SourceMap after attachment
+  // collection has run on the shared parser runtime.
+  let snapshot = editor.snapshot()
+  assert_eq(snapshot.source(), updated)
+  assert_eq(snapshot.blocks().to_array()[1].text(), "After")
+  assert_eq(attachment.document(), fresh_markdown_ir(updated))
+  attachment.dispose()
+}
+
 /// #1075 behavioral boundary matrix
 /// Syntax: tight top-level unordered and ordered (`.`/`)`, non-1) list items,
 /// fenced backtick/tilde code; terminators: LF/CRLF/CR/EOF; operations:

@@ -10,6 +10,10 @@ import {
   "moonbitlang/core/immut/vector",
 }
 
+import {
+  "dowdiness/loom",
+} for "wbtest"
+
 warnings = "-7-29"
 
 options(

@@ -1,7 +1,7 @@
 // Message/no-op contract pins for apply_markdown_edit error paths (S3
 // lang/runtime migration safety net —
-// docs/plans/2026-06-11-s3-lang-runtime-extraction.md Step 3). Expectations
-// are frozen; do not regenerate them by calling the migrated path.
+// docs/plans/2026-06-11-s3-lang-runtime-extraction.md Step 3). Message
+// templates are frozen; runtime-owned NodeId values come from the request.
 
 ///|
 test "apply_markdown_edit pin: merge on first block -> silent no-op" {
@@ -48,12 +48,7 @@ test "apply_markdown_edit pin: absent node id -> compute error" {
       0,
     ) {
     Err(msg) =>
-      inspect(
-        msg,
-        content=(
-          #|compute_markdown_edit: node NodeId(3) not found
-        ),
-      )
+      assert_eq(msg, "compute_markdown_edit: node \{last.id()} not found")
     Ok(_) => fail("expected Err for absent node id")
   }
 }

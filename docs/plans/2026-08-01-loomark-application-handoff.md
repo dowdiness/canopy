@@ -1,6 +1,6 @@
 # Loomark application handoff
 
-Status: staged handoff — application behavior is gated by adoption of merged Rabbita #142, Canopy #1045, and the Foundation through #1103. The canonical public Browser App/Session, teardown/remount claims, production adapters, and Waku cutover remain additionally gated by Rabbita #141. This is the sole implementation plan for the accepted #1060, #1062–#1067, and #1070 decisions; the pure core prototype is evidence only.
+Status: staged handoff — the Foundation and private Application Train through #1075 are complete. #1145 is the current pre-#141 semantic Preview slice. The canonical public Browser App/Session, teardown/remount claims, production adapters, and Waku cutover remain gated by Rabbita #141. This is the sole implementation plan for the accepted #1060, #1062–#1067, #1070, and #1145 decisions; the pure core prototype is evidence only.
 
 ## Why
 
@@ -224,6 +224,38 @@ Rabbita #141 is intentionally not an Application Train gate. It remains the nati
 3. #1075 only after green committed #1074: ordered/unordered lists and fenced code. Defer unsupported moves/containers, rich inline, diagnostics UI, adapters, Waku.
 
 Each ticket begins with behavioral matrix and first RED test, makes one logical commit, and reruns affected evidence after commit/amend/rebase, manifest/generated-interface change, or base movement.
+
+### Source-aware semantic Preview
+
+Issue #1145 follows the completed private Application Train and does not wait for
+Rabbita #141. It attaches one `MarkdownSemanticAttachment` to the exact parser
+created for the private Loomark editor and retains it for the existing
+page/process lifetime. Raw and Block keep the editable `Block` projection;
+Preview alone holds an owning `MarkdownIR` read model. The ordinary headless
+`MarkdownEditor` constructor remains attachment-free. `SyncEditor` privately
+roots the three projection memos it already owns for the editor lifetime, so
+attachment collection cannot sweep the editable projection graph without
+adding a public disposal or reactive interface. The ownership decision is
+recorded in
+[Markdown semantic Preview ownership](../decisions/2026-08-04-markdown-semantic-preview-ownership.md).
+
+| Boundary | Accepted transition | Semantic read | Required observation |
+| --- | --- | --- | --- |
+| Private mount | construct editor and attachment over one parser | none while initial mode is Raw | one attachment; ordinary constructor unchanged |
+| Raw/Block → Preview | committed mode transition | once after transition acceptance | current complete MarkdownIR renders through typed Rabbita HTML |
+| Preview source/block edit | editor commit succeeds | once after commit | Raw, Block, and Preview reflect the same canonical source |
+| Preview no-op or rejected edit | no committed source change | none | prior owning Preview document and focus remain visible |
+| Snapshot restore to Preview | source/mode transaction succeeds | once after acceptance | restored source and semantic document appear atomically |
+| Snapshot restore outside Preview | transaction succeeds | none; semantic model may be cleared | editable source/projection behavior is unchanged |
+| Prepend, position shift, exact reversal | commit succeeds in Preview | once per committed edit | attached result matches fresh one-shot MarkdownIR lowering |
+| Malformed intermediate input | parser accepts recovered source | once per committed edit in Preview | `Raw`/`Recovered` are visible; no last-good substitution |
+| Valid inline/block HTML | semantic render | no extra read | literal content is escaped text, never injected DOM markup |
+| Repeated mode switches and mount rejection | accepted transition / rejected second mount | only non-Preview → Preview reads | attachment count stays one; existing single-mount contract stays green |
+
+The deterministic renderer exhaustively matches `MarkdownIRView`. It consumes
+an already-owned document and performs no parser, attachment, DOM, clock,
+subscription, or `document()` effect. Reading the attachment and installing the
+owning document remain imperative-shell work at the committed boundaries above.
 
 ### Canonical Session, adapters, and Waku
 
