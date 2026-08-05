@@ -12,9 +12,10 @@ priv enum DriverEvent {
   BlockHeading(Int, BlockSelection?)
   BlockToggleList(BlockSelection?)
   BlockDelete
-  RawInput(String)
+  RawInput(String, @dom_boundary.TextSelection?)
   BlockInput(
     node_id~ : @markdown.MarkdownNodeId,
+    input_id~ : String,
     text~ : String,
     selection_offset~ : Int
   )
@@ -106,6 +107,50 @@ fn preview_document_decision(
 }
 
 ///|
+/// Map one live offset from a rejected contiguous edit back into the accepted
+/// text's UTF-16 coordinates.
+fn rejected_text_offset(
+  accepted_source : String,
+  rejected_source : String,
+  offset : Int,
+) -> Int {
+  let change = @text_change.compute_text_change(
+    accepted_source, rejected_source,
+  )
+  let inserted_len = change.inserted.length()
+  let inserted_end = change.start + inserted_len
+  let mapped = if offset <= change.start {
+    offset
+  } else if offset >= inserted_end {
+    offset - inserted_len + change.delete_len
+  } else {
+    change.start
+  }
+  mapped.clamp(min=0, max=accepted_source.length())
+}
+
+///|
+/// Map a live selection from one rejected contiguous edit back into the
+/// accepted source's UTF-16 coordinates.
+fn rejected_text_selection(
+  accepted_source : String,
+  rejected_source : String,
+  selection : @dom_boundary.TextSelection,
+) -> @dom_boundary.TextSelection {
+  let start = rejected_text_offset(
+    accepted_source,
+    rejected_source,
+    selection.start(),
+  )
+  let end = rejected_text_offset(
+    accepted_source,
+    rejected_source,
+    selection.end(),
+  ).clamp(min=start, max=accepted_source.length())
+  @dom_boundary.TextSelection(start, end, selection.direction())
+}
+
+///|
 priv struct DriverModel {
   state : @core.ApplicationState
   document : @markdown.MarkdownDocumentSnapshot
@@ -123,10 +168,6 @@ priv struct DriverModel {
   error_count : Int
   committed_change_count : Int
   fail_next_editor_commit : Bool
-  /// Rendering epoch used only to remount Raw after a rejected commit.
-  raw_surface_revision : Int
-  /// Rendering epoch used only to remount Block controls after rejection.
-  block_surface_revision : Int
   resize_count : Int
   selection : String?
   measurement : String?
@@ -397,11 +438,7 @@ fn commit_source(
         operation,
         "editor commit failed: " + editor_error_detail(error),
       )
-      (
-        { ..failed, raw_surface_revision: model.raw_surface_revision + 1 },
-        false,
-        false,
-      )
+      (failed, false, false)
     }
   }
 }
@@ -444,7 +481,7 @@ fn commit_block_request(
   model : DriverModel,
   request : @markdown.MarkdownEditRequest,
   operation : String,
-) -> (DriverModel, @markdown.MarkdownBlockSelection?) {
+) -> (DriverModel, @markdown.MarkdownBlockSelection?, Bool) {
   let fail_commit = model.fail_next_editor_commit
   let next = { ..model, fail_next_editor_commit: false }
   let request = if fail_commit {
@@ -473,6 +510,7 @@ fn commit_block_request(
           changed=true,
         ),
         selection,
+        true,
       )
     }
     Ok(@markdown.Unchanged(document)) =>
@@ -485,6 +523,7 @@ fn commit_block_request(
           changed=false,
         ),
         None,
+        true,
       )
     Err(error) => {
       let failed = record_error(
@@ -493,19 +532,16 @@ fn commit_block_request(
         operation,
         "editor commit failed: " + editor_error_detail(error),
       )
-      let committed = {
-        ..failed,
-        block_surface_revision: model.block_surface_revision + 1,
-      }
       (
         update_preview_document(
           attachment,
-          committed,
+          failed,
           preview_requested(model),
           accepted=false,
           changed=false,
         ),
         None,
+        false,
       )
     }
   }
@@ -523,7 +559,7 @@ fn commit_block_toolbar_request(
   control_id : String,
   emit : @cmd.Emit[DriverEvent],
 ) -> (DriverModel, @cmd.Cmd) {
-  let (committed, committed_selection) = commit_block_request(
+  let (committed, committed_selection, _) = commit_block_request(
     editor, attachment, model, request, "editor-dispatch",
   )
   let selection = committed_selection.bind(selection => {
@@ -607,7 +643,6 @@ fn publish(model : DriverModel) -> Unit {
     "error_count": model.error_count.to_json(),
     "committed_change_count": model.committed_change_count.to_json(),
     "editor_failure_armed": model.fail_next_editor_commit.to_json(),
-    "block_surface_revision": model.block_surface_revision.to_json(),
     "resize_count": model.resize_count.to_json(),
     "selection": match model.selection {
       Some(selection) => selection.to_json()
@@ -664,34 +699,41 @@ fn preview_document_surface(model : DriverModel) -> @rabbita_runtime.Html {
 fn editor_surface(
   model : DriverModel,
   emit : @cmd.Emit[DriverEvent],
-) -> Map[String, @rabbita_runtime.Html] {
+) -> @rabbita_runtime.Html {
   let source = model.document.source()
   match model.state.mode() {
     @core.Raw =>
-      Map([
-        (
-          "raw|" + model.raw_surface_revision.to_string(),
-          @rui.textarea(
-            id="loomark-input",
-            value=source,
-            rows=4,
-            attrs=@html.Attrs::build().aria_label("Raw Markdown source"),
-            style=[
-              "min-height:clamp(24rem,70vh,36rem);flex:1;field-sizing:fixed;resize:none;--rui-control-base-border:transparent;--rui-control-base-shadow:none;border-radius:0;background:transparent;padding:1rem;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,\"Liberation Mono\",\"Courier New\",monospace;font-size:0.875rem;line-height:1.65",
-            ],
-            on_input=emit.map(source => RawInput(source)),
-          ),
-        ),
-      ])
-    @core.Preview => { "preview": preview_document_surface(model) }
-    @core.Block =>
-      Map([
-        (
-          "block|" + model.block_surface_revision.to_string(),
-          block_surface(model, emit),
-        ),
-      ])
+      @rui.textarea(
+        id="loomark-input",
+        value=source,
+        rows=4,
+        attrs=@html.Attrs::build().aria_label("Raw Markdown source"),
+        style=[
+          "min-height:clamp(24rem,70vh,36rem);flex:1;field-sizing:fixed;resize:none;--rui-control-base-border:transparent;--rui-control-base-shadow:none;border-radius:0;background:transparent;padding:1rem;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,\"Liberation Mono\",\"Courier New\",monospace;font-size:0.875rem;line-height:1.65",
+        ],
+        on_input=@cmd.Emit(source => raw_input_command(source, emit)),
+      )
+    @core.Preview => preview_document_surface(model)
+    @core.Block => block_surface(model, emit)
   }
+}
+
+///|
+/// Capture the live Raw selection before the accepted model may need to repair
+/// a rejected controlled value on the same textarea node.
+fn raw_input_command(
+  source : String,
+  emit : @cmd.Emit[DriverEvent],
+) -> @cmd.Cmd {
+  @cmd.custom_cmd(scheduler => {
+    let selection = @dom_boundary.read_text_selection_id("loomark-input") catch {
+      error => {
+        scheduler.add(emit(EffectFailed(error.message())))
+        return
+      }
+    }
+    scheduler.add(emit(RawInput(source, Some(selection))))
+  })
 }
 
 ///|
@@ -713,6 +755,7 @@ fn block_input_command(
       emit(
         BlockInput(
           node_id=block.node_id(),
+          input_id~,
           text~,
           selection_offset=selection.end(),
         ),
@@ -1042,7 +1085,7 @@ fn driver_event_name(event : DriverEvent) -> String {
     BlockHeading(_, _) => "block-heading"
     BlockToggleList(_) => "block-toggle-list"
     BlockDelete => "block-delete"
-    RawInput(_) => "raw-input"
+    RawInput(_, _) => "raw-input"
     BlockInput(..) => "block-input"
     BlockSplit(..) => "block-split"
     BlockMerge(..) => "block-merge"
@@ -1107,7 +1150,7 @@ fn parse_driver_event(detail : String) -> DriverEvent {
   } else if detail.has_prefix("source|") {
     ReplaceSource(detail["source|".length():].to_owned())
   } else if detail.has_prefix("raw-input|") {
-    RawInput(detail["raw-input|".length():].to_owned())
+    RawInput(detail["raw-input|".length():].to_owned(), None)
   } else if detail == "editor-failure" {
     EditorFailure
   } else if detail.has_prefix("restore-focus|") {
@@ -1188,7 +1231,7 @@ fn update_model(
     publish(next)
     return (next, @rabbita_runtime.none)
   }
-  if model.state.mode() != @core.Raw && event is RawInput(_) {
+  if model.state.mode() != @core.Raw && event is RawInput(_, _) {
     let next = record_error(
       model, "mode-inapplicable", "editor-dispatch", "Raw input is unavailable outside Raw mode",
     )
@@ -1213,12 +1256,18 @@ fn update_model(
     return (next, @rabbita_runtime.none)
   }
   match event {
-    ReplaceSource(source) | RawInput(source) => {
+    ReplaceSource(source) | RawInput(source, _) => {
+      let raw_selection = match event {
+        RawInput(_, selection) => selection
+        _ => None
+      }
+      let raw_event = event is RawInput(_, _)
       let transition = @core.reduce(
         model.state,
         @core.ApplicationEvent::RequestCanonicalSource(source~),
       )
       let mut next = model
+      let mut restore_raw_value = false
       for decision in transition.decisions() {
         match decision {
           @core.ReplaceCanonicalSource(source) => {
@@ -1237,6 +1286,7 @@ fn update_model(
               accepted~,
               changed~,
             )
+            restore_raw_value = restore_raw_value || (raw_event && !accepted)
           }
           @core.SnapshotRejected(_) =>
             next = record_error(
@@ -1245,7 +1295,27 @@ fn update_model(
         }
       }
       publish(next)
-      (next, @rabbita_runtime.none)
+      let command = if restore_raw_value {
+        after_render(
+          scheduler => {
+            ignore(scheduler)
+            let accepted_source = next.document.source()
+            @dom_boundary.write_text_value_id("loomark-input", accepted_source)
+            match raw_selection {
+              Some(selection) =>
+                @dom_boundary.write_text_selection_id(
+                  "loomark-input",
+                  rejected_text_selection(accepted_source, source, selection),
+                )
+              None => ()
+            }
+          },
+          emit,
+        )
+      } else {
+        @rabbita_runtime.none
+      }
+      (next, command)
     }
     BlockFocused(key) =>
       if model.active_block_key == Some(key) {
@@ -1401,14 +1471,14 @@ fn update_model(
             emit,
           )
       }
-    BlockInput(node_id~, text~, selection_offset~) => {
-      let (next, committed_selection) = commit_block_request(
+    BlockInput(node_id~, input_id~, text=proposed_text, selection_offset~) => {
+      let (next, committed_selection, accepted) = commit_block_request(
         editor,
         attachment,
         model,
         @markdown.MarkdownEditRequest::CommitTextControlEdit(
           node_id~,
-          new_text=text,
+          new_text=proposed_text,
         ),
         "editor-dispatch",
       )
@@ -1444,11 +1514,55 @@ fn update_model(
               emit,
             ),
           )
-        None => (next, @rabbita_runtime.none)
+        None =>
+          if accepted {
+            (next, @rabbita_runtime.none)
+          } else {
+            let accepted_text = next.document
+              .blocks()
+              .fold(init=None, (found, block) => {
+                match found {
+                  Some(_) => found
+                  None =>
+                    if block.node_id() == node_id {
+                      Some(block.text())
+                    } else {
+                      None
+                    }
+                }
+              })
+            match accepted_text {
+              Some(text) => {
+                let offset = rejected_text_offset(
+                  text, proposed_text, selection_offset,
+                )
+                (
+                  next,
+                  after_render(
+                    scheduler => {
+                      ignore(scheduler)
+                      @dom_boundary.write_text_value_id(input_id, text)
+                      @dom_boundary.focus_id(input_id)
+                      @dom_boundary.write_text_selection_id(
+                        input_id,
+                        @dom_boundary.TextSelection(
+                          offset,
+                          offset,
+                          @dom_boundary.NoDirection,
+                        ),
+                      )
+                    },
+                    emit,
+                  ),
+                )
+              }
+              None => (next, @rabbita_runtime.none)
+            }
+          }
       }
     }
     BlockSplit(node_id~, offset~) => {
-      let (next, committed_selection) = commit_block_request(
+      let (next, committed_selection, _) = commit_block_request(
         editor,
         attachment,
         model,
@@ -1486,7 +1600,7 @@ fn update_model(
       }
     }
     BlockMerge(node_id~, selection=originating_selection) => {
-      let (next, committed_selection) = commit_block_request(
+      let (next, committed_selection, _) = commit_block_request(
         editor,
         attachment,
         model,
@@ -2161,8 +2275,6 @@ pub fn mount(host_id : String, source : String) -> String {
     error_count: 0,
     committed_change_count: 0,
     fail_next_editor_commit: false,
-    raw_surface_revision: 0,
-    block_surface_revision: 0,
     resize_count: 0,
     selection: None,
     measurement: None,

@@ -265,6 +265,32 @@ test("Raw and Preview observe one accepted document in a fixed resizable split",
   }
 })
 
+test("Raw keeps focus and accepts consecutive keystrokes while split Preview updates", async ({ browser }) => {
+  const host = await mountHost(browser, "start")
+  try {
+    await toggleSplitPreview(host.page)
+    const input = host.page.locator("#loomark-input")
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length)
+    })
+
+    for (const character of ["a", "b", "c"]) {
+      await host.page.keyboard.type(character)
+      await expect.poll(() => host.page.evaluate(() => document.activeElement?.id)).toBe(
+        "loomark-input",
+      )
+    }
+
+    await expect(input).toHaveValue("startabc")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("startabc")
+    await expectPreviewSource(host.page, "startabc")
+  } finally {
+    await host.context.close()
+  }
+})
+
 test("split divider resizes by keyboard and exposes its current width", async ({ browser }) => {
   const host = await mountHost(browser, "# Resize\n")
   try {
@@ -1062,9 +1088,14 @@ test("Block input editor failure preserves its committed payload atomically", as
   const host = await mountHost(browser, "Stable\n")
   try {
     await selectBlock(host.page)
+    const input = host.page.locator("#loomark-block-input")
+    await input.focus()
+    await input.evaluate(element => {
+      Object.assign(element, { __loomarkIdentity: "preserved" })
+    })
     await forceEditorFailure(host.page)
     await expect.poll(async () => (await snapshot(host.page)).editor_failure_armed).toBe(true)
-    await host.page.locator("#loomark-block-input").fill("Rejected")
+    await input.fill("Rejected")
     await expect.poll(async () => (await snapshot(host.page)).error_code).toBe("editor-commit-failed")
     expect(await snapshot(host.page)).toMatchObject({
       source: "Stable\n",
@@ -1072,7 +1103,46 @@ test("Block input editor failure preserves its committed payload atomically", as
       committed_change_count: 0,
       editor_failure_armed: false,
     })
-    await expect(host.page.locator("#loomark-block-input")).toHaveValue("Stable")
+    await expect(input).toHaveValue("Stable")
+    await expect(input).toBeFocused()
+    await expect.poll(() => input.evaluate(
+      element => (element as HTMLTextAreaElement & { __loomarkIdentity?: string }).__loomarkIdentity,
+    )).toBe("preserved")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("rejected Block insertion restores a UTF-16 caret to its accepted position", async ({ browser }) => {
+  const host = await mountHost(browser, "A😀B\n")
+  try {
+    await selectBlock(host.page)
+    const input = host.page.locator("#loomark-block-input")
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(3, 3)
+      Object.assign(textarea, { __loomarkIdentity: "preserved" })
+    })
+    await forceEditorFailure(host.page)
+    await expect.poll(async () => (await snapshot(host.page)).editor_failure_armed).toBe(true)
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(3, 3)
+    })
+    await host.page.keyboard.type("X")
+
+    await expect.poll(async () => (await snapshot(host.page)).error_code).toBe("editor-commit-failed")
+    await expect(input).toHaveValue("A😀B")
+    await expect(input).toBeFocused()
+    await expect.poll(() => input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      return `${textarea.selectionStart}:${textarea.selectionEnd}`
+    })).toBe("3:3")
+    await expect.poll(() => input.evaluate(
+      element => (element as HTMLTextAreaElement & { __loomarkIdentity?: string }).__loomarkIdentity,
+    )).toBe("preserved")
   } finally {
     await host.context.close()
   }
@@ -1429,14 +1499,20 @@ test("Raw textarea editor failure preserves committed state and consumes the arm
   const host = await mountHost(browser, "before\n")
   try {
     await selectRaw(host.page)
-    await expect(host.page.locator("#loomark-input")).toHaveValue("before\n")
+    const input = host.page.locator("#loomark-input")
+    await expect(input).toHaveValue("before\n")
+    await input.focus()
+    await input.evaluate(element => {
+      Object.assign(element, { __loomarkIdentity: "preserved" })
+    })
     await forceEditorFailure(host.page)
     await expect.poll(async () => (await snapshot(host.page)).editor_failure_armed).toBe(true)
     const before = await snapshot(host.page)
 
-    await host.page.locator("#loomark-input").evaluate(element => {
+    await input.evaluate(element => {
       const textarea = element as HTMLTextAreaElement
       textarea.value = "failed edit\n"
+      textarea.setSelectionRange(3, 6, "backward")
       textarea.dispatchEvent(new Event("input", { bubbles: true }))
     })
     await expect.poll(async () => (await snapshot(host.page)).error_code).toBe("editor-commit-failed")
@@ -1449,7 +1525,15 @@ test("Raw textarea editor failure preserves committed state and consumes the arm
       error_operation: "editor-dispatch",
       editor_failure_armed: false,
     })
-    await expect(host.page.locator("#loomark-input")).toHaveValue("before\n")
+    await expect(input).toHaveValue("before\n")
+    await expect(input).toBeFocused()
+    await expect.poll(() => input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      return `${textarea.selectionStart}:${textarea.selectionEnd}`
+    })).toBe("0:0")
+    await expect.poll(() => input.evaluate(
+      element => (element as HTMLTextAreaElement & { __loomarkIdentity?: string }).__loomarkIdentity,
+    )).toBe("preserved")
   } finally {
     await host.context.close()
   }
@@ -1473,6 +1557,35 @@ test("Raw textarea editor failure can be retried and reflected in Preview", asyn
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("retried edit\n")
     await selectPreview(host.page)
     await expectPreviewSource(host.page, "retried edit\n")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("rejected Raw insertion restores a UTF-16 caret to its accepted position", async ({ browser }) => {
+  const host = await mountHost(browser, "A😀B")
+  try {
+    const input = host.page.locator("#loomark-input")
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(3, 3)
+      Object.assign(textarea, { __loomarkIdentity: "preserved" })
+    })
+    await forceEditorFailure(host.page)
+    await expect.poll(async () => (await snapshot(host.page)).editor_failure_armed).toBe(true)
+    await host.page.keyboard.type("X")
+
+    await expect.poll(async () => (await snapshot(host.page)).error_code).toBe("editor-commit-failed")
+    await expect(input).toHaveValue("A😀B")
+    await expect(input).toBeFocused()
+    await expect.poll(() => input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      return `${textarea.selectionStart}:${textarea.selectionEnd}`
+    })).toBe("3:3")
+    await expect.poll(() => input.evaluate(
+      element => (element as HTMLTextAreaElement & { __loomarkIdentity?: string }).__loomarkIdentity,
+    )).toBe("preserved")
   } finally {
     await host.context.close()
   }

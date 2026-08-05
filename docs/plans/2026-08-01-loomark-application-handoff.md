@@ -197,7 +197,7 @@ Focus tokens are opaque logical locators, not DOM/session identity. Their privat
 | supported/rejected MoveBlock | lang/markdown/edits/compute_markdown_edit_wbtest.mbt | edit + approved Waku subset |
 | IME final commit, version/errors/reentrancy | absent | #1076 core + Vanilla contract |
 | mount ownership/full remount | absent | #1072 Vanilla contract; Waku cutover subset |
-| selection/measurement/listener | modules/dom-boundary additions | boundary; Rabbita wiring only |
+| text value/selection/measurement/listener | modules/dom-boundary additions | boundary; Rabbita wiring only |
 | React/Vue | absent | lifecycle tests plus real-binding smoke |
 
 ## Ordered graph
@@ -273,6 +273,13 @@ are deliberately absent from `MarkdownSnapshotV1`, focus tokens, and the future
 public Browser Session contract. Full Preview temporarily replaces the split
 layout without discarding the private split preference; returning to Raw or
 Block restores the two-surface view without another semantic read.
+
+Accepted Raw and Block input keeps each mounted textarea node stable across
+renders. A rejected controlled edit also keeps that node: after rendering the
+unchanged accepted model, the imperative shell restores the accepted value
+through `dom-boundary` and reapplies any required focus/caret. Rejection does
+not use a rendering epoch, keyed relocation, or remove/add remount to repair a
+live DOM value that diverged from the accepted document.
 
 The divider reuses `modules/rabbita-resizable` for its pure clamped model,
 mouse subscription, keyboard nudges, and separator ARIA values. Loomark owns

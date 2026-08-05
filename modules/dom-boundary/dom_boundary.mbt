@@ -11,6 +11,7 @@ pub(all) enum DomAction {
   Click
   ScrollIntoView
   ReadTextSelection
+  WriteTextValue
   WriteTextSelection
   MeasureElement
   DispatchCustomEvent
@@ -213,6 +214,22 @@ pub fn read_text_selection_selector(
   selector : String,
 ) -> TextSelection raise DomBoundaryError {
   read_text_selection_target(LOOKUP_SELECTOR, selector, Selector(selector))
+}
+
+///|
+pub fn write_text_value_id(
+  id : String,
+  value : String,
+) -> Unit raise DomBoundaryError {
+  write_text_value_target(LOOKUP_ID, id, Id(id), value)
+}
+
+///|
+pub fn write_text_value_selector(
+  selector : String,
+  value : String,
+) -> Unit raise DomBoundaryError {
+  write_text_value_target(LOOKUP_SELECTOR, selector, Selector(selector), value)
 }
 
 ///|

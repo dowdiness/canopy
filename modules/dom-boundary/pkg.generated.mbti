@@ -42,6 +42,10 @@ pub fn write_text_selection_id(String, TextSelection) -> Unit raise DomBoundaryE
 
 pub fn write_text_selection_selector(String, TextSelection) -> Unit raise DomBoundaryError
 
+pub fn write_text_value_id(String, String) -> Unit raise DomBoundaryError
+
+pub fn write_text_value_selector(String, String) -> Unit raise DomBoundaryError
+
 // Errors
 pub(all) suberror DomBoundaryError {
   DocumentUnavailable
@@ -66,6 +70,7 @@ pub(all) enum DomAction {
   Click
   ScrollIntoView
   ReadTextSelection
+  WriteTextValue
   WriteTextSelection
   MeasureElement
   DispatchCustomEvent

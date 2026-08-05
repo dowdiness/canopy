@@ -235,6 +235,26 @@ fn read_text_selection_target(
 }
 
 ///|
+fn write_text_value_target(
+  lookup_kind : String,
+  raw_target : String,
+  target : DomTarget,
+  value : String,
+) -> Unit raise DomBoundaryError {
+  let element = resolve_target(lookup_kind, raw_target, WriteTextValue, target)
+  let supported : Bool = run_dom_operation(WriteTextValue, target, () => {
+    @js.any(@js.any(element).get("value").type_of() == "string")
+  }).cast()
+  guard supported else {
+    raise UnsupportedAction(action=WriteTextValue, target~)
+  }
+  let _ = run_dom_operation(WriteTextValue, target, () => {
+    @js.any(element).set("value", @js.any(value))
+    @js.undefined()
+  })
+}
+
+///|
 fn decode_text_selection_direction(
   direction : String,
   target : DomTarget,
@@ -481,6 +501,7 @@ fn DomAction::describe(self : DomAction) -> String {
     Click => "click"
     ScrollIntoView => "scrollIntoView"
     ReadTextSelection => "readTextSelection"
+    WriteTextValue => "writeTextValue"
     WriteTextSelection => "writeTextSelection"
     MeasureElement => "measureElement"
     DispatchCustomEvent => "dispatchCustomEvent"
