@@ -97,9 +97,17 @@ fn application_surface(
           id="loomark-split-handle",
           attrs=handle_attrs,
           style=[
-            "width:1px;flex:0 0 1px;background:var(--rui-border);outline-offset:3px;cursor:col-resize",
+            "position:relative;z-index:1;width:1px;flex:0 0 1px;background:var(--rui-border);outline-offset:6px;cursor:col-resize",
           ],
-          @html.nothing,
+          @html.span(
+            attrs=@html.Attrs::build()
+              .data_set("slot", "resizable-handle-hit-area")
+              .aria_hidden("true"),
+            style=[
+              "position:absolute;z-index:2;left:-6px;top:0;width:13px;height:100%;cursor:col-resize;background:transparent;touch-action:none;user-select:none",
+            ],
+            "",
+          ),
         ),
         @html.div(
           attrs=@html.Attrs::build()

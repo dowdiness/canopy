@@ -307,11 +307,13 @@ test("split divider resizes by keyboard and exposes its current width", async ({
       "392px",
     )
 
-    const bounds = await handle.boundingBox()
+    const hitArea = host.page.locator('[data-slot="resizable-handle-hit-area"]')
+    const bounds = await hitArea.boundingBox()
     expect(bounds).not.toBeNull()
-    await host.page.mouse.move(bounds!.x, bounds!.y + bounds!.height / 2)
+    expect(bounds!.width).toBeGreaterThanOrEqual(12)
+    await host.page.mouse.move(bounds!.x + 1, bounds!.y + bounds!.height / 2)
     await host.page.mouse.down()
-    await host.page.mouse.move(bounds!.x + 40, bounds!.y + bounds!.height / 2)
+    await host.page.mouse.move(bounds!.x + 41, bounds!.y + bounds!.height / 2)
     await host.page.mouse.up()
 
     await expect(handle).toHaveAttribute("aria-valuenow", "432")
@@ -1113,7 +1115,7 @@ test("Block input editor failure preserves its committed payload atomically", as
   }
 })
 
-test("rejected Block insertion restores a UTF-16 caret to its accepted position", async ({ browser }) => {
+test("rejected Block insertion restores a UTF-16 text cursor to its accepted position", async ({ browser }) => {
   const host = await mountHost(browser, "A😀B\n")
   try {
     await selectBlock(host.page)
@@ -1143,6 +1145,38 @@ test("rejected Block insertion restores a UTF-16 caret to its accepted position"
     await expect.poll(() => input.evaluate(
       element => (element as HTMLTextAreaElement & { __loomarkIdentity?: string }).__loomarkIdentity,
     )).toBe("preserved")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("rejected Block repair yields to a newer same-frame input", async ({ browser }) => {
+  const host = await mountHost(browser, "start\n")
+  try {
+    await selectBlock(host.page)
+    const input = host.page.locator("#loomark-block-input")
+    await input.focus()
+    await forceEditorFailure(host.page)
+    await expect.poll(async () => (await snapshot(host.page)).editor_failure_armed).toBe(true)
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      for (const value of ["startX", "startXY"]) {
+        textarea.value = value
+        textarea.setSelectionRange(value.length, value.length)
+        textarea.dispatchEvent(new Event("input", { bubbles: true }))
+      }
+    })
+    await host.page.evaluate(() => new Promise<void>(resolve => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    }))
+
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("startXY\n")
+    await expect(input).toHaveValue("startXY")
+    await expect(input).toBeFocused()
+    await expect.poll(() => input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      return `${textarea.selectionStart}:${textarea.selectionEnd}`
+    })).toBe("7:7")
   } finally {
     await host.context.close()
   }
@@ -1587,7 +1621,7 @@ test("Raw textarea editor failure can be retried and reflected in Preview", asyn
   }
 })
 
-test("rejected Raw insertion restores a UTF-16 caret to its accepted position", async ({ browser }) => {
+test("rejected Raw insertion restores a UTF-16 text cursor to its accepted position", async ({ browser }) => {
   const host = await mountHost(browser, "A😀B")
   try {
     const input = host.page.locator("#loomark-input")
@@ -1611,6 +1645,37 @@ test("rejected Raw insertion restores a UTF-16 caret to its accepted position", 
     await expect.poll(() => input.evaluate(
       element => (element as HTMLTextAreaElement & { __loomarkIdentity?: string }).__loomarkIdentity,
     )).toBe("preserved")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("rejected Raw repair yields to a newer same-frame input", async ({ browser }) => {
+  const host = await mountHost(browser, "start")
+  try {
+    const input = host.page.locator("#loomark-input")
+    await input.focus()
+    await forceEditorFailure(host.page)
+    await expect.poll(async () => (await snapshot(host.page)).editor_failure_armed).toBe(true)
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      for (const value of ["startX", "startXY"]) {
+        textarea.value = value
+        textarea.setSelectionRange(value.length, value.length)
+        textarea.dispatchEvent(new Event("input", { bubbles: true }))
+      }
+    })
+    await host.page.evaluate(() => new Promise<void>(resolve => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    }))
+
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("startXY")
+    await expect(input).toHaveValue("startXY")
+    await expect(input).toBeFocused()
+    await expect.poll(() => input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      return `${textarea.selectionStart}:${textarea.selectionEnd}`
+    })).toBe("7:7")
   } finally {
     await host.context.close()
   }

@@ -277,13 +277,14 @@ Block restores the two-surface view without another semantic read.
 Accepted Raw and Block input keeps each mounted textarea node stable across
 renders. A rejected controlled edit also keeps that node: after rendering the
 unchanged accepted model, the imperative shell restores the accepted value
-through `dom-boundary` and reapplies any required focus/caret. Rejection does
-not use a rendering epoch, keyed relocation, or remove/add remount to repair a
-live DOM value that diverged from the accepted document.
+through `dom-boundary` and reapplies any required focus/text cursor. Rejection
+does not use a rendering epoch, keyed relocation, or remove/add remount to
+repair a live DOM value that diverged from the accepted document.
 
 The divider reuses `modules/rabbita-resizable` for its pure clamped model,
 mouse subscription, keyboard nudges, and separator ARIA values. Loomark owns
-only Pane composition and styling in `internal/rabbita/split_view.mbt`. The
+only Pane composition and styling in `internal/rabbita/split_view.mbt`,
+including a wider invisible hit area around the one-pixel divider line. The
 first increment keeps a horizontal two-Pane layout and caps the editing Pane at
 half of narrow containers so both surfaces remain within the viewport.
 

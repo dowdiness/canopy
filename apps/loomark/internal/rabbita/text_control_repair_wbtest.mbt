@@ -1,5 +1,5 @@
 ///|
-test "rejected insertion maps a non-BMP UTF-16 caret back to accepted source" {
+test "rejected insertion maps a non-BMP UTF-16 text cursor back to accepted source" {
   let selection = rejected_text_selection(
     "A😀B",
     "A😀XB",

@@ -89,6 +89,7 @@ priv struct DriverModel {
   active_block_key : String?
   replica_id : String
   source_revision : Int
+  text_input_generation : Int
   fatal : Bool
   error : String?
   error_code : String?
@@ -1114,7 +1115,11 @@ fn update_model(
         model.state,
         @core.ApplicationEvent::RequestCanonicalSource(source~),
       )
-      let mut next = model
+      let mut next = if raw_event {
+        { ..model, text_input_generation: model.text_input_generation + 1 }
+      } else {
+        model
+      }
       let mut restore_raw_value = false
       for decision in transition.decisions() {
         match decision {
@@ -1144,18 +1149,31 @@ fn update_model(
       }
       publish(next)
       let command = if restore_raw_value {
+        let repair_generation = next.text_input_generation
+        let repair_source_revision = next.source_revision
         after_render(
           scheduler => {
             ignore(scheduler)
             let accepted_source = next.document.source()
-            @dom_boundary.write_text_value_id("loomark-input", accepted_source)
-            match raw_selection {
-              Some(selection) =>
-                @dom_boundary.write_text_selection_id(
-                  "loomark-input",
-                  rejected_text_selection(accepted_source, source, selection),
+            match detached_model.val {
+              Some(current) if current.state.mode() == @core.Raw &&
+                current.text_input_generation == repair_generation &&
+                current.source_revision == repair_source_revision => {
+                @dom_boundary.write_text_value_id(
+                  "loomark-input", accepted_source,
                 )
-              None => ()
+                match raw_selection {
+                  Some(selection) =>
+                    @dom_boundary.write_text_selection_id(
+                      "loomark-input",
+                      rejected_text_selection(
+                        accepted_source, source, selection,
+                      ),
+                    )
+                  None => ()
+                }
+              }
+              _ => ()
             }
           },
           emit,
@@ -1341,6 +1359,7 @@ fn update_model(
       }
       let next = {
         ..next,
+        text_input_generation: model.text_input_generation + 1,
         active_block_key: match selection {
           Some(selection) => Some(selection.key)
           None => model.active_block_key
@@ -1384,21 +1403,30 @@ fn update_model(
                 let offset = rejected_text_offset(
                   text, proposed_text, selection_offset,
                 )
+                let repair_generation = next.text_input_generation
+                let repair_source_revision = next.source_revision
                 (
                   next,
                   after_render(
                     scheduler => {
                       ignore(scheduler)
-                      @dom_boundary.write_text_value_id(input_id, text)
-                      @dom_boundary.focus_id(input_id)
-                      @dom_boundary.write_text_selection_id(
-                        input_id,
-                        @dom_boundary.TextSelection(
-                          offset,
-                          offset,
-                          @dom_boundary.NoDirection,
-                        ),
-                      )
+                      match detached_model.val {
+                        Some(current) if current.state.mode() == @core.Block &&
+                          current.text_input_generation == repair_generation &&
+                          current.source_revision == repair_source_revision => {
+                          @dom_boundary.write_text_value_id(input_id, text)
+                          @dom_boundary.focus_id(input_id)
+                          @dom_boundary.write_text_selection_id(
+                            input_id,
+                            @dom_boundary.TextSelection(
+                              offset,
+                              offset,
+                              @dom_boundary.NoDirection,
+                            ),
+                          )
+                        }
+                        _ => ()
+                      }
                     },
                     emit,
                   ),
@@ -2116,6 +2144,7 @@ pub fn mount(host_id : String, source : String) -> String {
     active_block_key: None,
     replica_id,
     source_revision: 0,
+    text_input_generation: 0,
     fatal: false,
     error: None,
     error_code: None,
