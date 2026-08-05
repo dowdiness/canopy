@@ -718,8 +718,14 @@ test("Block delete focuses the adjacent survivor instead of a stale editor curso
     await selectBlock(host.page)
     const first = host.page.locator("#loomark-block-input")
     await first.fill("Changed")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe(
+      "Changed\n\nSecond\n\nThird\n",
+    )
     const third = host.page.locator("#loomark-block-input-2")
     await third.focus()
+    await expect(
+      host.page.locator('[data-loomark-block-row]').filter({ has: third }),
+    ).toHaveAttribute("data-loomark-block-active", "true")
 
     await host.page.getByRole("button", { name: "Delete selected block" }).click()
 
