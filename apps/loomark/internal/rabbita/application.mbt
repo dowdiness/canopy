@@ -6,8 +6,6 @@ priv enum DriverEvent {
   SelectBlock
   SelectPreview
   ToggleSplitPreview
-  SplitResize(@resizable.Msg)
-  SplitMeasured(Int)
   BlockFocused(String)
   BlockHeading(Int, BlockSelection?)
   BlockToggleList(BlockSelection?)
@@ -67,25 +65,13 @@ priv suberror DriverSubscription {
 }
 
 ///|
-/// The imported model hides drag origin/base/edge state that affects future
-/// updates, so every replacement remains observable to Rabbita.
-priv struct SplitResizeState {
-  model : @resizable.Model
-}
-
-///|
-impl Eq for SplitResizeState with fn equal(_, _) {
-  false
-}
-
-///|
 priv struct DriverModel {
   state : @core.ApplicationState
   document : @markdown.MarkdownDocumentSnapshot
   semantic_document : @md_markdown.MarkdownIR?
   semantic_read_count : Int
   split_preview_open : Bool
-  split_resize : SplitResizeState
+  compact_split : Bool
   active_block_key : String?
   replica_id : String
   source_revision : Int
@@ -523,7 +509,6 @@ fn publish(model : DriverModel) -> Unit {
     "version": @core.SNAPSHOT_VERSION.to_json(),
     "mode": mode_name(model.state.mode()).to_json(),
     "split_preview_open": model.split_preview_open.to_json(),
-    "split_preview_width": model.split_resize.model.width().to_json(),
     "source_revision": model.source_revision.to_json(),
     "semantic_read_count": model.semantic_read_count.to_json(),
     "fatal": model.fatal.to_json(),
@@ -617,6 +602,7 @@ fn editor_surface(
 fn preview_view(
   model : DriverModel,
   emit : @cmd.Emit[DriverEvent],
+  surface : @rabbita_runtime.Html,
 ) -> @rabbita_runtime.Html {
   let raw_selected = model.state.mode() == @core.Raw
   let block_selected = model.state.mode() == @core.Block
@@ -752,7 +738,7 @@ fn preview_view(
         id="loomark-editor-shell",
         style=[
           if model.split_preview_open && !preview_selected {
-            "width:min(100%,76rem);min-height:calc(100dvh - clamp(1rem,4vw,3rem));margin-inline:auto;display:flex;flex-direction:column"
+            "width:min(100%,76rem);height:calc(100dvh - clamp(1rem,4vw,3rem));margin-inline:auto;display:flex;flex-direction:column"
           } else {
             "width:min(100%,53.75rem);min-height:calc(100dvh - clamp(1rem,4vw,3rem));margin-inline:auto;display:flex;flex-direction:column"
           },
@@ -791,7 +777,7 @@ fn preview_view(
                   .role("tabpanel")
                   .aria_labelledby(panel_labelledby),
                 style=["min-width:0;flex:1;display:flex"],
-                application_surface(model, emit),
+                surface,
               ),
             ],
           ),
@@ -928,8 +914,6 @@ fn driver_event_name(event : DriverEvent) -> String {
     SelectBlock => "select-block"
     SelectPreview => "select-preview"
     ToggleSplitPreview => "toggle-split"
-    SplitResize(_) => "split-resize"
-    SplitMeasured(_) => "split-measured"
     BlockFocused(_) => "block-focused"
     BlockHeading(_, _) => "block-heading"
     BlockToggleList(_) => "block-toggle-list"
@@ -1653,12 +1637,7 @@ fn update_model(
         changed=source_changed,
       )
       publish(next)
-      let command = if split_visible(next) && !split_visible(model) {
-        split_measure_command(emit)
-      } else {
-        @rabbita_runtime.none
-      }
-      (next, command)
+      (next, @rabbita_runtime.none)
     }
     SelectRaw | SelectBlock | SelectPreview => {
       let mode = match event {
@@ -1679,12 +1658,7 @@ fn update_model(
         changed=false,
       )
       publish(next)
-      let command = if split_visible(next) && !split_visible(model) {
-        split_measure_command(emit)
-      } else {
-        @rabbita_runtime.none
-      }
-      (next, command)
+      (next, @rabbita_runtime.none)
     }
     ToggleSplitPreview => {
       let old_requested = preview_requested(model)
@@ -1695,23 +1669,6 @@ fn update_model(
         accepted=true,
         changed=false,
       )
-      publish(next)
-      let command = if split_visible(next) {
-        split_measure_command(emit)
-      } else {
-        @rabbita_runtime.none
-      }
-      (next, command)
-    }
-    SplitResize(message) => {
-      let split_resize = { model: model.split_resize.model.update(message) }
-      let next = { ..model, split_resize, }
-      publish(next)
-      (next, @rabbita_runtime.none)
-    }
-    SplitMeasured(group_width) => {
-      let split_resize = model.split_resize.fit_group(group_width)
-      let next = { ..model, split_resize, }
       publish(next)
       (next, @rabbita_runtime.none)
     }
@@ -1935,15 +1892,13 @@ fn update_model(
       (next, @rabbita_runtime.none)
     }
     Resize(viewport) => {
-      ignore(viewport)
-      let next = { ..model, resize_count: model.resize_count + 1 }
-      publish(next)
-      let command = if split_visible(next) {
-        split_measure_command(emit)
-      } else {
-        @rabbita_runtime.none
+      let next = {
+        ..model,
+        compact_split: compact_split_for_width(viewport.width),
+        resize_count: model.resize_count + 1,
       }
-      (next, command)
+      publish(next)
+      (next, @rabbita_runtime.none)
     }
   }
 }
@@ -2105,9 +2060,6 @@ fn subscriptions(
     @sub.batch([
       @sub.on_resize(emit.map(viewport => Resize(viewport))),
       driver_test_subscription(emit, model.document.source()),
-      model.split_resize.model.subscriptions(message => {
-        emit(SplitResize(message))
-      }),
       control,
     ])
   }
@@ -2127,20 +2079,18 @@ pub fn mount(host_id : String, source : String) -> String {
   ) catch {
     _ => return "{\"ok\":false,\"error\":\"editor-initialization-failed\"}"
   }
+  let host_width = @dom_boundary.measure_element_id(host_id)
+    .offset_width()
+    .to_int() catch {
+      _ => SPLIT_STACK_BREAKPOINT
+    }
   let initial : DriverModel = {
     state: @core.ApplicationState::ApplicationState(@core.Raw),
     document: editor.snapshot(),
     semantic_document: None,
     semantic_read_count: 0,
     split_preview_open: false,
-    split_resize: {
-      model: @resizable.Model::new(w=384, h=1, constraints={
-        min_w: 160,
-        max_w: 640,
-        min_h: 1,
-        max_h: 1,
-      }),
-    },
+    compact_split: compact_split_for_width(host_width),
     active_block_key: None,
     replica_id,
     source_revision: 0,
@@ -2175,7 +2125,8 @@ pub fn mount(host_id : String, source : String) -> String {
       update~,
       subscriptions~,
     )
-    model.map(model => preview_view(model, emit))
+    let surface = application_surface(model, emit)
+    model.view2(surface, (model, surface) => preview_view(model, emit, surface))
   })
   app.mount(host_id)
   mounted.val = true

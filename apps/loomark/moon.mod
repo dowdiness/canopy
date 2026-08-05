@@ -7,7 +7,6 @@ import {
   "dowdiness/diagnostic@0.1.0",
   "dowdiness/loom@0.1.0",
   "dowdiness/markdown@0.1.0",
-  "dowdiness/rabbita-resizable@0.1.0",
   "dowdiness/text_change@0.1.0",
   "dowdiness/dom_boundary@0.1.0",
   "dowdiness/js_ffi@0.1.0",

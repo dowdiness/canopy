@@ -1,39 +1,41 @@
 ///|
+const SPLIT_STACK_BREAKPOINT : Int = 640
+
+///|
+priv enum SplitPresentation {
+  SingleSurface
+  SideBySide
+  Stacked
+} derive(Eq)
+
+///|
+impl @rabbita_runtime.Enumerate for SplitPresentation with fn tag(self) {
+  match self {
+    SingleSurface => "single"
+    SideBySide => "side-by-side"
+    Stacked => "stacked"
+  }
+}
+
+///|
 fn split_visible(model : DriverModel) -> Bool {
   model.split_preview_open && model.state.mode() != @core.Preview
 }
 
 ///|
-/// Rebuild the opaque resizable model against the measured group width. The
-/// editor Pane may occupy at most half so its flexible Preview peer remains
-/// visible, and the ARIA value always equals rendered geometry.
-fn SplitResizeState::fit_group(
-  self : SplitResizeState,
-  group_width : Int,
-) -> SplitResizeState {
-  let max_width = (group_width / 2).clamp(min=1, max=640)
-  let min_width = if max_width < 160 { max_width } else { 160 }
-  {
-    model: @resizable.Model::new(w=self.model.width(), h=1, constraints={
-      min_w: min_width,
-      max_w: max_width,
-      min_h: 1,
-      max_h: 1,
-    }),
-  }
+fn compact_split_for_width(width : Int) -> Bool {
+  width < SPLIT_STACK_BREAKPOINT
 }
 
 ///|
-/// Measure only after Rabbita has rendered the group; DOM access remains in
-/// the imperative shell and returns the owning width as a typed event.
-fn split_measure_command(emit : @cmd.Emit[DriverEvent]) -> @cmd.Cmd {
-  after_render(
-    scheduler => {
-      let measurement = @dom_boundary.measure_element_id("loomark-split")
-      scheduler.add(emit(SplitMeasured(measurement.offset_width().to_int())))
-    },
-    emit,
-  )
+fn split_presentation(model : DriverModel) -> SplitPresentation {
+  if !split_visible(model) {
+    SingleSurface
+  } else if model.compact_split {
+    Stacked
+  } else {
+    SideBySide
+  }
 }
 
 ///|
@@ -64,61 +66,83 @@ fn mode_surface(
 }
 
 ///|
-/// Render the fixed two-surface workspace. Both surfaces observe the same
-/// accepted document held by `DriverModel`.
-fn application_surface(
-  model : DriverModel,
+fn single_surface(
+  model : @rabbita_runtime.Val[DriverModel],
   emit : @cmd.Emit[DriverEvent],
-) -> @rabbita_runtime.Html {
-  if split_visible(model) {
-    let editor_width = model.split_resize.model.width()
-    let handle_attrs = model.split_resize.model
-      .handle_attrs(@resizable.East, message => emit(SplitResize(message)))
-      .aria_label("Resize editor and Preview")
-      .data_set("slot", "resizable-handle")
-      .data_set("orientation", "horizontal")
-    @html.div(
-      id="loomark-split",
-      attrs=@html.Attrs::build()
-        .data_set("slot", "resizable-panel-group")
-        .data_set("orientation", "horizontal"),
-      style=["width:100%;min-width:0;display:flex;overflow:hidden"],
-      [
-        @html.div(
-          attrs=@html.Attrs::build()
-            .data_set("slot", "resizable-panel")
-            .data_set("panel", "editor"),
-          style=[
-            "width:\{editor_width}px;min-width:0;display:flex;flex:0 0 auto",
-          ],
+) -> @rabbita_runtime.Val[@rabbita_runtime.Html] {
+  model.view(model => mode_surface(model, emit))
+}
+
+///|
+fn resizable_split_surface(
+  model : @rabbita_runtime.Val[DriverModel],
+  emit : @cmd.Emit[DriverEvent],
+  orientation : @rui.SeparatorOrientation,
+) -> @rabbita_runtime.Val[@rabbita_runtime.Html] {
+  @rui.resizable_panel_group_with_input(
+    id="loomark-split",
+    input=model,
+    default_size=50,
+    min=25,
+    max=75,
+    orientation~,
+    aria_label="Resize editor and Preview",
+    style=["flex:1;min-width:0;min-height:0"],
+    (scope, model) => {
+      @html.fragment([
+        @rui.resizable_panel(
+          scope~,
+          side=@rui.FirstPanel,
+          attrs=@html.Attrs::build().data_set("panel", "editor"),
+          style=["display:flex;overflow:auto"],
           mode_surface(model, emit),
         ),
-        @html.div(
-          id="loomark-split-handle",
-          attrs=handle_attrs,
-          style=[
-            "position:relative;z-index:1;width:1px;flex:0 0 1px;background:var(--rui-border);outline-offset:6px;cursor:col-resize",
-          ],
-          @html.span(
-            attrs=@html.Attrs::build()
-              .data_set("slot", "resizable-handle-hit-area")
-              .aria_hidden("true"),
-            style=[
-              "position:absolute;z-index:2;left:-6px;top:0;width:13px;height:100%;cursor:col-resize;background:transparent;touch-action:none;user-select:none",
-            ],
-            "",
-          ),
+        @rui.resizable_handle(
+          scope~,
+          with_handle=true,
+          aria_label="Resize editor and Preview",
         ),
-        @html.div(
-          attrs=@html.Attrs::build()
-            .data_set("slot", "resizable-panel")
-            .data_set("panel", "preview"),
-          style=["min-width:0;flex:1;overflow:auto;padding:1rem;border-left:0"],
+        @rui.resizable_panel(
+          scope~,
+          side=@rui.SecondPanel,
+          attrs=@html.Attrs::build().data_set("panel", "preview"),
+          style=["padding:1rem"],
           preview_document_surface(model),
         ),
-      ],
-    )
-  } else {
-    mode_surface(model, emit)
-  }
+      ])
+    },
+  )
+}
+
+///|
+fn side_by_side_surface(
+  model : @rabbita_runtime.Val[DriverModel],
+  emit : @cmd.Emit[DriverEvent],
+) -> @rabbita_runtime.Val[@rabbita_runtime.Html] {
+  resizable_split_surface(model, emit, @rui.Horizontal)
+}
+
+///|
+fn stacked_surface(
+  model : @rabbita_runtime.Val[DriverModel],
+  emit : @cmd.Emit[DriverEvent],
+) -> @rabbita_runtime.Val[@rabbita_runtime.Html] {
+  resizable_split_surface(model, emit, @rui.Vertical)
+}
+
+///|
+/// Select one bounded workspace component while the shared document model stays
+/// live as a separate incremental input to every branch.
+fn application_surface(
+  model : @rabbita_runtime.Val[DriverModel],
+  emit : @cmd.Emit[DriverEvent],
+) -> @rabbita_runtime.Val[@rabbita_runtime.Html] {
+  let presentation = model.map(split_presentation)
+  presentation.switch(presentation => {
+    match presentation {
+      SingleSurface => single_surface(model, emit)
+      SideBySide => side_by_side_surface(model, emit)
+      Stacked => stacked_surface(model, emit)
+    }
+  })
 }

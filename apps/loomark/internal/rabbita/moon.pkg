@@ -3,7 +3,6 @@ import {
   "dowdiness/diagnostic",
   "dowdiness/dom_boundary",
   "dowdiness/markdown" @md_markdown,
-  "dowdiness/rabbita-resizable/resizable",
   "dowdiness/text_change",
   "dowdiness/loomark/core",
   "moonbit-community/rabbita" @rabbita_runtime,

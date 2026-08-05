@@ -11,7 +11,7 @@ import { expect, test, type Browser, type BrowserContext, type Page } from "@pla
  * | unsupported containers | quote/thematic/list | reject atomically; neighbors/ranges/focus unchanged |
  * | tight list / fenced code | unordered, ordered `)`, tilde fence, mixed CRLF | typed payload controls preserve markers, delimiters, and line endings |
  * | semantic Preview | blocks, inline forms, recovery, unsafe URLs | RUI-aligned read-only semantic DOM from the committed MarkdownIR |
- * | fixed split Preview | Raw/Block editor plus Preview | one editor and one semantic attachment stay live; accepted commits update both panes |
+ * | fixed split Preview | Raw/Block editor plus Preview, wide/narrow viewport | one editor and one semantic attachment stay live; accepted commits update both panes; the divider axis follows the available width |
  * | production chrome | Raw/Block/Preview, desktop/narrow | one labelled region, tablist, selected panel, and keyboard navigation |
  * | example presets | Hello/Blog/List/Code from any mode | replace canonical source without changing the selected mode |
  * | Block formatting | focused paragraph/heading/list item | typed heading/list/delete requests update source and restore a valid target |
@@ -286,25 +286,38 @@ test("Raw keeps focus and accepts consecutive keystrokes while split Preview upd
     await expect(input).toHaveValue("startabc")
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("startabc")
     await expectPreviewSource(host.page, "startabc")
+
+    await host.page.setViewportSize({ width: 390, height: 844 })
+    await expect(host.page.locator("#loomark-split")).toHaveAttribute(
+      "data-orientation",
+      "vertical",
+    )
+    await expect.poll(() => host.page.evaluate(() => document.activeElement?.id)).toBe(
+      "loomark-input",
+    )
+    await host.page.keyboard.type("d")
+    await expect(input).toHaveValue("startabcd")
   } finally {
     await host.context.close()
   }
 })
 
-test("split divider resizes by keyboard and exposes its current width", async ({ browser }) => {
+test("RUI split divider resizes by keyboard and pointer", async ({ browser }) => {
   const host = await mountHost(browser, "# Resize\n")
   try {
     await toggleSplitPreview(host.page)
-    const handle = host.page.locator("#loomark-split-handle")
-    await expect(handle).toHaveAttribute("aria-valuenow", "384")
+    const split = host.page.locator("#loomark-split")
+    const handle = split.locator('[data-slot="resizable-handle"]')
+    const control = host.page.locator("#loomark-split-handle")
+    await expect(handle).toHaveAttribute("aria-valuenow", "50")
 
-    await handle.focus()
-    await handle.press("ArrowRight")
+    await control.focus()
+    await control.press("ArrowRight")
 
-    await expect(handle).toHaveAttribute("aria-valuenow", "392")
-    await expect(host.page.locator('[data-panel="editor"]')).toHaveCSS(
-      "width",
-      "392px",
+    await expect(handle).toHaveAttribute("aria-valuenow", "51")
+    await expect(host.page.locator('[data-panel="editor"]')).toHaveAttribute(
+      "data-size",
+      "51",
     )
 
     const hitArea = host.page.locator('[data-slot="resizable-handle-hit-area"]')
@@ -316,11 +329,8 @@ test("split divider resizes by keyboard and exposes its current width", async ({
     await host.page.mouse.move(bounds!.x + 41, bounds!.y + bounds!.height / 2)
     await host.page.mouse.up()
 
-    await expect(handle).toHaveAttribute("aria-valuenow", "432")
-    await expect(host.page.locator('[data-panel="editor"]')).toHaveCSS(
-      "width",
-      "432px",
-    )
+    await expect.poll(async () => Number(await handle.getAttribute("aria-valuenow")))
+      .toBeGreaterThan(51)
   } finally {
     await host.context.close()
   }
@@ -345,21 +355,33 @@ test("Block and Preview converge through the shared canonical document", async (
   }
 })
 
-test("split view keeps both surfaces inside a narrow viewport", async ({ browser }) => {
-  const host = await mountHost(browser, "# Narrow\n")
+test("split view stacks its resizable panes in a narrow viewport", async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } })
+  const host = { context, ...await mountPage(context, "# Narrow\n") }
   try {
-    await host.page.setViewportSize({ width: 390, height: 844 })
     await toggleSplitPreview(host.page)
 
-    await expect(host.page.locator('[data-panel="editor"]')).toBeVisible()
-    await expect(host.page.locator('[data-panel="preview"]')).toBeVisible()
-    const editorWidth = await host.page.locator('[data-panel="editor"]').evaluate(
-      element => Math.round(element.getBoundingClientRect().width),
-    )
-    await expect(host.page.locator("#loomark-split-handle")).toHaveAttribute(
-      "aria-valuenow",
-      editorWidth.toString(),
-    )
+    const split = host.page.locator("#loomark-split")
+    const handle = split.locator('[data-slot="resizable-handle"]')
+    await expect(split).toHaveAttribute("data-orientation", "vertical")
+    await expect(handle).toHaveAttribute("aria-orientation", "horizontal")
+
+    const editor = host.page.locator('[data-panel="editor"]')
+    const preview = host.page.locator('[data-panel="preview"]')
+    await expect(editor).toBeVisible()
+    await expect(preview).toBeVisible()
+    const positions = await Promise.all([editor, preview].map(async pane => {
+      const bounds = await pane.boundingBox()
+      expect(bounds).not.toBeNull()
+      return bounds!
+    }))
+    expect(positions[1].y).toBeGreaterThanOrEqual(positions[0].y + positions[0].height - 1)
+    expect(Math.abs(positions[0].height - positions[1].height)).toBeLessThanOrEqual(1)
+
+    const control = host.page.locator("#loomark-split-handle")
+    await control.focus()
+    await control.press("ArrowDown")
+    await expect(handle).toHaveAttribute("aria-valuenow", "51")
     await expect.poll(() => host.page.evaluate(() => ({
       viewport: window.innerWidth,
       content: document.documentElement.scrollWidth,

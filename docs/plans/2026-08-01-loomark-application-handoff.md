@@ -268,11 +268,12 @@ or closing the split never constructs or disposes a document resource. Block
 and Raw commits pass through their existing atomic editor boundary before the
 Preview read model advances.
 
-Split open state and divider width are private, ephemeral Rabbita state. They
-are deliberately absent from `MarkdownSnapshotV1`, focus tokens, and the future
-public Browser Session contract. Full Preview temporarily replaces the split
-layout without discarding the private split preference; returning to Raw or
-Block restores the two-surface view without another semantic read.
+Split open state is private application state, while the divider ratio is local
+ephemeral RUI state. Both are deliberately absent from `MarkdownSnapshotV1`,
+focus tokens, and the future public Browser Session contract. Full Preview
+temporarily replaces the split layout without discarding the private split
+preference; returning to Raw or Block restores the two-surface view without
+another semantic read.
 
 Accepted Raw and Block input keeps each mounted textarea node stable across
 renders. A rejected controlled edit also keeps that node: after rendering the
@@ -281,12 +282,15 @@ through `dom-boundary` and reapplies any required focus/text cursor. Rejection
 does not use a rendering epoch, keyed relocation, or remove/add remount to
 repair a live DOM value that diverged from the accepted document.
 
-The divider reuses `modules/rabbita-resizable` for its pure clamped model,
-mouse subscription, keyboard nudges, and separator ARIA values. Loomark owns
-only Pane composition and styling in `internal/rabbita/split_view.mbt`,
-including a wider invisible hit area around the one-pixel divider line. The
-first increment keeps a horizontal two-Pane layout and caps the editing Pane at
-half of narrow containers so both surfaces remain within the viewport.
+The divider uses RUI's `resizable_panel_group_with_input`, which keeps pointer
+capture, touch cancellation, keyboard nudges, clamped percentage sizes, and
+separator ARIA values inside RUI while allowing the panels to observe Loomark's
+incremental document model. Loomark owns only Pane composition and the pure
+viewport-width decision in `internal/rabbita/split_view.mbt`. At 640 CSS pixels
+and above the panes are side by side; below that breakpoint the same editor and
+Preview stack vertically. Crossing the breakpoint preserves the live text
+input node, focus, and text cursor. RUI supplies the one-pixel divider and its
+wider invisible hit area on both axes.
 
 Out of this increment are recursive Pane trees, a second editable Pane, layout
 persistence, scroll/selection synchronization, and public lifecycle changes.
