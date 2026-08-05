@@ -11,6 +11,7 @@ import { expect, test, type Browser, type BrowserContext, type Page } from "@pla
  * | unsupported containers | quote/thematic/list | reject atomically; neighbors/ranges/focus unchanged |
  * | tight list / fenced code | unordered, ordered `)`, tilde fence, mixed CRLF | typed payload controls preserve markers, delimiters, and line endings |
  * | semantic Preview | blocks, inline forms, recovery, unsafe URLs | RUI-aligned read-only semantic DOM from the committed MarkdownIR |
+ * | fixed split Preview | Raw/Block editor plus Preview | one editor and one semantic attachment stay live; accepted commits update both panes |
  * | production chrome | Raw/Block/Preview, desktop/narrow | one labelled region, tablist, selected panel, and keyboard navigation |
  * | example presets | Hello/Blog/List/Code from any mode | replace canonical source without changing the selected mode |
  * | Block formatting | focused paragraph/heading/list item | typed heading/list/delete requests update source and restore a valid target |
@@ -88,6 +89,10 @@ async function selectBlock(page: Page): Promise<void> {
 async function selectRaw(page: Page): Promise<void> {
   await page.evaluate(moduleUrl =>
     import(moduleUrl).then(module => module.dev_host_select_raw()), moduleUrl)
+}
+
+async function toggleSplitPreview(page: Page): Promise<void> {
+  await page.locator("#loomark-split-toggle").click()
 }
 
 async function restoreSnapshot(page: Page, version: number, source: string, mode: "raw" | "block" | "preview"): Promise<void> {
@@ -203,6 +208,134 @@ test("Raw input preserves canonical source and Preview follows a committed edit"
     await selectPreview(host.page)
     await expect(host.page.locator("#loomark-preview")).toHaveCount(1)
     await expectPreviewSource(host.page, "after\r\n")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Raw and Preview observe one accepted document in a fixed resizable split", async ({ browser }) => {
+  const host = await mountHost(browser, "# Before\n")
+  try {
+    await expect(host.page.locator("#loomark-input")).toHaveCount(1)
+    await expect(host.page.locator("#loomark-preview")).toHaveCount(0)
+
+    await toggleSplitPreview(host.page)
+    await expect(host.page.locator("#loomark-split-toggle")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+    await expect(host.page.locator("#loomark-split")).toHaveAttribute(
+      "data-slot",
+      "resizable-panel-group",
+    )
+    await expect(host.page.locator("#loomark-input")).toHaveCount(1)
+    await expectPreviewSource(host.page, "# Before\n")
+    await expect.poll(async () => (await snapshot(host.page)).semantic_read_count).toBe(1)
+
+    await selectPreview(host.page)
+    await expect(host.page.locator("#loomark-split")).toHaveCount(0)
+    await expect.poll(async () => (await snapshot(host.page)).semantic_read_count).toBe(1)
+    await selectRaw(host.page)
+    await expect(host.page.locator("#loomark-split")).toHaveCount(1)
+    await expect.poll(async () => (await snapshot(host.page)).semantic_read_count).toBe(1)
+
+    await host.page.locator("#loomark-input").fill("# After\n")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("# After\n")
+    await expectPreviewSource(host.page, "# After\n")
+    await expect.poll(async () => (await snapshot(host.page)).semantic_read_count).toBe(2)
+
+    await forceEditorFailure(host.page)
+    await expect.poll(async () => (await snapshot(host.page)).editor_failure_armed).toBe(true)
+    await host.page.locator("#loomark-input").evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.value = "# Rejected\n"
+      textarea.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await expect.poll(async () => (await snapshot(host.page)).error_code).toBe("editor-commit-failed")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("# After\n")
+    await expectPreviewSource(host.page, "# After\n")
+    await expect.poll(async () => (await snapshot(host.page)).semantic_read_count).toBe(2)
+
+    await toggleSplitPreview(host.page)
+    await expect(host.page.locator("#loomark-preview")).toHaveCount(0)
+    await expect(host.page.locator("#loomark-input")).toHaveCount(1)
+    await expect.poll(async () => (await snapshot(host.page)).semantic_read_count).toBe(2)
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("split divider resizes by keyboard and exposes its current width", async ({ browser }) => {
+  const host = await mountHost(browser, "# Resize\n")
+  try {
+    await toggleSplitPreview(host.page)
+    const handle = host.page.locator("#loomark-split-handle")
+    await expect(handle).toHaveAttribute("aria-valuenow", "384")
+
+    await handle.focus()
+    await handle.press("ArrowRight")
+
+    await expect(handle).toHaveAttribute("aria-valuenow", "392")
+    await expect(host.page.locator('[data-panel="editor"]')).toHaveCSS(
+      "width",
+      "392px",
+    )
+
+    const bounds = await handle.boundingBox()
+    expect(bounds).not.toBeNull()
+    await host.page.mouse.move(bounds!.x, bounds!.y + bounds!.height / 2)
+    await host.page.mouse.down()
+    await host.page.mouse.move(bounds!.x + 40, bounds!.y + bounds!.height / 2)
+    await host.page.mouse.up()
+
+    await expect(handle).toHaveAttribute("aria-valuenow", "432")
+    await expect(host.page.locator('[data-panel="editor"]')).toHaveCSS(
+      "width",
+      "432px",
+    )
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Block and Preview converge through the shared canonical document", async ({ browser }) => {
+  const host = await mountHost(browser, "# Before\n")
+  try {
+    await selectBlock(host.page)
+    await toggleSplitPreview(host.page)
+    await expectPreviewSource(host.page, "# Before\n")
+
+    await host.page.locator("#loomark-block-input").fill("After")
+
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("# After\n")
+    await expectPreviewSource(host.page, "# After\n")
+    await expect(
+      host.page.locator('#loomark-preview h1[data-slot="typography-h1"]'),
+    ).toHaveText("After")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("split view keeps both surfaces inside a narrow viewport", async ({ browser }) => {
+  const host = await mountHost(browser, "# Narrow\n")
+  try {
+    await host.page.setViewportSize({ width: 390, height: 844 })
+    await toggleSplitPreview(host.page)
+
+    await expect(host.page.locator('[data-panel="editor"]')).toBeVisible()
+    await expect(host.page.locator('[data-panel="preview"]')).toBeVisible()
+    const editorWidth = await host.page.locator('[data-panel="editor"]').evaluate(
+      element => Math.round(element.getBoundingClientRect().width),
+    )
+    await expect(host.page.locator("#loomark-split-handle")).toHaveAttribute(
+      "aria-valuenow",
+      editorWidth.toString(),
+    )
+    await expect.poll(() => host.page.evaluate(() => ({
+      viewport: window.innerWidth,
+      content: document.documentElement.scrollWidth,
+    }))).toEqual({ viewport: 390, content: 390 })
   } finally {
     await host.context.close()
   }

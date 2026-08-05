@@ -5,6 +5,9 @@ priv enum DriverEvent {
   SelectRaw
   SelectBlock
   SelectPreview
+  ToggleSplitPreview
+  SplitResize(@resizable.Msg)
+  SplitMeasured(Int)
   BlockFocused(String)
   BlockHeading(Int, BlockSelection?)
   BlockToggleList(BlockSelection?)
@@ -73,17 +76,29 @@ priv enum PreviewDocumentDecision {
 } derive(Eq, Debug)
 
 ///|
+/// The imported model hides drag origin/base/edge state that affects future
+/// updates, so every replacement remains observable to Rabbita.
+priv struct SplitResizeState {
+  model : @resizable.Model
+}
+
+///|
+impl Eq for SplitResizeState with fn equal(_, _) {
+  false
+}
+
+///|
 fn preview_document_decision(
-  old_mode : @core.ApplicationMode,
-  next_mode : @core.ApplicationMode,
+  old_requested : Bool,
+  next_requested : Bool,
   accepted~ : Bool,
   changed~ : Bool,
 ) -> PreviewDocumentDecision {
   if !accepted {
     PreviewDocumentKeep
-  } else if next_mode != @core.Preview {
+  } else if !next_requested {
     PreviewDocumentClear
-  } else if old_mode != @core.Preview || changed {
+  } else if !old_requested || changed {
     PreviewDocumentRead
   } else {
     PreviewDocumentKeep
@@ -95,6 +110,9 @@ priv struct DriverModel {
   state : @core.ApplicationState
   document : @markdown.MarkdownDocumentSnapshot
   semantic_document : @md_markdown.MarkdownIR?
+  semantic_read_count : Int
+  split_preview_open : Bool
+  split_resize : SplitResizeState
   active_block_key : String?
   replica_id : String
   source_revision : Int
@@ -165,6 +183,12 @@ fn mode_name(mode : @core.ApplicationMode) -> String {
     @core.Block => "block"
     @core.Preview => "preview"
   }
+}
+
+///|
+/// Aggregate document-level Preview demand independently from the active mode.
+fn preview_requested(model : DriverModel) -> Bool {
+  model.state.mode() == @core.Preview || model.split_preview_open
 }
 
 ///|
@@ -388,14 +412,23 @@ fn commit_source(
 fn update_preview_document(
   attachment : @md_markdown.MarkdownSemanticAttachment,
   model : DriverModel,
-  old_mode : @core.ApplicationMode,
+  old_requested : Bool,
   accepted~ : Bool,
   changed~ : Bool,
 ) -> DriverModel {
   match
-    preview_document_decision(old_mode, model.state.mode(), accepted~, changed~) {
+    preview_document_decision(
+      old_requested,
+      preview_requested(model),
+      accepted~,
+      changed~,
+    ) {
     PreviewDocumentRead =>
-      { ..model, semantic_document: Some(attachment.document()) }
+      {
+        ..model,
+        semantic_document: Some(attachment.document()),
+        semantic_read_count: model.semantic_read_count + 1,
+      }
     PreviewDocumentKeep => model
     PreviewDocumentClear => { ..model, semantic_document: None }
   }
@@ -407,6 +440,7 @@ fn update_preview_document(
 /// SyncEditor cursor state in this shell.
 fn commit_block_request(
   editor : @markdown.MarkdownEditor,
+  attachment : @md_markdown.MarkdownSemanticAttachment,
   model : DriverModel,
   request : @markdown.MarkdownEditRequest,
   operation : String,
@@ -423,17 +457,35 @@ fn commit_block_request(
     request
   }
   match editor.commit(request) {
-    Ok(@markdown.Applied(document, selection)) =>
+    Ok(@markdown.Applied(document, selection)) => {
+      let committed = {
+        ..next,
+        document,
+        source_revision: model.source_revision + 1,
+        committed_change_count: model.committed_change_count + 1,
+      }
       (
-        {
-          ..next,
-          document,
-          source_revision: model.source_revision + 1,
-          committed_change_count: model.committed_change_count + 1,
-        },
+        update_preview_document(
+          attachment,
+          committed,
+          preview_requested(model),
+          accepted=true,
+          changed=true,
+        ),
         selection,
       )
-    Ok(@markdown.Unchanged(document)) => ({ ..next, document, }, None)
+    }
+    Ok(@markdown.Unchanged(document)) =>
+      (
+        update_preview_document(
+          attachment,
+          { ..next, document, },
+          preview_requested(model),
+          accepted=true,
+          changed=false,
+        ),
+        None,
+      )
     Err(error) => {
       let failed = record_error(
         next,
@@ -441,8 +493,18 @@ fn commit_block_request(
         operation,
         "editor commit failed: " + editor_error_detail(error),
       )
+      let committed = {
+        ..failed,
+        block_surface_revision: model.block_surface_revision + 1,
+      }
       (
-        { ..failed, block_surface_revision: model.block_surface_revision + 1 },
+        update_preview_document(
+          attachment,
+          committed,
+          preview_requested(model),
+          accepted=false,
+          changed=false,
+        ),
         None,
       )
     }
@@ -454,6 +516,7 @@ fn commit_block_request(
 /// the typed selection only after Rabbita renders that committed document.
 fn commit_block_toolbar_request(
   editor : @markdown.MarkdownEditor,
+  attachment : @md_markdown.MarkdownSemanticAttachment,
   model : DriverModel,
   request : @markdown.MarkdownEditRequest,
   originating_selection : BlockSelection?,
@@ -461,7 +524,7 @@ fn commit_block_toolbar_request(
   emit : @cmd.Emit[DriverEvent],
 ) -> (DriverModel, @cmd.Cmd) {
   let (committed, committed_selection) = commit_block_request(
-    editor, model, request, "editor-dispatch",
+    editor, attachment, model, request, "editor-dispatch",
   )
   let selection = committed_selection.bind(selection => {
     block_selection_from_commit(committed.document, selection)
@@ -528,7 +591,10 @@ fn publish(model : DriverModel) -> Unit {
     "replica_id": model.replica_id.to_json(),
     "version": @core.SNAPSHOT_VERSION.to_json(),
     "mode": mode_name(model.state.mode()).to_json(),
+    "split_preview_open": model.split_preview_open.to_json(),
+    "split_preview_width": model.split_resize.model.width().to_json(),
     "source_revision": model.source_revision.to_json(),
+    "semantic_read_count": model.semantic_read_count.to_json(),
     "fatal": model.fatal.to_json(),
     "error_code": match model.error_code {
       Some(code) => code.to_json()
@@ -574,6 +640,27 @@ fn publish(model : DriverModel) -> Unit {
 }
 
 ///|
+fn preview_document_surface(model : DriverModel) -> @rabbita_runtime.Html {
+  let source = model.document.source()
+  match model.semantic_document {
+    Some(document) => preview_surface(source, document)
+    None =>
+      @html.div(
+        id="loomark-preview",
+        attrs=@html.Attrs::build()
+          .data_set("loomark-preview-fallback", "unavailable")
+          .role("region")
+          .tabindex(0)
+          .aria_label("Markdown preview"),
+        style=["display:grid;gap:1rem"],
+        @rui.typography_muted(
+          "Preview is unavailable for the current accepted document.",
+        ),
+      )
+  }
+}
+
+///|
 fn editor_surface(
   model : DriverModel,
   emit : @cmd.Emit[DriverEvent],
@@ -596,25 +683,7 @@ fn editor_surface(
           ),
         ),
       ])
-    @core.Preview =>
-      match model.semantic_document {
-        Some(document) => { "preview": preview_surface(source, document) }
-        None =>
-          {
-            "preview": @html.div(
-              id="loomark-preview",
-              attrs=@html.Attrs::build()
-                .data_set("loomark-preview-fallback", "unavailable")
-                .role("region")
-                .tabindex(0)
-                .aria_label("Markdown preview"),
-              style=["display:grid;gap:1rem"],
-              @rui.typography_muted(
-                "Preview is unavailable for the current accepted document.",
-              ),
-            ),
-          }
-      }
+    @core.Preview => { "preview": preview_document_surface(model) }
     @core.Block =>
       Map([
         (
@@ -697,6 +766,30 @@ fn preview_view(
     @core.Block => ("loomark-panel-block", "loomark-mode-block")
     @core.Preview => ("loomark-panel-preview", "loomark-mode-preview")
   }
+  let split_toggle = if preview_selected {
+    @html.nothing
+  } else {
+    @rui.button(
+      id="loomark-split-toggle",
+      variant=@rui.Ghost,
+      size=@rui.Xs,
+      attrs=@html.Attrs::build()
+        .aria_label(
+          if model.split_preview_open {
+            "Close split Preview"
+          } else {
+            "Open split Preview"
+          },
+        )
+        .aria_pressed(model.split_preview_open.to_string()),
+      on_click=emit(ToggleSplitPreview),
+      if model.split_preview_open {
+        "Close split"
+      } else {
+        "Split"
+      },
+    )
+  }
   let examples = @html.div(
     attrs=@html.Attrs::build().role("toolbar").aria_label("Example documents"),
     style=[
@@ -766,7 +859,11 @@ fn preview_view(
       @html.div(
         id="loomark-editor-shell",
         style=[
-          "width:min(100%,53.75rem);min-height:calc(100dvh - clamp(1rem,4vw,3rem));margin-inline:auto;display:flex;flex-direction:column",
+          if model.split_preview_open && !preview_selected {
+            "width:min(100%,76rem);min-height:calc(100dvh - clamp(1rem,4vw,3rem));margin-inline:auto;display:flex;flex-direction:column"
+          } else {
+            "width:min(100%,53.75rem);min-height:calc(100dvh - clamp(1rem,4vw,3rem));margin-inline:auto;display:flex;flex-direction:column"
+          },
         ],
         [
           @rui.tabs_root(
@@ -788,7 +885,12 @@ fn preview_view(
                     style=["min-height:3.25rem;padding:0;overflow:visible"],
                     [block_button, raw_button, preview_button],
                   ),
-                  examples,
+                  @html.div(
+                    style=[
+                      "display:flex;align-items:center;justify-content:flex-end;gap:0.125rem;flex-wrap:wrap",
+                    ],
+                    [split_toggle, examples],
+                  ),
                 ],
               ),
               @html.div(
@@ -797,27 +899,7 @@ fn preview_view(
                   .role("tabpanel")
                   .aria_labelledby(panel_labelledby),
                 style=["min-width:0;flex:1;display:flex"],
-                if model.state.mode() == @core.Block {
-                  @html.div(
-                    style=[
-                      "width:100%;min-width:0;display:flex;flex-direction:column",
-                    ],
-                    [
-                      block_format_toolbar(model, emit),
-                      @html.div(
-                        id="loomark-surface",
-                        style=["width:100%;min-width:0;display:flex"],
-                        editor_surface(model, emit),
-                      ),
-                    ],
-                  )
-                } else {
-                  @html.div(
-                    id="loomark-surface",
-                    style=["width:100%;min-width:0;display:flex"],
-                    editor_surface(model, emit),
-                  )
-                },
+                application_surface(model, emit),
               ),
             ],
           ),
@@ -953,6 +1035,9 @@ fn driver_event_name(event : DriverEvent) -> String {
     SelectRaw => "select-raw"
     SelectBlock => "select-block"
     SelectPreview => "select-preview"
+    ToggleSplitPreview => "toggle-split"
+    SplitResize(_) => "split-resize"
+    SplitMeasured(_) => "split-measured"
     BlockFocused(_) => "block-focused"
     BlockHeading(_, _) => "block-heading"
     BlockToggleList(_) => "block-toggle-list"
@@ -999,6 +1084,8 @@ fn parse_driver_event(detail : String) -> DriverEvent {
     SelectBlock
   } else if detail == "select-preview" {
     SelectPreview
+  } else if detail == "toggle-split" {
+    ToggleSplitPreview
   } else if detail == "focus-preview" {
     FocusPreview
   } else if detail == "focus-block" {
@@ -1135,7 +1222,7 @@ fn update_model(
       for decision in transition.decisions() {
         match decision {
           @core.ReplaceCanonicalSource(source) => {
-            let old_mode = next.state.mode()
+            let old_requested = preview_requested(next)
             let (committed, accepted, changed) = commit_source(
               editor,
               next,
@@ -1146,7 +1233,7 @@ fn update_model(
             next = update_preview_document(
               attachment,
               committed,
-              old_mode,
+              old_requested,
               accepted~,
               changed~,
             )
@@ -1245,6 +1332,7 @@ fn update_model(
           }
           commit_block_toolbar_request(
             editor,
+            attachment,
             model,
             @markdown.MarkdownEditRequest::ChangeHeadingLevel(
               node_id=block.node_id(),
@@ -1282,6 +1370,7 @@ fn update_model(
           }
           commit_block_toolbar_request(
             editor,
+            attachment,
             model,
             @markdown.MarkdownEditRequest::ToggleListItem(
               node_id=block.node_id(),
@@ -1304,6 +1393,7 @@ fn update_model(
         Some(block) =>
           commit_block_toolbar_request(
             editor,
+            attachment,
             model,
             @markdown.MarkdownEditRequest::Delete(node_id=block.node_id()),
             None,
@@ -1314,6 +1404,7 @@ fn update_model(
     BlockInput(node_id~, text~, selection_offset~) => {
       let (next, committed_selection) = commit_block_request(
         editor,
+        attachment,
         model,
         @markdown.MarkdownEditRequest::CommitTextControlEdit(
           node_id~,
@@ -1359,6 +1450,7 @@ fn update_model(
     BlockSplit(node_id~, offset~) => {
       let (next, committed_selection) = commit_block_request(
         editor,
+        attachment,
         model,
         @markdown.MarkdownEditRequest::SplitBlock(node_id~, offset~),
         "editor-dispatch",
@@ -1396,6 +1488,7 @@ fn update_model(
     BlockMerge(node_id~, selection=originating_selection) => {
       let (next, committed_selection) = commit_block_request(
         editor,
+        attachment,
         model,
         @markdown.MarkdownEditRequest::MergeWithPrevious(node_id~),
         "editor-dispatch",
@@ -1491,7 +1584,7 @@ fn update_model(
         let next = update_preview_document(
           attachment,
           committed,
-          model.state.mode(),
+          preview_requested(model),
           accepted~,
           changed~,
         )
@@ -1565,12 +1658,17 @@ fn update_model(
       next = update_preview_document(
         attachment,
         next,
-        model.state.mode(),
+        preview_requested(model),
         accepted~,
         changed=source_changed,
       )
       publish(next)
-      (next, @rabbita_runtime.none)
+      let command = if split_visible(next) && !split_visible(model) {
+        split_measure_command(emit)
+      } else {
+        @rabbita_runtime.none
+      }
+      (next, command)
     }
     SelectRaw | SelectBlock | SelectPreview => {
       let mode = match event {
@@ -1586,10 +1684,44 @@ fn update_model(
       let next = update_preview_document(
         attachment,
         { ..model, state: transition.state() },
-        model.state.mode(),
+        preview_requested(model),
         accepted=true,
         changed=false,
       )
+      publish(next)
+      let command = if split_visible(next) && !split_visible(model) {
+        split_measure_command(emit)
+      } else {
+        @rabbita_runtime.none
+      }
+      (next, command)
+    }
+    ToggleSplitPreview => {
+      let old_requested = preview_requested(model)
+      let next = update_preview_document(
+        attachment,
+        { ..model, split_preview_open: !model.split_preview_open },
+        old_requested,
+        accepted=true,
+        changed=false,
+      )
+      publish(next)
+      let command = if split_visible(next) {
+        split_measure_command(emit)
+      } else {
+        @rabbita_runtime.none
+      }
+      (next, command)
+    }
+    SplitResize(message) => {
+      let split_resize = { model: model.split_resize.model.update(message) }
+      let next = { ..model, split_resize, }
+      publish(next)
+      (next, @rabbita_runtime.none)
+    }
+    SplitMeasured(group_width) => {
+      let split_resize = model.split_resize.fit_group(group_width)
+      let next = { ..model, split_resize, }
       publish(next)
       (next, @rabbita_runtime.none)
     }
@@ -1816,7 +1948,12 @@ fn update_model(
       ignore(viewport)
       let next = { ..model, resize_count: model.resize_count + 1 }
       publish(next)
-      (next, @rabbita_runtime.none)
+      let command = if split_visible(next) {
+        split_measure_command(emit)
+      } else {
+        @rabbita_runtime.none
+      }
+      (next, command)
     }
   }
 }
@@ -1976,8 +2113,11 @@ fn subscriptions(
     control
   } else {
     @sub.batch([
-      @sub.on_resize(emit.map(_ => Resize({ width: 0, height: 0 }))),
+      @sub.on_resize(emit.map(viewport => Resize(viewport))),
       driver_test_subscription(emit, model.document.source()),
+      model.split_resize.model.subscriptions(message => {
+        emit(SplitResize(message))
+      }),
       control,
     ])
   }
@@ -2001,6 +2141,16 @@ pub fn mount(host_id : String, source : String) -> String {
     state: @core.ApplicationState::ApplicationState(@core.Raw),
     document: editor.snapshot(),
     semantic_document: None,
+    semantic_read_count: 0,
+    split_preview_open: false,
+    split_resize: {
+      model: @resizable.Model::new(w=384, h=1, constraints={
+        min_w: 160,
+        max_w: 640,
+        min_h: 1,
+        max_h: 1,
+      }),
+    },
     active_block_key: None,
     replica_id,
     source_revision: 0,

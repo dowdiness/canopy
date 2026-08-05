@@ -231,7 +231,9 @@ Issue #1145 follows the completed private Application Train and does not wait fo
 Rabbita #141. It attaches one `MarkdownSemanticAttachment` to the exact parser
 created for the private Loomark editor and retains it for the existing
 page/process lifetime. Raw and Block keep the editable `Block` projection;
-Preview alone holds an owning `MarkdownIR` read model. The ordinary headless
+the document-level Preview consumer holds an owning `MarkdownIR` read model.
+The consumer may be the full Preview mode or the fixed split Preview described
+below. The ordinary headless
 `MarkdownEditor` constructor remains attachment-free. `SyncEditor` privately
 roots the three projection memos it already owns for the editor lifetime, so
 attachment collection cannot sweep the editable projection graph without
@@ -242,20 +244,49 @@ recorded in
 | Boundary | Accepted transition | Semantic read | Required observation |
 | --- | --- | --- | --- |
 | Private mount | construct editor and attachment over one parser | none while initial mode is Raw | one attachment; ordinary constructor unchanged |
-| Raw/Block → Preview | committed mode transition | once after transition acceptance | current complete MarkdownIR renders through typed Rabbita HTML |
-| Preview source/block edit | editor commit succeeds | once after commit | Raw, Block, and Preview reflect the same canonical source |
+| no Preview consumer → at least one consumer | committed mode or split transition | once after transition acceptance | current complete MarkdownIR renders through typed Rabbita HTML |
+| accepted source/block edit while a Preview consumer exists | editor commit succeeds | once after commit | Raw, Block, and Preview reflect the same canonical source |
 | Preview no-op or rejected edit | no committed source change | none | prior owning Preview document and focus remain visible |
 | Snapshot restore to Preview | source/mode transaction succeeds | once after acceptance | restored source and semantic document appear atomically |
-| Snapshot restore outside Preview | transaction succeeds | none; semantic model may be cleared | editable source/projection behavior is unchanged |
+| last Preview consumer disappears | committed mode or split transition | none; semantic model is cleared | editable source/projection behavior is unchanged |
 | Prepend, position shift, exact reversal | commit succeeds in Preview | once per committed edit | attached result matches fresh one-shot MarkdownIR lowering |
 | Malformed intermediate input | parser accepts recovered source | once per committed edit in Preview | `Raw`/`Recovered` are visible; no last-good substitution |
 | Valid inline/block HTML | semantic render | no extra read | literal content is escaped text, never injected DOM markup |
-| Repeated mode switches and mount rejection | accepted transition / rejected second mount | only non-Preview → Preview reads | attachment count stays one; existing single-mount contract stays green |
+| Repeated mode/split switches and mount rejection | accepted transition / rejected second mount | only zero-consumer → consumer reads | attachment count stays one; existing single-mount contract stays green |
 
 The deterministic renderer exhaustively matches `MarkdownIRView`. It consumes
 an already-owned document and performs no parser, attachment, DOM, clock,
 subscription, or `document()` effect. Reading the attachment and installing the
 owning document remain imperative-shell work at the committed boundaries above.
+
+### Fixed split Preview M0
+
+The first split-view increment is one editable Raw or Block surface beside one
+read-only Preview. Both surfaces observe the same mount-owned editor, parser,
+semantic attachment, canonical source, history, and accepted revision. Opening
+or closing the split never constructs or disposes a document resource. Block
+and Raw commits pass through their existing atomic editor boundary before the
+Preview read model advances.
+
+Split open state and divider width are private, ephemeral Rabbita state. They
+are deliberately absent from `MarkdownSnapshotV1`, focus tokens, and the future
+public Browser Session contract. Full Preview temporarily replaces the split
+layout without discarding the private split preference; returning to Raw or
+Block restores the two-surface view without another semantic read.
+
+The divider reuses `modules/rabbita-resizable` for its pure clamped model,
+mouse subscription, keyboard nudges, and separator ARIA values. Loomark owns
+only Pane composition and styling in `internal/rabbita/split_view.mbt`. The
+first increment keeps a horizontal two-Pane layout and caps the editing Pane at
+half of narrow containers so both surfaces remain within the viewport.
+
+Out of this increment are recursive Pane trees, a second editable Pane, layout
+persistence, scroll/selection synchronization, and public lifecycle changes.
+Warren remains Rabbita development-preview/build tooling; it does not own
+runtime Pane state or replace the private deterministic Vanilla/Playwright
+contract host. Adopting Warren as an additional interactive host is a separate
+tooling change after the vendored Warren CLI is compatible with the workspace
+MoonBit toolchain.
 
 ### Canonical Session, adapters, and Waku
 
