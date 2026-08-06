@@ -16,11 +16,12 @@ cd apps/loomark
 ```
 
 The pinned `deps/rabbita` commit,
-`983d1e50455d0ac8e3e73b9aacb19eb1be70a7c4`, is published on the
-`dowdiness/rabbita` `feat/warren-standalone-direct` branch. It contains Warren
-direct mode and the current MoonBit debug-rendering spelling used by Loomark.
-The installer verifies the immutable gitlink SHA directly rather than relying
-on the branch remaining at that commit.
+`09968c4402c51645186d75c5044cf4d9346f9f06`, is published on the
+`dowdiness/rabbita` `feat/warren-standalone-direct` branch. It is based on
+upstream Rabbita `0.14.2` at `417c644`, retains Canopy's incremental resizable
+content support, and carries the small syntax compatibility changes required by
+Canopy's pinned MoonBit toolchain. The installer verifies the immutable gitlink
+SHA directly rather than relying on the branch remaining at that commit.
 
 Existing checkouts that still configure the upstream Rabbita repository as the
 submodule origin must synchronize it before installing Warren:
