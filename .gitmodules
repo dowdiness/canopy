@@ -18,4 +18,4 @@
 	url = https://github.com/dowdiness/alga.git
 [submodule "rabbita"]
 	path = deps/rabbita
-	url = https://github.com/moonbit-community/rabbita.git
+	url = https://github.com/dowdiness/rabbita.git

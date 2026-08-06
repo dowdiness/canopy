@@ -6,8 +6,8 @@ change passes through the same canonical document transaction.
 
 ## Development
 
-Install the repository-owned Warren overlay, then start the top-level page with
-live reload:
+Install Warren from the pinned Rabbita submodule, then start the top-level page
+with live reload:
 
 ```bash
 ./scripts/install-local-warren.sh
@@ -15,10 +15,21 @@ cd apps/loomark
 ../../_build/tools/bin/warren dev --direct
 ```
 
-The overlay is built from the pinned `deps/rabbita` commit plus
-`patches/rabbita/warren-standalone.patch`. It adds Warren direct mode and the
-current MoonBit debug-rendering spelling without changing the Rabbita runtime
-used by Loomark.
+The pinned `deps/rabbita` commit,
+`983d1e50455d0ac8e3e73b9aacb19eb1be70a7c4`, is published on the
+`dowdiness/rabbita` `feat/warren-standalone-direct` branch. It contains Warren
+direct mode and the current MoonBit debug-rendering spelling used by Loomark.
+The installer verifies the immutable gitlink SHA directly rather than relying
+on the branch remaining at that commit.
+
+Existing checkouts that still configure the upstream Rabbita repository as the
+submodule origin must synchronize it before installing Warren:
+
+```bash
+git submodule sync --recursive
+git -C deps/rabbita remote set-url origin https://github.com/dowdiness/rabbita.git
+git submodule update --init --recursive deps/rabbita
+```
 
 ## Release build
 
