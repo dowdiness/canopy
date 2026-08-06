@@ -56,7 +56,7 @@
         "question": "Can one surface treat missing prerequisites as an ordinary state for a peer exchange and as a defect for an archive?",
         "procedure": "Cut a history at a version, hand the increment to a document that never saw the operations before that cut, and observe both admitting it directly and opening a document from it.",
         "result": "confirmed",
-        "observed": "Admission returned Withheld with exact counts -- nothing applied, one operation held -- without raising. Opening the same increment raised IncompleteArchive.",
+        "observed": "Admission returned Withheld with exact counts -- nothing applied, one operation held -- without raising. Opening the same increment raised IncompleteHistory.",
         "bearingOn": "The distinction the design asks for is a judgment about one report rather than two mechanisms. The counts are asserted exactly rather than as a mere distinction, which is what shows the report is carried through rather than reconstructed from the presence of an error (F6)."
       },
       {
@@ -140,14 +140,14 @@
       "id": "restore-inherits-receiver-policy",
       "raisedBy": "implementing the façade's admission path",
       "question": "What policy does admission state, given that the only available path applies the receiver's sync limits?",
-      "observation": "Admission now has two explicit paths over the same EGW semantics. Peer admission keeps the document-configured limits, while archive opening requires a caller-owned policy and routes through the document sync call self.doc.sync().apply_with_limits. Opening still refuses withheld operations after admission, while peer admission reports them as ordinary causal state.",
+      "observation": "Admission now has two explicit paths over the same EGW semantics. Peer admission keeps the document-configured limits, while archive opening requires caller-owned open limits and routes through the document sync call self.doc.sync().apply_with_limits. Opening still refuses withheld operations after admission, while peer admission reports them as ordinary causal state.",
       "sites": [
         "event-graph-walker/text/sync.mbt:1213-1244 (per-call and document-configured admission paths)",
         "editor/sync_editor.mbt:466-531 (shared admission shell and explicit-limit entry point)",
-        "editor/markdown/editor.mbt:125-174,553-589 (required archive policy and typed opening failures)"
+        "editor/markdown/editor.mbt:125-174,553-589 (required archive open limits and typed opening failures)"
       ],
-      "bearingOn": "The restore ceiling is now a required parameter with no default, so archive restore cannot silently inherit a policy chosen for untrusted peer traffic. No product ceiling is selected here; callers remain responsible for choosing and surfacing one.",
-      "status": "resolved 2026-08-06 by the explicit per-open archive admission policy"
+      "bearingOn": "The restore ceiling is now a required parameter with no default, so archive restore cannot silently inherit limits chosen for untrusted peer traffic. No product ceiling is selected here; callers remain responsible for choosing and surfacing one.",
+      "status": "resolved 2026-08-06 by explicit archive-open limits"
     },
     {
       "id": "archive-failure-taxonomy-placement",

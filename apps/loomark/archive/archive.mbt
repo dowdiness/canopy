@@ -45,13 +45,14 @@ pub(all) suberror LoomarkArchiveDecodeError {
   CorruptHistory(detail~ : String)
   PortableTextHistoryMismatch
   InvalidValidationAgentId
-  WriterUnavailable(detail~ : String)
-  CapacityExceeded(
-    kind~ : @markdown.MarkdownArchiveLimitKind,
-    limit~ : Int,
+  WriterCreationFailed(detail~ : String)
+  LimitExceeded(
+    dimension~ : @markdown.MarkdownArchiveLimitDimension,
+    maximum~ : Int,
     actual~ : Int
   )
-  AdmissionFailed(detail~ : String)
+  HistoryAdmissionFailed(detail~ : String)
+  HistoryExportFailed(detail~ : String)
   IncompleteHistory
 }
 
@@ -113,7 +114,7 @@ pub fn LoomarkDocumentArchive::to_json_string(self : Self) -> String {
 
 ///|
 /// Decode and validate a v1 archive with a caller-owned fresh validation ID
-/// and explicit archive admission policy.
+/// and explicit archive open limits.
 ///
 /// Field uniqueness follows core JSON's semantic-object `Map` behavior: a
 /// duplicate member overwrites the earlier value. Canonical Loomark encoding
@@ -122,7 +123,7 @@ pub fn LoomarkDocumentArchive::to_json_string(self : Self) -> String {
 pub fn LoomarkDocumentArchive::from_json_string(
   json : String,
   validation_agent_id~ : String,
-  admission_policy~ : @markdown.MarkdownArchiveAdmissionPolicy,
+  open_limits~ : @markdown.MarkdownArchiveOpenLimits,
 ) -> LoomarkDocumentArchive raise LoomarkArchiveDecodeError {
   let value = @json.parse(json) catch {
     _ =>
@@ -177,9 +178,7 @@ pub fn LoomarkDocumentArchive::from_json_string(
   if validation_agent_id.is_empty() {
     raise LoomarkArchiveDecodeError::InvalidValidationAgentId
   }
-  validate_decoded(
-    portable_markdown, history, validation_agent_id, admission_policy,
-  )
+  validate_decoded(portable_markdown, history, validation_agent_id, open_limits)
   { document_id, portable_markdown, history }
 }
 
@@ -235,25 +234,29 @@ fn validate_decoded(
   portable_markdown : String,
   history : @markdown.MarkdownDocumentHistory,
   validation_agent_id : String,
-  admission_policy : @markdown.MarkdownArchiveAdmissionPolicy,
+  open_limits : @markdown.MarkdownArchiveOpenLimits,
 ) -> Unit raise LoomarkArchiveDecodeError {
   let reopened = @markdown.MarkdownEditor::open(
     agent_id=validation_agent_id,
     history~,
-    admission_policy~,
+    open_limits~,
   ) catch {
     @markdown.MarkdownArchiveError::InvalidAgentId =>
       raise LoomarkArchiveDecodeError::InvalidValidationAgentId
-    @markdown.MarkdownArchiveError::WriterUnavailable(detail~) =>
-      raise LoomarkArchiveDecodeError::WriterUnavailable(detail~)
-    @markdown.MarkdownArchiveError::CapacityExceeded(kind~, limit~, actual~) =>
-      raise LoomarkArchiveDecodeError::CapacityExceeded(kind~, limit~, actual~)
-    @markdown.MarkdownArchiveError::AdmitFailed(detail~) =>
-      raise LoomarkArchiveDecodeError::AdmissionFailed(detail~)
-    @markdown.MarkdownArchiveError::IncompleteArchive =>
+    @markdown.MarkdownArchiveError::WriterCreationFailed(detail~) =>
+      raise LoomarkArchiveDecodeError::WriterCreationFailed(detail~)
+    @markdown.MarkdownArchiveError::LimitExceeded(dimension~, maximum~, actual~) =>
+      raise LoomarkArchiveDecodeError::LimitExceeded(
+        dimension~,
+        maximum~,
+        actual~,
+      )
+    @markdown.MarkdownArchiveError::HistoryAdmissionFailed(detail~) =>
+      raise LoomarkArchiveDecodeError::HistoryAdmissionFailed(detail~)
+    @markdown.MarkdownArchiveError::IncompleteHistory =>
       raise LoomarkArchiveDecodeError::IncompleteHistory
     @markdown.MarkdownArchiveError::ExportFailed(detail~) =>
-      raise LoomarkArchiveDecodeError::AdmissionFailed(detail~)
+      raise LoomarkArchiveDecodeError::HistoryExportFailed(detail~)
   }
   if reopened.portable_markdown() != portable_markdown {
     raise LoomarkArchiveDecodeError::PortableTextHistoryMismatch
