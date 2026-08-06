@@ -1,0 +1,7 @@
+{
+  "name": "loomark",
+  "compatibility_date": "2026-08-06",
+  "assets": {
+    "directory": "./apps/loomark/dist"
+  }
+}
