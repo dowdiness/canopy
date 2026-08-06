@@ -836,6 +836,9 @@ jobs:
           apt-get install --yes --no-install-recommends build-essential
           rm -rf /var/lib/apt/lists/*
 
+      - name: Trust container workspace
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - name: Set up MoonBit
         uses: ./.github/actions/setup-moonbit
 
