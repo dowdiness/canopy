@@ -9,6 +9,7 @@ import {
   "dowdiness/canopy/transport_ws",
   "dowdiness/diagnostic",
   "dowdiness/event-graph-walker/history",
+  "dowdiness/event-graph-walker/sync",
   "dowdiness/event-graph-walker/text",
   "dowdiness/incr/cells",
   "dowdiness/loom/incremental",
@@ -132,6 +133,7 @@ pub struct SyncEditor[T] {
   // private fields
 }
 pub fn[T : Eq] SyncEditor::admit(Self[T], @text.SyncMessage) -> @text.SyncReport raise @text.TextError
+pub fn[T : Eq] SyncEditor::admit_with_limits(Self[T], @text.SyncMessage, @sync.Limits) -> @text.SyncReport raise @text.TextError
 pub fn[T] SyncEditor::apply_ephemeral(Self[T], Bytes) -> Unit
 pub fn[T : Eq] SyncEditor::apply_span_edits(Self[T], Array[@dowdiness/canopy/core.SpanEdit], @dowdiness/canopy/core.FocusHint, Int, hint? : @dowdiness/canopy/core.IdentityTransform) -> Unit
 pub fn[T : Eq] SyncEditor::apply_sync(Self[T], @text.SyncMessage) -> Unit raise

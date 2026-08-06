@@ -1,6 +1,21 @@
 ///| The first public headless Markdown façade seam.
 
 ///|
+fn archive_open_limits(
+  max_encoded_bytes? : Int = 1024 * 1024,
+  max_decoded_operations? : Int = 10000,
+  max_pending_operations? : Int = 1000,
+  max_parents_per_operation? : Int = 256,
+) -> MarkdownArchiveOpenLimits {
+  try! MarkdownArchiveOpenLimits(
+    max_encoded_bytes~,
+    max_decoded_operations~,
+    max_pending_operations~,
+    max_parents_per_operation~,
+  )
+}
+
+///|
 fn fresh_markdown_ir(source : String) -> @md_markdown.MarkdownIR {
   let parser = @loom.new_parser(
     @loom.SourceId("markdown-editor-semantic-fresh"),
@@ -1258,6 +1273,88 @@ test "empty replica identity is a categorized construction failure" {
 /// workspace/probe pinned this at the editor layer because the façade exposed
 /// neither version nor history transport. It now does, so the same claim is
 /// asserted where the application actually stands.
+test "archive open enforces the exact encoded-byte limit atomically" {
+  let original = try! MarkdownEditor(
+    agent_id="archive-policy-source",
+    source="# Title\n\nbody text\n",
+  )
+  let history = try! original.history_since()
+  let encoded_bytes = @utf8.encode(history.to_json_string()).length()
+  let exact = try! MarkdownArchiveOpenLimits(
+    max_encoded_bytes=encoded_bytes,
+    max_decoded_operations=100,
+    max_pending_operations=10,
+    max_parents_per_operation=16,
+  )
+  let reopened = try! MarkdownEditor::open(
+    agent_id="archive-policy-exact",
+    history~,
+    open_limits=exact,
+  )
+  assert_true(try! (reopened.history_since() == history))
+
+  let before_source = original.snapshot().source()
+  let before_version = original.version()
+  let over = try! MarkdownArchiveOpenLimits(
+    max_encoded_bytes=encoded_bytes - 1,
+    max_decoded_operations=100,
+    max_pending_operations=10,
+    max_parents_per_operation=16,
+  )
+  let refused : Result[MarkdownEditor, MarkdownArchiveError] = Ok(
+    MarkdownEditor::open(
+      agent_id="archive-policy-over",
+      history~,
+      open_limits=over,
+    ),
+  ) catch {
+    error => Err(error)
+  }
+  match refused {
+    Err(
+      MarkdownArchiveError::LimitExceeded(
+        dimension=MarkdownArchiveLimitDimension::EncodedBytes,
+        maximum~,
+        actual~
+      )
+    ) => {
+      assert_eq(maximum, encoded_bytes - 1)
+      assert_eq(actual, encoded_bytes)
+    }
+    _ => fail("expected encoded-byte limit failure")
+  }
+  assert_eq(original.snapshot().source(), before_source)
+  assert_true(original.version() == before_version)
+  assert_true(try! (original.history_since() == history))
+}
+
+///|
+test "archive open limits reject a negative resource dimension" {
+  let invalid : Result[
+    MarkdownArchiveOpenLimits,
+    MarkdownArchiveOpenLimitsError,
+  ] = Ok(
+    MarkdownArchiveOpenLimits(
+      max_encoded_bytes=1024,
+      max_decoded_operations=100,
+      max_pending_operations=10,
+      max_parents_per_operation=-1,
+    ),
+  ) catch {
+    error => Err(error)
+  }
+  assert_true(
+    invalid
+    is Err(
+      MarkdownArchiveOpenLimitsError::InvalidLimit(
+        dimension=MarkdownArchiveLimitDimension::ParentsPerOperation,
+        value=-1
+      )
+    ),
+  )
+}
+
+///|
 test "facade history round-trips into a reopened document" {
   let original = try! MarkdownEditor(
     agent_id="owner-1",
@@ -1271,7 +1368,11 @@ test "facade history round-trips into a reopened document" {
   let want_version = original.version()
   let history = try! original.history_since()
 
-  let reopened = try! MarkdownEditor::open(agent_id="owner-2", history~)
+  let reopened = try! MarkdownEditor::open(
+    agent_id="owner-2",
+    history~,
+    open_limits=archive_open_limits(),
+  )
 
   assert_eq(reopened.snapshot().source(), want_source)
   assert_true(reopened.version() == want_version)
@@ -1293,7 +1394,11 @@ test "facade history round-trips into a reopened document" {
 test "reopened and original converge after divergent edits" {
   let a = try! MarkdownEditor(agent_id="peer-a", source="hello world")
   let seed = try! a.history_since()
-  let b = try! MarkdownEditor::open(agent_id="peer-b", history=seed)
+  let b = try! MarkdownEditor::open(
+    agent_id="peer-b",
+    history=seed,
+    open_limits=archive_open_limits(),
+  )
 
   assert_true(
     a.commit(
@@ -1334,14 +1439,18 @@ test "open categorizes a bad writer identity as such" {
   let history = try! document.history_since()
 
   let refused : Result[MarkdownEditor, MarkdownArchiveError] = Ok(
-    MarkdownEditor::open(agent_id="", history~),
+    MarkdownEditor::open(
+      agent_id="",
+      history~,
+      open_limits=archive_open_limits(),
+    ),
   ) catch {
     error => Err(error)
   }
 
   match refused {
     Err(MarkdownArchiveError::InvalidAgentId) => ()
-    Err(MarkdownArchiveError::AdmitFailed(detail~)) =>
+    Err(MarkdownArchiveError::HistoryAdmissionFailed(detail~)) =>
       fail("blamed admission for a writer that was never created: \{detail}")
     _ => fail("expected InvalidAgentId")
   }
@@ -1403,13 +1512,37 @@ test "withheld operations are reported by admit and refused by open" {
   )
 
   let refused : Result[MarkdownEditor, MarkdownArchiveError] = Ok(
-    MarkdownEditor::open(agent_id="gap-open", history=gapped),
+    MarkdownEditor::open(
+      agent_id="gap-open",
+      history=gapped,
+      open_limits=archive_open_limits(),
+    ),
   ) catch {
     error => Err(error)
   }
   match refused {
-    Err(MarkdownArchiveError::IncompleteArchive) => ()
-    _ => fail("expected IncompleteArchive")
+    Err(MarkdownArchiveError::IncompleteHistory) => ()
+    _ => fail("expected IncompleteHistory")
+  }
+
+  let capacity_refused : Result[MarkdownEditor, MarkdownArchiveError] = Ok(
+    MarkdownEditor::open(
+      agent_id="gap-capacity-open",
+      history=gapped,
+      open_limits=archive_open_limits(max_pending_operations=0),
+    ),
+  ) catch {
+    error => Err(error)
+  }
+  match capacity_refused {
+    Err(
+      MarkdownArchiveError::LimitExceeded(
+        dimension=MarkdownArchiveLimitDimension::PendingOperations,
+        maximum=0,
+        actual=1
+      )
+    ) => ()
+    _ => fail("expected pending-operation limit failure")
   }
 }
 

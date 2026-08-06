@@ -21,6 +21,11 @@ pub(all) suberror LoomarkArchiveDecodeError {
   CorruptHistory(detail~ : String)
   PortableTextHistoryMismatch
   InvalidValidationAgentId
+  WriterCreationFailed(detail~ : String)
+  LimitExceeded(dimension~ : @markdown.MarkdownArchiveLimitDimension, maximum~ : Int, actual~ : Int)
+  HistoryAdmissionFailed(detail~ : String)
+  HistoryExportFailed(detail~ : String)
+  IncompleteHistory
 }
 
 pub(all) suberror LoomarkDocumentIdError {
@@ -33,7 +38,7 @@ pub struct LoomarkDocumentArchive {
 }
 pub fn LoomarkDocumentArchive::capture(document_id~ : LoomarkDocumentId, editor~ : @markdown.MarkdownEditor) -> Self raise LoomarkArchiveCaptureError
 pub fn LoomarkDocumentArchive::document_id(Self) -> LoomarkDocumentId
-pub fn LoomarkDocumentArchive::from_json_string(String, validation_agent_id~ : String) -> Self raise LoomarkArchiveDecodeError
+pub fn LoomarkDocumentArchive::from_json_string(String, validation_agent_id~ : String, open_limits~ : @markdown.MarkdownArchiveOpenLimits) -> Self raise LoomarkArchiveDecodeError
 pub fn LoomarkDocumentArchive::history(Self) -> @markdown.MarkdownDocumentHistory
 pub fn LoomarkDocumentArchive::portable_markdown(Self) -> String
 pub fn LoomarkDocumentArchive::to_json_string(Self) -> String

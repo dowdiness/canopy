@@ -127,6 +127,9 @@ ProseMirror tree positions to this API.
 | API | Location | Notes |
 |-----|----------|-------|
 | `SyncEditor[T]` | `editor/` | Collaborative editor wrapping a CRDT document. |
+| `SyncEditor::admit` | `editor/` | Peer admission using document-configured limits; causal gaps are retained and reported. |
+| `SyncEditor::admit_with_limits` | `editor/` | Call-local admission limits for owning façades; preserves the same reconciliation shell. |
+| `MarkdownArchiveOpenLimits` / `MarkdownEditor::open` | `editor/markdown/` | Archive restore requires all four resource limits explicitly and refuses causal gaps. |
 | `encode_message` / `decode_message` | `editor/` | Binary sync protocol serialization. |
 | `encode_sync_request` / `encode_sync_response` | `editor/` | Handshake messages. |
 | `SyncStatus` / `SyncErrorReason` | `editor/` | Status enums for sync health. |
@@ -135,7 +138,7 @@ ProseMirror tree positions to this API.
 | `RelayRoom::on_connect` / `on_message` / `on_disconnect` | `relay/` | Lifecycle hooks. |
 | `encode_peer_joined` / `encode_peer_left` | `relay/` | Presence messages. |
 
-**Do not:** Implement custom binary framing; use `encode_message`/`decode_message`.
+**Do not:** Implement custom binary framing; use `encode_message`/`decode_message`. Do not restore an archive through peer `admit`; use the explicit archive open limits and `MarkdownEditor::open`.
 
 ---
 

@@ -11,10 +11,15 @@ import {
 // Errors
 pub(all) suberror MarkdownArchiveError {
   InvalidAgentId
-  WriterUnavailable(detail~ : String)
+  WriterCreationFailed(detail~ : String)
   ExportFailed(detail~ : String)
-  AdmitFailed(detail~ : String)
-  IncompleteArchive
+  LimitExceeded(dimension~ : MarkdownArchiveLimitDimension, maximum~ : Int, actual~ : Int)
+  HistoryAdmissionFailed(detail~ : String)
+  IncompleteHistory
+}
+
+pub(all) suberror MarkdownArchiveOpenLimitsError {
+  InvalidLimit(dimension~ : MarkdownArchiveLimitDimension, value~ : Int)
 }
 
 pub(all) suberror MarkdownEditorError {
@@ -34,6 +39,18 @@ pub(all) enum MarkdownAdmitReport {
   Complete
   Withheld(applied~ : Int, withheld~ : Int)
 } derive(Eq, @debug.Debug)
+
+pub(all) enum MarkdownArchiveLimitDimension {
+  EncodedBytes
+  DecodedOperations
+  PendingOperations
+  ParentsPerOperation
+} derive(Eq, @debug.Debug)
+
+pub struct MarkdownArchiveOpenLimits {
+  // private fields
+}
+pub fn MarkdownArchiveOpenLimits::MarkdownArchiveOpenLimits(max_encoded_bytes~ : Int, max_decoded_operations~ : Int, max_pending_operations~ : Int, max_parents_per_operation~ : Int) -> Self raise MarkdownArchiveOpenLimitsError
 
 pub(all) enum MarkdownBlockKind {
   Paragraph
@@ -119,7 +136,7 @@ pub fn MarkdownEditor::admit(Self, MarkdownDocumentHistory) -> MarkdownAdmitRepo
 pub fn MarkdownEditor::commit(Self, MarkdownEditRequest) -> Result[MarkdownCommitResult, MarkdownEditorError]
 pub fn MarkdownEditor::commit_with_receipt(Self, MarkdownEditRequest) -> Result[MarkdownCommitReceipt, MarkdownEditorError] raise MarkdownArchiveError
 pub fn MarkdownEditor::history_since(Self, version? : MarkdownDocumentVersion) -> MarkdownDocumentHistory raise MarkdownArchiveError
-pub fn MarkdownEditor::open(agent_id~ : String, history~ : MarkdownDocumentHistory) -> Self raise MarkdownArchiveError
+pub fn MarkdownEditor::open(agent_id~ : String, history~ : MarkdownDocumentHistory, open_limits~ : MarkdownArchiveOpenLimits) -> Self raise MarkdownArchiveError
 pub fn MarkdownEditor::portable_markdown(Self) -> String
 pub fn MarkdownEditor::snapshot(Self) -> MarkdownDocumentSnapshot
 pub fn MarkdownEditor::version(Self) -> MarkdownDocumentVersion

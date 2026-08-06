@@ -7,11 +7,13 @@ import {
   "dowdiness/markdown" @md_markdown,
   "dowdiness/text_change",
   "dowdiness/event-graph-walker/text",
+  "dowdiness/event-graph-walker/sync",
   "moonbitlang/core/immut/vector",
 }
 
 import {
   "dowdiness/loom",
+  "moonbitlang/core/encoding/utf8",
 } for "wbtest"
 
 warnings = "-7-29"
