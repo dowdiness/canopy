@@ -10,7 +10,7 @@
   },
   "executedProbes": {
     "command": "NEW_MOON_MOD=0 moon test -p dowdiness/canopy/editor/markdown",
-    "result": "Total tests: 17, passed: 17, failed: 0",
+    "result": "Historical result at the 2026-08-03 observed commit: Total tests: 17, passed: 17, failed: 0",
     "instrumentControl": {
       "why": "The new assertions are the whole point of the slice; a green suite proves nothing unless they ran.",
       "observed": "Falsified once per added assertion, each time restoring the suite to green afterwards. The canonical-history oracle: 13 of 14 passing, naming its line. Convergence and the withheld report: 14 of 16 passing, the second reporting 'Withheld != Complete'. Idempotence, falsified one assertion at a time because the first failure ends the test: 16 of 17 passing for the version claim, then again for the history claim. The probe's direct pending count: 41 of 42.",
@@ -140,14 +140,14 @@
       "id": "restore-inherits-receiver-policy",
       "raisedBy": "implementing the façade's admission path",
       "question": "What policy does admission state, given that the only available path applies the receiver's sync limits?",
-      "observation": "Admission goes through SyncEditor::apply_sync -> SyncSession::apply, which calls prepare_sync with the document's sync_limits and raises LimitExceeded on encoded bytes and decoded operation count. Those limits are fixed per TextState at construction (TextState::new_with_sync_limits) and cannot be varied per call, so opening an archive and admitting remote traffic cannot state different policies. The completeness half of the policy is now stated at the call -- opening refuses withheld operations, admission reports them -- but the resource half is not.",
+      "observation": "Admission now has two explicit paths over the same EGW semantics. Peer admission keeps the document-configured limits, while archive opening requires a caller-owned policy and routes through SyncSession::apply_with_limits. Opening still refuses withheld operations after admission, while peer admission reports them as ordinary causal state.",
       "sites": [
-        "event-graph-walker/text/sync.mbt:1213-1224 (SyncSession::apply passes self.doc.sync_limits)",
-        "event-graph-walker/text/sync.mbt:1099-1116 (prepare_sync limit checks)",
-        "editor/sync_editor.mbt:457-465 (apply_sync delegates to sync().apply)"
+        "event-graph-walker/text/sync.mbt:1213-1244 (per-call and document-configured admission paths)",
+        "editor/sync_editor.mbt:466-531 (shared admission shell and explicit-limit entry point)",
+        "editor/markdown/editor.mbt:125-174,553-589 (required archive policy and typed opening failures)"
       ],
-      "bearingOn": "The design's 'Scale limits are a choice restore must make deliberately' states that restore must not inherit a policy written for a different threat, and its Verification section expects the restore ceiling to become a parameter with no default. Neither is expressible without a change under event-graph-walker, and no measurement exists to choose a ceiling from. Recorded rather than resolved: no default was chosen in this slice.",
-      "status": "open"
+      "bearingOn": "The restore ceiling is now a required parameter with no default, so archive restore cannot silently inherit a policy chosen for untrusted peer traffic. No product ceiling is selected here; callers remain responsible for choosing and surfacing one.",
+      "status": "resolved 2026-08-06 by the explicit per-open archive admission policy"
     },
     {
       "id": "archive-failure-taxonomy-placement",

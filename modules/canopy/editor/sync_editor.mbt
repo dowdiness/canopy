@@ -465,21 +465,19 @@ fn[T] SyncEditor::adjust_cursor(self : SyncEditor[T]) -> Unit {
 }
 
 ///|
-/// Take a peer's operations into this document, reporting what landed.
-///
-/// Operations whose causal prerequisites are absent are retained rather than
-/// rejected, and counted in the returned report. That is a state, not a
-/// failure. Callers that require a message to be complete apply that policy
-/// themselves — `apply_sync` is the one that does.
-pub fn[T : Eq] SyncEditor::admit(
+fn[T : Eq] SyncEditor::admit_with_policy(
   self : SyncEditor[T],
   msg : @text.SyncMessage,
+  limits : @sync.Limits?,
 ) -> @text.SyncReport raise @text.TextError {
   self.taint_pending_transforms()
   let old_source = self.doc.text()
   self.undo.set_tracking(false)
   let report_result : Result[@text.SyncReport, @text.TextError] = Ok(
-    self.doc.sync().apply(msg),
+    match limits {
+      None => self.doc.sync().apply(msg)
+      Some(limits) => self.doc.sync().apply_with_limits(msg, limits)
+    },
   ) catch {
     error => Err(error)
   }
@@ -501,6 +499,33 @@ pub fn[T : Eq] SyncEditor::admit(
     self.session.note_sync_applied()
   }
   report
+}
+
+///|
+/// Take a peer's operations into this document, reporting what landed.
+///
+/// Operations whose causal prerequisites are absent are retained rather than
+/// rejected, and counted in the returned report. That is a state, not a
+/// failure. Callers that require a message to be complete apply that policy
+/// themselves — `apply_sync` is the one that does.
+pub fn[T : Eq] SyncEditor::admit(
+  self : SyncEditor[T],
+  msg : @text.SyncMessage,
+) -> @text.SyncReport raise @text.TextError {
+  self.admit_with_policy(msg, None)
+}
+
+///|
+/// Take operations into this document using caller-selected resource limits.
+///
+/// This selects policy for one admission only; peer admission through `admit`
+/// continues to use the limits configured on the document.
+pub fn[T : Eq] SyncEditor::admit_with_limits(
+  self : SyncEditor[T],
+  msg : @text.SyncMessage,
+  limits : @sync.Limits,
+) -> @text.SyncReport raise @text.TextError {
+  self.admit_with_policy(msg, Some(limits))
 }
 
 ///|

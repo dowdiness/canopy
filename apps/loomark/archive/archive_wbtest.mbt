@@ -1,4 +1,19 @@
 ///|
+fn archive_decode_test_policy(
+  max_encoded_bytes? : Int = 1024 * 1024,
+  max_decoded_operations? : Int = 10000,
+  max_pending_operations? : Int = 1000,
+  max_parents_per_operation? : Int = 256,
+) -> @markdown.MarkdownArchiveAdmissionPolicy {
+  try! @markdown.MarkdownArchiveAdmissionPolicy(
+    max_encoded_bytes~,
+    max_decoded_operations~,
+    max_pending_operations~,
+    max_parents_per_operation~,
+  )
+}
+
+///|
 test "archive capture and round-trip tracer" {
   let editor = try! @markdown.MarkdownEditor(
     agent_id="archive-capture-red",
@@ -20,6 +35,7 @@ test "archive capture and round-trip tracer" {
   let decoded = try! LoomarkDocumentArchive::from_json_string(
     encoded,
     validation_agent_id="archive-roundtrip-red",
+    admission_policy=archive_decode_test_policy(),
   )
   assert_true(decoded.document_id() == archive.document_id())
   assert_eq(decoded.portable_markdown(), editor.portable_markdown())
@@ -37,10 +53,31 @@ test "archive decode error matrix" {
   let encoded = archive.to_json_string()
   assert_true(encoded.contains("\"schema_version\":\"1\""))
 
+  let capacity : Result[LoomarkDocumentArchive, LoomarkArchiveDecodeError] = Ok(
+    LoomarkDocumentArchive::from_json_string(
+      encoded,
+      validation_agent_id="archive-errors-capacity",
+      admission_policy=archive_decode_test_policy(max_encoded_bytes=0),
+    ),
+  ) catch {
+    error => Err(error)
+  }
+  match capacity {
+    Err(
+      LoomarkArchiveDecodeError::CapacityExceeded(
+        kind=@markdown.MarkdownArchiveLimitKind::EncodedBytes,
+        limit=0,
+        actual~
+      )
+    ) => assert_true(actual > 0)
+    _ => fail("expected archive capacity failure")
+  }
+
   let newer : Result[LoomarkDocumentArchive, LoomarkArchiveDecodeError] = Ok(
     LoomarkDocumentArchive::from_json_string(
       "{\"schema_version\":\"2\",\"document_id\":\"x\",\"portable_markdown\":42,\"history\":false,\"extensions\":{}}",
       validation_agent_id="archive-errors-newer",
+      admission_policy=archive_decode_test_policy(),
     ),
   ) catch {
     error => Err(error)
@@ -55,6 +92,7 @@ test "archive decode error matrix" {
     LoomarkDocumentArchive::from_json_string(
       "{\"schema_version\":\"2147483648\"}",
       validation_agent_id="archive-errors-int-overflow",
+      admission_policy=archive_decode_test_policy(),
     ),
   ) catch {
     error => Err(error)
@@ -69,6 +107,7 @@ test "archive decode error matrix" {
     LoomarkDocumentArchive::from_json_string(
       "{\"schema_version\":\"999999999999999999999999999999999999999999999999999\"}",
       validation_agent_id="archive-errors-huge-version",
+      admission_policy=archive_decode_test_policy(),
     ),
   ) catch {
     error => Err(error)
@@ -92,6 +131,7 @@ test "archive decode error matrix" {
       LoomarkDocumentArchive::from_json_string(
         schema_version_json,
         validation_agent_id="archive-errors-malformed-schema-version",
+        admission_policy=archive_decode_test_policy(),
       ),
     ) catch {
       error => Err(error)
@@ -105,6 +145,7 @@ test "archive decode error matrix" {
     LoomarkDocumentArchive::from_json_string(
       "not-json",
       validation_agent_id="archive-errors-malformed",
+      admission_policy=archive_decode_test_policy(),
     ),
   ) catch {
     error => Err(error)
@@ -115,6 +156,7 @@ test "archive decode error matrix" {
     LoomarkDocumentArchive::from_json_string(
       "{\"schema_version\":\"1\"}",
       validation_agent_id="archive-errors-missing",
+      admission_policy=archive_decode_test_policy(),
     ),
   ) catch {
     error => Err(error)
@@ -128,6 +170,7 @@ test "archive decode error matrix" {
         new="\"extensions\":{},\"unknown\":true",
       ),
       validation_agent_id="archive-errors-unknown",
+      admission_policy=archive_decode_test_policy(),
     ),
   ) catch {
     error => Err(error)
@@ -138,6 +181,7 @@ test "archive decode error matrix" {
     LoomarkDocumentArchive::from_json_string(
       encoded.replace(old="\"history\":\"", new="\"history\":\"not-history"),
       validation_agent_id="archive-errors-corrupt",
+      admission_policy=archive_decode_test_policy(),
     ),
   ) catch {
     error => Err(error)
@@ -148,6 +192,7 @@ test "archive decode error matrix" {
     LoomarkDocumentArchive::from_json_string(
       encoded.replace(old="# Title\\n", new="# Other\\n"),
       validation_agent_id="archive-errors-mismatch",
+      admission_policy=archive_decode_test_policy(),
     ),
   ) catch {
     error => Err(error)
@@ -160,6 +205,7 @@ test "archive decode error matrix" {
     LoomarkDocumentArchive::from_json_string(
       encoded.replace(old="doc-errors", new=""),
       validation_agent_id="archive-errors-empty-id",
+      admission_policy=archive_decode_test_policy(),
     ),
   ) catch {
     error => Err(error)
@@ -176,12 +222,71 @@ test "archive decode error matrix" {
         new="\"extensions\":{\"future\":true}",
       ),
       validation_agent_id="archive-errors-extensions",
+      admission_policy=archive_decode_test_policy(),
     ),
   ) catch {
     error => Err(error)
   }
   assert_true(
     nonempty_extensions is Err(LoomarkArchiveDecodeError::MalformedEnvelope(_)),
+  )
+}
+
+///|
+test "archive decode distinguishes incomplete history from capacity" {
+  let source = try! @markdown.MarkdownEditor(
+    agent_id="archive-gap-source",
+    source="x",
+  )
+  let cut = source.version()
+  assert_true(
+    source.commit(
+      @markdown.MarkdownEditRequest::ReplaceText(
+        start=1,
+        delete_len=0,
+        inserted="y",
+      ),
+    )
+    is Ok(_),
+  )
+  let gapped = try! source.history_since(version=cut)
+  let encoded = Json::object({
+    "schema_version": Json::string(LOOMARK_ARCHIVE_SCHEMA_VERSION.to_string()),
+    "document_id": Json::string("doc-gap"),
+    "portable_markdown": Json::string("xy"),
+    "history": Json::string(gapped.to_json_string()),
+    "extensions": Json::empty_object(),
+  }).stringify()
+
+  let incomplete : Result[LoomarkDocumentArchive, LoomarkArchiveDecodeError] = Ok(
+    LoomarkDocumentArchive::from_json_string(
+      encoded,
+      validation_agent_id="archive-gap-incomplete",
+      admission_policy=archive_decode_test_policy(max_pending_operations=1),
+    ),
+  ) catch {
+    error => Err(error)
+  }
+  assert_true(incomplete is Err(LoomarkArchiveDecodeError::IncompleteHistory))
+
+  let capacity : Result[LoomarkDocumentArchive, LoomarkArchiveDecodeError] = Ok(
+    LoomarkDocumentArchive::from_json_string(
+      encoded,
+      validation_agent_id="archive-gap-capacity",
+      admission_policy=archive_decode_test_policy(max_pending_operations=0),
+    ),
+  ) catch {
+    error => Err(error)
+  }
+  assert_true(
+    capacity
+    is Err(
+      LoomarkArchiveDecodeError::CapacityExceeded(
+        kind=@markdown.MarkdownArchiveLimitKind::PendingOperations,
+        limit=0,
+        actual=1
+      )
+    ),
   )
 }
 
@@ -197,11 +302,13 @@ test "decoded archive continues through public edit and merge APIs" {
   let decoded = try! LoomarkDocumentArchive::from_json_string(
     archive.to_json_string(),
     validation_agent_id="archive-continued-decode",
+    admission_policy=archive_decode_test_policy(),
   )
   let history = decoded.history()
   let reopened = try! @markdown.MarkdownEditor::open(
     agent_id="archive-continued-editor",
     history~,
+    admission_policy=archive_decode_test_policy(),
   )
   let first = reopened.snapshot().blocks().to_array()[0]
   assert_true(

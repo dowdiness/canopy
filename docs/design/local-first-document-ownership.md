@@ -237,12 +237,11 @@ tests need fixing.
 
 The remaining requirements cannot be pinned yet, because the types they
 constrain do not exist. Each should stop living here as it becomes expressible:
-document identity when the archive envelope is defined, writer identity when
-construction generates it rather than accepting it, the durability trigger when
-the archive writer takes a version rather than text, and the restore ceiling
-when it becomes a parameter with no default. **This document holding a
-constraint is a stage, not an achievement** — prose is the weakest place to
-keep a rule, and the section above should shrink as the rules move into code.
+writer identity when construction generates it rather than accepting it, and
+the durability trigger when the archive writer takes a version rather than
+text. **This document holding a constraint is a stage, not an achievement** —
+prose is the weakest place to keep a rule, and the section above should shrink
+as the rules move into code.
 
 Observations behind the claims — which were read, which were executed, which
 remain unverified — are recorded separately, dated and pinned to the commits

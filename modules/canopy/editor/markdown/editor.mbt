@@ -103,6 +103,83 @@ pub fn MarkdownBlockSnapshot::fence_close_range(self : Self) -> (Int, Int)? {
 }
 
 ///|
+/// A resource dimension enforced while opening a Markdown archive.
+pub(all) enum MarkdownArchiveLimitKind {
+  EncodedBytes
+  DecodedOperations
+  PendingOperations
+  ParentsPerOperation
+} derive(Eq, Debug)
+
+///|
+/// Invalid caller-selected archive admission policy.
+pub(all) suberror MarkdownArchiveAdmissionPolicyError {
+  InvalidLimit(kind~ : MarkdownArchiveLimitKind, actual~ : Int)
+}
+
+///|
+/// Explicit resource policy for opening a Markdown archive.
+///
+/// All dimensions are required so archive restore cannot silently inherit the
+/// limits chosen for untrusted peer traffic.
+pub struct MarkdownArchiveAdmissionPolicy {
+  priv limits : @sync.Limits
+}
+
+///|
+/// Construct an archive policy from the four EGW-enforced dimensions.
+pub fn MarkdownArchiveAdmissionPolicy::MarkdownArchiveAdmissionPolicy(
+  max_encoded_bytes~ : Int,
+  max_decoded_operations~ : Int,
+  max_pending_operations~ : Int,
+  max_parents_per_operation~ : Int,
+) -> MarkdownArchiveAdmissionPolicy raise MarkdownArchiveAdmissionPolicyError {
+  if max_encoded_bytes < 0 {
+    raise MarkdownArchiveAdmissionPolicyError::InvalidLimit(
+      kind=MarkdownArchiveLimitKind::EncodedBytes,
+      actual=max_encoded_bytes,
+    )
+  }
+  if max_decoded_operations < 0 {
+    raise MarkdownArchiveAdmissionPolicyError::InvalidLimit(
+      kind=MarkdownArchiveLimitKind::DecodedOperations,
+      actual=max_decoded_operations,
+    )
+  }
+  if max_pending_operations < 0 {
+    raise MarkdownArchiveAdmissionPolicyError::InvalidLimit(
+      kind=MarkdownArchiveLimitKind::PendingOperations,
+      actual=max_pending_operations,
+    )
+  }
+  if max_parents_per_operation < 0 {
+    raise MarkdownArchiveAdmissionPolicyError::InvalidLimit(
+      kind=MarkdownArchiveLimitKind::ParentsPerOperation,
+      actual=max_parents_per_operation,
+    )
+  }
+  let limits = try! @sync.Limits::Limits(
+    max_encoded_bytes~,
+    max_decoded_operations~,
+    max_pending_operations~,
+    max_parents_per_operation~,
+  )
+  { limits, }
+}
+
+///|
+fn MarkdownArchiveLimitKind::from_sync(
+  kind : @sync.LimitKind,
+) -> MarkdownArchiveLimitKind {
+  match kind {
+    EncodedBytes => EncodedBytes
+    DecodedOperations => DecodedOperations
+    PendingOperations => PendingOperations
+    ParentsPerOperation => ParentsPerOperation
+  }
+}
+
+///|
 /// A categorized failure at the archive boundary.
 ///
 /// Kept separate from `MarkdownEditorError` because an archive is a different
@@ -116,6 +193,11 @@ pub(all) suberror MarkdownArchiveError {
   /// failed.
   WriterUnavailable(detail~ : String)
   ExportFailed(detail~ : String)
+  CapacityExceeded(
+    kind~ : MarkdownArchiveLimitKind,
+    limit~ : Int,
+    actual~ : Int
+  )
   AdmitFailed(detail~ : String)
   IncompleteArchive
 }
@@ -465,12 +547,13 @@ fn initialize_markdown_editor(
 /// reopened document is a new writing instance, and reusing the exporter's
 /// identity would make the two indistinguishable in what they go on to write.
 ///
-/// Not yet stated here: the admission policy. This passes through the path
-/// that admits remote traffic and inherits the resource limits written for it,
-/// which the design requires it not to. See the evidence record.
+/// `admission_policy` is explicit because restore and peer traffic are
+/// different consumers of the same admission semantics. Opening never borrows
+/// the receiver defaults used by peer admission.
 pub fn MarkdownEditor::open(
   agent_id~ : String,
   history~ : MarkdownDocumentHistory,
+  admission_policy~ : MarkdownArchiveAdmissionPolicy,
 ) -> MarkdownEditor raise MarkdownArchiveError {
   let editor = @md_companion.new_markdown_editor(agent_id) catch {
     @text.TextError::EmptyReplicaId =>
@@ -479,11 +562,25 @@ pub fn MarkdownEditor::open(
       raise MarkdownArchiveError::WriterUnavailable(detail=error.message())
   }
   let document = { editor, }
-  match document.admit(history) {
-    MarkdownAdmitReport::Complete => document
-    MarkdownAdmitReport::Withheld(..) =>
-      raise MarkdownArchiveError::IncompleteArchive
+  let report = document.editor.admit_with_limits(
+    history.message,
+    admission_policy.limits,
+  ) catch {
+    @text.TextError::SyncFailed(
+      @sync.Failure::LimitExceeded(kind~, limit~, actual~)
+    ) =>
+      raise MarkdownArchiveError::CapacityExceeded(
+        kind=MarkdownArchiveLimitKind::from_sync(kind),
+        limit~,
+        actual~,
+      )
+    error => raise MarkdownArchiveError::AdmitFailed(detail=error.message())
   }
+  document.editor.refresh()
+  if report.pending_operations() > 0 {
+    raise MarkdownArchiveError::IncompleteArchive
+  }
+  document
 }
 
 ///|
