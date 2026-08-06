@@ -11,3 +11,6 @@ apps/loomark/core/pkg.generated.mbti whitespace=-blank-at-eof
 apps/loomark/internal/dev_host/pkg.generated.mbti whitespace=-blank-at-eof
 apps/loomark/internal/rabbita/pkg.generated.mbti whitespace=-blank-at-eof
 apps/loomark/main/pkg.generated.mbti whitespace=-blank-at-eof
+apps/loomark/internal/archive_storage/js/pkg.generated.mbti whitespace=-blank-at-eof
+apps/loomark/internal/archive_storage/pkg.generated.mbti whitespace=-blank-at-eof
+apps/loomark/repository/pkg.generated.mbti whitespace=-blank-at-eof

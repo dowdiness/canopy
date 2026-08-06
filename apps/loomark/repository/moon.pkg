@@ -1,0 +1,15 @@
+import {
+  "dowdiness/loomark/archive",
+  "dowdiness/canopy/editor/markdown",
+  "dowdiness/markdown" @md_markdown,
+}
+
+import {
+  "moonbitlang/core/json",
+} for "wbtest"
+
+warnings = "-7-29"
+
+options(
+  is_main: false,
+)

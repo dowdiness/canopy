@@ -1355,6 +1355,44 @@ test "archive open limits reject a negative resource dimension" {
 }
 
 ///|
+test "reopened semantic facade preserves history and continues editing" {
+  let source = "# Title\n\nbody\n"
+  let (original, _) = try! MarkdownEditor::with_semantic_attachment(
+    agent_id="semantic-open-source",
+    source~,
+  )
+  assert_true(
+    original.commit(
+      MarkdownEditRequest::ReplaceText(start=8, delete_len=0, inserted="!"),
+    )
+    is Ok(_),
+  )
+  let history = try! original.history_since()
+  let expected_source = original.snapshot().source()
+
+  let (reopened, attachment) = try! MarkdownEditor::open_with_semantic_attachment(
+    agent_id="semantic-open-fresh-writer",
+    history~,
+    open_limits=archive_open_limits(),
+  )
+  assert_eq(reopened.snapshot().source(), expected_source)
+  assert_true(reopened.history_since() == history)
+  assert_eq(attachment.document(), fresh_markdown_ir(expected_source))
+
+  assert_true(
+    reopened.commit(
+      MarkdownEditRequest::ReplaceSource(expected_source + "\ncontinued"),
+    )
+    is Ok(_),
+  )
+  assert_eq(
+    attachment.document(),
+    fresh_markdown_ir(reopened.snapshot().source()),
+  )
+  attachment.dispose()
+}
+
+///|
 test "facade history round-trips into a reopened document" {
   let original = try! MarkdownEditor(
     agent_id="owner-1",

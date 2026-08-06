@@ -48,6 +48,7 @@ priv enum DriverEvent {
   StopListening
   Fatal(String)
   Resize(@common.Viewport)
+  ArchiveWriteCompleted(@archive_storage.LocalArchiveWriteCompletion)
 }
 
 ///|
@@ -60,6 +61,8 @@ priv suberror DriverSubscription {
 priv struct DriverModel {
   state : @core.ApplicationState
   document : @markdown.MarkdownDocumentSnapshot
+  document_id : @archive.LoomarkDocumentId
+  archive_persistence_enabled : Bool
   semantic_document : @md_markdown.MarkdownIR?
   semantic_read_count : Int
   split_preview_open : Bool
@@ -85,4 +88,6 @@ priv struct DriverModel {
   event_unload_count : Int
   listening : Bool
   rejection : String?
+  archive_tracker : @repository.LocalArchiveRequestTracker
+  local_storage_warning : Bool
 } derive(Eq)

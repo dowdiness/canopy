@@ -11,7 +11,127 @@ import { expect, test } from "@playwright/test"
  * | responsive shell | desktop and narrow viewport | editor chrome remains usable and split Preview stacks when required |
  * | release output | clean rebuild and ordinary static server | page, release JavaScript, and declared public assets load without dev inputs |
  * | page lifetime | reload or close | the page ends ownership without claiming unmount or host reuse |
+ * | local baseline | first visit with an empty repository | one complete archive establishes the active document identity |
+ * | local durability | accepted edit then reload | the complete archive reopens with stable document identity and durable source |
+ * | recovery | corrupt, unsupported, or unreadable record | storage remains unchanged and no editable document mounts |
+ * | replacement failure | accepted edit after provider failure | applied source remains visible and reload restores the prior durable archive |
  */
+
+test("first standalone visit stores a complete baseline archive", async ({ page }) => {
+  await page.goto("/")
+
+  await expect(page.locator("#loomark-root")).toBeVisible()
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("loomark.active-document-archive"))).not.toBeNull()
+  const baseline = await page.evaluate(() => JSON.parse(
+    localStorage.getItem("loomark.active-document-archive") ?? "{}",
+  ) as { document_id?: string; portable_markdown?: string; history?: string })
+  expect(baseline.document_id).toBeTruthy()
+  expect(baseline.portable_markdown).toBe("")
+  expect(baseline.history).toBeTruthy()
+})
+
+test("standalone edit replaces the archive and reload restores the durable source", async ({ page }) => {
+  await page.goto("/")
+  await expect.poll(() => page.evaluate(() => (
+    JSON.parse(localStorage.getItem("loomark.active-document-archive") ?? "{}").document_id as string | undefined
+  ))).toBeTruthy()
+  const documentId = await page.evaluate(() => (
+    JSON.parse(localStorage.getItem("loomark.active-document-archive") ?? "{}").document_id as string
+  ))
+  await page.locator("#loomark-input").fill("# Durable\n\nSaved locally\n")
+  await expect.poll(() => page.evaluate(() => {
+    const raw = localStorage.getItem("loomark.active-document-archive")
+    return raw === null ? null : (JSON.parse(raw) as { portable_markdown?: string }).portable_markdown
+  })).toBe("# Durable\n\nSaved locally\n")
+
+  await page.reload()
+  await expect(page.locator("#loomark-input")).toHaveValue("# Durable\n\nSaved locally\n")
+  await expect.poll(() => page.evaluate(() => (
+    JSON.parse(localStorage.getItem("loomark.active-document-archive") ?? "{}").document_id as string
+  ))).toBe(documentId)
+})
+
+test("corrupt local archives mount a recovery view without an editor", async ({ page }) => {
+  const corruptArchive = "not-json"
+  await page.addInitScript(corruptArchive => {
+    localStorage.setItem("loomark.active-document-archive", corruptArchive)
+  }, corruptArchive)
+  await page.goto("/")
+
+  await expect(page.locator("#loomark-recovery-root")).toBeVisible()
+  await expect(page.locator("#loomark-recovery-root")).toHaveAttribute(
+    "data-loomark-recovery-category",
+    "corrupt-archive",
+  )
+  await expect(page.locator("#loomark-input")).toHaveCount(0)
+  await expect.poll(() => page.evaluate(() => (
+    localStorage.getItem("loomark.active-document-archive")
+  ))).toBe(corruptArchive)
+})
+
+test("unsupported local archives remain preserved behind recovery", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("loomark.active-document-archive", JSON.stringify({
+      schema_version: "2",
+      document_id: "doc",
+      portable_markdown: "",
+      history: "",
+      extensions: {},
+    }))
+  })
+  await page.goto("/")
+
+  await expect(page.locator("#loomark-recovery-root")).toHaveAttribute(
+    "data-loomark-recovery-category",
+    "unsupported-archive",
+  )
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("loomark.active-document-archive"))).toContain('"schema_version":"2"')
+  await expect(page.locator("#loomark-input")).toHaveCount(0)
+})
+
+test("storage read failures mount a separate recovery view", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      get() {
+        throw Object.assign(new Error("blocked"), { name: "UnknownError" })
+      },
+    })
+  })
+  await page.goto("/")
+
+  await expect(page.locator("#loomark-recovery-root")).toHaveAttribute(
+    "data-loomark-recovery-category",
+    "storage-read-failed",
+  )
+  await expect(page.locator("#loomark-input")).toHaveCount(0)
+})
+
+test("a failed replacement keeps the applied source but reload restores the previous archive", async ({ page }) => {
+  await page.goto("/")
+  await page.locator("#loomark-input").fill("# Previous\n")
+  await expect.poll(() => page.evaluate(() => (
+    JSON.parse(localStorage.getItem("loomark.active-document-archive") ?? "{}").portable_markdown as string
+  ))).toBe("# Previous\n")
+
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem
+    Storage.prototype.setItem = function(key, value) {
+      if (key === "loomark.active-document-archive") {
+        throw Object.assign(new Error("full"), { name: "QuotaExceededError" })
+      }
+      original.call(this, key, value)
+    }
+  })
+  await page.locator("#loomark-input").fill("# Applied\n")
+  await expect(page.locator("#loomark-input")).toHaveValue("# Applied\n")
+  await expect(page.locator("#loomark-error")).toContainText(
+    "Changes are applied but not saved locally.",
+  )
+
+  await page.reload()
+  await expect(page.locator("#loomark-input")).toHaveValue("# Previous\n")
+})
 
 test("production output boots one instrumentation-free Loomark root", async ({ page }) => {
   const consoleErrors: string[] = []

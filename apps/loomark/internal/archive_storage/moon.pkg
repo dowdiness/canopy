@@ -1,0 +1,11 @@
+import {
+  "dowdiness/loomark/internal/archive_storage/js" @storage_js,
+  "dowdiness/loomark/repository",
+  "moonbit-community/rabbita/cmd",
+}
+
+supported_targets = "js"
+
+options(
+  targets: { "*.mbt": [ "js" ] },
+)

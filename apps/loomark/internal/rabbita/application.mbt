@@ -23,11 +23,6 @@ const LIST_EXAMPLE_SOURCE : String = "# Shopping List\n\nThings to pick up:\n\n-
 const CODE_EXAMPLE_SOURCE : String = "# README\n\nA minimal example project.\n\n## Install\n\n```bash\nnpm install\n```\n\n## Usage\n\n- Run the dev server\n- Open the browser\n- Start editing"
 
 ///|
-/// Allocate one globally unique CRDT replica identity per mount.
-extern "js" fn js_replica_uuid() -> String =
-  #| () => globalThis.crypto.randomUUID()
-
-///|
 fn mode_name(mode : @core.ApplicationMode) -> String {
   match mode {
     @core.Raw => "raw"
@@ -285,14 +280,22 @@ fn preview_view(
       ),
     ],
   )
-  let error_view = match model.error {
-    Some(error) =>
-      @rui.alert(
-        id="loomark-error",
-        variant=@rui.Destructive,
-        @rui.alert_description("error: " + error),
-      )
-    None => @html.nothing
+  let error_view = if model.local_storage_warning {
+    @rui.alert(
+      id="loomark-error",
+      variant=@rui.Destructive,
+      @rui.alert_description("Changes are applied but not saved locally."),
+    )
+  } else {
+    match model.error {
+      Some(error) =>
+        @rui.alert(
+          id="loomark-error",
+          variant=@rui.Destructive,
+          @rui.alert_description("error: " + error),
+        )
+      None => @html.nothing
+    }
   }
   @rui.theme(
     id="loomark-root",
@@ -431,6 +434,7 @@ fn driver_event_name(event : DriverEvent) -> String {
     StopListening => "stop-listening"
     Fatal(_) => "fatal"
     Resize(_) => "resize"
+    ArchiveWriteCompleted(_) => "archive-write-completed"
   }
 }
 
@@ -538,6 +542,21 @@ fn update_model(
   event : DriverEvent,
   emit : @cmd.Emit[DriverEvent],
 ) -> (DriverModel, @cmd.Cmd) {
+  if event is ArchiveWriteCompleted(completion) {
+    let tracker = match completion.result() {
+      @archive_storage.LocalArchiveStorageWrite::Stored =>
+        model.archive_tracker.complete_success(completion.request_id())
+      @archive_storage.LocalArchiveStorageWrite::Failed(_) =>
+        model.archive_tracker.complete_failure(completion.request_id())
+    }
+    let next = {
+      ..model,
+      archive_tracker: tracker,
+      local_storage_warning: tracker.has_warning(),
+    }
+    publish(next)
+    return (next, @rabbita_runtime.none)
+  }
   if model.fatal {
     let next = {
       ..model,
@@ -573,6 +592,7 @@ fn update_model(
     return (next, @rabbita_runtime.none)
   }
   match event {
+    ArchiveWriteCompleted(_) => (model, @rabbita_runtime.none)
     ReplaceSource(source) | RawInput(source, _) => {
       let raw_selection = match event {
         RawInput(_, selection) => selection
@@ -589,16 +609,18 @@ fn update_model(
         model
       }
       let mut restore_raw_value = false
+      let mut persistence_command = @rabbita_runtime.none
       for decision in transition.decisions() {
         match decision {
           @core.ReplaceCanonicalSource(source) => {
             let old_requested = preview_requested(next)
-            let (committed, accepted, changed) = commit_source(
+            let (committed, accepted, changed, commit_command) = commit_source(
               editor,
               next,
               transition.state(),
               source,
               "editor-dispatch",
+              emit,
             )
             next = update_preview_document(
               attachment,
@@ -607,6 +629,9 @@ fn update_model(
               accepted~,
               changed~,
             )
+            persistence_command = @cmd.batch([
+              persistence_command, commit_command,
+            ])
             restore_raw_value = restore_raw_value || (raw_event && !accepted)
           }
           @core.SnapshotRejected(_) =>
@@ -649,7 +674,7 @@ fn update_model(
       } else {
         @rabbita_runtime.none
       }
-      (next, command)
+      (next, @cmd.batch([persistence_command, command]))
     }
     BlockFocused(key) =>
       if model.active_block_key == Some(key) {
@@ -806,7 +831,7 @@ fn update_model(
           )
       }
     BlockInput(node_id~, input_id~, text=proposed_text, selection_offset~) => {
-      let (next, committed_selection, accepted) = commit_block_request(
+      let (next, committed_selection, accepted, persistence_command) = commit_block_request(
         editor,
         attachment,
         model,
@@ -815,6 +840,7 @@ fn update_model(
           new_text=proposed_text,
         ),
         "editor-dispatch",
+        emit,
       )
       let selection = match committed_selection {
         Some(selection) =>
@@ -842,16 +868,19 @@ fn update_model(
         Some(selection) =>
           (
             next,
-            block_selection_after_render(
-              selection,
-              next.source_revision,
-              report_superseded=false,
-              emit,
-            ),
+            @cmd.batch([
+              persistence_command,
+              block_selection_after_render(
+                selection,
+                next.source_revision,
+                report_superseded=false,
+                emit,
+              ),
+            ]),
           )
         None =>
           if accepted {
-            (next, @rabbita_runtime.none)
+            (next, persistence_command)
           } else {
             let accepted_text = next.document
               .blocks()
@@ -875,43 +904,47 @@ fn update_model(
                 let repair_source_revision = next.source_revision
                 (
                   next,
-                  after_render(
-                    scheduler => {
-                      ignore(scheduler)
-                      match detached_model.val {
-                        Some(current) if current.state.mode() == @core.Block &&
-                          current.text_input_generation == repair_generation &&
-                          current.source_revision == repair_source_revision => {
-                          @dom_boundary.write_text_value_id(input_id, text)
-                          @dom_boundary.focus_id(input_id)
-                          @dom_boundary.write_text_selection_id(
-                            input_id,
-                            @dom_boundary.TextSelection(
-                              offset,
-                              offset,
-                              @dom_boundary.NoDirection,
-                            ),
-                          )
+                  @cmd.batch([
+                    persistence_command,
+                    after_render(
+                      scheduler => {
+                        ignore(scheduler)
+                        match detached_model.val {
+                          Some(current) if current.state.mode() == @core.Block &&
+                            current.text_input_generation == repair_generation &&
+                            current.source_revision == repair_source_revision => {
+                            @dom_boundary.write_text_value_id(input_id, text)
+                            @dom_boundary.focus_id(input_id)
+                            @dom_boundary.write_text_selection_id(
+                              input_id,
+                              @dom_boundary.TextSelection(
+                                offset,
+                                offset,
+                                @dom_boundary.NoDirection,
+                              ),
+                            )
+                          }
+                          _ => ()
                         }
-                        _ => ()
-                      }
-                    },
-                    emit,
-                  ),
+                      },
+                      emit,
+                    ),
+                  ]),
                 )
               }
-              None => (next, @rabbita_runtime.none)
+              None => (next, persistence_command)
             }
           }
       }
     }
     BlockSplit(node_id~, offset~) => {
-      let (next, committed_selection, _) = commit_block_request(
+      let (next, committed_selection, _, persistence_command) = commit_block_request(
         editor,
         attachment,
         model,
         @markdown.MarkdownEditRequest::SplitBlock(node_id~, offset~),
         "editor-dispatch",
+        emit,
       )
       let selection = match committed_selection {
         Some(selection) => block_selection_from_commit(next.document, selection)
@@ -933,23 +966,27 @@ fn update_model(
         Some(selection) =>
           (
             next,
-            block_selection_after_render(
-              selection,
-              next.source_revision,
-              report_superseded=false,
-              emit,
-            ),
+            @cmd.batch([
+              persistence_command,
+              block_selection_after_render(
+                selection,
+                next.source_revision,
+                report_superseded=false,
+                emit,
+              ),
+            ]),
           )
-        None => (next, @rabbita_runtime.none)
+        None => (next, persistence_command)
       }
     }
     BlockMerge(node_id~, selection=originating_selection) => {
-      let (next, committed_selection, _) = commit_block_request(
+      let (next, committed_selection, _, persistence_command) = commit_block_request(
         editor,
         attachment,
         model,
         @markdown.MarkdownEditRequest::MergeWithPrevious(node_id~),
         "editor-dispatch",
+        emit,
       )
       let resolved_selection = match committed_selection {
         Some(selection) => block_selection_from_commit(next.document, selection)
@@ -971,22 +1008,28 @@ fn update_model(
         Some(selection) =>
           (
             next,
-            block_selection_after_render(
-              selection,
-              next.source_revision,
-              report_superseded=false,
-              emit,
-            ),
+            @cmd.batch([
+              persistence_command,
+              block_selection_after_render(
+                selection,
+                next.source_revision,
+                report_superseded=false,
+                emit,
+              ),
+            ]),
           )
         None =>
           (
             next,
-            block_selection_after_render(
-              originating_selection,
-              next.source_revision,
-              report_superseded=true,
-              emit,
-            ),
+            @cmd.batch([
+              persistence_command,
+              block_selection_after_render(
+                originating_selection,
+                next.source_revision,
+                report_superseded=true,
+                emit,
+              ),
+            ]),
           )
       }
     }
@@ -1032,12 +1075,13 @@ fn update_model(
         }
         let previous_revision = model.source_revision
         let source = if kind == "deleted" { "" } else { "replacement\n" }
-        let (committed, accepted, changed) = commit_source(
+        let (committed, accepted, changed, persistence_command) = commit_source(
           editor,
           model,
           model.state,
           source,
           "editor-dispatch",
+          emit,
         )
         let next = update_preview_document(
           attachment,
@@ -1054,12 +1098,15 @@ fn update_model(
         }
         (
           next,
-          block_selection_after_render(
-            selection,
-            expected_revision,
-            report_superseded=true,
-            emit,
-          ),
+          @cmd.batch([
+            persistence_command,
+            block_selection_after_render(
+              selection,
+              expected_revision,
+              report_superseded=true,
+              emit,
+            ),
+          ]),
         )
       }
     }
@@ -1084,19 +1131,24 @@ fn update_model(
       let mut next = model
       let mut accepted = true
       let mut source_changed = false
+      let mut persistence_command = @rabbita_runtime.none
       for decision in transition.decisions() {
         match decision {
           @core.ReplaceCanonicalSource(source) => {
-            let (committed, commit_accepted, changed) = commit_source(
+            let (committed, commit_accepted, changed, commit_command) = commit_source(
               editor,
               next,
               transition.state(),
               source,
               "restore-snapshot",
+              emit,
             )
             next = committed
             accepted = accepted && commit_accepted
             source_changed = source_changed || changed
+            persistence_command = @cmd.batch([
+              persistence_command, commit_command,
+            ])
           }
           @core.SnapshotRejected(error) => {
             accepted = false
@@ -1121,7 +1173,7 @@ fn update_model(
         changed=source_changed,
       )
       publish(next)
-      (next, @rabbita_runtime.none)
+      (next, persistence_command)
     }
     SelectRaw | SelectBlock | SelectPreview => {
       let mode = match event {
@@ -1566,6 +1618,7 @@ fn build_application(
   editor : @markdown.MarkdownEditor,
   attachment : @md_markdown.MarkdownSemanticAttachment,
   initial : DriverModel,
+  baseline : (@repository.LocalArchiveRequestId, String)?,
   subscriptions : (DriverModel, @cmd.Emit[DriverEvent]) -> @sub.Sub,
   view : (DriverModel, @cmd.Emit[DriverEvent], @rabbita_runtime.Html) -> @rabbita_runtime.Html,
 ) -> @rabbita_runtime.App {
@@ -1573,8 +1626,17 @@ fn build_application(
     update_model(editor, attachment, model, event, emit)
   }
   @rabbita_runtime.new(() => {
-    let (model, emit) = @rabbita_runtime.create_state(
-      initial,
+    let (model, emit) = @rabbita_runtime.create_state_with_init(
+      init=fn(emit) {
+        let command = match baseline {
+          Some((request_id, encoded)) =>
+            @archive_storage.replace(request_id, encoded, completed=completion => {
+              emit(ArchiveWriteCompleted(completion))
+            })
+          None => @rabbita_runtime.none
+        }
+        (initial, command)
+      },
       update~,
       subscriptions~,
     )
@@ -1590,9 +1652,10 @@ fn standalone_application(
   editor : @markdown.MarkdownEditor,
   attachment : @md_markdown.MarkdownSemanticAttachment,
   initial : DriverModel,
+  baseline : (@repository.LocalArchiveRequestId, String)?,
 ) -> @rabbita_runtime.App {
   build_application(
-    editor, attachment, initial, standalone_subscriptions, standalone_preview_view,
+    editor, attachment, initial, baseline, standalone_subscriptions, standalone_preview_view,
   )
 }
 
@@ -1601,43 +1664,32 @@ fn private_dev_host_application(
   editor : @markdown.MarkdownEditor,
   attachment : @md_markdown.MarkdownSemanticAttachment,
   initial : DriverModel,
+  baseline : (@repository.LocalArchiveRequestId, String)?,
 ) -> @rabbita_runtime.App {
   build_application(
-    editor, attachment, initial, private_dev_host_subscriptions, private_dev_host_preview_view,
+    editor, attachment, initial, baseline, private_dev_host_subscriptions, private_dev_host_preview_view,
   )
 }
 
 ///|
-/// Build and mount the one shared application with an explicit host shell.
-#warnings("-alert_unstable")
-fn mount_application(
+/// Build the shell model shared by private and standalone mounts.
+fn initial_model(
   host_id : String,
-  source : String,
-  replica_prefix : String,
-  build : (
-    @markdown.MarkdownEditor,
-    @md_markdown.MarkdownSemanticAttachment,
-    DriverModel,
-  ) -> @rabbita_runtime.App,
-) -> String {
-  if mounted.val {
-    return "{\"ok\":false,\"error\":\"host-already-mounted\"}"
-  }
-  let replica_id = replica_prefix + js_replica_uuid()
-  let (editor, attachment) = @markdown.MarkdownEditor::with_semantic_attachment(
-    agent_id=replica_id,
-    source~,
-  ) catch {
-    _ => return "{\"ok\":false,\"error\":\"editor-initialization-failed\"}"
-  }
+  editor : @markdown.MarkdownEditor,
+  document_id : @archive.LoomarkDocumentId,
+  replica_id : String,
+  archive_persistence_enabled~ : Bool,
+) -> DriverModel {
   let host_width = @dom_boundary.measure_element_id(host_id)
     .offset_width()
     .to_int() catch {
       _ => SPLIT_STACK_BREAKPOINT
     }
-  let initial : DriverModel = {
+  {
     state: @core.ApplicationState::ApplicationState(@core.Raw),
     document: editor.snapshot(),
+    document_id,
+    archive_persistence_enabled,
     semantic_document: None,
     semantic_read_count: 0,
     split_preview_open: false,
@@ -1663,11 +1715,49 @@ fn mount_application(
     event_unload_count: 0,
     listening: true,
     rejection: None,
+    archive_tracker: @repository.LocalArchiveRequestTracker::new(),
+    local_storage_warning: false,
   }
+}
+
+///|
+/// Build and mount the one shared application with an explicit host shell.
+#warnings("-alert_unstable")
+fn mount_application(
+  host_id : String,
+  source : String,
+  replica_prefix : String,
+  build : (
+    @markdown.MarkdownEditor,
+    @md_markdown.MarkdownSemanticAttachment,
+    DriverModel,
+    (@repository.LocalArchiveRequestId, String)?,
+  ) -> @rabbita_runtime.App,
+) -> String {
+  if mounted.val {
+    return "{\"ok\":false,\"error\":\"host-already-mounted\"}"
+  }
+  let replica_id = @archive_storage.fresh_id(replica_prefix)
+  let document_id = try! @archive.LoomarkDocumentId::from_string(
+    @archive_storage.fresh_id("loomark-document-"),
+  )
+  let (editor, attachment) = @markdown.MarkdownEditor::with_semantic_attachment(
+    agent_id=replica_id,
+    source~,
+  ) catch {
+    _ => return "{\"ok\":false,\"error\":\"editor-initialization-failed\"}"
+  }
+  let initial = initial_model(
+    host_id,
+    editor,
+    document_id,
+    replica_id,
+    archive_persistence_enabled=false,
+  )
   detached_model.val = None
   detached_focus_token.val = ""
   publish(initial)
-  let app = build(editor, attachment, initial)
+  let app = build(editor, attachment, initial, None)
   app.mount(host_id)
   mounted.val = true
   "{\"ok\":true}"
@@ -1676,9 +1766,14 @@ fn mount_application(
 ///|
 /// Mount the production standalone application once for the page lifetime.
 pub fn mount_standalone(host_id : String, source : String) -> String {
-  mount_application(
-    host_id, source, "loomark-standalone-", standalone_application,
-  )
+  if mounted.val {
+    return "{\"ok\":false,\"error\":\"host-already-mounted\"}"
+  }
+  mounted.val = true
+  @archive_storage.load(loaded => {
+    finish_standalone_bootstrap(host_id, source, loaded)
+  })
+  "{\"ok\":true}"
 }
 
 ///|

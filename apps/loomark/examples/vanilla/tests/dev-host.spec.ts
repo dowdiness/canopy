@@ -19,6 +19,7 @@ import { expect, test, type Browser, type BrowserContext, type Page } from "@pla
  * | interactive chrome | normal, focus, error | only application controls are visible; Preview owns focus; errors appear on demand |
  * | Raw <-> Block <-> Preview | new/same source | one canonical source, no marker leakage |
  * | ownership | fresh page/container | termination only; no cleanup claim |
+ * | storage ownership | private development host | canonical edits never read or replace the standalone archive slot |
  */
 
 const moduleUrl = new URL(
@@ -189,6 +190,32 @@ async function failHost(page: Page, message: string): Promise<void> {
     { moduleUrl, message },
   )
 }
+
+test("private development host remains independent of archive storage", async ({ browser }) => {
+  const context = await browser.newContext()
+  await context.addInitScript(() => {
+    const state = window as typeof window & { __loomarkStorageWrites: number }
+    state.__loomarkStorageWrites = 0
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: {
+        getItem: () => null,
+        setItem: () => { state.__loomarkStorageWrites += 1 },
+      },
+    })
+  })
+
+  const host = await mountPage(context, "before\n")
+  try {
+    await requestSource(host.page, "after\n")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("after\n")
+    await expect.poll(() => host.page.evaluate(() => (
+      window as typeof window & { __loomarkStorageWrites: number }
+    ).__loomarkStorageWrites)).toBe(0)
+  } finally {
+    await context.close()
+  }
+})
 
 test("Raw input preserves canonical source and Preview follows a committed edit", async ({ browser }) => {
   const host = await mountHost(browser, "before\r\n")

@@ -119,7 +119,9 @@ own MoonBit module and workspace:
 - `apps/ideal/`, `apps/block-editor/`, and `apps/loomark/` have their own
   `moon.mod` and are listed in the root `moon.work`. Loomark's executable
   package is `apps/loomark/main`; Warren serves it with `warren dev --direct`
-  and assembles ignored static output with `warren build`.
+  and assembles ignored static output with `warren build`. Within Loomark,
+  `archive/` owns the document envelope, `repository/` owns pure local-recovery
+  decisions, and `internal/archive_storage/` owns the browser storage binding.
 - `apps/web/` and `apps/relay-server/` are TypeScript/Worker projects, not
   MoonBit modules.
 
