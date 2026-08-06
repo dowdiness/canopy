@@ -15,20 +15,19 @@ cd apps/loomark
 ../../_build/tools/bin/warren dev --direct
 ```
 
-The pinned `deps/rabbita` commit,
-`09968c4402c51645186d75c5044cf4d9346f9f06`, is published on the
-`dowdiness/rabbita` `feat/warren-standalone-direct` branch. It is based on
-upstream Rabbita `0.14.2` at `417c644`, retains Canopy's incremental resizable
-content support, and carries the small syntax compatibility changes required by
-Canopy's pinned MoonBit toolchain. The installer verifies the immutable gitlink
-SHA directly rather than relying on the branch remaining at that commit.
+The recorded `deps/rabbita` gitlink is the authoritative Warren revision, and
+`.gitmodules` is the authoritative repository location. The pinned fork tracks
+current upstream Rabbita while retaining Canopy's incremental resizable content
+support and the syntax compatibility required by Canopy's MoonBit toolchain.
+`scripts/install-local-warren.sh` verifies the gitlink before installation.
 
-Existing checkouts that still configure the upstream Rabbita repository as the
-submodule origin must synchronize it before installing Warren:
+Existing checkouts that still configure a different Rabbita origin must
+synchronize it before installing Warren:
 
 ```bash
 git submodule sync --recursive
-git -C deps/rabbita remote set-url origin https://github.com/dowdiness/rabbita.git
+RABBITA_REMOTE="$(git config -f .gitmodules --get submodule.rabbita.url)"
+git -C deps/rabbita remote set-url origin "$RABBITA_REMOTE"
 git submodule update --init --recursive deps/rabbita
 ```
 
@@ -55,6 +54,5 @@ build, rejects private development-driver controls in the production bundle,
 and runs the production Playwright suite. The private development-host suite
 remains separately available through `./scripts/test-loomark-dev-host-e2e.sh`.
 
-The standalone page does not publish `MarkdownApp`, `MarkdownSession`, unmount,
-remount, or reusable-host behavior. Those lifecycle contracts remain deferred
-to issue #1072.
+The standalone page does not expose embedding, teardown, remount, or host-reuse
+behavior. Those lifecycle capabilities remain deferred to issue #1072.

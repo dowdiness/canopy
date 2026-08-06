@@ -821,6 +821,8 @@ jobs:
     needs: [changes]
     if: needs.changes.outputs.run_loomark_standalone_e2e == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     container:
       image: mcr.microsoft.com/playwright:v1.61.1-noble
       options: --ipc=host
@@ -829,6 +831,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           submodules: recursive
+          persist-credentials: false
 
       - name: Install native build toolchain
         run: |
