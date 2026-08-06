@@ -140,7 +140,7 @@
       "id": "restore-inherits-receiver-policy",
       "raisedBy": "implementing the façade's admission path",
       "question": "What policy does admission state, given that the only available path applies the receiver's sync limits?",
-      "observation": "Admission now has two explicit paths over the same EGW semantics. Peer admission keeps the document-configured limits, while archive opening requires a caller-owned policy and routes through SyncSession::apply_with_limits. Opening still refuses withheld operations after admission, while peer admission reports them as ordinary causal state.",
+      "observation": "Admission now has two explicit paths over the same EGW semantics. Peer admission keeps the document-configured limits, while archive opening requires a caller-owned policy and routes through the document sync call self.doc.sync().apply_with_limits. Opening still refuses withheld operations after admission, while peer admission reports them as ordinary causal state.",
       "sites": [
         "event-graph-walker/text/sync.mbt:1213-1244 (per-call and document-configured admission paths)",
         "editor/sync_editor.mbt:466-531 (shared admission shell and explicit-limit entry point)",
