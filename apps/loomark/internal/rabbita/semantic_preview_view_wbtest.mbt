@@ -1,7 +1,7 @@
 ///|
 #warnings("-alert_unstable")
 fn render_preview(source : String) -> String {
-  let preview = preview_surface(
+  let preview = semantic_preview_view(
     source,
     wbtest_markdown_ir(@loom.SourceId("loomark-preview-ssr"), source),
   )
@@ -65,17 +65,17 @@ test "semantic preview SSR renders inline links images and reference metadata" {
 }
 
 ///|
-test "semantic preview SSR preserves autolink break and HTML surfaces" {
+test "semantic preview SSR preserves autolink break and HTML forms" {
   let rendered = render_preview(
     "<https://example.test> <mail@example.test>\rsoft\nspace  \nslash\\\nnext\n\n<div>block</div>\n\ninline <i>tag</i>\n",
   )
   assert_preview_contains(rendered, "data-loomark-autolink-kind=\"uri\"")
   assert_preview_contains(rendered, "data-loomark-autolink-kind=\"email\"")
   assert_preview_contains(
-    rendered, "data-loomark-hard-break-surface=\"trailing-spaces\"",
+    rendered, "data-loomark-hard-break-form=\"trailing-spaces\"",
   )
   assert_preview_contains(
-    rendered, "data-loomark-hard-break-surface=\"backslash\"",
+    rendered, "data-loomark-hard-break-form=\"backslash\"",
   )
   assert_preview_contains(rendered, "data-loomark-preview-html=\"block\"")
   assert_preview_contains(rendered, "data-loomark-preview-html=\"inline\"")

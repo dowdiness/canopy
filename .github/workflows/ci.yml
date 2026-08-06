@@ -58,6 +58,7 @@ jobs:
       run_e2e: ${{ steps.filter.outputs.run_e2e }}
       run_cm6_adapter_e2e: ${{ steps.filter.outputs.run_cm6_adapter_e2e }}
       run_loomark_dev_host_e2e: ${{ steps.filter.outputs.run_loomark_dev_host_e2e }}
+      run_loomark_standalone_e2e: ${{ steps.filter.outputs.run_loomark_standalone_e2e }}
       run_pr_ready_bash3: ${{ steps.filter.outputs.run_pr_ready_bash3 }}
     steps:
       - uses: actions/checkout@v7
@@ -76,9 +77,25 @@ jobs:
               - 'modules/canopy/editor/markdown/**'
               - 'modules/dom-boundary/**'
               - 'modules/js-ffi/**'
+              - 'deps/rabbita'
               - 'deps/rabbita/**'
               - '.github/workflows/ci.yml'
               - 'scripts/test-loomark-dev-host-e2e.sh'
+            run_loomark_standalone_e2e:
+              - 'apps/loomark/**'
+              - 'modules/canopy/editor/markdown/**'
+              - 'modules/dom-boundary/**'
+              - 'modules/js-ffi/**'
+              - 'deps/rabbita'
+              - 'deps/rabbita/**'
+              - '.github/actions/setup-moonbit/**'
+              - '.github/workflows/ci.yml'
+              - '.gitignore'
+              - '.gitmodules'
+              - 'scripts/install-local-warren.sh'
+              - 'scripts/moon-update.sh'
+              - 'scripts/test-loomark-standalone-e2e.sh'
+              - 'scripts/update-moon-deps.sh'
             run_prove:
               - 'modules/semantic/proof/**'
               - '.github/actions/setup-moonbit/**'
@@ -799,6 +816,44 @@ jobs:
       - name: Run Loomark dev-host browser suite
         run: ./scripts/test-loomark-dev-host-e2e.sh
 
+  loomark-standalone-e2e:
+    name: Loomark Standalone E2E
+    needs: [changes]
+    if: needs.changes.outputs.run_loomark_standalone_e2e == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    container:
+      image: mcr.microsoft.com/playwright:v1.61.1-noble
+      options: --ipc=host
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Install native build toolchain
+        run: |
+          apt-get update
+          apt-get install --yes --no-install-recommends build-essential
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Trust container workspace
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Set up MoonBit
+        uses: ./.github/actions/setup-moonbit
+
+      - name: Verify MoonBit installation
+        run: moon version --all
+
+      - name: Update MoonBit dependencies
+        run: ./scripts/update-moon-deps.sh
+
+      - name: Run Loomark standalone browser suite
+        run: ./scripts/test-loomark-standalone-e2e.sh
+
   all-checks-passed:
     name: All Checks Passed
     runs-on: ubuntu-latest
@@ -821,6 +876,7 @@ jobs:
       - canvas-e2e
       - cm6-adapter-e2e
       - loomark-dev-host-e2e
+      - loomark-standalone-e2e
     if: always()
     steps:
       - name: Check all job statuses
@@ -851,7 +907,10 @@ jobs:
              ! ok "${{ needs.cm6-adapter-e2e.result }}" || \
              ! path_filtered_ok \
                "${{ needs.loomark-dev-host-e2e.result }}" \
-               "${{ needs.changes.outputs.run_loomark_dev_host_e2e }}"; then
+               "${{ needs.changes.outputs.run_loomark_dev_host_e2e }}" || \
+             ! path_filtered_ok \
+               "${{ needs.loomark-standalone-e2e.result }}" \
+               "${{ needs.changes.outputs.run_loomark_standalone_e2e }}"; then
             echo "❌ One or more required checks failed"
             exit 1
           fi

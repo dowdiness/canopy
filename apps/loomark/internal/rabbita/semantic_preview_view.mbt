@@ -291,7 +291,7 @@ fn semantic_preview_node(
     @md_markdown.Bold => @html.strong(children)
     @md_markdown.Italic => @html.em(children)
     @md_markdown.InlineCode(value~) => @html.code(value)
-    @md_markdown.Link(destination~, title~, surface~) =>
+    @md_markdown.Link(destination~, title~, surface=link_form) =>
       match semantic_preview_safe_destination(destination, image=false) {
         Some(destination) =>
           @html.a(
@@ -299,7 +299,7 @@ fn semantic_preview_node(
             title?,
             attrs=@html.Attrs::build().data_set(
               "loomark-link-reference-form",
-              semantic_preview_link_form(surface.form),
+              semantic_preview_link_form(link_form.form),
             ),
             children,
           )
@@ -311,7 +311,7 @@ fn semantic_preview_node(
             children,
           )
       }
-    @md_markdown.Image(destination~, title~, surface~) => {
+    @md_markdown.Image(destination~, title~, surface=image_form) => {
       let alt = semantic_preview_plain_text(node)
       match semantic_preview_safe_destination(destination, image=true) {
         Some(destination) =>
@@ -321,7 +321,7 @@ fn semantic_preview_node(
             title?,
             attrs=@html.Attrs::build().data_set(
               "loomark-image-reference-form",
-              semantic_preview_link_form(surface.form),
+              semantic_preview_link_form(image_form.form),
             ),
           )
         None =>
@@ -361,11 +361,11 @@ fn semantic_preview_node(
         value,
       )
     @md_markdown.SoftBreak => @html.text("\n")
-    @md_markdown.HardBreak(surface~) =>
+    @md_markdown.HardBreak(surface=break_form) =>
       @html.br(
         attrs=@html.Attrs::build().data_set(
-          "loomark-hard-break-surface",
-          match surface {
+          "loomark-hard-break-form",
+          match break_form {
             @md_markdown.TrailingSpaces(_) => "trailing-spaces"
             @md_markdown.Backslash => "backslash"
           },
@@ -401,7 +401,7 @@ fn semantic_preview_node(
 }
 
 ///|
-fn preview_surface(
+fn semantic_preview_view(
   source : String,
   semantic_document : @md_markdown.MarkdownIR,
 ) -> @rabbita_runtime.Html {

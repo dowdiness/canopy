@@ -4,7 +4,9 @@
   "type": "module",
   "scripts": {
     "typecheck:dev-host": "tsc --noEmit -p tsconfig.dev-host.json",
-    "test:dev-host": "playwright test --config=playwright.dev-host.config.ts"
+    "typecheck:standalone": "tsc --noEmit -p tsconfig.standalone.json",
+    "test:dev-host": "playwright test --config=playwright.dev-host.config.ts",
+    "test:standalone": "node ./run-standalone-tests.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.61.1",

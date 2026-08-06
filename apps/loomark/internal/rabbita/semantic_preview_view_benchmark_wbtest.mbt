@@ -1,7 +1,7 @@
 ///|
 /// Build the 2,500-block workload once. Parsing belongs to Loom's semantic
 /// attachment benchmarks; this file isolates the pure Preview materializer.
-fn preview_surface_benchmark_source(block_count : Int) -> String {
+fn preview_view_benchmark_source(block_count : Int) -> String {
   let out = StringBuilder::StringBuilder()
   for index = 0; index < block_count; index = index + 1 {
     out.write_string(
@@ -12,14 +12,14 @@ fn preview_surface_benchmark_source(block_count : Int) -> String {
 }
 
 ///|
-fn preview_surface_benchmark_replace_middle(source : String) -> String {
+fn preview_view_benchmark_replace_middle(source : String) -> String {
   let target = "Paragraph 1250"
   match source.find(target) {
     Some(position) =>
       source[:position].to_owned() +
       "Edited paragraph 1250" +
       source[position + target.length():].to_owned()
-    None => abort("preview surface benchmark middle paragraph not found")
+    None => abort("preview view benchmark middle paragraph not found")
   }
 }
 
@@ -40,7 +40,7 @@ fn wbtest_markdown_ir(
 }
 
 ///|
-priv struct PreviewSurfaceBenchmarkInput {
+priv struct PreviewViewBenchmarkInput {
   source : String
   edited : String
   source_ir : @md_markdown.MarkdownIR
@@ -48,9 +48,9 @@ priv struct PreviewSurfaceBenchmarkInput {
 }
 
 ///|
-fn preview_surface_benchmark_input() -> PreviewSurfaceBenchmarkInput {
-  let source = preview_surface_benchmark_source(2500)
-  let edited = preview_surface_benchmark_replace_middle(source)
+fn preview_view_benchmark_input() -> PreviewViewBenchmarkInput {
+  let source = preview_view_benchmark_source(2500)
+  let edited = preview_view_benchmark_replace_middle(source)
   {
     source,
     edited,
@@ -67,14 +67,14 @@ fn preview_surface_benchmark_input() -> PreviewSurfaceBenchmarkInput {
 
 ///|
 test "loomark Preview materialization: initial 2500 blocks" (b : @bench.T) {
-  let input = preview_surface_benchmark_input()
-  b.bench(() => b.keep(preview_surface(input.source, input.source_ir)))
+  let input = preview_view_benchmark_input()
+  b.bench(() => b.keep(semantic_preview_view(input.source, input.source_ir)))
 }
 
 ///|
 test "loomark Preview materialization: edited IR 2500 blocks" (b : @bench.T) {
-  let input = preview_surface_benchmark_input()
-  b.bench(() => b.keep(preview_surface(input.edited, input.edited_ir)))
+  let input = preview_view_benchmark_input()
+  b.bench(() => b.keep(semantic_preview_view(input.edited, input.edited_ir)))
 }
 
 ///|
@@ -82,10 +82,10 @@ test "loomark Preview materialization: edited IR 2500 blocks" (b : @bench.T) {
 test "loomark Preview materialization: edit and reversal cycle 2500 blocks" (
   b : @bench.T,
 ) {
-  let input = preview_surface_benchmark_input()
+  let input = preview_view_benchmark_input()
   b.bench(() => {
-    b.keep(preview_surface(input.edited, input.edited_ir))
-    b.keep(preview_surface(input.source, input.source_ir))
+    b.keep(semantic_preview_view(input.edited, input.edited_ir))
+    b.keep(semantic_preview_view(input.source, input.source_ir))
   })
 }
 
@@ -93,7 +93,7 @@ test "loomark Preview materialization: edit and reversal cycle 2500 blocks" (
 /// Isolate the semantic-document component of DriverModel's structural Eq on
 /// a Preview no-op; the complete model also compares its other fields.
 test "loomark Preview MarkdownIR Eq: same 2500 blocks" (b : @bench.T) {
-  let input = preview_surface_benchmark_input()
+  let input = preview_view_benchmark_input()
   b.bench(() => b.keep(input.source_ir == input.source_ir))
 }
 
@@ -102,6 +102,6 @@ test "loomark Preview MarkdownIR Eq: same 2500 blocks" (b : @bench.T) {
 /// semantic documents; the complete model may short-circuit on an earlier
 /// changed field.
 test "loomark Preview MarkdownIR Eq: middle edit 2500 blocks" (b : @bench.T) {
-  let input = preview_surface_benchmark_input()
+  let input = preview_view_benchmark_input()
   b.bench(() => b.keep(input.source_ir == input.edited_ir))
 }

@@ -1,9 +1,16 @@
-# Loomark private development host
+# Loomark browser tests
 
-This directory is a disposable browser harness for the pre-`MountedApp`
-Loomark application. It owns one fresh connected mount per BrowserContext and
-lets the browser suite observe detached snapshots, typed event effects, and
-Rabbita timing. It is not a public Browser App/Session contract.
+This directory contains the Node and Playwright dependencies shared by two
+separate browser boundaries.
+
+- `dev-host.spec.ts` exercises the disposable private development driver. It
+  owns one fresh connected mount per BrowserContext and observes detached
+  snapshots, typed event effects, and Rabbita timing.
+- `standalone.spec.ts` exercises only the Warren production output through its
+  visible Raw editor, Block editor, and Preview controls. It imports no private
+  driver module.
+
+Neither boundary is a public Browser App/Session contract.
 
 ## Behavioral and lifetime test inventory
 

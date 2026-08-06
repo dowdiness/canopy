@@ -117,7 +117,9 @@ own MoonBit module and workspace:
   `apps/canvas/moon.work`). Run its checks and tests from that directory or
   with `moon -C apps/canvas ...`.
 - `apps/ideal/`, `apps/block-editor/`, and `apps/loomark/` have their own
-  `moon.mod` and are listed in the root `moon.work`.
+  `moon.mod` and are listed in the root `moon.work`. Loomark's executable
+  package is `apps/loomark/main`; Warren serves it with `warren dev --direct`
+  and assembles ignored static output with `warren build`.
 - `apps/web/` and `apps/relay-server/` are TypeScript/Worker projects, not
   MoonBit modules.
 

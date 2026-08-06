@@ -1,0 +1,14 @@
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background: oklch(0.968 0.008 85);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+::selection {
+  background: oklch(0.78 0.08 276 / 0.45);
+}

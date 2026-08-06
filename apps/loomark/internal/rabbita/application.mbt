@@ -135,10 +135,10 @@ fn publish(model : DriverModel) -> Unit {
 }
 
 ///|
-fn preview_document_surface(model : DriverModel) -> @rabbita_runtime.Html {
+fn preview_document_view(model : DriverModel) -> @rabbita_runtime.Html {
   let source = model.document.source()
   match model.semantic_document {
-    Some(document) => preview_surface(source, document)
+    Some(document) => semantic_preview_view(source, document)
     None =>
       @html.div(
         id="loomark-preview",
@@ -156,7 +156,7 @@ fn preview_document_surface(model : DriverModel) -> @rabbita_runtime.Html {
 }
 
 ///|
-fn editor_surface(
+fn editor_view(
   model : DriverModel,
   emit : @cmd.Emit[DriverEvent],
 ) -> @rabbita_runtime.Html {
@@ -173,8 +173,8 @@ fn editor_surface(
         ],
         on_input=@cmd.Emit(source => raw_input_command(source, emit)),
       )
-    @core.Preview => preview_document_surface(model)
-    @core.Block => block_surface(model, emit)
+    @core.Preview => preview_document_view(model)
+    @core.Block => block_editor_view(model, emit)
   }
 }
 
@@ -182,7 +182,8 @@ fn editor_surface(
 fn preview_view(
   model : DriverModel,
   emit : @cmd.Emit[DriverEvent],
-  surface : @rabbita_runtime.Html,
+  active_view : @rabbita_runtime.Html,
+  driver_controls : @rabbita_runtime.Html,
 ) -> @rabbita_runtime.Html {
   let raw_selected = model.state.mode() == @core.Raw
   let block_selected = model.state.mode() == @core.Block
@@ -284,18 +285,6 @@ fn preview_view(
       ),
     ],
   )
-  let event_button = @html.button(
-    id="loomark-event-target",
-    type_="button",
-    hidden=true,
-    "Driver event",
-  )
-  let driver_button = @html.button(
-    id="loomark-driver-target",
-    type_="button",
-    hidden=true,
-    "Driver",
-  )
   let error_view = match model.error {
     Some(error) =>
       @rui.alert(
@@ -357,17 +346,48 @@ fn preview_view(
                   .role("tabpanel")
                   .aria_labelledby(panel_labelledby),
                 style=["min-width:0;flex:1;display:flex"],
-                surface,
+                active_view,
               ),
             ],
           ),
         ],
       ),
-      event_button,
-      driver_button,
+      driver_controls,
       error_view,
     ],
   )
+}
+
+///|
+fn standalone_preview_view(
+  model : DriverModel,
+  emit : @cmd.Emit[DriverEvent],
+  active_view : @rabbita_runtime.Html,
+) -> @rabbita_runtime.Html {
+  preview_view(model, emit, active_view, @html.nothing)
+}
+
+///|
+fn private_dev_host_preview_view(
+  model : DriverModel,
+  emit : @cmd.Emit[DriverEvent],
+  active_view : @rabbita_runtime.Html,
+) -> @rabbita_runtime.Html {
+  let driver_controls = @html.fragment([
+    @html.button(
+      id="loomark-event-target",
+      type_="button",
+      hidden=true,
+      "Driver event",
+    ),
+    @html.button(
+      id="loomark-driver-target",
+      type_="button",
+      hidden=true,
+      "Driver",
+    ),
+  ])
+  preview_view(model, emit, active_view, driver_controls)
 }
 
 ///|
@@ -1513,7 +1533,19 @@ fn driver_test_subscription(
 }
 
 ///|
-fn subscriptions(
+fn standalone_subscriptions(
+  model : DriverModel,
+  emit : @cmd.Emit[DriverEvent],
+) -> @sub.Sub {
+  if model.fatal {
+    @sub.none
+  } else {
+    @sub.on_resize(emit.map(viewport => Resize(viewport)))
+  }
+}
+
+///|
+fn private_dev_host_subscriptions(
   model : DriverModel,
   emit : @cmd.Emit[DriverEvent],
 ) -> @sub.Sub {
@@ -1530,13 +1562,68 @@ fn subscriptions(
 }
 
 ///|
-/// Mount the private application exactly once into a fresh connected element.
+fn build_application(
+  editor : @markdown.MarkdownEditor,
+  attachment : @md_markdown.MarkdownSemanticAttachment,
+  initial : DriverModel,
+  subscriptions : (DriverModel, @cmd.Emit[DriverEvent]) -> @sub.Sub,
+  view : (DriverModel, @cmd.Emit[DriverEvent], @rabbita_runtime.Html) -> @rabbita_runtime.Html,
+) -> @rabbita_runtime.App {
+  let update = (model, event, emit) => {
+    update_model(editor, attachment, model, event, emit)
+  }
+  @rabbita_runtime.new(() => {
+    let (model, emit) = @rabbita_runtime.create_state(
+      initial,
+      update~,
+      subscriptions~,
+    )
+    let active_view = application_view(model, emit)
+    model.view2(active_view, (model, active_view) => {
+      view(model, emit, active_view)
+    })
+  })
+}
+
+///|
+fn standalone_application(
+  editor : @markdown.MarkdownEditor,
+  attachment : @md_markdown.MarkdownSemanticAttachment,
+  initial : DriverModel,
+) -> @rabbita_runtime.App {
+  build_application(
+    editor, attachment, initial, standalone_subscriptions, standalone_preview_view,
+  )
+}
+
+///|
+fn private_dev_host_application(
+  editor : @markdown.MarkdownEditor,
+  attachment : @md_markdown.MarkdownSemanticAttachment,
+  initial : DriverModel,
+) -> @rabbita_runtime.App {
+  build_application(
+    editor, attachment, initial, private_dev_host_subscriptions, private_dev_host_preview_view,
+  )
+}
+
+///|
+/// Build and mount the one shared application with an explicit host shell.
 #warnings("-alert_unstable")
-pub fn mount(host_id : String, source : String) -> String {
+fn mount_application(
+  host_id : String,
+  source : String,
+  replica_prefix : String,
+  build : (
+    @markdown.MarkdownEditor,
+    @md_markdown.MarkdownSemanticAttachment,
+    DriverModel,
+  ) -> @rabbita_runtime.App,
+) -> String {
   if mounted.val {
     return "{\"ok\":false,\"error\":\"host-already-mounted\"}"
   }
-  let replica_id = "loomark-dev-host-" + js_replica_uuid()
+  let replica_id = replica_prefix + js_replica_uuid()
   let (editor, attachment) = @markdown.MarkdownEditor::with_semantic_attachment(
     agent_id=replica_id,
     source~,
@@ -1580,21 +1667,26 @@ pub fn mount(host_id : String, source : String) -> String {
   detached_model.val = None
   detached_focus_token.val = ""
   publish(initial)
-  let update = (model, event, emit) => {
-    update_model(editor, attachment, model, event, emit)
-  }
-  let app = @rabbita_runtime.new(() => {
-    let (model, emit) = @rabbita_runtime.create_state(
-      initial,
-      update~,
-      subscriptions~,
-    )
-    let surface = application_surface(model, emit)
-    model.view2(surface, (model, surface) => preview_view(model, emit, surface))
-  })
+  let app = build(editor, attachment, initial)
   app.mount(host_id)
   mounted.val = true
   "{\"ok\":true}"
+}
+
+///|
+/// Mount the production standalone application once for the page lifetime.
+pub fn mount_standalone(host_id : String, source : String) -> String {
+  mount_application(
+    host_id, source, "loomark-standalone-", standalone_application,
+  )
+}
+
+///|
+/// Mount the private application exactly once into a fresh connected element.
+pub fn mount(host_id : String, source : String) -> String {
+  mount_application(
+    host_id, source, "loomark-dev-host-", private_dev_host_application,
+  )
 }
 
 ///|

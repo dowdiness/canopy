@@ -20,6 +20,8 @@ pub fn measure_preview() -> Unit
 
 pub fn mount(String, String) -> String
 
+pub fn mount_standalone(String, String) -> String
+
 pub fn probe_deleted_block_selection() -> Unit
 
 pub fn probe_stale_block_selection() -> Unit
