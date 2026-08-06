@@ -830,6 +830,12 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Install native build toolchain
+        run: |
+          apt-get update
+          apt-get install --yes --no-install-recommends build-essential
+          rm -rf /var/lib/apt/lists/*
+
       - name: Set up MoonBit
         uses: ./.github/actions/setup-moonbit
 
