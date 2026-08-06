@@ -11,10 +11,7 @@ pub const LOOMARK_ARCHIVE_SCHEMA_VERSION : Int = 1
 
 // Errors
 pub(all) suberror LoomarkArchiveCaptureError {
-  InvalidValidationAgentId
   HistoryUnavailable(detail~ : String)
-  CorruptHistory(detail~ : String)
-  PortableTextHistoryMismatch
 }
 
 pub(all) suberror LoomarkArchiveDecodeError {
@@ -34,7 +31,7 @@ pub(all) suberror LoomarkDocumentIdError {
 pub struct LoomarkDocumentArchive {
   // private fields
 }
-pub fn LoomarkDocumentArchive::capture(document_id~ : LoomarkDocumentId, editor~ : @markdown.MarkdownEditor, validation_agent_id~ : String) -> Self raise LoomarkArchiveCaptureError
+pub fn LoomarkDocumentArchive::capture(document_id~ : LoomarkDocumentId, editor~ : @markdown.MarkdownEditor) -> Self raise LoomarkArchiveCaptureError
 pub fn LoomarkDocumentArchive::document_id(Self) -> LoomarkDocumentId
 pub fn LoomarkDocumentArchive::from_json_string(String, validation_agent_id~ : String) -> Self raise LoomarkArchiveDecodeError
 pub fn LoomarkDocumentArchive::history(Self) -> @markdown.MarkdownDocumentHistory

@@ -14,11 +14,7 @@ test "archive capture and round-trip tracer" {
     ),
   )
   let document_id = try! LoomarkDocumentId::from_string("doc-1")
-  let archive = try! LoomarkDocumentArchive::capture(
-    document_id~,
-    editor~,
-    validation_agent_id="archive-validation-red",
-  )
+  let archive = try! LoomarkDocumentArchive::capture(document_id~, editor~)
   let encoded = archive.to_json_string()
   assert_true(encoded.contains("\"schema_version\":\"1\""))
   let decoded = try! LoomarkDocumentArchive::from_json_string(
@@ -31,40 +27,13 @@ test "archive capture and round-trip tracer" {
 }
 
 ///|
-test "archive capture rejects invalid validation agent id" {
-  let editor = try! @markdown.MarkdownEditor(
-    agent_id="archive-invalid-validation-source",
-    source="# Title\n",
-  )
-  let document_id = try! LoomarkDocumentId::from_string(
-    "doc-invalid-validation",
-  )
-  let captured : Result[LoomarkDocumentArchive, LoomarkArchiveCaptureError] = Ok(
-    LoomarkDocumentArchive::capture(
-      document_id~,
-      editor~,
-      validation_agent_id="",
-    ),
-  ) catch {
-    error => Err(error)
-  }
-  assert_true(
-    captured is Err(LoomarkArchiveCaptureError::InvalidValidationAgentId),
-  )
-}
-
-///|
 test "archive decode error matrix" {
   let editor = try! @markdown.MarkdownEditor(
     agent_id="archive-errors-source",
     source="# Title\n",
   )
   let document_id = try! LoomarkDocumentId::from_string("doc-errors")
-  let archive = try! LoomarkDocumentArchive::capture(
-    document_id~,
-    editor~,
-    validation_agent_id="archive-errors-capture",
-  )
+  let archive = try! LoomarkDocumentArchive::capture(document_id~, editor~)
   let encoded = archive.to_json_string()
   assert_true(encoded.contains("\"schema_version\":\"1\""))
 
@@ -113,10 +82,10 @@ test "archive decode error matrix" {
   let malformed_schema_versions = [
     "{\"schema_version\":1}", "{\"schema_version\":1.0}", "{\"schema_version\":1e0}",
     "{\"schema_version\":0}", "{\"schema_version\":-1}", "{\"schema_version\":\"\"}",
-    "{\"schema_version\":\"0\"}", "{\"schema_version\":\"00\"}", "{\"schema_version\":\"-1\"}",
-    "{\"schema_version\":\"1.0\"}", "{\"schema_version\":\"1e0\"}", "{\"schema_version\":true}",
-    "{\"schema_version\":false}", "{\"schema_version\":null}", "{\"schema_version\":{}}",
-    "{\"schema_version\":[]}",
+    "{\"schema_version\":\"0\"}", "{\"schema_version\":\"00\"}", "{\"schema_version\":\"01\"}",
+    "{\"schema_version\":\"0001\"}", "{\"schema_version\":\"-1\"}", "{\"schema_version\":\"1.0\"}",
+    "{\"schema_version\":\"1e0\"}", "{\"schema_version\":true}", "{\"schema_version\":false}",
+    "{\"schema_version\":null}", "{\"schema_version\":{}}", "{\"schema_version\":[]}",
   ]
   for schema_version_json in malformed_schema_versions {
     let malformed : Result[LoomarkDocumentArchive, LoomarkArchiveDecodeError] = Ok(
@@ -224,11 +193,7 @@ test "decoded archive continues through public edit and merge APIs" {
     source~,
   )
   let document_id = try! LoomarkDocumentId::from_string("doc-continued")
-  let archive = try! LoomarkDocumentArchive::capture(
-    document_id~,
-    editor~,
-    validation_agent_id="archive-continued-capture",
-  )
+  let archive = try! LoomarkDocumentArchive::capture(document_id~, editor~)
   let decoded = try! LoomarkDocumentArchive::from_json_string(
     archive.to_json_string(),
     validation_agent_id="archive-continued-decode",

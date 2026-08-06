@@ -33,10 +33,7 @@ pub fn LoomarkDocumentId::value(self : Self) -> String {
 ///|
 /// The capture-side failures for an application-owned archive.
 pub(all) suberror LoomarkArchiveCaptureError {
-  InvalidValidationAgentId
   HistoryUnavailable(detail~ : String)
-  CorruptHistory(detail~ : String)
-  PortableTextHistoryMismatch
 }
 
 ///|
@@ -76,15 +73,14 @@ pub fn LoomarkDocumentArchive::history(
 }
 
 ///|
-/// Capture portable text and the complete opaque history from an editor.
+/// Capture portable text and the complete opaque history from a valid editor.
+///
+/// The editor already owns the source/history invariant. Persisted input is
+/// reopened and checked only at the decode boundary below.
 pub fn LoomarkDocumentArchive::capture(
   document_id~ : LoomarkDocumentId,
   editor~ : @markdown.MarkdownEditor,
-  validation_agent_id~ : String,
 ) -> LoomarkDocumentArchive raise LoomarkArchiveCaptureError {
-  if validation_agent_id.is_empty() {
-    raise LoomarkArchiveCaptureError::InvalidValidationAgentId
-  }
   let portable_markdown = editor.portable_markdown()
   let history = editor.history_since() catch {
     _ =>
@@ -92,7 +88,6 @@ pub fn LoomarkDocumentArchive::capture(
         detail="history export failed",
       )
   }
-  validate_capture(portable_markdown, history, validation_agent_id)
   { document_id, portable_markdown, history }
 }
 
@@ -184,8 +179,9 @@ fn archive_schema_version(
     Some(Json::String(version)) =>
       if version == LOOMARK_ARCHIVE_SCHEMA_VERSION.to_string() {
         LOOMARK_ARCHIVE_SCHEMA_VERSION
-      } else if version.all(c => c.is_ascii_digit()) &&
-        version.any(c => c != '0') {
+      } else if !version.is_empty() &&
+        !version.has_prefix("0") &&
+        version.all(c => c.is_ascii_digit()) {
         raise LoomarkArchiveDecodeError::UnsupportedNewerVersion(version~)
       } else {
         raise LoomarkArchiveDecodeError::MalformedEnvelope(
@@ -219,28 +215,6 @@ fn validate_archive_fields(
       raise LoomarkArchiveDecodeError::MalformedEnvelope(
         detail="extensions must be an empty object in schema version 1",
       )
-  }
-}
-
-///|
-fn validate_capture(
-  portable_markdown : String,
-  history : @markdown.MarkdownDocumentHistory,
-  validation_agent_id : String,
-) -> Unit raise LoomarkArchiveCaptureError {
-  let reopened = @markdown.MarkdownEditor::open(
-    agent_id=validation_agent_id,
-    history~,
-  ) catch {
-    @markdown.MarkdownArchiveError::InvalidAgentId =>
-      raise LoomarkArchiveCaptureError::InvalidValidationAgentId
-    _ =>
-      raise LoomarkArchiveCaptureError::CorruptHistory(
-        detail="history could not be reopened",
-      )
-  }
-  if reopened.portable_markdown() != portable_markdown {
-    raise LoomarkArchiveCaptureError::PortableTextHistoryMismatch
   }
 }
 
