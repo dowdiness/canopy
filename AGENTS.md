@@ -335,3 +335,31 @@ UI/visual work; do not duplicate token values here (they drift).
 - [eg-walker paper](https://arxiv.org/abs/2409.14252)
 - [MoonBit docs](https://docs.moonbitlang.com)
 - [Full documentation](docs/)
+
+## Cursor Cloud specific instructions
+
+The Cloud VM snapshot already has the toolchain installed and dependencies
+refreshed by the startup update script (`git submodule update --init
+--recursive`, `scripts/moon-update.sh`, `npm --prefix examples/web ci`). Do not
+re-run the MoonBit installer; it is pinned in the snapshot.
+
+Non-obvious caveats for this environment:
+
+- **`NEW_MOON_MOD=0` is exported in `~/.bashrc`** (matches
+  `.github/actions/setup-moonbit`). Every `moon` command relies on it — without
+  it the `rr_moon_mod` TOML migration drops path fields from cross-repo deps.
+  Login shells already have it; a bare non-login shell may not.
+- **Two `node` versions exist.** Login shells resolve nvm's `v22.22.2` (needed —
+  `examples/web` requires `node ^22.15.0`). A non-login/daemon shell may fall
+  back to `v22.14.0`, which is below the web `engines` floor. Run web commands in
+  a login shell (`bash -l`) or `nvm use 22.22.2`.
+- **Web dev server:** standard commands are in `examples/web/package.json`
+  (`npm run dev` → Waku on `http://localhost:3000`) and the root `Makefile`
+  (`make build-js`, `make web-dev`). The Waku dev server runs its own MoonBit
+  watcher and rebuilds the FFI (`ffi/{lambda,json,markdown,jsx}`) JS on change;
+  a separate `make build-js` is only needed for non-dev consumers.
+- `moon check` / `moon test` / `moon build` auto-download registry deps on first
+  run, so the pre-warm in the update script is an optimization, not a hard
+  prerequisite.
+- Verified working: `moon check`, `moon test` (1968 js + 70 native pass),
+  `make build-js`, and the `/ml` Mini-ML live editor at `localhost:3000`.
