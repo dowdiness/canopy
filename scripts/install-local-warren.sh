@@ -9,7 +9,10 @@ EXPECTED_RABBITA="09968c4402c51645186d75c5044cf4d9346f9f06"
 BIN_DIR="${1:-$PROJECT_ROOT/_build/tools/bin}"
 
 actual_remote="$(git -C "$RABBITA_ROOT" remote get-url origin)"
-if [ "$actual_remote" != "$RABBITA_REMOTE" ]; then
+# CI hosts (e.g. Cloudflare Git builds) inject credentials into submodule
+# origins as https://token@github.com/...; compare the host+path only.
+normalized_remote="$(printf '%s' "$actual_remote" | sed -E 's#^https?://[^/@]+@#https://#')"
+if [ "$normalized_remote" != "$RABBITA_REMOTE" ]; then
   echo "error: Rabbita origin is $actual_remote; expected $RABBITA_REMOTE" >&2
   printf 'run: cd %q && git submodule sync --recursive\n' "$PROJECT_ROOT" >&2
   printf 'then: git -C %q remote set-url origin %q\n' \

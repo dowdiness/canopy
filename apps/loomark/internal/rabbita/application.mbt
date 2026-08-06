@@ -23,6 +23,167 @@ const LIST_EXAMPLE_SOURCE : String = "# Shopping List\n\nThings to pick up:\n\n-
 const CODE_EXAMPLE_SOURCE : String = "# README\n\nA minimal example project.\n\n## Install\n\n```bash\nnpm install\n```\n\n## Usage\n\n- Run the dev server\n- Open the browser\n- Start editing"
 
 ///|
+/// Long-form Markdown feature tour used by the "Demo" example button.
+const MARKDOWN_DEMO_SOURCE : String =
+  $|# Markdown Feature Tour
+  $|
+  $|A long-form tour of the Markdown features this editor renders. Switch
+  $|between the Raw, Block, and Preview tabs to see the same document through
+  $|each lens, and open the split view to edit and preview side by side.
+  $|
+  $|---
+  $|
+  $|## Headings
+  $|
+  $|Headings come in six levels, from the document title down to small captions.
+  $|
+  $|### Level Three Heading
+  $|
+  $|#### Level Four Heading
+  $|
+  $|##### Level Five Heading
+  $|
+  $|###### Level Six Heading
+  $|
+  $|## Emphasis and inline styles
+  $|
+  $|Text can be **bold**, *italic*, or ***both at once***. Use `inline code` for
+  $|identifiers and command names, and nest styles like *italic with **bold
+  $|inside***. Unsupported extensions stay as plain text, so the editor stays
+  $|honest about what it renders.
+  $|
+  $|## Links and autolinks
+  $|
+  $|- A regular link: [Canopy repository](https://github.com/dowdiness/canopy)
+  $|- An automatic URI link: <https://docs.moonbitlang.com>
+  $|- An automatic email link: <hello@canopy.example>
+  $|- A relative link: [README](./README.md)
+  $|
+  $|### Images
+  $|
+  $|Images render from safe destinations:
+  $|
+  $|![Canopy placeholder](https://placehold.co/640x160?text=Canopy+Markdown "A placeholder image")
+  $|
+  $|## Lists
+  $|
+  $|### Unordered lists
+  $|
+  $|- Apples
+  $|- Bread
+  $|- Dairy
+  $|  - Milk
+  $|  - Yogurt
+  $|    - Greek yogurt
+  $|- Dark chocolate
+  $|
+  $|### Ordered lists
+  $|
+  $|1. Clone the repository
+  $|2. Initialize submodules
+  $|3. Build the editor
+  $|   1. Install the MoonBit toolchain
+  $|   2. Run `moon build --target js`
+  $|4. Open the preview
+  $|
+  $|## Blockquotes
+  $|
+  $|> Markdown is a lightweight markup language for writing plain-text
+  $|> documents that read well before and after rendering.
+  $|>
+  $|> > Nested quotes keep their own left border.
+  $|>
+  $|> — the Canopy team
+  $|
+  $|## Code blocks
+  $|
+  $|Fenced code blocks keep their language hint and scroll horizontally when a
+  $|line is too long:
+  $|
+  $|```moon
+  $|fn greet(name : String) -> String {
+  $|  "Hello, \{'\\'}{name}!"
+  $|}
+  $|
+  $|pub fn main {
+  $|  println(greet("Canopy"))
+  $|}
+  $|```
+  $|
+  $|```python
+  $|def fibonacci(n):
+  $|    if n < 2:
+  $|        return n
+  $|    return fibonacci(n - 1) + fibonacci(n - 2)
+  $|```
+  $|
+  $|```bash
+  $|moon check
+  $|moon test
+  $|moon build --target js
+  $|```
+  $|
+  $|## Thematic breaks
+  $|
+  $|Content before the rule.
+  $|
+  $|---
+  $|
+  $|Content after the rule.
+  $|
+  $|## Hard breaks
+  $|
+  $|A hard break ends the line here \{'\\'}
+  $|and continues on the next line without a blank paragraph in between.
+  $|
+  $|## Inline HTML
+  $|
+  $|Inline HTML stays literal and never executes: <span class="note">not rendered</span>
+  $|
+  $|## A long section of prose
+  $|
+  $|Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod
+  $|tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam,
+  $|quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo
+  $|consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse
+  $|cillum dolore eu fugiat nulla pariatur.
+  $|
+  $|Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia
+  $|deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste
+  $|natus error sit voluptatem accusantium doloremque laudantium, totam rem
+  $|aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto
+  $|beatae vitae dicta sunt explicabo.
+  $|
+  $|Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit,
+  $|sed quia consequuntur magni dolores eos qui ratione voluptatem sequi
+  $|nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet,
+  $|consectetur, adipisci velit, sed quia non numquam eius modi tempora
+  $|incidunt ut labore et dolore magnam aliquam quaerat voluptatem.
+  $|
+  $|Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis
+  $|suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur? Quis autem
+  $|vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil
+  $|molestiae consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla
+  $|pariatur.
+  $|
+  $|At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis
+  $|praesentium voluptatum deleniti atque corrupti quos dolores et quas
+  $|molestias excepturi sint occaecati cupiditate non provident, similique sunt
+  $|in culpa qui officia deserunt mollitia animi, id est laborum et dolorum
+  $|fuga. Et harum quidem rerum facilis est et expedita distinctio.
+  $|
+  $|Nam libero tempore, cum soluta nobis est eligendi optio cumque nihil
+  $|impedit quo minus id quod maxime placeat facere possimus, omnis voluptas
+  $|assumenda est, omnis dolor repellendus. Temporibus autem quibusdam et aut
+  $|officiis debitis aut rerum necessitatibus saepe eveniet ut et voluptates
+  $|repudiandae sint et molestiae non recusandae.
+  $|
+  $|Itaque earum rerum hic tenetur a sapiente delectus, ut aut reiciendis
+  $|voluptatibus maiores alias consequatur aut perferendis doloribus asperiores
+  $|repellat. This final paragraph keeps the document long enough that the
+  $|preview pane scrolls, proving the editor handles long documents well.
+
+///|
 fn mode_name(mode : @core.ApplicationMode) -> String {
   match mode {
     @core.Raw => "raw"
@@ -142,7 +303,9 @@ fn preview_document_view(model : DriverModel) -> @rabbita_runtime.Html {
           .role("region")
           .tabindex(0)
           .aria_label("Markdown preview"),
-        style=["display:grid;gap:1rem"],
+        style=[
+          "box-sizing:border-box;width:min(calc(100% - 4rem),46rem);margin-inline:auto;display:grid;gap:1rem;grid-auto-rows:max-content;border-left:1px solid var(--rui-border);border-right:1px solid var(--rui-border);border-top:0;border-bottom:0;border-radius:0;background:transparent;padding:1rem;overflow-y:auto",
+        ],
         @rui.typography_muted(
           "Preview is unavailable for the current accepted document.",
         ),
@@ -151,23 +314,35 @@ fn preview_document_view(model : DriverModel) -> @rabbita_runtime.Html {
 }
 
 ///|
-fn editor_view(
+
+///|
+/// Render the Raw Markdown source textarea; the split Preview pairs this
+/// editable source with the rendered Preview pane even when Preview is the
+/// selected mode tab.
+fn raw_editor_view(
   model : DriverModel,
   emit : @cmd.Emit[DriverEvent],
 ) -> @rabbita_runtime.Html {
   let source = model.document.source()
+  @rui.textarea(
+    id="loomark-input",
+    value=source,
+    rows=4,
+    attrs=@html.Attrs::build().aria_label("Raw Markdown source"),
+    style=[
+      "min-height:clamp(24rem,70vh,36rem);width:min(calc(100% - 4rem),46rem);margin-inline:auto;field-sizing:fixed;resize:none;--rui-control-base-border:transparent;--rui-control-base-shadow:none;border-left:1px solid var(--rui-border);border-right:1px solid var(--rui-border);border-top:0;border-bottom:0;border-radius:0;background:transparent;padding:1rem;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,\"Liberation Mono\",\"Courier New\",monospace;font-size:0.875rem;line-height:1.65",
+    ],
+    on_input=@cmd.Emit(source => raw_input_command(source, emit)),
+  )
+}
+
+///|
+fn editor_view(
+  model : DriverModel,
+  emit : @cmd.Emit[DriverEvent],
+) -> @rabbita_runtime.Html {
   match model.state.mode() {
-    @core.Raw =>
-      @rui.textarea(
-        id="loomark-input",
-        value=source,
-        rows=4,
-        attrs=@html.Attrs::build().aria_label("Raw Markdown source"),
-        style=[
-          "min-height:clamp(24rem,70vh,36rem);flex:1;field-sizing:fixed;resize:none;--rui-control-base-border:transparent;--rui-control-base-shadow:none;border-radius:0;background:transparent;padding:1rem;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,\"Liberation Mono\",\"Courier New\",monospace;font-size:0.875rem;line-height:1.65",
-        ],
-        on_input=@cmd.Emit(source => raw_input_command(source, emit)),
-      )
+    @core.Raw => raw_editor_view(model, emit)
     @core.Preview => preview_document_view(model)
     @core.Block => block_editor_view(model, emit)
   }
@@ -220,36 +395,42 @@ fn preview_view(
     @core.Block => ("loomark-panel-block", "loomark-mode-block")
     @core.Preview => ("loomark-panel-preview", "loomark-mode-preview")
   }
-  let split_toggle = if preview_selected {
-    @html.nothing
-  } else {
-    @rui.button(
-      id="loomark-split-toggle",
-      variant=@rui.Ghost,
-      size=@rui.Xs,
-      attrs=@html.Attrs::build()
-        .aria_label(
-          if model.split_preview_open {
-            "Close split Preview"
-          } else {
-            "Open split Preview"
-          },
-        )
-        .aria_pressed(model.split_preview_open.to_string()),
-      on_click=emit(ToggleSplitPreview),
-      if model.split_preview_open {
-        "Close split"
-      } else {
-        "Split"
-      },
-    )
-  }
+  // The split cannot be started from the full Preview surface; keep the
+  // affordance visible but disabled so the limitation is explicit. The toggle
+  // stays enabled while a split is already open (e.g. after switching modes).
+  let split_disabled = preview_selected && !model.split_preview_open
+  let split_toggle = @rui.button(
+    id="loomark-split-toggle",
+    variant=@rui.Ghost,
+    size=@rui.IconSm,
+    disabled=split_disabled,
+    attrs=@html.Attrs::build()
+      .aria_label(
+        if model.split_preview_open {
+          "Close split Preview"
+        } else {
+          "Open split Preview"
+        },
+      )
+      .aria_pressed(model.split_preview_open.to_string()),
+    on_click=emit(ToggleSplitPreview),
+    mode_icon("M4 4h6v16H4V4Zm10 0h6v16h-6V4Z"),
+  )
   let examples = @html.div(
     attrs=@html.Attrs::build().role("toolbar").aria_label("Example documents"),
     style=[
       "display:flex;min-height:2.5rem;align-items:center;justify-content:flex-end;gap:0.125rem;flex-wrap:wrap;padding-inline:0.25rem",
     ],
     [
+      @rui.button(
+        variant=@rui.Ghost,
+        size=@rui.Xs,
+        attrs=@html.Attrs::build().aria_label(
+          "Apply Markdown feature tour example",
+        ),
+        on_click=emit(ReplaceSource(MARKDOWN_DEMO_SOURCE)),
+        "Demo",
+      ),
       @rui.button(
         variant=@rui.Ghost,
         size=@rui.Xs,
@@ -303,24 +484,18 @@ fn preview_view(
       .role("region")
       .aria_label("Loomark Markdown Editor"),
     style=[
-      "min-height:100vh;min-height:100dvh;box-sizing:border-box;background:oklch(0.968 0.008 85);color:oklch(0.24 0.018 265);padding:clamp(0.5rem,2vw,1.5rem);--rui-background:oklch(0.991 0.004 85);--rui-foreground:oklch(0.24 0.018 265);--rui-muted:oklch(0.94 0.01 85);--rui-muted-foreground:oklch(0.5 0.02 265);--rui-border:oklch(0.86 0.012 85);--rui-primary:oklch(0.48 0.12 276);--rui-radius:0.5rem",
+      "min-height:100vh;min-height:100dvh;box-sizing:border-box;background:oklch(0.968 0.008 85);color:oklch(0.24 0.018 265);padding:0;--rui-background:oklch(0.991 0.004 85);--rui-foreground:oklch(0.24 0.018 265);--rui-muted:oklch(0.94 0.01 85);--rui-muted-foreground:oklch(0.5 0.02 265);--rui-border:oklch(0.86 0.012 85);--rui-primary:oklch(0.48 0.12 276);--rui-radius:0.5rem",
     ],
     [
       @html.div(
         id="loomark-editor-shell",
-        style=[
-          if model.split_preview_open && !preview_selected {
-            "width:min(100%,76rem);height:calc(100dvh - clamp(1rem,4vw,3rem));margin-inline:auto;display:flex;flex-direction:column"
-          } else {
-            "width:min(100%,53.75rem);min-height:calc(100dvh - clamp(1rem,4vw,3rem));margin-inline:auto;display:flex;flex-direction:column"
-          },
-        ],
+        style=["width:100%;height:100dvh;display:flex;flex-direction:column"],
         [
           @rui.tabs_root(
             value=mode_name(model.state.mode()),
             id="loomark-editor-frame",
             style=[
-              "flex:1;gap:0;overflow:hidden;border:1px solid var(--rui-border);border-radius:var(--rui-radius);background:var(--rui-background);box-shadow:0 1px 2px rgb(31 35 48 / 0.06),0 10px 30px rgb(31 35 48 / 0.05)",
+              "flex:1;gap:0;overflow:hidden;background:var(--rui-background)",
             ],
             [
               @html.div(
@@ -328,18 +503,26 @@ fn preview_view(
                   "display:flex;min-width:0;align-items:center;justify-content:space-between;gap:0.25rem;flex-wrap:wrap;padding-inline:0.5rem;border-bottom:1px solid var(--rui-border)",
                 ],
                 [
-                  @rui.tabs_list(
-                    variant=@rui.TabsLine,
-                    aria_label="Editor view",
-                    id="loomark-toolbar",
-                    style=["min-height:3.25rem;padding:0;overflow:visible"],
-                    [block_button, raw_button, preview_button],
+                  @html.div(
+                    style=[
+                      "display:flex;align-items:center;gap:0.125rem;min-width:0",
+                    ],
+                    [
+                      @rui.tabs_list(
+                        variant=@rui.TabsLine,
+                        aria_label="Editor view",
+                        id="loomark-toolbar",
+                        style=["min-height:3.25rem;padding:0;overflow:visible"],
+                        [block_button, raw_button, preview_button],
+                      ),
+                      split_toggle,
+                    ],
                   ),
                   @html.div(
                     style=[
                       "display:flex;align-items:center;justify-content:flex-end;gap:0.125rem;flex-wrap:wrap",
                     ],
-                    [split_toggle, examples],
+                    [examples],
                   ),
                 ],
               ),
@@ -348,7 +531,9 @@ fn preview_view(
                 attrs=@html.Attrs::build()
                   .role("tabpanel")
                   .aria_labelledby(panel_labelledby),
-                style=["min-width:0;flex:1;display:flex"],
+                style=[
+                  "min-width:0;min-height:0;flex:1;display:flex;overflow:auto",
+                ],
                 active_view,
               ),
             ],
@@ -567,7 +752,11 @@ fn update_model(
     publish(next)
     return (next, @rabbita_runtime.none)
   }
-  if model.state.mode() != @core.Raw && event is RawInput(_, _) {
+  // The split Preview pairs the Raw textarea with the rendered Preview even
+  // while the Preview tab is selected, so Raw input stays live there.
+  let raw_editable = model.state.mode() == @core.Raw ||
+    (model.state.mode() == @core.Preview && model.split_preview_open)
+  if !raw_editable && event is RawInput(_, _) {
     let next = record_error(
       model, "mode-inapplicable", "editor-dispatch", "Raw input is unavailable outside Raw mode",
     )

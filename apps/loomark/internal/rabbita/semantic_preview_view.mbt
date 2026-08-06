@@ -174,7 +174,11 @@ fn semantic_preview_heading(
 ) -> @rabbita_runtime.Html {
   match depth {
     1 => @rui.typography_h1(style=["text-align:start"], children)
-    2 => @rui.typography_h2(children)
+    2 =>
+      @rui.typography_h2(
+        style=["border-bottom:none;padding-bottom:0"],
+        children,
+      )
     3 => @rui.typography_h3(children)
     4 => @rui.typography_h4(children)
     5 =>
@@ -412,7 +416,9 @@ fn semantic_preview_view(
       .role("region")
       .tabindex(0)
       .aria_label("Markdown preview"),
-    style=["display:grid;gap:1rem"],
+    style=[
+      "box-sizing:border-box;width:min(calc(100% - 4rem),46rem);margin-inline:auto;display:grid;gap:1rem;grid-auto-rows:max-content;border-left:1px solid var(--rui-border);border-right:1px solid var(--rui-border);border-top:0;border-bottom:0;border-radius:0;background:transparent;padding:1rem;overflow-y:auto",
+    ],
     semantic_preview_node(semantic_document),
   )
 }
