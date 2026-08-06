@@ -1510,3 +1510,37 @@ test "reference definition insertion preserves facade block identities" {
     _ => fail("expected reference definition insertion to apply")
   }
 }
+
+///|
+test "history codec round-trips through the Markdown façade" {
+  let editor = try! MarkdownEditor(
+    agent_id="history-codec-red",
+    source="# Title\n\nbody\n",
+  )
+  ignore(
+    editor.commit(
+      MarkdownEditRequest::ReplaceText(start=2, delete_len=0, inserted="New "),
+    ),
+  )
+  let history = try! editor.history_since()
+  let encoded = history.to_json_string()
+  let decoded = try! MarkdownDocumentHistory::from_json_string(encoded)
+  assert_true(decoded == history)
+}
+
+///|
+test "portable Markdown delegates façade sentinel export" {
+  let editor = try! MarkdownEditor(
+    agent_id="portable-markdown-facade",
+    source="Hello\n",
+  )
+  let first = editor.snapshot().blocks().to_array()[0]
+  assert_true(
+    editor.commit(
+      MarkdownEditRequest::SplitBlock(node_id=first.node_id(), offset=0),
+    )
+    is Ok(_),
+  )
+  assert_false(editor.portable_markdown().contains("\u200B"))
+  assert_eq(editor.portable_markdown(), "\n\nHello\n")
+}
