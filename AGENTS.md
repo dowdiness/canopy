@@ -374,6 +374,24 @@ Non-obvious caveats for this environment:
 - `moon check` / `moon test` / `moon build` auto-download registry deps on first
   run, so the pre-warm in the update script is an optimization, not a hard
   prerequisite.
+- **Front-ends run individually.** Besides `apps/web` (Waku), the Vite apps
+  (`apps/ideal/web`, `apps/canvas/web`, `apps/block-editor/web`,
+  `examples/demo-react`, `examples/prosemirror`, `examples/codemirror`) each run
+  with their own `npm ci` + `npm run dev` (Vite, default port `5173`). Their
+  `vite.config` uses `apps/web/vite-plugin-moonbit`, which builds the MoonBit JS
+  on dev, so a prior `make build-js` is usually unnecessary.
+- **`apps/loomark` is different** — a standalone MoonBit/Rabbita app with **no
+  `package.json`**. It builds/serves via the `warren` tool (default port
+  `4300`): `./scripts/install-local-warren.sh` then
+  `cd apps/loomark && ../../_build/tools/bin/warren dev --direct` (release:
+  `warren build` → `apps/loomark/dist/`). In Cloud, `install-local-warren.sh`
+  fails its origin check because git's global `insteadOf` rewrites the
+  `deps/rabbita` remote to an `x-access-token` URL. When the real preconditions
+  hold (pinned `deps/rabbita` commit checked out, clean worktree), install
+  Warren directly instead:
+  `moon install /workspace/deps/rabbita/warren --bin /workspace/_build/tools/bin`
+  (absolute paths required).
 - Verified working: `moon check`, `moon test` (2492 js + 70 native pass),
-  `make build-js`, and the `/`, `/ml`, `/json`, `/markdown` routes at
-  `localhost:3000`.
+  `make build-js`, the `/`, `/ml`, `/json`, `/markdown` routes of `apps/web`
+  (`localhost:3000`), the `apps/ideal/web` Vite app (`localhost:5173`), and
+  `apps/loomark` via Warren (`localhost:4300`).
