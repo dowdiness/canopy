@@ -235,13 +235,16 @@ advances the document. If the substrate moves under this design, those fail
 first — and a failure there means this document needs revisiting, not that the
 tests need fixing.
 
-The remaining requirements cannot be pinned yet, because the types they
-constrain do not exist. Each should stop living here as it becomes expressible:
-writer identity when construction generates it rather than accepting it, and
-the durability trigger when the archive writer takes a version rather than
-text. **This document holding a constraint is a stage, not an achievement** —
-prose is the weakest place to keep a rule, and the section above should shrink
-as the rules move into code.
+Standalone Loomark now pins two of these requirements in executable behavior:
+each reopened writing instance receives a fresh identity, and local archive
+replacement follows causal history advancement rather than source comparison.
+The repository and application tests cover source-preserving history changes,
+true history no-ops, failed replacement, and continued editing after reopen.
+
+Requirements should stop living only in this document as they become
+expressible. **This document holding a constraint is a stage, not an
+achievement** — prose is the weakest place to keep a rule, and the sections
+above should shrink as the rules move into code.
 
 Observations behind the claims — which were read, which were executed, which
 remain unverified — are recorded separately, dated and pinned to the commits

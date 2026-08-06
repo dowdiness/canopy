@@ -1,0 +1,42 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/internal/archive_storage"
+
+import {
+  "dowdiness/loomark/repository",
+  "moonbit-community/rabbita/cmd",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub const ACTIVE_DOCUMENT_KEY : String = "loomark.active-document-archive"
+
+pub fn fresh_id(String) -> String
+
+pub fn load((LocalArchiveStorageRead) -> Unit) -> Unit
+
+pub fn replace(@repository.LocalArchiveRequestId, String, completed~ : @cmd.Emit[LocalArchiveWriteCompletion]) -> @cmd.Cmd
+
+// Errors
+
+// Types and methods
+pub(all) enum LocalArchiveStorageRead {
+  Missing
+  Loaded(String)
+  Failed(@repository.LocalArchiveStorageReadFailure)
+} derive(Eq, @debug.Debug)
+
+pub(all) enum LocalArchiveStorageWrite {
+  Stored
+  Failed(@repository.LocalArchiveStorageWriteFailure)
+} derive(Eq, @debug.Debug)
+
+pub struct LocalArchiveWriteCompletion {
+  // private fields
+}
+pub fn LocalArchiveWriteCompletion::request_id(Self) -> @repository.LocalArchiveRequestId
+pub fn LocalArchiveWriteCompletion::result(Self) -> LocalArchiveStorageWrite
+
+// Type aliases
+
+// Traits
+

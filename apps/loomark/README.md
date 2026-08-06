@@ -43,6 +43,24 @@ Warren writes the self-contained static site to `apps/loomark/dist/`. The
 output is generated, ignored by Git, and should be served by an ordinary static
 HTTP server.
 
+## Local document ownership
+
+The standalone application keeps one active Loomark document in this browser's
+local storage. Each history-changing commit replaces one complete archive that
+contains the document's stable logical identity, portable Markdown, and causal
+history. Reloading continues that document under a fresh writing-instance
+identity.
+
+An applied edit remains visible if local replacement fails, while the previous
+readable archive remains intact. Loomark warns that those changes are not saved
+locally; reloading recovers the last successfully replaced archive. An existing
+archive that cannot be safely opened is preserved behind a non-editable
+recovery screen.
+
+Mode, selection, focus, and undo are Session state rather than document archive
+content. In particular, local undo history ends when the page lifetime ends and
+is not restored after reload.
+
 ## Browser validation
 
 ```bash

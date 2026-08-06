@@ -561,11 +561,37 @@ pub fn MarkdownEditor::open(
     error =>
       raise MarkdownArchiveError::WriterCreationFailed(detail=error.message())
   }
-  let document = { editor, }
-  let report = document.editor.admit_with_limits(
-    history.message,
-    open_limits.limits,
+  open_markdown_editor(editor, history, open_limits)
+}
+
+///|
+/// Continue a document while retaining a semantic attachment over the
+/// reopened parser.
+pub fn MarkdownEditor::open_with_semantic_attachment(
+  agent_id~ : String,
+  history~ : MarkdownDocumentHistory,
+  open_limits~ : MarkdownArchiveOpenLimits,
+) -> (MarkdownEditor, @md_markdown.MarkdownSemanticAttachment) raise MarkdownArchiveError {
+  let (editor, attachment) = @md_companion.new_markdown_editor_with_semantic_attachment(
+    agent_id,
   ) catch {
+    @text.TextError::EmptyReplicaId =>
+      raise MarkdownArchiveError::InvalidAgentId
+    error =>
+      raise MarkdownArchiveError::WriterCreationFailed(detail=error.message())
+  }
+  (open_markdown_editor(editor, history, open_limits), attachment)
+}
+
+///|
+/// Admit a complete archive into a freshly constructed editor. Keeping this
+/// boundary shared prevents ordinary and semantic reopen from drifting.
+fn open_markdown_editor(
+  editor : @editor.SyncEditor[@md_markdown.Block],
+  history : MarkdownDocumentHistory,
+  open_limits : MarkdownArchiveOpenLimits,
+) -> MarkdownEditor raise MarkdownArchiveError {
+  let report = editor.admit_with_limits(history.message, open_limits.limits) catch {
     @text.TextError::SyncFailed(
       @sync.Failure::LimitExceeded(kind~, limit~, actual~)
     ) =>
@@ -577,11 +603,11 @@ pub fn MarkdownEditor::open(
     error =>
       raise MarkdownArchiveError::HistoryAdmissionFailed(detail=error.message())
   }
-  document.editor.refresh()
+  editor.refresh()
   if report.pending_operations() > 0 {
     raise MarkdownArchiveError::IncompleteHistory
   }
-  document
+  { editor, }
 }
 
 ///|
