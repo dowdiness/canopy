@@ -338,28 +338,60 @@ UI/visual work; do not duplicate token values here (they drift).
 
 ## Cursor Cloud specific instructions
 
-The Cloud VM snapshot already has the toolchain installed and dependencies
-refreshed by the startup update script (`git submodule update --init
---recursive`, `scripts/moon-update.sh`, `npm --prefix examples/web ci`). Do not
-re-run the MoonBit installer; it is pinned in the snapshot.
+The Cloud VM snapshot already has the MoonBit toolchain installed (pinned; do
+not re-run the installer). On startup, re-initialize the working tree with:
+
+```bash
+git submodule update --init --recursive   # submodules live under deps/
+scripts/moon-update.sh                     # pre-warm the mooncakes registry
+npm --prefix apps/web ci                   # web app is apps/web (moved from examples/web)
+```
 
 Non-obvious caveats for this environment:
 
+- **The tree is restructured.** Submodules are under `deps/` (e.g.
+  `deps/loom`, `deps/event-graph-walker`), the web app is `apps/web` (not
+  `examples/web`), and other front-ends are under `apps/` (`apps/ideal/web`,
+  `apps/canvas/web`, `apps/block-editor/web`). `moon.work` lists the current
+  members — trust it, not older docs. The web app's editor-adapter dep is
+  `file:../../adapters/editor`.
 - **`NEW_MOON_MOD=0` is exported in `~/.bashrc`** (matches
   `.github/actions/setup-moonbit`). Every `moon` command relies on it — without
   it the `rr_moon_mod` TOML migration drops path fields from cross-repo deps.
   Login shells already have it; a bare non-login shell may not.
-- **Two `node` versions exist.** Login shells resolve nvm's `v22.22.2` (needed —
-  `examples/web` requires `node ^22.15.0`). A non-login/daemon shell may fall
-  back to `v22.14.0`, which is below the web `engines` floor. Run web commands in
-  a login shell (`bash -l`) or `nvm use 22.22.2`.
-- **Web dev server:** standard commands are in `examples/web/package.json`
+- **Two `node` versions exist.** `apps/web` requires `node ^22.15.0 || ^24`, but
+  both the default login shell and the daemon shell may resolve `v22.14.0`
+  (below the floor). nvm has `v22.22.2` available; run web commands with it, e.g.
+  `PATH="$HOME/.nvm/versions/node/v22.22.2/bin:$PATH" npm ci` or `nvm use 22.22.2`.
+  npm's `engines` is a warning by default (no `engine-strict`), so `v22.14.0`
+  usually still installs, but prefer `v22.22.2` for the dev/build scripts.
+- **Web dev server:** standard commands are in `apps/web/package.json`
   (`npm run dev` → Waku on `http://localhost:3000`) and the root `Makefile`
-  (`make build-js`, `make web-dev`). The Waku dev server runs its own MoonBit
-  watcher and rebuilds the FFI (`ffi/{lambda,json,markdown,jsx}`) JS on change;
-  a separate `make build-js` is only needed for non-dev consumers.
+  (`make build-js`, `make web-dev` → `cd apps/web && npm run dev`). The Waku dev
+  server runs its own MoonBit watcher and rebuilds the FFI
+  (`ffi/{lambda,json,markdown,jsx}`) JS on change; a separate `make build-js` is
+  only needed for non-dev consumers.
 - `moon check` / `moon test` / `moon build` auto-download registry deps on first
   run, so the pre-warm in the update script is an optimization, not a hard
   prerequisite.
-- Verified working: `moon check`, `moon test` (1968 js + 70 native pass),
-  `make build-js`, and the `/ml` Mini-ML live editor at `localhost:3000`.
+- **Front-ends run individually.** Besides `apps/web` (Waku), the Vite apps
+  (`apps/ideal/web`, `apps/canvas/web`, `apps/block-editor/web`,
+  `examples/demo-react`, `examples/prosemirror`, `examples/codemirror`) each run
+  with their own `npm ci` + `npm run dev` (Vite, default port `5173`). Their
+  `vite.config` uses `apps/web/vite-plugin-moonbit`, which builds the MoonBit JS
+  on dev, so a prior `make build-js` is usually unnecessary.
+- **`apps/loomark` is different** — a standalone MoonBit/Rabbita app with **no
+  `package.json`**. It builds/serves via the `warren` tool (default port
+  `4300`): `./scripts/install-local-warren.sh` then
+  `cd apps/loomark && ../../_build/tools/bin/warren dev --direct` (release:
+  `warren build` → `apps/loomark/dist/`). In Cloud, `install-local-warren.sh`
+  fails its origin check because git's global `insteadOf` rewrites the
+  `deps/rabbita` remote to an `x-access-token` URL. When the real preconditions
+  hold (pinned `deps/rabbita` commit checked out, clean worktree), install
+  Warren directly instead:
+  `moon install /workspace/deps/rabbita/warren --bin /workspace/_build/tools/bin`
+  (absolute paths required).
+- Verified working: `moon check`, `moon test` (2492 js + 70 native pass),
+  `make build-js`, the `/`, `/ml`, `/json`, `/markdown` routes of `apps/web`
+  (`localhost:3000`), the `apps/ideal/web` Vite app (`localhost:5173`), and
+  `apps/loomark` via Warren (`localhost:4300`).
