@@ -1,0 +1,395 @@
+diff --git a/warren/README.md b/warren/README.md
+index 6bb80ec..43de832 100644
+--- a/warren/README.md
++++ b/warren/README.md
+@@ -53,6 +53,14 @@ You can also choose the main package, static files directory, or port:
+ warren dev path/to/main --public-dir path/to/public --port 4301
+ ```
+ 
++To serve the application directly as the top-level page instead, use:
++
++```sh
++warren dev --direct
++```
++
++Direct mode keeps live reload but does not load the Warren development UI. It is useful for applications that depend on top-level navigation, browser APIs, or end-to-end tests without an iframe.
++
+ If the port is already used by a previous `warren` preview, `warren` will stop it and continue. If another program is using the port, stop that program manually or choose a different port.
+ 
+ ## Release Build
+diff --git a/warren/build.mbt b/warren/build.mbt
+index 1bcc328..dcb1d91 100644
+--- a/warren/build.mbt
++++ b/warren/build.mbt
+@@ -238,7 +238,7 @@ pub async fn build_project(
+     [] => abort("Release JS artifact not found under \{build_dir}")
+     _ =>
+       abort(
+-        "Found multiple release JS artifacts: \{Repr(js_paths)}. Use `warren build path/to/main/package/dir` to choose one entry.",
++        "Found multiple release JS artifacts: \{to_repr(js_paths)}. Use `warren build path/to/main/package/dir` to choose one entry.",
+       )
+   }
+ 
+diff --git a/warren/devhub/devhub.mbt b/warren/devhub/devhub.mbt
+index 43b8aa7..a6b5d6b 100644
+--- a/warren/devhub/devhub.mbt
++++ b/warren/devhub/devhub.mbt
+@@ -14,6 +14,7 @@ pub(all) enum ClientMsg {
+ pub struct Devhub {
+   priv server : @http.Server
+   priv vfs : @vfs.VirtualFileSystem
++  priv html_fallback_path : String?
+   priv client_msgs : @async.Queue[ClientMsg]
+   priv mut next_id : Int
+   priv subscribers : Map[Int, @async.Queue[BroadcastMsg]]
+@@ -145,18 +146,31 @@ async fn check_port(port : UInt) -> Unit {
+ }
+ 
+ ///|
+-pub async fn Devhub::Devhub(port : UInt, vfs : @vfs.VirtualFileSystem) -> Self {
++pub async fn Devhub::Devhub(
++  port : UInt,
++  vfs : @vfs.VirtualFileSystem,
++  html_fallback_path? : String,
++) -> Self {
+   check_port(port)
+ 
+   {
+     server: Server(@socket.Addr::parse("127.0.0.1:\{port}"), reuse_addr=true),
+     vfs,
++    html_fallback_path,
+     client_msgs: Queue(kind=Unbounded),
+     next_id: 0,
+     subscribers: Map([]),
+   }
+ }
+ 
++///|
++fn request_accepts_html(request : @http.Request) -> Bool {
++  match request.headers.get("accept") {
++    Some(accept) => accept.to_lower().contains("text/html")
++    None => false
++  }
++}
++
+ ///|
+ pub fn Devhub::port(self : Self) -> Int {
+   self.server.addr.port()
+@@ -208,10 +222,18 @@ async fn Devhub::handle_request(
+   }
+   match path {
+     "/__warren/events" => self.handle_ws(request, conn)
+-    path =>
+-      match self.vfs.read(path) {
+-        Some(content) => {
+-          let content_type = match @path.Path::extname(path) {
++    path => {
++      let resource = if self.vfs.read(path) is Some(content) {
++        Some((path, content))
++      } else if request_accepts_html(request) &&
++        self.html_fallback_path is Some(fallback) {
++        self.vfs.read(fallback).map(content => (fallback, content))
++      } else {
++        None
++      }
++      match resource {
++        Some((resource_path, content)) => {
++          let content_type = match @path.Path::extname(resource_path) {
+             ".png" => "image/png"
+             ".jpg" | ".jpeg" => "image/jpeg"
+             ".html" => "text/html"
+@@ -240,6 +262,7 @@ async fn Devhub::handle_request(
+           ..write("\{path} Not Found")
+           .end_response()
+       }
++    }
+   }
+ }
+ 
+diff --git a/warren/devhub/devhub_test.mbt b/warren/devhub/devhub_test.mbt
+new file mode 100644
+index 0000000..37b7714
+--- /dev/null
++++ b/warren/devhub/devhub_test.mbt
+@@ -0,0 +1,33 @@
++///|
++async test "HTML fallback serves application routes but not missing assets" {
++  let vfs = @vfs.new({ "/index.html": FileContent("<main>app</main>") })
++  let hub = @devhub.Devhub(0U, vfs, html_fallback_path="/index.html")
++  @async.with_task_group <| group => {
++    group.spawn_bg(no_wait=true, allow_failure=true, () => hub.run_forever())
++    let address = "http://127.0.0.1:\{hub.port()}"
++    let (route_response, route_body) = @http.get(address + "/settings", headers={
++      "Accept": "text/html",
++    })
++    assert_eq(route_response.code, 200)
++    assert_eq(route_response.headers.get("content-type"), Some("text/html"))
++    assert_eq(route_body.text(), "<main>app</main>")
++
++    let (asset_response, _) = @http.get(address + "/missing.js", headers={
++      "Accept": "text/javascript",
++    })
++    assert_eq(asset_response.code, 404)
++  }
++}
++
++///|
++async test "HTML fallback stays disabled when it is not configured" {
++  let vfs = @vfs.new({ "/index.html": FileContent("<main>app</main>") })
++  let hub = @devhub.Devhub(0U, vfs)
++  @async.with_task_group <| group => {
++    group.spawn_bg(no_wait=true, allow_failure=true, () => hub.run_forever())
++    let (response, _) = @http.get("http://127.0.0.1:\{hub.port()}/settings", headers={
++      "Accept": "text/html",
++    })
++    assert_eq(response.code, 404)
++  }
++}
+diff --git a/warren/devhub/pkg.generated.mbti b/warren/devhub/pkg.generated.mbti
+index 8572938..de3bb45 100644
+--- a/warren/devhub/pkg.generated.mbti
++++ b/warren/devhub/pkg.generated.mbti
+@@ -24,7 +24,7 @@ pub(all) enum ClientMsg {
+ pub struct Devhub {
+   // private fields
+ }
+-pub async fn Devhub::Devhub(UInt, @vfs.VirtualFileSystem) -> Self
++pub async fn Devhub::Devhub(UInt, @vfs.VirtualFileSystem, html_fallback_path? : String) -> Self
+ pub fn Devhub::broadcast(Self, BroadcastMsg) -> Unit
+ pub fn Devhub::port(Self) -> Int
+ pub async fn Devhub::run_forever(Self) -> Unit
+diff --git a/warren/direct_wbtest.mbt b/warren/direct_wbtest.mbt
+new file mode 100644
+index 0000000..777b100
+--- /dev/null
++++ b/warren/direct_wbtest.mbt
+@@ -0,0 +1,40 @@
++///|
++test "direct dev assets keep the app in the top-level document" {
++  let html =
++    $|<!doctype html>
++    $|<html>
++    $|<head></head>
++    $|<body><div id="app"></div></body>
++    $|</html>
++  let output = inject_direct_assets(html)
++  assert_true(
++    output.contains("<script src=\"/index.js\" type=\"module\"></script>"),
++  )
++  assert_true(
++    output.contains(
++      "<script src=\"/__warren/direct.js\" type=\"module\"></script>",
++    ),
++  )
++  assert_true(
++    output.contains(
++      "<link rel=\"stylesheet\" type=\"text/css\" href=\"/styles.css\"></link>",
++    ),
++  )
++  assert_true(output.contains("<base href=\"/\">"))
++}
++
++///|
++test "direct dev assets do not duplicate existing entries" {
++  let html =
++    $|<!doctype html>
++    $|<html>
++    $|<head>
++    $|<base href="/">
++    $|<script src="/index.js" type="module"></script>
++    $|<script src="/__warren/direct.js" type="module"></script>
++    $|<link rel="stylesheet" type="text/css" href="/styles.css"></link>
++    $|</head>
++    $|<body><div id="app"></div></body>
++    $|</html>
++  assert_eq(inject_direct_assets(html), html)
++}
+diff --git a/warren/main.mbt b/warren/main.mbt
+index 99aafac..84dce2e 100644
+--- a/warren/main.mbt
++++ b/warren/main.mbt
+@@ -24,26 +24,19 @@ let shell_html_template =
+   $|</html>
+ 
+ ///|
+-let preview_html_template =
++let app_html_template =
+   $|<!DOCTYPE html>
+   $|<html lang="en">
+   $|<head>
+   $|    <meta charset="UTF-8">
+   $|    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   $|    <title>warren preview</title>
+-  $|    \{preview_assets_patch}
+   $|</head>
+   $|<body>
+   $|    <div id="app"></div>
+   $|</body>
+   $|</html>
+ 
+-///|
+-let preview_assets_patch =
+-  #|<base href="/">
+-  #|<script src="/index.js" type="module"></script>
+-  #|<link rel="stylesheet" type="text/css" href="/styles.css"></link>
+-
+ ///|
+ let preview_base_patch =
+   #|<base href="/">
+@@ -56,6 +49,26 @@ let preview_entry_script_patch =
+ let preview_stylesheet_patch =
+   #|<link rel="stylesheet" type="text/css" href="/styles.css"></link>
+ 
++///|
++let direct_client_patch =
++  #|<script src="/__warren/direct.js" type="module"></script>
++
++///|
++let direct_client_js =
++  #|function connect() {
++  #|  const protocol = location.protocol === "https:" ? "wss:" : "ws:";
++  #|  const socket = new WebSocket(`${protocol}//${location.host}/__warren/events`);
++  #|  socket.addEventListener("message", event => {
++  #|    if (event.data === "reload") {
++  #|      location.reload();
++  #|    }
++  #|  });
++  #|  socket.addEventListener("close", () => {
++  #|    setTimeout(connect, 1000);
++  #|  });
++  #|}
++  #|connect();
++
+ ///|
+ async fn main {
+   let cli = @argparse.Command(
+@@ -76,6 +89,12 @@ async fn main {
+           ),
+           OptionArg("port", about="Local preview server port. Default: 4300."),
+         ],
++        flags=[
++          FlagArg(
++            "direct",
++            about="Serve the application as the top-level page without the Warren devtool iframe.",
++          ),
++        ],
+         about="Start a local preview server with live reload.",
+       ),
+       Command(
+@@ -145,8 +164,9 @@ async fn main {
+         }
+         _ => 4300U
+       }
++      let direct = submatches.flags.get("direct") is Some(true)
+       let target_dir = @fs.tmpdir(prefix="warren")
+-      dev_server(main_pkg_dir~, target_dir~, public_dir~, port~)
++      dev_server(main_pkg_dir~, target_dir~, public_dir~, port~, direct~)
+     }
+     "build" => {
+       let cwd_main = Path::join(cwd, "main").to_string()
+@@ -183,6 +203,18 @@ async fn main {
+ fn inject_preview_assets(html : String) -> String {
+   let html = inject_preview_base(html)
+   let patch = preview_assets_for(html)
++  inject_assets(html, patch)
++}
++
++///|
++fn inject_direct_assets(html : String) -> String {
++  let html = inject_preview_base(html)
++  let patch = preview_assets_for(html) + direct_client_for(html)
++  inject_assets(html, patch)
++}
++
++///|
++fn inject_assets(html : String, patch : String) -> String {
+   guard patch != "" else { html }
+   let tag = match html.rev_find("</head>") {
+     None => html.rev_find("</html>")
+@@ -201,6 +233,15 @@ fn inject_preview_assets(html : String) -> String {
+   }
+ }
+ 
++///|
++fn direct_client_for(html : String) -> String {
++  if html.contains("/__warren/direct.js") {
++    ""
++  } else {
++    direct_client_patch + "\n"
++  }
++}
++
+ ///|
+ fn inject_preview_base(html : String) -> String {
+   guard !html.contains("<base ") else { html }
+@@ -270,6 +311,7 @@ async fn dev_server(
+   target_dir~ : String,
+   public_dir~ : String?,
+   port~ : UInt,
++  direct~ : Bool,
+ ) -> Unit {
+   let watcher = @fs.Watcher(main_pkg_dir, ignored_paths=path => {
+     path.contains(".mooncakes") ||
+@@ -278,33 +320,34 @@ async fn dev_server(
+   })
+ 
+   let vfs = @vfs.new(Map([]))
+-  if public_dir is Some(dir) {
+-    vfs.mount("/", DirectoryMapping(SourcePath::new(dir)))
+-    let files = @fs.readdir(dir)
+-    if files.contains("index.html") {
+-      let html = @fs.read_file(Path::join(dir, "index.html").to_string()).text()
+-      vfs.mount(
+-        "/__warren/preview/index.html",
+-        FileContent(inject_preview_assets(html)),
+-      )
+-    } else {
+-      vfs.mount(
+-        "/__warren/preview/index.html",
+-        FileContent(preview_html_template),
+-      )
++  let app_html = match public_dir {
++    Some(dir) => {
++      vfs.mount("/", DirectoryMapping(SourcePath::new(dir)))
++      let files = @fs.readdir(dir)
++      if files.contains("index.html") {
++        @fs.read_file(Path::join(dir, "index.html").to_string()).text()
++      } else {
++        app_html_template
++      }
+     }
++    None => app_html_template
++  }
++  if direct {
++    vfs.mount("/index.html", FileContent(inject_direct_assets(app_html)))
++    vfs.mount("/__warren/direct.js", FileContent(direct_client_js))
+   } else {
+     vfs.mount(
+       "/__warren/preview/index.html",
+-      FileContent(preview_html_template),
++      FileContent(inject_preview_assets(app_html)),
+     )
++    vfs.mount("/index.html", FileContent(shell_html_template))
++    vfs.mount("/warren_devtool.js", FileContent(embbed_devtool_js))
++    vfs.mount("/warren_devtool.css", FileContent(embbed_devtool_css))
+   }
+-  vfs.mount("/index.html", FileContent(shell_html_template))
+-  vfs.mount("/warren_devtool.js", FileContent(embbed_devtool_js))
+-  vfs.mount("/warren_devtool.css", FileContent(embbed_devtool_css))
+ 
+   @async.with_task_group <| group => {
+-    let hub = Devhub(port, vfs)
++    let html_fallback_path = if direct { Some("/index.html") } else { None }
++    let hub = Devhub(port, vfs, html_fallback_path?)
+     group.spawn_bg(no_wait=true, allow_failure=true, () => hub.run_forever())
+     log("info", "Running server on http://127.0.0.1:\{hub.port()}")
+ 
+@@ -347,7 +390,7 @@ async fn dev_server(
+           Path::join(target_dir, "js/debug/build").to_string(),
+         )
+         guard js_paths is [js_path] else {
+-          log("error", "found multiple entries: \{Repr(js_paths)}")
++          log("error", "found multiple entries: \{to_repr(js_paths)}")
+           log(
+             "info", "Use `warren dev path/to/main/package/dir` to choose one entry.",
+           )

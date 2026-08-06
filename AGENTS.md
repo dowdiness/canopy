@@ -79,6 +79,15 @@ and **push it to its own remote before** committing the parent pointer or openin
 a parent PR — CI fails if the referenced submodule commit isn't on its remote.
 Use PRs for submodule changes; never push to a submodule's main without asking.
 
+A parent-owned patch overlay is permitted for a build or development tool when
+publishing an upstream commit is intentionally deferred. Keep the recorded
+submodule pointer on a remote-reachable commit; store the minimal patch under
+`patches/<submodule>/`; pin and verify the exact base SHA in the installer; apply
+the patch only to an ephemeral checkout; and test the resulting tool in CI. Do
+not dirty or stage the submodule gitlink, copy the patched source into the parent,
+or use this exception for runtime/library code linked into Canopy. Rebase or
+remove the overlay when its base pointer moves.
+
 ## Rabbita Conventions
 
 <!-- textlint-disable slopless/word-repetition -->

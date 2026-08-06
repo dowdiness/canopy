@@ -270,7 +270,7 @@ fn block_row_style(
   kind : @markdown.MarkdownBlockKind,
   active : Bool,
 ) -> Array[String] {
-  let surface = match kind {
+  let appearance = match kind {
     @markdown.CodeBlock(_) if active =>
       "border-color:color-mix(in oklch,var(--rui-primary) 32%,var(--rui-border));background:var(--rui-muted)"
     @markdown.CodeBlock(_) =>
@@ -281,7 +281,7 @@ fn block_row_style(
   }
   [
     "display:flex;min-width:0;align-items:flex-start;gap:0.25rem;border:1px solid transparent;border-radius:calc(var(--rui-radius) - 0.125rem);padding:0.125rem 0.375rem;transition:background 120ms ease,border-color 120ms ease",
-    surface,
+    appearance,
   ]
 }
 
@@ -407,7 +407,7 @@ fn block_input(
 }
 
 ///|
-fn block_surface(
+fn block_editor_view(
   model : DriverModel,
   emit : @cmd.Emit[DriverEvent],
 ) -> @rabbita_runtime.Html {

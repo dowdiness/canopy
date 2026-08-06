@@ -4,9 +4,13 @@ apps/web/worker-configuration.d.ts whitespace=-blank-at-eol
 # MoonBit owns this empty generated interface and emits a final blank line.
 modules/canopy/probe/diagnostic_portability/pkg.generated.mbti whitespace=-blank-at-eof
 
+# Patch context uses one leading marker space for blank source lines.
+patches/rabbita/*.patch whitespace=-blank-at-eol
+
 # MoonBit owns these generated interfaces and emits a final blank line.
 modules/canopy/editor/markdown/pkg.generated.mbti whitespace=-blank-at-eof
 apps/loomark/archive/pkg.generated.mbti whitespace=-blank-at-eof
 apps/loomark/core/pkg.generated.mbti whitespace=-blank-at-eof
 apps/loomark/internal/dev_host/pkg.generated.mbti whitespace=-blank-at-eof
 apps/loomark/internal/rabbita/pkg.generated.mbti whitespace=-blank-at-eof
+apps/loomark/main/pkg.generated.mbti whitespace=-blank-at-eof

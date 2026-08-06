@@ -40,7 +40,7 @@ fn split_presentation(model : DriverModel) -> SplitPresentation {
 
 ///|
 /// Compose the active editing mode without owning document resources.
-fn mode_surface(
+fn mode_view(
   model : DriverModel,
   emit : @cmd.Emit[DriverEvent],
 ) -> @rabbita_runtime.Html {
@@ -50,31 +50,31 @@ fn mode_surface(
       [
         block_format_toolbar(model, emit),
         @html.div(
-          id="loomark-surface",
+          id="loomark-active-view",
           style=["width:100%;min-width:0;display:flex"],
-          editor_surface(model, emit),
+          editor_view(model, emit),
         ),
       ],
     )
   } else {
     @html.div(
-      id="loomark-surface",
+      id="loomark-active-view",
       style=["width:100%;min-width:0;display:flex"],
-      editor_surface(model, emit),
+      editor_view(model, emit),
     )
   }
 }
 
 ///|
-fn single_surface(
+fn single_view(
   model : @rabbita_runtime.Val[DriverModel],
   emit : @cmd.Emit[DriverEvent],
 ) -> @rabbita_runtime.Val[@rabbita_runtime.Html] {
-  model.view(model => mode_surface(model, emit))
+  model.view(model => mode_view(model, emit))
 }
 
 ///|
-fn resizable_split_surface(
+fn resizable_split_view(
   model : @rabbita_runtime.Val[DriverModel],
   emit : @cmd.Emit[DriverEvent],
   orientation : @rui.SeparatorOrientation,
@@ -95,7 +95,7 @@ fn resizable_split_surface(
           side=@rui.FirstPanel,
           attrs=@html.Attrs::build().data_set("panel", "editor"),
           style=["display:flex;overflow:auto"],
-          mode_surface(model, emit),
+          mode_view(model, emit),
         ),
         @rui.resizable_handle(
           scope~,
@@ -107,7 +107,7 @@ fn resizable_split_surface(
           side=@rui.SecondPanel,
           attrs=@html.Attrs::build().data_set("panel", "preview"),
           style=["padding:1rem"],
-          preview_document_surface(model),
+          preview_document_view(model),
         ),
       ])
     },
@@ -115,34 +115,34 @@ fn resizable_split_surface(
 }
 
 ///|
-fn side_by_side_surface(
+fn side_by_side_view(
   model : @rabbita_runtime.Val[DriverModel],
   emit : @cmd.Emit[DriverEvent],
 ) -> @rabbita_runtime.Val[@rabbita_runtime.Html] {
-  resizable_split_surface(model, emit, @rui.Horizontal)
+  resizable_split_view(model, emit, @rui.Horizontal)
 }
 
 ///|
-fn stacked_surface(
+fn stacked_view(
   model : @rabbita_runtime.Val[DriverModel],
   emit : @cmd.Emit[DriverEvent],
 ) -> @rabbita_runtime.Val[@rabbita_runtime.Html] {
-  resizable_split_surface(model, emit, @rui.Vertical)
+  resizable_split_view(model, emit, @rui.Vertical)
 }
 
 ///|
 /// Select one bounded workspace component while the shared document model stays
 /// live as a separate incremental input to every branch.
-fn application_surface(
+fn application_view(
   model : @rabbita_runtime.Val[DriverModel],
   emit : @cmd.Emit[DriverEvent],
 ) -> @rabbita_runtime.Val[@rabbita_runtime.Html] {
   let presentation = model.map(split_presentation)
   presentation.switch(presentation => {
     match presentation {
-      SingleSurface => single_surface(model, emit)
-      SideBySide => side_by_side_surface(model, emit)
-      Stacked => stacked_surface(model, emit)
+      SingleSurface => single_view(model, emit)
+      SideBySide => side_by_side_view(model, emit)
+      Stacked => stacked_view(model, emit)
     }
   })
 }

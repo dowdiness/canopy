@@ -423,7 +423,7 @@ test("Preview renders committed MarkdownIR as semantic HTML with source-aware fo
       "title",
       "Documentation",
     )
-    await expect(preview.locator('[data-loomark-hard-break-surface="trailing-spaces"]')).toHaveCount(1)
+    await expect(preview.locator('[data-loomark-hard-break-form="trailing-spaces"]')).toHaveCount(1)
     await expect(preview.locator("textarea, input, button")).toHaveCount(0)
   } finally {
     await host.context.close()
@@ -580,7 +580,7 @@ test("production chrome keeps its controls inside a narrow viewport", async ({ b
   }
 })
 
-test("Block surface presents typed blocks as compact RUI editing rows", async ({ browser }) => {
+test("Block view presents typed blocks as compact RUI editing rows", async ({ browser }) => {
   const source = "# Title\n\nBody\n\n3) Third\n\n```moonbit\nlet x = 1\n```\n"
   const host = await mountHost(browser, source)
   try {
@@ -601,7 +601,7 @@ test("Block surface presents typed blocks as compact RUI editing rows", async ({
   }
 })
 
-test("interactive chrome hides driver controls and focuses the Preview surface", async ({ browser }) => {
+test("interactive chrome hides driver controls and focuses the Preview view", async ({ browser }) => {
   const host = await mountHost(browser, "# Focusable preview\n")
   try {
     await expect(host.page.getByRole("toolbar", { name: "Example documents" }).getByRole("button")).toHaveCount(4)
