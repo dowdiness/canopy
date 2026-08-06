@@ -19,7 +19,7 @@ impl @rabbita_runtime.Enumerate for SplitPresentation with fn tag(self) {
 
 ///|
 fn split_visible(model : DriverModel) -> Bool {
-  model.split_preview_open && model.state.mode() != @core.Preview
+  model.split_preview_open
 }
 
 ///|
@@ -46,12 +46,16 @@ fn mode_view(
 ) -> @rabbita_runtime.Html {
   if model.state.mode() == @core.Block {
     @html.div(
-      style=["width:100%;min-width:0;display:flex;flex-direction:column"],
+      style=[
+        "width:min(calc(100% - 4rem),46rem);margin-inline:auto;min-width:0;display:flex;flex-direction:column;border-left:1px solid var(--rui-border);border-right:1px solid var(--rui-border)",
+      ],
       [
         block_format_toolbar(model, emit),
         @html.div(
           id="loomark-active-view",
-          style=["width:100%;min-width:0;display:flex"],
+          style=[
+            "width:100%;min-width:0;flex:1;min-height:0;display:flex;overflow-y:auto",
+          ],
           editor_view(model, emit),
         ),
       ],
@@ -89,13 +93,22 @@ fn resizable_split_view(
     aria_label="Resize editor and Preview",
     style=["flex:1;min-width:0;min-height:0"],
     (scope, model) => {
+      let editor_pane = if model.state.mode() == @core.Preview {
+        @html.div(
+          id="loomark-active-view",
+          style=["width:100%;min-width:0;display:flex"],
+          raw_editor_view(model, emit),
+        )
+      } else {
+        mode_view(model, emit)
+      }
       @html.fragment([
         @rui.resizable_panel(
           scope~,
           side=@rui.FirstPanel,
           attrs=@html.Attrs::build().data_set("panel", "editor"),
           style=["display:flex;overflow:auto"],
-          mode_view(model, emit),
+          editor_pane,
         ),
         @rui.resizable_handle(
           scope~,
@@ -106,7 +119,7 @@ fn resizable_split_view(
           scope~,
           side=@rui.SecondPanel,
           attrs=@html.Attrs::build().data_set("panel", "preview"),
-          style=["padding:1rem"],
+          style=["display:flex;min-height:0;overflow:hidden"],
           preview_document_view(model),
         ),
       ])
