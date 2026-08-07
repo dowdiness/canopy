@@ -106,7 +106,6 @@ fn reject_focus(
 ) -> (DriverModel, @cmd.Cmd) {
   let (code, message) = focus_rejection(error)
   let next = record_error(model, code, "browser-effect", message)
-  publish(next)
   (next, @rabbita_runtime.none)
 }
 
@@ -117,7 +116,6 @@ fn reject_focus_token(
 ) -> (DriverModel, @cmd.Cmd) {
   let (code, message) = focus_token_error(error)
   let next = record_error(model, code, "browser-effect", message)
-  publish(next)
   (next, @rabbita_runtime.none)
 }
 

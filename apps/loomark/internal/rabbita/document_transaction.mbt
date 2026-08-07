@@ -205,7 +205,6 @@ fn commit_block_toolbar_request(
       None => if applied { None } else { committed.selection }
     },
   }
-  publish(next)
   match selection {
     Some(selection) =>
       (
