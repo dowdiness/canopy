@@ -457,6 +457,17 @@ pub fn[T] SyncEditor::get_node_range(
 // ── Span-edit application ────────────────────────────────────────────────
 
 ///|
+/// Invalidate previously queued structural identity hints without exposing the
+/// editor's mutable queue. The language runtime calls this after a resolved
+/// structural edit fails legality checks; resolution failures leave the queue
+/// untouched. No-op when no hint is pending.
+pub fn[T] SyncEditor::invalidate_pending_identity_hints(
+  self : SyncEditor[T],
+) -> Unit {
+  self.taint_pending_transforms()
+}
+
+///|
 /// Push `Opaque` to `pending_transforms` iff the array is already non-empty.
 /// Raw-text edit paths call this so that any structural hint accumulated before
 /// the raw edit is invalidated (T2: no silent stale-hint trust).

@@ -60,6 +60,8 @@ There is no top-level logic in this package. Earlier revisions included a
 `reconcile_ast.mbt` file re-exporting `@core.reconcile`, which had no callers
 and was removed. Lambda's editor-facing projection memos now live in
 `lang/lambda/proj` via `build_lambda_projection_memos`, a thin wrapper around
-`@core.build_projection_memos`. Lambda's edit bridge intentionally remains
-outside `LanguageSpec`; see
-`docs/decisions/2026-06-15-lambda-edit-bridge-boundary.md`.
+`@core.build_projection_memos`. Lambda now uses the shared
+`Language[Term, TreeEditOp, LambdaCompanion]` SPI; its public apply function is
+a thin wrapper over `Language::apply_edit`, and Drop plans through
+`core.compute_move`. See
+`docs/decisions/2026-08-07-generic-language-spi-deepening.md`.

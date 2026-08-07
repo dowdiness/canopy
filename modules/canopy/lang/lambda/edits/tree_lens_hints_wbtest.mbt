@@ -101,7 +101,7 @@ test "Delete returns Opaque (LCS handles deletion natively)" {
 }
 
 ///|
-test "Drop returns Opaque (move_node taints instead)" {
+test "Drop returns Opaque (Language edit port supplies it explicitly)" {
   let src = @core.NodeId::from_int(15)
   let tgt = @core.NodeId::from_int(16)
   let hint = TreeEditOp::Drop(

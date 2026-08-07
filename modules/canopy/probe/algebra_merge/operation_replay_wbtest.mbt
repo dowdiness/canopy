@@ -31,12 +31,7 @@ fn build_ctx(text : String) -> @edits.EditContext[@ast.Term] raise {
   @lambda_proj.populate_token_spans(source_map, syntax, proj)
   let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = Map([])
   @core.collect_registry(proj, registry)
-  {
-    source_text: text,
-    source_map,
-    registry,
-    definition_index: @lambda_proj.DefinitionIndex::from_proj_node(proj),
-  }
+  { source_text: text, source_map, registry, proj_node: proj }
 }
 
 ///|

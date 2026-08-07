@@ -1,5 +1,6 @@
 import {
   "dowdiness/canopy/core",
+  "dowdiness/canopy/lang/runtime" @lang_runtime,
   "dowdiness/canopy/lang/lambda/proj" @lambda_proj,
   "dowdiness/canopy/lang/lambda/scope",
   "dowdiness/lambda" @parser,

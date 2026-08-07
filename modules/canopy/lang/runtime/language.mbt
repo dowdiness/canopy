@@ -139,7 +139,9 @@ pub fn[T, Op, E] Language::build(
 /// undo, cursor per `FocusHint`, identity hint threaded). Returns the
 /// applied `SpanEdit` trace for callers that instrument patches.
 ///
-/// Errors stay structured (`core.EditError`); mapping to the user-facing
+/// A resolved legality failure (`InvalidTarget`) invalidates any previously
+/// queued identity hint before the error escapes; node-resolution failures do
+/// not. Errors stay structured (`core.EditError`); mapping to the user-facing
 /// `TreeEditError` happens at the editor/FFI boundary, not here.
 pub fn[T : Eq, Op, E] Language::apply_edit(
   self : Language[T, Op, E],
@@ -165,6 +167,10 @@ pub fn[T : Eq, Op, E] Language::apply_edit(
       NoEdit => Ok([])
     }
   } catch {
+    @core.EditError::InvalidTarget(detail~) => {
+      editor.invalidate_pending_identity_hints()
+      Err(@core.EditError::InvalidTarget(detail~))
+    }
     e => Err(e)
   }
 }

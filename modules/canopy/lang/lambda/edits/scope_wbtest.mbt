@@ -29,7 +29,7 @@ fn module_def_references_for_test(
 
 ///|
 fn def_cutoff_at_node_for_test(
-  definition_index : DefinitionIndex,
+  definition_index : @lambda_proj.DefinitionIndex,
   source_map : SourceMap,
   node_id : NodeId,
 ) -> Int {
@@ -88,7 +88,7 @@ test "def_cutoff_at_node: duplicate defs use init-range cutoff" {
   let (proj, _) = parse_to_proj_node(lambda_scope_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
   let body = proj.children.last().unwrap()
-  let index = DefinitionIndex::from_proj_node(proj)
+  let index = @lambda_proj.DefinitionIndex::from_proj_node(proj)
   inspect(
     def_cutoff_at_node_for_test(
       index,

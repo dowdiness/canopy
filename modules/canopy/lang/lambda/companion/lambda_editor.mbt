@@ -6,6 +6,12 @@
 /// Holds lambda-specific companion memos alongside a generic SyncEditor.
 /// The FFI layer stores this alongside the editor.
 pub struct LambdaCompanion {
+  // Standard projection memos and parser are retained privately so the
+  // capability closures can be built from this extras value without
+  // construction-time Ref side-channels.
+  priv cached_proj_node : @incr.Derived[@core.ProjNode[@ast.Term]?]
+  priv source_map_memo : @incr.Derived[@core.SourceMap]
+  priv parser : @loom.Parser[@ast.Term]
   // Escalation memo merges Tier 1 (direct) + Tier 2 (egglog) results.
   // Falls back to Tier 1 results when no definitions are Suppressed.
   priv escalation_memo : @incr.Derived[Array[@lambda_eval.EvalResult]]
@@ -16,6 +22,79 @@ pub struct LambdaCompanion {
   // panel or to drive custom trace visualizations.
   priv trace_ref : Ref[Array[@core.ReconcileTraceEvent]]
 }
+
+///|
+/// Lambda's deep language adapter. Per-editor parser attachments and memos are
+/// returned as `LambdaCompanion` (the SPI extras value E); capabilities are
+/// then derived from that same value before the editor is exposed.
+let lambda_language : @lang_runtime.Language[
+  @ast.Term,
+  @lambda_edits.TreeEditOp,
+  LambdaCompanion,
+] = @lang_runtime.Language::Language(
+  parse=(source_id, source, runtime) => {
+    @loom.new_parser(source_id, source, @parser.lambda_grammar, runtime?)
+  },
+  project=(parser, hints) => {
+    let analysis_projection = AnalysisProjection::new()
+    let trace_ref : Ref[Array[@core.ReconcileTraceEvent]] = Ref([])
+    let (cached_proj_node, registry_memo, source_map_memo) = @lambda_proj.build_lambda_projection_memos(
+      parser,
+      identity_hints=hints,
+      trace_ref=Some(trace_ref),
+    )
+    let analysis = @parser.attach_lambda_analysis(parser)
+    let eval_memo = @lambda_eval.build_eval_memo(parser)
+    let escalation_memo = @lambda_eval.build_escalation_memo(parser, eval_memo)
+    let companion : LambdaCompanion = {
+      cached_proj_node,
+      source_map_memo,
+      parser,
+      escalation_memo,
+      analysis,
+      analysis_projection,
+      trace_ref,
+    }
+    (cached_proj_node, registry_memo, source_map_memo, companion)
+  },
+  edit=(op, ctx) => {
+    match op {
+      @lambda_edits.TreeEditOp::Drop(source~, target~, position~) => {
+        let (source_node, source_range) = ctx.resolve(source)
+        let (_, target_range) = ctx.resolve(target)
+        let (edits, focus_hint) = @core.compute_move(
+          ctx.source_text,
+          source,
+          source_range,
+          target,
+          target_range,
+          position,
+          @loom_core.Renderable::placeholder(source_node.kind),
+          " ",
+        )
+        @lang_runtime.EditResult::Edits(
+          edits,
+          focus_hint,
+          Some(@core.IdentityTransform::Opaque),
+        )
+      }
+      _ =>
+        match @lambda_edits.compute_text_edit(op, ctx) {
+          Some((edits, focus_hint)) =>
+            @lang_runtime.EditResult::Edits(
+              edits,
+              focus_hint,
+              Some(op.to_identity_transform(id => ctx.registry.get(id))),
+            )
+          None =>
+            raise @core.EditError::UnsupportedOperation(
+              detail="Unhandled tree edit op: " + op.to_string(),
+            )
+        }
+    }
+  },
+  capabilities=build_lambda_capabilities,
+)
 
 ///|
 /// Read the current reconciliation trace, filter to user-facing
@@ -157,132 +236,58 @@ pub fn new_lambda_editor(
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
 ) -> (@editor.SyncEditor[@ast.Term], LambdaCompanion) raise @text.TextError {
-  let analysis_projection = AnalysisProjection::new()
-  // Reconciliation trace accumulator. Populated on every reconcile pass;
-  // the caller reads `trace_ref.val` after projection changes.
-  let trace_ref : Ref[Array[@core.ReconcileTraceEvent]] = Ref([])
-  // Ref side-channels let the build_memos callback publish companion memos
-  // back out to the enclosing scope for companion construction + capabilities
-  // wiring.
-  let escalation_memo_ref : Ref[@incr.Derived[Array[@lambda_eval.EvalResult]]?] = Ref(
-    None,
-  )
-  let analysis_ref : Ref[@parser.LambdaAnalysis?] = Ref(None)
-  let cached_proj_node_ref : Ref[@incr.Derived[@core.ProjNode[@ast.Term]?]?] = Ref(
-    None,
-  )
-  let source_map_memo_ref : Ref[@incr.Derived[@core.SourceMap]?] = Ref(None)
-  let parser_ref : Ref[@loom.Parser[@ast.Term]?] = Ref(None)
-  // Shared structural-edit hint channel: apply_lambda_tree_edit pushes hints
-  // here via apply_span_edits; the reconcile closure in build_lambda_projection_memos
-  // consumes+clears it once per reparse (T4).
-  let hints_ref : Ref[Array[@core.IdentityTransform]] = Ref([])
-  let editor = @editor.SyncEditor::new_generic(
-    agent_id,
-    (source_id, source, runtime) => {
-      @loom.new_parser(source_id, source, @parser.lambda_grammar, runtime?)
-    },
-    fn(parser) {
-      parser_ref.val = Some(parser)
-      let (cached_proj_node, registry_memo, source_map_memo) = @lambda_proj.build_lambda_projection_memos(
-        parser,
-        identity_hints=hints_ref,
-        trace_ref=Some(trace_ref),
-      )
-      cached_proj_node_ref.val = Some(cached_proj_node)
-      source_map_memo_ref.val = Some(source_map_memo)
-      analysis_ref.val = Some(@parser.attach_lambda_analysis(parser))
-      let eval_memo = @lambda_eval.build_eval_memo(parser)
-      // Escalation memo: merges Tier 1 + Tier 2 for incomplete programs
-      let escalation_memo = @lambda_eval.build_escalation_memo(
-        parser, eval_memo,
-      )
-      escalation_memo_ref.val = Some(escalation_memo)
-      (cached_proj_node, registry_memo, source_map_memo)
-    },
-    capture_timeout_ms~,
-    parent_runtime?,
-    capabilities=build_lambda_capabilities(
-      cached_proj_node_ref, source_map_memo_ref, escalation_memo_ref, parser_ref,
-      analysis_projection,
-    ),
-    identity_hints=hints_ref,
-  )
-  let companion : LambdaCompanion = {
-    escalation_memo: escalation_memo_ref.val.unwrap(),
-    analysis: analysis_ref.val.unwrap(),
-    analysis_projection,
-    trace_ref,
-  }
-  (editor, companion)
+  lambda_language.build(agent_id, capture_timeout_ms~, parent_runtime?)
 }
 
 ///|
 /// Build capabilities using the escalation memo (Tier 1 + Tier 2 merged results).
 fn build_lambda_capabilities(
-  cached_proj_node_ref : Ref[@incr.Derived[@core.ProjNode[@ast.Term]?]?],
-  source_map_memo_ref : Ref[@incr.Derived[@core.SourceMap]?],
-  escalation_memo_ref : Ref[@incr.Derived[Array[@lambda_eval.EvalResult]]?],
-  parser_ref : Ref[@loom.Parser[@ast.Term]?],
-  analysis_projection : AnalysisProjection,
+  companion : LambdaCompanion,
 ) -> @editor.LanguageCapabilities[@ast.Term] {
   @editor.LanguageCapabilities::new(
     get_annotations=Some(fn() {
-      let eval_results = match escalation_memo_ref.val {
-        Some(memo) => memo.read_or_abort()
-        None => []
-      }
-      let proj_node = match cached_proj_node_ref.val {
-        Some(memo) => memo.read_or_abort()
-        None => None
-      }
+      let eval_results = companion.escalation_memo.read_or_abort()
+      let proj_node = companion.cached_proj_node.read_or_abort()
       let eval_annotations = build_eval_annotations(eval_results, proj_node)
-      let semantic_projection = match (proj_node, source_map_memo_ref.val) {
-        (Some(root), Some(source_map_memo)) =>
+      let semantic_projection = match proj_node {
+        Some(root) =>
           Some(
             @lambda_semantic.build_semantic_projection(
               root,
-              source_map_memo.read_or_abort(),
+              companion.source_map_memo.read_or_abort(),
             ),
           )
-        _ => None
+        None => None
       }
-      analysis_projection.annotations(eval_annotations, semantic_projection)
+      companion.analysis_projection.annotations(
+        eval_annotations, semantic_projection,
+      )
     }),
     get_decorations=Some(fn() {
       let semantic_decorations = match
-        (cached_proj_node_ref.val, source_map_memo_ref.val) {
-        (Some(cached_proj_memo), Some(source_map_memo)) =>
-          match cached_proj_memo.read_or_abort() {
-            Some(root) =>
-              @lambda_semantic.build_semantic_projection(
-                root,
-                source_map_memo.read_or_abort(),
-              ).decorations
-            None => []
-          }
-        _ => []
+        companion.cached_proj_node.read_or_abort() {
+        Some(root) =>
+          @lambda_semantic.build_semantic_projection(
+            root,
+            companion.source_map_memo.read_or_abort(),
+          ).decorations
+        None => []
       }
-      analysis_projection.decorations(semantic_decorations)
+      companion.analysis_projection.decorations(semantic_decorations)
     }),
     get_diagnostics=Some(fn() {
-      guard parser_ref.val is Some(parser) else { return None }
-      let snapshot = parser.snapshot().read_or_abort()
-      guard cached_proj_node_ref.val is Some(cached_proj_memo) else {
-        return None
-      }
-      guard cached_proj_memo.read_or_abort() is Some(root) else { return None }
-      guard source_map_memo_ref.val is Some(source_map_memo) else {
+      let snapshot = companion.parser.snapshot().read_or_abort()
+      guard companion.cached_proj_node.read_or_abort() is Some(root) else {
         return None
       }
       Some(
         (
           snapshot.source,
           @lambda_semantic.build_semantic_diagnostics(
-            parser.source_id(),
+            companion.parser.source_id(),
             snapshot.source,
             root,
-            source_map_memo.read_or_abort(),
+            companion.source_map_memo.read_or_abort(),
           ),
         ),
       ) catch {
@@ -290,11 +295,10 @@ fn build_lambda_capabilities(
       }
     }),
     pretty_post_process=Some(fn(layout) {
-      let eval_results = match escalation_memo_ref.val {
-        Some(memo) => memo.read_or_abort()
-        None => return layout
-      }
-      @lambda_eval.inject_eval_annotations(layout, eval_results)
+      @lambda_eval.inject_eval_annotations(
+        layout,
+        companion.escalation_memo.read_or_abort(),
+      )
     }),
   )
 }
@@ -310,46 +314,9 @@ pub fn apply_lambda_tree_edit(
   companion : LambdaCompanion,
   op : @lambda_edits.TreeEditOp,
   timestamp_ms : Int,
-) -> Result[Array[@core.SpanEdit], @editor.TreeEditError] {
-  // Drop uses SyncEditor::move_node which handles placeholders and separators
-  // correctly, instead of the naive text splice in compute_drop.
-  match op {
-    @lambda_edits.TreeEditOp::Drop(source~, target~, position~) =>
-      return editor.move_node(source, target, position, timestamp_ms)
-    _ => ()
-  }
+) -> Result[Array[@core.SpanEdit], @core.EditError] {
   let _ = companion
-  let source_map = editor.get_source_map()
-  let registry = editor.get_registry()
-  let definition_index = match editor.get_proj_node() {
-    Some(root) => @lambda_proj.DefinitionIndex::from_proj_node(root)
-    None => return Err(@editor.TreeEditError::ProjectionUnavailable)
-  }
-  let ctx : @lambda_edits.EditContext[@ast.Term] = {
-    source_text: editor.get_text(),
-    source_map,
-    registry,
-    definition_index,
-  }
-  let edits_opt = @lambda_edits.compute_text_edit(op, ctx) catch {
-    e => return Err(map_edit_error(e))
-  }
-  match edits_opt {
-    Some((edits, focus_hint)) => {
-      if edits.is_empty() {
-        return Ok(edits)
-      }
-      editor.apply_span_edits(
-        edits,
-        focus_hint,
-        timestamp_ms,
-        hint=op.to_identity_transform(fn(id) { registry.get(id) }),
-      )
-      Ok(edits)
-    }
-    None =>
-      Err(@editor.TreeEditError::UnhandledOperation(detail=op.to_string()))
-  }
+  lambda_language.apply_edit(editor, op, timestamp_ms)
 }
 
 ///|
@@ -362,7 +329,7 @@ pub fn apply_lambda_tree_edit_with_reachable_failure_review(
   op : @lambda_edits.TreeEditOp,
   timestamp_ms : Int,
   attribution : ReachableFailureAttribution,
-) -> Result[ReachableFailureReview, @editor.TreeEditError] {
+) -> Result[ReachableFailureReview, @core.EditError] {
   let before = snapshot_reachable_failures(editor)
   match apply_lambda_tree_edit(editor, companion, op, timestamp_ms) {
     Err(error) => Err(error)
@@ -385,27 +352,4 @@ fn snapshot_reachable_failures(
     @lambda_scope.build(editor.get_registry(), source_map),
     source_map,
   )
-}
-
-///|
-/// Map a language edit error to the editor-level error type.
-fn map_edit_error(e : @core.EditError) -> @editor.TreeEditError {
-  match e {
-    @core.EditError::ProjectionUnavailable =>
-      @editor.TreeEditError::ProjectionUnavailable
-    @core.EditError::NodeNotFound(action~, node_id~)
-    | @core.EditError::NodeNotInRegistry(action~, node_id~) =>
-      @editor.TreeEditError::NodeNotInRegistry(action~, node_id~)
-    @core.EditError::NodeNotInSourceMap(action~, node_id~) =>
-      @editor.TreeEditError::NodeNotInSourceMap(action~, node_id~)
-    @core.EditError::BindingNotFound(..)
-    | @core.EditError::InvalidTarget(..)
-    | @core.EditError::UnsupportedOperation(..)
-    | @core.EditError::CaptureViolation(..)
-    | @core.EditError::ScopeViolation(..)
-    | @core.EditError::ParseFailed(..)
-    | @core.EditError::SourceSpanMissing(..)
-    | @core.EditError::Invariant(..) =>
-      @editor.TreeEditError::ProjectionEdit(detail=e.message())
-  }
 }

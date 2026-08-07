@@ -136,7 +136,7 @@ pub fn rename_semantic_node(
           timestamp_ms,
         ) {
         Ok(_) => "ok"
-        Err(err) => "error: " + err.message()
+        Err(err) => "error: " + map_edit_error(err).message()
       }
     }
     None => "error: no editor"

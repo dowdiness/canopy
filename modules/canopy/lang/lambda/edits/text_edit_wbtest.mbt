@@ -8,8 +8,8 @@ let lambda_text_edit_test_source : @loomcore.SourceId = @loomcore.SourceId(
 ///|
 /// Test adapter: converts compute_text_edit's raise EditError model to
 /// Result[...String] so existing test patterns continue to work unchanged.
-/// Same pattern as the FFI-layer adapters (apply_json_edit, apply_markdown_edit,
-/// LanguageSpec::apply_edit).
+/// Same pattern as the FFI-layer adapters (apply_json_edit,
+/// apply_markdown_edit) and `Language::apply_edit`.
 fn test_edit(
   op : TreeEditOp,
   ctx : EditContext[@ast.Term],
@@ -68,12 +68,7 @@ fn make_edit_ctx(
   registry : Map[NodeId, ProjNode[@ast.Term]],
   root : ProjNode[@ast.Term],
 ) -> EditContext[@ast.Term] {
-  {
-    source_text: text,
-    source_map,
-    registry,
-    definition_index: DefinitionIndex::from_proj_node(root),
-  }
+  { source_text: text, source_map, registry, proj_node: root }
 }
 
 ///|

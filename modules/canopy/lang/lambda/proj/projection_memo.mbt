@@ -103,11 +103,11 @@ fn reconcile_lambda_projection_hinted(
 /// Build the 3-memo pipeline (proj, registry, source_map) for the Lambda
 /// editor-facing projection.
 ///
-/// `identity_hints` is the shared `Ref` for the structural-edit hint channel,
-/// typically created by `new_lambda_editor` and passed here and into
-/// `SyncEditor::new_generic` as `identity_hints`. When provided, each reconcile
-/// pass consumes+clears the pending hints (T4). When omitted, behaves identically
-/// to passing no hints (falls back to `reconcile_lambda_projection`).
+/// `identity_hints` is the shared `Ref` for the structural-edit hint channel.
+/// The Lambda `Language::project` closure receives the framework-owned channel
+/// and passes it here; each reconcile pass consumes+clears pending hints (T4).
+/// When omitted by isolated callers, reconciliation falls back to
+/// `reconcile_lambda_projection`.
 pub fn build_lambda_projection_memos(
   parser : @loom.Parser[@ast.Term],
   identity_hints? : Ref[Array[@core.IdentityTransform]],

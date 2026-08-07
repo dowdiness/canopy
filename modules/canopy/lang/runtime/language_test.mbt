@@ -122,6 +122,48 @@ test "apply_edit passthrough pin: compute raise propagates verbatim" {
 }
 
 ///|
+test "apply_edit error hint policy: only resolved InvalidTarget taints pending hints" {
+  let captured : Ref[Ref[Array[@core.IdentityTransform]]?] = Ref(None)
+  let lang = stub_lang(
+    (op, ctx) => {
+      match op {
+        "seed" =>
+          EditResult::Edits(
+            [{ start: 1, delete_len: 1, inserted: "3" }],
+            @core.FocusHint::RestoreCursor,
+            Some(@core.IdentityTransform::Wrap(inner=ctx.proj_node.id())),
+          )
+        "missing" =>
+          raise @core.EditError::NodeNotInSourceMap(
+            action="Resolve",
+            node_id=ctx.proj_node.id(),
+          )
+        _ => raise @core.EditError::InvalidTarget(detail="illegal move")
+      }
+    },
+    project=fn(parser, hints) {
+      captured.val = Some(hints)
+      default_json_project(parser, hints)
+    },
+  )
+  let (editor, _) = lang.build("error-hint-test")
+  editor.set_text("42")
+  guard lang.apply_edit(editor, "seed", 0) is Ok(_) else {
+    fail("expected seed edit to succeed")
+  }
+  let pending = captured.val.unwrap()
+  inspect(pending.val.length(), content="1")
+  let _ = lang.apply_edit(editor, "missing", 1)
+  // Resolution failures happen before legality is established and leave the
+  // trusted pending hint untouched.
+  inspect(pending.val.length(), content="1")
+  let _ = lang.apply_edit(editor, "invalid", 2)
+  // A resolved legality failure invalidates the queued structural hint.
+  inspect(pending.val.length(), content="2")
+  inspect(pending.val[1] is @core.IdentityTransform::Opaque, content="true")
+}
+
+///|
 test "apply_edit Edits path: applies spans, returns the patch trace, moves cursor" {
   let lang = stub_lang((_op, _ctx) => {
     EditResult::Edits(

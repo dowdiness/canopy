@@ -177,6 +177,7 @@ pub fn[T] SyncEditor::identity(Self[T]) -> Int
 pub fn[T : Eq] SyncEditor::insert(Self[T], String) -> Unit raise
 pub fn[T : Eq] SyncEditor::insert_and_record(Self[T], String, Int) -> Unit raise
 pub fn[T : Eq] SyncEditor::insert_at(Self[T], Int, String, Int) -> Unit
+pub fn[T] SyncEditor::invalidate_pending_identity_hints(Self[T]) -> Unit
 pub fn[T] SyncEditor::is_dirty(Self[T]) -> Bool
 pub fn[T] SyncEditor::is_parse_valid(Self[T]) -> Bool
 pub fn[T : Eq] SyncEditor::mark_dirty(Self[T]) -> Unit

@@ -102,8 +102,9 @@ pub fn TreeEditOp::to_generic(self : TreeEditOp) -> @core.GenericTreeOp {
 /// (no node found, out-of-bounds child, ambiguous ops). `Opaque` degrades to
 /// standard LCS reconciliation — never produces wrong identity (T3).
 ///
-/// Note: ops that don't call `apply_span_edits` (`Select`, `Drop`, etc.) are
-/// never wired to a hint push, so their return value here is unused.
+/// `Language::apply_edit` now owns every application path, including empty
+/// edit batches. Lambda `Drop` bypasses this mapper because its edit-port arm
+/// supplies `Opaque` explicitly alongside `core.compute_move`.
 pub fn TreeEditOp::to_identity_transform(
   self : TreeEditOp,
   get_node : (@core.NodeId) -> @core.ProjNode[@ast.Term]?,

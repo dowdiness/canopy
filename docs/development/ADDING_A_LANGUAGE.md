@@ -232,9 +232,9 @@ The implementation parallel-walks the syntax tree and projection tree, calling
 ```moonbit
 test "parse and project basic document" {
   let (root, errors) = parse_to_proj_node!("some source text")
-  inspect!(errors, content="[]")
-  inspect!(root.kind.kind_tag(), content="Document")
-  inspect!(root.children.length(), content="1")
+  inspect(errors, content="[]")
+  inspect(root.kind.kind_tag(), content="Document")
+  inspect(root.children.length(), content="1")
 }
 ```
 
@@ -247,9 +247,10 @@ Run: `moon test -p dowdiness/canopy/lang/<name>/proj`
 This wires the reactive pipeline: when the syntax tree changes, the
 projection rebuilds incrementally. The 3-memo machinery (proj reconcile,
 registry, source map) lives in `@core.build_projection_memos` — do NOT
-hand-roll it. The language supplies only its two callbacks from Steps 2-3,
-and the resulting function is exactly what `LanguageSpec`'s `build_memos`
-field expects: `(@loom.Parser[T]) -> (proj, registry, source_map)` memos.
+hand-roll it. The language supplies only its two callbacks from Steps 2-3.
+The `Language::project` closure delegates to this builder, forwards the
+framework-owned identity-hint channel when the language supports hints, and
+returns these three memos plus its extras value `E`.
 
 ```moonbit
 pub fn build_my_projection_memos(
@@ -414,8 +415,8 @@ pub fn new_my_editor(
 > errors, patch traces, or editor-owned moves. The deepened SPI absorbs all
 > of these: `Language::apply_edit` returns the applied `SpanEdit` trace and
 > structured `EditError`, and moves are edit-port computation (`compute_move`
-> / `compute_move_block`). Lambda is migrating to `Language`; it remains a
-> legacy stress case, not a template. Do not fork a separate bridge for a
+> / `compute_move_block`). Lambda uses `Language`; it remains a legacy stress
+> case, not a template. Do not fork a separate bridge for a
 > new language.
 
 **Package registration:**
@@ -463,7 +464,7 @@ import {
 Not optional. Write these alongside the code, not after.
 
 **Projection test** (`modules/canopy/lang/<name>/proj/proj_node_wbtest.mbt`):
-- Parse source text → project → verify tree shape via `inspect!`
+- Parse source text → project → verify tree shape via `inspect`
 - Test edge cases: empty input, parse errors, deeply nested structures
 - Verify token spans exist for key roles
 
@@ -472,7 +473,7 @@ Not optional. Write these alongside the code, not after.
 - Test each edit operation variant
 - Verify FocusHint positions
 
-**Snapshot tests:** Use `inspect!` liberally — snapshot tests catch unexpected
+**Snapshot tests:** Use `inspect` liberally — snapshot tests catch unexpected
 regressions without brittle assertions. Run `moon test --update` to generate
 initial snapshots, then review them.
 
