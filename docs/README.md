@@ -184,6 +184,10 @@ behavior** — check the code before relying on any specific detail.
 - [Markdown semantic Preview ownership](decisions/2026-08-04-markdown-semantic-preview-ownership.md)
   — keeps the ordinary Markdown editor attachment-free while the private
   single-mount Loomark host retains one same-parser semantic Preview read model.
+- [Generic language SPI deepening](decisions/2026-08-07-generic-language-spi-deepening.md)
+  — deepens the `lang/runtime` SPI to structured errors, patch traces, identity
+  hints, language-owned extras, and edit-port moves; partially supersedes the
+  Lambda edit bridge boundary.
 
 ## Historical / Archive
 

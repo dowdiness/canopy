@@ -3,6 +3,9 @@
 **Date:** 2026-06-15  
 **Status:** Accepted  
 **Closes:** <https://github.com/dowdiness/canopy/issues/634>  
+**Partially superseded:** The [Generic language SPI deepening](2026-08-07-generic-language-spi-deepening.md)
+replaces this record's contract-separation, richer-channel, and editor-owned-move
+clauses. The closure-record SPI shape and the Lambda stress-case framing remain active.
 **Related:**
 [#623](https://github.com/dowdiness/canopy/issues/623) ·
 [#633](https://github.com/dowdiness/canopy/issues/633) ·
