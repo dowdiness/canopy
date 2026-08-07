@@ -417,7 +417,7 @@ fn semantic_preview_view(
       .tabindex(0)
       .aria_label("Markdown preview"),
     style=[
-      "box-sizing:border-box;width:min(calc(100% - 4rem),46rem);margin-inline:auto;display:grid;gap:1rem;grid-auto-rows:max-content;border-left:1px solid var(--rui-border);border-right:1px solid var(--rui-border);border-top:0;border-bottom:0;border-radius:0;background:transparent;padding:1rem;overflow-y:auto",
+      "box-sizing:border-box;width:var(--lm-page-width);margin-inline:auto;display:grid;gap:1rem;grid-auto-rows:max-content;border-left:var(--lm-page-side-border-width) solid var(--rui-border);border-right:var(--lm-page-side-border-width) solid var(--rui-border);border-top:0;border-bottom:0;border-radius:0;background:transparent;padding:1rem var(--lm-page-x-padding);overflow-y:auto",
     ],
     semantic_preview_node(semantic_document),
   )

@@ -24,7 +24,7 @@ fn split_visible(model : DriverModel) -> Bool {
 
 ///|
 fn compact_split_for_width(width : Int) -> Bool {
-  width < SPLIT_STACK_BREAKPOINT
+  width <= SPLIT_STACK_BREAKPOINT
 }
 
 ///|
@@ -48,7 +48,7 @@ fn mode_view(
   if model.state.mode() == @core.Block {
     @html.div(
       style=[
-        "width:min(calc(100% - 4rem),46rem);margin-inline:auto;min-width:0;display:flex;flex-direction:column;border-left:1px solid var(--rui-border);border-right:1px solid var(--rui-border)",
+        "width:var(--lm-page-width);margin-inline:auto;min-width:0;display:flex;flex-direction:column;border-left:var(--lm-page-side-border-width) solid var(--rui-border);border-right:var(--lm-page-side-border-width) solid var(--rui-border)",
       ],
       [
         block_format_toolbar(model, emit),

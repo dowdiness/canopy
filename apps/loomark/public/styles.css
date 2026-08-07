@@ -12,3 +12,22 @@ body {
 ::selection {
   background: oklch(0.78 0.08 276 / 0.45);
 }
+
+/*
+ * Keep Raw, Block, and Preview aligned to one reading frame. Narrow screens
+ * use the full viewport and retain a compact content inset without decorative
+ * side rails.
+ */
+:root {
+  --lm-page-width: min(calc(100% - 4rem), 46rem);
+  --lm-page-x-padding: 1rem;
+  --lm-page-side-border-width: 1px;
+}
+
+@media (max-width: 640px) {
+  :root {
+    --lm-page-width: 100%;
+    --lm-page-x-padding: 0.75rem;
+    --lm-page-side-border-width: 0;
+  }
+}

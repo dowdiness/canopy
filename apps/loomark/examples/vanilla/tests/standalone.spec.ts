@@ -184,10 +184,15 @@ test("Raw, Block, and Preview editing stays inside the original production root"
   await expect(root).toHaveCount(1)
 })
 
-test("narrow standalone editing keeps one document in a stacked split", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 })
+test("mobile page frame drops desktop rails in a stacked split", async ({ page }) => {
   await page.goto("/")
-  await page.locator("#loomark-input").fill("# Narrow\n")
+
+  const raw = page.locator("#loomark-input")
+  await expect(raw).toHaveCSS("border-left-width", "1px")
+  await expect(raw).toHaveCSS("padding-left", "16px")
+
+  await page.setViewportSize({ width: 640, height: 844 })
+  await raw.fill("# Narrow\n")
   await page.locator("#loomark-split-toggle").click()
 
   const split = page.locator("#loomark-split")
@@ -196,9 +201,22 @@ test("narrow standalone editing keeps one document in a stacked split", async ({
     "aria-orientation",
     "horizontal",
   )
-  await expect(page.locator("#loomark-preview")).toHaveAttribute(
-    "data-loomark-source",
-    "# Narrow\n",
+
+  const preview = page.locator("#loomark-preview")
+  await expect(preview).toHaveAttribute("data-loomark-source", "# Narrow\n")
+  for (const frame of [raw, preview]) {
+    await expect(frame).toHaveCSS("border-left-width", "0px")
+    await expect(frame).toHaveCSS("border-right-width", "0px")
+    await expect(frame).toHaveCSS("padding-left", "12px")
+    await expect(frame).toHaveCSS("padding-right", "12px")
+    await expect(frame).toHaveCSS("width", "640px")
+  }
+
+  await page.locator("#loomark-mode-block").click()
+  await expect(page.locator("#loomark-block")).toHaveCSS("padding-left", "12px")
+  await expect(page.getByRole("toolbar", { name: "Block formatting" })).toHaveCSS(
+    "padding-left",
+    "12px",
   )
   await expect(page.locator("#loomark-root")).toHaveCount(1)
 })

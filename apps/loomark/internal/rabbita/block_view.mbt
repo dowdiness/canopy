@@ -435,7 +435,7 @@ fn block_editor_view(
       model.document.source(),
     ),
     style=[
-      "width:100%;min-width:0;display:flex;flex-direction:column;gap:0.25rem;padding:clamp(0.75rem,2vw,1rem)",
+      "width:100%;min-width:0;display:flex;flex-direction:column;gap:0.25rem;padding:clamp(0.75rem,2vw,var(--lm-page-x-padding))",
     ],
     controls,
   )
