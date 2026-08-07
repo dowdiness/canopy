@@ -1335,6 +1335,9 @@ fn update_navigation(
 ) -> (DriverModel, @cmd.Cmd) {
   match event {
     SelectRaw | SelectBlock | SelectPreview => {
+      // The outer or-pattern already narrowed `event` to the Select*
+      // variants; `_` is required because this inner match re-matches the
+      // full NavigationEvent type.
       let mode = match event {
         SelectRaw => @core.Raw
         SelectBlock => @core.Block
@@ -1366,6 +1369,9 @@ fn update_navigation(
       (next, @rabbita_runtime.none)
     }
     FocusRaw | FocusBlock | FocusPreview => {
+      // The outer or-pattern already narrowed `event` to the Focus*
+      // variants; `_` is required because this inner match re-matches the
+      // full NavigationEvent type.
       let target = match event {
         FocusRaw => @core.RawEditor
         FocusBlock => @core.BlockEditor
@@ -1447,6 +1453,26 @@ fn update_navigation(
 }
 
 ///|
+/// Apply a driver selection-read result to the probe model. Pure.
+fn apply_selection_read(
+  model : DriverModel,
+  start : Int,
+  end : Int,
+) -> DriverModel {
+  { ..model, selection: Some(start.to_string() + ":" + end.to_string()) }
+}
+
+///|
+/// Apply a driver measurement result to the probe model. Pure.
+fn apply_measurement(
+  model : DriverModel,
+  width : Double,
+  height : Double,
+) -> DriverModel {
+  { ..model, measurement: Some(width.to_string() + ":" + height.to_string()) }
+}
+
+///|
 /// Driver/test instrumentation dispatcher: probes, measurements, and their
 /// outbound results.
 fn update_probe(
@@ -1525,20 +1551,10 @@ fn update_probe(
           emit,
         ),
       )
-    SelectionRead(start~, end~) => {
-      let next = {
-        ..model,
-        selection: Some(start.to_string() + ":" + end.to_string()),
-      }
-      (next, @rabbita_runtime.none)
-    }
-    Measured(width~, height~) => {
-      let next = {
-        ..model,
-        measurement: Some(width.to_string() + ":" + height.to_string()),
-      }
-      (next, @rabbita_runtime.none)
-    }
+    SelectionRead(start~, end~) =>
+      (apply_selection_read(model, start, end), @rabbita_runtime.none)
+    Measured(width~, height~) =>
+      (apply_measurement(model, width, height), @rabbita_runtime.none)
   }
 }
 
