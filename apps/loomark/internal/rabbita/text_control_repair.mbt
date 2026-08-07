@@ -52,11 +52,11 @@ fn raw_input_command(
   @cmd.custom_cmd(scheduler => {
     let selection = @dom_boundary.read_text_selection_id("loomark-input") catch {
       error => {
-        scheduler.add(emit(EffectFailed(error.message())))
+        scheduler.add(emit(Navigation(EffectFailed(error.message()))))
         return
       }
     }
-    scheduler.add(emit(RawInput(source, Some(selection))))
+    scheduler.add(emit(Editing(RawInput(source, Some(selection)))))
   })
 }
 
@@ -71,17 +71,19 @@ fn block_input_command(
   @cmd.custom_cmd(scheduler => {
     let selection = @dom_boundary.read_text_selection_id(input_id) catch {
       error => {
-        scheduler.add(emit(EffectFailed(error.message())))
+        scheduler.add(emit(Navigation(EffectFailed(error.message()))))
         return
       }
     }
     scheduler.add(
       emit(
-        BlockInput(
-          node_id=block.node_id(),
-          input_id~,
-          text~,
-          selection_offset=selection.end(),
+        Editing(
+          BlockInput(
+            node_id=block.node_id(),
+            input_id~,
+            text~,
+            selection_offset=selection.end(),
+          ),
         ),
       ),
     )

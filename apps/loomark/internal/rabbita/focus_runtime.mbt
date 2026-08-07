@@ -106,7 +106,6 @@ fn reject_focus(
 ) -> (DriverModel, @cmd.Cmd) {
   let (code, message) = focus_rejection(error)
   let next = record_error(model, code, "browser-effect", message)
-  publish(next)
   (next, @rabbita_runtime.none)
 }
 
@@ -117,7 +116,6 @@ fn reject_focus_token(
 ) -> (DriverModel, @cmd.Cmd) {
   let (code, message) = focus_token_error(error)
   let next = record_error(model, code, "browser-effect", message)
-  publish(next)
   (next, @rabbita_runtime.none)
 }
 
@@ -129,7 +127,8 @@ fn after_render(
   @cmd.custom_cmd(
     scheduler => {
       action(scheduler) catch {
-        error => scheduler.add(failed(EffectFailed(error.message())))
+        error =>
+          scheduler.add(failed(Navigation(EffectFailed(error.message()))))
       }
     },
     kind=@cmd.AfterRender,
@@ -175,26 +174,41 @@ fn block_selection_after_render(
         BlockSelectionDecision::Superseded =>
           if report_superseded {
             scheduler.add(
-              emit(BlockSelectionRejected("block selection is stale", None)),
+              emit(
+                Navigation(
+                  BlockSelectionRejected("block selection is stale", None),
+                ),
+              ),
             )
           }
         BlockSelectionDecision::ModeStale =>
           scheduler.add(
-            emit(BlockSelectionRejected("block selection mode is stale", None)),
+            emit(
+              Navigation(
+                BlockSelectionRejected("block selection mode is stale", None),
+              ),
+            ),
           )
         BlockSelectionDecision::TargetUnavailable =>
           scheduler.add(
             emit(
-              BlockSelectionRejected(
-                "block selection target is unavailable",
-                None,
+              Navigation(
+                BlockSelectionRejected(
+                  "block selection target is unavailable",
+                  None,
+                ),
               ),
             ),
           )
         BlockSelectionDecision::ModelUnavailable =>
           scheduler.add(
             emit(
-              BlockSelectionRejected("block selection model unavailable", None),
+              Navigation(
+                BlockSelectionRejected(
+                  "block selection model unavailable",
+                  None,
+                ),
+              ),
             ),
           )
       }
@@ -224,13 +238,17 @@ fn focus_latest_after_render(
               @dom_boundary.focus_id(focus_target_id(target)) catch {
                 error => {
                   detached_focus_token.val = previous_token
-                  scheduler.add(emit(EffectFailed(error.message())))
+                  scheduler.add(emit(Navigation(EffectFailed(error.message()))))
                 }
               }
             }
-            @core.Rejected(error) => scheduler.add(emit(FocusRejected(error)))
+            @core.Rejected(error) =>
+              scheduler.add(emit(Navigation(FocusRejected(error))))
           }
-        None => scheduler.add(emit(EffectFailed("focus model unavailable")))
+        None =>
+          scheduler.add(
+            emit(Navigation(EffectFailed("focus model unavailable"))),
+          )
       }
     },
     emit,

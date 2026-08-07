@@ -70,7 +70,7 @@ fn heading_toolbar_button(
       .aria_label(label)
       .aria_keyshortcuts(shortcut)
       .aria_pressed((selected_level == Some(level)).to_string()),
-    on_click=emit(BlockHeading(level, None)),
+    on_click=emit(Editing(BlockHeading(level, None))),
     visible_label,
   )
 }
@@ -92,7 +92,7 @@ fn list_toolbar_button(
       .aria_label(label)
       .aria_keyshortcuts("Control+Shift+L")
       .aria_pressed(selected.to_string()),
-    on_click=emit(BlockToggleList(None)),
+    on_click=emit(Editing(BlockToggleList(None))),
     mode_icon("M6 6h11M6 10h11M6 14h11M3 6h.01M3 10h.01M3 14h.01"),
   )
 }
@@ -109,7 +109,7 @@ fn delete_toolbar_button(
     disabled~,
     title="Delete block",
     attrs=@html.Attrs::build().aria_label("Delete selected block"),
-    on_click=emit(BlockDelete),
+    on_click=emit(Editing(BlockDelete)),
     mode_icon("M4 6h12M8 3h4l1 3H7l1-3M6 6l.7 11h6.6L14 6M8.5 9v5M11.5 9v5"),
   )
 }

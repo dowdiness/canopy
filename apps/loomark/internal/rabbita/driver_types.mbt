@@ -1,16 +1,14 @@
 ///|
-/// Private pre-`MountedApp` application and test-driver seam.
-priv enum DriverEvent {
+/// Editing-surface events: mode-gated input and structural requests that
+/// cross the atomic editor façade. ReplaceSource is deliberately exempt
+/// from the mode gate (driver source replacement works in any mode).
+priv enum EditingEvent {
   ReplaceSource(String)
-  SelectRaw
-  SelectBlock
-  SelectPreview
-  ToggleSplitPreview
+  RawInput(String, @dom_boundary.TextSelection?)
   BlockFocused(String)
   BlockHeading(Int, BlockSelection?)
   BlockToggleList(BlockSelection?)
   BlockDelete
-  RawInput(String, @dom_boundary.TextSelection?)
   BlockInput(
     node_id~ : @markdown.MarkdownNodeId,
     input_id~ : String,
@@ -20,26 +18,48 @@ priv enum DriverEvent {
   BlockSplit(node_id~ : @markdown.MarkdownNodeId, offset~ : Int)
   BlockMerge(node_id~ : @markdown.MarkdownNodeId, selection~ : BlockSelection)
   BlockNavigate(key~ : String, direction~ : Int)
-  BlockSelectionRejected(String, BlockSelection?)
   ProbeBlockSelection(String)
-  EditorFailure
-  RestoreSnapshot(
-    version~ : Int,
-    source~ : String,
-    mode~ : @core.ApplicationMode
-  )
+}
+
+///|
+/// View-surface events: mode selection, split, focus commands, and the
+/// effect reports that accompany them. Not mode-gated.
+priv enum NavigationEvent {
+  SelectRaw
+  SelectBlock
+  SelectPreview
+  ToggleSplitPreview
   FocusPreview
   FocusBlock
   FocusRaw
   RestoreFocus(String)
   FocusRejected(@core.FocusDecisionError)
+  EffectFailed(String)
+  BlockSelectionRejected(String, BlockSelection?)
+}
+
+///|
+/// Driver/test instrumentation events: probes, measurements, and their
+/// outbound results.
+priv enum ProbeEvent {
   WriteSelection(start~ : Int, end~ : Int)
   WriteSelectionFailure
   MeasurePreview
   MeasureFailure
   SelectionRead(start~ : Int, end~ : Int)
   Measured(width~ : Double, height~ : Double)
-  EffectFailed(String)
+}
+
+///|
+/// Application-control events: failures, restore, subscriptions, fatal,
+/// resize, and driver protocol errors.
+priv enum LifecycleEvent {
+  EditorFailure
+  RestoreSnapshot(
+    version~ : Int,
+    source~ : String,
+    mode~ : @core.ApplicationMode
+  )
   CustomEvent(String)
   ControlInstalled
   SubscriptionInstalled
@@ -48,7 +68,18 @@ priv enum DriverEvent {
   StopListening
   Fatal(String)
   Resize(@common.Viewport)
-  ArchiveWriteCompleted(@archive_storage.LocalArchiveWriteCompletion)
+}
+
+///|
+/// Dispatch envelope: the concern of an event is encoded by the
+/// constructor, so update_model's routing is total and misrouting is
+/// unrepresentable. Archive completions are processed even in fatal state.
+priv enum DriverEvent {
+  Editing(EditingEvent)
+  Navigation(NavigationEvent)
+  Probe(ProbeEvent)
+  Lifecycle(LifecycleEvent)
+  Archive(@archive_storage.LocalArchiveWriteCompletion)
 }
 
 ///|
