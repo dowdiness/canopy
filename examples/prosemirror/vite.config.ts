@@ -1,5 +1,5 @@
 import { defineConfig, type PluginOption } from 'vite';
-import { moonbitPlugin } from '../web/vite-plugin-moonbit';
+import { moonbitPlugin } from '../../apps/web/vite-plugin-moonbit';
 
 export default defineConfig({
   plugins: [

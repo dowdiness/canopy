@@ -343,6 +343,21 @@ test('gives Cloudflare Workers Builds an explicit Waku production target', () =>
     deployWorkflow,
     /DST="\$GITHUB_WORKSPACE\/apps\/\$EXAMPLE\/_build\/js\/release\/build\/\$MOD\/main"/,
   );
+
+  // prosemirror stays in examples/ (unlike the apps/*/web consumers), so it
+  // must reach the shared plugin at apps/web/vite-plugin-moonbit.ts.
+  const prosemirrorConfig = fs.readFileSync(
+    new URL(
+      '../../../examples/prosemirror/vite.config.ts',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  assert.match(
+    prosemirrorConfig,
+    /from '\.\.\/\.\.\/apps\/web\/vite-plugin-moonbit'/,
+  );
+  assert.doesNotMatch(prosemirrorConfig, /\.\.\/web\/vite-plugin-moonbit/);
 });
 
 test('keeps Waku build, browser, and workerd jobs as the web repository gate', () => {
