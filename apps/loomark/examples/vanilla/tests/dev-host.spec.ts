@@ -954,8 +954,16 @@ test("Block mode edits ordered/unordered lists and fenced code in one mixed docu
     await expect.poll(async () => (await snapshot(host.page)).source).toBe(
       "- ONE\r\n\r\n7) two\r\n~~~moonbit\r\nold\r\n~~~\r\n",
     )
+    await expect(host.page.locator("#loomark-block")).toHaveAttribute(
+      "data-loomark-source",
+      "- ONE\r\n\r\n7) two\r\n~~~moonbit\r\nold\r\n~~~\r\n",
+    )
     await host.page.locator('[data-loomark-block-kind="ordered-list-item"]').fill("TWO")
     await expect.poll(async () => (await snapshot(host.page)).source).toBe(
+      "- ONE\r\n\r\n7) TWO\r\n~~~moonbit\r\nold\r\n~~~\r\n",
+    )
+    await expect(host.page.locator("#loomark-block")).toHaveAttribute(
+      "data-loomark-source",
       "- ONE\r\n\r\n7) TWO\r\n~~~moonbit\r\nold\r\n~~~\r\n",
     )
     await host.page.locator('[data-loomark-block-kind="code"]').fill("new")
