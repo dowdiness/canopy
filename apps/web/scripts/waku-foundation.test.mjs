@@ -339,6 +339,10 @@ test('gives Cloudflare Workers Builds an explicit Waku production target', () =>
     /^\s+deploy-dir:\s*examples\/web(?:\/dist)?\s*$/m,
   );
   assert.match(deployWorkflow, /^\s+- name: ideal$/m);
+  assert.match(
+    deployWorkflow,
+    /DST="\$GITHUB_WORKSPACE\/apps\/\$EXAMPLE\/_build\/js\/release\/build\/\$MOD\/main"/,
+  );
 });
 
 test('keeps Waku build, browser, and workerd jobs as the web repository gate', () => {

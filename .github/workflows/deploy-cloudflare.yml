@@ -90,7 +90,7 @@ jobs:
         if: matrix.moon-build != '' && matrix.type == 'pages'
         # Workspace mode puts JS output in root _build/ (<mod>/<pkg>),
         # but vite-plugin-moonbit expects it under the example's local
-        # _build/ (<pkg>/).  Symlink to bridge the gap.
+        # namespaced _build/ (<mod>/<pkg>). Symlink to bridge the gap.
         run: |
           EXAMPLE="${{ matrix.name }}"
           # Map matrix name to module name in _build/
@@ -102,7 +102,7 @@ jobs:
           esac
           if [ -n "$MOD" ]; then
             SRC="$GITHUB_WORKSPACE/_build/js/release/build/$MOD/main"
-            DST="$GITHUB_WORKSPACE/apps/$EXAMPLE/_build/js/release/build/main"
+            DST="$GITHUB_WORKSPACE/apps/$EXAMPLE/_build/js/release/build/$MOD/main"
             if [ -d "$SRC" ]; then
               mkdir -p "$(dirname "$DST")"
               ln -sfn "$SRC" "$DST"
