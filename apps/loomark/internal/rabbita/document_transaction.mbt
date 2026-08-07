@@ -44,94 +44,19 @@ fn archive_replacement(
 }
 
 ///|
-/// Commit one canonical source request and install state only after success.
-fn commit_source(
+/// Shared atomic-commit shell: failure injection, editor commit, receipt
+/// classification, and persistence dispatch. Mode-specific concerns
+/// (selection extraction, preview demand, application state) stay with the
+/// caller. Returns (model, result?, accepted, changed, command) — `result`
+/// is present only on a successful Ok receipt so block callers can extract
+/// the deep selection outcome without reading SyncEditor cursor state.
+fn commit_edit_request(
   editor : @markdown.MarkdownEditor,
-  model : DriverModel,
-  state : @core.ApplicationState,
-  source : String,
-  operation : String,
-  emit : @cmd.Emit[DriverEvent],
-) -> (DriverModel, Bool, Bool, @cmd.Cmd) {
-  let fail_commit = model.fail_next_editor_commit
-  let next = { ..model, fail_next_editor_commit: false }
-  let request = if fail_commit {
-    @markdown.MarkdownEditRequest::ReplaceText(
-      start=-1,
-      delete_len=0,
-      inserted="",
-    )
-  } else {
-    @markdown.MarkdownEditRequest::ReplaceSource(source)
-  }
-  let receipt = editor.commit_with_receipt(request) catch {
-    _ => {
-      let document = editor.snapshot()
-      let changed = document.source() != model.document.source()
-      let accepted = {
-        ..next,
-        state,
-        document,
-        source_revision: if changed {
-          model.source_revision + 1
-        } else {
-          model.source_revision
-        },
-        committed_change_count: if changed {
-          model.committed_change_count + 1
-        } else {
-          model.committed_change_count
-        },
-      }
-      return (
-        record_local_persistence_failure(accepted),
-        true,
-        changed,
-        @rabbita_runtime.none,
-      )
-    }
-  }
-  match receipt {
-    Err(error) => {
-      let failed = record_error(
-        next,
-        "editor-commit-failed",
-        operation,
-        "editor commit failed: " + editor_error_detail(error),
-      )
-      (failed, false, false, @rabbita_runtime.none)
-    }
-    Ok(receipt) => {
-      let (committed, changed) = classify_commit(
-        { ..next, state, },
-        receipt.result(),
-      )
-      match @repository.history_trigger(receipt) {
-        @repository.LocalArchivePersistenceDecision::Replace => {
-          let (persisted, command) = archive_replacement(
-            editor, committed, emit,
-          )
-          (persisted, true, changed, command)
-        }
-        @repository.LocalArchivePersistenceDecision::Skip =>
-          (committed, true, changed, @rabbita_runtime.none)
-      }
-    }
-  }
-}
-
-///|
-/// Commit one typed block request through the atomic façade boundary.
-/// Structural callers receive the deep selection outcome without reading
-/// SyncEditor cursor state in this shell.
-fn commit_block_request(
-  editor : @markdown.MarkdownEditor,
-  attachment : @md_markdown.MarkdownSemanticAttachment,
   model : DriverModel,
   request : @markdown.MarkdownEditRequest,
   operation : String,
   emit : @cmd.Emit[DriverEvent],
-) -> (DriverModel, @markdown.MarkdownBlockSelection?, Bool, @cmd.Cmd) {
+) -> (DriverModel, @markdown.MarkdownCommitResult?, Bool, Bool, @cmd.Cmd) {
   let fail_commit = model.fail_next_editor_commit
   let next = { ..model, fail_next_editor_commit: false }
   let request = if fail_commit {
@@ -147,28 +72,27 @@ fn commit_block_request(
     _ => {
       let document = editor.snapshot()
       let changed = document.source() != model.document.source()
-      let accepted = update_preview_document(
-        attachment,
-        {
-          ..next,
-          document,
-          source_revision: if changed {
-            model.source_revision + 1
-          } else {
-            model.source_revision
-          },
-          committed_change_count: if changed {
-            model.committed_change_count + 1
-          } else {
-            model.committed_change_count
-          },
-        }
-        |> record_local_persistence_failure,
-        preview_requested(model),
-        accepted=true,
-        changed~,
+      let accepted = {
+        ..next,
+        document,
+        source_revision: if changed {
+          model.source_revision + 1
+        } else {
+          model.source_revision
+        },
+        committed_change_count: if changed {
+          model.committed_change_count + 1
+        } else {
+          model.committed_change_count
+        },
+      }
+      return (
+        record_local_persistence_failure(accepted),
+        None,
+        true,
+        changed,
+        @rabbita_runtime.none,
       )
-      return (accepted, None, true, @rabbita_runtime.none)
     }
   }
   match receipt {
@@ -179,45 +103,75 @@ fn commit_block_request(
         operation,
         "editor commit failed: " + editor_error_detail(error),
       )
-      (
-        update_preview_document(
-          attachment,
-          failed,
-          preview_requested(model),
-          accepted=false,
-          changed=false,
-        ),
-        None,
-        false,
-        @rabbita_runtime.none,
-      )
+      (failed, None, false, false, @rabbita_runtime.none)
     }
     Ok(receipt) => {
       let result = receipt.result()
       let (committed, changed) = classify_commit(next, result)
-      let selection = match result {
-        @markdown.Applied(_, selection) => selection
-        @markdown.Unchanged(_) => None
-      }
-      let committed = update_preview_document(
-        attachment,
-        committed,
-        preview_requested(model),
-        accepted=true,
-        changed~,
-      )
       match @repository.history_trigger(receipt) {
         @repository.LocalArchivePersistenceDecision::Replace => {
           let (persisted, command) = archive_replacement(
             editor, committed, emit,
           )
-          (persisted, selection, true, command)
+          (persisted, Some(result), true, changed, command)
         }
         @repository.LocalArchivePersistenceDecision::Skip =>
-          (committed, selection, true, @rabbita_runtime.none)
+          (committed, Some(result), true, changed, @rabbita_runtime.none)
       }
     }
   }
+}
+
+///|
+/// Commit one canonical source request and install state only after success.
+fn commit_source(
+  editor : @markdown.MarkdownEditor,
+  model : DriverModel,
+  state : @core.ApplicationState,
+  source : String,
+  operation : String,
+  emit : @cmd.Emit[DriverEvent],
+) -> (DriverModel, Bool, Bool, @cmd.Cmd) {
+  let (committed, _, accepted, changed, command) = commit_edit_request(
+    editor,
+    model,
+    @markdown.MarkdownEditRequest::ReplaceSource(source),
+    operation,
+    emit,
+  )
+  let committed = if accepted { { ..committed, state, } } else { committed }
+  (committed, accepted, changed, command)
+}
+
+///|
+/// Commit one typed block request through the atomic façade boundary.
+/// Structural callers receive the deep selection outcome without reading
+/// SyncEditor cursor state in this shell.
+fn commit_block_request(
+  editor : @markdown.MarkdownEditor,
+  attachment : @md_markdown.MarkdownSemanticAttachment,
+  model : DriverModel,
+  request : @markdown.MarkdownEditRequest,
+  operation : String,
+  emit : @cmd.Emit[DriverEvent],
+) -> (DriverModel, @markdown.MarkdownBlockSelection?, Bool, @cmd.Cmd) {
+  let (committed, result, accepted, changed, persistence_command) = commit_edit_request(
+    editor, model, request, operation, emit,
+  )
+  let selection = result.bind(result => {
+    match result {
+      @markdown.Applied(_, selection) => selection
+      @markdown.Unchanged(_) => None
+    }
+  })
+  let committed = update_preview_document(
+    attachment,
+    committed,
+    preview_requested(model),
+    accepted~,
+    changed~,
+  )
+  (committed, selection, accepted, persistence_command)
 }
 
 ///|
