@@ -358,6 +358,37 @@ test('gives Cloudflare Workers Builds an explicit Waku production target', () =>
     /from '\.\.\/\.\.\/apps\/web\/vite-plugin-moonbit'/,
   );
   assert.doesNotMatch(prosemirrorConfig, /\.\.\/web\/vite-plugin-moonbit/);
+
+  // Wrangler >=3.114 discovers configs by walking up from the cwd and prefers
+  // wrangler.jsonc over wrangler.toml: a repository-root wrangler.jsonc would
+  // shadow the relay-server wrangler.toml. The loomark assets config therefore
+  // lives at apps/loomark/wrangler.jsonc, not the repo root, and the relay
+  // worker keeps its own wrangler.toml.
+  const relayConfig = fs.readFileSync(
+    new URL('../../../apps/relay-server/wrangler.toml', import.meta.url),
+    'utf8',
+  );
+  assert.match(relayConfig, /^name\s*=\s*"canopy-relay"/m);
+  assert.doesNotMatch(relayConfig, /^\s*assets\s*=/m);
+  assert.equal(
+    fs.existsSync(
+      new URL('../../../apps/relay-server/wrangler.jsonc', import.meta.url),
+    ),
+    false,
+  );
+  const loomarkConfig = fs.readFileSync(
+    new URL('../../../apps/loomark/wrangler.jsonc', import.meta.url),
+    'utf8',
+  );
+  assert.match(loomarkConfig, /"name"\s*:\s*"loomark"/);
+  assert.match(loomarkConfig, /"directory"\s*:\s*".\/dist"/);
+  for (const name of ['wrangler.json', 'wrangler.jsonc', 'wrangler.toml']) {
+    assert.equal(
+      fs.existsSync(new URL(`../../../${name}`, import.meta.url)),
+      false,
+      `repo root must not contain ${name}`,
+    );
+  }
 });
 
 test('keeps Waku build, browser, and workerd jobs as the web repository gate', () => {

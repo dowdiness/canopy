@@ -1,0 +1,15 @@
+{
+  // Loomark standalone editor static-assets worker.
+  //
+  // Lives at apps/loomark/ (not the repository root) because Wrangler >=3.114
+  // discovers configs by walking up from the cwd and prefers wrangler.jsonc
+  // over wrangler.toml: a repository-root wrangler.jsonc shadows every
+  // subdirectory wrangler.toml (e.g. apps/relay-server's). The Cloudflare Git
+  // integration for this worker must set its root directory to apps/loomark
+  // so that `npx wrangler deploy` finds this file.
+  "name": "loomark",
+  "compatibility_date": "2026-08-06",
+  "assets": {
+    "directory": "./dist"
+  }
+}
