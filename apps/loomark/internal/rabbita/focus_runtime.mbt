@@ -142,6 +142,7 @@ fn after_render(
 /// Routine input may follow a newer render when keystrokes overtake one frame;
 /// its superseded callback yields while structural edits report stale revisions.
 fn block_selection_after_render(
+  latest_model : @ref.Ref[DriverModel?],
   selection : BlockSelection,
   source_revision : Int,
   report_superseded~ : Bool,
@@ -149,7 +150,7 @@ fn block_selection_after_render(
 ) -> @cmd.Cmd {
   after_render(
     scheduler => {
-      match detached_model.val {
+      match latest_model.val {
         Some(model) =>
           if model.state.mode() != @core.Block {
             scheduler.add(
@@ -208,13 +209,14 @@ fn block_selection_after_render(
 /// Revalidate the latest model after rendering, then perform the final DOM
 /// write without queuing a state update after it.
 fn focus_latest_after_render(
+  latest_model : @ref.Ref[DriverModel?],
   locator : @core.FocusLocator,
   token : String,
   emit : @cmd.Emit[DriverEvent],
 ) -> @cmd.Cmd {
   after_render(
     scheduler => {
-      match detached_model.val {
+      match latest_model.val {
         Some(model) =>
           match
             @core.decide_focus(model.state, model.source_revision, locator) {
