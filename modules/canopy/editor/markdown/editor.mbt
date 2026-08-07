@@ -753,14 +753,22 @@ fn MarkdownEditor::commit_recording_transforms(
       } else {
         // The synchronization edit returns the same splice used internally,
         // so the receipt does not compute the text diff a second time.
-        let change = self.editor.set_text_with_change(source)
-        self.editor.refresh()
-        Ok(
-          (
-            MarkdownCommitResult::Applied(self.snapshot(), None),
-            @vector.Vector::singleton(MarkdownTextTransform::{ change, }),
-          ),
-        )
+        let (change, accepted) = self.editor.set_text_with_change(source)
+        if accepted {
+          self.editor.refresh()
+          Ok(
+            (
+              MarkdownCommitResult::Applied(self.snapshot(), None),
+              @vector.Vector::singleton(MarkdownTextTransform::{ change, }),
+            ),
+          )
+        } else {
+          Err(
+            MarkdownEditorError::EditFailed(
+              detail="source replacement rejected",
+            ),
+          )
+        }
       }
     }
     ReplaceText(start~, delete_len~, inserted~) => {

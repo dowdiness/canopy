@@ -335,17 +335,15 @@ fn[T : Eq] SyncEditor::apply_text_edit_internal(
   timestamp_ms : Int,
   record_undo : Bool,
   move_cursor_to_edit_end : Bool,
-) -> Unit {
-  ignore(
-    self.apply_text_edit_with_policy(
-      start,
-      deleted_len,
-      inserted,
-      timestamp_ms,
-      record_undo,
-      move_cursor_to_edit_end,
-      SnapToGrapheme,
-    ),
+) -> Bool {
+  self.apply_text_edit_with_policy(
+    start,
+    deleted_len,
+    inserted,
+    timestamp_ms,
+    record_undo,
+    move_cursor_to_edit_end,
+    SnapToGrapheme,
   )
 }
 
@@ -358,8 +356,10 @@ pub fn[T : Eq] SyncEditor::apply_text_edit(
   timestamp_ms : Int,
 ) -> Unit {
   self.taint_pending_transforms()
-  self.apply_text_edit_internal(
-    start, deleted_len, inserted, timestamp_ms, true, true,
+  ignore(
+    self.apply_text_edit_internal(
+      start, deleted_len, inserted, timestamp_ms, true, true,
+    ),
   )
 }
 
@@ -384,7 +384,8 @@ pub fn[T : Eq] SyncEditor::apply_text_edit_exact(
 }
 
 ///|
-/// Replace the document text with `new_text` and return the exact splice used.
+/// Replace the document text with `new_text` and return the exact splice used
+/// together with whether the edit was accepted.
 ///
 /// Like `set_text`, this is a bulk synchronization operation: it does not
 /// record undo history and moves the cursor to the end of the replacement.
@@ -393,14 +394,14 @@ pub fn[T : Eq] SyncEditor::apply_text_edit_exact(
 pub fn[T : Eq] SyncEditor::set_text_with_change(
   self : SyncEditor[T],
   new_text : String,
-) -> @text_change.TextChange {
+) -> (@text_change.TextChange, Bool) {
   let old_text = self.doc.text()
   let splice = @text_change.compute_text_change(old_text, new_text)
   if splice.is_noop() {
-    return splice
+    return (splice, true)
   }
   self.taint_pending_transforms()
-  self.apply_text_edit_internal(
+  let accepted = self.apply_text_edit_internal(
     splice.start,
     splice.delete_len,
     splice.inserted,
@@ -408,7 +409,7 @@ pub fn[T : Eq] SyncEditor::set_text_with_change(
     false,
     true,
   )
-  splice
+  (splice, accepted)
 }
 
 ///|
@@ -445,7 +446,9 @@ pub fn[T : Eq] SyncEditor::insert_at(
     return
   }
   self.taint_pending_transforms()
-  self.apply_text_edit_internal(position, 0, text, timestamp_ms, true, false)
+  ignore(
+    self.apply_text_edit_internal(position, 0, text, timestamp_ms, true, false),
+  )
 }
 
 ///|
@@ -462,7 +465,9 @@ pub fn[T : Eq] SyncEditor::delete_at(
     return false
   }
   self.taint_pending_transforms()
-  self.apply_text_edit_internal(position, 1, "", timestamp_ms, true, false)
+  ignore(
+    self.apply_text_edit_internal(position, 1, "", timestamp_ms, true, false),
+  )
   true
 }
 
@@ -478,12 +483,14 @@ pub fn[T : Eq] SyncEditor::set_text_and_record(
   }
   self.taint_pending_transforms()
   let splice = @text_change.compute_text_change(old_text, new_text)
-  self.apply_text_edit_internal(
-    splice.start,
-    splice.delete_len,
-    splice.inserted,
-    timestamp_ms,
-    true,
-    false,
+  ignore(
+    self.apply_text_edit_internal(
+      splice.start,
+      splice.delete_len,
+      splice.inserted,
+      timestamp_ms,
+      true,
+      false,
+    ),
   )
 }

@@ -820,9 +820,6 @@ fn update_editing(
     None =>
       match event {
         ReplaceSource(source) | RawInput(source, _, _) => {
-          if event is ReplaceSource(_) {
-            raw_input_coordinator.cancel_pending()
-          }
           let raw_selection = match event {
             RawInput(_, selection, _) => selection
             _ => None
@@ -865,6 +862,9 @@ fn update_editing(
                   accepted~,
                   changed~,
                 )
+                if event is ReplaceSource(_) && accepted {
+                  raw_input_coordinator.cancel_pending()
+                }
                 persistence_command = @cmd.batch([
                   persistence_command, commit_command,
                 ])

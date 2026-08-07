@@ -206,7 +206,7 @@ pub fn[T] SyncEditor::set_local_presence(Self[T], String, String, selection? : (
 pub fn[T] SyncEditor::set_on_status_change(Self[T], ((@sync_session.SyncStatus) -> Unit)?) -> Unit
 pub fn[T : Eq] SyncEditor::set_text(Self[T], String) -> Unit
 pub fn[T : Eq] SyncEditor::set_text_and_record(Self[T], String, Int) -> Unit
-pub fn[T : Eq] SyncEditor::set_text_with_change(Self[T], String) -> @text_change.TextChange
+pub fn[T : Eq] SyncEditor::set_text_with_change(Self[T], String) -> (@text_change.TextChange, Bool)
 pub fn[T] SyncEditor::set_tracking(Self[T], Bool) -> Unit
 pub fn[T] SyncEditor::set_watchdog_scheduler(Self[T], ((Int, Int) -> Unit)?) -> Unit
 pub fn[T] SyncEditor::set_watchdog_timeout(Self[T], Int) -> Unit

@@ -4,11 +4,24 @@
 test "set_text_with_change returns the applied splice" {
   let editor = try! @probe.new_test_editor("test-agent")
   editor.set_text("hello")
-  let change = editor.set_text_with_change("hello!")
+  let (change, accepted) = editor.set_text_with_change("hello!")
+  assert_true(accepted)
   inspect(change.start, content="5")
   inspect(change.delete_len, content="0")
   inspect(change.inserted, content="!")
   inspect(editor.get_text(), content="hello!")
+}
+
+///|
+test "set_text_with_change returns a replacement splice" {
+  let editor = try! @probe.new_test_editor("replacement-agent")
+  editor.set_text("hello")
+  let (change, accepted) = editor.set_text_with_change("jello")
+  assert_true(accepted)
+  inspect(change.start, content="0")
+  inspect(change.delete_len, content="1")
+  inspect(change.inserted, content="j")
+  inspect(editor.get_text(), content="jello")
 }
 
 ///|

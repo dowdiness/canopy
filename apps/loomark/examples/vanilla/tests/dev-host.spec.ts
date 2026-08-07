@@ -1754,6 +1754,30 @@ test("external source replacement supersedes pending Raw input", async ({ browse
   }
 })
 
+test("failed external source replacement preserves pending Raw input", async ({ browser }) => {
+  const host = await mountHost(browser, "start")
+  try {
+    await forceEditorFailure(host.page)
+    await expect.poll(async () => (await snapshot(host.page)).editor_failure_armed).toBe(true)
+    await host.page.locator("#loomark-input").evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.value += "X"
+      textarea.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await requestSource(host.page, "external")
+    await expect.poll(async () => (await snapshot(host.page)).error_code)
+      .toBe("editor-commit-failed")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("startX")
+    await expect(host.page.locator("#loomark-input")).toHaveValue("startX")
+    expect(await snapshot(host.page)).toMatchObject({
+      source: "startX",
+      committed_change_count: 1,
+    })
+  } finally {
+    await host.context.close()
+  }
+})
+
 test("snapshot restore supersedes pending Raw input", async ({ browser }) => {
   const host = await mountHost(browser, "start")
   try {
