@@ -102,21 +102,10 @@ fn commit_source(
       (failed, false, false, @rabbita_runtime.none)
     }
     Ok(receipt) => {
-      let committed = match receipt.result() {
-        @markdown.Applied(document, _) =>
-          (
-            {
-              ..next,
-              state,
-              document,
-              source_revision: model.source_revision + 1,
-              committed_change_count: model.committed_change_count + 1,
-            },
-            true,
-          )
-        @markdown.Unchanged(document) => ({ ..next, state, document }, false)
-      }
-      let (committed, changed) = committed
+      let (committed, changed) = classify_commit(
+        { ..next, state, },
+        receipt.result(),
+      )
       match @repository.history_trigger(receipt) {
         @repository.LocalArchivePersistenceDecision::Replace => {
           let (persisted, command) = archive_replacement(
@@ -204,19 +193,11 @@ fn commit_block_request(
       )
     }
     Ok(receipt) => {
-      let (committed, selection, changed) = match receipt.result() {
-        @markdown.Applied(document, selection) =>
-          (
-            {
-              ..next,
-              document,
-              source_revision: model.source_revision + 1,
-              committed_change_count: model.committed_change_count + 1,
-            },
-            selection,
-            true,
-          )
-        @markdown.Unchanged(document) => ({ ..next, document, }, None, false)
+      let result = receipt.result()
+      let (committed, changed) = classify_commit(next, result)
+      let selection = match result {
+        @markdown.Applied(_, selection) => selection
+        @markdown.Unchanged(_) => None
       }
       let committed = update_preview_document(
         attachment,
