@@ -59,17 +59,40 @@ test "raw input requires Raw mode or a split-open Preview" {
 }
 
 ///|
-test "block editing requires Block mode" {
-  let heading = BlockHeading(2, None)
-  assert_eq(editing_mode_applicable(heading, block_mode(), false), None)
-  assert_eq(
-    editing_mode_applicable(heading, raw_mode(), false),
-    Some("Block editing is unavailable outside Block mode"),
+/// Every Block* variant is gated together; representative coverage for each
+/// so a future misclassification cannot evade the matrix.
+fn block_variants() -> Array[EditingEvent] {
+  let editor = try! @markdown.MarkdownEditor(
+    agent_id="agent-a",
+    source="# Title\n\nParagraph",
   )
-  assert_eq(
-    editing_mode_applicable(BlockDelete, preview_mode(), true),
-    Some("Block editing is unavailable outside Block mode"),
-  )
+  let node_id = editor.snapshot().blocks()[0].node_id()
+  [
+    BlockFocused("key"),
+    BlockHeading(2, None),
+    BlockToggleList(None),
+    BlockDelete,
+    BlockInput(node_id~, input_id="in", text="t", selection_offset=0),
+    BlockSplit(node_id~, offset=0),
+    BlockMerge(node_id~, selection=BlockSelection::{
+      key: "k",
+      index: 0,
+      start: 0,
+      end: 0,
+    }),
+    BlockNavigate(key="k", direction=1),
+  ]
+}
+
+///|
+test "every block editing variant requires Block mode" {
+  for variant in block_variants() {
+    assert_eq(editing_mode_applicable(variant, block_mode(), false), None)
+    assert_eq(
+      editing_mode_applicable(variant, raw_mode(), false),
+      Some("Block editing is unavailable outside Block mode"),
+    )
+  }
 }
 
 ///|
@@ -90,4 +113,10 @@ test "measurement applies the driver probe result to the model" {
   )
   let next = apply_measurement(test_model(editor.snapshot()), 640.0, 480.0)
   assert_eq(next.measurement, Some("640:480"))
+  let fractional = apply_measurement(
+    test_model(editor.snapshot()),
+    120.5,
+    48.25,
+  )
+  assert_eq(fractional.measurement, Some("120.5:48.25"))
 }
