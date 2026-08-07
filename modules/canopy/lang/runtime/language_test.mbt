@@ -120,3 +120,28 @@ test "apply_edit passthrough pin: compute raise propagates verbatim" {
     Ok(_) => fail("expected Err passthrough")
   }
 }
+
+///|
+test "apply_edit Edits path: applies spans, returns the patch trace, moves cursor" {
+  let lang = stub_lang((_op, _ctx) => {
+    EditResult::Edits(
+      [{ start: 0, delete_len: 1, inserted: "x" }],
+      @core.FocusHint::MoveCursor(position=2),
+      None,
+    )
+  })
+  let (editor, _) = lang.build("edits-test")
+  editor.set_text("42")
+  match lang.apply_edit(editor, "StubOp", 0) {
+    Ok(edits) => {
+      // The applied patch trace comes back verbatim.
+      inspect(edits.length(), content="1")
+      inspect(edits[0].inserted, content="x")
+      // The spans were spliced into the document and the cursor moved per
+      // the FocusHint.
+      inspect(editor.get_text(), content="x2")
+      inspect(editor.get_cursor(), content="2")
+    }
+    Err(e) => fail("expected Ok from Edits, got: " + e.message())
+  }
+}

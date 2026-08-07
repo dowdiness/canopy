@@ -139,8 +139,9 @@ pub fn[T : Eq] SyncEditor::apply_text_transform(
 /// planned span edits (undo-recorded, cursor per `FocusHint`), and maps
 /// planner `EditError`s to the user-facing `TreeEditError`.
 ///
-/// `placeholder` and `separator` are language text policies (defaults
-/// preserve legacy behavior: `Renderable::placeholder(kind)` and `" "`).
+/// Text policies (placeholder, separator) are fixed to legacy behavior here;
+/// language-specific policies go through the public `@core.compute_move`
+/// (the SPI seam, see ADR 2026-08-07).
 ///
 /// The shell taints pending transforms only after resolution succeeds;
 /// unknown-id failures leave pending hints untouched.
@@ -150,8 +151,6 @@ pub fn[T : Eq + @loom_core.Renderable] SyncEditor::move_node(
   target_id : @core.NodeId,
   position : @core.DropPosition,
   timestamp_ms : Int,
-  placeholder? : String,
-  separator? : String = " ",
 ) -> Result[Array[@core.SpanEdit], TreeEditError] {
   // Resolve source
   let src_range = match self.get_node_range(source_id) {
@@ -189,10 +188,6 @@ pub fn[T : Eq + @loom_core.Renderable] SyncEditor::move_node(
   // structural hints so reconcile degrades to LCS for this reparse.
   // (Move identity preservation deferred to Slice 5+ match_entities.)
   self.taint_pending_transforms()
-  let placeholder = match placeholder {
-    Some(p) => p
-    None => @loom_core.Renderable::placeholder(src_node.kind)
-  }
   let (edits, focus_hint) = @core.compute_move(
     self.get_text(),
     source_id,
@@ -200,8 +195,8 @@ pub fn[T : Eq + @loom_core.Renderable] SyncEditor::move_node(
     target_id,
     tgt_range,
     position,
-    placeholder,
-    separator,
+    @loom_core.Renderable::placeholder(src_node.kind),
+    " ",
   ) catch {
     e => return Err(map_move_error(e))
   }

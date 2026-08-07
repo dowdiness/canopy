@@ -93,11 +93,13 @@ pub fn[T] SyncEditor::new_generic(
 /// the language-owned extras `E` alongside the editor, so companions no
 /// longer publish memos through caller-threaded `Ref` side-channels.
 ///
-/// `build_parts` receives the parser and the identity-hint channel (the
-/// same shared `Ref` the editor uses as `pending_transforms`; see
-/// `new_generic` for the caller-threading contract) and returns the 3
-/// projection memos, the capabilities built from the freshly constructed
-/// extras, and the extras value `E` itself.
+/// The identity-hint channel is framework-owned: the constructor creates it
+/// and passes it to `build_parts`, so it is always exactly the editor's
+/// `pending_transforms` (callers cannot inject a foreign queue).
+///
+/// `build_parts` receives the parser and the identity-hint channel and
+/// returns the 3 projection memos, the capabilities built from the freshly
+/// constructed extras, and the extras value `E` itself.
 pub fn[T, E] SyncEditor::new_with_builder(
   agent_id : String,
   make_parser : (@loom_core.SourceId, String, @incr.Runtime?) -> @loom.Parser[T],
@@ -110,13 +112,9 @@ pub fn[T, E] SyncEditor::new_with_builder(
   ),
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
-  identity_hints? : Ref[Array[@core.IdentityTransform]],
 ) -> (SyncEditor[T], E) raise @text.TextError {
   let doc = @text.TextState::new(agent_id)
-  let pending_transforms = match identity_hints {
-    Some(r) => r
-    None => Ref([])
-  }
+  let pending_transforms : Ref[Array[@core.IdentityTransform]] = Ref([])
   let identity = next_editor_identity()
   let source_id = @loom_core.SourceId(
     "canopy-sync-editor:" + identity.to_string(),
