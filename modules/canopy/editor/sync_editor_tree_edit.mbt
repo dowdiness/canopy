@@ -47,13 +47,15 @@ pub fn[T : Eq + @loom_core.Renderable] SyncEditor::delete_node(
   }
   let placeholder = @loom_core.Renderable::placeholder(node.kind)
   let delete_len = range.end - range.start
-  self.apply_text_edit_internal(
-    range.start,
-    delete_len,
-    placeholder,
-    timestamp_ms,
-    true,
-    false,
+  ignore(
+    self.apply_text_edit_internal(
+      range.start,
+      delete_len,
+      placeholder,
+      timestamp_ms,
+      true,
+      false,
+    ),
   )
   Ok(())
 }
@@ -78,13 +80,15 @@ pub fn[T : Eq] SyncEditor::commit_edit(
     Some(r) => r
   }
   let delete_len = range.end - range.start
-  self.apply_text_edit_internal(
-    range.start,
-    delete_len,
-    new_text,
-    timestamp_ms,
-    true,
-    true,
+  ignore(
+    self.apply_text_edit_internal(
+      range.start,
+      delete_len,
+      new_text,
+      timestamp_ms,
+      true,
+      true,
+    ),
   )
   Ok(())
 }
@@ -120,13 +124,15 @@ pub fn[T : Eq] SyncEditor::apply_text_transform(
     Ok(r) => r
   }
   let delete_len = range.end - range.start
-  self.apply_text_edit_internal(
-    range.start,
-    delete_len,
-    replacement,
-    timestamp_ms,
-    true,
-    false,
+  ignore(
+    self.apply_text_edit_internal(
+      range.start,
+      delete_len,
+      replacement,
+      timestamp_ms,
+      true,
+      false,
+    ),
   )
   Ok(())
 }

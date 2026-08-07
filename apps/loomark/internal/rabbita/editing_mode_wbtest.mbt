@@ -45,7 +45,7 @@ test "source replacement and the block selection probe are exempt from the mode 
 
 ///|
 test "raw input requires Raw mode or a split-open Preview" {
-  let raw = RawInput("source", None)
+  let raw = RawInput("source", None, None)
   assert_eq(editing_mode_applicable(raw, raw_mode(), false), None)
   assert_eq(editing_mode_applicable(raw, preview_mode(), true), None)
   assert_eq(

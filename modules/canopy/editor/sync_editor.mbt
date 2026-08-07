@@ -469,13 +469,15 @@ pub fn[T : Eq] SyncEditor::apply_span_edits(
   let sorted = edits.copy()
   sorted.sort_by(fn(a, b) { b.start.compare(a.start) })
   for edit in sorted {
-    self.apply_text_edit_internal(
-      edit.start,
-      edit.delete_len,
-      edit.inserted,
-      timestamp_ms,
-      true, // record_undo — grouped by capture timeout
-      false, // move_cursor_to_edit_end
+    ignore(
+      self.apply_text_edit_internal(
+        edit.start,
+        edit.delete_len,
+        edit.inserted,
+        timestamp_ms,
+        true, // record_undo — grouped by capture timeout
+        false, // move_cursor_to_edit_end
+      ),
     )
   }
   // Drop a pre-pushed hint when the batch produced no text change (T4).

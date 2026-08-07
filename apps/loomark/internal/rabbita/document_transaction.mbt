@@ -186,7 +186,7 @@ fn commit_block_toolbar_request(
   originating_selection : BlockSelection?,
   control_id : String,
   emit : @cmd.Emit[DriverEvent],
-) -> (DriverModel, @cmd.Cmd) {
+) -> (DriverModel, Bool, @cmd.Cmd) {
   let (committed, committed_selection, _, persistence_command) = commit_block_request(
     editor, attachment, model, request, "editor-dispatch", emit,
   )
@@ -209,6 +209,7 @@ fn commit_block_toolbar_request(
     Some(selection) =>
       (
         next,
+        applied,
         @cmd.batch([
           persistence_command,
           block_selection_after_render(
@@ -222,12 +223,13 @@ fn commit_block_toolbar_request(
       )
     None =>
       if applied {
-        (next, persistence_command)
+        (next, applied, persistence_command)
       } else {
         match originating_selection {
           Some(selection) =>
             (
               next,
+              applied,
               @cmd.batch([
                 persistence_command,
                 block_selection_after_render(
@@ -242,6 +244,7 @@ fn commit_block_toolbar_request(
           None =>
             (
               next,
+              applied,
               @cmd.batch([
                 persistence_command,
                 after_render(
