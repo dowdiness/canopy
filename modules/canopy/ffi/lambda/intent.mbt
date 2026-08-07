@@ -49,7 +49,7 @@ pub fn apply_tree_edit_json(
             timestamp_ms,
           ) {
           Ok(_) => "ok"
-          Err(err) => "error: " + err.message()
+          Err(err) => "error: " + map_edit_error(err).message()
         }
       } catch {
         err => "error: " + err.message()

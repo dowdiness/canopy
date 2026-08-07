@@ -2,15 +2,21 @@
 ///   - constructor (`new_markdown_editor`)
 ///   - structural-edit bridge (`apply_markdown_edit`)
 
+///| Construct a SyncEditor[@markdown.Block] using the standard 3-memo pipeline.
+
 ///|
-/// Construct a SyncEditor[@markdown.Block] using the standard 3-memo pipeline.
 /// Raises `TextError::EmptyReplicaId` when `agent_id` is empty.
 pub fn new_markdown_editor(
   agent_id : String,
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
 ) -> @editor.SyncEditor[@markdown.Block] raise @text.TextError {
-  new_markdown_editor_impl(agent_id, capture_timeout_ms~, parent_runtime?)
+  let (editor, _) = md_lang_plain.build(
+    agent_id,
+    capture_timeout_ms~,
+    parent_runtime?,
+  )
+  editor
 }
 
 ///|
@@ -22,57 +28,82 @@ pub fn new_markdown_editor_with_semantic_attachment(
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
 ) -> (@editor.SyncEditor[@markdown.Block], @markdown.MarkdownSemanticAttachment) raise @text.TextError {
-  let attachment : Ref[@markdown.MarkdownSemanticAttachment?] = Ref(None)
-  let editor = new_markdown_editor_impl(
+  let (editor, attachment) = make_md_lang(true).build(
     agent_id,
     capture_timeout_ms~,
     parent_runtime?,
-    semantic_attachment=attachment,
   )
-  (editor, attachment.val.unwrap())
+  (editor, attachment.unwrap())
 }
 
 ///|
-/// Shared construction implementation for the ordinary and semantic paths.
-fn new_markdown_editor_impl(
-  agent_id : String,
-  capture_timeout_ms? : Int = 500,
-  parent_runtime? : @incr.Runtime,
-  semantic_attachment? : Ref[@markdown.MarkdownSemanticAttachment?],
-) -> @editor.SyncEditor[@markdown.Block] raise @text.TextError {
-  let hints_ref : Ref[Array[@core.IdentityTransform]] = Ref([])
-  @editor.SyncEditor::new_generic(
-    agent_id,
-    (source_id, source, runtime) => {
+/// Ordinary Markdown language definition (no semantic attachment). Used for
+/// the plain constructor and the apply bridge; the semantic path builds a
+/// separate definition that also constructs the attachment in `project`.
+let md_lang_plain : @lang_runtime.Language[
+  @markdown.Block,
+  @md_edits.MarkdownEditOp,
+  @markdown.MarkdownSemanticAttachment?,
+] = make_md_lang(false)
+
+///|
+/// Markdown language definition. `with_attachment` controls whether `project`
+/// also constructs a `MarkdownSemanticAttachment` over the exact parser and
+/// returns it as the extras value `E`.
+fn make_md_lang(
+  with_attachment : Bool,
+) -> @lang_runtime.Language[
+  @markdown.Block,
+  @md_edits.MarkdownEditOp,
+  @markdown.MarkdownSemanticAttachment?,
+] {
+  @lang_runtime.Language::Language(
+    parse=(source_id, source, runtime) => {
       @loom.new_parser(source_id, source, @markdown.markdown_grammar, runtime?)
     },
-    parser => {
+    project=(parser, hints) => {
       let memos = @md_proj.build_markdown_projection_memos(
         parser,
-        identity_hints=hints_ref,
+        identity_hints=hints,
       )
-      match semantic_attachment {
-        Some(sink) =>
-          sink.val = Some(
-            @markdown.MarkdownSemanticAttachment::MarkdownSemanticAttachment(
-              parser,
-            ),
-          )
-        None => ()
+      let attachment = if with_attachment {
+        Some(
+          @markdown.MarkdownSemanticAttachment::MarkdownSemanticAttachment(
+            parser,
+          ),
+        )
+      } else {
+        None
       }
-      memos
+      (memos.0, memos.1, memos.2, attachment)
     },
-    capture_timeout_ms~,
-    parent_runtime?,
-    capabilities=@editor.LanguageCapabilities::default().with_to_view_node((
-      proj,
-      source_map,
-      annotations,
-      source_text,
-    ) => {
-      @md_proj.proj_to_view_node(proj, source_map, annotations~, source_text~)
-    }),
-    identity_hints=hints_ref,
+    edit=(op, ctx) => {
+      match
+        @md_edits.compute_markdown_edit(
+          op,
+          ctx.source_text,
+          ctx.proj_node,
+          ctx.source_map,
+        ) {
+        Some((edits, focus_hint)) =>
+          @lang_runtime.EditResult::Edits(
+            edits,
+            focus_hint,
+            markdown_identity_hint(op),
+          )
+        None => @lang_runtime.EditResult::NoEdit
+      }
+    },
+    capabilities=_e => {
+      @editor.LanguageCapabilities::default().with_to_view_node((
+        proj,
+        source_map,
+        annotations,
+        source_text,
+      ) => {
+        @md_proj.proj_to_view_node(proj, source_map, annotations~, source_text~)
+      })
+    },
   )
 }
 
@@ -153,25 +184,9 @@ pub fn apply_markdown_edit(
   op : @md_edits.MarkdownEditOp,
   timestamp_ms : Int,
 ) -> Result[Unit, String] {
-  let source = editor.get_text()
-  try {
-    guard editor.get_proj_node() is Some(proj) else {
-      raise @core.EditError::ProjectionUnavailable
-    }
-    let source_map = editor.get_source_map()
-    match @md_edits.compute_markdown_edit(op, source, proj, source_map) {
-      Some((edits, focus_hint)) => {
-        match markdown_identity_hint(op) {
-          Some(hint) =>
-            editor.apply_span_edits(edits, focus_hint, timestamp_ms, hint~)
-          None => editor.apply_span_edits(edits, focus_hint, timestamp_ms)
-        }
-        Ok(())
-      }
-      None => Ok(())
-    }
-  } catch {
-    e => Err(e.message())
+  match md_lang_plain.apply_edit(editor, op, timestamp_ms) {
+    Ok(_) => Ok(())
+    Err(e) => Err(e.message())
   }
 }
 

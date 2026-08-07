@@ -2,7 +2,7 @@
 
 ///|
 
-///| Replaces the `String`-based error model in `lang/runtime.LanguageSpec`
+///| Replaces the legacy runtime SPI's `String`-based error model.
 
 ///| and per-language edit paths. Raised from compute-edit handlers and
 

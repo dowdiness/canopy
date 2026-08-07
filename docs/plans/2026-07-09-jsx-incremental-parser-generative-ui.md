@@ -1,5 +1,10 @@
 # JSX Incremental Parser for Generative UI
 
+> **2026-08-07 API status:** the deferred Phase 3 reference to a Canopy
+> `LanguageSpec` predates the generic SPI migration. Any future JSX companion
+> must implement `lang/runtime.Language[T, Op, E]` and construct through
+> `Language::build` → `SyncEditor::new_with_builder`.
+
 ## Why
 
 Canopy + loom already provide an incremental, error-tolerant CST parser and a

@@ -2,33 +2,12 @@
 pub using @core {type SpanEdit}
 
 ///|
-/// Shared context for all edit handlers. Constructed by the editor bridge
-/// and passed through the middleware pipeline to per-file handler functions.
-pub(all) struct EditContext[T] {
-  source_text : String
-  source_map : SourceMap
-  registry : Map[NodeId, ProjNode[T]]
-  definition_index : DefinitionIndex
-}
+/// Re-export the framework-owned edit context so Lambda handlers and probes
+/// share the same bound-free `resolve` implementation as every language.
+pub using @lang_runtime {type EditContext}
 
 ///|
 pub type EditResult = (Array[SpanEdit], FocusHint)?
-
-///|
-/// Raises NodeNotInSourceMap if the source map lacks a range,
-/// or NodeNotInRegistry if the registry lacks the node.
-fn[T] EditContext::resolve(
-  self : EditContext[T],
-  node_id : NodeId,
-) -> (ProjNode[T], @loomcore.Range) raise EditError {
-  guard self.source_map.get_range(node_id) is Some(range) else {
-    raise NodeNotInSourceMap(action="Resolve", node_id~)
-  }
-  guard self.registry.get(node_id) is Some(node) else {
-    raise NodeNotInRegistry(action="Resolve", node_id~)
-  }
-  (node, range)
-}
 
 ///|
 /// Translate a TreeEditOp into text span edits.

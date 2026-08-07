@@ -134,16 +134,17 @@ pub fn[T : Eq] SyncEditor::apply_text_transform(
 ///|
 /// Move a node to a new position in the tree.
 ///
-/// Inside (exchange): swaps the expression content of source and target,
-/// preserving leading whitespace/separators.
+/// Thin application shell over the pure planner `@core.compute_move`: it
+/// resolves source/target ranges, taints pending identity hints, applies the
+/// planned span edits (undo-recorded, cursor per `FocusHint`), and maps
+/// planner `EditError`s to the user-facing `TreeEditError`.
 ///
-/// Before/After: replaces the source expression with its placeholder
-/// (keeping the syntax valid) and inserts the source text at the target.
+/// Text policies (placeholder, separator) are fixed to legacy behavior here;
+/// language-specific policies go through the public `@core.compute_move`
+/// (the SPI seam, see ADR 2026-08-07).
 ///
-/// CAUTION: Insert position must be adjusted when source precedes target
-/// in the document (deletion shifts subsequent offsets backward by
-/// `source_len - placeholder_len`). apply_span_edits handles this via
-/// reverse-order application.
+/// The shell taints pending transforms only after resolution succeeds;
+/// unknown-id failures leave pending hints untouched.
 pub fn[T : Eq + @loom_core.Renderable] SyncEditor::move_node(
   self : SyncEditor[T],
   source_id : @core.NodeId,
@@ -151,14 +152,6 @@ pub fn[T : Eq + @loom_core.Renderable] SyncEditor::move_node(
   position : @core.DropPosition,
   timestamp_ms : Int,
 ) -> Result[Array[@core.SpanEdit], TreeEditError] {
-  // A drag-drop restructures the tree non-locally. Invalidate any pending
-  // structural hints so reconcile degrades to LCS for this reparse.
-  // (Move identity preservation deferred to Slice 5+ match_entities.)
-  self.taint_pending_transforms()
-  // Legality: self-drop
-  guard source_id != target_id else {
-    return Err(TreeEditError::ProjectionEdit(detail="Cannot drop onto self"))
-  }
   // Resolve source
   let src_range = match self.get_node_range(source_id) {
     None =>
@@ -191,75 +184,31 @@ pub fn[T : Eq + @loom_core.Renderable] SyncEditor::move_node(
       )
     Some(r) => r
   }
-  // Legality: descendant-drop (target inside source)
-  guard !(tgt_range.start >= src_range.start && tgt_range.end <= src_range.end) else {
-    return Err(
-      TreeEditError::ProjectionEdit(detail="Cannot drop into own descendant"),
-    )
+  // A drag-drop restructures the tree non-locally. Invalidate any pending
+  // structural hints so reconcile degrades to LCS for this reparse.
+  // (Move identity preservation deferred to Slice 5+ match_entities.)
+  self.taint_pending_transforms()
+  let (edits, focus_hint) = @core.compute_move(
+    self.get_text(),
+    source_id,
+    src_range,
+    target_id,
+    tgt_range,
+    position,
+    @loom_core.Renderable::placeholder(src_node.kind),
+    " ",
+  ) catch {
+    e => return Err(map_move_error(e))
   }
-  let doc_text = self.get_text()
-  // Strip leading whitespace from a span to find the expression-only start.
-  // Source map ranges include leading separators; we keep those in place.
-  fn skip_ws(text : String, start : Int, end : Int) -> Int {
-    let mut i = start
-    while i < end {
-      match text[i] {
-        ' ' | '\t' | '\n' | '\r' => i = i + 1
-        _ => break
-      }
-    }
-    i
-  }
-  let edits : Array[@core.SpanEdit] = match position {
-    // Inside = exchange: swap the expression content, preserving leading whitespace
-    Inside => {
-      // Also reject source-inside-target for exchange
-      guard !(src_range.start >= tgt_range.start &&
-        src_range.end <= tgt_range.end) else {
-        return Err(
-          TreeEditError::ProjectionEdit(
-            detail="Cannot drop into own descendant",
-          ),
-        )
-      }
-      let src_expr_start = skip_ws(doc_text, src_range.start, src_range.end)
-      let tgt_expr_start = skip_ws(doc_text, tgt_range.start, tgt_range.end)
-      let src_expr = doc_text[src_expr_start:src_range.end].to_owned()
-      let tgt_expr = doc_text[tgt_expr_start:tgt_range.end].to_owned()
-      [
-        {
-          start: src_expr_start,
-          delete_len: src_range.end - src_expr_start,
-          inserted: tgt_expr,
-        },
-        {
-          start: tgt_expr_start,
-          delete_len: tgt_range.end - tgt_expr_start,
-          inserted: src_expr,
-        },
-      ]
-    }
-    // Before/After = move: replace source with placeholder, insert at target
-    Before | After => {
-      // Extract expression text from source map (whitespace-aware, like Exchange)
-      let src_expr_start = skip_ws(doc_text, src_range.start, src_range.end)
-      let src_expr = doc_text[src_expr_start:src_range.end].to_owned()
-      // Replace source expression with placeholder (keeps leading whitespace)
-      let placeholder = @loom_core.Renderable::placeholder(src_node.kind)
-      let tgt_insert = match position {
-        Before => tgt_range.start
-        _ => tgt_range.end
-      }
-      [
-        {
-          start: src_expr_start,
-          delete_len: src_range.end - src_expr_start,
-          inserted: placeholder,
-        },
-        { start: tgt_insert, delete_len: 0, inserted: src_expr + " " },
-      ]
-    }
-  }
-  self.apply_span_edits(edits, @core.FocusHint::RestoreCursor, timestamp_ms)
+  self.apply_span_edits(edits, focus_hint, timestamp_ms)
   Ok(edits)
+}
+
+///|
+/// Map the pure planner's `EditError` raises to the user-facing error type.
+/// `compute_move` raises only `InvalidTarget`; the message carries the
+/// legality detail ("Cannot drop onto self" / "Cannot drop into own
+/// descendant").
+fn map_move_error(e : @core.EditError) -> TreeEditError {
+  TreeEditError::ProjectionEdit(detail=e.message())
 }

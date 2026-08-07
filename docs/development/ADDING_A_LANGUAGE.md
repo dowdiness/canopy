@@ -47,7 +47,7 @@ modules/canopy/lang/<name>/
     compute_<name>_edit.mbt     # op → SpanEdit dispatcher
   companion/
     moon.pkg                    # imports: editor, lang/<name>/{edits,proj}, lang/runtime, incr, <your-lang>, loom
-    <name>_companion.mbt        # LanguageSpec + apply bridge + SyncEditor factory
+    <name>_companion.mbt        # Language + apply bridge + SyncEditor factory
 ```
 
 ---
@@ -84,8 +84,8 @@ pub(all) enum Block {
 ```
 
 `derive(Eq)` is required, not optional: `SyncEditor`'s text-edit methods and
-`LanguageSpec::apply_edit` are `fn[T : Eq]`, so an AST without `Eq` fails
-`moon check` the moment Phase 2 routes edits through the spec. (Both
+`Language::apply_edit` are `fn[T : Eq]`, so an AST without `Eq` fails
+`moon check` the moment Phase 2 routes edits through the language. (Both
 reference ASTs derive it: `deps/loom/examples/{json,markdown}/src/ast.mbt`.)
 
 **Trait impls:** Implement `TreeNode` and `Renderable` (from `dowdiness/loom/core`)
@@ -232,9 +232,9 @@ The implementation parallel-walks the syntax tree and projection tree, calling
 ```moonbit
 test "parse and project basic document" {
   let (root, errors) = parse_to_proj_node!("some source text")
-  inspect!(errors, content="[]")
-  inspect!(root.kind.kind_tag(), content="Document")
-  inspect!(root.children.length(), content="1")
+  inspect(errors, content="[]")
+  inspect(root.kind.kind_tag(), content="Document")
+  inspect(root.children.length(), content="1")
 }
 ```
 
@@ -247,9 +247,11 @@ Run: `moon test -p dowdiness/canopy/lang/<name>/proj`
 This wires the reactive pipeline: when the syntax tree changes, the
 projection rebuilds incrementally. The 3-memo machinery (proj reconcile,
 registry, source map) lives in `@core.build_projection_memos` — do NOT
-hand-roll it. The language supplies only its two callbacks from Steps 2-3,
-and the resulting function is exactly what `LanguageSpec`'s `build_memos`
-field expects: `(@loom.Parser[T]) -> (proj, registry, source_map)` memos.
+hand-roll it. The language supplies only its two callbacks from Steps 2-3.
+The `Language::project` closure delegates to this builder and returns these
+three memos plus its extras value `E`. When the language supports identity
+hints, it forwards the framework-owned consumer handle to the core hinted memo
+builder; the language adapter never drains the handle directly.
 
 ```moonbit
 pub fn build_my_projection_memos(
@@ -268,6 +270,13 @@ pub fn build_my_projection_memos(
   )
 }
 ```
+
+A hint-aware projection builder also accepts
+`identity_hints? : @core.IdentityHintConsumer` and delegates to
+`@core.build_projection_memos_with_identity_hints`. Its reconcile callback
+receives an owned `Array[IdentityTransform]` for that pass. Only the core helper
+drains the opaque handle; see the Lambda and Markdown projection builders for
+complete examples.
 
 **Why reconciliation matters:** Without it, every keystroke would generate
 entirely new NodeIds. The UI would lose selection, collapsed state, and
@@ -297,11 +306,12 @@ pub(all) enum MyEditOp {
 } derive(Debug, Eq)
 ```
 
-If your `on_no_edit` reports unhandled ops in its error message (the JSON
-choice), also add a manual `impl Show for MyEditOp` so `op.to_string()`
-exists — `derive(Show)` is deprecated (warning [0027]); see
-`modules/canopy/lang/json/edits/json_edit_op.mbt` for the pattern. A silent-no-op language
-(the Markdown choice) needs no `Show` at all.
+If the `Language.edit` adapter reports an unhandled operation through
+`EditError::UnsupportedOperation` (the JSON choice), add a manual `impl Show
+for MyEditOp` so `op.to_string()` exists — `derive(Show)` is deprecated
+(warning [0027]); see
+`modules/canopy/lang/json/edits/json_edit_op.mbt` for the pattern. An adapter
+that deliberately returns `EditResult::NoEdit` needs no `Show` at all.
 
 Design tips:
 - Every language needs at least `CommitEdit` (replace a node's text content)
@@ -323,7 +333,7 @@ pub fn compute_my_edit(
   source : String,
   proj : ProjNode[@mylang.MyAst],
   source_map : SourceMap,
-) -> Result[(Array[SpanEdit], FocusHint)?, String] {
+) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
   match op {
     CommitEdit(node_id~, new_text~) =>
       compute_commit_edit(source_map, node_id, new_text)
@@ -336,46 +346,67 @@ pub fn compute_my_edit(
 Key rules:
 - Use `source_map.get_token_span(node_id, role)` to find the byte range for a
   role, then construct a `SpanEdit` targeting that range
-- Return `Ok(None)` for no-ops (e.g., merge on first block)
-- Return `Err(msg)` for invalid operations
+- Return `None` for an operation that computes no edit
+- Raise a structured `EditError` variant for invalid operations
 - `FocusHint::RestoreCursor` keeps cursor where it was; `FocusHint::MoveCursor(position~)`
   moves it to a specific byte offset
 
 #### 5c: Wire the bridge
 
 The span-edit application machinery (reverse-document-order splicing, undo
-recording, cursor reconciliation per `FocusHint`) lives in
-`modules/canopy/lang/runtime` — do NOT hand-roll it. Declare a `LanguageSpec`
-and delegate (see
+recording, cursor reconciliation per `FocusHint`, identity-hint threading)
+lives in `modules/canopy/lang/runtime` — do NOT hand-roll it. Declare a
+`Language[T, Op, E]` and delegate (see
 `modules/canopy/lang/json/companion/json_companion.mbt` and
-`modules/canopy/lang/markdown/companion/markdown_companion.mbt`).
+`modules/canopy/lang/markdown/companion/markdown_companion.mbt`). `E` is the
+language-owned extras value (companion memos, semantic attachments; `Unit`
+when there are none). See
+`docs/decisions/2026-08-07-generic-language-spi-deepening.md`.
 
 **File:** `modules/canopy/lang/<name>/companion/<name>_companion.mbt`
 
 ```moonbit
-let my_spec : @lang_runtime.LanguageSpec[@mylang.MyAst, @my_edits.MyEditOp] = @lang_runtime.LanguageSpec::LanguageSpec(
-  make_parser=fn(s, rt) { @loom.new_parser(s, @mylang.my_grammar, runtime?=rt) },
-  build_memos=@my_proj.build_my_projection_memos,
-  compute_edit=@my_edits.compute_my_edit,
-  // What should this language do when compute_my_edit returns Ok(None)?
-  // JSON reports an error; Markdown silently no-ops. Decide explicitly.
-  on_no_edit=fn(op) { Err("unhandled edit op: " + op.to_string()) },
-)
+let my_lang : @lang_runtime.Language[@mylang.MyAst, @my_edits.MyEditOp, Unit] =
+  @lang_runtime.Language::Language(
+    parse=(source_id, source, runtime) => {
+      @loom.new_parser(source_id, source, @mylang.my_grammar, runtime?)
+    },
+    project=(parser, _hints) => {
+      let memos = @my_proj.build_my_projection_memos(parser)
+      (memos.0, memos.1, memos.2, ())
+    },
+    edit=(op, ctx) => {
+      match @my_edits.compute_my_edit(op, ctx.source_text, ctx.proj_node, ctx.source_map) {
+        Some((edits, focus_hint)) =>
+          @lang_runtime.EditResult::Edits(edits, focus_hint, None)
+        // What should this language do when compute_my_edit returns None?
+        // JSON reports an error; Markdown silently no-ops. Decide explicitly.
+        None =>
+          raise @core.EditError::UnsupportedOperation(
+            detail="unhandled edit op: " + op.to_string(),
+          )
+      }
+    },
+    capabilities=_e => @editor.LanguageCapabilities::default(),
+  )
 
 pub fn apply_my_edit(
   editor : @editor.SyncEditor[@mylang.MyAst],
   op : @my_edits.MyEditOp,
   timestamp_ms : Int,
-) -> Result[Unit, String] {
-  my_spec.apply_edit(editor, op, timestamp_ms)
+) -> Result[Array[@core.SpanEdit], @core.EditError] {
+  my_lang.apply_edit(editor, op, timestamp_ms)
 }
 ```
+
+Keep this MoonBit companion boundary structured. Convert `EditError` to a
+legacy string or transport payload only in the language's FFI adapter.
 
 **Validate:** `moon check`
 
 ### Step 6: SyncEditor factory and package wiring
 
-**File:** same companion file — the factory delegates through the spec:
+**File:** same companion file — the factory delegates through the language:
 
 ```moonbit
 pub fn new_my_editor(
@@ -383,20 +414,19 @@ pub fn new_my_editor(
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
 ) -> @editor.SyncEditor[@mylang.MyAst] {
-  my_spec.new_editor(agent_id, capture_timeout_ms~, parent_runtime?)
+  let (editor, _) = my_lang.build(agent_id, capture_timeout_ms~, parent_runtime?)
+  editor
 }
 ```
 
-> **The lambda exception.** `modules/canopy/lang/lambda/companion` does NOT go through
-> `LanguageSpec` for edit application. After `ModuleProjection` removal,
-> Lambda's `registry` and `DefinitionIndex` are derived from the generic
-> `ProjNode` root, so context alone is not the reason to widen the SPI. The
-> remaining mismatch is the application contract: `apply_lambda_tree_edit`
-> returns a typed `Result[Array[SpanEdit], TreeEditError]` patch trace, and
-> `Drop` delegates to `editor.move_node`. Lambda's eval/scope/semantic extras
-> ride the optional per-instance `LanguageCapabilities` fields instead. Do not
-> copy lambda's shape for a new language; see the post-cleanup decision record
-> in `docs/decisions/2026-06-15-lambda-edit-bridge-boundary.md`.
+> **The lambda exception is gone (ADR 2026-08-07).** `lang/lambda/companion`
+> previously kept its own bridge because the SPI could not express typed
+> errors, patch traces, or editor-owned moves. The deepened SPI absorbs all
+> of these: `Language::apply_edit` returns the applied `SpanEdit` trace and
+> structured `EditError`, and moves are edit-port computation (`compute_move`
+> / `compute_move_block`). Lambda uses `Language`; it remains a legacy stress
+> case, not a template. Do not fork a separate bridge for a
+> new language.
 
 **Package registration:**
 
@@ -443,7 +473,7 @@ import {
 Not optional. Write these alongside the code, not after.
 
 **Projection test** (`modules/canopy/lang/<name>/proj/proj_node_wbtest.mbt`):
-- Parse source text → project → verify tree shape via `inspect!`
+- Parse source text → project → verify tree shape via `inspect`
 - Test edge cases: empty input, parse errors, deeply nested structures
 - Verify token spans exist for key roles
 
@@ -452,7 +482,7 @@ Not optional. Write these alongside the code, not after.
 - Test each edit operation variant
 - Verify FocusHint positions
 
-**Snapshot tests:** Use `inspect!` liberally — snapshot tests catch unexpected
+**Snapshot tests:** Use `inspect` liberally — snapshot tests catch unexpected
 regressions without brittle assertions. Run `moon test --update` to generate
 initial snapshots, then review them.
 

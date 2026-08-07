@@ -43,6 +43,32 @@ test "apply_tree_edit - Select preserves text" {
 }
 
 ///|
+test "apply_tree_edit - missing Drop source reports structured Resolve action" {
+  let (editor, companion) = setup_bridge("42")
+  let target = get_root_id(editor)
+  let missing = @core.NodeId::from_int(999)
+  match
+    apply_lambda_tree_edit(
+      editor,
+      companion,
+      @lambda_edits.TreeEditOp::Drop(
+        source=missing,
+        target~,
+        position=@core.DropPosition::Before,
+      ),
+      1,
+    ) {
+    Err(@core.EditError::NodeNotInSourceMap(action~, node_id~)) => {
+      inspect(action, content="Resolve")
+      inspect(node_id == missing, content="true")
+    }
+    Err(e) => fail("expected NodeNotInSourceMap, got: " + e.message())
+    Ok(_) => fail("expected missing Drop source to fail")
+  }
+  inspect(editor.get_text(), content="42")
+}
+
+///|
 test "apply_tree_edit - Collapse preserves text" {
   let (editor, companion) = setup_bridge("42")
   let id = get_root_id(editor)

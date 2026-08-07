@@ -163,7 +163,7 @@ pub fn parse_to_proj_node(
 
 ///|
 /// Memo builder for JSON projection pipeline.
-/// Returns the 3-memo projection stack for SyncEditor::new_generic.
+/// Returns the 3-memo projection stack consumed by the JSON `Language`.
 pub fn build_json_projection_memos(
   parser : @loom.Parser[@json.JsonValue],
 ) -> (

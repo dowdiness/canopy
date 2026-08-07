@@ -1,5 +1,10 @@
 # Causal Graph History View — Phase 1
 
+> **2026-08-07 API status:** references below to construction-time
+> `SyncEditor::new_generic` describe the original plan baseline. Construction
+> identity is now assigned by `SyncEditor::new_with_builder`; the public
+> `SyncEditor::identity` contract is unchanged.
+
 ## Why
 
 Canopy's CRDT (event-graph-walker) carries rich causal structure: every operation

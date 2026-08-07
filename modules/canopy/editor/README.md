@@ -2,12 +2,12 @@
 
 Language-agnostic CRDT editor engine that combines text storage, undo/redo, reactive parsing, ephemeral presence, WebSocket sync, and view-update diffing into a single `SyncEditor[T]` host.
 
-`SyncEditor[T]` is parameterized on the language's AST type `T`. Each language's `companion` subpackage (`lang/lambda/companion`, `lang/json/companion`, `lang/markdown/companion`) constructs one via `SyncEditor::new_generic`, passing a parser factory and memo builder. The FFI packages then wrap the result and export concrete functions to JavaScript.
+`SyncEditor[T]` is parameterized on the language's AST type `T`. Each language's `companion` subpackage (`lang/lambda/companion`, `lang/json/companion`, `lang/markdown/companion`) defines a `lang/runtime.Language[T, Op, E]` and constructs the editor through `Language::build`. The runtime delegates to `SyncEditor::new_with_builder`, which owns parser, projection, capability, and identity-hint-channel construction order. The FFI packages then wrap the result and export concrete functions to JavaScript.
 
 ## Public API
 
 - `SyncEditor[T]` — core struct holding `TextState`, `UndoManager`, reactive `Parser[T]`, ephemeral hub, and WebSocket state
-- `SyncEditor::new_generic` — generic constructor; language packages call this, not FFI
+- `SyncEditor::new_with_builder` — coherent low-level constructor used by `lang/runtime.Language::build`; projection builders receive only an opaque consume-only identity-hint handle
 - `compute_view_patches` / `compute_pretty_patches` — incremental diff of `ProjNode` tree into `ViewPatch` operations for the frontend
 - `EphemeralHub` — multi-peer cursor and presence state (encode/apply/broadcast)
 - `SyncMessage` / `encode_message` / `decode_message` — binary protocol framing for CRDT ops, sync requests, and room control

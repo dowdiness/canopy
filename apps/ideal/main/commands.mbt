@@ -190,7 +190,7 @@ fn can_hydrate_tree_node(model : Model, node_id : @canopy_core.NodeId) -> Bool {
 fn commit_tree_edit(
   model : Model,
   tree_op : @lambda_edits.TreeEditOp,
-) -> Result[(Cmd, Model), @editor.TreeEditError] {
+) -> Result[(Cmd, Model), @canopy_core.EditError] {
   match
     @lambda.apply_lambda_tree_edit(
       model.editor,

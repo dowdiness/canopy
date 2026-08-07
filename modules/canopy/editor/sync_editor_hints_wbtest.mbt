@@ -158,7 +158,27 @@ test "multiple structural hints accumulate in order" {
 }
 
 ///|
-test "move_node taints pending_transforms (Finding 3: Move is not identity-preserving)" {
+test "invalidate_pending_identity_hints taints only a non-empty queue" {
+  let editor = try! @probe.new_test_editor("test")
+  editor.invalidate_pending_identity_hints()
+  inspect(editor.pending_transforms.val.is_empty(), content="true")
+  editor.pending_transforms.val.push(
+    @core.IdentityTransform::Wrap(inner=@core.NodeId::from_int(40)),
+  )
+  editor.invalidate_pending_identity_hints()
+  inspect(editor.pending_transforms.val.length(), content="2")
+  inspect(
+    editor.pending_transforms.val[0] is @core.IdentityTransform::Wrap(inner=_),
+    content="true",
+  )
+  inspect(
+    editor.pending_transforms.val[1] is @core.IdentityTransform::Opaque,
+    content="true",
+  )
+}
+
+///|
+test "move_node taints only on resolved ids (Finding 3: Move is not identity-preserving)" {
   let editor = try! @probe.new_test_editor("test")
   editor.set_text("f(x) y")
   let _ = editor.get_proj_node() // force first parse
@@ -167,14 +187,15 @@ test "move_node taints pending_transforms (Finding 3: Move is not identity-prese
   editor.pending_transforms.val.push(
     @core.IdentityTransform::Wrap(inner=fake_id),
   )
-  // move_node on unknown ids returns Err, but taint_pending_transforms runs first
+  // Unknown ids fail resolution BEFORE taint_pending_transforms: the pending
+  // Wrap survives. (ADR 2026-08-07: resolution failures leave hints
+  // untouched; legality failures on resolved ids still taint.)
   let bad_src = @core.NodeId::from_int(99998)
   let bad_tgt = @core.NodeId::from_int(99999)
   let _ = editor.move_node(bad_src, bad_tgt, @core.DropPosition::Before, 0)
-  // Opaque taint was pushed regardless of move_node result
-  inspect(editor.pending_transforms.val.length(), content="2")
+  inspect(editor.pending_transforms.val.length(), content="1")
   inspect(
-    editor.pending_transforms.val[1] is @core.IdentityTransform::Opaque,
+    editor.pending_transforms.val[0] is @core.IdentityTransform::Wrap(inner=_),
     content="true",
   )
 }

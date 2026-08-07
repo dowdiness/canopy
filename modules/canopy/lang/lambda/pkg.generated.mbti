@@ -13,7 +13,7 @@ import {
 }
 
 // Values
-pub fn apply_lambda_tree_edit(@editor.SyncEditor[@ast.Term], @companion.LambdaCompanion, @edits.TreeEditOp, Int) -> Result[Array[@core.SpanEdit], @editor.TreeEditError]
+pub fn apply_lambda_tree_edit(@editor.SyncEditor[@ast.Term], @companion.LambdaCompanion, @edits.TreeEditOp, Int) -> Result[Array[@core.SpanEdit], @core.EditError]
 
 pub fn detect_action_context(@editor.SyncEditor[@ast.Term], @core.NodeId) -> @edits.ActionContext?
 

@@ -4,6 +4,7 @@ package "dowdiness/canopy/lang/lambda/edits"
 import {
   "dowdiness/canopy/core",
   "dowdiness/canopy/lang/lambda/proj",
+  "dowdiness/canopy/lang/runtime",
   "dowdiness/lambda/ast",
   "moonbitlang/core/debug",
 }
@@ -13,7 +14,7 @@ pub fn build_action_context(node_id~ : @core.NodeId, kind~ : @ast.Term, definiti
 
 pub fn build_tree_edit_op(String, ActionContext, String, String) -> Result[TreeEditOp?, String]
 
-pub fn compute_text_edit(TreeEditOp, EditContext[@ast.Term]) -> (Array[@core.SpanEdit], @core.FocusHint)? raise @core.EditError
+pub fn compute_text_edit(TreeEditOp, @runtime.EditContext[@ast.Term]) -> (Array[@core.SpanEdit], @core.FocusHint)? raise @core.EditError
 
 pub fn get_actions_for_node(@ast.Term, NodeContext) -> Array[Action]
 
@@ -49,13 +50,6 @@ pub(all) enum ActionGroup {
   Binding
   Module
 } derive(Eq, @debug.Debug)
-
-pub(all) struct EditContext[T] {
-  source_text : String
-  source_map : @core.SourceMap
-  registry : Map[@core.NodeId, @core.ProjNode[T]]
-  definition_index : @proj.DefinitionIndex
-}
 
 pub(all) struct NodeContext {
   is_let_binding : Bool
@@ -102,6 +96,8 @@ pub impl Show for TreeEditOp
 
 // Type aliases
 pub using @core {type DropPosition}
+
+pub using @runtime {type EditContext}
 
 pub type EditResult = (Array[@core.SpanEdit], @core.FocusHint)?
 

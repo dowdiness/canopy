@@ -6,6 +6,11 @@
 **Status:** Design approved; awaiting plan (§11). Revision pass complete after three Codex consults.
 **Codex review:** Two SHIP IT (skeleton design + VersionedFlatProj migration) + one REVISE→addressed (spec-level review, summarized in §10).
 
+> **2026-08-07 API status:** this approved design records the pre-migration
+> constructor surface. `LanguageSpec` and `SyncEditor::new_generic` were later
+> replaced by `Language::build` → `SyncEditor::new_with_builder`; the current
+> path preserves `parent_runtime?` threading.
+
 ## 0. Background
 
 This is the second brainstorm at the §P0b API surface. The first (2026-05-24, same day) ran five Codex review rounds with seventeen substantive findings without converging. Root cause was jumping to coordinator-API design without grounding in the actual call flow.

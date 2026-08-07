@@ -7,6 +7,10 @@
 
 ## Revisions
 
+- **2026-08-07 (API status):** references to Canopy's `LanguageSpec` and
+  `SyncEditor::new_generic` describe the 2026-05-22 baseline. The current
+  construction path is `lang/runtime.Language::build` →
+  `SyncEditor::new_with_builder`, including `parent_runtime?` threading.
 - **2026-05-22 (initial):** §§1–8 + appendices written from four parallel subagent inventories that ran without `loom/` submodule checked out in the worktree.
 - **2026-05-22 (post-incr-verification):** §1.5, §3.3, §3.7, §3.8, §6.3, Appendix B #3/#4/#16, Appendix C #2 rewritten after direct read of `loom/incr/cells/pkg.generated.mbti` and `loom/incr/cells/datalog_relation.mbt`. The substrate is `@incr.MemoMap` + Datalog `Relation`/rules + `Runtime::fixpoint`, not alga overlay. alga retreats to batch-only snapshot algorithms.
 - **2026-05-22 (post-Codex-review):** §3.2, §3.3, §3.4, §3.5, §5.2, §5.3, §6.5, §7.3, Appendix B (3 new P0 experiments), Appendix C (#1 promoted, #9 added) rewritten after independent design review. Two hypotheses were refuted: (a) `UserIntent::StructuralEdit.params: Map[String, String]` does **not** fit existing structural ops (`Drop` needs numeric NodeIds, `InsertChild` carries an AST `Term`); the AI patch surface requires a per-language typed schema or widening `params` to `Map[String, Json]`. (b) `TreePropertyOp` lives in `event-graph-walker/container/document.mbt`, not in the `event-graph-walker/text/` layer that `SyncEditor` uses today; the proposed persistence path needs a different design. Plus: `EditorId = agent_id` is unsafe (replica-id reuse causes silent CRDT collisions per `container/document.mbt:348–352`) — `NodeIdQ` must qualify by a stable `DocumentId` separate from replica id.

@@ -4,6 +4,11 @@ Status: DESIGN (prose-only; no implementation pasted). Branch
 `editor-neutral-test-grammar-599` in worktree `canopy-s4-spike`, based on
 `origin/main` (which carries the #599 import-graph lint, squash `ababb1f`).
 
+> **2026-08-07 API status:** references below to
+> `SyncEditor::new_generic` describe the implementation-time constructor.
+> The shipped probe now uses `SyncEditor::new_with_builder` with default
+> capabilities and `Unit` extras.
+
 ## Goal
 
 Make `editor/` stop importing any language in test/wbtest scope so the four

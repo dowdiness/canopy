@@ -9,7 +9,7 @@
 /// map that `@core.reconcile_hinted` consumes.
 ///
 /// Returns an empty map if any hint is `Opaque` (T2: degrade to LCS).
-/// The caller is responsible for clearing the hint array after this call (T4).
+/// The core projection-memo shell supplies one owned batch per reconcile (T4).
 fn build_hints_map(
   hints : Array[@core.IdentityTransform],
 ) -> Map[@core.NodeId, @core.IdentityTransform] {
@@ -103,41 +103,39 @@ fn reconcile_lambda_projection_hinted(
 /// Build the 3-memo pipeline (proj, registry, source_map) for the Lambda
 /// editor-facing projection.
 ///
-/// `identity_hints` is the shared `Ref` for the structural-edit hint channel,
-/// typically created by `new_lambda_editor` and passed here and into
-/// `SyncEditor::new_generic` as `identity_hints`. When provided, each reconcile
-/// pass consumes+clears the pending hints (T4). When omitted, behaves identically
-/// to passing no hints (falls back to `reconcile_lambda_projection`).
+/// `identity_hints` is the consume-only handle for the framework-owned
+/// structural-edit hint queue. The Lambda `Language::project` closure passes it
+/// here; the core projection-memo shell drains pending hints exactly once per
+/// reconcile (T4). When omitted by isolated callers, an empty hint batch
+/// degrades to ordinary Lambda reconciliation.
 pub fn build_lambda_projection_memos(
   parser : @loom.Parser[@ast.Term],
-  identity_hints? : Ref[Array[@core.IdentityTransform]],
+  identity_hints? : @core.IdentityHintConsumer,
   trace_ref? : Ref[Array[@core.ReconcileTraceEvent]]? = None,
 ) -> (
   @incr.Derived[@core.ProjNode[@ast.Term]?],
   @incr.Derived[Map[@core.NodeId, @core.ProjNode[@ast.Term]]],
   @incr.Derived[@core.SourceMap],
 ) {
-  @core.build_projection_memos(
+  @core.build_projection_memos_with_identity_hints(
     parser.runtime(),
     parser.syntax_tree(),
     to_proj_node,
     populate_token_spans,
-    reconcile_node=fn(old, new_, counter, tr) {
-      match identity_hints {
-        None => reconcile_lambda_projection(old, new_, counter, trace_ref=tr)
-        Some(hints_ref) => {
-          let hints = build_hints_map(hints_ref.val)
-          hints_ref.val = [] // T4: cleared exactly once per reparse
-          reconcile_lambda_projection_hinted(
-            old,
-            new_,
-            counter,
-            hints,
-            trace_ref=tr,
-          )
-        }
+    (old, new_, counter, pending_hints, tr) => {
+      if pending_hints.is_empty() {
+        reconcile_lambda_projection(old, new_, counter, trace_ref=tr)
+      } else {
+        reconcile_lambda_projection_hinted(
+          old,
+          new_,
+          counter,
+          build_hints_map(pending_hints),
+          trace_ref=tr,
+        )
       }
     },
+    identity_hints?,
     trace_ref~,
     label="lambda",
   )
