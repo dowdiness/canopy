@@ -81,6 +81,78 @@ pub fn[T] SyncEditor::new_generic(
     label="sync_editor_document_version",
   )
   let (cached_proj_node, registry_memo, source_map_memo) = build_memos(parser)
+  finish_editor(
+    agent_id, doc, capture_timeout_ms, parser, document_version, cached_proj_node,
+    registry_memo, source_map_memo, capabilities, pending_transforms, identity,
+  )
+}
+
+///|
+/// Builder-based constructor. The framework owns construction order —
+/// parser → memos + language extras → capabilities → editor — and returns
+/// the language-owned extras `E` alongside the editor, so companions no
+/// longer publish memos through caller-threaded `Ref` side-channels.
+///
+/// `build_parts` receives the parser and the identity-hint channel (the
+/// same shared `Ref` the editor uses as `pending_transforms`; see
+/// `new_generic` for the caller-threading contract) and returns the 3
+/// projection memos, the capabilities built from the freshly constructed
+/// extras, and the extras value `E` itself.
+pub fn[T, E] SyncEditor::new_with_builder(
+  agent_id : String,
+  make_parser : (@loom_core.SourceId, String, @incr.Runtime?) -> @loom.Parser[T],
+  build_parts : (@loom.Parser[T], Ref[Array[@core.IdentityTransform]]) -> (
+    @incr.Derived[@core.ProjNode[T]?],
+    @incr.Derived[Map[@core.NodeId, @core.ProjNode[T]]],
+    @incr.Derived[@core.SourceMap],
+    LanguageCapabilities[T],
+    E,
+  ),
+  capture_timeout_ms? : Int = 500,
+  parent_runtime? : @incr.Runtime,
+  identity_hints? : Ref[Array[@core.IdentityTransform]],
+) -> (SyncEditor[T], E) raise @text.TextError {
+  let doc = @text.TextState::new(agent_id)
+  let pending_transforms = match identity_hints {
+    Some(r) => r
+    None => Ref([])
+  }
+  let identity = next_editor_identity()
+  let source_id = @loom_core.SourceId(
+    "canopy-sync-editor:" + identity.to_string(),
+  )
+  let parser = make_parser(source_id, "", parent_runtime)
+  let document_version = @incr.Input(
+    parser.runtime(),
+    doc.version(),
+    label="sync_editor_document_version",
+  )
+  let (cached_proj_node, registry_memo, source_map_memo, capabilities, extras) = build_parts(
+    parser, pending_transforms,
+  )
+  let editor = finish_editor(
+    agent_id, doc, capture_timeout_ms, parser, document_version, cached_proj_node,
+    registry_memo, source_map_memo, capabilities, pending_transforms, identity,
+  )
+  (editor, extras)
+}
+
+///|
+/// Shared construction tail for `new_generic` / `new_with_builder`: anchor
+/// the projection memos, wire presence, and assemble the editor struct.
+fn[T] finish_editor(
+  agent_id : String,
+  doc : @text.TextState,
+  capture_timeout_ms : Int,
+  parser : @loom.Parser[T],
+  document_version : @incr.Input[@text.Version],
+  cached_proj_node : @incr.Derived[@core.ProjNode[T]?],
+  registry_memo : @incr.Derived[Map[@core.NodeId, @core.ProjNode[T]]],
+  source_map_memo : @incr.Derived[@core.SourceMap],
+  capabilities : LanguageCapabilities[T],
+  pending_transforms : Ref[Array[@core.IdentityTransform]],
+  identity : Int,
+) -> SyncEditor[T] {
   let projection_anchor = cached_proj_node.watch()
   let registry_anchor = registry_memo.watch()
   let source_map_anchor = source_map_memo.watch()
