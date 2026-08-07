@@ -28,14 +28,14 @@ echo "==> Submodules initialized"
 echo "==> Running moon update (root)..."
 "$REPO_ROOT/scripts/moon-update.sh"
 echo "==> Running moon update (graphviz)..."
-(cd graphviz && "$REPO_ROOT/scripts/moon-update.sh")
+(cd deps/graphviz && "$REPO_ROOT/scripts/moon-update.sh")
 
 # Pre-build MoonBit modules explicitly
 echo "==> Building crdt module..."
 moon build --target js --release
 
 echo "==> Building graphviz module..."
-(cd graphviz && moon build --target js --release)
+(cd deps/graphviz && moon build --target js --release)
 
 cd apps/web
 npm run build:waku

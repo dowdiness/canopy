@@ -324,6 +324,8 @@ test('gives Cloudflare Workers Builds an explicit Waku production target', () =>
   assert.match(deployScript, /\$\{1:-waku\}/);
   assert.match(deployScript, /MOONBIT_VERSION="0\.10\.4\+ade96c819"/);
   assert.match(deployScript, /bash -s -- "\$MOONBIT_VERSION"/);
+  assert.match(deployScript, /cd deps\/graphviz/);
+  assert.doesNotMatch(deployScript, /cd graphviz/);
   assert.match(deployScript, /npm run build:waku/);
   assert.doesNotMatch(deployScript, /vite build/);
 
