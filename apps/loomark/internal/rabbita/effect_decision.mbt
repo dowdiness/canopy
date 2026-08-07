@@ -5,7 +5,8 @@
 ///
 /// `repair_eligible` guards the raw/block input repair: a repair scheduled
 /// for a specific mode, input generation, and source revision only writes
-/// when the rendered model still matches all three. A missing model (no
+/// when the rendered model still matches all three. Preview repairs also
+/// require the split Raw surface to remain rendered. A missing model (no
 /// render yet) is never eligible.
 fn repair_eligible(
   current : DriverModel?,
@@ -14,10 +15,38 @@ fn repair_eligible(
   expected_revision : Int,
 ) -> Bool {
   match current {
-    Some(current) =>
+    Some(current) => {
+      let control_rendered = match expected_mode {
+        @core.Raw => true
+        @core.Preview => current.split_preview_open
+        @core.Block => true
+      }
       current.state.mode() == expected_mode &&
       current.text_input_generation == expected_generation &&
-      current.source_revision == expected_revision
+      current.source_revision == expected_revision &&
+      control_rendered
+    }
+    None => false
+  }
+}
+
+///|
+/// A Raw repair is valid while the Raw control is still rendered. In split
+/// Preview the application mode is Preview, but the Raw textarea remains in
+/// the DOM; Block mode never provides a valid Raw repair target.
+fn raw_input_repair_eligible(
+  current : DriverModel?,
+  expected_generation : Int,
+  expected_revision : Int,
+) -> Bool {
+  match current {
+    Some(current) =>
+      current.text_input_generation == expected_generation &&
+      current.source_revision == expected_revision &&
+      (
+        current.state.mode() == @core.Raw ||
+        (current.state.mode() == @core.Preview && current.split_preview_open)
+      )
     None => false
   }
 }

@@ -1,6 +1,17 @@
 // Whitebox tests for position-based edit API (insert_at / delete_at).
 
 ///|
+test "set_text_with_change returns the applied splice" {
+  let editor = try! @probe.new_test_editor("test-agent")
+  editor.set_text("hello")
+  let change = editor.set_text_with_change("hello!")
+  inspect(change.start, content="5")
+  inspect(change.delete_len, content="0")
+  inspect(change.inserted, content="!")
+  inspect(editor.get_text(), content="hello!")
+}
+
+///|
 test "insert_at inserts at specified position without moving cursor" {
   let editor = try! @probe.new_test_editor("test-agent")
   editor.set_text("hello")

@@ -4,7 +4,7 @@
 /// from the mode gate (driver source replacement works in any mode).
 priv enum EditingEvent {
   ReplaceSource(String)
-  RawInput(String, @dom_boundary.TextSelection?)
+  RawInput(String, @dom_boundary.TextSelection?, Int?)
   BlockFocused(String)
   BlockHeading(Int, BlockSelection?)
   BlockToggleList(BlockSelection?)

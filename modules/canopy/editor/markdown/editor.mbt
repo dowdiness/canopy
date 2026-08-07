@@ -751,10 +751,9 @@ fn MarkdownEditor::commit_recording_transforms(
       if before == source {
         Ok((MarkdownCommitResult::Unchanged(self.snapshot()), @vector.new()))
       } else {
-        // set_text uses this same shared splice contract. Computing it here is
-        // the only path without caller- or lowering-supplied edit information.
-        let change = @text_change.compute_text_change(before, source)
-        self.editor.set_text(source)
+        // The synchronization edit returns the same splice used internally,
+        // so the receipt does not compute the text diff a second time.
+        let change = self.editor.set_text_with_change(source)
         self.editor.refresh()
         Ok(
           (

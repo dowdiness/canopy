@@ -317,8 +317,9 @@ fn preview_document_view(model : DriverModel) -> @rabbita_runtime.Html {
 fn raw_editor_view(
   model : DriverModel,
   emit : @cmd.Emit[DriverEvent],
+  raw_input_coordinator : RawInputCoordinator,
 ) -> @rabbita_runtime.Html {
-  let source = model.document.source()
+  let source = raw_input_coordinator.display_source(model.document.source())
   @rui.textarea(
     id="loomark-input",
     value=source,
@@ -327,7 +328,9 @@ fn raw_editor_view(
     style=[
       "min-height:clamp(24rem,70vh,36rem);width:min(calc(100% - 4rem),46rem);margin-inline:auto;field-sizing:fixed;resize:none;--rui-control-base-border:transparent;--rui-control-base-shadow:none;border-left:1px solid var(--rui-border);border-right:1px solid var(--rui-border);border-top:0;border-bottom:0;border-radius:0;background:transparent;padding:1rem;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,\"Liberation Mono\",\"Courier New\",monospace;font-size:0.875rem;line-height:1.65",
     ],
-    on_input=@cmd.Emit(source => raw_input_command(source, emit)),
+    on_input=@cmd.Emit(source => {
+      raw_input_command(source, raw_input_coordinator, emit)
+    }),
   )
 }
 
@@ -335,9 +338,10 @@ fn raw_editor_view(
 fn editor_view(
   model : DriverModel,
   emit : @cmd.Emit[DriverEvent],
+  raw_input_coordinator : RawInputCoordinator,
 ) -> @rabbita_runtime.Html {
   match model.state.mode() {
-    @core.Raw => raw_editor_view(model, emit)
+    @core.Raw => raw_editor_view(model, emit, raw_input_coordinator)
     @core.Preview => preview_document_view(model)
     @core.Block => block_editor_view(model, emit)
   }
@@ -579,7 +583,7 @@ fn driver_event_name(event : DriverEvent) -> String {
     Editing(edit_event) =>
       match edit_event {
         ReplaceSource(_) => "source"
-        RawInput(_, _) => "raw-input"
+        RawInput(_, _, _) => "raw-input"
         BlockFocused(_) => "block-focused"
         BlockHeading(_, _) => "block-heading"
         BlockToggleList(_) => "block-toggle-list"
@@ -663,7 +667,7 @@ fn parse_driver_event(detail : String) -> DriverEvent {
   } else if detail.has_prefix("source|") {
     Editing(ReplaceSource(detail["source|".length():].to_owned()))
   } else if detail.has_prefix("raw-input|") {
-    Editing(RawInput(detail["raw-input|".length():].to_owned(), None))
+    Editing(RawInput(detail["raw-input|".length():].to_owned(), None, None))
   } else if detail == "editor-failure" {
     Lifecycle(EditorFailure)
   } else if detail.has_prefix("restore-focus|") {
@@ -763,7 +767,8 @@ fn editing_mode_applicable(
 ) -> String? {
   match event {
     ReplaceSource(_) | ProbeBlockSelection(_) => None
-    RawInput(_, _) =>
+    RawInput(_, _, Some(_)) => None
+    RawInput(_, _, None) =>
       if mode == @core.Raw || (mode == @core.Preview && split_preview_open) {
         None
       } else {
@@ -791,11 +796,19 @@ fn editing_mode_applicable(
 fn update_editing(
   editor : @markdown.MarkdownEditor,
   attachment : @md_markdown.MarkdownSemanticAttachment,
+  raw_input_coordinator : RawInputCoordinator,
   model : DriverModel,
   latest_model : @ref.Ref[DriverModel?],
   event : EditingEvent,
   emit : @cmd.Emit[DriverEvent],
 ) -> (DriverModel, @cmd.Cmd) {
+  let raw_token_active = match event {
+    RawInput(_, _, Some(token)) => raw_input_coordinator.is_active(token)
+    _ => true
+  }
+  if event is RawInput(_, _, Some(_)) && !raw_token_active {
+    return (model, @rabbita_runtime.none)
+  }
   match
     editing_mode_applicable(event, model.state.mode(), model.split_preview_open) {
     Some(message) => {
@@ -806,12 +819,22 @@ fn update_editing(
     }
     None =>
       match event {
-        ReplaceSource(source) | RawInput(source, _) => {
+        ReplaceSource(source) | RawInput(source, _, _) => {
+          if event is ReplaceSource(_) {
+            raw_input_coordinator.cancel_pending()
+          }
           let raw_selection = match event {
-            RawInput(_, selection) => selection
+            RawInput(_, selection, _) => selection
             _ => None
           }
-          let raw_event = event is RawInput(_, _)
+          let raw_event = event is RawInput(_, _, _)
+          let raw_token = match event {
+            RawInput(_, _, token) => token
+            _ => None
+          }
+          let raw_input_epoch = raw_input_coordinator.epoch()
+          let mut raw_completion_seen = false
+          let mut raw_completion_command = @rabbita_runtime.none
           let transition = @core.reduce(
             model.state,
             @core.ApplicationEvent::RequestCanonicalSource(source~),
@@ -845,6 +868,28 @@ fn update_editing(
                 persistence_command = @cmd.batch([
                   persistence_command, commit_command,
                 ])
+                match (raw_token, raw_completion_seen) {
+                  (Some(token), false) => {
+                    raw_completion_seen = true
+                    let repair_generation = next.text_input_generation
+                    let repair_revision = next.source_revision
+                    raw_completion_command = raw_input_coordinator.complete(
+                      token,
+                      source,
+                      raw_selection,
+                      accepted,
+                      () => {
+                        raw_input_repair_eligible(
+                          latest_model.val,
+                          repair_generation,
+                          repair_revision,
+                        )
+                      },
+                      emit,
+                    )
+                  }
+                  _ => ()
+                }
                 restore_raw_value = restore_raw_value ||
                   (raw_event && !accepted)
               }
@@ -854,6 +899,15 @@ fn update_editing(
                 )
             }
           }
+          if !raw_completion_seen {
+            match raw_token {
+              Some(token) => raw_input_coordinator.cancel(token)
+              None => ()
+            }
+          }
+          persistence_command = @cmd.batch([
+            persistence_command, raw_completion_command,
+          ])
           let command = if restore_raw_value {
             let repair_generation = next.text_input_generation
             let repair_source_revision = next.source_revision
@@ -861,9 +915,9 @@ fn update_editing(
               scheduler => {
                 ignore(scheduler)
                 let accepted_source = next.document.source()
-                if repair_eligible(
+                if raw_input_coordinator.epoch() == raw_input_epoch &&
+                  raw_input_repair_eligible(
                     latest_model.val,
-                    @core.Raw,
                     repair_generation,
                     repair_source_revision,
                   ) {
@@ -968,7 +1022,7 @@ fn update_editing(
                 @markdown.Heading(level~) if level == requested_level => 0
                 _ => requested_level
               }
-              commit_block_toolbar_request(
+              let (next, applied, command) = commit_block_toolbar_request(
                 editor,
                 attachment,
                 model,
@@ -981,6 +1035,10 @@ fn update_editing(
                 "loomark-heading-" + requested_level.to_string(),
                 emit,
               )
+              if applied {
+                raw_input_coordinator.cancel_pending()
+              }
+              (next, command)
             }
           }
         BlockToggleList(originating_selection) =>
@@ -1006,7 +1064,7 @@ fn update_editing(
                   .unwrap_or(@rabbita_runtime.none)
                 return (model, command)
               }
-              commit_block_toolbar_request(
+              let (next, applied, command) = commit_block_toolbar_request(
                 editor,
                 attachment,
                 model,
@@ -1018,6 +1076,10 @@ fn update_editing(
                 "loomark-toggle-list",
                 emit,
               )
+              if applied {
+                raw_input_coordinator.cancel_pending()
+              }
+              (next, command)
             }
           }
         BlockDelete =>
@@ -1028,8 +1090,8 @@ fn update_editing(
               )
               (next, @rabbita_runtime.none)
             }
-            Some(block) =>
-              commit_block_toolbar_request(
+            Some(block) => {
+              let (next, applied, command) = commit_block_toolbar_request(
                 editor,
                 attachment,
                 model,
@@ -1039,6 +1101,11 @@ fn update_editing(
                 "loomark-delete-block",
                 emit,
               )
+              if applied {
+                raw_input_coordinator.cancel_pending()
+              }
+              (next, command)
+            }
           }
         BlockInput(node_id~, input_id~, text=proposed_text, selection_offset~) => {
           let (next, committed_selection, accepted, persistence_command) = commit_block_request(
@@ -1052,6 +1119,9 @@ fn update_editing(
             "editor-dispatch",
             emit,
           )
+          if accepted && next.source_revision != model.source_revision {
+            raw_input_coordinator.cancel_pending()
+          }
           let selection = match committed_selection {
             Some(selection) =>
               block_selection_from_commit(
@@ -1148,7 +1218,7 @@ fn update_editing(
           }
         }
         BlockSplit(node_id~, offset~) => {
-          let (next, committed_selection, _, persistence_command) = commit_block_request(
+          let (next, committed_selection, accepted, persistence_command) = commit_block_request(
             editor,
             attachment,
             model,
@@ -1156,6 +1226,9 @@ fn update_editing(
             "editor-dispatch",
             emit,
           )
+          if accepted && next.source_revision != model.source_revision {
+            raw_input_coordinator.cancel_pending()
+          }
           let selection = match committed_selection {
             Some(selection) =>
               block_selection_from_commit(next.document, selection)
@@ -1191,7 +1264,7 @@ fn update_editing(
           }
         }
         BlockMerge(node_id~, selection=originating_selection) => {
-          let (next, committed_selection, _, persistence_command) = commit_block_request(
+          let (next, committed_selection, accepted, persistence_command) = commit_block_request(
             editor,
             attachment,
             model,
@@ -1199,6 +1272,9 @@ fn update_editing(
             "editor-dispatch",
             emit,
           )
+          if accepted && next.source_revision != model.source_revision {
+            raw_input_coordinator.cancel_pending()
+          }
           let resolved_selection = match committed_selection {
             Some(selection) =>
               block_selection_from_commit(next.document, selection)
@@ -1299,6 +1375,9 @@ fn update_editing(
               accepted~,
               changed~,
             )
+            if accepted && changed {
+              raw_input_coordinator.cancel_pending()
+            }
             let expected_revision = if kind == "stale" {
               previous_revision
             } else {
@@ -1564,6 +1643,7 @@ fn update_probe(
 fn update_lifecycle(
   editor : @markdown.MarkdownEditor,
   attachment : @md_markdown.MarkdownSemanticAttachment,
+  raw_input_coordinator : RawInputCoordinator,
   model : DriverModel,
   event : LifecycleEvent,
   emit : @cmd.Emit[DriverEvent],
@@ -1621,6 +1701,7 @@ fn update_lifecycle(
         }
       }
       if accepted {
+        raw_input_coordinator.cancel_pending()
         next = { ..next, state: transition.state() }
       }
       next = update_preview_document(
@@ -1692,6 +1773,7 @@ fn update_lifecycle(
 fn update_model(
   editor : @markdown.MarkdownEditor,
   attachment : @md_markdown.MarkdownSemanticAttachment,
+  raw_input_coordinator : RawInputCoordinator,
   model : DriverModel,
   latest_model : @ref.Ref[DriverModel?],
   event : DriverEvent,
@@ -1700,6 +1782,11 @@ fn update_model(
   let (next, command) = match event {
     Archive(completion) => update_archive_tracker(model, completion)
     _ if model.fatal => {
+      match event {
+        Editing(RawInput(_, _, Some(token))) =>
+          raw_input_coordinator.cancel(token)
+        _ => ()
+      }
       let next = {
         ..model,
         rejection: Some(
@@ -1709,12 +1796,17 @@ fn update_model(
       (next, @rabbita_runtime.none)
     }
     Editing(edit_event) =>
-      update_editing(editor, attachment, model, latest_model, edit_event, emit)
+      update_editing(
+        editor, attachment, raw_input_coordinator, model, latest_model, edit_event,
+        emit,
+      )
     Navigation(nav_event) =>
       update_navigation(attachment, model, latest_model, nav_event, emit)
     Probe(probe_event) => update_probe(model, probe_event, emit)
     Lifecycle(life_event) =>
-      update_lifecycle(editor, attachment, model, life_event, emit)
+      update_lifecycle(
+        editor, attachment, raw_input_coordinator, model, life_event, emit,
+      )
   }
   publish(next)
   (next, command)
@@ -1904,8 +1996,11 @@ fn build_application(
   view : (DriverModel, @cmd.Emit[DriverEvent], @rabbita_runtime.Html) -> @rabbita_runtime.Html,
 ) -> @rabbita_runtime.App {
   let latest_model : @ref.Ref[DriverModel?] = { val: None }
+  let raw_input_coordinator = RawInputCoordinator::RawInputCoordinator()
   let update = (model, event, emit) => {
-    update_model(editor, attachment, model, latest_model, event, emit)
+    update_model(
+      editor, attachment, raw_input_coordinator, model, latest_model, event, emit,
+    )
   }
   @rabbita_runtime.new(() => {
     let (model, emit) = @rabbita_runtime.create_state_with_init(
@@ -1922,7 +2017,7 @@ fn build_application(
       update~,
       subscriptions~,
     )
-    let active_view = application_view(model, emit)
+    let active_view = application_view(model, emit, raw_input_coordinator)
     model.view2(active_view, (model, active_view) => {
       latest_model.val = Some(model)
       view(model, emit, active_view)

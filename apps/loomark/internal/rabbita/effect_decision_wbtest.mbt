@@ -39,6 +39,66 @@ test "repair_eligible requires mode, generation, and revision to match" {
   assert_false(repair_eligible(Some(model), @core.Raw, 4, 7))
   assert_false(repair_eligible(Some(model), @core.Raw, 3, 8))
   assert_true(repair_eligible(Some(model), @core.Raw, 3, 7))
+  let preview = {
+    ..model,
+    state: @core.ApplicationState::ApplicationState(@core.Preview),
+    split_preview_open: true,
+  }
+  assert_true(repair_eligible(Some(preview), @core.Preview, 3, 7))
+  assert_false(
+    repair_eligible(
+      Some({ ..preview, split_preview_open: false }),
+      @core.Preview,
+      3,
+      7,
+    ),
+  )
+}
+
+///|
+test "raw repair requires a rendered Raw control" {
+  let editor = try! @markdown.MarkdownEditor(
+    agent_id="agent-a",
+    source="# Title",
+  )
+  let model = {
+    ..test_model(editor.snapshot()),
+    text_input_generation: 3,
+    source_revision: 7,
+  }
+  assert_true(raw_input_repair_eligible(Some(model), 3, 7))
+  assert_true(
+    raw_input_repair_eligible(
+      Some({
+        ..model,
+        state: @core.ApplicationState::ApplicationState(@core.Preview),
+        split_preview_open: true,
+      }),
+      3,
+      7,
+    ),
+  )
+  assert_false(
+    raw_input_repair_eligible(
+      Some({
+        ..model,
+        state: @core.ApplicationState::ApplicationState(@core.Preview),
+        split_preview_open: false,
+      }),
+      3,
+      7,
+    ),
+  )
+  assert_false(
+    raw_input_repair_eligible(
+      Some({
+        ..model,
+        state: @core.ApplicationState::ApplicationState(@core.Block),
+      }),
+      3,
+      7,
+    ),
+  )
 }
 
 ///|
