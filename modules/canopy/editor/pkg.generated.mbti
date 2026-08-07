@@ -17,7 +17,6 @@ import {
   "dowdiness/pretty",
   "dowdiness/seam",
   "moonbitlang/core/debug",
-  "moonbitlang/core/ref",
 }
 
 // Values
@@ -187,8 +186,7 @@ pub fn[T] SyncEditor::move_cursor_left_word(Self[T]) -> Unit
 pub fn[T] SyncEditor::move_cursor_right_grapheme(Self[T]) -> Unit
 pub fn[T] SyncEditor::move_cursor_right_word(Self[T]) -> Unit
 pub fn[T : Eq + @dowdiness/loom/core.Renderable] SyncEditor::move_node(Self[T], @dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.DropPosition, Int) -> Result[Array[@dowdiness/canopy/core.SpanEdit], TreeEditError]
-pub fn[T] SyncEditor::new_generic(String, (@diagnostic.SourceId, String, @cells.Runtime?) -> @pipeline.Parser[T], (@pipeline.Parser[T]) -> (@cells.Derived[@dowdiness/canopy/core.ProjNode[T]?], @cells.Derived[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[T]]], @cells.Derived[@dowdiness/canopy/core.SourceMap]), capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime, capabilities? : LanguageCapabilities[T], identity_hints? : @ref.Ref[Array[@dowdiness/canopy/core.IdentityTransform]]) -> Self[T] raise @text.TextError
-pub fn[T, E] SyncEditor::new_with_builder(String, (@diagnostic.SourceId, String, @cells.Runtime?) -> @pipeline.Parser[T], (@pipeline.Parser[T], @ref.Ref[Array[@dowdiness/canopy/core.IdentityTransform]]) -> (@cells.Derived[@dowdiness/canopy/core.ProjNode[T]?], @cells.Derived[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[T]]], @cells.Derived[@dowdiness/canopy/core.SourceMap], LanguageCapabilities[T], E), capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime) -> (Self[T], E) raise @text.TextError
+pub fn[T, E] SyncEditor::new_with_builder(String, (@diagnostic.SourceId, String, @cells.Runtime?) -> @pipeline.Parser[T], (@pipeline.Parser[T], @dowdiness/canopy/core.IdentityHintConsumer) -> (@cells.Derived[@dowdiness/canopy/core.ProjNode[T]?], @cells.Derived[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[T]]], @cells.Derived[@dowdiness/canopy/core.SourceMap], LanguageCapabilities[T], E), capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime) -> (Self[T], E) raise @text.TextError
 pub fn[T] SyncEditor::node_at_position(Self[T], Int) -> @dowdiness/canopy/core.NodeId?
 pub fn[T] SyncEditor::on_watchdog_fire(Self[T], Int) -> Unit
 pub fn[T] SyncEditor::parser_ast(Self[T]) -> @cells.Derived[T]

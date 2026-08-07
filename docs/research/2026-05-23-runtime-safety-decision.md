@@ -50,8 +50,10 @@ accept `parent_runtime?` and thread it into the parser via
 `lang/markdown/companion/markdown_companion.mbt:10-17`, and
 `lang/json/companion/json_companion.mbt:8-18`.
 
-`SyncEditor::new_generic` also accepts `parent_runtime?`, so shared-runtime
-FFI constructors can pass a single coordinator runtime through:
+As of the 2026-08-07 language-SPI migration, the removed
+`SyncEditor::new_generic` path is represented by `Language::build` →
+`SyncEditor::new_with_builder`; both preserve `parent_runtime?`, so
+shared-runtime FFI constructors can pass a single coordinator runtime through:
 `ffi/lambda/lifecycle.mbt:35-42`,
 `ffi/markdown/markdown_ffi.mbt:34-38`, and
 `ffi/json/json_ffi.mbt:35-39`.

@@ -323,6 +323,23 @@ fn build_test_projection_memos(
   )
 }
 
+///|
+/// Adapt the neutral projection pipeline to `SyncEditor::new_with_builder`.
+/// The probe language emits no identity hints and owns no companion extras.
+fn build_test_editor_parts(
+  parser : @loom.Parser[TestExpr],
+  _identity_hints : @core.IdentityHintConsumer,
+) -> (
+  @incr.Derived[@core.ProjNode[TestExpr]?],
+  @incr.Derived[Map[@core.NodeId, @core.ProjNode[TestExpr]]],
+  @incr.Derived[@core.SourceMap],
+  @editor.LanguageCapabilities[TestExpr],
+  Unit,
+) {
+  let memos = build_test_projection_memos(parser)
+  (memos.0, memos.1, memos.2, @editor.LanguageCapabilities::default(), ())
+}
+
 // === Editor factory ===
 
 ///|
@@ -334,15 +351,16 @@ pub fn new_test_editor(
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
 ) -> @editor.SyncEditor[TestExpr] raise @text.TextError {
-  @editor.SyncEditor::new_generic(
+  let (editor, _) = @editor.SyncEditor::new_with_builder(
     agent_id,
     (source_id, source, runtime) => {
       @loom.new_parser(source_id, source, test_grammar, runtime?)
     },
-    build_test_projection_memos,
+    build_test_editor_parts,
     capture_timeout_ms~,
     parent_runtime?,
   )
+  editor
 }
 
 ///|
@@ -352,7 +370,7 @@ pub fn new_test_editor(
 pub fn new_empty_diagnostic_test_editor(
   agent_id : String,
 ) -> @editor.SyncEditor[TestExpr] raise @text.TextError {
-  @editor.SyncEditor::new_generic(
+  let (editor, _) = @editor.SyncEditor::new_with_builder(
     agent_id,
     (source_id, source, runtime) => {
       @loom.new_parser(
@@ -362,8 +380,9 @@ pub fn new_empty_diagnostic_test_editor(
         runtime?,
       )
     },
-    build_test_projection_memos,
+    build_test_editor_parts,
   )
+  editor
 }
 
 ///|

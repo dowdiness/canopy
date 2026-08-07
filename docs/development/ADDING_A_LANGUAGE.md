@@ -248,9 +248,10 @@ This wires the reactive pipeline: when the syntax tree changes, the
 projection rebuilds incrementally. The 3-memo machinery (proj reconcile,
 registry, source map) lives in `@core.build_projection_memos` — do NOT
 hand-roll it. The language supplies only its two callbacks from Steps 2-3.
-The `Language::project` closure delegates to this builder, forwards the
-framework-owned identity-hint channel when the language supports hints, and
-returns these three memos plus its extras value `E`.
+The `Language::project` closure delegates to this builder and returns these
+three memos plus its extras value `E`. When the language supports identity
+hints, it forwards the framework-owned consumer handle to the core hinted memo
+builder; the language adapter never drains the handle directly.
 
 ```moonbit
 pub fn build_my_projection_memos(
@@ -269,6 +270,13 @@ pub fn build_my_projection_memos(
   )
 }
 ```
+
+A hint-aware projection builder also accepts
+`identity_hints? : @core.IdentityHintConsumer` and delegates to
+`@core.build_projection_memos_with_identity_hints`. Its reconcile callback
+receives an owned `Array[IdentityTransform]` for that pass. Only the core helper
+drains the opaque handle; see the Lambda and Markdown projection builders for
+complete examples.
 
 **Why reconciliation matters:** Without it, every keystroke would generate
 entirely new NodeIds. The UI would lose selection, collapsed state, and
@@ -298,11 +306,12 @@ pub(all) enum MyEditOp {
 } derive(Debug, Eq)
 ```
 
-If your `on_no_edit` reports unhandled ops in its error message (the JSON
-choice), also add a manual `impl Show for MyEditOp` so `op.to_string()`
-exists — `derive(Show)` is deprecated (warning [0027]); see
-`modules/canopy/lang/json/edits/json_edit_op.mbt` for the pattern. A silent-no-op language
-(the Markdown choice) needs no `Show` at all.
+If the `Language.edit` adapter reports an unhandled operation through
+`EditError::UnsupportedOperation` (the JSON choice), add a manual `impl Show
+for MyEditOp` so `op.to_string()` exists — `derive(Show)` is deprecated
+(warning [0027]); see
+`modules/canopy/lang/json/edits/json_edit_op.mbt` for the pattern. An adapter
+that deliberately returns `EditResult::NoEdit` needs no `Show` at all.
 
 Design tips:
 - Every language needs at least `CommitEdit` (replace a node's text content)
@@ -324,7 +333,7 @@ pub fn compute_my_edit(
   source : String,
   proj : ProjNode[@mylang.MyAst],
   source_map : SourceMap,
-) -> Result[(Array[SpanEdit], FocusHint)?, String] {
+) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
   match op {
     CommitEdit(node_id~, new_text~) =>
       compute_commit_edit(source_map, node_id, new_text)
@@ -337,8 +346,8 @@ pub fn compute_my_edit(
 Key rules:
 - Use `source_map.get_token_span(node_id, role)` to find the byte range for a
   role, then construct a `SpanEdit` targeting that range
-- Return `Ok(None)` for no-ops (e.g., merge on first block)
-- Return `Err(msg)` for invalid operations
+- Return `None` for an operation that computes no edit
+- Raise a structured `EditError` variant for invalid operations
 - `FocusHint::RestoreCursor` keeps cursor where it was; `FocusHint::MoveCursor(position~)`
   moves it to a specific byte offset
 
@@ -385,13 +394,13 @@ pub fn apply_my_edit(
   editor : @editor.SyncEditor[@mylang.MyAst],
   op : @my_edits.MyEditOp,
   timestamp_ms : Int,
-) -> Result[Unit, String] {
-  match my_lang.apply_edit(editor, op, timestamp_ms) {
-    Ok(_) => Ok(())
-    Err(e) => Err(e.message())
-  }
+) -> Result[Array[@core.SpanEdit], @core.EditError] {
+  my_lang.apply_edit(editor, op, timestamp_ms)
 }
 ```
+
+Keep this MoonBit companion boundary structured. Convert `EditError` to a
+legacy string or transport payload only in the language's FFI adapter.
 
 **Validate:** `moon check`
 

@@ -12,7 +12,8 @@ differ between languages (ADR
 - `parse` — grammar-specific parser construction
 - `project` — the 3-memo projection pipeline (ProjNode, registry, SourceMap)
   plus the language-owned extras value `E` (companion memos, semantic
-  attachments; `Unit` for languages without extras)
+  attachments; `Unit` for languages without extras); receives only an opaque
+  consume-only handle for the framework-owned identity-hint queue
 - `edit` — structural op + `EditContext[T]` → `EditResult`
   (`Edits(edits, focus, hint?)` | `NoEdit`), raising structured
   `core.EditError`
@@ -33,10 +34,10 @@ unbounded. Per-instance capabilities (e.g. lambda's eval/semantic closures
 capturing instance memos) are built by the `capabilities` closure from `E`,
 not stored in the record.
 
-Legacy: `LanguageSpec[T, Op]` (the pre-2026-08-07 SPI with string errors and
-no extras) remains until all languages migrate; JSON and Markdown already use
-`Language`. Do not build new languages on `LanguageSpec`. The superseded
-2026-06-15 "Lambda edit bridge boundary" decision is recorded in
+The pre-2026-08-07 `LanguageSpec[T, Op]` SPI and
+`SyncEditor::new_generic` constructor were removed after JSON, Markdown, and
+Lambda migrated. The superseded 2026-06-15 "Lambda edit bridge boundary"
+decision is recorded in
 `docs/decisions/2026-08-07-generic-language-spi-deepening.md`.
 
 Dispatch cost: benchmarked free (S3 gate,

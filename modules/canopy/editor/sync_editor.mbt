@@ -30,7 +30,7 @@ pub struct SyncEditor[T] {
   // Structural-edit identity hints accumulated since the last reconcile.
   // Structural edits push their IdentityTransform here; raw-text edits push
   // Opaque (taint) when non-empty. Consumed and cleared once per reparse by
-  // the reconcile_node closure in build_lambda_projection_memos.
+  // `core.build_projection_memos_with_identity_hints`.
   // T4: cleared exactly once per reconcile pass (never stale).
   // T1 invariant: hints reference only prev-tree NodeIds valid at push time.
   priv pending_transforms : Ref[Array[@core.IdentityTransform]]
@@ -42,68 +42,22 @@ pub struct SyncEditor[T] {
 }
 
 ///|
-/// Generic constructor for all languages.
-/// Raises `TextError::EmptyReplicaId` when `agent_id` is empty.
-/// `make_parser` builds a `@loom.Parser[T]` from the editor's stable source ID
-/// and initial source string.
-/// `build_memos` receives the parser handle and returns the 3 projection memos
-/// (ProjNode, registry, SourceMap) it wants SyncEditor to own.
-pub fn[T] SyncEditor::new_generic(
-  agent_id : String,
-  make_parser : (@loom_core.SourceId, String, @incr.Runtime?) -> @loom.Parser[T],
-  build_memos : (@loom.Parser[T]) -> (
-    @incr.Derived[@core.ProjNode[T]?],
-    @incr.Derived[Map[@core.NodeId, @core.ProjNode[T]]],
-    @incr.Derived[@core.SourceMap],
-  ),
-  capture_timeout_ms? : Int = 500,
-  parent_runtime? : @incr.Runtime,
-  capabilities? : LanguageCapabilities[T] = LanguageCapabilities::default(),
-  // Optional shared Ref for the structural-edit hint channel. The caller
-  // (e.g. new_lambda_editor) creates a `Ref([])`, passes it here AND into
-  // build_memos so the reconcile_node closure can consume+clear it. Callers
-  // that don't use hints omit this; they get an isolated Ref that is never read.
-  identity_hints? : Ref[Array[@core.IdentityTransform]],
-) -> SyncEditor[T] raise @text.TextError {
-  let doc = @text.TextState::new(agent_id)
-  let pending_transforms = match identity_hints {
-    Some(r) => r
-    None => Ref([])
-  }
-  let identity = next_editor_identity()
-  let source_id = @loom_core.SourceId(
-    "canopy-sync-editor:" + identity.to_string(),
-  )
-  let parser = make_parser(source_id, "", parent_runtime)
-  let document_version = @incr.Input(
-    parser.runtime(),
-    doc.version(),
-    label="sync_editor_document_version",
-  )
-  let (cached_proj_node, registry_memo, source_map_memo) = build_memos(parser)
-  finish_editor(
-    agent_id, doc, capture_timeout_ms, parser, document_version, cached_proj_node,
-    registry_memo, source_map_memo, capabilities, pending_transforms, identity,
-  )
-}
-
-///|
 /// Builder-based constructor. The framework owns construction order —
 /// parser → memos + language extras → capabilities → editor — and returns
 /// the language-owned extras `E` alongside the editor, so companions no
 /// longer publish memos through caller-threaded `Ref` side-channels.
 ///
-/// The identity-hint channel is framework-owned: the constructor creates it
-/// and passes it to `build_parts`, so it is always exactly the editor's
-/// `pending_transforms` (callers cannot inject a foreign queue).
+/// The identity-hint channel is framework-owned: the constructor creates the
+/// private queue and passes only an opaque consume-only handle to `build_parts`.
+/// Callers cannot inject, replace, or mutate the editor's queue.
 ///
-/// `build_parts` receives the parser and the identity-hint channel and
+/// `build_parts` receives the parser and the identity-hint consumer and
 /// returns the 3 projection memos, the capabilities built from the freshly
 /// constructed extras, and the extras value `E` itself.
 pub fn[T, E] SyncEditor::new_with_builder(
   agent_id : String,
   make_parser : (@loom_core.SourceId, String, @incr.Runtime?) -> @loom.Parser[T],
-  build_parts : (@loom.Parser[T], Ref[Array[@core.IdentityTransform]]) -> (
+  build_parts : (@loom.Parser[T], @core.IdentityHintConsumer) -> (
     @incr.Derived[@core.ProjNode[T]?],
     @incr.Derived[Map[@core.NodeId, @core.ProjNode[T]]],
     @incr.Derived[@core.SourceMap],
@@ -115,6 +69,11 @@ pub fn[T, E] SyncEditor::new_with_builder(
 ) -> (SyncEditor[T], E) raise @text.TextError {
   let doc = @text.TextState::new(agent_id)
   let pending_transforms : Ref[Array[@core.IdentityTransform]] = Ref([])
+  let identity_hint_consumer = @core.IdentityHintConsumer(fn() {
+    let pending = pending_transforms.val
+    pending_transforms.val = []
+    pending
+  })
   let identity = next_editor_identity()
   let source_id = @loom_core.SourceId(
     "canopy-sync-editor:" + identity.to_string(),
@@ -126,7 +85,7 @@ pub fn[T, E] SyncEditor::new_with_builder(
     label="sync_editor_document_version",
   )
   let (cached_proj_node, registry_memo, source_map_memo, capabilities, extras) = build_parts(
-    parser, pending_transforms,
+    parser, identity_hint_consumer,
   )
   let editor = finish_editor(
     agent_id, doc, capture_timeout_ms, parser, document_version, cached_proj_node,
@@ -136,8 +95,8 @@ pub fn[T, E] SyncEditor::new_with_builder(
 }
 
 ///|
-/// Shared construction tail for `new_generic` / `new_with_builder`: anchor
-/// the projection memos, wire presence, and assemble the editor struct.
+/// Shared construction tail for `new_with_builder`: anchor the projection
+/// memos, wire presence, and assemble the editor struct.
 fn[T] finish_editor(
   agent_id : String,
   doc : @text.TextState,
@@ -692,7 +651,7 @@ let editor_identity_counter : Ref[Int] = { val: 0 }
 
 ///|
 /// Allocate the next construction identity. Called once per
-/// `SyncEditor::new_generic`.
+/// `SyncEditor::new_with_builder`.
 fn next_editor_identity() -> Int {
   let id = editor_identity_counter.val
   editor_identity_counter.val = id + 1

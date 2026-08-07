@@ -68,15 +68,15 @@ pub(all) enum EditResult {
 /// extras value returned alongside the editor at construction (companion
 /// memos, semantic attachments — `Unit` for languages without extras).
 ///
-/// `project` receives the parser and the identity-hint channel (the shared
-/// `Ref` the editor uses as `pending_transforms`) and returns the 3 standard
+/// `project` receives the parser and an opaque consumer for the editor-owned
+/// identity-hint queue, then returns the 3 standard
 /// projection memos plus `E`. `edit` computes span edits from an
 /// `EditContext` the framework builds. `capabilities` builds the view
 /// pipeline closures from the freshly constructed `E` — this ordering (data
 /// before behavior) is what eliminates construction-time Ref side-channels.
 pub struct Language[T, Op, E] {
   priv parse : (@loom_core.SourceId, String, @incr.Runtime?) -> @loom.Parser[T]
-  priv project : (@loom.Parser[T], Ref[Array[@core.IdentityTransform]]) -> (
+  priv project : (@loom.Parser[T], @core.IdentityHintConsumer) -> (
     @incr.Derived[@core.ProjNode[T]?],
     @incr.Derived[Map[@core.NodeId, @core.ProjNode[T]]],
     @incr.Derived[@core.SourceMap],
@@ -89,7 +89,7 @@ pub struct Language[T, Op, E] {
 ///|
 pub fn[T, Op, E] Language::Language(
   parse~ : (@loom_core.SourceId, String, @incr.Runtime?) -> @loom.Parser[T],
-  project~ : (@loom.Parser[T], Ref[Array[@core.IdentityTransform]]) -> (
+  project~ : (@loom.Parser[T], @core.IdentityHintConsumer) -> (
     @incr.Derived[@core.ProjNode[T]?],
     @incr.Derived[Map[@core.NodeId, @core.ProjNode[T]]],
     @incr.Derived[@core.SourceMap],

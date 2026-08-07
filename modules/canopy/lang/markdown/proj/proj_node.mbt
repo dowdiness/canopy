@@ -138,7 +138,7 @@ pub fn proj_to_view_node(
 /// projection.
 pub fn build_markdown_projection_memos(
   parser : @loom.Parser[@markdown.Block],
-  identity_hints? : Ref[Array[@core.IdentityTransform]],
+  identity_hints? : @core.IdentityHintConsumer,
 ) -> (
   @incr.Derived[@core.ProjNode[@markdown.Block]?],
   @incr.Derived[Map[@core.NodeId, @core.ProjNode[@markdown.Block]]],
@@ -165,29 +165,23 @@ priv struct MarkdownProjectionMemoBundle {
 ///|
 fn build_markdown_projection_memos_with_heading_side_table(
   parser : @loom.Parser[@markdown.Block],
-  identity_hints? : Ref[Array[@core.IdentityTransform]],
+  identity_hints? : @core.IdentityHintConsumer,
 ) -> MarkdownProjectionMemoBundle {
-  let (proj_memo, registry_memo, source_map_memo) = @core.build_projection_memos(
+  let (proj_memo, registry_memo, source_map_memo) = @core.build_projection_memos_with_identity_hints(
     parser.runtime(),
     parser.syntax_tree(),
     syntax_to_proj_node,
     populate_token_spans,
-    reconcile_node=(old, new_, counter, trace_ref) => {
-      match identity_hints {
-        None => @core.reconcile(old, new_, counter, trace_ref~)
-        Some(hints_ref) => {
-          let hints = build_markdown_hints_map(hints_ref.val)
-          hints_ref.val = []
-          reconcile_markdown_projection_hinted(
-            old,
-            new_,
-            counter,
-            hints,
-            trace_ref~,
-          )
-        }
-      }
+    (old, new_, counter, pending_hints, trace_ref) => {
+      reconcile_markdown_projection_hinted(
+        old,
+        new_,
+        counter,
+        build_markdown_hints_map(pending_hints),
+        trace_ref~,
+      )
     },
+    identity_hints?,
     label="markdown",
   )
   let heading_side_table_memo = build_markdown_heading_side_table_memo(

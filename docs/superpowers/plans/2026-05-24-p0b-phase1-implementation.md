@@ -1,5 +1,10 @@
 # §P0b Phase 1 Workspace Coordinator — Implementation Plan
 
+> **2026-08-07 API status:** tasks below that modify
+> `SyncEditor::new_generic` describe the original implementation baseline.
+> `LanguageSpec` and `new_generic` were later replaced by `Language::build` →
+> `SyncEditor::new_with_builder`, which preserves `parent_runtime?` threading.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Land the §P0b Phase 1 workspace coordinator: a shared-`@incr.Runtime` Coordinator that mediates Lambda editor construction, protected-cell reads, and lifecycle through a typed checked-read API, replacing today's fresh-per-editor Runtime + duplicated FFI ctors.

@@ -23,7 +23,7 @@ test "new_with_builder returns the language-owned extras E" {
   )
   inspect(extras, content="extras-42")
   // The constructed editor is fully functional over the shared construction
-  // tail (same as new_generic).
+  // tail shared by every language constructor.
   editor.set_text("f(x) y")
   let _ = editor.get_proj_node()
   inspect(editor.get_text(), content="f(x) y")

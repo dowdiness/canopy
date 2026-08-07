@@ -9,7 +9,7 @@
 // - `new_lambda_editor(..., parent_runtime=shared)` (`lang/lambda/companion/lambda_editor.mbt:150-200`)
 // - `new_markdown_editor(..., parent_runtime=shared)` (`lang/markdown/companion/markdown_companion.mbt:7-17`)
 // - `new_json_editor(..., parent_runtime=shared)` (`lang/json/companion/json_companion.mbt:8-18`)
-// - `SyncEditor::new_generic(..., parent_runtime=...)` (`editor/sync_editor.mbt:41-53`)
+// - `SyncEditor::new_with_builder(..., parent_runtime=...)` (`editor/sync_editor.mbt`)
 //
 // The shared-runtime probe still keeps both positive and control paths:
 // the positive path uses explicit runtime threading; the control path drops it

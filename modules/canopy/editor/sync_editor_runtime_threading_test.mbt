@@ -1,4 +1,4 @@
-// Tests that parent_runtime? threads through SyncEditor::new_generic to the
+// Tests that parent_runtime? threads through SyncEditor::new_with_builder to the
 // underlying Parser, so editors can share a single @incr.Runtime.
 
 ///|
@@ -7,7 +7,7 @@
 // counter allocated in @incr/cells/internal/kernel/state.mbt via
 // @kernel.alloc_runtime_id(). Two cells from the same runtime share the same
 // runtime_id; cells from different runtimes have distinct runtime_id values.
-test "SyncEditor::new_generic threads parent_runtime through to Parser" {
+test "SyncEditor::new_with_builder threads parent_runtime through to Parser" {
   let shared = @incr.Runtime()
   let editor = try! @probe.new_test_editor("test", parent_runtime=shared)
   let parser_rt = editor.parser_runtime()
@@ -19,7 +19,7 @@ test "SyncEditor::new_generic threads parent_runtime through to Parser" {
 
 ///|
 // Regression guard: without parent_runtime, each editor gets its own runtime.
-test "SyncEditor::new_generic without parent_runtime allocates private runtime" {
+test "SyncEditor::new_with_builder without parent_runtime allocates private runtime" {
   let editor_a = try! @probe.new_test_editor("a")
   let editor_b = try! @probe.new_test_editor("b")
   let rt_a = editor_a.parser_runtime()

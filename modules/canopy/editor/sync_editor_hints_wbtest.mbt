@@ -158,6 +158,26 @@ test "multiple structural hints accumulate in order" {
 }
 
 ///|
+test "invalidate_pending_identity_hints taints only a non-empty queue" {
+  let editor = try! @probe.new_test_editor("test")
+  editor.invalidate_pending_identity_hints()
+  inspect(editor.pending_transforms.val.is_empty(), content="true")
+  editor.pending_transforms.val.push(
+    @core.IdentityTransform::Wrap(inner=@core.NodeId::from_int(40)),
+  )
+  editor.invalidate_pending_identity_hints()
+  inspect(editor.pending_transforms.val.length(), content="2")
+  inspect(
+    editor.pending_transforms.val[0] is @core.IdentityTransform::Wrap(inner=_),
+    content="true",
+  )
+  inspect(
+    editor.pending_transforms.val[1] is @core.IdentityTransform::Opaque,
+    content="true",
+  )
+}
+
+///|
 test "move_node taints only on resolved ids (Finding 3: Move is not identity-preserving)" {
   let editor = try! @probe.new_test_editor("test")
   editor.set_text("f(x) y")

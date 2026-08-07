@@ -7,7 +7,6 @@ import {
   "dowdiness/event-graph-walker/text",
   "dowdiness/incr/cells",
   "dowdiness/loom/pipeline",
-  "moonbitlang/core/ref",
 }
 
 // Values
@@ -31,16 +30,9 @@ pub(all) enum EditResult {
 pub struct Language[T, Op, E] {
   // private fields
 }
-pub fn[T, Op, E] Language::Language(parse~ : (@diagnostic.SourceId, String, @cells.Runtime?) -> @pipeline.Parser[T], project~ : (@pipeline.Parser[T], @ref.Ref[Array[@dowdiness/canopy/core.IdentityTransform]]) -> (@cells.Derived[@dowdiness/canopy/core.ProjNode[T]?], @cells.Derived[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[T]]], @cells.Derived[@dowdiness/canopy/core.SourceMap], E), edit~ : (Op, EditContext[T]) -> EditResult raise @dowdiness/canopy/core.EditError, capabilities~ : (E) -> @editor.LanguageCapabilities[T]) -> Self[T, Op, E]
+pub fn[T, Op, E] Language::Language(parse~ : (@diagnostic.SourceId, String, @cells.Runtime?) -> @pipeline.Parser[T], project~ : (@pipeline.Parser[T], @dowdiness/canopy/core.IdentityHintConsumer) -> (@cells.Derived[@dowdiness/canopy/core.ProjNode[T]?], @cells.Derived[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[T]]], @cells.Derived[@dowdiness/canopy/core.SourceMap], E), edit~ : (Op, EditContext[T]) -> EditResult raise @dowdiness/canopy/core.EditError, capabilities~ : (E) -> @editor.LanguageCapabilities[T]) -> Self[T, Op, E]
 pub fn[T : Eq, Op, E] Language::apply_edit(Self[T, Op, E], @editor.SyncEditor[T], Op, Int) -> Result[Array[@dowdiness/canopy/core.SpanEdit], @dowdiness/canopy/core.EditError]
 pub fn[T, Op, E] Language::build(Self[T, Op, E], String, capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime) -> (@editor.SyncEditor[T], E) raise @text.TextError
-
-pub struct LanguageSpec[T, Op] {
-  // private fields
-}
-pub fn[T, Op] LanguageSpec::LanguageSpec(make_parser~ : (@diagnostic.SourceId, String, @cells.Runtime?) -> @pipeline.Parser[T], build_memos~ : (@pipeline.Parser[T]) -> (@cells.Derived[@dowdiness/canopy/core.ProjNode[T]?], @cells.Derived[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[T]]], @cells.Derived[@dowdiness/canopy/core.SourceMap]), compute_edit~ : (Op, String, @dowdiness/canopy/core.ProjNode[T], @dowdiness/canopy/core.SourceMap) -> (Array[@dowdiness/canopy/core.SpanEdit], @dowdiness/canopy/core.FocusHint)? raise @dowdiness/canopy/core.EditError, on_no_edit~ : (Op) -> Unit raise @dowdiness/canopy/core.EditError) -> Self[T, Op]
-pub fn[T : Eq, Op] LanguageSpec::apply_edit(Self[T, Op], @editor.SyncEditor[T], Op, Int) -> Result[Unit, String]
-pub fn[T, Op] LanguageSpec::new_editor(Self[T, Op], String, capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime, capabilities? : @editor.LanguageCapabilities[T]) -> @editor.SyncEditor[T] raise @text.TextError
 
 // Type aliases
 
