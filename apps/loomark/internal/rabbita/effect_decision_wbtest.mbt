@@ -31,7 +31,7 @@ test "repair_eligible requires mode, generation, and revision to match" {
     source="# Title",
   )
   let model = {
-    ..test_model(editor.snapshot()),
+    ..test_model(try! editor.snapshot(), editor.version()),
     text_input_generation: 3,
     source_revision: 7,
   }
@@ -62,7 +62,7 @@ test "raw repair requires a rendered Raw control" {
     source="# Title",
   )
   let model = {
-    ..test_model(editor.snapshot()),
+    ..test_model(editor.snapshot(), editor.version()),
     text_input_generation: 3,
     source_revision: 7,
   }
@@ -111,7 +111,7 @@ test "block selection decision applies when mode and revision match and target r
   let key = document.blocks()[0].key()
   let selection = BlockSelection::{ key, index: 0, start: 0, end: 0 }
   let model = {
-    ..test_model(document),
+    ..test_model(document, editor.version()),
     state: @core.ApplicationState::ApplicationState(@core.Block),
     source_revision: 7,
   }
@@ -131,7 +131,7 @@ test "block selection decision classifies stale mode, superseded revision, missi
   let key = document.blocks()[0].key()
   let selection = BlockSelection::{ key, index: 0, start: 0, end: 0 }
   let model = {
-    ..test_model(document),
+    ..test_model(document, editor.version()),
     state: @core.ApplicationState::ApplicationState(@core.Block),
     source_revision: 7,
   }

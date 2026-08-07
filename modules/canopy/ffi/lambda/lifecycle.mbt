@@ -39,16 +39,21 @@ let last_created_handle : Ref[Int?] = { val: None }
 fn assemble_lambda_handle(
   agent_id : String,
   capture_timeout_ms? : Int = 500,
-) -> @workspace.EditorId {
+) -> @workspace.EditorId raise {
   let (editor, companion) = @lang_lambda.new_lambda_editor(
     agent_id,
     capture_timeout_ms~,
     parent_runtime=coordinator.runtime(),
   ) catch {
-    error => {
-      println("assemble_lambda_handle failed: \{error.message()}")
-      return @workspace.EditorId(-1)
-    }
+    Failure::Failure(_) as failure => raise failure
+    @text.TextError::EmptyReplicaId => return @workspace.EditorId(-1)
+    @text.TextError::InvalidPosition(..) => return @workspace.EditorId(-1)
+    @text.TextError::InvalidText(..) => return @workspace.EditorId(-1)
+    @text.TextError::InvalidRange(..) => return @workspace.EditorId(-1)
+    @text.TextError::SyncFailed(_) => return @workspace.EditorId(-1)
+    @text.TextError::VersionNotFound => return @workspace.EditorId(-1)
+    @text.TextError::Internal(..) => return @workspace.EditorId(-1)
+    error => raise error
   }
   let cells = LambdaProtectedCells::LambdaProtectedCells(editor, companion)
   let editor_id = coordinator.register_editor(
@@ -89,7 +94,7 @@ pub fn get_lambda_companion() -> @lang_lambda.LambdaCompanion? {
 ///|
 /// Create a new SyncEditor instance.
 /// Returns a unique handle, or `-1` when `agent_id` is invalid.
-pub fn create_editor(agent_id : String) -> Int {
+pub fn create_editor(agent_id : String) -> Int raise {
   assemble_lambda_handle(agent_id).0
 }
 
@@ -133,7 +138,7 @@ pub fn get_text(handle : Int) -> String {
 
 ///|
 /// Set text content directly (replaces entire document)
-pub fn set_text(handle : Int, new_text : String) -> Unit {
+pub fn set_text(handle : Int, new_text : String) -> Unit raise {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.set_text(new_text)
     None => ()

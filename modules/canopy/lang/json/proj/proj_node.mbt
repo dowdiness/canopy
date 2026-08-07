@@ -153,7 +153,7 @@ fn extract_member(
 pub fn parse_to_proj_node(
   source_id : @loomcore.SourceId,
   text : String,
-) -> (ProjNode[@json.JsonValue], Array[String]) raise @loomcore.LexError {
+) -> (ProjNode[@json.JsonValue], Array[String]) raise {
   let (cst, diagnostics) = @json.parse_cst(source_id, text)
   let syntax_node = @seam.SyntaxNode::from_cst(cst)
   let errors = diagnostics.map(diagnostic => diagnostic.message())

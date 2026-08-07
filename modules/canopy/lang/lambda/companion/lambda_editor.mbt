@@ -235,7 +235,7 @@ pub fn new_lambda_editor(
   agent_id : String,
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
-) -> (@editor.SyncEditor[@ast.Term], LambdaCompanion) raise @text.TextError {
+) -> (@editor.SyncEditor[@ast.Term], LambdaCompanion) raise {
   lambda_language.build(agent_id, capture_timeout_ms~, parent_runtime?)
 }
 
@@ -314,7 +314,7 @@ pub fn apply_lambda_tree_edit(
   companion : LambdaCompanion,
   op : @lambda_edits.TreeEditOp,
   timestamp_ms : Int,
-) -> Result[Array[@core.SpanEdit], @core.EditError] {
+) -> Result[Array[@core.SpanEdit], @core.EditError] raise {
   let _ = companion
   lambda_language.apply_edit(editor, op, timestamp_ms)
 }
@@ -329,7 +329,7 @@ pub fn apply_lambda_tree_edit_with_reachable_failure_review(
   op : @lambda_edits.TreeEditOp,
   timestamp_ms : Int,
   attribution : ReachableFailureAttribution,
-) -> Result[ReachableFailureReview, @core.EditError] {
+) -> Result[ReachableFailureReview, @core.EditError] raise {
   let before = snapshot_reachable_failures(editor)
   match apply_lambda_tree_edit(editor, companion, op, timestamp_ms) {
     Err(error) => Err(error)
@@ -346,7 +346,7 @@ pub fn apply_lambda_tree_edit_with_reachable_failure_review(
 /// construction and failure collection themselves remain deterministic.
 fn snapshot_reachable_failures(
   editor : @editor.SyncEditor[@ast.Term],
-) -> Array[@lambda_scope.ReachableFailure] {
+) -> Array[@lambda_scope.ReachableFailure] raise Failure {
   let source_map = editor.get_source_map()
   @lambda_scope.failures(
     @lambda_scope.build(editor.get_registry(), source_map),

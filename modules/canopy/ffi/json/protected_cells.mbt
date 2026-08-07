@@ -27,7 +27,7 @@ priv struct JsonProtectedCells {
 ///|
 fn JsonProtectedCells::JsonProtectedCells(
   editor : @editor.SyncEditor[@djson.JsonValue],
-) -> JsonProtectedCells {
+) -> JsonProtectedCells raise Failure {
   {
     parser_syntax_tree: @workspace.ProtectedCell::from_derived(
       "parser_syntax_view",

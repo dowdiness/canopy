@@ -11,23 +11,50 @@ fn[T] SyncEditor::mark_projection_dirty(self : SyncEditor[T]) -> Unit {
 }
 
 ///|
+/// Reject parser and projection work after Loom has raised Failure. The stored
+/// value is re-raised unchanged so callers can quarantine the owning editor.
+fn[T] SyncEditor::ensure_parser_healthy(
+  self : SyncEditor[T],
+) -> Unit raise Failure {
+  match self.parser_failure {
+    Some(failure) => raise failure
+    None => ()
+  }
+}
+
+///|
+/// Whether parser-derived operations are still safe on this editor. Canonical
+/// CRDT text/version/history access remains available after this becomes false.
+pub fn[T] SyncEditor::is_parser_healthy(self : SyncEditor[T]) -> Bool {
+  self.parser_failure is None
+}
+
+///|
 fn[T : Eq] SyncEditor::sync_parser_after_text_change(
   self : SyncEditor[T],
   old_source : String,
   new_source : String,
   known_edit : @loom_core.Edit?,
-) -> Unit {
+) -> Unit raise Failure {
+  self.ensure_parser_healthy()
   self.document_version.set(self.doc.version())
   // Short-circuits mark_projection_dirty; Parser does its own identity check.
   guard old_source != new_source else { return }
-  if new_source == "" {
-    self.parser.set_source(new_source)
-  } else {
-    let edit = match known_edit {
-      Some(edit) => edit
-      None => compute_edit(old_source, new_source)
+  try {
+    if new_source == "" {
+      self.parser.set_source(new_source)
+    } else {
+      let edit = match known_edit {
+        Some(edit) => edit
+        None => compute_edit(old_source, new_source)
+      }
+      self.parser.apply_edit(edit, new_source)
     }
-    self.parser.apply_edit(edit, new_source)
+  } catch {
+    Failure::Failure(_) as failure => {
+      self.parser_failure = Some(failure)
+      raise failure
+    }
   }
   self.mark_projection_dirty()
 }
@@ -90,7 +117,7 @@ fn[T : Eq] SyncEditor::apply_local_text_change(
   old_source : String,
   new_source : String,
   known_edit : @loom_core.Edit?,
-) -> Unit {
+) -> Unit raise Failure {
   let applied_edit = resolve_applied_edit(old_source, new_source, known_edit)
   self.adjust_peer_cursors_after_text_change(
     old_source, new_source, applied_edit,
@@ -99,14 +126,20 @@ fn[T : Eq] SyncEditor::apply_local_text_change(
 }
 
 ///|
-pub fn[T : Eq] SyncEditor::mark_dirty(self : SyncEditor[T]) -> Unit {
+pub fn[T : Eq] SyncEditor::mark_dirty(
+  self : SyncEditor[T],
+) -> Unit raise Failure {
+  self.ensure_parser_healthy()
   self.document_version.set(self.doc.version())
   self.parser.set_source(self.doc.text())
   self.mark_projection_dirty()
 }
 
 ///|
-pub fn[T] SyncEditor::get_errors(self : SyncEditor[T]) -> Array[String] {
+pub fn[T] SyncEditor::get_errors(
+  self : SyncEditor[T],
+) -> Array[String] raise Failure {
+  self.ensure_parser_healthy()
   if self.doc.text() == "" {
     return []
   }
@@ -114,7 +147,9 @@ pub fn[T] SyncEditor::get_errors(self : SyncEditor[T]) -> Array[String] {
 }
 
 ///|
-pub fn[T] SyncEditor::is_parse_valid(self : SyncEditor[T]) -> Bool {
+pub fn[T] SyncEditor::is_parse_valid(
+  self : SyncEditor[T],
+) -> Bool raise Failure {
   self.get_errors().is_empty()
 }
 
@@ -122,7 +157,10 @@ pub fn[T] SyncEditor::is_parse_valid(self : SyncEditor[T]) -> Bool {
 /// The reactive runtime owned by the parser. Exposed so downstream
 /// consumers (e.g. the FFI typecheck bundle) can join the same graph
 /// and react to edits without a second parse of the editor's text.
-pub fn[T] SyncEditor::parser_runtime(self : SyncEditor[T]) -> @incr.Runtime {
+pub fn[T] SyncEditor::parser_runtime(
+  self : SyncEditor[T],
+) -> @incr.Runtime raise Failure {
+  self.ensure_parser_healthy()
   self.parser.runtime()
 }
 
@@ -138,7 +176,8 @@ pub fn[T] SyncEditor::parser_source_id(
 /// Reactive view of the parser's complete coherent snapshot.
 pub fn[T] SyncEditor::parser_snapshot(
   self : SyncEditor[T],
-) -> @incr.Derived[@loom.ParseSnapshot[T]] {
+) -> @incr.Derived[@loom.ParseSnapshot[T]] raise Failure {
+  self.ensure_parser_healthy()
   self.parser.snapshot()
 }
 
@@ -147,14 +186,18 @@ pub fn[T] SyncEditor::parser_snapshot(
 /// inside a memo closure.
 pub fn[T] SyncEditor::parser_syntax_tree(
   self : SyncEditor[T],
-) -> @incr.Derived[@seam.SyntaxNode] {
+) -> @incr.Derived[@seam.SyntaxNode] raise Failure {
+  self.ensure_parser_healthy()
   self.parser.syntax_tree()
 }
 
 ///|
 /// Reactive view of the parser's recovered AST. Tracked when read via
 /// `.get_or_abort()` inside a memo closure.
-pub fn[T] SyncEditor::parser_ast(self : SyncEditor[T]) -> @incr.Derived[T] {
+pub fn[T] SyncEditor::parser_ast(
+  self : SyncEditor[T],
+) -> @incr.Derived[T] raise Failure {
+  self.ensure_parser_healthy()
   self.parser.ast()
 }
 
@@ -162,7 +205,8 @@ pub fn[T] SyncEditor::parser_ast(self : SyncEditor[T]) -> @incr.Derived[T] {
 /// Reactive view of the parser's source text.
 pub fn[T] SyncEditor::parser_source(
   self : SyncEditor[T],
-) -> @incr.Derived[String] {
+) -> @incr.Derived[String] raise Failure {
+  self.ensure_parser_healthy()
   self.parser.source()
 }
 
@@ -170,7 +214,8 @@ pub fn[T] SyncEditor::parser_source(
 /// Reactive view of the parser's diagnostic set.
 pub fn[T] SyncEditor::parser_diagnostics(
   self : SyncEditor[T],
-) -> @incr.Derived[@loom.DiagnosticSet] {
+) -> @incr.Derived[@loom.DiagnosticSet] raise Failure {
+  self.ensure_parser_healthy()
   self.parser.diagnostics()
 }
 

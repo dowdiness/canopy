@@ -9,11 +9,11 @@ import {
 // Values
 pub fn add_node(Int, String, Double, Double) -> Unit
 
-pub fn apply_source_graph_operation(Int, String) -> String
+pub fn apply_source_graph_operation(Int, String) -> String raise Failure
 
 pub fn create_canvas() -> Int
 
-pub fn create_source_graph(String) -> Int
+pub fn create_source_graph(String) -> Int raise Failure
 
 pub fn delete_nodes(Int, String) -> Unit
 
@@ -51,11 +51,11 @@ pub fn pointer_up(Int, String, String, Bool) -> Unit
 
 pub fn sample_graph_dsl_source() -> String
 
-pub fn set_source_graph_source(Int, String) -> Unit
+pub fn set_source_graph_source(Int, String) -> Unit raise Failure
 
-pub fn set_source_graph_source_result(Int, String) -> String
+pub fn set_source_graph_source_result(Int, String) -> String raise Failure
 
-pub fn source_graph_insert_unique(Int, String, String) -> String
+pub fn source_graph_insert_unique(Int, String, String) -> String raise Failure
 
 pub fn source_graph_pointer_down(Int, String, Double, Double) -> Unit
 

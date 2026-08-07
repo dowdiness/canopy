@@ -66,7 +66,7 @@ fn format_structured_change(
 /// so the user can cross-reference the matching Op Log entry, then each
 /// `SpanEdit` renders via its `Show` impl (`@<start> -<delete_len> +«…»`).
 /// Per-entry `changes` are rendered in a `<details>` block within each row.
-fn view_patch_log(model : Model) -> Html {
+fn view_patch_log(model : Model) -> Html raise {
   // See `view_op_log` for the rationale; Patch panel rows are heavier
   // (header + N `SpanEdit` rows per entry), so guarding here matters more.
   if !model.workspace.bottom_visible {

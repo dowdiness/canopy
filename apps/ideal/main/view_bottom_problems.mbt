@@ -1,5 +1,5 @@
 ///|
-fn view_problems(model : Model) -> Html {
+fn view_problems(model : Model) -> Html raise {
   guard model.workspace.bottom_visible else {
     return @html.div(
       class="bottom-content",

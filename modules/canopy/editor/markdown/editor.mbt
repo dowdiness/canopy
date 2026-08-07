@@ -492,11 +492,35 @@ pub struct MarkdownEditor {
 pub fn MarkdownEditor::MarkdownEditor(
   agent_id~ : String,
   source~ : String,
-) -> MarkdownEditor raise MarkdownEditorError {
+) -> MarkdownEditor raise {
   let editor = @md_companion.new_markdown_editor(agent_id) catch {
+    Failure::Failure(_) as failure => raise failure
     @text.TextError::EmptyReplicaId => raise MarkdownEditorError::InvalidAgentId
-    error =>
-      raise MarkdownEditorError::InitializationFailed(detail=error.message())
+    @text.TextError::InvalidPosition(..) =>
+      raise MarkdownEditorError::InitializationFailed(
+        detail="text editor construction failed",
+      )
+    @text.TextError::InvalidText(..) =>
+      raise MarkdownEditorError::InitializationFailed(
+        detail="text editor construction failed",
+      )
+    @text.TextError::InvalidRange(..) =>
+      raise MarkdownEditorError::InitializationFailed(
+        detail="text editor construction failed",
+      )
+    @text.TextError::SyncFailed(_) =>
+      raise MarkdownEditorError::InitializationFailed(
+        detail="text editor construction failed",
+      )
+    @text.TextError::VersionNotFound =>
+      raise MarkdownEditorError::InitializationFailed(
+        detail="text editor construction failed",
+      )
+    @text.TextError::Internal(..) =>
+      raise MarkdownEditorError::InitializationFailed(
+        detail="text editor construction failed",
+      )
+    error => raise error
   }
   initialize_markdown_editor(editor, source)
 }
@@ -507,13 +531,37 @@ pub fn MarkdownEditor::MarkdownEditor(
 pub fn MarkdownEditor::with_semantic_attachment(
   agent_id~ : String,
   source~ : String,
-) -> (MarkdownEditor, @md_markdown.MarkdownSemanticAttachment) raise MarkdownEditorError {
+) -> (MarkdownEditor, @md_markdown.MarkdownSemanticAttachment) raise {
   let (editor, attachment) = @md_companion.new_markdown_editor_with_semantic_attachment(
     agent_id,
   ) catch {
+    Failure::Failure(_) as failure => raise failure
     @text.TextError::EmptyReplicaId => raise MarkdownEditorError::InvalidAgentId
-    error =>
-      raise MarkdownEditorError::InitializationFailed(detail=error.message())
+    @text.TextError::InvalidPosition(..) =>
+      raise MarkdownEditorError::InitializationFailed(
+        detail="text editor construction failed",
+      )
+    @text.TextError::InvalidText(..) =>
+      raise MarkdownEditorError::InitializationFailed(
+        detail="text editor construction failed",
+      )
+    @text.TextError::InvalidRange(..) =>
+      raise MarkdownEditorError::InitializationFailed(
+        detail="text editor construction failed",
+      )
+    @text.TextError::SyncFailed(_) =>
+      raise MarkdownEditorError::InitializationFailed(
+        detail="text editor construction failed",
+      )
+    @text.TextError::VersionNotFound =>
+      raise MarkdownEditorError::InitializationFailed(
+        detail="text editor construction failed",
+      )
+    @text.TextError::Internal(..) =>
+      raise MarkdownEditorError::InitializationFailed(
+        detail="text editor construction failed",
+      )
+    error => raise error
   }
   (initialize_markdown_editor(editor, source), attachment)
 }
@@ -523,7 +571,7 @@ pub fn MarkdownEditor::with_semantic_attachment(
 fn initialize_markdown_editor(
   editor : @editor.SyncEditor[@md_markdown.Block],
   source : String,
-) -> MarkdownEditor {
+) -> MarkdownEditor raise {
   editor.set_text(source)
   editor.refresh()
   { editor, }
@@ -554,12 +602,36 @@ pub fn MarkdownEditor::open(
   agent_id~ : String,
   history~ : MarkdownDocumentHistory,
   open_limits~ : MarkdownArchiveOpenLimits,
-) -> MarkdownEditor raise MarkdownArchiveError {
+) -> MarkdownEditor raise {
   let editor = @md_companion.new_markdown_editor(agent_id) catch {
+    Failure::Failure(_) as failure => raise failure
     @text.TextError::EmptyReplicaId =>
       raise MarkdownArchiveError::InvalidAgentId
-    error =>
-      raise MarkdownArchiveError::WriterCreationFailed(detail=error.message())
+    @text.TextError::InvalidPosition(..) =>
+      raise MarkdownArchiveError::WriterCreationFailed(
+        detail="text editor construction failed",
+      )
+    @text.TextError::InvalidText(..) =>
+      raise MarkdownArchiveError::WriterCreationFailed(
+        detail="text editor construction failed",
+      )
+    @text.TextError::InvalidRange(..) =>
+      raise MarkdownArchiveError::WriterCreationFailed(
+        detail="text editor construction failed",
+      )
+    @text.TextError::SyncFailed(_) =>
+      raise MarkdownArchiveError::WriterCreationFailed(
+        detail="text editor construction failed",
+      )
+    @text.TextError::VersionNotFound =>
+      raise MarkdownArchiveError::WriterCreationFailed(
+        detail="text editor construction failed",
+      )
+    @text.TextError::Internal(..) =>
+      raise MarkdownArchiveError::WriterCreationFailed(
+        detail="text editor construction failed",
+      )
+    error => raise error
   }
   open_markdown_editor(editor, history, open_limits)
 }
@@ -571,14 +643,38 @@ pub fn MarkdownEditor::open_with_semantic_attachment(
   agent_id~ : String,
   history~ : MarkdownDocumentHistory,
   open_limits~ : MarkdownArchiveOpenLimits,
-) -> (MarkdownEditor, @md_markdown.MarkdownSemanticAttachment) raise MarkdownArchiveError {
+) -> (MarkdownEditor, @md_markdown.MarkdownSemanticAttachment) raise {
   let (editor, attachment) = @md_companion.new_markdown_editor_with_semantic_attachment(
     agent_id,
   ) catch {
+    Failure::Failure(_) as failure => raise failure
     @text.TextError::EmptyReplicaId =>
       raise MarkdownArchiveError::InvalidAgentId
-    error =>
-      raise MarkdownArchiveError::WriterCreationFailed(detail=error.message())
+    @text.TextError::InvalidPosition(..) =>
+      raise MarkdownArchiveError::WriterCreationFailed(
+        detail="text editor construction failed",
+      )
+    @text.TextError::InvalidText(..) =>
+      raise MarkdownArchiveError::WriterCreationFailed(
+        detail="text editor construction failed",
+      )
+    @text.TextError::InvalidRange(..) =>
+      raise MarkdownArchiveError::WriterCreationFailed(
+        detail="text editor construction failed",
+      )
+    @text.TextError::SyncFailed(_) =>
+      raise MarkdownArchiveError::WriterCreationFailed(
+        detail="text editor construction failed",
+      )
+    @text.TextError::VersionNotFound =>
+      raise MarkdownArchiveError::WriterCreationFailed(
+        detail="text editor construction failed",
+      )
+    @text.TextError::Internal(..) =>
+      raise MarkdownArchiveError::WriterCreationFailed(
+        detail="text editor construction failed",
+      )
+    error => raise error
   }
   (open_markdown_editor(editor, history, open_limits), attachment)
 }
@@ -590,8 +686,9 @@ fn open_markdown_editor(
   editor : @editor.SyncEditor[@md_markdown.Block],
   history : MarkdownDocumentHistory,
   open_limits : MarkdownArchiveOpenLimits,
-) -> MarkdownEditor raise MarkdownArchiveError {
+) -> MarkdownEditor raise {
   let report = editor.admit_with_limits(history.message, open_limits.limits) catch {
+    Failure::Failure(_) as failure => raise failure
     @text.TextError::SyncFailed(
       @sync.Failure::LimitExceeded(kind~, limit~, actual~)
     ) =>
@@ -600,8 +697,47 @@ fn open_markdown_editor(
         maximum=limit,
         actual~,
       )
-    error =>
-      raise MarkdownArchiveError::HistoryAdmissionFailed(detail=error.message())
+    @text.TextError::EmptyReplicaId =>
+      raise MarkdownArchiveError::HistoryAdmissionFailed(
+        detail="history admission failed",
+      )
+    @text.TextError::InvalidPosition(..) =>
+      raise MarkdownArchiveError::HistoryAdmissionFailed(
+        detail="history admission failed",
+      )
+    @text.TextError::InvalidText(..) =>
+      raise MarkdownArchiveError::HistoryAdmissionFailed(
+        detail="history admission failed",
+      )
+    @text.TextError::InvalidRange(..) =>
+      raise MarkdownArchiveError::HistoryAdmissionFailed(
+        detail="history admission failed",
+      )
+    @text.TextError::SyncFailed(@sync.Failure::MissingDependency(..)) =>
+      raise MarkdownArchiveError::HistoryAdmissionFailed(
+        detail="history admission failed",
+      )
+    @text.TextError::SyncFailed(@sync.Failure::MalformedMessage(..)) =>
+      raise MarkdownArchiveError::HistoryAdmissionFailed(
+        detail="history admission failed",
+      )
+    @text.TextError::SyncFailed(@sync.Failure::InvalidContent(..)) =>
+      raise MarkdownArchiveError::HistoryAdmissionFailed(
+        detail="history admission failed",
+      )
+    @text.TextError::SyncFailed(@sync.Failure::ConflictingIdentity(..)) =>
+      raise MarkdownArchiveError::HistoryAdmissionFailed(
+        detail="history admission failed",
+      )
+    @text.TextError::VersionNotFound =>
+      raise MarkdownArchiveError::HistoryAdmissionFailed(
+        detail="history admission failed",
+      )
+    @text.TextError::Internal(..) =>
+      raise MarkdownArchiveError::HistoryAdmissionFailed(
+        detail="history admission failed",
+      )
+    error => raise error
   }
   editor.refresh()
   if report.pending_operations() > 0 {
@@ -621,10 +757,38 @@ fn open_markdown_editor(
 pub fn MarkdownEditor::admit(
   self : Self,
   history : MarkdownDocumentHistory,
-) -> MarkdownAdmitReport raise MarkdownArchiveError {
+) -> MarkdownAdmitReport raise {
   let report = self.editor.admit(history.message) catch {
-    error =>
-      raise MarkdownArchiveError::HistoryAdmissionFailed(detail=error.message())
+    Failure::Failure(_) as failure => raise failure
+    @text.TextError::EmptyReplicaId =>
+      raise MarkdownArchiveError::HistoryAdmissionFailed(
+        detail="history admission failed",
+      )
+    @text.TextError::InvalidPosition(..) =>
+      raise MarkdownArchiveError::HistoryAdmissionFailed(
+        detail="history admission failed",
+      )
+    @text.TextError::InvalidText(..) =>
+      raise MarkdownArchiveError::HistoryAdmissionFailed(
+        detail="history admission failed",
+      )
+    @text.TextError::InvalidRange(..) =>
+      raise MarkdownArchiveError::HistoryAdmissionFailed(
+        detail="history admission failed",
+      )
+    @text.TextError::SyncFailed(_) =>
+      raise MarkdownArchiveError::HistoryAdmissionFailed(
+        detail="history admission failed",
+      )
+    @text.TextError::VersionNotFound =>
+      raise MarkdownArchiveError::HistoryAdmissionFailed(
+        detail="history admission failed",
+      )
+    @text.TextError::Internal(..) =>
+      raise MarkdownArchiveError::HistoryAdmissionFailed(
+        detail="history admission failed",
+      )
+    error => raise error
   }
   // Applicable operations are committed before the withheld ones are counted,
   // so the projection is rebuilt on both paths.
@@ -641,7 +805,9 @@ pub fn MarkdownEditor::admit(
 
 ///|
 /// Read the last committed canonical source without exposing editor state.
-pub fn MarkdownEditor::snapshot(self : Self) -> MarkdownDocumentSnapshot {
+pub fn MarkdownEditor::snapshot(
+  self : Self,
+) -> MarkdownDocumentSnapshot raise Failure {
   document_snapshot(self.editor)
 }
 
@@ -694,7 +860,7 @@ pub fn MarkdownEditor::history_since(
 pub fn MarkdownEditor::commit(
   self : Self,
   request : MarkdownEditRequest,
-) -> Result[MarkdownCommitResult, MarkdownEditorError] {
+) -> Result[MarkdownCommitResult, MarkdownEditorError] raise {
   self.commit_recording_transforms(request).map(pair => pair.0)
 }
 
@@ -707,7 +873,7 @@ pub fn MarkdownEditor::commit(
 pub fn MarkdownEditor::commit_with_receipt(
   self : Self,
   request : MarkdownEditRequest,
-) -> Result[MarkdownCommitReceipt, MarkdownEditorError] raise MarkdownArchiveError {
+) -> Result[MarkdownCommitReceipt, MarkdownEditorError] raise {
   let before_version = self.version()
   match self.commit_recording_transforms(request) {
     Err(error) => Err(error)
@@ -744,7 +910,7 @@ fn MarkdownEditor::commit_recording_transforms(
 ) -> Result[
   (MarkdownCommitResult, @vector.Vector[MarkdownTextTransform]),
   MarkdownEditorError,
-] {
+] raise {
   match request {
     ReplaceSource(source) => {
       let before = self.editor.get_text()
@@ -903,7 +1069,7 @@ fn MarkdownEditor::commit_structural_recording_transforms(
 ) -> Result[
   (MarkdownCommitResult, @vector.Vector[MarkdownTextTransform]),
   MarkdownEditorError,
-] {
+] raise {
   let source = self.editor.get_text()
   guard self.editor.get_proj_node() is Some(proj) else {
     return Err(MarkdownEditorError::ProjectionUnavailable)
@@ -917,13 +1083,9 @@ fn MarkdownEditor::commit_structural_recording_transforms(
       .search_by(block => block.node_id().value == node_id)
     _ => None
   }
+  let source_map = self.editor.get_source_map()
   let computed = Ok(
-    @md_edits.compute_markdown_edit(
-      op,
-      source,
-      proj,
-      self.editor.get_source_map(),
-    ),
+    @md_edits.compute_markdown_edit(op, source, proj, source_map),
   ) catch {
     error => Err(error.message())
   }
@@ -993,7 +1155,7 @@ fn sequential_text_transforms(
 fn MarkdownEditor::editable_block_target(
   self : Self,
   node_id : MarkdownNodeId,
-) -> Bool {
+) -> Bool raise Failure {
   for block in self.snapshot().blocks().to_array() {
     if block.node_id() == node_id {
       return match block.kind() {
@@ -1010,7 +1172,7 @@ fn MarkdownEditor::editable_block_target(
 fn MarkdownEditor::editable_block_text(
   self : Self,
   node_id : MarkdownNodeId,
-) -> String? {
+) -> String? raise Failure {
   for block in self.snapshot().blocks().to_array() {
     if block.node_id() == node_id {
       return Some(block.canonical_text())
@@ -1114,7 +1276,7 @@ fn selection_for_cursor(
 /// Copy only stable node identities into the façade snapshot.
 fn projection_snapshot(
   editor : @editor.SyncEditor[@md_markdown.Block],
-) -> MarkdownProjectionSnapshot {
+) -> MarkdownProjectionSnapshot raise Failure {
   match editor.get_proj_node() {
     None => { root_id: None, node_ids: @vector.new() }
     Some(root) => {
@@ -1131,7 +1293,7 @@ fn projection_snapshot(
 /// the editable block view, preserving the #1045 alignment policy.
 fn document_snapshot(
   editor : @editor.SyncEditor[@md_markdown.Block],
-) -> MarkdownDocumentSnapshot {
+) -> MarkdownDocumentSnapshot raise Failure {
   let source = editor.get_text()
   {
     source,
@@ -1144,7 +1306,7 @@ fn document_snapshot(
 fn editable_block_snapshots(
   editor : @editor.SyncEditor[@md_markdown.Block],
   source : String,
-) -> @vector.Vector[MarkdownBlockSnapshot] {
+) -> @vector.Vector[MarkdownBlockSnapshot] raise Failure {
   match editor.get_proj_node() {
     None => @vector.new()
     Some(root) => {

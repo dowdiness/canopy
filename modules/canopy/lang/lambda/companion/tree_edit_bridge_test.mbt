@@ -4,7 +4,7 @@
 ///|
 fn setup_bridge(
   text : String,
-) -> (@editor.SyncEditor[@ast.Term], LambdaCompanion) {
+) -> (@editor.SyncEditor[@ast.Term], LambdaCompanion) raise {
   let (editor, companion) = try! new_lambda_editor("test")
   editor.set_text(text)
   (editor, companion)

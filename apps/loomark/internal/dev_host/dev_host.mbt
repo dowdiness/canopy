@@ -44,6 +44,17 @@ pub fn dev_host_force_editor_failure() -> Unit {
 }
 
 ///|
+/// Arm only the private parser-publication recovery seam.
+pub fn dev_host_force_parser_failure() -> Unit {
+  @app.force_parser_failure()
+}
+
+///|
+pub fn dev_host_force_reconstruction_failure() -> Unit {
+  @app.force_reconstruction_failure()
+}
+
+///|
 pub fn dev_host_focus_preview() -> Unit {
   @app.focus_preview()
 }

@@ -32,15 +32,20 @@ let json_registry : @host.HostRegistry[JsonHandle] = @host.HostRegistry::HostReg
 /// `EditorId`, or `EditorId(-1)` when construction fails. A failed
 /// construction leaves `json_registry` untouched
 /// (atomic-boundary observation, spec §3.6).
-fn assemble_json_handle(agent_id : String) -> @workspace.EditorId {
+fn assemble_json_handle(agent_id : String) -> @workspace.EditorId raise {
   let editor = @json_companion.new_json_editor(
     agent_id,
     parent_runtime=coordinator.runtime(),
   ) catch {
-    error => {
-      println("assemble_json_handle failed: \{error.message()}")
-      return @workspace.EditorId(-1)
-    }
+    Failure::Failure(_) as failure => raise failure
+    @text.TextError::EmptyReplicaId => return @workspace.EditorId(-1)
+    @text.TextError::InvalidPosition(..) => return @workspace.EditorId(-1)
+    @text.TextError::InvalidText(..) => return @workspace.EditorId(-1)
+    @text.TextError::InvalidRange(..) => return @workspace.EditorId(-1)
+    @text.TextError::SyncFailed(_) => return @workspace.EditorId(-1)
+    @text.TextError::VersionNotFound => return @workspace.EditorId(-1)
+    @text.TextError::Internal(..) => return @workspace.EditorId(-1)
+    error => raise error
   }
   let cells = JsonProtectedCells::JsonProtectedCells(editor)
   let editor_id = coordinator.register_editor(
@@ -59,7 +64,7 @@ fn assemble_json_handle(agent_id : String) -> @workspace.EditorId {
 ///|
 /// Create a new JSON SyncEditor instance.
 /// Returns a unique handle, or `-1` when `agent_id` is invalid.
-pub fn create_json_editor(agent_id : String) -> Int {
+pub fn create_json_editor(agent_id : String) -> Int raise {
   assemble_json_handle(agent_id).0
 }
 
@@ -87,7 +92,7 @@ pub fn json_get_text(handle : Int) -> String {
 
 ///|
 /// Set text content directly (replaces entire JSON document).
-pub fn json_set_text(handle : Int, new_text : String) -> Unit {
+pub fn json_set_text(handle : Int, new_text : String) -> Unit raise {
   match json_registry.get(handle) {
     Some(h) => h.editor.set_text(new_text)
     None => ()
@@ -163,7 +168,7 @@ pub fn json_get_source_map_json(handle : Int) -> String {
 ///|
 /// Get the ViewNode tree as JSON for a JSON editor.
 /// Returns "null" if no projection is available or any protected read fails.
-pub fn json_get_view_tree_json(handle : Int) -> String {
+pub fn json_get_view_tree_json(handle : Int) -> String raise Failure {
   match json_registry.get(handle) {
     Some(h) => {
       let _ = match
@@ -203,7 +208,7 @@ pub fn json_get_view_tree_json(handle : Int) -> String {
 /// Compute incremental view patches for a JSON editor.
 /// Returns a JSON array of ViewPatch objects, or "[]" if any protected read
 /// fails.
-pub fn json_compute_view_patches_json(handle : Int) -> String {
+pub fn json_compute_view_patches_json(handle : Int) -> String raise Failure {
   match json_registry.get(handle) {
     Some(h) => {
       let _ = match

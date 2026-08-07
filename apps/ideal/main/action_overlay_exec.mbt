@@ -7,7 +7,7 @@ fn execute_action(
   action : @lambda_edits.Action,
   choice : String,
   name : String,
-) -> (Cmd, Model) {
+) -> (Cmd, Model) raise {
   match @lambda_edits.build_tree_edit_op(action.id, context, choice, name) {
     Ok(Some(op)) =>
       match commit_tree_edit(model, op) {

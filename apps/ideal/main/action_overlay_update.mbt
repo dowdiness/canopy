@@ -83,7 +83,7 @@ fn handle_overlay_output(
   model : Model,
   token : Int,
   output : OverlayOutput,
-) -> (Cmd, Model) {
+) -> (Cmd, Model) raise {
   guard model.overlay.active_for_token(token) is Some((context, _, _)) else {
     return (none, model)
   }

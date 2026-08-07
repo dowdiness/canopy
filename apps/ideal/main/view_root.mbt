@@ -155,7 +155,7 @@ fn view_outline_resize_handle(
 }
 
 ///|
-fn view(dispatch : Emit[Msg], model : Model) -> Html {
+fn view(dispatch : Emit[Msg], model : Model) -> Html raise {
   // Always render panels — toggle visibility via CSS class
   // so CSS transitions work for both enter and exit.
   let outline_class = if model.workspace.outline_visible {

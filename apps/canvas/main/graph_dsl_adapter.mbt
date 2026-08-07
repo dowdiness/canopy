@@ -17,6 +17,7 @@ struct SourceNodePosition {
 ///|
 struct SourceBackedGraph {
   attachment : @graph_dsl.GraphAttachment
+  mut parser_failure : Failure?
   mut source : String
   mut viewport : Viewport
   mut interaction : InteractionState
@@ -34,9 +35,10 @@ fn source_graph_source_id(handle : Int) -> @core.SourceId {
 fn SourceBackedGraph::SourceBackedGraph(
   source_id : @core.SourceId,
   source : String,
-) -> SourceBackedGraph {
+) -> SourceBackedGraph raise Failure {
   {
     attachment: @graph_dsl.GraphAttachment::GraphAttachment(source_id, source),
+    parser_failure: None,
     source,
     viewport: default_source_graph_viewport(),
     interaction: @graph_model.empty_interaction(),
@@ -49,6 +51,25 @@ fn SourceBackedGraph::SourceBackedGraph(
 ///|
 fn SourceBackedGraph::dispose(self : SourceBackedGraph) -> Unit {
   self.attachment.dispose()
+}
+
+///|
+/// Enforce terminal parser health at the adapter boundary and preserve the
+/// original Loom Failure for every later attachment mutation.
+fn SourceBackedGraph::apply_attachment_mutation(
+  self : SourceBackedGraph,
+  mutation : () -> Unit raise Failure,
+) -> Unit raise Failure {
+  match self.parser_failure {
+    Some(failure) => raise failure
+    None => ()
+  }
+  mutation() catch {
+    Failure::Failure(_) as failure => {
+      self.parser_failure = Some(failure)
+      raise failure
+    }
+  }
 }
 
 ///|
@@ -504,29 +525,38 @@ fn lower_source_operation(
 fn SourceBackedGraph::apply_source_edit(
   self : SourceBackedGraph,
   edit : SourceOperationEdit,
-) -> Result[@graph_dsl.GraphDoc, String] {
+) -> Result[@graph_dsl.GraphDoc, String] raise Failure {
   let old_source = self.source
   let new_source = match edit {
-    ExactLoweredEdit(edit) => {
-      let new_source = edit.new_source()
+    ExactLoweredEdit(edit) => edit.new_source()
+    WholeSourceReplacement(new_source) => new_source
+  }
+  // Source is canonical even if parser publication fails after acceptance.
+  self.source = new_source
+  match edit {
+    ExactLoweredEdit(edit) =>
       match edit.incremental_edit() {
         Some(incremental_edit) =>
-          self.attachment.apply_edit(incremental_edit, new_source)
-        None => self.attachment.set_source(new_source)
+          self.apply_attachment_mutation(() => {
+            self.attachment.apply_edit(incremental_edit, new_source)
+          })
+        None =>
+          self.apply_attachment_mutation(() => {
+            self.attachment.set_source(new_source)
+          })
       }
-      new_source
-    }
-    WholeSourceReplacement(new_source) => {
-      self.attachment.set_source(new_source)
-      new_source
-    }
+    WholeSourceReplacement(_) =>
+      self.apply_attachment_mutation(() => {
+        self.attachment.set_source(new_source)
+      })
   }
-  self.source = new_source
   match self.attachment.current_result() {
     Ok(doc) => Ok(doc)
     Err(message) => {
       self.source = old_source
-      self.attachment.set_source(old_source)
+      self.apply_attachment_mutation(() => {
+        self.attachment.set_source(old_source)
+      })
       Err(message)
     }
   }
@@ -554,20 +584,26 @@ fn SourceBackedGraph::apply_codemirror_changes(
   self : SourceBackedGraph,
   changes : Array[@codemirror.ChangeDelta],
   expected_doc : String,
-) -> SourceGraphOperationResultJson {
-  for edit, new_source in Iter2(changes_to_edits(self.source, changes).iter()) {
-    self.attachment.apply_edit(edit, new_source)
-    self.source = new_source
+) -> SourceGraphOperationResultJson raise Failure {
+  let edits = changes_to_edits(self.source, changes)
+  let mut attachment_source = self.source
+  // The editor is canonical. Save its authoritative text before a fallible
+  // parser publication so a terminal Failure cannot leave stale/partial text.
+  self.source = expected_doc
+  for edit, new_source in Iter2(edits.iter()) {
+    self.apply_attachment_mutation(() => {
+      self.attachment.apply_edit(edit, new_source)
+    })
+    attachment_source = new_source
   }
   // Stale-editor guard: the deltas are expressed against the editor's
   // pre-transaction buffer. If the incremental result does not equal the
-  // editor's authoritative post-transaction text, `self.source` had diverged
-  // from the editor (an out-of-band TS-side graph mutation moved the source out
-  // from under a stale editor). Reparse the editor's text so the keystroke wins
-  // over the racing mutation, rather than splicing onto a mismatched base.
-  if self.source != expected_doc {
-    self.attachment.set_source(expected_doc)
-    self.source = expected_doc
+  // editor's authoritative post-transaction text, the adapter had diverged
+  // from the editor. Reparse the editor's text so the keystroke wins.
+  if attachment_source != expected_doc {
+    self.apply_attachment_mutation(() => {
+      self.attachment.set_source(expected_doc)
+    })
   }
   match source_graph_current_doc(self) {
     Ok(doc) => {
@@ -589,7 +625,7 @@ fn apply_source_graph_codemirror_changes(
   handle : Int,
   changes : Array[@codemirror.ChangeDelta],
   expected_doc : String,
-) -> SourceGraphOperationResultJson {
+) -> SourceGraphOperationResultJson raise Failure {
   match source_graph_by_handle(handle) {
     Some(graph) => graph.apply_codemirror_changes(changes, expected_doc)
     None =>
@@ -888,7 +924,7 @@ fn source_graph_insert_unique_result(
   handle : Int,
   binding_base : String,
   constructor_name : String,
-) -> SourceGraphOperationResultJson {
+) -> SourceGraphOperationResultJson raise Failure {
   let graph = match source_graph_by_handle(handle) {
     Some(graph) => graph
     None =>
@@ -935,7 +971,7 @@ fn source_graph_insert_unique_result(
 ///|
 fn source_graph_connect_sample_result(
   handle : Int,
-) -> SourceGraphOperationResultJson {
+) -> SourceGraphOperationResultJson raise Failure {
   let graph = match source_graph_by_handle(handle) {
     Some(graph) => graph
     None =>
@@ -996,7 +1032,7 @@ pub fn source_graph_insert_unique(
   handle : Int,
   binding_base : String,
   constructor_name : String,
-) -> String {
+) -> String raise Failure {
   source_graph_insert_unique_result(handle, binding_base, constructor_name)
   .to_json()
   .stringify()
@@ -1008,7 +1044,7 @@ pub fn sample_graph_dsl_source() -> String {
 }
 
 ///|
-pub fn create_source_graph(source : String) -> Int {
+pub fn create_source_graph(source : String) -> Int raise Failure {
   let handle = _source_registry.length()
   let source_id = source_graph_source_id(handle)
   _source_registry.push(Some(SourceBackedGraph(source_id, source)))
@@ -1054,7 +1090,7 @@ fn source_graph_subscribe(
 fn set_source_graph_source_checked(
   handle : Int,
   source : String,
-) -> SourceGraphOperationResultJson {
+) -> SourceGraphOperationResultJson raise Failure {
   let graph = match source_graph_by_handle(handle) {
     Some(graph) => graph
     None =>
@@ -1067,7 +1103,7 @@ fn set_source_graph_source_checked(
       )
   }
   graph.source = source
-  graph.attachment.set_source(source)
+  graph.apply_attachment_mutation(() => graph.attachment.set_source(source))
   match source_graph_current_doc(graph) {
     Ok(doc) => {
       // Reset/init path: tokens survive content-preserving edits but a reorder
@@ -1081,12 +1117,18 @@ fn set_source_graph_source_checked(
 }
 
 ///|
-pub fn set_source_graph_source(handle : Int, source : String) -> Unit {
+pub fn set_source_graph_source(
+  handle : Int,
+  source : String,
+) -> Unit raise Failure {
   ignore(set_source_graph_source_checked(handle, source))
 }
 
 ///|
-pub fn set_source_graph_source_result(handle : Int, source : String) -> String {
+pub fn set_source_graph_source_result(
+  handle : Int,
+  source : String,
+) -> String raise Failure {
   set_source_graph_source_checked(handle, source).to_json().stringify()
 }
 
@@ -1215,7 +1257,7 @@ pub fn get_source_graph_action_log(handle : Int) -> String {
 pub fn apply_source_graph_operation(
   handle : Int,
   operation_json : String,
-) -> String {
+) -> String raise Failure {
   let graph = match source_graph_by_handle(handle) {
     Some(graph) => graph
     None =>

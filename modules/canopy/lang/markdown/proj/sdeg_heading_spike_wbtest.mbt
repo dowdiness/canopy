@@ -49,7 +49,7 @@ struct HeadingSemanticMatch {
 fn source_map_for(
   source : String,
   proj : @core.ProjNode[@markdown.Block],
-) -> @core.SourceMap raise @loomcore.LexError {
+) -> @core.SourceMap raise {
   let source_map = @core.SourceMap::from_ast(proj)
   let (cst, _) = @markdown.parse_cst(markdown_heading_spike_test_source, source)
   let syntax_root = @seam.SyntaxNode::from_cst(cst)
@@ -60,7 +60,7 @@ fn source_map_for(
 ///|
 fn project_source(
   source : String,
-) -> (@core.ProjNode[@markdown.Block], @core.SourceMap) raise @loomcore.LexError {
+) -> (@core.ProjNode[@markdown.Block], @core.SourceMap) raise {
   let (proj, _) = parse_to_proj_node(markdown_heading_spike_test_source, source)
   (proj, source_map_for(source, proj))
 }
@@ -70,7 +70,7 @@ fn project_after_reconcile(
   old : @core.ProjNode[@markdown.Block],
   next_source : String,
   counter : Ref[Int],
-) -> (@core.ProjNode[@markdown.Block], @core.SourceMap) raise @loomcore.LexError {
+) -> (@core.ProjNode[@markdown.Block], @core.SourceMap) raise {
   let (cst, _) = @markdown.parse_cst(
     markdown_heading_spike_test_source, next_source,
   )

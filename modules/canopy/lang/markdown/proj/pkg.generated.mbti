@@ -2,6 +2,7 @@
 package "dowdiness/canopy/lang/markdown/proj"
 
 import {
+  "dowdiness/canopy/core",
   "dowdiness/canopy/protocol",
   "dowdiness/diagnostic",
   "dowdiness/incr/cells",
@@ -12,15 +13,15 @@ import {
 }
 
 // Values
-pub fn build_markdown_projection_memos(@pipeline.Parser[@markdown.Block], identity_hints? : @dowdiness/canopy/core.IdentityHintConsumer) -> (@cells.Derived[@dowdiness/canopy/core.ProjNode[@markdown.Block]?], @cells.Derived[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@markdown.Block]]], @cells.Derived[@dowdiness/canopy/core.SourceMap])
+pub fn build_markdown_projection_memos(@pipeline.Parser[@markdown.Block], identity_hints? : @core.IdentityHintConsumer) -> (@cells.Derived[@core.ProjNode[@markdown.Block]?], @cells.Derived[Map[@core.NodeId, @core.ProjNode[@markdown.Block]]], @cells.Derived[@core.SourceMap])
 
-pub fn parse_to_proj_node(@diagnostic.SourceId, String) -> (@dowdiness/canopy/core.ProjNode[@markdown.Block], Array[String]) raise @dowdiness/loom/core.LexError
+pub fn parse_to_proj_node(@diagnostic.SourceId, String) -> (@core.ProjNode[@markdown.Block], Array[String]) raise
 
-pub fn populate_token_spans(@dowdiness/canopy/core.SourceMap, @seam.SyntaxNode, @dowdiness/canopy/core.ProjNode[@markdown.Block]) -> Unit
+pub fn populate_token_spans(@core.SourceMap, @seam.SyntaxNode, @core.ProjNode[@markdown.Block]) -> Unit
 
-pub fn proj_to_view_node(@dowdiness/canopy/core.ProjNode[@markdown.Block], @dowdiness/canopy/core.SourceMap, annotations? : Map[@dowdiness/canopy/core.NodeId, Array[@protocol.ViewAnnotation]], source_text? : String?) -> @protocol.ViewNode
+pub fn proj_to_view_node(@core.ProjNode[@markdown.Block], @core.SourceMap, annotations? : Map[@core.NodeId, Array[@protocol.ViewAnnotation]], source_text? : String?) -> @protocol.ViewNode
 
-pub fn syntax_to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @dowdiness/canopy/core.ProjNode[@markdown.Block]
+pub fn syntax_to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @core.ProjNode[@markdown.Block]
 
 // Errors
 

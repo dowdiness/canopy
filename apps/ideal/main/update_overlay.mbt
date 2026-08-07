@@ -1,5 +1,9 @@
 ///|
-fn handle_overlay(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model)? {
+fn handle_overlay(
+  emit : Emit[Msg],
+  msg : Msg,
+  model : Model,
+) -> (Cmd, Model)? raise {
   match msg {
     OpenActionOverlayFromOutline => {
       let node_id_str = match model.selected_node {

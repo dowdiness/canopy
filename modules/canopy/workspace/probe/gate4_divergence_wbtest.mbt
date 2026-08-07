@@ -39,8 +39,8 @@ fn count_kind_mismatches(
   editor_a : @editor.SyncEditor[@_json_lang.JsonValue],
   editor_b : @editor.SyncEditor[@_json_lang.JsonValue],
 ) -> Int {
-  let reg_a = editor_a.get_registry()
-  let reg_b = editor_b.get_registry()
+  let reg_a = try! editor_a.get_registry()
+  let reg_b = try! editor_b.get_registry()
   let ids_a : Array[@core.NodeId] = reg_a.keys().to_array()
   ids_a
   .iter()
@@ -58,8 +58,8 @@ fn count_keys_only_in_a(
   editor_a : @editor.SyncEditor[@_json_lang.JsonValue],
   editor_b : @editor.SyncEditor[@_json_lang.JsonValue],
 ) -> Int {
-  let reg_a = editor_a.get_registry()
-  let reg_b = editor_b.get_registry()
+  let reg_a = try! editor_a.get_registry()
+  let reg_b = try! editor_b.get_registry()
   reg_a.keys().iter().filter(fn(id) { reg_b.get(id) is None }).count()
 }
 

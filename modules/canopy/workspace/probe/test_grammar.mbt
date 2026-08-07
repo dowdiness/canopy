@@ -145,6 +145,7 @@ fn lex_test_expr(
       _ => i = i + 1
     }
   }
+  located.push(@loomcore.LocatedToken::LocatedToken(Eof, start=n, end=n))
   @loomcore.LexResult::from_located_tokens(
     source_id,
     source,
@@ -350,7 +351,7 @@ pub fn new_test_editor(
   agent_id : String,
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
-) -> @editor.SyncEditor[TestExpr] raise @text.TextError {
+) -> @editor.SyncEditor[TestExpr] raise {
   let (editor, _) = @editor.SyncEditor::new_with_builder(
     agent_id,
     (source_id, source, runtime) => {
@@ -369,7 +370,7 @@ pub fn new_test_editor(
 /// consumers to verify that they do not suppress diagnostics by source length.
 pub fn new_empty_diagnostic_test_editor(
   agent_id : String,
-) -> @editor.SyncEditor[TestExpr] raise @text.TextError {
+) -> @editor.SyncEditor[TestExpr] raise {
   let (editor, _) = @editor.SyncEditor::new_with_builder(
     agent_id,
     (source_id, source, runtime) => {
@@ -386,9 +387,46 @@ pub fn new_empty_diagnostic_test_editor(
 }
 
 ///|
+/// Construct a parser whose initial parse succeeds and whose first incremental
+/// publication raises Failure after Loom has accepted the engine source. This
+/// is test infrastructure for Canopy's terminal-parser contract; production
+/// languages never expose a failure switch.
+pub fn new_parser_failure_test_editor(
+  agent_id : String,
+) -> @editor.SyncEditor[TestExpr] raise {
+  let full_parse = fn(
+    _source_id : @loomcore.SourceId,
+    _source : String,
+  ) raise Failure {
+    let cst = @seam.CstNode::new_unclassified(
+      @seam.ToRawKind::to_raw(RootNode),
+      [],
+    )
+    (@seam.SyntaxNode::from_cst(cst), @loomcore.DiagnosticSet::empty(), 0)
+  }
+  let language = @loom_incremental.ImperativeLanguage::new(
+    full_parse~,
+    incremental_parse=fn(_source_id, _source, _old, _edit) raise Failure {
+      fail("injected parser publication failure")
+    },
+    to_ast=_syntax => Branch("", []),
+  )
+  let (editor, _) = @editor.SyncEditor::new_with_builder(
+    agent_id,
+    (source_id, source, runtime) => {
+      @loom_pipeline.Parser::new(source_id, source, language, runtime?)
+    },
+    build_test_editor_parts,
+  )
+  editor
+}
+
+///|
 /// Read the parsed TestExpr AST (the fold result); empty source yields the
 /// empty document Branch("", []).
-pub fn get_test_ast(editor : @editor.SyncEditor[TestExpr]) -> TestExpr {
+pub fn get_test_ast(
+  editor : @editor.SyncEditor[TestExpr],
+) -> TestExpr raise Failure {
   match editor.get_tree() {
     Some(ast) => ast
     None => Branch("", [])

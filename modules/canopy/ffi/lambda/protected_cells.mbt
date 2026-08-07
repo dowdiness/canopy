@@ -36,7 +36,7 @@ priv struct LambdaProtectedCells {
 fn LambdaProtectedCells::LambdaProtectedCells(
   editor : @editor.SyncEditor[@ast.Term],
   companion : @lang_lambda.LambdaCompanion,
-) -> LambdaProtectedCells {
+) -> LambdaProtectedCells raise Failure {
   {
     diagnostic_source_revision: @workspace.ProtectedCell::from_derived(
       "diagnostic_publication_source_revision",

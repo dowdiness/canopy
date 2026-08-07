@@ -47,26 +47,24 @@ fn json_bench_array(element_count : Int) -> String {
 /// ProjNode + SourceMap.
 fn run_json_object_bench(b : @bench.T, member_count : Int) -> Unit {
   let source = json_bench_object(member_count)
-  let editor = new_json_editor("bench") catch {
-    error => abort("benchmark editor construction failed: \{error.message()}")
-  }
-  editor.set_text(source)
-  ignore(editor.get_proj_node())
-  ignore(editor.get_source_map())
+  let editor = try! new_json_editor("bench")
+  try! editor.set_text(source)
+  ignore(try! editor.get_proj_node())
+  ignore(try! editor.get_source_map())
   // Edit position: just before the closing }
   let edit_pos = source.length() - 2
   editor.move_cursor(edit_pos)
   let mut inserted = false
-  b.bench(fn() {
+  b.bench(() => {
     if inserted {
-      ignore(editor.backspace())
+      ignore(try! editor.backspace())
     } else {
       editor.insert("1") catch {
         _ => ()
       }
     }
-    b.keep(editor.get_proj_node())
-    b.keep(editor.get_source_map())
+    b.keep(try! editor.get_proj_node())
+    b.keep(try! editor.get_source_map())
     inserted = !inserted
   })
 }
@@ -75,25 +73,23 @@ fn run_json_object_bench(b : @bench.T, member_count : Int) -> Unit {
 /// Benchmark: incremental edit on JSON array.
 fn run_json_array_bench(b : @bench.T, element_count : Int) -> Unit {
   let source = json_bench_array(element_count)
-  let editor = new_json_editor("bench") catch {
-    error => abort("benchmark editor construction failed: \{error.message()}")
-  }
-  editor.set_text(source)
-  ignore(editor.get_proj_node())
-  ignore(editor.get_source_map())
+  let editor = try! new_json_editor("bench")
+  try! editor.set_text(source)
+  ignore(try! editor.get_proj_node())
+  ignore(try! editor.get_source_map())
   let edit_pos = source.length() - 2
   editor.move_cursor(edit_pos)
   let mut inserted = false
-  b.bench(fn() {
+  b.bench(() => {
     if inserted {
-      ignore(editor.backspace())
+      ignore(try! editor.backspace())
     } else {
       editor.insert("1") catch {
         _ => ()
       }
     }
-    b.keep(editor.get_proj_node())
-    b.keep(editor.get_source_map())
+    b.keep(try! editor.get_proj_node())
+    b.keep(try! editor.get_source_map())
     inserted = !inserted
   })
 }

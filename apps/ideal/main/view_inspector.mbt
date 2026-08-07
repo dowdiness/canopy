@@ -27,7 +27,7 @@ fn find_node_by_id(
 fn resolve_selected_node(
   model : Model,
   target_id : String,
-) -> @proj.InteractiveTreeNode[@ast.Term]? {
+) -> @proj.InteractiveTreeNode[@ast.Term]? raise {
   let loaded = match model.outline_state.tree {
     Some(root) => find_node_by_id(root, target_id)
     None => None
@@ -76,7 +76,7 @@ fn inspector_row(key : String, value : String) -> Html {
 fn view_node_details(
   node : @proj.InteractiveTreeNode[@ast.Term],
   model : Model,
-) -> Html {
+) -> Html raise {
   let kind_tag = @lambda_proj.term_kind_tag(node.kind)
   let items : Array[Html] = [
     span(class=@ui.inspector_label_class(), [text("NODE")]),
@@ -166,7 +166,7 @@ fn view_crdt_info(model : Model) -> Html {
 
 ///|
 /// Render inspector content (without wrapper — wrapper is in view()).
-fn view_inspector_content(dispatch : Emit[Msg], model : Model) -> Html {
+fn view_inspector_content(dispatch : Emit[Msg], model : Model) -> Html raise {
   let node_section : Html = match model.selected_node {
     Some(sel_id) => {
       let found = resolve_selected_node(model, sel_id)

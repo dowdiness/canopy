@@ -66,7 +66,7 @@ fn block_variants() -> Array[EditingEvent] {
     agent_id="agent-a",
     source="# Title\n\nParagraph",
   )
-  let node_id = editor.snapshot().blocks()[0].node_id()
+  let node_id = (try! editor.snapshot()).blocks()[0].node_id()
   [
     BlockFocused("key"),
     BlockHeading(2, None),
@@ -101,7 +101,11 @@ test "selection read applies the driver probe result to the model" {
     agent_id="agent-a",
     source="# Title",
   )
-  let next = apply_selection_read(test_model(editor.snapshot()), 3, 5)
+  let next = apply_selection_read(
+    test_model(try! editor.snapshot(), editor.version()),
+    3,
+    5,
+  )
   assert_eq(next.selection, Some("3:5"))
 }
 
@@ -111,10 +115,14 @@ test "measurement applies the driver probe result to the model" {
     agent_id="agent-a",
     source="# Title",
   )
-  let next = apply_measurement(test_model(editor.snapshot()), 640.0, 480.0)
+  let next = apply_measurement(
+    test_model(try! editor.snapshot(), editor.version()),
+    640.0,
+    480.0,
+  )
   assert_eq(next.measurement, Some("640:480"))
   let fractional = apply_measurement(
-    test_model(editor.snapshot()),
+    test_model(try! editor.snapshot(), editor.version()),
     120.5,
     48.25,
   )

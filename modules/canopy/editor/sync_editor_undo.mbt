@@ -6,6 +6,7 @@ pub fn[T : Eq] SyncEditor::insert_and_record(
   text : String,
   timestamp_ms : Int,
 ) -> Unit raise {
+  self.ensure_parser_healthy()
   self.taint_pending_transforms()
   let old_source = self.doc.text()
   self.cursor = @moji.prev_grapheme_boundary(old_source, self.cursor)
@@ -32,7 +33,8 @@ pub fn[T : Eq] SyncEditor::insert_and_record(
 pub fn[T : Eq] SyncEditor::delete_and_record(
   self : SyncEditor[T],
   timestamp_ms : Int,
-) -> Bool {
+) -> Bool raise Failure {
+  self.ensure_parser_healthy()
   self.taint_pending_transforms()
   let old_source = self.doc.text()
   if !@moji.is_grapheme_boundary(old_source, self.cursor) {
@@ -66,6 +68,7 @@ pub fn[T : Eq] SyncEditor::delete_and_record(
     )
     true
   } catch {
+    Failure::Failure(_) as failure => raise failure
     _ => false
   }
 }
@@ -74,7 +77,8 @@ pub fn[T : Eq] SyncEditor::delete_and_record(
 pub fn[T : Eq] SyncEditor::backspace_and_record(
   self : SyncEditor[T],
   timestamp_ms : Int,
-) -> Bool {
+) -> Bool raise Failure {
+  self.ensure_parser_healthy()
   self.taint_pending_transforms()
   let old_source = self.doc.text()
   if !@moji.is_grapheme_boundary(old_source, self.cursor) {
@@ -99,6 +103,7 @@ pub fn[T : Eq] SyncEditor::backspace_and_record(
       )
       true
     } catch {
+      Failure::Failure(_) as failure => raise failure
       _ => false
     }
   } else {
@@ -107,7 +112,8 @@ pub fn[T : Eq] SyncEditor::backspace_and_record(
 }
 
 ///|
-pub fn[T : Eq] SyncEditor::undo(self : SyncEditor[T]) -> Bool {
+pub fn[T : Eq] SyncEditor::undo(self : SyncEditor[T]) -> Bool raise Failure {
+  self.ensure_parser_healthy()
   self.taint_pending_transforms()
   let old_source = self.doc.text()
   try {
@@ -120,12 +126,14 @@ pub fn[T : Eq] SyncEditor::undo(self : SyncEditor[T]) -> Bool {
     self.mark_dirty()
     true
   } catch {
+    Failure::Failure(_) as failure => raise failure
     _ => false
   }
 }
 
 ///|
-pub fn[T : Eq] SyncEditor::redo(self : SyncEditor[T]) -> Bool {
+pub fn[T : Eq] SyncEditor::redo(self : SyncEditor[T]) -> Bool raise Failure {
+  self.ensure_parser_healthy()
   self.taint_pending_transforms()
   let old_source = self.doc.text()
   try {
@@ -138,6 +146,7 @@ pub fn[T : Eq] SyncEditor::redo(self : SyncEditor[T]) -> Bool {
     self.mark_dirty()
     true
   } catch {
+    Failure::Failure(_) as failure => raise failure
     _ => false
   }
 }
@@ -147,7 +156,8 @@ pub fn[T : Eq] SyncEditor::redo(self : SyncEditor[T]) -> Bool {
 /// Returns None if undo stack is empty or undo fails.
 pub fn[T : Eq] SyncEditor::undo_and_export(
   self : SyncEditor[T],
-) -> @text.SyncMessage? {
+) -> @text.SyncMessage? raise Failure {
+  self.ensure_parser_healthy()
   self.taint_pending_transforms()
   let ver_before = self.doc.version()
   let old_source = self.doc.text()
@@ -162,6 +172,7 @@ pub fn[T : Eq] SyncEditor::undo_and_export(
       true
     }
   } catch {
+    Failure::Failure(_) as failure => raise failure
     _ => false
   }
   if !success {
@@ -177,7 +188,8 @@ pub fn[T : Eq] SyncEditor::undo_and_export(
 /// Returns None if redo stack is empty or redo fails.
 pub fn[T : Eq] SyncEditor::redo_and_export(
   self : SyncEditor[T],
-) -> @text.SyncMessage? {
+) -> @text.SyncMessage? raise Failure {
+  self.ensure_parser_healthy()
   self.taint_pending_transforms()
   let ver_before = self.doc.version()
   let old_source = self.doc.text()
@@ -192,6 +204,7 @@ pub fn[T : Eq] SyncEditor::redo_and_export(
       true
     }
   } catch {
+    Failure::Failure(_) as failure => raise failure
     _ => false
   }
   if !success {
@@ -216,11 +229,13 @@ pub fn[T] SyncEditor::can_redo(self : SyncEditor[T]) -> Bool {
 pub fn[T] SyncEditor::set_tracking(
   self : SyncEditor[T],
   enabled : Bool,
-) -> Unit {
+) -> Unit raise Failure {
+  self.ensure_parser_healthy()
   self.undo.set_tracking(enabled)
 }
 
 ///|
-pub fn[T] SyncEditor::clear_undo(self : SyncEditor[T]) -> Unit {
+pub fn[T] SyncEditor::clear_undo(self : SyncEditor[T]) -> Unit raise Failure {
+  self.ensure_parser_healthy()
   self.undo.clear()
 }

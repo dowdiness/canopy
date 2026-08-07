@@ -34,9 +34,9 @@ fn heading_edit_path_observations(
   editor : @editor.SyncEditor[@markdown.Block],
 ) -> Array[HeadingEditPathObservation] {
   let observations : Array[HeadingEditPathObservation] = []
-  let root = editor.get_proj_node().unwrap()
+  let root = (try! editor.get_proj_node()).unwrap()
   let source = editor.get_text()
-  let source_map = editor.get_source_map()
+  let source_map = try! editor.get_source_map()
   for child in root.children {
     match heading_edit_path_observation(child, source, source_map) {
       Some(obs) => observations.push(obs)

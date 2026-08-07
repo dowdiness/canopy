@@ -101,7 +101,7 @@ pub fn rename_semantic_node(
   node_id : Int,
   new_name : String,
   timestamp_ms : Int,
-) -> String {
+) -> String raise {
   match lambda_registry.get(handle) {
     Some(h) => {
       let id = @core.NodeId::from_int(node_id)

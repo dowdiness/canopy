@@ -10,7 +10,6 @@ import {
   "dowdiness/canopy/lang/lambda/eval",
   "dowdiness/canopy/lang/lambda/scope",
   "dowdiness/canopy/protocol",
-  "dowdiness/event-graph-walker/text",
   "dowdiness/incr/cells",
   "dowdiness/lambda",
   "dowdiness/lambda/ast",
@@ -19,21 +18,21 @@ import {
 }
 
 // Values
-pub fn apply_lambda_tree_edit(@editor.SyncEditor[@ast.Term], LambdaCompanion, @edits.TreeEditOp, Int) -> Result[Array[@core.SpanEdit], @core.EditError]
+pub fn apply_lambda_tree_edit(@editor.SyncEditor[@ast.Term], LambdaCompanion, @edits.TreeEditOp, Int) -> Result[Array[@core.SpanEdit], @core.EditError] raise
 
-pub fn apply_lambda_tree_edit_with_reachable_failure_review(@editor.SyncEditor[@ast.Term], LambdaCompanion, @edits.TreeEditOp, Int, ReachableFailureAttribution) -> Result[ReachableFailureReview, @core.EditError]
+pub fn apply_lambda_tree_edit_with_reachable_failure_review(@editor.SyncEditor[@ast.Term], LambdaCompanion, @edits.TreeEditOp, Int, ReachableFailureAttribution) -> Result[ReachableFailureReview, @core.EditError] raise
 
-pub fn detect_action_context(@editor.SyncEditor[@ast.Term], @core.NodeId) -> @edits.ActionContext?
+pub fn detect_action_context(@editor.SyncEditor[@ast.Term], @core.NodeId) -> @edits.ActionContext? raise Failure
 
-pub fn get_lambda_ast(@editor.SyncEditor[@ast.Term]) -> @ast.Term
+pub fn get_lambda_ast(@editor.SyncEditor[@ast.Term]) -> @ast.Term raise Failure
 
-pub fn get_lambda_ast_pretty(@editor.SyncEditor[@ast.Term]) -> String
+pub fn get_lambda_ast_pretty(@editor.SyncEditor[@ast.Term]) -> String raise Failure
 
-pub fn get_lambda_dot_resolved(@editor.SyncEditor[@ast.Term]) -> String
+pub fn get_lambda_dot_resolved(@editor.SyncEditor[@ast.Term]) -> String raise Failure
 
-pub fn get_lambda_resolution(@editor.SyncEditor[@ast.Term]) -> @lambda.Resolution
+pub fn get_lambda_resolution(@editor.SyncEditor[@ast.Term]) -> @lambda.Resolution raise Failure
 
-pub fn new_lambda_editor(String, capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime) -> (@editor.SyncEditor[@ast.Term], LambdaCompanion) raise @text.TextError
+pub fn new_lambda_editor(String, capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime) -> (@editor.SyncEditor[@ast.Term], LambdaCompanion) raise
 
 pub fn parse_tree_edit_op(Json) -> @edits.TreeEditOp raise @editor.TreeEditError
 

@@ -7,7 +7,7 @@
 pub fn create_editor_with_undo(
   agent_id : String,
   capture_timeout_ms : Int,
-) -> Int {
+) -> Int raise {
   assemble_lambda_handle(agent_id, capture_timeout_ms~).0
 }
 
@@ -29,7 +29,10 @@ pub fn insert_and_record(
 
 ///|
 /// Delete character at cursor (forward delete) and record for undo
-pub fn delete_and_record(handle : Int, timestamp_ms : Int) -> Bool {
+pub fn delete_and_record(
+  handle : Int,
+  timestamp_ms : Int,
+) -> Bool raise Failure {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.delete_and_record(timestamp_ms)
     None => false
@@ -38,7 +41,10 @@ pub fn delete_and_record(handle : Int, timestamp_ms : Int) -> Bool {
 
 ///|
 /// Delete character before cursor (backspace) and record for undo
-pub fn backspace_and_record(handle : Int, timestamp_ms : Int) -> Bool {
+pub fn backspace_and_record(
+  handle : Int,
+  timestamp_ms : Int,
+) -> Bool raise Failure {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.backspace_and_record(timestamp_ms)
     None => false
@@ -51,7 +57,7 @@ pub fn set_text_and_record(
   handle : Int,
   new_text : String,
   timestamp_ms : Int,
-) -> Unit {
+) -> Unit raise {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.set_text_and_record(new_text, timestamp_ms)
     None => ()
@@ -60,7 +66,7 @@ pub fn set_text_and_record(
 
 ///|
 /// Undo the last operation group.
-pub fn undo_manager_undo(handle : Int) -> Bool {
+pub fn undo_manager_undo(handle : Int) -> Bool raise Failure {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.undo()
     None => false
@@ -69,7 +75,7 @@ pub fn undo_manager_undo(handle : Int) -> Bool {
 
 ///|
 /// Redo the last undone operation group.
-pub fn undo_manager_redo(handle : Int) -> Bool {
+pub fn undo_manager_redo(handle : Int) -> Bool raise Failure {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.redo()
     None => false
@@ -79,7 +85,7 @@ pub fn undo_manager_redo(handle : Int) -> Bool {
 ///|
 /// Undo and return sync ops as JSON for peer broadcast.
 /// Returns empty string if undo stack is empty.
-pub fn undo_and_export_json(handle : Int) -> String {
+pub fn undo_and_export_json(handle : Int) -> String raise Failure {
   match lambda_registry.get(handle) {
     Some(h) =>
       match h.editor.undo_and_export() {
@@ -93,7 +99,7 @@ pub fn undo_and_export_json(handle : Int) -> String {
 ///|
 /// Redo and return sync ops as JSON for peer broadcast.
 /// Returns empty string if redo stack is empty.
-pub fn redo_and_export_json(handle : Int) -> String {
+pub fn redo_and_export_json(handle : Int) -> String raise Failure {
   match lambda_registry.get(handle) {
     Some(h) =>
       match h.editor.redo_and_export() {
@@ -124,7 +130,10 @@ pub fn undo_manager_can_redo(handle : Int) -> Bool {
 
 ///|
 /// Enable or disable undo tracking
-pub fn undo_manager_set_tracking(handle : Int, enabled : Bool) -> Unit {
+pub fn undo_manager_set_tracking(
+  handle : Int,
+  enabled : Bool,
+) -> Unit raise Failure {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.set_tracking(enabled)
     None => ()
@@ -133,7 +142,7 @@ pub fn undo_manager_set_tracking(handle : Int, enabled : Bool) -> Unit {
 
 ///|
 /// Clear both undo and redo stacks
-pub fn undo_manager_clear(handle : Int) -> Unit {
+pub fn undo_manager_clear(handle : Int) -> Unit raise Failure {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.clear_undo()
     None => ()

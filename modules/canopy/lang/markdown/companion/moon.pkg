@@ -5,7 +5,6 @@ import {
   "dowdiness/canopy/lang/markdown/proj" @md_proj,
   "dowdiness/canopy/lang/markdown/sentinel" @md_sentinel,
   "dowdiness/canopy/lang/runtime" @lang_runtime,
-  "dowdiness/event-graph-walker/text",
   "dowdiness/incr",
   "dowdiness/markdown",
   "dowdiness/loom",

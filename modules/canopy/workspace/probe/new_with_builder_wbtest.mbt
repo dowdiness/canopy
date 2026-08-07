@@ -28,3 +28,30 @@ test "new_with_builder returns the language-owned extras E" {
   let _ = editor.get_proj_node()
   inspect(editor.get_text(), content="f(x) y")
 }
+
+///|
+/// Parser construction defects are part of the Loom contract. The generic
+/// editor constructor must preserve the exact Failure instead of translating
+/// it into TextError.
+test "new_with_builder preserves parser construction Failure" {
+  let result : Result[Unit, Error] = Ok(
+    {
+      let _ : (@editor.SyncEditor[TestExpr], Unit) = @editor.SyncEditor::new_with_builder(
+        "test",
+        (_source_id, _source, _runtime) => {
+          fail("injected parser construction failure")
+        },
+        fn(_parser, _channel) { abort("projection builder must not run") },
+      )
+      ()
+    },
+  ) catch {
+    error => Err(error)
+  }
+  match result {
+    Err(Failure::Failure(detail)) =>
+      assert_true(detail.contains("injected parser construction failure"))
+    Err(_) => fail("expected parser construction Failure")
+    Ok(_) => fail("expected parser construction Failure")
+  }
+}

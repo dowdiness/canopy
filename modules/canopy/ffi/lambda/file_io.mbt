@@ -27,7 +27,7 @@ pub fn on_file_opened(
   handle : Int,
   content : String,
   timestamp_ms : Int,
-) -> Unit {
+) -> Unit raise {
   set_text_and_record(handle, content, timestamp_ms)
 }
 

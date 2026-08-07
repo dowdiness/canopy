@@ -250,7 +250,7 @@ pub fn[T : Eq] ViewUpdateState::apply_diagnostic_fix(
   diagnostic_id~ : Int,
   fix_id~ : Int,
   timestamp_ms~ : Int,
-) -> Bool {
+) -> Bool raise Failure {
   guard snapshot_id >= 0 && diagnostic_id >= 0 && fix_id >= 0 else {
     return false
   }
@@ -291,7 +291,7 @@ pub fn[T : Eq] ViewUpdateState::apply_diagnostic_fix(
 ///|
 pub fn[T : @loom_core.Renderable] SyncEditor::get_view_tree(
   self : SyncEditor[T],
-) -> @protocol.ViewNode? {
+) -> @protocol.ViewNode? raise Failure {
   match self.get_proj_node() {
     Some(proj_node) => {
       let source_map = self.get_source_map()
@@ -387,7 +387,7 @@ fn merge_current_diagnostics(
 pub fn[T : @loom_core.Renderable] compute_view_patches(
   state : ViewUpdateState,
   editor : SyncEditor[T],
-) -> Array[@protocol.ViewPatch] {
+) -> Array[@protocol.ViewPatch] raise Failure {
   let patches : Array[@protocol.ViewPatch] = []
   let current = editor.get_view_tree()
   let current_decorations = match editor.capabilities.get_decorations {

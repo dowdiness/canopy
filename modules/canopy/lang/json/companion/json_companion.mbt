@@ -49,7 +49,7 @@ pub fn new_json_editor(
   agent_id : String,
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
-) -> @editor.SyncEditor[@json.JsonValue] raise @text.TextError {
+) -> @editor.SyncEditor[@json.JsonValue] raise {
   let (editor, _) = json_lang.build(
     agent_id,
     capture_timeout_ms~,
@@ -66,7 +66,7 @@ pub fn apply_json_edit(
   editor : @editor.SyncEditor[@json.JsonValue],
   op : @json_edits.JsonEditOp,
   timestamp_ms : Int,
-) -> Result[Unit, String] {
+) -> Result[Unit, String] raise {
   match json_lang.apply_edit(editor, op, timestamp_ms) {
     Ok(_) => Ok(())
     Err(e) => Err(e.message())

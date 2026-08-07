@@ -26,7 +26,7 @@ fn archive_replacement(
   editor : @markdown.MarkdownEditor,
   model : DriverModel,
   emit : @cmd.Emit[DriverEvent],
-) -> (DriverModel, @cmd.Cmd) {
+) -> (DriverModel, @cmd.Cmd) raise {
   guard model.archive_persistence_enabled else {
     return (model, @rabbita_runtime.none)
   }
@@ -34,7 +34,10 @@ fn archive_replacement(
     document_id=model.document_id,
     editor~,
   ) catch {
-    _ => return (record_local_persistence_failure(model), @rabbita_runtime.none)
+    Failure::Failure(_) as failure => raise failure
+    @repository.LocalArchivePreparationError::HistoryUnavailable(_) =>
+      return (record_local_persistence_failure(model), @rabbita_runtime.none)
+    error => raise error
   }
   let (archive_tracker, request_id) = model.archive_tracker.request()
   let command = @archive_storage.replace(request_id, prepared.encoded(), completed=completion => {
@@ -44,21 +47,64 @@ fn archive_replacement(
 }
 
 ///|
+/// Archive failures happen after the local CRDT operation may already have
+/// landed. They are storage errors, not parser failures, and use a healthy
+/// snapshot plus the explicit version frontier for their accepted counters.
+fn accept_after_archive_error(
+  editor : @markdown.MarkdownEditor,
+  model : DriverModel,
+) -> (DriverModel, Bool, Bool) raise {
+  let document = editor.snapshot()
+  let (accepted, changed) = classify_recovered_frontier(
+    model,
+    document,
+    editor.version(),
+  )
+  (
+    record_local_persistence_failure(accepted),
+    accepted.document_version != model.document_version,
+    changed,
+  )
+}
+
+///|
+/// Handle the typed archive errors raised while cutting a receipt. Unknown
+/// errors and Loom Failure are deliberately not converted here.
+fn commit_archive_error(
+  editor : @markdown.MarkdownEditor,
+  model : DriverModel,
+  error : @markdown.MarkdownArchiveError,
+) -> (DriverModel, Bool, Bool) raise {
+  match error {
+    @markdown.MarkdownArchiveError::ExportFailed(..)
+    | @markdown.MarkdownArchiveError::HistoryAdmissionFailed(..)
+    | @markdown.MarkdownArchiveError::IncompleteHistory
+    | @markdown.MarkdownArchiveError::InvalidAgentId
+    | @markdown.MarkdownArchiveError::WriterCreationFailed(..)
+    | @markdown.MarkdownArchiveError::LimitExceeded(..) =>
+      accept_after_archive_error(editor, model)
+  }
+}
+
+///|
 /// Shared atomic-commit shell: failure injection, editor commit, receipt
 /// classification, and persistence dispatch. Mode-specific concerns
 /// (selection extraction, preview demand, application state) stay with the
-/// caller. Returns (model, result?, accepted, changed, command) — `result`
-/// is present only on a successful Ok receipt so block callers can extract
-/// the deep selection outcome without reading SyncEditor cursor state.
+/// caller. The outer update wrapper owns the only parser-Failure recovery.
 fn commit_edit_request(
   editor : @markdown.MarkdownEditor,
   model : DriverModel,
   request : @markdown.MarkdownEditRequest,
   operation : String,
   emit : @cmd.Emit[DriverEvent],
-) -> (DriverModel, @markdown.MarkdownCommitResult?, Bool, Bool, @cmd.Cmd) {
+) -> (DriverModel, @markdown.MarkdownCommitResult?, Bool, Bool, @cmd.Cmd) raise {
   let fail_commit = model.fail_next_editor_commit
-  let next = { ..model, fail_next_editor_commit: false }
+  let inject_parser_failure = model.force_parser_failure
+  let next = {
+    ..model,
+    fail_next_editor_commit: false,
+    force_parser_failure: false,
+  }
   let request = if fail_commit {
     @markdown.MarkdownEditRequest::ReplaceText(
       start=-1,
@@ -69,31 +115,47 @@ fn commit_edit_request(
     request
   }
   let receipt = editor.commit_with_receipt(request) catch {
-    _ => {
-      let document = editor.snapshot()
-      let changed = document.source() != model.document.source()
-      let accepted = {
-        ..next,
-        document,
-        source_revision: if changed {
-          model.source_revision + 1
-        } else {
-          model.source_revision
-        },
-        committed_change_count: if changed {
-          model.committed_change_count + 1
-        } else {
-          model.committed_change_count
-        },
-      }
-      return (
-        record_local_persistence_failure(accepted),
-        None,
-        true,
-        changed,
-        @rabbita_runtime.none,
+    Failure::Failure(_) as failure => raise failure
+    @markdown.MarkdownArchiveError::ExportFailed(..) => {
+      let (accepted, frontier_advanced, changed) = accept_after_archive_error(
+        editor, next,
       )
+      return (accepted, None, frontier_advanced, changed, @rabbita_runtime.none)
     }
+    @markdown.MarkdownArchiveError::HistoryAdmissionFailed(..) as error => {
+      let (accepted, frontier_advanced, changed) = commit_archive_error(
+        editor, next, error,
+      )
+      return (accepted, None, frontier_advanced, changed, @rabbita_runtime.none)
+    }
+    @markdown.MarkdownArchiveError::IncompleteHistory as error => {
+      let (accepted, frontier_advanced, changed) = commit_archive_error(
+        editor, next, error,
+      )
+      return (accepted, None, frontier_advanced, changed, @rabbita_runtime.none)
+    }
+    @markdown.MarkdownArchiveError::InvalidAgentId as error => {
+      let (accepted, frontier_advanced, changed) = commit_archive_error(
+        editor, next, error,
+      )
+      return (accepted, None, frontier_advanced, changed, @rabbita_runtime.none)
+    }
+    @markdown.MarkdownArchiveError::WriterCreationFailed(..) as error => {
+      let (accepted, frontier_advanced, changed) = commit_archive_error(
+        editor, next, error,
+      )
+      return (accepted, None, frontier_advanced, changed, @rabbita_runtime.none)
+    }
+    @markdown.MarkdownArchiveError::LimitExceeded(..) as error => {
+      let (accepted, frontier_advanced, changed) = commit_archive_error(
+        editor, next, error,
+      )
+      return (accepted, None, frontier_advanced, changed, @rabbita_runtime.none)
+    }
+    error => raise error
+  }
+  if inject_parser_failure && receipt is Ok(_) {
+    raise Failure::Failure("dev-host injected parser publication failure")
   }
   match receipt {
     Err(error) => {
@@ -107,16 +169,16 @@ fn commit_edit_request(
     }
     Ok(receipt) => {
       let result = receipt.result()
-      let (committed, changed) = classify_commit(next, result)
+      let (committed, accepted, changed) = classify_commit(next, receipt)
       match @repository.history_trigger(receipt) {
         @repository.LocalArchivePersistenceDecision::Replace => {
           let (persisted, command) = archive_replacement(
             editor, committed, emit,
           )
-          (persisted, Some(result), true, changed, command)
+          (persisted, Some(result), accepted, changed, command)
         }
         @repository.LocalArchivePersistenceDecision::Skip =>
-          (committed, Some(result), true, changed, @rabbita_runtime.none)
+          (committed, Some(result), accepted, changed, @rabbita_runtime.none)
       }
     }
   }
@@ -131,7 +193,7 @@ fn commit_source(
   source : String,
   operation : String,
   emit : @cmd.Emit[DriverEvent],
-) -> (DriverModel, Bool, Bool, @cmd.Cmd) {
+) -> (DriverModel, Bool, Bool, @cmd.Cmd) raise {
   let (committed, _, accepted, changed, command) = commit_edit_request(
     editor,
     model,
@@ -145,8 +207,6 @@ fn commit_source(
 
 ///|
 /// Commit one typed block request through the atomic façade boundary.
-/// Structural callers receive the deep selection outcome without reading
-/// SyncEditor cursor state in this shell.
 fn commit_block_request(
   editor : @markdown.MarkdownEditor,
   attachment : @md_markdown.MarkdownSemanticAttachment,
@@ -154,7 +214,7 @@ fn commit_block_request(
   request : @markdown.MarkdownEditRequest,
   operation : String,
   emit : @cmd.Emit[DriverEvent],
-) -> (DriverModel, @markdown.MarkdownBlockSelection?, Bool, @cmd.Cmd) {
+) -> (DriverModel, @markdown.MarkdownBlockSelection?, Bool, @cmd.Cmd) raise {
   let (committed, result, accepted, changed, persistence_command) = commit_edit_request(
     editor, model, request, operation, emit,
   )
@@ -186,7 +246,7 @@ fn commit_block_toolbar_request(
   originating_selection : BlockSelection?,
   control_id : String,
   emit : @cmd.Emit[DriverEvent],
-) -> (DriverModel, Bool, @cmd.Cmd) {
+) -> (DriverModel, Bool, @cmd.Cmd) raise {
   let (committed, committed_selection, _, persistence_command) = commit_block_request(
     editor, attachment, model, request, "editor-dispatch", emit,
   )

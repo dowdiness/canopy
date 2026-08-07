@@ -7,7 +7,7 @@
 ///|
 /// Helper: build a fresh single-editor scenario with `n` sequential
 /// inserts of "a" by `agent`. LVs run 0..<n in append order.
-fn build_linear(agent : String, n : Int) -> @editor.SyncEditor[@ast.Term] {
+fn build_linear(agent : String, n : Int) -> @editor.SyncEditor[@ast.Term] raise {
   let (editor, _) = try! @lambda.new_lambda_editor(agent)
   for i in 0..<n {
     editor.insert_at(i, "a", 0)

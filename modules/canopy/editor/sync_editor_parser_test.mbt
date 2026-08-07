@@ -192,3 +192,79 @@ test "sync: version advances after insert" {
   // Version should have changed after insert
   inspect(v1 == v2, content="false")
 }
+
+///|
+fn assert_terminal_operation_rejected(
+  operation : () -> Unit raise,
+  expected_detail : String,
+) -> Unit raise {
+  let result : Result[Unit, Error] = Ok(operation()) catch {
+    error => Err(error)
+  }
+  match result {
+    Err(Failure::Failure(detail)) => assert_eq(detail, expected_detail)
+    Err(_) => fail("expected stored parser Failure")
+    Ok(_) => fail("expected terminal parser operation to fail")
+  }
+}
+
+///|
+/// A Loom Failure occurs after the CRDT mutation but before parser publication.
+/// Canonical text stays accepted, while the failed parser and every derived
+/// read become terminal. A later edit must fail before mutating the CRDT again.
+test "parser Failure preserves accepted text and terminalizes derived reads" {
+  let editor = try! @probe.new_parser_failure_test_editor("failure-agent")
+  let first : Result[Unit, Error] = Ok(editor.set_text("accepted")) catch {
+    error => Err(error)
+  }
+  let detail = match first {
+    Err(Failure::Failure(detail)) => detail
+    Err(_) => fail("expected parser publication Failure")
+    Ok(_) => fail("expected parser publication Failure")
+  }
+  assert_true(detail.contains("injected parser publication failure"))
+  assert_eq(editor.get_text(), "accepted")
+  assert_false(editor.is_parser_healthy())
+
+  let second : Result[Unit, Error] = Ok(editor.set_text("must-not-land")) catch {
+    error => Err(error)
+  }
+  match second {
+    Err(Failure::Failure(next_detail)) => assert_eq(next_detail, detail)
+    Err(_) => fail("expected stored parser Failure")
+    Ok(_) => fail("expected terminal parser to reject the edit")
+  }
+  assert_eq(editor.get_text(), "accepted")
+
+  let accepted_version = editor.get_version()
+  assert_terminal_operation_rejected(
+    fn() raise { editor.insert_and_record("x", 1) },
+    detail,
+  )
+  editor.move_cursor(0)
+  assert_terminal_operation_rejected(
+    fn() raise { ignore(editor.delete_and_record(2)) },
+    detail,
+  )
+  editor.move_cursor(editor.get_text().length())
+  assert_terminal_operation_rejected(
+    fn() raise { ignore(editor.backspace_and_record(3)) },
+    detail,
+  )
+  assert_eq(editor.get_text(), "accepted")
+  assert_eq(editor.get_version(), accepted_version)
+
+  let derived_read : Result[Unit, Error] = Ok(
+    {
+      ignore(editor.get_proj_node())
+      ()
+    },
+  ) catch {
+    error => Err(error)
+  }
+  match derived_read {
+    Err(Failure::Failure(next_detail)) => assert_eq(next_detail, detail)
+    Err(_) => fail("expected stored parser Failure")
+    Ok(_) => fail("expected terminal parser to reject derived reads")
+  }
+}

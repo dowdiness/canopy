@@ -22,10 +22,10 @@ fn make_text_ops_caps(
 ) -> TextOpsCaps {
   {
     apply_text_edit: fn(from, del, ins, ts) {
-      editor.apply_text_edit(from, del, ins, ts)
+      try! editor.apply_text_edit(from, del, ins, ts)
     },
     apply_text_edit_opt: Some(fn(from, del, ins, ts) {
-      editor.apply_text_edit(from, del, ins, ts)
+      try! editor.apply_text_edit(from, del, ins, ts)
     }),
   }
 }
@@ -48,12 +48,10 @@ fn run_text_intent_dispatch_bench(
   mode : DispatchMode,
 ) -> Unit {
   let source = json_bench_object(member_count)
-  let editor = new_json_editor("bench") catch {
-    error => abort("benchmark editor construction failed: \{error.message()}")
-  }
-  editor.set_text(source)
-  ignore(editor.get_proj_node())
-  ignore(editor.get_source_map())
+  let editor = try! new_json_editor("bench")
+  try! editor.set_text(source)
+  ignore(try! editor.get_proj_node())
+  ignore(try! editor.get_source_map())
   let caps = make_text_ops_caps(editor)
   // Edit positions: just after the value digit of 4 members spread across
   // the doc. Member i line: `  "k<i>": <i>` — find positions by scanning.
@@ -79,7 +77,7 @@ fn run_text_intent_dispatch_bench(
     let pos = positions[i / 2 % positions.length()]
     let (del, ins) = if inserted { (1, "") } else { (0, "1") }
     match mode {
-      Direct => editor.apply_text_edit(pos, del, ins, i)
+      Direct => try! editor.apply_text_edit(pos, del, ins, i)
       CapsField => (caps.apply_text_edit)(pos, del, ins, i)
       CapsOptField =>
         match caps.apply_text_edit_opt {

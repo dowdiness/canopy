@@ -1,21 +1,14 @@
 ///|
-/// Classification boundary matrix:
-///
-/// | receipt result | domain term | source_revision | committed_change_count | changed |
-/// | --- | --- | --- | --- | --- |
-/// | Applied | history-changing commit | +1 | +1 | true |
-/// | Unchanged | history no-op | unchanged | unchanged | false |
-///
-/// Unrelated model fields pass through untouched in both cases. The
-/// classification is independent of source equality: Applied advances
-/// history regardless of whether the resulting Markdown source differs.
-/// Selection extraction and preview demand stay in the calling shell.
-
-///|
-fn test_model(document : @markdown.MarkdownDocumentSnapshot) -> DriverModel {
+/// Version-frontier classification tests.
+fn test_model(
+  document : @markdown.MarkdownDocumentSnapshot,
+  version : @markdown.MarkdownDocumentVersion,
+) -> DriverModel {
   {
     state: @core.ApplicationState::ApplicationState(@core.Raw),
+    runtime_state: EditorRuntimeState::Healthy,
     document,
+    document_version: version,
     document_id: @archive.LoomarkDocumentId::from_string("test-doc") catch {
       _ => abort("test document id must construct")
     },
@@ -35,6 +28,9 @@ fn test_model(document : @markdown.MarkdownDocumentSnapshot) -> DriverModel {
     error_count: 0,
     committed_change_count: 3,
     fail_next_editor_commit: false,
+    force_parser_failure: false,
+    force_reconstruction_failure: false,
+    reconstruction_attempt_count: 0,
     resize_count: 0,
     selection: None,
     measurement: None,
@@ -51,37 +47,49 @@ fn test_model(document : @markdown.MarkdownDocumentSnapshot) -> DriverModel {
 }
 
 ///|
-test "history-changing commit advances both counters and reports changed" {
+test "history-changing commit advances counters and reports source change" {
   let editor = try! @markdown.MarkdownEditor(
     agent_id="agent-a",
     source="# Title",
   )
-  let document = editor.snapshot()
-  let model = test_model(document)
-  let (next, changed) = classify_commit(
-    model,
-    @markdown.MarkdownCommitResult::Applied(document, None),
-  )
+  let model = test_model(editor.snapshot(), editor.version())
+  let receipt = match
+    (try! editor.commit_with_receipt(
+      @markdown.MarkdownEditRequest::ReplaceSource("## Changed"),
+    )) {
+    Ok(receipt) => receipt
+    Err(_) => abort("expected receipt")
+  }
+  let (next, accepted, changed) = classify_commit(model, receipt)
   assert_eq(next.source_revision, 6)
   assert_eq(next.committed_change_count, 4)
+  assert_true(accepted)
   assert_true(changed)
-  assert_eq(next.document.source(), "# Title")
+  assert_eq(next.document.source(), "## Changed")
 }
 
 ///|
-test "history no-op leaves counters untouched and reports unchanged" {
+test "source-preserving commit still advances the frontier exactly once" {
   let editor = try! @markdown.MarkdownEditor(
     agent_id="agent-a",
     source="# Title",
   )
-  let document = editor.snapshot()
-  let model = test_model(document)
-  let (next, changed) = classify_commit(
-    model,
-    @markdown.MarkdownCommitResult::Unchanged(document),
-  )
+  let model = test_model(editor.snapshot(), editor.version())
+  let receipt = match
+    (try! editor.commit_with_receipt(
+      @markdown.MarkdownEditRequest::ReplaceText(
+        start=0,
+        delete_len=1,
+        inserted="#",
+      ),
+    )) {
+    Ok(receipt) => receipt
+    Err(_) => abort("expected receipt")
+  }
+  let (next, accepted, changed) = classify_commit(model, receipt)
   assert_eq(next.source_revision, 5)
-  assert_eq(next.committed_change_count, 3)
+  assert_eq(next.committed_change_count, 4)
+  assert_true(accepted)
   assert_false(changed)
   assert_eq(next.document.source(), "# Title")
 }
@@ -94,15 +102,19 @@ test "classification preserves unrelated model fields" {
   )
   let document = editor.snapshot()
   let model = {
-    ..test_model(document),
+    ..test_model(document, editor.version()),
     fatal: true,
     error: Some("boom"),
     split_preview_open: true,
   }
-  let (next, _) = classify_commit(
-    model,
-    @markdown.MarkdownCommitResult::Applied(document, None),
-  )
+  let receipt = match
+    (try! editor.commit_with_receipt(
+      @markdown.MarkdownEditRequest::ReplaceSource("changed"),
+    )) {
+    Ok(receipt) => receipt
+    Err(_) => abort("expected receipt")
+  }
+  let (next, _, _) = classify_commit(model, receipt)
   assert_true(next.fatal)
   assert_eq(next.error, Some("boom"))
   assert_true(next.split_preview_open)

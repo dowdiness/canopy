@@ -3,7 +3,7 @@
 // Some((Cmd, Model)). Returns None for unmatched variants.
 
 ///|
-fn sync_after_history_change(model : Model) -> (Cmd, Model) {
+fn sync_after_history_change(model : Model) -> (Cmd, Model) raise {
   let new_model = refresh(model)
   let text = new_model.editor.get_text()
   let cmd = sync_after_local_model_change(new_model, text)
@@ -15,7 +15,7 @@ fn handle_workspace(
   emit : Emit[Msg],
   msg : Msg,
   model : Model,
-) -> (Cmd, Model)? {
+) -> (Cmd, Model)? raise {
   let _ = emit
   match msg {
     SetMode(mode) => {

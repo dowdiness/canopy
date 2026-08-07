@@ -3,7 +3,7 @@ fn apply_structural_edit_request(
   model : Model,
   op : String,
   node_id : String,
-) -> (Cmd, Model) {
+) -> (Cmd, Model) raise {
   let nid = match parse_node_id(node_id) {
     Some(id) => id
     None => return (none, model)
@@ -19,7 +19,7 @@ fn apply_structural_edit_request(
 }
 
 ///|
-fn update(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
+fn update(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) raise {
   match handle_workspace(emit, msg, model) {
     Some(r) => return r
     None => ()

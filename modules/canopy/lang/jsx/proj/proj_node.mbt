@@ -11,7 +11,7 @@
 pub fn parse_to_proj_node(
   source_id : @loomcore.SourceId,
   text : String,
-) -> (@core.ProjNode[@jsx.JsxNode], Array[String]) raise @loomcore.LexError {
+) -> (@core.ProjNode[@jsx.JsxNode], Array[String]) raise {
   let (cst, diagnostics) = @jsx.parse_cst(source_id, text)
   let syntax_node = @seam.SyntaxNode::from_cst(cst)
   let errors = diagnostics.map(diagnostic => diagnostic.message())

@@ -505,6 +505,9 @@ fn DomAction::describe(self : DomAction) -> String {
     WriteTextSelection => "writeTextSelection"
     MeasureElement => "measureElement"
     DispatchCustomEvent => "dispatchCustomEvent"
+    CopyText => "copyText"
+    DownloadText => "downloadText"
+    Reload => "reload"
     ListenCustomEvent => "listenCustomEvent"
     RemoveCustomEventListener => "removeCustomEventListener"
   }
@@ -566,6 +569,53 @@ extern "js" fn dom_status_element(status : DomStatus) -> DomElement =
 ///|
 extern "js" fn js_document_unavailable() -> Bool =
   #| () => typeof document === "undefined"
+
+///|
+extern "js" fn js_copy_text(text : String) -> Bool =
+  #| (text) => {
+  #|   try {
+  #|     const field = document.createElement("textarea");
+  #|     field.value = text;
+  #|     field.setAttribute("readonly", "");
+  #|     field.style.position = "fixed";
+  #|     field.style.opacity = "0";
+  #|     document.body.appendChild(field);
+  #|     field.select();
+  #|     const copied = document.execCommand("copy");
+  #|     field.remove();
+  #|     return copied;
+  #|   } catch (_) {
+  #|     return false;
+  #|   }
+  #| }
+
+///|
+extern "js" fn js_download_text(filename : String, text : String) -> Bool =
+  #| (filename, text) => {
+  #|   try {
+  #|     const blob = new Blob([text], { type: "text/markdown;charset=utf-8" });
+  #|     const url = URL.createObjectURL(blob);
+  #|     const link = document.createElement("a");
+  #|     link.href = url;
+  #|     link.download = filename;
+  #|     link.click();
+  #|     URL.revokeObjectURL(url);
+  #|     return true;
+  #|   } catch (_) {
+  #|     return false;
+  #|   }
+  #| }
+
+///|
+extern "js" fn js_reload() -> Bool =
+  #| () => {
+  #|   try {
+  #|     globalThis.location.reload();
+  #|     return true;
+  #|   } catch (_) {
+  #|     return false;
+  #|   }
+  #| }
 
 ///|
 extern "js" fn js_get_element_by_id(

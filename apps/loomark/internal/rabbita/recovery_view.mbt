@@ -12,7 +12,7 @@ priv enum RecoveryCategory {
 
 ///|
 /// Stable, non-editable recovery application for an unreadable local archive.
-fn recovery_view(category : RecoveryCategory) -> @rabbita_runtime.Html {
+fn archive_recovery_view(category : RecoveryCategory) -> @rabbita_runtime.Html {
   let (title, message, name) = match category {
     RecoveryCategory::StorageUnavailable =>
       (
@@ -76,6 +76,6 @@ fn recovery_view(category : RecoveryCategory) -> @rabbita_runtime.Html {
 /// Build a static recovery app without an editor or storage command.
 fn recovery_application(category : RecoveryCategory) -> @rabbita_runtime.App {
   @rabbita_runtime.new(() => {
-    @rabbita_runtime.Val::constant(recovery_view(category))
+    @rabbita_runtime.Val::constant(archive_recovery_view(category))
   })
 }

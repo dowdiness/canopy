@@ -129,7 +129,7 @@ pub fn DiagnosticPublicationInputSnapshot::configuration(
 /// only to establish invalidation; the returned value carries no source text.
 pub fn[T] SyncEditor::diagnostic_publication_source_revision(
   self : SyncEditor[T],
-) -> @incr.Derived[DiagnosticPublicationSourceRevision] {
+) -> @incr.Derived[DiagnosticPublicationSourceRevision] raise Failure {
   let source_id = self.parser_source_id()
   @incr.Derived::Derived(
     self.parser_runtime(),

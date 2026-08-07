@@ -16,6 +16,8 @@ options(
         "dev_host_select_preview",
         "dev_host_restore_snapshot",
         "dev_host_force_editor_failure",
+        "dev_host_force_parser_failure",
+        "dev_host_force_reconstruction_failure",
         "dev_host_focus_preview",
         "dev_host_focus_raw",
         "dev_host_focus_block",

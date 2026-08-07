@@ -1,6 +1,6 @@
 ///|
 #warnings("-alert_unstable")
-fn render_preview(source : String) -> String {
+fn render_preview(source : String) -> String raise {
   let preview = semantic_preview_view(
     source,
     wbtest_markdown_ir(@loom.SourceId("loomark-preview-ssr"), source),

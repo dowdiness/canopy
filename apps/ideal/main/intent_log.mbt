@@ -43,7 +43,7 @@ fn push_patch(
   model : Model,
   op : @lambda_edits.TreeEditOp,
   edits : Array[@canopy_core.SpanEdit],
-) -> Unit {
+) -> Unit raise Failure {
   if edits.is_empty() {
     return
   }

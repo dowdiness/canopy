@@ -37,7 +37,7 @@ struct LevelBStack {
 fn LevelBStack::LevelBStack(
   source_id : @loomcore.SourceId,
   source : String,
-) -> LevelBStack {
+) -> LevelBStack raise {
   let parser = @loom.new_parser(source_id, source, @parser.lambda_grammar)
   let (cached_proj_node, registry_memo, source_map_memo) = @lambda_proj.build_lambda_projection_memos(
     parser,
@@ -63,7 +63,11 @@ fn LevelBStack::dispose(self : LevelBStack) -> Unit {
 
 ///|
 /// Advance the parser by the minimal single-region edit turning `old` into `new`.
-fn LevelBStack::apply(self : LevelBStack, old : String, new : String) -> Unit {
+fn LevelBStack::apply(
+  self : LevelBStack,
+  old : String,
+  new : String,
+) -> Unit raise {
   self.parser.apply_edit(lb_minimal_edit(old, new), new)
 }
 

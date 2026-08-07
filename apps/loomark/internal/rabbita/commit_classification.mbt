@@ -1,28 +1,89 @@
 ///|
-/// Classify one atomic editor commit into domain terms: an Applied result is
-/// a history-changing commit and advances both revision counters; an
-/// Unchanged result is a history no-op and leaves them untouched. The
-/// classification is independent of source equality — Applied advances
-/// history whether or not the resulting Markdown source differs.
+/// Classify one atomic commit by the explicit CRDT version frontier.
 ///
-/// Pure: no editor, no DOM, no commands. The calling shell owns selection
-/// extraction, preview demand, and the `@repository.history_trigger`
-/// persistence decision.
+/// Source equality is consulted only after the frontier advances: a real
+/// operation can preserve visible text while still counting as one accepted
+/// commit. The function is pure; the shell owns editor and archive effects.
 fn classify_commit(
   model : DriverModel,
-  result : @markdown.MarkdownCommitResult,
-) -> (DriverModel, Bool) {
-  match result {
-    @markdown.Applied(document, _) =>
-      (
-        {
-          ..model,
-          document,
-          source_revision: model.source_revision + 1,
-          committed_change_count: model.committed_change_count + 1,
-        },
-        true,
-      )
-    @markdown.Unchanged(document) => ({ ..model, document, }, false)
+  receipt : @markdown.MarkdownCommitReceipt,
+) -> (DriverModel, Bool, Bool) {
+  let document = match receipt.result() {
+    @markdown.Applied(document, _) => document
+    @markdown.Unchanged(document) => document
   }
+  let accepted = receipt.after_version() != model.document_version
+  if !accepted {
+    return ({ ..model, document, }, false, false)
+  }
+  let changed = document.source() != model.document.source()
+  (
+    {
+      ..model,
+      document,
+      document_version: receipt.after_version(),
+      source_revision: if changed {
+        model.source_revision + 1
+      } else {
+        model.source_revision
+      },
+      committed_change_count: model.committed_change_count + 1,
+    },
+    true,
+    changed,
+  )
+}
+
+///|
+/// Advance counters when reconstruction cannot provide a usable snapshot but
+/// the captured portable source/version still proves acceptance.
+fn classify_recovered_source(
+  model : DriverModel,
+  source : String,
+  version : @markdown.MarkdownDocumentVersion,
+) -> DriverModel {
+  let accepted = version != model.document_version
+  if !accepted {
+    return model
+  }
+  let changed = source != model.document.source()
+  {
+    ..model,
+    document_version: version,
+    source_revision: if changed {
+      model.source_revision + 1
+    } else {
+      model.source_revision
+    },
+    committed_change_count: model.committed_change_count + 1,
+  }
+}
+
+///|
+/// Install the fresh snapshot after reopening a failed editor. The failed
+/// editor itself is never queried for a snapshot.
+fn classify_recovered_frontier(
+  model : DriverModel,
+  document : @markdown.MarkdownDocumentSnapshot,
+  version : @markdown.MarkdownDocumentVersion,
+) -> (DriverModel, Bool) {
+  let accepted = version != model.document_version
+  if !accepted {
+    return ({ ..model, document, }, false)
+  }
+  let changed = document.source() != model.document.source()
+  (
+    {
+      ..model,
+      document,
+      document_version: version,
+      source_revision: if changed {
+        model.source_revision + 1
+      } else {
+        model.source_revision
+      },
+      committed_change_count: model.committed_change_count + 1,
+    },
+    changed,
+  )
 }

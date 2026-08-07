@@ -3,7 +3,9 @@
 
 ///|
 /// Returns the parsed lambda Term.
-pub fn get_lambda_ast(editor : @editor.SyncEditor[@ast.Term]) -> @ast.Term {
+pub fn get_lambda_ast(
+  editor : @editor.SyncEditor[@ast.Term],
+) -> @ast.Term raise Failure {
   match editor.get_tree() {
     Some(t) => t
     None => @ast.Term::Unit
@@ -12,7 +14,9 @@ pub fn get_lambda_ast(editor : @editor.SyncEditor[@ast.Term]) -> @ast.Term {
 
 ///|
 /// Returns pretty-printed AST with debug tree.
-pub fn get_lambda_ast_pretty(editor : @editor.SyncEditor[@ast.Term]) -> String {
+pub fn get_lambda_ast_pretty(
+  editor : @editor.SyncEditor[@ast.Term],
+) -> String raise Failure {
   let ast = get_lambda_ast(editor)
   let formatted = @pretty.pretty_print(ast, width=60)
   "Expression: " + formatted + "\n\nAST:\n" + @debug.to_string(ast)
@@ -22,7 +26,7 @@ pub fn get_lambda_ast_pretty(editor : @editor.SyncEditor[@ast.Term]) -> String {
 /// Returns name resolution info.
 pub fn get_lambda_resolution(
   editor : @editor.SyncEditor[@ast.Term],
-) -> @parser.Resolution {
+) -> @parser.Resolution raise Failure {
   let (_, res) = @parser.resolve(get_lambda_ast(editor))
   res
 }
@@ -31,7 +35,7 @@ pub fn get_lambda_resolution(
 /// Returns Graphviz DOT with resolution.
 pub fn get_lambda_dot_resolved(
   editor : @editor.SyncEditor[@ast.Term],
-) -> String {
+) -> String raise Failure {
   let ast = get_lambda_ast(editor)
   let (resolved_ast, res) = @parser.resolve(ast)
   @parser.term_to_dot_resolved(resolved_ast, res)

@@ -51,9 +51,9 @@ pub fn apply_patches(String) -> String
 
 pub fn clear_registry() -> Unit
 
-pub fn jsx_parse_and_render(String, String) -> String
+pub fn jsx_parse_and_render(String, String) -> String raise
 
-pub fn jsx_parse_to_json(String) -> String
+pub fn jsx_parse_to_json(String) -> String raise
 
 pub fn jsx_session_commit_candidate(Int, @cognition.GenerativeUiRevision, @cognition.GenerativeUiCandidate) -> String
 
@@ -65,7 +65,7 @@ pub fn jsx_session_render(Int, String) -> String
 
 pub fn jsx_session_replay_candidate_json(Int, Int, String, String) -> String
 
-pub fn jsx_streaming_to_json(String) -> String
+pub fn jsx_streaming_to_json(String) -> String raise
 
 pub fn reset_jsx_state() -> Unit
 

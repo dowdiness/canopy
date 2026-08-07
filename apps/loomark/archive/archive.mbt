@@ -89,12 +89,26 @@ pub fn LoomarkDocumentArchive::history(
 pub fn LoomarkDocumentArchive::capture(
   document_id~ : LoomarkDocumentId,
   editor~ : @markdown.MarkdownEditor,
-) -> LoomarkDocumentArchive raise LoomarkArchiveCaptureError {
+) -> LoomarkDocumentArchive raise {
   let portable_markdown = editor.portable_markdown()
   let history = editor.history_since() catch {
-    _ =>
+    @markdown.MarkdownArchiveError::ExportFailed(detail~) =>
+      raise LoomarkArchiveCaptureError::HistoryUnavailable(detail~)
+    @markdown.MarkdownArchiveError::HistoryAdmissionFailed(detail~) =>
+      raise LoomarkArchiveCaptureError::HistoryUnavailable(detail~)
+    @markdown.MarkdownArchiveError::IncompleteHistory =>
       raise LoomarkArchiveCaptureError::HistoryUnavailable(
-        detail="history export failed",
+        detail="history is incomplete",
+      )
+    @markdown.MarkdownArchiveError::InvalidAgentId =>
+      raise LoomarkArchiveCaptureError::HistoryUnavailable(
+        detail="invalid agent id",
+      )
+    @markdown.MarkdownArchiveError::WriterCreationFailed(detail~) =>
+      raise LoomarkArchiveCaptureError::HistoryUnavailable(detail~)
+    @markdown.MarkdownArchiveError::LimitExceeded(..) =>
+      raise LoomarkArchiveCaptureError::HistoryUnavailable(
+        detail="history export limit exceeded",
       )
   }
   { document_id, portable_markdown, history }
@@ -124,7 +138,7 @@ pub fn LoomarkDocumentArchive::from_json_string(
   json : String,
   validation_agent_id~ : String,
   open_limits~ : @markdown.MarkdownArchiveOpenLimits,
-) -> LoomarkDocumentArchive raise LoomarkArchiveDecodeError {
+) -> LoomarkDocumentArchive raise {
   let value = @json.parse(json) catch {
     _ =>
       raise LoomarkArchiveDecodeError::MalformedEnvelope(detail="invalid JSON")
@@ -235,12 +249,13 @@ fn validate_decoded(
   history : @markdown.MarkdownDocumentHistory,
   validation_agent_id : String,
   open_limits : @markdown.MarkdownArchiveOpenLimits,
-) -> Unit raise LoomarkArchiveDecodeError {
+) -> Unit raise {
   let reopened = @markdown.MarkdownEditor::open(
     agent_id=validation_agent_id,
     history~,
     open_limits~,
   ) catch {
+    Failure::Failure(_) as failure => raise failure
     @markdown.MarkdownArchiveError::InvalidAgentId =>
       raise LoomarkArchiveDecodeError::InvalidValidationAgentId
     @markdown.MarkdownArchiveError::WriterCreationFailed(detail~) =>
@@ -257,6 +272,7 @@ fn validate_decoded(
       raise LoomarkArchiveDecodeError::IncompleteHistory
     @markdown.MarkdownArchiveError::ExportFailed(detail~) =>
       raise LoomarkArchiveDecodeError::HistoryExportFailed(detail~)
+    error => raise error
   }
   if reopened.portable_markdown() != portable_markdown {
     raise LoomarkArchiveDecodeError::PortableTextHistoryMismatch

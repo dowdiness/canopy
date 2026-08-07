@@ -50,6 +50,7 @@ struct SourceDemoModel {
   // `dirty` is purely a status/validity signal; it also gates `SyncFromGraph`
   // as a guard against pushing an out-of-band source over invalid typing.
   dirty : Bool
+  parser_failed : Bool
   mounted : Bool
   status : String
   status_tone : @status.Tone
@@ -182,11 +183,11 @@ fn source_demo_result_step(
 }
 
 ///|
-fn source_demo_update(
+fn source_demo_update_healthy(
   _emit : Emit[SourceDemoMsg],
   msg : SourceDemoMsg,
   model : SourceDemoModel,
-) -> (Cmd, SourceDemoModel) {
+) -> (Cmd, SourceDemoModel) raise Failure {
   match msg {
     EditorSynced(source) => (@rabbita.none, { ..model, editor: source })
     SourceChanged(changes) => {
@@ -296,6 +297,36 @@ fn source_demo_update(
         {
           ..model,
           status: "CodeMirror failed to mount: " + message,
+          status_tone: @status.Error,
+        },
+      )
+  }
+}
+
+///|
+/// Keep a Loom parser Failure distinct from graph syntax rejection. The source
+/// text remains editable and synchronized in the model, but every operation
+/// touching the terminal attachment is stopped.
+fn source_demo_update(
+  emit : Emit[SourceDemoMsg],
+  msg : SourceDemoMsg,
+  model : SourceDemoModel,
+) -> (Cmd, SourceDemoModel) {
+  if model.parser_failed {
+    return match msg {
+      EditorSynced(source) => (@rabbita.none, { ..model, editor: source })
+      _ => (@rabbita.none, model)
+    }
+  }
+  source_demo_update_healthy(emit, msg, model) catch {
+    Failure::Failure(_) =>
+      (
+        @rabbita.none,
+        {
+          ..model,
+          dirty: true,
+          parser_failed: true,
+          status: "The graph parser stopped. Source text remains available; reload to recover.",
           status_tone: @status.Error,
         },
       )
@@ -472,6 +503,7 @@ pub fn mount_source_demo(
     handle,
     editor: get_source_graph_source(handle),
     dirty: false,
+    parser_failed: false,
     mounted: false,
     status: "Source mode active: operations lower into graph-dsl text.",
     status_tone: @status.Info,

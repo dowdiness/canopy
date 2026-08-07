@@ -27,6 +27,10 @@ pub struct SyncEditor[T] {
   priv mut ws : JsWebSocket?
   priv session : @sync_session.SyncSession
   priv mut projection_dirty : Bool
+  // Once Loom raises Failure, its engine source and published snapshot may no
+  // longer agree. Preserve that exact value and reject every later parser or
+  // projection operation before it can observe or mutate stale state.
+  priv mut parser_failure : Failure?
   // Structural-edit identity hints accumulated since the last reconcile.
   // Structural edits push their IdentityTransform here; raw-text edits push
   // Opaque (taint) when non-empty. Consumed and cleared once per reparse by
@@ -56,7 +60,7 @@ pub struct SyncEditor[T] {
 /// constructed extras, and the extras value `E` itself.
 pub fn[T, E] SyncEditor::new_with_builder(
   agent_id : String,
-  make_parser : (@loom_core.SourceId, String, @incr.Runtime?) -> @loom.Parser[T],
+  make_parser : (@loom_core.SourceId, String, @incr.Runtime?) -> @loom.Parser[T] raise Failure,
   build_parts : (@loom.Parser[T], @core.IdentityHintConsumer) -> (
     @incr.Derived[@core.ProjNode[T]?],
     @incr.Derived[Map[@core.NodeId, @core.ProjNode[T]]],
@@ -66,7 +70,7 @@ pub fn[T, E] SyncEditor::new_with_builder(
   ),
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
-) -> (SyncEditor[T], E) raise @text.TextError {
+) -> (SyncEditor[T], E) raise {
   let doc = @text.TextState::new(agent_id)
   let pending_transforms : Ref[Array[@core.IdentityTransform]] = Ref([])
   let identity_hint_consumer = @core.IdentityHintConsumer(fn() {
@@ -133,6 +137,7 @@ fn[T] finish_editor(
     ws: None,
     session: @sync_session.SyncSession::SyncSession(),
     projection_dirty: false,
+    parser_failure: None,
     pending_transforms,
     identity,
   }
@@ -329,13 +334,19 @@ pub fn[T] SyncEditor::on_watchdog_fire(
 ///|
 /// Returns the cached projection tree.
 /// Safe to call both inside and outside tracked context.
-pub fn[T] SyncEditor::get_proj_node(self : SyncEditor[T]) -> @core.ProjNode[T]? {
+pub fn[T] SyncEditor::get_proj_node(
+  self : SyncEditor[T],
+) -> @core.ProjNode[T]? raise Failure {
+  self.ensure_parser_healthy()
   self.cached_proj_node.read_or_abort()
 }
 
 ///|
 /// Safe to call both inside and outside tracked context.
-pub fn[T] SyncEditor::get_source_map(self : SyncEditor[T]) -> @core.SourceMap {
+pub fn[T] SyncEditor::get_source_map(
+  self : SyncEditor[T],
+) -> @core.SourceMap raise Failure {
+  self.ensure_parser_healthy()
   self.source_map_memo.read_or_abort()
 }
 
@@ -344,7 +355,8 @@ pub fn[T] SyncEditor::get_source_map(self : SyncEditor[T]) -> @core.SourceMap {
 /// Safe to call both inside and outside tracked context.
 pub fn[T] SyncEditor::get_registry(
   self : SyncEditor[T],
-) -> Map[@core.NodeId, @core.ProjNode[T]] {
+) -> Map[@core.NodeId, @core.ProjNode[T]] raise Failure {
+  self.ensure_parser_healthy()
   self.registry_memo.read_or_abort()
 }
 
@@ -355,7 +367,8 @@ pub fn[T] SyncEditor::get_registry(
 /// subscribers that need to react to changes rather than read eagerly.
 pub fn[T] SyncEditor::cached_proj_node(
   self : SyncEditor[T],
-) -> @incr.Derived[@core.ProjNode[T]?] {
+) -> @incr.Derived[@core.ProjNode[T]?] raise Failure {
+  self.ensure_parser_healthy()
   self.cached_proj_node
 }
 
@@ -363,7 +376,8 @@ pub fn[T] SyncEditor::cached_proj_node(
 /// Reactive view of the node-id → projection-node registry.
 pub fn[T] SyncEditor::registry_memo(
   self : SyncEditor[T],
-) -> @incr.Derived[Map[@core.NodeId, @core.ProjNode[T]]] {
+) -> @incr.Derived[Map[@core.NodeId, @core.ProjNode[T]]] raise Failure {
+  self.ensure_parser_healthy()
   self.registry_memo
 }
 
@@ -371,7 +385,8 @@ pub fn[T] SyncEditor::registry_memo(
 /// Reactive view of the source-position → node-id map.
 pub fn[T] SyncEditor::source_map_memo(
   self : SyncEditor[T],
-) -> @incr.Derived[@core.SourceMap] {
+) -> @incr.Derived[@core.SourceMap] raise Failure {
+  self.ensure_parser_healthy()
   self.source_map_memo
 }
 
@@ -381,7 +396,8 @@ pub fn[T] SyncEditor::source_map_memo(
 /// and malformed input propagates through recovered syntax plus diagnostics,
 /// not as `None`. The `?` is kept so this API doesn't need to churn if we later
 /// separate "never parsed" from "parse failed".
-pub fn[T] SyncEditor::get_tree(self : SyncEditor[T]) -> T? {
+pub fn[T] SyncEditor::get_tree(self : SyncEditor[T]) -> T? raise Failure {
+  self.ensure_parser_healthy()
   Some(self.parser.ast().read_or_abort())
 }
 
@@ -389,7 +405,8 @@ pub fn[T] SyncEditor::get_tree(self : SyncEditor[T]) -> T? {
 pub fn[T] SyncEditor::get_node(
   self : SyncEditor[T],
   id : @core.NodeId,
-) -> @core.ProjNode[T]? {
+) -> @core.ProjNode[T]? raise Failure {
+  self.ensure_parser_healthy()
   self.registry_memo.read_or_abort().get(id)
 }
 
@@ -401,7 +418,8 @@ pub fn[T] SyncEditor::get_node(
 pub fn[T] SyncEditor::node_at_position(
   self : SyncEditor[T],
   position : Int,
-) -> @core.NodeId? {
+) -> @core.NodeId? raise Failure {
+  self.ensure_parser_healthy()
   self.source_map_memo.read_or_abort().innermost_node_at(position)
 }
 
@@ -409,7 +427,8 @@ pub fn[T] SyncEditor::node_at_position(
 pub fn[T] SyncEditor::get_node_range(
   self : SyncEditor[T],
   id : @core.NodeId,
-) -> @loom_core.Range? {
+) -> @loom_core.Range? raise Failure {
+  self.ensure_parser_healthy()
   self.source_map_memo.read_or_abort().get_range(id)
 }
 
@@ -422,7 +441,8 @@ pub fn[T] SyncEditor::get_node_range(
 /// untouched. No-op when no hint is pending.
 pub fn[T] SyncEditor::invalidate_pending_identity_hints(
   self : SyncEditor[T],
-) -> Unit {
+) -> Unit raise Failure {
+  self.ensure_parser_healthy()
   self.taint_pending_transforms()
 }
 
@@ -452,7 +472,8 @@ pub fn[T : Eq] SyncEditor::apply_span_edits(
   focus_hint : @core.FocusHint,
   timestamp_ms : Int,
   hint? : @core.IdentityTransform,
-) -> Unit {
+) -> Unit raise Failure {
+  self.ensure_parser_healthy()
   if edits.is_empty() {
     return
   }
@@ -511,7 +532,8 @@ fn[T : Eq] SyncEditor::admit_with_policy(
   self : SyncEditor[T],
   msg : @text.SyncMessage,
   limits : @sync.Limits?,
-) -> @text.SyncReport raise @text.TextError {
+) -> @text.SyncReport raise {
+  self.ensure_parser_healthy()
   self.taint_pending_transforms()
   let old_source = self.doc.text()
   self.undo.set_tracking(false)
@@ -553,7 +575,7 @@ fn[T : Eq] SyncEditor::admit_with_policy(
 pub fn[T : Eq] SyncEditor::admit(
   self : SyncEditor[T],
   msg : @text.SyncMessage,
-) -> @text.SyncReport raise @text.TextError {
+) -> @text.SyncReport raise {
   self.admit_with_policy(msg, None)
 }
 
@@ -566,7 +588,7 @@ pub fn[T : Eq] SyncEditor::admit_with_limits(
   self : SyncEditor[T],
   msg : @text.SyncMessage,
   limits : @sync.Limits,
-) -> @text.SyncReport raise @text.TextError {
+) -> @text.SyncReport raise {
   self.admit_with_policy(msg, Some(limits))
 }
 
@@ -613,7 +635,7 @@ pub fn[T] SyncEditor::export_since(
 /// (e.g. to inject eval annotations).
 pub fn[T : @pretty.Pretty] SyncEditor::get_pretty_view(
   self : SyncEditor[T],
-) -> @protocol.ViewNode {
+) -> @protocol.ViewNode raise Failure {
   guard self.get_tree() is Some(tree) else {
     return @protocol.layout_to_view_tree(@pretty.text(""), width=80)
   }
@@ -631,7 +653,7 @@ pub fn[T : @pretty.Pretty] SyncEditor::get_pretty_view(
 pub fn[T : @pretty.Pretty] compute_pretty_patches(
   state : ViewUpdateState,
   editor : SyncEditor[T],
-) -> Array[@protocol.ViewPatch] {
+) -> Array[@protocol.ViewPatch] raise Failure {
   let patches : Array[@protocol.ViewPatch] = []
   let current = editor.get_pretty_view()
   match state.previous {

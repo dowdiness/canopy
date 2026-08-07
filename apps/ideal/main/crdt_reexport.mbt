@@ -4,7 +4,10 @@
 /// to load the separate @moonbit/canopy module (saves 7.6MB).
 
 ///|
-pub fn create_editor_with_undo(agent_id : String, timeout_ms : Int) -> Int {
+pub fn create_editor_with_undo(
+  agent_id : String,
+  timeout_ms : Int,
+) -> Int raise {
   @ffi.create_editor_with_undo(agent_id, timeout_ms)
 }
 
@@ -14,7 +17,7 @@ pub fn get_text(handle : Int) -> String {
 }
 
 ///|
-pub fn set_text(handle : Int, text : String) -> Unit {
+pub fn set_text(handle : Int, text : String) -> Unit raise {
   @ffi.set_text(handle, text)
 }
 
@@ -23,7 +26,7 @@ pub fn set_text_and_record(
   handle : Int,
   text : String,
   timestamp_ms : Int,
-) -> Unit {
+) -> Unit raise {
   @ffi.set_text_and_record(handle, text, timestamp_ms)
 }
 
@@ -38,7 +41,7 @@ pub fn get_source_map_json(handle : Int) -> String {
 }
 
 ///|
-pub fn get_errors_json(handle : Int) -> String {
+pub fn get_errors_json(handle : Int) -> String raise Failure {
   @ffi.get_errors_json(handle)
 }
 
@@ -48,12 +51,12 @@ pub fn get_version_json(handle : Int) -> String {
 }
 
 ///|
-pub fn insert_at(handle : Int, pos : Int, ch : String, ts : Int) -> Unit {
+pub fn insert_at(handle : Int, pos : Int, ch : String, ts : Int) -> Unit raise {
   @ffi.insert_at(handle, pos, ch, ts)
 }
 
 ///|
-pub fn delete_at(handle : Int, pos : Int, ts : Int) -> Bool {
+pub fn delete_at(handle : Int, pos : Int, ts : Int) -> Bool raise {
   @ffi.delete_at(handle, pos, ts)
 }
 
@@ -73,17 +76,21 @@ pub fn apply_sync_json(handle : Int, sync_json : String) -> String {
 }
 
 ///|
-pub fn apply_tree_edit_json(handle : Int, op_json : String, ts : Int) -> String {
+pub fn apply_tree_edit_json(
+  handle : Int,
+  op_json : String,
+  ts : Int,
+) -> String raise {
   @ffi.apply_tree_edit_json(handle, op_json, ts)
 }
 
 ///|
-pub fn undo_manager_undo(handle : Int) -> Bool {
+pub fn undo_manager_undo(handle : Int) -> Bool raise Failure {
   @ffi.undo_manager_undo(handle)
 }
 
 ///|
-pub fn undo_manager_redo(handle : Int) -> Bool {
+pub fn undo_manager_redo(handle : Int) -> Bool raise Failure {
   @ffi.undo_manager_redo(handle)
 }
 
@@ -158,7 +165,7 @@ pub fn handle_text_intent(
   deleted_len : Int,
   insert : String,
   timestamp_ms : Int,
-) -> Unit {
+) -> Unit raise {
   @ffi.handle_text_intent(handle, from, deleted_len, insert, timestamp_ms)
 }
 
@@ -174,7 +181,7 @@ pub fn handle_text_intent_checked(
   deleted_len : Int,
   insert : String,
   timestamp_ms : Int,
-) -> Bool {
+) -> Bool raise {
   @ffi.handle_text_intent_checked(
     handle, from, deleted_len, insert, timestamp_ms,
   )
@@ -182,13 +189,13 @@ pub fn handle_text_intent_checked(
 
 ///|
 /// Undo on the MoonBit editor directly and return whether it succeeded.
-pub fn handle_undo(handle : Int) -> Bool {
+pub fn handle_undo(handle : Int) -> Bool raise Failure {
   @ffi.handle_undo(handle)
 }
 
 ///|
 /// Redo on the MoonBit editor directly and return whether it succeeded.
-pub fn handle_redo(handle : Int) -> Bool {
+pub fn handle_redo(handle : Int) -> Bool raise Failure {
   @ffi.handle_redo(handle)
 }
 
@@ -200,7 +207,7 @@ pub fn handle_structural_intent(
   node_id : String,
   timestamp_ms : Int,
   params_json : String,
-) -> String {
+) -> String raise {
   @ffi.handle_structural_intent(handle, op, node_id, timestamp_ms, params_json)
 }
 
