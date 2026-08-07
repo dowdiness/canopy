@@ -150,50 +150,48 @@ fn block_selection_after_render(
 ) -> @cmd.Cmd {
   after_render(
     scheduler => {
-      match latest_model.val {
-        Some(model) =>
-          if model.state.mode() != @core.Block {
+      match
+        block_selection_effect_decision(
+          latest_model.val,
+          selection,
+          source_revision,
+        ) {
+        BlockSelectionDecision::Apply(index) => {
+          let id = block_input_id(index)
+          @dom_boundary.focus_id(id)
+          @dom_boundary.write_text_selection_id(
+            id,
+            @dom_boundary.TextSelection(
+              selection.start,
+              selection.end,
+              @dom_boundary.NoDirection,
+            ),
+          )
+        }
+        // Rapid input can queue several post-render selections in one frame.
+        // Rabbita runs AfterRender effects newest-first, so an older
+        // superseded selection must not emit a message that schedules a
+        // second render after the newest selection restored the caret.
+        BlockSelectionDecision::Superseded =>
+          if report_superseded {
             scheduler.add(
-              emit(
-                BlockSelectionRejected("block selection mode is stale", None),
-              ),
+              emit(BlockSelectionRejected("block selection is stale", None)),
             )
-          } else if model.source_revision != source_revision {
-            // Rapid input can queue several post-render selections in one
-            // frame. Rabbita runs AfterRender effects newest-first, so an older
-            // superseded selection must not emit a message that schedules a
-            // second render after the newest selection restored the caret.
-            if report_superseded {
-              scheduler.add(
-                emit(BlockSelectionRejected("block selection is stale", None)),
-              )
-            }
-          } else {
-            match block_selection_target(model.document, selection) {
-              Some(index) => {
-                let id = block_input_id(index)
-                @dom_boundary.focus_id(id)
-                @dom_boundary.write_text_selection_id(
-                  id,
-                  @dom_boundary.TextSelection(
-                    selection.start,
-                    selection.end,
-                    @dom_boundary.NoDirection,
-                  ),
-                )
-              }
-              None =>
-                scheduler.add(
-                  emit(
-                    BlockSelectionRejected(
-                      "block selection target is unavailable",
-                      None,
-                    ),
-                  ),
-                )
-            }
           }
-        None =>
+        BlockSelectionDecision::ModeStale =>
+          scheduler.add(
+            emit(BlockSelectionRejected("block selection mode is stale", None)),
+          )
+        BlockSelectionDecision::TargetUnavailable =>
+          scheduler.add(
+            emit(
+              BlockSelectionRejected(
+                "block selection target is unavailable",
+                None,
+              ),
+            ),
+          )
+        BlockSelectionDecision::ModelUnavailable =>
           scheduler.add(
             emit(
               BlockSelectionRejected("block selection model unavailable", None),

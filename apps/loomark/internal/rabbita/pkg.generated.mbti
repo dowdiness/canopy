@@ -1,6 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "dowdiness/loomark/internal/rabbita"
 
+import {
+  "moonbitlang/core/debug",
+}
+
 // Values
 pub fn capture_focus() -> String
 
@@ -49,6 +53,7 @@ pub fn write_selection_failure() -> Unit
 // Errors
 
 // Types and methods
+type BlockSelectionDecision derive(Eq, @debug.Debug)
 
 // Type aliases
 
