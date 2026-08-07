@@ -833,25 +833,23 @@ fn update_model(
           scheduler => {
             ignore(scheduler)
             let accepted_source = next.document.source()
-            match latest_model.val {
-              Some(current) if current.state.mode() == @core.Raw &&
-                current.text_input_generation == repair_generation &&
-                current.source_revision == repair_source_revision => {
-                @dom_boundary.write_text_value_id(
-                  "loomark-input", accepted_source,
-                )
-                match raw_selection {
-                  Some(selection) =>
-                    @dom_boundary.write_text_selection_id(
-                      "loomark-input",
-                      rejected_text_selection(
-                        accepted_source, source, selection,
-                      ),
-                    )
-                  None => ()
-                }
+            if repair_eligible(
+                latest_model.val,
+                @core.Raw,
+                repair_generation,
+                repair_source_revision,
+              ) {
+              @dom_boundary.write_text_value_id(
+                "loomark-input", accepted_source,
+              )
+              match raw_selection {
+                Some(selection) =>
+                  @dom_boundary.write_text_selection_id(
+                    "loomark-input",
+                    rejected_text_selection(accepted_source, source, selection),
+                  )
+                None => ()
               }
-              _ => ()
             }
           },
           emit,
@@ -1101,22 +1099,22 @@ fn update_model(
                     after_render(
                       scheduler => {
                         ignore(scheduler)
-                        match latest_model.val {
-                          Some(current) if current.state.mode() == @core.Block &&
-                            current.text_input_generation == repair_generation &&
-                            current.source_revision == repair_source_revision => {
-                            @dom_boundary.write_text_value_id(input_id, text)
-                            @dom_boundary.focus_id(input_id)
-                            @dom_boundary.write_text_selection_id(
-                              input_id,
-                              @dom_boundary.TextSelection(
-                                offset,
-                                offset,
-                                @dom_boundary.NoDirection,
-                              ),
-                            )
-                          }
-                          _ => ()
+                        if repair_eligible(
+                            latest_model.val,
+                            @core.Block,
+                            repair_generation,
+                            repair_source_revision,
+                          ) {
+                          @dom_boundary.write_text_value_id(input_id, text)
+                          @dom_boundary.focus_id(input_id)
+                          @dom_boundary.write_text_selection_id(
+                            input_id,
+                            @dom_boundary.TextSelection(
+                              offset,
+                              offset,
+                              @dom_boundary.NoDirection,
+                            ),
+                          )
                         }
                       },
                       emit,
