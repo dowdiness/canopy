@@ -44,7 +44,6 @@ fn mount_standalone_editor(
     archive_tracker,
     local_storage_warning,
   }
-  detached_model.val = None
   detached_focus_token.val = ""
   publish(initial)
   let app = standalone_application(editor, attachment, initial, baseline)

@@ -7,10 +7,6 @@ let mounted : @ref.Ref[Bool] = { val: false }
 let detached_snapshot : @ref.Ref[String] = { val: "{}" }
 
 ///|
-/// Latest committed model for deferred browser effects in this private shell.
-let detached_model : @ref.Ref[DriverModel?] = { val: None }
-
-///|
 const HELLO_EXAMPLE_SOURCE : String = "# Hello World\n\nWelcome to the Canopy Markdown editor.\n\nThis editor has three modes: raw, block, and preview.\n"
 
 ///|
@@ -287,7 +283,6 @@ fn publish(model : DriverModel) -> Unit {
     },
   }
   detached_snapshot.val = Json::object(fields).stringify()
-  detached_model.val = Some(model)
 }
 
 ///|
@@ -724,6 +719,7 @@ fn update_model(
   editor : @markdown.MarkdownEditor,
   attachment : @md_markdown.MarkdownSemanticAttachment,
   model : DriverModel,
+  latest_model : @ref.Ref[DriverModel?],
   event : DriverEvent,
   emit : @cmd.Emit[DriverEvent],
 ) -> (DriverModel, @cmd.Cmd) {
@@ -837,7 +833,7 @@ fn update_model(
           scheduler => {
             ignore(scheduler)
             let accepted_source = next.document.source()
-            match detached_model.val {
+            match latest_model.val {
               Some(current) if current.state.mode() == @core.Raw &&
                 current.text_input_generation == repair_generation &&
                 current.source_revision == repair_source_revision => {
@@ -921,6 +917,7 @@ fn update_model(
             let command = originating_selection
               .map(selection => {
                 block_selection_after_render(
+                  latest_model,
                   selection,
                   model.source_revision,
                   report_superseded=true,
@@ -935,6 +932,7 @@ fn update_model(
             let command = originating_selection
               .map(selection => {
                 block_selection_after_render(
+                  latest_model,
                   selection,
                   model.source_revision,
                   report_superseded=true,
@@ -952,6 +950,7 @@ fn update_model(
             editor,
             attachment,
             model,
+            latest_model,
             @markdown.MarkdownEditRequest::ChangeHeadingLevel(
               node_id=block.node_id(),
               level=target_level,
@@ -977,6 +976,7 @@ fn update_model(
             let command = originating_selection
               .map(selection => {
                 block_selection_after_render(
+                  latest_model,
                   selection,
                   model.source_revision,
                   report_superseded=true,
@@ -990,6 +990,7 @@ fn update_model(
             editor,
             attachment,
             model,
+            latest_model,
             @markdown.MarkdownEditRequest::ToggleListItem(
               node_id=block.node_id(),
             ),
@@ -1013,6 +1014,7 @@ fn update_model(
             editor,
             attachment,
             model,
+            latest_model,
             @markdown.MarkdownEditRequest::Delete(node_id=block.node_id()),
             None,
             "loomark-delete-block",
@@ -1060,6 +1062,7 @@ fn update_model(
             @cmd.batch([
               persistence_command,
               block_selection_after_render(
+                latest_model,
                 selection,
                 next.source_revision,
                 report_superseded=false,
@@ -1098,7 +1101,7 @@ fn update_model(
                     after_render(
                       scheduler => {
                         ignore(scheduler)
-                        match detached_model.val {
+                        match latest_model.val {
                           Some(current) if current.state.mode() == @core.Block &&
                             current.text_input_generation == repair_generation &&
                             current.source_revision == repair_source_revision => {
@@ -1158,6 +1161,7 @@ fn update_model(
             @cmd.batch([
               persistence_command,
               block_selection_after_render(
+                latest_model,
                 selection,
                 next.source_revision,
                 report_superseded=false,
@@ -1200,6 +1204,7 @@ fn update_model(
             @cmd.batch([
               persistence_command,
               block_selection_after_render(
+                latest_model,
                 selection,
                 next.source_revision,
                 report_superseded=false,
@@ -1213,6 +1218,7 @@ fn update_model(
             @cmd.batch([
               persistence_command,
               block_selection_after_render(
+                latest_model,
                 originating_selection,
                 next.source_revision,
                 report_superseded=true,
@@ -1238,6 +1244,7 @@ fn update_model(
           (
             next,
             block_selection_after_render(
+              latest_model,
               selection,
               next.source_revision,
               report_superseded=true,
@@ -1290,6 +1297,7 @@ fn update_model(
           @cmd.batch([
             persistence_command,
             block_selection_after_render(
+              latest_model,
               selection,
               expected_revision,
               report_superseded=true,
@@ -1422,7 +1430,7 @@ fn update_model(
             _ => model
           }
           publish(next)
-          (next, focus_latest_after_render(locator, token, emit))
+          (next, focus_latest_after_render(latest_model, locator, token, emit))
         }
         @core.Rejected(error) => reject_focus(model, error)
       }
@@ -1445,7 +1453,10 @@ fn update_model(
                 _ => model
               }
               publish(next)
-              (next, focus_latest_after_render(locator, token, emit))
+              (
+                next,
+                focus_latest_after_render(latest_model, locator, token, emit),
+              )
             }
             @core.Rejected(error) => reject_focus(model, error)
           }
@@ -1558,6 +1569,7 @@ fn update_model(
       let command = match selection {
         Some(selection) =>
           block_selection_after_render(
+            latest_model,
             selection,
             next.source_revision,
             report_superseded=true,
@@ -1811,8 +1823,9 @@ fn build_application(
   subscriptions : (DriverModel, @cmd.Emit[DriverEvent]) -> @sub.Sub,
   view : (DriverModel, @cmd.Emit[DriverEvent], @rabbita_runtime.Html) -> @rabbita_runtime.Html,
 ) -> @rabbita_runtime.App {
+  let latest_model : @ref.Ref[DriverModel?] = { val: None }
   let update = (model, event, emit) => {
-    update_model(editor, attachment, model, event, emit)
+    update_model(editor, attachment, model, latest_model, event, emit)
   }
   @rabbita_runtime.new(() => {
     let (model, emit) = @rabbita_runtime.create_state_with_init(
@@ -1831,6 +1844,7 @@ fn build_application(
     )
     let active_view = application_view(model, emit)
     model.view2(active_view, (model, active_view) => {
+      latest_model.val = Some(model)
       view(model, emit, active_view)
     })
   })
@@ -1943,7 +1957,6 @@ fn mount_application(
     replica_id,
     archive_persistence_enabled=false,
   )
-  detached_model.val = None
   detached_focus_token.val = ""
   publish(initial)
   let app = build(editor, attachment, initial, None)

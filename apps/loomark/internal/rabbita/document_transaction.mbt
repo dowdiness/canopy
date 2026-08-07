@@ -181,6 +181,7 @@ fn commit_block_toolbar_request(
   editor : @markdown.MarkdownEditor,
   attachment : @md_markdown.MarkdownSemanticAttachment,
   model : DriverModel,
+  latest_model : @ref.Ref[DriverModel?],
   request : @markdown.MarkdownEditRequest,
   originating_selection : BlockSelection?,
   control_id : String,
@@ -212,6 +213,7 @@ fn commit_block_toolbar_request(
         @cmd.batch([
           persistence_command,
           block_selection_after_render(
+            latest_model,
             selection,
             next.source_revision,
             report_superseded=false,
@@ -230,6 +232,7 @@ fn commit_block_toolbar_request(
               @cmd.batch([
                 persistence_command,
                 block_selection_after_render(
+                  latest_model,
                   selection,
                   next.source_revision,
                   report_superseded=true,
