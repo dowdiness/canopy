@@ -260,7 +260,8 @@ test("Raw and Preview observe one accepted document in a fixed resizable split",
     await expect.poll(async () => (await snapshot(host.page)).semantic_read_count).toBe(1)
 
     await selectPreview(host.page)
-    await expect(host.page.locator("#loomark-split")).toHaveCount(0)
+    // #1181: the split stays visible on the Preview tab (raw editor + preview).
+    await expect(host.page.locator("#loomark-split")).toHaveCount(1)
     await expect.poll(async () => (await snapshot(host.page)).semantic_read_count).toBe(1)
     await selectRaw(host.page)
     await expect(host.page.locator("#loomark-split")).toHaveCount(1)
@@ -631,7 +632,7 @@ test("Block view presents typed blocks as compact RUI editing rows", async ({ br
 test("interactive chrome hides driver controls and focuses the Preview view", async ({ browser }) => {
   const host = await mountHost(browser, "# Focusable preview\n")
   try {
-    await expect(host.page.getByRole("toolbar", { name: "Example documents" }).getByRole("button")).toHaveCount(4)
+    await expect(host.page.getByRole("toolbar", { name: "Example documents" }).getByRole("button")).toHaveCount(5)
     await expect(host.page.getByRole("tablist", { name: "Editor view" }).getByRole("tab")).toHaveCount(3)
     await expect(host.page.locator("#loomark-event-target")).toBeHidden()
     await expect(host.page.locator("#loomark-focus-target")).toHaveCount(0)
