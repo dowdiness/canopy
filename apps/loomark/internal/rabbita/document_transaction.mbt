@@ -38,7 +38,7 @@ fn archive_replacement(
   }
   let (archive_tracker, request_id) = model.archive_tracker.request()
   let command = @archive_storage.replace(request_id, prepared.encoded(), completed=completion => {
-    emit(ArchiveWriteCompleted(completion))
+    emit(Archive(completion))
   })
   ({ ..model, archive_tracker, }, command)
 }

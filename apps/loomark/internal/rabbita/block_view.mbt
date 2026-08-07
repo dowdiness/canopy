@@ -64,30 +64,34 @@ fn block_structural_key_event(
   if key == "Enter" {
     if block_allows_heading(kind) {
       if selection.start() == selection.end() {
-        return Some(BlockSplit(node_id~, offset=selection.start()))
+        return Some(Editing(BlockSplit(node_id~, offset=selection.start())))
       }
       return Some(
-        BlockSelectionRejected(
-          "block split requires a collapsed selection",
-          Some({
-            key: block_key,
-            index: block_index,
-            start: selection.start(),
-            end: selection.end(),
-          }),
+        Navigation(
+          BlockSelectionRejected(
+            "block split requires a collapsed selection",
+            Some({
+              key: block_key,
+              index: block_index,
+              start: selection.start(),
+              end: selection.end(),
+            }),
+          ),
         ),
       )
     }
     if block_allows_list(kind) {
       return Some(
-        BlockSelectionRejected(
-          "list structural editing is unavailable",
-          Some({
-            key: block_key,
-            index: block_index,
-            start: selection.start(),
-            end: selection.end(),
-          }),
+        Navigation(
+          BlockSelectionRejected(
+            "list structural editing is unavailable",
+            Some({
+              key: block_key,
+              index: block_index,
+              start: selection.start(),
+              end: selection.end(),
+            }),
+          ),
         ),
       )
     }
@@ -99,19 +103,21 @@ fn block_structural_key_event(
       text_length == 0 &&
       selection.start() == 0 =>
       Some(
-        BlockMerge(node_id~, selection={
-          key: block_key,
-          index: block_index,
-          start: selection.start(),
-          end: selection.end(),
-        }),
+        Editing(
+          BlockMerge(node_id~, selection={
+            key: block_key,
+            index: block_index,
+            start: selection.start(),
+            end: selection.end(),
+          }),
+        ),
       )
     "Backspace" if has_previous && selection.start() == 0 =>
-      Some(BlockNavigate(key=block_key, direction=-1))
+      Some(Editing(BlockNavigate(key=block_key, direction=-1)))
     "ArrowLeft" | "ArrowUp" if has_previous && selection.start() == 0 =>
-      Some(BlockNavigate(key=block_key, direction=-1))
+      Some(Editing(BlockNavigate(key=block_key, direction=-1)))
     "ArrowRight" | "ArrowDown" if has_next && selection.start() == text_length =>
-      Some(BlockNavigate(key=block_key, direction=1))
+      Some(Editing(BlockNavigate(key=block_key, direction=1)))
     _ => None
   }
 }
@@ -139,7 +145,7 @@ fn block_shortcut_event(
   meta : Bool,
   composing : Bool,
   repeated : Bool,
-) -> DriverEvent? {
+) -> EditingEvent? {
   guard ctrl && !alt && !meta && !composing && !repeated else { return None }
   if shift {
     if key == "l" || key == "L" {
@@ -335,7 +341,7 @@ fn block_input(
       match shortcut {
         Some(shortcut) => {
           let selection = @dom_boundary.read_text_selection_id(input_id) catch {
-            error => return emit(EffectFailed(error.message()))
+            error => return emit(Navigation(EffectFailed(error.message())))
           }
           let selection = Some({
             key: block.key(),
@@ -349,11 +355,11 @@ fn block_input(
             shortcut => shortcut
           }
           event.prevent_default()
-          emit(shortcut)
+          emit(Editing(shortcut))
         }
         None if block_key_uses_selection(event.key()) => {
           let selection = @dom_boundary.read_text_selection_id(input_id) catch {
-            error => return emit(EffectFailed(error.message()))
+            error => return emit(Navigation(EffectFailed(error.message())))
           }
           match
             block_structural_key_event(
@@ -386,7 +392,7 @@ fn block_input(
   let attrs = if active {
     attrs
   } else {
-    attrs.on_focus(_ => emit(BlockFocused(block.key())))
+    attrs.on_focus(_ => emit(Editing(BlockFocused(block.key()))))
   }
   let input = @rui.textarea(
     id=input_id,
