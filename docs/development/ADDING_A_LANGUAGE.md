@@ -47,7 +47,7 @@ modules/canopy/lang/<name>/
     compute_<name>_edit.mbt     # op → SpanEdit dispatcher
   companion/
     moon.pkg                    # imports: editor, lang/<name>/{edits,proj}, lang/runtime, incr, <your-lang>, loom
-    <name>_companion.mbt        # LanguageSpec + apply bridge + SyncEditor factory
+    <name>_companion.mbt        # Language + apply bridge + SyncEditor factory
 ```
 
 ---
@@ -84,8 +84,8 @@ pub(all) enum Block {
 ```
 
 `derive(Eq)` is required, not optional: `SyncEditor`'s text-edit methods and
-`LanguageSpec::apply_edit` are `fn[T : Eq]`, so an AST without `Eq` fails
-`moon check` the moment Phase 2 routes edits through the spec. (Both
+`Language::apply_edit` are `fn[T : Eq]`, so an AST without `Eq` fails
+`moon check` the moment Phase 2 routes edits through the language. (Both
 reference ASTs derive it: `deps/loom/examples/{json,markdown}/src/ast.mbt`.)
 
 **Trait impls:** Implement `TreeNode` and `Renderable` (from `dowdiness/loom/core`)
@@ -344,30 +344,51 @@ Key rules:
 #### 5c: Wire the bridge
 
 The span-edit application machinery (reverse-document-order splicing, undo
-recording, cursor reconciliation per `FocusHint`) lives in
-`modules/canopy/lang/runtime` — do NOT hand-roll it. Declare a `LanguageSpec`
-and delegate (see
+recording, cursor reconciliation per `FocusHint`, identity-hint threading)
+lives in `modules/canopy/lang/runtime` — do NOT hand-roll it. Declare a
+`Language[T, Op, E]` and delegate (see
 `modules/canopy/lang/json/companion/json_companion.mbt` and
-`modules/canopy/lang/markdown/companion/markdown_companion.mbt`).
+`modules/canopy/lang/markdown/companion/markdown_companion.mbt`). `E` is the
+language-owned extras value (companion memos, semantic attachments; `Unit`
+when there are none). See
+`docs/decisions/2026-08-07-generic-language-spi-deepening.md`.
 
 **File:** `modules/canopy/lang/<name>/companion/<name>_companion.mbt`
 
 ```moonbit
-let my_spec : @lang_runtime.LanguageSpec[@mylang.MyAst, @my_edits.MyEditOp] = @lang_runtime.LanguageSpec::LanguageSpec(
-  make_parser=fn(s, rt) { @loom.new_parser(s, @mylang.my_grammar, runtime?=rt) },
-  build_memos=@my_proj.build_my_projection_memos,
-  compute_edit=@my_edits.compute_my_edit,
-  // What should this language do when compute_my_edit returns Ok(None)?
-  // JSON reports an error; Markdown silently no-ops. Decide explicitly.
-  on_no_edit=fn(op) { Err("unhandled edit op: " + op.to_string()) },
-)
+let my_lang : @lang_runtime.Language[@mylang.MyAst, @my_edits.MyEditOp, Unit] =
+  @lang_runtime.Language::Language(
+    parse=(source_id, source, runtime) => {
+      @loom.new_parser(source_id, source, @mylang.my_grammar, runtime?)
+    },
+    project=(parser, _hints) => {
+      let memos = @my_proj.build_my_projection_memos(parser)
+      (memos.0, memos.1, memos.2, ())
+    },
+    edit=(op, ctx) => {
+      match @my_edits.compute_my_edit(op, ctx.source_text, ctx.proj_node, ctx.source_map) {
+        Some((edits, focus_hint)) =>
+          @lang_runtime.EditResult::Edits(edits, focus_hint, None)
+        // What should this language do when compute_my_edit returns None?
+        // JSON reports an error; Markdown silently no-ops. Decide explicitly.
+        None =>
+          raise @core.EditError::UnsupportedOperation(
+            detail="unhandled edit op: " + op.to_string(),
+          )
+      }
+    },
+    capabilities=_e => @editor.LanguageCapabilities::default(),
+  )
 
 pub fn apply_my_edit(
   editor : @editor.SyncEditor[@mylang.MyAst],
   op : @my_edits.MyEditOp,
   timestamp_ms : Int,
 ) -> Result[Unit, String] {
-  my_spec.apply_edit(editor, op, timestamp_ms)
+  match my_lang.apply_edit(editor, op, timestamp_ms) {
+    Ok(_) => Ok(())
+    Err(e) => Err(e.message())
+  }
 }
 ```
 
@@ -375,7 +396,7 @@ pub fn apply_my_edit(
 
 ### Step 6: SyncEditor factory and package wiring
 
-**File:** same companion file — the factory delegates through the spec:
+**File:** same companion file — the factory delegates through the language:
 
 ```moonbit
 pub fn new_my_editor(
@@ -383,20 +404,19 @@ pub fn new_my_editor(
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
 ) -> @editor.SyncEditor[@mylang.MyAst] {
-  my_spec.new_editor(agent_id, capture_timeout_ms~, parent_runtime?)
+  let (editor, _) = my_lang.build(agent_id, capture_timeout_ms~, parent_runtime?)
+  editor
 }
 ```
 
-> **The lambda exception.** `modules/canopy/lang/lambda/companion` does NOT go through
-> `LanguageSpec` for edit application. After `ModuleProjection` removal,
-> Lambda's `registry` and `DefinitionIndex` are derived from the generic
-> `ProjNode` root, so context alone is not the reason to widen the SPI. The
-> remaining mismatch is the application contract: `apply_lambda_tree_edit`
-> returns a typed `Result[Array[SpanEdit], TreeEditError]` patch trace, and
-> `Drop` delegates to `editor.move_node`. Lambda's eval/scope/semantic extras
-> ride the optional per-instance `LanguageCapabilities` fields instead. Do not
-> copy lambda's shape for a new language; see the post-cleanup decision record
-> in `docs/decisions/2026-06-15-lambda-edit-bridge-boundary.md`.
+> **The lambda exception is gone (ADR 2026-08-07).** `lang/lambda/companion`
+> previously kept its own bridge because the SPI could not express typed
+> errors, patch traces, or editor-owned moves. The deepened SPI absorbs all
+> of these: `Language::apply_edit` returns the applied `SpanEdit` trace and
+> structured `EditError`, and moves are edit-port computation (`compute_move`
+> / `compute_move_block`). Lambda is migrating to `Language`; it remains a
+> legacy stress case, not a template. Do not fork a separate bridge for a
+> new language.
 
 **Package registration:**
 
