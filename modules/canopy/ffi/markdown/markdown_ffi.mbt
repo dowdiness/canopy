@@ -68,16 +68,17 @@ pub fn create_markdown_editor(agent_id : String) -> Int raise {
 /// FFI-side bookkeeping (registry handle entry, view-state entry) is
 /// intentionally left intact so reads of cached state remain valid. Phase 1
 /// behavior matches Lambda's `destroy_editor` (spec §5.3).
-pub fn destroy_markdown_editor(handle : Int) -> Unit {
+pub fn try_destroy_markdown_editor(handle : Int) -> Bool {
   let h = match markdown_registry.get(handle) {
     Some(v) => v
-    None => return
+    None => return true
   }
-  let _ = markdown_registry.destroy(
-    coordinator,
-    h.editor_id,
-    "destroy_markdown_editor",
-  )
+  markdown_registry.destroy(coordinator, h.editor_id, "destroy_markdown_editor")
+}
+
+///|
+pub fn destroy_markdown_editor(handle : Int) -> Unit {
+  ignore(try_destroy_markdown_editor(handle))
 }
 
 ///|

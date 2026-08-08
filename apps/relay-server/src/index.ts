@@ -9,11 +9,16 @@ export interface Env {
   RELAY: DurableObjectNamespace;
 }
 
-// Lazy-loaded MoonBit module (deferred to handler scope)
-let relay: any = null;
-async function loadRelay() {
-  if (relay) return relay;
-  relay = await import("../../../_build/js/release/build/dowdiness/canopy/ffi/lambda/lambda.js");
+// Lazy-loaded MoonBit module (deferred to handler scope).
+type RelayModule = typeof import(
+  "../../../_build/js/release/build/dowdiness/canopy/ffi/lambda/lambda.js"
+);
+let relay: RelayModule | null = null;
+async function loadRelay(): Promise<RelayModule> {
+  if (relay !== null) return relay;
+  relay = await import(
+    "../../../_build/js/release/build/dowdiness/canopy/ffi/lambda/lambda.js"
+  );
   return relay;
 }
 
@@ -51,7 +56,8 @@ export class RelayRoom implements DurableObject {
     // Pass a send callback to MoonBit — relay manages sessions + broadcast.
     // relay_on_connect returns false if the peer_id is empty or already in
     // the room; close the duplicate transport rather than leaving a zombie.
-    const accepted = relay.relay_on_connect(
+    const relayModule = await loadRelay();
+    const accepted = relayModule.relay_on_connect(
       this.roomId,
       peerId,
       (data: Uint8Array) => {
@@ -70,15 +76,15 @@ export class RelayRoom implements DurableObject {
       const data = e.data instanceof ArrayBuffer
         ? new Uint8Array(e.data)
         : new TextEncoder().encode(e.data as string);
-      relay.relay_on_message(this.roomId, peerId, data);
+      relayModule.relay_on_message(this.roomId, peerId, data);
     });
 
     server.addEventListener("close", () => {
-      relay.relay_on_disconnect(this.roomId, peerId);
+      relayModule.relay_on_disconnect(this.roomId, peerId);
     });
 
     server.addEventListener("error", () => {
-      relay.relay_on_disconnect(this.roomId, peerId);
+      relayModule.relay_on_disconnect(this.roomId, peerId);
     });
 
     return new Response(null, { status: 101, webSocket: client });

@@ -3,12 +3,15 @@
 // Mini-ML editor — imperative DOM shell over the MoonBit CRDT core.
 
 import { HTMLAdapter } from '@canopy/editor-adapter/html-adapter';
+import type { AdaptedMoonBitModule } from '@canopy/editor-adapter/moonbit-result';
 import type { ViewPatch } from '@canopy/editor-adapter/types';
 import type { MountedImperativeSession } from '../../../shared/route-lifecycle/browser/imperative-session';
 import { DecorationOverlay } from '../../../shared/decoration-overlay';
 import { runAnalysis } from './ast-grep-runner';
 
-export type LambdaEditorRuntime = typeof import('@moonbit/crdt-lambda');
+export type LambdaEditorRuntime = AdaptedMoonBitModule<
+  typeof import('@moonbit/crdt-lambda')
+>;
 export type GraphvizRuntime = typeof import('@moonbit/graphviz');
 
 type PatternMatchEntry = {
@@ -101,11 +104,7 @@ export function mountLambdaEditor(
     releasePrettyAdapter = () => prettyAdapter.destroy();
     const decorationOverlay = new DecorationOverlay(editorEl);
     releaseDecorationOverlay = () => decorationOverlay.dispose();
-    const analysisApi = crdt as LambdaEditorRuntime & {
-      apply_ast_grep_results_json(handle: number, matchesJson: string): string;
-      compute_view_patches_json(handle: number): string;
-      get_pattern_matches_json(handle: number): string;
-    };
+    const analysisApi = crdt;
     let lastText = '';
 
     function renderStructuralSearchState(message: string): void {

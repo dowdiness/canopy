@@ -32,6 +32,8 @@ pub fn json_set_text(Int, String) -> Unit raise
 
 pub fn parse_json_edit_op(Json) -> Result[@edits.JsonEditOp, String]
 
+pub fn try_destroy_json_editor(Int) -> Bool
+
 // Errors
 
 // Types and methods

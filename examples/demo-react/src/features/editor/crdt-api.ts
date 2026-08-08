@@ -8,11 +8,13 @@
 // The import is static, so the module is available synchronously.
 
 import * as crdtRaw from '@moonbit/crdt';
+import { adaptMoonBitModule } from '@canopy/editor-adapter/moonbit-result';
 
 export interface CrdtModule {
   create_editor_with_undo(agent_id: string, capture_timeout_ms: number): number;
   create_editor(agent_id: string): number;
   destroy_editor(handle: number): void;
+  try_destroy_editor(handle: number): boolean;
   get_text(handle: number): string;
   set_text(handle: number, new_text: string): void;
   set_text_and_record(handle: number, new_text: string, timestamp_ms: number): void;
@@ -33,7 +35,11 @@ export interface CrdtModule {
   redo_and_export_json(handle: number): string;
 }
 
-const crdtModule: CrdtModule = crdtRaw as unknown as CrdtModule;
+const crdtModule: CrdtModule = adaptMoonBitModule(crdtRaw, {
+  createFunctions: ['create_editor', 'create_editor_with_undo'],
+  destroyFunctions: ['destroy_editor'],
+  tryDestroyFunctions: ['try_destroy_editor'],
+});
 
 /**
  * Get the CRDT module (synchronous — available immediately).

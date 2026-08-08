@@ -3,7 +3,9 @@
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "lib": ["ESNext"],
     "strict": true,
+    "skipLibCheck": true,
     "types": ["@cloudflare/workers-types"],
     "paths": {
       "../../../_build/js/release/build/dowdiness/canopy/ffi/lambda/lambda.js": ["../../_build/js/release/build/dowdiness/canopy/ffi/lambda/lambda.d.ts"]

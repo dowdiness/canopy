@@ -23,6 +23,8 @@ pub fn create_editor_with_undo(String, Int) -> Int raise
 
 pub fn delete_at(Int, Int, Int) -> Bool raise
 
+pub fn destroy_editor(Int) -> Unit
+
 pub fn ephemeral_apply(Int, Bytes) -> Unit
 
 pub fn ephemeral_delete_presence(Int) -> Unit
@@ -72,6 +74,8 @@ pub fn save_file(Int, String) -> Unit
 pub fn set_text(Int, String) -> Unit raise
 
 pub fn set_text_and_record(Int, String, Int) -> Unit raise
+
+pub fn try_destroy_editor(Int) -> Bool
 
 pub fn undo_manager_can_redo(Int) -> Bool
 

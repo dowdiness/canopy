@@ -7,6 +7,7 @@ export const {
   create_editor_with_undo,
   create_editor,
   destroy_editor,
+  try_destroy_editor,
   get_text,
   set_text,
   set_text_and_record,

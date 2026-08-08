@@ -376,15 +376,21 @@ test("Raw keeps focus and accepts consecutive keystrokes while split Preview upd
       textarea.setSelectionRange(textarea.value.length, textarea.value.length)
     })
 
+    let expectedSource = "start"
     for (const character of ["a", "b", "c"]) {
+      expectedSource += character
       await host.page.keyboard.type(character)
+      // Wait for each coalesced transaction to commit and re-render before
+      // checking focus, so this exercises the slow-CI ordering deterministically.
+      await expect.poll(async () => (await snapshot(host.page)).source).toBe(
+        expectedSource,
+      )
       await expect.poll(() => host.page.evaluate(() => document.activeElement?.id)).toBe(
         "loomark-input",
       )
     }
 
     await expect(input).toHaveValue("startabc")
-    await expect.poll(async () => (await snapshot(host.page)).source).toBe("startabc")
     await expectPreviewSource(host.page, "startabc")
 
     await host.page.setViewportSize({ width: 390, height: 844 })

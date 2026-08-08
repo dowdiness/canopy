@@ -1,8 +1,15 @@
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import * as crdt from "../../../_build/js/release/build/dowdiness/canopy/ffi/lambda/lambda.js";
+import * as crdtRaw from "../../../_build/js/release/build/dowdiness/canopy/ffi/lambda/lambda.js";
+import { adaptMoonBitModule } from "../moonbit-result";
 import { CM6Adapter } from "../cm6-adapter";
 import type { UserIntent, ViewPatch } from "../types";
+
+const crdt = adaptMoonBitModule(crdtRaw, {
+  createFunctions: ["create_editor"],
+  destroyFunctions: ["destroy_editor"],
+  tryDestroyFunctions: ["try_destroy_editor"],
+});
 
 async function main(): Promise<void> {
   const parent = document.querySelector<HTMLElement>("#editor");

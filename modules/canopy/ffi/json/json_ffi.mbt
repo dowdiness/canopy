@@ -73,12 +73,17 @@ pub fn create_json_editor(agent_id : String) -> Int raise {
 /// refuses if workspace deps still reference the editor; in that case the
 /// FFI-side bookkeeping (registry handle entry, view-state entry) is
 /// intentionally left intact so reads of cached state remain valid.
-pub fn destroy_json_editor(handle : Int) -> Unit {
+pub fn try_destroy_json_editor(handle : Int) -> Bool {
   let h = match json_registry.get(handle) {
     Some(v) => v
-    None => return
+    None => return true
   }
-  let _ = json_registry.destroy(coordinator, h.editor_id, "destroy_json_editor")
+  json_registry.destroy(coordinator, h.editor_id, "destroy_json_editor")
+}
+
+///|
+pub fn destroy_json_editor(handle : Int) -> Unit {
+  ignore(try_destroy_json_editor(handle))
 }
 
 ///|

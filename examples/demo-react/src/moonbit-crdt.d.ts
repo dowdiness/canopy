@@ -5,6 +5,7 @@ declare module '@moonbit/crdt' {
   export function create_editor_with_undo(agent_id: string, capture_timeout_ms: number): number;
   export function create_editor(agent_id: string): number;
   export function destroy_editor(handle: number): void;
+  export function try_destroy_editor(handle: number): boolean;
   export function get_text(handle: number): string;
   export function set_text(handle: number, new_text: string): void;
   export function set_text_and_record(handle: number, new_text: string, timestamp_ms: number): void;

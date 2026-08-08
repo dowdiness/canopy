@@ -47,6 +47,8 @@ options(
     "js": {
       "exports": [
         "create_editor_with_undo",
+        "destroy_editor",
+        "try_destroy_editor",
         "get_text",
         "set_text",
         "set_text_and_record",

@@ -3,13 +3,16 @@
 // Markdown Block Editor — three-mode page wiring FFI → adapters.
 
 import { BlockInput, type BlockSelection } from '@canopy/editor-adapter/block-input';
+import type { AdaptedMoonBitModule } from '@canopy/editor-adapter/moonbit-result';
 import { MarkdownPreview } from '@canopy/editor-adapter/markdown-preview';
 import '@canopy/editor-adapter/block-input.css';
 import type { ViewPatch, UserIntent } from '@canopy/editor-adapter/types';
 import type { MountedImperativeSession } from '../../../shared/route-lifecycle/browser/imperative-session';
 import { stripParagraphSentinels } from './sentinels';
 
-export type MarkdownEditorRuntime = typeof import('@moonbit/crdt-markdown');
+export type MarkdownEditorRuntime = AdaptedMoonBitModule<
+  typeof import('@moonbit/crdt-markdown')
+>;
 
 export function mountMarkdownApp(
   root: Document | HTMLElement = globalThis.document,

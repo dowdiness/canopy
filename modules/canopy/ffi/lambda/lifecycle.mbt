@@ -103,10 +103,10 @@ pub fn create_editor(agent_id : String) -> Int raise {
 /// gateway refuses if workspace deps still reference the editor; in that
 /// case the FFI-side bookkeeping and analysis attachment are intentionally
 /// left intact so reads of cached state remain valid.
-pub fn destroy_editor(handle : Int) -> Unit {
+pub fn try_destroy_editor(handle : Int) -> Bool {
   let h = match lambda_registry.get(handle) {
     Some(v) => v
-    None => return
+    None => return true
   }
   // The host gateway logs + skips teardown on refusal so dep references
   // remain valid (Phase 2 surfaces this to JS via a dedicated FFI error
@@ -118,13 +118,19 @@ pub fn destroy_editor(handle : Int) -> Unit {
   // observable only via incr-level inspection; a leaked registry entry
   // would be observable as a phantom editor.
   guard lambda_registry.destroy(coordinator, h.editor_id, "destroy_editor") else {
-    return
+    return false
   }
   pretty_view_states.remove(handle)
   if last_created_handle.val == Some(handle) {
     last_created_handle.val = None
   }
   h.companion.dispose_analysis_attachment()
+  true
+}
+
+///|
+pub fn destroy_editor(handle : Int) -> Unit {
+  ignore(try_destroy_editor(handle))
 }
 
 ///|

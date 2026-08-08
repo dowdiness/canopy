@@ -1,14 +1,13 @@
 'use client';
 
 import { type ReactNode, useCallback, useState } from 'react';
+import { adaptMoonBitModule } from '@canopy/editor-adapter/moonbit-result';
 import { ImperativeDemoHost } from '../../../shared/route-lifecycle/browser/imperative-host';
-import {
-  mountMarkdownApp,
-  type MarkdownEditorRuntime,
-} from '../browser/app';
+import { mountMarkdownApp } from '../browser/app';
 import '../browser/styles.css';
 
-const loadMarkdownRuntime: (() => Promise<MarkdownEditorRuntime>) | null = import.meta.env.SSR
+type RawMarkdownEditorRuntime = typeof import('@moonbit/crdt-markdown');
+const loadMarkdownRuntime: (() => Promise<RawMarkdownEditorRuntime>) | null = import.meta.env.SSR
   ? null
   : () => import('@moonbit/crdt-markdown');
 
@@ -34,7 +33,12 @@ function mountMarkdownRoute(
   void loadMarkdownRuntime()
     .then((runtime) => {
       if (disposed) return;
-      controller = mountMarkdownApp(container, restoredSnapshot, runtime);
+      const adaptedRuntime = adaptMoonBitModule(runtime, {
+        createFunctions: ['create_markdown_editor'],
+        destroyFunctions: ['destroy_markdown_editor'],
+        tryDestroyFunctions: ['try_destroy_markdown_editor'],
+      });
+      controller = mountMarkdownApp(container, restoredSnapshot, adaptedRuntime);
       if (
         pendingFocusToken !== null &&
         !controller.restoreFocus(pendingFocusToken)

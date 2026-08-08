@@ -58,8 +58,9 @@ cat >"$expected_list" <<'EXPECTED_LIST'
 21 suite.test
 22 suite.build
 23 build.js
-24 diff.whitespace origin/main...HEAD
-25 evidence.record
+24 typescript.ffi-consumers origin/main
+25 diff.whitespace origin/main...HEAD
+26 evidence.record
 EXPECTED_LIST
 assert_files_equal "$expected_list" "$list_output" "--list order changed"
 
@@ -130,7 +131,8 @@ for script_name in \
   check-strict.sh \
   check-moonbit-pkg-compat.sh \
   check-test-baseline.sh \
-  build-js.sh; do
+  build-js.sh \
+  check-ffi-consumers.sh; do
   cat >"$fixture/scripts/$script_name" <<'FAKE_SCRIPT'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -149,10 +151,33 @@ FAKE_SCRIPT
   chmod +x "$fixture/scripts/$script_name"
 done
 
+cat >"$fixture/scripts/vendored-check-common.sh" <<'FAKE_VENDORED_FILTER'
+#!/usr/bin/env bash
+
+VENDORED_DIRS="deps/vendor"
+
+run_moon_check_with_vendored_filter() {
+  printf 'vendored-filter' >>"$PR_READY_TEST_LOG"
+  if [ "$#" -gt 0 ]; then
+    printf ' %s' "$@" >>"$PR_READY_TEST_LOG"
+  fi
+  printf '\n' >>"$PR_READY_TEST_LOG"
+  [ "${1:-}" != "--keep=pkg" ] || shift
+  moon check "$@"
+}
+FAKE_VENDORED_FILTER
+
+mkdir -p "$fixture/member/pkg"
+printf 'pub fn member_answer() -> Int { 7 }\n' >"$fixture/member/pkg/main.mbt"
+printf 'package "fixture/member/pkg"\n' >"$fixture/member/pkg/moon.pkg"
+printf 'pub fn member_answer() -> Int\n' >"$fixture/member/pkg/pkg.generated.mbti"
+printf 'name = "fixture-member"\n' >"$fixture/member/moon.mod"
+printf 'members = ["./member"]\n' >"$fixture/moon.work"
+
 printf 'pub fn answer() -> Int { 42 }\n' >"$fixture/pkg/main.mbt"
 printf 'package "fixture/pkg"\n' >"$fixture/pkg/moon.pkg"
 printf 'pub fn answer() -> Int\n' >"$fixture/pkg/pkg.generated.mbti"
-printf '{"name":"fixture"}\n' >"$fixture/moon.pkg.json"
+printf 'name = "fixture"\n' >"$fixture/pkg/moon.mod"
 printf '_build/\n' >"$fixture/.gitignore"
 
 git -C "$fixture" init --quiet --initial-branch=main
@@ -264,6 +289,7 @@ PATH="$fake_bin:$PATH" \
   PR_READY_TEST_LOG="$execution_log" \
   "$fixture/scripts/validate-pr-ready.sh" \
     --base fixture-base \
+    --target member/pkg \
     --target pkg >"$tmp_dir/success-output"
 
 fixture_plan="$tmp_dir/fixture-plan"
@@ -271,6 +297,7 @@ execution_plan="$tmp_dir/execution-plan"
 "$fixture/scripts/validate-pr-ready.sh" \
   --list \
   --base fixture-base \
+  --target member/pkg \
   --target pkg >"$fixture_plan"
 sed -n 's/^==> //p' "$tmp_dir/success-output" >"$execution_plan"
 assert_files_equal "$fixture_plan" "$execution_plan" "listed and executed phases diverged"
@@ -286,23 +313,29 @@ check-documentation-lifecycle.sh
 node ./scripts/check-export-manifest.mjs
 test-moon-update-wrapper.sh
 update-moon-deps.sh
-moon fmt --check pkg/main.mbt
-moon info --frozen . pkg
-check-strict.sh pkg
-moon test --release pkg
+moon fmt --check member/pkg/main.mbt pkg/main.mbt
+moon info --frozen member/pkg pkg
+check-strict.sh member/pkg
+moon test --release member/pkg
+vendored-filter --keep=pkg --deny-warn --warn-list=-20 .
+moon check --deny-warn --warn-list=-20 .
+moon test --release .
 check-strict.sh
 check-moonbit-pkg-compat.sh
 check-test-baseline.sh 7 moon test --release
 moon build --release
 build-js.sh
+check-ffi-consumers.sh fixture-base
 EXPECTED_EXECUTION
 assert_files_equal "$expected_execution" "$execution_log" "validation command order changed"
 
 validated_head="$(git -C "$fixture" rev-parse HEAD)"
 grep -q "validated-head=$validated_head" "$tmp_dir/success-output" ||
   fail "success output did not identify the validated HEAD"
+grep -q "validated-target=member/pkg" "$tmp_dir/success-output" ||
+  fail "success output did not identify the workspace-member target"
 grep -q "validated-target=pkg" "$tmp_dir/success-output" ||
-  fail "success output did not identify the validated target"
+  fail "success output did not identify the nested-module target"
 
 PATH="$fake_bin:$PATH" \
   PR_READY_TEST_LOG="$execution_log" \
@@ -310,8 +343,10 @@ PATH="$fake_bin:$PATH" \
     --verify-evidence >"$tmp_dir/verified-output"
 grep -q "validated-head=$validated_head" "$tmp_dir/verified-output" ||
   fail "evidence verification did not report the validated HEAD"
+grep -q "validated-target=member/pkg" "$tmp_dir/verified-output" ||
+  fail "evidence verification did not report the workspace-member target"
 grep -q "validated-target=pkg" "$tmp_dir/verified-output" ||
-  fail "evidence verification did not report the validated target"
+  fail "evidence verification did not report the nested-module target"
 
 submodule_origin_url="$(
   git -C "$fixture/vendor/test-submodule" remote get-url origin

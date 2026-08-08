@@ -26,6 +26,7 @@ options(
       "exports": [
         "create_json_editor",
         "destroy_json_editor",
+        "try_destroy_json_editor",
         "json_get_text",
         "json_set_text",
         "json_get_errors",

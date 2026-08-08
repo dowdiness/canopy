@@ -46,6 +46,7 @@ options(
         "get_action_log",
         "create_source_graph",
         "destroy_source_graph",
+        "try_destroy_source_graph",
         "get_source_graph_source",
         "set_source_graph_source",
         "set_source_graph_source_result",

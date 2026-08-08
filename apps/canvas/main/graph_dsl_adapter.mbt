@@ -1052,14 +1052,18 @@ pub fn create_source_graph(source : String) -> Int raise Failure {
 }
 
 ///|
-pub fn destroy_source_graph(handle : Int) -> Unit {
+pub fn try_destroy_source_graph(handle : Int) -> Bool {
   match source_graph_by_handle(handle) {
     Some(graph) => graph.dispose()
-    None => ()
+    None => return true
   }
-  if handle >= 0 && handle < _source_registry.length() {
-    _source_registry[handle] = None
-  }
+  _source_registry[handle] = None
+  true
+}
+
+///|
+pub fn destroy_source_graph(handle : Int) -> Unit {
+  ignore(try_destroy_source_graph(handle))
 }
 
 ///|

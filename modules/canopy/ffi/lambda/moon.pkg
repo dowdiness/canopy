@@ -53,6 +53,7 @@ options(
       "exports": [
         "create_editor",
         "destroy_editor",
+        "try_destroy_editor",
         "get_text",
         "set_text",
         "register_file_host",

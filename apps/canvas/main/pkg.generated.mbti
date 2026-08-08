@@ -65,6 +65,8 @@ pub fn source_graph_pointer_up(Int, String, String, Bool) -> Unit
 
 pub fn source_graph_zoom(Int, Double, Double, Double) -> Unit
 
+pub fn try_destroy_source_graph(Int) -> Bool
+
 pub fn zoom(Int, Double, Double, Double) -> Unit
 
 // Errors

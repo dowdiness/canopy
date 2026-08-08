@@ -18,6 +18,8 @@ pub fn markdown_get_text(Int) -> String
 
 pub fn markdown_set_text(Int, String) -> Unit raise
 
+pub fn try_destroy_markdown_editor(Int) -> Bool
+
 // Errors
 
 // Types and methods

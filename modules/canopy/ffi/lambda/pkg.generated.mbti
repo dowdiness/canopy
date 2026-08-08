@@ -121,6 +121,8 @@ pub fn set_text(Int, String) -> Unit raise
 
 pub fn set_text_and_record(Int, String, Int) -> Unit raise
 
+pub fn try_destroy_editor(Int) -> Bool
+
 pub fn undo_and_export_json(Int) -> String raise Failure
 
 pub fn undo_manager_can_redo(Int) -> Bool

@@ -103,6 +103,88 @@ assert_target_policy() {
   fi
 }
 
+target_module_root() {
+  local target="$1"
+  local current
+  current="$(cd "$target" && pwd -P)"
+
+  while [ "$current" = "$project_root" ] || [[ "$current" == "$project_root/"* ]]; do
+    if [ -f "$current/moon.mod" ] || [ -f "$current/moon.mod.json" ]; then
+      printf '%s\n' "$current"
+      return 0
+    fi
+    [ "$current" != "$project_root" ] || break
+    current="$(dirname "$current")"
+  done
+
+  die "target is not inside a MoonBit module: $target"
+}
+
+module_is_root_workspace_member() {
+  local module_root="$1"
+  local relative_module="${module_root#"$project_root"/}"
+  [ "$module_root" != "$project_root" ] || return 0
+  [ -f "$project_root/moon.work" ] || return 1
+  grep -Fq "\"./$relative_module\"" "$project_root/moon.work"
+}
+
+run_target_check() {
+  local target="$1"
+  local module_root
+  local absolute_target
+  local package_path
+  module_root="$(target_module_root "$target")"
+
+  if module_is_root_workspace_member "$module_root"; then
+    NEW_MOON_MOD=0 "$project_root/scripts/check-strict.sh" "$target"
+    return
+  fi
+
+  absolute_target="$(cd "$target" && pwd -P)"
+  package_path="${absolute_target#"$module_root"/}"
+  [ "$absolute_target" != "$module_root" ] || package_path="."
+  (
+    cd "$module_root"
+    # Match the standalone-module CI policy: diagnostics from the module under
+    # test remain gating while known transitive vendored diagnostics are
+    # filtered by their repository paths.
+    # shellcheck source=vendored-check-common.sh
+    source "$project_root/scripts/vendored-check-common.sh"
+    local module_path="${module_root#"$project_root"/}"
+    case "$module_path" in
+      deps/*)
+        NEW_MOON_MOD=0 run_moon_check_with_vendored_filter \
+          "--keep=$module_path" --deny-warn --warn-list=-20-82-83 "$package_path"
+        ;;
+      *)
+        NEW_MOON_MOD=0 run_moon_check_with_vendored_filter \
+          "--keep=$module_path" --deny-warn --warn-list=-20 "$package_path"
+        ;;
+    esac
+  )
+}
+
+run_target_test() {
+  local target="$1"
+  local module_root
+  local absolute_target
+  local package_path
+  module_root="$(target_module_root "$target")"
+
+  if module_is_root_workspace_member "$module_root"; then
+    NEW_MOON_MOD=0 moon test --release "$target"
+    return
+  fi
+
+  absolute_target="$(cd "$target" && pwd -P)"
+  package_path="${absolute_target#"$module_root"/}"
+  [ "$absolute_target" != "$module_root" ] || package_path="."
+  (
+    cd "$module_root"
+    NEW_MOON_MOD=0 moon test --release "$package_path"
+  )
+}
+
 assert_targets_are_packages() {
   local target
   local previous
@@ -118,6 +200,7 @@ assert_targets_are_packages() {
         die "duplicate target: $target"
       fi
     done
+    target_module_root "$target" >/dev/null
     seen_targets+=("$target")
   done
 }
@@ -249,6 +332,7 @@ build_plan() {
   add_phase "suite.test"
   add_phase "suite.build"
   add_phase "build.js"
+  add_phase "typescript.ffi-consumers" "$base_ref"
   add_phase "diff.whitespace" "$base_ref...HEAD"
   add_phase "evidence.record"
 }
@@ -397,10 +481,10 @@ run_phase() {
       assert_clean_worktree
       ;;
     target.check)
-      ./scripts/check-strict.sh "$argument"
+      run_target_check "$argument"
       ;;
     target.test)
-      NEW_MOON_MOD=0 moon test --release "$argument"
+      run_target_test "$argument"
       ;;
     target.skipped)
       :
@@ -419,6 +503,9 @@ run_phase() {
       ;;
     build.js)
       ./scripts/build-js.sh
+      ;;
+    typescript.ffi-consumers)
+      ./scripts/check-ffi-consumers.sh "$argument"
       ;;
     diff.whitespace)
       git diff --check "$base_ref...HEAD"

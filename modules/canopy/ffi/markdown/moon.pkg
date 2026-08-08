@@ -31,6 +31,7 @@ options(
       "exports": [
         "create_markdown_editor",
         "destroy_markdown_editor",
+        "try_destroy_markdown_editor",
         "markdown_get_text",
         "markdown_export_text",
         "markdown_set_text",

@@ -1,13 +1,20 @@
 // Canopy ProseMirror example — structural editor powered by EditorProtocol.
 
-import * as crdt from "@moonbit/canopy";
+import * as crdtRaw from "@moonbit/canopy";
 import { EditorState as PmState } from "prosemirror-state";
 import { PMAdapter } from "@canopy/editor-adapter/pm-adapter";
+import { adaptMoonBitModule } from "@canopy/editor-adapter/moonbit-result";
 import type { ViewPatch, ViewNode, UserIntent } from "@canopy/editor-adapter/types";
 import { connectWebSocket } from "./ws-glue";
 import { structuralKeymap } from "./keymap";
 
 // ── CRDT setup ──────────────────────────────────────────────
+
+const crdt = adaptMoonBitModule(crdtRaw, {
+  createFunctions: ["create_editor", "create_editor_with_undo"],
+  destroyFunctions: ["destroy_editor"],
+  tryDestroyFunctions: ["try_destroy_editor"],
+});
 
 const agentId = "pm-agent-" + Math.random().toString(36).slice(2, 8);
 const handle = crdt.create_editor_with_undo(agentId, 300);
@@ -128,7 +135,7 @@ let broadcastEdit: (() => void) | null = null;
 const WS_URL = "ws://localhost:8787?room=main&peer_id=" + encodeURIComponent(agentId);
 const sync = connectWebSocket(
   handle,
-  crdt as any,
+  crdt,
   WS_URL,
   () => {
     reconcile();

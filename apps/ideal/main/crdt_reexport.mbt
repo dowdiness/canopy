@@ -12,6 +12,16 @@ pub fn create_editor_with_undo(
 }
 
 ///|
+pub fn try_destroy_editor(handle : Int) -> Bool {
+  @ffi.try_destroy_editor(handle)
+}
+
+///|
+pub fn destroy_editor(handle : Int) -> Unit {
+  @ffi.destroy_editor(handle)
+}
+
+///|
 pub fn get_text(handle : Int) -> String {
   @ffi.get_text(handle)
 }
