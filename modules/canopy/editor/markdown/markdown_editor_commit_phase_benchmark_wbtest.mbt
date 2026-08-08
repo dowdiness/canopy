@@ -29,6 +29,16 @@ fn commit_phase_editor(source : String) -> MarkdownEditor {
 }
 
 ///|
+fn commit_phase_set_text(
+  editor : MarkdownEditor,
+  source : String,
+) -> (@text_change.TextChange, Bool) {
+  editor.editor.set_text_with_change(source) catch {
+    error => abort("set_text benchmark failed: \{error}")
+  }
+}
+
+///|
 fn commit_phase_changes(source : String) -> Array[@text_change.TextChange] {
   [
     @text_change.compute_text_change(source, commit_phase_variant(source, 0)),
@@ -68,7 +78,9 @@ test "perf: MarkdownEditor apply precomputed change (250 blocks)" (b : @bench.T)
       change.delete_len,
       change.inserted,
       0,
-    )
+    ) catch {
+      error => abort("commit benchmark edit failed: \{error}")
+    }
     b.keep(editor.editor.get_text())
   })
 }
@@ -79,7 +91,8 @@ test "perf: MarkdownEditor set_text_with_change (250 blocks)" (b : @bench.T) {
   let editor = commit_phase_editor(source)
   let mut tick = 0
   b.bench(() => {
-    let result = editor.editor.set_text_with_change(
+    let result = commit_phase_set_text(
+      editor,
       commit_phase_variant(source, tick),
     )
     tick += 1
@@ -95,11 +108,14 @@ test "perf: MarkdownEditor set_text_with_change + refresh (250 blocks)" (
   let editor = commit_phase_editor(source)
   let mut tick = 0
   b.bench(() => {
-    let result = editor.editor.set_text_with_change(
+    let result = commit_phase_set_text(
+      editor,
       commit_phase_variant(source, tick),
     )
     tick += 1
-    editor.editor.refresh()
+    editor.editor.refresh() catch {
+      error => abort("refresh benchmark failed: \{error}")
+    }
     b.keep(result)
   })
 }
@@ -112,12 +128,16 @@ test "perf: MarkdownEditor set_text + refresh + snapshot (250 blocks)" (
   let editor = commit_phase_editor(source)
   let mut tick = 0
   b.bench(() => {
-    ignore(
-      editor.editor.set_text_with_change(commit_phase_variant(source, tick)),
-    )
+    ignore(commit_phase_set_text(editor, commit_phase_variant(source, tick)))
     tick += 1
-    editor.editor.refresh()
-    b.keep(editor.snapshot())
+    editor.editor.refresh() catch {
+      error => abort("refresh benchmark failed: \{error}")
+    }
+    b.keep(
+      editor.snapshot() catch {
+        error => abort("snapshot benchmark failed: \{error}")
+      },
+    )
   })
 }
 
@@ -129,7 +149,9 @@ test "perf: MarkdownEditor commit without receipt (250 blocks)" (b : @bench.T) {
   b.bench(() => {
     let result = editor.commit(
       MarkdownEditRequest::ReplaceSource(commit_phase_variant(source, tick)),
-    )
+    ) catch {
+      error => abort("commit benchmark failed: \{error}")
+    }
     tick += 1
     b.keep(result)
   })
@@ -141,9 +163,11 @@ test "perf: MarkdownEditor commit with receipt (250 blocks)" (b : @bench.T) {
   let editor = commit_phase_editor(source)
   let mut tick = 0
   b.bench(() => {
-    let result = try! editor.commit_with_receipt(
+    let result = editor.commit_with_receipt(
       MarkdownEditRequest::ReplaceSource(commit_phase_variant(source, tick)),
-    )
+    ) catch {
+      error => abort("receipt benchmark failed: \{error}")
+    }
     tick += 1
     b.keep(result)
   })

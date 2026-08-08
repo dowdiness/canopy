@@ -11,12 +11,25 @@ fn apply_phase_text_state(source : String) -> @text.TextState {
 /// Construct a parser with the source already parsed. The parser has no
 /// projection attachment here, so this isolates Parser::apply_edit and its
 /// incremental engine from projection reconciliation.
-fn apply_phase_parser(source : String) -> @loom.Parser[@md_markdown.Block] {
+fn apply_phase_parser(
+  source : String,
+) -> @loom.Parser[@md_markdown.Block] raise {
   @loom.new_parser(
     @loom_core.SourceId("canopy:markdown-apply-phase"),
     source,
     @md_markdown.markdown_grammar,
   )
+}
+
+///|
+fn apply_phase_parser_edit(
+  parser : @loom.Parser[@md_markdown.Block],
+  edit : @loom_core.Edit,
+  source : String,
+) -> Unit {
+  parser.apply_edit(edit, source) catch {
+    error => abort("parser benchmark edit failed: \{error}")
+  }
 }
 
 ///|
@@ -51,9 +64,9 @@ test "perf: parser incremental edit pair without projection (250 blocks)" (
   let mut tick = 0
   b.bench(() => {
     if tick % 2 == 0 {
-      parser.apply_edit(append, source + "x")
+      apply_phase_parser_edit(parser, append, source + "x")
     } else {
-      parser.apply_edit(delete, source)
+      apply_phase_parser_edit(parser, delete, source)
     }
     tick += 1
     b.keep(tick)
@@ -71,9 +84,9 @@ test "perf: parser incremental edit pair with AST read (250 blocks)" (
   let mut tick = 0
   b.bench(() => {
     if tick % 2 == 0 {
-      parser.apply_edit(append, source + "x")
+      apply_phase_parser_edit(parser, append, source + "x")
     } else {
-      parser.apply_edit(delete, source)
+      apply_phase_parser_edit(parser, delete, source)
     }
     let ast = parser.ast().read_or_abort()
     tick += 1
