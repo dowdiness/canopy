@@ -9,12 +9,7 @@ priv enum EditingEvent {
   BlockHeading(Int, BlockSelection?)
   BlockToggleList(BlockSelection?)
   BlockDelete
-  BlockInput(
-    node_id~ : @markdown.MarkdownNodeId,
-    input_id~ : String,
-    text~ : String,
-    selection_offset~ : Int
-  )
+  BlockInput(token~ : Int, input~ : PendingBlockInput)
   BlockSplit(node_id~ : @markdown.MarkdownNodeId, offset~ : Int)
   BlockMerge(node_id~ : @markdown.MarkdownNodeId, selection~ : BlockSelection)
   BlockNavigate(key~ : String, direction~ : Int)
