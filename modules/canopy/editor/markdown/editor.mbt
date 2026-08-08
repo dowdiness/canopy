@@ -1071,7 +1071,7 @@ fn MarkdownEditor::commit_structural_recording_transforms(
   MarkdownEditorError,
 ] raise {
   let source = self.editor.get_text()
-  guard self.editor.get_proj_node() is Some(proj) else {
+  guard self.editor.get_proj_node() is Some(_) else {
     return Err(MarkdownEditorError::ProjectionUnavailable)
   }
   let deleted_block_index = match op {
@@ -1083,20 +1083,9 @@ fn MarkdownEditor::commit_structural_recording_transforms(
       .search_by(block => block.node_id().value == node_id)
     _ => None
   }
-  let source_map = self.editor.get_source_map()
-  let computed = Ok(
-    @md_edits.compute_markdown_edit(op, source, proj, source_map),
-  ) catch {
-    error => Err(error.message())
-  }
-  match computed {
-    Err(detail) => Err(MarkdownEditorError::EditFailed(detail~))
-    Ok(lowered) => {
-      let (edits, focus_hint) = match lowered {
-        Some(pair) => pair
-        None => ([], @core.FocusHint::RestoreCursor)
-      }
-      self.editor.apply_span_edits(edits, focus_hint, 0)
+  match @markdown_runtime.apply_edit(self.editor, op, 0) {
+    Err(error) => Err(MarkdownEditorError::EditFailed(detail=error.message()))
+    Ok(edits) => {
       self.editor.refresh()
       let snapshot = self.snapshot()
       let result = if snapshot.source() == source {

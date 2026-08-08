@@ -1,4 +1,5 @@
 import {
+  "dowdiness/canopy/internal/markdown_runtime",
   "dowdiness/canopy/lang/markdown/companion" @md_companion,
   "dowdiness/canopy/lang/markdown/edits" @md_edits,
   "dowdiness/canopy/lang/markdown/sentinel" @md_sentinel,
