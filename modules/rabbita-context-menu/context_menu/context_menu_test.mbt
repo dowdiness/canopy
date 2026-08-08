@@ -159,9 +159,16 @@ extern "js" fn install_shadow_focus_fixture(
   #|       globalThis.__contextMenuFocusLog.push("document:" + this.id);
   #|     },
   #|   };
-  #|   const shadowRoot = {
+  #|   const shadowMenu = {
+  #|     id: "test-menu",
   #|     children: [shadowItem],
-  #|     getElementById(id) { return id === itemId ? shadowItem : null; },
+  #|     querySelector(selector) {
+  #|       return selector === '[data-active="true"]' ? shadowItem : null;
+  #|     },
+  #|   };
+  #|   const shadowRoot = {
+  #|     children: [shadowMenu],
+  #|     getElementById(id) { return id === "test-menu" ? shadowMenu : null; },
   #|   };
   #|   const host = { id: rootId, children: [], shadowRoot };
   #|   globalThis.document = {
