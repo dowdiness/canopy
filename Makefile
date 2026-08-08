@@ -1,4 +1,4 @@
-.PHONY: help test test-all check check-all fmt fmt-check check-agent-doc-links build build-js build-web test-web-e2e test-canvas-e2e test-demo-react-e2e benchmark-ideal-editor-response setup-ast-grep clean install-hooks release-artifacts
+.PHONY: help test test-all check check-all fmt fmt-check check-agent-doc-links build build-js build-web test-web-e2e test-canvas-e2e test-demo-react-e2e benchmark-ideal-editor-response prototype-markdown-api-rc1 setup-ast-grep clean install-hooks release-artifacts
 
 help: ## Show this help message
 	@echo "Canopy - Development Tasks"
@@ -54,6 +54,9 @@ test-demo-react-e2e: ## Run demo-react Playwright E2E tests
 
 benchmark-ideal-editor-response: ## Run realistic ideal editor response benchmarks
 	@cd apps/ideal/web && npm run test:perf
+
+prototype-markdown-api-rc1: ## Run the throwaway Markdown API RC1 logic prototype
+	@moon run --target native modules/canopy/editor/markdown_api_rc1_prototype
 
 setup-ast-grep: ## Build tree-sitter-moonbit for ast-grep custom-language support
 	@./scripts/setup-ast-grep-moonbit.sh

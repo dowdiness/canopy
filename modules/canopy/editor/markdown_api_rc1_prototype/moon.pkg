@@ -1,0 +1,7 @@
+import {
+  "dowdiness/canopy/editor/markdown" @markdown_editor,
+  "moonbitlang/async",
+  "moonbitlang/async/stdio",
+}
+
+pkgtype(kind: "executable")
