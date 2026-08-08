@@ -369,6 +369,11 @@ test("Raw keeps focus and accepts consecutive keystrokes while split Preview upd
   const host = await mountHost(browser, "start")
   try {
     await toggleSplitPreview(host.page)
+    // The split toggle re-renders the editor subtree, replacing the Raw
+    // textarea with a fresh node. Wait for the split frame to settle before
+    // focusing: focusing a still-scheduled predecessor would lose focus when
+    // the patch detaches it, and the app never re-focuses the Raw control.
+    await expect(host.page.locator("#loomark-split")).toBeVisible()
     const input = host.page.locator("#loomark-input")
     await input.focus()
     await input.evaluate(element => {
