@@ -111,10 +111,17 @@ fn[T : TreeNode] can_reconcile_children_positionally(
   if !hints.is_empty() || old_children.length() != new_children.length() {
     return false
   }
-  old_children.foldi(init=true, (index, same, old_child) => {
-    same &&
-    @loomcore.TreeNode::same_kind(old_child.kind, new_children[index].kind)
-  })
+  // Short-circuit on the first mismatch so LCS fallback does not pay a full
+  // sibling scan when the positional fast path is obviously inapplicable.
+  for index in 0..<old_children.length() {
+    if !@loomcore.TreeNode::same_kind(
+        old_children[index].kind,
+        new_children[index].kind,
+      ) {
+      return false
+    }
+  }
+  true
 }
 
 ///|
