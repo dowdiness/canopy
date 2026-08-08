@@ -2,9 +2,9 @@
 
 ## GitHub Issue
 
-Canonical issue: **none yet** — created from an architecture review
-(`improve-codebase-architecture`, candidate C1, reviewed by `openai-codex/gpt-5.6-sol`).
-File a canonical issue and link this plan before implementation.
+Canonical issue: <https://github.com/dowdiness/canopy/issues/1196> — created
+from the architecture review (candidate C1, reviewed by
+`openai-codex/gpt-5.6-sol`). The issue and this plan link each other.
 
 ## Why
 
@@ -200,6 +200,11 @@ observables: result tree, final counter value, and trace.
 ## Acceptance Criteria
 
 - [ ] All Phase 1 characterization tests pass on current HEAD (before Phase 3).
+- [x] Phase 1 mutation probes: tie-break flip and Deleted-order change each
+      fail a meaningful subset of the new + existing tests (11 failures across
+      two probes) — the safety net is live. (Probe execution on
+      `refactor/redesign-scratch`; re-probe after Phase 3 with the same two
+      mutations.)
 - [ ] Phase 1 tests pass **unchanged** after Phase 3 (they are the safety net).
 - [ ] Existing suites (`reconcile_hints_wbtest`, `reconcile_properties_wbtest`,
       `reconcile_trace_wbtest`, projection, all `lang/*`) pass without semantic
