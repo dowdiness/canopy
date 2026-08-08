@@ -213,17 +213,20 @@ observables: result tree, final counter value, and trace.
 21. Route the three public adapters (`reconcile`, `reconcile_hinted`,
     `reconcile_with_exact_key`) over the shared core without signature changes.
 
-### Phase 4 — Validation
+### Phase 4 — Validation ✅ done
 
-22. `moon check` in the worktree; `moon test` for `core`, `projection`,
-    `lang/{lambda,markdown,jsx,json}`.
-23. `moon fmt && moon info`; `git diff *.mbti` — core `.mbti` must show **no
+22. ✅ `moon check`; tests green across core (175), projection (75), lang/*
+    (649), editor + ffi (403) — 1302/1302 total.
+23. ✅ `moon fmt && moon info`; `git diff *.mbti` — core `.mbti` shows **no
     diff** (no new pub symbols, no bound widening).
-24. Benchmarks: all three workloads run; fast path within recorded baseline.
-25. Run `./scripts/validate-pr-ready.sh --target <package-path>` per affected
-    MoonBit package (repo policy), then record the ADR post-implementation
-    (`docs/decisions/`) — "one engine behind three adapters", linking this
-    plan and the glossary terms.
+24. ✅ Benchmarks: all three workloads run post-extraction — no regression
+    (fast path 219.8 → 203.2 µs @ 1000 defs; fallback 9.30 → 7.92 ms;
+    exact-key 50.97 → 48.11 ms; recorded in the evidence JSON). Mutation
+    re-probe with the Phase 1 mutations: 4 and 8 failures respectively.
+25. ✅ `./scripts/validate-pr-ready.sh --target modules/canopy/core
+    --target modules/canopy/projection` passed at HEAD `4b1b33a7`
+    (validated-base `f55c5e33`). ADR recorded post-implementation:
+    `docs/decisions/2026-08-08-core-reconcile-one-engine-behind-three-adapters.md`.
 
 ## Acceptance Criteria
 
