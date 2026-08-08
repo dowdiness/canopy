@@ -24,8 +24,8 @@
 
 // Source generator: reuses `tree_refresh_bench_source` from
 // tree_refresh_benchmark_wbtest.mbt (same projection wbtest module). An N-def
-// program projects to a Module ProjNode with N+1 direct children (one init per
-// def + the trailing body), giving a wide sibling list for the LCS DP.
+// program projects to a Module ProjNode with N+1 direct children (one LetDef
+// row per def + the trailing body), giving a wide sibling list for the LCS DP.
 
 ///|
 let reconcile_lcs_benchmark_source : @loomcore.SourceId = @loomcore.SourceId(
@@ -85,9 +85,10 @@ fn bench_exact_key(node : @ast.Term) -> String {
 ///|
 test "control: reconcile operates on a wide sibling list" {
   // Pin the wide-sibling width at every benched size: an N-def program must
-  // project to a Module with N+1 direct children (N inits + trailing body) so
-  // the LCS DP runs on an N+1-wide list. Guards against a future regression in
-  // Module construction silently degrading any bench to a degenerate tree.
+  // project to a Module with N+1 direct children (N LetDef rows + trailing
+  // body) so the LCS DP runs on an N+1-wide list. Guards against a future
+  // regression in Module construction silently degrading any bench to a
+  // degenerate tree.
   let (root_20, _) = lcs_setup(20)
   inspect(root_20.children.length(), content="21")
   let (root_80, _) = lcs_setup(80)
@@ -100,18 +101,30 @@ test "control: reconcile operates on a wide sibling list" {
 
 ///|
 test "control: fallback workload reaches the LCS DP table" {
-  // The spliced Int child cannot match positionally: an Inserted trace event
-  // proves the fallback ran (the positional fast path would emit Matched for
-  // every child). Also pins that the spliced node gets a fresh id.
+  // The spliced Int child cannot match positionally: exactly one Inserted
+  // trace event at the spliced index proves the fallback ran (the positional
+  // fast path would emit Matched for every child). Fresh ids start at 5000 —
+  // above every parsed id in either tree (the generator allocates ~2 ids per
+  // def, so a 1000-def tree reaches id ~2001; starting at 1000 would collide
+  // with the deleted def's old id).
   let (root_a, root_b) = lcs_setup_fallback(20)
   let trace = Ref([])
-  let result = @core.reconcile(root_a, root_b, Ref(1000), trace_ref=Some(trace))
-  let inserted = trace.val
-    .filter(ev => ev is @core.ReconcileTraceEvent::Inserted(_, _, _, _))
-    .length()
-  inspect(inserted >= 1, content="true")
+  let counter = Ref(5000)
+  let result = @core.reconcile(root_a, root_b, counter, trace_ref=Some(trace))
   let mid = result.children.length() / 2
-  inspect(result.children[mid].node_id >= 1000, content="true")
+  let inserted = trace.val.filter(ev => {
+    ev is @core.ReconcileTraceEvent::Inserted(_, _, _, _)
+  })
+  inspect(inserted.length(), content="1")
+  guard inserted[0] is Inserted(parent, idx, node, kind) else {
+    fail("expected exactly one Inserted")
+  }
+  inspect(parent == root_a.id(), content="true")
+  inspect(idx == mid, content="true")
+  inspect(node == NodeId::from_int(5000), content="true")
+  inspect(kind, content="Int")
+  inspect(result.children[mid].node_id, content="5000")
+  inspect(counter.val, content="5001")
 }
 
 ///|
@@ -122,18 +135,18 @@ test "control: fallback workload reaches the LCS DP table" {
 fn bench_reconcile_fast_path(b : @bench.T, n : Int) -> Unit raise {
   let (root_a, root_b) = lcs_setup(n)
   b.bench(() => {
-    let r = @core.reconcile(root_a, root_b, Ref(1000))
+    let r = @core.reconcile(root_a, root_b, Ref(5000))
     b.keep(r)
   })
 }
 
 ///|
 /// Same wide shape with one different-kind child mid-list — forces the LCS
-/// DP table.
+/// DP table. Fresh ids start at 5000, above every parsed id in either tree.
 fn bench_reconcile_fallback(b : @bench.T, n : Int) -> Unit raise {
   let (root_a, root_b) = lcs_setup_fallback(n)
   b.bench(() => {
-    let r = @core.reconcile(root_a, root_b, Ref(1000))
+    let r = @core.reconcile(root_a, root_b, Ref(5000))
     b.keep(r)
   })
 }
@@ -147,7 +160,7 @@ fn bench_reconcile_exact_key(b : @bench.T, n : Int) -> Unit raise {
     let r = @core.reconcile_with_exact_key(
       root_a,
       root_b,
-      Ref(1000),
+      Ref(5000),
       bench_exact_key,
     )
     b.keep(r)

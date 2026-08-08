@@ -4,58 +4,51 @@
   "purpose": "Pre-extraction baseline for the three reconcile workloads (Phase 2 of docs/plans/2026-08-08-core-reconcile-engine-deepening.md, issue #1196). Recorded BEFORE any engine extraction so Phase 3 can be judged against these numbers. No timing thresholds are asserted — this is BAND 2b evidence, not a gate.",
   "recordedAt": "2026-08-08",
   "observedAt": {
-    "canopy": "refactor/redesign-scratch @ 049a7f09 (engine untouched; Phase 1 characterization tests committed)",
+    "canopy": "refactor/redesign-scratch @ 60bf984f + counter-collision fix (fresh ids start at 5000; engine untouched)",
     "loom": "ae3f222f3c3135c55fc574ac418e8a54144af1a2",
     "rabbita": "09968c4402c51645186d75c5044cf4d9346f9f06"
   },
+  "environment": {
+    "host": "same host as the 2026-08-08 session (x86_64)",
+    "moon": "0.1.20260713 (75c7e1f 2026-07-13)",
+    "target": "native",
+    "iterations": "10 per bench; one run per workload (mean ± σ)"
+  },
   "executedProbes": {
     "command": "NEW_MOON_MOD=0 moon bench --release --target native modules/canopy/projection",
-    "hardware": "same host as the 2026-08-08 session; single run per bench (variance shown as mean ± σ over 10 iterations each)",
     "workloads": {
       "positional fast path": "two N-def Modules, positionally identical kinds, equal length — the fast path skips the O(m×n) LCS table",
       "forced LCS fallback": "same lists with one Int-typed child spliced at the middle — rejects the positional shortcut, reaches the quadratic DP",
-      "exact-key": "reconcile_with_exact_key with kind_tag as key — fingerprint maps for both trees plus the weighted suffix DP"
+      "exact-key": "reconcile_with_exact_key with kind_tag as key — fingerprint maps for both trees plus the weighted suffix DP; synthetic all-equal-fingerprint stress (not a JSX-native key shape)"
     },
     "instrumentControl": {
       "why": "A bench that never reaches its intended code path records meaningless numbers.",
-      "observed": "control: fallback workload reaches the LCS DP table (Inserted trace event present, spliced node fresh) — passes; the fast-path control pins N+1-wide children at every benched size.",
+      "observed": "control: fallback workload reaches the LCS DP table — exactly one Inserted event at the spliced index (parent = root id, kind Int, fresh id 5000, counter 5001); the fast-path control pins N+1-wide children at every benched size.",
       "conclusion": "Each workload exercises the path it claims to measure."
     },
     "findings": [
       {
         "id": "B1-fast-path",
         "workload": "positional fast path",
-        "mean": {
-          "20 defs": "3.85-4.15 µs",
-          "80 defs": "15.43 µs",
-          "320 defs": "80.53 µs",
-          "1000 defs": "232.74 µs"
-        },
+        "mean_µs": { "20": 3.5, "80": 13.59, "320": 61.77, "1000": 219.82 },
+        "stddev_µs": { "20": 0.06, "80": 0.2, "320": 1.03, "1000": 5.41 },
         "note": "Linear in sibling count; the fast path avoids the quadratic table."
       },
       {
         "id": "B2-fallback",
         "workload": "forced LCS fallback",
-        "mean": {
-          "20 defs": "8.70 µs",
-          "80 defs": "70.15 µs",
-          "320 defs": "937.77 µs",
-          "1000 defs": "10.27 ms"
-        },
-        "note": "Quadratic as expected; 1000-def fallback is ~44× the fast path at the same width. The unified engine must keep the fast-path branch."
+        "mean_µs": { "20": 8.14, "80": 69.56, "320": 1080.0, "1000": 9300.0 },
+        "stddev_µs": { "20": 0.36, "80": 5.09, "320": 159.87, "1000": 745.06 },
+        "note": "Quadratic as expected; at 1000 defs the fallback is ~42× the fast path at the same width (9.30 ms vs 219.82 µs). The unified engine must keep the fast-path branch."
       },
       {
         "id": "B3-exact-key",
         "workload": "exact-key",
-        "mean": {
-          "20 defs": "64.56 µs",
-          "80 defs": "492.01 µs",
-          "320 defs": "6.79 ms",
-          "1000 defs": "52.32 ms"
-        },
-        "note": "Fingerprinting dominates: ~5× the fallback at 1000 defs. Reconcile_with_exact_key is the JSX streaming path."
+        "mean_µs": { "20": 59.43, "80": 453.85, "320": 6110.0, "1000": 50970.0 },
+        "stddev_µs": { "20": 1.05, "80": 6.73, "320": 140.83, "1000": 525.38 },
+        "note": "Aggregate observation: the workload combines fingerprint preprocessing, DP, and realization — ~5.5× the fallback at 1000 defs. The ratio is not attributed to any single phase."
       }
     ],
-    "regressionRule": "Phase 3 must keep the positional fast path within the B1 band (order-of-magnitude check, not a threshold gate); fallback and exact-key numbers are recorded for comparison, not enforcement."
+    "regressionRule": "Phase 3 must keep the positional fast path within the B1 band (order-of-magnitude check on the fast path only, not a threshold gate); fallback and exact-key numbers are recorded for comparison, not enforcement. Re-run with the same command and host before and after extraction."
   }
 }

@@ -59,17 +59,22 @@ Out:
   `reconcile_properties_wbtest.mbt`).
 - Trace order is observable and pinned: inner `Matched` before outer, `Deleted`
   after all matches (`reconcile_trace_wbtest.mbt`).
-- Plain/hinted LCS identity selection on unequal duplicates is **not** pinned
-  (`reconcile_properties_wbtest.mbt` marks plain/hinted selection
-  implementation-defined; only exact-key prefix behavior is pinned, #892).
-- Benchmark `projection/reconcile_lcs_benchmark_wbtest.mbt` measures the
-  positional fast path only, with no timing threshold (evidence, not a gate).
+- Plain/hinted LCS identity selection on unequal duplicates was **not** pinned
+  (implementation-defined; only exact-key prefix behavior was pinned, #892) —
+  now pinned by the Phase 1 characterization tests (committed `f0841b29`).
+- Benchmark `projection/reconcile_lcs_benchmark_wbtest.mbt` now has three
+  workloads (positional fast path / forced LCS fallback / exact-key) with
+  pre-extraction baselines in `docs/evidence/2026-08-08-core-reconcile-benchmark-baselines.json`;
+  no timing thresholds (evidence, not a gate).
 
 ## Desired State
 
 One private matching core in `reconcile.mbt` behind the three existing public
-adapters. The core shares matrix allocation/fill, match-plan realization, and
-trace emission; each mode keeps its policy-specific parts:
+adapters. The core shares **match-plan realization and trace emission**;
+matrix filling stays per-mode inside two private match-plan producers (prefix
+fill + end backtracking vs weighted suffix fill + front reconstruction differ
+materially — a shared matrix allocator would be a shallow module with little
+leverage). Each mode keeps its policy-specific parts:
 
 - **Default** — 0/1 scoring, tail-oriented reconstruction (today's hinted path
   with empty hints)
@@ -122,9 +127,11 @@ observables: result tree, final counter value, and trace.
    unchanged. (Equal-length same-kind lists take the positional fast path, so
    they cannot pin the fallback.)
 8. `reconcile: exact-key freshening consumes counter exactly for unmatched new nodes`
-   — old `[L,B]` → new `[B,L]` via `reconcile_with_exact_key`: pin that the new
-   `B` is fresh and consumes exactly 1 (the exact-key path has no counter pin
-   today).
+   — old `[L,B]` → new `[B,L]` via `reconcile_with_exact_key`: the B↔B diagonal
+   carries the fingerprint bonus (old "b" vs new "b" have equal payloads; the
+   Leaf payloads differ), so exact-key matches old B → new B and **the new L is
+   fresh** — exactly 1 consumed. (Plain reconcile drops the old B instead;
+   see test 3. The exact-key path has no counter pin today.)
 9. `reconcile: two fresh subtrees allocate ids in sibling order, post-order within`
    — two unmatched new subtrees (one with a child): assert the actual allocated
    ids — sibling order by new index, post-order inside each subtree (pins
@@ -173,18 +180,34 @@ observables: result tree, final counter value, and trace.
 
 18. Extract the shared core. Today both engines already realize in the same
     order (ascending new index, recurse before outer `Matched`, deletions
-    after) — share the realization + trace emission path first; share matrix
-    allocation/fill only where the two fill directions genuinely coincide
-    (prefix vs suffix filling differ; a configurable interface carrying
-    direction, score, pairing, recursion, and tracing would be nearly as
-    complex as the implementations — prefer two private match-plan producers
-    plus one shared realization module).
+    after) — share the realization + trace emission path first; matrix
+    filling stays per-mode (prefix vs suffix filling differ; a configurable
+    interface carrying direction, score, pairing, recursion, and tracing would
+    be nearly as complex as the implementations). Concrete shape (reviewed by
+    `openai-codex/gpt-5.6-sol`):
+    1. private `MatchPlan { old_to_new, new_to_old }` ledger (both engines
+       already produce identical ledger shapes),
+    2. two deterministic private producers `plan_hinted_lcs` (exclusion +
+       pair counts + `consumed` stay here) and `plan_exact_lcs` (fingerprint
+       maps stay in the exact adapter; both producer and matched-recursion
+       callback capture them — the shared realizer must not expose them),
+    3. one private **fallback realizer** taking a matched-recursion callback
+       plus an optional hinted-unmatched callback; it owns ascending new-index
+       order, fresh allocation, outer `Matched`/`Inserted`, and the final
+       `Deleted` loop,
+    4. the allocation-free positional loop stays specialized (default/hinted
+       only — the exact-key path must NOT gain a positional bypass; the
+       exact-key bench is positionally identical and would silently measure
+       the shortcut, so the plan keeps the shortcut default/hinted-only).
 19. Keep per-mode policy: scoring function, reconstruction orientation
     (explicit ordering, **not** a single tie switch — the `[L,B]`/`[B,L]`
     counterexample forbids the naive mirror), old-node exclusion + post-LCS
     pairing (NOT "reservation" — global pre-LCS reservation is not current
     behavior; it is a known unimplemented fix, see `reconcile_hints_wbtest`
-    "STILL VIOLATED" tests), wrap/unwrap recursion.
+    "STILL VIOLATED" tests), wrap/unwrap recursion. The shared realizer must
+    preserve the hint-pair `Matched(old_index=-1)` event followed by the
+    `Deleted` for the same old node (test 14 pins this wart; emission order
+    and fingerprint interner sharing for old+new maps must survive).
 20. Preserve: positional fast path branch, empty-hints fast path, trace order,
     fresh-id post-order allocation order, exact-key weighted scoring.
 21. Route the three public adapters (`reconcile`, `reconcile_hinted`,
@@ -204,7 +227,8 @@ observables: result tree, final counter value, and trace.
 
 ## Acceptance Criteria
 
-- [ ] All Phase 1 characterization tests pass on current HEAD (before Phase 3).
+- [x] All Phase 1 characterization tests pass on current HEAD (before Phase 3).
+      Green run recorded at `f0841b29`: core 175/175 (js), projection 74/74 (js).
 - [x] Phase 1 mutation probes: tie-break flip and Deleted-order change each
       fail a meaningful subset of the new + existing tests (11 failures across
       two probes) — the safety net is live. (Probe execution on
@@ -257,6 +281,13 @@ moon bench --release   # fast-path + forced-fallback + exact-key workloads
   hinted) prefix behavior; `StructuredChange::Renamed/Freshened` are constructed
   by `to_structured_changes` and matched by apps/ideal (hence C3 is separate);
   the existing benchmark measures the positional fast path, not LCS.
+- Phase 2 review (second `openai-codex/gpt-5.6-sol` pass) adopted: fresh-id
+  counter must start above both parse trees' max ids (1000 collided at 1000
+  defs → 5000); fallback control hardened to exact Inserted(parent, mid, 5000,
+  "Int") + counter 5001; plan test-8 description corrected (exact-key freshens
+  the new L, not B); Desired State no longer claims shared matrix fill;
+  evidence JSON stores numeric mean/stddev with honest scope (ratios are
+  aggregate observations, not phase attributions).
 - Glossary: `CONTEXT.md` gained a `## Framework — projection editing` section
   (reconciliation / identity evidence / fresh identity) on branch
   `refactor/redesign-scratch`.
