@@ -157,6 +157,23 @@ fn block_replacement_terminator(
 }
 
 ///|
+/// Preserve an existing block terminator without adding one at EOF.
+fn block_replacement_terminator_preserving_eof(
+  source : String,
+  range_start : Int,
+  range_end : Int,
+) -> String {
+  if range_end == source.length() &&
+    range_end > range_start &&
+    source[range_end - 1] != '\n' &&
+    source[range_end - 1] != '\r' {
+    ""
+  } else {
+    block_replacement_terminator(source, range_start, range_end)
+  }
+}
+
+///|
 /// Change heading level (1-6) or convert paragraph to/from heading.
 fn compute_change_heading_level(
   source : String,
@@ -583,35 +600,52 @@ fn compute_merge_with_previous(
       )
   }
   let curr_text = source[curr_text_range.start:curr_text_range.end].to_owned()
-  // End of previous block's text content — merge point
-  let prev_text_end = match source_map.get_token_span(prev_node.id(), "text") {
-    Some(r) => r.end
+  let prev_text_range = match
+    source_map.get_token_span(prev_node.id(), "text") {
+    Some(range) => range
     None =>
       raise @core.EditError::SourceSpanMissing(
         detail="no editable text span for previous block " +
           prev_node.id().to_string(),
       )
   }
-  // Strip empty-paragraph sentinel placeholder (from InsertBlockAfter)
-  let clean_text = if @md_sentinel.is_empty_paragraph_text(curr_text) {
-    ""
+  let prev_text = source[prev_text_range.start:prev_text_range.end].to_owned()
+  let prev_is_empty = @md_sentinel.is_empty_paragraph_text(prev_text)
+  let curr_is_empty = @md_sentinel.is_empty_paragraph_text(curr_text)
+  // A sentinel in the previous block must be inside the replacement span;
+  // otherwise merging real text after it turns the private placeholder into
+  // visible content that portable Markdown can no longer strip. If both
+  // blocks are empty, keep one sentinel so the surviving paragraph remains
+  // projectable.
+  let edit_start = if prev_is_empty {
+    prev_text_range.start
   } else {
-    curr_text
+    prev_text_range.end
   }
-  // The delete span covers: previous block's trailing newline, blank-line
-  // separator, current block's prefix + text + trailing newline. Always
-  // append \n to restore the proper \n\n block separator with the next block.
-  let inserted = clean_text + "\n"
+  let clean_text = match (prev_is_empty, curr_is_empty) {
+    (true, true) => @md_sentinel.EMPTY_PARAGRAPH_SENTINEL
+    (_, true) => ""
+    (_, false) => curr_text
+  }
+  // The delete span covers: the private previous sentinel when present,
+  // separators, and the current block through its terminator. Preserve that
+  // exact terminator, including CRLF, CR, and EOF-without-terminator.
+  let terminator = block_replacement_terminator_preserving_eof(
+    source,
+    curr_range.start,
+    curr_range.end,
+  )
+  let inserted = clean_text + terminator
   Some(
     (
       [
         SpanEdit::{
-          start: prev_text_end,
-          delete_len: curr_range.end - prev_text_end,
+          start: edit_start,
+          delete_len: curr_range.end - edit_start,
           inserted,
         },
       ],
-      FocusHint::MoveCursor(position=prev_text_end),
+      FocusHint::MoveCursor(position=edit_start),
     ),
   )
 }

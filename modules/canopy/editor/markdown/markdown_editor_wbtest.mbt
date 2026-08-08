@@ -814,6 +814,143 @@ test "headless facade splits at block start into an empty previous block" {
 }
 
 ///|
+test "portable Markdown merge removes a split-created empty previous sentinel" {
+  let editor = try! MarkdownEditor(
+    agent_id="merge-empty-previous",
+    source="Hello\n",
+  )
+  let first = editor.snapshot().blocks().to_array()[0]
+  guard editor.commit(
+      MarkdownEditRequest::SplitBlock(node_id=first.node_id(), offset=0),
+    )
+    is Ok(_) else {
+    fail("expected block-start split to apply")
+  }
+  assert_eq(editor.portable_markdown(), "\n\nHello\n")
+  let current = editor.snapshot().blocks().to_array()[1]
+
+  match
+    editor.commit(
+      MarkdownEditRequest::MergeWithPrevious(node_id=current.node_id()),
+    ) {
+    Ok(MarkdownCommitResult::Applied(snapshot, Some(selection))) => {
+      assert_eq(snapshot.source(), "Hello\n")
+      assert_false(snapshot.source().contains("\u200B".view()))
+      assert_eq(editor.portable_markdown(), "Hello\n")
+      let blocks = snapshot.blocks().to_array()
+      assert_eq(blocks.length(), 1)
+      assert_eq(blocks[0].text(), "Hello")
+      assert_eq(selection.node_id(), blocks[0].node_id())
+      assert_eq(selection.offset(), 0)
+    }
+    _ => fail("expected merge into empty previous block to apply")
+  }
+}
+
+///|
+test "merge into split-created empty previous preserves source terminator" {
+  for
+    case in [
+      ("merge-empty-previous-crlf", "Hello\r\n"),
+      ("merge-empty-previous-cr", "Hello\r"),
+      ("merge-empty-previous-eof", "Hello"),
+    ] {
+    let (agent_id, source) = case
+    let editor = try! MarkdownEditor(agent_id~, source~)
+    let first = editor.snapshot().blocks().to_array()[0]
+    guard editor.commit(
+        MarkdownEditRequest::SplitBlock(node_id=first.node_id(), offset=0),
+      )
+      is Ok(_) else {
+      fail("expected block-start split to apply")
+    }
+    let current = editor.snapshot().blocks().to_array()[1]
+    guard editor.commit(
+        MarkdownEditRequest::MergeWithPrevious(node_id=current.node_id()),
+      )
+      is Ok(_) else {
+      fail("expected merge into empty previous block to apply")
+    }
+    assert_eq(editor.snapshot().source(), source)
+    assert_eq(editor.portable_markdown(), source)
+  }
+}
+
+///|
+test "merge split-created empty current selects surviving text" {
+  let editor = try! MarkdownEditor(
+    agent_id="merge-empty-current",
+    source="Hello\n",
+  )
+  let original = editor.snapshot().blocks().to_array()[0]
+  guard editor.commit(
+      MarkdownEditRequest::SplitBlock(node_id=original.node_id(), offset=5),
+    )
+    is Ok(_) else {
+    fail("expected block-end split to apply")
+  }
+  let before_merge = editor.snapshot().blocks().to_array()
+  let current = before_merge[1]
+
+  match
+    editor.commit(
+      MarkdownEditRequest::MergeWithPrevious(node_id=current.node_id()),
+    ) {
+    Ok(MarkdownCommitResult::Applied(snapshot, Some(selection))) => {
+      let blocks = snapshot.blocks().to_array()
+      assert_eq(snapshot.source(), "Hello\n")
+      assert_eq(blocks.length(), 1)
+      assert_eq(selection.node_id(), blocks[0].node_id())
+      assert_eq(selection.offset(), 5)
+    }
+    _ => fail("expected empty current block to merge into previous text")
+  }
+}
+
+///|
+test "merge two split-created empty blocks retains one projectable previous block" {
+  let editor = try! MarkdownEditor(
+    agent_id="merge-two-empty-blocks",
+    source="Hello\n",
+  )
+  let original = editor.snapshot().blocks().to_array()[0]
+  guard editor.commit(
+      MarkdownEditRequest::SplitBlock(node_id=original.node_id(), offset=0),
+    )
+    is Ok(_) else {
+    fail("expected first block-start split to apply")
+  }
+  let hello = editor.snapshot().blocks().to_array()[1]
+  guard editor.commit(
+      MarkdownEditRequest::SplitBlock(node_id=hello.node_id(), offset=0),
+    )
+    is Ok(_) else {
+    fail("expected second block-start split to apply")
+  }
+  let before_merge = editor.snapshot().blocks().to_array()
+  let current = before_merge[1]
+
+  match
+    editor.commit(
+      MarkdownEditRequest::MergeWithPrevious(node_id=current.node_id()),
+    ) {
+    Ok(MarkdownCommitResult::Applied(snapshot, Some(selection))) => {
+      let blocks = snapshot.blocks().to_array()
+      assert_eq(
+        snapshot.source(),
+        @md_sentinel.EMPTY_PARAGRAPH_SENTINEL + "\n\nHello\n",
+      )
+      assert_eq(editor.portable_markdown(), "\n\nHello\n")
+      assert_eq(blocks.length(), 2)
+      assert_eq(blocks[0].text(), "")
+      assert_eq(selection.node_id(), blocks[0].node_id())
+      assert_eq(selection.offset(), 0)
+    }
+    _ => fail("expected two empty blocks to merge into one empty block")
+  }
+}
+
+///|
 test "headless facade keeps structural no-op selection empty" {
   let editor = try! MarkdownEditor(
     agent_id="block-structure-no-op",
