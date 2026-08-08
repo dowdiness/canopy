@@ -54,8 +54,8 @@
       "recordedAt": "2026-08-08 (after Phase 3 engine extraction, same host and command)",
       "mean_µs_1000_defs": { "fast_path": 203.16, "fallback": 7920.0, "exact_key": 48110.0 },
       "stddev_µs_1000_defs": { "fast_path": 3.04, "fallback": 151.61, "exact_key": 520.68 },
-      "delta_vs_baseline_1000_defs": { "fast_path": "-7.6% (within run-to-run variance band)", "fallback": "-14.8%", "exact_key": "-5.6%" },
-      "conclusion": "No regression on any workload; the positional fast-path branch survives the extraction. Deltas are single-run comparisons (10 iterations each) — recorded as evidence, not a performance claim."
+      "delta_vs_baseline_1000_defs": { "fast_path": "-7.6% in the recorded means (single run each)", "fallback": "-14.8%", "exact_key": "-5.6%" },
+      "conclusion": "No observed increase in the recorded means on any workload; the positional fast-path branch survives the extraction. Deltas are single-run comparisons (10 iterations each) — recorded as evidence, not a performance claim."
     }
   }
 }

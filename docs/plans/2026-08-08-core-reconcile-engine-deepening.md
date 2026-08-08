@@ -46,7 +46,9 @@ Out:
 - `build_projection_memos_with_identity_hints` / `IdentityHintConsumer` — the
   SPI-owned hint channel stays as-is.
 
-## Current State
+## Pre-Extraction State
+
+(As recorded before Phase 1–3; the phases below changed this state.)
 
 - `modules/canopy/core/reconcile.mbt` — `reconcile` / `reconcile_hinted` /
   `reconcile_with_exact_key`; hinted engine at `reconcile_children` (DP table,
@@ -163,8 +165,9 @@ observables: result tree, final counter value, and trace.
 
 15. Pre-extraction release baselines recorded in
     `docs/evidence/2026-08-08-core-reconcile-benchmark-baselines.json`
-    (fast path 232.74 µs @ 1000 defs; forced fallback 10.27 ms @ 1000 defs;
-    exact-key 52.32 ms @ 1000 defs — single run, 10 iterations each).
+    (fast path 219.82 µs @ 1000 defs; forced fallback 9.30 ms @ 1000 defs;
+    exact-key 50.97 ms @ 1000 defs — single run, 10 iterations each;
+    re-recorded after the fresh-id counter fix).
 16. Positional fast-path workload renamed and kept (`bench_reconcile_fast_path`;
     bench tests "reconcile positional fast path (N defs)").
 17. **Forced LCS fallback** workload added — same wide lists with an `Int`
@@ -176,7 +179,7 @@ observables: result tree, final counter value, and trace.
     "no regression" is judged against the recorded baselines (order-of-magnitude
     check on the fast path only).
 
-### Phase 3 — Engine extraction (after Phase 1 is green)
+### Phase 3 — Engine extraction ✅ done (committed `594c1ef0`)
 
 18. Extract the shared core. Today both engines already realize in the same
     order (ascending new index, recurse before outer `Matched`, deletions
@@ -187,15 +190,17 @@ observables: result tree, final counter value, and trace.
     `openai-codex/gpt-5.6-sol`):
     1. private `MatchPlan { old_to_new, new_to_old }` ledger (both engines
        already produce identical ledger shapes),
-    2. two deterministic private producers `plan_hinted_lcs` (exclusion +
-       pair counts + `consumed` stay here) and `plan_exact_lcs` (fingerprint
+    2. two deterministic private producers `plan_hinted_lcs` (exclusion and
+       pair counts stay here; the `consumed` injection ledger is created by
+       the realizer wrapper — consumption belongs to realization) and
+       `plan_exact_lcs` (fingerprint
        maps stay in the exact adapter; both producer and matched-recursion
        callback capture them — the shared realizer must not expose them),
     3. one private **fallback realizer** taking a matched-recursion callback
        plus an optional hinted-unmatched callback; it owns ascending new-index
        order, fresh allocation, outer `Matched`/`Inserted`, and the final
        `Deleted` loop,
-    4. the allocation-free positional loop stays specialized (default/hinted
+    4. the DP-table-free positional loop stays specialized (default/hinted
        only — the exact-key path must NOT gain a positional bypass; the
        exact-key bench is positionally identical and would silently measure
        the shortcut, so the plan keeps the shortcut default/hinted-only).
@@ -237,19 +242,22 @@ observables: result tree, final counter value, and trace.
       two probes) — the safety net is live. (Probe execution on
       `refactor/redesign-scratch`; re-probe after Phase 3 with the same two
       mutations.)
-- [ ] Phase 1 tests pass **unchanged** after Phase 3 (they are the safety net).
-- [ ] Existing suites (`reconcile_hints_wbtest`, `reconcile_properties_wbtest`,
-      `reconcile_trace_wbtest`, projection, all `lang/*`) pass without semantic
-      edits.
-- [ ] `core` public interface unchanged: `.mbti` diff empty, no bound widening.
-- [ ] Positional fast path behavior and benchmark unchanged.
-- [ ] Fresh-id allocation order and hint-directed trace sequence pinned
-      (tests 9 and 14).
+- [x] Phase 1 tests pass **unchanged** after Phase 3 (they are the safety
+      net) — all 14 pass at `594c1ef0`.
+- [x] Existing suites pass without semantic edits: 1302/1302 across core
+      (175), projection (75), lang/* (649), editor + ffi (403).
+- [x] `core` public interface unchanged: `.mbti` diff empty, no bound widening.
+- [x] Positional fast path behavior unchanged; benchmarks show no observed
+      increase in the recorded means (fast path 219.8 → 203.2 µs @ 1000 defs).
+- [x] Fresh-id allocation order and hint-directed trace sequence pinned
+      (tests 9 and 14) and passing unchanged.
 - [x] Benchmark baselines recorded before extraction (Phase 2 step 15 →
       `docs/evidence/2026-08-08-core-reconcile-benchmark-baselines.json`).
-- [ ] CONTEXT.md framework terms (reconciliation / identity evidence / fresh
-      identity) used in new code comments.
-- [ ] ADR recorded in `docs/decisions/` after implementation.
+- [x] CONTEXT.md framework terms (reconciliation / identity evidence / fresh
+      identity) used in new code comments (final review pass adopted
+      "identity-evidence-specific" for the producer wording).
+- [x] ADR recorded in `docs/decisions/` after implementation
+      (`2026-08-08-core-reconcile-one-engine-behind-three-adapters.md`).
 
 ## Validation
 
@@ -261,7 +269,7 @@ NEW_MOON_MOD=0 moon test --target js modules/canopy/core modules/canopy/projecti
 NEW_MOON_MOD=0 moon fmt && NEW_MOON_MOD=0 moon info
 git diff '*.mbti'   # must be empty for core
 moon bench --release   # fast-path + forced-fallback + exact-key workloads
-./scripts/validate-pr-ready.sh --target dowdiness/canopy/core   # repo gate
+./scripts/validate-pr-ready.sh --target modules/canopy/core --target modules/canopy/projection   # repo gate
 ```
 
 ## Risks

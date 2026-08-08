@@ -226,9 +226,9 @@ fn[T : TreeNode] plan_hinted_lcs(
 /// new-index order, matched-child recursion before the outer `Matched`, fresh
 /// allocation for unmatched new children, and the `Deleted` loop last.
 ///
-/// `match_node` recurses into a matched pair (mode-specific: hinted or
-/// exact-key). `unmatched_new` optionally resolves an LCS-unmatched new child
-/// (hint pairing); `None` means fresh allocation.
+/// `match_node` recurses into a matched pair (identity-evidence-specific:
+/// hinted or exact-key). `unmatched_new` optionally resolves an LCS-unmatched
+/// new child (hint pairing); `None` means fresh allocation.
 fn[T : Renderable] realize_fallback(
   old_children : Array[ProjNode[T]],
   new_children : Array[ProjNode[T]],

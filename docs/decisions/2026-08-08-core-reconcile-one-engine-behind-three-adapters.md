@@ -110,7 +110,7 @@ other by hand.
 **Benefits:**
 
 - Matching-policy decisions concentrate: plan producers are
-  mode-specific, realization is written once.
+  identity-evidence-specific, realization is written once.
 - Trace emission and fresh allocation have one implementation, so a change
   cannot silently diverge between modes (the mutation re-probe caught the
   exact-key tests through the shared realizer).
