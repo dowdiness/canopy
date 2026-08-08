@@ -154,7 +154,7 @@ observables: result tree, final counter value, and trace.
     yields the same observable sequence as plain: one Inserted, one Matched,
     one Deleted. Pin the concrete sequence — not cross-mode equivalence in
     general.
-14. `hinted pair emits Matched(old_index=-1) then Deleted for the consumed old node`
+13. `hinted pair emits Matched(old_index=-1) then Deleted for the consumed old node`
     — a successful post-LCS hint pair emits `Matched` with `old_index=-1`
     (`reconcile.mbt` ~267–289) while `old_matched` stays -1, so the Deleted
     loop later emits `Deleted` for the same old node. Pin the current sequence;

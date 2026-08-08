@@ -383,9 +383,10 @@ test "LCS fallback emits inner Matched before outer Matched" {
 }
 
 ///|
-test "LCS fallback emits all Deleted events after Matched events" {
-  // Crossing tie [L,B]→[B,L]: Deleted comes last, after the Inserted and
-  // Matched events.
+test "LCS fallback crossing tie emits one Inserted and one Deleted, Deleted last" {
+  // Crossing tie [L,B]→[B,L]: exactly one Inserted (new B) and one Deleted
+  // (old B); the old L keeps its id via the single Matched event. Order is
+  // pinned too: Inserted, Matched, then Deleted last.
   let old = ProjNode(Branch("root", [Leaf("a"), Branch("b", [])]), 0, 5, 0, [
     ProjNode(Leaf("a"), 0, 1, 1, []),
     ProjNode(Branch("b", []), 1, 2, 2, []),
@@ -397,31 +398,6 @@ test "LCS fallback emits all Deleted events after Matched events" {
   let trace = Ref([])
   let _result = reconcile(old, new_, Ref(1000), trace_ref=Some(trace))
   inspect(trace.val.length(), content="3")
-  guard trace.val[0] is Inserted(_, _, _, _) else {
-    fail("first should be Inserted")
-  }
-  guard trace.val[1] is Matched(_, _, _, _, _) else {
-    fail("second should be Matched")
-  }
-  guard trace.val[2] is Deleted(_, _, _, _) else {
-    fail("third should be Deleted (last)")
-  }
-}
-
-///|
-test "LCS fallback crossing tie emits one Inserted and one Deleted" {
-  // Same crossing-tie fixture: exactly one Inserted (new B) and one Deleted
-  // (old B); the old L keeps its id via the single Matched event.
-  let old = ProjNode(Branch("root", [Leaf("a"), Branch("b", [])]), 0, 5, 0, [
-    ProjNode(Leaf("a"), 0, 1, 1, []),
-    ProjNode(Branch("b", []), 1, 2, 2, []),
-  ])
-  let new_ = ProjNode(Branch("root", [Branch("b", []), Leaf("x")]), 0, 5, 22, [
-    ProjNode(Branch("b", []), 0, 1, 20, []),
-    ProjNode(Leaf("x"), 1, 2, 21, []),
-  ])
-  let trace = Ref([])
-  let _result = reconcile(old, new_, Ref(1000), trace_ref=Some(trace))
   let inserted = [
     for ev in trace.val if ev is Inserted(_, _, _, _) => ev
   ].length()
@@ -434,8 +410,14 @@ test "LCS fallback crossing tie emits one Inserted and one Deleted" {
   inspect(inserted, content="1")
   inspect(deleted, content="1")
   inspect(matched, content="1")
+  guard trace.val[0] is Inserted(_, _, _, _) else {
+    fail("first should be Inserted")
+  }
   guard trace.val[1] is Matched(_, _, _, node_id, _) else {
     fail("second should be Matched")
+  }
+  guard trace.val[2] is Deleted(_, _, _, _) else {
+    fail("third should be Deleted (last)")
   }
   inspect(node_id == NodeId::from_int(1), content="true")
 }

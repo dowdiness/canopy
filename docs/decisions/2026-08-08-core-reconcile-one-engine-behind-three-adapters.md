@@ -96,7 +96,7 @@ other by hand.
 - Trace emission order (inner `Matched` before outer, `Deleted` last) and
   the hint-pair wart: a successful post-LCS pair emits
   `Matched(old_index=-1)` and the same old node is later reported `Deleted`
-  (characterization test 14 pins this).
+  (characterization test 13 pins this).
 - Fresh-id post-order allocation order within subtrees, sibling order
   across subtrees.
 - Empty-hints equivalence: `reconcile_hinted(.., Map([]))` is observably

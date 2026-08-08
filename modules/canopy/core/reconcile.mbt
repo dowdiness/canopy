@@ -1,4 +1,11 @@
 // AST reconciliation: preserve ProjNode identities across reparses.
+//
+// One private matching engine behind the three public adapters (`reconcile`,
+// `reconcile_hinted`, `reconcile_with_exact_key`): a `MatchPlan` ledger
+// produced by two identity-evidence-specific producers (hinted LCS,
+// exact-key fingerprint LCS) and consumed by one shared fallback realizer.
+// The positional fast path stays specialized and default/hinted-only. See
+// docs/decisions/2026-08-08-core-reconcile-one-engine-behind-three-adapters.md.
 
 ///|
 fn emit_trace(
@@ -235,7 +242,7 @@ fn[T : Renderable] realize_fallback(
   plan : MatchPlan,
   counter : Ref[Int],
   parent_id : NodeId,
-  trace_ref : Ref[Array[ReconcileTraceEvent]]?,
+  trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
   match_node : (ProjNode[T], ProjNode[T]) -> ProjNode[T],
   unmatched_new : (ProjNode[T]) -> ProjNode[T]?,
 ) -> Array[ProjNode[T]] {
@@ -343,14 +350,14 @@ fn[T : TreeNode + Renderable] reconcile_children(
     ]
   }
   let (plan, pair_counts) = plan_hinted_lcs(old_children, new_children, hints)
-  // Injectivity ledger for hint-based pairing of LCS-unmatched children
-  // (a consumed prev-id is paired at most once). Mutation justified as a
-  // consumption marker (moonbit-base.md Control Flow).
-  let consumed : Map[NodeId, Bool] = Map([])
-  let unmatched_new = fn(new_child : ProjNode[T]) -> ProjNode[T]? {
-    if hints.is_empty() {
-      None
-    } else {
+  let unmatched_new = if hints.is_empty() {
+    (_new_child : ProjNode[T]) => None
+  } else {
+    // Injectivity ledger for hint-based pairing of LCS-unmatched children
+    // (a consumed prev-id is paired at most once). Mutation justified as a
+    // consumption marker (moonbit-base.md Control Flow).
+    let consumed : Map[NodeId, Bool] = Map([])
+    fn(new_child : ProjNode[T]) -> ProjNode[T]? {
       try_unmatched_hint_pair(
         new_child,
         old_children,
@@ -370,7 +377,13 @@ fn[T : TreeNode + Renderable] reconcile_children(
     reconcile_hinted(old_child, new_child, counter, hints, trace_ref~)
   }
   realize_fallback(
-    old_children, new_children, plan, counter, parent_id, trace_ref, match_node,
+    old_children,
+    new_children,
+    plan,
+    counter,
+    parent_id,
+    trace_ref~,
+    match_node,
     unmatched_new,
   )
 }
@@ -512,7 +525,7 @@ fn[T : TreeNode + Renderable] reconcile_children_exact(
     plan,
     counter,
     parent_id,
-    trace_ref,
+    trace_ref~,
     match_node,
     (_new_child : ProjNode[T]) => None,
   )
