@@ -1071,9 +1071,6 @@ fn MarkdownEditor::commit_structural_recording_transforms(
   MarkdownEditorError,
 ] raise {
   let source = self.editor.get_text()
-  guard self.editor.get_proj_node() is Some(proj) else {
-    return Err(MarkdownEditorError::ProjectionUnavailable)
-  }
   let deleted_block_index = match op {
     @md_edits.Delete(node_id~) =>
       self
@@ -1083,20 +1080,9 @@ fn MarkdownEditor::commit_structural_recording_transforms(
       .search_by(block => block.node_id().value == node_id)
     _ => None
   }
-  let source_map = self.editor.get_source_map()
-  let computed = Ok(
-    @md_edits.compute_markdown_edit(op, source, proj, source_map),
-  ) catch {
-    error => Err(error.message())
-  }
-  match computed {
-    Err(detail) => Err(MarkdownEditorError::EditFailed(detail~))
-    Ok(lowered) => {
-      let (edits, focus_hint) = match lowered {
-        Some(pair) => pair
-        None => ([], @core.FocusHint::RestoreCursor)
-      }
-      self.editor.apply_span_edits(edits, focus_hint, 0)
+  match @markdown_runtime.apply_edit(self.editor, op, 0) {
+    Err(error) => Err(structural_edit_error(error))
+    Ok(edits) => {
       self.editor.refresh()
       let snapshot = self.snapshot()
       let result = if snapshot.source() == source {
@@ -1126,6 +1112,17 @@ fn MarkdownEditor::commit_structural_recording_transforms(
       }
       Ok((result, sequential_text_transforms(edits)))
     }
+  }
+}
+
+///|
+/// Preserve the façade's projection category while rendering all language
+/// lowering failures through its existing compatibility error.
+fn structural_edit_error(error : @core.EditError) -> MarkdownEditorError {
+  match error {
+    @core.EditError::ProjectionUnavailable =>
+      MarkdownEditorError::ProjectionUnavailable
+    _ => MarkdownEditorError::EditFailed(detail=error.message())
   }
 }
 

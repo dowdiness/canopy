@@ -11,12 +11,7 @@ pub fn new_markdown_editor(
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
 ) -> @editor.SyncEditor[@markdown.Block] raise {
-  let (editor, _) = md_lang_plain.build(
-    agent_id,
-    capture_timeout_ms~,
-    parent_runtime?,
-  )
-  editor
+  @markdown_runtime.new_editor(agent_id, capture_timeout_ms~, parent_runtime?)
 }
 
 ///|
@@ -28,82 +23,10 @@ pub fn new_markdown_editor_with_semantic_attachment(
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
 ) -> (@editor.SyncEditor[@markdown.Block], @markdown.MarkdownSemanticAttachment) raise {
-  let (editor, attachment) = make_md_lang(true).build(
+  @markdown_runtime.new_editor_with_semantic_attachment(
     agent_id,
     capture_timeout_ms~,
     parent_runtime?,
-  )
-  (editor, attachment.unwrap())
-}
-
-///|
-/// Ordinary Markdown language definition (no semantic attachment). Used for
-/// the plain constructor and the apply bridge; the semantic path builds a
-/// separate definition that also constructs the attachment in `project`.
-let md_lang_plain : @lang_runtime.Language[
-  @markdown.Block,
-  @md_edits.MarkdownEditOp,
-  @markdown.MarkdownSemanticAttachment?,
-] = make_md_lang(false)
-
-///|
-/// Markdown language definition. `with_attachment` controls whether `project`
-/// also constructs a `MarkdownSemanticAttachment` over the exact parser and
-/// returns it as the extras value `E`.
-fn make_md_lang(
-  with_attachment : Bool,
-) -> @lang_runtime.Language[
-  @markdown.Block,
-  @md_edits.MarkdownEditOp,
-  @markdown.MarkdownSemanticAttachment?,
-] {
-  @lang_runtime.Language::Language(
-    parse=(source_id, source, runtime) => {
-      @loom.new_parser(source_id, source, @markdown.markdown_grammar, runtime?)
-    },
-    project=(parser, hints) => {
-      let memos = @md_proj.build_markdown_projection_memos(
-        parser,
-        identity_hints=hints,
-      )
-      let attachment = if with_attachment {
-        Some(
-          @markdown.MarkdownSemanticAttachment::MarkdownSemanticAttachment(
-            parser,
-          ),
-        )
-      } else {
-        None
-      }
-      (memos.0, memos.1, memos.2, attachment)
-    },
-    edit=(op, ctx) => {
-      match
-        @md_edits.compute_markdown_edit(
-          op,
-          ctx.source_text,
-          ctx.proj_node,
-          ctx.source_map,
-        ) {
-        Some((edits, focus_hint)) =>
-          @lang_runtime.EditResult::Edits(
-            edits,
-            focus_hint,
-            markdown_identity_hint(op),
-          )
-        None => @lang_runtime.EditResult::NoEdit
-      }
-    },
-    capabilities=_e => {
-      @editor.LanguageCapabilities::default().with_to_view_node((
-        proj,
-        source_map,
-        annotations,
-        source_text,
-      ) => {
-        @md_proj.proj_to_view_node(proj, source_map, annotations~, source_text~)
-      })
-    },
   )
 }
 
@@ -187,19 +110,8 @@ pub fn apply_markdown_edit(
   op : @md_edits.MarkdownEditOp,
   timestamp_ms : Int,
 ) -> Result[Unit, String] raise {
-  match md_lang_plain.apply_edit(editor, op, timestamp_ms) {
+  match @markdown_runtime.apply_edit(editor, op, timestamp_ms) {
     Ok(_) => Ok(())
     Err(e) => Err(e.message())
-  }
-}
-
-///|
-fn markdown_identity_hint(
-  op : @md_edits.MarkdownEditOp,
-) -> @core.IdentityTransform? {
-  match op {
-    MoveBlock(source~, ..) =>
-      Some(@core.IdentityTransform::Move(subtree=source))
-    _ => None
   }
 }

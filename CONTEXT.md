@@ -71,3 +71,7 @@ _Avoid_: Matching mode, strategy, policy record
 **Fresh identity**:
 A newly allocated NodeId, given to a node that reconciliation cannot match to any previous node — including fresh nodes at unmatched positions and nodes whose old identity retired or was ambiguous (Replace / Move / unresolved wrap). The counterpart of preserved identity, where a node keeps its previous NodeId across an edit.
 _Avoid_: Identity carry (as a noun), id retention
+
+**Markdown edit application**:
+The language-owned transition that turns one typed Markdown structural-edit intent into one accepted document change, preserves its identity evidence, and reports the exact source transforms. It does not decide Loomark receipt, history, or selection meaning, and it does not serialize an FFI response.
+_Avoid_: Edit train, Loomark commit
