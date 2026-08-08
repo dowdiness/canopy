@@ -59,12 +59,13 @@ test "perf: parser incremental edit pair without projection (250 blocks)" (
 ) {
   let source = commit_phase_source(250)
   let parser = apply_phase_parser(source)
+  let appended_source = source + "x"
   let append = @loom_core.Edit::new(source.length(), 0, 1)
   let delete = @loom_core.Edit::new(source.length(), 1, 0)
   let mut tick = 0
   b.bench(() => {
     if tick % 2 == 0 {
-      apply_phase_parser_edit(parser, append, source + "x")
+      apply_phase_parser_edit(parser, append, appended_source)
     } else {
       apply_phase_parser_edit(parser, delete, source)
     }
@@ -79,12 +80,13 @@ test "perf: parser incremental edit pair with AST read (250 blocks)" (
 ) {
   let source = commit_phase_source(250)
   let parser = apply_phase_parser(source)
+  let appended_source = source + "x"
   let append = @loom_core.Edit::new(source.length(), 0, 1)
   let delete = @loom_core.Edit::new(source.length(), 1, 0)
   let mut tick = 0
   b.bench(() => {
     if tick % 2 == 0 {
-      apply_phase_parser_edit(parser, append, source + "x")
+      apply_phase_parser_edit(parser, append, appended_source)
     } else {
       apply_phase_parser_edit(parser, delete, source)
     }

@@ -49,14 +49,15 @@ fn commit_phase_changes(source : String) -> Array[@text_change.TextChange] {
 ///|
 test "perf: TextChange compute (250 blocks)" (b : @bench.T) {
   let source = commit_phase_source(250)
+  let appended_source = source + "x"
   let mut tick = 0
   b.bench(() => {
-    b.keep(
-      @text_change.compute_text_change(
-        source,
-        commit_phase_variant(source, tick),
-      ),
-    )
+    let change = if tick % 2 == 0 {
+      @text_change.compute_text_change(source, appended_source)
+    } else {
+      @text_change.compute_text_change(appended_source, source)
+    }
+    b.keep(change)
     tick += 1
   })
 }

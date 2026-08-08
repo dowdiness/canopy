@@ -35,6 +35,7 @@ test "set_text_with_change preserves grapheme-aware append fallbacks" {
   inspect(combining_change.start, content="0")
   inspect(combining_change.delete_len, content="1")
   inspect(combining_change.inserted, content="é")
+  inspect(combining.get_text(), content="é")
 
   let crlf = try! @probe.new_test_editor("crlf-agent")
   crlf.set_text("\r")
@@ -43,6 +44,7 @@ test "set_text_with_change preserves grapheme-aware append fallbacks" {
   inspect(crlf_change.start, content="0")
   inspect(crlf_change.delete_len, content="1")
   inspect(crlf_change.inserted, content="\r\n")
+  inspect(crlf.get_text(), content="\r\n")
 
   let emoji_append = try! @probe.new_test_editor("emoji-append-agent")
   emoji_append.set_text("a😀")
@@ -53,6 +55,7 @@ test "set_text_with_change preserves grapheme-aware append fallbacks" {
   inspect(emoji_append_change.start, content="3")
   inspect(emoji_append_change.delete_len, content="0")
   inspect(emoji_append_change.inserted, content="x")
+  inspect(emoji_append.get_text(), content="a😀x")
 
   let emoji_insert = try! @probe.new_test_editor("emoji-insert-agent")
   emoji_insert.set_text("a")
@@ -63,6 +66,7 @@ test "set_text_with_change preserves grapheme-aware append fallbacks" {
   inspect(emoji_insert_change.start, content="1")
   inspect(emoji_insert_change.delete_len, content="0")
   inspect(emoji_insert_change.inserted, content="😀")
+  inspect(emoji_insert.get_text(), content="a😀")
 }
 
 ///|

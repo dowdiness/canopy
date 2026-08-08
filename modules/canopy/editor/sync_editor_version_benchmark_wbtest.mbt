@@ -12,13 +12,13 @@ fn version_benchmark_source(block_count : Int) -> String {
 ///|
 test "perf: cached SyncEditor version read (250 blocks)" (b : @bench.T) {
   let editor = try! @probe.new_test_editor("cached-version-benchmark")
-  editor.set_text(version_benchmark_source(250))
+  try! editor.set_text(version_benchmark_source(250))
   b.bench(() => b.keep(editor.get_version()))
 }
 
 ///|
 test "perf: TextState version expansion (250 blocks)" (b : @bench.T) {
   let editor = try! @probe.new_test_editor("expanded-version-benchmark")
-  editor.set_text(version_benchmark_source(250))
+  try! editor.set_text(version_benchmark_source(250))
   b.bench(() => b.keep(editor.doc.version()))
 }
