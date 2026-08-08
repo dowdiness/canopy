@@ -66,13 +66,13 @@ priv struct RawInputCoordinator {
   next_token : @ref.Ref[Int]
   in_flight_token : @ref.Ref[Int?]
   in_flight_count : @ref.Ref[Int?]
-  pending_input_received_at : @ref.Ref[Double?]
-  phase : @ref.Ref[RawInputPhaseTiming?]
-  last_phase : @ref.Ref[RawInputPhaseTiming?]
+  telemetry : RawInputTelemetry?
 }
 
 ///|
-fn RawInputCoordinator::RawInputCoordinator() -> RawInputCoordinator {
+fn RawInputCoordinator::RawInputCoordinator(
+  telemetry : RawInputTelemetry?,
+) -> RawInputCoordinator {
   {
     pending_source: @ref.Ref(None),
     pending_count: @ref.Ref(0),
@@ -85,9 +85,7 @@ fn RawInputCoordinator::RawInputCoordinator() -> RawInputCoordinator {
     next_token: @ref.Ref(0),
     in_flight_token: @ref.Ref(None),
     in_flight_count: @ref.Ref(None),
-    pending_input_received_at: @ref.Ref(None),
-    phase: @ref.Ref(None),
-    last_phase: @ref.Ref(None),
+    telemetry,
   }
 }
 
@@ -99,9 +97,14 @@ fn RawInputCoordinator::update_phase(
   token : Int,
   update : (RawInputPhaseTiming) -> RawInputPhaseTiming,
 ) -> Unit {
-  match self.phase.val {
-    Some(phase) if phase.token == token => self.phase.val = Some(update(phase))
-    _ => ()
+  match self.telemetry {
+    Some(telemetry) =>
+      match telemetry.phase.val {
+        Some(phase) if phase.token == token =>
+          telemetry.phase.val = Some(update(phase))
+        _ => ()
+      }
+    None => ()
   }
 }
 
@@ -202,9 +205,14 @@ fn RawInputCoordinator::mark_rendered(
     ..phase,
     rendered_at: Some(raw_input_now_ms()),
   })
-  match self.phase.val {
-    Some(phase) if phase.token == token => self.last_phase.val = Some(phase)
-    _ => ()
+  match self.telemetry {
+    Some(telemetry) =>
+      match telemetry.phase.val {
+        Some(phase) if phase.token == token =>
+          telemetry.last_phase.val = Some(phase)
+        _ => ()
+      }
+    None => ()
   }
 }
 
@@ -212,12 +220,17 @@ fn RawInputCoordinator::mark_rendered(
 /// Expose only the latest phase with a completed publish. A pending input or
 /// canceled transaction must not hide the last useful measurement.
 fn RawInputCoordinator::phase_json(self : RawInputCoordinator) -> Json? {
-  let phase = match self.phase.val {
-    Some(phase) if phase.publish_finished_at is Some(_) => Some(phase)
-    _ => self.last_phase.val
-  }
-  match phase {
-    Some(phase) => Some(phase.to_json())
+  match self.telemetry {
+    Some(telemetry) => {
+      let phase = match telemetry.phase.val {
+        Some(phase) if phase.publish_finished_at is Some(_) => Some(phase)
+        _ => telemetry.last_phase.val
+      }
+      match phase {
+        Some(phase) => Some(phase.to_json())
+        None => None
+      }
+    }
     None => None
   }
 }
@@ -292,27 +305,33 @@ fn RawInputCoordinator::flush(
       self.pending_count.val = 0
       let token = self.next_token.val
       self.next_token.val = token + 1
-      let debounce_fired_at = raw_input_now_ms()
-      let input_received_at = match self.pending_input_received_at.val {
-        Some(at) => at
-        None => debounce_fired_at
+      match self.telemetry {
+        Some(telemetry) => {
+          let debounce_fired_at = raw_input_now_ms()
+          let input_received_at = match
+            telemetry.pending_input_received_at.val {
+            Some(at) => at
+            None => debounce_fired_at
+          }
+          telemetry.pending_input_received_at.val = None
+          telemetry.phase.val = Some({
+            token,
+            input_count,
+            input_received_at,
+            debounce_fired_at,
+            reducer_started_at: None,
+            reducer_finished_at: None,
+            editor_started_at: None,
+            editor_finished_at: None,
+            preview_started_at: None,
+            preview_finished_at: None,
+            publish_started_at: None,
+            publish_finished_at: None,
+            rendered_at: None,
+          })
+        }
+        None => ()
       }
-      self.pending_input_received_at.val = None
-      self.phase.val = Some({
-        token,
-        input_count,
-        input_received_at,
-        debounce_fired_at,
-        reducer_started_at: None,
-        reducer_finished_at: None,
-        editor_started_at: None,
-        editor_finished_at: None,
-        preview_started_at: None,
-        preview_finished_at: None,
-        publish_started_at: None,
-        publish_finished_at: None,
-        rendered_at: None,
-      })
       self.in_flight_token.val = Some(token)
       self.in_flight_count.val = Some(input_count)
       let selection = match self.retry_selection.val {
@@ -334,7 +353,11 @@ fn RawInputCoordinator::enqueue(
   emit : @cmd.Emit[DriverEvent],
 ) -> @cmd.Cmd {
   self.input_epoch.val += 1
-  self.pending_input_received_at.val = Some(raw_input_now_ms())
+  match self.telemetry {
+    Some(telemetry) =>
+      telemetry.pending_input_received_at.val = Some(raw_input_now_ms())
+    None => ()
+  }
   match self.pending_source.val {
     None => self.pending_count.val = 1
     Some(_) => self.pending_count.val += 1
@@ -438,8 +461,13 @@ fn RawInputCoordinator::cancel_pending(self : RawInputCoordinator) -> Unit {
   self.scheduled.val = false
   self.pending_source.val = None
   self.pending_count.val = 0
-  self.pending_input_received_at.val = None
-  self.phase.val = None
+  match self.telemetry {
+    Some(telemetry) => {
+      telemetry.pending_input_received_at.val = None
+      telemetry.phase.val = None
+    }
+    None => ()
+  }
   self.retry_budget.val = 0
   self.repair_pending.val = false
   self.retry_selection.val = None
@@ -461,7 +489,10 @@ fn RawInputCoordinator::cancel(self : RawInputCoordinator, token : Int) -> Unit 
     self.input_epoch.val += 1
     self.in_flight_token.val = None
     self.in_flight_count.val = None
-    self.phase.val = None
+    match self.telemetry {
+      Some(telemetry) => telemetry.phase.val = None
+      None => ()
+    }
     self.repair_pending.val = false
     self.retry_selection.val = None
   }

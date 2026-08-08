@@ -2164,6 +2164,7 @@ fn build_application(
   attachment : @md_markdown.MarkdownSemanticAttachment,
   initial : DriverModel,
   baseline : (@repository.LocalArchiveRequestId, String)?,
+  raw_input_telemetry : RawInputTelemetry?,
   subscriptions : (DriverModel, @cmd.Emit[DriverEvent]) -> @sub.Sub,
   view : (DriverModel, @cmd.Emit[DriverEvent], @rabbita_runtime.Html) -> @rabbita_runtime.Html,
 ) -> @rabbita_runtime.App {
@@ -2171,7 +2172,9 @@ fn build_application(
     val: { editor, attachment },
   }
   let latest_model : @ref.Ref[DriverModel?] = { val: None }
-  let raw_input_coordinator = RawInputCoordinator::RawInputCoordinator()
+  let raw_input_coordinator = RawInputCoordinator::RawInputCoordinator(
+    raw_input_telemetry,
+  )
   let update = (model, event, emit) => {
     let session = current_session.val
     update_model(
@@ -2232,7 +2235,13 @@ fn standalone_application(
   baseline : (@repository.LocalArchiveRequestId, String)?,
 ) -> @rabbita_runtime.App {
   build_application(
-    editor, attachment, initial, baseline, standalone_subscriptions, standalone_preview_view,
+    editor,
+    attachment,
+    initial,
+    baseline,
+    None,
+    standalone_subscriptions,
+    standalone_preview_view,
   )
 }
 
@@ -2244,7 +2253,13 @@ fn private_dev_host_application(
   baseline : (@repository.LocalArchiveRequestId, String)?,
 ) -> @rabbita_runtime.App {
   build_application(
-    editor, attachment, initial, baseline, private_dev_host_subscriptions, private_dev_host_preview_view,
+    editor,
+    attachment,
+    initial,
+    baseline,
+    Some(RawInputTelemetry::new()),
+    private_dev_host_subscriptions,
+    private_dev_host_preview_view,
   )
 }
 

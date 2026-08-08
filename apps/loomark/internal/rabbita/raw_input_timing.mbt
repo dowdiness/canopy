@@ -20,6 +20,24 @@ priv struct RawInputPhaseTiming {
 }
 
 ///|
+/// Optional capability that enables Raw phase measurements for the private
+/// development host without putting timing state on the standalone path.
+priv struct RawInputTelemetry {
+  pending_input_received_at : @ref.Ref[Double?]
+  phase : @ref.Ref[RawInputPhaseTiming?]
+  last_phase : @ref.Ref[RawInputPhaseTiming?]
+}
+
+///|
+fn RawInputTelemetry::new() -> RawInputTelemetry {
+  {
+    pending_input_received_at: @ref.Ref(None),
+    phase: @ref.Ref(None),
+    last_phase: @ref.Ref(None),
+  }
+}
+
+///|
 /// Read the monotonic browser clock used by the phase probe.
 fn raw_input_now_ms() -> Double {
   @dom.Window::get_performance(@dom.window()).now()
