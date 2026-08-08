@@ -100,6 +100,24 @@ pub fn[T : TreeNode + Renderable] reconcile_hinted(
 }
 
 ///|
+/// A full-length positional match is the exact LCS result when every pair at
+/// the same index has the same kind. Structural hints disable this shortcut:
+/// even an otherwise positional edit may require hint-specific pairing.
+fn[T : TreeNode] can_reconcile_children_positionally(
+  old_children : Array[ProjNode[T]],
+  new_children : Array[ProjNode[T]],
+  hints : Map[NodeId, IdentityTransform],
+) -> Bool {
+  if !hints.is_empty() || old_children.length() != new_children.length() {
+    return false
+  }
+  old_children.foldi(init=true, (index, same, old_child) => {
+    same &&
+    @loomcore.TreeNode::same_kind(old_child.kind, new_children[index].kind)
+  })
+}
+
+///|
 fn[T : TreeNode + Renderable] reconcile_children(
   old_children : Array[ProjNode[T]],
   new_children : Array[ProjNode[T]],
@@ -110,6 +128,33 @@ fn[T : TreeNode + Renderable] reconcile_children(
 ) -> Array[ProjNode[T]] {
   let old_len = old_children.length()
   let new_len = new_children.length()
+  // If the sibling lists already have a full positional same-kind match, the
+  // LCS optimum is the whole list. Recurse through the matched pairs directly
+  // instead of allocating and filling the quadratic DP table.
+  if can_reconcile_children_positionally(old_children, new_children, hints) {
+    return [
+      for index in 0..<new_len => {
+        let reconciled = reconcile_hinted(
+          old_children[index],
+          new_children[index],
+          counter,
+          hints,
+          trace_ref~,
+        )
+        emit_trace(
+          trace_ref,
+          Matched(
+            parent_id,
+            index,
+            index,
+            reconciled.id(),
+            @loomcore.Renderable::kind_tag(reconciled.kind),
+          ),
+        )
+        reconciled
+      }
+    ]
+  }
   // Old children whose hint will decide their identity are excluded from
   // ordinary LCS matching, so they are not consumed by a same-kind match
   // against the wrong new sibling first. Exclusion is decided from hint
