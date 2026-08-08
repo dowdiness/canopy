@@ -379,15 +379,16 @@ test("Raw keeps focus and accepts consecutive keystrokes while split Preview upd
     let expectedSource = "start"
     for (const character of ["a", "b", "c"]) {
       expectedSource += character
-      await host.page.keyboard.type(character)
-      // Wait for each coalesced transaction to commit and re-render before
-      // checking focus, so this exercises the slow-CI ordering deterministically.
+      await expect(input).toBeFocused()
+      // Target the current textarea node so an already-scheduled split render
+      // cannot send the key to a detached predecessor between focus and input.
+      await input.pressSequentially(character)
+      // A canonical source commit plus focus on the re-resolved control is the
+      // explicit acknowledgement that the transaction rendered successfully.
       await expect.poll(async () => (await snapshot(host.page)).source).toBe(
         expectedSource,
       )
-      await expect.poll(() => host.page.evaluate(() => document.activeElement?.id)).toBe(
-        "loomark-input",
-      )
+      await expect(input).toBeFocused()
     }
 
     await expect(input).toHaveValue("startabc")
@@ -398,10 +399,8 @@ test("Raw keeps focus and accepts consecutive keystrokes while split Preview upd
       "data-orientation",
       "vertical",
     )
-    await expect.poll(() => host.page.evaluate(() => document.activeElement?.id)).toBe(
-      "loomark-input",
-    )
-    await host.page.keyboard.type("d")
+    await expect(input).toBeFocused()
+    await input.pressSequentially("d")
     await expect(input).toHaveValue("startabcd")
   } finally {
     await host.context.close()

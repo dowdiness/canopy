@@ -5,7 +5,7 @@
 # pipeline error propagation.
 set -eo pipefail
 
-script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 project_root="$(dirname "$script_dir")"
 base_ref="origin/main"
 base_was_set=0

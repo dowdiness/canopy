@@ -180,6 +180,14 @@ printf 'pub fn answer() -> Int\n' >"$fixture/pkg/pkg.generated.mbti"
 printf 'name = "fixture"\n' >"$fixture/pkg/moon.mod"
 printf '_build/\n' >"$fixture/.gitignore"
 
+fixture_alias="$tmp_dir/fixture-alias"
+ln -s "$fixture" "$fixture_alias"
+"$fixture_alias/scripts/validate-pr-ready.sh" \
+  --list \
+  --target member/pkg >"$tmp_dir/symlinked-root-plan"
+grep -q "target.check member/pkg" "$tmp_dir/symlinked-root-plan" ||
+  fail "symlinked project root did not resolve its workspace target"
+
 git -C "$fixture" init --quiet --initial-branch=main
 git -C "$fixture" config user.email "pr-ready-test@example.invalid"
 git -C "$fixture" config user.name "PR Ready Test"
