@@ -12,3 +12,53 @@ body {
 ::selection {
   background: oklch(0.78 0.08 276 / 0.45);
 }
+
+/*
+ * Keep Raw, Block, and Preview aligned to one reading frame. Narrow screens
+ * use the full viewport and retain a compact content inset.
+ */
+:root {
+  --lm-page-width: min(calc(100% - 4rem), 46rem);
+  --lm-page-x-padding: 1rem;
+}
+
+@media (max-width: 640px) {
+  :root {
+    --lm-page-width: 100%;
+    --lm-page-x-padding: 0.75rem;
+  }
+}
+
+/*
+ * The Preview pane renders Markdown into one grid column. Long unbreakable
+ * content (URLs, inline code) must wrap inside the reading frame instead of
+ * stretching the column; only fenced code keeps its own internal horizontal
+ * scroll, and images scale down to the frame.
+ */
+#loomark-preview {
+  grid-template-columns: minmax(0, 1fr);
+  overflow-x: hidden;
+}
+
+#loomark-preview > * {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+#loomark-preview pre {
+  overflow-x: auto;
+}
+
+#loomark-preview img {
+  max-width: 100%;
+  height: auto;
+}
+
+/*
+ * The Raw textarea keeps its caret and selection as the focus indicator;
+ * do not draw the surrounding control ring on the borderless frame.
+ */
+#loomark-input:focus-visible {
+  --rui-control-border: transparent;
+  --rui-control-shadow: none;
+}

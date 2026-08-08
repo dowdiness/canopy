@@ -144,7 +144,7 @@ fn block_format_toolbar(
   @html.div(
     attrs=@html.Attrs::build().role("toolbar").aria_label("Block formatting"),
     style=[
-      "display:flex;min-height:3.75rem;box-sizing:border-box;align-items:center;justify-content:space-between;padding:0.75rem 1rem;border-bottom:1px solid var(--rui-border)",
+      "display:flex;min-height:3.75rem;box-sizing:border-box;align-items:center;justify-content:space-between;padding:0.75rem var(--lm-page-x-padding);border-bottom:1px solid var(--rui-border)",
     ],
     [
       @rui.button_group(aria_label="Block style", [

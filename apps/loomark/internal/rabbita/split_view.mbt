@@ -24,7 +24,7 @@ fn split_visible(model : DriverModel) -> Bool {
 
 ///|
 fn compact_split_for_width(width : Int) -> Bool {
-  width < SPLIT_STACK_BREAKPOINT
+  width <= SPLIT_STACK_BREAKPOINT
 }
 
 ///|
@@ -47,17 +47,26 @@ fn mode_view(
 ) -> @rabbita_runtime.Html {
   if model.state.mode() == @core.Block {
     @html.div(
-      style=[
-        "width:min(calc(100% - 4rem),46rem);margin-inline:auto;min-width:0;display:flex;flex-direction:column;border-left:1px solid var(--rui-border);border-right:1px solid var(--rui-border)",
-      ],
+      id="loomark-block-frame",
+      style=["width:100%;min-width:0;display:flex;flex-direction:column"],
       [
-        block_format_toolbar(model, emit),
+        @html.div(
+          style=[
+            "width:var(--lm-page-width);margin-inline:auto;min-width:0;display:flex;flex-direction:column",
+          ],
+          block_format_toolbar(model, emit),
+        ),
         @html.div(
           id="loomark-active-view",
           style=[
-            "width:100%;min-width:0;flex:1;min-height:0;display:flex;overflow-y:auto",
+            "width:100%;min-width:0;flex:1;min-height:0;display:flex;overflow-y:auto;overflow-x:hidden",
           ],
-          editor_view(model, emit, raw_input_coordinator),
+          @html.div(
+            style=[
+              "width:var(--lm-page-width);margin-inline:auto;min-width:0;display:flex;flex-direction:column;gap:0.25rem",
+            ],
+            editor_view(model, emit, raw_input_coordinator),
+          ),
         ),
       ],
     )
