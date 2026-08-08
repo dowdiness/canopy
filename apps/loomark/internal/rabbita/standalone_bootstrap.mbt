@@ -45,7 +45,7 @@ fn mount_standalone_editor(
     local_storage_warning,
   }
   detached_focus_token.val = ""
-  publish(initial)
+  publish(initial, None, None)
   let app = standalone_application(editor, attachment, initial, baseline)
   app.mount(host_id)
 }

@@ -10,6 +10,7 @@ import {
   "dowdiness/loomark/internal/archive_storage",
   "moonbit-community/rabbita" @rabbita_runtime,
   "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/dom",
   "moonbit-community/rabbita/common",
   "moonbit-community/rabbita/html",
   "moonbit-community/rabbita/sub",
