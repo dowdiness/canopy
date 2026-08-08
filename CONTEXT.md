@@ -55,3 +55,19 @@ _Avoid_: Empty document, recovered, reset
 **Writing instance**:
 One active lifetime that writes operations under its own replica identity. Reopening a document starts a new writing instance while retaining the logical document identity.
 _Avoid_: Document identity, user identity, browser identity
+
+## Framework — projection editing
+
+Framework vocabulary for the projection engine that backs the application terms above. Distinct from the Loomark document domain: these describe how the editing session's tree keeps identity across reparses, not how documents persist.
+
+**Reconciliation**:
+The identity-preserving match between the previous projection tree and the newly reparsed tree: it decides, for each node in the new tree, whether it is the same node as one in the old tree (carrying its NodeId) or a fresh node. It is not text diffing and not CRDT merge.
+_Avoid_: Merge, diff, CRDT merge
+
+**Identity evidence**:
+What reconciliation may consult when deciding that a new node is the same as an old node: sibling position (positional), a structural-edit hint (hint-directed), or a payload fingerprint (exact-key). The three kinds are a closed public set — the surface offers no hints+exact-key combination — but each mode combines its own evidence with positional LCS internally, and fallback matching preserves sibling order rather than strict position.
+_Avoid_: Matching mode, strategy, policy record
+
+**Fresh identity**:
+A newly allocated NodeId, given to a node that reconciliation cannot match to any previous node — including fresh nodes at unmatched positions and nodes whose old identity retired or was ambiguous (Replace / Move / unresolved wrap). The counterpart of preserved identity, where a node keeps its previous NodeId across an edit.
+_Avoid_: Identity carry (as a noun), id retention

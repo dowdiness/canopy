@@ -1,4 +1,11 @@
 // AST reconciliation: preserve ProjNode identities across reparses.
+//
+// One private matching engine behind the three public adapters (`reconcile`,
+// `reconcile_hinted`, `reconcile_with_exact_key`): a `MatchPlan` ledger
+// produced by two identity-evidence-specific producers (hinted LCS,
+// exact-key fingerprint LCS) and consumed by one shared fallback realizer.
+// The positional fast path stays specialized and default/hinted-only. See
+// docs/decisions/2026-08-08-core-reconcile-one-engine-behind-three-adapters.md.
 
 ///|
 fn emit_trace(
@@ -125,55 +132,47 @@ fn[T : TreeNode] can_reconcile_children_positionally(
 }
 
 ///|
-fn[T : TreeNode + Renderable] reconcile_children(
+/// Match ledger produced by a plan producer: which old child pairs with
+/// which new child. `old_to_new[oi]` is the matched new index or -1;
+/// `new_to_old[nj]` is the matched old index or -1. Both engines (hinted
+/// LCS and exact-key) produce this identical shape, so one fallback realizer
+/// consumes either plan.
+priv struct MatchPlan {
+  old_to_new : Array[Int]
+  new_to_old : Array[Int]
+}
+
+///|
+fn MatchPlan::MatchPlan(
+  old_to_new : Array[Int],
+  new_to_old : Array[Int],
+) -> MatchPlan {
+  { old_to_new, new_to_old }
+}
+
+///|
+/// Hinted match-plan producer: ordinary LCS over same-kind siblings, with
+/// hinted old children excluded from matching when their hint can land. Also
+/// returns the hint pair counts used by post-LCS pairing during realization.
+///
+/// Cost note: the exclusion scan visits every new sibling per hinted old
+/// sibling, and each `hint_pairs` scans that sibling's children. The DP below
+/// is already Θ(old_len × new_len), so this adds a child-count factor to a
+/// term that is there anyway — not a new order of growth. The per-keystroke
+/// path takes the empty-hints branch and pays none of it.
+fn[T : TreeNode] plan_hinted_lcs(
   old_children : Array[ProjNode[T]],
   new_children : Array[ProjNode[T]],
-  counter : Ref[Int],
   hints : Map[NodeId, IdentityTransform],
-  parent_id : NodeId,
-  trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
-) -> Array[ProjNode[T]] {
+) -> (MatchPlan, Map[NodeId, Int]) {
   let old_len = old_children.length()
   let new_len = new_children.length()
-  // If the sibling lists already have a full positional same-kind match, the
-  // LCS optimum is the whole list. Recurse through the matched pairs directly
-  // instead of allocating and filling the quadratic DP table.
-  if can_reconcile_children_positionally(old_children, new_children, hints) {
-    return [
-      for index in 0..<new_len => {
-        let reconciled = reconcile_hinted(
-          old_children[index],
-          new_children[index],
-          counter,
-          hints,
-          trace_ref~,
-        )
-        emit_trace(
-          trace_ref,
-          Matched(
-            parent_id,
-            index,
-            index,
-            reconciled.id(),
-            @loomcore.Renderable::kind_tag(reconciled.kind),
-          ),
-        )
-        reconciled
-      }
-    ]
-  }
   // Old children whose hint will decide their identity are excluded from
   // ordinary LCS matching, so they are not consumed by a same-kind match
   // against the wrong new sibling first. Exclusion is decided from hint
   // APPLICABILITY, not hint presence: a Wrap/Unwrap hint that can land nowhere
   // in `new_children` must not cost its node the match plain LCS would have
   // given it. Computed only when hints are present.
-  //
-  // Cost: this scans every new sibling per hinted old sibling, and each
-  // `hint_pairs` scans that sibling's children. The DP below is already
-  // Θ(old_len × new_len), so this adds a child-count factor to a term that is
-  // there anyway — not a new order of growth. The per-keystroke path takes the
-  // empty-hints branch and pays none of it.
   let excluded_old : Array[Bool] = if hints.is_empty() {
     []
   } else {
@@ -214,11 +213,6 @@ fn[T : TreeNode + Renderable] reconcile_children(
       j = j - 1
     }
   }
-
-  // Injectivity ledger for hint-based pairing of LCS-unmatched children
-  // (a consumed prev-id is paired at most once). Mutation justified as a
-  // consumption marker (moonbit-base.md Control Flow).
-  let consumed : Map[NodeId, Bool] = Map([])
   // How many LCS-unmatched new children each unmatched old child's hint pairs
   // with. Identity is carried only for an unambiguous 1:1 pairing, so an old
   // node whose wrapped subtree could land in more than one new sibling is
@@ -230,51 +224,48 @@ fn[T : TreeNode + Renderable] reconcile_children(
       old_children, new_children, old_matched, new_matched, hints,
     )
   }
+  (MatchPlan(old_matched, new_matched), old_pair_counts)
+}
+
+///|
+/// Shared fallback realizer: consumes a `MatchPlan` (from either producer)
+/// and emits the observable sequence both engines already produce — ascending
+/// new-index order, matched-child recursion before the outer `Matched`, fresh
+/// allocation for unmatched new children, and the `Deleted` loop last.
+///
+/// `match_node` recurses into a matched pair (identity-evidence-specific:
+/// hinted or exact-key). `unmatched_new` optionally resolves an LCS-unmatched
+/// new child (hint pairing); `None` means fresh allocation.
+fn[T : Renderable] realize_fallback(
+  old_children : Array[ProjNode[T]],
+  new_children : Array[ProjNode[T]],
+  plan : MatchPlan,
+  counter : Ref[Int],
+  parent_id : NodeId,
+  trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
+  match_node : (ProjNode[T], ProjNode[T]) -> ProjNode[T],
+  unmatched_new : (ProjNode[T]) -> ProjNode[T]?,
+) -> Array[ProjNode[T]] {
+  let old_len = old_children.length()
+  let new_len = new_children.length()
   let result = [
     for k in 0..<new_len => {
-      if new_matched[k] >= 0 {
-        let reconciled = reconcile_hinted(
-          old_children[new_matched[k]],
-          new_children[k],
-          counter,
-          hints,
-          trace_ref~,
-        )
+      let oi = plan.new_to_old[k]
+      if oi >= 0 {
+        let reconciled = match_node(old_children[oi], new_children[k])
         emit_trace(
           trace_ref,
           Matched(
             parent_id,
-            new_matched[k],
+            oi,
             k,
             reconciled.id(),
             @loomcore.Renderable::kind_tag(reconciled.kind),
           ),
         )
         reconciled
-      } else if hints.is_empty() {
-        let fresh = assign_fresh_ids(new_children[k], counter)
-        emit_trace(
-          trace_ref,
-          Inserted(
-            parent_id,
-            k,
-            fresh.id(),
-            @loomcore.Renderable::kind_tag(fresh.kind),
-          ),
-        )
-        fresh
       } else {
-        match
-          try_unmatched_hint_pair(
-            new_children[k],
-            old_children,
-            old_matched,
-            old_pair_counts,
-            consumed,
-            counter,
-            hints,
-            trace_ref~,
-          ) {
+        match unmatched_new(new_children[k]) {
           Some(node) => {
             emit_trace(
               trace_ref,
@@ -306,7 +297,7 @@ fn[T : TreeNode + Renderable] reconcile_children(
     }
   ]
   for oi = 0; oi < old_len; oi = oi + 1 {
-    if old_matched[oi] < 0 {
+    if plan.old_to_new[oi] < 0 {
       emit_trace(
         trace_ref,
         Deleted(
@@ -319,6 +310,82 @@ fn[T : TreeNode + Renderable] reconcile_children(
     }
   }
   result
+}
+
+///|
+fn[T : TreeNode + Renderable] reconcile_children(
+  old_children : Array[ProjNode[T]],
+  new_children : Array[ProjNode[T]],
+  counter : Ref[Int],
+  hints : Map[NodeId, IdentityTransform],
+  parent_id : NodeId,
+  trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
+) -> Array[ProjNode[T]] {
+  let new_len = new_children.length()
+  // If the sibling lists already have a full positional same-kind match, the
+  // LCS optimum is the whole list. Recurse through the matched pairs directly
+  // instead of allocating and filling the quadratic DP table.
+  if can_reconcile_children_positionally(old_children, new_children, hints) {
+    return [
+      for index in 0..<new_len => {
+        let reconciled = reconcile_hinted(
+          old_children[index],
+          new_children[index],
+          counter,
+          hints,
+          trace_ref~,
+        )
+        emit_trace(
+          trace_ref,
+          Matched(
+            parent_id,
+            index,
+            index,
+            reconciled.id(),
+            @loomcore.Renderable::kind_tag(reconciled.kind),
+          ),
+        )
+        reconciled
+      }
+    ]
+  }
+  let (plan, pair_counts) = plan_hinted_lcs(old_children, new_children, hints)
+  let unmatched_new = if hints.is_empty() {
+    (_new_child : ProjNode[T]) => None
+  } else {
+    // Injectivity ledger for hint-based pairing of LCS-unmatched children
+    // (a consumed prev-id is paired at most once). Mutation justified as a
+    // consumption marker (moonbit-base.md Control Flow).
+    let consumed : Map[NodeId, Bool] = Map([])
+    fn(new_child : ProjNode[T]) -> ProjNode[T]? {
+      try_unmatched_hint_pair(
+        new_child,
+        old_children,
+        plan.old_to_new,
+        pair_counts,
+        consumed,
+        counter,
+        hints,
+        trace_ref~,
+      )
+    }
+  }
+  let match_node = fn(
+    old_child : ProjNode[T],
+    new_child : ProjNode[T],
+  ) -> ProjNode[T] {
+    reconcile_hinted(old_child, new_child, counter, hints, trace_ref~)
+  }
+  realize_fallback(
+    old_children,
+    new_children,
+    plan,
+    counter,
+    parent_id,
+    trace_ref~,
+    match_node,
+    unmatched_new,
+  )
 }
 
 ///|
@@ -355,21 +422,16 @@ fn[T] exact_fingerprint_map(
 }
 
 ///|
-/// Child reconciliation for `reconcile_with_exact_key`.
-///
-/// This path intentionally has no structural-edit hints: the JSX projection
-/// uses it for ordinary streaming updates. It computes the primary LCS
-/// optimum, then reconstructs from the front using the earliest feasible
-/// diagonal so duplicate siblings retain stable prefix identities.
-fn[T : TreeNode + Renderable] reconcile_children_exact(
+/// Exact-key match-plan producer: weighted suffix DP + front reconstruction.
+/// The fingerprint bonus rewards equal payloads; reconstruction from the
+/// front with the earliest feasible diagonal keeps duplicate siblings'
+/// prefix identities stable (pinned by the exact-key characterization tests).
+fn[T : TreeNode] plan_exact_lcs(
   old_children : Array[ProjNode[T]],
   new_children : Array[ProjNode[T]],
-  counter : Ref[Int],
   old_fingerprints : Map[NodeId, Int],
   new_fingerprints : Map[NodeId, Int],
-  parent_id : NodeId,
-  trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
-) -> Array[ProjNode[T]] {
+) -> MatchPlan {
   let old_len = old_children.length()
   let new_len = new_children.length()
   let match_base_score = old_len.min(new_len) + 1
@@ -421,57 +483,52 @@ fn[T : TreeNode + Renderable] reconcile_children_exact(
       oi += 1
     }
   }
-  let result = [
-    for k in 0..<new_len => {
-      if new_matched[k] >= 0 {
-        let reconciled = reconcile_exact(
-          old_children[new_matched[k]],
-          new_children[k],
-          counter,
-          old_fingerprints,
-          new_fingerprints,
-          trace_ref~,
-        )
-        emit_trace(
-          trace_ref,
-          Matched(
-            parent_id,
-            new_matched[k],
-            k,
-            reconciled.id(),
-            @loomcore.Renderable::kind_tag(reconciled.kind),
-          ),
-        )
-        reconciled
-      } else {
-        let fresh = assign_fresh_ids(new_children[k], counter)
-        emit_trace(
-          trace_ref,
-          Inserted(
-            parent_id,
-            k,
-            fresh.id(),
-            @loomcore.Renderable::kind_tag(fresh.kind),
-          ),
-        )
-        fresh
-      }
-    }
-  ]
-  for oi = 0; oi < old_len; oi = oi + 1 {
-    if old_matched[oi] < 0 {
-      emit_trace(
-        trace_ref,
-        Deleted(
-          parent_id,
-          oi,
-          old_children[oi].id(),
-          @loomcore.Renderable::kind_tag(old_children[oi].kind),
-        ),
-      )
-    }
+  MatchPlan(old_matched, new_matched)
+}
+
+///|
+/// Child reconciliation for `reconcile_with_exact_key`.
+///
+/// This path intentionally has no structural-edit hints and NO positional
+/// shortcut: the JSX projection uses it for ordinary streaming updates, and
+/// its weighted suffix DP is the observable behavior. It computes the primary
+/// LCS optimum, then reconstructs from the front using the earliest feasible
+/// diagonal so duplicate siblings retain stable prefix identities.
+fn[T : TreeNode + Renderable] reconcile_children_exact(
+  old_children : Array[ProjNode[T]],
+  new_children : Array[ProjNode[T]],
+  counter : Ref[Int],
+  old_fingerprints : Map[NodeId, Int],
+  new_fingerprints : Map[NodeId, Int],
+  parent_id : NodeId,
+  trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
+) -> Array[ProjNode[T]] {
+  let plan = plan_exact_lcs(
+    old_children, new_children, old_fingerprints, new_fingerprints,
+  )
+  let match_node = fn(
+    old_child : ProjNode[T],
+    new_child : ProjNode[T],
+  ) -> ProjNode[T] {
+    reconcile_exact(
+      old_child,
+      new_child,
+      counter,
+      old_fingerprints,
+      new_fingerprints,
+      trace_ref~,
+    )
   }
-  result
+  realize_fallback(
+    old_children,
+    new_children,
+    plan,
+    counter,
+    parent_id,
+    trace_ref~,
+    match_node,
+    (_new_child : ProjNode[T]) => None,
+  )
 }
 
 ///|

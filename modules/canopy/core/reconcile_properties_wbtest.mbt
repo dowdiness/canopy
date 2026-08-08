@@ -1054,3 +1054,291 @@ fn prop_trace_event_count_bounded_by_total_nodes(pair : TestExprPair) -> Bool {
 test "property: trace event count bounded by total nodes" {
   @qc.quick_check_fn(prop_trace_event_count_bounded_by_total_nodes)
 }
+
+// ---------------------------------------------------------------------------
+// Characterization pins for the LCS-fallback paths (Phase 1 of
+// docs/plans/2026-08-08-core-reconcile-engine-deepening.md).
+// These pin today's observable behavior through the public seam so the
+// engine extraction cannot silently change identity assignment, counter
+// consumption, or fresh-id allocation order.
+// ---------------------------------------------------------------------------
+
+///|
+/// Compare `reconcile` against `reconcile_hinted` with an empty hint map on
+/// all observables: result tree, final counter, and trace. Empty hints bypass
+/// all hint machinery, so the two must be observably identical.
+fn reconcile_plain_equals_empty_hinted(
+  old : ProjNode[TestExpr],
+  new : ProjNode[TestExpr],
+) -> Bool {
+  let counter_a = Ref(1000)
+  let trace_a = Ref([])
+  let a = reconcile(old, new, counter_a, trace_ref=Some(trace_a))
+  let counter_b = Ref(1000)
+  let trace_b = Ref([])
+  let b = reconcile_hinted(
+    old,
+    new,
+    counter_b,
+    Map([]),
+    trace_ref=Some(trace_b),
+  )
+  a == b && counter_a.val == counter_b.val && trace_a.val == trace_b.val
+}
+
+///|
+test "reconcile: LCS fallback on shorter duplicate list preserves suffix identity" {
+  // old [L,L,L] → new [L,L]: unequal lengths force the LCS fallback;
+  // end-backtracking keeps old[1]/old[2] ids on the new list (tail-oriented),
+  // old[0] is deleted, and no fresh ids are consumed.
+  let old_node = to_proj_node(
+    Branch("root", [Leaf("a"), Leaf("b"), Leaf("c")]),
+    Ref(0),
+  )
+  let new_node = to_proj_node(Branch("root", [Leaf("x"), Leaf("y")]), Ref(500))
+  let counter = Ref(1000)
+  let result = reconcile(old_node, new_node, counter)
+  inspect(
+    result.children[0].node_id == old_node.children[1].node_id,
+    content="true",
+  )
+  inspect(
+    result.children[1].node_id == old_node.children[2].node_id,
+    content="true",
+  )
+  inspect(counter.val, content="1000")
+}
+
+///|
+test "reconcile: LCS fallback on longer duplicate list carries old ids onto the new suffix" {
+  // old [L,L] → new [L,L,L]: end-backtracking maps old[0]→new[1] and
+  // old[1]→new[2]; new[0] is fresh (suffix-aligned carry, not prefix).
+  let old_node = to_proj_node(Branch("root", [Leaf("a"), Leaf("b")]), Ref(0))
+  let new_node = to_proj_node(
+    Branch("root", [Leaf("x"), Leaf("y"), Leaf("z")]),
+    Ref(500),
+  )
+  let counter = Ref(1000)
+  let result = reconcile(old_node, new_node, counter)
+  inspect(result.children[0].node_id, content="1000")
+  inspect(
+    result.children[1].node_id == old_node.children[0].node_id,
+    content="true",
+  )
+  inspect(
+    result.children[2].node_id == old_node.children[1].node_id,
+    content="true",
+  )
+  inspect(counter.val, content="1001")
+}
+
+///|
+test "reconcile: LCS fallback crossing tie drops the trailing old sibling" {
+  // old [L,B] → new [B,L]: the `dp[i-1][j] >= dp[i][j-1]` tie rule drops the
+  // trailing old B (Deleted); old L keeps its id on the new L; new B is fresh.
+  let old_node = to_proj_node(
+    Branch("root", [Leaf("a"), Branch("b", [])]),
+    Ref(0),
+  )
+  let new_node = to_proj_node(
+    Branch("root", [Branch("b", []), Leaf("x")]),
+    Ref(500),
+  )
+  let counter = Ref(1000)
+  let result = reconcile(old_node, new_node, counter)
+  inspect(result.children[0].node_id, content="1000")
+  inspect(
+    result.children[1].node_id == old_node.children[0].node_id,
+    content="true",
+  )
+  inspect(counter.val, content="1001")
+}
+
+///|
+test "reconcile: hinted mode with empty hints matches plain on fallback" {
+  // Empty hints bypass all hint machinery; reconcile_hinted must be
+  // observably identical to reconcile on the fallback shapes of tests 1–3
+  // (result tree, final counter, and trace).
+  let old_short = to_proj_node(
+    Branch("root", [Leaf("a"), Leaf("b"), Leaf("c")]),
+    Ref(0),
+  )
+  let new_short = to_proj_node(Branch("root", [Leaf("x"), Leaf("y")]), Ref(500))
+  inspect(
+    reconcile_plain_equals_empty_hinted(old_short, new_short),
+    content="true",
+  )
+  let old_long = to_proj_node(Branch("root", [Leaf("a"), Leaf("b")]), Ref(0))
+  let new_long = to_proj_node(
+    Branch("root", [Leaf("x"), Leaf("y"), Leaf("z")]),
+    Ref(500),
+  )
+  inspect(
+    reconcile_plain_equals_empty_hinted(old_long, new_long),
+    content="true",
+  )
+  let old_cross = to_proj_node(
+    Branch("root", [Leaf("a"), Branch("b", [])]),
+    Ref(0),
+  )
+  let new_cross = to_proj_node(
+    Branch("root", [Branch("b", []), Leaf("x")]),
+    Ref(500),
+  )
+  inspect(
+    reconcile_plain_equals_empty_hinted(old_cross, new_cross),
+    content="true",
+  )
+}
+
+///|
+test "reconcile: hinted non-empty fallback combines exclusion, LCS, and singleton pairing" {
+  // old [Leaf a@1, Leaf b@2] → new [Leaf c@20, Branch(w,[Leaf x@21])@22].
+  // Wrap(1) excludes old Leaf a from LCS (its hint lands on the wrapper);
+  // LCS matches old Leaf b ↔ new Leaf c; the wrapper itself is fresh (1000)
+  // and its Leaf child carries old Leaf a's id. Unequal kinds at equal length
+  // force the fallback.
+  let old = ProjNode(Branch("root", [Leaf("a"), Leaf("b")]), 0, 5, 0, [
+    ProjNode(Leaf("a"), 0, 1, 1, []),
+    ProjNode(Leaf("b"), 1, 2, 2, []),
+  ])
+  let new_ = ProjNode(
+    Branch("root", [Leaf("c"), Branch("w", [Leaf("x")])]),
+    0,
+    5,
+    23,
+    [
+      ProjNode(Leaf("c"), 0, 1, 20, []),
+      ProjNode(Branch("w", [Leaf("x")]), 1, 3, 22, [
+        ProjNode(Leaf("x"), 1, 2, 21, []),
+      ]),
+    ],
+  )
+  let hints = mk_hints([(1, IdentityTransform::Wrap(inner=NodeId::from_int(1)))])
+  let counter = Ref(1000)
+  let trace = Ref([])
+  let result = reconcile_hinted(
+    old,
+    new_,
+    counter,
+    hints,
+    trace_ref=Some(trace),
+  )
+  // LCS match: old Leaf b → new Leaf c
+  inspect(result.children[0].node_id == old.children[1].node_id, content="true")
+  // hint pair: wrapper fresh, its child carries old Leaf a's id
+  inspect(result.children[1].node_id, content="1000")
+  inspect(
+    result.children[1].children[0].node_id == old.children[0].node_id,
+    content="true",
+  )
+  inspect(counter.val, content="1001")
+  // trace: Matched(Leaf b), Wrapped, Matched(wrapper, old_index=-1), Deleted(old Leaf a)
+  inspect(trace.val.length(), content="4")
+  guard trace.val[0] is Matched(_, 1, 0, _, _) else {
+    fail("first should be Matched (old Leaf b ↔ new Leaf c)")
+  }
+  guard trace.val[1] is Wrapped(_, _, _) else {
+    fail("second should be Wrapped")
+  }
+  guard trace.val[2] is Matched(_, -1, 1, _, _) else {
+    fail("third should be Matched with old_index=-1")
+  }
+  guard trace.val[3] is Deleted(_, 0, _, _) else {
+    fail("fourth should be Deleted (old Leaf a)")
+  }
+}
+
+///|
+test "reconcile: fallback freshening consumes counter exactly for unmatched new nodes" {
+  // Crossing tie [L,B]→[B,L] and long-list [L,L]→[L,L,L] each consume exactly
+  // one fresh id (the unmatched new node).
+  let old_cross = to_proj_node(
+    Branch("root", [Leaf("a"), Branch("b", [])]),
+    Ref(0),
+  )
+  let new_cross = to_proj_node(
+    Branch("root", [Branch("b", []), Leaf("x")]),
+    Ref(500),
+  )
+  let counter_cross = Ref(1000)
+  let _ = reconcile(old_cross, new_cross, counter_cross)
+  inspect(counter_cross.val, content="1001")
+  let old_long = to_proj_node(Branch("root", [Leaf("a"), Leaf("b")]), Ref(0))
+  let new_long = to_proj_node(
+    Branch("root", [Leaf("x"), Leaf("y"), Leaf("z")]),
+    Ref(500),
+  )
+  let counter_long = Ref(1000)
+  let _ = reconcile(old_long, new_long, counter_long)
+  inspect(counter_long.val, content="1001")
+}
+
+///|
+test "reconcile: fully-matched fallback consumes no fresh ids" {
+  // old [L,B,L] → new [L,L]: unequal lengths force the LCS fallback, every
+  // new node is matched (old[0]→new[0], old[2]→new[1]), old[1] is deleted,
+  // and the counter is untouched. (Equal-length same-kind lists take the
+  // positional fast path and cannot pin the fallback.)
+  let old_node = to_proj_node(
+    Branch("root", [Leaf("a"), Branch("b", []), Leaf("c")]),
+    Ref(0),
+  )
+  let new_node = to_proj_node(Branch("root", [Leaf("x"), Leaf("y")]), Ref(500))
+  let counter = Ref(1000)
+  let result = reconcile(old_node, new_node, counter)
+  inspect(
+    result.children[0].node_id == old_node.children[0].node_id,
+    content="true",
+  )
+  inspect(
+    result.children[1].node_id == old_node.children[2].node_id,
+    content="true",
+  )
+  inspect(counter.val, content="1000")
+}
+
+///|
+test "reconcile: exact-key freshening consumes counter exactly for unmatched new nodes" {
+  // old [L,B] → new [B,L] via exact key: the B↔B diagonal carries the
+  // fingerprint bonus (old "b" vs new "b" have equal payloads), so exact-key
+  // matches old B → new B and freshens the new L — exactly 1 consumed.
+  // (Plain reconcile drops the old B instead; see the crossing-tie test.)
+  let old_node = to_proj_node(
+    Branch("root", [Leaf("a"), Branch("b", [])]),
+    Ref(0),
+  )
+  let new_node = to_proj_node(
+    Branch("root", [Branch("b", []), Leaf("x")]),
+    Ref(500),
+  )
+  let counter = Ref(1000)
+  let result = reconcile_with_exact_key(
+    old_node, new_node, counter, exact_test_key,
+  )
+  inspect(
+    result.children[0].node_id == old_node.children[1].node_id,
+    content="true",
+  )
+  inspect(result.children[1].node_id, content="1000")
+  inspect(counter.val, content="1001")
+}
+
+///|
+test "reconcile: two fresh subtrees allocate ids in sibling order, post-order within" {
+  // Two unmatched new subtrees: ids are allocated in new-index sibling order,
+  // post-order inside each subtree (child before parent). This pins
+  // allocation order, not just counter deltas.
+  let old_node = to_proj_node(Branch("root", []), Ref(0))
+  let new_node = to_proj_node(
+    Branch("root", [Branch("s1", [Leaf("a")]), Branch("s2", [])]),
+    Ref(500),
+  )
+  let counter = Ref(1000)
+  let result = reconcile(old_node, new_node, counter)
+  // subtree s1: Leaf gets 1000, Branch gets 1001; subtree s2: Branch gets 1002
+  inspect(result.children[0].children[0].node_id, content="1000")
+  inspect(result.children[0].node_id, content="1001")
+  inspect(result.children[1].node_id, content="1002")
+  inspect(counter.val, content="1003")
+}
