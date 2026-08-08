@@ -152,17 +152,22 @@ observables: result tree, final counter value, and trace.
     "matching then reporting Deleted" is a known wart — correcting it is a
     separate behavior change, not part of this extraction.
 
-### Phase 2 — Benchmark split (`projection/reconcile_lcs_benchmark_wbtest.mbt`)
+### Phase 2 — Benchmark split (`projection/reconcile_lcs_benchmark_wbtest.mbt`) ✅ done
 
-15. Record pre-extraction release baselines for all three workloads (fast path,
-    forced fallback, exact-key) before any engine change.
-16. Keep the positional fast-path workload (rename to make its scope explicit).
-17. Add a **forced LCS fallback** workload — wide sibling list, equal length,
-    with one kind mismatch mid-list (verify the setup actually reaches the DP
-    table, e.g. with a control test). Add an **exact-key** workload —
-    `reconcile_with_exact_key` on the N-def module shape.
+15. Pre-extraction release baselines recorded in
+    `docs/evidence/2026-08-08-core-reconcile-benchmark-baselines.json`
+    (fast path 232.74 µs @ 1000 defs; forced fallback 10.27 ms @ 1000 defs;
+    exact-key 52.32 ms @ 1000 defs — single run, 10 iterations each).
+16. Positional fast-path workload renamed and kept (`bench_reconcile_fast_path`;
+    bench tests "reconcile positional fast path (N defs)").
+17. **Forced LCS fallback** workload added — same wide lists with an `Int`
+    child spliced mid-list; control test proves the DP table is reached via an
+    Inserted trace event (fast path would emit Matched for every child).
+    **Exact-key** workload added — `reconcile_with_exact_key` with `kind_tag`
+    as the key on the N-def shape.
     No timing thresholds are added (benchmark is BAND 2b evidence, not a gate);
-    "no regression" is judged against the recorded baselines.
+    "no regression" is judged against the recorded baselines (order-of-magnitude
+    check on the fast path only).
 
 ### Phase 3 — Engine extraction (after Phase 1 is green)
 
@@ -213,7 +218,8 @@ observables: result tree, final counter value, and trace.
 - [ ] Positional fast path behavior and benchmark unchanged.
 - [ ] Fresh-id allocation order and hint-directed trace sequence pinned
       (tests 9 and 14).
-- [ ] Benchmark baselines recorded before extraction (Phase 2 step 15).
+- [x] Benchmark baselines recorded before extraction (Phase 2 step 15 →
+      `docs/evidence/2026-08-08-core-reconcile-benchmark-baselines.json`).
 - [ ] CONTEXT.md framework terms (reconciliation / identity evidence / fresh
       identity) used in new code comments.
 - [ ] ADR recorded in `docs/decisions/` after implementation.
