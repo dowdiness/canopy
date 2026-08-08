@@ -335,3 +335,190 @@ fn prop_identical_trees_all_matched(expr : TestExpr) -> Bool {
 test "property: identical trees produce N-1 Matched events" {
   @qc.quick_check_fn(prop_identical_trees_all_matched)
 }
+
+// ---------------------------------------------------------------------------
+// Characterization pins for LCS-fallback trace order (Phase 1 of
+// docs/plans/2026-08-08-core-reconcile-engine-deepening.md).
+// These pin today's observable emission order so the engine extraction
+// cannot silently change it.
+// ---------------------------------------------------------------------------
+
+///|
+test "LCS fallback emits inner Matched before outer Matched" {
+  // Root children are unequal in length (1 vs 2) → LCS fallback; the matched
+  // nested Branch's own Leaf emits its Matched (parent = inner branch #1)
+  // before the outer Branch's Matched (parent = root #0): DFS emission order.
+  let old = ProjNode(Branch("root", [Branch("inner", [Leaf("x")])]), 0, 5, 0, [
+    ProjNode(Branch("inner", [Leaf("x")]), 0, 2, 1, [
+      ProjNode(Leaf("x"), 0, 1, 2, []),
+    ]),
+  ])
+  let new_ = ProjNode(
+    Branch("root", [Leaf("a"), Branch("inner", [Leaf("x")])]),
+    0,
+    5,
+    23,
+    [
+      ProjNode(Leaf("a"), 0, 1, 20, []),
+      ProjNode(Branch("inner", [Leaf("x")]), 1, 3, 22, [
+        ProjNode(Leaf("x"), 1, 2, 21, []),
+      ]),
+    ],
+  )
+  let trace = Ref([])
+  let _result = reconcile(old, new_, Ref(1000), trace_ref=Some(trace))
+  // [Inserted(new Leaf a), Matched(inner Leaf, parent=1), Matched(inner Branch, parent=0)]
+  inspect(trace.val.length(), content="3")
+  guard trace.val[0] is Inserted(_, _, _, _) else {
+    fail("first should be Inserted")
+  }
+  guard trace.val[1] is Matched(parent_inner, _, _, _, _) else {
+    fail("second should be Matched")
+  }
+  guard trace.val[2] is Matched(parent_outer, _, _, _, _) else {
+    fail("third should be Matched")
+  }
+  inspect(parent_inner == NodeId::from_int(1), content="true")
+  inspect(parent_outer == NodeId::from_int(0), content="true")
+}
+
+///|
+test "LCS fallback emits all Deleted events after Matched events" {
+  // Crossing tie [L,B]→[B,L]: Deleted comes last, after the Inserted and
+  // Matched events.
+  let old = ProjNode(Branch("root", [Leaf("a"), Branch("b", [])]), 0, 5, 0, [
+    ProjNode(Leaf("a"), 0, 1, 1, []),
+    ProjNode(Branch("b", []), 1, 2, 2, []),
+  ])
+  let new_ = ProjNode(Branch("root", [Branch("b", []), Leaf("x")]), 0, 5, 22, [
+    ProjNode(Branch("b", []), 0, 1, 20, []),
+    ProjNode(Leaf("x"), 1, 2, 21, []),
+  ])
+  let trace = Ref([])
+  let _result = reconcile(old, new_, Ref(1000), trace_ref=Some(trace))
+  inspect(trace.val.length(), content="3")
+  guard trace.val[0] is Inserted(_, _, _, _) else {
+    fail("first should be Inserted")
+  }
+  guard trace.val[1] is Matched(_, _, _, _, _) else {
+    fail("second should be Matched")
+  }
+  guard trace.val[2] is Deleted(_, _, _, _) else {
+    fail("third should be Deleted (last)")
+  }
+}
+
+///|
+test "LCS fallback crossing tie emits one Inserted and one Deleted" {
+  // Same crossing-tie fixture: exactly one Inserted (new B) and one Deleted
+  // (old B); the old L keeps its id via the single Matched event.
+  let old = ProjNode(Branch("root", [Leaf("a"), Branch("b", [])]), 0, 5, 0, [
+    ProjNode(Leaf("a"), 0, 1, 1, []),
+    ProjNode(Branch("b", []), 1, 2, 2, []),
+  ])
+  let new_ = ProjNode(Branch("root", [Branch("b", []), Leaf("x")]), 0, 5, 22, [
+    ProjNode(Branch("b", []), 0, 1, 20, []),
+    ProjNode(Leaf("x"), 1, 2, 21, []),
+  ])
+  let trace = Ref([])
+  let _result = reconcile(old, new_, Ref(1000), trace_ref=Some(trace))
+  let inserted = [
+    for ev in trace.val if ev is Inserted(_, _, _, _) => ev
+  ].length()
+  let deleted = [
+    for ev in trace.val if ev is Deleted(_, _, _, _) => ev
+  ].length()
+  let matched = [
+    for ev in trace.val if ev is Matched(_, _, _, _, _) => ev
+  ].length()
+  inspect(inserted, content="1")
+  inspect(deleted, content="1")
+  inspect(matched, content="1")
+  guard trace.val[1] is Matched(_, _, _, node_id, _) else {
+    fail("second should be Matched")
+  }
+  inspect(node_id == NodeId::from_int(1), content="true")
+}
+
+///|
+test "exact-key emits the same realization order as plain on the crossing tie" {
+  // old [Leaf a, Branch b] → new [Branch b, Leaf a] via exact key: both
+  // diagonals carry equal weighted scores (same-kind base + equal fingerprint
+  // bonus — same payloads on both sides), so the front reconstruction yields
+  // the same observable sequence as plain: Inserted (new Branch, fresh 1000),
+  // Matched (old Leaf #1 → new Leaf), Deleted (old Branch #2).
+  let old = ProjNode(Branch("root", [Leaf("a"), Branch("b", [])]), 0, 5, 0, [
+    ProjNode(Leaf("a"), 0, 1, 1, []),
+    ProjNode(Branch("b", []), 1, 2, 2, []),
+  ])
+  let new_ = ProjNode(Branch("root", [Branch("b", []), Leaf("a")]), 0, 5, 22, [
+    ProjNode(Branch("b", []), 0, 1, 20, []),
+    ProjNode(Leaf("a"), 1, 2, 21, []),
+  ])
+  let trace = Ref([])
+  let counter = Ref(1000)
+  let _result = reconcile_with_exact_key(
+    old,
+    new_,
+    counter,
+    exact_test_key,
+    trace_ref=Some(trace),
+  )
+  inspect(trace.val.length(), content="3")
+  guard trace.val[0] is Inserted(_, _, node0, _) else {
+    fail("first should be Inserted")
+  }
+  guard trace.val[1] is Matched(_, _, _, node1, _) else {
+    fail("second should be Matched")
+  }
+  guard trace.val[2] is Deleted(_, _, _, _) else {
+    fail("third should be Deleted")
+  }
+  inspect(node0 == NodeId::from_int(1000), content="true")
+  inspect(node1 == NodeId::from_int(1), content="true")
+}
+
+///|
+test "hinted pair emits Matched(old_index=-1) then Deleted for the consumed old node" {
+  // A successful post-LCS hint pair emits Matched with old_index=-1 while
+  // leaving old_matched untouched, so the Deleted loop later reports the
+  // consumed old node as Deleted too. This pins the current sequence — a
+  // known wart; correcting it is a separate behavior change, not part of the
+  // engine extraction.
+  let old = ProjNode(Branch("root", [Leaf("a")]), 0, 5, 0, [
+    ProjNode(Leaf("a"), 0, 1, 1, []),
+  ])
+  let new_ = ProjNode(Branch("root", [Branch("w", [Leaf("x")])]), 0, 5, 22, [
+    ProjNode(Branch("w", [Leaf("x")]), 1, 3, 21, [
+      ProjNode(Leaf("x"), 1, 2, 20, []),
+    ]),
+  ])
+  let hints = mk_hints([(1, IdentityTransform::Wrap(inner=NodeId::from_int(1)))])
+  let trace = Ref([])
+  let counter = Ref(1000)
+  let result = reconcile_hinted(
+    old,
+    new_,
+    counter,
+    hints,
+    trace_ref=Some(trace),
+  )
+  // wrapper fresh (1000), its child carries old Leaf a's id (1)
+  inspect(result.children[0].node_id, content="1000")
+  inspect(
+    result.children[0].children[0].node_id == old.children[0].node_id,
+    content="true",
+  )
+  inspect(counter.val, content="1001")
+  inspect(trace.val.length(), content="3")
+  guard trace.val[0] is Wrapped(_, _, _) else {
+    fail("first should be Wrapped")
+  }
+  guard trace.val[1] is Matched(_, -1, 0, _, _) else {
+    fail("second should be Matched with old_index=-1")
+  }
+  guard trace.val[2] is Deleted(_, 0, node_id, _) else {
+    fail("third should be Deleted")
+  }
+  inspect(node_id == NodeId::from_int(1), content="true")
+}
