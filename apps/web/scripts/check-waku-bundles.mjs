@@ -3,9 +3,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const generatedModules = [
-  { id: '@moonbit/crdt-lambda', fingerprint: 'assemble_lambda_handle' },
-  { id: '@moonbit/crdt-json', fingerprint: 'assemble_json_handle' },
-  { id: '@moonbit/crdt-markdown', fingerprint: 'assemble_markdown_handle' },
+  { id: '@moonbit/crdt-lambda', fingerprint: 'try_destroy_editor' },
+  { id: '@moonbit/crdt-json', fingerprint: 'try_destroy_json_editor' },
+  { id: '@moonbit/crdt-markdown', fingerprint: 'try_destroy_markdown_editor' },
   { id: '@moonbit/crdt-jsx', fingerprint: 'jsx_session_new' },
   { id: '@moonbit/graphviz', fingerprint: 'render_dot_to_svg' },
 ];
@@ -42,17 +42,17 @@ const forbiddenProductionClientArtifacts = [
   {
     capability: 'Memo provider URL',
     fingerprint: 'https://generativelanguage.googleapis.com/v1beta/models/',
-    allowedBundleFingerprint: 'assemble_lambda_handle',
+    allowedBundleFingerprint: 'try_destroy_editor',
   },
   {
     capability: 'Memo provider function',
     fingerprint: 'canopy_llm_fix_typos',
-    allowedBundleFingerprint: 'assemble_lambda_handle',
+    allowedBundleFingerprint: 'try_destroy_editor',
   },
   {
     capability: 'Memo provider function',
     fingerprint: 'canopy_llm_edit',
-    allowedBundleFingerprint: 'assemble_lambda_handle',
+    allowedBundleFingerprint: 'try_destroy_editor',
   },
   ...forbiddenProductionResumeArtifacts,
   ...forbiddenProductionGenuiArtifacts,

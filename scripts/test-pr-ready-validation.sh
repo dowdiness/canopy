@@ -253,11 +253,13 @@ if PATH="$fake_bin:$PATH" \
   PR_READY_TEST_LOG="$execution_log" \
   "$fixture/scripts/validate-pr-ready.sh" \
     --base fixture-base \
-    --target pkg >"$unpushed_output" 2>&1; then
+    --no-target "submodule reachability probe" >"$unpushed_output" 2>&1; then
   fail "unpushed submodule commit unexpectedly passed"
 fi
-grep -q "submodule commit is not fetchable from origin" "$unpushed_output" ||
+if ! grep -q "submodule commit is not fetchable from origin" "$unpushed_output"; then
+  cat "$unpushed_output" >&2
   fail "unpushed submodule diagnostic was not actionable"
+fi
 if [ -s "$execution_log" ]; then
   fail "unpushed submodule failure ran dependency commands"
 fi
@@ -276,7 +278,7 @@ if ! PATH="$fake_bin:$PATH" \
   PR_READY_TEST_LOG="$execution_log" \
   "$fixture/scripts/validate-pr-ready.sh" \
     --base fixture-base \
-    --target pkg >"$pull_ref_output" 2>&1; then
+    --no-target "exact-SHA submodule probe" >"$pull_ref_output" 2>&1; then
   fail "submodule commit fetchable only by exact SHA was rejected"
 fi
 grep -q "PR-ready validation passed" "$pull_ref_output" ||

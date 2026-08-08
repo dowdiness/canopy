@@ -46,6 +46,10 @@ npm --prefix adapters/editor run typecheck:cm6
 run_consumer "web" "apps/web" "typecheck"
 echo "==> [web] npm --prefix apps/web run build"
 npm --prefix apps/web run build
+echo "==> [web] npm --prefix apps/web run test:foundation"
+npm --prefix apps/web run test:foundation
+echo "==> [web] npm --prefix apps/web run check:waku-bundles"
+npm --prefix apps/web run check:waku-bundles
 run_consumer "demo-react" "examples/demo-react" "build"
 # `tsc -b` rewrites this tracked cache across local TypeScript versions; it is
 # not review evidence and must not dirty the exact candidate HEAD.
