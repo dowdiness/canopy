@@ -47,6 +47,7 @@ fn mode_view(
 ) -> @rabbita_runtime.Html {
   if model.state.mode() == @core.Block {
     @html.div(
+      id="loomark-block-frame",
       style=[
         "width:var(--lm-page-width);margin-inline:auto;min-width:0;display:flex;flex-direction:column;border-left:var(--lm-page-side-border-width) solid var(--rui-border);border-right:var(--lm-page-side-border-width) solid var(--rui-border)",
       ],

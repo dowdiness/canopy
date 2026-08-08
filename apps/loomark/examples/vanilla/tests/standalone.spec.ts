@@ -214,6 +214,10 @@ test("mobile page frame drops desktop rails in a stacked split", async ({ page }
 
   await page.locator("#loomark-mode-block").click()
   await expect(page.locator("#loomark-block")).toHaveCSS("padding-left", "12px")
+  const blockFrame = page.locator("#loomark-block-frame")
+  await expect(blockFrame).toHaveCSS("border-left-width", "0px")
+  await expect(blockFrame).toHaveCSS("border-right-width", "0px")
+  await expect(blockFrame).toHaveCSS("width", "640px")
   await expect(page.getByRole("toolbar", { name: "Block formatting" })).toHaveCSS(
     "padding-left",
     "12px",
