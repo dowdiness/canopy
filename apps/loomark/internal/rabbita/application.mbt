@@ -2188,7 +2188,7 @@ fn build_application(
         let (next, command) = recover_after_parser_failure(
           current_session, model, failure, emit,
         )
-        publish(next)
+        publish(next, Some(raw_input_coordinator), None)
         (next, command)
       }
       error => {
@@ -2196,7 +2196,7 @@ fn build_application(
         let (next, command) = quarantine_outer_error(
           current_session, model, error,
         )
-        publish(next)
+        publish(next, Some(raw_input_coordinator), None)
         (next, command)
       }
     }
