@@ -3,6 +3,7 @@ import {
   "dowdiness/diagnostic",
   "dowdiness/dom_boundary",
   "dowdiness/markdown" @md_markdown,
+  "dowdiness/moji",
   "dowdiness/text_change",
   "dowdiness/loomark/core",
   "dowdiness/loomark/archive",

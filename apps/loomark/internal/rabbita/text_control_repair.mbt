@@ -514,25 +514,26 @@ fn block_input_command(
   block : @markdown.MarkdownBlockSnapshot,
   input_id : String,
   text : String,
+  document_id : @archive.LoomarkDocumentId,
+  expected_version : @markdown.MarkdownDocumentVersion,
+  coordinator : BlockInputCoordinator,
   emit : @cmd.Emit[DriverEvent],
 ) -> @cmd.Cmd {
   @cmd.custom_cmd(scheduler => {
     let selection = @dom_boundary.read_text_selection_id(input_id) catch {
-      error => {
-        scheduler.add(emit(Navigation(EffectFailed(error.message()))))
-        return
-      }
+      _ => return
     }
     scheduler.add(
-      emit(
-        Editing(
-          BlockInput(
-            node_id=block.node_id(),
-            input_id~,
-            text~,
-            selection_offset=selection.end(),
-          ),
+      coordinator.enqueue(
+        PendingBlockInput::PendingBlockInput(
+          document_id~,
+          expected_version~,
+          node_id=block.node_id(),
+          input_id~,
+          text~,
+          selection~,
         ),
+        emit,
       ),
     )
   })

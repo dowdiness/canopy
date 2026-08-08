@@ -72,7 +72,19 @@ fn block_variants() -> Array[EditingEvent] {
     BlockHeading(2, None),
     BlockToggleList(None),
     BlockDelete,
-    BlockInput(node_id~, input_id="in", text="t", selection_offset=0),
+    BlockInput(
+      token=0,
+      input=PendingBlockInput::PendingBlockInput(
+        document_id=@archive.LoomarkDocumentId::from_string("test-document") catch {
+          _ => abort("test document id must construct")
+        },
+        expected_version=editor.version(),
+        node_id~,
+        input_id="in",
+        text="t",
+        selection=@dom_boundary.TextSelection(0, 0, @dom_boundary.NoDirection),
+      ),
+    ),
     BlockSplit(node_id~, offset=0),
     BlockMerge(node_id~, selection=BlockSelection::{
       key: "k",

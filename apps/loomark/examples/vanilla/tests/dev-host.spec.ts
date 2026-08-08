@@ -1097,7 +1097,8 @@ test("clearing the only Block keeps an empty control editable", async ({ browser
     await input.fill("")
     await expect(input).toHaveValue("")
     await expect(host.page.locator("[data-loomark-block-id]")).toHaveCount(1)
-    await host.page.keyboard.type("Again")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("\u200B\n")
+    await input.fill("Again")
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("Again\n")
   } finally {
     await host.context.close()
@@ -1322,7 +1323,7 @@ test("rejected Block insertion restores a UTF-16 text cursor to its accepted pos
   }
 })
 
-test("rejected Block repair yields to a newer same-frame input", async ({ browser }) => {
+test("rejected coalesced Block input is not retried", async ({ browser }) => {
   const host = await mountHost(browser, "start\n")
   try {
     await selectBlock(host.page)
@@ -1342,13 +1343,16 @@ test("rejected Block repair yields to a newer same-frame input", async ({ browse
       requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
     }))
 
-    await expect.poll(async () => (await snapshot(host.page)).source).toBe("startXY\n")
-    await expect(input).toHaveValue("startXY")
+    await expect.poll(async () => (await snapshot(host.page)).error_code).toBe(
+      "editor-commit-failed",
+    )
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("start\n")
+    await expect(input).toHaveValue("start")
     await expect(input).toBeFocused()
     await expect.poll(() => input.evaluate(element => {
       const textarea = element as HTMLTextAreaElement
       return `${textarea.selectionStart}:${textarea.selectionEnd}`
-    })).toBe("7:7")
+    })).toBe("5:5")
   } finally {
     await host.context.close()
   }
@@ -1588,7 +1592,7 @@ test("Block split at the start creates and focuses an empty previous block", asy
       const textarea = document.activeElement as HTMLTextAreaElement | null
       return textarea === null ? "missing" : `${textarea.selectionStart}:${textarea.selectionEnd}`
     })).toBe("0:0")
-    await host.page.keyboard.type("Before")
+    await input.fill("Before")
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("Before\n\nHello\n")
   } finally {
     await host.context.close()

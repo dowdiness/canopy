@@ -44,6 +44,7 @@ fn mode_view(
   model : DriverModel,
   emit : @cmd.Emit[DriverEvent],
   raw_input_coordinator : RawInputCoordinator,
+  block_input_coordinator : BlockInputCoordinator,
 ) -> @rabbita_runtime.Html {
   if model.state.mode() == @core.Block {
     @html.div(
@@ -65,7 +66,9 @@ fn mode_view(
             style=[
               "width:var(--lm-page-width);margin-inline:auto;min-width:0;display:flex;flex-direction:column;gap:0.25rem",
             ],
-            editor_view(model, emit, raw_input_coordinator),
+            editor_view(
+              model, emit, raw_input_coordinator, block_input_coordinator,
+            ),
           ),
         ),
       ],
@@ -74,7 +77,7 @@ fn mode_view(
     @html.div(
       id="loomark-active-view",
       style=["width:100%;min-width:0;display:flex"],
-      editor_view(model, emit, raw_input_coordinator),
+      editor_view(model, emit, raw_input_coordinator, block_input_coordinator),
     )
   }
 }
@@ -84,8 +87,11 @@ fn single_view(
   model : @rabbita_runtime.Val[DriverModel],
   emit : @cmd.Emit[DriverEvent],
   raw_input_coordinator : RawInputCoordinator,
+  block_input_coordinator : BlockInputCoordinator,
 ) -> @rabbita_runtime.Val[@rabbita_runtime.Html] {
-  model.view(model => mode_view(model, emit, raw_input_coordinator))
+  model.view(model => {
+    mode_view(model, emit, raw_input_coordinator, block_input_coordinator)
+  })
 }
 
 ///|
@@ -93,6 +99,7 @@ fn resizable_split_view(
   model : @rabbita_runtime.Val[DriverModel],
   emit : @cmd.Emit[DriverEvent],
   raw_input_coordinator : RawInputCoordinator,
+  block_input_coordinator : BlockInputCoordinator,
   orientation : @rui.SeparatorOrientation,
 ) -> @rabbita_runtime.Val[@rabbita_runtime.Html] {
   @rui.resizable_panel_group_with_input(
@@ -112,7 +119,7 @@ fn resizable_split_view(
           raw_editor_view(model, emit, raw_input_coordinator),
         )
       } else {
-        mode_view(model, emit, raw_input_coordinator)
+        mode_view(model, emit, raw_input_coordinator, block_input_coordinator)
       }
       @html.fragment([
         @rui.resizable_panel(
@@ -144,8 +151,15 @@ fn side_by_side_view(
   model : @rabbita_runtime.Val[DriverModel],
   emit : @cmd.Emit[DriverEvent],
   raw_input_coordinator : RawInputCoordinator,
+  block_input_coordinator : BlockInputCoordinator,
 ) -> @rabbita_runtime.Val[@rabbita_runtime.Html] {
-  resizable_split_view(model, emit, raw_input_coordinator, @rui.Horizontal)
+  resizable_split_view(
+    model,
+    emit,
+    raw_input_coordinator,
+    block_input_coordinator,
+    @rui.Horizontal,
+  )
 }
 
 ///|
@@ -153,8 +167,15 @@ fn stacked_view(
   model : @rabbita_runtime.Val[DriverModel],
   emit : @cmd.Emit[DriverEvent],
   raw_input_coordinator : RawInputCoordinator,
+  block_input_coordinator : BlockInputCoordinator,
 ) -> @rabbita_runtime.Val[@rabbita_runtime.Html] {
-  resizable_split_view(model, emit, raw_input_coordinator, @rui.Vertical)
+  resizable_split_view(
+    model,
+    emit,
+    raw_input_coordinator,
+    block_input_coordinator,
+    @rui.Vertical,
+  )
 }
 
 ///|
@@ -164,13 +185,21 @@ fn application_view(
   model : @rabbita_runtime.Val[DriverModel],
   emit : @cmd.Emit[DriverEvent],
   raw_input_coordinator : RawInputCoordinator,
+  block_input_coordinator : BlockInputCoordinator,
 ) -> @rabbita_runtime.Val[@rabbita_runtime.Html] {
   let presentation = model.map(split_presentation)
   presentation.switch(presentation => {
     match presentation {
-      SingleSurface => single_view(model, emit, raw_input_coordinator)
-      SideBySide => side_by_side_view(model, emit, raw_input_coordinator)
-      Stacked => stacked_view(model, emit, raw_input_coordinator)
+      SingleSurface =>
+        single_view(model, emit, raw_input_coordinator, block_input_coordinator)
+      SideBySide =>
+        side_by_side_view(
+          model, emit, raw_input_coordinator, block_input_coordinator,
+        )
+      Stacked =>
+        stacked_view(
+          model, emit, raw_input_coordinator, block_input_coordinator,
+        )
     }
   })
 }

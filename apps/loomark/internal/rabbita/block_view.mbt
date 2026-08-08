@@ -321,9 +321,19 @@ fn block_input(
   index : Int,
   count : Int,
   active : Bool,
+  document_id : @archive.LoomarkDocumentId,
+  version : @markdown.MarkdownDocumentVersion,
+  coordinator : BlockInputCoordinator,
   emit : @cmd.Emit[DriverEvent],
 ) -> @rabbita_runtime.Html {
   let input_id = block_input_id(index)
+  let input_value = coordinator.display_text(
+    document_id~,
+    version~,
+    node_id=block.node_id(),
+    input_id~,
+    committed_text=block.text(),
+  )
   let attrs = @html.Attrs::build()
     .data_set("loomark-block-id", block.key())
     .data_set("loomark-block-kind", block_kind_name(block.kind()))
@@ -396,12 +406,16 @@ fn block_input(
   }
   let input = @rui.textarea(
     id=input_id,
-    value=block.text(),
+    value=input_value,
     rows=1,
     slot="block-editor-input",
     style=block_input_style(block.kind()),
     attrs~,
-    on_input=@cmd.Emit(text => block_input_command(block, input_id, text, emit)),
+    on_input=@cmd.Emit(text => {
+      block_input_command(
+        block, input_id, text, document_id, version, coordinator, emit,
+      )
+    }),
   )
   @html.div(
     attrs=@html.Attrs::build()
@@ -415,6 +429,7 @@ fn block_input(
 ///|
 fn block_editor_view(
   model : DriverModel,
+  coordinator : BlockInputCoordinator,
   emit : @cmd.Emit[DriverEvent],
 ) -> @rabbita_runtime.Html {
   let controls : Map[String, @rabbita_runtime.Html] = Map([])
@@ -425,6 +440,9 @@ fn block_editor_view(
       index,
       blocks.length(),
       model.active_block_key == Some(block.key()),
+      model.document_id,
+      model.document_version,
+      coordinator,
       emit,
     )
   }

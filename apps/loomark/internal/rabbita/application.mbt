@@ -390,11 +390,12 @@ fn editor_view(
   model : DriverModel,
   emit : @cmd.Emit[DriverEvent],
   raw_input_coordinator : RawInputCoordinator,
+  block_input_coordinator : BlockInputCoordinator,
 ) -> @rabbita_runtime.Html {
   match model.state.mode() {
     @core.Raw => raw_editor_view(model, emit, raw_input_coordinator)
     @core.Preview => preview_document_view(model)
-    @core.Block => block_editor_view(model, emit)
+    @core.Block => block_editor_view(model, block_input_coordinator, emit)
   }
 }
 
@@ -873,6 +874,7 @@ fn update_editing(
   editor : @markdown.MarkdownEditor,
   attachment : @md_markdown.MarkdownSemanticAttachment,
   raw_input_coordinator : RawInputCoordinator,
+  block_input_coordinator : BlockInputCoordinator,
   model : DriverModel,
   latest_model : @ref.Ref[DriverModel?],
   event : EditingEvent,
@@ -884,6 +886,22 @@ fn update_editing(
   }
   if event is RawInput(_, _, Some(_)) && !raw_token_active {
     return (model, @rabbita_runtime.none)
+  }
+  match event {
+    BlockInput(token~, input~) => {
+      if !block_input_coordinator.is_active(token) {
+        return (model, block_input_coordinator.finish(token, emit))
+      }
+      if model.state.mode() != @core.Block {
+        return (model, block_input_coordinator.finish(token, emit))
+      }
+      match check_block_edit(model.document_id, editor.version(), input) {
+        Current => ()
+        WrongDocument | StaleVersion =>
+          return (model, block_input_coordinator.finish(token, emit))
+      }
+    }
+    _ => ()
   }
   match
     editing_mode_applicable(event, model.state.mode(), model.split_preview_open) {
@@ -1218,18 +1236,34 @@ fn update_editing(
               (next, command)
             }
           }
-        BlockInput(node_id~, input_id~, text=proposed_text, selection_offset~) => {
+        BlockInput(token~, input~) => {
+          match check_block_selection(model.document, input) {
+            ValidBlockSelection => ()
+            NonCollapsedBlockSelection
+            | InvalidBlockSelection
+            | MissingBlockSelectionTarget =>
+              return (model, block_input_coordinator.finish(token, emit))
+          }
+          if !block_input_coordinator.is_active(token) {
+            return (model, block_input_coordinator.finish(token, emit))
+          }
+          match check_block_edit(model.document_id, editor.version(), input) {
+            Current => ()
+            WrongDocument | StaleVersion =>
+              return (model, block_input_coordinator.finish(token, emit))
+          }
           let (next, committed_selection, accepted, persistence_command) = commit_block_request(
             editor,
             attachment,
             model,
             @markdown.MarkdownEditRequest::CommitTextControlEdit(
-              node_id~,
-              new_text=proposed_text,
+              node_id=input.node_id,
+              new_text=input.text,
             ),
             "editor-dispatch",
             emit,
           )
+          let finish_command = block_input_coordinator.finish(token, emit)
           if accepted && next.source_revision != model.source_revision {
             raw_input_coordinator.cancel_pending()
           }
@@ -1238,40 +1272,53 @@ fn update_editing(
               block_selection_from_commit(
                 next.document,
                 selection,
-                offset=selection_offset,
+                offset=input.selection.end(),
               )
             None => None
           }
-          let next = {
-            ..next,
-            text_input_generation: model.text_input_generation + 1,
-            active_block_key: match selection {
-              Some(selection) => Some(selection.key)
-              None => model.active_block_key
-            },
-            selection: match selection {
-              Some(selection) => Some(block_selection_label(selection))
-              None => None
-            },
+          let next = if accepted {
+            {
+              ..next,
+              text_input_generation: model.text_input_generation + 1,
+              active_block_key: match selection {
+                Some(selection) => Some(selection.key)
+                None => model.active_block_key
+              },
+              selection: match selection {
+                Some(selection) => Some(block_selection_label(selection))
+                None => None
+              },
+            }
+          } else {
+            next
           }
           match selection {
             Some(selection) =>
-              (
-                next,
-                @cmd.batch([
-                  persistence_command,
-                  block_selection_after_render(
-                    latest_model,
-                    selection,
-                    next.source_revision,
-                    report_superseded=false,
-                    emit,
-                  ),
-                ]),
-              )
+              // Clearing the final payload can install the façade's empty
+              // paragraph sentinel and replace the rendered control. Ordinary
+              // input keeps the browser's native caret and must not queue an
+              // older caret write over newer keystrokes.
+              if input.text == "" {
+                (
+                  next,
+                  @cmd.batch([
+                    persistence_command,
+                    finish_command,
+                    block_selection_after_render(
+                      latest_model,
+                      selection,
+                      next.source_revision,
+                      report_superseded=false,
+                      emit,
+                    ),
+                  ]),
+                )
+              } else {
+                (next, @cmd.batch([persistence_command, finish_command]))
+              }
             None =>
               if accepted {
-                (next, persistence_command)
+                (next, @cmd.batch([persistence_command, finish_command]))
               } else {
                 let accepted_text = next.document
                   .blocks()
@@ -1279,7 +1326,7 @@ fn update_editing(
                     match found {
                       Some(_) => found
                       None =>
-                        if block.node_id() == node_id {
+                        if block.node_id() == input.node_id {
                           Some(block.text())
                         } else {
                           None
@@ -1289,7 +1336,9 @@ fn update_editing(
                 match accepted_text {
                   Some(text) => {
                     let offset = rejected_text_offset(
-                      text, proposed_text, selection_offset,
+                      text,
+                      input.text,
+                      input.selection.end(),
                     )
                     let repair_generation = next.text_input_generation
                     let repair_source_revision = next.source_revision
@@ -1297,6 +1346,7 @@ fn update_editing(
                       next,
                       @cmd.batch([
                         persistence_command,
+                        finish_command,
                         after_render(
                           scheduler => {
                             ignore(scheduler)
@@ -1306,10 +1356,13 @@ fn update_editing(
                                 repair_generation,
                                 repair_source_revision,
                               ) {
-                              @dom_boundary.write_text_value_id(input_id, text)
-                              @dom_boundary.focus_id(input_id)
+                              @dom_boundary.write_text_value_id(
+                                input.input_id,
+                                text,
+                              )
+                              @dom_boundary.focus_id(input.input_id)
                               @dom_boundary.write_text_selection_id(
-                                input_id,
+                                input.input_id,
                                 @dom_boundary.TextSelection(
                                   offset,
                                   offset,
@@ -1323,7 +1376,8 @@ fn update_editing(
                       ]),
                     )
                   }
-                  None => (next, persistence_command)
+                  None =>
+                    (next, @cmd.batch([persistence_command, finish_command]))
                 }
               }
           }
@@ -1770,6 +1824,7 @@ fn update_lifecycle(
   editor : @markdown.MarkdownEditor,
   attachment : @md_markdown.MarkdownSemanticAttachment,
   raw_input_coordinator : RawInputCoordinator,
+  block_input_coordinator : BlockInputCoordinator,
   model : DriverModel,
   event : LifecycleEvent,
   emit : @cmd.Emit[DriverEvent],
@@ -1869,6 +1924,7 @@ fn update_lifecycle(
       }
       if accepted {
         raw_input_coordinator.cancel_pending()
+        block_input_coordinator.cancel_pending()
         next = { ..next, state: transition.state() }
       }
       next = update_preview_document(
@@ -1954,6 +2010,7 @@ fn update_model(
   editor : @markdown.MarkdownEditor,
   attachment : @md_markdown.MarkdownSemanticAttachment,
   raw_input_coordinator : RawInputCoordinator,
+  block_input_coordinator : BlockInputCoordinator,
   model : DriverModel,
   latest_model : @ref.Ref[DriverModel?],
   event : DriverEvent,
@@ -1977,15 +2034,16 @@ fn update_model(
     }
     Editing(edit_event) =>
       update_editing(
-        editor, attachment, raw_input_coordinator, model, latest_model, edit_event,
-        emit,
+        editor, attachment, raw_input_coordinator, block_input_coordinator, model,
+        latest_model, edit_event, emit,
       )
     Navigation(nav_event) =>
       update_navigation(attachment, model, latest_model, nav_event, emit)
     Probe(probe_event) => update_probe(model, probe_event, emit)
     Lifecycle(life_event) =>
       update_lifecycle(
-        editor, attachment, raw_input_coordinator, model, life_event, emit,
+        editor, attachment, raw_input_coordinator, block_input_coordinator, model,
+        life_event, emit,
       )
   }
   let raw_input_token = match event {
@@ -2187,12 +2245,14 @@ fn build_application(
   let raw_input_coordinator = RawInputCoordinator::RawInputCoordinator(
     raw_input_telemetry,
   )
+  let block_input_coordinator = BlockInputCoordinator::BlockInputCoordinator()
   let update = (model, event, emit) => {
     let session = current_session.val
     update_model(
       session.editor,
       session.attachment,
       raw_input_coordinator,
+      block_input_coordinator,
       model,
       latest_model,
       event,
@@ -2200,6 +2260,7 @@ fn build_application(
     ) catch {
       Failure::Failure(_) as failure => {
         raw_input_coordinator.cancel_pending()
+        block_input_coordinator.cancel_pending()
         let (next, command) = recover_after_parser_failure(
           current_session, model, failure, emit,
         )
@@ -2208,6 +2269,7 @@ fn build_application(
       }
       error => {
         raw_input_coordinator.cancel_pending()
+        block_input_coordinator.cancel_pending()
         let (next, command) = quarantine_outer_error(
           current_session, model, error,
         )
@@ -2231,7 +2293,9 @@ fn build_application(
       update~,
       subscriptions~,
     )
-    let active_view = application_view(model, emit, raw_input_coordinator)
+    let active_view = application_view(
+      model, emit, raw_input_coordinator, block_input_coordinator,
+    )
     model.view2(active_view, (model, active_view) => {
       latest_model.val = Some(model)
       view(model, emit, active_view)
