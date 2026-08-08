@@ -312,17 +312,22 @@ fn preview_document_view(model : DriverModel) -> @rabbita_runtime.Html {
     Some(document) => semantic_preview_view(source, document)
     None =>
       @html.div(
-        id="loomark-preview",
-        attrs=@html.Attrs::build()
-          .data_set("loomark-preview-fallback", "unavailable")
-          .role("region")
-          .tabindex(0)
-          .aria_label("Markdown preview"),
         style=[
-          "box-sizing:border-box;width:var(--lm-page-width);margin-inline:auto;display:grid;gap:1rem;grid-auto-rows:max-content;border-left:var(--lm-page-side-border-width) solid var(--rui-border);border-right:var(--lm-page-side-border-width) solid var(--rui-border);border-top:0;border-bottom:0;border-radius:0;background:transparent;padding:1rem var(--lm-page-x-padding);overflow-y:auto",
+          "box-sizing:border-box;width:100%;min-width:0;overflow-y:auto;overflow-x:hidden",
         ],
-        @rui.typography_muted(
-          "Preview is unavailable for the current accepted document.",
+        @html.div(
+          id="loomark-preview",
+          attrs=@html.Attrs::build()
+            .data_set("loomark-preview-fallback", "unavailable")
+            .role("region")
+            .tabindex(0)
+            .aria_label("Markdown preview"),
+          style=[
+            "box-sizing:border-box;width:var(--lm-page-width);margin-inline:auto;min-width:0;display:grid;gap:1rem;grid-auto-rows:max-content;background:transparent;padding:1rem var(--lm-page-x-padding)",
+          ],
+          @rui.typography_muted(
+            "Preview is unavailable for the current accepted document.",
+          ),
         ),
       )
   }
@@ -340,17 +345,22 @@ fn raw_editor_view(
   raw_input_coordinator : RawInputCoordinator,
 ) -> @rabbita_runtime.Html {
   let source = raw_input_coordinator.display_source(model.document.source())
-  @rui.textarea(
-    id="loomark-input",
-    value=source,
-    rows=4,
-    attrs=@html.Attrs::build().aria_label("Raw Markdown source"),
+  @html.div(
     style=[
-      "min-height:clamp(24rem,70vh,36rem);width:var(--lm-page-width);margin-inline:auto;field-sizing:fixed;resize:none;--rui-control-base-border:transparent;--rui-control-base-shadow:none;border-left:var(--lm-page-side-border-width) solid var(--rui-border);border-right:var(--lm-page-side-border-width) solid var(--rui-border);border-top:0;border-bottom:0;border-radius:0;background:transparent;padding:1rem var(--lm-page-x-padding);font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,\"Liberation Mono\",\"Courier New\",monospace;font-size:0.875rem;line-height:1.65",
+      "box-sizing:border-box;width:100%;min-width:0;overflow-y:auto;overflow-x:hidden",
     ],
-    on_input=@cmd.Emit(source => {
-      raw_input_command(source, raw_input_coordinator, emit)
-    }),
+    @rui.textarea(
+      id="loomark-input",
+      value=source,
+      rows=4,
+      attrs=@html.Attrs::build().aria_label("Raw Markdown source"),
+      style=[
+        "display:block;min-width:0;min-height:clamp(24rem,70vh,36rem);width:var(--lm-page-width);margin-inline:auto;field-sizing:content;resize:none;overflow:hidden;--rui-control-base-border:transparent;--rui-control-base-shadow:none;background:transparent;padding:1rem var(--lm-page-x-padding);font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,\"Liberation Mono\",\"Courier New\",monospace;font-size:1.125rem;line-height:1.65",
+      ],
+      on_input=@cmd.Emit(source => {
+        raw_input_command(source, raw_input_coordinator, emit)
+      }),
+    ),
   )
 }
 
@@ -484,6 +494,7 @@ fn preview_view(
     @rui.alert(
       id="loomark-error",
       variant=@rui.Destructive,
+      style=["border-radius:0"],
       @rui.alert_description("Changes are applied but not saved locally."),
     )
   } else {
@@ -492,6 +503,7 @@ fn preview_view(
         @rui.alert(
           id="loomark-error",
           variant=@rui.Destructive,
+          style=["border-radius:0"],
           @rui.alert_description("error: " + error),
         )
       None => @html.nothing
@@ -557,10 +569,10 @@ fn preview_view(
               ),
             ],
           ),
+          error_view,
         ],
       ),
       driver_controls,
-      error_view,
     ],
   )
 }

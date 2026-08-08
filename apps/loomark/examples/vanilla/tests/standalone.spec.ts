@@ -184,11 +184,36 @@ test("Raw, Block, and Preview editing stays inside the original production root"
   await expect(root).toHaveCount(1)
 })
 
-test("mobile page frame drops desktop rails in a stacked split", async ({ page }) => {
+test("Preview wraps long unbreakable content inside the reading frame", async ({ page }) => {
+  await page.goto("/")
+  const longUrl = `https://example.com/${`a`.repeat(200)}`
+  const source =
+    `# Long content\n\nVisit ${longUrl} and read this paragraph.\n\nInline code: \`${`x`.repeat(150)}\`\n`
+  await page.locator("#loomark-input").fill(source)
+  await page.locator("#loomark-mode-preview").click()
+  const preview = page.locator("#loomark-preview")
+  await expect(preview).toHaveAttribute("data-loomark-source", source)
+  // Long URLs and inline code wrap inside the reading frame instead of
+  // stretching the Preview pane into a horizontal scroll.
+  await expect
+    .poll(async () => preview.evaluate(el => el.scrollWidth > el.clientWidth))
+    .toBe(false)
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => document.documentElement.scrollWidth > window.innerWidth,
+      ),
+    )
+    .toBe(false)
+})
+
+test("frames stay borderless and only the split divider separates panes", async ({ page }) => {
   await page.goto("/")
 
   const raw = page.locator("#loomark-input")
-  await expect(raw).toHaveCSS("border-left-width", "1px")
+  // Raw keeps RUI's transparent control border; no side rail is drawn.
+  await expect(raw).toHaveCSS("border-left-color", "rgba(0, 0, 0, 0)")
+  await expect(raw).toHaveCSS("border-right-color", "rgba(0, 0, 0, 0)")
   await expect(raw).toHaveCSS("padding-left", "16px")
 
   await page.setViewportSize({ width: 640, height: 844 })
@@ -201,12 +226,20 @@ test("mobile page frame drops desktop rails in a stacked split", async ({ page }
     "aria-orientation",
     "horizontal",
   )
+  // The resizable handle line is the only divider between the panes.
+  await expect(
+    split.locator('[data-slot="resizable-handle-line"]'),
+  ).toBeVisible()
 
   const preview = page.locator("#loomark-preview")
   await expect(preview).toHaveAttribute("data-loomark-source", "# Narrow\n")
+  // Raw keeps RUI's transparent control border (1px, no visible rail);
+  // Preview carries no side border at all. Neither frame draws a rail.
+  await expect(raw).toHaveCSS("border-left-color", "rgba(0, 0, 0, 0)")
+  await expect(raw).toHaveCSS("border-right-color", "rgba(0, 0, 0, 0)")
+  await expect(preview).toHaveCSS("border-left-width", "0px")
+  await expect(preview).toHaveCSS("border-right-width", "0px")
   for (const frame of [raw, preview]) {
-    await expect(frame).toHaveCSS("border-left-width", "0px")
-    await expect(frame).toHaveCSS("border-right-width", "0px")
     await expect(frame).toHaveCSS("padding-left", "12px")
     await expect(frame).toHaveCSS("padding-right", "12px")
     await expect(frame).toHaveCSS("width", "640px")

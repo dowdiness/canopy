@@ -48,17 +48,25 @@ fn mode_view(
   if model.state.mode() == @core.Block {
     @html.div(
       id="loomark-block-frame",
-      style=[
-        "width:var(--lm-page-width);margin-inline:auto;min-width:0;display:flex;flex-direction:column;border-left:var(--lm-page-side-border-width) solid var(--rui-border);border-right:var(--lm-page-side-border-width) solid var(--rui-border)",
-      ],
+      style=["width:100%;min-width:0;display:flex;flex-direction:column"],
       [
-        block_format_toolbar(model, emit),
+        @html.div(
+          style=[
+            "width:var(--lm-page-width);margin-inline:auto;min-width:0;display:flex;flex-direction:column",
+          ],
+          block_format_toolbar(model, emit),
+        ),
         @html.div(
           id="loomark-active-view",
           style=[
-            "width:100%;min-width:0;flex:1;min-height:0;display:flex;overflow-y:auto",
+            "width:100%;min-width:0;flex:1;min-height:0;display:flex;overflow-y:auto;overflow-x:hidden",
           ],
-          editor_view(model, emit, raw_input_coordinator),
+          @html.div(
+            style=[
+              "width:var(--lm-page-width);margin-inline:auto;min-width:0;display:flex;flex-direction:column;gap:0.25rem",
+            ],
+            editor_view(model, emit, raw_input_coordinator),
+          ),
         ),
       ],
     )
