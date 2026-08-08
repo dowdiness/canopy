@@ -5,7 +5,7 @@
 pub fn detect_action_context(
   editor : @editor.SyncEditor[@ast.Term],
   node_id : @core.NodeId,
-) -> @lambda_edits.ActionContext? {
+) -> @lambda_edits.ActionContext? raise Failure {
   let node = match editor.get_node(node_id) {
     Some(n) => n
     None => return None

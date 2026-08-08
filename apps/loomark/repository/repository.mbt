@@ -25,12 +25,14 @@ const TRUSTED_LOCAL_ADMISSION_MAXIMUM : Int = 2147483647
 ///|
 /// Construct the explicit policy for a device-owned local archive.
 pub fn LocalRestorePolicy::trusted() -> LocalRestorePolicy {
-  let open_limits = try! @markdown.MarkdownArchiveOpenLimits(
+  let open_limits = @markdown.MarkdownArchiveOpenLimits(
     max_encoded_bytes=TRUSTED_LOCAL_ADMISSION_MAXIMUM,
     max_decoded_operations=TRUSTED_LOCAL_ADMISSION_MAXIMUM,
     max_pending_operations=TRUSTED_LOCAL_ADMISSION_MAXIMUM,
     max_parents_per_operation=TRUSTED_LOCAL_ADMISSION_MAXIMUM,
-  )
+  ) catch {
+    _ => abort("trusted local archive limits must be valid")
+  }
   LocalRestorePolicy(open_limits)
 }
 
@@ -102,7 +104,7 @@ pub fn classify_local_archive_record(
   raw_record : String?,
   validation_agent_id~ : String,
   policy~ : LocalRestorePolicy,
-) -> LocalArchiveLoad {
+) -> LocalArchiveLoad raise {
   match raw_record {
     None => LocalArchiveLoad::Missing
     Some(encoded) => {
@@ -111,7 +113,30 @@ pub fn classify_local_archive_record(
         validation_agent_id~,
         open_limits=policy.open_limits,
       ) catch {
-        error => return LocalArchiveLoad::Rejected(map_decode_failure(error))
+        Failure::Failure(_) as failure => raise failure
+        @archive.LoomarkArchiveDecodeError::UnsupportedNewerVersion(..) as error =>
+          return LocalArchiveLoad::Rejected(map_decode_failure(error))
+        @archive.LoomarkArchiveDecodeError::MalformedEnvelope(..) as error =>
+          return LocalArchiveLoad::Rejected(map_decode_failure(error))
+        @archive.LoomarkArchiveDecodeError::EmptyDocumentId as error =>
+          return LocalArchiveLoad::Rejected(map_decode_failure(error))
+        @archive.LoomarkArchiveDecodeError::CorruptHistory(..) as error =>
+          return LocalArchiveLoad::Rejected(map_decode_failure(error))
+        @archive.LoomarkArchiveDecodeError::PortableTextHistoryMismatch as error =>
+          return LocalArchiveLoad::Rejected(map_decode_failure(error))
+        @archive.LoomarkArchiveDecodeError::InvalidValidationAgentId as error =>
+          return LocalArchiveLoad::Rejected(map_decode_failure(error))
+        @archive.LoomarkArchiveDecodeError::WriterCreationFailed(..) as error =>
+          return LocalArchiveLoad::Rejected(map_decode_failure(error))
+        @archive.LoomarkArchiveDecodeError::LimitExceeded(..) as error =>
+          return LocalArchiveLoad::Rejected(map_decode_failure(error))
+        @archive.LoomarkArchiveDecodeError::HistoryAdmissionFailed(..) as error =>
+          return LocalArchiveLoad::Rejected(map_decode_failure(error))
+        @archive.LoomarkArchiveDecodeError::HistoryExportFailed(..) as error =>
+          return LocalArchiveLoad::Rejected(map_decode_failure(error))
+        @archive.LoomarkArchiveDecodeError::IncompleteHistory as error =>
+          return LocalArchiveLoad::Rejected(map_decode_failure(error))
+        error => raise error
       }
       LocalArchiveLoad::Valid(archive)
     }
@@ -135,10 +160,12 @@ pub struct PreparedLocalArchive {
 pub fn prepare_local_archive(
   document_id~ : @archive.LoomarkDocumentId,
   editor~ : @markdown.MarkdownEditor,
-) -> PreparedLocalArchive raise LocalArchivePreparationError {
+) -> PreparedLocalArchive raise {
   let archive = @archive.LoomarkDocumentArchive::capture(document_id~, editor~) catch {
+    Failure::Failure(_) as failure => raise failure
     @archive.LoomarkArchiveCaptureError::HistoryUnavailable(detail~) =>
       raise LocalArchivePreparationError::HistoryUnavailable(detail~)
+    error => raise error
   }
   { encoded: archive.to_json_string() }
 }
@@ -264,13 +291,31 @@ pub fn reopen_local_archive(
   archive : @archive.LoomarkDocumentArchive,
   agent_id~ : String,
   policy~ : LocalRestorePolicy,
-) -> ReopenedLocalArchive raise @markdown.MarkdownArchiveError {
+) -> ReopenedLocalArchive raise {
   let (editor, attachment) = @markdown.MarkdownEditor::open_with_semantic_attachment(
     agent_id~,
     history=archive.history(),
     open_limits=policy.open_limits,
   )
   { document_id: archive.document_id(), editor, attachment }
+}
+
+///|
+/// Reopen parser-independent complete history captured from a terminal editor.
+/// Unlike archive admission, this does not compare a parser-derived portable
+/// text summary; the fresh editor becomes the authority after history replay.
+pub fn reopen_local_history(
+  history : @markdown.MarkdownDocumentHistory,
+  document_id~ : @archive.LoomarkDocumentId,
+  agent_id~ : String,
+  policy~ : LocalRestorePolicy,
+) -> ReopenedLocalArchive raise {
+  let (editor, attachment) = @markdown.MarkdownEditor::open_with_semantic_attachment(
+    agent_id~,
+    history~,
+    open_limits=policy.open_limits,
+  )
+  { document_id, editor, attachment }
 }
 
 ///|

@@ -8,7 +8,7 @@ pub fn insert_at(
   position : Int,
   text : String,
   timestamp_ms : Int,
-) -> Unit {
+) -> Unit raise {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.insert_at(position, text, timestamp_ms)
     None => ()
@@ -19,7 +19,11 @@ pub fn insert_at(
 /// Delete the character at a specific position without moving the cursor.
 /// Records the operation for undo. Returns false if position is out of bounds.
 /// Used by ProseMirror bridge.
-pub fn delete_at(handle : Int, position : Int, timestamp_ms : Int) -> Bool {
+pub fn delete_at(
+  handle : Int,
+  position : Int,
+  timestamp_ms : Int,
+) -> Bool raise {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.delete_at(position, timestamp_ms)
     None => false
@@ -33,7 +37,7 @@ pub fn apply_tree_edit_json(
   handle : Int,
   op_json : String,
   timestamp_ms : Int,
-) -> String {
+) -> String raise {
   match lambda_registry.get(handle) {
     Some(h) => {
       let json = @json.parse(op_json) catch {
@@ -52,7 +56,32 @@ pub fn apply_tree_edit_json(
           Err(err) => "error: " + map_edit_error(err).message()
         }
       } catch {
-        err => "error: " + err.message()
+        Failure::Failure(_) as failure => raise failure
+        @editor.TreeEditError::ExpectedJsonObject as error =>
+          "error: " + error.message()
+        @editor.TreeEditError::MissingField(..) as error =>
+          "error: " + error.message()
+        @editor.TreeEditError::FieldMustBeString(..) as error =>
+          "error: " + error.message()
+        @editor.TreeEditError::FieldMustBeNumber(..) as error =>
+          "error: " + error.message()
+        @editor.TreeEditError::UnknownBop(..) as error =>
+          "error: " + error.message()
+        @editor.TreeEditError::UnknownOpType(..) as error =>
+          "error: " + error.message()
+        @editor.TreeEditError::ProjectionUnavailable as error =>
+          "error: " + error.message()
+        @editor.TreeEditError::UnhandledOperation(..) as error =>
+          "error: " + error.message()
+        @editor.TreeEditError::NodeNotInSourceMap(..) as error =>
+          "error: " + error.message()
+        @editor.TreeEditError::NodeNotInRegistry(..) as error =>
+          "error: " + error.message()
+        @editor.TreeEditError::TextTransformFailed(..) as error =>
+          "error: " + error.message()
+        @editor.TreeEditError::ProjectionEdit(..) as error =>
+          "error: " + error.message()
+        error => raise error
       }
     }
     None => "error: no editor"
@@ -69,7 +98,7 @@ pub fn handle_text_intent(
   deleted_len : Int,
   insert : String,
   timestamp_ms : Int,
-) -> Unit {
+) -> Unit raise {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.apply_text_edit(from, deleted_len, insert, timestamp_ms)
     None => ()
@@ -88,7 +117,7 @@ pub fn handle_text_intent_checked(
   deleted_len : Int,
   insert : String,
   timestamp_ms : Int,
-) -> Bool {
+) -> Bool raise {
   match lambda_registry.get(handle) {
     Some(h) =>
       h.editor.apply_text_edit_exact(from, deleted_len, insert, timestamp_ms)
@@ -106,7 +135,7 @@ pub fn handle_diagnostic_fix_intent(
   diagnostic_id : Int,
   fix_id : Int,
   timestamp_ms : Int,
-) -> Bool {
+) -> Bool raise {
   match lambda_registry.get(handle) {
     Some(h) =>
       lambda_registry
@@ -123,12 +152,12 @@ pub fn handle_diagnostic_fix_intent(
 }
 
 ///|
-pub fn handle_undo(handle : Int) -> Bool {
+pub fn handle_undo(handle : Int) -> Bool raise Failure {
   undo_manager_undo(handle)
 }
 
 ///|
-pub fn handle_redo(handle : Int) -> Bool {
+pub fn handle_redo(handle : Int) -> Bool raise Failure {
   undo_manager_redo(handle)
 }
 
@@ -141,7 +170,7 @@ pub fn handle_structural_intent(
   node_id_str : String,
   timestamp_ms : Int,
   params_json : String,
-) -> String {
+) -> String raise {
   let m : Map[String, Json] = Map([])
   m["type"] = op.to_json()
   let node_id_int = @string.parse_int(node_id_str) catch {

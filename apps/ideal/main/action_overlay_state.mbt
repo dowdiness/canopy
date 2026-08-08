@@ -3,7 +3,7 @@ fn open_action_overlay_from_event(
   _parent_emit : @rabbita.Emit[Msg],
   model : Model,
   node_id_str : String,
-) -> (Cmd, Model) {
+) -> (Cmd, Model) raise {
   open_action_overlay(model, node_id_str)
 }
 
@@ -70,7 +70,7 @@ fn open_action_overlay(
   model : Model,
   node_id_str : String,
   rect_json? : String = js_get_selected_node_rect(),
-) -> (Cmd, Model) {
+) -> (Cmd, Model) raise {
   if node_id_str == "" {
     return (none, model)
   }

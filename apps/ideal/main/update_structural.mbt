@@ -3,7 +3,7 @@ fn handle_structural(
   emit : Emit[Msg],
   msg : Msg,
   model : Model,
-) -> (Cmd, Model)? {
+) -> (Cmd, Model)? raise {
   let _ = emit
   match msg {
     StructuralEditRequested(op~, node_id~) =>

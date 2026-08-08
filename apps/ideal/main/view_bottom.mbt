@@ -258,7 +258,7 @@ fn view_history_panel(model : Model) -> Html {
 /// a `<section>` with `inner_html` rather than a `<div>` with vdom
 /// children, and for the `bottom_visible` gate.
 #warnings("-alert_xss_vulnerable")
-fn view_graphviz_panel(model : Model) -> Html {
+fn view_graphviz_panel(model : Model) -> Html raise {
   let html = if model.workspace.bottom_visible {
     render_graphviz_html(model)
   } else {
@@ -289,7 +289,7 @@ fn view_incr_graph_panel(model : Model) -> Html {
 }
 
 ///|
-fn view_bottom_content(dispatch : Emit[Msg], model : Model) -> Html {
+fn view_bottom_content(dispatch : Emit[Msg], model : Model) -> Html raise {
   let content : Html = match model.bottom_tab {
     Problems => view_problems(model)
     OpLog => view_op_log(model)

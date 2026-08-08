@@ -1,5 +1,9 @@
 ///|
-fn handle_outline(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model)? {
+fn handle_outline(
+  emit : Emit[Msg],
+  msg : Msg,
+  model : Model,
+) -> (Cmd, Model)? raise {
   let _ = emit
   match msg {
     OutlineNodeClicked(node_id) => {

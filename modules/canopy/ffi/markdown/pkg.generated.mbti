@@ -2,11 +2,11 @@
 package "dowdiness/canopy/ffi/markdown"
 
 // Values
-pub fn create_markdown_editor(String) -> Int
+pub fn create_markdown_editor(String) -> Int raise
 
 pub fn destroy_markdown_editor(Int) -> Unit
 
-pub fn markdown_apply_edit(Int, String, Int, String, Int, Int) -> String
+pub fn markdown_apply_edit(Int, String, Int, String, Int, Int) -> String raise
 
 pub fn markdown_compute_view_patches_json(Int) -> String
 
@@ -16,7 +16,9 @@ pub fn markdown_export_text(Int) -> String
 
 pub fn markdown_get_text(Int) -> String
 
-pub fn markdown_set_text(Int, String) -> Unit
+pub fn markdown_set_text(Int, String) -> Unit raise
+
+pub fn try_destroy_markdown_editor(Int) -> Bool
 
 // Errors
 

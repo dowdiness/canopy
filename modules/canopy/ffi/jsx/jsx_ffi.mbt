@@ -73,16 +73,18 @@ fn proj_node_to_json(node : @canopy_core.ProjNode[@jsx_ast.JsxNode]) -> Json {
 /// Parse JSX text and return the ProjNode tree as JSON.
 /// The JSON includes node_ids, kind tags, and structural info so the demo
 /// page can highlight stable-vs-new NodeIds across streaming re-parses.
-pub fn jsx_parse_to_json(text : String) -> String {
+pub fn jsx_parse_to_json(text : String) -> String raise {
   let (proj, errors) = @jsx_proj.parse_to_proj_node(
     allocate_jsx_source_id(),
     text,
   ) catch {
-    _ =>
+    Failure::Failure(_) as failure => raise failure
+    @loomcore.LexError(_) =>
       return Json::object({
         "success": Json::boolean(false),
         "error": Json::string("LexError"),
       }).stringify()
+    error => raise error
   }
   Json::object({
     "success": Json::boolean(true),
@@ -99,7 +101,7 @@ pub fn jsx_parse_to_json(text : String) -> String {
 /// Input: a single string with prefixes separated by '\0' (NUL byte).
 /// Output: a JSON array of step objects, each with `prefix_index`, `success`,
 /// `root`, and `errors`.
-pub fn jsx_streaming_to_json(prefixes_input : String) -> String {
+pub fn jsx_streaming_to_json(prefixes_input : String) -> String raise {
   let parts : Array[String] = [
     for sv in prefixes_input.split("\u0000") => sv.to_owned()
   ]
@@ -144,12 +146,14 @@ pub fn jsx_streaming_to_json(prefixes_input : String) -> String {
 fn get_or_empty_errors(
   source_id : @loomcore.SourceId,
   text : String,
-) -> Array[String] {
+) -> Array[String] raise {
   try {
     let (_, errors) = @jsx_proj.parse_to_proj_node(source_id, text)
     errors
   } catch {
-    _ => []
+    Failure::Failure(_) as failure => raise failure
+    @loomcore.LexError(_) => []
+    error => raise error
   }
 }
 
@@ -157,11 +161,16 @@ fn get_or_empty_errors(
 /// Legacy one-cycle compatibility wrapper. Identity stability belongs to
 /// `jsx_session_new`/`jsx_session_render`; this function intentionally parses
 /// independently on every call and keeps no parser or DOM ownership state.
-pub fn jsx_parse_and_render(text : String, existing_json : String) -> String {
+pub fn jsx_parse_and_render(
+  text : String,
+  existing_json : String,
+) -> String raise {
   let parsed : (@canopy_core.ProjNode[@jsx_ast.JsxNode], Array[String])? = Some(
     @jsx_proj.parse_to_proj_node(allocate_jsx_source_id(), text),
   ) catch {
-    _ => None
+    Failure::Failure(_) as failure => raise failure
+    @loomcore.LexError(_) => None
+    error => raise error
   }
   match parsed {
     Some((proj, _)) => render_proj(proj, existing_json)

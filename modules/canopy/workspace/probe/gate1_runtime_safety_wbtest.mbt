@@ -62,7 +62,7 @@ let next_probe_source_identity : Ref[Int] = { val: 0 }
 fn json_parser_on(
   rt : @incr.Runtime,
   source : String,
-) -> @loom.Parser[@_json_lang.JsonValue] {
+) -> @loom.Parser[@_json_lang.JsonValue] raise {
   let identity = next_probe_source_identity.val
   next_probe_source_identity.val = identity + 1
   @loom.new_parser(

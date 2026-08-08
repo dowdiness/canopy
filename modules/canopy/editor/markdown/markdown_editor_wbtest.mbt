@@ -16,7 +16,7 @@ fn archive_open_limits(
 }
 
 ///|
-fn fresh_markdown_ir(source : String) -> @md_markdown.MarkdownIR {
+fn fresh_markdown_ir(source : String) -> @md_markdown.MarkdownIR raise {
   let parser = @loom.new_parser(
     @loom.SourceId("markdown-editor-semantic-fresh"),
     source,
@@ -1255,7 +1255,7 @@ test "typed delete selects the adjacent survivor instead of a stale cursor" {
 
 ///|
 test "empty replica identity is a categorized construction failure" {
-  let result : Result[MarkdownEditor, MarkdownEditorError] = Ok(
+  let result : Result[MarkdownEditor, Error] = Ok(
     MarkdownEditor(agent_id="", source=""),
   ) catch {
     error => Err(error)
@@ -1301,7 +1301,7 @@ test "archive open enforces the exact encoded-byte limit atomically" {
     max_pending_operations=10,
     max_parents_per_operation=16,
   )
-  let refused : Result[MarkdownEditor, MarkdownArchiveError] = Ok(
+  let refused : Result[MarkdownEditor, Error] = Ok(
     MarkdownEditor::open(
       agent_id="archive-policy-over",
       history~,
@@ -1476,7 +1476,7 @@ test "open categorizes a bad writer identity as such" {
   let document = try! MarkdownEditor(agent_id="identity-source", source="# T\n")
   let history = try! document.history_since()
 
-  let refused : Result[MarkdownEditor, MarkdownArchiveError] = Ok(
+  let refused : Result[MarkdownEditor, Error] = Ok(
     MarkdownEditor::open(
       agent_id="",
       history~,
@@ -1549,7 +1549,7 @@ test "withheld operations are reported by admit and refused by open" {
     MarkdownAdmitReport::Withheld(applied=0, withheld=1),
   )
 
-  let refused : Result[MarkdownEditor, MarkdownArchiveError] = Ok(
+  let refused : Result[MarkdownEditor, Error] = Ok(
     MarkdownEditor::open(
       agent_id="gap-open",
       history=gapped,
@@ -1563,7 +1563,7 @@ test "withheld operations are reported by admit and refused by open" {
     _ => fail("expected IncompleteHistory")
   }
 
-  let capacity_refused : Result[MarkdownEditor, MarkdownArchiveError] = Ok(
+  let capacity_refused : Result[MarkdownEditor, Error] = Ok(
     MarkdownEditor::open(
       agent_id="gap-capacity-open",
       history=gapped,

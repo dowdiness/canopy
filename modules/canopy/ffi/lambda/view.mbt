@@ -3,7 +3,7 @@
 ///|
 /// Get the ViewNode tree as JSON for a lambda editor.
 /// Returns "null" if no projection is available or any protected read fails.
-pub fn get_view_tree_json(handle : Int) -> String {
+pub fn get_view_tree_json(handle : Int) -> String raise Failure {
   match lambda_registry.get(handle) {
     Some(h) => {
       let _ = match
@@ -51,7 +51,7 @@ pub fn get_view_tree_json(handle : Int) -> String {
 /// Compute incremental view patches for a lambda editor.
 /// Returns a JSON array of ViewPatch objects, or "[]" if any protected read
 /// fails.
-pub fn compute_view_patches_json(handle : Int) -> String {
+pub fn compute_view_patches_json(handle : Int) -> String raise Failure {
   match lambda_registry.get(handle) {
     Some(h) => {
       let _ = match

@@ -2,6 +2,7 @@
 package "dowdiness/canopy/lang/lambda/proj"
 
 import {
+  "dowdiness/canopy/core",
   "dowdiness/diagnostic",
   "dowdiness/incr/cells",
   "dowdiness/lambda/ast",
@@ -25,23 +26,23 @@ pub const PARAM_ROLE : String = "param"
 
 pub const REFERENCE_NAME_ROLE : String = "reference:name"
 
-pub fn build_lambda_projection_memos(@pipeline.Parser[@ast.Term], identity_hints? : @dowdiness/canopy/core.IdentityHintConsumer, trace_ref? : @ref.Ref[Array[@dowdiness/canopy/core.ReconcileTraceEvent]]?) -> (@cells.Derived[@dowdiness/canopy/core.ProjNode[@ast.Term]?], @cells.Derived[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@ast.Term]]], @cells.Derived[@dowdiness/canopy/core.SourceMap])
+pub fn build_lambda_projection_memos(@pipeline.Parser[@ast.Term], identity_hints? : @core.IdentityHintConsumer, trace_ref? : @ref.Ref[Array[@core.ReconcileTraceEvent]]?) -> (@cells.Derived[@core.ProjNode[@ast.Term]?], @cells.Derived[Map[@core.NodeId, @core.ProjNode[@ast.Term]]], @cells.Derived[@core.SourceMap])
 
 pub fn module_name_role(Int) -> String
 
-pub fn parse_to_proj_node(@diagnostic.SourceId, String) -> (@dowdiness/canopy/core.ProjNode[@ast.Term], Array[String]) raise @dowdiness/loom/core.LexError
+pub fn parse_to_proj_node(@diagnostic.SourceId, String) -> (@core.ProjNode[@ast.Term], Array[String]) raise
 
-pub fn populate_token_spans(@dowdiness/canopy/core.SourceMap, @seam.SyntaxNode, @dowdiness/canopy/core.ProjNode[@ast.Term]) -> Unit
+pub fn populate_token_spans(@core.SourceMap, @seam.SyntaxNode, @core.ProjNode[@ast.Term]) -> Unit
 
-pub fn rebuild_kind(@ast.Term, Array[@dowdiness/canopy/core.ProjNode[@ast.Term]]) -> @ast.Term
+pub fn rebuild_kind(@ast.Term, Array[@core.ProjNode[@ast.Term]]) -> @ast.Term
 
-pub fn syntax_to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @dowdiness/canopy/core.ProjNode[@ast.Term]
+pub fn syntax_to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @core.ProjNode[@ast.Term]
 
 pub fn term_css_class(@ast.Term) -> String
 
 pub fn term_kind_tag(@ast.Term) -> String
 
-pub fn to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @dowdiness/canopy/core.ProjNode[@ast.Term]
+pub fn to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @core.ProjNode[@ast.Term]
 
 // Errors
 
@@ -49,9 +50,9 @@ pub fn to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @dowdiness/canopy/core.P
 pub struct DefinitionIndex {
   // private fields
 }
-pub fn DefinitionIndex::binding_for_node(Self, @dowdiness/canopy/core.NodeId) -> (@dowdiness/canopy/core.NodeId, Int)?
-pub fn DefinitionIndex::cutoff_at_node(Self, @dowdiness/canopy/core.SourceMap, @dowdiness/canopy/core.NodeId) -> Int
-pub fn DefinitionIndex::from_proj_node(@dowdiness/canopy/core.ProjNode[@ast.Term]) -> Self
+pub fn DefinitionIndex::binding_for_node(Self, @core.NodeId) -> (@core.NodeId, Int)?
+pub fn DefinitionIndex::cutoff_at_node(Self, @core.SourceMap, @core.NodeId) -> Int
+pub fn DefinitionIndex::from_proj_node(@core.ProjNode[@ast.Term]) -> Self
 pub fn DefinitionIndex::length(Self) -> Int
 
 // Type aliases

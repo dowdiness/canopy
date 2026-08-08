@@ -131,17 +131,17 @@ pub(all) enum MarkdownEditRequest {
 pub struct MarkdownEditor {
   // private fields
 }
-pub fn MarkdownEditor::MarkdownEditor(agent_id~ : String, source~ : String) -> Self raise MarkdownEditorError
-pub fn MarkdownEditor::admit(Self, MarkdownDocumentHistory) -> MarkdownAdmitReport raise MarkdownArchiveError
-pub fn MarkdownEditor::commit(Self, MarkdownEditRequest) -> Result[MarkdownCommitResult, MarkdownEditorError]
-pub fn MarkdownEditor::commit_with_receipt(Self, MarkdownEditRequest) -> Result[MarkdownCommitReceipt, MarkdownEditorError] raise MarkdownArchiveError
+pub fn MarkdownEditor::MarkdownEditor(agent_id~ : String, source~ : String) -> Self raise
+pub fn MarkdownEditor::admit(Self, MarkdownDocumentHistory) -> MarkdownAdmitReport raise
+pub fn MarkdownEditor::commit(Self, MarkdownEditRequest) -> Result[MarkdownCommitResult, MarkdownEditorError] raise
+pub fn MarkdownEditor::commit_with_receipt(Self, MarkdownEditRequest) -> Result[MarkdownCommitReceipt, MarkdownEditorError] raise
 pub fn MarkdownEditor::history_since(Self, version? : MarkdownDocumentVersion) -> MarkdownDocumentHistory raise MarkdownArchiveError
-pub fn MarkdownEditor::open(agent_id~ : String, history~ : MarkdownDocumentHistory, open_limits~ : MarkdownArchiveOpenLimits) -> Self raise MarkdownArchiveError
-pub fn MarkdownEditor::open_with_semantic_attachment(agent_id~ : String, history~ : MarkdownDocumentHistory, open_limits~ : MarkdownArchiveOpenLimits) -> (Self, @dowdiness/markdown.MarkdownSemanticAttachment) raise MarkdownArchiveError
+pub fn MarkdownEditor::open(agent_id~ : String, history~ : MarkdownDocumentHistory, open_limits~ : MarkdownArchiveOpenLimits) -> Self raise
+pub fn MarkdownEditor::open_with_semantic_attachment(agent_id~ : String, history~ : MarkdownDocumentHistory, open_limits~ : MarkdownArchiveOpenLimits) -> (Self, @dowdiness/markdown.MarkdownSemanticAttachment) raise
 pub fn MarkdownEditor::portable_markdown(Self) -> String
-pub fn MarkdownEditor::snapshot(Self) -> MarkdownDocumentSnapshot
+pub fn MarkdownEditor::snapshot(Self) -> MarkdownDocumentSnapshot raise Failure
 pub fn MarkdownEditor::version(Self) -> MarkdownDocumentVersion
-pub fn MarkdownEditor::with_semantic_attachment(agent_id~ : String, source~ : String) -> (Self, @dowdiness/markdown.MarkdownSemanticAttachment) raise MarkdownEditorError
+pub fn MarkdownEditor::with_semantic_attachment(agent_id~ : String, source~ : String) -> (Self, @dowdiness/markdown.MarkdownSemanticAttachment) raise
 
 pub struct MarkdownNodeId {
   // private fields

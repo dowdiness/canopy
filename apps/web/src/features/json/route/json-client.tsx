@@ -1,14 +1,13 @@
 'use client';
 
 import { type ReactNode, useCallback, useState } from 'react';
+import { adaptMoonBitModule } from '@canopy/editor-adapter/moonbit-result';
 import { ImperativeDemoHost } from '../../../shared/route-lifecycle/browser/imperative-host';
-import {
-  mountJsonEditor,
-  type JsonEditorRuntime,
-} from '../browser/editor';
+import { mountJsonEditor } from '../browser/editor';
 import '../browser/styles.css';
 
-const loadJsonRuntime: (() => Promise<JsonEditorRuntime>) | null = import.meta.env.SSR
+type RawJsonEditorRuntime = typeof import('@moonbit/crdt-json');
+const loadJsonRuntime: (() => Promise<RawJsonEditorRuntime>) | null = import.meta.env.SSR
   ? null
   : () => import('@moonbit/crdt-json');
 
@@ -34,7 +33,12 @@ function mountJsonRoute(
   void loadJsonRuntime()
     .then((runtime) => {
       if (disposed) return;
-      controller = mountJsonEditor(container, restoredSnapshot, runtime);
+      const adaptedRuntime = adaptMoonBitModule(runtime, {
+        createFunctions: ['create_json_editor'],
+        destroyFunctions: ['destroy_json_editor'],
+        tryDestroyFunctions: ['try_destroy_json_editor'],
+      });
+      controller = mountJsonEditor(container, restoredSnapshot, adaptedRuntime);
       if (
         pendingFocusToken !== null &&
         !controller.restoreFocus(pendingFocusToken)

@@ -3,7 +3,7 @@ fn handle_structure_mode(
   emit : Emit[Msg],
   msg : Msg,
   model : Model,
-) -> (Cmd, Model)? {
+) -> (Cmd, Model)? raise {
   let _ = emit
   match msg {
     StructureNodeSelected(node_id) =>

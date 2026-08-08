@@ -1,4 +1,5 @@
 'use client';
+import { adaptMoonBitModule } from '@canopy/editor-adapter/moonbit-result';
 import './styles.css';
 import {
   ORDER_ROWS,
@@ -336,7 +337,7 @@ async function ensureJsxModule() {
     throw error
   }
   if (disposed) throw new Error('GenUI session was disposed before the JSX runtime loaded.')
-  jsxModule = loaded
+  jsxModule = adaptMoonBitModule(loaded)
 }
 
 async function ensureFeasibilitySession() {

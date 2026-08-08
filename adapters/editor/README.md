@@ -76,6 +76,13 @@ Anything imported from `@canopy/loom`, `@canopy/lang`, or `@canopy/eg-walker` in
 | `HTMLAdapter`                     | unstable   | DOM-only adapter, primarily for tests and previews.|
 | `MarkdownPreview`                 | unstable   | Helper view for markdown rendering.                |
 | `BlockInput`                      | internal   | Used by Canopy demos; not for external consumption.|
+| `adaptMoonBitModule`              | unstable   | Host quarantine for generated MoonBit `Result` exports. |
+
+`adaptMoonBitModule` belongs at the module-load boundary, never inside editor
+business logic. It unwraps generated `Result` values, redacts failure payloads,
+best-effort destroys a failed handle, and rejects later calls through that
+adapted module. Raw generated modules retain their typed MoonBit result shape;
+application code receives direct values or a structured `CanopyHostError`.
 
 External consumers should program against `stable` exports. `unstable` exports may break in minor versions until they graduate.
 

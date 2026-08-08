@@ -45,20 +45,20 @@ fn sync_after_external_crdt_change(model : Model) -> Cmd {
 }
 
 ///|
-fn apply_text_edit(model : Model, text : String) -> (String, Model) {
+fn apply_text_edit(model : Model, text : String) -> (String, Model) raise {
   model.editor.set_text_and_record(text, js_now_ms())
   let changed = refresh({ ..model, next_timestamp: model.next_timestamp + 1 })
   (changed.editor.get_text(), changed)
 }
 
 ///|
-fn load_text(model : Model, text : String) -> (Cmd, Model) {
+fn load_text(model : Model, text : String) -> (Cmd, Model) raise {
   let (actual_text, changed) = apply_text_edit(model, text)
   (sync_after_local_model_change(changed, actual_text), changed)
 }
 
 ///|
-fn select_text_node_cmd(model : Model, node_id : String) -> Cmd {
+fn select_text_node_cmd(model : Model, node_id : String) -> Cmd raise {
   match parse_node_id(node_id) {
     None => none
     Some(nid) =>
@@ -80,7 +80,7 @@ fn select_text_node_cmd(model : Model, node_id : String) -> Cmd {
 }
 
 ///|
-fn select_editor_node_cmd(model : Model, node_id : String) -> Cmd {
+fn select_editor_node_cmd(model : Model, node_id : String) -> Cmd raise {
   let focus_outline = @rabbita.effect(fn() { js_focus_tree_rows() })
   if model.mode == Text {
     @rabbita.batch([select_text_node_cmd(model, node_id), focus_outline])
@@ -97,7 +97,7 @@ fn select_editor_node_cmd(model : Model, node_id : String) -> Cmd {
 /// @scope.build_scope_map that extracts projection data from SyncEditor.
 fn build_scope_map_from_editor(
   editor : @editor.SyncEditor[@ast.Term],
-) -> Map[@canopy_core.NodeId, @scope.ScopeAnnotation] {
+) -> Map[@canopy_core.NodeId, @scope.ScopeAnnotation] raise {
   match editor.get_proj_node() {
     Some(proj_root) =>
       @scope.build_scope_map(
@@ -110,7 +110,7 @@ fn build_scope_map_from_editor(
 }
 
 ///|
-fn refresh(model : Model) -> Model {
+fn refresh(model : Model) -> Model raise {
   js_perf_begin("refreshTotal")
   js_perf_begin("getProjNode")
   let proj_node = model.editor.get_proj_node()
@@ -190,7 +190,7 @@ fn can_hydrate_tree_node(model : Model, node_id : @canopy_core.NodeId) -> Bool {
 fn commit_tree_edit(
   model : Model,
   tree_op : @lambda_edits.TreeEditOp,
-) -> Result[(Cmd, Model), @canopy_core.EditError] {
+) -> Result[(Cmd, Model), @canopy_core.EditError] raise {
   match
     @lambda.apply_lambda_tree_edit(
       model.editor,

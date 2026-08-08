@@ -8,7 +8,6 @@ interface WsCrdtModule {
   ws_on_close(handle: number): void;
   ws_broadcast_edit(handle: number): void;
   ws_broadcast_cursor(handle: number): void;
-  [key: string]: any;
 }
 
 const RECONNECT_DELAY_MS = 2000;

@@ -15,25 +15,25 @@ pub fn apply_ast_grep_results_json(Int, String) -> String
 
 pub fn apply_sync_json(Int, String) -> String
 
-pub fn apply_tree_edit_json(Int, String, Int) -> String
+pub fn apply_tree_edit_json(Int, String, Int) -> String raise
 
-pub fn backspace_and_record(Int, Int) -> Bool
+pub fn backspace_and_record(Int, Int) -> Bool raise Failure
 
 pub fn canopy_llm_edit(String, String, String) -> @js_async.Promise[String]
 
 pub fn canopy_llm_fix_typos(String, String) -> @js_async.Promise[String]
 
-pub fn compute_pretty_patches_json(Int) -> String
+pub fn compute_pretty_patches_json(Int) -> String raise Failure
 
-pub fn compute_view_patches_json(Int) -> String
+pub fn compute_view_patches_json(Int) -> String raise Failure
 
-pub fn create_editor(String) -> Int
+pub fn create_editor(String) -> Int raise
 
-pub fn create_editor_with_undo(String, Int) -> Int
+pub fn create_editor_with_undo(String, Int) -> Int raise
 
-pub fn delete_and_record(Int, Int) -> Bool
+pub fn delete_and_record(Int, Int) -> Bool raise Failure
 
-pub fn delete_at(Int, Int, Int) -> Bool
+pub fn delete_at(Int, Int, Int) -> Bool raise
 
 pub fn destroy_editor(Int) -> Unit
 
@@ -55,19 +55,19 @@ pub fn export_all_json(Int) -> String
 
 pub fn export_since_json(Int, String) -> String
 
-pub fn get_ast_dot_resolved(Int) -> String
+pub fn get_ast_dot_resolved(Int) -> String raise Failure
 
-pub fn get_ast_pretty(Int) -> String
+pub fn get_ast_pretty(Int) -> String raise Failure
 
 pub fn get_diagnostics_json(Int) -> String
 
-pub fn get_errors_json(Int) -> String
+pub fn get_errors_json(Int) -> String raise Failure
 
 pub fn get_lambda_companion() -> @companion.LambdaCompanion?
 
 pub fn get_pattern_matches_json(Int) -> String
 
-pub fn get_pretty_view_json(Int) -> String
+pub fn get_pretty_view_json(Int) -> String raise Failure
 
 pub fn get_proj_node_json(Int) -> String
 
@@ -81,29 +81,29 @@ pub fn get_text(Int) -> String
 
 pub fn get_version_json(Int) -> String
 
-pub fn get_view_tree_json(Int) -> String
+pub fn get_view_tree_json(Int) -> String raise Failure
 
-pub fn handle_diagnostic_fix_intent(Int, Int, Int, Int, Int) -> Bool
+pub fn handle_diagnostic_fix_intent(Int, Int, Int, Int, Int) -> Bool raise
 
-pub fn handle_redo(Int) -> Bool
+pub fn handle_redo(Int) -> Bool raise Failure
 
-pub fn handle_structural_intent(Int, String, String, Int, String) -> String
+pub fn handle_structural_intent(Int, String, String, Int, String) -> String raise
 
-pub fn handle_text_intent(Int, Int, Int, String, Int) -> Unit
+pub fn handle_text_intent(Int, Int, Int, String, Int) -> Unit raise
 
-pub fn handle_text_intent_checked(Int, Int, Int, String, Int) -> Bool
+pub fn handle_text_intent_checked(Int, Int, Int, String, Int) -> Bool raise
 
-pub fn handle_undo(Int) -> Bool
+pub fn handle_undo(Int) -> Bool raise Failure
 
 pub fn insert_and_record(Int, String, Int) -> Unit
 
-pub fn insert_at(Int, Int, String, Int) -> Unit
+pub fn insert_at(Int, Int, String, Int) -> Unit raise
 
 pub fn load_file(Int) -> Unit
 
-pub fn on_file_opened(Int, String, Int) -> Unit
+pub fn on_file_opened(Int, String, Int) -> Unit raise
 
-pub fn redo_and_export_json(Int) -> String
+pub fn redo_and_export_json(Int) -> String raise Failure
 
 pub fn register_file_host(@js_ffi.Any) -> Unit
 
@@ -113,27 +113,29 @@ pub fn relay_on_disconnect(String, String) -> Unit
 
 pub fn relay_on_message(String, String, Bytes) -> Unit
 
-pub fn rename_semantic_node(Int, Int, String, Int) -> String
+pub fn rename_semantic_node(Int, Int, String, Int) -> String raise
 
 pub fn save_file(Int, String) -> Unit
 
-pub fn set_text(Int, String) -> Unit
+pub fn set_text(Int, String) -> Unit raise
 
-pub fn set_text_and_record(Int, String, Int) -> Unit
+pub fn set_text_and_record(Int, String, Int) -> Unit raise
 
-pub fn undo_and_export_json(Int) -> String
+pub fn try_destroy_editor(Int) -> Bool
+
+pub fn undo_and_export_json(Int) -> String raise Failure
 
 pub fn undo_manager_can_redo(Int) -> Bool
 
 pub fn undo_manager_can_undo(Int) -> Bool
 
-pub fn undo_manager_clear(Int) -> Unit
+pub fn undo_manager_clear(Int) -> Unit raise Failure
 
-pub fn undo_manager_redo(Int) -> Bool
+pub fn undo_manager_redo(Int) -> Bool raise Failure
 
-pub fn undo_manager_set_tracking(Int, Bool) -> Unit
+pub fn undo_manager_set_tracking(Int, Bool) -> Unit raise Failure
 
-pub fn undo_manager_undo(Int) -> Bool
+pub fn undo_manager_undo(Int) -> Bool raise Failure
 
 pub fn ws_broadcast_cursor(Int) -> Unit
 

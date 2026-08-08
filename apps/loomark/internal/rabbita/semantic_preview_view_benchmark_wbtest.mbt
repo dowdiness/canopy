@@ -27,7 +27,7 @@ fn preview_view_benchmark_replace_middle(source : String) -> String {
 fn wbtest_markdown_ir(
   source_id : @loom.SourceId,
   source : String,
-) -> @md_markdown.MarkdownIR {
+) -> @md_markdown.MarkdownIR raise {
   let parser = @loom.new_parser(
     source_id, source, @md_markdown.markdown_grammar,
   )
@@ -48,7 +48,7 @@ priv struct PreviewViewBenchmarkInput {
 }
 
 ///|
-fn preview_view_benchmark_input() -> PreviewViewBenchmarkInput {
+fn preview_view_benchmark_input() -> PreviewViewBenchmarkInput raise {
   let source = preview_view_benchmark_source(2500)
   let edited = preview_view_benchmark_replace_middle(source)
   {

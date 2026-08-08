@@ -87,9 +87,9 @@ test('invalidates generated importers and fully reloads after an output write', 
 
 test('detects each generated runtime fingerprint in a server/RSC bundle', () => {
   const bundles = [
-    ['crdt-lambda', '@moonbit/crdt-lambda', 'assemble_lambda_handle'],
-    ['crdt-json', '@moonbit/crdt-json', 'assemble_json_handle'],
-    ['crdt-markdown', '@moonbit/crdt-markdown', 'assemble_markdown_handle'],
+    ['crdt-lambda', '@moonbit/crdt-lambda', 'try_destroy_editor'],
+    ['crdt-json', '@moonbit/crdt-json', 'try_destroy_json_editor'],
+    ['crdt-markdown', '@moonbit/crdt-markdown', 'try_destroy_markdown_editor'],
     ['crdt-jsx', '@moonbit/crdt-jsx', 'jsx_session_new'],
     ['graphviz', '@moonbit/graphviz', 'render_dot_to_svg'],
   ];
@@ -199,7 +199,7 @@ test('rejects Memo development and provider capabilities outside the shared Lamb
       ].join('\n'),
     }, {
       name: 'dist/public/assets/crdt-lambda-a.js',
-      source: ['assemble_lambda_handle', ...providerFingerprints].join('\n'),
+      source: ['try_destroy_editor', ...providerFingerprints].join('\n'),
     }],
   });
   assert.deepEqual(result.productionClientArtifactLeaks, [

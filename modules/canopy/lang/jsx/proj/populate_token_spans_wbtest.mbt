@@ -10,7 +10,7 @@ let jsx_token_span_test_source : @loomcore.SourceId = @loomcore.SourceId(
 ///|
 fn source_map_for(
   text : String,
-) -> (@core.ProjNode[@jsx.JsxNode], @core.SourceMap) {
+) -> (@core.ProjNode[@jsx.JsxNode], @core.SourceMap) raise {
   let parser = @loom.new_parser(
     jsx_token_span_test_source, text, @jsx.jsx_grammar,
   )

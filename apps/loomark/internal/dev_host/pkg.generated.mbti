@@ -14,6 +14,10 @@ pub fn dev_host_focus_raw() -> Unit
 
 pub fn dev_host_force_editor_failure() -> Unit
 
+pub fn dev_host_force_parser_failure() -> Unit
+
+pub fn dev_host_force_reconstruction_failure() -> Unit
+
 pub fn dev_host_measure_failure() -> Unit
 
 pub fn dev_host_measure_preview() -> Unit

@@ -10,7 +10,7 @@ pub fn new_markdown_editor(
   agent_id : String,
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
-) -> @editor.SyncEditor[@markdown.Block] raise @text.TextError {
+) -> @editor.SyncEditor[@markdown.Block] raise {
   let (editor, _) = md_lang_plain.build(
     agent_id,
     capture_timeout_ms~,
@@ -27,7 +27,7 @@ pub fn new_markdown_editor_with_semantic_attachment(
   agent_id : String,
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
-) -> (@editor.SyncEditor[@markdown.Block], @markdown.MarkdownSemanticAttachment) raise @text.TextError {
+) -> (@editor.SyncEditor[@markdown.Block], @markdown.MarkdownSemanticAttachment) raise {
   let (editor, attachment) = make_md_lang(true).build(
     agent_id,
     capture_timeout_ms~,
@@ -119,8 +119,11 @@ pub fn export_markdown_text(
   editor : @editor.SyncEditor[@markdown.Block],
 ) -> String {
   let src = editor.get_text()
-  guard editor.get_proj_node() is Some(root) else { return src }
-  let source_map = editor.get_source_map()
+  let root = editor.get_proj_node() catch { Failure::Failure(_) => return src }
+  guard root is Some(root) else { return src }
+  let source_map = editor.get_source_map() catch {
+    Failure::Failure(_) => return src
+  }
   let ranges : Array[(Int, Int)] = []
   collect_zwsp_ranges(root, source_map, ranges)
   if ranges.is_empty() {
@@ -183,7 +186,7 @@ pub fn apply_markdown_edit(
   editor : @editor.SyncEditor[@markdown.Block],
   op : @md_edits.MarkdownEditOp,
   timestamp_ms : Int,
-) -> Result[Unit, String] {
+) -> Result[Unit, String] raise {
   match md_lang_plain.apply_edit(editor, op, timestamp_ms) {
     Ok(_) => Ok(())
     Err(e) => Err(e.message())

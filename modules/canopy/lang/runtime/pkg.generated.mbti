@@ -4,7 +4,6 @@ package "dowdiness/canopy/lang/runtime"
 import {
   "dowdiness/canopy/editor",
   "dowdiness/diagnostic",
-  "dowdiness/event-graph-walker/text",
   "dowdiness/incr/cells",
   "dowdiness/loom/pipeline",
 }
@@ -30,9 +29,9 @@ pub(all) enum EditResult {
 pub struct Language[T, Op, E] {
   // private fields
 }
-pub fn[T, Op, E] Language::Language(parse~ : (@diagnostic.SourceId, String, @cells.Runtime?) -> @pipeline.Parser[T], project~ : (@pipeline.Parser[T], @dowdiness/canopy/core.IdentityHintConsumer) -> (@cells.Derived[@dowdiness/canopy/core.ProjNode[T]?], @cells.Derived[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[T]]], @cells.Derived[@dowdiness/canopy/core.SourceMap], E), edit~ : (Op, EditContext[T]) -> EditResult raise @dowdiness/canopy/core.EditError, capabilities~ : (E) -> @editor.LanguageCapabilities[T]) -> Self[T, Op, E]
-pub fn[T : Eq, Op, E] Language::apply_edit(Self[T, Op, E], @editor.SyncEditor[T], Op, Int) -> Result[Array[@dowdiness/canopy/core.SpanEdit], @dowdiness/canopy/core.EditError]
-pub fn[T, Op, E] Language::build(Self[T, Op, E], String, capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime) -> (@editor.SyncEditor[T], E) raise @text.TextError
+pub fn[T, Op, E] Language::Language(parse~ : (@diagnostic.SourceId, String, @cells.Runtime?) -> @pipeline.Parser[T] raise Failure, project~ : (@pipeline.Parser[T], @dowdiness/canopy/core.IdentityHintConsumer) -> (@cells.Derived[@dowdiness/canopy/core.ProjNode[T]?], @cells.Derived[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[T]]], @cells.Derived[@dowdiness/canopy/core.SourceMap], E), edit~ : (Op, EditContext[T]) -> EditResult raise @dowdiness/canopy/core.EditError, capabilities~ : (E) -> @editor.LanguageCapabilities[T]) -> Self[T, Op, E]
+pub fn[T : Eq, Op, E] Language::apply_edit(Self[T, Op, E], @editor.SyncEditor[T], Op, Int) -> Result[Array[@dowdiness/canopy/core.SpanEdit], @dowdiness/canopy/core.EditError] raise Failure
+pub fn[T, Op, E] Language::build(Self[T, Op, E], String, capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime) -> (@editor.SyncEditor[T], E) raise
 
 // Type aliases
 

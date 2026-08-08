@@ -102,13 +102,36 @@ fn root_update(
   msg : Msg,
   emit : Emit[Msg],
 ) -> (RootState, Cmd) {
-  let (cmd, model) = update(emit, msg, state.0)
+  let (cmd, model) = update(emit, msg, state.0) catch {
+    _ => (none, { ..state.0, sync_status: Error })
+  }
   (RootState(model, next_root_revision(state.1)), cmd)
 }
 
 ///|
 fn root_subscriptions(state : RootState, emit : Emit[Msg]) -> Sub {
   subscriptions(state.0, emit)
+}
+
+///|
+fn render_view_fallback(model : Model) -> Html {
+  let source = model.editor.get_text()
+  @html.div(attrs=@html.Attrs::build().role("alert"), [
+    @html.p([
+      @html.text(
+        "Derived views are unavailable. The current source is shown read-only.",
+      ),
+    ]),
+    @html.node(
+      "pre",
+      @html.Attrs::build()
+      .role("textbox")
+      .aria_label("Current source, read-only")
+      .aria_multiline("true")
+      .aria_readonly("true"),
+      [@html.text(source)],
+    ),
+  ])
 }
 
 ///|
@@ -119,7 +142,11 @@ fn main {
       update=root_update,
       subscriptions=root_subscriptions,
     )
-    model.map(state => view(emit, state.0))
+    model.map(state => {
+      view(emit, state.0) catch {
+        _ => render_view_fallback(state.0)
+      }
+    })
   })
   app.mount("app")
 }

@@ -26,7 +26,7 @@ priv struct MarkdownProtectedCells {
 ///|
 fn MarkdownProtectedCells::MarkdownProtectedCells(
   editor : @editor.SyncEditor[@md.Block],
-) -> MarkdownProtectedCells {
+) -> MarkdownProtectedCells raise Failure {
   {
     parser_syntax_tree: @workspace.ProtectedCell::from_derived(
       "parser_syntax_view",

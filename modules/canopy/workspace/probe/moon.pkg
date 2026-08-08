@@ -2,10 +2,11 @@ import {
   "dowdiness/canopy/editor",
   "dowdiness/canopy/core",
   "dowdiness/diagnostic",
-  "dowdiness/event-graph-walker/text",
   "dowdiness/incr",
   "dowdiness/loom",
   "dowdiness/loom/core" @loomcore,
+  "dowdiness/loom/incremental" @loom_incremental,
+  "dowdiness/loom/pipeline" @loom_pipeline,
   "dowdiness/seam",
   "moonbitlang/core/debug",
 }

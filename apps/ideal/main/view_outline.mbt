@@ -254,7 +254,7 @@ fn view_outline_node(
 fn navigate_outline(
   model : Model,
   direction : @canopy_core.Direction,
-) -> String? {
+) -> String? raise {
   let node_id_str = match model.selected_node {
     Some(s) => s
     None => return None
@@ -292,7 +292,7 @@ fn get_selected_node_id(model : Model) -> @canopy_core.NodeId? {
 /// Maps eval results to ProjNode children by definition index.
 fn build_outline_eval_annotations(
   model : Model,
-) -> Map[@canopy_core.NodeId, Array[@lambda.EvalResult]] {
+) -> Map[@canopy_core.NodeId, Array[@lambda.EvalResult]] raise {
   let annotations : Map[@canopy_core.NodeId, Array[@lambda.EvalResult]] = Map([])
   let eval_results = model.companion.get_eval_results()
   if eval_results.is_empty() {
@@ -319,9 +319,10 @@ fn build_outline_eval_annotations(
 
 ///|
 /// Render outline tree view with keyboard navigation (original tree mode).
-fn view_outline_tree(dispatch : Emit[Msg], model : Model) -> Html {
+fn view_outline_tree(dispatch : Emit[Msg], model : Model) -> Html raise {
   let navigate = fn(direction : @canopy_core.Direction) {
-    match navigate_outline(model, direction) {
+    let next = navigate_outline(model, direction) catch { _ => None }
+    match next {
       Some(id) => dispatch(OutlineNavigate(id))
       None => @rabbita.none
     }
@@ -405,7 +406,7 @@ fn view_outline_tree(dispatch : Emit[Msg], model : Model) -> Html {
 
 ///|
 /// Render outline content.
-fn view_outline_content(dispatch : Emit[Msg], model : Model) -> Html {
+fn view_outline_content(dispatch : Emit[Msg], model : Model) -> Html raise {
   js_install_outline_drag_capture()
   view_outline_tree(dispatch, model)
 }

@@ -189,6 +189,23 @@ fn mode_name(mode : @core.ApplicationMode) -> String {
 }
 
 ///|
+fn runtime_state_name(state : EditorRuntimeState) -> String {
+  match state {
+    EditorRuntimeState::Healthy => "healthy"
+    EditorRuntimeState::Restarting => "restarting"
+    EditorRuntimeState::RawRecovery(_) => "raw-recovery"
+  }
+}
+
+///|
+fn runtime_source(model : DriverModel) -> String {
+  match model.runtime_state {
+    EditorRuntimeState::RawRecovery(source) => source
+    _ => model.document.source()
+  }
+}
+
+///|
 /// Render one decorative mode glyph; the owning tab supplies its accessible
 /// name and interaction semantics.
 fn mode_icon(path : String) -> @html.Html {
@@ -236,10 +253,11 @@ fn record_error(
 ///|
 fn publish(model : DriverModel) -> Unit {
   let fields : Map[String, Json] = {
-    "source": model.document.source().to_json(),
+    "source": runtime_source(model).to_json(),
     "replica_id": model.replica_id.to_json(),
     "version": @core.SNAPSHOT_VERSION.to_json(),
     "mode": mode_name(model.state.mode()).to_json(),
+    "runtime_state": runtime_state_name(model.runtime_state).to_json(),
     "split_preview_open": model.split_preview_open.to_json(),
     "source_revision": model.source_revision.to_json(),
     "semantic_read_count": model.semantic_read_count.to_json(),
@@ -255,6 +273,8 @@ fn publish(model : DriverModel) -> Unit {
     "error_count": model.error_count.to_json(),
     "committed_change_count": model.committed_change_count.to_json(),
     "editor_failure_armed": model.fail_next_editor_commit.to_json(),
+    "parser_failure_armed": model.force_parser_failure.to_json(),
+    "reconstruction_attempt_count": model.reconstruction_attempt_count.to_json(),
     "resize_count": model.resize_count.to_json(),
     "selection": match model.selection {
       Some(selection) => selection.to_json()
@@ -551,7 +571,10 @@ fn standalone_preview_view(
   emit : @cmd.Emit[DriverEvent],
   active_view : @rabbita_runtime.Html,
 ) -> @rabbita_runtime.Html {
-  preview_view(model, emit, active_view, @html.nothing)
+  match model.runtime_state {
+    EditorRuntimeState::RawRecovery(_) => raw_recovery_view(model, emit)
+    _ => preview_view(model, emit, active_view, @html.nothing)
+  }
 }
 
 ///|
@@ -560,6 +583,10 @@ fn private_dev_host_preview_view(
   emit : @cmd.Emit[DriverEvent],
   active_view : @rabbita_runtime.Html,
 ) -> @rabbita_runtime.Html {
+  match model.runtime_state {
+    EditorRuntimeState::RawRecovery(_) => return raw_recovery_view(model, emit)
+    _ => ()
+  }
   let driver_controls = @html.fragment([
     @html.button(
       id="loomark-event-target",
@@ -620,6 +647,12 @@ fn driver_event_name(event : DriverEvent) -> String {
     Lifecycle(life_event) =>
       match life_event {
         EditorFailure => "editor-failure"
+        ForceParserFailure => "force-parser-failure"
+        ForceReconstructionFailure => "force-reconstruction-failure"
+        RecoveryCopy => "recovery-copy"
+        RecoveryDownload => "recovery-download"
+        RecoveryReload => "recovery-reload"
+        RecoveryEffectFailed(_) => "recovery-effect-failed"
         RestoreSnapshot(..) => "restore-snapshot"
         CustomEvent(_) => "custom-event"
         ControlInstalled => "control-installed"
@@ -670,6 +703,16 @@ fn parse_driver_event(detail : String) -> DriverEvent {
     Editing(RawInput(detail["raw-input|".length():].to_owned(), None, None))
   } else if detail == "editor-failure" {
     Lifecycle(EditorFailure)
+  } else if detail == "force-parser-failure" {
+    Lifecycle(ForceParserFailure)
+  } else if detail == "force-reconstruction-failure" {
+    Lifecycle(ForceReconstructionFailure)
+  } else if detail == "recovery-copy" {
+    Lifecycle(RecoveryCopy)
+  } else if detail == "recovery-download" {
+    Lifecycle(RecoveryDownload)
+  } else if detail == "recovery-reload" {
+    Lifecycle(RecoveryReload)
   } else if detail.has_prefix("restore-focus|") {
     Navigation(RestoreFocus(detail["restore-focus|".length():].to_owned()))
   } else if detail.has_prefix("restore-snapshot|") {
@@ -801,7 +844,7 @@ fn update_editing(
   latest_model : @ref.Ref[DriverModel?],
   event : EditingEvent,
   emit : @cmd.Emit[DriverEvent],
-) -> (DriverModel, @cmd.Cmd) {
+) -> (DriverModel, @cmd.Cmd) raise {
   let raw_token_active = match event {
     RawInput(_, _, Some(token)) => raw_input_coordinator.is_active(token)
     _ => true
@@ -1638,6 +1681,21 @@ fn update_probe(
 }
 
 ///|
+/// Run a recovery action immediately in the originating activation turn and
+/// route boundary failures back through an allowed recovery event.
+fn recovery_effect_command(
+  effect : () -> Unit raise @dom_boundary.DomBoundaryError,
+  emit : @cmd.Emit[DriverEvent],
+) -> @cmd.Cmd {
+  @cmd.custom_cmd(scheduler => {
+    effect() catch {
+      error =>
+        scheduler.add(emit(Lifecycle(RecoveryEffectFailed(error.message()))))
+    }
+  })
+}
+
+///|
 /// Application-control dispatcher: failures, restore, subscriptions, fatal,
 /// resize, and driver protocol errors.
 fn update_lifecycle(
@@ -1647,12 +1705,53 @@ fn update_lifecycle(
   model : DriverModel,
   event : LifecycleEvent,
   emit : @cmd.Emit[DriverEvent],
-) -> (DriverModel, @cmd.Cmd) {
+) -> (DriverModel, @cmd.Cmd) raise {
   match event {
     EditorFailure => {
       let next = { ..model, fail_next_editor_commit: true }
       (next, @rabbita_runtime.none)
     }
+    ForceParserFailure => {
+      let next = { ..model, force_parser_failure: true }
+      (next, @rabbita_runtime.none)
+    }
+    ForceReconstructionFailure => {
+      let next = { ..model, force_reconstruction_failure: true }
+      (next, @rabbita_runtime.none)
+    }
+    RecoveryCopy =>
+      (
+        model,
+        recovery_effect_command(
+          () => @dom_boundary.copy_text(runtime_source(model)),
+          emit,
+        ),
+      )
+    RecoveryDownload =>
+      (
+        model,
+        recovery_effect_command(
+          () => {
+            @dom_boundary.download_text(
+              "loomark-recovered.md",
+              runtime_source(model),
+            )
+          },
+          emit,
+        ),
+      )
+    RecoveryReload =>
+      (model, recovery_effect_command(() => @dom_boundary.reload(), emit))
+    RecoveryEffectFailed(detail) =>
+      (
+        {
+          ..model,
+          error: Some("Recovery action failed: " + detail),
+          error_code: Some("recovery-effect-failed"),
+          error_operation: Some("recovery-action"),
+        },
+        @rabbita_runtime.none,
+      )
     RestoreSnapshot(version~, source~, mode~) => {
       let snapshot = @core.ApplicationStateSnapshot::ApplicationStateSnapshot(
         version~,
@@ -1767,9 +1866,22 @@ fn update_lifecycle(
 }
 
 ///|
+fn recovery_control_event(event : DriverEvent) -> Bool {
+  match event {
+    Lifecycle(
+      RecoveryCopy
+      | RecoveryDownload
+      | RecoveryReload
+      | RecoveryEffectFailed(_)
+    ) => true
+    _ => false
+  }
+}
+
+///|
 /// Total dispatch: the envelope constructor encodes the concern, so routing
-/// cannot misclassify. Archive completions land even in fatal state; the
-/// fatal rejection guard covers every other event.
+/// cannot misclassify. Archive completions land even in fatal state; recovery
+/// controls remain available while every editing event is rejected.
 fn update_model(
   editor : @markdown.MarkdownEditor,
   attachment : @md_markdown.MarkdownSemanticAttachment,
@@ -1778,10 +1890,10 @@ fn update_model(
   latest_model : @ref.Ref[DriverModel?],
   event : DriverEvent,
   emit : @cmd.Emit[DriverEvent],
-) -> (DriverModel, @cmd.Cmd) {
+) -> (DriverModel, @cmd.Cmd) raise {
   let (next, command) = match event {
     Archive(completion) => update_archive_tracker(model, completion)
-    _ if model.fatal => {
+    _ if model.fatal && !recovery_control_event(event) => {
       match event {
         Editing(RawInput(_, _, Some(token))) =>
           raw_input_coordinator.cancel(token)
@@ -1995,12 +2107,39 @@ fn build_application(
   subscriptions : (DriverModel, @cmd.Emit[DriverEvent]) -> @sub.Sub,
   view : (DriverModel, @cmd.Emit[DriverEvent], @rabbita_runtime.Html) -> @rabbita_runtime.Html,
 ) -> @rabbita_runtime.App {
+  let current_session : @ref.Ref[EditorSession] = {
+    val: { editor, attachment },
+  }
   let latest_model : @ref.Ref[DriverModel?] = { val: None }
   let raw_input_coordinator = RawInputCoordinator::RawInputCoordinator()
   let update = (model, event, emit) => {
+    let session = current_session.val
     update_model(
-      editor, attachment, raw_input_coordinator, model, latest_model, event, emit,
-    )
+      session.editor,
+      session.attachment,
+      raw_input_coordinator,
+      model,
+      latest_model,
+      event,
+      emit,
+    ) catch {
+      Failure::Failure(_) as failure => {
+        raw_input_coordinator.cancel_pending()
+        let (next, command) = recover_after_parser_failure(
+          current_session, model, failure, emit,
+        )
+        publish(next)
+        (next, command)
+      }
+      error => {
+        raw_input_coordinator.cancel_pending()
+        let (next, command) = quarantine_outer_error(
+          current_session, model, error,
+        )
+        publish(next)
+        (next, command)
+      }
+    }
   }
   @rabbita_runtime.new(() => {
     let (model, emit) = @rabbita_runtime.create_state_with_init(
@@ -2057,7 +2196,7 @@ fn initial_model(
   document_id : @archive.LoomarkDocumentId,
   replica_id : String,
   archive_persistence_enabled~ : Bool,
-) -> DriverModel {
+) -> DriverModel raise {
   let host_width = @dom_boundary.measure_element_id(host_id)
     .offset_width()
     .to_int() catch {
@@ -2065,7 +2204,9 @@ fn initial_model(
     }
   {
     state: @core.ApplicationState::ApplicationState(@core.Raw),
+    runtime_state: EditorRuntimeState::Healthy,
     document: editor.snapshot(),
+    document_version: editor.version(),
     document_id,
     archive_persistence_enabled,
     semantic_document: None,
@@ -2083,6 +2224,9 @@ fn initial_model(
     error_count: 0,
     committed_change_count: 0,
     fail_next_editor_commit: false,
+    force_parser_failure: false,
+    force_reconstruction_failure: false,
+    reconstruction_attempt_count: 0,
     resize_count: 0,
     selection: None,
     measurement: None,
@@ -2111,14 +2255,16 @@ fn mount_application(
     DriverModel,
     (@repository.LocalArchiveRequestId, String)?,
   ) -> @rabbita_runtime.App,
-) -> String {
+) -> String raise {
   if mounted.val {
     return "{\"ok\":false,\"error\":\"host-already-mounted\"}"
   }
   let replica_id = @archive_storage.fresh_id(replica_prefix)
-  let document_id = try! @archive.LoomarkDocumentId::from_string(
+  let document_id = @archive.LoomarkDocumentId::from_string(
     @archive_storage.fresh_id("loomark-document-"),
-  )
+  ) catch {
+    _ => return "{\"ok\":false,\"error\":\"document-id-allocation-failed\"}"
+  }
   let (editor, attachment) = @markdown.MarkdownEditor::with_semantic_attachment(
     agent_id=replica_id,
     source~,
@@ -2148,7 +2294,12 @@ pub fn mount_standalone(host_id : String, source : String) -> String {
   }
   mounted.val = true
   @archive_storage.load(loaded => {
-    finish_standalone_bootstrap(host_id, source, loaded)
+    finish_standalone_bootstrap(host_id, source, loaded) catch {
+      _ =>
+        recovery_application(RecoveryCategory::EditorInitializationFailed).mount(
+          host_id,
+        )
+    }
   })
   "{\"ok\":true}"
 }
@@ -2158,7 +2309,9 @@ pub fn mount_standalone(host_id : String, source : String) -> String {
 pub fn mount(host_id : String, source : String) -> String {
   mount_application(
     host_id, source, "loomark-dev-host-", private_dev_host_application,
-  )
+  ) catch {
+    _ => "{\"ok\":false,\"error\":\"editor-initialization-failed\"}"
+  }
 }
 
 ///|
@@ -2206,6 +2359,18 @@ pub fn restore_snapshot(version : Int, source : String, mode : String) -> Unit {
 /// Arm the next real editor transaction to use a failing editor request.
 pub fn force_editor_failure() -> Unit {
   dispatch_driver("editor-failure")
+}
+
+///|
+/// Private dev-host control: the next normal edit fails after CRDT acceptance.
+pub fn force_parser_failure() -> Unit {
+  dispatch_driver("force-parser-failure")
+}
+
+///|
+/// Private dev-host control: force the next recovery attempt into RawRecovery.
+pub fn force_reconstruction_failure() -> Unit {
+  dispatch_driver("force-reconstruction-failure")
 }
 
 ///|

@@ -16,7 +16,8 @@ pub fn[T] SyncEditor::is_dirty(self : SyncEditor[T]) -> Bool {
 /// want to batch edits and trigger a single projection pass at a known
 /// point (e.g., on animation frame) rather than paying the cost lazily
 /// inside a getter.
-pub fn[T] SyncEditor::refresh(self : SyncEditor[T]) -> Unit {
+pub fn[T] SyncEditor::refresh(self : SyncEditor[T]) -> Unit raise Failure {
+  self.ensure_parser_healthy()
   self.projection_dirty = false
   let _ = self.cached_proj_node.read_or_abort()
 }
@@ -30,7 +31,7 @@ pub fn[T : Eq + @loom_core.Renderable] SyncEditor::delete_node(
   self : SyncEditor[T],
   node_id : @core.NodeId,
   timestamp_ms : Int,
-) -> Result[Unit, TreeEditError] {
+) -> Result[Unit, TreeEditError] raise {
   let range = match self.get_node_range(node_id) {
     None =>
       return Err(
@@ -71,7 +72,7 @@ pub fn[T : Eq] SyncEditor::commit_edit(
   node_id : @core.NodeId,
   new_text : String,
   timestamp_ms : Int,
-) -> Result[Unit, TreeEditError] {
+) -> Result[Unit, TreeEditError] raise {
   let range = match self.get_node_range(node_id) {
     None =>
       return Err(
@@ -107,7 +108,7 @@ pub fn[T : Eq] SyncEditor::apply_text_transform(
   node_id : @core.NodeId,
   compute_replacement : (String, Int, Int) -> Result[String, String],
   timestamp_ms : Int,
-) -> Result[Unit, TreeEditError] {
+) -> Result[Unit, TreeEditError] raise {
   let range = match self.get_node_range(node_id) {
     None =>
       return Err(
@@ -157,7 +158,7 @@ pub fn[T : Eq + @loom_core.Renderable] SyncEditor::move_node(
   target_id : @core.NodeId,
   position : @core.DropPosition,
   timestamp_ms : Int,
-) -> Result[Array[@core.SpanEdit], TreeEditError] {
+) -> Result[Array[@core.SpanEdit], TreeEditError] raise {
   // Resolve source
   let src_range = match self.get_node_range(source_id) {
     None =>

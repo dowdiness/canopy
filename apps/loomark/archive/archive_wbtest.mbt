@@ -53,7 +53,7 @@ test "archive decode error matrix" {
   let encoded = archive.to_json_string()
   assert_true(encoded.contains("\"schema_version\":\"1\""))
 
-  let capacity : Result[LoomarkDocumentArchive, LoomarkArchiveDecodeError] = Ok(
+  let capacity : Result[LoomarkDocumentArchive, Error] = Ok(
     LoomarkDocumentArchive::from_json_string(
       encoded,
       validation_agent_id="archive-errors-capacity",
@@ -73,7 +73,7 @@ test "archive decode error matrix" {
     _ => fail("expected archive limit failure")
   }
 
-  let newer : Result[LoomarkDocumentArchive, LoomarkArchiveDecodeError] = Ok(
+  let newer : Result[LoomarkDocumentArchive, Error] = Ok(
     LoomarkDocumentArchive::from_json_string(
       "{\"schema_version\":\"2\",\"document_id\":\"x\",\"portable_markdown\":42,\"history\":false,\"extensions\":{}}",
       validation_agent_id="archive-errors-newer",
@@ -88,7 +88,7 @@ test "archive decode error matrix" {
     _ => fail("expected version 2 to be unsupported")
   }
 
-  let too_large : Result[LoomarkDocumentArchive, LoomarkArchiveDecodeError] = Ok(
+  let too_large : Result[LoomarkDocumentArchive, Error] = Ok(
     LoomarkDocumentArchive::from_json_string(
       "{\"schema_version\":\"2147483648\"}",
       validation_agent_id="archive-errors-int-overflow",
@@ -103,7 +103,7 @@ test "archive decode error matrix" {
     _ => fail("expected 2147483648 to be unsupported")
   }
 
-  let much_too_large : Result[LoomarkDocumentArchive, LoomarkArchiveDecodeError] = Ok(
+  let much_too_large : Result[LoomarkDocumentArchive, Error] = Ok(
     LoomarkDocumentArchive::from_json_string(
       "{\"schema_version\":\"999999999999999999999999999999999999999999999999999\"}",
       validation_agent_id="archive-errors-huge-version",
@@ -127,7 +127,7 @@ test "archive decode error matrix" {
     "{\"schema_version\":null}", "{\"schema_version\":{}}", "{\"schema_version\":[]}",
   ]
   for schema_version_json in malformed_schema_versions {
-    let malformed : Result[LoomarkDocumentArchive, LoomarkArchiveDecodeError] = Ok(
+    let malformed : Result[LoomarkDocumentArchive, Error] = Ok(
       LoomarkDocumentArchive::from_json_string(
         schema_version_json,
         validation_agent_id="archive-errors-malformed-schema-version",
@@ -141,7 +141,7 @@ test "archive decode error matrix" {
     )
   }
 
-  let malformed : Result[LoomarkDocumentArchive, LoomarkArchiveDecodeError] = Ok(
+  let malformed : Result[LoomarkDocumentArchive, Error] = Ok(
     LoomarkDocumentArchive::from_json_string(
       "not-json",
       validation_agent_id="archive-errors-malformed",
@@ -152,7 +152,7 @@ test "archive decode error matrix" {
   }
   assert_true(malformed is Err(LoomarkArchiveDecodeError::MalformedEnvelope(_)))
 
-  let missing : Result[LoomarkDocumentArchive, LoomarkArchiveDecodeError] = Ok(
+  let missing : Result[LoomarkDocumentArchive, Error] = Ok(
     LoomarkDocumentArchive::from_json_string(
       "{\"schema_version\":\"1\"}",
       validation_agent_id="archive-errors-missing",
@@ -163,7 +163,7 @@ test "archive decode error matrix" {
   }
   assert_true(missing is Err(LoomarkArchiveDecodeError::MalformedEnvelope(_)))
 
-  let unknown : Result[LoomarkDocumentArchive, LoomarkArchiveDecodeError] = Ok(
+  let unknown : Result[LoomarkDocumentArchive, Error] = Ok(
     LoomarkDocumentArchive::from_json_string(
       encoded.replace(
         old="\"extensions\":{}",
@@ -177,7 +177,7 @@ test "archive decode error matrix" {
   }
   assert_true(unknown is Err(LoomarkArchiveDecodeError::MalformedEnvelope(_)))
 
-  let corrupt : Result[LoomarkDocumentArchive, LoomarkArchiveDecodeError] = Ok(
+  let corrupt : Result[LoomarkDocumentArchive, Error] = Ok(
     LoomarkDocumentArchive::from_json_string(
       encoded.replace(old="\"history\":\"", new="\"history\":\"not-history"),
       validation_agent_id="archive-errors-corrupt",
@@ -188,7 +188,7 @@ test "archive decode error matrix" {
   }
   assert_true(corrupt is Err(LoomarkArchiveDecodeError::CorruptHistory(_)))
 
-  let mismatch : Result[LoomarkDocumentArchive, LoomarkArchiveDecodeError] = Ok(
+  let mismatch : Result[LoomarkDocumentArchive, Error] = Ok(
     LoomarkDocumentArchive::from_json_string(
       encoded.replace(old="# Title\\n", new="# Other\\n"),
       validation_agent_id="archive-errors-mismatch",
@@ -201,7 +201,7 @@ test "archive decode error matrix" {
     mismatch is Err(LoomarkArchiveDecodeError::PortableTextHistoryMismatch),
   )
 
-  let empty_id : Result[LoomarkDocumentArchive, LoomarkArchiveDecodeError] = Ok(
+  let empty_id : Result[LoomarkDocumentArchive, Error] = Ok(
     LoomarkDocumentArchive::from_json_string(
       encoded.replace(old="doc-errors", new=""),
       validation_agent_id="archive-errors-empty-id",
@@ -212,10 +212,7 @@ test "archive decode error matrix" {
   }
   assert_true(empty_id is Err(LoomarkArchiveDecodeError::EmptyDocumentId))
 
-  let nonempty_extensions : Result[
-    LoomarkDocumentArchive,
-    LoomarkArchiveDecodeError,
-  ] = Ok(
+  let nonempty_extensions : Result[LoomarkDocumentArchive, Error] = Ok(
     LoomarkDocumentArchive::from_json_string(
       encoded.replace(
         old="\"extensions\":{}",
@@ -258,7 +255,7 @@ test "archive decode distinguishes incomplete history from limit-exceeded" {
     "extensions": Json::empty_object(),
   }).stringify()
 
-  let incomplete : Result[LoomarkDocumentArchive, LoomarkArchiveDecodeError] = Ok(
+  let incomplete : Result[LoomarkDocumentArchive, Error] = Ok(
     LoomarkDocumentArchive::from_json_string(
       encoded,
       validation_agent_id="archive-gap-incomplete",
@@ -269,7 +266,7 @@ test "archive decode distinguishes incomplete history from limit-exceeded" {
   }
   assert_true(incomplete is Err(LoomarkArchiveDecodeError::IncompleteHistory))
 
-  let capacity : Result[LoomarkDocumentArchive, LoomarkArchiveDecodeError] = Ok(
+  let capacity : Result[LoomarkDocumentArchive, Error] = Ok(
     LoomarkDocumentArchive::from_json_string(
       encoded,
       validation_agent_id="archive-gap-capacity",

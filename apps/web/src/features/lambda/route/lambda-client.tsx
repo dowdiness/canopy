@@ -1,16 +1,17 @@
 'use client';
 
 import { type ReactNode, useCallback, useState } from 'react';
+import { adaptMoonBitModule } from '@canopy/editor-adapter/moonbit-result';
 import { ImperativeDemoHost } from '../../../shared/route-lifecycle/browser/imperative-host';
 import {
   mountLambdaEditor,
   type GraphvizRuntime,
-  type LambdaEditorRuntime,
 } from '../browser/editor';
 import '../browser/styles.css';
 
+type RawLambdaEditorRuntime = typeof import('@moonbit/crdt-lambda');
 const loadLambdaRuntime: (() => Promise<[
-  LambdaEditorRuntime,
+  RawLambdaEditorRuntime,
   GraphvizRuntime,
 ]>) | null = import.meta.env.SSR
   ? null
@@ -41,10 +42,15 @@ function mountLambdaRoute(
   void loadLambdaRuntime()
     .then(([crdt, graphviz]) => {
       if (disposed) return;
+      const adaptedRuntime = adaptMoonBitModule(crdt, {
+        createFunctions: ['create_editor', 'create_editor_with_undo'],
+        destroyFunctions: ['destroy_editor'],
+        tryDestroyFunctions: ['try_destroy_editor'],
+      });
       controller = mountLambdaEditor(
         container,
         restoredSnapshot,
-        crdt,
+        adaptedRuntime,
         graphviz,
       );
       if (

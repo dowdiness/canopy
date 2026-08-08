@@ -49,6 +49,11 @@ export const stubCrdtModule: CrdtModule = {
     editors.delete(handle);
   },
 
+  try_destroy_editor(handle: number): boolean {
+    editors.delete(handle);
+    return true;
+  },
+
   get_text(handle: number): string {
     return getEditor(handle)?.text ?? '';
   },

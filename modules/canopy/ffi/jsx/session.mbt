@@ -109,7 +109,7 @@ fn session_envelope_json(handle : Int?, result_json : String) -> String {
 }
 
 ///|
-fn new_jsx_session(source : String, root_id : String) -> JsxSession {
+fn new_jsx_session(source : String, root_id : String) -> JsxSession raise {
   let parser = @loom.new_parser(
     allocate_jsx_source_id(),
     source,
@@ -160,7 +160,7 @@ fn has_mount_boundary_transition(
 /// Return the parser to the last DOM-committed source after a rejected source
 /// render. Mounted truth remains in `last_proj`, so projection failure preserves
 /// the baseline's existing dirty state.
-fn restore_committed_source(session : JsxSession) -> Unit {
+fn restore_committed_source(session : JsxSession) -> Unit raise {
   session.parser.set_source(session.committed_source)
 }
 
@@ -168,7 +168,7 @@ fn restore_committed_source(session : JsxSession) -> Unit {
 fn apply_session_baseline_effect(
   session : JsxSession,
   effect : SessionBaselineEffect,
-) -> Unit {
+) -> Unit raise {
   match effect {
     NoEffect => ()
     RestoreCommittedSource => restore_committed_source(session)
@@ -193,7 +193,7 @@ fn finish_projection_failure(
   diagnostics : Array[String],
   code : String,
   message : String,
-) -> String {
+) -> String raise {
   let (baseline, effect) = finish_render(plan, ProjectionFail)
   session.baseline = baseline
   apply_session_baseline_effect(session, effect)
@@ -213,7 +213,7 @@ fn commit_projection(
   proj : @canopy_core.ProjNode[@jsx_ast.JsxNode],
   diagnostics : Array[String],
   source_to_commit : String?,
-) -> String {
+) -> String raise {
   let existing = if plan.must_remount { [] } else { session.mounted_ids.copy() }
   let (patches, next_mounted_ids) = @jsx_proj.reconcile(proj, existing)
   let dry_run_base = if plan.must_remount {
@@ -307,7 +307,7 @@ fn render_jsx_session_with_projection_read(
   source : String,
   update_source : Bool,
   projection_read_override? : SourceProjectionRead,
-) -> String {
+) -> String raise {
   match begin_render(session.baseline) {
     Err(RevisionExhausted) => revision_exhausted_result(session)
     Ok(permit) => {
@@ -354,7 +354,7 @@ fn render_jsx_session(
   session : JsxSession,
   source : String,
   update_source : Bool,
-) -> String {
+) -> String raise {
   render_jsx_session_with_projection_read(session, source, update_source)
 }
 
@@ -370,8 +370,58 @@ fn allocate_session_handle() -> Int {
 /// never enters `session_registry` and its partially created DOM is cleaned
 /// through the session-owned registry.
 pub fn jsx_session_new(source : String, root_id : String) -> String {
-  let session = new_jsx_session(source, root_id)
-  let result = render_jsx_session(session, source, false)
+  let session = new_jsx_session(source, root_id) catch {
+    Failure::Failure(_) =>
+      return session_envelope_json(
+        None,
+        render_result_json(
+          false,
+          0,
+          [],
+          [],
+          Some(("ParserFailure", "parser session failed")),
+        ),
+      )
+    _ =>
+      return session_envelope_json(
+        None,
+        render_result_json(
+          false,
+          0,
+          [],
+          [],
+          Some(("InternalFailure", "session construction failed")),
+        ),
+      )
+  }
+  let result = render_jsx_session(session, source, false) catch {
+    Failure::Failure(_) => {
+      dispose_jsx_session(session)
+      return session_envelope_json(
+        None,
+        render_result_json(
+          false,
+          0,
+          [],
+          [],
+          Some(("ParserFailure", "parser session failed")),
+        ),
+      )
+    }
+    _ => {
+      dispose_jsx_session(session)
+      return session_envelope_json(
+        None,
+        render_result_json(
+          false,
+          0,
+          [],
+          [],
+          Some(("InternalFailure", "initial render failed")),
+        ),
+      )
+    }
+  }
   let result_value = @js.parse(result)
   if result_value.get("success").cast() {
     let handle = allocate_session_handle()
@@ -387,7 +437,31 @@ pub fn jsx_session_new(source : String, root_id : String) -> String {
 /// Render a new source through one live session.
 pub fn jsx_session_render(handle : Int, source : String) -> String {
   match session_registry.get(handle) {
-    Some(session) => render_jsx_session(session, source, true)
+    Some(session) =>
+      render_jsx_session(session, source, true) catch {
+        Failure::Failure(_) => {
+          let revision = session.baseline.revision
+          jsx_session_dispose(handle)
+          render_result_json(
+            false,
+            revision,
+            [],
+            [],
+            Some(("ParserFailure", "parser session failed")),
+          )
+        }
+        _ => {
+          let revision = session.baseline.revision
+          jsx_session_dispose(handle)
+          render_result_json(
+            false,
+            revision,
+            [],
+            [],
+            Some(("InternalFailure", "session render failed")),
+          )
+        }
+      }
     None => {
       let error = if disposed_session_handles.contains(handle) {
         ("DisposedSession", "session handle has been disposed")
@@ -428,7 +502,30 @@ pub fn jsx_session_commit_candidate(
         Ok(permit) => {
           let projection = candidate_to_projection(candidate)
           let plan = plan_render(permit, Candidate, false)
-          commit_projection(session, plan, projection, [], None)
+          commit_projection(session, plan, projection, [], None) catch {
+            Failure::Failure(_) => {
+              let revision = session.baseline.revision
+              jsx_session_dispose(handle)
+              render_result_json(
+                false,
+                revision,
+                [],
+                [],
+                Some(("ParserFailure", "parser session failed")),
+              )
+            }
+            _ => {
+              let revision = session.baseline.revision
+              jsx_session_dispose(handle)
+              render_result_json(
+                false,
+                revision,
+                [],
+                [],
+                Some(("InternalFailure", "candidate commit failed")),
+              )
+            }
+          }
         }
       }
     }

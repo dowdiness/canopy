@@ -109,6 +109,16 @@ async function forceEditorFailure(page: Page): Promise<void> {
     import(moduleUrl).then(module => module.dev_host_force_editor_failure()), moduleUrl)
 }
 
+async function forceParserFailure(page: Page): Promise<void> {
+  await page.evaluate(moduleUrl =>
+    import(moduleUrl).then(module => module.dev_host_force_parser_failure()), moduleUrl)
+}
+
+async function forceReconstructionFailure(page: Page): Promise<void> {
+  await page.evaluate(moduleUrl =>
+    import(moduleUrl).then(module => module.dev_host_force_reconstruction_failure()), moduleUrl)
+}
+
 async function focusPreview(page: Page): Promise<void> {
   await page.evaluate(moduleUrl =>
     import(moduleUrl).then(module => module.dev_host_focus_preview()), moduleUrl)
@@ -217,6 +227,68 @@ test("private development host remains independent of archive storage", async ({
   }
 })
 
+test("post-acceptance parser Failure reopens once and resumes Raw editing", async ({ browser }) => {
+  const host = await mountHost(browser, "# Before\n")
+  try {
+    await toggleSplitPreview(host.page)
+    await selectPreview(host.page)
+    await expectPreviewSource(host.page, "# Before\n")
+
+    await forceParserFailure(host.page)
+    await expect.poll(async () => (await snapshot(host.page)).parser_failure_armed).toBe(true)
+    await requestSource(host.page, "# Accepted\n")
+
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("# Accepted\n")
+    await expect.poll(async () => (await snapshot(host.page)).runtime_state).toBe("healthy")
+    await expect.poll(async () => (await snapshot(host.page)).mode).toBe("raw")
+    await expect.poll(async () => (await snapshot(host.page)).error_code).toBe("editor-recovered")
+    await expect.poll(async () => (await snapshot(host.page)).parser_failure_armed).toBe(false)
+    await expect.poll(async () => (await snapshot(host.page)).committed_change_count).toBe(1)
+    await expect(host.page.locator("#loomark-input")).toHaveValue("# Accepted\n")
+    await expect(host.page.locator("#loomark-preview")).toHaveCount(0)
+    await expect(host.page.locator("#loomark-block")).toHaveCount(0)
+
+    await host.page.locator("#loomark-input").fill("# Continued\n")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("# Continued\n")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("failed reconstruction exposes exact Markdown in terminal Raw Recovery", async ({ browser }) => {
+  const host = await mountHost(browser, "# Before\n")
+  try {
+    await forceReconstructionFailure(host.page)
+    await forceParserFailure(host.page)
+    await requestSource(host.page, "# Accepted\n")
+
+    await expect.poll(async () => (await snapshot(host.page)).runtime_state).toBe("raw-recovery")
+    await expect.poll(async () => (await snapshot(host.page)).fatal).toBe(true)
+    await expect.poll(async () => (await snapshot(host.page)).reconstruction_attempt_count).toBe(1)
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("# Accepted\n")
+    await expect(host.page.locator("#loomark-recovery-source")).toHaveValue("# Accepted\n")
+    await expect(host.page.locator("#loomark-recovery-copy")).toBeVisible()
+    await expect(host.page.locator("#loomark-recovery-download")).toBeVisible()
+    await expect(host.page.locator("#loomark-recovery-reload")).toBeVisible()
+    await host.page.locator("#loomark-recovery-copy").click()
+    await expect.poll(async () => (await snapshot(host.page)).error_code).toBe(
+      "editor-recovery-failed",
+    )
+    const [download] = await Promise.all([
+      host.page.waitForEvent("download"),
+      host.page.locator("#loomark-recovery-download").click(),
+    ])
+    expect(download.suggestedFilename()).toBe("loomark-recovered.md")
+    await expect(host.page.locator("#loomark-preview")).toHaveCount(0)
+    await expect(host.page.locator("#loomark-block")).toHaveCount(0)
+
+    await requestSource(host.page, "# Must not land\n")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("# Accepted\n")
+  } finally {
+    await host.context.close()
+  }
+})
+
 test("Raw input preserves canonical source and Preview follows a committed edit", async ({ browser }) => {
   const host = await mountHost(browser, "before\r\n")
   try {
@@ -304,15 +376,22 @@ test("Raw keeps focus and accepts consecutive keystrokes while split Preview upd
       textarea.setSelectionRange(textarea.value.length, textarea.value.length)
     })
 
+    let expectedSource = "start"
     for (const character of ["a", "b", "c"]) {
-      await host.page.keyboard.type(character)
-      await expect.poll(() => host.page.evaluate(() => document.activeElement?.id)).toBe(
-        "loomark-input",
+      expectedSource += character
+      await expect(input).toBeFocused()
+      // Target the current textarea node so an already-scheduled split render
+      // cannot send the key to a detached predecessor between focus and input.
+      await input.pressSequentially(character)
+      // A canonical source commit plus focus on the re-resolved control is the
+      // explicit acknowledgement that the transaction rendered successfully.
+      await expect.poll(async () => (await snapshot(host.page)).source).toBe(
+        expectedSource,
       )
+      await expect(input).toBeFocused()
     }
 
     await expect(input).toHaveValue("startabc")
-    await expect.poll(async () => (await snapshot(host.page)).source).toBe("startabc")
     await expectPreviewSource(host.page, "startabc")
 
     await host.page.setViewportSize({ width: 390, height: 844 })
@@ -320,10 +399,8 @@ test("Raw keeps focus and accepts consecutive keystrokes while split Preview upd
       "data-orientation",
       "vertical",
     )
-    await expect.poll(() => host.page.evaluate(() => document.activeElement?.id)).toBe(
-      "loomark-input",
-    )
-    await host.page.keyboard.type("d")
+    await expect(input).toBeFocused()
+    await input.pressSequentially("d")
     await expect(input).toHaveValue("startabcd")
   } finally {
     await host.context.close()

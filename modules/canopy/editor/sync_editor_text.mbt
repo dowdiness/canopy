@@ -41,6 +41,7 @@ pub fn[T : Eq] SyncEditor::insert(
   self : SyncEditor[T],
   text : String,
 ) -> Unit raise {
+  self.ensure_parser_healthy()
   self.taint_pending_transforms()
   let old_source = self.doc.text()
   self.cursor = @moji.prev_grapheme_boundary(old_source, self.cursor)
@@ -59,7 +60,8 @@ pub fn[T : Eq] SyncEditor::insert(
 }
 
 ///|
-pub fn[T : Eq] SyncEditor::delete(self : SyncEditor[T]) -> Bool {
+pub fn[T : Eq] SyncEditor::delete(self : SyncEditor[T]) -> Bool raise Failure {
+  self.ensure_parser_healthy()
   self.taint_pending_transforms()
   let old_source = self.doc.text()
   if !@moji.is_grapheme_boundary(old_source, self.cursor) {
@@ -97,7 +99,10 @@ pub fn[T : Eq] SyncEditor::delete(self : SyncEditor[T]) -> Bool {
 }
 
 ///|
-pub fn[T : Eq] SyncEditor::backspace(self : SyncEditor[T]) -> Bool {
+pub fn[T : Eq] SyncEditor::backspace(
+  self : SyncEditor[T],
+) -> Bool raise Failure {
+  self.ensure_parser_healthy()
   self.taint_pending_transforms()
   let old_source = self.doc.text()
   if !@moji.is_grapheme_boundary(old_source, self.cursor) {
@@ -213,7 +218,8 @@ fn[T : Eq] SyncEditor::apply_diagnostic_fix_candidate(
   source_id : @loom_core.SourceId,
   fix : @loom_core.DiagnosticFix,
   timestamp_ms : Int,
-) -> Bool {
+) -> Bool raise Failure {
+  self.ensure_parser_healthy()
   let old_source = self.doc.text()
   let expected_source = fix.apply(source_id, old_source) catch {
     _ => return false
@@ -256,7 +262,8 @@ fn[T : Eq] SyncEditor::apply_text_edit_with_policy(
   record_undo : Bool,
   move_cursor_to_edit_end : Bool,
   policy : SplicePolicy,
-) -> Bool {
+) -> Bool raise Failure {
+  self.ensure_parser_healthy()
   let old_source = self.doc.text()
   let text_len = old_source.length()
   let (safe_start, safe_delete_len) = match policy {
@@ -335,7 +342,7 @@ fn[T : Eq] SyncEditor::apply_text_edit_internal(
   timestamp_ms : Int,
   record_undo : Bool,
   move_cursor_to_edit_end : Bool,
-) -> Bool {
+) -> Bool raise Failure {
   self.apply_text_edit_with_policy(
     start,
     deleted_len,
@@ -354,7 +361,8 @@ pub fn[T : Eq] SyncEditor::apply_text_edit(
   deleted_len : Int,
   inserted : String,
   timestamp_ms : Int,
-) -> Unit {
+) -> Unit raise Failure {
+  self.ensure_parser_healthy()
   self.taint_pending_transforms()
   ignore(
     self.apply_text_edit_internal(
@@ -370,7 +378,8 @@ pub fn[T : Eq] SyncEditor::apply_text_edit_exact(
   deleted_len : Int,
   inserted : String,
   timestamp_ms : Int,
-) -> Bool {
+) -> Bool raise Failure {
+  self.ensure_parser_healthy()
   self.taint_pending_transforms()
   self.apply_text_edit_with_policy(
     start,
@@ -394,7 +403,8 @@ pub fn[T : Eq] SyncEditor::apply_text_edit_exact(
 pub fn[T : Eq] SyncEditor::set_text_with_change(
   self : SyncEditor[T],
   new_text : String,
-) -> (@text_change.TextChange, Bool) {
+) -> (@text_change.TextChange, Bool) raise Failure {
+  self.ensure_parser_healthy()
   let old_text = self.doc.text()
   let splice = @text_change.compute_text_change(old_text, new_text)
   if splice.is_noop() {
@@ -428,7 +438,7 @@ pub fn[T : Eq] SyncEditor::set_text_with_change(
 pub fn[T : Eq] SyncEditor::set_text(
   self : SyncEditor[T],
   new_text : String,
-) -> Unit {
+) -> Unit raise Failure {
   ignore(self.set_text_with_change(new_text))
 }
 
@@ -440,7 +450,8 @@ pub fn[T : Eq] SyncEditor::insert_at(
   position : Int,
   text : String,
   timestamp_ms : Int,
-) -> Unit {
+) -> Unit raise Failure {
+  self.ensure_parser_healthy()
   let text_len = self.doc.len()
   if position < 0 || position > text_len {
     return
@@ -459,7 +470,8 @@ pub fn[T : Eq] SyncEditor::delete_at(
   self : SyncEditor[T],
   position : Int,
   timestamp_ms : Int,
-) -> Bool {
+) -> Bool raise Failure {
+  self.ensure_parser_healthy()
   let text_len = self.doc.len()
   if position < 0 || position >= text_len {
     return false
@@ -476,7 +488,8 @@ pub fn[T : Eq] SyncEditor::set_text_and_record(
   self : SyncEditor[T],
   new_text : String,
   timestamp_ms : Int,
-) -> Unit {
+) -> Unit raise Failure {
+  self.ensure_parser_healthy()
   let old_text = self.doc.text()
   if old_text == new_text {
     return

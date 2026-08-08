@@ -29,7 +29,7 @@ fn render_dot_to_svg(dot : String) -> String {
 /// transition from `<section>` (SVG panels) to `<div>` (everything
 /// else), removes the old subtree wholesale, and rebuilds — so stale
 /// SVG can't leak past the diff and block sibling click handlers.
-fn render_graphviz_html(model : Model) -> String {
+fn render_graphviz_html(model : Model) -> String raise {
   let snap = model.editor.causal_snapshot()
   let key = render_cache_key(model.editor.identity(), snap)
   if cache_hit(graphviz_cache, key) {

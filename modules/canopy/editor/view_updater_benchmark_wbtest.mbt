@@ -22,9 +22,9 @@ fn bench_source(def_count : Int) -> String {
 ///|
 fn bench_setup(let_count : Int) -> @protocol.ViewNode {
   let editor = try! @probe.new_test_editor("bench")
-  editor.set_text(bench_source(let_count))
-  let proj_node = editor.get_proj_node().unwrap()
-  let source_map = editor.get_source_map()
+  try! editor.set_text(bench_source(let_count))
+  let proj_node = (try! editor.get_proj_node()).unwrap()
+  let source_map = try! editor.get_source_map()
   @protocol.proj_to_view_node(proj_node, source_map)
 }
 
@@ -64,13 +64,13 @@ test "viewnode serialization (500 defs)" (b : @bench.T) {
 ///|
 test "compute_view_patches (100 defs, single edit)" (b : @bench.T) {
   let editor = try! @probe.new_test_editor("bench")
-  editor.set_text(bench_source(100))
+  try! editor.set_text(bench_source(100))
   let state = ViewUpdateState::ViewUpdateState()
   // Initial full tree
   let _ = compute_view_patches(state, editor)
   // Benchmark: single character edit + patch computation
   b.bench(() => {
-    editor.set_text(bench_source(100))
-    b.keep(compute_view_patches(state, editor))
+    try! editor.set_text(bench_source(100))
+    b.keep(try! compute_view_patches(state, editor))
   })
 }

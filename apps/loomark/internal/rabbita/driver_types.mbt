@@ -51,10 +51,24 @@ priv enum ProbeEvent {
 }
 
 ///|
+/// The editor/semantic resources currently owned by the application shell.
+/// The holder is swapped only after a complete archive reopen succeeds.
+priv struct EditorSession {
+  editor : @markdown.MarkdownEditor
+  attachment : @md_markdown.MarkdownSemanticAttachment
+}
+
+///|
 /// Application-control events: failures, restore, subscriptions, fatal,
 /// resize, and driver protocol errors.
 priv enum LifecycleEvent {
   EditorFailure
+  ForceParserFailure
+  ForceReconstructionFailure
+  RecoveryCopy
+  RecoveryDownload
+  RecoveryReload
+  RecoveryEffectFailed(String)
   RestoreSnapshot(
     version~ : Int,
     source~ : String,
@@ -91,7 +105,9 @@ priv suberror DriverSubscription {
 ///|
 priv struct DriverModel {
   state : @core.ApplicationState
+  runtime_state : EditorRuntimeState
   document : @markdown.MarkdownDocumentSnapshot
+  document_version : @markdown.MarkdownDocumentVersion
   document_id : @archive.LoomarkDocumentId
   archive_persistence_enabled : Bool
   semantic_document : @md_markdown.MarkdownIR?
@@ -109,6 +125,9 @@ priv struct DriverModel {
   error_count : Int
   committed_change_count : Int
   fail_next_editor_commit : Bool
+  force_parser_failure : Bool
+  force_reconstruction_failure : Bool
+  reconstruction_attempt_count : Int
   resize_count : Int
   selection : String?
   measurement : String?

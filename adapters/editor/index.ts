@@ -16,3 +16,13 @@ export { CM6Adapter } from './cm6-adapter';
 export { PMAdapter, pmAdapterSchema } from './pm-adapter';
 export { MarkdownPreview } from './markdown-preview';
 export { BlockInput } from './block-input';
+export {
+  adaptMoonBitModule,
+  CanopyHostError,
+} from './moonbit-result';
+export type {
+  AdaptedMoonBitModule,
+  CanopyHostErrorCode,
+  MoonBitModuleAdapterOptions,
+  MoonBitResult,
+} from './moonbit-result';

@@ -3,18 +3,19 @@ package "dowdiness/canopy/workspace/probe"
 
 import {
   "dowdiness/canopy/editor",
-  "dowdiness/event-graph-walker/text",
   "dowdiness/incr/cells",
   "dowdiness/loom/core",
   "moonbitlang/core/debug",
 }
 
 // Values
-pub fn get_test_ast(@editor.SyncEditor[TestExpr]) -> TestExpr
+pub fn get_test_ast(@editor.SyncEditor[TestExpr]) -> TestExpr raise Failure
 
-pub fn new_empty_diagnostic_test_editor(String) -> @editor.SyncEditor[TestExpr] raise @text.TextError
+pub fn new_empty_diagnostic_test_editor(String) -> @editor.SyncEditor[TestExpr] raise
 
-pub fn new_test_editor(String, capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime) -> @editor.SyncEditor[TestExpr] raise @text.TextError
+pub fn new_parser_failure_test_editor(String) -> @editor.SyncEditor[TestExpr] raise
+
+pub fn new_test_editor(String, capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime) -> @editor.SyncEditor[TestExpr] raise
 
 // Errors
 

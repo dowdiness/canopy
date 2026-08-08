@@ -2,6 +2,7 @@
 package "dowdiness/canopy/lang/json/proj"
 
 import {
+  "dowdiness/canopy/core",
   "dowdiness/diagnostic",
   "dowdiness/incr/cells",
   "dowdiness/json",
@@ -11,17 +12,17 @@ import {
 }
 
 // Values
-pub fn build_json_projection_memos(@pipeline.Parser[@json.JsonValue]) -> (@cells.Derived[@dowdiness/canopy/core.ProjNode[@json.JsonValue]?], @cells.Derived[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[@json.JsonValue]]], @cells.Derived[@dowdiness/canopy/core.SourceMap])
+pub fn build_json_projection_memos(@pipeline.Parser[@json.JsonValue]) -> (@cells.Derived[@core.ProjNode[@json.JsonValue]?], @cells.Derived[Map[@core.NodeId, @core.ProjNode[@json.JsonValue]]], @cells.Derived[@core.SourceMap])
 
 pub fn key_role(Int) -> String
 
 pub fn member_role(Int) -> String
 
-pub fn parse_to_proj_node(@diagnostic.SourceId, String) -> (@dowdiness/canopy/core.ProjNode[@json.JsonValue], Array[String]) raise @dowdiness/loom/core.LexError
+pub fn parse_to_proj_node(@diagnostic.SourceId, String) -> (@core.ProjNode[@json.JsonValue], Array[String]) raise
 
-pub fn populate_token_spans(@dowdiness/canopy/core.SourceMap, @seam.SyntaxNode, @dowdiness/canopy/core.ProjNode[@json.JsonValue]) -> Unit
+pub fn populate_token_spans(@core.SourceMap, @seam.SyntaxNode, @core.ProjNode[@json.JsonValue]) -> Unit
 
-pub fn syntax_to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @dowdiness/canopy/core.ProjNode[@json.JsonValue]
+pub fn syntax_to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @core.ProjNode[@json.JsonValue]
 
 // Errors
 

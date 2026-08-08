@@ -1,5 +1,6 @@
 'use client';
 import { HTMLAdapter } from '@canopy/editor-adapter/html-adapter';
+import type { AdaptedMoonBitModule } from '@canopy/editor-adapter/moonbit-result';
 import { DecorationOverlay } from '../../../shared/decoration-overlay';
 import type { Decoration } from '@canopy/editor-adapter/types';
 import type { ViewPatch, ViewNode } from '@canopy/editor-adapter/types';
@@ -11,7 +12,9 @@ declare global {
   interface Window { getJsonRoleSpans: () => JsonRoleSpanData[]; }
 }
 
-export type JsonEditorRuntime = typeof import('@moonbit/crdt-json');
+export type JsonEditorRuntime = AdaptedMoonBitModule<
+  typeof import('@moonbit/crdt-json')
+>;
 
 export function mountJsonEditor(
   root: Document | HTMLElement = globalThis.document,

@@ -15,6 +15,9 @@ pub(all) enum DomAction {
   WriteTextSelection
   MeasureElement
   DispatchCustomEvent
+  CopyText
+  DownloadText
+  Reload
   ListenCustomEvent
   RemoveCustomEventListener
 } derive(Debug, Eq)
@@ -265,6 +268,39 @@ pub fn measure_element_selector(
   selector : String,
 ) -> ElementMeasurement raise DomBoundaryError {
   measure_element_target(LOOKUP_SELECTOR, selector, Selector(selector))
+}
+
+///|
+/// Copy exact text through the host clipboard boundary.
+pub fn copy_text(text : String) -> Unit raise DomBoundaryError {
+  let target = EventSubscription
+  guard !js_document_unavailable() else { raise DocumentUnavailable }
+  guard js_copy_text(text) else {
+    raise UnsupportedAction(action=CopyText, target~)
+  }
+}
+
+///|
+/// Download exact text as a named file through the host DOM boundary.
+pub fn download_text(
+  filename : String,
+  text : String,
+) -> Unit raise DomBoundaryError {
+  let target = EventSubscription
+  guard !js_document_unavailable() else { raise DocumentUnavailable }
+  guard js_download_text(filename, text) else {
+    raise ActionFailed(action=DownloadText, target~, detail="download failed")
+  }
+}
+
+///|
+/// Explicitly reload the host page.
+pub fn reload() -> Unit raise DomBoundaryError {
+  let target = EventSubscription
+  guard !js_document_unavailable() else { raise DocumentUnavailable }
+  guard js_reload() else {
+    raise ActionFailed(action=Reload, target~, detail="reload failed")
+  }
 }
 
 ///|

@@ -32,7 +32,7 @@ fn mount_standalone_editor(
   baseline : (@repository.LocalArchiveRequestId, String)?,
   archive_tracker : @repository.LocalArchiveRequestTracker,
   local_storage_warning : Bool,
-) -> Unit {
+) -> Unit raise {
   let initial = {
     ..initial_model(
       host_id,
@@ -52,11 +52,21 @@ fn mount_standalone_editor(
 
 ///|
 /// Construct a new local document and schedule its complete baseline archive.
-fn mount_new_standalone_document(host_id : String, source : String) -> Unit {
+fn mount_new_standalone_document(
+  host_id : String,
+  source : String,
+) -> Unit raise {
   let replica_id = @archive_storage.fresh_id("loomark-standalone-writer-")
-  let document_id = try! @archive.LoomarkDocumentId::from_string(
+  let document_id = @archive.LoomarkDocumentId::from_string(
     @archive_storage.fresh_id("loomark-document-"),
-  )
+  ) catch {
+    _ => {
+      recovery_application(RecoveryCategory::EditorInitializationFailed).mount(
+        host_id,
+      )
+      return
+    }
+  }
   let (editor, attachment) = @markdown.MarkdownEditor::with_semantic_attachment(
     agent_id=replica_id,
     source~,
@@ -102,7 +112,7 @@ fn mount_new_standalone_document(host_id : String, source : String) -> Unit {
 fn mount_reopened_standalone_document(
   host_id : String,
   archive : @archive.LoomarkDocumentArchive,
-) -> Unit {
+) -> Unit raise {
   let policy = @repository.LocalRestorePolicy::trusted()
   let replica_id = @archive_storage.fresh_id("loomark-standalone-writer-")
   let reopened = @repository.reopen_local_archive(
@@ -133,7 +143,7 @@ fn finish_standalone_bootstrap(
   host_id : String,
   source : String,
   loaded : @archive_storage.LocalArchiveStorageRead,
-) -> Unit {
+) -> Unit raise {
   match loaded {
     @archive_storage.LocalArchiveStorageRead::Missing =>
       mount_new_standalone_document(host_id, source)

@@ -6,6 +6,7 @@
     "typecheck:cm6": "tsc -p tsconfig.cm6-test.json --noEmit",
     "build:test:cm6": "vite build --config vite.config.cm6-test.ts",
     "dev:test:cm6": "vite --config vite.config.cm6-test.ts",
+    "test:unit": "node --test test/moonbit-result.test.ts",
     "test:e2e:cm6": "playwright test --config test/playwright.config.ts"
   },
   "description": "UI adapters bridging Canopy's ViewPatch protocol to DOM/CodeMirror/ProseMirror renderers.",
@@ -44,6 +45,7 @@
     "./markdown-preview": "./markdown-preview.ts",
     "./block-input": "./block-input.ts",
     "./block-input.css": "./block-input.css",
+    "./moonbit-result": "./moonbit-result.ts",
     "./package.json": "./package.json"
   },
   "peerDependencies": {

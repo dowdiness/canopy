@@ -75,7 +75,7 @@ pub(all) enum EditResult {
 /// pipeline closures from the freshly constructed `E` — this ordering (data
 /// before behavior) is what eliminates construction-time Ref side-channels.
 pub struct Language[T, Op, E] {
-  priv parse : (@loom_core.SourceId, String, @incr.Runtime?) -> @loom.Parser[T]
+  priv parse : (@loom_core.SourceId, String, @incr.Runtime?) -> @loom.Parser[T] raise Failure
   priv project : (@loom.Parser[T], @core.IdentityHintConsumer) -> (
     @incr.Derived[@core.ProjNode[T]?],
     @incr.Derived[Map[@core.NodeId, @core.ProjNode[T]]],
@@ -88,7 +88,7 @@ pub struct Language[T, Op, E] {
 
 ///|
 pub fn[T, Op, E] Language::Language(
-  parse~ : (@loom_core.SourceId, String, @incr.Runtime?) -> @loom.Parser[T],
+  parse~ : (@loom_core.SourceId, String, @incr.Runtime?) -> @loom.Parser[T] raise Failure,
   project~ : (@loom.Parser[T], @core.IdentityHintConsumer) -> (
     @incr.Derived[@core.ProjNode[T]?],
     @incr.Derived[Map[@core.NodeId, @core.ProjNode[T]]],
@@ -111,7 +111,7 @@ pub fn[T, Op, E] Language::build(
   agent_id : String,
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
-) -> (@editor.SyncEditor[T], E) raise @text.TextError {
+) -> (@editor.SyncEditor[T], E) raise {
   @editor.SyncEditor::new_with_builder(
     agent_id,
     self.parse,
@@ -148,29 +148,36 @@ pub fn[T : Eq, Op, E] Language::apply_edit(
   editor : @editor.SyncEditor[T],
   op : Op,
   timestamp_ms : Int,
-) -> Result[Array[@core.SpanEdit], @core.EditError] {
-  try {
-    guard editor.get_proj_node() is Some(proj) else {
-      raise @core.EditError::ProjectionUnavailable
-    }
-    let ctx : EditContext[T] = {
-      source_text: editor.get_text(),
-      source_map: editor.get_source_map(),
-      registry: editor.get_registry(),
-      proj_node: proj,
-    }
-    match (self.edit)(op, ctx) {
-      Edits(edits, focus_hint, hint) => {
-        editor.apply_span_edits(edits, focus_hint, timestamp_ms, hint?)
-        Ok(edits)
+) -> Result[Array[@core.SpanEdit], @core.EditError] raise Failure {
+  let projection = editor.get_proj_node()
+  let source_map = editor.get_source_map()
+  let registry = editor.get_registry()
+  let computed : Result[EditResult, @core.EditError] = Ok(
+    {
+      guard projection is Some(proj) else {
+        raise @core.EditError::ProjectionUnavailable
       }
-      NoEdit => Ok([])
-    }
-  } catch {
-    @core.EditError::InvalidTarget(detail~) => {
+      let ctx : EditContext[T] = {
+        source_text: editor.get_text(),
+        source_map,
+        registry,
+        proj_node: proj,
+      }
+      (self.edit)(op, ctx)
+    },
+  ) catch {
+    error => Err(error)
+  }
+  match computed {
+    Err(@core.EditError::InvalidTarget(detail~)) => {
       editor.invalidate_pending_identity_hints()
       Err(@core.EditError::InvalidTarget(detail~))
     }
-    e => Err(e)
+    Err(error) => Err(error)
+    Ok(Edits(edits, focus_hint, hint)) => {
+      editor.apply_span_edits(edits, focus_hint, timestamp_ms, hint?)
+      Ok(edits)
+    }
+    Ok(NoEdit) => Ok([])
   }
 }

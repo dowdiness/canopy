@@ -10,9 +10,13 @@ pub fn click_id(String) -> Unit raise DomBoundaryError
 
 pub fn click_selector(String) -> Unit raise DomBoundaryError
 
+pub fn copy_text(String) -> Unit raise DomBoundaryError
+
 pub fn dispatch_custom_event_id(String, String, detail? : String, bubbles? : Bool, composed? : Bool) -> Unit raise DomBoundaryError
 
 pub fn dispatch_custom_event_selector(String, String, detail? : String, bubbles? : Bool, composed? : Bool) -> Unit raise DomBoundaryError
+
+pub fn download_text(String, String) -> Unit raise DomBoundaryError
 
 pub fn focus_id(String) -> Unit raise DomBoundaryError
 
@@ -33,6 +37,8 @@ pub fn measure_element_selector(String) -> ElementMeasurement raise DomBoundaryE
 pub fn read_text_selection_id(String) -> TextSelection raise DomBoundaryError
 
 pub fn read_text_selection_selector(String) -> TextSelection raise DomBoundaryError
+
+pub fn reload() -> Unit raise DomBoundaryError
 
 pub fn scroll_id(String, behavior? : ScrollBehavior, block? : ScrollBlock) -> Unit raise DomBoundaryError
 
@@ -74,6 +80,9 @@ pub(all) enum DomAction {
   WriteTextSelection
   MeasureElement
   DispatchCustomEvent
+  CopyText
+  DownloadText
+  Reload
   ListenCustomEvent
   RemoveCustomEventListener
 } derive(Eq, @debug.Debug)

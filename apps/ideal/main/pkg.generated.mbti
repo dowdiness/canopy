@@ -17,11 +17,13 @@ import {
 // Values
 pub fn apply_sync_json(Int, String) -> String
 
-pub fn apply_tree_edit_json(Int, String, Int) -> String
+pub fn apply_tree_edit_json(Int, String, Int) -> String raise
 
-pub fn create_editor_with_undo(String, Int) -> Int
+pub fn create_editor_with_undo(String, Int) -> Int raise
 
-pub fn delete_at(Int, Int, Int) -> Bool
+pub fn delete_at(Int, Int, Int) -> Bool raise
+
+pub fn destroy_editor(Int) -> Unit
 
 pub fn ephemeral_apply(Int, Bytes) -> Unit
 
@@ -41,7 +43,7 @@ pub fn export_all_json(Int) -> String
 
 pub fn export_since_json(Int, String) -> String
 
-pub fn get_errors_json(Int) -> String
+pub fn get_errors_json(Int) -> String raise Failure
 
 pub fn get_proj_node_json(Int) -> String
 
@@ -51,17 +53,17 @@ pub fn get_text(Int) -> String
 
 pub fn get_version_json(Int) -> String
 
-pub fn handle_redo(Int) -> Bool
+pub fn handle_redo(Int) -> Bool raise Failure
 
-pub fn handle_structural_intent(Int, String, String, Int, String) -> String
+pub fn handle_structural_intent(Int, String, String, Int, String) -> String raise
 
-pub fn handle_text_intent(Int, Int, Int, String, Int) -> Unit
+pub fn handle_text_intent(Int, Int, Int, String, Int) -> Unit raise
 
-pub fn handle_text_intent_checked(Int, Int, Int, String, Int) -> Bool
+pub fn handle_text_intent_checked(Int, Int, Int, String, Int) -> Bool raise
 
-pub fn handle_undo(Int) -> Bool
+pub fn handle_undo(Int) -> Bool raise Failure
 
-pub fn insert_at(Int, Int, String, Int) -> Unit
+pub fn insert_at(Int, Int, String, Int) -> Unit raise
 
 pub fn load_file(Int) -> Unit
 
@@ -69,17 +71,19 @@ pub fn register_file_host(@js_ffi.Any) -> Unit
 
 pub fn save_file(Int, String) -> Unit
 
-pub fn set_text(Int, String) -> Unit
+pub fn set_text(Int, String) -> Unit raise
 
-pub fn set_text_and_record(Int, String, Int) -> Unit
+pub fn set_text_and_record(Int, String, Int) -> Unit raise
+
+pub fn try_destroy_editor(Int) -> Bool
 
 pub fn undo_manager_can_redo(Int) -> Bool
 
 pub fn undo_manager_can_undo(Int) -> Bool
 
-pub fn undo_manager_redo(Int) -> Bool
+pub fn undo_manager_redo(Int) -> Bool raise Failure
 
-pub fn undo_manager_undo(Int) -> Bool
+pub fn undo_manager_undo(Int) -> Bool raise Failure
 
 // Errors
 

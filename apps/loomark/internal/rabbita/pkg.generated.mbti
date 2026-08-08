@@ -18,6 +18,10 @@ pub fn focus_raw() -> Unit
 
 pub fn force_editor_failure() -> Unit
 
+pub fn force_parser_failure() -> Unit
+
+pub fn force_reconstruction_failure() -> Unit
+
 pub fn measure_failure() -> Unit
 
 pub fn measure_preview() -> Unit

@@ -116,7 +116,7 @@ test "ProjNode[TestExpr] — construction and field access" {
 ///|
 test "ProjNode::leaf allocates a fresh id from syntax span" {
   let syntax_node = @seam.SyntaxNode::from_cst(
-    @seam.CstNode::new(@seam.RawKind(1), [
+    @seam.CstNode::new_unclassified(@seam.RawKind(1), [
       @seam.CstElement::Token(
         @seam.CstToken::CstToken(@seam.RawKind(2), "text"),
       ),

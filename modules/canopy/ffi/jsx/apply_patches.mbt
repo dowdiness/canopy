@@ -7,13 +7,14 @@ let legacy_container_id : String = "html-preview"
 ///|
 /// JavaScript exceptions are not represented as MoonBit `raise` effects by
 /// `Any::call`. Catch them at the JavaScript boundary so a DOM failure can
-/// become the session's structured `DomApplyError` and dirty-state path.
+/// become the session's structured `DomApplyError` and dirty-state path. Raw
+/// exception text stays inside this boundary and is never returned publicly.
 extern "js" fn catch_js(callback : @js.Any) -> @js.Any =
   #|(callback) => {
   #|  try {
   #|    return { ok: true, value: callback() };
-  #|  } catch (error) {
-  #|    return { ok: false, error: String(error) };
+  #|  } catch (_error) {
+  #|    return { ok: false };
   #|  }
   #|}
 
@@ -71,7 +72,7 @@ fn apply_patches_with_registry(
     }),
   )
   if !outcome.get("ok").cast() {
-    Err(outcome.get("error").to_str())
+    Err("DOM patch application failed")
   } else {
     outcome.get("value").cast()
   }

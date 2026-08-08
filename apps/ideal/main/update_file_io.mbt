@@ -1,5 +1,9 @@
 ///|
-fn handle_file_io(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model)? {
+fn handle_file_io(
+  emit : Emit[Msg],
+  msg : Msg,
+  model : Model,
+) -> (Cmd, Model)? raise {
   let _ = emit
   match msg {
     LoadExample(example_text) => Some(load_text(model, example_text))

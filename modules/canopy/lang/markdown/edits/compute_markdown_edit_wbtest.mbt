@@ -9,14 +9,18 @@ let markdown_edit_test_source : @loomcore.SourceId = @loomcore.SourceId(
 fn compute_edit_result(
   source : String,
   op : MarkdownEditOp,
-) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
+) -> (Array[SpanEdit], FocusHint)? raise {
   let (proj, _) = @md_proj.parse_to_proj_node(markdown_edit_test_source, source) catch {
+    Failure::Failure(_) as failure => raise failure
     @loomcore.LexError(msg) => raise @core.EditError::ParseFailed(detail=msg)
+    error => raise error
   }
   let source_map = @core.SourceMap::from_ast(proj)
   // Re-parse to get the SyntaxNode for populate_token_spans
   let (cst, _) = @markdown.parse_cst(markdown_edit_test_source, source) catch {
+    Failure::Failure(_) as failure => raise failure
     @loomcore.LexError(msg) => raise @core.EditError::ParseFailed(detail=msg)
+    error => raise error
   }
   let syntax_root = @seam.SyntaxNode::from_cst(cst)
   @md_proj.populate_token_spans(source_map, syntax_root, proj)
@@ -25,10 +29,7 @@ fn compute_edit_result(
 
 ///|
 /// Helper: parse, project, populate token spans, compute edit, return new source text.
-fn apply_edit(
-  source : String,
-  op : MarkdownEditOp,
-) -> String raise @core.EditError {
+fn apply_edit(source : String, op : MarkdownEditOp) -> String raise {
   match compute_edit_result(source, op) {
     Some((edits, _)) => {
       let sorted = edits.copy()
@@ -69,7 +70,20 @@ fn inspect_edit_error_contains(
     let _ = compute_edit_result(source, op)
     "no error"
   } catch {
-    e => e.message()
+    Failure::Failure(_) => "Failure"
+    @core.EditError::ProjectionUnavailable as error => error.message()
+    @core.EditError::NodeNotFound(..) as error => error.message()
+    @core.EditError::NodeNotInSourceMap(..) as error => error.message()
+    @core.EditError::NodeNotInRegistry(..) as error => error.message()
+    @core.EditError::BindingNotFound(..) as error => error.message()
+    @core.EditError::InvalidTarget(..) as error => error.message()
+    @core.EditError::UnsupportedOperation(..) as error => error.message()
+    @core.EditError::CaptureViolation(..) as error => error.message()
+    @core.EditError::ScopeViolation(..) as error => error.message()
+    @core.EditError::ParseFailed(..) as error => error.message()
+    @core.EditError::SourceSpanMissing(..) as error => error.message()
+    @core.EditError::Invariant(..) as error => error.message()
+    _ => "unknown error"
   }
   inspect(msg.contains(fragment.view()), content="true")
 }

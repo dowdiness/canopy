@@ -2,7 +2,7 @@
 
 ///|
 /// Get AST as DOT format with name resolution coloring
-pub fn get_ast_dot_resolved(handle : Int) -> String {
+pub fn get_ast_dot_resolved(handle : Int) -> String raise Failure {
   match lambda_registry.get(handle) {
     Some(h) => @lang_lambda.get_lambda_dot_resolved(h.editor)
     None => "digraph { }"
@@ -11,7 +11,7 @@ pub fn get_ast_dot_resolved(handle : Int) -> String {
 
 ///|
 /// Get AST as pretty-printed string (expression + debug tree)
-pub fn get_ast_pretty(handle : Int) -> String {
+pub fn get_ast_pretty(handle : Int) -> String raise Failure {
   match lambda_registry.get(handle) {
     Some(h) => @lang_lambda.get_lambda_ast_pretty(h.editor)
     None => ""
@@ -20,7 +20,7 @@ pub fn get_ast_pretty(handle : Int) -> String {
 
 ///|
 /// Get parse errors as JSON array
-pub fn get_errors_json(handle : Int) -> String {
+pub fn get_errors_json(handle : Int) -> String raise Failure {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.get_errors().to_json().stringify()
     None => "[]"

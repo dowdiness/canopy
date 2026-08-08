@@ -1,4 +1,5 @@
 import './canopy-editor';
+import { adaptMoonBitModule } from '@canopy/editor-adapter/moonbit-result';
 import * as cmCommands from '@codemirror/commands';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import * as cmState from '@codemirror/state';
@@ -87,7 +88,12 @@ function loadCrdtModule(): Promise<CrdtModule> {
     };
     canopyGlobal.__canopy_codemirror = { ...cmState, ...cmView, ...cmCommands };
     // Loading the MoonBit module also runs Rabbita's main(), which renders <canopy-editor>.
-    crdtPromise = import('@moonbit/ideal-editor') as Promise<CrdtModule>;
+    crdtPromise = import('@moonbit/ideal-editor').then((raw) => adaptMoonBitModule(raw, {
+      createFunctions: ['create_editor_with_undo'],
+      destroyFunctions: ['destroy_editor'],
+      tryDestroyFunctions: ['try_destroy_editor'],
+      initialHandles: [0],
+    }));
   }
   return crdtPromise;
 }
