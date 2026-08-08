@@ -609,7 +609,9 @@ pub fn[T : Eq] SyncEditor::apply_sync(
 
 ///|
 pub fn[T] SyncEditor::get_version(self : SyncEditor[T]) -> @text.Version {
-  self.doc.version()
+  // The reactive version is refreshed alongside every accepted text/CRDT
+  // transition. Reuse it instead of expanding the entire operation log again.
+  self.document_version.get()
 }
 
 ///|

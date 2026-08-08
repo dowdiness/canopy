@@ -22,3 +22,11 @@ test "rejected replacement maps a range around the accepted span" {
     fail("expected selection direction to be preserved")
   }
 }
+
+///|
+test "Raw coordinator without telemetry keeps phase snapshots empty" {
+  let coordinator = RawInputCoordinator::RawInputCoordinator(None)
+  guard coordinator.phase_json() is None else {
+    fail("standalone Raw coordinator must not expose phase telemetry")
+  }
+}

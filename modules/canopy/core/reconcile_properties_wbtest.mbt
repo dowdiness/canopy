@@ -323,6 +323,57 @@ fn exact_test_key(expr : TestExpr) -> String {
 }
 
 ///|
+test "reconcile: positional fast path only accepts equal-kind sibling lists" {
+  let old_node = to_proj_node(Branch("root", [Leaf("a"), Leaf("b")]), Ref(0))
+  let same_shape = to_proj_node(
+    Branch("root", [Leaf("x"), Leaf("y")]),
+    Ref(500),
+  )
+  inspect(
+    can_reconcile_children_positionally(
+      old_node.children,
+      same_shape.children,
+      Map([]),
+    ),
+    content="true",
+  )
+  let different_kind = to_proj_node(
+    Branch("root", [Leaf("x"), Branch("nested", [])]),
+    Ref(500),
+  )
+  inspect(
+    can_reconcile_children_positionally(
+      old_node.children,
+      different_kind.children,
+      Map([]),
+    ),
+    content="false",
+  )
+  let inserted = to_proj_node(
+    Branch("root", [Leaf("x"), Leaf("inserted"), Leaf("y")]),
+    Ref(500),
+  )
+  inspect(
+    can_reconcile_children_positionally(
+      old_node.children,
+      inserted.children,
+      Map([]),
+    ),
+    content="false",
+  )
+  let hints : Map[NodeId, IdentityTransform] = Map([])
+  hints[old_node.children[0].id()] = IdentityTransform::Opaque
+  inspect(
+    can_reconcile_children_positionally(
+      old_node.children,
+      same_shape.children,
+      hints,
+    ),
+    content="false",
+  )
+}
+
+///|
 test "reconcile: append equal-kind siblings preserves positional IDs" {
   let old_node = to_proj_node(Branch("root", [Leaf("a"), Leaf("b")]), Ref(0))
   let new_node = to_proj_node(

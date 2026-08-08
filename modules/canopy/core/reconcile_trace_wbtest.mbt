@@ -28,6 +28,47 @@ test "identical trees produce only Matched events" {
 }
 
 ///|
+test "positional fast path preserves nested IDs and trace order" {
+  let old_leaf = ProjNode(Leaf("old"), 0, 1, 2, [])
+  let old_branch = ProjNode(Branch("child", [Leaf("old")]), 0, 2, 1, [old_leaf])
+  let old_tail = ProjNode(Leaf("tail-old"), 2, 3, 3, [])
+  let old = ProjNode(
+    Branch("root", [Branch("child", [Leaf("old")]), Leaf("tail-old")]),
+    0,
+    3,
+    0,
+    [old_branch, old_tail],
+  )
+  let new_leaf = ProjNode(Leaf("new"), 0, 1, 12, [])
+  let new_branch = ProjNode(Branch("child", [Leaf("new")]), 0, 2, 11, [new_leaf])
+  let new_tail = ProjNode(Leaf("tail-new"), 2, 3, 13, [])
+  let new_ = ProjNode(
+    Branch("root", [Branch("child", [Leaf("new")]), Leaf("tail-new")]),
+    0,
+    3,
+    10,
+    [new_branch, new_tail],
+  )
+  let trace = Ref([])
+  let counter = Ref(100)
+  let result = reconcile(old, new_, counter, trace_ref=Some(trace))
+  inspect(result.children[0].id() == old_branch.id(), content="true")
+  inspect(result.children[0].children[0].id() == old_leaf.id(), content="true")
+  inspect(result.children[1].id() == old_tail.id(), content="true")
+  inspect(counter.val, content="100")
+  inspect(trace.val.length(), content="3")
+  guard trace.val[0] is Matched(_, 0, 0, _, _) else {
+    fail("nested match should be traced first")
+  }
+  guard trace.val[1] is Matched(_, 0, 0, _, _) else {
+    fail("first root match should follow nested match")
+  }
+  guard trace.val[2] is Matched(_, 1, 1, _, _) else {
+    fail("second root match should be traced last")
+  }
+}
+
+///|
 test "inserted child produces Inserted event" {
   // LCS: old Leaf matches new Leaf; Branch is unlike → Inserted at new idx 1
   let c1 = ProjNode(Leaf("a"), 0, 1, 1, [])

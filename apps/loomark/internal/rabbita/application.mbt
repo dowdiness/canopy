@@ -251,7 +251,15 @@ fn record_error(
 }
 
 ///|
-fn publish(model : DriverModel) -> Unit {
+fn publish(
+  model : DriverModel,
+  raw_input_coordinator : RawInputCoordinator?,
+  raw_input_token : Int?,
+) -> Unit {
+  match (raw_input_coordinator, raw_input_token) {
+    (Some(coordinator), Some(token)) => coordinator.mark_publish_started(token)
+    _ => ()
+  }
   let fields : Map[String, Json] = {
     "source": runtime_source(model).to_json(),
     "replica_id": model.replica_id.to_json(),
@@ -282,6 +290,19 @@ fn publish(model : DriverModel) -> Unit {
     },
     "measurement": match model.measurement {
       Some(measurement) => measurement.to_json()
+      None => Json::null()
+    },
+    "raw_input_phase": match raw_input_coordinator {
+      Some(coordinator) => {
+        match raw_input_token {
+          Some(token) => coordinator.mark_publish_finished(token)
+          None => ()
+        }
+        match coordinator.phase_json() {
+          Some(phase) => phase
+          None => Json::null()
+        }
+      }
       None => Json::null()
     },
     "event_detail": match model.event_detail {
@@ -875,10 +896,18 @@ fn update_editing(
           let raw_input_epoch = raw_input_coordinator.epoch()
           let mut raw_completion_seen = false
           let mut raw_completion_command = @rabbita_runtime.none
+          match raw_token {
+            Some(token) => raw_input_coordinator.mark_reducer_started(token)
+            None => ()
+          }
           let transition = @core.reduce(
             model.state,
             @core.ApplicationEvent::RequestCanonicalSource(source~),
           )
+          match raw_token {
+            Some(token) => raw_input_coordinator.mark_reducer_finished(token)
+            None => ()
+          }
           let mut next = if raw_event {
             { ..model, text_input_generation: model.text_input_generation + 1 }
           } else {
@@ -889,6 +918,11 @@ fn update_editing(
           for decision in transition.decisions() {
             match decision {
               @core.ReplaceCanonicalSource(source) => {
+                match raw_token {
+                  Some(token) =>
+                    raw_input_coordinator.mark_editor_started(token)
+                  None => ()
+                }
                 let old_requested = preview_requested(next)
                 let (committed, accepted, changed, commit_command) = commit_source(
                   editor,
@@ -898,6 +932,16 @@ fn update_editing(
                   "editor-dispatch",
                   emit,
                 )
+                match raw_token {
+                  Some(token) =>
+                    raw_input_coordinator.mark_editor_finished(token)
+                  None => ()
+                }
+                match raw_token {
+                  Some(token) =>
+                    raw_input_coordinator.mark_preview_started(token)
+                  None => ()
+                }
                 next = update_preview_document(
                   attachment,
                   committed,
@@ -905,6 +949,11 @@ fn update_editing(
                   accepted~,
                   changed~,
                 )
+                match raw_token {
+                  Some(token) =>
+                    raw_input_coordinator.mark_preview_finished(token)
+                  None => ()
+                }
                 if event is ReplaceSource(_) && accepted {
                   raw_input_coordinator.cancel_pending()
                 }
@@ -927,6 +976,13 @@ fn update_editing(
                           repair_generation,
                           repair_revision,
                         )
+                      },
+                      () => {
+                        match latest_model.val {
+                          Some(latest) =>
+                            publish(latest, Some(raw_input_coordinator), None)
+                          None => ()
+                        }
                       },
                       emit,
                     )
@@ -1920,7 +1976,11 @@ fn update_model(
         editor, attachment, raw_input_coordinator, model, life_event, emit,
       )
   }
-  publish(next)
+  let raw_input_token = match event {
+    Editing(RawInput(_, _, Some(token))) => Some(token)
+    _ => None
+  }
+  publish(next, Some(raw_input_coordinator), raw_input_token)
   (next, command)
 }
 
@@ -2104,6 +2164,7 @@ fn build_application(
   attachment : @md_markdown.MarkdownSemanticAttachment,
   initial : DriverModel,
   baseline : (@repository.LocalArchiveRequestId, String)?,
+  raw_input_telemetry : RawInputTelemetry?,
   subscriptions : (DriverModel, @cmd.Emit[DriverEvent]) -> @sub.Sub,
   view : (DriverModel, @cmd.Emit[DriverEvent], @rabbita_runtime.Html) -> @rabbita_runtime.Html,
 ) -> @rabbita_runtime.App {
@@ -2111,7 +2172,9 @@ fn build_application(
     val: { editor, attachment },
   }
   let latest_model : @ref.Ref[DriverModel?] = { val: None }
-  let raw_input_coordinator = RawInputCoordinator::RawInputCoordinator()
+  let raw_input_coordinator = RawInputCoordinator::RawInputCoordinator(
+    raw_input_telemetry,
+  )
   let update = (model, event, emit) => {
     let session = current_session.val
     update_model(
@@ -2128,7 +2191,7 @@ fn build_application(
         let (next, command) = recover_after_parser_failure(
           current_session, model, failure, emit,
         )
-        publish(next)
+        publish(next, Some(raw_input_coordinator), None)
         (next, command)
       }
       error => {
@@ -2136,7 +2199,7 @@ fn build_application(
         let (next, command) = quarantine_outer_error(
           current_session, model, error,
         )
-        publish(next)
+        publish(next, Some(raw_input_coordinator), None)
         (next, command)
       }
     }
@@ -2172,7 +2235,13 @@ fn standalone_application(
   baseline : (@repository.LocalArchiveRequestId, String)?,
 ) -> @rabbita_runtime.App {
   build_application(
-    editor, attachment, initial, baseline, standalone_subscriptions, standalone_preview_view,
+    editor,
+    attachment,
+    initial,
+    baseline,
+    None,
+    standalone_subscriptions,
+    standalone_preview_view,
   )
 }
 
@@ -2184,7 +2253,13 @@ fn private_dev_host_application(
   baseline : (@repository.LocalArchiveRequestId, String)?,
 ) -> @rabbita_runtime.App {
   build_application(
-    editor, attachment, initial, baseline, private_dev_host_subscriptions, private_dev_host_preview_view,
+    editor,
+    attachment,
+    initial,
+    baseline,
+    Some(RawInputTelemetry::new()),
+    private_dev_host_subscriptions,
+    private_dev_host_preview_view,
   )
 }
 
@@ -2279,7 +2354,7 @@ fn mount_application(
     archive_persistence_enabled=false,
   )
   detached_focus_token.val = ""
-  publish(initial)
+  publish(initial, None, None)
   let app = build(editor, attachment, initial, None)
   app.mount(host_id)
   mounted.val = true

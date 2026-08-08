@@ -192,8 +192,19 @@ fn[T] SyncEditor::apply_replace_span(
   timestamp_ms : Int,
   record_undo : Bool,
 ) -> Bool {
-  let item_start = utf16_offset_to_item_pos(old_source, start)
-  let item_end = utf16_offset_to_item_pos(old_source, start + deleted_len)
+  // The Raw append path already validated an end insertion. TextState.len()
+  // is the exact item position and avoids scanning the whole UTF-16 source
+  // twice just to convert the same endpoint.
+  let (item_start, item_end) = if start == old_source.length() &&
+    deleted_len == 0 {
+    let end = self.doc.len()
+    (end, end)
+  } else {
+    (
+      utf16_offset_to_item_pos(old_source, start),
+      utf16_offset_to_item_pos(old_source, start + deleted_len),
+    )
+  }
   let range = @text.Range::from_ints(item_start, item_end) catch {
     _ => return false
   }
@@ -393,6 +404,41 @@ pub fn[T : Eq] SyncEditor::apply_text_edit_exact(
 }
 
 ///|
+/// Fast path for the common Raw-input shape: an ASCII suffix appended at the
+/// current end of the source. ASCII cannot join the preceding grapheme except
+/// for CRLF, which is deliberately left to the shared Unicode-aware diff.
+fn fast_append_text_change(
+  old_text : String,
+  new_text : String,
+) -> @text_change.TextChange? {
+  if old_text == new_text {
+    return Some(@text_change.TextChange::{
+      start: old_text.length(),
+      delete_len: 0,
+      inserted: "",
+    })
+  }
+  guard new_text.has_prefix(old_text) else { return None }
+  let suffix = new_text[old_text.length():]
+  let mut ascii = true
+  for ch in suffix {
+    if !ch.is_ascii() {
+      ascii = false
+      break
+    }
+  }
+  guard ascii else { return None }
+  guard !(old_text.has_suffix("\r") && suffix.has_prefix("\n")) else {
+    return None
+  }
+  Some(@text_change.TextChange::{
+    start: old_text.length(),
+    delete_len: 0,
+    inserted: suffix.to_owned(),
+  })
+}
+
+///|
 /// Replace the document text with `new_text` and return the exact splice used
 /// together with whether the edit was accepted.
 ///
@@ -406,7 +452,10 @@ pub fn[T : Eq] SyncEditor::set_text_with_change(
 ) -> (@text_change.TextChange, Bool) raise Failure {
   self.ensure_parser_healthy()
   let old_text = self.doc.text()
-  let splice = @text_change.compute_text_change(old_text, new_text)
+  let splice = match fast_append_text_change(old_text, new_text) {
+    Some(splice) => splice
+    None => @text_change.compute_text_change(old_text, new_text)
+  }
   if splice.is_noop() {
     return (splice, true)
   }

@@ -25,6 +25,51 @@ test "set_text_with_change returns a replacement splice" {
 }
 
 ///|
+test "set_text_with_change preserves grapheme-aware append fallbacks" {
+  let combining = try! @probe.new_test_editor("combining-agent")
+  combining.set_text("e")
+  let (combining_change, combining_accepted) = combining.set_text_with_change(
+    "é",
+  )
+  assert_true(combining_accepted)
+  inspect(combining_change.start, content="0")
+  inspect(combining_change.delete_len, content="1")
+  inspect(combining_change.inserted, content="é")
+  inspect(combining.get_text(), content="é")
+
+  let crlf = try! @probe.new_test_editor("crlf-agent")
+  crlf.set_text("\r")
+  let (crlf_change, crlf_accepted) = crlf.set_text_with_change("\r\n")
+  assert_true(crlf_accepted)
+  inspect(crlf_change.start, content="0")
+  inspect(crlf_change.delete_len, content="1")
+  inspect(crlf_change.inserted, content="\r\n")
+  inspect(crlf.get_text(), content="\r\n")
+
+  let emoji_append = try! @probe.new_test_editor("emoji-append-agent")
+  emoji_append.set_text("a😀")
+  let (emoji_append_change, emoji_append_accepted) = emoji_append.set_text_with_change(
+    "a😀x",
+  )
+  assert_true(emoji_append_accepted)
+  inspect(emoji_append_change.start, content="3")
+  inspect(emoji_append_change.delete_len, content="0")
+  inspect(emoji_append_change.inserted, content="x")
+  inspect(emoji_append.get_text(), content="a😀x")
+
+  let emoji_insert = try! @probe.new_test_editor("emoji-insert-agent")
+  emoji_insert.set_text("a")
+  let (emoji_insert_change, emoji_insert_accepted) = emoji_insert.set_text_with_change(
+    "a😀",
+  )
+  assert_true(emoji_insert_accepted)
+  inspect(emoji_insert_change.start, content="1")
+  inspect(emoji_insert_change.delete_len, content="0")
+  inspect(emoji_insert_change.inserted, content="😀")
+  inspect(emoji_insert.get_text(), content="a😀")
+}
+
+///|
 test "insert_at inserts at specified position without moving cursor" {
   let editor = try! @probe.new_test_editor("test-agent")
   editor.set_text("hello")

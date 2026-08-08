@@ -312,6 +312,32 @@ test("Raw input preserves canonical source and Preview follows a committed edit"
   }
 })
 
+test("Raw input exposes phase timings through the dev-host snapshot", async ({ browser }) => {
+  const host = await mountHost(browser, "before")
+  try {
+    const input = host.page.locator("#loomark-input")
+    await input.fill("after")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("after")
+    await expect.poll(async () => {
+      const phase = (await snapshot(host.page)).raw_input_phase
+      if (!phase || typeof phase !== "object") return false
+      const fields = phase as Record<string, unknown>
+      return [
+        "input_to_debounce_ms",
+        "debounce_to_reduce_ms",
+        "reduce_ms",
+        "commit_ms",
+        "preview_update_ms",
+        "publish_ms",
+        "publish_to_render_ms",
+        "input_to_render_ms",
+      ].every(name => typeof fields[name] === "number")
+    }).toBe(true)
+  } finally {
+    await host.context.close()
+  }
+})
+
 test("Raw and Preview observe one accepted document in a fixed resizable split", async ({ browser }) => {
   const host = await mountHost(browser, "# Before\n")
   try {

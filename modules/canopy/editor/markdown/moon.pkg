@@ -13,6 +13,8 @@ import {
 
 import {
   "dowdiness/loom",
+  "dowdiness/loom/core" @loom_core,
+  "moonbitlang/core/bench",
   "moonbitlang/core/encoding/utf8",
 } for "wbtest"
 

@@ -1,15 +1,17 @@
-// Isolated microbenchmark for `@core.reconcile_children`'s LCS DP on WIDE
-// sibling lists (BAND 2b evidence gate, canopy #443, cliff #2).
+// Isolated microbenchmark for `@core.reconcile` on WIDE sibling lists
+// (BAND 2b evidence gate, canopy #443, cliff #2).
 //
-// core/reconcile.mbt fills an (m+1)×(n+1) DP table unconditionally (the double
-// loop never short-circuits), so LCS child matching is O(m×n) by inspection.
-// But "O(n²) is bad" is not a profile — at small N with a trivial loop body it
-// may still be microseconds. This isolates the actual cost.
+// Equal-width inputs with the same kind at every position now take the exact
+// full-match positional path and skip the O(m×n) LCS table. These inputs model
+// append/leaf-content edits where the sibling structure is unchanged. The
+// existing reconcile implementation still falls back to LCS for structural
+// mismatches; this benchmark keeps the wide-sibling workload visible while
+// measuring the optimized case.
 //
 // IMPORTANT scope note: Lambda's root Module reconcile hook routes the def
 // list through duplicate-safe name matching (hash-based, O(N)) and only calls
 // `@core.reconcile` per individual def/body subtree (narrow). The wide-sibling
-// LCS is reached when `@core.reconcile` runs on a parent that itself has many
+// path is reached when `@core.reconcile` runs on a parent that itself has many
 // direct children — e.g. a Module node reconciled as a whole (the
 // JSON/flat-list projection path), which is what this bench constructs by
 // reconciling two N-def Modules directly.
@@ -55,7 +57,8 @@ test "control: reconcile operates on a wide sibling list" {
 
 ///|
 /// Build the two N-def Module trees once, then time only `@core.reconcile`
-/// (which runs the wide-sibling LCS DP over the N+1 direct children).
+/// over the N+1 direct children. The two sources differ only in the final
+/// literal, so their sibling kind sequence is positionally identical.
 fn bench_reconcile(b : @bench.T, n : Int) -> Unit raise {
   let (root_a, root_b) = lcs_setup(n)
   b.bench(() => {
