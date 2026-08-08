@@ -184,6 +184,78 @@ test("Raw, Block, and Preview editing stays inside the original production root"
   await expect(root).toHaveCount(1)
 })
 
+test("ordinary consecutive Block input preserves both characters and the caret", async ({ page }) => {
+  await page.goto("/")
+  await page.locator("#loomark-input").fill("x")
+  await page.locator("#loomark-mode-block").click()
+
+  const input = page.locator("#loomark-block-input")
+  const block = page.locator("#loomark-block")
+  await expect(input).toHaveValue("x")
+
+  await input.selectText()
+  await input.pressSequentially("a")
+  await expect(block).toHaveAttribute("data-loomark-source", "a")
+  await expect(input).toHaveValue("a")
+  await expect
+    .poll(() => input.evaluate(element => ({
+      start: (element as HTMLTextAreaElement).selectionStart,
+      end: (element as HTMLTextAreaElement).selectionEnd,
+    })))
+    .toEqual({ start: 1, end: 1 })
+
+  await input.pressSequentially("b")
+  await expect(block).toHaveAttribute("data-loomark-source", "ab")
+  await expect(input).toHaveValue("ab")
+  await expect
+    .poll(() => input.evaluate(element => ({
+      start: (element as HTMLTextAreaElement).selectionStart,
+      end: (element as HTMLTextAreaElement).selectionEnd,
+    })))
+    .toEqual({ start: 2, end: 2 })
+  await expect(page.locator("#loomark-error")).toHaveCount(0)
+})
+
+test("Block input preserves the latest value when two events arrive before redraw", async ({ page }) => {
+  await page.goto("/")
+  await page.locator("#loomark-input").fill("x")
+  await page.locator("#loomark-mode-block").click()
+  const input = page.locator("#loomark-block-input")
+  const block = page.locator("#loomark-block")
+  await expect(input).toHaveValue("x")
+
+  await input.evaluate(element => {
+    const textarea = element as HTMLTextAreaElement
+    textarea.value = "a"
+    textarea.setSelectionRange(1, 1)
+    textarea.dispatchEvent(new InputEvent("input", {
+      bubbles: true,
+      composed: true,
+      data: "a",
+      inputType: "insertText",
+    }))
+
+    textarea.value = "ab"
+    textarea.setSelectionRange(2, 2)
+    textarea.dispatchEvent(new InputEvent("input", {
+      bubbles: true,
+      composed: true,
+      data: "b",
+      inputType: "insertText",
+    }))
+  })
+
+  await expect(block).toHaveAttribute("data-loomark-source", "ab")
+  await expect(input).toHaveValue("ab")
+  await expect
+    .poll(() => input.evaluate(element => ({
+      start: (element as HTMLTextAreaElement).selectionStart,
+      end: (element as HTMLTextAreaElement).selectionEnd,
+    })))
+    .toEqual({ start: 2, end: 2 })
+  await expect(page.locator("#loomark-error")).toHaveCount(0)
+})
+
 test("Preview wraps long unbreakable content inside the reading frame", async ({ page }) => {
   await page.goto("/")
   const longUrl = `https://example.com/${`a`.repeat(200)}`
