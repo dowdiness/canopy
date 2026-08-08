@@ -408,7 +408,7 @@ fn RawInputCoordinator::complete(
         ),
       ])
     } else {
-      render_measurement
+      @cmd.batch([command, render_measurement])
     }
   } else if self.retry_budget.val > 0 && can_retry {
     self.input_epoch.val += 1
