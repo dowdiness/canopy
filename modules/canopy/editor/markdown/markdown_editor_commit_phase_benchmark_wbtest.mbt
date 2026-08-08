@@ -173,3 +173,33 @@ test "perf: MarkdownEditor commit with receipt (250 blocks)" (b : @bench.T) {
     b.keep(result)
   })
 }
+
+///|
+test "perf: MarkdownEditor structural block edit (250 blocks)" (b : @bench.T) {
+  let editor = commit_phase_editor(commit_phase_source(250))
+  let heading = editor.snapshot().blocks().to_array()[0].node_id()
+  match
+    editor.commit(
+      MarkdownEditRequest::CommitEdit(
+        node_id=heading,
+        new_text="Heading 0 changed",
+      ),
+    ) {
+    Ok(result) => b.keep(result)
+    Err(_) => abort("structural block benchmark prime failed")
+  }
+  let mut changed = false
+  b.bench(() => {
+    let new_text = if changed { "Heading 0 changed" } else { "Heading 0" }
+    let result = editor.commit(
+      MarkdownEditRequest::CommitEdit(node_id=heading, new_text~),
+    ) catch {
+      error => abort("structural block benchmark raised: \{error}")
+    }
+    changed = !changed
+    match result {
+      Ok(result) => b.keep(result)
+      Err(_) => abort("structural block benchmark failed")
+    }
+  })
+}

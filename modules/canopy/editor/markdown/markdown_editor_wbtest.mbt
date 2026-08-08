@@ -731,6 +731,26 @@ test "receipt transforms use sequential reverse-document order" {
 }
 
 ///|
+test "structural edit errors preserve façade categorization" {
+  match structural_edit_error(@core.EditError::ProjectionUnavailable) {
+    MarkdownEditorError::ProjectionUnavailable => ()
+    _ => fail("expected the categorized projection-unavailable error")
+  }
+
+  match
+    structural_edit_error(
+      @core.EditError::NodeNotFound(
+        action="compute_markdown_edit",
+        node_id=@core.NodeId::from_int(999999),
+      ),
+    ) {
+    MarkdownEditorError::EditFailed(detail~) =>
+      assert_eq(detail, "compute_markdown_edit: node NodeId(999999) not found")
+    _ => fail("expected compatibility rendering for lowering errors")
+  }
+}
+
+///|
 test "headless facade lowers supported split and merge requests" {
   let editor = try! MarkdownEditor(
     agent_id="block-structure",
