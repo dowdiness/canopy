@@ -96,6 +96,40 @@ test "source-preserving commit still advances the frontier exactly once" {
 }
 
 ///|
+test "recovery reopens the exact accepted history once without replay" {
+  let (editor, attachment) = try! @markdown.MarkdownEditor::with_semantic_attachment(
+    agent_id="recovery-original-writer",
+    source="# Before\n",
+  )
+  let model = test_model(editor.snapshot(), editor.version())
+  let receipt = match
+    (try! editor.commit_with_receipt(
+      @markdown.MarkdownEditRequest::ReplaceSource("# Accepted\n"),
+    )) {
+    Ok(receipt) => receipt
+    Err(_) => abort("expected accepted receipt")
+  }
+  let (accepted, did_commit, changed) = classify_commit(model, receipt)
+  assert_true(did_commit)
+  assert_true(changed)
+  let accepted_history = try! editor.history_since()
+  let session = @ref.Ref(EditorSession::{ editor, attachment })
+  let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
+
+  let (recovered, _) = recover_after_parser_failure(
+    session,
+    accepted,
+    Failure::Failure("injected post-commit failure"),
+    emit,
+  )
+
+  assert_eq(recovered.reconstruction_attempt_count, 1)
+  assert_eq(recovered.committed_change_count, accepted.committed_change_count)
+  assert_eq(session.val.editor.portable_markdown(), "# Accepted\n")
+  assert_true(try! (session.val.editor.history_since() == accepted_history))
+}
+
+///|
 test "classification preserves unrelated model fields" {
   let editor = try! @markdown.MarkdownEditor(
     agent_id="agent-a",

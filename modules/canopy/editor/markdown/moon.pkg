@@ -15,6 +15,7 @@ import {
 }
 
 import {
+  "dowdiness/canopy/internal/markdown_runtime/testing" @markdown_runtime_testing,
   "dowdiness/loom",
   "dowdiness/loom/core" @loom_core,
   "moonbitlang/core/bench",

@@ -1,0 +1,13 @@
+import {
+  "dowdiness/canopy/editor",
+  "dowdiness/canopy/lang/markdown/proj" @md_proj,
+  "dowdiness/markdown",
+  "dowdiness/loom/core" @loom_core,
+  "dowdiness/loom/incremental" @loom_incremental,
+  "dowdiness/loom/pipeline" @loom_pipeline,
+  "dowdiness/seam",
+}
+
+options(
+  is_main: false,
+)

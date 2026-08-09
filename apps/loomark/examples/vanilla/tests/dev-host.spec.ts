@@ -261,6 +261,7 @@ test("post-acceptance parser Failure reopens once and resumes Raw editing", asyn
     await expect.poll(async () => (await snapshot(host.page)).mode).toBe("raw")
     await expect.poll(async () => (await snapshot(host.page)).error_code).toBe("editor-recovered")
     await expect.poll(async () => (await snapshot(host.page)).parser_failure_armed).toBe(false)
+    await expect.poll(async () => (await snapshot(host.page)).reconstruction_attempt_count).toBe(1)
     await expect.poll(async () => (await snapshot(host.page)).committed_change_count).toBe(1)
     await expect(host.page.locator("#loomark-input")).toHaveValue("# Accepted\n")
     await expect(host.page.locator("#loomark-preview")).toHaveCount(0)
