@@ -7,9 +7,11 @@ import {
   "dowdiness/canopy/editor",
   "dowdiness/markdown" @md_markdown,
   "dowdiness/text_change",
+  "dowdiness/moji",
   "dowdiness/event-graph-walker/text",
   "dowdiness/event-graph-walker/sync",
   "moonbitlang/core/immut/vector",
+  "moonbitlang/core/cmp",
 }
 
 import {

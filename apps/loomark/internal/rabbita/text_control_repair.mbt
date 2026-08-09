@@ -29,16 +29,17 @@ fn rejected_text_selection(
   rejected_source : String,
   selection : @dom_boundary.TextSelection,
 ) -> @dom_boundary.TextSelection {
+  let accepted_value = raw_textarea_value(accepted_source)
   let start = rejected_text_offset(
-    accepted_source,
+    accepted_value,
     rejected_source,
     selection.start(),
   )
   let end = rejected_text_offset(
-    accepted_source,
+    accepted_value,
     rejected_source,
     selection.end(),
-  ).clamp(min=start, max=accepted_source.length())
+  ).clamp(min=start, max=accepted_value.length())
   @dom_boundary.TextSelection(start, end, selection.direction())
 }
 

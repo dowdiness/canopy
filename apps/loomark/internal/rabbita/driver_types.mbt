@@ -5,6 +5,8 @@
 priv enum EditingEvent {
   ReplaceSource(String)
   RawInput(String, @dom_boundary.TextSelection?, Int?)
+  RawSelectionEdit(RawSelectionEditRequest)
+  CommitCapturedRawSelection(String)
   BlockFocused(String)
   BlockHeading(Int, BlockSelection?)
   BlockToggleList(BlockSelection?)
@@ -39,6 +41,9 @@ priv enum NavigationEvent {
 priv enum ProbeEvent {
   WriteSelection(start~ : Int, end~ : Int)
   WriteSelectionFailure
+  CaptureRawSelection
+  RawSelectionCaptured(@dom_boundary.TextSelection)
+  InstallRawSelection
   MeasurePreview
   MeasureFailure
   SelectionRead(start~ : Int, end~ : Int)
@@ -104,6 +109,7 @@ priv struct DriverModel {
   document : @markdown.MarkdownDocumentSnapshot
   document_version : @markdown.MarkdownDocumentVersion
   document_id : @archive.LoomarkDocumentId
+  raw_selection : VersionedRawSelection?
   archive_persistence_enabled : Bool
   semantic_document : @md_markdown.MarkdownIR?
   semantic_read_count : Int

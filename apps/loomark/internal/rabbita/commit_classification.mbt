@@ -22,6 +22,7 @@ fn classify_commit(
       ..model,
       document,
       document_version: receipt.after_version(),
+      raw_selection: None,
       source_revision: if changed {
         model.source_revision + 1
       } else {
@@ -50,6 +51,7 @@ fn classify_recovered_source(
   {
     ..model,
     document_version: version,
+    raw_selection: None,
     source_revision: if changed {
       model.source_revision + 1
     } else {
@@ -77,6 +79,7 @@ fn classify_recovered_frontier(
       ..model,
       document,
       document_version: version,
+      raw_selection: None,
       source_revision: if changed {
         model.source_revision + 1
       } else {

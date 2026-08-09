@@ -645,6 +645,8 @@ fn driver_event_name(event : DriverEvent) -> String {
       match edit_event {
         ReplaceSource(_) => "source"
         RawInput(_, _, _) => "raw-input"
+        RawSelectionEdit(_) => "raw-selection-edit"
+        CommitCapturedRawSelection(_) => "commit-captured-raw-selection"
         BlockFocused(_) => "block-focused"
         BlockHeading(_, _) => "block-heading"
         BlockToggleList(_) => "block-toggle-list"
@@ -673,6 +675,9 @@ fn driver_event_name(event : DriverEvent) -> String {
       match probe_event {
         WriteSelection(..) => "write-selection"
         WriteSelectionFailure => "write-selection-failure"
+        CaptureRawSelection => "capture-raw-selection"
+        RawSelectionCaptured(_) => "raw-selection-captured"
+        InstallRawSelection => "install-raw-selection"
         MeasurePreview => "measure-preview"
         MeasureFailure => "measure-failure"
         SelectionRead(..) => "selection-read"
@@ -725,6 +730,10 @@ fn parse_driver_event(detail : String) -> DriverEvent {
     Editing(ProbeBlockSelection("deleted"))
   } else if detail == "write-selection-failure" {
     Probe(WriteSelectionFailure)
+  } else if detail == "capture-raw-selection" {
+    Probe(CaptureRawSelection)
+  } else if detail == "install-raw-selection" {
+    Probe(InstallRawSelection)
   } else if detail == "measure-preview" {
     Probe(MeasurePreview)
   } else if detail == "measure-failure" {
@@ -735,6 +744,12 @@ fn parse_driver_event(detail : String) -> DriverEvent {
     Editing(ReplaceSource(detail["source|".length():].to_owned()))
   } else if detail.has_prefix("raw-input|") {
     Editing(RawInput(detail["raw-input|".length():].to_owned(), None, None))
+  } else if detail.has_prefix("raw-selection-edit|") {
+    Editing(
+      CommitCapturedRawSelection(
+        detail["raw-selection-edit|".length():].to_owned(),
+      ),
+    )
   } else if detail == "editor-failure" {
     Lifecycle(EditorFailure)
   } else if detail == "force-parser-failure" {
@@ -845,7 +860,9 @@ fn editing_mode_applicable(
   match event {
     ReplaceSource(_) | ProbeBlockSelection(_) => None
     RawInput(_, _, Some(_)) => None
-    RawInput(_, _, None) =>
+    RawInput(_, _, None)
+    | RawSelectionEdit(_)
+    | CommitCapturedRawSelection(_) =>
       if mode == @core.Raw || (mode == @core.Preview && split_preview_open) {
         None
       } else {
@@ -913,6 +930,52 @@ fn update_editing(
     }
     None =>
       match event {
+        CommitCapturedRawSelection(inserted) =>
+          match model.raw_selection {
+            None => {
+              let next = record_error(
+                model, "raw-selection-unavailable", "raw-selection-edit", "Raw selection is unavailable",
+              )
+              (next, @rabbita_runtime.none)
+            }
+            Some(selection) =>
+              update_editing(
+                editor,
+                attachment,
+                raw_input_coordinator,
+                block_input_coordinator,
+                model,
+                latest_model,
+                RawSelectionEdit(
+                  ({ selection, inserted } : RawSelectionEditRequest),
+                ),
+                emit,
+              )
+          }
+        RawSelectionEdit(request) => {
+          let (next, outcome, persistence_command) = commit_raw_selection_edit(
+            editor, attachment, model, request, emit,
+          )
+          let (next, selection_command) = match outcome {
+            RawSelectionEditOutcome::Applied(selection)
+            | RawSelectionEditOutcome::Unchanged(selection) => {
+              raw_input_coordinator.cancel_pending()
+              (next, raw_selection_after_render(latest_model, selection, emit))
+            }
+            RawSelectionEditOutcome::Rejected(rejection) =>
+              (
+                {
+                  ..next,
+                  rejection: Some(
+                    "operation=raw-selection-edit;reason=" +
+                    raw_selection_edit_rejection_reason(rejection),
+                  ),
+                },
+                @rabbita_runtime.none,
+              )
+          }
+          (next, @cmd.batch([persistence_command, selection_command]))
+        }
         ReplaceSource(source) | RawInput(source, _, _) => {
           let raw_selection = match event {
             RawInput(_, selection, _) => selection
@@ -1721,6 +1784,7 @@ fn apply_measurement(
 /// outbound results.
 fn update_probe(
   model : DriverModel,
+  latest_model : @ref.Ref[DriverModel?],
   event : ProbeEvent,
   emit : @cmd.Emit[DriverEvent],
 ) -> (DriverModel, @cmd.Cmd) {
@@ -1761,6 +1825,52 @@ fn update_probe(
           },
           emit,
         ),
+      )
+    CaptureRawSelection =>
+      (
+        model,
+        after_render(
+          scheduler => {
+            let selection = @dom_boundary.read_text_selection_id(
+              "loomark-input",
+            )
+            scheduler.add(emit(Probe(RawSelectionCaptured(selection))))
+          },
+          emit,
+        ),
+      )
+    RawSelectionCaptured(selection) => {
+      let bound = versioned_raw_selection_from_dom(model, selection) catch {
+        error => {
+          let next = record_error(
+            model,
+            "invalid-raw-selection",
+            "browser-effect",
+            raw_dom_selection_conversion_error_detail(error),
+          )
+          return (next, @rabbita_runtime.none)
+        }
+      }
+      let markdown = bound.selection
+      (
+        {
+          ..model,
+          raw_selection: Some(bound),
+          selection: Some(
+            markdown.anchor().to_string() + ":" + markdown.head().to_string(),
+          ),
+        },
+        @rabbita_runtime.none,
+      )
+    }
+    InstallRawSelection =>
+      (
+        model,
+        match model.raw_selection {
+          Some(selection) =>
+            raw_selection_after_render(latest_model, selection, emit)
+          None => @rabbita_runtime.none
+        },
       )
     MeasurePreview =>
       (
@@ -2041,7 +2151,7 @@ fn update_model(
       )
     Navigation(nav_event) =>
       update_navigation(attachment, model, latest_model, nav_event, emit)
-    Probe(probe_event) => update_probe(model, probe_event, emit)
+    Probe(probe_event) => update_probe(model, latest_model, probe_event, emit)
     Lifecycle(life_event) =>
       update_lifecycle(
         editor, attachment, raw_input_coordinator, block_input_coordinator, model,
@@ -2361,6 +2471,7 @@ fn initial_model(
     document: editor.snapshot(),
     document_version: editor.version(),
     document_id,
+    raw_selection: None,
     archive_persistence_enabled,
     semantic_document: None,
     semantic_read_count: 0,

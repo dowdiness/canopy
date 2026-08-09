@@ -31,6 +31,99 @@ fn fresh_markdown_ir(source : String) -> @md_markdown.MarkdownIR raise {
 }
 
 ///|
+test "Markdown document UTF-16 selection preserves direction and range" {
+  let editor = try! MarkdownEditor(
+    agent_id="document-selection-direction",
+    source="alpha\n\nbeta",
+  )
+  let snapshot = editor.snapshot()
+  let forward = try! MarkdownDocumentUtf16Selection(snapshot, anchor=0, head=11)
+  let backward = try! MarkdownDocumentUtf16Selection(
+    snapshot,
+    anchor=11,
+    head=0,
+  )
+  let collapsed = try! MarkdownDocumentUtf16Selection(
+    snapshot,
+    anchor=5,
+    head=5,
+  )
+
+  assert_eq(forward.anchor(), 0)
+  assert_eq(forward.head(), 11)
+  assert_eq(forward.range_start(), 0)
+  assert_eq(forward.range_end(), 11)
+  assert_false(forward.is_backward())
+  assert_eq(backward.anchor(), 11)
+  assert_eq(backward.head(), 0)
+  assert_eq(backward.range_start(), 0)
+  assert_eq(backward.range_end(), 11)
+  assert_true(backward.is_backward())
+  assert_true(collapsed.is_collapsed())
+}
+
+///|
+test "Markdown document UTF-16 selection rejects out-of-bounds endpoints" {
+  let editor = try! MarkdownEditor(
+    agent_id="document-selection-bounds",
+    source="abc",
+  )
+  let snapshot = editor.snapshot()
+  let invalid : Result[
+    MarkdownDocumentUtf16Selection,
+    MarkdownDocumentUtf16SelectionError,
+  ] = Ok(MarkdownDocumentUtf16Selection(snapshot, anchor=-1, head=0)) catch {
+    error => Err(error)
+  }
+
+  assert_true(
+    invalid
+    is Err(
+      MarkdownDocumentUtf16SelectionError::OutOfBounds(
+        anchor=-1,
+        head=0,
+        source_length=3
+      )
+    ),
+  )
+}
+
+///|
+test "Markdown document UTF-16 selection rejects mid-grapheme endpoints" {
+  let emoji_editor = try! MarkdownEditor(
+    agent_id="document-selection-emoji",
+    source="a😀b",
+  )
+  let emoji_snapshot = emoji_editor.snapshot()
+  let emoji_invalid : Result[
+    MarkdownDocumentUtf16Selection,
+    MarkdownDocumentUtf16SelectionError,
+  ] = Ok(MarkdownDocumentUtf16Selection(emoji_snapshot, anchor=2, head=3)) catch {
+    error => Err(error)
+  }
+  assert_true(
+    emoji_invalid
+    is Err(MarkdownDocumentUtf16SelectionError::MidGraphemeBoundary(offset=2)),
+  )
+
+  let combining_editor = try! MarkdownEditor(
+    agent_id="document-selection-combining",
+    source="e\u{0301}x",
+  )
+  let combining_snapshot = combining_editor.snapshot()
+  let combining_invalid : Result[
+    MarkdownDocumentUtf16Selection,
+    MarkdownDocumentUtf16SelectionError,
+  ] = Ok(MarkdownDocumentUtf16Selection(combining_snapshot, anchor=0, head=1)) catch {
+    error => Err(error)
+  }
+  assert_true(
+    combining_invalid
+    is Err(MarkdownDocumentUtf16SelectionError::MidGraphemeBoundary(offset=1)),
+  )
+}
+
+///|
 test "semantic attachment follows MarkdownEditor source commits" {
   let source = "# Heading [ref]\n\nBefore\n\n[ref]: /one \"title\"\n"
   let (editor, attachment) = try! MarkdownEditor::with_semantic_attachment(
