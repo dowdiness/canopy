@@ -1975,6 +1975,7 @@ fn update_lifecycle(
       (next, @rabbita_runtime.none)
     }
     Fatal(message) => {
+      block_input_coordinator.cancel_pending()
       let next = { ..model, fatal: true, error: Some(message), rejection: None }
       (next, @rabbita_runtime.none)
     }
@@ -2022,6 +2023,7 @@ fn update_model(
       match event {
         Editing(RawInput(_, _, Some(token))) =>
           raw_input_coordinator.cancel(token)
+        Editing(BlockInput(..)) => block_input_coordinator.cancel_pending()
         _ => ()
       }
       let next = {
