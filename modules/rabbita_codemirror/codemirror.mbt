@@ -216,6 +216,7 @@ fn no_op_update_listener(
     _ => (),
     _ => (),
     _ => (),
+    include_doc=false,
     include_change_doc=false,
   )
 }
@@ -382,6 +383,7 @@ fn cm_sub_loader(
       let mut focus_tagger = focus
       let mut changes_tagger = changes
       let mut changes_with_doc_tagger = changes_with_doc
+      let include_doc = doc is Some(_)
       let include_change_doc = changes_with_doc is Some(_)
 
       fn on_doc(value : @js_value.Value) {
@@ -423,6 +425,7 @@ fn cm_sub_loader(
         on_selection,
         on_focus,
         on_changes,
+        include_doc~,
         include_change_doc~,
       )
       editors[id] = { ..entry, update_disposable: disposable }
