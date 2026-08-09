@@ -25,6 +25,40 @@ priv struct RawSelectionEditRequest {
 }
 
 ///|
+/// The immutable beforeinput snapshot paired with a later native input.
+priv struct RawBeforeInputCandidate {
+  selection : VersionedRawSelection
+  input_type : String
+  is_composing : Bool
+}
+
+///|
+fn RawBeforeInputCandidate::RawBeforeInputCandidate(
+  selection~ : VersionedRawSelection,
+  input_type~ : String,
+  is_composing~ : Bool,
+) -> RawBeforeInputCandidate {
+  { selection, input_type, is_composing }
+}
+
+///|
+/// The latest native textarea value and caret for one captured input batch.
+priv struct RawNativeInputCandidate {
+  before_input : RawBeforeInputCandidate
+  source : String
+  post_input_selection : @dom_boundary.TextSelection
+}
+
+///|
+fn RawNativeInputCandidate::RawNativeInputCandidate(
+  before_input~ : RawBeforeInputCandidate,
+  source~ : String,
+  post_input_selection~ : @dom_boundary.TextSelection,
+) -> RawNativeInputCandidate {
+  { before_input, source, post_input_selection }
+}
+
+///|
 priv enum RawSelectionEditRejection {
   WrongDocument
   StaleVersion
@@ -202,6 +236,92 @@ fn dom_selection_from_markdown_document_utf16(
 }
 
 ///|
+fn normalize_raw_input_candidate(
+  model : DriverModel,
+  candidate : RawNativeInputCandidate,
+) -> RawSelectionEditRequest? {
+  let before = candidate.before_input
+  guard !before.is_composing && !before.input_type.is_empty() else {
+    return None
+  }
+  guard before.selection.document_id == model.document_id else { return None }
+  guard before.selection.version == model.document_version else { return None }
+  guard raw_selection_mode_applicable(model) else { return None }
+
+  let selection = @markdown.MarkdownDocumentUtf16Selection(
+    model.document,
+    anchor=before.selection.selection.anchor(),
+    head=before.selection.selection.head(),
+  ) catch {
+    _ => return None
+  }
+  let old_source = model.document.source()
+  let old_value = raw_textarea_value(old_source)
+  let latest_value = raw_textarea_value(candidate.source)
+  guard candidate.post_input_selection.start() ==
+    candidate.post_input_selection.end() else {
+    return None
+  }
+  let post_offset = candidate.post_input_selection.start()
+  guard post_offset >= 0 &&
+    post_offset <= latest_value.length() &&
+    @moji.is_grapheme_boundary(latest_value, post_offset) else {
+    return None
+  }
+  guard dom_selection_from_markdown_document_utf16(old_source, selection)
+    is Some(dom_selection) else {
+    return None
+  }
+  let (change_start, old_end, inserted) = if !selection.is_collapsed() {
+    let prefix = old_value.sub(end=dom_selection.start())
+    let suffix = old_value.sub(start=dom_selection.end())
+    guard latest_value.has_prefix(prefix) && latest_value.has_suffix(suffix) else {
+      return None
+    }
+    let inserted_end = latest_value.length() - suffix.length()
+    guard inserted_end >= dom_selection.start() else { return None }
+    let inserted = latest_value
+      .sub(start=dom_selection.start(), end=inserted_end)
+      .to_owned()
+    (dom_selection.start(), dom_selection.end(), inserted)
+  } else {
+    let change = @text_change.compute_text_change(old_value, latest_value)
+    let old_end = change.start + change.delete_len
+    let caret = dom_selection.start()
+    guard change.start <= caret && caret <= old_end else { return None }
+    (change.start, old_end, change.inserted)
+  }
+  guard post_offset == change_start + inserted.length() else { return None }
+  let request_selection = if !selection.is_collapsed() {
+    selection
+  } else {
+    let start = match raw_source_offset_from_dom(old_source, change_start) {
+      Some(offset) => offset
+      None => return None
+    }
+    let end = match raw_source_offset_from_dom(old_source, old_end) {
+      Some(offset) => offset
+      None => return None
+    }
+    @markdown.MarkdownDocumentUtf16Selection(
+      model.document,
+      anchor=start,
+      head=end,
+    ) catch {
+      _ => return None
+    }
+  }
+  Some({
+    selection: VersionedRawSelection::VersionedRawSelection(
+      document_id=model.document_id,
+      version=model.document_version,
+      selection=request_selection,
+    ),
+    inserted,
+  })
+}
+
+///|
 fn versioned_raw_selection_from_dom(
   model : DriverModel,
   selection : @dom_boundary.TextSelection,
@@ -251,6 +371,10 @@ fn commit_raw_selection_edit(
   model : DriverModel,
   request : RawSelectionEditRequest,
   emit : @cmd.Emit[DriverEvent],
+  editor_started? : () -> Unit = () => (),
+  editor_finished? : () -> Unit = () => (),
+  preview_started? : () -> Unit = () => (),
+  preview_finished? : () -> Unit = () => (),
 ) -> (DriverModel, RawSelectionEditOutcome, @cmd.Cmd) raise {
   let bound = request.selection
   guard bound.document_id == model.document_id else {
@@ -292,6 +416,7 @@ fn commit_raw_selection_edit(
       )
   }
   let range_start = selection.range_start()
+  editor_started()
   let (committed, result, accepted, changed, persistence_command) = commit_edit_request(
     editor,
     model,
@@ -303,6 +428,8 @@ fn commit_raw_selection_edit(
     "raw-selection-edit",
     emit,
   )
+  editor_finished()
+  preview_started()
   let committed = update_preview_document(
     attachment,
     committed,
@@ -310,6 +437,7 @@ fn commit_raw_selection_edit(
     accepted~,
     changed~,
   )
+  preview_finished()
   if !accepted && !(result is Some(@markdown.Unchanged(_))) {
     return (
       committed,

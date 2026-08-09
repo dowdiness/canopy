@@ -48,25 +48,28 @@ fn rejected_text_selection(
 const RAW_INPUT_DEBOUNCE_MS : Int = 50
 
 ///|
-/// Keep the latest native Raw value while one deferred commit is in flight.
-/// The browser can continue updating the textarea without queuing stale
-/// canonical-source commits behind an expensive editor transaction.
-///
-/// The token and one-shot retry preserve the existing rejected-edit behavior:
-/// if the transaction fails, the latest native value gets one more chance
-/// instead of being lost by coalescing.
+/// One complete pending batch. Keeping its base, latest browser state, and
+/// count together prevents partially populated coordinator states.
+priv struct PendingRawInput {
+  before_input : RawBeforeInputCandidate
+  source : String
+  post_input_selection : @dom_boundary.TextSelection
+  input_count : Int
+}
+
+///|
+/// Coalesce native textarea events into one delayed, tokenized Raw transaction.
+/// Custom-driver RawInput events bypass this coordinator and remain token-less.
 priv struct RawInputCoordinator {
-  pending_source : @ref.Ref[String?]
-  pending_count : @ref.Ref[Int]
+  unmatched_before_input : @ref.Ref[RawBeforeInputCandidate?]
+  pending : @ref.Ref[PendingRawInput?]
   scheduled : @ref.Ref[Bool]
   schedule_generation : @ref.Ref[Int]
-  retry_budget : @ref.Ref[Int]
-  repair_pending : @ref.Ref[Bool]
-  retry_selection : @ref.Ref[@dom_boundary.TextSelection?]
-  input_epoch : @ref.Ref[Int]
+  capture_generation : @ref.Ref[Int]
   next_token : @ref.Ref[Int]
   in_flight_token : @ref.Ref[Int?]
-  in_flight_count : @ref.Ref[Int?]
+  in_flight_source : @ref.Ref[String?]
+  suppress_unmatched_repair : @ref.Ref[Bool]
   telemetry : RawInputTelemetry?
 }
 
@@ -75,17 +78,15 @@ fn RawInputCoordinator::RawInputCoordinator(
   telemetry : RawInputTelemetry?,
 ) -> RawInputCoordinator {
   {
-    pending_source: @ref.Ref(None),
-    pending_count: @ref.Ref(0),
+    unmatched_before_input: @ref.Ref(None),
+    pending: @ref.Ref(None),
     scheduled: @ref.Ref(false),
     schedule_generation: @ref.Ref(0),
-    retry_budget: @ref.Ref(0),
-    repair_pending: @ref.Ref(false),
-    retry_selection: @ref.Ref(None),
-    input_epoch: @ref.Ref(0),
+    capture_generation: @ref.Ref(0),
     next_token: @ref.Ref(0),
     in_flight_token: @ref.Ref(None),
-    in_flight_count: @ref.Ref(None),
+    in_flight_source: @ref.Ref(None),
+    suppress_unmatched_repair: @ref.Ref(false),
     telemetry,
   }
 }
@@ -238,7 +239,7 @@ fn RawInputCoordinator::phase_json(self : RawInputCoordinator) -> Json? {
 
 ///|
 fn RawInputCoordinator::epoch(self : RawInputCoordinator) -> Int {
-  self.input_epoch.val
+  self.capture_generation.val
 }
 
 ///|
@@ -246,10 +247,105 @@ fn RawInputCoordinator::display_source(
   self : RawInputCoordinator,
   committed_source : String,
 ) -> String {
-  match self.pending_source.val {
-    Some(source) => source
-    None => committed_source
+  match self.pending.val {
+    Some(pending) => pending.source
+    None =>
+      match self.in_flight_source.val {
+        Some(source) => source
+        None => committed_source
+      }
   }
+}
+
+///|
+#cfg(target="js")
+fn raw_input_event_is_composing(event : @dom.InputEvent) -> Bool {
+  event.is_composing()
+}
+
+///|
+#cfg(not(target="js"))
+fn raw_input_event_is_composing(event : @dom.InputEvent) -> Bool {
+  ignore(event)
+  false
+}
+
+///|
+#cfg(target="js")
+fn raw_input_event_type(event : @dom.InputEvent) -> String {
+  event.input_type()
+}
+
+///|
+#cfg(not(target="js"))
+fn raw_input_event_type(event : @dom.InputEvent) -> String {
+  ignore(event)
+  ""
+}
+
+///|
+/// Store a candidate synchronously and expire only this unmatched capture.
+fn RawInputCoordinator::capture_before_input(
+  self : RawInputCoordinator,
+  candidate : RawBeforeInputCandidate,
+) -> @cmd.Cmd {
+  self.capture_generation.val += 1
+  let generation = self.capture_generation.val
+  self.unmatched_before_input.val = Some(candidate)
+  @cmd.delay(
+    @cmd.custom_cmd(scheduler => {
+      ignore(scheduler)
+      self.expire_before_input(generation)
+    }),
+    0,
+  )
+}
+
+///|
+fn RawInputCoordinator::expire_before_input(
+  self : RawInputCoordinator,
+  generation : Int,
+) -> Unit {
+  if self.capture_generation.val == generation {
+    self.unmatched_before_input.val = None
+  }
+}
+
+///|
+/// Capture beforeinput while the DOM still exposes the pre-edit selection.
+fn RawInputCoordinator::capture_native_before_input(
+  self : RawInputCoordinator,
+  model : DriverModel,
+  event : @dom.InputEvent,
+) -> @cmd.Cmd {
+  if raw_input_event_is_composing(event) {
+    self.cancel_pending()
+    return @rabbita_runtime.none
+  }
+  match self.pending.val {
+    Some(pending) => return self.capture_before_input(pending.before_input)
+    None => ()
+  }
+  let selection = match read_raw_selection() {
+    Some(selection) => selection
+    None => {
+      self.cancel_pending()
+      return @rabbita_runtime.none
+    }
+  }
+  let selection = versioned_raw_selection_from_dom(model, selection) catch {
+    _ => {
+      self.cancel_pending()
+      return @rabbita_runtime.none
+    }
+  }
+  self.capture_before_input(
+    RawBeforeInputCandidate::RawBeforeInputCandidate(
+      selection~,
+      input_type=raw_input_event_type(event),
+      is_composing=false,
+    ),
+  )
 }
 
 ///|
@@ -257,7 +353,6 @@ fn RawInputCoordinator::schedule(
   self : RawInputCoordinator,
   emit : @cmd.Emit[DriverEvent],
 ) -> @cmd.Cmd {
-  guard !self.scheduled.val else { return @rabbita_runtime.none }
   self.schedule_generation.val += 1
   let generation = self.schedule_generation.val
   self.scheduled.val = true
@@ -269,17 +364,6 @@ fn RawInputCoordinator::schedule(
     }),
     RAW_INPUT_DEBOUNCE_MS,
   )
-}
-
-///|
-/// Move the trailing edge when a newer native value arrives.
-fn RawInputCoordinator::reschedule(
-  self : RawInputCoordinator,
-  emit : @cmd.Emit[DriverEvent],
-) -> @cmd.Cmd {
-  self.schedule_generation.val += 1
-  self.scheduled.val = false
-  self.schedule(emit)
 }
 
 ///|
@@ -298,28 +382,31 @@ fn RawInputCoordinator::flush(
   emit : @cmd.Emit[DriverEvent],
 ) -> Unit {
   self.scheduled.val = false
-  match self.pending_source.val {
-    None => ()
-    Some(source) => {
-      self.pending_source.val = None
-      let input_count = self.pending_count.val
-      self.pending_count.val = 0
+  match self.pending.val {
+    Some(pending) => {
+      self.pending.val = None
+      let before_input = pending.before_input
+      let source = pending.source
+      let post_input_selection = pending.post_input_selection
+      let input_count = pending.input_count
       let token = self.next_token.val
       self.next_token.val = token + 1
+      self.in_flight_token.val = Some(token)
+      self.in_flight_source.val = Some(source)
       match self.telemetry {
         Some(telemetry) => {
-          let debounce_fired_at = raw_input_now_ms()
+          let now = raw_input_now_ms()
           let input_received_at = match
             telemetry.pending_input_received_at.val {
             Some(at) => at
-            None => debounce_fired_at
+            None => now
           }
           telemetry.pending_input_received_at.val = None
           telemetry.phase.val = Some({
             token,
             input_count,
             input_received_at,
-            debounce_fired_at,
+            debounce_fired_at: now,
             reducer_started_at: None,
             reducer_finished_at: None,
             editor_started_at: None,
@@ -333,135 +420,149 @@ fn RawInputCoordinator::flush(
         }
         None => ()
       }
-      self.in_flight_token.val = Some(token)
-      self.in_flight_count.val = Some(input_count)
-      let selection = match self.retry_selection.val {
-        Some(selection) => {
-          self.retry_selection.val = None
-          Some(selection)
-        }
-        None => read_raw_selection()
-      }
-      scheduler.add(emit(Editing(RawInput(source, selection, Some(token)))))
+      scheduler.add(
+        emit(
+          Editing(
+            RawNativeInput(
+              token~,
+              candidate=RawNativeInputCandidate::RawNativeInputCandidate(
+                before_input~,
+                source~,
+                post_input_selection~,
+              ),
+            ),
+          ),
+        ),
+      )
     }
+    None => self.cancel_pending()
   }
+}
+
+///|
+fn RawInputCoordinator::has_captured_before_input(
+  self : RawInputCoordinator,
+) -> Bool {
+  self.unmatched_before_input.val is Some(_)
+}
+
+///|
+fn RawInputCoordinator::suppress_composing_input_repair(
+  self : RawInputCoordinator,
+) -> Unit {
+  self.cancel_pending()
+  self.suppress_unmatched_repair.val = true
+}
+
+///|
+fn RawInputCoordinator::take_unmatched_input_repair(
+  self : RawInputCoordinator,
+) -> Bool {
+  let repair = !self.suppress_unmatched_repair.val
+  self.suppress_unmatched_repair.val = false
+  repair
 }
 
 ///|
 fn RawInputCoordinator::enqueue(
   self : RawInputCoordinator,
   source : String,
+  post_input_selection : @dom_boundary.TextSelection,
   emit : @cmd.Emit[DriverEvent],
 ) -> @cmd.Cmd {
-  self.input_epoch.val += 1
-  match self.telemetry {
-    Some(telemetry) =>
-      telemetry.pending_input_received_at.val = Some(raw_input_now_ms())
-    None => ()
+  self.capture_generation.val += 1
+  let before_input = match self.unmatched_before_input.val {
+    Some(before_input) => before_input
+    None => {
+      self.cancel_pending()
+      return @rabbita_runtime.none
+    }
   }
-  match self.pending_source.val {
-    None => self.pending_count.val = 1
-    Some(_) => self.pending_count.val += 1
+  self.unmatched_before_input.val = None
+  guard !before_input.is_composing else {
+    self.cancel_pending()
+    return @rabbita_runtime.none
   }
-  self.pending_source.val = Some(source)
-  self.retry_selection.val = None
-  self.retry_budget.val = 1
-  self.reschedule(emit)
+  let source = raw_textarea_value(source)
+  let pending = match self.pending.val {
+    Some(pending) if pending.before_input.selection.document_id !=
+      before_input.selection.document_id ||
+      pending.before_input.selection.version != before_input.selection.version => {
+      self.cancel_pending()
+      return @rabbita_runtime.none
+    }
+    Some(pending) =>
+      {
+        ..pending,
+        source,
+        post_input_selection,
+        input_count: pending.input_count + 1,
+      }
+    None => {
+      match self.telemetry {
+        Some(telemetry) =>
+          telemetry.pending_input_received_at.val = Some(raw_input_now_ms())
+        None => ()
+      }
+      { before_input, source, post_input_selection, input_count: 1 }
+    }
+  }
+  self.pending.val = Some(pending)
+  self.schedule(emit)
 }
 
 ///|
-/// Complete a deferred transaction and retry one rejected native value.
-fn RawInputCoordinator::complete(
+/// Finish a normalized native transaction after its resulting render. The
+/// phase remains available for the outer publish and is copied to last_phase.
+fn RawInputCoordinator::finish(
   self : RawInputCoordinator,
   token : Int,
-  source : String,
-  selection : @dom_boundary.TextSelection?,
-  accepted : Bool,
-  repair_check : () -> Bool,
-  after_render_publish : () -> Unit,
+  latest_model : @ref.Ref[DriverModel?],
   emit : @cmd.Emit[DriverEvent],
 ) -> @cmd.Cmd {
   guard self.in_flight_token.val == Some(token) else {
     return @rabbita_runtime.none
   }
   self.in_flight_token.val = None
-  let input_count = self.in_flight_count.val
-  self.in_flight_count.val = None
-  let can_retry = match input_count {
-    Some(count) => count > 1
-    None => false
-  }
-  if accepted {
-    let needs_repair = self.repair_pending.val &&
-      self.pending_source.val is None
-    self.retry_budget.val = 0
-    self.repair_pending.val = false
-    let repair_epoch = self.input_epoch.val
-    let command = match self.pending_source.val {
-      Some(_) => self.schedule(emit)
-      None => @rabbita_runtime.none
+  self.in_flight_source.val = None
+  after_render(
+    scheduler => {
+      ignore(scheduler)
+      self.mark_rendered(token)
+      match latest_model.val {
+        Some(model) => publish(model, Some(self), None)
+        None => ()
+      }
+    },
+    emit,
+  )
+}
+
+///|
+/// Discard a native transaction that could not be normalized or was canceled.
+fn RawInputCoordinator::discard(
+  self : RawInputCoordinator,
+  token : Int,
+) -> Unit {
+  if self.in_flight_token.val == Some(token) {
+    self.in_flight_token.val = None
+    self.in_flight_source.val = None
+    match self.telemetry {
+      Some(telemetry) => telemetry.phase.val = None
+      None => ()
     }
-    let render_measurement = after_render(
-      scheduler => {
-        ignore(scheduler)
-        self.mark_rendered(token)
-        after_render_publish()
-      },
-      emit,
-    )
-    if needs_repair {
-      @cmd.batch([
-        command,
-        render_measurement,
-        after_render(
-          scheduler => {
-            ignore(scheduler)
-            if self.input_epoch.val != repair_epoch || !repair_check() {
-              return
-            }
-            @dom_boundary.write_text_value_id("loomark-input", source)
-            match selection {
-              Some(selection) =>
-                @dom_boundary.write_text_selection_id(
-                  "loomark-input", selection,
-                )
-              None => ()
-            }
-          },
-          emit,
-        ),
-      ])
-    } else {
-      @cmd.batch([command, render_measurement])
-    }
-  } else if self.retry_budget.val > 0 && can_retry {
-    self.input_epoch.val += 1
-    self.retry_budget.val -= 1
-    self.repair_pending.val = true
-    self.retry_selection.val = selection
-    if self.pending_source.val is None {
-      self.pending_count.val = 1
-      self.pending_source.val = Some(source)
-    }
-    self.schedule(emit)
-  } else {
-    self.pending_source.val = None
-    self.repair_pending.val = false
-    self.retry_selection.val = None
-    @rabbita_runtime.none
   }
 }
 
 ///|
 /// Drop native input that is superseded by an external canonical-source
-/// operation. The generation invalidates the already-created timer without
-/// requiring timer cancellation support from the command layer.
+/// operation. Generations invalidate already-created timers and captures.
 fn RawInputCoordinator::cancel_pending(self : RawInputCoordinator) -> Unit {
-  self.input_epoch.val += 1
   self.schedule_generation.val += 1
+  self.capture_generation.val += 1
   self.scheduled.val = false
-  self.pending_source.val = None
-  self.pending_count.val = 0
+  self.unmatched_before_input.val = None
+  self.pending.val = None
   match self.telemetry {
     Some(telemetry) => {
       telemetry.pending_input_received_at.val = None
@@ -469,11 +570,9 @@ fn RawInputCoordinator::cancel_pending(self : RawInputCoordinator) -> Unit {
     }
     None => ()
   }
-  self.retry_budget.val = 0
-  self.repair_pending.val = false
-  self.retry_selection.val = None
   self.in_flight_token.val = None
-  self.in_flight_count.val = None
+  self.in_flight_source.val = None
+  self.suppress_unmatched_repair.val = false
 }
 
 ///|
@@ -487,26 +586,8 @@ fn RawInputCoordinator::is_active(
 ///|
 fn RawInputCoordinator::cancel(self : RawInputCoordinator, token : Int) -> Unit {
   if self.in_flight_token.val == Some(token) {
-    self.input_epoch.val += 1
-    self.in_flight_token.val = None
-    self.in_flight_count.val = None
-    match self.telemetry {
-      Some(telemetry) => telemetry.phase.val = None
-      None => ()
-    }
-    self.repair_pending.val = false
-    self.retry_selection.val = None
+    self.cancel_pending()
   }
-}
-
-///|
-/// Defer Raw input handling and retain only the latest native value.
-fn raw_input_command(
-  source : String,
-  coordinator : RawInputCoordinator,
-  emit : @cmd.Emit[DriverEvent],
-) -> @cmd.Cmd {
-  coordinator.enqueue(source, emit)
 }
 
 ///|

@@ -1,4 +1,28 @@
-import { expect, test } from "@playwright/test"
+import { expect, test, type Locator } from "@playwright/test"
+
+async function replaceRawValue(input: Locator, value: string): Promise<void> {
+  await input.evaluate((element, nextValue) => {
+    const textarea = element as HTMLTextAreaElement
+    const currentLength = textarea.value.length
+    textarea.setSelectionRange(0, currentLength, "forward")
+    textarea.dispatchEvent(new InputEvent("beforeinput", {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      data: nextValue,
+      inputType: "insertText",
+    }))
+    textarea.value = nextValue
+    textarea.setSelectionRange(nextValue.length, nextValue.length)
+    textarea.dispatchEvent(new InputEvent("input", {
+      bubbles: true,
+      composed: true,
+      data: nextValue,
+      inputType: "insertText",
+    }))
+  }, value)
+  await input.page().waitForTimeout(100)
+}
 
 /**
  * #1176 standalone production boundary matrix:
@@ -38,7 +62,7 @@ test("standalone edit replaces the archive and reload restores the durable sourc
   const documentId = await page.evaluate(() => (
     JSON.parse(localStorage.getItem("loomark.active-document-archive") ?? "{}").document_id as string
   ))
-  await page.locator("#loomark-input").fill("# Durable\n\nSaved locally\n")
+  await replaceRawValue(page.locator("#loomark-input"), "# Durable\n\nSaved locally\n")
   await expect.poll(() => page.evaluate(() => {
     const raw = localStorage.getItem("loomark.active-document-archive")
     return raw === null ? null : (JSON.parse(raw) as { portable_markdown?: string }).portable_markdown
@@ -109,7 +133,7 @@ test("storage read failures mount a separate recovery view", async ({ page }) =>
 
 test("a failed replacement keeps the applied source but reload restores the previous archive", async ({ page }) => {
   await page.goto("/")
-  await page.locator("#loomark-input").fill("# Previous\n")
+  await replaceRawValue(page.locator("#loomark-input"), "# Previous\n")
   await expect.poll(() => page.evaluate(() => (
     JSON.parse(localStorage.getItem("loomark.active-document-archive") ?? "{}").portable_markdown as string
   ))).toBe("# Previous\n")
@@ -123,7 +147,7 @@ test("a failed replacement keeps the applied source but reload restores the prev
       original.call(this, key, value)
     }
   })
-  await page.locator("#loomark-input").fill("# Applied\n")
+  await replaceRawValue(page.locator("#loomark-input"), "# Applied\n")
   await expect(page.locator("#loomark-input")).toHaveValue("# Applied\n")
   await expect(page.locator("#loomark-error")).toContainText(
     "Changes are applied but not saved locally.",
@@ -166,7 +190,7 @@ test("Raw, Block, and Preview editing stays inside the original production root"
   await expect(root).toBeVisible()
   await root.evaluate(element => element.setAttribute("data-mount-probe", "original"))
 
-  await page.locator("#loomark-input").fill("# Before\n\nBody\n")
+  await replaceRawValue(page.locator("#loomark-input"), "# Before\n\nBody\n")
   await page.locator("#loomark-mode-block").click()
   await expect(page.locator("#loomark-block-input")).toHaveValue("Before")
   await page.locator("#loomark-block-input").fill("After")
@@ -186,7 +210,7 @@ test("Raw, Block, and Preview editing stays inside the original production root"
 
 test("ordinary consecutive Block input preserves both characters and the caret", async ({ page }) => {
   await page.goto("/")
-  await page.locator("#loomark-input").fill("x")
+  await replaceRawValue(page.locator("#loomark-input"), "x")
   await page.locator("#loomark-mode-block").click()
 
   const input = page.locator("#loomark-block-input")
@@ -218,7 +242,7 @@ test("ordinary consecutive Block input preserves both characters and the caret",
 
 test("Block input preserves the latest value when two events arrive before redraw", async ({ page }) => {
   await page.goto("/")
-  await page.locator("#loomark-input").fill("x")
+  await replaceRawValue(page.locator("#loomark-input"), "x")
   await page.locator("#loomark-mode-block").click()
   const input = page.locator("#loomark-block-input")
   const block = page.locator("#loomark-block")
@@ -261,7 +285,7 @@ test("Preview wraps long unbreakable content inside the reading frame", async ({
   const longUrl = `https://example.com/${`a`.repeat(200)}`
   const source =
     `# Long content\n\nVisit ${longUrl} and read this paragraph.\n\nInline code: \`${`x`.repeat(150)}\`\n`
-  await page.locator("#loomark-input").fill(source)
+  await replaceRawValue(page.locator("#loomark-input"), source)
   await page.locator("#loomark-mode-preview").click()
   const preview = page.locator("#loomark-preview")
   await expect(preview).toHaveAttribute("data-loomark-source", source)
@@ -289,7 +313,7 @@ test("frames stay borderless and only the split divider separates panes", async 
   await expect(raw).toHaveCSS("padding-left", "16px")
 
   await page.setViewportSize({ width: 640, height: 844 })
-  await raw.fill("# Narrow\n")
+  await replaceRawValue(raw, "# Narrow\n")
   await page.locator("#loomark-split-toggle").click()
 
   const split = page.locator("#loomark-split")
