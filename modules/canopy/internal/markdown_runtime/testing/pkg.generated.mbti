@@ -1,0 +1,19 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy/internal/markdown_runtime/testing"
+
+import {
+  "dowdiness/canopy/editor",
+  "dowdiness/markdown",
+}
+
+// Values
+pub fn new_parser_failure_editor(String) -> @editor.SyncEditor[@markdown.Block] raise
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

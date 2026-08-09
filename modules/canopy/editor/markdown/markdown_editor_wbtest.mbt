@@ -31,6 +31,14 @@ fn fresh_markdown_ir(source : String) -> @md_markdown.MarkdownIR raise {
 }
 
 ///|
+fn new_post_commit_failure_test_editor(
+  agent_id : String,
+) -> MarkdownEditor raise {
+  let editor = @markdown_runtime_testing.new_parser_failure_editor(agent_id)
+  { editor, }
+}
+
+///|
 test "Markdown document UTF-16 selection preserves direction and range" {
   let editor = try! MarkdownEditor(
     agent_id="document-selection-direction",
@@ -976,6 +984,49 @@ test "post-commit error retains portable evidence and typed issue" {
     }
     _ => fail("expected typed committed evidence")
   }
+}
+
+///|
+test "commit receipt reports an accepted parser failure without replay" {
+  let editor = try! new_post_commit_failure_test_editor(
+    "post-commit-failure-agent",
+  )
+  let before_version = editor.version()
+  let first : Result[Result[MarkdownCommitReceipt, MarkdownEditorError], Error] = Ok(
+    editor.commit_with_receipt(MarkdownEditRequest::ReplaceSource("Accepted\n")),
+  ) catch {
+    error => Err(error)
+  }
+
+  match first {
+    Ok(Err(MarkdownEditorError::Committed(evidence~, issue~))) => {
+      assert_eq(evidence.before(), "")
+      assert_eq(evidence.after(), None)
+      match issue {
+        MarkdownPostCommitIssue::RuntimeFailure(detail~) =>
+          assert_true(detail.contains("injected parser publication failure"))
+        _ => fail("expected typed runtime failure")
+      }
+    }
+    _ => fail("expected committed post-mutation failure")
+  }
+  let accepted_version = editor.version()
+  assert_false(accepted_version == before_version)
+  assert_eq(editor.portable_markdown(), "Accepted\n")
+
+  let second : Result[Result[MarkdownCommitReceipt, MarkdownEditorError], Error] = Ok(
+    editor.commit_with_receipt(
+      MarkdownEditRequest::ReplaceSource("Must not land\n"),
+    ),
+  ) catch {
+    error => Err(error)
+  }
+  match second {
+    Err(Failure::Failure(_)) => ()
+    _ => fail("expected terminal parser to reject before another mutation")
+  }
+  assert_eq(editor.version(), accepted_version)
+  assert_eq(editor.portable_markdown(), "Accepted\n")
 }
 
 ///|

@@ -7,6 +7,7 @@ modules/canopy/probe/diagnostic_portability/pkg.generated.mbti whitespace=-blank
 # MoonBit owns these generated interfaces and emits a final blank line.
 modules/canopy/editor/markdown/pkg.generated.mbti whitespace=-blank-at-eof
 modules/canopy/internal/markdown_runtime/pkg.generated.mbti whitespace=-blank-at-eof
+modules/canopy/internal/markdown_runtime/testing/pkg.generated.mbti whitespace=-blank-at-eof
 apps/loomark/archive/pkg.generated.mbti whitespace=-blank-at-eof
 apps/loomark/core/pkg.generated.mbti whitespace=-blank-at-eof
 apps/loomark/internal/dev_host/pkg.generated.mbti whitespace=-blank-at-eof
