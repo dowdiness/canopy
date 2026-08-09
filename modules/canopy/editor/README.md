@@ -43,6 +43,17 @@ Do not add parallel frontend-only view models or special-case language behavior 
 
 Internal but stable — this is the central package of the monorepo. The `SyncEditor` struct shape and `LanguageCapabilities` interface are touched whenever a new editor feature lands.
 
+## Markdown façade coordinate migration
+
+Starting with the portable snapshot and receipt contract:
+
+- `MarkdownDocumentSnapshot::source`, block source/text/marker/fence ranges, block and document selections, and `MarkdownCommitReceipt::transforms` share one sentinel-free UTF-16 coordinate space.
+- Only runtime-confirmed structural empty-paragraph sentinels collapse from that source and its ranges. Caller-authored inline ZWSP remains visible, while an empty block's public text is empty and its text range is zero-width.
+- A source-equal accepted commit may report `MarkdownCommitResult::Unchanged` while its version and history advance. Its receipt still retains the accepted transform evidence.
+- `MarkdownEditorError::Committed` means mutation landed and must not be retried. It carries portable before/optional-after `MarkdownCommittedEvidence` and a typed `MarkdownPostCommitIssue`.
+
+Two compatibility paths are intentionally outside this coordinate migration. `MarkdownEditRequest::ReplaceText` still accepts legacy canonical coordinates; do not derive those offsets from a portable snapshot when hidden sentinels exist. `MarkdownEditRequest::ReplaceSource` remains a lossy source import and does not continue causal identity; use `MarkdownEditor::open` or `MarkdownEditor::admit` with history to continue an owned document.
+
 ## Notes
 
 WebSocket wiring is split into two per-target files (`websocket_js.mbt` / `websocket_native.mbt`). Ephemeral state (peer cursors) is encoded in a compact binary varint format, not JSON. The binary sync protocol uses a versioned framing defined in `sync_protocol.mbt`; `encode_message` / `decode_message` are the only crossing points.

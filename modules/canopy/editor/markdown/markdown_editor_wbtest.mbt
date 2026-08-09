@@ -328,6 +328,81 @@ test "source-changing receipt carries history and a UTF-16 transform" {
 }
 
 ///|
+test "source replacement receipt transforms the portable before source" {
+  let editor = try! MarkdownEditor(
+    agent_id="portable-receipt-replace-source",
+    source="Hello\n",
+  )
+  let first = editor.snapshot().blocks().to_array()[0]
+  guard editor.commit(
+      MarkdownEditRequest::SplitBlock(node_id=first.node_id(), offset=0),
+    )
+    is Ok(_) else {
+    fail("expected block-start split to apply")
+  }
+  let before = editor.snapshot().source()
+  let receipt = match
+    (try! editor.commit_with_receipt(
+      MarkdownEditRequest::ReplaceSource("\n\nChanged\n"),
+    )) {
+    Ok(receipt) => receipt
+    Err(_) => fail("expected portable replacement receipt")
+  }
+  let snapshot = match receipt.result() {
+    MarkdownCommitResult::Applied(snapshot, None) => snapshot
+    _ => fail("expected applied source replacement")
+  }
+  let transforms = receipt.transforms().to_array()
+  guard transforms is [transform] else {
+    fail("expected one portable replacement transform")
+  }
+  let after = before[:transform.start()].to_owned() +
+    transform.inserted() +
+    before[transform.start() + transform.delete_len():].to_owned()
+  assert_eq(before, "\n\nHello\n")
+  assert_eq(snapshot.source(), "\n\nChanged\n")
+  assert_eq(after, snapshot.source())
+  assert_false(transform.inserted().contains("\u200B".view()))
+}
+
+///|
+test "exact text receipt projects canonical edit after a hidden block" {
+  let editor = try! MarkdownEditor(
+    agent_id="portable-receipt-replace-text",
+    source="Hello\n",
+  )
+  let first = editor.snapshot().blocks().to_array()[0]
+  guard editor.commit(
+      MarkdownEditRequest::SplitBlock(node_id=first.node_id(), offset=0),
+    )
+    is Ok(_) else {
+    fail("expected block-start split to apply")
+  }
+  let before = editor.snapshot().source()
+  let receipt = match
+    (try! editor.commit_with_receipt(
+      MarkdownEditRequest::ReplaceText(start=3, delete_len=1, inserted="J"),
+    )) {
+    Ok(receipt) => receipt
+    Err(_) => fail("expected exact text receipt")
+  }
+  let snapshot = match receipt.result() {
+    MarkdownCommitResult::Applied(snapshot, None) => snapshot
+    _ => fail("expected applied exact text edit")
+  }
+  let transforms = receipt.transforms().to_array()
+  guard transforms is [transform] else {
+    fail("expected one portable exact-text transform")
+  }
+  let after = before[:transform.start()].to_owned() +
+    transform.inserted() +
+    before[transform.start() + transform.delete_len():].to_owned()
+  assert_eq(transform.start(), 2)
+  assert_eq(snapshot.source(), "\n\nJello\n")
+  assert_eq(after, snapshot.source())
+}
+
+///|
 test "headless facade reports unchanged source atomically" {
   let editor = try! MarkdownEditor(agent_id="unchanged", source="before")
   let before = editor.snapshot()
@@ -370,7 +445,11 @@ test "headless facade preserves caller-owned ZWSP in exact source" {
   let source = "Hello\u200Bworld\n"
   let editor = try! MarkdownEditor(agent_id="zwsp", source~)
 
-  assert_eq(editor.snapshot().source(), source)
+  let snapshot = editor.snapshot()
+  assert_eq(snapshot.source(), source)
+  let block = snapshot.blocks().to_array()[0]
+  assert_eq(block.source_range(), (0, 12))
+  assert_eq(block.text_range(), (0, 11))
   let result = editor.commit(MarkdownEditRequest::ReplaceSource(source))
   match result {
     Ok(MarkdownCommitResult::Unchanged(snapshot)) =>
@@ -554,6 +633,22 @@ test "snapshot exposes editable heading payload and source spans" {
   assert_eq(blocks[0].source_range(), (0, 8))
   assert_eq(blocks[0].text_range(), (2, 7))
   assert_eq(blocks[0].marker_range(), Some((0, 2)))
+}
+
+///|
+test "snapshot marker ranges shift past a hidden empty block" {
+  let editor = try! MarkdownEditor(
+    agent_id="portable-marker-after-empty",
+    source="\u200B\n\n# Title\n",
+  )
+  let snapshot = editor.snapshot()
+  let blocks = snapshot.blocks().to_array()
+  assert_eq(snapshot.source(), "\n\n# Title\n")
+  assert_eq(blocks.length(), 2)
+  assert_eq(blocks[0].text_range(), (0, 0))
+  assert_eq(blocks[1].source_range(), (2, 10))
+  assert_eq(blocks[1].marker_range(), Some((2, 4)))
+  assert_eq(blocks[1].text_range(), (4, 9))
 }
 
 ///|
@@ -742,6 +837,73 @@ test "typed block receipt carries the lowered transform and selection" {
 }
 
 ///|
+test "source-equal structural receipt retains causal transform evidence" {
+  let editor = try! MarkdownEditor(
+    agent_id="portable-receipt-source-equal",
+    source="Same\n",
+  )
+  let block = editor.snapshot().blocks().to_array()[0]
+  let before_version = editor.version()
+  let receipt = match
+    (try! editor.commit_with_receipt(
+      MarkdownEditRequest::CommitEdit(node_id=block.node_id(), new_text="Same"),
+    )) {
+    Ok(receipt) => receipt
+    Err(_) => fail("expected source-equal structural receipt")
+  }
+  match receipt.result() {
+    MarkdownCommitResult::Unchanged(snapshot) =>
+      assert_eq(snapshot.source(), "Same\n")
+    _ => fail("expected source-oriented unchanged result")
+  }
+  assert_false(receipt.after_version() == before_version)
+  assert_true(receipt.history() is Some(_))
+  let transforms = receipt.transforms().to_array()
+  guard transforms is [transform] else {
+    fail("expected one source-equal accepted transform")
+  }
+  let before = "Same\n"
+  let after = before[:transform.start()].to_owned() +
+    transform.inserted() +
+    before[transform.start() + transform.delete_len():].to_owned()
+  assert_eq(after, before)
+}
+
+///|
+test "structural receipt transform targets the portable snapshot source" {
+  let editor = try! MarkdownEditor(
+    agent_id="portable-receipt-empty-block",
+    source="Hello\n",
+  )
+  let first = editor.snapshot().blocks().to_array()[0]
+  let receipt = match
+    (try! editor.commit_with_receipt(
+      MarkdownEditRequest::SplitBlock(node_id=first.node_id(), offset=0),
+    )) {
+    Ok(receipt) => receipt
+    Err(_) => fail("expected portable split receipt")
+  }
+  let snapshot = match receipt.result() {
+    MarkdownCommitResult::Applied(snapshot, Some(selection)) => {
+      assert_eq(selection.offset(), 0)
+      snapshot
+    }
+    _ => fail("expected applied portable split")
+  }
+  let transforms = receipt.transforms().to_array()
+  guard transforms is [transform] else {
+    fail("expected one portable transform")
+  }
+  let before = "Hello\n"
+  let after = before[:transform.start()].to_owned() +
+    transform.inserted() +
+    before[transform.start() + transform.delete_len():].to_owned()
+  assert_eq(snapshot.source(), "\n\nHello\n")
+  assert_eq(after, snapshot.source())
+  assert_false(transform.inserted().contains("\u200B".view()))
+}
+
+///|
 test "split and merge receipts retain exact sequential lowering transforms" {
   let editor = try! MarkdownEditor(
     agent_id="receipt-block-structure",
@@ -800,27 +962,20 @@ test "split and merge receipts retain exact sequential lowering transforms" {
 }
 
 ///|
-test "receipt transforms use sequential reverse-document order" {
-  let transforms = sequential_text_transforms([
-    @core.SpanEdit::{ start: 1, delete_len: 1, inserted: "X" },
-    @core.SpanEdit::{ start: 4, delete_len: 0, inserted: "!" },
-  ]).to_array()
-
-  assert_eq(transforms.length(), 2)
-  assert_eq(transforms[0].start(), 4)
-  assert_eq(transforms[0].delete_len(), 0)
-  assert_eq(transforms[0].inserted(), "!")
-  assert_eq(transforms[1].start(), 1)
-  assert_eq(transforms[1].delete_len(), 1)
-  assert_eq(transforms[1].inserted(), "X")
-
-  // Every coordinate is read against the source left by the prior transform.
-  let source = "abcde"
-  let after_first = source[:4].to_owned() + "!" + source[4:].to_owned()
-  let after_second = after_first[:1].to_owned() +
-    "X" +
-    after_first[2:].to_owned()
-  assert_eq(after_second, "aXcd!e")
+test "post-commit error retains portable evidence and typed issue" {
+  let error = committed_editor_error(
+    "Before\n",
+    Some("After\n"),
+    MarkdownPostCommitIssue::ProjectionFailed,
+  )
+  match error {
+    MarkdownEditorError::Committed(evidence~, issue~) => {
+      assert_eq(evidence.before(), "Before\n")
+      assert_eq(evidence.after(), Some("After\n"))
+      assert_eq(issue, MarkdownPostCommitIssue::ProjectionFailed)
+    }
+    _ => fail("expected typed committed evidence")
+  }
 }
 
 ///|
@@ -874,6 +1029,32 @@ test "headless facade lowers supported split and merge requests" {
 }
 
 ///|
+test "snapshot and block ranges share sentinel-free UTF-16 source" {
+  let editor = try! MarkdownEditor(
+    agent_id="portable-snapshot-empty-block",
+    source="Hello\n",
+  )
+  let first = editor.snapshot().blocks().to_array()[0]
+  guard editor.commit(
+      MarkdownEditRequest::SplitBlock(node_id=first.node_id(), offset=0),
+    )
+    is Ok(_) else {
+    fail("expected block-start split to apply")
+  }
+
+  let snapshot = editor.snapshot()
+  let blocks = snapshot.blocks().to_array()
+  assert_eq(snapshot.source(), "\n\nHello\n")
+  assert_eq(blocks.length(), 2)
+  assert_eq(blocks[0].text(), "")
+  assert_eq(blocks[0].source_range(), (0, 1))
+  assert_eq(blocks[0].text_range(), (0, 0))
+  assert_eq(blocks[1].text(), "Hello")
+  assert_eq(blocks[1].source_range(), (2, 8))
+  assert_eq(blocks[1].text_range(), (2, 7))
+}
+
+///|
 test "headless facade splits at block start into an empty previous block" {
   let editor = try! MarkdownEditor(
     agent_id="block-start-split",
@@ -886,10 +1067,7 @@ test "headless facade splits at block start into an empty previous block" {
       MarkdownEditRequest::SplitBlock(node_id=first.node_id(), offset=0),
     ) {
     Ok(MarkdownCommitResult::Applied(snapshot, selection)) => {
-      assert_eq(
-        snapshot.source(),
-        @md_sentinel.EMPTY_PARAGRAPH_SENTINEL + "\n\nHello\n",
-      )
+      assert_eq(snapshot.source(), "\n\nHello\n")
       let blocks = snapshot.blocks().to_array()
       assert_eq(blocks.length(), 2)
       assert_eq(blocks[0].text(), "")
@@ -1029,10 +1207,7 @@ test "merge two split-created empty blocks retains one projectable previous bloc
     ) {
     Ok(MarkdownCommitResult::Applied(snapshot, Some(selection))) => {
       let blocks = snapshot.blocks().to_array()
-      assert_eq(
-        snapshot.source(),
-        @md_sentinel.EMPTY_PARAGRAPH_SENTINEL + "\n\nHello\n",
-      )
+      assert_eq(snapshot.source(), "\n\nHello\n")
       assert_eq(editor.portable_markdown(), "\n\nHello\n")
       assert_eq(blocks.length(), 2)
       assert_eq(blocks[0].text(), "")
@@ -1074,7 +1249,7 @@ test "text-control clear keeps an empty editable block" {
       ),
     ) {
     Ok(MarkdownCommitResult::Applied(snapshot, _)) => {
-      assert_eq(snapshot.source(), @md_sentinel.EMPTY_PARAGRAPH_SENTINEL + "\n")
+      assert_eq(snapshot.source(), "\n")
       let blocks = snapshot.blocks().to_array()
       assert_eq(blocks.length(), 1)
       assert_eq(blocks[0].text(), "")

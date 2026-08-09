@@ -6,7 +6,39 @@ pub(all) suberror MarkdownEditorError {
   ProjectionUnavailable
   InvalidTextRange(start~ : Int, delete_len~ : Int, source_length~ : Int)
   EditFailed(detail~ : String)
+  /// The causal edit landed; this is never authorization to retry it.
+  Committed(
+    evidence~ : MarkdownCommittedEvidence,
+    issue~ : MarkdownPostCommitIssue
+  )
 }
+
+///|
+/// Sentinel-free evidence retained when receipt construction is interrupted
+/// after the document version has advanced.
+pub struct MarkdownCommittedEvidence {
+  priv before : String
+  priv after : String?
+} derive(Eq, Debug)
+
+///|
+pub fn MarkdownCommittedEvidence::before(self : Self) -> String {
+  self.before
+}
+
+///|
+pub fn MarkdownCommittedEvidence::after(self : Self) -> String? {
+  self.after
+}
+
+///|
+/// Typed post-commit reasons that require recovery rather than edit retry.
+pub(all) enum MarkdownPostCommitIssue {
+  RuntimeFailure(detail~ : String)
+  ProjectionUnavailable
+  ProjectionFailed
+  UnexpectedTransformCount(count~ : Int)
+} derive(Eq, Debug)
 
 ///|
 /// Stable editable block kinds exposed by the Markdown façade.
@@ -67,11 +99,13 @@ fn MarkdownBlockSnapshot::canonical_text(self : Self) -> String {
 }
 
 ///|
+/// Sentinel-free UTF-16 range in the owning document snapshot source.
 pub fn MarkdownBlockSnapshot::source_range(self : Self) -> (Int, Int) {
   (self.source_start, self.source_end)
 }
 
 ///|
+/// Sentinel-free UTF-16 payload range in the owning snapshot source.
 pub fn MarkdownBlockSnapshot::text_range(self : Self) -> (Int, Int) {
   (self.text_start, self.text_end)
 }
@@ -347,6 +381,7 @@ pub struct MarkdownDocumentSnapshot {
 } derive(Eq, Debug)
 
 ///|
+/// Sentinel-free UTF-16 source shared by all snapshot ranges and receipts.
 pub fn MarkdownDocumentSnapshot::source(self : Self) -> String {
   self.source
 }
@@ -394,6 +429,13 @@ pub fn MarkdownDocumentUtf16Selection::MarkdownDocumentUtf16Selection(
     raise MarkdownDocumentUtf16SelectionError::MidGraphemeBoundary(offset=head)
   }
   { anchor, head }
+}
+
+///|
+/// One coherent snapshot and the opaque map used to project its cursor.
+priv struct PortableDocumentSnapshot {
+  snapshot : MarkdownDocumentSnapshot
+  coordinates : @markdown_runtime.PortableCoordinateMap
 }
 
 ///|
@@ -884,7 +926,7 @@ pub fn MarkdownEditor::admit(
 }
 
 ///|
-/// Read the last committed canonical source without exposing editor state.
+/// Read the last committed sentinel-free UTF-16 source and ranges.
 pub fn MarkdownEditor::snapshot(
   self : Self,
 ) -> MarkdownDocumentSnapshot raise Failure {
@@ -993,19 +1035,87 @@ fn MarkdownEditor::commit_recording_transforms(
 ] raise {
   match request {
     ReplaceSource(source) => {
-      let before = self.editor.get_text()
-      if before == source {
+      let before = capture_portable_coordinates(self.editor)
+      if before.source() == source {
         Ok((MarkdownCommitResult::Unchanged(self.snapshot()), @vector.new()))
       } else {
-        // The synchronization edit returns the same splice used internally,
-        // so the receipt does not compute the text diff a second time.
-        let (change, accepted) = self.editor.set_text_with_change(source)
+        // The synchronization edit returns the same accepted splice used by
+        // the CRDT; project that splice rather than diffing portable sources.
+        let before_source = before.source()
+        let version_before = self.editor.get_version()
+        let applied : Result[
+          (@text_change.TextChange, Bool),
+          MarkdownEditorError,
+        ] = Ok(self.editor.set_text_with_change(source)) catch {
+          Failure::Failure(detail) =>
+            if self.editor.get_version() != version_before {
+              Err(
+                committed_editor_error(
+                  before_source,
+                  None,
+                  MarkdownPostCommitIssue::RuntimeFailure(detail~),
+                ),
+              )
+            } else {
+              raise Failure::Failure(detail)
+            }
+        }
+        let (change, accepted) = match applied {
+          Ok(applied) => applied
+          Err(error) => return Err(error)
+        }
         if accepted {
-          self.editor.refresh()
-          Ok(
-            (
-              MarkdownCommitResult::Applied(self.snapshot(), None),
-              @vector.Vector::singleton(MarkdownTextTransform::{ change, }),
+          self.editor.refresh() catch {
+            Failure::Failure(detail) =>
+              return Err(
+                committed_editor_error(
+                  before_source,
+                  None,
+                  MarkdownPostCommitIssue::RuntimeFailure(detail~),
+                ),
+              )
+          }
+          let after = match
+            capture_committed_portable_coordinates(self.editor, before_source) {
+            Ok(after) => after
+            Err(error) => return Err(error)
+          }
+          let state = match
+            committed_document_snapshot_from_coordinates(
+              self.editor,
+              before_source,
+              after,
+            ) {
+            Ok(state) => state
+            Err(error) => return Err(error)
+          }
+          let transform = match
+            project_portable_transform(
+              before,
+              @core.SpanEdit::{
+                start: change.start,
+                delete_len: change.delete_len,
+                inserted: change.inserted,
+              },
+              after,
+            ) {
+            Ok(transform) => transform
+            Err(error) => return Err(error)
+          }
+          let result = if state.snapshot.source() == before_source {
+            MarkdownCommitResult::Unchanged(state.snapshot)
+          } else {
+            MarkdownCommitResult::Applied(state.snapshot, None)
+          }
+          Ok((result, @vector.Vector::singleton(transform)))
+        } else if self.editor.get_version() != version_before {
+          Err(
+            committed_editor_error(
+              before_source,
+              None,
+              MarkdownPostCommitIssue::RuntimeFailure(
+                detail="source replacement interrupted after commit",
+              ),
             ),
           )
         } else {
@@ -1031,26 +1141,83 @@ fn MarkdownEditor::commit_recording_transforms(
             source_length~,
           ),
         )
-      } else if self.editor.apply_text_edit_exact(
-          start, delete_len, inserted, 0,
-        ) {
-        self.editor.refresh()
-        let snapshot = self.snapshot()
-        let result = if snapshot.source() == source {
-          MarkdownCommitResult::Unchanged(snapshot)
-        } else {
-          MarkdownCommitResult::Applied(snapshot, None)
-        }
-        Ok(
-          (
-            result,
-            @vector.Vector::singleton(MarkdownTextTransform::{
-              change: @text_change.TextChange::{ start, delete_len, inserted },
-            }),
-          ),
-        )
       } else {
-        Err(MarkdownEditorError::EditFailed(detail="text edit rejected"))
+        let before = capture_portable_coordinates(self.editor)
+        let before_source = before.source()
+        let version_before = self.editor.get_version()
+        let applied : Result[Bool, MarkdownEditorError] = Ok(
+          self.editor.apply_text_edit_exact(start, delete_len, inserted, 0),
+        ) catch {
+          Failure::Failure(detail) =>
+            if self.editor.get_version() != version_before {
+              Err(
+                committed_editor_error(
+                  before_source,
+                  None,
+                  MarkdownPostCommitIssue::RuntimeFailure(detail~),
+                ),
+              )
+            } else {
+              raise Failure::Failure(detail)
+            }
+        }
+        let accepted = match applied {
+          Ok(accepted) => accepted
+          Err(error) => return Err(error)
+        }
+        if accepted {
+          self.editor.refresh() catch {
+            Failure::Failure(detail) =>
+              return Err(
+                committed_editor_error(
+                  before_source,
+                  None,
+                  MarkdownPostCommitIssue::RuntimeFailure(detail~),
+                ),
+              )
+          }
+          let after = match
+            capture_committed_portable_coordinates(self.editor, before_source) {
+            Ok(after) => after
+            Err(error) => return Err(error)
+          }
+          let state = match
+            committed_document_snapshot_from_coordinates(
+              self.editor,
+              before_source,
+              after,
+            ) {
+            Ok(state) => state
+            Err(error) => return Err(error)
+          }
+          let transform = match
+            project_portable_transform(
+              before,
+              @core.SpanEdit::{ start, delete_len, inserted },
+              after,
+            ) {
+            Ok(transform) => transform
+            Err(error) => return Err(error)
+          }
+          let result = if state.snapshot.source() == before_source {
+            MarkdownCommitResult::Unchanged(state.snapshot)
+          } else {
+            MarkdownCommitResult::Applied(state.snapshot, None)
+          }
+          Ok((result, @vector.Vector::singleton(transform)))
+        } else if self.editor.get_version() != version_before {
+          Err(
+            committed_editor_error(
+              before_source,
+              None,
+              MarkdownPostCommitIssue::RuntimeFailure(
+                detail="text edit interrupted after commit",
+              ),
+            ),
+          )
+        } else {
+          Err(MarkdownEditorError::EditFailed(detail="text edit rejected"))
+        }
       }
     }
     CommitEdit(node_id~, new_text~) =>
@@ -1150,7 +1317,6 @@ fn MarkdownEditor::commit_structural_recording_transforms(
   (MarkdownCommitResult, @vector.Vector[MarkdownTextTransform]),
   MarkdownEditorError,
 ] raise {
-  let source = self.editor.get_text()
   let deleted_block_index = match op {
     @md_edits.Delete(node_id~) =>
       self
@@ -1160,13 +1326,38 @@ fn MarkdownEditor::commit_structural_recording_transforms(
       .search_by(block => block.node_id().value == node_id)
     _ => None
   }
-  match @markdown_runtime.apply_edit(self.editor, op, 0) {
-    Err(error) => Err(structural_edit_error(error))
-    Ok(edits) => {
-      self.editor.refresh()
-      let snapshot = self.snapshot()
-      let result = if snapshot.source() == source {
-        // A no-op never authorizes a new caret move for the caller.
+  match @markdown_runtime.commit_portable_edit(self.editor, op, 0) {
+    Err(@markdown_runtime.PortableCommitError::EditRejected(error~)) =>
+      Err(structural_edit_error(error))
+    Err(@markdown_runtime.PortableCommitError::NotCommitted(issue~)) =>
+      portable_not_committed_error(issue)
+    Ok(@markdown_runtime.PortableCommitOutcome::Committed(evidence~, issue~)) =>
+      Err(markdown_committed_error(evidence, issue))
+    Ok(@markdown_runtime.PortableCommitOutcome::Unchanged(_)) =>
+      Ok((MarkdownCommitResult::Unchanged(self.snapshot()), @vector.new()))
+    Ok(@markdown_runtime.PortableCommitOutcome::Applied(commit)) => {
+      let state = match
+        committed_document_snapshot(
+          self.editor,
+          commit.before(),
+          commit.after(),
+        ) {
+        Ok(state) => state
+        Err(error) => return Err(error)
+      }
+      let snapshot = state.snapshot
+      if snapshot.source() != commit.after() {
+        return Err(
+          committed_editor_error(
+            commit.before(),
+            Some(commit.after()),
+            MarkdownPostCommitIssue::ProjectionFailed,
+          ),
+        )
+      }
+      let result = if commit.before() == commit.after() {
+        // History advanced, but a source-oriented result never authorizes a
+        // caret move when the portable source did not change.
         MarkdownCommitResult::Unchanged(snapshot)
       } else {
         let selection = match deleted_block_index {
@@ -1181,17 +1372,126 @@ fn MarkdownEditor::commit_structural_recording_transforms(
               offset: block.text().length(),
             })
           }
-          None =>
-            selection_for_cursor(
-              snapshot,
-              self.editor.get_cursor(),
-              allow_nearest=false,
-            )
+          None => {
+            let cursor = match
+              state.coordinates.project_offset(self.editor.get_cursor()) {
+              Ok(cursor) => cursor
+              Err(_) =>
+                return Err(
+                  committed_editor_error(
+                    commit.before(),
+                    Some(commit.after()),
+                    MarkdownPostCommitIssue::ProjectionFailed,
+                  ),
+                )
+            }
+            selection_for_cursor(snapshot, cursor, allow_nearest=false)
+          }
         }
         MarkdownCommitResult::Applied(snapshot, selection)
       }
-      Ok((result, sequential_text_transforms(edits)))
+      let transform = markdown_text_transform(commit.transform())
+      Ok((result, @vector.Vector::singleton(transform)))
     }
+  }
+}
+
+///|
+fn markdown_committed_error(
+  evidence : @markdown_runtime.PortableCommitEvidence,
+  issue : @markdown_runtime.PortableCommitIssue,
+) -> MarkdownEditorError {
+  committed_editor_error(
+    evidence.before(),
+    evidence.after(),
+    markdown_post_commit_issue(issue),
+  )
+}
+
+///|
+fn committed_editor_error(
+  before : String,
+  after : String?,
+  issue : MarkdownPostCommitIssue,
+) -> MarkdownEditorError {
+  MarkdownEditorError::Committed(
+    evidence=MarkdownCommittedEvidence::{ before, after },
+    issue~,
+  )
+}
+
+///|
+fn markdown_post_commit_issue(
+  issue : @markdown_runtime.PortableCommitIssue,
+) -> MarkdownPostCommitIssue {
+  match issue {
+    @markdown_runtime.PortableCommitIssue::RuntimeFailure(detail~) =>
+      MarkdownPostCommitIssue::RuntimeFailure(detail~)
+    @markdown_runtime.PortableCommitIssue::ProjectionUnavailable =>
+      MarkdownPostCommitIssue::ProjectionUnavailable
+    @markdown_runtime.PortableCommitIssue::ProjectionFailed(..) =>
+      MarkdownPostCommitIssue::ProjectionFailed
+    @markdown_runtime.PortableCommitIssue::UnexpectedTransformCount(count~) =>
+      MarkdownPostCommitIssue::UnexpectedTransformCount(count~)
+  }
+}
+
+///|
+/// Preserve pre-commit failure categories while keeping committed failures out
+/// of the edit-rejection channel.
+fn portable_not_committed_error(
+  issue : @markdown_runtime.PortableCommitIssue,
+) -> Result[
+  (MarkdownCommitResult, @vector.Vector[MarkdownTextTransform]),
+  MarkdownEditorError,
+] raise Failure {
+  match issue {
+    @markdown_runtime.PortableCommitIssue::ProjectionUnavailable =>
+      Err(MarkdownEditorError::ProjectionUnavailable)
+    @markdown_runtime.PortableCommitIssue::RuntimeFailure(detail~) =>
+      raise Failure::Failure(detail)
+    @markdown_runtime.PortableCommitIssue::ProjectionFailed(..) =>
+      Err(
+        MarkdownEditorError::EditFailed(
+          detail="portable Markdown projection failed",
+        ),
+      )
+    @markdown_runtime.PortableCommitIssue::UnexpectedTransformCount(..) =>
+      Err(
+        MarkdownEditorError::EditFailed(
+          detail="unexpected Markdown transform count",
+        ),
+      )
+  }
+}
+
+///|
+fn markdown_text_transform(edit : @core.SpanEdit) -> MarkdownTextTransform {
+  MarkdownTextTransform::{
+    change: @text_change.TextChange::{
+      start: edit.start,
+      delete_len: edit.delete_len,
+      inserted: edit.inserted,
+    },
+  }
+}
+
+///|
+fn project_portable_transform(
+  before : @markdown_runtime.PortableCoordinateMap,
+  edit : @core.SpanEdit,
+  after : @markdown_runtime.PortableCoordinateMap,
+) -> Result[MarkdownTextTransform, MarkdownEditorError] {
+  match before.project_edit(edit, after) {
+    Ok(projected) => Ok(markdown_text_transform(projected))
+    Err(_) =>
+      Err(
+        committed_editor_error(
+          before.source(),
+          Some(after.source()),
+          MarkdownPostCommitIssue::ProjectionFailed,
+        ),
+      )
   }
 }
 
@@ -1204,25 +1504,6 @@ fn structural_edit_error(error : @core.EditError) -> MarkdownEditorError {
       MarkdownEditorError::ProjectionUnavailable
     _ => MarkdownEditorError::EditFailed(detail=error.message())
   }
-}
-
-///|
-/// Mirror SyncEditor's reverse-document-order application as a sequential,
-/// immutable façade value. Local mutation only sorts a private copy used to
-/// build the returned vector.
-fn sequential_text_transforms(
-  edits : Array[@core.SpanEdit],
-) -> @vector.Vector[MarkdownTextTransform] {
-  let ordered = edits.copy()
-  ordered.sort_by((a, b) => b.start.compare(a.start))
-  let transforms = ordered.map(edit => MarkdownTextTransform::{
-    change: @text_change.TextChange::{
-      start: edit.start,
-      delete_len: edit.delete_len,
-      inserted: edit.inserted,
-    },
-  })
-  @vector.Vector(transforms[:])
 }
 
 ///|
@@ -1371,11 +1652,91 @@ fn projection_snapshot(
 fn document_snapshot(
   editor : @editor.SyncEditor[@md_markdown.Block],
 ) -> MarkdownDocumentSnapshot raise Failure {
-  let source = editor.get_text()
-  {
-    source,
+  document_snapshot_with_coordinates(editor).snapshot
+}
+
+///|
+/// Build the detached snapshot and cursor map from the same parser epoch.
+fn document_snapshot_with_coordinates(
+  editor : @editor.SyncEditor[@md_markdown.Block],
+) -> PortableDocumentSnapshot raise Failure {
+  let coordinates = capture_portable_coordinates(editor)
+  document_snapshot_from_coordinates(editor, coordinates)
+}
+
+///|
+fn document_snapshot_from_coordinates(
+  editor : @editor.SyncEditor[@md_markdown.Block],
+  coordinates : @markdown_runtime.PortableCoordinateMap,
+) -> PortableDocumentSnapshot raise Failure {
+  let canonical = editor.get_text()
+  let snapshot = MarkdownDocumentSnapshot::{
+    source: coordinates.source(),
     projection: projection_snapshot(editor),
-    blocks: editable_block_snapshots(editor, source),
+    blocks: editable_block_snapshots(editor, canonical, coordinates),
+  }
+  { snapshot, coordinates }
+}
+
+///|
+fn committed_document_snapshot(
+  editor : @editor.SyncEditor[@md_markdown.Block],
+  before : String,
+  after : String,
+) -> Result[PortableDocumentSnapshot, MarkdownEditorError] {
+  Ok(document_snapshot_with_coordinates(editor)) catch {
+    Failure::Failure(detail) =>
+      Err(
+        committed_editor_error(
+          before,
+          Some(after),
+          MarkdownPostCommitIssue::RuntimeFailure(detail~),
+        ),
+      )
+  }
+}
+
+///|
+fn committed_document_snapshot_from_coordinates(
+  editor : @editor.SyncEditor[@md_markdown.Block],
+  before : String,
+  coordinates : @markdown_runtime.PortableCoordinateMap,
+) -> Result[PortableDocumentSnapshot, MarkdownEditorError] {
+  let after = coordinates.source()
+  Ok(document_snapshot_from_coordinates(editor, coordinates)) catch {
+    Failure::Failure(detail) =>
+      Err(
+        committed_editor_error(
+          before,
+          Some(after),
+          MarkdownPostCommitIssue::RuntimeFailure(detail~),
+        ),
+      )
+  }
+}
+
+///|
+fn capture_portable_coordinates(
+  editor : @editor.SyncEditor[@md_markdown.Block],
+) -> @markdown_runtime.PortableCoordinateMap raise Failure {
+  match @markdown_runtime.capture_portable_coordinates(editor) {
+    Ok(coordinates) => coordinates
+    Err(_) =>
+      raise Failure::Failure("Markdown portable snapshot projection failed")
+  }
+}
+
+///|
+fn capture_committed_portable_coordinates(
+  editor : @editor.SyncEditor[@md_markdown.Block],
+  before : String,
+) -> Result[@markdown_runtime.PortableCoordinateMap, MarkdownEditorError] {
+  match @markdown_runtime.capture_portable_coordinates(editor) {
+    Ok(coordinates) => Ok(coordinates)
+    Err(issue) =>
+      Err(
+        committed_editor_error(before, None, markdown_post_commit_issue(issue)),
+      )
   }
 }
 
@@ -1383,6 +1744,7 @@ fn document_snapshot(
 fn editable_block_snapshots(
   editor : @editor.SyncEditor[@md_markdown.Block],
   source : String,
+  coordinates : @markdown_runtime.PortableCoordinateMap,
 ) -> @vector.Vector[MarkdownBlockSnapshot] raise Failure {
   match editor.get_proj_node() {
     None => @vector.new()
@@ -1402,6 +1764,7 @@ fn editable_block_snapshots(
                       MarkdownBlockKind::UnorderedListItem,
                       source,
                       source_map,
+                      coordinates,
                     )
                   @md_markdown.OrderedListItem(_, marker) => {
                     guard marker is Some(_) else { continue }
@@ -1418,6 +1781,7 @@ fn editable_block_snapshots(
                       ),
                       source,
                       source_map,
+                      coordinates,
                     )
                   }
                   _ => ()
@@ -1431,6 +1795,7 @@ fn editable_block_snapshots(
               MarkdownBlockKind::Paragraph,
               source,
               source_map,
+              coordinates,
             )
           @md_markdown.Heading(level, _) =>
             append_editable_block_snapshot(
@@ -1439,6 +1804,7 @@ fn editable_block_snapshots(
               MarkdownBlockKind::Heading(level~),
               source,
               source_map,
+              coordinates,
             )
           @md_markdown.CodeBlock(info, _) =>
             append_editable_block_snapshot(
@@ -1447,6 +1813,7 @@ fn editable_block_snapshots(
               MarkdownBlockKind::CodeBlock(info~),
               source,
               source_map,
+              coordinates,
             )
           _ => ()
         }
@@ -1464,7 +1831,8 @@ fn append_editable_block_snapshot(
   kind : MarkdownBlockKind,
   source : String,
   source_map : @core.SourceMap,
-) -> Unit {
+  coordinates : @markdown_runtime.PortableCoordinateMap,
+) -> Unit raise Failure {
   guard source_map.get_range(node.id()) is Some(source_range) else { return }
   let text_span = match source_map.get_token_span(node.id(), "text") {
     Some(span) => span
@@ -1481,21 +1849,75 @@ fn append_editable_block_snapshot(
     (fence_open_range is None || fence_close_range is None) {
     return
   }
+  let (source_start, source_end) = project_snapshot_range(
+    coordinates,
+    source_range.start,
+    source_range.end,
+  )
+  let (text_start, text_end) = project_snapshot_range(
+    coordinates,
+    text_span.start,
+    text_span.end,
+  )
+  let (marker_start, marker_end) = project_optional_snapshot_range(
+    coordinates,
+    marker_range.map(range => range.start),
+    marker_range.map(range => range.end),
+  )
+  let (fence_open_start, fence_open_end) = project_optional_snapshot_range(
+    coordinates,
+    fence_open_range.map(range => range.start),
+    fence_open_range.map(range => range.end),
+  )
+  let (fence_close_start, fence_close_end) = project_optional_snapshot_range(
+    coordinates,
+    fence_close_range.map(range => range.start),
+    fence_close_range.map(range => range.end),
+  )
   blocks.push({
     node_id: { value: node.id() },
     kind,
     text: source[text_span.start:text_span.end].to_owned(),
-    source_start: source_range.start,
-    source_end: source_range.end,
-    text_start: text_span.start,
-    text_end: text_span.end,
-    marker_start: marker_range.map(r => r.start),
-    marker_end: marker_range.map(r => r.end),
-    fence_open_start: fence_open_range.map(r => r.start),
-    fence_open_end: fence_open_range.map(r => r.end),
-    fence_close_start: fence_close_range.map(r => r.start),
-    fence_close_end: fence_close_range.map(r => r.end),
+    source_start,
+    source_end,
+    text_start,
+    text_end,
+    marker_start,
+    marker_end,
+    fence_open_start,
+    fence_open_end,
+    fence_close_start,
+    fence_close_end,
   })
+}
+
+///|
+fn project_snapshot_range(
+  coordinates : @markdown_runtime.PortableCoordinateMap,
+  start : Int,
+  end : Int,
+) -> (Int, Int) raise Failure {
+  match coordinates.project_range(start, end) {
+    Ok(projected) => projected
+    Err(_) =>
+      raise Failure::Failure("Markdown snapshot range projection failed")
+  }
+}
+
+///|
+fn project_optional_snapshot_range(
+  coordinates : @markdown_runtime.PortableCoordinateMap,
+  start : Int?,
+  end : Int?,
+) -> (Int?, Int?) raise Failure {
+  match (start, end) {
+    (None, None) => (None, None)
+    (Some(start), Some(end)) => {
+      let (start, end) = project_snapshot_range(coordinates, start, end)
+      (Some(start), Some(end))
+    }
+    _ => raise Failure::Failure("Markdown snapshot range roles disagreed")
+  }
 }
 
 ///|

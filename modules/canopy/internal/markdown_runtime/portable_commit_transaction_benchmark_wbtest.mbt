@@ -15,6 +15,17 @@ fn portable_commit_benchmark_source(block_count : Int) -> String {
 }
 
 ///|
+fn portable_commit_sentinel_dense_source(block_count : Int) -> String {
+  Array::makei(block_count, index => {
+    if index % 2 == 0 {
+      "\u{200B}\n"
+    } else {
+      "Paragraph 😀 " + index.to_string() + " keeps A\u{200B}B visible.\n"
+    }
+  }).join("\n")
+}
+
+///|
 test "perf: project source without hidden ranges (250 blocks)" (b : @bench.T) {
   let sources = [
     portable_commit_benchmark_source(250),
@@ -76,6 +87,30 @@ test "perf: capture portable projection state (250 blocks)" (b : @bench.T) {
     )
     tick += 1
     b.keep(state)
+  })
+}
+
+///|
+test "perf: capture sentinel-dense coordinate map (250 blocks)" (b : @bench.T) {
+  let sources = [
+    portable_commit_sentinel_dense_source(250),
+    portable_commit_sentinel_dense_source(250) + "x",
+  ]
+  let editors = [
+    try! new_editor("portable-capture-sentinel-dense-a"),
+    try! new_editor("portable-capture-sentinel-dense-b"),
+  ]
+  editors.eachi((index, editor) => {
+    editor.set_text(sources[index])
+    editor.refresh()
+  })
+  let mut tick = 0
+  b.bench(() => {
+    let coordinates = capture_portable_coordinates(
+      editors[tick % editors.length()],
+    )
+    tick += 1
+    b.keep(coordinates)
   })
 }
 

@@ -39,11 +39,12 @@ fn persist_recovered_editor(
 
 ///|
 /// Rebuild once from the accepted archive. This is the only shell that may
-/// catch parser Failure; the old session is never retried or reset.
+/// recover after parser Failure or a typed committed-receipt interruption; the
+/// old session is never retried or reset.
 fn recover_after_parser_failure(
   session_ref : @ref.Ref[EditorSession],
   model : DriverModel,
-  failure : Failure,
+  failure : Error,
   emit : @cmd.Emit[DriverEvent],
 ) -> (DriverModel, @cmd.Cmd) {
   ignore(failure)

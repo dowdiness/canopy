@@ -67,15 +67,6 @@ pub(all) enum PortableCommitOutcome {
 }
 
 ///|
-/// Package-private canonical and projection state used only while completing
-/// one transaction. Hidden ranges and canonical coordinates never escape it.
-priv struct PortableProjectionState {
-  canonical : String
-  portable : String
-  hidden : Array[@loom.Range]
-}
-
-///|
 let plain_language : @lang_runtime.Language[
   @markdown.Block,
   @md_edits.MarkdownEditOp,
@@ -250,9 +241,6 @@ pub fn commit_portable_edit(
     }
     return Ok(PortableCommitOutcome::Committed(evidence~, issue~))
   }
-  if before.canonical == after.canonical {
-    return Ok(PortableCommitOutcome::Unchanged(source=after.portable))
-  }
   let transform = match
     project_markdown_edit(
       before.canonical,
@@ -281,11 +269,11 @@ pub fn commit_portable_edit(
 }
 
 ///|
-/// Capture canonical parser state, but expose only its portable projection to
-/// transaction results. The mutable range array is fresh and package-private.
-fn capture_portable_projection_state(
+/// Capture one immutable coordinate map while keeping canonical source and
+/// hidden sentinel ranges inside the Markdown runtime.
+pub fn capture_portable_coordinates(
   editor : @editor.SyncEditor[@markdown.Block],
-) -> Result[PortableProjectionState, PortableCommitIssue] {
+) -> Result[PortableCoordinateMap, PortableCommitIssue] {
   let canonical = editor.get_text()
   let root = editor.get_proj_node() catch {
     Failure::Failure(detail) =>
@@ -300,11 +288,18 @@ fn capture_portable_projection_state(
   }
   let hidden : Array[@loom.Range] = []
   collect_hidden_sentinel_ranges(root, source_map, hidden)
-  let portable = match project_source(canonical, hidden) {
-    Ok(portable) => portable
-    Err(error) => return Err(PortableCommitIssue::ProjectionFailed(error~))
+  match make_portable_coordinate_map(canonical, hidden) {
+    Ok(coordinates) => Ok(coordinates)
+    Err(error) => Err(PortableCommitIssue::ProjectionFailed(error~))
   }
-  Ok({ canonical, portable, hidden })
+}
+
+///|
+/// Keep the transaction and benchmark capture seam on the same implementation.
+fn capture_portable_projection_state(
+  editor : @editor.SyncEditor[@markdown.Block],
+) -> Result[PortableCoordinateMap, PortableCommitIssue] {
+  capture_portable_coordinates(editor)
 }
 
 ///|

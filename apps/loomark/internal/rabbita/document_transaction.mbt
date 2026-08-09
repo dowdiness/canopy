@@ -7,6 +7,7 @@ fn editor_error_detail(error : @markdown.MarkdownEditorError) -> String {
     @markdown.ProjectionUnavailable => "projection-unavailable"
     @markdown.InvalidTextRange(..) => "invalid text range"
     @markdown.EditFailed(detail~) => detail
+    @markdown.Committed(..) => "edit-committed"
   }
 }
 
@@ -158,6 +159,8 @@ fn commit_edit_request(
     raise Failure::Failure("dev-host injected parser publication failure")
   }
   match receipt {
+    Err(@markdown.MarkdownEditorError::Committed(..) as committed) =>
+      raise committed
     Err(error) => {
       let failed = record_error(
         next,
