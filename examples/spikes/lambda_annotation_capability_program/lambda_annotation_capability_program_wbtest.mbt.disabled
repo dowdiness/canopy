@@ -1,0 +1,549 @@
+///|
+/// A disposable-test receipt for one three-source snapshot transaction.
+priv struct ShadowSyncReceipt {
+  staged_count : Int
+  transaction_attempts_before : Int
+  transaction_attempts_after : Int
+  transaction_commits_before : Int
+  transaction_commits_after : Int
+  revision_before : Int
+  revision_after : Int
+}
+
+///|
+/// Keep the Formula and its typed export together. Formula debug supplies the
+/// FormulaId and local Manifest; the export supplies the ExportId.
+priv struct AnnotationFormulaPair {
+  formula : @next_program.Formula[
+    Map[@core.NodeId, Array[@protocol.ViewAnnotation]]
+  ]
+  exported : @next_program.ReadExport[
+    Result[
+      Map[@core.NodeId, Array[@protocol.ViewAnnotation]],
+      @next_program.ProgramError,
+    ]
+  ]
+}
+
+///|
+/// A test-only facade over the exact #465 Store/Region/Source and #469
+/// Program/Port/Formula APIs. It is an imperative snapshot shell around a
+/// deterministic Formula callback.
+priv struct AnnotationShadow {
+  store : @next_kernel.Store
+  region : @next_kernel.Region
+  eval_source : @next_kernel.Source[Array[@lambda_eval.EvalResult]]
+  projection_source : @next_kernel.Source[@core.ProjNode[@ast.Term]?]
+  source_map_source : @next_kernel.Source[@core.SourceMap]
+  program : @next_program.Program
+  eval_port : @next_program.ReadPort[Array[@lambda_eval.EvalResult]]
+  projection_port : @next_program.ReadPort[@core.ProjNode[@ast.Term]?]
+  source_map_port : @next_program.ReadPort[@core.SourceMap]
+  pair : AnnotationFormulaPair
+}
+
+///|
+fn[T] shadow_source_or_abort(
+  region : @next_kernel.Region,
+  value : T,
+) -> @next_kernel.Source[T] {
+  match region.source(value) {
+    Ok(source) => source
+    Err(_) => abort("shadow source construction")
+  }
+}
+
+///|
+fn[T] shadow_port_or_abort(
+  program : @next_program.Program,
+  view : @next_kernel.View[T],
+) -> @next_program.ReadPort[T] {
+  match program.port(view) {
+    Ok(port) => port
+    Err(_) => abort("shadow port construction")
+  }
+}
+
+///|
+fn new_annotation_shadow() -> AnnotationShadow {
+  let store = @next_kernel.Store()
+  let region = match store.region() {
+    Ok(value) => value
+    Err(_) => abort("shadow region construction")
+  }
+  let eval_source : @next_kernel.Source[Array[@lambda_eval.EvalResult]] =
+    shadow_source_or_abort(region, [])
+  let projection_source : @next_kernel.Source[
+    @core.ProjNode[@ast.Term]?
+  ] = shadow_source_or_abort(region, None)
+  let source_map_source : @next_kernel.Source[@core.SourceMap] =
+    shadow_source_or_abort(region, @core.SourceMap::new())
+  let program = @next_program.Program::Program(store, region)
+  let eval_port = shadow_port_or_abort(program, eval_source.view())
+  let projection_port = shadow_port_or_abort(program, projection_source.view())
+  let source_map_port = shadow_port_or_abort(program, source_map_source.view())
+  let builder = program.builder()
+  let declared_eval = match builder.declare_port(eval_port) {
+    Ok(value) => value
+    Err(_) => abort("shadow eval declaration")
+  }
+  let declared_projection = match builder.declare_port(projection_port) {
+    Ok(value) => value
+    Err(_) => abort("shadow projection declaration")
+  }
+  let declared_source_map = match builder.declare_port(source_map_port) {
+    Ok(value) => value
+    Err(_) => abort("shadow source-map declaration")
+  }
+  let formula = match builder.build(ctx => {
+    match ctx.read(declared_eval) {
+      Err(error) => Err(error)
+      Ok(eval_results) => match ctx.read(declared_projection) {
+        Err(error) => Err(error)
+        Ok(None) => Ok(build_eval_annotations(eval_results, None))
+        Ok(Some(root)) => match ctx.read(declared_source_map) {
+          Err(error) => Err(error)
+          Ok(source_map) => {
+            let eval_annotations = build_eval_annotations(
+              eval_results,
+              Some(root),
+            )
+            let semantic_projection = @lambda_semantic.build_semantic_projection(
+              root,
+              source_map,
+            )
+            Ok(
+              AnalysisProjection::new().annotations(
+                eval_annotations,
+                Some(semantic_projection),
+              ),
+            )
+          }
+        }
+      }
+    }
+  }) {
+    Ok(value) => value
+    Err(_) => abort("shadow formula construction")
+  }
+  let exported = match program.export_formula(formula) {
+    Ok(value) => value
+    Err(_) => abort("shadow formula export")
+  }
+  {
+    store,
+    region,
+    eval_source,
+    projection_source,
+    source_map_source,
+    program,
+    eval_port,
+    projection_port,
+    source_map_port,
+    pair: { formula, exported },
+  }
+}
+
+///|
+/// The bridge reads one editor snapshot before staging any write. The three
+/// Sources are then committed in one transaction, never one source at a time.
+fn AnnotationShadow::sync_snapshot(
+  self : AnnotationShadow,
+  eval_results : Array[@lambda_eval.EvalResult],
+  projection : @core.ProjNode[@ast.Term]?,
+  source_map : @core.SourceMap,
+) -> ShadowSyncReceipt {
+  let before_store = self.store.debug()
+  let before_revision = self.store.revision().value()
+  let staged_count = Ref(0)
+  ignore(
+    match self.store.transaction(tx => {
+      ignore(tx.set(self.eval_source, eval_results))
+      ignore(tx.set(self.projection_source, projection))
+      ignore(tx.set(self.source_map_source, source_map))
+      staged_count.val = tx.staged_count()
+      Ok(())
+    }) {
+      Ok(outcome) => outcome
+      Err(_) => abort("shadow snapshot transaction")
+    },
+  )
+  let after_store = self.store.debug()
+  {
+    staged_count: staged_count.val,
+    transaction_attempts_before: before_store.transaction_attempts,
+    transaction_attempts_after: after_store.transaction_attempts,
+    transaction_commits_before: before_store.transaction_commits,
+    transaction_commits_after: after_store.transaction_commits,
+    revision_before: before_revision,
+    revision_after: self.store.revision().value(),
+  }
+}
+
+///|
+/// Read one production snapshot before staging any shadow write, then commit
+/// the three values atomically without normalizing the projection branch.
+fn AnnotationShadow::sync(
+  self : AnnotationShadow,
+  editor : @editor.SyncEditor[@ast.Term],
+  companion : LambdaCompanion,
+) -> ShadowSyncReceipt raise {
+  self.sync_snapshot(
+    companion.get_eval_results(),
+    editor.get_proj_node(),
+    editor.get_source_map(),
+  )
+}
+
+///|
+/// Unwrap only the exact outer FormulaReadError and inner ProgramError
+/// channels at the test boundary. The Formula core itself preserves them.
+fn AnnotationShadow::read_annotations(
+  self : AnnotationShadow,
+) -> Map[@core.NodeId, Array[@protocol.ViewAnnotation]] raise {
+  match self.program.read(self.pair.formula) {
+    Err(_) => fail("unexpected FormulaReadError")
+    Ok(Err(_)) => fail("unexpected ProgramError")
+    Ok(Ok(value)) => value
+  }
+}
+
+///|
+/// The production closure remains the oracle: get_view_tree runs the real
+/// LanguageCapabilities callback and this traversal only reindexes its view.
+fn production_annotations(
+  editor : @editor.SyncEditor[@ast.Term],
+) -> Map[@core.NodeId, Array[@protocol.ViewAnnotation]] raise {
+  let annotations : Map[
+    @core.NodeId,
+    Array[@protocol.ViewAnnotation],
+  ] = Map([])
+  match editor.get_view_tree() {
+    None => ()
+    Some(root) => collect_view_annotations(root, annotations)
+  }
+  annotations
+}
+
+///|
+/// Empty arrays are omitted because build_eval_annotations and the view
+/// converter represent absent annotations by an absent map entry.
+fn collect_view_annotations(
+  node : @protocol.ViewNode,
+  target : Map[@core.NodeId, Array[@protocol.ViewAnnotation]],
+) -> Unit {
+  if !node.annotations.is_empty() {
+    target[node.id] = node.annotations.copy()
+  }
+  for child in node.children {
+    collect_view_annotations(child, target)
+  }
+}
+
+///|
+fn sync_and_assert(
+  editor : @editor.SyncEditor[@ast.Term],
+  companion : LambdaCompanion,
+  shadow : AnnotationShadow,
+) -> (Map[@core.NodeId, Array[@protocol.ViewAnnotation]], ShadowSyncReceipt) raise {
+  let expected = production_annotations(editor)
+  let receipt = shadow.sync(editor, companion)
+  assert_eq(shadow.read_annotations(), expected)
+  (expected, receipt)
+}
+
+///|
+/// Read the old Formula before the transaction and the new Formula after it.
+/// This is a sequential atomicity check, not a concurrency claim.
+fn transition_and_assert(
+  editor : @editor.SyncEditor[@ast.Term],
+  companion : LambdaCompanion,
+  shadow : AnnotationShadow,
+  previous : Map[@core.NodeId, Array[@protocol.ViewAnnotation]],
+  next_text : String,
+) -> (Map[@core.NodeId, Array[@protocol.ViewAnnotation]], ShadowSyncReceipt) raise {
+  editor.set_text(next_text)
+  let expected = production_annotations(editor)
+  assert_eq(shadow.read_annotations(), previous)
+  let receipt = shadow.sync(editor, companion)
+  assert_eq(shadow.read_annotations(), expected)
+  (expected, receipt)
+}
+
+///|
+fn has_annotation(
+  annotations : Map[@core.NodeId, Array[@protocol.ViewAnnotation]],
+  kind : String,
+  label : String,
+  severity : String,
+) -> Bool {
+  annotations.values().any(anns => {
+    anns.any(ann => {
+      ann.kind == kind && ann.label == label && ann.severity == severity
+    })
+  })
+}
+
+///|
+fn has_eval_annotation(
+  annotations : Map[@core.NodeId, Array[@protocol.ViewAnnotation]],
+) -> Bool {
+  annotations.values().any(anns => anns.any(ann => ann.kind == "eval"))
+}
+
+///|
+fn has_suppressed(results : Array[@lambda_eval.EvalResult]) -> Bool {
+  results.any(result => match result {
+    @lambda_eval.EvalResult::Suppressed => true
+    _ => false
+  })
+}
+
+///|
+/// For the module workload, eval annotations must land on the three projected
+/// children in order, not on a guessed root or source-text position.
+fn assert_module_node_mapping(
+  editor : @editor.SyncEditor[@ast.Term],
+  companion : LambdaCompanion,
+  actual : Map[@core.NodeId, Array[@protocol.ViewAnnotation]],
+) -> Unit raise {
+  guard editor.get_proj_node() is Some(root) else {
+    fail("expected module projection")
+  }
+  let eval_only = build_eval_annotations(companion.get_eval_results(), Some(root))
+  assert_eq(
+    eval_only.to_array().map(pair => pair.0),
+    root.children.map(child => child.id()),
+  )
+  for node_id, expected_annotations in eval_only {
+    guard actual.get(node_id) is Some(actual_annotations) else {
+      fail("eval annotation lost its projected NodeId")
+    }
+    for expected_annotation in expected_annotations {
+      assert_true(actual_annotations.contains(expected_annotation))
+    }
+  }
+}
+
+///|
+test "lambda annotation capability Program parity across edits" {
+  let (editor, companion) = try! new_lambda_editor(
+    "lambda-annotation-capability-parity",
+  )
+  let shadow = new_annotation_shadow()
+
+  // 1. Empty editor: production publishes Some(Unit), so exact dependency
+  // parity requires eval, projection, and source-map reads.
+  let (empty, empty_receipt) = sync_and_assert(editor, companion, shadow)
+  assert_eq(empty.length(), 0)
+  assert_eq(shadow.pair.formula.debug().observations.length(), 3)
+  assert_eq(empty_receipt.staged_count, 3)
+  assert_eq(
+    empty_receipt.transaction_attempts_after -
+      empty_receipt.transaction_attempts_before,
+    1,
+  )
+  assert_eq(
+    empty_receipt.revision_after - empty_receipt.revision_before,
+    1,
+  )
+
+  // 2. Value annotation, then 6. a literal edit that changes only its label.
+  let (value, _) = transition_and_assert(
+    editor,
+    companion,
+    shadow,
+    empty,
+    "5",
+  )
+  assert_true(has_annotation(value, "eval", "→ 5", "info"))
+  inspect(companion.get_eval_results()[0], content="Value(\"5\")")
+  let (updated_value, _) = transition_and_assert(
+    editor,
+    companion,
+    shadow,
+    value,
+    "42",
+  )
+  assert_true(has_annotation(updated_value, "eval", "→ 42", "info"))
+  assert_false(has_annotation(updated_value, "eval", "→ 5", "info"))
+
+  // 3. Stuck warning and 4. Suppressed hole are checked at the annotation
+  // boundary as well as by full-map parity.
+  let (missing, _) = transition_and_assert(
+    editor,
+    companion,
+    shadow,
+    updated_value,
+    "missing",
+  )
+  assert_true(
+    has_annotation(
+      missing,
+      "eval",
+      "→ ‹unbound: missing›",
+      "warning",
+    ),
+  )
+  let (suppressed, _) = transition_and_assert(
+    editor,
+    companion,
+    shadow,
+    missing,
+    "?",
+  )
+  assert_true(has_suppressed(companion.get_eval_results()))
+  assert_false(has_eval_annotation(suppressed))
+
+  // 5. Three top-level results preserve child NodeId/order mapping, while the
+  // full map also carries the production semantic entries.
+  let (module_annotations, _) = transition_and_assert(
+    editor,
+    companion,
+    shadow,
+    suppressed,
+    "let x = 1\nlet y = 2\nx + y",
+  )
+  assert_module_node_mapping(editor, companion, module_annotations)
+
+  // 8. Recovery from an incomplete application remains parity-preserving.
+  let (malformed, _) = transition_and_assert(
+    editor,
+    companion,
+    shadow,
+    module_annotations,
+    "foo(",
+  )
+  let (recovered, _) = transition_and_assert(
+    editor,
+    companion,
+    shadow,
+    malformed,
+    "5",
+  )
+  assert_true(has_annotation(recovered, "eval", "→ 5", "info"))
+
+  // 7. A real structural edit uses the existing lambda bridge and keeps the
+  // selected body NodeId under the new lambda wrapper.
+  let old_body_id = match editor.get_proj_node() {
+    Some(root) => root.id()
+    None => fail("expected body before WrapInLambda")
+  }
+  match
+    apply_lambda_tree_edit(
+      editor,
+      companion,
+      @lambda_edits.TreeEditOp::WrapInLambda(
+        node_id=old_body_id,
+        var_name="x",
+      ),
+      1,
+    ) {
+    Err(_) => fail("WrapInLambda failed")
+    Ok(edits) => assert_true(edits.length() > 0)
+  }
+  let structural_oracle = production_annotations(editor)
+  assert_eq(shadow.read_annotations(), recovered)
+  guard editor.get_proj_node() is Some(wrapped) else {
+    fail("expected wrapped projection")
+  }
+  guard wrapped.children.last() is Some(body) else {
+    fail("expected wrapped body")
+  }
+  assert_eq(body.id(), old_body_id)
+  ignore(shadow.sync(editor, companion))
+  assert_eq(shadow.read_annotations(), structural_oracle)
+
+  ignore(shadow.region.close())
+}
+
+///|
+test "lambda annotation capability atomic branch and provenance" {
+  let (editor, companion) = try! new_lambda_editor(
+    "lambda-annotation-capability-atomic",
+  )
+  let shadow = new_annotation_shadow()
+
+  // 9 and 10. A synthetic no-projection snapshot takes the two-read branch;
+  // the real empty editor then supplies Some(Unit) and takes the three-read
+  // production branch. Each snapshot stages all three Sources in one revision.
+  let first = shadow.sync_snapshot([], None, @core.SourceMap::new())
+  let empty = shadow.read_annotations()
+  assert_eq(empty.length(), 0)
+  assert_eq(first.staged_count, 3)
+  assert_eq(first.transaction_attempts_after - first.transaction_attempts_before, 1)
+  assert_eq(first.transaction_commits_after - first.transaction_commits_before, 1)
+  assert_eq(first.revision_after - first.revision_before, 1)
+  let none_debug = shadow.pair.formula.debug()
+  assert_eq(none_debug.observations.length(), 2)
+  assert_eq(
+    none_debug.observations[0].local_port_id,
+    shadow.eval_port.port_id(),
+  )
+  assert_eq(
+    none_debug.observations[1].local_port_id,
+    shadow.projection_port.port_id(),
+  )
+  assert_eq(none_debug.observations[0].ordinal, 0)
+  assert_eq(none_debug.observations[1].ordinal, 1)
+  assert_eq(production_annotations(editor), empty)
+
+  let (value, second) = transition_and_assert(
+    editor,
+    companion,
+    shadow,
+    empty,
+    "5",
+  )
+  assert_true(has_annotation(value, "eval", "→ 5", "info"))
+  assert_eq(second.staged_count, 3)
+  assert_eq(second.transaction_attempts_after - second.transaction_attempts_before, 1)
+  assert_eq(second.transaction_commits_after - second.transaction_commits_before, 1)
+  assert_eq(second.revision_after - second.revision_before, 1)
+  assert_eq(shadow.pair.formula.debug().observations.length(), 3)
+
+  // 11. The Formula-local manifest has exactly the three declared ports, in
+  // bridge order, and the latest invocation observes the same branch order.
+  let manifest_entries = shadow.pair.formula.manifest().entries()
+  assert_eq(manifest_entries.length(), 3)
+  assert_eq(manifest_entries[0].local_port_id, shadow.eval_port.port_id())
+  assert_eq(
+    manifest_entries[1].local_port_id,
+    shadow.projection_port.port_id(),
+  )
+  assert_eq(
+    manifest_entries[2].local_port_id,
+    shadow.source_map_port.port_id(),
+  )
+  assert_eq(manifest_entries[0].origin, @next_program.PortOrigin::Local)
+  assert_eq(manifest_entries[1].origin, @next_program.PortOrigin::Local)
+  assert_eq(manifest_entries[2].origin, @next_program.PortOrigin::Local)
+  let debug = shadow.pair.formula.debug()
+  assert_eq(debug.manifest, manifest_entries)
+  assert_eq(debug.observations.length(), 3)
+  assert_eq(debug.observations[0].local_port_id, shadow.eval_port.port_id())
+  assert_eq(
+    debug.observations[1].local_port_id,
+    shadow.projection_port.port_id(),
+  )
+  assert_eq(
+    debug.observations[2].local_port_id,
+    shadow.source_map_port.port_id(),
+  )
+  assert_eq(debug.observations[0].ordinal, 0)
+  assert_eq(debug.observations[1].ordinal, 1)
+  assert_eq(debug.observations[2].ordinal, 2)
+
+  // 12. FormulaId/Manifest and ExportId remain a local typed pair owned by
+  // this one Program.
+  let formula_id = debug.formula_id
+  let export_id = shadow.pair.exported.export_id()
+  assert_eq(shadow.pair.exported.provider_program(), shadow.program.id())
+  assert_eq(export_id.provider_program(), shadow.program.id())
+  let debug_again = shadow.pair.formula.debug()
+  assert_eq(debug_again.formula_id, formula_id)
+  assert_eq(debug_again.manifest, manifest_entries)
+  assert_eq(shadow.pair.exported.export_id(), export_id)
+
+  ignore(shadow.region.close())
+}
