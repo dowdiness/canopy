@@ -32,7 +32,13 @@ MoonBit types: `DropPosition` in `core/types.mbt`, `GenericTreeOp::Drop` in
 |----------|---------|:---:|:---:|
 | `Before` | Insert source as preceding sibling of target | Yes | Planned |
 | `After` | Insert source as following sibling of target | Yes | Planned |
-| `Inside` | Exchange source and target content | Yes | No (appends to parent) |
+| `Inside` | Language-specific insertion inside target | Yes | No (appends to parent) |
+
+Lambda refines `Inside` by node kind:
+
+- expression-to-expression drops exchange the two expression spans;
+- root-module `LetDef` rows move as whole binding rows after the target;
+- mixed `LetDef`/expression pairs and nested-binding pairs are rejected.
 
 ### Position Detection (browser)
 
@@ -43,8 +49,7 @@ Mouse Y within the target bounding box determines position
 - **Bottom 25%** -> After
 - **Middle 50%** -> Inside
 
-Special case: hovering over a compound node's header always maps to Inside
-(exchange).
+Special case: hovering over a compound node's header always maps to Inside.
 
 ## Legality Rules
 
@@ -73,21 +78,41 @@ Target must not be a descendant of source (would create a cycle).
 For exchange, source must also not be inside target. Swapping a node with
 its own ancestor would lose the subtree.
 
+### Lambda-specific binding rules
+
+Lambda `LetDef` row movement has additional structural constraints:
+
+- both nodes must be root-module `LetDef` rows, or both must be expressions;
+- mixed `LetDef`/expression drops are rejected with structured
+  `UnsupportedOperation`;
+- a row move checks every binding crossed by the move with the scope graph,
+  rejecting changes that would make an initializer free or retarget a
+  resolved reference.
+
 ## Backend Execution
 
-### Lambda editor: `SyncEditor::move_node`
+### Lambda editor: `Language` edit port
 
-All three positions produce `SpanEdit` arrays applied in reverse document order.
+Lambda routes `TreeEditOp` values through its language edit port. The port
+computes `SpanEdit` arrays, and the generic `Language::apply_edit` path applies
+them through `SyncEditor::apply_span_edits`.
 
-**Inside (exchange):**
-1. Strip leading whitespace from both spans to find expression boundaries
-2. Swap the expression text, preserving leading separators
-3. Two edits: replace source expression with target's, replace target's with source's
+**Root-module `LetDef` rows:**
+1. Resolve the source and target declarations in the same root scope.
+2. Check every binding crossed by the move for reference safety.
+3. Delete the complete source row, including its separator.
+4. Insert the row before the target for `Before`, or after it for `After` and
+   `Inside`.
 
-**Before / After (move):**
-1. Extract source expression text from the source map (whitespace-aware)
-2. Replace source expression with `Renderable::placeholder()` (e.g., `0` for Int, `a` for Var)
-3. Insert source text at target boundary (`tgt_range.start` for Before, `tgt_range.end` for After)
+No expression placeholder is inserted for a row move. Nested binding rows are
+rejected because their indentation and scope policy belong to the dedicated
+binding operations.
+
+**Expression pairs:**
+1. Strip leading whitespace from both spans to find expression boundaries.
+2. For `Inside`, exchange the expression text while preserving separators.
+3. For `Before`/`After`, replace the source expression with a
+   `Renderable::placeholder()` and insert the source at the target boundary.
 
 The placeholder keeps surrounding syntax valid. Without it, removing a node
 from `let id = (x) => x` would leave `let id = ` (invalid).

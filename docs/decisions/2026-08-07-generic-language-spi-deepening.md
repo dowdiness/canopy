@@ -30,8 +30,9 @@ outside it:
    into a pure `core::compute_move` (legality checks + whitespace-preserving
    span arithmetic, parameterized by language text policies: placeholder and
    separator) and a thin `SyncEditor::move_node` application shell. Languages
-   express moves through their edit port — Lambda's `Drop` via `compute_move`,
-   Markdown's `MoveBlock` via its existing `compute_move_block`.
+   express moves through their edit port — Lambda's `Drop` selects binding-row
+   or expression-level policy, while Markdown's `MoveBlock` uses its existing
+   `compute_move_block`.
 4. **Lambda joins the common path.** `apply_lambda_tree_edit` ceases to be a
    contract-exceptional bridge; it becomes a thin wrapper over the shared apply
    path. Lambda remains a legacy stress case, not a language template.
