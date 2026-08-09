@@ -1,0 +1,705 @@
+///|
+/// An explicit external decoration input. The shadow Source owns this value;
+/// the production companion remains the oracle-side mutable implementation.
+priv struct PatternState {
+  facts : Array[@facts.PatternMatchFact]
+  snapshot : @facts.SourceSnapshot
+}
+
+///|
+/// A disposable receipt for one coherent shadow snapshot publication.
+priv struct ShadowSyncReceipt {
+  staged_count : Int
+  transaction_attempts_before : Int
+  transaction_attempts_after : Int
+  transaction_commits_before : Int
+  transaction_commits_after : Int
+  revision_before : Int
+  revision_after : Int
+}
+
+///|
+/// Keep the Formula and its typed export together. Formula debug supplies the
+/// FormulaId and local Manifest; the export supplies the ExportId.
+priv struct DecorationFormulaPair {
+  formula : @next_program.Formula[Array[@protocol.Decoration]]
+  exported : @next_program.ReadExport[
+    Result[Array[@protocol.Decoration], @next_program.ProgramError],
+  ]
+}
+
+///|
+/// A test-only facade over the exact #465 Store/Region/Source and #469
+/// Program/Port/Formula APIs. It is an imperative snapshot shell around a
+/// deterministic Formula callback.
+priv struct DecorationShadow {
+  store : @next_kernel.Store
+  region : @next_kernel.Region
+  projection_source : @next_kernel.Source[@core.ProjNode[@ast.Term]?]
+  source_map_source : @next_kernel.Source[@core.SourceMap]
+  pattern_state_source : @next_kernel.Source[PatternState?]
+  program : @next_program.Program
+  projection_port : @next_program.ReadPort[@core.ProjNode[@ast.Term]?]
+  source_map_port : @next_program.ReadPort[@core.SourceMap]
+  pattern_state_port : @next_program.ReadPort[PatternState?]
+  pair : DecorationFormulaPair
+}
+
+///|
+fn[T] shadow_source_or_abort(
+  region : @next_kernel.Region,
+  value : T,
+) -> @next_kernel.Source[T] {
+  match region.source(value) {
+    Ok(source) => source
+    Err(_) => abort("shadow source construction")
+  }
+}
+
+///|
+fn[T] shadow_port_or_abort(
+  program : @next_program.Program,
+  view : @next_kernel.View[T],
+) -> @next_program.ReadPort[T] {
+  match program.port(view) {
+    Ok(port) => port
+    Err(_) => abort("shadow port construction")
+  }
+}
+
+///|
+fn copy_pattern_facts(
+  facts : Array[@facts.PatternMatchFact],
+) -> Array[@facts.PatternMatchFact] {
+  facts.map(fact => @facts.PatternMatchFact::PatternMatchFact(
+    snapshot=fact.snapshot,
+    from=fact.from,
+    to=fact.to,
+    pattern_id=fact.pattern_id,
+    captures=fact.captures.copy(),
+  ))
+}
+
+///|
+fn copy_pattern_state(state : PatternState) -> PatternState {
+  { facts: copy_pattern_facts(state.facts), snapshot: state.snapshot }
+}
+
+///|
+fn make_pattern_state(
+  doc_id : String,
+  version : Int,
+  source : String,
+  matches : Array[@analysis.AstGrepMatch],
+) -> PatternState {
+  let snapshot = @facts.SourceSnapshot::SourceSnapshot(
+    doc_id~,
+    version~,
+    source~,
+  )
+  {
+    facts: @analysis.from_ast_grep_matches(matches, source, snapshot),
+    snapshot,
+  }
+}
+
+///|
+fn new_decoration_shadow() -> DecorationShadow {
+  let store = @next_kernel.Store()
+  let region = match store.region() {
+    Ok(value) => value
+    Err(_) => abort("shadow region construction")
+  }
+  let projection_source : @next_kernel.Source[
+    @core.ProjNode[@ast.Term]?
+  ] = shadow_source_or_abort(region, None)
+  let source_map_source : @next_kernel.Source[@core.SourceMap] =
+    shadow_source_or_abort(region, @core.SourceMap::new())
+  let pattern_state_source : @next_kernel.Source[PatternState?] =
+    shadow_source_or_abort(region, None)
+  let program = @next_program.Program::Program(store, region)
+  let projection_port = shadow_port_or_abort(program, projection_source.view())
+  let source_map_port = shadow_port_or_abort(program, source_map_source.view())
+  let pattern_state_port = shadow_port_or_abort(
+    program,
+    pattern_state_source.view(),
+  )
+  let builder = program.builder()
+  let declared_projection = match builder.declare_port(projection_port) {
+    Ok(value) => value
+    Err(_) => abort("shadow projection declaration")
+  }
+  let declared_source_map = match builder.declare_port(source_map_port) {
+    Ok(value) => value
+    Err(_) => abort("shadow source-map declaration")
+  }
+  let declared_pattern_state = match builder.declare_port(pattern_state_port) {
+    Ok(value) => value
+    Err(_) => abort("shadow pattern-state declaration")
+  }
+  let formula = match builder.build(ctx => {
+    // FORMULA CALLBACK BEGIN
+    match ctx.read(declared_projection) {
+      Err(error) => Err(error)
+      Ok(projection) => {
+        let semantic_result = match projection {
+          None => Ok([])
+          Some(root) => match ctx.read(declared_source_map) {
+            Err(error) => Err(error)
+            Ok(source_map) => Ok(
+              @lambda_semantic.build_semantic_projection(
+                root,
+                source_map,
+              ).decorations,
+            )
+          }
+        }
+        match semantic_result {
+          Err(error) => Err(error)
+          Ok(semantic_decorations) => match ctx.read(declared_pattern_state) {
+            Err(error) => Err(error)
+            Ok(None) => Ok(semantic_decorations)
+            Ok(Some(state)) => Ok(
+              semantic_decorations +
+                @analysis.facts_to_decorations(
+                  state.facts,
+                  state.snapshot,
+                ),
+            )
+          }
+        }
+      }
+    }
+    // FORMULA CALLBACK END
+  }) {
+    Ok(value) => value
+    Err(_) => abort("shadow formula construction")
+  }
+  let exported = match program.export_formula(formula) {
+    Ok(value) => value
+    Err(_) => abort("shadow formula export")
+  }
+  {
+    store,
+    region,
+    projection_source,
+    source_map_source,
+    pattern_state_source,
+    program,
+    projection_port,
+    source_map_port,
+    pattern_state_port,
+    pair: { formula, exported },
+  }
+}
+
+///|
+/// Stage the three ports in projection/source-map/pattern order. This is the
+/// only shadow write path, so one editor/host snapshot gets one transaction.
+fn DecorationShadow::stage_snapshot(
+  self : DecorationShadow,
+  projection : @core.ProjNode[@ast.Term]?,
+  source_map : @core.SourceMap,
+  pattern_state : PatternState?,
+) -> ShadowSyncReceipt {
+  let owned_pattern_state = pattern_state.map(copy_pattern_state)
+  let before_store = self.store.debug()
+  let before_revision = self.store.revision().value()
+  let staged_count = Ref(0)
+  ignore(
+    match self.store.transaction(tx => {
+      ignore(tx.set(self.projection_source, projection))
+      ignore(tx.set(self.source_map_source, source_map))
+      ignore(tx.set(self.pattern_state_source, owned_pattern_state))
+      staged_count.val = tx.staged_count()
+      Ok(())
+    }) {
+      Ok(outcome) => outcome
+      Err(_) => abort("shadow snapshot transaction")
+    },
+  )
+  let after_store = self.store.debug()
+  {
+    staged_count: staged_count.val,
+    transaction_attempts_before: before_store.transaction_attempts,
+    transaction_attempts_after: after_store.transaction_attempts,
+    transaction_commits_before: before_store.transaction_commits,
+    transaction_commits_after: after_store.transaction_commits,
+    revision_before: before_revision,
+    revision_after: self.store.revision().value(),
+  }
+}
+
+///|
+/// Set production analysis with the same explicit PatternState that is staged
+/// in the shadow pattern Source, then publish all three shadow ports atomically.
+fn DecorationShadow::sync_pattern(
+  self : DecorationShadow,
+  editor : @editor.SyncEditor[@ast.Term],
+  companion : LambdaCompanion,
+  pattern_state : PatternState,
+) -> ShadowSyncReceipt raise Failure {
+  companion.set_pattern_analysis(
+    copy_pattern_facts(pattern_state.facts),
+    pattern_state.snapshot,
+  )
+  self.stage_snapshot(
+    editor.get_proj_node(),
+    editor.get_source_map(),
+    Some(copy_pattern_state(pattern_state)),
+  )
+}
+
+///|
+/// Clear production stale analysis and publish shadow None with the current
+/// explicit snapshot. The caller owns the stale-result decision.
+fn DecorationShadow::sync_cleared(
+  self : DecorationShadow,
+  editor : @editor.SyncEditor[@ast.Term],
+  companion : LambdaCompanion,
+  current : @facts.SourceSnapshot,
+) -> ShadowSyncReceipt raise Failure {
+  companion.clear_stale_pattern_analysis(current)
+  self.stage_snapshot(
+    editor.get_proj_node(),
+    editor.get_source_map(),
+    None,
+  )
+}
+
+///|
+/// Model an editor-only update: do not call production analysis at all; stage
+/// the caller-retained PatternState as the shadow's unchanged host state.
+fn DecorationShadow::sync_editor_only(
+  self : DecorationShadow,
+  editor : @editor.SyncEditor[@ast.Term],
+  pattern_state : PatternState?,
+) -> ShadowSyncReceipt raise Failure {
+  self.stage_snapshot(
+    editor.get_proj_node(),
+    editor.get_source_map(),
+    pattern_state.map(copy_pattern_state),
+  )
+}
+
+///|
+/// Read the Formula's typed result, keeping the outer and inner error channels
+/// at the disposable test boundary.
+fn DecorationShadow::read_decorations(
+  self : DecorationShadow,
+) -> Array[@protocol.Decoration] raise Failure {
+  match self.program.read(self.pair.formula) {
+    Err(_) => fail("unexpected FormulaReadError")
+    Ok(Err(_)) => fail("unexpected ProgramError")
+    Ok(Ok(value)) => value
+  }
+}
+
+///|
+/// The production closure remains the oracle. A fresh update state ensures a
+/// non-empty decoration result is emitted as SetDecorations on every call.
+fn production_decorations(
+  editor : @editor.SyncEditor[@ast.Term],
+) -> Array[@protocol.Decoration] raise Failure {
+  let patches = @editor.compute_view_patches(
+    @editor.ViewUpdateState::ViewUpdateState(),
+    editor,
+  )
+  for patch in patches {
+    match patch {
+      @protocol.ViewPatch::SetDecorations(decorations~) => return decorations
+      _ => ()
+    }
+  }
+  // ViewUpdater suppresses an initial empty SetDecorations patch; no patch is
+  // therefore the exact empty current decoration array.
+  []
+}
+
+///|
+fn assert_shadow_matches_oracle(
+  editor : @editor.SyncEditor[@ast.Term],
+  shadow : DecorationShadow,
+) -> Array[@protocol.Decoration] raise {
+  let expected = production_decorations(editor)
+  let actual = shadow.read_decorations()
+  assert_eq(actual, expected)
+  actual
+}
+
+///|
+fn has_css(
+  decorations : Array[@protocol.Decoration],
+  css_class : String,
+) -> Bool {
+  decorations.any(decoration => decoration.css_class == css_class)
+}
+
+///|
+fn pattern_classes(
+  decorations : Array[@protocol.Decoration],
+) -> Array[String] {
+  decorations
+    .iter()
+    .filter(decoration => decoration.css_class.has_prefix("analysis-match"))
+    .map(decoration => decoration.css_class)
+    .collect()
+}
+
+///|
+test "lambda decoration capability Program parity across workloads" {
+  let (editor, companion) = try! new_lambda_editor(
+    "lambda-decoration-capability-parity",
+  )
+  let shadow = new_decoration_shadow()
+  let doc_id = "lambda-decoration-capability-parity"
+
+  // 1. No pattern facts: real semantic decorations remain in the ordered
+  // oracle array while the external PatternState port is None.
+  editor.set_text("(x) => x")
+  let initial_snapshot = @facts.SourceSnapshot::SourceSnapshot(
+    doc_id~,
+    version=0,
+    source=editor.get_text(),
+  )
+  let initial_receipt = shadow.sync_cleared(
+    editor,
+    companion,
+    initial_snapshot,
+  )
+  let initial = assert_shadow_matches_oracle(editor, shadow)
+  assert_true(has_css(initial, "semantic-binder"))
+  assert_true(has_css(initial, "semantic-bound"))
+  assert_eq(pattern_classes(initial), [])
+  assert_eq(initial_receipt.staged_count, 3)
+
+  // 2. One real ast-grep fact uses the public byte-to-UTF-16 adapter.
+  let one_state = make_pattern_state(
+    doc_id,
+    1,
+    editor.get_text(),
+    [
+      @analysis.AstGrepMatch::AstGrepMatch(
+        byte_start=0,
+        byte_end=1,
+        pattern_id="fn-def",
+      ),
+    ],
+  )
+  let one_receipt = shadow.sync_pattern(editor, companion, one_state)
+  let one = assert_shadow_matches_oracle(editor, shadow)
+  assert_eq(
+    pattern_classes(one),
+    ["analysis-match pattern-fn-def"],
+  )
+  assert_true(has_css(one, "semantic-binder"))
+  assert_true(has_css(one, "semantic-bound"))
+  assert_eq(one_receipt.staged_count, 3)
+
+  // 3. Multiple facts preserve the production semantic-then-pattern order
+  // and the host fact order.
+  let multiple_state = make_pattern_state(
+    doc_id,
+    2,
+    editor.get_text(),
+    [
+      @analysis.AstGrepMatch::AstGrepMatch(
+        byte_start=0,
+        byte_end=1,
+        pattern_id="head",
+      ),
+      @analysis.AstGrepMatch::AstGrepMatch(
+        byte_start=7,
+        byte_end=8,
+        pattern_id="tail",
+      ),
+    ],
+  )
+  ignore(shadow.sync_pattern(editor, companion, multiple_state))
+  let multiple = assert_shadow_matches_oracle(editor, shadow)
+  assert_eq(
+    pattern_classes(multiple),
+    [
+      "analysis-match pattern-head",
+      "analysis-match pattern-tail",
+    ],
+  )
+
+  // 4. A source edit changes both projection spans and the typed pattern
+  // snapshot; the bridge publishes the replacement state as one snapshot.
+  editor.set_text("(y) => y")
+  let edited_state = make_pattern_state(
+    doc_id,
+    3,
+    editor.get_text(),
+    [
+      @analysis.AstGrepMatch::AstGrepMatch(
+        byte_start=1,
+        byte_end=2,
+        pattern_id="binder-v2",
+      ),
+      @analysis.AstGrepMatch::AstGrepMatch(
+        byte_start=7,
+        byte_end=8,
+        pattern_id="body-v2",
+      ),
+    ],
+  )
+  ignore(shadow.sync_pattern(editor, companion, edited_state))
+  let edited = assert_shadow_matches_oracle(editor, shadow)
+  assert_true(has_css(edited, "semantic-binder"))
+  assert_true(has_css(edited, "semantic-bound"))
+  assert_eq(
+    pattern_classes(edited),
+    [
+      "analysis-match pattern-binder-v2",
+      "analysis-match pattern-body-v2",
+    ],
+  )
+
+  // 5. A real tree edit changes the projection while retaining the same
+  // explicit bridge; the old projection node remains the wrapped child.
+  let old_root_id = match editor.get_proj_node() {
+    Some(root) => root.id()
+    None => fail("expected projection before wrapping")
+  }
+  match
+    apply_lambda_tree_edit(
+      editor,
+      companion,
+      @lambda_edits.TreeEditOp::WrapInLambda(
+        node_id=old_root_id,
+        var_name="z",
+      ),
+      4,
+    ) {
+    Err(_) => fail("WrapInLambda failed")
+    Ok(edits) => assert_true(edits.length() > 0)
+  }
+  guard editor.get_proj_node() is Some(wrapped) else {
+    fail("expected wrapped projection")
+  }
+  guard wrapped.children.last() is Some(body) else {
+    fail("expected wrapped body")
+  }
+  assert_eq(body.id(), old_root_id)
+  let wrapped_state = make_pattern_state(
+    doc_id,
+    4,
+    editor.get_text(),
+    [
+      @analysis.AstGrepMatch::AstGrepMatch(
+        byte_start=0,
+        byte_end=1,
+        pattern_id="wrapped",
+      ),
+    ],
+  )
+  ignore(shadow.sync_pattern(editor, companion, wrapped_state))
+  let wrapped_decorations = assert_shadow_matches_oracle(editor, shadow)
+  assert_true(has_css(wrapped_decorations, "semantic-binder"))
+  assert_true(has_css(wrapped_decorations, "analysis-match pattern-wrapped"))
+
+  // 6. Host facts-only update: the editor text/projection is unchanged, but
+  // the explicit external state changes.
+  let host_source = editor.get_text()
+  let host_state = make_pattern_state(
+    doc_id,
+    5,
+    host_source,
+    [
+      @analysis.AstGrepMatch::AstGrepMatch(
+        byte_start=0,
+        byte_end=1,
+        pattern_id="host-only",
+      ),
+    ],
+  )
+  let host_receipt = shadow.sync_pattern(editor, companion, host_state)
+  let host = assert_shadow_matches_oracle(editor, shadow)
+  assert_eq(editor.get_text(), host_source)
+  assert_eq(
+    pattern_classes(host),
+    ["analysis-match pattern-host-only"],
+  )
+  assert_eq(host_receipt.staged_count, 3)
+
+  // 7. Editor-only update: do not call set/clear on production. Both sides
+  // deliberately retain host_state, so its old-snapshot fact remains visible.
+  editor.set_text("(q) => q")
+  let editor_only_receipt = shadow.sync_editor_only(
+    editor,
+    Some(host_state),
+  )
+  let editor_only = assert_shadow_matches_oracle(editor, shadow)
+  assert_eq(
+    pattern_classes(editor_only),
+    ["analysis-match pattern-host-only"],
+  )
+  assert_true(has_css(editor_only, "semantic-binder"))
+  assert_true(editor_only_receipt.revision_after > editor_only_receipt.revision_before)
+
+  // 8. Pattern state and editor snapshot are published together. Exactly one
+  // transaction and one shadow revision advance contain all three staged ports.
+  editor.set_text("(w) => w")
+  let combined_state = make_pattern_state(
+    doc_id,
+    6,
+    editor.get_text(),
+    [
+      @analysis.AstGrepMatch::AstGrepMatch(
+        byte_start=0,
+        byte_end=1,
+        pattern_id="combined",
+      ),
+    ],
+  )
+  let combined_receipt = shadow.sync_pattern(
+    editor,
+    companion,
+    combined_state,
+  )
+  let combined = assert_shadow_matches_oracle(editor, shadow)
+  assert_eq(combined_receipt.staged_count, 3)
+  assert_eq(
+    combined_receipt.transaction_attempts_after -
+      combined_receipt.transaction_attempts_before,
+    1,
+  )
+  assert_eq(
+    combined_receipt.transaction_commits_after -
+      combined_receipt.transaction_commits_before,
+    1,
+  )
+  assert_eq(
+    combined_receipt.revision_after - combined_receipt.revision_before,
+    1,
+  )
+  assert_eq(
+    pattern_classes(combined),
+    ["analysis-match pattern-combined"],
+  )
+
+  // 9. Stale-result removal chooses None: the changed current snapshot makes
+  // production clear its stored facts, and the shadow commits None atomically.
+  editor.set_text("(w) => w ")
+  let removed_snapshot = @facts.SourceSnapshot::SourceSnapshot(
+    doc_id~,
+    version=7,
+    source=editor.get_text(),
+  )
+  ignore(shadow.sync_cleared(editor, companion, removed_snapshot))
+  let removed = assert_shadow_matches_oracle(editor, shadow)
+  assert_eq(pattern_classes(removed), [])
+  assert_true(has_css(removed, "semantic-binder"))
+  assert_true(has_css(removed, "semantic-bound"))
+
+  // 10. The stale target disappears entirely; both production and shadow now
+  // have no pattern state and the empty projection has no decorations.
+  editor.set_text("")
+  let disappeared_snapshot = @facts.SourceSnapshot::SourceSnapshot(
+    doc_id~,
+    version=8,
+    source=editor.get_text(),
+  )
+  ignore(shadow.sync_cleared(editor, companion, disappeared_snapshot))
+  let disappeared = assert_shadow_matches_oracle(editor, shadow)
+  assert_eq(disappeared, [])
+
+  ignore(shadow.region.close())
+}
+
+///|
+test "lambda decoration capability ports and local provenance" {
+  let (editor, companion) = try! new_lambda_editor(
+    "lambda-decoration-capability-manifest",
+  )
+  let shadow = new_decoration_shadow()
+
+  // 11. None projection observes projection + pattern-state; Some projection
+  // observes projection + source-map + pattern-state. The manifest still has
+  // all three declared ports in stable bridge order.
+  let none_receipt = shadow.stage_snapshot(
+    None,
+    @core.SourceMap::new(),
+    None,
+  )
+  assert_eq(none_receipt.staged_count, 3)
+  assert_eq(shadow.read_decorations(), [])
+  let none_debug = shadow.pair.formula.debug()
+  assert_eq(none_debug.observations.length(), 2)
+  assert_eq(
+    none_debug.observations[0].local_port_id,
+    shadow.projection_port.port_id(),
+  )
+  assert_eq(
+    none_debug.observations[1].local_port_id,
+    shadow.pattern_state_port.port_id(),
+  )
+  assert_eq(none_debug.observations[0].ordinal, 0)
+  assert_eq(none_debug.observations[1].ordinal, 1)
+
+  editor.set_text("(x) => x")
+  let some_snapshot = @facts.SourceSnapshot::SourceSnapshot(
+    doc_id="lambda-decoration-capability-manifest",
+    version=0,
+    source=editor.get_text(),
+  )
+  let some_receipt = shadow.sync_cleared(
+    editor,
+    companion,
+    some_snapshot,
+  )
+  let some = assert_shadow_matches_oracle(editor, shadow)
+  assert_true(has_css(some, "semantic-binder"))
+  assert_eq(some_receipt.staged_count, 3)
+  let debug = shadow.pair.formula.debug()
+  assert_eq(debug.observations.length(), 3)
+  assert_eq(
+    debug.observations[0].local_port_id,
+    shadow.projection_port.port_id(),
+  )
+  assert_eq(
+    debug.observations[1].local_port_id,
+    shadow.source_map_port.port_id(),
+  )
+  assert_eq(
+    debug.observations[2].local_port_id,
+    shadow.pattern_state_port.port_id(),
+  )
+  assert_eq(debug.observations[0].ordinal, 0)
+  assert_eq(debug.observations[1].ordinal, 1)
+  assert_eq(debug.observations[2].ordinal, 2)
+
+  let manifest_entries = shadow.pair.formula.manifest().entries()
+  assert_eq(manifest_entries.length(), 3)
+  assert_eq(
+    manifest_entries[0].local_port_id,
+    shadow.projection_port.port_id(),
+  )
+  assert_eq(
+    manifest_entries[1].local_port_id,
+    shadow.source_map_port.port_id(),
+  )
+  assert_eq(
+    manifest_entries[2].local_port_id,
+    shadow.pattern_state_port.port_id(),
+  )
+  assert_eq(manifest_entries[0].origin, @next_program.PortOrigin::Local)
+  assert_eq(manifest_entries[1].origin, @next_program.PortOrigin::Local)
+  assert_eq(manifest_entries[2].origin, @next_program.PortOrigin::Local)
+  assert_eq(debug.manifest, manifest_entries)
+
+  // 12. FormulaId/Manifest and ExportId remain one local typed pair owned by
+  // this Program; exporting the Formula does not change its local manifest.
+  let formula_id = debug.formula_id
+  let export_id = shadow.pair.exported.export_id()
+  assert_eq(shadow.pair.exported.provider_program(), shadow.program.id())
+  assert_eq(export_id.provider_program(), shadow.program.id())
+  let debug_again = shadow.pair.formula.debug()
+  assert_eq(debug_again.formula_id, formula_id)
+  assert_eq(debug_again.manifest, manifest_entries)
+  assert_eq(shadow.pair.exported.export_id(), export_id)
+
+  ignore(shadow.region.close())
+}
