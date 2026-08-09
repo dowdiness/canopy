@@ -37,25 +37,29 @@ fn[T : Eq] SyncEditor::sync_parser_after_text_change(
   known_edit : @loom_core.Edit?,
 ) -> Unit raise Failure {
   self.ensure_parser_healthy()
-  self.document_version.set(self.doc.version())
+  editor_perf_measure("documentVersionUpdate", () => {
+    self.document_version.set(self.doc.version())
+  })
   // Short-circuits mark_projection_dirty; Parser does its own identity check.
   guard old_source != new_source else { return }
-  try {
-    if new_source == "" {
-      self.parser.set_source(new_source)
-    } else {
-      let edit = match known_edit {
-        Some(edit) => edit
-        None => compute_edit(old_source, new_source)
+  editor_perf_measure("parserApply", () => {
+    try {
+      if new_source == "" {
+        self.parser.set_source(new_source)
+      } else {
+        let edit = match known_edit {
+          Some(edit) => edit
+          None => compute_edit(old_source, new_source)
+        }
+        self.parser.apply_edit(edit, new_source)
       }
-      self.parser.apply_edit(edit, new_source)
+    } catch {
+      Failure::Failure(_) as failure => {
+        self.parser_failure = Some(failure)
+        raise failure
+      }
     }
-  } catch {
-    Failure::Failure(_) as failure => {
-      self.parser_failure = Some(failure)
-      raise failure
-    }
-  }
+  })
   self.mark_projection_dirty()
 }
 
@@ -95,11 +99,13 @@ fn resolve_applied_edit(
   old_source : String,
   new_source : String,
   known_edit : @loom_core.Edit?,
-) -> @loom_core.Edit? {
+) -> @loom_core.Edit? raise Failure {
   match known_edit {
     None => None
     Some(edit) => {
-      let actual = compute_edit(old_source, new_source)
+      let actual = editor_perf_measure("resolveAppliedEditDiff", () => {
+        compute_edit(old_source, new_source)
+      })
       if edit.start() == actual.start() &&
         edit.old_len() == actual.old_len() &&
         edit.new_len() == actual.new_len() {
@@ -119,10 +125,14 @@ fn[T : Eq] SyncEditor::apply_local_text_change(
   known_edit : @loom_core.Edit?,
 ) -> Unit raise Failure {
   let applied_edit = resolve_applied_edit(old_source, new_source, known_edit)
-  self.adjust_peer_cursors_after_text_change(
-    old_source, new_source, applied_edit,
-  )
-  self.sync_parser_after_text_change(old_source, new_source, applied_edit)
+  editor_perf_measure("peerCursorAdjust", () => {
+    self.adjust_peer_cursors_after_text_change(
+      old_source, new_source, applied_edit,
+    )
+  })
+  editor_perf_measure("parserSync", () => {
+    self.sync_parser_after_text_change(old_source, new_source, applied_edit)
+  })
 }
 
 ///|

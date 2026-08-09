@@ -57,7 +57,7 @@ enum Msg {
   StructureStructuralEdit(op~ : String, node_id~ : String)
   ExternalCrdtChanged
   CmMounted
-  CmDocChanged(String)
+  CmChanges(@cm.ChangeEvent)
   CmSelectionChanged(@cm.SelRange)
   CmFocusChanged(Bool)
 }

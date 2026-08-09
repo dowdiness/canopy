@@ -41,6 +41,8 @@ warnings = "-7-29"
 options(
   is_main: false,
   targets: {
+    "sync_editor_perf_probe_js.mbt": [ "js" ],
+    "sync_editor_perf_probe_native.mbt": [ "not", "js" ],
     "error_path_wbtest.mbt": [ "not", "js" ],
     "sync_editor_ws_wbtest.mbt": [ "not", "js" ],
     "test_ws_helper_js_wbtest.mbt": [ "js" ],

@@ -1,0 +1,1 @@
+../../../tools/perf_probe_detail_js.mbt

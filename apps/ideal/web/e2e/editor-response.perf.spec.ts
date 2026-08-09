@@ -24,6 +24,11 @@ type ResponseSummary = {
   phases: Record<string, Stats>;
 };
 
+type DirectIntentSample = {
+  elapsedMs: number;
+  phases: Record<string, number>;
+};
+
 // Read a numeric env override, falling back to `fallback` when unset/empty. A
 // malformed value (non-finite, e.g. "80ms" or a stray space) is a
 // misconfiguration: fail fast with a clear message rather than silently
@@ -70,6 +75,26 @@ const MAX_PAINT_BUDGET_MS = numericEnv('EDITOR_RESPONSE_MAX_BUDGET_MS', 250);
 // trimmed mean rises by ~this value. Default 0 = off. Validate the detector with
 // e.g. EDITOR_RESPONSE_INJECT_PAINT_MS=80 (a ~2x local regression) -> gate FAILS.
 const INJECT_PAINT_MS = numericEnv('EDITOR_RESPONSE_INJECT_PAINT_MS', 0);
+const REQUIRED_PHASES = [
+  'cmDocChangedHandler',
+  'syncEditorApply',
+  'projectionRefresh',
+  'refreshTotal',
+  'publicationPrepare',
+  'localPublicationEffect',
+] as const;
+const REQUIRED_TEXT_EDIT_PHASES = [
+  'applyEditOldSnapshot',
+  'applyEditPolicy',
+  'crdtReplace',
+  'applyEditNewSnapshot',
+  'localTextChange',
+  'resolveAppliedEditDiff',
+  'peerCursorAdjust',
+  'parserSync',
+  'documentVersionUpdate',
+  'parserApply',
+] as const;
 
 async function waitForEditor(page: Page) {
   await page.goto(`/#perf-${Date.now()}`);
@@ -106,7 +131,10 @@ async function seedEditor(page: Page, source: string) {
     const content = document.querySelector('#canopy-text-editor .cm-content');
     const visible = content?.textContent ?? '';
     const lines = String(text).split('\n');
-    return visible.includes(lines[0]) || visible.includes(lines[lines.length - 1]);
+    const bridge = (window as any).__canopy_bridge;
+    return bridge?.crdt && bridge.crdtHandle != null &&
+      bridge.crdt.get_text(bridge.crdtHandle) === text &&
+      (visible.includes(lines[0]) || visible.includes(lines[lines.length - 1]));
   }, source);
   await page.evaluate(() => {
     const content = document.querySelector('#canopy-text-editor .cm-content') as HTMLElement | null;
@@ -129,6 +157,7 @@ async function measureTextInput(page: Page, text: string, injectMs: number = INJ
     let start = 0;
     let cancelled = false;
     let pollRafId: number | null = null;
+    let paintRafId: number | null = null;
     const timeout = window.setTimeout(() => {
       cancelled = true;
       const b0 = (window as any).__canopy_bridge;
@@ -142,23 +171,27 @@ async function measureTextInput(page: Page, text: string, injectMs: number = INJ
         window.cancelAnimationFrame(pollRafId);
         pollRafId = null;
       }
+      if (paintRafId !== null) {
+        window.cancelAnimationFrame(paintRafId);
+        paintRafId = null;
+      }
     };
     const complete = () => {
       if (cancelled) return;
       cancelled = true;
       const textChangedAt = performance.now();
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          // Positive-control injection: a synchronous busy-wait in the measured
-          // paint window simulates a uniform paint regression. Placed after
-          // textChangedAt so it affects only inputToPaintMs, not the text-change
-          // latency. No-op when injectPaintMs is 0 (the default).
-          if (injectPaintMs > 0) {
-            const spinUntil = performance.now() + injectPaintMs;
-            while (performance.now() < spinUntil) {
-              // busy-wait
-            }
+      paintRafId = requestAnimationFrame(() => {
+        paintRafId = null;
+        // Inject before the second frame so the delay is part of the next
+        // browser paint, not work performed after that paint's callback.
+        if (injectPaintMs > 0) {
+          const spinUntil = performance.now() + injectPaintMs;
+          while (performance.now() < spinUntil) {
+            // busy-wait
           }
+        }
+        paintRafId = requestAnimationFrame(() => {
+          paintRafId = null;
           const perf = (window as any).__canopy_bridge?.perfCurrent;
           const phases = { ...(perf?.spans ?? {}) };
           const b1 = (window as any).__canopy_bridge;
@@ -182,17 +215,45 @@ async function measureTextInput(page: Page, text: string, injectMs: number = INJ
     };
 
     const b2 = (window as any).__canopy_bridge;
-    if (b2) b2.perfCurrent = { spans: {} };
+    if (b2) b2.perfCurrent = { spans: {}, profileTextEdit: true };
     start = performance.now();
     const inserted = document.execCommand('insertText', false, insertText);
     if (!inserted) {
       cancelled = true;
+      const b0 = (window as any).__canopy_bridge;
+      if (b0) b0.perfCurrent = null;
       cleanup();
       reject(new Error('insertText command failed'));
       return;
     }
     requestAnimationFrame(poll);
   }), { insertText: text, injectPaintMs: injectMs });
+}
+
+async function measureDirectTextIntent(page: Page): Promise<DirectIntentSample> {
+  return page.evaluate(() => {
+    const bridge = (window as any).__canopy_bridge;
+    if (!bridge?.crdt || bridge.crdtHandle == null) {
+      throw new Error('Canopy CRDT bridge is not mounted');
+    }
+    const before = bridge.crdt.get_text(bridge.crdtHandle);
+    bridge.perfCurrent = { spans: {} };
+    try {
+      const start = performance.now();
+      bridge.crdt.handle_text_intent(
+        bridge.crdtHandle,
+        before.length,
+        0,
+        'a',
+        0,
+      );
+      const elapsedMs = performance.now() - start;
+      const phases = { ...(bridge.perfCurrent?.spans ?? {}) };
+      return { elapsedMs, phases };
+    } finally {
+      bridge.perfCurrent = null;
+    }
+  });
 }
 
 function mean(values: number[]): number {
@@ -226,6 +287,19 @@ function roundStats(s: Stats): Stats {
 }
 
 function summarize(scenario: string, sourceChars: number, samples: ResponseSample[]): ResponseSummary {
+  for (const sample of samples) {
+    for (const phase of [...REQUIRED_PHASES, ...REQUIRED_TEXT_EDIT_PHASES]) {
+      if (typeof sample.phases[phase] !== 'number') {
+        throw new Error(`${scenario}: missing phase ${phase}`);
+      }
+    }
+    const hasIncrementalEntry = typeof sample.phases.incrementalTextApply === 'number';
+    const hasFullTextEntry = typeof sample.phases.setTextFullDiff === 'number' &&
+      typeof sample.phases.setTextApply === 'number';
+    if (!hasIncrementalEntry && !hasFullTextEntry) {
+      throw new Error(`${scenario}: missing incremental or full-text entry phase`);
+    }
+  }
   const phaseNames = new Set<string>();
   for (const sample of samples) {
     for (const phase of Object.keys(sample.phases)) {
@@ -263,6 +337,162 @@ async function runScenario(page: Page, scenario: string, definitions: number): P
 }
 
 test.describe('realistic editor response benchmark', () => {
+  test('direct handle_text_intent reports CRDT mutation phases', async ({ page }) => {
+    test.setTimeout(60_000);
+    await waitForEditor(page);
+    await seedEditor(page, lambdaSource(500));
+
+    for (let i = 0; i < WARMUP_KEYSTROKES; i += 1) {
+      await measureDirectTextIntent(page);
+    }
+    const samples: DirectIntentSample[] = [];
+    for (let i = 0; i < MEASURED_KEYSTROKES; i += 1) {
+      samples.push(await measureDirectTextIntent(page));
+    }
+
+    const phaseNames = new Set<string>();
+    for (const sample of samples) {
+      for (const phase of Object.keys(sample.phases)) phaseNames.add(phase);
+    }
+    const phases: Record<string, Stats> = {};
+    for (const phase of [...phaseNames].sort()) {
+      phases[phase] = roundStats(stats(samples.map((sample) => sample.phases[phase] ?? 0)));
+    }
+    const summary = {
+      scenario: 'direct handle_text_intent',
+      sourceChars: lambdaSource(500).length,
+      samples: samples.length,
+      elapsed: roundStats(stats(samples.map((sample) => sample.elapsedMs))),
+      phases,
+    };
+    console.log(`[editor-response-intent] ${JSON.stringify(summary)}`);
+    expect(phases.handleTextIntent, 'handle_text_intent phase was not recorded').toBeDefined();
+    expect(phases.crdtMutation, 'CRDT mutation phase was not recorded').toBeDefined();
+  });
+
+  test('local CodeMirror transactions use the incremental text path', async ({ page }) => {
+    test.setTimeout(60_000);
+    await waitForEditor(page);
+    const source = lambdaSource(20);
+    await seedEditor(page, source);
+    const position = 5;
+    const expected = source.slice(0, position) + 'Z' + source.slice(position);
+
+    await page.evaluate(() => {
+      const bridge = (window as any).__canopy_bridge;
+      if (bridge) bridge.perfCurrent = { spans: {}, profileTextEdit: true };
+      const content = document.querySelector('#canopy-text-editor .cm-content') as HTMLElement | null;
+      content?.focus();
+    });
+    await page.keyboard.press('Control+Home');
+    for (let i = 0; i < position; i += 1) {
+      await page.keyboard.press('ArrowRight');
+    }
+    await page.keyboard.insertText('Z');
+    await page.waitForFunction((text) => {
+      const bridge = (window as any).__canopy_bridge;
+      return bridge?.crdt && bridge.crdtHandle != null &&
+        bridge.crdt.get_text(bridge.crdtHandle) === text;
+    }, expected);
+
+    const phases = await page.evaluate(() => {
+      const bridge = (window as any).__canopy_bridge;
+      const phases = { ...(bridge?.perfCurrent?.spans ?? {}) };
+      if (bridge) bridge.perfCurrent = null;
+      return phases;
+    });
+    expect(phases.incrementalTextApply, 'incremental edit phase was not recorded').toBeDefined();
+    expect(phases.setTextFullDiff, 'full-document diff should not run for a local CM transaction').toBeUndefined();
+  });
+
+  test('local CodeMirror replacements and Unicode edits stay incremental', async ({ page }) => {
+    test.setTimeout(60_000);
+    await waitForEditor(page);
+
+    const assertIncremental = async (expected: string, edit: () => Promise<void>) => {
+      await page.evaluate(() => {
+        const bridge = (window as any).__canopy_bridge;
+        if (bridge) bridge.perfCurrent = { spans: {}, profileTextEdit: true };
+        const content = document.querySelector('#canopy-text-editor .cm-content') as HTMLElement | null;
+        content?.focus();
+      });
+      await edit();
+      await page.waitForFunction((text) => {
+        const bridge = (window as any).__canopy_bridge;
+        return bridge?.crdt && bridge.crdtHandle != null &&
+          bridge.crdt.get_text(bridge.crdtHandle) === text;
+      }, expected);
+      const phases = await page.evaluate(() => {
+        const bridge = (window as any).__canopy_bridge;
+        const phases = { ...(bridge?.perfCurrent?.spans ?? {}) };
+        if (bridge) bridge.perfCurrent = null;
+        return phases;
+      });
+      expect(phases.incrementalTextApply, 'incremental edit phase was not recorded').toBeDefined();
+      expect(phases.setTextFullDiff, 'full-document diff should not run for a local CM transaction').toBeUndefined();
+    };
+
+    const source = lambdaSource(20);
+    const position = 5;
+    await seedEditor(page, source);
+    await assertIncremental(
+      source.slice(0, position) + 'Q' + source.slice(position + 1),
+      async () => {
+        await page.keyboard.press('Control+Home');
+        for (let i = 0; i < position; i += 1) await page.keyboard.press('ArrowRight');
+        await page.keyboard.press('Shift+ArrowRight');
+        await page.keyboard.insertText('Q');
+      },
+    );
+
+    await seedEditor(page, 'a😀b');
+    await assertIncremental('ab', async () => {
+      await page.keyboard.press('Control+Home');
+      await page.keyboard.press('ArrowRight');
+      await page.keyboard.press('Delete');
+    });
+  });
+
+  test('multi-range transactions use their captured fallback snapshot', async ({ page }) => {
+    test.setTimeout(60_000);
+    await waitForEditor(page);
+    const source = lambdaSource(20);
+    await seedEditor(page, source);
+
+    const expected = await page.evaluate(() => {
+      const bridge = (window as any).__canopy_bridge;
+      if (bridge) bridge.perfCurrent = { spans: {}, profileTextEdit: true };
+      const root = document.querySelector('#canopy-text-editor .cm-editor');
+      const EditorView = (globalThis as any).__canopy_codemirror?.EditorView;
+      const view = EditorView?.findFromDOM(root);
+      if (!view) throw new Error('CodeMirror view is unavailable');
+      const before = view.state.doc.toString();
+      view.dispatch({
+        changes: [
+          { from: 0, to: 0, insert: 'X' },
+          { from: before.length, to: before.length, insert: 'Y' },
+        ],
+      });
+      // Queue a second transaction immediately. The first fallback must use
+      // its own captured document rather than this later current document.
+      view.dispatch({ changes: { from: 0, to: 0, insert: 'Z' } });
+      return view.state.doc.toString();
+    });
+
+    await page.waitForFunction((text) => {
+      const bridge = (window as any).__canopy_bridge;
+      return bridge?.crdt && bridge.crdtHandle != null &&
+        bridge.crdt.get_text(bridge.crdtHandle) === text;
+    }, expected);
+    const phases = await page.evaluate(() => {
+      const bridge = (window as any).__canopy_bridge;
+      const phases = { ...(bridge?.perfCurrent?.spans ?? {}) };
+      if (bridge) bridge.perfCurrent = null;
+      return phases;
+    });
+    expect(phases.setTextFullDiff, 'multi-range edit should use the full-text fallback').toBeDefined();
+  });
+
   test('text-mode typing updates CRDT, projection, and browser paint within budget', async ({ page }) => {
     // ~90 measureTextInput calls (warmup + measured, both scenarios), plus the
     // optional positive-control busy-wait, can approach Playwright's 30s default
@@ -284,6 +514,9 @@ test.describe('realistic editor response benchmark', () => {
         samples: summary.samples,
         phases: summary.phases,
       })}`);
+      for (const phase of REQUIRED_PHASES) {
+        expect(summary.phases[phase], `${summary.scenario} phase ${phase} was not recorded`).toBeDefined();
+      }
       // Gated metrics: trimmedMean (primary, noise-robust) and max (catastrophe
       // backstop). p50/p95/mean are computed and logged for observability only —
       // do not assert on them without an empirical per-metric baseline.
