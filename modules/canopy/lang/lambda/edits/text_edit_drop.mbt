@@ -86,10 +86,8 @@ fn is_row_immediately_after(
   next_range : @loomcore.Range,
 ) -> Bool {
   guard next_range.start > previous_range.end else { return false }
-  let mut i = previous_range.end
-  while i < next_range.start {
-    guard is_space_code(source_text[i]) else { return false }
-    i = i + 1
+  for pos = previous_range.end; pos < next_range.start; pos = pos + 1 {
+    guard is_space_code(source_text[pos]) else { return false }
   }
   true
 }

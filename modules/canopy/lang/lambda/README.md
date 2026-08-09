@@ -65,7 +65,5 @@ and was removed. Lambda's editor-facing projection memos now live in
 `@core.build_projection_memos`. Lambda now uses the shared
 `Language[Term, TreeEditOp, LambdaCompanion]` SPI; its public apply function is
 a thin wrapper over `Language::apply_edit`.
-Lambda `Drop` plans through the edit port: root-module `LetDef` rows use
-newline-aware movement, expression pairs use `core.compute_move`, and mixed
-LetDef/expression or nested-binding pairs are rejected structurally. See
-`docs/decisions/2026-08-07-generic-language-spi-deepening.md`.
+Lambda `Drop` semantics are defined in the canonical
+[`move-contract.md`](../../../../docs/development/move-contract.md).

@@ -36,12 +36,9 @@ the text CRDT and then refreshes the projection.
 ### Drag and Drop
 - **StartDrag (`node_id`)**: Initiate a move operation.
 - **DragOver (`target_id`, `position`)**: Preview the drop location (`Before`, `After`, or `Inside`).
-- **Drop (`source_id`, `target_id`, `position`)**: Compute and apply a language-owned move.
-  - Root-module `LetDef` rows move as complete rows with newline-aware separators.
-  - Expression pairs use expression-level move semantics; `Inside` exchanges
-    their contents.
-  - Mixed `LetDef`/expression pairs and nested binding rows are rejected with
-    structured errors.
+- **Drop (`source_id`, `target_id`, `position`)**: Compute and apply a
+  language-owned move. See [`move-contract.md`](move-contract.md) for the
+  canonical position, legality, and backend semantics.
 
 ## Operational Workflow: The Edit Port
 
