@@ -1,6 +1,6 @@
 // Drag-and-drop E2E tests for Before/After/Inside (exchange) moves.
-// Validates that AST-level operations produce valid syntax (no empty RHS,
-// no orphaned separators) by checking the resulting editor text.
+// Validates AST-level operation results, binding-safety rejection, and editor
+// synchronization by checking the resulting editor text.
 
 import { test, expect, type Page } from '@playwright/test';
 import { dispatchExternalCrdtChanged } from './support/dom-events';
@@ -43,7 +43,11 @@ function normalizeText(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
 }
 
-async function setEditorText(page: Page, text: string) {
+async function setEditorText(
+  page: Page,
+  text: string,
+  expectedLabels: string[] | null = ['x', 'y'],
+) {
   await page.evaluate((source) => {
     const b = (globalThis as any).__canopy_bridge;
     if (b?.crdt && b.crdtHandle != null) b.crdt.set_text(b.crdtHandle, source);
@@ -56,13 +60,20 @@ async function setEditorText(page: Page, text: string) {
     return document.querySelector('#canopy-text-editor .cm-content') !== null;
   });
   await page.getByRole('button', { name: 'Structure' }).click();
-  await page.waitForFunction(() => {
-    const ce = document.querySelector('canopy-editor');
-    const labels = Array.from(
-      ce?.shadowRoot?.querySelectorAll('.structure-let_def > .structure-header .structure-label') ?? [],
-    ).map((el) => el.textContent);
-    return labels[0] === 'x' && labels[1] === 'y';
-  });
+  if (expectedLabels === null) {
+    await page.waitForFunction(() => {
+      const ce = document.querySelector('canopy-editor');
+      return (ce?.shadowRoot?.querySelectorAll('.structure-let_def').length ?? 0) >= 2;
+    });
+  } else {
+    await page.waitForFunction((labels) => {
+      const ce = document.querySelector('canopy-editor');
+      const actualLabels = Array.from(
+        ce?.shadowRoot?.querySelectorAll('.structure-let_def > .structure-header .structure-label') ?? [],
+      ).map((el) => el.textContent);
+      return labels.every((label, index) => actualLabels[index] === label);
+    }, expectedLabels);
+  }
 }
 
 /** Count structure blocks of a given type inside the shadow DOM. */
@@ -89,8 +100,8 @@ async function dragDrop(
   tgtSelector: string,
   tgtNth: number,
   position: 'Before' | 'After' | 'Inside',
-) {
-  await page.evaluate(
+): Promise<'Before' | 'After' | 'Inside' | null> {
+  const requestedPosition = await page.evaluate(
     ({ srcSelector, srcNth, tgtSelector, tgtNth, position }) => {
       const ce = document.querySelector('canopy-editor');
       if (!ce?.shadowRoot) throw new Error('canopy-editor not found');
@@ -105,13 +116,35 @@ async function dragDrop(
       src.draggable = true;
 
       const tgtRect = tgt.getBoundingClientRect();
+      const header = tgt.querySelector('.structure-header') as HTMLElement | null;
+      const headerRect = header?.getBoundingClientRect();
+      if (!headerRect) throw new Error('Structure target has no header');
+
       let clientY: number;
       switch (position) {
-        case 'Before': clientY = tgtRect.top + tgtRect.height * 0.1; break;
-        case 'After':  clientY = tgtRect.top + tgtRect.height * 0.9; break;
-        case 'Inside': clientY = tgtRect.top + tgtRect.height * 0.5; break;
+        case 'Before':
+          // The top edge band must be below the header, which is an Inside
+          // target, and still remain inside the top 25% of the block.
+          clientY = Math.max(
+            headerRect.bottom + 8,
+            tgtRect.top + tgtRect.height * 0.2,
+          );
+          if (clientY >= tgtRect.top + tgtRect.height * 0.25) {
+            throw new Error('Structure target has no usable Before drop band');
+          }
+          break;
+        case 'After':
+          clientY = tgtRect.top + tgtRect.height * 0.8;
+          break;
+        case 'Inside':
+          clientY = tgtRect.top + tgtRect.height * 0.5;
+          break;
       }
       const clientX = tgtRect.left + tgtRect.width / 2;
+      let requestedPosition: 'Before' | 'After' | 'Inside' | null = null;
+      ce.addEventListener('structural-edit-request', (event) => {
+        requestedPosition = (event as CustomEvent<{ position?: 'Before' | 'After' | 'Inside' }>).detail.position ?? null;
+      }, { once: true });
 
       // Get source nodeId
       const srcNodeId = (src as any).__pmNode?.attrs?.nodeId
@@ -141,17 +174,35 @@ async function dragDrop(
       src.dispatchEvent(new DragEvent('dragend', {
         bubbles: true, composed: true, dataTransfer: dt,
       }));
+      return requestedPosition;
     },
     { srcSelector, srcNth, tgtSelector, tgtNth, position },
   );
 
   // Wait for reparse after edit
   await page.waitForTimeout(500);
+  return requestedPosition;
 }
 
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+const independentFunctionFixture = `fn first(x : Int) {
+  x + 1
+}
+fn second(x : Int) {
+  x + 2
+}
+first 1`;
+
+const independentFunctionFixtureAfterReorder = `fn second(x : Int) {
+  x + 2
+}
+fn first(x : Int) {
+  x + 1
+}
+first 1`;
 
 test.describe('Drag-Drop — Before/After/Inside', () => {
 
@@ -207,29 +258,46 @@ test.describe('Drag-Drop — Before/After/Inside', () => {
     expect(normalizeText(cmText)).toEqual(normalizeText(crdtText));
   });
 
-  test('Before drop produces valid syntax with placeholder', async ({ page }) => {
-    const textBefore = await getEditorText(page);
+  test('Before drop reorders independent root definitions', async ({ page }) => {
+    await setEditorText(page, independentFunctionFixture, null);
 
-    await dragDrop(page, '.structure-let_def', 1, '.structure-let_def', 0, 'Before');
+    const requestedPosition = await dragDrop(
+      page,
+      '.structure-let_def',
+      1,
+      '.structure-let_def',
+      0,
+      'Before',
+    );
 
-    const textAfter = await getEditorText(page);
-    expect(textAfter).not.toEqual(textBefore);
-    // Critical: no "let x = " with empty RHS — placeholder should fill it
-    expect(textAfter).not.toMatch(/let \w+ = \s*\n/);
-    const defCount = (textAfter.match(/\b(?:fn|let)\s/g) || []).length;
-    expect(defCount).toBeGreaterThanOrEqual(2);
+    expect(requestedPosition).toBe('Before');
+    await expect.poll(() => getEditorText(page)).toBe(independentFunctionFixtureAfterReorder);
   });
 
-  test('After drop produces valid syntax with placeholder', async ({ page }) => {
+  test('After drop reorders independent root definitions', async ({ page }) => {
+    await setEditorText(page, independentFunctionFixture, null);
+
+    const requestedPosition = await dragDrop(
+      page,
+      '.structure-let_def',
+      0,
+      '.structure-let_def',
+      1,
+      'After',
+    );
+
+    expect(requestedPosition).toBe('After');
+    await expect.poll(() => getEditorText(page)).toBe(independentFunctionFixtureAfterReorder);
+  });
+
+  test('dependent root-definition drops are rejected without changing the document', async ({ page }) => {
     const textBefore = await getEditorText(page);
 
-    await dragDrop(page, '.structure-let_def', 0, '.structure-let_def', 1, 'After');
+    expect(await dragDrop(page, '.structure-let_def', 1, '.structure-let_def', 0, 'Before')).toBe('Before');
+    expect(await getEditorText(page)).toBe(textBefore);
 
-    const textAfter = await getEditorText(page);
-    expect(textAfter).not.toEqual(textBefore);
-    expect(textAfter).not.toMatch(/let \w+ = \s*\n/);
-    const defCount = (textAfter.match(/\b(?:fn|let)\s/g) || []).length;
-    expect(defCount).toBeGreaterThanOrEqual(2);
+    expect(await dragDrop(page, '.structure-let_def', 0, '.structure-let_def', 1, 'After')).toBe('After');
+    expect(await getEditorText(page)).toBe(textBefore);
   });
 
   test('self-drop is rejected (no change)', async ({ page }) => {
