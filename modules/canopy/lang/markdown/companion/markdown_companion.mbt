@@ -41,65 +41,7 @@ pub fn new_markdown_editor_with_semantic_attachment(
 pub fn export_markdown_text(
   editor : @editor.SyncEditor[@markdown.Block],
 ) -> String {
-  let src = editor.get_text()
-  let root = editor.get_proj_node() catch { Failure::Failure(_) => return src }
-  guard root is Some(root) else { return src }
-  let source_map = editor.get_source_map() catch {
-    Failure::Failure(_) => return src
-  }
-  let ranges : Array[(Int, Int)] = []
-  collect_zwsp_ranges(root, source_map, ranges)
-  if ranges.is_empty() {
-    return src
-  }
-  ranges.sort_by(fn(a, b) { a.0.compare(b.0) })
-  let buf = StringBuilder::new()
-  let mut pos = 0
-  for r in ranges {
-    let (s, e) = r
-    if s > pos {
-      buf.write_string(src[pos:s].to_owned())
-    }
-    pos = e
-  }
-  if pos < src.length() {
-    buf.write_string(src[pos:].to_owned())
-  }
-  buf.to_string()
-}
-
-///|
-/// Walk the projection tree and append the source range of every ZWSP-sentinel
-/// Paragraph to `out`. The range covers exactly the ZWSP character (the "text"
-/// token span), so removing it from source converts `\n\u200B\n` into `\n\n`.
-fn collect_zwsp_ranges(
-  node : @core.ProjNode[@markdown.Block],
-  source_map : @core.SourceMap,
-  out : Array[(Int, Int)],
-) -> Unit {
-  if is_zwsp_sentinel(node.kind) {
-    match source_map.get_token_span(node.id(), "text") {
-      Some(r) => out.push((r.start, r.end))
-      None => ()
-    }
-    return
-  }
-  for child in node.children {
-    collect_zwsp_ranges(child, source_map, out)
-  }
-}
-
-///|
-fn is_zwsp_sentinel(block : @markdown.Block) -> Bool {
-  match block {
-    Paragraph(inlines) =>
-      inlines.length() == 1 &&
-      (match inlines[0] {
-        Text(s) => @md_sentinel.is_empty_paragraph_text(s)
-        _ => false
-      })
-    _ => false
-  }
+  @markdown_runtime.export_markdown_text(editor)
 }
 
 ///|

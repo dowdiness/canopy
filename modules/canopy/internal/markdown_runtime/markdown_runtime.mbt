@@ -115,3 +115,58 @@ pub fn apply_edit(
 ) -> Result[Array[@core.SpanEdit], @core.EditError] raise Failure {
   plain_language.apply_edit(editor, op, timestamp_ms)
 }
+
+///|
+/// Return Markdown text with only structural empty-paragraph sentinels
+/// removed. Projection and source-map failures retain the canonical source.
+pub fn export_markdown_text(
+  editor : @editor.SyncEditor[@markdown.Block],
+) -> String {
+  let source = editor.get_text()
+  let root = editor.get_proj_node() catch {
+    Failure::Failure(_) => return source
+  }
+  guard root is Some(root) else { return source }
+  let source_map = editor.get_source_map() catch {
+    Failure::Failure(_) => return source
+  }
+  let ranges : Array[@loom.Range] = []
+  collect_hidden_sentinel_ranges(root, source_map, ranges)
+  match project_source(source, ranges) {
+    Ok(projected) => projected
+    Err(_) => source
+  }
+}
+
+///|
+/// Collect only the token span owned by an exact sentinel paragraph.
+fn collect_hidden_sentinel_ranges(
+  node : @core.ProjNode[@markdown.Block],
+  source_map : @core.SourceMap,
+  out : Array[@loom.Range],
+) -> Unit {
+  if is_hidden_sentinel(node.kind) {
+    match source_map.get_token_span(node.id(), "text") {
+      Some(range) => out.push(range)
+      None => ()
+    }
+    return
+  }
+  for child in node.children {
+    collect_hidden_sentinel_ranges(child, source_map, out)
+  }
+}
+
+///|
+/// Recognize the private paragraph shape without hiding legitimate content.
+fn is_hidden_sentinel(block : @markdown.Block) -> Bool {
+  match block {
+    Paragraph(inlines) =>
+      inlines.length() == 1 &&
+      (match inlines[0] {
+        Text(text) => @md_sentinel.is_empty_paragraph_text(text)
+        _ => false
+      })
+    _ => false
+  }
+}

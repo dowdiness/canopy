@@ -239,3 +239,24 @@ test "merge cleans up ZWSP from empty block" {
   // After merge, ZWSP should be gone from raw text too
   inspect(ed.get_text().contains("\u200B"), content="false")
 }
+
+///|
+test "export strips sentinels with CRLF CR and EOF terminators" {
+  let crlf = try! new_markdown_editor("export-crlf")
+  crlf.set_text("A\r\n\r\n\u{200B}\r\n\r\nB")
+  let crlf_state = @editor.ViewUpdateState::ViewUpdateState()
+  let _ = @editor.compute_view_patches(crlf_state, crlf)
+  assert_eq(export_markdown_text(crlf), "A\r\n\r\n\r\n\r\nB")
+
+  let cr = try! new_markdown_editor("export-cr")
+  cr.set_text("A\r\r\u{200B}\r\rB")
+  let cr_state = @editor.ViewUpdateState::ViewUpdateState()
+  let _ = @editor.compute_view_patches(cr_state, cr)
+  assert_eq(export_markdown_text(cr), "A\r\r\r\rB")
+
+  let eof = try! new_markdown_editor("export-eof")
+  eof.set_text("A\n\n\u{200B}")
+  let eof_state = @editor.ViewUpdateState::ViewUpdateState()
+  let _ = @editor.compute_view_patches(eof_state, eof)
+  assert_eq(export_markdown_text(eof), "A\n\n")
+}
