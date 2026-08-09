@@ -1490,7 +1490,8 @@ test("Backspace preserves focus when an unsupported predecessor rejects merge", 
     const input = host.page.locator("#loomark-block-input-1")
     await input.fill("")
     await expect(input).toHaveValue("")
-    const source = (await snapshot(host.page)).source
+    const source = "First\n\n---\n\n\n"
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe(source)
 
     await input.press("Backspace")
 
