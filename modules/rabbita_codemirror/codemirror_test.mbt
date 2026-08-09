@@ -6,6 +6,13 @@ test "SelRange constructor exposes selection offsets to consumers" {
 }
 
 ///|
+test "ChangeEvent preserves its transaction snapshot" {
+  let event = ChangeEvent::new([ChangeDelta::new(1, 1, "x")], "after")
+  inspect(event.changes.length(), content="1")
+  inspect(event.doc, content="after")
+}
+
+///|
 test "mount accepts extension factory" {
   let factory : (@js_value.Value) -> @js_ffi.Extension raise = fn(_cm) {
     @js_ffi.js_extension_combine([])

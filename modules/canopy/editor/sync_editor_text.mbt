@@ -275,8 +275,11 @@ fn[T : Eq] SyncEditor::apply_text_edit_with_policy(
   policy : SplicePolicy,
 ) -> Bool raise Failure {
   self.ensure_parser_healthy()
-  let old_source = self.doc.text()
+  let old_source = editor_perf_measure("applyEditOldSnapshot", () => {
+    self.doc.text()
+  })
   let text_len = old_source.length()
+  editor_perf_begin("applyEditPolicy")
   let (safe_start, safe_delete_len) = match policy {
     ExactBoundaries => {
       if start < 0 ||
@@ -285,6 +288,7 @@ fn[T : Eq] SyncEditor::apply_text_edit_with_policy(
         start + deleted_len > text_len ||
         !@moji.is_grapheme_boundary(old_source, start) ||
         !@moji.is_grapheme_boundary(old_source, start + deleted_len) {
+        editor_perf_end("applyEditPolicy")
         return false
       }
       (start, deleted_len)
@@ -311,14 +315,19 @@ fn[T : Eq] SyncEditor::apply_text_edit_with_policy(
       }
     }
   }
+  editor_perf_end("applyEditPolicy")
   // Funnel all bulk text mutation through one helper so CRDT range-edit and
   // undo behavior stay aligned at a single boundary.
-  guard self.apply_replace_span(
-    old_source, safe_start, safe_delete_len, inserted, timestamp_ms, record_undo,
-  ) else {
+  guard editor_perf_measure("crdtReplace", () => {
+    self.apply_replace_span(
+      old_source, safe_start, safe_delete_len, inserted, timestamp_ms, record_undo,
+    )
+  }) else {
     return false
   }
-  let new_text = self.doc.text()
+  let new_text = editor_perf_measure("applyEditNewSnapshot", () => {
+    self.doc.text()
+  })
   if move_cursor_to_edit_end {
     self.cursor = @moji.next_grapheme_boundary(
       new_text,
@@ -330,11 +339,13 @@ fn[T : Eq] SyncEditor::apply_text_edit_with_policy(
       clamp_utf16_offset(new_text, self.cursor),
     )
   }
-  self.apply_local_text_change(
-    old_source,
-    new_text,
-    Some(@loom_core.Edit::new(safe_start, safe_delete_len, inserted.length())),
-  )
+  editor_perf_measure("localTextChange", () => {
+    self.apply_local_text_change(
+      old_source,
+      new_text,
+      Some(@loom_core.Edit::new(safe_start, safe_delete_len, inserted.length())),
+    )
+  })
   true
 }
 
@@ -390,17 +401,19 @@ pub fn[T : Eq] SyncEditor::apply_text_edit_exact(
   inserted : String,
   timestamp_ms : Int,
 ) -> Bool raise Failure {
-  self.ensure_parser_healthy()
-  self.taint_pending_transforms()
-  self.apply_text_edit_with_policy(
-    start,
-    deleted_len,
-    inserted,
-    timestamp_ms,
-    true,
-    true,
-    ExactBoundaries,
-  )
+  editor_perf_scope(() => {
+    self.ensure_parser_healthy()
+    self.taint_pending_transforms()
+    self.apply_text_edit_with_policy(
+      start,
+      deleted_len,
+      inserted,
+      timestamp_ms,
+      true,
+      true,
+      ExactBoundaries,
+    )
+  })
 }
 
 ///|
@@ -538,21 +551,34 @@ pub fn[T : Eq] SyncEditor::set_text_and_record(
   new_text : String,
   timestamp_ms : Int,
 ) -> Unit raise Failure {
+  editor_perf_scope(() => self.set_text_and_record_impl(new_text, timestamp_ms))
+}
+
+///|
+fn[T : Eq] SyncEditor::set_text_and_record_impl(
+  self : SyncEditor[T],
+  new_text : String,
+  timestamp_ms : Int,
+) -> Unit raise Failure {
   self.ensure_parser_healthy()
-  let old_text = self.doc.text()
+  let old_text = editor_perf_measure("setTextOldSnapshot", () => self.doc.text())
   if old_text == new_text {
     return
   }
   self.taint_pending_transforms()
-  let splice = @text_change.compute_text_change(old_text, new_text)
+  let splice = editor_perf_measure("setTextFullDiff", () => {
+    @text_change.compute_text_change(old_text, new_text)
+  })
   ignore(
-    self.apply_text_edit_internal(
-      splice.start,
-      splice.delete_len,
-      splice.inserted,
-      timestamp_ms,
-      true,
-      false,
-    ),
+    editor_perf_measure("setTextApply", () => {
+      self.apply_text_edit_internal(
+        splice.start,
+        splice.delete_len,
+        splice.inserted,
+        timestamp_ms,
+        true,
+        false,
+      )
+    }),
   )
 }

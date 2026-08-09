@@ -47,6 +47,9 @@ jobs:
               - 'scripts/run-moon-module.sh'
             run_editor_response:
               - 'apps/ideal/**'
+              - 'modules/canopy/editor/**'
+              - 'modules/rabbita_codemirror/**'
+              - 'tools/**'
               - 'apps/web/vite-plugin-moonbit.ts'
               - '.github/actions/setup-moonbit/**'
               - '.github/workflows/benchmark.yml'

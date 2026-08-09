@@ -51,6 +51,24 @@ pub fn ChangeDelta::new(from : Int, to : Int, insert : String) -> ChangeDelta {
 }
 
 ///|
+/// A CodeMirror document transaction together with its post-transaction
+/// document snapshot. The snapshot is captured by the update listener so a
+/// delayed consumer can use the document that belongs to this transaction.
+pub struct ChangeEvent {
+  changes : Array[ChangeDelta]
+  doc : String
+} derive(Eq, Debug)
+
+///|
+/// Construct a transaction event from its ordered changes and final document.
+pub fn ChangeEvent::new(
+  changes : Array[ChangeDelta],
+  doc : String,
+) -> ChangeEvent {
+  { changes, doc }
+}
+
+///|
 #cfg(target="js")
 priv struct CmEntry {
   view : @js_ffi.CmView
@@ -75,7 +93,8 @@ priv suberror CmSubscription {
     doc~ : @cmd.Emit[String]?,
     selection~ : @cmd.Emit[SelRange]?,
     focus~ : @cmd.Emit[Bool]?,
-    changes~ : @cmd.Emit[Array[ChangeDelta]]?
+    changes~ : @cmd.Emit[Array[ChangeDelta]]?,
+    changes_with_doc~ : @cmd.Emit[ChangeEvent]?
   )
 }
 
@@ -190,9 +209,16 @@ fn no_op_update_listener(
   view : @js_ffi.CmView,
   compartment : @js_ffi.Compartment,
 ) -> @js_ffi.Disposable {
-  @js_ffi.js_add_update_listener(view, compartment, _ => (), _ => (), _ => (), _ => {
-    ()
-  })
+  @js_ffi.js_add_update_listener(
+    view,
+    compartment,
+    _ => (),
+    _ => (),
+    _ => (),
+    _ => (),
+    include_doc=false,
+    include_change_doc=false,
+  )
 }
 
 ///|
@@ -271,6 +297,15 @@ fn change_deltas_from_value(value : @js_value.Value) -> Array[ChangeDelta] {
 
 ///|
 #cfg(target="js")
+fn change_event_from_value(value : @js_value.Value) -> ChangeEvent {
+  ChangeEvent::new(
+    change_deltas_from_value(value.get_with_string("changes")),
+    value.get_with_string("doc"),
+  )
+}
+
+///|
+#cfg(target="js")
 fn reconfigure(
   view : @js_ffi.CmView,
   compartment : @js_ffi.Compartment,
@@ -328,8 +363,9 @@ fn build_listen_key(
   has_selection : Bool,
   has_focus : Bool,
   has_changes : Bool,
+  has_changes_with_doc : Bool,
 ) -> String {
-  "codemirror.listen(id=\{id},doc=\{has_doc},selection=\{has_selection},focus=\{has_focus},changes=\{has_changes})"
+  "codemirror.listen(id=\{id},doc=\{has_doc},selection=\{has_selection},focus=\{has_focus},changes=\{has_changes},changes_with_doc=\{has_changes_with_doc})"
 }
 
 ///|
@@ -339,13 +375,16 @@ fn cm_sub_loader(
   scheduler : &@cmd.Scheduler,
 ) -> @sub.RunningSub? {
   match payload {
-    CmListen(id, doc~, selection~, focus~, changes~) => {
+    CmListen(id, doc~, selection~, focus~, changes~, changes_with_doc~) => {
       guard editors.get(id) is Some(entry) else { return None }
 
       let mut doc_tagger = doc
       let mut selection_tagger = selection
       let mut focus_tagger = focus
       let mut changes_tagger = changes
+      let mut changes_with_doc_tagger = changes_with_doc
+      let include_doc = doc is Some(_)
+      let include_change_doc = changes_with_doc is Some(_)
 
       fn on_doc(value : @js_value.Value) {
         guard doc_tagger is Some(msg) else { return }
@@ -360,8 +399,22 @@ fn cm_sub_loader(
         scheduler.add(msg(value.cast()))
       }
       fn on_changes(value : @js_value.Value) {
-        guard changes_tagger is Some(msg) else { return }
-        scheduler.add(msg(change_deltas_from_value(value)))
+        if include_change_doc {
+          let event = change_event_from_value(value)
+          match changes_tagger {
+            Some(msg) => scheduler.add(msg(event.changes))
+            None => ()
+          }
+          match changes_with_doc_tagger {
+            Some(msg) => scheduler.add(msg(event))
+            None => ()
+          }
+        } else {
+          match changes_tagger {
+            Some(msg) => scheduler.add(msg(change_deltas_from_value(value)))
+            None => ()
+          }
+        }
       }
 
       entry.update_disposable.dispose()
@@ -372,19 +425,30 @@ fn cm_sub_loader(
         on_selection,
         on_focus,
         on_changes,
+        include_doc~,
+        include_change_doc~,
       )
       editors[id] = { ..entry, update_disposable: disposable }
 
       Some({
         unload: fn(_) { disposable.dispose() },
         update_tagger: fn(payload) {
-          guard payload is CmListen(_, doc~, selection~, focus~, changes~) else {
+          guard payload
+            is CmListen(
+              _,
+              doc~,
+              selection~,
+              focus~,
+              changes~,
+              changes_with_doc~
+            ) else {
             return
           }
           doc_tagger = doc
           selection_tagger = selection
           focus_tagger = focus
           changes_tagger = changes
+          changes_with_doc_tagger = changes_with_doc
         },
       })
     }
@@ -689,6 +753,10 @@ pub fn set_line_wrapping(
 /// the existing whole-document `doc` callback untouched. A consumer that only
 /// wants the post-change text keeps using `doc`; one that needs to replay the
 /// transaction as discrete edits subscribes to `on_change`.
+///
+/// `on_change_with_doc` delivers the same transaction together with the
+/// post-transaction document captured by the CodeMirror update listener. It is
+/// intended for delayed consumers that need a stable fallback snapshot.
 #cfg(target="js")
 pub fn listen(
   id : String,
@@ -696,18 +764,35 @@ pub fn listen(
   selection? : @cmd.Emit[SelRange],
   focus? : @cmd.Emit[Bool],
   on_change? : @cmd.Emit[Array[ChangeDelta]],
+  on_change_with_doc? : @cmd.Emit[ChangeEvent],
 ) -> @sub.Sub {
   let has_doc = doc is Some(_)
   let has_selection = selection is Some(_)
   let has_focus = focus is Some(_)
   let has_changes = on_change is Some(_)
+  let has_changes_with_doc = on_change_with_doc is Some(_)
 
-  guard has_doc || has_selection || has_focus || has_changes else { @sub.none }
-  let key = build_listen_key(id, has_doc, has_selection, has_focus, has_changes)
+  guard has_doc ||
+    has_selection ||
+    has_focus ||
+    has_changes ||
+    has_changes_with_doc else {
+    @sub.none
+  }
+  let key = build_listen_key(
+    id, has_doc, has_selection, has_focus, has_changes, has_changes_with_doc,
+  )
   @sub.custom_sub(
     key,
     Local,
-    CmListen(id, doc~, selection~, focus~, changes=on_change),
+    CmListen(
+      id,
+      doc~,
+      selection~,
+      focus~,
+      changes=on_change,
+      changes_with_doc=on_change_with_doc,
+    ),
     cm_sub_loader,
   )
 }

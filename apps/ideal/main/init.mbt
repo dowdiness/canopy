@@ -76,8 +76,8 @@ fn subscriptions(model : Model, emit : Emit[Msg]) -> Sub {
   let cm_events = if model.mounted {
     @cm.listen(
       model.cm_id,
-      doc=emit.map(text => CmDocChanged(text)),
       selection=emit.map(range => CmSelectionChanged(range)),
+      on_change_with_doc=emit.map(event => CmChanges(event)),
     )
   } else {
     @sub.none

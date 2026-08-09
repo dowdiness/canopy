@@ -343,8 +343,10 @@ extern "js" fn js_add_update_listener_raw(
   on_selection : (@js_value.Value) -> Unit,
   on_focus_change : (@js_value.Value) -> Unit,
   on_changes : (@js_value.Value) -> Unit,
+  include_doc : Bool,
+  include_change_doc : Bool,
 ) -> () -> Unit =
-  #| (view, compartment, onDoc, onSelection, onFocusChange, onChanges) => {
+  #| (view, compartment, onDoc, onSelection, onFocusChange, onChanges, includeDoc, includeChangeDoc) => {
   #|   const key = Symbol.for("dowdiness.rabbita_codemirror");
   #|   const slot = globalThis[key];
   #|   const cm = view._cmModule;
@@ -354,9 +356,10 @@ extern "js" fn js_add_update_listener_raw(
   #|   const isApplying = () => !!slot.applying.get(view)?.value;
   #|   const listener = cm.EditorView.updateListener.of(update => {
   #|     if (update.docChanged && !isApplying()) {
-  #|       onDoc(update.state.doc.toString());
-  #|     }
-  #|     if (update.docChanged && !isApplying()) {
+  #|       const changedDoc = (includeDoc || includeChangeDoc)
+  #|         ? update.state.doc.toString()
+  #|         : null;
+  #|       if (includeDoc) onDoc(changedDoc);
   #|       const deltas = [];
   #|       // `individual = true` keeps adjacent changes as separate ranges;
   #|       // the default (false) coalesces neighbours into one merged range,
@@ -364,7 +367,9 @@ extern "js" fn js_add_update_listener_raw(
   #|       update.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
   #|         deltas.push({ from: fromA, to: toA, insert: inserted.toString() });
   #|       }, true);
-  #|       onChanges(deltas);
+  #|       onChanges(includeChangeDoc
+  #|         ? { changes: deltas, doc: changedDoc }
+  #|         : deltas);
   #|     }
   #|     if ((update.selectionSet || update.docChanged) && !isApplying()) {
   #|       const sel = update.state.selection.main;
@@ -416,6 +421,8 @@ pub fn js_add_update_listener(
   on_selection : (@js_value.Value) -> Unit,
   on_focus_change : (@js_value.Value) -> Unit,
   on_changes : (@js_value.Value) -> Unit,
+  include_doc? : Bool = false,
+  include_change_doc? : Bool = false,
 ) -> Disposable {
   Disposable(
     js_add_update_listener_raw(
@@ -425,6 +432,8 @@ pub fn js_add_update_listener(
       on_selection,
       on_focus_change,
       on_changes,
+      include_doc,
+      include_change_doc,
     ),
   )
 }

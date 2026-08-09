@@ -359,25 +359,36 @@ test.describe('Undo / Redo', () => {
     expect(realErrors).toEqual([]);
   });
 
-  test('undo reverts typed text', async ({ page }) => {
+  test('undo and redo round-trip typed text through the CRDT', async ({ page }) => {
     await waitForEditor(page);
-    await page.getByRole('button', { name: 'Basics' }).click();
-    await page.waitForTimeout(200);
 
-    // Type something in the editor
+    const before = await page.evaluate(() => {
+      const bridge = (window as any).__canopy_bridge;
+      return bridge.crdt.get_text(bridge.crdtHandle);
+    });
     await page.evaluate(() => {
       const cm = document.querySelector('#canopy-text-editor .cm-content') as HTMLElement;
       cm?.focus();
     });
     await page.keyboard.press('End');
     await page.keyboard.type('z', { delay: 50 });
-    await page.waitForTimeout(300);
+    const after = await page.evaluate(() => {
+      const bridge = (window as any).__canopy_bridge;
+      return bridge.crdt.get_text(bridge.crdtHandle);
+    });
+    expect(after).not.toBe(before);
 
-    // Undo the typed character via Ctrl+Z in CM6
-    await page.keyboard.press('Control+z');
-    await page.waitForTimeout(300);
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await page.waitForFunction((text) => {
+      const bridge = (window as any).__canopy_bridge;
+      return bridge?.crdt?.get_text(bridge.crdtHandle) === text;
+    }, before);
 
-    // Editor should not crash
+    await page.getByRole('button', { name: 'Redo' }).click();
+    await page.waitForFunction((text) => {
+      const bridge = (window as any).__canopy_bridge;
+      return bridge?.crdt?.get_text(bridge.crdtHandle) === text;
+    }, after);
     await expect(page.getByLabel('Code editor')).toBeVisible();
   });
 });
