@@ -48,14 +48,21 @@ fn rejected_text_selection(
 const RAW_INPUT_DEBOUNCE_MS : Int = 50
 
 ///|
+/// One complete pending batch. Keeping its base, latest browser state, and
+/// count together prevents partially populated coordinator states.
+priv struct PendingRawInput {
+  before_input : RawBeforeInputCandidate
+  source : String
+  post_input_selection : @dom_boundary.TextSelection
+  input_count : Int
+}
+
+///|
 /// Coalesce native textarea events into one delayed, tokenized Raw transaction.
 /// Custom-driver RawInput events bypass this coordinator and remain token-less.
 priv struct RawInputCoordinator {
   unmatched_before_input : @ref.Ref[RawBeforeInputCandidate?]
-  pending_before_input : @ref.Ref[RawBeforeInputCandidate?]
-  pending_source : @ref.Ref[String?]
-  pending_selection : @ref.Ref[@dom_boundary.TextSelection?]
-  pending_count : @ref.Ref[Int]
+  pending : @ref.Ref[PendingRawInput?]
   scheduled : @ref.Ref[Bool]
   schedule_generation : @ref.Ref[Int]
   capture_generation : @ref.Ref[Int]
@@ -72,10 +79,7 @@ fn RawInputCoordinator::RawInputCoordinator(
 ) -> RawInputCoordinator {
   {
     unmatched_before_input: @ref.Ref(None),
-    pending_before_input: @ref.Ref(None),
-    pending_source: @ref.Ref(None),
-    pending_selection: @ref.Ref(None),
-    pending_count: @ref.Ref(0),
+    pending: @ref.Ref(None),
     scheduled: @ref.Ref(false),
     schedule_generation: @ref.Ref(0),
     capture_generation: @ref.Ref(0),
@@ -243,8 +247,8 @@ fn RawInputCoordinator::display_source(
   self : RawInputCoordinator,
   committed_source : String,
 ) -> String {
-  match self.pending_source.val {
-    Some(source) => source
+  match self.pending.val {
+    Some(pending) => pending.source
     None =>
       match self.in_flight_source.val {
         Some(source) => source
@@ -318,8 +322,8 @@ fn RawInputCoordinator::capture_native_before_input(
     self.cancel_pending()
     return @rabbita_runtime.none
   }
-  match self.pending_before_input.val {
-    Some(first) => return self.capture_before_input(first)
+  match self.pending.val {
+    Some(pending) => return self.capture_before_input(pending.before_input)
     None => ()
   }
   let selection = match read_raw_selection() {
@@ -378,18 +382,13 @@ fn RawInputCoordinator::flush(
   emit : @cmd.Emit[DriverEvent],
 ) -> Unit {
   self.scheduled.val = false
-  match
-    (
-      self.pending_before_input.val,
-      self.pending_source.val,
-      self.pending_selection.val,
-    ) {
-    (Some(before_input), Some(source), Some(post_input_selection)) => {
-      self.pending_before_input.val = None
-      self.pending_source.val = None
-      self.pending_selection.val = None
-      let input_count = self.pending_count.val
-      self.pending_count.val = 0
+  match self.pending.val {
+    Some(pending) => {
+      self.pending.val = None
+      let before_input = pending.before_input
+      let source = pending.source
+      let post_input_selection = pending.post_input_selection
+      let input_count = pending.input_count
       let token = self.next_token.val
       self.next_token.val = token + 1
       self.in_flight_token.val = Some(token)
@@ -436,7 +435,7 @@ fn RawInputCoordinator::flush(
         ),
       )
     }
-    _ => self.cancel_pending()
+    None => self.cancel_pending()
   }
 }
 
@@ -484,26 +483,31 @@ fn RawInputCoordinator::enqueue(
     self.cancel_pending()
     return @rabbita_runtime.none
   }
-  match self.pending_before_input.val {
-    Some(first) if first.selection.document_id !=
+  let source = raw_textarea_value(source)
+  let pending = match self.pending.val {
+    Some(pending) if pending.before_input.selection.document_id !=
       before_input.selection.document_id ||
-      first.selection.version != before_input.selection.version => {
+      pending.before_input.selection.version != before_input.selection.version => {
       self.cancel_pending()
       return @rabbita_runtime.none
     }
-    None => self.pending_before_input.val = Some(before_input)
-    Some(_) => ()
-  }
-  if self.pending_count.val == 0 {
-    match self.telemetry {
-      Some(telemetry) =>
-        telemetry.pending_input_received_at.val = Some(raw_input_now_ms())
-      None => ()
+    Some(pending) =>
+      {
+        ..pending,
+        source,
+        post_input_selection,
+        input_count: pending.input_count + 1,
+      }
+    None => {
+      match self.telemetry {
+        Some(telemetry) =>
+          telemetry.pending_input_received_at.val = Some(raw_input_now_ms())
+        None => ()
+      }
+      { before_input, source, post_input_selection, input_count: 1 }
     }
   }
-  self.pending_count.val += 1
-  self.pending_source.val = Some(raw_textarea_value(source))
-  self.pending_selection.val = Some(post_input_selection)
+  self.pending.val = Some(pending)
   self.schedule(emit)
 }
 
@@ -558,10 +562,7 @@ fn RawInputCoordinator::cancel_pending(self : RawInputCoordinator) -> Unit {
   self.capture_generation.val += 1
   self.scheduled.val = false
   self.unmatched_before_input.val = None
-  self.pending_before_input.val = None
-  self.pending_source.val = None
-  self.pending_selection.val = None
-  self.pending_count.val = 0
+  self.pending.val = None
   match self.telemetry {
     Some(telemetry) => {
       telemetry.pending_input_received_at.val = None

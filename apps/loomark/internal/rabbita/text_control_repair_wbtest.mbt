@@ -100,14 +100,14 @@ test "Raw coordinator keeps the first backward base and latest collapsed caret" 
       emit,
     ),
   )
-  guard coordinator.pending_before_input.val is Some(first) else {
+  guard coordinator.pending.val is Some(pending) else {
     fail("first capture must remain the batch base")
   }
-  assert_eq(first.selection.selection.anchor(), 4)
-  assert_eq(first.selection.selection.head(), 2)
-  assert_eq(coordinator.pending_source.val, Some("abxyZef"))
-  assert_eq(coordinator.pending_selection.val.unwrap().start(), 5)
-  assert_eq(coordinator.pending_count.val, 2)
+  assert_eq(pending.before_input.selection.selection.anchor(), 4)
+  assert_eq(pending.before_input.selection.selection.head(), 2)
+  assert_eq(pending.source, "abxyZef")
+  assert_eq(pending.post_input_selection.start(), 5)
+  assert_eq(pending.input_count, 2)
 }
 
 ///|
@@ -149,9 +149,7 @@ test "Raw coordinator discards a batch on version or document mismatch" {
       emit,
     ),
   )
-  assert_true(coordinator.pending_before_input.val is None)
-  assert_true(coordinator.pending_source.val is None)
-  assert_eq(coordinator.pending_count.val, 0)
+  assert_true(coordinator.pending.val is None)
 
   ignore(coordinator.capture_before_input(capture(context.selection(1, 1))))
   ignore(
@@ -172,9 +170,7 @@ test "Raw coordinator discards a batch on version or document mismatch" {
       emit,
     ),
   )
-  assert_true(coordinator.pending_before_input.val is None)
-  assert_true(coordinator.pending_source.val is None)
-  assert_eq(coordinator.pending_count.val, 0)
+  assert_true(coordinator.pending.val is None)
 }
 
 ///|
@@ -207,9 +203,7 @@ test "Raw coordinator input without capture discards a pending batch" {
       emit,
     ),
   )
-  assert_true(coordinator.pending_before_input.val is None)
-  assert_true(coordinator.pending_source.val is None)
-  assert_eq(coordinator.pending_count.val, 0)
+  assert_true(coordinator.pending.val is None)
 }
 
 ///|
@@ -236,9 +230,7 @@ test "Raw coordinator discards a composition-intermediate capture" {
     ),
   )
   assert_true(coordinator.unmatched_before_input.val is None)
-  assert_true(coordinator.pending_before_input.val is None)
-  assert_true(coordinator.pending_source.val is None)
-  assert_eq(coordinator.pending_count.val, 0)
+  assert_true(coordinator.pending.val is None)
 }
 
 ///|
@@ -276,8 +268,11 @@ test "Raw coordinator capture expiry clears only an unmatched capture" {
   let generation = coordinator.capture_generation.val
   coordinator.expire_before_input(generation)
   assert_true(coordinator.unmatched_before_input.val is None)
-  assert_eq(coordinator.pending_source.val, Some("aXbc"))
-  assert_eq(coordinator.pending_count.val, 1)
+  guard coordinator.pending.val is Some(pending) else {
+    fail("capture expiry must preserve the pending batch")
+  }
+  assert_eq(pending.source, "aXbc")
+  assert_eq(pending.input_count, 1)
 }
 
 ///|
@@ -318,10 +313,7 @@ test "Raw coordinator cancel clears all state and invalidates capture expiry" {
   coordinator.cancel_pending()
   coordinator.expire_before_input(expiry_generation)
   assert_true(coordinator.unmatched_before_input.val is None)
-  assert_true(coordinator.pending_before_input.val is None)
-  assert_true(coordinator.pending_source.val is None)
-  assert_true(coordinator.pending_selection.val is None)
-  assert_eq(coordinator.pending_count.val, 0)
+  assert_true(coordinator.pending.val is None)
   assert_true(coordinator.in_flight_token.val is None)
   assert_true(coordinator.in_flight_source.val is None)
   assert_false(coordinator.scheduled.val)
