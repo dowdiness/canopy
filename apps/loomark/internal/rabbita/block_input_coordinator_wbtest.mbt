@@ -287,6 +287,109 @@ test "Block input cancellation cannot collide with an emitted delivery" {
 }
 
 ///|
+test "Fatal-state rejection cancels active Block input" {
+  let context = BlockInputTestContext::BlockInputTestContext(
+    "fatal-rejection-block-input-test", "x",
+  )
+  let model = {
+    ..context.block_model_with_editor_failure(context.document_id),
+    fatal: true,
+  }
+  let coordinator = BlockInputCoordinator::BlockInputCoordinator()
+  let (state, schedule) = coordinator.state.val.enqueue(
+    context.caret_input("xy", 2),
+  )
+  let (state, delivery) = state.flush(schedule)
+  coordinator.state.val = state
+  guard delivery is Some(delivery) else {
+    fail("the Block input must be active before fatal rejection")
+  }
+  let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
+  let latest_model : @ref.Ref[DriverModel?] = @ref.Ref(Some(model))
+
+  let (next, _) = try! update_model(
+    context.editor,
+    context.attachment,
+    RawInputCoordinator::RawInputCoordinator(None),
+    coordinator,
+    model,
+    latest_model,
+    Editing(BlockInput(token=delivery.token, input=delivery.input)),
+    emit,
+  )
+
+  assert_true(next.fatal)
+  assert_eq(next.document.source(), "x")
+  assert_eq(next.document_version, model.document_version)
+  assert_eq(next.source_revision, model.source_revision)
+  assert_eq(next.committed_change_count, model.committed_change_count)
+  assert_true(next.fail_next_editor_commit)
+  assert_eq(next.rejection, Some("operation=block-input;reason=fatal-state"))
+  assert_false(coordinator.state.val.is_active(delivery.token))
+  assert_true(coordinator.state.val.pending is None)
+  assert_true(coordinator.state.val.in_flight is None)
+  assert_eq(
+    coordinator.display_text(
+      document_id=context.document_id,
+      version=context.editor.version(),
+      node_id=context.node_id,
+      input_id="loomark-block-input",
+      committed_text="x",
+    ),
+    "x",
+  )
+}
+
+///|
+test "Entering fatal state cancels pending and active Block input" {
+  let context = BlockInputTestContext::BlockInputTestContext(
+    "fatal-transition-block-input-test", "x",
+  )
+  let model = {
+    ..test_model(try! context.editor.snapshot(), context.editor.version()),
+    state: @core.ApplicationState::ApplicationState(@core.Block),
+    document_id: context.document_id,
+  }
+  let coordinator = BlockInputCoordinator::BlockInputCoordinator()
+  let (state, active_schedule) = coordinator.state.val.enqueue(
+    context.caret_input("xy", 2),
+  )
+  let (state, active_delivery) = state.flush(active_schedule)
+  guard active_delivery is Some(active_delivery) else {
+    fail("the first Block input must be active before fatal transition")
+  }
+  let (state, pending_schedule) = state.enqueue(context.caret_input("xyz", 3))
+  coordinator.state.val = state
+  let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
+  let latest_model : @ref.Ref[DriverModel?] = @ref.Ref(Some(model))
+
+  let (next, _) = try! update_model(
+    context.editor,
+    context.attachment,
+    RawInputCoordinator::RawInputCoordinator(None),
+    coordinator,
+    model,
+    latest_model,
+    Lifecycle(Fatal("boom")),
+    emit,
+  )
+
+  assert_true(next.fatal)
+  assert_eq(next.error, Some("boom"))
+  assert_eq(next.document.source(), "x")
+  assert_eq(next.document_version, model.document_version)
+  assert_eq(next.source_revision, model.source_revision)
+  assert_eq(next.committed_change_count, model.committed_change_count)
+  assert_false(coordinator.state.val.is_active(active_delivery.token))
+  assert_true(coordinator.state.val.pending is None)
+  assert_true(coordinator.state.val.in_flight is None)
+  let (_, delayed_delivery) = coordinator.state.val.flush(pending_schedule)
+  guard delayed_delivery is None else {
+    fail("a pre-fatal Block schedule must remain cancelled")
+  }
+}
+
+///|
 test "Block input check rejects a changed document or version before commit" {
   let context = BlockInputTestContext::BlockInputTestContext(
     "block-input-check-test", "x",
