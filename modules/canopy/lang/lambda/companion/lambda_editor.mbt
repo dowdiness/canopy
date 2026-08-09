@@ -58,39 +58,17 @@ let lambda_language : @lang_runtime.Language[
     (cached_proj_node, registry_memo, source_map_memo, companion)
   },
   edit=(op, ctx) => {
-    match op {
-      @lambda_edits.TreeEditOp::Drop(source~, target~, position~) => {
-        let (source_node, source_range) = ctx.resolve(source)
-        let (_, target_range) = ctx.resolve(target)
-        let (edits, focus_hint) = @core.compute_move(
-          ctx.source_text,
-          source,
-          source_range,
-          target,
-          target_range,
-          position,
-          @loom_core.Renderable::placeholder(source_node.kind),
-          " ",
-        )
+    match @lambda_edits.compute_text_edit(op, ctx) {
+      Some((edits, focus_hint)) =>
         @lang_runtime.EditResult::Edits(
           edits,
           focus_hint,
-          Some(@core.IdentityTransform::Opaque),
+          Some(op.to_identity_transform(id => ctx.registry.get(id))),
         )
-      }
-      _ =>
-        match @lambda_edits.compute_text_edit(op, ctx) {
-          Some((edits, focus_hint)) =>
-            @lang_runtime.EditResult::Edits(
-              edits,
-              focus_hint,
-              Some(op.to_identity_transform(id => ctx.registry.get(id))),
-            )
-          None =>
-            raise @core.EditError::UnsupportedOperation(
-              detail="Unhandled tree edit op: " + op.to_string(),
-            )
-        }
+      None =>
+        raise @core.EditError::UnsupportedOperation(
+          detail="Unhandled tree edit op: " + op.to_string(),
+        )
     }
   },
   capabilities=build_lambda_capabilities,

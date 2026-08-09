@@ -26,6 +26,8 @@ Re-exported from `lang/lambda/companion`:
 - `get_lambda_ast`, `get_lambda_ast_pretty`, `get_lambda_resolution`,
   `get_lambda_dot_resolved`
 - `parse_tree_edit_op`
+- `structural_edit_op_to_tree_edit`, `snapshot_span_edits`,
+  `detect_action_context`
 
 Re-exported from `lang/lambda/eval`:
 
@@ -62,6 +64,6 @@ and was removed. Lambda's editor-facing projection memos now live in
 `lang/lambda/proj` via `build_lambda_projection_memos`, a thin wrapper around
 `@core.build_projection_memos`. Lambda now uses the shared
 `Language[Term, TreeEditOp, LambdaCompanion]` SPI; its public apply function is
-a thin wrapper over `Language::apply_edit`, and Drop plans through
-`core.compute_move`. See
-`docs/decisions/2026-08-07-generic-language-spi-deepening.md`.
+a thin wrapper over `Language::apply_edit`.
+Lambda `Drop` semantics are defined in the canonical
+[`move-contract.md`](../../../../docs/development/move-contract.md).

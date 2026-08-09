@@ -21,7 +21,9 @@ These operations do not modify the document text.
 - **CancelEdit**: Exit inline editing without saving changes.
 
 ### Structural Refactoring
-These operations trigger a full round-trip: they modify the ProjNode tree, unparse to text, and update the CRDT.
+These operations are planned by the language edit port as typed `SpanEdit`
+patches. The generic `Language::apply_edit` path applies those patches through
+the text CRDT and then refreshes the projection.
 
 - **Delete (`node_id`)**: Remove a node from the tree.
   - *Example:* Deleting `x` from `f x` results in `f`.
@@ -34,13 +36,18 @@ These operations trigger a full round-trip: they modify the ProjNode tree, unpar
 ### Drag and Drop
 - **StartDrag (`node_id`)**: Initiate a move operation.
 - **DragOver (`target_id`, `position`)**: Preview the drop location (`Before`, `After`, or `Inside`).
-- **Drop (`source_id`, `target_id`, `position`)**: Perform the move. This effectively deletes the source and inserts it at the target location.
+- **Drop (`source_id`, `target_id`, `position`)**: Compute and apply a
+  language-owned move. See [`move-contract.md`](move-contract.md) for the
+  canonical position, legality, and backend semantics.
 
-## Operational Workflow: The Round-Trip
+## Operational Workflow: The Edit Port
 
 When a structural edit is performed:
-1.  The `TreeEditOp` is applied to the current `ProjNode` tree.
-2.  The resulting `ProjNode` is unparsed back into a Lambda Calculus string.
-3.  The `SyncEditor` performs a diff between the old and new text.
-4.  Minimal CRDT operations are generated and applied to the `TextState`.
-5.  The incremental parser reparses the text, and the `SourceMap` reconciles the new AST with existing `NodeId`s to preserve UI state.
+1. The `TreeEditOp` is sent to the language edit port with the current source
+   text, source map, registry, and projection context.
+2. The language computes typed `SpanEdit` patches and an optional focus hint.
+3. `Language::apply_edit` applies the patches through
+   `SyncEditor::apply_span_edits`, recording the change in the CRDT and undo
+   history.
+4. The incremental parser reparses the text, and the `SourceMap` reconciles the
+   new AST with existing `NodeId`s to preserve UI state.

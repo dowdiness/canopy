@@ -83,13 +83,19 @@ fn ensure_replaceable_node_range(
 
 ///|
 /// Compute (start, length) for deleting a binding line, consuming
-/// the adjacent newline if present (trailing preferred, else leading).
+/// the adjacent newline if present. Trailing newline is the default; callers
+/// moving a row across an earlier target can prefer the leading newline so
+/// concurrent row edits retain a line separator at the source site.
 fn binding_delete_range(
   source_text : String,
   let_start : Int,
   binding_end : Int,
+  prefer_leading? : Bool = false,
 ) -> (Int, Int) {
-  if binding_end < source_text.length() && source_text[binding_end] == '\n' {
+  if prefer_leading && let_start > 0 && source_text[let_start - 1] == '\n' {
+    (let_start - 1, binding_end - let_start + 1)
+  } else if binding_end < source_text.length() &&
+    source_text[binding_end] == '\n' {
     (let_start, binding_end - let_start + 1)
   } else if let_start > 0 && source_text[let_start - 1] == '\n' {
     (let_start - 1, binding_end - let_start + 1)

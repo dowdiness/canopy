@@ -6,11 +6,11 @@ internals.
 
 **Primary example:** Markdown (uses CstFold, 3-memo pattern, clean structure).
 
-> **Don't follow the Lambda pattern.** Lambda predates CstFold and keeps a
-> custom editor-coupled edit bridge. It's the oldest language integration and
-> carries historical complexity even though its projection now uses the generic
-> 3-memo stack. Use Markdown as your reference; consult JSON where patterns
-> differ.
+> **Don't follow the Lambda pattern.** Lambda predates CstFold and retains
+> language-specific legacy edit policies for root binding rows and expressions.
+> It now uses the generic `Language` SPI, but its historical surface remains
+> more complex than a new language integration. Use Markdown as your reference;
+> consult JSON where patterns differ.
 
 ## How it fits together
 
@@ -421,12 +421,12 @@ pub fn new_my_editor(
 
 > **The lambda exception is gone (ADR 2026-08-07).** `lang/lambda/companion`
 > previously kept its own bridge because the SPI could not express typed
-> errors, patch traces, or editor-owned moves. The deepened SPI absorbs all
-> of these: `Language::apply_edit` returns the applied `SpanEdit` trace and
-> structured `EditError`, and moves are edit-port computation (`compute_move`
-> / `compute_move_block`). Lambda uses `Language`; it remains a legacy stress
-> case, not a template. Do not fork a separate bridge for a
-> new language.
+> errors, patch traces, or editor-owned moves. The deepened SPI absorbs all of
+> these: `Language::apply_edit` returns the applied `SpanEdit` trace and
+> structured `EditError`, and moves are edit-port computation
+> (`compute_text_edit` / `compute_move` / `compute_move_block`). Lambda uses
+> `Language`; it remains a legacy stress case, not a template. Do not fork a
+> separate bridge for a new language.
 
 **Package registration:**
 

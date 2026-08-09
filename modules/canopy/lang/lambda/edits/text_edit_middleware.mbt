@@ -56,7 +56,9 @@ fn extract_primary_node_id(op : TreeEditOp) -> NodeId? {
     | ExtractToLet(node_id~, ..)
     | InlineDefinition(node_id~)
     | Rename(node_id~, ..) => Some(node_id)
-    Drop(source~, ..) => Some(source)
+    // Drop resolves both IDs in compute_drop so missing-node errors retain
+    // the shared Resolve action instead of validating only the source here.
+    Drop(..) => None
     InsertChild(parent~, ..) => Some(parent)
     DeleteBinding(binding_node_id~)
     | DuplicateBinding(binding_node_id~)
