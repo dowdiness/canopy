@@ -18,6 +18,17 @@ fn commit_phase_source(block_count : Int) -> String {
 }
 
 ///|
+fn commit_phase_sentinel_dense_source(block_count : Int) -> String {
+  Array::makei(block_count, index => {
+    if index % 2 == 0 {
+      "\u{200B}\n"
+    } else {
+      "Paragraph 😀 " + index.to_string() + " keeps A\u{200B}B visible.\n"
+    }
+  }).join("\n")
+}
+
+///|
 fn commit_phase_variant(source : String, tick : Int) -> String {
   let suffix = if tick % 2 == 0 { "x" } else { "" }
   source + suffix
@@ -171,6 +182,56 @@ test "perf: MarkdownEditor commit with receipt (250 blocks)" (b : @bench.T) {
     }
     tick += 1
     b.keep(result)
+  })
+}
+
+///|
+test "perf: MarkdownEditor structural receipt (250 blocks)" (b : @bench.T) {
+  let editor = commit_phase_editor(commit_phase_source(250))
+  let heading = editor.snapshot().blocks().to_array()[0].node_id()
+  let mut changed = false
+  b.bench(() => {
+    let new_text = if changed { "Heading 0 changed" } else { "Heading 0" }
+    let receipt = editor.commit_with_receipt(
+      MarkdownEditRequest::CommitEdit(node_id=heading, new_text~),
+    ) catch {
+      error => abort("structural receipt benchmark raised: \{error}")
+    }
+    changed = !changed
+    match receipt {
+      Ok(receipt) => b.keep(receipt)
+      Err(_) => abort("structural receipt benchmark failed")
+    }
+  })
+}
+
+///|
+test "perf: sentinel-dense structural receipt (250 blocks)" (b : @bench.T) {
+  let editor = commit_phase_editor(commit_phase_sentinel_dense_source(250))
+  let blocks = editor.snapshot().blocks().to_array()
+  let paragraph = blocks[blocks.length() - 1].node_id()
+  let original = "Paragraph 😀 249 keeps A\u{200B}B visible."
+  let changed_text = "Paragraph 😀 249 changed A\u{200B}B visibly."
+  match
+    editor.commit(
+      MarkdownEditRequest::CommitEdit(node_id=paragraph, new_text=changed_text),
+    ) {
+    Ok(result) => b.keep(result)
+    Err(_) => abort("sentinel-dense structural receipt prime failed")
+  }
+  let mut changed = true
+  b.bench(() => {
+    let new_text = if changed { original } else { changed_text }
+    let receipt = editor.commit_with_receipt(
+      MarkdownEditRequest::CommitEdit(node_id=paragraph, new_text~),
+    ) catch {
+      error => abort("sentinel-dense structural receipt raised: \{error}")
+    }
+    changed = !changed
+    match receipt {
+      Ok(receipt) => b.keep(receipt)
+      Err(_) => abort("sentinel-dense structural receipt failed")
+    }
   })
 }
 

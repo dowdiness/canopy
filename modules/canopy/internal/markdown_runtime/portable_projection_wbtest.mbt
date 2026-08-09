@@ -252,6 +252,41 @@ test "edit projection rejects a valid but non-representable metadata transition"
 }
 
 ///|
+test "coordinate map collapses only validated hidden UTF-16 ranges" {
+  let coordinates = make_portable_coordinate_map("😀\u{200B}A\u{200B}B", [
+    @loom.Range::new(2, 3),
+  ]).unwrap()
+  assert_eq(coordinates.source(), "😀A\u{200B}B")
+  assert_eq(coordinates.project_offset(0), Ok(0))
+  assert_eq(coordinates.project_offset(2), Ok(2))
+  assert_eq(coordinates.project_offset(3), Ok(2))
+  assert_eq(coordinates.project_offset(6), Ok(5))
+  assert_eq(coordinates.project_range(2, 3), Ok((2, 2)))
+  assert_eq(coordinates.project_range(0, 6), Ok((0, 5)))
+}
+
+///|
+test "coordinate map rejects invalid canonical offsets and ranges" {
+  let coordinates = make_portable_coordinate_map("abc", []).unwrap()
+  assert_eq(
+    coordinates.project_offset(-1),
+    Err(PortableProjectionError::InvalidCoordinateRange),
+  )
+  assert_eq(
+    coordinates.project_offset(4),
+    Err(PortableProjectionError::InvalidCoordinateRange),
+  )
+  assert_eq(
+    coordinates.project_range(2, 1),
+    Err(PortableProjectionError::InvalidCoordinateRange),
+  )
+  assert_eq(
+    coordinates.project_range(0, 4),
+    Err(PortableProjectionError::InvalidCoordinateRange),
+  )
+}
+
+///|
 fn expect_source_error(
   result : Result[String, PortableProjectionError],
   expected : PortableProjectionError,

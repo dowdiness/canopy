@@ -167,11 +167,16 @@ test "portable commit transaction keeps source equality distinct from history" {
       ),
       0,
     ) {
-    Ok(PortableCommitOutcome::Unchanged(source~)) => {
-      assert_eq(source, "Same\n")
+    Ok(PortableCommitOutcome::Applied(commit)) => {
+      assert_eq(commit.before(), "Same\n")
+      assert_eq(commit.after(), "Same\n")
+      assert_eq(
+        apply_span_edit(commit.before(), commit.transform()),
+        commit.after(),
+      )
       assert_true(editor.get_version() != version_before)
     }
-    _ => fail("expected source-unchanged commit classification")
+    _ => fail("expected committed source-equal transform evidence")
   }
 }
 

@@ -3,10 +3,85 @@
 pub enum PortableProjectionError {
   InvalidHiddenRange
   OverlappingHiddenRanges
+  InvalidCoordinateRange
   InvalidEditRange
   CanonicalAfterSourceMismatch
   NonRepresentable
 } derive(Debug, Eq)
+
+///|
+/// An immutable canonical-to-portable coordinate projection. Its canonical
+/// source and private hidden ranges remain inside the Markdown runtime.
+pub struct PortableCoordinateMap {
+  priv canonical : String
+  priv portable : String
+  priv hidden : Array[@loom.Range]
+} derive(Debug, Eq)
+
+///|
+pub fn PortableCoordinateMap::source(self : Self) -> String {
+  self.portable
+}
+
+///|
+/// Collapse one canonical UTF-16 offset onto its sentinel-free position.
+pub fn PortableCoordinateMap::project_offset(
+  self : Self,
+  offset : Int,
+) -> Result[Int, PortableProjectionError] {
+  if offset < 0 || offset > self.canonical.length() {
+    return Err(PortableProjectionError::InvalidCoordinateRange)
+  }
+  Ok(offset - hidden_width(self.hidden, 0, offset))
+}
+
+///|
+/// Project one canonical half-open UTF-16 range without exposing hidden spans.
+pub fn PortableCoordinateMap::project_range(
+  self : Self,
+  start : Int,
+  end : Int,
+) -> Result[(Int, Int), PortableProjectionError] {
+  if start < 0 || end < start || end > self.canonical.length() {
+    return Err(PortableProjectionError::InvalidCoordinateRange)
+  }
+  Ok(
+    (
+      start - hidden_width(self.hidden, 0, start),
+      end - hidden_width(self.hidden, 0, end),
+    ),
+  )
+}
+
+///|
+/// Project one accepted canonical edit between two validated coordinate maps.
+pub fn PortableCoordinateMap::project_edit(
+  self : Self,
+  edit : @core.SpanEdit,
+  after : PortableCoordinateMap,
+) -> Result[@core.SpanEdit, PortableProjectionError] {
+  project_markdown_edit(
+    self.canonical,
+    self.hidden,
+    edit,
+    after.canonical,
+    after.hidden,
+  )
+}
+
+///|
+/// Validate and own one coordinate map without retaining caller-owned arrays.
+fn make_portable_coordinate_map(
+  canonical : String,
+  hidden : ArrayView[@loom.Range],
+) -> Result[PortableCoordinateMap, PortableProjectionError] {
+  let hidden = match normalize_hidden_ranges(canonical, hidden) {
+    Ok(ranges) => ranges
+    Err(error) => return Err(error)
+  }
+  let portable = project_normalized_source(canonical, hidden)
+  Ok({ canonical, portable, hidden })
+}
 
 ///|
 /// Project canonical source text by removing the supplied private ranges.

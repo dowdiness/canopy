@@ -33,6 +33,7 @@ pub(all) suberror MarkdownEditorError {
   ProjectionUnavailable
   InvalidTextRange(start~ : Int, delete_len~ : Int, source_length~ : Int)
   EditFailed(detail~ : String)
+  Committed(evidence~ : MarkdownCommittedEvidence, issue~ : MarkdownPostCommitIssue)
 }
 
 pub(all) suberror MarkdownHistoryCodecError {
@@ -103,6 +104,12 @@ pub(all) enum MarkdownCommitResult {
   Unchanged(MarkdownDocumentSnapshot)
 } derive(Eq, @debug.Debug)
 
+pub struct MarkdownCommittedEvidence {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn MarkdownCommittedEvidence::after(Self) -> String?
+pub fn MarkdownCommittedEvidence::before(Self) -> String
+
 pub struct MarkdownDocumentHistory {
   // private fields
 }
@@ -163,6 +170,13 @@ pub struct MarkdownNodeId {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn MarkdownNodeId::key(Self) -> String
+
+pub(all) enum MarkdownPostCommitIssue {
+  RuntimeFailure(detail~ : String)
+  ProjectionUnavailable
+  ProjectionFailed
+  UnexpectedTransformCount(count~ : Int)
+} derive(Eq, @debug.Debug)
 
 pub struct MarkdownProjectionSnapshot {
   // private fields

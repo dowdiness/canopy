@@ -1115,7 +1115,7 @@ test("clearing the only Block keeps an empty control editable", async ({ browser
     await input.fill("")
     await expect(input).toHaveValue("")
     await expect(host.page.locator("[data-loomark-block-id]")).toHaveCount(1)
-    await expect.poll(async () => (await snapshot(host.page)).source).toBe("\u200B\n")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("\n")
     await input.fill("Again")
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("Again\n")
   } finally {

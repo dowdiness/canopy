@@ -2379,6 +2379,15 @@ fn build_application(
         publish(next, Some(raw_input_coordinator), None)
         (next, command)
       }
+      @markdown.MarkdownEditorError::Committed(..) as committed => {
+        raw_input_coordinator.cancel_pending()
+        block_input_coordinator.cancel_pending()
+        let (next, command) = recover_after_parser_failure(
+          current_session, model, committed, emit,
+        )
+        publish(next, Some(raw_input_coordinator), None)
+        (next, command)
+      }
       error => {
         raw_input_coordinator.cancel_pending()
         block_input_coordinator.cancel_pending()

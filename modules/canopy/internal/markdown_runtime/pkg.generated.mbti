@@ -12,6 +12,8 @@ import {
 // Values
 pub fn apply_edit(@editor.SyncEditor[@markdown.Block], @edits.MarkdownEditOp, Int) -> Result[Array[@dowdiness/canopy/core.SpanEdit], @dowdiness/canopy/core.EditError] raise Failure
 
+pub fn capture_portable_coordinates(@editor.SyncEditor[@markdown.Block]) -> Result[PortableCoordinateMap, PortableCommitIssue]
+
 pub fn commit_portable_edit(@editor.SyncEditor[@markdown.Block], @edits.MarkdownEditOp, Int) -> Result[PortableCommitOutcome, PortableCommitError]
 
 pub fn export_markdown_text(@editor.SyncEditor[@markdown.Block]) -> String
@@ -59,9 +61,18 @@ pub(all) enum PortableCommitOutcome {
   Committed(evidence~ : PortableCommitEvidence, issue~ : PortableCommitIssue)
 }
 
+pub struct PortableCoordinateMap {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn PortableCoordinateMap::project_edit(Self, @dowdiness/canopy/core.SpanEdit, Self) -> Result[@dowdiness/canopy/core.SpanEdit, PortableProjectionError]
+pub fn PortableCoordinateMap::project_offset(Self, Int) -> Result[Int, PortableProjectionError]
+pub fn PortableCoordinateMap::project_range(Self, Int, Int) -> Result[(Int, Int), PortableProjectionError]
+pub fn PortableCoordinateMap::source(Self) -> String
+
 pub enum PortableProjectionError {
   InvalidHiddenRange
   OverlappingHiddenRanges
+  InvalidCoordinateRange
   InvalidEditRange
   CanonicalAfterSourceMismatch
   NonRepresentable
