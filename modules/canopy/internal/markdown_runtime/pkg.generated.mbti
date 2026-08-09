@@ -12,6 +12,8 @@ import {
 // Values
 pub fn apply_edit(@editor.SyncEditor[@markdown.Block], @edits.MarkdownEditOp, Int) -> Result[Array[@dowdiness/canopy/core.SpanEdit], @dowdiness/canopy/core.EditError] raise Failure
 
+pub fn commit_portable_edit(@editor.SyncEditor[@markdown.Block], @edits.MarkdownEditOp, Int) -> Result[PortableCommitOutcome, PortableCommitError]
+
 pub fn export_markdown_text(@editor.SyncEditor[@markdown.Block]) -> String
 
 pub fn new_editor(String, capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime) -> @editor.SyncEditor[@markdown.Block] raise
@@ -23,6 +25,40 @@ pub fn project_markdown_edit(String, ArrayView[@dowdiness/loom/core.Range], @dow
 // Errors
 
 // Types and methods
+pub struct PortableCommit {
+  before : String
+  after : String
+  transform : @dowdiness/canopy/core.SpanEdit
+} derive(Eq, @debug.Debug)
+pub fn PortableCommit::after(Self) -> String
+pub fn PortableCommit::before(Self) -> String
+pub fn PortableCommit::transform(Self) -> @dowdiness/canopy/core.SpanEdit
+
+pub(all) enum PortableCommitError {
+  NotCommitted(issue~ : PortableCommitIssue)
+  EditRejected(error~ : @dowdiness/canopy/core.EditError)
+}
+
+pub struct PortableCommitEvidence {
+  before : String
+  after : String?
+} derive(Eq, @debug.Debug)
+pub fn PortableCommitEvidence::after(Self) -> String?
+pub fn PortableCommitEvidence::before(Self) -> String
+
+pub(all) enum PortableCommitIssue {
+  RuntimeFailure(detail~ : String)
+  ProjectionUnavailable
+  ProjectionFailed(error~ : PortableProjectionError)
+  UnexpectedTransformCount(count~ : Int)
+} derive(Eq, @debug.Debug)
+
+pub(all) enum PortableCommitOutcome {
+  Applied(PortableCommit)
+  Unchanged(source~ : String)
+  Committed(evidence~ : PortableCommitEvidence, issue~ : PortableCommitIssue)
+}
+
 pub enum PortableProjectionError {
   InvalidHiddenRange
   OverlappingHiddenRanges
