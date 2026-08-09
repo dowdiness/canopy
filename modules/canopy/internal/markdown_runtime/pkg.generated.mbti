@@ -2,23 +2,34 @@
 package "dowdiness/canopy/internal/markdown_runtime"
 
 import {
-  "dowdiness/canopy/core",
   "dowdiness/canopy/editor",
   "dowdiness/canopy/lang/markdown/edits",
   "dowdiness/incr/cells",
   "dowdiness/markdown",
+  "moonbitlang/core/debug",
 }
 
 // Values
-pub fn apply_edit(@editor.SyncEditor[@markdown.Block], @edits.MarkdownEditOp, Int) -> Result[Array[@core.SpanEdit], @core.EditError] raise Failure
+pub fn apply_edit(@editor.SyncEditor[@markdown.Block], @edits.MarkdownEditOp, Int) -> Result[Array[@dowdiness/canopy/core.SpanEdit], @dowdiness/canopy/core.EditError] raise Failure
+
+pub fn export_markdown_text(@editor.SyncEditor[@markdown.Block]) -> String
 
 pub fn new_editor(String, capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime) -> @editor.SyncEditor[@markdown.Block] raise
 
 pub fn new_editor_with_semantic_attachment(String, capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime) -> (@editor.SyncEditor[@markdown.Block], @markdown.MarkdownSemanticAttachment) raise
 
+pub fn project_markdown_edit(String, ArrayView[@dowdiness/loom/core.Range], @dowdiness/canopy/core.SpanEdit, String, ArrayView[@dowdiness/loom/core.Range]) -> Result[@dowdiness/canopy/core.SpanEdit, PortableProjectionError]
+
 // Errors
 
 // Types and methods
+pub enum PortableProjectionError {
+  InvalidHiddenRange
+  OverlappingHiddenRanges
+  InvalidEditRange
+  CanonicalAfterSourceMismatch
+  NonRepresentable
+} derive(Eq, @debug.Debug)
 
 // Type aliases
 
