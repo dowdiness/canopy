@@ -103,8 +103,9 @@ pub fn TreeEditOp::to_generic(self : TreeEditOp) -> @core.GenericTreeOp {
 /// standard LCS reconciliation — never produces wrong identity (T3).
 ///
 /// `Language::apply_edit` now owns every application path, including empty
-/// edit batches. Lambda `Drop` bypasses this mapper because its edit-port arm
-/// supplies `Opaque` explicitly alongside `core.compute_move`.
+/// edit batches. Lambda `Drop` uses this mapper after its edit port chooses
+/// the binding-row or expression-level span policy; both intentionally use
+/// `Opaque`.
 pub fn TreeEditOp::to_identity_transform(
   self : TreeEditOp,
   get_node : (@core.NodeId) -> @core.ProjNode[@ast.Term]?,

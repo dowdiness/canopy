@@ -16,7 +16,6 @@ import {
   "dowdiness/lambda/ast",
   "dowdiness/lambda/typecheck",
   "dowdiness/loom",
-  "dowdiness/loom/core" @loom_core,
   "dowdiness/pretty",
   "dowdiness/seam",
   "moonbitlang/core/debug",

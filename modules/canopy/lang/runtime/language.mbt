@@ -9,8 +9,8 @@
 //     of the apply path,
 //   - makes per-op identity hints first-class in the edit result,
 //   - keeps the edit-port signature uniform so moves are ordinary edit
-//     computation (Lambda `Drop` via `compute_move`, Markdown `MoveBlock`
-//     via `compute_move_block`).
+//     computation (Lambda `Drop` selects its binding-row or `compute_move`
+//     policy, Markdown `MoveBlock` uses `compute_move_block`).
 //
 // Closure record rather than a trait: MoonBit traits are Self-based without
 // type parameters, and the orphan rule blocks downstream impls — closures
