@@ -80,6 +80,12 @@ fn raw_selection_edit_rejection_reason(
 }
 
 ///|
+/// Exact value exposed by an HTML textarea after assigning canonical source.
+fn raw_textarea_value(source : String) -> String {
+  source.replace_all(old="\r\n", new="\n").replace_all(old="\r", new="\n")
+}
+
+///|
 /// Number of canonical UTF-16 units represented by one textarea value unit.
 /// HTML textareas normalize CRLF and lone CR line endings to one LF.
 fn raw_textarea_source_step(source : String, source_offset : Int) -> Int {
