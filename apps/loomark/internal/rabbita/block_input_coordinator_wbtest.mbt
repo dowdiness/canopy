@@ -156,6 +156,219 @@ test "Block input batching keeps the latest input and ignores an old schedule" {
 }
 
 ///|
+test "Block composition keeps intermediate DOM state out of pending input" {
+  let context = BlockInputTestContext::BlockInputTestContext(
+    "block-composition-intermediate", "start",
+  )
+  let coordinator = BlockInputCoordinator::BlockInputCoordinator()
+  assert_true(coordinator.begin_composition(context.caret_input("start", 5)))
+  assert_true(
+    coordinator.update_composition(
+      "loomark-block-input",
+      "start漢",
+      @dom_boundary.TextSelection(6, 6, @dom_boundary.NoDirection),
+    ),
+  )
+
+  assert_eq(
+    coordinator.display_text(
+      document_id=context.document_id,
+      version=context.editor.version(),
+      node_id=context.node_id,
+      input_id="loomark-block-input",
+      committed_text="start",
+    ),
+    "start漢",
+  )
+  assert_true(coordinator.state.val.pending is None)
+  assert_true(coordinator.state.val.in_flight is None)
+}
+
+///|
+test "Block composition end delivers changed text immediately with its caret" {
+  let context = BlockInputTestContext::BlockInputTestContext(
+    "block-composition-final", "start",
+  )
+  let coordinator = BlockInputCoordinator::BlockInputCoordinator()
+  assert_true(coordinator.begin_composition(context.caret_input("start", 5)))
+  assert_true(
+    coordinator.update_composition(
+      "loomark-block-input",
+      "start漢",
+      @dom_boundary.TextSelection(6, 6, @dom_boundary.NoDirection),
+    ),
+  )
+  let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
+  ignore(coordinator.finish_composition("loomark-block-input", "start", emit))
+
+  guard coordinator.state.val.composition is None else {
+    fail("composition must be cleared at compositionend")
+  }
+  guard coordinator.state.val.pending is None else {
+    fail("immediate composition delivery must not remain pending")
+  }
+  guard coordinator.state.val.in_flight is Some(delivery) else {
+    fail("changed composition must become active immediately")
+  }
+  assert_eq(delivery.input.text, "start漢")
+  assert_eq(delivery.input.selection.start(), 6)
+  assert_eq(delivery.input.selection.end(), 6)
+}
+
+///|
+test "Block composition ignores one same-value final input while delivery is active" {
+  let context = BlockInputTestContext::BlockInputTestContext(
+    "block-composition-duplicate-final", "start",
+  )
+  let coordinator = BlockInputCoordinator::BlockInputCoordinator()
+  let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
+  assert_true(coordinator.begin_composition(context.caret_input("start", 5)))
+  assert_true(
+    coordinator.update_composition(
+      "loomark-block-input",
+      "start漢",
+      @dom_boundary.TextSelection(6, 6, @dom_boundary.NoDirection),
+    ),
+  )
+  ignore(coordinator.finish_composition("loomark-block-input", "start", emit))
+
+  ignore(coordinator.enqueue(context.caret_input("start漢", 6), emit))
+
+  assert_true(coordinator.state.val.pending is None)
+  guard coordinator.state.val.in_flight is Some(delivery) else {
+    fail("the original composition delivery must remain active")
+  }
+  assert_eq(delivery.token, 0)
+  assert_eq(delivery.input.text, "start漢")
+}
+
+///|
+test "Block input keeps latest same-value text after a different pending value" {
+  let context = BlockInputTestContext::BlockInputTestContext(
+    "block-latest-same-as-active", "x",
+  )
+  let coordinator = BlockInputCoordinator::BlockInputCoordinator()
+  let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
+  let (state, first_schedule) = coordinator.state.val.enqueue(
+    context.caret_input("A", 1),
+  )
+  let (state, first_delivery) = state.flush(first_schedule)
+  guard first_delivery is Some(_) else {
+    fail("first value must become active")
+  }
+  coordinator.state.val = state
+
+  ignore(coordinator.enqueue(context.caret_input("B", 1), emit))
+  ignore(coordinator.enqueue(context.caret_input("A", 1), emit))
+
+  guard coordinator.state.val.pending is Some(pending) else {
+    fail("latest value must remain pending")
+  }
+  assert_eq(pending.text, "A")
+}
+
+///|
+test "Canceled Block composition is a no-op" {
+  let context = BlockInputTestContext::BlockInputTestContext(
+    "block-composition-cancel", "start",
+  )
+  let coordinator = BlockInputCoordinator::BlockInputCoordinator()
+  assert_true(coordinator.begin_composition(context.caret_input("start", 5)))
+  assert_true(
+    coordinator.update_composition(
+      "loomark-block-input",
+      "start",
+      @dom_boundary.TextSelection(5, 5, @dom_boundary.NoDirection),
+    ),
+  )
+  let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
+  ignore(coordinator.finish_composition("loomark-block-input", "start", emit))
+
+  assert_true(coordinator.state.val.composition is None)
+  assert_true(coordinator.state.val.pending is None)
+  assert_true(coordinator.state.val.in_flight is None)
+}
+
+///|
+test "Block composition invalidates a pre-existing schedule before delivery" {
+  let context = BlockInputTestContext::BlockInputTestContext(
+    "block-composition-schedule", "start",
+  )
+  let coordinator = BlockInputCoordinator::BlockInputCoordinator()
+  let (state, old_schedule) = coordinator.state.val.enqueue(
+    context.caret_input("pending", 7),
+  )
+  coordinator.state.val = state
+  assert_true(coordinator.begin_composition(context.caret_input("start", 7)))
+  assert_eq(
+    coordinator.display_text(
+      document_id=context.document_id,
+      version=context.editor.version(),
+      node_id=context.node_id,
+      input_id="loomark-block-input",
+      committed_text="start",
+    ),
+    "pending",
+  )
+  let (_, old_delivery) = coordinator.state.val.flush(old_schedule)
+  guard old_delivery is None else {
+    fail("compositionstart must invalidate the old delayed delivery")
+  }
+  let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
+  ignore(coordinator.finish_composition("loomark-block-input", "start", emit))
+
+  guard coordinator.state.val.in_flight is Some(delivery) else {
+    fail("promoted input must produce one delivery without composition input")
+  }
+  assert_eq(delivery.input.text, "pending")
+  let (_, duplicate) = coordinator.state.val.flush(old_schedule)
+  guard duplicate is None else {
+    fail("the old schedule must never deliver the composition twice")
+  }
+}
+
+///|
+test "Block input cancellation clears live composition" {
+  let context = BlockInputTestContext::BlockInputTestContext(
+    "block-composition-cancel-pending", "start",
+  )
+  let coordinator = BlockInputCoordinator::BlockInputCoordinator()
+  assert_true(coordinator.begin_composition(context.caret_input("start", 5)))
+  assert_true(
+    coordinator.update_composition(
+      "loomark-block-input",
+      "start漢",
+      @dom_boundary.TextSelection(6, 6, @dom_boundary.NoDirection),
+    ),
+  )
+  assert_eq(
+    coordinator.display_text(
+      document_id=context.document_id,
+      version=context.editor.version(),
+      node_id=context.node_id,
+      input_id="loomark-block-input",
+      committed_text="start",
+    ),
+    "start漢",
+  )
+  coordinator.cancel_pending()
+
+  assert_true(coordinator.state.val.composition is None)
+  assert_true(coordinator.state.val.pending is None)
+  assert_true(coordinator.state.val.in_flight is None)
+  assert_eq(
+    coordinator.display_text(
+      document_id=context.document_id,
+      version=context.editor.version(),
+      node_id=context.node_id,
+      input_id="loomark-block-input",
+      committed_text="start",
+    ),
+    "start",
+  )
+}
+
+///|
 test "Block input batching keeps the pending value through redraw and never retries it" {
   let context = BlockInputTestContext::BlockInputTestContext(
     "block-input-display-test", "x",

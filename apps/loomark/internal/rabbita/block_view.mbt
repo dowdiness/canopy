@@ -410,11 +410,51 @@ fn block_input(
     rows=1,
     slot="block-editor-input",
     style=block_input_style(block.kind()),
-    attrs~,
+    attrs=attrs
+      .on_compositionstart(_ => {
+        let selection = @dom_boundary.read_text_selection_id(input_id) catch {
+          error => {
+            coordinator.cancel_pending()
+            return emit(Navigation(EffectFailed(error.message())))
+          }
+        }
+        ignore(
+          coordinator.begin_composition(
+            PendingBlockInput::PendingBlockInput(
+              document_id~,
+              expected_version=version,
+              node_id=block.node_id(),
+              input_id~,
+              text=input_value,
+              selection~,
+            ),
+          ),
+        )
+        @rabbita_runtime.none
+      })
+      .on_compositionend(_ => {
+        coordinator.finish_composition(input_id, block.text(), emit)
+      }),
     on_input=@cmd.Emit(text => {
-      block_input_command(
-        block, input_id, text, document_id, version, coordinator, emit,
-      )
+      if coordinator.has_composition(input_id) {
+        let selection = @dom_boundary.read_text_selection_id(input_id) catch {
+          error => {
+            coordinator.cancel_pending()
+            return emit(Navigation(EffectFailed(error.message())))
+          }
+        }
+        if coordinator.update_composition(input_id, text, selection) {
+          @rabbita_runtime.none
+        } else {
+          block_input_command(
+            block, input_id, text, document_id, version, coordinator, emit,
+          )
+        }
+      } else {
+        block_input_command(
+          block, input_id, text, document_id, version, coordinator, emit,
+        )
+      }
     }),
   )
   @html.div(
