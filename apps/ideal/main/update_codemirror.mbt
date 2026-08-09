@@ -1,4 +1,12 @@
 ///|
+fn code_mirror_source_version_matches(
+  event_source_version : String,
+  current_source_version : String,
+) -> Bool {
+  event_source_version != "" && event_source_version == current_source_version
+}
+
+///|
 fn apply_code_mirror_changes(
   editor : @editor.SyncEditor[@ast.Term],
   changes : Array[@cm.ChangeDelta],
@@ -36,19 +44,24 @@ fn handle_codemirror(
     }
     CmChanges(event) => {
       // Local single-range CodeMirror transactions already carry an exact
-      // pre-transaction splice. Apply that directly; use the transaction's
-      // captured document snapshot for multi-range or rejected transactions.
+      // pre-transaction splice. Apply that directly only while the CRDT source
+      // version still matches the source currently displayed in CodeMirror;
+      // otherwise use the transaction's captured document snapshot fallback.
       let changes = event.changes
+      let current_source_version = @ffi.get_version_json(model.handle)
       js_perf_begin("cmDocChangedHandler")
       js_perf_begin("syncEditorApply")
       let timestamp_ms = js_now_ms()
       let fallback_text = try {
         js_perf_begin("incrementalTextApply")
-        let applied = apply_code_mirror_changes(
-          model.editor,
-          changes,
-          timestamp_ms,
-        )
+        let applied = if code_mirror_source_version_matches(
+            event.source_version,
+            current_source_version,
+          ) {
+          apply_code_mirror_changes(model.editor, changes, timestamp_ms)
+        } else {
+          false
+        }
         js_perf_end("incrementalTextApply")
         if applied {
           None
@@ -78,15 +91,16 @@ fn handle_codemirror(
         }
       }
       let actual_text = new_model.editor.get_text()
+      let source_version = @ffi.get_version_json(model.handle)
       js_perf_begin("publicationPrepare")
       let sync_cmd = match fallback_text {
         Some(text) =>
           if actual_text != text {
-            @cm.set_doc(model.cm_id, actual_text)
+            @cm.set_doc(model.cm_id, actual_text, source_version~)
           } else {
-            none
+            @cm.set_source_version(model.cm_id, source_version)
           }
-        None => none
+        None => @cm.set_source_version(model.cm_id, source_version)
       }
       let publication_effect = @rabbita.effect(fn() {
         js_perf_begin("localPublicationEffect")

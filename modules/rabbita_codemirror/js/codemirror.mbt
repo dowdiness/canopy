@@ -96,6 +96,7 @@ pub extern "js" fn load_codemirror(
   #|   const slot = globalThis[key] ?? (globalThis[key] = {
   #|     modules: new Map(),
   #|     applying: new WeakMap(),
+  #|     sourceVersions: new WeakMap(),
   #|   });
   #|   if (!slot.modules.has(source)) {
   #|     const load = source.startsWith('global:')
@@ -149,10 +150,13 @@ extern "js" fn js_create_view_raw(
   #|   const slot = globalThis[key] ?? (globalThis[key] = {
   #|     modules: new Map(),
   #|     applying: new WeakMap(),
+  #|     sourceVersions: new WeakMap(),
   #|   });
   #|   if (!slot.applying.has(view)) {
   #|     slot.applying.set(view, { value: false });
   #|   }
+  #|   if (!slot.sourceVersions) slot.sourceVersions = new WeakMap();
+  #|   slot.sourceVersions.set(view, "");
   #|   return view;
   #| }
 
@@ -176,17 +180,23 @@ extern "js" fn js_dispatch_raw(
   #|   const slot = globalThis[key] ?? (globalThis[key] = {
   #|     modules: new Map(),
   #|     applying: new WeakMap(),
+  #|     sourceVersions: new WeakMap(),
   #|   });
   #|   let cell = slot.applying.get(view);
   #|   if (!cell) {
   #|     cell = { value: false };
   #|     slot.applying.set(view, cell);
   #|   }
+  #|   const before = view.state.doc;
   #|   cell.value = true;
   #|   try {
   #|     view.dispatch(spec);
   #|   } finally {
   #|     cell.value = false;
+  #|     if (view.state.doc !== before) {
+  #|       if (!slot.sourceVersions) slot.sourceVersions = new WeakMap();
+  #|       slot.sourceVersions.set(view, "");
+  #|     }
   #|   }
   #| }
 
@@ -226,6 +236,7 @@ extern "js" fn js_replace_doc_minimal_raw(
   #|   const slot = globalThis[key] ?? (globalThis[key] = {
   #|     modules: new Map(),
   #|     applying: new WeakMap(),
+  #|     sourceVersions: new WeakMap(),
   #|   });
   #|   let cell = slot.applying.get(view);
   #|   if (!cell) {
@@ -241,8 +252,30 @@ extern "js" fn js_replace_doc_minimal_raw(
   #| }
 
 ///|
+extern "js" fn js_set_source_version_raw(
+  view : @js_value.Value,
+  source_version : String,
+) -> Unit =
+  #| (view, sourceVersion) => {
+  #|   const key = Symbol.for("dowdiness.rabbita_codemirror");
+  #|   const slot = globalThis[key] ?? (globalThis[key] = {
+  #|     modules: new Map(),
+  #|     applying: new WeakMap(),
+  #|     sourceVersions: new WeakMap(),
+  #|   });
+  #|   if (!slot.sourceVersions) slot.sourceVersions = new WeakMap();
+  #|   slot.sourceVersions.set(view, sourceVersion);
+  #| }
+
+///|
+pub fn js_set_source_version(view : CmView, source_version : String) -> Unit {
+  js_set_source_version_raw(view.0, source_version)
+}
+
+///|
 pub fn js_replace_doc_minimal(view : CmView, doc : String) -> Unit {
   js_replace_doc_minimal_raw(view.0, doc)
+  js_set_source_version_raw(view.0, "")
 }
 
 ///|
@@ -343,19 +376,23 @@ extern "js" fn js_add_update_listener_raw(
   on_selection : (@js_value.Value) -> Unit,
   on_focus_change : (@js_value.Value) -> Unit,
   on_changes : (@js_value.Value) -> Unit,
+  get_source_version : () -> String,
   include_doc : Bool,
   include_change_doc : Bool,
 ) -> () -> Unit =
-  #| (view, compartment, onDoc, onSelection, onFocusChange, onChanges, includeDoc, includeChangeDoc) => {
+  #| (view, compartment, onDoc, onSelection, onFocusChange, onChanges, getSourceVersion, includeDoc, includeChangeDoc) => {
   #|   const key = Symbol.for("dowdiness.rabbita_codemirror");
   #|   const slot = globalThis[key];
   #|   const cm = view._cmModule;
   #|   if (!cm) {
   #|     throw new Error("Listener attach requires a view created via js_create_view");
   #|   }
+  #|   if (!slot.sourceVersions) slot.sourceVersions = new WeakMap();
+  #|   slot.sourceVersions.set(view, getSourceVersion());
   #|   const isApplying = () => !!slot.applying.get(view)?.value;
   #|   const listener = cm.EditorView.updateListener.of(update => {
   #|     if (update.docChanged && !isApplying()) {
+  #|       const sourceVersion = slot.sourceVersions.get(view) ?? "";
   #|       const changedDoc = (includeDoc || includeChangeDoc)
   #|         ? update.state.doc.toString()
   #|         : null;
@@ -368,7 +405,7 @@ extern "js" fn js_add_update_listener_raw(
   #|         deltas.push({ from: fromA, to: toA, insert: inserted.toString() });
   #|       }, true);
   #|       onChanges(includeChangeDoc
-  #|         ? { changes: deltas, doc: changedDoc }
+  #|         ? { changes: deltas, doc: changedDoc, sourceVersion }
   #|         : deltas);
   #|     }
   #|     if ((update.selectionSet || update.docChanged) && !isApplying()) {
@@ -423,6 +460,7 @@ pub fn js_add_update_listener(
   on_changes : (@js_value.Value) -> Unit,
   include_doc? : Bool = false,
   include_change_doc? : Bool = false,
+  source_version? : () -> String = () => "",
 ) -> Disposable {
   Disposable(
     js_add_update_listener_raw(
@@ -432,6 +470,7 @@ pub fn js_add_update_listener(
       on_selection,
       on_focus_change,
       on_changes,
+      source_version,
       include_doc,
       include_change_doc,
     ),

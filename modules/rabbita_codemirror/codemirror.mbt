@@ -52,11 +52,12 @@ pub fn ChangeDelta::new(from : Int, to : Int, insert : String) -> ChangeDelta {
 
 ///|
 /// A CodeMirror document transaction together with its post-transaction
-/// document snapshot. The snapshot is captured by the update listener so a
-/// delayed consumer can use the document that belongs to this transaction.
+/// document snapshot. The source version identifies the CRDT source that was
+/// synchronized into CodeMirror before the transaction was captured.
 pub struct ChangeEvent {
   changes : Array[ChangeDelta]
   doc : String
+  source_version : String
 } derive(Eq, Debug)
 
 ///|
@@ -64,8 +65,9 @@ pub struct ChangeEvent {
 pub fn ChangeEvent::new(
   changes : Array[ChangeDelta],
   doc : String,
+  source_version? : String = "",
 ) -> ChangeEvent {
-  { changes, doc }
+  { changes, doc, source_version }
 }
 
 ///|
@@ -94,7 +96,8 @@ priv suberror CmSubscription {
     selection~ : @cmd.Emit[SelRange]?,
     focus~ : @cmd.Emit[Bool]?,
     changes~ : @cmd.Emit[Array[ChangeDelta]]?,
-    changes_with_doc~ : @cmd.Emit[ChangeEvent]?
+    changes_with_doc~ : @cmd.Emit[ChangeEvent]?,
+    source_version~ : () -> String
   )
 }
 
@@ -216,6 +219,7 @@ fn no_op_update_listener(
     _ => (),
     _ => (),
     _ => (),
+    source_version=() => "",
     include_doc=false,
     include_change_doc=false,
   )
@@ -301,6 +305,7 @@ fn change_event_from_value(value : @js_value.Value) -> ChangeEvent {
   ChangeEvent::new(
     change_deltas_from_value(value.get_with_string("changes")),
     value.get_with_string("doc"),
+    source_version=value.get_with_string("sourceVersion"),
   )
 }
 
@@ -375,7 +380,15 @@ fn cm_sub_loader(
   scheduler : &@cmd.Scheduler,
 ) -> @sub.RunningSub? {
   match payload {
-    CmListen(id, doc~, selection~, focus~, changes~, changes_with_doc~) => {
+    CmListen(
+      id,
+      doc~,
+      selection~,
+      focus~,
+      changes~,
+      changes_with_doc~,
+      source_version~
+    ) => {
       guard editors.get(id) is Some(entry) else { return None }
 
       let mut doc_tagger = doc
@@ -383,6 +396,7 @@ fn cm_sub_loader(
       let mut focus_tagger = focus
       let mut changes_tagger = changes
       let mut changes_with_doc_tagger = changes_with_doc
+      let mut source_version_tagger = source_version
       let include_doc = doc is Some(_)
       let include_change_doc = changes_with_doc is Some(_)
 
@@ -425,6 +439,7 @@ fn cm_sub_loader(
         on_selection,
         on_focus,
         on_changes,
+        source_version=source_version_tagger,
         include_doc~,
         include_change_doc~,
       )
@@ -440,7 +455,8 @@ fn cm_sub_loader(
               selection~,
               focus~,
               changes~,
-              changes_with_doc~
+              changes_with_doc~,
+              source_version~
             ) else {
             return
           }
@@ -449,6 +465,7 @@ fn cm_sub_loader(
           focus_tagger = focus
           changes_tagger = changes
           changes_with_doc_tagger = changes_with_doc
+          source_version_tagger = source_version
         },
       })
     }
@@ -562,6 +579,23 @@ pub fn unmount(id : String, failed? : @cmd.Emit[String]) -> @cmd.Cmd {
 }
 
 ///|
+/// Update the source-version provenance associated with the current
+/// CodeMirror document without changing its text. An empty version means the
+/// provenance is unknown and guarded consumers must use their fallback path.
+#cfg(target="js")
+pub fn set_source_version(
+  id : String,
+  source_version : String,
+  failed? : @cmd.Emit[String],
+) -> @cmd.Cmd {
+  @cmd.custom_cmd(kind=Immediately, scheduler => {
+    with_entry(id, failed, scheduler, entry => {
+      @js_ffi.js_set_source_version(entry.view, source_version)
+    })
+  })
+}
+
+///|
 /// Replace the document with a minimal single-range change, skipping echo
 /// dispatches when the document is already current.
 #cfg(target="js")
@@ -569,12 +603,17 @@ pub fn set_doc(
   id : String,
   doc : String,
   failed? : @cmd.Emit[String],
+  source_version? : String,
 ) -> @cmd.Cmd {
   @cmd.custom_cmd(kind=Immediately, scheduler => {
     with_entry(id, failed, scheduler, entry => {
       let current = @js_ffi.js_state_doc(entry.view)
       if doc != current {
         @js_ffi.js_replace_doc_minimal(entry.view, doc)
+      }
+      match source_version {
+        Some(version) => @js_ffi.js_set_source_version(entry.view, version)
+        None => @js_ffi.js_set_source_version(entry.view, "")
       }
     })
   })
@@ -757,6 +796,10 @@ pub fn set_line_wrapping(
 /// `on_change_with_doc` delivers the same transaction together with the
 /// post-transaction document captured by the CodeMirror update listener. It is
 /// intended for delayed consumers that need a stable fallback snapshot.
+///
+/// `source_version` identifies the source currently synchronized into
+/// CodeMirror. When supplied, it is carried by `ChangeEvent` so delayed
+/// consumers can reject a stale incremental edit after remote synchronization.
 #cfg(target="js")
 pub fn listen(
   id : String,
@@ -765,6 +808,7 @@ pub fn listen(
   focus? : @cmd.Emit[Bool],
   on_change? : @cmd.Emit[Array[ChangeDelta]],
   on_change_with_doc? : @cmd.Emit[ChangeEvent],
+  source_version? : () -> String = () => "",
 ) -> @sub.Sub {
   let has_doc = doc is Some(_)
   let has_selection = selection is Some(_)
@@ -792,6 +836,7 @@ pub fn listen(
       focus~,
       changes=on_change,
       changes_with_doc=on_change_with_doc,
+      source_version~,
     ),
     cm_sub_loader,
   )

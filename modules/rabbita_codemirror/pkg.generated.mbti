@@ -12,13 +12,13 @@ import {
 // Values
 pub fn insert(String, Int, String, failed? : @cmd.Emit[String]) -> @cmd.Cmd
 
-pub fn listen(String, doc? : @cmd.Emit[String], selection? : @cmd.Emit[SelRange], focus? : @cmd.Emit[Bool], on_change? : @cmd.Emit[Array[ChangeDelta]], on_change_with_doc? : @cmd.Emit[ChangeEvent]) -> @sub.Sub
+pub fn listen(String, doc? : @cmd.Emit[String], selection? : @cmd.Emit[SelRange], focus? : @cmd.Emit[Bool], on_change? : @cmd.Emit[Array[ChangeDelta]], on_change_with_doc? : @cmd.Emit[ChangeEvent], source_version? : () -> String) -> @sub.Sub
 
 pub fn mount(String, String, init_doc? : String, source? : String, initial_theme? : @theme.Theme?, initial_readonly? : Bool, initial_keymap? : @keymap.Keymap?, initial_line_numbers? : Bool, initial_line_wrapping? : Bool, on_mounted? : @cmd.Cmd, failed? : @cmd.Emit[String], initial_extension? : ((@moonbit-community/rabbita/js.Value) -> @dowdiness/rabbita_codemirror/js.Extension raise)?) -> @cmd.Cmd
 
 pub fn replace(String, Int, Int, String, failed? : @cmd.Emit[String]) -> @cmd.Cmd
 
-pub fn set_doc(String, String, failed? : @cmd.Emit[String]) -> @cmd.Cmd
+pub fn set_doc(String, String, failed? : @cmd.Emit[String], source_version? : String) -> @cmd.Cmd
 
 pub fn set_extension(String, (@moonbit-community/rabbita/js.Value) -> @dowdiness/rabbita_codemirror/js.Extension raise, failed? : @cmd.Emit[String]) -> @cmd.Cmd
 
@@ -31,6 +31,8 @@ pub fn set_line_wrapping(String, Bool, failed? : @cmd.Emit[String]) -> @cmd.Cmd
 pub fn set_readonly(String, Bool, failed? : @cmd.Emit[String]) -> @cmd.Cmd
 
 pub fn set_selection(String, SelRange, scroll_into_view? : Bool, failed? : @cmd.Emit[String]) -> @cmd.Cmd
+
+pub fn set_source_version(String, String, failed? : @cmd.Emit[String]) -> @cmd.Cmd
 
 pub fn set_theme(String, @theme.Theme, failed? : @cmd.Emit[String]) -> @cmd.Cmd
 
@@ -49,8 +51,9 @@ pub fn ChangeDelta::new(Int, Int, String) -> Self
 pub struct ChangeEvent {
   changes : Array[ChangeDelta]
   doc : String
+  source_version : String
 } derive(Eq, @debug.Debug)
-pub fn ChangeEvent::new(Array[ChangeDelta], String) -> Self
+pub fn ChangeEvent::new(Array[ChangeDelta], String, source_version? : String) -> Self
 
 pub struct SelRange {
   from : Int
