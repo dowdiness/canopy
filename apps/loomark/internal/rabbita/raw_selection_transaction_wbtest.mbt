@@ -71,6 +71,348 @@ fn assert_applied_raw_caret(
 }
 
 ///|
+test "native Raw pairing retains the first backward replacement" {
+  let context = RawSelectionTestContext::RawSelectionTestContext(
+    "raw-native-backward-pairing", "abcdef",
+  )
+  let captured = RawBeforeInputCandidate::RawBeforeInputCandidate(
+    selection=context.selection(4, 2),
+    input_type="insertText",
+    is_composing=false,
+  )
+  let candidate = RawNativeInputCandidate::RawNativeInputCandidate(
+    before_input=captured,
+    source="abxyef",
+    post_input_selection=@dom_boundary.TextSelection(
+      4,
+      4,
+      @dom_boundary.NoDirection,
+    ),
+  )
+
+  guard normalize_raw_input_candidate(context.model, candidate) is Some(request) else {
+    abort("compatible native replacement must normalize")
+  }
+  assert_eq(request.selection.selection.anchor(), 4)
+  assert_eq(request.selection.selection.head(), 2)
+  assert_true(request.selection.selection.is_backward())
+  assert_eq(request.inserted, "xy")
+}
+
+///|
+test "native Raw pairing accepts two collapsed insertions as one change" {
+  let context = RawSelectionTestContext::RawSelectionTestContext(
+    "raw-native-collapsed-insertion", "abcd",
+  )
+  let candidate = RawNativeInputCandidate::RawNativeInputCandidate(
+    before_input=RawBeforeInputCandidate::RawBeforeInputCandidate(
+      selection=context.selection(2, 2),
+      input_type="insertText",
+      is_composing=false,
+    ),
+    source="abxycd",
+    post_input_selection=@dom_boundary.TextSelection(
+      4,
+      4,
+      @dom_boundary.NoDirection,
+    ),
+  )
+  guard normalize_raw_input_candidate(context.model, candidate) is Some(request) else {
+    abort("collapsed native insertions must normalize")
+  }
+  assert_eq(request.selection.selection.anchor(), 2)
+  assert_eq(request.selection.selection.head(), 2)
+  assert_eq(request.inserted, "xy")
+}
+
+///|
+test "native Raw pairing normalizes a ten-character collapsed burst" {
+  let context = RawSelectionTestContext::RawSelectionTestContext(
+    "raw-native-collapsed-burst", "start",
+  )
+  let candidate = RawNativeInputCandidate::RawNativeInputCandidate(
+    before_input=RawBeforeInputCandidate::RawBeforeInputCandidate(
+      selection=context.selection(5, 5),
+      input_type="insertText",
+      is_composing=false,
+    ),
+    source="startabcdefghij",
+    post_input_selection=@dom_boundary.TextSelection(
+      15,
+      15,
+      @dom_boundary.NoDirection,
+    ),
+  )
+  guard normalize_raw_input_candidate(context.model, candidate) is Some(request) else {
+    abort("collapsed native burst must normalize")
+  }
+  assert_eq(request.selection.selection.anchor(), 5)
+  assert_eq(request.selection.selection.head(), 5)
+  assert_eq(request.inserted, "abcdefghij")
+}
+
+///|
+test "native Raw pairing lowers a delete then insert burst from its net change" {
+  let context = RawSelectionTestContext::RawSelectionTestContext(
+    "raw-native-delete-insert", "start",
+  )
+  let candidate = RawNativeInputCandidate::RawNativeInputCandidate(
+    before_input=RawBeforeInputCandidate::RawBeforeInputCandidate(
+      selection=context.selection(5, 5),
+      input_type="deleteContentBackward",
+      is_composing=false,
+    ),
+    source="starX",
+    post_input_selection=@dom_boundary.TextSelection(
+      5,
+      5,
+      @dom_boundary.NoDirection,
+    ),
+  )
+  guard normalize_raw_input_candidate(context.model, candidate) is Some(request) else {
+    abort("mixed delete-insert burst must normalize")
+  }
+  assert_eq(request.selection.selection.anchor(), 4)
+  assert_eq(request.selection.selection.head(), 5)
+  assert_eq(request.inserted, "X")
+}
+
+///|
+test "native Raw pairing lowers an insert then delete burst from its net change" {
+  let context = RawSelectionTestContext::RawSelectionTestContext(
+    "raw-native-insert-delete", "start",
+  )
+  let candidate = RawNativeInputCandidate::RawNativeInputCandidate(
+    before_input=RawBeforeInputCandidate::RawBeforeInputCandidate(
+      selection=context.selection(5, 5),
+      input_type="insertText",
+      is_composing=false,
+    ),
+    source="star",
+    post_input_selection=@dom_boundary.TextSelection(
+      4,
+      4,
+      @dom_boundary.NoDirection,
+    ),
+  )
+  guard normalize_raw_input_candidate(context.model, candidate) is Some(request) else {
+    abort("mixed insert-delete burst must normalize")
+  }
+  assert_eq(request.selection.selection.anchor(), 4)
+  assert_eq(request.selection.selection.head(), 5)
+  assert_eq(request.inserted, "")
+}
+
+///|
+test "native Raw pairing keeps a net no-op burst unchanged" {
+  let context = RawSelectionTestContext::RawSelectionTestContext(
+    "raw-native-net-noop", "start",
+  )
+  let candidate = RawNativeInputCandidate::RawNativeInputCandidate(
+    before_input=RawBeforeInputCandidate::RawBeforeInputCandidate(
+      selection=context.selection(5, 5),
+      input_type="insertText",
+      is_composing=false,
+    ),
+    source="start",
+    post_input_selection=@dom_boundary.TextSelection(
+      5,
+      5,
+      @dom_boundary.NoDirection,
+    ),
+  )
+  guard normalize_raw_input_candidate(context.model, candidate) is Some(request) else {
+    abort("net no-op burst must normalize")
+  }
+  assert_eq(request.selection.selection.anchor(), 5)
+  assert_eq(request.selection.selection.head(), 5)
+  assert_eq(request.inserted, "")
+}
+
+///|
+test "native Raw pairing accepts a collapsed native deletion" {
+  let context = RawSelectionTestContext::RawSelectionTestContext(
+    "raw-native-collapsed-deletion", "abcd",
+  )
+  let candidate = RawNativeInputCandidate::RawNativeInputCandidate(
+    before_input=RawBeforeInputCandidate::RawBeforeInputCandidate(
+      selection=context.selection(2, 2),
+      input_type="deleteContentBackward",
+      is_composing=false,
+    ),
+    source="acd",
+    post_input_selection=@dom_boundary.TextSelection(
+      1,
+      1,
+      @dom_boundary.NoDirection,
+    ),
+  )
+  guard normalize_raw_input_candidate(context.model, candidate) is Some(request) else {
+    abort("collapsed native deletion must normalize")
+  }
+  assert_eq(request.selection.selection.anchor(), 1)
+  assert_eq(request.selection.selection.head(), 2)
+  assert_eq(request.inserted, "")
+}
+
+///|
+test "native Raw pairing rejects composition-intermediate input" {
+  let context = RawSelectionTestContext::RawSelectionTestContext(
+    "raw-native-composition", "abc",
+  )
+  let candidate = RawNativeInputCandidate::RawNativeInputCandidate(
+    before_input=RawBeforeInputCandidate::RawBeforeInputCandidate(
+      selection=context.selection(1, 1),
+      input_type="insertCompositionText",
+      is_composing=true,
+    ),
+    source="aXbc",
+    post_input_selection=@dom_boundary.TextSelection(
+      2,
+      2,
+      @dom_boundary.NoDirection,
+    ),
+  )
+  assert_true(normalize_raw_input_candidate(context.model, candidate) is None)
+}
+
+///|
+test "native Raw pairing rejects an incompatible changed range" {
+  let context = RawSelectionTestContext::RawSelectionTestContext(
+    "raw-native-incompatible-range", "abcdef",
+  )
+  let candidate = RawNativeInputCandidate::RawNativeInputCandidate(
+    before_input=RawBeforeInputCandidate::RawBeforeInputCandidate(
+      selection=context.selection(1, 3),
+      input_type="insertText",
+      is_composing=false,
+    ),
+    source="abXYef",
+    post_input_selection=@dom_boundary.TextSelection(
+      4,
+      4,
+      @dom_boundary.NoDirection,
+    ),
+  )
+  assert_true(normalize_raw_input_candidate(context.model, candidate) is None)
+}
+
+///|
+test "native Raw pairing maps canonical CRLF insertion boundaries" {
+  let context = RawSelectionTestContext::RawSelectionTestContext(
+    "raw-native-crlf", "a\r\nb",
+  )
+  let candidate = RawNativeInputCandidate::RawNativeInputCandidate(
+    before_input=RawBeforeInputCandidate::RawBeforeInputCandidate(
+      selection=context.selection(3, 3),
+      input_type="insertText",
+      is_composing=false,
+    ),
+    source="a\nXb",
+    post_input_selection=@dom_boundary.TextSelection(
+      3,
+      3,
+      @dom_boundary.NoDirection,
+    ),
+  )
+  guard normalize_raw_input_candidate(context.model, candidate) is Some(request) else {
+    abort("CRLF native insertion must normalize")
+  }
+  assert_eq(request.selection.selection.anchor(), 3)
+  assert_eq(request.inserted, "X")
+}
+
+///|
+test "native Raw pairing rejects a capture from another document" {
+  let context = RawSelectionTestContext::RawSelectionTestContext(
+    "raw-native-wrong-document", "abc",
+  )
+  let other = RawSelectionTestContext::RawSelectionTestContext(
+    "raw-native-other-document", "abc",
+  )
+  let candidate = RawNativeInputCandidate::RawNativeInputCandidate(
+    before_input=RawBeforeInputCandidate::RawBeforeInputCandidate(
+      selection=other.selection(1, 1),
+      input_type="insertText",
+      is_composing=false,
+    ),
+    source="aXbc",
+    post_input_selection=@dom_boundary.TextSelection(
+      2,
+      2,
+      @dom_boundary.NoDirection,
+    ),
+  )
+  assert_true(normalize_raw_input_candidate(context.model, candidate) is None)
+}
+
+///|
+test "native Raw pairing maps a lone CR insertion boundary" {
+  let context = RawSelectionTestContext::RawSelectionTestContext(
+    "raw-native-lone-cr", "a\rb",
+  )
+  let candidate = RawNativeInputCandidate::RawNativeInputCandidate(
+    before_input=RawBeforeInputCandidate::RawBeforeInputCandidate(
+      selection=context.selection(2, 2),
+      input_type="insertText",
+      is_composing=false,
+    ),
+    source="a\nXb",
+    post_input_selection=@dom_boundary.TextSelection(
+      3,
+      3,
+      @dom_boundary.NoDirection,
+    ),
+  )
+  guard normalize_raw_input_candidate(context.model, candidate) is Some(request) else {
+    abort("lone CR native insertion must normalize")
+  }
+  assert_eq(request.selection.selection.anchor(), 2)
+  assert_eq(request.inserted, "X")
+}
+
+///|
+test "native Raw pairing silently rejects stale and mode-stale captures" {
+  let context = RawSelectionTestContext::RawSelectionTestContext(
+    "raw-native-stale", "abc",
+  )
+  let candidate = RawNativeInputCandidate::RawNativeInputCandidate(
+    before_input=RawBeforeInputCandidate::RawBeforeInputCandidate(
+      selection=context.selection(1, 1),
+      input_type="insertText",
+      is_composing=false,
+    ),
+    source="aXbc",
+    post_input_selection=@dom_boundary.TextSelection(
+      2,
+      2,
+      @dom_boundary.NoDirection,
+    ),
+  )
+  let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
+  let (advanced, accepted, _, _) = try! commit_source(
+    context.editor,
+    context.model,
+    context.model.state,
+    "newer",
+    "native-stale-test",
+    emit,
+  )
+  assert_true(accepted)
+  assert_true(normalize_raw_input_candidate(advanced, candidate) is None)
+  assert_true(
+    normalize_raw_input_candidate(
+      {
+        ..context.model,
+        state: @core.ApplicationState::ApplicationState(@core.Block),
+      },
+      candidate,
+    )
+    is None,
+  )
+}
+
+///|
 test "directed cross-block Raw selections commit one ReplaceText transaction" {
   for
     case in [
@@ -109,8 +451,6 @@ test "normalized Raw edit event consumes the Session selection" {
   let latest_model : @ref.Ref[DriverModel?] = @ref.Ref(Some(selected))
   let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
   let raw_input_coordinator = RawInputCoordinator::RawInputCoordinator(None)
-  ignore(raw_input_coordinator.enqueue("pending", emit))
-
   let (next, _) = try! update_editing(
     context.editor,
     context.attachment,

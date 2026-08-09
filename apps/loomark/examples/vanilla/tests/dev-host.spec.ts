@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test"
+import { expect, test, type Browser, type BrowserContext, type Locator, type Page } from "@playwright/test"
 
 /**
  * #1075 behavioral boundary matrix (each row gets a fresh BrowserContext,
@@ -71,6 +71,61 @@ async function rawInput(page: Page, source: string): Promise<void> {
     const target = document.getElementById("loomark-driver-target")
     target?.dispatchEvent(new CustomEvent("loomark-driver", { detail: `raw-input|${source}` }))
   }, source)
+}
+
+type RawNativeEdit = {
+  value: string
+  beforeStart: number
+  beforeEnd: number
+  beforeDirection?: "forward" | "backward" | "none"
+  afterStart: number
+  afterEnd: number
+  afterDirection?: "forward" | "backward" | "none"
+  inputType?: string
+  data?: string | null
+  isComposing?: boolean
+}
+
+async function dispatchRawNativeEdits(input: Locator, edits: RawNativeEdit[]): Promise<void> {
+  await input.evaluate((element, edits) => {
+    const textarea = element as HTMLTextAreaElement
+    for (const edit of edits) {
+      const init: InputEventInit = {
+        bubbles: true,
+        cancelable: true,
+        inputType: edit.inputType ?? "insertText",
+        data: edit.data ?? null,
+        isComposing: edit.isComposing ?? false,
+      }
+      textarea.setSelectionRange(
+        edit.beforeStart,
+        edit.beforeEnd,
+        edit.beforeDirection ?? "none",
+      )
+      textarea.dispatchEvent(new InputEvent("beforeinput", init))
+      textarea.value = edit.value
+      textarea.setSelectionRange(
+        edit.afterStart,
+        edit.afterEnd,
+        edit.afterDirection ?? "none",
+      )
+      textarea.dispatchEvent(new InputEvent("input", init))
+    }
+  }, edits)
+}
+
+async function replaceRawValue(input: Locator, value: string): Promise<void> {
+  const currentLength = await input.evaluate(element =>
+    (element as HTMLTextAreaElement).value.length)
+  await dispatchRawNativeEdits(input, [{
+    value,
+    beforeStart: 0,
+    beforeEnd: currentLength,
+    beforeDirection: "forward",
+    afterStart: value.length,
+    afterEnd: value.length,
+    data: value,
+  }])
 }
 
 async function rawSelectionProbe(page: Page, detail: "capture" | "install"): Promise<void> {
@@ -267,7 +322,7 @@ test("post-acceptance parser Failure reopens once and resumes Raw editing", asyn
     await expect(host.page.locator("#loomark-preview")).toHaveCount(0)
     await expect(host.page.locator("#loomark-block")).toHaveCount(0)
 
-    await host.page.locator("#loomark-input").fill("# Continued\n")
+    await replaceRawValue(host.page.locator("#loomark-input"), "# Continued\n")
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("# Continued\n")
   } finally {
     await host.context.close()
@@ -335,7 +390,7 @@ test("Raw input exposes phase timings through the dev-host snapshot", async ({ b
   const host = await mountHost(browser, "before")
   try {
     const input = host.page.locator("#loomark-input")
-    await input.fill("after")
+    await replaceRawValue(input, "after")
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("after")
     await expect.poll(async () => {
       const phase = (await snapshot(host.page)).raw_input_phase
@@ -384,18 +439,14 @@ test("Raw and Preview observe one accepted document in a fixed resizable split",
     await expect(host.page.locator("#loomark-split")).toHaveCount(1)
     await expect.poll(async () => (await snapshot(host.page)).semantic_read_count).toBe(1)
 
-    await host.page.locator("#loomark-input").fill("# After\n")
+    await replaceRawValue(host.page.locator("#loomark-input"), "# After\n")
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("# After\n")
     await expectPreviewSource(host.page, "# After\n")
     await expect.poll(async () => (await snapshot(host.page)).semantic_read_count).toBe(2)
 
     await forceEditorFailure(host.page)
     await expect.poll(async () => (await snapshot(host.page)).editor_failure_armed).toBe(true)
-    await host.page.locator("#loomark-input").evaluate(element => {
-      const textarea = element as HTMLTextAreaElement
-      textarea.value = "# Rejected\n"
-      textarea.dispatchEvent(new Event("input", { bubbles: true }))
-    })
+    await replaceRawValue(host.page.locator("#loomark-input"), "# Rejected\n")
     await expect.poll(async () => (await snapshot(host.page)).error_code).toBe("editor-commit-failed")
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("# After\n")
     await expectPreviewSource(host.page, "# After\n")
@@ -1728,7 +1779,7 @@ test("Raw textarea input uses the atomic editor transaction and mode toolbar", a
       "aria-label",
       "Raw Markdown source",
     )
-    await host.page.locator("#loomark-input").fill("edited\nsource")
+    await replaceRawValue(host.page.locator("#loomark-input"), "edited\nsource")
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("edited\nsource")
     await expect.poll(async () => (await snapshot(host.page)).committed_change_count).toBe(1)
     await selectPreview(host.page)
@@ -1749,7 +1800,7 @@ test("Raw textarea input uses the atomic editor transaction and mode toolbar", a
   }
 })
 
-test("rejected Raw repair round-trips a backward DOM selection", async ({ browser }) => {
+test("failed normalized Raw replacement preserves committed state", async ({ browser }) => {
   const host = await mountHost(browser, "abcdef")
   try {
     const input = host.page.locator("#loomark-input")
@@ -1757,20 +1808,15 @@ test("rejected Raw repair round-trips a backward DOM selection", async ({ browse
     await forceEditorFailure(host.page)
     await expect.poll(async () => (await snapshot(host.page)).editor_failure_armed).toBe(true)
 
-    const eventSelection = await input.evaluate(element => {
-      const textarea = element as HTMLTextAreaElement
-      textarea.value = "abcdef!"
-      textarea.setSelectionRange(0, 5, "backward")
-      const selection = {
-        start: textarea.selectionStart,
-        end: textarea.selectionEnd,
-        direction: textarea.selectionDirection,
-      }
-      textarea.dispatchEvent(new Event("input", { bubbles: true }))
-      return selection
-    })
-
-    expect(eventSelection).toEqual({ start: 0, end: 5, direction: "backward" })
+    await dispatchRawNativeEdits(input, [{
+      value: "!f",
+      beforeStart: 0,
+      beforeEnd: 5,
+      beforeDirection: "backward",
+      afterStart: 1,
+      afterEnd: 1,
+      data: "!",
+    }])
     await expect.poll(async () => (await snapshot(host.page)).error_code)
       .toBe("editor-commit-failed")
     await expect(input).toHaveValue("abcdef")
@@ -1787,7 +1833,7 @@ test("rejected Raw repair round-trips a backward DOM selection", async ({ browse
   }
 })
 
-test("rejected Raw repair maps canonical CRLF to textarea offsets", async ({ browser }) => {
+test("failed normalized Raw input maps canonical CRLF to textarea offsets", async ({ browser }) => {
   const host = await mountHost(browser, "a\r\nb")
   try {
     const input = host.page.locator("#loomark-input")
@@ -1796,12 +1842,14 @@ test("rejected Raw repair maps canonical CRLF to textarea offsets", async ({ bro
     await forceEditorFailure(host.page)
     await expect.poll(async () => (await snapshot(host.page)).editor_failure_armed).toBe(true)
 
-    await input.evaluate(element => {
-      const textarea = element as HTMLTextAreaElement
-      textarea.value = "a\nbx"
-      textarea.setSelectionRange(4, 4, "none")
-      textarea.dispatchEvent(new Event("input", { bubbles: true }))
-    })
+    await dispatchRawNativeEdits(input, [{
+      value: "a\nbx",
+      beforeStart: 3,
+      beforeEnd: 3,
+      afterStart: 4,
+      afterEnd: 4,
+      data: "x",
+    }])
 
     await expect.poll(async () => (await snapshot(host.page)).error_code)
       .toBe("editor-commit-failed")
@@ -1821,7 +1869,7 @@ test("rejected Raw repair maps canonical CRLF to textarea offsets", async ({ bro
   }
 })
 
-test("rejected Raw repair maps canonical lone CR to textarea offsets", async ({ browser }) => {
+test("failed normalized Raw input maps canonical lone CR to textarea offsets", async ({ browser }) => {
   const host = await mountHost(browser, "a\rb")
   try {
     const input = host.page.locator("#loomark-input")
@@ -1830,12 +1878,14 @@ test("rejected Raw repair maps canonical lone CR to textarea offsets", async ({ 
     await forceEditorFailure(host.page)
     await expect.poll(async () => (await snapshot(host.page)).editor_failure_armed).toBe(true)
 
-    await input.evaluate(element => {
-      const textarea = element as HTMLTextAreaElement
-      textarea.value = "a\nbx"
-      textarea.setSelectionRange(4, 4, "none")
-      textarea.dispatchEvent(new Event("input", { bubbles: true }))
-    })
+    await dispatchRawNativeEdits(input, [{
+      value: "a\nbx",
+      beforeStart: 3,
+      beforeEnd: 3,
+      afterStart: 4,
+      afterEnd: 4,
+      data: "x",
+    }])
 
     await expect.poll(async () => (await snapshot(host.page)).error_code)
       .toBe("editor-commit-failed")
@@ -1899,12 +1949,15 @@ test("accepted Raw selection edit supersedes pending full-source input", async (
     await rawSelectionProbe(host.page, "capture")
     await expect.poll(async () => (await snapshot(host.page)).selection).toBe("6:0")
 
-    await input.evaluate(element => {
-      const textarea = element as HTMLTextAreaElement
-      textarea.value = "pending"
-      textarea.setSelectionRange(7, 7, "none")
-      textarea.dispatchEvent(new Event("input", { bubbles: true }))
-    })
+    await dispatchRawNativeEdits(input, [{
+      value: "pending",
+      beforeStart: 0,
+      beforeEnd: 6,
+      beforeDirection: "backward",
+      afterStart: 7,
+      afterEnd: 7,
+      data: "pending",
+    }])
     await commitCapturedRawSelection(host.page, "x")
 
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("x")
@@ -1919,44 +1972,41 @@ test("accepted Raw selection edit supersedes pending full-source input", async (
   }
 })
 
-test("Raw input reads the selection present when its debounce fires", async ({ browser }) => {
+test("Raw input retains the first backward selection and latest native caret", async ({ browser }) => {
   const host = await mountHost(browser, "abcdef")
   try {
     const input = host.page.locator("#loomark-input")
     await input.focus()
-    await forceEditorFailure(host.page)
-    await expect.poll(async () => (await snapshot(host.page)).editor_failure_armed).toBe(true)
+    await dispatchRawNativeEdits(input, [
+      {
+        value: "abxef",
+        beforeStart: 2,
+        beforeEnd: 4,
+        beforeDirection: "backward",
+        afterStart: 3,
+        afterEnd: 3,
+        data: "x",
+      },
+      {
+        value: "abxyef",
+        beforeStart: 3,
+        beforeEnd: 3,
+        afterStart: 4,
+        afterEnd: 4,
+        data: "y",
+      },
+    ])
 
-    const observed = await input.evaluate(element => {
-      const textarea = element as HTMLTextAreaElement
-      const readSelection = () => ({
-        start: textarea.selectionStart,
-        end: textarea.selectionEnd,
-        direction: textarea.selectionDirection,
-      })
-      textarea.value = "abcdef!"
-      textarea.setSelectionRange(0, 2, "backward")
-      const atInput = readSelection()
-      textarea.dispatchEvent(new Event("input", { bubbles: true }))
-      textarea.setSelectionRange(3, 5, "forward")
-      return { atInput, beforeFlush: readSelection() }
-    })
-
-    expect(observed).toEqual({
-      atInput: { start: 0, end: 2, direction: "backward" },
-      beforeFlush: { start: 3, end: 5, direction: "forward" },
-    })
-    await expect.poll(async () => (await snapshot(host.page)).error_code)
-      .toBe("editor-commit-failed")
-    await expect(input).toHaveValue("abcdef")
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("abxyef")
+    expect(await snapshot(host.page)).toMatchObject({ committed_change_count: 1 })
+    await expect(input).toHaveValue("abxyef")
     await expect.poll(() => input.evaluate(element => {
       const textarea = element as HTMLTextAreaElement
       return {
         start: textarea.selectionStart,
         end: textarea.selectionEnd,
-        direction: textarea.selectionDirection,
       }
-    })).toEqual({ start: 3, end: 5, direction: "forward" })
+    })).toEqual({ start: 4, end: 4 })
   } finally {
     await host.context.close()
   }
@@ -1967,15 +2017,21 @@ test("Raw input coalesces a same-task burst into one commit", async ({ browser }
   try {
     const input = host.page.locator("#loomark-input")
     await input.focus()
-    await input.evaluate(element => {
-      const textarea = element as HTMLTextAreaElement
-      textarea.setSelectionRange(textarea.value.length, textarea.value.length)
-      for (const character of "abcdefghij") {
-        textarea.value += character
-        textarea.setSelectionRange(textarea.value.length, textarea.value.length)
-        textarea.dispatchEvent(new Event("input", { bubbles: true }))
-      }
-    })
+    const edits: RawNativeEdit[] = []
+    let value = "start"
+    for (const character of "abcdefghij") {
+      const before = value.length
+      value += character
+      edits.push({
+        value,
+        beforeStart: before,
+        beforeEnd: before,
+        afterStart: value.length,
+        afterEnd: value.length,
+        data: character,
+      })
+    }
+    await dispatchRawNativeEdits(input, edits)
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("startabcdefghij")
     expect(await snapshot(host.page)).toMatchObject({
       source: "startabcdefghij",
@@ -1987,20 +2043,228 @@ test("Raw input coalesces a same-task burst into one commit", async ({ browser }
   }
 })
 
-test("pending Raw input survives leaving the Raw view", async ({ browser }) => {
+test("Raw input coalesces delete then insert into one replacement", async ({ browser }) => {
+  const host = await mountHost(browser, "start")
+  try {
+    const input = host.page.locator("#loomark-input")
+    await dispatchRawNativeEdits(input, [
+      {
+        value: "star",
+        beforeStart: 5,
+        beforeEnd: 5,
+        afterStart: 4,
+        afterEnd: 4,
+        inputType: "deleteContentBackward",
+      },
+      {
+        value: "starX",
+        beforeStart: 4,
+        beforeEnd: 4,
+        afterStart: 5,
+        afterEnd: 5,
+        data: "X",
+      },
+    ])
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("starX")
+    expect(await snapshot(host.page)).toMatchObject({
+      source: "starX",
+      committed_change_count: 1,
+    })
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Raw input coalesces insert then deletes from the net change", async ({ browser }) => {
+  const host = await mountHost(browser, "start")
+  try {
+    const input = host.page.locator("#loomark-input")
+    await dispatchRawNativeEdits(input, [
+      {
+        value: "startX",
+        beforeStart: 5,
+        beforeEnd: 5,
+        afterStart: 6,
+        afterEnd: 6,
+        data: "X",
+      },
+      {
+        value: "start",
+        beforeStart: 6,
+        beforeEnd: 6,
+        afterStart: 5,
+        afterEnd: 5,
+        inputType: "deleteContentBackward",
+      },
+      {
+        value: "star",
+        beforeStart: 5,
+        beforeEnd: 5,
+        afterStart: 4,
+        afterEnd: 4,
+        inputType: "deleteContentBackward",
+      },
+    ])
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("star")
+    expect(await snapshot(host.page)).toMatchObject({
+      source: "star",
+      committed_change_count: 1,
+    })
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Raw input without beforeinput does not guess a canonical edit", async ({ browser }) => {
   const host = await mountHost(browser, "start")
   try {
     const input = host.page.locator("#loomark-input")
     await input.evaluate(element => {
       const textarea = element as HTMLTextAreaElement
-      textarea.focus()
-      textarea.value += "X"
-      textarea.setSelectionRange(textarea.value.length, textarea.value.length)
-      textarea.dispatchEvent(new Event("input", { bubbles: true }))
+      textarea.value = "startX"
+      textarea.setSelectionRange(6, 6)
+      textarea.dispatchEvent(new InputEvent("input", {
+        bubbles: true,
+        data: "X",
+        inputType: "insertText",
+      }))
     })
+    await host.page.waitForTimeout(100)
+    expect(await snapshot(host.page)).toMatchObject({
+      source: "start",
+      committed_change_count: 0,
+      error_code: null,
+    })
+    await expect(input).toHaveValue("start")
+    await dispatchRawNativeEdits(input, [{
+      value: "startY",
+      beforeStart: 5,
+      beforeEnd: 5,
+      afterStart: 6,
+      afterEnd: 6,
+      data: "Y",
+    }])
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("startY")
+    expect(await snapshot(host.page)).toMatchObject({ committed_change_count: 1 })
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("beforeinput without same-task input expires unmatched", async ({ browser }) => {
+  const host = await mountHost(browser, "start")
+  try {
+    const input = host.page.locator("#loomark-input")
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(5, 5)
+      textarea.dispatchEvent(new InputEvent("beforeinput", {
+        bubbles: true,
+        cancelable: true,
+        data: "X",
+        inputType: "insertText",
+      }))
+    })
+    await host.page.waitForTimeout(20)
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.value = "startX"
+      textarea.setSelectionRange(6, 6)
+      textarea.dispatchEvent(new InputEvent("input", {
+        bubbles: true,
+        data: "X",
+        inputType: "insertText",
+      }))
+    })
+    await host.page.waitForTimeout(100)
+    expect(await snapshot(host.page)).toMatchObject({
+      source: "start",
+      committed_change_count: 0,
+      error_code: null,
+    })
+    await expect(input).toHaveValue("start")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("malformed matched Raw input repairs without a canonical edit", async ({ browser }) => {
+  const host = await mountHost(browser, "abc")
+  try {
+    const input = host.page.locator("#loomark-input")
+    await dispatchRawNativeEdits(input, [{
+      value: "XYZ",
+      beforeStart: 1,
+      beforeEnd: 2,
+      afterStart: 3,
+      afterEnd: 3,
+      data: "XYZ",
+    }])
+    await host.page.waitForTimeout(100)
+    expect(await snapshot(host.page)).toMatchObject({
+      source: "abc",
+      committed_change_count: 0,
+      error_code: null,
+    })
+    await expect(input).toHaveValue("abc")
+    await expect.poll(() => input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      return {
+        start: textarea.selectionStart,
+        end: textarea.selectionEnd,
+        direction: textarea.selectionDirection,
+      }
+    })).toEqual({ start: 1, end: 2, direction: "forward" })
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("composition-intermediate Raw input does not commit", async ({ browser }) => {
+  const host = await mountHost(browser, "start")
+  try {
+    const input = host.page.locator("#loomark-input")
+    await dispatchRawNativeEdits(input, [{
+      value: "startあ",
+      beforeStart: 5,
+      beforeEnd: 5,
+      afterStart: 6,
+      afterEnd: 6,
+      inputType: "insertCompositionText",
+      data: "あ",
+      isComposing: true,
+    }])
+    await host.page.waitForTimeout(100)
+    expect(await snapshot(host.page)).toMatchObject({
+      source: "start",
+      committed_change_count: 0,
+      error_code: null,
+    })
+    await expect(input).toHaveValue("startあ")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("mode change discards pending normalized Raw input", async ({ browser }) => {
+  const host = await mountHost(browser, "start")
+  try {
+    const input = host.page.locator("#loomark-input")
+    await dispatchRawNativeEdits(input, [{
+      value: "startX",
+      beforeStart: 5,
+      beforeEnd: 5,
+      afterStart: 6,
+      afterEnd: 6,
+      data: "X",
+    }])
     await selectBlock(host.page)
-    await expect.poll(async () => (await snapshot(host.page)).source).toBe("startX")
-    expect(await snapshot(host.page)).toMatchObject({ mode: "block", source: "startX" })
+    await host.page.waitForTimeout(100)
+    expect(await snapshot(host.page)).toMatchObject({
+      mode: "block",
+      source: "start",
+      committed_change_count: 0,
+    })
   } finally {
     await host.context.close()
   }
@@ -2011,9 +2275,20 @@ test("a newer Block edit supersedes pending Raw input", async ({ browser }) => {
   try {
     await host.page.evaluate(async moduleUrl => {
       const rawInput = document.getElementById("loomark-input") as HTMLTextAreaElement
+      rawInput.setSelectionRange(rawInput.value.length, rawInput.value.length)
+      rawInput.dispatchEvent(new InputEvent("beforeinput", {
+        bubbles: true,
+        cancelable: true,
+        data: "X",
+        inputType: "insertText",
+      }))
       rawInput.value += "X"
       rawInput.setSelectionRange(rawInput.value.length, rawInput.value.length)
-      rawInput.dispatchEvent(new Event("input", { bubbles: true }))
+      rawInput.dispatchEvent(new InputEvent("input", {
+        bubbles: true,
+        data: "X",
+        inputType: "insertText",
+      }))
       const module = await import(moduleUrl)
       module.dev_host_select_block()
       await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
@@ -2037,53 +2312,53 @@ test("a newer Block edit supersedes pending Raw input", async ({ browser }) => {
   }
 })
 
-test("rejected pending Raw input does not repair a removed Raw control", async ({ browser }) => {
+test("mode change discards pending Raw input before an armed failure", async ({ browser }) => {
   const host = await mountHost(browser, "start")
   try {
     await forceEditorFailure(host.page)
     await expect.poll(async () => (await snapshot(host.page)).editor_failure_armed).toBe(true)
-    const input = host.page.locator("#loomark-input")
-    await input.evaluate(element => {
-      const textarea = element as HTMLTextAreaElement
-      textarea.value += "X"
-      textarea.setSelectionRange(textarea.value.length, textarea.value.length)
-      textarea.dispatchEvent(new Event("input", { bubbles: true }))
-    })
+    await dispatchRawNativeEdits(host.page.locator("#loomark-input"), [{
+      value: "startX",
+      beforeStart: 5,
+      beforeEnd: 5,
+      afterStart: 6,
+      afterEnd: 6,
+      data: "X",
+    }])
     await selectBlock(host.page)
-    await expect.poll(async () => (await snapshot(host.page)).error_code).toBe("editor-commit-failed")
+    await host.page.waitForTimeout(100)
     expect(await snapshot(host.page)).toMatchObject({
       source: "start",
       mode: "block",
-      error_operation: "editor-dispatch",
+      error_code: null,
+      editor_failure_armed: true,
+      committed_change_count: 0,
     })
-    await host.page.waitForTimeout(100)
-    expect(await snapshot(host.page)).not.toMatchObject({ error_code: "browser-effect-failed" })
   } finally {
     await host.context.close()
   }
 })
 
-test("rejected pending Raw input does not repair a closed Raw surface in Preview", async ({ browser }) => {
+test("closing the Raw surface discards pending input without DOM repair", async ({ browser }) => {
   const host = await mountHost(browser, "start")
   try {
-    await forceEditorFailure(host.page)
-    await expect.poll(async () => (await snapshot(host.page)).editor_failure_armed).toBe(true)
-    const input = host.page.locator("#loomark-input")
-    await input.evaluate(element => {
-      const textarea = element as HTMLTextAreaElement
-      textarea.value += "X"
-      textarea.setSelectionRange(textarea.value.length, textarea.value.length)
-      textarea.dispatchEvent(new Event("input", { bubbles: true }))
-    })
+    await dispatchRawNativeEdits(host.page.locator("#loomark-input"), [{
+      value: "startX",
+      beforeStart: 5,
+      beforeEnd: 5,
+      afterStart: 6,
+      afterEnd: 6,
+      data: "X",
+    }])
     await selectPreview(host.page)
-    await expect.poll(async () => (await snapshot(host.page)).error_code).toBe("editor-commit-failed")
+    await host.page.waitForTimeout(100)
     expect(await snapshot(host.page)).toMatchObject({
       source: "start",
       mode: "preview",
-      error_operation: "editor-dispatch",
+      error_code: null,
+      committed_change_count: 0,
     })
-    await host.page.waitForTimeout(100)
-    expect(await snapshot(host.page)).not.toMatchObject({ error_code: "browser-effect-failed" })
+    await expect(host.page.locator("#loomark-input")).toHaveCount(0)
   } finally {
     await host.context.close()
   }
@@ -2092,11 +2367,14 @@ test("rejected pending Raw input does not repair a closed Raw surface in Preview
 test("external source replacement supersedes pending Raw input", async ({ browser }) => {
   const host = await mountHost(browser, "start")
   try {
-    await host.page.locator("#loomark-input").evaluate(element => {
-      const textarea = element as HTMLTextAreaElement
-      textarea.value += "X"
-      textarea.dispatchEvent(new Event("input", { bubbles: true }))
-    })
+    await dispatchRawNativeEdits(host.page.locator("#loomark-input"), [{
+      value: "startX",
+      beforeStart: 5,
+      beforeEnd: 5,
+      afterStart: 6,
+      afterEnd: 6,
+      data: "X",
+    }])
     await requestSource(host.page, "external")
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("external")
     await host.page.waitForTimeout(100)
@@ -2111,11 +2389,14 @@ test("failed external source replacement preserves pending Raw input", async ({ 
   try {
     await forceEditorFailure(host.page)
     await expect.poll(async () => (await snapshot(host.page)).editor_failure_armed).toBe(true)
-    await host.page.locator("#loomark-input").evaluate(element => {
-      const textarea = element as HTMLTextAreaElement
-      textarea.value += "X"
-      textarea.dispatchEvent(new Event("input", { bubbles: true }))
-    })
+    await dispatchRawNativeEdits(host.page.locator("#loomark-input"), [{
+      value: "startX",
+      beforeStart: 5,
+      beforeEnd: 5,
+      afterStart: 6,
+      afterEnd: 6,
+      data: "X",
+    }])
     await requestSource(host.page, "external")
     await expect.poll(async () => (await snapshot(host.page)).error_code)
       .toBe("editor-commit-failed")
@@ -2133,11 +2414,14 @@ test("failed external source replacement preserves pending Raw input", async ({ 
 test("snapshot restore supersedes pending Raw input", async ({ browser }) => {
   const host = await mountHost(browser, "start")
   try {
-    await host.page.locator("#loomark-input").evaluate(element => {
-      const textarea = element as HTMLTextAreaElement
-      textarea.value += "X"
-      textarea.dispatchEvent(new Event("input", { bubbles: true }))
-    })
+    await dispatchRawNativeEdits(host.page.locator("#loomark-input"), [{
+      value: "startX",
+      beforeStart: 5,
+      beforeEnd: 5,
+      afterStart: 6,
+      afterEnd: 6,
+      data: "X",
+    }])
     await restoreSnapshot(host.page, 1, "restored", "raw")
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("restored")
     await host.page.waitForTimeout(100)
@@ -2150,11 +2434,14 @@ test("snapshot restore supersedes pending Raw input", async ({ browser }) => {
 test("rejected snapshot preserves pending Raw input", async ({ browser }) => {
   const host = await mountHost(browser, "start")
   try {
-    await host.page.locator("#loomark-input").evaluate(element => {
-      const textarea = element as HTMLTextAreaElement
-      textarea.value += "X"
-      textarea.dispatchEvent(new Event("input", { bubbles: true }))
-    })
+    await dispatchRawNativeEdits(host.page.locator("#loomark-input"), [{
+      value: "startX",
+      beforeStart: 5,
+      beforeEnd: 5,
+      afterStart: 6,
+      afterEnd: 6,
+      data: "X",
+    }])
     await restoreSnapshot(host.page, 999, "ignored", "raw")
     await expect.poll(async () => (await snapshot(host.page)).error_code)
       .toBe("unsupported-snapshot-version")
@@ -2178,12 +2465,7 @@ test("Raw textarea editor failure preserves committed state and consumes the arm
     await expect.poll(async () => (await snapshot(host.page)).editor_failure_armed).toBe(true)
     const before = await snapshot(host.page)
 
-    await input.evaluate(element => {
-      const textarea = element as HTMLTextAreaElement
-      textarea.value = "failed edit\n"
-      textarea.setSelectionRange(3, 6, "backward")
-      textarea.dispatchEvent(new Event("input", { bubbles: true }))
-    })
+    await replaceRawValue(input, "failed edit\n")
     await expect.poll(async () => (await snapshot(host.page)).error_code).toBe("editor-commit-failed")
     expect(await snapshot(host.page)).toMatchObject({
       source: before.source,
@@ -2191,7 +2473,7 @@ test("Raw textarea editor failure preserves committed state and consumes the arm
       source_revision: before.source_revision,
       committed_change_count: before.committed_change_count,
       error_count: (before.error_count as number) + 1,
-      error_operation: "editor-dispatch",
+      error_operation: "raw-selection-edit",
       editor_failure_armed: false,
     })
     await expect(input).toHaveValue("before\n")
@@ -2199,7 +2481,7 @@ test("Raw textarea editor failure preserves committed state and consumes the arm
     await expect.poll(() => input.evaluate(element => {
       const textarea = element as HTMLTextAreaElement
       return `${textarea.selectionStart}:${textarea.selectionEnd}`
-    })).toBe("0:0")
+    })).toBe("0:7")
     await expect.poll(() => input.evaluate(
       element => (element as HTMLTextAreaElement & { __loomarkIdentity?: string }).__loomarkIdentity,
     )).toBe("preserved")
@@ -2214,15 +2496,11 @@ test("Raw textarea editor failure can be retried and reflected in Preview", asyn
     await selectRaw(host.page)
     await forceEditorFailure(host.page)
     await expect.poll(async () => (await snapshot(host.page)).editor_failure_armed).toBe(true)
-    await host.page.locator("#loomark-input").evaluate(element => {
-      const textarea = element as HTMLTextAreaElement
-      textarea.value = "failed edit\n"
-      textarea.dispatchEvent(new Event("input", { bubbles: true }))
-    })
+    await replaceRawValue(host.page.locator("#loomark-input"), "failed edit\n")
     await expect.poll(async () => (await snapshot(host.page)).error_code).toBe("editor-commit-failed")
     await expect(host.page.locator("#loomark-input")).toHaveValue("before\n")
 
-    await host.page.locator("#loomark-input").fill("retried edit\n")
+    await replaceRawValue(host.page.locator("#loomark-input"), "retried edit\n")
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("retried edit\n")
     await selectPreview(host.page)
     await expectPreviewSource(host.page, "retried edit\n")
@@ -2231,7 +2509,7 @@ test("Raw textarea editor failure can be retried and reflected in Preview", asyn
   }
 })
 
-test("rejected Raw insertion restores a UTF-16 text cursor to its accepted position", async ({ browser }) => {
+test("failed Raw insertion restores the pre-input UTF-16 cursor", async ({ browser }) => {
   const host = await mountHost(browser, "A😀B")
   try {
     const input = host.page.locator("#loomark-input")
@@ -2260,32 +2538,41 @@ test("rejected Raw insertion restores a UTF-16 text cursor to its accepted posit
   }
 })
 
-test("rejected Raw repair yields to a newer same-frame input", async ({ browser }) => {
+test("failed coalesced Raw input is not retried", async ({ browser }) => {
   const host = await mountHost(browser, "start")
   try {
     const input = host.page.locator("#loomark-input")
     await input.focus()
     await forceEditorFailure(host.page)
     await expect.poll(async () => (await snapshot(host.page)).editor_failure_armed).toBe(true)
-    await input.evaluate(element => {
-      const textarea = element as HTMLTextAreaElement
-      for (const value of ["startX", "startXY"]) {
-        textarea.value = value
-        textarea.setSelectionRange(value.length, value.length)
-        textarea.dispatchEvent(new Event("input", { bubbles: true }))
-      }
-    })
-    await host.page.evaluate(() => new Promise<void>(resolve => {
-      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
-    }))
+    await dispatchRawNativeEdits(input, [
+      {
+        value: "startX",
+        beforeStart: 5,
+        beforeEnd: 5,
+        afterStart: 6,
+        afterEnd: 6,
+        data: "X",
+      },
+      {
+        value: "startXY",
+        beforeStart: 6,
+        beforeEnd: 6,
+        afterStart: 7,
+        afterEnd: 7,
+        data: "Y",
+      },
+    ])
 
-    await expect.poll(async () => (await snapshot(host.page)).source).toBe("startXY")
-    await expect(input).toHaveValue("startXY")
-    await expect(input).toBeFocused()
-    await expect.poll(() => input.evaluate(element => {
-      const textarea = element as HTMLTextAreaElement
-      return `${textarea.selectionStart}:${textarea.selectionEnd}`
-    })).toBe("7:7")
+    await expect.poll(async () => (await snapshot(host.page)).error_code)
+      .toBe("editor-commit-failed")
+    await host.page.waitForTimeout(100)
+    expect(await snapshot(host.page)).toMatchObject({
+      source: "start",
+      committed_change_count: 0,
+      error_count: 1,
+    })
+    await expect(input).toHaveValue("start")
   } finally {
     await host.context.close()
   }

@@ -239,6 +239,45 @@ fn raw_selection_after_render(
 }
 
 ///|
+/// Restore canonical Raw text and the trusted pre-input selection after a
+/// matched native batch is rejected. A newer capture or document frontier
+/// supersedes this repair before it can write to the DOM.
+fn rejected_raw_input_after_render(
+  latest_model : @ref.Ref[DriverModel?],
+  raw_input_coordinator : RawInputCoordinator,
+  repair_epoch : Int,
+  expected : VersionedRawSelection,
+  emit : @cmd.Emit[DriverEvent],
+) -> @cmd.Cmd {
+  after_render(
+    scheduler => {
+      ignore(scheduler)
+      guard raw_input_coordinator.epoch() == repair_epoch else { return }
+      guard latest_model.val is Some(latest) else { return }
+      guard latest.document_id == expected.document_id &&
+        latest.document_version == expected.version &&
+        raw_selection_mode_applicable(latest) else {
+        return
+      }
+      @dom_boundary.write_text_value_id(
+        "loomark-input",
+        raw_textarea_value(latest.document.source()),
+      )
+      match
+        dom_selection_from_markdown_document_utf16(
+          latest.document.source(),
+          expected.selection,
+        ) {
+        Some(selection) =>
+          @dom_boundary.write_text_selection_id("loomark-input", selection)
+        None => ()
+      }
+    },
+    emit,
+  )
+}
+
+///|
 /// Revalidate the latest model after rendering, then perform the final DOM
 /// write without queuing a state update after it.
 fn focus_latest_after_render(

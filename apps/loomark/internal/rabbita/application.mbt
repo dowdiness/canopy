@@ -374,12 +374,63 @@ fn raw_editor_view(
       id="loomark-input",
       value=source,
       rows=4,
-      attrs=@html.Attrs::build().aria_label("Raw Markdown source"),
+      attrs=@html.Attrs::build()
+        .aria_label("Raw Markdown source")
+        .on_beforeinput(event => {
+          raw_input_coordinator.capture_native_before_input(model, event)
+        })
+        .on_input(event => {
+          if raw_input_event_is_composing(event) {
+            raw_input_coordinator.suppress_composing_input_repair()
+          }
+          @rabbita_runtime.none
+        }),
       style=[
         "display:block;min-width:0;min-height:clamp(24rem,70vh,36rem);width:var(--lm-page-width);margin-inline:auto;field-sizing:content;resize:none;overflow:hidden;--rui-control-base-border:transparent;--rui-control-base-shadow:none;background:transparent;padding:1rem var(--lm-page-x-padding);font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,\"Liberation Mono\",\"Courier New\",monospace;font-size:1.125rem;line-height:1.65",
       ],
       on_input=@cmd.Emit(source => {
-        raw_input_command(source, raw_input_coordinator, emit)
+        match read_raw_selection() {
+          Some(selection) => {
+            let matched = raw_input_coordinator.has_captured_before_input()
+            let repair_unmatched = raw_input_coordinator.take_unmatched_input_repair()
+            let input_command = raw_input_coordinator.enqueue(
+              source, selection, emit,
+            )
+            if matched || !repair_unmatched {
+              input_command
+            } else {
+              let repair_epoch = raw_input_coordinator.epoch()
+              let repair_selection = rejected_text_selection(
+                model.document.source(),
+                source,
+                selection,
+              )
+              @cmd.batch([
+                input_command,
+                after_render(
+                  scheduler => {
+                    ignore(scheduler)
+                    guard raw_input_coordinator.epoch() == repair_epoch else {
+                      return
+                    }
+                    @dom_boundary.write_text_value_id(
+                      "loomark-input",
+                      raw_textarea_value(model.document.source()),
+                    )
+                    @dom_boundary.write_text_selection_id(
+                      "loomark-input", repair_selection,
+                    )
+                  },
+                  emit,
+                ),
+              ])
+            }
+          }
+          None => {
+            raw_input_coordinator.cancel_pending()
+            @rabbita_runtime.none
+          }
+        }
       }),
     ),
   )
@@ -644,7 +695,8 @@ fn driver_event_name(event : DriverEvent) -> String {
     Editing(edit_event) =>
       match edit_event {
         ReplaceSource(_) => "source"
-        RawInput(_, _, _) => "raw-input"
+        RawInput(_, _) => "raw-input"
+        RawNativeInput(..) => "raw-native-input"
         RawSelectionEdit(_) => "raw-selection-edit"
         CommitCapturedRawSelection(_) => "commit-captured-raw-selection"
         BlockFocused(_) => "block-focused"
@@ -743,7 +795,7 @@ fn parse_driver_event(detail : String) -> DriverEvent {
   } else if detail.has_prefix("source|") {
     Editing(ReplaceSource(detail["source|".length():].to_owned()))
   } else if detail.has_prefix("raw-input|") {
-    Editing(RawInput(detail["raw-input|".length():].to_owned(), None, None))
+    Editing(RawInput(detail["raw-input|".length():].to_owned(), None))
   } else if detail.has_prefix("raw-selection-edit|") {
     Editing(
       CommitCapturedRawSelection(
@@ -858,11 +910,8 @@ fn editing_mode_applicable(
   split_preview_open : Bool,
 ) -> String? {
   match event {
-    ReplaceSource(_) | ProbeBlockSelection(_) => None
-    RawInput(_, _, Some(_)) => None
-    RawInput(_, _, None)
-    | RawSelectionEdit(_)
-    | CommitCapturedRawSelection(_) =>
+    ReplaceSource(_) | ProbeBlockSelection(_) | RawNativeInput(..) => None
+    RawInput(_, _) | RawSelectionEdit(_) | CommitCapturedRawSelection(_) =>
       if mode == @core.Raw || (mode == @core.Preview && split_preview_open) {
         None
       } else {
@@ -897,11 +946,11 @@ fn update_editing(
   event : EditingEvent,
   emit : @cmd.Emit[DriverEvent],
 ) -> (DriverModel, @cmd.Cmd) raise {
-  let raw_token_active = match event {
-    RawInput(_, _, Some(token)) => raw_input_coordinator.is_active(token)
+  let native_token_active = match event {
+    RawNativeInput(token~, ..) => raw_input_coordinator.is_active(token)
     _ => true
   }
-  if event is RawInput(_, _, Some(_)) && !raw_token_active {
+  if event is RawNativeInput(..) && !native_token_active {
     return (model, @rabbita_runtime.none)
   }
   match event {
@@ -930,6 +979,79 @@ fn update_editing(
     }
     None =>
       match event {
+        RawNativeInput(token~, candidate~) => {
+          raw_input_coordinator.mark_reducer_started(token)
+          let request = normalize_raw_input_candidate(model, candidate)
+          raw_input_coordinator.mark_reducer_finished(token)
+          match request {
+            None => {
+              let repair_epoch = raw_input_coordinator.epoch()
+              let expected = candidate.before_input.selection
+              raw_input_coordinator.discard(token)
+              (
+                model,
+                rejected_raw_input_after_render(
+                  latest_model, raw_input_coordinator, repair_epoch, expected, emit,
+                ),
+              )
+            }
+            Some(request) => {
+              let (next, outcome, persistence_command) = commit_raw_selection_edit(
+                editor,
+                attachment,
+                model,
+                request,
+                emit,
+                editor_started=() => {
+                  raw_input_coordinator.mark_editor_started(token)
+                },
+                editor_finished=() => {
+                  raw_input_coordinator.mark_editor_finished(token)
+                },
+                preview_started=() => {
+                  raw_input_coordinator.mark_preview_started(token)
+                },
+                preview_finished=() => {
+                  raw_input_coordinator.mark_preview_finished(token)
+                },
+              )
+              let (next, selection_command, repair_command) = match outcome {
+                RawSelectionEditOutcome::Applied(selection)
+                | RawSelectionEditOutcome::Unchanged(selection) =>
+                  (
+                    next,
+                    raw_selection_after_render(latest_model, selection, emit),
+                    @rabbita_runtime.none,
+                  )
+                RawSelectionEditOutcome::Rejected(
+                  RawSelectionEditRejection::EditorCommitFailed
+                ) => {
+                  let repair_epoch = raw_input_coordinator.epoch()
+                  let expected = candidate.before_input.selection
+                  (
+                    next,
+                    @rabbita_runtime.none,
+                    rejected_raw_input_after_render(
+                      latest_model, raw_input_coordinator, repair_epoch, expected,
+                      emit,
+                    ),
+                  )
+                }
+                RawSelectionEditOutcome::Rejected(_) =>
+                  (next, @rabbita_runtime.none, @rabbita_runtime.none)
+              }
+              let finish_command = raw_input_coordinator.finish(
+                token, latest_model, emit,
+              )
+              (
+                next,
+                @cmd.batch([
+                  persistence_command, selection_command, repair_command, finish_command,
+                ]),
+              )
+            }
+          }
+        }
         CommitCapturedRawSelection(inserted) =>
           match model.raw_selection {
             None => {
@@ -976,31 +1098,17 @@ fn update_editing(
           }
           (next, @cmd.batch([persistence_command, selection_command]))
         }
-        ReplaceSource(source) | RawInput(source, _, _) => {
-          let raw_selection = match event {
-            RawInput(_, selection, _) => selection
-            _ => None
-          }
-          let raw_event = event is RawInput(_, _, _)
-          let raw_token = match event {
-            RawInput(_, _, token) => token
-            _ => None
-          }
+        ReplaceSource(source) | RawInput(source, _) => {
           let raw_input_epoch = raw_input_coordinator.epoch()
-          let mut raw_completion_seen = false
-          let mut raw_completion_command = @rabbita_runtime.none
-          match raw_token {
-            Some(token) => raw_input_coordinator.mark_reducer_started(token)
-            None => ()
+          let raw_selection = match event {
+            RawInput(_, selection) => selection
+            _ => None
           }
+          let raw_event = event is RawInput(_, _)
           let transition = @core.reduce(
             model.state,
             @core.ApplicationEvent::RequestCanonicalSource(source~),
           )
-          match raw_token {
-            Some(token) => raw_input_coordinator.mark_reducer_finished(token)
-            None => ()
-          }
           let mut next = if raw_event {
             { ..model, text_input_generation: model.text_input_generation + 1 }
           } else {
@@ -1011,11 +1119,6 @@ fn update_editing(
           for decision in transition.decisions() {
             match decision {
               @core.ReplaceCanonicalSource(source) => {
-                match raw_token {
-                  Some(token) =>
-                    raw_input_coordinator.mark_editor_started(token)
-                  None => ()
-                }
                 let old_requested = preview_requested(next)
                 let (committed, accepted, changed, commit_command) = commit_source(
                   editor,
@@ -1025,16 +1128,6 @@ fn update_editing(
                   "editor-dispatch",
                   emit,
                 )
-                match raw_token {
-                  Some(token) =>
-                    raw_input_coordinator.mark_editor_finished(token)
-                  None => ()
-                }
-                match raw_token {
-                  Some(token) =>
-                    raw_input_coordinator.mark_preview_started(token)
-                  None => ()
-                }
                 next = update_preview_document(
                   attachment,
                   committed,
@@ -1042,46 +1135,12 @@ fn update_editing(
                   accepted~,
                   changed~,
                 )
-                match raw_token {
-                  Some(token) =>
-                    raw_input_coordinator.mark_preview_finished(token)
-                  None => ()
-                }
-                if event is ReplaceSource(_) && accepted {
+                if accepted {
                   raw_input_coordinator.cancel_pending()
                 }
                 persistence_command = @cmd.batch([
                   persistence_command, commit_command,
                 ])
-                match (raw_token, raw_completion_seen) {
-                  (Some(token), false) => {
-                    raw_completion_seen = true
-                    let repair_generation = next.text_input_generation
-                    let repair_revision = next.source_revision
-                    raw_completion_command = raw_input_coordinator.complete(
-                      token,
-                      source,
-                      raw_selection,
-                      accepted,
-                      () => {
-                        raw_input_repair_eligible(
-                          latest_model.val,
-                          repair_generation,
-                          repair_revision,
-                        )
-                      },
-                      () => {
-                        match latest_model.val {
-                          Some(latest) =>
-                            publish(latest, Some(raw_input_coordinator), None)
-                          None => ()
-                        }
-                      },
-                      emit,
-                    )
-                  }
-                  _ => ()
-                }
                 restore_raw_value = restore_raw_value ||
                   (raw_event && !accepted)
               }
@@ -1091,15 +1150,6 @@ fn update_editing(
                 )
             }
           }
-          if !raw_completion_seen {
-            match raw_token {
-              Some(token) => raw_input_coordinator.cancel(token)
-              None => ()
-            }
-          }
-          persistence_command = @cmd.batch([
-            persistence_command, raw_completion_command,
-          ])
           let command = if restore_raw_value {
             let repair_generation = next.text_input_generation
             let repair_source_revision = next.source_revision
@@ -1635,6 +1685,7 @@ fn update_editing(
 /// effect reports that accompany them. Not mode-gated.
 fn update_navigation(
   attachment : @md_markdown.MarkdownSemanticAttachment,
+  raw_input_coordinator : RawInputCoordinator,
   model : DriverModel,
   latest_model : @ref.Ref[DriverModel?],
   event : NavigationEvent,
@@ -1651,6 +1702,9 @@ fn update_navigation(
         SelectPreview => @core.Preview
         _ => @core.Raw
       }
+      if mode != model.state.mode() {
+        raw_input_coordinator.cancel_pending()
+      }
       let transition = @core.reduce(
         model.state,
         @core.ApplicationEvent::SelectMode(mode~),
@@ -1665,6 +1719,9 @@ fn update_navigation(
       (next, @rabbita_runtime.none)
     }
     ToggleSplitPreview => {
+      if model.state.mode() == @core.Preview && model.split_preview_open {
+        raw_input_coordinator.cancel_pending()
+      }
       let old_requested = preview_requested(model)
       let next = update_preview_document(
         attachment,
@@ -2085,6 +2142,7 @@ fn update_lifecycle(
       (next, @rabbita_runtime.none)
     }
     Fatal(message) => {
+      raw_input_coordinator.cancel_pending()
       block_input_coordinator.cancel_pending()
       let next = { ..model, fatal: true, error: Some(message), rejection: None }
       (next, @rabbita_runtime.none)
@@ -2131,7 +2189,7 @@ fn update_model(
     Archive(completion) => update_archive_tracker(model, completion)
     _ if model.fatal && !recovery_control_event(event) => {
       match event {
-        Editing(RawInput(_, _, Some(token))) =>
+        Editing(RawNativeInput(token~, ..)) =>
           raw_input_coordinator.cancel(token)
         Editing(BlockInput(..)) => block_input_coordinator.cancel_pending()
         _ => ()
@@ -2150,7 +2208,9 @@ fn update_model(
         latest_model, edit_event, emit,
       )
     Navigation(nav_event) =>
-      update_navigation(attachment, model, latest_model, nav_event, emit)
+      update_navigation(
+        attachment, raw_input_coordinator, model, latest_model, nav_event, emit,
+      )
     Probe(probe_event) => update_probe(model, latest_model, probe_event, emit)
     Lifecycle(life_event) =>
       update_lifecycle(
@@ -2159,7 +2219,7 @@ fn update_model(
       )
   }
   let raw_input_token = match event {
-    Editing(RawInput(_, _, Some(token))) => Some(token)
+    Editing(RawNativeInput(token~, ..)) => Some(token)
     _ => None
   }
   publish(next, Some(raw_input_coordinator), raw_input_token)
