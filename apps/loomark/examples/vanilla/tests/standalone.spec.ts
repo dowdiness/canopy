@@ -54,6 +54,58 @@ test("first standalone visit stores a complete baseline archive", async ({ page 
   expect(baseline.history).toBeTruthy()
 })
 
+test("standalone IME commits one non-BMP final value and ignores cancellation", async ({ page }) => {
+  await page.goto("/")
+  await expect.poll(() => page.evaluate(() => (
+    JSON.parse(localStorage.getItem("loomark.active-document-archive") ?? "{}").portable_markdown as string | undefined
+  ))).toBe("")
+  const input = page.locator("#loomark-input")
+  await input.focus()
+  await input.evaluate(element => {
+    const textarea = element as HTMLTextAreaElement
+    textarea.setSelectionRange(0, 0)
+  })
+  const session = await page.context().newCDPSession(page)
+
+  await session.send("Input.imeSetComposition", {
+    text: "😀",
+    selectionStart: 2,
+    selectionEnd: 2,
+  })
+  await expect(input).toHaveValue("😀")
+  expect(await page.evaluate(() => (
+    JSON.parse(localStorage.getItem("loomark.active-document-archive") ?? "{}").portable_markdown as string
+  ))).toBe("")
+
+  await session.send("Input.insertText", { text: "👨‍👩‍👧‍👦" })
+
+  await expect.poll(() => page.evaluate(() => (
+    JSON.parse(localStorage.getItem("loomark.active-document-archive") ?? "{}").portable_markdown as string
+  ))).toBe("👨‍👩‍👧‍👦")
+  await expect(input).toHaveValue("👨‍👩‍👧‍👦")
+  await expect(input).toBeFocused()
+  await expect.poll(() => input.evaluate(element => {
+    const textarea = element as HTMLTextAreaElement
+    return [textarea.selectionStart, textarea.selectionEnd]
+  })).toEqual([11, 11])
+
+  await session.send("Input.imeSetComposition", {
+    text: "取消",
+    selectionStart: 2,
+    selectionEnd: 2,
+  })
+  await session.send("Input.imeSetComposition", {
+    text: "",
+    selectionStart: 0,
+    selectionEnd: 0,
+  })
+
+  expect(await page.evaluate(() => (
+    JSON.parse(localStorage.getItem("loomark.active-document-archive") ?? "{}").portable_markdown as string
+  ))).toBe("👨‍👩‍👧‍👦")
+  await expect(input).toHaveValue("👨‍👩‍👧‍👦")
+})
+
 test("standalone edit replaces the archive and reload restores the durable source", async ({ page }) => {
   await page.goto("/")
   await expect.poll(() => page.evaluate(() => (

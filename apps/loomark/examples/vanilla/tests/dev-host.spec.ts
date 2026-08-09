@@ -2247,6 +2247,618 @@ test("composition-intermediate Raw input does not commit", async ({ browser }) =
   }
 })
 
+test("Raw IME composition commits the accepted final value once", async ({ browser }) => {
+  const host = await mountHost(browser, "start")
+  try {
+    const input = host.page.locator("#loomark-input")
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(5, 5)
+    })
+    const session = await host.context.newCDPSession(host.page)
+
+    await session.send("Input.imeSetComposition", {
+      text: "かんじ",
+      selectionStart: 3,
+      selectionEnd: 3,
+    })
+    await expect(input).toHaveValue("startかんじ")
+    expect(await snapshot(host.page)).toMatchObject({
+      source: "start",
+      committed_change_count: 0,
+      error_code: null,
+    })
+
+    await session.send("Input.insertText", { text: "漢字" })
+
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("start漢字")
+    expect(await snapshot(host.page)).toMatchObject({
+      committed_change_count: 1,
+      error_code: null,
+    })
+    await expect(input).toHaveValue("start漢字")
+    await expect(input).toBeFocused()
+    await expect.poll(() => input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      return [textarea.selectionStart, textarea.selectionEnd]
+    })).toEqual([7, 7])
+
+    await dispatchRawNativeEdits(input, [{
+      value: "start漢字",
+      beforeStart: 7,
+      beforeEnd: 7,
+      afterStart: 7,
+      afterEnd: 7,
+      inputType: "insertFromComposition",
+      data: "漢字",
+    }])
+    expect(await snapshot(host.page)).toMatchObject({
+      source: "start漢字",
+      committed_change_count: 1,
+      error_code: null,
+    })
+    await expect(input).toHaveValue("start漢字")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Raw IME composition includes ordinary input pending from the same task", async ({ browser }) => {
+  const host = await mountHost(browser, "start")
+  try {
+    const input = host.page.locator("#loomark-input")
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(5, 5)
+      textarea.dispatchEvent(new InputEvent("beforeinput", {
+        bubbles: true,
+        cancelable: true,
+        data: "X",
+        inputType: "insertText",
+      }))
+      textarea.value = "startX"
+      textarea.setSelectionRange(6, 6)
+      textarea.dispatchEvent(new InputEvent("input", {
+        bubbles: true,
+        data: "X",
+        inputType: "insertText",
+      }))
+      textarea.dispatchEvent(new CompositionEvent("compositionstart", {
+        bubbles: true,
+        data: "",
+      }))
+      textarea.dispatchEvent(new InputEvent("beforeinput", {
+        bubbles: true,
+        cancelable: true,
+        data: "漢",
+        inputType: "insertCompositionText",
+        isComposing: true,
+      }))
+      textarea.value = "startX漢"
+      textarea.setSelectionRange(7, 7)
+      textarea.dispatchEvent(new InputEvent("input", {
+        bubbles: true,
+        data: "漢",
+        inputType: "insertCompositionText",
+        isComposing: true,
+      }))
+      textarea.dispatchEvent(new CompositionEvent("compositionend", {
+        bubbles: true,
+        data: "漢",
+      }))
+    })
+
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("startX漢")
+    expect(await snapshot(host.page)).toMatchObject({
+      committed_change_count: 1,
+      error_code: null,
+    })
+    await expect(input).toHaveValue("startX漢")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Raw IME preserves pending ordinary input when composition ends without input", async ({ browser }) => {
+  const host = await mountHost(browser, "start")
+  try {
+    const input = host.page.locator("#loomark-input")
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(5, 5)
+      textarea.dispatchEvent(new InputEvent("beforeinput", {
+        bubbles: true,
+        cancelable: true,
+        data: "X",
+        inputType: "insertText",
+      }))
+      textarea.value = "startX"
+      textarea.setSelectionRange(6, 6)
+      textarea.dispatchEvent(new InputEvent("input", {
+        bubbles: true,
+        data: "X",
+        inputType: "insertText",
+      }))
+      textarea.dispatchEvent(new CompositionEvent("compositionstart", {
+        bubbles: true,
+        data: "",
+      }))
+      textarea.dispatchEvent(new CompositionEvent("compositionend", {
+        bubbles: true,
+        data: "",
+      }))
+    })
+
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("startX")
+    expect(await snapshot(host.page)).toMatchObject({
+      committed_change_count: 1,
+      error_code: null,
+    })
+    await expect(input).toHaveValue("startX")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Block IME composition commits the accepted final value once", async ({ browser }) => {
+  const host = await mountHost(browser, "start")
+  try {
+    await selectBlock(host.page)
+    const input = host.page.locator("#loomark-block-input")
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(5, 5)
+    })
+    const session = await host.context.newCDPSession(host.page)
+
+    await session.send("Input.imeSetComposition", {
+      text: "かんじ",
+      selectionStart: 3,
+      selectionEnd: 3,
+    })
+    await expect(input).toHaveValue("startかんじ")
+    expect(await snapshot(host.page)).toMatchObject({
+      source: "start",
+      committed_change_count: 0,
+      error_code: null,
+    })
+
+    await session.send("Input.insertText", { text: "漢字" })
+
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("start漢字")
+    expect(await snapshot(host.page)).toMatchObject({
+      committed_change_count: 1,
+      error_code: null,
+    })
+    await expect(input).toHaveValue("start漢字")
+    await expect(input).toBeFocused()
+    await expect.poll(() => input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      return [textarea.selectionStart, textarea.selectionEnd]
+    })).toEqual([7, 7])
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Block IME composition supersedes ordinary input pending from the same task", async ({ browser }) => {
+  const host = await mountHost(browser, "start")
+  try {
+    await selectBlock(host.page)
+    const input = host.page.locator("#loomark-block-input")
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.value = "startX"
+      textarea.setSelectionRange(6, 6)
+      textarea.dispatchEvent(new InputEvent("input", {
+        bubbles: true,
+        data: "X",
+        inputType: "insertText",
+      }))
+      textarea.dispatchEvent(new CompositionEvent("compositionstart", {
+        bubbles: true,
+        data: "",
+      }))
+      textarea.value = "startX漢"
+      textarea.setSelectionRange(7, 7)
+      textarea.dispatchEvent(new InputEvent("input", {
+        bubbles: true,
+        data: "漢",
+        inputType: "insertCompositionText",
+        isComposing: true,
+      }))
+      textarea.dispatchEvent(new CompositionEvent("compositionend", {
+        bubbles: true,
+        data: "漢",
+      }))
+    })
+
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("startX漢")
+    expect(await snapshot(host.page)).toMatchObject({
+      committed_change_count: 1,
+      error_code: null,
+    })
+    await expect(input).toHaveValue("startX漢")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Block IME preserves pending ordinary input when composition ends without input", async ({ browser }) => {
+  const host = await mountHost(browser, "start")
+  try {
+    await selectBlock(host.page)
+    const input = host.page.locator("#loomark-block-input")
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.value = "startX"
+      textarea.setSelectionRange(6, 6)
+      textarea.dispatchEvent(new InputEvent("input", {
+        bubbles: true,
+        data: "X",
+        inputType: "insertText",
+      }))
+      textarea.dispatchEvent(new CompositionEvent("compositionstart", {
+        bubbles: true,
+        data: "",
+      }))
+      textarea.dispatchEvent(new CompositionEvent("compositionend", {
+        bubbles: true,
+        data: "",
+      }))
+    })
+
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("startX")
+    expect(await snapshot(host.page)).toMatchObject({
+      committed_change_count: 1,
+      error_code: null,
+    })
+    await expect(input).toHaveValue("startX")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Block IME preserves paragraph, heading, list, and code syntax", async ({ browser }) => {
+  const initial = "# Title\n\n- item\n\n~~~moonbit\ncode\n~~~\n\nparagraph\n"
+  const host = await mountHost(browser, initial)
+  try {
+    await selectBlock(host.page)
+    const session = await host.context.newCDPSession(host.page)
+    const composeAtEnd = async (
+      input: Locator,
+      currentText: string,
+      expectedSource: string,
+    ): Promise<void> => {
+      await input.focus()
+      await input.evaluate((element, offset) => {
+        const textarea = element as HTMLTextAreaElement
+        textarea.setSelectionRange(offset, offset)
+      }, currentText.length)
+      await session.send("Input.imeSetComposition", {
+        text: "漢",
+        selectionStart: 1,
+        selectionEnd: 1,
+      })
+      await session.send("Input.insertText", { text: "漢" })
+      await expect.poll(async () => (await snapshot(host.page)).source).toBe(expectedSource)
+    }
+
+    let source = "# Title漢\n\n- item\n\n~~~moonbit\ncode\n~~~\n\nparagraph\n"
+    await composeAtEnd(
+      host.page.locator('[data-loomark-block-kind="heading"]'),
+      "Title",
+      source,
+    )
+    source = "# Title漢\n\n- item漢\n\n~~~moonbit\ncode\n~~~\n\nparagraph\n"
+    await composeAtEnd(
+      host.page.locator('[data-loomark-block-kind="unordered-list-item"]'),
+      "item",
+      source,
+    )
+    source = "# Title漢\n\n- item漢\n\n~~~moonbit\ncode漢\n~~~\n\nparagraph\n"
+    await composeAtEnd(
+      host.page.locator('[data-loomark-block-kind="code"]'),
+      "code",
+      source,
+    )
+    source = "# Title漢\n\n- item漢\n\n~~~moonbit\ncode漢\n~~~\n\nparagraph漢\n"
+    await composeAtEnd(
+      host.page.locator('[data-loomark-block-kind="paragraph"]'),
+      "paragraph",
+      source,
+    )
+
+    expect(await snapshot(host.page)).toMatchObject({
+      source,
+      committed_change_count: 4,
+      error_code: null,
+    })
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("canceling Raw IME composition preserves canonical source and focus", async ({ browser }) => {
+  const host = await mountHost(browser, "start")
+  try {
+    const input = host.page.locator("#loomark-input")
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(5, 5)
+    })
+    const session = await host.context.newCDPSession(host.page)
+    await session.send("Input.imeSetComposition", {
+      text: "取消",
+      selectionStart: 2,
+      selectionEnd: 2,
+    })
+    await expect(input).toHaveValue("start取消")
+
+    await session.send("Input.imeSetComposition", {
+      text: "",
+      selectionStart: 0,
+      selectionEnd: 0,
+    })
+
+    expect(await snapshot(host.page)).toMatchObject({
+      source: "start",
+      committed_change_count: 0,
+      error_code: null,
+    })
+    await expect(input).toHaveValue("start")
+    await expect(input).toBeFocused()
+    await expect.poll(() => input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      return [textarea.selectionStart, textarea.selectionEnd]
+    })).toEqual([5, 5])
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("failed Raw IME finalization restores canonical text and caret once", async ({ browser }) => {
+  const host = await mountHost(browser, "start")
+  try {
+    const input = host.page.locator("#loomark-input")
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(5, 5)
+    })
+    await forceEditorFailure(host.page)
+    await expect.poll(async () => (await snapshot(host.page)).editor_failure_armed).toBe(true)
+    const session = await host.context.newCDPSession(host.page)
+    await session.send("Input.imeSetComposition", {
+      text: "漢",
+      selectionStart: 1,
+      selectionEnd: 1,
+    })
+
+    await session.send("Input.insertText", { text: "漢" })
+
+    await expect.poll(async () => (await snapshot(host.page)).error_code).toBe("editor-commit-failed")
+    expect(await snapshot(host.page)).toMatchObject({
+      source: "start",
+      committed_change_count: 0,
+      editor_failure_armed: false,
+      error_count: 1,
+    })
+    await expect(input).toHaveValue("start")
+    await expect(input).toBeFocused()
+    await expect.poll(() => input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      return [textarea.selectionStart, textarea.selectionEnd]
+    })).toEqual([5, 5])
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("canceling Block IME composition preserves canonical source and focus", async ({ browser }) => {
+  const host = await mountHost(browser, "start")
+  try {
+    await selectBlock(host.page)
+    const input = host.page.locator("#loomark-block-input")
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(5, 5)
+    })
+    const session = await host.context.newCDPSession(host.page)
+    await session.send("Input.imeSetComposition", {
+      text: "取消",
+      selectionStart: 2,
+      selectionEnd: 2,
+    })
+    await expect(input).toHaveValue("start取消")
+
+    await session.send("Input.imeSetComposition", {
+      text: "",
+      selectionStart: 0,
+      selectionEnd: 0,
+    })
+
+    expect(await snapshot(host.page)).toMatchObject({
+      source: "start",
+      committed_change_count: 0,
+      error_code: null,
+    })
+    await expect(input).toHaveValue("start")
+    await expect(input).toBeFocused()
+    await expect.poll(() => input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      return [textarea.selectionStart, textarea.selectionEnd]
+    })).toEqual([5, 5])
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Raw IME replacement preserves a non-BMP grapheme boundary", async ({ browser }) => {
+  const host = await mountHost(browser, "A😀B")
+  try {
+    const input = host.page.locator("#loomark-input")
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(1, 3, "backward")
+    })
+    const session = await host.context.newCDPSession(host.page)
+    await session.send("Input.imeSetComposition", {
+      text: "😀",
+      selectionStart: 2,
+      selectionEnd: 2,
+    })
+    expect(await snapshot(host.page)).toMatchObject({
+      source: "A😀B",
+      committed_change_count: 0,
+    })
+
+    await session.send("Input.insertText", { text: "👨‍👩‍👧‍👦" })
+
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("A👨‍👩‍👧‍👦B")
+    expect(await snapshot(host.page)).toMatchObject({
+      committed_change_count: 1,
+      error_code: null,
+    })
+    await expect(input).toHaveValue("A👨‍👩‍👧‍👦B")
+    await expect.poll(() => input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      return [textarea.selectionStart, textarea.selectionEnd]
+    })).toEqual([12, 12])
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("a Raw mode click accepts composition before changing mode", async ({ browser }) => {
+  const host = await mountHost(browser, "start")
+  try {
+    const input = host.page.locator("#loomark-input")
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(5, 5)
+    })
+    const session = await host.context.newCDPSession(host.page)
+    await session.send("Input.imeSetComposition", {
+      text: "漢",
+      selectionStart: 1,
+      selectionEnd: 1,
+    })
+
+    await host.page.locator("#loomark-mode-block").click()
+
+    await expect.poll(async () => (await snapshot(host.page)).mode).toBe("block")
+    expect(await snapshot(host.page)).toMatchObject({
+      source: "start漢",
+      committed_change_count: 1,
+      error_code: null,
+    })
+    await expect(host.page.locator("#loomark-block-input")).toHaveValue("start漢")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("a Block mode click accepts composition before changing mode", async ({ browser }) => {
+  const host = await mountHost(browser, "start")
+  try {
+    await selectBlock(host.page)
+    const input = host.page.locator("#loomark-block-input")
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(5, 5)
+    })
+    const session = await host.context.newCDPSession(host.page)
+    await session.send("Input.imeSetComposition", {
+      text: "漢",
+      selectionStart: 1,
+      selectionEnd: 1,
+    })
+
+    await host.page.locator("#loomark-mode-raw").click()
+
+    await expect.poll(async () => (await snapshot(host.page)).mode).toBe("raw")
+    expect(await snapshot(host.page)).toMatchObject({
+      source: "start漢",
+      committed_change_count: 1,
+      error_code: null,
+    })
+    await expect(host.page.locator("#loomark-input")).toHaveValue("start漢")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("a synthetic mode change cancels unfinished Raw composition", async ({ browser }) => {
+  const host = await mountHost(browser, "start")
+  try {
+    const input = host.page.locator("#loomark-input")
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(5, 5)
+    })
+    const session = await host.context.newCDPSession(host.page)
+    await session.send("Input.imeSetComposition", {
+      text: "未確定",
+      selectionStart: 3,
+      selectionEnd: 3,
+    })
+    await expect(input).toHaveValue("start未確定")
+
+    await selectBlock(host.page)
+
+    await expect.poll(async () => (await snapshot(host.page)).mode).toBe("block")
+    expect(await snapshot(host.page)).toMatchObject({
+      source: "start",
+      committed_change_count: 0,
+      error_code: null,
+    })
+    await expect(host.page.locator("#loomark-block-input")).toHaveValue("start")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("a synthetic mode change cancels unfinished Block composition", async ({ browser }) => {
+  const host = await mountHost(browser, "start")
+  try {
+    await selectBlock(host.page)
+    const input = host.page.locator("#loomark-block-input")
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(5, 5)
+    })
+    const session = await host.context.newCDPSession(host.page)
+    await session.send("Input.imeSetComposition", {
+      text: "未確定",
+      selectionStart: 3,
+      selectionEnd: 3,
+    })
+    await expect(input).toHaveValue("start未確定")
+
+    await selectRaw(host.page)
+
+    await expect.poll(async () => (await snapshot(host.page)).mode).toBe("raw")
+    expect(await snapshot(host.page)).toMatchObject({
+      source: "start",
+      committed_change_count: 0,
+      error_code: null,
+    })
+    await expect(host.page.locator("#loomark-input")).toHaveValue("start")
+  } finally {
+    await host.context.close()
+  }
+})
+
 test("mode change discards pending normalized Raw input", async ({ browser }) => {
   const host = await mountHost(browser, "start")
   try {

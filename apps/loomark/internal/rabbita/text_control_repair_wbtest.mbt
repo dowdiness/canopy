@@ -62,6 +62,290 @@ test "Raw coordinator suppresses only the matching composition repair" {
 }
 
 ///|
+test "Raw composition keeps intermediate DOM state out of pending input" {
+  let context = RawSelectionTestContext::RawSelectionTestContext(
+    "raw-composition-intermediate", "start",
+  )
+  let coordinator = RawInputCoordinator::RawInputCoordinator(None)
+  let before_input = RawBeforeInputCandidate::RawBeforeInputCandidate(
+    selection=context.selection(5, 5),
+    input_type="insertCompositionText",
+    is_composing=false,
+  )
+
+  assert_true(
+    coordinator.begin_composition(
+      before_input,
+      "start",
+      @dom_boundary.TextSelection(5, 5, @dom_boundary.NoDirection),
+    ),
+  )
+  assert_true(
+    coordinator.update_composition(
+      "startか",
+      @dom_boundary.TextSelection(6, 6, @dom_boundary.NoDirection),
+    ),
+  )
+
+  assert_eq(coordinator.display_source("start"), "startか")
+  assert_true(coordinator.pending.val is None)
+  assert_true(coordinator.in_flight_token.val is None)
+}
+
+///|
+test "Raw composition end releases one immediate final transaction" {
+  let context = RawSelectionTestContext::RawSelectionTestContext(
+    "raw-composition-final", "start",
+  )
+  let coordinator = RawInputCoordinator::RawInputCoordinator(None)
+  let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
+  assert_true(
+    coordinator.begin_composition(
+      RawBeforeInputCandidate::RawBeforeInputCandidate(
+        selection=context.selection(5, 5),
+        input_type="insertCompositionText",
+        is_composing=false,
+      ),
+      "start",
+      @dom_boundary.TextSelection(5, 5, @dom_boundary.NoDirection),
+    ),
+  )
+  assert_true(
+    coordinator.update_composition(
+      "start漢字",
+      @dom_boundary.TextSelection(7, 7, @dom_boundary.NoDirection),
+    ),
+  )
+
+  ignore(coordinator.finish_composition("start", emit))
+
+  assert_true(coordinator.composition.val is None)
+  assert_true(coordinator.pending.val is None)
+  assert_eq(coordinator.in_flight_token.val, Some(0))
+  assert_eq(coordinator.in_flight_source.val, Some("start漢字"))
+}
+
+///|
+test "Canceled Raw composition never becomes an editor transaction" {
+  let context = RawSelectionTestContext::RawSelectionTestContext(
+    "raw-composition-cancel", "start",
+  )
+  let coordinator = RawInputCoordinator::RawInputCoordinator(None)
+  let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
+  assert_true(
+    coordinator.begin_composition(
+      RawBeforeInputCandidate::RawBeforeInputCandidate(
+        selection=context.selection(5, 5),
+        input_type="insertCompositionText",
+        is_composing=false,
+      ),
+      "start",
+      @dom_boundary.TextSelection(5, 5, @dom_boundary.NoDirection),
+    ),
+  )
+  assert_true(
+    coordinator.update_composition(
+      "start",
+      @dom_boundary.TextSelection(5, 5, @dom_boundary.NoDirection),
+    ),
+  )
+
+  ignore(coordinator.finish_composition("start", emit))
+
+  assert_true(coordinator.composition.val is None)
+  assert_true(coordinator.pending.val is None)
+  assert_true(coordinator.in_flight_token.val is None)
+  assert_true(coordinator.unmatched_before_input.val is None)
+}
+
+///|
+test "Raw composition ignores one same-value final input while delivery is active" {
+  let context = RawSelectionTestContext::RawSelectionTestContext(
+    "raw-composition-duplicate-final", "start",
+  )
+  let coordinator = RawInputCoordinator::RawInputCoordinator(None)
+  let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
+  assert_true(
+    coordinator.begin_composition(
+      RawBeforeInputCandidate::RawBeforeInputCandidate(
+        selection=context.selection(5, 5),
+        input_type="insertCompositionText",
+        is_composing=false,
+      ),
+      "start",
+      @dom_boundary.TextSelection(5, 5, @dom_boundary.NoDirection),
+    ),
+  )
+  assert_true(
+    coordinator.update_composition(
+      "start漢字",
+      @dom_boundary.TextSelection(7, 7, @dom_boundary.NoDirection),
+    ),
+  )
+  ignore(coordinator.finish_composition("start", emit))
+  coordinator.unmatched_before_input.val = None
+
+  ignore(
+    coordinator.enqueue(
+      "start漢字",
+      @dom_boundary.TextSelection(7, 7, @dom_boundary.NoDirection),
+      emit,
+    ),
+  )
+
+  assert_true(coordinator.pending.val is None)
+  assert_eq(coordinator.in_flight_token.val, Some(0))
+  assert_eq(coordinator.in_flight_source.val, Some("start漢字"))
+}
+
+///|
+test "Raw input keeps latest same-value text after a different pending value" {
+  let context = RawSelectionTestContext::RawSelectionTestContext(
+    "raw-latest-same-as-active", "x",
+  )
+  let coordinator = RawInputCoordinator::RawInputCoordinator(None)
+  let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
+  let capture = () => {
+    coordinator.capture_before_input(
+      RawBeforeInputCandidate::RawBeforeInputCandidate(
+        selection=context.selection(1, 1),
+        input_type="insertText",
+        is_composing=false,
+      ),
+    )
+  }
+  ignore(capture())
+  ignore(
+    coordinator.enqueue(
+      "A",
+      @dom_boundary.TextSelection(1, 1, @dom_boundary.NoDirection),
+      emit,
+    ),
+  )
+  guard coordinator.take_pending_delivery() is Some((0, _)) else {
+    fail("first value must become active")
+  }
+  ignore(capture())
+  ignore(
+    coordinator.enqueue(
+      "B",
+      @dom_boundary.TextSelection(1, 1, @dom_boundary.NoDirection),
+      emit,
+    ),
+  )
+  ignore(capture())
+  ignore(
+    coordinator.enqueue(
+      "A",
+      @dom_boundary.TextSelection(1, 1, @dom_boundary.NoDirection),
+      emit,
+    ),
+  )
+
+  guard coordinator.pending.val is Some(pending) else {
+    fail("latest value must remain pending")
+  }
+  assert_eq(pending.source, "A")
+}
+
+///|
+test "Raw composition releases promoted input without a composition input" {
+  let context = RawSelectionTestContext::RawSelectionTestContext(
+    "raw-composition-no-input", "abcdef",
+  )
+  let coordinator = RawInputCoordinator::RawInputCoordinator(None)
+  let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
+  ignore(
+    coordinator.capture_before_input(
+      RawBeforeInputCandidate::RawBeforeInputCandidate(
+        selection=context.selection(4, 2),
+        input_type="insertText",
+        is_composing=false,
+      ),
+    ),
+  )
+  ignore(
+    coordinator.enqueue(
+      "abxyef",
+      @dom_boundary.TextSelection(4, 4, @dom_boundary.NoDirection),
+      emit,
+    ),
+  )
+  assert_true(
+    coordinator.begin_composition(
+      RawBeforeInputCandidate::RawBeforeInputCandidate(
+        selection=context.selection(4, 4),
+        input_type="insertCompositionText",
+        is_composing=false,
+      ),
+      "abcdef",
+      @dom_boundary.TextSelection(4, 4, @dom_boundary.NoDirection),
+    ),
+  )
+
+  ignore(coordinator.finish_composition("abcdef", emit))
+
+  assert_true(coordinator.composition.val is None)
+  assert_eq(coordinator.in_flight_source.val, Some("abxyef"))
+  assert_eq(coordinator.in_flight_token.val, Some(0))
+}
+
+///|
+test "Raw composition keeps a pending ordinary input as its transaction base" {
+  let context = RawSelectionTestContext::RawSelectionTestContext(
+    "raw-composition-pending-base", "abcdef",
+  )
+  let coordinator = RawInputCoordinator::RawInputCoordinator(None)
+  let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
+  ignore(
+    coordinator.capture_before_input(
+      RawBeforeInputCandidate::RawBeforeInputCandidate(
+        selection=context.selection(4, 2),
+        input_type="insertText",
+        is_composing=false,
+      ),
+    ),
+  )
+  ignore(
+    coordinator.enqueue(
+      "abxyef",
+      @dom_boundary.TextSelection(4, 4, @dom_boundary.NoDirection),
+      emit,
+    ),
+  )
+  assert_true(
+    coordinator.begin_composition(
+      RawBeforeInputCandidate::RawBeforeInputCandidate(
+        selection=context.selection(4, 4),
+        input_type="insertCompositionText",
+        is_composing=false,
+      ),
+      "abcdef",
+      @dom_boundary.TextSelection(4, 4, @dom_boundary.NoDirection),
+    ),
+  )
+  guard coordinator.composition.val is Some(started) else {
+    fail("composition must promote the pending ordinary input")
+  }
+  assert_eq(started.source, "abxyef")
+  assert_true(
+    coordinator.update_composition(
+      "abxy漢ef",
+      @dom_boundary.TextSelection(5, 5, @dom_boundary.NoDirection),
+    ),
+  )
+
+  guard coordinator.composition.val is Some(input) else {
+    fail("composition must retain one complete final transaction")
+  }
+  assert_eq(input.before_input.selection.selection.anchor(), 4)
+  assert_eq(input.before_input.selection.selection.head(), 2)
+  assert_eq(input.source, "abxy漢ef")
+  assert_eq(input.post_input_selection.start(), 5)
+  assert_true(coordinator.pending.val is None)
+}
+
+///|
 test "Raw coordinator keeps the first backward base and latest collapsed caret" {
   let context = RawSelectionTestContext::RawSelectionTestContext(
     "coordinator-pairing", "abcdef",
@@ -231,6 +515,39 @@ test "Raw coordinator discards a composition-intermediate capture" {
   )
   assert_true(coordinator.unmatched_before_input.val is None)
   assert_true(coordinator.pending.val is None)
+}
+
+///|
+test "Raw input cancellation clears live composition" {
+  let context = RawSelectionTestContext::RawSelectionTestContext(
+    "raw-composition-cancel-pending", "start",
+  )
+  let coordinator = RawInputCoordinator::RawInputCoordinator(None)
+  assert_true(
+    coordinator.begin_composition(
+      RawBeforeInputCandidate::RawBeforeInputCandidate(
+        selection=context.selection(5, 5),
+        input_type="insertCompositionText",
+        is_composing=false,
+      ),
+      "start",
+      @dom_boundary.TextSelection(5, 5, @dom_boundary.NoDirection),
+    ),
+  )
+  assert_true(
+    coordinator.update_composition(
+      "start漢",
+      @dom_boundary.TextSelection(6, 6, @dom_boundary.NoDirection),
+    ),
+  )
+  assert_eq(coordinator.display_source("start"), "start漢")
+
+  coordinator.cancel_pending()
+
+  assert_true(coordinator.composition.val is None)
+  assert_true(coordinator.pending.val is None)
+  assert_true(coordinator.in_flight_token.val is None)
+  assert_eq(coordinator.display_source("start"), "start")
 }
 
 ///|

@@ -70,6 +70,8 @@ priv struct RawInputCoordinator {
   in_flight_token : @ref.Ref[Int?]
   in_flight_source : @ref.Ref[String?]
   suppress_unmatched_repair : @ref.Ref[Bool]
+  composition : @ref.Ref[PendingRawInput?]
+  composition_final_source : @ref.Ref[String?]
   telemetry : RawInputTelemetry?
 }
 
@@ -87,6 +89,8 @@ fn RawInputCoordinator::RawInputCoordinator(
     in_flight_token: @ref.Ref(None),
     in_flight_source: @ref.Ref(None),
     suppress_unmatched_repair: @ref.Ref(false),
+    composition: @ref.Ref(None),
+    composition_final_source: @ref.Ref(None),
     telemetry,
   }
 }
@@ -247,13 +251,133 @@ fn RawInputCoordinator::display_source(
   self : RawInputCoordinator,
   committed_source : String,
 ) -> String {
-  match self.pending.val {
-    Some(pending) => pending.source
+  match self.composition.val {
+    Some(input) => input.source
     None =>
-      match self.in_flight_source.val {
-        Some(source) => source
-        None => committed_source
+      match self.pending.val {
+        Some(pending) => pending.source
+        None =>
+          match self.in_flight_source.val {
+            Some(source) => source
+            None => committed_source
+          }
       }
+  }
+}
+
+///|
+/// Begin browser ownership from the exact accepted Raw selection. A pending
+/// ordinary batch keeps its earlier beforeinput base and becomes part of the
+/// final composition transaction.
+fn RawInputCoordinator::begin_composition(
+  self : RawInputCoordinator,
+  before_input : RawBeforeInputCandidate,
+  source : String,
+  selection : @dom_boundary.TextSelection,
+) -> Bool {
+  guard self.in_flight_token.val is None else { return false }
+  let input = match self.pending.val {
+    Some(pending) if pending.before_input.selection.document_id ==
+      before_input.selection.document_id &&
+      pending.before_input.selection.version == before_input.selection.version =>
+      { ..pending, post_input_selection: selection }
+    _ =>
+      {
+        before_input,
+        source: raw_textarea_value(source),
+        post_input_selection: selection,
+        input_count: 0,
+      }
+  }
+  self.schedule_generation.val += 1
+  self.capture_generation.val += 1
+  self.scheduled.val = false
+  self.unmatched_before_input.val = None
+  self.pending.val = None
+  self.suppress_unmatched_repair.val = false
+  self.composition.val = Some(input)
+  self.composition_final_source.val = None
+  true
+}
+
+///|
+/// Keep the latest browser-owned text and caret without exposing it as a
+/// committable pending Raw input.
+fn RawInputCoordinator::begin_native_composition(
+  self : RawInputCoordinator,
+  model : DriverModel,
+  source : String,
+  selection : @dom_boundary.TextSelection,
+) -> Bool {
+  let before_input = match self.pending.val {
+    Some(pending) if pending.before_input.selection.document_id ==
+      model.document_id &&
+      pending.before_input.selection.version == model.document_version =>
+      pending.before_input
+    _ => {
+      let versioned = versioned_raw_selection_from_dom(model, selection) catch {
+        _ => return false
+      }
+      RawBeforeInputCandidate::RawBeforeInputCandidate(
+        selection=versioned,
+        input_type="insertCompositionText",
+        is_composing=false,
+      )
+    }
+  }
+  self.begin_composition(before_input, source, selection)
+}
+
+///|
+fn RawInputCoordinator::update_composition(
+  self : RawInputCoordinator,
+  source : String,
+  selection : @dom_boundary.TextSelection,
+) -> Bool {
+  match self.composition.val {
+    Some(input) => {
+      self.composition.val = Some({
+        ..input,
+        source: raw_textarea_value(source),
+        post_input_selection: selection,
+        input_count: input.input_count + 1,
+      })
+      true
+    }
+    None => false
+  }
+}
+
+///|
+/// Resolve composition at its browser boundary. A net no-op never reaches the
+/// editor; a changed final value becomes one immediate native transaction so a
+/// following blur or mode click cannot cancel accepted IME text.
+fn RawInputCoordinator::finish_composition(
+  self : RawInputCoordinator,
+  accepted_source : String,
+  emit : @cmd.Emit[DriverEvent],
+) -> @cmd.Cmd {
+  guard self.composition.val is Some(input) else {
+    return @rabbita_runtime.none
+  }
+  self.composition.val = None
+  if input.source == raw_textarea_value(accepted_source) {
+    match self.telemetry {
+      Some(telemetry) => telemetry.pending_input_received_at.val = None
+      None => ()
+    }
+    return @rabbita_runtime.none
+  }
+  self.pending.val = Some(input)
+  self.composition_final_source.val = Some(input.source)
+  let expiry_command = self.capture_before_input(input.before_input)
+  match self.take_pending_delivery() {
+    Some((token, candidate)) =>
+      @cmd.batch([
+        emit(Editing(RawNativeInput(token~, candidate~))),
+        expiry_command,
+      ])
+    None => expiry_command
   }
 }
 
@@ -308,6 +432,7 @@ fn RawInputCoordinator::expire_before_input(
 ) -> Unit {
   if self.capture_generation.val == generation {
     self.unmatched_before_input.val = None
+    self.composition_final_source.val = None
   }
 }
 
@@ -319,7 +444,9 @@ fn RawInputCoordinator::capture_native_before_input(
   event : @dom.InputEvent,
 ) -> @cmd.Cmd {
   if raw_input_event_is_composing(event) {
-    self.cancel_pending()
+    if self.composition.val is None {
+      self.cancel_pending()
+    }
     return @rabbita_runtime.none
   }
   match self.pending.val {
@@ -376,65 +503,63 @@ fn read_raw_selection() -> @dom_boundary.TextSelection? {
 }
 
 ///|
+fn RawInputCoordinator::take_pending_delivery(
+  self : RawInputCoordinator,
+) -> (Int, RawNativeInputCandidate)? {
+  guard self.pending.val is Some(pending) else { return None }
+  self.pending.val = None
+  let token = self.next_token.val
+  self.next_token.val = token + 1
+  self.in_flight_token.val = Some(token)
+  self.in_flight_source.val = Some(pending.source)
+  match self.telemetry {
+    Some(telemetry) => {
+      let now = raw_input_now_ms()
+      let input_received_at = match telemetry.pending_input_received_at.val {
+        Some(at) => at
+        None => now
+      }
+      telemetry.pending_input_received_at.val = None
+      telemetry.phase.val = Some({
+        token,
+        input_count: pending.input_count,
+        input_received_at,
+        debounce_fired_at: now,
+        reducer_started_at: None,
+        reducer_finished_at: None,
+        editor_started_at: None,
+        editor_finished_at: None,
+        preview_started_at: None,
+        preview_finished_at: None,
+        publish_started_at: None,
+        publish_finished_at: None,
+        rendered_at: None,
+      })
+    }
+    None => ()
+  }
+  Some(
+    (
+      token,
+      RawNativeInputCandidate::RawNativeInputCandidate(
+        before_input=pending.before_input,
+        source=pending.source,
+        post_input_selection=pending.post_input_selection,
+      ),
+    ),
+  )
+}
+
+///|
 fn RawInputCoordinator::flush(
   self : RawInputCoordinator,
   scheduler : &@cmd.Scheduler,
   emit : @cmd.Emit[DriverEvent],
 ) -> Unit {
   self.scheduled.val = false
-  match self.pending.val {
-    Some(pending) => {
-      self.pending.val = None
-      let before_input = pending.before_input
-      let source = pending.source
-      let post_input_selection = pending.post_input_selection
-      let input_count = pending.input_count
-      let token = self.next_token.val
-      self.next_token.val = token + 1
-      self.in_flight_token.val = Some(token)
-      self.in_flight_source.val = Some(source)
-      match self.telemetry {
-        Some(telemetry) => {
-          let now = raw_input_now_ms()
-          let input_received_at = match
-            telemetry.pending_input_received_at.val {
-            Some(at) => at
-            None => now
-          }
-          telemetry.pending_input_received_at.val = None
-          telemetry.phase.val = Some({
-            token,
-            input_count,
-            input_received_at,
-            debounce_fired_at: now,
-            reducer_started_at: None,
-            reducer_finished_at: None,
-            editor_started_at: None,
-            editor_finished_at: None,
-            preview_started_at: None,
-            preview_finished_at: None,
-            publish_started_at: None,
-            publish_finished_at: None,
-            rendered_at: None,
-          })
-        }
-        None => ()
-      }
-      scheduler.add(
-        emit(
-          Editing(
-            RawNativeInput(
-              token~,
-              candidate=RawNativeInputCandidate::RawNativeInputCandidate(
-                before_input~,
-                source~,
-                post_input_selection~,
-              ),
-            ),
-          ),
-        ),
-      )
-    }
+  match self.take_pending_delivery() {
+    Some((token, candidate)) =>
+      scheduler.add(emit(Editing(RawNativeInput(token~, candidate~))))
     None => self.cancel_pending()
   }
 }
@@ -450,8 +575,10 @@ fn RawInputCoordinator::has_captured_before_input(
 fn RawInputCoordinator::suppress_composing_input_repair(
   self : RawInputCoordinator,
 ) -> Unit {
-  self.cancel_pending()
-  self.suppress_unmatched_repair.val = true
+  if self.composition.val is None {
+    self.cancel_pending()
+    self.suppress_unmatched_repair.val = true
+  }
 }
 
 ///|
@@ -471,6 +598,17 @@ fn RawInputCoordinator::enqueue(
   emit : @cmd.Emit[DriverEvent],
 ) -> @cmd.Cmd {
   self.capture_generation.val += 1
+  let source = raw_textarea_value(source)
+  match self.composition_final_source.val {
+    Some(final_source) => {
+      self.composition_final_source.val = None
+      if final_source == source {
+        self.unmatched_before_input.val = None
+        return @rabbita_runtime.none
+      }
+    }
+    None => ()
+  }
   let before_input = match self.unmatched_before_input.val {
     Some(before_input) => before_input
     None => {
@@ -483,7 +621,6 @@ fn RawInputCoordinator::enqueue(
     self.cancel_pending()
     return @rabbita_runtime.none
   }
-  let source = raw_textarea_value(source)
   let pending = match self.pending.val {
     Some(pending) if pending.before_input.selection.document_id !=
       before_input.selection.document_id ||
@@ -573,6 +710,8 @@ fn RawInputCoordinator::cancel_pending(self : RawInputCoordinator) -> Unit {
   self.in_flight_token.val = None
   self.in_flight_source.val = None
   self.suppress_unmatched_repair.val = false
+  self.composition.val = None
+  self.composition_final_source.val = None
 }
 
 ///|

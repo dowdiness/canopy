@@ -101,11 +101,20 @@ priv struct BlockInputState {
   generation : Int
   next_token : Int
   in_flight : BlockInputDelivery?
+  composition : PendingBlockInput?
+  composition_final : PendingBlockInput?
 }
 
 ///|
 fn BlockInputState::BlockInputState() -> BlockInputState {
-  { pending: None, generation: 0, next_token: 0, in_flight: None }
+  {
+    pending: None,
+    generation: 0,
+    next_token: 0,
+    in_flight: None,
+    composition: None,
+    composition_final: None,
+  }
 }
 
 ///|
@@ -143,6 +152,58 @@ fn BlockInputState::flush(
 }
 
 ///|
+fn BlockInputState::begin_composition(
+  self : BlockInputState,
+  input : PendingBlockInput,
+) -> (BlockInputState, Bool) {
+  guard self.in_flight is None else { return (self, false) }
+  let input = match self.pending {
+    Some(pending) if pending.matches(
+        input.document_id,
+        input.expected_version,
+        input.node_id,
+        input.input_id,
+      ) => { ..pending, selection: input.selection }
+    _ => input
+  }
+  (
+    {
+      ..self,
+      pending: None,
+      generation: self.generation + 1,
+      composition: Some(input),
+      composition_final: None,
+    },
+    true,
+  )
+}
+
+///|
+fn BlockInputState::has_composition(
+  self : BlockInputState,
+  input_id : String,
+) -> Bool {
+  match self.composition {
+    Some(input) => input.input_id == input_id
+    None => false
+  }
+}
+
+///|
+fn BlockInputState::update_composition(
+  self : BlockInputState,
+  input_id : String,
+  text : String,
+  selection : @dom_boundary.TextSelection,
+) -> (BlockInputState, Bool) {
+  match self.composition {
+    Some(input) if input.input_id == input_id =>
+      ({ ..self, composition: Some({ ..input, text, selection }) }, true)
+    _ => (self, false)
+  }
+}
+
+///|
 fn PendingBlockInput::matches(
   self : PendingBlockInput,
   document_id : @archive.LoomarkDocumentId,
@@ -165,9 +226,13 @@ fn BlockInputState::display_text(
   input_id~ : String,
   committed_text~ : String,
 ) -> String {
-  let input = match self.pending {
+  let input = match self.composition {
     Some(input) => Some(input)
-    None => self.in_flight.map(delivery => delivery.input)
+    None =>
+      match self.pending {
+        Some(input) => Some(input)
+        None => self.in_flight.map(delivery => delivery.input)
+      }
   }
   match input {
     Some(input) if input.matches(document_id, version, node_id, input_id) =>
@@ -192,6 +257,8 @@ fn BlockInputState::cancel(self : BlockInputState) -> BlockInputState {
     generation: self.generation + 1,
     next_token: self.next_token,
     in_flight: None,
+    composition: None,
+    composition_final: None,
   }
 }
 
@@ -251,9 +318,84 @@ fn BlockInputCoordinator::enqueue(
   input : PendingBlockInput,
   emit : @cmd.Emit[DriverEvent],
 ) -> @cmd.Cmd {
+  let duplicate_final = match self.state.val.composition_final {
+    Some(final_input) =>
+      final_input.matches(
+        input.document_id,
+        input.expected_version,
+        input.node_id,
+        input.input_id,
+      ) &&
+      final_input.text == input.text
+    None => false
+  }
+  self.state.val = { ..self.state.val, composition_final: None }
+  if duplicate_final {
+    return @rabbita_runtime.none
+  }
   let (state, schedule) = self.state.val.enqueue(input)
   self.state.val = state
   self.schedule(schedule, emit)
+}
+
+///|
+fn BlockInputCoordinator::begin_composition(
+  self : BlockInputCoordinator,
+  input : PendingBlockInput,
+) -> Bool {
+  let (state, accepted) = self.state.val.begin_composition(input)
+  self.state.val = state
+  accepted
+}
+
+///|
+fn BlockInputCoordinator::has_composition(
+  self : BlockInputCoordinator,
+  input_id : String,
+) -> Bool {
+  self.state.val.has_composition(input_id)
+}
+
+///|
+fn BlockInputCoordinator::update_composition(
+  self : BlockInputCoordinator,
+  input_id : String,
+  text : String,
+  selection : @dom_boundary.TextSelection,
+) -> Bool {
+  let (state, updated) = self.state.val.update_composition(
+    input_id, text, selection,
+  )
+  self.state.val = state
+  updated
+}
+
+///|
+fn BlockInputCoordinator::finish_composition(
+  self : BlockInputCoordinator,
+  input_id : String,
+  committed_text : String,
+  emit : @cmd.Emit[DriverEvent],
+) -> @cmd.Cmd {
+  let input = match self.state.val.composition {
+    Some(input) if input.input_id == input_id => input
+    _ => return @rabbita_runtime.none
+  }
+  self.state.val = { ..self.state.val, composition: None }
+  guard input.text != committed_text else { return @rabbita_runtime.none }
+  let (state, schedule) = self.state.val.enqueue(input)
+  let (state, delivery) = state.flush(schedule)
+  self.state.val = state
+  match delivery {
+    Some(delivery) => {
+      self.state.val = {
+        ..self.state.val,
+        composition_final: Some(delivery.input),
+      }
+      emit(Editing(BlockInput(token=delivery.token, input=delivery.input)))
+    }
+    None => @rabbita_runtime.none
+  }
 }
 
 ///|

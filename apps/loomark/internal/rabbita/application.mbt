@@ -376,6 +376,24 @@ fn raw_editor_view(
       rows=4,
       attrs=@html.Attrs::build()
         .aria_label("Raw Markdown source")
+        .on_compositionstart(_ => {
+          match read_raw_selection() {
+            Some(selection) =>
+              ignore(
+                raw_input_coordinator.begin_native_composition(
+                  model, source, selection,
+                ),
+              )
+            None => raw_input_coordinator.cancel_pending()
+          }
+          @rabbita_runtime.none
+        })
+        .on_compositionend(_ => {
+          raw_input_coordinator.finish_composition(
+            model.document.source(),
+            emit,
+          )
+        })
         .on_beforeinput(event => {
           raw_input_coordinator.capture_native_before_input(model, event)
         })
@@ -390,42 +408,45 @@ fn raw_editor_view(
       ],
       on_input=@cmd.Emit(source => {
         match read_raw_selection() {
-          Some(selection) => {
-            let matched = raw_input_coordinator.has_captured_before_input()
-            let repair_unmatched = raw_input_coordinator.take_unmatched_input_repair()
-            let input_command = raw_input_coordinator.enqueue(
-              source, selection, emit,
-            )
-            if matched || !repair_unmatched {
-              input_command
+          Some(selection) =>
+            if raw_input_coordinator.update_composition(source, selection) {
+              @rabbita_runtime.none
             } else {
-              let repair_epoch = raw_input_coordinator.epoch()
-              let repair_selection = rejected_text_selection(
-                model.document.source(),
-                source,
-                selection,
+              let matched = raw_input_coordinator.has_captured_before_input()
+              let repair_unmatched = raw_input_coordinator.take_unmatched_input_repair()
+              let input_command = raw_input_coordinator.enqueue(
+                source, selection, emit,
               )
-              @cmd.batch([
-                input_command,
-                after_render(
-                  scheduler => {
-                    ignore(scheduler)
-                    guard raw_input_coordinator.epoch() == repair_epoch else {
-                      return
-                    }
-                    @dom_boundary.write_text_value_id(
-                      "loomark-input",
-                      raw_textarea_value(model.document.source()),
-                    )
-                    @dom_boundary.write_text_selection_id(
-                      "loomark-input", repair_selection,
-                    )
-                  },
-                  emit,
-                ),
-              ])
+              if matched || !repair_unmatched {
+                input_command
+              } else {
+                let repair_epoch = raw_input_coordinator.epoch()
+                let repair_selection = rejected_text_selection(
+                  model.document.source(),
+                  source,
+                  selection,
+                )
+                @cmd.batch([
+                  input_command,
+                  after_render(
+                    scheduler => {
+                      ignore(scheduler)
+                      guard raw_input_coordinator.epoch() == repair_epoch else {
+                        return
+                      }
+                      @dom_boundary.write_text_value_id(
+                        "loomark-input",
+                        raw_textarea_value(model.document.source()),
+                      )
+                      @dom_boundary.write_text_selection_id(
+                        "loomark-input", repair_selection,
+                      )
+                    },
+                    emit,
+                  ),
+                ])
+              }
             }
-          }
           None => {
             raw_input_coordinator.cancel_pending()
             @rabbita_runtime.none
@@ -1686,6 +1707,7 @@ fn update_editing(
 fn update_navigation(
   attachment : @md_markdown.MarkdownSemanticAttachment,
   raw_input_coordinator : RawInputCoordinator,
+  block_input_coordinator : BlockInputCoordinator,
   model : DriverModel,
   latest_model : @ref.Ref[DriverModel?],
   event : NavigationEvent,
@@ -1704,6 +1726,7 @@ fn update_navigation(
       }
       if mode != model.state.mode() {
         raw_input_coordinator.cancel_pending()
+        block_input_coordinator.cancel_pending()
       }
       let transition = @core.reduce(
         model.state,
@@ -2209,7 +2232,8 @@ fn update_model(
       )
     Navigation(nav_event) =>
       update_navigation(
-        attachment, raw_input_coordinator, model, latest_model, nav_event, emit,
+        attachment, raw_input_coordinator, block_input_coordinator, model, latest_model,
+        nav_event, emit,
       )
     Probe(probe_event) => update_probe(model, latest_model, probe_event, emit)
     Lifecycle(life_event) =>
