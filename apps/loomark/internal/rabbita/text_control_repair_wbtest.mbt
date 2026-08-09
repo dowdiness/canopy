@@ -35,6 +35,17 @@ test "rejected Raw repair maps canonical CRLF to textarea LF offsets" {
 }
 
 ///|
+test "rejected Raw repair maps canonical lone CR to textarea LF offsets" {
+  let selection = rejected_text_selection(
+    "a\rb",
+    "a\nbx",
+    @dom_boundary.TextSelection(4, 4, @dom_boundary.NoDirection),
+  )
+  assert_eq(selection.start(), 3)
+  assert_eq(selection.end(), 3)
+}
+
+///|
 test "Raw coordinator without telemetry keeps phase snapshots empty" {
   let coordinator = RawInputCoordinator::RawInputCoordinator(None)
   guard coordinator.phase_json() is None else {

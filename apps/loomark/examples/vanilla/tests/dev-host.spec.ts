@@ -1820,6 +1820,40 @@ test("rejected Raw repair maps canonical CRLF to textarea offsets", async ({ bro
   }
 })
 
+test("rejected Raw repair maps canonical lone CR to textarea offsets", async ({ browser }) => {
+  const host = await mountHost(browser, "a\rb")
+  try {
+    const input = host.page.locator("#loomark-input")
+    await expect(input).toHaveValue("a\nb")
+    await input.focus()
+    await forceEditorFailure(host.page)
+    await expect.poll(async () => (await snapshot(host.page)).editor_failure_armed).toBe(true)
+
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.value = "a\nbx"
+      textarea.setSelectionRange(4, 4, "none")
+      textarea.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+
+    await expect.poll(async () => (await snapshot(host.page)).error_code)
+      .toBe("editor-commit-failed")
+    await expect(input).toHaveValue("a\nb")
+    await expect.poll(() => input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      return `${textarea.selectionStart}:${textarea.selectionEnd}`
+    })).toBe("3:3")
+    await host.page.waitForTimeout(100)
+    expect(await snapshot(host.page)).toMatchObject({
+      source: "a\rb",
+      error_code: "editor-commit-failed",
+      error_count: 1,
+    })
+  } finally {
+    await host.context.close()
+  }
+})
+
 test("Raw DOM selection conversion and post-render installation preserve direction", async ({ browser }) => {
   const host = await mountHost(browser, "a\r\nb\rc\n")
   try {
