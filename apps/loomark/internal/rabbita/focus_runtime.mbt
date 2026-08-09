@@ -218,6 +218,27 @@ fn block_selection_after_render(
 }
 
 ///|
+/// Install an accepted Raw selection only while the exact document frontier
+/// and Session selection that produced it remain current.
+fn raw_selection_after_render(
+  latest_model : @ref.Ref[DriverModel?],
+  selection : VersionedRawSelection,
+  emit : @cmd.Emit[DriverEvent],
+) -> @cmd.Cmd {
+  after_render(
+    scheduler => {
+      ignore(scheduler)
+      match raw_selection_effect_value(latest_model.val, selection) {
+        Some(selection) =>
+          @dom_boundary.write_text_selection_id("loomark-input", selection)
+        None => ()
+      }
+    },
+    emit,
+  )
+}
+
+///|
 /// Revalidate the latest model after rendering, then perform the final DOM
 /// write without queuing a state update after it.
 fn focus_latest_after_render(

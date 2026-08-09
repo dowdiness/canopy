@@ -73,6 +73,15 @@ async function rawInput(page: Page, source: string): Promise<void> {
   }, source)
 }
 
+async function rawSelectionProbe(page: Page, detail: "capture" | "install"): Promise<void> {
+  await page.evaluate(detail => {
+    const target = document.getElementById("loomark-driver-target")
+    target?.dispatchEvent(new CustomEvent("loomark-driver", {
+      detail: `${detail}-raw-selection`,
+    }))
+  }, detail)
+}
+
 async function selectPreview(page: Page): Promise<void> {
   await page.evaluate(moduleUrl =>
     import(moduleUrl).then(module => module.dev_host_select_preview()), moduleUrl)
@@ -1763,6 +1772,37 @@ test("rejected Raw repair round-trips a backward DOM selection", async ({ browse
         direction: textarea.selectionDirection,
       }
     })).toEqual({ start: 0, end: 5, direction: "backward" })
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Raw DOM selection conversion and post-render installation preserve direction", async ({ browser }) => {
+  const host = await mountHost(browser, "alpha\n\nbeta")
+  try {
+    const input = host.page.locator("#loomark-input")
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(0, 11, "backward")
+    })
+
+    await rawSelectionProbe(host.page, "capture")
+    await expect.poll(async () => (await snapshot(host.page)).selection).toBe("11:0")
+
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(5, 5, "none")
+    })
+    await rawSelectionProbe(host.page, "install")
+    await expect.poll(() => input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      return {
+        start: textarea.selectionStart,
+        end: textarea.selectionEnd,
+        direction: textarea.selectionDirection,
+      }
+    })).toEqual({ start: 0, end: 11, direction: "backward" })
   } finally {
     await host.context.close()
   }

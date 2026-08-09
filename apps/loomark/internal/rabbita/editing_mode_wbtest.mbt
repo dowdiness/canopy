@@ -4,10 +4,10 @@
 /// | event | mode | split_preview_open | applicable |
 /// | --- | --- | --- | --- |
 /// | ReplaceSource / ProbeBlockSelection | any | any | yes |
-/// | RawInput | Raw | any | yes |
-/// | RawInput | Preview | true | yes |
-/// | RawInput | Preview | false | no |
-/// | RawInput | Block | any | no |
+/// | RawInput / RawSelectionEdit | Raw | any | yes |
+/// | RawInput / RawSelectionEdit | Preview | true | yes |
+/// | RawInput / RawSelectionEdit | Preview | false | no |
+/// | RawInput / RawSelectionEdit | Block | any | no |
 /// | Block* | Block | any | yes |
 /// | Block* | Raw / Preview | any | no |
 ///
@@ -54,6 +54,13 @@ test "raw input requires Raw mode or a split-open Preview" {
   )
   assert_eq(
     editing_mode_applicable(raw, block_mode(), false),
+    Some("Raw input is unavailable outside Raw mode"),
+  )
+  let selection_edit = CommitCapturedRawSelection("x")
+  assert_eq(editing_mode_applicable(selection_edit, raw_mode(), false), None)
+  assert_eq(editing_mode_applicable(selection_edit, preview_mode(), true), None)
+  assert_eq(
+    editing_mode_applicable(selection_edit, block_mode(), false),
     Some("Raw input is unavailable outside Raw mode"),
   )
 }

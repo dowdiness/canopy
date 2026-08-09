@@ -12,6 +12,7 @@ fn test_model(
     document_id: @archive.LoomarkDocumentId::from_string("test-doc") catch {
       _ => abort("test document id must construct")
     },
+    raw_selection: None,
     archive_persistence_enabled: false,
     semantic_document: None,
     semantic_read_count: 0,
