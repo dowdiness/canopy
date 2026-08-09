@@ -4,7 +4,7 @@ package "dowdiness/rabbita_codemirror/js"
 // Values
 pub fn cm_module_of(@moonbit-community/rabbita/js.Value) -> CmModule
 
-pub fn js_add_update_listener(CmView, Compartment, (@moonbit-community/rabbita/js.Value) -> Unit, (@moonbit-community/rabbita/js.Value) -> Unit, (@moonbit-community/rabbita/js.Value) -> Unit, (@moonbit-community/rabbita/js.Value) -> Unit, include_doc? : Bool, include_change_doc? : Bool) -> Disposable
+pub fn js_add_update_listener(CmView, Compartment, (@moonbit-community/rabbita/js.Value) -> Unit, (@moonbit-community/rabbita/js.Value) -> Unit, (@moonbit-community/rabbita/js.Value) -> Unit, (@moonbit-community/rabbita/js.Value) -> Unit, include_doc? : Bool, include_change_doc? : Bool, source_version? : () -> String) -> Disposable
 
 pub fn js_compartment_new(CmModule) -> Compartment
 
@@ -19,6 +19,8 @@ pub fn js_dispatch(CmView, TransactionSpec) -> Unit
 pub fn js_extension_combine(Array[Extension]) -> Extension
 
 pub fn js_replace_doc_minimal(CmView, String) -> Unit
+
+pub fn js_set_source_version(CmView, String) -> Unit
 
 pub fn js_state_doc(CmView) -> String
 

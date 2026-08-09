@@ -78,6 +78,7 @@ fn subscriptions(model : Model, emit : Emit[Msg]) -> Sub {
       model.cm_id,
       selection=emit.map(range => CmSelectionChanged(range)),
       on_change_with_doc=emit.map(event => CmChanges(event)),
+      source_version=() => @ffi.get_version_json(model.handle),
     )
   } else {
     @sub.none

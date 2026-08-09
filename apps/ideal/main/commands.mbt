@@ -34,14 +34,22 @@ fn cm_mount_cmd(emit : Emit[Msg], model : Model) -> Cmd {
 ///|
 fn sync_after_local_model_change(model : Model, text : String) -> Cmd {
   @rabbita.batch([
-    @cm.set_doc(model.cm_id, text),
+    @cm.set_doc(
+      model.cm_id,
+      text,
+      source_version=@ffi.get_version_json(model.handle),
+    ),
     @rabbita.effect(fn() { js_after_local_text_edit() }),
   ])
 }
 
 ///|
 fn sync_after_external_crdt_change(model : Model) -> Cmd {
-  @cm.set_doc(model.cm_id, model.editor.get_text())
+  @cm.set_doc(
+    model.cm_id,
+    model.editor.get_text(),
+    source_version=@ffi.get_version_json(model.handle),
+  )
 }
 
 ///|

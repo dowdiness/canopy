@@ -6,10 +6,15 @@ test "SelRange constructor exposes selection offsets to consumers" {
 }
 
 ///|
-test "ChangeEvent preserves its transaction snapshot" {
-  let event = ChangeEvent::new([ChangeDelta::new(1, 1, "x")], "after")
+test "ChangeEvent preserves its transaction snapshot and source version" {
+  let event = ChangeEvent::new(
+    [ChangeDelta::new(1, 1, "x")],
+    "after",
+    source_version="v1",
+  )
   inspect(event.changes.length(), content="1")
   inspect(event.doc, content="after")
+  inspect(event.source_version, content="v1")
 }
 
 ///|
