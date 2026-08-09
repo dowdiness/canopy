@@ -22,6 +22,11 @@ pub(all) suberror MarkdownArchiveOpenLimitsError {
   InvalidLimit(dimension~ : MarkdownArchiveLimitDimension, value~ : Int)
 }
 
+pub(all) suberror MarkdownDocumentUtf16SelectionError {
+  OutOfBounds(anchor~ : Int, head~ : Int, source_length~ : Int)
+  MidGraphemeBoundary(offset~ : Int)
+} derive(Eq, @debug.Debug)
+
 pub(all) suberror MarkdownEditorError {
   InvalidAgentId
   InitializationFailed(detail~ : String)
@@ -111,6 +116,17 @@ pub struct MarkdownDocumentSnapshot {
 pub fn MarkdownDocumentSnapshot::blocks(Self) -> @vector.Vector[MarkdownBlockSnapshot]
 pub fn MarkdownDocumentSnapshot::projection(Self) -> MarkdownProjectionSnapshot
 pub fn MarkdownDocumentSnapshot::source(Self) -> String
+
+pub struct MarkdownDocumentUtf16Selection {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn MarkdownDocumentUtf16Selection::MarkdownDocumentUtf16Selection(MarkdownDocumentSnapshot, anchor~ : Int, head~ : Int) -> Self raise MarkdownDocumentUtf16SelectionError
+pub fn MarkdownDocumentUtf16Selection::anchor(Self) -> Int
+pub fn MarkdownDocumentUtf16Selection::head(Self) -> Int
+pub fn MarkdownDocumentUtf16Selection::is_backward(Self) -> Bool
+pub fn MarkdownDocumentUtf16Selection::is_collapsed(Self) -> Bool
+pub fn MarkdownDocumentUtf16Selection::range_end(Self) -> Int
+pub fn MarkdownDocumentUtf16Selection::range_start(Self) -> Int
 
 pub struct MarkdownDocumentVersion {
   // private fields

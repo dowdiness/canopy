@@ -257,6 +257,55 @@ pub fn MarkdownBlockSelection::offset(self : Self) -> Int {
 }
 
 ///|
+/// Why a document-level UTF-16 selection could not be constructed.
+pub(all) suberror MarkdownDocumentUtf16SelectionError {
+  OutOfBounds(anchor~ : Int, head~ : Int, source_length~ : Int)
+  MidGraphemeBoundary(offset~ : Int)
+} derive(Eq, Debug)
+
+///|
+/// Directed source selection in one detached Markdown document snapshot.
+///
+/// `anchor` and `head` are document-level UTF-16 code-unit offsets. Their
+/// order preserves direction; range operations use their ordered bounds.
+pub struct MarkdownDocumentUtf16Selection {
+  priv anchor : Int
+  priv head : Int
+} derive(Eq, Debug)
+
+///|
+pub fn MarkdownDocumentUtf16Selection::anchor(self : Self) -> Int {
+  self.anchor
+}
+
+///|
+pub fn MarkdownDocumentUtf16Selection::head(self : Self) -> Int {
+  self.head
+}
+
+///|
+pub fn MarkdownDocumentUtf16Selection::range_start(self : Self) -> Int {
+  let (start, _) = @cmp.minmax(self.anchor, self.head)
+  start
+}
+
+///|
+pub fn MarkdownDocumentUtf16Selection::range_end(self : Self) -> Int {
+  let (_, end) = @cmp.minmax(self.anchor, self.head)
+  end
+}
+
+///|
+pub fn MarkdownDocumentUtf16Selection::is_backward(self : Self) -> Bool {
+  self.anchor > self.head
+}
+
+///|
+pub fn MarkdownDocumentUtf16Selection::is_collapsed(self : Self) -> Bool {
+  self.anchor == self.head
+}
+
+///|
 /// A caller-owned edit request lowered by the Markdown façade.
 pub(all) enum MarkdownEditRequest {
   ReplaceSource(String)
@@ -314,6 +363,37 @@ pub fn MarkdownDocumentSnapshot::blocks(
   self : Self,
 ) -> @vector.Vector[MarkdownBlockSnapshot] {
   self.blocks
+}
+
+///|
+/// Construct a directed document-level UTF-16 selection validated against an
+/// immutable Markdown snapshot.
+pub fn MarkdownDocumentUtf16Selection::MarkdownDocumentUtf16Selection(
+  snapshot : MarkdownDocumentSnapshot,
+  anchor~ : Int,
+  head~ : Int,
+) -> MarkdownDocumentUtf16Selection raise MarkdownDocumentUtf16SelectionError {
+  let source = snapshot.source()
+  let source_length = source.length()
+  guard anchor >= 0 &&
+    anchor <= source_length &&
+    head >= 0 &&
+    head <= source_length else {
+    raise MarkdownDocumentUtf16SelectionError::OutOfBounds(
+      anchor~,
+      head~,
+      source_length~,
+    )
+  }
+  guard @moji.is_grapheme_boundary(source, anchor) else {
+    raise MarkdownDocumentUtf16SelectionError::MidGraphemeBoundary(
+      offset=anchor,
+    )
+  }
+  guard @moji.is_grapheme_boundary(source, head) else {
+    raise MarkdownDocumentUtf16SelectionError::MidGraphemeBoundary(offset=head)
+  }
+  { anchor, head }
 }
 
 ///|
