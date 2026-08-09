@@ -346,12 +346,7 @@ test "compute_text_edit: Drop produces two edits" {
       // Drop should produce 2 edits: delete at source + insert at target
       inspect(edits.length(), content="2")
       let new_text = apply_edits(text, edits)
-      inspect(
-        new_text,
-        content=(
-          #| + 1x
-        ),
-      )
+      inspect(new_text, content="x + 1x ")
     }
     _ => fail("expected Some edits")
   }
@@ -384,6 +379,44 @@ test "compute_text_edit: Drop LetDef Inside moves the whole binding row after ta
 }
 
 ///|
+test "compute_text_edit: Drop LetDef Inside is a no-op when already after target" {
+  let text = "let x = 1\nlet y = 2\nx"
+  let (proj, source_map, registry) = parse_with_token_spans(text)
+  let source = proj.children[1]
+  let target = proj.children[0]
+  let result = test_edit(
+    Drop(source=source.id(), target=target.id(), position=Inside),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      inspect(edits.length(), content="0")
+      inspect(apply_edits(text, edits), content=text)
+    }
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
+test "compute_text_edit: Drop adjacent duplicate-name rows is a no-op" {
+  let text = "let x = 1\nlet x = 2\nx"
+  let (proj, source_map, registry) = parse_with_token_spans(text)
+  let source = proj.children[1]
+  let target = proj.children[0]
+  let result = test_edit(
+    Drop(source=source.id(), target=target.id(), position=After),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      inspect(edits.length(), content="0")
+      inspect(apply_edits(text, edits), content=text)
+    }
+    _ => fail("expected duplicate-name adjacent Drop to be a no-op")
+  }
+}
+
+///|
 test "compute_text_edit: Drop LetDef Before moves the whole binding row before target" {
   let text = "let x = 1\nlet y = 2\nx"
   let (proj, source_map, registry) = parse_with_token_spans(text)
@@ -407,6 +440,147 @@ test "compute_text_edit: Drop LetDef Before moves the whole binding row before t
     }
     _ => fail("expected Some edits")
   }
+}
+
+///|
+test "compute_text_edit: Drop LetDef After moves the whole binding row after target" {
+  let text = "let x = 1\nlet y = 2\nx"
+  let (proj, source_map, registry) = parse_with_token_spans(text)
+  let source = proj.children[0]
+  let target = proj.children[1]
+  let result = test_edit(
+    Drop(source=source.id(), target=target.id(), position=After),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Ok(Some((edits, _))) => {
+      let new_text = apply_edits(text, edits)
+      inspect(
+        new_text,
+        content=(
+          #|let y = 2
+          #|let x = 1
+          #|x
+        ),
+      )
+    }
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
+test "compute_text_edit: Drop LetDef with multiline initializer preserves row" {
+  let text = "let x = { let inner = 1\n  inner }\nlet y = 2\nx"
+  let (proj, source_map, registry) = parse_with_token_spans(text)
+  let source = proj.children[0]
+  let target = proj.children[1]
+  let result = test_edit(
+    Drop(source=source.id(), target=target.id(), position=After),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Ok(Some((edits, _))) =>
+      inspect(
+        apply_edits(text, edits),
+        content=(
+          #|let y = 2
+          #|let x = { let inner = 1
+          #|  inner }
+          #|x
+        ),
+      )
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
+test "compute_text_edit: Drop LetDef at EOF preserves missing trailing newline" {
+  let text = "let x = 1\nlet y = 2"
+  let (proj, source_map, registry) = parse_with_token_spans(text)
+  let source = proj.children[1]
+  let target = proj.children[0]
+  let result = test_edit(
+    Drop(source=source.id(), target=target.id(), position=Before),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  match result {
+    Ok(Some((edits, _))) =>
+      inspect(apply_edits(text, edits), content="let y = 2\nlet x = 1")
+    _ => fail("expected Some edits")
+  }
+}
+
+///|
+test "compute_text_edit: Drop mixed LetDef and expression is rejected" {
+  let text = "let x = 1\nx"
+  let (proj, source_map, registry) = parse_with_token_spans(text)
+  let source = proj.children[0]
+  let target = proj.children[1]
+  let let_to_expr = test_edit(
+    Drop(source=source.id(), target=target.id(), position=Before),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  let expr_to_let = test_edit(
+    Drop(source=target.id(), target=source.id(), position=Before),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  @debug.debug_inspect(
+    let_to_expr,
+    content="Err(\"Drop requires source and target to have matching node kinds\")",
+  )
+  @debug.debug_inspect(
+    expr_to_let,
+    content="Err(\"Drop requires source and target to have matching node kinds\")",
+  )
+}
+
+///|
+test "compute_text_edit: Drop LetDef across scopes is rejected" {
+  let text = "let x = 0\nlet z = { let a = 1\n  let b = 2\n  a }\nz"
+  let (proj, source_map, registry) = parse_with_token_spans(text)
+  let source = proj.children[0]
+  let target = proj.children[1].children[0].children[0]
+  let result = test_edit(
+    Drop(source=source.id(), target=target.id(), position=Before),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  @debug.debug_inspect(
+    result,
+    content="Err(\"Cannot drop bindings across scopes\")",
+  )
+}
+
+///|
+test "compute_text_edit: Drop nested LetDef rows is rejected" {
+  let text = "let x = 0\nlet z = { let a = 1\n  let b = 2\n  a }\nz"
+  let (proj, source_map, registry) = parse_with_token_spans(text)
+  let block = proj.children[1].children[0]
+  let source = block.children[0]
+  let target = block.children[1]
+  let result = test_edit(
+    Drop(source=source.id(), target=target.id(), position=Before),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  @debug.debug_inspect(
+    result,
+    content="Err(\"Cannot drop bindings outside root module\")",
+  )
+}
+
+///|
+test "compute_text_edit: Drop LetDef checks every crossed binding" {
+  let text = "let a = 0\nlet b = a\nlet c = b\nc"
+  let (proj, source_map, registry) = parse_with_token_spans(text)
+  let source = proj.children[2]
+  let target = proj.children[0]
+  let result = test_edit(
+    Drop(source=source.id(), target=target.id(), position=Before),
+    make_edit_ctx(text, source_map, registry, proj),
+  )
+  @debug.debug_inspect(
+    result,
+    content="Err(\"Cannot move drop: c uses b in its init\")",
+  )
 }
 
 ///|
@@ -3193,7 +3367,7 @@ test "compute_text_edit: Drop with Before position inserts at target start" {
       inspect(
         new_text,
         content=(
-          #| 1x +
+          #|1 x + 0
         ),
       )
     }
