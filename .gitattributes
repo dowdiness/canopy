@@ -16,3 +16,6 @@ apps/loomark/main/pkg.generated.mbti whitespace=-blank-at-eof
 apps/loomark/internal/archive_storage/js/pkg.generated.mbti whitespace=-blank-at-eof
 apps/loomark/internal/archive_storage/pkg.generated.mbti whitespace=-blank-at-eof
 apps/loomark/repository/pkg.generated.mbti whitespace=-blank-at-eof
+
+# Existing Ideal Playwright files use CRLF line endings.
+apps/ideal/web/e2e/*.ts whitespace=cr-at-eol
