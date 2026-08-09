@@ -108,11 +108,13 @@ test "normalized Raw edit event consumes the Session selection" {
   let selected = { ..context.model, raw_selection: Some(selection) }
   let latest_model : @ref.Ref[DriverModel?] = @ref.Ref(Some(selected))
   let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
+  let raw_input_coordinator = RawInputCoordinator::RawInputCoordinator(None)
+  ignore(raw_input_coordinator.enqueue("pending", emit))
 
   let (next, _) = try! update_editing(
     context.editor,
     context.attachment,
-    RawInputCoordinator::RawInputCoordinator(None),
+    raw_input_coordinator,
     BlockInputCoordinator::BlockInputCoordinator(),
     selected,
     latest_model,
@@ -127,6 +129,7 @@ test "normalized Raw edit event consumes the Session selection" {
   }
   assert_eq(selection.selection.anchor(), 1)
   assert_eq(selection.selection.head(), 1)
+  assert_eq(raw_input_coordinator.display_source(next.document.source()), "x")
 }
 
 ///|
@@ -407,6 +410,53 @@ test "Raw selection DOM effect revalidates Session state and unmount" {
 }
 
 ///|
+test "Raw DOM selection conversion maps normalized CRLF and CR offsets" {
+  let context = RawSelectionTestContext::RawSelectionTestContext(
+    "raw-selection-dom-line-endings", "a\r\nb\rc\n",
+  )
+  let dom = @dom_boundary.TextSelection(2, 4, @dom_boundary.Backward)
+  let markdown = try! markdown_document_utf16_selection_from_dom(
+    context.model.document,
+    dom,
+  )
+
+  assert_eq(markdown.anchor(), 5)
+  assert_eq(markdown.head(), 3)
+  let round_trip = dom_selection_from_markdown_document_utf16(
+    context.model.document.source(),
+    markdown,
+  )
+  guard round_trip is Some(round_trip) else {
+    abort("valid canonical line-ending boundaries must map back to the DOM")
+  }
+  assert_eq(round_trip.start(), 2)
+  assert_eq(round_trip.end(), 4)
+  assert_eq(round_trip.direction(), @dom_boundary.Backward)
+}
+
+///|
+test "Raw DOM selection conversion rejects offsets beyond normalized value" {
+  let context = RawSelectionTestContext::RawSelectionTestContext(
+    "raw-selection-dom-invalid-offset", "a\r\nb",
+  )
+  let invalid : Result[
+    @markdown.MarkdownDocumentUtf16Selection,
+    RawDomSelectionConversionError,
+  ] = Ok(
+    markdown_document_utf16_selection_from_dom(
+      context.model.document,
+      @dom_boundary.TextSelection(4, 4, @dom_boundary.NoDirection),
+    ),
+  ) catch {
+    error => Err(error)
+  }
+
+  assert_true(
+    invalid is Err(RawDomSelectionConversionError::DomOffsetOutOfBounds(..)),
+  )
+}
+
+///|
 test "Raw DOM selection conversion preserves forward backward and collapsed direction" {
   let context = RawSelectionTestContext::RawSelectionTestContext(
     "raw-selection-dom-conversion", "alpha\n\nbeta",
@@ -439,7 +489,13 @@ test "Raw DOM selection conversion preserves forward backward and collapsed dire
     )
     assert_eq(markdown.anchor(), anchor)
     assert_eq(markdown.head(), head)
-    let round_trip = dom_selection_from_markdown_document_utf16(markdown)
+    let round_trip = dom_selection_from_markdown_document_utf16(
+      context.model.document.source(),
+      markdown,
+    )
+    guard round_trip is Some(round_trip) else {
+      abort("valid Markdown selection must map back to the Raw DOM")
+    }
     assert_eq(round_trip.start(), dom.start())
     assert_eq(round_trip.end(), dom.end())
     assert_eq(round_trip.direction(), expected_direction)

@@ -41,14 +41,28 @@ priv enum RawSelectionEditOutcome {
 }
 
 ///|
-fn markdown_document_utf16_selection_error_detail(
-  error : @markdown.MarkdownDocumentUtf16SelectionError,
+priv suberror RawDomSelectionConversionError {
+  DomOffsetOutOfBounds(offset~ : Int, value_length~ : Int)
+  InvalidMarkdownSelection(@markdown.MarkdownDocumentUtf16SelectionError)
+}
+
+///|
+fn raw_dom_selection_conversion_error_detail(
+  error : RawDomSelectionConversionError,
 ) -> String {
   match error {
-    @markdown.MarkdownDocumentUtf16SelectionError::OutOfBounds(..) =>
-      "selection endpoint is out of bounds"
-    @markdown.MarkdownDocumentUtf16SelectionError::MidGraphemeBoundary(..) =>
-      "selection endpoint is not a grapheme boundary"
+    RawDomSelectionConversionError::DomOffsetOutOfBounds(offset~, value_length~) =>
+      "Raw DOM selection offset " +
+      offset.to_string() +
+      " is outside normalized UTF-16 length " +
+      value_length.to_string()
+    RawDomSelectionConversionError::InvalidMarkdownSelection(error) =>
+      match error {
+        @markdown.MarkdownDocumentUtf16SelectionError::OutOfBounds(..) =>
+          "selection endpoint is out of bounds"
+        @markdown.MarkdownDocumentUtf16SelectionError::MidGraphemeBoundary(..) =>
+          "selection endpoint is not a grapheme boundary"
+      }
   }
 }
 
@@ -66,26 +80,111 @@ fn raw_selection_edit_rejection_reason(
 }
 
 ///|
+/// Number of canonical UTF-16 units represented by one textarea value unit.
+/// HTML textareas normalize CRLF and lone CR line endings to one LF.
+fn raw_textarea_source_step(source : String, source_offset : Int) -> Int {
+  if source[source_offset] == '\r' &&
+    source_offset + 1 < source.length() &&
+    source[source_offset + 1] == '\n' {
+    2
+  } else {
+    1
+  }
+}
+
+///|
+/// Map a normalized textarea UTF-16 boundary back to canonical source.
+/// The two cursors are necessary because one DOM LF may own two source units.
+fn raw_source_offset_from_dom(source : String, dom_offset : Int) -> Int? {
+  guard dom_offset >= 0 else { return None }
+  let mut source_cursor = 0
+  let mut dom_cursor = 0
+  while source_cursor < source.length() {
+    if dom_cursor == dom_offset {
+      return Some(source_cursor)
+    }
+    source_cursor = source_cursor +
+      raw_textarea_source_step(source, source_cursor)
+    dom_cursor = dom_cursor + 1
+  }
+  if dom_cursor == dom_offset {
+    Some(source_cursor)
+  } else {
+    None
+  }
+}
+
+///|
+/// Map a canonical source UTF-16 boundary into the normalized textarea value.
+fn raw_dom_offset_from_source(source : String, source_offset : Int) -> Int? {
+  guard source_offset >= 0 && source_offset <= source.length() else {
+    return None
+  }
+  let mut source_cursor = 0
+  let mut dom_cursor = 0
+  while source_cursor < source_offset {
+    source_cursor = source_cursor +
+      raw_textarea_source_step(source, source_cursor)
+    dom_cursor = dom_cursor + 1
+  }
+  if source_cursor == source_offset {
+    Some(dom_cursor)
+  } else {
+    None
+  }
+}
+
+///|
 /// Convert a normalized DOM half-open range into a directed Markdown source
 /// selection while the caller still owns the detached document snapshot.
 fn markdown_document_utf16_selection_from_dom(
   snapshot : @markdown.MarkdownDocumentSnapshot,
   selection : @dom_boundary.TextSelection,
-) -> @markdown.MarkdownDocumentUtf16Selection raise @markdown.MarkdownDocumentUtf16SelectionError {
-  let (anchor, head) = match selection.direction() {
-    @dom_boundary.Backward => (selection.end(), selection.start())
-    @dom_boundary.Forward | @dom_boundary.NoDirection =>
-      (selection.start(), selection.end())
+) -> @markdown.MarkdownDocumentUtf16Selection raise RawDomSelectionConversionError {
+  let source = snapshot.source()
+  let value_length = raw_dom_offset_from_source(source, source.length()).unwrap_or(
+    0,
+  )
+  let start = match raw_source_offset_from_dom(source, selection.start()) {
+    Some(offset) => offset
+    None =>
+      raise RawDomSelectionConversionError::DomOffsetOutOfBounds(
+        offset=selection.start(),
+        value_length~,
+      )
   }
-  @markdown.MarkdownDocumentUtf16Selection(snapshot, anchor~, head~)
+  let end = match raw_source_offset_from_dom(source, selection.end()) {
+    Some(offset) => offset
+    None =>
+      raise RawDomSelectionConversionError::DomOffsetOutOfBounds(
+        offset=selection.end(),
+        value_length~,
+      )
+  }
+  let (anchor, head) = match selection.direction() {
+    @dom_boundary.Backward => (end, start)
+    @dom_boundary.Forward | @dom_boundary.NoDirection => (start, end)
+  }
+  @markdown.MarkdownDocumentUtf16Selection(snapshot, anchor~, head~) catch {
+    error =>
+      raise RawDomSelectionConversionError::InvalidMarkdownSelection(error)
+  }
 }
 
 ///|
 /// Convert a directed Markdown source selection to the normalized DOM range
 /// plus the direction needed by `setSelectionRange`.
 fn dom_selection_from_markdown_document_utf16(
+  source : String,
   selection : @markdown.MarkdownDocumentUtf16Selection,
-) -> @dom_boundary.TextSelection {
+) -> @dom_boundary.TextSelection? {
+  guard raw_dom_offset_from_source(source, selection.range_start())
+    is Some(start) else {
+    return None
+  }
+  guard raw_dom_offset_from_source(source, selection.range_end()) is Some(end) else {
+    return None
+  }
   let direction = if selection.is_collapsed() {
     @dom_boundary.NoDirection
   } else if selection.is_backward() {
@@ -93,18 +192,14 @@ fn dom_selection_from_markdown_document_utf16(
   } else {
     @dom_boundary.Forward
   }
-  @dom_boundary.TextSelection(
-    selection.range_start(),
-    selection.range_end(),
-    direction,
-  )
+  Some(@dom_boundary.TextSelection(start, end, direction))
 }
 
 ///|
 fn versioned_raw_selection_from_dom(
   model : DriverModel,
   selection : @dom_boundary.TextSelection,
-) -> VersionedRawSelection raise @markdown.MarkdownDocumentUtf16SelectionError {
+) -> VersionedRawSelection raise RawDomSelectionConversionError {
   {
     document_id: model.document_id,
     version: model.document_version,
@@ -125,7 +220,10 @@ fn raw_selection_effect_value(
   guard model.document_id == expected.document_id else { return None }
   guard model.document_version == expected.version else { return None }
   guard model.raw_selection == Some(expected) else { return None }
-  Some(dom_selection_from_markdown_document_utf16(expected.selection))
+  dom_selection_from_markdown_document_utf16(
+    model.document.source(),
+    expected.selection,
+  )
 }
 
 ///|

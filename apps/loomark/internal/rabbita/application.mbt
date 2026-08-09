@@ -958,8 +958,10 @@ fn update_editing(
           )
           let (next, selection_command) = match outcome {
             RawSelectionEditOutcome::Applied(selection)
-            | RawSelectionEditOutcome::Unchanged(selection) =>
+            | RawSelectionEditOutcome::Unchanged(selection) => {
+              raw_input_coordinator.cancel_pending()
               (next, raw_selection_after_render(latest_model, selection, emit))
+            }
             RawSelectionEditOutcome::Rejected(rejection) =>
               (
                 {
@@ -1844,7 +1846,7 @@ fn update_probe(
             model,
             "invalid-raw-selection",
             "browser-effect",
-            markdown_document_utf16_selection_error_detail(error),
+            raw_dom_selection_conversion_error_detail(error),
           )
           return (next, @rabbita_runtime.none)
         }

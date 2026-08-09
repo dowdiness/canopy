@@ -82,6 +82,15 @@ async function rawSelectionProbe(page: Page, detail: "capture" | "install"): Pro
   }, detail)
 }
 
+async function commitCapturedRawSelection(page: Page, inserted: string): Promise<void> {
+  await page.evaluate(inserted => {
+    const target = document.getElementById("loomark-driver-target")
+    target?.dispatchEvent(new CustomEvent("loomark-driver", {
+      detail: `raw-selection-edit|${inserted}`,
+    }))
+  }, inserted)
+}
+
 async function selectPreview(page: Page): Promise<void> {
   await page.evaluate(moduleUrl =>
     import(moduleUrl).then(module => module.dev_host_select_preview()), moduleUrl)
@@ -1778,21 +1787,22 @@ test("rejected Raw repair round-trips a backward DOM selection", async ({ browse
 })
 
 test("Raw DOM selection conversion and post-render installation preserve direction", async ({ browser }) => {
-  const host = await mountHost(browser, "alpha\n\nbeta")
+  const host = await mountHost(browser, "a\r\nb\rc\n")
   try {
     const input = host.page.locator("#loomark-input")
+    await expect(input).toHaveValue("a\nb\nc\n")
     await input.focus()
     await input.evaluate(element => {
       const textarea = element as HTMLTextAreaElement
-      textarea.setSelectionRange(0, 11, "backward")
+      textarea.setSelectionRange(2, 4, "backward")
     })
 
     await rawSelectionProbe(host.page, "capture")
-    await expect.poll(async () => (await snapshot(host.page)).selection).toBe("11:0")
+    await expect.poll(async () => (await snapshot(host.page)).selection).toBe("5:3")
 
     await input.evaluate(element => {
       const textarea = element as HTMLTextAreaElement
-      textarea.setSelectionRange(5, 5, "none")
+      textarea.setSelectionRange(0, 0, "none")
     })
     await rawSelectionProbe(host.page, "install")
     await expect.poll(() => input.evaluate(element => {
@@ -1802,7 +1812,39 @@ test("Raw DOM selection conversion and post-render installation preserve directi
         end: textarea.selectionEnd,
         direction: textarea.selectionDirection,
       }
-    })).toEqual({ start: 0, end: 11, direction: "backward" })
+    })).toEqual({ start: 2, end: 4, direction: "backward" })
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("accepted Raw selection edit supersedes pending full-source input", async ({ browser }) => {
+  const host = await mountHost(browser, "abcdef")
+  try {
+    const input = host.page.locator("#loomark-input")
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(0, 6, "backward")
+    })
+    await rawSelectionProbe(host.page, "capture")
+    await expect.poll(async () => (await snapshot(host.page)).selection).toBe("6:0")
+
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.value = "pending"
+      textarea.setSelectionRange(7, 7, "none")
+      textarea.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await commitCapturedRawSelection(host.page, "x")
+
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("x")
+    await host.page.waitForTimeout(100)
+    expect(await snapshot(host.page)).toMatchObject({
+      source: "x",
+      committed_change_count: 1,
+    })
+    await expect(input).toHaveValue("x")
   } finally {
     await host.context.close()
   }
