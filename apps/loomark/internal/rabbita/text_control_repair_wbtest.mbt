@@ -104,8 +104,92 @@ test "Raw composition keeps intermediate DOM state out of pending input" {
   )
 
   assert_eq(coordinator.display_source("start"), "startか")
-  assert_true(coordinator.pending.val is None)
+  assert_true(coordinator.frontier.val.pending is None)
   assert_true(test_in_flight_token(coordinator) is None)
+}
+
+///|
+test "Raw coordinator does not schedule a pending store during live composition" {
+  let context = RawSelectionTestContext::RawSelectionTestContext(
+    "raw-composition-pending-rejection", "start",
+  )
+  let coordinator = RawInputCoordinator::RawInputCoordinator(None)
+  let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
+  assert_true(
+    coordinator.begin_composition(
+      RawBeforeInputCandidate::RawBeforeInputCandidate(
+        selection=context.selection(5, 5),
+        input_type="insertCompositionText",
+        is_composing=false,
+      ),
+      "start",
+      @dom_boundary.TextSelection(5, 5, @dom_boundary.NoDirection),
+    ),
+  )
+  ignore(
+    coordinator.capture_before_input(
+      RawBeforeInputCandidate::RawBeforeInputCandidate(
+        selection=context.selection(5, 5),
+        input_type="insertText",
+        is_composing=false,
+      ),
+    ),
+  )
+  ignore(
+    coordinator.enqueue(
+      "startX",
+      @dom_boundary.TextSelection(6, 6, @dom_boundary.NoDirection),
+      emit,
+    ),
+  )
+  assert_true(coordinator.frontier.val.pending is None)
+  assert_true(coordinator.frontier.val.composition is Some(_))
+  assert_false(coordinator.scheduled.val)
+}
+
+///|
+test "Raw coordinator rejects composition start behind active delivery without generation changes" {
+  let context = RawSelectionTestContext::RawSelectionTestContext(
+    "raw-composition-active-rejection", "start",
+  )
+  let coordinator = RawInputCoordinator::RawInputCoordinator(None)
+  let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
+  ignore(
+    coordinator.capture_before_input(
+      RawBeforeInputCandidate::RawBeforeInputCandidate(
+        selection=context.selection(5, 5),
+        input_type="insertText",
+        is_composing=false,
+      ),
+    ),
+  )
+  ignore(
+    coordinator.enqueue(
+      "startX",
+      @dom_boundary.TextSelection(6, 6, @dom_boundary.NoDirection),
+      emit,
+    ),
+  )
+  guard coordinator.take_pending_delivery() is Some((0, _)) else {
+    fail("the test input must become active")
+  }
+  let schedule_generation = coordinator.schedule_generation.val
+  let capture_generation = coordinator.capture_generation.val
+  assert_false(
+    coordinator.begin_composition(
+      RawBeforeInputCandidate::RawBeforeInputCandidate(
+        selection=context.selection(5, 5),
+        input_type="insertCompositionText",
+        is_composing=false,
+      ),
+      "startX",
+      @dom_boundary.TextSelection(6, 6, @dom_boundary.NoDirection),
+    ),
+  )
+  assert_eq(coordinator.schedule_generation.val, schedule_generation)
+  assert_eq(coordinator.capture_generation.val, capture_generation)
+  assert_true(coordinator.frontier.val.in_flight is Some(_))
+  assert_true(coordinator.frontier.val.composition is None)
 }
 
 ///|
@@ -135,8 +219,8 @@ test "Raw composition end releases one immediate final transaction" {
 
   ignore(coordinator.finish_composition("start", emit))
 
-  assert_true(coordinator.composition.val is None)
-  assert_true(coordinator.pending.val is None)
+  assert_true(coordinator.frontier.val.composition is None)
+  assert_true(coordinator.frontier.val.pending is None)
   assert_eq(test_in_flight_token(coordinator), Some(0))
   assert_eq(test_in_flight_source(coordinator), Some("start漢字"))
 }
@@ -168,8 +252,8 @@ test "Canceled Raw composition never becomes an editor transaction" {
 
   ignore(coordinator.finish_composition("start", emit))
 
-  assert_true(coordinator.composition.val is None)
-  assert_true(coordinator.pending.val is None)
+  assert_true(coordinator.frontier.val.composition is None)
+  assert_true(coordinator.frontier.val.pending is None)
   assert_true(test_in_flight_token(coordinator) is None)
   assert_true(coordinator.unmatched_before_input.val is None)
 }
@@ -209,7 +293,7 @@ test "Raw composition ignores one same-value final input while delivery is activ
     ),
   )
 
-  assert_true(coordinator.pending.val is None)
+  assert_true(coordinator.frontier.val.pending is None)
   assert_eq(test_in_flight_token(coordinator), Some(0))
   assert_eq(test_in_flight_source(coordinator), Some("start漢字"))
 }
@@ -241,6 +325,7 @@ test "Raw input keeps latest same-value text after a different pending value" {
   guard coordinator.take_pending_delivery() is Some((0, _)) else {
     fail("first value must become active")
   }
+  assert_true(coordinator.frontier.val.in_flight is Some(_))
   ignore(capture())
   ignore(
     coordinator.enqueue(
@@ -258,7 +343,7 @@ test "Raw input keeps latest same-value text after a different pending value" {
     ),
   )
 
-  guard coordinator.pending.val is Some(pending) else {
+  guard coordinator.frontier.val.pending is Some(pending) else {
     fail("latest value must remain pending")
   }
   assert_eq(pending.source, "A")
@@ -301,7 +386,7 @@ test "Raw composition releases promoted input without a composition input" {
 
   ignore(coordinator.finish_composition("abcdef", emit))
 
-  assert_true(coordinator.composition.val is None)
+  assert_true(coordinator.frontier.val.composition is None)
   assert_eq(test_in_flight_source(coordinator), Some("abxyef"))
   assert_eq(test_in_flight_token(coordinator), Some(0))
 }
@@ -340,7 +425,7 @@ test "Raw composition keeps a pending ordinary input as its transaction base" {
       @dom_boundary.TextSelection(4, 4, @dom_boundary.NoDirection),
     ),
   )
-  guard coordinator.composition.val is Some(started) else {
+  guard coordinator.frontier.val.composition is Some(started) else {
     fail("composition must promote the pending ordinary input")
   }
   assert_eq(started.source, "abxyef")
@@ -351,21 +436,21 @@ test "Raw composition keeps a pending ordinary input as its transaction base" {
     ),
   )
 
-  guard coordinator.composition.val is Some(input) else {
+  guard coordinator.frontier.val.composition is Some(input) else {
     fail("composition must retain one complete final transaction")
   }
   assert_eq(input.before_input.selection.selection.anchor(), 4)
   assert_eq(input.before_input.selection.selection.head(), 2)
   assert_eq(input.source, "abxy漢ef")
   assert_eq(input.post_input_selection.start(), 5)
-  assert_true(coordinator.pending.val is None)
+  assert_true(coordinator.frontier.val.pending is None)
 }
 
 ///|
 test "Raw coordinator does not guess an unpaired in-flight input" {
   let coordinator = RawInputCoordinator::RawInputCoordinator(None)
   coordinator.reduce_frontier(
-    RawInputFrontierEvent::BeginDelivery({ token: 1, source: "startX" }),
+    RawInputEvent::BeginDelivery({ token: 1, source: "startX" }),
   )
   let deferred = coordinator.defer_native_input(
     "startXY",
@@ -379,7 +464,7 @@ test "Raw coordinator does not guess an unpaired in-flight input" {
 test "Raw coordinator keeps an active delivery for unpaired input" {
   let coordinator = RawInputCoordinator::RawInputCoordinator(None)
   coordinator.reduce_frontier(
-    RawInputFrontierEvent::BeginDelivery({ token: 1, source: "startX" }),
+    RawInputEvent::BeginDelivery({ token: 1, source: "startX" }),
   )
   let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
   ignore(
@@ -397,10 +482,10 @@ test "Raw coordinator keeps an active delivery for unpaired input" {
 test "Raw coordinator keeps the first deferred selection and latest native value" {
   let coordinator = RawInputCoordinator::RawInputCoordinator(None)
   coordinator.reduce_frontier(
-    RawInputFrontierEvent::BeginDelivery({ token: 1, source: "xx" }),
+    RawInputEvent::BeginDelivery({ token: 1, source: "xx" }),
   )
   coordinator.reduce_frontier(
-    RawInputFrontierEvent::CaptureDeferredBeforeInput({
+    RawInputEvent::CaptureDeferredBeforeInput({
       base_source: "xx",
       input_type: "insertText",
       selection: @dom_boundary.TextSelection(1, 1, @dom_boundary.NoDirection),
@@ -413,7 +498,7 @@ test "Raw coordinator keeps the first deferred selection and latest native value
     ),
   )
   coordinator.reduce_frontier(
-    RawInputFrontierEvent::CaptureDeferredBeforeInput({
+    RawInputEvent::CaptureDeferredBeforeInput({
       base_source: "xx",
       input_type: "insertFromPaste",
       selection: @dom_boundary.TextSelection(2, 2, @dom_boundary.NoDirection),
@@ -444,10 +529,10 @@ test "deferred Raw composition keeps the first ordinary input selection" {
   )
   let coordinator = RawInputCoordinator::RawInputCoordinator(None)
   coordinator.reduce_frontier(
-    RawInputFrontierEvent::BeginDelivery({ token: 1, source: "xx" }),
+    RawInputEvent::BeginDelivery({ token: 1, source: "xx" }),
   )
   coordinator.reduce_frontier(
-    RawInputFrontierEvent::CaptureDeferredBeforeInput({
+    RawInputEvent::CaptureDeferredBeforeInput({
       base_source: "xx",
       input_type: "insertText",
       selection: @dom_boundary.TextSelection(1, 1, @dom_boundary.NoDirection),
@@ -503,17 +588,17 @@ test "Raw coordinator clears a canceled deferred capture before rebase" {
   )
   let coordinator = RawInputCoordinator::RawInputCoordinator(None)
   coordinator.reduce_frontier(
-    RawInputFrontierEvent::BeginDelivery({ token: 1, source: "startX" }),
+    RawInputEvent::BeginDelivery({ token: 1, source: "startX" }),
   )
   coordinator.reduce_frontier(
-    RawInputFrontierEvent::CaptureDeferredBeforeInput({
+    RawInputEvent::CaptureDeferredBeforeInput({
       base_source: "startX",
       input_type: "insertText",
       selection: @dom_boundary.TextSelection(6, 6, @dom_boundary.NoDirection),
     }),
   )
   coordinator.reduce_frontier(
-    RawInputFrontierEvent::StoreDeferred({
+    RawInputEvent::StoreDeferred({
       base_source: "startX",
       input_type: "insertText",
       before_input_selection: @dom_boundary.TextSelection(
@@ -533,7 +618,7 @@ test "Raw coordinator clears a canceled deferred capture before rebase" {
   let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
   ignore(coordinator.enqueue_deferred(context.model, emit))
   assert_true(coordinator.frontier.val.deferred_before_input is None)
-  guard coordinator.pending.val is Some(pending) else {
+  guard coordinator.frontier.val.pending is Some(pending) else {
     fail("deferred input must become pending after rebase")
   }
   assert_eq(pending.source, "startXY")
@@ -578,7 +663,7 @@ test "Raw coordinator keeps the first backward base and latest collapsed caret" 
       emit,
     ),
   )
-  guard coordinator.pending.val is Some(pending) else {
+  guard coordinator.frontier.val.pending is Some(pending) else {
     fail("first capture must remain the batch base")
   }
   assert_eq(pending.before_input.selection.selection.anchor(), 4)
@@ -627,7 +712,7 @@ test "Raw coordinator discards a batch on version or document mismatch" {
       emit,
     ),
   )
-  assert_true(coordinator.pending.val is None)
+  assert_true(coordinator.frontier.val.pending is None)
 
   ignore(coordinator.capture_before_input(capture(context.selection(1, 1))))
   ignore(
@@ -648,7 +733,7 @@ test "Raw coordinator discards a batch on version or document mismatch" {
       emit,
     ),
   )
-  assert_true(coordinator.pending.val is None)
+  assert_true(coordinator.frontier.val.pending is None)
 }
 
 ///|
@@ -681,7 +766,7 @@ test "Raw coordinator input without capture discards a pending batch" {
       emit,
     ),
   )
-  assert_true(coordinator.pending.val is None)
+  assert_true(coordinator.frontier.val.pending is None)
 }
 
 ///|
@@ -708,7 +793,7 @@ test "Raw coordinator discards a composition-intermediate capture" {
     ),
   )
   assert_true(coordinator.unmatched_before_input.val is None)
-  assert_true(coordinator.pending.val is None)
+  assert_true(coordinator.frontier.val.pending is None)
 }
 
 ///|
@@ -738,8 +823,8 @@ test "Raw input cancellation clears live composition" {
 
   coordinator.cancel_pending()
 
-  assert_true(coordinator.composition.val is None)
-  assert_true(coordinator.pending.val is None)
+  assert_true(coordinator.frontier.val.composition is None)
+  assert_true(coordinator.frontier.val.pending is None)
   assert_true(test_in_flight_token(coordinator) is None)
   assert_eq(coordinator.display_source("start"), "start")
 }
@@ -779,7 +864,7 @@ test "Raw coordinator capture expiry clears only an unmatched capture" {
   let generation = coordinator.capture_generation.val
   coordinator.expire_before_input(generation)
   assert_true(coordinator.unmatched_before_input.val is None)
-  guard coordinator.pending.val is Some(pending) else {
+  guard coordinator.frontier.val.pending is Some(pending) else {
     fail("capture expiry must preserve the pending batch")
   }
   assert_eq(pending.source, "aXbc")
@@ -819,13 +904,13 @@ test "Raw coordinator cancel clears all state and invalidates capture expiry" {
     ),
   )
   let expiry_generation = coordinator.capture_generation.val
-  coordinator.reduce_frontier(
-    RawInputFrontierEvent::BeginDelivery({ token: 7, source: "in-flight" }),
-  )
+  guard coordinator.take_pending_delivery() is Some((0, _)) else {
+    fail("pending input must become active before cancellation")
+  }
   coordinator.cancel_pending()
   coordinator.expire_before_input(expiry_generation)
   assert_true(coordinator.unmatched_before_input.val is None)
-  assert_true(coordinator.pending.val is None)
+  assert_true(coordinator.frontier.val.pending is None)
   assert_true(test_in_flight_token(coordinator) is None)
   assert_true(test_in_flight_source(coordinator) is None)
   assert_false(coordinator.scheduled.val)

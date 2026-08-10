@@ -1,13 +1,22 @@
 ///|
+fn reduce_raw_input_state(
+  state : RawInputState,
+  event : RawInputEvent,
+) -> RawInputState {
+  let (next, _) = reduce_raw_input(state, event)
+  next
+}
+
+///|
 test "Raw frontier reducer keeps deferred input ahead of the active delivery" {
-  let state = RawInputFrontierState::initial()
-  let active = reduce_raw_input_frontier(
+  let state = RawInputState::initial()
+  let active = reduce_raw_input_state(
     state,
-    RawInputFrontierEvent::BeginDelivery({ token: 4, source: "startX" }),
+    RawInputEvent::BeginDelivery({ token: 4, source: "startX" }),
   )
-  let captured = reduce_raw_input_frontier(
+  let captured = reduce_raw_input_state(
     active,
-    RawInputFrontierEvent::CaptureDeferredBeforeInput({
+    RawInputEvent::CaptureDeferredBeforeInput({
       base_source: "startX",
       input_type: "insertText",
       selection: @dom_boundary.TextSelection(6, 6, @dom_boundary.NoDirection),
@@ -29,9 +38,9 @@ test "Raw frontier reducer keeps deferred input ahead of the active delivery" {
     ),
     input_count: 1,
   }
-  let next = reduce_raw_input_frontier(
+  let next = reduce_raw_input_state(
     captured,
-    RawInputFrontierEvent::StoreDeferred(deferred),
+    RawInputEvent::StoreDeferred(deferred),
   )
   guard next.in_flight is Some(delivery) else {
     fail("storing deferred input must retain the active delivery")
@@ -46,13 +55,13 @@ test "Raw frontier reducer keeps deferred input ahead of the active delivery" {
 
 ///|
 test "Raw frontier reducer keeps composition behind the active delivery" {
-  let active = reduce_raw_input_frontier(
-    RawInputFrontierState::initial(),
-    RawInputFrontierEvent::BeginDelivery({ token: 4, source: "startX" }),
+  let active = reduce_raw_input_state(
+    RawInputState::initial(),
+    RawInputEvent::BeginDelivery({ token: 4, source: "startX" }),
   )
-  let composition = reduce_raw_input_frontier(
+  let composition = reduce_raw_input_state(
     active,
-    RawInputFrontierEvent::BeginDeferredComposition({
+    RawInputEvent::BeginDeferredComposition({
       base_source: "startX",
       input_type: "insertCompositionText",
       before_input_selection: @dom_boundary.TextSelection(
@@ -73,9 +82,9 @@ test "Raw frontier reducer keeps composition behind the active delivery" {
     fail("active composition must be retained behind the delivery")
   }
   assert_eq(input.source, "startX")
-  let updated = reduce_raw_input_frontier(
+  let updated = reduce_raw_input_state(
     composition,
-    RawInputFrontierEvent::UpdateDeferredComposition({
+    RawInputEvent::UpdateDeferredComposition({
       ..input,
       source: "startX漢",
       post_input_selection: @dom_boundary.TextSelection(
@@ -96,10 +105,10 @@ test "Raw frontier reducer keeps composition behind the active delivery" {
 
 ///|
 test "Raw frontier reducer rejects capture without an active delivery" {
-  let state = RawInputFrontierState::initial()
-  let next = reduce_raw_input_frontier(
+  let state = RawInputState::initial()
+  let next = reduce_raw_input_state(
     state,
-    RawInputFrontierEvent::CaptureDeferredBeforeInput({
+    RawInputEvent::CaptureDeferredBeforeInput({
       base_source: "start",
       input_type: "insertText",
       selection: @dom_boundary.TextSelection(5, 5, @dom_boundary.NoDirection),
@@ -111,13 +120,13 @@ test "Raw frontier reducer rejects capture without an active delivery" {
 
 ///|
 test "Raw frontier reducer does not overwrite an active delivery" {
-  let state = reduce_raw_input_frontier(
-    RawInputFrontierState::initial(),
-    RawInputFrontierEvent::BeginDelivery({ token: 4, source: "startX" }),
+  let state = reduce_raw_input_state(
+    RawInputState::initial(),
+    RawInputEvent::BeginDelivery({ token: 4, source: "startX" }),
   )
-  let next = reduce_raw_input_frontier(
+  let next = reduce_raw_input_state(
     state,
-    RawInputFrontierEvent::BeginDelivery({ token: 5, source: "startY" }),
+    RawInputEvent::BeginDelivery({ token: 5, source: "startY" }),
   )
   guard next.in_flight is Some(delivery) else {
     fail("active delivery must remain present")
@@ -128,40 +137,37 @@ test "Raw frontier reducer does not overwrite an active delivery" {
 
 ///|
 test "Raw frontier reducer finishes only the matching delivery" {
-  let state = reduce_raw_input_frontier(
-    RawInputFrontierState::initial(),
-    RawInputFrontierEvent::BeginDelivery({ token: 4, source: "startX" }),
+  let state = reduce_raw_input_state(
+    RawInputState::initial(),
+    RawInputEvent::BeginDelivery({ token: 4, source: "startX" }),
   )
-  let unchanged = reduce_raw_input_frontier(
+  let unchanged = reduce_raw_input_state(
     state,
-    RawInputFrontierEvent::FinishDelivery(3),
+    RawInputEvent::FinishDelivery(3),
   )
   assert_true(unchanged.in_flight is Some(_))
-  let finished = reduce_raw_input_frontier(
+  let finished = reduce_raw_input_state(
     unchanged,
-    RawInputFrontierEvent::FinishDelivery(4),
+    RawInputEvent::FinishDelivery(4),
   )
   assert_true(finished.in_flight is None)
 }
 
 ///|
 test "Raw frontier reducer cancellation clears deferred and active state" {
-  let state = reduce_raw_input_frontier(
-    RawInputFrontierState::initial(),
-    RawInputFrontierEvent::BeginDelivery({ token: 4, source: "startX" }),
+  let state = reduce_raw_input_state(
+    RawInputState::initial(),
+    RawInputEvent::BeginDelivery({ token: 4, source: "startX" }),
   )
-  let captured = reduce_raw_input_frontier(
+  let captured = reduce_raw_input_state(
     state,
-    RawInputFrontierEvent::CaptureDeferredBeforeInput({
+    RawInputEvent::CaptureDeferredBeforeInput({
       base_source: "startX",
       input_type: "insertText",
       selection: @dom_boundary.TextSelection(6, 6, @dom_boundary.NoDirection),
     }),
   )
-  let canceled = reduce_raw_input_frontier(
-    captured,
-    RawInputFrontierEvent::Cancel,
-  )
+  let canceled = reduce_raw_input_state(captured, RawInputEvent::Cancel)
   assert_true(canceled.in_flight is None)
   assert_true(canceled.deferred is None)
   assert_true(canceled.deferred_before_input is None)
