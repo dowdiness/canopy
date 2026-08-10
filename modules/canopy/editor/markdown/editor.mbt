@@ -420,12 +420,13 @@ pub fn MarkdownDocumentUtf16Selection::MarkdownDocumentUtf16Selection(
       source_length~,
     )
   }
-  guard @moji.is_grapheme_boundary(source, anchor) else {
+  let boundaries = @moji.grapheme_boundaries(source)
+  guard boundaries.binary_search(anchor) is Ok(_) else {
     raise MarkdownDocumentUtf16SelectionError::MidGraphemeBoundary(
       offset=anchor,
     )
   }
-  guard @moji.is_grapheme_boundary(source, head) else {
+  guard boundaries.binary_search(head) is Ok(_) else {
     raise MarkdownDocumentUtf16SelectionError::MidGraphemeBoundary(offset=head)
   }
   { anchor, head }

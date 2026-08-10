@@ -285,9 +285,13 @@ fn[T : Eq] SyncEditor::apply_text_edit_with_policy(
       if start < 0 ||
         deleted_len < 0 ||
         start > text_len ||
-        start + deleted_len > text_len ||
-        !@moji.is_grapheme_boundary(old_source, start) ||
-        !@moji.is_grapheme_boundary(old_source, start + deleted_len) {
+        start + deleted_len > text_len {
+        editor_perf_end("applyEditPolicy")
+        return false
+      }
+      let boundaries = @moji.grapheme_boundaries(old_source)
+      if boundaries.binary_search(start) is Err(_) ||
+        boundaries.binary_search(start + deleted_len) is Err(_) {
         editor_perf_end("applyEditPolicy")
         return false
       }
