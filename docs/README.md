@@ -188,6 +188,13 @@ behavior** — check the code before relying on any specific detail.
   — deepens the `lang/runtime` SPI to structured errors, patch traces, identity
   hints, language-owned extras, and edit-port moves; partially supersedes the
   Lambda edit bridge boundary.
+- [EGW staged publication responsibility boundary](decisions/2026-08-09-egw-staged-publication-responsibility-boundary.md)
+  — keeps EGW core unchanged while an EGW-versioned companion owns causal
+  sealing and publication outcomes; Loomark retains persistence and product
+  resolution policy.
+- [Markdown file-backed authority and external admission](decisions/2026-08-09-markdown-file-backed-authority-and-external-admission.md)
+  — separates File and Causal Authority, Archive-backed and File-backed
+  persistence, and bounded External admission for associated Markdown files.
 
 ## Historical / Archive
 
