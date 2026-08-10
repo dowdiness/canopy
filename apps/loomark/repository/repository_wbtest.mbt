@@ -31,11 +31,7 @@ fn captured_archive(
 test "repository classifies a missing record and a valid archive" {
   let policy = restore_policy_for_tests()
   match
-    classify_local_archive_record(
-      None,
-      validation_agent_id="repository-missing",
-      policy~,
-    ) {
+    classify_local_archive_record(None, agent_id="repository-missing", policy~) {
     LocalArchiveLoad::Missing => ()
     _ => fail("expected missing record")
   }
@@ -44,14 +40,16 @@ test "repository classifies a missing record and a valid archive" {
   match
     classify_local_archive_record(
       Some(archive.to_json_string()),
-      validation_agent_id="repository-valid-decode",
+      agent_id="repository-valid-writer",
       policy~,
     ) {
-    LocalArchiveLoad::Valid(decoded) => {
-      assert_true(decoded.document_id() == archive.document_id())
-      assert_true(decoded.history() == archive.history())
+    LocalArchiveLoad::Valid(reopened) => {
+      assert_true(reopened.document_id() == archive.document_id())
+      assert_true(reopened.editor().history_since() == archive.history())
+      assert_eq(reopened.editor().portable_markdown(), "hello")
+      reopened.attachment().dispose()
     }
-    _ => fail("expected a valid archive")
+    _ => fail("expected a reopened valid archive")
   }
 }
 
@@ -66,7 +64,7 @@ test "repository maps archive decode categories without parsing messages" {
       Some(
         "{\"schema_version\":\"2\",\"document_id\":\"x\",\"portable_markdown\":\"\",\"history\":\"\",\"extensions\":{}}",
       ),
-      validation_agent_id="repository-newer",
+      agent_id="repository-newer",
       policy~,
     ) {
     LocalArchiveLoad::Rejected(
@@ -78,7 +76,7 @@ test "repository maps archive decode categories without parsing messages" {
   match
     classify_local_archive_record(
       Some("not-json"),
-      validation_agent_id="repository-malformed",
+      agent_id="repository-malformed",
       policy~,
     ) {
     LocalArchiveLoad::Rejected(LocalArchiveLoadFailure::MalformedArchive(_)) =>
@@ -91,17 +89,32 @@ test "repository maps archive decode categories without parsing messages" {
       Some(
         encoded.replace(old="\"history\":\"", new="\"history\":\"not-history"),
       ),
-      validation_agent_id="repository-corrupt",
+      agent_id="repository-corrupt",
       policy~,
     ) {
     LocalArchiveLoad::Rejected(LocalArchiveLoadFailure::CorruptArchive(_)) => ()
     _ => fail("expected corrupt archive")
   }
 
+  let mismatch_encoded = encoded.replace(
+    old="\"portable_markdown\":\"hello\"",
+    new="\"portable_markdown\":\"other\"",
+  )
+  match
+    classify_local_archive_record(
+      Some(mismatch_encoded),
+      agent_id="repository-mismatch",
+      policy~,
+    ) {
+    LocalArchiveLoad::Rejected(LocalArchiveLoadFailure::CorruptArchive(detail~)) =>
+      assert_eq(detail, "portable text does not match canonical history")
+    _ => fail("expected portable text mismatch")
+  }
+
   match
     classify_local_archive_record(
       Some(encoded),
-      validation_agent_id="repository-over-limit",
+      agent_id="repository-over-limit",
       policy=restore_policy_for_tests(max_encoded_bytes=0),
     ) {
     LocalArchiveLoad::Rejected(LocalArchiveLoadFailure::LimitExceeded(_)) => ()
@@ -133,7 +146,7 @@ test "repository maps archive decode categories without parsing messages" {
   match
     classify_local_archive_record(
       Some(incomplete_encoded),
-      validation_agent_id="repository-incomplete",
+      agent_id="repository-incomplete",
       policy=restore_policy_for_tests(max_pending_operations=1),
     ) {
     LocalArchiveLoad::Rejected(LocalArchiveLoadFailure::IncompleteHistory) => ()

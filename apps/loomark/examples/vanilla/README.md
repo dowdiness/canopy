@@ -31,6 +31,23 @@ The one mount-ownership site in the private adapter is the migration point that
 disposal, repeated-unmount, fatal-cleanup, reentrancy, remount, and host-reuse
 tests before deleting this adapter and harness.
 
+## Startup benchmark
+
+`npm run bench:startup` runs `bench-startup.mjs`, which boots the standalone
+static output (the same Warren production surface that `standalone.spec.ts`
+exercises) behind a local static server and measures how reload time grows as
+the archive accumulates history. The final Markdown document stays constant
+across every scenario; only the number of history-changing cycles increases
+(`[0, 2, 10, 20]`). Each scenario reports:
+
+- archive byte size
+- history byte size and character count
+- reload-root-visible timing (page reload until `#loomark-root` is visible)
+
+Output is printed as a `console.table` summary followed by one JSON line per
+scenario. The benchmark is a local development tool — it does not define a CI
+budget or a production performance guarantee.
+
 ## Driver seam
 
 The generated JavaScript for `internal/dev_host` is private test infrastructure.

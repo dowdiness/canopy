@@ -58,7 +58,7 @@ pub(all) enum LocalArchiveLoadFailure {
 /// Classification of the raw active-slot record.
 pub(all) enum LocalArchiveLoad {
   Missing
-  Valid(@archive.LoomarkDocumentArchive)
+  Valid(ReopenedLocalArchive)
   Rejected(LocalArchiveLoadFailure)
 }
 
@@ -99,46 +99,62 @@ fn map_decode_failure(
 }
 
 ///|
-/// Decode one raw local record, keeping missing storage distinct from failure.
+/// Turn one archive-boundary failure into a rejected local record.
+fn reject_decode_failure(
+  error : @archive.LoomarkArchiveDecodeError,
+) -> LocalArchiveLoad {
+  LocalArchiveLoad::Rejected(map_decode_failure(error))
+}
+
+///|
+/// Decode and reopen one raw local record, keeping missing storage distinct.
 pub fn classify_local_archive_record(
   raw_record : String?,
-  validation_agent_id~ : String,
+  agent_id~ : String,
   policy~ : LocalRestorePolicy,
 ) -> LocalArchiveLoad raise {
   match raw_record {
     None => LocalArchiveLoad::Missing
     Some(encoded) => {
-      let archive = @archive.LoomarkDocumentArchive::from_json_string(
-        encoded,
-        validation_agent_id~,
-        open_limits=policy.open_limits,
-      ) catch {
+      let decoded = @archive.LoomarkDocumentArchive::decode_json_string(encoded) catch {
         Failure::Failure(_) as failure => raise failure
         @archive.LoomarkArchiveDecodeError::UnsupportedNewerVersion(..) as error =>
-          return LocalArchiveLoad::Rejected(map_decode_failure(error))
+          return reject_decode_failure(error)
         @archive.LoomarkArchiveDecodeError::MalformedEnvelope(..) as error =>
-          return LocalArchiveLoad::Rejected(map_decode_failure(error))
+          return reject_decode_failure(error)
         @archive.LoomarkArchiveDecodeError::EmptyDocumentId as error =>
-          return LocalArchiveLoad::Rejected(map_decode_failure(error))
+          return reject_decode_failure(error)
         @archive.LoomarkArchiveDecodeError::CorruptHistory(..) as error =>
-          return LocalArchiveLoad::Rejected(map_decode_failure(error))
-        @archive.LoomarkArchiveDecodeError::PortableTextHistoryMismatch as error =>
-          return LocalArchiveLoad::Rejected(map_decode_failure(error))
-        @archive.LoomarkArchiveDecodeError::InvalidValidationAgentId as error =>
-          return LocalArchiveLoad::Rejected(map_decode_failure(error))
-        @archive.LoomarkArchiveDecodeError::WriterCreationFailed(..) as error =>
-          return LocalArchiveLoad::Rejected(map_decode_failure(error))
-        @archive.LoomarkArchiveDecodeError::LimitExceeded(..) as error =>
-          return LocalArchiveLoad::Rejected(map_decode_failure(error))
-        @archive.LoomarkArchiveDecodeError::HistoryAdmissionFailed(..) as error =>
-          return LocalArchiveLoad::Rejected(map_decode_failure(error))
-        @archive.LoomarkArchiveDecodeError::HistoryExportFailed(..) as error =>
-          return LocalArchiveLoad::Rejected(map_decode_failure(error))
-        @archive.LoomarkArchiveDecodeError::IncompleteHistory as error =>
-          return LocalArchiveLoad::Rejected(map_decode_failure(error))
+          return reject_decode_failure(error)
         error => raise error
       }
-      LocalArchiveLoad::Valid(archive)
+      let reopened = reopen_decoded_local_archive(decoded, agent_id~, policy~) catch {
+        Failure::Failure(_) as failure => raise failure
+        @archive.LoomarkArchiveDecodeError::UnsupportedNewerVersion(..) as error =>
+          return reject_decode_failure(error)
+        @archive.LoomarkArchiveDecodeError::MalformedEnvelope(..) as error =>
+          return reject_decode_failure(error)
+        @archive.LoomarkArchiveDecodeError::EmptyDocumentId as error =>
+          return reject_decode_failure(error)
+        @archive.LoomarkArchiveDecodeError::CorruptHistory(..) as error =>
+          return reject_decode_failure(error)
+        @archive.LoomarkArchiveDecodeError::PortableTextHistoryMismatch as error =>
+          return reject_decode_failure(error)
+        @archive.LoomarkArchiveDecodeError::InvalidValidationAgentId as error =>
+          return reject_decode_failure(error)
+        @archive.LoomarkArchiveDecodeError::WriterCreationFailed(..) as error =>
+          return reject_decode_failure(error)
+        @archive.LoomarkArchiveDecodeError::LimitExceeded(..) as error =>
+          return reject_decode_failure(error)
+        @archive.LoomarkArchiveDecodeError::HistoryAdmissionFailed(..) as error =>
+          return reject_decode_failure(error)
+        @archive.LoomarkArchiveDecodeError::HistoryExportFailed(..) as error =>
+          return reject_decode_failure(error)
+        @archive.LoomarkArchiveDecodeError::IncompleteHistory as error =>
+          return reject_decode_failure(error)
+        error => raise error
+      }
+      LocalArchiveLoad::Valid(reopened)
     }
   }
 }
@@ -286,18 +302,73 @@ pub struct ReopenedLocalArchive {
 }
 
 ///|
-/// Reopen a validated archive through the semantic Markdown façade.
+/// Map one Markdown archive-open failure into the Loomark archive taxonomy.
+fn map_markdown_archive_error(
+  error : @markdown.MarkdownArchiveError,
+) -> @archive.LoomarkArchiveDecodeError {
+  match error {
+    @markdown.MarkdownArchiveError::InvalidAgentId =>
+      @archive.LoomarkArchiveDecodeError::InvalidValidationAgentId
+    @markdown.MarkdownArchiveError::WriterCreationFailed(detail~) =>
+      @archive.LoomarkArchiveDecodeError::WriterCreationFailed(detail~)
+    @markdown.MarkdownArchiveError::LimitExceeded(dimension~, maximum~, actual~) =>
+      @archive.LoomarkArchiveDecodeError::LimitExceeded(
+        dimension~,
+        maximum~,
+        actual~,
+      )
+    @markdown.MarkdownArchiveError::HistoryAdmissionFailed(detail~) =>
+      @archive.LoomarkArchiveDecodeError::HistoryAdmissionFailed(detail~)
+    @markdown.MarkdownArchiveError::IncompleteHistory =>
+      @archive.LoomarkArchiveDecodeError::IncompleteHistory
+    @markdown.MarkdownArchiveError::ExportFailed(detail~) =>
+      @archive.LoomarkArchiveDecodeError::HistoryExportFailed(detail~)
+  }
+}
+
+///|
+/// Reopen and validate a complete archive through one semantic Markdown façade.
 pub fn reopen_local_archive(
   archive : @archive.LoomarkDocumentArchive,
   agent_id~ : String,
   policy~ : LocalRestorePolicy,
 ) -> ReopenedLocalArchive raise {
-  let (editor, attachment) = @markdown.MarkdownEditor::open_with_semantic_attachment(
+  let reopened = reopen_local_history(
+    archive.history(),
+    document_id=archive.document_id(),
     agent_id~,
-    history=archive.history(),
-    open_limits=policy.open_limits,
+    policy~,
   )
-  { document_id: archive.document_id(), editor, attachment }
+  verify_reopened_portable_markdown(reopened, archive.portable_markdown())
+}
+
+///|
+/// Reopen a structurally decoded archive and admit its history exactly once.
+pub fn reopen_decoded_local_archive(
+  archive : @archive.DecodedLoomarkDocumentArchive,
+  agent_id~ : String,
+  policy~ : LocalRestorePolicy,
+) -> ReopenedLocalArchive raise {
+  let reopened = reopen_local_history(
+    archive.history(),
+    document_id=archive.document_id(),
+    agent_id~,
+    policy~,
+  )
+  verify_reopened_portable_markdown(reopened, archive.portable_markdown())
+}
+
+///|
+/// Dispose a rejected attachment before surfacing the text/history mismatch.
+fn verify_reopened_portable_markdown(
+  reopened : ReopenedLocalArchive,
+  expected : String,
+) -> ReopenedLocalArchive raise {
+  if reopened.editor.portable_markdown() != expected {
+    reopened.attachment.dispose()
+    raise @archive.LoomarkArchiveDecodeError::PortableTextHistoryMismatch
+  }
+  reopened
 }
 
 ///|
@@ -314,7 +385,22 @@ pub fn reopen_local_history(
     agent_id~,
     history~,
     open_limits=policy.open_limits,
-  )
+  ) catch {
+    Failure::Failure(_) as failure => raise failure
+    @markdown.MarkdownArchiveError::InvalidAgentId as error =>
+      raise map_markdown_archive_error(error)
+    @markdown.MarkdownArchiveError::WriterCreationFailed(..) as error =>
+      raise map_markdown_archive_error(error)
+    @markdown.MarkdownArchiveError::LimitExceeded(..) as error =>
+      raise map_markdown_archive_error(error)
+    @markdown.MarkdownArchiveError::HistoryAdmissionFailed(..) as error =>
+      raise map_markdown_archive_error(error)
+    @markdown.MarkdownArchiveError::ExportFailed(..) as error =>
+      raise map_markdown_archive_error(error)
+    @markdown.MarkdownArchiveError::IncompleteHistory as error =>
+      raise map_markdown_archive_error(error)
+    error => raise error
+  }
   { document_id, editor, attachment }
 }
 

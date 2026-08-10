@@ -33,10 +33,18 @@ pub(all) suberror LoomarkDocumentIdError {
 }
 
 // Types and methods
+pub struct DecodedLoomarkDocumentArchive {
+  // private fields
+}
+pub fn DecodedLoomarkDocumentArchive::document_id(Self) -> LoomarkDocumentId
+pub fn DecodedLoomarkDocumentArchive::history(Self) -> @markdown.MarkdownDocumentHistory
+pub fn DecodedLoomarkDocumentArchive::portable_markdown(Self) -> String
+
 pub struct LoomarkDocumentArchive {
   // private fields
 }
 pub fn LoomarkDocumentArchive::capture(document_id~ : LoomarkDocumentId, editor~ : @markdown.MarkdownEditor) -> Self raise
+pub fn LoomarkDocumentArchive::decode_json_string(String) -> DecodedLoomarkDocumentArchive raise
 pub fn LoomarkDocumentArchive::document_id(Self) -> LoomarkDocumentId
 pub fn LoomarkDocumentArchive::from_json_string(String, validation_agent_id~ : String, open_limits~ : @markdown.MarkdownArchiveOpenLimits) -> Self raise
 pub fn LoomarkDocumentArchive::history(Self) -> @markdown.MarkdownDocumentHistory

@@ -43,6 +43,26 @@ test "archive capture and round-trip tracer" {
 }
 
 ///|
+test "archive structural decode leaves history admission to the repository" {
+  let editor = try! @markdown.MarkdownEditor(
+    agent_id="archive-decode-only-source",
+    source="hello",
+  )
+  let document_id = try! LoomarkDocumentId::from_string("doc-decode-only")
+  let archive = try! LoomarkDocumentArchive::capture(document_id~, editor~)
+  let decoded = try! LoomarkDocumentArchive::decode_json_string(
+    archive
+    .to_json_string()
+    .replace(
+      old="\"portable_markdown\":\"hello\"",
+      new="\"portable_markdown\":\"other\"",
+    ),
+  )
+  assert_eq(decoded.portable_markdown(), "other")
+  assert_true(decoded.history() == archive.history())
+}
+
+///|
 test "archive decode error matrix" {
   let editor = try! @markdown.MarkdownEditor(
     agent_id="archive-errors-source",

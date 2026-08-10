@@ -108,23 +108,12 @@ fn mount_new_standalone_document(
 }
 
 ///|
-/// Continue a validated local document with a fresh writing instance.
+/// Mount the already validated local document with its fresh writing instance.
 fn mount_reopened_standalone_document(
   host_id : String,
-  archive : @archive.LoomarkDocumentArchive,
+  reopened : @repository.ReopenedLocalArchive,
+  replica_id : String,
 ) -> Unit raise {
-  let policy = @repository.LocalRestorePolicy::trusted()
-  let replica_id = @archive_storage.fresh_id("loomark-standalone-writer-")
-  let reopened = @repository.reopen_local_archive(
-    archive,
-    agent_id=replica_id,
-    policy~,
-  ) catch {
-    _ => {
-      recovery_application(RecoveryCategory::CorruptArchive).mount(host_id)
-      return
-    }
-  }
   mount_standalone_editor(
     host_id,
     reopened.editor(),
@@ -157,17 +146,15 @@ fn finish_standalone_bootstrap(
       recovery_application(RecoveryCategory::StorageReadFailed).mount(host_id)
     @archive_storage.LocalArchiveStorageRead::Loaded(encoded) => {
       let policy = @repository.LocalRestorePolicy::trusted()
-      let validation_agent_id = @archive_storage.fresh_id(
-        "loomark-standalone-validator-",
-      )
+      let replica_id = @archive_storage.fresh_id("loomark-standalone-writer-")
       match
         @repository.classify_local_archive_record(
           Some(encoded),
-          validation_agent_id~,
+          agent_id=replica_id,
           policy~,
         ) {
-        @repository.LocalArchiveLoad::Valid(archive) =>
-          mount_reopened_standalone_document(host_id, archive)
+        @repository.LocalArchiveLoad::Valid(reopened) =>
+          mount_reopened_standalone_document(host_id, reopened, replica_id)
         @repository.LocalArchiveLoad::Rejected(failure) =>
           recovery_application(recovery_category(failure)).mount(host_id)
         @repository.LocalArchiveLoad::Missing =>

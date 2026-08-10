@@ -65,6 +65,33 @@ pub struct LoomarkDocumentArchive {
 }
 
 ///|
+/// A structurally decoded archive whose history has not been admitted.
+pub struct DecodedLoomarkDocumentArchive {
+  priv document_id : LoomarkDocumentId
+  priv portable_markdown : String
+  priv history : @markdown.MarkdownDocumentHistory
+}
+
+///|
+pub fn DecodedLoomarkDocumentArchive::document_id(
+  self : Self,
+) -> LoomarkDocumentId {
+  self.document_id
+}
+
+///|
+pub fn DecodedLoomarkDocumentArchive::portable_markdown(self : Self) -> String {
+  self.portable_markdown
+}
+
+///|
+pub fn DecodedLoomarkDocumentArchive::history(
+  self : Self,
+) -> @markdown.MarkdownDocumentHistory {
+  self.history
+}
+
+///|
 pub fn LoomarkDocumentArchive::document_id(self : Self) -> LoomarkDocumentId {
   self.document_id
 }
@@ -127,18 +154,15 @@ pub fn LoomarkDocumentArchive::to_json_string(self : Self) -> String {
 }
 
 ///|
-/// Decode and validate a v1 archive with a caller-owned fresh validation ID
-/// and explicit archive open limits.
+/// Decode the structural v1 archive envelope without admitting its history.
 ///
 /// Field uniqueness follows core JSON's semantic-object `Map` behavior: a
 /// duplicate member overwrites the earlier value. Canonical Loomark encoding
 /// emits each field once, and strict validation below is over that semantic
 /// object rather than lexical JSON member occurrences.
-pub fn LoomarkDocumentArchive::from_json_string(
+pub fn LoomarkDocumentArchive::decode_json_string(
   json : String,
-  validation_agent_id~ : String,
-  open_limits~ : @markdown.MarkdownArchiveOpenLimits,
-) -> LoomarkDocumentArchive raise {
+) -> DecodedLoomarkDocumentArchive raise {
   let value = @json.parse(json) catch {
     _ =>
       raise LoomarkArchiveDecodeError::MalformedEnvelope(detail="invalid JSON")
@@ -189,11 +213,32 @@ pub fn LoomarkDocumentArchive::from_json_string(
         detail="history codec rejected payload",
       )
   }
+  { document_id, portable_markdown, history }
+}
+
+///|
+/// Decode and validate a v1 archive with a caller-owned fresh validation ID
+/// and explicit archive open limits.
+pub fn LoomarkDocumentArchive::from_json_string(
+  json : String,
+  validation_agent_id~ : String,
+  open_limits~ : @markdown.MarkdownArchiveOpenLimits,
+) -> LoomarkDocumentArchive raise {
+  let decoded = LoomarkDocumentArchive::decode_json_string(json)
   if validation_agent_id.is_empty() {
     raise LoomarkArchiveDecodeError::InvalidValidationAgentId
   }
-  validate_decoded(portable_markdown, history, validation_agent_id, open_limits)
-  { document_id, portable_markdown, history }
+  validate_decoded(
+    decoded.portable_markdown,
+    decoded.history,
+    validation_agent_id,
+    open_limits,
+  )
+  {
+    document_id: decoded.document_id,
+    portable_markdown: decoded.portable_markdown,
+    history: decoded.history,
+  }
 }
 
 ///|
