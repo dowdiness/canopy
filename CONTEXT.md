@@ -49,7 +49,7 @@ A persistence capability with a continuing File association to a Markdown body f
 _Avoid_: Desktop mode, Archive-backed persistence, downloaded file
 
 **Safe file replacement**:
-The adapter capability required for writable File-backed persistence. Replacement never exposes partial content, preserves the original on failure, safely targets resolved symbolic links, supports exact readback for Self-write acknowledgment, and retains required file permissions. Without it, Loomark limits the association to read-only access and offers Archive-backed editing, Export Markdown, or Choose New Location.
+The adapter capability required for writable File-backed persistence. Replacement never exposes partial content, preserves the original on failure, safely targets resolved symbolic links, supports exact readback for Self-write acknowledgment, and retains required file permissions. It does not claim a portable compare-and-replace primitive against uncooperative external processes; the Observed external variant guarantee defines that limit. Without Safe file replacement, Loomark limits the association to read-only access and offers Archive-backed editing, Export Markdown, or Choose New Location.
 _Avoid_: Writable handle, in-place truncation, best-effort save
 
 **Export Markdown**:
@@ -133,7 +133,7 @@ The stable synthetic replica identity used by the Aggregate Markdown runtime to 
 _Avoid_: Writing instance, user identity, operation category, external editor identity
 
 **External admission transaction**:
-The atomic optimistic application of one inferred External admission batch against its expected causal version and File baseline. A match applies every inferred edit exactly once under the Coordinator writer and records one application-level undo group; a mismatch applies none, preserves the Observed external variant, and enters Content conflict without re-diffing against the newer Loomark source.
+The atomic optimistic application of one inferred External admission batch. Before mutation, Loomark validates its expected causal version, File baseline, and Observed external variant fingerprint. A match applies every inferred edit exactly once under the Coordinator writer and records one application-level undo group; a mismatch applies none, preserves every Observed external variant, and enters Content conflict without re-diffing against the newer Loomark source.
 _Avoid_: Automatic rebase, partial admission, structural commit
 
 **External admission undo**:
@@ -309,7 +309,7 @@ Recognition that an observed file change exactly matches one expected Autosave g
 _Avoid_: External admission, watcher timeout, ignored file event
 
 **External change observation**:
-The reread and fingerprint comparison that establishes an Observed external variant. This applies only to File-backed persistence, which has a Markdown body file to observe; Archive-backed persistence has no body file and does not perform file observation. A watcher reduces detection latency but never supplies correctness; in File-backed mode, observation is mandatory on focus or resume and immediately before Autosave, Causal seal, and `Mark Reviewed`, and a mismatch stops the pending write or seal.
+The reread and fingerprint comparison that establishes an Observed external variant. This applies only to File-backed persistence, which has a Markdown body file to observe; Archive-backed persistence has no body file and does not perform file observation. A watcher reduces detection latency but never supplies correctness; in File-backed mode, observation is mandatory on focus or resume, immediately before Autosave's physical replacement, and immediately before Causal seal or `Mark Reviewed`. A mismatch stops the pending write or seal.
 _Avoid_: Watcher event, polling guarantee, cached stat
 
 **History-changing commit**:

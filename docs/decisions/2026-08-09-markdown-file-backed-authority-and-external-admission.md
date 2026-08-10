@@ -70,7 +70,7 @@ External admission is the deterministic bounded multi-span conversion of an admi
 
 **Coordinator writer.** External admission uses the stable synthetic Coordinator writer of the Editing Document's Aggregate Markdown runtime. The same writer may generate other application operations, whose category and provenance are recorded in application Metadata. It persists across reopen and never represents an external person, editor, or tool.
 
-**Atomic transaction.** External admission is an optimistic atomic transaction against its expected causal version and File baseline. A match applies every inferred edit exactly once under the Coordinator writer and records one application-level undo group. A mismatch applies none, preserves the Observed external variant, and enters Content conflict without re-diffing against the newer Loomark source.
+**Atomic transaction.** Before mutation, External admission validates its expected causal version, File baseline, and Observed external variant fingerprint. A match applies every inferred edit exactly once as one optimistic atomic transaction under the Coordinator writer and records one application-level undo group. A mismatch applies none, preserves every Observed external variant, and enters Content conflict without re-diffing against the newer Loomark source.
 
 ### What it is not
 
@@ -120,7 +120,7 @@ Rejected because External admission must remain deterministic and bounded under 
 - External admission preserves Editing Document identity for associated external file changes. It does not create a new Editing Document.
 - External admission is deterministic and bounded. It validates UTF-16 boundaries, uses a resource budget, and requires exact replay. Exceeding the budget falls back to one contiguous replacement, which must also satisfy receiver admission limits before any mutation. If no inferred batch fits, apply nothing, preserve the Observed external variant, and enter Content conflict.
 - Coordinator writer plus application records preserve synthetic provenance without treating writer identity as an operation category.
-- External admission is an optimistic atomic transaction. A mismatch applies none and enters Content conflict without re-diffing against the newer Loomark source.
+- External admission preflights its expected causal version, File baseline, and Observed external variant fingerprint before one optimistic atomic history transaction. A mismatch applies none, preserves all retained variants, and enters Content conflict without re-diffing against the newer Loomark source.
 - External concurrency uncertainty prevents silent overwrite after a Loomark source change. An external write in this condition enters Content conflict.
 - A rename or move of an associated file preserves Editing Document identity via File association.
 - An unassociated `.md` follows Import Markdown. Synchronized Metadata is required for Join Existing Editing Document.
