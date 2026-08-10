@@ -18,6 +18,8 @@ options(
         "dev_host_force_editor_failure",
         "dev_host_force_parser_failure",
         "dev_host_force_reconstruction_failure",
+        "dev_host_arm_raw_render_barrier",
+        "dev_host_release_raw_render_barrier",
         "dev_host_focus_preview",
         "dev_host_focus_raw",
         "dev_host_focus_block",

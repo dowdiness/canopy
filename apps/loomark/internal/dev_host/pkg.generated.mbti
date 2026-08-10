@@ -2,6 +2,8 @@
 package "dowdiness/loomark/internal/dev_host"
 
 // Values
+pub fn dev_host_arm_raw_render_barrier() -> Unit
+
 pub fn dev_host_capture_focus() -> String
 
 pub fn dev_host_fail(String) -> Unit
@@ -25,6 +27,8 @@ pub fn dev_host_measure_preview() -> Unit
 pub fn dev_host_probe_deleted_block_selection() -> Unit
 
 pub fn dev_host_probe_stale_block_selection() -> Unit
+
+pub fn dev_host_release_raw_render_barrier() -> Unit
 
 pub fn dev_host_request_source(String) -> Unit
 

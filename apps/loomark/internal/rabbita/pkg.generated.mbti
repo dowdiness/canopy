@@ -6,6 +6,8 @@ import {
 }
 
 // Values
+pub fn arm_raw_render_barrier() -> Unit
+
 pub fn capture_focus() -> String
 
 pub fn fail(String) -> Unit
@@ -33,6 +35,8 @@ pub fn mount_standalone(String, String) -> String
 pub fn probe_deleted_block_selection() -> Unit
 
 pub fn probe_stale_block_selection() -> Unit
+
+pub fn release_raw_render_barrier() -> Unit
 
 pub fn request_source(String) -> Unit
 
