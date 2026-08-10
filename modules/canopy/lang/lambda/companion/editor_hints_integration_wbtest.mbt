@@ -17,6 +17,77 @@ fn body_of_bare_expr(
 }
 
 ///|
+fn projection_node_ids(
+  root : @core.ProjNode[@ast.Term]?,
+) -> Array[@core.NodeId] {
+  let ids : Array[@core.NodeId] = []
+  match root {
+    Some(node) => node.walk_preorder(item => ids.push(item.id()))
+    None => ()
+  }
+  ids
+}
+
+///|
+test "Lambda projection transition: structural hint publishes one stable trace" {
+  let (editor, companion) = new_lambda_editor("hint-trace-test")
+  editor.set_text("x")
+  guard editor.get_proj_node() is Some(root) else {
+    fail("expected proj node for 'x'")
+  }
+  guard body_of_bare_expr(root) is Some(body) else {
+    fail("expected body node")
+  }
+  let old_body_id = body.id()
+  let wrap_op = @lambda_edits.TreeEditOp::WrapInLambda(
+    node_id=old_body_id,
+    var_name="f",
+  )
+  guard apply_lambda_tree_edit(editor, companion, wrap_op, 1) is Ok(_) else {
+    fail("WrapInLambda failed")
+  }
+
+  // Trace publication is demand-driven: the edit has queued its hint, but no
+  // reconcile trace is visible until a projection consumer forces the memo.
+  let before_projection = companion.get_structured_changes()
+  inspect(before_projection.is_empty(), content="true")
+
+  let ids_after_first_read = projection_node_ids(editor.get_proj_node())
+  let after_projection = companion.get_structured_changes()
+  let after_kinds = after_projection.map(change => {
+    match change {
+      @core.StructuredChange::Inserted(_, _, _, _) => "Inserted"
+      @core.StructuredChange::Deleted(_, _, _, _) => "Deleted"
+      @core.StructuredChange::Wrapped(_, _, _) => "Wrapped"
+      @core.StructuredChange::Unwrapped(_, _, _) => "Unwrapped"
+      @core.StructuredChange::Renamed(_, _) => "Renamed"
+      @core.StructuredChange::Freshened(_, _, _, _) => "Freshened"
+    }
+  })
+  inspect(after_kinds == ["Wrapped"], content="true")
+  inspect(
+    after_projection.any(change => {
+      match change {
+        @core.StructuredChange::Wrapped(inner, _, _) => inner == old_body_id
+        _ => false
+      }
+    }),
+    content="true",
+  )
+
+  // Same-revision projection reads are stable: the structural hint is not
+  // applied a second time and no second trace batch is published.
+  inspect(
+    projection_node_ids(editor.get_proj_node()) == ids_after_first_read,
+    content="true",
+  )
+  inspect(
+    companion.get_structured_changes() == after_projection,
+    content="true",
+  )
+}
+
+///|
 test "WrapInLambda: inner node NodeId preserved after reconcile with hint" {
   let (editor, companion) = new_lambda_editor("hint-test")
   editor.set_text("x")
