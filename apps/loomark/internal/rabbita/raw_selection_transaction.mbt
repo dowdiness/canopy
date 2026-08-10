@@ -47,6 +47,7 @@ priv struct RawNativeInputCandidate {
   before_input : RawBeforeInputCandidate
   source : String
   post_input_selection : @dom_boundary.TextSelection
+  raw_mode_authorized : Bool
 }
 
 ///|
@@ -55,7 +56,38 @@ fn RawNativeInputCandidate::RawNativeInputCandidate(
   source~ : String,
   post_input_selection~ : @dom_boundary.TextSelection,
 ) -> RawNativeInputCandidate {
-  { before_input, source, post_input_selection }
+  { before_input, source, post_input_selection, raw_mode_authorized: false }
+}
+
+///|
+fn RawNativeInputCandidate::authorized(
+  before_input~ : RawBeforeInputCandidate,
+  source~ : String,
+  post_input_selection~ : @dom_boundary.TextSelection,
+) -> RawNativeInputCandidate {
+  let candidate = RawNativeInputCandidate::RawNativeInputCandidate(
+    before_input~,
+    source~,
+    post_input_selection~,
+  )
+  { ..candidate, raw_mode_authorized: true }
+}
+
+///|
+/// Native input observed while an earlier Raw transaction is still in flight.
+priv struct DeferredRawInput {
+  base_source : String
+  input_type : String
+  source : String
+  post_input_selection : @dom_boundary.TextSelection
+  input_count : Int
+}
+
+///|
+/// The pre-input frontier needed to complete one deferred native input.
+priv struct DeferredRawInputCapture {
+  base_source : String
+  input_type : String
 }
 
 ///|
@@ -246,7 +278,9 @@ fn normalize_raw_input_candidate(
   }
   guard before.selection.document_id == model.document_id else { return None }
   guard before.selection.version == model.document_version else { return None }
-  guard raw_selection_mode_applicable(model) else { return None }
+  guard candidate.raw_mode_authorized || raw_selection_mode_applicable(model) else {
+    return None
+  }
 
   let selection = @markdown.MarkdownDocumentUtf16Selection(
     model.document,
@@ -322,6 +356,42 @@ fn normalize_raw_input_candidate(
 }
 
 ///|
+/// Rebase a deferred native snapshot onto the model that accepted the
+/// preceding in-flight transaction. The version guard remains intact because
+/// this creates a new candidate at the current document frontier.
+fn rebase_deferred_raw_input(
+  model : DriverModel,
+  deferred : DeferredRawInput,
+) -> RawBeforeInputCandidate? {
+  let old_source = model.document.source()
+  let old_value = raw_textarea_value(old_source)
+  let latest_value = raw_textarea_value(deferred.source)
+  let change = @text_change.compute_text_change(old_value, latest_value)
+  let start = match raw_source_offset_from_dom(old_source, change.start) {
+    Some(offset) => offset
+    None => return None
+  }
+  let selection = @markdown.MarkdownDocumentUtf16Selection(
+    model.document,
+    anchor=start,
+    head=start,
+  ) catch {
+    _ => return None
+  }
+  Some(
+    RawBeforeInputCandidate::RawBeforeInputCandidate(
+      selection=VersionedRawSelection::VersionedRawSelection(
+        document_id=model.document_id,
+        version=model.document_version,
+        selection~,
+      ),
+      input_type=deferred.input_type,
+      is_composing=false,
+    ),
+  )
+}
+
+///|
 fn versioned_raw_selection_from_dom(
   model : DriverModel,
   selection : @dom_boundary.TextSelection,
@@ -375,6 +445,7 @@ fn commit_raw_selection_edit(
   editor_finished? : () -> Unit = () => (),
   preview_started? : () -> Unit = () => (),
   preview_finished? : () -> Unit = () => (),
+  raw_mode_authorized? : Bool = false,
 ) -> (DriverModel, RawSelectionEditOutcome, @cmd.Cmd) raise {
   let bound = request.selection
   guard bound.document_id == model.document_id else {
@@ -386,7 +457,7 @@ fn commit_raw_selection_edit(
       @rabbita_runtime.none,
     )
   }
-  guard raw_selection_mode_applicable(model) else {
+  guard raw_mode_authorized || raw_selection_mode_applicable(model) else {
     return (
       model,
       RawSelectionEditOutcome::Rejected(RawSelectionEditRejection::ModeStale),

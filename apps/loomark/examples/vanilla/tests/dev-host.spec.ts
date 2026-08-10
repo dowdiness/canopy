@@ -2044,6 +2044,119 @@ test("Raw input coalesces a same-task burst into one commit", async ({ browser }
   }
 })
 
+test("Raw preserves native input across an in-flight commit", async ({ browser }) => {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const host = await mountHost(browser, "start")
+    try {
+      const input = host.page.locator("#loomark-input")
+      await input.focus()
+      await input.evaluate(element => {
+        const textarea = element as HTMLTextAreaElement
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length)
+      })
+      await host.page.keyboard.type("XY", { delay: 52 })
+
+      await expect.poll(async () => (await snapshot(host.page)).source, {
+        timeout: 1500,
+      }).toBe("startXY")
+      await expect(input).toHaveValue("startXY")
+      await expect.poll(() => input.evaluate(element => {
+        const textarea = element as HTMLTextAreaElement
+        return `${textarea.selectionStart}:${textarea.selectionEnd}`
+      })).toBe("7:7")
+    } finally {
+      await host.context.close()
+    }
+  }
+})
+
+test("Raw preserves caret order across two in-flight frontier inputs", async ({ browser }) => {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const host = await mountHost(browser, "start")
+    try {
+      const input = host.page.locator("#loomark-input")
+      await input.focus()
+      await input.evaluate(element => {
+        const textarea = element as HTMLTextAreaElement
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length)
+      })
+      await host.page.keyboard.type("XYZ", { delay: 52 })
+
+      await expect.poll(async () => (await snapshot(host.page)).source, {
+        timeout: 2000,
+      }).toBe("startXYZ")
+      await expect(input).toHaveValue("startXYZ")
+      await expect.poll(() => input.evaluate(element => {
+        const textarea = element as HTMLTextAreaElement
+        return `${textarea.selectionStart}:${textarea.selectionEnd}`
+      })).toBe("8:8")
+    } finally {
+      await host.context.close()
+    }
+  }
+})
+
+test("Raw preserves native input and caret at a mid-document in-flight boundary", async ({ browser }) => {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const host = await mountHost(browser, "abcdef")
+    try {
+      const input = host.page.locator("#loomark-input")
+      await input.focus()
+      await input.evaluate(element => {
+        const textarea = element as HTMLTextAreaElement
+        textarea.setSelectionRange(3, 3)
+      })
+      await host.page.keyboard.type("XY", { delay: 52 })
+
+      await expect.poll(async () => (await snapshot(host.page)).source, {
+        timeout: 1500,
+      }).toBe("abcXYdef")
+      await expect(input).toHaveValue("abcXYdef")
+      await expect.poll(() => input.evaluate(element => {
+        const textarea = element as HTMLTextAreaElement
+        return `${textarea.selectionStart}:${textarea.selectionEnd}`
+      })).toBe("5:5")
+    } finally {
+      await host.context.close()
+    }
+  }
+})
+
+test("Raw clears a canceled in-flight beforeinput capture", async ({ browser }) => {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const host = await mountHost(browser, "start")
+    try {
+      const input = host.page.locator("#loomark-input")
+      await input.evaluate(element => {
+        element.addEventListener("beforeinput", event => {
+          const inputEvent = event as InputEvent
+          if (inputEvent.data === "Y") event.preventDefault()
+        })
+      })
+      await input.focus()
+      await input.evaluate(element => {
+        const textarea = element as HTMLTextAreaElement
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length)
+      })
+      await host.page.keyboard.type("XY", { delay: 52 })
+
+      await expect.poll(async () => (await snapshot(host.page)).source, {
+        timeout: 1500,
+      }).toBe("startX")
+      await expect(input).toHaveValue("startX")
+
+      await input.focus()
+      await host.page.keyboard.type("Z")
+      await expect.poll(async () => (await snapshot(host.page)).source, {
+        timeout: 1500,
+      }).toBe("startXZ")
+      await expect(input).toHaveValue("startXZ")
+    } finally {
+      await host.context.close()
+    }
+  }
+})
+
 test("Raw input coalesces delete then insert into one replacement", async ({ browser }) => {
   const host = await mountHost(browser, "start")
   try {
@@ -2762,6 +2875,41 @@ test("a Raw mode click accepts composition before changing mode", async ({ brows
     await expect(host.page.locator("#loomark-block-input")).toHaveValue("start漢")
   } finally {
     await host.context.close()
+  }
+})
+
+test("a Raw mode click preserves composition behind an active delivery", async ({ browser }) => {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const host = await mountHost(browser, "start")
+    try {
+      const input = host.page.locator("#loomark-input")
+      await input.focus()
+      await input.evaluate(element => {
+        const textarea = element as HTMLTextAreaElement
+        textarea.setSelectionRange(5, 5)
+      })
+      const session = await host.context.newCDPSession(host.page)
+      await host.page.keyboard.type("X")
+      await host.page.waitForTimeout(52)
+      await host.page.keyboard.type("Y")
+      await session.send("Input.imeSetComposition", {
+        text: "漢",
+        selectionStart: 1,
+        selectionEnd: 1,
+      })
+      await expect(input).toHaveValue("startXY漢")
+
+      await host.page.locator("#loomark-mode-block").click()
+      await expect.poll(async () => (await snapshot(host.page)).mode).toBe("block")
+      await expect.poll(async () => (await snapshot(host.page)).source).toBe("startXY漢")
+      expect(await snapshot(host.page)).toMatchObject({
+        committed_change_count: 2,
+        error_code: null,
+      })
+      await expect(host.page.locator("#loomark-block-input")).toHaveValue("startXY漢")
+    } finally {
+      await host.context.close()
+    }
   }
 })
 

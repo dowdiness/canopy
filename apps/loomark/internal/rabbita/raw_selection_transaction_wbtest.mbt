@@ -413,6 +413,47 @@ test "native Raw pairing silently rejects stale and mode-stale captures" {
 }
 
 ///|
+test "capture-authorized Raw input survives a mode transition" {
+  let context = RawSelectionTestContext::RawSelectionTestContext(
+    "raw-authorized-mode-transition", "start",
+  )
+  let candidate = RawNativeInputCandidate::RawNativeInputCandidate(
+    before_input=RawBeforeInputCandidate::RawBeforeInputCandidate(
+      selection=context.selection(5, 5),
+      input_type="insertText",
+      is_composing=false,
+    ),
+    source="start漢",
+    post_input_selection=@dom_boundary.TextSelection(
+      6,
+      6,
+      @dom_boundary.NoDirection,
+    ),
+  )
+  let block_model = {
+    ..context.model,
+    state: @core.ApplicationState::ApplicationState(@core.Block),
+  }
+  let authorized_candidate = { ..candidate, raw_mode_authorized: true }
+  guard normalize_raw_input_candidate(block_model, authorized_candidate)
+    is Some(request) else {
+    abort("capture-authorized Raw input must normalize after mode transition")
+  }
+  let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
+  let (_, outcome, _) = try! commit_raw_selection_edit(
+    context.editor,
+    context.attachment,
+    block_model,
+    request,
+    emit,
+    raw_mode_authorized=true,
+  )
+  guard outcome is RawSelectionEditOutcome::Applied(_) else {
+    abort("capture-authorized Raw input must commit after mode transition")
+  }
+}
+
+///|
 test "directed cross-block Raw selections commit one ReplaceText transaction" {
   for
     case in [

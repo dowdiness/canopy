@@ -239,6 +239,35 @@ fn raw_selection_after_render(
 }
 
 ///|
+/// Install a native-input caret only while no newer browser frontier is ahead
+/// of the accepted document. A deferred value must not receive this older
+/// transaction's selection.
+fn raw_native_selection_after_render(
+  latest_model : @ref.Ref[DriverModel?],
+  raw_input_coordinator : RawInputCoordinator,
+  selection : VersionedRawSelection,
+  emit : @cmd.Emit[DriverEvent],
+) -> @cmd.Cmd {
+  after_render(
+    scheduler => {
+      ignore(scheduler)
+      guard latest_model.val is Some(latest) else { return }
+      guard raw_input_coordinator.native_selection_frontier_is_current(
+        latest.document.source(),
+      ) else {
+        return
+      }
+      match raw_selection_effect_value(Some(latest), selection) {
+        Some(selection) =>
+          @dom_boundary.write_text_selection_id("loomark-input", selection)
+        None => ()
+      }
+    },
+    emit,
+  )
+}
+
+///|
 /// Restore canonical Raw text and the trusted pre-input selection after a
 /// matched native batch is rejected. A newer capture or document frontier
 /// supersedes this repair before it can write to the DOM.
