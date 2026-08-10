@@ -1,0 +1,733 @@
+///|
+/// A disposable receipt for one coherent typed diagnostic snapshot.
+priv struct ShadowSyncReceipt {
+  staged_count : Int
+  transaction_attempts_before : Int
+  transaction_attempts_after : Int
+  transaction_commits_before : Int
+  transaction_commits_after : Int
+  revision_before : Int
+  revision_after : Int
+}
+
+///|
+/// Keep the Formula and its typed export together. Formula debug supplies the
+/// FormulaId and local Manifest; the export supplies the ExportId.
+priv struct DiagnosticFormulaPair {
+  formula : @next_program.Formula[(String, @loom.DiagnosticSet)?]
+  exported : @next_program.ReadExport[
+    Result[(String, @loom.DiagnosticSet)?, @next_program.ProgramError],
+  ]
+}
+
+///|
+/// A test-only facade over the exact #465 Store/Region/Source and #469
+/// Program/Port/Formula APIs. The shell stages a parser snapshot, projection,
+/// and source map; the Formula owns the deterministic diagnostic value.
+priv struct DiagnosticShadow {
+  store : @next_kernel.Store
+  region : @next_kernel.Region
+  parser_snapshot_source : @next_kernel.Source[
+    @loom.ParseSnapshot[@ast.Term]
+  ]
+  projection_source : @next_kernel.Source[@core.ProjNode[@ast.Term]?]
+  source_map_source : @next_kernel.Source[@core.SourceMap]
+  program : @next_program.Program
+  parser_snapshot_port : @next_program.ReadPort[
+    @loom.ParseSnapshot[@ast.Term]
+  ]
+  projection_port : @next_program.ReadPort[@core.ProjNode[@ast.Term]?]
+  source_map_port : @next_program.ReadPort[@core.SourceMap]
+  pair : DiagnosticFormulaPair
+}
+
+///|
+fn[T] shadow_source_or_abort(
+  region : @next_kernel.Region,
+  value : T,
+) -> @next_kernel.Source[T] {
+  match region.source(value) {
+    Ok(source) => source
+    Err(_) => abort("shadow source construction")
+  }
+}
+
+///|
+fn[T] shadow_port_or_abort(
+  program : @next_program.Program,
+  view : @next_kernel.View[T],
+) -> @next_program.ReadPort[T] {
+  match program.port(view) {
+    Ok(port) => port
+    Err(_) => abort("shadow port construction")
+  }
+}
+
+///|
+/// The production closure's raw value is the white-box oracle. The companion
+/// package can see the same private parser/projection/source-map members that
+/// `build_lambda_capabilities` closes over, while editor capability fields are
+/// deliberately private to the editor package.
+fn production_raw_diagnostics(
+  companion : LambdaCompanion,
+) -> (String, @loom.DiagnosticSet)? {
+  let snapshot = companion.parser.snapshot().read_or_abort()
+  guard companion.cached_proj_node.read_or_abort() is Some(root) else {
+    return None
+  }
+  Some(
+    (
+      snapshot.source,
+      @lambda_semantic.build_semantic_diagnostics(
+        companion.parser.source_id(),
+        snapshot.source,
+        root,
+        companion.source_map_memo.read_or_abort(),
+      ),
+    ),
+  ) catch {
+    _ => None
+  }
+}
+
+///|
+fn new_diagnostic_shadow(
+  source_id : @loom.SourceId,
+  snapshot : @loom.ParseSnapshot[@ast.Term],
+  projection : @core.ProjNode[@ast.Term]?,
+  source_map : @core.SourceMap,
+) -> DiagnosticShadow {
+  let store = @next_kernel.Store()
+  let region = match store.region() {
+    Ok(value) => value
+    Err(_) => abort("shadow region construction")
+  }
+  let parser_snapshot_source : @next_kernel.Source[
+    @loom.ParseSnapshot[@ast.Term]
+  ] = shadow_source_or_abort(region, snapshot.copy())
+  let projection_source : @next_kernel.Source[
+    @core.ProjNode[@ast.Term]?
+  ] = shadow_source_or_abort(region, projection)
+  let source_map_source : @next_kernel.Source[@core.SourceMap] =
+    shadow_source_or_abort(region, source_map)
+  let program = @next_program.Program::Program(store, region)
+  let parser_snapshot_port = shadow_port_or_abort(
+    program,
+    parser_snapshot_source.view(),
+  )
+  let projection_port = shadow_port_or_abort(program, projection_source.view())
+  let source_map_port = shadow_port_or_abort(program, source_map_source.view())
+  let builder = program.builder()
+  let declared_snapshot = match builder.declare_port(parser_snapshot_port) {
+    Ok(value) => value
+    Err(_) => abort("shadow parser snapshot declaration")
+  }
+  let declared_projection = match builder.declare_port(projection_port) {
+    Ok(value) => value
+    Err(_) => abort("shadow projection declaration")
+  }
+  let declared_source_map = match builder.declare_port(source_map_port) {
+    Ok(value) => value
+    Err(_) => abort("shadow source-map declaration")
+  }
+  let formula = match builder.build(ctx => {
+    // FORMULA CALLBACK BEGIN
+    match ctx.read(declared_snapshot) {
+      Err(error) => Err(error)
+      Ok(snapshot) => match ctx.read(declared_projection) {
+        Err(error) => Err(error)
+        Ok(None) => Ok(None)
+        Ok(Some(root)) => match ctx.read(declared_source_map) {
+          Err(error) => Err(error)
+          Ok(source_map) => {
+            let value : (String, @loom.DiagnosticSet)? = Some(
+              (
+                snapshot.source,
+                @lambda_semantic.build_semantic_diagnostics(
+                  source_id,
+                  snapshot.source,
+                  root,
+                  source_map,
+                ),
+              ),
+            ) catch {
+              @lambda_semantic.SemanticDiagnosticError::InvalidSourceRange(
+                _,
+                _,
+                _,
+              ) => None
+              @lambda_semantic.SemanticDiagnosticError::InvalidUtf16Boundary(
+                _,
+                _,
+              ) => None
+            }
+            Ok(value)
+          }
+        }
+      }
+    }
+    // FORMULA CALLBACK END
+  }) {
+    Ok(value) => value
+    Err(_) => abort("shadow formula construction")
+  }
+  let exported = match program.export_formula(formula) {
+    Ok(value) => value
+    Err(_) => abort("shadow formula export")
+  }
+  {
+    store,
+    region,
+    parser_snapshot_source,
+    projection_source,
+    source_map_source,
+    program,
+    parser_snapshot_port,
+    projection_port,
+    source_map_port,
+    pair: { formula, exported },
+  }
+}
+
+///|
+/// Stage all three typed inputs in parser-snapshot/projection/source-map order.
+/// This is the only shadow write path, so one editor snapshot has one
+/// transaction and one revision.
+fn DiagnosticShadow::stage_snapshot(
+  self : DiagnosticShadow,
+  snapshot : @loom.ParseSnapshot[@ast.Term],
+  projection : @core.ProjNode[@ast.Term]?,
+  source_map : @core.SourceMap,
+) -> ShadowSyncReceipt {
+  let before_store = self.store.debug()
+  let before_revision = self.store.revision().value()
+  let staged_count = Ref(0)
+  ignore(
+    match self.store.transaction(tx => {
+      ignore(tx.set(self.parser_snapshot_source, snapshot.copy()))
+      ignore(tx.set(self.projection_source, projection))
+      ignore(tx.set(self.source_map_source, source_map))
+      staged_count.val = tx.staged_count()
+      Ok(())
+    }) {
+      Ok(outcome) => outcome
+      Err(_) => abort("shadow snapshot transaction")
+    },
+  )
+  let after_store = self.store.debug()
+  {
+    staged_count: staged_count.val,
+    transaction_attempts_before: before_store.transaction_attempts,
+    transaction_attempts_after: after_store.transaction_attempts,
+    transaction_commits_before: before_store.transaction_commits,
+    transaction_commits_after: after_store.transaction_commits,
+    revision_before: before_revision,
+    revision_after: self.store.revision().value(),
+  }
+}
+
+///|
+fn DiagnosticShadow::sync(
+  self : DiagnosticShadow,
+  editor : @editor.SyncEditor[@ast.Term],
+) -> ShadowSyncReceipt raise Failure {
+  self.stage_snapshot(
+    editor.parser_snapshot().read_or_abort(),
+    editor.get_proj_node(),
+    editor.get_source_map(),
+  )
+}
+
+///|
+/// Unwrap only at the disposable test boundary. The Formula core preserves
+/// the outer FormulaReadError and inner ProgramError channels.
+fn DiagnosticShadow::read_diagnostics(
+  self : DiagnosticShadow,
+) -> (String, @loom.DiagnosticSet)? raise Failure {
+  match self.program.read(self.pair.formula) {
+    Err(_) => fail("unexpected FormulaReadError")
+    Ok(Err(_)) => fail("unexpected ProgramError")
+    Ok(Ok(value)) => value
+  }
+}
+
+///|
+fn assert_raw_diagnostics_equal(
+  actual : (String, @loom.DiagnosticSet)?,
+  expected : (String, @loom.DiagnosticSet)?,
+) -> Unit raise {
+  match (actual, expected) {
+    (None, None) => ()
+    (Some((actual_source, actual_diagnostics)), Some((expected_source, expected_diagnostics))) => {
+      assert_eq(actual_source, expected_source)
+      let actual_items = actual_diagnostics.items()
+      let expected_items = expected_diagnostics.items()
+      assert_eq(actual_items.length(), expected_items.length())
+      for i in 0..<actual_items.length() {
+        assert_true(actual_items[i].equal(expected_items[i]))
+      }
+    }
+    _ => fail("raw diagnostic Option mismatch")
+  }
+}
+
+///|
+fn production_protocol_diagnostics_with_state(
+  state : @editor.ViewUpdateState,
+  editor : @editor.SyncEditor[@ast.Term],
+) -> Array[@protocol.Diagnostic]? raise Failure {
+  let patches = @editor.compute_view_patches(state, editor)
+  match patches.iter().find_first(patch => match patch {
+    @protocol.ViewPatch::SetDiagnostics(_) => true
+    _ => false
+  }) {
+    Some(@protocol.ViewPatch::SetDiagnostics(diagnostics~)) => Some(diagnostics)
+    _ => None
+  }
+}
+
+///|
+fn production_protocol_diagnostics(
+  editor : @editor.SyncEditor[@ast.Term],
+) -> Array[@protocol.Diagnostic] raise Failure {
+  production_protocol_diagnostics_with_state(
+    @editor.ViewUpdateState::ViewUpdateState(),
+    editor,
+  ).unwrap_or([])
+}
+
+///|
+/// The final protocol patch is parser-first and then semantic. The semantic
+/// rows are projected from the Formula Option; parser rows remain the actual
+/// production patch oracle because publication renders them with source text.
+fn candidate_semantic_protocol_diagnostics(
+  editor : @editor.SyncEditor[@ast.Term],
+  shadow : DiagnosticShadow,
+) -> Array[@protocol.Diagnostic] raise Failure {
+  match shadow.read_diagnostics() {
+    None => []
+    Some((source, diagnostics)) if source == editor.get_text() =>
+      @editor.project_diagnostics_for_source(
+        editor.parser_source_id(),
+        diagnostics,
+      )
+    Some(_) => []
+  }
+}
+
+///|
+fn assert_protocol_shape_equal(
+  actual : Array[@protocol.Diagnostic],
+  expected : Array[@protocol.Diagnostic],
+) -> Unit raise {
+  assert_eq(actual.length(), expected.length())
+  for i in 0..<actual.length() {
+    assert_eq(actual[i].from, expected[i].from)
+    assert_eq(actual[i].to, expected[i].to)
+    assert_eq(actual[i].severity, expected[i].severity)
+    assert_eq(actual[i].code, expected[i].code)
+  }
+}
+
+///|
+fn assert_final_patch_matches_candidate_semantics(
+  editor : @editor.SyncEditor[@ast.Term],
+  shadow : DiagnosticShadow,
+) -> Array[@protocol.Diagnostic] raise {
+  let production = production_protocol_diagnostics(editor)
+  let candidate_semantic = candidate_semantic_protocol_diagnostics(editor, shadow)
+  let production_semantic = production
+    .filter(diagnostic => diagnostic.code == Some("lambda.unresolved_reference"))
+  assert_protocol_shape_equal(production_semantic, candidate_semantic)
+  for i in 0..<production_semantic.length() {
+    assert_true(
+      production_semantic[i].message.contains(candidate_semantic[i].message),
+    )
+  }
+  let parser_rows = production
+    .filter(diagnostic => diagnostic.code != Some("lambda.unresolved_reference"))
+  assert_protocol_shape_equal(
+    production,
+    parser_rows + candidate_semantic,
+  )
+  production
+}
+
+///|
+fn assert_raw_oracle(
+  editor : @editor.SyncEditor[@ast.Term],
+  companion : LambdaCompanion,
+  shadow : DiagnosticShadow,
+) -> (String, @loom.DiagnosticSet)? raise {
+  let actual = shadow.read_diagnostics()
+  let expected = production_raw_diagnostics(companion)
+  assert_raw_diagnostics_equal(actual, expected)
+  ignore(assert_final_patch_matches_candidate_semantics(editor, shadow))
+  actual
+}
+
+///|
+fn assert_semantic_warning(
+  diagnostics : (String, @loom.DiagnosticSet)?,
+) -> Unit raise {
+  guard diagnostics is Some((source, set)) else {
+    fail("expected a semantic diagnostic value")
+  }
+  assert_eq(source, "(x) => y")
+  guard set.items() is [diagnostic] else {
+    fail("expected exactly one semantic diagnostic")
+  }
+  assert_eq(diagnostic.message(), "Free variable 'y'")
+  assert_eq(
+    diagnostic.code().map(code => code.value()),
+    Some("lambda.unresolved_reference"),
+  )
+  guard diagnostic.labels() is [primary, .. _] else {
+    fail("expected a primary semantic label")
+  }
+  assert_eq(primary.span().range().start().value(), 7)
+  assert_eq(primary.span().range().end().value(), 8)
+}
+
+///|
+fn assert_semantic_validation_rejected(
+  source_id : @loom.SourceId,
+  snapshot : @loom.ParseSnapshot[@ast.Term],
+  root : @core.ProjNode[@ast.Term],
+  source_map : @core.SourceMap,
+) -> Unit raise {
+  let rejected = try {
+    ignore(
+      @lambda_semantic.build_semantic_diagnostics(
+        source_id,
+        snapshot.source,
+        root,
+        source_map,
+      ),
+    )
+    false
+  } catch {
+    @lambda_semantic.SemanticDiagnosticError::InvalidSourceRange(_, _, _) => true
+    @lambda_semantic.SemanticDiagnosticError::InvalidUtf16Boundary(_, _) => true
+  }
+  assert_true(rejected)
+}
+
+///|
+fn assert_utf16_boundary_rejected(
+  source_id : @loom.SourceId,
+  snapshot : @loom.ParseSnapshot[@ast.Term],
+  root : @core.ProjNode[@ast.Term],
+  source_map : @core.SourceMap,
+) -> Unit raise {
+  let rejected = try {
+    ignore(
+      @lambda_semantic.build_semantic_diagnostics(
+        source_id,
+        snapshot.source,
+        root,
+        source_map,
+      ),
+    )
+    false
+  } catch {
+    @lambda_semantic.SemanticDiagnosticError::InvalidUtf16Boundary(_, _) => true
+    @lambda_semantic.SemanticDiagnosticError::InvalidSourceRange(_, _, _) => false
+  }
+  assert_true(rejected)
+}
+
+///|
+fn first_named_var(
+  root : @core.ProjNode[@ast.Term],
+  name : String,
+) -> @core.ProjNode[@ast.Term]? {
+  let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = Map([])
+  @core.collect_registry(root, registry)
+  registry.values().find_first(node => match node.kind {
+    @ast.Term::Var(value) => value == name
+    _ => false
+  })
+}
+
+///|
+test "lambda diagnostic capability Program parity across workloads" {
+  let (editor, companion) = try! new_lambda_editor(
+    "lambda-diagnostic-capability-parity",
+  )
+  let initial_snapshot = editor.parser_snapshot().read_or_abort()
+  let shadow = new_diagnostic_shadow(
+    editor.parser_source_id(),
+    initial_snapshot,
+    editor.get_proj_node(),
+    editor.get_source_map(),
+  )
+
+  // A synthetic None projection observes only parser snapshot + projection.
+  let none_receipt = shadow.stage_snapshot(
+    initial_snapshot,
+    None,
+    @core.SourceMap::new(),
+  )
+  assert_eq(none_receipt.staged_count, 3)
+  assert_eq(
+    none_receipt.revision_after - none_receipt.revision_before,
+    1,
+  )
+  assert_eq(shadow.read_diagnostics(), None)
+  let none_debug = shadow.pair.formula.debug()
+  assert_eq(none_debug.observations.length(), 2)
+  assert_eq(
+    none_debug.observations[0].local_port_id,
+    shadow.parser_snapshot_port.port_id(),
+  )
+  assert_eq(
+    none_debug.observations[1].local_port_id,
+    shadow.projection_port.port_id(),
+  )
+  assert_eq(none_debug.observations[0].ordinal, 0)
+  assert_eq(none_debug.observations[1].ordinal, 1)
+
+  // Bound lambda: the raw production value is Some(source, empty set).
+  editor.set_text("(x) => x")
+  let bound_receipt = shadow.sync(editor)
+  let bound = assert_raw_oracle(editor, companion, shadow)
+  guard bound is Some((source, diagnostics)) else {
+    fail("bound lambda must return a diagnostic value")
+  }
+  assert_eq(source, "(x) => x")
+  assert_true(diagnostics.is_empty())
+  assert_eq(bound_receipt.staged_count, 3)
+
+  // Free lambda: compare the complete raw DiagnosticSet and the final
+  // protocol warning's range, severity, code, and rendered message.
+  editor.set_text("(x) => y")
+  ignore(shadow.sync(editor))
+  let free = assert_raw_oracle(editor, companion, shadow)
+  assert_semantic_warning(free)
+
+  // A valid module is still Some(source, empty set), not None.
+  editor.set_text("let x = 1\nlet y = x\nx + y")
+  ignore(shadow.sync(editor))
+  let module_value = assert_raw_oracle(editor, companion, shadow)
+  guard module_value is Some((source, diagnostics)) else {
+    fail("valid module must return a diagnostic value")
+  }
+  assert_eq(source, "let x = 1\nlet y = x\nx + y")
+  assert_true(diagnostics.is_empty())
+
+  // Recovery keeps parser diagnostics in the final production patch while
+  // the Formula compares only its semantic Option value.
+  let recovery_state = @editor.ViewUpdateState::ViewUpdateState()
+  editor.set_text("if x then y")
+  ignore(shadow.sync(editor))
+  let incomplete = assert_raw_oracle(editor, companion, shadow)
+  guard incomplete is Some(_) else {
+    fail("incomplete parse must retain the semantic Option value")
+  }
+  let incomplete_patch = production_protocol_diagnostics_with_state(
+    recovery_state,
+    editor,
+  ).unwrap()
+  assert_true(
+    incomplete_patch.any(diagnostic => diagnostic.message.contains("else")),
+  )
+  ignore(assert_final_patch_matches_candidate_semantics(editor, shadow))
+
+  editor.set_text("(x) => x")
+  ignore(shadow.sync(editor))
+  let recovered = assert_raw_oracle(editor, companion, shadow)
+  guard recovered is Some((_, diagnostics)) else {
+    fail("recovery must return a diagnostic value")
+  }
+  assert_true(diagnostics.is_empty())
+  let clearing_patch = production_protocol_diagnostics_with_state(
+    recovery_state,
+    editor,
+  )
+  assert_eq(clearing_patch, Some([]))
+
+  // Invalid UTF-16 range: the existing semantic builder raises, and the
+  // Formula's value-local catch classifies only that validation failure as None.
+  editor.set_text("(x) => y")
+  let invalid_snapshot = editor.parser_snapshot().read_or_abort()
+  guard editor.get_proj_node() is Some(invalid_root) else {
+    fail("expected projection for invalid-range fixture")
+  }
+  let invalid_source_map = @core.SourceMap::from_ast(invalid_root)
+  let invalid_body = invalid_root.children[0]
+  invalid_source_map.set_token_span(
+    invalid_body.id(),
+    @lambda_proj.REFERENCE_NAME_ROLE,
+    @loom.Range::new(-1, 1),
+  )
+  assert_semantic_validation_rejected(
+    editor.parser_source_id(),
+    invalid_snapshot,
+    invalid_root,
+    invalid_source_map,
+  )
+  ignore(
+    shadow.stage_snapshot(
+      invalid_snapshot,
+      Some(invalid_root),
+      invalid_source_map,
+    ),
+  )
+  assert_eq(shadow.read_diagnostics(), None)
+
+  // Invalid UTF-16 boundary, if the recovered parser keeps the first lambda
+  // reference, uses the same existing SourceMap setter and builder boundary.
+  editor.set_text("(x) => y\n😀")
+  let utf16_snapshot = editor.parser_snapshot().read_or_abort()
+  guard editor.get_proj_node() is Some(utf16_root) else {
+    fail("expected projection for UTF-16 fixture")
+  }
+  guard first_named_var(utf16_root, "y") is Some(utf16_body) else {
+    fail("expected recovered free variable before emoji")
+  }
+  let utf16_source_map = @core.SourceMap::from_ast(utf16_root)
+  let emoji_start = utf16_snapshot.source.length() - 2
+  utf16_source_map.set_token_span(
+    utf16_body.id(),
+    @lambda_proj.REFERENCE_NAME_ROLE,
+    @loom.Range::new(emoji_start, emoji_start + 1),
+  )
+  assert_utf16_boundary_rejected(
+    editor.parser_source_id(),
+    utf16_snapshot,
+    utf16_root,
+    utf16_source_map,
+  )
+  ignore(
+    shadow.stage_snapshot(
+      utf16_snapshot,
+      Some(utf16_root),
+      utf16_source_map,
+    ),
+  )
+  assert_eq(shadow.read_diagnostics(), None)
+
+  ignore(shadow.region.close())
+}
+
+///|
+fn unauthorized_declared_read(
+  shadow : DiagnosticShadow,
+) -> Result[
+  Result[(String, @loom.DiagnosticSet)?, @next_program.ProgramError],
+  @next_program.FormulaReadError,
+] {
+  let foreign_program = @next_program.Program::Program(shadow.store, shadow.region)
+  let foreign_port = match foreign_program.port(
+    shadow.parser_snapshot_source.view(),
+  ) {
+    Ok(value) => value
+    Err(_) => abort("foreign port construction")
+  }
+  let foreign_builder = foreign_program.builder()
+  let foreign_declared = match foreign_builder.declare_port(foreign_port) {
+    Ok(value) => value
+    Err(_) => abort("foreign declaration")
+  }
+  let foreign_formula : @next_program.Formula[Unit] = match
+    foreign_builder.build(_ctx => Ok(())) {
+    Ok(value) => value
+    Err(_) => abort("foreign formula construction")
+  }
+  ignore(foreign_formula)
+
+  let builder = shadow.program.builder()
+  let unauthorized_formula : @next_program.Formula[
+    (String, @loom.DiagnosticSet)?
+  ] = match builder.build(ctx => {
+    match ctx.read(foreign_declared) {
+      Err(error) => Err(error)
+      Ok(_) => Ok(None)
+    }
+  }) {
+    Ok(value) => value
+    Err(_) => abort("unauthorized formula construction")
+  }
+  shadow.program.read(unauthorized_formula)
+}
+
+///|
+test "lambda diagnostic capability error channels and provenance" {
+  let (editor, _) = try! new_lambda_editor(
+    "lambda-diagnostic-capability-channels",
+  )
+  let snapshot = editor.parser_snapshot().read_or_abort()
+  let shadow = new_diagnostic_shadow(
+    editor.parser_source_id(),
+    snapshot,
+    editor.get_proj_node(),
+    editor.get_source_map(),
+  )
+
+  editor.set_text("(x) => x")
+  let receipt = shadow.sync(editor)
+  assert_eq(receipt.staged_count, 3)
+  assert_eq(
+    receipt.transaction_attempts_after - receipt.transaction_attempts_before,
+    1,
+  )
+  assert_eq(
+    receipt.transaction_commits_after - receipt.transaction_commits_before,
+    1,
+  )
+  assert_eq(receipt.revision_after - receipt.revision_before, 1)
+  assert_true(shadow.read_diagnostics() is Some(_))
+
+  // The Formula-local manifest has exactly the three typed ports in bridge
+  // order, and the latest Some invocation observes the same order.
+  let entries = shadow.pair.formula.manifest().entries()
+  assert_eq(entries.length(), 3)
+  assert_eq(entries[0].local_port_id, shadow.parser_snapshot_port.port_id())
+  assert_eq(entries[1].local_port_id, shadow.projection_port.port_id())
+  assert_eq(entries[2].local_port_id, shadow.source_map_port.port_id())
+  assert_eq(entries[0].origin, @next_program.PortOrigin::Local)
+  assert_eq(entries[1].origin, @next_program.PortOrigin::Local)
+  assert_eq(entries[2].origin, @next_program.PortOrigin::Local)
+  let debug = shadow.pair.formula.debug()
+  assert_eq(debug.manifest, entries)
+  assert_eq(debug.observations.length(), 3)
+  assert_eq(debug.observations[0].local_port_id, shadow.parser_snapshot_port.port_id())
+  assert_eq(debug.observations[1].local_port_id, shadow.projection_port.port_id())
+  assert_eq(debug.observations[2].local_port_id, shadow.source_map_port.port_id())
+  assert_eq(debug.observations[0].ordinal, 0)
+  assert_eq(debug.observations[1].ordinal, 1)
+  assert_eq(debug.observations[2].ordinal, 2)
+
+  // The exported Formula is a typed local pair, not a copied or re-owned
+  // manifest.
+  let formula_id = debug.formula_id
+  let export_id = shadow.pair.exported.export_id()
+  assert_eq(shadow.pair.exported.provider_program(), shadow.program.id())
+  assert_eq(export_id.provider_program(), shadow.program.id())
+  let debug_again = shadow.pair.formula.debug()
+  assert_eq(debug_again.formula_id, formula_id)
+  assert_eq(debug_again.manifest, entries)
+  assert_eq(shadow.pair.exported.export_id(), export_id)
+
+  // A declaration from a foreign Program is a middle ProgramError. It is not
+  // caught into the diagnostic Option and is not an outer structural error.
+  match unauthorized_declared_read(shadow) {
+    Ok(Err(@next_program.ProgramError::UnauthorizedRead(_))) => ()
+    Ok(Err(@next_program.ProgramError::ExpiredProgramEvaluation(_))) =>
+      fail("unauthorized read became an expired evaluation")
+    Ok(Ok(None)) => fail("unauthorized read was converted to None")
+    Ok(Ok(Some(_))) => fail("unauthorized read produced a value")
+    Err(_) => fail("unauthorized read escaped as FormulaReadError")
+  }
+
+  // Region closure is structural: Program::read reports outer ClosedRegion.
+  ignore(shadow.region.close())
+  match shadow.program.read(shadow.pair.formula) {
+    Err(@next_program.FormulaReadError::ClosedRegion) => ()
+    Ok(Ok(None)) => fail("closed region was converted to None")
+    Ok(Ok(Some(_))) => fail("closed region produced a value")
+    Ok(Err(_)) => fail("closed region became ProgramError")
+    Err(_) => fail("unexpected FormulaReadError")
+  }
+}
