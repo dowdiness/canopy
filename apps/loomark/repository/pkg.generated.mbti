@@ -7,11 +7,13 @@ import {
 }
 
 // Values
-pub fn classify_local_archive_record(String?, validation_agent_id~ : String, policy~ : LocalRestorePolicy) -> LocalArchiveLoad raise
+pub fn classify_local_archive_record(String?, agent_id~ : String, policy~ : LocalRestorePolicy) -> LocalArchiveLoad raise
 
 pub fn history_trigger(@dowdiness/canopy/editor/markdown.MarkdownCommitReceipt) -> LocalArchivePersistenceDecision
 
 pub fn prepare_local_archive(document_id~ : @archive.LoomarkDocumentId, editor~ : @dowdiness/canopy/editor/markdown.MarkdownEditor) -> PreparedLocalArchive raise
+
+pub fn reopen_decoded_local_archive(@archive.DecodedLoomarkDocumentArchive, agent_id~ : String, policy~ : LocalRestorePolicy) -> ReopenedLocalArchive raise
 
 pub fn reopen_local_archive(@archive.LoomarkDocumentArchive, agent_id~ : String, policy~ : LocalRestorePolicy) -> ReopenedLocalArchive raise
 
@@ -25,7 +27,7 @@ pub(all) suberror LocalArchivePreparationError {
 // Types and methods
 pub(all) enum LocalArchiveLoad {
   Missing
-  Valid(@archive.LoomarkDocumentArchive)
+  Valid(ReopenedLocalArchive)
   Rejected(LocalArchiveLoadFailure)
 }
 
