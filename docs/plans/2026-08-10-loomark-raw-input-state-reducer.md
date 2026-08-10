@@ -18,8 +18,7 @@ rebase/normalization, commits editor changes, and executes reducer decisions.
 
 ## State transition table
 
-`—` means the event is a deterministic no-op. A guard failure must not mutate
-state or cause a shell effect.
+A guard failure must not mutate state or cause a shell effect.
 
 | Event | Guard | State change | Decision |
 | --- | --- | --- | --- |
@@ -35,7 +34,7 @@ state or cause a shell effect.
 | `ClearDeferred` | always | clear capture and ordinary deferred input | `Noop` |
 | `ClearDeferredComposition` | always | clear deferred composition only | `Noop` |
 | `StorePending(input)` | no live composition or deferred frontier | replace pending input (it may wait behind an active delivery) | `StoredPending` |
-| `BeginComposition(input)` | no active delivery or deferred frontier | clear pending; set live composition | `Noop` |
+| `BeginComposition(input)` | no active delivery or deferred frontier | clear pending and completion marker; set live composition | `Noop` |
 | `UpdateComposition(input)` | live composition exists | replace live composition | `Noop` |
 | `ClearComposition` | always | clear live composition | `Noop` |
 | `MarkDeferredCompositionFinished` | deferred composition exists | set completion marker | `Noop` |
@@ -61,7 +60,8 @@ finish or discard an active delivery.
 - `composition` is not combined with an active delivery or deferred frontier.
 - The completion marker is meaningful only for a deferred composition or the
   follow-up delivery created from one; it is cleared by cancellation,
-  discard, failed rebase, and completion of that follow-up delivery.
+  discard, failed rebase, completion of that follow-up delivery, and the start
+  of a new live or deferred composition.
 - `BeginDeferredComposition` clears the ordinary deferred snapshot and its
   capture while retaining an already pending ordinary input. This preserves
   the #1222 IME-over-ordinary-input ordering and net-no-op behavior.
