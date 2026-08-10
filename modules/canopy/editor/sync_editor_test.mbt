@@ -429,3 +429,57 @@ test "SyncEditor: undo sync ops can be applied to peer" {
   // Bob should converge with Alice
   inspect(se2.get_text(), content="")
 }
+
+///|
+test "SyncEditor: set_text placement stays coherent through public edits" {
+  let local_editor = try! @probe.new_test_editor("local-user")
+  let remote = try! @probe.new_test_editor("remote-user")
+  local_editor.set_text("abcd")
+  try! remote.apply_sync(try! local_editor.export_all())
+  remote.move_cursor(4)
+  remote.set_local_presence("Bob", "#00ff00")
+  local_editor.apply_ephemeral(remote.encode_ephemeral_all())
+
+  // A bulk set_text creates one CRDT batch. Exercise the public insert_at
+  // path after that initialization and assert the observed placement, cursor
+  // adjustment, parser state, and remote convergence together.
+  local_editor.insert_at(0, "X", 1000)
+  inspect(local_editor.get_text(), content="Xabcd")
+  inspect(
+    local_editor.get_peer_cursors().get("remote-user").unwrap().adjusted_cursor,
+    content="5",
+  )
+  inspect(
+    @probe.get_test_ast(local_editor),
+    content=(
+      #|Branch("", [Leaf("Xabcd")])
+    ),
+  )
+
+  try! remote.apply_sync(try! local_editor.export_all())
+  inspect(remote.get_text(), content="Xabcd")
+}
+
+///|
+test "SyncEditor: local insertion adjusts a peer cursor after the edit" {
+  let local_editor = try! @probe.new_test_editor("local-user")
+  let remote = try! @probe.new_test_editor("remote-user")
+  local_editor.set_text("abcd")
+  try! remote.apply_sync(try! local_editor.export_all())
+  remote.move_cursor(4)
+  remote.set_local_presence("Bob", "#00ff00")
+  local_editor.apply_ephemeral(remote.encode_ephemeral_all())
+
+  local_editor.insert_at(2, "X", 1000)
+  inspect(local_editor.get_text(), content="abXcd")
+  inspect(
+    local_editor.get_peer_cursors().get("remote-user").unwrap().adjusted_cursor,
+    content="5",
+  )
+  inspect(
+    @probe.get_test_ast(local_editor),
+    content=(
+      #|Branch("", [Leaf("abXcd")])
+    ),
+  )
+}

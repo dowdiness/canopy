@@ -92,6 +92,83 @@ fn[T] SyncEditor::adjust_peer_cursors_after_text_change(
 }
 
 ///|
+/// Return true only for ASCII text without a CRLF grapheme. The local state is
+/// limited to the previous code unit so the ASCII and CRLF checks share one
+/// source pass; non-ASCII and CRLF transitions remain on the canonical diff.
+fn is_ascii_without_crlf(text : String) -> Bool {
+  let mut previous_was_cr = false
+  for ch in text {
+    if !ch.is_ascii() || (previous_was_cr && ch == '\n') {
+      return false
+    }
+    previous_was_cr = ch == '\r'
+  }
+  true
+}
+
+///|
+/// A known edit is safe to reuse when it describes the same minimal UTF-16
+/// range as the source transition. Prefix/suffix equality proves the changed
+/// window is in the right place; the edge checks conservatively reject ranges
+/// that could be shrunk or shifted across repeated code units. Matching edge
+/// characters intentionally reduce the fast-path hit rate and use the
+/// canonical grapheme-aware diff instead of weakening this proof.
+fn known_edit_matches_source_change(
+  old_source : String,
+  new_source : String,
+  edit : @loom_core.Edit,
+) -> Bool {
+  let start = edit.start()
+  let old_len = edit.old_len()
+  let new_len = edit.new_len()
+  if start < 0 ||
+    old_len < 0 ||
+    new_len < 0 ||
+    start > old_source.length() ||
+    start > new_source.length() ||
+    old_len > old_source.length() - start ||
+    new_len > new_source.length() - start {
+    return false
+  }
+  if !is_ascii_without_crlf(old_source) || !is_ascii_without_crlf(new_source) {
+    return false
+  }
+  let old_end = start + old_len
+  let new_end = start + new_len
+  if old_len == 0 && new_len == 0 && start != old_source.length() {
+    return false
+  }
+  if old_source[:start] != new_source[:start] ||
+    old_source[old_end:] != new_source[new_end:] {
+    return false
+  }
+  if old_len == 0 {
+    if new_len > 0 &&
+      start < old_source.length() &&
+      new_source.at(start) == old_source.at(start) {
+      return false
+    }
+    if new_len > 0 &&
+      start > 0 &&
+      new_source.at(new_end - 1) == old_source.at(start - 1) {
+      return false
+    }
+  } else if new_len == 0 {
+    if old_end < old_source.length() &&
+      old_source.at(start) == old_source.at(old_end) {
+      return false
+    }
+    if start > 0 && old_source.at(old_end - 1) == old_source.at(start - 1) {
+      return false
+    }
+  } else if old_source.at(start) == new_source.at(start) ||
+    old_source.at(old_end - 1) == new_source.at(new_end - 1) {
+    return false
+  }
+  true
+}
+
+///|
 /// The CRDT may place inserts at different positions than the cursor indicates
 /// (e.g. after set_text, position semantics can diverge). Verify the known edit
 /// against the actual text change so cursor adjustments use the real positions.
@@ -102,18 +179,15 @@ fn resolve_applied_edit(
 ) -> @loom_core.Edit? raise Failure {
   match known_edit {
     None => None
-    Some(edit) => {
-      let actual = editor_perf_measure("resolveAppliedEditDiff", () => {
-        compute_edit(old_source, new_source)
-      })
-      if edit.start() == actual.start() &&
-        edit.old_len() == actual.old_len() &&
-        edit.new_len() == actual.new_len() {
+    Some(edit) =>
+      if known_edit_matches_source_change(old_source, new_source, edit) {
         Some(edit)
       } else {
+        let actual = editor_perf_measure("resolveAppliedEditDiff", () => {
+          compute_edit(old_source, new_source)
+        })
         Some(actual)
       }
-    }
   }
 }
 
