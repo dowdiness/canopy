@@ -338,18 +338,21 @@ fn RawInputCoordinator::begin_native_composition(
   if self.has_active_delivery() {
     let frontier = self.frontier.val
     self.deferred_composition_finished.val = false
-    let (base_source, frontier_source) = match frontier.deferred {
-      Some(deferred) => (deferred.base_source, deferred.source)
+    let (base_source, frontier_source, before_input_selection) = match
+      frontier.deferred {
+      Some(deferred) =>
+        (deferred.base_source, deferred.source, deferred.before_input_selection)
       None =>
         match frontier.in_flight {
-          Some(delivery) => (delivery.source, delivery.source)
-          None => (model.document.source(), model.document.source())
+          Some(delivery) => (delivery.source, delivery.source, selection)
+          None => (model.document.source(), model.document.source(), selection)
         }
     }
     self.reduce_frontier(
       RawInputFrontierEvent::BeginDeferredComposition({
         base_source,
         input_type: "insertCompositionText",
+        before_input_selection,
         source: raw_textarea_value(frontier_source),
         post_input_selection: selection,
         input_count: 0,
@@ -517,6 +520,14 @@ fn RawInputCoordinator::capture_deferred_before_input(
   model : DriverModel,
   event : @dom.InputEvent,
 ) -> @cmd.Cmd {
+  let selection = match read_raw_selection() {
+    Some(selection) => selection
+    None => {
+      self.capture_generation.val += 1
+      self.reduce_frontier(RawInputFrontierEvent::ClearDeferredCapture)
+      return @rabbita_runtime.none
+    }
+  }
   let base_source = match self.frontier.val.deferred {
     Some(deferred) => deferred.base_source
     None =>
@@ -530,6 +541,7 @@ fn RawInputCoordinator::capture_deferred_before_input(
     RawInputFrontierEvent::CaptureDeferredBeforeInput({
       base_source,
       input_type: raw_input_event_type(event),
+      selection,
     }),
   )
   @rabbita_runtime.none
@@ -716,19 +728,25 @@ fn RawInputCoordinator::defer_native_input(
     None => return false
   }
   let existing = frontier.deferred
-  let base_source = capture.base_source
-  let input_type = capture.input_type
+  let (base_source, input_type, before_input_selection, input_count) = match
+    existing {
+    Some(deferred) =>
+      (
+        deferred.base_source,
+        deferred.input_type,
+        deferred.before_input_selection,
+        deferred.input_count + 1,
+      )
+    None => (capture.base_source, capture.input_type, capture.selection, 1)
+  }
   self.capture_generation.val += 1
   self.unmatched_before_input.val = None
   let source = raw_textarea_value(source)
-  let input_count = match existing {
-    Some(deferred) => deferred.input_count + 1
-    None => 1
-  }
   self.reduce_frontier(
     RawInputFrontierEvent::StoreDeferred({
       base_source,
       input_type,
+      before_input_selection,
       source,
       post_input_selection,
       input_count,
