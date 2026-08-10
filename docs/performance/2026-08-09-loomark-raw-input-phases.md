@@ -102,17 +102,27 @@ Synthetic `beforeinput` dispatch is synchronous and completes **before**
 `input_received_at`, so its listener/handler cost is outside the measured
 `input_to_render_ms` total.
 
-| Phase | p50 | p95 |
-|---|---:|---:|
-| synthetic beforeinput listener/handler dispatch (outside total) | 11.1 ms | 11.7 ms |
-| input→debounce | 50.2 ms | 50.3 ms |
-| reduce | 50.3 ms | 52.3 ms |
-| reduce→commit | 10.7 ms | 11.8 ms |
-| commit | 43.9 ms | 46.6 ms |
-| commit→publish | 15.9 ms | 18.0 ms |
-| publish→render | 1.6 ms | 1.9 ms |
-| **input→render (measured total)** | **171.5 ms** | **178.0 ms** |
-| synthetic beforeinput dispatch + input→render (rough sum of medians, not a measured percentile) | ~182.6 ms | — |
+| Telemetry field or external span | p50 | p95 | Relation to `input_to_render_ms` |
+|---|---:|---:|---|
+| Synthetic beforeinput listener/handler dispatch | 11.1 ms | 11.7 ms | Outside telemetry total |
+| `input_to_debounce_ms` | 50.2 ms | 50.3 ms | Additive interval |
+| `debounce_to_reduce_ms` | 0 ms | 0.1 ms | Additive interval |
+| `reduce_ms` | 50.3 ms | 52.3 ms | Additive interval |
+| `reduce_to_commit_ms` | 10.7 ms | 11.8 ms | Additive interval |
+| `commit_ms` | 43.9 ms | 46.6 ms | Additive interval |
+| `preview_update_ms` | 0 ms | 0 ms | Nested diagnostic inside `commit_to_publish_ms` |
+| `commit_to_publish_ms` | 15.9 ms | 18.0 ms | Additive interval |
+| `publish_ms` | 0 ms | 0.1 ms | Additive interval |
+| `publish_to_render_ms` | 1.6 ms | 1.9 ms | Additive interval |
+| **`input_to_render_ms`** | **171.5 ms** | **178.0 ms** | Measured total |
+| Synthetic beforeinput dispatch + `input_to_render_ms` | ~182.6 ms | — | Rough sum of medians, not a measured percentile |
+
+For each sample, the additive telemetry intervals partition
+`input_to_render_ms` (subject to clock precision). The table computes p50 and
+p95 independently for each field, so adding percentile cells does not generally
+equal the corresponding total percentile. `preview_update_ms` is shown for
+diagnosis but is already contained in `commit_to_publish_ms` and must not be
+added again.
 
 Nested commit spans at p50: exact-boundary policy 10.7 ms; CRDT replace
 0.2 ms (insertion) / 7.7 ms (replacement); local text-change propagation
