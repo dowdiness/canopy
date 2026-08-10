@@ -102,7 +102,7 @@ async function dispatchRawNativeEdits(input: Locator, edits: RawNativeEdit[]): P
         edit.beforeEnd,
         edit.beforeDirection ?? "none",
       )
-      textarea.dispatchEvent(new InputEvent("beforeinput", init))
+      if (!textarea.dispatchEvent(new InputEvent("beforeinput", init))) continue
       textarea.value = edit.value
       textarea.setSelectionRange(
         edit.afterStart,
@@ -112,6 +112,22 @@ async function dispatchRawNativeEdits(input: Locator, edits: RawNativeEdit[]): P
       textarea.dispatchEvent(new InputEvent("input", init))
     }
   }, edits)
+}
+
+async function armRawRenderBarrier(page: Page): Promise<void> {
+  await page.evaluate(moduleUrl =>
+    import(moduleUrl).then(module => module.dev_host_arm_raw_render_barrier()), moduleUrl)
+  await expect.poll(async () => (await snapshot(page)).raw_render_barrier_armed).toBe(true)
+}
+
+async function waitForRawRenderBarrier(page: Page): Promise<void> {
+  await expect.poll(async () => (await snapshot(page)).raw_render_barrier_waiting).toBe(true)
+}
+
+async function releaseRawRenderBarrier(page: Page): Promise<void> {
+  await page.evaluate(moduleUrl =>
+    import(moduleUrl).then(module => module.dev_host_release_raw_render_barrier()), moduleUrl)
+  await expect.poll(async () => (await snapshot(page)).raw_render_barrier_armed).toBe(false)
 }
 
 async function replaceRawValue(input: Locator, value: string): Promise<void> {
@@ -2044,116 +2060,210 @@ test("Raw input coalesces a same-task burst into one commit", async ({ browser }
   }
 })
 
-test("Raw preserves native input across an in-flight commit", async ({ browser }) => {
-  for (let attempt = 0; attempt < 6; attempt += 1) {
-    const host = await mountHost(browser, "start")
-    try {
-      const input = host.page.locator("#loomark-input")
-      await input.focus()
-      await input.evaluate(element => {
-        const textarea = element as HTMLTextAreaElement
-        textarea.setSelectionRange(textarea.value.length, textarea.value.length)
-      })
-      await host.page.keyboard.type("XY", { delay: 52 })
+test("Raw deterministically preserves native input across an in-flight commit", async ({ browser }) => {
+  const host = await mountHost(browser, "start")
+  let barrierArmed = false
+  try {
+    const input = host.page.locator("#loomark-input")
+    await armRawRenderBarrier(host.page)
+    barrierArmed = true
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(5, 5)
+    })
 
-      await expect.poll(async () => (await snapshot(host.page)).source, {
-        timeout: 1500,
-      }).toBe("startXY")
-      await expect(input).toHaveValue("startXY")
-      await expect.poll(() => input.evaluate(element => {
-        const textarea = element as HTMLTextAreaElement
-        return `${textarea.selectionStart}:${textarea.selectionEnd}`
-      })).toBe("7:7")
-    } finally {
-      await host.context.close()
-    }
+    await dispatchRawNativeEdits(input, [{
+      value: "startX",
+      beforeStart: 5,
+      beforeEnd: 5,
+      afterStart: 6,
+      afterEnd: 6,
+      data: "X",
+    }])
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("startX")
+    await waitForRawRenderBarrier(host.page)
+
+    await dispatchRawNativeEdits(input, [{
+      value: "startXY",
+      beforeStart: 6,
+      beforeEnd: 6,
+      afterStart: 7,
+      afterEnd: 7,
+      data: "Y",
+    }])
+    await releaseRawRenderBarrier(host.page)
+    barrierArmed = false
+
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("startXY")
+    await expect(input).toHaveValue("startXY")
+    await expect.poll(() => input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      return `${textarea.selectionStart}:${textarea.selectionEnd}`
+    })).toBe("7:7")
+  } finally {
+    if (barrierArmed) await releaseRawRenderBarrier(host.page)
+    await host.context.close()
   }
 })
 
-test("Raw preserves caret order across two in-flight frontier inputs", async ({ browser }) => {
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    const host = await mountHost(browser, "start")
-    try {
-      const input = host.page.locator("#loomark-input")
-      await input.focus()
-      await input.evaluate(element => {
-        const textarea = element as HTMLTextAreaElement
-        textarea.setSelectionRange(textarea.value.length, textarea.value.length)
-      })
-      await host.page.keyboard.type("XYZ", { delay: 52 })
+test("Raw deterministically preserves caret order across two in-flight frontier inputs", async ({ browser }) => {
+  const host = await mountHost(browser, "start")
+  let barrierArmed = false
+  try {
+    const input = host.page.locator("#loomark-input")
+    await armRawRenderBarrier(host.page)
+    barrierArmed = true
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(5, 5)
+    })
+    await dispatchRawNativeEdits(input, [{
+      value: "startX",
+      beforeStart: 5,
+      beforeEnd: 5,
+      afterStart: 6,
+      afterEnd: 6,
+      data: "X",
+    }])
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("startX")
+    await waitForRawRenderBarrier(host.page)
 
-      await expect.poll(async () => (await snapshot(host.page)).source, {
-        timeout: 2000,
-      }).toBe("startXYZ")
-      await expect(input).toHaveValue("startXYZ")
-      await expect.poll(() => input.evaluate(element => {
-        const textarea = element as HTMLTextAreaElement
-        return `${textarea.selectionStart}:${textarea.selectionEnd}`
-      })).toBe("8:8")
-    } finally {
-      await host.context.close()
-    }
+    await dispatchRawNativeEdits(input, [
+      {
+        value: "startXY",
+        beforeStart: 6,
+        beforeEnd: 6,
+        afterStart: 7,
+        afterEnd: 7,
+        data: "Y",
+      },
+      {
+        value: "startXYZ",
+        beforeStart: 7,
+        beforeEnd: 7,
+        afterStart: 8,
+        afterEnd: 8,
+        data: "Z",
+      },
+    ])
+    await releaseRawRenderBarrier(host.page)
+    barrierArmed = false
+
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("startXYZ")
+    await expect(input).toHaveValue("startXYZ")
+    await expect.poll(() => input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      return `${textarea.selectionStart}:${textarea.selectionEnd}`
+    })).toBe("8:8")
+  } finally {
+    if (barrierArmed) await releaseRawRenderBarrier(host.page)
+    await host.context.close()
   }
 })
 
-test("Raw preserves native input and caret at a mid-document in-flight boundary", async ({ browser }) => {
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    const host = await mountHost(browser, "abcdef")
-    try {
-      const input = host.page.locator("#loomark-input")
-      await input.focus()
-      await input.evaluate(element => {
-        const textarea = element as HTMLTextAreaElement
-        textarea.setSelectionRange(3, 3)
-      })
-      await host.page.keyboard.type("XY", { delay: 52 })
+test("Raw deterministically preserves native input and caret at a mid-document boundary", async ({ browser }) => {
+  const host = await mountHost(browser, "abcdef")
+  let barrierArmed = false
+  try {
+    const input = host.page.locator("#loomark-input")
+    await armRawRenderBarrier(host.page)
+    barrierArmed = true
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(3, 3)
+    })
+    await dispatchRawNativeEdits(input, [{
+      value: "abcXdef",
+      beforeStart: 3,
+      beforeEnd: 3,
+      afterStart: 4,
+      afterEnd: 4,
+      data: "X",
+    }])
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("abcXdef")
+    await waitForRawRenderBarrier(host.page)
 
-      await expect.poll(async () => (await snapshot(host.page)).source, {
-        timeout: 1500,
-      }).toBe("abcXYdef")
-      await expect(input).toHaveValue("abcXYdef")
-      await expect.poll(() => input.evaluate(element => {
-        const textarea = element as HTMLTextAreaElement
-        return `${textarea.selectionStart}:${textarea.selectionEnd}`
-      })).toBe("5:5")
-    } finally {
-      await host.context.close()
-    }
+    await dispatchRawNativeEdits(input, [{
+      value: "abcXYdef",
+      beforeStart: 4,
+      beforeEnd: 4,
+      afterStart: 5,
+      afterEnd: 5,
+      data: "Y",
+    }])
+    await releaseRawRenderBarrier(host.page)
+    barrierArmed = false
+
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("abcXYdef")
+    await expect(input).toHaveValue("abcXYdef")
+    await expect.poll(() => input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      return `${textarea.selectionStart}:${textarea.selectionEnd}`
+    })).toBe("5:5")
+  } finally {
+    if (barrierArmed) await releaseRawRenderBarrier(host.page)
+    await host.context.close()
   }
 })
 
-test("Raw clears a canceled in-flight beforeinput capture", async ({ browser }) => {
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    const host = await mountHost(browser, "start")
-    try {
-      const input = host.page.locator("#loomark-input")
-      await input.evaluate(element => {
-        element.addEventListener("beforeinput", event => {
-          const inputEvent = event as InputEvent
-          if (inputEvent.data === "Y") event.preventDefault()
-        })
+test("Raw deterministically clears a canceled in-flight beforeinput capture", async ({ browser }) => {
+  const host = await mountHost(browser, "start")
+  let barrierArmed = false
+  try {
+    const input = host.page.locator("#loomark-input")
+    await input.evaluate(element => {
+      element.addEventListener("beforeinput", event => {
+        const inputEvent = event as InputEvent
+        if (inputEvent.data === "Y") event.preventDefault()
       })
-      await input.focus()
-      await input.evaluate(element => {
-        const textarea = element as HTMLTextAreaElement
-        textarea.setSelectionRange(textarea.value.length, textarea.value.length)
-      })
-      await host.page.keyboard.type("XY", { delay: 52 })
+    })
+    await armRawRenderBarrier(host.page)
+    barrierArmed = true
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(5, 5)
+    })
+    await dispatchRawNativeEdits(input, [{
+      value: "startX",
+      beforeStart: 5,
+      beforeEnd: 5,
+      afterStart: 6,
+      afterEnd: 6,
+      data: "X",
+    }])
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("startX")
+    await waitForRawRenderBarrier(host.page)
 
-      await expect.poll(async () => (await snapshot(host.page)).source, {
-        timeout: 1500,
-      }).toBe("startX")
-      await expect(input).toHaveValue("startX")
+    await dispatchRawNativeEdits(input, [{
+      value: "startXY",
+      beforeStart: 6,
+      beforeEnd: 6,
+      afterStart: 7,
+      afterEnd: 7,
+      data: "Y",
+    }])
+    await releaseRawRenderBarrier(host.page)
+    barrierArmed = false
 
-      await input.focus()
-      await host.page.keyboard.type("Z")
-      await expect.poll(async () => (await snapshot(host.page)).source, {
-        timeout: 1500,
-      }).toBe("startXZ")
-      await expect(input).toHaveValue("startXZ")
-    } finally {
-      await host.context.close()
-    }
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("startX")
+    await expect(input).toHaveValue("startX")
+    await dispatchRawNativeEdits(input, [{
+      value: "startXZ",
+      beforeStart: 6,
+      beforeEnd: 6,
+      afterStart: 7,
+      afterEnd: 7,
+      data: "Z",
+    }])
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("startXZ")
+    await expect(input).toHaveValue("startXZ")
+  } finally {
+    if (barrierArmed) await releaseRawRenderBarrier(host.page)
+    await host.context.close()
   }
 })
 
@@ -2878,38 +2988,57 @@ test("a Raw mode click accepts composition before changing mode", async ({ brows
   }
 })
 
-test("a Raw mode click preserves composition behind an active delivery", async ({ browser }) => {
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    const host = await mountHost(browser, "start")
-    try {
-      const input = host.page.locator("#loomark-input")
-      await input.focus()
-      await input.evaluate(element => {
-        const textarea = element as HTMLTextAreaElement
-        textarea.setSelectionRange(5, 5)
-      })
-      const session = await host.context.newCDPSession(host.page)
-      await host.page.keyboard.type("X")
-      await host.page.waitForTimeout(52)
-      await host.page.keyboard.type("Y")
-      await session.send("Input.imeSetComposition", {
-        text: "漢",
-        selectionStart: 1,
-        selectionEnd: 1,
-      })
-      await expect(input).toHaveValue("startXY漢")
+test("a Raw mode click deterministically preserves composition behind an active delivery", async ({ browser }) => {
+  const host = await mountHost(browser, "start")
+  let barrierArmed = false
+  try {
+    const input = host.page.locator("#loomark-input")
+    await armRawRenderBarrier(host.page)
+    barrierArmed = true
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(5, 5)
+    })
+    await dispatchRawNativeEdits(input, [{
+      value: "startX",
+      beforeStart: 5,
+      beforeEnd: 5,
+      afterStart: 6,
+      afterEnd: 6,
+      data: "X",
+    }])
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("startX")
+    await waitForRawRenderBarrier(host.page)
 
-      await host.page.locator("#loomark-mode-block").click()
-      await expect.poll(async () => (await snapshot(host.page)).mode).toBe("block")
-      await expect.poll(async () => (await snapshot(host.page)).source).toBe("startXY漢")
-      expect(await snapshot(host.page)).toMatchObject({
-        committed_change_count: 2,
-        error_code: null,
-      })
-      await expect(host.page.locator("#loomark-block-input")).toHaveValue("startXY漢")
-    } finally {
-      await host.context.close()
-    }
+    await dispatchRawNativeEdits(input, [{
+      value: "startXY",
+      beforeStart: 6,
+      beforeEnd: 6,
+      afterStart: 7,
+      afterEnd: 7,
+      data: "Y",
+    }])
+    const session = await host.context.newCDPSession(host.page)
+    await session.send("Input.imeSetComposition", {
+      text: "漢",
+      selectionStart: 1,
+      selectionEnd: 1,
+    })
+    await expect(input).toHaveValue("startXY漢")
+    await host.page.locator("#loomark-mode-block").click()
+    await expect.poll(async () => (await snapshot(host.page)).mode).toBe("block")
+    await releaseRawRenderBarrier(host.page)
+    barrierArmed = false
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("startXY漢")
+    expect(await snapshot(host.page)).toMatchObject({
+      committed_change_count: 2,
+      error_code: null,
+    })
+    await expect(host.page.locator("#loomark-block-input")).toHaveValue("startXY漢")
+  } finally {
+    if (barrierArmed) await releaseRawRenderBarrier(host.page)
+    await host.context.close()
   }
 })
 

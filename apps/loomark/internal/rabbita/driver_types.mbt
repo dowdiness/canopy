@@ -66,6 +66,8 @@ priv enum LifecycleEvent {
   EditorFailure
   ForceParserFailure
   ForceReconstructionFailure
+  ArmRawRenderBarrier
+  ReleaseRawRenderBarrier
   RecoveryCopy
   RecoveryDownload
   RecoveryReload

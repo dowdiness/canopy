@@ -55,6 +55,16 @@ pub fn dev_host_force_reconstruction_failure() -> Unit {
 }
 
 ///|
+pub fn dev_host_arm_raw_render_barrier() -> Unit {
+  @app.arm_raw_render_barrier()
+}
+
+///|
+pub fn dev_host_release_raw_render_barrier() -> Unit {
+  @app.release_raw_render_barrier()
+}
+
+///|
 pub fn dev_host_focus_preview() -> Unit {
   @app.focus_preview()
 }

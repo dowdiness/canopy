@@ -305,6 +305,14 @@ fn publish(
       }
       None => Json::null()
     },
+    "raw_render_barrier_armed": match raw_input_coordinator {
+      Some(coordinator) => coordinator.render_barrier_armed().to_json()
+      None => false.to_json()
+    },
+    "raw_render_barrier_waiting": match raw_input_coordinator {
+      Some(coordinator) => coordinator.render_barrier_waiting().to_json()
+      None => false.to_json()
+    },
     "event_detail": match model.event_detail {
       Some(detail) => detail.to_json()
       None => Json::null()
@@ -770,6 +778,8 @@ fn driver_event_name(event : DriverEvent) -> String {
         EditorFailure => "editor-failure"
         ForceParserFailure => "force-parser-failure"
         ForceReconstructionFailure => "force-reconstruction-failure"
+        ArmRawRenderBarrier => "arm-raw-render-barrier"
+        ReleaseRawRenderBarrier => "release-raw-render-barrier"
         RecoveryCopy => "recovery-copy"
         RecoveryDownload => "recovery-download"
         RecoveryReload => "recovery-reload"
@@ -838,6 +848,10 @@ fn parse_driver_event(detail : String) -> DriverEvent {
     Lifecycle(ForceParserFailure)
   } else if detail == "force-reconstruction-failure" {
     Lifecycle(ForceReconstructionFailure)
+  } else if detail == "arm-raw-render-barrier" {
+    Lifecycle(ArmRawRenderBarrier)
+  } else if detail == "release-raw-render-barrier" {
+    Lifecycle(ReleaseRawRenderBarrier)
   } else if detail == "recovery-copy" {
     Lifecycle(RecoveryCopy)
   } else if detail == "recovery-download" {
@@ -2047,6 +2061,12 @@ fn update_lifecycle(
       let next = { ..model, force_reconstruction_failure: true }
       (next, @rabbita_runtime.none)
     }
+    ArmRawRenderBarrier => {
+      raw_input_coordinator.arm_render_barrier()
+      (model, @rabbita_runtime.none)
+    }
+    ReleaseRawRenderBarrier =>
+      (model, raw_input_coordinator.release_render_barrier())
     RecoveryCopy =>
       (
         model,
@@ -2737,6 +2757,18 @@ pub fn force_editor_failure() -> Unit {
 /// Private dev-host control: the next normal edit fails after CRDT acceptance.
 pub fn force_parser_failure() -> Unit {
   dispatch_driver("force-parser-failure")
+}
+
+///|
+/// Private dev-host control: hold the next Raw transaction at AfterRender.
+pub fn arm_raw_render_barrier() -> Unit {
+  dispatch_driver("arm-raw-render-barrier")
+}
+
+///|
+/// Private dev-host control: release a held Raw AfterRender transaction.
+pub fn release_raw_render_barrier() -> Unit {
+  dispatch_driver("release-raw-render-barrier")
 }
 
 ///|

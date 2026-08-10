@@ -72,6 +72,11 @@ priv struct RawInputCoordinator {
   composition : @ref.Ref[PendingRawInput?]
   composition_final_source : @ref.Ref[String?]
   deferred_composition_finished : @ref.Ref[Bool]
+  render_barrier_armed : @ref.Ref[Bool]
+  render_barrier_waiting : @ref.Ref[Bool]
+  render_barrier_token : @ref.Ref[Int?]
+  render_barrier_latest_model : @ref.Ref[@ref.Ref[DriverModel?]?]
+  render_barrier_emit : @ref.Ref[@cmd.Emit[DriverEvent]?]
   telemetry : RawInputTelemetry?
 }
 
@@ -91,6 +96,11 @@ fn RawInputCoordinator::RawInputCoordinator(
     composition: @ref.Ref(None),
     composition_final_source: @ref.Ref(None),
     deferred_composition_finished: @ref.Ref(false),
+    render_barrier_armed: @ref.Ref(false),
+    render_barrier_waiting: @ref.Ref(false),
+    render_barrier_token: @ref.Ref(None),
+    render_barrier_latest_model: @ref.Ref(None),
+    render_barrier_emit: @ref.Ref(None),
     telemetry,
   }
 }
@@ -885,6 +895,91 @@ fn RawInputCoordinator::discard_deferred(self : RawInputCoordinator) -> Unit {
 }
 
 ///|
+fn RawInputCoordinator::arm_render_barrier(self : RawInputCoordinator) -> Unit {
+  self.render_barrier_armed.val = true
+  self.render_barrier_waiting.val = false
+  self.render_barrier_token.val = None
+  self.render_barrier_latest_model.val = None
+  self.render_barrier_emit.val = None
+}
+
+///|
+fn RawInputCoordinator::render_barrier_armed(
+  self : RawInputCoordinator,
+) -> Bool {
+  self.render_barrier_armed.val
+}
+
+///|
+fn RawInputCoordinator::render_barrier_waiting(
+  self : RawInputCoordinator,
+) -> Bool {
+  self.render_barrier_waiting.val
+}
+
+///|
+fn RawInputCoordinator::release_render_barrier(
+  self : RawInputCoordinator,
+) -> @cmd.Cmd {
+  self.render_barrier_armed.val = false
+  guard self.render_barrier_waiting.val else { return @rabbita_runtime.none }
+  self.render_barrier_waiting.val = false
+  let token = self.render_barrier_token.val
+  let latest_model = self.render_barrier_latest_model.val
+  let emit = self.render_barrier_emit.val
+  self.render_barrier_token.val = None
+  self.render_barrier_latest_model.val = None
+  self.render_barrier_emit.val = None
+  match (token, latest_model, emit) {
+    (Some(token), Some(latest_model), Some(emit)) =>
+      @cmd.custom_cmd(scheduler => {
+        self.complete_after_render(token, latest_model, emit, scheduler)
+      })
+    _ => @rabbita_runtime.none
+  }
+}
+
+///|
+fn RawInputCoordinator::complete_after_render(
+  self : RawInputCoordinator,
+  token : Int,
+  latest_model : @ref.Ref[DriverModel?],
+  emit : @cmd.Emit[DriverEvent],
+  scheduler : &@cmd.Scheduler,
+) -> Unit {
+  guard self.is_active(token) else { return }
+  self.render_barrier_waiting.val = false
+  self.render_barrier_token.val = None
+  self.render_barrier_latest_model.val = None
+  self.render_barrier_emit.val = None
+  self.mark_rendered(token)
+  let has_deferred = self.frontier.val.deferred is Some(_)
+  let has_deferred_composition = self.frontier.val.deferred_composition
+    is Some(_) &&
+    self.deferred_composition_finished.val
+  self.reduce_frontier(RawInputFrontierEvent::ClearDeferredCapture)
+  match latest_model.val {
+    Some(model) => {
+      publish(model, Some(self), None)
+      self.reduce_frontier(RawInputFrontierEvent::FinishDelivery(token))
+      if has_deferred_composition {
+        scheduler.add(self.enqueue_deferred_composition(model, emit))
+      } else if has_deferred {
+        scheduler.add(self.enqueue_deferred(model, emit))
+      }
+    }
+    None => {
+      self.discard_deferred()
+      self.reduce_frontier(RawInputFrontierEvent::ClearDeferredComposition)
+      self.reduce_frontier(RawInputFrontierEvent::FinishDelivery(token))
+    }
+  }
+  if !has_deferred_composition && self.pending.val is None {
+    self.deferred_composition_finished.val = false
+  }
+}
+
+///|
 /// Finish a normalized native transaction after its resulting render. Keep the
 /// token and source active until AfterRender so a native input that arrives
 /// before the controlled DOM repaint can be deferred against this frontier.
@@ -898,31 +993,18 @@ fn RawInputCoordinator::finish(
   after_render(
     scheduler => {
       guard self.is_active(token) else { return }
-      self.mark_rendered(token)
-      let has_deferred = self.frontier.val.deferred is Some(_)
-      let has_deferred_composition = self.frontier.val.deferred_composition
-        is Some(_) &&
-        self.deferred_composition_finished.val
-      self.reduce_frontier(RawInputFrontierEvent::ClearDeferredCapture)
-      match latest_model.val {
-        Some(model) => {
-          publish(model, Some(self), None)
-          self.reduce_frontier(RawInputFrontierEvent::FinishDelivery(token))
-          if has_deferred_composition {
-            scheduler.add(self.enqueue_deferred_composition(model, emit))
-          } else if has_deferred {
-            scheduler.add(self.enqueue_deferred(model, emit))
-          }
+      if self.render_barrier_armed.val {
+        self.render_barrier_waiting.val = true
+        self.render_barrier_token.val = Some(token)
+        self.render_barrier_latest_model.val = Some(latest_model)
+        self.render_barrier_emit.val = Some(emit)
+        match latest_model.val {
+          Some(model) => publish(model, Some(self), None)
+          None => ()
         }
-        None => {
-          self.discard_deferred()
-          self.reduce_frontier(RawInputFrontierEvent::ClearDeferredComposition)
-          self.reduce_frontier(RawInputFrontierEvent::FinishDelivery(token))
-        }
+        return
       }
-      if !has_deferred_composition && self.pending.val is None {
-        self.deferred_composition_finished.val = false
-      }
+      self.complete_after_render(token, latest_model, emit, scheduler)
     },
     emit,
   )
@@ -937,6 +1019,11 @@ fn RawInputCoordinator::discard(
   if self.is_active(token) {
     self.reduce_frontier(RawInputFrontierEvent::DiscardDelivery(token))
     self.deferred_composition_finished.val = false
+    self.render_barrier_armed.val = false
+    self.render_barrier_waiting.val = false
+    self.render_barrier_token.val = None
+    self.render_barrier_latest_model.val = None
+    self.render_barrier_emit.val = None
     match self.telemetry {
       Some(telemetry) => telemetry.phase.val = None
       None => ()
@@ -965,6 +1052,11 @@ fn RawInputCoordinator::cancel_pending(self : RawInputCoordinator) -> Unit {
   self.composition.val = None
   self.composition_final_source.val = None
   self.deferred_composition_finished.val = false
+  self.render_barrier_armed.val = false
+  self.render_barrier_waiting.val = false
+  self.render_barrier_token.val = None
+  self.render_barrier_latest_model.val = None
+  self.render_barrier_emit.val = None
 }
 
 ///|
