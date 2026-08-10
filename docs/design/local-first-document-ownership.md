@@ -44,15 +44,33 @@ Confusing these is the failure this design prevents.
 | Portable artifact | what survives this software's disappearance |
 | Derived caches | syntax tree, semantic IR, projection, view patches |
 
-The causal authority is the operation graph. Current state is materialized from
-it. The portable artifact is a plain `.md`. Derived caches are reconstructible
-and never authoritative — losing them costs time, never information.
+The Causal Authority is the operation graph. Current state is materialized
+from it. Derived caches are reconstructible and never authoritative — losing
+them costs time, never information.
 
-The portable artifact is deliberately redundant. It is the guarantee that
-remains when the history cannot be read at all, and it is why an archive is
-never reduced to "just the operations". It is a materialized view, not a second
-writable authority: a `.md` changed by an outside tool re-enters as an explicit
-import, never as a merge between two truths.
+Portable content has two persistence modes, neither a single universal
+authority:
+
+| Mode | What survives | What settles portable content |
+| --- | --- | --- |
+| Archive-backed | Opaque history payload, portable text, application Metadata | Exported `.md` is an unassociated portable artifact; no File Authority exists |
+| File-backed | Continuing File association to a Markdown body file | The Markdown body file is File Authority for portable content; accepted operation history remains Causal Authority for causal order and identity |
+
+There is no global authority. File Authority and Causal Authority each settle
+their own scope.
+
+In Archive-backed persistence, the portable artifact is deliberately redundant.
+It is the guarantee that remains when the history cannot be read at all, and it
+is why an archive is never reduced to "just the operations". Opening an
+unassociated `.md` — including a copy of an exported file — follows Import
+Markdown: a new Editing Document and a new causal history baseline, unless
+synchronized Metadata supports Join Existing Editing Document.
+
+In File-backed persistence, a continuing File association makes the Markdown
+body file the File Authority for portable content. External admission preserves
+Editing Document identity when associated content changes. A rename or move
+preserves identity by updating the association. Import Markdown remains the
+path for an unassociated `.md`, whether copied, exported, or never associated.
 
 ## Session state is not an archive
 
@@ -177,6 +195,21 @@ input path has durably recorded a history of whole-document replacements in
 place of what the user actually did, and no later feature can recover a
 granularity that was never captured.
 
+Snapshot inference is a narrowly scoped external-boundary exception for
+File-backed persistence only. External admission deterministically infers
+bounded multi-span edits from an admitted file's final text relative to the
+File baseline, validates sentinel-free UTF-16 boundaries, uses a resource
+budget with one-contiguous-replacement fallback, and requires exact replay.
+The selected inferred batch — including the contiguous-replacement fallback —
+is preflighted against receiver admission limits before any mutation. If no
+inferred batch fits, apply nothing, preserve the Observed external variant,
+and enter Content conflict. It uses the stable synthetic Coordinator writer
+for application-originated operations; application records distinguish
+admission provenance, and it never claims to recover the source editor's
+original operations or intent. This exception does not relax the requirement
+for any Loomark-originated input path: user actions within Loomark always
+arrive as edits.
+
 **Persistence triggers on history, not on text.** An operation that leaves the
 text unchanged still advanced the document. Anything that decides whether to
 save by comparing text will eventually skip a save that mattered.
@@ -213,13 +246,17 @@ Interim behavior should be honest rather than clever: after merging, re-derive
 the structure and, when an expected structural outcome does not hold, surface
 it for review instead of silently repairing it.
 
-Parser coverage belongs to a different axis than any of this. Because the text
-is the authority and no layer writes back to it, constructs the parser does not
-understand are held losslessly and simply cannot be structurally edited.
-Coverage limits what can be manipulated, not what can be kept — and the product
-contract should say so plainly: everything is preserved, structure editing
-applies to what was recognized, unrecognized regions are never rewritten
-without an explicit user action, and saving never reformats.
+Parser coverage belongs to a different axis than any of this. The parser and
+projection never silently reformat or rewrite text on Loomark-originated
+paths; constructs the parser does not understand are held losslessly and simply
+cannot be structurally edited. File-backed persistence may write accepted
+content to a Markdown body file, and the application may deliberately persist
+changes, but these are application writes of accepted content — not parser or
+projection writeback. Coverage limits what can be manipulated, not what can be
+kept — and the product contract should say so plainly: everything is preserved,
+structure editing applies to what was recognized, unrecognized regions are
+never rewritten without an explicit user action, and the parser and projection
+never silently reformat.
 
 ## Verification
 
@@ -262,3 +299,6 @@ being invalidated by it.
 - [Stable Document Entity Graph](stable-document-entity-graph.md) — stable
   editing-entity identity above projection
 - [Design Concerns](design-concerns.md) — open problems
+- [Markdown file-backed authority and external
+  admission](../decisions/2026-08-09-markdown-file-backed-authority-and-external-admission.md)
+  — File Authority, External admission, and the persistence-mode split
