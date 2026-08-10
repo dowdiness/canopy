@@ -2013,6 +2013,145 @@ test("Raw input retains the first backward selection and latest native caret", a
   }
 })
 
+test("Raw input preserves same-character insertion at the trusted caret", async ({ browser }) => {
+  const host = await mountHost(browser, "x")
+  try {
+    const input = host.page.locator("#loomark-input")
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(0, 0)
+    })
+
+    await host.page.keyboard.type("x")
+
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("xx")
+    expect(await snapshot(host.page)).toMatchObject({
+      source: "xx",
+      committed_change_count: 1,
+      error_code: null,
+    })
+    await expect(input).toHaveValue("xx")
+    await expect(input).toBeFocused()
+    await expect.poll(() => input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      return `${textarea.selectionStart}:${textarea.selectionEnd}`
+    })).toBe("1:1")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("failed same-character Raw insertion restores canonical text and caret", async ({ browser }) => {
+  const host = await mountHost(browser, "x")
+  try {
+    const input = host.page.locator("#loomark-input")
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(0, 0)
+    })
+    await forceEditorFailure(host.page)
+    await expect.poll(async () => (await snapshot(host.page)).editor_failure_armed).toBe(true)
+
+    await host.page.keyboard.type("x")
+
+    await expect.poll(async () => (await snapshot(host.page)).error_code)
+      .toBe("editor-commit-failed")
+    expect(await snapshot(host.page)).toMatchObject({
+      source: "x",
+      committed_change_count: 0,
+      error_code: "editor-commit-failed",
+    })
+    await expect(input).toHaveValue("x")
+    await expect(input).toBeFocused()
+    await expect.poll(() => input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      return `${textarea.selectionStart}:${textarea.selectionEnd}`
+    })).toBe("0:0")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Raw input preserves same-character insertion in the middle", async ({ browser }) => {
+  const host = await mountHost(browser, "aba")
+  try {
+    const input = host.page.locator("#loomark-input")
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(2, 2)
+    })
+
+    await host.page.keyboard.type("a")
+
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("abaa")
+    expect(await snapshot(host.page)).toMatchObject({
+      source: "abaa",
+      committed_change_count: 1,
+      error_code: null,
+    })
+    await expect(input).toHaveValue("abaa")
+    await expect(input).toBeFocused()
+    await expect.poll(() => input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      return `${textarea.selectionStart}:${textarea.selectionEnd}`
+    })).toBe("3:3")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Raw input coalesces same-character and mixed prefix input once", async ({ browser }) => {
+  const host = await mountHost(browser, "x")
+  try {
+    const input = host.page.locator("#loomark-input")
+    await input.focus()
+    await dispatchRawNativeEdits(input, [
+      {
+        value: "xx",
+        beforeStart: 0,
+        beforeEnd: 0,
+        afterStart: 1,
+        afterEnd: 1,
+        data: "x",
+      },
+      {
+        value: "xxx",
+        beforeStart: 1,
+        beforeEnd: 1,
+        afterStart: 2,
+        afterEnd: 2,
+        data: "x",
+      },
+      {
+        value: "xxyx",
+        beforeStart: 2,
+        beforeEnd: 2,
+        afterStart: 3,
+        afterEnd: 3,
+        data: "y",
+      },
+    ])
+
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("xxyx")
+    expect(await snapshot(host.page)).toMatchObject({
+      source: "xxyx",
+      committed_change_count: 1,
+      error_code: null,
+    })
+    await expect(input).toHaveValue("xxyx")
+    await expect(input).toBeFocused()
+    await expect.poll(() => input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      return `${textarea.selectionStart}:${textarea.selectionEnd}`
+    })).toBe("3:3")
+  } finally {
+    await host.context.close()
+  }
+})
+
 test("Raw input coalesces a same-task burst into one commit", async ({ browser }) => {
   const host = await mountHost(browser, "start")
   try {
@@ -2412,6 +2551,48 @@ test("Raw IME composition commits the accepted final value once", async ({ brows
       error_code: null,
     })
     await expect(input).toHaveValue("start漢字")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Raw IME composition preserves same-character final placement", async ({ browser }) => {
+  const host = await mountHost(browser, "漢")
+  try {
+    const input = host.page.locator("#loomark-input")
+    await input.focus()
+    await input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      textarea.setSelectionRange(0, 0)
+    })
+    const session = await host.context.newCDPSession(host.page)
+
+    await session.send("Input.imeSetComposition", {
+      text: "かん",
+      selectionStart: 2,
+      selectionEnd: 2,
+    })
+    await expect(input).toHaveValue("かん漢")
+    expect(await snapshot(host.page)).toMatchObject({
+      source: "漢",
+      committed_change_count: 0,
+      error_code: null,
+    })
+
+    await session.send("Input.insertText", { text: "漢" })
+
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("漢漢")
+    expect(await snapshot(host.page)).toMatchObject({
+      source: "漢漢",
+      committed_change_count: 1,
+      error_code: null,
+    })
+    await expect(input).toHaveValue("漢漢")
+    await expect(input).toBeFocused()
+    await expect.poll(() => input.evaluate(element => {
+      const textarea = element as HTMLTextAreaElement
+      return `${textarea.selectionStart}:${textarea.selectionEnd}`
+    })).toBe("1:1")
   } finally {
     await host.context.close()
   }

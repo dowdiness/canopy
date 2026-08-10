@@ -10,11 +10,17 @@ test "Raw frontier reducer keeps deferred input ahead of the active delivery" {
     RawInputFrontierEvent::CaptureDeferredBeforeInput({
       base_source: "startX",
       input_type: "insertText",
+      selection: @dom_boundary.TextSelection(6, 6, @dom_boundary.NoDirection),
     }),
   )
   let deferred = {
     base_source: "startX",
     input_type: "insertText",
+    before_input_selection: @dom_boundary.TextSelection(
+      6,
+      6,
+      @dom_boundary.NoDirection,
+    ),
     source: "startXY",
     post_input_selection: @dom_boundary.TextSelection(
       7,
@@ -49,6 +55,11 @@ test "Raw frontier reducer keeps composition behind the active delivery" {
     RawInputFrontierEvent::BeginDeferredComposition({
       base_source: "startX",
       input_type: "insertCompositionText",
+      before_input_selection: @dom_boundary.TextSelection(
+        6,
+        6,
+        @dom_boundary.NoDirection,
+      ),
       source: "startX",
       post_input_selection: @dom_boundary.TextSelection(
         6,
@@ -91,6 +102,7 @@ test "Raw frontier reducer rejects capture without an active delivery" {
     RawInputFrontierEvent::CaptureDeferredBeforeInput({
       base_source: "start",
       input_type: "insertText",
+      selection: @dom_boundary.TextSelection(5, 5, @dom_boundary.NoDirection),
     }),
   )
   assert_true(next.deferred_before_input is None)
@@ -143,6 +155,7 @@ test "Raw frontier reducer cancellation clears deferred and active state" {
     RawInputFrontierEvent::CaptureDeferredBeforeInput({
       base_source: "startX",
       input_type: "insertText",
+      selection: @dom_boundary.TextSelection(6, 6, @dom_boundary.NoDirection),
     }),
   )
   let canceled = reduce_raw_input_frontier(

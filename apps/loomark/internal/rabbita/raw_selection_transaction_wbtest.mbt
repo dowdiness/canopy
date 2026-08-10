@@ -126,6 +126,119 @@ test "native Raw pairing accepts two collapsed insertions as one change" {
 }
 
 ///|
+test "native Raw pairing preserves same-character insertion at trusted caret" {
+  let context = RawSelectionTestContext::RawSelectionTestContext(
+    "raw-native-same-character-insertion", "x",
+  )
+  let candidate = RawNativeInputCandidate::RawNativeInputCandidate(
+    before_input=RawBeforeInputCandidate::RawBeforeInputCandidate(
+      selection=context.selection(0, 0),
+      input_type="insertText",
+      is_composing=false,
+    ),
+    source="xx",
+    post_input_selection=@dom_boundary.TextSelection(
+      1,
+      1,
+      @dom_boundary.NoDirection,
+    ),
+  )
+  guard normalize_raw_input_candidate(context.model, candidate) is Some(request) else {
+    abort("same-character insertion must use the trusted native caret")
+  }
+  assert_eq(request.selection.selection.anchor(), 0)
+  assert_eq(request.selection.selection.head(), 0)
+  assert_eq(request.inserted, "x")
+}
+
+///|
+test "native Raw pairing keeps trusted placement for ambiguous insertion bursts" {
+  for
+    case in [
+      ("raw-native-identical-middle", "aba", 2, "abaa", 3, "a"),
+      ("raw-native-identical-prefix-burst", "x", 0, "xxxx", 3, "xxx"),
+      ("raw-native-mixed-prefix-burst", "x", 0, "xxyx", 3, "xxy"),
+      ("raw-native-identical-emoji", "😀", 0, "😀😀", 2, "😀"),
+      (
+        "raw-native-identical-zwj", "👨‍👩‍👧‍👦", 0, "👨‍👩‍👧‍👦👨‍👩‍👧‍👦",
+        11, "👨‍👩‍👧‍👦",
+      ),
+      (
+        "raw-native-identical-flag", "🇯🇵", 0, "🇯🇵🇯🇵", 4, "🇯🇵",
+      ),
+    ] {
+    let (agent_id, source, caret, native_source, post_caret, inserted) = case
+    let context = RawSelectionTestContext::RawSelectionTestContext(
+      agent_id, source,
+    )
+    let candidate = RawNativeInputCandidate::RawNativeInputCandidate(
+      before_input=RawBeforeInputCandidate::RawBeforeInputCandidate(
+        selection=context.selection(caret, caret),
+        input_type="insertText",
+        is_composing=false,
+      ),
+      source=native_source,
+      post_input_selection=@dom_boundary.TextSelection(
+        post_caret,
+        post_caret,
+        @dom_boundary.NoDirection,
+      ),
+    )
+    guard normalize_raw_input_candidate(context.model, candidate)
+      is Some(request) else {
+      abort("ambiguous insertion burst must use its trusted native caret")
+    }
+    assert_eq(request.selection.selection.anchor(), caret)
+    assert_eq(request.selection.selection.head(), caret)
+    assert_eq(request.inserted, inserted)
+  }
+}
+
+///|
+test "deferred Raw rebase preserves trusted same-character placement" {
+  let context = RawSelectionTestContext::RawSelectionTestContext(
+    "raw-deferred-same-character-insertion", "xx",
+  )
+  let deferred : DeferredRawInput = {
+    base_source: "xx",
+    input_type: "insertText",
+    before_input_selection: @dom_boundary.TextSelection(
+      1,
+      1,
+      @dom_boundary.NoDirection,
+    ),
+    source: "xxx",
+    post_input_selection: @dom_boundary.TextSelection(
+      2,
+      2,
+      @dom_boundary.NoDirection,
+    ),
+    input_count: 1,
+  }
+  guard rebase_deferred_raw_input(context.model, deferred) is Some(before_input) else {
+    abort("deferred input must rebase from its trusted beforeinput selection")
+  }
+  assert_eq(before_input.selection.document_id, context.model.document_id)
+  assert_eq(before_input.selection.version, context.model.document_version)
+  assert_eq(before_input.selection.selection.anchor(), 1)
+  assert_eq(before_input.selection.selection.head(), 1)
+
+  let candidate = RawNativeInputCandidate::authorized(
+    before_input~,
+    source=deferred.source,
+    post_input_selection=deferred.post_input_selection,
+  )
+  guard normalize_raw_input_candidate(context.model, candidate) is Some(request) else {
+    abort(
+      "deferred same-character insertion must normalize at its trusted caret",
+    )
+  }
+  assert_eq(request.selection.selection.anchor(), 1)
+  assert_eq(request.selection.selection.head(), 1)
+  assert_eq(request.inserted, "x")
+}
+
+///|
 test "native Raw pairing normalizes a ten-character collapsed burst" {
   let context = RawSelectionTestContext::RawSelectionTestContext(
     "raw-native-collapsed-burst", "start",

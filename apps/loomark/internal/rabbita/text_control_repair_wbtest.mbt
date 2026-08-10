@@ -394,6 +394,109 @@ test "Raw coordinator keeps an active delivery for unpaired input" {
 }
 
 ///|
+test "Raw coordinator keeps the first deferred selection and latest native value" {
+  let coordinator = RawInputCoordinator::RawInputCoordinator(None)
+  coordinator.reduce_frontier(
+    RawInputFrontierEvent::BeginDelivery({ token: 1, source: "xx" }),
+  )
+  coordinator.reduce_frontier(
+    RawInputFrontierEvent::CaptureDeferredBeforeInput({
+      base_source: "xx",
+      input_type: "insertText",
+      selection: @dom_boundary.TextSelection(1, 1, @dom_boundary.NoDirection),
+    }),
+  )
+  assert_true(
+    coordinator.defer_native_input(
+      "xxx",
+      @dom_boundary.TextSelection(2, 2, @dom_boundary.NoDirection),
+    ),
+  )
+  coordinator.reduce_frontier(
+    RawInputFrontierEvent::CaptureDeferredBeforeInput({
+      base_source: "xx",
+      input_type: "insertFromPaste",
+      selection: @dom_boundary.TextSelection(2, 2, @dom_boundary.NoDirection),
+    }),
+  )
+  assert_true(
+    coordinator.defer_native_input(
+      "xxyx",
+      @dom_boundary.TextSelection(3, 3, @dom_boundary.NoDirection),
+    ),
+  )
+
+  guard coordinator.frontier.val.deferred is Some(deferred) else {
+    fail("paired native input must remain deferred")
+  }
+  assert_eq(deferred.input_type, "insertText")
+  assert_eq(deferred.before_input_selection.start(), 1)
+  assert_eq(deferred.before_input_selection.end(), 1)
+  assert_eq(deferred.source, "xxyx")
+  assert_eq(deferred.post_input_selection.start(), 3)
+  assert_eq(deferred.input_count, 2)
+}
+
+///|
+test "deferred Raw composition keeps the first ordinary input selection" {
+  let context = RawSelectionTestContext::RawSelectionTestContext(
+    "raw-deferred-composition-selection", "xx",
+  )
+  let coordinator = RawInputCoordinator::RawInputCoordinator(None)
+  coordinator.reduce_frontier(
+    RawInputFrontierEvent::BeginDelivery({ token: 1, source: "xx" }),
+  )
+  coordinator.reduce_frontier(
+    RawInputFrontierEvent::CaptureDeferredBeforeInput({
+      base_source: "xx",
+      input_type: "insertText",
+      selection: @dom_boundary.TextSelection(1, 1, @dom_boundary.NoDirection),
+    }),
+  )
+  assert_true(
+    coordinator.defer_native_input(
+      "xxx",
+      @dom_boundary.TextSelection(2, 2, @dom_boundary.NoDirection),
+    ),
+  )
+  assert_true(
+    coordinator.begin_native_composition(
+      context.model,
+      "xxx",
+      @dom_boundary.TextSelection(2, 2, @dom_boundary.NoDirection),
+    ),
+  )
+  assert_true(
+    coordinator.update_composition(
+      "xxyx",
+      @dom_boundary.TextSelection(3, 3, @dom_boundary.NoDirection),
+    ),
+  )
+
+  guard coordinator.frontier.val.deferred_composition is Some(composition) else {
+    fail("composition must replace the ordinary deferred frontier")
+  }
+  assert_true(coordinator.frontier.val.deferred is None)
+  assert_eq(composition.before_input_selection.start(), 1)
+  assert_eq(composition.before_input_selection.end(), 1)
+  guard rebase_deferred_raw_input(context.model, composition)
+    is Some(before_input) else {
+    fail("deferred composition must rebase from the ordinary input selection")
+  }
+  let candidate = RawNativeInputCandidate::authorized(
+    before_input~,
+    source=composition.source,
+    post_input_selection=composition.post_input_selection,
+  )
+  guard normalize_raw_input_candidate(context.model, candidate) is Some(request) else {
+    fail("rebased deferred composition must normalize")
+  }
+  assert_eq(request.selection.selection.anchor(), 1)
+  assert_eq(request.selection.selection.head(), 1)
+  assert_eq(request.inserted, "xy")
+}
+
+///|
 test "Raw coordinator clears a canceled deferred capture before rebase" {
   let context = RawSelectionTestContext::RawSelectionTestContext(
     "coordinator-deferred-cancel", "startX",
@@ -406,12 +509,18 @@ test "Raw coordinator clears a canceled deferred capture before rebase" {
     RawInputFrontierEvent::CaptureDeferredBeforeInput({
       base_source: "startX",
       input_type: "insertText",
+      selection: @dom_boundary.TextSelection(6, 6, @dom_boundary.NoDirection),
     }),
   )
   coordinator.reduce_frontier(
     RawInputFrontierEvent::StoreDeferred({
       base_source: "startX",
       input_type: "insertText",
+      before_input_selection: @dom_boundary.TextSelection(
+        6,
+        6,
+        @dom_boundary.NoDirection,
+      ),
       source: "startXY",
       post_input_selection: @dom_boundary.TextSelection(
         7,

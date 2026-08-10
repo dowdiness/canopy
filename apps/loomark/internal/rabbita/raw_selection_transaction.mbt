@@ -78,6 +78,7 @@ fn RawNativeInputCandidate::authorized(
 priv struct DeferredRawInput {
   base_source : String
   input_type : String
+  before_input_selection : @dom_boundary.TextSelection
   source : String
   post_input_selection : @dom_boundary.TextSelection
   input_count : Int
@@ -88,6 +89,7 @@ priv struct DeferredRawInput {
 priv struct DeferredRawInputCapture {
   base_source : String
   input_type : String
+  selection : @dom_boundary.TextSelection
 }
 
 ///|
@@ -319,11 +321,21 @@ fn normalize_raw_input_candidate(
       .to_owned()
     (dom_selection.start(), dom_selection.end(), inserted)
   } else {
-    let change = @text_change.compute_text_change(old_value, latest_value)
-    let old_end = change.start + change.delete_len
     let caret = dom_selection.start()
-    guard change.start <= caret && caret <= old_end else { return None }
-    (change.start, old_end, change.inserted)
+    let prefix = old_value.sub(end=caret)
+    let suffix = old_value.sub(start=caret)
+    let inserted_end = latest_value.length() - suffix.length()
+    if latest_value.has_prefix(prefix) &&
+      latest_value.has_suffix(suffix) &&
+      inserted_end > caret {
+      let inserted = latest_value.sub(start=caret, end=inserted_end).to_owned()
+      (caret, caret, inserted)
+    } else {
+      let change = @text_change.compute_text_change(old_value, latest_value)
+      let old_end = change.start + change.delete_len
+      guard change.start <= caret && caret <= old_end else { return None }
+      (change.start, old_end, change.inserted)
+    }
   }
   guard post_offset == change_start + inserted.length() else { return None }
   let request_selection = if !selection.is_collapsed() {
@@ -363,18 +375,9 @@ fn rebase_deferred_raw_input(
   model : DriverModel,
   deferred : DeferredRawInput,
 ) -> RawBeforeInputCandidate? {
-  let old_source = model.document.source()
-  let old_value = raw_textarea_value(old_source)
-  let latest_value = raw_textarea_value(deferred.source)
-  let change = @text_change.compute_text_change(old_value, latest_value)
-  let start = match raw_source_offset_from_dom(old_source, change.start) {
-    Some(offset) => offset
-    None => return None
-  }
-  let selection = @markdown.MarkdownDocumentUtf16Selection(
+  let selection = markdown_document_utf16_selection_from_dom(
     model.document,
-    anchor=start,
-    head=start,
+    deferred.before_input_selection,
   ) catch {
     _ => return None
   }
