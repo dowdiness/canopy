@@ -25,7 +25,7 @@ state or cause a shell effect.
 | --- | --- | --- | --- |
 | `BeginDelivery(delivery)` | no active delivery, pending, live composition, capture, ordinary deferred input, or deferred composition | set `in_flight` | `Noop` |
 | `BeginPendingDelivery(token)` | pending exists; no active delivery, composition, or deferred frontier | move pending to `in_flight` and clear pending | `Deliver(token, input)` |
-| `FinishDelivery(token)` | active token matches | clear `in_flight`; also clear a completion marker when no deferred composition or pending follow-up remains | `Noop` |
+| `FinishDelivery(token)` | active token matches | clear `in_flight` and its deferred capture; also clear a completion marker when no deferred composition or pending follow-up remains | `Noop` |
 | `DiscardDelivery(token)` | active token matches | clear active, pending, composition, all deferred state, and completion marker | `Noop` |
 | `CaptureDeferredBeforeInput(capture)` | active delivery or deferred ordinary input; no deferred composition | set `deferred_before_input` | `Noop` |
 | `StoreDeferred(input)` | active delivery + capture; no deferred composition | clear capture and set deferred ordinary input; retain any pending batch waiting behind the active delivery | `Noop` |

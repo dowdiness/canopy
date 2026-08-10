@@ -190,6 +190,35 @@ test "Raw state reducer keeps pending input through deferred composition no-op" 
 }
 
 ///|
+test "Raw state reducer clears deferred capture when delivery finishes" {
+  let (active, _) = reduce_raw_input(
+    RawInputState::initial(),
+    RawInputEvent::BeginDelivery({ token: 3, source: "start" }),
+  )
+  let (captured, _) = reduce_raw_input(
+    active,
+    RawInputEvent::CaptureDeferredBeforeInput({
+      base_source: "start",
+      input_type: "insertText",
+      selection: @dom_boundary.TextSelection(5, 5, @dom_boundary.NoDirection),
+    }),
+  )
+  assert_true(captured.deferred_before_input is Some(_))
+  let (finished, _) = reduce_raw_input(
+    captured,
+    RawInputEvent::FinishDelivery(3),
+  )
+  assert_true(finished.in_flight is None)
+  assert_true(finished.deferred_before_input is None)
+  let (stored, decision) = reduce_raw_input(
+    finished,
+    RawInputEvent::StorePending(raw_state_test_input("startX")),
+  )
+  assert_true(decision is RawInputDecision::StoredPending)
+  assert_true(stored.pending is Some(_))
+}
+
+///|
 test "Raw state reducer clears completion marker after follow-up delivery" {
   let (active, _) = reduce_raw_input(
     RawInputState::initial(),

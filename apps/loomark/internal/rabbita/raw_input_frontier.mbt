@@ -208,7 +208,7 @@ fn reduce_raw_input(
     RawInputEvent::FinishDelivery(token) =>
       match state.in_flight {
         Some(delivery) if delivery.token == token => {
-          let next = { ..state, in_flight: None }
+          let next = { ..state, in_flight: None, deferred_before_input: None }
           let next = if next.deferred_composition is None &&
             next.pending is None {
             { ..next, deferred_composition_finished: false }
