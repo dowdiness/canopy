@@ -96,12 +96,10 @@ test "apply_local_text_change reuses a valid ASCII insertion hint" {
   editor.doc.insert(@text.Pos::at(item_start), "X")
   let new_source = editor.doc.text()
   inspect(new_source, content="abXcd")
+  let hint = @loom_core.Edit::insert(2, 1)
+  assert_true(known_edit_matches_source_change(old_source, new_source, hint))
 
-  editor.apply_local_text_change(
-    old_source,
-    new_source,
-    Some(@loom_core.Edit::insert(2, 1)),
-  )
+  editor.apply_local_text_change(old_source, new_source, Some(hint))
   inspect(
     editor.cursor_view.get_cursor("after").unwrap().adjusted_cursor,
     content="5",

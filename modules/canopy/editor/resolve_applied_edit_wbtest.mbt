@@ -3,11 +3,11 @@
 fn assert_resolved_edit_matches(
   old_source : String,
   new_source : String,
+  expected : @loom_core.Edit,
   known_start : Int,
   known_old_len : Int,
   known_new_len : Int,
 ) -> Unit raise Failure {
-  let expected = compute_edit(old_source, new_source)
   let resolved = try! resolve_applied_edit(
     old_source,
     new_source,
@@ -22,7 +22,7 @@ fn assert_resolved_edit_matches(
           "resolved edit differs: \{old_source} -> \{new_source}, known=\{known_start}/\{known_old_len}/\{known_new_len}, actual=\{edit.start()}/\{edit.old_len()}/\{edit.new_len()}, expected=\{expected.start()}/\{expected.old_len()}/\{expected.new_len()}",
         )
       }
-    None => abort("known edit unexpectedly resolved to None")
+    None => fail("known edit unexpectedly resolved to None")
   }
 }
 
@@ -36,15 +36,12 @@ fn assert_resolve_matrix(
 ) -> Unit raise Failure {
   let old_length = old_source.length()
   let new_length = new_source.length()
-  for known_start = 0; known_start <= old_length; known_start = known_start + 1 {
-    for known_old_len = 0
-        known_old_len <= old_length
-        known_old_len = known_old_len + 1 {
-      for known_new_len = 0
-          known_new_len <= new_length
-          known_new_len = known_new_len + 1 {
+  let expected = compute_edit(old_source, new_source)
+  for known_start in 0..<=old_length {
+    for known_old_len in 0..<=old_length {
+      for known_new_len in 0..<=new_length {
         assert_resolved_edit_matches(
-          old_source, new_source, known_start, known_old_len, known_new_len,
+          old_source, new_source, expected, known_start, known_old_len, known_new_len,
         )
       }
     }
@@ -116,6 +113,20 @@ test "known edit fast path is conservative around boundaries" {
   let crlf_new = "a\nb"
   let crlf_edit = compute_edit(crlf_old, crlf_new)
   assert_false(known_edit_matches_source_change(crlf_old, crlf_new, crlf_edit))
+
+  let lone_cr_old = "a\rb"
+  let lone_cr_new = "a\rXb"
+  let lone_cr_edit = compute_edit(lone_cr_old, lone_cr_new)
+  assert_true(
+    known_edit_matches_source_change(lone_cr_old, lone_cr_new, lone_cr_edit),
+  )
+
+  let lone_lf_old = "a\nb"
+  let lone_lf_new = "a\nXb"
+  let lone_lf_edit = compute_edit(lone_lf_old, lone_lf_new)
+  assert_true(
+    known_edit_matches_source_change(lone_lf_old, lone_lf_new, lone_lf_edit),
+  )
 }
 
 ///|
@@ -123,6 +134,6 @@ test "resolve_applied_edit keeps absent hints absent" {
   let resolved = try! resolve_applied_edit("abc", "aXbc", None)
   match resolved {
     None => ()
-    Some(_) => abort("an absent known edit must remain absent")
+    Some(_) => fail("an absent known edit must remain absent")
   }
 }

@@ -92,11 +92,27 @@ fn[T] SyncEditor::adjust_peer_cursors_after_text_change(
 }
 
 ///|
+/// Return true only for ASCII text without a CRLF grapheme. The local state is
+/// limited to the previous code unit so the ASCII and CRLF checks share one
+/// source pass; non-ASCII and CRLF transitions remain on the canonical diff.
+fn is_ascii_without_crlf(text : String) -> Bool {
+  let mut previous_was_cr = false
+  for ch in text {
+    if !ch.is_ascii() || (previous_was_cr && ch == '\n') {
+      return false
+    }
+    previous_was_cr = ch == '\r'
+  }
+  true
+}
+
+///|
 /// A known edit is safe to reuse when it describes the same minimal UTF-16
 /// range as the source transition. Prefix/suffix equality proves the changed
 /// window is in the right place; the edge checks conservatively reject ranges
-/// that could be shrunk or shifted across repeated code units. Uncertain
-/// Unicode cases fall back to the canonical grapheme-aware diff.
+/// that could be shrunk or shifted across repeated code units. Matching edge
+/// characters intentionally reduce the fast-path hit rate and use the
+/// canonical grapheme-aware diff instead of weakening this proof.
 fn known_edit_matches_source_change(
   old_source : String,
   new_source : String,
@@ -114,27 +130,11 @@ fn known_edit_matches_source_change(
     new_len > new_source.length() - start {
     return false
   }
-  if old_source.contains("\r\n") || new_source.contains("\r\n") {
+  if !is_ascii_without_crlf(old_source) || !is_ascii_without_crlf(new_source) {
     return false
-  }
-  for ch in old_source {
-    if !ch.is_ascii() {
-      return false
-    }
-  }
-  for ch in new_source {
-    if !ch.is_ascii() {
-      return false
-    }
   }
   let old_end = start + old_len
   let new_end = start + new_len
-  if @moji.is_trailing_surrogate_at(old_source, start) ||
-    @moji.is_trailing_surrogate_at(old_source, old_end) ||
-    @moji.is_trailing_surrogate_at(new_source, start) ||
-    @moji.is_trailing_surrogate_at(new_source, new_end) {
-    return false
-  }
   if old_len == 0 && new_len == 0 && start != old_source.length() {
     return false
   }
