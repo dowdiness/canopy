@@ -389,10 +389,13 @@ fn raw_editor_view(
           @rabbita_runtime.none
         })
         .on_compositionend(_ => {
-          raw_input_coordinator.finish_composition(
-            model.document.source(),
-            emit,
-          )
+          @cmd.batch([
+            raw_input_coordinator.finish_composition(
+              model.document.source(),
+              emit,
+            ),
+            raw_input_coordinator.finalize_deferred_composition(model, emit),
+          ])
         })
         .on_beforeinput(event => {
           raw_input_coordinator.capture_native_before_input(model, event)
@@ -414,10 +417,16 @@ fn raw_editor_view(
             } else {
               let matched = raw_input_coordinator.has_captured_before_input()
               let repair_unmatched = raw_input_coordinator.take_unmatched_input_repair()
-              let input_command = raw_input_coordinator.enqueue(
-                source, selection, emit,
+              let deferred = raw_input_coordinator.defer_native_input(
+                source, selection,
               )
-              if matched || !repair_unmatched {
+              let active_delivery = raw_input_coordinator.has_active_delivery()
+              let input_command = if deferred {
+                @rabbita_runtime.none
+              } else {
+                raw_input_coordinator.enqueue(source, selection, emit)
+              }
+              if deferred || matched || !repair_unmatched || active_delivery {
                 input_command
               } else {
                 let repair_epoch = raw_input_coordinator.epoch()
@@ -1035,18 +1044,22 @@ fn update_editing(
                 preview_finished=() => {
                   raw_input_coordinator.mark_preview_finished(token)
                 },
+                raw_mode_authorized=candidate.raw_mode_authorized,
               )
               let (next, selection_command, repair_command) = match outcome {
                 RawSelectionEditOutcome::Applied(selection)
                 | RawSelectionEditOutcome::Unchanged(selection) =>
                   (
                     next,
-                    raw_selection_after_render(latest_model, selection, emit),
+                    raw_native_selection_after_render(
+                      latest_model, raw_input_coordinator, selection, emit,
+                    ),
                     @rabbita_runtime.none,
                   )
                 RawSelectionEditOutcome::Rejected(
                   RawSelectionEditRejection::EditorCommitFailed
                 ) => {
+                  raw_input_coordinator.discard_deferred()
                   let repair_epoch = raw_input_coordinator.epoch()
                   let expected = candidate.before_input.selection
                   (
@@ -1058,8 +1071,10 @@ fn update_editing(
                     ),
                   )
                 }
-                RawSelectionEditOutcome::Rejected(_) =>
+                RawSelectionEditOutcome::Rejected(_) => {
+                  raw_input_coordinator.discard_deferred()
                   (next, @rabbita_runtime.none, @rabbita_runtime.none)
+                }
               }
               let finish_command = raw_input_coordinator.finish(
                 token, latest_model, emit,
@@ -1725,7 +1740,7 @@ fn update_navigation(
         _ => @core.Raw
       }
       if mode != model.state.mode() {
-        raw_input_coordinator.cancel_pending()
+        raw_input_coordinator.cancel_pending_for_navigation()
         block_input_coordinator.cancel_pending()
       }
       let transition = @core.reduce(
@@ -1743,7 +1758,7 @@ fn update_navigation(
     }
     ToggleSplitPreview => {
       if model.state.mode() == @core.Preview && model.split_preview_open {
-        raw_input_coordinator.cancel_pending()
+        raw_input_coordinator.cancel_pending_for_navigation()
       }
       let old_requested = preview_requested(model)
       let next = update_preview_document(

@@ -1,4 +1,20 @@
 ///|
+fn test_in_flight_token(coordinator : RawInputCoordinator) -> Int? {
+  match coordinator.frontier.val.in_flight {
+    Some(delivery) => Some(delivery.token)
+    None => None
+  }
+}
+
+///|
+fn test_in_flight_source(coordinator : RawInputCoordinator) -> String? {
+  match coordinator.frontier.val.in_flight {
+    Some(delivery) => Some(delivery.source)
+    None => None
+  }
+}
+
+///|
 test "rejected insertion maps a non-BMP UTF-16 text cursor back to accepted source" {
   let selection = rejected_text_selection(
     "A😀B",
@@ -89,7 +105,7 @@ test "Raw composition keeps intermediate DOM state out of pending input" {
 
   assert_eq(coordinator.display_source("start"), "startか")
   assert_true(coordinator.pending.val is None)
-  assert_true(coordinator.in_flight_token.val is None)
+  assert_true(test_in_flight_token(coordinator) is None)
 }
 
 ///|
@@ -121,8 +137,8 @@ test "Raw composition end releases one immediate final transaction" {
 
   assert_true(coordinator.composition.val is None)
   assert_true(coordinator.pending.val is None)
-  assert_eq(coordinator.in_flight_token.val, Some(0))
-  assert_eq(coordinator.in_flight_source.val, Some("start漢字"))
+  assert_eq(test_in_flight_token(coordinator), Some(0))
+  assert_eq(test_in_flight_source(coordinator), Some("start漢字"))
 }
 
 ///|
@@ -154,7 +170,7 @@ test "Canceled Raw composition never becomes an editor transaction" {
 
   assert_true(coordinator.composition.val is None)
   assert_true(coordinator.pending.val is None)
-  assert_true(coordinator.in_flight_token.val is None)
+  assert_true(test_in_flight_token(coordinator) is None)
   assert_true(coordinator.unmatched_before_input.val is None)
 }
 
@@ -194,8 +210,8 @@ test "Raw composition ignores one same-value final input while delivery is activ
   )
 
   assert_true(coordinator.pending.val is None)
-  assert_eq(coordinator.in_flight_token.val, Some(0))
-  assert_eq(coordinator.in_flight_source.val, Some("start漢字"))
+  assert_eq(test_in_flight_token(coordinator), Some(0))
+  assert_eq(test_in_flight_source(coordinator), Some("start漢字"))
 }
 
 ///|
@@ -286,8 +302,8 @@ test "Raw composition releases promoted input without a composition input" {
   ignore(coordinator.finish_composition("abcdef", emit))
 
   assert_true(coordinator.composition.val is None)
-  assert_eq(coordinator.in_flight_source.val, Some("abxyef"))
-  assert_eq(coordinator.in_flight_token.val, Some(0))
+  assert_eq(test_in_flight_source(coordinator), Some("abxyef"))
+  assert_eq(test_in_flight_token(coordinator), Some(0))
 }
 
 ///|
@@ -343,6 +359,75 @@ test "Raw composition keeps a pending ordinary input as its transaction base" {
   assert_eq(input.source, "abxy漢ef")
   assert_eq(input.post_input_selection.start(), 5)
   assert_true(coordinator.pending.val is None)
+}
+
+///|
+test "Raw coordinator does not guess an unpaired in-flight input" {
+  let coordinator = RawInputCoordinator::RawInputCoordinator(None)
+  coordinator.reduce_frontier(
+    RawInputFrontierEvent::BeginDelivery({ token: 1, source: "startX" }),
+  )
+  let deferred = coordinator.defer_native_input(
+    "startXY",
+    @dom_boundary.TextSelection(7, 7, @dom_boundary.NoDirection),
+  )
+  assert_false(deferred)
+  assert_true(coordinator.frontier.val.deferred is None)
+}
+
+///|
+test "Raw coordinator keeps an active delivery for unpaired input" {
+  let coordinator = RawInputCoordinator::RawInputCoordinator(None)
+  coordinator.reduce_frontier(
+    RawInputFrontierEvent::BeginDelivery({ token: 1, source: "startX" }),
+  )
+  let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
+  ignore(
+    coordinator.enqueue(
+      "startXY",
+      @dom_boundary.TextSelection(7, 7, @dom_boundary.NoDirection),
+      emit,
+    ),
+  )
+  assert_eq(test_in_flight_token(coordinator), Some(1))
+  assert_eq(test_in_flight_source(coordinator), Some("startX"))
+}
+
+///|
+test "Raw coordinator clears a canceled deferred capture before rebase" {
+  let context = RawSelectionTestContext::RawSelectionTestContext(
+    "coordinator-deferred-cancel", "startX",
+  )
+  let coordinator = RawInputCoordinator::RawInputCoordinator(None)
+  coordinator.reduce_frontier(
+    RawInputFrontierEvent::BeginDelivery({ token: 1, source: "startX" }),
+  )
+  coordinator.reduce_frontier(
+    RawInputFrontierEvent::CaptureDeferredBeforeInput({
+      base_source: "startX",
+      input_type: "insertText",
+    }),
+  )
+  coordinator.reduce_frontier(
+    RawInputFrontierEvent::StoreDeferred({
+      base_source: "startX",
+      input_type: "insertText",
+      source: "startXY",
+      post_input_selection: @dom_boundary.TextSelection(
+        7,
+        7,
+        @dom_boundary.NoDirection,
+      ),
+      input_count: 1,
+    }),
+  )
+  let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
+  ignore(coordinator.enqueue_deferred(context.model, emit))
+  assert_true(coordinator.frontier.val.deferred_before_input is None)
+  guard coordinator.pending.val is Some(pending) else {
+    fail("deferred input must become pending after rebase")
+  }
+  assert_eq(pending.source, "startXY")
 }
 
 ///|
@@ -546,7 +631,7 @@ test "Raw input cancellation clears live composition" {
 
   assert_true(coordinator.composition.val is None)
   assert_true(coordinator.pending.val is None)
-  assert_true(coordinator.in_flight_token.val is None)
+  assert_true(test_in_flight_token(coordinator) is None)
   assert_eq(coordinator.display_source("start"), "start")
 }
 
@@ -625,13 +710,14 @@ test "Raw coordinator cancel clears all state and invalidates capture expiry" {
     ),
   )
   let expiry_generation = coordinator.capture_generation.val
-  coordinator.in_flight_token.val = Some(7)
-  coordinator.in_flight_source.val = Some("in-flight")
+  coordinator.reduce_frontier(
+    RawInputFrontierEvent::BeginDelivery({ token: 7, source: "in-flight" }),
+  )
   coordinator.cancel_pending()
   coordinator.expire_before_input(expiry_generation)
   assert_true(coordinator.unmatched_before_input.val is None)
   assert_true(coordinator.pending.val is None)
-  assert_true(coordinator.in_flight_token.val is None)
-  assert_true(coordinator.in_flight_source.val is None)
+  assert_true(test_in_flight_token(coordinator) is None)
+  assert_true(test_in_flight_source(coordinator) is None)
   assert_false(coordinator.scheduled.val)
 }
