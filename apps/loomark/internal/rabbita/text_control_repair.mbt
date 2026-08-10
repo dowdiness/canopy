@@ -61,17 +61,17 @@ priv struct PendingRawInput {
 /// Coalesce native textarea events into one delayed, tokenized Raw transaction.
 /// Custom-driver RawInput events bypass this coordinator and remain token-less.
 priv struct RawInputCoordinator {
+  frontier : @ref.Ref[RawInputFrontierState]
   unmatched_before_input : @ref.Ref[RawBeforeInputCandidate?]
   pending : @ref.Ref[PendingRawInput?]
   scheduled : @ref.Ref[Bool]
   schedule_generation : @ref.Ref[Int]
   capture_generation : @ref.Ref[Int]
   next_token : @ref.Ref[Int]
-  in_flight_token : @ref.Ref[Int?]
-  in_flight_source : @ref.Ref[String?]
   suppress_unmatched_repair : @ref.Ref[Bool]
   composition : @ref.Ref[PendingRawInput?]
   composition_final_source : @ref.Ref[String?]
+  deferred_composition_finished : @ref.Ref[Bool]
   telemetry : RawInputTelemetry?
 }
 
@@ -80,19 +80,27 @@ fn RawInputCoordinator::RawInputCoordinator(
   telemetry : RawInputTelemetry?,
 ) -> RawInputCoordinator {
   {
+    frontier: @ref.Ref(RawInputFrontierState::initial()),
     unmatched_before_input: @ref.Ref(None),
     pending: @ref.Ref(None),
     scheduled: @ref.Ref(false),
     schedule_generation: @ref.Ref(0),
     capture_generation: @ref.Ref(0),
     next_token: @ref.Ref(0),
-    in_flight_token: @ref.Ref(None),
-    in_flight_source: @ref.Ref(None),
     suppress_unmatched_repair: @ref.Ref(false),
     composition: @ref.Ref(None),
     composition_final_source: @ref.Ref(None),
+    deferred_composition_finished: @ref.Ref(false),
     telemetry,
   }
+}
+
+///|
+fn RawInputCoordinator::reduce_frontier(
+  self : RawInputCoordinator,
+  event : RawInputFrontierEvent,
+) -> Unit {
+  self.frontier.val = reduce_raw_input_frontier(self.frontier.val, event)
 }
 
 ///|
@@ -257,9 +265,17 @@ fn RawInputCoordinator::display_source(
       match self.pending.val {
         Some(pending) => pending.source
         None =>
-          match self.in_flight_source.val {
-            Some(source) => source
-            None => committed_source
+          match self.frontier.val.deferred_composition {
+            Some(composition) => composition.source
+            None =>
+              match self.frontier.val.deferred {
+                Some(deferred) => deferred.source
+                None =>
+                  match self.frontier.val.in_flight {
+                    Some(delivery) => delivery.source
+                    None => committed_source
+                  }
+              }
           }
       }
   }
@@ -275,7 +291,7 @@ fn RawInputCoordinator::begin_composition(
   source : String,
   selection : @dom_boundary.TextSelection,
 ) -> Bool {
-  guard self.in_flight_token.val is None else { return false }
+  guard !self.has_active_delivery() else { return false }
   let input = match self.pending.val {
     Some(pending) if pending.before_input.selection.document_id ==
       before_input.selection.document_id &&
@@ -309,6 +325,28 @@ fn RawInputCoordinator::begin_native_composition(
   source : String,
   selection : @dom_boundary.TextSelection,
 ) -> Bool {
+  if self.has_active_delivery() {
+    let frontier = self.frontier.val
+    self.deferred_composition_finished.val = false
+    let (base_source, frontier_source) = match frontier.deferred {
+      Some(deferred) => (deferred.base_source, deferred.source)
+      None =>
+        match frontier.in_flight {
+          Some(delivery) => (delivery.source, delivery.source)
+          None => (model.document.source(), model.document.source())
+        }
+    }
+    self.reduce_frontier(
+      RawInputFrontierEvent::BeginDeferredComposition({
+        base_source,
+        input_type: "insertCompositionText",
+        source: raw_textarea_value(frontier_source),
+        post_input_selection: selection,
+        input_count: 0,
+      }),
+    )
+    return true
+  }
   let before_input = match self.pending.val {
     Some(pending) if pending.before_input.selection.document_id ==
       model.document_id &&
@@ -344,7 +382,21 @@ fn RawInputCoordinator::update_composition(
       })
       true
     }
-    None => false
+    None =>
+      match self.frontier.val.deferred_composition {
+        Some(input) => {
+          self.reduce_frontier(
+            RawInputFrontierEvent::UpdateDeferredComposition({
+              ..input,
+              source: raw_textarea_value(source),
+              post_input_selection: selection,
+              input_count: input.input_count + 1,
+            }),
+          )
+          true
+        }
+        None => false
+      }
   }
 }
 
@@ -357,6 +409,18 @@ fn RawInputCoordinator::finish_composition(
   accepted_source : String,
   emit : @cmd.Emit[DriverEvent],
 ) -> @cmd.Cmd {
+  match self.frontier.val.deferred_composition {
+    Some(input) => {
+      if input.source == raw_textarea_value(input.base_source) {
+        self.reduce_frontier(RawInputFrontierEvent::ClearDeferredComposition)
+        self.deferred_composition_finished.val = false
+      } else {
+        self.deferred_composition_finished.val = true
+      }
+      return @rabbita_runtime.none
+    }
+    None => ()
+  }
   guard self.composition.val is Some(input) else {
     return @rabbita_runtime.none
   }
@@ -437,6 +501,31 @@ fn RawInputCoordinator::expire_before_input(
 }
 
 ///|
+/// Keep a native input separate while the DOM is ahead of the committed model.
+fn RawInputCoordinator::capture_deferred_before_input(
+  self : RawInputCoordinator,
+  model : DriverModel,
+  event : @dom.InputEvent,
+) -> @cmd.Cmd {
+  let base_source = match self.frontier.val.deferred {
+    Some(deferred) => deferred.base_source
+    None =>
+      match self.frontier.val.in_flight {
+        Some(delivery) => delivery.source
+        None => model.document.source()
+      }
+  }
+  self.capture_generation.val += 1
+  self.reduce_frontier(
+    RawInputFrontierEvent::CaptureDeferredBeforeInput({
+      base_source,
+      input_type: raw_input_event_type(event),
+    }),
+  )
+  @rabbita_runtime.none
+}
+
+///|
 /// Capture beforeinput while the DOM still exposes the pre-edit selection.
 fn RawInputCoordinator::capture_native_before_input(
   self : RawInputCoordinator,
@@ -444,10 +533,19 @@ fn RawInputCoordinator::capture_native_before_input(
   event : @dom.InputEvent,
 ) -> @cmd.Cmd {
   if raw_input_event_is_composing(event) {
-    if self.composition.val is None {
+    if self.composition.val is None &&
+      self.frontier.val.deferred_composition is None &&
+      !self.has_active_delivery() {
       self.cancel_pending()
     }
     return @rabbita_runtime.none
+  }
+  if self.frontier.val.deferred_composition is Some(_) {
+    return @rabbita_runtime.none
+  }
+  if self.frontier.val.in_flight is Some(_) ||
+    self.frontier.val.deferred is Some(_) {
+    return self.capture_deferred_before_input(model, event)
   }
   match self.pending.val {
     Some(pending) => return self.capture_before_input(pending.before_input)
@@ -506,12 +604,13 @@ fn read_raw_selection() -> @dom_boundary.TextSelection? {
 fn RawInputCoordinator::take_pending_delivery(
   self : RawInputCoordinator,
 ) -> (Int, RawNativeInputCandidate)? {
+  guard self.frontier.val.in_flight is None else { return None }
   guard self.pending.val is Some(pending) else { return None }
   self.pending.val = None
   let token = self.next_token.val
   self.next_token.val = token + 1
-  self.in_flight_token.val = Some(token)
-  self.in_flight_source.val = Some(pending.source)
+  let source = pending.source
+  self.reduce_frontier(RawInputFrontierEvent::BeginDelivery({ token, source }))
   match self.telemetry {
     Some(telemetry) => {
       let now = raw_input_now_ms()
@@ -541,9 +640,9 @@ fn RawInputCoordinator::take_pending_delivery(
   Some(
     (
       token,
-      RawNativeInputCandidate::RawNativeInputCandidate(
+      RawNativeInputCandidate::authorized(
         before_input=pending.before_input,
-        source=pending.source,
+        source~,
         post_input_selection=pending.post_input_selection,
       ),
     ),
@@ -575,8 +674,11 @@ fn RawInputCoordinator::has_captured_before_input(
 fn RawInputCoordinator::suppress_composing_input_repair(
   self : RawInputCoordinator,
 ) -> Unit {
-  if self.composition.val is None {
-    self.cancel_pending()
+  if self.composition.val is None &&
+    self.frontier.val.deferred_composition is None {
+    if !self.has_active_delivery() {
+      self.cancel_pending()
+    }
     self.suppress_unmatched_repair.val = true
   }
 }
@@ -588,6 +690,41 @@ fn RawInputCoordinator::take_unmatched_input_repair(
   let repair = !self.suppress_unmatched_repair.val
   self.suppress_unmatched_repair.val = false
   repair
+}
+
+///|
+/// Store the latest native value without attempting to interpret it against a
+/// committed document that is older than the value visible in the textarea.
+fn RawInputCoordinator::defer_native_input(
+  self : RawInputCoordinator,
+  source : String,
+  post_input_selection : @dom_boundary.TextSelection,
+) -> Bool {
+  let frontier = self.frontier.val
+  let capture = match frontier.deferred_before_input {
+    Some(capture) => capture
+    None => return false
+  }
+  let existing = frontier.deferred
+  let base_source = capture.base_source
+  let input_type = capture.input_type
+  self.capture_generation.val += 1
+  self.unmatched_before_input.val = None
+  let source = raw_textarea_value(source)
+  let input_count = match existing {
+    Some(deferred) => deferred.input_count + 1
+    None => 1
+  }
+  self.reduce_frontier(
+    RawInputFrontierEvent::StoreDeferred({
+      base_source,
+      input_type,
+      source,
+      post_input_selection,
+      input_count,
+    }),
+  )
+  true
 }
 
 ///|
@@ -612,6 +749,9 @@ fn RawInputCoordinator::enqueue(
   let before_input = match self.unmatched_before_input.val {
     Some(before_input) => before_input
     None => {
+      if self.has_active_delivery() {
+        return @rabbita_runtime.none
+      }
       self.cancel_pending()
       return @rabbita_runtime.none
     }
@@ -649,26 +789,139 @@ fn RawInputCoordinator::enqueue(
 }
 
 ///|
-/// Finish a normalized native transaction after its resulting render. The
-/// phase remains available for the outer publish and is copied to last_phase.
+/// Rebase the latest native value after the preceding transaction has rendered.
+fn RawInputCoordinator::enqueue_deferred(
+  self : RawInputCoordinator,
+  model : DriverModel,
+  emit : @cmd.Emit[DriverEvent],
+) -> @cmd.Cmd {
+  let deferred = match self.frontier.val.deferred {
+    Some(deferred) => deferred
+    None => return @rabbita_runtime.none
+  }
+  self.reduce_frontier(RawInputFrontierEvent::ClearDeferred)
+  guard raw_textarea_value(model.document.source()) ==
+    raw_textarea_value(deferred.base_source) else {
+    return @rabbita_runtime.none
+  }
+  let before_input = match rebase_deferred_raw_input(model, deferred) {
+    Some(before_input) => before_input
+    None => return @rabbita_runtime.none
+  }
+  self.capture_generation.val += 1
+  self.unmatched_before_input.val = Some(before_input)
+  let command = self.enqueue(
+    deferred.source,
+    deferred.post_input_selection,
+    emit,
+  )
+  match self.pending.val {
+    Some(pending) =>
+      self.pending.val = Some({ ..pending, input_count: deferred.input_count })
+    None => ()
+  }
+  command
+}
+
+///|
+fn RawInputCoordinator::enqueue_deferred_composition(
+  self : RawInputCoordinator,
+  model : DriverModel,
+  emit : @cmd.Emit[DriverEvent],
+) -> @cmd.Cmd {
+  let deferred = match self.frontier.val.deferred_composition {
+    Some(deferred) => deferred
+    None => {
+      self.deferred_composition_finished.val = false
+      return @rabbita_runtime.none
+    }
+  }
+  self.reduce_frontier(RawInputFrontierEvent::ClearDeferredComposition)
+  guard raw_textarea_value(model.document.source()) ==
+    raw_textarea_value(deferred.base_source) else {
+    self.deferred_composition_finished.val = false
+    return @rabbita_runtime.none
+  }
+  let before_input = match rebase_deferred_raw_input(model, deferred) {
+    Some(before_input) => before_input
+    None => {
+      self.deferred_composition_finished.val = false
+      return @rabbita_runtime.none
+    }
+  }
+  self.capture_generation.val += 1
+  self.unmatched_before_input.val = None
+  self.pending.val = Some({
+    before_input,
+    source: deferred.source,
+    post_input_selection: deferred.post_input_selection,
+    input_count: deferred.input_count,
+  })
+  match self.take_pending_delivery() {
+    Some((token, candidate)) =>
+      emit(Editing(RawNativeInput(token~, candidate~)))
+    None => @rabbita_runtime.none
+  }
+}
+
+///|
+fn RawInputCoordinator::finalize_deferred_composition(
+  self : RawInputCoordinator,
+  model : DriverModel,
+  emit : @cmd.Emit[DriverEvent],
+) -> @cmd.Cmd {
+  guard self.deferred_composition_finished.val else {
+    return @rabbita_runtime.none
+  }
+  guard !self.has_active_delivery() else { return @rabbita_runtime.none }
+  self.enqueue_deferred_composition(model, emit)
+}
+
+///|
+fn RawInputCoordinator::discard_deferred(self : RawInputCoordinator) -> Unit {
+  self.reduce_frontier(RawInputFrontierEvent::ClearDeferred)
+  self.reduce_frontier(RawInputFrontierEvent::ClearDeferredComposition)
+  self.deferred_composition_finished.val = false
+}
+
+///|
+/// Finish a normalized native transaction after its resulting render. Keep the
+/// token and source active until AfterRender so a native input that arrives
+/// before the controlled DOM repaint can be deferred against this frontier.
 fn RawInputCoordinator::finish(
   self : RawInputCoordinator,
   token : Int,
   latest_model : @ref.Ref[DriverModel?],
   emit : @cmd.Emit[DriverEvent],
 ) -> @cmd.Cmd {
-  guard self.in_flight_token.val == Some(token) else {
-    return @rabbita_runtime.none
-  }
-  self.in_flight_token.val = None
-  self.in_flight_source.val = None
+  guard self.is_active(token) else { return @rabbita_runtime.none }
   after_render(
     scheduler => {
-      ignore(scheduler)
+      guard self.is_active(token) else { return }
       self.mark_rendered(token)
+      let has_deferred = self.frontier.val.deferred is Some(_)
+      let has_deferred_composition = self.frontier.val.deferred_composition
+        is Some(_) &&
+        self.deferred_composition_finished.val
+      self.reduce_frontier(RawInputFrontierEvent::ClearDeferredCapture)
       match latest_model.val {
-        Some(model) => publish(model, Some(self), None)
-        None => ()
+        Some(model) => {
+          publish(model, Some(self), None)
+          self.reduce_frontier(RawInputFrontierEvent::FinishDelivery(token))
+          if has_deferred_composition {
+            scheduler.add(self.enqueue_deferred_composition(model, emit))
+          } else if has_deferred {
+            scheduler.add(self.enqueue_deferred(model, emit))
+          }
+        }
+        None => {
+          self.discard_deferred()
+          self.reduce_frontier(RawInputFrontierEvent::ClearDeferredComposition)
+          self.reduce_frontier(RawInputFrontierEvent::FinishDelivery(token))
+        }
+      }
+      if !has_deferred_composition && self.pending.val is None {
+        self.deferred_composition_finished.val = false
       }
     },
     emit,
@@ -681,9 +934,9 @@ fn RawInputCoordinator::discard(
   self : RawInputCoordinator,
   token : Int,
 ) -> Unit {
-  if self.in_flight_token.val == Some(token) {
-    self.in_flight_token.val = None
-    self.in_flight_source.val = None
+  if self.is_active(token) {
+    self.reduce_frontier(RawInputFrontierEvent::DiscardDelivery(token))
+    self.deferred_composition_finished.val = false
     match self.telemetry {
       Some(telemetry) => telemetry.phase.val = None
       None => ()
@@ -707,11 +960,52 @@ fn RawInputCoordinator::cancel_pending(self : RawInputCoordinator) -> Unit {
     }
     None => ()
   }
-  self.in_flight_token.val = None
-  self.in_flight_source.val = None
+  self.reduce_frontier(RawInputFrontierEvent::Cancel)
   self.suppress_unmatched_repair.val = false
   self.composition.val = None
   self.composition_final_source.val = None
+  self.deferred_composition_finished.val = false
+}
+
+///|
+fn RawInputCoordinator::has_active_delivery(self : RawInputCoordinator) -> Bool {
+  self.frontier.val.in_flight is Some(_)
+}
+
+///|
+fn RawInputCoordinator::has_deferred_composition(
+  self : RawInputCoordinator,
+) -> Bool {
+  self.frontier.val.deferred_composition is Some(_)
+}
+
+///|
+/// A mode transition must not cancel an IME snapshot that is waiting behind
+/// an already active native delivery.
+fn RawInputCoordinator::cancel_pending_for_navigation(
+  self : RawInputCoordinator,
+) -> Unit {
+  if self.deferred_composition_finished.val ||
+    (self.has_active_delivery() && self.has_deferred_composition()) {
+    return
+  }
+  self.cancel_pending()
+}
+
+///|
+/// An accepted native caret is still current only when no newer browser
+/// frontier is waiting to be committed or composing.
+fn RawInputCoordinator::native_selection_frontier_is_current(
+  self : RawInputCoordinator,
+  committed_source : String,
+) -> Bool {
+  self.pending.val is None &&
+  self.composition.val is None &&
+  self.frontier.val.deferred_before_input is None &&
+  self.frontier.val.deferred is None &&
+  self.frontier.val.deferred_composition is None &&
+  raw_textarea_value(self.display_source(committed_source)) ==
+  raw_textarea_value(committed_source)
 }
 
 ///|
@@ -719,12 +1013,15 @@ fn RawInputCoordinator::is_active(
   self : RawInputCoordinator,
   token : Int,
 ) -> Bool {
-  self.in_flight_token.val == Some(token)
+  match self.frontier.val.in_flight {
+    Some(delivery) => delivery.token == token
+    None => false
+  }
 }
 
 ///|
 fn RawInputCoordinator::cancel(self : RawInputCoordinator, token : Int) -> Unit {
-  if self.in_flight_token.val == Some(token) {
+  if self.is_active(token) {
     self.cancel_pending()
   }
 }
