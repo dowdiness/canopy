@@ -202,13 +202,15 @@ is silently rejected by the current pipeline:
 
 `compute_text_change("x", "xx")` picks the equally valid insertion at offset 1,
 while the trusted `beforeinput` caret is offset 0. Normalization rejects the
-mismatch. This is a separate correctness bug that needs fixing before
-prefix/repeated-character workloads can be treated as complete.
+mismatch. This is tracked by [#1224](https://github.com/dowdiness/canopy/issues/1224)
+and needs fixing before prefix/repeated-character workloads can be treated as
+complete.
 
 ## Recommendations
 
-1. **Fix the same-character ambiguity** as a correctness issue. Make
-   normalization selection-aware while preserving the trusted first
+1. **Fix [#1224](https://github.com/dowdiness/canopy/issues/1224), the
+   same-character ambiguity,** as a correctness issue. Make normalization
+   selection-aware while preserving the trusted first
    `beforeinput` base and latest-result aggregation used for coalesced bursts.
 2. **Implement the one-boundary-array-per-validation change** without removing
    either snapshot revalidation. Cover CRLF and lone-CR DOM↔canonical mapping,
