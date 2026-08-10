@@ -26,7 +26,7 @@ This ADR specializes that boundary for Resolution draft publication. A Resolutio
 
 Implementation evidence:
 
-- EGW text façade: `TextState::version`, `TextState::checkout` (read-only `TextView`), `TextState::sync`, `SyncSession::apply`, `SyncSession::export_since`, `SyncReport::pending_operations`. These are current source-verified APIs, not promised new package API.
+- EGW text and sync façades support fixed-version read-only materialization while the live head advances, and sync reports that classify pending operations. See [`deps/event-graph-walker/text/pkg.generated.mbti`](../../deps/event-graph-walker/text/pkg.generated.mbti) and [`deps/event-graph-walker/sync/pkg.generated.mbti`](../../deps/event-graph-walker/sync/pkg.generated.mbti) for current source-verified interfaces, not promised new package API.
 - [EGW collaboration responsibility boundary](2026-07-21-egw-collaboration-responsibility-boundary.md)
 - [Local-first document ownership](../design/local-first-document-ownership.md)
 
@@ -46,7 +46,7 @@ EGW core remains unchanged: no writable branch/fork and no tentative Resolution 
 
 ## State and outcome invariants
 
-**Seal uses a separate draft EGW history.** For text, existing source-verified APIs are `TextState::version`, `TextState::checkout` (read-only `TextView`), `TextState::sync`, `SyncSession::apply`/`export_since`, `SyncReport::pending_operations`. Sealed checkout remains fixed while later draft operations advance the live head; those operations remain recoverable outside the applied candidate.
+**Seal uses a separate draft EGW history.** The current text and sync façades support fixed-version read-only materialization while the live head advances, and sync reports that classify pending operations. Sealed checkout remains fixed while later draft operations advance the live head; those operations remain recoverable outside the applied candidate.
 
 **Seal coordination does not wait forever or discard late work.** The collaboration runtime freezes connected participants and gathers flush acknowledgments. When a participant does not respond, Loomark offers `Wait`, `Apply Current Draft`, and `Cancel`; choosing `Apply Current Draft` seals the known frontier, and operations arriving later advance a Recovery head without changing the sealed checkout.
 
@@ -56,16 +56,18 @@ EGW core remains unchanged: no writable branch/fork and no tentative Resolution 
 
 **Destructive resolution is prepared before file replacement.** Normal Autosave remains file-first. Before a Conflict resolution can replace the external variant in the Markdown body file, Loomark durably records the Publication token, both variants, sealed candidate, and expected file fingerprint. Preparation does not mutate main history or establish Saved status. After main mutation commits, Loomark persists the resulting history and Publication ledger entry as `CommittedPendingFile`, atomically replaces the file, then finalizes the workspace as `Applied`. This resolution-specific sequence preserves enough evidence to classify and resume a partial publication after crash without changing ordinary Autosave ordering.
 
-**Crash recovery classifies durable evidence rather than guessing execution.** On reopen, Loomark compares the prepared token with durable main history and compares the current file with the prepared external and candidate variants:
+**Crash recovery classifies durable evidence rather than guessing execution.** On reopen, Loomark compares the prepared token with durable main history and compares the current file with the prepared external and candidate variants. Because neither EGW operations nor the file carry the Publication token, an absent ledger entry cannot by itself classify main mutation as rejected:
 
 | Publication ledger entry bound to durable main history | Current file | Recovery |
 |---|---|---|
-| Absent | Prepared external variant | Restore the prepared state and offer resume or cancel |
-| Absent | Sealed candidate | Reconstruct the Resolution transaction under the same token, then finalize Metadata |
-| Absent | Other observed content | Preserve it and require revalidation |
+| Absent | Prepared external variant | Preserve the prepared state and report indeterminate publication; reconcile durable and replicated main-history evidence without retrying or canceling the main mutation |
+| Absent | Sealed candidate | Preserve the prepared state and candidate, report indeterminate publication, and require durable idempotency evidence before any main-history action |
+| Absent | Other observed content | Preserve every variant, keep publication indeterminate, and require revalidation without retrying main mutation |
 | Present | Sealed candidate | Finalize Metadata and mark the workspace applied |
 | Present | Prepared external variant | Report a committed persistence issue; do not retry main mutation |
 | Present | Other observed content | Enter a new Content conflict; do not retry main mutation |
+
+File-content equality alone never authorizes reconstruction or retry of main mutation. Without durable idempotency evidence, the prepared state remains read-only and Loomark offers only reconciliation, later recovery, or content-only recovery.
 
 `CommittedPendingFile` is read-only. Loomark may complete file persistence, review newly observed content, choose a new location, or close for later recovery, but it may not accept ordinary edits or retry the Resolution transaction. The workspace becomes `Applied` only after exact self-write acknowledgment and Metadata finalization.
 
@@ -108,7 +110,7 @@ Rejected because the container façade has no text-equivalent historical materia
 - An application-owned Publication ledger binds the Publication token and outcome/receipt to durable main history for duplicate detection and partial-recovery correlation; it does not make main mutation, file, and Metadata atomic.
 - Sealed checkout remains fixed while later draft operations advance the live head; those operations remain recoverable outside the applied candidate.
 - Current container façade must not be claimed to have text-equivalent historical materialization until a second adapter validates the seam.
-- EGW core APIs (`TextState::version`, `TextState::checkout`, `TextState::sync`, `SyncSession::apply`/`export_since`, `SyncReport::pending_operations`) are current source-verified implementation evidence, not promised new package API.
+- Current text and sync façade capabilities are source-verified implementation evidence for fixed-version read-only materialization while live head advances and pending-operation classification; they are not promised new package API. See [`deps/event-graph-walker/text/pkg.generated.mbti`](../../deps/event-graph-walker/text/pkg.generated.mbti) and [`deps/event-graph-walker/sync/pkg.generated.mbti`](../../deps/event-graph-walker/sync/pkg.generated.mbti) for the current interfaces.
 
 ## Non-goals
 

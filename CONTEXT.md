@@ -9,7 +9,7 @@ The Loomark-owned Markdown entity whose identity and causal history continue acr
 _Avoid_: Loomark document, logical document, file, buffer, session
 
 **Detached Editing Document**:
-An Editing Document with no active Writing instance lease. It retains causal state independently of an editor runtime and remains owned by the persistence shell until File durability or explicit recovery permits release.
+An Editing Document with no active Writing instance lease. It retains causal state independently of an editor runtime and remains owned by the persistence shell until the appropriate durability condition permits release — File durability for File-backed persistence, or acknowledged archive Local durability for Archive-backed persistence — or until explicit recovery permits release.
 _Avoid_: Closed file, snapshot, editor session
 
 **Persistence Coordinator**:
@@ -41,7 +41,7 @@ The human-readable `.md` file associated with an Editing Document for Git and ex
 _Avoid_: Save file, archive, document, exported copy
 
 **Archive-backed persistence**:
-A persistence capability in which no Markdown body file is associated with the Editing Document. The application-owned archive retains durable content and Metadata preserves the Causal Authority; exported Markdown remains an unassociated copy.
+A persistence capability in which no Markdown body file is associated with the Editing Document. One atomic application-owned archive replacement retains portable content and causal Metadata together; exported Markdown remains an unassociated copy.
 _Avoid_: Browser mode, File-backed persistence, temporary session
 
 **File-backed persistence**:
@@ -117,7 +117,7 @@ An explicit resolution of Missing file state or Committed pending file that writ
 _Avoid_: Save As, Duplicate, import
 
 **External file change**:
-A change to a Markdown body file made through Git, including branch checkout, or an external editor. Line-terminator conversion, final-newline changes, Unicode normalization, and visible whitespace changes are content changes; only a BOM-only change belongs to the File encoding profile. Loomark admits an external change automatically only when its current content equals the File baseline and no External concurrency uncertainty is active.
+A change to a Markdown body file made through Git, including branch checkout, or an external editor. Line-terminator conversion, final-newline changes, Unicode normalization, and visible whitespace changes are content changes; only a BOM-only change belongs to the File encoding profile. Loomark admits an external change automatically only when Loomark's accepted current content equals the File baseline and no External concurrency uncertainty is active.
 _Avoid_: Content conflict, remote edit, archive replacement
 
 **Observed external variant**:
@@ -125,7 +125,7 @@ The exact Markdown body file content successfully read by Loomark at an external
 _Avoid_: Watcher event, inferred version, filesystem history
 
 **External admission**:
-The deterministic bounded multi-span conversion of an admitted external file's final text, relative to the File baseline, into inferred causal edits that preserve unchanged spans and produce the exact external source. UTF-16 validation, a resource budget, and exact replay verification are mandatory; exceeding the budget falls back to one contiguous replacement. Admission preserves the Editing Document identity but never claims to recover the external editor's original operations or intent.
+The deterministic bounded multi-span conversion of an admitted external file's final text, relative to the File baseline, into inferred causal edits that preserve unchanged spans and produce the exact external source. UTF-16 validation, a resource budget, and exact replay verification are mandatory; exceeding the budget falls back to one contiguous replacement, which must also satisfy receiver admission limits before any mutation. If no inferred batch — including the contiguous-replacement fallback — fits within receiver admission limits, apply nothing, preserve the Observed external variant, and enter Content conflict. Admission preserves the Editing Document identity but never claims to recover the external editor's original operations or intent.
 _Avoid_: Import, whole-source replacement, exact operation reconstruction
 
 **Coordinator writer**:
@@ -169,7 +169,7 @@ A content-free, short-lived application record containing only an opaque documen
 _Avoid_: Metadata archive, recovery record, permanent tombstone
 
 **Content conflict**:
-The condition in which Loomark content and an Observed external variant both diverge from the same File baseline, or External concurrency uncertainty prevents proving that the external writer observed the Loomark variant. Every observed variant remains recoverable until deliberate resolution; none may be discarded by silent overwrite.
+The condition in which Loomark content and an Observed external variant both diverge from the same File baseline, External concurrency uncertainty prevents proving that the external writer observed the Loomark variant, or an otherwise eligible Observed external variant cannot be admitted atomically under UTF-16 validation, receiver admission limits, and exact replay. Every observed variant remains recoverable until deliberate resolution; none may be discarded by silent overwrite.
 _Avoid_: External file change, CRDT conflict, last-write-wins
 
 **Conflict state**:
@@ -189,7 +189,7 @@ The durable pre-publication record that preserves the Publication token, both co
 _Avoid_: Resolution transaction, Metadata durability, Applied, Autosave
 
 **Prepared resolution recovery**:
-The reopen classification that compares a Prepared resolution record, a Publication ledger entry bound to durable main history, and the current Markdown body file. Without durable commit evidence, matching candidate content may reconstruct the Resolution transaction; with ledger evidence, main mutation is never retried; unexpected file content becomes an Observed external variant and requires revalidation or a new Content conflict.
+The reopen classification that compares a Prepared resolution record, a Publication ledger entry bound to durable main history, and the current Markdown body file. Without ledger evidence, matching prepared or candidate content cannot prove whether main mutation was accepted; Loomark preserves the prepared state and requires reconciliation rather than reconstructing, retrying, or canceling the main mutation without durable idempotency evidence. With ledger evidence, main mutation is never retried; unexpected file content becomes an Observed external variant and requires revalidation or a new Content conflict.
 _Avoid_: Blind retry, archive restore, file overwrite
 
 **Resolution draft**:
@@ -229,7 +229,7 @@ The result when `Mark Reviewed` finds that the Markdown body file changed after 
 _Avoid_: Rejected edit, Content conflict, discarded review
 
 **Recovery Markdown file**:
-A human-readable content-only `.md` fallback containing the Loomark variant when normal file and Metadata durability cannot preserve it. It never claims to preserve Editing Document or draft identity, operation IDs, writer identities, causal frontier, collaborative undo, or Publication state. Loomark creates it without replacement under a unique name beside the Markdown body file, falls back to a user-chosen location when that directory is unwritable, and withholds close until recovery succeeds or the user explicitly discards the changes.
+A human-readable content-only `.md` fallback containing the Loomark variant when normal content and Metadata durability cannot preserve it. It never claims to preserve Editing Document or draft identity, operation IDs, writer identities, causal frontier, collaborative undo, or Publication state. In File-backed persistence, Loomark creates it without replacement under a unique name beside the Markdown body file and falls back to a user-chosen location when that directory is unwritable. In Archive-backed persistence, which has no body-file directory, Loomark requires a user-chosen location and unique name. Loomark withholds close until recovery succeeds or the user explicitly discards the changes.
 _Avoid_: Metadata, archive, causal recovery, backup, Autosave target
 
 **Close with content recovery**:
@@ -293,15 +293,15 @@ Confirmation that the Aggregate Markdown runtime causally applied the accepted w
 _Avoid_: Commit receipt, Repository acknowledgment, Saved status
 
 **Saving status**:
-The user-facing status after Aggregate acknowledgment while required Autosave or Metadata work remains incomplete. Aggregate synchronization never waits for the Autosave debounce.
+The user-facing status after Aggregate acknowledgment while required persistence work remains incomplete — Autosave file writes and Metadata work for File-backed persistence, or one atomic archive replacement for Archive-backed persistence. Aggregate synchronization never waits for the Autosave debounce.
 _Avoid_: Applied locally, Saved status, replicated
 
 **Saved status**:
-The user-facing confirmation of File durability. File durability keeps this status active when Metadata durability fails; Loomark separately warns that editing history was not preserved.
+The user-facing confirmation that content is durable — through File durability for File-backed persistence, or acknowledged archive Local durability for Archive-backed persistence. In File-backed mode, this status remains active when Metadata durability fails and Loomark separately warns that editing history was not preserved. Archive-backed mode reaches this status only when one atomic archive replacement durably carries both content and causal Metadata.
 _Avoid_: Metadata durability, repository acknowledgment, fully saved
 
 **Autosave**:
-The automatic persistence triggered by an accepted causal change. A source-changing commit establishes File durability before Metadata durability; a source-equal history change updates Metadata without rewriting an unchanged Markdown body file.
+The automatic persistence triggered by an accepted causal change. In File-backed persistence, a source-changing commit establishes File durability before Metadata durability; a source-equal history change updates Metadata without rewriting an unchanged Markdown body file. In Archive-backed persistence, one atomic archive replacement carries the accepted portable content and causal Metadata; acknowledgment establishes Local durability and Metadata durability together, without a Markdown body file or External change observation.
 _Avoid_: Repository acknowledgment, periodic backup, history no-op
 
 **Self-write acknowledgment**:
@@ -309,7 +309,7 @@ Recognition that an observed file change exactly matches one expected Autosave g
 _Avoid_: External admission, watcher timeout, ignored file event
 
 **External change observation**:
-The reread and fingerprint comparison that establishes an Observed external variant. A watcher reduces detection latency but never supplies correctness; observation is mandatory on focus or resume and immediately before Autosave, Causal seal, and `Mark Reviewed`, and a mismatch stops the pending write or seal.
+The reread and fingerprint comparison that establishes an Observed external variant. This applies only to File-backed persistence, which has a Markdown body file to observe; Archive-backed persistence has no body file and does not perform file observation. A watcher reduces detection latency but never supplies correctness; in File-backed mode, observation is mandatory on focus or resume and immediately before Autosave, Causal seal, and `Mark Reviewed`, and a mismatch stops the pending write or seal.
 _Avoid_: Watcher event, polling guarantee, cached stat
 
 **History-changing commit**:

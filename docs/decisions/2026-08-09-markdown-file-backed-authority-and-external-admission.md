@@ -64,7 +64,7 @@ External admission is the deterministic bounded multi-span conversion of an admi
 
 **UTF-16 validation.** External admission validates sentinel-free UTF-16 boundaries before inference. Invalid boundaries reject admission and enter Content conflict.
 
-**Resource budget.** External admission uses a resource budget. Exceeding the budget falls back to one contiguous replacement. The budget is receiver policy, not a property of the format.
+**Resource budget.** External admission uses a resource budget. Exceeding the budget falls back to one contiguous replacement, which must also satisfy receiver admission limits before any mutation. If no inferred batch — including the contiguous-replacement fallback — fits within receiver admission limits, apply nothing, preserve the Observed external variant, and enter Content conflict. The budget is receiver policy, not a property of the format.
 
 **Exact replay.** External admission requires exact replay verification: applying the inferred edits to the File baseline must produce the exact admitted external source. Mismatch rejects admission and enters Content conflict.
 
@@ -118,7 +118,7 @@ Rejected because External admission must remain deterministic and bounded under 
 
 - File Authority and Causal Authority are separate scopes. File Authority settles portable content at file-backed open, save, and external-change admission. Causal Authority settles causal order, Editing Document identity, and writer identity.
 - External admission preserves Editing Document identity for associated external file changes. It does not create a new Editing Document.
-- External admission is deterministic and bounded. It validates UTF-16 boundaries, uses a resource budget, and requires exact replay. Exceeding the budget falls back to one contiguous replacement.
+- External admission is deterministic and bounded. It validates UTF-16 boundaries, uses a resource budget, and requires exact replay. Exceeding the budget falls back to one contiguous replacement, which must also satisfy receiver admission limits before any mutation. If no inferred batch fits, apply nothing, preserve the Observed external variant, and enter Content conflict.
 - Coordinator writer plus application records preserve synthetic provenance without treating writer identity as an operation category.
 - External admission is an optimistic atomic transaction. A mismatch applies none and enters Content conflict without re-diffing against the newer Loomark source.
 - External concurrency uncertainty prevents silent overwrite after a Loomark source change. An external write in this condition enters Content conflict.

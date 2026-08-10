@@ -197,13 +197,18 @@ granularity that was never captured.
 
 Snapshot inference is a narrowly scoped external-boundary exception for
 File-backed persistence only. External admission deterministically infers
-bounded multi-span edits from an admitted external file's final text relative
-to the File baseline, validates sentinel-free UTF-16 boundaries, uses a
-resource budget with one-contiguous-replacement fallback, and requires exact
-replay. It uses the stable synthetic Coordinator writer for application-originated operations; application records distinguish External admission provenance, and it never claims
-to recover the external editor's original operations or intent. This exception
-does not relax the requirement for any Loomark-originated input path: user
-actions within Loomark always arrive as edits.
+bounded multi-span edits from an admitted file's final text relative to the
+File baseline, validates sentinel-free UTF-16 boundaries, uses a resource
+budget with one-contiguous-replacement fallback, and requires exact replay.
+The selected inferred batch — including the contiguous-replacement fallback —
+is preflighted against receiver admission limits before any mutation. If no
+inferred batch fits, apply nothing, preserve the Observed external variant,
+and enter Content conflict. It uses the stable synthetic Coordinator writer
+for application-originated operations; application records distinguish
+admission provenance, and it never claims to recover the source editor's
+original operations or intent. This exception does not relax the requirement
+for any Loomark-originated input path: user actions within Loomark always
+arrive as edits.
 
 **Persistence triggers on history, not on text.** An operation that leaves the
 text unchanged still advanced the document. Anything that decides whether to
