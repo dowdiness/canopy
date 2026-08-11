@@ -34,9 +34,24 @@ type Host = {
   mountResult: string
 }
 
-async function mountPage(context: BrowserContext, source: string): Promise<Omit<Host, "context">> {
+type AppliedEditSample = {
+  spans: Record<string, number>
+  inputToRenderMs: number
+  commitMs: number
+}
+
+async function mountPage(
+  context: BrowserContext,
+  source: string,
+  profileTextEdit = false,
+): Promise<Omit<Host, "context">> {
   const page = await context.newPage()
   await page.goto(pageUrl)
+  if (profileTextEdit) {
+    await page.evaluate(() => {
+      ;(globalThis as any).__canopy_bridge = { perfCurrent: null }
+    })
+  }
   const mountResult = await page.evaluate(
     ({ moduleUrl, source }) =>
       import(moduleUrl).then(module => module.mount_dev_host("app", source)),
@@ -112,6 +127,66 @@ async function dispatchRawNativeEdits(input: Locator, edits: RawNativeEdit[]): P
       textarea.dispatchEvent(new InputEvent("input", init))
     }
   }, edits)
+}
+
+function markdownPerfBlocks(count: number): string {
+  return Array.from(
+    { length: count },
+    (_, index) => `## Heading ${index}\n\nParagraph ${index} with **bold** and [link](https://example.com/${index}).`,
+  ).join("\n\n")
+}
+
+async function measureRawAppliedEdit(
+  page: Page,
+  input: Locator,
+  before: string,
+  start: number,
+  inserted: string,
+): Promise<AppliedEditSample> {
+  const expected = `${before.slice(0, start)}${inserted}${before.slice(start)}`
+  await page.evaluate(() => {
+    const bridge = (globalThis as any).__canopy_bridge
+    if (!bridge) throw new Error("performance bridge is not installed")
+    bridge.perfCurrent = { spans: {}, profileTextEdit: true }
+  })
+  await dispatchRawNativeEdits(input, [{
+    value: expected,
+    beforeStart: start,
+    beforeEnd: start,
+    afterStart: start + inserted.length,
+    afterEnd: start + inserted.length,
+    inputType: "insertText",
+    data: inserted,
+  }])
+  await expect.poll(async () => (await snapshot(page)).source).toBe(expected)
+  await expect.poll(async () => {
+    const phase = (await snapshot(page)).raw_input_phase
+    if (!phase || typeof phase !== "object") return false
+    const fields = phase as Record<string, unknown>
+    return typeof fields.input_to_render_ms === "number" &&
+      typeof fields.commit_ms === "number"
+  }).toBe(true)
+  const after = await snapshot(page)
+  const rawPhase = after.raw_input_phase
+  if (!rawPhase || typeof rawPhase !== "object") {
+    throw new Error("raw input phase was not recorded")
+  }
+  const phase = rawPhase as Record<string, unknown>
+  const inputToRenderMs = phase.input_to_render_ms
+  const commitMs = phase.commit_ms
+  if (typeof inputToRenderMs !== "number" || typeof commitMs !== "number") {
+    throw new Error("raw input phase is missing commit/render timing")
+  }
+  const spans = await page.evaluate(() => {
+    const bridge = (globalThis as any).__canopy_bridge
+    const recorded = { ...(bridge?.perfCurrent?.spans ?? {}) }
+    if (bridge) bridge.perfCurrent = null
+    return recorded as Record<string, number>
+  })
+  if (typeof spans.localTextChange !== "number") {
+    throw new Error("localTextChange phase was not recorded")
+  }
+  return { spans, inputToRenderMs, commitMs }
 }
 
 async function armRawRenderBarrier(page: Page): Promise<void> {
@@ -425,6 +500,72 @@ test("Raw input exposes phase timings through the dev-host snapshot", async ({ b
     }).toBe(true)
   } finally {
     await host.context.close()
+  }
+})
+
+test("Raw input preserves applied-edit fast path and fallback boundaries", async ({ browser }) => {
+  test.setTimeout(60_000)
+  const context = await browser.newContext()
+  const prefix = markdownPerfBlocks(125)
+  const source = `${prefix}\n\nx\n\n${prefix}`
+  const position = prefix.length + 2
+  const mounted = await mountPage(context, source, true)
+  try {
+    const input = mounted.page.locator("#loomark-input")
+    const accepted: AppliedEditSample[] = []
+    const fallback: AppliedEditSample[] = []
+    for (let index = 0; index < 12; index += 1) {
+      const run = async (inserted: string): Promise<AppliedEditSample> => {
+        await requestSource(mounted.page, source)
+        await expect.poll(async () => (await snapshot(mounted.page)).source).toBe(source)
+        return measureRawAppliedEdit(mounted.page, input, source, position, inserted)
+      }
+      if (index % 2 === 0) {
+        accepted.push(await run("y"))
+        fallback.push(await run("x"))
+      } else {
+        fallback.push(await run("x"))
+        accepted.push(await run("y"))
+      }
+    }
+
+    const percentile = (
+      samples: AppliedEditSample[],
+      select: (sample: AppliedEditSample) => number,
+      quantile: number,
+    ): number => {
+      const values = samples.map(select).sort((a, b) => a - b)
+      const index = Math.min(values.length - 1, Math.max(0, Math.ceil(values.length * quantile) - 1))
+      return Number(values[index].toFixed(2))
+    }
+    const summarize = (samples: AppliedEditSample[]) => ({
+      fallbackSpanCount: samples.filter(sample =>
+        typeof sample.spans.resolveAppliedEditDiff === "number").length,
+      inputToRenderP50Ms: percentile(samples, sample => sample.inputToRenderMs, 0.5),
+      inputToRenderP95Ms: percentile(samples, sample => sample.inputToRenderMs, 0.95),
+      commitP50Ms: percentile(samples, sample => sample.commitMs, 0.5),
+      localTextChangeP50Ms: percentile(
+        samples,
+        sample => sample.spans.localTextChange ?? 0,
+        0.5,
+      ),
+      resolveAppliedEditDiffP50Ms: percentile(
+        samples,
+        sample => sample.spans.resolveAppliedEditDiff ?? 0,
+        0.5,
+      ),
+    })
+    const summary = {
+      sourceChars: source.length,
+      samples: accepted.length,
+      accepted: summarize(accepted),
+      fallback: summarize(fallback),
+    }
+    console.log(`[applied-edit-adoption] ${JSON.stringify(summary)}`)
+    expect(summary.accepted.fallbackSpanCount).toBe(0)
+    expect(summary.fallback.fallbackSpanCount).toBe(12)
+  } finally {
+    await context.close()
   }
 })
 
