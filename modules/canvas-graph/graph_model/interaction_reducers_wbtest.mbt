@@ -1,7 +1,19 @@
 ///|
+fn viewport_for_test(
+  origin_x : Double,
+  origin_y : Double,
+  scale : Double,
+) -> Viewport {
+  Viewport::validated(
+    origin=ScreenPoint::from_xy(x=origin_x, y=origin_y),
+    scale~,
+  )
+}
+
+///|
 fn make_test_state() -> CanvasState {
   {
-    viewport: { x: 0.0, y: 0.0, scale: 1.0 },
+    viewport: viewport_for_test(0.0, 0.0, 1.0),
     nodes: [
       make_workflow_node(NodeId("1"), TimerTrigger, 100.0, 100.0),
       make_workflow_node(NodeId("2"), HttpRequest, 420.0, 100.0),
@@ -15,14 +27,16 @@ fn make_test_state() -> CanvasState {
 }
 
 ///|
-test "pan_start records start screen position and current pan" {
+test "pan_start records pointer and viewport snapshots" {
   let state = make_test_state()
   let s = update_pan_start(state, 150.0, 250.0)
   guard s.interaction.panning is Some(p)
-  inspect(p.start_screen_x, content="150")
-  inspect(p.start_screen_y, content="250")
-  inspect(p.start_pan_x, content="0")
-  inspect(p.start_pan_y, content="0")
+  inspect(p.start_pointer.x, content="150")
+  inspect(p.start_pointer.y, content="250")
+  let origin = p.initial_viewport.screen_origin()
+  inspect(origin.x, content="0")
+  inspect(origin.y, content="0")
+  inspect(p.initial_viewport.scale(), content="1")
   inspect(s.interaction.pointer_down, content="true")
   inspect(s.interaction.did_move, content="false")
 }
@@ -32,9 +46,10 @@ test "pan_move translates viewport by delta from start" {
   let state = make_test_state()
   let s0 = update_pan_start(state, 100.0, 100.0)
   let s1 = update_pan_move(s0, 160.0, 140.0)
-  inspect(s1.viewport.x, content="60")
-  inspect(s1.viewport.y, content="40")
-  inspect(s1.viewport.scale, content="1")
+  let origin = s1.viewport.screen_origin()
+  inspect(origin.x, content="60")
+  inspect(origin.y, content="40")
+  inspect(s1.viewport.scale(), content="1")
   inspect(s1.interaction.did_move, content="true")
 }
 
@@ -44,23 +59,39 @@ test "pan_move is absolute not cumulative" {
   let s0 = update_pan_start(state, 0.0, 0.0)
   let s1 = update_pan_move(s0, 50.0, 30.0)
   let s2 = update_pan_move(s1, 80.0, 50.0)
-  inspect(s2.viewport.x, content="80")
-  inspect(s2.viewport.y, content="50")
+  let origin = s2.viewport.screen_origin()
+  inspect(origin.x, content="80")
+  inspect(origin.y, content="50")
+}
+
+///|
+test "pan_move preserves the initial viewport snapshot" {
+  let state = {
+    ..make_test_state(),
+    viewport: viewport_for_test(10.0, -20.0, 2.5),
+  }
+  let started = update_pan_start(state, 100.0, 200.0)
+  let moved = update_pan_move(started, 115.0, 207.0)
+  let origin = moved.viewport.screen_origin()
+  assert_eq(origin.x, 25.0)
+  assert_eq(origin.y, -13.0)
+  assert_eq(moved.viewport.scale(), 2.5)
 }
 
 ///|
 test "pan_move is no-op when not panning" {
   let state = make_test_state()
   let s = update_pan_move(state, 999.0, 999.0)
-  inspect(s.viewport.x, content="0")
-  inspect(s.viewport.y, content="0")
+  let origin = s.viewport.screen_origin()
+  inspect(origin.x, content="0")
+  inspect(origin.y, content="0")
 }
 
 ///|
 test "zoom changes scale and records a serializable action" {
   let state = make_test_state()
   let s = update_zoom(state, -1.0, 500.0, 400.0)
-  assert_true(s.viewport.scale > 1.0)
+  assert_true(s.viewport.scale() > 1.0)
   assert_eq(s.action_log.length(), 1)
   match s.action_log[0].action() {
     WorkflowAction::SetViewport(viewport) => assert_eq(viewport, s.viewport)
@@ -72,62 +103,16 @@ test "zoom changes scale and records a serializable action" {
 test "zoom clamps to min 0.1 and max 8.0" {
   let min_state = {
     ..make_test_state(),
-    viewport: { x: 0.0, y: 0.0, scale: 0.11 },
+    viewport: viewport_for_test(0.0, 0.0, 0.11),
   }
   let min_zoom = update_zoom(min_state, 1.0, 0.0, 0.0)
-  assert_eq(min_zoom.viewport.scale, 0.1)
+  assert_eq(min_zoom.viewport.scale(), 0.1)
   let max_state = {
     ..make_test_state(),
-    viewport: { x: 0.0, y: 0.0, scale: 7.5 },
+    viewport: viewport_for_test(0.0, 0.0, 7.5),
   }
   let max_zoom = update_zoom(max_state, -1.0, 0.0, 0.0)
-  assert_eq(max_zoom.viewport.scale, 8.0)
-}
-
-///|
-test "zoom normalizes malformed legacy scales before geometry" {
-  let zero_scale = {
-    ..make_test_state(),
-    viewport: { x: 20.0, y: -10.0, scale: 0.0 },
-  }
-  let zero_recovered = update_zoom(zero_scale, 1.0, 30.0, 40.0)
-  assert_eq(zero_recovered.viewport.scale, 0.9)
-
-  let nan_scale = {
-    ..make_test_state(),
-    viewport: { x: 20.0, y: -10.0, scale: 0.0 / 0.0 },
-  }
-  let nan_recovered = update_zoom(nan_scale, 1.0, 30.0, 40.0)
-  assert_eq(nan_recovered.viewport.scale, 0.9)
-}
-
-///|
-test "viewport ingress normalizes malformed legacy scales" {
-  let zero = apply_action(
-    make_test_state(),
-    SetViewport({ x: 20.0, y: -10.0, scale: 0.0 }),
-  )
-  assert_eq(zero.viewport.scale, 1.0)
-
-  let negative = apply_action(
-    make_test_state(),
-    SetViewport({ x: 20.0, y: -10.0, scale: -2.0 }),
-  )
-  assert_eq(negative.viewport.scale, 1.0)
-
-  let nan = apply_action(
-    make_test_state(),
-    SetViewport({ x: 20.0, y: -10.0, scale: 0.0 / 0.0 }),
-  )
-  assert_eq(nan.viewport.scale, 1.0)
-
-  let from_parts = canvas_state_from_parts(
-    canvas_document_from_state(make_test_state()),
-    { x: 20.0, y: -10.0, scale: 1.0 / 0.0 },
-    empty_interaction(),
-    [],
-  )
-  assert_eq(from_parts.viewport.scale, 1.0)
+  assert_eq(max_zoom.viewport.scale(), 8.0)
 }
 
 ///|
@@ -135,9 +120,10 @@ test "zoom keeps cursor world position fixed" {
   let state = make_test_state()
   let cx = 300.0
   let cy = 200.0
-  let world_x_before = (cx - state.viewport.x) / state.viewport.scale
+  let anchor = ScreenPoint::from_xy(x=cx, y=cy)
+  let world_x_before = state.viewport.screen_to_world(anchor).x
   let s = update_zoom(state, 1.0, cx, cy)
-  let world_x_after = (cx - s.viewport.x) / s.viewport.scale
+  let world_x_after = s.viewport.screen_to_world(anchor).x
   assert_true((world_x_before - world_x_after).abs() < 1.0e-9)
 }
 

@@ -1,4 +1,7 @@
 ///|
+using @interaction_geometry {type ScreenPoint, type Viewport}
+
+///|
 // v2: NodeId/EdgeId wire encoding is a JSON string (the projection token), not
 // the v1 positional integer. The decode gate below rejects v1 payloads, so the
 // bump keeps "version" an honest, single-meaning format marker.
@@ -188,20 +191,6 @@ pub(all) enum NodeKind {
 
 ///|
 pub impl Show for NodeKind with fn output(self, logger) {
-  logger.write_string(@debug.to_string(self))
-}
-
-///|
-/// Pan and zoom state of the canvas viewport.
-/// `x` and `y` are the world origin in canvas-local screen space.
-pub(all) struct Viewport {
-  x : Double
-  y : Double
-  scale : Double
-} derive(Debug, Eq, ToJson, FromJson)
-
-///|
-pub impl Show for Viewport with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -525,10 +514,8 @@ pub impl Show for DragState with fn output(self, logger) {
 ///|
 /// State captured at the start of a pan gesture.
 pub(all) struct PanState {
-  start_screen_x : Double
-  start_screen_y : Double
-  start_pan_x : Double
-  start_pan_y : Double
+  start_pointer : ScreenPoint
+  initial_viewport : Viewport
 } derive(Debug, Eq)
 
 ///|
@@ -986,8 +973,7 @@ pub fn apply_action(
     }
     SetNodeParam(_, _, _) => state
     SelectNodes(nodes) => set_selection(state, nodes)
-    SetViewport(viewport) =>
-      { ..state, viewport: normalize_legacy_viewport(viewport) }
+    SetViewport(viewport) => { ..state, viewport, }
   }
 }
 
@@ -1043,7 +1029,10 @@ pub impl Default for CanvasState with fn default() -> CanvasState {
     make_workflow_node(NodeId("6"), Parallel, 500.0, 70.0),
   ]
   {
-    viewport: { x: 760.0, y: 330.0, scale: 0.75 },
+    viewport: Viewport::validated(
+      origin=ScreenPoint::from_xy(x=760.0, y=330.0),
+      scale=0.75,
+    ),
     nodes,
     edges: [
       {

@@ -16,10 +16,12 @@ pub using @graph_model {
   type PanState,
   type PortDef,
   type PortType,
-  type Viewport,
   type WorkflowAction,
   type WorkflowNodeKind,
 }
 
 ///|
 using @graph_model {type CanvasDocument, type SelectionState}
+
+///|
+using @interaction_geometry {type ScreenPoint, type Viewport}

@@ -40,7 +40,9 @@ fn contract_screen_point(
   world_x : Double,
   world_y : Double,
 ) -> (Double, Double) {
-  (world_x * viewport.scale + viewport.x, world_y * viewport.scale + viewport.y)
+  let origin = viewport.screen_origin()
+  let scale = viewport.scale()
+  (world_x * scale + origin.x, world_y * scale + origin.y)
 }
 
 ///|
@@ -118,8 +120,10 @@ test "runtime contract: panning logs viewport only on pointerup" {
   runtime.pointer_down(None, 10.0, 20.0)
   runtime.pointer_move(30.0, 55.0)
   let during = runtime.render_state()
-  contract_assert_close(during.viewport.x, before.x + 20.0)
-  contract_assert_close(during.viewport.y, before.y + 35.0)
+  let before_origin = before.screen_origin()
+  let during_origin = during.viewport.screen_origin()
+  contract_assert_close(during_origin.x, before_origin.x + 20.0)
+  contract_assert_close(during_origin.y, before_origin.y + 35.0)
   assert_eq(during.action_count, 0)
   assert_eq(contract_runtime_operations(runtime).length(), 0)
 
@@ -246,8 +250,10 @@ test "source-backed runtime contract: panning logs viewport only on pointerup" {
   source_graph_pointer_down(handle, "", 10.0, 20.0)
   source_graph_pointer_move(handle, 30.0, 55.0)
   let during = source_graph_base_canvas_state(graph)
-  contract_assert_close(during.viewport.x, before.x + 20.0)
-  contract_assert_close(during.viewport.y, before.y + 35.0)
+  let before_origin = before.screen_origin()
+  let during_origin = during.viewport.screen_origin()
+  contract_assert_close(during_origin.x, before_origin.x + 20.0)
+  contract_assert_close(during_origin.y, before_origin.y + 35.0)
   assert_eq(ok_operation_log(get_source_graph_action_log(handle)).length(), 0)
 
   source_graph_pointer_move(handle, 40.0, 65.0)

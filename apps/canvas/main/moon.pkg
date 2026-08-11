@@ -3,6 +3,7 @@ import {
   "moonbitlang/core/debug",
   "moonbitlang/core/ref",
   "dowdiness/canopy-canvas-graph/graph_model",
+  "dowdiness/canopy-canvas-graph/interaction_geometry",
   "dowdiness/incr",
   "dowdiness/graph-dsl" @graph_dsl,
   "dowdiness/loom/core",
@@ -26,8 +27,9 @@ import {
 
 supported_targets = "js"
 
+pkgtype(kind: "executable")
+
 options(
-  "is-main": true,
   link: {
     "js": {
       "exports": [

@@ -56,7 +56,7 @@ pub fn idle_drag_preview() -> DragPreview {
 
 ///|
 pub fn default_viewport() -> Viewport {
-  { x: 760.0, y: 330.0, scale: 0.75 }
+  Viewport::validated(origin=ScreenPoint::from_xy(x=760.0, y=330.0), scale=0.75)
 }
 
 ///|
@@ -76,7 +76,7 @@ pub fn canvas_state_from_parts(
   action_log : Array[GraphOperation],
 ) -> CanvasState {
   {
-    viewport: normalize_legacy_viewport(viewport),
+    viewport,
     nodes: document.nodes.copy(),
     edges: document.edges.copy(),
     next_node_id: document.next_node_id,

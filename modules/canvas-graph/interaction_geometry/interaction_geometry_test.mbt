@@ -22,6 +22,64 @@ fn viewport_for_test(
 }
 
 ///|
+fn viewport_json_with_coordinates(
+  x : Double,
+  y : Double,
+  scale : Double,
+) -> Json {
+  let fields : Map[String, Json] = Map([])
+  fields["x"] = x.to_json()
+  fields["y"] = y.to_json()
+  fields["scale"] = scale.to_json()
+  Json::object(fields)
+}
+
+///|
+fn viewport_json(scale : Double) -> Json {
+  viewport_json_with_coordinates(12.0, -7.0, scale)
+}
+
+///|
+fn assert_rejects_viewport_json(json : Json) -> Unit raise {
+  let rejected = try {
+    let _ : Viewport = @json.from_json(json)
+    false
+  } catch {
+    _ => true
+  }
+  assert_true(rejected)
+}
+
+///|
+test "viewport JSON preserves the existing wire shape" {
+  let viewport = viewport_for_test(12.0, -7.0, 2.5)
+  inspect(
+    viewport.to_json().stringify(),
+    content="{\"x\":12,\"y\":-7,\"scale\":2.5}",
+  )
+  let decoded : Viewport = @json.from_json(viewport.to_json())
+  assert_eq(decoded, viewport)
+}
+
+///|
+test "viewport JSON rejects non-positive and non-finite scales" {
+  assert_rejects_viewport_json(viewport_json(0.0))
+  assert_rejects_viewport_json(viewport_json(-1.0))
+  assert_rejects_viewport_json(viewport_json(0.0 / 0.0))
+  assert_rejects_viewport_json(viewport_json(1.0 / 0.0))
+}
+
+///|
+test "viewport JSON rejects non-finite coordinates" {
+  assert_rejects_viewport_json(
+    viewport_json_with_coordinates(1.0 / 0.0, -7.0, 1.0),
+  )
+  assert_rejects_viewport_json(
+    viewport_json_with_coordinates(12.0, 0.0 / 0.0, 1.0),
+  )
+}
+
+///|
 test "finite viewport scales are accepted" {
   for scale in [0.1, 0.25, 1.0, 4.0, 8.0] {
     let viewport = viewport_for_test(12.0, -7.0, scale)

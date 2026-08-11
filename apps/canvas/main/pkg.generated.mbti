@@ -139,8 +139,6 @@ pub using @graph_model {type PortDef}
 
 pub using @graph_model {type PortType}
 
-pub using @graph_model {type Viewport}
-
 pub using @graph_model {type WorkflowAction}
 
 pub using @graph_model {type WorkflowNodeKind}

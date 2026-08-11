@@ -3,6 +3,7 @@ package "dowdiness/canopy-canvas-graph/interaction_geometry"
 
 import {
   "moonbitlang/core/debug",
+  "moonbitlang/core/json",
 }
 
 // Values
@@ -46,6 +47,8 @@ pub fn Viewport::try_with_scale_around(Self, anchor~ : ScreenPoint, absolute_sca
 pub fn Viewport::validated(origin~ : ScreenPoint, scale~ : Double) -> Self
 pub fn Viewport::with_scale_around(Self, anchor~ : ScreenPoint, absolute_scale~ : Double) -> Self
 pub fn Viewport::world_to_screen(Self, WorldPoint) -> ScreenPoint
+pub impl ToJson for Viewport
+pub impl @json.FromJson for Viewport
 
 pub struct WorldPoint {
   x : Double

@@ -1,48 +1,15 @@
 ///|
-fn geometry_viewport_from_legacy(
-  viewport : Viewport,
-) -> @interaction_geometry.Viewport {
-  // Legacy CanvasState is pub(all), so malformed scale values can enter at
-  // this boundary. Reuse the geometry constructor's invariant here instead
-  // of maintaining a second finite-positive scale predicate.
-  let origin = @interaction_geometry.ScreenPoint::from_xy(
-    x=viewport.x,
-    y=viewport.y,
-  )
-  match
-    @interaction_geometry.Viewport::try_from_scale(
-      origin~,
-      scale=viewport.scale,
-    ) {
-    Some(viewport) => viewport
-    None => @interaction_geometry.Viewport::validated(origin~, scale=1.0)
-  }
-}
-
-///|
-fn legacy_viewport_from_geometry(
-  viewport : @interaction_geometry.Viewport,
-) -> Viewport {
-  let origin = viewport.screen_origin()
-  { x: origin.x, y: origin.y, scale: viewport.scale() }
-}
-
-///|
-fn normalize_legacy_viewport(viewport : Viewport) -> Viewport {
-  legacy_viewport_from_geometry(geometry_viewport_from_legacy(viewport))
-}
-
-///|
 fn update_pan_start(
   state : CanvasState,
   screen_x : Double,
   screen_y : Double,
 ) -> CanvasState {
   let pan : PanState = {
-    start_screen_x: screen_x,
-    start_screen_y: screen_y,
-    start_pan_x: state.viewport.x,
-    start_pan_y: state.viewport.y,
+    start_pointer: @interaction_geometry.ScreenPoint::from_xy(
+      x=screen_x,
+      y=screen_y,
+    ),
+    initial_viewport: state.viewport,
   }
   let new_interaction : InteractionState = {
     ..state.interaction,
@@ -64,28 +31,22 @@ pub fn update_pan_move(
   match state.interaction.panning {
     None => state
     Some(pan) => {
-      let next_viewport = @interaction_geometry.Pan::start(
-        viewport=geometry_viewport_from_legacy({
-          x: pan.start_pan_x,
-          y: pan.start_pan_y,
-          scale: state.viewport.scale,
-        }),
-        pointer=@interaction_geometry.ScreenPoint::from_xy(
-          x=pan.start_screen_x,
-          y=pan.start_screen_y,
-        ),
-      ).viewport_at(
-        @interaction_geometry.ScreenPoint::from_xy(x=screen_x, y=screen_y),
+      let pointer = @interaction_geometry.ScreenPoint::from_xy(
+        x=screen_x,
+        y=screen_y,
       )
-      let new_viewport : Viewport = legacy_viewport_from_geometry(next_viewport)
+      let next_viewport = @interaction_geometry.Pan::start(
+        viewport=pan.initial_viewport,
+        pointer=pan.start_pointer,
+      ).viewport_at(pointer)
       let did_move = state.interaction.did_move ||
-        screen_x != pan.start_screen_x ||
-        screen_y != pan.start_screen_y
+        screen_x != pan.start_pointer.x ||
+        screen_y != pan.start_pointer.y
       let new_interaction : InteractionState = {
         ..state.interaction,
         did_move,
       }
-      { ..state, viewport: new_viewport, interaction: new_interaction }
+      { ..state, viewport: next_viewport, interaction: new_interaction }
     }
   }
 }
@@ -100,15 +61,13 @@ pub fn update_zoom(
   cy : Double,
 ) -> CanvasState {
   let factor = if delta > 0.0 { 0.9 } else { 1.0 / 0.9 }
-  let current_viewport = geometry_viewport_from_legacy(state.viewport)
+  let current_viewport = state.viewport
   let old_scale = current_viewport.scale()
   let raw = old_scale * factor
   let new_scale = if raw < 0.1 { 0.1 } else if raw > 8.0 { 8.0 } else { raw }
-  let new_viewport = legacy_viewport_from_geometry(
-    current_viewport.with_scale_around(
-      anchor=@interaction_geometry.ScreenPoint::from_xy(x=cx, y=cy),
-      absolute_scale=new_scale,
-    ),
+  let new_viewport = current_viewport.with_scale_around(
+    anchor=@interaction_geometry.ScreenPoint::from_xy(x=cx, y=cy),
+    absolute_scale=new_scale,
   )
   record_action({ ..state, viewport: new_viewport }, SetViewport(new_viewport))
 }
@@ -119,7 +78,7 @@ pub fn screen_to_world(
   sx : Double,
   sy : Double,
 ) -> (Double, Double) {
-  let world = geometry_viewport_from_legacy(viewport).screen_to_world(
+  let world = viewport.screen_to_world(
     @interaction_geometry.ScreenPoint::from_xy(x=sx, y=sy),
   )
   (world.x, world.y)

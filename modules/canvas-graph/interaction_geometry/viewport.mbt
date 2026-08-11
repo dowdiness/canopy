@@ -6,15 +6,42 @@ pub struct Viewport {
 } derive(Eq, Debug)
 
 ///|
+fn finite_number(value : Double) -> Bool {
+  !value.is_nan() && !value.is_inf()
+}
+
+///|
 fn valid_scale(scale : Double) -> Bool {
-  !scale.is_nan() && !scale.is_inf() && scale > 0.0
+  finite_number(scale) && scale > 0.0
+}
+
+///|
+fn viewport_json_number_field(
+  fields : Map[String, Json],
+  path : @json.JsonPath,
+  key : String,
+) -> Double raise @json.JsonDecodeError {
+  match fields.get(key) {
+    Some(Json::Number(number, ..)) => {
+      guard finite_number(number) else {
+        raise @json.JsonDecodeError(
+          (path.add_key(key), "Viewport: '\\{key}' must be finite"),
+        )
+      }
+      number
+    }
+    _ =>
+      raise @json.JsonDecodeError(
+        (path.add_key(key), "Viewport: '\\{key}' must be a number"),
+      )
+  }
 }
 
 ///|
 /// Construct a viewport when the scale has already been validated.
 ///
 /// This constructor aborts for invalid input. Use `try_from_scale` when the scale
-/// comes from an untrusted or legacy boundary.
+/// comes from an untrusted boundary.
 pub fn Viewport::validated(origin~ : ScreenPoint, scale~ : Double) -> Viewport {
   guard valid_scale(scale) else {
     abort("viewport scale must be finite and positive")
@@ -23,7 +50,7 @@ pub fn Viewport::validated(origin~ : ScreenPoint, scale~ : Double) -> Viewport {
 }
 
 ///|
-/// Construct a viewport from an untrusted scale without aborting.
+/// Construct a viewport from untrusted input without aborting.
 pub fn Viewport::try_from_scale(
   origin~ : ScreenPoint,
   scale~ : Double,
@@ -39,6 +66,36 @@ pub fn Viewport::try_from_scale(
 /// Return the screen-space origin of the world coordinate system.
 pub fn Viewport::screen_origin(self : Viewport) -> ScreenPoint {
   self.origin
+}
+
+///|
+pub impl ToJson for Viewport with fn to_json(self) {
+  let origin = self.screen_origin()
+  let fields : Map[String, Json] = Map([])
+  fields["x"] = origin.x.to_json()
+  fields["y"] = origin.y.to_json()
+  fields["scale"] = self.scale.to_json()
+  Json::object(fields)
+}
+
+///|
+pub impl @json.FromJson for Viewport with fn from_json(json, path) {
+  let fields = match json {
+    Json::Object(fields) => fields
+    _ => raise @json.JsonDecodeError((path, "Viewport: expected JSON object"))
+  }
+  let origin = ScreenPoint::from_xy(
+    x=viewport_json_number_field(fields, path, "x"),
+    y=viewport_json_number_field(fields, path, "y"),
+  )
+  let scale = viewport_json_number_field(fields, path, "scale")
+  match Viewport::try_from_scale(origin~, scale~) {
+    Some(viewport) => viewport
+    None =>
+      raise @json.JsonDecodeError(
+        (path.add_key("scale"), "Viewport: 'scale' must be finite and positive"),
+      )
+  }
 }
 
 ///|
@@ -75,7 +132,7 @@ pub fn Viewport::world_to_screen(
 /// Return a viewport with an absolute scale while keeping `anchor` fixed.
 ///
 /// This method aborts for invalid input. Use `try_with_scale_around` when the
-/// scale comes from an untrusted or legacy boundary.
+/// scale comes from an untrusted boundary.
 pub fn Viewport::with_scale_around(
   self : Viewport,
   anchor~ : ScreenPoint,

@@ -4,9 +4,21 @@ fn node_id(n : Int) -> @graph_model.NodeId {
 }
 
 ///|
+fn viewport_for_test(
+  origin_x : Double,
+  origin_y : Double,
+  scale : Double,
+) -> @interaction_geometry.Viewport {
+  @interaction_geometry.Viewport::validated(
+    origin=@interaction_geometry.ScreenPoint::from_xy(x=origin_x, y=origin_y),
+    scale~,
+  )
+}
+
+///|
 fn replay_base_state() -> @graph_model.CanvasState {
   {
-    viewport: { x: 0.0, y: 0.0, scale: 1.0 },
+    viewport: viewport_for_test(0.0, 0.0, 1.0),
     nodes: [
       @graph_model.make_workflow_node(
         node_id(1),
@@ -47,7 +59,7 @@ fn fan_in_base_state(allows_fan_in : Bool) -> @graph_model.CanvasState {
     ],
   }
   {
-    viewport: { x: 0.0, y: 0.0, scale: 1.0 },
+    viewport: viewport_for_test(0.0, 0.0, 1.0),
     nodes: [
       @graph_model.make_workflow_node(
         node_id(1),
@@ -209,48 +221,49 @@ test "operation log round-trips and replays into canvas graph state" {
 }
 
 ///|
-test "valid v2 viewport operations replay unchanged" {
+fn assert_rejects_viewport_operation(json : Json) -> Unit raise {
+  let rejected = try {
+    let _ : @graph_model.GraphOperation = @json.from_json(json)
+    false
+  } catch {
+    _ => true
+  }
+  assert_true(rejected)
+}
+
+///|
+test "valid viewport operations preserve their JSON shape during replay" {
+  let viewport = viewport_for_test(20.0, -10.0, 2.5)
   let operation = @graph_model.GraphOperation::GraphOperation(
-    @graph_model.WorkflowAction::SetViewport({ x: 20.0, y: -10.0, scale: 2.5 }),
+    @graph_model.WorkflowAction::SetViewport(viewport),
+  )
+  inspect(
+    operation.to_json().stringify(),
+    content="{\"version\":2,\"type\":\"SetViewport\",\"viewport\":{\"x\":20,\"y\":-10,\"scale\":2.5}}",
   )
   let decoded : @graph_model.GraphOperation = @json.from_json(
     operation.to_json(),
   )
   let replayed = @graph_model.replay_operations(replay_base_state(), [decoded])
-  assert_eq(replayed.viewport, { x: 20.0, y: -10.0, scale: 2.5 })
+  assert_eq(replayed.viewport, viewport)
   @debug.assert_eq(replayed.action_log, [operation])
 }
 
 ///|
-test "persisted malformed viewport scales normalize during replay" {
-  let operations = [
-    @graph_model.GraphOperation::GraphOperation(
-      @graph_model.WorkflowAction::SetViewport({ x: 20.0, y: -10.0, scale: 0.0 }),
-    ),
-    @graph_model.GraphOperation::GraphOperation(
-      @graph_model.WorkflowAction::SetViewport({
-        x: 30.0,
-        y: -20.0,
-        scale: -2.0,
-      }),
-    ),
-  ]
-  let decoded : Array[@graph_model.GraphOperation] = @json.from_json(
-    operations.to_json(),
-  )
-  let replayed = @graph_model.replay_operations(replay_base_state(), decoded)
-  assert_eq(replayed.viewport.scale, 1.0)
-  assert_eq(replayed.action_log.length(), 2)
-  match replayed.action_log[0].action() {
-    @graph_model.WorkflowAction::SetViewport(viewport) =>
-      assert_eq(viewport.scale, 0.0)
-    _ => fail("expected first SetViewport action")
+test "invalid viewport JSON is rejected before replay or action logging" {
+  let zero_scale = @json.parse(
+    "{\"version\":2,\"type\":\"SetViewport\",\"viewport\":{\"x\":20,\"y\":-10,\"scale\":0}}",
+  ) catch {
+    _ => abort("expected valid operation JSON")
   }
-  match replayed.action_log[1].action() {
-    @graph_model.WorkflowAction::SetViewport(viewport) =>
-      assert_eq(viewport.scale, -2.0)
-    _ => fail("expected second SetViewport action")
+  let negative_scale = @json.parse(
+    "{\"version\":2,\"type\":\"SetViewport\",\"viewport\":{\"x\":20,\"y\":-10,\"scale\":-2}}",
+  ) catch {
+    _ => abort("expected valid operation JSON")
   }
+  assert_rejects_viewport_operation(zero_scale)
+  assert_rejects_viewport_operation(negative_scale)
+  assert_eq(replay_base_state().action_log.length(), 0)
 }
 
 ///|

@@ -4,7 +4,7 @@
 /// live here while pointer/drag/zoom mechanics continue to reuse
 /// `@graph_model` reducers.
 fn default_source_graph_viewport() -> Viewport {
-  { x: 360.0, y: 330.0, scale: 1.0 }
+  Viewport::validated(origin=ScreenPoint::from_xy(x=360.0, y=330.0), scale=1.0)
 }
 
 ///|
@@ -273,7 +273,10 @@ fn canvas_from_graph_doc(doc : @graph_dsl.GraphDoc) -> CanvasState {
     }
   }
   {
-    viewport: { x: 0.0, y: 0.0, scale: 1.0 },
+    viewport: Viewport::validated(
+      origin=ScreenPoint::from_xy(x=0.0, y=0.0),
+      scale=1.0,
+    ),
     nodes,
     edges,
     next_node_id: nodes.length() + 1,

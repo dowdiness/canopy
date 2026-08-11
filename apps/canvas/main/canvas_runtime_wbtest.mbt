@@ -1,7 +1,10 @@
 ///|
 fn make_test_state() -> CanvasState {
   {
-    viewport: { x: 0.0, y: 0.0, scale: 1.0 },
+    viewport: Viewport::validated(
+      origin=ScreenPoint::from_xy(x=0.0, y=0.0),
+      scale=1.0,
+    ),
     nodes: [
       @graph_model.make_workflow_node(NodeId("1"), TimerTrigger, 100.0, 100.0),
       @graph_model.make_workflow_node(NodeId("2"), HttpRequest, 420.0, 100.0),
@@ -112,7 +115,10 @@ test "runtime sparse inspector follows hover until a node is selected" {
   let runtime = CanvasRuntime::CanvasRuntime()
   runtime.sync_viewport_state({
     ..runtime.state_peek(),
-    viewport: { x: 0.0, y: 0.0, scale: 1.0 },
+    viewport: Viewport::validated(
+      origin=ScreenPoint::from_xy(x=0.0, y=0.0),
+      scale=1.0,
+    ),
   })
   runtime.hover_node("1")
   match runtime.render_state().inspector {

@@ -18,12 +18,14 @@ listeners, JS handle registries, or demo-specific workflow validation copy. The
 text, and FFI exports so applications can choose their own rendering and
 validation surfaces while reusing the model and reducers here.
 
-## Viewport replay compatibility
+## Viewport invariants
 
-`GraphOperation` version 2 keeps its existing JSON shape and preserves the
-semantics of valid `SetViewport` operations during replay. Older persisted
-state can contain a non-finite or non-positive scale because the legacy
-`CanvasState` boundary is open. The graph model normalizes those malformed
-values to `1.0` when materializing state, while retaining the original
-operation in `action_log` for audit and provenance. This is recovery for an
-out-of-invariant legacy value, not a change to valid version-2 replay.
+`CanvasState` and `SetViewport` use `@interaction_geometry.Viewport` directly.
+Its scale is always finite and positive: internal construction uses
+`Viewport::validated`, while untrusted input can use `try_from_scale` without
+creating an invalid value.
+
+The JSON wire shape remains `{x, y, scale}`. `Viewport` provides strict JSON
+encoding and decoding for that value shape; non-finite or non-positive scales
+raise `@json.JsonDecodeError`. Invalid viewport operations are rejected before
+replay, so they are neither normalized nor retained in `action_log`.
