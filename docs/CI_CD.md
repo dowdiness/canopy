@@ -24,7 +24,9 @@ The main gating workflow. Job names match the file:
 runtime depends on `modules/canvas-graph`. A module-only canvas-graph change
 therefore runs the Canvas browser suite without enabling unrelated web, Ideal,
 or demo E2E jobs. The aggregation gate accepts a skipped Canvas job only when
-that filter is false.
+that filter is false. The exact path membership is maintained in the `changes`
+job of `.github/workflows/ci.yml`; this document describes the contract rather
+than duplicating its globs.
 
 | Job | What it runs |
 |-----|--------------|
@@ -43,7 +45,7 @@ that filter is false.
 | `waku-workerd` | Built Worker and same-origin Signaling smoke under local workerd |
 | `ideal-web-e2e` | Playwright suite for `apps/ideal/web` |
 | `demo-react-e2e` | Playwright suite for `examples/demo-react` |
-| `canvas-e2e` | Playwright suite for `apps/canvas/web`; selected by the dedicated `run_canvas_e2e` filter for `apps/canvas/**` and `modules/canvas-graph/**` |
+| `canvas-e2e` | Playwright suite for `apps/canvas/web`; selected by the `run_canvas_e2e` output from the `changes` job |
 | `all-checks-passed` | Aggregation gate; fails unless every required job succeeds or is an accepted path-filtered skip |
 
 #### Uploaded artifacts (`build-js`)
