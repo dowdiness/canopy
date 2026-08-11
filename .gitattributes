@@ -3,7 +3,6 @@ apps/web/worker-configuration.d.ts whitespace=-blank-at-eol
 
 # MoonBit owns this empty generated interface and emits a final blank line.
 modules/canopy/probe/diagnostic_portability/pkg.generated.mbti whitespace=-blank-at-eof
-modules/canvas-graph/interaction_geometry/pkg.generated.mbti whitespace=-blank-at-eof
 
 # MoonBit owns these generated interfaces and emits a final blank line.
 modules/canopy/editor/markdown/pkg.generated.mbti whitespace=-blank-at-eof
@@ -17,6 +16,7 @@ apps/loomark/main/pkg.generated.mbti whitespace=-blank-at-eof
 apps/loomark/internal/archive_storage/js/pkg.generated.mbti whitespace=-blank-at-eof
 apps/loomark/internal/archive_storage/pkg.generated.mbti whitespace=-blank-at-eof
 apps/loomark/repository/pkg.generated.mbti whitespace=-blank-at-eof
+modules/canvas-graph/interaction_geometry/pkg.generated.mbti whitespace=-blank-at-eof
 
 # Preserve the existing CRLF line endings in Ideal Playwright specs while
 # treating their line terminators as valid whitespace in diff checks.

@@ -38,9 +38,9 @@ pub fn[Id] Drag::start(
 ///|
 /// Translate an already-captured position view and map each result.
 ///
-/// The view is borrowed only for this calculation; the returned array owns
-/// the mapped values. This avoids copying a snapshot when an imperative shell
-/// already stores one.
+/// This is a borrowed-view adapter for imperative shells that keep their own
+/// snapshot representation. The input is borrowed only for this calculation;
+/// the returned array owns the mapped values.
 pub fn[A, B] map_drag_positions_at(
   positions~ : ArrayView[A],
   initial_pointer~ : WorldPoint,

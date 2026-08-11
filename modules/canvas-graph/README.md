@@ -17,3 +17,13 @@ listeners, JS handle registries, or demo-specific workflow validation copy. The
 `apps/canvas` package keeps the incr runtime, JSON DTO lowering, inspector
 text, and FFI exports so applications can choose their own rendering and
 validation surfaces while reusing the model and reducers here.
+
+## Viewport replay compatibility
+
+`GraphOperation` version 2 keeps its existing JSON shape and preserves the
+semantics of valid `SetViewport` operations during replay. Older persisted
+state can contain a non-finite or non-positive scale because the legacy
+`CanvasState` boundary is open. The graph model normalizes those malformed
+values to `1.0` when materializing state, while retaining the original
+operation in `action_log` for audit and provenance. This is recovery for an
+out-of-invariant legacy value, not a change to valid version-2 replay.

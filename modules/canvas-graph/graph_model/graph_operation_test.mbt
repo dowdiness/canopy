@@ -209,6 +209,19 @@ test "operation log round-trips and replays into canvas graph state" {
 }
 
 ///|
+test "valid v2 viewport operations replay unchanged" {
+  let operation = @graph_model.GraphOperation::GraphOperation(
+    @graph_model.WorkflowAction::SetViewport({ x: 20.0, y: -10.0, scale: 2.5 }),
+  )
+  let decoded : @graph_model.GraphOperation = @json.from_json(
+    operation.to_json(),
+  )
+  let replayed = @graph_model.replay_operations(replay_base_state(), [decoded])
+  assert_eq(replayed.viewport, { x: 20.0, y: -10.0, scale: 2.5 })
+  @debug.assert_eq(replayed.action_log, [operation])
+}
+
+///|
 test "persisted malformed viewport scales normalize during replay" {
   let operations = [
     @graph_model.GraphOperation::GraphOperation(

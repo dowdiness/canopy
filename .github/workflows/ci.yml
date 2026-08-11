@@ -112,6 +112,7 @@ jobs:
               - 'scripts/test-*.sh'
             run_canvas_e2e:
               - 'apps/canvas/**'
+              - 'apps/web/vite-plugin-moonbit.ts'
               - 'modules/canvas-graph/**'
               - '.github/workflows/ci.yml'
               - 'scripts/build-js.sh'
