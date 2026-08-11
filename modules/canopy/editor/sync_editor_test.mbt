@@ -483,3 +483,92 @@ test "SyncEditor: local insertion adjusts a peer cursor after the edit" {
     ),
   )
 }
+
+///|
+test "SyncEditor: concurrent middle inserts converge with parser state" {
+  let alice = try! @probe.new_test_editor("alice")
+  let bob = try! @probe.new_test_editor("bob")
+  alice.set_text("abcd")
+  try! bob.apply_sync(try! alice.export_all())
+
+  alice.move_cursor(4)
+  bob.move_cursor(4)
+  alice.set_local_presence("Alice", "#ff0000")
+  bob.set_local_presence("Bob", "#00ff00")
+  alice.apply_ephemeral(bob.encode_ephemeral_all())
+  bob.apply_ephemeral(alice.encode_ephemeral_all())
+  alice.move_cursor(2)
+  bob.move_cursor(2)
+
+  try! alice.insert_and_record("A", 1000)
+  try! bob.insert_and_record("B", 1001)
+  try! alice.apply_sync(try! bob.export_all())
+  try! bob.apply_sync(try! alice.export_all())
+
+  inspect(alice.get_text(), content="abBAcd")
+  inspect(bob.get_text(), content="abBAcd")
+  inspect(
+    @probe.get_test_ast(alice) == @probe.get_test_ast(bob),
+    content="true",
+  )
+  inspect(
+    alice.get_peer_cursors().get("bob").unwrap().adjusted_cursor,
+    content="6",
+  )
+  inspect(
+    bob.get_peer_cursors().get("alice").unwrap().adjusted_cursor,
+    content="6",
+  )
+}
+
+///|
+test "SyncEditor: undo and redo converge across a remote interleaving" {
+  let alice = try! @probe.new_test_editor("alice", capture_timeout_ms=500)
+  let bob = try! @probe.new_test_editor("bob", capture_timeout_ms=500)
+  alice.set_text("abcd")
+  try! bob.apply_sync(try! alice.export_all())
+
+  alice.move_cursor(2)
+  try! alice.insert_and_record("A", 1000)
+  try! bob.apply_sync(try! alice.export_all())
+  inspect(bob.get_text(), content="abAcd")
+
+  bob.move_cursor(2)
+  try! bob.insert_and_record("B", 2000)
+  inspect(bob.get_text(), content="abBAcd")
+  try! alice.apply_sync(try! bob.export_all())
+  inspect(alice.get_text(), content="abBAcd")
+
+  let undo_message = alice.undo_and_export()
+  inspect(alice.get_text(), content="abBcd")
+  inspect(
+    @probe.get_test_ast(alice),
+    content=(
+      #|Branch("", [Leaf("abBcd")])
+    ),
+  )
+  match undo_message {
+    Some(message) => try! bob.apply_sync(message)
+    None => fail("undo should produce sync operations")
+  }
+  inspect(bob.get_text(), content="abBcd")
+  inspect(
+    @probe.get_test_ast(bob),
+    content=(
+      #|Branch("", [Leaf("abBcd")])
+    ),
+  )
+
+  let redo_message = alice.redo_and_export()
+  inspect(alice.get_text(), content="abBAcd")
+  match redo_message {
+    Some(message) => try! bob.apply_sync(message)
+    None => fail("redo should produce sync operations")
+  }
+  inspect(bob.get_text(), content="abBAcd")
+  inspect(alice.get_text() == bob.get_text(), content="true")
+  inspect(
+    @probe.get_test_ast(alice) == @probe.get_test_ast(bob),
+    content="true",
+  )
+}
