@@ -106,10 +106,10 @@ jobs:
               - 'apps/web/**'
               - 'apps/ideal/**'
               - 'examples/demo-react/**'
-              - 'apps/canvas/**'
               - '.github/workflows/ci.yml'
               - 'scripts/build-js.sh'
-              - 'scripts/test-*.sh'
+              - 'scripts/test-ideal-web-e2e.sh'
+              - 'scripts/test-demo-react-e2e.sh'
             run_canvas_e2e:
               - 'apps/canvas/**'
               - 'apps/web/vite-plugin-moonbit.ts'
