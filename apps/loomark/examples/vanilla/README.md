@@ -35,18 +35,40 @@ tests before deleting this adapter and harness.
 
 `npm run bench:startup` runs `bench-startup.mjs`, which boots the standalone
 static output (the same Warren production surface that `standalone.spec.ts`
-exercises) behind a local static server and measures how reload time grows as
-the archive accumulates history. The final Markdown document stays constant
-across every scenario; only the number of history-changing cycles increases
-(`[0, 2, 10, 20]`). Each scenario reports:
+exercises) behind a local static server. It measures reload-to-restored-editor
+time with repeated samples and reports nearest-rank p50/p95 values.
 
-- archive byte size
-- history byte size and character count
-- reload-root-visible timing (page reload until `#loomark-root` is visible)
+Without configuration it uses a small synthetic document and history-changing
+cycles `[0, 2, 10, 20]`. To measure a Markdown corpus, pass a file or directory
+(the directory is searched recursively):
 
-Output is printed as a `console.table` summary followed by one JSON line per
-scenario. The benchmark is a local development tool — it does not define a CI
-budget or a production performance guarantee.
+```bash
+LOOMARK_STARTUP_CORPUS=/path/to/markdown npm run bench:startup
+```
+
+That mode uses the corpus for document size and generates controlled history.
+The first generated edit is a full-document replacement, so this is a stress
+corpus rather than a claim about a user's operation granularity. For real
+persisted histories, pass exported active-archive JSON files instead:
+
+```bash
+LOOMARK_STARTUP_ARCHIVES=/path/to/archive-json npm run bench:startup
+```
+
+Archive fixtures must be complete v1 active-archive envelopes, including
+`schema_version`, `document_id`, `portable_markdown`, `history`, and empty
+`extensions`. Archive mode is the preferred input for deciding a replay
+threshold; Markdown mode is useful for separating document size from generated
+history. `LOOMARK_STARTUP_SAMPLES` controls reload samples (default `20`), and
+`LOOMARK_STARTUP_CYCLES` controls generated cycles (default `0,2,10,20`). Paths
+are emitted as opaque `document-N` labels by default; set
+`LOOMARK_STARTUP_INCLUDE_PATHS=1` when local path labels are useful.
+
+Each result reports archive, Markdown, and history sizes, the individual
+reload samples, and p50/p95 startup timings. Output is printed as a
+`console.table` summary followed by one JSON line per scenario. The benchmark
+is a local development tool — it does not define a CI budget or a production
+performance guarantee.
 
 ## Driver seam
 
