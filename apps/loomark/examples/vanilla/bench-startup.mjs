@@ -346,7 +346,7 @@ async function measureReloads(browser, encoded, finalValue) {
         .getEntriesByType("resource")
         .find(resource => resource.name.endsWith("/index.js"))
       return {
-        reloadRootVisibleMs: performance.now(),
+        reloadRestoredDocumentMs: performance.now(),
         domContentLoadedMs: entry?.domContentLoadedEventEnd ?? null,
         indexJsTransferBytes: script?.transferSize ?? null,
         indexJsDecodedBytes: script?.decodedBodySize ?? null,
@@ -355,15 +355,17 @@ async function measureReloads(browser, encoded, finalValue) {
   }
   await context.close()
 
-  const rootVisible = measurements.map(measurement => measurement.reloadRootVisibleMs)
+  const restoredDocument = measurements.map(
+    measurement => measurement.reloadRestoredDocumentMs,
+  )
   const domContentLoaded = measurements
     .map(measurement => measurement.domContentLoadedMs)
     .filter(value => value !== null)
   const network = measurements.find(measurement => measurement.indexJsDecodedBytes !== null) ?? measurements[0]
   return {
-    reloadRootVisibleSamples: rootVisible.map(value => Number(value.toFixed(1))),
-    reloadRootVisibleP50Ms: percentile(rootVisible, 50),
-    reloadRootVisibleP95Ms: percentile(rootVisible, 95),
+    reloadRestoredDocumentSamples: restoredDocument.map(value => Number(value.toFixed(1))),
+    reloadRestoredDocumentP50Ms: percentile(restoredDocument, 50),
+    reloadRestoredDocumentP95Ms: percentile(restoredDocument, 95),
     domContentLoadedP50Ms: domContentLoaded.length === 0
       ? null
       : percentile(domContentLoaded, 50),
@@ -416,7 +418,7 @@ try {
   }
   await browser.close()
   console.table(results.map(result => {
-    const { reloadRootVisibleSamples, ...summary } = result
+    const { reloadRestoredDocumentSamples, ...summary } = result
     return summary
   }))
   for (const result of results) console.log(JSON.stringify(result))

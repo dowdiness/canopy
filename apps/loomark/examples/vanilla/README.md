@@ -65,10 +65,11 @@ are emitted as opaque `document-N` labels by default; set
 `LOOMARK_STARTUP_INCLUDE_PATHS=1` when local path labels are useful.
 
 Each result reports archive, Markdown, and history sizes, the individual
-reload samples, and p50/p95 startup timings. Output is printed as a
-`console.table` summary followed by one JSON line per scenario. The benchmark
-is a local development tool — it does not define a CI budget or a production
-performance guarantee.
+reload samples, and p50/p95 startup timings. The first navigation in each
+scenario is a warm-up, so these are warm-context reload measurements rather
+than cold first-load timings. Output is printed as a `console.table` summary
+followed by one JSON line per scenario. The benchmark is a local development
+tool — it does not define a CI budget or a production performance guarantee.
 
 ## Driver seam
 
