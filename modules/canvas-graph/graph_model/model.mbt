@@ -986,7 +986,8 @@ pub fn apply_action(
     }
     SetNodeParam(_, _, _) => state
     SelectNodes(nodes) => set_selection(state, nodes)
-    SetViewport(viewport) => { ..state, viewport, }
+    SetViewport(viewport) =>
+      { ..state, viewport: normalize_legacy_viewport(viewport) }
   }
 }
 

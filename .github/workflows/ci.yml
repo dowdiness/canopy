@@ -56,6 +56,7 @@ jobs:
     outputs:
       run_prove: ${{ steps.filter.outputs.run_prove }}
       run_e2e: ${{ steps.filter.outputs.run_e2e }}
+      run_canvas_e2e: ${{ steps.filter.outputs.run_canvas_e2e }}
       run_cm6_adapter_e2e: ${{ steps.filter.outputs.run_cm6_adapter_e2e }}
       run_loomark_dev_host_e2e: ${{ steps.filter.outputs.run_loomark_dev_host_e2e }}
       run_loomark_standalone_e2e: ${{ steps.filter.outputs.run_loomark_standalone_e2e }}
@@ -109,6 +110,13 @@ jobs:
               - '.github/workflows/ci.yml'
               - 'scripts/build-js.sh'
               - 'scripts/test-*.sh'
+            run_canvas_e2e:
+              - 'apps/canvas/**'
+              - 'modules/canvas-graph/**'
+              - '.github/workflows/ci.yml'
+              - 'scripts/build-js.sh'
+              - 'scripts/link-canvas-artifacts.sh'
+              - 'scripts/test-canvas-e2e.sh'
             run_pr_ready_bash3:
               - 'scripts/**'
               - '.github/workflows/ci.yml'
@@ -709,7 +717,7 @@ jobs:
   canvas-e2e:
     name: Canvas E2E
     needs: [build-js, changes]
-    if: needs.changes.outputs.run_e2e == 'true'
+    if: needs.changes.outputs.run_canvas_e2e == 'true'
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright:v1.59.1-noble
@@ -903,7 +911,9 @@ jobs:
              ! ok "${{ needs.waku-workerd.result }}" || \
              ! ok "${{ needs.ideal-web-e2e.result }}" || \
              ! ok "${{ needs.demo-react-e2e.result }}" || \
-             ! ok "${{ needs.canvas-e2e.result }}" || \
+             ! path_filtered_ok \
+               "${{ needs.canvas-e2e.result }}" \
+               "${{ needs.changes.outputs.run_canvas_e2e }}" || \
              ! ok "${{ needs.cm6-adapter-e2e.result }}" || \
              ! path_filtered_ok \
                "${{ needs.loomark-dev-host-e2e.result }}" \

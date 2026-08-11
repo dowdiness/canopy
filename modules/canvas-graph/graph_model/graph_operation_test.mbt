@@ -209,6 +209,38 @@ test "operation log round-trips and replays into canvas graph state" {
 }
 
 ///|
+test "persisted malformed viewport scales normalize during replay" {
+  let operations = [
+    @graph_model.GraphOperation::GraphOperation(
+      @graph_model.WorkflowAction::SetViewport({ x: 20.0, y: -10.0, scale: 0.0 }),
+    ),
+    @graph_model.GraphOperation::GraphOperation(
+      @graph_model.WorkflowAction::SetViewport({
+        x: 30.0,
+        y: -20.0,
+        scale: -2.0,
+      }),
+    ),
+  ]
+  let decoded : Array[@graph_model.GraphOperation] = @json.from_json(
+    operations.to_json(),
+  )
+  let replayed = @graph_model.replay_operations(replay_base_state(), decoded)
+  assert_eq(replayed.viewport.scale, 1.0)
+  assert_eq(replayed.action_log.length(), 2)
+  match replayed.action_log[0].action() {
+    @graph_model.WorkflowAction::SetViewport(viewport) =>
+      assert_eq(viewport.scale, 0.0)
+    _ => fail("expected first SetViewport action")
+  }
+  match replayed.action_log[1].action() {
+    @graph_model.WorkflowAction::SetViewport(viewport) =>
+      assert_eq(viewport.scale, -2.0)
+    _ => fail("expected second SetViewport action")
+  }
+}
+
+///|
 test "DeleteNodes removes incident edges and deleted selection" {
   let selected = @graph_model.apply_action(
     replay_base_state(),

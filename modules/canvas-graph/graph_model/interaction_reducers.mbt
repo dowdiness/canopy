@@ -1,4 +1,38 @@
 ///|
+fn geometry_viewport_from_legacy(
+  viewport : Viewport,
+) -> @interaction_geometry.Viewport {
+  // Legacy CanvasState is pub(all), so malformed scale values can enter at
+  // this boundary. Reuse the geometry constructor's invariant here instead
+  // of maintaining a second finite-positive scale predicate.
+  let origin = @interaction_geometry.ScreenPoint::from_xy(
+    x=viewport.x,
+    y=viewport.y,
+  )
+  match
+    @interaction_geometry.Viewport::try_from_scale(
+      origin~,
+      scale=viewport.scale,
+    ) {
+    Some(viewport) => viewport
+    None => @interaction_geometry.Viewport::validated(origin~, scale=1.0)
+  }
+}
+
+///|
+fn legacy_viewport_from_geometry(
+  viewport : @interaction_geometry.Viewport,
+) -> Viewport {
+  let origin = viewport.screen_origin()
+  { x: origin.x, y: origin.y, scale: viewport.scale() }
+}
+
+///|
+fn normalize_legacy_viewport(viewport : Viewport) -> Viewport {
+  legacy_viewport_from_geometry(geometry_viewport_from_legacy(viewport))
+}
+
+///|
 fn update_pan_start(
   state : CanvasState,
   screen_x : Double,
@@ -30,11 +64,20 @@ pub fn update_pan_move(
   match state.interaction.panning {
     None => state
     Some(pan) => {
-      let new_viewport : Viewport = {
-        ..state.viewport,
-        x: pan.start_pan_x + (screen_x - pan.start_screen_x),
-        y: pan.start_pan_y + (screen_y - pan.start_screen_y),
-      }
+      let next_viewport = @interaction_geometry.Pan::start(
+        viewport=geometry_viewport_from_legacy({
+          x: pan.start_pan_x,
+          y: pan.start_pan_y,
+          scale: state.viewport.scale,
+        }),
+        pointer=@interaction_geometry.ScreenPoint::from_xy(
+          x=pan.start_screen_x,
+          y=pan.start_screen_y,
+        ),
+      ).viewport_at(
+        @interaction_geometry.ScreenPoint::from_xy(x=screen_x, y=screen_y),
+      )
+      let new_viewport : Viewport = legacy_viewport_from_geometry(next_viewport)
       let did_move = state.interaction.did_move ||
         screen_x != pan.start_screen_x ||
         screen_y != pan.start_screen_y
@@ -57,15 +100,16 @@ pub fn update_zoom(
   cy : Double,
 ) -> CanvasState {
   let factor = if delta > 0.0 { 0.9 } else { 1.0 / 0.9 }
-  let old_scale = state.viewport.scale
+  let current_viewport = geometry_viewport_from_legacy(state.viewport)
+  let old_scale = current_viewport.scale()
   let raw = old_scale * factor
   let new_scale = if raw < 0.1 { 0.1 } else if raw > 8.0 { 8.0 } else { raw }
-  let ratio = new_scale / old_scale
-  let new_viewport : Viewport = {
-    scale: new_scale,
-    x: cx + (state.viewport.x - cx) * ratio,
-    y: cy + (state.viewport.y - cy) * ratio,
-  }
+  let new_viewport = legacy_viewport_from_geometry(
+    current_viewport.with_scale_around(
+      anchor=@interaction_geometry.ScreenPoint::from_xy(x=cx, y=cy),
+      absolute_scale=new_scale,
+    ),
+  )
   record_action({ ..state, viewport: new_viewport }, SetViewport(new_viewport))
 }
 
@@ -75,7 +119,10 @@ pub fn screen_to_world(
   sx : Double,
   sy : Double,
 ) -> (Double, Double) {
-  ((sx - viewport.x) / viewport.scale, (sy - viewport.y) / viewport.scale)
+  let world = geometry_viewport_from_legacy(viewport).screen_to_world(
+    @interaction_geometry.ScreenPoint::from_xy(x=sx, y=sy),
+  )
+  (world.x, world.y)
 }
 
 ///|
@@ -232,15 +279,19 @@ pub fn drag_preview_from_move(
   world_x : Double,
   world_y : Double,
 ) -> DragPreview {
-  {
-    positions: drag.origins.map(fn(origin) {
-      {
-        node_id: origin.node_id,
-        x: world_x + origin.offset_x,
-        y: world_y + origin.offset_y,
-      }
-    }),
-  }
+  // DragState already owns the pointer-relative snapshot, so borrow it for
+  // the geometry translation without copying it on every pointer move.
+  let moved_positions = @interaction_geometry.map_drag_positions_at(
+    positions=drag.origins[:],
+    initial_pointer=@interaction_geometry.WorldPoint::from_xy(x=0.0, y=0.0),
+    current_pointer=@interaction_geometry.WorldPoint::from_xy(
+      x=world_x,
+      y=world_y,
+    ),
+    to_point=origin => (origin.offset_x, origin.offset_y),
+    map_result=(origin, x, y) => { node_id: origin.node_id, x, y },
+  )
+  { positions: moved_positions }
 }
 
 ///|

@@ -85,6 +85,52 @@ test "zoom clamps to min 0.1 and max 8.0" {
 }
 
 ///|
+test "zoom normalizes malformed legacy scales before geometry" {
+  let zero_scale = {
+    ..make_test_state(),
+    viewport: { x: 20.0, y: -10.0, scale: 0.0 },
+  }
+  let zero_recovered = update_zoom(zero_scale, 1.0, 30.0, 40.0)
+  assert_eq(zero_recovered.viewport.scale, 0.9)
+
+  let nan_scale = {
+    ..make_test_state(),
+    viewport: { x: 20.0, y: -10.0, scale: 0.0 / 0.0 },
+  }
+  let nan_recovered = update_zoom(nan_scale, 1.0, 30.0, 40.0)
+  assert_eq(nan_recovered.viewport.scale, 0.9)
+}
+
+///|
+test "viewport ingress normalizes malformed legacy scales" {
+  let zero = apply_action(
+    make_test_state(),
+    SetViewport({ x: 20.0, y: -10.0, scale: 0.0 }),
+  )
+  assert_eq(zero.viewport.scale, 1.0)
+
+  let negative = apply_action(
+    make_test_state(),
+    SetViewport({ x: 20.0, y: -10.0, scale: -2.0 }),
+  )
+  assert_eq(negative.viewport.scale, 1.0)
+
+  let nan = apply_action(
+    make_test_state(),
+    SetViewport({ x: 20.0, y: -10.0, scale: 0.0 / 0.0 }),
+  )
+  assert_eq(nan.viewport.scale, 1.0)
+
+  let from_parts = canvas_state_from_parts(
+    canvas_document_from_state(make_test_state()),
+    { x: 20.0, y: -10.0, scale: 1.0 / 0.0 },
+    empty_interaction(),
+    [],
+  )
+  assert_eq(from_parts.viewport.scale, 1.0)
+}
+
+///|
 test "zoom keeps cursor world position fixed" {
   let state = make_test_state()
   let cx = 300.0

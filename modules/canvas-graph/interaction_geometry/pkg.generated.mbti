@@ -1,0 +1,59 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy-canvas-graph/interaction_geometry"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn[A, B] map_drag_positions_at(positions~ : ArrayView[A], initial_pointer~ : WorldPoint, current_pointer~ : WorldPoint, to_point~ : (A) -> (Double, Double), map_result~ : (A, Double, Double) -> B) -> Array[B]
+
+// Errors
+
+// Types and methods
+pub struct Drag[Id] {
+  // private fields
+}
+pub fn[Id] Drag::positions_at(Self[Id], WorldPoint) -> Array[ItemPosition[Id]]
+pub fn[Id] Drag::start(positions~ : ReadOnlyArray[ItemPosition[Id]], pointer~ : WorldPoint) -> Self[Id]
+
+pub struct ItemPosition[Id] {
+  id : Id
+  point : WorldPoint
+}
+pub fn[Id] ItemPosition::from_id_and_point(id~ : Id, point~ : WorldPoint) -> Self[Id]
+
+pub struct Pan {
+  // private fields
+}
+pub fn Pan::start(viewport~ : Viewport, pointer~ : ScreenPoint) -> Self
+pub fn Pan::viewport_at(Self, ScreenPoint) -> Viewport
+
+pub struct ScreenPoint {
+  x : Double
+  y : Double
+} derive(Eq, @debug.Debug)
+pub fn ScreenPoint::from_xy(x~ : Double, y~ : Double) -> Self
+
+pub struct Viewport {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn Viewport::scale(Self) -> Double
+pub fn Viewport::screen_origin(Self) -> ScreenPoint
+pub fn Viewport::screen_to_world(Self, ScreenPoint) -> WorldPoint
+pub fn Viewport::try_from_scale(origin~ : ScreenPoint, scale~ : Double) -> Self?
+pub fn Viewport::try_with_scale_around(Self, anchor~ : ScreenPoint, absolute_scale~ : Double) -> Self?
+pub fn Viewport::validated(origin~ : ScreenPoint, scale~ : Double) -> Self
+pub fn Viewport::with_scale_around(Self, anchor~ : ScreenPoint, absolute_scale~ : Double) -> Self
+pub fn Viewport::world_to_screen(Self, WorldPoint) -> ScreenPoint
+
+pub struct WorldPoint {
+  x : Double
+  y : Double
+} derive(Eq, @debug.Debug)
+pub fn WorldPoint::from_xy(x~ : Double, y~ : Double) -> Self
+
+// Type aliases
+
+// Traits
+

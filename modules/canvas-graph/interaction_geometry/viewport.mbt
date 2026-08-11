@@ -1,0 +1,107 @@
+///|
+/// A viewport maps world coordinates into canvas-local screen coordinates.
+pub struct Viewport {
+  priv origin : ScreenPoint
+  priv scale : Double
+} derive(Eq, Debug)
+
+///|
+fn valid_scale(scale : Double) -> Bool {
+  !scale.is_nan() && !scale.is_inf() && scale > 0.0
+}
+
+///|
+/// Construct a viewport when the scale has already been validated.
+///
+/// This constructor aborts for invalid input. Use `try_from_scale` when the scale
+/// comes from an untrusted or legacy boundary.
+pub fn Viewport::validated(origin~ : ScreenPoint, scale~ : Double) -> Viewport {
+  guard valid_scale(scale) else {
+    abort("viewport scale must be finite and positive")
+  }
+  { origin, scale }
+}
+
+///|
+/// Construct a viewport from an untrusted scale without aborting.
+pub fn Viewport::try_from_scale(
+  origin~ : ScreenPoint,
+  scale~ : Double,
+) -> Viewport? {
+  if valid_scale(scale) {
+    Some({ origin, scale })
+  } else {
+    None
+  }
+}
+
+///|
+/// Return the screen-space origin of the world coordinate system.
+pub fn Viewport::screen_origin(self : Viewport) -> ScreenPoint {
+  self.origin
+}
+
+///|
+/// Return the viewport's absolute scale.
+pub fn Viewport::scale(self : Viewport) -> Double {
+  self.scale
+}
+
+///|
+/// Convert a canvas-local screen point into world coordinates.
+pub fn Viewport::screen_to_world(
+  self : Viewport,
+  screen : ScreenPoint,
+) -> WorldPoint {
+  WorldPoint::from_xy(
+    x=(screen.x - self.origin.x) / self.scale,
+    y=(screen.y - self.origin.y) / self.scale,
+  )
+}
+
+///|
+/// Convert a world point into canvas-local screen coordinates.
+pub fn Viewport::world_to_screen(
+  self : Viewport,
+  world : WorldPoint,
+) -> ScreenPoint {
+  ScreenPoint::from_xy(
+    x=self.origin.x + world.x * self.scale,
+    y=self.origin.y + world.y * self.scale,
+  )
+}
+
+///|
+/// Return a viewport with an absolute scale while keeping `anchor` fixed.
+///
+/// This method aborts for invalid input. Use `try_with_scale_around` when the
+/// scale comes from an untrusted or legacy boundary.
+pub fn Viewport::with_scale_around(
+  self : Viewport,
+  anchor~ : ScreenPoint,
+  absolute_scale~ : Double,
+) -> Viewport {
+  match self.try_with_scale_around(anchor~, absolute_scale~) {
+    Some(viewport) => viewport
+    None => abort("viewport scale must be finite and positive")
+  }
+}
+
+///|
+/// Change scale around an anchor without aborting on invalid input.
+pub fn Viewport::try_with_scale_around(
+  self : Viewport,
+  anchor~ : ScreenPoint,
+  absolute_scale~ : Double,
+) -> Viewport? {
+  if !valid_scale(absolute_scale) {
+    None
+  } else {
+    let world_anchor = self.screen_to_world(anchor)
+    let origin = ScreenPoint::from_xy(
+      x=anchor.x - world_anchor.x * absolute_scale,
+      y=anchor.y - world_anchor.y * absolute_scale,
+    )
+    Some({ origin, scale: absolute_scale })
+  }
+}

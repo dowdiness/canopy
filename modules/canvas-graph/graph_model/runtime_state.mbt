@@ -76,7 +76,7 @@ pub fn canvas_state_from_parts(
   action_log : Array[GraphOperation],
 ) -> CanvasState {
   {
-    viewport,
+    viewport: normalize_legacy_viewport(viewport),
     nodes: document.nodes.copy(),
     edges: document.edges.copy(),
     next_node_id: document.next_node_id,

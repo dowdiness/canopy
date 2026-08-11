@@ -3,6 +3,7 @@ apps/web/worker-configuration.d.ts whitespace=-blank-at-eol
 
 # MoonBit owns this empty generated interface and emits a final blank line.
 modules/canopy/probe/diagnostic_portability/pkg.generated.mbti whitespace=-blank-at-eof
+modules/canvas-graph/interaction_geometry/pkg.generated.mbti whitespace=-blank-at-eof
 
 # MoonBit owns these generated interfaces and emits a final blank line.
 modules/canopy/editor/markdown/pkg.generated.mbti whitespace=-blank-at-eof

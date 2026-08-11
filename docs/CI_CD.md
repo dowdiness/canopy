@@ -20,6 +20,12 @@ There are five workflow files in `.github/workflows/`:
 
 The main gating workflow. Job names match the file:
 
+`canvas-e2e` has a dedicated `run_canvas_e2e` path filter because the canvas
+runtime depends on `modules/canvas-graph`. A module-only canvas-graph change
+therefore runs the Canvas browser suite without enabling unrelated web, Ideal,
+or demo E2E jobs. The aggregation gate accepts a skipped Canvas job only when
+that filter is false.
+
 | Job | What it runs |
 |-----|--------------|
 | `dep-check` | `./scripts/check-deps.sh` (module-scope rules [A]–[E] + canopy package-layering rules [F]–[I]; the rules table lives in the script header), `./scripts/check-shared-substrate.sh`, `./scripts/check-egw-resolver-identity.sh`, `./scripts/check-moon-update-wrapped.sh`, `node ./scripts/check-export-manifest.mjs`, `./scripts/test-moon-update-wrapper.sh`, `./scripts/test-pr-ready-validation.sh` |
@@ -37,7 +43,7 @@ The main gating workflow. Job names match the file:
 | `waku-workerd` | Built Worker and same-origin Signaling smoke under local workerd |
 | `ideal-web-e2e` | Playwright suite for `apps/ideal/web` |
 | `demo-react-e2e` | Playwright suite for `examples/demo-react` |
-| `canvas-e2e` | Playwright suite for `apps/canvas/web` |
+| `canvas-e2e` | Playwright suite for `apps/canvas/web`; selected by the dedicated `run_canvas_e2e` filter for `apps/canvas/**` and `modules/canvas-graph/**` |
 | `all-checks-passed` | Aggregation gate; fails unless every required job succeeds or is an accepted path-filtered skip |
 
 #### Uploaded artifacts (`build-js`)
