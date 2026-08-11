@@ -341,6 +341,82 @@ fn build_test_editor_parts(
   (memos.0, memos.1, memos.2, @editor.LanguageCapabilities::default(), ())
 }
 
+///|
+/// Test-only TestExpr adapter for the generic identity-hint reconcile path.
+/// Its keying intentionally matches Lambda's private adapter; an independent
+/// source review verifies that matching policy. This oracle does not execute
+/// Lambda directly, and it must not change the production editor or core APIs.
+/// A single Opaque invalidates the whole batch, just as the Lambda adapter does.
+fn build_test_identity_evidence_hints_map(
+  hints : Array[@core.IdentityTransform],
+) -> Map[@core.NodeId, @core.IdentityTransform] {
+  let result : Map[@core.NodeId, @core.IdentityTransform] = Map([])
+  for hint in hints {
+    match hint {
+      @core.IdentityTransform::Opaque => return Map([])
+      @core.IdentityTransform::Wrap(inner=id) => result[id] = hint
+      @core.IdentityTransform::Unwrap(wrapper=id, ..) => result[id] = hint
+      @core.IdentityTransform::Move(subtree=id) => result[id] = hint
+      @core.IdentityTransform::Replace(old=id) => result[id] = hint
+      @core.IdentityTransform::RenameLeaf(node=id) => result[id] = hint
+      @core.IdentityTransform::InsertSubtree(parent=id, ..) => result[id] = hint
+      @core.IdentityTransform::DeleteSubtree(node=id) => result[id] = hint
+    }
+  }
+  result
+}
+
+///|
+/// Public test-support factory in `workspace/probe` for the remote
+/// identity-evidence characterization. It exercises TestExpr's generic
+/// identity-hint projection shell and returns instrumentation refs so a
+/// white-box editor test can record consumed hint batches, reconcile traces,
+/// and local projection-transition count. It is not a production editor API;
+/// the instrumentation is owned by this probe factory rather than added to
+/// production editor/core APIs.
+pub fn new_remote_identity_evidence_test_editor(
+  agent_id : String,
+) -> (
+  @editor.SyncEditor[TestExpr],
+  Ref[Array[Array[@core.IdentityTransform]]],
+  Ref[Array[@core.ReconcileTraceEvent]],
+  Ref[Int],
+) raise {
+  let consumed_hint_batches : Ref[Array[Array[@core.IdentityTransform]]] = Ref([])
+  let trace_ref : Ref[Array[@core.ReconcileTraceEvent]] = Ref([])
+  let projection_transition_count = Ref(0)
+  let (editor, _) = @editor.SyncEditor::new_with_builder(
+    agent_id,
+    (source_id, source, runtime) => {
+      @loom.new_parser(source_id, source, test_grammar, runtime?)
+    },
+    (parser, identity_hints) => {
+      let memos = @core.build_projection_memos_with_identity_hints(
+        parser.runtime(),
+        parser.syntax_tree(),
+        syntax_to_test_proj,
+        fn(_source_map, _syntax, _proj) {  },
+        (old, new_, counter, pending_hints, reconcile_trace) => {
+          consumed_hint_batches.val.push(pending_hints)
+          projection_transition_count.val = projection_transition_count.val + 1
+          @core.reconcile_hinted(
+            old,
+            new_,
+            counter,
+            build_test_identity_evidence_hints_map(pending_hints),
+            trace_ref=reconcile_trace,
+          )
+        },
+        identity_hints~,
+        trace_ref=Some(trace_ref),
+        label="testexpr_remote_identity_evidence",
+      )
+      (memos.0, memos.1, memos.2, @editor.LanguageCapabilities::default(), ())
+    },
+  )
+  (editor, consumed_hint_batches, trace_ref, projection_transition_count)
+}
+
 // === Editor factory ===
 
 ///|

@@ -4,8 +4,8 @@ package "dowdiness/canopy/workspace/probe"
 import {
   "dowdiness/canopy/editor",
   "dowdiness/incr/cells",
-  "dowdiness/loom/core",
   "moonbitlang/core/debug",
+  "moonbitlang/core/ref",
 }
 
 // Values
@@ -14,6 +14,8 @@ pub fn get_test_ast(@editor.SyncEditor[TestExpr]) -> TestExpr raise Failure
 pub fn new_empty_diagnostic_test_editor(String) -> @editor.SyncEditor[TestExpr] raise
 
 pub fn new_parser_failure_test_editor(String) -> @editor.SyncEditor[TestExpr] raise
+
+pub fn new_remote_identity_evidence_test_editor(String) -> (@editor.SyncEditor[TestExpr], @ref.Ref[Array[Array[@dowdiness/canopy/core.IdentityTransform]]], @ref.Ref[Array[@dowdiness/canopy/core.ReconcileTraceEvent]], @ref.Ref[Int]) raise
 
 pub fn new_test_editor(String, capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime) -> @editor.SyncEditor[TestExpr] raise
 
@@ -24,8 +26,8 @@ pub(all) enum TestExpr {
   Leaf(String)
   Branch(String, Array[TestExpr])
 } derive(Eq, @debug.Debug)
-pub impl @core.Renderable for TestExpr
-pub impl @core.TreeNode for TestExpr
+pub impl @dowdiness/loom/core.Renderable for TestExpr
+pub impl @dowdiness/loom/core.TreeNode for TestExpr
 pub impl Show for TestExpr
 pub impl ToJson for TestExpr
 
