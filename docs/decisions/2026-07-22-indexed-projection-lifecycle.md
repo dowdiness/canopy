@@ -82,7 +82,11 @@ visible state. This projection provides:
 
 The indexed visible state is the working set for interactive editing. It is
 updated directly by local edits and by remote operations that extend the
-current frontier without requiring retreat.
+current frontier without requiring retreat. Its position-query capability does
+not require a resident per-Unicode-scalar CRDT identity map: run- or piece-level
+causal-span metadata may be retained only when needed to generate or validate
+position-based events, while one-character identity and tombstone records stay
+in transient merge state.
 
 ### Merge projection: FugueTree materialization
 
