@@ -11,12 +11,11 @@
 - [Loomark startup history corpus](../performance/2026-08-10-loomark-startup-history-corpus.md)
 - [Eg-walker paper](https://arxiv.org/abs/2409.14252)
 
-**Decision:** Keep the EventGraph, OpLog, and Frontier as the Causal Authority,
-but choose its residency according to the access path. A live Persistence
-Coordinator retains the authority needed for warm reconnects; a cold reopen
-loads the plain-text projection and exact frontier first, while keeping the
-canonical event graph disk-backed and reading only the required portion for
-merge or replay.
+**Decision:** Preserve one Causal Authority and choose its residency according
+to the access path. A live Persistence Coordinator retains the authority needed
+for warm reconnects; a cold reopen loads the plain-text projection and exact
+causal frontier first, while keeping durable history available and reading only
+the required portion for merge or replay.
 
 ## Context
 
@@ -27,10 +26,9 @@ Treating both paths as full CRDT restoration makes the warm path unnecessarily
 expensive and makes the cold path depend on replaying history before the editor
 can become useful.
 
-The Eg-walker design separates the canonical event graph from the current plain
-text and from the temporary CRDT structure used during concurrent merge. The
-canonical history must remain authoritative, but it does not follow that every
-mounted editor must retain per-character causal metadata.
+The target design separates canonical history from the current plain text and
+from temporary merge state. Canonical history must remain authoritative, but it
+does not follow that every mounted editor must retain merge-only causal metadata.
 
 ## Decision details
 
@@ -48,25 +46,38 @@ cold recovery; a page cannot infer authority from a text snapshot alone.
 
 ### Cold reopen
 
-The durable archive retains, at minimum, the portable text, exact RawVersion
-frontier, and canonical event history. Reopen initially admits the text and
-frontier and creates a fresh Writing instance. It does not construct Fugue or
-other per-character CRDT state, and it does not promise to complete arbitrary
-history replay on the main thread within one frame.
+The durable archive retains, at minimum, the portable text, exact causal
+frontier, and canonical history. Reopen initially admits the text and frontier
+and creates a fresh Writing instance. It does not construct merge-only causal
+state, and it does not promise to complete arbitrary history replay on the main
+thread within one frame.
 
-The event history remains disk-backed. Concurrent merge, historical replay, or
-recovery reads the required causal suffix from the latest usable critical
-version. If the accelerator or partial-read path is unavailable or rejected,
-canonical-history replay remains the correctness fallback.
+The history remains available for concurrent merge, historical replay, or
+recovery. The Causal Authority is the authoritative producer and validator of
+critical-version evidence; neither the plain-text projection nor a transient
+materializer may invent or promote a candidate. Detection is a deterministic
+analysis of causal ancestry and descendants: a candidate is usable only when
+its represented base is causally before the required replay suffix, the suffix
+is causally closed, and no required event is incomparable with or missing from
+that boundary's evidence. The detector identifies versions that cleanly
+separate the already represented history from the history that must be replayed.
+Selection chooses the maximal usable candidate under the causal order that
+precedes every required event and whose associated base evidence is internally
+consistent; it never chooses a newer incomparable or unverified candidate.
+
+If detection finds no usable candidate, or a candidate is unavailable, partial,
+stale, corrupt, or rejected by resource policy, recovery discards that
+candidate and tries the next usable ancestor. If none remains, it falls back to
+canonical-history replay from the initial state. A failed accelerator never
+changes Causal Authority or becomes a reason to accept an unverified text base.
+This is a target recovery contract; Gate A records no production detector or
+recovery implementation.
 
 ### Normal and transient memory
 
 The normal mounted projection contains the portable text and only the position
-structure required for editing and lookup. It does not retain one causal
-identity or tombstone record per Unicode scalar, and it does not retain Fugue
-metadata. Run- or piece-level causal-span metadata may exist only when needed
-to generate or validate position-based events; the projection's position query
-capability must not be implemented as a resident per-scalar CRDT map.
+structure required for editing and lookup. Position queries do not require
+merge-only causal metadata to remain resident in that projection.
 
 A metadata-rich merge materializer is created only for concurrent merge or
 replay, preferably outside the UI main thread, and is discarded after producing

@@ -195,7 +195,13 @@ Gate A provides a test-only canonical event boundary with these properties:
 23. Record the Gate A evidence and limitations in a dated performance/evidence
     document. Explicitly state that full checkout is an oracle and that Gate A
     does not establish paper-level load, merge, memory, or storage parity.
-24. Update issue #1241 with validation evidence and leave the current
+24. Complete the local validation gate before opening the implementation PR.
+    After opening it, inspect raw statuses with `gh pr checks <NUMBER>`; every
+    required check must be `pass`, with no `pending`, `fail`, or unapproved
+    `skipped` result. Do not merge or declare the implementation PR ready for
+    merge until both the local validation gate and all required CI checks are
+    green.
+25. Update issue #1241 with validation evidence and leave the current
     production projection unchanged. Any later promotion must be a new phase
     with its own review and submodule push order.
 
@@ -227,6 +233,8 @@ Gate A provides a test-only canonical event boundary with these properties:
       equal visible text and equivalent RawVersion frontiers.
 - [ ] The large-history single-admission guard shows no full-history expansion
       or duplicate causal-map maintenance on the admission path.
+- [ ] The release-mode benchmark outcome is recorded in the dated Gate A
+      evidence document.
 - [ ] EGW checks/tests pass and generated `.mbti` files have no unintended
       changes.
 - [ ] No production `Document`, `Branch`, public API, archive schema, wire
@@ -234,10 +242,9 @@ Gate A provides a test-only canonical event boundary with these properties:
 
 ## Validation
 
-Run from the EGW submodule root:
+Run from the EGW submodule root (`deps/event-graph-walker`):
 
 ```bash
-cd deps/event-graph-walker
 NEW_MOON_MOD=0 moon check
 NEW_MOON_MOD=0 moon test
 NEW_MOON_MOD=0 moon fmt
@@ -254,10 +261,17 @@ benchmark selection conventions for:
   extensions;
 - existing Branch merge and checkout tests.
 
-Before coding, verify APIs and callers with:
+Run the release benchmark command from the EGW submodule root and record its
+outcome in the dated Gate A evidence document:
 
 ```bash
-cd deps/event-graph-walker
+NEW_MOON_MOD=0 moon bench --release
+```
+
+Before coding, verify APIs and callers from the EGW submodule root
+(`deps/event-graph-walker`):
+
+```bash
 NEW_MOON_MOD=0 moon ide outline internal/branch
 NEW_MOON_MOD=0 moon ide outline internal/oplog
 NEW_MOON_MOD=0 moon ide peek-def OpLog::prepare_remote
@@ -269,6 +283,16 @@ NEW_MOON_MOD=0 moon ide find-references PartialRemoteAdmission
 The parent workspace is not required for this test-only submodule gate unless
 its pointer or integration files change. Do not run or alter `deps/loom` as
 part of this gate.
+
+After opening the implementation PR, inspect raw CI results with:
+
+```bash
+gh pr checks <NUMBER>
+```
+
+Open the implementation PR only after the local validation gate succeeds.
+Do not merge or declare that PR ready for merge until every required CI check is
+`pass`; a `pending`, `fail`, or `skipped` required check is not green.
 
 ## Risks
 
