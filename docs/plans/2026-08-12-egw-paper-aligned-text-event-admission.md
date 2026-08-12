@@ -36,7 +36,11 @@ The two baseline files are published test-only inputs at EGW commit
 Canopy `main`, initialize the recorded EGW submodule, then fetch and apply that
 exact baseline commit (or copy the two files at those immutable paths) before
 A1. The baseline is experimental test code only; it does not change EGW
-production APIs or behavior.
+production APIs or behavior. Any later baseline change must be committed and
+pushed to an approved EGW branch through a separate EGW PR; never push it
+directly to EGW `main`. If a future Canopy change updates the parent submodule
+pointer, merge/push that EGW PR and verify commit reachability before updating
+the parent pointer.
 
 - `deps/event-graph-walker/internal/oplog/remote_admission_oracle_wbtest.mbt`
 - `deps/event-graph-walker/internal/oplog/oplog_remote_delivery_generated_wbtest.mbt`
@@ -325,7 +329,10 @@ Do not merge or declare that PR ready for merge until every required CI check is
   fresh agent must fetch that immutable commit or copy its two files before
   A1; it must not assume untracked files exist in a new worktree. Preserve any
   unrelated dirty worktree and use a dedicated branch/worktree for Gate A; do
-  not reset `deps/loom` or publish the prototype implicitly.
+  not reset `deps/loom` or publish the prototype implicitly. Any changed EGW
+  baseline must go through a separate PR on an approved EGW branch; never push
+  directly to EGW `main`, and do not update a parent submodule pointer before
+  that EGW commit is merged and reachable.
 - A canonical position event cannot be lowered until its parent context is
   available. The test harness may buffer canonical envelopes, but it must not
   grow a second causal dependency planner or silently treat buffered events as

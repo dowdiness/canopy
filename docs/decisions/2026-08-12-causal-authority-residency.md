@@ -11,22 +11,21 @@
 - [Loomark startup history corpus](../performance/2026-08-10-loomark-startup-history-corpus.md)
 - [Eg-walker paper](https://arxiv.org/abs/2409.14252)
 
-**Decision:** Preserve one Causal Authority and choose its residency according
-to the access path. A live Persistence Coordinator retains the authority needed
-for warm reconnects; a cold reopen loads the plain-text projection and exact
-causal frontier first, while keeping durable history available and reading only
-the required portion for merge or replay.
+**Decision:** Preserve one causal authority and choose its residency according
+to the access path. Warm access may retain authority across reconnects; cold
+access may load a plain-text projection and exact causal frontier first, while
+keeping durable history available and reading only the required portion for
+merge or replay. Local edits require causal admission of that loaded base.
 
 ## Context
 
-Loomark has two different startup problems. A new Writing instance may attach
-while a Persistence Coordinator is still alive, or the application may have to
-reopen a Detached Editing Document after the coordinator has disappeared.
-Treating both paths as full CRDT restoration makes the warm path unnecessarily
-expensive and makes the cold path depend on replaying history before the editor
-can become useful.
+Loomark has two different startup problems. A new editor may attach while the
+authority is still resident, or the application may have to reopen a document
+after that authority has disappeared. Treating both paths as full merge-state
+restoration makes the warm path unnecessarily expensive and makes the cold path
+depend on replaying history before the editor can become useful.
 
-The target design separates canonical history from the current plain text and
+The target design separates canonical history from current plain text and
 from temporary merge state. Canonical history must remain authoritative, but it
 does not follow that every mounted editor must retain merge-only causal metadata.
 
@@ -34,15 +33,14 @@ does not follow that every mounted editor must retain merge-only causal metadata
 
 ### Warm reconnect
 
-The Persistence Coordinator owns one Aggregate Markdown runtime and the causal
-authority needed to admit fresh Writing instances. A reconnecting page receives
-the current plain-text projection and attaches a fresh writer identity; it does
-not load another event graph, retain another FugueTree, or become a second
-causal authority.
+A warm access path may retain one aggregate runtime and its causal authority.
+A reconnecting editor receives the current plain-text projection and attaches a
+fresh writer identity; it does not duplicate canonical history, retain another
+merge materialization, or become a second authority.
 
-The Coordinator remains the sole application shell for that Editing Document.
-Coordinator replacement creates a new epoch and requires causal handoff or
-cold recovery; a page cannot infer authority from a text snapshot alone.
+The authority-owning application shell remains singular for the document.
+Replacement creates a new epoch and requires causal handoff or cold recovery; an
+editor cannot infer authority from a text snapshot alone.
 
 ### Cold reopen
 
@@ -58,19 +56,11 @@ untrusted display snapshot and fall back to canonical replay. A text/frontier
 pair that cannot be verified against canonical history is not a causally
 admitted editing base.
 
-Cold reopen initially loads or presents the text and frontier and creates a
-fresh Writing instance. It does not construct merge-only causal state, and it
-does not promise to complete arbitrary history replay on the main thread within
-one frame. Loading text is not Causal Authority admission.
-
-The lifecycle states are distinct:
-
-- **Text-ready:** portable text may be displayed, but local event generation is
-  disabled.
-- **Causally-admitted:** the authority has validated the exact frontier,
-  required history or index, and archive consistency.
-- **Editable:** local event generation is enabled only after
-  **Causally-admitted**.
+Cold reopen initially loads or presents the text and frontier. It does not
+construct merge-only causal state, and it does not promise to complete arbitrary
+history replay on the main thread within one frame. Loading text is not causal
+authority admission, and local event generation remains disabled until the
+loaded base has been validated against the authority.
 
 The history remains available for concurrent merge, historical replay, or
 recovery. The Causal Authority is the authoritative producer and validator of
@@ -110,10 +100,9 @@ replacement for Causal Authority.
   page or rebuilding a CRDT.
 - Cold reopen can make the plain text useful before any merge materialization,
   while preserving exact causal recovery.
-- The durable event-graph format needs indexed or bounded access to causal
-  suffixes; storing only a text snapshot is insufficient for future concurrent
-  edits.
-- Coordinator lifetime, handoff, crash recovery, and stale-writer rejection
+- Durable history needs indexed or bounded access to causal suffixes; storing
+  only a text snapshot is insufficient for future concurrent edits.
+- Authority lifetime, handoff, crash recovery, and stale-writer rejection
   become explicit parts of the implementation.
 - The 16ms goal applies to measured main-thread responsiveness, especially warm
   reconnect. It does not promise arbitrary cold replay or network startup
@@ -123,8 +112,8 @@ replacement for Causal Authority.
 
 ## Non-goals
 
-- Replacing the event graph with a checkpoint or text snapshot.
+- Replacing canonical history with a checkpoint or text snapshot.
 - Adding a public checkpoint/restore API at this stage.
-- Persisting FugueTree or other per-character CRDT metadata as the normal
-  document representation.
+- Persisting merge-only or per-character causal metadata as the normal document
+  representation.
 - Claiming that every cold reopen completes fully within 16ms.
