@@ -61,6 +61,7 @@ jobs:
       run_loomark_dev_host_e2e: ${{ steps.filter.outputs.run_loomark_dev_host_e2e }}
       run_loomark_standalone_e2e: ${{ steps.filter.outputs.run_loomark_standalone_e2e }}
       run_pr_ready_bash3: ${{ steps.filter.outputs.run_pr_ready_bash3 }}
+      run_tooling_validation: ${{ steps.filter.outputs.run_tooling_validation }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -120,7 +121,72 @@ jobs:
               - 'scripts/test-canvas-e2e.sh'
             run_pr_ready_bash3:
               - 'scripts/**'
+              - 'justfile'
+              - 'lefthook.yml'
               - '.github/workflows/ci.yml'
+            run_tooling_validation:
+              - 'justfile'
+              - 'lefthook.yml'
+              - '.githooks/pre-commit'
+              - 'scripts/install-hooks.nu'
+              - 'scripts/install-hooks.sh'
+              - '.github/workflows/ci.yml'
+
+  tooling-validation:
+    name: Just and Lefthook Configuration
+    needs: changes
+    if: needs.changes.outputs.run_tooling_validation == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Install just
+        uses: taiki-e/install-action@v2
+        with:
+          tool: just@1.58.0
+
+      - name: Install Nushell
+        uses: hustcer/setup-nu@v3
+        with:
+          version: "0.114.1"
+
+      - name: Validate justfile
+        run: just --unstable --fmt --check
+
+      - name: Validate just recipes
+        run: |
+          just --list
+          just --dry-run check
+          just --dry-run fmt-check
+          just --dry-run update
+          just --dry-run release-artifacts v0.2.0
+
+      - name: Validate Nushell installer
+        run: nu --ide-check 100 scripts/install-hooks.nu
+
+      - name: Validate compatibility entry points
+        run: |
+          bash -n .githooks/pre-commit scripts/install-hooks.sh
+          grep -Fq 'exec just pre-commit' .githooks/pre-commit
+          grep -Fq 'exec just install-hooks' scripts/install-hooks.sh
+
+      - name: Validate Lefthook configuration
+        env:
+          LEFTHOOK_VERSION: 2.1.10
+        run: |
+          curl --fail --silent --show-error --location \
+            "https://github.com/evilmartians/lefthook/releases/download/v${LEFTHOOK_VERSION}/lefthook_${LEFTHOOK_VERSION}_Linux_x86_64" \
+            --output "${RUNNER_TEMP}/lefthook"
+          printf '%s  %s\n' \
+            'f1de34ea0572363a525a2000d40f5a646733893ad28c924b34ac98304518073f' \
+            "${RUNNER_TEMP}/lefthook" | sha256sum --check --status
+          chmod +x "${RUNNER_TEMP}/lefthook"
+          "${RUNNER_TEMP}/lefthook" validate
 
   pr-ready-bash3:
     name: PR-ready Bash 3.2 Contract
@@ -880,6 +946,7 @@ jobs:
       - waku-build
       - waku-e2e
       - waku-workerd
+      - tooling-validation
       - ideal-web-e2e
       - demo-react-e2e
       - canvas-e2e
@@ -910,6 +977,9 @@ jobs:
              ! ok "${{ needs.waku-build.result }}" || \
              ! ok "${{ needs.waku-e2e.result }}" || \
              ! ok "${{ needs.waku-workerd.result }}" || \
+             ! path_filtered_ok \
+               "${{ needs.tooling-validation.result }}" \
+               "${{ needs.changes.outputs.run_tooling_validation }}" || \
              ! ok "${{ needs.ideal-web-e2e.result }}" || \
              ! ok "${{ needs.demo-react-e2e.result }}" || \
              ! path_filtered_ok \

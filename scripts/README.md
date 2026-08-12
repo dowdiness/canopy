@@ -9,7 +9,7 @@ Prefer standard `moon` workspace commands over wrappers that copy membership
 from [`../moon.work`](../moon.work).
 
 Do not maintain a script inventory or copied command reference in this file.
-Use the scripts themselves, the root [`Makefile`](../Makefile), and
+Use the scripts themselves, the root [`justfile`](../justfile), and
 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) as the authoritative
 operational sources. Development guidance belongs under
 [`../docs/development/`](../docs/development/).

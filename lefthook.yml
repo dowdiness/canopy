@@ -1,0 +1,7 @@
+min_version: 2.1.0
+assert_lefthook_installed: true
+
+pre-commit:
+  commands:
+    gate:
+      run: just pre-commit

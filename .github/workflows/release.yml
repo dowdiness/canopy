@@ -24,19 +24,29 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Install just
+        uses: taiki-e/install-action@v2
+        with:
+          tool: just@1.58.0
+
+      - name: Install Nushell
+        uses: hustcer/setup-nu@v3
+        with:
+          version: "0.114.1"
+
       - name: Set up MoonBit
         uses: ./.github/actions/setup-moonbit
 
       - name: Update dependencies
-        run: make update
+        run: just update
 
       - name: Run tests
-        run: make test-all
+        run: just test-all
 
       - name: Build supported targets
         run: |
-          make build
-          make build-js
+          just build
+          just build-js
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -44,7 +54,7 @@ jobs:
           node-version: '20'
 
       - name: Build web application
-        run: make build-web
+        run: just build-web
 
       - name: Create release archive
         run: |
@@ -53,7 +63,7 @@ jobs:
             VERSION=${{ inputs.version }}
           fi
 
-          make release-artifacts VERSION="$VERSION"
+          just release-artifacts "$VERSION"
 
       - name: Generate changelog
         id: changelog

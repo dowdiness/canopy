@@ -3,7 +3,7 @@ ruleDirs:
 
 customLanguages:
   moonbit:
-    # Build this library with: make setup-ast-grep
+    # Build this library with: just setup-ast-grep
     libraryPath:
       x86_64-unknown-linux-gnu: .ast-grep/tree-sitter-moonbit.so
       aarch64-unknown-linux-gnu: .ast-grep/tree-sitter-moonbit.so

@@ -29,7 +29,7 @@ function setup() {
 For local development, build the JS artifacts first:
 
 ```bash
-make build-js
+just build-js
 ```
 
 ## Editor API (FFI)
