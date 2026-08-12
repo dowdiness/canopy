@@ -56,7 +56,7 @@ pub fn idle_drag_preview() -> DragPreview {
 
 ///|
 pub fn default_viewport() -> Viewport {
-  { x: 760.0, y: 330.0, scale: 0.75 }
+  Viewport::validated(origin=ScreenPoint::from_xy(x=760.0, y=330.0), scale=0.75)
 }
 
 ///|

@@ -1,0 +1,88 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canopy-canvas-graph/spatial"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+pub(all) suberror DragError {
+  InvalidPointer
+  PositionOverflow
+} derive(Eq, @debug.Debug)
+
+pub(all) suberror DragStartError {
+  InvalidPointer
+  InvalidPosition
+} derive(Eq, @debug.Debug)
+
+pub(all) suberror PanError {
+  InvalidPointer
+  InvalidViewport(ViewportError)
+} derive(Eq, @debug.Debug)
+
+pub(all) suberror PanStartError {
+  InvalidPointer
+} derive(Eq, @debug.Debug)
+
+pub(all) suberror ViewportError {
+  InvalidOrigin
+  InvalidScale
+} derive(Eq, @debug.Debug)
+
+pub(all) suberror ViewportTransformError {
+  InvalidAnchor
+  InvalidViewport(ViewportError)
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub struct Drag[Id] {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn[Id] Drag::initial_ids(Self[Id]) -> Array[Id]
+pub fn[Id] Drag::positions_at(Self[Id], WorldPoint) -> Array[ItemPosition[Id]] raise DragError
+pub fn[Id] Drag::start(positions~ : ReadOnlyArray[ItemPosition[Id]], pointer~ : WorldPoint) -> Self[Id] raise DragStartError
+
+pub struct ItemPosition[Id] {
+  id : Id
+  point : WorldPoint
+} derive(Eq, @debug.Debug)
+pub fn[Id] ItemPosition::from_id_and_point(id~ : Id, point~ : WorldPoint) -> Self[Id]
+
+pub struct Pan {
+  // private fields
+}
+pub fn Pan::start(viewport~ : Viewport, pointer~ : ScreenPoint) -> Self raise PanStartError
+pub fn Pan::viewport_at(Self, ScreenPoint) -> Viewport raise PanError
+
+pub struct ScreenPoint {
+  x : Double
+  y : Double
+} derive(Eq, @debug.Debug)
+pub fn ScreenPoint::from_xy(x~ : Double, y~ : Double) -> Self
+pub fn ScreenPoint::is_finite(Self) -> Bool
+
+pub struct Viewport {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn Viewport::from_scale(origin~ : ScreenPoint, scale~ : Double) -> Self raise ViewportError
+pub fn Viewport::scale(Self) -> Double
+pub fn Viewport::screen_origin(Self) -> ScreenPoint
+pub fn Viewport::screen_to_world(Self, ScreenPoint) -> WorldPoint
+pub fn Viewport::validated(origin~ : ScreenPoint, scale~ : Double) -> Self
+pub fn Viewport::with_scale_around(Self, anchor~ : ScreenPoint, absolute_scale~ : Double) -> Self raise ViewportTransformError
+pub fn Viewport::world_to_screen(Self, WorldPoint) -> ScreenPoint
+
+pub struct WorldPoint {
+  x : Double
+  y : Double
+} derive(Eq, @debug.Debug)
+pub fn WorldPoint::from_xy(x~ : Double, y~ : Double) -> Self
+pub fn WorldPoint::is_finite(Self) -> Bool
+
+// Type aliases
+
+// Traits
+

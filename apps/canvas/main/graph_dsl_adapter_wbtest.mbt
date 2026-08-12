@@ -952,7 +952,10 @@ test "source-backed unique insert chooses a fresh graph-dsl binding" {
 test "source-backed handle rejects local graph operations without mutating source" {
   let source = "osc = sine(freq: 440Hz)\nmeter = scope()"
   let handle = create_source_graph(source)
-  let viewport : Viewport = { x: 12.0, y: 24.0, scale: 2.0 }
+  let viewport : Viewport = Viewport::validated(
+    origin=ScreenPoint::from_xy(x=12.0, y=24.0),
+    scale=2.0,
+  )
   let local_operation = GraphOperation(SetViewport(viewport))
   inspect(
     operation_result_applied(

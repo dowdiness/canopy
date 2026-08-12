@@ -1,7 +1,10 @@
 ///|
 fn make_test_state() -> CanvasState {
   {
-    viewport: { x: 0.0, y: 0.0, scale: 1.0 },
+    viewport: Viewport::validated(
+      origin=ScreenPoint::from_xy(x=0.0, y=0.0),
+      scale=1.0,
+    ),
     nodes: [
       @graph_model.make_workflow_node(NodeId("1"), TimerTrigger, 100.0, 100.0),
       @graph_model.make_workflow_node(NodeId("2"), HttpRequest, 420.0, 100.0),
@@ -82,6 +85,27 @@ fn compatibility_for(
 }
 
 ///|
+test "runtime ignores non-finite drag moves before commit" {
+  let runtime = CanvasRuntime::CanvasRuntime()
+  let initial = runtime.state_peek()
+  let node = initial.nodes[0]
+  let screen = initial.viewport.world_to_screen(
+    @spatial.WorldPoint::from_xy(x=node.x, y=node.y),
+  )
+  runtime.pointer_down(Some(node.id), screen.x, screen.y)
+  runtime.pointer_move(1.0 / 0.0, screen.y)
+  runtime.pointer_up(node.id.to_string(), "", false)
+  let next = runtime.state_peek()
+  assert_eq(next.nodes[0].x, node.x)
+  assert_eq(next.nodes[0].y, node.y)
+  assert_true(next.action_log.length() > 0)
+  match next.action_log[0].action() {
+    MoveNodes(_) => fail("invalid drag move must not commit")
+    _ => ()
+  }
+}
+
+///|
 test "runtime compatibility export batches graph model results" {
   let runtime = CanvasRuntime::CanvasRuntime()
   let entries = runtime.input_port_compatibility(NodeId("2"), "json")
@@ -112,7 +136,10 @@ test "runtime sparse inspector follows hover until a node is selected" {
   let runtime = CanvasRuntime::CanvasRuntime()
   runtime.sync_viewport_state({
     ..runtime.state_peek(),
-    viewport: { x: 0.0, y: 0.0, scale: 1.0 },
+    viewport: Viewport::validated(
+      origin=ScreenPoint::from_xy(x=0.0, y=0.0),
+      scale=1.0,
+    ),
   })
   runtime.hover_node("1")
   match runtime.render_state().inspector {

@@ -4,19 +4,23 @@ fn update_pan_start(
   screen_x : Double,
   screen_y : Double,
 ) -> CanvasState {
-  let pan : PanState = {
-    start_screen_x: screen_x,
-    start_screen_y: screen_y,
-    start_pan_x: state.viewport.x,
-    start_pan_y: state.viewport.y,
+  let pointer = @spatial.ScreenPoint::from_xy(x=screen_x, y=screen_y)
+  try {
+    let _gesture = @spatial.Pan::start(viewport=state.viewport, pointer~)
+    let pan : PanState = {
+      start_pointer: pointer,
+      initial_viewport: state.viewport,
+    }
+    let new_interaction : InteractionState = {
+      ..state.interaction,
+      panning: Some(pan),
+      pointer_down: true,
+      did_move: false,
+    }
+    { ..state, interaction: new_interaction }
+  } catch {
+    @spatial.PanStartError::InvalidPointer => state
   }
-  let new_interaction : InteractionState = {
-    ..state.interaction,
-    panning: Some(pan),
-    pointer_down: true,
-    did_move: false,
-  }
-  { ..state, interaction: new_interaction }
 }
 
 ///|
@@ -30,19 +34,29 @@ pub fn update_pan_move(
   match state.interaction.panning {
     None => state
     Some(pan) => {
-      let new_viewport : Viewport = {
-        ..state.viewport,
-        x: pan.start_pan_x + (screen_x - pan.start_screen_x),
-        y: pan.start_pan_y + (screen_y - pan.start_screen_y),
+      let pointer = @spatial.ScreenPoint::from_xy(x=screen_x, y=screen_y)
+      if !pointer.is_finite() {
+        state
+      } else {
+        let gesture = @spatial.Pan::start(
+          viewport=pan.initial_viewport,
+          pointer=pan.start_pointer,
+        ) catch {
+          @spatial.PanStartError::InvalidPointer => return state
+        }
+        let next_viewport = gesture.viewport_at(pointer) catch {
+          @spatial.PanError::InvalidPointer => return state
+          @spatial.PanError::InvalidViewport(_) => return state
+        }
+        let did_move = state.interaction.did_move ||
+          screen_x != pan.start_pointer.x ||
+          screen_y != pan.start_pointer.y
+        let new_interaction : InteractionState = {
+          ..state.interaction,
+          did_move,
+        }
+        { ..state, viewport: next_viewport, interaction: new_interaction }
       }
-      let did_move = state.interaction.did_move ||
-        screen_x != pan.start_screen_x ||
-        screen_y != pan.start_screen_y
-      let new_interaction : InteractionState = {
-        ..state.interaction,
-        did_move,
-      }
-      { ..state, viewport: new_viewport, interaction: new_interaction }
     }
   }
 }
@@ -56,17 +70,27 @@ pub fn update_zoom(
   cx : Double,
   cy : Double,
 ) -> CanvasState {
-  let factor = if delta > 0.0 { 0.9 } else { 1.0 / 0.9 }
-  let old_scale = state.viewport.scale
-  let raw = old_scale * factor
-  let new_scale = if raw < 0.1 { 0.1 } else if raw > 8.0 { 8.0 } else { raw }
-  let ratio = new_scale / old_scale
-  let new_viewport : Viewport = {
-    scale: new_scale,
-    x: cx + (state.viewport.x - cx) * ratio,
-    y: cy + (state.viewport.y - cy) * ratio,
+  if delta.is_nan() || delta.is_inf() {
+    state
+  } else {
+    let factor = if delta > 0.0 { 0.9 } else { 1.0 / 0.9 }
+    let current_viewport = state.viewport
+    let old_scale = current_viewport.scale()
+    let raw = old_scale * factor
+    let new_scale = if raw < 0.1 { 0.1 } else if raw > 8.0 { 8.0 } else { raw }
+    let anchor = @spatial.ScreenPoint::from_xy(x=cx, y=cy)
+    let new_viewport = current_viewport.with_scale_around(
+      anchor~,
+      absolute_scale=new_scale,
+    ) catch {
+      @spatial.ViewportTransformError::InvalidAnchor => return state
+      @spatial.ViewportTransformError::InvalidViewport(_) => return state
+    }
+    record_action(
+      { ..state, viewport: new_viewport },
+      SetViewport(new_viewport),
+    )
   }
-  record_action({ ..state, viewport: new_viewport }, SetViewport(new_viewport))
 }
 
 ///|
@@ -75,7 +99,10 @@ pub fn screen_to_world(
   sx : Double,
   sy : Double,
 ) -> (Double, Double) {
-  ((sx - viewport.x) / viewport.scale, (sy - viewport.y) / viewport.scale)
+  let world = viewport.screen_to_world(
+    @spatial.ScreenPoint::from_xy(x=sx, y=sy),
+  )
+  (world.x, world.y)
 }
 
 ///|
@@ -105,27 +132,32 @@ pub fn update_connect_start(
   world_x : Double,
   world_y : Double,
 ) -> CanvasState {
-  match find_node(state.nodes, node_id) {
-    None => state
-    Some(node) =>
-      match port_type_by_id(node.outputs, port_id) {
-        None => state
-        Some(_) => {
-          let conn : ConnectState = {
-            from_node: node_id,
-            from_port: port_id,
-            cursor_x: world_x,
-            cursor_y: world_y,
+  let pointer = @spatial.WorldPoint::from_xy(x=world_x, y=world_y)
+  if !pointer.is_finite() {
+    state
+  } else {
+    match find_node(state.nodes, node_id) {
+      None => state
+      Some(node) =>
+        match port_type_by_id(node.outputs, port_id) {
+          None => state
+          Some(_) => {
+            let conn : ConnectState = {
+              from_node: node_id,
+              from_port: port_id,
+              cursor_x: world_x,
+              cursor_y: world_y,
+            }
+            let new_interaction : InteractionState = {
+              ..state.interaction,
+              connecting: Some(conn),
+              pointer_down: true,
+              did_move: false,
+            }
+            { ..state, interaction: new_interaction }
           }
-          let new_interaction : InteractionState = {
-            ..state.interaction,
-            connecting: Some(conn),
-            pointer_down: true,
-            did_move: false,
-          }
-          { ..state, interaction: new_interaction }
         }
-      }
+    }
   }
 }
 
@@ -135,20 +167,25 @@ pub fn update_connect_move(
   world_x : Double,
   world_y : Double,
 ) -> CanvasState {
-  match state.interaction.connecting {
-    None => state
-    Some(conn) => {
-      let new_conn : ConnectState = {
-        ..conn,
-        cursor_x: world_x,
-        cursor_y: world_y,
+  let pointer = @spatial.WorldPoint::from_xy(x=world_x, y=world_y)
+  if !pointer.is_finite() {
+    state
+  } else {
+    match state.interaction.connecting {
+      None => state
+      Some(conn) => {
+        let new_conn : ConnectState = {
+          ..conn,
+          cursor_x: world_x,
+          cursor_y: world_y,
+        }
+        let new_interaction : InteractionState = {
+          ..state.interaction,
+          connecting: Some(new_conn),
+          did_move: true,
+        }
+        { ..state, interaction: new_interaction }
       }
-      let new_interaction : InteractionState = {
-        ..state.interaction,
-        connecting: Some(new_conn),
-        did_move: true,
-      }
-      { ..state, interaction: new_interaction }
     }
   }
 }
@@ -179,13 +216,18 @@ pub fn workflow_add_node(
   world_x : Double,
   world_y : Double,
 ) -> CanvasState {
-  let node = make_workflow_node(
-    NodeId(state.next_node_id.to_string()),
-    workflow_node_kind_from_key(kind_key),
-    world_x,
-    world_y,
-  )
-  record_action(state, AddNode(node))
+  let point = @spatial.WorldPoint::from_xy(x=world_x, y=world_y)
+  if !point.is_finite() {
+    state
+  } else {
+    let node = make_workflow_node(
+      NodeId(state.next_node_id.to_string()),
+      workflow_node_kind_from_key(kind_key),
+      world_x,
+      world_y,
+    )
+    record_action(state, AddNode(node))
+  }
 }
 
 ///|
@@ -227,20 +269,21 @@ fn update_connect_end(
 }
 
 ///|
+/// Compute a drag preview at a pointer position.
 pub fn drag_preview_from_move(
   drag : DragState,
   world_x : Double,
   world_y : Double,
-) -> DragPreview {
-  {
-    positions: drag.origins.map(fn(origin) {
-      {
-        node_id: origin.node_id,
-        x: world_x + origin.offset_x,
-        y: world_y + origin.offset_y,
-      }
-    }),
-  }
+) -> DragPreview raise @spatial.DragError {
+  let positions = drag.drag.positions_at(
+    @spatial.WorldPoint::from_xy(x=world_x, y=world_y),
+  )
+  let moved_positions = positions.map(item => {
+    node_id: item.id,
+    x: item.point.x,
+    y: item.point.y,
+  })
+  { positions: moved_positions }
 }
 
 ///|
@@ -262,21 +305,30 @@ fn update_node_drag_start(
   match find_node(state.nodes, node_id) {
     None => state
     Some(_) => {
-      let origins = drag_ids_for_node(state, node_id).filter_map(fn(drag_id) {
+      let pointer = @spatial.WorldPoint::from_xy(x=world_x, y=world_y)
+      let positions = drag_ids_for_node(state, node_id).filter_map(fn(drag_id) {
         match find_node(state.nodes, drag_id) {
           None => None
           Some(node) =>
-            Some({
-              node_id: drag_id,
-              offset_x: node.x - world_x,
-              offset_y: node.y - world_y,
-            })
+            Some(
+              @spatial.ItemPosition::from_id_and_point(
+                id=drag_id,
+                point=@spatial.WorldPoint::from_xy(x=node.x, y=node.y),
+              ),
+            )
         }
       })
-      let drag : DragState = { node_id, origins }
+      let snapshot : ReadOnlyArray[@spatial.ItemPosition[NodeId]] = ReadOnlyArray::from_array(
+        positions[:],
+      )
+      let drag = @spatial.Drag::start(positions=snapshot, pointer~) catch {
+        @spatial.DragStartError::InvalidPointer => return state
+        @spatial.DragStartError::InvalidPosition => return state
+      }
+      let drag_state : DragState = { node_id, drag }
       let new_interaction : InteractionState = {
         ..state.interaction,
-        dragging: Some(drag),
+        dragging: Some(drag_state),
         pointer_down: true,
         did_move: false,
       }
@@ -290,8 +342,10 @@ fn final_drag_positions(
   state : CanvasState,
   drag : DragState,
 ) -> Array[NodePosition] {
-  drag.origins.filter_map(fn(origin) {
-    match find_node(state.nodes, origin.node_id) {
+  drag.drag
+  .initial_ids()
+  .filter_map(fn(node_id) {
+    match find_node(state.nodes, node_id) {
       None => None
       Some(node) => Some({ node_id: node.id, x: node.x, y: node.y })
     }

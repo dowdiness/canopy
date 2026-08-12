@@ -1,4 +1,7 @@
 ///|
+using @spatial {type ScreenPoint, type Viewport}
+
+///|
 // v2: NodeId/EdgeId wire encoding is a JSON string (the projection token), not
 // the v1 positional integer. The decode gate below rejects v1 payloads, so the
 // bump keeps "version" an honest, single-meaning format marker.
@@ -139,6 +142,7 @@ pub impl @json.FromJson for PortDef with fn from_json(json, path) {
   }
   let port_type : PortType = @json.from_json(
     require_json_field(fields, path, "port_type", "PortDef"),
+    path=path.add_key("port_type"),
   )
   let allows_fan_in = match fields.get("allows_fan_in") {
     None => false
@@ -192,20 +196,6 @@ pub impl Show for NodeKind with fn output(self, logger) {
 }
 
 ///|
-/// Pan and zoom state of the canvas viewport.
-/// `x` and `y` are the world origin in canvas-local screen space.
-pub(all) struct Viewport {
-  x : Double
-  y : Double
-  scale : Double
-} derive(Debug, Eq, ToJson, FromJson)
-
-///|
-pub impl Show for Viewport with fn output(self, logger) {
-  logger.write_string(@debug.to_string(self))
-}
-
-///|
 /// A single node on the canvas. Coordinates are in world space. The visual
 /// editor owns layout and display state; executable behavior lives in a future
 /// compiler/execution layer keyed by `kind` and ports.
@@ -253,7 +243,7 @@ pub(all) enum WorkflowAction {
   SetNodeParam(NodeId, String, String)
   SelectNodes(Array[NodeId])
   SetViewport(Viewport)
-} derive(Debug, Eq, ToJson)
+} derive(Debug, Eq)
 
 ///|
 pub impl Show for WorkflowAction with fn output(self, logger) {
@@ -387,7 +377,7 @@ pub impl ToJson for GraphOperation with fn to_json(self) {
     }
     SetViewport(viewport) => {
       fields["type"] = "SetViewport".to_json()
-      fields["viewport"] = viewport.to_json()
+      fields["viewport"] = viewport_to_json(viewport)
     }
   }
   Json::object(fields)
@@ -416,12 +406,14 @@ pub impl @json.FromJson for GraphOperation with fn from_json(json, path) {
     "AddNode" => {
       let node : CanvasNode = @json.from_json(
         require_json_field(fields, path, "node", "AddNode"),
+        path=path.add_key("node"),
       )
       WorkflowAction::AddNode(node)
     }
     "MoveNodes" => {
       let positions : Array[NodePosition] = @json.from_json(
         require_json_field(fields, path, "positions", "MoveNodes"),
+        path=path.add_key("positions"),
       )
       WorkflowAction::MoveNodes(positions)
     }
@@ -458,6 +450,7 @@ pub impl @json.FromJson for GraphOperation with fn from_json(json, path) {
     "DeleteNodes" => {
       let nodes : Array[NodeId] = @json.from_json(
         require_json_field(fields, path, "nodes", "DeleteNodes"),
+        path=path.add_key("nodes"),
       )
       WorkflowAction::DeleteNodes(nodes)
     }
@@ -481,12 +474,14 @@ pub impl @json.FromJson for GraphOperation with fn from_json(json, path) {
     "SelectNodes" => {
       let nodes : Array[NodeId] = @json.from_json(
         require_json_field(fields, path, "nodes", "SelectNodes"),
+        path=path.add_key("nodes"),
       )
       WorkflowAction::SelectNodes(nodes)
     }
     "SetViewport" => {
-      let viewport : Viewport = @json.from_json(
+      let viewport = viewport_from_json(
         require_json_field(fields, path, "viewport", "SetViewport"),
+        path.add_key("viewport"),
       )
       WorkflowAction::SetViewport(viewport)
     }
@@ -499,22 +494,10 @@ pub impl @json.FromJson for GraphOperation with fn from_json(json, path) {
 }
 
 ///|
-pub(all) struct DragOrigin {
-  node_id : NodeId
-  offset_x : Double
-  offset_y : Double
-} derive(Debug, Eq)
-
-///|
-pub impl Show for DragOrigin with fn output(self, logger) {
-  logger.write_string(@debug.to_string(self))
-}
-
-///|
 /// State captured at the start of a node drag gesture.
 pub(all) struct DragState {
   node_id : NodeId
-  origins : Array[DragOrigin]
+  drag : @spatial.Drag[NodeId]
 } derive(Debug, Eq)
 
 ///|
@@ -525,10 +508,8 @@ pub impl Show for DragState with fn output(self, logger) {
 ///|
 /// State captured at the start of a pan gesture.
 pub(all) struct PanState {
-  start_screen_x : Double
-  start_screen_y : Double
-  start_pan_x : Double
-  start_pan_y : Double
+  start_pointer : ScreenPoint
+  initial_viewport : Viewport
 } derive(Debug, Eq)
 
 ///|
@@ -1042,7 +1023,10 @@ pub impl Default for CanvasState with fn default() -> CanvasState {
     make_workflow_node(NodeId("6"), Parallel, 500.0, 70.0),
   ]
   {
-    viewport: { x: 760.0, y: 330.0, scale: 0.75 },
+    viewport: Viewport::validated(
+      origin=ScreenPoint::from_xy(x=760.0, y=330.0),
+      scale=0.75,
+    ),
     nodes,
     edges: [
       {

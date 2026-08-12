@@ -190,6 +190,16 @@ struct InspectorNodeJson {
 } derive(Eq, ToJson)
 
 ///|
+fn render_viewport_to_json(viewport : Viewport) -> Json {
+  let origin = viewport.screen_origin()
+  let fields : Map[String, Json] = Map([])
+  fields["x"] = origin.x.to_json()
+  fields["y"] = origin.y.to_json()
+  fields["scale"] = viewport.scale().to_json()
+  Json::object(fields)
+}
+
+///|
 /// Serializable render snapshot sent to TypeScript each RAF frame.
 /// `selected`/`connecting`/`inspector` are absent (key omitted) when not active
 /// — MoonBit derive(ToJson) omits None keys. TypeScript: use `!= null` checks.
@@ -203,7 +213,34 @@ struct RenderStateJson {
   validation : Array[ValidationJson]
   action_count : Int
   inspector : InspectorNodeJson?
-} derive(Eq, ToJson)
+} derive(Eq)
+
+///|
+impl ToJson for RenderStateJson with fn to_json(self) {
+  let fields : Map[String, Json] = Map([])
+  fields["viewport"] = render_viewport_to_json(self.viewport)
+  fields["nodes"] = self.nodes.to_json()
+  fields["edges"] = self.edges.to_json()
+  match self.selected {
+    None => ()
+    Some(selected) => fields["selected"] = selected.to_json()
+  }
+  fields["selected_nodes"] = self.selected_nodes.to_json()
+  match self.connecting {
+    None => ()
+    Some(connecting) => fields["connecting"] = connecting.to_json()
+  }
+  fields["validation"] = self.validation.to_json()
+  fields["action_count"] = self.action_count.to_json()
+  match self.inspector {
+    None => ()
+    Some(inspector) => fields["inspector"] = inspector.to_json()
+  }
+  Json::object(fields)
+}
+
+///|
+extend RenderStateJson with ToJson::{to_json}
 
 ///|
 pub fn get_render_state(handle : Int) -> String {

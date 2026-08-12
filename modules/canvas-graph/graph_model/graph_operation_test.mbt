@@ -4,9 +4,49 @@ fn node_id(n : Int) -> @graph_model.NodeId {
 }
 
 ///|
+fn viewport_for_test(
+  origin_x : Double,
+  origin_y : Double,
+  scale : Double,
+) -> @spatial.Viewport {
+  @spatial.Viewport::validated(
+    origin=@spatial.ScreenPoint::from_xy(x=origin_x, y=origin_y),
+    scale~,
+  )
+}
+
+///|
+fn viewport_json_with_coordinates(
+  x : Double,
+  y : Double,
+  scale : Double,
+) -> Json {
+  let fields : Map[String, Json] = Map([])
+  fields["x"] = x.to_json()
+  fields["y"] = y.to_json()
+  fields["scale"] = scale.to_json()
+  Json::object(fields)
+}
+
+///|
+fn viewport_json(scale : Double) -> Json {
+  viewport_json_with_coordinates(20.0, -10.0, scale)
+}
+
+///|
+fn viewport_operation_json(viewport : Json) -> Json {
+  let fields : Map[String, Json] = Map([])
+  let version : Int = 2
+  fields["version"] = version.to_json()
+  fields["type"] = "SetViewport".to_json()
+  fields["viewport"] = viewport
+  Json::object(fields)
+}
+
+///|
 fn replay_base_state() -> @graph_model.CanvasState {
   {
-    viewport: { x: 0.0, y: 0.0, scale: 1.0 },
+    viewport: viewport_for_test(0.0, 0.0, 1.0),
     nodes: [
       @graph_model.make_workflow_node(
         node_id(1),
@@ -47,7 +87,7 @@ fn fan_in_base_state(allows_fan_in : Bool) -> @graph_model.CanvasState {
     ],
   }
   {
-    viewport: { x: 0.0, y: 0.0, scale: 1.0 },
+    viewport: viewport_for_test(0.0, 0.0, 1.0),
     nodes: [
       @graph_model.make_workflow_node(
         node_id(1),
@@ -206,6 +246,98 @@ test "operation log round-trips and replays into canvas graph state" {
   assert_eq(replayed.nodes[1].x, 800.0)
   assert_eq(replayed.nodes[1].y, 140.0)
   assert_eq(replayed.action_log.length(), 4)
+}
+
+///|
+fn assert_rejects_viewport_operation(json : Json) -> Unit raise {
+  let rejected = try {
+    let _ : @graph_model.GraphOperation = @json.from_json(json)
+    false
+  } catch {
+    _ => true
+  }
+  assert_true(rejected)
+}
+
+///|
+fn viewport_error_message(json : Json) -> String raise {
+  try {
+    let _ : @graph_model.GraphOperation = @json.from_json(json)
+    fail("expected invalid viewport operation")
+  } catch {
+    @json.JsonDecodeError((_, message)) => message
+    _ => fail("expected viewport JSON decode error")
+  }
+}
+
+///|
+test "viewport coordinate errors identify their fields" {
+  let non_number_fields : Map[String, Json] = Map([])
+  non_number_fields["x"] = "not-a-number".to_json()
+  non_number_fields["y"] = (-10.0).to_json()
+  non_number_fields["scale"] = 1.0.to_json()
+  let non_number = viewport_operation_json(Json::object(non_number_fields))
+  let non_finite_fields : Map[String, Json] = Map([])
+  non_finite_fields["x"] = 20.0.to_json()
+  non_finite_fields["y"] = Json::number(0.0 / 0.0)
+  non_finite_fields["scale"] = 1.0.to_json()
+  let non_finite = viewport_operation_json(Json::object(non_finite_fields))
+  assert_eq(
+    viewport_error_message(non_number),
+    "Viewport: 'x' must be a number",
+  )
+  assert_eq(viewport_error_message(non_finite), "Viewport: 'y' must be finite")
+}
+
+///|
+test "valid viewport operations preserve their JSON shape during replay" {
+  let viewport = viewport_for_test(20.0, -10.0, 2.5)
+  let operation = @graph_model.GraphOperation::GraphOperation(
+    @graph_model.WorkflowAction::SetViewport(viewport),
+  )
+  inspect(
+    operation.to_json().stringify(),
+    content="{\"version\":2,\"type\":\"SetViewport\",\"viewport\":{\"x\":20,\"y\":-10,\"scale\":2.5}}",
+  )
+  let decoded : @graph_model.GraphOperation = @json.from_json(
+    operation.to_json(),
+  )
+  let replayed = @graph_model.replay_operations(replay_base_state(), [decoded])
+  assert_eq(replayed.viewport, viewport)
+  @debug.assert_eq(replayed.action_log, [operation])
+}
+
+///|
+test "invalid viewport JSON is rejected before replay or action logging" {
+  let zero_scale = @json.parse(
+    "{\"version\":2,\"type\":\"SetViewport\",\"viewport\":{\"x\":20,\"y\":-10,\"scale\":0}}",
+  ) catch {
+    _ => abort("expected valid operation JSON")
+  }
+  let negative_scale = @json.parse(
+    "{\"version\":2,\"type\":\"SetViewport\",\"viewport\":{\"x\":20,\"y\":-10,\"scale\":-2}}",
+  ) catch {
+    _ => abort("expected valid operation JSON")
+  }
+  assert_rejects_viewport_operation(zero_scale)
+  assert_rejects_viewport_operation(negative_scale)
+  assert_rejects_viewport_operation(
+    viewport_operation_json(viewport_json(0.0 / 0.0)),
+  )
+  assert_rejects_viewport_operation(
+    viewport_operation_json(viewport_json(1.0 / 0.0)),
+  )
+  assert_rejects_viewport_operation(
+    viewport_operation_json(
+      viewport_json_with_coordinates(1.0 / 0.0, -10.0, 1.0),
+    ),
+  )
+  assert_rejects_viewport_operation(
+    viewport_operation_json(
+      viewport_json_with_coordinates(20.0, 0.0 / 0.0, 1.0),
+    ),
+  )
+  assert_eq(replay_base_state().action_log.length(), 0)
 }
 
 ///|

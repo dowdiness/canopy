@@ -1,4 +1,5 @@
 import {
+  "dowdiness/canopy-canvas-graph/spatial",
   "moonbitlang/core/json",
   "moonbitlang/core/debug",
 }

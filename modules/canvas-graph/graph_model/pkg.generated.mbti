@@ -2,6 +2,7 @@
 package "dowdiness/canopy-canvas-graph/graph_model"
 
 import {
+  "dowdiness/canopy-canvas-graph/spatial",
   "moonbitlang/core/debug",
   "moonbitlang/core/json",
 }
@@ -15,11 +16,11 @@ pub fn can_commit_edge(CanvasState, NodeId, String, NodeId, String) -> Bool
 
 pub fn canvas_document_from_state(CanvasState) -> CanvasDocument
 
-pub fn canvas_state_from_parts(CanvasDocument, Viewport, InteractionState, Array[GraphOperation]) -> CanvasState
+pub fn canvas_state_from_parts(CanvasDocument, @spatial.Viewport, InteractionState, Array[GraphOperation]) -> CanvasState
 
-pub fn default_viewport() -> Viewport
+pub fn default_viewport() -> @spatial.Viewport
 
-pub fn drag_preview_from_move(DragState, Double, Double) -> DragPreview
+pub fn drag_preview_from_move(DragState, Double, Double) -> DragPreview raise @spatial.DragError
 
 pub fn empty_interaction() -> InteractionState
 
@@ -41,7 +42,7 @@ pub fn record_action(CanvasState, WorkflowAction) -> CanvasState
 
 pub fn replay_operations(CanvasState, Array[GraphOperation]) -> CanvasState
 
-pub fn screen_to_world(Viewport, Double, Double) -> (Double, Double)
+pub fn screen_to_world(@spatial.Viewport, Double, Double) -> (Double, Double)
 
 pub fn selection_from_interaction(InteractionState) -> SelectionState
 
@@ -86,7 +87,7 @@ pub(all) struct CanvasNode {
 pub impl Show for CanvasNode
 
 pub(all) struct CanvasState {
-  viewport : Viewport
+  viewport : @spatial.Viewport
   nodes : Array[CanvasNode]
   edges : Array[Edge]
   next_node_id : Int
@@ -104,13 +105,6 @@ pub(all) struct ConnectState {
 } derive(Eq, @debug.Debug)
 pub impl Show for ConnectState
 
-pub(all) struct DragOrigin {
-  node_id : NodeId
-  offset_x : Double
-  offset_y : Double
-} derive(Eq, @debug.Debug)
-pub impl Show for DragOrigin
-
 pub(all) struct DragPreview {
   positions : Array[NodePosition]
 } derive(Eq, @debug.Debug)
@@ -118,7 +112,7 @@ pub impl Show for DragPreview
 
 pub(all) struct DragState {
   node_id : NodeId
-  origins : Array[DragOrigin]
+  drag : @spatial.Drag[NodeId]
 } derive(Eq, @debug.Debug)
 pub impl Show for DragState
 
@@ -178,10 +172,8 @@ pub(all) struct NodePosition {
 pub impl Show for NodePosition
 
 pub(all) struct PanState {
-  start_screen_x : Double
-  start_screen_y : Double
-  start_pan_x : Double
-  start_pan_y : Double
+  start_pointer : @spatial.ScreenPoint
+  initial_viewport : @spatial.Viewport
 } derive(Eq, @debug.Debug)
 pub impl Show for PanState
 
@@ -210,13 +202,6 @@ pub(all) struct SelectionState {
   selected_nodes : Array[NodeId]
 } derive(Eq, @debug.Debug)
 
-pub(all) struct Viewport {
-  x : Double
-  y : Double
-  scale : Double
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
-pub impl Show for Viewport
-
 pub(all) enum WorkflowAction {
   AddNode(CanvasNode)
   MoveNodes(Array[NodePosition])
@@ -226,9 +211,10 @@ pub(all) enum WorkflowAction {
   RenameNode(NodeId, String)
   SetNodeParam(NodeId, String, String)
   SelectNodes(Array[NodeId])
-  SetViewport(Viewport)
-} derive(Eq, ToJson, @debug.Debug)
+  SetViewport(@spatial.Viewport)
+} derive(Eq, @debug.Debug)
 pub impl Show for WorkflowAction
+pub impl ToJson for WorkflowAction
 
 pub(all) enum WorkflowNodeKind {
   TimerTrigger
