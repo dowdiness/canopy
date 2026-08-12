@@ -1,0 +1,74 @@
+[
+  {
+    "target": "native",
+    "size": "small",
+    "baseline_median_us": 21.415,
+    "candidate_median_us": 20.08,
+    "median_paired_delta_us": -1.2850000000000001,
+    "median_paired_percent": -6.0004669624095275,
+    "paired_delta_min_us": -2.0700000000000003,
+    "paired_delta_max_us": -0.8399999999999999,
+    "candidate_wins": 4,
+    "pairs": 4
+  },
+  {
+    "target": "native",
+    "size": "medium",
+    "baseline_median_us": 538.735,
+    "candidate_median_us": 496.12,
+    "median_paired_delta_us": -45.45000000000002,
+    "median_paired_percent": -8.436429784587974,
+    "paired_delta_min_us": -64.21999999999997,
+    "paired_delta_max_us": -16.020000000000095,
+    "candidate_wins": 4,
+    "pairs": 4
+  },
+  {
+    "target": "native",
+    "size": "large",
+    "baseline_median_us": 2405.0,
+    "candidate_median_us": 2215.0,
+    "median_paired_delta_us": -235.0000000000001,
+    "median_paired_percent": -9.771309771309776,
+    "paired_delta_min_us": -370.0,
+    "paired_delta_max_us": -180.0,
+    "candidate_wins": 4,
+    "pairs": 4
+  },
+  {
+    "target": "js",
+    "size": "small",
+    "baseline_median_us": 19.85,
+    "candidate_median_us": 19.595,
+    "median_paired_delta_us": -0.27500000000000213,
+    "median_paired_percent": -1.3853904282115974,
+    "paired_delta_min_us": -1.3200000000000003,
+    "paired_delta_max_us": 0.5700000000000003,
+    "candidate_wins": 2,
+    "pairs": 4
+  },
+  {
+    "target": "js",
+    "size": "medium",
+    "baseline_median_us": 531.46,
+    "candidate_median_us": 482.03499999999997,
+    "median_paired_delta_us": -63.05500000000001,
+    "median_paired_percent": -11.86448650886238,
+    "paired_delta_min_us": -122.94999999999999,
+    "paired_delta_max_us": 133.01,
+    "candidate_wins": 3,
+    "pairs": 4
+  },
+  {
+    "target": "js",
+    "size": "large",
+    "baseline_median_us": 2470.0,
+    "candidate_median_us": 2210.0,
+    "median_paired_delta_us": -240.0,
+    "median_paired_percent": -9.7165991902834,
+    "paired_delta_min_us": -600.0,
+    "paired_delta_max_us": -50.0,
+    "candidate_wins": 4,
+    "pairs": 4
+  }
+]

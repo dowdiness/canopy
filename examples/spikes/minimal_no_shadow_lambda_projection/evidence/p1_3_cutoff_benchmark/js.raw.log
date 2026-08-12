@@ -1,0 +1,180 @@
+
+===== index=0 name=small/always-changed whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:190 ("P1.3 small/always-changed whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+  19.44 µs ±   1.80 µs    17.75 µs …  22.94 µs  in 10 ×   3933 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=1 name=small/eq-cutoff whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:195 ("P1.3 small/eq-cutoff whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+  20.06 µs ±   2.58 µs    17.41 µs …  24.18 µs  in 10 ×   3956 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=3 name=medium/always-changed whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:205 ("P1.3 medium/always-changed whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+ 438.63 µs ±  38.72 µs   405.75 µs … 523.25 µs  in 10 ×    170 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=2 name=medium/eq-cutoff whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:200 ("P1.3 medium/eq-cutoff whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+ 432.18 µs ±  27.00 µs   404.81 µs … 491.49 µs  in 10 ×    186 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=4 name=large/always-changed whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:210 ("P1.3 large/always-changed whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+   2.38 ms ± 267.68 µs     2.09 ms …   2.73 ms  in 10 ×     38 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=5 name=large/eq-cutoff whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:215 ("P1.3 large/eq-cutoff whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+   2.00 ms ± 192.51 µs     1.85 ms …   2.49 ms  in 10 ×     40 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=0 name=small/always-changed whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:190 ("P1.3 small/always-changed whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+  19.90 µs ±   2.21 µs    17.70 µs …  23.50 µs  in 10 ×   3810 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=1 name=small/eq-cutoff whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:195 ("P1.3 small/eq-cutoff whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+  20.47 µs ±   3.62 µs    17.35 µs …  27.24 µs  in 10 ×   3227 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=1 name=small/eq-cutoff whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:195 ("P1.3 small/eq-cutoff whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+  21.04 µs ±   2.39 µs    18.80 µs …  24.82 µs  in 10 ×   3014 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=0 name=small/always-changed whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:190 ("P1.3 small/always-changed whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+  20.51 µs ±   2.36 µs    18.57 µs …  25.23 µs  in 10 ×   3779 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=3 name=medium/always-changed whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:205 ("P1.3 medium/always-changed whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+ 473.77 µs ±  41.83 µs   422.76 µs … 539.38 µs  in 10 ×    179 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=2 name=medium/eq-cutoff whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:200 ("P1.3 medium/eq-cutoff whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+ 606.78 µs ± 298.27 µs   439.21 µs …   1.40 ms  in 10 ×     83 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=2 name=medium/eq-cutoff whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:200 ("P1.3 medium/eq-cutoff whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+ 444.19 µs ±  31.70 µs   415.37 µs … 519.78 µs  in 10 ×    171 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=3 name=medium/always-changed whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:205 ("P1.3 medium/always-changed whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+ 502.31 µs ±  57.78 µs   432.32 µs … 587.44 µs  in 10 ×    127 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=4 name=large/always-changed whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:210 ("P1.3 large/always-changed whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+   2.43 ms ± 240.79 µs     2.20 ms …   2.90 ms  in 10 ×     36 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=5 name=large/eq-cutoff whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:215 ("P1.3 large/eq-cutoff whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+   2.15 ms ± 224.74 µs     1.94 ms …   2.61 ms  in 10 ×     38 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=5 name=large/eq-cutoff whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:215 ("P1.3 large/eq-cutoff whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+   2.06 ms ± 198.63 µs     1.89 ms …   2.58 ms  in 10 ×     42 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=4 name=large/always-changed whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:210 ("P1.3 large/always-changed whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+   2.66 ms ± 391.55 µs     2.35 ms …   3.61 ms  in 10 ×     32 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=1 name=small/eq-cutoff whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:195 ("P1.3 small/eq-cutoff whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+  18.72 µs ±   1.66 µs    17.15 µs …  22.31 µs  in 10 ×   3955 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=0 name=small/always-changed whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:190 ("P1.3 small/always-changed whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+  19.80 µs ±   1.95 µs    17.78 µs …  23.37 µs  in 10 ×   3801 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=0 name=small/always-changed whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:190 ("P1.3 small/always-changed whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+  19.55 µs ±   1.33 µs    18.34 µs …  22.56 µs  in 10 ×   3958 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=1 name=small/eq-cutoff whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:195 ("P1.3 small/eq-cutoff whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+  18.23 µs ±   1.67 µs    16.55 µs …  21.31 µs  in 10 ×   4035 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=2 name=medium/eq-cutoff whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:200 ("P1.3 medium/eq-cutoff whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+ 437.66 µs ±  26.57 µs   409.57 µs … 497.89 µs  in 10 ×    182 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=3 name=medium/always-changed whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:205 ("P1.3 medium/always-changed whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+ 560.61 µs ±  71.68 µs   469.17 µs … 660.33 µs  in 10 ×    125 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=3 name=medium/always-changed whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:205 ("P1.3 medium/always-changed whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+ 587.87 µs ±  70.65 µs   480.02 µs … 677.59 µs  in 10 ×    111 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=2 name=medium/eq-cutoff whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:200 ("P1.3 medium/eq-cutoff whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+ 519.88 µs ±  84.03 µs   442.84 µs … 696.89 µs  in 10 ×    126 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=5 name=large/eq-cutoff whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:215 ("P1.3 large/eq-cutoff whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+   2.42 ms ± 672.90 µs     1.91 ms …   3.70 ms  in 10 ×     25 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=4 name=large/always-changed whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:210 ("P1.3 large/always-changed whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+   2.47 ms ± 223.36 µs     2.24 ms …   2.85 ms  in 10 ×     37 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=4 name=large/always-changed whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:210 ("P1.3 large/always-changed whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+   2.47 ms ± 184.63 µs     2.28 ms …   2.85 ms  in 10 ×     36 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=5 name=large/eq-cutoff whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:215 ("P1.3 large/eq-cutoff whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+   2.27 ms ± 233.24 µs     2.02 ms …   2.79 ms  in 10 ×     35 runs
+Total tests: 1, passed: 1, failed: 0.

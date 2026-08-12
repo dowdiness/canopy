@@ -1,0 +1,37 @@
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:220 ("P1.3 small/Term structural Eq") ok
+time (mean ± σ)         range (min … max) 
+  37.76 ns ±   2.52 ns    35.65 ns …  43.25 ns  in 10 × 100000 runs
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:225 ("P1.3 medium/Term structural Eq") ok
+time (mean ± σ)         range (min … max) 
+ 920.94 ns ±  43.88 ns   878.61 ns …   1.00 µs  in 10 × 100000 runs
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:230 ("P1.3 large/Term structural Eq") ok
+time (mean ± σ)         range (min … max) 
+   4.15 µs ± 488.16 ns     3.83 µs …   5.07 µs  in 10 ×  21292 runs
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:235 ("P1.3 small/eval_term") ok
+time (mean ± σ)         range (min … max) 
+ 334.83 ns ±  14.19 ns   323.28 ns … 372.45 ns  in 10 × 100000 runs
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:240 ("P1.3 medium/eval_term") ok
+time (mean ± σ)         range (min … max) 
+  16.35 µs ± 913.99 ns    15.34 µs …  17.80 µs  in 10 ×   6409 runs
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:245 ("P1.3 large/eval_term") ok
+time (mean ± σ)         range (min … max) 
+ 149.94 µs ±   4.14 µs   146.26 µs … 157.75 µs  in 10 ×    692 runs
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:250 ("P1.3 small/SourceMap build") ok
+time (mean ± σ)         range (min … max) 
+   3.27 µs ± 117.05 ns     3.17 µs …   3.55 µs  in 10 ×  29784 runs
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:255 ("P1.3 medium/SourceMap build") ok
+time (mean ± σ)         range (min … max) 
+ 126.71 µs ±  10.03 µs   117.22 µs … 149.13 µs  in 10 ×    791 runs
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:260 ("P1.3 large/SourceMap build") ok
+time (mean ± σ)         range (min … max) 
+ 625.57 µs ±  89.19 µs   564.64 µs … 849.78 µs  in 10 ×    157 runs
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:265 ("P1.3 small/AnnotationMap aggregate") ok
+time (mean ± σ)         range (min … max) 
+   1.05 µs ±  49.83 ns     1.01 µs …   1.14 µs  in 10 ×  77291 runs
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:270 ("P1.3 medium/AnnotationMap aggregate") ok
+time (mean ± σ)         range (min … max) 
+  35.90 µs ±   1.44 µs    34.64 µs …  39.33 µs  in 10 ×   2851 runs
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:275 ("P1.3 large/AnnotationMap aggregate") ok
+time (mean ± σ)         range (min … max) 
+ 224.83 µs ±  18.99 µs   201.80 µs … 255.86 µs  in 10 ×    414 runs
+Total tests: 12, passed: 12, failed: 0.

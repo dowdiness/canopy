@@ -4,6 +4,12 @@ enum LifetimeState {
   Closed
 }
 
+///| The only benchmark variable: semantic selector propagation policy.
+priv enum TermSelectorPolicy {
+  AlwaysChanged
+  EqCutoff
+}
+
 ///| Evidence is local to one semantic batch.
 enum IdentityEvidence {
   NoEvidence
@@ -174,6 +180,7 @@ fn ProjectionState::transition(
 ///| Construct one parser, one history owner, and one Store/Region read model.
 fn MinimalLambdaProjectionShell::MinimalLambdaProjectionShell(
   initial_source : String,
+  term_selector_policy? : TermSelectorPolicy = EqCutoff,
 ) -> MinimalLambdaProjectionShell raise Failure {
   let parser = @lambda.new_imperative_parser(
     @diagnostic.SourceId::SourceId("minimal-no-shadow-lambda-projection"),
@@ -227,12 +234,17 @@ fn MinimalLambdaProjectionShell::MinimalLambdaProjectionShell(
       }
     }
   }))
-  let term_query = must_query(region.query_eq((ctx, _ : Unit) => {
-    match ctx.read(commit_view) {
-      Err(error) => Err(error)
-      Ok(commit) => Ok(commit.projection.kind)
-    }
-  }))
+  let term_compute : (@next.EvalCtx, Unit) -> Result[
+    @ast.Term,
+    @next.ReadError,
+  ] = (ctx, _ : Unit) => match ctx.read(commit_view) {
+    Err(error) => Err(error)
+    Ok(commit) => Ok(commit.projection.kind)
+  }
+  let term_query = must_query(match term_selector_policy {
+    AlwaysChanged => region.query_always_changed(term_compute)
+    EqCutoff => region.query_eq(term_compute)
+  })
   let term_view = term_query.at(())
   let eval_query = must_query(region.query((ctx, _ : Unit) => {
     match ctx.read(term_view) {

@@ -10,6 +10,10 @@ do not merge it into production.
 - P1.2 Term Eq cutoff: a whitespace commit recomputes the selector but makes
   Evaluation verify green without recomputing; see
   [P1_2_EVAL_GREEN_PATH.md](P1_2_EVAL_GREEN_PATH.md).
+- P1.3 cutoff benchmark: native release measurements are positive for all
+  measured let chains; JS repeats are positive at the large size while the
+  small/medium crossover remains unstable; see
+  [P1_3_CUTOFF_BENCHMARK.md](P1_3_CUTOFF_BENCHMARK.md).
 
 ## Question
 
@@ -28,6 +32,7 @@ From the Canopy repository root:
 
 ```bash
 ./scripts/run-minimal-no-shadow-lambda-projection.sh
+./scripts/run-minimal-no-shadow-lambda-cutoff-benchmark.sh
 ```
 
 On the current P1.2 branch, the command verifies the materialized #464 provider
@@ -171,8 +176,9 @@ Reused project APIs:
   through the evidence-only visibility adapter;
 - semantic `build_semantic_projection`;
 - protocol `proj_to_view_node` as the actual annotation consumer;
-- issue #464 `Store`, `Region`, `Source`, `Query`, `query_eq`, opaque `View`,
-  `EvalCtx`, `Transaction`, cutoff/backdating, and close semantics.
+- issue #464 `Store`, `Region`, `Source`, `Query`, `query_eq`,
+  `query_always_changed`, opaque `View`, `EvalCtx`, `Transaction`,
+  cutoff/backdating, debug counters, and close semantics.
 
 MoonBit core APIs checked and reused:
 
@@ -193,8 +199,8 @@ Checked but not used:
 
 New helper boundaries are prototype-local: semantic batch finalization, one
 ASCII fixture replacement, state rendering, finding one `Var` through the
-existing preorder traversal, and recursively checking the resulting protocol
-`ViewNode`. The evidence adapter delegates to existing annotation functions; it
+existing preorder traversal, recursively checking the resulting protocol
+`ViewNode`, and generating fixed-size benchmark let chains. The evidence adapter delegates to existing annotation functions; it
 does not copy them. No new kernel or generic collection loop is added.
 
 ## Non-goals

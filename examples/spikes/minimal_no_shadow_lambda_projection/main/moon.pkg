@@ -10,6 +10,7 @@ import {
   "dowdiness/loom" @loom,
   "dowdiness/loom/core" @loom_core,
   "examples/spikes/incr_next_cutoff_backdating/provider" @next,
+  "moonbitlang/core/bench",
 }
 
 pkgtype(kind: "executable")

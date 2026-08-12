@@ -133,5 +133,6 @@ P1.2 does not prove:
 - nested production semantic batches;
 - Tier-2 escalation or production lifetime closure.
 
-No wall-clock optimization, LRU, Mount, dependency representation change, ADR,
-or production migration follows from this spike.
+No LRU, Mount, dependency representation change, ADR, or production migration
+follows from this spike. [P1_3_CUTOFF_BENCHMARK.md](P1_3_CUTOFF_BENCHMARK.md)
+measures whether this placement pays for itself without changing the graph.
