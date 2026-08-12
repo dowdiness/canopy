@@ -14,6 +14,10 @@ do not merge it into production.
   measured let chains; JS repeats are positive at the large size while the
   small/medium crossover remains unstable; see
   [P1_3_CUTOFF_BENCHMARK.md](P1_3_CUTOFF_BENCHMARK.md).
+- P1.4 mixed workload: one changing path has stable Eq overhead; large remains
+  positive at a 50% equivalent-edit mix on native and JS in this run, while
+  medium and threshold estimates remain noisy; see
+  [P1_4_CUTOFF_MIXED_WORKLOAD.md](P1_4_CUTOFF_MIXED_WORKLOAD.md).
 
 ## Question
 
@@ -33,6 +37,7 @@ From the Canopy repository root:
 ```bash
 ./scripts/run-minimal-no-shadow-lambda-projection.sh
 ./scripts/run-minimal-no-shadow-lambda-cutoff-benchmark.sh
+./scripts/run-minimal-no-shadow-lambda-cutoff-mixed-benchmark.sh
 ```
 
 On the current P1.2 branch, the command verifies the materialized #464 provider

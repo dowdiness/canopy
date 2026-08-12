@@ -1,0 +1,58 @@
+[
+  {
+    "target": "native",
+    "size": "medium",
+    "equivalent_edit_benefit_us": 36.735000000000014,
+    "early_changing_median_overhead_us": -6.394999999999982,
+    "late_changing_median_overhead_us": 18.495000000000033,
+    "point_changing_overhead_us": 18.495000000000033,
+    "point_break_even_equivalent_edit_rate": 0.33487235198261844,
+    "observed_worst_pair_overhead_us": 57.94,
+    "observed_worst_pair_break_even_rate": 0.6119883813044625,
+    "mixed_50_delta_us": -95.00000000000011,
+    "mixed_50_candidate_wins": 5,
+    "mixed_50_pairs": 6
+  },
+  {
+    "target": "native",
+    "size": "large",
+    "equivalent_edit_benefit_us": 360.0,
+    "early_changing_median_overhead_us": 15.0,
+    "late_changing_median_overhead_us": 60.0,
+    "point_changing_overhead_us": 60.0,
+    "point_break_even_equivalent_edit_rate": 0.14285714285714285,
+    "observed_worst_pair_overhead_us": 430.0,
+    "observed_worst_pair_break_even_rate": 0.5443037974683544,
+    "mixed_50_delta_us": -680.0,
+    "mixed_50_candidate_wins": 6,
+    "mixed_50_pairs": 6
+  },
+  {
+    "target": "js",
+    "size": "medium",
+    "equivalent_edit_benefit_us": 19.69999999999999,
+    "early_changing_median_overhead_us": -6.8349999999999795,
+    "late_changing_median_overhead_us": 0.35499999999998977,
+    "point_changing_overhead_us": 0.35499999999998977,
+    "point_break_even_equivalent_edit_rate": 0.01770132136624234,
+    "observed_worst_pair_overhead_us": 40.69999999999999,
+    "observed_worst_pair_break_even_rate": 0.6738410596026491,
+    "mixed_50_delta_us": -105.0,
+    "mixed_50_candidate_wins": 5,
+    "mixed_50_pairs": 6
+  },
+  {
+    "target": "js",
+    "size": "large",
+    "equivalent_edit_benefit_us": 180.0,
+    "early_changing_median_overhead_us": -35.0,
+    "late_changing_median_overhead_us": -25.0,
+    "point_changing_overhead_us": 0.0,
+    "point_break_even_equivalent_edit_rate": 0.0,
+    "observed_worst_pair_overhead_us": 600.0,
+    "observed_worst_pair_break_even_rate": 0.7692307692307693,
+    "mixed_50_delta_us": -720.0,
+    "mixed_50_candidate_wins": 6,
+    "mixed_50_pairs": 6
+  }
+]

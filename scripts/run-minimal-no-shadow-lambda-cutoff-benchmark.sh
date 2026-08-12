@@ -77,11 +77,11 @@ def invoke(target, index, raw):
 for target in ("native", "js"):
     raw_path = out / f"{target}.raw.log"
     with raw_path.open("w") as raw:
-        print(f"\n== {target}: pre-warm each policy/size process ==")
+        print(f"\n== {target}: preliminary invocation per policy/size ==")
         for size in ("small", "medium", "large"):
             for arm in ("A", "B"):
                 value = invoke(target, indices[size][arm], raw)
-                print(f"warm {size:6} {policies[arm]:14} {value:9.2f} µs")
+                print(f"preliminary {size:6} {policies[arm]:14} {value:9.2f} µs")
         for cycle in range(cycles):
             order = ("A", "B", "B", "A") if cycle % 2 == 0 else ("B", "A", "A", "B")
             print(f"\n{target} cycle {cycle + 1}: {''.join(order)}")
@@ -132,7 +132,7 @@ for target in ("native", "js"):
             "baseline_median_us": base_median,
             "candidate_median_us": candidate_median,
             "median_paired_delta_us": statistics.median(deltas),
-            "median_paired_percent": statistics.median(deltas) / base_median * 100.0,
+            "paired_delta_percent_of_baseline_median": statistics.median(deltas) / base_median * 100.0,
             "paired_delta_min_us": min(deltas),
             "paired_delta_max_us": max(deltas),
             "candidate_wins": sum(delta < 0 for delta in deltas),
@@ -141,9 +141,9 @@ for target in ("native", "js"):
 
 (out / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
 lines = [
-    "# P1.3 pre-warmed process-level AB/BA results",
+    "# P1.3 process-level AB/BA results",
     "",
-    f"Cycles: {cycles}; order alternates ABBA then BAAB; each size/policy is pre-warmed in a separate process.",
+    f"Cycles: {cycles}; order alternates ABBA then BAAB; each size/policy gets a separate preliminary invocation. Every recorded moon bench process performs its own intra-process batches.",
     "",
     "| Target | Size | Baseline median | Candidate median | Median paired delta | Paired range | Wins |",
     "|---|---|---:|---:|---:|---:|---:|",
@@ -152,7 +152,7 @@ for row in summary:
     lines.append(
         f"| {row['target']} | {row['size']} | {row['baseline_median_us']:.2f} µs | "
         f"{row['candidate_median_us']:.2f} µs | {row['median_paired_delta_us']:+.2f} µs "
-        f"({row['median_paired_percent']:+.2f}%) | "
+        f"({row['paired_delta_percent_of_baseline_median']:+.2f}%) | "
         f"{row['paired_delta_min_us']:+.2f}…{row['paired_delta_max_us']:+.2f} µs | "
         f"{row['candidate_wins']}/{row['pairs']} |"
     )

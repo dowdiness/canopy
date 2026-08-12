@@ -1,0 +1,672 @@
+
+===== file=cutoff_benchmark.mbt index=3 name=medium/always-changed whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:205 ("P1.3 medium/always-changed whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+ 595.57 µs ± 131.37 µs   469.26 µs … 837.37 µs  in 10 ×    104 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=cutoff_benchmark.mbt index=2 name=medium/eq-cutoff whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:200 ("P1.3 medium/eq-cutoff whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+ 450.96 µs ±  42.17 µs   411.93 µs … 548.22 µs  in 10 ×    184 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=cutoff_benchmark.mbt index=4 name=large/always-changed whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:210 ("P1.3 large/always-changed whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+   2.93 ms ± 491.00 µs     2.55 ms …   4.07 ms  in 10 ×     31 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=cutoff_benchmark.mbt index=5 name=large/eq-cutoff whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:215 ("P1.3 large/eq-cutoff whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+   2.31 ms ± 250.19 µs     2.06 ms …   2.73 ms  in 10 ×     38 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=0 name=medium/early-changing/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:153 ("P1.4 medium/early-changing/always-changed") ok
+time (mean ± σ)         range (min … max) 
+ 475.12 µs ±  33.70 µs   436.08 µs … 532.49 µs  in 10 ×    176 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=1 name=medium/early-changing/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:158 ("P1.4 medium/early-changing/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+ 530.59 µs ±  44.63 µs   475.62 µs … 613.25 µs  in 10 ×    124 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=2 name=medium/late-changing/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:163 ("P1.4 medium/late-changing/always-changed") ok
+time (mean ± σ)         range (min … max) 
+ 485.32 µs ±  39.25 µs   450.49 µs … 584.09 µs  in 10 ×    167 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=3 name=medium/late-changing/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:168 ("P1.4 medium/late-changing/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+ 519.59 µs ±  74.18 µs   440.93 µs … 649.24 µs  in 10 ×    121 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=4 name=large/early-changing/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:173 ("P1.4 large/early-changing/always-changed") ok
+time (mean ± σ)         range (min … max) 
+   2.40 ms ± 235.87 µs     2.12 ms …   2.79 ms  in 10 ×     38 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=5 name=large/early-changing/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:178 ("P1.4 large/early-changing/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+   2.35 ms ± 249.90 µs     2.10 ms …   2.82 ms  in 10 ×     37 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=6 name=large/late-changing/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:183 ("P1.4 large/late-changing/always-changed") ok
+time (mean ± σ)         range (min … max) 
+   2.35 ms ± 225.31 µs     2.08 ms …   2.74 ms  in 10 ×     38 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=7 name=large/late-changing/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:188 ("P1.4 large/late-changing/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+   2.51 ms ± 277.84 µs     2.27 ms …   2.95 ms  in 10 ×     36 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=8 name=medium/mixed-50/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:193 ("P1.4 medium/mixed-50/always-changed") ok
+time (mean ± σ)         range (min … max) 
+   2.26 ms ± 326.27 µs     1.91 ms …   2.72 ms  in 10 ×     29 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=9 name=medium/mixed-50/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:198 ("P1.4 medium/mixed-50/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+   2.09 ms ± 207.69 µs     1.86 ms …   2.45 ms  in 10 ×     31 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=10 name=large/mixed-50/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:203 ("P1.4 large/mixed-50/always-changed") ok
+time (mean ± σ)         range (min … max) 
+  10.32 ms ±   1.99 ms     8.74 ms …  13.99 ms  in 10 ×      8 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=11 name=large/mixed-50/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:208 ("P1.4 large/mixed-50/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+   9.20 ms ±   1.05 ms     8.27 ms …  11.78 ms  in 10 ×      9 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=cutoff_benchmark.mbt index=3 name=medium/always-changed whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:205 ("P1.3 medium/always-changed whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+ 487.57 µs ±  48.52 µs   444.60 µs … 578.69 µs  in 10 ×    178 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=cutoff_benchmark.mbt index=2 name=medium/eq-cutoff whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:200 ("P1.3 medium/eq-cutoff whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+ 421.39 µs ±  49.15 µs   383.02 µs … 513.45 µs  in 10 ×    178 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=cutoff_benchmark.mbt index=2 name=medium/eq-cutoff whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:200 ("P1.3 medium/eq-cutoff whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+ 457.95 µs ±  41.89 µs   409.96 µs … 544.29 µs  in 10 ×    167 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=cutoff_benchmark.mbt index=3 name=medium/always-changed whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:205 ("P1.3 medium/always-changed whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+ 451.30 µs ±  39.29 µs   414.61 µs … 541.28 µs  in 10 ×    172 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=cutoff_benchmark.mbt index=4 name=large/always-changed whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:210 ("P1.3 large/always-changed whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+   2.16 ms ± 221.32 µs     1.93 ms …   2.67 ms  in 10 ×     40 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=cutoff_benchmark.mbt index=5 name=large/eq-cutoff whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:215 ("P1.3 large/eq-cutoff whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+   2.18 ms ± 254.46 µs     1.98 ms …   2.77 ms  in 10 ×     43 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=cutoff_benchmark.mbt index=5 name=large/eq-cutoff whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:215 ("P1.3 large/eq-cutoff whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+   2.22 ms ± 254.07 µs     2.06 ms …   2.92 ms  in 10 ×     39 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=cutoff_benchmark.mbt index=4 name=large/always-changed whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:210 ("P1.3 large/always-changed whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+   2.74 ms ± 463.27 µs     2.24 ms …   3.55 ms  in 10 ×     32 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=0 name=medium/early-changing/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:153 ("P1.4 medium/early-changing/always-changed") ok
+time (mean ± σ)         range (min … max) 
+ 489.37 µs ±  57.84 µs   417.80 µs … 575.80 µs  in 10 ×    114 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=1 name=medium/early-changing/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:158 ("P1.4 medium/early-changing/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+ 444.82 µs ±  49.11 µs   403.30 µs … 549.42 µs  in 10 ×    161 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=1 name=medium/early-changing/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:158 ("P1.4 medium/early-changing/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+ 434.47 µs ±  32.44 µs   401.74 µs … 490.94 µs  in 10 ×    189 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=0 name=medium/early-changing/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:153 ("P1.4 medium/early-changing/always-changed") ok
+time (mean ± σ)         range (min … max) 
+ 464.50 µs ±  32.57 µs   435.56 µs … 522.95 µs  in 10 ×    193 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=2 name=medium/late-changing/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:163 ("P1.4 medium/late-changing/always-changed") ok
+time (mean ± σ)         range (min … max) 
+ 474.11 µs ±  46.22 µs   432.23 µs … 581.69 µs  in 10 ×    144 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=3 name=medium/late-changing/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:168 ("P1.4 medium/late-changing/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+ 469.97 µs ±  32.01 µs   440.14 µs … 538.05 µs  in 10 ×    176 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=3 name=medium/late-changing/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:168 ("P1.4 medium/late-changing/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+ 467.15 µs ±  37.02 µs   434.25 µs … 534.13 µs  in 10 ×    178 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=2 name=medium/late-changing/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:163 ("P1.4 medium/late-changing/always-changed") ok
+time (mean ± σ)         range (min … max) 
+ 470.23 µs ±  57.64 µs   432.97 µs … 586.24 µs  in 10 ×    176 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=4 name=large/early-changing/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:173 ("P1.4 large/early-changing/always-changed") ok
+time (mean ± σ)         range (min … max) 
+   2.18 ms ± 178.47 µs     2.03 ms …   2.55 ms  in 10 ×     39 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=5 name=large/early-changing/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:178 ("P1.4 large/early-changing/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+   2.17 ms ± 330.13 µs     1.90 ms …   2.81 ms  in 10 ×     40 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=5 name=large/early-changing/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:178 ("P1.4 large/early-changing/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+   2.19 ms ± 218.68 µs     2.00 ms …   2.57 ms  in 10 ×     40 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=4 name=large/early-changing/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:173 ("P1.4 large/early-changing/always-changed") ok
+time (mean ± σ)         range (min … max) 
+   2.16 ms ± 173.75 µs     1.98 ms …   2.52 ms  in 10 ×     38 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=6 name=large/late-changing/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:183 ("P1.4 large/late-changing/always-changed") ok
+time (mean ± σ)         range (min … max) 
+   2.27 ms ± 200.62 µs     2.07 ms …   2.64 ms  in 10 ×     40 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=7 name=large/late-changing/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:188 ("P1.4 large/late-changing/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+   2.87 ms ± 578.49 µs     2.29 ms …   3.92 ms  in 10 ×     32 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=7 name=large/late-changing/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:188 ("P1.4 large/late-changing/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+   2.22 ms ± 171.66 µs     2.00 ms …   2.59 ms  in 10 ×     36 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=6 name=large/late-changing/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:183 ("P1.4 large/late-changing/always-changed") ok
+time (mean ± σ)         range (min … max) 
+   2.30 ms ± 207.26 µs     2.12 ms …   2.70 ms  in 10 ×     38 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=8 name=medium/mixed-50/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:193 ("P1.4 medium/mixed-50/always-changed") ok
+time (mean ± σ)         range (min … max) 
+   2.24 ms ± 264.60 µs     1.93 ms …   2.76 ms  in 10 ×     32 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=9 name=medium/mixed-50/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:198 ("P1.4 medium/mixed-50/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+   2.14 ms ± 257.34 µs     1.83 ms …   2.53 ms  in 10 ×     31 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=9 name=medium/mixed-50/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:198 ("P1.4 medium/mixed-50/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+   2.17 ms ± 265.64 µs     1.84 ms …   2.53 ms  in 10 ×     32 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=8 name=medium/mixed-50/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:193 ("P1.4 medium/mixed-50/always-changed") ok
+time (mean ± σ)         range (min … max) 
+   2.28 ms ± 206.23 µs     2.03 ms …   2.56 ms  in 10 ×     31 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=10 name=large/mixed-50/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:203 ("P1.4 large/mixed-50/always-changed") ok
+time (mean ± σ)         range (min … max) 
+  10.58 ms ±   2.62 ms     8.49 ms …  15.27 ms  in 10 ×      8 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=11 name=large/mixed-50/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:208 ("P1.4 large/mixed-50/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+   9.36 ms ± 862.52 µs     8.70 ms …  11.69 ms  in 10 ×     10 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=11 name=large/mixed-50/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:208 ("P1.4 large/mixed-50/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+  10.12 ms ±   1.97 ms     8.22 ms …  14.43 ms  in 10 ×      8 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=10 name=large/mixed-50/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:203 ("P1.4 large/mixed-50/always-changed") ok
+time (mean ± σ)         range (min … max) 
+  11.65 ms ±   2.28 ms     9.81 ms …  17.05 ms  in 10 ×      8 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=cutoff_benchmark.mbt index=2 name=medium/eq-cutoff whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:200 ("P1.3 medium/eq-cutoff whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+ 547.86 µs ± 103.82 µs   460.18 µs … 743.85 µs  in 10 ×    152 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=cutoff_benchmark.mbt index=3 name=medium/always-changed whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:205 ("P1.3 medium/always-changed whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+ 583.72 µs ± 102.91 µs   447.86 µs … 762.04 µs  in 10 ×    106 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=cutoff_benchmark.mbt index=3 name=medium/always-changed whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:205 ("P1.3 medium/always-changed whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+ 534.07 µs ±  55.34 µs   457.96 µs … 618.04 µs  in 10 ×    104 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=cutoff_benchmark.mbt index=2 name=medium/eq-cutoff whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:200 ("P1.3 medium/eq-cutoff whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+ 475.45 µs ±  35.54 µs   441.18 µs … 553.19 µs  in 10 ×    173 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=cutoff_benchmark.mbt index=5 name=large/eq-cutoff whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:215 ("P1.3 large/eq-cutoff whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+   2.58 ms ± 744.29 µs     1.99 ms …   4.07 ms  in 10 ×     28 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=cutoff_benchmark.mbt index=4 name=large/always-changed whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:210 ("P1.3 large/always-changed whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+   2.64 ms ± 419.72 µs     2.32 ms …   3.57 ms  in 10 ×     31 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=cutoff_benchmark.mbt index=4 name=large/always-changed whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:210 ("P1.3 large/always-changed whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+   2.46 ms ± 401.10 µs     2.11 ms …   3.36 ms  in 10 ×     31 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=cutoff_benchmark.mbt index=5 name=large/eq-cutoff whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:215 ("P1.3 large/eq-cutoff whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+   2.02 ms ± 241.98 µs     1.85 ms …   2.67 ms  in 10 ×     40 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=1 name=medium/early-changing/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:158 ("P1.4 medium/early-changing/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+ 466.85 µs ±  40.11 µs   426.53 µs … 535.96 µs  in 10 ×    181 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=0 name=medium/early-changing/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:153 ("P1.4 medium/early-changing/always-changed") ok
+time (mean ± σ)         range (min … max) 
+ 446.99 µs ±  29.06 µs   412.49 µs … 499.24 µs  in 10 ×    181 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=0 name=medium/early-changing/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:153 ("P1.4 medium/early-changing/always-changed") ok
+time (mean ± σ)         range (min … max) 
+ 483.44 µs ±  64.52 µs   420.81 µs … 589.22 µs  in 10 ×    122 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=1 name=medium/early-changing/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:158 ("P1.4 medium/early-changing/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+ 444.63 µs ±  28.87 µs   419.91 µs … 509.82 µs  in 10 ×    182 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=3 name=medium/late-changing/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:168 ("P1.4 medium/late-changing/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+ 465.38 µs ±  44.14 µs   426.36 µs … 558.30 µs  in 10 ×    173 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=2 name=medium/late-changing/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:163 ("P1.4 medium/late-changing/always-changed") ok
+time (mean ± σ)         range (min … max) 
+ 497.50 µs ±  43.18 µs   456.25 µs … 582.12 µs  in 10 ×    172 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=2 name=medium/late-changing/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:163 ("P1.4 medium/late-changing/always-changed") ok
+time (mean ± σ)         range (min … max) 
+ 448.90 µs ±  32.40 µs   420.53 µs … 519.39 µs  in 10 ×    178 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=3 name=medium/late-changing/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:168 ("P1.4 medium/late-changing/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+ 483.39 µs ±  38.15 µs   447.54 µs … 554.38 µs  in 10 ×    179 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=5 name=large/early-changing/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:178 ("P1.4 large/early-changing/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+   2.29 ms ± 183.77 µs     2.14 ms …   2.74 ms  in 10 ×     41 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=4 name=large/early-changing/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:173 ("P1.4 large/early-changing/always-changed") ok
+time (mean ± σ)         range (min … max) 
+   2.38 ms ± 277.29 µs     2.10 ms …   2.97 ms  in 10 ×     37 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=4 name=large/early-changing/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:173 ("P1.4 large/early-changing/always-changed") ok
+time (mean ± σ)         range (min … max) 
+   2.31 ms ± 268.91 µs     2.11 ms …   2.99 ms  in 10 ×     33 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=5 name=large/early-changing/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:178 ("P1.4 large/early-changing/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+   2.25 ms ± 200.18 µs     2.07 ms …   2.64 ms  in 10 ×     35 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=7 name=large/late-changing/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:188 ("P1.4 large/late-changing/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+   2.21 ms ± 212.31 µs     2.04 ms …   2.65 ms  in 10 ×     39 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=6 name=large/late-changing/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:183 ("P1.4 large/late-changing/always-changed") ok
+time (mean ± σ)         range (min … max) 
+   2.25 ms ± 274.63 µs     2.02 ms …   2.85 ms  in 10 ×     39 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=6 name=large/late-changing/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:183 ("P1.4 large/late-changing/always-changed") ok
+time (mean ± σ)         range (min … max) 
+   2.31 ms ± 284.13 µs     2.06 ms …   2.80 ms  in 10 ×     37 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=7 name=large/late-changing/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:188 ("P1.4 large/late-changing/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+   2.47 ms ± 390.31 µs     2.11 ms …   3.26 ms  in 10 ×     35 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=9 name=medium/mixed-50/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:198 ("P1.4 medium/mixed-50/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+   2.16 ms ± 270.05 µs     1.84 ms …   2.55 ms  in 10 ×     28 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=8 name=medium/mixed-50/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:193 ("P1.4 medium/mixed-50/always-changed") ok
+time (mean ± σ)         range (min … max) 
+   1.97 ms ± 201.06 µs     1.81 ms …   2.39 ms  in 10 ×     41 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=8 name=medium/mixed-50/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:193 ("P1.4 medium/mixed-50/always-changed") ok
+time (mean ± σ)         range (min … max) 
+   1.96 ms ± 156.73 µs     1.84 ms …   2.29 ms  in 10 ×     42 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=9 name=medium/mixed-50/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:198 ("P1.4 medium/mixed-50/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+   1.89 ms ± 169.08 µs     1.74 ms …   2.26 ms  in 10 ×     43 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=11 name=large/mixed-50/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:208 ("P1.4 large/mixed-50/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+   8.60 ms ± 928.51 µs     7.88 ms …  10.79 ms  in 10 ×     10 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=10 name=large/mixed-50/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:203 ("P1.4 large/mixed-50/always-changed") ok
+time (mean ± σ)         range (min … max) 
+   9.11 ms ± 804.04 µs     8.53 ms …  10.92 ms  in 10 ×     10 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=10 name=large/mixed-50/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:203 ("P1.4 large/mixed-50/always-changed") ok
+time (mean ± σ)         range (min … max) 
+   9.26 ms ±   1.06 ms     8.37 ms …  11.67 ms  in 10 ×     10 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=11 name=large/mixed-50/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:208 ("P1.4 large/mixed-50/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+   9.08 ms ± 892.69 µs     8.30 ms …  10.99 ms  in 10 ×     10 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=cutoff_benchmark.mbt index=3 name=medium/always-changed whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:205 ("P1.3 medium/always-changed whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+ 443.16 µs ±  29.54 µs   417.79 µs … 496.34 µs  in 10 ×    183 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=cutoff_benchmark.mbt index=2 name=medium/eq-cutoff whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:200 ("P1.3 medium/eq-cutoff whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+ 453.71 µs ±  33.13 µs   417.75 µs … 525.36 µs  in 10 ×    168 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=cutoff_benchmark.mbt index=2 name=medium/eq-cutoff whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:200 ("P1.3 medium/eq-cutoff whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+ 432.47 µs ±  38.65 µs   398.34 µs … 510.61 µs  in 10 ×    173 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=cutoff_benchmark.mbt index=3 name=medium/always-changed whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:205 ("P1.3 medium/always-changed whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+ 436.01 µs ±  33.18 µs   406.50 µs … 504.28 µs  in 10 ×    179 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=cutoff_benchmark.mbt index=4 name=large/always-changed whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:210 ("P1.3 large/always-changed whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+   2.15 ms ± 182.36 µs     1.99 ms …   2.62 ms  in 10 ×     40 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=cutoff_benchmark.mbt index=5 name=large/eq-cutoff whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:215 ("P1.3 large/eq-cutoff whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+   1.95 ms ± 165.76 µs     1.80 ms …   2.39 ms  in 10 ×     44 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=cutoff_benchmark.mbt index=5 name=large/eq-cutoff whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:215 ("P1.3 large/eq-cutoff whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+   2.02 ms ± 298.00 µs     1.75 ms …   2.65 ms  in 10 ×     41 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=cutoff_benchmark.mbt index=4 name=large/always-changed whitespace edit + annotation read =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/cutoff_benchmark.mbt:210 ("P1.3 large/always-changed whitespace edit + annotation read") ok
+time (mean ± σ)         range (min … max) 
+   2.18 ms ± 222.29 µs     1.98 ms …   2.71 ms  in 10 ×     40 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=0 name=medium/early-changing/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:153 ("P1.4 medium/early-changing/always-changed") ok
+time (mean ± σ)         range (min … max) 
+ 442.28 µs ±  28.88 µs   417.29 µs … 505.32 µs  in 10 ×    186 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=1 name=medium/early-changing/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:158 ("P1.4 medium/early-changing/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+ 458.64 µs ±  43.47 µs   427.29 µs … 554.47 µs  in 10 ×    166 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=1 name=medium/early-changing/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:158 ("P1.4 medium/early-changing/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+ 483.39 µs ±  52.40 µs   423.08 µs … 558.77 µs  in 10 ×    124 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=0 name=medium/early-changing/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:153 ("P1.4 medium/early-changing/always-changed") ok
+time (mean ± σ)         range (min … max) 
+ 442.69 µs ±  26.26 µs   417.02 µs … 498.63 µs  in 10 ×    187 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=2 name=medium/late-changing/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:163 ("P1.4 medium/late-changing/always-changed") ok
+time (mean ± σ)         range (min … max) 
+ 451.68 µs ±  37.65 µs   414.63 µs … 515.31 µs  in 10 ×    186 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=3 name=medium/late-changing/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:168 ("P1.4 medium/late-changing/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+ 455.47 µs ±  33.21 µs   416.37 µs … 528.87 µs  in 10 ×    181 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=3 name=medium/late-changing/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:168 ("P1.4 medium/late-changing/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+ 455.07 µs ±  34.09 µs   424.19 µs … 520.04 µs  in 10 ×    182 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=2 name=medium/late-changing/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:163 ("P1.4 medium/late-changing/always-changed") ok
+time (mean ± σ)         range (min … max) 
+ 443.33 µs ±  30.74 µs   417.26 µs … 515.92 µs  in 10 ×    176 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=4 name=large/early-changing/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:173 ("P1.4 large/early-changing/always-changed") ok
+time (mean ± σ)         range (min … max) 
+   2.38 ms ± 251.10 µs     2.05 ms …   2.95 ms  in 10 ×     35 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=5 name=large/early-changing/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:178 ("P1.4 large/early-changing/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+   2.21 ms ± 222.16 µs     1.97 ms …   2.64 ms  in 10 ×     38 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=5 name=large/early-changing/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:178 ("P1.4 large/early-changing/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+   2.22 ms ± 161.26 µs     2.06 ms …   2.54 ms  in 10 ×     39 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=4 name=large/early-changing/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:173 ("P1.4 large/early-changing/always-changed") ok
+time (mean ± σ)         range (min … max) 
+   2.19 ms ± 252.05 µs     1.98 ms …   2.65 ms  in 10 ×     40 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=6 name=large/late-changing/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:183 ("P1.4 large/late-changing/always-changed") ok
+time (mean ± σ)         range (min … max) 
+   2.28 ms ± 218.86 µs     2.09 ms …   2.78 ms  in 10 ×     40 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=7 name=large/late-changing/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:188 ("P1.4 large/late-changing/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+   2.27 ms ± 231.59 µs     2.08 ms …   2.73 ms  in 10 ×     38 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=7 name=large/late-changing/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:188 ("P1.4 large/late-changing/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+   2.48 ms ± 672.88 µs     2.09 ms …   3.96 ms  in 10 ×     39 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=6 name=large/late-changing/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:183 ("P1.4 large/late-changing/always-changed") ok
+time (mean ± σ)         range (min … max) 
+   2.58 ms ± 512.31 µs     2.11 ms …   3.71 ms  in 10 ×     28 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=8 name=medium/mixed-50/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:193 ("P1.4 medium/mixed-50/always-changed") ok
+time (mean ± σ)         range (min … max) 
+   2.20 ms ± 251.54 µs     1.87 ms …   2.56 ms  in 10 ×     31 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=9 name=medium/mixed-50/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:198 ("P1.4 medium/mixed-50/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+   1.90 ms ± 159.02 µs     1.76 ms …   2.23 ms  in 10 ×     44 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=9 name=medium/mixed-50/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:198 ("P1.4 medium/mixed-50/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+   1.88 ms ± 151.48 µs     1.76 ms …   2.20 ms  in 10 ×     44 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=8 name=medium/mixed-50/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:193 ("P1.4 medium/mixed-50/always-changed") ok
+time (mean ± σ)         range (min … max) 
+   1.99 ms ± 150.54 µs     1.83 ms …   2.33 ms  in 10 ×     38 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=10 name=large/mixed-50/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:203 ("P1.4 large/mixed-50/always-changed") ok
+time (mean ± σ)         range (min … max) 
+  10.25 ms ±   1.11 ms     9.06 ms …  12.49 ms  in 10 ×      7 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=11 name=large/mixed-50/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:208 ("P1.4 large/mixed-50/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+   9.32 ms ±   1.29 ms     8.20 ms …  12.36 ms  in 10 ×      9 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=11 name=large/mixed-50/eq-cutoff =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:208 ("P1.4 large/mixed-50/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+   8.88 ms ±   1.02 ms     8.06 ms …  11.35 ms  in 10 ×     10 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== file=mixed_cutoff_benchmark.mbt index=10 name=large/mixed-50/always-changed =====
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/mixed_cutoff_benchmark.mbt:203 ("P1.4 large/mixed-50/always-changed") ok
+time (mean ± σ)         range (min … max) 
+   9.36 ms ±   1.10 ms     8.50 ms …  11.83 ms  in 10 ×     10 runs
+Total tests: 1, passed: 1, failed: 0.

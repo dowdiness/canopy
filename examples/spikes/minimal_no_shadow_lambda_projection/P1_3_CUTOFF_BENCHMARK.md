@@ -49,10 +49,12 @@ baseline Evaluation compute_count > 1; green_verifications = 0
 candidate Evaluation compute_count = 1; green_verifications > 0
 ```
 
-Each size/policy is first warmed in its own process. Measurement then runs two
-process-level cycles, `ABBA` followed by `BAAB`, where A is AlwaysChanged and B
-is Eq cutoff. Adjacent AB/BA pairs produce four paired deltas per target and
-size. MoonBit itself reports ten intra-process batches for each process mean.
+Each size/policy first gets a separate preliminary invocation. It does not warm
+the later process's JS JIT or runtime state: every recorded `moon bench` starts
+a new process and performs its own ten intra-process batches. Measurement runs
+two process-level cycles, `ABBA` followed by `BAAB`, where A is AlwaysChanged
+and B is Eq cutoff. Adjacent AB/BA runs produce four paired deltas per target
+and size.
 Raw output, records, and summary are retained under
 `evidence/p1_3_cutoff_benchmark/`.
 
@@ -104,5 +106,7 @@ JS small/medium crossover                not stable
 Allocation or retained-memory benefit   unmeasured
 ```
 
-The result does not authorize fingerprints, keyed subterm Queries, prefix-cache
-replacement, more cutoffs, a production migration, #1236 work, or an ADR.
+[P1_4_CUTOFF_MIXED_WORKLOAD.md](P1_4_CUTOFF_MIXED_WORKLOAD.md) measures the
+semantic-changing overhead and a 50% mixed workload. P1.3 alone does not
+authorize fingerprints, keyed subterm Queries, prefix-cache replacement, more
+cutoffs, a production migration, #1236 work, or an ADR.

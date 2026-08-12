@@ -1,0 +1,1730 @@
+[
+  {
+    "target": "native",
+    "scenario": "medium/whitespace",
+    "cycle": 1,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 476.11
+  },
+  {
+    "target": "native",
+    "scenario": "medium/whitespace",
+    "cycle": 1,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 443.99
+  },
+  {
+    "target": "native",
+    "scenario": "medium/whitespace",
+    "cycle": 1,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 448.84
+  },
+  {
+    "target": "native",
+    "scenario": "medium/whitespace",
+    "cycle": 1,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 514.25
+  },
+  {
+    "target": "native",
+    "scenario": "large/whitespace",
+    "cycle": 1,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2350.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/whitespace",
+    "cycle": 1,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 1990.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/whitespace",
+    "cycle": 1,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 1980.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/whitespace",
+    "cycle": 1,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2500.0
+  },
+  {
+    "target": "native",
+    "scenario": "medium/early-changing",
+    "cycle": 1,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 527.45
+  },
+  {
+    "target": "native",
+    "scenario": "medium/early-changing",
+    "cycle": 1,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 491.74
+  },
+  {
+    "target": "native",
+    "scenario": "medium/early-changing",
+    "cycle": 1,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 513.09
+  },
+  {
+    "target": "native",
+    "scenario": "medium/early-changing",
+    "cycle": 1,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 520.99
+  },
+  {
+    "target": "native",
+    "scenario": "medium/late-changing",
+    "cycle": 1,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 506.34
+  },
+  {
+    "target": "native",
+    "scenario": "medium/late-changing",
+    "cycle": 1,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 530.71
+  },
+  {
+    "target": "native",
+    "scenario": "medium/late-changing",
+    "cycle": 1,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 537.78
+  },
+  {
+    "target": "native",
+    "scenario": "medium/late-changing",
+    "cycle": 1,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 479.84
+  },
+  {
+    "target": "native",
+    "scenario": "large/early-changing",
+    "cycle": 1,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2300.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/early-changing",
+    "cycle": 1,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2380.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/early-changing",
+    "cycle": 1,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2440.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/early-changing",
+    "cycle": 1,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2280.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/late-changing",
+    "cycle": 1,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2340.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/late-changing",
+    "cycle": 1,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2770.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/late-changing",
+    "cycle": 1,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2620.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/late-changing",
+    "cycle": 1,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2500.0
+  },
+  {
+    "target": "native",
+    "scenario": "medium/mixed-50",
+    "cycle": 1,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2360.0
+  },
+  {
+    "target": "native",
+    "scenario": "medium/mixed-50",
+    "cycle": 1,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2080.0
+  },
+  {
+    "target": "native",
+    "scenario": "medium/mixed-50",
+    "cycle": 1,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2060.0
+  },
+  {
+    "target": "native",
+    "scenario": "medium/mixed-50",
+    "cycle": 1,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2140.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/mixed-50",
+    "cycle": 1,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 9860.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/mixed-50",
+    "cycle": 1,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 9670.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/mixed-50",
+    "cycle": 1,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 10900.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/mixed-50",
+    "cycle": 1,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 11560.0
+  },
+  {
+    "target": "native",
+    "scenario": "medium/whitespace",
+    "cycle": 2,
+    "position": 1,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 489.75
+  },
+  {
+    "target": "native",
+    "scenario": "medium/whitespace",
+    "cycle": 2,
+    "position": 2,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 499.34
+  },
+  {
+    "target": "native",
+    "scenario": "medium/whitespace",
+    "cycle": 2,
+    "position": 3,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 517.35
+  },
+  {
+    "target": "native",
+    "scenario": "medium/whitespace",
+    "cycle": 2,
+    "position": 4,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 505.82
+  },
+  {
+    "target": "native",
+    "scenario": "large/whitespace",
+    "cycle": 2,
+    "position": 1,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2180.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/whitespace",
+    "cycle": 2,
+    "position": 2,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2540.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/whitespace",
+    "cycle": 2,
+    "position": 3,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2540.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/whitespace",
+    "cycle": 2,
+    "position": 4,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2350.0
+  },
+  {
+    "target": "native",
+    "scenario": "medium/early-changing",
+    "cycle": 2,
+    "position": 1,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 574.06
+  },
+  {
+    "target": "native",
+    "scenario": "medium/early-changing",
+    "cycle": 2,
+    "position": 2,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 517.85
+  },
+  {
+    "target": "native",
+    "scenario": "medium/early-changing",
+    "cycle": 2,
+    "position": 3,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 514.32
+  },
+  {
+    "target": "native",
+    "scenario": "medium/early-changing",
+    "cycle": 2,
+    "position": 4,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 490.71
+  },
+  {
+    "target": "native",
+    "scenario": "medium/late-changing",
+    "cycle": 2,
+    "position": 1,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 515.09
+  },
+  {
+    "target": "native",
+    "scenario": "medium/late-changing",
+    "cycle": 2,
+    "position": 2,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 506.94
+  },
+  {
+    "target": "native",
+    "scenario": "medium/late-changing",
+    "cycle": 2,
+    "position": 3,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 531.53
+  },
+  {
+    "target": "native",
+    "scenario": "medium/late-changing",
+    "cycle": 2,
+    "position": 4,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 537.91
+  },
+  {
+    "target": "native",
+    "scenario": "large/early-changing",
+    "cycle": 2,
+    "position": 1,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2660.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/early-changing",
+    "cycle": 2,
+    "position": 2,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2710.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/early-changing",
+    "cycle": 2,
+    "position": 3,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2980.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/early-changing",
+    "cycle": 2,
+    "position": 4,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2820.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/late-changing",
+    "cycle": 2,
+    "position": 1,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2550.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/late-changing",
+    "cycle": 2,
+    "position": 2,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2510.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/late-changing",
+    "cycle": 2,
+    "position": 3,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2630.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/late-changing",
+    "cycle": 2,
+    "position": 4,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2710.0
+  },
+  {
+    "target": "native",
+    "scenario": "medium/mixed-50",
+    "cycle": 2,
+    "position": 1,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2009.9999999999998
+  },
+  {
+    "target": "native",
+    "scenario": "medium/mixed-50",
+    "cycle": 2,
+    "position": 2,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2120.0
+  },
+  {
+    "target": "native",
+    "scenario": "medium/mixed-50",
+    "cycle": 2,
+    "position": 3,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2120.0
+  },
+  {
+    "target": "native",
+    "scenario": "medium/mixed-50",
+    "cycle": 2,
+    "position": 4,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 1980.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/mixed-50",
+    "cycle": 2,
+    "position": 1,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 9990.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/mixed-50",
+    "cycle": 2,
+    "position": 2,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 11900.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/mixed-50",
+    "cycle": 2,
+    "position": 3,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 12830.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/mixed-50",
+    "cycle": 2,
+    "position": 4,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 12800.0
+  },
+  {
+    "target": "native",
+    "scenario": "medium/whitespace",
+    "cycle": 3,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 566.37
+  },
+  {
+    "target": "native",
+    "scenario": "medium/whitespace",
+    "cycle": 3,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 523.26
+  },
+  {
+    "target": "native",
+    "scenario": "medium/whitespace",
+    "cycle": 3,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 512.99
+  },
+  {
+    "target": "native",
+    "scenario": "medium/whitespace",
+    "cycle": 3,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 554.34
+  },
+  {
+    "target": "native",
+    "scenario": "large/whitespace",
+    "cycle": 3,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2600.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/whitespace",
+    "cycle": 3,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2240.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/whitespace",
+    "cycle": 3,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2130.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/whitespace",
+    "cycle": 3,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2430.0
+  },
+  {
+    "target": "native",
+    "scenario": "medium/early-changing",
+    "cycle": 3,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 494.72
+  },
+  {
+    "target": "native",
+    "scenario": "medium/early-changing",
+    "cycle": 3,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 527.97
+  },
+  {
+    "target": "native",
+    "scenario": "medium/early-changing",
+    "cycle": 3,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 484.88
+  },
+  {
+    "target": "native",
+    "scenario": "medium/early-changing",
+    "cycle": 3,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 489.77
+  },
+  {
+    "target": "native",
+    "scenario": "medium/late-changing",
+    "cycle": 3,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 513.05
+  },
+  {
+    "target": "native",
+    "scenario": "medium/late-changing",
+    "cycle": 3,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 528.88
+  },
+  {
+    "target": "native",
+    "scenario": "medium/late-changing",
+    "cycle": 3,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 508.99
+  },
+  {
+    "target": "native",
+    "scenario": "medium/late-changing",
+    "cycle": 3,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 487.83
+  },
+  {
+    "target": "native",
+    "scenario": "large/early-changing",
+    "cycle": 3,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2820.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/early-changing",
+    "cycle": 3,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2900.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/early-changing",
+    "cycle": 3,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2510.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/early-changing",
+    "cycle": 3,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2830.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/late-changing",
+    "cycle": 3,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2570.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/late-changing",
+    "cycle": 3,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2410.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/late-changing",
+    "cycle": 3,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2330.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/late-changing",
+    "cycle": 3,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2460.0
+  },
+  {
+    "target": "native",
+    "scenario": "medium/mixed-50",
+    "cycle": 3,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2050.0
+  },
+  {
+    "target": "native",
+    "scenario": "medium/mixed-50",
+    "cycle": 3,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2060.0
+  },
+  {
+    "target": "native",
+    "scenario": "medium/mixed-50",
+    "cycle": 3,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2090.0
+  },
+  {
+    "target": "native",
+    "scenario": "medium/mixed-50",
+    "cycle": 3,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2160.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/mixed-50",
+    "cycle": 3,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 9890.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/mixed-50",
+    "cycle": 3,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 9190.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/mixed-50",
+    "cycle": 3,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 8900.0
+  },
+  {
+    "target": "native",
+    "scenario": "large/mixed-50",
+    "cycle": 3,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 11940.0
+  },
+  {
+    "target": "js",
+    "scenario": "medium/whitespace",
+    "cycle": 1,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 487.57
+  },
+  {
+    "target": "js",
+    "scenario": "medium/whitespace",
+    "cycle": 1,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 421.39
+  },
+  {
+    "target": "js",
+    "scenario": "medium/whitespace",
+    "cycle": 1,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 457.95
+  },
+  {
+    "target": "js",
+    "scenario": "medium/whitespace",
+    "cycle": 1,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 451.3
+  },
+  {
+    "target": "js",
+    "scenario": "large/whitespace",
+    "cycle": 1,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2160.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/whitespace",
+    "cycle": 1,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2180.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/whitespace",
+    "cycle": 1,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2220.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/whitespace",
+    "cycle": 1,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2740.0
+  },
+  {
+    "target": "js",
+    "scenario": "medium/early-changing",
+    "cycle": 1,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 489.37
+  },
+  {
+    "target": "js",
+    "scenario": "medium/early-changing",
+    "cycle": 1,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 444.82
+  },
+  {
+    "target": "js",
+    "scenario": "medium/early-changing",
+    "cycle": 1,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 434.47
+  },
+  {
+    "target": "js",
+    "scenario": "medium/early-changing",
+    "cycle": 1,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 464.5
+  },
+  {
+    "target": "js",
+    "scenario": "medium/late-changing",
+    "cycle": 1,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 474.11
+  },
+  {
+    "target": "js",
+    "scenario": "medium/late-changing",
+    "cycle": 1,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 469.97
+  },
+  {
+    "target": "js",
+    "scenario": "medium/late-changing",
+    "cycle": 1,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 467.15
+  },
+  {
+    "target": "js",
+    "scenario": "medium/late-changing",
+    "cycle": 1,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 470.23
+  },
+  {
+    "target": "js",
+    "scenario": "large/early-changing",
+    "cycle": 1,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2180.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/early-changing",
+    "cycle": 1,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2170.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/early-changing",
+    "cycle": 1,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2190.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/early-changing",
+    "cycle": 1,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2160.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/late-changing",
+    "cycle": 1,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2270.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/late-changing",
+    "cycle": 1,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2870.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/late-changing",
+    "cycle": 1,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2220.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/late-changing",
+    "cycle": 1,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2300.0
+  },
+  {
+    "target": "js",
+    "scenario": "medium/mixed-50",
+    "cycle": 1,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2240.0
+  },
+  {
+    "target": "js",
+    "scenario": "medium/mixed-50",
+    "cycle": 1,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2140.0
+  },
+  {
+    "target": "js",
+    "scenario": "medium/mixed-50",
+    "cycle": 1,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2170.0
+  },
+  {
+    "target": "js",
+    "scenario": "medium/mixed-50",
+    "cycle": 1,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2280.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/mixed-50",
+    "cycle": 1,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 10580.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/mixed-50",
+    "cycle": 1,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 9360.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/mixed-50",
+    "cycle": 1,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 10120.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/mixed-50",
+    "cycle": 1,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 11650.0
+  },
+  {
+    "target": "js",
+    "scenario": "medium/whitespace",
+    "cycle": 2,
+    "position": 1,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 547.86
+  },
+  {
+    "target": "js",
+    "scenario": "medium/whitespace",
+    "cycle": 2,
+    "position": 2,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 583.72
+  },
+  {
+    "target": "js",
+    "scenario": "medium/whitespace",
+    "cycle": 2,
+    "position": 3,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 534.07
+  },
+  {
+    "target": "js",
+    "scenario": "medium/whitespace",
+    "cycle": 2,
+    "position": 4,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 475.45
+  },
+  {
+    "target": "js",
+    "scenario": "large/whitespace",
+    "cycle": 2,
+    "position": 1,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2580.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/whitespace",
+    "cycle": 2,
+    "position": 2,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2640.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/whitespace",
+    "cycle": 2,
+    "position": 3,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2460.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/whitespace",
+    "cycle": 2,
+    "position": 4,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2020.0
+  },
+  {
+    "target": "js",
+    "scenario": "medium/early-changing",
+    "cycle": 2,
+    "position": 1,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 466.85
+  },
+  {
+    "target": "js",
+    "scenario": "medium/early-changing",
+    "cycle": 2,
+    "position": 2,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 446.99
+  },
+  {
+    "target": "js",
+    "scenario": "medium/early-changing",
+    "cycle": 2,
+    "position": 3,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 483.44
+  },
+  {
+    "target": "js",
+    "scenario": "medium/early-changing",
+    "cycle": 2,
+    "position": 4,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 444.63
+  },
+  {
+    "target": "js",
+    "scenario": "medium/late-changing",
+    "cycle": 2,
+    "position": 1,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 465.38
+  },
+  {
+    "target": "js",
+    "scenario": "medium/late-changing",
+    "cycle": 2,
+    "position": 2,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 497.5
+  },
+  {
+    "target": "js",
+    "scenario": "medium/late-changing",
+    "cycle": 2,
+    "position": 3,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 448.9
+  },
+  {
+    "target": "js",
+    "scenario": "medium/late-changing",
+    "cycle": 2,
+    "position": 4,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 483.39
+  },
+  {
+    "target": "js",
+    "scenario": "large/early-changing",
+    "cycle": 2,
+    "position": 1,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2290.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/early-changing",
+    "cycle": 2,
+    "position": 2,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2380.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/early-changing",
+    "cycle": 2,
+    "position": 3,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2310.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/early-changing",
+    "cycle": 2,
+    "position": 4,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2250.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/late-changing",
+    "cycle": 2,
+    "position": 1,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2210.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/late-changing",
+    "cycle": 2,
+    "position": 2,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2250.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/late-changing",
+    "cycle": 2,
+    "position": 3,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2310.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/late-changing",
+    "cycle": 2,
+    "position": 4,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2470.0
+  },
+  {
+    "target": "js",
+    "scenario": "medium/mixed-50",
+    "cycle": 2,
+    "position": 1,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2160.0
+  },
+  {
+    "target": "js",
+    "scenario": "medium/mixed-50",
+    "cycle": 2,
+    "position": 2,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 1970.0
+  },
+  {
+    "target": "js",
+    "scenario": "medium/mixed-50",
+    "cycle": 2,
+    "position": 3,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 1960.0
+  },
+  {
+    "target": "js",
+    "scenario": "medium/mixed-50",
+    "cycle": 2,
+    "position": 4,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 1890.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/mixed-50",
+    "cycle": 2,
+    "position": 1,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 8600.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/mixed-50",
+    "cycle": 2,
+    "position": 2,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 9110.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/mixed-50",
+    "cycle": 2,
+    "position": 3,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 9260.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/mixed-50",
+    "cycle": 2,
+    "position": 4,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 9080.0
+  },
+  {
+    "target": "js",
+    "scenario": "medium/whitespace",
+    "cycle": 3,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 443.16
+  },
+  {
+    "target": "js",
+    "scenario": "medium/whitespace",
+    "cycle": 3,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 453.71
+  },
+  {
+    "target": "js",
+    "scenario": "medium/whitespace",
+    "cycle": 3,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 432.47
+  },
+  {
+    "target": "js",
+    "scenario": "medium/whitespace",
+    "cycle": 3,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 436.01
+  },
+  {
+    "target": "js",
+    "scenario": "large/whitespace",
+    "cycle": 3,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2150.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/whitespace",
+    "cycle": 3,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 1950.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/whitespace",
+    "cycle": 3,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2020.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/whitespace",
+    "cycle": 3,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2180.0
+  },
+  {
+    "target": "js",
+    "scenario": "medium/early-changing",
+    "cycle": 3,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 442.28
+  },
+  {
+    "target": "js",
+    "scenario": "medium/early-changing",
+    "cycle": 3,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 458.64
+  },
+  {
+    "target": "js",
+    "scenario": "medium/early-changing",
+    "cycle": 3,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 483.39
+  },
+  {
+    "target": "js",
+    "scenario": "medium/early-changing",
+    "cycle": 3,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 442.69
+  },
+  {
+    "target": "js",
+    "scenario": "medium/late-changing",
+    "cycle": 3,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 451.68
+  },
+  {
+    "target": "js",
+    "scenario": "medium/late-changing",
+    "cycle": 3,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 455.47
+  },
+  {
+    "target": "js",
+    "scenario": "medium/late-changing",
+    "cycle": 3,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 455.07
+  },
+  {
+    "target": "js",
+    "scenario": "medium/late-changing",
+    "cycle": 3,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 443.33
+  },
+  {
+    "target": "js",
+    "scenario": "large/early-changing",
+    "cycle": 3,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2380.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/early-changing",
+    "cycle": 3,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2210.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/early-changing",
+    "cycle": 3,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2220.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/early-changing",
+    "cycle": 3,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2190.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/late-changing",
+    "cycle": 3,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2280.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/late-changing",
+    "cycle": 3,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2270.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/late-changing",
+    "cycle": 3,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 2480.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/late-changing",
+    "cycle": 3,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2580.0
+  },
+  {
+    "target": "js",
+    "scenario": "medium/mixed-50",
+    "cycle": 3,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 2200.0
+  },
+  {
+    "target": "js",
+    "scenario": "medium/mixed-50",
+    "cycle": 3,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 1900.0
+  },
+  {
+    "target": "js",
+    "scenario": "medium/mixed-50",
+    "cycle": 3,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 1880.0
+  },
+  {
+    "target": "js",
+    "scenario": "medium/mixed-50",
+    "cycle": 3,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 1990.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/mixed-50",
+    "cycle": 3,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 10250.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/mixed-50",
+    "cycle": 3,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 9320.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/mixed-50",
+    "cycle": 3,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 8880.0
+  },
+  {
+    "target": "js",
+    "scenario": "large/mixed-50",
+    "cycle": 3,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 9360.0
+  }
+]

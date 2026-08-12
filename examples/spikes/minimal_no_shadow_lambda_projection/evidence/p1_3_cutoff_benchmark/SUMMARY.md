@@ -1,6 +1,6 @@
-# P1.3 pre-warmed process-level AB/BA results
+# P1.3 process-level AB/BA results
 
-Cycles: 2; order alternates ABBA then BAAB; each size/policy is pre-warmed in a separate process.
+Cycles: 2; order alternates ABBA then BAAB; each size/policy gets a separate preliminary invocation. Every recorded moon bench process performs its own intra-process batches.
 
 | Target | Size | Baseline median | Candidate median | Median paired delta | Paired range | Wins |
 |---|---|---:|---:|---:|---:|---:|
