@@ -84,9 +84,9 @@ let selectedEdge: EdgeSelection | null = null;
 
 function portOffset(n: NodeData, side: 'input' | 'output', portId: string): number | null {
   const ports = side === 'input' ? n.inputs : n.outputs;
-  if (!Number.isFinite(n.h) || n.h < 0) return null;
-  if (ports.length === 0) return n.h / 2;
-  const index = Math.max(0, ports.findIndex((p) => p.id === portId));
+  if (!Number.isFinite(n.h) || n.h < 0 || ports.length === 0) return null;
+  const index = ports.findIndex((p) => p.id === portId);
+  if (index < 0) return null;
   const offset = ((index + 1) * n.h) / (ports.length + 1);
   return Number.isFinite(offset) ? offset : null;
 }
@@ -122,12 +122,28 @@ function localCoords(e: MouseEvent): [number, number] {
   return [e.clientX - rect.left, e.clientY - rect.top];
 }
 
-function screenToWorld(point: [number, number], state: RenderState): [number, number] {
+function screenToWorld(
+  point: [number, number],
+  state: RenderState,
+): [number, number] | null {
   const { x, y, scale } = state.viewport;
-  return [(point[0] - x) / scale, (point[1] - y) / scale];
+  if (
+    !point.every(Number.isFinite) ||
+    !Number.isFinite(x) ||
+    !Number.isFinite(y) ||
+    !Number.isFinite(scale) ||
+    scale <= 0
+  ) {
+    return null;
+  }
+  const worldPoint: [number, number] = [
+    (point[0] - x) / scale,
+    (point[1] - y) / scale,
+  ];
+  return worldPoint.every(Number.isFinite) ? worldPoint : null;
 }
 
-function eventWorldCoords(e: MouseEvent): [number, number] {
+function eventWorldCoords(e: MouseEvent): [number, number] | null {
   return screenToWorld(localCoords(e), lastState ?? adapter.renderState());
 }
 
@@ -330,11 +346,11 @@ function render(): void {
     const source = outputAnchor(src, edge.source_port);
     const target = inputAnchor(dst, edge.target_port);
     if (!source || !target) continue;
-    seenEdges.add(edge.id);
     const [sx, sy] = source;
     const [tx, ty] = target;
     const pathData = bezierPath(sx, sy, tx, ty);
     if (!pathData) continue;
+    seenEdges.add(edge.id);
     let path = edgePaths.get(edge.id);
     if (!path) {
       path = document.createElementNS(SVG_NS, 'path');
@@ -372,6 +388,9 @@ function render(): void {
         pendingPath.remove();
         pendingPath = null;
       }
+    } else if (pendingPath) {
+      pendingPath.remove();
+      pendingPath = null;
     }
   } else if (pendingPath) {
     pendingPath.remove();
@@ -655,11 +674,13 @@ function updateHover(hit: HitTarget): void {
 
 function startSourceConnection(e: PointerEvent, hit: HitTarget): void {
   if (hit.kind !== 'handle' || hit.side !== 'output') return;
+  const worldPoint = eventWorldCoords(e);
+  if (!worldPoint) return;
+  const [cursor_x, cursor_y] = worldPoint;
   clearSelectedEdge();
   hideContextMenu();
   root.setPointerCapture(e.pointerId);
   sourcePointerId = e.pointerId;
-  const [cursor_x, cursor_y] = eventWorldCoords(e);
   sourceConnecting = {
     from: hit.nodeId,
     from_port: hit.portId,
@@ -671,7 +692,9 @@ function startSourceConnection(e: PointerEvent, hit: HitTarget): void {
 
 function moveSourceConnection(e: PointerEvent): void {
   if (e.pointerId !== sourcePointerId || !sourceConnecting) return;
-  const [cursor_x, cursor_y] = eventWorldCoords(e);
+  const worldPoint = eventWorldCoords(e);
+  if (!worldPoint) return;
+  const [cursor_x, cursor_y] = worldPoint;
   sourceConnecting = { ...sourceConnecting, cursor_x, cursor_y };
   scheduleRender();
 }

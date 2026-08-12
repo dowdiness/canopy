@@ -358,7 +358,7 @@ test "connect_move updates cursor world position" {
 }
 
 ///|
-test "connection and add-node reducers reject non-finite world points" {
+test "WorldPoint construction rejects non-finite coordinates" {
   let invalid_start = try {
     ignore(WorldPoint::from_xy(x=0.0 / 0.0, y=0.0))
     false

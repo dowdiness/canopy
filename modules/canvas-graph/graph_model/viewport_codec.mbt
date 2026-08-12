@@ -1,11 +1,13 @@
 ///|
 /// Local wire wrapper for the spatial viewport. MoonBit's orphan rule prevents
 /// a graph-model package from implementing a core JSON trait directly for a
-/// type owned by the spatial package.
+/// type owned by the spatial package. The manual object codec is intentional:
+/// GraphOperation V2 requires the flat `{x, y, scale}` shape and field-specific
+/// diagnostics at this boundary, while semantic construction stays explicit.
 priv struct ViewportCodec(@spatial.Viewport)
 
 ///|
-fn viewport_codec_finite_number(value : Double) -> Bool {
+fn wire_finite_number(value : Double) -> Bool {
   !value.is_nan() && !value.is_inf()
 }
 
@@ -17,7 +19,7 @@ fn viewport_codec_json_number_field(
 ) -> Double raise @json.JsonDecodeError {
   match fields.get(key) {
     Some(Json::Number(number, ..)) => {
-      guard viewport_codec_finite_number(number) else {
+      guard wire_finite_number(number) else {
         raise @json.JsonDecodeError(
           (path.add_key(key), "Viewport: '\{key}' must be finite"),
         )
@@ -134,7 +136,7 @@ fn finite_wire_geometry_field(
   owner : String,
   key : String,
 ) -> Double raise @json.JsonDecodeError {
-  guard viewport_codec_finite_number(value) else {
+  guard wire_finite_number(value) else {
     raise @json.JsonDecodeError(
       (path.add_key(key), "\{owner}: '\{key}' must be finite"),
     )
