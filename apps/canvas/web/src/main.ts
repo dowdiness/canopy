@@ -82,22 +82,39 @@ let selectedEdge: EdgeSelection | null = null;
 
 // ─── Geometry ────────────────────────────────────────────────────────────────
 
-function portOffset(n: NodeData, side: 'input' | 'output', portId: string): number {
+function portOffset(n: NodeData, side: 'input' | 'output', portId: string): number | null {
   const ports = side === 'input' ? n.inputs : n.outputs;
+  if (!Number.isFinite(n.h) || n.h < 0) return null;
   if (ports.length === 0) return n.h / 2;
   const index = Math.max(0, ports.findIndex((p) => p.id === portId));
-  return ((index + 1) * n.h) / (ports.length + 1);
+  const offset = ((index + 1) * n.h) / (ports.length + 1);
+  return Number.isFinite(offset) ? offset : null;
 }
 
 /** Output handle for a specific port (world coords). */
-function outputAnchor(n: NodeData, portId: string): [number, number] { return [n.x + n.w, n.y + portOffset(n, 'output', portId)]; }
+function outputAnchor(n: NodeData, portId: string): [number, number] | null {
+  const offset = portOffset(n, 'output', portId);
+  if (offset == null) return null;
+  const x = n.x + n.w;
+  const y = n.y + offset;
+  return Number.isFinite(x) && Number.isFinite(y) ? [x, y] : null;
+}
 /** Input handle for a specific port (world coords). */
-function inputAnchor(n: NodeData, portId: string): [number, number]  { return [n.x,       n.y + portOffset(n, 'input', portId)]; }
+function inputAnchor(n: NodeData, portId: string): [number, number] | null {
+  const offset = portOffset(n, 'input', portId);
+  if (offset == null) return null;
+  const y = n.y + offset;
+  return Number.isFinite(n.x) && Number.isFinite(y) ? [n.x, y] : null;
+}
 
 /** Cubic bezier from src to dst with horizontal handles, react-flow style. */
-function bezierPath(sx: number, sy: number, tx: number, ty: number): string {
+function bezierPath(sx: number, sy: number, tx: number, ty: number): string | null {
+  if (![sx, sy, tx, ty].every(Number.isFinite)) return null;
   const dx = Math.max(40, Math.abs(tx - sx) * 0.5);
-  return `M ${sx} ${sy} C ${sx + dx} ${sy}, ${tx - dx} ${ty}, ${tx} ${ty}`;
+  const controls = [sx + dx, sy, tx - dx, ty];
+  return controls.every(Number.isFinite)
+    ? `M ${sx} ${sy} C ${controls[0]} ${controls[1]}, ${controls[2]} ${controls[3]}, ${tx} ${ty}`
+    : null;
 }
 
 function localCoords(e: MouseEvent): [number, number] {
@@ -310,9 +327,14 @@ function render(): void {
     const src = nodesById.get(edge.source);
     const dst = nodesById.get(edge.target);
     if (!src || !dst) continue;
+    const source = outputAnchor(src, edge.source_port);
+    const target = inputAnchor(dst, edge.target_port);
+    if (!source || !target) continue;
     seenEdges.add(edge.id);
-    const [sx, sy] = outputAnchor(src, edge.source_port);
-    const [tx, ty] = inputAnchor(dst, edge.target_port);
+    const [sx, sy] = source;
+    const [tx, ty] = target;
+    const pathData = bezierPath(sx, sy, tx, ty);
+    if (!pathData) continue;
     let path = edgePaths.get(edge.id);
     if (!path) {
       path = document.createElementNS(SVG_NS, 'path');
@@ -320,7 +342,7 @@ function render(): void {
       edgesSvg.appendChild(path);
       edgePaths.set(edge.id, path);
     }
-    path.setAttribute('d', bezierPath(sx, sy, tx, ty));
+    path.setAttribute('d', pathData);
     path.setAttribute('data-edge-id', String(edge.id));
     path.classList.toggle('selected', selectedEdge != null && edgeMatchesSelection(edge, selectedEdge));
     path.setAttribute('role', 'button');
@@ -335,15 +357,21 @@ function render(): void {
   if (connecting) {
     const src = nodesById.get(connecting.from);
     if (src) {
-      const [sx, sy] = outputAnchor(src, connecting.from_port);
+      const source = outputAnchor(src, connecting.from_port);
       const tx = connecting.cursor_x;
       const ty = connecting.cursor_y;
-      if (!pendingPath) {
+      const pathData = source && bezierPath(source[0], source[1], tx, ty);
+      if (pathData && !pendingPath) {
         pendingPath = document.createElementNS(SVG_NS, 'path');
         pendingPath.setAttribute('class', 'edge-pending');
         edgesSvg.appendChild(pendingPath);
       }
-      pendingPath.setAttribute('d', bezierPath(sx, sy, tx, ty));
+      if (pathData && pendingPath) {
+        pendingPath.setAttribute('d', pathData);
+      } else if (pendingPath) {
+        pendingPath.remove();
+        pendingPath = null;
+      }
     }
   } else if (pendingPath) {
     pendingPath.remove();

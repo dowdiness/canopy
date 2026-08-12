@@ -41,9 +41,11 @@ concrete `raise` error at the same operation boundary rather than by a parallel
   snapshot and returns item positions at the supplied pointer position.
 - `Drag::start` and `Drag::positions_at(pointer)` keep the gesture snapshot and
   its evaluation together, so callers do not need a generic callback adapter.
-- Semantic constructors such as `Pan::start`, `Drag::start`, `ScreenPoint::from_xy`,
-  and `Viewport::validated` communicate construction intent better than
-  same-type constructor names while avoiding deprecated `::new`.
+- Semantic constructors such as `Pan::start`, `Drag::start`, and
+  `ScreenPoint::from_xy` communicate construction intent better than same-type
+  constructor names while avoiding deprecated `::new`. `Viewport::from_scale`
+  communicates that its `ScreenPoint` origin and `Scale` inputs are already
+  validated.
 
 ## Recommendation
 
@@ -51,4 +53,5 @@ Use explicit result nouns for gesture evaluation (`viewport_at` and
 `positions_at`), directional names for coordinate conversion, semantic
 constructors for snapshots/value objects, and concrete `raise` errors for
 recoverable invalid input. These are now the names used by the `spatial`
-interface.
+interface. Raw browser and wire values are converted through the raising point
+and scale constructors before `Viewport::from_scale` is called.

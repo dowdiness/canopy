@@ -156,7 +156,7 @@ struct EdgeJson {
 
 ///|
 /// Serialized in-flight connection. `from` is the source node id;
-/// `cursor_x`/`cursor_y` are world coordinates of the pointer.
+/// `cursor_x`/`cursor_y` are finite world coordinates of the pointer.
 struct ConnectingJson {
   from : String
   from_port : String
@@ -193,9 +193,9 @@ struct InspectorNodeJson {
 fn render_viewport_to_json(viewport : Viewport) -> Json {
   let origin = viewport.screen_origin()
   let fields : Map[String, Json] = Map([])
-  fields["x"] = origin.x.to_json()
-  fields["y"] = origin.y.to_json()
-  fields["scale"] = viewport.scale().to_json()
+  fields["x"] = origin.x().to_json()
+  fields["y"] = origin.y().to_json()
+  fields["scale"] = viewport.scale().to_double().to_json()
   Json::object(fields)
 }
 

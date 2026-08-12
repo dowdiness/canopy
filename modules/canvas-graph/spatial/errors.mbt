@@ -1,51 +1,36 @@
 ///|
-/// Invalid viewport construction input.
-pub(all) suberror ViewportError {
-  /// The viewport origin is not finite.
-  InvalidOrigin
-  /// The viewport scale is not finite or is not positive.
-  InvalidScale
+/// A raw coordinate was not finite.
+pub(all) suberror CoordinateError {
+  /// The coordinate contains NaN or positive/negative infinity.
+  NonFinite
 } derive(Eq, Debug)
 
 ///|
-/// Invalid input or derived state during an anchored viewport transform.
+/// A raw scale cannot represent a usable viewport scale.
+pub(all) suberror ScaleError {
+  /// The scale contains NaN or positive/negative infinity.
+  NonFinite
+  /// The scale is zero or negative.
+  NonPositive
+} derive(Eq, Debug)
+
+///|
+/// A finite viewport transform produced a non-finite coordinate.
 pub(all) suberror ViewportTransformError {
-  /// The zoom anchor is not finite.
-  InvalidAnchor
-  /// The transformed viewport would violate its invariants.
-  InvalidViewport(ViewportError)
+  /// Arithmetic overflowed while producing a transformed coordinate.
+  CoordinateOverflow
 } derive(Eq, Debug)
 
 ///|
-/// Invalid input when capturing a pan gesture.
-pub(all) suberror PanStartError {
-  /// The initial screen pointer is not finite.
-  InvalidPointer
-} derive(Eq, Debug)
-
-///|
-/// Invalid input or derived state while evaluating a pan gesture.
+/// A finite pan snapshot produced a non-finite viewport origin.
 pub(all) suberror PanError {
-  /// The current screen pointer is not finite.
-  InvalidPointer
-  /// The translated viewport would violate its invariants.
-  InvalidViewport(ViewportError)
+  /// Arithmetic overflowed while translating the viewport origin.
+  OriginOverflow
 } derive(Eq, Debug)
 
 ///|
-/// Invalid input when capturing a drag gesture.
-pub(all) suberror DragStartError {
-  /// The initial world pointer is not finite.
-  InvalidPointer
-  /// A drag snapshot contains a non-finite item position.
-  InvalidPosition
-} derive(Eq, Debug)
-
-///|
-/// Invalid input or derived state while evaluating a drag gesture.
+/// A finite drag snapshot produced a non-finite item position.
 pub(all) suberror DragError {
-  /// The current world pointer is not finite.
-  InvalidPointer
-  /// Moving the finite snapshot produced a non-finite item position.
+  /// Arithmetic overflowed while translating an item position.
   PositionOverflow
 } derive(Eq, Debug)

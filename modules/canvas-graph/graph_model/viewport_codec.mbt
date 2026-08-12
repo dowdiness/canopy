@@ -36,9 +36,9 @@ impl ToJson for ViewportCodec with fn to_json(self) {
   let ViewportCodec(viewport) = self
   let origin = viewport.screen_origin()
   let fields : Map[String, Json] = Map([])
-  fields["x"] = origin.x.to_json()
-  fields["y"] = origin.y.to_json()
-  fields["scale"] = viewport.scale().to_json()
+  fields["x"] = origin.x().to_json()
+  fields["y"] = origin.y().to_json()
+  fields["scale"] = viewport.scale().to_double().to_json()
   Json::object(fields)
 }
 
@@ -48,22 +48,22 @@ impl @json.FromJson for ViewportCodec with fn from_json(json, path) {
     Json::Object(fields) => fields
     _ => raise @json.JsonDecodeError((path, "Viewport: expected JSON object"))
   }
-  let origin = @spatial.ScreenPoint::from_xy(
-    x=viewport_codec_json_number_field(fields, path, "x"),
-    y=viewport_codec_json_number_field(fields, path, "y"),
-  )
-  let scale = viewport_codec_json_number_field(fields, path, "scale")
-  let viewport = @spatial.Viewport::from_scale(origin~, scale~) catch {
-    @spatial.ViewportError::InvalidOrigin =>
+  let x = viewport_codec_json_number_field(fields, path, "x")
+  let y = viewport_codec_json_number_field(fields, path, "y")
+  let origin = @spatial.ScreenPoint::from_xy(x~, y~) catch {
+    @spatial.CoordinateError::NonFinite =>
       raise @json.JsonDecodeError(
         (path, "Viewport: origin coordinates must be finite"),
       )
-    @spatial.ViewportError::InvalidScale =>
+  }
+  let scale_number = viewport_codec_json_number_field(fields, path, "scale")
+  let scale = @spatial.Scale::from_double(value=scale_number) catch {
+    @spatial.ScaleError::NonFinite | @spatial.ScaleError::NonPositive =>
       raise @json.JsonDecodeError(
         (path.add_key("scale"), "Viewport: 'scale' must be finite and positive"),
       )
   }
-  ViewportCodec(viewport)
+  ViewportCodec(@spatial.Viewport::from_scale(origin~, scale~))
 }
 
 ///|
@@ -81,9 +81,133 @@ fn viewport_from_json(
 }
 
 ///|
+priv struct CanvasNodeWire {
+  id : NodeId
+  x : Double
+  y : Double
+  w : Double
+  h : Double
+  kind : NodeKind
+  title : String
+  subtitle : String
+  inputs : Array[PortDef]
+  outputs : Array[PortDef]
+  configured : Bool
+} derive(ToJson, FromJson)
+
+///|
+priv struct NodePositionWire {
+  node_id : NodeId
+  x : Double
+  y : Double
+} derive(ToJson, FromJson)
+
+///|
+fn canvas_node_to_wire(node : CanvasNode) -> CanvasNodeWire {
+  let position = node.position()
+  let size = node.size()
+  {
+    id: node.id,
+    x: position.x(),
+    y: position.y(),
+    w: size.width(),
+    h: size.height(),
+    kind: node.kind,
+    title: node.title,
+    subtitle: node.subtitle,
+    inputs: node.inputs,
+    outputs: node.outputs,
+    configured: node.configured,
+  }
+}
+
+///|
+fn node_position_to_wire(position : NodePosition) -> NodePositionWire {
+  let point = position.position()
+  { node_id: position.node_id, x: point.x(), y: point.y() }
+}
+
+///|
+fn finite_wire_geometry_field(
+  value : Double,
+  path : @json.JsonPath,
+  owner : String,
+  key : String,
+) -> Double raise @json.JsonDecodeError {
+  guard viewport_codec_finite_number(value) else {
+    raise @json.JsonDecodeError(
+      (path.add_key(key), "\{owner}: '\{key}' must be finite"),
+    )
+  }
+  value
+}
+
+///|
+fn canvas_node_from_wire(
+  wire : CanvasNodeWire,
+  path : @json.JsonPath,
+) -> CanvasNode raise @json.JsonDecodeError {
+  let x = finite_wire_geometry_field(wire.x, path, "CanvasNode", "x")
+  let y = finite_wire_geometry_field(wire.y, path, "CanvasNode", "y")
+  let position = @spatial.WorldPoint::from_xy(x~, y~) catch {
+    @spatial.CoordinateError::NonFinite =>
+      raise @json.JsonDecodeError(
+        (path, "CanvasNode: position coordinates must be finite"),
+      )
+  }
+  let width = finite_wire_geometry_field(wire.w, path, "CanvasNode", "w")
+  let height = finite_wire_geometry_field(wire.h, path, "CanvasNode", "h")
+  let size = NodeSize::from_wh(width~, height~) catch {
+    NodeSizeError::NonFiniteWidth =>
+      raise @json.JsonDecodeError(
+        (path.add_key("w"), "CanvasNode: 'w' must be finite"),
+      )
+    NodeSizeError::NonFiniteHeight =>
+      raise @json.JsonDecodeError(
+        (path.add_key("h"), "CanvasNode: 'h' must be finite"),
+      )
+    NodeSizeError::NegativeWidth =>
+      raise @json.JsonDecodeError(
+        (path.add_key("w"), "CanvasNode: 'w' must be non-negative"),
+      )
+    NodeSizeError::NegativeHeight =>
+      raise @json.JsonDecodeError(
+        (path.add_key("h"), "CanvasNode: 'h' must be non-negative"),
+      )
+  }
+  CanvasNode::from_parts(
+    id=wire.id,
+    position~,
+    size~,
+    kind=wire.kind,
+    title=wire.title,
+    subtitle=wire.subtitle,
+    inputs=wire.inputs,
+    outputs=wire.outputs,
+    configured=wire.configured,
+  )
+}
+
+///|
+fn node_position_from_wire(
+  wire : NodePositionWire,
+  path : @json.JsonPath,
+) -> NodePosition raise @json.JsonDecodeError {
+  let x = finite_wire_geometry_field(wire.x, path, "NodePosition", "x")
+  let y = finite_wire_geometry_field(wire.y, path, "NodePosition", "y")
+  let position = @spatial.WorldPoint::from_xy(x~, y~) catch {
+    @spatial.CoordinateError::NonFinite =>
+      raise @json.JsonDecodeError(
+        (path, "NodePosition: coordinates must be finite"),
+      )
+  }
+  NodePosition::from_node_and_position(node_id=wire.node_id, position~)
+}
+
+///|
 priv enum WorkflowActionJson {
-  AddNode(CanvasNode)
-  MoveNodes(Array[NodePosition])
+  AddNode(CanvasNodeWire)
+  MoveNodes(Array[NodePositionWire])
   ConnectPorts(NodeId, String, NodeId, String)
   DisconnectPorts(NodeId, String, NodeId, String)
   DeleteNodes(Array[NodeId])
@@ -96,8 +220,9 @@ priv enum WorkflowActionJson {
 ///|
 pub impl ToJson for WorkflowAction with fn to_json(self) {
   let encoded : WorkflowActionJson = match self {
-    AddNode(node) => WorkflowActionJson::AddNode(node)
-    MoveNodes(positions) => WorkflowActionJson::MoveNodes(positions)
+    AddNode(node) => WorkflowActionJson::AddNode(canvas_node_to_wire(node))
+    MoveNodes(positions) =>
+      WorkflowActionJson::MoveNodes(positions.map(node_position_to_wire))
     ConnectPorts(source, source_port, target, target_port) =>
       WorkflowActionJson::ConnectPorts(source, source_port, target, target_port)
     DisconnectPorts(source, source_port, target, target_port) =>

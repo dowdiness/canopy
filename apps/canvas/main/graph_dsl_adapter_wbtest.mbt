@@ -365,19 +365,17 @@ test "source-backed handle lowers GraphOperation through graph-dsl source" {
   )
   // The lowering keys off title/subtitle; the payload id is a placeholder that
   // `realized_source_operation` replaces with the new node's tracker token.
-  let added : CanvasNode = {
-    id: NodeId(""),
-    x: 0.0,
-    y: 0.0,
-    w: 250.0,
-    h: 138.0,
-    kind: Workflow(Custom("plate")),
-    title: "reverb",
-    subtitle: "plate",
-    inputs: [],
-    outputs: [],
-    configured: true,
-  }
+  let added : CanvasNode = CanvasNode::from_parts(
+    id=NodeId(""),
+    position=try! @spatial.WorldPoint::from_xy(x=0.0, y=0.0),
+    size=try! @graph_model.NodeSize::from_wh(width=250.0, height=138.0),
+    kind=Workflow(Custom("plate")),
+    title="reverb",
+    subtitle="plate",
+    inputs=[],
+    outputs=[],
+    configured=true,
+  )
   let insert = GraphOperation(AddNode(added))
   inspect(
     operation_result_applied(
@@ -438,7 +436,11 @@ test "source-backed RenameNode preserves layout keyed by binding" {
   let source = "osc = sine(freq: 440Hz)"
   let handle = create_source_graph(source)
   match source_graph_by_handle(handle) {
-    Some(graph) => graph.layout = [{ binding: "osc", x: 42.0, y: 24.0 }]
+    Some(graph) =>
+      graph.layout = [{
+        binding: "osc",
+        position: try! @spatial.WorldPoint::from_xy(x=42.0, y=24.0),
+      }]
     None => abort("expected source graph handle")
   }
   let rename = GraphOperation(RenameNode(handle_token(handle, "osc"), "lfo"))
@@ -453,8 +455,8 @@ test "source-backed RenameNode preserves layout keyed by binding" {
       match graph.layout {
         [position] => {
           inspect(position.binding, content="lfo")
-          inspect(position.x, content="42")
-          inspect(position.y, content="24")
+          inspect(position.position.x(), content="42")
+          inspect(position.position.y(), content="24")
         }
         _ => abort("expected one layout position")
       }
@@ -952,9 +954,9 @@ test "source-backed unique insert chooses a fresh graph-dsl binding" {
 test "source-backed handle rejects local graph operations without mutating source" {
   let source = "osc = sine(freq: 440Hz)\nmeter = scope()"
   let handle = create_source_graph(source)
-  let viewport : Viewport = Viewport::validated(
-    origin=ScreenPoint::from_xy(x=12.0, y=24.0),
-    scale=2.0,
+  let viewport : Viewport = Viewport::from_scale(
+    origin=try! ScreenPoint::from_xy(x=12.0, y=24.0),
+    scale=try! @spatial.Scale::from_double(value=2.0),
   )
   let local_operation = GraphOperation(SetViewport(viewport))
   inspect(

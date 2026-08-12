@@ -26,13 +26,9 @@ pub struct Drag[Id] {
 pub fn[Id] Drag::start(
   positions~ : ReadOnlyArray[ItemPosition[Id]],
   pointer~ : WorldPoint,
-) -> Drag[Id] raise DragStartError {
-  guard pointer.is_finite() else { raise DragStartError::InvalidPointer }
+) -> Drag[Id] {
   let snapshot : Array[ItemPosition[Id]] = [
     for item in positions => {
-      guard item.point.is_finite() else {
-        raise DragStartError::InvalidPosition
-      }
       ItemPosition::from_id_and_point(id=item.id, point=item.point)
     }
   ]
@@ -45,18 +41,17 @@ pub fn[Id] Drag::positions_at(
   self : Drag[Id],
   current_pointer : WorldPoint,
 ) -> Array[ItemPosition[Id]] raise DragError {
-  guard current_pointer.is_finite() else { raise DragError::InvalidPointer }
-  let delta_x = current_pointer.x - self.initial_pointer.x
-  let delta_y = current_pointer.y - self.initial_pointer.y
-  let positions = self.initial_positions.map(item => {
+  let delta_x = current_pointer.x() - self.initial_pointer.x()
+  let delta_y = current_pointer.y() - self.initial_pointer.y()
+  self.initial_positions.map(item => {
     let point = WorldPoint::from_xy(
-      x=item.point.x + delta_x,
-      y=item.point.y + delta_y,
-    )
-    guard point.is_finite() else { raise DragError::PositionOverflow }
+      x=item.point.x() + delta_x,
+      y=item.point.y() + delta_y,
+    ) catch {
+      CoordinateError::NonFinite => raise DragError::PositionOverflow
+    }
     ItemPosition::from_id_and_point(id=item.id, point~)
   })
-  positions
 }
 
 ///|

@@ -2,31 +2,13 @@
 /// A viewport maps world coordinates into canvas-local screen coordinates.
 pub struct Viewport {
   priv origin : ScreenPoint
-  priv scale : Double
+  priv scale : Scale
 } derive(Eq, Debug)
 
 ///|
-fn valid_scale(scale : Double) -> Bool {
-  finite_coordinate(scale) && scale > 0.0
-}
-
-///|
-/// Construct a viewport from an untrusted origin and scale.
-pub fn Viewport::from_scale(
-  origin~ : ScreenPoint,
-  scale~ : Double,
-) -> Viewport raise ViewportError {
-  guard origin.is_finite() else { raise ViewportError::InvalidOrigin }
-  guard valid_scale(scale) else { raise ViewportError::InvalidScale }
+/// Construct a viewport from already-validated geometry.
+pub fn Viewport::from_scale(origin~ : ScreenPoint, scale~ : Scale) -> Viewport {
   { origin, scale }
-}
-
-///|
-/// Construct a viewport from trusted finite values.
-///
-/// Use `from_scale` when the values may be invalid.
-pub fn Viewport::validated(origin~ : ScreenPoint, scale~ : Double) -> Viewport {
-  try! Viewport::from_scale(origin~, scale~)
 }
 
 ///|
@@ -36,8 +18,8 @@ pub fn Viewport::screen_origin(self : Viewport) -> ScreenPoint {
 }
 
 ///|
-/// Return the viewport's absolute scale.
-pub fn Viewport::scale(self : Viewport) -> Double {
+/// Return the viewport's validated scale.
+pub fn Viewport::scale(self : Viewport) -> Scale {
   self.scale
 }
 
@@ -46,11 +28,13 @@ pub fn Viewport::scale(self : Viewport) -> Double {
 pub fn Viewport::screen_to_world(
   self : Viewport,
   screen : ScreenPoint,
-) -> WorldPoint {
-  WorldPoint::from_xy(
-    x=(screen.x - self.origin.x) / self.scale,
-    y=(screen.y - self.origin.y) / self.scale,
-  )
+) -> WorldPoint raise ViewportTransformError {
+  let x = (screen.x() - self.origin.x()) / self.scale.to_double()
+  let y = (screen.y() - self.origin.y()) / self.scale.to_double()
+  WorldPoint::from_xy(x~, y~) catch {
+    CoordinateError::NonFinite =>
+      raise ViewportTransformError::CoordinateOverflow
+  }
 }
 
 ///|
@@ -58,11 +42,13 @@ pub fn Viewport::screen_to_world(
 pub fn Viewport::world_to_screen(
   self : Viewport,
   world : WorldPoint,
-) -> ScreenPoint {
-  ScreenPoint::from_xy(
-    x=self.origin.x + world.x * self.scale,
-    y=self.origin.y + world.y * self.scale,
-  )
+) -> ScreenPoint raise ViewportTransformError {
+  let x = self.origin.x() + world.x() * self.scale.to_double()
+  let y = self.origin.y() + world.y() * self.scale.to_double()
+  ScreenPoint::from_xy(x~, y~) catch {
+    CoordinateError::NonFinite =>
+      raise ViewportTransformError::CoordinateOverflow
+  }
 }
 
 ///|
@@ -70,18 +56,14 @@ pub fn Viewport::world_to_screen(
 pub fn Viewport::with_scale_around(
   self : Viewport,
   anchor~ : ScreenPoint,
-  absolute_scale~ : Double,
+  absolute_scale~ : Scale,
 ) -> Viewport raise ViewportTransformError {
-  guard anchor.is_finite() else { raise ViewportTransformError::InvalidAnchor }
-  guard valid_scale(absolute_scale) else {
-    raise ViewportTransformError::InvalidViewport(ViewportError::InvalidScale)
-  }
   let world_anchor = self.screen_to_world(anchor)
-  let origin = ScreenPoint::from_xy(
-    x=anchor.x - world_anchor.x * absolute_scale,
-    y=anchor.y - world_anchor.y * absolute_scale,
-  )
-  Viewport::from_scale(origin~, scale=absolute_scale) catch {
-    error => raise ViewportTransformError::InvalidViewport(error)
+  let x = anchor.x() - world_anchor.x() * absolute_scale.to_double()
+  let y = anchor.y() - world_anchor.y() * absolute_scale.to_double()
+  let next_origin = ScreenPoint::from_xy(x~, y~) catch {
+    CoordinateError::NonFinite =>
+      raise ViewportTransformError::CoordinateOverflow
   }
+  Viewport::from_scale(origin=next_origin, scale=absolute_scale)
 }
