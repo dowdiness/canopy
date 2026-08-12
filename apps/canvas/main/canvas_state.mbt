@@ -24,4 +24,4 @@ pub using @graph_model {
 using @graph_model {type CanvasDocument, type SelectionState}
 
 ///|
-using @interaction_geometry {type ScreenPoint, type Viewport}
+using @spatial {type ScreenPoint, type Viewport}

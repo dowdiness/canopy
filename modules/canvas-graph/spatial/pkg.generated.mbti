@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "dowdiness/canopy-canvas-graph/interaction_geometry"
+package "dowdiness/canopy-canvas-graph/spatial"
 
 import {
   "moonbitlang/core/debug",

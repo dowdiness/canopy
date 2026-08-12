@@ -5,10 +5,7 @@ fn update_pan_start(
   screen_y : Double,
 ) -> CanvasState {
   let pan : PanState = {
-    start_pointer: @interaction_geometry.ScreenPoint::from_xy(
-      x=screen_x,
-      y=screen_y,
-    ),
+    start_pointer: @spatial.ScreenPoint::from_xy(x=screen_x, y=screen_y),
     initial_viewport: state.viewport,
   }
   let new_interaction : InteractionState = {
@@ -31,11 +28,8 @@ pub fn update_pan_move(
   match state.interaction.panning {
     None => state
     Some(pan) => {
-      let pointer = @interaction_geometry.ScreenPoint::from_xy(
-        x=screen_x,
-        y=screen_y,
-      )
-      let next_viewport = @interaction_geometry.Pan::start(
+      let pointer = @spatial.ScreenPoint::from_xy(x=screen_x, y=screen_y)
+      let next_viewport = @spatial.Pan::start(
         viewport=pan.initial_viewport,
         pointer=pan.start_pointer,
       ).viewport_at(pointer)
@@ -66,7 +60,7 @@ pub fn update_zoom(
   let raw = old_scale * factor
   let new_scale = if raw < 0.1 { 0.1 } else if raw > 8.0 { 8.0 } else { raw }
   let new_viewport = current_viewport.with_scale_around(
-    anchor=@interaction_geometry.ScreenPoint::from_xy(x=cx, y=cy),
+    anchor=@spatial.ScreenPoint::from_xy(x=cx, y=cy),
     absolute_scale=new_scale,
   )
   record_action({ ..state, viewport: new_viewport }, SetViewport(new_viewport))
@@ -79,7 +73,7 @@ pub fn screen_to_world(
   sy : Double,
 ) -> (Double, Double) {
   let world = viewport.screen_to_world(
-    @interaction_geometry.ScreenPoint::from_xy(x=sx, y=sy),
+    @spatial.ScreenPoint::from_xy(x=sx, y=sy),
   )
   (world.x, world.y)
 }
@@ -240,13 +234,10 @@ pub fn drag_preview_from_move(
 ) -> DragPreview {
   // DragState already owns the pointer-relative snapshot, so borrow it for
   // the geometry translation without copying it on every pointer move.
-  let moved_positions = @interaction_geometry.map_drag_positions_at(
+  let moved_positions = @spatial.map_drag_positions_at(
     positions=drag.origins[:],
-    initial_pointer=@interaction_geometry.WorldPoint::from_xy(x=0.0, y=0.0),
-    current_pointer=@interaction_geometry.WorldPoint::from_xy(
-      x=world_x,
-      y=world_y,
-    ),
+    initial_pointer=@spatial.WorldPoint::from_xy(x=0.0, y=0.0),
+    current_pointer=@spatial.WorldPoint::from_xy(x=world_x, y=world_y),
     to_point=origin => (origin.offset_x, origin.offset_y),
     map_result=(origin, x, y) => { node_id: origin.node_id, x, y },
   )

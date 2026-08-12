@@ -8,9 +8,9 @@ fn viewport_for_test(
   origin_x : Double,
   origin_y : Double,
   scale : Double,
-) -> @interaction_geometry.Viewport {
-  @interaction_geometry.Viewport::validated(
-    origin=@interaction_geometry.ScreenPoint::from_xy(x=origin_x, y=origin_y),
+) -> @spatial.Viewport {
+  @spatial.Viewport::validated(
+    origin=@spatial.ScreenPoint::from_xy(x=origin_x, y=origin_y),
     scale~,
   )
 }

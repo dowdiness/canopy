@@ -20,7 +20,7 @@ validation surfaces while reusing the model and reducers here.
 
 ## Viewport invariants
 
-`CanvasState` and `SetViewport` use `@interaction_geometry.Viewport` directly.
+`CanvasState` and `SetViewport` use `@spatial.Viewport` directly.
 Its scale is always finite and positive: internal construction uses
 `Viewport::validated`, while untrusted input can use `try_from_scale` without
 creating an invalid value.

@@ -1,5 +1,5 @@
 ///|
-using @interaction_geometry {type ScreenPoint, type Viewport}
+using @spatial {type ScreenPoint, type Viewport}
 
 ///|
 // v2: NodeId/EdgeId wire encoding is a JSON string (the projection token), not

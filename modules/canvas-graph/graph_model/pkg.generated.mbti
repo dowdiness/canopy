@@ -2,7 +2,7 @@
 package "dowdiness/canopy-canvas-graph/graph_model"
 
 import {
-  "dowdiness/canopy-canvas-graph/interaction_geometry",
+  "dowdiness/canopy-canvas-graph/spatial",
   "moonbitlang/core/debug",
   "moonbitlang/core/json",
 }
@@ -16,9 +16,9 @@ pub fn can_commit_edge(CanvasState, NodeId, String, NodeId, String) -> Bool
 
 pub fn canvas_document_from_state(CanvasState) -> CanvasDocument
 
-pub fn canvas_state_from_parts(CanvasDocument, @interaction_geometry.Viewport, InteractionState, Array[GraphOperation]) -> CanvasState
+pub fn canvas_state_from_parts(CanvasDocument, @spatial.Viewport, InteractionState, Array[GraphOperation]) -> CanvasState
 
-pub fn default_viewport() -> @interaction_geometry.Viewport
+pub fn default_viewport() -> @spatial.Viewport
 
 pub fn drag_preview_from_move(DragState, Double, Double) -> DragPreview
 
@@ -42,7 +42,7 @@ pub fn record_action(CanvasState, WorkflowAction) -> CanvasState
 
 pub fn replay_operations(CanvasState, Array[GraphOperation]) -> CanvasState
 
-pub fn screen_to_world(@interaction_geometry.Viewport, Double, Double) -> (Double, Double)
+pub fn screen_to_world(@spatial.Viewport, Double, Double) -> (Double, Double)
 
 pub fn selection_from_interaction(InteractionState) -> SelectionState
 
@@ -87,7 +87,7 @@ pub(all) struct CanvasNode {
 pub impl Show for CanvasNode
 
 pub(all) struct CanvasState {
-  viewport : @interaction_geometry.Viewport
+  viewport : @spatial.Viewport
   nodes : Array[CanvasNode]
   edges : Array[Edge]
   next_node_id : Int
@@ -179,8 +179,8 @@ pub(all) struct NodePosition {
 pub impl Show for NodePosition
 
 pub(all) struct PanState {
-  start_pointer : @interaction_geometry.ScreenPoint
-  initial_viewport : @interaction_geometry.Viewport
+  start_pointer : @spatial.ScreenPoint
+  initial_viewport : @spatial.Viewport
 } derive(Eq, @debug.Debug)
 pub impl Show for PanState
 
@@ -218,7 +218,7 @@ pub(all) enum WorkflowAction {
   RenameNode(NodeId, String)
   SetNodeParam(NodeId, String, String)
   SelectNodes(Array[NodeId])
-  SetViewport(@interaction_geometry.Viewport)
+  SetViewport(@spatial.Viewport)
 } derive(Eq, ToJson, @debug.Debug)
 pub impl Show for WorkflowAction
 

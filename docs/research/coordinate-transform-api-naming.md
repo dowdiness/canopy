@@ -1,6 +1,6 @@
 # Coordinate-Transform API Naming Research
 
-This note compares naming used by established first-party coordinate and gesture APIs with Canopy's `interaction_geometry` interface.
+This note compares naming used by established first-party coordinate and gesture APIs with Canopy's `spatial` interface.
 
 ## Primary sources
 
@@ -48,5 +48,5 @@ coordinate calculation.
 Use explicit result nouns for gesture evaluation (`viewport_at` and
 `positions_at`), directional names for coordinate conversion, semantic
 constructors for snapshots/value objects, and a free function name for the
-borrowed adapter. These are now the names used by the `interaction_geometry`
+borrowed adapter. These are now the names used by the `spatial`
 interface.
