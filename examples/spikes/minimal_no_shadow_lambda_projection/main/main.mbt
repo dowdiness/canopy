@@ -45,6 +45,20 @@ fn commit_metadata(
 }
 
 ///|
+fn[K : Hash + Eq, V] query_metrics(
+  name : String,
+  query : @next.Query[K, V],
+  key : K,
+) -> String {
+  let debug = query.debug()
+  let trace_length = match query.memo_debug(key) {
+    Some(memo) => memo.trace_length.to_string()
+    None => "none"
+  }
+  "\{name}_metrics=compute:\{debug.compute_count},cache_hits:\{debug.cache_hits},green_verifications:\{debug.green_verifications},memo_count:\{debug.memo_count},trace_length:\{trace_length}"
+}
+
+///|
 fn print_state(
   operation : String,
   shell : MinimalLambdaProjectionShell,
@@ -72,6 +86,10 @@ fn print_state(
   println("source_map_compute_count=\{source_map_debug.compute_count}")
   println("eval_compute_count=\{eval_debug.compute_count}")
   println("annotation_compute_count=\{annotation_debug.compute_count}")
+  println(query_metrics("registry", shell.registry_query, ()))
+  println(query_metrics("source_map", shell.source_map_query, ()))
+  println(query_metrics("eval", shell.eval_query, ()))
+  println(query_metrics("annotation", shell.annotation_query, ()))
   println(
     "previous_projection_root_id=\{node_id_name(shell.counters.last_previous_root_id)}",
   )
@@ -248,6 +266,18 @@ fn run_prototype() -> Unit raise {
     shell.registry_query.debug().compute_count == 0,
     "annotation demand leaves registry lazy",
   )
+  require(
+    shell.eval_query.memo_debug(()).map(memo => memo.trace_length) == Some(1),
+    "evaluation trace owns only ProjectionCommit dependency",
+  )
+  require(
+    shell.source_map_query.memo_debug(()).map(memo => memo.trace_length) == Some(1),
+    "source-map trace owns only ProjectionCommit dependency",
+  )
+  require(
+    shell.annotation_query.memo_debug(()).map(memo => memo.trace_length) == Some(3),
+    "annotation trace owns commit, evaluation, and source-map dependencies",
+  )
   let closure_view = annotation_view(shell, annotations_first)
   require(
     view_has_annotation(closure_view, "eval", "→ ‹closure›"),
@@ -268,6 +298,14 @@ fn run_prototype() -> Unit raise {
     Err(error) => abort("P0: repeated registry read: " + read_error_name(error))
   }
   require(shell.registry_query.debug().compute_count == 1, "registry memo reuse")
+  require(
+    shell.registry_query.debug().cache_hits == 1,
+    "registry repeated read is a same-epoch cache hit",
+  )
+  require(
+    shell.registry_query.memo_debug(()).map(memo => memo.trace_length) == Some(1),
+    "registry trace owns only ProjectionCommit dependency",
+  )
   require(
     shell.source_map_query.debug().compute_count == 1,
     "registry demand does not recompute source map",
@@ -379,11 +417,43 @@ fn run_prototype() -> Unit raise {
     shell.registry_query.debug().compute_count == 1,
     "evaluation does not recompute undemanded registry",
   )
+  require(
+    shell.eval_query.debug().green_verifications == 0,
+    "P1 has no edit-time green evaluation verification",
+  )
+  require(
+    shell.source_map_query.debug().green_verifications == 0,
+    "P1 has no edit-time green source-map verification",
+  )
+  require(
+    shell.annotation_query.debug().green_verifications == 0,
+    "P1 has no edit-time green annotation verification",
+  )
   print_state("evaluation-edit", shell, "eval=→ 3, ViewNode consumer=pass")
 
   let close_result = shell.close()
   require(close_result == "Closed", "first close result")
   require(shell.counters.region_close_count == 1, "Region close once")
+  require(shell.registry_query.debug().memo_count == 0, "close clears Registry memo")
+  require(
+    shell.source_map_query.debug().memo_count == 0,
+    "close clears SourceMap memo",
+  )
+  require(shell.eval_query.debug().memo_count == 0, "close clears Evaluation memo")
+  require(
+    shell.annotation_query.debug().memo_count == 0,
+    "close clears AnnotationMap memo",
+  )
+  require(shell.registry_query.memo_debug(()) is None, "Registry trace released")
+  require(
+    shell.source_map_query.memo_debug(()) is None,
+    "SourceMap trace released",
+  )
+  require(shell.eval_query.memo_debug(()) is None, "Evaluation trace released")
+  require(
+    shell.annotation_query.memo_debug(()) is None,
+    "AnnotationMap trace released",
+  )
   print_state("close", shell, close_result)
 
   let duplicate_result = shell.close()

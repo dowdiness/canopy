@@ -5,6 +5,9 @@ do not merge it into production.
 
 - P0 projection result: **PASS WITH CONSTRAINTS** at `667aaf63`.
 - P1 annotation extension: **PASS WITH CONSTRAINTS**; see [P1.md](P1.md).
+- P1.1 query counters: lazy and cross-consumer sharing pass; fine-grained
+  edit-time avoidance is unproven; see
+  [P1_QUERY_METRICS.md](P1_QUERY_METRICS.md).
 
 ## Question
 
@@ -25,11 +28,11 @@ From the Canopy repository root:
 ./scripts/run-minimal-no-shadow-lambda-projection.sh
 ```
 
-On the P1 branch, the command verifies the materialized provider hash, checks
-the affected packages, runs the native executable, prints every relevant state
-transition, checks the prototype allowlist, and prints the virtual deletion
-ledger. P1 preserves all P0 structural assertions and adds lazy evaluation and
-annotation assertions.
+On the P1/P1.1 branches, the command verifies the materialized provider hash,
+checks the affected packages, runs the native executable, prints every relevant
+state transition and all four Query debug records, checks the prototype
+allowlist, and prints the virtual deletion ledger. P1 preserves all P0
+structural assertions and adds lazy evaluation and annotation assertions.
 
 ## Scope
 
@@ -91,6 +94,8 @@ Source-map computation therefore cannot combine a new projection with an old
 snapshot. P1 evaluates `commit.projection.kind` through production `eval_term`;
 it does not stage a copied evaluation Source. The annotation Query reads that
 evaluation, the same commit, and its source-map Query in one evaluation context.
+The evidence establishes lazy ownership and sharing, not current production's
+prefix cache or edit-time cutoff/backdating.
 
 ## Complexity budget
 
@@ -138,7 +143,11 @@ checks pass. The constraints are:
   private root-module key policy;
 - a prototype-only annotation visibility adapter because production conversion
   remains package-private;
-- Tier-1 direct evaluation only, not Tier-2 egglog escalation;
+- Tier-1 direct evaluation only, not Tier-2 egglog escalation or unchanged-def
+  prefix reuse;
+- no cutoff/backdating, so changed commits recompute demanded derived Queries;
+- mutable memo result safety, atomic shell-state publication, nested batches,
+  and whole-consumer publication coherence remain unproven;
 - owner/wiring feasibility only, not production consumer or lifetime closure.
 
 ## Reuse check

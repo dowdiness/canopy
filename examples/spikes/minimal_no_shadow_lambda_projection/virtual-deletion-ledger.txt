@@ -66,3 +66,8 @@ The imported Canopy packages still compile alongside their current memo-builder
 files. P1 constructs no current-Incr value and reads no current Derived. The
 single generated-interface addition is an evidence-only pure visibility adapter
 that delegates to the existing package-private annotation algorithms.
+
+P1.1 counters show same-epoch hits and SourceMap sharing across AnnotationMap
+and source-range consumers. They also show zero green verifications and one
+recompute per demanded derived Query after the changed commit. Fine-grained
+edit-time incrementality is not part of this deletion claim.
