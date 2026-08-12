@@ -36,9 +36,8 @@ coordinate calculation.
   than an anchor point. The checked counterpart is `try_with_scale_around`.
 - `Drag::positions_at(pointer)` makes the result explicit: it evaluates the
   snapshot and returns item positions at the supplied pointer position.
-- `map_drag_positions_at` is a free, advanced borrowed-view adapter rather than
-  an instance transform. Its name makes both the drag calculation and its
-  returned positions visible without pretending that it owns a `Drag` value.
+- `Drag::start` and `Drag::positions_at(pointer)` keep the gesture snapshot and
+  its evaluation together, so callers do not need a generic callback adapter.
 - Semantic constructors such as `Pan::start`, `Drag::start`, `ScreenPoint::from_xy`,
   and `Viewport::validated` communicate construction intent better than
   same-type constructor names while avoiding deprecated `::new`.
@@ -46,7 +45,6 @@ coordinate calculation.
 ## Recommendation
 
 Use explicit result nouns for gesture evaluation (`viewport_at` and
-`positions_at`), directional names for coordinate conversion, semantic
-constructors for snapshots/value objects, and a free function name for the
-borrowed adapter. These are now the names used by the `spatial`
-interface.
+`positions_at`), directional names for coordinate conversion, and semantic
+constructors for snapshots/value objects. These are now the names used by the
+`spatial` interface.

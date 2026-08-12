@@ -3,25 +3,24 @@ package "dowdiness/canopy-canvas-graph/spatial"
 
 import {
   "moonbitlang/core/debug",
-  "moonbitlang/core/json",
 }
 
 // Values
-pub fn[A, B] map_drag_positions_at(positions~ : ArrayView[A], initial_pointer~ : WorldPoint, current_pointer~ : WorldPoint, to_point~ : (A) -> (Double, Double), map_result~ : (A, Double, Double) -> B) -> Array[B]
 
 // Errors
 
 // Types and methods
 pub struct Drag[Id] {
   // private fields
-}
+} derive(Eq, @debug.Debug)
+pub fn[Id] Drag::initial_ids(Self[Id]) -> Array[Id]
 pub fn[Id] Drag::positions_at(Self[Id], WorldPoint) -> Array[ItemPosition[Id]]
 pub fn[Id] Drag::start(positions~ : ReadOnlyArray[ItemPosition[Id]], pointer~ : WorldPoint) -> Self[Id]
 
 pub struct ItemPosition[Id] {
   id : Id
   point : WorldPoint
-}
+} derive(Eq, @debug.Debug)
 pub fn[Id] ItemPosition::from_id_and_point(id~ : Id, point~ : WorldPoint) -> Self[Id]
 
 pub struct Pan {
@@ -47,8 +46,6 @@ pub fn Viewport::try_with_scale_around(Self, anchor~ : ScreenPoint, absolute_sca
 pub fn Viewport::validated(origin~ : ScreenPoint, scale~ : Double) -> Self
 pub fn Viewport::with_scale_around(Self, anchor~ : ScreenPoint, absolute_scale~ : Double) -> Self
 pub fn Viewport::world_to_screen(Self, WorldPoint) -> ScreenPoint
-pub impl ToJson for Viewport
-pub impl @json.FromJson for Viewport
 
 pub struct WorldPoint {
   x : Double

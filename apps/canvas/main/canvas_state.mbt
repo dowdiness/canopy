@@ -3,7 +3,6 @@ pub using @graph_model {
   type CanvasNode,
   type CanvasState,
   type ConnectState,
-  type DragOrigin,
   type DragPreview,
   type DragState,
   type Edge,

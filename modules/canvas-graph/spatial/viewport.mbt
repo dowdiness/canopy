@@ -16,28 +16,6 @@ fn valid_scale(scale : Double) -> Bool {
 }
 
 ///|
-fn viewport_json_number_field(
-  fields : Map[String, Json],
-  path : @json.JsonPath,
-  key : String,
-) -> Double raise @json.JsonDecodeError {
-  match fields.get(key) {
-    Some(Json::Number(number, ..)) => {
-      guard finite_number(number) else {
-        raise @json.JsonDecodeError(
-          (path.add_key(key), "Viewport: '\\{key}' must be finite"),
-        )
-      }
-      number
-    }
-    _ =>
-      raise @json.JsonDecodeError(
-        (path.add_key(key), "Viewport: '\\{key}' must be a number"),
-      )
-  }
-}
-
-///|
 /// Construct a viewport when the scale has already been validated.
 ///
 /// This constructor aborts for invalid input. Use `try_from_scale` when the scale
@@ -66,36 +44,6 @@ pub fn Viewport::try_from_scale(
 /// Return the screen-space origin of the world coordinate system.
 pub fn Viewport::screen_origin(self : Viewport) -> ScreenPoint {
   self.origin
-}
-
-///|
-pub impl ToJson for Viewport with fn to_json(self) {
-  let origin = self.screen_origin()
-  let fields : Map[String, Json] = Map([])
-  fields["x"] = origin.x.to_json()
-  fields["y"] = origin.y.to_json()
-  fields["scale"] = self.scale.to_json()
-  Json::object(fields)
-}
-
-///|
-pub impl @json.FromJson for Viewport with fn from_json(json, path) {
-  let fields = match json {
-    Json::Object(fields) => fields
-    _ => raise @json.JsonDecodeError((path, "Viewport: expected JSON object"))
-  }
-  let origin = ScreenPoint::from_xy(
-    x=viewport_json_number_field(fields, path, "x"),
-    y=viewport_json_number_field(fields, path, "y"),
-  )
-  let scale = viewport_json_number_field(fields, path, "scale")
-  match Viewport::try_from_scale(origin~, scale~) {
-    Some(viewport) => viewport
-    None =>
-      raise @json.JsonDecodeError(
-        (path.add_key("scale"), "Viewport: 'scale' must be finite and positive"),
-      )
-  }
 }
 
 ///|

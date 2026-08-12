@@ -16,6 +16,34 @@ fn viewport_for_test(
 }
 
 ///|
+fn viewport_json_with_coordinates(
+  x : Double,
+  y : Double,
+  scale : Double,
+) -> Json {
+  let fields : Map[String, Json] = Map([])
+  fields["x"] = x.to_json()
+  fields["y"] = y.to_json()
+  fields["scale"] = scale.to_json()
+  Json::object(fields)
+}
+
+///|
+fn viewport_json(scale : Double) -> Json {
+  viewport_json_with_coordinates(20.0, -10.0, scale)
+}
+
+///|
+fn viewport_operation_json(viewport : Json) -> Json {
+  let fields : Map[String, Json] = Map([])
+  let version : Int = 2
+  fields["version"] = version.to_json()
+  fields["type"] = "SetViewport".to_json()
+  fields["viewport"] = viewport
+  Json::object(fields)
+}
+
+///|
 fn replay_base_state() -> @graph_model.CanvasState {
   {
     viewport: viewport_for_test(0.0, 0.0, 1.0),
@@ -263,6 +291,22 @@ test "invalid viewport JSON is rejected before replay or action logging" {
   }
   assert_rejects_viewport_operation(zero_scale)
   assert_rejects_viewport_operation(negative_scale)
+  assert_rejects_viewport_operation(
+    viewport_operation_json(viewport_json(0.0 / 0.0)),
+  )
+  assert_rejects_viewport_operation(
+    viewport_operation_json(viewport_json(1.0 / 0.0)),
+  )
+  assert_rejects_viewport_operation(
+    viewport_operation_json(
+      viewport_json_with_coordinates(1.0 / 0.0, -10.0, 1.0),
+    ),
+  )
+  assert_rejects_viewport_operation(
+    viewport_operation_json(
+      viewport_json_with_coordinates(20.0, 0.0 / 0.0, 1.0),
+    ),
+  )
   assert_eq(replay_base_state().action_log.length(), 0)
 }
 

@@ -133,9 +133,12 @@ test "node_drag_start records offsets for the dragged node" {
   let s = update_node_drag_start(state, NodeId("1"), 110.0, 120.0)
   guard s.interaction.dragging is Some(d)
   assert_eq(d.node_id, NodeId("1"))
-  assert_eq(d.origins.length(), 1)
-  inspect(d.origins[0].offset_x, content="-10")
-  inspect(d.origins[0].offset_y, content="-20")
+  assert_eq(d.drag.initial_ids(), [NodeId("1")])
+  let positions = d.drag.positions_at(
+    @spatial.WorldPoint::from_xy(x=110.0, y=120.0),
+  )
+  inspect(positions[0].point.x, content="100")
+  inspect(positions[0].point.y, content="100")
   assert_true(s.interaction.pointer_down)
   assert_eq(s.interaction.did_move, false)
 }
@@ -148,7 +151,7 @@ test "node_drag_start includes all selected nodes for multi-drag" {
   )
   let s = update_node_drag_start(state, NodeId("1"), 110.0, 120.0)
   guard s.interaction.dragging is Some(d)
-  assert_eq(d.origins.length(), 2)
+  assert_eq(d.drag.initial_ids().length(), 2)
 }
 
 ///|

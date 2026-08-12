@@ -232,15 +232,9 @@ pub fn drag_preview_from_move(
   world_x : Double,
   world_y : Double,
 ) -> DragPreview {
-  // DragState already owns the pointer-relative snapshot, so borrow it for
-  // the geometry translation without copying it on every pointer move.
-  let moved_positions = @spatial.map_drag_positions_at(
-    positions=drag.origins[:],
-    initial_pointer=@spatial.WorldPoint::from_xy(x=0.0, y=0.0),
-    current_pointer=@spatial.WorldPoint::from_xy(x=world_x, y=world_y),
-    to_point=origin => (origin.offset_x, origin.offset_y),
-    map_result=(origin, x, y) => { node_id: origin.node_id, x, y },
-  )
+  let moved_positions = drag.drag
+    .positions_at(@spatial.WorldPoint::from_xy(x=world_x, y=world_y))
+    .map(item => { node_id: item.id, x: item.point.x, y: item.point.y })
   { positions: moved_positions }
 }
 
@@ -263,21 +257,27 @@ fn update_node_drag_start(
   match find_node(state.nodes, node_id) {
     None => state
     Some(_) => {
-      let origins = drag_ids_for_node(state, node_id).filter_map(fn(drag_id) {
+      let positions = drag_ids_for_node(state, node_id).filter_map(fn(drag_id) {
         match find_node(state.nodes, drag_id) {
           None => None
           Some(node) =>
-            Some({
-              node_id: drag_id,
-              offset_x: node.x - world_x,
-              offset_y: node.y - world_y,
-            })
+            Some(
+              @spatial.ItemPosition::from_id_and_point(
+                id=drag_id,
+                point=@spatial.WorldPoint::from_xy(x=node.x, y=node.y),
+              ),
+            )
         }
       })
-      let drag : DragState = { node_id, origins }
+      let pointer = @spatial.WorldPoint::from_xy(x=world_x, y=world_y)
+      let snapshot : ReadOnlyArray[@spatial.ItemPosition[NodeId]] = ReadOnlyArray::from_array(
+        positions[:],
+      )
+      let drag = @spatial.Drag::start(positions=snapshot, pointer~)
+      let drag_state : DragState = { node_id, drag }
       let new_interaction : InteractionState = {
         ..state.interaction,
-        dragging: Some(drag),
+        dragging: Some(drag_state),
         pointer_down: true,
         did_move: false,
       }
@@ -291,8 +291,10 @@ fn final_drag_positions(
   state : CanvasState,
   drag : DragState,
 ) -> Array[NodePosition] {
-  drag.origins.filter_map(fn(origin) {
-    match find_node(state.nodes, origin.node_id) {
+  drag.drag
+  .initial_ids()
+  .filter_map(fn(node_id) {
+    match find_node(state.nodes, node_id) {
       None => None
       Some(node) => Some({ node_id: node.id, x: node.x, y: node.y })
     }

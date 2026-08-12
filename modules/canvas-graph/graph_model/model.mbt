@@ -242,7 +242,7 @@ pub(all) enum WorkflowAction {
   SetNodeParam(NodeId, String, String)
   SelectNodes(Array[NodeId])
   SetViewport(Viewport)
-} derive(Debug, Eq, ToJson)
+} derive(Debug, Eq)
 
 ///|
 pub impl Show for WorkflowAction with fn output(self, logger) {
@@ -376,7 +376,7 @@ pub impl ToJson for GraphOperation with fn to_json(self) {
     }
     SetViewport(viewport) => {
       fields["type"] = "SetViewport".to_json()
-      fields["viewport"] = viewport.to_json()
+      fields["viewport"] = viewport_to_json(viewport)
     }
   }
   Json::object(fields)
@@ -474,8 +474,9 @@ pub impl @json.FromJson for GraphOperation with fn from_json(json, path) {
       WorkflowAction::SelectNodes(nodes)
     }
     "SetViewport" => {
-      let viewport : Viewport = @json.from_json(
+      let viewport = viewport_from_json(
         require_json_field(fields, path, "viewport", "SetViewport"),
+        path.add_key("viewport"),
       )
       WorkflowAction::SetViewport(viewport)
     }
@@ -488,22 +489,10 @@ pub impl @json.FromJson for GraphOperation with fn from_json(json, path) {
 }
 
 ///|
-pub(all) struct DragOrigin {
-  node_id : NodeId
-  offset_x : Double
-  offset_y : Double
-} derive(Debug, Eq)
-
-///|
-pub impl Show for DragOrigin with fn output(self, logger) {
-  logger.write_string(@debug.to_string(self))
-}
-
-///|
 /// State captured at the start of a node drag gesture.
 pub(all) struct DragState {
   node_id : NodeId
-  origins : Array[DragOrigin]
+  drag : @spatial.Drag[NodeId]
 } derive(Debug, Eq)
 
 ///|

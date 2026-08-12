@@ -22,64 +22,6 @@ fn viewport_for_test(
 }
 
 ///|
-fn viewport_json_with_coordinates(
-  x : Double,
-  y : Double,
-  scale : Double,
-) -> Json {
-  let fields : Map[String, Json] = Map([])
-  fields["x"] = x.to_json()
-  fields["y"] = y.to_json()
-  fields["scale"] = scale.to_json()
-  Json::object(fields)
-}
-
-///|
-fn viewport_json(scale : Double) -> Json {
-  viewport_json_with_coordinates(12.0, -7.0, scale)
-}
-
-///|
-fn assert_rejects_viewport_json(json : Json) -> Unit raise {
-  let rejected = try {
-    let _ : Viewport = @json.from_json(json)
-    false
-  } catch {
-    _ => true
-  }
-  assert_true(rejected)
-}
-
-///|
-test "viewport JSON preserves the existing wire shape" {
-  let viewport = viewport_for_test(12.0, -7.0, 2.5)
-  inspect(
-    viewport.to_json().stringify(),
-    content="{\"x\":12,\"y\":-7,\"scale\":2.5}",
-  )
-  let decoded : Viewport = @json.from_json(viewport.to_json())
-  assert_eq(decoded, viewport)
-}
-
-///|
-test "viewport JSON rejects non-positive and non-finite scales" {
-  assert_rejects_viewport_json(viewport_json(0.0))
-  assert_rejects_viewport_json(viewport_json(-1.0))
-  assert_rejects_viewport_json(viewport_json(0.0 / 0.0))
-  assert_rejects_viewport_json(viewport_json(1.0 / 0.0))
-}
-
-///|
-test "viewport JSON rejects non-finite coordinates" {
-  assert_rejects_viewport_json(
-    viewport_json_with_coordinates(1.0 / 0.0, -7.0, 1.0),
-  )
-  assert_rejects_viewport_json(
-    viewport_json_with_coordinates(12.0, 0.0 / 0.0, 1.0),
-  )
-}
-
-///|
 test "finite viewport scales are accepted" {
   for scale in [0.1, 0.25, 1.0, 4.0, 8.0] {
     let viewport = viewport_for_test(12.0, -7.0, scale)
@@ -225,43 +167,6 @@ test "drag preserves relative positions" {
   )
   assert_eq(moved[0].id, 1)
   assert_eq(moved[1].id, 2)
-}
-
-///|
-test "map_drag_positions_at translates a borrowed sliced snapshot" {
-  let positions = [
-    ItemPosition::from_id_and_point(
-      id="skip",
-      point=WorldPoint::from_xy(x=-100.0, y=-100.0),
-    ),
-    ItemPosition::from_id_and_point(
-      id="first",
-      point=WorldPoint::from_xy(x=10.0, y=20.0),
-    ),
-    ItemPosition::from_id_and_point(
-      id="second",
-      point=WorldPoint::from_xy(x=40.0, y=55.0),
-    ),
-  ]
-  let moved = map_drag_positions_at(
-    positions=positions[1:3],
-    initial_pointer=WorldPoint::from_xy(x=4.0, y=8.0),
-    current_pointer=WorldPoint::from_xy(x=12.0, y=18.0),
-    to_point=item => (item.point.x, item.point.y),
-    map_result=(item, x, y) => {
-      ItemPosition::from_id_and_point(
-        id=item.id,
-        point=WorldPoint::from_xy(x~, y~),
-      )
-    },
-  )
-  assert_eq(moved.length(), 2)
-  assert_eq(moved[0].id, "first")
-  assert_close(moved[0].point.x, 18.0)
-  assert_close(moved[0].point.y, 30.0)
-  assert_eq(moved[1].id, "second")
-  assert_close(moved[1].point.x, 48.0)
-  assert_close(moved[1].point.y, 65.0)
 }
 
 ///|

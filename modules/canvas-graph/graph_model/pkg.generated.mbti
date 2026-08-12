@@ -105,13 +105,6 @@ pub(all) struct ConnectState {
 } derive(Eq, @debug.Debug)
 pub impl Show for ConnectState
 
-pub(all) struct DragOrigin {
-  node_id : NodeId
-  offset_x : Double
-  offset_y : Double
-} derive(Eq, @debug.Debug)
-pub impl Show for DragOrigin
-
 pub(all) struct DragPreview {
   positions : Array[NodePosition]
 } derive(Eq, @debug.Debug)
@@ -119,7 +112,7 @@ pub impl Show for DragPreview
 
 pub(all) struct DragState {
   node_id : NodeId
-  origins : Array[DragOrigin]
+  drag : @spatial.Drag[NodeId]
 } derive(Eq, @debug.Debug)
 pub impl Show for DragState
 
@@ -219,8 +212,9 @@ pub(all) enum WorkflowAction {
   SetNodeParam(NodeId, String, String)
   SelectNodes(Array[NodeId])
   SetViewport(@spatial.Viewport)
-} derive(Eq, ToJson, @debug.Debug)
+} derive(Eq, @debug.Debug)
 pub impl Show for WorkflowAction
+pub impl ToJson for WorkflowAction
 
 pub(all) enum WorkflowNodeKind {
   TimerTrigger
