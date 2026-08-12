@@ -29,6 +29,15 @@ In:
 
 - `deps/event-graph-walker/internal/branch/text_event_api_prototype_wbtest.mbt`
 - `deps/event-graph-walker/internal/branch/text_event_op_adapter_prototype_wbtest.mbt`
+
+The two baseline files are published test-only inputs at EGW commit
+[`44164cd`](https://github.com/dowdiness/event-graph-walker/tree/44164cdac7c9fcf7c206be995e4c6192afc45190), branch
+`prototype/gate-a-text-event-baseline`. A fresh Gate A worktree must start from
+Canopy `main`, initialize the recorded EGW submodule, then fetch and apply that
+exact baseline commit (or copy the two files at those immutable paths) before
+A1. The baseline is experimental test code only; it does not change EGW
+production APIs or behavior.
+
 - `deps/event-graph-walker/internal/oplog/remote_admission_oracle_wbtest.mbt`
 - `deps/event-graph-walker/internal/oplog/oplog_remote_delivery_generated_wbtest.mbt`
 - `deps/event-graph-walker/internal/oplog/admission_overhead_benchmark_wbtest.mbt`
@@ -119,10 +128,10 @@ Gate A provides a test-only canonical event boundary with these properties:
 
 ### A1 — Pin event identity, normalization, and observation
 
-1. Re-read the current TextEvent prototypes and existing Op/RawVersion APIs;
-   verify package roots and generated interfaces before editing. Confirm that
-   one scalar per insert is the intended canonical domain and record any
-   non-canonical legacy cases explicitly.
+1. Re-read the published Gate A baseline at EGW commit `44164cd` and the
+   existing Op/RawVersion APIs; verify package roots and generated interfaces
+   before editing. Confirm that one scalar per insert is the intended canonical
+   domain and record any non-canonical legacy cases explicitly.
 2. Extend the test-only edit algebra with `Undelete` carrying an explicit
    causal target. Keep canonical events free of Fugue origins.
 3. Define test-only normalization/equality helpers for canonical events and
@@ -149,14 +158,30 @@ Gate A provides a test-only canonical event boundary with these properties:
    scalar count, edit shape, RawVersion format, duplicate/conflict identity,
    parent/target encoding, and the existing admission/resource limits.
 10. Keep causally incomplete canonical events out of EventGraph and Causal
-    Authority while buffered. When parent context arrives, retry lowering and
-    delegate ready ordering, duplicate collapse, and pending semantics to the
-    existing `OpLog::prepare_remote` / fixed-point planner. Do not implement a
-    second dependency planner in TextEvent.
-11. Add ready-time semantic validation against the event's parent version:
-    insert/delete position bounds, undelete target resolution, target kind,
-    and projection validity. Ensure this validation completes before
-    `commit_remote` starts.
+    Authority while buffered. Define the test-only lowering seam as:
+
+    ```text
+    try_lower(event, parent_context)
+      -> MissingContext
+       | Invalid(CanonicalValidationError)
+       | Lowered(Op)
+    ```
+
+    `try_lower` performs the ready-time parent-relative position and target
+    validation needed to construct a legacy `Op`; it must never mutate the
+    graph, planner, or pending store. `MissingContext` is retained in bounded
+    canonical staging and retried only when the directly referenced parent or
+    target becomes available. `Invalid` is rejected and its explicit invalid
+    dependents are discarded according to existing policy. `Lowered(Op)` is
+    handed to the existing `OpLog::prepare_remote` / fixed-point planner.
+    That planner remains the only owner of ready ordering, duplicate collapse,
+    and legacy pending semantics. Canonical staging stores only bounded
+    RawVersion-keyed envelopes and unresolved direct dependencies; it does not
+    calculate topological order or winner state. It also does not mutate legacy
+    planner state until `Lowered(Op)` is returned.
+11. Ensure ready-time semantic validation completes before `commit_remote`
+    starts, and that no second validation pass or planner is introduced after
+    legacy preparation.
 12. Add negative atomicity tests proving receipt-preflight and ready-time
     rejection leave operation count, frontier, visible text, and planner state
     unchanged, except for explicitly specified invalid-root dependent discard.
@@ -296,9 +321,11 @@ Do not merge or declare that PR ready for merge until every required CI check is
 
 ## Risks
 
-- The current prototypes are untracked inside a dirty submodule. Preserve the
-  worktree and use a dedicated branch/worktree for any commit; do not reset
-  `deps/loom` or publish the prototype implicitly.
+- The published baseline is test-only and pinned to EGW commit `44164cd`. A
+  fresh agent must fetch that immutable commit or copy its two files before
+  A1; it must not assume untracked files exist in a new worktree. Preserve any
+  unrelated dirty worktree and use a dedicated branch/worktree for Gate A; do
+  not reset `deps/loom` or publish the prototype implicitly.
 - A canonical position event cannot be lowered until its parent context is
   available. The test harness may buffer canonical envelopes, but it must not
   grow a second causal dependency planner or silently treat buffered events as

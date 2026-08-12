@@ -47,10 +47,30 @@ cold recovery; a page cannot infer authority from a text snapshot alone.
 ### Cold reopen
 
 The durable archive retains, at minimum, the portable text, exact causal
-frontier, and canonical history. Reopen initially admits the text and frontier
-and creates a fresh Writing instance. It does not construct merge-only causal
-state, and it does not promise to complete arbitrary history replay on the main
-thread within one frame.
+frontier, and canonical history. Archive consistency is an invariant:
+
+```text
+Replay(canonical history, exact frontier) == portable text
+```
+
+The archive loader must verify that invariant, or treat the portable text as an
+untrusted display snapshot and fall back to canonical replay. A text/frontier
+pair that cannot be verified against canonical history is not a causally
+admitted editing base.
+
+Cold reopen initially loads or presents the text and frontier and creates a
+fresh Writing instance. It does not construct merge-only causal state, and it
+does not promise to complete arbitrary history replay on the main thread within
+one frame. Loading text is not Causal Authority admission.
+
+The lifecycle states are distinct:
+
+- **Text-ready:** portable text may be displayed, but local event generation is
+  disabled.
+- **Causally-admitted:** the authority has validated the exact frontier,
+  required history or index, and archive consistency.
+- **Editable:** local event generation is enabled only after
+  **Causally-admitted**.
 
 The history remains available for concurrent merge, historical replay, or
 recovery. The Causal Authority is the authoritative producer and validator of
