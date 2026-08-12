@@ -35,7 +35,7 @@ concrete `raise` error at the same operation boundary rather than by a parallel
   explicit convention: both coordinate spaces are named.
 - `Viewport::with_scale_around` describes the anchor-preserving operation more
   directly than `with_scale_to`; the latter would suggest a target state rather
-  than an anchor point. Its `raise ViewportTransformError` signature makes
+  than an anchor point. Its `raise CoordinateError` signature makes
   invalid anchors, scales, and derived origins explicit.
 - `Drag::positions_at(pointer)` makes the result explicit: it evaluates the
   snapshot and returns item positions at the supplied pointer position.

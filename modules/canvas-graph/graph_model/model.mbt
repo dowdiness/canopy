@@ -243,6 +243,11 @@ pub fn NodeSize::height(self : NodeSize) -> Double {
 }
 
 ///|
+/// A graph node position is the spatial item-position shape specialized to
+/// graph node identities. JSON conversion remains owned by this package.
+pub type NodePosition = @spatial.ItemPosition[NodeId]
+
+///|
 /// A single node on the canvas. Coordinates are in world space. The visual
 /// editor owns layout and display state; executable behavior lives in a future
 /// compiler/execution layer keyed by `kind` and ports.
@@ -293,30 +298,6 @@ pub fn CanvasNode::with_position(
 
 ///|
 pub impl Show for CanvasNode with fn output(self, logger) {
-  logger.write_string(@debug.to_string(self))
-}
-
-///|
-pub(all) struct NodePosition {
-  node_id : NodeId
-  priv position : WorldPoint
-} derive(Debug, Eq)
-
-///|
-pub fn NodePosition::from_node_and_position(
-  node_id~ : NodeId,
-  position~ : WorldPoint,
-) -> NodePosition {
-  { node_id, position }
-}
-
-///|
-pub fn NodePosition::position(self : NodePosition) -> WorldPoint {
-  self.position
-}
-
-///|
-pub impl Show for NodePosition with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -803,7 +784,7 @@ pub fn find_position(
   id : NodeId,
 ) -> NodePosition? {
   for pos in positions {
-    if pos.node_id == id {
+    if pos.id == id {
       return Some(pos)
     }
   }
@@ -1011,7 +992,7 @@ pub fn apply_action(
       let nodes = state.nodes.map(fn(node) {
         match find_position(positions, node.id) {
           None => node
-          Some(pos) => node.with_position(pos.position())
+          Some(pos) => node.with_position(pos.point)
         }
       })
       { ..state, nodes, }

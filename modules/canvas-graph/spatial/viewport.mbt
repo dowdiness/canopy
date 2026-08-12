@@ -28,13 +28,10 @@ pub fn Viewport::scale(self : Viewport) -> Scale {
 pub fn Viewport::screen_to_world(
   self : Viewport,
   screen : ScreenPoint,
-) -> WorldPoint raise ViewportTransformError {
+) -> WorldPoint raise CoordinateError {
   let x = (screen.x() - self.origin.x()) / self.scale.to_double()
   let y = (screen.y() - self.origin.y()) / self.scale.to_double()
-  WorldPoint::from_xy(x~, y~) catch {
-    CoordinateError::NonFinite =>
-      raise ViewportTransformError::CoordinateOverflow
-  }
+  WorldPoint::from_xy(x~, y~)
 }
 
 ///|
@@ -42,13 +39,10 @@ pub fn Viewport::screen_to_world(
 pub fn Viewport::world_to_screen(
   self : Viewport,
   world : WorldPoint,
-) -> ScreenPoint raise ViewportTransformError {
+) -> ScreenPoint raise CoordinateError {
   let x = self.origin.x() + world.x() * self.scale.to_double()
   let y = self.origin.y() + world.y() * self.scale.to_double()
-  ScreenPoint::from_xy(x~, y~) catch {
-    CoordinateError::NonFinite =>
-      raise ViewportTransformError::CoordinateOverflow
-  }
+  ScreenPoint::from_xy(x~, y~)
 }
 
 ///|
@@ -57,13 +51,10 @@ pub fn Viewport::with_scale_around(
   self : Viewport,
   anchor~ : ScreenPoint,
   absolute_scale~ : Scale,
-) -> Viewport raise ViewportTransformError {
+) -> Viewport raise CoordinateError {
   let world_anchor = self.screen_to_world(anchor)
   let x = anchor.x() - world_anchor.x() * absolute_scale.to_double()
   let y = anchor.y() - world_anchor.y() * absolute_scale.to_double()
-  let next_origin = ScreenPoint::from_xy(x~, y~) catch {
-    CoordinateError::NonFinite =>
-      raise ViewportTransformError::CoordinateOverflow
-  }
+  let next_origin = ScreenPoint::from_xy(x~, y~)
   Viewport::from_scale(origin=next_origin, scale=absolute_scale)
 }

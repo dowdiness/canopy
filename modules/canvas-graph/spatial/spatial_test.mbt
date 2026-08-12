@@ -137,14 +137,14 @@ test "viewport transforms reject arithmetic overflow" {
     ignore(inverse_overflow.screen_to_world(screen_point(1.0e308, 0.0)))
     false
   } catch {
-    ViewportTransformError::CoordinateOverflow => true
+    CoordinateError::NonFinite => true
   }
   let forward_overflow = viewport_for_test(0.0, 0.0, 1.0e308)
   let world_result = try {
     ignore(forward_overflow.world_to_screen(world_point(1.0e308, 0.0)))
     false
   } catch {
-    ViewportTransformError::CoordinateOverflow => true
+    CoordinateError::NonFinite => true
   }
   assert_true(screen_result)
   assert_true(world_result)
@@ -162,7 +162,7 @@ test "anchored scale rejects an overflowing derived origin" {
     )
     false
   } catch {
-    ViewportTransformError::CoordinateOverflow => true
+    CoordinateError::NonFinite => true
   }
   assert_true(result)
 }
@@ -190,7 +190,7 @@ test "pan snapshot is path independent and rejects origin overflow" {
     ignore(overflowing_pan.viewport_at(screen_point(1.0e308, 0.0)))
     false
   } catch {
-    PanError::OriginOverflow => true
+    CoordinateError::NonFinite => true
   }
   assert_true(result)
 }
@@ -235,7 +235,7 @@ test "drag movement rejects position overflow" {
     ignore(drag.positions_at(world_point(1.0e308, 0.0)))
     false
   } catch {
-    DragError::PositionOverflow => true
+    CoordinateError::NonFinite => true
   }
   assert_true(result)
 }

@@ -260,8 +260,8 @@ test "pointer_up records a MoveNodes action after drag" {
   match s2.action_log[0].action() {
     WorkflowAction::MoveNodes(positions) => {
       assert_eq(positions.length(), 1)
-      inspect(positions[0].position().x(), content="190")
-      inspect(positions[0].position().y(), content="280")
+      inspect(positions[0].point.x(), content="190")
+      inspect(positions[0].point.y(), content="280")
     }
     _ => fail("expected MoveNodes action")
   }
@@ -283,7 +283,7 @@ test "invalid drag move is ignored before pointer up" {
     ignore(drag_preview_from_move(drag, world_point(1.0e308, 200.0)))
     false
   } catch {
-    @spatial.DragError::PositionOverflow => true
+    @spatial.CoordinateError::NonFinite => true
   }
   assert_true(rejected)
   let released = update_pointer_up(started, "1", "", false)

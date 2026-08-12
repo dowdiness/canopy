@@ -33,11 +33,13 @@ type ContextMenuItem = LibraryItem;
 
 type Point = { x: number; y: number };
 
-type SourceDemoModule = CanvasModule & {
-  sample_graph_dsl_source: () => string;
-  mount_source_demo: (h: number, enabled: boolean, onChange: () => void) => void;
-  mount_canvas_context_menu: (onSelect: (key: string) => void, onClose: () => void) => void;
-};
+type SourceDemoModule = CanvasModule &
+  Required<
+    Pick<
+      CanvasModule,
+      'sample_graph_dsl_source' | 'mount_source_demo' | 'mount_canvas_context_menu'
+    >
+  >;
 
 const LIBRARY: LibraryItem[] = [
   { key: 'timer', label: 'Timer trigger', description: 'Start on a schedule' },
@@ -1103,8 +1105,20 @@ async function init(): Promise<void> {
   adapter = sourceMode
     ? GraphAdapter.createSourceBacked(mod, sourceDemoModule.sample_graph_dsl_source())
     : GraphAdapter.create(mod);
-  sourceDemoModule.mount_canvas_context_menu(handleContextMenuSelect, hideContextMenuElement);
-  sourceDemoModule.mount_source_demo(adapter.handleId, sourceMode, scheduleRender);
+  sourceDemoModule.mount_canvas_context_menu(
+    key => {
+      handleContextMenuSelect(key);
+      return undefined;
+    },
+    () => {
+      hideContextMenuElement();
+      return undefined;
+    },
+  );
+  sourceDemoModule.mount_source_demo(adapter.handleId, sourceMode, () => {
+    scheduleRender();
+    return undefined;
+  });
   renderLibrary();
   render();
 }

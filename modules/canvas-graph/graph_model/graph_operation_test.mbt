@@ -130,12 +130,28 @@ test "GraphOperation serializes as a versioned JSON operation" {
 }
 
 ///|
+test "MoveNodes preserves its flat JSON shape" {
+  let operation = @graph_model.GraphOperation::GraphOperation(
+    @graph_model.WorkflowAction::MoveNodes([
+      @spatial.ItemPosition::from_id_and_point(
+        id=node_id(1),
+        point=try! @spatial.WorldPoint::from_xy(x=180.0, y=240.0),
+      ),
+    ]),
+  )
+  inspect(
+    operation.to_json().stringify(),
+    content="{\"version\":2,\"type\":\"MoveNodes\",\"positions\":[{\"node_id\":\"1\",\"x\":180,\"y\":240}]}",
+  )
+}
+
+///|
 test "GraphOperation round-trips through JSON" {
   let operation = @graph_model.GraphOperation::GraphOperation(
     @graph_model.WorkflowAction::MoveNodes([
-      @graph_model.NodePosition::from_node_and_position(
-        node_id=node_id(1),
-        position=try! @spatial.WorldPoint::from_xy(x=180.0, y=240.0),
+      @spatial.ItemPosition::from_id_and_point(
+        id=node_id(1),
+        point=try! @spatial.WorldPoint::from_xy(x=180.0, y=240.0),
       ),
     ]),
   )
@@ -225,9 +241,9 @@ test "operation log round-trips and replays into canvas graph state" {
     ),
     @graph_model.GraphOperation::GraphOperation(
       @graph_model.WorkflowAction::MoveNodes([
-        @graph_model.NodePosition::from_node_and_position(
-          node_id=node_id(3),
-          position=try! @spatial.WorldPoint::from_xy(x=800.0, y=140.0),
+        @spatial.ItemPosition::from_id_and_point(
+          id=node_id(3),
+          point=try! @spatial.WorldPoint::from_xy(x=800.0, y=140.0),
         ),
       ]),
     ),

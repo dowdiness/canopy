@@ -393,7 +393,7 @@ fn CanvasRuntime::pointer_down(
     node_id,
     screen,
   ) catch {
-    @spatial.ViewportTransformError::CoordinateOverflow => return
+    @spatial.CoordinateError::NonFinite => return
   }
   if state.interaction != before.interaction {
     self.set_drag_preview(@graph_model.idle_drag_preview())
@@ -414,7 +414,7 @@ fn CanvasRuntime::pointer_down_handle(
   }
   let state = self.state_peek()
   let world = state.viewport.screen_to_world(screen) catch {
-    @spatial.ViewportTransformError::CoordinateOverflow => return
+    @spatial.CoordinateError::NonFinite => return
   }
   let next = @graph_model.update_connect_start(state, node_id, port_id, world)
   if next.interaction != state.interaction {
@@ -429,7 +429,7 @@ fn CanvasRuntime::sync_connect_move(
   screen : ScreenPoint,
 ) -> Unit {
   let world = state.viewport.screen_to_world(screen) catch {
-    @spatial.ViewportTransformError::CoordinateOverflow => return
+    @spatial.CoordinateError::NonFinite => return
   }
   self.set_interaction(
     @graph_model.update_connect_move(state, world).interaction,
@@ -444,14 +444,14 @@ fn CanvasRuntime::sync_drag_preview_move(
   screen : ScreenPoint,
 ) -> Unit {
   let world = state.viewport.screen_to_world(screen) catch {
-    @spatial.ViewportTransformError::CoordinateOverflow => return
+    @spatial.CoordinateError::NonFinite => return
   }
   try {
     let preview = @graph_model.drag_preview_from_move(drag, world)
     self.set_drag_preview(preview)
     self.set_interaction({ ..state.interaction, did_move: true })
   } catch {
-    @spatial.DragError::PositionOverflow => ()
+    @spatial.CoordinateError::NonFinite => ()
   }
 }
 
@@ -565,7 +565,7 @@ fn CanvasRuntime::add_node(
   }
   let state = self.state_peek()
   let world = state.viewport.screen_to_world(screen) catch {
-    @spatial.ViewportTransformError::CoordinateOverflow => return
+    @spatial.CoordinateError::NonFinite => return
   }
   self.sync_document_action_state(
     (self.policy.add_node)(state, kind_key, world),

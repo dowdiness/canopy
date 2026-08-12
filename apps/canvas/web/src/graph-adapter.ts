@@ -61,8 +61,11 @@ export type CanvasModule = {
   ) => string;
   source_graph_zoom?: (h: number, delta: number, cx: number, cy: number) => void;
   sample_graph_dsl_source?: () => string;
-  mount_source_demo?: (h: number, enabled: boolean, onChange: () => void) => void;
-  mount_canvas_context_menu?: (onSelect: (key: string) => void, onClose: () => void) => void;
+  mount_source_demo?: (h: number, enabled: boolean, onChange: () => undefined) => undefined;
+  mount_canvas_context_menu?: (
+    onSelect: (key: string) => undefined,
+    onClose: () => undefined,
+  ) => undefined;
 };
 
 type SourceCanvasModule = CanvasModule & {

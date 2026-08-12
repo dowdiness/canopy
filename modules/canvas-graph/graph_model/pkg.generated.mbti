@@ -20,13 +20,13 @@ pub fn canvas_state_from_parts(CanvasDocument, @spatial.Viewport, InteractionSta
 
 pub fn default_viewport() -> @spatial.Viewport
 
-pub fn drag_preview_from_move(@spatial.Drag[NodeId], @spatial.WorldPoint) -> DragPreview raise @spatial.DragError
+pub fn drag_preview_from_move(@spatial.Drag[NodeId], @spatial.WorldPoint) -> DragPreview raise @spatial.CoordinateError
 
 pub fn empty_interaction() -> InteractionState
 
 pub fn find_node(Array[CanvasNode], NodeId) -> CanvasNode?
 
-pub fn find_position(Array[NodePosition], NodeId) -> NodePosition?
+pub fn find_position(Array[@spatial.ItemPosition[NodeId]], NodeId) -> @spatial.ItemPosition[NodeId]?
 
 pub fn idle_drag_preview() -> DragPreview
 
@@ -42,8 +42,6 @@ pub fn record_action(CanvasState, WorkflowAction) -> CanvasState
 
 pub fn replay_operations(CanvasState, Array[GraphOperation]) -> CanvasState
 
-pub fn screen_to_world(@spatial.Viewport, @spatial.ScreenPoint) -> @spatial.WorldPoint raise @spatial.ViewportTransformError
-
 pub fn selection_from_interaction(InteractionState) -> SelectionState
 
 pub fn state_with_preview_nodes(CanvasState, DragPreview) -> CanvasState
@@ -54,7 +52,7 @@ pub fn update_connect_start(CanvasState, NodeId, String, @spatial.WorldPoint) ->
 
 pub fn update_pan_move(CanvasState, @spatial.ScreenPoint) -> CanvasState
 
-pub fn update_pointer_down(CanvasState, NodeId?, @spatial.ScreenPoint) -> CanvasState raise @spatial.ViewportTransformError
+pub fn update_pointer_down(CanvasState, NodeId?, @spatial.ScreenPoint) -> CanvasState raise @spatial.CoordinateError
 
 pub fn update_pointer_up(CanvasState, String, String, Bool) -> CanvasState
 
@@ -114,7 +112,7 @@ pub fn ConnectState::from_parts(from_node~ : NodeId, from_port~ : String, cursor
 pub impl Show for ConnectState
 
 pub(all) struct DragPreview {
-  positions : Array[NodePosition]
+  positions : Array[@spatial.ItemPosition[NodeId]]
 } derive(Eq, @debug.Debug)
 pub impl Show for DragPreview
 
@@ -166,14 +164,6 @@ pub(all) enum NodeKind {
 } derive(Eq, ToJson, @debug.Debug, @json.FromJson)
 pub impl Show for NodeKind
 
-pub(all) struct NodePosition {
-  node_id : NodeId
-  // private fields
-} derive(Eq, @debug.Debug)
-pub fn NodePosition::from_node_and_position(node_id~ : NodeId, position~ : @spatial.WorldPoint) -> Self
-pub fn NodePosition::position(Self) -> @spatial.WorldPoint
-pub impl Show for NodePosition
-
 pub struct NodeSize {
   // private fields
 } derive(Eq, @debug.Debug)
@@ -208,7 +198,7 @@ pub(all) struct SelectionState {
 
 pub(all) enum WorkflowAction {
   AddNode(CanvasNode)
-  MoveNodes(Array[NodePosition])
+  MoveNodes(Array[@spatial.ItemPosition[NodeId]])
   ConnectPorts(NodeId, String, NodeId, String)
   DisconnectPorts(NodeId, String, NodeId, String)
   DeleteNodes(Array[NodeId])
@@ -232,6 +222,7 @@ pub(all) enum WorkflowNodeKind {
 pub impl Show for WorkflowNodeKind
 
 // Type aliases
+pub type NodePosition = @spatial.ItemPosition[NodeId]
 
 // Traits
 

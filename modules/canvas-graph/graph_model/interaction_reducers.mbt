@@ -20,7 +20,7 @@ pub fn update_pan_move(
     None => state
     Some(pan) => {
       let next_viewport = pan.viewport_at(pointer) catch {
-        @spatial.PanError::OriginOverflow => return state
+        @spatial.CoordinateError::NonFinite => return state
       }
       let start = pan.start_pointer()
       let did_move = state.interaction.did_move ||
@@ -63,7 +63,7 @@ pub fn update_zoom(
       anchor~,
       absolute_scale=new_scale,
     ) catch {
-      @spatial.ViewportTransformError::CoordinateOverflow => return state
+      @spatial.CoordinateError::NonFinite => return state
     }
     record_action(
       { ..state, viewport: new_viewport },
@@ -73,12 +73,6 @@ pub fn update_zoom(
 }
 
 ///|
-pub fn screen_to_world(
-  viewport : Viewport,
-  screen : ScreenPoint,
-) -> WorldPoint raise @spatial.ViewportTransformError {
-  viewport.screen_to_world(screen)
-}
 
 ///|
 /// Dispatch a typed pointer-down event to pan or drag.
@@ -86,7 +80,7 @@ pub fn update_pointer_down(
   state : CanvasState,
   node_id : NodeId?,
   screen : ScreenPoint,
-) -> CanvasState raise @spatial.ViewportTransformError {
+) -> CanvasState raise @spatial.CoordinateError {
   match node_id {
     None => update_pan_start(state, screen)
     Some(id) =>
@@ -224,10 +218,10 @@ fn update_connect_end(
 pub fn drag_preview_from_move(
   drag : @spatial.Drag[NodeId],
   pointer : WorldPoint,
-) -> DragPreview raise @spatial.DragError {
+) -> DragPreview raise @spatial.CoordinateError {
   let positions = drag.positions_at(pointer)
   let moved_positions = positions.map(item => {
-    NodePosition::from_node_and_position(node_id=item.id, position=item.point)
+    @spatial.ItemPosition::from_id_and_point(id=item.id, point=item.point)
   })
   { positions: moved_positions }
 }
@@ -289,9 +283,9 @@ fn final_drag_positions(
       None => None
       Some(node) =>
         Some(
-          NodePosition::from_node_and_position(
-            node_id=node.id,
-            position=node.position(),
+          @spatial.ItemPosition::from_id_and_point(
+            id=node.id,
+            point=node.position(),
           ),
         )
     }

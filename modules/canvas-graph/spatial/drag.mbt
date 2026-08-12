@@ -40,16 +40,14 @@ pub fn[Id] Drag::start(
 pub fn[Id] Drag::positions_at(
   self : Drag[Id],
   current_pointer : WorldPoint,
-) -> Array[ItemPosition[Id]] raise DragError {
+) -> Array[ItemPosition[Id]] raise CoordinateError {
   let delta_x = current_pointer.x() - self.initial_pointer.x()
   let delta_y = current_pointer.y() - self.initial_pointer.y()
   self.initial_positions.map(item => {
     let point = WorldPoint::from_xy(
       x=item.point.x() + delta_x,
       y=item.point.y() + delta_y,
-    ) catch {
-      CoordinateError::NonFinite => raise DragError::PositionOverflow
-    }
+    )
     ItemPosition::from_id_and_point(id=item.id, point~)
   })
 }

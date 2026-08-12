@@ -812,7 +812,7 @@ fn SourceBackedGraph::pointer_down(
     target,
     screen,
   ) catch {
-    @spatial.ViewportTransformError::CoordinateOverflow => return
+    @spatial.CoordinateError::NonFinite => return
   }
   if state.interaction != before.interaction {
     self.drag_preview = @graph_model.idle_drag_preview()
@@ -833,7 +833,7 @@ fn SourceBackedGraph::pointer_move(
   match state.interaction.connecting {
     Some(_) => {
       let world = state.viewport.screen_to_world(screen) catch {
-        @spatial.ViewportTransformError::CoordinateOverflow => return
+        @spatial.CoordinateError::NonFinite => return
       }
       let next = @graph_model.update_connect_move(state, world)
       if next.interaction != state.interaction {
@@ -844,7 +844,7 @@ fn SourceBackedGraph::pointer_move(
       match state.interaction.dragging {
         Some(drag) => {
           let world = state.viewport.screen_to_world(screen) catch {
-            @spatial.ViewportTransformError::CoordinateOverflow => return
+            @spatial.CoordinateError::NonFinite => return
           }
           try {
             let preview = @graph_model.drag_preview_from_move(drag, world)
@@ -854,7 +854,7 @@ fn SourceBackedGraph::pointer_move(
               did_move: true,
             }
           } catch {
-            @spatial.DragError::PositionOverflow => ()
+            @spatial.CoordinateError::NonFinite => ()
           }
         }
         None =>

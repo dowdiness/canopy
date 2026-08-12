@@ -12,21 +12,9 @@ pub(all) suberror CoordinateError {
   NonFinite
 } derive(Eq, @debug.Debug)
 
-pub(all) suberror DragError {
-  PositionOverflow
-} derive(Eq, @debug.Debug)
-
-pub(all) suberror PanError {
-  OriginOverflow
-} derive(Eq, @debug.Debug)
-
 pub(all) suberror ScaleError {
   NonFinite
   NonPositive
-} derive(Eq, @debug.Debug)
-
-pub(all) suberror ViewportTransformError {
-  CoordinateOverflow
 } derive(Eq, @debug.Debug)
 
 // Types and methods
@@ -34,7 +22,7 @@ pub struct Drag[Id] {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn[Id] Drag::initial_ids(Self[Id]) -> Array[Id]
-pub fn[Id] Drag::positions_at(Self[Id], WorldPoint) -> Array[ItemPosition[Id]] raise DragError
+pub fn[Id] Drag::positions_at(Self[Id], WorldPoint) -> Array[ItemPosition[Id]] raise CoordinateError
 pub fn[Id] Drag::start(positions~ : ReadOnlyArray[ItemPosition[Id]], pointer~ : WorldPoint) -> Self[Id]
 
 pub struct ItemPosition[Id] {
@@ -48,7 +36,7 @@ pub struct Pan {
 } derive(Eq, @debug.Debug)
 pub fn Pan::start(viewport~ : Viewport, pointer~ : ScreenPoint) -> Self
 pub fn Pan::start_pointer(Self) -> ScreenPoint
-pub fn Pan::viewport_at(Self, ScreenPoint) -> Viewport raise PanError
+pub fn Pan::viewport_at(Self, ScreenPoint) -> Viewport raise CoordinateError
 
 pub struct Scale {
   // private fields
@@ -69,9 +57,9 @@ pub struct Viewport {
 pub fn Viewport::from_scale(origin~ : ScreenPoint, scale~ : Scale) -> Self
 pub fn Viewport::scale(Self) -> Scale
 pub fn Viewport::screen_origin(Self) -> ScreenPoint
-pub fn Viewport::screen_to_world(Self, ScreenPoint) -> WorldPoint raise ViewportTransformError
-pub fn Viewport::with_scale_around(Self, anchor~ : ScreenPoint, absolute_scale~ : Scale) -> Self raise ViewportTransformError
-pub fn Viewport::world_to_screen(Self, WorldPoint) -> ScreenPoint raise ViewportTransformError
+pub fn Viewport::screen_to_world(Self, ScreenPoint) -> WorldPoint raise CoordinateError
+pub fn Viewport::with_scale_around(Self, anchor~ : ScreenPoint, absolute_scale~ : Scale) -> Self raise CoordinateError
+pub fn Viewport::world_to_screen(Self, WorldPoint) -> ScreenPoint raise CoordinateError
 
 pub struct WorldPoint {
   // private fields

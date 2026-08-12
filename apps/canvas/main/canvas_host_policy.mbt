@@ -117,7 +117,7 @@ fn render_node_with_preview(node : NodeJson, preview : DragPreview) -> NodeJson 
   match preview_position_for(preview, node.id) {
     None => node
     Some(pos) => {
-      let point = pos.position()
+      let point = pos.point
       { ..node, x: point.x(), y: point.y() }
     }
   }

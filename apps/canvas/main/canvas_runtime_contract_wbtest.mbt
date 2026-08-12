@@ -114,9 +114,9 @@ test "runtime contract: pointermove previews before one durable MoveNodes commit
   contract_expect_move_nodes(
     operations[0],
     [
-      NodePosition::from_node_and_position(
-        node_id=node_id,
-        position=try! @spatial.WorldPoint::from_xy(x=-390.0, y=-95.0),
+      @spatial.ItemPosition::from_id_and_point(
+        id=node_id,
+        point=try! @spatial.WorldPoint::from_xy(x=-390.0, y=-95.0),
       ),
     ],
   )
@@ -250,9 +250,9 @@ test "source-backed runtime contract: pointermove previews before one local Move
   contract_expect_move_nodes(
     operations[0],
     [
-      NodePosition::from_node_and_position(
-        node_id=osc,
-        position=try! @spatial.WorldPoint::from_xy(x=90.0, y=60.0),
+      @spatial.ItemPosition::from_id_and_point(
+        id=osc,
+        point=try! @spatial.WorldPoint::from_xy(x=90.0, y=60.0),
       ),
     ],
   )

@@ -26,8 +26,8 @@ Its origin coordinates and scale are always finite, and its scale is positive:
 while `Viewport::from_scale` accepts only those validated values. Screen/world
 points expose coordinate accessors, not a caller-side finiteness obligation.
 `Pan::start` and `Drag::start` capture validated snapshots; their evaluation
-methods raise typed spatial errors when derived arithmetic overflows, and
-reducers and hosts catch those errors and leave state unchanged.
+methods raise `CoordinateError` when derived arithmetic overflows, and
+reducers and hosts catch that error and leave state unchanged.
 
 The GraphOperation V2 JSON wire shape remains `{x, y, scale}`. The
 `graph_model` serialization boundary owns its strict encoding and decoding;

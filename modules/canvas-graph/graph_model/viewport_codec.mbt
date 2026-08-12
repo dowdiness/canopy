@@ -125,8 +125,7 @@ fn canvas_node_to_wire(node : CanvasNode) -> CanvasNodeWire {
 
 ///|
 fn node_position_to_wire(position : NodePosition) -> NodePositionWire {
-  let point = position.position()
-  { node_id: position.node_id, x: point.x(), y: point.y() }
+  { node_id: position.id, x: position.point.x(), y: position.point.y() }
 }
 
 ///|
@@ -203,7 +202,7 @@ fn node_position_from_wire(
         (path, "NodePosition: coordinates must be finite"),
       )
   }
-  NodePosition::from_node_and_position(node_id=wire.node_id, position~)
+  @spatial.ItemPosition::from_id_and_point(id=wire.node_id, point=position)
 }
 
 ///|

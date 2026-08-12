@@ -22,13 +22,11 @@ pub fn Pan::start_pointer(self : Pan) -> ScreenPoint {
 pub fn Pan::viewport_at(
   self : Pan,
   pointer : ScreenPoint,
-) -> Viewport raise PanError {
+) -> Viewport raise CoordinateError {
   let origin = self.initial_viewport.screen_origin()
   let next_origin = ScreenPoint::from_xy(
     x=origin.x() + (pointer.x() - self.initial_pointer.x()),
     y=origin.y() + (pointer.y() - self.initial_pointer.y()),
-  ) catch {
-    CoordinateError::NonFinite => raise PanError::OriginOverflow
-  }
+  )
   Viewport::from_scale(origin=next_origin, scale=self.initial_viewport.scale())
 }

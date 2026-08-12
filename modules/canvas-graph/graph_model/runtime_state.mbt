@@ -106,7 +106,7 @@ fn canvas_node_with_preview(
 ) -> CanvasNode {
   match preview_position_for(preview, node.id) {
     None => node
-    Some(pos) => node.with_position(pos.position())
+    Some(pos) => node.with_position(pos.point)
   }
 }
 
