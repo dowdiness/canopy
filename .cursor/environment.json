@@ -1,0 +1,9 @@
+{
+  "install": "bash .cursor/install.sh",
+  "terminals": [
+    {
+      "name": "apps/web — Waku dev (:3000)",
+      "command": "export PATH=\"$HOME/.nvm/versions/node/v22.22.2/bin:$HOME/.moon/bin:$PATH\"; export NEW_MOON_MOD=0; cd apps/web && npm run dev"
+    }
+  ]
+}
