@@ -5,21 +5,21 @@ fn update_pan_start(
   screen_y : Double,
 ) -> CanvasState {
   let pointer = @spatial.ScreenPoint::from_xy(x=screen_x, y=screen_y)
-  match @spatial.Pan::try_start(viewport=state.viewport, pointer~) {
-    None => state
-    Some(_) => {
-      let pan : PanState = {
-        start_pointer: pointer,
-        initial_viewport: state.viewport,
-      }
-      let new_interaction : InteractionState = {
-        ..state.interaction,
-        panning: Some(pan),
-        pointer_down: true,
-        did_move: false,
-      }
-      { ..state, interaction: new_interaction }
+  try {
+    let _gesture = @spatial.Pan::start(viewport=state.viewport, pointer~)
+    let pan : PanState = {
+      start_pointer: pointer,
+      initial_viewport: state.viewport,
     }
+    let new_interaction : InteractionState = {
+      ..state.interaction,
+      panning: Some(pan),
+      pointer_down: true,
+      did_move: false,
+    }
+    { ..state, interaction: new_interaction }
+  } catch {
+    @spatial.PanStartError::InvalidPointer => state
   }
 }
 
@@ -38,31 +38,24 @@ pub fn update_pan_move(
       if !pointer.is_finite() {
         state
       } else {
-        match
-          @spatial.Pan::try_start(
-            viewport=pan.initial_viewport,
-            pointer=pan.start_pointer,
-          ) {
-          None => state
-          Some(gesture) =>
-            match gesture.try_viewport_at(pointer) {
-              None => state
-              Some(next_viewport) => {
-                let did_move = state.interaction.did_move ||
-                  screen_x != pan.start_pointer.x ||
-                  screen_y != pan.start_pointer.y
-                let new_interaction : InteractionState = {
-                  ..state.interaction,
-                  did_move,
-                }
-                {
-                  ..state,
-                  viewport: next_viewport,
-                  interaction: new_interaction,
-                }
-              }
-            }
+        let gesture = @spatial.Pan::start(
+          viewport=pan.initial_viewport,
+          pointer=pan.start_pointer,
+        ) catch {
+          @spatial.PanStartError::InvalidPointer => return state
         }
+        let next_viewport = gesture.viewport_at(pointer) catch {
+          @spatial.PanError::InvalidPointer => return state
+          @spatial.PanError::InvalidViewport(_) => return state
+        }
+        let did_move = state.interaction.did_move ||
+          screen_x != pan.start_pointer.x ||
+          screen_y != pan.start_pointer.y
+        let new_interaction : InteractionState = {
+          ..state.interaction,
+          did_move,
+        }
+        { ..state, viewport: next_viewport, interaction: new_interaction }
       }
     }
   }
@@ -86,15 +79,17 @@ pub fn update_zoom(
     let raw = old_scale * factor
     let new_scale = if raw < 0.1 { 0.1 } else if raw > 8.0 { 8.0 } else { raw }
     let anchor = @spatial.ScreenPoint::from_xy(x=cx, y=cy)
-    match
-      current_viewport.try_with_scale_around(anchor~, absolute_scale=new_scale) {
-      None => state
-      Some(new_viewport) =>
-        record_action(
-          { ..state, viewport: new_viewport },
-          SetViewport(new_viewport),
-        )
+    let new_viewport = current_viewport.with_scale_around(
+      anchor~,
+      absolute_scale=new_scale,
+    ) catch {
+      @spatial.ViewportTransformError::InvalidAnchor => return state
+      @spatial.ViewportTransformError::InvalidViewport(_) => return state
     }
+    record_action(
+      { ..state, viewport: new_viewport },
+      SetViewport(new_viewport),
+    )
   }
 }
 
@@ -274,39 +269,21 @@ fn update_connect_end(
 }
 
 ///|
-/// Compute a drag preview when the move remains finite.
-pub fn try_drag_preview_from_move(
-  drag : DragState,
-  world_x : Double,
-  world_y : Double,
-) -> DragPreview? {
-  drag.drag
-  .try_positions_at(@spatial.WorldPoint::from_xy(x=world_x, y=world_y))
-  .map(positions => {
-    let moved_positions = positions.map(item => {
-      node_id: item.id,
-      x: item.point.x,
-      y: item.point.y,
-    })
-    { positions: moved_positions }
-  })
-}
-
-///|
-/// Compute a drag preview for trusted finite input.
-///
-/// Invalid input produces an idle preview. Interactive hosts should use
-/// `try_drag_preview_from_move` so they can leave the current interaction state
-/// unchanged instead of marking a rejected move as movement.
+/// Compute a drag preview at a pointer position.
 pub fn drag_preview_from_move(
   drag : DragState,
   world_x : Double,
   world_y : Double,
-) -> DragPreview {
-  match try_drag_preview_from_move(drag, world_x, world_y) {
-    Some(preview) => preview
-    None => idle_drag_preview()
-  }
+) -> DragPreview raise @spatial.DragError {
+  let positions = drag.drag.positions_at(
+    @spatial.WorldPoint::from_xy(x=world_x, y=world_y),
+  )
+  let moved_positions = positions.map(item => {
+    node_id: item.id,
+    x: item.point.x,
+    y: item.point.y,
+  })
+  { positions: moved_positions }
 }
 
 ///|
@@ -344,19 +321,18 @@ fn update_node_drag_start(
       let snapshot : ReadOnlyArray[@spatial.ItemPosition[NodeId]] = ReadOnlyArray::from_array(
         positions[:],
       )
-      match @spatial.Drag::try_start(positions=snapshot, pointer~) {
-        None => state
-        Some(drag) => {
-          let drag_state : DragState = { node_id, drag }
-          let new_interaction : InteractionState = {
-            ..state.interaction,
-            dragging: Some(drag_state),
-            pointer_down: true,
-            did_move: false,
-          }
-          { ..state, interaction: new_interaction }
-        }
+      let drag = @spatial.Drag::start(positions=snapshot, pointer~) catch {
+        @spatial.DragStartError::InvalidPointer => return state
+        @spatial.DragStartError::InvalidPosition => return state
       }
+      let drag_state : DragState = { node_id, drag }
+      let new_interaction : InteractionState = {
+        ..state.interaction,
+        dragging: Some(drag_state),
+        pointer_down: true,
+        did_move: false,
+      }
+      { ..state, interaction: new_interaction }
     }
   }
 }

@@ -8,16 +8,42 @@ import {
 // Values
 
 // Errors
+pub(all) suberror DragError {
+  InvalidPointer
+  PositionOverflow
+} derive(Eq, @debug.Debug)
+
+pub(all) suberror DragStartError {
+  InvalidPointer
+  InvalidPosition
+} derive(Eq, @debug.Debug)
+
+pub(all) suberror PanError {
+  InvalidPointer
+  InvalidViewport(ViewportError)
+} derive(Eq, @debug.Debug)
+
+pub(all) suberror PanStartError {
+  InvalidPointer
+} derive(Eq, @debug.Debug)
+
+pub(all) suberror ViewportError {
+  InvalidOrigin
+  InvalidScale
+} derive(Eq, @debug.Debug)
+
+pub(all) suberror ViewportTransformError {
+  InvalidAnchor
+  InvalidViewport(ViewportError)
+} derive(Eq, @debug.Debug)
 
 // Types and methods
 pub struct Drag[Id] {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn[Id] Drag::initial_ids(Self[Id]) -> Array[Id]
-pub fn[Id] Drag::positions_at(Self[Id], WorldPoint) -> Array[ItemPosition[Id]]
-pub fn[Id] Drag::start(positions~ : ReadOnlyArray[ItemPosition[Id]], pointer~ : WorldPoint) -> Self[Id]
-pub fn[Id] Drag::try_positions_at(Self[Id], WorldPoint) -> Array[ItemPosition[Id]]?
-pub fn[Id] Drag::try_start(positions~ : ReadOnlyArray[ItemPosition[Id]], pointer~ : WorldPoint) -> Self[Id]?
+pub fn[Id] Drag::positions_at(Self[Id], WorldPoint) -> Array[ItemPosition[Id]] raise DragError
+pub fn[Id] Drag::start(positions~ : ReadOnlyArray[ItemPosition[Id]], pointer~ : WorldPoint) -> Self[Id] raise DragStartError
 
 pub struct ItemPosition[Id] {
   id : Id
@@ -28,10 +54,8 @@ pub fn[Id] ItemPosition::from_id_and_point(id~ : Id, point~ : WorldPoint) -> Sel
 pub struct Pan {
   // private fields
 }
-pub fn Pan::start(viewport~ : Viewport, pointer~ : ScreenPoint) -> Self
-pub fn Pan::try_start(viewport~ : Viewport, pointer~ : ScreenPoint) -> Self?
-pub fn Pan::try_viewport_at(Self, ScreenPoint) -> Viewport?
-pub fn Pan::viewport_at(Self, ScreenPoint) -> Viewport
+pub fn Pan::start(viewport~ : Viewport, pointer~ : ScreenPoint) -> Self raise PanStartError
+pub fn Pan::viewport_at(Self, ScreenPoint) -> Viewport raise PanError
 
 pub struct ScreenPoint {
   x : Double
@@ -43,13 +67,12 @@ pub fn ScreenPoint::is_finite(Self) -> Bool
 pub struct Viewport {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn Viewport::from_scale(origin~ : ScreenPoint, scale~ : Double) -> Self raise ViewportError
 pub fn Viewport::scale(Self) -> Double
 pub fn Viewport::screen_origin(Self) -> ScreenPoint
 pub fn Viewport::screen_to_world(Self, ScreenPoint) -> WorldPoint
-pub fn Viewport::try_from_scale(origin~ : ScreenPoint, scale~ : Double) -> Self?
-pub fn Viewport::try_with_scale_around(Self, anchor~ : ScreenPoint, absolute_scale~ : Double) -> Self?
 pub fn Viewport::validated(origin~ : ScreenPoint, scale~ : Double) -> Self
-pub fn Viewport::with_scale_around(Self, anchor~ : ScreenPoint, absolute_scale~ : Double) -> Self
+pub fn Viewport::with_scale_around(Self, anchor~ : ScreenPoint, absolute_scale~ : Double) -> Self raise ViewportTransformError
 pub fn Viewport::world_to_screen(Self, WorldPoint) -> ScreenPoint
 
 pub struct WorldPoint {

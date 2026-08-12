@@ -11,31 +11,22 @@ fn valid_scale(scale : Double) -> Bool {
 }
 
 ///|
-/// Construct a viewport with a finite origin and positive finite scale.
-///
-/// This constructor aborts for invalid input. Use `try_from_scale` when values
-/// come from an untrusted boundary.
-pub fn Viewport::validated(origin~ : ScreenPoint, scale~ : Double) -> Viewport {
-  match Viewport::try_from_scale(origin~, scale~) {
-    Some(viewport) => viewport
-    None =>
-      abort(
-        "viewport origin must be finite and scale must be finite and positive",
-      )
-  }
+/// Construct a viewport from an untrusted origin and scale.
+pub fn Viewport::from_scale(
+  origin~ : ScreenPoint,
+  scale~ : Double,
+) -> Viewport raise ViewportError {
+  guard origin.is_finite() else { raise ViewportError::InvalidOrigin }
+  guard valid_scale(scale) else { raise ViewportError::InvalidScale }
+  { origin, scale }
 }
 
 ///|
-/// Construct a viewport from untrusted input without aborting.
-pub fn Viewport::try_from_scale(
-  origin~ : ScreenPoint,
-  scale~ : Double,
-) -> Viewport? {
-  if origin.is_finite() && valid_scale(scale) {
-    Some({ origin, scale })
-  } else {
-    None
-  }
+/// Construct a viewport from trusted finite values.
+///
+/// Use `from_scale` when the values may be invalid.
+pub fn Viewport::validated(origin~ : ScreenPoint, scale~ : Double) -> Viewport {
+  try! Viewport::from_scale(origin~, scale~)
 }
 
 ///|
@@ -76,38 +67,21 @@ pub fn Viewport::world_to_screen(
 
 ///|
 /// Return a viewport with an absolute scale while keeping `anchor` fixed.
-///
-/// This method aborts for invalid input. Use `try_with_scale_around` when values
-/// come from an untrusted boundary.
 pub fn Viewport::with_scale_around(
   self : Viewport,
   anchor~ : ScreenPoint,
   absolute_scale~ : Double,
-) -> Viewport {
-  match self.try_with_scale_around(anchor~, absolute_scale~) {
-    Some(viewport) => viewport
-    None =>
-      abort(
-        "viewport anchor/origin must be finite and scale must be finite and positive",
-      )
+) -> Viewport raise ViewportTransformError {
+  guard anchor.is_finite() else { raise ViewportTransformError::InvalidAnchor }
+  guard valid_scale(absolute_scale) else {
+    raise ViewportTransformError::InvalidViewport(ViewportError::InvalidScale)
   }
-}
-
-///|
-/// Change scale around an anchor without aborting on invalid input.
-pub fn Viewport::try_with_scale_around(
-  self : Viewport,
-  anchor~ : ScreenPoint,
-  absolute_scale~ : Double,
-) -> Viewport? {
-  if !anchor.is_finite() || !valid_scale(absolute_scale) {
-    None
-  } else {
-    let world_anchor = self.screen_to_world(anchor)
-    let origin = ScreenPoint::from_xy(
-      x=anchor.x - world_anchor.x * absolute_scale,
-      y=anchor.y - world_anchor.y * absolute_scale,
-    )
-    Viewport::try_from_scale(origin~, scale=absolute_scale)
+  let world_anchor = self.screen_to_world(anchor)
+  let origin = ScreenPoint::from_xy(
+    x=anchor.x - world_anchor.x * absolute_scale,
+    y=anchor.y - world_anchor.y * absolute_scale,
+  )
+  Viewport::from_scale(origin~, scale=absolute_scale) catch {
+    error => raise ViewportTransformError::InvalidViewport(error)
   }
 }

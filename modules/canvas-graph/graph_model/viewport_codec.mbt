@@ -53,13 +53,17 @@ impl @json.FromJson for ViewportCodec with fn from_json(json, path) {
     y=viewport_codec_json_number_field(fields, path, "y"),
   )
   let scale = viewport_codec_json_number_field(fields, path, "scale")
-  match @spatial.Viewport::try_from_scale(origin~, scale~) {
-    Some(viewport) => ViewportCodec(viewport)
-    None =>
+  let viewport = @spatial.Viewport::from_scale(origin~, scale~) catch {
+    @spatial.ViewportError::InvalidOrigin =>
+      raise @json.JsonDecodeError(
+        (path, "Viewport: origin coordinates must be finite"),
+      )
+    @spatial.ViewportError::InvalidScale =>
       raise @json.JsonDecodeError(
         (path.add_key("scale"), "Viewport: 'scale' must be finite and positive"),
       )
   }
+  ViewportCodec(viewport)
 }
 
 ///|

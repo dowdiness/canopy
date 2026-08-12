@@ -30,44 +30,92 @@ test "finite viewport scales are accepted" {
 }
 
 ///|
-test "checked viewport constructor rejects invalid scales" {
+test "viewport constructor raises typed errors for invalid scales" {
   let origin = ScreenPoint::from_xy(x=12.0, y=-7.0)
-  assert_eq(Viewport::try_from_scale(origin~, scale=0.0), None)
-  assert_eq(Viewport::try_from_scale(origin~, scale=-1.0), None)
-  assert_eq(Viewport::try_from_scale(origin~, scale=0.0 / 0.0), None)
+  let zero = try {
+    ignore(Viewport::from_scale(origin~, scale=0.0))
+    None
+  } catch {
+    ViewportError::InvalidScale => Some(())
+    _ => fail("unexpected viewport error")
+  }
+  let negative = try {
+    ignore(Viewport::from_scale(origin~, scale=-1.0))
+    None
+  } catch {
+    ViewportError::InvalidScale => Some(())
+    _ => fail("unexpected viewport error")
+  }
+  let nan = try {
+    ignore(Viewport::from_scale(origin~, scale=0.0 / 0.0))
+    None
+  } catch {
+    ViewportError::InvalidScale => Some(())
+    _ => fail("unexpected viewport error")
+  }
+  assert_true(zero is Some(_))
+  assert_true(negative is Some(_))
+  assert_true(nan is Some(_))
   assert_eq(
-    Viewport::try_from_scale(origin~, scale=2.0),
-    Some(Viewport::validated(origin~, scale=2.0)),
+    Viewport::from_scale(origin~, scale=2.0),
+    Viewport::validated(origin~, scale=2.0),
   )
 }
 
 ///|
-test "checked viewport constructor rejects non-finite origins" {
+test "viewport constructor raises for non-finite origins" {
   let nan_x = ScreenPoint::from_xy(x=0.0 / 0.0, y=0.0)
   let infinite_y = ScreenPoint::from_xy(x=0.0, y=1.0 / 0.0)
   assert_true(!nan_x.is_finite())
   assert_true(!infinite_y.is_finite())
-  assert_eq(Viewport::try_from_scale(origin=nan_x, scale=1.0), None)
-  assert_eq(Viewport::try_from_scale(origin=infinite_y, scale=1.0), None)
+  let nan_result = try {
+    ignore(Viewport::from_scale(origin=nan_x, scale=1.0))
+    None
+  } catch {
+    ViewportError::InvalidOrigin => Some(())
+    _ => fail("unexpected viewport error")
+  }
+  let infinite_result = try {
+    ignore(Viewport::from_scale(origin=infinite_y, scale=1.0))
+    None
+  } catch {
+    ViewportError::InvalidOrigin => Some(())
+    _ => fail("unexpected viewport error")
+  }
+  assert_true(nan_result is Some(_))
+  assert_true(infinite_result is Some(_))
 }
 
 ///|
 test "anchored scale rejects non-finite anchors and origins" {
   let viewport = viewport_for_test(0.0, 0.0, 1.0e-308)
-  assert_eq(
-    viewport.try_with_scale_around(
-      anchor=ScreenPoint::from_xy(x=0.0 / 0.0, y=0.0),
-      absolute_scale=1.0,
-    ),
-    None,
-  )
-  assert_eq(
-    viewport.try_with_scale_around(
-      anchor=ScreenPoint::from_xy(x=1.0e308, y=0.0),
-      absolute_scale=1.0,
-    ),
-    None,
-  )
+  let invalid_anchor = try {
+    ignore(
+      viewport.with_scale_around(
+        anchor=ScreenPoint::from_xy(x=0.0 / 0.0, y=0.0),
+        absolute_scale=1.0,
+      ),
+    )
+    None
+  } catch {
+    ViewportTransformError::InvalidAnchor => Some(())
+    _ => fail("unexpected viewport transform error")
+  }
+  let overflowing_origin = try {
+    ignore(
+      viewport.with_scale_around(
+        anchor=ScreenPoint::from_xy(x=1.0e308, y=0.0),
+        absolute_scale=1.0,
+      ),
+    )
+    None
+  } catch {
+    ViewportTransformError::InvalidViewport(ViewportError::InvalidOrigin) =>
+      Some(())
+    _ => fail("unexpected viewport transform error")
+  }
+  assert_true(invalid_anchor is Some(_))
+  assert_true(overflowing_origin is Some(_))
 }
 
 ///|
@@ -104,11 +152,24 @@ test "viewport scale law preserves the screen anchor" {
     assert_close(projected.y, anchor.y)
     assert_close(changed.scale(), scale)
   }
-  assert_eq(viewport.try_with_scale_around(anchor~, absolute_scale=0.0), None)
-  assert_eq(
-    viewport.try_with_scale_around(anchor~, absolute_scale=1.0 / 0.0),
-    None,
-  )
+  let zero_scale = try {
+    ignore(viewport.with_scale_around(anchor~, absolute_scale=0.0))
+    None
+  } catch {
+    ViewportTransformError::InvalidViewport(ViewportError::InvalidScale) =>
+      Some(())
+    _ => fail("unexpected viewport transform error")
+  }
+  let infinite_scale = try {
+    ignore(viewport.with_scale_around(anchor~, absolute_scale=1.0 / 0.0))
+    None
+  } catch {
+    ViewportTransformError::InvalidViewport(ViewportError::InvalidScale) =>
+      Some(())
+    _ => fail("unexpected viewport transform error")
+  }
+  assert_true(zero_scale is Some(_))
+  assert_true(infinite_scale is Some(_))
 }
 
 ///|
@@ -138,32 +199,61 @@ test "pan rejects a non-finite translated origin" {
     viewport=viewport_for_test(0.0, 0.0, 1.0),
     pointer=ScreenPoint::from_xy(x=-1.0e308, y=0.0),
   )
-  assert_eq(pan.try_viewport_at(ScreenPoint::from_xy(x=1.0e308, y=0.0)), None)
+  let result = try {
+    ignore(pan.viewport_at(ScreenPoint::from_xy(x=1.0e308, y=0.0)))
+    None
+  } catch {
+    PanError::InvalidViewport(ViewportError::InvalidOrigin) => Some(())
+    _ => fail("unexpected pan error")
+  }
+  assert_true(result is Some(_))
 }
 
 ///|
 test "checked gesture starts reject non-finite snapshots" {
   let viewport = viewport_for_test(0.0, 0.0, 1.0)
-  assert_true(
-    Pan::try_start(viewport~, pointer=ScreenPoint::from_xy(x=0.0 / 0.0, y=0.0))
-    is None,
-  )
+  let invalid_pan = try {
+    ignore(
+      Pan::start(viewport~, pointer=ScreenPoint::from_xy(x=0.0 / 0.0, y=0.0)),
+    )
+    None
+  } catch {
+    PanStartError::InvalidPointer => Some(())
+  }
+  assert_true(invalid_pan is Some(_))
   let invalid_positions : Array[ItemPosition[String]] = [
     ItemPosition::from_id_and_point(
       id="invalid",
       point=WorldPoint::from_xy(x=1.0 / 0.0, y=0.0),
     ),
   ]
-  let invalid_drag : Drag[String]? = Drag::try_start(
-    positions=ReadOnlyArray::from_array(invalid_positions[:]),
-    pointer=WorldPoint::from_xy(x=0.0, y=0.0),
-  )
-  assert_true(invalid_drag is None)
-  let invalid_pointer_drag : Drag[String]? = Drag::try_start(
-    positions=[],
-    pointer=WorldPoint::from_xy(x=0.0 / 0.0, y=0.0),
-  )
-  assert_true(invalid_pointer_drag is None)
+  let invalid_drag = try {
+    ignore(
+      Drag::start(
+        positions=ReadOnlyArray::from_array(invalid_positions[:]),
+        pointer=WorldPoint::from_xy(x=0.0, y=0.0),
+      ),
+    )
+    None
+  } catch {
+    DragStartError::InvalidPosition => Some(())
+    _ => fail("unexpected drag start error")
+  }
+  let empty_positions : ReadOnlyArray[ItemPosition[String]] = []
+  let invalid_pointer_drag = try {
+    ignore(
+      Drag::start(
+        positions=empty_positions,
+        pointer=WorldPoint::from_xy(x=0.0 / 0.0, y=0.0),
+      ),
+    )
+    None
+  } catch {
+    DragStartError::InvalidPointer => Some(())
+    _ => fail("unexpected drag start error")
+  }
+  assert_true(invalid_drag is Some(_))
+  assert_true(invalid_pointer_drag is Some(_))
 }
 
 ///|
@@ -256,10 +346,14 @@ test "checked drag movement rejects non-finite input and overflow" {
     ],
     pointer=WorldPoint::from_xy(x=0.0, y=0.0),
   )
-  assert_eq(
-    drag.try_positions_at(WorldPoint::from_xy(x=0.0 / 0.0, y=0.0)),
-    None,
-  )
+  let invalid_pointer = try {
+    ignore(drag.positions_at(WorldPoint::from_xy(x=0.0 / 0.0, y=0.0)))
+    None
+  } catch {
+    DragError::InvalidPointer => Some(())
+    _ => fail("unexpected drag error")
+  }
+  assert_true(invalid_pointer is Some(_))
 
   let overflowing = Drag::start(
     positions=[
@@ -270,10 +364,14 @@ test "checked drag movement rejects non-finite input and overflow" {
     ],
     pointer=WorldPoint::from_xy(x=-1.0e308, y=0.0),
   )
-  assert_eq(
-    overflowing.try_positions_at(WorldPoint::from_xy(x=1.0e308, y=0.0)),
-    None,
-  )
+  let overflow = try {
+    ignore(overflowing.positions_at(WorldPoint::from_xy(x=1.0e308, y=0.0)))
+    None
+  } catch {
+    DragError::PositionOverflow => Some(())
+    _ => fail("unexpected drag error")
+  }
+  assert_true(overflow is Some(_))
 }
 
 ///|
@@ -295,32 +393,27 @@ test "positive world and screen directions agree" {
 }
 
 ///|
-test "panic viewport rejects zero scale" {
+test "validated viewport construction remains trusted-only" {
+  let viewport = viewport_for_test(0.0, 0.0, 1.0)
+  assert_eq(viewport.scale(), 1.0)
+}
+
+///|
+test "panic validated viewport rejects zero scale" {
   ignore(viewport_for_test(0.0, 0.0, 0.0))
 }
 
 ///|
-test "panic viewport rejects negative scale" {
+test "panic validated viewport rejects negative scale" {
   ignore(viewport_for_test(0.0, 0.0, -1.0))
 }
 
 ///|
-test "panic viewport rejects non-finite scale" {
+test "panic validated viewport rejects NaN scale" {
   ignore(viewport_for_test(0.0, 0.0, 0.0 / 0.0))
 }
 
 ///|
-test "panic viewport rejects positive infinity scale" {
+test "panic validated viewport rejects infinite scale" {
   ignore(viewport_for_test(0.0, 0.0, 1.0 / 0.0))
-}
-
-///|
-test "panic viewport rejects positive infinity update scale" {
-  let viewport = viewport_for_test(0.0, 0.0, 1.0)
-  ignore(
-    viewport.with_scale_around(
-      anchor=ScreenPoint::from_xy(x=10.0, y=20.0),
-      absolute_scale=1.0 / 0.0,
-    ),
-  )
 }

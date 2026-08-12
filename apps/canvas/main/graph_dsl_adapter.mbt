@@ -811,15 +811,16 @@ fn SourceBackedGraph::pointer_move(
       match state.interaction.dragging {
         Some(drag) => {
           let (wx, wy) = @graph_model.screen_to_world(state.viewport, sx, sy)
-          match @graph_model.try_drag_preview_from_move(drag, wx, wy) {
-            None => ()
-            Some(preview) => {
-              self.drag_preview = preview
-              self.interaction = {
-                ..state.interaction,
-                did_move: true,
-              }
+          try {
+            let preview = @graph_model.drag_preview_from_move(drag, wx, wy)
+            self.drag_preview = preview
+            self.interaction = {
+              ..state.interaction,
+              did_move: true,
             }
+          } catch {
+            @spatial.DragError::InvalidPointer
+            | @spatial.DragError::PositionOverflow => ()
           }
         }
         None =>

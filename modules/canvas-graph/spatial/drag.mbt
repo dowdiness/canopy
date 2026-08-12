@@ -23,14 +23,16 @@ pub struct Drag[Id] {
 
 ///|
 /// Capture initial item positions and the pointer position at drag start.
-/// The caller must provide a finite snapshot; use `try_start` for untrusted
-/// input.
 pub fn[Id] Drag::start(
   positions~ : ReadOnlyArray[ItemPosition[Id]],
   pointer~ : WorldPoint,
-) -> Drag[Id] {
+) -> Drag[Id] raise DragStartError {
+  guard pointer.is_finite() else { raise DragStartError::InvalidPointer }
   let snapshot : Array[ItemPosition[Id]] = [
     for item in positions => {
+      guard item.point.is_finite() else {
+        raise DragStartError::InvalidPosition
+      }
       ItemPosition::from_id_and_point(id=item.id, point=item.point)
     }
   ]
@@ -38,59 +40,23 @@ pub fn[Id] Drag::start(
 }
 
 ///|
-/// Capture a drag gesture only when its snapshot is finite.
-pub fn[Id] Drag::try_start(
-  positions~ : ReadOnlyArray[ItemPosition[Id]],
-  pointer~ : WorldPoint,
-) -> Drag[Id]? {
-  let snapshot : Array[ItemPosition[Id]] = [
-    for item in positions => {
-      ItemPosition::from_id_and_point(id=item.id, point=item.point)
-    }
-  ]
-  if pointer.is_finite() && snapshot.all(item => item.point.is_finite()) {
-    Some({ initial_positions: snapshot, initial_pointer: pointer })
-  } else {
-    None
-  }
-}
-
-///|
-/// Compute item positions from the original snapshot at a finite pointer point.
-/// Use `try_positions_at` for untrusted pointer input.
+/// Compute item positions from the original snapshot at a pointer point.
 pub fn[Id] Drag::positions_at(
   self : Drag[Id],
   current_pointer : WorldPoint,
-) -> Array[ItemPosition[Id]] {
+) -> Array[ItemPosition[Id]] raise DragError {
+  guard current_pointer.is_finite() else { raise DragError::InvalidPointer }
   let delta_x = current_pointer.x - self.initial_pointer.x
   let delta_y = current_pointer.y - self.initial_pointer.y
-  self.initial_positions.map(item => {
-    ItemPosition::from_id_and_point(
-      id=item.id,
-      point=WorldPoint::from_xy(
-        x=item.point.x + delta_x,
-        y=item.point.y + delta_y,
-      ),
+  let positions = self.initial_positions.map(item => {
+    let point = WorldPoint::from_xy(
+      x=item.point.x + delta_x,
+      y=item.point.y + delta_y,
     )
+    guard point.is_finite() else { raise DragError::PositionOverflow }
+    ItemPosition::from_id_and_point(id=item.id, point~)
   })
-}
-
-///|
-/// Compute item positions without returning a non-finite result.
-pub fn[Id] Drag::try_positions_at(
-  self : Drag[Id],
-  current_pointer : WorldPoint,
-) -> Array[ItemPosition[Id]]? {
-  if !current_pointer.is_finite() {
-    None
-  } else {
-    let positions = self.positions_at(current_pointer)
-    if positions.all(item => item.point.is_finite()) {
-      Some(positions)
-    } else {
-      None
-    }
-  }
+  positions
 }
 
 ///|

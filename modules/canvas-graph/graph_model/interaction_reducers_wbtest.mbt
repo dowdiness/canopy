@@ -205,7 +205,7 @@ test "node_drag_start is no-op for unknown node id" {
 test "pointer_up records a MoveNodes action after drag" {
   let state = make_test_state()
   let s0 = update_node_drag_start(state, NodeId("1"), 110.0, 120.0)
-  let preview = drag_preview_from_move(
+  let preview = try! drag_preview_from_move(
     match s0.interaction.dragging {
       Some(drag) => drag
       None => fail("expected active drag")
@@ -237,7 +237,14 @@ test "invalid drag move is ignored before pointer up" {
     Some(drag) => drag
     None => fail("expected active drag")
   }
-  assert_eq(try_drag_preview_from_move(drag, 1.0 / 0.0, 200.0), None)
+  let rejected = try {
+    ignore(drag_preview_from_move(drag, 1.0 / 0.0, 200.0))
+    false
+  } catch {
+    @spatial.DragError::InvalidPointer => true
+    @spatial.DragError::PositionOverflow => true
+  }
+  assert_true(rejected)
   let released = update_pointer_up(started, "1", "", false)
   assert_eq(released.nodes[0].x, 100.0)
   assert_eq(released.nodes[0].y, 100.0)

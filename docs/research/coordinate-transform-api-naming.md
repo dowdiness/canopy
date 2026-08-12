@@ -25,7 +25,9 @@ This note compares naming used by established first-party coordinate and gesture
 The recurring choices are verbs (`apply`, `project`, `transformPoint`), explicit
 coordinate directions (`screenToFlowPosition`), and paired reverse names
 (`invert`, `unproject`). A bare `to` is not the dominant convention for a pure
-coordinate calculation.
+coordinate calculation. In MoonBit, expected invalid input is represented by a
+concrete `raise` error at the same operation boundary rather than by a parallel
+`try_*` API that discards the failure reason.
 
 ## Implications for Canopy
 
@@ -33,7 +35,8 @@ coordinate calculation.
   explicit convention: both coordinate spaces are named.
 - `Viewport::with_scale_around` describes the anchor-preserving operation more
   directly than `with_scale_to`; the latter would suggest a target state rather
-  than an anchor point. The checked counterpart is `try_with_scale_around`.
+  than an anchor point. Its `raise ViewportTransformError` signature makes
+  invalid anchors, scales, and derived origins explicit.
 - `Drag::positions_at(pointer)` makes the result explicit: it evaluates the
   snapshot and returns item positions at the supplied pointer position.
 - `Drag::start` and `Drag::positions_at(pointer)` keep the gesture snapshot and
@@ -45,6 +48,7 @@ coordinate calculation.
 ## Recommendation
 
 Use explicit result nouns for gesture evaluation (`viewport_at` and
-`positions_at`), directional names for coordinate conversion, and semantic
-constructors for snapshots/value objects. These are now the names used by the
-`spatial` interface.
+`positions_at`), directional names for coordinate conversion, semantic
+constructors for snapshots/value objects, and concrete `raise` errors for
+recoverable invalid input. These are now the names used by the `spatial`
+interface.
