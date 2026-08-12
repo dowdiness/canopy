@@ -142,6 +142,31 @@ test "pan rejects a non-finite translated origin" {
 }
 
 ///|
+test "checked gesture starts reject non-finite snapshots" {
+  let viewport = viewport_for_test(0.0, 0.0, 1.0)
+  assert_true(
+    Pan::try_start(viewport~, pointer=ScreenPoint::from_xy(x=0.0 / 0.0, y=0.0))
+    is None,
+  )
+  let invalid_positions : Array[ItemPosition[String]] = [
+    ItemPosition::from_id_and_point(
+      id="invalid",
+      point=WorldPoint::from_xy(x=1.0 / 0.0, y=0.0),
+    ),
+  ]
+  let invalid_drag : Drag[String]? = Drag::try_start(
+    positions=ReadOnlyArray::from_array(invalid_positions[:]),
+    pointer=WorldPoint::from_xy(x=0.0, y=0.0),
+  )
+  assert_true(invalid_drag is None)
+  let invalid_pointer_drag : Drag[String]? = Drag::try_start(
+    positions=[],
+    pointer=WorldPoint::from_xy(x=0.0 / 0.0, y=0.0),
+  )
+  assert_true(invalid_pointer_drag is None)
+}
+
+///|
 test "drag snapshots initial positions and is path independent" {
   let positions = [
     ItemPosition::from_id_and_point(
@@ -218,6 +243,37 @@ test "drag preserves initial positions at large magnitudes" {
   let result = drag.positions_at(pointer)
   assert_close(result[0].point.x, initial.point.x)
   assert_close(result[0].point.y, initial.point.y)
+}
+
+///|
+test "checked drag movement rejects non-finite input and overflow" {
+  let drag = Drag::start(
+    positions=[
+      ItemPosition::from_id_and_point(
+        id="item",
+        point=WorldPoint::from_xy(x=0.0, y=0.0),
+      ),
+    ],
+    pointer=WorldPoint::from_xy(x=0.0, y=0.0),
+  )
+  assert_eq(
+    drag.try_positions_at(WorldPoint::from_xy(x=0.0 / 0.0, y=0.0)),
+    None,
+  )
+
+  let overflowing = Drag::start(
+    positions=[
+      ItemPosition::from_id_and_point(
+        id="item",
+        point=WorldPoint::from_xy(x=1.0e308, y=0.0),
+      ),
+    ],
+    pointer=WorldPoint::from_xy(x=-1.0e308, y=0.0),
+  )
+  assert_eq(
+    overflowing.try_positions_at(WorldPoint::from_xy(x=1.0e308, y=0.0)),
+    None,
+  )
 }
 
 ///|

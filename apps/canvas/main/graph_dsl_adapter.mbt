@@ -811,12 +811,16 @@ fn SourceBackedGraph::pointer_move(
       match state.interaction.dragging {
         Some(drag) => {
           let (wx, wy) = @graph_model.screen_to_world(state.viewport, sx, sy)
-          let new_interaction : InteractionState = {
-            ..state.interaction,
-            did_move: true,
+          match @graph_model.try_drag_preview_from_move(drag, wx, wy) {
+            None => ()
+            Some(preview) => {
+              self.drag_preview = preview
+              self.interaction = {
+                ..state.interaction,
+                did_move: true,
+              }
+            }
           }
-          self.drag_preview = @graph_model.drag_preview_from_move(drag, wx, wy)
-          self.interaction = new_interaction
         }
         None =>
           match state.interaction.panning {

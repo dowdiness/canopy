@@ -85,6 +85,27 @@ fn compatibility_for(
 }
 
 ///|
+test "runtime ignores non-finite drag moves before commit" {
+  let runtime = CanvasRuntime::CanvasRuntime()
+  let initial = runtime.state_peek()
+  let node = initial.nodes[0]
+  let screen = initial.viewport.world_to_screen(
+    @spatial.WorldPoint::from_xy(x=node.x, y=node.y),
+  )
+  runtime.pointer_down(Some(node.id), screen.x, screen.y)
+  runtime.pointer_move(1.0 / 0.0, screen.y)
+  runtime.pointer_up(node.id.to_string(), "", false)
+  let next = runtime.state_peek()
+  assert_eq(next.nodes[0].x, node.x)
+  assert_eq(next.nodes[0].y, node.y)
+  assert_true(next.action_log.length() > 0)
+  match next.action_log[0].action() {
+    MoveNodes(_) => fail("invalid drag move must not commit")
+    _ => ()
+  }
+}
+
+///|
 test "runtime compatibility export batches graph model results" {
   let runtime = CanvasRuntime::CanvasRuntime()
   let entries = runtime.input_port_compatibility(NodeId("2"), "json")

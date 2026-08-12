@@ -16,6 +16,8 @@ pub struct Drag[Id] {
 pub fn[Id] Drag::initial_ids(Self[Id]) -> Array[Id]
 pub fn[Id] Drag::positions_at(Self[Id], WorldPoint) -> Array[ItemPosition[Id]]
 pub fn[Id] Drag::start(positions~ : ReadOnlyArray[ItemPosition[Id]], pointer~ : WorldPoint) -> Self[Id]
+pub fn[Id] Drag::try_positions_at(Self[Id], WorldPoint) -> Array[ItemPosition[Id]]?
+pub fn[Id] Drag::try_start(positions~ : ReadOnlyArray[ItemPosition[Id]], pointer~ : WorldPoint) -> Self[Id]?
 
 pub struct ItemPosition[Id] {
   id : Id
@@ -27,6 +29,7 @@ pub struct Pan {
   // private fields
 }
 pub fn Pan::start(viewport~ : Viewport, pointer~ : ScreenPoint) -> Self
+pub fn Pan::try_start(viewport~ : Viewport, pointer~ : ScreenPoint) -> Self?
 pub fn Pan::try_viewport_at(Self, ScreenPoint) -> Viewport?
 pub fn Pan::viewport_at(Self, ScreenPoint) -> Viewport
 

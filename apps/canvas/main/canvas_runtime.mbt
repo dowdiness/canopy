@@ -431,8 +431,13 @@ fn CanvasRuntime::sync_drag_preview_move(
   sy : Double,
 ) -> Unit {
   let (wx, wy) = @graph_model.screen_to_world(state.viewport, sx, sy)
-  self.set_drag_preview(@graph_model.drag_preview_from_move(drag, wx, wy))
-  self.set_interaction({ ..state.interaction, did_move: true })
+  match @graph_model.try_drag_preview_from_move(drag, wx, wy) {
+    None => ()
+    Some(preview) => {
+      self.set_drag_preview(preview)
+      self.set_interaction({ ..state.interaction, did_move: true })
+    }
+  }
 }
 
 ///|

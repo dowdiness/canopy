@@ -48,6 +48,8 @@ pub fn selection_from_interaction(InteractionState) -> SelectionState
 
 pub fn state_with_preview_nodes(CanvasState, DragPreview) -> CanvasState
 
+pub fn try_drag_preview_from_move(DragState, Double, Double) -> DragPreview?
+
 pub fn update_connect_move(CanvasState, Double, Double) -> CanvasState
 
 pub fn update_connect_start(CanvasState, NodeId, String, Double, Double) -> CanvasState

@@ -7,12 +7,24 @@ pub struct Pan {
 
 ///|
 /// Capture the viewport and pointer at the beginning of a pan gesture.
+/// The caller must provide a finite pointer; use `try_start` for untrusted input.
 pub fn Pan::start(viewport~ : Viewport, pointer~ : ScreenPoint) -> Pan {
   { initial_viewport: viewport, initial_pointer: pointer }
 }
 
 ///|
-/// Compute the viewport at a pointer position from the original snapshot.
+/// Capture a pan gesture without accepting a non-finite start pointer.
+pub fn Pan::try_start(viewport~ : Viewport, pointer~ : ScreenPoint) -> Pan? {
+  if pointer.is_finite() {
+    Some({ initial_viewport: viewport, initial_pointer: pointer })
+  } else {
+    None
+  }
+}
+
+///|
+/// Compute the viewport at a finite pointer position from the original snapshot.
+/// Use `try_viewport_at` for untrusted pointer input.
 pub fn Pan::viewport_at(self : Pan, pointer : ScreenPoint) -> Viewport {
   match self.try_viewport_at(pointer) {
     Some(viewport) => viewport

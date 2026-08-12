@@ -23,6 +23,8 @@ pub struct Drag[Id] {
 
 ///|
 /// Capture initial item positions and the pointer position at drag start.
+/// The caller must provide a finite snapshot; use `try_start` for untrusted
+/// input.
 pub fn[Id] Drag::start(
   positions~ : ReadOnlyArray[ItemPosition[Id]],
   pointer~ : WorldPoint,
@@ -36,7 +38,26 @@ pub fn[Id] Drag::start(
 }
 
 ///|
-/// Compute item positions from the original snapshot at a new pointer point.
+/// Capture a drag gesture only when its snapshot is finite.
+pub fn[Id] Drag::try_start(
+  positions~ : ReadOnlyArray[ItemPosition[Id]],
+  pointer~ : WorldPoint,
+) -> Drag[Id]? {
+  let snapshot : Array[ItemPosition[Id]] = [
+    for item in positions => {
+      ItemPosition::from_id_and_point(id=item.id, point=item.point)
+    }
+  ]
+  if pointer.is_finite() && snapshot.all(item => item.point.is_finite()) {
+    Some({ initial_positions: snapshot, initial_pointer: pointer })
+  } else {
+    None
+  }
+}
+
+///|
+/// Compute item positions from the original snapshot at a finite pointer point.
+/// Use `try_positions_at` for untrusted pointer input.
 pub fn[Id] Drag::positions_at(
   self : Drag[Id],
   current_pointer : WorldPoint,
@@ -52,6 +73,24 @@ pub fn[Id] Drag::positions_at(
       ),
     )
   })
+}
+
+///|
+/// Compute item positions without returning a non-finite result.
+pub fn[Id] Drag::try_positions_at(
+  self : Drag[Id],
+  current_pointer : WorldPoint,
+) -> Array[ItemPosition[Id]]? {
+  if !current_pointer.is_finite() {
+    None
+  } else {
+    let positions = self.positions_at(current_pointer)
+    if positions.all(item => item.point.is_finite()) {
+      Some(positions)
+    } else {
+      None
+    }
+  }
 }
 
 ///|

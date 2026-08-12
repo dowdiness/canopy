@@ -106,6 +106,11 @@ test "pan, zoom, and drag reject non-finite input" {
   let invalid_zoom = update_zoom(state, 1.0, 0.0 / 0.0, 0.0)
   assert_eq(invalid_zoom.viewport, state.viewport)
   assert_eq(invalid_zoom.action_log.length(), 0)
+  for delta in [0.0 / 0.0, 1.0 / 0.0, -1.0 / 0.0] {
+    let invalid_delta_zoom = update_zoom(state, delta, 0.0, 0.0)
+    assert_eq(invalid_delta_zoom.viewport, state.viewport)
+    assert_eq(invalid_delta_zoom.action_log.length(), 0)
+  }
 
   let invalid_drag = update_node_drag_start(state, NodeId("1"), 0.0, 1.0 / 0.0)
   assert_true(invalid_drag.interaction.dragging is None)
@@ -221,6 +226,24 @@ test "pointer_up records a MoveNodes action after drag" {
       inspect(positions[0].y, content="280")
     }
     _ => fail("expected MoveNodes action")
+  }
+}
+
+///|
+test "invalid drag move is ignored before pointer up" {
+  let state = make_test_state()
+  let started = update_node_drag_start(state, NodeId("1"), 100.0, 100.0)
+  let drag = match started.interaction.dragging {
+    Some(drag) => drag
+    None => fail("expected active drag")
+  }
+  assert_eq(try_drag_preview_from_move(drag, 1.0 / 0.0, 200.0), None)
+  let released = update_pointer_up(started, "1", "", false)
+  assert_eq(released.nodes[0].x, 100.0)
+  assert_eq(released.nodes[0].y, 100.0)
+  match released.action_log[0].action() {
+    MoveNodes(_) => fail("invalid drag move must not commit")
+    _ => ()
   }
 }
 

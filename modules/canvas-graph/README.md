@@ -25,7 +25,9 @@ Its origin coordinates and scale are always finite, and its scale is positive:
 internal construction uses `Viewport::validated`, while untrusted input can use
 `try_from_scale` without creating an invalid value. Screen/world point values
 expose `is_finite` so host input boundaries can reject non-finite coordinates
-before starting pan, zoom, or drag transitions.
+before starting pan, zoom, or drag transitions. `Pan::try_start`,
+`Drag::try_start`, and `Drag::try_positions_at` provide fallible gesture
+boundaries; their trusted counterparts are reserved for already-validated data.
 
 The GraphOperation V2 JSON wire shape remains `{x, y, scale}`. The
 `graph_model` serialization boundary owns its strict encoding and decoding;
