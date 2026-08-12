@@ -82,7 +82,9 @@ visible state. This projection provides:
 
 The indexed visible state is the working set for interactive editing. It is
 updated directly by local edits and by remote operations that extend the
-current frontier without requiring retreat.
+current frontier without requiring retreat. Position queries do not require
+causal metadata that exists only for merge or replay to remain resident in the
+normal projection.
 
 ### Merge projection: FugueTree materialization
 
