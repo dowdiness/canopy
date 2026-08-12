@@ -42,6 +42,35 @@ test "checked viewport constructor rejects invalid scales" {
 }
 
 ///|
+test "checked viewport constructor rejects non-finite origins" {
+  let nan_x = ScreenPoint::from_xy(x=0.0 / 0.0, y=0.0)
+  let infinite_y = ScreenPoint::from_xy(x=0.0, y=1.0 / 0.0)
+  assert_true(!nan_x.is_finite())
+  assert_true(!infinite_y.is_finite())
+  assert_eq(Viewport::try_from_scale(origin=nan_x, scale=1.0), None)
+  assert_eq(Viewport::try_from_scale(origin=infinite_y, scale=1.0), None)
+}
+
+///|
+test "anchored scale rejects non-finite anchors and origins" {
+  let viewport = viewport_for_test(0.0, 0.0, 1.0e-308)
+  assert_eq(
+    viewport.try_with_scale_around(
+      anchor=ScreenPoint::from_xy(x=0.0 / 0.0, y=0.0),
+      absolute_scale=1.0,
+    ),
+    None,
+  )
+  assert_eq(
+    viewport.try_with_scale_around(
+      anchor=ScreenPoint::from_xy(x=1.0e308, y=0.0),
+      absolute_scale=1.0,
+    ),
+    None,
+  )
+}
+
+///|
 test "viewport round trip law holds for finite points and scales" {
   let viewports = [
     viewport_for_test(-80.0, 45.0, 0.25),
@@ -101,6 +130,15 @@ test "pan at is path independent from its snapshot" {
   assert_close(repeated.screen_origin().x, direct.screen_origin().x)
   assert_close(repeated.screen_origin().y, direct.screen_origin().y)
   assert_close(repeated.scale(), direct.scale())
+}
+
+///|
+test "pan rejects a non-finite translated origin" {
+  let pan = Pan::start(
+    viewport=viewport_for_test(0.0, 0.0, 1.0),
+    pointer=ScreenPoint::from_xy(x=-1.0e308, y=0.0),
+  )
+  assert_eq(pan.try_viewport_at(ScreenPoint::from_xy(x=1.0e308, y=0.0)), None)
 }
 
 ///|

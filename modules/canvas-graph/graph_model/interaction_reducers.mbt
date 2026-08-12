@@ -4,17 +4,22 @@ fn update_pan_start(
   screen_x : Double,
   screen_y : Double,
 ) -> CanvasState {
-  let pan : PanState = {
-    start_pointer: @spatial.ScreenPoint::from_xy(x=screen_x, y=screen_y),
-    initial_viewport: state.viewport,
+  let pointer = @spatial.ScreenPoint::from_xy(x=screen_x, y=screen_y)
+  if !pointer.is_finite() {
+    state
+  } else {
+    let pan : PanState = {
+      start_pointer: pointer,
+      initial_viewport: state.viewport,
+    }
+    let new_interaction : InteractionState = {
+      ..state.interaction,
+      panning: Some(pan),
+      pointer_down: true,
+      did_move: false,
+    }
+    { ..state, interaction: new_interaction }
   }
-  let new_interaction : InteractionState = {
-    ..state.interaction,
-    panning: Some(pan),
-    pointer_down: true,
-    did_move: false,
-  }
-  { ..state, interaction: new_interaction }
 }
 
 ///|
@@ -29,18 +34,27 @@ pub fn update_pan_move(
     None => state
     Some(pan) => {
       let pointer = @spatial.ScreenPoint::from_xy(x=screen_x, y=screen_y)
-      let next_viewport = @spatial.Pan::start(
-        viewport=pan.initial_viewport,
-        pointer=pan.start_pointer,
-      ).viewport_at(pointer)
-      let did_move = state.interaction.did_move ||
-        screen_x != pan.start_pointer.x ||
-        screen_y != pan.start_pointer.y
-      let new_interaction : InteractionState = {
-        ..state.interaction,
-        did_move,
+      if !pointer.is_finite() {
+        state
+      } else {
+        match
+          @spatial.Pan::start(
+            viewport=pan.initial_viewport,
+            pointer=pan.start_pointer,
+          ).try_viewport_at(pointer) {
+          None => state
+          Some(next_viewport) => {
+            let did_move = state.interaction.did_move ||
+              screen_x != pan.start_pointer.x ||
+              screen_y != pan.start_pointer.y
+            let new_interaction : InteractionState = {
+              ..state.interaction,
+              did_move,
+            }
+            { ..state, viewport: next_viewport, interaction: new_interaction }
+          }
+        }
       }
-      { ..state, viewport: next_viewport, interaction: new_interaction }
     }
   }
 }
@@ -59,11 +73,16 @@ pub fn update_zoom(
   let old_scale = current_viewport.scale()
   let raw = old_scale * factor
   let new_scale = if raw < 0.1 { 0.1 } else if raw > 8.0 { 8.0 } else { raw }
-  let new_viewport = current_viewport.with_scale_around(
-    anchor=@spatial.ScreenPoint::from_xy(x=cx, y=cy),
-    absolute_scale=new_scale,
-  )
-  record_action({ ..state, viewport: new_viewport }, SetViewport(new_viewport))
+  let anchor = @spatial.ScreenPoint::from_xy(x=cx, y=cy)
+  match
+    current_viewport.try_with_scale_around(anchor~, absolute_scale=new_scale) {
+    None => state
+    Some(new_viewport) =>
+      record_action(
+        { ..state, viewport: new_viewport },
+        SetViewport(new_viewport),
+      )
+  }
 }
 
 ///|
@@ -257,31 +276,37 @@ fn update_node_drag_start(
   match find_node(state.nodes, node_id) {
     None => state
     Some(_) => {
-      let positions = drag_ids_for_node(state, node_id).filter_map(fn(drag_id) {
-        match find_node(state.nodes, drag_id) {
-          None => None
-          Some(node) =>
-            Some(
-              @spatial.ItemPosition::from_id_and_point(
-                id=drag_id,
-                point=@spatial.WorldPoint::from_xy(x=node.x, y=node.y),
-              ),
-            )
-        }
-      })
       let pointer = @spatial.WorldPoint::from_xy(x=world_x, y=world_y)
-      let snapshot : ReadOnlyArray[@spatial.ItemPosition[NodeId]] = ReadOnlyArray::from_array(
-        positions[:],
-      )
-      let drag = @spatial.Drag::start(positions=snapshot, pointer~)
-      let drag_state : DragState = { node_id, drag }
-      let new_interaction : InteractionState = {
-        ..state.interaction,
-        dragging: Some(drag_state),
-        pointer_down: true,
-        did_move: false,
+      if !pointer.is_finite() {
+        state
+      } else {
+        let positions = drag_ids_for_node(state, node_id).filter_map(fn(
+          drag_id,
+        ) {
+          match find_node(state.nodes, drag_id) {
+            None => None
+            Some(node) =>
+              Some(
+                @spatial.ItemPosition::from_id_and_point(
+                  id=drag_id,
+                  point=@spatial.WorldPoint::from_xy(x=node.x, y=node.y),
+                ),
+              )
+          }
+        })
+        let snapshot : ReadOnlyArray[@spatial.ItemPosition[NodeId]] = ReadOnlyArray::from_array(
+          positions[:],
+        )
+        let drag = @spatial.Drag::start(positions=snapshot, pointer~)
+        let drag_state : DragState = { node_id, drag }
+        let new_interaction : InteractionState = {
+          ..state.interaction,
+          dragging: Some(drag_state),
+          pointer_down: true,
+          did_move: false,
+        }
+        { ..state, interaction: new_interaction }
       }
-      { ..state, interaction: new_interaction }
     }
   }
 }

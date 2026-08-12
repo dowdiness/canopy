@@ -14,8 +14,17 @@ pub fn Pan::start(viewport~ : Viewport, pointer~ : ScreenPoint) -> Pan {
 ///|
 /// Compute the viewport at a pointer position from the original snapshot.
 pub fn Pan::viewport_at(self : Pan, pointer : ScreenPoint) -> Viewport {
+  match self.try_viewport_at(pointer) {
+    Some(viewport) => viewport
+    None => abort("pan origin must be finite")
+  }
+}
+
+///|
+/// Compute a viewport without aborting when the translated origin is invalid.
+pub fn Pan::try_viewport_at(self : Pan, pointer : ScreenPoint) -> Viewport? {
   let origin = self.initial_viewport.screen_origin()
-  Viewport::validated(
+  Viewport::try_from_scale(
     origin=ScreenPoint::from_xy(
       x=origin.x + (pointer.x - self.initial_pointer.x),
       y=origin.y + (pointer.y - self.initial_pointer.y),

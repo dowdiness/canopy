@@ -88,6 +88,41 @@ test "pan_move is no-op when not panning" {
 }
 
 ///|
+test "pan, zoom, and drag reject non-finite input" {
+  let state = make_test_state()
+  let invalid_start = update_pan_start(state, 0.0 / 0.0, 0.0)
+  assert_true(invalid_start.interaction.panning is None)
+
+  let started = update_pan_start(state, 0.0, 0.0)
+  let invalid_move = update_pan_move(started, 1.0 / 0.0, 20.0)
+  assert_eq(invalid_move.viewport, started.viewport)
+  assert_eq(invalid_move.interaction.did_move, false)
+
+  let extreme_started = update_pan_start(state, -1.0e308, 0.0)
+  let overflowing_move = update_pan_move(extreme_started, 1.0e308, 0.0)
+  assert_eq(overflowing_move.viewport, extreme_started.viewport)
+  assert_eq(overflowing_move.interaction.did_move, false)
+
+  let invalid_zoom = update_zoom(state, 1.0, 0.0 / 0.0, 0.0)
+  assert_eq(invalid_zoom.viewport, state.viewport)
+  assert_eq(invalid_zoom.action_log.length(), 0)
+
+  let invalid_drag = update_node_drag_start(state, NodeId("1"), 0.0, 1.0 / 0.0)
+  assert_true(invalid_drag.interaction.dragging is None)
+}
+
+///|
+test "zoom rejects an overflowing anchored origin" {
+  let state = {
+    ..make_test_state(),
+    viewport: viewport_for_test(0.0, 0.0, 1.0e-308),
+  }
+  let unchanged = update_zoom(state, 1.0, 1.0e308, 0.0)
+  assert_eq(unchanged.viewport, state.viewport)
+  assert_eq(unchanged.action_log.length(), 0)
+}
+
+///|
 test "zoom changes scale and records a serializable action" {
   let state = make_test_state()
   let s = update_zoom(state, -1.0, 500.0, 400.0)

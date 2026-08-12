@@ -19,14 +19,14 @@ fn viewport_codec_json_number_field(
     Some(Json::Number(number, ..)) => {
       guard viewport_codec_finite_number(number) else {
         raise @json.JsonDecodeError(
-          (path.add_key(key), "Viewport: '\\{key}' must be finite"),
+          (path.add_key(key), "Viewport: '\{key}' must be finite"),
         )
       }
       number
     }
     _ =>
       raise @json.JsonDecodeError(
-        (path.add_key(key), "Viewport: '\\{key}' must be a number"),
+        (path.add_key(key), "Viewport: '\{key}' must be a number"),
       )
   }
 }

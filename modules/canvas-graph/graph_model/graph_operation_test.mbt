@@ -260,6 +260,36 @@ fn assert_rejects_viewport_operation(json : Json) -> Unit raise {
 }
 
 ///|
+fn viewport_error_message(json : Json) -> String raise {
+  try {
+    let _ : @graph_model.GraphOperation = @json.from_json(json)
+    fail("expected invalid viewport operation")
+  } catch {
+    @json.JsonDecodeError((_, message)) => message
+    _ => fail("expected viewport JSON decode error")
+  }
+}
+
+///|
+test "viewport coordinate errors identify their fields" {
+  let non_number_fields : Map[String, Json] = Map([])
+  non_number_fields["x"] = "not-a-number".to_json()
+  non_number_fields["y"] = (-10.0).to_json()
+  non_number_fields["scale"] = 1.0.to_json()
+  let non_number = viewport_operation_json(Json::object(non_number_fields))
+  let non_finite_fields : Map[String, Json] = Map([])
+  non_finite_fields["x"] = 20.0.to_json()
+  non_finite_fields["y"] = Json::number(0.0 / 0.0)
+  non_finite_fields["scale"] = 1.0.to_json()
+  let non_finite = viewport_operation_json(Json::object(non_finite_fields))
+  assert_eq(
+    viewport_error_message(non_number),
+    "Viewport: 'x' must be a number",
+  )
+  assert_eq(viewport_error_message(non_finite), "Viewport: 'y' must be finite")
+}
+
+///|
 test "valid viewport operations preserve their JSON shape during replay" {
   let viewport = viewport_for_test(20.0, -10.0, 2.5)
   let operation = @graph_model.GraphOperation::GraphOperation(

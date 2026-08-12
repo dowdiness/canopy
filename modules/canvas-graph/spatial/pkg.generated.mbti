@@ -27,6 +27,7 @@ pub struct Pan {
   // private fields
 }
 pub fn Pan::start(viewport~ : Viewport, pointer~ : ScreenPoint) -> Self
+pub fn Pan::try_viewport_at(Self, ScreenPoint) -> Viewport?
 pub fn Pan::viewport_at(Self, ScreenPoint) -> Viewport
 
 pub struct ScreenPoint {
@@ -34,6 +35,7 @@ pub struct ScreenPoint {
   y : Double
 } derive(Eq, @debug.Debug)
 pub fn ScreenPoint::from_xy(x~ : Double, y~ : Double) -> Self
+pub fn ScreenPoint::is_finite(Self) -> Bool
 
 pub struct Viewport {
   // private fields
@@ -52,6 +54,7 @@ pub struct WorldPoint {
   y : Double
 } derive(Eq, @debug.Debug)
 pub fn WorldPoint::from_xy(x~ : Double, y~ : Double) -> Self
+pub fn WorldPoint::is_finite(Self) -> Bool
 
 // Type aliases
 
