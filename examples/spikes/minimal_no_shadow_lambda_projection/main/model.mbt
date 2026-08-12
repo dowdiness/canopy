@@ -58,6 +58,11 @@ struct MinimalLambdaProjectionShell {
     Map[@core.NodeId, @core.ProjNode[@ast.Term]],
   ]
   source_map_query : @next.Query[Unit, @core.SourceMap]
+  eval_query : @next.Query[Unit, Array[@lambda_eval.EvalResult]]
+  annotation_query : @next.Query[
+    Unit,
+    Map[@core.NodeId, Array[@protocol.ViewAnnotation]],
+  ]
   mut next_snapshot_identity : Int
   mut current_snapshot_identity : Int
   mut next_commit_id : Int
@@ -221,6 +226,33 @@ fn MinimalLambdaProjectionShell::MinimalLambdaProjectionShell(
       }
     }
   }))
+  let eval_query = must_query(region.query((ctx, _ : Unit) => {
+    match ctx.read(commit_view) {
+      Err(error) => Err(error)
+      Ok(commit) => Ok(@lambda_eval.eval_term(commit.projection.kind))
+    }
+  }))
+  let eval_view = eval_query.at(())
+  let source_map_view = source_map_query.at(())
+  let annotation_query = must_query(region.query((ctx, _ : Unit) => {
+    match ctx.read(commit_view) {
+      Err(error) => Err(error)
+      Ok(commit) => match ctx.read(eval_view) {
+        Err(error) => Err(error)
+        Ok(eval_results) => match ctx.read(source_map_view) {
+          Err(error) => Err(error)
+          Ok(source_map) =>
+            Ok(
+              @lambda_companion.minimal_no_shadow_p1_annotations(
+                eval_results,
+                commit.projection,
+                source_map,
+              ),
+            )
+        }
+      }
+    }
+  }))
   {
     parser: Some(parser),
     batch: {
@@ -236,6 +268,8 @@ fn MinimalLambdaProjectionShell::MinimalLambdaProjectionShell(
     commit_source,
     registry_query,
     source_map_query,
+    eval_query,
+    annotation_query,
     next_snapshot_identity: 2,
     current_snapshot_identity: 1,
     next_commit_id: 2,
@@ -362,6 +396,16 @@ fn MinimalLambdaProjectionShell::read_commit(
   self : MinimalLambdaProjectionShell,
 ) -> Result[ProjectionCommit, @next.ReadError] {
   self.store.read(self.commit_source.view())
+}
+
+///|
+fn MinimalLambdaProjectionShell::read_annotations(
+  self : MinimalLambdaProjectionShell,
+) -> Result[
+  Map[@core.NodeId, Array[@protocol.ViewAnnotation]],
+  @next.ReadError,
+] {
+  self.store.read(self.annotation_query.at(()))
 }
 
 ///| Close only P0-owned provider resources and release parser/history payload.

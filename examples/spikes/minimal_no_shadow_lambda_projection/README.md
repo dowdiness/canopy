@@ -1,7 +1,10 @@
 # Minimal no-shadow Lambda projection P0
 
-**Status:** Throwaway feasibility prototype. Keep it on the prototype branch; do
-not merge it into production.
+**Status:** Throwaway feasibility prototype. Keep it on the prototype branches;
+do not merge it into production.
+
+- P0 projection result: **PASS WITH CONSTRAINTS** at `667aaf63`.
+- P1 annotation extension: **PASS WITH CONSTRAINTS**; see [P1.md](P1.md).
 
 ## Question
 
@@ -22,20 +25,24 @@ From the Canopy repository root:
 ./scripts/run-minimal-no-shadow-lambda-projection.sh
 ```
 
-The command verifies the materialized provider hash, checks the two packages,
-runs the native executable, prints every relevant state transition, checks the
-prototype allowlist, and prints the virtual deletion ledger.
+On the P1 branch, the command verifies the materialized provider hash, checks
+the affected packages, runs the native executable, prints every relevant state
+transition, checks the prototype allowlist, and prints the virtual deletion
+ledger. P1 preserves all P0 structural assertions and adds lazy evaluation and
+annotation assertions.
 
 ## Scope
 
-P0 runs these operations in order:
+P1 runs these operations in order:
 
 ```text
 initial
 raw-edit
 structural-batch
+demand-annotations
 demand-registry
 demand-source-map
+evaluation-edit
 close
 duplicate-close
 post-close-read
@@ -64,7 +71,12 @@ MinimalLambdaProjectionShell
    └─ Region
       ├─ Source[ProjectionCommit]
       ├─ Query[Unit, Registry]
-      └─ Query[Unit, SourceMap]
+      ├─ Query[Unit, SourceMap]
+      ├─ Query[Unit, Array[EvalResult]]
+      └─ Query[Unit, AnnotationMap]
+         ├─ exact ProjectionCommit
+         ├─ evaluation Query
+         └─ source-map Query
 ```
 
 The split is intentional:
@@ -76,7 +88,9 @@ Shell      owns history-sensitive projection transitions.
 
 `ProjectionCommit` owns the exact `ParseSnapshot`, projection, and trace.
 Source-map computation therefore cannot combine a new projection with an old
-snapshot.
+snapshot. P1 evaluates `commit.projection.kind` through production `eval_term`;
+it does not stage a copied evaluation Source. The annotation Query reads that
+evaluation, the same commit, and its source-map Query in one evaluation context.
 
 ## Complexity budget
 
@@ -85,7 +99,7 @@ application owner              1
 Store                          1
 Region                         1
 canonical Source               1
-lazy Query                     2
+lazy Query                     4
 Mount                          0
 Watch                          0
 Program / Port / Manifest      0
@@ -94,10 +108,13 @@ cross-runtime synchronization  0
 async resources                0
 ```
 
-Canopy's current `core` and Lambda projection packages still have a transitive
-compile dependency on current Incr because their production memo builders share
-those packages. P0 does not call those builders or construct any current-Incr
-value. Splitting those production packages is explicitly not part of P0.
+Canopy's current `core`, Lambda projection, Lambda eval, and companion packages
+still have transitive compile dependencies on current Incr because pure
+functions share packages with production memo builders. P0/P1 do not call those
+builders or construct any current-Incr value. P1 adds one prototype-only public
+visibility adapter around the existing package-private annotation conversion;
+its generated `.mbti` delta is one function. A production package split or API
+deepening remains separate work.
 
 ## #462 evidence reuse
 
@@ -119,6 +136,9 @@ checks pass. The constraints are:
 - prototype-local packaging of the unchanged #462 package;
 - a nested-Lambda fixture using the public generic reconciler, not Lambda's
   private root-module key policy;
+- a prototype-only annotation visibility adapter because production conversion
+  remains package-private;
+- Tier-1 direct evaluation only, not Tier-2 egglog escalation;
 - owner/wiring feasibility only, not production consumer or lifetime closure.
 
 ## Reuse check
@@ -130,6 +150,11 @@ Reused project APIs:
 - Canopy Lambda `to_proj_node` and `populate_token_spans`;
 - Canopy core `reconcile_hinted`, `collect_registry`,
   `SourceMap::from_ast`, and `ProjNode::walk_preorder`;
+- Lambda eval `eval_term`;
+- companion-private `build_eval_annotations` and `AnalysisProjection::annotations`
+  through the evidence-only visibility adapter;
+- semantic `build_semantic_projection`;
+- protocol `proj_to_view_node` as the actual annotation consumer;
 - issue #462 `Store`, `Region`, `Source`, `Query`, opaque `View`, `EvalCtx`,
   `Transaction`, and close semantics.
 
@@ -148,17 +173,19 @@ Checked but not used:
 - current `build_projection_memos` / `build_lambda_projection_memos`: they own
   the graph being excluded;
 - later Incr Next cutoff, eviction, Mount, Program, Port, and Manifest APIs:
-  outside P0.
+  outside P1.
 
 New helper boundaries are prototype-local: semantic batch finalization, one
-ASCII fixture replacement, state rendering, and finding one `Var` through the
-existing preorder traversal. No new kernel or generic collection loop is added.
+ASCII fixture replacement, state rendering, finding one `Var` through the
+existing preorder traversal, and recursively checking the resulting protocol
+`ViewNode`. The evidence adapter delegates to existing annotation functions; it
+does not copy them. No new kernel or generic collection loop is added.
 
 ## Non-goals
 
 ```text
-annotations, decorations, diagnostics
-evaluation, escalation, typecheck
+decorations, diagnostics, pretty annotation injection
+Tier-2 escalation, incremental eval prefix cache, typecheck
 remote sync, undo/redo, diagnostic fix
 file I/O, browser lifecycle, FFI, coordinator
 ProtectedCell replacement, Mount, RecomputeTap

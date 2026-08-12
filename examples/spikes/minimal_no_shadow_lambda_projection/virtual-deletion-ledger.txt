@@ -1,6 +1,6 @@
-=== VIRTUAL DELETION LEDGER ===
+=== P1 VIRTUAL DELETION LEDGER ===
 
-CURRENT RESPONSIBILITIES NOT PRESENT
+CURRENT RESPONSIBILITIES NOT PRESENT — P0
 
 current reactive Parser wrapper
 projection Derived
@@ -14,30 +14,55 @@ ProtectedCell
 current Runtime object participation
 current-to-Next bridge
 
-P0 RESPONSIBILITIES ADDED
+ADDITIONAL BOUNDED DELETION CANDIDATES — P1
 
-semantic batch finalization
-ProjectionState
-ProjectionCommit publication
-one Store / Region
-one canonical Source
-registry and source-map lazy Queries
-Shell close
+present-projection computation in the get_annotations closure
+Tier-1 direct-evaluation responsibility inside escalation_memo
+LambdaCompanion projection/source-map/eval aliases for that annotation path
+annotation-specific constructor wiring for that path
 
-LOGICAL TOP-LEVEL OWNER / WIRE COUNT
+NOT CLAIMED DELETABLE
+
+Tier-2 egglog escalation
+pretty eval annotation injection
+eval diagnostics or their FFI protection
+production LanguageCapabilities installation
+LambdaCompanion as a whole
+production close/lifetime resources
+
+P1 RESPONSIBILITIES ADDED
+
+one lazy evaluation Query over exact ProjectionCommit
+one lazy AnnotationMap Query
+evidence-only pure annotation visibility adapter
+one production ViewNode annotation consumer
+
+LOGICAL TOP-LEVEL OWNER GRAPH
 
 application state owners          1
-incremental store owners          1
+incremental Store owners          1
+Region lifecycle owners           1
+canonical Sources                 1
+lazy Queries                      4
 retention roots                   0
 current Runtime objects           0
-construction wires                8
 cross-runtime synchronization     0
+
+INCREMENTAL DEFINITION EDGES
+
+ProjectionCommit -> Registry
+ProjectionCommit -> SourceMap
+ProjectionCommit -> Evaluation
+ProjectionCommit -> AnnotationMap
+Evaluation       -> AnnotationMap
+SourceMap        -> AnnotationMap
 
 A transition-local Ref collects production reconcile events and is copied into
 the owning ProjectionCommit; it is not a persistent companion trace owner.
 The unchanged #462 provider has private module-level evaluator execution state,
 but the prototype creates one explicit Store owner and no cross-runtime edge.
 
-The production Canopy packages imported for ProjNode, SourceMap, projection,
-and reconciliation still compile alongside their current memo-builder files.
-No current-Incr value is constructed and no current graph participates in P0.
+The imported Canopy packages still compile alongside their current memo-builder
+files. P1 constructs no current-Incr value and reads no current Derived. The
+single generated-interface addition is an evidence-only pure visibility adapter
+that delegates to the existing package-private annotation algorithms.

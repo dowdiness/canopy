@@ -8,8 +8,11 @@ const AFTER_RAW_EDIT : String = "(x, y) => x - y"
 const AFTER_STRUCTURAL_BATCH : String = "(z, y) => z - y"
 
 ///|
+const AFTER_EVALUATION_EDIT : String = "((z, y) => z - y) 5 2"
+
+///|
 fn require(condition : Bool, message : String) -> Unit {
-  guard condition else { abort("P0 FAIL: " + message) }
+  guard condition else { abort("P1 FAIL: " + message) }
 }
 
 ///|
@@ -49,6 +52,8 @@ fn print_state(
 ) -> Unit {
   let registry_debug = shell.registry_query.debug()
   let source_map_debug = shell.source_map_query.debug()
+  let eval_debug = shell.eval_query.debug()
+  let annotation_debug = shell.annotation_query.debug()
   let (commit_id, predecessor_id, trace_count) = commit_metadata(shell)
   println("\n=== \{operation} ===")
   println("snapshot_id=\{shell.current_snapshot_identity}")
@@ -65,6 +70,8 @@ fn print_state(
   )
   println("registry_compute_count=\{registry_debug.compute_count}")
   println("source_map_compute_count=\{source_map_debug.compute_count}")
+  println("eval_compute_count=\{eval_debug.compute_count}")
+  println("annotation_compute_count=\{annotation_debug.compute_count}")
   println(
     "previous_projection_root_id=\{node_id_name(shell.counters.last_previous_root_id)}",
   )
@@ -79,13 +86,58 @@ fn print_state(
 fn current_source(shell : MinimalLambdaProjectionShell) -> String {
   match shell.read_commit() {
     Ok(commit) => commit.parse_snapshot.source
-    Err(error) => abort("P0: current commit read failed: " + read_error_name(error))
+    Err(error) => abort("P1: current commit read failed: " + read_error_name(error))
   }
 }
 
 ///|
+fn has_annotation(
+  annotations : Map[@core.NodeId, Array[@protocol.ViewAnnotation]],
+  kind : String,
+  label : String,
+) -> Bool {
+  annotations.values().any(entries =>
+    entries.any(annotation =>
+      annotation.kind == kind && annotation.label == label
+    )
+  )
+}
+
+///| Exercise the production projection-to-protocol annotation consumer.
+fn view_has_annotation(
+  view : @protocol.ViewNode,
+  kind : String,
+  label : String,
+) -> Bool {
+  view.annotations.any(annotation =>
+    annotation.kind == kind && annotation.label == label
+  ) || view.children.any(child => view_has_annotation(child, kind, label))
+}
+
+///| Exercise the production projection-to-protocol annotation consumer.
+fn annotation_view(
+  shell : MinimalLambdaProjectionShell,
+  annotations : Map[@core.NodeId, Array[@protocol.ViewAnnotation]],
+) -> @protocol.ViewNode {
+  let commit = match shell.read_commit() {
+    Ok(value) => value
+    Err(error) => abort("P1: annotation consumer commit: " + read_error_name(error))
+  }
+  let source_map = match shell.read_source_map() {
+    Ok(value) => value
+    Err(error) => abort("P1: annotation consumer source map: " + read_error_name(error))
+  }
+  @protocol.proj_to_view_node(
+    commit.projection,
+    source_map,
+    annotations~,
+    source_text=Some(commit.parse_snapshot.source),
+  )
+}
+
+///|
 fn run_prototype() -> Unit raise {
-  println("minimal no-shadow Lambda projection P0")
+  println("minimal no-shadow Lambda annotations P1")
   let shell = MinimalLambdaProjectionShell(INITIAL_SOURCE)
 
   require(shell.counters.parser_update_count == 1, "initial parse count")
@@ -97,6 +149,11 @@ fn run_prototype() -> Unit raise {
   require(
     shell.source_map_query.debug().compute_count == 0,
     "initial source map lazy",
+  )
+  require(shell.eval_query.debug().compute_count == 0, "initial eval lazy")
+  require(
+    shell.annotation_query.debug().compute_count == 0,
+    "initial annotations lazy",
   )
   print_state("initial", shell, "not demanded")
 
@@ -151,7 +208,56 @@ fn run_prototype() -> Unit raise {
     shell.source_map_query.debug().compute_count == 0,
     "structural source map still lazy",
   )
+  require(
+    shell.eval_query.debug().compute_count == 0,
+    "structural eval still lazy",
+  )
+  require(
+    shell.annotation_query.debug().compute_count == 0,
+    "structural annotations still lazy",
+  )
   print_state("structural-batch", shell, "2 parser updates -> 1 commit")
+
+  let annotations_first = match shell.read_annotations() {
+    Ok(value) => value
+    Err(error) => abort("P1: annotation read: " + read_error_name(error))
+  }
+  let annotations_second = match shell.read_annotations() {
+    Ok(value) => value
+    Err(error) => abort("P1: repeated annotation read: " + read_error_name(error))
+  }
+  require(
+    has_annotation(annotations_first, "eval", "→ ‹closure›"),
+    "Tier-1 closure annotation",
+  )
+  require(
+    has_annotation(annotations_first, "semantic-ref", "bound z"),
+    "semantic annotation merged",
+  )
+  require(annotations_second == annotations_first, "annotation memo value reuse")
+  require(shell.eval_query.debug().compute_count == 1, "eval memo reuse")
+  require(
+    shell.annotation_query.debug().compute_count == 1,
+    "annotation memo reuse",
+  )
+  require(
+    shell.source_map_query.debug().compute_count == 1,
+    "annotation demand computes source map once",
+  )
+  require(
+    shell.registry_query.debug().compute_count == 0,
+    "annotation demand leaves registry lazy",
+  )
+  let closure_view = annotation_view(shell, annotations_first)
+  require(
+    view_has_annotation(closure_view, "eval", "→ ‹closure›"),
+    "production ViewNode consumer receives closure annotation",
+  )
+  print_state(
+    "demand-annotations",
+    shell,
+    "entries=\{annotations_first.length()}, repeated=\{annotations_second.length()}",
+  )
 
   let registry_first = match shell.read_registry() {
     Ok(value) => value
@@ -163,8 +269,8 @@ fn run_prototype() -> Unit raise {
   }
   require(shell.registry_query.debug().compute_count == 1, "registry memo reuse")
   require(
-    shell.source_map_query.debug().compute_count == 0,
-    "registry demand does not compute source map",
+    shell.source_map_query.debug().compute_count == 1,
+    "registry demand does not recompute source map",
   )
   print_state(
     "demand-registry",
@@ -234,6 +340,47 @@ fn run_prototype() -> Unit raise {
     "node_id=\{target_id}, range=\{token_range.start}..\{token_range.end}, slice=\{token_snippet}",
   )
 
+  shell.begin_semantic_batch(Invalidated)
+  shell.replace_in_batch(0, AFTER_STRUCTURAL_BATCH.length(), AFTER_EVALUATION_EDIT)
+  shell.finish_semantic_batch()
+  require(current_source(shell) == AFTER_EVALUATION_EDIT, "evaluation edit source")
+  let application_annotations = match shell.read_annotations() {
+    Ok(value) => value
+    Err(error) => abort("P1: updated annotation read: " + read_error_name(error))
+  }
+  require(
+    has_annotation(application_annotations, "eval", "→ 3"),
+    "updated Tier-1 value annotation",
+  )
+  require(
+    !has_annotation(application_annotations, "eval", "→ ‹closure›"),
+    "stale closure annotation absent",
+  )
+  let application_view = annotation_view(shell, application_annotations)
+  require(
+    view_has_annotation(application_view, "eval", "→ 3"),
+    "production ViewNode consumer receives updated annotation",
+  )
+  require(shell.counters.parser_update_count == 5, "evaluation parser update +1")
+  require(
+    shell.counters.projection_transition_count == 4,
+    "evaluation projection transition +1",
+  )
+  require(shell.eval_query.debug().compute_count == 2, "eval recompute once")
+  require(
+    shell.annotation_query.debug().compute_count == 2,
+    "annotation recompute once",
+  )
+  require(
+    shell.source_map_query.debug().compute_count == 2,
+    "source map recompute once",
+  )
+  require(
+    shell.registry_query.debug().compute_count == 1,
+    "evaluation does not recompute undemanded registry",
+  )
+  print_state("evaluation-edit", shell, "eval=→ 3, ViewNode consumer=pass")
+
   let close_result = shell.close()
   require(close_result == "Closed", "first close result")
   require(shell.counters.region_close_count == 1, "Region close once")
@@ -244,19 +391,29 @@ fn run_prototype() -> Unit raise {
   require(shell.counters.region_close_count == 1, "duplicate close has no effect")
   print_state("duplicate-close", shell, duplicate_result)
 
-  let compute_before = shell.source_map_query.debug().compute_count
-  let post_close = match shell.read_source_map() {
+  let annotation_compute_before = shell.annotation_query.debug().compute_count
+  let eval_compute_before = shell.eval_query.debug().compute_count
+  let source_map_compute_before = shell.source_map_query.debug().compute_count
+  let post_close = match shell.read_annotations() {
     Ok(_) => "Ok(unexpected)"
     Err(error) => "Err(\{read_error_name(error)})"
   }
   require(post_close == "Err(ClosedRegion)", "post-close read result")
   require(
-    shell.source_map_query.debug().compute_count == compute_before,
-    "post-close read does not execute provider compute",
+    shell.annotation_query.debug().compute_count == annotation_compute_before,
+    "post-close annotation read does not compute",
+  )
+  require(
+    shell.eval_query.debug().compute_count == eval_compute_before,
+    "post-close annotation read does not evaluate",
+  )
+  require(
+    shell.source_map_query.debug().compute_count == source_map_compute_before,
+    "post-close annotation read does not compute source map",
   )
   print_state("post-close-read", shell, post_close)
 
-  println("\nP0 RESULT: PASS")
+  println("\nP1 RESULT: PASS WITH CONSTRAINTS")
 }
 
 ///|
