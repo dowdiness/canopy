@@ -1,0 +1,43 @@
+=== VIRTUAL DELETION LEDGER ===
+
+CURRENT RESPONSIBILITIES NOT PRESENT
+
+current reactive Parser wrapper
+projection Derived
+registry Derived
+source-map Derived
+three Watch anchors
+pending_transforms cross-batch queue
+IdentityHintConsumer
+companion-owned persistent trace_ref
+ProtectedCell
+current Runtime object participation
+current-to-Next bridge
+
+P0 RESPONSIBILITIES ADDED
+
+semantic batch finalization
+ProjectionState
+ProjectionCommit publication
+one Store / Region
+one canonical Source
+registry and source-map lazy Queries
+Shell close
+
+LOGICAL TOP-LEVEL OWNER / WIRE COUNT
+
+application state owners          1
+incremental store owners          1
+retention roots                   0
+current Runtime objects           0
+construction wires                8
+cross-runtime synchronization     0
+
+A transition-local Ref collects production reconcile events and is copied into
+the owning ProjectionCommit; it is not a persistent companion trace owner.
+The unchanged #462 provider has private module-level evaluator execution state,
+but the prototype creates one explicit Store owner and no cross-runtime edge.
+
+The production Canopy packages imported for ProjNode, SourceMap, projection,
+and reconciliation still compile alongside their current memo-builder files.
+No current-Incr value is constructed and no current graph participates in P0.

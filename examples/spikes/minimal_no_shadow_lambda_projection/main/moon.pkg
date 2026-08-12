@@ -1,0 +1,12 @@
+import {
+  "dowdiness/canopy/core" @core,
+  "dowdiness/canopy/lang/lambda/proj" @lambda_proj,
+  "dowdiness/diagnostic" @diagnostic,
+  "dowdiness/lambda" @lambda,
+  "dowdiness/lambda/ast" @ast,
+  "dowdiness/loom" @loom,
+  "dowdiness/loom/core" @loom_core,
+  "examples/spikes/incr_next_incremental_parity/provider" @next,
+}
+
+pkgtype(kind: "executable")

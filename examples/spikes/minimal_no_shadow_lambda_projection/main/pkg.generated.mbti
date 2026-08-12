@@ -1,0 +1,26 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "examples/spikes/minimal_no_shadow_lambda_projection/main"
+
+// Values
+
+// Errors
+
+// Types and methods
+type IdentityEvidence
+
+type LifetimeState
+
+type MinimalLambdaProjectionShell
+
+type ProjectionCommit
+
+type ProjectionState
+
+type PrototypeCounters
+
+type SemanticBatchState
+
+// Type aliases
+
+// Traits
+

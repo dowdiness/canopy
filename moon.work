@@ -44,4 +44,6 @@ members = [
   "./examples/codemirror",
   "./examples/resizable",
   "./examples/disclosure",
+  "./examples/spikes/minimal_no_shadow_lambda_projection",
+  "./examples/spikes/minimal_no_shadow_lambda_projection/evidence/incr_next_incremental_parity",
 ]
