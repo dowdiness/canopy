@@ -1,0 +1,42 @@
+[
+  {
+    "scenario": "whitespace-view",
+    "source_test": "modules/canopy/lang/lambda/companion/editor_view_decorations_test.mbt",
+    "source_test_name": "analysis projection drops stale pattern decorations but keeps semantic decorations",
+    "edit_provenance": "test-derived exact source transition",
+    "demand_provenance": "annotation-root overlay for production view-patch demand",
+    "operations": 1,
+    "publications": 1,
+    "demand_points": 2
+  },
+  {
+    "scenario": "binding-view",
+    "source_test": "modules/canopy/lang/lambda/companion/editor_view_decorations_test.mbt",
+    "source_test_name": "binding an unresolved reference clears its semantic warning",
+    "edit_provenance": "test-derived exact source transition",
+    "demand_provenance": "annotation-root overlay for production view-patch demand",
+    "operations": 1,
+    "publications": 1,
+    "demand_points": 2
+  },
+  {
+    "scenario": "tail-definition-operations",
+    "source_test": "modules/canopy/lang/lambda/companion/editor_incremental_patch_test.mbt",
+    "source_test_name": "projection memo: registry node count stable after tail edit",
+    "edit_provenance": "test-derived backspace-before-literal + insert sequence; final value is 90",
+    "demand_provenance": "annotation-root overlay; no demand between operations",
+    "operations": 2,
+    "publications": 2,
+    "demand_points": 2
+  },
+  {
+    "scenario": "expression-source-map-operations",
+    "source_test": "modules/canopy/lang/lambda/companion/editor_incremental_patch_test.mbt",
+    "source_test_name": "projection memo: expression-only document edit works",
+    "edit_provenance": "test-derived two no-op backspaces at cursor zero + two inserts; final source is 9942",
+    "demand_provenance": "exact SourceMap demand class; no demand between operations",
+    "operations": 4,
+    "publications": 2,
+    "demand_points": 2
+  }
+]

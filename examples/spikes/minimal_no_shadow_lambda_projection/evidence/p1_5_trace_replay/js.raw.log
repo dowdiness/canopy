@@ -1,0 +1,392 @@
+
+===== index=0 name=whitespace-view/always-changed =====
+P1.5_METRICS scenario=whitespace-view policy=always_changed operations=1 publications=1 initial_nodes=2 final_nodes=2 parser_updates=2 projection_transitions=2 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:286 ("P1.5 whitespace-view/always-changed") ok
+time (mean ± σ)         range (min … max) 
+  49.84 µs ±   8.00 µs    41.99 µs …  62.60 µs  in 10 ×   1456 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=1 name=whitespace-view/eq-cutoff =====
+P1.5_METRICS scenario=whitespace-view policy=eq_cutoff operations=1 publications=1 initial_nodes=2 final_nodes=2 parser_updates=2 projection_transitions=2 term_compute=2 cutoff_calls=1 eval_compute=1 eval_green=1 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:291 ("P1.5 whitespace-view/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+  46.38 µs ±   6.62 µs    39.24 µs …  57.48 µs  in 10 ×   1546 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=2 name=binding-view/always-changed =====
+P1.5_METRICS scenario=binding-view policy=always_changed operations=1 publications=1 initial_nodes=2 final_nodes=2 parser_updates=2 projection_transitions=2 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:296 ("P1.5 binding-view/always-changed") ok
+time (mean ± σ)         range (min … max) 
+  50.71 µs ±   4.36 µs    43.59 µs …  56.61 µs  in 10 ×   1639 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=3 name=binding-view/eq-cutoff =====
+P1.5_METRICS scenario=binding-view policy=eq_cutoff operations=1 publications=1 initial_nodes=2 final_nodes=2 parser_updates=2 projection_transitions=2 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:301 ("P1.5 binding-view/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+  52.49 µs ±   7.97 µs    42.60 µs …  64.23 µs  in 10 ×   1339 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=4 name=tail-definition-operations/always-changed =====
+P1.5_METRICS scenario=tail-definition-operations policy=always_changed operations=2 publications=2 initial_nodes=8 final_nodes=8 parser_updates=3 projection_transitions=3 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:306 ("P1.5 tail-definition-operations/always-changed") ok
+time (mean ± σ)         range (min … max) 
+ 154.37 µs ±  18.20 µs   135.27 µs … 187.37 µs  in 10 ×    453 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=5 name=tail-definition-operations/eq-cutoff =====
+P1.5_METRICS scenario=tail-definition-operations policy=eq_cutoff operations=2 publications=2 initial_nodes=8 final_nodes=8 parser_updates=3 projection_transitions=3 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:311 ("P1.5 tail-definition-operations/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+ 157.43 µs ±  23.78 µs   136.09 µs … 204.84 µs  in 10 ×    473 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=6 name=expression-source-map-operations/always-changed =====
+P1.5_METRICS scenario=expression-source-map-operations policy=always_changed operations=4 publications=2 initial_nodes=1 final_nodes=1 parser_updates=3 projection_transitions=3 term_compute=0 cutoff_calls=0 eval_compute=0 eval_green=0 source_map_compute=2 annotation_compute=0
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:316 ("P1.5 expression-source-map-operations/always-changed") ok
+time (mean ± σ)         range (min … max) 
+  16.84 µs ±   1.04 µs    16.04 µs …  19.07 µs  in 10 ×   5187 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=7 name=expression-source-map-operations/eq-cutoff =====
+P1.5_METRICS scenario=expression-source-map-operations policy=eq_cutoff operations=4 publications=2 initial_nodes=1 final_nodes=1 parser_updates=3 projection_transitions=3 term_compute=0 cutoff_calls=0 eval_compute=0 eval_green=0 source_map_compute=2 annotation_compute=0
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:321 ("P1.5 expression-source-map-operations/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+  16.69 µs ± 576.03 ns    16.27 µs …  18.25 µs  in 10 ×   4969 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=0 name=whitespace-view/always-changed =====
+P1.5_METRICS scenario=whitespace-view policy=always_changed operations=1 publications=1 initial_nodes=2 final_nodes=2 parser_updates=2 projection_transitions=2 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:286 ("P1.5 whitespace-view/always-changed") ok
+time (mean ± σ)         range (min … max) 
+  43.36 µs ±   7.20 µs    37.18 µs …  58.78 µs  in 10 ×   1763 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=1 name=whitespace-view/eq-cutoff =====
+P1.5_METRICS scenario=whitespace-view policy=eq_cutoff operations=1 publications=1 initial_nodes=2 final_nodes=2 parser_updates=2 projection_transitions=2 term_compute=2 cutoff_calls=1 eval_compute=1 eval_green=1 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:291 ("P1.5 whitespace-view/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+  41.53 µs ±   4.80 µs    37.02 µs …  50.63 µs  in 10 ×   1794 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=1 name=whitespace-view/eq-cutoff =====
+P1.5_METRICS scenario=whitespace-view policy=eq_cutoff operations=1 publications=1 initial_nodes=2 final_nodes=2 parser_updates=2 projection_transitions=2 term_compute=2 cutoff_calls=1 eval_compute=1 eval_green=1 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:291 ("P1.5 whitespace-view/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+  42.56 µs ±   5.64 µs    36.43 µs …  51.45 µs  in 10 ×   1690 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=0 name=whitespace-view/always-changed =====
+P1.5_METRICS scenario=whitespace-view policy=always_changed operations=1 publications=1 initial_nodes=2 final_nodes=2 parser_updates=2 projection_transitions=2 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:286 ("P1.5 whitespace-view/always-changed") ok
+time (mean ± σ)         range (min … max) 
+  45.95 µs ±   6.02 µs    38.45 µs …  55.03 µs  in 10 ×   1713 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=2 name=binding-view/always-changed =====
+P1.5_METRICS scenario=binding-view policy=always_changed operations=1 publications=1 initial_nodes=2 final_nodes=2 parser_updates=2 projection_transitions=2 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:296 ("P1.5 binding-view/always-changed") ok
+time (mean ± σ)         range (min … max) 
+  53.36 µs ±   7.32 µs    45.13 µs …  66.99 µs  in 10 ×   1435 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=3 name=binding-view/eq-cutoff =====
+P1.5_METRICS scenario=binding-view policy=eq_cutoff operations=1 publications=1 initial_nodes=2 final_nodes=2 parser_updates=2 projection_transitions=2 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:301 ("P1.5 binding-view/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+  48.17 µs ±   7.19 µs    41.32 µs …  61.60 µs  in 10 ×   1455 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=3 name=binding-view/eq-cutoff =====
+P1.5_METRICS scenario=binding-view policy=eq_cutoff operations=1 publications=1 initial_nodes=2 final_nodes=2 parser_updates=2 projection_transitions=2 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:301 ("P1.5 binding-view/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+  53.31 µs ±  11.91 µs    40.85 µs …  68.50 µs  in 10 ×   1511 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=2 name=binding-view/always-changed =====
+P1.5_METRICS scenario=binding-view policy=always_changed operations=1 publications=1 initial_nodes=2 final_nodes=2 parser_updates=2 projection_transitions=2 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:296 ("P1.5 binding-view/always-changed") ok
+time (mean ± σ)         range (min … max) 
+  52.31 µs ±   6.34 µs    45.02 µs …  61.64 µs  in 10 ×   1435 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=4 name=tail-definition-operations/always-changed =====
+P1.5_METRICS scenario=tail-definition-operations policy=always_changed operations=2 publications=2 initial_nodes=8 final_nodes=8 parser_updates=3 projection_transitions=3 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:306 ("P1.5 tail-definition-operations/always-changed") ok
+time (mean ± σ)         range (min … max) 
+ 161.25 µs ±  19.70 µs   145.24 µs … 200.44 µs  in 10 ×    471 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=5 name=tail-definition-operations/eq-cutoff =====
+P1.5_METRICS scenario=tail-definition-operations policy=eq_cutoff operations=2 publications=2 initial_nodes=8 final_nodes=8 parser_updates=3 projection_transitions=3 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:311 ("P1.5 tail-definition-operations/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+ 157.76 µs ±  23.23 µs   135.81 µs … 199.23 µs  in 10 ×    453 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=5 name=tail-definition-operations/eq-cutoff =====
+P1.5_METRICS scenario=tail-definition-operations policy=eq_cutoff operations=2 publications=2 initial_nodes=8 final_nodes=8 parser_updates=3 projection_transitions=3 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:311 ("P1.5 tail-definition-operations/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+ 154.42 µs ±  19.68 µs   134.18 µs … 189.35 µs  in 10 ×    452 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=4 name=tail-definition-operations/always-changed =====
+P1.5_METRICS scenario=tail-definition-operations policy=always_changed operations=2 publications=2 initial_nodes=8 final_nodes=8 parser_updates=3 projection_transitions=3 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:306 ("P1.5 tail-definition-operations/always-changed") ok
+time (mean ± σ)         range (min … max) 
+ 153.60 µs ±  23.51 µs   132.67 µs … 192.97 µs  in 10 ×    495 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=6 name=expression-source-map-operations/always-changed =====
+P1.5_METRICS scenario=expression-source-map-operations policy=always_changed operations=4 publications=2 initial_nodes=1 final_nodes=1 parser_updates=3 projection_transitions=3 term_compute=0 cutoff_calls=0 eval_compute=0 eval_green=0 source_map_compute=2 annotation_compute=0
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:316 ("P1.5 expression-source-map-operations/always-changed") ok
+time (mean ± σ)         range (min … max) 
+  17.49 µs ± 771.79 ns    16.78 µs …  19.11 µs  in 10 ×   4270 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=7 name=expression-source-map-operations/eq-cutoff =====
+P1.5_METRICS scenario=expression-source-map-operations policy=eq_cutoff operations=4 publications=2 initial_nodes=1 final_nodes=1 parser_updates=3 projection_transitions=3 term_compute=0 cutoff_calls=0 eval_compute=0 eval_green=0 source_map_compute=2 annotation_compute=0
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:321 ("P1.5 expression-source-map-operations/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+  22.84 µs ±   4.46 µs    17.99 µs …  31.10 µs  in 10 ×   5076 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=7 name=expression-source-map-operations/eq-cutoff =====
+P1.5_METRICS scenario=expression-source-map-operations policy=eq_cutoff operations=4 publications=2 initial_nodes=1 final_nodes=1 parser_updates=3 projection_transitions=3 term_compute=0 cutoff_calls=0 eval_compute=0 eval_green=0 source_map_compute=2 annotation_compute=0
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:321 ("P1.5 expression-source-map-operations/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+  36.86 µs ±   9.57 µs    26.67 µs …  53.56 µs  in 10 ×   2001 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=6 name=expression-source-map-operations/always-changed =====
+P1.5_METRICS scenario=expression-source-map-operations policy=always_changed operations=4 publications=2 initial_nodes=1 final_nodes=1 parser_updates=3 projection_transitions=3 term_compute=0 cutoff_calls=0 eval_compute=0 eval_green=0 source_map_compute=2 annotation_compute=0
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:316 ("P1.5 expression-source-map-operations/always-changed") ok
+time (mean ± σ)         range (min … max) 
+  18.78 µs ±   2.58 µs    17.22 µs …  25.88 µs  in 10 ×   4732 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=1 name=whitespace-view/eq-cutoff =====
+P1.5_METRICS scenario=whitespace-view policy=eq_cutoff operations=1 publications=1 initial_nodes=2 final_nodes=2 parser_updates=2 projection_transitions=2 term_compute=2 cutoff_calls=1 eval_compute=1 eval_green=1 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:291 ("P1.5 whitespace-view/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+  43.52 µs ±   4.32 µs    39.28 µs …  51.03 µs  in 10 ×   1720 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=0 name=whitespace-view/always-changed =====
+P1.5_METRICS scenario=whitespace-view policy=always_changed operations=1 publications=1 initial_nodes=2 final_nodes=2 parser_updates=2 projection_transitions=2 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:286 ("P1.5 whitespace-view/always-changed") ok
+time (mean ± σ)         range (min … max) 
+  44.11 µs ±   4.38 µs    39.70 µs …  52.33 µs  in 10 ×   1749 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=0 name=whitespace-view/always-changed =====
+P1.5_METRICS scenario=whitespace-view policy=always_changed operations=1 publications=1 initial_nodes=2 final_nodes=2 parser_updates=2 projection_transitions=2 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:286 ("P1.5 whitespace-view/always-changed") ok
+time (mean ± σ)         range (min … max) 
+  52.09 µs ±  14.05 µs    39.04 µs …  73.10 µs  in 10 ×   1621 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=1 name=whitespace-view/eq-cutoff =====
+P1.5_METRICS scenario=whitespace-view policy=eq_cutoff operations=1 publications=1 initial_nodes=2 final_nodes=2 parser_updates=2 projection_transitions=2 term_compute=2 cutoff_calls=1 eval_compute=1 eval_green=1 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:291 ("P1.5 whitespace-view/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+  48.01 µs ±   8.99 µs    37.99 µs …  60.88 µs  in 10 ×   1704 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=3 name=binding-view/eq-cutoff =====
+P1.5_METRICS scenario=binding-view policy=eq_cutoff operations=1 publications=1 initial_nodes=2 final_nodes=2 parser_updates=2 projection_transitions=2 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:301 ("P1.5 binding-view/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+  54.72 µs ±   9.68 µs    44.56 µs …  70.71 µs  in 10 ×   1437 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=2 name=binding-view/always-changed =====
+P1.5_METRICS scenario=binding-view policy=always_changed operations=1 publications=1 initial_nodes=2 final_nodes=2 parser_updates=2 projection_transitions=2 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:296 ("P1.5 binding-view/always-changed") ok
+time (mean ± σ)         range (min … max) 
+  52.93 µs ±   8.59 µs    44.15 µs …  66.00 µs  in 10 ×   1510 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=2 name=binding-view/always-changed =====
+P1.5_METRICS scenario=binding-view policy=always_changed operations=1 publications=1 initial_nodes=2 final_nodes=2 parser_updates=2 projection_transitions=2 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:296 ("P1.5 binding-view/always-changed") ok
+time (mean ± σ)         range (min … max) 
+  48.29 µs ±   5.91 µs    41.32 µs …  57.70 µs  in 10 ×   1524 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=3 name=binding-view/eq-cutoff =====
+P1.5_METRICS scenario=binding-view policy=eq_cutoff operations=1 publications=1 initial_nodes=2 final_nodes=2 parser_updates=2 projection_transitions=2 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:301 ("P1.5 binding-view/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+  78.66 µs ±  29.46 µs    52.95 µs … 138.36 µs  in 10 ×   1345 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=5 name=tail-definition-operations/eq-cutoff =====
+P1.5_METRICS scenario=tail-definition-operations policy=eq_cutoff operations=2 publications=2 initial_nodes=8 final_nodes=8 parser_updates=3 projection_transitions=3 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:311 ("P1.5 tail-definition-operations/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+ 187.42 µs ±  37.48 µs   151.90 µs … 254.63 µs  in 10 ×    437 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=4 name=tail-definition-operations/always-changed =====
+P1.5_METRICS scenario=tail-definition-operations policy=always_changed operations=2 publications=2 initial_nodes=8 final_nodes=8 parser_updates=3 projection_transitions=3 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:306 ("P1.5 tail-definition-operations/always-changed") ok
+time (mean ± σ)         range (min … max) 
+ 161.05 µs ±  22.16 µs   140.62 µs … 208.68 µs  in 10 ×    459 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=4 name=tail-definition-operations/always-changed =====
+P1.5_METRICS scenario=tail-definition-operations policy=always_changed operations=2 publications=2 initial_nodes=8 final_nodes=8 parser_updates=3 projection_transitions=3 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:306 ("P1.5 tail-definition-operations/always-changed") ok
+time (mean ± σ)         range (min … max) 
+ 246.75 µs ±  72.41 µs   161.60 µs … 374.91 µs  in 10 ×    445 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=5 name=tail-definition-operations/eq-cutoff =====
+P1.5_METRICS scenario=tail-definition-operations policy=eq_cutoff operations=2 publications=2 initial_nodes=8 final_nodes=8 parser_updates=3 projection_transitions=3 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:311 ("P1.5 tail-definition-operations/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+ 552.90 µs ± 237.52 µs   316.59 µs … 953.70 µs  in 10 ×    116 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=7 name=expression-source-map-operations/eq-cutoff =====
+P1.5_METRICS scenario=expression-source-map-operations policy=eq_cutoff operations=4 publications=2 initial_nodes=1 final_nodes=1 parser_updates=3 projection_transitions=3 term_compute=0 cutoff_calls=0 eval_compute=0 eval_green=0 source_map_compute=2 annotation_compute=0
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:321 ("P1.5 expression-source-map-operations/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+  94.39 µs ±  47.58 µs    54.59 µs … 218.96 µs  in 10 ×    206 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=6 name=expression-source-map-operations/always-changed =====
+P1.5_METRICS scenario=expression-source-map-operations policy=always_changed operations=4 publications=2 initial_nodes=1 final_nodes=1 parser_updates=3 projection_transitions=3 term_compute=0 cutoff_calls=0 eval_compute=0 eval_green=0 source_map_compute=2 annotation_compute=0
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:316 ("P1.5 expression-source-map-operations/always-changed") ok
+time (mean ± σ)         range (min … max) 
+  35.09 µs ±   9.19 µs    22.90 µs …  47.46 µs  in 10 ×   2849 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=6 name=expression-source-map-operations/always-changed =====
+P1.5_METRICS scenario=expression-source-map-operations policy=always_changed operations=4 publications=2 initial_nodes=1 final_nodes=1 parser_updates=3 projection_transitions=3 term_compute=0 cutoff_calls=0 eval_compute=0 eval_green=0 source_map_compute=2 annotation_compute=0
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:316 ("P1.5 expression-source-map-operations/always-changed") ok
+time (mean ± σ)         range (min … max) 
+  40.21 µs ±  15.44 µs    28.97 µs …  71.66 µs  in 10 ×    499 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=7 name=expression-source-map-operations/eq-cutoff =====
+P1.5_METRICS scenario=expression-source-map-operations policy=eq_cutoff operations=4 publications=2 initial_nodes=1 final_nodes=1 parser_updates=3 projection_transitions=3 term_compute=0 cutoff_calls=0 eval_compute=0 eval_green=0 source_map_compute=2 annotation_compute=0
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:321 ("P1.5 expression-source-map-operations/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+ 147.61 µs ±  53.81 µs    80.86 µs … 218.94 µs  in 10 ×    362 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=0 name=whitespace-view/always-changed =====
+P1.5_METRICS scenario=whitespace-view policy=always_changed operations=1 publications=1 initial_nodes=2 final_nodes=2 parser_updates=2 projection_transitions=2 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:286 ("P1.5 whitespace-view/always-changed") ok
+time (mean ± σ)         range (min … max) 
+ 195.89 µs ±  81.75 µs   105.23 µs … 344.15 µs  in 10 ×    239 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=1 name=whitespace-view/eq-cutoff =====
+P1.5_METRICS scenario=whitespace-view policy=eq_cutoff operations=1 publications=1 initial_nodes=2 final_nodes=2 parser_updates=2 projection_transitions=2 term_compute=2 cutoff_calls=1 eval_compute=1 eval_green=1 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:291 ("P1.5 whitespace-view/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+ 328.61 µs ± 187.84 µs   100.16 µs … 615.43 µs  in 10 ×    108 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=1 name=whitespace-view/eq-cutoff =====
+P1.5_METRICS scenario=whitespace-view policy=eq_cutoff operations=1 publications=1 initial_nodes=2 final_nodes=2 parser_updates=2 projection_transitions=2 term_compute=2 cutoff_calls=1 eval_compute=1 eval_green=1 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:291 ("P1.5 whitespace-view/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+  67.26 µs ±  24.98 µs    46.15 µs … 113.03 µs  in 10 ×   1055 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=0 name=whitespace-view/always-changed =====
+P1.5_METRICS scenario=whitespace-view policy=always_changed operations=1 publications=1 initial_nodes=2 final_nodes=2 parser_updates=2 projection_transitions=2 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:286 ("P1.5 whitespace-view/always-changed") ok
+time (mean ± σ)         range (min … max) 
+ 113.95 µs ±  41.11 µs    69.81 µs … 213.07 µs  in 10 ×    243 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=2 name=binding-view/always-changed =====
+P1.5_METRICS scenario=binding-view policy=always_changed operations=1 publications=1 initial_nodes=2 final_nodes=2 parser_updates=2 projection_transitions=2 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:296 ("P1.5 binding-view/always-changed") ok
+time (mean ± σ)         range (min … max) 
+ 149.50 µs ±  48.00 µs    94.59 µs … 248.28 µs  in 10 ×    458 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=3 name=binding-view/eq-cutoff =====
+P1.5_METRICS scenario=binding-view policy=eq_cutoff operations=1 publications=1 initial_nodes=2 final_nodes=2 parser_updates=2 projection_transitions=2 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:301 ("P1.5 binding-view/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+ 128.07 µs ±  41.81 µs    88.12 µs … 207.92 µs  in 10 ×    228 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=3 name=binding-view/eq-cutoff =====
+P1.5_METRICS scenario=binding-view policy=eq_cutoff operations=1 publications=1 initial_nodes=2 final_nodes=2 parser_updates=2 projection_transitions=2 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:301 ("P1.5 binding-view/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+ 112.49 µs ±  24.44 µs    77.13 µs … 146.03 µs  in 10 ×    353 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=2 name=binding-view/always-changed =====
+P1.5_METRICS scenario=binding-view policy=always_changed operations=1 publications=1 initial_nodes=2 final_nodes=2 parser_updates=2 projection_transitions=2 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:296 ("P1.5 binding-view/always-changed") ok
+time (mean ± σ)         range (min … max) 
+  66.09 µs ±  17.10 µs    45.49 µs …  89.20 µs  in 10 ×   1123 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=4 name=tail-definition-operations/always-changed =====
+P1.5_METRICS scenario=tail-definition-operations policy=always_changed operations=2 publications=2 initial_nodes=8 final_nodes=8 parser_updates=3 projection_transitions=3 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:306 ("P1.5 tail-definition-operations/always-changed") ok
+time (mean ± σ)         range (min … max) 
+ 163.35 µs ±  27.90 µs   142.27 µs … 221.57 µs  in 10 ×    428 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=5 name=tail-definition-operations/eq-cutoff =====
+P1.5_METRICS scenario=tail-definition-operations policy=eq_cutoff operations=2 publications=2 initial_nodes=8 final_nodes=8 parser_updates=3 projection_transitions=3 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:311 ("P1.5 tail-definition-operations/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+ 172.56 µs ±  30.43 µs   143.25 µs … 215.53 µs  in 10 ×    418 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=5 name=tail-definition-operations/eq-cutoff =====
+P1.5_METRICS scenario=tail-definition-operations policy=eq_cutoff operations=2 publications=2 initial_nodes=8 final_nodes=8 parser_updates=3 projection_transitions=3 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:311 ("P1.5 tail-definition-operations/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+ 172.68 µs ±  21.06 µs   150.79 µs … 208.38 µs  in 10 ×    412 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=4 name=tail-definition-operations/always-changed =====
+P1.5_METRICS scenario=tail-definition-operations policy=always_changed operations=2 publications=2 initial_nodes=8 final_nodes=8 parser_updates=3 projection_transitions=3 term_compute=2 cutoff_calls=1 eval_compute=2 eval_green=0 source_map_compute=2 annotation_compute=2
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:306 ("P1.5 tail-definition-operations/always-changed") ok
+time (mean ± σ)         range (min … max) 
+ 158.09 µs ±  16.07 µs   142.04 µs … 187.57 µs  in 10 ×    456 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=6 name=expression-source-map-operations/always-changed =====
+P1.5_METRICS scenario=expression-source-map-operations policy=always_changed operations=4 publications=2 initial_nodes=1 final_nodes=1 parser_updates=3 projection_transitions=3 term_compute=0 cutoff_calls=0 eval_compute=0 eval_green=0 source_map_compute=2 annotation_compute=0
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:316 ("P1.5 expression-source-map-operations/always-changed") ok
+time (mean ± σ)         range (min … max) 
+  19.68 µs ±   1.26 µs    18.54 µs …  22.65 µs  in 10 ×   3783 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=7 name=expression-source-map-operations/eq-cutoff =====
+P1.5_METRICS scenario=expression-source-map-operations policy=eq_cutoff operations=4 publications=2 initial_nodes=1 final_nodes=1 parser_updates=3 projection_transitions=3 term_compute=0 cutoff_calls=0 eval_compute=0 eval_green=0 source_map_compute=2 annotation_compute=0
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:321 ("P1.5 expression-source-map-operations/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+  19.34 µs ±   1.90 µs    17.72 µs …  23.37 µs  in 10 ×   3866 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=7 name=expression-source-map-operations/eq-cutoff =====
+P1.5_METRICS scenario=expression-source-map-operations policy=eq_cutoff operations=4 publications=2 initial_nodes=1 final_nodes=1 parser_updates=3 projection_transitions=3 term_compute=0 cutoff_calls=0 eval_compute=0 eval_green=0 source_map_compute=2 annotation_compute=0
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:321 ("P1.5 expression-source-map-operations/eq-cutoff") ok
+time (mean ± σ)         range (min … max) 
+  19.37 µs ±   1.03 µs    18.06 µs …  21.02 µs  in 10 ×   4890 runs
+Total tests: 1, passed: 1, failed: 0.
+
+===== index=6 name=expression-source-map-operations/always-changed =====
+P1.5_METRICS scenario=expression-source-map-operations policy=always_changed operations=4 publications=2 initial_nodes=1 final_nodes=1 parser_updates=3 projection_transitions=3 term_compute=0 cutoff_calls=0 eval_compute=0 eval_green=0 source_map_compute=2 annotation_compute=0
+[examples/spikes/minimal_no_shadow_lambda_projection] bench main/trace_replay_benchmark.mbt:316 ("P1.5 expression-source-map-operations/always-changed") ok
+time (mean ± σ)         range (min … max) 
+  24.27 µs ±   3.90 µs    19.49 µs …  30.27 µs  in 10 ×   2961 runs
+Total tests: 1, passed: 1, failed: 0.

@@ -115,8 +115,11 @@ mismatch). Medium mixed results and JS per-scenario results remain noisy, so the
 current samples still do not justify a default policy or universal threshold.
 ```
 
-A production decision still requires representative editor traces, more days /
-machines, controlled JS allocation evidence, snapshot-value hardening, and the
-existing production coherence/lifetime gates. P1.4 does not authorize more
+[P1_5_TEST_DERIVED_TRACE_REPLAY.md](P1_5_TEST_DERIVED_TRACE_REPLAY.md) replays
+ordered edits and demand cadence from existing integration tests, but finds no
+captured user trace and no stable whole-session timing result. A production
+decision still requires representative editor traces, more days / machines,
+controlled JS allocation evidence, snapshot-value hardening, and the existing
+production coherence/lifetime gates. P1.4 does not authorize more
 cutoffs, fingerprints, keyed subterm Queries, prefix-cache replacement, an ADR,
 or migration.

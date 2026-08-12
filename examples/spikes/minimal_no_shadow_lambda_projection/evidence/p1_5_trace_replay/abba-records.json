@@ -1,0 +1,866 @@
+[
+  {
+    "target": "native",
+    "scenario": "whitespace-view",
+    "cycle": 1,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 47.91
+  },
+  {
+    "target": "native",
+    "scenario": "whitespace-view",
+    "cycle": 1,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 47.8
+  },
+  {
+    "target": "native",
+    "scenario": "whitespace-view",
+    "cycle": 1,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 47.08
+  },
+  {
+    "target": "native",
+    "scenario": "whitespace-view",
+    "cycle": 1,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 47.14
+  },
+  {
+    "target": "native",
+    "scenario": "binding-view",
+    "cycle": 1,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 53.9
+  },
+  {
+    "target": "native",
+    "scenario": "binding-view",
+    "cycle": 1,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 53.69
+  },
+  {
+    "target": "native",
+    "scenario": "binding-view",
+    "cycle": 1,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 57.47
+  },
+  {
+    "target": "native",
+    "scenario": "binding-view",
+    "cycle": 1,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 53.77
+  },
+  {
+    "target": "native",
+    "scenario": "tail-definition-operations",
+    "cycle": 1,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 155.07
+  },
+  {
+    "target": "native",
+    "scenario": "tail-definition-operations",
+    "cycle": 1,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 132.68
+  },
+  {
+    "target": "native",
+    "scenario": "tail-definition-operations",
+    "cycle": 1,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 137.03
+  },
+  {
+    "target": "native",
+    "scenario": "tail-definition-operations",
+    "cycle": 1,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 132.68
+  },
+  {
+    "target": "native",
+    "scenario": "expression-source-map-operations",
+    "cycle": 1,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 25.04
+  },
+  {
+    "target": "native",
+    "scenario": "expression-source-map-operations",
+    "cycle": 1,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 24.71
+  },
+  {
+    "target": "native",
+    "scenario": "expression-source-map-operations",
+    "cycle": 1,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 24.41
+  },
+  {
+    "target": "native",
+    "scenario": "expression-source-map-operations",
+    "cycle": 1,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 24.63
+  },
+  {
+    "target": "native",
+    "scenario": "whitespace-view",
+    "cycle": 2,
+    "position": 1,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 48.95
+  },
+  {
+    "target": "native",
+    "scenario": "whitespace-view",
+    "cycle": 2,
+    "position": 2,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 51.04
+  },
+  {
+    "target": "native",
+    "scenario": "whitespace-view",
+    "cycle": 2,
+    "position": 3,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 49.25
+  },
+  {
+    "target": "native",
+    "scenario": "whitespace-view",
+    "cycle": 2,
+    "position": 4,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 47.65
+  },
+  {
+    "target": "native",
+    "scenario": "binding-view",
+    "cycle": 2,
+    "position": 1,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 52.45
+  },
+  {
+    "target": "native",
+    "scenario": "binding-view",
+    "cycle": 2,
+    "position": 2,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 54.59
+  },
+  {
+    "target": "native",
+    "scenario": "binding-view",
+    "cycle": 2,
+    "position": 3,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 56.93
+  },
+  {
+    "target": "native",
+    "scenario": "binding-view",
+    "cycle": 2,
+    "position": 4,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 53.92
+  },
+  {
+    "target": "native",
+    "scenario": "tail-definition-operations",
+    "cycle": 2,
+    "position": 1,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 133.39
+  },
+  {
+    "target": "native",
+    "scenario": "tail-definition-operations",
+    "cycle": 2,
+    "position": 2,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 135.62
+  },
+  {
+    "target": "native",
+    "scenario": "tail-definition-operations",
+    "cycle": 2,
+    "position": 3,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 135.67
+  },
+  {
+    "target": "native",
+    "scenario": "tail-definition-operations",
+    "cycle": 2,
+    "position": 4,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 137.43
+  },
+  {
+    "target": "native",
+    "scenario": "expression-source-map-operations",
+    "cycle": 2,
+    "position": 1,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 25.33
+  },
+  {
+    "target": "native",
+    "scenario": "expression-source-map-operations",
+    "cycle": 2,
+    "position": 2,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 25.12
+  },
+  {
+    "target": "native",
+    "scenario": "expression-source-map-operations",
+    "cycle": 2,
+    "position": 3,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 24.6
+  },
+  {
+    "target": "native",
+    "scenario": "expression-source-map-operations",
+    "cycle": 2,
+    "position": 4,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 24.57
+  },
+  {
+    "target": "native",
+    "scenario": "whitespace-view",
+    "cycle": 3,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 59.87
+  },
+  {
+    "target": "native",
+    "scenario": "whitespace-view",
+    "cycle": 3,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 48.19
+  },
+  {
+    "target": "native",
+    "scenario": "whitespace-view",
+    "cycle": 3,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 47.92
+  },
+  {
+    "target": "native",
+    "scenario": "whitespace-view",
+    "cycle": 3,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 47.59
+  },
+  {
+    "target": "native",
+    "scenario": "binding-view",
+    "cycle": 3,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 54.29
+  },
+  {
+    "target": "native",
+    "scenario": "binding-view",
+    "cycle": 3,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 57.49
+  },
+  {
+    "target": "native",
+    "scenario": "binding-view",
+    "cycle": 3,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 66.33
+  },
+  {
+    "target": "native",
+    "scenario": "binding-view",
+    "cycle": 3,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 57.8
+  },
+  {
+    "target": "native",
+    "scenario": "tail-definition-operations",
+    "cycle": 3,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 137.96
+  },
+  {
+    "target": "native",
+    "scenario": "tail-definition-operations",
+    "cycle": 3,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 147.68
+  },
+  {
+    "target": "native",
+    "scenario": "tail-definition-operations",
+    "cycle": 3,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 146.79
+  },
+  {
+    "target": "native",
+    "scenario": "tail-definition-operations",
+    "cycle": 3,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 153.21
+  },
+  {
+    "target": "native",
+    "scenario": "expression-source-map-operations",
+    "cycle": 3,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 27.17
+  },
+  {
+    "target": "native",
+    "scenario": "expression-source-map-operations",
+    "cycle": 3,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 26.99
+  },
+  {
+    "target": "native",
+    "scenario": "expression-source-map-operations",
+    "cycle": 3,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 26.64
+  },
+  {
+    "target": "native",
+    "scenario": "expression-source-map-operations",
+    "cycle": 3,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 34.11
+  },
+  {
+    "target": "js",
+    "scenario": "whitespace-view",
+    "cycle": 1,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 43.36
+  },
+  {
+    "target": "js",
+    "scenario": "whitespace-view",
+    "cycle": 1,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 41.53
+  },
+  {
+    "target": "js",
+    "scenario": "whitespace-view",
+    "cycle": 1,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 42.56
+  },
+  {
+    "target": "js",
+    "scenario": "whitespace-view",
+    "cycle": 1,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 45.95
+  },
+  {
+    "target": "js",
+    "scenario": "binding-view",
+    "cycle": 1,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 53.36
+  },
+  {
+    "target": "js",
+    "scenario": "binding-view",
+    "cycle": 1,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 48.17
+  },
+  {
+    "target": "js",
+    "scenario": "binding-view",
+    "cycle": 1,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 53.31
+  },
+  {
+    "target": "js",
+    "scenario": "binding-view",
+    "cycle": 1,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 52.31
+  },
+  {
+    "target": "js",
+    "scenario": "tail-definition-operations",
+    "cycle": 1,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 161.25
+  },
+  {
+    "target": "js",
+    "scenario": "tail-definition-operations",
+    "cycle": 1,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 157.76
+  },
+  {
+    "target": "js",
+    "scenario": "tail-definition-operations",
+    "cycle": 1,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 154.42
+  },
+  {
+    "target": "js",
+    "scenario": "tail-definition-operations",
+    "cycle": 1,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 153.6
+  },
+  {
+    "target": "js",
+    "scenario": "expression-source-map-operations",
+    "cycle": 1,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 17.49
+  },
+  {
+    "target": "js",
+    "scenario": "expression-source-map-operations",
+    "cycle": 1,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 22.84
+  },
+  {
+    "target": "js",
+    "scenario": "expression-source-map-operations",
+    "cycle": 1,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 36.86
+  },
+  {
+    "target": "js",
+    "scenario": "expression-source-map-operations",
+    "cycle": 1,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 18.78
+  },
+  {
+    "target": "js",
+    "scenario": "whitespace-view",
+    "cycle": 2,
+    "position": 1,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 43.52
+  },
+  {
+    "target": "js",
+    "scenario": "whitespace-view",
+    "cycle": 2,
+    "position": 2,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 44.11
+  },
+  {
+    "target": "js",
+    "scenario": "whitespace-view",
+    "cycle": 2,
+    "position": 3,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 52.09
+  },
+  {
+    "target": "js",
+    "scenario": "whitespace-view",
+    "cycle": 2,
+    "position": 4,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 48.01
+  },
+  {
+    "target": "js",
+    "scenario": "binding-view",
+    "cycle": 2,
+    "position": 1,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 54.72
+  },
+  {
+    "target": "js",
+    "scenario": "binding-view",
+    "cycle": 2,
+    "position": 2,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 52.93
+  },
+  {
+    "target": "js",
+    "scenario": "binding-view",
+    "cycle": 2,
+    "position": 3,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 48.29
+  },
+  {
+    "target": "js",
+    "scenario": "binding-view",
+    "cycle": 2,
+    "position": 4,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 78.66
+  },
+  {
+    "target": "js",
+    "scenario": "tail-definition-operations",
+    "cycle": 2,
+    "position": 1,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 187.42
+  },
+  {
+    "target": "js",
+    "scenario": "tail-definition-operations",
+    "cycle": 2,
+    "position": 2,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 161.05
+  },
+  {
+    "target": "js",
+    "scenario": "tail-definition-operations",
+    "cycle": 2,
+    "position": 3,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 246.75
+  },
+  {
+    "target": "js",
+    "scenario": "tail-definition-operations",
+    "cycle": 2,
+    "position": 4,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 552.9
+  },
+  {
+    "target": "js",
+    "scenario": "expression-source-map-operations",
+    "cycle": 2,
+    "position": 1,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 94.39
+  },
+  {
+    "target": "js",
+    "scenario": "expression-source-map-operations",
+    "cycle": 2,
+    "position": 2,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 35.09
+  },
+  {
+    "target": "js",
+    "scenario": "expression-source-map-operations",
+    "cycle": 2,
+    "position": 3,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 40.21
+  },
+  {
+    "target": "js",
+    "scenario": "expression-source-map-operations",
+    "cycle": 2,
+    "position": 4,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 147.61
+  },
+  {
+    "target": "js",
+    "scenario": "whitespace-view",
+    "cycle": 3,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 195.89
+  },
+  {
+    "target": "js",
+    "scenario": "whitespace-view",
+    "cycle": 3,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 328.61
+  },
+  {
+    "target": "js",
+    "scenario": "whitespace-view",
+    "cycle": 3,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 67.26
+  },
+  {
+    "target": "js",
+    "scenario": "whitespace-view",
+    "cycle": 3,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 113.95
+  },
+  {
+    "target": "js",
+    "scenario": "binding-view",
+    "cycle": 3,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 149.5
+  },
+  {
+    "target": "js",
+    "scenario": "binding-view",
+    "cycle": 3,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 128.07
+  },
+  {
+    "target": "js",
+    "scenario": "binding-view",
+    "cycle": 3,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 112.49
+  },
+  {
+    "target": "js",
+    "scenario": "binding-view",
+    "cycle": 3,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 66.09
+  },
+  {
+    "target": "js",
+    "scenario": "tail-definition-operations",
+    "cycle": 3,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 163.35
+  },
+  {
+    "target": "js",
+    "scenario": "tail-definition-operations",
+    "cycle": 3,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 172.56
+  },
+  {
+    "target": "js",
+    "scenario": "tail-definition-operations",
+    "cycle": 3,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 172.68
+  },
+  {
+    "target": "js",
+    "scenario": "tail-definition-operations",
+    "cycle": 3,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 158.09
+  },
+  {
+    "target": "js",
+    "scenario": "expression-source-map-operations",
+    "cycle": 3,
+    "position": 1,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 19.68
+  },
+  {
+    "target": "js",
+    "scenario": "expression-source-map-operations",
+    "cycle": 3,
+    "position": 2,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 19.34
+  },
+  {
+    "target": "js",
+    "scenario": "expression-source-map-operations",
+    "cycle": 3,
+    "position": 3,
+    "arm": "B",
+    "policy": "eq_cutoff",
+    "mean_us": 19.37
+  },
+  {
+    "target": "js",
+    "scenario": "expression-source-map-operations",
+    "cycle": 3,
+    "position": 4,
+    "arm": "A",
+    "policy": "always_changed",
+    "mean_us": 24.27
+  }
+]

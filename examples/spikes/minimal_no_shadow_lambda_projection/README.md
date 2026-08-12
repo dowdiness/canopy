@@ -18,6 +18,10 @@ do not merge it into production.
   positive at a 50% equivalent-edit mix on native and JS in this run, while
   medium and threshold estimates remain noisy; see
   [P1_4_CUTOFF_MIXED_WORKLOAD.md](P1_4_CUTOFF_MIXED_WORKLOAD.md).
+- P1.5 test-derived trace replay: demand cadence suppresses intermediate lazy
+  work and SourceMap-only demand leaves Term/Evaluation undemanded; all
+  whole-session timing ranges cross zero, and no captured user trace exists;
+  see [P1_5_TEST_DERIVED_TRACE_REPLAY.md](P1_5_TEST_DERIVED_TRACE_REPLAY.md).
 
 ## Question
 
@@ -38,6 +42,7 @@ From the Canopy repository root:
 ./scripts/run-minimal-no-shadow-lambda-projection.sh
 ./scripts/run-minimal-no-shadow-lambda-cutoff-benchmark.sh
 ./scripts/run-minimal-no-shadow-lambda-cutoff-mixed-benchmark.sh
+./scripts/run-minimal-no-shadow-lambda-trace-replay.sh
 ```
 
 On the current P1.2 branch, the command verifies the materialized #464 provider
