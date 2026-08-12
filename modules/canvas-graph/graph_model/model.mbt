@@ -142,6 +142,7 @@ pub impl @json.FromJson for PortDef with fn from_json(json, path) {
   }
   let port_type : PortType = @json.from_json(
     require_json_field(fields, path, "port_type", "PortDef"),
+    path=path.add_key("port_type"),
   )
   let allows_fan_in = match fields.get("allows_fan_in") {
     None => false
@@ -405,12 +406,14 @@ pub impl @json.FromJson for GraphOperation with fn from_json(json, path) {
     "AddNode" => {
       let node : CanvasNode = @json.from_json(
         require_json_field(fields, path, "node", "AddNode"),
+        path=path.add_key("node"),
       )
       WorkflowAction::AddNode(node)
     }
     "MoveNodes" => {
       let positions : Array[NodePosition] = @json.from_json(
         require_json_field(fields, path, "positions", "MoveNodes"),
+        path=path.add_key("positions"),
       )
       WorkflowAction::MoveNodes(positions)
     }
@@ -447,6 +450,7 @@ pub impl @json.FromJson for GraphOperation with fn from_json(json, path) {
     "DeleteNodes" => {
       let nodes : Array[NodeId] = @json.from_json(
         require_json_field(fields, path, "nodes", "DeleteNodes"),
+        path=path.add_key("nodes"),
       )
       WorkflowAction::DeleteNodes(nodes)
     }
@@ -470,6 +474,7 @@ pub impl @json.FromJson for GraphOperation with fn from_json(json, path) {
     "SelectNodes" => {
       let nodes : Array[NodeId] = @json.from_json(
         require_json_field(fields, path, "nodes", "SelectNodes"),
+        path=path.add_key("nodes"),
       )
       WorkflowAction::SelectNodes(nodes)
     }
