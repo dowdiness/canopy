@@ -32,7 +32,8 @@ production close/lifetime resources
 
 P1 RESPONSIBILITIES ADDED
 
-one lazy evaluation Query over exact ProjectionCommit
+one Eq-cutoff Term selector Query over exact ProjectionCommit
+one lazy evaluation Query over selected Term
 one lazy AnnotationMap Query
 evidence-only pure annotation visibility adapter
 one production ViewNode annotation consumer
@@ -43,7 +44,7 @@ application state owners          1
 incremental Store owners          1
 Region lifecycle owners           1
 canonical Sources                 1
-lazy Queries                      4
+lazy Queries                      5
 retention roots                   0
 current Runtime objects           0
 cross-runtime synchronization     0
@@ -52,15 +53,17 @@ INCREMENTAL DEFINITION EDGES
 
 ProjectionCommit -> Registry
 ProjectionCommit -> SourceMap
-ProjectionCommit -> Evaluation
+ProjectionCommit -> Term selector
+Term selector    -> Evaluation
 ProjectionCommit -> AnnotationMap
 Evaluation       -> AnnotationMap
 SourceMap        -> AnnotationMap
 
 A transition-local Ref collects production reconcile events and is copied into
 the owning ProjectionCommit; it is not a persistent companion trace owner.
-The unchanged #462 provider has private module-level evaluator execution state,
-but the prototype creates one explicit Store owner and no cross-runtime edge.
+The unchanged resolved #464 provider has private module-level evaluator
+execution state, but the prototype creates one explicit Store owner and no
+cross-runtime edge.
 
 The imported Canopy packages still compile alongside their current memo-builder
 files. P1 constructs no current-Incr value and reads no current Derived. The
@@ -68,6 +71,8 @@ single generated-interface addition is an evidence-only pure visibility adapter
 that delegates to the existing package-private annotation algorithms.
 
 P1.1 counters show same-epoch hits and SourceMap sharing across AnnotationMap
-and source-range consumers. They also show zero green verifications and one
-recompute per demanded derived Query after the changed commit. Fine-grained
-edit-time incrementality is not part of this deletion claim.
+and source-range consumers. P1.2 adds one Eq-cutoff Term selector: a trailing
+whitespace commit recomputes and backdates that selector, then Evaluation
+verifies green without recomputing. SourceMap and AnnotationMap remain red.
+This single-workload green path does not broaden the deletion claim to general
+fine-grained evaluation or unchanged-definition prefix reuse.

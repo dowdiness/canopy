@@ -46,4 +46,5 @@ members = [
   "./examples/disclosure",
   "./examples/spikes/minimal_no_shadow_lambda_projection",
   "./examples/spikes/minimal_no_shadow_lambda_projection/evidence/incr_next_incremental_parity",
+  "./examples/spikes/minimal_no_shadow_lambda_projection/evidence/incr_next_cutoff_backdating",
 ]

@@ -4,11 +4,11 @@
 avoid in P1, without adding cutoff/backdating or another feature?
 
 This is counter evidence, not a timing benchmark and not an optimization. It
-uses the provider's existing `QueryDebug` and `memo_debug(())` interfaces. Run:
-
-```bash
-./scripts/run-minimal-no-shadow-lambda-projection.sh
-```
+uses the provider's existing `QueryDebug` and `memo_debug(())` interfaces. The
+table records the P1.1 #462-provider run before P1.2 introduced #464 cutoff.
+See [P1_2_EVAL_GREEN_PATH.md](P1_2_EVAL_GREEN_PATH.md) for the first edit-time
+green path. The P1.1 table is reproducible from commit `691c155b`; the current
+branch's one-command harness runs the P1.2 extension.
 
 Every stage prints:
 
@@ -34,7 +34,14 @@ for Registry, SourceMap, Evaluation, and AnnotationMap.
 | close | all memo tables cleared | all memo tables cleared | all memo tables cleared | all memo tables cleared |
 
 Legend: `c=compute_count`, `h=cache_hits`, `g=green_verifications`,
-`m=memo_count`, `t=trace_length`, `-=no memo`.
+`m=memo_count`, `t=direct trace length`, `-=no memo`.
+
+All values are cumulative at the named stage, not operation-local deltas. The
+direct trace length counts dependencies installed on that Query memo; it is not
+the transitive dependency closure or actual verify-call count. For example,
+SourceMap's first cache hit is observed after annotation computation when the
+separate `annotation_view` helper reads SourceMap, and the source-range stage
+adds two more direct reads.
 
 ## Interpretation
 

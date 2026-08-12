@@ -11,6 +11,9 @@ const AFTER_STRUCTURAL_BATCH : String = "(z, y) => z - y"
 const AFTER_EVALUATION_EDIT : String = "((z, y) => z - y) 5 2"
 
 ///|
+const AFTER_WHITESPACE_EDIT : String = "((z, y) => z - y) 5 2 "
+
+///|
 fn require(condition : Bool, message : String) -> Unit {
   guard condition else { abort("P1 FAIL: " + message) }
 }
@@ -55,7 +58,7 @@ fn[K : Hash + Eq, V] query_metrics(
     Some(memo) => memo.trace_length.to_string()
     None => "none"
   }
-  "\{name}_metrics=compute:\{debug.compute_count},cache_hits:\{debug.cache_hits},green_verifications:\{debug.green_verifications},memo_count:\{debug.memo_count},trace_length:\{trace_length}"
+  "\{name}_metrics=compute:\{debug.compute_count},cutoff_calls:\{debug.cutoff_calls},cache_hits:\{debug.cache_hits},green_verifications:\{debug.green_verifications},memo_count:\{debug.memo_count},direct_trace_length:\{trace_length}"
 }
 
 ///|
@@ -66,6 +69,7 @@ fn print_state(
 ) -> Unit {
   let registry_debug = shell.registry_query.debug()
   let source_map_debug = shell.source_map_query.debug()
+  let term_debug = shell.term_query.debug()
   let eval_debug = shell.eval_query.debug()
   let annotation_debug = shell.annotation_query.debug()
   let (commit_id, predecessor_id, trace_count) = commit_metadata(shell)
@@ -84,10 +88,12 @@ fn print_state(
   )
   println("registry_compute_count=\{registry_debug.compute_count}")
   println("source_map_compute_count=\{source_map_debug.compute_count}")
+  println("term_compute_count=\{term_debug.compute_count}")
   println("eval_compute_count=\{eval_debug.compute_count}")
   println("annotation_compute_count=\{annotation_debug.compute_count}")
   println(query_metrics("registry", shell.registry_query, ()))
   println(query_metrics("source_map", shell.source_map_query, ()))
+  println(query_metrics("term", shell.term_query, ()))
   println(query_metrics("eval", shell.eval_query, ()))
   println(query_metrics("annotation", shell.annotation_query, ()))
   println(
@@ -168,6 +174,7 @@ fn run_prototype() -> Unit raise {
     shell.source_map_query.debug().compute_count == 0,
     "initial source map lazy",
   )
+  require(shell.term_query.debug().compute_count == 0, "initial term lazy")
   require(shell.eval_query.debug().compute_count == 0, "initial eval lazy")
   require(
     shell.annotation_query.debug().compute_count == 0,
@@ -227,6 +234,10 @@ fn run_prototype() -> Unit raise {
     "structural source map still lazy",
   )
   require(
+    shell.term_query.debug().compute_count == 0,
+    "structural term still lazy",
+  )
+  require(
     shell.eval_query.debug().compute_count == 0,
     "structural eval still lazy",
   )
@@ -267,8 +278,12 @@ fn run_prototype() -> Unit raise {
     "annotation demand leaves registry lazy",
   )
   require(
+    shell.term_query.memo_debug(()).map(memo => memo.trace_length) == Some(1),
+    "Term selector direct trace owns only ProjectionCommit dependency",
+  )
+  require(
     shell.eval_query.memo_debug(()).map(memo => memo.trace_length) == Some(1),
-    "evaluation trace owns only ProjectionCommit dependency",
+    "Evaluation direct trace owns only Term selector dependency",
   )
   require(
     shell.source_map_query.memo_debug(()).map(memo => memo.trace_length) == Some(1),
@@ -404,6 +419,8 @@ fn run_prototype() -> Unit raise {
     shell.counters.projection_transition_count == 4,
     "evaluation projection transition +1",
   )
+  require(shell.term_query.debug().compute_count == 2, "term recompute once")
+  require(shell.term_query.debug().cutoff_calls == 1, "term cutoff once")
   require(shell.eval_query.debug().compute_count == 2, "eval recompute once")
   require(
     shell.annotation_query.debug().compute_count == 2,
@@ -431,6 +448,66 @@ fn run_prototype() -> Unit raise {
   )
   print_state("evaluation-edit", shell, "eval=→ 3, ViewNode consumer=pass")
 
+  let term_before_whitespace = match shell.term_query.memo_debug(()) {
+    Some(value) => value
+    None => abort("P1.2: Term selector memo missing before whitespace edit")
+  }
+  shell.begin_semantic_batch(Invalidated)
+  shell.replace_in_batch(
+    AFTER_EVALUATION_EDIT.length(),
+    AFTER_EVALUATION_EDIT.length(),
+    " ",
+  )
+  shell.finish_semantic_batch()
+  require(current_source(shell) == AFTER_WHITESPACE_EDIT, "whitespace edit source")
+  let whitespace_annotations = match shell.read_annotations() {
+    Ok(value) => value
+    Err(error) => abort("P1.2: whitespace annotation read: " + read_error_name(error))
+  }
+  require(
+    has_annotation(whitespace_annotations, "eval", "→ 3"),
+    "whitespace preserves evaluation annotation",
+  )
+  let term_after_whitespace = match shell.term_query.memo_debug(()) {
+    Some(value) => value
+    None => abort("P1.2: Term selector memo missing after whitespace edit")
+  }
+  require(shell.term_query.debug().compute_count == 3, "Term selector recomputes")
+  require(shell.term_query.debug().cutoff_calls == 2, "Term Eq cutoff runs")
+  require(
+    term_after_whitespace.changed_at == term_before_whitespace.changed_at,
+    "Term Eq cutoff preserves changed_at",
+  )
+  require(
+    term_after_whitespace.verified_at != term_before_whitespace.verified_at,
+    "Term selector verified_at advances",
+  )
+  require(
+    shell.eval_query.debug().compute_count == 2,
+    "Evaluation compute is skipped after whitespace edit",
+  )
+  require(
+    shell.eval_query.debug().green_verifications == 1,
+    "Evaluation verifies green after Term backdating",
+  )
+  require(
+    shell.source_map_query.debug().compute_count == 3,
+    "SourceMap still recomputes for changed snapshot",
+  )
+  require(
+    shell.annotation_query.debug().compute_count == 3,
+    "AnnotationMap still recomputes for direct commit dependency",
+  )
+  require(
+    shell.registry_query.debug().compute_count == 1,
+    "undemanded Registry still does no edit-time work",
+  )
+  print_state(
+    "whitespace-green-path",
+    shell,
+    "Term backdated, Evaluation green, eval_compute_delta=0",
+  )
+
   let close_result = shell.close()
   require(close_result == "Closed", "first close result")
   require(shell.counters.region_close_count == 1, "Region close once")
@@ -439,6 +516,7 @@ fn run_prototype() -> Unit raise {
     shell.source_map_query.debug().memo_count == 0,
     "close clears SourceMap memo",
   )
+  require(shell.term_query.debug().memo_count == 0, "close clears Term memo")
   require(shell.eval_query.debug().memo_count == 0, "close clears Evaluation memo")
   require(
     shell.annotation_query.debug().memo_count == 0,
@@ -449,6 +527,7 @@ fn run_prototype() -> Unit raise {
     shell.source_map_query.memo_debug(()) is None,
     "SourceMap trace released",
   )
+  require(shell.term_query.memo_debug(()) is None, "Term trace released")
   require(shell.eval_query.memo_debug(()) is None, "Evaluation trace released")
   require(
     shell.annotation_query.memo_debug(()) is None,
@@ -462,6 +541,7 @@ fn run_prototype() -> Unit raise {
   print_state("duplicate-close", shell, duplicate_result)
 
   let annotation_compute_before = shell.annotation_query.debug().compute_count
+  let term_compute_before = shell.term_query.debug().compute_count
   let eval_compute_before = shell.eval_query.debug().compute_count
   let source_map_compute_before = shell.source_map_query.debug().compute_count
   let post_close = match shell.read_annotations() {
@@ -474,6 +554,10 @@ fn run_prototype() -> Unit raise {
     "post-close annotation read does not compute",
   )
   require(
+    shell.term_query.debug().compute_count == term_compute_before,
+    "post-close annotation read does not select Term",
+  )
+  require(
     shell.eval_query.debug().compute_count == eval_compute_before,
     "post-close annotation read does not evaluate",
   )
@@ -483,7 +567,7 @@ fn run_prototype() -> Unit raise {
   )
   print_state("post-close-read", shell, post_close)
 
-  println("\nP1 RESULT: PASS WITH CONSTRAINTS")
+  println("\nP1.2 RESULT: PASS WITH CONSTRAINTS")
 }
 
 ///|

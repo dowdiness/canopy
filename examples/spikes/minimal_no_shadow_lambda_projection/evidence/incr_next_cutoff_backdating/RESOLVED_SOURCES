@@ -1,0 +1,15 @@
+origin commit: c640f65124b2a0eb362f3f08a1b6220e6647b6b7
+
+provider/core.mbt        <- examples/spikes/incr_next_cycle_detection/incremental_provider/core.mbt
+provider/errors.mbt      <- examples/spikes/incr_next_cutoff_backdating/incremental_provider/errors.mbt
+provider/ids.mbt         <- examples/spikes/incr_next_incremental_parity/provider/ids.mbt
+provider/query.mbt       <- examples/spikes/incr_next_cutoff_backdating/incremental_provider/query.mbt
+provider/region_store.mbt <- examples/spikes/incr_next_cycle_detection/incremental_provider/region_store.mbt
+provider/source.mbt      <- examples/spikes/incr_next_incremental_parity/provider/source.mbt
+provider/transaction.mbt <- examples/spikes/incr_next_incremental_parity/provider/transaction.mbt
+provider/view.mbt        <- examples/spikes/incr_next_cycle_detection/incremental_provider/view.mbt
+
+The #464 package uses symlinks for the non-cutoff files. These entries resolve
+those symlinks to exact source files at the same commit. moon.mod and
+provider/moon.pkg are prototype-local packaging adapters; pkg.generated.mbti is
+generated from the resolved package.

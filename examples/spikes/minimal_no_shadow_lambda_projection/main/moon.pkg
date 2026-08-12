@@ -9,7 +9,7 @@ import {
   "dowdiness/lambda/ast" @ast,
   "dowdiness/loom" @loom,
   "dowdiness/loom/core" @loom_core,
-  "examples/spikes/incr_next_incremental_parity/provider" @next,
+  "examples/spikes/incr_next_cutoff_backdating/provider" @next,
 }
 
 pkgtype(kind: "executable")

@@ -5,17 +5,19 @@ do not merge it into production.
 
 - P0 projection result: **PASS WITH CONSTRAINTS** at `667aaf63`.
 - P1 annotation extension: **PASS WITH CONSTRAINTS**; see [P1.md](P1.md).
-- P1.1 query counters: lazy and cross-consumer sharing pass; fine-grained
-  edit-time avoidance is unproven; see
+- P1.1 query counters: lazy and cross-consumer sharing pass; see
   [P1_QUERY_METRICS.md](P1_QUERY_METRICS.md).
+- P1.2 Term Eq cutoff: a whitespace commit recomputes the selector but makes
+  Evaluation verify green without recomputing; see
+  [P1_2_EVAL_GREEN_PATH.md](P1_2_EVAL_GREEN_PATH.md).
 
 ## Question
 
 Can one application shell use the production Lambda `ImperativeParser`,
-projection conversion, reconciliation, registry, and source-map algorithms with
-the issue #462 incremental provider, while constructing no current-Incr runtime
-objects or bridge, and make ownership visibly smaller than the current reactive
-path?
+projection conversion, reconciliation, registry, source-map, evaluation, and
+annotation algorithms with the issue #464 incremental provider, while
+constructing no current-Incr runtime objects or bridge, keep ownership visibly
+small, and stop one semantic propagation path after a whitespace-only edit?
 
 This is an architecture feasibility gate, not production migration evidence.
 Issue #1236 remains the production authorization ledger.
@@ -28,15 +30,15 @@ From the Canopy repository root:
 ./scripts/run-minimal-no-shadow-lambda-projection.sh
 ```
 
-On the P1/P1.1 branches, the command verifies the materialized provider hash,
-checks the affected packages, runs the native executable, prints every relevant
-state transition and all four Query debug records, checks the prototype
-allowlist, and prints the virtual deletion ledger. P1 preserves all P0
-structural assertions and adds lazy evaluation and annotation assertions.
+On the current P1.2 branch, the command verifies the materialized #464 provider
+hash, checks the affected packages, runs the native executable, prints every
+relevant state transition and all five Query debug records, checks the prototype
+allowlist, and prints the virtual deletion ledger. P1.2 preserves the P0/P1
+assertions and adds one whitespace-edit green-path assertion.
 
 ## Scope
 
-P1 runs these operations in order:
+P1.2 runs these operations in order:
 
 ```text
 initial
@@ -46,6 +48,7 @@ demand-annotations
 demand-registry
 demand-source-map
 evaluation-edit
+whitespace-green-path
 close
 duplicate-close
 post-close-read
@@ -70,11 +73,12 @@ MinimalLambdaProjectionShell
 ├─ ImperativeParser
 ├─ SemanticBatchState
 ├─ ProjectionState
-└─ issue #462 Store
+└─ issue #464 Store
    └─ Region
       ├─ Source[ProjectionCommit]
       ├─ Query[Unit, Registry]
       ├─ Query[Unit, SourceMap]
+      ├─ Query[Unit, Term] with Eq cutoff
       ├─ Query[Unit, Array[EvalResult]]
       └─ Query[Unit, AnnotationMap]
          ├─ exact ProjectionCommit
@@ -86,16 +90,17 @@ The split is intentional:
 
 ```text
 Shell      owns history-sensitive projection transitions.
-#462       owns lazy derivation from one committed value.
+#464       owns lazy derivation and typed cutoff from one committed value.
 ```
 
 `ProjectionCommit` owns the exact `ParseSnapshot`, projection, and trace.
 Source-map computation therefore cannot combine a new projection with an old
-snapshot. P1 evaluates `commit.projection.kind` through production `eval_term`;
-it does not stage a copied evaluation Source. The annotation Query reads that
-evaluation, the same commit, and its source-map Query in one evaluation context.
-The evidence establishes lazy ownership and sharing, not current production's
-prefix cache or edit-time cutoff/backdating.
+snapshot. P1.2 selects `commit.projection.kind` through a typed Eq-cutoff
+Query, then passes the selected Term to production `eval_term`; it does not stage a copied
+evaluation Source. The annotation Query reads that evaluation, the same commit,
+and its source-map Query in one evaluation context. A trailing-whitespace commit
+backdates the equal Term and makes Evaluation verify green. This does not supply
+current production's unchanged-definition prefix cache.
 
 ## Complexity budget
 
@@ -104,7 +109,7 @@ application owner              1
 Store                          1
 Region                         1
 canonical Source               1
-lazy Query                     4
+lazy Query                     5
 Mount                          0
 Watch                          0
 Program / Port / Manifest      0
@@ -121,31 +126,33 @@ visibility adapter around the existing package-private annotation conversion;
 its generated `.mbti` delta is one function. A production package split or API
 deepening remains separate work.
 
-## #462 evidence reuse
+## #462/#464 evidence reuse
 
-The directory
-`evidence/incr_next_incremental_parity/provider/` is copied byte-for-byte from
-commit:
+P0/P1 materialized the #462 provider under
+`evidence/incr_next_incremental_parity/provider/`. P1.2 uses
+`evidence/incr_next_cutoff_backdating/provider/`, resolved from #464 commit:
 
 ```text
-d54e78087d3837eccee0c55247adb90c07625869
+c640f65124b2a0eb362f3f08a1b6220e6647b6b7
 ```
 
-`provider.sha256` guards every provider file. The adjacent `moon.mod` is only a
-prototype-local packaging adapter. The provider files are not modified and do
-not contain Canopy-specific types.
+#464's documented symlinks to #462/#463 files are resolved to their exact source
+at that commit. `provider.sha256` guards every materialized provider source. The
+adjacent `moon.mod` and minimal `moon.pkg` are prototype-local packaging
+adapters. Provider source is not modified and contains no Canopy-specific type.
 
 This makes the result **PASS WITH CONSTRAINTS** if all behavioral and complexity
 checks pass. The constraints are:
 
-- prototype-local packaging of the unchanged #462 package;
+- prototype-local packaging of the unchanged, resolved #464 package;
 - a nested-Lambda fixture using the public generic reconciler, not Lambda's
   private root-module key policy;
 - a prototype-only annotation visibility adapter because production conversion
   remains package-private;
 - Tier-1 direct evaluation only, not Tier-2 egglog escalation or unchanged-def
   prefix reuse;
-- no cutoff/backdating, so changed commits recompute demanded derived Queries;
+- cutoff/backdating is proven only for one Eq-stable Term selector and trailing
+  whitespace workload; SourceMap and AnnotationMap still recompute;
 - mutable memo result safety, atomic shell-state publication, nested batches,
   and whole-consumer publication coherence remain unproven;
 - owner/wiring feasibility only, not production consumer or lifetime closure.
@@ -164,8 +171,8 @@ Reused project APIs:
   through the evidence-only visibility adapter;
 - semantic `build_semantic_projection`;
 - protocol `proj_to_view_node` as the actual annotation consumer;
-- issue #462 `Store`, `Region`, `Source`, `Query`, opaque `View`, `EvalCtx`,
-  `Transaction`, and close semantics.
+- issue #464 `Store`, `Region`, `Source`, `Query`, `query_eq`, opaque `View`,
+  `EvalCtx`, `Transaction`, cutoff/backdating, and close semantics.
 
 MoonBit core APIs checked and reused:
 
@@ -181,8 +188,8 @@ Checked but not used:
   `StringView::to_owned`;
 - current `build_projection_memos` / `build_lambda_projection_memos`: they own
   the graph being excluded;
-- later Incr Next cutoff, eviction, Mount, Program, Port, and Manifest APIs:
-  outside P1.
+- type-owned custom cutoff, eviction, Mount, Program, Port, and Manifest APIs:
+  outside P1.2.
 
 New helper boundaries are prototype-local: semantic batch finalization, one
 ASCII fixture replacement, state rendering, finding one `Var` through the

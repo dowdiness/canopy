@@ -58,6 +58,7 @@ struct MinimalLambdaProjectionShell {
     Map[@core.NodeId, @core.ProjNode[@ast.Term]],
   ]
   source_map_query : @next.Query[Unit, @core.SourceMap]
+  term_query : @next.Query[Unit, @ast.Term]
   eval_query : @next.Query[Unit, Array[@lambda_eval.EvalResult]]
   annotation_query : @next.Query[
     Unit,
@@ -226,10 +227,17 @@ fn MinimalLambdaProjectionShell::MinimalLambdaProjectionShell(
       }
     }
   }))
-  let eval_query = must_query(region.query((ctx, _ : Unit) => {
+  let term_query = must_query(region.query_eq((ctx, _ : Unit) => {
     match ctx.read(commit_view) {
       Err(error) => Err(error)
-      Ok(commit) => Ok(@lambda_eval.eval_term(commit.projection.kind))
+      Ok(commit) => Ok(commit.projection.kind)
+    }
+  }))
+  let term_view = term_query.at(())
+  let eval_query = must_query(region.query((ctx, _ : Unit) => {
+    match ctx.read(term_view) {
+      Err(error) => Err(error)
+      Ok(term) => Ok(@lambda_eval.eval_term(term))
     }
   }))
   let eval_view = eval_query.at(())
@@ -268,6 +276,7 @@ fn MinimalLambdaProjectionShell::MinimalLambdaProjectionShell(
     commit_source,
     registry_query,
     source_map_query,
+    term_query,
     eval_query,
     annotation_query,
     next_snapshot_identity: 2,
@@ -460,5 +469,6 @@ fn read_error_name(error : @next.ReadError) -> String {
     @next.ReadError::ExpiredEvalContext(_) => "ExpiredEvalContext"
     @next.ReadError::ReentrantRootRead(_) => "ReentrantRootRead"
     @next.ReadError::ReadDuringTransaction(_) => "ReadDuringTransaction"
+    @next.ReadError::Cycle(_) => "Cycle"
   }
 }
