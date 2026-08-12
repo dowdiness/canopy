@@ -300,6 +300,27 @@ test "connect_move updates cursor world position" {
 }
 
 ///|
+test "connection and add-node reducers reject non-finite world points" {
+  let state = make_test_state()
+  let invalid_start = update_connect_start(
+    state,
+    NodeId("1"),
+    "tick",
+    0.0 / 0.0,
+    0.0,
+  )
+  assert_true(invalid_start.interaction.connecting is None)
+
+  let started = update_connect_start(state, NodeId("1"), "tick", 0.0, 0.0)
+  let invalid_move = update_connect_move(started, 1.0 / 0.0, 20.0)
+  assert_eq(invalid_move.interaction, started.interaction)
+
+  let invalid_node = workflow_add_node(state, "custom", 12.0, 1.0 / 0.0)
+  assert_eq(invalid_node.nodes.length(), state.nodes.length())
+  assert_eq(invalid_node.action_log.length(), state.action_log.length())
+}
+
+///|
 test "connect_end commits compatible typed ports" {
   let state = make_test_state()
   let s0 = update_connect_start(state, NodeId("1"), "tick", 0.0, 0.0)

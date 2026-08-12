@@ -137,27 +137,32 @@ pub fn update_connect_start(
   world_x : Double,
   world_y : Double,
 ) -> CanvasState {
-  match find_node(state.nodes, node_id) {
-    None => state
-    Some(node) =>
-      match port_type_by_id(node.outputs, port_id) {
-        None => state
-        Some(_) => {
-          let conn : ConnectState = {
-            from_node: node_id,
-            from_port: port_id,
-            cursor_x: world_x,
-            cursor_y: world_y,
+  let pointer = @spatial.WorldPoint::from_xy(x=world_x, y=world_y)
+  if !pointer.is_finite() {
+    state
+  } else {
+    match find_node(state.nodes, node_id) {
+      None => state
+      Some(node) =>
+        match port_type_by_id(node.outputs, port_id) {
+          None => state
+          Some(_) => {
+            let conn : ConnectState = {
+              from_node: node_id,
+              from_port: port_id,
+              cursor_x: world_x,
+              cursor_y: world_y,
+            }
+            let new_interaction : InteractionState = {
+              ..state.interaction,
+              connecting: Some(conn),
+              pointer_down: true,
+              did_move: false,
+            }
+            { ..state, interaction: new_interaction }
           }
-          let new_interaction : InteractionState = {
-            ..state.interaction,
-            connecting: Some(conn),
-            pointer_down: true,
-            did_move: false,
-          }
-          { ..state, interaction: new_interaction }
         }
-      }
+    }
   }
 }
 
@@ -167,20 +172,25 @@ pub fn update_connect_move(
   world_x : Double,
   world_y : Double,
 ) -> CanvasState {
-  match state.interaction.connecting {
-    None => state
-    Some(conn) => {
-      let new_conn : ConnectState = {
-        ..conn,
-        cursor_x: world_x,
-        cursor_y: world_y,
+  let pointer = @spatial.WorldPoint::from_xy(x=world_x, y=world_y)
+  if !pointer.is_finite() {
+    state
+  } else {
+    match state.interaction.connecting {
+      None => state
+      Some(conn) => {
+        let new_conn : ConnectState = {
+          ..conn,
+          cursor_x: world_x,
+          cursor_y: world_y,
+        }
+        let new_interaction : InteractionState = {
+          ..state.interaction,
+          connecting: Some(new_conn),
+          did_move: true,
+        }
+        { ..state, interaction: new_interaction }
       }
-      let new_interaction : InteractionState = {
-        ..state.interaction,
-        connecting: Some(new_conn),
-        did_move: true,
-      }
-      { ..state, interaction: new_interaction }
     }
   }
 }
@@ -211,13 +221,18 @@ pub fn workflow_add_node(
   world_x : Double,
   world_y : Double,
 ) -> CanvasState {
-  let node = make_workflow_node(
-    NodeId(state.next_node_id.to_string()),
-    workflow_node_kind_from_key(kind_key),
-    world_x,
-    world_y,
-  )
-  record_action(state, AddNode(node))
+  let point = @spatial.WorldPoint::from_xy(x=world_x, y=world_y)
+  if !point.is_finite() {
+    state
+  } else {
+    let node = make_workflow_node(
+      NodeId(state.next_node_id.to_string()),
+      workflow_node_kind_from_key(kind_key),
+      world_x,
+      world_y,
+    )
+    record_action(state, AddNode(node))
+  }
 }
 
 ///|
