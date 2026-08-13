@@ -121,10 +121,12 @@ the portable source payload and may remain unchanged when authority advances
 without changing source. The document version fences authority mutations
 against stale evidence.
 
-No currentness decision relies on source revision alone. A source-equal causal
-advance may retain an existing display artifact because its semantic input did
-not change, while advancing projection sequence and causal document version.
-It never authorizes an intent calculated against the older causal frontier.
+Currentness requires the complete stamp rather than source revision alone. When
+a source-equal causal advance preserves semantic input, current adoption may
+reuse its artifact payload and publishes or wraps that payload with the new
+projection sequence and causal document version. Only the newly stamped
+artifact is current. An intent calculated against the older causal frontier
+remains unauthorized.
 
 ### 5. Publish demand-defined consistency groups
 

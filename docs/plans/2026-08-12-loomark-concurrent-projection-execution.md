@@ -85,11 +85,11 @@ therefore starts with an evidence gate and stops if that gate fails.
 | Path | Current owner and evidence | Required change |
 |---|---|---|
 | Raw input | `application.mbt` routes `RawInput`; `raw_selection_transaction.mbt` normalizes it; `document_transaction.mbt` commits it. | Authority commit returns before projection; native input remains responsive while a bundle is pending. |
-| ReplaceSource | `ApplicationEvent::RequestCanonicalSource` reaches the same shared commit shell. | Treat as an authority replacement followed by a new projection generation Seed. |
+| ReplaceSource | `ApplicationEvent::RequestCanonicalSource` reaches the same shared commit shell and commits `MarkdownEditRequest::ReplaceSource` through the current editor. | Treat it as one authority mutation, not authority/session replacement. Publish `SourceUnchanged` when the accepted mutation preserves source; otherwise publish a replayable Advance when its source transition is available without adding full-source work to A0/A1. If neither portable result is safely available, invalidate the projection generation and recover from a coherent Seed. |
 | Block structural edit | `BlockInput` resolves against current Block/source-map state before `commit_edit_request`. | Resolve only against a stamped immutable Block artifact; apply only under the exact causal-version fence. |
 | Undo/redo | `SyncEditor` currently owns `UndoManager`, text authority, parser, and projection in one struct. | Extract authority and projection responsibilities without changing existing public `SyncEditor` behavior during the refactor commit. |
 | Remote admission | Production Loomark does not yet have a proven canonical admission route. | Consume #1241's contract if it exists; otherwise relocate only the existing accepted transition without redefining canonical admission. |
-| Source-equal causal advance | `commit_classification.mbt` advances document version while retaining source revision. | Carry the current artifact by source revision, but invalidate intent fences bound to the older causal version. |
+| Source-equal causal advance | `commit_classification.mbt` advances document version while retaining source revision. | Reuse the existing payload when valid, but publish or wrap it with the new projection stamp; the old stamped artifact does not become current. Invalidate intent fences bound to the older causal version. |
 | Post-commit archive failure | `document_transaction.mbt` classifies the accepted receipt before persistence scheduling/failure. | Preserve the accepted authority event and record persistence failure independently of projection status. |
 | Parser failure recovery | `recovery_shell.mbt` and `application.mbt` replace the editor/session after parser failure. | Increment projection generation, dispose the failed session, reject its results, and Seed the replacement. |
 | Archive reopen | `editor_session.mbt` reconstructs a fresh editor and semantic attachment from complete local history. | Create authority first, then Seed one new projection generation inside the selected executor from the recovered committed source. |
@@ -208,8 +208,10 @@ revision, and causal document version:
 
 Source revision alone never establishes currentness. A source-equal causal
 advance may keep source revision unchanged while advancing sequence and causal
-version. Display artifacts may be carried forward, but an edit intent fenced to
-the older causal version is rejected before authority mutation.
+version. It may reuse an existing artifact payload, but current adoption
+publishes or wraps that payload with the new projection stamp; the old stamped
+artifact does not become current. An edit intent fenced to the older causal
+version is rejected before authority mutation.
 
 Generation and sequence never wrap or reuse a value within one application
 mount. Disposal closes routing before executor termination. Counter exhaustion
@@ -491,12 +493,16 @@ and generated interfaces.
 1. authority commit returns A0/A1 before projection or Seed materialization;
 2. projection/source-materialization failure cannot alter accepted history;
 3. Raw, exact/structural edit, undo/redo, remote admission, and source
-   replacement are classified once as replayable `Advance` or
-   `SourceUnchanged`;
+   replacement are classified once as replayable `Advance`,
+   `SourceUnchanged`, or generation invalidation followed by coherent `Seed`;
+   source replacement may use the Seed branch only when its accepted replay
+   effect is not safely and cheaply available without adding full-source work to
+   A0/A1;
 4. recovery, archive reopen, and session replacement invalidate the old
    generation and issue coherent Seed recovery rather than masquerading as
    `SourceTransition`;
-5. source-equal advance changes authority version without semantic source work;
+5. source-equal advance changes authority version, reuses only the payload, and
+   publishes or wraps it with the new projection stamp;
 6. Seed capture executes after the authority result; and
 7. the existing public `SyncEditor` facade preserves behavior and signatures.
 
@@ -600,8 +606,12 @@ assertions.
       JSON/transfer, parser, projection, semantic, Preview, or DOM work.
 - [ ] Every projection-relevant authority event is classified exactly once as
       replayable Advance/SourceUnchanged or generation invalidation followed by
-      coherent Seed recovery. Lifecycle replacement does not masquerade as
-      SourceTransition.
+      coherent Seed recovery. ReplaceSource uses Seed only when its accepted
+      replay effect is unavailable without unsafe or full-source A0/A1 work;
+      lifecycle replacement does not masquerade as SourceTransition.
+- [ ] A source-equal advance may reuse an artifact payload, but current adoption
+      publishes or wraps it with the new projection stamp; the old stamped
+      artifact never becomes current.
 - [ ] Existing `SyncEditor` callers retain behavior and public interface unless
       an explicitly reviewed interface change is recorded.
 
