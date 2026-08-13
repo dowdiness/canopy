@@ -573,4 +573,6 @@ fn run_prototype() -> Unit raise {
 ///|
 fn main {
   try! run_prototype()
+  println("")
+  run_p2a_typecheck_evidence()
 }

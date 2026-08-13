@@ -64,6 +64,8 @@ struct MinimalLambdaProjectionShell {
     Map[@core.NodeId, @core.ProjNode[@ast.Term]],
   ]
   source_map_query : @next.Query[Unit, @core.SourceMap]
+  typed_term_query : @next.Query[Unit, @typecheck.TypedTerm]
+  typecheck_query : @next.Query[Unit, @typecheck.ModuleTypeResult]
   term_query : @next.Query[Unit, @ast.Term]
   eval_query : @next.Query[Unit, Array[@lambda_eval.EvalResult]]
   annotation_query : @next.Query[
@@ -234,6 +236,20 @@ fn MinimalLambdaProjectionShell::MinimalLambdaProjectionShell(
       }
     }
   }))
+  let typed_term_query = must_query(region.query((ctx, _ : Unit) => {
+    match ctx.read(commit_view) {
+      Err(error) => Err(error)
+      Ok(commit) =>
+        Ok(@typecheck.convert_from_cst(commit.parse_snapshot.syntax))
+    }
+  }))
+  let typed_term_view = typed_term_query.at(())
+  let typecheck_query = must_query(region.query((ctx, _ : Unit) => {
+    match ctx.read(typed_term_view) {
+      Err(error) => Err(error)
+      Ok(term) => Ok(p2a_whole_module_typecheck(term))
+    }
+  }))
   let term_compute : (@next.EvalCtx, Unit) -> Result[
     @ast.Term,
     @next.ReadError,
@@ -288,6 +304,8 @@ fn MinimalLambdaProjectionShell::MinimalLambdaProjectionShell(
     commit_source,
     registry_query,
     source_map_query,
+    typed_term_query,
+    typecheck_query,
     term_query,
     eval_query,
     annotation_query,
@@ -417,6 +435,13 @@ fn MinimalLambdaProjectionShell::read_commit(
   self : MinimalLambdaProjectionShell,
 ) -> Result[ProjectionCommit, @next.ReadError] {
   self.store.read(self.commit_source.view())
+}
+
+///|
+fn MinimalLambdaProjectionShell::read_typecheck(
+  self : MinimalLambdaProjectionShell,
+) -> Result[@typecheck.ModuleTypeResult, @next.ReadError] {
+  self.store.read(self.typecheck_query.at(()))
 }
 
 ///|

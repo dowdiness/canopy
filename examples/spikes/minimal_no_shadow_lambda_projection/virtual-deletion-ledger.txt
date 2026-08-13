@@ -76,3 +76,38 @@ whitespace commit recomputes and backdates that selector, then Evaluation
 verifies green without recomputing. SourceMap and AnnotationMap remain red.
 This single-workload green path does not broaden the deletion claim to general
 fine-grained evaluation or unchanged-definition prefix reuse.
+
+=== P2a TYPECHECK OWNER-GRAPH ADDENDUM ===
+
+ADDITIONAL CURRENT RESPONSIBILITIES NOT CONSTRUCTED
+
+Parser Runtime bridge into attach_typecheck
+Typecheck Scope and terminal Watch
+TypedTerm Derived
+per-definition Input/Derived chain
+Accumulator diagnostics side channel
+DerivedMap index
+Runtime on-change listener
+
+P2a adds two lazy Queries to the same owner/Store/Region and canonical Source:
+
+ProjectionCommit -> TypedTerm
+TypedTerm        -> whole-module ModuleTypeResult
+
+Current P2a graph totals:
+
+application state owners          1
+incremental Store owners          1
+Region lifecycle owners           1
+canonical Sources                 1
+lazy Queries                      7
+retention roots                   0
+current Runtime objects           0
+cross-runtime synchronization     0
+
+The selected production `convert_from_cst`, `resolve_typed`, and `infer` calls
+construct no current reactive objects. The imported typecheck package still
+contains and links its current pipeline definitions; P2a does not call them.
+Detailed diagnostics and duplicate-name diagnostics are not available from the
+pure public API and are not deletion-complete. Per-definition reuse and stable
+TypecheckIndex remain P2b/P2c questions.

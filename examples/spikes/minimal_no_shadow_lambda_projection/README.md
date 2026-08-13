@@ -22,6 +22,10 @@ do not merge it into production.
   work and SourceMap-only demand leaves Term/Evaluation undemanded; all
   whole-session timing ranges cross zero, and no captured user trace exists;
   see [P1_5_TEST_DERIVED_TRACE_REPLAY.md](P1_5_TEST_DERIVED_TRACE_REPLAY.md).
+- P2a Runtime-free typecheck: exact snapshot syntax feeds lazy `TypedTerm` and
+  whole-module `ModuleTypeResult` Queries without current reactive objects;
+  production diagnostics, per-definition reuse, and stable index remain open;
+  see [P2A_RTFREE_TYPECHECK.md](P2A_RTFREE_TYPECHECK.md).
 
 ## Question
 
@@ -43,6 +47,7 @@ From the Canopy repository root:
 ./scripts/run-minimal-no-shadow-lambda-cutoff-benchmark.sh
 ./scripts/run-minimal-no-shadow-lambda-cutoff-mixed-benchmark.sh
 ./scripts/run-minimal-no-shadow-lambda-trace-replay.sh
+./scripts/run-minimal-no-shadow-lambda-typecheck.sh
 ```
 
 On the current P1.2 branch, the command verifies the materialized #464 provider

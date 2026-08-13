@@ -116,7 +116,7 @@ changed_paths=$({
   git ls-files --others --exclude-standard
 } | sort -u)
 forbidden_paths=$(grep -Ev \
-  '^(moon\.work|scripts/run-minimal-no-shadow-lambda-projection\.sh|scripts/run-minimal-no-shadow-lambda-cutoff-benchmark\.sh|scripts/run-minimal-no-shadow-lambda-cutoff-mixed-benchmark\.sh|scripts/run-minimal-no-shadow-lambda-trace-replay\.sh|examples/spikes/minimal_no_shadow_lambda_projection(/.*)?|modules/canopy/lang/lambda/companion/minimal_no_shadow_p1_evidence\.mbt|modules/canopy/lang/lambda/companion/pkg\.generated\.mbti)$' \
+  '^(moon\.work|scripts/run-minimal-no-shadow-lambda-projection\.sh|scripts/run-minimal-no-shadow-lambda-cutoff-benchmark\.sh|scripts/run-minimal-no-shadow-lambda-cutoff-mixed-benchmark\.sh|scripts/run-minimal-no-shadow-lambda-trace-replay\.sh|scripts/run-minimal-no-shadow-lambda-typecheck\.sh|examples/spikes/minimal_no_shadow_lambda_projection(/.*)?|modules/canopy/lang/lambda/companion/minimal_no_shadow_p1_evidence\.mbt|modules/canopy/lang/lambda/companion/pkg\.generated\.mbti)$' \
   <<<"$changed_paths" || true)
 if [[ -n "$forbidden_paths" ]]; then
   printf '%s\n' 'change outside the P1 allowlist:' >&2

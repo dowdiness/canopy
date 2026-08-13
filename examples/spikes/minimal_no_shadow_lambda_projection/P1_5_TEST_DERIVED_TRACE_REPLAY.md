@@ -145,3 +145,6 @@ representativeness.
 
 P1.5 does not select a production policy, size threshold, fingerprint, keyed
 subterm graph, prefix-cache replacement, migration, or ADR.
+
+[P2A_RTFREE_TYPECHECK.md](P2A_RTFREE_TYPECHECK.md) starts the separate
+architecture-feasibility track; it does not resume synthetic performance work.
