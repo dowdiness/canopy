@@ -201,61 +201,16 @@ fn incr_canvas_clear_pointer_claim(
 }
 
 ///|
-fn incr_canvas_handle_lost_pointer_capture(
-  scheduler : &@rabbita_cmd.Scheduler,
-  dispatch : Emit[Msg],
-  event : @dom.Event,
-) -> Unit {
-  match event.to_pointer_event() {
-    Some(pointer) => {
-      let pointer_id = pointer.get_pointer_id()
-      incr_canvas_clear_pointer_claim(event, pointer_id)
-      scheduler.add(dispatch(IncrCanvas(CaptureLost(Some(pointer_id)))))
-    }
-    None => ()
-  }
-}
-
-///|
-fn incr_canvas_capture_listener_cmd(
-  element : @dom.Element,
-  dispatch : Emit[Msg],
-) -> @rabbita_cmd.Cmd {
-  @rabbita_cmd.custom_cmd(scheduler => {
-    element.add_event_listener("lostpointercapture", event => {
-      incr_canvas_handle_lost_pointer_capture(scheduler, dispatch, event)
-    })
-  })
-}
-
-///|
 fn incr_canvas_set_pointer_capture(
   event : @dom.MouseEvent,
-  dispatch : Emit[Msg],
-) -> @rabbita_cmd.Cmd {
-  match event.to_pointer_event() {
-    Some(pointer) =>
-      match event.current_target().to_option() {
-        Some(target) =>
-          match target.to_element() {
-            Some(element) => {
-              let listener_cmd = if element.get_attribute(
-                  "data-incr-capture-listener",
-                )
-                is None {
-                element.set_attribute("data-incr-capture-listener", "true")
-                incr_canvas_capture_listener_cmd(element, dispatch)
-              } else {
-                @rabbita_cmd.none
-              }
-              element.set_pointer_capture(pointer.get_pointer_id())
-              listener_cmd
-            }
-            None => @rabbita_cmd.none
-          }
-        None => @rabbita_cmd.none
+) -> Unit raise @dom.DOMExceptionError {
+  match (event.to_pointer_event(), event.current_target().to_option()) {
+    (Some(pointer), Some(target)) =>
+      match target.to_element() {
+        Some(element) => element.set_pointer_capture(pointer.get_pointer_id())
+        None => ()
       }
-    None => @rabbita_cmd.none
+    _ => ()
   }
 }
 
@@ -271,7 +226,9 @@ fn incr_canvas_release_pointer_capture(event : @dom.MouseEvent) -> Unit {
               if element.get_attribute(INCR_CANVAS_ACTIVE_POINTER_ATTRIBUTE) ==
                 Some(pointer_id.to_string()) {
                 if element.has_pointer_capture(pointer_id) {
-                  element.release_pointer_capture(pointer_id)
+                  element.release_pointer_capture(pointer_id) catch {
+                    @dom.DOMExceptionError(..) => ()
+                  }
                 }
                 element.remove_attribute(INCR_CANVAS_ACTIVE_POINTER_ATTRIBUTE)
               }
@@ -291,16 +248,22 @@ fn incr_canvas_pointer_attrs(dispatch : Emit[Msg]) -> @html.Attrs {
     event.prevent_default()
     let x = incr_canvas_offset_x(event)
     let y = incr_canvas_offset_y(event)
-    let pointer_id = incr_canvas_pointer_id(event)
-    let admitted = incr_canvas_screen_point(x, y) is Some(_) &&
-      pointer_id is Some(_)
-    if admitted && incr_canvas_try_claim_pointer(event) {
-      @rabbita_cmd.batch([
-        incr_canvas_set_pointer_capture(event, dispatch),
-        dispatch(IncrCanvas(PointerDown(x, y, pointer_id))),
-      ])
-    } else {
-      @rabbita_cmd.none
+    match (incr_canvas_screen_point(x, y), incr_canvas_pointer_id(event)) {
+      (Some(_), Some(pointer_id)) =>
+        if incr_canvas_try_claim_pointer(event) {
+          try {
+            incr_canvas_set_pointer_capture(event)
+            dispatch(IncrCanvas(PointerDown(x, y, Some(pointer_id))))
+          } catch {
+            @dom.DOMExceptionError(..) => {
+              incr_canvas_clear_pointer_claim(event.as_event(), pointer_id)
+              @rabbita_cmd.none
+            }
+          }
+        } else {
+          @rabbita_cmd.none
+        }
+      _ => @rabbita_cmd.none
     }
   })
   .on_pointermove(event => {
@@ -335,6 +298,11 @@ fn incr_canvas_pointer_attrs(dispatch : Emit[Msg]) -> @html.Attrs {
     } else {
       @rabbita_cmd.none
     }
+  })
+  .on_lostpointercapture(event => {
+    let pointer_id = event.get_pointer_id()
+    incr_canvas_clear_pointer_claim(event.as_event(), pointer_id)
+    dispatch(IncrCanvas(CaptureLost(Some(pointer_id))))
   })
   .on_wheel(event => {
     event.prevent_default()

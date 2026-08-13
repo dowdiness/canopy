@@ -119,6 +119,30 @@ test.describe('Bottom panel — interactive Incr Canvas', () => {
     await page.mouse.up();
   });
 
+  test('rejects a DOM pointer-capture failure before entering the reducer', async ({ page }) => {
+    await waitForEditorReady(page);
+    await page.getByRole('button', { name: 'Panels' }).click();
+    await page.getByRole('tab', { name: 'Incr Canvas' }).click();
+
+    const stage = page.locator('.incr-canvas-interaction');
+    await expect(stage).toBeVisible({ timeout: 5000 });
+    await stage.evaluate((element) => {
+      element.setPointerCapture = () => {
+        throw new DOMException('pointer is no longer active', 'NotFoundError');
+      };
+      const event = new PointerEvent('pointerdown', {
+        bubbles: true,
+        pointerId: 92,
+      });
+      Object.defineProperty(event, 'offsetX', { value: 20 });
+      Object.defineProperty(event, 'offsetY', { value: 20 });
+      element.dispatchEvent(event);
+    });
+
+    await expect(stage).not.toHaveAttribute('data-incr-active-pointer-id');
+    await expect(stage).not.toHaveAttribute('data-incr-reducer-pointer-id');
+  });
+
   test('rejects non-finite browser geometry without moving the graph', async ({ page }) => {
     await waitForEditorReady(page);
     await page.getByRole('button', { name: 'Panels' }).click();
