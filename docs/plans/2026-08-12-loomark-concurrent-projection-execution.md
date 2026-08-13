@@ -85,7 +85,7 @@ therefore starts with an evidence gate and stops if that gate fails.
 | Path | Current owner and evidence | Required change |
 |---|---|---|
 | Raw input | `application.mbt` routes `RawInput`; `raw_selection_transaction.mbt` normalizes it; `document_transaction.mbt` commits it. | Authority commit returns before projection; native input remains responsive while a bundle is pending. |
-| ReplaceSource | `ApplicationEvent::RequestCanonicalSource` reaches the same shared commit shell and commits `MarkdownEditRequest::ReplaceSource` through the current editor. | Treat it as one authority mutation, not authority/session replacement. Publish `SourceUnchanged` when the accepted mutation preserves source; otherwise publish a replayable Advance when its source transition is available without adding full-source work to A0/A1. If neither portable result is safely available, invalidate the projection generation and recover from a coherent Seed. |
+| ReplaceSource | `ApplicationEvent::RequestCanonicalSource` reaches the same shared commit shell and commits `MarkdownEditRequest::ReplaceSource` through the current editor. | Treat it as one authority mutation, not authority/session replacement. Publish `SourceUnchanged` when the accepted mutation preserves source; otherwise publish a replayable Advance when its source transition is available without adding full-source work to A0/A1.<br>If neither portable result is safely available, invalidate the projection generation and recover from a coherent Seed. |
 | Block structural edit | `BlockInput` resolves against current Block/source-map state before `commit_edit_request`. | Resolve only against a stamped immutable Block artifact; apply only under the exact causal-version fence. |
 | Undo/redo | `SyncEditor` currently owns `UndoManager`, text authority, parser, and projection in one struct. | Extract authority and projection responsibilities without changing existing public `SyncEditor` behavior during the refactor commit. |
 | Remote admission | Production Loomark does not yet have a proven canonical admission route. | Consume #1241's contract if it exists; otherwise relocate only the existing accepted transition without redefining canonical admission. |
@@ -396,7 +396,8 @@ property/differential tests.
    reset across generation replacement; source revision never acts as the sole
    currentness check;
 3. source-equal causal advance keeps source revision, advances sequence/version,
-   carries display artifacts, and rejects old Block intent;
+   reuses display payloads only by publishing or wrapping them under the new
+   projection stamp, and rejects old Block intent;
 4. pending Advance count/bytes/source-effect bytes remain within configured
    bounds under arbitrary message/result interleavings;
 5. continuity uses Advance; a gap or exceeded bound issues one latest Seed;
@@ -651,8 +652,9 @@ assertions.
       their own consistency group; Preview/diagnostics never delay Block.
 - [ ] Equal group, normalized stamp, and relevant non-authority policy inputs
       imply equivalent normalized observable payload.
-- [ ] Source-equal causal advance may retain display artifacts but cannot apply
-      an intent fenced to the older causal version.
+- [ ] Source-equal causal advance may reuse artifact payloads under a new
+      projection stamp but cannot apply an intent fenced to the older causal
+      version.
 - [ ] Recovery, archive reopen, session replacement, executor failure, and
       remount dispose old projection state and reject every late result.
 
