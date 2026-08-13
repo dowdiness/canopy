@@ -405,12 +405,16 @@ One contiguous lifetime of projection state initialized from a coherent committe
 _Avoid_: Writing instance, document version, browser generation
 
 **Projection stamp**:
-The provenance that binds projection work and its artifacts to one Projection generation, one ordered work position, the exact source revision used for derivation, and the originating causal document version. Artifact display requires current source provenance; applying an edit intent additionally requires the exact causal version.
+The provenance that binds projection work and its artifacts to one Projection generation, one adapter-lifetime ordered position, the exact source revision used for derivation, and the originating causal document version. The sequence does not reset when generation changes. Artifact display requires current source provenance; applying an edit intent additionally requires the exact causal version.
 _Avoid_: Cache key, timestamp, render version
 
+**Group work**:
+One independently terminal derivation for one demanded consistency group. One projection request may issue Block, Preview, and diagnostics group work with different outcomes; a presentation may correlate several adopted group work items.
+_Avoid_: Authority event, projection request, frame
+
 **Artifact Bundle**:
-An immutable set of demanded projection artifacts derived from one Projection stamp and adopted together when those artifacts can be observed together. An absent undemanded artifact is not an independently current representation.
-_Avoid_: Application state, parser snapshot, independent view cache
+The immutable atomic payload of one group work item, derived from one Projection stamp and adopted as one demand-defined consistency group. Unrelated groups do not share an adoption barrier, and an absent undemanded artifact is not an independently current representation.
+_Avoid_: Application state, parser snapshot, all-lane snapshot, independent view cache
 
 **Reconciliation**:
 The identity-preserving match between the previous projection tree and the newly reparsed tree: it decides, for each node in the new tree, whether it is the same node as one in the old tree (carrying its NodeId) or a fresh node. It is not text diffing and not CRDT merge.

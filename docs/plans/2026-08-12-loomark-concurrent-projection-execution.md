@@ -6,7 +6,7 @@
 
 **Decision:** [Loomark projection execution is asynchronous and source-stamped](../decisions/2026-08-12-loomark-concurrent-projection-execution.md)
 
-**Required predecessor:** [#1241 — canonical TextEvent admission correctness](https://github.com/dowdiness/canopy/issues/1241). Gate A must prove the canonical event model before this plan changes a production authority path.
+**Conditional integration dependency:** [#1241 — canonical TextEvent admission correctness](https://github.com/dowdiness/canopy/issues/1241). #1244 does not redefine canonical TextEvent admission. If #1241's production contract exists, #1244 consumes it; otherwise #1244 may relocate only the existing accepted authority transition, with characterization evidence preserving current authority semantics.
 
 **Related decisions:**
 
@@ -26,11 +26,12 @@ parser cost leaks into the authority task.
 
 The desired deep module has one small authority interface: admit one operation
 and return settled mutation evidence. Projection execution sits behind a second
-seam: submit one immutable committed input and eventually receive one stamped
-Artifact Bundle. This separation improves locality because authority failures,
-projection failures, and presentation failures each have one owner. It improves
-leverage because Preview, Block, diagnostics, and later derived artifacts reuse
-one execution and currentness contract.
+seam: submit one immutable committed input and eventually receive zero or more
+stamped Artifact Bundles, one per demanded consistency group. This separation
+improves locality because authority failures, projection failures, and
+presentation failures each have one owner. It improves leverage because
+Preview, Block, diagnostics, and later derived artifacts reuse one execution and
+currentness contract.
 
 The deletion test justifies both modules. Deleting the authority/projection seam
 would move generation, sequencing, stale-result rejection, and demand
@@ -50,11 +51,14 @@ therefore starts with an evidence gate and stops if that gate fails.
    ordering authoritative and independent from later derived work.
 2. Remove parser, CST, Block reconciliation, MarkdownIR, diagnostics, and
    Preview materialization from the production main-thread authority task.
-3. Keep one long-lived incremental projection session inside a browser Worker.
-4. Give every work item and artifact explicit generation, order, source, and
-   causal provenance.
+3. Keep one long-lived incremental projection session inside the selected
+   executor. A browser Worker is a preferred candidate, not an accepted
+   production placement before promotion evidence.
+4. Give every group work item and artifact explicit generation, order, source,
+   and causal provenance.
 5. Bound queued projection work while preserving the latest committed source.
-6. Adopt every simultaneously visible projection lane atomically.
+6. Adopt each demand-defined consistency group atomically. Visible groups may
+   advance independently under stamped currentness rules.
 7. Preserve Block edit correctness through exact source and authority fences;
    expose pending state rather than using stale structure.
 8. Measure authority, Worker, protocol, adoption, DOM, scheduling, and memory
@@ -84,13 +88,13 @@ therefore starts with an evidence gate and stops if that gate fails.
 | ReplaceSource | `ApplicationEvent::RequestCanonicalSource` reaches the same shared commit shell. | Treat as an authority replacement followed by a new projection generation Seed. |
 | Block structural edit | `BlockInput` resolves against current Block/source-map state before `commit_edit_request`. | Resolve only against a stamped immutable Block artifact; apply only under the exact causal-version fence. |
 | Undo/redo | `SyncEditor` currently owns `UndoManager`, text authority, parser, and projection in one struct. | Extract authority and projection responsibilities without changing existing public `SyncEditor` behavior during the refactor commit. |
-| Remote admission | Production Loomark does not yet have a proven canonical admission route. | Do not cut over until #1241 lands; route its accepted operation through the same authority-event publication seam. |
+| Remote admission | Production Loomark does not yet have a proven canonical admission route. | Consume #1241's contract if it exists; otherwise relocate only the existing accepted transition without redefining canonical admission. |
 | Source-equal causal advance | `commit_classification.mbt` advances document version while retaining source revision. | Carry the current artifact by source revision, but invalidate intent fences bound to the older causal version. |
 | Post-commit archive failure | `document_transaction.mbt` classifies the accepted receipt before persistence scheduling/failure. | Preserve the accepted authority event and record persistence failure independently of projection status. |
 | Parser failure recovery | `recovery_shell.mbt` and `application.mbt` replace the editor/session after parser failure. | Increment projection generation, dispose the failed session, reject its results, and Seed the replacement. |
-| Archive reopen | `editor_session.mbt` reconstructs a fresh editor and semantic attachment from complete local history. | Create authority first, then Seed one new Worker projection generation from the recovered committed source. |
+| Archive reopen | `editor_session.mbt` reconstructs a fresh editor and semantic attachment from complete local history. | Create authority first, then Seed one new projection generation inside the selected executor from the recovered committed source. |
 | Session replacement | `application.mbt` swaps the current `EditorSession` and disposes the old attachment. | Keep one application-lifetime Projection Adapter; replacement changes its generation and executor session. |
-| Demand-only change | `preview_read_model.mbt` may read Preview when mode/split demand changes without a commit. | Request an Artifact Bundle for the current source stamp without inventing an authority event. |
+| Demand-only change | `preview_read_model.mbt` may read Preview when mode/split demand changes without a commit. | Issue group work for the current source stamp without inventing an authority event. |
 
 Before changing code, refresh every row against the current branch and record
 exact file:line evidence in the implementation PR. #1241 may change remote
@@ -122,17 +126,19 @@ parser/projection work.
 
 Refactor generic `SyncEditor` into composed internal authority and projection
 responsibilities while preserving its public facade. Do not duplicate mutation
-logic. Before extraction, characterize every text-changing path and prove that
-the authority side can publish a small accepted SourceTransition. If Seed needs
-full source and no immutable handle exists, record `SeedCaptureRequired`, return
-the authority result, and materialize source afterward.
+logic. Before extraction, classify each projection-relevant authority event
+exactly once as either a replayable `Advance`/`SourceUnchanged`, or a generation
+invalidation followed by coherent `Seed` recovery. Lifecycle replacement events
+do not masquerade as `SourceTransition`. If Seed needs full source and no
+immutable handle exists, record `SeedCaptureRequired`, return the authority
+result, and materialize source afterward.
 
 Trace the authority boundary as:
 
-- **A0** — causal mutation is irreversibly classified;
+- **A0** — causal mutation or lifecycle replacement is irreversibly classified;
 - **A1** — small receipt/effect, document version, and source identity are
   available; and
-- **B** — deferred SourceTransition or Seed input is materialized.
+- **B** — deferred Advance or Seed input is materialized.
 
 Property tests and trace fields must make it structurally impossible for A0/A1
 to perform full-source export, history encoding, archive preparation, JSON
@@ -191,11 +197,12 @@ incidental map iteration order.
 
 ### Projection stamp
 
-A stamp contains generation, projection sequence, source revision, and causal
-document version:
+A stamp contains generation, adapter-lifetime projection sequence, source
+revision, and causal document version:
 
 - generation identifies the Projection Session incarnation;
-- projection sequence orders adapter observation and delivery;
+- projection sequence orders adapter observations and deliveries across
+  generations and never resets when generation changes;
 - source revision identifies portable source payload changes and cache reuse;
 - causal document version validates authority staleness.
 
@@ -206,8 +213,9 @@ the older causal version is rejected before authority mutation.
 
 Generation and sequence never wrap or reuse a value within one application
 mount. Disposal closes routing before executor termination. Counter exhaustion
-and delayed callbacks fail closed. Equal normalized stamps identify equal
-observable payloads.
+and delayed callbacks fail closed. The determinism key is the consistency group,
+normalized stamp, and relevant non-authority policy inputs; equality of that key
+implies equivalent normalized observable payload.
 
 ### Demand-defined consistency groups
 
@@ -279,23 +287,32 @@ permanent pending state.
 ## A–F trace contract
 
 Instrumentation is private, opt-in, bounded, and allocation-free when disabled.
-One authority event may reference zero or more artifact work items; one work item
-may produce several consistency-group artifacts.
+One authority event may reference zero or more projection requests. Each request
+issues zero or one group work item per demanded consistency group. Authority
+event ID, group work ID, and presentation ID are distinct axes; one presentation
+may correlate several adopted group work items in the same frame.
 
 | Phase | Linearization point | Required fields |
 |---|---|---|
-| A0 — authority mutation | Commit is irreversibly classified. | event id, operation kind, accepted/rejected, before/after document version, duration |
+| A0 — authority mutation | Commit or lifecycle replacement is irreversibly classified. | event id, operation kind, accepted/rejected, before/after document version, duration |
 | A1 — authority evidence | Small receipt/effect and source identity are available without full export. | event id, source revision/identity, evidence bytes, duration, forbidden-full-export control |
-| B — deferred source materialization | SourceTransition or Seed input is available after A1. | event id, work id, input kind, bytes/copies, duration |
-| C — projection execution | Executor Seed/Advance begins and ends against one acknowledged base. | work id, placement, generation, sequence, base/result revision, queue wait, stage durations, terminal status |
-| D — artifact publication | One consistency-group envelope is complete. | work id, group, encoded bytes, encode/clone/decode durations, terminal status |
-| E — application adoption | Reducer accepts or rejects one whole group. | work id, group, stamp, currentness decision, duration, rejection reason |
-| F — presentation | Adopted work becomes observable after reconciliation/paint. | work id, group, presentation id, contiguous main-thread slice, input-to-paint critical path, dropped-frame/Long Task evidence |
+| B — deferred source materialization | Advance or Seed input is available after A1. | event id, projection request id, input kind, bytes/copies, duration |
+| C — projection execution | Executor Seed/Advance begins and ends against one acknowledged base. | projection request id, placement, generation, sequence, base/result revision, queue wait, stage durations, request disposition |
+| D — artifact publication | One consistency-group envelope is complete. | projection request id, group work id, group, encoded bytes, encode/clone/decode durations, materialized-at |
+| E — application adoption | Reducer accepts or rejects one whole group. | group work id, group, stamp, currentness decision, duration, rejection reason, adoption outcome |
+| F — presentation | Adopted group work becomes observable or is explicitly retired without presentation. | group work id, group, presentation id when presented, presentation outcome, contiguous main-thread slice, input-to-paint critical path, dropped-frame/Long Task evidence |
 
-Every issued work id receives exactly one terminal status:
-`Materialized`, `Superseded`, `SupersededAfterExecution`,
-`GenerationInvalidated`, `RejectedAtAdoption`, `Failed`, or `Disposed`.
-Missing B–F phases require a recorded reason.
+`NoDemand` is a projection-request disposition and never creates a group work
+id. Materialization at D is progress, not a terminal group outcome. Every issued
+group work id eventually receives exactly one final outcome:
+`Presented`, `AdoptedNotPresented`, `RejectedAtAdoption`,
+`SupersededBeforeExecution`, `SupersededAfterExecution`,
+`GenerationInvalidated`, `Failed`, or `Disposed`. `AdoptedNotPresented` requires
+an explicit reason such as demand removal or disposal; it is not inferred from a
+missing F record. A projection request records its own disposition without
+collapsing independent group outcomes. Missing B–F phases require a recorded
+reason at the applicable request or group-work axis.
+
 ## Test-first execution plan
 
 Use one Canopy issue and implementation PR. Keep characterization, Warren
@@ -318,8 +335,11 @@ host, and private trace modules.
 4. demand-only Preview produces C–F without A0/A1;
 5. source-equal causal advance changes causal version without changing source
    revision and invalidates an old intent fence;
-6. recovery/session replacement gives old work a terminal invalidation;
-7. every work has one terminal status and every missing phase has a reason; and
+6. recovery/session replacement invalidates the generation, gives each old group
+   work item a final outcome, and issues coherent Seed recovery;
+7. `NoDemand` issues no group work, D materialization is non-terminal, every
+   issued group work item has one final outcome, request dispositions do not
+   collapse group outcomes, and every missing phase has a reason; and
 8. trace-disabled control creates no record or formatted String.
 
 Each later commit calibrates the phases it introduces with a known-positive
@@ -370,8 +390,9 @@ property/differential tests.
 **Red reducer tests:**
 
 1. generation invalidates old active, pending, result, and callback paths;
-2. sequence is monotonic, unique, non-wrapping, and source revision never acts
-   as the sole currentness check;
+2. adapter-lifetime sequence is monotonic, unique, non-wrapping, and does not
+   reset across generation replacement; source revision never acts as the sole
+   currentness check;
 3. source-equal causal advance keeps source revision, advances sequence/version,
    carries display artifacts, and rejects old Block intent;
 4. pending Advance count/bytes/source-effect bytes remain within configured
@@ -381,8 +402,11 @@ property/differential tests.
 7. Block, Preview, and diagnostics consistency groups adopt independently and
    atomically within their group;
 8. hidden Preview and diagnostics never block the Block group;
-9. every work and group receives one terminal result;
-10. disposal, timeout, decode failure, and counter-limit cases fail closed.
+9. each demanded group work item independently ends as presented,
+   adopted-not-presented, rejected, superseded, invalidated, failed, or disposed;
+10. `NoDemand` creates no group work and materialization is non-terminal;
+11. presentation IDs may correlate several adopted group work items; and
+12. disposal, timeout, decode failure, and counter-limit cases fail closed.
 
 **Red oracle tests:**
 
@@ -391,7 +415,8 @@ property/differential tests.
    MarkdownIR, diagnostics, Preview, and resolver evidence;
 3. runtime identity, timestamps, generation/sequence fixtures, and map ordering
    are normalized rather than compared;
-4. equal normalized stamps imply equal observable payloads; and
+4. equal group, normalized stamp, and relevant non-authority policy inputs imply
+   equivalent normalized observable payload; and
 5. Block feedback/pending/failure states are typed and non-destructive.
 
 **Gate 0B:** the in-process executor establishes the protocol contract and
@@ -466,16 +491,21 @@ and generated interfaces.
 1. authority commit returns A0/A1 before projection or Seed materialization;
 2. projection/source-materialization failure cannot alter accepted history;
 3. Raw, exact/structural edit, undo/redo, remote admission, and source
-   replacement publish one canonical small SourceTransition;
-4. source-equal advance changes authority version without semantic source work;
-5. Seed capture executes after the authority result; and
-6. the existing public `SyncEditor` facade preserves behavior and signatures.
+   replacement are classified once as replayable `Advance` or
+   `SourceUnchanged`;
+4. recovery, archive reopen, and session replacement invalidate the old
+   generation and issue coherent Seed recovery rather than masquerading as
+   `SourceTransition`;
+5. source-equal advance changes authority version without semantic source work;
+6. Seed capture executes after the authority result; and
+7. the existing public `SyncEditor` facade preserves behavior and signatures.
 
 Extract internal authority and projection modules without duplicating mutation
-logic. Keep the old synchronous production path active. Use #1241's canonical
-event representation only if its production contract exists when this commit
-starts; otherwise #1244 relocates the existing authority transition independently
-and does not wait for or redefine #1241's test-only admission evidence.
+logic. Keep the old synchronous production path active. Consume #1241's
+canonical event representation if its production contract exists when this
+commit starts; otherwise relocate only the existing accepted authority
+transition, preserve current semantics with characterization evidence, and do
+not redefine #1241's admission contract.
 
 ### Commit 6 — integrate the application-lifetime Adapter behind a comparison flag
 
@@ -530,6 +560,7 @@ Only after promotion gates pass:
 3. keep normalized differential and reducer/property tests;
 4. update Loomark build/development and performance evidence; and
 5. update this plan, the ADR, #1244, and the prior Preview ownership ADR.
+
 ## Validation commands
 
 Run from the Canopy repository root unless a command names a submodule:
@@ -549,24 +580,28 @@ rtk ./scripts/check-agent-doc-links.sh
 
 Run the paired Warren package tests in `deps/rabbita` before advancing its
 gitlink. Use `moon ide` diagnostics during every MoonBit edit. Inspect generated
-`.mbti` diffs after each Canopy interface change. Run the release browser
-benchmark separately and retain its raw output as evidence rather than making
-machine-specific latency thresholds CI assertions.
+`.mbti` diffs after each Canopy interface change. The commit that introduces the
+release browser benchmark harness must add its exact release invocation and raw
+output location to this section. Run that benchmark separately and retain its
+raw output as evidence rather than making machine-specific latency thresholds CI
+assertions.
 
 ## Acceptance criteria
 
 ### Authority and correctness
 
-- [ ] Before production authority changes, either #1241 provides a production
-      canonical TextEvent contract or #1244 records and tests its independent
-      relocation of the existing authority transition.
+- [ ] #1244 does not redefine canonical TextEvent admission. It consumes #1241's
+      production contract when available; otherwise it relocates only the
+      existing accepted authority transition and proves unchanged semantics with
+      characterization evidence.
 - [ ] Every accepted operation retains exact causal receipt/history evidence
       even when projection, persistence, or presentation later fails.
 - [ ] Authority A0/A1 calls no full source/history export, archive preparation,
       JSON/transfer, parser, projection, semantic, Preview, or DOM work.
-- [ ] Raw, ReplaceSource, Block, undo, redo, remote admission, source-equal,
-      archive failure/reopen, parser recovery, and session replacement publish
-      one canonical small SourceTransition through the authority seam.
+- [ ] Every projection-relevant authority event is classified exactly once as
+      replayable Advance/SourceUnchanged or generation invalidation followed by
+      coherent Seed recovery. Lifecycle replacement does not masquerade as
+      SourceTransition.
 - [ ] Existing `SyncEditor` callers retain behavior and public interface unless
       an explicitly reviewed interface change is recorded.
 
@@ -590,14 +625,22 @@ machine-specific latency thresholds CI assertions.
 
 ### Currentness and lifecycle
 
-- [ ] Generation, sequence, source revision, and causal document version retain
-      their distinct meanings on every work item and consistency-group artifact.
+- [ ] Generation, adapter-lifetime sequence, source revision, and causal document
+      version retain their distinct meanings on every projection request and
+      consistency-group artifact.
+- [ ] Sequence never resets across generation replacement, wraps, or reuses a
+      value within one application mount.
 - [ ] No currentness check relies on source revision alone.
 - [ ] Stale generation, sequence, source, causal version, disposed callback, and
       counter-wrap cases all fail closed.
-- [ ] Every issued work id has exactly one terminal status.
+- [ ] `NoDemand` is request disposition and creates no group work;
+      materialization is non-terminal; every issued group work id has exactly one
+      final outcome distinguishing presented, adopted-not-presented, rejected,
+      superseded, invalidated, failed, and disposed work.
 - [ ] Block, Preview, and diagnostics adopt independently and atomically within
       their own consistency group; Preview/diagnostics never delay Block.
+- [ ] Equal group, normalized stamp, and relevant non-authority policy inputs
+      imply equivalent normalized observable payload.
 - [ ] Source-equal causal advance may retain display artifacts but cannot apply
       an intent fenced to the older causal version.
 - [ ] Recovery, archive reopen, session replacement, executor failure, and

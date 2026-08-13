@@ -6,7 +6,7 @@
 
 **Issue:** [#1244](https://github.com/dowdiness/canopy/issues/1244)
 
-**Dependency:** [#1241 — canonical TextEvent admission correctness](https://github.com/dowdiness/canopy/issues/1241)
+**Conditional integration dependency:** [#1241 — canonical TextEvent admission correctness](https://github.com/dowdiness/canopy/issues/1241)
 
 **Implementation plan:** [Loomark concurrent projection execution](../plans/2026-08-12-loomark-concurrent-projection-execution.md)
 
@@ -40,10 +40,11 @@ single-mount implementation: one main-thread editor owns both editable
 projection and an opt-in semantic observer. This decision supersedes that
 co-location and same-turn read policy only when #1244 completes. It preserves
 the earlier renderer, security, demand, and single-current-source decisions.
-The production target still has one projection parser; it resides in the
-Worker after the main-thread authority path relinquishes parser ownership. The
-Gate 0 dual-parser differential harness is test evidence and is removed before
-production cutover.
+The production target has one projection parser inside the selected executor
+after the main-thread authority path relinquishes parser ownership. A browser
+Worker is the preferred candidate, not an accepted production placement before
+promotion evidence. The Gate 0 dual-parser differential harness is test evidence
+and is removed before production cutover.
 
 The 16 ms objective applies to measured main-thread responsiveness. It does not
 require every derived projection to be presented in the same turn as its
@@ -103,18 +104,19 @@ failure, and memory gates pass. The promotion record must state the measured
 trade-off against the in-process executor. Production never silently switches
 placement at runtime; an unavailable executor enters an explicit failure state.
 
-### 4. Stamp every work item and immutable artifact
+### 4. Stamp every projection request, group work item, and immutable artifact
 
 A projection stamp contains:
 
 - projection generation;
-- projection sequence within that generation;
+- adapter-lifetime projection sequence;
 - exact source revision used for derivation; and
 - originating causal document version.
 
 Generation names one projection-session incarnation, so replacing the session
 invalidates its results. Sequence orders adapter observations and deliveries
-within that session and is never reused. Source revision identifies changes to
+across generations and never resets, wraps, or reuses a value during the
+adapter lifetime. Source revision identifies changes to
 the portable source payload and may remain unchanged when authority advances
 without changing source. The document version fences authority mutations
 against stale evidence.
@@ -126,9 +128,13 @@ It never authorizes an intent calculated against the older causal frontier.
 
 ### 5. Publish demand-defined consistency groups
 
-One projection work item may derive several immutable Artifact Bundles, each for
-one demand-defined consistency group. Members of one group are adopted
-transactionally at one stamp; unrelated groups do not form a global barrier.
+One projection request may issue separate group work items. `NoDemand` is a
+request disposition and issues no group work. Each issued group work item
+derives one immutable Artifact Bundle for one demand-defined consistency group
+and ends independently as presented, adopted without presentation, rejected,
+superseded, invalidated, failed, or disposed. Materialization alone is not a
+terminal outcome. Members of one group are adopted transactionally at one stamp;
+unrelated groups do not form a global barrier.
 
 The interactive Block group contains Block structure, selection/focus mapping,
 and resolver evidence required by Block intent. Preview and diagnostics are
@@ -144,10 +150,10 @@ head-of-line blocking, but this ADR does not require it.
 
 ### 6. Bound pending projection work, not only queue slots
 
-The scheduler retains at most one active work item and one latest pending work
-description. A newer committed source may replace pending work that has not
-begun and has never been presented. Active work may finish, but an obsolete
-result is rejected before application adoption.
+Pending projection work is bounded; authority history is never bounded or
+coalesced by the projection scheduler. A newer committed source may replace
+projection work that has not begun and has never been presented. Active work may
+finish, but an obsolete result is rejected before application adoption.
 
 The pending description is bounded by encoded bytes, retained source/effect
 bytes, and Advance count as well as slot count. It may retain a bounded
@@ -156,9 +162,9 @@ cannot be retained within those bounds, the adapter replaces the chain with one
 latest Seed request. Seed source materialization occurs outside the authority
 critical path.
 
-These limits are explicit Projection Adapter configuration. Tests override them;
-production records fixed selected values, which may be tightened without
-changing the protocol or artifact interface.
+Exact slot counts, selected limits, and configuration mechanisms are
+implementation policy recorded by the plan and promotion evidence; changing
+them does not change the protocol or artifact interface.
 
 Causal operations, receipts, history, and persistence are never coalesced.
 Promotion requires evidence that ordinary typing does not degenerate into a
@@ -170,7 +176,8 @@ Block intent resolves only from the latest immutable Block artifact and carries
 its source revision and causal document-version fence. While a newer bundle is
 pending, Loomark exposes a typed pending state and does not silently apply an
 intent to stale structure. Raw native input remains available. Browser evidence
-must measure Worker response separately from main-thread task duration.
+must measure selected-executor response separately from main-thread task duration
+and compare the Worker candidate when Gate 0C runs.
 
 ### 8. Require staged gates before executor promotion
 
