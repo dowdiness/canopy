@@ -130,7 +130,7 @@ fn commit_edit_request(
     }
   } catch {
     Failure::Failure(_) as failure => {
-      projection_trace_omit_request(
+      projection_trace_event_omitted(
         trace_request_id,
         PROJECTION_TRACE_REASON_NOT_ACCEPTED,
       )
@@ -187,7 +187,7 @@ fn commit_edit_request(
       raise committed
     }
     Err(error) => {
-      projection_trace_omit_request(
+      projection_trace_event_omitted(
         trace_request_id,
         PROJECTION_TRACE_REASON_NOT_ACCEPTED,
       )

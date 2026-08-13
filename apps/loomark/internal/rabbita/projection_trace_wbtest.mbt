@@ -241,8 +241,13 @@ test "rejected authority request records omission reason" {
   assert_false(accepted)
   assert_false(changed)
   assert_eq(next.document.source(), model.document.source())
-  assert_eq(projection_trace_phase(0), Some(PROJECTION_TRACE_PHASE_A0))
+  assert_eq(projection_trace_phase(0), Some(0))
   assert_eq(projection_trace_status(0), Some(PROJECTION_TRACE_STATUS_OMITTED))
+  assert_eq(projection_trace_request_id(0), Some(0))
+  assert_eq(
+    projection_trace_request_disposition(0),
+    Some(PROJECTION_TRACE_REQUEST_NONE),
+  )
   assert_eq(
     projection_trace_reason(0),
     Some(PROJECTION_TRACE_REASON_NOT_ACCEPTED),
@@ -632,8 +637,12 @@ test "accepted parser failure before causal evidence preserves event reason" {
   assert_eq(projection_trace_count(), 2)
   assert_eq(projection_trace_phase(0), Some(PROJECTION_TRACE_PHASE_A0))
   assert_eq(projection_trace_request_id(0), Some(0))
-  assert_eq(projection_trace_phase(1), Some(PROJECTION_TRACE_PHASE_A0))
+  assert_eq(projection_trace_phase(1), Some(0))
   assert_eq(projection_trace_request_id(1), Some(0))
+  assert_eq(
+    projection_trace_request_disposition(1),
+    Some(PROJECTION_TRACE_REQUEST_NONE),
+  )
   assert_eq(projection_trace_event_id(0), Some(event_id))
   assert_eq(projection_trace_event_id(1), Some(event_id))
   assert_eq(
@@ -652,6 +661,7 @@ test "repeated identical terminal report marks trace contract violation" {
     request_id,
     PROJECTION_TRACE_GROUP_PREVIEW,
   )
+  projection_trace_test_group_adopted(work_id)
   projection_trace_test_group_terminal(
     work_id,
     PROJECTION_TRACE_GROUP_OUTCOME_ADOPTED_NOT_PRESENTED,
@@ -676,6 +686,7 @@ test "conflicting terminal report marks trace contract violation" {
     request_id,
     PROJECTION_TRACE_GROUP_PREVIEW,
   )
+  projection_trace_test_group_adopted(work_id)
   projection_trace_test_group_terminal(
     work_id,
     PROJECTION_TRACE_GROUP_OUTCOME_ADOPTED_NOT_PRESENTED,
@@ -685,6 +696,90 @@ test "conflicting terminal report marks trace contract violation" {
   assert_eq(projection_trace_terminal_count(work_id), 1)
   assert_true(projection_trace_contract_violated())
 }
+
+///|
+test "presentation before adoption fails closed" {
+  projection_trace_enable(capacity=8, clock=() => 1)
+  defer projection_trace_disable()
+  let event_id = projection_trace_begin_authority_event()
+  let request_id = projection_trace_test_begin_request(event_id)
+  let work_id = projection_trace_test_begin_group(
+    request_id,
+    PROJECTION_TRACE_GROUP_PREVIEW,
+  )
+  projection_trace_test_present(
+    work_id,
+    projection_trace_test_begin_presentation(),
+  )
+  assert_true(projection_trace_contract_violated())
+  assert_eq(projection_trace_terminal_count(work_id), 0)
+}
+
+///|
+test "adopted-not-presented before adoption fails closed" {
+  projection_trace_enable(capacity=8, clock=() => 1)
+  defer projection_trace_disable()
+  let event_id = projection_trace_begin_authority_event()
+  let request_id = projection_trace_test_begin_request(event_id)
+  let work_id = projection_trace_test_begin_group(
+    request_id,
+    PROJECTION_TRACE_GROUP_PREVIEW,
+  )
+  projection_trace_test_group_terminal(
+    work_id,
+    PROJECTION_TRACE_GROUP_OUTCOME_ADOPTED_NOT_PRESENTED,
+    PROJECTION_TRACE_REASON_PRESENTATION_NOT_OBSERVED,
+  )
+  assert_true(projection_trace_contract_violated())
+  assert_eq(projection_trace_terminal_count(work_id), 0)
+}
+
+///|
+test "duplicate adoption fails closed without a second E record" {
+  projection_trace_enable(capacity=8, clock=() => 1)
+  defer projection_trace_disable()
+  let event_id = projection_trace_begin_authority_event()
+  let request_id = projection_trace_test_begin_request(event_id)
+  let work_id = projection_trace_test_begin_group(
+    request_id,
+    PROJECTION_TRACE_GROUP_PREVIEW,
+  )
+  projection_trace_test_group_adopted(work_id)
+  projection_trace_test_group_adopted(work_id)
+  assert_true(projection_trace_contract_violated())
+  assert_eq(projection_trace_count(), 1)
+  assert_eq(projection_trace_phase(0), Some(PROJECTION_TRACE_PHASE_E))
+}
+
+///|
+test "nonpresentation terminal outcomes do not fabricate F" {
+  projection_trace_enable(capacity=8, clock=() => 1)
+  defer projection_trace_disable()
+  let event_id = projection_trace_begin_authority_event()
+  let request_id = projection_trace_test_begin_request(event_id)
+  let outcomes = [
+    PROJECTION_TRACE_GROUP_OUTCOME_FAILED,
+    PROJECTION_TRACE_GROUP_OUTCOME_GENERATION_INVALIDATED,
+    PROJECTION_TRACE_GROUP_OUTCOME_SUPERSEDED_BEFORE_EXECUTION,
+  ]
+  for outcome in outcomes {
+    let work_id = projection_trace_test_begin_group(
+      request_id,
+      PROJECTION_TRACE_GROUP_PREVIEW,
+    )
+    projection_trace_test_group_terminal(
+      work_id,
+      outcome,
+      PROJECTION_TRACE_REASON_GENERATION_INVALIDATED,
+    )
+  }
+  assert_eq(projection_trace_count(), outcomes.length())
+  for index in 0..<outcomes.length() {
+    assert_eq(projection_trace_phase(index), Some(0))
+  }
+}
+
+///|
 
 ///|
 test "trace correlation axes allocate lazily" {
@@ -709,6 +804,8 @@ test "trace correlation axes allocate lazily" {
     request_id,
     PROJECTION_TRACE_GROUP_DIAGNOSTICS,
   )
+  projection_trace_test_group_adopted(preview_work)
+  projection_trace_test_group_adopted(diagnostics_work)
   let presentation_id = projection_trace_test_begin_presentation()
   projection_trace_test_present(preview_work, presentation_id)
   projection_trace_test_present(diagnostics_work, presentation_id)
@@ -716,16 +813,18 @@ test "trace correlation axes allocate lazily" {
   assert_eq(projection_trace_request_id(0), Some(0))
   assert_eq(projection_trace_group_work_id(0), Some(0))
   assert_eq(projection_trace_presentation_id(0), Some(0))
-  assert_eq(projection_trace_group_work_id(1), Some(preview_work))
-  assert_eq(projection_trace_group_work_id(2), Some(diagnostics_work))
-  assert_eq(projection_trace_presentation_id(1), Some(presentation_id))
-  assert_eq(projection_trace_presentation_id(2), Some(presentation_id))
-  assert_eq(projection_trace_event_id(1), Some(event_id))
-  assert_eq(projection_trace_event_id(2), Some(event_id))
-  assert_eq(projection_trace_request_id(1), Some(request_id))
-  assert_eq(projection_trace_request_id(2), Some(request_id))
-  assert_eq(projection_trace_group(1), Some(PROJECTION_TRACE_GROUP_PREVIEW))
-  assert_eq(projection_trace_group(2), Some(PROJECTION_TRACE_GROUP_DIAGNOSTICS))
+  assert_eq(projection_trace_phase(1), Some(PROJECTION_TRACE_PHASE_E))
+  assert_eq(projection_trace_phase(2), Some(PROJECTION_TRACE_PHASE_E))
+  assert_eq(projection_trace_group_work_id(3), Some(preview_work))
+  assert_eq(projection_trace_group_work_id(4), Some(diagnostics_work))
+  assert_eq(projection_trace_presentation_id(3), Some(presentation_id))
+  assert_eq(projection_trace_presentation_id(4), Some(presentation_id))
+  assert_eq(projection_trace_event_id(3), Some(event_id))
+  assert_eq(projection_trace_event_id(4), Some(event_id))
+  assert_eq(projection_trace_request_id(3), Some(request_id))
+  assert_eq(projection_trace_request_id(4), Some(request_id))
+  assert_eq(projection_trace_group(3), Some(PROJECTION_TRACE_GROUP_PREVIEW))
+  assert_eq(projection_trace_group(4), Some(PROJECTION_TRACE_GROUP_DIAGNOSTICS))
 }
 
 ///|
@@ -785,6 +884,7 @@ test "each group work accepts exactly one terminal outcome" {
     request_id,
     PROJECTION_TRACE_GROUP_PREVIEW,
   )
+  projection_trace_test_group_adopted(work_id)
   projection_trace_test_group_terminal(
     work_id,
     PROJECTION_TRACE_GROUP_OUTCOME_ADOPTED_NOT_PRESENTED,
@@ -796,6 +896,7 @@ test "each group work accepts exactly one terminal outcome" {
     PROJECTION_TRACE_REASON_FAILED,
   )
   assert_eq(projection_trace_terminal_count(work_id), 1)
+  assert_true(projection_trace_contract_violated())
 }
 
 ///|

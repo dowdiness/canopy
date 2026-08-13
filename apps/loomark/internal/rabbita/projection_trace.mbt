@@ -448,7 +448,20 @@ fn projection_trace_test_group_terminal(
         return
       }
       let work_index = projection_trace_work_index(trace, work_id)
-      guard work_index >= 0 else { return }
+      if work_index < 0 {
+        trace.contract_violated = true
+        return
+      }
+      let phase = if outcome ==
+        PROJECTION_TRACE_GROUP_OUTCOME_ADOPTED_NOT_PRESENTED {
+        if !trace.work_adopted[work_index] {
+          trace.contract_violated = true
+          return
+        }
+        PROJECTION_TRACE_PHASE_F
+      } else {
+        0
+      }
       trace.terminal_work_ids[trace.terminal_count] = work_id
       trace.terminal_outcomes[trace.terminal_count] = outcome
       trace.terminal_count += 1
@@ -458,7 +471,7 @@ fn projection_trace_test_group_terminal(
         work_id,
         0,
         trace.work_groups[work_index],
-        PROJECTION_TRACE_PHASE_F,
+        phase,
         PROJECTION_TRACE_STATUS_GROUP_FINAL,
         PROJECTION_TRACE_REQUEST_NONE,
         outcome,
@@ -486,7 +499,10 @@ fn projection_trace_test_present(work_id : Int, presentation_id : Int) -> Unit {
         return
       }
       let work_index = projection_trace_work_index(trace, work_id)
-      guard work_index >= 0 else { return }
+      if work_index < 0 || !trace.work_adopted[work_index] {
+        trace.contract_violated = true
+        return
+      }
       trace.terminal_work_ids[trace.terminal_count] = work_id
       trace.terminal_outcomes[trace.terminal_count] = PROJECTION_TRACE_GROUP_OUTCOME_PRESENTED
       trace.terminal_count += 1
@@ -601,16 +617,16 @@ fn projection_trace_current_request_no_demand() -> Unit {
 }
 
 ///|
-fn projection_trace_omit_request(event_id : Int, reason : Int) -> Unit {
+fn projection_trace_event_omitted(event_id : Int, reason : Int) -> Unit {
   projection_trace_record(
     event_id,
     0,
     0,
     0,
     PROJECTION_TRACE_GROUP_NONE,
-    PROJECTION_TRACE_PHASE_A0,
+    0,
     PROJECTION_TRACE_STATUS_OMITTED,
-    PROJECTION_TRACE_REQUEST_FAILED,
+    PROJECTION_TRACE_REQUEST_NONE,
     PROJECTION_TRACE_GROUP_OUTCOME_NONE,
     reason,
   )
@@ -625,7 +641,7 @@ fn projection_trace_generation_invalidated() -> Unit {
       let request_id = trace.current_request_id
       if request_id == 0 {
         guard trace.current_event_id != 0 else { return }
-        projection_trace_omit_request(
+        projection_trace_event_omitted(
           trace.current_event_id,
           PROJECTION_TRACE_REASON_GENERATION_INVALIDATED,
         )
@@ -847,8 +863,12 @@ fn projection_trace_test_group_adopted(work_id : Int) -> Unit {
     None => ()
     Some(trace) => {
       let work_index = projection_trace_work_index(trace, work_id)
-      guard work_index >= 0 else { return }
-      guard !trace.work_adopted[work_index] else { return }
+      if work_index < 0 ||
+        projection_trace_terminal_index(trace, work_id) >= 0 ||
+        trace.work_adopted[work_index] {
+        trace.contract_violated = true
+        return
+      }
       projection_trace_record(
         trace.work_event_ids[work_index],
         trace.work_request_ids[work_index],
