@@ -65,21 +65,43 @@ fn incr_canvas_initial_position(index : Int) -> @spatial.WorldPoint {
 }
 
 ///|
+/// Find the first deterministic grid slot not already occupied by a live
+/// node. Starting at the node's frontier index keeps stable layouts compact
+/// while avoiding overlaps after remove/add transitions.
+fn incr_canvas_free_initial_position(
+  index : Int,
+  occupied : Array[@spatial.WorldPoint],
+) -> @spatial.WorldPoint {
+  let mut slot = index
+  while occupied.contains(incr_canvas_initial_position(slot)) {
+    slot += 1
+  }
+  incr_canvas_initial_position(slot)
+}
+
+///|
 /// Reconcile local layout against the live CellId frontier.
 ///
 /// Existing positions are intentionally retained by identity. New cells use a
-/// deterministic grid position, while cells absent from the frontier are
-/// removed from the local layout.
+/// deterministic unoccupied grid position, while cells absent from the
+/// frontier are removed from the local layout.
 fn reconcile_incr_positions(
   nodes : Array[@incr.CellId],
   existing : Map[@incr.CellId, @spatial.WorldPoint],
 ) -> Map[@incr.CellId, @spatial.WorldPoint] {
   let positions : Map[@incr.CellId, @spatial.WorldPoint] = Map([])
+  let occupied : Array[@spatial.WorldPoint] = nodes.filter_map(id => {
+    existing.get(id)
+  })
   for index, id in nodes {
-    let point = existing
-      .get(id)
-      .unwrap_or_else(() => incr_canvas_initial_position(index))
-    positions[id] = point
+    match existing.get(id) {
+      Some(point) => positions[id] = point
+      None => {
+        let point = incr_canvas_free_initial_position(index, occupied)
+        positions[id] = point
+        occupied.push(point)
+      }
+    }
   }
   positions
 }

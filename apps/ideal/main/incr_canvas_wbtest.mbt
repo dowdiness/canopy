@@ -66,6 +66,23 @@ test "incr canvas reconciliation preserves, adds, and removes local layout" {
 }
 
 ///|
+test "incr canvas reconciliation avoids retained-position overlap" {
+  let first = test_cell(1, 1)
+  let second = test_cell(1, 2)
+  let added = test_cell(1, 3)
+  let existing = Map([
+    (first, incr_canvas_initial_position(0)),
+    (second, incr_canvas_initial_position(1)),
+  ])
+  let next = reconcile_incr_positions([second, added], existing)
+  assert_eq(next.get(second), Some(incr_canvas_initial_position(1)))
+  assert_eq(next.get(added), Some(incr_canvas_initial_position(2)))
+  let reverse = reconcile_incr_positions([added, first], existing)
+  assert_eq(reverse.get(first), Some(incr_canvas_initial_position(0)))
+  assert_eq(reverse.get(added), Some(incr_canvas_initial_position(1)))
+}
+
+///|
 test "incr canvas pointer movement rejects non-finite geometry" {
   let id = test_cell(2, 1)
   let point = test_world(10.0, 20.0)
