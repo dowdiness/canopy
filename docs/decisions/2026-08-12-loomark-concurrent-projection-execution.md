@@ -209,8 +209,9 @@ fallback under an asynchronous interface.
 - The authority commit interface becomes deeper: callers receive one settled
   mutation result without coordinating parser, semantic, and presentation
   details.
-- A causal mutation may produce zero projection artifacts, and one projection
-  work item may produce several artifacts.
+- A causal mutation may produce zero projection artifacts. One projection
+  request may issue zero or more group work items, each producing one Artifact
+  Bundle.
 - Intermediate committed sources may have no projection artifact if they were
   superseded before presentation. Their authority receipts and history remain
   complete.
