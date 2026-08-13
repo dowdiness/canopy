@@ -643,7 +643,7 @@ test "accepted parser failure before causal evidence preserves event reason" {
 }
 
 ///|
-test "repeated identical terminal report is idempotent" {
+test "repeated identical terminal report marks trace contract violation" {
   projection_trace_enable(capacity=8, clock=() => 1)
   defer projection_trace_disable()
   let event_id = projection_trace_begin_authority_event()
@@ -663,7 +663,7 @@ test "repeated identical terminal report is idempotent" {
     PROJECTION_TRACE_REASON_PRESENTATION_NOT_OBSERVED,
   )
   assert_eq(projection_trace_terminal_count(work_id), 1)
-  assert_false(projection_trace_contract_violated())
+  assert_true(projection_trace_contract_violated())
 }
 
 ///|

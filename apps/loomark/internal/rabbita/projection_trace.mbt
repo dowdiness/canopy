@@ -439,9 +439,7 @@ fn projection_trace_test_group_terminal(
     Some(trace) => {
       let terminal_index = projection_trace_terminal_index(trace, work_id)
       if terminal_index >= 0 {
-        if trace.terminal_outcomes[terminal_index] != outcome {
-          trace.contract_violated = true
-        }
+        trace.contract_violated = true
         return
       }
       guard trace.terminal_count < trace.terminal_work_ids.length() else {
@@ -479,10 +477,7 @@ fn projection_trace_test_present(work_id : Int, presentation_id : Int) -> Unit {
     Some(trace) => {
       let terminal_index = projection_trace_terminal_index(trace, work_id)
       if terminal_index >= 0 {
-        if trace.terminal_outcomes[terminal_index] !=
-          PROJECTION_TRACE_GROUP_OUTCOME_PRESENTED {
-          trace.contract_violated = true
-        }
+        trace.contract_violated = true
         return
       }
       guard trace.terminal_count < trace.terminal_work_ids.length() else {
