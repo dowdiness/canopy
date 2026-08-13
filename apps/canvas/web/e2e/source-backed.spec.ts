@@ -132,6 +132,54 @@ test('source-backed node drag updates local layout without mutating source', asy
   expect(runtimeErrors).toEqual([]);
 });
 
+test('source-backed invalid node pointerdown does not reserve a gesture', async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto('/?source=1');
+  await expectSource(page, SAMPLE_SOURCE);
+
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    root.setPointerCapture = () => undefined;
+    const node = document.querySelector('.canvas-node');
+    if (!node) throw new Error('source node is missing');
+    const event = new Event('pointerdown', { bubbles: true });
+    Object.defineProperties(event, {
+      pointerId: { value: 61 },
+      button: { value: 0 },
+      clientX: { value: Number.POSITIVE_INFINITY },
+      clientY: { value: Number.POSITIVE_INFINITY },
+    });
+    node.dispatchEvent(event);
+  });
+
+  await expect(page.locator('#canvas-root')).not.toHaveClass(/panning/);
+
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    root.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId: 62,
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+    }));
+  });
+  await expect(page.locator('#canvas-root')).toHaveClass(/panning/);
+
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    root.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles: true,
+      pointerId: 62,
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+    }));
+  });
+  expect(runtimeErrors).toEqual([]);
+});
+
 test('source-backed canvas gestures lower into canonical source', async ({ page }) => {
   const runtimeErrors = collectRuntimeErrors(page);
 

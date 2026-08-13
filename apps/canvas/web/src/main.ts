@@ -124,6 +124,11 @@ function localCoords(e: MouseEvent): [number, number] {
   return [e.clientX - rect.left, e.clientY - rect.top];
 }
 
+function finiteLocalCoords(e: MouseEvent): [number, number] | null {
+  const point = localCoords(e);
+  return point.every(Number.isFinite) ? point : null;
+}
+
 function screenToWorld(
   point: [number, number],
   state: RenderState,
@@ -146,7 +151,8 @@ function screenToWorld(
 }
 
 function eventWorldCoords(e: MouseEvent): [number, number] | null {
-  return screenToWorld(localCoords(e), lastState ?? adapter.renderState());
+  const point = finiteLocalCoords(e);
+  return point == null ? null : screenToWorld(point, lastState ?? adapter.renderState());
 }
 
 function portTypeName(portType: Tagged): string {
@@ -653,6 +659,10 @@ function hitFromTarget(target: EventTarget | null): HitTarget {
 }
 
 function addNodeAt(kindKey: string, point: [number, number]): void {
+  if (!adapter.isSourceBacked) {
+    const state = lastState ?? adapter.renderState();
+    if (!screenToWorld(point, state)) return;
+  }
   clearSelectedEdge();
   if (adapter.isSourceBacked) {
     adapter.insertUniqueNode(kindKey, kindKey);
@@ -674,15 +684,19 @@ function updateHover(hit: HitTarget): void {
   adapter.hoverNode(hoverNodeId(hit));
 }
 
-function startSourceConnection(e: PointerEvent, hit: HitTarget): void {
+function startSourceConnection(
+  pointerId: number,
+  hit: HitTarget,
+  screenPoint: [number, number],
+): void {
   if (hit.kind !== 'handle' || hit.side !== 'output') return;
-  const worldPoint = eventWorldCoords(e);
+  const worldPoint = screenToWorld(screenPoint, lastState ?? adapter.renderState());
   if (!worldPoint) return;
   const [cursor_x, cursor_y] = worldPoint;
   clearSelectedEdge();
   hideContextMenu();
-  root.setPointerCapture(e.pointerId);
-  sourcePointerId = e.pointerId;
+  root.setPointerCapture(pointerId);
+  sourcePointerId = pointerId;
   sourceConnecting = {
     from: hit.nodeId,
     from_port: hit.portId,
@@ -861,6 +875,8 @@ let pointerUpAdditive = false;
 root.addEventListener('pointerdown', (e: PointerEvent) => {
   if (adapter.isSourceBacked) {
     if (e.button !== 0) return;
+    const screenPoint = finiteLocalCoords(e);
+    if (!screenPoint) return;
     const hit = hitFromTarget(e.target);
     if (hit.kind === 'edge') {
       hideContextMenu();
@@ -869,7 +885,10 @@ root.addEventListener('pointerdown', (e: PointerEvent) => {
       return;
     }
     if (hit.kind === 'handle') {
-      startSourceConnection(e, hit);
+      startSourceConnection(e.pointerId, hit, screenPoint);
+      return;
+    }
+    if (hit.kind === 'node' && !screenToWorld(screenPoint, lastState ?? adapter.renderState())) {
       return;
     }
     if (activePointerId !== -1) return;
@@ -878,7 +897,7 @@ root.addEventListener('pointerdown', (e: PointerEvent) => {
     root.setPointerCapture(e.pointerId);
     activePointerId = e.pointerId;
     pointerUpAdditive = e.shiftKey || e.metaKey || e.ctrlKey;
-    const [sx, sy] = localCoords(e);
+    const [sx, sy] = screenPoint;
     pointerDownNodeId = hit.kind === 'node' ? hit.nodeId : '';
     adapter.pointerDown(pointerDownNodeId, sx, sy);
     if (hit.kind === 'background') root.classList.add('panning');
@@ -890,8 +909,22 @@ root.addEventListener('pointerdown', (e: PointerEvent) => {
   // selection on non-Mac platforms.
   if (e.button !== 0 || (isMacLike && e.ctrlKey)) return;
   if (activePointerId !== -1) return;
-  hideContextMenu();
+  const screenPoint = finiteLocalCoords(e);
+  if (!screenPoint) return;
   const hit = hitFromTarget(e.target);
+  if (
+    hit.kind === 'node' ||
+    (hit.kind === 'handle' && hit.side === 'output')
+  ) {
+    if (!screenToWorld(screenPoint, lastState ?? adapter.renderState())) return;
+  }
+  if (hit.kind === 'handle' && hit.side === 'input') {
+    hideContextMenu();
+    clearSelectedEdge();
+    scheduleRender();
+    return;
+  }
+  hideContextMenu();
   if (hit.kind === 'edge') {
     selectEdge(hit.edge);
     scheduleRender();
@@ -901,7 +934,7 @@ root.addEventListener('pointerdown', (e: PointerEvent) => {
   root.setPointerCapture(e.pointerId);
   activePointerId = e.pointerId;
   pointerUpAdditive = e.shiftKey || e.metaKey || e.ctrlKey;
-  const [sx, sy] = localCoords(e);
+  const [sx, sy] = screenPoint;
 
   switch (hit.kind) {
     case 'handle':
@@ -1030,14 +1063,19 @@ root.addEventListener('wheel', (e: WheelEvent) => {
 
 root.addEventListener('contextmenu', (e: MouseEvent) => {
   e.preventDefault();
+  const point = finiteLocalCoords(e);
+  if (!point) return;
   const hit = hitFromTarget(e.target);
+  if (hit.kind !== 'edge' && !adapter.isSourceBacked) {
+    if (!screenToWorld(point, lastState ?? adapter.renderState())) return;
+  }
   const anchor = { x: e.clientX, y: e.clientY };
   if (hit.kind === 'edge') {
     selectEdge(hit.edge);
     renderEdgeContextMenu(hit.edge, anchor);
   } else {
     clearSelectedEdge();
-    contextPoint = localCoords(e);
+    contextPoint = point;
     renderContextMenu(anchor);
   }
   scheduleRender();

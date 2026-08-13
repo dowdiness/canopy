@@ -81,6 +81,35 @@ async function openBottomRightContextMenu(page: Page): Promise<void> {
   await page.mouse.click(box.x + box.width - 4, box.y + box.height - 4, { button: 'right' });
 }
 
+async function moveViewportOriginToMax(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    root.setPointerCapture = () => undefined;
+    root.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId: 51,
+      button: 0,
+      clientX: 0,
+      clientY: 0,
+    }));
+    root.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true,
+      pointerId: 51,
+      buttons: 1,
+      clientX: Number.MAX_VALUE,
+      clientY: 0,
+    }));
+    root.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles: true,
+      pointerId: 51,
+      button: 0,
+      clientX: Number.MAX_VALUE,
+      clientY: 0,
+    }));
+  });
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+}
+
 async function dragBetween(page: Page, from: Locator, to: Locator): Promise<void> {
   const start = await center(from, 'source handle');
   const end = await center(to, 'target handle');
@@ -164,6 +193,168 @@ test('canvas handles create edges and reject invalid gestures', async ({ page })
 
   await expect(edgePaths(page)).toHaveCount(4);
   await expect(pendingEdgePaths(page)).toHaveCount(0);
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('non-finite background pointerdown does not reserve a canvas gesture', async ({ page }) => {
+  const runtimeErrors: string[] = [];
+  page.on('pageerror', (error) => runtimeErrors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') runtimeErrors.push(message.text());
+  });
+
+  await page.goto('/');
+  await expect(page.locator('.canvas-node')).toHaveCount(6);
+
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    const captureIds: number[] = [];
+    root.setPointerCapture = (pointerId: number) => captureIds.push(pointerId);
+    (window as Window & { __canopyCaptureIds?: number[] }).__canopyCaptureIds = captureIds;
+    const event = new Event('pointerdown', { bubbles: true });
+    Object.defineProperties(event, {
+      pointerId: { value: 41 },
+      button: { value: 0 },
+      clientX: { value: Number.POSITIVE_INFINITY },
+      clientY: { value: Number.POSITIVE_INFINITY },
+    });
+    root.dispatchEvent(event);
+  });
+
+  await expect(page.locator('#canvas-root')).not.toHaveClass(/panning/);
+
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    root.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId: 42,
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+    }));
+  });
+
+  await expect(page.locator('#canvas-root')).toHaveClass(/panning/);
+  expect(await page.evaluate(() => (
+    window as Window & { __canopyCaptureIds?: number[] }
+  ).__canopyCaptureIds)).toEqual([42]);
+
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    root.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles: true,
+      pointerId: 42,
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+    }));
+  });
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('overflowed node pointerdown does not reserve the next canvas gesture', async ({ page }) => {
+  const runtimeErrors: string[] = [];
+  page.on('pageerror', (error) => runtimeErrors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') runtimeErrors.push(message.text());
+  });
+
+  await page.goto('/');
+  await expect(page.locator('.canvas-node')).toHaveCount(6);
+
+  // Move the viewport origin to the largest finite coordinate. The later
+  // finite screen point at -MAX_VALUE then overflows screen-to-world.
+  await moveViewportOriginToMax(page);
+
+  await page.locator('.canvas-node[data-node-id="1"]').evaluate((node) => {
+    node.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId: 52,
+      button: 0,
+      clientX: -Number.MAX_VALUE,
+      clientY: 0,
+    }));
+  });
+  await expect(page.locator('#canvas-root')).not.toHaveClass(/panning/);
+
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    root.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId: 53,
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+    }));
+  });
+  await expect(page.locator('#canvas-root')).toHaveClass(/panning/);
+
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    root.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles: true,
+      pointerId: 53,
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+    }));
+  });
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('invalid add-node context geometry leaves selection unchanged', async ({ page }) => {
+  const runtimeErrors: string[] = [];
+  page.on('pageerror', (error) => runtimeErrors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') runtimeErrors.push(message.text());
+  });
+
+  await page.goto('/');
+  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  await clickEdge(page, 0);
+  await expect(edgePaths(page).first()).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
+
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    Object.defineProperties(event, {
+      clientX: { value: Number.POSITIVE_INFINITY },
+      clientY: { value: Number.POSITIVE_INFINITY },
+    });
+    root.dispatchEvent(event);
+  });
+
+  await expect(page.locator('#context-menu')).toBeHidden();
+  await expect(edgePaths(page).first()).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
+  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('overflowed add-node context geometry leaves state unchanged', async ({ page }) => {
+  const runtimeErrors: string[] = [];
+  page.on('pageerror', (error) => runtimeErrors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') runtimeErrors.push(message.text());
+  });
+
+  await page.goto('/');
+  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  await moveViewportOriginToMax(page);
+
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    Object.defineProperties(event, {
+      clientX: { value: -Number.MAX_VALUE },
+      clientY: { value: 0 },
+    });
+    root.dispatchEvent(event);
+  });
+
+  await expect(page.locator('#context-menu')).toBeHidden();
+  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
   expect(runtimeErrors).toEqual([]);
 });
 
