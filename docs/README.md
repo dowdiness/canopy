@@ -108,6 +108,10 @@ Only needed if you are modifying Canopy itself.
   [plans/TEMPLATE.md](plans/TEMPLATE.md) when adding a new one).
 - [Advisory plans](plans/advisory/) — dependency-ordered specifications for
   [issue #1125](https://github.com/dowdiness/canopy/issues/1125).
+- [Loomark concurrent projection execution](plans/2026-08-12-loomark-concurrent-projection-execution.md)
+  — active evidence-gated implementation plan for
+  [issue #1244](https://github.com/dowdiness/canopy/issues/1244), governed by
+  the [asynchronous source-stamped projection decision](decisions/2026-08-12-loomark-concurrent-projection-execution.md).
 - [Legacy TODO snapshot](archive/TODO-snapshot-2026-08-03.md) — historical
   candidates being triaged in
   [issue #1124](https://github.com/dowdiness/canopy/issues/1124), not active
