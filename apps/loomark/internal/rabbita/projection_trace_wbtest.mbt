@@ -752,6 +752,63 @@ test "duplicate adoption fails closed without a second E record" {
 }
 
 ///|
+
+///|
+test "generic Presented terminal fails closed" {
+  projection_trace_enable(capacity=8, clock=() => 1)
+  defer projection_trace_disable()
+  let request_id = projection_trace_test_begin_request(0)
+  let work_id = projection_trace_test_begin_group(
+    request_id,
+    PROJECTION_TRACE_GROUP_PREVIEW,
+  )
+  projection_trace_test_group_adopted(work_id)
+  projection_trace_test_group_terminal(
+    work_id,
+    PROJECTION_TRACE_GROUP_OUTCOME_PRESENTED,
+    PROJECTION_TRACE_REASON_NONE,
+  )
+  assert_true(projection_trace_contract_violated())
+  assert_eq(projection_trace_terminal_count(work_id), 0)
+}
+
+///|
+test "invalid adoption work IDs fail closed" {
+  projection_trace_enable(capacity=8, clock=() => 1)
+  defer projection_trace_disable()
+  projection_trace_test_group_adopted(0)
+  assert_true(projection_trace_contract_violated())
+  projection_trace_disable()
+  projection_trace_enable(capacity=8, clock=() => 1)
+  projection_trace_test_group_adopted(999)
+  assert_true(projection_trace_contract_violated())
+}
+
+///|
+test "invalid presentation IDs fail closed" {
+  projection_trace_enable(capacity=8, clock=() => 1)
+  defer projection_trace_disable()
+  let request_id = projection_trace_test_begin_request(0)
+  let work_id = projection_trace_test_begin_group(
+    request_id,
+    PROJECTION_TRACE_GROUP_PREVIEW,
+  )
+  projection_trace_test_group_adopted(work_id)
+  projection_trace_test_present(work_id, 0)
+  assert_true(projection_trace_contract_violated())
+  assert_eq(projection_trace_terminal_count(work_id), 0)
+  projection_trace_disable()
+  projection_trace_enable(capacity=0, clock=() => 1)
+  projection_trace_test_present(0, 1)
+  assert_true(projection_trace_contract_violated())
+  projection_trace_disable()
+  projection_trace_enable(capacity=0, clock=() => 1)
+  projection_trace_test_present(999, 1)
+  assert_true(projection_trace_contract_violated())
+  assert_eq(projection_trace_count(), 0)
+}
+
+///|
 test "nonpresentation terminal outcomes do not fabricate F" {
   projection_trace_enable(capacity=8, clock=() => 1)
   defer projection_trace_disable()

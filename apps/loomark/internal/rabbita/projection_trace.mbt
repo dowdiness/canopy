@@ -433,10 +433,15 @@ fn projection_trace_test_group_terminal(
   outcome : Int,
   reason : Int,
 ) -> Unit {
-  guard work_id != 0 else { return }
   match projection_trace.val {
     None => ()
     Some(trace) => {
+      if work_id == 0 ||
+        outcome == PROJECTION_TRACE_GROUP_OUTCOME_PRESENTED ||
+        outcome == PROJECTION_TRACE_GROUP_OUTCOME_NONE {
+        trace.contract_violated = true
+        return
+      }
       let terminal_index = projection_trace_terminal_index(trace, work_id)
       if terminal_index >= 0 {
         trace.contract_violated = true
@@ -484,10 +489,18 @@ fn projection_trace_test_group_terminal(
 ///|
 #warnings("-unused_value")
 fn projection_trace_test_present(work_id : Int, presentation_id : Int) -> Unit {
-  guard work_id != 0 && presentation_id != 0 else { return }
   match projection_trace.val {
     None => ()
     Some(trace) => {
+      if work_id == 0 || presentation_id == 0 {
+        trace.contract_violated = true
+        return
+      }
+      let work_index = projection_trace_work_index(trace, work_id)
+      if work_index < 0 || !trace.work_adopted[work_index] {
+        trace.contract_violated = true
+        return
+      }
       let terminal_index = projection_trace_terminal_index(trace, work_id)
       if terminal_index >= 0 {
         trace.contract_violated = true
@@ -496,11 +509,6 @@ fn projection_trace_test_present(work_id : Int, presentation_id : Int) -> Unit {
       guard trace.terminal_count < trace.terminal_work_ids.length() else {
         trace.overflowed = true
         trace.dropped_count += 1
-        return
-      }
-      let work_index = projection_trace_work_index(trace, work_id)
-      if work_index < 0 || !trace.work_adopted[work_index] {
-        trace.contract_violated = true
         return
       }
       trace.terminal_work_ids[trace.terminal_count] = work_id
@@ -858,10 +866,13 @@ fn projection_trace_block_materialized() -> Unit {
 ///|
 #warnings("-unused_value")
 fn projection_trace_test_group_adopted(work_id : Int) -> Unit {
-  guard work_id != 0 else { return }
   match projection_trace.val {
     None => ()
     Some(trace) => {
+      if work_id == 0 {
+        trace.contract_violated = true
+        return
+      }
       let work_index = projection_trace_work_index(trace, work_id)
       if work_index < 0 ||
         projection_trace_terminal_index(trace, work_id) >= 0 ||
