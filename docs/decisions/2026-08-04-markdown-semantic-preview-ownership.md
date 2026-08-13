@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-04
 
-**Status:** Accepted for the private single-mount Loomark host.
+**Status:** Accepted current implementation; superseded when #1244 completes.
 
 **Related:**
 
@@ -10,6 +10,7 @@
 - [Loom Markdown semantic attachment boundary](../../deps/loom/docs/decisions/2026-08-04-markdown-semantic-attachment-boundary.md)
 - [Issue #1145](https://github.com/dowdiness/canopy/issues/1145)
 - [Lifecycle follow-up #1159](https://github.com/dowdiness/canopy/issues/1159)
+- [Concurrent projection execution target](2026-08-12-loomark-concurrent-projection-execution.md)
 
 **Decision:** The Markdown editor offers an explicit, opt-in construction path
 that returns its existing editing facade together with one semantic observer
@@ -17,8 +18,8 @@ over the same parser. Ordinary construction remains observer-free. The private
 Loomark host retains both resources for its existing page/process lifetime and
 installs owning semantic documents only at accepted Preview transition points.
 
-**Keep until:** A reusable Browser Session with explicit teardown supersedes
-the private single-mount host.
+**Keep until:** The concurrent projection execution target completes #1244 and
+removes the main-thread editor/semantic-observer co-location described here.
 
 ## Context
 
