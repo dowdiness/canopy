@@ -86,9 +86,11 @@ expression-source-map-operations
 This adds two load-bearing observations beyond P1.4:
 
 1. **Operation cadence, publication cadence, and demand cadence are distinct.**
-   No-op editor operations publish nothing. Multiple effective publications do
-   not force lazy Query work for intermediate states when no root reads them.
-   The next demand verifies/recomputes against the latest publication only.
+   Test-derived no-op operations are represented as non-publications in this
+   replay. P1.5 does not independently characterize no-op detection in the
+   editor shell. Multiple effective publications do not force lazy Query work
+   for intermediate states when no root reads them. The next demand
+   verifies/recomputes against the latest publication only.
 2. **The policy has no semantic-path cost when that path is undemanded.** The
    SourceMap-only trace performs no Term Eq invocation and no Evaluation work
    under either policy. Cutoff profitability cannot be modeled from edit
