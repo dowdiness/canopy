@@ -129,6 +129,14 @@ function finiteLocalCoords(e: MouseEvent): [number, number] | null {
   return point.every(Number.isFinite) ? point : null;
 }
 
+// Event admission can run before the deferred RAF render. Read the model
+// synchronously so geometry is checked against the state that will consume it.
+function currentRenderState(): RenderState {
+  const state = adapter.renderState();
+  lastState = state;
+  return state;
+}
+
 function screenToWorld(
   point: [number, number],
   state: RenderState,
@@ -152,7 +160,7 @@ function screenToWorld(
 
 function eventWorldCoords(e: MouseEvent): [number, number] | null {
   const point = finiteLocalCoords(e);
-  return point == null ? null : screenToWorld(point, lastState ?? adapter.renderState());
+  return point == null ? null : screenToWorld(point, currentRenderState());
 }
 
 function portTypeName(portType: Tagged): string {
@@ -660,8 +668,7 @@ function hitFromTarget(target: EventTarget | null): HitTarget {
 
 function addNodeAt(kindKey: string, point: [number, number]): void {
   if (!adapter.isSourceBacked) {
-    const state = lastState ?? adapter.renderState();
-    if (!screenToWorld(point, state)) return;
+    if (!screenToWorld(point, currentRenderState())) return;
   }
   clearSelectedEdge();
   if (adapter.isSourceBacked) {
@@ -690,7 +697,7 @@ function startSourceConnection(
   screenPoint: [number, number],
 ): void {
   if (hit.kind !== 'handle' || hit.side !== 'output') return;
-  const worldPoint = screenToWorld(screenPoint, lastState ?? adapter.renderState());
+  const worldPoint = screenToWorld(screenPoint, currentRenderState());
   if (!worldPoint) return;
   const [cursor_x, cursor_y] = worldPoint;
   clearSelectedEdge();
@@ -888,7 +895,7 @@ root.addEventListener('pointerdown', (e: PointerEvent) => {
       startSourceConnection(e.pointerId, hit, screenPoint);
       return;
     }
-    if (hit.kind === 'node' && !screenToWorld(screenPoint, lastState ?? adapter.renderState())) {
+    if (hit.kind === 'node' && !screenToWorld(screenPoint, currentRenderState())) {
       return;
     }
     if (activePointerId !== -1) return;
@@ -916,7 +923,7 @@ root.addEventListener('pointerdown', (e: PointerEvent) => {
     hit.kind === 'node' ||
     (hit.kind === 'handle' && hit.side === 'output')
   ) {
-    if (!screenToWorld(screenPoint, lastState ?? adapter.renderState())) return;
+    if (!screenToWorld(screenPoint, currentRenderState())) return;
   }
   if (hit.kind === 'handle' && hit.side === 'input') {
     hideContextMenu();
@@ -1067,7 +1074,7 @@ root.addEventListener('contextmenu', (e: MouseEvent) => {
   if (!point) return;
   const hit = hitFromTarget(e.target);
   if (hit.kind !== 'edge' && !adapter.isSourceBacked) {
-    if (!screenToWorld(point, lastState ?? adapter.renderState())) return;
+    if (!screenToWorld(point, currentRenderState())) return;
   }
   const anchor = { x: e.clientX, y: e.clientY };
   if (hit.kind === 'edge') {

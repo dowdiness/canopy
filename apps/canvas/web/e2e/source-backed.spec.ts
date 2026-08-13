@@ -140,7 +140,9 @@ test('source-backed invalid node pointerdown does not reserve a gesture', async 
 
   await page.evaluate(() => {
     const root = document.querySelector('#canvas-root') as HTMLDivElement;
-    root.setPointerCapture = () => undefined;
+    const captureIds: number[] = [];
+    root.setPointerCapture = (pointerId: number) => captureIds.push(pointerId);
+    (window as Window & { __canopyCaptureIds?: number[] }).__canopyCaptureIds = captureIds;
     const node = document.querySelector('.canvas-node');
     if (!node) throw new Error('source node is missing');
     const event = new Event('pointerdown', { bubbles: true });
@@ -166,6 +168,9 @@ test('source-backed invalid node pointerdown does not reserve a gesture', async 
     }));
   });
   await expect(page.locator('#canvas-root')).toHaveClass(/panning/);
+  expect(await page.evaluate(() => (
+    window as Window & { __canopyCaptureIds?: number[] }
+  ).__canopyCaptureIds)).toEqual([62]);
 
   await page.evaluate(() => {
     const root = document.querySelector('#canvas-root') as HTMLDivElement;

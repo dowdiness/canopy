@@ -302,6 +302,76 @@ test('overflowed node pointerdown does not reserve the next canvas gesture', asy
   expect(runtimeErrors).toEqual([]);
 });
 
+test('same-frame viewport changes use current geometry for pointerdown', async ({ page }) => {
+  const runtimeErrors: string[] = [];
+  page.on('pageerror', (error) => runtimeErrors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') runtimeErrors.push(message.text());
+  });
+
+  await page.goto('/');
+  await expect(page.locator('.canvas-node')).toHaveCount(6);
+
+  const captureIds = await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    const captureIds: number[] = [];
+    root.setPointerCapture = (pointerId: number) => captureIds.push(pointerId);
+    root.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId: 51,
+      button: 0,
+      clientX: 0,
+      clientY: 0,
+    }));
+    root.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true,
+      pointerId: 51,
+      buttons: 1,
+      clientX: Number.MAX_VALUE,
+      clientY: 0,
+    }));
+    root.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles: true,
+      pointerId: 51,
+      button: 0,
+      clientX: Number.MAX_VALUE,
+      clientY: 0,
+    }));
+
+    const node = document.querySelector('.canvas-node[data-node-id="1"]');
+    if (!node) throw new Error('canvas node is missing');
+    node.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId: 52,
+      button: 0,
+      clientX: -Number.MAX_VALUE * 0.75,
+      clientY: 0,
+    }));
+    root.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId: 53,
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+    }));
+    return captureIds;
+  });
+
+  expect(captureIds).toEqual([51, 53]);
+  await expect(page.locator('#canvas-root')).toHaveClass(/panning/);
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    root.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles: true,
+      pointerId: 53,
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+    }));
+  });
+  expect(runtimeErrors).toEqual([]);
+});
+
 test('invalid add-node context geometry leaves selection unchanged', async ({ page }) => {
   const runtimeErrors: string[] = [];
   page.on('pageerror', (error) => runtimeErrors.push(error.message));
