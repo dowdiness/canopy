@@ -56,7 +56,10 @@ pub fn idle_drag_preview() -> DragPreview {
 
 ///|
 pub fn default_viewport() -> Viewport {
-  Viewport::validated(origin=ScreenPoint::from_xy(x=760.0, y=330.0), scale=0.75)
+  Viewport::from_scale(
+    origin=try! ScreenPoint::from_xy(x=760.0, y=330.0),
+    scale=try! @spatial.Scale::from_double(value=0.75),
+  )
 }
 
 ///|
@@ -103,7 +106,7 @@ fn canvas_node_with_preview(
 ) -> CanvasNode {
   match preview_position_for(preview, node.id) {
     None => node
-    Some(pos) => { ..node, x: pos.x, y: pos.y }
+    Some(pos) => node.with_position(pos.point)
   }
 }
 

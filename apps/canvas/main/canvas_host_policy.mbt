@@ -1,4 +1,7 @@
 ///|
+using @spatial {type WorldPoint}
+
+///|
 /// Private example-local seam between graph runtime mechanics and the workflow
 /// canvas host. Runtime code owns incr cells, gesture reducers, and durable /
 /// ephemeral synchronization; this policy owns host-specific choices: initial
@@ -13,7 +16,7 @@ priv struct CanvasHostPolicy {
   inspector_node : (CanvasDocument, NodeId) -> InspectorNodeJson?
   selected_inspector_source : String
   hovered_inspector_source : String
-  add_node : (CanvasState, String, Double, Double) -> CanvasState
+  add_node : (CanvasState, String, WorldPoint) -> CanvasState
 }
 
 ///|
@@ -25,7 +28,7 @@ fn CanvasHostPolicy::CanvasHostPolicy(
   inspector_node~ : (CanvasDocument, NodeId) -> InspectorNodeJson?,
   selected_inspector_source~ : String,
   hovered_inspector_source~ : String,
-  add_node~ : (CanvasState, String, Double, Double) -> CanvasState,
+  add_node~ : (CanvasState, String, WorldPoint) -> CanvasState,
 ) -> CanvasHostPolicy {
   {
     initial_state,
@@ -49,8 +52,8 @@ fn workflow_canvas_host_policy() -> CanvasHostPolicy {
     inspector_node=workflow_inspector_node,
     selected_inspector_source="selected",
     hovered_inspector_source="hovered",
-    add_node=(state, kind_key, world_x, world_y) => {
-      @graph_model.workflow_add_node(state, kind_key, world_x, world_y)
+    add_node=(state, kind_key, position) => {
+      @graph_model.workflow_add_node(state, kind_key, position)
     },
   )
 }
@@ -113,7 +116,10 @@ fn preview_position_for(
 fn render_node_with_preview(node : NodeJson, preview : DragPreview) -> NodeJson {
   match preview_position_for(preview, node.id) {
     None => node
-    Some(pos) => { ..node, x: pos.x, y: pos.y }
+    Some(pos) => {
+      let point = pos.point
+      { ..node, x: point.x(), y: point.y() }
+    }
   }
 }
 
@@ -126,8 +132,8 @@ fn connecting_to_json(connecting : ConnectState?) -> ConnectingJson? {
       Some({
         from,
         from_port: c.from_port,
-        cursor_x: c.cursor_x,
-        cursor_y: c.cursor_y,
+        cursor_x: c.cursor().x(),
+        cursor_y: c.cursor().y(),
       })
     }
   }
@@ -214,10 +220,10 @@ fn node_id_to_string(id : NodeId) -> String {
 fn node_to_json(n : CanvasNode) -> NodeJson {
   {
     id: n.id.to_string(),
-    x: n.x,
-    y: n.y,
-    w: n.w,
-    h: n.h,
+    x: n.position().x(),
+    y: n.position().y(),
+    w: n.size().width(),
+    h: n.size().height(),
     kind: n.kind,
     title: n.title,
     subtitle: n.subtitle,

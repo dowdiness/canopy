@@ -8,33 +8,13 @@ import {
 // Values
 
 // Errors
-pub(all) suberror DragError {
-  InvalidPointer
-  PositionOverflow
+pub(all) suberror CoordinateError {
+  NonFinite
 } derive(Eq, @debug.Debug)
 
-pub(all) suberror DragStartError {
-  InvalidPointer
-  InvalidPosition
-} derive(Eq, @debug.Debug)
-
-pub(all) suberror PanError {
-  InvalidPointer
-  InvalidViewport(ViewportError)
-} derive(Eq, @debug.Debug)
-
-pub(all) suberror PanStartError {
-  InvalidPointer
-} derive(Eq, @debug.Debug)
-
-pub(all) suberror ViewportError {
-  InvalidOrigin
-  InvalidScale
-} derive(Eq, @debug.Debug)
-
-pub(all) suberror ViewportTransformError {
-  InvalidAnchor
-  InvalidViewport(ViewportError)
+pub(all) suberror ScaleError {
+  NonFinite
+  NonPositive
 } derive(Eq, @debug.Debug)
 
 // Types and methods
@@ -42,8 +22,8 @@ pub struct Drag[Id] {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn[Id] Drag::initial_ids(Self[Id]) -> Array[Id]
-pub fn[Id] Drag::positions_at(Self[Id], WorldPoint) -> Array[ItemPosition[Id]] raise DragError
-pub fn[Id] Drag::start(positions~ : ReadOnlyArray[ItemPosition[Id]], pointer~ : WorldPoint) -> Self[Id] raise DragStartError
+pub fn[Id] Drag::positions_at(Self[Id], WorldPoint) -> Array[ItemPosition[Id]] raise CoordinateError
+pub fn[Id] Drag::start(positions~ : ReadOnlyArray[ItemPosition[Id]], pointer~ : WorldPoint) -> Self[Id]
 
 pub struct ItemPosition[Id] {
   id : Id
@@ -53,34 +33,40 @@ pub fn[Id] ItemPosition::from_id_and_point(id~ : Id, point~ : WorldPoint) -> Sel
 
 pub struct Pan {
   // private fields
-}
-pub fn Pan::start(viewport~ : Viewport, pointer~ : ScreenPoint) -> Self raise PanStartError
-pub fn Pan::viewport_at(Self, ScreenPoint) -> Viewport raise PanError
+} derive(Eq, @debug.Debug)
+pub fn Pan::start(viewport~ : Viewport, pointer~ : ScreenPoint) -> Self
+pub fn Pan::start_pointer(Self) -> ScreenPoint
+pub fn Pan::viewport_at(Self, ScreenPoint) -> Viewport raise CoordinateError
+
+pub struct Scale {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn Scale::from_double(value~ : Double) -> Self raise ScaleError
+pub fn Scale::to_double(Self) -> Double
 
 pub struct ScreenPoint {
-  x : Double
-  y : Double
+  // private fields
 } derive(Eq, @debug.Debug)
-pub fn ScreenPoint::from_xy(x~ : Double, y~ : Double) -> Self
-pub fn ScreenPoint::is_finite(Self) -> Bool
+pub fn ScreenPoint::from_xy(x~ : Double, y~ : Double) -> Self raise CoordinateError
+pub fn ScreenPoint::x(Self) -> Double
+pub fn ScreenPoint::y(Self) -> Double
 
 pub struct Viewport {
   // private fields
 } derive(Eq, @debug.Debug)
-pub fn Viewport::from_scale(origin~ : ScreenPoint, scale~ : Double) -> Self raise ViewportError
-pub fn Viewport::scale(Self) -> Double
+pub fn Viewport::from_scale(origin~ : ScreenPoint, scale~ : Scale) -> Self
+pub fn Viewport::scale(Self) -> Scale
 pub fn Viewport::screen_origin(Self) -> ScreenPoint
-pub fn Viewport::screen_to_world(Self, ScreenPoint) -> WorldPoint
-pub fn Viewport::validated(origin~ : ScreenPoint, scale~ : Double) -> Self
-pub fn Viewport::with_scale_around(Self, anchor~ : ScreenPoint, absolute_scale~ : Double) -> Self raise ViewportTransformError
-pub fn Viewport::world_to_screen(Self, WorldPoint) -> ScreenPoint
+pub fn Viewport::screen_to_world(Self, ScreenPoint) -> WorldPoint raise CoordinateError
+pub fn Viewport::with_scale_around(Self, anchor~ : ScreenPoint, absolute_scale~ : Scale) -> Self raise CoordinateError
+pub fn Viewport::world_to_screen(Self, WorldPoint) -> ScreenPoint raise CoordinateError
 
 pub struct WorldPoint {
-  x : Double
-  y : Double
+  // private fields
 } derive(Eq, @debug.Debug)
-pub fn WorldPoint::from_xy(x~ : Double, y~ : Double) -> Self
-pub fn WorldPoint::is_finite(Self) -> Bool
+pub fn WorldPoint::from_xy(x~ : Double, y~ : Double) -> Self raise CoordinateError
+pub fn WorldPoint::x(Self) -> Double
+pub fn WorldPoint::y(Self) -> Double
 
 // Type aliases
 

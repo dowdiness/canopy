@@ -132,6 +132,59 @@ test('source-backed node drag updates local layout without mutating source', asy
   expect(runtimeErrors).toEqual([]);
 });
 
+test('source-backed invalid node pointerdown does not reserve a gesture', async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto('/?source=1');
+  await expectSource(page, SAMPLE_SOURCE);
+
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    const captureIds: number[] = [];
+    root.setPointerCapture = (pointerId: number) => captureIds.push(pointerId);
+    (window as Window & { __canopyCaptureIds?: number[] }).__canopyCaptureIds = captureIds;
+    const node = document.querySelector('.canvas-node');
+    if (!node) throw new Error('source node is missing');
+    const event = new Event('pointerdown', { bubbles: true });
+    Object.defineProperties(event, {
+      pointerId: { value: 61 },
+      button: { value: 0 },
+      clientX: { value: Number.POSITIVE_INFINITY },
+      clientY: { value: Number.POSITIVE_INFINITY },
+    });
+    node.dispatchEvent(event);
+  });
+
+  await expect(page.locator('#canvas-root')).not.toHaveClass(/panning/);
+
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    root.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId: 62,
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+    }));
+  });
+  await expect(page.locator('#canvas-root')).toHaveClass(/panning/);
+  expect(await page.evaluate(() => (
+    window as Window & { __canopyCaptureIds?: number[] }
+  ).__canopyCaptureIds)).toEqual([62]);
+
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    root.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles: true,
+      pointerId: 62,
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+    }));
+  });
+  expect(runtimeErrors).toEqual([]);
+});
+
 test('source-backed canvas gestures lower into canonical source', async ({ page }) => {
   const runtimeErrors = collectRuntimeErrors(page);
 
@@ -145,6 +198,69 @@ test('source-backed canvas gestures lower into canonical source', async ({ page 
   await expectSource(page, 'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)');
   await expect(page.locator('#edges path.edge')).toHaveCount(1);
   await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('source-backed connection ignores non-finite preview moves', async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto('/?source=1');
+  await expectSource(page, SAMPLE_SOURCE);
+
+  const source = outputHandle(page, 'osc');
+  const start = await center(source, 'source output handle');
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(start.x + 40, start.y + 40, { steps: 4 });
+  const pending = page.locator('#edges path.edge-pending');
+  await expect(pending).toHaveCount(1);
+  const before = await pending.getAttribute('d');
+
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root');
+    if (!root) throw new Error('canvas root is missing');
+    const event = new Event('pointermove', { bubbles: true });
+    Object.defineProperties(event, {
+      pointerId: { value: 1 },
+      clientX: { value: Number.POSITIVE_INFINITY },
+      clientY: { value: Number.POSITIVE_INFINITY },
+      buttons: { value: 1 },
+    });
+    root.dispatchEvent(event);
+  });
+  await expect(pending).toHaveAttribute('d', before ?? '');
+  expect(await pending.getAttribute('d')).toBe(before);
+  await page.mouse.up();
+  await expect(pending).toHaveCount(0);
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('source-backed overflowed edge geometry removes stale SVG paths', async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto('/?source=1');
+  await expectSource(page, SAMPLE_SOURCE);
+  await dragBetween(page, outputHandle(page, 'osc'), inputHandle(page, 'meter'));
+  await page.mouse.up();
+  await expect(page.locator('#edges path.edge')).toHaveCount(1);
+
+  const node = sourceNode(page, 'osc');
+  const start = await center(node.locator('.node-title'), 'source node');
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root');
+    if (!root) throw new Error('canvas root is missing');
+    root.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true,
+      pointerId: 1,
+      clientX: 1.7e308,
+      clientY: 1.0e308,
+      buttons: 1,
+    }));
+  });
+  await expect(page.locator('#edges path.edge')).toHaveCount(0);
+  await page.mouse.up();
   expect(runtimeErrors).toEqual([]);
 });
 

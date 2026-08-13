@@ -384,14 +384,21 @@ fn CanvasRuntime::pointer_down(
   sx : Double,
   sy : Double,
 ) -> Unit {
+  let screen = ScreenPoint::from_xy(x=sx, y=sy) catch {
+    @spatial.CoordinateError::NonFinite => return
+  }
+  let before = self.state_peek()
   let state = @graph_model.update_pointer_down(
-    self.state_peek(),
+    before,
     node_id,
-    sx,
-    sy,
-  )
-  self.set_drag_preview(@graph_model.idle_drag_preview())
-  self.set_interaction(state.interaction)
+    screen,
+  ) catch {
+    @spatial.CoordinateError::NonFinite => return
+  }
+  if state.interaction != before.interaction {
+    self.set_drag_preview(@graph_model.idle_drag_preview())
+    self.set_interaction(state.interaction)
+  }
 }
 
 ///|
@@ -402,23 +409,30 @@ fn CanvasRuntime::pointer_down_handle(
   sx : Double,
   sy : Double,
 ) -> Unit {
+  let screen = ScreenPoint::from_xy(x=sx, y=sy) catch {
+    @spatial.CoordinateError::NonFinite => return
+  }
   let state = self.state_peek()
-  let (wx, wy) = @graph_model.screen_to_world(state.viewport, sx, sy)
-  self.set_interaction(
-    @graph_model.update_connect_start(state, node_id, port_id, wx, wy).interaction,
-  )
+  let world = state.viewport.screen_to_world(screen) catch {
+    @spatial.CoordinateError::NonFinite => return
+  }
+  let next = @graph_model.update_connect_start(state, node_id, port_id, world)
+  if next.interaction != state.interaction {
+    self.set_interaction(next.interaction)
+  }
 }
 
 ///|
 fn CanvasRuntime::sync_connect_move(
   self : CanvasRuntime,
   state : CanvasState,
-  sx : Double,
-  sy : Double,
+  screen : ScreenPoint,
 ) -> Unit {
-  let (wx, wy) = @graph_model.screen_to_world(state.viewport, sx, sy)
+  let world = state.viewport.screen_to_world(screen) catch {
+    @spatial.CoordinateError::NonFinite => return
+  }
   self.set_interaction(
-    @graph_model.update_connect_move(state, wx, wy).interaction,
+    @graph_model.update_connect_move(state, world).interaction,
   )
 }
 
@@ -426,18 +440,18 @@ fn CanvasRuntime::sync_connect_move(
 fn CanvasRuntime::sync_drag_preview_move(
   self : CanvasRuntime,
   state : CanvasState,
-  drag : DragState,
-  sx : Double,
-  sy : Double,
+  drag : @spatial.Drag[NodeId],
+  screen : ScreenPoint,
 ) -> Unit {
-  let (wx, wy) = @graph_model.screen_to_world(state.viewport, sx, sy)
+  let world = state.viewport.screen_to_world(screen) catch {
+    @spatial.CoordinateError::NonFinite => return
+  }
   try {
-    let preview = @graph_model.drag_preview_from_move(drag, wx, wy)
+    let preview = @graph_model.drag_preview_from_move(drag, world)
     self.set_drag_preview(preview)
     self.set_interaction({ ..state.interaction, did_move: true })
   } catch {
-    @spatial.DragError::InvalidPointer
-    | @spatial.DragError::PositionOverflow => ()
+    @spatial.CoordinateError::NonFinite => ()
   }
 }
 
@@ -445,10 +459,15 @@ fn CanvasRuntime::sync_drag_preview_move(
 fn CanvasRuntime::sync_pan_move(
   self : CanvasRuntime,
   state : CanvasState,
-  sx : Double,
-  sy : Double,
+  screen : ScreenPoint,
 ) -> Unit {
-  self.sync_viewport_state(@graph_model.update_pan_move(state, sx, sy))
+  let next = @graph_model.update_pan_move(state, screen)
+  if next.viewport == state.viewport &&
+    next.interaction == state.interaction {
+    ()
+  } else {
+    self.sync_viewport_state(next)
+  }
 }
 
 ///|
@@ -469,15 +488,18 @@ fn CanvasRuntime::pointer_move(
   sx : Double,
   sy : Double,
 ) -> Unit {
+  let screen = ScreenPoint::from_xy(x=sx, y=sy) catch {
+    @spatial.CoordinateError::NonFinite => return
+  }
   let state = self.state_peek()
   match state.interaction.connecting {
-    Some(_) => self.sync_connect_move(state, sx, sy)
+    Some(_) => self.sync_connect_move(state, screen)
     None =>
       match state.interaction.dragging {
-        Some(drag) => self.sync_drag_preview_move(state, drag, sx, sy)
+        Some(drag) => self.sync_drag_preview_move(state, drag, screen)
         None =>
           match state.interaction.panning {
-            Some(_) => self.sync_pan_move(state, sx, sy)
+            Some(_) => self.sync_pan_move(state, screen)
             None => ()
           }
       }
@@ -508,9 +530,17 @@ fn CanvasRuntime::zoom(
   cx : Double,
   cy : Double,
 ) -> Unit {
-  self.sync_action_viewport_state(
-    @graph_model.update_zoom(self.state_peek(), delta, cx, cy),
-  )
+  if delta.is_nan() || delta.is_inf() {
+    return
+  }
+  let screen = ScreenPoint::from_xy(x=cx, y=cy) catch {
+    @spatial.CoordinateError::NonFinite => return
+  }
+  let before = self.state_peek()
+  let next = @graph_model.update_zoom(before, delta, screen)
+  if next.viewport != before.viewport || next.action_log != before.action_log {
+    self.sync_action_viewport_state(next)
+  }
 }
 
 ///|
@@ -530,10 +560,15 @@ fn CanvasRuntime::add_node(
   sx : Double,
   sy : Double,
 ) -> Unit {
+  let screen = ScreenPoint::from_xy(x=sx, y=sy) catch {
+    @spatial.CoordinateError::NonFinite => return
+  }
   let state = self.state_peek()
-  let (wx, wy) = @graph_model.screen_to_world(state.viewport, sx, sy)
+  let world = state.viewport.screen_to_world(screen) catch {
+    @spatial.CoordinateError::NonFinite => return
+  }
   self.sync_document_action_state(
-    (self.policy.add_node)(state, kind_key, wx, wy),
+    (self.policy.add_node)(state, kind_key, world),
   )
 }
 

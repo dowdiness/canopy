@@ -22,19 +22,17 @@ validation surfaces while reusing the model and reducers here.
 
 `CanvasState` and `SetViewport` use `@spatial.Viewport` directly.
 Its origin coordinates and scale are always finite, and its scale is positive:
-internal construction uses `Viewport::validated`, while untrusted input uses
-`Viewport::from_scale` and handles its typed `ViewportError`. Screen/world point
-values expose `is_finite` so host input boundaries can reject non-finite
-coordinates before starting pan, zoom, or drag transitions. `Pan::start`,
-`Pan::viewport_at`, `Drag::start`, and `Drag::positions_at` raise typed spatial
-errors; reducers and hosts catch those errors and leave state unchanged.
+`ScreenPoint`, `WorldPoint`, and `Scale` constructors reject invalid raw values,
+while `Viewport::from_scale` accepts only those validated values. Screen/world
+points expose coordinate accessors, not a caller-side finiteness obligation.
+`Pan::start` and `Drag::start` capture validated snapshots; their evaluation
+methods raise `CoordinateError` when derived arithmetic overflows, and
+reducers and hosts catch that error and leave state unchanged.
 
 The GraphOperation V2 JSON wire shape remains `{x, y, scale}`. The
 `graph_model` serialization boundary owns its strict encoding and decoding;
 non-finite coordinates and non-finite or non-positive scales raise
 `@json.JsonDecodeError`. Invalid viewport operations are rejected before
 replay, so they are neither normalized nor retained in `action_log`. The
-`spatial` package itself has no JSON dependency. The trusted
-`Viewport::validated` constructor uses `try!` only for values established by
-internal invariants; browser and wire inputs use the explicit raising
-constructors instead.
+`spatial` package itself has no JSON dependency. Browser and wire inputs use the
+explicit raising constructors before entering the durable graph state.

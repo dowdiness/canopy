@@ -40,9 +40,10 @@ fn contract_screen_point(
   world_x : Double,
   world_y : Double,
 ) -> (Double, Double) {
-  let origin = viewport.screen_origin()
-  let scale = viewport.scale()
-  (world_x * scale + origin.x, world_y * scale + origin.y)
+  let screen = try! viewport.world_to_screen(
+    try! @spatial.WorldPoint::from_xy(x=world_x, y=world_y),
+  )
+  (screen.x(), screen.y())
 }
 
 ///|
@@ -74,8 +75,8 @@ test "runtime contract: pointermove previews before one durable MoveNodes commit
   let before_node = contract_state_node(runtime.state_peek(), node_id)
   let (start_sx, start_sy) = contract_screen_point(
     runtime.render_state().viewport,
-    before_node.x,
-    before_node.y,
+    before_node.position().x(),
+    before_node.position().y(),
   )
   runtime.pointer_down(Some(node_id), start_sx, start_sy)
 
@@ -86,8 +87,8 @@ test "runtime contract: pointermove previews before one durable MoveNodes commit
   )
   runtime.pointer_move(mid_sx, mid_sy)
   let during_node = contract_state_node(runtime.state_peek(), node_id)
-  contract_assert_close(during_node.x, before_node.x)
-  contract_assert_close(during_node.y, before_node.y)
+  contract_assert_close(during_node.position().x(), before_node.position().x())
+  contract_assert_close(during_node.position().y(), before_node.position().y())
   assert_eq(contract_runtime_operations(runtime).length(), 0)
   let mid_preview = contract_render_node(runtime.render_state(), "1")
   contract_assert_close(mid_preview.x, -410.0)
@@ -106,11 +107,19 @@ test "runtime contract: pointermove previews before one durable MoveNodes commit
 
   runtime.pointer_up("1", "", false)
   let after_node = contract_state_node(runtime.state_peek(), node_id)
-  contract_assert_close(after_node.x, -390.0)
-  contract_assert_close(after_node.y, -95.0)
+  contract_assert_close(after_node.position().x(), -390.0)
+  contract_assert_close(after_node.position().y(), -95.0)
   let operations = contract_runtime_operations(runtime)
   assert_eq(operations.length(), 1)
-  contract_expect_move_nodes(operations[0], [{ node_id, x: -390.0, y: -95.0 }])
+  contract_expect_move_nodes(
+    operations[0],
+    [
+      @spatial.ItemPosition::from_id_and_point(
+        id=node_id,
+        point=try! @spatial.WorldPoint::from_xy(x=-390.0, y=-95.0),
+      ),
+    ],
+  )
 }
 
 ///|
@@ -122,8 +131,8 @@ test "runtime contract: panning logs viewport only on pointerup" {
   let during = runtime.render_state()
   let before_origin = before.screen_origin()
   let during_origin = during.viewport.screen_origin()
-  contract_assert_close(during_origin.x, before_origin.x + 20.0)
-  contract_assert_close(during_origin.y, before_origin.y + 35.0)
+  contract_assert_close(during_origin.x(), before_origin.x() + 20.0)
+  contract_assert_close(during_origin.y(), before_origin.y() + 35.0)
   assert_eq(during.action_count, 0)
   assert_eq(contract_runtime_operations(runtime).length(), 0)
 
@@ -160,8 +169,8 @@ test "runtime contract: click selection is pointerup-only and additive" {
   let first_node = contract_state_node(runtime.state_peek(), node1)
   let (one_sx, one_sy) = contract_screen_point(
     runtime.render_state().viewport,
-    first_node.x,
-    first_node.y,
+    first_node.position().x(),
+    first_node.position().y(),
   )
   runtime.pointer_down(Some(node1), one_sx, one_sy)
   assert_eq(runtime.render_state().selected_nodes.length(), 0)
@@ -177,8 +186,8 @@ test "runtime contract: click selection is pointerup-only and additive" {
   let second_node = contract_state_node(runtime.state_peek(), node2)
   let (two_sx, two_sy) = contract_screen_point(
     runtime.render_state().viewport,
-    second_node.x,
-    second_node.y,
+    second_node.position().x(),
+    second_node.position().y(),
   )
   runtime.pointer_down(Some(node2), two_sx, two_sy)
   runtime.pointer_up("2", "", true)
@@ -204,8 +213,8 @@ test "source-backed runtime contract: pointermove previews before one local Move
   let before_node = contract_state_node(before, osc)
   let (start_sx, start_sy) = contract_screen_point(
     before.viewport,
-    before_node.x,
-    before_node.y,
+    before_node.position().x(),
+    before_node.position().y(),
   )
   source_graph_pointer_down(handle, osc.to_string(), start_sx, start_sy)
 
@@ -215,30 +224,38 @@ test "source-backed runtime contract: pointermove previews before one local Move
     source_graph_base_canvas_state(graph),
     osc,
   )
-  contract_assert_close(durable_during.x, before_node.x)
-  contract_assert_close(durable_during.y, before_node.y)
+  contract_assert_close(durable_during.position().x(), before_node.position().x())
+  contract_assert_close(durable_during.position().y(), before_node.position().y())
   assert_eq(ok_operation_log(get_source_graph_action_log(handle)).length(), 0)
   let mid_preview = contract_state_node(source_graph_canvas_state(graph), osc)
-  contract_assert_close(mid_preview.x, 80.0)
-  contract_assert_close(mid_preview.y, 40.0)
+  contract_assert_close(mid_preview.position().x(), 80.0)
+  contract_assert_close(mid_preview.position().y(), 40.0)
 
   let (final_sx, final_sy) = contract_screen_point(before.viewport, 90.0, 60.0)
   source_graph_pointer_move(handle, final_sx, final_sy)
   assert_eq(ok_operation_log(get_source_graph_action_log(handle)).length(), 0)
   let final_preview = contract_state_node(source_graph_canvas_state(graph), osc)
-  contract_assert_close(final_preview.x, 90.0)
-  contract_assert_close(final_preview.y, 60.0)
+  contract_assert_close(final_preview.position().x(), 90.0)
+  contract_assert_close(final_preview.position().y(), 60.0)
 
   source_graph_pointer_up(handle, osc.to_string(), "", false)
   let after_node = contract_state_node(
     source_graph_base_canvas_state(graph),
     osc,
   )
-  contract_assert_close(after_node.x, 90.0)
-  contract_assert_close(after_node.y, 60.0)
+  contract_assert_close(after_node.position().x(), 90.0)
+  contract_assert_close(after_node.position().y(), 60.0)
   let operations = ok_operation_log(get_source_graph_action_log(handle))
   assert_eq(operations.length(), 1)
-  contract_expect_move_nodes(operations[0], [{ node_id: osc, x: 90.0, y: 60.0 }])
+  contract_expect_move_nodes(
+    operations[0],
+    [
+      @spatial.ItemPosition::from_id_and_point(
+        id=osc,
+        point=try! @spatial.WorldPoint::from_xy(x=90.0, y=60.0),
+      ),
+    ],
+  )
   destroy_source_graph(handle)
 }
 
@@ -252,8 +269,8 @@ test "source-backed runtime contract: panning logs viewport only on pointerup" {
   let during = source_graph_base_canvas_state(graph)
   let before_origin = before.screen_origin()
   let during_origin = during.viewport.screen_origin()
-  contract_assert_close(during_origin.x, before_origin.x + 20.0)
-  contract_assert_close(during_origin.y, before_origin.y + 35.0)
+  contract_assert_close(during_origin.x(), before_origin.x() + 20.0)
+  contract_assert_close(during_origin.y(), before_origin.y() + 35.0)
   assert_eq(ok_operation_log(get_source_graph_action_log(handle)).length(), 0)
 
   source_graph_pointer_move(handle, 40.0, 65.0)
