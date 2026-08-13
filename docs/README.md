@@ -196,6 +196,17 @@ behavior** — check the code before relying on any specific detail.
   — separates File and Causal Authority, Archive-backed and File-backed
   persistence, and bounded External admission for associated Markdown files.
 
+## Research
+
+Source-backed research inventories and characterization evidence. These are
+not implemented behavior — they record ownership, lifetime, and design
+analysis that may inform future cuts.
+
+- [docs/research/](research/) — full research directory.
+- [Cut B′ Candidate Lifetime Allocation](research/2026-08-13-cut-b-prime-candidate-lifetime-allocation.md)
+  — shell-owned projection publisher ownership, deletion ledger, and lifetime
+  graph for the Lambda read-model cut (#1236).
+
 ## Historical / Archive
 
 > Do not treat files in this section as current guidance. They record decisions
