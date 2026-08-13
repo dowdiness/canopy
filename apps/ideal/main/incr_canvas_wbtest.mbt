@@ -217,6 +217,14 @@ test "incr canvas pointer identity gates gestures and zero wheel is a no-op" {
 }
 
 ///|
+test "incr canvas DOM claim gates pointer messages" {
+  assert_true(incr_canvas_pointer_claim_matches(Some("7"), Some(7)))
+  assert_false(incr_canvas_pointer_claim_matches(Some("7"), Some(8)))
+  assert_false(incr_canvas_pointer_claim_matches(None, Some(7)))
+  assert_false(incr_canvas_pointer_claim_matches(Some("7"), None))
+}
+
+///|
 test "incr canvas pointer admission rejects unknown and secondary pointers" {
   let empty = IncrCanvasState::empty()
   assert_true(incr_canvas_pointer_admitted(empty, Some(1)))
@@ -236,6 +244,11 @@ test "incr canvas zoom preserves the screen anchor and rejects invalid input" {
   let projected = try! changed.viewport.world_to_screen(world_at_anchor)
   incr_canvas_assert_close(projected.x(), anchor.x())
   incr_canvas_assert_close(projected.y(), anchor.y())
+  let returned = incr_canvas_zoom(changed, 1.0, anchor.x(), anchor.y())
+  incr_canvas_assert_close(
+    returned.viewport.scale().to_double(),
+    state.viewport.scale().to_double(),
+  )
   assert_incr_canvas_state_eq(
     incr_canvas_zoom(state, 0.0 / 0.0, 0.0, 0.0),
     state,

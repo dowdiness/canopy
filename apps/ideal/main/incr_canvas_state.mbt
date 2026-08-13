@@ -26,6 +26,9 @@ const INCR_CANVAS_MIN_SCALE : Double = 0.25
 const INCR_CANVAS_MAX_SCALE : Double = 4.0
 
 ///|
+const INCR_CANVAS_ZOOM_FACTOR : Double = 1.1
+
+///|
 struct IncrCanvasState {
   viewport : @spatial.Viewport
   panning : @spatial.Pan?
@@ -203,6 +206,17 @@ fn incr_canvas_hit_test(
 }
 
 ///|
+fn incr_canvas_pointer_claim_matches(
+  claimed_id : String?,
+  pointer_id : Int?,
+) -> Bool {
+  match (claimed_id, pointer_id) {
+    (Some(claimed), Some(pointer)) => claimed == pointer.to_string()
+    _ => false
+  }
+}
+
+///|
 fn incr_canvas_pointer_admitted(
   state : IncrCanvasState,
   pointer_id : Int?,
@@ -332,7 +346,11 @@ fn incr_canvas_zoom(
     None => return state
   }
   let current = state.viewport.scale().to_double()
-  let factor = if delta < 0.0 { 1.1 } else { 0.9 }
+  let factor = if delta < 0.0 {
+    INCR_CANVAS_ZOOM_FACTOR
+  } else {
+    1.0 / INCR_CANVAS_ZOOM_FACTOR
+  }
   let next = current * factor
   let bounded = if next < INCR_CANVAS_MIN_SCALE {
     INCR_CANVAS_MIN_SCALE
