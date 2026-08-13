@@ -16,6 +16,7 @@ priv struct ProjectionTraceBuffer {
   group_outcome : FixedArray[Int]
   reason : FixedArray[Int]
   terminal_work_ids : FixedArray[Int]
+  terminal_outcomes : FixedArray[Int]
   work_ids : FixedArray[Int]
   work_event_ids : FixedArray[Int]
   work_request_ids : FixedArray[Int]
@@ -28,6 +29,7 @@ priv struct ProjectionTraceBuffer {
   mut dropped_count : Int
   mut overflowed : Bool
   mut id_exhausted : Bool
+  mut contract_violated : Bool
   mut next_sequence : Int
   mut next_event_id : Int
   mut next_request_id : Int
@@ -192,6 +194,7 @@ fn projection_trace_enable(capacity~ : Int, clock~ : () -> Int) -> Unit {
     group_outcome: FixedArray::make(capacity, 0),
     reason: FixedArray::make(capacity, 0),
     terminal_work_ids: FixedArray::make(capacity, 0),
+    terminal_outcomes: FixedArray::make(capacity, 0),
     work_ids: FixedArray::make(capacity, 0),
     work_event_ids: FixedArray::make(capacity, 0),
     work_request_ids: FixedArray::make(capacity, 0),
@@ -204,6 +207,7 @@ fn projection_trace_enable(capacity~ : Int, clock~ : () -> Int) -> Unit {
     dropped_count: 0,
     overflowed: false,
     id_exhausted: false,
+    contract_violated: false,
     next_sequence: 1,
     next_event_id: 1,
     next_request_id: 1,
@@ -398,16 +402,16 @@ fn projection_trace_test_progress(
 }
 
 ///|
-fn projection_trace_group_is_terminal(
+fn projection_trace_terminal_index(
   trace : ProjectionTraceBuffer,
   work_id : Int,
-) -> Bool {
+) -> Int {
   for index in 0..<trace.terminal_count {
     if trace.terminal_work_ids[index] == work_id {
-      return true
+      return index
     }
   }
-  false
+  -1
 }
 
 ///|
@@ -433,7 +437,13 @@ fn projection_trace_test_group_terminal(
   match projection_trace.val {
     None => ()
     Some(trace) => {
-      guard !projection_trace_group_is_terminal(trace, work_id) else { return }
+      let terminal_index = projection_trace_terminal_index(trace, work_id)
+      if terminal_index >= 0 {
+        if trace.terminal_outcomes[terminal_index] != outcome {
+          trace.contract_violated = true
+        }
+        return
+      }
       guard trace.terminal_count < trace.terminal_work_ids.length() else {
         trace.overflowed = true
         trace.dropped_count += 1
@@ -442,6 +452,7 @@ fn projection_trace_test_group_terminal(
       let work_index = projection_trace_work_index(trace, work_id)
       guard work_index >= 0 else { return }
       trace.terminal_work_ids[trace.terminal_count] = work_id
+      trace.terminal_outcomes[trace.terminal_count] = outcome
       trace.terminal_count += 1
       projection_trace_record(
         trace.work_event_ids[work_index],
@@ -466,7 +477,14 @@ fn projection_trace_test_present(work_id : Int, presentation_id : Int) -> Unit {
   match projection_trace.val {
     None => ()
     Some(trace) => {
-      guard !projection_trace_group_is_terminal(trace, work_id) else { return }
+      let terminal_index = projection_trace_terminal_index(trace, work_id)
+      if terminal_index >= 0 {
+        if trace.terminal_outcomes[terminal_index] !=
+          PROJECTION_TRACE_GROUP_OUTCOME_PRESENTED {
+          trace.contract_violated = true
+        }
+        return
+      }
       guard trace.terminal_count < trace.terminal_work_ids.length() else {
         trace.overflowed = true
         trace.dropped_count += 1
@@ -475,6 +493,7 @@ fn projection_trace_test_present(work_id : Int, presentation_id : Int) -> Unit {
       let work_index = projection_trace_work_index(trace, work_id)
       guard work_index >= 0 else { return }
       trace.terminal_work_ids[trace.terminal_count] = work_id
+      trace.terminal_outcomes[trace.terminal_count] = PROJECTION_TRACE_GROUP_OUTCOME_PRESENTED
       trace.terminal_count += 1
       projection_trace_record(
         trace.work_event_ids[work_index],
@@ -494,10 +513,54 @@ fn projection_trace_test_present(work_id : Int, presentation_id : Int) -> Unit {
 
 ///|
 #warnings("-unused_value")
-fn projection_trace_request_no_demand(request_id : Int) -> Unit {
+fn projection_trace_request_is_final(
+  trace : ProjectionTraceBuffer,
+  request_id : Int,
+) -> Bool {
+  for index in 0..<trace.count {
+    if trace.request_id[index] == request_id &&
+      trace.status[index] == PROJECTION_TRACE_STATUS_REQUEST_FINAL {
+      return true
+    }
+  }
+  false
+}
+
+///|
+#warnings("-unused_value")
+fn projection_trace_request_dispatched(request_id : Int) -> Unit {
+  guard request_id != 0 else { return }
   match projection_trace.val {
     None => ()
-    Some(trace) =>
+    Some(trace) => {
+      guard !projection_trace_request_is_final(trace, request_id) else {
+        return
+      }
+      projection_trace_record(
+        trace.current_event_id,
+        request_id,
+        0,
+        0,
+        PROJECTION_TRACE_GROUP_NONE,
+        0,
+        PROJECTION_TRACE_STATUS_REQUEST_FINAL,
+        PROJECTION_TRACE_REQUEST_DISPATCHED,
+        PROJECTION_TRACE_GROUP_OUTCOME_NONE,
+        PROJECTION_TRACE_REASON_NONE,
+      )
+    }
+  }
+}
+
+///|
+fn projection_trace_request_no_demand(request_id : Int) -> Unit {
+  guard request_id != 0 else { return }
+  match projection_trace.val {
+    None => ()
+    Some(trace) => {
+      guard !projection_trace_request_is_final(trace, request_id) else {
+        return
+      }
       projection_trace_record(
         trace.current_event_id,
         request_id,
@@ -510,6 +573,7 @@ fn projection_trace_request_no_demand(request_id : Int) -> Unit {
         PROJECTION_TRACE_GROUP_OUTCOME_NONE,
         PROJECTION_TRACE_REASON_NO_DEMAND,
       )
+    }
   }
 }
 
@@ -532,6 +596,9 @@ fn projection_trace_current_request_no_demand() -> Unit {
     None => ()
     Some(trace) => {
       guard trace.current_request_id != 0 else { return }
+      guard !projection_trace_request_is_final(trace, trace.current_request_id) else {
+        return
+      }
       projection_trace_request_no_demand(trace.current_request_id)
       projection_trace_clear_request(trace.current_request_id)
     }
@@ -561,6 +628,14 @@ fn projection_trace_generation_invalidated() -> Unit {
     None => ()
     Some(trace) => {
       let request_id = trace.current_request_id
+      if request_id == 0 {
+        guard trace.current_event_id != 0 else { return }
+        projection_trace_omit_request(
+          trace.current_event_id,
+          PROJECTION_TRACE_REASON_GENERATION_INVALIDATED,
+        )
+        return
+      }
       let mut issued_work = false
       for index in 0..<trace.work_count {
         if trace.work_request_ids[index] == request_id {
@@ -572,7 +647,7 @@ fn projection_trace_generation_invalidated() -> Unit {
           )
         }
       }
-      if request_id != 0 && !issued_work {
+      if !issued_work {
         projection_trace_record(
           trace.current_event_id,
           request_id,
@@ -608,6 +683,27 @@ fn projection_trace_begin_demand_group(next_requested~ : Bool) -> Unit {
         phase=PROJECTION_TRACE_PHASE_C,
       )
     }
+  }
+}
+
+///|
+#warnings("-unused_value")
+fn projection_trace_test_authority_accepted(request_id : Int) -> Unit {
+  match projection_trace.val {
+    None => ()
+    Some(trace) =>
+      projection_trace_record(
+        trace.current_event_id,
+        request_id,
+        0,
+        0,
+        PROJECTION_TRACE_GROUP_NONE,
+        PROJECTION_TRACE_PHASE_A0,
+        PROJECTION_TRACE_STATUS_RECORDED,
+        PROJECTION_TRACE_REQUEST_NONE,
+        PROJECTION_TRACE_GROUP_OUTCOME_NONE,
+        PROJECTION_TRACE_REASON_NONE,
+      )
   }
 }
 
@@ -706,6 +802,8 @@ fn projection_trace_semantic_attachment_read() -> Unit {
         request_id,
         PROJECTION_TRACE_GROUP_PREVIEW,
       )
+      guard work_id != 0 else { return }
+      projection_trace_request_dispatched(request_id)
       projection_trace_test_progress(
         event_id=trace.current_event_id,
         request_id~,
@@ -717,6 +815,34 @@ fn projection_trace_semantic_attachment_read() -> Unit {
     }
   }
 }
+
+///|
+/// Record a complete committed Block artifact and its selection/resolver
+/// evidence before the application adopts it.
+fn projection_trace_block_materialized() -> Unit {
+  match projection_trace.val {
+    None => ()
+    Some(trace) => {
+      guard trace.current_request_id != 0 else { return }
+      let work_id = projection_trace_test_begin_group(
+        trace.current_request_id,
+        PROJECTION_TRACE_GROUP_BLOCK,
+      )
+      guard work_id != 0 else { return }
+      projection_trace_request_dispatched(trace.current_request_id)
+      projection_trace_test_progress(
+        event_id=trace.current_event_id,
+        request_id=trace.current_request_id,
+        group_work_id=work_id,
+        presentation_id=0,
+        group=PROJECTION_TRACE_GROUP_BLOCK,
+        phase=PROJECTION_TRACE_PHASE_D,
+      )
+    }
+  }
+}
+
+///|
 
 ///|
 #warnings("-unused_value")
@@ -758,6 +884,7 @@ fn projection_trace_retained_preview_materialized() -> Unit {
         PROJECTION_TRACE_GROUP_PREVIEW,
       )
       guard work_id != 0 else { return }
+      projection_trace_request_dispatched(trace.current_request_id)
       projection_trace_test_progress(
         event_id=trace.current_event_id,
         request_id=trace.current_request_id,
@@ -944,5 +1071,14 @@ fn projection_trace_terminal_count(work_id : Int) -> Int {
       }
       count
     }
+  }
+}
+
+///|
+#warnings("-unused_value")
+fn projection_trace_contract_violated() -> Bool {
+  match projection_trace.val {
+    None => false
+    Some(trace) => trace.contract_violated
   }
 }

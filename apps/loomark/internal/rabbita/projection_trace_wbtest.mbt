@@ -140,14 +140,15 @@ test "accepted preview-demand edit records independent synchronous trace axes" {
     PROJECTION_TRACE_PHASE_C,
     PROJECTION_TRACE_PHASE_A1,
     PROJECTION_TRACE_PHASE_B,
+    0,
     PROJECTION_TRACE_PHASE_D,
     PROJECTION_TRACE_PHASE_E,
     PROJECTION_TRACE_PHASE_F,
   ])
-  assert_eq(ticks.val, 7)
+  assert_eq(ticks.val, 8)
   let event_id = projection_trace_event_id(0)
   let request_id = projection_trace_request_id(1)
-  let group_work_id = projection_trace_group_work_id(4)
+  let group_work_id = projection_trace_group_work_id(5)
   assert_true(event_id != Some(0))
   assert_true(request_id != Some(0))
   assert_true(group_work_id != Some(0))
@@ -157,21 +158,26 @@ test "accepted preview-demand edit records independent synchronous trace axes" {
   assert_eq(projection_trace_event_id(2), event_id)
   assert_eq(projection_trace_request_id(2), Some(0))
   assert_eq(projection_trace_request_id(3), request_id)
-  for index in 4..<7 {
+  assert_eq(
+    projection_trace_request_disposition(4),
+    Some(PROJECTION_TRACE_REQUEST_DISPATCHED),
+  )
+  assert_eq(projection_trace_group_work_id(4), Some(0))
+  for index in 5..<8 {
     assert_eq(projection_trace_request_id(index), request_id)
     assert_eq(projection_trace_group_work_id(index), group_work_id)
     assert_eq(projection_trace_presentation_id(index), Some(0))
   }
   assert_eq(
-    projection_trace_status(5),
+    projection_trace_status(6),
     Some(PROJECTION_TRACE_STATUS_ADOPTION_ACCEPTED),
   )
   assert_eq(
-    projection_trace_group_outcome(6),
+    projection_trace_group_outcome(7),
     Some(PROJECTION_TRACE_GROUP_OUTCOME_ADOPTED_NOT_PRESENTED),
   )
   assert_eq(
-    projection_trace_reason(6),
+    projection_trace_reason(7),
     Some(PROJECTION_TRACE_REASON_PRESENTATION_NOT_OBSERVED),
   )
 }
@@ -259,16 +265,21 @@ test "demand-only Preview records C-F without authority phases" {
   assert_eq(next.semantic_read_count, model.semantic_read_count + 1)
   assert_eq(projection_trace_phases(), [
     PROJECTION_TRACE_PHASE_C,
+    0,
     PROJECTION_TRACE_PHASE_D,
     PROJECTION_TRACE_PHASE_E,
     PROJECTION_TRACE_PHASE_F,
   ])
   assert_eq(
-    projection_trace_group_outcome(3),
+    projection_trace_request_disposition(1),
+    Some(PROJECTION_TRACE_REQUEST_DISPATCHED),
+  )
+  assert_eq(
+    projection_trace_group_outcome(4),
     Some(PROJECTION_TRACE_GROUP_OUTCOME_ADOPTED_NOT_PRESENTED),
   )
   assert_eq(
-    projection_trace_reason(3),
+    projection_trace_reason(4),
     Some(PROJECTION_TRACE_REASON_PRESENTATION_NOT_OBSERVED),
   )
 }
@@ -352,19 +363,24 @@ test "source-equal demanded Preview republishes retained artifact" {
     PROJECTION_TRACE_PHASE_C,
     PROJECTION_TRACE_PHASE_A1,
     PROJECTION_TRACE_PHASE_B,
+    0,
     PROJECTION_TRACE_PHASE_D,
     PROJECTION_TRACE_PHASE_E,
     PROJECTION_TRACE_PHASE_F,
   ])
-  let work_id = projection_trace_group_work_id(4)
+  let work_id = projection_trace_group_work_id(5)
   assert_true(work_id != Some(0))
-  assert_eq(projection_trace_group_work_id(5), work_id)
-  assert_eq(projection_trace_group_work_id(6), work_id)
   assert_eq(
-    projection_trace_group_outcome(6),
+    projection_trace_request_disposition(4),
+    Some(PROJECTION_TRACE_REQUEST_DISPATCHED),
+  )
+  assert_eq(projection_trace_group_work_id(6), work_id)
+  assert_eq(projection_trace_group_work_id(7), work_id)
+  assert_eq(
+    projection_trace_group_outcome(7),
     Some(PROJECTION_TRACE_GROUP_OUTCOME_ADOPTED_NOT_PRESENTED),
   )
-  assert_eq(ticks.val, 7)
+  assert_eq(ticks.val, 8)
 }
 
 ///|
@@ -397,20 +413,134 @@ test "source-equal authority request adopts newly demanded Preview once" {
     PROJECTION_TRACE_PHASE_C,
     PROJECTION_TRACE_PHASE_A1,
     PROJECTION_TRACE_PHASE_B,
+    0,
     PROJECTION_TRACE_PHASE_D,
     PROJECTION_TRACE_PHASE_E,
     PROJECTION_TRACE_PHASE_F,
   ])
   let request_id = projection_trace_request_id(1)
-  for index in 3..<7 {
+  for index in 3..<8 {
     assert_eq(projection_trace_request_id(index), request_id)
   }
-  let work_id = projection_trace_group_work_id(4)
+  assert_eq(
+    projection_trace_request_disposition(4),
+    Some(PROJECTION_TRACE_REQUEST_DISPATCHED),
+  )
+  let work_id = projection_trace_group_work_id(5)
   assert_true(work_id != Some(0))
-  assert_eq(projection_trace_group_work_id(5), work_id)
   assert_eq(projection_trace_group_work_id(6), work_id)
+  assert_eq(projection_trace_group_work_id(7), work_id)
   assert_eq(projection_trace_terminal_count(work_id.unwrap_or(0)), 1)
-  assert_eq(ticks.val, 7)
+  assert_eq(ticks.val, 8)
+}
+
+///|
+test "Block-only structural edit records independent Block D E F" {
+  ignore(projection_trace_enable_counting())
+  defer projection_trace_disable()
+  let (editor, attachment, model) = projection_trace_test_context(
+    source="Hello\n",
+  )
+  let node_id = model.document.blocks()[0].node_id()
+  let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
+  let (_, _, accepted, _) = try! commit_block_request(
+    editor,
+    attachment,
+    model,
+    @markdown.MarkdownEditRequest::SplitBlock(node_id~, offset=2),
+    "block-trace",
+    emit,
+  )
+  assert_true(accepted)
+  projection_trace_driver_model_adopted()
+  projection_trace_adopted_not_presented()
+  assert_eq(projection_trace_phases(), [
+    PROJECTION_TRACE_PHASE_A0,
+    PROJECTION_TRACE_PHASE_C,
+    PROJECTION_TRACE_PHASE_A1,
+    PROJECTION_TRACE_PHASE_B,
+    0,
+    PROJECTION_TRACE_PHASE_D,
+    PROJECTION_TRACE_PHASE_E,
+    PROJECTION_TRACE_PHASE_F,
+  ])
+  assert_eq(
+    projection_trace_request_disposition(4),
+    Some(PROJECTION_TRACE_REQUEST_DISPATCHED),
+  )
+  assert_eq(projection_trace_group(5), Some(PROJECTION_TRACE_GROUP_BLOCK))
+  assert_eq(projection_trace_group(6), Some(PROJECTION_TRACE_GROUP_BLOCK))
+  assert_eq(projection_trace_group(7), Some(PROJECTION_TRACE_GROUP_BLOCK))
+  assert_eq(
+    projection_trace_group_outcome(7),
+    Some(PROJECTION_TRACE_GROUP_OUTCOME_ADOPTED_NOT_PRESENTED),
+  )
+}
+
+///|
+test "Block and Preview issue separate group work" {
+  ignore(projection_trace_enable_counting())
+  defer projection_trace_disable()
+  let (editor, attachment, model) = projection_trace_test_context(
+    source="Hello\n",
+    split_preview_open=true,
+  )
+  let node_id = model.document.blocks()[0].node_id()
+  let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
+  let (_, _, accepted, _) = try! commit_block_request(
+    editor,
+    attachment,
+    model,
+    @markdown.MarkdownEditRequest::SplitBlock(node_id~, offset=2),
+    "block-preview-trace",
+    emit,
+  )
+  assert_true(accepted)
+  let block_work = projection_trace_group_work_id(5)
+  let preview_work = projection_trace_group_work_id(6)
+  assert_true(block_work != Some(0))
+  assert_true(preview_work != Some(0))
+  assert_true(block_work != preview_work)
+  assert_eq(projection_trace_group(5), Some(PROJECTION_TRACE_GROUP_BLOCK))
+  assert_eq(projection_trace_group(6), Some(PROJECTION_TRACE_GROUP_PREVIEW))
+  projection_trace_driver_model_adopted()
+  assert_eq(
+    projection_trace_status(7),
+    Some(PROJECTION_TRACE_STATUS_ADOPTION_ACCEPTED),
+  )
+  assert_eq(projection_trace_group_work_id(7), block_work)
+}
+
+///|
+test "Block no-op closes request as NoDemand without Block work" {
+  ignore(projection_trace_enable_counting())
+  defer projection_trace_disable()
+  let (editor, attachment, model) = projection_trace_test_context(
+    source="Hello\n",
+  )
+  let node_id = model.document.blocks()[0].node_id()
+  let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
+  let (_, _, accepted, _) = try! commit_block_request(
+    editor,
+    attachment,
+    model,
+    @markdown.MarkdownEditRequest::CommitTextControlEdit(
+      node_id~,
+      new_text="Hello",
+    ),
+    "block-noop-trace",
+    emit,
+  )
+  assert_true(accepted)
+  assert_eq(
+    projection_trace_request_disposition(4),
+    Some(PROJECTION_TRACE_REQUEST_NO_DEMAND),
+  )
+  for index in 0..<projection_trace_count() {
+    assert_true(
+      projection_trace_group(index) != Some(PROJECTION_TRACE_GROUP_BLOCK),
+    )
+  }
 }
 
 ///|
@@ -493,8 +623,73 @@ test "recovery replacement invalidates active projection request" {
 }
 
 ///|
+test "accepted parser failure before causal evidence preserves event reason" {
+  projection_trace_enable(capacity=8, clock=() => 1)
+  defer projection_trace_disable()
+  let event_id = projection_trace_begin_request()
+  projection_trace_test_authority_accepted(0)
+  projection_trace_generation_invalidated()
+  assert_eq(projection_trace_count(), 2)
+  assert_eq(projection_trace_phase(0), Some(PROJECTION_TRACE_PHASE_A0))
+  assert_eq(projection_trace_request_id(0), Some(0))
+  assert_eq(projection_trace_phase(1), Some(PROJECTION_TRACE_PHASE_A0))
+  assert_eq(projection_trace_request_id(1), Some(0))
+  assert_eq(projection_trace_event_id(0), Some(event_id))
+  assert_eq(projection_trace_event_id(1), Some(event_id))
+  assert_eq(
+    projection_trace_reason(1),
+    Some(PROJECTION_TRACE_REASON_GENERATION_INVALIDATED),
+  )
+}
+
+///|
+test "repeated identical terminal report is idempotent" {
+  projection_trace_enable(capacity=8, clock=() => 1)
+  defer projection_trace_disable()
+  let event_id = projection_trace_begin_authority_event()
+  let request_id = projection_trace_test_begin_request(event_id)
+  let work_id = projection_trace_test_begin_group(
+    request_id,
+    PROJECTION_TRACE_GROUP_PREVIEW,
+  )
+  projection_trace_test_group_terminal(
+    work_id,
+    PROJECTION_TRACE_GROUP_OUTCOME_ADOPTED_NOT_PRESENTED,
+    PROJECTION_TRACE_REASON_PRESENTATION_NOT_OBSERVED,
+  )
+  projection_trace_test_group_terminal(
+    work_id,
+    PROJECTION_TRACE_GROUP_OUTCOME_ADOPTED_NOT_PRESENTED,
+    PROJECTION_TRACE_REASON_PRESENTATION_NOT_OBSERVED,
+  )
+  assert_eq(projection_trace_terminal_count(work_id), 1)
+  assert_false(projection_trace_contract_violated())
+}
+
+///|
+test "conflicting terminal report marks trace contract violation" {
+  projection_trace_enable(capacity=8, clock=() => 1)
+  defer projection_trace_disable()
+  let event_id = projection_trace_begin_authority_event()
+  let request_id = projection_trace_test_begin_request(event_id)
+  let work_id = projection_trace_test_begin_group(
+    request_id,
+    PROJECTION_TRACE_GROUP_PREVIEW,
+  )
+  projection_trace_test_group_terminal(
+    work_id,
+    PROJECTION_TRACE_GROUP_OUTCOME_ADOPTED_NOT_PRESENTED,
+    PROJECTION_TRACE_REASON_PRESENTATION_NOT_OBSERVED,
+  )
+  projection_trace_test_present(work_id, 1)
+  assert_eq(projection_trace_terminal_count(work_id), 1)
+  assert_true(projection_trace_contract_violated())
+}
+
+///|
 test "trace correlation axes allocate lazily" {
   projection_trace_enable(capacity=16, clock=() => 1)
+
   defer projection_trace_disable()
   let event_id = projection_trace_begin_authority_event()
   projection_trace_test_progress(
@@ -547,6 +742,41 @@ test "NoDemand request creates no group work" {
 }
 
 ///|
+test "Dispatched request has one disposition independent of group outcomes" {
+  projection_trace_enable(capacity=8, clock=() => 1)
+  defer projection_trace_disable()
+  let request_id = projection_trace_test_begin_request(0)
+  let work_id = projection_trace_test_begin_group(
+    request_id,
+    PROJECTION_TRACE_GROUP_PREVIEW,
+  )
+  projection_trace_request_dispatched(request_id)
+  projection_trace_request_dispatched(request_id)
+  projection_trace_test_group_terminal(
+    work_id,
+    PROJECTION_TRACE_GROUP_OUTCOME_FAILED,
+    PROJECTION_TRACE_REASON_FAILED,
+  )
+  let mut disposition_count = 0
+  for index in 0..<projection_trace_count() {
+    if projection_trace_request_id(index) == Some(request_id) &&
+      projection_trace_request_disposition(index) !=
+      Some(PROJECTION_TRACE_REQUEST_NONE) {
+      disposition_count += 1
+    }
+  }
+  assert_eq(disposition_count, 1)
+  assert_eq(
+    projection_trace_request_disposition(0),
+    Some(PROJECTION_TRACE_REQUEST_DISPATCHED),
+  )
+  assert_eq(
+    projection_trace_group_outcome(1),
+    Some(PROJECTION_TRACE_GROUP_OUTCOME_FAILED),
+  )
+}
+
+///|
 test "each group work accepts exactly one terminal outcome" {
   projection_trace_enable(capacity=8, clock=() => 1)
   defer projection_trace_disable()
@@ -578,7 +808,8 @@ test "bounded trace reports overflow and drops without clock reads" {
   defer projection_trace_disable()
   let request_id = projection_trace_test_begin_request(0)
   projection_trace_request_no_demand(request_id)
-  projection_trace_request_no_demand(request_id)
+  let next_request_id = projection_trace_test_begin_request(0)
+  projection_trace_request_no_demand(next_request_id)
   assert_true(projection_trace_overflowed())
   assert_eq(projection_trace_dropped_count(), 1)
   assert_eq(ticks.val, 1)

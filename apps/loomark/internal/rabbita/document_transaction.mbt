@@ -256,6 +256,9 @@ fn commit_block_request(
       @markdown.Unchanged(_) => None
     }
   })
+  if accepted && changed {
+    projection_trace_block_materialized()
+  }
   let committed = update_preview_after_authority(
     attachment,
     committed,

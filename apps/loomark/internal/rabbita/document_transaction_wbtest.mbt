@@ -128,11 +128,12 @@ test "commit_edit_request preserves accepted frontier after export failure" {
   projection_trace_semantic_attachment_read()
   projection_trace_driver_model_adopted()
   projection_trace_adopted_not_presented()
-  assert_eq(projection_trace_count(), 7)
-  for index in 4..<7 {
+  assert_eq(projection_trace_count(), 8)
+  for index in 4..<8 {
     assert_eq(projection_trace_request_id(index), retained_request_id)
   }
-  assert_eq(projection_trace_phase(4), Some(PROJECTION_TRACE_PHASE_D))
-  assert_eq(projection_trace_phase(5), Some(PROJECTION_TRACE_PHASE_E))
-  assert_eq(projection_trace_phase(6), Some(PROJECTION_TRACE_PHASE_F))
+  assert_eq(projection_trace_phase(4), Some(0))
+  assert_eq(projection_trace_phase(5), Some(PROJECTION_TRACE_PHASE_D))
+  assert_eq(projection_trace_phase(6), Some(PROJECTION_TRACE_PHASE_E))
+  assert_eq(projection_trace_phase(7), Some(PROJECTION_TRACE_PHASE_F))
 }
