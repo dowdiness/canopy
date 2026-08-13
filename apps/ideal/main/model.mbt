@@ -13,6 +13,7 @@ pub enum BottomTab {
   CrdtState
   Graphviz
   IncrGraph
+  IncrCanvas
 } derive(Eq)
 
 ///|
@@ -156,4 +157,6 @@ pub struct Model {
   // observes memo events across the whole session, not per render. Reads via
   // `snapshot()` for the IncrGraph bottom-panel tab.
   incr_tap : @visualizer.RecomputeTap
+  // Ideal-local interaction state for the direct @spatial Incr canvas.
+  priv incr_canvas : IncrCanvasState
 }
