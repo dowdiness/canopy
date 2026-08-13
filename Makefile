@@ -1,93 +1,17 @@
-.PHONY: help test test-all check check-all fmt fmt-check check-agent-doc-links build build-js build-web test-web-e2e test-canvas-e2e test-demo-react-e2e benchmark-ideal-editor-response setup-ast-grep clean install-hooks release-artifacts
-
-help: ## Show this help message
-	@echo "Canopy - Development Tasks"
-	@echo ""
-	@echo "Usage: make [target]"
-	@echo ""
-	@echo "Available targets:"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
-
-check-agent-doc-links: ## Verify CLAUDE.md is a symlink to AGENTS.md
-	@bash ./scripts/check-agent-doc-links.sh
-
-test: ## Run tests for main module
-	@./scripts/run-moon-module.sh test modules/canopy
-
-test-all: ## Run tests for the root MoonBit workspace
-	@moon test
-
-check: ## Run moon check for main module
-	@bash ./scripts/check-agent-doc-links.sh
-	@./scripts/run-moon-module.sh check modules/canopy
-
-check-all: ## Run strict checks and formatting for the root MoonBit workspace
-	@bash ./scripts/check-agent-doc-links.sh
-	@./scripts/check-strict.sh
-	@NEW_MOON_MOD=0 moon fmt --check
-
-fmt: ## Format code with moon fmt
-	cd modules/canopy && moon fmt
-	cd modules/canopy && moon info
-
-fmt-check: ## Check formatting for the main module without keeping changes
-	@bash ./scripts/check-agent-doc-links.sh
-	@./scripts/run-moon-module.sh fmt-check modules/canopy
-
-build: ## Build main module (default target)
-	moon build --release
-
-build-js: ## Build JavaScript artifacts for canopy + graphviz
-	@./scripts/build-js.sh
-
-build-web: ## Build web application (MoonBit + Waku)
-	@./scripts/build-web.sh
-
-test-web-e2e: ## Run Waku web Playwright E2E tests
-	@./scripts/test-web-e2e.sh
-
-test-canvas-e2e: ## Run canvas Playwright E2E tests
-	@./scripts/test-canvas-e2e.sh
-
-test-demo-react-e2e: ## Run demo-react Playwright E2E tests
-	@./scripts/test-demo-react-e2e.sh
-
-benchmark-ideal-editor-response: ## Run realistic ideal editor response benchmarks
-	@cd apps/ideal/web && npm run test:perf
-
-setup-ast-grep: ## Build tree-sitter-moonbit for ast-grep custom-language support
-	@./scripts/setup-ast-grep-moonbit.sh
-
-web-dev: build-js ## Build JS artifacts and start the Waku web dev server
-	@cd apps/web && npm run dev
-
-clean: ## Clean build artifacts
-	moon clean
-	rm -rf target _build
-	rm -rf apps/web/dist release
-
-install-hooks: ## Install git pre-commit hooks
-	@./scripts/install-hooks.sh
-
-ci: check-all test-all ## Run all CI checks locally
-
-# Route `moon update` through the retry wrapper for the transient mooncakes CDN
-# 403 (issue #467). $(CURDIR) is absolute, so it survives the `cd` into submodules.
-MOON_UPDATE := $(CURDIR)/scripts/moon-update.sh
-
-update: ## Update MoonBit dependencies
-	$(MOON_UPDATE)
-	cd deps/event-graph-walker && $(MOON_UPDATE)
-	cd deps/loom/loom && $(MOON_UPDATE)
-	cd deps/svg-dsl && $(MOON_UPDATE)
-	cd deps/graphviz && $(MOON_UPDATE)
-
-bench: ## Run benchmarks
-	moon bench --release
-	cd deps/event-graph-walker && moon bench --release
-
-release-artifacts: ## Package release artifacts (set VERSION=x.y.z)
-	@test -n "$(VERSION)" || (echo "VERSION is required" && exit 1)
-	@./scripts/package-release.sh "$(VERSION)"
+.PHONY: help test test-all check check-all fmt fmt-check check-agent-doc-links build build-js build-web test-web-e2e test-canvas-e2e test-demo-react-e2e benchmark-ideal-editor-response setup-ast-grep web-dev clean pre-commit install-hooks ci update bench release-artifacts
 
 .DEFAULT_GOAL := help
+
+# Keep GNU Make as a compatibility entry point; recipe logic lives in justfile.
+test test-all check check-all fmt fmt-check check-agent-doc-links \
+build build-js build-web test-web-e2e test-canvas-e2e test-demo-react-e2e \
+benchmark-ideal-editor-response setup-ast-grep web-dev clean pre-commit \
+install-hooks ci update bench:
+	@just $@
+
+help:
+	@just help
+
+release-artifacts:
+	@test -n "$(VERSION)" || { echo "VERSION is required (example: make release-artifacts VERSION=v0.2.0)" >&2; exit 1; }
+	@just release-artifacts "$(VERSION)"

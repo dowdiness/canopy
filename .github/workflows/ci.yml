@@ -126,15 +126,17 @@ jobs:
               - '.github/workflows/ci.yml'
             run_tooling_validation:
               - 'justfile'
+              - 'Makefile'
               - 'lefthook.yml'
               - '.githooks/pre-commit'
               - 'scripts/install-hooks.nu'
               - 'scripts/install-hooks.sh'
+              - 'scripts/test-install-hooks.sh'
               - '.github/workflows/ci.yml'
               - '.github/workflows/release.yml'
 
   tooling-validation:
-    name: Just and Lefthook Configuration
+    name: Just, Make, and Lefthook Configuration
     needs: changes
     if: needs.changes.outputs.run_tooling_validation == 'true'
     runs-on: ubuntu-latest
@@ -167,8 +169,17 @@ jobs:
           just --dry-run update
           just --dry-run release-artifacts v0.2.0
 
+      - name: Validate Make compatibility
+        run: |
+          make -n help
+          make -n check
+          make -n release-artifacts VERSION=v0.2.0
+
       - name: Validate Nushell installer
         run: nu --ide-check 100 scripts/install-hooks.nu
+
+      - name: Test Nushell installer
+        run: bash scripts/test-install-hooks.sh
 
       - name: Validate compatibility entry points
         run: |

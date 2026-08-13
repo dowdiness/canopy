@@ -32,7 +32,7 @@ than duplicating its globs.
 |-----|--------------|
 | `dep-check` | `./scripts/check-deps.sh` (module-scope rules [A]–[E] + canopy package-layering rules [F]–[I]; the rules table lives in the script header), `./scripts/check-shared-substrate.sh`, `./scripts/check-egw-resolver-identity.sh`, `./scripts/check-moon-update-wrapped.sh`, `node ./scripts/check-export-manifest.mjs`, `./scripts/test-moon-update-wrapper.sh`, `./scripts/test-pr-ready-validation.sh` |
 | `pr-ready-bash3` | Path-filtered macOS check that asserts `/bin/bash` 3.2, exercises local submodule failures, and runs the real PR-ready shell graph with only compiler work faked |
-| `tooling-validation` | Path-filtered Ubuntu validation for the pinned justfile, Nushell installer script, and Lefthook configuration |
+| `tooling-validation` | Path-filtered Ubuntu validation for the pinned justfile, Make compatibility wrapper, Nushell installer script, and Lefthook configuration |
 | `test-main` | `./scripts/update-moon-deps.sh`, `./scripts/check-agent-doc-links.sh`, `./scripts/run-moon-module.sh check modules/canopy`, `./scripts/run-moon-module.sh test modules/canopy`, `moon build --release` |
 | `test-submodules` | Matrix over `deps/event-graph-walker`, `deps/loom/loom`, `deps/svg-dsl`, `deps/graphviz` — each runs `./scripts/run-moon-module.sh ci <path>` |
 | `test-examples` | Matrix over `apps/ideal`, `apps/block-editor`, `apps/canvas` — each runs `./scripts/run-moon-module.sh ci <path>` |
@@ -112,6 +112,9 @@ workflow.
 
 Common entry points (just recipes that wrap `scripts/`):
 
+The root `Makefile` is a thin GNU Make compatibility wrapper; `just` is the
+canonical command runner and owns the recipes.
+
 ```sh
 just help                  # List all recipes
 just test                  # Tests for the main Canopy module
@@ -132,6 +135,7 @@ just web-dev               # build-js then start the apps/web Waku dev server
 just install-hooks         # Install the pre-commit hook
 just update                # moon update across root + maintained submodules
 just release-artifacts v0.2.0 # Package release artifacts (positional version)
+make release-artifacts VERSION=v0.2.0 # GNU Make compatibility form
 ```
 
 The shared module helper is `./scripts/run-moon-module.sh <subcommand> <path>`
@@ -176,10 +180,11 @@ MoonBit, JavaScript, proof, or browser gates.
 Lefthook is the current hook manager. Run `just install-hooks` to install the
 hook described by `lefthook.yml`; it runs `just check` followed by
 `just fmt-check`. The `pre-commit` recipe is the single local gate, and the
-installer removes the repository's legacy local
-`core.hooksPath=.githooks` setting, but refuses to replace any other local or
-global hook configuration. Manual cleanup is needed only for those non-legacy
-settings. If you need to bypass the hook (e.g. during a rebase you understand),
+installer removes the repository's legacy direct local
+`core.hooksPath=.githooks` setting, but refuses to replace any other effective
+hook path, including included or global configuration. Manual cleanup is needed only for those non-legacy settings; use the reported
+scope and origin to locate the configuration. If you need to bypass the hook
+(e.g. during a rebase you understand),
 `git commit --no-verify` is available, but CI's `format-check` and
 `test-main` will catch the same issues on push.
 
