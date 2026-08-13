@@ -354,12 +354,12 @@ Non-obvious caveats for this environment:
   back to `v22.14.0`, which is below the web `engines` floor. Run web commands in
   a login shell (`bash -l`) or `nvm use 22.22.2`.
 - **Web dev server:** standard commands are in `examples/web/package.json`
-  (`npm run dev` → Waku on `http://localhost:3000`) and the root `Makefile`
-  (`make build-js`, `make web-dev`). The Waku dev server runs its own MoonBit
+  (`npm run dev` → Waku on `http://localhost:3000`) and the root `justfile`
+  (`just build-js`, `just web-dev`). The Waku dev server runs its own MoonBit
   watcher and rebuilds the FFI (`ffi/{lambda,json,markdown,jsx}`) JS on change;
-  a separate `make build-js` is only needed for non-dev consumers.
+  a separate `just build-js` is only needed for non-dev consumers.
 - `moon check` / `moon test` / `moon build` auto-download registry deps on first
   run, so the pre-warm in the update script is an optimization, not a hard
   prerequisite.
 - Verified working: `moon check`, `moon test` (1968 js + 70 native pass),
-  `make build-js`, and the `/ml` Mini-ML live editor at `localhost:3000`.
+  `just build-js`, and the `/ml` Mini-ML live editor at `localhost:3000`.

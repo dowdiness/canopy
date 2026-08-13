@@ -72,7 +72,8 @@ if [ -n "$violations" ]; then
   echo "error: bare 'moon update' found — route it through scripts/moon-update.sh (issue #467)." >&2
   echo "       Use \"\$GITHUB_WORKSPACE/scripts/moon-update.sh\" in workflows," >&2
   echo "       \"\$SCRIPT_DIR/moon-update.sh\" (or \"\$REPO_ROOT/...\") in scripts," >&2
-  echo "       or \$(CURDIR)/scripts/moon-update.sh in the Makefile. Offending lines:" >&2
+  echo "       \$(CURDIR)/scripts/moon-update.sh in the Makefile, or the absolute" >&2
+  echo "       justfile path in a just recipe. Offending lines:" >&2
   echo "$violations" >&2
   exit 1
 fi
