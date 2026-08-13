@@ -28,7 +28,9 @@ fn document_transaction_test_model(
     runtime_state: EditorRuntimeState::Healthy,
     document,
     document_version: version,
-    document_id: @archive.LoomarkDocumentId::from_string("document-transaction-test") catch {
+    document_id: @archive.LoomarkDocumentId::from_string(
+      "document-transaction-test",
+    ) catch {
       _ => abort("test document id must construct")
     },
     raw_selection: None,
@@ -77,7 +79,10 @@ test "commit_edit_request preserves accepted frontier after export failure" {
     agent_id="archive-export-failure-writer",
     source="# Before\n",
   )
-  let model = document_transaction_test_model(editor.snapshot(), editor.version())
+  let model = document_transaction_test_model(
+    editor.snapshot(),
+    editor.version(),
+  )
   let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
 
   markdown_archive_export_failure_arm("history_since export failed")
@@ -110,8 +115,14 @@ test "commit_edit_request preserves accepted frontier after export failure" {
   assert_eq(projection_trace_phase(3), Some(PROJECTION_TRACE_PHASE_B))
   assert_eq(projection_trace_request_id(3), retained_request_id)
   for index in 0..<4 {
-    assert_eq(projection_trace_status(index), Some(PROJECTION_TRACE_STATUS_RECORDED))
-    assert_eq(projection_trace_reason(index), Some(PROJECTION_TRACE_REASON_NONE))
+    assert_eq(
+      projection_trace_status(index),
+      Some(PROJECTION_TRACE_STATUS_RECORDED),
+    )
+    assert_eq(
+      projection_trace_reason(index),
+      Some(PROJECTION_TRACE_REASON_NONE),
+    )
   }
 
   projection_trace_semantic_attachment_read()

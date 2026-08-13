@@ -51,7 +51,7 @@ fn update_preview_document(
     ) {
     PreviewDocumentRead => {
       projection_trace_begin_demand_group(
-        next_requested=(!old_requested && preview_requested(model)),
+        next_requested=!old_requested && preview_requested(model),
       )
       let document = attachment.document()
       projection_trace_semantic_attachment_read()
@@ -66,6 +66,7 @@ fn update_preview_document(
   }
 }
 
+///|
 /// Apply Preview demand after one authority request, then finalize that exact
 /// trace request from the resulting artifact state.
 fn update_preview_after_authority(
@@ -82,7 +83,11 @@ fn update_preview_after_authority(
     changed~,
   )
   let next = update_preview_document(
-    attachment, model, old_requested, accepted~, changed~,
+    attachment,
+    model,
+    old_requested,
+    accepted~,
+    changed~,
   )
   if accepted {
     match decision {

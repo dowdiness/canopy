@@ -17,6 +17,7 @@ priv struct ProjectionObservationScope {
   mut emitting : Bool
 }
 
+///|
 pub struct SyncEditor[T] {
   priv doc : @text.TextState
   priv undo : @undo.UndoManager
@@ -162,6 +163,7 @@ fn[T] finish_editor(
   }
 }
 
+///|
 /// Observe one whole mutation request without exposing arm/clear operations.
 pub fn[T, R] SyncEditor::observe_projection_during(
   self : SyncEditor[T],
@@ -196,7 +198,9 @@ fn[T] SyncEditor::observe_authority_acceptance(self : SyncEditor[T]) -> Unit {
     Some(scope) =>
       if !scope.accepted {
         scope.accepted = true
-        self.emit_projection_observation_phase(ProjectionObservationPhase::AuthorityAccepted)
+        self.emit_projection_observation_phase(
+          ProjectionObservationPhase::AuthorityAccepted,
+        )
       }
   }
 }
@@ -224,7 +228,9 @@ fn[T] SyncEditor::end_projection_observation_batch(
         scope.parser_sync_pending = false
       } else if scope.parser_batch_depth == 0 && scope.parser_sync_pending {
         scope.parser_sync_pending = false
-        self.emit_projection_observation_phase(ProjectionObservationPhase::ProjectionMirrorSynchronized)
+        self.emit_projection_observation_phase(
+          ProjectionObservationPhase::ProjectionMirrorSynchronized,
+        )
       }
     }
   }
@@ -239,7 +245,9 @@ fn[T] SyncEditor::observe_parser_synchronized(self : SyncEditor[T]) -> Unit {
         if scope.parser_batch_depth > 0 {
           scope.parser_sync_pending = true
         } else {
-          self.emit_projection_observation_phase(ProjectionObservationPhase::ProjectionMirrorSynchronized)
+          self.emit_projection_observation_phase(
+            ProjectionObservationPhase::ProjectionMirrorSynchronized,
+          )
         }
       }
   }

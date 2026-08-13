@@ -1,3 +1,4 @@
+///|
 /// Application-owned Commit 1 characterization trace for current synchronous
 /// Loomark projection ownership. Storage is fixed-width and bounded; disabled
 /// tracing has no buffer and never calls the injected clock.
@@ -38,42 +39,58 @@ priv struct ProjectionTraceBuffer {
 
 ///|
 const PROJECTION_TRACE_PHASE_A0 : Int = 1
+
 ///|
 const PROJECTION_TRACE_PHASE_C : Int = 2
+
 ///|
 const PROJECTION_TRACE_PHASE_A1 : Int = 3
+
 ///|
 const PROJECTION_TRACE_PHASE_B : Int = 4
+
 ///|
 const PROJECTION_TRACE_PHASE_D : Int = 5
+
 ///|
 const PROJECTION_TRACE_PHASE_E : Int = 6
+
 ///|
 const PROJECTION_TRACE_PHASE_F : Int = 7
 
 ///|
 const PROJECTION_TRACE_STATUS_RECORDED : Int = 1
+
 ///|
 const PROJECTION_TRACE_STATUS_OMITTED : Int = 2
+
 ///|
 const PROJECTION_TRACE_STATUS_REQUEST_FINAL : Int = 3
+
 ///|
 const PROJECTION_TRACE_STATUS_GROUP_FINAL : Int = 4
+
 ///|
 const PROJECTION_TRACE_STATUS_ADOPTION_ACCEPTED : Int = 5
+
 ///|
 #warnings("-unused_value")
 const PROJECTION_TRACE_STATUS_ADOPTION_REJECTED : Int = 6
 
 ///|
+
 ///|
 #warnings("-unused_value")
 const PROJECTION_TRACE_GROUP_BLOCK : Int = 2
+
+///|
 #warnings("-unused_value")
 const PROJECTION_TRACE_GROUP_NONE : Int = 0
+
 ///|
 #warnings("-unused_value")
 const PROJECTION_TRACE_GROUP_PREVIEW : Int = 1
+
 ///|
 #warnings("-unused_value")
 const PROJECTION_TRACE_GROUP_DIAGNOSTICS : Int = 3
@@ -81,12 +98,15 @@ const PROJECTION_TRACE_GROUP_DIAGNOSTICS : Int = 3
 ///|
 #warnings("-unused_value")
 const PROJECTION_TRACE_REQUEST_NONE : Int = 0
+
 ///|
 #warnings("-unused_value")
 const PROJECTION_TRACE_REQUEST_DISPATCHED : Int = 1
+
 ///|
 #warnings("-unused_value")
 const PROJECTION_TRACE_REQUEST_NO_DEMAND : Int = 2
+
 ///|
 #warnings("-unused_value")
 const PROJECTION_TRACE_REQUEST_FAILED : Int = 3
@@ -94,27 +114,35 @@ const PROJECTION_TRACE_REQUEST_FAILED : Int = 3
 ///|
 #warnings("-unused_value")
 const PROJECTION_TRACE_GROUP_OUTCOME_NONE : Int = 0
+
 ///|
 #warnings("-unused_value")
 const PROJECTION_TRACE_GROUP_OUTCOME_PRESENTED : Int = 1
+
 ///|
 #warnings("-unused_value")
 const PROJECTION_TRACE_GROUP_OUTCOME_ADOPTED_NOT_PRESENTED : Int = 2
+
 ///|
 #warnings("-unused_value")
 const PROJECTION_TRACE_GROUP_OUTCOME_REJECTED_AT_ADOPTION : Int = 3
+
 ///|
 #warnings("-unused_value")
 const PROJECTION_TRACE_GROUP_OUTCOME_SUPERSEDED_BEFORE_EXECUTION : Int = 4
+
 ///|
 #warnings("-unused_value")
 const PROJECTION_TRACE_GROUP_OUTCOME_SUPERSEDED_AFTER_EXECUTION : Int = 5
+
 ///|
 #warnings("-unused_value")
 const PROJECTION_TRACE_GROUP_OUTCOME_GENERATION_INVALIDATED : Int = 6
+
 ///|
 #warnings("-unused_value")
 const PROJECTION_TRACE_GROUP_OUTCOME_FAILED : Int = 7
+
 ///|
 #warnings("-unused_value")
 const PROJECTION_TRACE_GROUP_OUTCOME_DISPOSED : Int = 8
@@ -122,18 +150,23 @@ const PROJECTION_TRACE_GROUP_OUTCOME_DISPOSED : Int = 8
 ///|
 #warnings("-unused_value")
 const PROJECTION_TRACE_REASON_NONE : Int = 0
+
 ///|
 #warnings("-unused_value")
 const PROJECTION_TRACE_REASON_NOT_ACCEPTED : Int = 1
+
 ///|
 #warnings("-unused_value")
 const PROJECTION_TRACE_REASON_GENERATION_INVALIDATED : Int = 2
+
 ///|
 #warnings("-unused_value")
 const PROJECTION_TRACE_REASON_PRESENTATION_NOT_OBSERVED : Int = 3
+
 ///|
 #warnings("-unused_value")
 const PROJECTION_TRACE_REASON_FAILED : Int = 4
+
 ///|
 #warnings("-unused_value")
 const PROJECTION_TRACE_REASON_NO_DEMAND : Int = 5
@@ -183,11 +216,16 @@ fn projection_trace_enable(capacity~ : Int, clock~ : () -> Int) -> Unit {
 
 ///|
 #warnings("-unused_value")
-fn projection_trace_disable() -> Unit { projection_trace.val = None }
+fn projection_trace_disable() -> Unit {
+  projection_trace.val = None
+}
 
 ///|
-fn projection_trace_enabled() -> Bool { projection_trace.val is Some(_) }
+fn projection_trace_enabled() -> Bool {
+  projection_trace.val is Some(_)
+}
 
+///|
 /// Allocation fails closed before an Int counter can wrap or reuse zero.
 fn projection_trace_take_id(trace : ProjectionTraceBuffer, kind : Int) -> Int {
   let next = match kind {
@@ -209,6 +247,7 @@ fn projection_trace_take_id(trace : ProjectionTraceBuffer, kind : Int) -> Int {
     next
   }
 }
+
 ///|
 #warnings("-unused_value")
 fn projection_trace_test_exhaust_group_ids() -> Unit {
@@ -217,7 +256,6 @@ fn projection_trace_test_exhaust_group_ids() -> Unit {
     Some(trace) => trace.next_group_work_id = 2147483647
   }
 }
-
 
 ///|
 fn projection_trace_record(
@@ -284,8 +322,11 @@ fn projection_trace_test_begin_request(event_id : Int) -> Int {
   }
 }
 
+///|
 /// Backward-compatible private name used by the current transaction owner.
-fn projection_trace_begin_request() -> Int { projection_trace_begin_authority_event() }
+fn projection_trace_begin_request() -> Int {
+  projection_trace_begin_authority_event()
+}
 
 ///|
 fn projection_trace_ensure_request(event_id : Int) -> Int {
@@ -343,30 +384,51 @@ fn projection_trace_test_progress(
   phase~ : Int,
 ) -> Unit {
   projection_trace_record(
-    event_id, request_id, group_work_id, presentation_id, group, phase,
-    PROJECTION_TRACE_STATUS_RECORDED, PROJECTION_TRACE_REQUEST_NONE,
-    PROJECTION_TRACE_GROUP_OUTCOME_NONE, PROJECTION_TRACE_REASON_NONE,
+    event_id,
+    request_id,
+    group_work_id,
+    presentation_id,
+    group,
+    phase,
+    PROJECTION_TRACE_STATUS_RECORDED,
+    PROJECTION_TRACE_REQUEST_NONE,
+    PROJECTION_TRACE_GROUP_OUTCOME_NONE,
+    PROJECTION_TRACE_REASON_NONE,
   )
 }
 
 ///|
-fn projection_trace_group_is_terminal(trace : ProjectionTraceBuffer, work_id : Int) -> Bool {
+fn projection_trace_group_is_terminal(
+  trace : ProjectionTraceBuffer,
+  work_id : Int,
+) -> Bool {
   for index in 0..<trace.terminal_count {
-    if trace.terminal_work_ids[index] == work_id { return true }
+    if trace.terminal_work_ids[index] == work_id {
+      return true
+    }
   }
   false
 }
+
 ///|
-fn projection_trace_work_index(trace : ProjectionTraceBuffer, work_id : Int) -> Int {
+fn projection_trace_work_index(
+  trace : ProjectionTraceBuffer,
+  work_id : Int,
+) -> Int {
   for index in 0..<trace.work_count {
-    if trace.work_ids[index] == work_id { return index }
+    if trace.work_ids[index] == work_id {
+      return index
+    }
   }
   -1
 }
 
-
 ///|
-fn projection_trace_test_group_terminal(work_id : Int, outcome : Int, reason : Int) -> Unit {
+fn projection_trace_test_group_terminal(
+  work_id : Int,
+  outcome : Int,
+  reason : Int,
+) -> Unit {
   guard work_id != 0 else { return }
   match projection_trace.val {
     None => ()
@@ -382,10 +444,16 @@ fn projection_trace_test_group_terminal(work_id : Int, outcome : Int, reason : I
       trace.terminal_work_ids[trace.terminal_count] = work_id
       trace.terminal_count += 1
       projection_trace_record(
-        trace.work_event_ids[work_index], trace.work_request_ids[work_index],
-        work_id, 0, trace.work_groups[work_index], PROJECTION_TRACE_PHASE_F,
-        PROJECTION_TRACE_STATUS_GROUP_FINAL, PROJECTION_TRACE_REQUEST_NONE,
-        outcome, reason,
+        trace.work_event_ids[work_index],
+        trace.work_request_ids[work_index],
+        work_id,
+        0,
+        trace.work_groups[work_index],
+        PROJECTION_TRACE_PHASE_F,
+        PROJECTION_TRACE_STATUS_GROUP_FINAL,
+        PROJECTION_TRACE_REQUEST_NONE,
+        outcome,
+        reason,
       )
     }
   }
@@ -409,10 +477,15 @@ fn projection_trace_test_present(work_id : Int, presentation_id : Int) -> Unit {
       trace.terminal_work_ids[trace.terminal_count] = work_id
       trace.terminal_count += 1
       projection_trace_record(
-        trace.work_event_ids[work_index], trace.work_request_ids[work_index],
-        work_id, presentation_id, trace.work_groups[work_index],
-        PROJECTION_TRACE_PHASE_F, PROJECTION_TRACE_STATUS_GROUP_FINAL,
-        PROJECTION_TRACE_REQUEST_NONE, PROJECTION_TRACE_GROUP_OUTCOME_PRESENTED,
+        trace.work_event_ids[work_index],
+        trace.work_request_ids[work_index],
+        work_id,
+        presentation_id,
+        trace.work_groups[work_index],
+        PROJECTION_TRACE_PHASE_F,
+        PROJECTION_TRACE_STATUS_GROUP_FINAL,
+        PROJECTION_TRACE_REQUEST_NONE,
+        PROJECTION_TRACE_GROUP_OUTCOME_PRESENTED,
         PROJECTION_TRACE_REASON_NONE,
       )
     }
@@ -426,9 +499,16 @@ fn projection_trace_request_no_demand(request_id : Int) -> Unit {
     None => ()
     Some(trace) =>
       projection_trace_record(
-        trace.current_event_id, request_id, 0, 0, PROJECTION_TRACE_GROUP_NONE, 0,
-        PROJECTION_TRACE_STATUS_REQUEST_FINAL, PROJECTION_TRACE_REQUEST_NO_DEMAND,
-        PROJECTION_TRACE_GROUP_OUTCOME_NONE, PROJECTION_TRACE_REASON_NO_DEMAND,
+        trace.current_event_id,
+        request_id,
+        0,
+        0,
+        PROJECTION_TRACE_GROUP_NONE,
+        0,
+        PROJECTION_TRACE_STATUS_REQUEST_FINAL,
+        PROJECTION_TRACE_REQUEST_NO_DEMAND,
+        PROJECTION_TRACE_GROUP_OUTCOME_NONE,
+        PROJECTION_TRACE_REASON_NO_DEMAND,
       )
   }
 }
@@ -444,6 +524,7 @@ fn projection_trace_clear_request(_request_or_event_id : Int) -> Unit {
   }
 }
 
+///|
 /// Finalize an explicitly evaluated request that requires no consistency-group
 /// work. A missing current request means the decision was not projection work.
 fn projection_trace_current_request_no_demand() -> Unit {
@@ -460,9 +541,16 @@ fn projection_trace_current_request_no_demand() -> Unit {
 ///|
 fn projection_trace_omit_request(event_id : Int, reason : Int) -> Unit {
   projection_trace_record(
-    event_id, 0, 0, 0, PROJECTION_TRACE_GROUP_NONE, PROJECTION_TRACE_PHASE_A0,
-    PROJECTION_TRACE_STATUS_OMITTED, PROJECTION_TRACE_REQUEST_FAILED,
-    PROJECTION_TRACE_GROUP_OUTCOME_NONE, reason,
+    event_id,
+    0,
+    0,
+    0,
+    PROJECTION_TRACE_GROUP_NONE,
+    PROJECTION_TRACE_PHASE_A0,
+    PROJECTION_TRACE_STATUS_OMITTED,
+    PROJECTION_TRACE_REQUEST_FAILED,
+    PROJECTION_TRACE_GROUP_OUTCOME_NONE,
+    reason,
   )
   projection_trace_clear_request(event_id)
 }
@@ -486,9 +574,15 @@ fn projection_trace_generation_invalidated() -> Unit {
       }
       if request_id != 0 && !issued_work {
         projection_trace_record(
-          trace.current_event_id, request_id, 0, 0,
-          PROJECTION_TRACE_GROUP_NONE, 0, PROJECTION_TRACE_STATUS_REQUEST_FINAL,
-          PROJECTION_TRACE_REQUEST_FAILED, PROJECTION_TRACE_GROUP_OUTCOME_NONE,
+          trace.current_event_id,
+          request_id,
+          0,
+          0,
+          PROJECTION_TRACE_GROUP_NONE,
+          0,
+          PROJECTION_TRACE_STATUS_REQUEST_FINAL,
+          PROJECTION_TRACE_REQUEST_FAILED,
+          PROJECTION_TRACE_GROUP_OUTCOME_NONE,
           PROJECTION_TRACE_REASON_GENERATION_INVALIDATED,
         )
       }
@@ -506,8 +600,12 @@ fn projection_trace_begin_demand_group(next_requested~ : Bool) -> Unit {
       guard trace.current_request_id == 0 else { return }
       let request_id = projection_trace_test_begin_request(0)
       projection_trace_test_progress(
-        event_id=0, request_id~, group_work_id=0, presentation_id=0,
-        group=PROJECTION_TRACE_GROUP_PREVIEW, phase=PROJECTION_TRACE_PHASE_C,
+        event_id=0,
+        request_id~,
+        group_work_id=0,
+        presentation_id=0,
+        group=PROJECTION_TRACE_GROUP_PREVIEW,
+        phase=PROJECTION_TRACE_PHASE_C,
       )
     }
   }
@@ -521,27 +619,42 @@ fn projection_trace_observe_authority(
   match phase {
     @markdown.MarkdownProjectionObservationPhase::AuthorityAccepted =>
       projection_trace_test_progress(
-        event_id~, request_id=0, group_work_id=0, presentation_id=0,
-        group=PROJECTION_TRACE_GROUP_NONE, phase=PROJECTION_TRACE_PHASE_A0,
+        event_id~,
+        request_id=0,
+        group_work_id=0,
+        presentation_id=0,
+        group=PROJECTION_TRACE_GROUP_NONE,
+        phase=PROJECTION_TRACE_PHASE_A0,
       )
     @markdown.MarkdownProjectionObservationPhase::ProjectionMirrorSynchronized => {
       let request_id = projection_trace_ensure_request(event_id)
       projection_trace_test_progress(
-        event_id~, request_id~, group_work_id=0, presentation_id=0,
-        group=PROJECTION_TRACE_GROUP_NONE, phase=PROJECTION_TRACE_PHASE_C,
+        event_id~,
+        request_id~,
+        group_work_id=0,
+        presentation_id=0,
+        group=PROJECTION_TRACE_GROUP_NONE,
+        phase=PROJECTION_TRACE_PHASE_C,
       )
     }
     @markdown.MarkdownProjectionObservationPhase::CausalEvidenceAvailable => {
       projection_trace_test_progress(
-        event_id~, request_id=0, group_work_id=0, presentation_id=0,
-        group=PROJECTION_TRACE_GROUP_NONE, phase=PROJECTION_TRACE_PHASE_A1,
+        event_id~,
+        request_id=0,
+        group_work_id=0,
+        presentation_id=0,
+        group=PROJECTION_TRACE_GROUP_NONE,
+        phase=PROJECTION_TRACE_PHASE_A1,
       )
       match projection_trace.val {
         Some(trace) if trace.current_request_id != 0 =>
           projection_trace_test_progress(
-            event_id~, request_id=trace.current_request_id,
-            group_work_id=0, presentation_id=0,
-            group=PROJECTION_TRACE_GROUP_NONE, phase=PROJECTION_TRACE_PHASE_B,
+            event_id~,
+            request_id=trace.current_request_id,
+            group_work_id=0,
+            presentation_id=0,
+            group=PROJECTION_TRACE_GROUP_NONE,
+            phase=PROJECTION_TRACE_PHASE_B,
           )
         _ => ()
       }
@@ -549,6 +662,7 @@ fn projection_trace_observe_authority(
   }
 }
 
+///|
 /// Record a fresh recovery session's Seed materialization and execution. The
 /// recovered model has no Preview demand, so the request issues no group work.
 fn projection_trace_recovery_seed_materialized() -> Unit {
@@ -557,12 +671,20 @@ fn projection_trace_recovery_seed_materialized() -> Unit {
     Some(_) => {
       let request_id = projection_trace_test_begin_request(0)
       projection_trace_test_progress(
-        event_id=0, request_id~, group_work_id=0, presentation_id=0,
-        group=PROJECTION_TRACE_GROUP_NONE, phase=PROJECTION_TRACE_PHASE_B,
+        event_id=0,
+        request_id~,
+        group_work_id=0,
+        presentation_id=0,
+        group=PROJECTION_TRACE_GROUP_NONE,
+        phase=PROJECTION_TRACE_PHASE_B,
       )
       projection_trace_test_progress(
-        event_id=0, request_id~, group_work_id=0, presentation_id=0,
-        group=PROJECTION_TRACE_GROUP_NONE, phase=PROJECTION_TRACE_PHASE_C,
+        event_id=0,
+        request_id~,
+        group_work_id=0,
+        presentation_id=0,
+        group=PROJECTION_TRACE_GROUP_NONE,
+        phase=PROJECTION_TRACE_PHASE_C,
       )
       projection_trace_request_no_demand(request_id)
     }
@@ -581,11 +703,15 @@ fn projection_trace_semantic_attachment_read() -> Unit {
         trace.current_request_id
       }
       let work_id = projection_trace_test_begin_group(
-        request_id, PROJECTION_TRACE_GROUP_PREVIEW,
+        request_id,
+        PROJECTION_TRACE_GROUP_PREVIEW,
       )
       projection_trace_test_progress(
-        event_id=trace.current_event_id, request_id~, group_work_id=work_id,
-        presentation_id=0, group=PROJECTION_TRACE_GROUP_PREVIEW,
+        event_id=trace.current_event_id,
+        request_id~,
+        group_work_id=work_id,
+        presentation_id=0,
+        group=PROJECTION_TRACE_GROUP_PREVIEW,
         phase=PROJECTION_TRACE_PHASE_D,
       )
     }
@@ -603,10 +729,15 @@ fn projection_trace_test_group_adopted(work_id : Int) -> Unit {
       guard work_index >= 0 else { return }
       guard !trace.work_adopted[work_index] else { return }
       projection_trace_record(
-        trace.work_event_ids[work_index], trace.work_request_ids[work_index],
-        work_id, 0, trace.work_groups[work_index], PROJECTION_TRACE_PHASE_E,
+        trace.work_event_ids[work_index],
+        trace.work_request_ids[work_index],
+        work_id,
+        0,
+        trace.work_groups[work_index],
+        PROJECTION_TRACE_PHASE_E,
         PROJECTION_TRACE_STATUS_ADOPTION_ACCEPTED,
-        PROJECTION_TRACE_REQUEST_NONE, PROJECTION_TRACE_GROUP_OUTCOME_NONE,
+        PROJECTION_TRACE_REQUEST_NONE,
+        PROJECTION_TRACE_GROUP_OUTCOME_NONE,
         PROJECTION_TRACE_REASON_NONE,
       )
       trace.work_adopted[work_index] = true
@@ -614,6 +745,7 @@ fn projection_trace_test_group_adopted(work_id : Int) -> Unit {
   }
 }
 
+///|
 /// Publish the retained Preview payload under the accepted causal stamp without
 /// claiming application adoption.
 fn projection_trace_retained_preview_materialized() -> Unit {
@@ -622,13 +754,17 @@ fn projection_trace_retained_preview_materialized() -> Unit {
     Some(trace) => {
       guard trace.current_request_id != 0 else { return }
       let work_id = projection_trace_test_begin_group(
-        trace.current_request_id, PROJECTION_TRACE_GROUP_PREVIEW,
+        trace.current_request_id,
+        PROJECTION_TRACE_GROUP_PREVIEW,
       )
       guard work_id != 0 else { return }
       projection_trace_test_progress(
-        event_id=trace.current_event_id, request_id=trace.current_request_id,
-        group_work_id=work_id, presentation_id=0,
-        group=PROJECTION_TRACE_GROUP_PREVIEW, phase=PROJECTION_TRACE_PHASE_D,
+        event_id=trace.current_event_id,
+        request_id=trace.current_request_id,
+        group_work_id=work_id,
+        presentation_id=0,
+        group=PROJECTION_TRACE_GROUP_PREVIEW,
+        phase=PROJECTION_TRACE_PHASE_D,
       )
     }
   }
@@ -650,6 +786,7 @@ fn projection_trace_driver_model_adopted() -> Unit {
   }
 }
 
+///|
 /// Commit 1 cannot observe browser paint; retire adoption explicitly after the
 /// detached publication side effect instead of fabricating Presented.
 fn projection_trace_adopted_not_presented() -> Unit {
@@ -674,68 +811,123 @@ fn projection_trace_adopted_not_presented() -> Unit {
 
 ///|
 #warnings("-unused_value")
-fn projection_trace_count() -> Int { match projection_trace.val { None => 0; Some(t) => t.count } }
-///|
-#warnings("-unused_value")
-fn projection_trace_overflowed() -> Bool { match projection_trace.val { None => false; Some(t) => t.overflowed || t.id_exhausted } }
-///|
-#warnings("-unused_value")
-fn projection_trace_dropped_count() -> Int { match projection_trace.val { None => 0; Some(t) => t.dropped_count } }
-
-fn projection_trace_field(index : Int, field : Int) -> Int? {
+fn projection_trace_count() -> Int {
   match projection_trace.val {
-    None => None
-    Some(trace) => if index < 0 || index >= trace.count { None } else {
-      Some(match field {
-        1 => trace.event_id[index]
-        2 => trace.request_id[index]
-        3 => trace.group_work_id[index]
-        4 => trace.presentation_id[index]
-        5 => trace.group[index]
-        6 => trace.phase[index]
-        7 => trace.status[index]
-        8 => trace.request_disposition[index]
-        9 => trace.group_outcome[index]
-        10 => trace.reason[index]
-        _ => trace.timestamp[index]
-      })
-    }
+    None => 0
+    Some(t) => t.count
   }
 }
 
 ///|
 #warnings("-unused_value")
-fn projection_trace_event_id(index : Int) -> Int? { projection_trace_field(index, 1) }
+fn projection_trace_overflowed() -> Bool {
+  match projection_trace.val {
+    None => false
+    Some(t) => t.overflowed || t.id_exhausted
+  }
+}
+
 ///|
 #warnings("-unused_value")
-fn projection_trace_request_id(index : Int) -> Int? { projection_trace_field(index, 2) }
+fn projection_trace_dropped_count() -> Int {
+  match projection_trace.val {
+    None => 0
+    Some(t) => t.dropped_count
+  }
+}
+
+///|
+fn projection_trace_field(index : Int, field : Int) -> Int? {
+  match projection_trace.val {
+    None => None
+    Some(trace) =>
+      if index < 0 || index >= trace.count {
+        None
+      } else {
+        Some(
+          match field {
+            1 => trace.event_id[index]
+            2 => trace.request_id[index]
+            3 => trace.group_work_id[index]
+            4 => trace.presentation_id[index]
+            5 => trace.group[index]
+            6 => trace.phase[index]
+            7 => trace.status[index]
+            8 => trace.request_disposition[index]
+            9 => trace.group_outcome[index]
+            10 => trace.reason[index]
+            _ => trace.timestamp[index]
+          },
+        )
+      }
+  }
+}
+
 ///|
 #warnings("-unused_value")
-fn projection_trace_group_work_id(index : Int) -> Int? { projection_trace_field(index, 3) }
+fn projection_trace_event_id(index : Int) -> Int? {
+  projection_trace_field(index, 1)
+}
+
 ///|
 #warnings("-unused_value")
-fn projection_trace_presentation_id(index : Int) -> Int? { projection_trace_field(index, 4) }
+fn projection_trace_request_id(index : Int) -> Int? {
+  projection_trace_field(index, 2)
+}
+
 ///|
 #warnings("-unused_value")
-fn projection_trace_group(index : Int) -> Int? { projection_trace_field(index, 5) }
+fn projection_trace_group_work_id(index : Int) -> Int? {
+  projection_trace_field(index, 3)
+}
+
 ///|
 #warnings("-unused_value")
-fn projection_trace_phase(index : Int) -> Int? { projection_trace_field(index, 6) }
+fn projection_trace_presentation_id(index : Int) -> Int? {
+  projection_trace_field(index, 4)
+}
+
 ///|
 #warnings("-unused_value")
-fn projection_trace_status(index : Int) -> Int? { projection_trace_field(index, 7) }
+fn projection_trace_group(index : Int) -> Int? {
+  projection_trace_field(index, 5)
+}
+
 ///|
 #warnings("-unused_value")
-fn projection_trace_request_disposition(index : Int) -> Int? { projection_trace_field(index, 8) }
+fn projection_trace_phase(index : Int) -> Int? {
+  projection_trace_field(index, 6)
+}
+
 ///|
 #warnings("-unused_value")
-fn projection_trace_group_outcome(index : Int) -> Int? { projection_trace_field(index, 9) }
+fn projection_trace_status(index : Int) -> Int? {
+  projection_trace_field(index, 7)
+}
+
 ///|
 #warnings("-unused_value")
-fn projection_trace_reason(index : Int) -> Int? { projection_trace_field(index, 10) }
+fn projection_trace_request_disposition(index : Int) -> Int? {
+  projection_trace_field(index, 8)
+}
+
 ///|
 #warnings("-unused_value")
-fn projection_trace_timestamp(index : Int) -> Int? { projection_trace_field(index, 11) }
+fn projection_trace_group_outcome(index : Int) -> Int? {
+  projection_trace_field(index, 9)
+}
+
+///|
+#warnings("-unused_value")
+fn projection_trace_reason(index : Int) -> Int? {
+  projection_trace_field(index, 10)
+}
+
+///|
+#warnings("-unused_value")
+fn projection_trace_timestamp(index : Int) -> Int? {
+  projection_trace_field(index, 11)
+}
 
 ///|
 #warnings("-unused_value")

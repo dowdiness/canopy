@@ -946,6 +946,7 @@ pub fn MarkdownEditor::portable_markdown(self : Self) -> String {
 pub fn MarkdownEditor::version(self : Self) -> MarkdownDocumentVersion {
   { value: self.editor.get_version() }
 }
+
 ///|
 #cfg(target="js")
 extern "js" fn markdown_archive_export_failure_injection() -> String =
@@ -969,7 +970,6 @@ fn markdown_archive_export_failure() -> Unit raise Failure {
     detail => raise Failure::Failure(detail)
   }
 }
-
 
 ///|
 /// Cut the history at a version and hand back everything after it.

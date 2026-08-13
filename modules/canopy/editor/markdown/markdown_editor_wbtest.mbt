@@ -2227,9 +2227,7 @@ test "accepted parser failure records A0 without fabricating A1" {
     "authority-trace-post-commit-failure",
   )
   let result : Result[Result[MarkdownCommitReceipt, MarkdownEditorError], Error] = Ok(
-    editor.commit_with_receipt(
-      MarkdownEditRequest::ReplaceSource("Accepted\n"),
-    ),
+    editor.commit_with_receipt(MarkdownEditRequest::ReplaceSource("Accepted\n")),
   ) catch {
     error => Err(error)
   }
@@ -2249,9 +2247,7 @@ test "disabled authority trace creates no records" {
     source="Before\n",
   )
   assert_true(
-    editor.commit_with_receipt(
-      MarkdownEditRequest::ReplaceSource("After\n"),
-    )
+    editor.commit_with_receipt(MarkdownEditRequest::ReplaceSource("After\n"))
     is Ok(_),
   )
   assert_eq(markdown_authority_trace_count(), 0)
@@ -2266,16 +2262,11 @@ test "no-op authority observer cannot leak into the next mutation" {
     source="Same\n",
   )
   assert_true(
-    editor.commit_with_receipt(
-      MarkdownEditRequest::ReplaceSource("Same\n"),
-    )
+    editor.commit_with_receipt(MarkdownEditRequest::ReplaceSource("Same\n"))
     is Ok(_),
   )
   assert_true(
-    editor.commit(
-      MarkdownEditRequest::ReplaceSource("Changed\n"),
-    )
-    is Ok(_),
+    editor.commit(MarkdownEditRequest::ReplaceSource("Changed\n")) is Ok(_),
   )
   assert_eq(editor.snapshot().source(), "Changed\n")
   assert_eq(markdown_authority_trace_count(), 0)

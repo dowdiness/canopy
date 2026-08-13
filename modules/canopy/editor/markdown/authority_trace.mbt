@@ -1,3 +1,4 @@
+///|
 /// Private Commit 1 characterization trace for the authority half of the
 /// Markdown façade. Sequence is a monotonic observation ordinal; browser wall
 /// time belongs to the application-level A–F trace.
@@ -22,6 +23,7 @@ const MARKDOWN_AUTHORITY_PHASE_A1 : Int = 2
 ///|
 let markdown_authority_trace : Ref[MarkdownAuthorityTraceBuffer?] = Ref(None)
 
+///|
 /// Opt-in full-document export detector used only by characterization tests.
 let markdown_full_export_count : Ref[Int?] = Ref(None)
 
@@ -78,7 +80,7 @@ fn markdown_authority_trace_disable() -> Unit {
 fn markdown_authority_trace_begin() -> Int {
   match markdown_authority_trace.val {
     None => 0
-    Some(trace) => {
+    Some(trace) =>
       if trace.next_event_id <= 0 || trace.next_event_id == 2147483647 {
         trace.id_exhausted = true
         0
@@ -87,7 +89,6 @@ fn markdown_authority_trace_begin() -> Int {
         trace.next_event_id += 1
         event_id
       }
-    }
   }
 }
 
@@ -116,7 +117,6 @@ fn markdown_authority_trace_a0(event_id : Int) -> Unit {
   markdown_authority_trace_record(event_id, MARKDOWN_AUTHORITY_PHASE_A0)
 }
 
-
 ///|
 fn markdown_authority_trace_a1(event_id : Int) -> Unit {
   markdown_authority_trace_record(event_id, MARKDOWN_AUTHORITY_PHASE_A1)
@@ -137,7 +137,11 @@ fn markdown_authority_trace_phase(index : Int) -> Int? {
   match markdown_authority_trace.val {
     None => None
     Some(trace) =>
-      if index < 0 || index >= trace.count { None } else { Some(trace.phase[index]) }
+      if index < 0 || index >= trace.count {
+        None
+      } else {
+        Some(trace.phase[index])
+      }
   }
 }
 

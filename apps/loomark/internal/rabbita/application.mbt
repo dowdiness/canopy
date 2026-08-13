@@ -1778,7 +1778,10 @@ fn update_navigation(
         raw_input_coordinator.cancel_pending_for_navigation()
       }
       let old_requested = preview_requested(model)
-      let next_model = { ..model, split_preview_open: !model.split_preview_open }
+      let next_model = {
+        ..model,
+        split_preview_open: !model.split_preview_open,
+      }
       let next = update_preview_document(
         attachment,
         next_model,

@@ -2,7 +2,11 @@
 fn projection_trace_test_context(
   source? : String = "# Before\n",
   split_preview_open? : Bool = false,
-) -> (@markdown.MarkdownEditor, @md_markdown.MarkdownSemanticAttachment, DriverModel) {
+) -> (
+  @markdown.MarkdownEditor,
+  @md_markdown.MarkdownSemanticAttachment,
+  DriverModel,
+) {
   let (editor, attachment) = try! @markdown.MarkdownEditor::with_semantic_attachment(
     agent_id="projection-trace-writer",
     source~,
@@ -42,7 +46,12 @@ fn run_projection_trace_preview_edit(
   attachment : @md_markdown.MarkdownSemanticAttachment,
   model : DriverModel,
 ) -> DriverModel {
-  run_projection_trace_event(editor, attachment, model, Editing(ReplaceSource("# After\n")))
+  run_projection_trace_event(
+    editor,
+    attachment,
+    model,
+    Editing(ReplaceSource("# After\n")),
+  )
 }
 
 ///|
@@ -107,17 +116,13 @@ fn projection_trace_phases() -> Array[Int] {
   phases
 }
 
-
 ///|
 fn projection_trace_enable_counting() -> @ref.Ref[Int] {
   let ticks : @ref.Ref[Int] = @ref.Ref(0)
-  projection_trace_enable(
-    capacity=32,
-    clock=() => {
-      ticks.val += 1
-      ticks.val
-    },
-  )
+  projection_trace_enable(capacity=32, clock=() => {
+    ticks.val += 1
+    ticks.val
+  })
   ticks
 }
 
@@ -125,7 +130,9 @@ fn projection_trace_enable_counting() -> @ref.Ref[Int] {
 test "accepted preview-demand edit records independent synchronous trace axes" {
   let ticks = projection_trace_enable_counting()
   defer projection_trace_disable()
-  let (editor, attachment, model) = projection_trace_test_context(split_preview_open=true)
+  let (editor, attachment, model) = projection_trace_test_context(
+    split_preview_open=true,
+  )
   let next = run_projection_trace_preview_edit(editor, attachment, model)
   assert_eq(next.document.source(), "# After\n")
   assert_eq(projection_trace_phases(), [
@@ -183,13 +190,10 @@ test "enabled and disabled preview edits are behaviorally equivalent" {
   assert_true(enabled_ticks.val > 0)
 
   let disabled_ticks : @ref.Ref[Int] = @ref.Ref(0)
-  projection_trace_enable(
-    capacity=32,
-    clock=() => {
-      disabled_ticks.val += 1
-      disabled_ticks.val
-    },
-  )
+  projection_trace_enable(capacity=32, clock=() => {
+    disabled_ticks.val += 1
+    disabled_ticks.val
+  })
   projection_trace_disable()
   let (disabled_editor, disabled_attachment, disabled_model) = projection_trace_test_context(
     split_preview_open=true,
@@ -204,7 +208,10 @@ test "enabled and disabled preview edits are behaviorally equivalent" {
   assert_eq(disabled.committed_change_count, enabled.committed_change_count)
   assert_eq(disabled.state.mode(), enabled.state.mode())
   assert_eq(disabled.split_preview_open, enabled.split_preview_open)
-  assert_eq(disabled.semantic_document is Some(_), enabled.semantic_document is Some(_))
+  assert_eq(
+    disabled.semantic_document is Some(_),
+    enabled.semantic_document is Some(_),
+  )
   assert_eq(projection_trace_count(), 0)
   assert_eq(disabled_ticks.val, 0)
 }
@@ -230,7 +237,10 @@ test "rejected authority request records omission reason" {
   assert_eq(next.document.source(), model.document.source())
   assert_eq(projection_trace_phase(0), Some(PROJECTION_TRACE_PHASE_A0))
   assert_eq(projection_trace_status(0), Some(PROJECTION_TRACE_STATUS_OMITTED))
-  assert_eq(projection_trace_reason(0), Some(PROJECTION_TRACE_REASON_NOT_ACCEPTED))
+  assert_eq(
+    projection_trace_reason(0),
+    Some(PROJECTION_TRACE_REASON_NOT_ACCEPTED),
+  )
   projection_trace_disable()
 }
 
@@ -267,12 +277,18 @@ test "demand-only Preview records C-F without authority phases" {
 test "source-equal causal advance synchronizes the projection mirror" {
   let ticks = projection_trace_enable_counting()
   defer projection_trace_disable()
-  let (editor, attachment, model) = projection_trace_test_context(source="# Title")
+  let (editor, attachment, model) = projection_trace_test_context(
+    source="# Title",
+  )
   let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
   let (next, _, accepted, changed, _) = try! commit_edit_request(
     editor,
     model,
-    @markdown.MarkdownEditRequest::ReplaceText(start=0, delete_len=1, inserted="#"),
+    @markdown.MarkdownEditRequest::ReplaceText(
+      start=0,
+      delete_len=1,
+      inserted="#",
+    ),
     "source-equal",
     emit,
   )
@@ -282,13 +298,9 @@ test "source-equal causal advance synchronizes the projection mirror" {
   assert_true(next.document_version != model.document_version)
   assert_eq(next.source_revision, model.source_revision)
   assert_eq(next.committed_change_count, model.committed_change_count + 1)
-  ignore(update_preview_after_authority(
-    attachment,
-    next,
-    false,
-    accepted~,
-    changed~,
-  ))
+  ignore(
+    update_preview_after_authority(attachment, next, false, accepted~, changed~),
+  )
   assert_eq(projection_trace_phases(), [
     PROJECTION_TRACE_PHASE_A0,
     PROJECTION_TRACE_PHASE_C,
@@ -320,19 +332,19 @@ test "source-equal demanded Preview republishes retained artifact" {
   let (next, _, accepted, changed, _) = try! commit_edit_request(
     editor,
     model,
-    @markdown.MarkdownEditRequest::ReplaceText(start=0, delete_len=1, inserted="#"),
+    @markdown.MarkdownEditRequest::ReplaceText(
+      start=0,
+      delete_len=1,
+      inserted="#",
+    ),
     "source-equal-preview",
     emit,
   )
   assert_true(accepted)
   assert_false(changed)
-  ignore(update_preview_after_authority(
-    attachment,
-    next,
-    true,
-    accepted~,
-    changed~,
-  ))
+  ignore(
+    update_preview_after_authority(attachment, next, true, accepted~, changed~),
+  )
   projection_trace_driver_model_adopted()
   projection_trace_adopted_not_presented()
   assert_eq(projection_trace_phases(), [
@@ -367,17 +379,17 @@ test "source-equal authority request adopts newly demanded Preview once" {
   let (next, _, accepted, changed, _) = try! commit_edit_request(
     editor,
     model,
-    @markdown.MarkdownEditRequest::ReplaceText(start=0, delete_len=1, inserted="#"),
+    @markdown.MarkdownEditRequest::ReplaceText(
+      start=0,
+      delete_len=1,
+      inserted="#",
+    ),
     "source-equal-new-preview",
     emit,
   )
-  ignore(update_preview_after_authority(
-    attachment,
-    next,
-    false,
-    accepted~,
-    changed~,
-  ))
+  ignore(
+    update_preview_after_authority(attachment, next, false, accepted~, changed~),
+  )
   projection_trace_driver_model_adopted()
   projection_trace_adopted_not_presented()
   assert_eq(projection_trace_phases(), [
@@ -406,7 +418,12 @@ test "NoDemand creates no group work and does not tick the clock" {
   let ticks = projection_trace_enable_counting()
   defer projection_trace_disable()
   let (editor, attachment, model) = projection_trace_test_context()
-  let next = run_projection_trace_event(editor, attachment, model, Navigation(SelectRaw))
+  let next = run_projection_trace_event(
+    editor,
+    attachment,
+    model,
+    Navigation(SelectRaw),
+  )
 
   assert_false(preview_requested(next))
   assert_eq(projection_trace_count(), 0)
@@ -420,7 +437,9 @@ test "NoDemand creates no group work and does not tick the clock" {
 test "recovery replacement invalidates active projection request" {
   let ticks = projection_trace_enable_counting()
   defer projection_trace_disable()
-  let (editor, attachment, model) = projection_trace_test_context(split_preview_open=true)
+  let (editor, attachment, model) = projection_trace_test_context(
+    split_preview_open=true,
+  )
   let accepted_history_before_failure = try! editor.history_since()
   let session = @ref.Ref(EditorSession::{ editor, attachment })
   let recovered = run_projection_trace_recovered_event(
@@ -435,7 +454,9 @@ test "recovery replacement invalidates active projection request" {
   assert_eq(recovered.error_code, Some("editor-recovered"))
   assert_true(recovered.runtime_state is EditorRuntimeState::Healthy)
   assert_eq(session.val.editor.portable_markdown(), "# After\n")
-  assert_true(try! (session.val.editor.history_since() != accepted_history_before_failure))
+  assert_true(
+    try! (session.val.editor.history_since() != accepted_history_before_failure),
+  )
   assert_eq(projection_trace_phases(), [
     PROJECTION_TRACE_PHASE_A0,
     PROJECTION_TRACE_PHASE_C,
@@ -477,7 +498,7 @@ test "trace correlation axes allocate lazily" {
   defer projection_trace_disable()
   let event_id = projection_trace_begin_authority_event()
   projection_trace_test_progress(
-    event_id=event_id,
+    event_id~,
     request_id=0,
     group_work_id=0,
     presentation_id=0,
@@ -486,10 +507,12 @@ test "trace correlation axes allocate lazily" {
   )
   let request_id = projection_trace_test_begin_request(event_id)
   let preview_work = projection_trace_test_begin_group(
-    request_id, PROJECTION_TRACE_GROUP_PREVIEW,
+    request_id,
+    PROJECTION_TRACE_GROUP_PREVIEW,
   )
   let diagnostics_work = projection_trace_test_begin_group(
-    request_id, PROJECTION_TRACE_GROUP_DIAGNOSTICS,
+    request_id,
+    PROJECTION_TRACE_GROUP_DIAGNOSTICS,
   )
   let presentation_id = projection_trace_test_begin_presentation()
   projection_trace_test_present(preview_work, presentation_id)
@@ -516,7 +539,10 @@ test "NoDemand request creates no group work" {
   defer projection_trace_disable()
   let request_id = projection_trace_test_begin_request(0)
   projection_trace_request_no_demand(request_id)
-  assert_eq(projection_trace_request_disposition(0), Some(PROJECTION_TRACE_REQUEST_NO_DEMAND))
+  assert_eq(
+    projection_trace_request_disposition(0),
+    Some(PROJECTION_TRACE_REQUEST_NO_DEMAND),
+  )
   assert_eq(projection_trace_group_work_id(0), Some(0))
 }
 
@@ -526,7 +552,8 @@ test "each group work accepts exactly one terminal outcome" {
   defer projection_trace_disable()
   let request_id = projection_trace_test_begin_request(0)
   let work_id = projection_trace_test_begin_group(
-    request_id, PROJECTION_TRACE_GROUP_PREVIEW,
+    request_id,
+    PROJECTION_TRACE_GROUP_PREVIEW,
   )
   projection_trace_test_group_terminal(
     work_id,
@@ -544,13 +571,10 @@ test "each group work accepts exactly one terminal outcome" {
 ///|
 test "bounded trace reports overflow and drops without clock reads" {
   let ticks : @ref.Ref[Int] = @ref.Ref(0)
-  projection_trace_enable(
-    capacity=1,
-    clock=() => {
-      ticks.val += 1
-      ticks.val
-    },
-  )
+  projection_trace_enable(capacity=1, clock=() => {
+    ticks.val += 1
+    ticks.val
+  })
   defer projection_trace_disable()
   let request_id = projection_trace_test_begin_request(0)
   projection_trace_request_no_demand(request_id)
@@ -567,11 +591,13 @@ test "adoption resolves immutable group metadata by work id" {
   let event_id = projection_trace_begin_authority_event()
   let request_id = projection_trace_test_begin_request(event_id)
   let preview_work = projection_trace_test_begin_group(
-    request_id, PROJECTION_TRACE_GROUP_PREVIEW,
+    request_id,
+    PROJECTION_TRACE_GROUP_PREVIEW,
   )
   ignore(
     projection_trace_test_begin_group(
-      request_id, PROJECTION_TRACE_GROUP_DIAGNOSTICS,
+      request_id,
+      PROJECTION_TRACE_GROUP_DIAGNOSTICS,
     ),
   )
   projection_trace_test_group_adopted(preview_work)
@@ -593,7 +619,8 @@ test "trace ID exhaustion fails closed before wraparound" {
   let request_id = projection_trace_test_begin_request(0)
   assert_eq(
     projection_trace_test_begin_group(
-      request_id, PROJECTION_TRACE_GROUP_PREVIEW,
+      request_id,
+      PROJECTION_TRACE_GROUP_PREVIEW,
     ),
     0,
   )
@@ -607,10 +634,12 @@ test "production adoption and retirement consume every requested group" {
   let event_id = projection_trace_begin_authority_event()
   let request_id = projection_trace_test_begin_request(event_id)
   let preview_work = projection_trace_test_begin_group(
-    request_id, PROJECTION_TRACE_GROUP_PREVIEW,
+    request_id,
+    PROJECTION_TRACE_GROUP_PREVIEW,
   )
   let diagnostics_work = projection_trace_test_begin_group(
-    request_id, PROJECTION_TRACE_GROUP_DIAGNOSTICS,
+    request_id,
+    PROJECTION_TRACE_GROUP_DIAGNOSTICS,
   )
   projection_trace_driver_model_adopted()
   projection_trace_adopted_not_presented()

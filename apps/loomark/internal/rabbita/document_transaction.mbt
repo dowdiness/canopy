@@ -120,19 +120,19 @@ fn commit_edit_request(
   } else {
     0
   }
-  let receipt = (
+  let receipt = try {
     if trace_request_id == 0 {
       editor.commit_with_receipt(request)
     } else {
-      editor.commit_with_receipt_observing(
-        request,
-        phase => projection_trace_observe_authority(trace_request_id, phase),
-      )
+      editor.commit_with_receipt_observing(request, phase => {
+        projection_trace_observe_authority(trace_request_id, phase)
+      })
     }
-  ) catch {
+  } catch {
     Failure::Failure(_) as failure => {
       projection_trace_omit_request(
-        trace_request_id, PROJECTION_TRACE_REASON_NOT_ACCEPTED,
+        trace_request_id,
+        PROJECTION_TRACE_REASON_NOT_ACCEPTED,
       )
       raise failure
     }
@@ -188,7 +188,8 @@ fn commit_edit_request(
     }
     Err(error) => {
       projection_trace_omit_request(
-        trace_request_id, PROJECTION_TRACE_REASON_NOT_ACCEPTED,
+        trace_request_id,
+        PROJECTION_TRACE_REASON_NOT_ACCEPTED,
       )
       let failed = record_error(
         next,
