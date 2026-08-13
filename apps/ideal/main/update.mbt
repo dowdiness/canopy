@@ -24,6 +24,10 @@ fn update(emit : Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) raise {
     Some(r) => return r
     None => ()
   }
+  match handle_incr_canvas(emit, msg, model) {
+    Some(r) => return r
+    None => ()
+  }
   match handle_structural(emit, msg, model) {
     Some(r) => return r
     None => ()

@@ -67,6 +67,7 @@ fn init_model() -> Model raise {
     intent_log: [],
     patch_log: [],
     incr_tap,
+    incr_canvas: IncrCanvasState::empty(),
   }
 }
 
@@ -94,6 +95,7 @@ fn root_init(emit : Emit[Msg]) -> (RootState, Cmd) {
   let model = init_model() catch {
     _ => abort("Ideal editor initialization failed")
   }
+  let model = sync_incr_canvas(model)
   (RootState(model, 0), cm_mount_cmd(emit, model))
 }
 
@@ -106,6 +108,7 @@ fn root_update(
   let (cmd, model) = update(emit, msg, state.0) catch {
     _ => (none, { ..state.0, sync_status: Error })
   }
+  let model = sync_incr_canvas(model)
   (RootState(model, next_root_revision(state.1)), cmd)
 }
 
