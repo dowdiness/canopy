@@ -231,6 +231,7 @@ fn[T : Eq] SyncEditor::apply_diagnostic_fix_candidate(
   timestamp_ms : Int,
 ) -> Bool raise Failure {
   self.ensure_parser_healthy()
+  self.reject_projection_observer_reentry()
   let old_source = self.doc.text()
   let expected_source = fix.apply(source_id, old_source) catch {
     _ => return false
@@ -278,6 +279,7 @@ fn[T : Eq] SyncEditor::apply_text_edit_with_policy(
   policy : SplicePolicy,
 ) -> Bool raise Failure {
   self.ensure_parser_healthy()
+  self.reject_projection_observer_reentry()
   let old_source = editor_perf_measure("applyEditOldSnapshot", () => {
     self.doc.text()
   })
@@ -472,6 +474,7 @@ pub fn[T : Eq] SyncEditor::set_text_with_change(
   new_text : String,
 ) -> (@text_change.TextChange, Bool) raise Failure {
   self.ensure_parser_healthy()
+  self.reject_projection_observer_reentry()
   let old_text = self.doc.text()
   let splice = match fast_append_text_change(old_text, new_text) {
     Some(splice) => splice

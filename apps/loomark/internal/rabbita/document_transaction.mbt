@@ -255,7 +255,7 @@ fn commit_block_request(
       @markdown.Unchanged(_) => None
     }
   })
-  let committed = update_preview_document(
+  let committed = update_preview_after_authority(
     attachment,
     committed,
     preview_requested(model),

@@ -3,10 +3,9 @@
 
 ///|
 /// Typed telemetry for one scoped projection-relevant mutation.
-pub(all) enum ProjectionObservationPhase {
+pub enum ProjectionObservationPhase {
   AuthorityAccepted
-  CausalEvidenceAvailable
-  ParserSynchronized
+  ProjectionMirrorSynchronized
 } derive(Eq, Debug)
 
 ///|
@@ -15,6 +14,7 @@ priv struct ProjectionObservationScope {
   mut accepted : Bool
   mut parser_batch_depth : Int
   mut parser_sync_pending : Bool
+  mut emitting : Bool
 }
 
 pub struct SyncEditor[T] {
@@ -176,6 +176,7 @@ pub fn[T, R] SyncEditor::observe_projection_during(
     accepted: false,
     parser_batch_depth: 0,
     parser_sync_pending: false,
+    emitting: false,
   }
   self.projection_observation_scope = Some(scope)
   let result = action() catch {
@@ -195,7 +196,7 @@ fn[T] SyncEditor::observe_authority_acceptance(self : SyncEditor[T]) -> Unit {
     Some(scope) =>
       if !scope.accepted {
         scope.accepted = true
-        (scope.observer)(ProjectionObservationPhase::AuthorityAccepted)
+        self.emit_projection_observation_phase(ProjectionObservationPhase::AuthorityAccepted)
       }
   }
 }
@@ -223,7 +224,7 @@ fn[T] SyncEditor::end_projection_observation_batch(
         scope.parser_sync_pending = false
       } else if scope.parser_batch_depth == 0 && scope.parser_sync_pending {
         scope.parser_sync_pending = false
-        (scope.observer)(ProjectionObservationPhase::ParserSynchronized)
+        self.emit_projection_observation_phase(ProjectionObservationPhase::ProjectionMirrorSynchronized)
       }
     }
   }
@@ -238,8 +239,36 @@ fn[T] SyncEditor::observe_parser_synchronized(self : SyncEditor[T]) -> Unit {
         if scope.parser_batch_depth > 0 {
           scope.parser_sync_pending = true
         } else {
-          (scope.observer)(ProjectionObservationPhase::ParserSynchronized)
+          self.emit_projection_observation_phase(ProjectionObservationPhase::ProjectionMirrorSynchronized)
         }
+      }
+  }
+}
+
+///|
+fn[T] SyncEditor::emit_projection_observation_phase(
+  self : SyncEditor[T],
+  phase : ProjectionObservationPhase,
+) -> Unit {
+  match self.projection_observation_scope {
+    None => ()
+    Some(scope) => {
+      scope.emitting = true
+      (scope.observer)(phase)
+      scope.emitting = false
+    }
+  }
+}
+
+///|
+fn[T] SyncEditor::reject_projection_observer_reentry(
+  self : SyncEditor[T],
+) -> Unit raise Failure {
+  match self.projection_observation_scope {
+    None => ()
+    Some(scope) =>
+      if scope.emitting {
+        raise Failure::Failure("projection observer reentrant mutation")
       }
   }
 }
@@ -575,6 +604,7 @@ pub fn[T : Eq] SyncEditor::apply_span_edits(
   hint? : @core.IdentityTransform,
 ) -> Unit raise Failure {
   self.ensure_parser_healthy()
+  self.reject_projection_observer_reentry()
   if edits.is_empty() {
     return
   }
@@ -644,6 +674,7 @@ fn[T : Eq] SyncEditor::admit_with_policy(
   limits : @sync.Limits?,
 ) -> @text.SyncReport raise {
   self.ensure_parser_healthy()
+  self.reject_projection_observer_reentry()
   self.taint_pending_transforms()
   let old_source = self.doc.text()
   self.undo.set_tracking(false)

@@ -260,7 +260,6 @@ fn publish(
     (Some(coordinator), Some(token)) => coordinator.mark_publish_started(token)
     _ => ()
   }
-  projection_trace_published()
   let fields : Map[String, Json] = {
     "source": runtime_source(model).to_json(),
     "replica_id": model.replica_id.to_json(),
@@ -333,6 +332,7 @@ fn publish(
     },
   }
   detached_snapshot.val = Json::object(fields).stringify()
+  projection_trace_adopted_not_presented()
 }
 
 ///|
@@ -1179,7 +1179,7 @@ fn update_editing(
                   "editor-dispatch",
                   emit,
                 )
-                next = update_preview_document(
+                next = update_preview_after_authority(
                   attachment,
                   committed,
                   old_requested,
@@ -1697,7 +1697,7 @@ fn update_editing(
               "editor-dispatch",
               emit,
             )
-            let next = update_preview_document(
+            let next = update_preview_after_authority(
               attachment,
               committed,
               preview_requested(model),
@@ -2156,7 +2156,7 @@ fn update_lifecycle(
         block_input_coordinator.cancel_pending()
         next = { ..next, state: transition.state() }
       }
-      next = update_preview_document(
+      next = update_preview_after_authority(
         attachment,
         next,
         preview_requested(model),

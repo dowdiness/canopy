@@ -603,7 +603,7 @@ test "Entering fatal state cancels pending and active Block input" {
 }
 
 ///|
-test "Block input check rejects a changed document or version before commit" {
+test "Block input check rejects an old causal fence after source-equal advance" {
   let context = BlockInputTestContext::BlockInputTestContext(
     "block-input-check-test", "x",
   )
@@ -626,13 +626,37 @@ test "Block input check rejects a changed document or version before commit" {
       @markdown.MarkdownEditRequest::ReplaceText(
         start=0,
         delete_len=1,
-        inserted="y",
+        inserted="x",
       ),
     ),
   )
   guard check_block_edit(context.document_id, context.editor.version(), input)
     is StaleVersion else {
     fail("an advanced editor version must reject old input")
+  }
+}
+
+///|
+test "Block input check rejects an old causal fence after source change" {
+  let context = BlockInputTestContext::BlockInputTestContext(
+    "block-input-source-change-test", "x",
+  )
+  let version = context.editor.version()
+  let input = context.caret_input("ab", 2)
+  ignore(
+    try! context.editor.commit(
+      @markdown.MarkdownEditRequest::ReplaceText(
+        start=0,
+        delete_len=1,
+        inserted="y",
+      ),
+    ),
+  )
+  assert_eq(context.editor.snapshot().source(), "y")
+  assert_true(context.editor.version() != version)
+  guard check_block_edit(context.document_id, context.editor.version(), input)
+    is StaleVersion else {
+    fail("a source change must reject old input")
   }
 }
 

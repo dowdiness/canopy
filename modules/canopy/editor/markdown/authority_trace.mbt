@@ -8,6 +8,9 @@ priv struct MarkdownAuthorityTraceBuffer {
   mut count : Int
   mut next_sequence : Int
   mut next_event_id : Int
+  mut dropped_count : Int
+  mut overflowed : Bool
+  mut id_exhausted : Bool
 }
 
 ///|
@@ -59,6 +62,9 @@ fn markdown_authority_trace_enable(capacity~ : Int) -> Unit {
     count: 0,
     next_sequence: 1,
     next_event_id: 1,
+    dropped_count: 0,
+    overflowed: false,
+    id_exhausted: false,
   })
 }
 
@@ -73,9 +79,14 @@ fn markdown_authority_trace_begin() -> Int {
   match markdown_authority_trace.val {
     None => 0
     Some(trace) => {
-      let event_id = trace.next_event_id
-      trace.next_event_id += 1
-      event_id
+      if trace.next_event_id <= 0 || trace.next_event_id == 2147483647 {
+        trace.id_exhausted = true
+        0
+      } else {
+        let event_id = trace.next_event_id
+        trace.next_event_id += 1
+        event_id
+      }
     }
   }
 }
@@ -85,7 +96,11 @@ fn markdown_authority_trace_record(event_id : Int, phase : Int) -> Unit {
   match markdown_authority_trace.val {
     None => ()
     Some(trace) => {
-      guard trace.count < trace.sequence.length() else { return }
+      guard trace.count < trace.sequence.length() else {
+        trace.overflowed = true
+        trace.dropped_count += 1
+        return
+      }
       let index = trace.count
       trace.sequence[index] = trace.next_sequence
       trace.phase[index] = phase
@@ -137,5 +152,23 @@ fn markdown_authority_trace_event_id(index : Int) -> Int? {
       } else {
         Some(trace.event_id[index])
       }
+  }
+}
+
+///|
+#warnings("-unused_value")
+fn markdown_authority_trace_overflowed() -> Bool {
+  match markdown_authority_trace.val {
+    None => false
+    Some(trace) => trace.overflowed || trace.id_exhausted
+  }
+}
+
+///|
+#warnings("-unused_value")
+fn markdown_authority_trace_dropped_count() -> Int {
+  match markdown_authority_trace.val {
+    None => 0
+    Some(trace) => trace.dropped_count
   }
 }

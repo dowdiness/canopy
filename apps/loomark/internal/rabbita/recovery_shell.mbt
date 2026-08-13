@@ -194,6 +194,7 @@ fn recover_after_parser_failure(
         error_operation: Some("editor-recovery"),
         rejection: None,
       }
+      projection_trace_recovery_seed_materialized()
       persist_recovered_editor(fresh_editor, next, emit)
     }
   }

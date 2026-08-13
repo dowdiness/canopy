@@ -342,22 +342,26 @@ Commit 1 must not invent one.
 | Undo / redo | Absent from Loomark and absent from `MarkdownEditRequest` (`editor.mbt:343-354`). `SyncEditor` owns an internal undo manager, but no Loomark authority entry exists. | No A0/A1 path to instrument. | No B–F path. | Unclassified until a separately reviewed authority request exists. |
 | Remote admission | Façade-only. `MarkdownEditor::admit` delegates to `SyncEditor::admit` at `editor.mbt:880-926`; Loomark has no production caller. | `SyncEditor::admit_with_policy` may partially mutate before reporting failure and synchronizes the parser at `sync_editor.mbt:531-565`. No Loomark receipt/effect boundary exists. | C occurs inside `admit_with_policy`; Loomark has no D–F adoption path. | Not classified by Loomark. Commit 1 characterizes the façade without adding a production route. |
 | Source-equal causal advance | Present through any accepted receipt whose document version advances while `document.source()` is equal. `commit_classification.mbt:7-35` is the pure owner. | A0/A1 are the same receipt path. | C updates document version but short-circuits parser source work at `sync_editor_parser.mbt:40-45`; existing Preview is kept by `preview_read_model.mbt:18-25`; E advances `document_version` without `source_revision`. | `SourceUnchanged`; it must not authorize an intent fenced to the old causal version. |
-| Demand-only Preview | Present. Mode and split demand enter `application.mbt:1736-1785` without an authority mutation. | No A0/A1 and no `DocumentVersion` advance. | `preview_read_model.mbt:12-59` decides whether to read the retained semantic attachment (current C/D); navigation adopts E; `application.mbt:2236-2285` publishes before F. | Demand request, not `Advance` or Seed; `NoDemand` creates no group work. |
-| Post-commit history/export failure | Present and typed. `commit_with_receipt` may raise while constructing history at `editor.mbt:1014-1022`; `document_transaction.mbt:118-156` reconstructs accepted state from the current façade frontier. | The mutation is already A0; the current implementation has no small A1 before export. Retry is forbidden. | Recovery may reconstruct C/D and then adopts/presents the accepted frontier through E/F. | Preserve the accepted `Advance`/`SourceUnchanged`; failure is not a second authority event. |
+| Demand-only Preview | Present. Mode and split demand enter `application.mbt:1736-1785` without an authority mutation. | No A0/A1 and no `DocumentVersion` advance. | `preview_read_model.mbt:12-59` decides whether to read the retained semantic attachment (current C/D); navigation adopts E; Commit 1 records `AdoptedNotPresented(PresentationNotObservedYet)` after detached publication and does not fabricate browser F. | Demand request, not `Advance` or Seed; `NoDemand` creates no group work. |
+| Post-commit history/export failure | Present and typed. `commit_with_receipt` may raise while constructing history at `editor.mbt:1014-1022`; `document_transaction.mbt:118-156` reconstructs accepted state from the current façade frontier. | The mutation is already A0; A1 is emitted after the accepted frontier is known and before history export. Retry is forbidden. | Recovery may reconstruct C/D, adopt E, and explicitly retire without claiming browser presentation. | Preserve the accepted `Advance`/`SourceUnchanged`; failure is not a second authority event. |
 | Parser failure recovery | Present. The application shell catches `Failure`/`Committed` and calls `recover_after_parser_failure` at `application.mbt:2494-2507`. | It reads parser-independent source/version/history, never retries the mutation. | `recovery_shell.mbt:75-197` disposes the old attachment, reopens one fresh editor/attachment, swaps the session only after success, adopts the recovered model, and persists it. | Generation invalidation followed by coherent Seed; every old result becomes terminal. |
 | Archive reopen | Present at startup through `standalone_bootstrap.mbt`; `editor_session.mbt:25-36` is the recovery reopen helper. | Opening existing history creates a fresh authority/session frontier rather than replaying a new mutation. | A fresh parser, semantic attachment, model, and mounted view establish C–F. | New generation plus Seed from the reopened coherent history. |
 | EditorSession replacement | Present only inside recovery. `recovery_shell.mbt:174-180` disposes the old attachment and swaps `session_ref` after the fresh snapshot succeeds. | No new authority mutation; captured accepted source/version/history remain authoritative. | Old C–F state is invalidated; fresh session produces replacement C–F state. | Generation invalidation plus Seed, never `SourceTransition`. |
 
 The first instrumentation seam is therefore not a standalone Projection Adapter.
 Commit 1 must distinguish A0 from the history-exporting remainder of
-`commit_with_receipt`, observe the existing synchronous C–F owners, and keep
+`commit_with_receipt`, observe the existing synchronous C–E owners, explicitly
+retire work whose browser presentation is not yet observable, and keep
 façade-only or absent paths out of Loomark production dispatch.
 
-Commit 1 intentionally adds two generated typed observation interfaces:
-`SyncEditor::observe_projection_during` owns one scoped mutation observation,
-and `MarkdownEditor::commit_with_receipt_observing` adds causal evidence at the
-façade seam. Neither exposes an arm/clear setter: each scope cleans up on every
-exit, coalesces multi-span parser synchronization, and returns whether the CRDT
+Commit 1 intentionally adds two generated typed observation interfaces.
+`SyncEditor::observe_projection_during` exposes the direct-dependent
+`ProjectionObservationPhase` for A0/C inside one scoped mutation observation.
+`MarkdownEditor::commit_with_receipt_observing` maps those phases into its own
+direct-dependent `MarkdownProjectionObservationPhase` and adds façade-owned A1
+causal evidence. Neither phase enum is transitively constructible, and neither
+operation exposes an arm/clear setter. Each scope cleans up on every exit,
+coalesces multi-span parser synchronization, and returns whether the CRDT
 acceptance seam was consumed. The returned acceptance fact, never lossy trace
 storage, controls causal-evidence emission.
 
@@ -368,7 +372,7 @@ storage, controls causal-evidence emission.
 2. A0/A1 expose only small evidence and invoke no full source/history export,
    archive preparation, JSON generation, or Worker transfer;
 3. deferred Seed/source materialization records B after A1;
-4. demand-only Preview produces C–F without A0/A1;
+4. demand-only Preview produces C–E and an explicit not-presented outcome without A0/A1;
 5. source-equal causal advance changes causal version without changing source
    revision and invalidates an old intent fence;
 6. recovery/session replacement invalidates the generation, gives each old group

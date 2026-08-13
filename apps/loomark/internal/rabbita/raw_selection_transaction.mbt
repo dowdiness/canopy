@@ -504,7 +504,7 @@ fn commit_raw_selection_edit(
   )
   editor_finished()
   preview_started()
-  let committed = update_preview_document(
+  let committed = update_preview_after_authority(
     attachment,
     committed,
     preview_requested(model),

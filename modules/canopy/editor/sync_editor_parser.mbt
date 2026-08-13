@@ -40,8 +40,12 @@ fn[T : Eq] SyncEditor::sync_parser_after_text_change(
   editor_perf_measure("documentVersionUpdate", () => {
     self.document_version.set(self.doc.version())
   })
-  // Short-circuits mark_projection_dirty; Parser does its own identity check.
-  guard old_source != new_source else { return }
+  // Short-circuits mark_projection_dirty; Parser does its own identity check,
+  // but projection mirrors still observe the causal document-version advance.
+  guard old_source != new_source else {
+    self.observe_parser_synchronized()
+    return
+  }
   editor_perf_measure("parserApply", () => {
     try {
       if new_source == "" {

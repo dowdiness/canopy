@@ -129,10 +129,9 @@ pub fn[T] LanguageCapabilities::default() -> Self[T]
 pub fn[T] LanguageCapabilities::new(get_annotations? : (() -> Map[@dowdiness/canopy/core.NodeId, Array[@protocol.ViewAnnotation]])?, get_decorations? : (() -> Array[@protocol.Decoration])?, get_diagnostics? : (() -> (String, @dowdiness/loom/core.DiagnosticSet)?)?, pretty_post_process? : ((@pretty.Layout[@pretty.SyntaxCategory]) -> @pretty.Layout[@pretty.SyntaxCategory])?) -> Self[T]
 pub fn[T] LanguageCapabilities::with_to_view_node(Self[T], (@dowdiness/canopy/core.ProjNode[T], @dowdiness/canopy/core.SourceMap, Map[@dowdiness/canopy/core.NodeId, Array[@protocol.ViewAnnotation]], String?) -> @protocol.ViewNode) -> Self[T]
 
-pub(all) enum ProjectionObservationPhase {
+pub enum ProjectionObservationPhase {
   AuthorityAccepted
-  CausalEvidenceAvailable
-  ParserSynchronized
+  ProjectionMirrorSynchronized
 } derive(Eq, @debug.Debug)
 
 pub struct SyncEditor[T] {
