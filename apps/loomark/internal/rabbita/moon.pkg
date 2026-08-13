@@ -1,4 +1,5 @@
 import {
+  "dowdiness/canopy/editor" @editor,
   "dowdiness/canopy/editor/markdown",
   "dowdiness/diagnostic",
   "dowdiness/dom_boundary",

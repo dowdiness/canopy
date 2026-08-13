@@ -2,6 +2,21 @@
 // Projection views subscribe to the parser's reactive memos.
 
 ///|
+/// Typed telemetry for one scoped projection-relevant mutation.
+pub(all) enum ProjectionObservationPhase {
+  AuthorityAccepted
+  CausalEvidenceAvailable
+  ParserSynchronized
+} derive(Eq, Debug)
+
+///|
+priv struct ProjectionObservationScope {
+  observer : (ProjectionObservationPhase) -> Unit
+  mut accepted : Bool
+  mut parser_batch_depth : Int
+  mut parser_sync_pending : Bool
+}
+
 pub struct SyncEditor[T] {
   priv doc : @text.TextState
   priv undo : @undo.UndoManager
@@ -43,6 +58,9 @@ pub struct SyncEditor[T] {
   // always returns the same value. Used as a cache key in history-view
   // memoization (see `editor/sync_editor_history.mbt`).
   priv identity : Int
+  // Scoped telemetry state. It coalesces multi-span edits into one A0 and one
+  // final C while keeping arm/clear operations inside the editor.
+  priv mut projection_observation_scope : ProjectionObservationScope?
 }
 
 ///|
@@ -140,6 +158,89 @@ fn[T] finish_editor(
     parser_failure: None,
     pending_transforms,
     identity,
+    projection_observation_scope: None,
+  }
+}
+
+/// Observe one whole mutation request without exposing arm/clear operations.
+pub fn[T, R] SyncEditor::observe_projection_during(
+  self : SyncEditor[T],
+  observer : (ProjectionObservationPhase) -> Unit,
+  action : () -> R raise,
+) -> (R, Bool) raise {
+  guard self.projection_observation_scope is None else {
+    raise Failure::Failure("projection observation already active")
+  }
+  let scope : ProjectionObservationScope = {
+    observer,
+    accepted: false,
+    parser_batch_depth: 0,
+    parser_sync_pending: false,
+  }
+  self.projection_observation_scope = Some(scope)
+  let result = action() catch {
+    error => {
+      self.projection_observation_scope = None
+      raise error
+    }
+  }
+  self.projection_observation_scope = None
+  (result, scope.accepted)
+}
+
+///|
+fn[T] SyncEditor::observe_authority_acceptance(self : SyncEditor[T]) -> Unit {
+  match self.projection_observation_scope {
+    None => ()
+    Some(scope) =>
+      if !scope.accepted {
+        scope.accepted = true
+        (scope.observer)(ProjectionObservationPhase::AuthorityAccepted)
+      }
+  }
+}
+
+///|
+fn[T] SyncEditor::begin_projection_observation_batch(
+  self : SyncEditor[T],
+) -> Unit {
+  match self.projection_observation_scope {
+    None => ()
+    Some(scope) => scope.parser_batch_depth += 1
+  }
+}
+
+///|
+fn[T] SyncEditor::end_projection_observation_batch(
+  self : SyncEditor[T],
+  succeeded~ : Bool,
+) -> Unit {
+  match self.projection_observation_scope {
+    None => ()
+    Some(scope) => {
+      scope.parser_batch_depth -= 1
+      if !succeeded {
+        scope.parser_sync_pending = false
+      } else if scope.parser_batch_depth == 0 && scope.parser_sync_pending {
+        scope.parser_sync_pending = false
+        (scope.observer)(ProjectionObservationPhase::ParserSynchronized)
+      }
+    }
+  }
+}
+
+///|
+fn[T] SyncEditor::observe_parser_synchronized(self : SyncEditor[T]) -> Unit {
+  match self.projection_observation_scope {
+    None => ()
+    Some(scope) =>
+      if scope.accepted {
+        if scope.parser_batch_depth > 0 {
+          scope.parser_sync_pending = true
+        } else {
+          (scope.observer)(ProjectionObservationPhase::ParserSynchronized)
+        }
+      }
   }
 }
 
@@ -489,18 +590,27 @@ pub fn[T : Eq] SyncEditor::apply_span_edits(
   let old_cursor = self.get_cursor()
   let sorted = edits.copy()
   sorted.sort_by(fn(a, b) { b.start.compare(a.start) })
-  for edit in sorted {
-    ignore(
-      self.apply_text_edit_internal(
-        edit.start,
-        edit.delete_len,
-        edit.inserted,
-        timestamp_ms,
-        true, // record_undo — grouped by capture timeout
-        false, // move_cursor_to_edit_end
-      ),
-    )
+  self.begin_projection_observation_batch()
+  try {
+    for edit in sorted {
+      ignore(
+        self.apply_text_edit_internal(
+          edit.start,
+          edit.delete_len,
+          edit.inserted,
+          timestamp_ms,
+          true, // record_undo — grouped by capture timeout
+          false, // move_cursor_to_edit_end
+        ),
+      )
+    }
+  } catch {
+    error => {
+      self.end_projection_observation_batch(succeeded=false)
+      raise error
+    }
   }
+  self.end_projection_observation_batch(succeeded=true)
   // Drop a pre-pushed hint when the batch produced no text change (T4).
   // Real changes need the hint available during apply_local_text_change's
   // immediate reconcile pass; no-op batches have no reparse to consume it.

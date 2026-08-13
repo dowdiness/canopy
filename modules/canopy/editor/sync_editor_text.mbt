@@ -250,6 +250,9 @@ fn[T : Eq] SyncEditor::apply_diagnostic_fix_candidate(
         timestamp_ms,
         true,
       )
+      if applied {
+        self.observe_authority_acceptance()
+      }
     }
   })
   self.undo.stop_capturing()
@@ -329,6 +332,7 @@ fn[T : Eq] SyncEditor::apply_text_edit_with_policy(
   }) else {
     return false
   }
+  self.observe_authority_acceptance()
   let new_text = editor_perf_measure("applyEditNewSnapshot", () => {
     self.doc.text()
   })

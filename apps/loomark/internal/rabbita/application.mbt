@@ -260,6 +260,7 @@ fn publish(
     (Some(coordinator), Some(token)) => coordinator.mark_publish_started(token)
     _ => ()
   }
+  projection_trace_published()
   let fields : Map[String, Json] = {
     "source": runtime_source(model).to_json(),
     "replica_id": model.replica_id.to_json(),
@@ -1761,10 +1762,12 @@ fn update_navigation(
         model.state,
         @core.ApplicationEvent::SelectMode(mode~),
       )
+      let old_requested = preview_requested(model)
+      let next_model = { ..model, state: transition.state() }
       let next = update_preview_document(
         attachment,
-        { ..model, state: transition.state() },
-        preview_requested(model),
+        next_model,
+        old_requested,
         accepted=true,
         changed=false,
       )
@@ -1775,9 +1778,10 @@ fn update_navigation(
         raw_input_coordinator.cancel_pending_for_navigation()
       }
       let old_requested = preview_requested(model)
+      let next_model = { ..model, split_preview_open: !model.split_preview_open }
       let next = update_preview_document(
         attachment,
-        { ..model, split_preview_open: !model.split_preview_open },
+        next_model,
         old_requested,
         accepted=true,
         changed=false,
@@ -2281,6 +2285,7 @@ fn update_model(
     Editing(RawNativeInput(token~, ..)) => Some(token)
     _ => None
   }
+  projection_trace_driver_model_adopted()
   publish(next, Some(raw_input_coordinator), raw_input_token)
   (next, command)
 }

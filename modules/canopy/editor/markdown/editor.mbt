@@ -937,6 +937,7 @@ pub fn MarkdownEditor::snapshot(
 ///|
 /// Return portable Markdown with façade-owned empty-block sentinels removed.
 pub fn MarkdownEditor::portable_markdown(self : Self) -> String {
+  markdown_full_export_observed()
   @md_companion.export_markdown_text(self.editor)
 }
 
@@ -963,7 +964,10 @@ pub fn MarkdownEditor::history_since(
 ) -> MarkdownDocumentHistory raise MarkdownArchiveError {
   let message = try {
     match version {
-      None => self.editor.export_all()
+      None => {
+        markdown_full_export_observed()
+        self.editor.export_all()
+      }
       Some(cut) => self.editor.export_since(cut.value)
     }
   } catch {
@@ -997,11 +1001,64 @@ pub fn MarkdownEditor::commit_with_receipt(
   self : Self,
   request : MarkdownEditRequest,
 ) -> Result[MarkdownCommitReceipt, MarkdownEditorError] raise {
+  self.commit_with_receipt_impl(request, None)
+}
+
+///|
+/// Apply one request while observing its projection-relevant synchronous
+/// phases. Observation is telemetry only and does not alter edit semantics.
+pub fn MarkdownEditor::commit_with_receipt_observing(
+  self : Self,
+  request : MarkdownEditRequest,
+  observer : (@editor.ProjectionObservationPhase) -> Unit,
+) -> Result[MarkdownCommitReceipt, MarkdownEditorError] raise {
+  self.commit_with_receipt_impl(request, Some(observer))
+}
+
+///|
+fn MarkdownEditor::commit_with_receipt_impl(
+  self : Self,
+  request : MarkdownEditRequest,
+  observer : ((@editor.ProjectionObservationPhase) -> Unit)?,
+) -> Result[MarkdownCommitReceipt, MarkdownEditorError] raise {
+  let authority_event_id = markdown_authority_trace_begin()
   let before_version = self.version()
-  match self.commit_recording_transforms(request) {
+  let observed = authority_event_id != 0 || observer is Some(_)
+  let (committed, authority_accepted) = if !observed {
+    (self.commit_recording_transforms(request), false)
+  } else {
+    self.editor.observe_projection_during(
+      phase => {
+        match phase {
+          @editor.ProjectionObservationPhase::AuthorityAccepted =>
+            if authority_event_id != 0 {
+              markdown_authority_trace_a0(authority_event_id)
+            }
+          @editor.ProjectionObservationPhase::CausalEvidenceAvailable => ()
+          @editor.ProjectionObservationPhase::ParserSynchronized => ()
+        }
+        match observer {
+          Some(emit) => emit(phase)
+          None => ()
+        }
+      },
+      () => self.commit_recording_transforms(request),
+    )
+  }
+  match committed {
     Err(error) => Err(error)
     Ok((result, transforms)) => {
       let after_version = self.version()
+      if authority_accepted {
+        if authority_event_id != 0 {
+          markdown_authority_trace_a1(authority_event_id)
+        }
+        match observer {
+          Some(emit) =>
+            emit(@editor.ProjectionObservationPhase::CausalEvidenceAvailable)
+          None => ()
+        }
+      }
       if after_version == before_version {
         Ok({
           result,

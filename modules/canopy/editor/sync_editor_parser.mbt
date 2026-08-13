@@ -61,6 +61,7 @@ fn[T : Eq] SyncEditor::sync_parser_after_text_change(
     }
   })
   self.mark_projection_dirty()
+  self.observe_parser_synchronized()
 }
 
 ///|

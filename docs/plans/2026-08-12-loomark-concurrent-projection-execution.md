@@ -327,6 +327,40 @@ Rabbita PR is permitted only for Warren multi-entry support.
 **Files:** existing Loomark reducer/transaction/lifecycle tests, disposable dev
 host, and private trace modules.
 
+#### Current responsibility map
+
+This map records the synchronous implementation before instrumentation. `Present`
+means Loomark invokes the path today; `façade-only` means Canopy exposes it but
+Loomark has no caller; `absent` means no current request or handler exists and
+Commit 1 must not invent one.
+
+| Path | Status and authority entry | A0/A1 and post-commit failure | Existing B–F ownership | Current classification |
+|---|---|---|---|---|
+| Raw `ReplaceText` | Present. `application.mbt:1026-1101` normalizes native input and delegates to `raw_selection_transaction.mbt`; all accepted edits reach `document_transaction.mbt:95-187`. | `MarkdownEditor::commit_recording_transforms` mutates the CRDT; `commit_with_receipt` reads the after-version and exports incremental history at `modules/canopy/editor/markdown/editor.mbt:996-1023`. `document_transaction.mbt:118-185` preserves accepted state across typed export/archive failures. A0 is therefore inside `commit_with_receipt`, before that function returns; current A1 is entangled with incremental history export. | Parser mirror C is synchronous in `sync_editor_parser.mbt:33-64`; Preview D is read at `preview_read_model.mbt:38-59`; Rabbita adopts E in the transaction return; `application.mbt:2236-2285` publishes the model and Rabbita subsequently presents F. | Accepted source change is replayable `Advance`; equal source is `SourceUnchanged`; parser failure enters recovery and coherent Seed reconstruction. |
+| `ReplaceSource` | Present. `application.mbt:1151-1236` reduces `RequestCanonicalSource`, then `document_transaction.mbt:192-208` submits one `MarkdownEditRequest::ReplaceSource`. | Same A0/A1 shell as Raw. The façade reuses the exact accepted splice at `editor.mbt:1037-1055`; unsafe post-mutation failure is represented as `MarkdownEditorError::Committed`. | Same synchronous C–F owners as Raw. | `SourceUnchanged` for no-op; replayable `Advance` when the exact accepted splice is portable; Seed barrier only when recovery cannot safely expose that effect outside A0/A1. |
+| Block structural edit | Present. Heading/list/delete/text-control events enter at `application.mbt:1276-1546` and delegate through `document_transaction.mbt:213-323`. | Same A0/A1 shell; stale Block evidence is rejected before commit at `application.mbt:1000-1013` and `1402-1417`. | C is the synchronous parser update; Block snapshot plus selection/resolver evidence is D; transaction/model update is E; after-render selection commands and Rabbita paint are F. | Accepted edit is replayable `Advance`; no-op is `SourceUnchanged`; parser failure enters Seed recovery. |
+| Undo / redo | Absent from Loomark and absent from `MarkdownEditRequest` (`editor.mbt:343-354`). `SyncEditor` owns an internal undo manager, but no Loomark authority entry exists. | No A0/A1 path to instrument. | No B–F path. | Unclassified until a separately reviewed authority request exists. |
+| Remote admission | Façade-only. `MarkdownEditor::admit` delegates to `SyncEditor::admit` at `editor.mbt:880-926`; Loomark has no production caller. | `SyncEditor::admit_with_policy` may partially mutate before reporting failure and synchronizes the parser at `sync_editor.mbt:531-565`. No Loomark receipt/effect boundary exists. | C occurs inside `admit_with_policy`; Loomark has no D–F adoption path. | Not classified by Loomark. Commit 1 characterizes the façade without adding a production route. |
+| Source-equal causal advance | Present through any accepted receipt whose document version advances while `document.source()` is equal. `commit_classification.mbt:7-35` is the pure owner. | A0/A1 are the same receipt path. | C updates document version but short-circuits parser source work at `sync_editor_parser.mbt:40-45`; existing Preview is kept by `preview_read_model.mbt:18-25`; E advances `document_version` without `source_revision`. | `SourceUnchanged`; it must not authorize an intent fenced to the old causal version. |
+| Demand-only Preview | Present. Mode and split demand enter `application.mbt:1736-1785` without an authority mutation. | No A0/A1 and no `DocumentVersion` advance. | `preview_read_model.mbt:12-59` decides whether to read the retained semantic attachment (current C/D); navigation adopts E; `application.mbt:2236-2285` publishes before F. | Demand request, not `Advance` or Seed; `NoDemand` creates no group work. |
+| Post-commit history/export failure | Present and typed. `commit_with_receipt` may raise while constructing history at `editor.mbt:1014-1022`; `document_transaction.mbt:118-156` reconstructs accepted state from the current façade frontier. | The mutation is already A0; the current implementation has no small A1 before export. Retry is forbidden. | Recovery may reconstruct C/D and then adopts/presents the accepted frontier through E/F. | Preserve the accepted `Advance`/`SourceUnchanged`; failure is not a second authority event. |
+| Parser failure recovery | Present. The application shell catches `Failure`/`Committed` and calls `recover_after_parser_failure` at `application.mbt:2494-2507`. | It reads parser-independent source/version/history, never retries the mutation. | `recovery_shell.mbt:75-197` disposes the old attachment, reopens one fresh editor/attachment, swaps the session only after success, adopts the recovered model, and persists it. | Generation invalidation followed by coherent Seed; every old result becomes terminal. |
+| Archive reopen | Present at startup through `standalone_bootstrap.mbt`; `editor_session.mbt:25-36` is the recovery reopen helper. | Opening existing history creates a fresh authority/session frontier rather than replaying a new mutation. | A fresh parser, semantic attachment, model, and mounted view establish C–F. | New generation plus Seed from the reopened coherent history. |
+| EditorSession replacement | Present only inside recovery. `recovery_shell.mbt:174-180` disposes the old attachment and swaps `session_ref` after the fresh snapshot succeeds. | No new authority mutation; captured accepted source/version/history remain authoritative. | Old C–F state is invalidated; fresh session produces replacement C–F state. | Generation invalidation plus Seed, never `SourceTransition`. |
+
+The first instrumentation seam is therefore not a standalone Projection Adapter.
+Commit 1 must distinguish A0 from the history-exporting remainder of
+`commit_with_receipt`, observe the existing synchronous C–F owners, and keep
+façade-only or absent paths out of Loomark production dispatch.
+
+Commit 1 intentionally adds two generated typed observation interfaces:
+`SyncEditor::observe_projection_during` owns one scoped mutation observation,
+and `MarkdownEditor::commit_with_receipt_observing` adds causal evidence at the
+façade seam. Neither exposes an arm/clear setter: each scope cleans up on every
+exit, coalesces multi-span parser synchronization, and returns whether the CRDT
+acceptance seam was consumed. The returned acceptance fact, never lossy trace
+storage, controls causal-evidence emission.
+
 **Red tests first:**
 
 1. accepted mutation plus later history/export failure records A0/A1 and never

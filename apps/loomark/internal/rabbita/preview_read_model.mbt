@@ -49,12 +49,17 @@ fn update_preview_document(
       accepted~,
       changed~,
     ) {
-    PreviewDocumentRead =>
+    PreviewDocumentRead => {
+      projection_trace_begin_demand_group(
+        next_requested=(!old_requested && preview_requested(model)),
+      )
+      projection_trace_semantic_attachment_read()
       {
         ..model,
         semantic_document: Some(attachment.document()),
         semantic_read_count: model.semantic_read_count + 1,
       }
+    }
     PreviewDocumentKeep => model
     PreviewDocumentClear => { ..model, semantic_document: None }
   }

@@ -115,8 +115,27 @@ fn commit_edit_request(
   } else {
     request
   }
-  let receipt = editor.commit_with_receipt(request) catch {
-    Failure::Failure(_) as failure => raise failure
+  let trace_request_id = if projection_trace_enabled() {
+    projection_trace_begin_request()
+  } else {
+    0
+  }
+  let receipt = (
+    if trace_request_id == 0 {
+      editor.commit_with_receipt(request)
+    } else {
+      editor.commit_with_receipt_observing(
+        request,
+        phase => projection_trace_observe_authority(trace_request_id, phase),
+      )
+    }
+  ) catch {
+    Failure::Failure(_) as failure => {
+      projection_trace_omit_request(
+        trace_request_id, PROJECTION_TRACE_REASON_NOT_ACCEPTED,
+      )
+      raise failure
+    }
     @markdown.MarkdownArchiveError::ExportFailed(..) => {
       let (accepted, frontier_advanced, changed) = accept_after_archive_error(
         editor, next,
@@ -153,15 +172,24 @@ fn commit_edit_request(
       )
       return (accepted, None, frontier_advanced, changed, @rabbita_runtime.none)
     }
-    error => raise error
+    error => {
+      projection_trace_clear_request(trace_request_id)
+      raise error
+    }
   }
   if inject_parser_failure && receipt is Ok(_) {
+    projection_trace_generation_invalidated()
     raise Failure::Failure("dev-host injected parser publication failure")
   }
   match receipt {
-    Err(@markdown.MarkdownEditorError::Committed(..) as committed) =>
+    Err(@markdown.MarkdownEditorError::Committed(..) as committed) => {
+      projection_trace_generation_invalidated()
       raise committed
+    }
     Err(error) => {
+      projection_trace_omit_request(
+        trace_request_id, PROJECTION_TRACE_REASON_NOT_ACCEPTED,
+      )
       let failed = record_error(
         next,
         "editor-commit-failed",

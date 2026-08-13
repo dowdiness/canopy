@@ -2,6 +2,7 @@
 package "dowdiness/canopy/editor/markdown"
 
 import {
+  "dowdiness/canopy/editor",
   "moonbitlang/core/debug",
   "moonbitlang/core/immut/vector",
 }
@@ -158,6 +159,7 @@ pub fn MarkdownEditor::MarkdownEditor(agent_id~ : String, source~ : String) -> S
 pub fn MarkdownEditor::admit(Self, MarkdownDocumentHistory) -> MarkdownAdmitReport raise
 pub fn MarkdownEditor::commit(Self, MarkdownEditRequest) -> Result[MarkdownCommitResult, MarkdownEditorError] raise
 pub fn MarkdownEditor::commit_with_receipt(Self, MarkdownEditRequest) -> Result[MarkdownCommitReceipt, MarkdownEditorError] raise
+pub fn MarkdownEditor::commit_with_receipt_observing(Self, MarkdownEditRequest, (@editor.ProjectionObservationPhase) -> Unit) -> Result[MarkdownCommitReceipt, MarkdownEditorError] raise
 pub fn MarkdownEditor::history_since(Self, version? : MarkdownDocumentVersion) -> MarkdownDocumentHistory raise MarkdownArchiveError
 pub fn MarkdownEditor::open(agent_id~ : String, history~ : MarkdownDocumentHistory, open_limits~ : MarkdownArchiveOpenLimits) -> Self raise
 pub fn MarkdownEditor::open_with_semantic_attachment(agent_id~ : String, history~ : MarkdownDocumentHistory, open_limits~ : MarkdownArchiveOpenLimits) -> (Self, @dowdiness/markdown.MarkdownSemanticAttachment) raise
