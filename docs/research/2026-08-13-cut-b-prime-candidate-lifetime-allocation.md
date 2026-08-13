@@ -229,13 +229,16 @@ Browser Editor Controller (external owner)
 ### CrossRuntime edges
 
 ```text
-CrossRuntime edge count in candidate: ZERO
+Target contract:
+  CrossRuntime edge count = ZERO
 ```
 
-No edge assigns the same semantic value to both current Incr and Incr Next.
-The candidate deletes all current-Incr Lambda producers
-(projection/eval/typecheck/analysis Deriveds, Watches, ProtectedCells) and
-replaces them with shell-owned or Incr Next Formula/Program owners. Generic
+No target edge assigns the same semantic value to both current Incr and Incr
+Next. If every stated migration condition closes, the candidate omits or
+deletes all current-Incr Lambda producers for the cut
+(projection/eval/typecheck/analysis Deriveds, Watches, and ProtectedCells) and
+replaces them with shell-owned or Incr Next Formula/Program owners. This is a
+contract condition, not behavioral implementation evidence. Generic
 current-Incr producers for non-Lambda languages (JSON, Markdown, JSX) remain
 unchanged and are not part of the Cut B′ deletion scope.
 
@@ -317,7 +320,7 @@ MoonBit editor alive but its browser owner torn down and unable to retry.
 | 4 | `IdentityHintConsumer` | Consume-only queue boundary | `modules/canopy/core/identity_hint_consumer.mbt::IdentityHintConsumer` | Deleted from Lambda instance; commit-time owned handoff | Conditional | No Lambda current builder consumer remains | Shared generic type retained while current hint pipeline remains |
 | 5 | `trace_ref` | Live reconcile trace publication | `modules/canopy/lang/lambda/companion/lambda_editor.mbt::trace_ref` | Exact `ProjectionCommit.trace` returned with edit token | Conditional | In-repo/exported consumers migrated; old closure/root removed | Exact command→commit handoff and exported API decision remain |
 
-### Additional deletion items
+### A. Deletion and construction-omission candidates
 
 | Current element | Current responsibility | Current source symbol | Candidate replacement | Deletable? | Deletion condition | Reason it remains |
 |---|---|---|---|---:|---|---|
@@ -335,12 +338,24 @@ MoonBit editor alive but its browser owner torn down and unable to retry.
 | 17 | `source_map_memo` | Projection/source ranges | `modules/canopy/editor/sync_editor.mbt::source_map_memo` | Lazy SourceMapExport over projection + exact ParserPublication syntax | Conditional | Every paired read checks commit provenance; legacy wire shape preserved; old builder omitted | Current readers and concrete APIs remain; payload identity alone is insufficient without exact syntax |
 | 18 | Diagnostic revision | Diagnostic source revision Derived | `modules/canopy/editor/diagnostic_publication_input.mbt::SyncEditor::diagnostic_publication_source_revision` | Pure typed `{SourceId, DocumentVersion}` export | Conditional | No current Derived/Watch in candidate path | Currently retention-only; registered but only unused diagnostic-input builder reads it |
 | 19 | Ideal RecomputeTap | Debug derived-event listener on shared current Runtime | `apps/ideal/main/init.mbt::init_model` → `RecomputeTap::attach(editor.parser_runtime())` | Next debug/telemetry stream or explicit product decision | Conditional | No `parser_runtime()` call/current listener in candidate | No production detach call exists; detach only flips `active` |
+| 24 | Raw MoonBit aliases | `get_sync_editor` / `get_lambda_companion` bypass | `modules/canopy/ffi/lambda/lifecycle.mbt::get_sync_editor`, `get_lambda_companion` | Migrate to single Lambda shell/read façade; post-close façade must not execute provider | Conditional | Concrete public APIs and Ideal Model migrated; old aliases removed | FFI registry removal cannot revoke copied aliases; aliases can still call parser/projection/analysis methods |
+| 25 | Typecheck raw DerivedMap / listener | Typecheck additive on-change listener | `deps/loom/examples/lambda/typecheck/typecheck.mbt::build_typecheck_pipeline_with_index` (ListenerId discarded) | Target typecheck owner must own replacement index lifecycle and subscription | Conditional | No listener on current Runtime; disposal owned by Program/Region | Scope disposal does not register/dispose this map; listener fires on every later Runtime revision |
+
+These rows are the positive-deletion basis. They name current Lambda producer,
+root, listener, alias, or constructor wiring that the target must omit. They do
+not count unrelated safety repairs as deletion credit.
+
+### B. Candidate safety and integration prerequisites
+
+The following rows are necessary for a safe candidate but do not increase the
+positive-deletion delta.
+
+| # | Current prerequisite gap | Current responsibility | Current source symbol | Candidate safety owner | Status | Closure condition | Reason it remains |
+|---|---|---|---|---|---:|---|---|
 | 20 | Async pattern ingress | ast-grep request/result publication | `modules/canopy/ffi/lambda/analysis.mbt::apply_ast_grep_results_json` | Shell/provider boundary with versioned request/publication provenance | Conditional | Versioned token captured before dispatch; validated at ingestion; late result after close must not publish | Current ingress stamps with current source snapshot; no request/publication token |
 | 21 | Browser refusal | Browser editor controller around `try_destroy_editor` | `apps/web/src/features/lambda/browser/editor.ts::dispose` | External owner must participate in preflight outcome | Conditional | Keep owner usable until preflight authorization or restore retryable owner on refusal | Currently tears down UI before destroy; ignores refusal |
 | 22 | File ingress | File open/save host invocation | `modules/canopy/ffi/lambda/file_io.mbt::load_file`, `save_file` | Shell/FFI boundary must gate target validity before host invocation | Conditional | Validate live handle before outbound request/save; late inbound delivery must relookup/admit | `load_file` invokes host without handle lookup; late open dispatch can target raw Ideal model path |
 | 23 | Cursor subscription | Internal cursor-store subscription | `modules/canopy/editor/sync_editor.mbt::setup_hub_and_cursor` (returned `EphemeralSubscription` is ignored) | Must be explicitly assigned: Shell-owned or Sync/Presence-owned | Conditional | Assign an owner and unsubscribe, or prove Sync/Presence owns the complete lifetime | Subscription handle is discarded; no explicit owner can sever it |
-| 24 | Raw MoonBit aliases | `get_sync_editor` / `get_lambda_companion` bypass | `modules/canopy/ffi/lambda/lifecycle.mbt::get_sync_editor`, `get_lambda_companion` | Migrate to single Lambda shell/read façade; post-close façade must not execute provider | Conditional | Concrete public APIs and Ideal Model migrated; old aliases removed | FFI registry removal cannot revoke copied aliases; aliases can still call parser/projection/analysis methods |
-| 25 | Typecheck raw DerivedMap / listener | Typecheck additive on-change listener | `deps/loom/examples/lambda/typecheck/typecheck.mbt::build_typecheck_pipeline_with_index` (ListenerId discarded) | Target typecheck owner must own replacement index lifecycle and subscription | Conditional | No listener on current Runtime; disposal owned by Program/Region | Scope disposal does not register/dispose this map; listener fires on every later Runtime revision |
 
 ### Generic framework vs Lambda-instance deletion scope
 

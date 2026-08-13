@@ -65,7 +65,11 @@ for heading in (
 
 for statement in (
     "PASS WITH CONSTRAINTS — ledger closure only",
-    "CrossRuntime edge count in candidate: ZERO",
+    "CrossRuntime edge count = ZERO",
+    "contract condition, not behavioral implementation evidence.",
+    "### A. Deletion and construction-omission candidates",
+    "### B. Candidate safety and integration prerequisites",
+    "positive-deletion delta",
     "The candidate read-model Region is **Incr Next evidence**",
     "does **not** authorize:",
     "P1 performance is frozen",
@@ -89,7 +93,19 @@ require(
     "five-item numbered ledger must contain rows 1..5 exactly once",
 )
 for number in range(6, 26):
-    require(f"| {number} |" in doc, f"missing deletion ledger row {number}")
+    require(f"| {number} |" in doc, f"missing ledger row {number}")
+
+delete_heading = doc.index("### A. Deletion and construction-omission candidates")
+safety_heading = doc.index("### B. Candidate safety and integration prerequisites")
+scope_heading = doc.index("### Generic framework vs Lambda-instance deletion scope")
+delete_section = doc[delete_heading:safety_heading]
+safety_section = doc[safety_heading:scope_heading]
+for number in (*range(6, 20), 24, 25):
+    require(f"| {number} |" in delete_section, f"row {number} must remain deletion/omission candidate")
+    require(f"| {number} |" not in safety_section, f"row {number} misclassified as safety prerequisite")
+for number in range(20, 24):
+    require(f"| {number} |" in safety_section, f"row {number} must remain safety/integration prerequisite")
+    require(f"| {number} |" not in delete_section, f"row {number} incorrectly counted as deletion candidate")
 
 # Current source anchors that make the allocation/deletion ledger source-closed.
 source_has(
