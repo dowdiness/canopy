@@ -396,6 +396,26 @@ _Avoid_: Document head, autosave, recovery file, main history
 
 Framework vocabulary for the projection engine that backs the application terms above. Distinct from the Editing Document domain: these describe how the editing session's tree keeps identity across reparses, not how documents persist.
 
+**Projection execution**:
+The derivation of replaceable Block, semantic, diagnostic, and presentation artifacts from immutable committed input. Every group uses Markdown source; the Block interactive group also uses selection/focus state captured at the same Projection stamp. Projection execution may complete after its requesting mutation and cannot mutate authority state.
+_Avoid_: Authority commit, parser callback, render pass
+
+**Projection generation**:
+One contiguous lifetime of projection state initialized from a coherent committed source. Recovery, replacement, or a source-continuity gap starts a new generation, after which results from every earlier generation are obsolete.
+_Avoid_: Writing instance, document version, browser generation
+
+**Projection stamp**:
+The provenance that binds projection work and its artifacts to one Projection generation, one adapter-lifetime ordered position, the exact source revision used for derivation, and the originating causal document version. The sequence does not reset when generation changes. Artifact display requires current source provenance; applying an edit intent additionally requires the exact causal version.
+_Avoid_: Cache key, timestamp, render version
+
+**Group work**:
+One independently terminal derivation for one demanded consistency group. One projection request may issue Block, Preview, and diagnostics group work with different outcomes; a presentation may correlate several adopted group work items.
+_Avoid_: Authority event, projection request, frame
+
+**Artifact Bundle**:
+The immutable atomic payload of one group work item, derived from one Projection stamp and adopted as one demand-defined consistency group. Unrelated groups do not share an adoption barrier, and an absent undemanded artifact is not an independently current representation.
+_Avoid_: Application state, parser snapshot, all-lane snapshot, independent view cache
+
 **Reconciliation**:
 The identity-preserving match between the previous projection tree and the newly reparsed tree: it decides, for each node in the new tree, whether it is the same node as one in the old tree (carrying its NodeId) or a fresh node. It is not text diffing and not CRDT merge.
 _Avoid_: Merge, diff, CRDT merge

@@ -1,14 +1,23 @@
 ///|
 fn make_test_state() -> CanvasState {
   {
-    viewport: Viewport::validated(
-      origin=ScreenPoint::from_xy(x=0.0, y=0.0),
-      scale=1.0,
+    viewport: Viewport::from_scale(
+      origin=try! ScreenPoint::from_xy(x=0.0, y=0.0),
+      scale=try! @spatial.Scale::from_double(value=1.0),
     ),
     nodes: [
-      @graph_model.make_workflow_node(NodeId("1"), TimerTrigger, 100.0, 100.0),
-      @graph_model.make_workflow_node(NodeId("2"), HttpRequest, 420.0, 100.0),
-      @graph_model.make_workflow_node(NodeId("3"), DataFormatter, 760.0, 100.0),
+      @graph_model.make_workflow_node(
+        NodeId("1"), TimerTrigger,
+        try! @spatial.WorldPoint::from_xy(x=100.0, y=100.0),
+      ),
+      @graph_model.make_workflow_node(
+        NodeId("2"), HttpRequest,
+        try! @spatial.WorldPoint::from_xy(x=420.0, y=100.0),
+      ),
+      @graph_model.make_workflow_node(
+        NodeId("3"), DataFormatter,
+        try! @spatial.WorldPoint::from_xy(x=760.0, y=100.0),
+      ),
     ],
     edges: [],
     next_node_id: 4,
@@ -21,7 +30,10 @@ fn make_test_state() -> CanvasState {
 test "validate_workflow reports missing typed input ports independently" {
   let nodes = make_test_state().nodes.copy()
   nodes.push(
-    @graph_model.make_workflow_node(NodeId("4"), ConditionalBranch, 0.0, 0.0),
+    @graph_model.make_workflow_node(
+      NodeId("4"), ConditionalBranch,
+      try! @spatial.WorldPoint::from_xy(x=0.0, y=0.0),
+    ),
   )
   let state : CanvasState = {
     ..make_test_state(),
@@ -90,14 +102,13 @@ test "runtime ignores non-finite drag moves before commit" {
   let initial = runtime.state_peek()
   let node = initial.nodes[0]
   let screen = initial.viewport.world_to_screen(
-    @spatial.WorldPoint::from_xy(x=node.x, y=node.y),
+    node.position(),
   )
-  runtime.pointer_down(Some(node.id), screen.x, screen.y)
-  runtime.pointer_move(1.0 / 0.0, screen.y)
+  runtime.pointer_down(Some(node.id), screen.x(), screen.y())
+  runtime.pointer_move(1.0 / 0.0, screen.y())
   runtime.pointer_up(node.id.to_string(), "", false)
   let next = runtime.state_peek()
-  assert_eq(next.nodes[0].x, node.x)
-  assert_eq(next.nodes[0].y, node.y)
+  assert_eq(next.nodes[0].position(), node.position())
   assert_true(next.action_log.length() > 0)
   match next.action_log[0].action() {
     MoveNodes(_) => fail("invalid drag move must not commit")
@@ -136,9 +147,9 @@ test "runtime sparse inspector follows hover until a node is selected" {
   let runtime = CanvasRuntime::CanvasRuntime()
   runtime.sync_viewport_state({
     ..runtime.state_peek(),
-    viewport: Viewport::validated(
-      origin=ScreenPoint::from_xy(x=0.0, y=0.0),
-      scale=1.0,
+    viewport: Viewport::from_scale(
+      origin=try! ScreenPoint::from_xy(x=0.0, y=0.0),
+      scale=try! @spatial.Scale::from_double(value=1.0),
     ),
   })
   runtime.hover_node("1")

@@ -1,5 +1,5 @@
 ///|
-using @spatial {type ScreenPoint, type Viewport}
+using @spatial {type ScreenPoint, type WorldPoint, type Viewport}
 
 ///|
 // v2: NodeId/EdgeId wire encoding is a JSON string (the projection token), not
@@ -196,37 +196,108 @@ pub impl Show for NodeKind with fn output(self, logger) {
 }
 
 ///|
+/// Node dimensions are finite and non-negative. Zero dimensions are valid for
+/// collapsed or not-yet-measured layout.
+pub(all) suberror NodeSizeError {
+  /// The width is NaN or positive/negative infinity.
+  NonFiniteWidth
+  /// The height is NaN or positive/negative infinity.
+  NonFiniteHeight
+  /// The width is negative.
+  NegativeWidth
+  /// The height is negative.
+  NegativeHeight
+} derive(Eq, Debug)
+
+///|
+pub struct NodeSize {
+  priv width : Double
+  priv height : Double
+} derive(Debug, Eq)
+
+///|
+/// Construct graph-specific node dimensions.
+pub fn NodeSize::from_wh(
+  width~ : Double,
+  height~ : Double,
+) -> NodeSize raise NodeSizeError {
+  guard !width.is_nan() && !width.is_inf() else {
+    raise NodeSizeError::NonFiniteWidth
+  }
+  guard !height.is_nan() && !height.is_inf() else {
+    raise NodeSizeError::NonFiniteHeight
+  }
+  guard width >= 0.0 else { raise NodeSizeError::NegativeWidth }
+  guard height >= 0.0 else { raise NodeSizeError::NegativeHeight }
+  { width, height }
+}
+
+///|
+pub fn NodeSize::width(self : NodeSize) -> Double {
+  self.width
+}
+
+///|
+pub fn NodeSize::height(self : NodeSize) -> Double {
+  self.height
+}
+
+///|
+/// A graph node position is the spatial item-position shape specialized to
+/// graph node identities. JSON conversion remains owned by this package.
+pub type NodePosition = @spatial.ItemPosition[NodeId]
+
+///|
 /// A single node on the canvas. Coordinates are in world space. The visual
 /// editor owns layout and display state; executable behavior lives in a future
 /// compiler/execution layer keyed by `kind` and ports.
 pub(all) struct CanvasNode {
   id : NodeId
-  x : Double
-  y : Double
-  w : Double
-  h : Double
+  priv position : WorldPoint
+  priv size : NodeSize
   kind : NodeKind
   title : String
   subtitle : String
   inputs : Array[PortDef]
   outputs : Array[PortDef]
   configured : Bool
-} derive(Debug, Eq, ToJson, FromJson)
+} derive(Debug, Eq)
 
 ///|
-pub impl Show for CanvasNode with fn output(self, logger) {
-  logger.write_string(@debug.to_string(self))
+pub fn CanvasNode::from_parts(
+  id~ : NodeId,
+  position~ : WorldPoint,
+  size~ : NodeSize,
+  kind~ : NodeKind,
+  title~ : String,
+  subtitle~ : String,
+  inputs~ : Array[PortDef],
+  outputs~ : Array[PortDef],
+  configured~ : Bool,
+) -> CanvasNode {
+  { id, position, size, kind, title, subtitle, inputs, outputs, configured }
 }
 
 ///|
-pub(all) struct NodePosition {
-  node_id : NodeId
-  x : Double
-  y : Double
-} derive(Debug, Eq, ToJson, FromJson)
+pub fn CanvasNode::position(self : CanvasNode) -> WorldPoint {
+  self.position
+}
 
 ///|
-pub impl Show for NodePosition with fn output(self, logger) {
+pub fn CanvasNode::size(self : CanvasNode) -> NodeSize {
+  self.size
+}
+
+///|
+pub fn CanvasNode::with_position(
+  self : CanvasNode,
+  position : WorldPoint,
+) -> CanvasNode {
+  { ..self, position, }
+}
+
+///|
+pub impl Show for CanvasNode with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -336,11 +407,11 @@ pub impl ToJson for GraphOperation with fn to_json(self) {
   match self.action {
     AddNode(node) => {
       fields["type"] = "AddNode".to_json()
-      fields["node"] = node.to_json()
+      fields["node"] = ToJson::to_json(canvas_node_to_wire(node))
     }
     MoveNodes(positions) => {
       fields["type"] = "MoveNodes".to_json()
-      fields["positions"] = positions.to_json()
+      fields["positions"] = positions.map(node_position_to_wire).to_json()
     }
     ConnectPorts(source, source_port, target, target_port) => {
       fields["type"] = "ConnectPorts".to_json()
@@ -404,17 +475,25 @@ pub impl @json.FromJson for GraphOperation with fn from_json(json, path) {
   let type_name = json_string_field(fields, path, "type", "GraphOperation")
   let action = match type_name {
     "AddNode" => {
-      let node : CanvasNode = @json.from_json(
+      let node_wire : CanvasNodeWire = @json.from_json(
         require_json_field(fields, path, "node", "AddNode"),
         path=path.add_key("node"),
       )
-      WorkflowAction::AddNode(node)
+      WorkflowAction::AddNode(
+        canvas_node_from_wire(node_wire, path.add_key("node")),
+      )
     }
     "MoveNodes" => {
-      let positions : Array[NodePosition] = @json.from_json(
+      let position_wires : Array[NodePositionWire] = @json.from_json(
         require_json_field(fields, path, "positions", "MoveNodes"),
         path=path.add_key("positions"),
       )
+      let positions = position_wires.mapi((index, wire) => {
+        node_position_from_wire(
+          wire,
+          path.add_key("positions").add_index(index),
+        )
+      })
       WorkflowAction::MoveNodes(positions)
     }
     "ConnectPorts" => {
@@ -494,30 +573,6 @@ pub impl @json.FromJson for GraphOperation with fn from_json(json, path) {
 }
 
 ///|
-/// State captured at the start of a node drag gesture.
-pub(all) struct DragState {
-  node_id : NodeId
-  drag : @spatial.Drag[NodeId]
-} derive(Debug, Eq)
-
-///|
-pub impl Show for DragState with fn output(self, logger) {
-  logger.write_string(@debug.to_string(self))
-}
-
-///|
-/// State captured at the start of a pan gesture.
-pub(all) struct PanState {
-  start_pointer : ScreenPoint
-  initial_viewport : Viewport
-} derive(Debug, Eq)
-
-///|
-pub impl Show for PanState with fn output(self, logger) {
-  logger.write_string(@debug.to_string(self))
-}
-
-///|
 /// A typed connection between two workflow ports.
 pub(all) struct Edge {
   id : EdgeId
@@ -534,13 +589,26 @@ pub impl Show for Edge with fn output(self, logger) {
 
 ///|
 /// In-flight connection started from a node's output handle.
-/// `cursor_x`/`cursor_y` are world coordinates of the pointer.
+/// The cursor is a validated world-space point.
 pub(all) struct ConnectState {
   from_node : NodeId
   from_port : String
-  cursor_x : Double
-  cursor_y : Double
+  priv cursor : WorldPoint
 } derive(Debug, Eq)
+
+///|
+pub fn ConnectState::from_parts(
+  from_node~ : NodeId,
+  from_port~ : String,
+  cursor~ : WorldPoint,
+) -> ConnectState {
+  { from_node, from_port, cursor }
+}
+
+///|
+pub fn ConnectState::cursor(self : ConnectState) -> WorldPoint {
+  self.cursor
+}
 
 ///|
 pub impl Show for ConnectState with fn output(self, logger) {
@@ -549,8 +617,8 @@ pub impl Show for ConnectState with fn output(self, logger) {
 
 ///|
 pub(all) struct InteractionState {
-  dragging : DragState?
-  panning : PanState?
+  dragging : @spatial.Drag[NodeId]?
+  panning : @spatial.Pan?
   connecting : ConnectState?
   selected : NodeId?
   selected_nodes : Array[NodeId]
@@ -597,108 +665,93 @@ pub fn port(
 pub fn make_workflow_node(
   id : NodeId,
   kind : WorkflowNodeKind,
-  x : Double,
-  y : Double,
+  position : WorldPoint,
 ) -> CanvasNode {
   match kind {
     TimerTrigger =>
-      {
-        id,
-        x,
-        y,
-        w: 244.0,
-        h: 132.0,
-        kind: NodeKind::Workflow(TimerTrigger),
-        title: "Timer trigger",
-        subtitle: "Starts a workflow on a schedule",
-        inputs: [],
-        outputs: [port("tick", "tick", Flow)],
-        configured: true,
-      }
+      CanvasNode::from_parts(
+        id~,
+        position~,
+        size=try! NodeSize::from_wh(width=244.0, height=132.0),
+        kind=NodeKind::Workflow(TimerTrigger),
+        title="Timer trigger",
+        subtitle="Starts a workflow on a schedule",
+        inputs=[],
+        outputs=[port("tick", "tick", Flow)],
+        configured=true,
+      )
     HttpRequest =>
-      {
-        id,
-        x,
-        y,
-        w: 260.0,
-        h: 148.0,
-        kind: NodeKind::Workflow(HttpRequest),
-        title: "HTTP request",
-        subtitle: "Call an API and emit JSON",
-        inputs: [port("in", "flow", Flow)],
-        outputs: [port("json", "JSON", Json)],
-        configured: false,
-      }
+      CanvasNode::from_parts(
+        id~,
+        position~,
+        size=try! NodeSize::from_wh(width=260.0, height=148.0),
+        kind=NodeKind::Workflow(HttpRequest),
+        title="HTTP request",
+        subtitle="Call an API and emit JSON",
+        inputs=[port("in", "flow", Flow)],
+        outputs=[port("json", "JSON", Json)],
+        configured=false,
+      )
     DataFormatter =>
-      {
-        id,
-        x,
-        y,
-        w: 260.0,
-        h: 148.0,
-        kind: NodeKind::Workflow(DataFormatter),
-        title: "Format data",
-        subtitle: "Map JSON fields into text",
-        inputs: [port("json", "JSON", Json)],
-        outputs: [port("text", "text", Text)],
-        configured: true,
-      }
+      CanvasNode::from_parts(
+        id~,
+        position~,
+        size=try! NodeSize::from_wh(width=260.0, height=148.0),
+        kind=NodeKind::Workflow(DataFormatter),
+        title="Format data",
+        subtitle="Map JSON fields into text",
+        inputs=[port("json", "JSON", Json)],
+        outputs=[port("text", "text", Text)],
+        configured=true,
+      )
     ConditionalBranch =>
-      {
-        id,
-        x,
-        y,
-        w: 270.0,
-        h: 156.0,
-        kind: NodeKind::Workflow(ConditionalBranch),
-        title: "Condition",
-        subtitle: "Route items by a boolean rule",
-        inputs: [port("text", "text", Text), port("rule", "rule", Boolean)],
-        outputs: [port("true", "true", Flow), port("false", "false", Flow)],
-        configured: true,
-      }
+      CanvasNode::from_parts(
+        id~,
+        position~,
+        size=try! NodeSize::from_wh(width=270.0, height=156.0),
+        kind=NodeKind::Workflow(ConditionalBranch),
+        title="Condition",
+        subtitle="Route items by a boolean rule",
+        inputs=[port("text", "text", Text), port("rule", "rule", Boolean)],
+        outputs=[port("true", "true", Flow), port("false", "false", Flow)],
+        configured=true,
+      )
     Loop =>
-      {
-        id,
-        x,
-        y,
-        w: 244.0,
-        h: 132.0,
-        kind: NodeKind::Workflow(Loop),
-        title: "Loop",
-        subtitle: "Repeat work over a collection",
-        inputs: [port("items", "items", Json)],
-        outputs: [port("each", "each", Json), port("count", "count", Number)],
-        configured: true,
-      }
+      CanvasNode::from_parts(
+        id~,
+        position~,
+        size=try! NodeSize::from_wh(width=244.0, height=132.0),
+        kind=NodeKind::Workflow(Loop),
+        title="Loop",
+        subtitle="Repeat work over a collection",
+        inputs=[port("items", "items", Json)],
+        outputs=[port("each", "each", Json), port("count", "count", Number)],
+        configured=true,
+      )
     Parallel =>
-      {
-        id,
-        x,
-        y,
-        w: 244.0,
-        h: 132.0,
-        kind: NodeKind::Workflow(Parallel),
-        title: "Parallel split",
-        subtitle: "Run independent branches together",
-        inputs: [port("in", "flow", Flow)],
-        outputs: [port("a", "A", Flow), port("b", "B", Flow)],
-        configured: true,
-      }
+      CanvasNode::from_parts(
+        id~,
+        position~,
+        size=try! NodeSize::from_wh(width=244.0, height=132.0),
+        kind=NodeKind::Workflow(Parallel),
+        title="Parallel split",
+        subtitle="Run independent branches together",
+        inputs=[port("in", "flow", Flow)],
+        outputs=[port("a", "A", Flow), port("b", "B", Flow)],
+        configured=true,
+      )
     Custom(name) =>
-      {
-        id,
-        x,
-        y,
-        w: 250.0,
-        h: 138.0,
-        kind: NodeKind::Workflow(Custom(name)),
-        title: name,
-        subtitle: "Custom workflow step",
-        inputs: [port("in", "any", Any)],
-        outputs: [port("out", "any", Any)],
-        configured: false,
-      }
+      CanvasNode::from_parts(
+        id~,
+        position~,
+        size=try! NodeSize::from_wh(width=250.0, height=138.0),
+        kind=NodeKind::Workflow(Custom(name)),
+        title=name,
+        subtitle="Custom workflow step",
+        inputs=[port("in", "any", Any)],
+        outputs=[port("out", "any", Any)],
+        configured=false,
+      )
   }
 }
 
@@ -731,7 +784,7 @@ pub fn find_position(
   id : NodeId,
 ) -> NodePosition? {
   for pos in positions {
-    if pos.node_id == id {
+    if pos.id == id {
       return Some(pos)
     }
   }
@@ -939,7 +992,7 @@ pub fn apply_action(
       let nodes = state.nodes.map(fn(node) {
         match find_position(positions, node.id) {
           None => node
-          Some(pos) => { ..node, x: pos.x, y: pos.y }
+          Some(pos) => node.with_position(pos.point)
         }
       })
       { ..state, nodes, }
@@ -1015,17 +1068,41 @@ pub fn replay_operations(
 /// loop, and parallel-flow concepts.
 pub impl Default for CanvasState with fn default() -> CanvasState {
   let nodes = [
-    make_workflow_node(NodeId("1"), TimerTrigger, -520.0, -190.0),
-    make_workflow_node(NodeId("2"), HttpRequest, -190.0, -190.0),
-    make_workflow_node(NodeId("3"), DataFormatter, 155.0, -190.0),
-    make_workflow_node(NodeId("4"), ConditionalBranch, 500.0, -190.0),
-    make_workflow_node(NodeId("5"), Loop, 150.0, 60.0),
-    make_workflow_node(NodeId("6"), Parallel, 500.0, 70.0),
+    make_workflow_node(
+      NodeId("1"),
+      TimerTrigger,
+      try! WorldPoint::from_xy(x=-520.0, y=-190.0),
+    ),
+    make_workflow_node(
+      NodeId("2"),
+      HttpRequest,
+      try! WorldPoint::from_xy(x=-190.0, y=-190.0),
+    ),
+    make_workflow_node(
+      NodeId("3"),
+      DataFormatter,
+      try! WorldPoint::from_xy(x=155.0, y=-190.0),
+    ),
+    make_workflow_node(
+      NodeId("4"),
+      ConditionalBranch,
+      try! WorldPoint::from_xy(x=500.0, y=-190.0),
+    ),
+    make_workflow_node(
+      NodeId("5"),
+      Loop,
+      try! WorldPoint::from_xy(x=150.0, y=60.0),
+    ),
+    make_workflow_node(
+      NodeId("6"),
+      Parallel,
+      try! WorldPoint::from_xy(x=500.0, y=70.0),
+    ),
   ]
   {
-    viewport: Viewport::validated(
-      origin=ScreenPoint::from_xy(x=760.0, y=330.0),
-      scale=0.75,
+    viewport: Viewport::from_scale(
+      origin=try! ScreenPoint::from_xy(x=760.0, y=330.0),
+      scale=try! @spatial.Scale::from_double(value=0.75),
     ),
     nodes,
     edges: [

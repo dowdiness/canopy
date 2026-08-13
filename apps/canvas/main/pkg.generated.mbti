@@ -115,8 +115,6 @@ pub using @graph_model {type ConnectState}
 
 pub using @graph_model {type DragPreview}
 
-pub using @graph_model {type DragState}
-
 pub using @graph_model {type Edge}
 
 pub using @graph_model {type EdgeId}
@@ -131,7 +129,7 @@ pub using @graph_model {type NodeKind}
 
 pub using @graph_model {type NodePosition}
 
-pub using @graph_model {type PanState}
+pub using @graph_model {type NodeSize}
 
 pub using @graph_model {type PortDef}
 

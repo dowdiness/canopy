@@ -9,9 +9,9 @@ fn viewport_for_test(
   origin_y : Double,
   scale : Double,
 ) -> @spatial.Viewport {
-  @spatial.Viewport::validated(
-    origin=@spatial.ScreenPoint::from_xy(x=origin_x, y=origin_y),
-    scale~,
+  @spatial.Viewport::from_scale(
+    origin=try! @spatial.ScreenPoint::from_xy(x=origin_x, y=origin_y),
+    scale=try! @spatial.Scale::from_double(value=scale),
   )
 }
 
@@ -51,14 +51,12 @@ fn replay_base_state() -> @graph_model.CanvasState {
       @graph_model.make_workflow_node(
         node_id(1),
         @graph_model.WorkflowNodeKind::TimerTrigger,
-        100.0,
-        100.0,
+        try! @spatial.WorldPoint::from_xy(x=100.0, y=100.0),
       ),
       @graph_model.make_workflow_node(
         node_id(2),
         @graph_model.WorkflowNodeKind::HttpRequest,
-        420.0,
-        100.0,
+        try! @spatial.WorldPoint::from_xy(x=420.0, y=100.0),
       ),
     ],
     edges: [],
@@ -70,14 +68,19 @@ fn replay_base_state() -> @graph_model.CanvasState {
 
 ///|
 fn fan_in_base_state(allows_fan_in : Bool) -> @graph_model.CanvasState {
-  let target = {
-    ..@graph_model.make_workflow_node(
-      node_id(3),
-      @graph_model.WorkflowNodeKind::Custom("Join"),
-      760.0,
-      100.0,
-    ),
-    inputs: [
+  let base_target = @graph_model.make_workflow_node(
+    node_id(3),
+    @graph_model.WorkflowNodeKind::Custom("Join"),
+    try! @spatial.WorldPoint::from_xy(x=760.0, y=100.0),
+  )
+  let target = @graph_model.CanvasNode::from_parts(
+    id=base_target.id,
+    position=base_target.position(),
+    size=base_target.size(),
+    kind=base_target.kind,
+    title=base_target.title,
+    subtitle=base_target.subtitle,
+    inputs=[
       @graph_model.port(
         "in",
         "flow",
@@ -85,21 +88,21 @@ fn fan_in_base_state(allows_fan_in : Bool) -> @graph_model.CanvasState {
         allows_fan_in~,
       ),
     ],
-  }
+    outputs=base_target.outputs,
+    configured=base_target.configured,
+  )
   {
     viewport: viewport_for_test(0.0, 0.0, 1.0),
     nodes: [
       @graph_model.make_workflow_node(
         node_id(1),
         @graph_model.WorkflowNodeKind::TimerTrigger,
-        100.0,
-        100.0,
+        try! @spatial.WorldPoint::from_xy(x=100.0, y=100.0),
       ),
       @graph_model.make_workflow_node(
         node_id(2),
         @graph_model.WorkflowNodeKind::TimerTrigger,
-        420.0,
-        100.0,
+        try! @spatial.WorldPoint::from_xy(x=420.0, y=100.0),
       ),
       target,
     ],
@@ -127,10 +130,29 @@ test "GraphOperation serializes as a versioned JSON operation" {
 }
 
 ///|
+test "MoveNodes preserves its flat JSON shape" {
+  let operation = @graph_model.GraphOperation::GraphOperation(
+    @graph_model.WorkflowAction::MoveNodes([
+      @spatial.ItemPosition::from_id_and_point(
+        id=node_id(1),
+        point=try! @spatial.WorldPoint::from_xy(x=180.0, y=240.0),
+      ),
+    ]),
+  )
+  inspect(
+    operation.to_json().stringify(),
+    content="{\"version\":2,\"type\":\"MoveNodes\",\"positions\":[{\"node_id\":\"1\",\"x\":180,\"y\":240}]}",
+  )
+}
+
+///|
 test "GraphOperation round-trips through JSON" {
   let operation = @graph_model.GraphOperation::GraphOperation(
     @graph_model.WorkflowAction::MoveNodes([
-      { node_id: node_id(1), x: 180.0, y: 240.0 },
+      @spatial.ItemPosition::from_id_and_point(
+        id=node_id(1),
+        point=try! @spatial.WorldPoint::from_xy(x=180.0, y=240.0),
+      ),
     ]),
   )
   let decoded : @graph_model.GraphOperation = @json.from_json(
@@ -211,8 +233,7 @@ test "operation log round-trips and replays into canvas graph state" {
   let added = @graph_model.make_workflow_node(
     node_id(3),
     @graph_model.WorkflowNodeKind::DataFormatter,
-    760.0,
-    100.0,
+    try! @spatial.WorldPoint::from_xy(x=760.0, y=100.0),
   )
   let operations = [
     @graph_model.GraphOperation::GraphOperation(
@@ -220,7 +241,10 @@ test "operation log round-trips and replays into canvas graph state" {
     ),
     @graph_model.GraphOperation::GraphOperation(
       @graph_model.WorkflowAction::MoveNodes([
-        { node_id: node_id(3), x: 800.0, y: 140.0 },
+        @spatial.ItemPosition::from_id_and_point(
+          id=node_id(3),
+          point=try! @spatial.WorldPoint::from_xy(x=800.0, y=140.0),
+        ),
       ]),
     ),
     @graph_model.GraphOperation::GraphOperation(
@@ -243,8 +267,8 @@ test "operation log round-trips and replays into canvas graph state" {
   assert_eq(replayed.nodes.length(), 2)
   assert_eq(replayed.edges.length(), 0)
   assert_eq(replayed.nodes[1].id, node_id(3))
-  assert_eq(replayed.nodes[1].x, 800.0)
-  assert_eq(replayed.nodes[1].y, 140.0)
+  assert_eq(replayed.nodes[1].position().x(), 800.0)
+  assert_eq(replayed.nodes[1].position().y(), 140.0)
   assert_eq(replayed.action_log.length(), 4)
 }
 
@@ -290,6 +314,26 @@ test "viewport coordinate errors identify their fields" {
 }
 
 ///|
+test "valid node geometry preserves its flat JSON shape" {
+  let node = @graph_model.make_workflow_node(
+    node_id(9),
+    @graph_model.WorkflowNodeKind::Custom("Sized"),
+    try! @spatial.WorldPoint::from_xy(x=12.0, y=-4.0),
+  )
+  let operation = @graph_model.GraphOperation::GraphOperation(
+    @graph_model.WorkflowAction::AddNode(node),
+  )
+  inspect(
+    operation.to_json().stringify(),
+    content="{\"version\":2,\"type\":\"AddNode\",\"node\":{\"id\":\"9\",\"x\":12,\"y\":-4,\"w\":250,\"h\":138,\"kind\":[\"Workflow\",[\"Custom\",\"Sized\"]],\"title\":\"Sized\",\"subtitle\":\"Custom workflow step\",\"inputs\":[{\"id\":\"in\",\"label\":\"any\",\"port_type\":\"Any\"}],\"outputs\":[{\"id\":\"out\",\"label\":\"any\",\"port_type\":\"Any\"}],\"configured\":false}}",
+  )
+  let decoded : @graph_model.GraphOperation = @json.from_json(
+    operation.to_json(),
+  )
+  @debug.assert_eq(decoded, operation)
+}
+
+///|
 test "valid viewport operations preserve their JSON shape during replay" {
   let viewport = viewport_for_test(20.0, -10.0, 2.5)
   let operation = @graph_model.GraphOperation::GraphOperation(
@@ -305,6 +349,59 @@ test "valid viewport operations preserve their JSON shape during replay" {
   let replayed = @graph_model.replay_operations(replay_base_state(), [decoded])
   assert_eq(replayed.viewport, viewport)
   @debug.assert_eq(replayed.action_log, [operation])
+}
+
+///|
+test "invalid node geometry JSON is rejected before replay" {
+  let node = @graph_model.make_workflow_node(
+    node_id(9),
+    @graph_model.WorkflowNodeKind::Custom("Sized"),
+    try! @spatial.WorldPoint::from_xy(x=12.0, y=-4.0),
+  )
+  let operation_json = operation => {
+    let fields : Map[String, Json] = Map([])
+    fields["version"] = (2).to_json()
+    fields["type"] = "AddNode".to_json()
+    fields["node"] = operation
+    Json::object(fields)
+  }
+  let valid_operation = operation_json(
+    match
+      @graph_model.GraphOperation::GraphOperation(
+        @graph_model.WorkflowAction::AddNode(node),
+      ).to_json() {
+      Json::Object(fields) =>
+        match fields.get("node") {
+          Some(value) => value
+          None => fail("expected node field")
+        }
+      _ => fail("expected operation object")
+    },
+  )
+  match valid_operation {
+    Json::Object(operation_fields) =>
+      match operation_fields.get("node") {
+        Some(Json::Object(fields)) => {
+          let negative_width = fields.copy()
+          negative_width["w"] = (-1.0).to_json()
+          assert_rejects_viewport_operation(
+            operation_json(Json::object(negative_width)),
+          )
+          let non_finite_height = fields.copy()
+          non_finite_height["h"] = Json::number(1.0 / 0.0)
+          assert_rejects_viewport_operation(
+            operation_json(Json::object(non_finite_height)),
+          )
+          let non_finite_x = fields.copy()
+          non_finite_x["x"] = Json::number(0.0 / 0.0)
+          assert_rejects_viewport_operation(
+            operation_json(Json::object(non_finite_x)),
+          )
+        }
+        _ => fail("expected node object JSON")
+      }
+    _ => fail("expected operation object JSON")
+  }
 }
 
 ///|

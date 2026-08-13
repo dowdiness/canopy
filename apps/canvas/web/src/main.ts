@@ -33,11 +33,13 @@ type ContextMenuItem = LibraryItem;
 
 type Point = { x: number; y: number };
 
-type SourceDemoModule = CanvasModule & {
-  sample_graph_dsl_source: () => string;
-  mount_source_demo: (h: number, enabled: boolean, onChange: () => void) => void;
-  mount_canvas_context_menu: (onSelect: (key: string) => void, onClose: () => void) => void;
-};
+type SourceDemoModule = CanvasModule &
+  Required<
+    Pick<
+      CanvasModule,
+      'sample_graph_dsl_source' | 'mount_source_demo' | 'mount_canvas_context_menu'
+    >
+  >;
 
 const LIBRARY: LibraryItem[] = [
   { key: 'timer', label: 'Timer trigger', description: 'Start on a schedule' },
@@ -82,22 +84,39 @@ let selectedEdge: EdgeSelection | null = null;
 
 // ─── Geometry ────────────────────────────────────────────────────────────────
 
-function portOffset(n: NodeData, side: 'input' | 'output', portId: string): number {
+function portOffset(n: NodeData, side: 'input' | 'output', portId: string): number | null {
   const ports = side === 'input' ? n.inputs : n.outputs;
-  if (ports.length === 0) return n.h / 2;
-  const index = Math.max(0, ports.findIndex((p) => p.id === portId));
-  return ((index + 1) * n.h) / (ports.length + 1);
+  if (!Number.isFinite(n.h) || n.h < 0 || ports.length === 0) return null;
+  const index = ports.findIndex((p) => p.id === portId);
+  if (index < 0) return null;
+  const offset = ((index + 1) * n.h) / (ports.length + 1);
+  return Number.isFinite(offset) ? offset : null;
 }
 
 /** Output handle for a specific port (world coords). */
-function outputAnchor(n: NodeData, portId: string): [number, number] { return [n.x + n.w, n.y + portOffset(n, 'output', portId)]; }
+function outputAnchor(n: NodeData, portId: string): [number, number] | null {
+  const offset = portOffset(n, 'output', portId);
+  if (offset == null) return null;
+  const x = n.x + n.w;
+  const y = n.y + offset;
+  return Number.isFinite(x) && Number.isFinite(y) ? [x, y] : null;
+}
 /** Input handle for a specific port (world coords). */
-function inputAnchor(n: NodeData, portId: string): [number, number]  { return [n.x,       n.y + portOffset(n, 'input', portId)]; }
+function inputAnchor(n: NodeData, portId: string): [number, number] | null {
+  const offset = portOffset(n, 'input', portId);
+  if (offset == null) return null;
+  const y = n.y + offset;
+  return Number.isFinite(n.x) && Number.isFinite(y) ? [n.x, y] : null;
+}
 
 /** Cubic bezier from src to dst with horizontal handles, react-flow style. */
-function bezierPath(sx: number, sy: number, tx: number, ty: number): string {
+function bezierPath(sx: number, sy: number, tx: number, ty: number): string | null {
+  if (![sx, sy, tx, ty].every(Number.isFinite)) return null;
   const dx = Math.max(40, Math.abs(tx - sx) * 0.5);
-  return `M ${sx} ${sy} C ${sx + dx} ${sy}, ${tx - dx} ${ty}, ${tx} ${ty}`;
+  const controls = [sx + dx, sy, tx - dx, ty];
+  return controls.every(Number.isFinite)
+    ? `M ${sx} ${sy} C ${controls[0]} ${controls[1]}, ${controls[2]} ${controls[3]}, ${tx} ${ty}`
+    : null;
 }
 
 function localCoords(e: MouseEvent): [number, number] {
@@ -105,13 +124,43 @@ function localCoords(e: MouseEvent): [number, number] {
   return [e.clientX - rect.left, e.clientY - rect.top];
 }
 
-function screenToWorld(point: [number, number], state: RenderState): [number, number] {
-  const { x, y, scale } = state.viewport;
-  return [(point[0] - x) / scale, (point[1] - y) / scale];
+function finiteLocalCoords(e: MouseEvent): [number, number] | null {
+  const point = localCoords(e);
+  return point.every(Number.isFinite) ? point : null;
 }
 
-function eventWorldCoords(e: MouseEvent): [number, number] {
-  return screenToWorld(localCoords(e), lastState ?? adapter.renderState());
+// Event admission can run before the deferred RAF render. Read the model
+// synchronously so geometry is checked against the state that will consume it.
+function currentRenderState(): RenderState {
+  const state = adapter.renderState();
+  lastState = state;
+  return state;
+}
+
+function screenToWorld(
+  point: [number, number],
+  state: RenderState,
+): [number, number] | null {
+  const { x, y, scale } = state.viewport;
+  if (
+    !point.every(Number.isFinite) ||
+    !Number.isFinite(x) ||
+    !Number.isFinite(y) ||
+    !Number.isFinite(scale) ||
+    scale <= 0
+  ) {
+    return null;
+  }
+  const worldPoint: [number, number] = [
+    (point[0] - x) / scale,
+    (point[1] - y) / scale,
+  ];
+  return worldPoint.every(Number.isFinite) ? worldPoint : null;
+}
+
+function eventWorldCoords(e: MouseEvent): [number, number] | null {
+  const point = finiteLocalCoords(e);
+  return point == null ? null : screenToWorld(point, currentRenderState());
 }
 
 function portTypeName(portType: Tagged): string {
@@ -310,9 +359,14 @@ function render(): void {
     const src = nodesById.get(edge.source);
     const dst = nodesById.get(edge.target);
     if (!src || !dst) continue;
+    const source = outputAnchor(src, edge.source_port);
+    const target = inputAnchor(dst, edge.target_port);
+    if (!source || !target) continue;
+    const [sx, sy] = source;
+    const [tx, ty] = target;
+    const pathData = bezierPath(sx, sy, tx, ty);
+    if (!pathData) continue;
     seenEdges.add(edge.id);
-    const [sx, sy] = outputAnchor(src, edge.source_port);
-    const [tx, ty] = inputAnchor(dst, edge.target_port);
     let path = edgePaths.get(edge.id);
     if (!path) {
       path = document.createElementNS(SVG_NS, 'path');
@@ -320,7 +374,7 @@ function render(): void {
       edgesSvg.appendChild(path);
       edgePaths.set(edge.id, path);
     }
-    path.setAttribute('d', bezierPath(sx, sy, tx, ty));
+    path.setAttribute('d', pathData);
     path.setAttribute('data-edge-id', String(edge.id));
     path.classList.toggle('selected', selectedEdge != null && edgeMatchesSelection(edge, selectedEdge));
     path.setAttribute('role', 'button');
@@ -335,15 +389,24 @@ function render(): void {
   if (connecting) {
     const src = nodesById.get(connecting.from);
     if (src) {
-      const [sx, sy] = outputAnchor(src, connecting.from_port);
+      const source = outputAnchor(src, connecting.from_port);
       const tx = connecting.cursor_x;
       const ty = connecting.cursor_y;
-      if (!pendingPath) {
+      const pathData = source && bezierPath(source[0], source[1], tx, ty);
+      if (pathData && !pendingPath) {
         pendingPath = document.createElementNS(SVG_NS, 'path');
         pendingPath.setAttribute('class', 'edge-pending');
         edgesSvg.appendChild(pendingPath);
       }
-      pendingPath.setAttribute('d', bezierPath(sx, sy, tx, ty));
+      if (pathData && pendingPath) {
+        pendingPath.setAttribute('d', pathData);
+      } else if (pendingPath) {
+        pendingPath.remove();
+        pendingPath = null;
+      }
+    } else if (pendingPath) {
+      pendingPath.remove();
+      pendingPath = null;
     }
   } else if (pendingPath) {
     pendingPath.remove();
@@ -604,6 +667,9 @@ function hitFromTarget(target: EventTarget | null): HitTarget {
 }
 
 function addNodeAt(kindKey: string, point: [number, number]): void {
+  if (!adapter.isSourceBacked) {
+    if (!screenToWorld(point, currentRenderState())) return;
+  }
   clearSelectedEdge();
   if (adapter.isSourceBacked) {
     adapter.insertUniqueNode(kindKey, kindKey);
@@ -625,13 +691,19 @@ function updateHover(hit: HitTarget): void {
   adapter.hoverNode(hoverNodeId(hit));
 }
 
-function startSourceConnection(e: PointerEvent, hit: HitTarget): void {
+function startSourceConnection(
+  pointerId: number,
+  hit: HitTarget,
+  screenPoint: [number, number],
+): void {
   if (hit.kind !== 'handle' || hit.side !== 'output') return;
+  const worldPoint = screenToWorld(screenPoint, currentRenderState());
+  if (!worldPoint) return;
+  const [cursor_x, cursor_y] = worldPoint;
   clearSelectedEdge();
   hideContextMenu();
-  root.setPointerCapture(e.pointerId);
-  sourcePointerId = e.pointerId;
-  const [cursor_x, cursor_y] = eventWorldCoords(e);
+  root.setPointerCapture(pointerId);
+  sourcePointerId = pointerId;
   sourceConnecting = {
     from: hit.nodeId,
     from_port: hit.portId,
@@ -643,7 +715,9 @@ function startSourceConnection(e: PointerEvent, hit: HitTarget): void {
 
 function moveSourceConnection(e: PointerEvent): void {
   if (e.pointerId !== sourcePointerId || !sourceConnecting) return;
-  const [cursor_x, cursor_y] = eventWorldCoords(e);
+  const worldPoint = eventWorldCoords(e);
+  if (!worldPoint) return;
+  const [cursor_x, cursor_y] = worldPoint;
   sourceConnecting = { ...sourceConnecting, cursor_x, cursor_y };
   scheduleRender();
 }
@@ -808,6 +882,8 @@ let pointerUpAdditive = false;
 root.addEventListener('pointerdown', (e: PointerEvent) => {
   if (adapter.isSourceBacked) {
     if (e.button !== 0) return;
+    const screenPoint = finiteLocalCoords(e);
+    if (!screenPoint) return;
     const hit = hitFromTarget(e.target);
     if (hit.kind === 'edge') {
       hideContextMenu();
@@ -816,7 +892,10 @@ root.addEventListener('pointerdown', (e: PointerEvent) => {
       return;
     }
     if (hit.kind === 'handle') {
-      startSourceConnection(e, hit);
+      startSourceConnection(e.pointerId, hit, screenPoint);
+      return;
+    }
+    if (hit.kind === 'node' && !screenToWorld(screenPoint, currentRenderState())) {
       return;
     }
     if (activePointerId !== -1) return;
@@ -825,7 +904,7 @@ root.addEventListener('pointerdown', (e: PointerEvent) => {
     root.setPointerCapture(e.pointerId);
     activePointerId = e.pointerId;
     pointerUpAdditive = e.shiftKey || e.metaKey || e.ctrlKey;
-    const [sx, sy] = localCoords(e);
+    const [sx, sy] = screenPoint;
     pointerDownNodeId = hit.kind === 'node' ? hit.nodeId : '';
     adapter.pointerDown(pointerDownNodeId, sx, sy);
     if (hit.kind === 'background') root.classList.add('panning');
@@ -837,8 +916,22 @@ root.addEventListener('pointerdown', (e: PointerEvent) => {
   // selection on non-Mac platforms.
   if (e.button !== 0 || (isMacLike && e.ctrlKey)) return;
   if (activePointerId !== -1) return;
-  hideContextMenu();
+  const screenPoint = finiteLocalCoords(e);
+  if (!screenPoint) return;
   const hit = hitFromTarget(e.target);
+  if (
+    hit.kind === 'node' ||
+    (hit.kind === 'handle' && hit.side === 'output')
+  ) {
+    if (!screenToWorld(screenPoint, currentRenderState())) return;
+  }
+  if (hit.kind === 'handle' && hit.side === 'input') {
+    hideContextMenu();
+    clearSelectedEdge();
+    scheduleRender();
+    return;
+  }
+  hideContextMenu();
   if (hit.kind === 'edge') {
     selectEdge(hit.edge);
     scheduleRender();
@@ -848,7 +941,7 @@ root.addEventListener('pointerdown', (e: PointerEvent) => {
   root.setPointerCapture(e.pointerId);
   activePointerId = e.pointerId;
   pointerUpAdditive = e.shiftKey || e.metaKey || e.ctrlKey;
-  const [sx, sy] = localCoords(e);
+  const [sx, sy] = screenPoint;
 
   switch (hit.kind) {
     case 'handle':
@@ -977,14 +1070,19 @@ root.addEventListener('wheel', (e: WheelEvent) => {
 
 root.addEventListener('contextmenu', (e: MouseEvent) => {
   e.preventDefault();
+  const point = finiteLocalCoords(e);
+  if (!point) return;
   const hit = hitFromTarget(e.target);
+  if (hit.kind !== 'edge' && !adapter.isSourceBacked) {
+    if (!screenToWorld(point, currentRenderState())) return;
+  }
   const anchor = { x: e.clientX, y: e.clientY };
   if (hit.kind === 'edge') {
     selectEdge(hit.edge);
     renderEdgeContextMenu(hit.edge, anchor);
   } else {
     clearSelectedEdge();
-    contextPoint = localCoords(e);
+    contextPoint = point;
     renderContextMenu(anchor);
   }
   scheduleRender();
@@ -1052,8 +1150,20 @@ async function init(): Promise<void> {
   adapter = sourceMode
     ? GraphAdapter.createSourceBacked(mod, sourceDemoModule.sample_graph_dsl_source())
     : GraphAdapter.create(mod);
-  sourceDemoModule.mount_canvas_context_menu(handleContextMenuSelect, hideContextMenuElement);
-  sourceDemoModule.mount_source_demo(adapter.handleId, sourceMode, scheduleRender);
+  sourceDemoModule.mount_canvas_context_menu(
+    key => {
+      handleContextMenuSelect(key);
+      return undefined;
+    },
+    () => {
+      hideContextMenuElement();
+      return undefined;
+    },
+  );
+  sourceDemoModule.mount_source_demo(adapter.handleId, sourceMode, () => {
+    scheduleRender();
+    return undefined;
+  });
   renderLibrary();
   render();
 }

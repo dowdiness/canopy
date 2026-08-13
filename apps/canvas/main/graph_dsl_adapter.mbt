@@ -4,14 +4,16 @@
 /// live here while pointer/drag/zoom mechanics continue to reuse
 /// `@graph_model` reducers.
 fn default_source_graph_viewport() -> Viewport {
-  Viewport::validated(origin=ScreenPoint::from_xy(x=360.0, y=330.0), scale=1.0)
+  Viewport::from_scale(
+    origin=try! ScreenPoint::from_xy(x=360.0, y=330.0),
+    scale=try! @spatial.Scale::from_double(value=1.0),
+  )
 }
 
 ///|
 struct SourceNodePosition {
   binding : String
-  x : Double
-  y : Double
+  position : WorldPoint
 }
 
 ///|
@@ -194,19 +196,20 @@ fn canvas_node_from_graph_node(
   index : Int,
   graph_node : @graph_dsl.GraphNode,
 ) -> CanvasNode {
-  {
-    id: NodeId(graph_node.id()),
-    x: index.to_double() * 300.0,
-    y: 0.0,
-    w: 250.0,
-    h: 138.0,
-    kind: Workflow(Custom(graph_node.constructor_name())),
-    title: graph_node.binding(),
-    subtitle: graph_node.constructor_name(),
-    inputs: [@graph_model.port("input", "input", Any)],
-    outputs: [@graph_model.port("out", "out", Any)],
-    configured: true,
-  }
+  @graph_model.CanvasNode::from_parts(
+    id=NodeId(graph_node.id()),
+    position=try! @spatial.WorldPoint::from_xy(
+      x=index.to_double() * 300.0,
+      y=0.0,
+    ),
+    size=try! @graph_model.NodeSize::from_wh(width=250.0, height=138.0),
+    kind=Workflow(Custom(graph_node.constructor_name())),
+    title=graph_node.binding(),
+    subtitle=graph_node.constructor_name(),
+    inputs=[@graph_model.port("input", "input", Any)],
+    outputs=[@graph_model.port("out", "out", Any)],
+    configured=true,
+  )
 }
 
 ///|
@@ -228,7 +231,7 @@ fn canvas_node_with_source_layout(
   layout : Array[SourceNodePosition],
 ) -> CanvasNode {
   match source_layout_for_binding(layout, node.title) {
-    Some(position) => { ..node, x: position.x, y: position.y }
+    Some(position) => node.with_position(position.position)
     None => node
   }
 }
@@ -273,9 +276,9 @@ fn canvas_from_graph_doc(doc : @graph_dsl.GraphDoc) -> CanvasState {
     }
   }
   {
-    viewport: Viewport::validated(
-      origin=ScreenPoint::from_xy(x=0.0, y=0.0),
-      scale=1.0,
+    viewport: Viewport::from_scale(
+      origin=try! ScreenPoint::from_xy(x=0.0, y=0.0),
+      scale=try! @spatial.Scale::from_double(value=1.0),
     ),
     nodes,
     edges,
@@ -650,7 +653,22 @@ fn realized_source_operation(
   match operation.action() {
     AddNode(node) =>
       match canvas_id_for_binding(doc, node.title) {
-        Some(id) => GraphOperation(AddNode({ ..node, id, }))
+        Some(id) =>
+          GraphOperation(
+            AddNode(
+              @graph_model.CanvasNode::from_parts(
+                id=id,
+                position=node.position(),
+                size=node.size(),
+                kind=node.kind,
+                title=node.title,
+                subtitle=node.subtitle,
+                inputs=node.inputs,
+                outputs=node.outputs,
+                configured=node.configured,
+              ),
+            ),
+          )
         None => operation
       }
     _ => operation
@@ -768,7 +786,7 @@ fn SourceBackedGraph::sync_layout_from_state(
 ) -> Unit {
   let layout : Array[SourceNodePosition] = []
   for node in state.nodes {
-    layout.push({ binding: node.title, x: node.x, y: node.y })
+    layout.push({ binding: node.title, position: node.position() })
   }
   self.layout = layout
 }
@@ -785,14 +803,21 @@ fn SourceBackedGraph::pointer_down(
   } else {
     Some(NodeId(node_id))
   }
+  let screen = ScreenPoint::from_xy(x=sx, y=sy) catch {
+    @spatial.CoordinateError::NonFinite => return
+  }
+  let before = source_graph_base_canvas_state(self)
   let state = @graph_model.update_pointer_down(
-    source_graph_base_canvas_state(self),
+    before,
     target,
-    sx,
-    sy,
-  )
-  self.drag_preview = @graph_model.idle_drag_preview()
-  self.interaction = state.interaction
+    screen,
+  ) catch {
+    @spatial.CoordinateError::NonFinite => return
+  }
+  if state.interaction != before.interaction {
+    self.drag_preview = @graph_model.idle_drag_preview()
+    self.interaction = state.interaction
+  }
 }
 
 ///|
@@ -801,34 +826,46 @@ fn SourceBackedGraph::pointer_move(
   sx : Double,
   sy : Double,
 ) -> Unit {
+  let screen = ScreenPoint::from_xy(x=sx, y=sy) catch {
+    @spatial.CoordinateError::NonFinite => return
+  }
   let state = source_graph_base_canvas_state(self)
   match state.interaction.connecting {
     Some(_) => {
-      let (wx, wy) = @graph_model.screen_to_world(state.viewport, sx, sy)
-      self.interaction = @graph_model.update_connect_move(state, wx, wy).interaction
+      let world = state.viewport.screen_to_world(screen) catch {
+        @spatial.CoordinateError::NonFinite => return
+      }
+      let next = @graph_model.update_connect_move(state, world)
+      if next.interaction != state.interaction {
+        self.interaction = next.interaction
+      }
     }
     None =>
       match state.interaction.dragging {
         Some(drag) => {
-          let (wx, wy) = @graph_model.screen_to_world(state.viewport, sx, sy)
+          let world = state.viewport.screen_to_world(screen) catch {
+            @spatial.CoordinateError::NonFinite => return
+          }
           try {
-            let preview = @graph_model.drag_preview_from_move(drag, wx, wy)
+            let preview = @graph_model.drag_preview_from_move(drag, world)
             self.drag_preview = preview
             self.interaction = {
               ..state.interaction,
               did_move: true,
             }
           } catch {
-            @spatial.DragError::InvalidPointer
-            | @spatial.DragError::PositionOverflow => ()
+            @spatial.CoordinateError::NonFinite => ()
           }
         }
         None =>
           match state.interaction.panning {
             Some(_) => {
-              let next = @graph_model.update_pan_move(state, sx, sy)
-              self.viewport = next.viewport
-              self.interaction = next.interaction
+              let next = @graph_model.update_pan_move(state, screen)
+              if next.viewport != state.viewport ||
+                next.interaction != state.interaction {
+                self.viewport = next.viewport
+                self.interaction = next.interaction
+              }
             }
             None => ()
           }
@@ -883,14 +920,18 @@ fn SourceBackedGraph::zoom(
   cx : Double,
   cy : Double,
 ) -> Unit {
-  let next = @graph_model.update_zoom(
-    source_graph_base_canvas_state(self),
-    delta,
-    cx,
-    cy,
-  )
-  self.viewport = next.viewport
-  self.action_log = next.action_log.copy()
+  if delta.is_nan() || delta.is_inf() {
+    return
+  }
+  let screen = ScreenPoint::from_xy(x=cx, y=cy) catch {
+    @spatial.CoordinateError::NonFinite => return
+  }
+  let before = source_graph_base_canvas_state(self)
+  let next = @graph_model.update_zoom(before, delta, screen)
+  if next.viewport != before.viewport || next.action_log != before.action_log {
+    self.viewport = next.viewport
+    self.action_log = next.action_log.copy()
+  }
 }
 
 ///|
@@ -898,19 +939,17 @@ fn source_graph_node_payload(
   binding : String,
   constructor_name : String,
 ) -> CanvasNode {
-  {
-    id: NodeId(""),
-    x: 0.0,
-    y: 0.0,
-    w: 250.0,
-    h: 138.0,
-    kind: Workflow(Custom(constructor_name)),
-    title: binding,
-    subtitle: constructor_name,
-    inputs: [],
-    outputs: [],
-    configured: true,
-  }
+  @graph_model.CanvasNode::from_parts(
+    id=NodeId(""),
+    position=try! @spatial.WorldPoint::from_xy(x=0.0, y=0.0),
+    size=try! @graph_model.NodeSize::from_wh(width=250.0, height=138.0),
+    kind=Workflow(Custom(constructor_name)),
+    title=binding,
+    subtitle=constructor_name,
+    inputs=[],
+    outputs=[],
+    configured=true,
+  )
 }
 
 ///|
