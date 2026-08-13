@@ -1,13 +1,8 @@
 ///|
 fn sync_incr_canvas(model : Model) -> Model {
-  let key = render_cache_key(
-    model.editor.identity(),
-    model.editor.causal_snapshot(),
-  )
-  guard key != model.incr_canvas.snapshot_key else { return model }
   let snapshot = model.incr_tap.snapshot()
-  let canvas = reconcile_incr_canvas(model.incr_canvas, snapshot)
-  { ..model, incr_canvas: { ..canvas, snapshot_key: key } }
+  let canvas = sync_incr_canvas_state(model.incr_canvas, snapshot)
+  { ..model, incr_canvas: canvas }
 }
 
 ///|

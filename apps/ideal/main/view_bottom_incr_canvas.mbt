@@ -87,8 +87,10 @@ fn append_incr_canvas_node(
       let cell_id = @history_render.escape_html_string(
         incr_canvas_cell_id(node.id),
       )
+      let half_width = INCR_CANVAS_NODE_WIDTH / 2.0
+      let half_height = INCR_CANVAS_NODE_HEIGHT / 2.0
       buf.write_string(
-        "<g class=\"incr-canvas-node\" data-cell-id=\"\{cell_id}\" transform=\"translate(\{center.x()} \{center.y()})\"><rect x=\"-75\" y=\"-22\" width=\"150\" height=\"44\" rx=\"6\" fill=\"\{status.fill()}\" stroke=\"\{stroke}\" /><text x=\"0\" y=\"5\" text-anchor=\"middle\">\{label}</text></g>",
+        "<g class=\"incr-canvas-node\" data-cell-id=\"\{cell_id}\" transform=\"translate(\{center.x()} \{center.y()})\"><rect x=\"\{0.0 - half_width}\" y=\"\{0.0 - half_height}\" width=\"\{INCR_CANVAS_NODE_WIDTH}\" height=\"\{INCR_CANVAS_NODE_HEIGHT}\" rx=\"6\" fill=\"\{status.fill()}\" stroke=\"\{stroke}\" /><text x=\"0\" y=\"5\" text-anchor=\"middle\">\{label}</text></g>",
       )
     }
     None => ()

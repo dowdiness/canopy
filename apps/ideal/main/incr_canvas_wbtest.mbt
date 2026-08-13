@@ -34,7 +34,7 @@ fn assert_incr_canvas_state_eq(
   assert_true(actual.dragging == expected.dragging)
   assert_true(actual.positions == expected.positions)
   assert_true(actual.selected == expected.selected)
-  assert_true(actual.snapshot_key == expected.snapshot_key)
+  assert_true(Set::equal(actual.live_cells, expected.live_cells))
   assert_true(actual.active_pointer_id == expected.active_pointer_id)
 }
 
@@ -80,6 +80,35 @@ test "incr canvas reconciliation avoids retained-position overlap" {
   let reverse = reconcile_incr_positions([added, first], existing)
   assert_eq(reverse.get(first), Some(incr_canvas_initial_position(0)))
   assert_eq(reverse.get(added), Some(incr_canvas_initial_position(1)))
+}
+
+///|
+test "incr canvas sync follows live snapshot membership" {
+  let runtime = @incr.Runtime()
+  let source = @incr.Input(runtime, 1, label="source")
+  let first = @incr.Derived(runtime, () => source.get() + 1, label="first")
+  let tap = @visualizer.RecomputeTap::attach(runtime)
+  ignore(first.read_or_abort())
+  let first_state = sync_incr_canvas_state(
+    IncrCanvasState::empty(),
+    tap.snapshot(),
+  )
+  let first_position = first_state.positions.get(first.id())
+
+  // The editor's causal snapshot is unchanged in this test; only the live
+  // RecomputeSnapshot frontier changes.
+  let second = @incr.Derived(runtime, () => source.get() + 2, label="second")
+  ignore(second.read_or_abort())
+  let expanded = sync_incr_canvas_state(first_state, tap.snapshot())
+  assert_true(expanded.live_cells.contains(second.id()))
+  assert_eq(expanded.positions.get(first.id()), first_position)
+  assert_true(expanded.positions.get(second.id()) is Some(_))
+
+  second.dispose()
+  let contracted = sync_incr_canvas_state(expanded, tap.snapshot())
+  assert_eq(contracted.positions.get(second.id()), None)
+  assert_eq(contracted.positions.get(first.id()), first_position)
+  tap.detach()
 }
 
 ///|

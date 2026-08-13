@@ -32,7 +32,7 @@ struct IncrCanvasState {
   dragging : @spatial.Drag[@incr.CellId]?
   positions : Map[@incr.CellId, @spatial.WorldPoint]
   selected : Array[@incr.CellId]
-  snapshot_key : (Int, Int, Int)
+  live_cells : Set[@incr.CellId]
   active_pointer_id : Int?
 } derive(Eq)
 
@@ -49,7 +49,7 @@ fn IncrCanvasState::empty() -> IncrCanvasState {
     dragging: None,
     positions: Map([]),
     selected: [],
-    snapshot_key: (-1, -1, -1),
+    live_cells: Set([]),
     active_pointer_id: None,
   }
 }
@@ -116,6 +116,13 @@ fn reconcile_incr_selection(
 }
 
 ///|
+fn incr_canvas_live_cells(
+  snapshot : @visualizer.RecomputeSnapshot,
+) -> Set[@incr.CellId] {
+  Set(snapshot.nodes.map(node => node.id)[:])
+}
+
+///|
 fn reconcile_incr_canvas(
   state : IncrCanvasState,
   snapshot : @visualizer.RecomputeSnapshot,
@@ -127,8 +134,22 @@ fn reconcile_incr_canvas(
     dragging: None,
     positions: reconcile_incr_positions(nodes, state.positions),
     selected: reconcile_incr_selection(state.selected, nodes),
+    live_cells: incr_canvas_live_cells(snapshot),
     active_pointer_id: None,
   }
+}
+
+///|
+/// Reconcile only when the live snapshot membership changes. Causal editor
+/// revisions are intentionally not consulted: the Incr runtime can add or
+/// remove cells without changing the editor's CRDT snapshot.
+fn sync_incr_canvas_state(
+  state : IncrCanvasState,
+  snapshot : @visualizer.RecomputeSnapshot,
+) -> IncrCanvasState {
+  let live_cells = incr_canvas_live_cells(snapshot)
+  guard !Set::equal(live_cells, state.live_cells) else { return state }
+  reconcile_incr_canvas(state, snapshot)
 }
 
 ///|
