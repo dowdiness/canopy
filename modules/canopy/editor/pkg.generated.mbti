@@ -131,6 +131,7 @@ pub fn[T] LanguageCapabilities::with_to_view_node(Self[T], (@dowdiness/canopy/co
 
 pub enum ProjectionObservationPhase {
   AuthorityAccepted
+  CommittedTransitionSettled
   ProjectionMirrorSynchronized
 } derive(Eq, @debug.Debug)
 

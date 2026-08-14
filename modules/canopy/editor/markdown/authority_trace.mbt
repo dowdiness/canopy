@@ -5,6 +5,7 @@
 priv struct MarkdownAuthorityTraceBuffer {
   sequence : FixedArray[Int]
   phase : FixedArray[Int]
+  outcome : FixedArray[Int]
   event_id : FixedArray[Int]
   mut count : Int
   mut next_sequence : Int
@@ -19,6 +20,15 @@ const MARKDOWN_AUTHORITY_PHASE_A0 : Int = 1
 
 ///|
 const MARKDOWN_AUTHORITY_PHASE_A1 : Int = 2
+
+///|
+const MARKDOWN_AUTHORITY_OUTCOME_ACCEPTED_TRANSITION : Int = 1
+
+///|
+const MARKDOWN_AUTHORITY_OUTCOME_NO_ADVANCE : Int = 2
+
+///|
+const MARKDOWN_AUTHORITY_OUTCOME_REJECTED : Int = 3
 
 ///|
 let markdown_authority_trace : Ref[MarkdownAuthorityTraceBuffer?] = Ref(None)
@@ -61,6 +71,7 @@ fn markdown_authority_trace_enable(capacity~ : Int) -> Unit {
     sequence: FixedArray::make(capacity, 0),
     phase: FixedArray::make(capacity, 0),
     event_id: FixedArray::make(capacity, 0),
+    outcome: FixedArray::make(capacity, 0),
     count: 0,
     next_sequence: 1,
     next_event_id: 1,
@@ -93,7 +104,11 @@ fn markdown_authority_trace_begin() -> Int {
 }
 
 ///|
-fn markdown_authority_trace_record(event_id : Int, phase : Int) -> Unit {
+fn markdown_authority_trace_record(
+  event_id : Int,
+  phase : Int,
+  outcome : Int,
+) -> Unit {
   match markdown_authority_trace.val {
     None => ()
     Some(trace) => {
@@ -106,6 +121,7 @@ fn markdown_authority_trace_record(event_id : Int, phase : Int) -> Unit {
       trace.sequence[index] = trace.next_sequence
       trace.phase[index] = phase
       trace.event_id[index] = event_id
+      trace.outcome[index] = outcome
       trace.next_sequence += 1
       trace.count += 1
     }
@@ -113,13 +129,17 @@ fn markdown_authority_trace_record(event_id : Int, phase : Int) -> Unit {
 }
 
 ///|
-fn markdown_authority_trace_a0(event_id : Int) -> Unit {
-  markdown_authority_trace_record(event_id, MARKDOWN_AUTHORITY_PHASE_A0)
+fn markdown_authority_trace_a0(event_id : Int, outcome : Int) -> Unit {
+  markdown_authority_trace_record(
+    event_id,
+    MARKDOWN_AUTHORITY_PHASE_A0,
+    outcome,
+  )
 }
 
 ///|
 fn markdown_authority_trace_a1(event_id : Int) -> Unit {
-  markdown_authority_trace_record(event_id, MARKDOWN_AUTHORITY_PHASE_A1)
+  markdown_authority_trace_record(event_id, MARKDOWN_AUTHORITY_PHASE_A1, 0)
 }
 
 ///|
@@ -155,6 +175,20 @@ fn markdown_authority_trace_event_id(index : Int) -> Int? {
         None
       } else {
         Some(trace.event_id[index])
+      }
+  }
+}
+
+///|
+#warnings("-unused_value")
+fn markdown_authority_trace_outcome(index : Int) -> Int? {
+  match markdown_authority_trace.val {
+    None => None
+    Some(trace) =>
+      if index < 0 || index >= trace.count {
+        None
+      } else {
+        Some(trace.outcome[index])
       }
   }
 }

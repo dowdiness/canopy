@@ -7,7 +7,9 @@ pub fn[T : Eq] SyncEditor::insert_and_record(
   timestamp_ms : Int,
 ) -> Unit raise {
   self.ensure_parser_healthy()
+  self.reject_projection_observer_reentry()
   self.taint_pending_transforms()
+  let before_version = self.doc.version()
   let old_source = self.doc.text()
   self.cursor = @moji.prev_grapheme_boundary(old_source, self.cursor)
   let insert_start = self.cursor
@@ -18,6 +20,9 @@ pub fn[T : Eq] SyncEditor::insert_and_record(
     self.undo,
     timestamp_ms~,
   )
+  if self.doc.version() != before_version {
+    self.observe_authority_acceptance()
+  }
   self.cursor = @moji.next_grapheme_boundary(
     self.doc.text(),
     insert_start + text.length(),
@@ -26,6 +31,7 @@ pub fn[T : Eq] SyncEditor::insert_and_record(
     old_source,
     self.doc.text(),
     Some(@loom_core.Edit::insert(insert_start, text.length())),
+    before_version~,
   )
 }
 
@@ -35,7 +41,9 @@ pub fn[T : Eq] SyncEditor::delete_and_record(
   timestamp_ms : Int,
 ) -> Bool raise Failure {
   self.ensure_parser_healthy()
+  self.reject_projection_observer_reentry()
   self.taint_pending_transforms()
+  let before_version = self.doc.version()
   let old_source = self.doc.text()
   if !@moji.is_grapheme_boundary(old_source, self.cursor) {
     self.cursor = @moji.prev_grapheme_boundary(old_source, self.cursor)
@@ -56,6 +64,9 @@ pub fn[T : Eq] SyncEditor::delete_and_record(
       self.undo,
       timestamp_ms~,
     )
+    if self.doc.version() != before_version {
+      self.observe_authority_acceptance()
+    }
     let new_text = self.doc.text()
     self.cursor = @moji.next_grapheme_boundary(
       new_text,
@@ -65,6 +76,7 @@ pub fn[T : Eq] SyncEditor::delete_and_record(
       old_source,
       new_text,
       Some(@loom_core.Edit::delete(delete_start, right)),
+      before_version~,
     )
     true
   } catch {
@@ -79,7 +91,9 @@ pub fn[T : Eq] SyncEditor::backspace_and_record(
   timestamp_ms : Int,
 ) -> Bool raise Failure {
   self.ensure_parser_healthy()
+  self.reject_projection_observer_reentry()
   self.taint_pending_transforms()
+  let before_version = self.doc.version()
   let old_source = self.doc.text()
   if !@moji.is_grapheme_boundary(old_source, self.cursor) {
     self.cursor = @moji.next_grapheme_boundary(old_source, self.cursor)
@@ -95,11 +109,15 @@ pub fn[T : Eq] SyncEditor::backspace_and_record(
         self.undo,
         timestamp_ms~,
       )
+      if self.doc.version() != before_version {
+        self.observe_authority_acceptance()
+      }
       self.cursor = left
       self.apply_local_text_change(
         old_source,
         self.doc.text(),
         Some(@loom_core.Edit::delete(left, delete_end)),
+        before_version~,
       )
       true
     } catch {
@@ -114,6 +132,7 @@ pub fn[T : Eq] SyncEditor::backspace_and_record(
 ///|
 pub fn[T : Eq] SyncEditor::undo(self : SyncEditor[T]) -> Bool raise Failure {
   self.ensure_parser_healthy()
+  self.reject_projection_observer_reentry()
   self.taint_pending_transforms()
   let old_source = self.doc.text()
   try {
@@ -134,6 +153,7 @@ pub fn[T : Eq] SyncEditor::undo(self : SyncEditor[T]) -> Bool raise Failure {
 ///|
 pub fn[T : Eq] SyncEditor::redo(self : SyncEditor[T]) -> Bool raise Failure {
   self.ensure_parser_healthy()
+  self.reject_projection_observer_reentry()
   self.taint_pending_transforms()
   let old_source = self.doc.text()
   try {
@@ -158,6 +178,7 @@ pub fn[T : Eq] SyncEditor::undo_and_export(
   self : SyncEditor[T],
 ) -> @text.SyncMessage? raise Failure {
   self.ensure_parser_healthy()
+  self.reject_projection_observer_reentry()
   self.taint_pending_transforms()
   let ver_before = self.doc.version()
   let old_source = self.doc.text()
@@ -190,6 +211,7 @@ pub fn[T : Eq] SyncEditor::redo_and_export(
   self : SyncEditor[T],
 ) -> @text.SyncMessage? raise Failure {
   self.ensure_parser_healthy()
+  self.reject_projection_observer_reentry()
   self.taint_pending_transforms()
   let ver_before = self.doc.version()
   let old_source = self.doc.text()

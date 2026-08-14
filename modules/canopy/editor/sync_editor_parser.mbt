@@ -69,6 +69,27 @@ fn[T : Eq] SyncEditor::sync_parser_after_text_change(
 }
 
 ///|
+fn[T : Eq] SyncEditor::sync_parser_from_coherent_seed(
+  self : SyncEditor[T],
+) -> Unit raise Failure {
+  self.ensure_parser_healthy()
+  editor_perf_measure("documentVersionUpdate", () => {
+    self.document_version.set(self.doc.version())
+  })
+  editor_perf_measure("parserSeed", () => {
+    let seed = self.doc.text()
+    self.parser.set_source(seed) catch {
+      Failure::Failure(_) as failure => {
+        self.parser_failure = Some(failure)
+        raise failure
+      }
+    }
+  })
+  self.mark_projection_dirty()
+  self.observe_parser_synchronized()
+}
+
+///|
 fn[T] SyncEditor::adjust_peer_cursors_after_text_change(
   self : SyncEditor[T],
   old_source : String,
@@ -197,20 +218,234 @@ fn resolve_applied_edit(
 }
 
 ///|
+priv struct ProjectionReplaySpan {
+  edit : @loom_core.Edit
+  inserted : String
+} derive(Eq, Debug)
+
+///|
+priv enum ProjectionReplay {
+  Single(@loom_core.Edit)
+  Spans(Array[ProjectionReplaySpan])
+} derive(Eq, Debug)
+
+///|
+priv enum ProjectionContinuation {
+  Replay(ProjectionReplay)
+  SourceUnchanged
+  NeedsSeed
+} derive(Eq, Debug)
+
+///|
+fn classify_projection_continuation(
+  old_source : String,
+  new_source : String,
+  replay_edit : @loom_core.Edit?,
+) -> ProjectionContinuation {
+  if old_source == new_source {
+    ProjectionContinuation::SourceUnchanged
+  } else {
+    match replay_edit {
+      Some(edit) =>
+        ProjectionContinuation::Replay(ProjectionReplay::Single(edit))
+      None => ProjectionContinuation::NeedsSeed
+    }
+  }
+}
+
+///|
+#warnings("-unused_value")
+priv suberror CommittedTransitionRejection {
+  NoCausalAdvance
+} derive(Eq, Debug)
+
+///|
+#warnings("-unused_value")
+priv struct CommittedTransition {
+  before_version : @text.Version
+  after_version : @text.Version
+  continuation : ProjectionContinuation
+} derive(Eq, Debug)
+
+///|
+fn CommittedTransition::CommittedTransition(
+  before_version~ : @text.Version,
+  after_version~ : @text.Version,
+  continuation~ : ProjectionContinuation,
+) -> CommittedTransition raise CommittedTransitionRejection {
+  guard before_version != after_version else {
+    raise CommittedTransitionRejection::NoCausalAdvance
+  }
+  { before_version, after_version, continuation }
+}
+
+///|
+fn[T : Eq] SyncEditor::sync_parser_from_replay_spans(
+  self : SyncEditor[T],
+  spans : Array[ProjectionReplaySpan],
+  expected_source : String,
+) -> Unit raise Failure {
+  self.ensure_parser_healthy()
+  editor_perf_measure("documentVersionUpdate", () => {
+    self.document_version.set(self.doc.version())
+  })
+  editor_perf_measure("parserReplaySpans", () => {
+    let mut source = self.parser.source().read_or_abort()
+    try {
+      for span in spans {
+        let start = span.edit.start()
+        let old_end = start + span.edit.old_len()
+        let next_source = source[:start].to_owned() +
+          span.inserted +
+          source[old_end:].to_owned()
+        self.parser.apply_edit(span.edit, next_source)
+        source = next_source
+      }
+      guard source == expected_source else {
+        fail("multi-span replay did not reconstruct committed source")
+      }
+    } catch {
+      Failure::Failure(_) as failure => {
+        self.parser_failure = Some(failure)
+        raise failure
+      }
+    }
+  })
+  self.mark_projection_dirty()
+  self.observe_parser_synchronized()
+}
+
+///|
+fn[T : Eq] SyncEditor::interpret_committed_transition(
+  self : SyncEditor[T],
+  old_source : String,
+  new_source : String,
+  transition : CommittedTransition,
+  interaction_edit : @loom_core.Edit?,
+) -> Unit raise Failure {
+  editor_perf_measure("peerCursorAdjust", () => {
+    self.adjust_peer_cursors_after_text_change(
+      old_source, new_source, interaction_edit,
+    )
+  })
+  editor_perf_measure("parserSync", () => {
+    match transition.continuation {
+      Replay(Single(edit)) =>
+        self.sync_parser_after_text_change(old_source, new_source, Some(edit))
+      Replay(Spans(spans)) =>
+        self.sync_parser_from_replay_spans(spans, new_source)
+      SourceUnchanged =>
+        self.sync_parser_after_text_change(old_source, new_source, None)
+      NeedsSeed => self.sync_parser_from_coherent_seed()
+    }
+  })
+}
+
+///|
+fn[T : Eq] SyncEditor::settle_committed_text_change(
+  self : SyncEditor[T],
+  old_source : String,
+  new_source : String,
+  before_version : @text.Version,
+  continuation : ProjectionContinuation,
+  interaction_edit : @loom_core.Edit?,
+) -> Unit raise Failure {
+  let transition = editor_perf_measure("committedTransition", () => {
+    try! CommittedTransition(
+      before_version~,
+      after_version=self.doc.version(),
+      continuation~,
+    )
+  })
+  self.observe_committed_transition_settled()
+  self.interpret_committed_transition(
+    old_source, new_source, transition, interaction_edit,
+  )
+}
+
+///|
 fn[T : Eq] SyncEditor::apply_local_text_change(
   self : SyncEditor[T],
   old_source : String,
   new_source : String,
   known_edit : @loom_core.Edit?,
+  before_version? : @text.Version,
 ) -> Unit raise Failure {
   let applied_edit = resolve_applied_edit(old_source, new_source, known_edit)
-  editor_perf_measure("peerCursorAdjust", () => {
-    self.adjust_peer_cursors_after_text_change(
-      old_source, new_source, applied_edit,
+  match before_version {
+    Some(before_version) => {
+      let after_version = self.doc.version()
+      if after_version == before_version {
+        editor_perf_measure("peerCursorAdjust", () => {
+          self.adjust_peer_cursors_after_text_change(
+            old_source, new_source, applied_edit,
+          )
+        })
+        editor_perf_measure("parserSync", () => {
+          self.sync_parser_after_text_change(
+            old_source, new_source, applied_edit,
+          )
+        })
+      } else {
+        let continuation = classify_projection_continuation(
+          old_source, new_source, applied_edit,
+        )
+        self.settle_committed_text_change(
+          old_source, new_source, before_version, continuation, applied_edit,
+        )
+      }
+    }
+    None => {
+      editor_perf_measure("peerCursorAdjust", () => {
+        self.adjust_peer_cursors_after_text_change(
+          old_source, new_source, applied_edit,
+        )
+      })
+      editor_perf_measure("parserSync", () => {
+        self.sync_parser_after_text_change(old_source, new_source, applied_edit)
+      })
+    }
+  }
+}
+
+///|
+fn[T : Eq] SyncEditor::settle_committed_span_change(
+  self : SyncEditor[T],
+  old_source : String,
+  new_source : String,
+  before_version : @text.Version,
+  replay_spans : Array[ProjectionReplaySpan],
+) -> Unit raise Failure {
+  let continuation = if old_source == new_source {
+    ProjectionContinuation::SourceUnchanged
+  } else {
+    ProjectionContinuation::Replay(ProjectionReplay::Spans(replay_spans))
+  }
+  let transition = editor_perf_measure("committedTransition", () => {
+    try! CommittedTransition(
+      before_version~,
+      after_version=self.doc.version(),
+      continuation~,
     )
   })
+  self.observe_committed_transition_settled()
+  editor_perf_measure("peerCursorAdjust", () => {
+    for span in replay_spans {
+      self.adjust_peer_cursors_after_text_change(
+        old_source,
+        new_source,
+        Some(span.edit),
+      )
+    }
+  })
   editor_perf_measure("parserSync", () => {
-    self.sync_parser_after_text_change(old_source, new_source, applied_edit)
+    match transition.continuation {
+      SourceUnchanged =>
+        self.sync_parser_after_text_change(old_source, new_source, None)
+      Replay(Spans(spans)) =>
+        self.sync_parser_from_replay_spans(spans, new_source)
+      Replay(Single(_)) | NeedsSeed => abort("invalid multi-span continuation")
+    }
   })
 }
 

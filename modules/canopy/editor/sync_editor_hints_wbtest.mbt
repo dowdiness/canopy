@@ -199,3 +199,58 @@ test "move_node taints only on resolved ids (Finding 3: Move is not identity-pre
     content="true",
   )
 }
+
+///|
+test "multi-span authority batch replays once and matches fresh parse" {
+  let editor = try! @probe.new_test_editor("multi-span-target")
+  editor.set_text("ab")
+  let phases : Array[ProjectionObservationPhase] = []
+  let (_, accepted) = editor.observe_projection_during(
+    phase => phases.push(phase),
+    () => {
+      editor.apply_span_edits(
+        [
+          { start: 0, delete_len: 0, inserted: "x" },
+          { start: 2, delete_len: 0, inserted: "y" },
+        ],
+        @core.FocusHint::RestoreCursor,
+        0,
+      )
+    },
+  )
+  assert_true(accepted)
+  assert_eq(editor.get_text(), "xaby")
+  let fresh = try! @probe.new_test_editor("multi-span-fresh")
+  fresh.set_text("xaby")
+  assert_eq(try! @probe.get_test_ast(editor), try! @probe.get_test_ast(fresh))
+  assert_eq(phases, [
+    ProjectionObservationPhase::AuthorityAccepted,
+    ProjectionObservationPhase::CommittedTransitionSettled,
+    ProjectionObservationPhase::ProjectionMirrorSynchronized,
+  ])
+}
+
+///|
+test "multi-span parser failure preserves accepted final causal version" {
+  let source = try! @probe.new_test_editor("multi-span-failure-source")
+  source.set_text("ab")
+  let editor = try! @probe.new_parser_failure_test_editor("multi-span-failure")
+  ignore(try! editor.admit(try! source.export_all()))
+  let before_version = editor.get_version()
+  let result : Result[Unit, Error] = Ok(
+    editor.apply_span_edits(
+      [
+        { start: 0, delete_len: 0, inserted: "x" },
+        { start: 2, delete_len: 0, inserted: "y" },
+      ],
+      @core.FocusHint::RestoreCursor,
+      0,
+    ),
+  ) catch {
+    error => Err(error)
+  }
+  assert_true(result is Err(_))
+  assert_eq(editor.get_text(), "xaby")
+  assert_true(editor.get_version() != before_version)
+  assert_false(editor.is_parser_healthy())
+}

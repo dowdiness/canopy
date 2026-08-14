@@ -65,16 +65,26 @@ test "diagnostic fix publication renders source and applies exactly once" {
   inspect(fix.id, content="0")
   inspect(fix.title, content="replace bc")
   inspect(fix.applicability, content="always")
-  inspect(
-    state.apply_diagnostic_fix(
-      editor,
-      snapshot_id~,
-      diagnostic_id~,
-      fix_id=fix.id,
-      timestamp_ms=101,
-    ),
-    content="true",
+  let phases : Array[ProjectionObservationPhase] = []
+  let (applied, accepted) = editor.observe_projection_during(
+    phase => phases.push(phase),
+    () => {
+      state.apply_diagnostic_fix(
+        editor,
+        snapshot_id~,
+        diagnostic_id~,
+        fix_id=fix.id,
+        timestamp_ms=101,
+      )
+    },
   )
+  assert_true(applied)
+  assert_true(accepted)
+  assert_eq(phases, [
+    ProjectionObservationPhase::AuthorityAccepted,
+    ProjectionObservationPhase::CommittedTransitionSettled,
+    ProjectionObservationPhase::ProjectionMirrorSynchronized,
+  ])
   inspect(editor.get_text(), content="aXd")
   inspect(
     state.apply_diagnostic_fix(

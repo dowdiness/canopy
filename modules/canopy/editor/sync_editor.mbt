@@ -5,6 +5,7 @@
 /// Typed telemetry for one scoped projection-relevant mutation.
 pub enum ProjectionObservationPhase {
   AuthorityAccepted
+  CommittedTransitionSettled
   ProjectionMirrorSynchronized
 } derive(Eq, Debug)
 
@@ -12,6 +13,7 @@ pub enum ProjectionObservationPhase {
 priv struct ProjectionObservationScope {
   observer : (ProjectionObservationPhase) -> Unit
   mut accepted : Bool
+  mut transition_settled : Bool
   mut parser_batch_depth : Int
   mut parser_sync_pending : Bool
   mut emitting : Bool
@@ -176,6 +178,7 @@ pub fn[T, R] SyncEditor::observe_projection_during(
   let scope : ProjectionObservationScope = {
     observer,
     accepted: false,
+    transition_settled: false,
     parser_batch_depth: 0,
     parser_sync_pending: false,
     emitting: false,
@@ -200,6 +203,22 @@ fn[T] SyncEditor::observe_authority_acceptance(self : SyncEditor[T]) -> Unit {
         scope.accepted = true
         self.emit_projection_observation_phase(
           ProjectionObservationPhase::AuthorityAccepted,
+        )
+      }
+  }
+}
+
+///|
+fn[T] SyncEditor::observe_committed_transition_settled(
+  self : SyncEditor[T],
+) -> Unit {
+  match self.projection_observation_scope {
+    None => ()
+    Some(scope) =>
+      if !scope.transition_settled {
+        scope.transition_settled = true
+        self.emit_projection_observation_phase(
+          ProjectionObservationPhase::CommittedTransitionSettled,
         )
       }
   }
@@ -616,30 +635,44 @@ pub fn[T : Eq] SyncEditor::apply_span_edits(
   if edits.is_empty() {
     return
   }
-  // Snapshot text before applying edits so we can detect net-no-op batches
-  // (e.g. CommitEdit with the same text). Only needed when a hint is provided.
-  let text_before : String? = match hint {
-    Some(h) => {
-      self.pending_transforms.val.push(h)
-      Some(self.get_text())
-    }
-    None => None
+  let before_version = self.doc.version()
+  let old_source = self.get_text()
+  match hint {
+    Some(h) => self.pending_transforms.val.push(h)
+    None => ()
   }
   let old_cursor = self.get_cursor()
   let sorted = edits.copy()
   sorted.sort_by(fn(a, b) { b.start.compare(a.start) })
+  let replay_spans : Array[ProjectionReplaySpan] = []
   self.begin_projection_observation_batch()
   try {
     for edit in sorted {
-      ignore(
-        self.apply_text_edit_internal(
+      let current_source = self.doc.text()
+      match
+        self.apply_text_edit_mutation_only(
+          current_source,
           edit.start,
           edit.delete_len,
           edit.inserted,
           timestamp_ms,
-          true, // record_undo — grouped by capture timeout
-          false, // move_cursor_to_edit_end
-        ),
+          true,
+          SnapToGrapheme,
+        ) {
+        Some(applied_edit) =>
+          replay_spans.push({ edit: applied_edit, inserted: edit.inserted })
+        None => ()
+      }
+    }
+    if self.doc.version() != before_version {
+      self.observe_authority_acceptance()
+      let new_source = self.doc.text()
+      self.settle_committed_span_change(
+        old_source, new_source, before_version, replay_spans,
+      )
+      self.cursor = @moji.next_grapheme_boundary(
+        new_source,
+        clamp_utf16_offset(new_source, self.cursor),
       )
     }
   } catch {
@@ -650,14 +683,12 @@ pub fn[T : Eq] SyncEditor::apply_span_edits(
   }
   self.end_projection_observation_batch(succeeded=true)
   // Drop a pre-pushed hint when the batch produced no text change (T4).
-  // Real changes need the hint available during apply_local_text_change's
-  // immediate reconcile pass; no-op batches have no reparse to consume it.
-  match (hint, text_before) {
-    (Some(_), Some(before)) =>
-      if before == self.get_text() {
+  match hint {
+    Some(_) =>
+      if old_source == self.get_text() {
         let _ = self.pending_transforms.val.pop()
       }
-    _ => ()
+    None => ()
   }
   match focus_hint {
     @core.FocusHint::RestoreCursor => self.move_cursor(old_cursor)
@@ -684,6 +715,7 @@ fn[T : Eq] SyncEditor::admit_with_policy(
   self.ensure_parser_healthy()
   self.reject_projection_observer_reentry()
   self.taint_pending_transforms()
+  let before_version = self.doc.version()
   let old_source = self.doc.text()
   self.undo.set_tracking(false)
   let report_result : Result[@text.SyncReport, @text.TextError] = Ok(
@@ -695,12 +727,31 @@ fn[T : Eq] SyncEditor::admit_with_policy(
     error => Err(error)
   }
   self.undo.set_tracking(true)
+  let after_version = self.doc.version()
+  if after_version != before_version {
+    self.observe_authority_acceptance()
+  }
   // Reconcile derived state even when apply reports an error, because the
   // document may have been partially mutated before the failure surfaced.
   let new_source = self.doc.text()
   self.adjust_cursor()
-  self.adjust_peer_cursors_after_text_change(old_source, new_source, None)
-  self.sync_parser_after_text_change(old_source, new_source, None)
+  if after_version == before_version {
+    self.adjust_peer_cursors_after_text_change(old_source, new_source, None)
+    self.sync_parser_after_text_change(old_source, new_source, None)
+  } else {
+    let continuation = classify_projection_continuation(
+      old_source,
+      new_source,
+      None,
+    )
+    self.settle_committed_text_change(
+      old_source,
+      new_source,
+      before_version,
+      continuation,
+      None,
+    )
+  }
   let report = match report_result {
     Ok(report) => report
     Err(error) => raise error

@@ -1067,9 +1067,18 @@ fn MarkdownEditor::commit_with_receipt_impl(
         let facade_phase = match phase {
           @editor.ProjectionObservationPhase::AuthorityAccepted => {
             if authority_event_id != 0 {
-              markdown_authority_trace_a0(authority_event_id)
+              markdown_authority_trace_a0(
+                authority_event_id,
+                MARKDOWN_AUTHORITY_OUTCOME_ACCEPTED_TRANSITION,
+              )
             }
             MarkdownProjectionObservationPhase::AuthorityAccepted
+          }
+          @editor.ProjectionObservationPhase::CommittedTransitionSettled => {
+            if authority_event_id != 0 {
+              markdown_authority_trace_a1(authority_event_id)
+            }
+            MarkdownProjectionObservationPhase::CausalEvidenceAvailable
           }
           @editor.ProjectionObservationPhase::ProjectionMirrorSynchronized =>
             MarkdownProjectionObservationPhase::ProjectionMirrorSynchronized
@@ -1083,20 +1092,24 @@ fn MarkdownEditor::commit_with_receipt_impl(
     )
   }
   match committed {
-    Err(error) => Err(error)
+    Err(error) => {
+      if !authority_accepted && authority_event_id != 0 {
+        markdown_authority_trace_a0(
+          authority_event_id,
+          MARKDOWN_AUTHORITY_OUTCOME_REJECTED,
+        )
+      }
+      Err(error)
+    }
     Ok((result, transforms)) => {
       let after_version = self.version()
-      if authority_accepted {
-        if authority_event_id != 0 {
-          markdown_authority_trace_a1(authority_event_id)
-        }
-        match observer {
-          Some(emit) =>
-            emit(MarkdownProjectionObservationPhase::CausalEvidenceAvailable)
-          None => ()
-        }
-      }
       if after_version == before_version {
+        if !authority_accepted && authority_event_id != 0 {
+          markdown_authority_trace_a0(
+            authority_event_id,
+            MARKDOWN_AUTHORITY_OUTCOME_NO_ADVANCE,
+          )
+        }
         Ok({
           result,
           before_version,

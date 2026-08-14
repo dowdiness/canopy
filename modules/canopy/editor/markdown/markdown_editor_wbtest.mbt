@@ -2217,10 +2217,14 @@ test "authority trace separates A0 acceptance from A1 causal evidence" {
     markdown_authority_trace_event_id(0),
     markdown_authority_trace_event_id(1),
   )
+  assert_eq(
+    markdown_authority_trace_outcome(0),
+    Some(MARKDOWN_AUTHORITY_OUTCOME_ACCEPTED_TRANSITION),
+  )
 }
 
 ///|
-test "accepted parser failure records A0 without fabricating A1" {
+test "accepted parser failure records settled A0 and A1" {
   markdown_authority_trace_enable(capacity=4)
   defer markdown_authority_trace_disable()
   let editor = try! new_post_commit_failure_test_editor(
@@ -2232,10 +2236,18 @@ test "accepted parser failure records A0 without fabricating A1" {
     error => Err(error)
   }
   assert_true(result is Ok(Err(MarkdownEditorError::Committed(..))))
-  assert_eq(markdown_authority_trace_count(), 1)
+  assert_eq(markdown_authority_trace_count(), 2)
   assert_eq(
     markdown_authority_trace_phase(0),
     Some(MARKDOWN_AUTHORITY_PHASE_A0),
+  )
+  assert_eq(
+    markdown_authority_trace_phase(1),
+    Some(MARKDOWN_AUTHORITY_PHASE_A1),
+  )
+  assert_eq(
+    markdown_authority_trace_outcome(0),
+    Some(MARKDOWN_AUTHORITY_OUTCOME_ACCEPTED_TRANSITION),
   )
 }
 
@@ -2254,22 +2266,55 @@ test "disabled authority trace creates no records" {
 }
 
 ///|
-test "no-op authority observer cannot leak into the next mutation" {
+test "equal-version no-advance records one terminal A0 and no A1" {
   markdown_authority_trace_enable(capacity=6)
   defer markdown_authority_trace_disable()
   let editor = try! MarkdownEditor(
-    agent_id="authority-trace-noop-cleanup",
+    agent_id="authority-trace-no-advance",
     source="Same\n",
   )
   assert_true(
     editor.commit_with_receipt(MarkdownEditRequest::ReplaceSource("Same\n"))
     is Ok(_),
   )
-  assert_true(
-    editor.commit(MarkdownEditRequest::ReplaceSource("Changed\n")) is Ok(_),
+  assert_eq(markdown_authority_trace_count(), 1)
+  assert_eq(
+    markdown_authority_trace_phase(0),
+    Some(MARKDOWN_AUTHORITY_PHASE_A0),
   )
-  assert_eq(editor.snapshot().source(), "Changed\n")
-  assert_eq(markdown_authority_trace_count(), 0)
+  assert_eq(
+    markdown_authority_trace_outcome(0),
+    Some(MARKDOWN_AUTHORITY_OUTCOME_NO_ADVANCE),
+  )
+}
+
+///|
+test "rejected authority attempt records one terminal A0 and no A1" {
+  markdown_authority_trace_enable(capacity=4)
+  defer markdown_authority_trace_disable()
+  let editor = try! MarkdownEditor(
+    agent_id="authority-trace-rejected",
+    source="Same\n",
+  )
+  assert_true(
+    editor.commit_with_receipt(
+      MarkdownEditRequest::ReplaceText(
+        start=99,
+        delete_len=0,
+        inserted="outside",
+      ),
+    )
+    is Err(_),
+  )
+  assert_eq(markdown_authority_trace_count(), 1)
+  assert_eq(
+    markdown_authority_trace_phase(0),
+    Some(MARKDOWN_AUTHORITY_PHASE_A0),
+  )
+  assert_eq(
+    markdown_authority_trace_outcome(0),
+    Some(MARKDOWN_AUTHORITY_OUTCOME_REJECTED),
+  )
 }
 
 ///|
@@ -2299,7 +2344,7 @@ test "structural authority request records A0 before A1" {
 }
 
 ///|
-test "observing receipt exposes actual A0 C A1 synchronous order" {
+test "observing receipt exposes actual A0 A1 C synchronous order" {
   let editor = try! MarkdownEditor(
     agent_id="projection-observation-order",
     source="Before\n",
@@ -2314,8 +2359,8 @@ test "observing receipt exposes actual A0 C A1 synchronous order" {
   )
   assert_eq(phases, [
     MarkdownProjectionObservationPhase::AuthorityAccepted,
-    MarkdownProjectionObservationPhase::ProjectionMirrorSynchronized,
     MarkdownProjectionObservationPhase::CausalEvidenceAvailable,
+    MarkdownProjectionObservationPhase::ProjectionMirrorSynchronized,
   ])
 }
 
@@ -2338,8 +2383,8 @@ test "source-equal causal observation reports projection mirror sync" {
   assert_eq(editor.snapshot().source(), "Same\n")
   assert_eq(phases, [
     MarkdownProjectionObservationPhase::AuthorityAccepted,
-    MarkdownProjectionObservationPhase::ProjectionMirrorSynchronized,
     MarkdownProjectionObservationPhase::CausalEvidenceAvailable,
+    MarkdownProjectionObservationPhase::ProjectionMirrorSynchronized,
   ])
 }
 
@@ -2360,8 +2405,8 @@ test "multi-span structural request coalesces parser observation" {
   )
   assert_eq(phases, [
     MarkdownProjectionObservationPhase::AuthorityAccepted,
-    MarkdownProjectionObservationPhase::ProjectionMirrorSynchronized,
     MarkdownProjectionObservationPhase::CausalEvidenceAvailable,
+    MarkdownProjectionObservationPhase::ProjectionMirrorSynchronized,
   ])
 }
 
@@ -2399,8 +2444,8 @@ test "observer-triggered mutation is rejected and observation scope clears" {
   assert_eq(editor.snapshot().source(), "After\n")
   assert_eq(phases, [
     MarkdownProjectionObservationPhase::AuthorityAccepted,
-    MarkdownProjectionObservationPhase::ProjectionMirrorSynchronized,
     MarkdownProjectionObservationPhase::CausalEvidenceAvailable,
+    MarkdownProjectionObservationPhase::ProjectionMirrorSynchronized,
   ])
   assert_true(
     editor.commit_with_receipt_observing(
@@ -2438,7 +2483,10 @@ test "authority trace overflow fails closed" {
   markdown_authority_trace_enable(capacity=1)
   defer markdown_authority_trace_disable()
   let event_id = markdown_authority_trace_begin()
-  markdown_authority_trace_a0(event_id)
+  markdown_authority_trace_a0(
+    event_id,
+    MARKDOWN_AUTHORITY_OUTCOME_ACCEPTED_TRANSITION,
+  )
   markdown_authority_trace_a1(event_id)
   assert_true(markdown_authority_trace_overflowed())
   assert_eq(markdown_authority_trace_dropped_count(), 1)
