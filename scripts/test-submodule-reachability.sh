@@ -34,6 +34,8 @@ setup_fixture() {
   git -C "$parent" config user.name submodule-reachability-test
   git -c protocol.file.allow=always -C "$parent" submodule add --quiet "$origin" deps/test-submodule
   git -C "$parent/deps/test-submodule" config protocol.file.allow always
+  git -C "$parent/deps/test-submodule" config user.email submodule-reachability@example.invalid
+  git -C "$parent/deps/test-submodule" config user.name submodule-reachability-test
   mkdir -p "$parent/scripts"
   cp "$checker" "$parent/scripts/check-submodule-reachability.nu"
   chmod +x "$parent/scripts/check-submodule-reachability.nu"
