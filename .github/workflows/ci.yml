@@ -138,6 +138,10 @@ jobs:
             run_release_version_validation:
               - '.github/workflows/ci.yml'
               - '.github/workflows/release.yml'
+              - 'scripts/release-version-policy.nu'
+              - 'scripts/generate-release-changelog.nu'
+              - 'scripts/test-generate-release-changelog.nu'
+              - 'scripts/test-release-workflow-wiring.mjs'
               - 'scripts/resolve-release-version.nu'
               - 'scripts/test-resolve-release-version.nu'
               - 'scripts/verify-release-target.nu'
@@ -209,7 +213,7 @@ jobs:
           "${RUNNER_TEMP}/lefthook" validate
 
   release-version-validation:
-    name: Release Version and Target Validation
+    name: Release Contract Validation
     needs: changes
     if: needs.changes.outputs.run_release_version_validation == 'true'
     runs-on: ubuntu-latest
@@ -224,12 +228,23 @@ jobs:
         with:
           version: "0.114.1"
 
-      - name: Validate resolver syntax
+      - name: Validate release script syntax
         run: |
+          nu --ide-check 100 scripts/release-version-policy.nu
+          nu --ide-check 100 scripts/generate-release-changelog.nu
+          nu --ide-check 100 scripts/test-generate-release-changelog.nu
           nu --ide-check 100 scripts/resolve-release-version.nu
           nu --ide-check 100 scripts/test-resolve-release-version.nu
           nu --ide-check 100 scripts/verify-release-target.nu
           bash -n scripts/test-verify-release-target.sh
+
+      - name: Check release workflow wiring
+        run: |
+          ./scripts/validate-ci-yaml.sh
+          node scripts/test-release-workflow-wiring.mjs
+
+      - name: Run release changelog regression tests
+        run: scripts/test-generate-release-changelog.nu
 
       - name: Run resolver regression tests
         run: scripts/test-resolve-release-version.nu

@@ -28,6 +28,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           submodules: recursive
+          fetch-depth: 0
 
       - name: Install just
         uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026
@@ -85,26 +86,12 @@ jobs:
         run: just release-artifacts "$VERSION"
 
       - name: Generate changelog
-        id: changelog
         env:
           VERSION: ${{ steps.resolve-version.outputs.version }}
-        run: |
-          {
-            echo "## What's Changed"
-            echo ""
-
-            # Get commits since last tag
-            LAST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-            if [ -n "$LAST_TAG" ]; then
-              git log "${LAST_TAG}..HEAD" --pretty=format:"- %s (%h)"
-            else
-              git log --pretty=format:"- %s (%h)" -10
-            fi
-
-            echo ""
-            echo ""
-            echo "**Full Changelog**: https://github.com/${{ github.repository }}/commits/${VERSION}"
-          } > CHANGELOG.txt
+          SOURCE_SHA: ${{ github.sha }}
+          REPOSITORY: ${{ github.repository }}
+          OUTPUT_PATH: CHANGELOG.txt
+        run: nu scripts/generate-release-changelog.nu "$VERSION" "$SOURCE_SHA" "$REPOSITORY" "$OUTPUT_PATH"
 
       - name: Verify release target before publish
         env:
@@ -123,7 +110,6 @@ jobs:
           prerelease: false
           files: |
             release/*.tar.gz
-          generate_release_notes: true
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v7

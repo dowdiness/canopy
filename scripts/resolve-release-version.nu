@@ -3,14 +3,16 @@
 # Policy: stable SemVer with a v prefix (vMAJOR.MINOR.PATCH), without leading
 # zeroes. This is intentionally narrower than the v*.*.* workflow trigger.
 
+const SCRIPT_DIR = (path self | path dirname)
+source ($SCRIPT_DIR | path join "release-version-policy.nu")
+
 def invalid [message: string] {
   print -e $"error: ($message)"
   exit 1
 }
 
 def validate-version [version: string] {
-  let matches = ($version | parse -r '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$')
-  if ($matches | is-empty) {
+  if not (is-stable-version $version) {
     invalid $"invalid release version '($version)'; expected vMAJOR.MINOR.PATCH"
   }
   $version
