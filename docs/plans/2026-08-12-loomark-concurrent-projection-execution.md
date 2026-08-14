@@ -133,16 +133,20 @@ do not masquerade as `SourceTransition`. If Seed needs full source and no
 immutable handle exists, record `SeedCaptureRequired`, return the authority
 result, and materialize source afterward.
 
-Trace the authority boundary as:
+Trace the authority path as:
 
-- **A0** — causal mutation or lifecycle replacement is irreversibly classified;
-- **A1** — small receipt/effect, document version, and source identity are
-  available; and
+- **P0** — command preparation materializes the old source, maps UTF-16 offsets
+  to CRDT positions, validates or snaps grapheme boundaries, computes the
+  requested text change, and validates authority input;
+- **A0** — CRDT mutation and accepted/rejected/no-advance classification
+  linearize the authority transition;
+- **A1** — before/after causal versions, source identity/revision, and the small
+  accepted effect or receipt complete `CommittedTransition`; and
 - **B** — deferred Advance or Seed input is materialized.
 
-Property tests and trace fields must make it structurally impossible for A0/A1
-to perform full-source export, history encoding, archive preparation, JSON
-generation, or Worker transfer.
+Property tests and trace fields must make it structurally impossible for P0,
+A0, or A1 to perform full-source export beyond the existing P0 command input,
+history encoding, archive preparation, JSON generation, or Worker transfer.
 
 ### Projection Adapter
 
@@ -286,7 +290,7 @@ result rejection, and disposal. Authority state survives. Raw either remains
 usable or becomes explicitly unavailable; Block/Preview never remain in a fake
 permanent pending state.
 
-## A–F trace contract
+## P0–F trace contract
 
 Instrumentation is private, opt-in, bounded, and allocation-free when disabled.
 One authority event may reference zero or more projection requests. Each request
@@ -296,8 +300,9 @@ may correlate several adopted group work items in the same frame.
 
 | Phase | Linearization point | Required fields |
 |---|---|---|
-| A0 — authority mutation | Commit or lifecycle replacement is irreversibly classified. | event id, operation kind, accepted/rejected, before/after document version, duration |
-| A1 — authority evidence | Small receipt/effect and source identity are available without full export. | event id, source revision/identity, evidence bytes, duration, forbidden-full-export control |
+| P0 — command preparation | Authority input is ready for mutation. | event id, operation kind, old-source materialization, UTF-16 mapping, grapheme validation/snapping, requested-change computation, input-validation durations |
+| A0 — authority mutation | CRDT mutation and accepted/rejected/no-advance classification linearize the authority transition. | event id, operation kind, classification, duration |
+| A1 — settled authority evidence | Before/after causal versions, source identity/revision, and small accepted effect complete `CommittedTransition` without full export. | event id, before/after document version, source revision/identity, evidence bytes, duration, forbidden-full-export control |
 | B — deferred source materialization | Advance or Seed input is available after A1. | event id, projection request id, input kind, bytes/copies, duration |
 | C — projection execution | Executor Seed/Advance begins and ends against one acknowledged base. | projection request id, placement, generation, sequence, base/result revision, queue wait, stage durations, request disposition |
 | D — artifact publication | One consistency-group envelope is complete. | projection request id, group work id, group, encoded bytes, encode/clone/decode durations, materialized-at |
@@ -322,7 +327,7 @@ capability, protocol/reducer, Worker evidence, responsibility refactor,
 production integration, and promotion/cleanup in separate commits. A paired
 Rabbita PR is permitted only for Warren multi-entry support.
 
-### Commit 1 — characterize responsibility and A0–F behavior
+### Commit 1 — characterize responsibility and P0–F behavior
 
 **Files:** existing Loomark reducer/transaction/lifecycle tests, disposable dev
 host, and private trace modules.
@@ -536,13 +541,24 @@ this commit.
 **Files:** generic `SyncEditor` mutation/parser internals, Markdown facade and
 runtime, focused characterization/property tests, and browser phase probes.
 
-**Pre-A0 measurement gate:** instrument command preparation separately from
-authority mutation. Report document source materialization, UTF-16 offset to
-CRDT-position mapping, grapheme-boundary computation, text-change computation,
-CRDT mutation, causal-version expansion, and receipt construction as distinct
-phases. This evidence decides whether later latency belongs to projection or is
-already document-length work before A0. It must not reinterpret the current Gate
-0C Worker protocol as a production authority contract.
+**P0/A0/A1 measurement gate:** attribute command preparation, authority
+mutation, and settled evidence separately:
+
+- P0 reports old-source materialization, UTF-16-to-CRDT-position mapping,
+  grapheme validation or snapping, requested text-change computation, and
+  authority-input validation;
+- A0 reports CRDT mutation, accepted/rejected/no-advance classification, and
+  authority-transition linearization; and
+- A1 reports before/after causal versions, source identity/revision, small
+  accepted effect construction, and `CommittedTransition` completion.
+
+Reuse existing allocation-free phase probes where they already identify these
+costs; measurement must not add per-operation full-source work or allocating
+labels/maps. This evidence distinguishes P0 representation/index costs, A0 CRDT
+mutation cost, A1 evidence cost, and post-A1 projection cost. Lower-layer
+optimization requires the dominant phase to be reproduced in an isolated
+microbenchmark. The gate must not reinterpret the current Gate 0C Worker
+protocol as a production authority contract.
 
 **Red tests first:**
 
@@ -572,26 +588,37 @@ already document-length work before A0. It must not reinterpret the current Gate
 Introduce one private concrete `CommittedTransition` seam in the existing
 package. It contains authority-owned receipt evidence, distinct before/after
 causal versions, a typed projection continuation such as replayable Advance,
-`SourceUnchanged`, or `NeedsSeed`, and the path-native reconciliation evidence
-needed by interaction. Do not flatten all paths into one universal splice:
-retain the natural effect representation of each mutation path and name any
-semantic loss explicitly. Transition, outcome, rejection, and mismatch values
-must support equality and debug comparison for the differential oracle.
+`SourceUnchanged`, or `NeedsSeed`, and path-native inputs for interaction
+reconciliation. Valid inputs include accepted edit/span evidence, cursor
+transform input, a source-equal marker, before/after versions, and the
+`NeedsSeed` control marker. It does not contain reconciled cursor values, Block
+selection, source-map results, parser nodes, projection snapshots, or Seed
+full-source payload. `NeedsSeed` completes A1 and triggers coherent source
+capture only after A1 at B.
+
+Do not flatten all paths into one universal splice or introduce full-source diff
+work to manufacture interaction evidence. Retain each mutation path's natural
+effect representation and name any semantic loss explicitly. Transition,
+outcome, rejection, and mismatch values must support equality and debug
+comparison for the differential oracle.
 
 Produce this transition immediately after accepted mutation and causal-version
-capture, before `history_since` or any public receipt/history export. The current
-public Markdown receipt remains a post-A1 compatibility wrapper over the
-transition plus deferred history construction. Reuse the accepted path-native
-`MarkdownTextTransform` or lower-layer operation evidence where available;
-never reconstruct the transition from before/after full source.
+capture, before `history_since` or any public receipt/history export. The
+compatibility wrapper first interprets the committed transition through the
+existing synchronous interaction/projection path, then attaches deferred
+incremental history evidence. The transition itself contains no projection
+snapshot or view selection. Reuse accepted path-native `MarkdownTextTransform`
+or lower-layer operation evidence where available; never reconstruct the
+transition from before/after full source.
 
 Consume #1241's canonical event representation if its production contract
 exists when this stage starts. Otherwise relocate only the existing accepted
 authority transition, preserve current semantics with characterization
 evidence, and do not redefine #1241's admission contract. Lower-layer CRDT
-public interface work is explicitly conditional on the pre-A0 measurements: if
-full-source preparation dominates, open a separate event-graph-walker issue to
-investigate accepted local, range, remote-partial, and undo/redo effect evidence.
+public interface work is explicitly conditional on the P0/A0/A1 measurements.
+If a lower-layer stage dominates and an isolated microbenchmark reproduces it,
+open a separate event-graph-walker issue to investigate the specific source
+representation, position-index, mutation, or accepted-effect contract involved.
 Do not add a generic public delta, persistent snapshot root, or immutable
 snapshot handle without that evidence.
 
@@ -611,14 +638,16 @@ After 5A parity is green, move fields and behavior into three private owners:
   WebSocket/session state, and transition-driven cursor reconciliation.
 
 Before moving a field, check in an exhaustive ownership ledger for every current
-`SyncEditor` field and public method. At minimum, mutation, history, causal
-snapshot, undo/redo, and sync admission delegate to `AuthorityCore`; parser
-health/runtime, projection reads, registry/source-map/capability reads, and
-identity hints delegate to `ProjectionState[T]`; cursor, presence, peer,
-ephemeral subscription, WebSocket, and sync-session operations delegate to
-`InteractionState`. Cross-owner public methods remain on the shell and name the
-single orchestration order they preserve. The ledger is a refactor checklist,
-not a new public interface; every entry must be accounted for before 5B closes.
+`SyncEditor` field and public method. For each method, record its primary owner,
+read dependencies, mutation owner, orchestration order, failure owner, and
+permitted cross-owner calls. At minimum, mutation, history, causal snapshot,
+undo/redo, and sync admission delegate to `AuthorityCore`; parser health/runtime,
+projection reads, registry/source-map/capability reads, and identity hints
+delegate to `ProjectionState[T]`; cursor, presence, peer, ephemeral subscription,
+WebSocket, and sync-session operations delegate to `InteractionState`.
+Cross-owner public methods remain on the shell and name the single orchestration
+order they preserve. The ledger is a refactor checklist, not a new public
+interface; every entry must be accounted for before 5B closes.
 
 The shell `SyncEditor[T]` retains its existing public facade and delegates to
 those owners. `ProjectionState[T]` may depend on the parser and reactive runtime;
@@ -629,23 +658,27 @@ mirror. Field movement and transition-semantics changes must not share a patch.
 Inspect generated `.mbti` output after each ownership move; no public interface
 drift is intended.
 
-#### Commit 5C — add the private authority-only construction seam
+#### Commit 5C — add the private projection-free construction seam
 
 **Files:** extracted editor owners, private constructors, comparison wiring, and
 focused tests.
 
 Only after the physical split is complete, add a private construction path that
 creates `AuthorityCore` plus `InteractionState` without constructing a parser,
-reactive runtime, or projection memo. Construct `ProjectionState[T]` only in the
+reactive runtime, or projection memo. Projection-free construction must not
+implicitly start WebSocket, sync-session, subscription, or other external
+interaction effects; construction and activation remain separate wherever
+those effects exist. Construct and activate `ProjectionState[T]` only in the
 selected executor. Capture Seed after authority evidence, preserve the existing
 synchronous interpreter as the differential oracle, and expose the seam only to
 the private comparison flag used by Commit 6. Do not make the owners generic
 framework modules until a second real adapter justifies the seam.
 
-**Commit 5 gate:** pre-A0 costs are attributable; transition parity, interaction
-reconciliation, failure isolation, and replay convergence are green; the
-authority-only construction path performs no parser/reactive/projection setup;
-the existing synchronous facade remains behaviorally and publicly unchanged.
+**Commit 5 gate:** P0/A0/A1 costs are separately attributable; transition
+parity, interaction reconciliation, failure isolation, and replay convergence
+are green; the projection-free construction path performs no
+parser/reactive/projection setup or external interaction activation; the
+existing synchronous facade remains behaviorally and publicly unchanged.
 
 ### Commit 6 — integrate the application-lifetime Adapter behind a comparison flag
 
@@ -748,17 +781,25 @@ assertions.
       characterization evidence.
 - [ ] Every accepted operation retains exact causal receipt/history evidence
       even when projection, persistence, or presentation later fails.
-- [ ] Authority A0/A1 calls no full source/history export, archive preparation,
-      JSON/transfer, parser, projection, semantic, Preview, or DOM work.
-- [ ] Pre-A0 command preparation separately attributes source materialization,
-      UTF-16 mapping, grapheme work, text-change computation, CRDT mutation,
-      version expansion, and receipt construction.
+- [ ] Authority P0/A0/A1 calls no full source/history export beyond the existing
+      P0 command input, archive preparation, JSON/transfer, parser, projection,
+      semantic, Preview, or DOM work.
+- [ ] P0 separately attributes old-source materialization, UTF-16 mapping,
+      grapheme validation/snapping, requested text-change computation, and
+      authority-input validation.
+- [ ] A0 separately attributes CRDT mutation,
+      accepted/rejected/no-advance classification, and transition
+      linearization.
+- [ ] A1 separately attributes before/after causal versions, source
+      identity/revision, small accepted-effect construction, and
+      `CommittedTransition` completion.
 - [ ] One private committed-transition value is the sole semantic seam consumed
       by interaction reconciliation and projection continuation; authority
       mutation is not repeated or reconstructed downstream.
 - [ ] `AuthorityCore`, `InteractionState`, and `ProjectionState[T]` have distinct
-      ownership, and authority-only construction creates no parser, reactive
-      runtime, projection memo, semantic attachment, or source map.
+      ownership, and projection-free construction creates no parser, reactive
+      runtime, projection memo, semantic attachment, or source map and activates
+      no external interaction effect.
 - [ ] Every projection-relevant authority event is classified exactly once as
       replayable Advance/SourceUnchanged or generation invalidation followed by
       coherent Seed recovery. ReplaceSource uses Seed only when its accepted
@@ -829,7 +870,7 @@ assertions.
 
 ### Performance and memory evidence
 
-- [ ] A0–F trace has calibrated known-positive and trace-disabled controls.
+- [ ] P0–F trace has calibrated known-positive and trace-disabled controls.
 - [ ] 2k/10k/50k release-browser scenarios record raw paired data and all named
       phase, queue, payload/copy, and consistency-group metrics.
 - [ ] Reports include maximum contiguous main-thread slice, cumulative
