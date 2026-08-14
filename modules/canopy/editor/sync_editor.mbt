@@ -20,50 +20,151 @@ priv struct ProjectionObservationScope {
 }
 
 ///|
-pub struct SyncEditor[T] {
-  priv doc : @text.TextState
-  priv undo : @undo.UndoManager
-  priv parser : @loom.Parser[T]
+priv struct AuthorityCore {
+  doc : @text.TextState
+  undo : @undo.UndoManager
+  identity : Int
+}
+
+///|
+fn AuthorityCore::get_text(self : AuthorityCore) -> String {
+  self.doc.text()
+}
+
+///|
+fn AuthorityCore::export_all(self : AuthorityCore) -> @text.SyncMessage raise {
+  self.doc.sync().export_all()
+}
+
+///|
+fn AuthorityCore::export_since(
+  self : AuthorityCore,
+  peer_version : @text.Version,
+) -> @text.SyncMessage raise {
+  self.doc.sync().export_since(peer_version)
+}
+
+///|
+fn AuthorityCore::admit_with_tracking(
+  self : AuthorityCore,
+  msg : @text.SyncMessage,
+  limits : @sync.Limits?,
+) -> Result[@text.SyncReport, @text.TextError] {
+  self.undo.set_tracking(false)
+  let report_result : Result[@text.SyncReport, @text.TextError] = Ok(
+    match limits {
+      None => self.doc.sync().apply(msg)
+      Some(limits) => self.doc.sync().apply_with_limits(msg, limits)
+    },
+  ) catch {
+    error => Err(error)
+  }
+  self.undo.set_tracking(true)
+  report_result
+}
+
+///|
+fn AuthorityCore::causal_snapshot(
+  self : AuthorityCore,
+) -> @history.CausalSnapshot {
+  self.doc.causal_snapshot()
+}
+
+///|
+fn AuthorityCore::identity(self : AuthorityCore) -> Int {
+  self.identity
+}
+
+///|
+priv struct ProjectionState[T] {
+  parser : @loom.Parser[T]
   // Reactive causal authority for host-owned snapshots. This is separate
   // from parser source because CRDT history can advance without changing the
   // rendered text.
-  priv document_version : @incr.Input[@text.Version]
-  priv mut cursor : Int
-  priv cached_proj_node : @incr.Derived[@core.ProjNode[T]?]
-  priv registry_memo : @incr.Derived[Map[@core.NodeId, @core.ProjNode[T]]]
-  priv source_map_memo : @incr.Derived[@core.SourceMap]
+  document_version : @incr.Input[@text.Version]
+  cached_proj_node : @incr.Derived[@core.ProjNode[T]?]
+  registry_memo : @incr.Derived[Map[@core.NodeId, @core.ProjNode[T]]]
+  source_map_memo : @incr.Derived[@core.SourceMap]
   // These private roots give the projection graph the same page/process
   // lifetime as its owning editor. A shared-runtime attachment may run
   // runtime-wide collection without sweeping editor-owned memos.
-  priv projection_anchor : @incr.Watch[@core.ProjNode[T]?]
-  priv registry_anchor : @incr.Watch[Map[@core.NodeId, @core.ProjNode[T]]]
-  priv source_map_anchor : @incr.Watch[@core.SourceMap]
-  priv capabilities : LanguageCapabilities[T]
-  priv hub : EphemeralHub
-  priv cursor_view : PeerCursorView
-  priv peer_id : String
-  priv mut ws : JsWebSocket?
-  priv session : @sync_session.SyncSession
-  priv mut projection_dirty : Bool
+  projection_anchor : @incr.Watch[@core.ProjNode[T]?]
+  registry_anchor : @incr.Watch[Map[@core.NodeId, @core.ProjNode[T]]]
+  source_map_anchor : @incr.Watch[@core.SourceMap]
+  capabilities : LanguageCapabilities[T]
+  mut projection_dirty : Bool
   // Once Loom raises Failure, its engine source and published snapshot may no
   // longer agree. Preserve that exact value and reject every later parser or
   // projection operation before it can observe or mutate stale state.
-  priv mut parser_failure : Failure?
+  mut parser_failure : Failure?
   // Structural-edit identity hints accumulated since the last reconcile.
   // Structural edits push their IdentityTransform here; raw-text edits push
   // Opaque (taint) when non-empty. Consumed and cleared once per reparse by
   // `core.build_projection_memos_with_identity_hints`.
   // T4: cleared exactly once per reconcile pass (never stale).
   // T1 invariant: hints reference only prev-tree NodeIds valid at push time.
-  priv pending_transforms : Ref[Array[@core.IdentityTransform]]
-  // Process-local construction identity. Two `SyncEditor` instances
-  // constructed separately have different identities; the same instance
-  // always returns the same value. Used as a cache key in history-view
-  // memoization (see `editor/sync_editor_history.mbt`).
-  priv identity : Int
+  pending_transforms : Ref[Array[@core.IdentityTransform]]
+}
+
+///|
+priv struct InteractionState {
+  mut cursor : Int
+  hub : EphemeralHub
+  cursor_view : PeerCursorView
+  peer_id : String
+  mut ws : JsWebSocket?
+  session : @sync_session.SyncSession
   // Scoped telemetry state. It coalesces multi-span edits into one A0 and one
   // final C while keeping arm/clear operations inside the editor.
-  priv mut projection_observation_scope : ProjectionObservationScope?
+  mut projection_observation_scope : ProjectionObservationScope?
+}
+
+///|
+fn InteractionState::set_cursor(self : InteractionState, cursor : Int) -> Unit {
+  self.cursor = cursor
+}
+
+///|
+fn InteractionState::set_cursor_prev_grapheme_boundary(
+  self : InteractionState,
+  text : String,
+  position : Int,
+) -> Unit {
+  self.cursor = @moji.prev_grapheme_boundary(text, position)
+}
+
+///|
+fn InteractionState::set_cursor_next_grapheme_boundary(
+  self : InteractionState,
+  text : String,
+  position : Int,
+) -> Unit {
+  self.cursor = @moji.next_grapheme_boundary(text, position)
+}
+
+///|
+fn InteractionState::clamp_cursor_to_length(
+  self : InteractionState,
+  text_len : Int,
+) -> Unit {
+  if self.cursor > text_len {
+    self.cursor = text_len
+  }
+}
+
+///|
+fn InteractionState::adjust_cursor_view_for_edit(
+  self : InteractionState,
+  edit : @loom_core.Edit,
+) -> Unit {
+  self.cursor_view.adjust_for_edit(edit.start(), edit.old_len(), edit.new_len())
+}
+
+///|
+pub struct SyncEditor[T] {
+  priv authority : AuthorityCore
+  priv projection : ProjectionState[T]
+  priv interaction : InteractionState
 }
 
 ///|
@@ -140,28 +241,34 @@ fn[T] finish_editor(
   let source_map_anchor = source_map_memo.watch()
   let (hub, cursor_view) = setup_hub_and_cursor(agent_id)
   {
-    doc,
-    undo: @undo.UndoManager::new(agent_id, capture_timeout_ms~),
-    parser,
-    document_version,
-    cursor: 0,
-    cached_proj_node,
-    registry_memo,
-    source_map_memo,
-    projection_anchor,
-    registry_anchor,
-    source_map_anchor,
-    capabilities,
-    hub,
-    cursor_view,
-    peer_id: agent_id,
-    ws: None,
-    session: @sync_session.SyncSession::SyncSession(),
-    projection_dirty: false,
-    parser_failure: None,
-    pending_transforms,
-    identity,
-    projection_observation_scope: None,
+    authority: {
+      doc,
+      undo: @undo.UndoManager::new(agent_id, capture_timeout_ms~),
+      identity,
+    },
+    projection: {
+      parser,
+      document_version,
+      cached_proj_node,
+      registry_memo,
+      source_map_memo,
+      projection_anchor,
+      registry_anchor,
+      source_map_anchor,
+      capabilities,
+      projection_dirty: false,
+      parser_failure: None,
+      pending_transforms,
+    },
+    interaction: {
+      cursor: 0,
+      hub,
+      cursor_view,
+      peer_id: agent_id,
+      ws: None,
+      session: @sync_session.SyncSession::SyncSession(),
+      projection_observation_scope: None,
+    },
   }
 }
 
@@ -169,6 +276,15 @@ fn[T] finish_editor(
 /// Observe one whole mutation request without exposing arm/clear operations.
 pub fn[T, R] SyncEditor::observe_projection_during(
   self : SyncEditor[T],
+  observer : (ProjectionObservationPhase) -> Unit,
+  action : () -> R raise,
+) -> (R, Bool) raise {
+  self.interaction.observe_projection_during(observer, action)
+}
+
+///|
+fn[R] InteractionState::observe_projection_during(
+  self : InteractionState,
   observer : (ProjectionObservationPhase) -> Unit,
   action : () -> R raise,
 ) -> (R, Bool) raise {
@@ -196,6 +312,13 @@ pub fn[T, R] SyncEditor::observe_projection_during(
 
 ///|
 fn[T] SyncEditor::observe_authority_acceptance(self : SyncEditor[T]) -> Unit {
+  self.interaction.observe_authority_acceptance()
+}
+
+///|
+fn InteractionState::observe_authority_acceptance(
+  self : InteractionState,
+) -> Unit {
   match self.projection_observation_scope {
     None => ()
     Some(scope) =>
@@ -211,6 +334,13 @@ fn[T] SyncEditor::observe_authority_acceptance(self : SyncEditor[T]) -> Unit {
 ///|
 fn[T] SyncEditor::observe_committed_transition_settled(
   self : SyncEditor[T],
+) -> Unit {
+  self.interaction.observe_committed_transition_settled()
+}
+
+///|
+fn InteractionState::observe_committed_transition_settled(
+  self : InteractionState,
 ) -> Unit {
   match self.projection_observation_scope {
     None => ()
@@ -228,6 +358,13 @@ fn[T] SyncEditor::observe_committed_transition_settled(
 fn[T] SyncEditor::begin_projection_observation_batch(
   self : SyncEditor[T],
 ) -> Unit {
+  self.interaction.begin_projection_observation_batch()
+}
+
+///|
+fn InteractionState::begin_projection_observation_batch(
+  self : InteractionState,
+) -> Unit {
   match self.projection_observation_scope {
     None => ()
     Some(scope) => scope.parser_batch_depth += 1
@@ -237,6 +374,14 @@ fn[T] SyncEditor::begin_projection_observation_batch(
 ///|
 fn[T] SyncEditor::end_projection_observation_batch(
   self : SyncEditor[T],
+  succeeded~ : Bool,
+) -> Unit {
+  self.interaction.end_projection_observation_batch(succeeded~)
+}
+
+///|
+fn InteractionState::end_projection_observation_batch(
+  self : InteractionState,
   succeeded~ : Bool,
 ) -> Unit {
   match self.projection_observation_scope {
@@ -257,6 +402,13 @@ fn[T] SyncEditor::end_projection_observation_batch(
 
 ///|
 fn[T] SyncEditor::observe_parser_synchronized(self : SyncEditor[T]) -> Unit {
+  self.interaction.observe_parser_synchronized()
+}
+
+///|
+fn InteractionState::observe_parser_synchronized(
+  self : InteractionState,
+) -> Unit {
   match self.projection_observation_scope {
     None => ()
     Some(scope) =>
@@ -273,8 +425,8 @@ fn[T] SyncEditor::observe_parser_synchronized(self : SyncEditor[T]) -> Unit {
 }
 
 ///|
-fn[T] SyncEditor::emit_projection_observation_phase(
-  self : SyncEditor[T],
+fn InteractionState::emit_projection_observation_phase(
+  self : InteractionState,
   phase : ProjectionObservationPhase,
 ) -> Unit {
   match self.projection_observation_scope {
@@ -290,6 +442,13 @@ fn[T] SyncEditor::emit_projection_observation_phase(
 ///|
 fn[T] SyncEditor::reject_projection_observer_reentry(
   self : SyncEditor[T],
+) -> Unit raise Failure {
+  self.interaction.reject_projection_observer_reentry()
+}
+
+///|
+fn InteractionState::reject_projection_observer_reentry(
+  self : InteractionState,
 ) -> Unit raise Failure {
   match self.projection_observation_scope {
     None => ()
@@ -349,6 +508,16 @@ pub fn[T] SyncEditor::set_local_presence(
   color : String,
   selection? : (Int, Int)? = None,
 ) -> Unit {
+  self.interaction.set_local_presence(name, color, selection~)
+}
+
+///|
+fn InteractionState::set_local_presence(
+  self : InteractionState,
+  name : String,
+  color : String,
+  selection? : (Int, Int)? = None,
+) -> Unit {
   // Write cursor data to cursor store (with name/color for cursor_view compat)
   let map : Map[String, EphemeralValue] = Map([])
   map["peer_id"] = EphemeralValue::String(self.peer_id)
@@ -378,6 +547,11 @@ pub fn[T] SyncEditor::set_local_presence(
 
 ///|
 pub fn[T] SyncEditor::delete_local_presence(self : SyncEditor[T]) -> Unit {
+  self.interaction.delete_local_presence()
+}
+
+///|
+fn InteractionState::delete_local_presence(self : InteractionState) -> Unit {
   self.hub.on_peer_leave(self.peer_id)
 }
 
@@ -388,16 +562,34 @@ pub fn[T] SyncEditor::apply_ephemeral(
   self : SyncEditor[T],
   data : Bytes,
 ) -> Unit {
+  self.interaction.apply_ephemeral(data)
+}
+
+///|
+fn InteractionState::apply_ephemeral(
+  self : InteractionState,
+  data : Bytes,
+) -> Unit {
   self.hub.apply_all(data)
 }
 
 ///|
 pub fn[T] SyncEditor::encode_ephemeral_all(self : SyncEditor[T]) -> Bytes {
+  self.interaction.encode_ephemeral_all()
+}
+
+///|
+fn InteractionState::encode_ephemeral_all(self : InteractionState) -> Bytes {
   self.hub.encode_all()
 }
 
 ///|
 pub fn[T] SyncEditor::remove_ephemeral_outdated(self : SyncEditor[T]) -> Unit {
+  self.interaction.remove_ephemeral_outdated()
+}
+
+///|
+fn InteractionState::remove_ephemeral_outdated(self : InteractionState) -> Unit {
   self.hub.remove_outdated()
 }
 
@@ -405,21 +597,43 @@ pub fn[T] SyncEditor::remove_ephemeral_outdated(self : SyncEditor[T]) -> Unit {
 pub fn[T] SyncEditor::get_peer_cursors(
   self : SyncEditor[T],
 ) -> Map[String, PeerCursor] {
+  self.interaction.get_peer_cursors()
+}
+
+///|
+fn InteractionState::get_peer_cursors(
+  self : InteractionState,
+) -> Map[String, PeerCursor] {
   self.cursor_view.all_cursors()
 }
 
 ///|
 pub fn[T] SyncEditor::get_peer_id(self : SyncEditor[T]) -> String {
+  self.interaction.get_peer_id()
+}
+
+///|
+fn InteractionState::get_peer_id(self : InteractionState) -> String {
   self.peer_id
 }
 
 ///|
 pub fn[T] SyncEditor::get_hub(self : SyncEditor[T]) -> EphemeralHub {
+  self.interaction.get_hub()
+}
+
+///|
+fn InteractionState::get_hub(self : InteractionState) -> EphemeralHub {
   self.hub
 }
 
 ///|
 pub fn[T] SyncEditor::ws_send(self : SyncEditor[T], data : Bytes) -> Unit {
+  self.interaction.ws_send(data)
+}
+
+///|
+fn InteractionState::ws_send(self : InteractionState, data : Bytes) -> Unit {
   if self.ws is Some(ws) {
     ws.send_bytes(data)
   }
@@ -430,7 +644,45 @@ pub fn[T] SyncEditor::subscribe_ephemeral_local(
   self : SyncEditor[T],
   callback : (Bytes) -> Bool,
 ) -> EphemeralSubscription {
+  self.interaction.subscribe_ephemeral_local(callback)
+}
+
+///|
+fn InteractionState::subscribe_ephemeral_local(
+  self : InteractionState,
+  callback : (Bytes) -> Bool,
+) -> EphemeralSubscription {
   self.hub.get_store(Cursor).subscribe_local_updates(callback)
+}
+
+///|
+fn InteractionState::apply_ephemeral_namespace(
+  self : InteractionState,
+  ns : EphemeralNamespace,
+  payload : Bytes,
+) -> Unit {
+  self.hub.apply(ns, payload)
+}
+
+///|
+fn InteractionState::encode_ephemeral_namespace(
+  self : InteractionState,
+  ns : EphemeralNamespace,
+) -> Bytes {
+  self.hub.encode(ns)
+}
+
+///|
+fn InteractionState::on_peer_leave(
+  self : InteractionState,
+  peer_id : String,
+) -> Unit {
+  self.hub.on_peer_leave(peer_id)
+}
+
+///|
+fn InteractionState::has_ws(self : InteractionState) -> Bool {
+  self.ws is Some(_)
 }
 
 // --- SyncStatus API ---
@@ -438,7 +690,17 @@ pub fn[T] SyncEditor::subscribe_ephemeral_local(
 ///|
 /// Get the current sync status.
 pub fn[T] SyncEditor::get_sync_status(self : SyncEditor[T]) -> SyncStatus {
+  self.interaction.get_sync_status()
+}
+
+///|
+fn InteractionState::get_sync_status(self : InteractionState) -> SyncStatus {
   self.session.get_status()
+}
+
+///|
+fn InteractionState::note_sync_applied(self : InteractionState) -> Unit {
+  self.session.note_sync_applied()
 }
 
 ///|
@@ -446,6 +708,14 @@ pub fn[T] SyncEditor::get_sync_status(self : SyncEditor[T]) -> SyncStatus {
 /// Setting again replaces the previous callback. Pass `None` to disable.
 pub fn[T] SyncEditor::set_on_status_change(
   self : SyncEditor[T],
+  callback : ((SyncStatus) -> Unit)?,
+) -> Unit {
+  self.interaction.set_on_status_change(callback)
+}
+
+///|
+fn InteractionState::set_on_status_change(
+  self : InteractionState,
   callback : ((SyncStatus) -> Unit)?,
 ) -> Unit {
   self.session.set_on_status_change(callback)
@@ -463,6 +733,14 @@ pub fn[T] SyncEditor::set_watchdog_scheduler(
   self : SyncEditor[T],
   scheduler : ((Int, Int) -> Unit)?,
 ) -> Unit {
+  self.interaction.set_watchdog_scheduler(scheduler)
+}
+
+///|
+fn InteractionState::set_watchdog_scheduler(
+  self : InteractionState,
+  scheduler : ((Int, Int) -> Unit)?,
+) -> Unit {
   self.session.set_watchdog_scheduler(scheduler)
 }
 
@@ -470,6 +748,14 @@ pub fn[T] SyncEditor::set_watchdog_scheduler(
 /// Set the watchdog timeout in milliseconds. Default is 5000ms.
 pub fn[T] SyncEditor::set_watchdog_timeout(
   self : SyncEditor[T],
+  ms : Int,
+) -> Unit {
+  self.interaction.set_watchdog_timeout(ms)
+}
+
+///|
+fn InteractionState::set_watchdog_timeout(
+  self : InteractionState,
   ms : Int,
 ) -> Unit {
   self.session.set_watchdog_timeout(ms)
@@ -483,7 +769,16 @@ pub fn[T] SyncEditor::on_watchdog_fire(
   self : SyncEditor[T],
   request_id : Int,
 ) -> Unit {
-  self.session.on_watchdog_fire(request_id, self.sync_io())
+  self.interaction.on_watchdog_fire(request_id, self.sync_io())
+}
+
+///|
+fn InteractionState::on_watchdog_fire(
+  self : InteractionState,
+  request_id : Int,
+  io : @sync_session.SyncIo,
+) -> Unit {
+  self.session.on_watchdog_fire(request_id, io)
 }
 
 // ── Projection accessors ─────────────────────────────────────────────────
@@ -495,7 +790,7 @@ pub fn[T] SyncEditor::get_proj_node(
   self : SyncEditor[T],
 ) -> @core.ProjNode[T]? raise Failure {
   self.ensure_parser_healthy()
-  self.cached_proj_node.read_or_abort()
+  self.projection.cached_proj_node.read_or_abort()
 }
 
 ///|
@@ -504,7 +799,7 @@ pub fn[T] SyncEditor::get_source_map(
   self : SyncEditor[T],
 ) -> @core.SourceMap raise Failure {
   self.ensure_parser_healthy()
-  self.source_map_memo.read_or_abort()
+  self.projection.source_map_memo.read_or_abort()
 }
 
 ///|
@@ -514,7 +809,7 @@ pub fn[T] SyncEditor::get_registry(
   self : SyncEditor[T],
 ) -> Map[@core.NodeId, @core.ProjNode[T]] raise Failure {
   self.ensure_parser_healthy()
-  self.registry_memo.read_or_abort()
+  self.projection.registry_memo.read_or_abort()
 }
 
 ///|
@@ -526,7 +821,7 @@ pub fn[T] SyncEditor::cached_proj_node(
   self : SyncEditor[T],
 ) -> @incr.Derived[@core.ProjNode[T]?] raise Failure {
   self.ensure_parser_healthy()
-  self.cached_proj_node
+  self.projection.cached_proj_node
 }
 
 ///|
@@ -535,7 +830,7 @@ pub fn[T] SyncEditor::registry_memo(
   self : SyncEditor[T],
 ) -> @incr.Derived[Map[@core.NodeId, @core.ProjNode[T]]] raise Failure {
   self.ensure_parser_healthy()
-  self.registry_memo
+  self.projection.registry_memo
 }
 
 ///|
@@ -544,7 +839,7 @@ pub fn[T] SyncEditor::source_map_memo(
   self : SyncEditor[T],
 ) -> @incr.Derived[@core.SourceMap] raise Failure {
   self.ensure_parser_healthy()
-  self.source_map_memo
+  self.projection.source_map_memo
 }
 
 ///|
@@ -555,7 +850,7 @@ pub fn[T] SyncEditor::source_map_memo(
 /// separate "never parsed" from "parse failed".
 pub fn[T] SyncEditor::get_tree(self : SyncEditor[T]) -> T? raise Failure {
   self.ensure_parser_healthy()
-  Some(self.parser.ast().read_or_abort())
+  Some(self.projection.parser.ast().read_or_abort())
 }
 
 ///|
@@ -564,7 +859,7 @@ pub fn[T] SyncEditor::get_node(
   id : @core.NodeId,
 ) -> @core.ProjNode[T]? raise Failure {
   self.ensure_parser_healthy()
-  self.registry_memo.read_or_abort().get(id)
+  self.projection.registry_memo.read_or_abort().get(id)
 }
 
 ///|
@@ -577,7 +872,7 @@ pub fn[T] SyncEditor::node_at_position(
   position : Int,
 ) -> @core.NodeId? raise Failure {
   self.ensure_parser_healthy()
-  self.source_map_memo.read_or_abort().innermost_node_at(position)
+  self.projection.source_map_memo.read_or_abort().innermost_node_at(position)
 }
 
 ///|
@@ -586,7 +881,7 @@ pub fn[T] SyncEditor::get_node_range(
   id : @core.NodeId,
 ) -> @loom_core.Range? raise Failure {
   self.ensure_parser_healthy()
-  self.source_map_memo.read_or_abort().get_range(id)
+  self.projection.source_map_memo.read_or_abort().get_range(id)
 }
 
 // ── Span-edit application ────────────────────────────────────────────────
@@ -604,14 +899,36 @@ pub fn[T] SyncEditor::invalidate_pending_identity_hints(
 }
 
 ///|
+fn[T] ProjectionState::taint_pending_transforms(
+  self : ProjectionState[T],
+) -> Unit {
+  if !self.pending_transforms.val.is_empty() {
+    self.pending_transforms.val.push(@core.IdentityTransform::Opaque)
+  }
+}
+
+///|
+fn[T] ProjectionState::push_identity_hint(
+  self : ProjectionState[T],
+  hint : @core.IdentityTransform,
+) -> Unit {
+  self.pending_transforms.val.push(hint)
+}
+
+///|
+fn[T] ProjectionState::rollback_identity_hint(
+  self : ProjectionState[T],
+) -> Unit {
+  let _ = self.pending_transforms.val.pop()
+}
+
+///|
 /// Push `Opaque` to `pending_transforms` iff the array is already non-empty.
 /// Raw-text edit paths call this so that any structural hint accumulated before
 /// the raw edit is invalidated (T2: no silent stale-hint trust).
 /// No-op during normal typing when no structural hint is pending.
 fn[T] SyncEditor::taint_pending_transforms(self : SyncEditor[T]) -> Unit {
-  if !self.pending_transforms.val.is_empty() {
-    self.pending_transforms.val.push(@core.IdentityTransform::Opaque)
-  }
+  self.projection.taint_pending_transforms()
 }
 
 ///|
@@ -635,10 +952,10 @@ pub fn[T : Eq] SyncEditor::apply_span_edits(
   if edits.is_empty() {
     return
   }
-  let before_version = self.doc.version()
+  let before_version = self.authority.doc.version()
   let old_source = self.get_text()
   match hint {
-    Some(h) => self.pending_transforms.val.push(h)
+    Some(h) => self.projection.push_identity_hint(h)
     None => ()
   }
   let old_cursor = self.get_cursor()
@@ -648,7 +965,7 @@ pub fn[T : Eq] SyncEditor::apply_span_edits(
   self.begin_projection_observation_batch()
   try {
     for edit in sorted {
-      let current_source = self.doc.text()
+      let current_source = self.authority.doc.text()
       match
         self.apply_text_edit_mutation_only(
           current_source,
@@ -664,15 +981,15 @@ pub fn[T : Eq] SyncEditor::apply_span_edits(
         None => ()
       }
     }
-    if self.doc.version() != before_version {
+    if self.authority.doc.version() != before_version {
       self.observe_authority_acceptance()
-      let new_source = self.doc.text()
+      let new_source = self.authority.doc.text()
       self.settle_committed_span_change(
         old_source, new_source, before_version, replay_spans,
       )
-      self.cursor = @moji.next_grapheme_boundary(
+      self.interaction.set_cursor_next_grapheme_boundary(
         new_source,
-        clamp_utf16_offset(new_source, self.cursor),
+        clamp_utf16_offset(new_source, self.interaction.cursor),
       )
     }
   } catch {
@@ -686,7 +1003,7 @@ pub fn[T : Eq] SyncEditor::apply_span_edits(
   match hint {
     Some(_) =>
       if old_source == self.get_text() {
-        let _ = self.pending_transforms.val.pop()
+        self.projection.rollback_identity_hint()
       }
     None => ()
   }
@@ -700,10 +1017,7 @@ pub fn[T : Eq] SyncEditor::apply_span_edits(
 
 ///|
 fn[T] SyncEditor::adjust_cursor(self : SyncEditor[T]) -> Unit {
-  let text_len = self.doc.len()
-  if self.cursor > text_len {
-    self.cursor = text_len
-  }
+  self.interaction.clamp_cursor_to_length(self.authority.doc.len())
 }
 
 ///|
@@ -715,25 +1029,16 @@ fn[T : Eq] SyncEditor::admit_with_policy(
   self.ensure_parser_healthy()
   self.reject_projection_observer_reentry()
   self.taint_pending_transforms()
-  let before_version = self.doc.version()
-  let old_source = self.doc.text()
-  self.undo.set_tracking(false)
-  let report_result : Result[@text.SyncReport, @text.TextError] = Ok(
-    match limits {
-      None => self.doc.sync().apply(msg)
-      Some(limits) => self.doc.sync().apply_with_limits(msg, limits)
-    },
-  ) catch {
-    error => Err(error)
-  }
-  self.undo.set_tracking(true)
-  let after_version = self.doc.version()
+  let before_version = self.authority.doc.version()
+  let old_source = self.authority.doc.text()
+  let report_result = self.authority.admit_with_tracking(msg, limits)
+  let after_version = self.authority.doc.version()
   if after_version != before_version {
     self.observe_authority_acceptance()
   }
   // Reconcile derived state even when apply reports an error, because the
   // document may have been partially mutated before the failure surfaced.
-  let new_source = self.doc.text()
+  let new_source = self.authority.doc.text()
   self.adjust_cursor()
   if after_version == before_version {
     self.adjust_peer_cursors_after_text_change(old_source, new_source, None)
@@ -760,7 +1065,7 @@ fn[T : Eq] SyncEditor::admit_with_policy(
     // Clear a prior Error status once any sync applies — another peer
     // (via RelayedCrdtOps) having filled the causal gap counts as recovery.
     // A message that still leaves a gap is not recovery, so the status stands.
-    self.session.note_sync_applied()
+    self.interaction.note_sync_applied()
   }
   report
 }
@@ -811,14 +1116,14 @@ pub fn[T : Eq] SyncEditor::apply_sync(
 pub fn[T] SyncEditor::get_version(self : SyncEditor[T]) -> @text.Version {
   // The reactive version is refreshed alongside every accepted text/CRDT
   // transition. Reuse it instead of expanding the entire operation log again.
-  self.document_version.get()
+  self.projection.document_version.get()
 }
 
 ///|
 pub fn[T] SyncEditor::export_all(
   self : SyncEditor[T],
 ) -> @text.SyncMessage raise {
-  self.doc.sync().export_all()
+  self.authority.export_all()
 }
 
 ///|
@@ -826,7 +1131,7 @@ pub fn[T] SyncEditor::export_since(
   self : SyncEditor[T],
   peer_version : @text.Version,
 ) -> @text.SyncMessage raise {
-  self.doc.sync().export_since(peer_version)
+  self.authority.export_since(peer_version)
 }
 
 // ── Pretty-print integration ─────────────────────────────────────────────
@@ -842,7 +1147,7 @@ pub fn[T : @pretty.Pretty] SyncEditor::get_pretty_view(
     return @protocol.layout_to_view_tree(@pretty.text(""), width=80)
   }
   let layout = @pretty.Pretty::to_layout(tree)
-  let final_layout = match self.capabilities.pretty_post_process {
+  let final_layout = match self.projection.capabilities.pretty_post_process {
     Some(post) => post(layout)
     None => layout
   }
@@ -892,7 +1197,7 @@ fn next_editor_identity() -> Int {
 pub fn[T] SyncEditor::causal_snapshot(
   self : SyncEditor[T],
 ) -> @history.CausalSnapshot {
-  self.doc.causal_snapshot()
+  self.authority.causal_snapshot()
 }
 
 ///|
@@ -902,5 +1207,5 @@ pub fn[T] SyncEditor::causal_snapshot(
 /// `(editor.identity(), snapshot.op_count())` for an append-only history
 /// memo).
 pub fn[T] SyncEditor::identity(self : SyncEditor[T]) -> Int {
-  self.identity
+  self.authority.identity()
 }

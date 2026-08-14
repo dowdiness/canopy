@@ -296,11 +296,11 @@ pub fn[T : @loom_core.Renderable] SyncEditor::get_view_tree(
     Some(proj_node) => {
       let source_map = self.get_source_map()
       let source_text = Some(self.get_text())
-      let annotations = match self.capabilities.get_annotations {
+      let annotations = match self.projection.capabilities.get_annotations {
         Some(get_ann) => get_ann()
         None => Map([])
       }
-      match self.capabilities.to_view_node {
+      match self.projection.capabilities.to_view_node {
         Some(convert) =>
           Some(convert(proj_node, source_map, annotations, source_text))
         None =>
@@ -390,7 +390,8 @@ pub fn[T : @loom_core.Renderable] compute_view_patches(
 ) -> Array[@protocol.ViewPatch] raise Failure {
   let patches : Array[@protocol.ViewPatch] = []
   let current = editor.get_view_tree()
-  let current_decorations = match editor.capabilities.get_decorations {
+  let current_decorations = match
+    editor.projection.capabilities.get_decorations {
     Some(get_decos) => get_decos()
     None => []
   }
@@ -413,7 +414,7 @@ pub fn[T : @loom_core.Renderable] compute_view_patches(
   }
   state.previous_decorations = Some(current_decorations)
   let parser_snapshot = editor.parser_snapshot().read_or_abort()
-  let semantic_snapshot = match editor.capabilities.get_diagnostics {
+  let semantic_snapshot = match editor.projection.capabilities.get_diagnostics {
     Some(get_diagnostics) => get_diagnostics()
     None => None
   }

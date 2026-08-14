@@ -549,3 +549,22 @@ test "exact no-advance emits neither accepted authority nor transition" {
   assert_false(accepted)
   assert_eq(phases, [])
 }
+
+///|
+test "facade text edit commits through AuthorityCore" {
+  let editor = try! @probe.new_test_editor("authority-owner")
+  editor.set_text("before")
+  assert_true(editor.apply_text_edit_exact(0, 6, "after", 0))
+  assert_eq(editor.authority.get_text(), "after")
+  assert_eq(editor.get_text(), editor.authority.get_text())
+}
+
+///|
+test "detached ProjectionState cannot mutate authority text" {
+  let editor = try! @probe.new_test_editor("detached-projection")
+  editor.set_text("authority")
+  let projection = editor.projection
+  projection.set_parser_source("projection-only")
+  assert_eq(editor.authority.get_text(), "authority")
+  assert_eq(projection.parser.source().read_or_abort(), "projection-only")
+}

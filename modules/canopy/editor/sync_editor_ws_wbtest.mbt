@@ -5,9 +5,9 @@ test "ws_on_close: clears ws reference" {
   let editor = try! @probe.new_test_editor("alice")
   let ws = make_test_ws()
   editor.ws_on_open(ws)
-  inspect(editor.ws is None, content="false")
+  inspect(editor.interaction.ws is None, content="false")
   editor.ws_on_close()
-  inspect(editor.ws is None, content="true")
+  inspect(editor.interaction.ws is None, content="true")
 }
 
 ///|
@@ -15,7 +15,7 @@ test "ws_send: does nothing when disconnected" {
   let editor = try! @probe.new_test_editor("alice")
   // ws is None by default — should not panic
   editor.ws_send(Bytes::new(0))
-  inspect(editor.ws is None, content="true")
+  inspect(editor.interaction.ws is None, content="true")
 }
 
 ///|
@@ -25,14 +25,14 @@ test "ws_on_message: PeerLeft removes peer from hub" {
   // encode it from bob's own hub and apply to alice's editor hub.
   let bob_hub = EphemeralHub::new("bob")
   bob_hub.set_cursor(42)
-  editor.hub.apply(Cursor, bob_hub.encode(Cursor))
+  editor.interaction.hub.apply(Cursor, bob_hub.encode(Cursor))
   // Verify bob is present (peer-id-keyed query — no wire-key math needed)
-  inspect(editor.hub.get_cursor("bob") is None, content="false")
+  inspect(editor.interaction.hub.get_cursor("bob") is None, content="false")
   // Simulate PeerLeft message
   let wire = @wire.encode_message(PeerLeft("bob"))
   editor.ws_on_message(wire)
   // Bob should be removed
-  inspect(editor.hub.get_cursor("bob") is None, content="true")
+  inspect(editor.interaction.hub.get_cursor("bob") is None, content="true")
 }
 
 ///|
@@ -68,7 +68,7 @@ test "ws_on_message: EphemeralUpdate applies to hub" {
   let wire = @wire.encode_message(EphemeralUpdate(Cursor, cursor_data))
   editor.ws_on_message(wire)
   // Verify bob's cursor is now in alice's hub
-  let bob_cursor = editor.hub.get_cursor("bob")
+  let bob_cursor = editor.interaction.hub.get_cursor("bob")
   inspect(bob_cursor is None, content="false")
 }
 

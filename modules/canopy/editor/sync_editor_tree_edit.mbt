@@ -3,10 +3,22 @@
 // No language-specific projection side channel, no TreeEditOp, no lambda-specific logic.
 
 ///|
+fn[T] ProjectionState::is_dirty(self : ProjectionState[T]) -> Bool {
+  self.projection_dirty
+}
+
+///|
+fn[T] ProjectionState::refresh(self : ProjectionState[T]) -> Unit raise Failure {
+  self.ensure_parser_healthy()
+  self.projection_dirty = false
+  let _ = self.cached_proj_node.read_or_abort()
+}
+
+///|
 /// Returns true if any text edit has been applied since the last refresh().
 /// Does not force memo evaluation.
 pub fn[T] SyncEditor::is_dirty(self : SyncEditor[T]) -> Bool {
-  self.projection_dirty
+  self.projection.is_dirty()
 }
 
 ///|
@@ -17,9 +29,7 @@ pub fn[T] SyncEditor::is_dirty(self : SyncEditor[T]) -> Bool {
 /// point (e.g., on animation frame) rather than paying the cost lazily
 /// inside a getter.
 pub fn[T] SyncEditor::refresh(self : SyncEditor[T]) -> Unit raise Failure {
-  self.ensure_parser_healthy()
-  self.projection_dirty = false
-  let _ = self.cached_proj_node.read_or_abort()
+  self.projection.refresh()
 }
 
 ///|

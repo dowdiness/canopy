@@ -253,7 +253,7 @@ test "ws_broadcast_edit: no-op when disconnected" {
 ///|
 test "ws_broadcast_cursor: no-op when disconnected" {
   let editor = try! @probe.new_test_editor("alice")
-  editor.hub.set_cursor(5)
+  editor.interaction.hub.set_cursor(5)
   // Should not panic when ws is None
   editor.ws_broadcast_cursor()
 }

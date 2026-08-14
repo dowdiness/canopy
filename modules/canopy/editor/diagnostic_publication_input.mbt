@@ -125,10 +125,8 @@ pub fn DiagnosticPublicationInputSnapshot::configuration(
 }
 
 ///|
-/// Reactive editor view used by host protected surfaces. Parser source is read
-/// only to establish invalidation; the returned value carries no source text.
-pub fn[T] SyncEditor::diagnostic_publication_source_revision(
-  self : SyncEditor[T],
+fn[T] ProjectionState::diagnostic_publication_source_revision(
+  self : ProjectionState[T],
 ) -> @incr.Derived[DiagnosticPublicationSourceRevision] raise Failure {
   let source_id = self.parser_source_id()
   @incr.Derived::Derived(
@@ -141,4 +139,13 @@ pub fn[T] SyncEditor::diagnostic_publication_source_revision(
     },
     label="diagnostic_publication_source_revision",
   )
+}
+
+///|
+/// Reactive editor view used by host protected surfaces. Parser source is read
+/// only to establish invalidation; the returned value carries no source text.
+pub fn[T] SyncEditor::diagnostic_publication_source_revision(
+  self : SyncEditor[T],
+) -> @incr.Derived[DiagnosticPublicationSourceRevision] raise Failure {
+  self.projection.diagnostic_publication_source_revision()
 }

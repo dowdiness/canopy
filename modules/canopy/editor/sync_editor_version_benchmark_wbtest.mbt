@@ -20,5 +20,5 @@ test "perf: cached SyncEditor version read (250 blocks)" (b : @bench.T) {
 test "perf: TextState version expansion (250 blocks)" (b : @bench.T) {
   let editor = try! @probe.new_test_editor("expanded-version-benchmark")
   try! editor.set_text(version_benchmark_source(250))
-  b.bench(() => b.keep(editor.doc.version()))
+  b.bench(() => b.keep(editor.authority.doc.version()))
 }
