@@ -5,6 +5,7 @@ import {
   "dowdiness/markdown" @md_markdown,
   "dowdiness/moji",
   "dowdiness/text_change",
+  "dowdiness/loom",
   "dowdiness/loomark/core",
   "dowdiness/loomark/archive",
   "dowdiness/loomark/repository",
@@ -21,10 +22,10 @@ import {
   "moonbitlang/core/json",
   "moonbitlang/core/ref",
   "moonbitlang/core/string",
+  "moonbitlang/core/encoding/utf8",
 }
 
 import {
-  "dowdiness/loom",
   "moonbitlang/core/bench",
 } for "wbtest"
 
