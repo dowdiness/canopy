@@ -1,0 +1,233 @@
+///|
+fn projection_worker_request(request_id : Int, command : Json) -> String {
+  Json::object({
+    "schema_version": Json::string("1"),
+    "request_id": Json::number(request_id.to_double()),
+    "command": command,
+  }).stringify()
+}
+
+///|
+fn projection_worker_seed_command(
+  agent_id : String,
+  source : String,
+  generation : Int,
+) -> Json {
+  Json::object({
+    "kind": Json::string("seed"),
+    "agent_id": Json::string(agent_id),
+    "source": Json::string(source),
+    "generation": Json::number(generation.to_double()),
+  })
+}
+
+///|
+fn projection_worker_advance_command(source : String?) -> Json {
+  let source_effect = match source {
+    Some(value) =>
+      Json::object({
+        "kind": Json::string("replace-source"),
+        "source": Json::string(value),
+      })
+    None => Json::object({ "kind": Json::string("source-unchanged") })
+  }
+  Json::object({
+    "kind": Json::string("advance"),
+    "source_effect": source_effect,
+  })
+}
+
+///|
+fn projection_worker_command(kind : String) -> Json {
+  Json::object({ "kind": Json::string(kind) })
+}
+
+///|
+fn projection_worker_response(raw : String) -> Map[String, Json] {
+  let parsed = try! @json.parse(raw)
+  match parsed {
+    Json::Object(fields) => fields
+    _ => abort("projection Worker response must be an object")
+  }
+}
+
+///|
+fn projection_worker_response_kind(raw : String) -> String {
+  match projection_worker_response(raw).get("kind") {
+    Some(Json::String(value)) => value
+    _ => abort("projection Worker response kind missing")
+  }
+}
+
+///|
+fn projection_worker_response_error(raw : String) -> String {
+  match projection_worker_response(raw).get("error") {
+    Some(Json::Object(error)) =>
+      match error.get("kind") {
+        Some(Json::String(value)) => value
+        _ => abort("projection Worker error kind missing")
+      }
+    _ => abort("projection Worker error missing")
+  }
+}
+
+///|
+fn projection_worker_response_generation(raw : String) -> Int {
+  match projection_worker_response(raw).get("stamp") {
+    Some(Json::Object(stamp)) =>
+      match stamp.get("generation") {
+        Some(Json::Number(value, ..)) => value.to_int()
+        _ => abort("projection Worker generation missing")
+      }
+    _ => abort("projection Worker stamp missing")
+  }
+}
+
+///|
+fn projection_worker_response_observables(raw : String) -> Json {
+  projection_worker_response(raw)["observables"]
+}
+
+///|
+test "projection Worker codec rejects malformed and incompatible requests" {
+  let dispatch = new_projection_worker_dispatcher()
+  assert_eq(projection_worker_response_kind(dispatch("not-json")), "error")
+  assert_eq(
+    projection_worker_response_error(dispatch("not-json")),
+    "decode-failed",
+  )
+  let wrong_version = Json::object({
+    "schema_version": Json::string("2"),
+    "request_id": Json::number(1),
+    "command": projection_worker_command("snapshot"),
+  }).stringify()
+  assert_eq(
+    projection_worker_response_error(dispatch(wrong_version)),
+    "decode-failed",
+  )
+  let wrong_type = Json::object({
+    "schema_version": Json::string("1"),
+    "request_id": Json::string("one"),
+    "command": projection_worker_command("snapshot"),
+  }).stringify()
+  assert_eq(
+    projection_worker_response_error(dispatch(wrong_type)),
+    "decode-failed",
+  )
+}
+
+///|
+test "projection Worker dispatcher preserves caller generation and adopted artifacts" {
+  let dispatch = new_projection_worker_dispatcher()
+  let seeded = dispatch(
+    projection_worker_request(
+      1,
+      projection_worker_seed_command("worker-seed", "# 猫 🐈\n", 7),
+    ),
+  )
+  assert_eq(projection_worker_response_kind(seeded), "ok")
+  assert_eq(projection_worker_response_generation(seeded), 7)
+  let fields = projection_worker_response(seeded)
+  assert_true(fields.contains("observables"))
+  assert_true(fields.contains("metrics"))
+
+  let unchanged = dispatch(
+    projection_worker_request(2, projection_worker_advance_command(None)),
+  )
+  assert_eq(projection_worker_response_kind(unchanged), "ok")
+  assert_eq(projection_worker_response_generation(unchanged), 7)
+  assert_eq(
+    projection_worker_response_observables(unchanged),
+    projection_worker_response_observables(seeded),
+  )
+}
+
+///|
+test "projection Worker adopted output equals an independently seeded latest source" {
+  let retained = new_projection_worker_dispatcher()
+  ignore(
+    retained(
+      projection_worker_request(
+        1,
+        projection_worker_seed_command("retained", "# Before\n", 11),
+      ),
+    ),
+  )
+  let advanced = retained(
+    projection_worker_request(
+      2,
+      projection_worker_advance_command(Some("# After\n\nTail `code`.\n")),
+    ),
+  )
+
+  let fresh = new_projection_worker_dispatcher()
+  let expected = fresh(
+    projection_worker_request(
+      1,
+      projection_worker_seed_command("fresh", "# After\n\nTail `code`.\n", 11),
+    ),
+  )
+  assert_eq(
+    projection_worker_response_observables(advanced),
+    projection_worker_response_observables(expected),
+  )
+}
+
+///|
+test "projection Worker lifecycle failures are typed and disposal is terminal" {
+  let dispatch = new_projection_worker_dispatcher()
+  let before_seed = dispatch(
+    projection_worker_request(1, projection_worker_advance_command(None)),
+  )
+  assert_eq(projection_worker_response_error(before_seed), "invalid-state")
+  let invalid_generation = dispatch(
+    projection_worker_request(
+      2,
+      projection_worker_seed_command("invalid", "", 0),
+    ),
+  )
+  assert_eq(
+    projection_worker_response_error(invalid_generation),
+    "invalid-state",
+  )
+  let seeded = dispatch(
+    projection_worker_request(
+      3,
+      projection_worker_seed_command("lifecycle", "# Seed\n", 3),
+    ),
+  )
+  assert_eq(projection_worker_response_kind(seeded), "ok")
+  let duplicate = dispatch(
+    projection_worker_request(
+      4,
+      projection_worker_seed_command("duplicate", "# Other\n", 4),
+    ),
+  )
+  assert_eq(projection_worker_response_error(duplicate), "invalid-state")
+  let disposed = dispatch(
+    projection_worker_request(5, projection_worker_command("dispose")),
+  )
+  assert_eq(projection_worker_response_kind(disposed), "ok")
+  let after_dispose = dispatch(
+    projection_worker_request(6, projection_worker_command("snapshot")),
+  )
+  assert_eq(projection_worker_response_error(after_dispose), "disposed")
+  let reseed_after_dispose = dispatch(
+    projection_worker_request(
+      7,
+      projection_worker_seed_command("reseed", "# Reopened\n", 4),
+    ),
+  )
+  assert_eq(projection_worker_response_error(reseed_after_dispose), "disposed")
+}
+
+///|
+test "projection Worker codec deterministically encodes Unicode and escaping" {
+  let command = projection_worker_seed_command(
+    "codec", "# 猫\n\n\"quoted\" \\\\ slash\n", 19,
+  )
+  let request = projection_worker_request(42, command)
+  let dispatch_a = new_projection_worker_dispatcher()
+  let dispatch_b = new_projection_worker_dispatcher()
+  assert_eq(dispatch_a(request), dispatch_b(request))
+}

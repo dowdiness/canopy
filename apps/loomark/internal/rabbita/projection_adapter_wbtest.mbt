@@ -127,6 +127,32 @@ fn projection_test_materialized(
 }
 
 ///|
+test "projection adapter accepts a positive caller generation then requires exact cutover increment" {
+  let adapter = ProjectionAdapter::ProjectionAdapter(projection_test_limits())
+  let (adapter, initial) = projection_test_seed(adapter, generation=19)
+  assert_false(initial.any(effect => effect is RejectCommand(_)))
+  assert_eq(adapter.generation(), 19)
+  let (same, skipped) = projection_test_seed(
+    adapter,
+    generation=21,
+    sequence=2,
+    source_revision=2,
+  )
+  assert_true(
+    skipped.any(effect => effect is RejectCommand(InvalidInitialStamp)),
+  )
+  assert_eq(same.generation(), 19)
+  let (cutover, accepted) = projection_test_seed(
+    adapter,
+    generation=20,
+    sequence=2,
+    source_revision=2,
+  )
+  assert_false(accepted.any(effect => effect is RejectCommand(_)))
+  assert_eq(cutover.generation(), 20)
+}
+
+///|
 test "projection adapter generation cutover invalidates all old paths without resetting lifetime sequence" {
   let adapter = ProjectionAdapter::ProjectionAdapter(projection_test_limits())
   let (adapter, seed_effects) = projection_test_seed(adapter)

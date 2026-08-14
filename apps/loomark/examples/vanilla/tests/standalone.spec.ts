@@ -48,6 +48,81 @@ test("standalone page completes and terminates the Warren Worker capability smok
   ))).toBe("complete")
 })
 
+test("standalone projection Worker passes Gate 0C parity, restart, timeout, and bounds", async ({ page }) => {
+  await page.goto("/?projection-worker-gate=1")
+  await expect.poll(() => page.evaluate(() => (
+    document.documentElement.dataset.loomarkProjectionWorkerGate
+  )), { timeout: 30_000 }).toBe("complete")
+  const report = await page.evaluate(() => JSON.parse(
+    document.documentElement.dataset.loomarkProjectionWorkerReport ?? "{}",
+  ) as {
+    parity?: boolean
+    malformed?: string
+    timeout?: string
+    startup_failure?: string
+    termination?: string
+    same_epoch_stale?: string
+    restart_generation?: number
+    stale_rejected?: boolean
+    bounded?: boolean
+    overflow_recovered?: boolean
+    large_payload_recovered?: boolean
+    latest_source?: string
+    low_count_delays?: boolean
+    high_water_count?: number
+    high_water_encoded_bytes?: number
+    high_water_source_effect_bytes?: number
+    pending_count_after_catchup?: number
+    retained_seed_count_after_catchup?: number
+    pending_source_effect_bytes_after_catchup?: number
+    retention_control_bytes?: number
+    superseded_count?: number
+    collectibility_evidence?: string
+    max_long_task_ms?: number
+    max_long_task_phase?: string
+    in_process_max_slice_ms?: number
+    worker_max_long_task_ms?: number
+    worker_max_long_task_phase?: string
+    promotion_recommended?: boolean
+    promotion_rejection?: string
+  })
+  expect(report.parity).toBe(true)
+  expect(report.malformed).toBe("decode-failed")
+  expect(report.timeout).toBe("timeout")
+  expect(report.startup_failure).toBe("unavailable")
+  expect(report.termination).toBe("terminated")
+  expect(report.same_epoch_stale).toBe("stale")
+  expect(report.restart_generation).toBeGreaterThan(1)
+  expect(report.stale_rejected).toBe(true)
+  expect(report.bounded).toBe(true)
+  expect(report.overflow_recovered).toBe(true)
+  expect(report.large_payload_recovered).toBe(true)
+  expect(report.low_count_delays).toBe(true)
+  expect(report.latest_source).toBe("# Latest 69\n")
+  expect(report.high_water_count).toBeLessThanOrEqual(64)
+  expect(report.high_water_encoded_bytes).toBeLessThanOrEqual(1_048_576)
+  expect(report.high_water_source_effect_bytes).toBeLessThanOrEqual(1_048_576)
+  expect(report.pending_count_after_catchup).toBe(0)
+  expect(report.retained_seed_count_after_catchup).toBe(0)
+  expect(report.pending_source_effect_bytes_after_catchup).toBe(0)
+  expect(report.collectibility_evidence).toBe("collectibility-unavailable")
+  expect(report.retention_control_bytes).toBeGreaterThan(0)
+  expect(report.superseded_count).toBeGreaterThan(0)
+  expect(Number.isFinite(report.max_long_task_ms)).toBe(true)
+  expect(Number.isFinite(report.in_process_max_slice_ms)).toBe(true)
+  expect(Number.isFinite(report.worker_max_long_task_ms)).toBe(true)
+  expect(report.max_long_task_ms).toBeGreaterThanOrEqual(
+    report.worker_max_long_task_ms ?? Number.POSITIVE_INFINITY,
+  )
+  const workerWithinLongTaskBudget = (report.worker_max_long_task_ms ?? Infinity) < 50
+  expect(report.promotion_recommended).toBe(workerWithinLongTaskBudget)
+  expect(report.promotion_rejection).toBe(
+    workerWithinLongTaskBudget
+      ? "none"
+      : `main-thread-long-task:${report.worker_max_long_task_phase}`,
+  )
+})
+
 test("first standalone visit stores a complete baseline archive", async ({ page }) => {
   await page.goto("/")
 

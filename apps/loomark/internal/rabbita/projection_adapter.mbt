@@ -741,11 +741,11 @@ fn ProjectionAdapter::reduce_seed(
     effects.push(RejectCommand(CounterExhausted))
     return self
   }
-  let expected_generation = match self.current_stamp {
-    None => 1
+  let valid_generation = match self.current_stamp {
+    None => stamp.generation > 0
     Some(current) =>
       match checked_next(current.generation) {
-        Some(value) => value
+        Some(value) => stamp.generation == value
         None => {
           effects.push(RejectCommand(CounterExhausted))
           return self
@@ -756,7 +756,7 @@ fn ProjectionAdapter::reduce_seed(
     effects.push(RejectCommand(NonContiguousSequence))
     return self
   }
-  guard stamp.generation == expected_generation && stamp.source_revision >= 0 else {
+  guard valid_generation && stamp.source_revision >= 0 else {
     effects.push(RejectCommand(InvalidInitialStamp))
     return self
   }
@@ -1333,6 +1333,7 @@ priv struct ProjectionSession {
 fn ProjectionSession::ProjectionSession(
   agent_id~ : String,
   source~ : String,
+  generation? : Int = 1,
 ) -> ProjectionSession raise {
   let (editor, attachment) = @markdown.MarkdownEditor::with_semantic_attachment(
     agent_id~,
@@ -1349,7 +1350,7 @@ fn ProjectionSession::ProjectionSession(
     source,
     sequence: 1,
     causal_counter: 1,
-    generation: 1,
+    generation,
     source_revision: 1,
     block_intent: 1,
     presentation_id: 1,
