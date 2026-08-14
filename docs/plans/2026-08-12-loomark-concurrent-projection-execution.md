@@ -1,6 +1,6 @@
 # Loomark concurrent projection execution — implementation plan
 
-**Status:** Active plan; no implementation has landed.
+**Status:** Active plan; Commits 1–4 are implemented on draft PR #1249. Commit 5 is next.
 
 **Canonical issue:** [#1244 — Loomark: move Markdown projection off the authority commit path](https://github.com/dowdiness/canopy/issues/1244)
 
@@ -522,35 +522,130 @@ recovery, production-shaped browser operation, and a recorded Worker versus
 in-process trade-off. Gate 0C recommends placement; it does not silently promote
 the Worker.
 
-### Commit 5 — split `SyncEditor` authority and projection responsibilities
+### Commit 5 — establish the committed-transition seam, then split ownership
 
-**Files:** generic SyncEditor internals, Markdown facade/runtime, targeted tests,
-and generated interfaces.
+Commit 5 deepens the editor in three ordered stages. It does not begin by moving
+fields between two structs. First it makes the accepted authority transition a
+value, proves that the existing interaction and projection behavior can consume
+that value synchronously, and only then moves ownership. The existing public
+`SyncEditor` facade and synchronous production path remain active throughout
+this commit.
+
+#### Commit 5A — measure command preparation and establish the semantic seam
+
+**Files:** generic `SyncEditor` mutation/parser internals, Markdown facade and
+runtime, focused characterization/property tests, and browser phase probes.
+
+**Pre-A0 measurement gate:** instrument command preparation separately from
+authority mutation. Report document source materialization, UTF-16 offset to
+CRDT-position mapping, grapheme-boundary computation, text-change computation,
+CRDT mutation, causal-version expansion, and receipt construction as distinct
+phases. This evidence decides whether later latency belongs to projection or is
+already document-length work before A0. It must not reinterpret the current Gate
+0C Worker protocol as a production authority contract.
 
 **Red tests first:**
 
-1. authority commit returns A0/A1 before projection or Seed materialization;
-2. projection/source-materialization failure cannot alter accepted history;
-3. Raw, exact/structural edit, undo/redo, remote admission, and source
-   replacement are classified once as replayable `Advance`,
-   `SourceUnchanged`, or generation invalidation followed by coherent `Seed`;
-   source replacement may use the Seed branch only when its accepted replay
-   effect is not safely and cheaply available without adding full-source work to
-   A0/A1;
-4. recovery, archive reopen, and session replacement invalidate the old
-   generation and issue coherent Seed recovery rather than masquerading as
-   `SourceTransition`;
-5. source-equal advance changes authority version, reuses only the payload, and
-   publishes or wraps it with the new projection stamp;
-6. Seed capture executes after the authority result; and
-7. the existing public `SyncEditor` facade preserves behavior and signatures.
+1. each local accepted edit produces exactly one committed transition;
+2. a source-equal causal advance is `SourceUnchanged`, retains distinct
+   before/after causal versions, and cannot authorize an old intent;
+3. parser failure preserves the committed transition and fails only its
+   projection continuation;
+4. remote partial admission does not conflate the accepted transition with
+   pending operations or issues;
+5. local and peer cursor reconciliation consume the same transition as parser
+   synchronization;
+6. the legacy synchronous result is observationally equal to interpreting the
+   committed transition through the new seam;
+7. replaying `Seed@R` plus committed transitions `R→N` is observationally equal
+   to a fresh projection at `N`;
+8. Raw, exact/structural edit, source replacement, and every currently reachable
+   authority path are classified exactly once without forcing full-source A0/A1
+   work;
+9. recovery, archive reopen, and session replacement invalidate the old
+   generation and issue coherent Seed recovery rather than masquerading as a
+   source transition;
+10. Seed capture occurs after settled authority evidence; and
+11. the public `SyncEditor` facade preserves its behavior and generated
+    interface.
 
-Extract internal authority and projection modules without duplicating mutation
-logic. Keep the old synchronous production path active. Consume #1241's
-canonical event representation if its production contract exists when this
-commit starts; otherwise relocate only the existing accepted authority
-transition, preserve current semantics with characterization evidence, and do
-not redefine #1241's admission contract.
+Introduce one private concrete `CommittedTransition` seam in the existing
+package. It contains authority-owned receipt evidence, distinct before/after
+causal versions, a typed projection continuation such as replayable Advance,
+`SourceUnchanged`, or `NeedsSeed`, and the path-native reconciliation evidence
+needed by interaction. Do not flatten all paths into one universal splice:
+retain the natural effect representation of each mutation path and name any
+semantic loss explicitly. Transition, outcome, rejection, and mismatch values
+must support equality and debug comparison for the differential oracle.
+
+Produce this transition immediately after accepted mutation and causal-version
+capture, before `history_since` or any public receipt/history export. The current
+public Markdown receipt remains a post-A1 compatibility wrapper over the
+transition plus deferred history construction. Reuse the accepted path-native
+`MarkdownTextTransform` or lower-layer operation evidence where available;
+never reconstruct the transition from before/after full source.
+
+Consume #1241's canonical event representation if its production contract
+exists when this stage starts. Otherwise relocate only the existing accepted
+authority transition, preserve current semantics with characterization
+evidence, and do not redefine #1241's admission contract. Lower-layer CRDT
+public interface work is explicitly conditional on the pre-A0 measurements: if
+full-source preparation dominates, open a separate event-graph-walker issue to
+investigate accepted local, range, remote-partial, and undo/redo effect evidence.
+Do not add a generic public delta, persistent snapshot root, or immutable
+snapshot handle without that evidence.
+
+#### Commit 5B — extract responsibility owners behind the proven seam
+
+**Files:** generic `SyncEditor` internals, Markdown runtime, focused ownership
+tests, and generated interfaces.
+
+After 5A parity is green, move fields and behavior into three private owners:
+
+- `AuthorityCore` owns `TextState`, undo/history, sync admission, and receipt
+  construction;
+- `ProjectionState[T]` owns parser synchronization, the reactive causal-version
+  mirror, projection memos, source maps, capabilities, parser failure, and
+  pending identity hints; and
+- `InteractionState` owns the local cursor, peer cursors, ephemeral hub,
+  WebSocket/session state, and transition-driven cursor reconciliation.
+
+Before moving a field, check in an exhaustive ownership ledger for every current
+`SyncEditor` field and public method. At minimum, mutation, history, causal
+snapshot, undo/redo, and sync admission delegate to `AuthorityCore`; parser
+health/runtime, projection reads, registry/source-map/capability reads, and
+identity hints delegate to `ProjectionState[T]`; cursor, presence, peer,
+ephemeral subscription, WebSocket, and sync-session operations delegate to
+`InteractionState`. Cross-owner public methods remain on the shell and name the
+single orchestration order they preserve. The ledger is a refactor checklist,
+not a new public interface; every entry must be accounted for before 5B closes.
+
+The shell `SyncEditor[T]` retains its existing public facade and delegates to
+those owners. `ProjectionState[T]` may depend on the parser and reactive runtime;
+`AuthorityCore` must not. `InteractionState` is a first-class owner rather than
+being hidden inside either authority or projection. Treat `TextState::version()`
+as authority truth and the reactive document-version input as a projection
+mirror. Field movement and transition-semantics changes must not share a patch.
+Inspect generated `.mbti` output after each ownership move; no public interface
+drift is intended.
+
+#### Commit 5C — add the private authority-only construction seam
+
+**Files:** extracted editor owners, private constructors, comparison wiring, and
+focused tests.
+
+Only after the physical split is complete, add a private construction path that
+creates `AuthorityCore` plus `InteractionState` without constructing a parser,
+reactive runtime, or projection memo. Construct `ProjectionState[T]` only in the
+selected executor. Capture Seed after authority evidence, preserve the existing
+synchronous interpreter as the differential oracle, and expose the seam only to
+the private comparison flag used by Commit 6. Do not make the owners generic
+framework modules until a second real adapter justifies the seam.
+
+**Commit 5 gate:** pre-A0 costs are attributable; transition parity, interaction
+reconciliation, failure isolation, and replay convergence are green; the
+authority-only construction path performs no parser/reactive/projection setup;
+the existing synchronous facade remains behaviorally and publicly unchanged.
 
 ### Commit 6 — integrate the application-lifetime Adapter behind a comparison flag
 
@@ -596,6 +691,18 @@ Compare in-process, Worker, and current synchronous baselines with
 counterbalanced run order. The promotion record chooses production placement
 and states whether it prioritizes absolute Block latency or main-thread
 isolation. A dedicated Worker is not approved merely because it functions.
+
+If neither single placement passes every gate, and the evidence specifically
+shows that in-process execution gives acceptable interactive Block latency while
+causing Preview/diagnostics main-thread Long Tasks, whereas Worker execution
+isolates those Long Tasks but misses the Block round-trip target, run one
+conditional hybrid spike. Keep interactive Block parsing, resolution, and
+reconciliation in process; place Preview, MarkdownIR, diagnostics, and cold
+rebuild in the Worker. The split is valid only when it follows the existing
+consistency-group seam and the hybrid passes the same normalized/currentness
+contract. Do not implement the hybrid before both single placements fail. A
+production hybrid selection changes the accepted placement decision and
+therefore requires an ADR update before cutover.
 
 Only after promotion gates pass:
 
@@ -643,6 +750,15 @@ assertions.
       even when projection, persistence, or presentation later fails.
 - [ ] Authority A0/A1 calls no full source/history export, archive preparation,
       JSON/transfer, parser, projection, semantic, Preview, or DOM work.
+- [ ] Pre-A0 command preparation separately attributes source materialization,
+      UTF-16 mapping, grapheme work, text-change computation, CRDT mutation,
+      version expansion, and receipt construction.
+- [ ] One private committed-transition value is the sole semantic seam consumed
+      by interaction reconciliation and projection continuation; authority
+      mutation is not repeated or reconstructed downstream.
+- [ ] `AuthorityCore`, `InteractionState`, and `ProjectionState[T]` have distinct
+      ownership, and authority-only construction creates no parser, reactive
+      runtime, projection memo, semantic attachment, or source map.
 - [ ] Every projection-relevant authority event is classified exactly once as
       replayable Advance/SourceUnchanged or generation invalidation followed by
       coherent Seed recovery. ReplaceSource uses Seed only when its accepted
@@ -665,6 +781,8 @@ assertions.
       Projection Session.
 - [ ] Normalized differential Seed+Advance replay has zero observable
       differences across the complete corpus.
+- [ ] `Seed@R` plus committed transitions `R→N` is observationally equal to a
+      fresh projection at `N` across the differential corpus.
 - [ ] Production selects only the placement approved by the promotion record and
       never silently changes placement at runtime.
 - [ ] Pending slot, Advance count, encoded bytes, and retained source/effect
@@ -724,6 +842,9 @@ assertions.
       current adapter.
 - [ ] No speedup, locality, allocation, or memory claim relies only on a Moon
       microbenchmark or an uncalibrated clean browser result.
+- [ ] A hybrid placement is considered only after both single placements fail
+      complementary gates; any production hybrid has an updated ADR and passes
+      the same differential, currentness, lifecycle, and browser evidence.
 
 ### Cleanup and documentation
 
