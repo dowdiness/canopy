@@ -1,15 +1,15 @@
 # Canopy Rabbita fork
 
-Canopy uses a downstream fork of Rabbita for the pointer-capture DOM boundary.
+Canopy uses a downstream fork of Rabbita for typed pointer-event and pointer-capture DOM boundaries.
 The fork is an owned dependency line, not an upstream release dependency.
 
 ## Ownership
 
 - **Fork:** [`dowdiness/rabbita`](https://github.com/dowdiness/rabbita)
 - **Upstream:** [`moonbit-community/rabbita`](https://github.com/moonbit-community/rabbita)
-- **Downstream branch:** `feat/pointer-capture-typed-errors`
-- **Pinned commit:** `6f538c4b2461ca71d523b652f50740d9d0dbd030`
-- **Pinned tag:** `canopy-rabbita-0.14.2-p1`
+- **Downstream branch:** `canopy/0.14.x`
+- **Pinned commit:** `126569ac3fda2669d70d4b22fc0344bb20528cf6`
+- **Pinned tag:** `canopy-rabbita-0.14.2-p2`
 - **Canopy submodule:** `deps/rabbita`
 
 The Canopy `.gitmodules` entry intentionally points at the fork. The
@@ -25,7 +25,12 @@ The pinned fork contains:
 - preservation of standard DOM exception `name` and `message`, with safe
   normalization of non-standard JavaScript throws;
 - `Attrs::on_lostpointercapture` with a `PointerEvent` callback;
-- migration of Rabbita/RUI pointer-capture consumers to the new effect.
+- `Attrs::on_pointerdown`, `on_pointermove`, `on_pointerup`, and
+  `on_pointercancel` with `PointerEvent` callbacks;
+- `IsMouseEvent` coordinate getters with `Double` results, including
+  fractional-coordinate coverage for pointer, mouse, and wheel events;
+- migration of Rabbita/RUI pointer-capture consumers to the new effect and
+  fractional coordinate contract.
 
 Canopy needs a MoonBit-typed pointer-capture boundary for its Canvas hosts. This
 patch is intentionally maintained downstream rather than proposed as an

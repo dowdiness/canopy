@@ -123,46 +123,74 @@ fn render_incr_canvas_svg(
 const INCR_CANVAS_ACTIVE_POINTER_ATTRIBUTE : String = "data-incr-active-pointer-id"
 
 ///|
-#cfg(target="js")
-extern "js" fn incr_canvas_offset_x(event : @dom.MouseEvent) -> Double = "(event) => event.offsetX"
-
-///|
-#cfg(target="js")
-extern "js" fn incr_canvas_offset_y(event : @dom.MouseEvent) -> Double = "(event) => event.offsetY"
-
-///|
-#cfg(target="js")
-extern "js" fn incr_canvas_wheel_offset_x(event : @dom.WheelEvent) -> Double = "(event) => event.offsetX"
-
-///|
-#cfg(target="js")
-extern "js" fn incr_canvas_wheel_offset_y(event : @dom.WheelEvent) -> Double = "(event) => event.offsetY"
-
-///|
-fn incr_canvas_pointer_id(event : @dom.MouseEvent) -> Int? {
-  event.to_pointer_event().map(pointer => pointer.get_pointer_id())
+fn incr_canvas_screen_point_from_target(
+  target : @dom.EventTarget,
+  client_x : Double,
+  client_y : Double,
+) -> @spatial.ScreenPoint? {
+  guard target.to_element() is Some(element) else { return None }
+  let rect = element.get_bounding_client_rect()
+  incr_canvas_screen_point(
+    client_x - rect.get_left(),
+    client_y - rect.get_top(),
+  )
 }
 
 ///|
-fn incr_canvas_pointer_is_claimed(event : @dom.MouseEvent) -> Bool {
-  match (event.to_pointer_event(), event.current_target().to_option()) {
-    (Some(pointer), Some(target)) =>
-      match target.to_element() {
-        Some(element) =>
-          incr_canvas_pointer_claim_matches(
-            element.get_attribute(INCR_CANVAS_ACTIVE_POINTER_ATTRIBUTE),
-            Some(pointer.get_pointer_id()),
-          )
-        None => false
-      }
-    _ => false
+fn incr_canvas_screen_point_from_pointer_event(
+  event : @dom.PointerEvent,
+) -> @spatial.ScreenPoint? {
+  match event.current_target().to_option() {
+    Some(target) =>
+      incr_canvas_screen_point_from_target(
+        target,
+        event.get_client_x(),
+        event.get_client_y(),
+      )
+    None => None
   }
 }
 
 ///|
-fn incr_canvas_try_claim_pointer(event : @dom.MouseEvent) -> Bool {
-  match (event.to_pointer_event(), event.current_target().to_option()) {
-    (Some(pointer), Some(target)) =>
+fn incr_canvas_screen_point_from_wheel_event(
+  event : @dom.WheelEvent,
+) -> @spatial.ScreenPoint? {
+  match event.current_target().to_option() {
+    Some(target) =>
+      incr_canvas_screen_point_from_target(
+        target,
+        event.get_client_x(),
+        event.get_client_y(),
+      )
+    None => None
+  }
+}
+
+///|
+fn incr_canvas_pointer_id(event : @dom.PointerEvent) -> Int {
+  event.get_pointer_id()
+}
+
+///|
+fn incr_canvas_pointer_is_claimed(event : @dom.PointerEvent) -> Bool {
+  match event.current_target().to_option() {
+    Some(target) =>
+      match target.to_element() {
+        Some(element) =>
+          incr_canvas_pointer_claim_matches(
+            element.get_attribute(INCR_CANVAS_ACTIVE_POINTER_ATTRIBUTE),
+            Some(event.get_pointer_id()),
+          )
+        None => false
+      }
+    None => false
+  }
+}
+
+///|
+fn incr_canvas_try_claim_pointer(event : @dom.PointerEvent) -> Bool {
+  match event.current_target().to_option() {
+    Some(target) =>
       match target.to_element() {
         Some(element) =>
           match element.get_attribute(INCR_CANVAS_ACTIVE_POINTER_ATTRIBUTE) {
@@ -170,14 +198,14 @@ fn incr_canvas_try_claim_pointer(event : @dom.MouseEvent) -> Bool {
             None => {
               element.set_attribute(
                 INCR_CANVAS_ACTIVE_POINTER_ATTRIBUTE,
-                pointer.get_pointer_id().to_string(),
+                event.get_pointer_id().to_string(),
               )
               true
             }
           }
         None => false
       }
-    _ => false
+    None => false
   }
 }
 
@@ -202,39 +230,35 @@ fn incr_canvas_clear_pointer_claim(
 
 ///|
 fn incr_canvas_set_pointer_capture(
-  event : @dom.MouseEvent,
+  event : @dom.PointerEvent,
 ) -> Unit raise @dom.DOMExceptionError {
-  match (event.to_pointer_event(), event.current_target().to_option()) {
-    (Some(pointer), Some(target)) =>
+  match event.current_target().to_option() {
+    Some(target) =>
       match target.to_element() {
-        Some(element) => element.set_pointer_capture(pointer.get_pointer_id())
+        Some(element) => element.set_pointer_capture(event.get_pointer_id())
         None => ()
       }
-    _ => ()
+    None => ()
   }
 }
 
 ///|
-fn incr_canvas_release_pointer_capture(event : @dom.MouseEvent) -> Unit {
-  match event.to_pointer_event() {
-    Some(pointer) =>
-      match event.current_target().to_option() {
-        Some(target) =>
-          match target.to_element() {
-            Some(element) => {
-              let pointer_id = pointer.get_pointer_id()
-              if element.get_attribute(INCR_CANVAS_ACTIVE_POINTER_ATTRIBUTE) ==
-                Some(pointer_id.to_string()) {
-                if element.has_pointer_capture(pointer_id) {
-                  element.release_pointer_capture(pointer_id) catch {
-                    @dom.DOMExceptionError(..) => ()
-                  }
-                }
-                element.remove_attribute(INCR_CANVAS_ACTIVE_POINTER_ATTRIBUTE)
+fn incr_canvas_release_pointer_capture(event : @dom.PointerEvent) -> Unit {
+  match event.current_target().to_option() {
+    Some(target) =>
+      match target.to_element() {
+        Some(element) => {
+          let pointer_id = event.get_pointer_id()
+          if element.get_attribute(INCR_CANVAS_ACTIVE_POINTER_ATTRIBUTE) ==
+            Some(pointer_id.to_string()) {
+            if element.has_pointer_capture(pointer_id) {
+              element.release_pointer_capture(pointer_id) catch {
+                @dom.DOMExceptionError(..) => ()
               }
             }
-            None => ()
+            element.remove_attribute(INCR_CANVAS_ACTIVE_POINTER_ATTRIBUTE)
           }
+        }
         None => ()
       }
     None => ()
@@ -246,14 +270,15 @@ fn incr_canvas_pointer_attrs(dispatch : Emit[Msg]) -> @html.Attrs {
   @html.Attrs::build()
   .on_pointerdown(event => {
     event.prevent_default()
-    let x = incr_canvas_offset_x(event)
-    let y = incr_canvas_offset_y(event)
-    match (incr_canvas_screen_point(x, y), incr_canvas_pointer_id(event)) {
-      (Some(_), Some(pointer_id)) =>
+    match incr_canvas_screen_point_from_pointer_event(event) {
+      Some(screen) => {
+        let pointer_id = incr_canvas_pointer_id(event)
         if incr_canvas_try_claim_pointer(event) {
           try {
             incr_canvas_set_pointer_capture(event)
-            dispatch(IncrCanvas(PointerDown(x, y, Some(pointer_id))))
+            dispatch(
+              IncrCanvas(PointerDown(screen.x(), screen.y(), Some(pointer_id))),
+            )
           } catch {
             @dom.DOMExceptionError(..) => {
               incr_canvas_clear_pointer_claim(event.as_event(), pointer_id)
@@ -263,20 +288,25 @@ fn incr_canvas_pointer_attrs(dispatch : Emit[Msg]) -> @html.Attrs {
         } else {
           @rabbita_cmd.none
         }
-      _ => @rabbita_cmd.none
+      }
+      None => @rabbita_cmd.none
     }
   })
   .on_pointermove(event => {
     if incr_canvas_pointer_is_claimed(event) {
-      dispatch(
-        IncrCanvas(
-          PointerMove(
-            incr_canvas_offset_x(event),
-            incr_canvas_offset_y(event),
-            incr_canvas_pointer_id(event),
-          ),
-        ),
-      )
+      match incr_canvas_screen_point_from_pointer_event(event) {
+        Some(screen) =>
+          dispatch(
+            IncrCanvas(
+              PointerMove(
+                screen.x(),
+                screen.y(),
+                Some(incr_canvas_pointer_id(event)),
+              ),
+            ),
+          )
+        None => @rabbita_cmd.none
+      }
     } else {
       @rabbita_cmd.none
     }
@@ -285,7 +315,7 @@ fn incr_canvas_pointer_attrs(dispatch : Emit[Msg]) -> @html.Attrs {
     event.prevent_default()
     if incr_canvas_pointer_is_claimed(event) {
       incr_canvas_release_pointer_capture(event)
-      dispatch(IncrCanvas(PointerUp(incr_canvas_pointer_id(event))))
+      dispatch(IncrCanvas(PointerUp(Some(incr_canvas_pointer_id(event)))))
     } else {
       @rabbita_cmd.none
     }
@@ -294,7 +324,7 @@ fn incr_canvas_pointer_attrs(dispatch : Emit[Msg]) -> @html.Attrs {
     event.prevent_default()
     if incr_canvas_pointer_is_claimed(event) {
       incr_canvas_release_pointer_capture(event)
-      dispatch(IncrCanvas(PointerCancel(incr_canvas_pointer_id(event))))
+      dispatch(IncrCanvas(PointerCancel(Some(incr_canvas_pointer_id(event)))))
     } else {
       @rabbita_cmd.none
     }
@@ -306,15 +336,11 @@ fn incr_canvas_pointer_attrs(dispatch : Emit[Msg]) -> @html.Attrs {
   })
   .on_wheel(event => {
     event.prevent_default()
-    dispatch(
-      IncrCanvas(
-        Wheel(
-          event.get_delta_y(),
-          incr_canvas_wheel_offset_x(event),
-          incr_canvas_wheel_offset_y(event),
-        ),
-      ),
-    )
+    match incr_canvas_screen_point_from_wheel_event(event) {
+      Some(screen) =>
+        dispatch(IncrCanvas(Wheel(event.get_delta_y(), screen.x(), screen.y())))
+      None => @rabbita_cmd.none
+    }
   })
 }
 
