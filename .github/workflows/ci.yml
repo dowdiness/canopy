@@ -133,6 +133,8 @@ jobs:
               - 'scripts/install-hooks.nu'
               - 'scripts/install-hooks.sh'
               - 'scripts/test-install-hooks.sh'
+              - 'scripts/test-lefthook-pre-commit-routing.sh'
+              - 'scripts/run-moonbit-rename-route.sh'
               - '.github/workflows/ci.yml'
               - '.github/workflows/release.yml'
             run_release_version_validation:
@@ -178,6 +180,7 @@ jobs:
           just --list
           just --dry-run check
           just --dry-run fmt-check
+          just --dry-run pre-commit
           just --dry-run update
           just --dry-run release-artifacts v0.2.0
 
@@ -211,6 +214,9 @@ jobs:
             "${RUNNER_TEMP}/lefthook" | sha256sum --check --status
           chmod +x "${RUNNER_TEMP}/lefthook"
           "${RUNNER_TEMP}/lefthook" validate
+
+      - name: Test path-aware Lefthook pre-commit routing
+        run: LEFTHOOK_BIN="${RUNNER_TEMP}/lefthook" bash scripts/test-lefthook-pre-commit-routing.sh
 
   release-version-validation:
     name: Release Contract Validation

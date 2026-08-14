@@ -18,10 +18,29 @@ test:
 test-all:
     @moon test
 
-# Run moon check for main module
-check:
+# Verify the repository-level contract used by every pre-commit route
+hook-repository-contract:
     @bash ./scripts/check-agent-doc-links.sh
+
+# Run the main module's MoonBit check from Lefthook
+hook-moonbit-check:
     @./scripts/run-moon-module.sh check modules/canopy
+
+# Run the main module's MoonBit format check from Lefthook
+hook-moonbit-format-check:
+    @./scripts/run-moon-module.sh fmt-check modules/canopy
+
+# Validate tooling files selected by Lefthook
+hook-tooling-contract:
+    @just --unstable --fmt --check
+    @just --dry-run pre-commit
+    @make -n check
+    @bash -n .githooks/pre-commit scripts/install-hooks.sh scripts/test-install-hooks.sh scripts/test-lefthook-pre-commit-routing.sh scripts/run-moonbit-rename-route.sh
+    @nu --ide-check 100 scripts/install-hooks.nu
+    @lefthook validate
+
+# Run moon check for main module
+check: hook-repository-contract hook-moonbit-check
 
 # Run strict checks and formatting for the root MoonBit workspace
 check-all:
@@ -35,9 +54,7 @@ fmt:
     cd modules/canopy; moon info
 
 # Check formatting for the main module without keeping changes
-fmt-check:
-    @bash ./scripts/check-agent-doc-links.sh
-    @./scripts/run-moon-module.sh fmt-check modules/canopy
+fmt-check: hook-repository-contract hook-moonbit-format-check
 
 # Build main module (default target)
 build:
@@ -81,8 +98,9 @@ clean:
     @rm -rf target _build
     @rm -rf apps/web/dist release
 
-# Run the local pre-commit gate
-pre-commit: check fmt-check
+# Run the path-aware local pre-commit gate through Lefthook
+pre-commit:
+    @lefthook run pre-commit
 
 # Install git pre-commit hooks through Lefthook
 install-hooks:
