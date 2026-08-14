@@ -7,6 +7,10 @@ checker="$root_dir/scripts/check-submodule-reachability.nu"
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
 
+git_config="$tmp_dir/gitconfig"
+printf '[protocol "file"]\n\tallow = always\n' >"$git_config"
+export GIT_CONFIG_GLOBAL="$git_config"
+
 fail() {
   echo "error: $*" >&2
   exit 1
@@ -188,5 +192,89 @@ git -C "$parent" submodule update --quiet
 expect_fail_at non-head-unreachable "$parent" "$pushed_commit" "submodule commit is not fetchable from origin"
 git -C "$submodule" push --quiet origin "$submodule_sha:refs/pull/2/head"
 expect_pass_at non-head-exact-sha "$parent" "$pushed_commit"
+
+# A non-HEAD commit may add a submodule path that is absent from the current
+# checkout. Materialization must use the target .gitmodules and initialize it.
+parent="$(setup_fixture non-head-add-submodule)"
+added_origin="$tmp_dir/added-submodule-origin.git"
+added_seed="$tmp_dir/added-submodule-seed"
+git init --quiet --bare --initial-branch=main "$added_origin"
+git init --quiet --initial-branch=main "$added_seed"
+git -C "$added_seed" config user.email submodule-reachability@example.invalid
+git -C "$added_seed" config user.name submodule-reachability-test
+printf 'added\n' >"$added_seed/state.txt"
+git -C "$added_seed" add state.txt
+git -C "$added_seed" commit --quiet -m added
+git -C "$added_seed" remote add origin "$added_origin"
+git -C "$added_seed" push --quiet --set-upstream origin main
+git -c protocol.file.allow=always -C "$parent" submodule add --quiet "$added_origin" deps/added-submodule
+git -C "$parent/deps/added-submodule" config user.email submodule-reachability@example.invalid
+git -C "$parent/deps/added-submodule" config user.name submodule-reachability-test
+git -C "$parent" add .gitmodules deps/added-submodule
+git -C "$parent" commit --quiet -m "add submodule in pushed commit"
+added_commit="$(git -C "$parent" rev-parse HEAD)"
+rm -rf "$parent/deps/added-submodule"
+git -C "$parent" switch --quiet --detach HEAD^
+git -C "$parent" submodule update --quiet
+expect_pass_at non-head-add-submodule "$parent" "$added_commit"
+
+# A target commit's .gitmodules URL must be authoritative; an old checkout
+# origin must not make a changed, unreachable URL appear valid.
+parent="$(setup_fixture non-head-url-change)"
+missing_origin="$parent/missing-origin.git"
+git -C "$parent" config -f .gitmodules submodule.deps/test-submodule.url "$missing_origin"
+git -C "$parent" add .gitmodules
+git -C "$parent" commit --quiet -m "change submodule origin"
+url_commit="$(git -C "$parent" rev-parse HEAD)"
+git -C "$parent" switch --quiet --detach HEAD^
+git -C "$parent" submodule update --quiet
+expect_fail_at non-head-url-change "$parent" "$url_commit" "could not materialize submodules"
+
+# A reachable top-level submodule can still point at an unreachable nested
+# gitlink. Recursive materialization must reject the nested object.
+parent="$(setup_fixture nested-unreachable)"
+nested_origin="$tmp_dir/nested-origin.git"
+nested_seed="$tmp_dir/nested-seed"
+top_origin="$tmp_dir/top-origin.git"
+top_seed="$tmp_dir/top-seed"
+git init --quiet --bare --initial-branch=main "$nested_origin"
+git init --quiet --initial-branch=main "$nested_seed"
+git -C "$nested_seed" config user.email submodule-reachability@example.invalid
+git -C "$nested_seed" config user.name submodule-reachability-test
+printf 'nested-base\n' >"$nested_seed/state.txt"
+git -C "$nested_seed" add state.txt
+git -C "$nested_seed" commit --quiet -m nested-base
+git -C "$nested_seed" remote add origin "$nested_origin"
+git -C "$nested_seed" push --quiet --set-upstream origin main
+git init --quiet --bare --initial-branch=main "$top_origin"
+git init --quiet --initial-branch=main "$top_seed"
+git -C "$top_seed" config user.email submodule-reachability@example.invalid
+git -C "$top_seed" config user.name submodule-reachability-test
+git -c protocol.file.allow=always -C "$top_seed" submodule add --quiet "$nested_origin" deps/nested
+git -C "$top_seed/deps/nested" config user.email submodule-reachability@example.invalid
+git -C "$top_seed/deps/nested" config user.name submodule-reachability-test
+git -C "$top_seed" add .gitmodules deps/nested
+git -C "$top_seed" commit --quiet -m top-base
+git -C "$top_seed" remote add origin "$top_origin"
+git -C "$top_seed" push --quiet --set-upstream origin main
+printf 'nested-bad\n' >>"$top_seed/deps/nested/state.txt"
+git -C "$top_seed/deps/nested" add state.txt
+git -C "$top_seed/deps/nested" commit --quiet -m nested-bad
+nested_bad_sha="$(git -C "$top_seed/deps/nested" rev-parse HEAD)"
+git -C "$top_seed" add deps/nested
+git -C "$top_seed" commit --quiet -m top-nested-bad
+git -C "$top_seed" push --quiet origin main
+git -c protocol.file.allow=always -C "$parent" submodule add --quiet "$top_origin" deps/top-submodule
+git -C "$parent" add .gitmodules deps/top-submodule
+git -C "$parent" commit --quiet -m "add nested submodule graph"
+nested_commit="$(git -C "$parent" rev-parse HEAD)"
+rm -rf "$parent/deps/top-submodule"
+git -C "$parent" switch --quiet --detach HEAD^
+git -C "$parent" submodule update --quiet
+expect_fail_at nested-unreachable "$parent" "$nested_commit" "submodule commit is not fetchable"
+
+# Keep the nested SHA in the fixture's setup evidence so the failure is tied to
+# the object absent from nested-origin rather than the reachable top-level ref.
+test -n "$nested_bad_sha"
 
 echo "ok: submodule reachability contract cases pass"

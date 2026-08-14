@@ -63,10 +63,8 @@ pre-push:
   parallel: false
   jobs:
     - name: submodule-reachability
-      glob:
-        - ".gitmodules"
-        - "deps/**"
       # Lefthook 2.1.10 filters gitlinks out of {push_files} as directories.
-      # The all-files sentinel keeps this adapter executable; it uses Git's
-      # pre-push ref-update stream to retain gitlink paths.
+      # The all-files sentinel keeps this run job executable; the adapter
+      # ignores those arguments and uses Git's ref-update stream instead.
+      use_stdin: true
       run: ./scripts/run-submodule-reachability.sh {all_files}

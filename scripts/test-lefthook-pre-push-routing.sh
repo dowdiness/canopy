@@ -15,6 +15,10 @@ fi
 fixture="$(mktemp -d "${TMPDIR:-/tmp}/canopy-lefthook-pre-push.XXXXXX")"
 trap 'rm -rf "$fixture"' EXIT HUP INT TERM
 
+git_config="$fixture/gitconfig"
+printf '[protocol "file"]\n\tallow = always\n' >"$git_config"
+export GIT_CONFIG_GLOBAL="$git_config"
+
 parent="$fixture/parent"
 parent_origin="$fixture/parent-origin.git"
 submodule_origin="$fixture/submodule-origin.git"
@@ -104,6 +108,35 @@ assert_skipped() {
 assert_invoked_once() {
   [ "$(wc -l <"$log" | tr -d ' ')" -eq 1 ] || { echo "error: $1 did not invoke checker exactly once" >&2; cat "$log" >&2; exit 1; }
 }
+assert_invoked_count() {
+  [ "$(wc -l <"$log" | tr -d ' ')" -eq "$2" ] || { echo "error: $1 did not invoke checker $2 time(s)" >&2; cat "$log" >&2; exit 1; }
+}
+
+# Two new refs share one relevant commit. The checker must deduplicate the
+# commit SHA even though Git supplies two ref-update lines on stdin.
+git -C "$parent" switch --quiet -c shared-submodule
+printf 'shared\n' >>"$parent/deps/test-submodule/state.txt"
+git -C "$parent/deps/test-submodule" add state.txt
+git -C "$parent/deps/test-submodule" commit --quiet -m shared-unpushed
+shared_submodule_sha="$(git -C "$parent/deps/test-submodule" rev-parse HEAD)"
+git -C "$parent" add deps/test-submodule
+git -C "$parent" commit --no-verify --quiet -m shared-gitlink
+shared_parent_sha="$(git -C "$parent" rev-parse HEAD)"
+git -C "$parent" branch duplicate-ref "$shared_parent_sha"
+git -C "$parent" switch --quiet main
+git -C "$parent" submodule update --quiet
+reset_log
+if LEFTHOOK_ROUTING_LOG="$log" LEFTHOOK_ROUTING_CHECKER="$parent/scripts/check-submodule-reachability.nu" PATH="$fixture/bin:$PATH" \
+  git -C "$parent" push --quiet origin shared-submodule duplicate-ref >"$fixture/shared.out" 2>&1; then
+  echo "error: shared unpushed submodule commit unexpectedly passed" >&2
+  exit 1
+fi
+assert_invoked_once shared-commit-deduplication
+git -C "$parent/deps/test-submodule" push --quiet origin "$shared_submodule_sha:refs/pull/shared/head"
+reset_log
+LEFTHOOK_ROUTING_LOG="$log" LEFTHOOK_ROUTING_CHECKER="$parent/scripts/check-submodule-reachability.nu" PATH="$fixture/bin:$PATH" \
+  git -C "$parent" push --quiet origin shared-submodule duplicate-ref
+assert_invoked_once shared-commit-after-push
 
 printf 'docs\n' >"$parent/docs/README.md"
 git -C "$parent" add docs/README.md && git -C "$parent" commit --no-verify --quiet -m docs
@@ -171,6 +204,66 @@ reset_log
 LEFTHOOK_ROUTING_LOG="$log" LEFTHOOK_ROUTING_CHECKER="$parent/scripts/check-submodule-reachability.nu" PATH="$fixture/bin:$PATH" \
   git -C "$parent" push --quiet origin main
 assert_invoked_once mixed-after-push
+
+# A bad gitlink commit can be reverted before the final tip. The adapter must
+# inspect the newly introduced history, not only the endpoint tree.
+revert_base_sha="$(git -C "$parent/deps/test-submodule" rev-parse HEAD)"
+printf 'reverted-before-push\n' >>"$parent/deps/test-submodule/state.txt"
+git -C "$parent/deps/test-submodule" add state.txt
+git -C "$parent/deps/test-submodule" commit --quiet -m reverted-before-push
+reverted_submodule_sha="$(git -C "$parent/deps/test-submodule" rev-parse HEAD)"
+git -C "$parent" add deps/test-submodule
+git -C "$parent" commit --no-verify --quiet -m bad-history-gitlink
+git -C "$parent/deps/test-submodule" checkout --quiet "$revert_base_sha"
+git -C "$parent" add deps/test-submodule
+git -C "$parent" commit --no-verify --quiet -m revert-history-gitlink
+reset_log
+if LEFTHOOK_ROUTING_LOG="$log" LEFTHOOK_ROUTING_CHECKER="$parent/scripts/check-submodule-reachability.nu" PATH="$fixture/bin:$PATH" \
+  git -C "$parent" push --quiet origin main >"$fixture/reverted-history.out" 2>&1; then
+  echo "error: reverted unpushed submodule commit unexpectedly passed" >&2
+  exit 1
+fi
+assert_invoked_once reverted-history
+
+git -C "$parent/deps/test-submodule" push --quiet origin "$reverted_submodule_sha:refs/pull/reverted/head"
+reset_log
+LEFTHOOK_ROUTING_LOG="$log" LEFTHOOK_ROUTING_CHECKER="$parent/scripts/check-submodule-reachability.nu" PATH="$fixture/bin:$PATH" \
+  git -C "$parent" push --quiet origin main
+assert_invoked_count reverted-history-after-push 2
+
+# A force-pushed non-fast-forward ref must inspect commits newly introduced by
+# the replacement history, not only the old remote-to-new endpoint diff.
+git -C "$parent" switch --quiet -c nonfast
+printf 'nonfast-base\n' >"$parent/docs/nonfast.txt"
+git -C "$parent" add docs/nonfast.txt
+git -C "$parent" commit --no-verify --quiet -m nonfast-base
+git -C "$parent" push --quiet origin nonfast
+git -C "$parent" switch --quiet main
+git -C "$parent" submodule update --quiet
+git -C "$parent" switch --quiet nonfast
+git -C "$parent" reset --hard --quiet main
+git -C "$parent" submodule update --quiet
+printf 'nonfast-bad\n' >>"$parent/deps/test-submodule/state.txt"
+git -C "$parent/deps/test-submodule" add state.txt
+git -C "$parent/deps/test-submodule" commit --quiet -m nonfast-bad
+nonfast_submodule_sha="$(git -C "$parent/deps/test-submodule" rev-parse HEAD)"
+git -C "$parent" add deps/test-submodule
+git -C "$parent" commit --no-verify --quiet -m nonfast-gitlink
+reset_log
+if LEFTHOOK_ROUTING_LOG="$log" LEFTHOOK_ROUTING_CHECKER="$parent/scripts/check-submodule-reachability.nu" PATH="$fixture/bin:$PATH" \
+  git -C "$parent" push --quiet --force origin nonfast >"$fixture/nonfast.out" 2>&1; then
+  echo "error: non-fast-forward unpushed submodule commit unexpectedly passed" >&2
+  exit 1
+fi
+assert_invoked_once nonfast
+
+git -C "$parent/deps/test-submodule" push --quiet origin "$nonfast_submodule_sha:refs/pull/nonfast/head"
+reset_log
+LEFTHOOK_ROUTING_LOG="$log" LEFTHOOK_ROUTING_CHECKER="$parent/scripts/check-submodule-reachability.nu" PATH="$fixture/bin:$PATH" \
+  git -C "$parent" push --quiet --force origin nonfast
+assert_invoked_once nonfast-after-push
+git -C "$parent" switch --quiet main
+git -C "$parent" submodule update --quiet
 
 # Switch to the retained core.hooksPath shim and verify Git's hook arguments and stdin.
 git -C "$parent" config core.hooksPath .githooks

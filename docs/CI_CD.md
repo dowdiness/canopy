@@ -216,16 +216,18 @@ any other effective hook path, including included or global configuration.
 
 The shared `scripts/check-submodule-reachability.nu` command is the sole
 implementation used by PR-ready validation and the internal
-`hook-submodule-reachability` recipe. Lefthook's narrow `pre-push` job covers
-`.gitmodules` and the `deps/` ownership zone; its thin
-`scripts/run-submodule-reachability.sh` adapter reads Git's pre-push ref-update
-stdin so gitlink changes remain visible even though Lefthook 2.1.10 filters
-submodule directories out of `{push_files}`. The shared checker receives the
-pushed local commit SHA, so non-checked-out branch pushes are checked against
-their own gitlink tree. It invokes the shared recipe only for relevant updates
-and does not run workspace-wide MoonBit checks. The
-legacy `.githooks/pre-push` shim forwards Git's remote arguments and ref-update
-stdin to the same Lefthook hook.
+`hook-submodule-reachability` recipe. Lefthook's pre-push job starts the thin
+`scripts/run-submodule-reachability.sh` adapter unconditionally: Lefthook
+2.1.10 filters gitlinks out of `{push_files}`, so `{all_files}` is retained only
+as an execution sentinel and `use_stdin: true` supplies Git's authoritative
+ref-update stream. The adapter owns the `.gitmodules` and `deps/` routing policy,
+enumerates every newly introduced relevant commit, and deduplicates shared
+commits across refs. The shared checker materializes each pushed commit's
+`.gitmodules` and recursively checks its submodule graph, so non-checked-out
+branch pushes and reverted intermediate gitlinks are covered. It invokes the
+shared recipe only for relevant updates and does not run workspace-wide MoonBit
+checks. The legacy `.githooks/pre-push` shim forwards Git's remote arguments and
+ref-update stdin to the same Lefthook hook.
 Manual cleanup is needed only for those non-legacy settings; use the reported
 scope and origin to locate the configuration. If you need to bypass the hook
 (e.g. during a rebase you understand), `git commit --no-verify` is available,

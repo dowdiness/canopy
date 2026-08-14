@@ -5,8 +5,7 @@
 # branches, or update the superproject's gitlinks.
 
 def fail [message: string] {
-  print -e $"error: ($message)"
-  exit 1
+  error make { msg: $"error: ($message)" }
 }
 
 def print-command-error [output: record] {
@@ -32,9 +31,7 @@ def check-reachable [path: string, sha: string] {
     let exact = (^git -C $path fetch --quiet --no-tags --refetch origin $sha | complete)
     if $exact.exit_code != 0 {
       print-command-error $exact
-      print -e $"error: submodule commit is not fetchable from origin: ($path)"
-      print -e "push the commit to the configured origin before the parent PR"
-      exit 1
+      fail $"submodule commit is not fetchable from origin: ($path)\npush the commit to the configured origin before the parent PR"
     }
   }
 }
@@ -44,11 +41,12 @@ def parse-status-path [line: string] {
   $path_with_state | str replace --regex ' \([^)]*\)$' ''
 }
 
-def check-current-checkout [] {
+def check-current-checkout [root: string] {
+  cd $root
   let status = (^git submodule status --recursive | complete)
   if $status.exit_code != 0 {
     print-command-error $status
-    exit $status.exit_code
+    fail "submodule status inspection failed"
   }
 
   for line in ($status.stdout | lines) {
@@ -81,49 +79,77 @@ def check-current-checkout [] {
   }
 }
 
-def check-commit [commit: string] {
-  let tree = (^git ls-tree -r -z --full-tree $commit | complete)
-  if $tree.exit_code != 0 {
-    print-command-error $tree
-    exit $tree.exit_code
+def check-materialized-commit [root: string, commit: string] {
+  let temp_root = ($env.TMPDIR? | default "/tmp")
+  let temp_template = ([$temp_root, "canopy-submodule-commit.XXXXXX"] | path join)
+  let temp_result = (^mktemp -d $temp_template | complete)
+  if $temp_result.exit_code != 0 {
+    print-command-error $temp_result
+    fail "could not create an isolated submodule-checkout directory"
   }
+  let temp = ($temp_result.stdout | str trim)
 
-  for entry in ($tree.stdout | split row (char nul) | where {|item| $item | is-not-empty }) {
-    let fields = ($entry | split row (char tab))
-    if ($fields | length) != 2 {
-      continue
-    }
-    let metadata = ($fields.0 | split row " ")
-    if ($metadata | length) < 3 or $metadata.0 != "160000" {
-      continue
+  try {
+    let clone = (^git clone --quiet --no-checkout --local $root $temp | complete)
+    if $clone.exit_code != 0 {
+      print-command-error $clone
+      fail "could not clone the pushed superproject commit into an isolated directory"
     }
 
-    let sha = $metadata.2
-    let path = $fields.1
-    let git_dir = (^git -C $path rev-parse --git-dir | complete)
-    if $git_dir.exit_code != 0 {
-      print-command-error $git_dir
-      fail $"submodule is not initialized for pushed commit: ($path)"
+    let checkout = (^git -C $temp checkout --quiet --detach $commit | complete)
+    if $checkout.exit_code != 0 {
+      print-command-error $checkout
+      fail $"could not checkout pushed superproject commit: ($commit)"
     }
-    check-reachable $path $sha
+
+    let synced = (^git -C $temp submodule sync --quiet --recursive | complete)
+    if $synced.exit_code != 0 {
+      print-command-error $synced
+      fail "could not synchronize submodule origins from the pushed .gitmodules"
+    }
+
+    let updated = (^git -C $temp submodule update --quiet --init --recursive | complete)
+    if $updated.exit_code != 0 {
+      print-command-error $updated
+      if ($updated.stderr | str contains "did not contain") {
+        fail $"submodule commit is not fetchable from origin for pushed superproject commit: ($commit)\npush the commit to the configured origin before the parent PR"
+      }
+      fail $"could not materialize submodules for pushed superproject commit: ($commit)"
+    }
+
+    check-current-checkout $temp
+  } catch {|err|
+    let removed = (^rm -rf $temp | complete)
+    if $removed.exit_code != 0 {
+      print-command-error $removed
+    }
+    error make { msg: $err.msg }
+  }
+  let removed = (^rm -rf $temp | complete)
+  if $removed.exit_code != 0 {
+    print-command-error $removed
   }
 }
 
 def main [--commit: string = ""] {
-  # FILE_PWD is the directory containing this script, so an absolute invocation
-  # from another Git worktree cannot accidentally inspect the caller's repo.
-  let root = ([$env.FILE_PWD, ".."] | path join | path expand)
-  cd $root
+  try {
+    # FILE_PWD is the directory containing this script, so an absolute
+    # invocation from another Git worktree cannot inspect the caller's repo.
+    let root = ([$env.FILE_PWD, ".."] | path join | path expand)
 
-  if ($commit | is-empty) {
-    check-current-checkout
-    return
-  }
+    if ($commit | is-empty) {
+      check-current-checkout $root
+      return
+    }
 
-  let verified = (^git rev-parse --verify ($commit + "^{commit}") | complete)
-  if $verified.exit_code != 0 {
-    print-command-error $verified
-    fail $"pushed commit is not available locally: ($commit)"
+    let verified = (^git -C $root rev-parse --verify ($commit + "^{commit}") | complete)
+    if $verified.exit_code != 0 {
+      print-command-error $verified
+      fail $"pushed commit is not available locally: ($commit)"
+    }
+    check-materialized-commit $root ($verified.stdout | str trim)
+  } catch {|err|
+    print -e $err.msg
+    exit 1
   }
-  check-commit ($verified.stdout | str trim)
 }
