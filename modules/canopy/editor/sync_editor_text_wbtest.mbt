@@ -568,3 +568,21 @@ test "detached ProjectionState cannot mutate authority text" {
   assert_eq(editor.authority.get_text(), "authority")
   assert_eq(projection.parser.source().read_or_abort(), "projection-only")
 }
+
+///|
+test "projection-free construction is inert" {
+  let free = try! new_projection_free_editor("projection-free", 500)
+  assert_true(free.interaction.cursor_subscription is None)
+  assert_eq(free.authority.get_text(), "")
+}
+
+///|
+test "interaction activation rejects a second subscription" {
+  let free = try! new_projection_free_editor("activation-once", 500)
+  free.interaction.activate_cursor_view()
+  let second : Result[Unit, Error] = Ok(free.interaction.activate_cursor_view()) catch {
+    error => Err(error)
+  }
+  assert_true(free.interaction.cursor_subscription is Some(_))
+  assert_true(second is Err(_))
+}

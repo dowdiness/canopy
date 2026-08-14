@@ -114,6 +114,7 @@ priv struct InteractionState {
   peer_id : String
   mut ws : JsWebSocket?
   session : @sync_session.SyncSession
+  mut cursor_subscription : EphemeralSubscription?
   // Scoped telemetry state. It coalesces multi-span edits into one A0 and one
   // final C while keeping arm/clear operations inside the editor.
   mut projection_observation_scope : ProjectionObservationScope?
@@ -161,6 +162,12 @@ fn InteractionState::adjust_cursor_view_for_edit(
 }
 
 ///|
+priv struct ProjectionFreeEditor {
+  authority : AuthorityCore
+  interaction : InteractionState
+}
+
+///|
 pub struct SyncEditor[T] {
   priv authority : AuthorityCore
   priv projection : ProjectionState[T]
@@ -193,83 +200,77 @@ pub fn[T, E] SyncEditor::new_with_builder(
   capture_timeout_ms? : Int = 500,
   parent_runtime? : @incr.Runtime,
 ) -> (SyncEditor[T], E) raise {
-  let doc = @text.TextState::new(agent_id)
+  let free = new_projection_free_editor(agent_id, capture_timeout_ms)
   let pending_transforms : Ref[Array[@core.IdentityTransform]] = Ref([])
   let identity_hint_consumer = @core.IdentityHintConsumer(fn() {
     let pending = pending_transforms.val
     pending_transforms.val = []
     pending
   })
-  let identity = next_editor_identity()
   let source_id = @loom_core.SourceId(
-    "canopy-sync-editor:" + identity.to_string(),
+    "canopy-sync-editor:" + free.authority.identity.to_string(),
   )
   let parser = make_parser(source_id, "", parent_runtime)
   let document_version = @incr.Input(
     parser.runtime(),
-    doc.version(),
+    free.authority.doc.version(),
     label="sync_editor_document_version",
   )
   let (cached_proj_node, registry_memo, source_map_memo, capabilities, extras) = build_parts(
     parser, identity_hint_consumer,
   )
-  let editor = finish_editor(
-    agent_id, doc, capture_timeout_ms, parser, document_version, cached_proj_node,
-    registry_memo, source_map_memo, capabilities, pending_transforms, identity,
-  )
-  (editor, extras)
+  let projection : ProjectionState[T] = {
+    parser,
+    document_version,
+    cached_proj_node,
+    registry_memo,
+    source_map_memo,
+    projection_anchor: cached_proj_node.watch(),
+    registry_anchor: registry_memo.watch(),
+    source_map_anchor: source_map_memo.watch(),
+    capabilities,
+    projection_dirty: false,
+    parser_failure: None,
+    pending_transforms,
+  }
+  (attach_projection(free, projection), extras)
 }
 
 ///|
-/// Shared construction tail for `new_with_builder`: anchor the projection
-/// memos, wire presence, and assemble the editor struct.
-fn[T] finish_editor(
+/// Construct authority and interaction ownership without parser, reactive
+/// runtime, projection memos, transport activation, or subscriptions.
+fn new_projection_free_editor(
   agent_id : String,
-  doc : @text.TextState,
   capture_timeout_ms : Int,
-  parser : @loom.Parser[T],
-  document_version : @incr.Input[@text.Version],
-  cached_proj_node : @incr.Derived[@core.ProjNode[T]?],
-  registry_memo : @incr.Derived[Map[@core.NodeId, @core.ProjNode[T]]],
-  source_map_memo : @incr.Derived[@core.SourceMap],
-  capabilities : LanguageCapabilities[T],
-  pending_transforms : Ref[Array[@core.IdentityTransform]],
-  identity : Int,
-) -> SyncEditor[T] {
-  let projection_anchor = cached_proj_node.watch()
-  let registry_anchor = registry_memo.watch()
-  let source_map_anchor = source_map_memo.watch()
-  let (hub, cursor_view) = setup_hub_and_cursor(agent_id)
+) -> ProjectionFreeEditor raise {
+  let identity = next_editor_identity()
   {
     authority: {
-      doc,
+      doc: @text.TextState::new(agent_id),
       undo: @undo.UndoManager::new(agent_id, capture_timeout_ms~),
       identity,
     },
-    projection: {
-      parser,
-      document_version,
-      cached_proj_node,
-      registry_memo,
-      source_map_memo,
-      projection_anchor,
-      registry_anchor,
-      source_map_anchor,
-      capabilities,
-      projection_dirty: false,
-      parser_failure: None,
-      pending_transforms,
-    },
     interaction: {
       cursor: 0,
-      hub,
-      cursor_view,
+      hub: EphemeralHub::new(agent_id),
+      cursor_view: PeerCursorView::new(),
       peer_id: agent_id,
       ws: None,
       session: @sync_session.SyncSession::SyncSession(),
+      cursor_subscription: None,
       projection_observation_scope: None,
     },
   }
+}
+
+///|
+/// Activate interaction observation exactly once and assemble the public facade.
+fn[T] attach_projection(
+  free : ProjectionFreeEditor,
+  projection : ProjectionState[T],
+) -> SyncEditor[T] raise Failure {
+  free.interaction.activate_cursor_view()
+  { authority: free.authority, projection, interaction: free.interaction }
 }
 
 ///|
@@ -462,41 +463,42 @@ fn InteractionState::reject_projection_observer_reentry(
 // --- Hub and cursor setup ---
 
 ///|
-/// Create an EphemeralHub and PeerCursorView, wiring up the cursor store
-/// subscription so remote peer cursors are tracked automatically.
-fn setup_hub_and_cursor(agent_id : String) -> (EphemeralHub, PeerCursorView) {
-  let hub = EphemeralHub::new(agent_id)
-  let cursor_view = PeerCursorView::new()
-  let wire_peer_id = hub.wire_peer_id
-  let cursor_store = hub.get_store(Cursor)
-  ignore(
-    cursor_store.subscribe(fn(event) {
-      for key in event.added() {
-        if key == wire_peer_id {
-          continue
-        }
-        if cursor_store.get(key) is Some(value) {
-          cursor_view.apply_raw_update(key, value)
-        }
+/// Activate remote cursor observation exactly once after projection attachment.
+fn InteractionState::activate_cursor_view(
+  self : InteractionState,
+) -> Unit raise Failure {
+  guard self.cursor_subscription is None else {
+    raise Failure::Failure("interaction already activated")
+  }
+  let wire_peer_id = self.hub.wire_peer_id
+  let cursor_store = self.hub.get_store(Cursor)
+  let cursor_view = self.cursor_view
+  let subscription = cursor_store.subscribe(fn(event) {
+    for key in event.added() {
+      if key == wire_peer_id {
+        continue
       }
-      for key in event.updated() {
-        if key == wire_peer_id {
-          continue
-        }
-        if cursor_store.get(key) is Some(value) {
-          cursor_view.apply_raw_update(key, value)
-        }
+      if cursor_store.get(key) is Some(value) {
+        cursor_view.apply_raw_update(key, value)
       }
-      for key in event.removed() {
-        if key == wire_peer_id {
-          continue
-        }
-        cursor_view.remove(key)
+    }
+    for key in event.updated() {
+      if key == wire_peer_id {
+        continue
       }
-      true
-    }),
-  )
-  (hub, cursor_view)
+      if cursor_store.get(key) is Some(value) {
+        cursor_view.apply_raw_update(key, value)
+      }
+    }
+    for key in event.removed() {
+      if key == wire_peer_id {
+        continue
+      }
+      cursor_view.remove(key)
+    }
+    true
+  })
+  self.cursor_subscription = Some(subscription)
 }
 
 // --- Ephemeral presence methods ---
