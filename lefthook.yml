@@ -1,7 +1,46 @@
 min_version: 2.1.0
 assert_lefthook_installed: true
+glob_matcher: doublestar
 
 pre-commit:
-  commands:
-    gate:
-      run: just pre-commit
+  parallel: false
+  jobs:
+    - name: repository-contract
+      run: just hook-repository-contract
+
+    - name: moonbit
+      glob:
+        - "**/*.mbt"
+        - "**/*.mbt.md"
+        - "**/*.mbti"
+        - "**/moon.mod"
+        - "**/moon.mod.json"
+        - "**/moon.pkg"
+        - "**/moon.pkg.json"
+        - "moon.work"
+        - "moon.work.json"
+        - "modules/**"
+        - "apps/**"
+        - "examples/**"
+        - "adapters/**"
+        - "deps/**"
+      group:
+        piped: true
+        jobs:
+          - name: check
+            run: just hook-moonbit-check
+          - name: format
+            run: just hook-moonbit-format-check
+
+    - name: tooling
+      glob:
+        - "lefthook.yml"
+        - "justfile"
+        - "Makefile"
+        - ".githooks/**"
+        - "scripts/install-hooks.nu"
+        - "scripts/install-hooks.sh"
+        - "scripts/test-install-hooks.sh"
+        - "scripts/test-lefthook-pre-commit-routing.sh"
+        - ".github/workflows/ci.yml"
+      run: just hook-tooling-contract

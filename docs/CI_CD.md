@@ -192,15 +192,24 @@ MoonBit, JavaScript, proof, or browser gates.
 ## Pre-commit hook
 
 Lefthook is the current hook manager. Run `just install-hooks` to install the
-hook described by `lefthook.yml`; it runs `just check` followed by
-`just fmt-check`. The `pre-commit` recipe is the single local gate, and the
-installer removes the repository's legacy direct local
-`core.hooksPath=.githooks` setting, but refuses to replace any other effective
-hook path, including included or global configuration. Manual cleanup is needed only for those non-legacy settings; use the reported
+hook described by `lefthook.yml`. Its path-aware `pre-commit` routing always
+runs the repository contract, runs the main-module MoonBit check and format
+jobs only when staged MoonBit-related paths match, and runs the tooling
+contract only for hook/task/compatibility changes. The MoonBit jobs receive no
+staged-file arguments: they retain the existing `modules/canopy` module scope.
+`glob_matcher: doublestar` covers root and nested paths, while the piped group
+keeps MoonBit `check` before `fmt-check`.
+
+The public `just check` and `just fmt-check` recipes retain their explicit
+repository-contract plus main-module behavior. The `pre-commit` recipe is the
+single local entry point into Lefthook, and `.githooks/pre-commit` remains a
+compatibility shim that delegates to it. The installer removes the repository's
+legacy direct local `core.hooksPath=.githooks` setting, but refuses to replace
+any other effective hook path, including included or global configuration.
+Manual cleanup is needed only for those non-legacy settings; use the reported
 scope and origin to locate the configuration. If you need to bypass the hook
-(e.g. during a rebase you understand),
-`git commit --no-verify` is available, but CI's `format-check` and
-`test-main` will catch the same issues on push.
+(e.g. during a rebase you understand), `git commit --no-verify` is available,
+but CI's `format-check` and `test-main` will catch the same issues on push.
 
 ## Adding new gating checks
 
