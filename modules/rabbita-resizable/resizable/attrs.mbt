@@ -133,7 +133,13 @@ pub fn Model::handle_attrs(
   .base_handle_attrs(edge)
   .on_mousedown(event => {
     event.prevent_default()
-    dispatch(StartResize(edge~, x=event.get_client_x(), y=event.get_client_y()))
+    dispatch(
+      StartResize(
+        edge~,
+        x=event.get_client_x().to_int(),
+        y=event.get_client_y().to_int(),
+      ),
+    )
   })
   .on_keydown(event => {
     match edge.keydown_nudge(event.key()) {
