@@ -897,6 +897,17 @@ fn SourceBackedGraph::pointer_up(
 }
 
 ///|
+fn SourceBackedGraph::pointer_interrupt(self : SourceBackedGraph) -> Unit {
+  let next = @graph_model.update_pointer_interrupt(
+    source_graph_base_canvas_state(self),
+  )
+  self.viewport = next.viewport
+  self.drag_preview = @graph_model.idle_drag_preview()
+  self.interaction = next.interaction
+  self.action_log = next.action_log.copy()
+}
+
+///|
 fn SourceBackedGraph::input_port_compatibility(
   self : SourceBackedGraph,
   source : NodeId,
@@ -1217,6 +1228,14 @@ pub fn source_graph_pointer_up(
 ) -> Unit {
   match source_graph_by_handle(handle) {
     Some(graph) => graph.pointer_up(node_id, target_port_id, additive)
+    None => ()
+  }
+}
+
+///|
+pub fn source_graph_pointer_interrupt(handle : Int) -> Unit {
+  match source_graph_by_handle(handle) {
+    Some(graph) => graph.pointer_interrupt()
     None => ()
   }
 }

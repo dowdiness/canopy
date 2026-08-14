@@ -56,6 +56,12 @@ pub fn pointer_up(
 }
 
 ///|
+/// Handle a browser interruption without committing the active gesture.
+pub fn pointer_interrupt(handle : Int) -> Unit {
+  _registry[handle].pointer_interrupt()
+}
+
+///|
 pub fn hover_node(handle : Int, node_id : String) -> Unit {
   _registry[handle].hover_node(node_id)
 }

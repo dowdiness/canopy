@@ -284,3 +284,145 @@ test "source-backed runtime contract: panning logs viewport only on pointerup" {
   }
   destroy_source_graph(handle)
 }
+
+///|
+test "runtime contract: interrupting a drag drops preview without committing" {
+  let runtime = CanvasRuntime::CanvasRuntime()
+  let node_id = NodeId("1")
+  let before_node = contract_state_node(runtime.state_peek(), node_id)
+  let (sx, sy) = contract_screen_point(
+    runtime.render_state().viewport,
+    before_node.position().x(),
+    before_node.position().y(),
+  )
+  runtime.pointer_down(Some(node_id), sx, sy)
+  runtime.pointer_move(sx + 40.0, sy + 30.0)
+  assert_eq(contract_runtime_operations(runtime).length(), 0)
+
+  runtime.pointer_interrupt()
+  let after_node = contract_state_node(runtime.state_peek(), node_id)
+  contract_assert_close(after_node.position().x(), before_node.position().x())
+  contract_assert_close(after_node.position().y(), before_node.position().y())
+  assert_eq(contract_runtime_operations(runtime).length(), 0)
+  let rendered = contract_render_node(
+    runtime.render_state(),
+    node_id.to_string(),
+  )
+  contract_assert_close(rendered.x, before_node.position().x())
+  contract_assert_close(rendered.y, before_node.position().y())
+}
+
+///|
+test "runtime contract: interrupting a moved pan keeps one viewport action" {
+  let runtime = CanvasRuntime::CanvasRuntime()
+  runtime.pointer_down(None, 10.0, 20.0)
+  runtime.pointer_move(30.0, 55.0)
+  let during = runtime.render_state().viewport
+  runtime.pointer_interrupt()
+  let after = runtime.render_state()
+  let operations = contract_runtime_operations(runtime)
+  assert_eq(operations.length(), 1)
+  @debug.assert_eq(after.viewport, during)
+  match operations[0].action() {
+    SetViewport(viewport) => @debug.assert_eq(viewport, during)
+    _ => fail("expected SetViewport action")
+  }
+}
+
+///|
+test "runtime contract: interrupting a click does not select" {
+  let runtime = CanvasRuntime::CanvasRuntime()
+  let node_id = NodeId("1")
+  let node = contract_state_node(runtime.state_peek(), node_id)
+  let (sx, sy) = contract_screen_point(
+    runtime.render_state().viewport,
+    node.position().x(),
+    node.position().y(),
+  )
+  runtime.pointer_down(Some(node_id), sx, sy)
+  runtime.pointer_interrupt()
+  assert_eq(runtime.render_state().selected_nodes.length(), 0)
+  assert_eq(contract_runtime_operations(runtime).length(), 0)
+}
+
+///|
+test "runtime contract: interrupting a connection drops the candidate" {
+  let runtime = CanvasRuntime::CanvasRuntime()
+  let node_id = NodeId("1")
+  let node = contract_state_node(runtime.state_peek(), node_id)
+  let (sx, sy) = contract_screen_point(
+    runtime.render_state().viewport,
+    node.position().x(),
+    node.position().y(),
+  )
+  runtime.pointer_down_handle(node_id, "tick", sx, sy)
+  runtime.pointer_interrupt()
+  assert_true(runtime.render_state().connecting is None)
+  assert_eq(contract_runtime_operations(runtime).length(), 0)
+}
+
+///|
+test "source-backed runtime contract: interrupting a drag preserves source and layout" {
+  let handle = create_source_graph("osc = sine(freq: 440Hz)\nmeter = scope()")
+  let graph = contract_source_graph(handle)
+  let source_before = graph.source
+  let osc = handle_token(handle, "osc")
+  let before = source_graph_base_canvas_state(graph)
+  let node = contract_state_node(before, osc)
+  let (sx, sy) = contract_screen_point(
+    before.viewport,
+    node.position().x(),
+    node.position().y(),
+  )
+  source_graph_pointer_down(handle, osc.to_string(), sx, sy)
+  source_graph_pointer_move(handle, sx + 40.0, sy + 30.0)
+  source_graph_pointer_interrupt(handle)
+  let after = source_graph_base_canvas_state(graph)
+  let after_node = contract_state_node(after, osc)
+  assert_eq(graph.source, source_before)
+  contract_assert_close(after_node.position().x(), node.position().x())
+  contract_assert_close(after_node.position().y(), node.position().y())
+  assert_eq(ok_operation_log(get_source_graph_action_log(handle)).length(), 0)
+  destroy_source_graph(handle)
+}
+
+///|
+test "source-backed runtime contract: interrupting a moved pan records one viewport" {
+  let handle = create_source_graph("osc = sine(freq: 440Hz)\nmeter = scope()")
+  let graph = contract_source_graph(handle)
+  let before = source_graph_base_canvas_state(graph).viewport
+  source_graph_pointer_down(handle, "", 10.0, 20.0)
+  source_graph_pointer_move(handle, 30.0, 55.0)
+  let during = source_graph_base_canvas_state(graph).viewport
+  source_graph_pointer_interrupt(handle)
+  let operations = ok_operation_log(get_source_graph_action_log(handle))
+  assert_eq(operations.length(), 1)
+  match operations[0].action() {
+    SetViewport(viewport) => @debug.assert_eq(viewport, during)
+    _ => fail("expected SetViewport action")
+  }
+  let after = source_graph_base_canvas_state(graph).viewport
+  @debug.assert_eq(after, during)
+  assert_true(after != before)
+  destroy_source_graph(handle)
+}
+
+///|
+test "source-backed runtime contract: interrupting a click leaves selection unchanged" {
+  let handle = create_source_graph("osc = sine(freq: 440Hz)\nmeter = scope()")
+  let graph = contract_source_graph(handle)
+  let osc = handle_token(handle, "osc")
+  let before = source_graph_base_canvas_state(graph)
+  let node = contract_state_node(before, osc)
+  let (sx, sy) = contract_screen_point(
+    before.viewport,
+    node.position().x(),
+    node.position().y(),
+  )
+  source_graph_pointer_down(handle, osc.to_string(), sx, sy)
+  source_graph_pointer_interrupt(handle)
+  let after = source_graph_base_canvas_state(graph)
+  assert_eq(after.interaction.selected_nodes, before.interaction.selected_nodes)
+  assert_eq(ok_operation_log(get_source_graph_action_log(handle)).length(), 0)
+  destroy_source_graph(handle)
+}
