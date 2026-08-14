@@ -235,18 +235,6 @@ fn normalized_block_projection_json(
   })
 }
 
-///|
-fn normalized_markdown_node_json(node : NormalizedMarkdownNode) -> Json {
-  Json::object({
-    "kind": Json::string(node.kind),
-    "start": Json::number(node.start.to_double()),
-    "end": Json::number(node.end.to_double()),
-    "text": projection_worker_optional_string_json(node.text),
-    "detail": Json::string(node.detail),
-    "flags": Json::number(node.flags.to_double()),
-    "children": Json::array(node.children.map(normalized_markdown_node_json)),
-  })
-}
 
 ///|
 fn normalized_preview_projection_json(
@@ -254,8 +242,7 @@ fn normalized_preview_projection_json(
 ) -> Json {
   Json::object({
     "source": Json::string(projection.source),
-    "markdown_ir": normalized_markdown_node_json(projection.markdown_ir),
-    "html": Json::string(projection.html),
+    "artifact": projection_preview_artifact_json(projection.artifact),
   })
 }
 

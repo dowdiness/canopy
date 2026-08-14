@@ -235,6 +235,18 @@ test "projection Worker dispatcher preserves caller generation and adopted artif
   let fields = projection_worker_response(seeded)
   assert_true(fields.contains("observables"))
   assert_true(fields.contains("metrics"))
+  match fields["observables"] {
+    Json::Object(observables) =>
+      match observables["preview"] {
+        Json::Object(preview) => {
+          assert_eq(preview["source"], Json::string("# 猫 🐈\n"))
+          assert_true(preview.contains("artifact"))
+          assert_false(preview.contains("html"))
+        }
+        _ => fail("projection Worker preview must be an object")
+      }
+    _ => fail("projection Worker observables must be an object")
+  }
 
   let unchanged = dispatch(
     projection_worker_request(2, projection_worker_advance_command(None)),

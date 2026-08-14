@@ -81,16 +81,6 @@ priv struct NormalizedBlockProjection {
   resolver_evidence : Array[NormalizedResolverEvidence]
 } derive(Eq, Debug)
 
-///|
-priv struct NormalizedMarkdownNode {
-  kind : String
-  start : Int
-  end : Int
-  text : String?
-  detail : String
-  flags : Int
-  children : Array[NormalizedMarkdownNode]
-} derive(Eq, Debug)
 
 ///|
 priv struct NormalizedDiagnosticLabel {
@@ -114,8 +104,7 @@ priv struct NormalizedDiagnostic {
 ///|
 priv struct NormalizedPreviewProjection {
   source : String
-  markdown_ir : NormalizedMarkdownNode
-  html : String
+  artifact : ProjectionPreviewArtifact
 } derive(Eq, Debug)
 
 ///|
@@ -1158,23 +1147,6 @@ fn normalize_markdown_role(role : @md_markdown.MarkdownRole) -> String {
   }
 }
 
-///|
-fn normalize_markdown_node(
-  node : @md_markdown.MarkdownIR,
-) -> NormalizedMarkdownNode {
-  let origin = node.origin()
-  {
-    kind: node.kind_tag(),
-    start: origin.start(),
-    end: origin.end(),
-    text: node.text_value(),
-    detail: "",
-    flags: (if node.is_raw() { 1 } else { 0 }) +
-    (if node.is_recovered() { 2 } else { 0 }) +
-    (if node.is_unsupported() { 4 } else { 0 }),
-    children: node.children().map(normalize_markdown_node),
-  }
-}
 
 ///|
 fn normalize_diagnostic_severity(
@@ -1291,8 +1263,7 @@ fn normalized_projection_observables(
     block: { source, blocks, node_keys, roles, resolver_evidence },
     preview: {
       source,
-      markdown_ir: normalize_markdown_node(document),
-      html: @md_markdown.experimental_markdown_ir_to_commonmark_html(document),
+      artifact: projection_preview_artifact_from_markdown_ir(document),
     },
     diagnostics: document.diagnostics().map(normalize_diagnostic),
   }

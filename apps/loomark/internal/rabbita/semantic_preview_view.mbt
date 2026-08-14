@@ -427,3 +427,343 @@ fn semantic_preview_view(
     ),
   )
 }
+
+
+///|
+fn semantic_preview_artifact_plain_text(
+  node : ProjectionPreviewNode,
+) -> String {
+  match node.view {
+    PreviewText(value)
+    | PreviewInlineHtml(value)
+    | PreviewRaw(value)
+    | PreviewInlineCode(value)
+    | PreviewHtmlBlock(value)
+    | PreviewCodeBlock(_, value) => value
+    PreviewAutolink(_, display, _) => display
+    PreviewHardBreak(_)
+    | PreviewSoftBreak => "\n"
+    PreviewUnsupported(message)
+    | PreviewRecovered(message) => message
+    PreviewThematicBreak => ""
+    PreviewDocument
+    | PreviewHeading(_)
+    | PreviewParagraph
+    | PreviewBlockQuote
+    | PreviewUnorderedList(_, _)
+    | PreviewOrderedList(_, _)
+    | PreviewListItem(_, _)
+    | PreviewOrderedListItem(_, _)
+    | PreviewBold
+    | PreviewItalic
+    | PreviewLink(_, _, _)
+    | PreviewImage(_, _, _) =>
+      node.children.map(semantic_preview_artifact_plain_text).join("")
+  }
+}
+
+///|
+fn semantic_preview_artifact_unordered_marker(
+  marker : ProjectionPreviewUnorderedMarker?,
+) -> String {
+  match marker {
+    Some(PreviewDash) => "-"
+    Some(PreviewStar) => "*"
+    Some(PreviewPlus) => "+"
+    None => ""
+  }
+}
+
+///|
+fn semantic_preview_artifact_link_form(
+  form : ProjectionPreviewLinkForm,
+) -> String {
+  match form {
+    PreviewInlineLink => "inline"
+    PreviewFullReferenceLink => "full-reference"
+    PreviewCollapsedReferenceLink => "collapsed-reference"
+    PreviewShortcutReferenceLink => "shortcut-reference"
+  }
+}
+
+///|
+fn semantic_preview_artifact_diagnostics(
+  diagnostics : Array[String],
+) -> Array[@rabbita_runtime.Html] {
+  diagnostics.map(message =>
+    @html.li(
+      attrs=@html.Attrs::build().data_set("loomark-preview-diagnostic", ""),
+      "Diagnostic: " + message,
+    )
+  )
+}
+
+///|
+fn semantic_preview_artifact_children(
+  node : ProjectionPreviewNode,
+) -> Array[@rabbita_runtime.Html] {
+  node.children.map(child => semantic_preview_artifact_node(child))
+}
+
+///|
+fn semantic_preview_artifact_list_children(
+  node : ProjectionPreviewNode,
+  parent_list_spread : Bool,
+) -> Array[@rabbita_runtime.Html] {
+  node.children.map(child => {
+    match child.view {
+      PreviewListItem(..) | PreviewOrderedListItem(..) =>
+        semantic_preview_artifact_node(child, list_parent_spread=parent_list_spread)
+      _ => semantic_preview_artifact_node(child)
+    }
+  })
+}
+
+///|
+fn semantic_preview_artifact_list_item_children(
+  node : ProjectionPreviewNode,
+  render_paragraphs : Bool,
+) -> Array[@rabbita_runtime.Html] {
+  node.children.map(child => {
+    match child.view {
+      PreviewParagraph =>
+        semantic_preview_artifact_node(
+          child,
+          unwrap_list_item_paragraph=!render_paragraphs,
+        )
+      _ => semantic_preview_artifact_node(child)
+    }
+  })
+}
+
+///|
+fn semantic_preview_artifact_node(
+  node : ProjectionPreviewNode,
+  list_parent_spread? : Bool = false,
+  unwrap_list_item_paragraph? : Bool = false,
+) -> @rabbita_runtime.Html {
+  let children = match node.view {
+    PreviewUnorderedList(spread, _)
+    | PreviewOrderedList(spread, _) =>
+      semantic_preview_artifact_list_children(node, spread)
+    PreviewListItem(spread, _)
+    | PreviewOrderedListItem(spread, _) =>
+      semantic_preview_artifact_list_item_children(
+        node,
+        spread || list_parent_spread,
+      )
+    _ => semantic_preview_artifact_children(node)
+  }
+  match node.view {
+    PreviewDocument => @html.fragment(children)
+    PreviewHeading(depth) => semantic_preview_heading(depth, children)
+    PreviewParagraph =>
+      if unwrap_list_item_paragraph {
+        @html.fragment(children)
+      } else {
+        @rui.typography_p(children)
+      }
+    PreviewBlockQuote => @rui.typography_blockquote(children)
+    PreviewUnorderedList(spread, marker) =>
+      @html.ul(
+        attrs=@html.Attrs::build()
+          .data_set("loomark-list-spread", spread.to_string())
+          .data_set(
+            "loomark-list-marker",
+            semantic_preview_artifact_unordered_marker(marker),
+          ),
+        children,
+      )
+    PreviewOrderedList(spread, marker) => {
+      let attrs = @html.Attrs::build()
+        .data_set("loomark-list-spread", spread.to_string())
+        .data_set(
+          "loomark-list-marker",
+          match marker {
+            Some(value) => value.text
+            None => ""
+          },
+        )
+      match marker {
+        Some(value) => @html.ol(start=value.start, attrs~, children)
+        None => @html.ol(attrs~, children)
+      }
+    }
+    PreviewListItem(spread, marker) =>
+      @html.li(
+        attrs=@html.Attrs::build()
+          .data_set("loomark-list-item-spread", (spread || list_parent_spread).to_string())
+          .data_set(
+            "loomark-list-marker",
+            semantic_preview_artifact_unordered_marker(marker),
+          ),
+        children,
+      )
+    PreviewOrderedListItem(spread, marker) =>
+      @html.li(
+        attrs=@html.Attrs::build()
+          .data_set("loomark-list-item-spread", (spread || list_parent_spread).to_string())
+          .data_set(
+            "loomark-list-marker",
+            match marker {
+              Some(value) => value.text
+              None => ""
+            },
+          ),
+        children,
+      )
+    PreviewCodeBlock(info, value) =>
+      @html.pre(
+        style=[
+          "margin:0;overflow:auto;border-radius:var(--rui-radius,0.625rem);background:var(--rui-muted,oklch(0.97 0 0));padding:1rem",
+        ],
+        @html.code(
+          style=[
+            "font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,\"Liberation Mono\",\"Courier New\",monospace;font-size:0.875rem;line-height:1.5rem",
+          ],
+          attrs=@html.Attrs::build().data_set("loomark-code-info", info),
+          value,
+        ),
+      )
+    PreviewHtmlBlock(value) =>
+      @html.pre(
+        attrs=@html.Attrs::build().data_set("loomark-preview-html", "block"),
+        value,
+      )
+    PreviewThematicBreak => @html.hr()
+    PreviewText(value) => @html.text(value)
+    PreviewBold => @html.strong(children)
+    PreviewItalic => @html.em(children)
+    PreviewInlineCode(value) => @html.code(value)
+    PreviewLink(destination, title, form) =>
+      match semantic_preview_safe_destination(destination, image=false) {
+        Some(destination) =>
+          @html.a(
+            href=destination,
+            title?,
+            attrs=@html.Attrs::build().data_set(
+              "loomark-link-reference-form",
+              semantic_preview_artifact_link_form(form),
+            ),
+            children,
+          )
+        None =>
+          @html.span(
+            attrs=@html.Attrs::build().data_set(
+              "loomark-preview-url-rejected", "link",
+            ),
+            children,
+          )
+      }
+    PreviewImage(destination, title, form) => {
+      let alt = semantic_preview_artifact_plain_text(node)
+      match semantic_preview_safe_destination(destination, image=true) {
+        Some(destination) =>
+          @html.img(
+            src=destination,
+            alt~,
+            title?,
+            attrs=@html.Attrs::build().data_set(
+              "loomark-image-reference-form",
+              semantic_preview_artifact_link_form(form),
+            ),
+          )
+        None =>
+          @html.span(
+            attrs=@html.Attrs::build().data_set(
+              "loomark-preview-url-rejected", "image",
+            ),
+            "Image URL rejected: " + alt,
+          )
+      }
+    }
+    PreviewAutolink(kind, display, destination) =>
+      match semantic_preview_safe_destination(destination, image=false) {
+        Some(destination) =>
+          @html.a(
+            href=destination,
+            attrs=@html.Attrs::build().data_set(
+              "loomark-autolink-kind",
+              match kind {
+                PreviewUriAutolink => "uri"
+                PreviewEmailAutolink => "email"
+              },
+            ),
+            display,
+          )
+        None =>
+          @html.span(
+            attrs=@html.Attrs::build().data_set(
+              "loomark-preview-url-rejected", "autolink",
+            ),
+            display,
+          )
+      }
+    PreviewInlineHtml(value) =>
+      @html.span(
+        attrs=@html.Attrs::build().data_set("loomark-preview-html", "inline"),
+        value,
+      )
+    PreviewSoftBreak => @html.text("\n")
+    PreviewHardBreak(form) =>
+      @html.br(
+        attrs=@html.Attrs::build().data_set(
+          "loomark-hard-break-form",
+          match form {
+            PreviewTrailingSpaces(_) => "trailing-spaces"
+            PreviewBackslash => "backslash"
+          },
+        ),
+      )
+    PreviewUnsupported(message) =>
+      @html.div(
+        attrs=@html.Attrs::build().data_set(
+          "loomark-preview-fallback", "unsupported",
+        ),
+        "Unsupported Markdown: " + message,
+      )
+    PreviewRaw(value) =>
+      @html.div(
+        attrs=@html.Attrs::build().data_set("loomark-preview-fallback", "raw"),
+        [
+          @html.strong("Raw Markdown:"),
+          @html.pre(value),
+          @html.ul(semantic_preview_artifact_diagnostics(node.diagnostics)),
+        ],
+      )
+    PreviewRecovered(message) =>
+      @html.div(
+        attrs=@html.Attrs::build().data_set(
+          "loomark-preview-fallback", "recovered",
+        ),
+        [
+          @html.strong("Recovered Markdown: " + message),
+          @html.ul(semantic_preview_artifact_diagnostics(node.diagnostics)),
+        ],
+      )
+  }
+}
+
+///|
+fn semantic_preview_artifact_view(
+  source : String,
+  artifact : ProjectionPreviewArtifact,
+) -> @rabbita_runtime.Html {
+  @html.div(
+    style=[
+      "box-sizing:border-box;width:100%;min-width:0;overflow-y:auto;overflow-x:hidden",
+    ],
+    @html.div(
+      id="loomark-preview",
+      attrs=@html.Attrs::build()
+        .data_set("loomark-source", source)
+        .role("region")
+        .tabindex(0)
+        .aria_label("Markdown preview"),
+      style=[
+        "box-sizing:border-box;width:var(--lm-page-width);margin-inline:auto;min-width:0;display:grid;gap:1rem;grid-auto-rows:max-content;background:transparent;padding:1rem var(--lm-page-x-padding)",
+      ],
+      semantic_preview_artifact_node(artifact.root),
+    ),
+  )
+}
