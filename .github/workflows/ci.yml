@@ -138,6 +138,9 @@ jobs:
             run_release_version_validation:
               - '.github/workflows/ci.yml'
               - '.github/workflows/release.yml'
+              - 'scripts/release-version-policy.nu'
+              - 'scripts/generate-release-changelog.nu'
+              - 'scripts/test-generate-release-changelog.nu'
               - 'scripts/resolve-release-version.nu'
               - 'scripts/test-resolve-release-version.nu'
               - 'scripts/verify-release-target.nu'
@@ -209,7 +212,7 @@ jobs:
           "${RUNNER_TEMP}/lefthook" validate
 
   release-version-validation:
-    name: Release Version and Target Validation
+    name: Release Contract Validation
     needs: changes
     if: needs.changes.outputs.run_release_version_validation == 'true'
     runs-on: ubuntu-latest
@@ -224,12 +227,42 @@ jobs:
         with:
           version: "0.114.1"
 
-      - name: Validate resolver syntax
+      - name: Validate release script syntax
         run: |
+          nu --ide-check 100 scripts/release-version-policy.nu
+          nu --ide-check 100 scripts/generate-release-changelog.nu
+          nu --ide-check 100 scripts/test-generate-release-changelog.nu
           nu --ide-check 100 scripts/resolve-release-version.nu
           nu --ide-check 100 scripts/test-resolve-release-version.nu
           nu --ide-check 100 scripts/verify-release-target.nu
           bash -n scripts/test-verify-release-target.sh
+
+      - name: Check release workflow wiring
+        run: |
+          grep -Fq 'fetch-depth: 0' .github/workflows/release.yml
+          grep -Fq 'body_path: CHANGELOG.txt' .github/workflows/release.yml
+          if grep -Fq 'generate_release_notes: true' .github/workflows/release.yml; then
+            echo 'error: release workflow must not enable generated release notes' >&2
+            exit 1
+          fi
+
+          changelog_step="$({
+            awk '
+              /^      - name: Generate changelog$/ { in_step=1 }
+              in_step { print }
+              in_step && /^      - name: Verify release target before publish$/ { exit }
+            ' .github/workflows/release.yml
+          })"
+          printf '%s\n' "$changelog_step" | grep -Fq 'nu scripts/generate-release-changelog.nu'
+          printf '%s\n' "$changelog_step" | grep -Fq 'SOURCE_SHA:'
+          printf '%s\n' "$changelog_step" | grep -Fq 'github.sha'
+          printf '%s\n' "$changelog_step" | grep -Fq 'REPOSITORY:'
+          printf '%s\n' "$changelog_step" | grep -Fq 'github.repository'
+          printf '%s\n' "$changelog_step" | grep -Fq 'OUTPUT_PATH: CHANGELOG.txt'
+          printf '%s\n' "$changelog_step" | grep -Fq "\"\$VERSION\" \"\$SOURCE_SHA\" \"\$REPOSITORY\" \"\$OUTPUT_PATH\""
+
+      - name: Run release changelog regression tests
+        run: scripts/test-generate-release-changelog.nu
 
       - name: Run resolver regression tests
         run: scripts/test-resolve-release-version.nu

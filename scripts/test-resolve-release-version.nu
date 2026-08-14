@@ -27,6 +27,9 @@ def main [] {
   run-case $resolver "unsupported event fails" "pull_request" "branch" "main" "v0.2.0" 1 ""
   run-case $resolver "empty manual version fails" "workflow_dispatch" "branch" "main" "" 1 ""
   run-case $resolver "invalid manual version fails" "workflow_dispatch" "branch" "main" "0.2.0" 1 ""
+  run-case $resolver "leading-zero major fails" "workflow_dispatch" "branch" "main" "v01.2.3" 1 ""
+  run-case $resolver "leading-zero minor fails" "workflow_dispatch" "branch" "main" "v1.02.3" 1 ""
+  run-case $resolver "leading-zero patch fails" "workflow_dispatch" "branch" "main" "v1.2.03" 1 ""
   run-case $resolver "pre-release version fails under stable policy" "workflow_dispatch" "branch" "main" "v0.2.0-rc.1" 1 ""
   run-case $resolver "invalid push tag fails" "push" "tag" "v0.2.0-rc.1" "" 1 ""
 }

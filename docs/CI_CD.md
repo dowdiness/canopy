@@ -33,7 +33,7 @@ than duplicating its globs.
 | `dep-check` | `./scripts/check-deps.sh` (module-scope rules [A]–[E] + canopy package-layering rules [F]–[I]; the rules table lives in the script header), `./scripts/check-shared-substrate.sh`, `./scripts/check-egw-resolver-identity.sh`, `./scripts/check-moon-update-wrapped.sh`, `node ./scripts/check-export-manifest.mjs`, `./scripts/test-moon-update-wrapper.sh`, `./scripts/test-pr-ready-validation.sh` |
 | `pr-ready-bash3` | Path-filtered macOS check that asserts `/bin/bash` 3.2, exercises local submodule failures, and runs the real PR-ready shell graph with only compiler work faked |
 | `tooling-validation` | Path-filtered Ubuntu validation for the pinned justfile, Make compatibility wrapper, Nushell installer script, and Lefthook configuration |
-| `release-version-validation` | Path-filtered Ubuntu regression tests for release version and remote target resolution |
+| `release-version-validation` | Path-filtered Ubuntu release-contract syntax and regression tests for version resolution, changelog ranges, and remote target resolution |
 | `test-main` | `./scripts/update-moon-deps.sh`, `./scripts/check-agent-doc-links.sh`, `./scripts/run-moon-module.sh check modules/canopy`, `./scripts/run-moon-module.sh test modules/canopy`, `moon build --release` |
 | `test-submodules` | Matrix over `deps/event-graph-walker`, `deps/loom/loom`, `deps/svg-dsl`, `deps/graphviz` — each runs `./scripts/run-moon-module.sh ci <path>` |
 | `test-examples` | Matrix over `apps/ideal`, `apps/block-editor`, `apps/canvas` — each runs `./scripts/run-moon-module.sh ci <path>` |
@@ -108,6 +108,19 @@ settings are documented in
 Packages release artifacts using `./scripts/package-release.sh`. Currently
 covers **native** and **JavaScript**; WebAssembly is not part of the release
 workflow.
+
+The release checkout uses full history (`fetch-depth: 0`) so the changelog
+ generator can inspect tags reachable from the explicit `SOURCE_SHA`. It
+accepts only strict stable Canopy tags (`vMAJOR.MINOR.PATCH` without leading
+zeroes), peels annotated tags, excludes the current version, and selects the
+nearest previous reachable tag by commit history. A shallow repository fails
+rather than producing incomplete notes. If no previous tag is reachable, the
+generator falls back to the latest 10 commits through `SOURCE_SHA`.
+
+The generated `CHANGELOG.txt` is the sole release-note source: the GitHub
+Release action uses `body_path` and does not request auto-generated release
+notes. Releases with a previous tag link to its compare range; first releases
+link to the version's commits page.
 
 ## Running locally
 
