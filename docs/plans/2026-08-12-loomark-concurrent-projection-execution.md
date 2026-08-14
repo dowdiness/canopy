@@ -690,6 +690,67 @@ Cross-owner public methods remain on the shell and name the single orchestration
 order they preserve. The ledger is a refactor checklist, not a new public
 interface; every entry must be accounted for before 5B closes.
 
+##### Checked-in ownership ledger
+
+This ledger describes the pre-5B facade at `b31ce244`. It accounts for all 22
+`SyncEditor` fields, all six `ProjectionObservationScope` fields, and all 90
+generated public `SyncEditor` methods. `A`, `P`, and `I` below mean
+`AuthorityCore`, `ProjectionState[T]`, and `InteractionState`; `F` means that
+the public facade retains the orchestration body. A mutation owner may call
+another owner only through the calls named in the final column.
+
+Field movement:
+
+| Fields | Primary owner | Read dependencies | Mutation/order and failure owner | Permitted cross-owner calls |
+| --- | --- | --- | --- | --- |
+| `doc`, `undo`, `identity` | A | `undo` reads authority text and timestamps; `identity` seeds history caching and parser source identity during construction | A mutates text/history first and owns `TextError`; construction assigns identity before P exists | P may read text/version; I may read text bounds; construction may derive P's source identifier from identity |
+| `parser`, `document_version`, `projection_dirty`, `parser_failure` | P | authority text and version; committed interaction edit evidence | publish the version mirror, then synchronize the parser; P stores and raises parser failure | A supplies committed text/version; I supplies resolved edit evidence |
+| `cached_proj_node`, `registry_memo`, `source_map_memo`, `projection_anchor`, `registry_anchor`, `source_map_anchor`, `capabilities` | P | parser, runtime, language extras, and identity-hint consumer | build parser, memos, capabilities, then anchors; P owns projection/language callback failures | facade and projection edit paths may read these values; no cross-owner mutation |
+| `pending_transforms` | P | structural identity hints | push before authority mutation and consume once during reconciliation; P owns stale-hint taint/failure | projection edit paths may submit hints only |
+| `cursor`, `cursor_view`, `peer_id`, `hub`, `ws`, `session` | I | authority text bounds; committed edit evidence; transport input | reconcile cursors before P synchronization; I owns cursor, transport, session, and malformed-ephemeral handling | A/P may pass committed edit evidence; session host callbacks may invoke A sync/export |
+| `projection_observation_scope` | I | authority acceptance and projection synchronization events | arm, emit each phase once, then clear; I owns observer reentry/callback failure | A emits acceptance/settlement; P emits mirror synchronization |
+| scope fields `observer`, `accepted`, `transition_settled`, `parser_batch_depth`, `parser_sync_pending`, `emitting` | I | current phase, committed-transition state, and parser batch state | I constructs and mutates every field; emission is terminal per phase and deferred until batch depth zero | A/P report phase facts without retaining the scope |
+
+Construction order is fixed: A document and hint queue; A identity; P parser;
+P version mirror; P memos/capabilities/anchors; I hub/cursor view/session; then
+the facade. `TextState::version()` remains A's authority truth. The similarly
+named P field is only its reactive mirror.
+
+Public-method ownership:
+
+| Public methods | Primary / mutation owner | Read dependencies | Orchestration order and failure owner | Permitted cross-owner calls |
+| --- | --- | --- | --- | --- |
+| `get_text`, `causal_snapshot`, `export_all`, `export_since`, `can_undo`, `can_redo` | A | A document/history | direct; A owns sync export failure | none |
+| `set_tracking`, `clear_undo` | A | P health | P guard, then A undo mutation; P owns guard failure | A may call P health guard |
+| `get_cursor`, `move_cursor`, `move_cursor_left_grapheme`, `move_cursor_right_grapheme`, `move_cursor_left_word`, `move_cursor_right_word` | I | A text | derive/clamp, then mutate I cursor | I may read A text |
+| `set_local_presence`, `delete_local_presence`, `apply_ephemeral`, `encode_ephemeral_all`, `remove_ephemeral_outdated`, `get_peer_cursors`, `get_peer_id`, `get_hub`, `subscribe_ephemeral_local` | I | I peer/hub state | direct; I owns or deliberately swallows malformed ephemeral input | none |
+| `get_sync_status`, `set_on_status_change`, `set_watchdog_scheduler`, `set_watchdog_timeout`, `on_watchdog_fire`, `ws_send`, `ws_on_open`, `ws_on_close`, `ws_broadcast_cursor` | I | I session/transport; watchdog reads P version | direct session/transport order; I owns session failure policy | watchdog may read P's version mirror |
+| `get_version`, `is_dirty`, `is_parser_healthy` | P | P mirror/status | direct | none |
+| `identity` | A | A identity | direct | none |
+| `parser_source_id`, `parser_runtime`, `parser_snapshot`, `parser_syntax_tree`, `parser_ast`, `parser_source`, `parser_diagnostics` | P | P parser/failure | health guard, then return; P owns `Failure` | none |
+| `cached_proj_node`, `registry_memo`, `source_map_memo`, `get_proj_node`, `get_registry`, `get_source_map`, `get_tree`, `get_node`, `node_at_position`, `get_node_range` | P | P parser/memos | health guard, then read; P owns `Failure` | none |
+| `get_errors`, `is_parse_valid`, `diagnostic_publication_source_revision`, `get_pretty_view`, `get_view_tree` | P | P parser/projection/capabilities plus A text/version | guard, derive, then render; P/language callback owns failure | P may read A text/version |
+| `set_text` | F | delegated method state | delegate to `set_text_with_change`; callee owns failure | only the named delegate |
+| `apply_sync` | F | delegated admission state | `admit`, then enforce pending-message policy; A owns missing-version failure | only the named delegate |
+| `new_with_builder` | F | constructor arguments/builders | A document/identity; P parser/version/memos/capabilities/anchors; I hub/session; builder/P owns failure | construction-only wiring |
+| `observe_projection_during` | I | I observation scope | arm, run caller action, clear; I owns reentry and callback failure | action may invoke public mutators |
+| `insert`, `delete`, `backspace`, `set_text_with_change` | F; A/P/I mutate their own state | A text/version, P health/hints, I cursor/scope | P guard and I reentry guard; A edit; I cursor reconciliation; P synchronization; the detecting owner fails | only this ordered sequence |
+| `apply_text_edit`, `apply_text_edit_exact`, `insert_at`, `delete_at`, `set_text_and_record` | F; A/P/I mutate their own state | prior row plus A undo policy | guard/taint; A recorded edit; I reconciliation; P settlement; the detecting owner fails | only this ordered sequence |
+| `insert_and_record`, `delete_and_record`, `backspace_and_record` | F; A/P/I mutate their own state | A text/undo, P health, I cursor | guard/taint; A record; I cursor; P synchronization; false remains a non-raising edit rejection | only this ordered sequence |
+| `undo`, `redo` | F; A/P/I mutate their own state | A undo/document, P health, I cursor | P guard; A history mutation; I reconciliation; P dirty mark; the detecting owner fails | only this ordered sequence |
+| `undo_and_export`, `redo_and_export` | F; A/P/I mutate their own state | preceding row plus A sync export | undo/redo, then A `export_since`; export failure yields `None` as before | only named undo/redo and export delegates |
+| `apply_span_edits` | F; A/P/I mutate their own state | P hints, A text/version, I cursor/scope | guard; P hint; reverse A edits; one I settlement; focus; the detecting owner fails | structural batch sequence only |
+| `delete_node`, `commit_edit`, `apply_text_transform`, `move_node` | P computes; facade edit path mutates | P source map/registry plus A text | resolve projection; compute transform; invoke existing text/span facade; `TreeEditError` or callee failure | P may call only the existing text/span facade |
+| `admit`, `admit_with_limits` | F; A/P/I mutate their own state | A document/sync, P health, I session/cursors | P guard/I reentry; A admission; I reconciliation; P synchronization; I status; detecting owner fails | only this ordered sequence |
+| `mark_dirty` | P | A text/version | P guard, parser/version update, dirty mark; P owns failure | P may read A text/version |
+| `refresh`, `invalidate_pending_identity_hints` | P | P parser/memos/hints | P-only mutation; P owns failure | none |
+| `ws_on_message`, `ws_broadcast_edit` | I | I session/transport plus A sync/export host functions | I session dispatch/broadcast, then named host closure; session retains existing failure policy | I may call A sync/export; projection changes occur only through the text facade |
+
+The grouped rows expand to 90 of 90 methods in
+`modules/canopy/editor/pkg.generated.mbti`. Methods with one owner become thin
+facade delegates. Methods marked `F` retain a single visible cross-owner order;
+owners must not call back into the facade during that order.
+
 The shell `SyncEditor[T]` retains its existing public facade and delegates to
 those owners. `ProjectionState[T]` may depend on the parser and reactive runtime;
 `AuthorityCore` must not. `InteractionState` is a first-class owner rather than
