@@ -50,6 +50,50 @@ test "Worker client decodes typed Preview artifacts and explicit failures" {
 }
 
 ///|
+test "Worker response acceptance orders same-stamp Demand requests" {
+  let stamp = projection_worker_client_seed_stamp(3)
+  let older_request_id = 2
+  let latest_request_id = 3
+  assert_false(
+    projection_worker_response_matches(
+      Some(stamp),
+      Some(latest_request_id),
+      stamp,
+      older_request_id,
+    ),
+  )
+  assert_true(
+    projection_worker_response_matches(
+      Some(stamp),
+      Some(latest_request_id),
+      stamp,
+      latest_request_id,
+    ),
+  )
+  let stale_error = "{\"schema_version\":\"1\",\"request_id\":2,\"kind\":\"error\",\"error\":{\"kind\":\"timeout\",\"detail\":\"stale timeout\"}}"
+  assert_eq(
+    projection_worker_response_artifact(stale_error),
+    Err("stale timeout"),
+  )
+  assert_false(
+    projection_worker_response_matches(
+      Some(stamp),
+      Some(latest_request_id),
+      stamp,
+      older_request_id,
+    ),
+  )
+  assert_false(
+    projection_worker_response_matches(
+      Some(stamp),
+      Some(latest_request_id),
+      projection_worker_client_advance_stamp(stamp),
+      latest_request_id,
+    ),
+  )
+}
+
+///|
 fn projection_worker_response_stamp_json_fields(raw : String) -> Json {
   projection_worker_response(raw)["stamp"]
 }

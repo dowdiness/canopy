@@ -793,7 +793,7 @@ fn driver_event_name(event : DriverEvent) -> String {
         InvalidRequest(_) => "invalid-request"
         StopListening => "stop-listening"
         Fatal(_) => "fatal"
-        ProjectionWorkerResolved(_, _) => "projection-worker-resolved"
+        ProjectionWorkerResolved(_, _, _) => "projection-worker-resolved"
         Resize(_) => "resize"
       }
     Archive(_) => "archive-write-completed"
@@ -2279,11 +2279,11 @@ fn update_lifecycle(
       let next = { ..model, fatal: true, error: Some(message), rejection: None }
       (next, @rabbita_runtime.none)
     }
-    ProjectionWorkerResolved(expected, raw) =>
+    ProjectionWorkerResolved(request_id, expected, raw) =>
       match projection_worker {
         None => (model, @rabbita_runtime.none)
         Some(worker) => {
-          guard worker.accepts(expected) else {
+          guard worker.accepts(request_id, expected) else {
             return (model, @rabbita_runtime.none)
           }
           match projection_worker_response_artifact(raw) {

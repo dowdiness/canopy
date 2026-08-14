@@ -84,7 +84,7 @@ priv enum LifecycleEvent {
   InvalidRequest(String)
   StopListening
   Fatal(String)
-  ProjectionWorkerResolved(ProjectionStamp, String)
+  ProjectionWorkerResolved(Int, ProjectionStamp, String)
   Resize(@common.Viewport)
 }
 

@@ -488,3 +488,16 @@ test "projection Worker codec deterministically encodes Unicode and escaping" {
   let dispatch_b = new_projection_worker_dispatcher()
   assert_eq(dispatch_a(request), dispatch_b(request))
 }
+
+///|
+fn normalized_projection_observables_json(
+  observables : NormalizedProjectionObservables,
+) -> Json {
+  Json::object({
+    "block": normalized_block_projection_json(observables.block),
+    "preview": normalized_preview_projection_json(observables.preview),
+    "diagnostics": Json::array(
+      observables.diagnostics.map(normalized_diagnostic_json),
+    ),
+  })
+}

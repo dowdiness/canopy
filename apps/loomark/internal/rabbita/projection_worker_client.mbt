@@ -101,7 +101,7 @@ fn ProjectionWorkerClient::new(
 fn ProjectionWorkerClient::send(
   self : ProjectionWorkerClient,
   command : Json,
-  resolve : (String) -> Unit,
+  resolve : (Int, String) -> Unit,
 ) -> Int {
   let request_id = self.next_request_id
   self.next_request_id += 1
@@ -110,7 +110,9 @@ fn ProjectionWorkerClient::send(
     "request_id": Json::number(request_id.to_double()),
     "command": command,
   }).stringify()
-  projection_worker_client_send_raw(self.handle, request_id, payload, resolve)
+  projection_worker_client_send_raw(self.handle, request_id, payload, raw => {
+    resolve(request_id, raw)
+  })
   request_id
 }
 
@@ -157,7 +159,7 @@ fn ProjectionWorkerClient::seed(
   source : String,
   generation : Int,
   demand : ProjectionDemand,
-  resolve : (ProjectionStamp, String) -> Unit,
+  resolve : (Int, ProjectionStamp, String) -> Unit,
 ) -> (Int, ProjectionStamp) {
   let stamp = projection_worker_client_seed_stamp(generation)
   self.expected_stamp = Some(stamp)
@@ -173,7 +175,7 @@ fn ProjectionWorkerClient::seed(
         "diagnostics": Json::boolean(demand.diagnostics),
       }),
     }),
-    raw => resolve(stamp, raw),
+    (request_id, raw) => resolve(request_id, stamp, raw),
   )
   (request_id, stamp)
 }
@@ -182,7 +184,7 @@ fn ProjectionWorkerClient::seed(
 fn ProjectionWorkerClient::advance(
   self : ProjectionWorkerClient,
   source : String,
-  resolve : (ProjectionStamp, String) -> Unit,
+  resolve : (Int, ProjectionStamp, String) -> Unit,
 ) -> (Int, ProjectionStamp) raise Failure {
   guard self.expected_stamp is Some(previous) else {
     raise Failure::Failure("projection Worker Advance requires Seed")
@@ -197,7 +199,7 @@ fn ProjectionWorkerClient::advance(
         "source": Json::string(source),
       }),
     }),
-    raw => resolve(stamp, raw),
+    (request_id, raw) => resolve(request_id, stamp, raw),
   )
   (request_id, stamp)
 }
@@ -206,14 +208,15 @@ fn ProjectionWorkerClient::advance(
 fn ProjectionWorkerClient::demand(
   self : ProjectionWorkerClient,
   demand : ProjectionDemand,
-  resolve : (ProjectionStamp, String) -> Unit,
+  resolve : (Int, ProjectionStamp, String) -> Unit,
 ) -> (Int, ProjectionStamp) raise Failure {
   guard self.expected_stamp is Some(stamp) else {
     raise Failure::Failure("projection Worker Demand requires Seed")
   }
-  let request_id = self.send(projection_worker_demand_command_json(demand), raw => {
-    resolve(stamp, raw)
-  })
+  let request_id = self.send(projection_worker_demand_command_json(demand), (
+    request_id,
+    raw,
+  ) => resolve(request_id, stamp, raw))
   (request_id, stamp)
 }
 
@@ -239,6 +242,17 @@ fn projection_worker_response_stamp(
     return None
   }
   Some({ generation, sequence, source_revision, causal_version, block_intent })
+}
+
+///|
+fn projection_worker_response_matches(
+  expected_stamp : ProjectionStamp?,
+  expected_request_id : Int?,
+  callback_stamp : ProjectionStamp,
+  callback_request_id : Int,
+) -> Bool {
+  expected_stamp == Some(callback_stamp) &&
+  expected_request_id == Some(callback_request_id)
 }
 
 ///|
@@ -305,6 +319,7 @@ priv struct ProjectionWorkerRuntime {
   mut source : String
   mut demand : ProjectionDemand
   mut expected_stamp : ProjectionStamp?
+  mut expected_request_id : Int?
   mut restart_count : Int
   mut disposed : Bool
 }
@@ -319,6 +334,7 @@ fn ProjectionWorkerRuntime::new(agent_id : String) -> ProjectionWorkerRuntime {
     source: "",
     demand: { block: false, preview: false, diagnostics: false },
     expected_stamp: None,
+    expected_request_id: None,
     restart_count: 0,
     disposed: false,
   }
@@ -327,9 +343,16 @@ fn ProjectionWorkerRuntime::new(agent_id : String) -> ProjectionWorkerRuntime {
 ///|
 fn ProjectionWorkerRuntime::accepts(
   self : ProjectionWorkerRuntime,
+  request_id : Int,
   stamp : ProjectionStamp,
 ) -> Bool {
-  !self.disposed && self.expected_stamp == Some(stamp)
+  !self.disposed &&
+  projection_worker_response_matches(
+    self.expected_stamp,
+    self.expected_request_id,
+    stamp,
+    request_id,
+  )
 }
 
 ///|
@@ -351,24 +374,36 @@ fn ProjectionWorkerRuntime::sync(
   self.source = source
   self.demand = demand
   @cmd.custom_cmd(scheduler => {
-    let resolve = (stamp, raw) => {
-      scheduler.add(emit(Lifecycle(ProjectionWorkerResolved(stamp, raw))))
+    let resolve = (request_id, stamp, raw) => {
+      scheduler.add(
+        emit(Lifecycle(ProjectionWorkerResolved(request_id, stamp, raw))),
+      )
     }
     if seed {
-      let (_, stamp) = self.client.seed(source, self.epoch, demand, resolve)
+      let (request_id, stamp) = self.client.seed(
+        source,
+        self.epoch,
+        demand,
+        resolve,
+      )
       self.expected_stamp = Some(stamp)
+      self.expected_request_id = Some(request_id)
     } else {
       if source_changed {
-        let (_, stamp) = self.client.advance(source, resolve) catch {
+        let (request_id, stamp) = self.client.advance(source, resolve) catch {
           _ => {
             self.restart()
             return
           }
         }
         self.expected_stamp = Some(stamp)
+        self.expected_request_id = Some(request_id)
       }
       if demand_changed {
-        ignore(self.client.demand(demand, resolve) catch { _ => return })
+        let (request_id, _) = self.client.demand(demand, resolve) catch {
+          _ => return
+        }
+        self.expected_request_id = Some(request_id)
       }
     }
   })
@@ -387,6 +422,7 @@ fn ProjectionWorkerRuntime::restart(self : ProjectionWorkerRuntime) -> Unit {
   self.seeded = false
   self.source = ""
   self.expected_stamp = None
+  self.expected_request_id = None
 }
 
 ///|

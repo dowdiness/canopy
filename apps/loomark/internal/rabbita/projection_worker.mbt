@@ -276,7 +276,6 @@ fn normalized_diagnostic_json(diagnostic : NormalizedDiagnostic) -> Json {
   })
 }
 
-
 ///|
 fn projection_worker_stamp_json(stamp : ProjectionStamp) -> Json {
   Json::object({
