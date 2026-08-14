@@ -104,7 +104,7 @@ test "runtime ignores non-finite drag moves before commit" {
   let screen = initial.viewport.world_to_screen(
     node.position(),
   )
-  runtime.pointer_down(Some(node.id), screen.x(), screen.y())
+  ignore(runtime.pointer_down(Some(node.id), screen.x(), screen.y()))
   runtime.pointer_move(1.0 / 0.0, screen.y())
   runtime.pointer_up(node.id.to_string(), "", false)
   let next = runtime.state_peek()
@@ -114,6 +114,18 @@ test "runtime ignores non-finite drag moves before commit" {
     MoveNodes(_) => fail("invalid drag move must not commit")
     _ => ()
   }
+}
+
+///|
+test "runtime pointer admission rejects missing nodes without mutation" {
+  let runtime = CanvasRuntime::CanvasRuntime()
+  let before = runtime.state_peek()
+  assert_false(
+    runtime.pointer_down(Some(NodeId("missing")), 0.0, 0.0),
+  )
+  let after = runtime.state_peek()
+  assert_eq(after.interaction, before.interaction)
+  assert_eq(after.action_log.length(), before.action_log.length())
 }
 
 ///|
@@ -161,7 +173,7 @@ test "runtime sparse inspector follows hover until a node is selected" {
     None => fail("expected hovered inspector")
   }
 
-  runtime.pointer_down(Some(NodeId("2")), -190.0, -190.0)
+  ignore(runtime.pointer_down(Some(NodeId("2")), -190.0, -190.0))
   runtime.pointer_up("2", "", false)
   runtime.hover_node("1")
   match runtime.render_state().inspector {

@@ -792,19 +792,43 @@ fn SourceBackedGraph::sync_layout_from_state(
 }
 
 ///|
+fn SourceBackedGraph::pointer_down_handle(
+  self : SourceBackedGraph,
+  node_id : NodeId,
+  port_id : String,
+  sx : Double,
+  sy : Double,
+) -> Bool {
+  let screen = ScreenPoint::from_xy(x=sx, y=sy) catch {
+    @spatial.CoordinateError::NonFinite => return false
+  }
+  let state = source_graph_base_canvas_state(self)
+  let world = state.viewport.screen_to_world(screen) catch {
+    @spatial.CoordinateError::NonFinite => return false
+  }
+  let next = @graph_model.update_connect_start(state, node_id, port_id, world)
+  if next.interaction != state.interaction {
+    self.interaction = next.interaction
+    true
+  } else {
+    false
+  }
+}
+
+///|
 fn SourceBackedGraph::pointer_down(
   self : SourceBackedGraph,
   node_id : String,
   sx : Double,
   sy : Double,
-) -> Unit {
+) -> Bool {
   let target : NodeId? = if node_id == "" {
     None
   } else {
     Some(NodeId(node_id))
   }
   let screen = ScreenPoint::from_xy(x=sx, y=sy) catch {
-    @spatial.CoordinateError::NonFinite => return
+    @spatial.CoordinateError::NonFinite => return false
   }
   let before = source_graph_base_canvas_state(self)
   let state = @graph_model.update_pointer_down(
@@ -812,11 +836,14 @@ fn SourceBackedGraph::pointer_down(
     target,
     screen,
   ) catch {
-    @spatial.CoordinateError::NonFinite => return
+    @spatial.CoordinateError::NonFinite => return false
   }
   if state.interaction != before.interaction {
     self.drag_preview = @graph_model.idle_drag_preview()
     self.interaction = state.interaction
+    true
+  } else {
+    false
   }
 }
 
@@ -1195,20 +1222,22 @@ pub fn set_source_graph_source_result(
 }
 
 ///|
-pub fn source_graph_pointer_down(
+#warnings("-unused_value")
+fn source_graph_pointer_down(
   handle : Int,
   node_id : String,
   sx : Double,
   sy : Double,
 ) -> Unit {
   match source_graph_by_handle(handle) {
-    Some(graph) => graph.pointer_down(node_id, sx, sy)
+    Some(graph) => ignore(graph.pointer_down(node_id, sx, sy))
     None => ()
   }
 }
 
 ///|
-pub fn source_graph_pointer_move(
+#warnings("-unused_value")
+fn source_graph_pointer_move(
   handle : Int,
   sx : Double,
   sy : Double,
@@ -1220,7 +1249,8 @@ pub fn source_graph_pointer_move(
 }
 
 ///|
-pub fn source_graph_pointer_up(
+#warnings("-unused_value")
+fn source_graph_pointer_up(
   handle : Int,
   node_id : String,
   target_port_id : String,
@@ -1233,7 +1263,8 @@ pub fn source_graph_pointer_up(
 }
 
 ///|
-pub fn source_graph_pointer_interrupt(handle : Int) -> Unit {
+#warnings("-unused_value")
+fn source_graph_pointer_interrupt(handle : Int) -> Unit {
   match source_graph_by_handle(handle) {
     Some(graph) => graph.pointer_interrupt()
     None => ()

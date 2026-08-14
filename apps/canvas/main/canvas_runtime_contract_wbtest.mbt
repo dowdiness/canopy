@@ -78,7 +78,7 @@ test "runtime contract: pointermove previews before one durable MoveNodes commit
     before_node.position().x(),
     before_node.position().y(),
   )
-  runtime.pointer_down(Some(node_id), start_sx, start_sy)
+  ignore(runtime.pointer_down(Some(node_id), start_sx, start_sy))
 
   let (mid_sx, mid_sy) = contract_screen_point(
     runtime.render_state().viewport,
@@ -126,7 +126,7 @@ test "runtime contract: pointermove previews before one durable MoveNodes commit
 test "runtime contract: panning logs viewport only on pointerup" {
   let runtime = CanvasRuntime::CanvasRuntime()
   let before = runtime.render_state().viewport
-  runtime.pointer_down(None, 10.0, 20.0)
+  ignore(runtime.pointer_down(None, 10.0, 20.0))
   runtime.pointer_move(30.0, 55.0)
   let during = runtime.render_state()
   let before_origin = before.screen_origin()
@@ -172,7 +172,7 @@ test "runtime contract: click selection is pointerup-only and additive" {
     first_node.position().x(),
     first_node.position().y(),
   )
-  runtime.pointer_down(Some(node1), one_sx, one_sy)
+  ignore(runtime.pointer_down(Some(node1), one_sx, one_sy))
   assert_eq(runtime.render_state().selected_nodes.length(), 0)
   assert_eq(contract_runtime_operations(runtime).length(), 0)
 
@@ -189,14 +189,14 @@ test "runtime contract: click selection is pointerup-only and additive" {
     second_node.position().x(),
     second_node.position().y(),
   )
-  runtime.pointer_down(Some(node2), two_sx, two_sy)
+  ignore(runtime.pointer_down(Some(node2), two_sx, two_sy))
   runtime.pointer_up("2", "", true)
   @debug.assert_eq(runtime.render_state().selected_nodes, ["1", "2"])
   let second_operations = contract_runtime_operations(runtime)
   assert_eq(second_operations.length(), 2)
   contract_expect_select_nodes(second_operations[1], [node1, node2])
 
-  runtime.pointer_down(Some(node1), one_sx, one_sy)
+  ignore(runtime.pointer_down(Some(node1), one_sx, one_sy))
   runtime.pointer_up("1", "", true)
   @debug.assert_eq(runtime.render_state().selected_nodes, ["2"])
   let third_operations = contract_runtime_operations(runtime)
@@ -295,7 +295,7 @@ test "runtime contract: interrupting a drag drops preview without committing" {
     before_node.position().x(),
     before_node.position().y(),
   )
-  runtime.pointer_down(Some(node_id), sx, sy)
+  ignore(runtime.pointer_down(Some(node_id), sx, sy))
   runtime.pointer_move(sx + 40.0, sy + 30.0)
   assert_eq(contract_runtime_operations(runtime).length(), 0)
 
@@ -315,7 +315,7 @@ test "runtime contract: interrupting a drag drops preview without committing" {
 ///|
 test "runtime contract: interrupting a moved pan keeps one viewport action" {
   let runtime = CanvasRuntime::CanvasRuntime()
-  runtime.pointer_down(None, 10.0, 20.0)
+  ignore(runtime.pointer_down(None, 10.0, 20.0))
   runtime.pointer_move(30.0, 55.0)
   let during = runtime.render_state().viewport
   runtime.pointer_interrupt()
@@ -339,7 +339,7 @@ test "runtime contract: interrupting a click does not select" {
     node.position().x(),
     node.position().y(),
   )
-  runtime.pointer_down(Some(node_id), sx, sy)
+  ignore(runtime.pointer_down(Some(node_id), sx, sy))
   runtime.pointer_interrupt()
   assert_eq(runtime.render_state().selected_nodes.length(), 0)
   assert_eq(contract_runtime_operations(runtime).length(), 0)
@@ -355,7 +355,7 @@ test "runtime contract: interrupting a connection drops the candidate" {
     node.position().x(),
     node.position().y(),
   )
-  runtime.pointer_down_handle(node_id, "tick", sx, sy)
+  ignore(runtime.pointer_down_handle(node_id, "tick", sx, sy))
   runtime.pointer_interrupt()
   assert_true(runtime.render_state().connecting is None)
   assert_eq(contract_runtime_operations(runtime).length(), 0)
