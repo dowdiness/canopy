@@ -47,6 +47,8 @@ git -C "$parent" config user.name lefthook-pre-push-test
 git -C "$parent" remote add origin "$parent_origin"
 git -c protocol.file.allow=always -C "$parent" submodule add --quiet "$submodule_origin" deps/test-submodule
 git -C "$parent/deps/test-submodule" config protocol.file.allow always
+git -C "$parent/deps/test-submodule" config user.email lefthook-pre-push@example.invalid
+git -C "$parent/deps/test-submodule" config user.name lefthook-pre-push-test
 mkdir -p "$parent/scripts" "$parent/.githooks" "$parent/docs" "$parent/modules/fixture" "$parent/bin"
 cp "$parent.lefthook.yml" "$parent/lefthook.yml"
 cp "$fixture/check-submodule-reachability.nu" "$parent/scripts/check-submodule-reachability.nu"
