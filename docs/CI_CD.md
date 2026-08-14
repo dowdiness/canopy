@@ -213,10 +213,24 @@ single local entry point into Lefthook, and `.githooks/pre-commit` remains a
 compatibility shim that delegates to it. The installer removes the repository's
 legacy direct local `core.hooksPath=.githooks` setting, but refuses to replace
 any other effective hook path, including included or global configuration.
+
+The shared `scripts/check-submodule-reachability.nu` command is the sole
+implementation used by PR-ready validation and the internal
+`hook-submodule-reachability` recipe. Lefthook's narrow `pre-push` job covers
+`.gitmodules` and the `deps/` ownership zone; its thin
+`scripts/run-submodule-reachability.sh` adapter reads Git's pre-push ref-update
+stdin so gitlink changes remain visible even though Lefthook 2.1.10 filters
+submodule directories out of `{push_files}`. The shared checker receives the
+pushed local commit SHA, so non-checked-out branch pushes are checked against
+their own gitlink tree. It invokes the shared recipe only for relevant updates
+and does not run workspace-wide MoonBit checks. The
+legacy `.githooks/pre-push` shim forwards Git's remote arguments and ref-update
+stdin to the same Lefthook hook.
 Manual cleanup is needed only for those non-legacy settings; use the reported
 scope and origin to locate the configuration. If you need to bypass the hook
 (e.g. during a rebase you understand), `git commit --no-verify` is available,
-but CI's `format-check` and `test-main` will catch the same issues on push.
+but the applicable CI jobs, including `tooling-validation` for hook and task
+changes, will still run on push.
 
 ## Adding new gating checks
 

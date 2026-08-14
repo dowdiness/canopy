@@ -383,33 +383,7 @@ run_phase() {
         die "HEAD does not contain base $base_ref ($start_base); sync or rebase first"
       ;;
     preflight.submodules)
-      local submodule_status
-      local line
-      submodule_status="$(git submodule status --recursive)"
-      while IFS= read -r line; do
-        [ -z "$line" ] && continue
-        case "${line:0:1}" in
-          -) die "submodule is not initialized: $line" ;;
-          +) die "submodule does not match its recorded gitlink: $line" ;;
-          U) die "submodule has a merge conflict: $line" ;;
-        esac
-      done <<<"$submodule_status"
-      # Variables in this body are intentionally expanded inside each submodule.
-      # shellcheck disable=SC2016
-      git submodule foreach --quiet --recursive '
-        if ! git fetch --quiet --prune origin; then
-          echo "error: could not fetch submodule origin: $displaypath" >&2
-          exit 1
-        fi
-        if [ -z "$(git for-each-ref --format="%(refname)" --contains HEAD refs/remotes/origin)" ]; then
-          sha="$(git rev-parse HEAD)"
-          if ! git fetch --quiet --no-tags --refetch origin "$sha"; then
-            echo "error: submodule commit is not fetchable from origin: $displaypath" >&2
-            echo "push the commit to the configured origin before the parent PR" >&2
-            exit 1
-          fi
-        fi
-      ' || die "submodule remote reachability check failed"
+      nu "$project_root/scripts/check-submodule-reachability.nu"
       ;;
     dependencies.check-deps)
       ./scripts/check-deps.sh

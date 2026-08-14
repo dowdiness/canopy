@@ -30,12 +30,19 @@ hook-moonbit-check:
 hook-moonbit-format-check:
     @./scripts/run-moon-module.sh fmt-check modules/canopy
 
+# Validate configured-origin reachability for the checkout or a pushed gitlink tree
+hook-submodule-reachability commit="":
+    @nu scripts/check-submodule-reachability.nu --commit "{{ commit }}"
+
 # Validate tooling files selected by Lefthook
 hook-tooling-contract:
     @just --unstable --fmt --check
     @just --dry-run pre-commit
+    @just --dry-run hook-submodule-reachability
     @make -n check
-    @bash -n .githooks/pre-commit scripts/install-hooks.sh scripts/test-install-hooks.sh scripts/test-lefthook-pre-commit-routing.sh scripts/run-moonbit-rename-route.sh
+    @node -e 'JSON.parse(require("fs").readFileSync(".claude/settings.json", "utf8"))'
+    @bash -n .githooks/pre-commit .githooks/pre-push scripts/install-hooks.sh scripts/test-install-hooks.sh scripts/test-lefthook-pre-commit-routing.sh scripts/test-lefthook-pre-push-routing.sh scripts/test-pr-ready-validation.sh scripts/test-submodule-reachability.sh scripts/run-submodule-reachability.sh scripts/run-moonbit-rename-route.sh
+    @nu --ide-check 100 scripts/check-submodule-reachability.nu
     @nu --ide-check 100 scripts/install-hooks.nu
     @lefthook validate
 

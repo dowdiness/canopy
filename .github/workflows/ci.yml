@@ -38,6 +38,11 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Install Nushell
+        uses: hustcer/setup-nu@f3fd65374ffc4d60974c0dd2f7263c6c5c285f81
+        with:
+          version: "0.114.1"
+
       - name: Check FFI export manifest (lambda app seam)
         run: node ./scripts/check-export-manifest.mjs
 
@@ -130,6 +135,14 @@ jobs:
               - 'Makefile'
               - 'lefthook.yml'
               - '.githooks/pre-commit'
+              - '.githooks/pre-push'
+              - '.githooks/README.md'
+              - '.claude/settings.json'
+              - 'scripts/check-submodule-reachability.nu'
+              - 'scripts/run-submodule-reachability.sh'
+              - 'scripts/test-submodule-reachability.sh'
+              - 'scripts/test-lefthook-pre-push-routing.sh'
+              - 'scripts/test-pr-ready-validation.sh'
               - 'scripts/install-hooks.nu'
               - 'scripts/install-hooks.sh'
               - 'scripts/test-install-hooks.sh'
@@ -190,16 +203,22 @@ jobs:
           make -n check
           make -n release-artifacts VERSION=v0.2.0
 
-      - name: Validate Nushell installer
-        run: nu --ide-check 100 scripts/install-hooks.nu
+      - name: Validate Nushell scripts
+        run: |
+          nu --ide-check 100 scripts/check-submodule-reachability.nu
+          nu --ide-check 100 scripts/install-hooks.nu
 
       - name: Test Nushell installer
         run: bash scripts/test-install-hooks.sh
 
+      - name: Validate Claude settings
+        run: node -e 'JSON.parse(require("fs").readFileSync(".claude/settings.json", "utf8"))'
+
       - name: Validate compatibility entry points
         run: |
-          bash -n .githooks/pre-commit scripts/install-hooks.sh
+          bash -n .githooks/pre-commit .githooks/pre-push scripts/run-submodule-reachability.sh scripts/test-submodule-reachability.sh scripts/test-lefthook-pre-push-routing.sh scripts/test-pr-ready-validation.sh scripts/install-hooks.sh
           grep -Fq 'exec just pre-commit' .githooks/pre-commit
+          grep -Fq 'exec lefthook run pre-push' .githooks/pre-push
           grep -Fq 'exec just install-hooks' scripts/install-hooks.sh
 
       - name: Validate Lefthook configuration
@@ -217,6 +236,12 @@ jobs:
 
       - name: Test path-aware Lefthook pre-commit routing
         run: LEFTHOOK_BIN="${RUNNER_TEMP}/lefthook" bash scripts/test-lefthook-pre-commit-routing.sh
+
+      - name: Test narrow Lefthook pre-push submodule routing
+        run: LEFTHOOK_BIN="${RUNNER_TEMP}/lefthook" bash scripts/test-lefthook-pre-push-routing.sh
+
+      - name: Test shared submodule reachability checker
+        run: bash scripts/test-submodule-reachability.sh
 
   release-version-validation:
     name: Release Contract Validation
@@ -277,6 +302,11 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: '20'
+
+      - name: Install Nushell
+        uses: hustcer/setup-nu@f3fd65374ffc4d60974c0dd2f7263c6c5c285f81
+        with:
+          version: "0.114.1"
 
       - name: Test the system Bash 3.2 contract
         shell: /bin/bash --noprofile --norc -eo pipefail {0}

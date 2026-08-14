@@ -191,6 +191,10 @@ test_tooling_config() {
   stage_file Makefile 'updated Makefile'
 }
 
+test_claude_settings() {
+  stage_file .claude/settings.json '{}'
+}
+
 test_justfile() {
   stage_file justfile 'updated justfile'
 }
@@ -266,6 +270,8 @@ run_case 'vendored check script' test_vendored_check_script \
 run_case 'MoonBit rename route script' test_moonbit_rename_route_script \
   hook-repository-contract hook-moonbit-check hook-moonbit-format-check hook-tooling-contract
 run_case 'tooling configuration' test_tooling_config \
+  hook-repository-contract hook-tooling-contract
+run_case 'Claude settings' test_claude_settings \
   hook-repository-contract hook-tooling-contract
 run_case 'justfile hook tasks' test_justfile \
   hook-repository-contract hook-moonbit-check hook-moonbit-format-check hook-tooling-contract

@@ -1,0 +1,6 @@
+#!/bin/sh
+
+# Compatibility path for checkouts that still use core.hooksPath=.githooks.
+# Git supplies the remote arguments and ref-update list on stdin; exec keeps
+# both streams attached to Lefthook unchanged.
+exec lefthook run pre-push "$@"

@@ -45,10 +45,28 @@ pre-commit:
         - "justfile"
         - "Makefile"
         - ".githooks/**"
+        - ".claude/settings.json"
         - "scripts/install-hooks.nu"
         - "scripts/install-hooks.sh"
         - "scripts/test-install-hooks.sh"
         - "scripts/test-lefthook-pre-commit-routing.sh"
+        - "scripts/test-lefthook-pre-push-routing.sh"
+        - "scripts/check-submodule-reachability.nu"
+        - "scripts/run-submodule-reachability.sh"
+        - "scripts/test-submodule-reachability.sh"
+        - "scripts/test-pr-ready-validation.sh"
         - "scripts/run-moonbit-rename-route.sh"
         - ".github/workflows/ci.yml"
       run: just hook-tooling-contract
+
+pre-push:
+  parallel: false
+  jobs:
+    - name: submodule-reachability
+      glob:
+        - ".gitmodules"
+        - "deps/**"
+      # Lefthook 2.1.10 filters gitlinks out of {push_files} as directories.
+      # The all-files sentinel keeps this adapter executable; it uses Git's
+      # pre-push ref-update stream to retain gitlink paths.
+      run: ./scripts/run-submodule-reachability.sh {all_files}
