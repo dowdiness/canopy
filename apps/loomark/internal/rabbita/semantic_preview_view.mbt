@@ -428,11 +428,8 @@ fn semantic_preview_view(
   )
 }
 
-
 ///|
-fn semantic_preview_artifact_plain_text(
-  node : ProjectionPreviewNode,
-) -> String {
+fn semantic_preview_artifact_plain_text(node : ProjectionPreviewNode) -> String {
   match node.view {
     PreviewText(value)
     | PreviewInlineHtml(value)
@@ -441,10 +438,8 @@ fn semantic_preview_artifact_plain_text(
     | PreviewHtmlBlock(value)
     | PreviewCodeBlock(_, value) => value
     PreviewAutolink(_, display, _) => display
-    PreviewHardBreak(_)
-    | PreviewSoftBreak => "\n"
-    PreviewUnsupported(message)
-    | PreviewRecovered(message) => message
+    PreviewHardBreak(_) | PreviewSoftBreak => "\n"
+    PreviewUnsupported(message) | PreviewRecovered(message) => message
     PreviewThematicBreak => ""
     PreviewDocument
     | PreviewHeading(_)
@@ -490,12 +485,12 @@ fn semantic_preview_artifact_link_form(
 fn semantic_preview_artifact_diagnostics(
   diagnostics : Array[String],
 ) -> Array[@rabbita_runtime.Html] {
-  diagnostics.map(message =>
+  diagnostics.map(message => {
     @html.li(
       attrs=@html.Attrs::build().data_set("loomark-preview-diagnostic", ""),
       "Diagnostic: " + message,
     )
-  )
+  })
 }
 
 ///|
@@ -512,8 +507,11 @@ fn semantic_preview_artifact_list_children(
 ) -> Array[@rabbita_runtime.Html] {
   node.children.map(child => {
     match child.view {
-      PreviewListItem(..) | PreviewOrderedListItem(..) =>
-        semantic_preview_artifact_node(child, list_parent_spread=parent_list_spread)
+      PreviewListItem(_, _) | PreviewOrderedListItem(_, _) =>
+        semantic_preview_artifact_node(
+          child,
+          list_parent_spread=parent_list_spread,
+        )
       _ => semantic_preview_artifact_node(child)
     }
   })
@@ -543,11 +541,9 @@ fn semantic_preview_artifact_node(
   unwrap_list_item_paragraph? : Bool = false,
 ) -> @rabbita_runtime.Html {
   let children = match node.view {
-    PreviewUnorderedList(spread, _)
-    | PreviewOrderedList(spread, _) =>
+    PreviewUnorderedList(spread, _) | PreviewOrderedList(spread, _) =>
       semantic_preview_artifact_list_children(node, spread)
-    PreviewListItem(spread, _)
-    | PreviewOrderedListItem(spread, _) =>
+    PreviewListItem(spread, _) | PreviewOrderedListItem(spread, _) =>
       semantic_preview_artifact_list_item_children(
         node,
         spread || list_parent_spread,
@@ -592,7 +588,10 @@ fn semantic_preview_artifact_node(
     PreviewListItem(spread, marker) =>
       @html.li(
         attrs=@html.Attrs::build()
-          .data_set("loomark-list-item-spread", (spread || list_parent_spread).to_string())
+          .data_set(
+            "loomark-list-item-spread",
+            (spread || list_parent_spread).to_string(),
+          )
           .data_set(
             "loomark-list-marker",
             semantic_preview_artifact_unordered_marker(marker),
@@ -602,7 +601,10 @@ fn semantic_preview_artifact_node(
     PreviewOrderedListItem(spread, marker) =>
       @html.li(
         attrs=@html.Attrs::build()
-          .data_set("loomark-list-item-spread", (spread || list_parent_spread).to_string())
+          .data_set(
+            "loomark-list-item-spread",
+            (spread || list_parent_spread).to_string(),
+          )
           .data_set(
             "loomark-list-marker",
             match marker {

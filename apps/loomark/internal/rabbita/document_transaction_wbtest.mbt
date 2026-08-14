@@ -36,6 +36,7 @@ fn document_transaction_test_model(
     raw_selection: None,
     archive_persistence_enabled: false,
     semantic_document: None,
+    preview_artifact: None,
     semantic_read_count: 0,
     split_preview_open: false,
     compact_split: false,

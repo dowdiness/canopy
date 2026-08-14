@@ -51,6 +51,7 @@ extern "js" fn start_projection_worker_gate(
   #|   });
   #|   const seed = (agentId, source, generation) => ({
   #|     kind: "seed", agent_id: agentId, source, generation,
+  #|     demand: { block: true, preview: true, diagnostics: true },
   #|   });
   #|   const advance = source => ({
   #|     kind: "advance",

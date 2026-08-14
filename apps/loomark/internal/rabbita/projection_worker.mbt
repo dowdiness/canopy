@@ -1,6 +1,6 @@
 ///|
 priv enum ProjectionWorkerCommand {
-  WorkerSeed(String, String, Int)
+  WorkerSeed(String, String, Int, ProjectionDemand)
   WorkerAdvance(ProjectionSourceEffect)
   WorkerDemand(ProjectionDemand)
   WorkerSnapshot
@@ -96,7 +96,13 @@ fn projection_worker_decode_request(
         is Some(generation) else {
         return Err("seed generation must be an integer")
       }
-      Ok((request_id, WorkerSeed(agent_id, source, generation)))
+      guard command.get("demand") is Some(Json::Object(demand)) &&
+        projection_worker_decode_demand(demand) is Some(decoded_demand) else {
+        return Err(
+          "seed demand must contain boolean block, preview, and diagnostics",
+        )
+      }
+      Ok((request_id, WorkerSeed(agent_id, source, generation, decoded_demand)))
     }
     "advance" => {
       guard command.get("source_effect") is Some(Json::Object(effect)) else {
@@ -235,7 +241,6 @@ fn normalized_block_projection_json(
   })
 }
 
-
 ///|
 fn normalized_preview_projection_json(
   projection : NormalizedPreviewProjection,
@@ -271,18 +276,6 @@ fn normalized_diagnostic_json(diagnostic : NormalizedDiagnostic) -> Json {
   })
 }
 
-///|
-fn normalized_projection_observables_json(
-  observables : NormalizedProjectionObservables,
-) -> Json {
-  Json::object({
-    "block": normalized_block_projection_json(observables.block),
-    "preview": normalized_preview_projection_json(observables.preview),
-    "diagnostics": Json::array(
-      observables.diagnostics.map(normalized_diagnostic_json),
-    ),
-  })
-}
 
 ///|
 fn projection_worker_stamp_json(stamp : ProjectionStamp) -> Json {
@@ -330,6 +323,35 @@ fn projection_worker_error_response(
 }
 
 ///|
+fn projection_worker_observables_json(
+  session : ProjectionSession,
+) -> Json raise Failure {
+  let artifacts = session.adapter.adopted_artifacts()
+  let fields : Map[String, Json] = Map([])
+  if session.demand.block {
+    guard artifacts.get(Block) is Some(BlockArtifact(block)) else {
+      raise Failure::Failure("demanded Block artifact is unavailable")
+    }
+    fields["block"] = normalized_block_projection_json(block)
+  }
+  if session.demand.preview {
+    guard artifacts.get(Preview) is Some(PreviewArtifact(preview)) else {
+      raise Failure::Failure("demanded Preview artifact is unavailable")
+    }
+    fields["preview"] = normalized_preview_projection_json(preview)
+  }
+  if session.demand.diagnostics {
+    guard artifacts.get(Diagnostics) is Some(DiagnosticsArtifact(diagnostics)) else {
+      raise Failure::Failure("demanded Diagnostics artifact is unavailable")
+    }
+    fields["diagnostics"] = Json::array(
+      diagnostics.map(normalized_diagnostic_json),
+    )
+  }
+  Json::object(fields)
+}
+
+///|
 fn projection_worker_ok_response(
   request_id : Int,
   session : ProjectionSession,
@@ -339,23 +361,7 @@ fn projection_worker_ok_response(
     "request_id": Json::number(request_id.to_double()),
     "kind": Json::string("ok"),
     "stamp": projection_worker_stamp_json(session.stamp()),
-    "observables": normalized_projection_observables_json(
-      session.normalized_protocol_observables(),
-    ),
-    "metrics": projection_worker_metrics_json(session),
-  }).stringify()
-}
-
-///|
-fn projection_worker_state_response(
-  request_id : Int,
-  session : ProjectionSession,
-) -> String {
-  Json::object({
-    "schema_version": Json::string("1"),
-    "request_id": Json::number(request_id.to_double()),
-    "kind": Json::string("ok"),
-    "stamp": projection_worker_stamp_json(session.stamp()),
+    "observables": projection_worker_observables_json(session),
     "metrics": projection_worker_metrics_json(session),
   }).stringify()
 }
@@ -384,7 +390,7 @@ pub fn new_projection_worker_dispatcher() -> (String) -> String {
       return projection_worker_error_response(-1, "decode-failed", detail)
     }
     match command {
-      WorkerSeed(agent_id, source, generation) => {
+      WorkerSeed(agent_id, source, generation, demand) => {
         guard !disposed.val else {
           return projection_worker_error_response(
             request_id, "disposed", "dispatcher is disposed",
@@ -399,6 +405,7 @@ pub fn new_projection_worker_dispatcher() -> (String) -> String {
           agent_id~,
           source~,
           generation~,
+          demand~,
         ) catch {
           error =>
             return projection_worker_error_response(
@@ -464,7 +471,14 @@ pub fn new_projection_worker_dispatcher() -> (String) -> String {
               error.to_string(),
             )
         }
-        projection_worker_state_response(request_id, active)
+        projection_worker_ok_response(request_id, active) catch {
+          error =>
+            projection_worker_error_response(
+              request_id,
+              "execution-failed",
+              error.to_string(),
+            )
+        }
       }
       WorkerSnapshot => {
         guard !disposed.val else {

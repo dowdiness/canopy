@@ -1,4 +1,80 @@
 ///|
+/// Test-only synchronous oracle around `preview_document_decision`; production
+/// projection reads remain Worker-owned.
+fn update_preview_document(
+  attachment : @md_markdown.MarkdownSemanticAttachment,
+  model : DriverModel,
+  old_requested : Bool,
+  accepted~ : Bool,
+  changed~ : Bool,
+) -> DriverModel {
+  match
+    preview_document_decision(
+      old_requested,
+      preview_requested(model),
+      accepted~,
+      changed~,
+    ) {
+    PreviewDocumentRead => {
+      projection_trace_begin_demand_group(
+        next_requested=!old_requested && preview_requested(model),
+      )
+      let document = attachment.document()
+      projection_trace_semantic_attachment_read()
+      {
+        ..model,
+        semantic_document: Some(document),
+        semantic_read_count: model.semantic_read_count + 1,
+      }
+    }
+    PreviewDocumentKeep => model
+    PreviewDocumentClear => { ..model, semantic_document: None }
+  }
+}
+
+///|
+/// Apply Preview demand after one authority request, then finalize that exact
+/// trace request from the resulting artifact state.
+fn update_preview_after_authority_for_oracle(
+  attachment : @md_markdown.MarkdownSemanticAttachment,
+  model : DriverModel,
+  old_requested : Bool,
+  accepted~ : Bool,
+  changed~ : Bool,
+) -> DriverModel {
+  let decision = preview_document_decision(
+    old_requested,
+    preview_requested(model),
+    accepted~,
+    changed~,
+  )
+  let next = update_preview_document(
+    attachment,
+    model,
+    old_requested,
+    accepted~,
+    changed~,
+  )
+  if accepted {
+    match decision {
+      PreviewDocumentRead => ()
+      PreviewDocumentKeep =>
+        if preview_requested(next) {
+          if next.semantic_document is Some(_) {
+            projection_trace_retained_preview_materialized()
+          } else {
+            projection_trace_generation_invalidated()
+          }
+        } else {
+          projection_trace_current_request_no_demand()
+        }
+      PreviewDocumentClear => projection_trace_current_request_no_demand()
+    }
+  }
+  next
+}
+
+///|
 fn projection_trace_test_context(
   source? : String = "# Before\n",
   split_preview_open? : Bool = false,
@@ -127,7 +203,7 @@ fn projection_trace_enable_counting() -> @ref.Ref[Int] {
 }
 
 ///|
-test "accepted preview-demand edit records independent synchronous trace axes" {
+test "accepted preview-demand edit omits synchronous projection phases" {
   let ticks = projection_trace_enable_counting()
   defer projection_trace_disable()
   let (editor, attachment, model) = projection_trace_test_context(
@@ -140,46 +216,8 @@ test "accepted preview-demand edit records independent synchronous trace axes" {
     PROJECTION_TRACE_PHASE_C,
     PROJECTION_TRACE_PHASE_A1,
     PROJECTION_TRACE_PHASE_B,
-    0,
-    PROJECTION_TRACE_PHASE_D,
-    PROJECTION_TRACE_PHASE_E,
-    PROJECTION_TRACE_PHASE_F,
   ])
-  assert_eq(ticks.val, 8)
-  let event_id = projection_trace_event_id(0)
-  let request_id = projection_trace_request_id(1)
-  let group_work_id = projection_trace_group_work_id(5)
-  assert_true(event_id != Some(0))
-  assert_true(request_id != Some(0))
-  assert_true(group_work_id != Some(0))
-  assert_eq(projection_trace_request_id(0), Some(0))
-  assert_eq(projection_trace_group_work_id(0), Some(0))
-  assert_eq(projection_trace_presentation_id(0), Some(0))
-  assert_eq(projection_trace_event_id(2), event_id)
-  assert_eq(projection_trace_request_id(2), Some(0))
-  assert_eq(projection_trace_request_id(3), request_id)
-  assert_eq(
-    projection_trace_request_disposition(4),
-    Some(PROJECTION_TRACE_REQUEST_DISPATCHED),
-  )
-  assert_eq(projection_trace_group_work_id(4), Some(0))
-  for index in 5..<8 {
-    assert_eq(projection_trace_request_id(index), request_id)
-    assert_eq(projection_trace_group_work_id(index), group_work_id)
-    assert_eq(projection_trace_presentation_id(index), Some(0))
-  }
-  assert_eq(
-    projection_trace_status(6),
-    Some(PROJECTION_TRACE_STATUS_ADOPTION_ACCEPTED),
-  )
-  assert_eq(
-    projection_trace_group_outcome(7),
-    Some(PROJECTION_TRACE_GROUP_OUTCOME_ADOPTED_NOT_PRESENTED),
-  )
-  assert_eq(
-    projection_trace_reason(7),
-    Some(PROJECTION_TRACE_REASON_PRESENTATION_NOT_OBSERVED),
-  )
+  assert_eq(ticks.val, 4)
 }
 
 ///|
@@ -256,7 +294,7 @@ test "rejected authority request records omission reason" {
 }
 
 ///|
-test "demand-only Preview records C-F without authority phases" {
+test "demand-only Preview defers projection to the Worker" {
   ignore(projection_trace_enable_counting())
   defer projection_trace_disable()
   let (editor, attachment, model) = projection_trace_test_context()
@@ -267,26 +305,8 @@ test "demand-only Preview records C-F without authority phases" {
     Navigation(SelectPreview),
   )
   assert_true(preview_requested(next))
-  assert_eq(next.semantic_read_count, model.semantic_read_count + 1)
-  assert_eq(projection_trace_phases(), [
-    PROJECTION_TRACE_PHASE_C,
-    0,
-    PROJECTION_TRACE_PHASE_D,
-    PROJECTION_TRACE_PHASE_E,
-    PROJECTION_TRACE_PHASE_F,
-  ])
-  assert_eq(
-    projection_trace_request_disposition(1),
-    Some(PROJECTION_TRACE_REQUEST_DISPATCHED),
-  )
-  assert_eq(
-    projection_trace_group_outcome(4),
-    Some(PROJECTION_TRACE_GROUP_OUTCOME_ADOPTED_NOT_PRESENTED),
-  )
-  assert_eq(
-    projection_trace_reason(4),
-    Some(PROJECTION_TRACE_REASON_PRESENTATION_NOT_OBSERVED),
-  )
+  assert_eq(next.semantic_read_count, model.semantic_read_count)
+  assert_eq(projection_trace_phases(), [])
 }
 
 ///|
@@ -315,7 +335,13 @@ test "source-equal causal advance synchronizes the projection mirror" {
   assert_eq(next.source_revision, model.source_revision)
   assert_eq(next.committed_change_count, model.committed_change_count + 1)
   ignore(
-    update_preview_after_authority(attachment, next, false, accepted~, changed~),
+    update_preview_after_authority_for_oracle(
+      attachment,
+      next,
+      false,
+      accepted~,
+      changed~,
+    ),
   )
   assert_eq(projection_trace_phases(), [
     PROJECTION_TRACE_PHASE_A0,
@@ -359,7 +385,13 @@ test "source-equal demanded Preview republishes retained artifact" {
   assert_true(accepted)
   assert_false(changed)
   ignore(
-    update_preview_after_authority(attachment, next, true, accepted~, changed~),
+    update_preview_after_authority_for_oracle(
+      attachment,
+      next,
+      true,
+      accepted~,
+      changed~,
+    ),
   )
   projection_trace_driver_model_adopted()
   projection_trace_adopted_not_presented()
@@ -409,7 +441,13 @@ test "source-equal authority request adopts newly demanded Preview once" {
     emit,
   )
   ignore(
-    update_preview_after_authority(attachment, next, false, accepted~, changed~),
+    update_preview_after_authority_for_oracle(
+      attachment,
+      next,
+      false,
+      accepted~,
+      changed~,
+    ),
   )
   projection_trace_driver_model_adopted()
   projection_trace_adopted_not_presented()
@@ -483,7 +521,7 @@ test "Block-only structural edit records independent Block D E F" {
 }
 
 ///|
-test "Block and Preview issue separate group work" {
+test "Block work defers simultaneous Preview work to the Worker" {
   ignore(projection_trace_enable_counting())
   defer projection_trace_disable()
   let (editor, attachment, model) = projection_trace_test_context(
@@ -502,18 +540,13 @@ test "Block and Preview issue separate group work" {
   )
   assert_true(accepted)
   let block_work = projection_trace_group_work_id(5)
-  let preview_work = projection_trace_group_work_id(6)
   assert_true(block_work != Some(0))
-  assert_true(preview_work != Some(0))
-  assert_true(block_work != preview_work)
   assert_eq(projection_trace_group(5), Some(PROJECTION_TRACE_GROUP_BLOCK))
-  assert_eq(projection_trace_group(6), Some(PROJECTION_TRACE_GROUP_PREVIEW))
-  projection_trace_driver_model_adopted()
-  assert_eq(
-    projection_trace_status(7),
-    Some(PROJECTION_TRACE_STATUS_ADOPTION_ACCEPTED),
-  )
-  assert_eq(projection_trace_group_work_id(7), block_work)
+  for index in 0..<projection_trace_count() {
+    assert_true(
+      projection_trace_group(index) != Some(PROJECTION_TRACE_GROUP_PREVIEW),
+    )
+  }
 }
 
 ///|

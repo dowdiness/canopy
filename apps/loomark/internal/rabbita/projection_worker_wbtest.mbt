@@ -12,12 +12,18 @@ fn projection_worker_seed_command(
   agent_id : String,
   source : String,
   generation : Int,
+  demand? : ProjectionDemand = projection_all_demand(),
 ) -> Json {
   Json::object({
     "kind": Json::string("seed"),
     "agent_id": Json::string(agent_id),
     "source": Json::string(source),
     "generation": Json::number(generation.to_double()),
+    "demand": Json::object({
+      "block": Json::boolean(demand.block),
+      "preview": Json::boolean(demand.preview),
+      "diagnostics": Json::boolean(demand.diagnostics),
+    }),
   })
 }
 
@@ -162,11 +168,16 @@ test "projection Worker Demand changes groups without advancing its stamp" {
   let seeded = dispatch(
     projection_worker_request(
       1,
-      projection_worker_seed_command("worker-demand", "# Seed\n", 5),
+      projection_worker_seed_command("worker-demand", "# Seed\n", 5, demand={
+        block: false,
+        preview: false,
+        diagnostics: false,
+      }),
     ),
   )
   let sequence = projection_worker_response_sequence(seeded)
   let source_revision = projection_worker_response_source_revision(seeded)
+  assert_true(projection_worker_response_artifact(seeded) is Ok((_, None)))
   let demand_off = dispatch(
     projection_worker_request(
       2,
@@ -179,6 +190,7 @@ test "projection Worker Demand changes groups without advancing its stamp" {
     projection_worker_response_source_revision(demand_off),
     source_revision,
   )
+  assert_true(projection_worker_response_artifact(demand_off) is Ok((_, None)))
   let preview_on = dispatch(
     projection_worker_request(
       3,
@@ -191,6 +203,35 @@ test "projection Worker Demand changes groups without advancing its stamp" {
     projection_worker_response_source_revision(preview_on),
     source_revision,
   )
+  assert_true(
+    projection_worker_response_artifact(preview_on) is Ok((_, Some(_))),
+  )
+  let mixed = dispatch(
+    projection_worker_request(
+      4,
+      projection_worker_demand_command(true, true, false),
+    ),
+  )
+  guard projection_worker_response_observables(mixed)
+    is Json::Object(mixed_fields) else {
+    abort("mixed demand must return observables")
+  }
+  assert_true(mixed_fields.contains("block"))
+  assert_true(mixed_fields.contains("preview"))
+  assert_false(mixed_fields.contains("diagnostics"))
+  let diagnostics_only = dispatch(
+    projection_worker_request(
+      5,
+      projection_worker_demand_command(false, false, true),
+    ),
+  )
+  guard projection_worker_response_observables(diagnostics_only)
+    is Json::Object(diagnostic_fields) else {
+    abort("diagnostics demand must return observables")
+  }
+  assert_false(diagnostic_fields.contains("block"))
+  assert_false(diagnostic_fields.contains("preview"))
+  assert_true(diagnostic_fields.contains("diagnostics"))
 }
 
 ///|

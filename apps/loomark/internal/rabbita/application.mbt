@@ -338,8 +338,8 @@ fn publish(
 ///|
 fn preview_document_view(model : DriverModel) -> @rabbita_runtime.Html {
   let source = model.document.source()
-  match model.semantic_document {
-    Some(document) => semantic_preview_view(source, document)
+  match model.preview_artifact {
+    Some(artifact) => semantic_preview_artifact_view(source, artifact)
     None =>
       @html.div(
         style=[
@@ -793,6 +793,7 @@ fn driver_event_name(event : DriverEvent) -> String {
         InvalidRequest(_) => "invalid-request"
         StopListening => "stop-listening"
         Fatal(_) => "fatal"
+        ProjectionWorkerResolved(_, _) => "projection-worker-resolved"
         Resize(_) => "resize"
       }
     Archive(_) => "archive-write-completed"
@@ -1815,14 +1816,7 @@ fn update_navigation(
             accepted=true,
             changed=false,
           )
-        None =>
-          update_preview_document(
-            attachment,
-            next_model,
-            old_requested,
-            accepted=true,
-            changed=false,
-          )
+        None => next_model
       }
       (next, @rabbita_runtime.none)
     }
@@ -1845,14 +1839,7 @@ fn update_navigation(
             accepted=true,
             changed=false,
           )
-        None =>
-          update_preview_document(
-            attachment,
-            next_model,
-            old_requested,
-            accepted=true,
-            changed=false,
-          )
+        None => next_model
       }
       (next, @rabbita_runtime.none)
     }
@@ -2120,6 +2107,7 @@ fn update_lifecycle(
   event : LifecycleEvent,
   emit : @cmd.Emit[DriverEvent],
   projection_session? : @ref.Ref[ProjectionSession?],
+  projection_worker? : ProjectionWorkerRuntime,
 ) -> (DriverModel, @cmd.Cmd) raise {
   match event {
     EditorFailure => {
@@ -2291,6 +2279,59 @@ fn update_lifecycle(
       let next = { ..model, fatal: true, error: Some(message), rejection: None }
       (next, @rabbita_runtime.none)
     }
+    ProjectionWorkerResolved(expected, raw) =>
+      match projection_worker {
+        None => (model, @rabbita_runtime.none)
+        Some(worker) => {
+          guard worker.accepts(expected) else {
+            return (model, @rabbita_runtime.none)
+          }
+          match projection_worker_response_artifact(raw) {
+            Err(detail) => {
+              worker.restart()
+              (projection_failed_model(model, detail), @rabbita_runtime.none)
+            }
+            Ok((stamp, artifact)) =>
+              if stamp != expected {
+                (model, @rabbita_runtime.none)
+              } else {
+                worker.mark_healthy()
+                match artifact {
+                  None => (model, @rabbita_runtime.none)
+                  Some(preview_artifact) => {
+                    let projection_error = model.error_code ==
+                      Some("projection-failed") ||
+                      model.error_code == Some("projection-pending")
+                    (
+                      {
+                        ..model,
+                        semantic_document: None,
+                        preview_artifact: Some(preview_artifact),
+                        semantic_read_count: model.semantic_read_count + 1,
+                        error: if projection_error {
+                          None
+                        } else {
+                          model.error
+                        },
+                        error_code: if projection_error {
+                          None
+                        } else {
+                          model.error_code
+                        },
+                        error_operation: if projection_error {
+                          None
+                        } else {
+                          model.error_operation
+                        },
+                      },
+                      @rabbita_runtime.none,
+                    )
+                  }
+                }
+              }
+          }
+        }
+      }
     Resize(viewport) => {
       let next = {
         ..model,
@@ -2329,6 +2370,7 @@ fn update_model(
   event : DriverEvent,
   emit : @cmd.Emit[DriverEvent],
   projection_session? : @ref.Ref[ProjectionSession?],
+  projection_worker? : ProjectionWorkerRuntime,
 ) -> (DriverModel, @cmd.Cmd) raise {
   let (next, command) = match event {
     Archive(completion) => update_archive_tracker(model, completion)
@@ -2381,6 +2423,7 @@ fn update_model(
         life_event,
         emit,
         projection_session?,
+        projection_worker?,
       )
   }
   let next = match projection_session {
@@ -2520,6 +2563,23 @@ fn driver_test_subscription_loader(
 }
 
 ///|
+fn projection_worker_lifetime_loader(
+  payload : Error,
+  _scheduler : &@cmd.Scheduler,
+) -> @sub.RunningSub? {
+  match payload {
+    DriverSubscription::WorkerLifetime(worker) =>
+      Some({
+        unload: _ => worker.dispose(),
+        update_tagger: payload => {
+          guard payload is DriverSubscription::WorkerLifetime(_) else { return }
+        },
+      })
+    _ => None
+  }
+}
+
+///|
 fn driver_control_subscription(emit : @cmd.Emit[DriverEvent]) -> @sub.Sub {
   @sub.custom_sub(
     "loomark.driver-control",
@@ -2542,6 +2602,16 @@ fn driver_test_subscription(
       emit,
     ),
     driver_test_subscription_loader,
+  )
+}
+
+///|
+fn projection_worker_subscription(worker : ProjectionWorkerRuntime) -> @sub.Sub {
+  @sub.custom_sub(
+    "loomark.projection-worker-lifetime",
+    @sub.Local,
+    DriverSubscription::WorkerLifetime(worker),
+    projection_worker_lifetime_loader,
   )
 }
 
@@ -2593,9 +2663,18 @@ fn build_application(
     raw_input_telemetry,
   )
   let block_input_coordinator = BlockInputCoordinator::BlockInputCoordinator()
+  let projection_worker = ProjectionWorkerRuntime::new(
+    "loomark-production-projection",
+  )
+  let application_subscriptions = (model, emit) => {
+    @sub.batch([
+      subscriptions(model, emit),
+      projection_worker_subscription(projection_worker),
+    ])
+  }
   let update = (model, event, emit) => {
     let session = current_session.val
-    update_model(
+    let (next, command) = update_model(
       session.editor,
       session.attachment,
       raw_input_coordinator,
@@ -2605,6 +2684,7 @@ fn build_application(
       event,
       emit,
       projection_session?,
+      projection_worker~,
     ) catch {
       Failure::Failure(_) as failure => {
         raw_input_coordinator.cancel_pending()
@@ -2645,21 +2725,28 @@ fn build_application(
         (next, command)
       }
     }
+    (next, @cmd.batch([command, projection_worker.sync(next, emit)]))
   }
   @rabbita_runtime.new(() => {
     let (model, emit) = @rabbita_runtime.create_state_with_init(
       init=fn(emit) {
-        let command = match baseline {
+        let persistence_command = match baseline {
           Some((request_id, encoded)) =>
             @archive_storage.replace(request_id, encoded, completed=completion => {
               emit(Archive(completion))
             })
           None => @rabbita_runtime.none
         }
-        (initial, command)
+        (
+          initial,
+          @cmd.batch([
+            persistence_command,
+            projection_worker.sync(initial, emit),
+          ]),
+        )
       },
       update~,
-      subscriptions~,
+      subscriptions=application_subscriptions,
     )
     let active_view = application_view(
       model, emit, raw_input_coordinator, block_input_coordinator,
@@ -2696,16 +2783,6 @@ fn private_dev_host_application(
   initial : DriverModel,
   baseline : (@repository.LocalArchiveRequestId, String)?,
 ) -> @rabbita_runtime.App {
-  let projection = ProjectionSession::ProjectionSession(
-    agent_id="loomark-comparison-",
-    source=initial.document.source(),
-    demand=projection_demand_for_model(initial),
-  ) catch {
-    error => abort(error.to_string())
-  }
-  let projection_session : @ref.Ref[ProjectionSession?] = @ref.Ref(
-    Some(projection),
-  )
   build_application(
     editor,
     attachment,
@@ -2714,7 +2791,6 @@ fn private_dev_host_application(
     Some(RawInputTelemetry::new()),
     private_dev_host_subscriptions,
     private_dev_host_preview_view,
-    projection_session~,
   )
 }
 
@@ -2741,6 +2817,7 @@ fn initial_model(
     raw_selection: None,
     archive_persistence_enabled,
     semantic_document: None,
+    preview_artifact: None,
     semantic_read_count: 0,
     split_preview_open: false,
     compact_split: compact_split_for_width(host_width),

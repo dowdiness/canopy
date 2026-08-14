@@ -52,8 +52,11 @@ test "preview artifact JSON roundtrip preserves typed views ranges diagnostics a
   let encoded = projection_preview_artifact_json(artifact)
   let decoded = projection_preview_artifact_from_json(encoded)
   assert_eq(decoded, Ok(artifact))
-  assert_true(encoded.contains("\"children\":[{"))
-  assert_true(encoded.contains("\"diagnostics\":[\"warning: recovered source\"]"))
+  let encoded_text = encoded.stringify()
+  assert_true(encoded_text.contains("\"children\":[{"))
+  assert_true(
+    encoded_text.contains("\"diagnostics\":[\"warning: recovered source\"]"),
+  )
 }
 
 ///|
@@ -61,12 +64,12 @@ test "preview artifact JSON rejects unknown fields and unknown views" {
   let unknown_field = @json.parse(
     "{\"root\":{\"origin\":[0,0],\"view\":{\"kind\":\"document\",\"extra\":true},\"diagnostics\":[],\"children\":[]}}",
   ) catch {
-    _ => fail("test JSON must parse")
+    _ => abort("test JSON must parse")
   }
   let unknown_view = @json.parse(
     "{\"root\":{\"origin\":[0,0],\"view\":{\"kind\":\"future-view\"},\"diagnostics\":[],\"children\":[]}}",
   ) catch {
-    _ => fail("test JSON must parse")
+    _ => abort("test JSON must parse")
   }
   assert_true(projection_preview_artifact_from_json(unknown_field) is Err(_))
   assert_true(projection_preview_artifact_from_json(unknown_view) is Err(_))
@@ -77,12 +80,12 @@ test "preview artifact JSON rejects malformed ranges" {
   let reversed = @json.parse(
     "{\"root\":{\"origin\":[4,2],\"view\":{\"kind\":\"document\"},\"diagnostics\":[],\"children\":[]}}",
   ) catch {
-    _ => fail("test JSON must parse")
+    _ => abort("test JSON must parse")
   }
   let negative = @json.parse(
     "{\"root\":{\"origin\":[-1,2],\"view\":{\"kind\":\"document\"},\"diagnostics\":[],\"children\":[]}}",
   ) catch {
-    _ => fail("test JSON must parse")
+    _ => abort("test JSON must parse")
   }
   assert_true(projection_preview_artifact_from_json(reversed) is Err(_))
   assert_true(projection_preview_artifact_from_json(negative) is Err(_))
@@ -92,7 +95,7 @@ test "preview artifact JSON rejects malformed ranges" {
 test "projection Worker publishes artifact and no HTML authority" {
   let dispatch = new_projection_worker_dispatcher()
   let response = dispatch(
-    "{\"schema_version\":\"1\",\"request_id\":1,\"command\":{\"kind\":\"seed\",\"agent_id\":\"artifact-test\",\"source\":\"# Title\\n\",\"generation\":1}}",
+    "{\"schema_version\":\"1\",\"request_id\":1,\"command\":{\"kind\":\"seed\",\"agent_id\":\"artifact-test\",\"source\":\"# Title\\n\",\"generation\":1,\"demand\":{\"block\":true,\"preview\":true,\"diagnostics\":true}}}",
   )
   assert_true(response.contains("\"artifact\""))
   assert_false(response.contains("\"html\""))
@@ -114,7 +117,7 @@ test "artifact renderer preserves safe URL policy and treats raw HTML as text" {
         },
         {
           origin: (18, 49),
-          view: PreviewInlineHtml("<img src=x onerror=alert(1)>") ,
+          view: PreviewInlineHtml("<img src=x onerror=alert(1)>"),
           diagnostics: [],
           children: [],
         },

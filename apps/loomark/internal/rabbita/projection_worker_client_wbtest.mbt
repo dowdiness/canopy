@@ -26,6 +26,30 @@ test "Worker client expected stamps match dispatcher Seed and Advance" {
 }
 
 ///|
+test "Worker client decodes typed Preview artifacts and explicit failures" {
+  let dispatch = new_projection_worker_dispatcher()
+  let raw = dispatch(
+    projection_worker_request(
+      1,
+      projection_worker_seed_command(
+        "client-artifact", "# Heading\n\nBody\n", 3,
+      ),
+    ),
+  )
+  let decoded = projection_worker_response_artifact(raw)
+  guard decoded is Ok((stamp, Some(artifact))) else {
+    fail("successful Worker response must carry a typed Preview artifact")
+    return
+  }
+  assert_eq(stamp, projection_worker_client_seed_stamp(3))
+  assert_eq(artifact.root.children.length(), 2)
+  let failed = projection_worker_response_artifact(
+    "{\"schema_version\":\"1\",\"request_id\":1,\"kind\":\"error\",\"error\":{\"kind\":\"timeout\",\"detail\":\"projection timed out\"}}",
+  )
+  assert_eq(failed, Err("projection timed out"))
+}
+
+///|
 fn projection_worker_response_stamp_json_fields(raw : String) -> Json {
   projection_worker_response(raw)["stamp"]
 }

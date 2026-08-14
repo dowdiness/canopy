@@ -1,7 +1,7 @@
 ///|
 /// A portable source range. Both offsets are UTF-16 code-unit offsets in the
 /// source retained beside the artifact by the Worker response.
-priv type ProjectionPreviewRange = (Int, Int)
+type ProjectionPreviewRange = (Int, Int)
 
 ///|
 priv enum ProjectionPreviewLinkForm {
@@ -81,12 +81,14 @@ priv struct ProjectionPreviewArtifact {
 
 ///|
 fn projection_preview_link_form_json(form : ProjectionPreviewLinkForm) -> Json {
-  Json::string(match form {
-    PreviewInlineLink => "inline"
-    PreviewFullReferenceLink => "full-reference"
-    PreviewCollapsedReferenceLink => "collapsed-reference"
-    PreviewShortcutReferenceLink => "shortcut-reference"
-  })
+  Json::string(
+    match form {
+      PreviewInlineLink => "inline"
+      PreviewFullReferenceLink => "full-reference"
+      PreviewCollapsedReferenceLink => "collapsed-reference"
+      PreviewShortcutReferenceLink => "shortcut-reference"
+    },
+  )
 }
 
 ///|
@@ -106,11 +108,13 @@ fn projection_preview_link_form_from_json(
 fn projection_preview_unordered_marker_json(
   marker : ProjectionPreviewUnorderedMarker,
 ) -> Json {
-  Json::string(match marker {
-    PreviewDash => "dash"
-    PreviewStar => "star"
-    PreviewPlus => "plus"
-  })
+  Json::string(
+    match marker {
+      PreviewDash => "dash"
+      PreviewStar => "star"
+      PreviewPlus => "plus"
+    },
+  )
 }
 
 ///|
@@ -121,7 +125,8 @@ fn projection_preview_unordered_marker_from_json(
     Json::String("dash") => PreviewDash
     Json::String("star") => PreviewStar
     Json::String("plus") => PreviewPlus
-    _ => projection_preview_decode_fail("unordered marker must be a known string")
+    _ =>
+      projection_preview_decode_fail("unordered marker must be a known string")
   }
 }
 
@@ -139,10 +144,12 @@ fn projection_preview_ordered_marker_json(
 fn projection_preview_autolink_kind_json(
   kind : ProjectionPreviewAutolinkKind,
 ) -> Json {
-  Json::string(match kind {
-    PreviewUriAutolink => "uri"
-    PreviewEmailAutolink => "email"
-  })
+  Json::string(
+    match kind {
+      PreviewUriAutolink => "uri"
+      PreviewEmailAutolink => "email"
+    },
+  )
 }
 
 ///|
@@ -200,7 +207,9 @@ fn projection_preview_range_from_json(
   match value {
     Json::Array(values) => {
       guard values.length() == 2 else {
-        projection_preview_decode_fail("origin must contain exactly two offsets")
+        projection_preview_decode_fail(
+          "origin must contain exactly two offsets",
+        )
       }
       guard projection_preview_json_int(values[0]) is Some(start) else {
         projection_preview_decode_fail("origin start must be an integer")
@@ -209,7 +218,9 @@ fn projection_preview_range_from_json(
         projection_preview_decode_fail("origin end must be an integer")
       }
       guard start >= 0 && end >= start else {
-        projection_preview_decode_fail("origin must be non-negative and ordered")
+        projection_preview_decode_fail(
+          "origin must be non-negative and ordered",
+        )
       }
       (start, end)
     }
@@ -286,7 +297,7 @@ fn projection_preview_has_only_fields(
   allowed : String,
 ) -> Unit raise {
   for key, _ in fields {
-    if !(("|" + allowed + "|").contains("|" + key + "|")) {
+    if !("|" + allowed + "|").contains("|" + key + "|") {
       projection_preview_decode_fail("unknown field: " + key)
     }
   }
@@ -371,14 +382,18 @@ fn projection_preview_hard_break_form_from_json(
       match kind {
         "backslash" => {
           guard fields.length() == 1 else {
-            projection_preview_decode_fail("backslash hard break has no extra fields")
+            projection_preview_decode_fail(
+              "backslash hard break has no extra fields",
+            )
           }
           PreviewBackslash
         }
         "trailing-spaces" => {
           let count = projection_preview_required_int(fields, "count")
           guard count > 0 else {
-            projection_preview_decode_fail("trailing-spaces count must be positive")
+            projection_preview_decode_fail(
+              "trailing-spaces count must be positive",
+            )
           }
           PreviewTrailingSpaces(count)
         }
@@ -435,9 +450,13 @@ fn projection_preview_view_json(view : ProjectionPreviewView) -> Json {
         "kind": Json::string("html-block"),
         "value": Json::string(value),
       })
-    PreviewThematicBreak => Json::object({ "kind": Json::string("thematic-break") })
+    PreviewThematicBreak =>
+      Json::object({ "kind": Json::string("thematic-break") })
     PreviewText(value) =>
-      Json::object({ "kind": Json::string("text"), "value": Json::string(value) })
+      Json::object({
+        "kind": Json::string("text"),
+        "value": Json::string(value),
+      })
     PreviewBold => Json::object({ "kind": Json::string("bold") })
     PreviewItalic => Json::object({ "kind": Json::string("italic") })
     PreviewInlineCode(value) =>
@@ -508,7 +527,9 @@ fn projection_preview_view_from_json(
           projection_preview_has_only_fields(fields, "kind|level")
           let level = projection_preview_required_int(fields, "level")
           guard level >= 1 && level <= 6 else {
-            projection_preview_decode_fail("heading level must be between 1 and 6")
+            projection_preview_decode_fail(
+              "heading level must be between 1 and 6",
+            )
           }
           PreviewHeading(level)
         }
@@ -524,7 +545,8 @@ fn projection_preview_view_from_json(
           projection_preview_has_only_fields(fields, "kind|spread|marker")
           let spread = projection_preview_required_bool(fields, "spread")
           let marker = match fields.get("marker") {
-            Some(value) => projection_preview_optional_unordered_marker_from_json(value)
+            Some(value) =>
+              projection_preview_optional_unordered_marker_from_json(value)
             None => projection_preview_decode_fail("marker is missing")
           }
           PreviewUnorderedList(spread, marker)
@@ -533,7 +555,8 @@ fn projection_preview_view_from_json(
           projection_preview_has_only_fields(fields, "kind|spread|marker")
           let spread = projection_preview_required_bool(fields, "spread")
           let marker = match fields.get("marker") {
-            Some(value) => projection_preview_optional_ordered_marker_from_json(value)
+            Some(value) =>
+              projection_preview_optional_ordered_marker_from_json(value)
             None => projection_preview_decode_fail("marker is missing")
           }
           PreviewOrderedList(spread, marker)
@@ -542,7 +565,8 @@ fn projection_preview_view_from_json(
           projection_preview_has_only_fields(fields, "kind|spread|marker")
           let spread = projection_preview_required_bool(fields, "spread")
           let marker = match fields.get("marker") {
-            Some(value) => projection_preview_optional_unordered_marker_from_json(value)
+            Some(value) =>
+              projection_preview_optional_unordered_marker_from_json(value)
             None => projection_preview_decode_fail("marker is missing")
           }
           PreviewListItem(spread, marker)
@@ -551,7 +575,8 @@ fn projection_preview_view_from_json(
           projection_preview_has_only_fields(fields, "kind|spread|marker")
           let spread = projection_preview_required_bool(fields, "spread")
           let marker = match fields.get("marker") {
-            Some(value) => projection_preview_optional_ordered_marker_from_json(value)
+            Some(value) =>
+              projection_preview_optional_ordered_marker_from_json(value)
             None => projection_preview_decode_fail("marker is missing")
           }
           PreviewOrderedListItem(spread, marker)
@@ -587,8 +612,12 @@ fn projection_preview_view_from_json(
           PreviewInlineCode(projection_preview_required_string(fields, "value"))
         }
         "link" | "image" => {
-          projection_preview_has_only_fields(fields, "kind|destination|title|form")
-          let destination = projection_preview_required_string(fields, "destination")
+          projection_preview_has_only_fields(
+            fields, "kind|destination|title|form",
+          )
+          let destination = projection_preview_required_string(
+            fields, "destination",
+          )
           let title = projection_preview_optional_string(fields, "title")
           let form = match fields.get("form") {
             Some(value) => projection_preview_link_form_from_json(value)
@@ -602,15 +631,16 @@ fn projection_preview_view_from_json(
         }
         "autolink" => {
           projection_preview_has_only_fields(
-            fields,
-            "kind|autolink_kind|display|destination",
+            fields, "kind|autolink_kind|display|destination",
           )
           let link_kind = match fields.get("autolink_kind") {
             Some(value) => projection_preview_autolink_kind_from_json(value)
             None => projection_preview_decode_fail("autolink_kind is missing")
           }
           let display = projection_preview_required_string(fields, "display")
-          let destination = projection_preview_required_string(fields, "destination")
+          let destination = projection_preview_required_string(
+            fields, "destination",
+          )
           PreviewAutolink(link_kind, display, destination)
         }
         "inline-html" => {
@@ -631,7 +661,9 @@ fn projection_preview_view_from_json(
         }
         "unsupported" => {
           projection_preview_has_only_fields(fields, "kind|message")
-          PreviewUnsupported(projection_preview_required_string(fields, "message"))
+          PreviewUnsupported(
+            projection_preview_required_string(fields, "message"),
+          )
         }
         "raw" => {
           projection_preview_has_only_fields(fields, "kind|value")
@@ -639,7 +671,9 @@ fn projection_preview_view_from_json(
         }
         "recovered" => {
           projection_preview_has_only_fields(fields, "kind|message")
-          PreviewRecovered(projection_preview_required_string(fields, "message"))
+          PreviewRecovered(
+            projection_preview_required_string(fields, "message"),
+          )
         }
         _ => projection_preview_decode_fail("unknown preview view kind")
       }
@@ -668,7 +702,8 @@ fn projection_preview_diagnostics_from_json(
       for value in values {
         match value {
           Json::String(text) => diagnostics.push(text)
-          _ => projection_preview_decode_fail("diagnostics must contain strings")
+          _ =>
+            projection_preview_decode_fail("diagnostics must contain strings")
         }
       }
       diagnostics
@@ -707,15 +742,22 @@ fn projection_preview_node_from_json(
 ) -> ProjectionPreviewNode raise {
   match value {
     Json::Object(fields) => {
-      projection_preview_has_only_fields(fields, "origin|view|diagnostics|children")
+      projection_preview_has_only_fields(
+        fields, "origin|view|diagnostics|children",
+      )
       projection_preview_require_field(fields, "origin")
       projection_preview_require_field(fields, "view")
       projection_preview_require_field(fields, "diagnostics")
       projection_preview_require_field(fields, "children")
       let origin = projection_preview_range_from_json(fields["origin"])
       let view = projection_preview_view_from_json(fields["view"])
-      let diagnostics = projection_preview_diagnostics_from_json(fields["diagnostics"])
-      let children = projection_preview_children_from_json(fields["children"], origin)
+      let diagnostics = projection_preview_diagnostics_from_json(
+        fields["diagnostics"],
+      )
+      let children = projection_preview_children_from_json(
+        fields["children"],
+        origin,
+      )
       { origin, view, diagnostics, children }
     }
     _ => projection_preview_decode_fail("preview node must be an object")
@@ -723,7 +765,9 @@ fn projection_preview_node_from_json(
 }
 
 ///|
-fn projection_preview_artifact_json(artifact : ProjectionPreviewArtifact) -> Json {
+fn projection_preview_artifact_json(
+  artifact : ProjectionPreviewArtifact,
+) -> Json {
   Json::object({ "root": projection_preview_node_json(artifact.root) })
 }
 

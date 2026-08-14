@@ -81,7 +81,6 @@ priv struct NormalizedBlockProjection {
   resolver_evidence : Array[NormalizedResolverEvidence]
 } derive(Eq, Debug)
 
-
 ///|
 priv struct NormalizedDiagnosticLabel {
   source : String
@@ -1146,7 +1145,6 @@ fn normalize_markdown_role(role : @md_markdown.MarkdownRole) -> String {
     @md_markdown.Error => "error"
   }
 }
-
 
 ///|
 fn normalize_diagnostic_severity(
