@@ -742,17 +742,6 @@ fn projection_trace_observe_authority(
         phase=PROJECTION_TRACE_PHASE_A0,
       )
     @markdown.MarkdownProjectionObservationPhase::ProjectionMirrorSynchronized => {
-      let request_id = projection_trace_ensure_request(event_id)
-      projection_trace_test_progress(
-        event_id~,
-        request_id~,
-        group_work_id=0,
-        presentation_id=0,
-        group=PROJECTION_TRACE_GROUP_NONE,
-        phase=PROJECTION_TRACE_PHASE_C,
-      )
-    }
-    @markdown.MarkdownProjectionObservationPhase::CausalEvidenceAvailable => {
       projection_trace_test_progress(
         event_id~,
         request_id=0,
@@ -773,6 +762,17 @@ fn projection_trace_observe_authority(
           )
         _ => ()
       }
+    }
+    @markdown.MarkdownProjectionObservationPhase::CausalEvidenceAvailable => {
+      let request_id = projection_trace_ensure_request(event_id)
+      projection_trace_test_progress(
+        event_id~,
+        request_id~,
+        group_work_id=0,
+        presentation_id=0,
+        group=PROJECTION_TRACE_GROUP_NONE,
+        phase=PROJECTION_TRACE_PHASE_C,
+      )
     }
   }
 }

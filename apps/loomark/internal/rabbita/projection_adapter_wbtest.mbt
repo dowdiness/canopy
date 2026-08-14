@@ -607,6 +607,18 @@ test "every issued work item receives exactly one explicit terminal outcome" {
     ),
   )
   assert_true(
+    failed.any(effect => {
+      match effect {
+        ReportGroupFailure(
+          work_id~,
+          group=Preview,
+          failure=ProjectionExecutionFailed(message)
+        ) => work_id == ids[1] && message == "preview failed"
+        _ => false
+      }
+    }),
+  )
+  assert_true(
     projection_terminal_effects(failed).any(pair => {
       pair.0 == ids[1] && pair.1 is Failed
     }),
@@ -686,4 +698,72 @@ test "retained Projection Session matches an independent fresh oracle across obs
     assert_eq(try! session.normalized_observables(), retained_after)
     assert_eq(try! session.normalized_protocol_observables(), retained_after)
   }
+}
+
+///|
+test "Projection Session replayable replacement and unchanged advances match fresh normalized oracle" {
+  let session = try! ProjectionSession::ProjectionSession(
+    agent_id="session-replay-parity",
+    source="# Seed\n",
+  )
+  defer session.dispose()
+  let mut expected_source = "# Seed\n"
+  let effects = [
+    ReplaceProjectionSource("# Seed\n\nTail `code`.\n"),
+    ProjectionSourceUnchanged,
+    ReplaceProjectionSource("# Seed\n\nTail `code`.\n"),
+    ReplaceProjectionSource("> quote\n\n- first\n- second\n"),
+    ProjectionSourceUnchanged,
+  ]
+  for effect in effects {
+    try! session.advance(effect)
+    match effect {
+      ReplaceProjectionSource(source) => expected_source = source
+      ProjectionSourceUnchanged => ()
+    }
+    let fresh = try! fresh_projection_observables(
+      expected_source,
+      agent_id="fresh-replay-" + session.sequence.to_string(),
+    )
+    assert_eq(try! session.normalized_observables(), fresh)
+    assert_eq(try! session.normalized_protocol_observables(), fresh)
+  }
+}
+
+///|
+test "Projection Session dispose sequence reports typed failures after terminal disposal" {
+  let session = try! ProjectionSession::ProjectionSession(
+    agent_id="session-dispose-failure",
+    source="# Seed\n",
+  )
+  let before = try! session.normalized_protocol_observables()
+  session.dispose()
+  let disposed_observables : Result[NormalizedProjectionObservables, Error] = Ok(
+    session.normalized_protocol_observables(),
+  ) catch {
+    error => Err(error)
+  }
+  assert_true(
+    match disposed_observables {
+      Err(Failure::Failure(message)) => message == "projection session disposed"
+      _ => false
+    },
+  )
+  let disposed_advance : Result[Unit, Error] = Ok(
+    session.advance(ProjectionSourceUnchanged),
+  ) catch {
+    error => Err(error)
+  }
+  assert_true(
+    match disposed_advance {
+      Err(Failure::Failure(message)) => message == "projection session disposed"
+      _ => false
+    },
+  )
+  session.dispose()
+  let fresh = try! fresh_projection_observables(
+    "# Seed\n",
+    agent_id="fresh-dispose-failure",
+  )
+  assert_eq(before, fresh)
 }

@@ -449,6 +449,7 @@ fn commit_raw_selection_edit(
   preview_started? : () -> Unit = () => (),
   preview_finished? : () -> Unit = () => (),
   raw_mode_authorized? : Bool = false,
+  projection_session? : @ref.Ref[ProjectionSession?],
 ) -> (DriverModel, RawSelectionEditOutcome, @cmd.Cmd) raise {
   let bound = request.selection
   guard bound.document_id == model.document_id else {
@@ -501,16 +502,29 @@ fn commit_raw_selection_edit(
     ),
     "raw-selection-edit",
     emit,
+    projection_session?,
   )
   editor_finished()
   preview_started()
-  let committed = update_preview_after_authority(
-    attachment,
-    committed,
-    preview_requested(model),
-    accepted~,
-    changed~,
-  )
+  let committed = match projection_session {
+    Some(session) =>
+      update_preview_document_with_projection(
+        attachment,
+        session,
+        committed,
+        preview_requested(model),
+        accepted~,
+        changed~,
+      )
+    None =>
+      update_preview_after_authority(
+        attachment,
+        committed,
+        preview_requested(model),
+        accepted~,
+        changed~,
+      )
+  }
   preview_finished()
   if !accepted && !(result is Some(@markdown.Unchanged(_))) {
     return (

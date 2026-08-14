@@ -72,15 +72,30 @@ fn projection_worker_response_error(raw : String) -> String {
 }
 
 ///|
-fn projection_worker_response_generation(raw : String) -> Int {
+fn projection_worker_response_stamp_int(raw : String, name : String) -> Int {
   match projection_worker_response(raw).get("stamp") {
     Some(Json::Object(stamp)) =>
-      match stamp.get("generation") {
+      match stamp.get(name) {
         Some(Json::Number(value, ..)) => value.to_int()
-        _ => abort("projection Worker generation missing")
+        _ => abort("projection Worker stamp field missing")
       }
     _ => abort("projection Worker stamp missing")
   }
+}
+
+///|
+fn projection_worker_response_generation(raw : String) -> Int {
+  projection_worker_response_stamp_int(raw, "generation")
+}
+
+///|
+fn projection_worker_response_sequence(raw : String) -> Int {
+  projection_worker_response_stamp_int(raw, "sequence")
+}
+
+///|
+fn projection_worker_response_source_revision(raw : String) -> Int {
+  projection_worker_response_stamp_int(raw, "source_revision")
 }
 
 ///|
@@ -174,6 +189,84 @@ test "projection Worker adopted output equals an independently seeded latest sou
 }
 
 ///|
+test "projection Worker replayed Seed ReplaceProjectionSource and unchanged match in-process normalized output" {
+  let source = "# Seed\n\nParagraph *強い* text.\n"
+  let dispatch = new_projection_worker_dispatcher()
+  let session = try! ProjectionSession::ProjectionSession(
+    agent_id="in-process-parity",
+    source~,
+    generation=13,
+  )
+  defer session.dispose()
+  let seeded = dispatch(
+    projection_worker_request(
+      1,
+      projection_worker_seed_command("worker-parity", source, 13),
+    ),
+  )
+  assert_eq(projection_worker_response_kind(seeded), "ok")
+  assert_eq(projection_worker_response_generation(seeded), 13)
+  assert_eq(projection_worker_response_sequence(seeded), 1)
+  assert_eq(projection_worker_response_source_revision(seeded), 1)
+  assert_eq(
+    projection_worker_response_observables(seeded),
+    normalized_projection_observables_json(
+      try! session.normalized_protocol_observables(),
+    ),
+  )
+
+  let replacements = [
+    "# Seed\n\nParagraph *強い* text.\n\nTail `code`.\n", "> quote\n\n- first\n- second\n",
+  ]
+  let mut request_id = 2
+  let mut expected_source_revision = 1
+  for replacement in replacements {
+    try! session.advance(ReplaceProjectionSource(replacement))
+    expected_source_revision += 1
+    let advanced = dispatch(
+      projection_worker_request(
+        request_id,
+        projection_worker_advance_command(Some(replacement)),
+      ),
+    )
+    assert_eq(projection_worker_response_kind(advanced), "ok")
+    assert_eq(projection_worker_response_sequence(advanced), session.sequence)
+    assert_eq(
+      projection_worker_response_source_revision(advanced),
+      expected_source_revision,
+    )
+    assert_eq(
+      projection_worker_response_observables(advanced),
+      normalized_projection_observables_json(
+        try! session.normalized_protocol_observables(),
+      ),
+    )
+    request_id += 1
+
+    try! session.advance(ProjectionSourceUnchanged)
+    let unchanged = dispatch(
+      projection_worker_request(
+        request_id,
+        projection_worker_advance_command(None),
+      ),
+    )
+    assert_eq(projection_worker_response_kind(unchanged), "ok")
+    assert_eq(projection_worker_response_sequence(unchanged), session.sequence)
+    assert_eq(
+      projection_worker_response_source_revision(unchanged),
+      expected_source_revision,
+    )
+    assert_eq(
+      projection_worker_response_observables(unchanged),
+      normalized_projection_observables_json(
+        try! session.normalized_protocol_observables(),
+      ),
+    )
+    request_id += 1
+  }
+}
+
+///|
 test "projection Worker lifecycle failures are typed and disposal is terminal" {
   let dispatch = new_projection_worker_dispatcher()
   let before_seed = dispatch(
@@ -204,21 +297,42 @@ test "projection Worker lifecycle failures are typed and disposal is terminal" {
     ),
   )
   assert_eq(projection_worker_response_error(duplicate), "invalid-state")
+  let malformed_advance = dispatch(
+    projection_worker_request(
+      5,
+      Json::object({
+        "kind": Json::string("advance"),
+        "source_effect": Json::object({ "kind": Json::string("replace-source") }),
+      }),
+    ),
+  )
+  assert_eq(
+    projection_worker_response_error(malformed_advance),
+    "decode-failed",
+  )
   let disposed = dispatch(
-    projection_worker_request(5, projection_worker_command("dispose")),
+    projection_worker_request(6, projection_worker_command("dispose")),
   )
   assert_eq(projection_worker_response_kind(disposed), "ok")
+  assert_true(projection_worker_response(disposed).contains("disposed"))
   let after_dispose = dispatch(
-    projection_worker_request(6, projection_worker_command("snapshot")),
+    projection_worker_request(7, projection_worker_command("snapshot")),
   )
   assert_eq(projection_worker_response_error(after_dispose), "disposed")
   let reseed_after_dispose = dispatch(
     projection_worker_request(
-      7,
+      8,
       projection_worker_seed_command("reseed", "# Reopened\n", 4),
     ),
   )
   assert_eq(projection_worker_response_error(reseed_after_dispose), "disposed")
+  let duplicate_dispose = dispatch(
+    projection_worker_request(9, projection_worker_command("dispose")),
+  )
+  assert_eq(projection_worker_response_kind(duplicate_dispose), "ok")
+  assert_true(
+    projection_worker_response(duplicate_dispose).contains("disposed"),
+  )
 }
 
 ///|

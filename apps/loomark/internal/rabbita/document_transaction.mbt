@@ -22,6 +22,33 @@ fn record_local_persistence_failure(model : DriverModel) -> DriverModel {
 }
 
 ///|
+fn apply_projection_authority(
+  projection_session : @ref.Ref[ProjectionSession?],
+  model : DriverModel,
+  accepted : Bool,
+  changed : Bool,
+) -> DriverModel {
+  guard accepted else { return model }
+  match projection_session.val {
+    None => model
+    Some(session) => {
+      let effect = if changed {
+        ReplaceProjectionSource(model.document.source())
+      } else {
+        ProjectionSourceUnchanged
+      }
+      session.advance(effect) catch {
+        error => {
+          session.dispose()
+          return projection_failed_model(model, error.to_string())
+        }
+      }
+      model
+    }
+  }
+}
+
+///|
 /// Schedule one complete replacement without putting a command in the model.
 fn archive_replacement(
   editor : @markdown.MarkdownEditor,
@@ -54,27 +81,30 @@ fn archive_replacement(
 fn accept_after_archive_error(
   editor : @markdown.MarkdownEditor,
   model : DriverModel,
+  projection_session? : @ref.Ref[ProjectionSession?],
 ) -> (DriverModel, Bool, Bool) raise {
   let document = editor.snapshot()
-  let (accepted, changed) = classify_recovered_frontier(
+  let (classified, changed) = classify_recovered_frontier(
     model,
     document,
     editor.version(),
   )
-  (
-    record_local_persistence_failure(accepted),
-    accepted.document_version != model.document_version,
-    changed,
-  )
+  let accepted = classified.document_version != model.document_version
+  let next = match projection_session {
+    Some(session) =>
+      apply_projection_authority(session, classified, accepted, changed)
+    None => classified
+  }
+  (record_local_persistence_failure(next), accepted, changed)
 }
 
 ///|
 /// Handle the typed archive errors raised while cutting a receipt. Unknown
-/// errors and Loom Failure are deliberately not converted here.
 fn commit_archive_error(
   editor : @markdown.MarkdownEditor,
   model : DriverModel,
   error : @markdown.MarkdownArchiveError,
+  projection_session? : @ref.Ref[ProjectionSession?],
 ) -> (DriverModel, Bool, Bool) raise {
   match error {
     @markdown.MarkdownArchiveError::ExportFailed(..)
@@ -83,7 +113,7 @@ fn commit_archive_error(
     | @markdown.MarkdownArchiveError::InvalidAgentId
     | @markdown.MarkdownArchiveError::WriterCreationFailed(..)
     | @markdown.MarkdownArchiveError::LimitExceeded(..) =>
-      accept_after_archive_error(editor, model)
+      accept_after_archive_error(editor, model, projection_session?)
   }
 }
 
@@ -98,6 +128,7 @@ fn commit_edit_request(
   request : @markdown.MarkdownEditRequest,
   operation : String,
   emit : @cmd.Emit[DriverEvent],
+  projection_session? : @ref.Ref[ProjectionSession?],
 ) -> (DriverModel, @markdown.MarkdownCommitResult?, Bool, Bool, @cmd.Cmd) raise {
   let fail_commit = model.fail_next_editor_commit
   let inject_parser_failure = model.force_parser_failure
@@ -138,37 +169,54 @@ fn commit_edit_request(
     }
     @markdown.MarkdownArchiveError::ExportFailed(..) => {
       let (accepted, frontier_advanced, changed) = accept_after_archive_error(
-        editor, next,
+        editor,
+        next,
+        projection_session?,
       )
       return (accepted, None, frontier_advanced, changed, @rabbita_runtime.none)
     }
     @markdown.MarkdownArchiveError::HistoryAdmissionFailed(..) as error => {
       let (accepted, frontier_advanced, changed) = commit_archive_error(
-        editor, next, error,
+        editor,
+        next,
+        error,
+        projection_session?,
       )
       return (accepted, None, frontier_advanced, changed, @rabbita_runtime.none)
     }
     @markdown.MarkdownArchiveError::IncompleteHistory as error => {
       let (accepted, frontier_advanced, changed) = commit_archive_error(
-        editor, next, error,
+        editor,
+        next,
+        error,
+        projection_session?,
       )
       return (accepted, None, frontier_advanced, changed, @rabbita_runtime.none)
     }
     @markdown.MarkdownArchiveError::InvalidAgentId as error => {
       let (accepted, frontier_advanced, changed) = commit_archive_error(
-        editor, next, error,
+        editor,
+        next,
+        error,
+        projection_session?,
       )
       return (accepted, None, frontier_advanced, changed, @rabbita_runtime.none)
     }
     @markdown.MarkdownArchiveError::WriterCreationFailed(..) as error => {
       let (accepted, frontier_advanced, changed) = commit_archive_error(
-        editor, next, error,
+        editor,
+        next,
+        error,
+        projection_session?,
       )
       return (accepted, None, frontier_advanced, changed, @rabbita_runtime.none)
     }
     @markdown.MarkdownArchiveError::LimitExceeded(..) as error => {
       let (accepted, frontier_advanced, changed) = commit_archive_error(
-        editor, next, error,
+        editor,
+        next,
+        error,
+        projection_session?,
       )
       return (accepted, None, frontier_advanced, changed, @rabbita_runtime.none)
     }
@@ -202,6 +250,11 @@ fn commit_edit_request(
     Ok(receipt) => {
       let result = receipt.result()
       let (committed, accepted, changed) = classify_commit(next, receipt)
+      let committed = match projection_session {
+        Some(session) =>
+          apply_projection_authority(session, committed, accepted, changed)
+        None => committed
+      }
       match @repository.history_trigger(receipt) {
         @repository.LocalArchivePersistenceDecision::Replace => {
           let (persisted, command) = archive_replacement(
@@ -225,6 +278,7 @@ fn commit_source(
   source : String,
   operation : String,
   emit : @cmd.Emit[DriverEvent],
+  projection_session? : @ref.Ref[ProjectionSession?],
 ) -> (DriverModel, Bool, Bool, @cmd.Cmd) raise {
   let (committed, _, accepted, changed, command) = commit_edit_request(
     editor,
@@ -232,13 +286,13 @@ fn commit_source(
     @markdown.MarkdownEditRequest::ReplaceSource(source),
     operation,
     emit,
+    projection_session?,
   )
   let committed = if accepted { { ..committed, state, } } else { committed }
   (committed, accepted, changed, command)
 }
 
 ///|
-/// Commit one typed block request through the atomic façade boundary.
 fn commit_block_request(
   editor : @markdown.MarkdownEditor,
   attachment : @md_markdown.MarkdownSemanticAttachment,
@@ -246,9 +300,15 @@ fn commit_block_request(
   request : @markdown.MarkdownEditRequest,
   operation : String,
   emit : @cmd.Emit[DriverEvent],
+  projection_session? : @ref.Ref[ProjectionSession?],
 ) -> (DriverModel, @markdown.MarkdownBlockSelection?, Bool, @cmd.Cmd) raise {
   let (committed, result, accepted, changed, persistence_command) = commit_edit_request(
-    editor, model, request, operation, emit,
+    editor,
+    model,
+    request,
+    operation,
+    emit,
+    projection_session?,
   )
   let selection = result.bind(result => {
     match result {
@@ -259,13 +319,25 @@ fn commit_block_request(
   if accepted && changed {
     projection_trace_block_materialized()
   }
-  let committed = update_preview_after_authority(
-    attachment,
-    committed,
-    preview_requested(model),
-    accepted~,
-    changed~,
-  )
+  let committed = match projection_session {
+    Some(session) =>
+      update_preview_document_with_projection(
+        attachment,
+        session,
+        committed,
+        preview_requested(model),
+        accepted~,
+        changed~,
+      )
+    None =>
+      update_preview_after_authority(
+        attachment,
+        committed,
+        preview_requested(model),
+        accepted~,
+        changed~,
+      )
+  }
   (committed, selection, accepted, persistence_command)
 }
 
@@ -281,9 +353,16 @@ fn commit_block_toolbar_request(
   originating_selection : BlockSelection?,
   control_id : String,
   emit : @cmd.Emit[DriverEvent],
+  projection_session? : @ref.Ref[ProjectionSession?],
 ) -> (DriverModel, Bool, @cmd.Cmd) raise {
   let (committed, committed_selection, _, persistence_command) = commit_block_request(
-    editor, attachment, model, request, "editor-dispatch", emit,
+    editor,
+    attachment,
+    model,
+    request,
+    "editor-dispatch",
+    emit,
+    projection_session?,
   )
   let selection = committed_selection.bind(selection => {
     block_selection_from_commit(committed.document, selection)

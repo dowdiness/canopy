@@ -1326,7 +1326,13 @@ priv struct ProjectionSession {
   mut source_revision : Int
   mut block_intent : Int
   mut presentation_id : Int
+  mut demand : ProjectionDemand
   mut disposed : Bool
+}
+
+///|
+fn projection_all_demand() -> ProjectionDemand {
+  { block: true, preview: true, diagnostics: true }
 }
 
 ///|
@@ -1334,6 +1340,7 @@ fn ProjectionSession::ProjectionSession(
   agent_id~ : String,
   source~ : String,
   generation? : Int = 1,
+  demand? : ProjectionDemand = projection_all_demand(),
 ) -> ProjectionSession raise {
   let (editor, attachment) = @markdown.MarkdownEditor::with_semantic_attachment(
     agent_id~,
@@ -1354,12 +1361,11 @@ fn ProjectionSession::ProjectionSession(
     source_revision: 1,
     block_intent: 1,
     presentation_id: 1,
+    demand,
     disposed: false,
   }
   let stamp = session.stamp()
-  let (adapter, effects) = session.adapter.reduce(
-    Seed(stamp, source, { block: true, preview: true, diagnostics: true }),
-  )
+  let (adapter, effects) = session.adapter.reduce(Seed(stamp, source, demand))
   session.adapter = adapter
   session.execute_effects(effects)
   session
@@ -1438,11 +1444,7 @@ fn ProjectionSession::execute_effects(
       }
       CaptureLatestSeed(stamp~) => {
         let (adapter, next) = self.adapter.reduce(
-          SeedCaptured(stamp, self.source, {
-            block: true,
-            preview: true,
-            diagnostics: true,
-          }),
+          SeedCaptured(stamp, self.source, self.demand),
         )
         self.adapter = adapter
         self.generation = stamp.generation
@@ -1470,6 +1472,35 @@ fn ProjectionSession::execute_effects(
 
 ///|
 #warnings("-unused_value")
+fn ProjectionSession::demand(
+  self : Self,
+  demand : ProjectionDemand,
+) -> Unit raise {
+  guard !self.disposed else {
+    raise Failure::Failure("projection session disposed")
+  }
+  let (adapter, effects) = self.adapter.reduce(Demand(self.stamp(), demand))
+  self.adapter = adapter
+  self.demand = demand
+  self.execute_effects(effects)
+}
+
+///|
+fn ProjectionSession::preview_document(
+  self : Self,
+) -> @md_markdown.MarkdownIR? raise {
+  guard !self.disposed else {
+    raise Failure::Failure("projection session disposed")
+  }
+  let state = self.adapter.group_state(Preview)
+  guard state.adopted is Some(_) || state.retained is Some(_) else {
+    return None
+  }
+  Some(self.attachment.document())
+}
+
+///|
+#warnings("-unused_value")
 fn ProjectionSession::advance(
   self : Self,
   effect : ProjectionSourceEffect,
@@ -1480,11 +1511,13 @@ fn ProjectionSession::advance(
   match effect {
     ProjectionSourceUnchanged => ()
     ReplaceProjectionSource(source) => {
-      ignore(
-        try! self.editor.commit(
-          @markdown.MarkdownEditRequest::ReplaceSource(source),
-        ),
+      let result = self.editor.commit(
+        @markdown.MarkdownEditRequest::ReplaceSource(source),
       )
+      match result {
+        Ok(_) => ()
+        Err(error) => raise error
+      }
       self.source = source
       self.source_revision += 1
       self.block_intent += 1
@@ -1493,11 +1526,7 @@ fn ProjectionSession::advance(
   self.sequence += 1
   self.causal_counter += 1
   let (adapter, effects) = self.adapter.reduce(
-    Advance(self.stamp(), effect, {
-      block: true,
-      preview: true,
-      diagnostics: true,
-    }),
+    Advance(self.stamp(), effect, self.demand),
   )
   self.adapter = adapter
   self.execute_effects(effects)
