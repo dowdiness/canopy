@@ -144,8 +144,11 @@ Trace the authority path as:
 - **A1** — only when A0 accepted a causal transition, before/after causal
   versions, source identity/revision, and either a small accepted effect/evidence
   or `NeedsSeed` control marker complete `CommittedTransition`; and
-- **B** — only after A1, deferred replay input or coherent Seed input is
-  materialized.
+- **B** — deferred executor-input materialization. On the mutation-derived path,
+  replay input or coherent Seed input is materialized only after A1. On the
+  lifecycle recovery path, coherent Seed input is materialized only after
+  generation invalidation and coherent replacement-authority capture, without
+  creating a synthetic A0, A1, or `CommittedTransition`.
 
 Every authority attempt has one terminal A0 outcome. Rejection or equal
 before/after causal versions produce no `CommittedTransition`, A1, or B; their
@@ -313,7 +316,7 @@ may correlate several adopted group work items in the same frame.
 | P0 — command preparation | Authority input is ready for the authority attempt. | event id, operation kind, old-source materialization, UTF-16 mapping, grapheme validation/snapping, requested-change computation, input-validation durations |
 | A0 — authority outcome | The attempt linearizes as accepted causal transition, no advance, or rejection. Every authority attempt terminates here. | event id, operation kind, outcome, mutation duration when attempted, classification duration |
 | A1 — settled committed-transition evidence | Only an accepted causal transition reaches A1. Before/after causal versions, source identity/revision, and a small accepted effect/evidence or `NeedsSeed` marker complete `CommittedTransition` without full export. | event id, before/after document version, source revision/identity, evidence/control-marker kind and bytes, duration, forbidden-full-export control |
-| B — deferred source materialization | Replay input or coherent Seed input is available after A1; no-advance/rejected outcomes never reach B. | event id, projection request id, input kind, bytes/copies, duration |
+| B — deferred executor-input materialization | Replay input or coherent Seed input becomes available after its prerequisite settled state: A1 for an accepted authority transition, or coherent replacement-authority capture after generation invalidation for lifecycle recovery. Rejected and equal-version no-advance outcomes never reach B. | event id when mutation-derived, projection request id, lifecycle recovery kind when applicable, input kind, bytes/copies, duration |
 | C — projection execution | Executor Seed/Advance begins and ends against one acknowledged base. | projection request id, placement, generation, sequence, base/result revision, queue wait, stage durations, request disposition |
 | D — artifact publication | One consistency-group envelope is complete. | projection request id, group work id, group, encoded bytes, encode/clone/decode durations, materialized-at |
 | E — application adoption | Reducer accepts or rejects one whole group. | group work id, group, stamp, currentness decision, duration, rejection reason, adoption outcome |
@@ -386,7 +389,9 @@ storage, controls causal-evidence emission.
    authorizes retry;
 2. A0/A1 expose only small evidence and invoke no full source/history export,
    archive preparation, JSON generation, or Worker transfer;
-3. deferred Seed/source materialization records B after A1;
+3. deferred executor-input materialization records B after A1 for an accepted
+   transition, or after generation invalidation and coherent
+   replacement-authority capture for lifecycle recovery;
 4. demand-only Preview produces C–E and an explicit not-presented outcome without A0/A1;
 5. source-equal causal advance changes causal version without changing source
    revision and invalidates an old intent fence;
@@ -601,7 +606,10 @@ protocol as a production authority contract.
 11. recovery, archive reopen, and session replacement invalidate the old
     generation and issue coherent Seed recovery rather than masquerading as a
     source transition;
-12. Seed capture occurs after settled authority evidence; and
+12. mutation-derived Seed capture occurs after A1; lifecycle recovery Seed
+    capture occurs after generation invalidation and coherent
+    replacement-authority capture without a synthetic A0, A1, or
+    `CommittedTransition`; and
 13. the public `SyncEditor` facade preserves its behavior and generated
     interface.
 
@@ -890,6 +898,9 @@ assertions.
       version.
 - [ ] Recovery, archive reopen, session replacement, executor failure, and
       remount dispose old projection state and reject every late result.
+- [ ] Lifecycle recovery Seeds follow generation invalidation and coherent
+      replacement-authority capture without creating a synthetic
+      `CommittedTransition` or A1.
 
 ### Product behavior
 
