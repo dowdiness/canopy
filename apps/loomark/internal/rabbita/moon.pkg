@@ -16,6 +16,7 @@ import {
   "moonbit-community/rabbita/common",
   "moonbit-community/rabbita/html",
   "moonbit-community/rabbita/sub",
+  "moonbit-community/rabbita/js" @js_value,
   "moonbit-community/rabbita/svg",
   "Yoorkin/rui",
   "moonbitlang/core/debug",

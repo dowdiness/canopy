@@ -38,6 +38,31 @@ fn projection_worker_advance_command(source : String?) -> Json {
 }
 
 ///|
+fn projection_worker_demand_json(
+  block : Bool,
+  preview : Bool,
+  diagnostics : Bool,
+) -> Json {
+  Json::object({
+    "block": Json::boolean(block),
+    "preview": Json::boolean(preview),
+    "diagnostics": Json::boolean(diagnostics),
+  })
+}
+
+///|
+fn projection_worker_demand_command(
+  block : Bool,
+  preview : Bool,
+  diagnostics : Bool,
+) -> Json {
+  Json::object({
+    "kind": Json::string("demand"),
+    "demand": projection_worker_demand_json(block, preview, diagnostics),
+  })
+}
+
+///|
 fn projection_worker_command(kind : String) -> Json {
   Json::object({ "kind": Json::string(kind) })
 }
@@ -127,6 +152,71 @@ test "projection Worker codec rejects malformed and incompatible requests" {
   }).stringify()
   assert_eq(
     projection_worker_response_error(dispatch(wrong_type)),
+    "decode-failed",
+  )
+}
+
+///|
+test "projection Worker Demand changes groups without advancing its stamp" {
+  let dispatch = new_projection_worker_dispatcher()
+  let seeded = dispatch(
+    projection_worker_request(
+      1,
+      projection_worker_seed_command("worker-demand", "# Seed\n", 5),
+    ),
+  )
+  let sequence = projection_worker_response_sequence(seeded)
+  let source_revision = projection_worker_response_source_revision(seeded)
+  let demand_off = dispatch(
+    projection_worker_request(
+      2,
+      projection_worker_demand_command(false, false, false),
+    ),
+  )
+  assert_eq(projection_worker_response_kind(demand_off), "ok")
+  assert_eq(projection_worker_response_sequence(demand_off), sequence)
+  assert_eq(
+    projection_worker_response_source_revision(demand_off),
+    source_revision,
+  )
+  let preview_on = dispatch(
+    projection_worker_request(
+      3,
+      projection_worker_demand_command(false, true, false),
+    ),
+  )
+  assert_eq(projection_worker_response_kind(preview_on), "ok")
+  assert_eq(projection_worker_response_sequence(preview_on), sequence)
+  assert_eq(
+    projection_worker_response_source_revision(preview_on),
+    source_revision,
+  )
+}
+
+///|
+test "projection Worker rejects malformed Demand" {
+  let dispatch = new_projection_worker_dispatcher()
+  ignore(
+    dispatch(
+      projection_worker_request(
+        1,
+        projection_worker_seed_command("worker-demand-malformed", "", 1),
+      ),
+    ),
+  )
+  let malformed = projection_worker_request(
+    2,
+    Json::object({
+      "kind": Json::string("demand"),
+      "demand": Json::object({
+        "block": Json::boolean(false),
+        "preview": Json::string("yes"),
+        "diagnostics": Json::boolean(false),
+      }),
+    }),
+  )
+  assert_eq(
+    projection_worker_response_error(dispatch(malformed)),
     "decode-failed",
   )
 }

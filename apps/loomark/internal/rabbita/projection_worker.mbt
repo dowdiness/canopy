@@ -2,6 +2,7 @@
 priv enum ProjectionWorkerCommand {
   WorkerSeed(String, String, Int)
   WorkerAdvance(ProjectionSourceEffect)
+  WorkerDemand(ProjectionDemand)
   WorkerSnapshot
   WorkerDispose
 }
@@ -33,6 +34,30 @@ fn projection_worker_decode_string(
     Some(Json::String(value)) => Some(value)
     _ => None
   }
+}
+
+///|
+fn projection_worker_decode_bool(
+  fields : Map[String, Json],
+  name : String,
+) -> Bool? {
+  match fields.get(name) {
+    Some(Json::True) => Some(true)
+    Some(Json::False) => Some(false)
+    _ => None
+  }
+}
+
+///|
+fn projection_worker_decode_demand(
+  fields : Map[String, Json],
+) -> ProjectionDemand? {
+  guard projection_worker_decode_bool(fields, "block") is Some(block) &&
+    projection_worker_decode_bool(fields, "preview") is Some(preview) &&
+    projection_worker_decode_bool(fields, "diagnostics") is Some(diagnostics) else {
+    return None
+  }
+  Some({ block, preview, diagnostics })
 }
 
 ///|
@@ -92,6 +117,15 @@ fn projection_worker_decode_request(
           Ok((request_id, WorkerAdvance(ProjectionSourceUnchanged)))
         _ => Err("unknown source_effect kind")
       }
+    }
+    "demand" => {
+      guard command.get("demand") is Some(Json::Object(demand)) &&
+        projection_worker_decode_demand(demand) is Some(decoded) else {
+        return Err(
+          "demand must contain boolean block, preview, and diagnostics",
+        )
+      }
+      Ok((request_id, WorkerDemand(decoded)))
     }
     "snapshot" => Ok((request_id, WorkerSnapshot))
     "dispose" => Ok((request_id, WorkerDispose))
@@ -326,6 +360,20 @@ fn projection_worker_ok_response(
 }
 
 ///|
+fn projection_worker_state_response(
+  request_id : Int,
+  session : ProjectionSession,
+) -> String {
+  Json::object({
+    "schema_version": Json::string("1"),
+    "request_id": Json::number(request_id.to_double()),
+    "kind": Json::string("ok"),
+    "stamp": projection_worker_stamp_json(session.stamp()),
+    "metrics": projection_worker_metrics_json(session),
+  }).stringify()
+}
+
+///|
 fn projection_worker_disposed_response(request_id : Int) -> String {
   Json::object({
     "schema_version": Json::string("1"),
@@ -409,6 +457,27 @@ pub fn new_projection_worker_dispatcher() -> (String) -> String {
               error.to_string(),
             )
         }
+      }
+      WorkerDemand(demand) => {
+        guard !disposed.val else {
+          return projection_worker_error_response(
+            request_id, "disposed", "dispatcher is disposed",
+          )
+        }
+        guard session.val is Some(active) else {
+          return projection_worker_error_response(
+            request_id, "invalid-state", "Demand requires Seed",
+          )
+        }
+        active.demand(demand) catch {
+          error =>
+            return projection_worker_error_response(
+              request_id,
+              "execution-failed",
+              error.to_string(),
+            )
+        }
+        projection_worker_state_response(request_id, active)
       }
       WorkerSnapshot => {
         guard !disposed.val else {
