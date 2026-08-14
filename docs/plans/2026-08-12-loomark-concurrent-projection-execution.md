@@ -1,6 +1,6 @@
 # Loomark concurrent projection execution — implementation plan
 
-**Status:** Active plan; Commits 1–4 are implemented on draft PR #1249. Commit 5 is next.
+**Status:** Active plan; Commits 1–6 and the production Worker cutover slice of Commit 7 are implemented on draft PR #1249. Commit 7 promotion evidence and closure remain.
 
 **Canonical issue:** [#1244 — Loomark: move Markdown projection off the authority commit path](https://github.com/dowdiness/canopy/issues/1244)
 
@@ -806,6 +806,13 @@ session. Retain the old synchronous path for comparative browser evidence; do
 not expose runtime fallback.
 
 ### Commit 7 — promotion decision, production cutover, and cleanup
+
+**Implementation progress (2026-08-15):** `d78e332b` routes production
+Preview projection through the dedicated Worker, adopts only exact-stamp private
+typed artifacts, preserves last-good output across bounded restart, and removes
+application semantic-attachment reads. The release-browser matrix is green.
+This is not the promotion record: the 2k/10k/50k placement comparison, retained
+raw evidence, ADR status update, and closure checklist remain open.
 
 Run 2k/10k/50k release-browser scenarios for cold Seed, local edits at
 start/middle/end, sustained typing, back-to-back Block intent, demand-only
