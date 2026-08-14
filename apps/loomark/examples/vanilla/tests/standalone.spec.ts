@@ -41,6 +41,13 @@ async function replaceRawValue(input: Locator, value: string): Promise<void> {
  * | replacement failure | accepted edit after provider failure | applied source remains visible and reload restores the prior durable archive |
  */
 
+test("standalone page completes and terminates the Warren Worker capability smoke", async ({ page }) => {
+  await page.goto("/")
+  await expect.poll(() => page.evaluate(() => (
+    document.documentElement.dataset.loomarkWarrenWorkerCapability
+  ))).toBe("complete")
+})
+
 test("first standalone visit stores a complete baseline archive", async ({ page }) => {
   await page.goto("/")
 
