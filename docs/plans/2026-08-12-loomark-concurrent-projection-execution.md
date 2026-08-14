@@ -130,23 +130,33 @@ logic. Before extraction, classify each projection-relevant authority event
 exactly once as either a replayable `Advance`/`SourceUnchanged`, or a generation
 invalidation followed by coherent `Seed` recovery. Lifecycle replacement events
 do not masquerade as `SourceTransition`. If Seed needs full source and no
-immutable handle exists, record `SeedCaptureRequired`, return the authority
-result, and materialize source afterward.
+immutable handle exists, record a `NeedsSeed` control marker in A1, return the
+authority result, and materialize the coherent Seed afterward at B.
 
 Trace the authority path as:
 
 - **P0** — command preparation materializes the old source, maps UTF-16 offsets
   to CRDT positions, validates or snaps grapheme boundaries, computes the
   requested text change, and validates authority input;
-- **A0** — CRDT mutation and accepted/rejected/no-advance classification
-  linearize the authority transition;
-- **A1** — before/after causal versions, source identity/revision, and the small
-  accepted effect or receipt complete `CommittedTransition`; and
-- **B** — deferred Advance or Seed input is materialized.
+- **A0** — the authority outcome linearizes as an accepted causal transition,
+  no advance, or rejection; an attempted CRDT mutation may occur before this
+  classification but is not required for every outcome;
+- **A1** — only when A0 accepted a causal transition, before/after causal
+  versions, source identity/revision, and either a small accepted effect/evidence
+  or `NeedsSeed` control marker complete `CommittedTransition`; and
+- **B** — only after A1, deferred replay input or coherent Seed input is
+  materialized.
 
-Property tests and trace fields must make it structurally impossible for P0,
-A0, or A1 to perform full-source export beyond the existing P0 command input,
-history encoding, archive preparation, JSON generation, or Worker transfer.
+Every authority attempt has one terminal A0 outcome. Rejection or equal
+before/after causal versions produce no `CommittedTransition`, A1, or B; their
+terminal outcome remains on the authority-event axis. Equal source text with a
+changed causal version is an accepted transition: it proceeds through A1 with
+`SourceUnchanged`.
+
+P0 may retain only the existing command-input source materialization measured
+explicitly. P0, A0, and A1 perform no history export or encoding, archive
+preparation, JSON or Worker transfer, parser/projection/semantic work, Preview
+work, or DOM work. A0 and A1 add no full-source materialization or copy.
 
 ### Projection Adapter
 
@@ -300,10 +310,10 @@ may correlate several adopted group work items in the same frame.
 
 | Phase | Linearization point | Required fields |
 |---|---|---|
-| P0 — command preparation | Authority input is ready for mutation. | event id, operation kind, old-source materialization, UTF-16 mapping, grapheme validation/snapping, requested-change computation, input-validation durations |
-| A0 — authority mutation | CRDT mutation and accepted/rejected/no-advance classification linearize the authority transition. | event id, operation kind, classification, duration |
-| A1 — settled authority evidence | Before/after causal versions, source identity/revision, and small accepted effect complete `CommittedTransition` without full export. | event id, before/after document version, source revision/identity, evidence bytes, duration, forbidden-full-export control |
-| B — deferred source materialization | Advance or Seed input is available after A1. | event id, projection request id, input kind, bytes/copies, duration |
+| P0 — command preparation | Authority input is ready for the authority attempt. | event id, operation kind, old-source materialization, UTF-16 mapping, grapheme validation/snapping, requested-change computation, input-validation durations |
+| A0 — authority outcome | The attempt linearizes as accepted causal transition, no advance, or rejection. Every authority attempt terminates here. | event id, operation kind, outcome, mutation duration when attempted, classification duration |
+| A1 — settled committed-transition evidence | Only an accepted causal transition reaches A1. Before/after causal versions, source identity/revision, and a small accepted effect/evidence or `NeedsSeed` marker complete `CommittedTransition` without full export. | event id, before/after document version, source revision/identity, evidence/control-marker kind and bytes, duration, forbidden-full-export control |
+| B — deferred source materialization | Replay input or coherent Seed input is available after A1; no-advance/rejected outcomes never reach B. | event id, projection request id, input kind, bytes/copies, duration |
 | C — projection execution | Executor Seed/Advance begins and ends against one acknowledged base. | projection request id, placement, generation, sequence, base/result revision, queue wait, stage durations, request disposition |
 | D — artifact publication | One consistency-group envelope is complete. | projection request id, group work id, group, encoded bytes, encode/clone/decode durations, materialized-at |
 | E — application adoption | Reducer accepts or rejects one whole group. | group work id, group, stamp, currentness decision, duration, rejection reason, adoption outcome |
@@ -541,16 +551,19 @@ this commit.
 **Files:** generic `SyncEditor` mutation/parser internals, Markdown facade and
 runtime, focused characterization/property tests, and browser phase probes.
 
-**P0/A0/A1 measurement gate:** attribute command preparation, authority
-mutation, and settled evidence separately:
+**P0/A0/A1 measurement gate:** attribute command preparation, authority outcome,
+and conditionally settled transition evidence separately:
 
 - P0 reports old-source materialization, UTF-16-to-CRDT-position mapping,
   grapheme validation or snapping, requested text-change computation, and
   authority-input validation;
-- A0 reports CRDT mutation, accepted/rejected/no-advance classification, and
-  authority-transition linearization; and
-- A1 reports before/after causal versions, source identity/revision, small
-  accepted effect construction, and `CommittedTransition` completion.
+- A0 reports attempted CRDT mutation when present, accepted-transition,
+  no-advance, or rejected classification, and authority-outcome linearization;
+  and
+- A1 exists only for an accepted causal transition and reports before/after
+  causal versions, source identity/revision, small accepted effect/evidence or
+  `NeedsSeed` control-marker construction, and `CommittedTransition`
+  completion.
 
 Reuse existing allocation-free phase probes where they already identify these
 costs; measurement must not add per-operation full-source work or allocating
@@ -562,27 +575,34 @@ protocol as a production authority contract.
 
 **Red tests first:**
 
-1. each local accepted edit produces exactly one committed transition;
-2. a source-equal causal advance is `SourceUnchanged`, retains distinct
+1. every authority attempt emits exactly one terminal A0 outcome, while only an
+   accepted causal advance emits A1 and one committed transition;
+2. rejected and equal-version no-advance outcomes emit no A1, B, or
+   `CommittedTransition`;
+3. a source-equal causal advance is `SourceUnchanged`, retains distinct
    before/after causal versions, and cannot authorize an old intent;
-3. parser failure preserves the committed transition and fails only its
+4. `Seed@R` plus a contiguous suffix of replayable Advance and
+   `SourceUnchanged` transitions `R→N` is observationally equal to a fresh
+   projection at `N`;
+5. a `NeedsSeed` transition is never applied as Replay; it captures one coherent
+   `Seed@S` after A1, and `Seed@S` plus the contiguous replayable suffix `S→N`
+   is observationally equal to a fresh projection at `N`;
+6. parser failure preserves the committed transition and fails only its
    projection continuation;
-4. remote partial admission does not conflate the accepted transition with
+7. remote partial admission does not conflate the accepted transition with
    pending operations or issues;
-5. local and peer cursor reconciliation consume the same transition as parser
+8. local and peer cursor reconciliation consume the same transition as parser
    synchronization;
-6. the legacy synchronous result is observationally equal to interpreting the
+9. the legacy synchronous result is observationally equal to interpreting the
    committed transition through the new seam;
-7. replaying `Seed@R` plus committed transitions `R→N` is observationally equal
-   to a fresh projection at `N`;
-8. Raw, exact/structural edit, source replacement, and every currently reachable
-   authority path are classified exactly once without forcing full-source A0/A1
-   work;
-9. recovery, archive reopen, and session replacement invalidate the old
-   generation and issue coherent Seed recovery rather than masquerading as a
-   source transition;
-10. Seed capture occurs after settled authority evidence; and
-11. the public `SyncEditor` facade preserves its behavior and generated
+10. Raw, exact/structural edit, source replacement, and every currently
+    reachable authority path are classified exactly once without forcing
+    additional full-source P0/A0/A1 work;
+11. recovery, archive reopen, and session replacement invalidate the old
+    generation and issue coherent Seed recovery rather than masquerading as a
+    source transition;
+12. Seed capture occurs after settled authority evidence; and
+13. the public `SyncEditor` facade preserves its behavior and generated
     interface.
 
 Introduce one private concrete `CommittedTransition` seam in the existing
@@ -610,6 +630,13 @@ incremental history evidence. The transition itself contains no projection
 snapshot or view selection. Reuse accepted path-native `MarkdownTextTransform`
 or lower-layer operation evidence where available; never reconstruct the
 transition from before/after full source.
+
+Implement 5A in this order: authority-outcome and conditional-A1 red tests;
+replayable-suffix and `NeedsSeed` barrier-recovery properties; private
+`CommittedTransition` with custom constructors and typed rejection; legacy
+synchronous interpreter; parser-failure isolation; cursor/peer reconciliation
+parity; P0/A0/A1 measurement; then full-facade parity. Transition, outcome, and
+mismatch values derive equality and debug comparison.
 
 Consume #1241's canonical event representation if its production contract
 exists when this stage starts. Otherwise relocate only the existing accepted
@@ -781,18 +808,24 @@ assertions.
       characterization evidence.
 - [ ] Every accepted operation retains exact causal receipt/history evidence
       even when projection, persistence, or presentation later fails.
-- [ ] Authority P0/A0/A1 calls no full source/history export beyond the existing
-      P0 command input, archive preparation, JSON/transfer, parser, projection,
-      semantic, Preview, or DOM work.
+- [ ] P0 may retain only the existing command-input source materialization, and
+      that cost is measured explicitly.
+- [ ] P0, A0, and A1 perform no history export/encoding, archive preparation,
+      JSON/Worker transfer, parser/projection/semantic work, Preview work, or DOM
+      work. A0 and A1 add no full-source materialization or copy.
 - [ ] P0 separately attributes old-source materialization, UTF-16 mapping,
       grapheme validation/snapping, requested text-change computation, and
       authority-input validation.
-- [ ] A0 separately attributes CRDT mutation,
-      accepted/rejected/no-advance classification, and transition
-      linearization.
+- [ ] Every authority attempt has exactly one terminal A0 outcome: accepted
+      causal transition, no advance, or rejection. A0 separately attributes
+      attempted CRDT mutation when present, classification, and linearization.
+- [ ] Only an accepted causal transition reaches A1 and creates
+      `CommittedTransition`; rejection and equal-version no-advance produce no
+      A1 or B. Source-equal text with changed causal version reaches A1 as
+      `SourceUnchanged`.
 - [ ] A1 separately attributes before/after causal versions, source
-      identity/revision, small accepted-effect construction, and
-      `CommittedTransition` completion.
+      identity/revision, small accepted effect/evidence or `NeedsSeed`
+      control-marker construction, and `CommittedTransition` completion.
 - [ ] One private committed-transition value is the sole semantic seam consumed
       by interaction reconciliation and projection continuation; authority
       mutation is not repeated or reconstructed downstream.
@@ -820,10 +853,13 @@ assertions.
 - [ ] Each executor creates and retains its parser, `incr` runtime, semantic
       attachment, projection memos, and collection state inside its own
       Projection Session.
-- [ ] Normalized differential Seed+Advance replay has zero observable
-      differences across the complete corpus.
-- [ ] `Seed@R` plus committed transitions `R→N` is observationally equal to a
-      fresh projection at `N` across the differential corpus.
+- [ ] Normalized differential replayable Advance/SourceUnchanged suffixes have
+      zero observable differences across the complete corpus.
+- [ ] `Seed@R` plus a contiguous replayable Advance/SourceUnchanged suffix
+      `R→N` is observationally equal to a fresh projection at `N`.
+- [ ] Every `NeedsSeed` barrier is excluded from Replay, captures a coherent
+      `Seed@S` after A1, and satisfies `Seed@S` plus contiguous replayable suffix
+      `S→N` equals a fresh projection at `N`.
 - [ ] Production selects only the placement approved by the promotion record and
       never silently changes placement at runtime.
 - [ ] Pending slot, Advance count, encoded bytes, and retained source/effect
