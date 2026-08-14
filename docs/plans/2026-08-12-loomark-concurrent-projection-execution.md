@@ -375,13 +375,17 @@ façade-only or absent paths out of Loomark production dispatch.
 Commit 1 intentionally adds two generated typed observation interfaces.
 `SyncEditor::observe_projection_during` exposes the direct-dependent
 `ProjectionObservationPhase` for A0/C inside one scoped mutation observation.
-`MarkdownEditor::commit_with_receipt_observing` maps those phases into its own
-direct-dependent `MarkdownProjectionObservationPhase` and adds façade-owned A1
-causal evidence. Neither phase enum is transitively constructible, and neither
+Commit 5A additively extends that enum with `CommittedTransitionSettled`, emitted
+immediately after the one private `CommittedTransition` is constructed and
+before interaction reconciliation, parser synchronization, or projection work.
+`MarkdownEditor::commit_with_receipt_observing` maps A0 and this settled A1
+signal separately into its direct-dependent
+`MarkdownProjectionObservationPhase`; the façade then attaches deferred history
+evidence. Neither phase enum is transitively constructible, and neither
 operation exposes an arm/clear setter. Each scope cleans up on every exit,
 coalesces multi-span parser synchronization, and returns whether the CRDT
-acceptance seam was consumed. The returned acceptance fact, never lossy trace
-storage, controls causal-evidence emission.
+acceptance seam was consumed. Settled-transition evidence, never lossy trace
+storage, controls A1 emission.
 
 **Red tests first:**
 
@@ -610,8 +614,10 @@ protocol as a production authority contract.
     capture occurs after generation invalidation and coherent
     replacement-authority capture without a synthetic A0, A1, or
     `CommittedTransition`; and
-13. the public `SyncEditor` facade preserves its behavior and generated
-    interface.
+13. the public `SyncEditor` facade preserves its behavior; its generated
+    interface changes only by the additive
+    `ProjectionObservationPhase::CommittedTransitionSettled` observation
+    variant required to distinguish A1 from A0 without moving 5B ownership.
 
 Introduce one private concrete `CommittedTransition` seam in the existing
 package. It contains authority-owned receipt evidence, distinct before/after
