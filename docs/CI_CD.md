@@ -39,7 +39,7 @@ than duplicating its globs.
 | `test-examples` | Matrix over `apps/ideal`, `apps/block-editor`, `apps/canvas` — each runs `./scripts/run-moon-module.sh ci <path>` |
 | `prove` | `moon prove` in `modules/semantic/proof` after installing Why3 1.7.2 + Z3 via opam (cached) |
 | `benchmark` | PR only: `moon bench --release` at the root and in `deps/event-graph-walker` |
-| `format-check` | `./scripts/check-agent-doc-links.sh` and `./scripts/run-moon-module.sh fmt-check modules/canopy` |
+| `format-check` | `./scripts/check-agent-doc-links.sh`, `./scripts/check-documentation-lifecycle.sh`, `NEW_MOON_MOD=0 moon fmt`, and a diff check that rejects Canopy-owned formatting changes |
 | `build-js` | `./scripts/update-moon-deps.sh`, `./scripts/build-js.sh`; uploads the generated JS/d.ts/mbti artifacts listed below |
 | `web-build` | Default Waku build plus TypeScript/boundary checks for `apps/web`, then the ProseMirror typecheck |
 | `waku-build` | Builds the production Worker from downloaded MoonBit artifacts, verifies bundle/type boundaries, runs preview/production Wrangler dry-runs and startup analysis, and uploads the release artifacts |
@@ -198,7 +198,14 @@ jobs only when staged MoonBit-related paths match, and runs the tooling
 contract only for hook/task/compatibility changes. The MoonBit jobs receive no
 staged-file arguments: they retain the existing `modules/canopy` module scope.
 `glob_matcher: doublestar` covers root and nested paths, while the piped group
-keeps MoonBit `check` before `fmt-check`.
+keeps MoonBit `check` before `fmt-check`. The MoonBit route also includes the
+just recipe and the scripts that implement its module and vendored checks, so
+changing those operations exercises the operations themselves.
+
+A separate `moonbit-rename` job reads staged rename metadata with Git's
+pre-image and post-image paths. If a MoonBit source is moved outside the normal
+route, it runs the same `check` then `fmt-check` tasks; ordinary staged
+additions, modifications, and deletions continue through the glob group.
 
 The public `just check` and `just fmt-check` recipes retain their explicit
 repository-contract plus main-module behavior. The `pre-commit` recipe is the

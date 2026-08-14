@@ -19,6 +19,10 @@ pre-commit:
         - "**/moon.pkg.json"
         - "moon.work"
         - "moon.work.json"
+        - "justfile"
+        - "scripts/run-moon-module.sh"
+        - "scripts/vendored-check-common.sh"
+        - "scripts/run-moonbit-rename-route.sh"
         - "modules/**"
         - "apps/**"
         - "examples/**"
@@ -32,6 +36,9 @@ pre-commit:
           - name: format
             run: just hook-moonbit-format-check
 
+    - name: moonbit-rename
+      run: ./scripts/run-moonbit-rename-route.sh
+
     - name: tooling
       glob:
         - "lefthook.yml"
@@ -42,5 +49,6 @@ pre-commit:
         - "scripts/install-hooks.sh"
         - "scripts/test-install-hooks.sh"
         - "scripts/test-lefthook-pre-commit-routing.sh"
+        - "scripts/run-moonbit-rename-route.sh"
         - ".github/workflows/ci.yml"
       run: just hook-tooling-contract

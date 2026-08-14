@@ -35,7 +35,7 @@ hook-tooling-contract:
     @just --unstable --fmt --check
     @just --dry-run pre-commit
     @make -n check
-    @bash -n .githooks/pre-commit scripts/install-hooks.sh scripts/test-install-hooks.sh scripts/test-lefthook-pre-commit-routing.sh
+    @bash -n .githooks/pre-commit scripts/install-hooks.sh scripts/test-install-hooks.sh scripts/test-lefthook-pre-commit-routing.sh scripts/run-moonbit-rename-route.sh
     @nu --ide-check 100 scripts/install-hooks.nu
     @lefthook validate
 

@@ -134,6 +134,7 @@ jobs:
               - 'scripts/install-hooks.sh'
               - 'scripts/test-install-hooks.sh'
               - 'scripts/test-lefthook-pre-commit-routing.sh'
+              - 'scripts/run-moonbit-rename-route.sh'
               - '.github/workflows/ci.yml'
               - '.github/workflows/release.yml'
             run_release_version_validation:

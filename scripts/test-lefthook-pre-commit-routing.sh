@@ -24,8 +24,10 @@ OUTPUT="$FIXTURE/lefthook-output.log"
 EXPECTED="$FIXTURE/expected.log"
 trap 'rm -rf "$FIXTURE"' EXIT HUP INT TERM
 
-mkdir -p "$FIXTURE/bin" "$FIXTURE/modules/canopy/core"
+mkdir -p "$FIXTURE/bin" "$FIXTURE/modules/canopy/core" "$FIXTURE/scripts"
 cp "$REPO_ROOT/lefthook.yml" "$FIXTURE/lefthook.yml"
+cp "$REPO_ROOT/scripts/run-moonbit-rename-route.sh" "$FIXTURE/scripts/run-moonbit-rename-route.sh"
+chmod +x "$FIXTURE/scripts/run-moonbit-rename-route.sh"
 
 cat > "$FIXTURE/bin/just" <<'EOF'
 #!/bin/sh
@@ -41,6 +43,8 @@ printf '%s\n' 'baseline' > "$FIXTURE/README.md"
 printf '%s\n' 'baseline' > "$FIXTURE/justfile"
 printf '%s\n' 'baseline' > "$FIXTURE/modules/canopy/core/deleted.mbt"
 printf '%s\n' 'baseline' > "$FIXTURE/modules/canopy/core/rename-before.mbt"
+printf '%s\n' 'baseline' > "$FIXTURE/scripts/run-moon-module.sh"
+printf '%s\n' 'baseline' > "$FIXTURE/scripts/vendored-check-common.sh"
 
 git -C "$FIXTURE" init --quiet
 git -C "$FIXTURE" symbolic-ref HEAD refs/heads/main
@@ -169,7 +173,25 @@ test_dependencies_zone() {
   stage_file deps/fixture/config.txt 'dependency change'
 }
 
-test_tooling() {
+test_moonbit_runner_script() {
+  stage_file scripts/run-moon-module.sh 'updated MoonBit runner'
+}
+
+test_vendored_check_script() {
+  stage_file scripts/vendored-check-common.sh 'updated vendored check helper'
+}
+
+test_moonbit_rename_route_script() {
+  cp "$REPO_ROOT/scripts/run-moonbit-rename-route.sh" "$FIXTURE/scripts/run-moonbit-rename-route.sh"
+  printf '%s\n' '# staged route implementation change' >> "$FIXTURE/scripts/run-moonbit-rename-route.sh"
+  git -C "$FIXTURE" add scripts/run-moonbit-rename-route.sh
+}
+
+test_tooling_config() {
+  stage_file Makefile 'updated Makefile'
+}
+
+test_justfile() {
   stage_file justfile 'updated justfile'
 }
 
@@ -184,6 +206,23 @@ test_deleted_moonbit() {
 
 test_renamed_moonbit() {
   git -C "$FIXTURE" mv modules/canopy/core/rename-before.mbt modules/canopy/core/rename-after.mbt
+}
+
+test_renamed_moonbit_outside_route() {
+  mkdir -p "$FIXTURE/docs"
+  git -C "$FIXTURE" mv modules/canopy/core/rename-before.mbt docs/rename-after.txt
+}
+
+test_renamed_moonbit_with_normal_route() {
+  mkdir -p "$FIXTURE/docs"
+  git -C "$FIXTURE" mv modules/canopy/core/rename-before.mbt docs/rename-after.txt
+  stage_file modules/canopy/core/other.mbt 'normal MoonBit change'
+}
+
+test_renamed_moonbit_with_deleted_route() {
+  mkdir -p "$FIXTURE/docs"
+  git -C "$FIXTURE" mv modules/canopy/core/rename-before.mbt docs/rename-after.txt
+  git -C "$FIXTURE" rm --quiet modules/canopy/core/deleted.mbt
 }
 
 run_case 'unrelated text only' test_unrelated \
@@ -220,11 +259,25 @@ run_case 'adapters zone' test_adapters_zone \
   hook-repository-contract hook-moonbit-check hook-moonbit-format-check
 run_case 'dependencies zone' test_dependencies_zone \
   hook-repository-contract hook-moonbit-check hook-moonbit-format-check
-run_case 'tooling configuration' test_tooling \
+run_case 'MoonBit runner script' test_moonbit_runner_script \
+  hook-repository-contract hook-moonbit-check hook-moonbit-format-check
+run_case 'vendored check script' test_vendored_check_script \
+  hook-repository-contract hook-moonbit-check hook-moonbit-format-check
+run_case 'MoonBit rename route script' test_moonbit_rename_route_script \
+  hook-repository-contract hook-moonbit-check hook-moonbit-format-check hook-tooling-contract
+run_case 'tooling configuration' test_tooling_config \
   hook-repository-contract hook-tooling-contract
+run_case 'justfile hook tasks' test_justfile \
+  hook-repository-contract hook-moonbit-check hook-moonbit-format-check hook-tooling-contract
 run_case 'MoonBit and tooling' test_moonbit_and_tooling \
   hook-repository-contract hook-moonbit-check hook-moonbit-format-check hook-tooling-contract
 run_case 'deleted MoonBit file' test_deleted_moonbit \
   hook-repository-contract hook-moonbit-check hook-moonbit-format-check
 run_case 'renamed MoonBit file' test_renamed_moonbit \
+  hook-repository-contract hook-moonbit-check hook-moonbit-format-check
+run_case 'renamed MoonBit file outside route' test_renamed_moonbit_outside_route \
+  hook-repository-contract hook-moonbit-check hook-moonbit-format-check
+run_case 'renamed MoonBit file with normal route' test_renamed_moonbit_with_normal_route \
+  hook-repository-contract hook-moonbit-check hook-moonbit-format-check
+run_case 'renamed MoonBit file with deleted route' test_renamed_moonbit_with_deleted_route \
   hook-repository-contract hook-moonbit-check hook-moonbit-format-check
