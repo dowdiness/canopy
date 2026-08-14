@@ -38,7 +38,8 @@ upstream Rabbita change.
 3. Run the full Rabbita test suite.
 4. Run the full Canopy test suite and the affected Ideal E2E tests.
 5. Build the JavaScript artifacts.
-6. Update the `deps/rabbita` submodule to the verified downstream commit.
+6. Update the `deps/rabbita` submodule and
+   `scripts/install-local-warren.sh` to the same verified downstream commit.
 7. Record the new commit and tag here, then verify the superproject is clean.
 
 A downstream commit must be pushed to `dowdiness/rabbita` before its gitlink is
