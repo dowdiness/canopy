@@ -49,7 +49,7 @@ def tag-candidate [tag: string source: string version: string] {
 }
 
 def reachable-stable-tags [source: string version: string] {
-  let tags = (git-output ["for-each-ref", "--format=%(refname:short)", "refs/tags"] | lines)
+  let tags = (git-output ["for-each-ref", "--format=%(refname:strip=2)", "refs/tags"] | lines)
   $tags | each {|tag| tag-candidate $tag $source $version } | compact
 }
 
