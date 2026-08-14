@@ -1044,7 +1044,7 @@ root.addEventListener('pointercancel', (e: PointerEvent) => {
       return;
     }
     if (e.pointerId !== activePointerId) return;
-    adapter.pointerUp('', '', false);
+    adapter.pointerInterrupt();
     activePointerId = -1;
     pointerDownNodeId = '';
     pointerUpAdditive = false;
@@ -1053,7 +1053,7 @@ root.addEventListener('pointercancel', (e: PointerEvent) => {
     return;
   }
   if (e.pointerId !== activePointerId) return;
-  adapter.pointerUp('', '', false);
+  adapter.pointerInterrupt();
   activePointerId = -1;
   pointerDownNodeId = '';
   pointerUpAdditive = false;

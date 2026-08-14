@@ -637,3 +637,60 @@ test('input handles preview compatibility during a connection drag', async ({ pa
   await expect(inputHandle(page, 6)).not.toHaveClass(/incompatible-target/);
   expect(runtimeErrors).toEqual([]);
 });
+
+test('pointercancel interrupts a canvas drag without committing it', async ({ page }) => {
+  const runtimeErrors: string[] = [];
+  page.on('pageerror', (error) => runtimeErrors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') runtimeErrors.push(message.text());
+  });
+
+  await page.goto('/');
+  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  const node = page.locator('.canvas-node[data-node-id="1"]');
+  const before = await node.evaluate((element) => ({
+    left: (element as HTMLElement).style.left,
+    top: (element as HTMLElement).style.top,
+    rect: element.getBoundingClientRect().toJSON(),
+  }));
+
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    const node = document.querySelector('.canvas-node[data-node-id="1"]');
+    if (!node) throw new Error('canvas node is missing');
+    root.setPointerCapture = () => undefined;
+    const rect = node.getBoundingClientRect();
+    node.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId: 71,
+      button: 0,
+      clientX: rect.left + rect.width / 2,
+      clientY: rect.top + rect.height / 2,
+    }));
+    root.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true,
+      pointerId: 71,
+      buttons: 1,
+      clientX: rect.left + rect.width / 2 + 48,
+      clientY: rect.top + rect.height / 2 + 32,
+    }));
+    root.dispatchEvent(new PointerEvent('pointercancel', {
+      bubbles: true,
+      pointerId: 71,
+      clientX: rect.left + rect.width / 2 + 48,
+      clientY: rect.top + rect.height / 2 + 32,
+    }));
+  });
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+
+  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  await expect(node).not.toHaveClass(/(?:^|\s)selected(?:\s|$)/);
+  const after = await node.evaluate((element) => ({
+    left: (element as HTMLElement).style.left,
+    top: (element as HTMLElement).style.top,
+    rect: element.getBoundingClientRect().toJSON(),
+  }));
+  expect(after.left).toBe(before.left);
+  expect(after.top).toBe(before.top);
+  expect(runtimeErrors).toEqual([]);
+});

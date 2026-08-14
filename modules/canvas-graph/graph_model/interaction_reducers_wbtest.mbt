@@ -325,6 +325,89 @@ test "pointer_up on background deselects" {
 }
 
 ///|
+test "pointer_interrupt drops drag without committing positions" {
+  let state = apply_action(make_test_state(), SelectNodes([NodeId("2")]))
+  let started = update_node_drag_start(
+    state,
+    NodeId("1"),
+    world_point(110.0, 120.0),
+  )
+  let interrupted = update_pointer_interrupt({
+    ..started,
+    interaction: { ..started.interaction, did_move: true },
+  })
+  assert_eq(interrupted.nodes, state.nodes)
+  assert_eq(interrupted.action_log, state.action_log)
+  @debug.assert_eq(interrupted.interaction.selected_nodes, [NodeId("2")])
+  assert_true(interrupted.interaction.dragging is None)
+  assert_true(interrupted.interaction.panning is None)
+  assert_true(interrupted.interaction.connecting is None)
+  assert_eq(interrupted.interaction.pointer_down, false)
+  assert_eq(interrupted.interaction.did_move, false)
+}
+
+///|
+test "pointer_interrupt preserves the current viewport and commits moved pan" {
+  let state = make_test_state()
+  let started = update_pan_start(state, screen_point(10.0, 20.0))
+  let moved = update_pan_move(started, screen_point(40.0, 65.0))
+  let interrupted = update_pointer_interrupt(moved)
+  assert_eq(interrupted.viewport, moved.viewport)
+  assert_eq(interrupted.action_log.length(), 1)
+  match interrupted.action_log[0].action() {
+    SetViewport(viewport) => assert_eq(viewport, moved.viewport)
+    _ => fail("expected SetViewport action")
+  }
+  assert_true(interrupted.interaction.panning is None)
+  assert_eq(interrupted.interaction.pointer_down, false)
+  assert_eq(interrupted.interaction.did_move, false)
+  let repeated = update_pointer_interrupt(interrupted)
+  assert_eq(repeated.action_log.length(), 1)
+}
+
+///|
+test "pointer_interrupt does not commit an unmoved pan" {
+  let state = make_test_state()
+  let started = update_pan_start(state, screen_point(10.0, 20.0))
+  let interrupted = update_pointer_interrupt(started)
+  assert_eq(interrupted.viewport, state.viewport)
+  assert_eq(interrupted.action_log.length(), 0)
+  assert_true(interrupted.interaction.panning is None)
+}
+
+///|
+test "pointer_interrupt does not select a click target" {
+  let state = apply_action(make_test_state(), SelectNodes([NodeId("2")]))
+  let started = update_node_drag_start(
+    state,
+    NodeId("1"),
+    world_point(100.0, 100.0),
+  )
+  let interrupted = update_pointer_interrupt(started)
+  @debug.assert_eq(interrupted.interaction.selected_nodes, [NodeId("2")])
+  assert_eq(interrupted.action_log, state.action_log)
+  assert_true(interrupted.interaction.dragging is None)
+}
+
+///|
+test "pointer_interrupt drops an in-flight connection" {
+  let state = make_test_state()
+  let started = update_connect_start(
+    state,
+    NodeId("1"),
+    "tick",
+    world_point(0.0, 0.0),
+  )
+  let moved = update_connect_move(started, world_point(333.0, 444.0))
+  let interrupted = update_pointer_interrupt(moved)
+  assert_eq(interrupted.edges, state.edges)
+  assert_eq(interrupted.action_log.length(), 0)
+  assert_true(interrupted.interaction.connecting is None)
+  assert_eq(interrupted.interaction.pointer_down, false)
+  assert_eq(interrupted.interaction.did_move, false)
+}
+
+///|
 test "connect_start records source node, source port, and cursor world position" {
   let state = make_test_state()
   let s = update_connect_start(

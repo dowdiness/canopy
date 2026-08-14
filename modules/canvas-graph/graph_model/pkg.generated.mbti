@@ -54,6 +54,8 @@ pub fn update_pan_move(CanvasState, @spatial.ScreenPoint) -> CanvasState
 
 pub fn update_pointer_down(CanvasState, NodeId?, @spatial.ScreenPoint) -> CanvasState raise @spatial.CoordinateError
 
+pub fn update_pointer_interrupt(CanvasState) -> CanvasState
+
 pub fn update_pointer_up(CanvasState, String, String, Bool) -> CanvasState
 
 pub fn update_zoom(CanvasState, Double, @spatial.ScreenPoint) -> CanvasState

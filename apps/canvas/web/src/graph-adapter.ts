@@ -15,6 +15,7 @@ export type CanvasModule = {
     targetPortId: string,
     additive: boolean,
   ) => void;
+  pointer_interrupt: (h: number) => void;
   hover_node: (h: number, nodeId: string) => void;
   zoom: (h: number, delta: number, cx: number, cy: number) => void;
   add_node: (h: number, kindKey: string, sx: number, sy: number) => void;
@@ -54,6 +55,7 @@ export type CanvasModule = {
     targetPortId: string,
     additive: boolean,
   ) => void;
+  source_graph_pointer_interrupt?: (h: number) => void;
   get_source_graph_input_port_compatibility?: (
     h: number,
     source: string,
@@ -90,6 +92,7 @@ type SourceCanvasModule = CanvasModule & {
     targetPortId: string,
     additive: boolean,
   ) => void;
+  source_graph_pointer_interrupt: (h: number) => void;
   get_source_graph_input_port_compatibility: (
     h: number,
     source: string,
@@ -111,6 +114,7 @@ const SOURCE_METHODS = [
   'source_graph_pointer_down',
   'source_graph_pointer_move',
   'source_graph_pointer_up',
+  'source_graph_pointer_interrupt',
   'get_source_graph_input_port_compatibility',
   'source_graph_zoom',
 ] as const;
@@ -523,6 +527,16 @@ export class GraphAdapter {
       );
     } else {
       this.mb.pointer_up(this.handle, nodeId, targetPortId, additive);
+    }
+    this.emitLatestOperations();
+  }
+
+  pointerInterrupt(): void {
+    this.assertLive();
+    if (this.isSourceBacked) {
+      this.sourceModule().source_graph_pointer_interrupt(this.handle);
+    } else {
+      this.mb.pointer_interrupt(this.handle);
     }
     this.emitLatestOperations();
   }

@@ -524,6 +524,13 @@ fn CanvasRuntime::pointer_up(
 }
 
 ///|
+fn CanvasRuntime::pointer_interrupt(self : CanvasRuntime) -> Unit {
+  self.sync_commit_state(
+    @graph_model.update_pointer_interrupt(self.state_peek()),
+  )
+}
+
+///|
 fn CanvasRuntime::zoom(
   self : CanvasRuntime,
   delta : Double,
