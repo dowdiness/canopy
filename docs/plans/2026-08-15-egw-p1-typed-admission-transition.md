@@ -248,8 +248,10 @@ required_pending =
 
 `new_staged_count` includes every unique, non-admitted, non-existing-pending,
 non-discarded staged identity, including unresolved nodes that are not in the
-compatibility-ordered `planned` list. The formula must be calculated during
-preparation and rechecked at begin. Begin validates it before removing or
+compatibility-ordered `planned` list. For `DeferredFast` it equals the unique
+planned count; for `ImmediateGeneral` it equals the materialized staged-node
+count, which may be larger than `planned.length()`. The formula must be
+calculated during preparation and rechecked at begin. Begin validates it before removing or
 registering any planner node; registering the full staged set is the one-time
 reservation, and successful acknowledgements only decrease live pending
 membership. A post-prefix `PendingLimitExceeded` is not an acceptable design:
