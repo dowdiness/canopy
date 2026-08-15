@@ -10,12 +10,17 @@ const samples = Number.parseInt(process.env.LOOMARK_PROJECTION_SAMPLES ?? "3", 1
 const sizes = (process.env.LOOMARK_PROJECTION_SIZES ?? "2000,10000,50000")
   .split(",")
   .map(Number)
-const placements = ["worker", "in-process", "synchronous"]
-const latinSquare = [
-  ["worker", "in-process", "synchronous"],
-  ["in-process", "synchronous", "worker"],
-  ["synchronous", "worker", "in-process"],
-]
+const placements = (process.env.LOOMARK_PROJECTION_PLACEMENTS ?? "worker,in-process,synchronous")
+  .split(",")
+const latinSquare = placements.length === 3
+  ? [
+      ["worker", "in-process", "synchronous"],
+      ["in-process", "synchronous", "worker"],
+      ["synchronous", "worker", "in-process"],
+    ]
+  : [placements]
+const mainThreadTraceEnabled = process.env.LOOMARK_MAIN_THREAD_TRACE === "1"
+
 const mime = new Map([
   [".css", "text/css"],
   [".html", "text/html"],
@@ -67,6 +72,64 @@ async function serve() {
   if (typeof address !== "object" || address === null) throw new Error("server did not bind")
   return { server, origin: `http://127.0.0.1:${address.port}` }
 }
+async function startMainThreadTrace(context, page) {
+  if (!mainThreadTraceEnabled) return null
+  const session = await context.newCDPSession(page)
+  const events = []
+  session.on("Tracing.dataCollected", ({ value }) => events.push(...value))
+  await session.send("Tracing.start", {
+    categories: "blink.user_timing,devtools.timeline,v8",
+    options: "sampling-frequency=10000",
+  })
+  return { session, events }
+}
+
+async function stopMainThreadTrace(trace) {
+  if (trace === null) return null
+  const complete = new Promise(resolve => trace.session.once("Tracing.tracingComplete", resolve))
+  await trace.session.send("Tracing.end")
+  await complete
+  await trace.session.detach()
+  return summarizeMainThreadTrace(trace.events)
+}
+
+function summarizeMainThreadTrace(events) {
+  const userTimingEvents = events.filter(event => (
+    event.cat?.includes("blink.user_timing") &&
+    event.name.startsWith("loomark:")
+  ))
+  const marks = new Map(userTimingEvents.map(event => [event.name, event]))
+  const intervals = []
+  for (const [name, start] of marks) {
+    if (!name.startsWith("loomark:") || !name.endsWith(":start")) continue
+    const scenario = name.slice("loomark:".length, -":start".length)
+    const end = marks.get(`loomark:${scenario}:end`)
+    if (end === undefined || end.tid !== start.tid || end.ts < start.ts) continue
+    const selected = events.filter(event => (
+      event.tid === start.tid &&
+      typeof event.dur === "number" &&
+      event.ts >= start.ts &&
+      event.ts + event.dur <= end.ts
+    ))
+    const durationFor = names => selected
+      .filter(event => names.has(event.name))
+      .reduce((sum, event) => sum + event.dur, 0) / 1000
+    intervals.push({
+      scenario,
+      elapsed_ms: (end.ts - start.ts) / 1000,
+      function_call_ms: durationFor(new Set(["FunctionCall"])),
+      style_layout_ms: durationFor(new Set(["UpdateLayoutTree", "Layout"])),
+      paint_ms: durationFor(new Set(["PrePaint", "Paint", "CompositeLayers"])),
+      run_task_ms: durationFor(new Set(["RunTask"])),
+      event_count: selected.length,
+    })
+  }
+  return {
+    intervals: intervals.sort((left, right) => left.scenario.localeCompare(right.scenario)),
+    mark_shapes: [...new Set(userTimingEvents.map(event => `${event.ph}:${event.cat}`))],
+  }
+}
+
 
 async function installObservers(page) {
   await page.addInitScript(() => {
@@ -147,24 +210,26 @@ async function waitForPreview(page, source, renderedMarker) {
 }
 
 async function measured(page, name, action, settle) {
-  await page.evaluate(() => {
+  await page.evaluate(scenario => {
     const state = globalThis.__loomarkPlacementBench
     state.longTasks.length = 0
     state.frameGaps.length = 0
-  })
+    performance.mark(`loomark:${scenario}:start`)
+  }, name)
   const started = await page.evaluate(() => performance.now())
   await action()
   await settle()
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
-  const observed = await page.evaluate(start => {
+  const observed = await page.evaluate((input) => {
     const state = globalThis.__loomarkPlacementBench
+    performance.mark(`loomark:${input.name}:end`)
     return {
-      duration_ms: performance.now() - start,
+      duration_ms: performance.now() - input.started,
       long_task_count: state.longTasks.length,
       long_task_total_ms: state.longTasks.reduce((sum, value) => sum + value, 0),
       max_frame_gap_ms: Math.max(0, ...state.frameGaps),
     }
-  }, started)
+  }, { name, started })
   return { name, ...observed }
 }
 
@@ -175,6 +240,8 @@ async function runSample(browser, origin, placement, blocks, round) {
   await page.goto(`${origin}/?projection-placement=${placement}&projection-benchmark=1`)
   await page.locator("#loomark-split-toggle").click()
   await page.locator("#loomark-preview").waitFor()
+  const mainThreadTrace = await startMainThreadTrace(context, page)
+
 
   const base = corpus(blocks)
   const scenarios = []
@@ -214,6 +281,8 @@ async function runSample(browser, origin, placement, blocks, round) {
     () => replaceRaw(page, current),
     () => page.waitForTimeout(0),
   ))
+  const mainThread = await stopMainThreadTrace(mainThreadTrace)
+
 
   await page.locator("#loomark-projection-trace-dump").dispatchEvent("click")
   const traceRaw = await page.locator("html").getAttribute("data-loomark-projection-trace")
@@ -224,7 +293,16 @@ async function runSample(browser, origin, placement, blocks, round) {
     return memory ? memory.usedJSHeapSize : null
   })
   await context.close()
-  return { placement, lines: blocks, round, source_bytes: Buffer.byteLength(base), scenarios, trace, post_gc_heap_bytes: heap }
+  return {
+    placement,
+    lines: blocks,
+    round,
+    source_bytes: Buffer.byteLength(base),
+    scenarios,
+    trace,
+    main_thread: mainThread,
+    post_gc_heap_bytes: heap,
+  }
 }
 
 async function childMain() {
@@ -356,7 +434,7 @@ for (const blocks of sizes) {
 }
 
 const report = {
-  schema_version: 1,
+  schema_version: 2,
   generated_at: new Date().toISOString(),
   environment: {
     commit_sha: process.env.LOOMARK_PROJECTION_COMMIT ?? "unrecorded",
@@ -364,12 +442,28 @@ const report = {
     playwright: "1.61.1",
     samples,
     sizes,
-    run_order: "3x3 Latin square rotated by sample within each corpus size",
+    placements,
+    run_order: placements.length === 3
+      ? "3x3 Latin square rotated by sample within each corpus size"
+      : "configured placement order repeated for each sample and corpus size",
     edit_protocol: "cold whole-source Seed followed by one-character native insertText edits",
     forced_gc: "Chromium --js-flags=--expose-gc before post_gc_heap_bytes",
   },
   controls: {
     tracing_requested: true,
+    main_thread_tracing_requested: mainThreadTraceEnabled,
+    all_main_thread_intervals_complete: !mainThreadTraceEnabled || runs.every(
+      run => run.main_thread?.intervals?.length === 6,
+    ),
+    all_main_thread_positive_controls: !mainThreadTraceEnabled || runs.every(run => {
+      const cold = run.main_thread?.intervals?.find(
+        interval => interval.scenario === "cold-seed-preview",
+      )
+      const noOp = run.main_thread?.intervals?.find(
+        interval => interval.scenario === "source-equal-advance",
+      )
+      return cold?.function_call_ms > 0 && cold?.elapsed_ms > noOp?.elapsed_ms
+    }),
     all_runs_completed: runs.every(run => !run.error),
     all_traces_enabled: runs.every(run => run.trace?.enabled === true),
     all_traces_nonempty: runs.every(run => run.trace?.count > 0),
