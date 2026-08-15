@@ -435,10 +435,8 @@ extern "js" fn start_projection_worker_gate(
   #|       ),
   #|       "none",
   #|     );
-  #|     const promotionRecommended = workerMaxLongTaskMs < 50;
-  #|     const promotionRejection = promotionRecommended
-  #|       ? "none"
-  #|       : `main-thread-long-task:${workerMaxLongTaskPhase}`;
+  #|     const promotionRecommended = false;
+  #|     const promotionRejection = "release-browser-placement-evidence-required";
   #|
   #|     const report = {
   #|       parity,

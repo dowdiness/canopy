@@ -114,13 +114,8 @@ test("standalone projection Worker passes Gate 0C parity, restart, timeout, and 
   expect(report.max_long_task_ms).toBeGreaterThanOrEqual(
     report.worker_max_long_task_ms ?? Number.POSITIVE_INFINITY,
   )
-  const workerWithinLongTaskBudget = (report.worker_max_long_task_ms ?? Infinity) < 50
-  expect(report.promotion_recommended).toBe(workerWithinLongTaskBudget)
-  expect(report.promotion_rejection).toBe(
-    workerWithinLongTaskBudget
-      ? "none"
-      : `main-thread-long-task:${report.worker_max_long_task_phase}`,
-  )
+  expect(report.promotion_recommended).toBe(false)
+  expect(report.promotion_rejection).toBe("release-browser-placement-evidence-required")
 })
 
 test("first standalone visit stores a complete baseline archive", async ({ page }) => {
@@ -322,6 +317,10 @@ test("Raw, Block, and Preview editing stays inside the original production root"
   await page.goto("/")
   const root = page.locator("#loomark-root")
   await expect(root).toBeVisible()
+  await expect(root).toHaveAttribute(
+    "data-loomark-projection-placement",
+    "synchronous",
+  )
   await root.evaluate(element => element.setAttribute("data-mount-probe", "original"))
 
   await replaceRawValue(page.locator("#loomark-input"), "# Before\n\nBody\n")
@@ -340,6 +339,55 @@ test("Raw, Block, and Preview editing stays inside the original production root"
   await expect(page.locator("#loomark-preview p")).toHaveText("Body")
   await expect(root).toHaveAttribute("data-mount-probe", "original")
   await expect(root).toHaveCount(1)
+})
+
+for (const placement of ["worker", "in-process", "synchronous"] as const) {
+  test(`${placement} comparison placement preserves canonical Preview`, async ({ page }) => {
+    await page.goto(`/?projection-placement=${placement}`)
+    const root = page.locator("#loomark-root")
+    await expect(root).toHaveAttribute("data-loomark-projection-placement", placement)
+    await replaceRawValue(page.locator("#loomark-input"), "# Placement\n\nBody\n")
+    await page.locator("#loomark-mode-preview").click()
+    await expect(page.locator('#loomark-preview h1[data-slot="typography-h1"]')).toHaveText(
+      "Placement",
+    )
+    await expect(page.locator("#loomark-preview p")).toHaveText("Body")
+    await expect(page.locator("#loomark-preview")).toHaveAttribute(
+      "data-loomark-source",
+      "# Placement\n\nBody\n",
+    )
+  })
+}
+
+test("projection trace is absent by default and records only after explicit opt-in", async ({
+  page,
+}) => {
+  await page.goto("/")
+  await expect(page.locator("#loomark-projection-trace-dump")).toHaveCount(0)
+  await expect(page.locator("html")).not.toHaveAttribute(
+    "data-loomark-projection-trace",
+    /.+/,
+  )
+
+  await page.goto("/?projection-benchmark=1")
+  await replaceRawValue(page.locator("#loomark-input"), "# Trace\n\nBody\n")
+  await page.locator("#loomark-mode-preview").click()
+  await expect(page.locator("#loomark-preview p")).toHaveText("Body")
+  await page.locator("#loomark-projection-trace-dump").dispatchEvent("click")
+  const trace = await page.locator("html").getAttribute("data-loomark-projection-trace")
+  expect(trace).not.toBeNull()
+  const report = JSON.parse(trace ?? "{}") as {
+    enabled?: boolean
+    count?: number
+    dropped_count?: number
+    overflowed?: boolean
+    contract_violated?: boolean
+  }
+  expect(report.enabled).toBe(true)
+  expect(report.count).toBeGreaterThan(0)
+  expect(report.dropped_count).toBe(0)
+  expect(report.overflowed).toBe(false)
+  expect(report.contract_violated).toBe(false)
 })
 
 test("ordinary consecutive Block input preserves both characters and the caret", async ({ page }) => {
