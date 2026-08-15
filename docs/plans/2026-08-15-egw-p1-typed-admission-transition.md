@@ -35,7 +35,8 @@ must distinguish:
 
 - the prospective, generation-bound capability known before authority mutation;
 - the actual complete or partial outcome known only after the commit attempt;
-- the hard pending capacity needed before either complete or partial execution.
+- the hard pending-membership precondition that must hold immediately after
+  `begin_admission` and therefore before either complete or partial execution.
 
 This is a typed transition boundary, not a new dependency planner and not a
 production Canopy cutover.
@@ -53,21 +54,21 @@ The EGW submodule, starting from the P0 merge on a fresh branch:
 - the intentionally changed EGW `internal/oplog/pkg.generated.mbti`
 - `deps/event-graph-walker/text/errors.mbt` for the intentional pending-limit
   error mapping
-- a docs-only clarification to the accepted
+- the prerequisite, separately merged EGW docs-only amendment to the accepted
   `deps/event-graph-walker/docs/adr/0008-core-owned-batch-remote-admission-over-legacy-op.md`
-- package-local ownership, partial-transition, retry, and capacity properties
+- package-local ownership, partial-transition, retry, and pending-limit properties
 
 The P1 boundary includes:
 
 - extending `PreparedAdmission` with the complete prospective transition;
 - introducing a typed `AdmissionOutcome` and `AdmissionReceipt` for actual
   commit results;
-- exact identity-level accounting for committed, duplicate, retained,
-  staged, and discarded membership;
-- an exact peak pending-capacity gate checked before authority mutation and
-  safe for a partial suffix; the live planner pending membership is the
-  reservation in the current synchronous shell, with no independent reserved
-  counter unless a future reentrant shell requires one;
+- exact affected-identity accounting for committed, `already_admitted`,
+  pending, and discarded membership, with retained/staged provenance and
+  duplicate-delivery evidence kept on separate axes;
+- an exact pending-membership precondition checked before authority mutation
+  and safe for a partial suffix; the current synchronous shell proves the
+  bound from planner membership without an independent pending-limit counter;
 - a new core capability for typed admission, while preserving the existing
   `commit_remote` compatibility behavior through P2;
 - no new planner algorithm: `RemoteAdmissionPlanner` remains the sole owner of
@@ -84,8 +85,9 @@ The P1 boundary includes:
 - `TextReplica`, Persistence Coordinator, Worker replay, or reconnect work;
 - public Canopy API redesign;
 - Canopy submodule/gitlink changes;
-- a new ADR for this phase; ADR 0008 receives only the explicit clarification
-  needed to distinguish the prospective capability from its actual outcome.
+- a new ADR for this phase; a separate EGW docs-only amendment to ADR 0008
+  must land before the P1 implementation branch so the accepted decision
+  explicitly distinguishes prospective capability from actual outcome.
 
 P1 may intentionally change the EGW internal oplog generated interface and
 text error mapping for the new typed capability/limit variant. It must not
@@ -130,12 +132,13 @@ editing.
 `PreparedAdmission` remains a prospective value. It may contain, at minimum:
 
 - commit order and planned operation representations;
-- duplicate identities detected during preparation;
+- duplicate-delivery evidence detected during preparation, without treating it
+  as a canonical owner;
 - retained-pending identities already known to survive the transition;
 - newly staged identities;
 - discarded pending and discarded staged identities, with their provenance;
 - generation and any policy revision used for validation;
-- the prospective maximum pending membership and its capacity requirement;
+- the prospective maximum pending membership and its required-pending value;
 - single-use state.
 
 It must not claim to contain a committed prefix. The committed prefix is not
@@ -152,27 +155,60 @@ pub enum AdmissionOutcome {
 ```
 
 `AdmissionReceipt` must expose enough immutable evidence to account for the
-attempt without inspecting planner internals. The exact MoonBit field names
-remain a plan-review decision, but its semantic contents are not optional:
+transition without inspecting planner internals. It must remain
+transition-local rather than copying the complete planner state. The exact MoonBit field
+names remain a plan-review decision, but its semantic contents are not optional:
 
 - committed operations and their `RawVersion` identities;
-- duplicate identities accepted as already-admitted no-ops;
-- the complete pending-after identity view, including unrelated retained work;
-- discarded identities, partitioned by retained-pending versus staged origin
-  where that provenance matters;
-- the uncommitted suffix identities, with staged versus retained provenance;
-- the before/after frontier needed to prove authority movement;
-The receipt is common evidence for both outcome variants; status and causal
-failure belong only to `AdmissionOutcome`, so a complete receipt cannot carry a
-partial cause.
+- `already_admitted` identities accepted as authority-owned no-ops;
+- `pending_from_transition` identities whose terminal owner is core pending,
+  including the exact retained/staged uncommitted suffix and any pending
+  identity delivered as a no-op, represented at most once;
+- discarded identities split into `discarded_pending` and `discarded_staged`;
+- `pending_before_count` and `pending_after_count`, counting unique live
+  pending membership without copying unrelated pending identities;
+- non-fallible, receipt-owned `frontier_before` and `frontier_after` snapshots;
+- optional duplicate-delivery counts or provenance, kept separate from the
+  identity ownership partition.
 
-Arrays returned in a receipt must be owning or immutable views according to the
-EGW API convention; no mutable planner collection may escape. The receipt must
-also distinguish the complete pending-after snapshot from the pending identities
-in this admission's coverage: unrelated retained pending work belongs in the
-snapshot but must not be misclassified as delivered input. Terminal ownership
-and staged/retained/discarded provenance are separate views of the same
-transition, not overlapping owners.
+Conceptually, the receipt storage is equivalent to owning fields such as:
+
+```moonbit
+pub struct AdmissionReceipt {
+  priv committed : Array[@core.Op]
+  priv already_admitted : Array[@core.RawVersion]
+  priv pending_from_transition : Array[@core.RawVersion]
+  priv discarded_pending : Array[@core.RawVersion]
+  priv discarded_staged : Array[@core.RawVersion]
+  priv pending_before_count : Int
+  priv pending_after_count : Int
+  priv frontier_before : @core.Frontier
+  priv frontier_after : @core.Frontier
+}
+```
+
+`pending_from_transition` must preserve retained-versus-staged provenance for
+the suffix, whether through separate accessors or an explicitly tagged local
+representation. Unrelated retained pending identities are reflected only by
+the global counts and white-box planner assertions, not by a receipt-wide
+identity snapshot. The receipt is common evidence for both outcome variants;
+status and causal failure belong only to `AdmissionOutcome`, so a complete
+receipt cannot carry a partial cause.
+
+Receipt fields that contain identities or operations must be defensive,
+receipt-owned `Array` snapshots. Accessors may return `ArrayView` values over
+those receipt-owned arrays, for example:
+
+```moonbit
+pub fn AdmissionReceipt::pending_from_transition(
+  self : AdmissionReceipt,
+) -> ArrayView[@core.RawVersion]
+```
+
+No view over planner-owned mutable storage may escape. Frontier snapshots follow the same rule and must be constructed without
+a fallible post-mutation step. Terminal ownership and
+staged/retained/discarded provenance are separate views of the same transition,
+not overlapping owners.
 
 ### 2. Make partial a normal typed outcome
 
@@ -193,7 +229,7 @@ following remain pre-mutation errors raised by the capability:
 - `StaleAdmission`;
 - `ConsumedAdmission`;
 - `InvalidAdmission`;
-- the hard pending-capacity error, using the reviewed `limit~` and
+- the hard pending-limit error, using the reviewed `limit~` and
   `required~` vocabulary rather than a complete-only `predicted~` claim.
 
 The compatibility method keeps its existing caller contract through P2:
@@ -210,83 +246,145 @@ operations. A partial outcome is translated back to the existing
 `PartialRemoteAdmission` error for legacy callers; the new typed path retains
 the full receipt. No `Document` or `Branch` migration belongs in P1.
 
-### 3. Reserve pending capacity for both completion paths
+### 3. Validate the pending-membership precondition
 
-Preparation remains non-mutating. It calculates the maximum pending membership
-that can be required by any permitted commit result, including the worst case
-where the first authority operation fails and the whole planned suffix remains
-pending. The prepared value carries this prospective requirement.
+Preparation remains non-mutating. It calculates the unique pending membership
+that must exist immediately after `begin_admission` applies the discard and
+staged-node transition, before the first authority operation is attempted. The
+prepared value carries this prospective requirement.
 
-At the begin transition, after stale/consumed/invalid validation and before any
-authority mutation, the core checks the peak requirement. Registering the full
-non-discarded staged set is the current synchronous shell's one-time capacity
-reservation; successful acknowledgements only remove live pending nodes. The
-transition must obey:
+For the current generation, the exact requirement is:
 
 ```text
+required_pending = count_unique(
+  (pending_before - discarded_pending)
+  ∪ staged_unique_not_admitted_not_discarded
+)
+```
+
+`pending_before` is the live planner pending membership before begin.
+`staged_unique_not_admitted_not_discarded` contains every unique staged identity
+that is not already admitted, already pending, or in the rejection closure.
+Because the staged set excludes existing pending identities, the equivalent
+shorthand is `live_pending_before - discarded_pending_count +
+new_staged_count`, but the set expression is the normative contract. For
+`DeferredFast`, the staged count equals the unique planned count; for
+`ImmediateGeneral`, it equals the materialized staged-node count and may be
+larger than `planned.length()`.
+
+When `max_pending?` is supplied, preparation raises
+`PendingLimitExceeded(limit~, required~)` if the requirement exceeds the
+bound, without creating a usable capability. At begin, after stale/consumed/
+invalid/structure validation and before removing or registering any planner
+node, the core revalidates the same generation-bound requirement. A rejected
+begin changes neither authority, planner membership, generation, nor pending
+policy.
+
+The current lifecycle then obeys:
+
+```text
+begin:
+  apply discard/register once, leaving pending membership at or below the
+  accepted bound
+
 complete:
-  all planned identities are acknowledged or duplicate; remaining pending is
-  the complete-after set
+  all planned identities are acknowledged or duplicate; pending membership
+  can only decrease from the begin-after value
 
 partial:
-  the exact uncommitted suffix remains in core pending with its provenance
+  the exact uncommitted suffix remains in core pending with its provenance;
+  pending membership can only decrease from the begin-after value
 
-rejected before mutation:
-  change neither authority, planner membership, generation, nor pending policy
+commit:
+  each successful acknowledgement removes one live pending identity; commit
+  never adds a new pending identity
 ```
 
-The accounting must count unique live pending membership rather than operation
-attempts or stale index entries. For the current generation, the peak before
-any acknowledgement is:
+Therefore the maximum pending membership is immediately after begin and before
+the first authority commit. A post-prefix `PendingLimitExceeded` is not an
+acceptable design: the hard precondition must be satisfied before authority has
+advanced. No mutable pending-limit state or separate planner counter belongs
+in P1; a future reentrant or asynchronous shell may revisit that decision with
+new evidence.
+
+### 4. Make affected ownership partitions explicit and disjoint
+
+For the unique identities in the transition-local affected domain, the final
+partition is:
 
 ```text
-required_pending =
-  live_pending_before_begin
-  - discarded_pending_count
-  + new_staged_count
+affected identities =
+  committed
+  ∪ already_admitted
+  ∪ pending
+  ∪ discarded
+
+committed, already_admitted, pending, and discarded are pairwise disjoint
 ```
 
-`new_staged_count` includes every unique, non-admitted, non-existing-pending,
-non-discarded staged identity, including unresolved nodes that are not in the
-compatibility-ordered `planned` list. For `DeferredFast` it equals the unique
-planned count; for `ImmediateGeneral` it equals the materialized staged-node
-count, which may be larger than `planned.length()`. The formula must be
-calculated during preparation and rechecked at begin. Begin validates it before removing or
-registering any planner node; registering the full staged set is the one-time
-reservation, and successful acknowledgements only decrease live pending
-membership. A post-prefix `PendingLimitExceeded` is not an acceptable design:
-capacity failure must not be discovered after authority has advanced. A
-separate mutable planner reservation counter is deferred because the current
-OpLog commit shell is synchronous and generation-invalidates interleaving
-prepared admissions.
-
-### 4. Make ownership partitions explicit and disjoint
-
-For every unique incoming delivery occurrence, the outcome disposition is
-exactly one of:
+Their canonical ownership is:
 
 ```text
-newly committed into Authority
-DuplicateOfAuthority (non-owning disposition)
-core pending
-Discarded / rejected
+committed        → Authority
+already_admitted → Authority
+pending          → core pending
+discarded        → no owner
 ```
 
-The canonical ownership partition is therefore `Authority ∪ core pending ∪
-Discarded`; a duplicate is reported separately because its incoming occurrence
-was a no-op, but its `RawVersion` remains owned by Authority rather than by a
-second duplicate owner. `retained`, `staged`, and `discarded` are provenance
-partitions used to explain how an admission-coverage identity reached its final
-category; they must not create a second owner. In particular:
+`already_admitted` is the authority-owned disposition for an incoming matching
+identity. A matching pending identity belongs to `pending`, not to a generic
+duplicate owner. Delivery evidence may distinguish:
+
+```text
+already-admitted duplicate  → identity is in already_admitted
+pending duplicate           → identity is in pending
+same-batch duplicate        → occurrence evidence only
+```
+
+Same-batch duplicate occurrences and retransmission counts are separate
+delivery evidence; they may record coalescing or duplicate provenance but
+never create another identity set in the ownership partition.
+
+`retained`, `staged`, and `discarded` are provenance partitions used to explain
+how an affected identity reached its final category; they must not create a
+second owner. In particular:
 
 - a committed identity is never also retained or retried;
-- a matching admitted duplicate is not re-committed or counted as pending;
-- a partial suffix contains uncommitted planned identities from both retained
-  pending and newly staged provenance;
+- an admitted duplicate is not re-committed and is represented in
+  `already_admitted` at most once;
+- a pending duplicate is represented in `pending` at most once, with any
+  duplicate occurrence evidence kept separately;
+- the partial suffix is the exact uncommitted suffix of
+  `PreparedAdmission::operations()` and may contain both retained-pending and
+  newly staged provenance;
 - invalid-root dependents are discarded exactly once;
 - unrelated retained pending identities survive unless explicitly in the
   rejection closure;
-- no incoming occurrence is lost or assigned two dispositions.
+- no affected identity is lost or assigned two final owners.
+
+## Prerequisite ADR amendment
+
+ADR 0008 is accepted and must not be silently reinterpreted by this Plan. Its
+P1 wording currently describes one prepared admission as recording committed,
+retained, discarded, duplicate, and partial ownership, while the source-backed
+transition boundary proves that a prospective `PreparedAdmission` cannot know
+a committed prefix.
+
+Before creating the P1 implementation branch, land a separate EGW docs-only
+amendment to ADR 0008 with this meaning:
+
+```text
+P1 — typed transition boundary:
+PreparedAdmission records the prospective, generation-bound transition.
+AdmissionOutcome and AdmissionReceipt record the actual complete or partial
+ownership result after the commit attempt.
+The boundary owns the hard pending-limit contract.
+```
+
+This amendment preserves ADR 0008 as the architecture decision and moves the
+prospective/actual distinction into its accepted wording. It is a prerequisite
+for implementation, not a new ADR and not a decision to be deferred into the
+Plan review.
 
 ## Decisions Required at Plan Review
 
@@ -297,27 +395,28 @@ plan review before implementation:
    `PreparedAdmission` and actual `AdmissionOutcome`/`AdmissionReceipt`.
 2. **Partial algebra:** accept `Partial` as an ordinary typed outcome carrying
    both the receipt and causal failure, while pre-mutation lifecycle and
-   capacity failures remain errors.
-3. **Capacity contract:** accept the exact peak formula above, with full staged
-   registration as the current shell's one-time reservation and no independent
-   live reservation counter in P1.
-4. **ADR 0008 clarification:** accept that the ADR's phrase "prepared admission
-   records" names the complete P1 transition capability, not a requirement to
-   mutate `PreparedAdmission` with a post-commit prefix. Add a docs-only
-   clarification before implementation; create no new ADR.
-5. **Limit vocabulary:** rename the optional preparation policy from
+   pending-limit failures remain errors.
+3. **Pending-limit contract:** accept the exact set-based requirement above and the
+   begin-time hard precondition. `PendingLimitExceeded(limit~, required~)`
+   must be raised before authority mutation; pending membership must be
+   monotonic non-increasing after begin, with no stateful pending-limit
+   counter in P1.
+4. **Limit vocabulary:** rename the optional preparation policy from
    `max_pending_after_complete?` to `max_pending?`, replace the complete-only
    `PendingForecastExceeded(limit~, predicted~)` contract with
    `PendingLimitExceeded(limit~, required~)`, and update its EGW text error
    mapping. If API inventory finds an external caller, retain only a clearly
    named compatibility adapter; never give one label two meanings.
-6. **Compatibility lifetime:** keep `commit_remote` as the legacy wrapper
+5. **Compatibility lifetime:** keep `commit_remote` as the legacy wrapper
    through P2; do not change Branch, Document, SyncSession, or Canopy callers
    in P1.
-7. **Interface delta:** permit only the intentional internal oplog generated
+6. **Interface delta:** permit only the intentional internal oplog generated
    interface and EGW error-mapping changes; reject unrelated `.mbti` drift.
-8. **Receipt shape:** settle the exact field names and whether identity
-   collections are arrays, immutable views, or another owning representation.
+7. **Receipt shape:** accept transition-local defensive snapshots only:
+   committed, `already_admitted`, `pending_from_transition`, discarded
+   provenance, global pending before/after counts, and receipt-owned frontier
+   snapshots. No complete global pending identity snapshot or planner-owned
+   view may escape.
 
 No implementation branch should be created until these decisions are accepted.
 
@@ -325,9 +424,10 @@ No implementation branch should be created until these decisions are accepted.
 
 ### P1.0 — Freeze the merged baseline and API evidence
 
-1. Fetch EGW `origin/main` and verify that it contains merge commit `99ab590`.
-   Create a dedicated P1 EGW worktree from that current main; do not start from
-   the pre-merge PR head and do not update the Canopy gitlink.
+1. Fetch EGW `origin/main` and verify that it contains merge commit `99ab590`
+   and the separate docs-only amendment to ADR 0008. Only then create a
+   dedicated P1 EGW worktree from that current main; do not start from the
+   pre-merge PR head and do not update the Canopy gitlink.
 2. Initialize submodules and inspect the package roots and current interfaces:
    `internal/oplog`, `internal/core`, `internal/causal_graph`,
    `internal/branch`, and `internal/document`.
@@ -335,46 +435,44 @@ No implementation branch should be created until these decisions are accepted.
    `PreparedAdmission`, `OpLog::prepare_remote`, `OpLog::begin_admission`,
    `OpLog::commit_remote`, `PartialRemoteAdmission`, and the generated oplog
    interface. Record the actual existing APIs before defining any new one.
-4. Add the ADR 0008 docs-only clarification before code changes, then write
-   the first failing ownership and capacity tests before changing the
-   transition implementation.
+4. Write the first failing ownership, pending-limit, receipt-scope, and
+   core-owned-retry tests before changing the transition implementation.
 
 ### P1.1 — Model the prospective transition
 
 5. Extend the private `PreparedAdmission` representation only with data that
    is knowable before authority mutation: ordered planned identities,
    duplicate/retained/staged/discarded provenance, generation/policy evidence,
-   the exact `new_staged_count`, and the worst-case `required_pending` value.
+   the exact staged identity set or its equivalent count, and the
+   `required_pending` value derived from the set-based contract.
 6. Preserve non-mutating `prepare_remote`: it must not advance planner
-   generation, alter pending membership, consume a capability, or reserve live
-   capacity. Repeated preparation with unchanged state must produce equivalent
-   prospective evidence.
+   generation, alter pending membership, consume a capability, or mutate any
+   pending-limit state. Repeated preparation with unchanged state must produce
+   equivalent prospective evidence.
 7. Add private constructors/validation that make the prepared value internally
    self-consistent and preserve defensive ownership of mutable arrays and
-   identity sets. Do not add a live `reserved` planner counter in this phase.
+   identity sets. Do not add a live pending-limit planner counter in this
+   phase.
 8. Define the reviewed `AdmissionReceipt` and `AdmissionOutcome` values. Keep
    actual committed-prefix data out of `PreparedAdmission`.
 
-### P1.2 — Add the hard capacity transition
+### P1.2 — Enforce the hard pending-membership precondition
 
-9. Define and test the exact unique-membership calculation:
-    `live_pending_before_begin - discarded_pending_count + new_staged_count`.
-    Include first-operation failure, retained existing pending work, every
-    unresolved staged node, duplicate identities, and rejection closure; do
-    not substitute `planned.length()` for `new_staged_count`. When
-    `max_pending?` is supplied, preparation rejects `required_pending > limit`
-    without creating a capability, and begin repeats the check for stale-safe
-    atomicity.
+9. Define and test the exact set-based requirement in §3. Include
+    first-operation failure, retained existing pending work, every unresolved
+    staged node, duplicate identities, and rejection closure; do not substitute
+    `planned.length()` for the staged identity set. When `max_pending?` is
+    supplied, preparation rejects `required_pending > limit` without creating
+    a capability, and begin repeats the generation-bound precondition.
 10. At `begin_admission`, validate generation, single-use state, structure,
-    and `required_pending <= max_pending?` before applying discard/register/
-    consume changes. A rejected begin leaves planner, generation, pending
-    membership, and authority unchanged.
-11. Register the complete non-discarded staged set as the one-time live
-    reservation. Complete and partial acknowledgements only remove successful
-    identities, so the live pending membership cannot grow after begin. Add
-    assertions preventing over-limit registration, lost suffixes, and
-    double-accounting; do not add a separate reservation counter unless the
-    API inventory finds reentrant admissions.
+    and the exact required pending membership against `max_pending?` before
+    applying discard/register/consume changes. A rejected begin leaves planner,
+    generation, pending membership, and authority unchanged.
+11. Register the complete non-discarded staged set once. Complete and partial
+    acknowledgements only remove successful identities, so pending membership
+    cannot grow after begin. Assert that the begin-after count stays within the
+    accepted bound, that suffixes are not lost, and that no identity is counted
+    twice; do not add a stateful pending-limit counter.
 12. Replace the complete-only forecast API with the reviewed hard-limit
     vocabulary: `max_pending?` and
     `PendingLimitExceeded(limit~, required~)`. Update the EGW text error
@@ -385,17 +483,19 @@ No implementation branch should be created until these decisions are accepted.
 
 13. Add `commit_admission` as the one implementation path for the typed result.
     It must commit in prepared order, acknowledge only successful identities,
-    and construct the receipt from the exact prefix, suffix, duplicate,
-    retained, staged, and discarded partitions.
+    and construct receipt-owned snapshots for committed,
+    `already_admitted`, `pending_from_transition`, discarded provenance,
+    pending before/after counts, and before/after frontiers.
 14. On a causal graph failure, return `AdmissionOutcome::Partial` with the
-    committed prefix, exact pending-after view, uncommitted suffix with
-    staged/retained provenance, discard evidence, and causal cause. Never
-    authorize retry of the committed prefix.
+    committed prefix, the exact uncommitted suffix in
+    `pending_from_transition`, retained/staged suffix provenance, discard
+    evidence, `pending_after_count`, owning frontier snapshot, and causal
+    cause. Never authorize retry of the committed prefix.
 15. Keep `commit_remote` as a thin compatibility wrapper that maps complete to
     its existing array result and partial to the existing legacy error shape.
     Do not add a second planner or a second authority commit loop.
-16. Confirm that all semantic decisions, discard closure, capacity checks, and
-    ownership transfers occur before the first authority mutation or are
+16. Confirm that all semantic decisions, discard closure, pending-limit checks,
+    and ownership transfers occur before the first authority mutation or are
     deterministic acknowledgements of an already committed prefix.
 
 ### P1.4 — Close exact ownership and lifecycle properties
@@ -406,28 +506,37 @@ No implementation branch should be created until these decisions are accepted.
     being misclassified as an admitted duplicate.
 18. Add partial tests for zero-prefix failure, middle-prefix failure, and
     n-minus-one-prefix failure. Each test must assert committed operations,
-    exact suffix identities, pending-after membership, staged/retained
-    provenance, discarded identities, capacity, and causal cause.
-19. Add retry-after-partial tests. Re-prepare only the exact pending suffix,
-    complete it, and prove that no committed identity is attempted twice.
-20. Add stale, consumed, invalid, and capacity-rejection tests. Each must prove
-    operation count, frontier, pending membership, generation, required-capacity
+    exact suffix identities, pending-from-transition membership,
+    staged/retained provenance, discarded identities, before/after counts,
+    required-pending value, and causal cause. White-box assertions may compare the complete
+    planner pending maps; the receipt must not copy them.
+19. Add core-owned recovery tests after partial admission. The suffix is
+    already in core pending: re-plan it with `prepare_remote([])` or with a
+    later dependency-bearing batch, and prove that no committed identity is
+    attempted twice. Add network-resend idempotence as a separate test; do not
+    make reconstructing and resending the receipt suffix the recovery protocol.
+20. Add stale, consumed, invalid, and pending-limit-rejection tests. Each must prove
+    operation count, frontier, pending membership, generation, required-pending
     calculation, and receipt state are unchanged.
 21. Add duplicate and conflicting-identity tests that distinguish full payload
     equality from identity reuse. A matching duplicate is an admitted no-op;
     a conflicting identity is rejected before mutation.
 22. Add unrelated-retained tests that prove pending work outside the current
-    rejection closure remains intact and is represented in the pending-after
-    view.
+    rejection closure remains intact. Compare planner pending membership in
+    white-box tests and assert only the before/after counts appear in the
+    production receipt.
 23. Add a property/model test for the ownership partition:
 
     ```text
-    incoming occurrences = NewlyCommitted ∪ DuplicateOfAuthority ∪
-      Pending ∪ Discarded
-    these occurrence dispositions are pairwise disjoint
-    DuplicateOfAuthority identities are already in Authority, not a second owner
-    every retained suffix identity is in core pending exactly once
+    affected identities = committed ∪ already_admitted ∪ pending ∪ discarded
+    committed, already_admitted, pending, and discarded are pairwise disjoint
+    committed ∪ already_admitted ⊆ Authority after
+    pending ⊆ core pending after
+    discarded ∩ (Authority after ∪ core pending after) = {}
     ```
+
+    Track same-batch duplicate occurrences and pending retransmissions only as
+    separate delivery evidence; never add them to the ownership partition.
 
 24. Preserve existing planner fixed-point, atomic rejection, alias-mutation,
     and ancestry regressions from P0. The new typed receipt must agree with the
@@ -457,27 +566,30 @@ No implementation branch should be created until these decisions are accepted.
       actual transitions; partial carries a common receipt and causal cause as
       a normal value, while receipt status/cause fields cannot contradict the
       enum variant.
-- [ ] `AdmissionReceipt` exposes exact identity-level evidence for committed,
-      duplicate, pending-after, staged, retained, and discarded membership,
-      including the before/after frontier needed by callers.
-- [ ] Every incoming occurrence has exactly one disposition: newly committed,
-      `DuplicateOfAuthority`, core pending, or discarded. Duplicate evidence is
-      non-owning; canonical RawVersion ownership remains disjoint across
-      Authority, core pending, and discarded.
+- [ ] `AdmissionReceipt` exposes only transition-local owning evidence:
+      committed, `already_admitted`, `pending_from_transition`, discarded
+      provenance, unique pending before/after counts, and receipt-owned
+      before/after frontier snapshots. It never copies the complete global
+      pending identity set or returns a planner-owned view.
+- [ ] The affected identity partition is exactly
+      `committed ∪ already_admitted ∪ pending ∪ discarded`; these sets are
+      pairwise disjoint, with committed/already-admitted owned by Authority,
+      pending owned by core, and discarded owned by neither. Duplicate
+      occurrence evidence is kept on a separate axis.
 - [ ] Prepare remains non-mutating, including generation, pending membership,
-      live capacity, and capability consumption.
-- [ ] Stale, consumed, invalid, and pending-capacity rejection all occur before
+      pending-limit evidence, and capability consumption.
+- [ ] Stale, consumed, invalid, and pending-limit rejection all occur before
       authority mutation and leave authority, planner, generation, pending
       membership, and prepared lifecycle state unchanged.
-- [ ] Capacity uses the exact peak formula
-      `live_pending_before_begin - discarded_pending_count + new_staged_count`,
-      is checked before the first authority mutation, and registers the full
-      staged set as the current shell's one-time reservation; partial suffix
-      retention cannot fail later for lack of capacity.
+- [ ] Pending membership uses the exact set-based requirement
+      `count_unique((pending_before - discarded_pending) ∪ staged_unique_not_admitted_not_discarded)`,
+      is checked before the first authority mutation, and pending membership
+      remains monotonically non-increasing after begin.
 - [ ] Complete, zero-prefix partial, middle partial, and n-minus-one partial
-      cases return exact receipts and preserve unrelated retained pending work.
-- [ ] Retrying a partial suffix never retries a committed identity and ends
-      with the exact suffix either in Authority, as a duplicate, or discarded.
+      cases return exact transition-local receipts and preserve unrelated
+      retained pending work, which is verified through white-box planner state.
+- [ ] Core-owned recovery re-plans the pending suffix without retrying a
+      committed identity; network resend idempotence is tested separately.
 - [ ] Matching duplicate delivery is idempotent; conflicting identity reuse is
       rejected atomically.
 - [ ] `commit_remote` remains a compatibility wrapper through P2, while the
@@ -485,8 +597,9 @@ No implementation branch should be created until these decisions are accepted.
 - [ ] Existing Branch/Document behavior and public Canopy interfaces remain
       unchanged; only the EGW text error mapping for the intentional new
       pending-limit variant may change; no production cutover occurs in P1.
-- [ ] The ADR 0008 docs-only clarification records the two-value boundary; no
-      new ADR is created.
+- [ ] A separate EGW docs-only amendment to ADR 0008 records the two-value
+      boundary before the P1 implementation branch is created; no new ADR is
+      created.
 - [ ] Only intentionally reviewed EGW internal oplog interface changes and
       pending-limit error-mapping changes exist.
 - [ ] EGW targeted tests, `moon check --deny-warn`, `moon test`, formatting,
@@ -514,7 +627,7 @@ git diff --check
 git diff -- '*.mbti'
 ```
 
-Run focused tests for the new oplog ownership/capacity files and the existing
+Run focused tests for the new oplog ownership/pending-limit files and the existing
 planner lifecycle, ancestry, semantic parity, and remote-delivery tests before
 running the full suite. Use the repository's supported MoonBit test-selection
 syntax rather than inventing a new harness.
@@ -538,16 +651,17 @@ pending, failing, or unapproved skipped.
 - The partial commit boundary is inherently discovered during authority
   execution. Treating the partial prefix as preparation data would make the
   receipt false; keep it exclusively in `AdmissionOutcome`.
-- A capacity calculation based only on complete-after membership, or on
+- A required-pending calculation based only on complete-after membership, or on
   `planned.length()`, recreates the P0 limitation. The first-operation failure
-  case must include every staged node before `begin_admission` mutates planner
-  or authority state.
-- Retained, staged, duplicate, and discarded are provenance categories, not
-  four additional owners. Receipt construction must enforce disjoint final
-  ownership rather than merely report overlapping counters.
-- A separate live reservation counter would create release/compaction/stale
-  invariants without a current reentrant admission need. If future execution
-  becomes asynchronous or reentrant, revisit this as a new design boundary.
+  case must include every staged node in the set-based begin-after requirement
+  before `begin_admission` mutates planner or authority state.
+- Retained, staged, duplicate, and discarded are provenance or delivery
+  categories, not four additional owners. Receipt construction must enforce the
+  disjoint affected-identity partition rather than merely report overlapping
+  counters.
+- A separate mutable pending-limit state would add invariants without a
+  current reentrant admission need. If future execution becomes asynchronous
+  or reentrant, revisit this as a new design boundary.
 - A compatibility wrapper can hide receipt information from legacy callers.
   That is intentional through P2, but the typed capability must remain the
   canonical implementation path so P2 does not need to reconstruct history.
@@ -565,16 +679,17 @@ pending, failing, or unapproved skipped.
 
 - Related accepted decision: [ADR 0008 at the P0 merge](https://github.com/dowdiness/event-graph-walker/blob/99ab59012a31abb8454468509dd790be03c3b391/docs/adr/0008-core-owned-batch-remote-admission-over-legacy-op.md).
 - Related implementation: [EGW PR #118](https://github.com/dowdiness/event-graph-walker/pull/118).
-- The P1 plan deliberately does not introduce a new ADR. It requires a
-  docs-only clarification of ADR 0008 so its accepted transition shorthand is
-  consistent with the prospective `PreparedAdmission` / actual
-  `AdmissionOutcome` split.
+- The P1 plan deliberately does not introduce a new ADR or reinterpret ADR
+  0008. A separate EGW docs-only amendment must land before the implementation
+  branch so the accepted decision explicitly states the prospective
+  `PreparedAdmission` / actual `AdmissionOutcome` split.
 - P2 may move the typed outcome through a Document batch shell and projection
   boundary. P1 must not anticipate that cutover by changing outer pending,
   publication, or Canopy-facing APIs.
 - The exact receipt field names and final capability method spelling remain the
-  explicit plan-review decisions listed above. The peak-capacity formula and
-  no-live-counter choice are now the recommended result of the alternatives
-  research; implementation must update this plan if review rejects either.
+  explicit plan-review decisions listed above. The set-based required-pending
+  formula, transition-local receipt scope, and no-stateful-counter choice are
+  now the recommended result of the alternatives research; implementation must
+  update this plan if review rejects any of them.
 - The alternatives and source citations are recorded in
   `docs/research/2026-08-15-egw-p1-admission-transition-options.md`.
