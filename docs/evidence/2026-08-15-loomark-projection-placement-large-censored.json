@@ -1,0 +1,1007 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-15T12:47:34.838Z",
+  "environment": {
+    "commit_sha": "782df1ccd72fd77d0a24ab75d4eb65f5c9ea47d6",
+    "node": "v24.14.1",
+    "playwright": "1.61.1",
+    "samples": 1,
+    "sizes": [
+      10000,
+      50000
+    ],
+    "run_order": "3x3 Latin square rotated by sample within each corpus size",
+    "edit_protocol": "cold whole-source Seed followed by one-character native insertText edits",
+    "forced_gc": "Chromium --js-flags=--expose-gc before post_gc_heap_bytes"
+  },
+  "controls": {
+    "tracing_requested": true,
+    "all_runs_completed": false,
+    "all_traces_enabled": false,
+    "all_traces_nonempty": false,
+    "all_traces_lossless": false,
+    "all_trace_contracts_valid": false
+  },
+  "summaries": [
+    {
+      "lines": 10000,
+      "placement": "worker",
+      "scenario": "cold-seed-preview",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 10000,
+      "placement": "worker",
+      "scenario": "local-edit-start",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 10000,
+      "placement": "worker",
+      "scenario": "local-edit-middle",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 10000,
+      "placement": "worker",
+      "scenario": "local-edit-end",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 10000,
+      "placement": "worker",
+      "scenario": "sustained-typing-8-edits",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 10000,
+      "placement": "worker",
+      "scenario": "source-equal-advance",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 10000,
+      "placement": "in-process",
+      "scenario": "cold-seed-preview",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 10000,
+      "placement": "in-process",
+      "scenario": "local-edit-start",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 10000,
+      "placement": "in-process",
+      "scenario": "local-edit-middle",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 10000,
+      "placement": "in-process",
+      "scenario": "local-edit-end",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 10000,
+      "placement": "in-process",
+      "scenario": "sustained-typing-8-edits",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 10000,
+      "placement": "in-process",
+      "scenario": "source-equal-advance",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 10000,
+      "placement": "synchronous",
+      "scenario": "cold-seed-preview",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 10000,
+      "placement": "synchronous",
+      "scenario": "local-edit-start",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 10000,
+      "placement": "synchronous",
+      "scenario": "local-edit-middle",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 10000,
+      "placement": "synchronous",
+      "scenario": "local-edit-end",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 10000,
+      "placement": "synchronous",
+      "scenario": "sustained-typing-8-edits",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 10000,
+      "placement": "synchronous",
+      "scenario": "source-equal-advance",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 50000,
+      "placement": "worker",
+      "scenario": "cold-seed-preview",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 50000,
+      "placement": "worker",
+      "scenario": "local-edit-start",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 50000,
+      "placement": "worker",
+      "scenario": "local-edit-middle",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 50000,
+      "placement": "worker",
+      "scenario": "local-edit-end",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 50000,
+      "placement": "worker",
+      "scenario": "sustained-typing-8-edits",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 50000,
+      "placement": "worker",
+      "scenario": "source-equal-advance",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 50000,
+      "placement": "in-process",
+      "scenario": "cold-seed-preview",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 50000,
+      "placement": "in-process",
+      "scenario": "local-edit-start",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 50000,
+      "placement": "in-process",
+      "scenario": "local-edit-middle",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 50000,
+      "placement": "in-process",
+      "scenario": "local-edit-end",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 50000,
+      "placement": "in-process",
+      "scenario": "sustained-typing-8-edits",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 50000,
+      "placement": "in-process",
+      "scenario": "source-equal-advance",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 50000,
+      "placement": "synchronous",
+      "scenario": "cold-seed-preview",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 50000,
+      "placement": "synchronous",
+      "scenario": "local-edit-start",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 50000,
+      "placement": "synchronous",
+      "scenario": "local-edit-middle",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 50000,
+      "placement": "synchronous",
+      "scenario": "local-edit-end",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 50000,
+      "placement": "synchronous",
+      "scenario": "sustained-typing-8-edits",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    },
+    {
+      "lines": 50000,
+      "placement": "synchronous",
+      "scenario": "source-equal-advance",
+      "duration": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "long_task_total": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      },
+      "max_frame_gap": {
+        "samples": 0,
+        "median_ms": null,
+        "p95_ms": null,
+        "min_ms": null,
+        "max_ms": null
+      }
+    }
+  ],
+  "runs": [
+    {
+      "placement": "worker",
+      "lines": 10000,
+      "round": 0,
+      "censored_timeout_ms": 120000,
+      "error": "release-browser scenario exceeded 120000 ms"
+    },
+    {
+      "placement": "in-process",
+      "lines": 10000,
+      "round": 0,
+      "censored_timeout_ms": 120000,
+      "error": "release-browser scenario exceeded 120000 ms"
+    },
+    {
+      "placement": "synchronous",
+      "lines": 10000,
+      "round": 0,
+      "censored_timeout_ms": 120000,
+      "error": "release-browser scenario exceeded 120000 ms"
+    },
+    {
+      "placement": "worker",
+      "lines": 50000,
+      "round": 0,
+      "censored_timeout_ms": 120000,
+      "error": "release-browser scenario exceeded 120000 ms"
+    },
+    {
+      "placement": "in-process",
+      "lines": 50000,
+      "round": 0,
+      "censored_timeout_ms": 120000,
+      "error": "release-browser scenario exceeded 120000 ms"
+    },
+    {
+      "placement": "synchronous",
+      "lines": 50000,
+      "round": 0,
+      "censored_timeout_ms": 120000,
+      "error": "release-browser scenario exceeded 120000 ms"
+    }
+  ]
+}

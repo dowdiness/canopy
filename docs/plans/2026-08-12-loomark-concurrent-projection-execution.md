@@ -1,6 +1,6 @@
 # Loomark concurrent projection execution — implementation plan
 
-**Status:** Active plan; Commits 1–6 and the production Worker cutover slice of Commit 7 are implemented on draft PR #1249. Commit 7 promotion evidence and closure remain.
+**Status:** Active plan; PR #1249 merged Commits 1–6 and the Worker cutover slice of Commit 7. Release-browser evidence rejected Worker and in-process promotion on 2026-08-15, restored synchronous production placement, and triggered the presentation stop condition. Remaining Commit 7 acceptance work stays open.
 
 **Canonical issue:** [#1244 — Loomark: move Markdown projection off the authority commit path](https://github.com/dowdiness/canopy/issues/1244)
 
@@ -807,12 +807,14 @@ not expose runtime fallback.
 
 ### Commit 7 — promotion decision, production cutover, and cleanup
 
-**Implementation progress (2026-08-15):** `d78e332b` routes production
-Preview projection through the dedicated Worker, adopts only exact-stamp private
-typed artifacts, preserves last-good output across bounded restart, and removes
-application semantic-attachment reads. The release-browser matrix is green.
-This is not the promotion record: the 2k/10k/50k placement comparison, retained
-raw evidence, ADR status update, and closure checklist remain open.
+**Promotion outcome (2026-08-15):** Harness commit `782df1c` compared
+Worker, in-process, and synchronous placement through the production browser
+path. No placement passed at 2,000 lines; all 10,000- and 50,000-line cold Seeds
+exceeded the 120-second censoring deadline. The
+[promotion record](../performance/2026-08-15-loomark-projection-placement.md)
+retains synchronous production placement and the private executor seam. Raw
+evidence is checked in under `docs/evidence/`. Presentation work and the
+remaining scenario/retention matrix keep this plan active.
 
 Run 2k/10k/50k release-browser scenarios for cold Seed, local edits at
 start/middle/end, sustained typing, back-to-back Block intent, demand-only
@@ -1002,7 +1004,7 @@ assertions.
 - [ ] Forced-GC cutover tests, calibrated with a positive retention control,
       show no old executor/session/parser/source/artifact reachable from the
       current adapter.
-- [ ] No speedup, locality, allocation, or memory claim relies only on a Moon
+- [x] No speedup, locality, allocation, or memory claim relies only on a Moon
       microbenchmark or an uncalibrated clean browser result.
 - [ ] A hybrid placement is considered only after both single placements fail
       complementary gates; any production hybrid has an updated ADR and passes
@@ -1015,11 +1017,11 @@ assertions.
 - [ ] Shadow production hooks and compatibility routes are removed; the
       differential oracle corpus remains as test evidence.
 - [ ] Generated interfaces contain only the intended public changes.
-- [ ] Loomark build/development documentation names the selected production
+- [x] Loomark build/development documentation names the selected production
       placement and any page/Worker assets it requires.
-- [ ] Performance history links raw evidence, environment, compared placements,
+- [x] Performance history links raw evidence, environment, compared placements,
       promotion rationale, and commit SHAs.
-- [ ] This plan's status and the ADR status are updated only after every checked
+- [x] This plan's status and the ADR status are updated only after every checked
       criterion has concrete evidence.
 
 ## Risks and stop conditions

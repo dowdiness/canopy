@@ -13,8 +13,8 @@ separate browser boundaries.
 Neither boundary is a public Browser App/Session contract.
 
 `scripts/test-loomark-dev-host-e2e.sh` builds both the private driver and the
-production projection Worker, stages the Worker beside the file-backed test
-page for the duration of the run, and removes the staged asset on exit.
+projection Worker comparison asset, stages the Worker beside the file-backed
+test page for the duration of the run, and removes the staged asset on exit.
 
 ## Behavioral and lifetime test inventory
 
@@ -74,6 +74,24 @@ scenario is a warm-up, so these are warm-context reload measurements rather
 than cold first-load timings. Output is printed as a `console.table` summary
 followed by one JSON line per scenario. The benchmark is a local development
 tool — it does not define a CI budget or a production performance guarantee.
+
+## Projection placement benchmark
+
+Synchronous projection is the production default. The dedicated Worker and
+main-thread in-process executors remain private comparison placements; they are
+selected only with `projection-placement=worker` or
+`projection-placement=in-process`. The release output still includes
+`projection-worker.js` so the comparison and Worker lifecycle tests exercise the
+same build as the production editor. There is no runtime fallback between
+placements.
+
+`npm run bench:projection` runs the 2,000/10,000/50,000-line release-browser
+matrix. It enables private bounded P0–F tracing with
+`projection-benchmark=1`, counterbalances placement order, uses native
+single-character edits after the cold Seed, and isolates each run behind a hard
+process deadline. Set `LOOMARK_PROJECTION_COMMIT` to the exact harness commit
+when retaining evidence. The 2026-08-15 result and raw files are indexed in
+[`docs/performance/2026-08-15-loomark-projection-placement.md`](../../../../docs/performance/2026-08-15-loomark-projection-placement.md).
 
 ## Driver seam
 

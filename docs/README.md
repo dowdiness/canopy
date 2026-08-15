@@ -119,6 +119,9 @@ Only needed if you are modifying Canopy itself.
 
 **Performance:**
 
+- [Loomark projection placement promotion evidence](performance/2026-08-15-loomark-projection-placement.md)
+  — rejects Worker and in-process promotion after release-browser comparison and
+  records the presentation stop condition.
 - [Real Browser Editor Response Baseline](performance/2026-05-13-real-browser-editor-response.md)
 - [Benchmark Redesign](performance/BENCHMARK_REDESIGN.md)
 - [Performance Analysis](performance/PERFORMANCE_ANALYSIS.md)
