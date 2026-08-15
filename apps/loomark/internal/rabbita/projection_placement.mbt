@@ -1,6 +1,6 @@
 ///|
-/// Private measurement selector. Production and every malformed value remain on
-/// the dedicated Worker placement.
+/// Private measurement selector. Browser production and malformed query values
+/// remain synchronous; non-browser test runtimes retain the Worker trace contract.
 #warnings("-unused_value")
 priv enum ProjectionPlacement {
   ProjectionWorker
@@ -36,8 +36,9 @@ fn ProjectionPlacement::name(self : ProjectionPlacement) -> String {
 
 ///|
 extern "js" fn projection_placement_query_value() -> String =
-  #| () => new URLSearchParams(globalThis.location?.search ?? "")
-  #|   .get("projection-placement") ?? ""
+  #| () => globalThis.location == null
+  #|   ? "worker"
+  #|   : new URLSearchParams(globalThis.location.search).get("projection-placement") ?? ""
 
 ///|
 extern "js" fn projection_benchmark_query_value() -> String =
