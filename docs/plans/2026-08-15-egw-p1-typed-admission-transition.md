@@ -53,6 +53,8 @@ The EGW submodule, starting from the P0 merge on a fresh branch:
 - the intentionally changed EGW `internal/oplog/pkg.generated.mbti`
 - `deps/event-graph-walker/text/errors.mbt` for the intentional pending-limit
   error mapping
+- a docs-only clarification to the accepted
+  `deps/event-graph-walker/docs/adr/0008-core-owned-batch-remote-admission-over-legacy-op.md`
 - package-local ownership, partial-transition, retry, and capacity properties
 
 The P1 boundary includes:
@@ -82,7 +84,8 @@ The P1 boundary includes:
 - `TextReplica`, Persistence Coordinator, Worker replay, or reconnect work;
 - public Canopy API redesign;
 - Canopy submodule/gitlink changes;
-- a new ADR for this phase.
+- a new ADR for this phase; ADR 0008 receives only the explicit clarification
+  needed to distinguish the prospective capability from its actual outcome.
 
 P1 may intentionally change the EGW internal oplog generated interface and
 text error mapping for the new typed capability/limit variant. It must not
@@ -159,7 +162,9 @@ remain a plan-review decision, but its semantic contents are not optional:
   where that provenance matters;
 - the uncommitted suffix identities, with staged versus retained provenance;
 - the before/after frontier needed to prove authority movement;
-- complete versus partial status, with the causal graph failure on `Partial`.
+The receipt is common evidence for both outcome variants; status and causal
+failure belong only to `AdmissionOutcome`, so a complete receipt cannot carry a
+partial cause.
 
 Arrays returned in a receipt must be owning or immutable views according to the
 EGW API convention; no mutable planner collection may escape. The receipt must
@@ -255,28 +260,31 @@ prepared admissions.
 
 ### 4. Make ownership partitions explicit and disjoint
 
-For every identity delivered by an admission attempt, the final ownership
-partition is exactly one of:
+For every unique incoming delivery occurrence, the outcome disposition is
+exactly one of:
 
 ```text
-Authority
+newly committed into Authority
+DuplicateOfAuthority (non-owning disposition)
 core pending
-duplicate of an admitted identity
-discarded / rejected
+Discarded / rejected
 ```
 
-`retained`, `staged`, and `discarded` are provenance partitions used to explain
-how a prepared identity reached its final category; they must not create a
-second owner. In particular:
+The canonical ownership partition is therefore `Authority ∪ core pending ∪
+Discarded`; a duplicate is reported separately because its incoming occurrence
+was a no-op, but its `RawVersion` remains owned by Authority rather than by a
+second duplicate owner. `retained`, `staged`, and `discarded` are provenance
+partitions used to explain how an admission-coverage identity reached its final
+category; they must not create a second owner. In particular:
 
 - a committed identity is never also retained or retried;
-- a duplicate is not re-committed and is not counted as pending;
-- a partial suffix is exactly the uncommitted staged identities that are now
-  core pending;
+- a matching admitted duplicate is not re-committed or counted as pending;
+- a partial suffix contains uncommitted planned identities from both retained
+  pending and newly staged provenance;
 - invalid-root dependents are discarded exactly once;
 - unrelated retained pending identities survive unless explicitly in the
   rejection closure;
-- no delivered identity is lost or present in two ownership sets.
+- no incoming occurrence is lost or assigned two dispositions.
 
 ## Decisions Required at Plan Review
 
@@ -291,18 +299,22 @@ plan review before implementation:
 3. **Capacity contract:** accept the exact peak formula above, with full staged
    registration as the current shell's one-time reservation and no independent
    live reservation counter in P1.
-4. **Limit vocabulary:** rename the optional preparation policy from
+4. **ADR 0008 clarification:** accept that the ADR's phrase "prepared admission
+   records" names the complete P1 transition capability, not a requirement to
+   mutate `PreparedAdmission` with a post-commit prefix. Add a docs-only
+   clarification before implementation; create no new ADR.
+5. **Limit vocabulary:** rename the optional preparation policy from
    `max_pending_after_complete?` to `max_pending?`, replace the complete-only
    `PendingForecastExceeded(limit~, predicted~)` contract with
    `PendingLimitExceeded(limit~, required~)`, and update its EGW text error
    mapping. If API inventory finds an external caller, retain only a clearly
    named compatibility adapter; never give one label two meanings.
-5. **Compatibility lifetime:** keep `commit_remote` as the legacy wrapper
+6. **Compatibility lifetime:** keep `commit_remote` as the legacy wrapper
    through P2; do not change Branch, Document, SyncSession, or Canopy callers
    in P1.
-6. **Interface delta:** permit only the intentional internal oplog generated
+7. **Interface delta:** permit only the intentional internal oplog generated
    interface and EGW error-mapping changes; reject unrelated `.mbti` drift.
-7. **Receipt shape:** settle the exact field names and whether identity
+8. **Receipt shape:** settle the exact field names and whether identity
    collections are arrays, immutable views, or another owning representation.
 
 No implementation branch should be created until these decisions are accepted.
@@ -321,7 +333,8 @@ No implementation branch should be created until these decisions are accepted.
    `PreparedAdmission`, `OpLog::prepare_remote`, `OpLog::begin_admission`,
    `OpLog::commit_remote`, `PartialRemoteAdmission`, and the generated oplog
    interface. Record the actual existing APIs before defining any new one.
-4. Write the first failing ownership and capacity tests before changing the
+4. Add the ADR 0008 docs-only clarification before code changes, then write
+   the first failing ownership and capacity tests before changing the
    transition implementation.
 
 ### P1.1 — Model the prospective transition
@@ -385,8 +398,10 @@ No implementation branch should be created until these decisions are accepted.
 
 ### P1.4 — Close exact ownership and lifecycle properties
 
-17. Add complete-admission tests with duplicates, retained pending work, staged
-    arrivals, invalid-root discard, and no pending suffix.
+17. Add complete-admission tests with admitted duplicates, pending duplicates,
+    retained pending work, staged arrivals, invalid-root discard, and no
+    pending suffix. A pending duplicate must remain a pending no-op rather than
+    being misclassified as an admitted duplicate.
 18. Add partial tests for zero-prefix failure, middle-prefix failure, and
     n-minus-one-prefix failure. Each test must assert committed operations,
     exact suffix identities, pending-after membership, staged/retained
@@ -405,9 +420,10 @@ No implementation branch should be created until these decisions are accepted.
 23. Add a property/model test for the ownership partition:
 
     ```text
-    admission coverage identities = Authority ∪ core-pending ∪ Duplicate ∪ Discarded
-    these sets are pairwise disjoint
-    every committed identity is in Authority exactly once
+    incoming occurrences = NewlyCommitted ∪ DuplicateOfAuthority ∪
+      Pending ∪ Discarded
+    these occurrence dispositions are pairwise disjoint
+    DuplicateOfAuthority identities are already in Authority, not a second owner
     every retained suffix identity is in core pending exactly once
     ```
 
@@ -436,14 +452,16 @@ No implementation branch should be created until these decisions are accepted.
 - [ ] `PreparedAdmission` remains non-mutating, generation-bound, single-use,
       and contains only prospective transition evidence.
 - [ ] A separate typed `AdmissionOutcome` distinguishes complete and partial
-      actual transitions; partial carries a receipt and causal cause as a
-      normal value.
+      actual transitions; partial carries a common receipt and causal cause as
+      a normal value, while receipt status/cause fields cannot contradict the
+      enum variant.
 - [ ] `AdmissionReceipt` exposes exact identity-level evidence for committed,
       duplicate, pending-after, staged, retained, and discarded membership,
       including the before/after frontier needed by callers.
-- [ ] The final ownership partition for every admission-coverage identity is
-      exactly one of Authority, core pending, admitted duplicate, or discarded;
-      no identity is lost or dual-owned.
+- [ ] Every incoming occurrence has exactly one disposition: newly committed,
+      `DuplicateOfAuthority`, core pending, or discarded. Duplicate evidence is
+      non-owning; canonical RawVersion ownership remains disjoint across
+      Authority, core pending, and discarded.
 - [ ] Prepare remains non-mutating, including generation, pending membership,
       live capacity, and capability consumption.
 - [ ] Stale, consumed, invalid, and pending-capacity rejection all occur before
@@ -465,6 +483,8 @@ No implementation branch should be created until these decisions are accepted.
 - [ ] Existing Branch/Document behavior and public Canopy interfaces remain
       unchanged; only the EGW text error mapping for the intentional new
       pending-limit variant may change; no production cutover occurs in P1.
+- [ ] The ADR 0008 docs-only clarification records the two-value boundary; no
+      new ADR is created.
 - [ ] Only intentionally reviewed EGW internal oplog interface changes and
       pending-limit error-mapping changes exist.
 - [ ] EGW targeted tests, `moon check --deny-warn`, `moon test`, formatting,
@@ -543,8 +563,10 @@ pending, failing, or unapproved skipped.
 
 - Related accepted decision: [ADR 0008 at the P0 merge](https://github.com/dowdiness/event-graph-walker/blob/99ab59012a31abb8454468509dd790be03c3b391/docs/adr/0008-core-owned-batch-remote-admission-over-legacy-op.md).
 - Related implementation: [EGW PR #118](https://github.com/dowdiness/event-graph-walker/pull/118).
-- The P1 plan deliberately does not introduce a new ADR; it operationalizes
-  the P1 ownership boundary already accepted by ADR 0008.
+- The P1 plan deliberately does not introduce a new ADR. It requires a
+  docs-only clarification of ADR 0008 so its accepted transition shorthand is
+  consistent with the prospective `PreparedAdmission` / actual
+  `AdmissionOutcome` split.
 - P2 may move the typed outcome through a Document batch shell and projection
   boundary. P1 must not anticipate that cutover by changing outer pending,
   publication, or Canopy-facing APIs.

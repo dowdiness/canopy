@@ -67,6 +67,13 @@ commit succeeds and raises `PartialRemoteAdmission` on a later causal-graph
 failure (`oplog.mbt:434-470`). Therefore the committed prefix cannot be a
 truthful field of the prepared value.
 
+P0 also distinguishes duplicate delivery from ownership: a matching admitted
+identity is accepted by `preflight_remote_identities` and is not staged, while a
+matching identity already in planner pending is also skipped by preparation and
+remains canonical pending (`oplog.mbt:310-325`,
+`remote_admission_planner.mbt:996-1025`). A receipt must therefore classify
+incoming occurrences separately from terminal RawVersion ownership.
+
 ### The exact worst-case pending peak is larger than the planned count
 
 At begin, P0 registers every non-discarded staged node, not only operations in
@@ -212,19 +219,36 @@ but it finds two required corrections to the draft Plan:
    reservation for the current synchronous shell.
 
 The receipt should be opaque and immutable at the package boundary. It should
-separate terminal ownership from provenance:
+separate incoming-occurrence disposition from canonical ownership:
 
 ```text
-terminal ownership (disjoint):
-  committed operations | admitted duplicates | pending-after identities | discarded identities
+incoming disposition (disjoint):
+  NewlyCommitted | DuplicateOfAuthority | Pending | Discarded
+
+canonical ownership (disjoint):
+  Authority | core pending | discarded
 
 provenance (not additional owners):
   retained pending | staged | discarded-pending | discarded-staged
 ```
 
-The exact field names remain a plan-review decision, but receipt construction
-must be derived from the prepared provenance plus before/after planner/frontier
-snapshots, not from a second planner or a full-history replay.
+A matching duplicate is already owned by Authority; `DuplicateOfAuthority` is
+non-owning evidence about the incoming occurrence, not a second RawVersion
+owner. The exact field names remain a plan-review decision, but receipt
+construction must be derived from the prepared provenance plus before/after
+planner/frontier snapshots, not from a second planner or a full-history replay.
+
+### ADR 0008 wording clarification
+
+ADR 0008's accepted P1 sentence says that the "prepared admission" records
+committed, retained, discarded, duplicate, and partial ownership. The P0 code
+and the actual commit boundary prove that a prospective prepared value cannot
+contain a committed prefix. The P1 implementation must therefore add a
+**docs-only clarification to ADR 0008**, not a new ADR: the phrase names the
+complete single-use transition capability (`PreparedAdmission` plus its actual
+`AdmissionOutcome`), while `PreparedAdmission` itself remains prospective and
+`AdmissionOutcome` owns post-commit facts. This resolves the wording without
+changing the accepted P1/P2 sequencing.
 
 ## Existing API reuse
 
