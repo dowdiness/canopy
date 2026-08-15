@@ -26,7 +26,10 @@ const moduleUrl = new URL(
   "../../../../../_build/js/release/build/dowdiness/loomark/internal/dev_host/dev_host.js",
   import.meta.url,
 ).href
-const pageUrl = new URL("../index.html", import.meta.url).href
+const pageUrl = new URL(
+  "../index.html?projection-placement=worker",
+  import.meta.url,
+).href
 
 type Host = {
   context: BrowserContext
