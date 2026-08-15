@@ -694,3 +694,242 @@ test('pointercancel interrupts a canvas drag without committing it', async ({ pa
   expect(after.top).toBe(before.top);
   expect(runtimeErrors).toEqual([]);
 });
+
+test('canvas pan clears the hovered inspector on the first active move', async ({ page }) => {
+  const runtimeErrors: string[] = [];
+  page.on('pageerror', (error) => runtimeErrors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') runtimeErrors.push(message.text());
+  });
+
+  await page.goto('/');
+  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  const node = page.locator('.canvas-node[data-node-id="1"]');
+  const rect = await node.boundingBox();
+  if (!rect) throw new Error('hover target is missing');
+
+  await page.evaluate(({ left, top }) => {
+    const node = document.querySelector('.canvas-node[data-node-id="1"]');
+    if (!node) throw new Error('hover target is missing');
+    node.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true,
+      pointerId: 119,
+      clientX: left + 20,
+      clientY: top + 20,
+    }));
+  }, { left: rect.x, top: rect.y });
+  await expect(page.locator('#inspector-node .inspector-title')).toHaveText('Timer trigger');
+
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    root.setPointerCapture = () => undefined;
+    root.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId: 120,
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+    }));
+    root.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true,
+      pointerId: 120,
+      buttons: 1,
+      clientX: 60,
+      clientY: 60,
+    }));
+    root.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles: true,
+      pointerId: 120,
+      button: 0,
+      clientX: 60,
+      clientY: 60,
+    }));
+  });
+
+  await expect(page.locator('#inspector-node .inspector-empty')).toHaveText(
+    'Select or hover a node to inspect its sparse derived details.',
+  );
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('canvas root owns one pointer and interrupts once on lost capture', async ({ page }) => {
+  const runtimeErrors: string[] = [];
+  page.on('pageerror', (error) => runtimeErrors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') runtimeErrors.push(message.text());
+  });
+
+  await page.goto('/');
+  await expect(page.locator('.canvas-node')).toHaveCount(6);
+
+  const captureIds = await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    const ids: number[] = [];
+    root.setPointerCapture = (pointerId: number) => ids.push(pointerId);
+    root.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId: 81,
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+    }));
+    root.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId: 82,
+      button: 0,
+      clientX: 24,
+      clientY: 24,
+    }));
+    root.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true,
+      pointerId: 81,
+      buttons: 1,
+      clientX: 60,
+      clientY: 60,
+    }));
+    root.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true,
+      pointerId: 82,
+      buttons: 1,
+      clientX: 240,
+      clientY: 240,
+    }));
+    root.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles: true,
+      pointerId: 82,
+      clientX: 240,
+      clientY: 240,
+    }));
+    return ids;
+  });
+  expect(captureIds).toEqual([81]);
+  await expect(page.locator('#canvas-root')).toHaveClass(/panning/);
+
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    root.dispatchEvent(new PointerEvent('lostpointercapture', {
+      bubbles: true,
+      pointerId: 999,
+    }));
+  });
+  await expect(page.locator('#canvas-root')).toHaveClass(/panning/);
+
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    root.dispatchEvent(new PointerEvent('lostpointercapture', {
+      bubbles: true,
+      pointerId: 81,
+    }));
+    root.dispatchEvent(new PointerEvent('lostpointercapture', {
+      bubbles: true,
+      pointerId: 81,
+    }));
+    root.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles: true,
+      pointerId: 81,
+    }));
+  });
+  await expect(page.locator('#canvas-root')).not.toHaveClass(/panning/);
+  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    root.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId: 83,
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+    }));
+  });
+  await expect(page.locator('#canvas-root')).toHaveClass(/panning/);
+  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('canvas capture failure leaves the root session idle', async ({ page }) => {
+  const runtimeErrors: string[] = [];
+  page.on('pageerror', (error) => runtimeErrors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') runtimeErrors.push(message.text());
+  });
+
+  await page.goto('/');
+  await expect(page.locator('.canvas-node')).toHaveCount(6);
+
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    root.setPointerCapture = () => {
+      throw new DOMException('pointer is no longer active', 'NotFoundError');
+    };
+    root.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId: 91,
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+    }));
+  });
+  await expect(page.locator('#canvas-root')).not.toHaveClass(/panning/);
+  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    root.setPointerCapture = () => undefined;
+    root.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId: 92,
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+    }));
+  });
+  await expect(page.locator('#canvas-root')).toHaveClass(/panning/);
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('canvas pointer coordinates keep fractional child-target input', async ({ page }) => {
+  const runtimeErrors: string[] = [];
+  page.on('pageerror', (error) => runtimeErrors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') runtimeErrors.push(message.text());
+  });
+
+  await page.goto('/');
+  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  const captureIds = await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    const node = document.querySelector('.canvas-node[data-node-id="1"]');
+    const child = node?.querySelector('.node-title');
+    if (!node || !child) throw new Error('canvas child target is missing');
+    const ids: number[] = [];
+    root.setPointerCapture = (pointerId: number) => ids.push(pointerId);
+    const rect = child.getBoundingClientRect();
+    child.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId: 93,
+      button: 0,
+      clientX: rect.left + 12.25,
+      clientY: rect.top + 8.75,
+    }));
+    root.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true,
+      pointerId: 93,
+      buttons: 1,
+      clientX: rect.left + 40.5,
+      clientY: rect.top + 28.25,
+    }));
+    root.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles: true,
+      pointerId: 93,
+      button: 0,
+      clientX: rect.left + 40.5,
+      clientY: rect.top + 28.25,
+    }));
+    return ids;
+  });
+
+  expect(captureIds).toEqual([93]);
+  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  expect(runtimeErrors).toEqual([]);
+});
