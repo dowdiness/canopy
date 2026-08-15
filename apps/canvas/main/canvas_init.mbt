@@ -9,67 +9,8 @@ pub fn create_canvas() -> Int {
 }
 
 ///|
-/// Handle pointer-down. `node_id` is the canvas node id under the pointer,
-/// or "" for background. Dispatches to pan or drag start internally.
-#warnings("-unused_value")
-fn pointer_down(
-  handle : Int,
-  node_id : String,
-  sx : Double,
-  sy : Double,
-) -> Unit {
-  let id : NodeId? = if node_id == "" { None } else { Some(NodeId(node_id)) }
-  ignore(_registry[handle].pointer_down(id, sx, sy))
-}
-
-///|
-/// Pointer-down on an output handle: start an edge-creation gesture.
-#warnings("-unused_value")
-fn pointer_down_handle(
-  handle : Int,
-  node_id : String,
-  port_id : String,
-  sx : Double,
-  sy : Double,
-) -> Unit {
-  ignore(_registry[handle].pointer_down_handle(NodeId(node_id), port_id, sx, sy))
-}
-
-///|
-/// Handle pointer-move in canvas-local screen coordinates.
-/// Routes to the active gesture (pan, drag, or connect) internally.
-#warnings("-unused_value")
-fn pointer_move(handle : Int, sx : Double, sy : Double) -> Unit {
-  _registry[handle].pointer_move(sx, sy)
-}
-
-///|
 pub fn zoom(handle : Int, delta : Double, cx : Double, cy : Double) -> Unit {
   _registry[handle].zoom(delta, cx, cy)
-}
-
-///|
-#warnings("-unused_value")
-fn pointer_up(
-  handle : Int,
-  node_id : String,
-  target_port_id : String,
-  additive : Bool,
-) -> Unit {
-  _registry[handle].pointer_up(node_id, target_port_id, additive)
-}
-
-///|
-/// Handle a browser interruption without committing the active gesture.
-#warnings("-unused_value")
-fn pointer_interrupt(handle : Int) -> Unit {
-  _registry[handle].pointer_interrupt()
-}
-
-///|
-#warnings("-unused_value")
-fn hover_node(handle : Int, node_id : String) -> Unit {
-  _registry[handle].hover_node(node_id)
 }
 
 ///|

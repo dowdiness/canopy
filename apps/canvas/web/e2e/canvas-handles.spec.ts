@@ -695,6 +695,63 @@ test('pointercancel interrupts a canvas drag without committing it', async ({ pa
   expect(runtimeErrors).toEqual([]);
 });
 
+test('canvas pan clears the hovered inspector on the first active move', async ({ page }) => {
+  const runtimeErrors: string[] = [];
+  page.on('pageerror', (error) => runtimeErrors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') runtimeErrors.push(message.text());
+  });
+
+  await page.goto('/');
+  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  const node = page.locator('.canvas-node[data-node-id="1"]');
+  const rect = await node.boundingBox();
+  if (!rect) throw new Error('hover target is missing');
+
+  await page.evaluate(({ left, top }) => {
+    const node = document.querySelector('.canvas-node[data-node-id="1"]');
+    if (!node) throw new Error('hover target is missing');
+    node.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true,
+      pointerId: 119,
+      clientX: left + 20,
+      clientY: top + 20,
+    }));
+  }, { left: rect.x, top: rect.y });
+  await expect(page.locator('#inspector-node .inspector-title')).toHaveText('Timer trigger');
+
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    root.setPointerCapture = () => undefined;
+    root.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId: 120,
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+    }));
+    root.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true,
+      pointerId: 120,
+      buttons: 1,
+      clientX: 60,
+      clientY: 60,
+    }));
+    root.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles: true,
+      pointerId: 120,
+      button: 0,
+      clientX: 60,
+      clientY: 60,
+    }));
+  });
+
+  await expect(page.locator('#inspector-node .inspector-empty')).toHaveText(
+    'Select or hover a node to inspect its sparse derived details.',
+  );
+  expect(runtimeErrors).toEqual([]);
+});
+
 test('canvas root owns one pointer and interrupts once on lost capture', async ({ page }) => {
   const runtimeErrors: string[] = [];
   page.on('pageerror', (error) => runtimeErrors.push(error.message));

@@ -18,6 +18,7 @@ struct SourceNodePosition {
 
 ///|
 struct SourceBackedGraph {
+  handle : Int
   attachment : @graph_dsl.GraphAttachment
   mut parser_failure : Failure?
   mut source : String
@@ -35,10 +36,12 @@ fn source_graph_source_id(handle : Int) -> @core.SourceId {
 
 ///|
 fn SourceBackedGraph::SourceBackedGraph(
+  handle : Int,
   source_id : @core.SourceId,
   source : String,
 ) -> SourceBackedGraph raise Failure {
   {
+    handle,
     attachment: @graph_dsl.GraphAttachment::GraphAttachment(source_id, source),
     parser_failure: None,
     source,
@@ -935,6 +938,53 @@ fn SourceBackedGraph::pointer_interrupt(self : SourceBackedGraph) -> Unit {
 }
 
 ///|
+fn SourceBackedGraph::complete_connection(
+  self : SourceBackedGraph,
+  source_node_id : NodeId,
+  source_port_id : String,
+  target : (NodeId, String)?,
+) -> Unit {
+  let state = source_graph_base_canvas_state(self)
+  let operation = match target {
+    Some((target_node_id, target_port_id)) =>
+      if @graph_model.can_commit_edge(
+        state,
+        source_node_id,
+        source_port_id,
+        target_node_id,
+        target_port_id,
+      ) {
+        Some(
+          GraphOperation(
+            ConnectPorts(
+              source_node_id,
+              source_port_id,
+              target_node_id,
+              target_port_id,
+            ),
+          ),
+        )
+      } else {
+        None
+      }
+    None => None
+  }
+  self.pointer_interrupt()
+  match operation {
+    Some(operation) =>
+      ignore(
+        apply_source_graph_operation(
+          self.handle,
+          operation.to_json().stringify(),
+        ),
+      ) catch {
+        Failure::Failure(_) => ()
+      }
+    None => ()
+  }
+}
+
+///|
 fn SourceBackedGraph::input_port_compatibility(
   self : SourceBackedGraph,
   source : NodeId,
@@ -1132,7 +1182,7 @@ pub fn sample_graph_dsl_source() -> String {
 pub fn create_source_graph(source : String) -> Int raise Failure {
   let handle = _source_registry.length()
   let source_id = source_graph_source_id(handle)
-  _source_registry.push(Some(SourceBackedGraph(source_id, source)))
+  _source_registry.push(Some(SourceBackedGraph(handle, source_id, source)))
   handle
 }
 

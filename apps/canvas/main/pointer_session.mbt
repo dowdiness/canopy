@@ -229,52 +229,31 @@ fn canvas_pointer_target_port(hit : CanvasPointerHit) -> String {
 }
 
 ///|
-fn canvas_pointer_clear_source_connection(
+fn canvas_pointer_source_target(
+  hit : CanvasPointerHit,
+) -> (NodeId, String)? {
+  match hit {
+    Handle(node_id~, side=Input, port_id~) =>
+      Some((NodeId(node_id), port_id))
+    _ => None
+  }
+}
+
+///|
+fn canvas_pointer_complete_source_connection(
   model : CanvasPointerState,
   source_node_id : String,
   source_port_id : String,
   hit : CanvasPointerHit,
 ) -> Unit {
   match source_graph_by_handle(model.handle) {
+    Some(graph) =>
+      graph.complete_connection(
+        NodeId(source_node_id),
+        source_port_id,
+        canvas_pointer_source_target(hit),
+      )
     None => ()
-    Some(graph) => {
-      let state = source_graph_base_canvas_state(graph)
-      let can_commit = match hit {
-        Handle(node_id~, side=Input, port_id~) =>
-          @graph_model.can_commit_edge(
-            state,
-            NodeId(source_node_id),
-            source_port_id,
-            NodeId(node_id),
-            port_id,
-          )
-        _ => false
-      }
-      graph.pointer_interrupt()
-      if can_commit {
-        match hit {
-          Handle(node_id~, side=Input, port_id~) => {
-            let operation = GraphOperation(
-              ConnectPorts(
-                NodeId(source_node_id),
-                source_port_id,
-                NodeId(node_id),
-                port_id,
-              ),
-            )
-            ignore(
-              apply_source_graph_operation(
-                model.handle,
-                operation.to_json().stringify(),
-              ),
-            ) catch {
-              Failure::Failure(_) => ()
-            }
-          }
-          _ => ()
-        }
-      }
-    }
   }
 }
 
@@ -426,6 +405,7 @@ fn canvas_pointer_move(
               None => ()
             }
           } else {
+            _registry[model.handle].hover_node("")
             _registry[model.handle].pointer_move(screen.x(), screen.y())
           }
           on_change()
@@ -498,7 +478,7 @@ fn canvas_pointer_finish(
       let hit = canvas_pointer_release_hit(input.root, event)
       canvas_pointer_set_panning(input.root, false)
       let next = { ..model, session: Idle }
-      canvas_pointer_clear_source_connection(
+      canvas_pointer_complete_source_connection(
         next, source_node_id, source_port_id, hit,
       )
       canvas_pointer_release_capture(input.root, pointer_id)
