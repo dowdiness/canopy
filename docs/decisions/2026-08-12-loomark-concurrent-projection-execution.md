@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-12
 
-**Status:** Accepted target architecture; implementation is not complete.
+**Status:** Accepted architecture; executor promotion rejected on 2026-08-15, synchronous placement retained.
 
 **Issue:** [#1244](https://github.com/dowdiness/canopy/issues/1244)
 
@@ -103,6 +103,21 @@ production decision only after the feasibility, correctness, latency, queue,
 failure, and memory gates pass. The promotion record must state the measured
 trade-off against the in-process executor. Production never silently switches
 placement at runtime; an unavailable executor enters an explicit failure state.
+
+#### 2026-08-15 promotion outcome
+
+The [release-browser placement record](../performance/2026-08-15-loomark-projection-placement.md)
+rejects both alternative executors. At 2,000 lines, no placement passed the
+responsiveness gate; every 10,000- and 50,000-line cold Seed exceeded the
+120-second censoring deadline. Main-thread presentation dominated the observed
+critical path, so moving projection execution did not establish a product-level
+benefit. Loomark therefore retains synchronous production placement. The
+dedicated Worker and in-process executors remain private comparison modes behind
+the executor seam; neither is a production fallback.
+
+This outcome applies the conditional placement rule above. It does not reverse
+the source-stamped protocol, adapter-lifetime ownership, currentness, failure,
+or bounded-work decisions.
 
 ### 4. Stamp every projection request, group work item, and immutable artifact
 

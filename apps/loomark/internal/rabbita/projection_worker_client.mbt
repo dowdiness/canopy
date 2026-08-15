@@ -256,6 +256,170 @@ fn ProjectionWorkerClient::dispose(self : ProjectionWorkerClient) -> Unit {
 }
 
 ///|
+/// Main-thread transport for the private placement comparison. It retains the
+/// same dispatcher session and envelope as the dedicated Worker client.
+#warnings("-unused_value")
+priv struct ProjectionInProcessClient {
+  dispatch : (String) -> String
+  agent_id : String
+  mut next_request_id : Int
+  mut disposed : Bool
+}
+
+///|
+#warnings("-unused_value")
+fn ProjectionInProcessClient::new(
+  agent_id : String,
+) -> ProjectionInProcessClient {
+  {
+    dispatch: new_projection_worker_dispatcher(),
+    agent_id,
+    next_request_id: 1,
+    disposed: false,
+  }
+}
+
+///|
+#warnings("-unused_value")
+fn ProjectionInProcessClient::send(
+  self : ProjectionInProcessClient,
+  command : Json,
+  resolve : (Int, String) -> Unit,
+) -> Int raise {
+  guard !self.disposed else {
+    raise Failure::Failure("in-process projection client disposed")
+  }
+  let (request_id, next_request_id) = projection_worker_allocate_request_id(
+    self.next_request_id,
+  )
+  self.next_request_id = next_request_id
+  let payload = Json::object({
+    "schema_version": Json::string("1"),
+    "request_id": Json::number(request_id.to_double()),
+    "command": command,
+  }).stringify()
+  resolve(request_id, (self.dispatch)(payload))
+  request_id
+}
+
+///|
+#warnings("-unused_value")
+fn ProjectionInProcessClient::seed(
+  self : ProjectionInProcessClient,
+  source : String,
+  stamp : ProjectionStamp,
+  demand : ProjectionDemand,
+  resolve : (Int, ProjectionStamp, String) -> Unit,
+) -> Int raise {
+  self.send(
+    Json::object({
+      "kind": Json::string("seed"),
+      "agent_id": Json::string(self.agent_id),
+      "source": Json::string(source),
+      "stamp": projection_worker_stamp_json(stamp),
+      "demand": Json::object({
+        "block": Json::boolean(demand.block),
+        "preview": Json::boolean(demand.preview),
+        "diagnostics": Json::boolean(demand.diagnostics),
+      }),
+    }),
+    (request_id, raw) => resolve(request_id, stamp, raw),
+  )
+}
+
+///|
+#warnings("-unused_value")
+fn ProjectionInProcessClient::advance(
+  self : ProjectionInProcessClient,
+  stamp : ProjectionStamp,
+  effect : ProjectionSourceEffect,
+  resolve : (Int, ProjectionStamp, String) -> Unit,
+) -> Int raise {
+  self.send(
+    Json::object({
+      "kind": Json::string("advance"),
+      "stamp": projection_worker_stamp_json(stamp),
+      "source_effect": projection_source_effect_json(effect),
+    }),
+    (request_id, raw) => resolve(request_id, stamp, raw),
+  )
+}
+
+///|
+#warnings("-unused_value")
+fn ProjectionInProcessClient::demand(
+  self : ProjectionInProcessClient,
+  stamp : ProjectionStamp,
+  demand : ProjectionDemand,
+  resolve : (Int, ProjectionStamp, String) -> Unit,
+) -> Int raise {
+  self.send(projection_worker_demand_command_json(stamp, demand), (
+    request_id,
+    raw,
+  ) => resolve(request_id, stamp, raw))
+}
+
+///|
+#warnings("-unused_value")
+fn ProjectionInProcessClient::dispose(self : ProjectionInProcessClient) -> Unit {
+  self.disposed = true
+}
+
+///|
+priv enum ProjectionClient {
+  DedicatedWorker(ProjectionWorkerClient)
+  MainThread(ProjectionInProcessClient)
+}
+
+///|
+fn ProjectionClient::seed(
+  self : ProjectionClient,
+  source : String,
+  stamp : ProjectionStamp,
+  demand : ProjectionDemand,
+  resolve : (Int, ProjectionStamp, String) -> Unit,
+) -> Int raise {
+  match self {
+    DedicatedWorker(client) => client.seed(source, stamp, demand, resolve)
+    MainThread(client) => client.seed(source, stamp, demand, resolve)
+  }
+}
+
+///|
+fn ProjectionClient::advance(
+  self : ProjectionClient,
+  stamp : ProjectionStamp,
+  effect : ProjectionSourceEffect,
+  resolve : (Int, ProjectionStamp, String) -> Unit,
+) -> Int raise {
+  match self {
+    DedicatedWorker(client) => client.advance(stamp, effect, resolve)
+    MainThread(client) => client.advance(stamp, effect, resolve)
+  }
+}
+
+///|
+fn ProjectionClient::demand(
+  self : ProjectionClient,
+  stamp : ProjectionStamp,
+  demand : ProjectionDemand,
+  resolve : (Int, ProjectionStamp, String) -> Unit,
+) -> Int raise {
+  match self {
+    DedicatedWorker(client) => client.demand(stamp, demand, resolve)
+    MainThread(client) => client.demand(stamp, demand, resolve)
+  }
+}
+
+///|
+fn ProjectionClient::dispose(self : ProjectionClient) -> Unit {
+  match self {
+    DedicatedWorker(client) => client.dispose()
+    MainThread(client) => client.dispose()
+  }
+}
+
+///|
 fn projection_worker_response_stamp(
   fields : Map[String, Json],
 ) -> ProjectionStamp? {
@@ -358,8 +522,9 @@ fn projection_worker_response_artifact(
 
 ///|
 priv struct ProjectionWorkerRuntime {
-  mut client : ProjectionWorkerClient
+  mut client : ProjectionClient
   agent_id : String
+  in_process : Bool
   stamp_owner : ProjectionStampOwner
   mut current_stamp : ProjectionStamp?
   mut seeded : Bool
@@ -375,8 +540,31 @@ priv struct ProjectionWorkerRuntime {
 ///|
 fn ProjectionWorkerRuntime::new(agent_id : String) -> ProjectionWorkerRuntime {
   {
-    client: ProjectionWorkerClient::new(1, agent_id),
+    client: DedicatedWorker(ProjectionWorkerClient::new(1, agent_id)),
     agent_id,
+    in_process: false,
+    stamp_owner: ProjectionStampOwner::new(),
+    current_stamp: None,
+    seeded: false,
+    source: "",
+    source_revision: 0,
+    causal_version: "",
+    demand: { block: false, preview: false, diagnostics: false },
+    expected_request_id: None,
+    restart_count: 0,
+    disposed: false,
+  }
+}
+
+///|
+#warnings("-unused_value")
+fn ProjectionWorkerRuntime::new_in_process(
+  agent_id : String,
+) -> ProjectionWorkerRuntime {
+  {
+    client: MainThread(ProjectionInProcessClient::new(agent_id)),
+    agent_id,
+    in_process: true,
     stamp_owner: ProjectionStampOwner::new(),
     current_stamp: None,
     seeded: false,
@@ -522,10 +710,13 @@ fn ProjectionWorkerRuntime::restart(
   }
   self.restart_count += 1
   self.stamp_owner.restart()
-  self.client = ProjectionWorkerClient::new(
-    self.stamp_owner.generation,
-    self.agent_id,
-  )
+  self.client = if self.in_process {
+    MainThread(ProjectionInProcessClient::new(self.agent_id))
+  } else {
+    DedicatedWorker(
+      ProjectionWorkerClient::new(self.stamp_owner.generation, self.agent_id),
+    )
+  }
   self.seeded = false
   self.source = ""
 }

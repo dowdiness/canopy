@@ -338,28 +338,37 @@ fn publish(
 ///|
 fn preview_document_view(model : DriverModel) -> @rabbita_runtime.Html {
   let source = model.document.source()
-  match model.preview_artifact {
-    Some(artifact) => semantic_preview_artifact_view(source, artifact)
-    None =>
+  let unavailable = () => {
+    @html.div(
+      style=[
+        "box-sizing:border-box;width:100%;min-width:0;overflow-y:auto;overflow-x:hidden",
+      ],
       @html.div(
+        id="loomark-preview",
+        attrs=@html.Attrs::build()
+          .data_set("loomark-preview-fallback", "unavailable")
+          .role("region")
+          .tabindex(0)
+          .aria_label("Markdown preview"),
         style=[
-          "box-sizing:border-box;width:100%;min-width:0;overflow-y:auto;overflow-x:hidden",
+          "box-sizing:border-box;width:var(--lm-page-width);margin-inline:auto;min-width:0;display:grid;gap:1rem;grid-auto-rows:max-content;background:transparent;padding:1rem var(--lm-page-x-padding)",
         ],
-        @html.div(
-          id="loomark-preview",
-          attrs=@html.Attrs::build()
-            .data_set("loomark-preview-fallback", "unavailable")
-            .role("region")
-            .tabindex(0)
-            .aria_label("Markdown preview"),
-          style=[
-            "box-sizing:border-box;width:var(--lm-page-width);margin-inline:auto;min-width:0;display:grid;gap:1rem;grid-auto-rows:max-content;background:transparent;padding:1rem var(--lm-page-x-padding)",
-          ],
-          @rui.typography_muted(
-            "Preview is unavailable for the current accepted document.",
-          ),
+        @rui.typography_muted(
+          "Preview is unavailable for the current accepted document.",
         ),
-      )
+      ),
+    )
+  }
+  if selected_projection_placement is ProjectionSynchronous {
+    match model.semantic_document {
+      Some(document) => semantic_preview_view(source, document)
+      None => unavailable()
+    }
+  } else {
+    match model.preview_artifact {
+      Some(artifact) => semantic_preview_artifact_view(source, artifact)
+      None => unavailable()
+    }
   }
 }
 
@@ -624,6 +633,10 @@ fn preview_view(
   @rui.theme(
     id="loomark-root",
     attrs=@html.Attrs::build()
+      .data_set(
+        "loomark-projection-placement",
+        selected_projection_placement.name(),
+      )
       .role("region")
       .aria_label("Loomark Markdown Editor"),
     style=[
@@ -697,7 +710,23 @@ fn standalone_preview_view(
 ) -> @rabbita_runtime.Html {
   match model.runtime_state {
     EditorRuntimeState::RawRecovery(_) => raw_recovery_view(model, emit)
-    _ => preview_view(model, emit, active_view, @html.nothing)
+    _ => {
+      let benchmark_controls = if projection_benchmark_enabled {
+        @html.button(
+          id="loomark-projection-trace-dump",
+          type_="button",
+          hidden=true,
+          attrs=@html.Attrs::build().on_click(_ => {
+            projection_benchmark_trace_publish()
+            @cmd.none
+          }),
+          "Projection trace",
+        )
+      } else {
+        @html.nothing
+      }
+      preview_view(model, emit, active_view, benchmark_controls)
+    }
   }
 }
 
@@ -1816,7 +1845,14 @@ fn update_navigation(
             accepted=true,
             changed=false,
           )
-        None => next_model
+        None =>
+          update_preview_after_authority(
+            attachment,
+            next_model,
+            old_requested,
+            accepted=true,
+            changed=false,
+          )
       }
       (next, @rabbita_runtime.none)
     }
@@ -1839,7 +1875,14 @@ fn update_navigation(
             accepted=true,
             changed=false,
           )
-        None => next_model
+        None =>
+          update_preview_after_authority(
+            attachment,
+            next_model,
+            old_requested,
+            accepted=true,
+            changed=false,
+          )
       }
       (next, @rabbita_runtime.none)
     }
@@ -2654,6 +2697,7 @@ fn build_application(
   view : (DriverModel, @cmd.Emit[DriverEvent], @rabbita_runtime.Html) -> @rabbita_runtime.Html,
   projection_session? : @ref.Ref[ProjectionSession?],
 ) -> @rabbita_runtime.App {
+  projection_benchmark_trace_enable()
   let current_session : @ref.Ref[EditorSession] = {
     val: { editor, attachment },
   }
@@ -2662,14 +2706,24 @@ fn build_application(
     raw_input_telemetry,
   )
   let block_input_coordinator = BlockInputCoordinator::BlockInputCoordinator()
-  let projection_worker = ProjectionWorkerRuntime::new(
-    "loomark-production-projection",
-  )
+  let projection_worker = match selected_projection_placement {
+    ProjectionWorker =>
+      Some(ProjectionWorkerRuntime::new("loomark-production-projection"))
+    ProjectionInProcess =>
+      Some(
+        ProjectionWorkerRuntime::new_in_process("loomark-comparison-projection"),
+      )
+    ProjectionSynchronous => None
+  }
   let application_subscriptions = (model, emit) => {
-    @sub.batch([
-      subscriptions(model, emit),
-      projection_worker_subscription(projection_worker),
-    ])
+    match projection_worker {
+      Some(runtime) =>
+        @sub.batch([
+          subscriptions(model, emit),
+          projection_worker_subscription(runtime),
+        ])
+      None => subscriptions(model, emit)
+    }
   }
   let update = (model, event, emit) => {
     let session = current_session.val
@@ -2683,7 +2737,7 @@ fn build_application(
       event,
       emit,
       projection_session?,
-      projection_worker~,
+      projection_worker?,
     ) catch {
       Failure::Failure(_) as failure => {
         raw_input_coordinator.cancel_pending()
@@ -2724,7 +2778,11 @@ fn build_application(
         (next, command)
       }
     }
-    (next, @cmd.batch([command, projection_worker.sync(next, emit)]))
+    let projection_command = match projection_worker {
+      Some(runtime) => runtime.sync(next, emit)
+      None => @rabbita_runtime.none
+    }
+    (next, @cmd.batch([command, projection_command]))
   }
   @rabbita_runtime.new(() => {
     let (model, emit) = @rabbita_runtime.create_state_with_init(
@@ -2736,13 +2794,11 @@ fn build_application(
             })
           None => @rabbita_runtime.none
         }
-        (
-          initial,
-          @cmd.batch([
-            persistence_command,
-            projection_worker.sync(initial, emit),
-          ]),
-        )
+        let projection_command = match projection_worker {
+          Some(runtime) => runtime.sync(initial, emit)
+          None => @rabbita_runtime.none
+        }
+        (initial, @cmd.batch([persistence_command, projection_command]))
       },
       update~,
       subscriptions=application_subscriptions,

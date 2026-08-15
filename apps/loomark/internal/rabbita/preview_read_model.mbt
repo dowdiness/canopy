@@ -33,6 +33,41 @@ fn preview_requested(model : DriverModel) -> Bool {
 }
 
 ///|
+/// Imperative shell around `preview_document_decision`; this is the sole
+/// comparison read site for the mount-owned semantic attachment.
+#warnings("-unused_value")
+fn update_preview_document_synchronously(
+  attachment : @md_markdown.MarkdownSemanticAttachment,
+  model : DriverModel,
+  old_requested : Bool,
+  accepted~ : Bool,
+  changed~ : Bool,
+) -> DriverModel {
+  match
+    preview_document_decision(
+      old_requested,
+      preview_requested(model),
+      accepted~,
+      changed~,
+    ) {
+    PreviewDocumentRead => {
+      projection_trace_begin_demand_group(
+        next_requested=!old_requested && preview_requested(model),
+      )
+      let document = attachment.document()
+      projection_trace_semantic_attachment_read()
+      {
+        ..model,
+        semantic_document: Some(document),
+        semantic_read_count: model.semantic_read_count + 1,
+      }
+    }
+    PreviewDocumentKeep => model
+    PreviewDocumentClear => { ..model, semantic_document: None }
+  }
+}
+
+///|
 /// Production authority adoption never reads the semantic attachment. The
 /// projection Worker materializes and returns the demanded artifact.
 fn update_preview_after_authority(
@@ -42,13 +77,20 @@ fn update_preview_after_authority(
   accepted~ : Bool,
   changed~ : Bool,
 ) -> DriverModel {
-  ignore(attachment)
-  ignore(old_requested)
-  ignore(changed)
-  if accepted && !preview_requested(model) {
-    projection_trace_current_request_no_demand()
+  if selected_projection_placement is ProjectionSynchronous {
+    update_preview_document_synchronously(
+      attachment,
+      model,
+      old_requested,
+      accepted~,
+      changed~,
+    )
+  } else {
+    if accepted && !preview_requested(model) {
+      projection_trace_current_request_no_demand()
+    }
+    model
   }
-  model
 }
 
 ///|

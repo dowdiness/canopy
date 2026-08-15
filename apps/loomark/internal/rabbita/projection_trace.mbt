@@ -1111,3 +1111,74 @@ fn projection_trace_contract_violated() -> Bool {
     Some(trace) => trace.contract_violated
   }
 }
+
+///|
+extern "js" fn projection_benchmark_now_micros() -> Int =
+  #| () => Math.floor(performance.now() * 1000)
+
+///|
+extern "js" fn projection_benchmark_publish_trace_raw(raw : String) -> Unit =
+  #| raw => {
+  #|   document.documentElement.dataset.loomarkProjectionTrace = raw;
+  #| }
+
+///|
+fn projection_benchmark_trace_enable() -> Unit {
+  if projection_benchmark_enabled {
+    projection_trace_enable(
+      capacity=65536,
+      clock=projection_benchmark_now_micros,
+    )
+  }
+}
+
+///|
+fn projection_benchmark_trace_json() -> String {
+  match projection_trace.val {
+    None => Json::object({ "enabled": Json::boolean(false) }).stringify()
+    Some(trace) => {
+      let entries : Array[Json] = []
+      for index in 0..<trace.count {
+        entries.push(
+          Json::object({
+            "sequence": Json::number(trace.sequence[index].to_double()),
+            "timestamp_us": Json::number(trace.timestamp[index].to_double()),
+            "event_id": Json::number(trace.event_id[index].to_double()),
+            "request_id": Json::number(trace.request_id[index].to_double()),
+            "group_work_id": Json::number(
+              trace.group_work_id[index].to_double(),
+            ),
+            "presentation_id": Json::number(
+              trace.presentation_id[index].to_double(),
+            ),
+            "group": Json::number(trace.group[index].to_double()),
+            "phase": Json::number(trace.phase[index].to_double()),
+            "status": Json::number(trace.status[index].to_double()),
+            "request_disposition": Json::number(
+              trace.request_disposition[index].to_double(),
+            ),
+            "group_outcome": Json::number(
+              trace.group_outcome[index].to_double(),
+            ),
+            "reason": Json::number(trace.reason[index].to_double()),
+          }),
+        )
+      }
+      Json::object({
+        "enabled": Json::boolean(true),
+        "count": Json::number(trace.count.to_double()),
+        "dropped_count": Json::number(trace.dropped_count.to_double()),
+        "overflowed": Json::boolean(trace.overflowed || trace.id_exhausted),
+        "contract_violated": Json::boolean(trace.contract_violated),
+        "entries": Json::array(entries),
+      }).stringify()
+    }
+  }
+}
+
+///|
+fn projection_benchmark_trace_publish() -> Unit {
+  if projection_benchmark_enabled {
+    projection_benchmark_publish_trace_raw(projection_benchmark_trace_json())
+  }
+}
