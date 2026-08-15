@@ -61,6 +61,7 @@ pub fn write_selection(Int, Int) -> Unit
 pub fn write_selection_failure() -> Unit
 
 // Errors
+type ProjectionWorkerCounterError derive(Eq, @debug.Debug)
 
 // Types and methods
 type BlockSelectionDecision derive(Eq, @debug.Debug)
