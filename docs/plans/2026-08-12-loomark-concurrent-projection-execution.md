@@ -1,8 +1,15 @@
 # Loomark concurrent projection execution — implementation plan
 
-**Status:** Active plan; Commits 1–6 and the production Worker cutover slice of Commit 7 are implemented on draft PR #1249. Commit 7 promotion evidence and closure remain.
+**Status:** Active plan; PR #1249 merged the production Worker implementation as squash `fa1dd37048a1ae783e1186e30e19bda3a5102921` on 2026-08-15. Commit 7 promotion evidence and closure remain.
 
 **Canonical issue:** [#1244 — Loomark: move Markdown projection off the authority commit path](https://github.com/dowdiness/canopy/issues/1244)
+
+**Merged implementation:** [PR #1249](https://github.com/dowdiness/canopy/pull/1249)
+shipped the fail-closed Worker protocol, production placement, and browser
+integration. The unchecked acceptance criteria below remain the closure
+contract; in particular, the plan still requires the recorded 2k/10k/50k
+comparison, raw performance and retention evidence, and exact evidence links
+before it can move to `docs/archive/completed-phases/`.
 
 **Decision:** [Loomark projection execution is asynchronous and source-stamped](../decisions/2026-08-12-loomark-concurrent-projection-execution.md)
 
