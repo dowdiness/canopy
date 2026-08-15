@@ -338,7 +338,7 @@ fn publish(
 ///|
 fn preview_document_view(model : DriverModel) -> @rabbita_runtime.Html {
   let source = model.document.source()
-  let unavailable = () =>
+  let unavailable = () => {
     @html.div(
       style=[
         "box-sizing:border-box;width:100%;min-width:0;overflow-y:auto;overflow-x:hidden",
@@ -358,6 +358,7 @@ fn preview_document_view(model : DriverModel) -> @rabbita_runtime.Html {
         ),
       ),
     )
+  }
   if selected_projection_placement is ProjectionSynchronous {
     match model.semantic_document {
       Some(document) => semantic_preview_view(source, document)
@@ -715,12 +716,10 @@ fn standalone_preview_view(
           id="loomark-projection-trace-dump",
           type_="button",
           hidden=true,
-          attrs=@html.Attrs::build().on_click(
-            _ => {
-              projection_benchmark_trace_publish()
-              @cmd.none
-            },
-          ),
+          attrs=@html.Attrs::build().on_click(_ => {
+            projection_benchmark_trace_publish()
+            @cmd.none
+          }),
           "Projection trace",
         )
       } else {
@@ -2709,9 +2708,7 @@ fn build_application(
   let block_input_coordinator = BlockInputCoordinator::BlockInputCoordinator()
   let projection_worker = match selected_projection_placement {
     ProjectionWorker =>
-      Some(
-        ProjectionWorkerRuntime::new("loomark-production-projection"),
-      )
+      Some(ProjectionWorkerRuntime::new("loomark-production-projection"))
     ProjectionInProcess =>
       Some(
         ProjectionWorkerRuntime::new_in_process("loomark-comparison-projection"),
@@ -2801,10 +2798,7 @@ fn build_application(
           Some(runtime) => runtime.sync(initial, emit)
           None => @rabbita_runtime.none
         }
-        (
-          initial,
-          @cmd.batch([persistence_command, projection_command]),
-        )
+        (initial, @cmd.batch([persistence_command, projection_command]))
       },
       update~,
       subscriptions=application_subscriptions,

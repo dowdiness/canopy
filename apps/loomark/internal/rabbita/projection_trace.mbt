@@ -1125,7 +1125,10 @@ extern "js" fn projection_benchmark_publish_trace_raw(raw : String) -> Unit =
 ///|
 fn projection_benchmark_trace_enable() -> Unit {
   if projection_benchmark_enabled {
-    projection_trace_enable(capacity=65536, clock=projection_benchmark_now_micros)
+    projection_trace_enable(
+      capacity=65536,
+      clock=projection_benchmark_now_micros,
+    )
   }
 }
 

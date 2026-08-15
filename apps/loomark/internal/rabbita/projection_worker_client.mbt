@@ -268,7 +268,9 @@ priv struct ProjectionInProcessClient {
 
 ///|
 #warnings("-unused_value")
-fn ProjectionInProcessClient::new(agent_id : String) -> ProjectionInProcessClient {
+fn ProjectionInProcessClient::new(
+  agent_id : String,
+) -> ProjectionInProcessClient {
   {
     dispatch: new_projection_worker_dispatcher(),
     agent_id,
