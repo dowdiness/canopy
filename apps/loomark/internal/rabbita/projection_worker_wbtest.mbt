@@ -29,14 +29,16 @@ fn projection_worker_seed_command(
   generation : Int,
   demand? : ProjectionDemand = projection_all_demand(),
   sequence? : Int = 1,
+  source_revision? : Int = sequence,
 ) -> Json {
   Json::object({
     "kind": Json::string("seed"),
     "agent_id": Json::string(agent_id),
     "source": Json::string(source),
-    "stamp": projection_worker_stamp_json(
-      projection_worker_test_stamp(generation, sequence~),
-    ),
+    "stamp": projection_worker_stamp_json({
+      ..projection_worker_test_stamp(generation, sequence~),
+      source_revision,
+    }),
     "demand": Json::object({
       "block": Json::boolean(demand.block),
       "preview": Json::boolean(demand.preview),
@@ -566,6 +568,42 @@ test "projection Worker restart Seed preserves the host sequence frontier" {
   )
   assert_eq(projection_worker_response_kind(seeded), "ok")
   assert_eq(projection_worker_response_sequence(seeded), 25)
+}
+
+///|
+test "projection Worker rejects an invalid initial Seed without claiming its session" {
+  for
+    invalid in [
+      projection_worker_seed_command(
+        "invalid-sequence",
+        "# Invalid\n",
+        1,
+        sequence=0,
+      ),
+      projection_worker_seed_command(
+        "invalid-source-revision",
+        "# Invalid\n",
+        1,
+        source_revision=-1,
+      ),
+    ] {
+    let dispatch = new_projection_worker_dispatcher()
+    let rejected = dispatch(projection_worker_request(1, invalid))
+    assert_eq(projection_worker_response_kind(rejected), "error")
+    let unseeded = dispatch(
+      projection_worker_request(2, projection_worker_command("snapshot")),
+    )
+    assert_eq(projection_worker_response_kind(unseeded), "error")
+    let seeded = dispatch(
+      projection_worker_request(
+        3,
+        projection_worker_seed_command("valid-after-rejection", "# Valid\n", 1),
+      ),
+    )
+    assert_eq(projection_worker_response_kind(seeded), "ok")
+    assert_eq(projection_worker_response_sequence(seeded), 1)
+    assert_eq(projection_worker_response_source_revision(seeded), 1)
+  }
 }
 
 ///|

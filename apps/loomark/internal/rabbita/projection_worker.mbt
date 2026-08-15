@@ -421,9 +421,12 @@ pub fn new_projection_worker_dispatcher() -> (String) -> String {
             request_id, "disposed", "dispatcher is disposed",
           )
         }
-        guard session.val is None && stamp.generation > 0 else {
+        guard session.val is None &&
+          stamp.generation > 0 &&
+          stamp.sequence > 0 &&
+          stamp.source_revision >= 0 else {
           return projection_worker_error_response(
-            request_id, "invalid-state", "Seed requires an empty dispatcher and positive generation",
+            request_id, "invalid-state", "Seed requires an empty dispatcher and a valid initial stamp",
           )
         }
         let created = ProjectionSession::ProjectionSession(
