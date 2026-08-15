@@ -338,7 +338,17 @@ fn incr_canvas_pointer_attrs(dispatch : Emit[Msg]) -> @html.Attrs {
     event.prevent_default()
     match incr_canvas_screen_point_from_wheel_event(event) {
       Some(screen) =>
-        dispatch(IncrCanvas(Wheel(event.get_delta_y(), screen.x(), screen.y())))
+        dispatch(
+          IncrCanvas(
+            Wheel(
+              event.get_delta_y(),
+              event.get_delta_mode(),
+              event.get_ctrl_key(),
+              screen.x(),
+              screen.y(),
+            ),
+          ),
+        )
       None => @rabbita_cmd.none
     }
   })

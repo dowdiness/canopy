@@ -1004,18 +1004,34 @@ fn SourceBackedGraph::input_port_compatibility(
 ///|
 fn SourceBackedGraph::zoom(
   self : SourceBackedGraph,
-  delta : Double,
+  delta_y : Double,
+  delta_mode : Int,
+  ctrl_key : Bool,
   cx : Double,
   cy : Double,
 ) -> Unit {
-  if delta.is_nan() || delta.is_inf() {
-    return
-  }
+  let before = source_graph_base_canvas_state(self)
+  guard !before.interaction.pointer_down else { return }
   let screen = ScreenPoint::from_xy(x=cx, y=cy) catch {
     @spatial.CoordinateError::NonFinite => return
   }
-  let before = source_graph_base_canvas_state(self)
-  let next = @graph_model.update_zoom(before, delta, screen)
+  let absolute_scale = match canvas_wheel_target_scale(
+    before.viewport.scale(),
+    delta_y,
+    delta_mode,
+    ctrl_key,
+    canvas_pointer_is_mac_like(),
+    min_scale=0.1,
+    max_scale=8.0,
+  ) {
+    Some(scale) => scale
+    None => return
+  }
+  let next = @graph_model.update_viewport_scale_around(
+    before,
+    absolute_scale,
+    screen,
+  )
   if next.viewport != before.viewport || next.action_log != before.action_log {
     self.viewport = next.viewport
     self.action_log = next.action_log.copy()
@@ -1340,12 +1356,14 @@ pub fn get_source_graph_input_port_compatibility(
 ///|
 pub fn source_graph_zoom(
   handle : Int,
-  delta : Double,
+  delta_y : Double,
+  delta_mode : Int,
+  ctrl_key : Bool,
   cx : Double,
   cy : Double,
 ) -> Unit {
   match source_graph_by_handle(handle) {
-    Some(graph) => graph.zoom(delta, cx, cy)
+    Some(graph) => graph.zoom(delta_y, delta_mode, ctrl_key, cx, cy)
     None => ()
   }
 }

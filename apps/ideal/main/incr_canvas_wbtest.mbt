@@ -213,7 +213,10 @@ test "incr canvas pointer identity gates gestures and zero wheel is a no-op" {
     incr_canvas_capture_lost_for_pointer(state, Some(7)),
     lost,
   )
-  assert_incr_canvas_state_eq(incr_canvas_zoom(state, 0.0, 10.0, 10.0), state)
+  assert_incr_canvas_state_eq(
+    incr_canvas_wheel(state, 0.0, 0, false, 10.0, 10.0),
+    state,
+  )
 }
 
 ///|
@@ -240,21 +243,35 @@ test "incr canvas zoom preserves the screen anchor and rejects invalid input" {
   let state = { ..IncrCanvasState::empty(), viewport, }
   let anchor = test_screen(310.0, 145.0)
   let world_at_anchor = try! viewport.screen_to_world(anchor)
-  let changed = incr_canvas_zoom(state, -1.0, anchor.x(), anchor.y())
+  let changed = incr_canvas_wheel(
+    state,
+    -50.0,
+    0,
+    false,
+    anchor.x(),
+    anchor.y(),
+  )
   let projected = try! changed.viewport.world_to_screen(world_at_anchor)
   incr_canvas_assert_close(projected.x(), anchor.x())
   incr_canvas_assert_close(projected.y(), anchor.y())
-  let returned = incr_canvas_zoom(changed, 1.0, anchor.x(), anchor.y())
+  let returned = incr_canvas_wheel(
+    changed,
+    50.0,
+    0,
+    false,
+    anchor.x(),
+    anchor.y(),
+  )
   incr_canvas_assert_close(
     returned.viewport.scale().to_double(),
     state.viewport.scale().to_double(),
   )
   assert_incr_canvas_state_eq(
-    incr_canvas_zoom(state, 0.0 / 0.0, 0.0, 0.0),
+    incr_canvas_wheel(state, 0.0 / 0.0, 0, false, 0.0, 0.0),
     state,
   )
   assert_incr_canvas_state_eq(
-    incr_canvas_zoom(state, 1.0, 1.0 / 0.0, 0.0),
+    incr_canvas_wheel(state, 1.0, 0, false, 1.0 / 0.0, 0.0),
     state,
   )
 }

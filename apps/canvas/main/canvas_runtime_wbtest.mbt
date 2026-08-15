@@ -129,6 +129,38 @@ test "runtime pointer admission rejects missing nodes without mutation" {
 }
 
 ///|
+///|
+test "runtime wheel rejects zero and active gesture input" {
+  let runtime = CanvasRuntime::CanvasRuntime()
+  let before = runtime.state_peek()
+  runtime.zoom(0.0, 0, false, 10.0, 10.0)
+  let zero = runtime.state_peek()
+  assert_eq(zero.viewport, before.viewport)
+  assert_eq(zero.action_log.length(), before.action_log.length())
+
+  ignore(runtime.pointer_down(None, 10.0, 10.0))
+  let active = runtime.state_peek()
+  runtime.zoom(-100.0, 0, false, 20.0, 20.0)
+  let during = runtime.state_peek()
+  assert_eq(during.viewport, active.viewport)
+  assert_eq(during.action_log.length(), active.action_log.length())
+  runtime.pointer_interrupt()
+
+  runtime.sync_viewport_state({
+    ..runtime.state_peek(),
+    viewport: Viewport::from_scale(
+      origin=try! ScreenPoint::from_xy(x=0.0, y=0.0),
+      scale=try! @spatial.Scale::from_double(value=8.0),
+    ),
+  })
+  let at_max = runtime.state_peek()
+  runtime.zoom(-100.0, 0, false, 100.0, 100.0)
+  let repeated = runtime.state_peek()
+  assert_eq(repeated.viewport, at_max.viewport)
+  assert_eq(repeated.action_log.length(), at_max.action_log.length())
+}
+
+///|
 test "runtime compatibility export batches graph model results" {
   let runtime = CanvasRuntime::CanvasRuntime()
   let entries = runtime.input_port_compatibility(NodeId("2"), "json")

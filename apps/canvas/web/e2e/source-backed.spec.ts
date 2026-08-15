@@ -270,6 +270,59 @@ test('source-backed release hit ignores elements outside the canvas root', async
   expect(runtimeErrors).toEqual([]);
 });
 
+test('source-backed wheel shares normalized camera semantics', async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto('/?source=1');
+  await expectSource(page, SAMPLE_SOURCE);
+  const dispatchWheel = async (deltaY: number, deltaMode: number) => {
+    await page.evaluate(({ deltaY, deltaMode }) => {
+      const root = document.querySelector('#canvas-root') as HTMLDivElement;
+      const rect = root.getBoundingClientRect();
+      root.dispatchEvent(new WheelEvent('wheel', {
+        bubbles: true,
+        deltaY,
+        deltaMode,
+        clientX: rect.left + 120,
+        clientY: rect.top + 80,
+      }));
+    }, { deltaY, deltaMode });
+  };
+
+  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  await dispatchWheel(0, 0);
+  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  await dispatchWheel(-2, 1);
+  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    root.setPointerCapture = () => undefined;
+    root.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId: 122,
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+    }));
+  });
+  await expect(page.locator('#canvas-root')).toHaveClass(/panning/);
+  await dispatchWheel(-100, 0);
+  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    root.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles: true,
+      pointerId: 122,
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+    }));
+  });
+  await expect(page.locator('#canvas-root')).not.toHaveClass(/panning/);
+  expect(runtimeErrors).toEqual([]);
+});
+
 test('source-backed pointercancel drops the local connection preview', async ({ page }) => {
   const runtimeErrors = collectRuntimeErrors(page);
 

@@ -821,7 +821,7 @@ root.addEventListener('click', (e: MouseEvent) => {
 root.addEventListener('wheel', (e: WheelEvent) => {
   e.preventDefault();
   const [cx, cy] = localCoords(e);
-  adapter.zoom(e.deltaY, cx, cy);
+  adapter.zoom(e.deltaY, e.deltaMode, e.ctrlKey, cx, cy);
   scheduleRender();
 }, { passive: false });
 

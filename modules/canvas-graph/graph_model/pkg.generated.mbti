@@ -58,7 +58,7 @@ pub fn update_pointer_interrupt(CanvasState) -> CanvasState
 
 pub fn update_pointer_up(CanvasState, String, String, Bool) -> CanvasState
 
-pub fn update_zoom(CanvasState, Double, @spatial.ScreenPoint) -> CanvasState
+pub fn update_viewport_scale_around(CanvasState, @spatial.Scale, @spatial.ScreenPoint) -> CanvasState
 
 pub fn workflow_add_node(CanvasState, String, @spatial.WorldPoint) -> CanvasState
 

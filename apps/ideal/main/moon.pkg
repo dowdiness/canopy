@@ -30,6 +30,7 @@ import {
   "moonbitlang/core/string",
   "moonbitlang/core/json",
   "moonbitlang/core/debug",
+  "moonbitlang/core/math",
   "moonbitlang/core/immut/hashset" @immut/hashset,
   "moonbit-community/rabbita/cmd" @rabbita_cmd,
   "dowdiness/graphviz/lib/parser" @gv_parser,

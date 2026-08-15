@@ -116,7 +116,7 @@ test "pan_move is no-op when not panning" {
 }
 
 ///|
-test "pan, zoom, and drag reject non-finite input" {
+test "pan and drag reject non-finite input" {
   let state = make_test_state()
   let invalid_start = try {
     ignore(ScreenPoint::from_xy(x=0.0 / 0.0, y=0.0))
@@ -150,12 +150,6 @@ test "pan, zoom, and drag reject non-finite input" {
   )
   assert_eq(overflowing_move.viewport, extreme_started.viewport)
   assert_eq(overflowing_move.interaction.did_move, false)
-
-  for delta in [0.0 / 0.0, 1.0 / 0.0, -1.0 / 0.0] {
-    let invalid_delta_zoom = update_zoom(state, delta, screen_point(0.0, 0.0))
-    assert_eq(invalid_delta_zoom.viewport, state.viewport)
-    assert_eq(invalid_delta_zoom.action_log.length(), 0)
-  }
 }
 
 ///|
@@ -164,15 +158,32 @@ test "zoom rejects an overflowing anchored origin" {
     ..make_test_state(),
     viewport: viewport_for_test(0.0, 0.0, 1.0e-308),
   }
-  let unchanged = update_zoom(state, 1.0, screen_point(1.0e308, 0.0))
+  let scale = try! @spatial.Scale::from_double(value=2.0)
+  let unchanged = update_viewport_scale_around(
+    state,
+    scale,
+    screen_point(1.0e308, 0.0),
+  )
   assert_eq(unchanged.viewport, state.viewport)
   assert_eq(unchanged.action_log.length(), 0)
 }
 
 ///|
-test "zoom changes scale and records a serializable action" {
+test "semantic viewport scale no-op does not record an action" {
   let state = make_test_state()
-  let s = update_zoom(state, -1.0, screen_point(500.0, 400.0))
+  let scale = try! @spatial.Scale::from_double(
+    value=state.viewport.scale().to_double(),
+  )
+  let next = update_viewport_scale_around(state, scale, screen_point(0.0, 0.0))
+  assert_eq(next.viewport, state.viewport)
+  assert_eq(next.action_log.length(), 0)
+}
+
+///|
+test "semantic scale changes viewport and records a serializable action" {
+  let state = make_test_state()
+  let scale = try! @spatial.Scale::from_double(value=1.5)
+  let s = update_viewport_scale_around(state, scale, screen_point(500.0, 400.0))
   assert_true(s.viewport.scale().to_double() > 1.0)
   assert_eq(s.action_log.length(), 1)
   match s.action_log[0].action() {
@@ -182,29 +193,14 @@ test "zoom changes scale and records a serializable action" {
 }
 
 ///|
-test "zoom clamps to min 0.1 and max 8.0" {
-  let min_state = {
-    ..make_test_state(),
-    viewport: viewport_for_test(0.0, 0.0, 0.11),
-  }
-  let min_zoom = update_zoom(min_state, 1.0, screen_point(0.0, 0.0))
-  assert_eq(min_zoom.viewport.scale().to_double(), 0.1)
-  let max_state = {
-    ..make_test_state(),
-    viewport: viewport_for_test(0.0, 0.0, 7.5),
-  }
-  let max_zoom = update_zoom(max_state, -1.0, screen_point(0.0, 0.0))
-  assert_eq(max_zoom.viewport.scale().to_double(), 8.0)
-}
-
-///|
-test "zoom keeps cursor world position fixed" {
+test "semantic scale keeps cursor world position fixed" {
   let state = make_test_state()
   let cx = 300.0
   let cy = 200.0
   let anchor = screen_point(cx, cy)
   let world_x_before = try! state.viewport.screen_to_world(anchor).x()
-  let s = update_zoom(state, 1.0, anchor)
+  let scale = try! @spatial.Scale::from_double(value=1.5)
+  let s = update_viewport_scale_around(state, scale, anchor)
   let world_x_after = try! s.viewport.screen_to_world(anchor).x()
   assert_true((world_x_before - world_x_after).abs() < 1.0e-9)
 }

@@ -36,35 +36,25 @@ pub fn update_pan_move(
 }
 
 ///|
-/// Zoom the viewport toward a typed cursor point.
-pub fn update_zoom(
+/// Apply an absolute viewport scale while keeping a screen anchor fixed.
+///
+/// Device-specific camera input must be normalized before reaching this
+/// semantic reducer. Equal viewports are not actions, so clamped or repeated
+/// inputs do not grow the action log.
+pub fn update_viewport_scale_around(
   state : CanvasState,
-  delta : Double,
+  absolute_scale : @spatial.Scale,
   anchor : ScreenPoint,
 ) -> CanvasState {
-  if delta.is_nan() || delta.is_inf() {
+  if state.viewport.scale() == absolute_scale {
+    return state
+  }
+  let new_viewport = state.viewport.with_scale_around(anchor~, absolute_scale~) catch {
+    @spatial.CoordinateError::NonFinite => return state
+  }
+  if new_viewport == state.viewport {
     state
   } else {
-    let factor = if delta > 0.0 { 0.9 } else { 1.0 / 0.9 }
-    let old_scale = state.viewport.scale().to_double()
-    let raw = old_scale * factor
-    let new_scale_value = if raw < 0.1 {
-      0.1
-    } else if raw > 8.0 {
-      8.0
-    } else {
-      raw
-    }
-    let new_scale = @spatial.Scale::from_double(value=new_scale_value) catch {
-      @spatial.ScaleError::NonFinite | @spatial.ScaleError::NonPositive =>
-        return state
-    }
-    let new_viewport = state.viewport.with_scale_around(
-      anchor~,
-      absolute_scale=new_scale,
-    ) catch {
-      @spatial.CoordinateError::NonFinite => return state
-    }
     record_action(
       { ..state, viewport: new_viewport },
       SetViewport(new_viewport),

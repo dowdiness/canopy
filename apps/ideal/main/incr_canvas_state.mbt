@@ -26,9 +26,6 @@ const INCR_CANVAS_MIN_SCALE : Double = 0.25
 const INCR_CANVAS_MAX_SCALE : Double = 4.0
 
 ///|
-const INCR_CANVAS_ZOOM_FACTOR : Double = 1.1
-
-///|
 struct IncrCanvasState {
   viewport : @spatial.Viewport
   panning : @spatial.Pan?
@@ -331,40 +328,4 @@ fn incr_canvas_capture_lost_for_pointer(
 ) -> IncrCanvasState {
   guard state.active_pointer_id == pointer_id else { return state }
   incr_canvas_capture_lost(state)
-}
-
-///|
-fn incr_canvas_zoom(
-  state : IncrCanvasState,
-  delta : Double,
-  x : Double,
-  y : Double,
-) -> IncrCanvasState {
-  guard !delta.is_nan() && !delta.is_inf() && delta != 0.0 else { return state }
-  let anchor = match incr_canvas_screen_point(x, y) {
-    Some(point) => point
-    None => return state
-  }
-  let current = state.viewport.scale().to_double()
-  let factor = if delta < 0.0 {
-    INCR_CANVAS_ZOOM_FACTOR
-  } else {
-    1.0 / INCR_CANVAS_ZOOM_FACTOR
-  }
-  let next = current * factor
-  let bounded = if next < INCR_CANVAS_MIN_SCALE {
-    INCR_CANVAS_MIN_SCALE
-  } else if next > INCR_CANVAS_MAX_SCALE {
-    INCR_CANVAS_MAX_SCALE
-  } else {
-    next
-  }
-  let scale = @spatial.Scale::from_double(value=bounded) catch {
-    @spatial.ScaleError::NonFinite | @spatial.ScaleError::NonPositive =>
-      return state
-  }
-  let viewport = state.viewport.with_scale_around(anchor~, absolute_scale=scale) catch {
-    @spatial.CoordinateError::NonFinite => return state
-  }
-  { ..state, viewport, }
 }
