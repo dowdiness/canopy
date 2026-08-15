@@ -109,9 +109,12 @@ placement at runtime; an unavailable executor enters an explicit failure state.
 The [release-browser placement record](../performance/2026-08-15-loomark-projection-placement.md)
 rejects both alternative executors. At 2,000 lines, no placement passed the
 responsiveness gate; every 10,000- and 50,000-line cold Seed exceeded the
-120-second censoring deadline. Main-thread presentation dominated the observed
-critical path, so moving projection execution did not establish a product-level
-benefit. Loomark therefore retains synchronous production placement. The
+120-second censoring deadline. The subsequent
+[main-thread characterization](../performance/2026-08-15-loomark-presentation-critical-path.md)
+located the document-scaled interval in pre-frame JavaScript rather than
+Rabbita view materialization, DOM mutation, layout, or paint. Moving projection
+execution alone therefore did not establish a product-level benefit. Loomark
+retains synchronous production placement. The
 dedicated Worker and in-process executors remain private comparison modes behind
 the executor seam; neither is a production fallback.
 

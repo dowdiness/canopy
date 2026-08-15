@@ -816,6 +816,17 @@ retains synchronous production placement and the private executor seam. Raw
 evidence is checked in under `docs/evidence/`. Presentation work and the
 remaining scenario/retention matrix keep this plan active.
 
+**Presentation outcome (2026-08-15):** Harness commit `dfc0101` added
+calibrated Chromium main-thread intervals. A temporary fixed-width probe split
+Rabbita `root_view.read()` from `diff_node(...)`: the 2,000-line middle edit
+spent a median 3.4 ms in view reads and 6.4 ms in VDOM/DOM diff against
+1,664.2 ms end to end. Style/layout and paint were also single-digit
+milliseconds in the retained release-browser trace. The
+[presentation characterization](../performance/2026-08-15-loomark-presentation-critical-path.md)
+therefore rejects presentation optimization and returns the investigation to
+the pre-frame authority path. This result does not satisfy the remaining
+Commit 7 scenario, retention, or closure criteria below.
+
 Run 2k/10k/50k release-browser scenarios for cold Seed, local edits at
 start/middle/end, sustained typing, back-to-back Block intent, demand-only
 Preview, split edit, source-equal advance, failure/restart, cutover bursts, and

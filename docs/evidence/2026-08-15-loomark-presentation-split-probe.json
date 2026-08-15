@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "date": "2026-08-15",
+  "baseline_commit": "c471ddc8f03ebfa420ef227571b78fbb1b5c970e",
+  "samples": 3,
+  "lines": 2000,
+  "placement": "synchronous",
+  "instrumentation": {
+    "retained_in_production": false,
+    "location": "deps/rabbita/rabbita/internal/runtime/Sandbox::flush",
+    "clock": "performance.now()",
+    "storage": "preallocated Float64Array",
+    "phases": [
+      "before root_view.read",
+      "after root_view.read and before diff_node",
+      "after diff_node"
+    ]
+  },
+  "medians": [
+    {"scenario":"cold-seed-preview","duration_ms":3978.3,"view_read_ms":5.3,"dom_diff_ms":8.5,"frames":2},
+    {"scenario":"local-edit-start","duration_ms":1931.3,"view_read_ms":3.9,"dom_diff_ms":5.8,"frames":3},
+    {"scenario":"local-edit-middle","duration_ms":1664.2,"view_read_ms":3.4,"dom_diff_ms":6.4,"frames":3},
+    {"scenario":"local-edit-end","duration_ms":1647.8,"view_read_ms":4.0,"dom_diff_ms":7.4,"frames":3},
+    {"scenario":"sustained-typing-8-edits","duration_ms":1898.2,"view_read_ms":3.5,"dom_diff_ms":18.9,"frames":12},
+    {"scenario":"source-equal-advance","duration_ms":48.1,"view_read_ms":0.1,"dom_diff_ms":3.3,"frames":2}
+  ],
+  "sustained_typing_samples": [
+    {"duration_ms":1898.2,"view_read_ms":11.2,"dom_diff_ms":123.1,"frames":11},
+    {"duration_ms":1931.1,"view_read_ms":3.5,"dom_diff_ms":16.1,"frames":12},
+    {"duration_ms":1781.8,"view_read_ms":3.2,"dom_diff_ms":18.9,"frames":13}
+  ]
+}
