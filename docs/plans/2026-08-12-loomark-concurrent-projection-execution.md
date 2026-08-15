@@ -1,6 +1,6 @@
 # Loomark concurrent projection execution — implementation plan
 
-**Status:** Active plan; no implementation has landed.
+**Status:** Active plan; Commits 1–6 and the production Worker cutover slice of Commit 7 are implemented on draft PR #1249. Commit 7 promotion evidence and closure remain.
 
 **Canonical issue:** [#1244 — Loomark: move Markdown projection off the authority commit path](https://github.com/dowdiness/canopy/issues/1244)
 
@@ -130,19 +130,36 @@ logic. Before extraction, classify each projection-relevant authority event
 exactly once as either a replayable `Advance`/`SourceUnchanged`, or a generation
 invalidation followed by coherent `Seed` recovery. Lifecycle replacement events
 do not masquerade as `SourceTransition`. If Seed needs full source and no
-immutable handle exists, record `SeedCaptureRequired`, return the authority
-result, and materialize source afterward.
+immutable handle exists, record a `NeedsSeed` control marker in A1, return the
+authority result, and materialize the coherent Seed afterward at B.
 
-Trace the authority boundary as:
+Trace the authority path as:
 
-- **A0** — causal mutation or lifecycle replacement is irreversibly classified;
-- **A1** — small receipt/effect, document version, and source identity are
-  available; and
-- **B** — deferred Advance or Seed input is materialized.
+- **P0** — command preparation materializes the old source, maps UTF-16 offsets
+  to CRDT positions, validates or snaps grapheme boundaries, computes the
+  requested text change, and validates authority input;
+- **A0** — the authority outcome linearizes as an accepted causal transition,
+  no advance, or rejection; an attempted CRDT mutation may occur before this
+  classification but is not required for every outcome;
+- **A1** — only when A0 accepted a causal transition, before/after causal
+  versions, source identity/revision, and either a small accepted effect/evidence
+  or `NeedsSeed` control marker complete `CommittedTransition`; and
+- **B** — deferred executor-input materialization. On the mutation-derived path,
+  replay input or coherent Seed input is materialized only after A1. On the
+  lifecycle recovery path, coherent Seed input is materialized only after
+  generation invalidation and coherent replacement-authority capture, without
+  creating a synthetic A0, A1, or `CommittedTransition`.
 
-Property tests and trace fields must make it structurally impossible for A0/A1
-to perform full-source export, history encoding, archive preparation, JSON
-generation, or Worker transfer.
+Every authority attempt has one terminal A0 outcome. Rejection or equal
+before/after causal versions produce no `CommittedTransition`, A1, or B; their
+terminal outcome remains on the authority-event axis. Equal source text with a
+changed causal version is an accepted transition: it proceeds through A1 with
+`SourceUnchanged`.
+
+P0 may retain only the existing command-input source materialization measured
+explicitly. P0, A0, and A1 perform no history export or encoding, archive
+preparation, JSON or Worker transfer, parser/projection/semantic work, Preview
+work, or DOM work. A0 and A1 add no full-source materialization or copy.
 
 ### Projection Adapter
 
@@ -286,7 +303,7 @@ result rejection, and disposal. Authority state survives. Raw either remains
 usable or becomes explicitly unavailable; Block/Preview never remain in a fake
 permanent pending state.
 
-## A–F trace contract
+## P0–F trace contract
 
 Instrumentation is private, opt-in, bounded, and allocation-free when disabled.
 One authority event may reference zero or more projection requests. Each request
@@ -296,9 +313,10 @@ may correlate several adopted group work items in the same frame.
 
 | Phase | Linearization point | Required fields |
 |---|---|---|
-| A0 — authority mutation | Commit or lifecycle replacement is irreversibly classified. | event id, operation kind, accepted/rejected, before/after document version, duration |
-| A1 — authority evidence | Small receipt/effect and source identity are available without full export. | event id, source revision/identity, evidence bytes, duration, forbidden-full-export control |
-| B — deferred source materialization | Advance or Seed input is available after A1. | event id, projection request id, input kind, bytes/copies, duration |
+| P0 — command preparation | Authority input is ready for the authority attempt. | event id, operation kind, old-source materialization, UTF-16 mapping, grapheme validation/snapping, requested-change computation, input-validation durations |
+| A0 — authority outcome | The attempt linearizes as accepted causal transition, no advance, or rejection. Every authority attempt terminates here. | event id, operation kind, outcome, mutation duration when attempted, classification duration |
+| A1 — settled committed-transition evidence | Only an accepted causal transition reaches A1. Before/after causal versions, source identity/revision, and a small accepted effect/evidence or `NeedsSeed` marker complete `CommittedTransition` without full export. | event id, before/after document version, source revision/identity, evidence/control-marker kind and bytes, duration, forbidden-full-export control |
+| B — deferred executor-input materialization | Replay input or coherent Seed input becomes available after its prerequisite settled state: A1 for an accepted authority transition, or coherent replacement-authority capture after generation invalidation for lifecycle recovery. Rejected and equal-version no-advance outcomes never reach B. | event id when mutation-derived, projection request id, lifecycle recovery kind when applicable, input kind, bytes/copies, duration |
 | C — projection execution | Executor Seed/Advance begins and ends against one acknowledged base. | projection request id, placement, generation, sequence, base/result revision, queue wait, stage durations, request disposition |
 | D — artifact publication | One consistency-group envelope is complete. | projection request id, group work id, group, encoded bytes, encode/clone/decode durations, materialized-at |
 | E — application adoption | Reducer accepts or rejects one whole group. | group work id, group, stamp, currentness decision, duration, rejection reason, adoption outcome |
@@ -322,10 +340,52 @@ capability, protocol/reducer, Worker evidence, responsibility refactor,
 production integration, and promotion/cleanup in separate commits. A paired
 Rabbita PR is permitted only for Warren multi-entry support.
 
-### Commit 1 — characterize responsibility and A0–F behavior
+### Commit 1 — characterize responsibility and P0–F behavior
 
 **Files:** existing Loomark reducer/transaction/lifecycle tests, disposable dev
 host, and private trace modules.
+
+#### Current responsibility map
+
+This map records the synchronous implementation before instrumentation. `Present`
+means Loomark invokes the path today; `façade-only` means Canopy exposes it but
+Loomark has no caller; `absent` means no current request or handler exists and
+Commit 1 must not invent one.
+
+| Path | Status and authority entry | A0/A1 and post-commit failure | Existing B–F ownership | Current classification |
+|---|---|---|---|---|
+| Raw `ReplaceText` | Present. `application.mbt:1026-1101` normalizes native input and delegates to `raw_selection_transaction.mbt`; all accepted edits reach `document_transaction.mbt:95-187`. | `MarkdownEditor::commit_recording_transforms` mutates the CRDT; `commit_with_receipt` reads the after-version and exports incremental history at `modules/canopy/editor/markdown/editor.mbt:996-1023`. `document_transaction.mbt:118-185` preserves accepted state across typed export/archive failures. A0 is therefore inside `commit_with_receipt`, before that function returns; current A1 is entangled with incremental history export. | Parser mirror C is synchronous in `sync_editor_parser.mbt:33-64`; Preview D is read at `preview_read_model.mbt:38-59`; Rabbita adopts E in the transaction return; `application.mbt:2236-2285` publishes the model and Rabbita subsequently presents F. | Accepted source change is replayable `Advance`; equal source is `SourceUnchanged`; parser failure enters recovery and coherent Seed reconstruction. |
+| `ReplaceSource` | Present. `application.mbt:1151-1236` reduces `RequestCanonicalSource`, then `document_transaction.mbt:192-208` submits one `MarkdownEditRequest::ReplaceSource`. | Same A0/A1 shell as Raw. The façade reuses the exact accepted splice at `editor.mbt:1037-1055`; unsafe post-mutation failure is represented as `MarkdownEditorError::Committed`. | Same synchronous C–F owners as Raw. | `SourceUnchanged` for no-op; replayable `Advance` when the exact accepted splice is portable; Seed barrier only when recovery cannot safely expose that effect outside A0/A1. |
+| Block structural edit | Present. Heading/list/delete/text-control events enter at `application.mbt:1276-1546` and delegate through `document_transaction.mbt:213-323`. | Same A0/A1 shell; stale Block evidence is rejected before commit at `application.mbt:1000-1013` and `1402-1417`. | C is the synchronous parser update; Block snapshot plus selection/resolver evidence is D; transaction/model update is E; after-render selection commands and Rabbita paint are F. | Accepted edit is replayable `Advance`; no-op is `SourceUnchanged`; parser failure enters Seed recovery. |
+| Undo / redo | Absent from Loomark and absent from `MarkdownEditRequest` (`editor.mbt:343-354`). `SyncEditor` owns an internal undo manager, but no Loomark authority entry exists. | No A0/A1 path to instrument. | No B–F path. | Unclassified until a separately reviewed authority request exists. |
+| Remote admission | Façade-only. `MarkdownEditor::admit` delegates to `SyncEditor::admit` at `editor.mbt:880-926`; Loomark has no production caller. | `SyncEditor::admit_with_policy` may partially mutate before reporting failure and synchronizes the parser at `sync_editor.mbt:531-565`. No Loomark receipt/effect boundary exists. | C occurs inside `admit_with_policy`; Loomark has no D–F adoption path. | Not classified by Loomark. Commit 1 characterizes the façade without adding a production route. |
+| Source-equal causal advance | Present through any accepted receipt whose document version advances while `document.source()` is equal. `commit_classification.mbt:7-35` is the pure owner. | A0/A1 are the same receipt path. | C updates document version but short-circuits parser source work at `sync_editor_parser.mbt:40-45`; existing Preview is kept by `preview_read_model.mbt:18-25`; E advances `document_version` without `source_revision`. | `SourceUnchanged`; it must not authorize an intent fenced to the old causal version. |
+| Demand-only Preview | Present. Mode and split demand enter `application.mbt:1736-1785` without an authority mutation. | No A0/A1 and no `DocumentVersion` advance. | `preview_read_model.mbt:12-59` decides whether to read the retained semantic attachment (current C/D); navigation adopts E; Commit 1 records `AdoptedNotPresented(PresentationNotObservedYet)` after detached publication and does not fabricate browser F. | Demand request, not `Advance` or Seed; `NoDemand` creates no group work. |
+| Post-commit history/export failure | Present and typed. `commit_with_receipt` may raise while constructing history at `editor.mbt:1014-1022`; `document_transaction.mbt:118-156` reconstructs accepted state from the current façade frontier. | The mutation is already A0; A1 is emitted after the accepted frontier is known and before history export. Retry is forbidden. | Recovery may reconstruct C/D, adopt E, and explicitly retire without claiming browser presentation. | Preserve the accepted `Advance`/`SourceUnchanged`; failure is not a second authority event. |
+| Parser failure recovery | Present. The application shell catches `Failure`/`Committed` and calls `recover_after_parser_failure` at `application.mbt:2494-2507`. | It reads parser-independent source/version/history, never retries the mutation. | `recovery_shell.mbt:75-197` disposes the old attachment, reopens one fresh editor/attachment, swaps the session only after success, adopts the recovered model, and persists it. | Generation invalidation followed by coherent Seed; every old result becomes terminal. |
+| Archive reopen | Present at startup through `standalone_bootstrap.mbt`; `editor_session.mbt:25-36` is the recovery reopen helper. | Opening existing history creates a fresh authority/session frontier rather than replaying a new mutation. | A fresh parser, semantic attachment, model, and mounted view establish C–F. | New generation plus Seed from the reopened coherent history. |
+| EditorSession replacement | Present only inside recovery. `recovery_shell.mbt:174-180` disposes the old attachment and swaps `session_ref` after the fresh snapshot succeeds. | No new authority mutation; captured accepted source/version/history remain authoritative. | Old C–F state is invalidated; fresh session produces replacement C–F state. | Generation invalidation plus Seed, never `SourceTransition`. |
+
+The first instrumentation seam is therefore not a standalone Projection Adapter.
+Commit 1 must distinguish A0 from the history-exporting remainder of
+`commit_with_receipt`, observe the existing synchronous C–E owners, explicitly
+retire work whose browser presentation is not yet observable, and keep
+façade-only or absent paths out of Loomark production dispatch.
+
+Commit 1 intentionally adds two generated typed observation interfaces.
+`SyncEditor::observe_projection_during` exposes the direct-dependent
+`ProjectionObservationPhase` for A0/C inside one scoped mutation observation.
+Commit 5A additively extends that enum with `CommittedTransitionSettled`, emitted
+immediately after the one private `CommittedTransition` is constructed and
+before interaction reconciliation, parser synchronization, or projection work.
+`MarkdownEditor::commit_with_receipt_observing` maps A0 and this settled A1
+signal separately into its direct-dependent
+`MarkdownProjectionObservationPhase`; the façade then attaches deferred history
+evidence. Neither phase enum is transitively constructible, and neither
+operation exposes an arm/clear setter. Each scope cleans up on every exit,
+coalesces multi-span parser synchronization, and returns whether the CRDT
+acceptance seam was consumed. Settled-transition evidence, never lossy trace
+storage, controls A1 emission.
 
 **Red tests first:**
 
@@ -333,8 +393,10 @@ host, and private trace modules.
    authorizes retry;
 2. A0/A1 expose only small evidence and invoke no full source/history export,
    archive preparation, JSON generation, or Worker transfer;
-3. deferred Seed/source materialization records B after A1;
-4. demand-only Preview produces C–F without A0/A1;
+3. deferred executor-input materialization records B after A1 for an accepted
+   transition, or after generation invalidation and coherent
+   replacement-authority capture for lifecycle recovery;
+4. demand-only Preview produces C–E and an explicit not-presented outcome without A0/A1;
 5. source-equal causal advance changes causal version without changing source
    revision and invalidates an old intent fence;
 6. recovery/session replacement invalidates the generation, gives each old group
@@ -484,35 +546,241 @@ recovery, production-shaped browser operation, and a recorded Worker versus
 in-process trade-off. Gate 0C recommends placement; it does not silently promote
 the Worker.
 
-### Commit 5 — split `SyncEditor` authority and projection responsibilities
+### Commit 5 — establish the committed-transition seam, then split ownership
 
-**Files:** generic SyncEditor internals, Markdown facade/runtime, targeted tests,
-and generated interfaces.
+Commit 5 deepens the editor in three ordered stages. It does not begin by moving
+fields between two structs. First it makes the accepted authority transition a
+value, proves that the existing interaction and projection behavior can consume
+that value synchronously, and only then moves ownership. The existing public
+`SyncEditor` facade and synchronous production path remain active throughout
+this commit.
+
+#### Commit 5A — measure command preparation and establish the semantic seam
+
+**Files:** generic `SyncEditor` mutation/parser internals, Markdown facade and
+runtime, focused characterization/property tests, and browser phase probes.
+
+**P0/A0/A1 measurement gate:** attribute command preparation, authority outcome,
+and conditionally settled transition evidence separately:
+
+- P0 reports old-source materialization, UTF-16-to-CRDT-position mapping,
+  grapheme validation or snapping, requested text-change computation, and
+  authority-input validation;
+- A0 reports attempted CRDT mutation when present, accepted-transition,
+  no-advance, or rejected classification, and authority-outcome linearization;
+  and
+- A1 exists only for an accepted causal transition and reports before/after
+  causal versions, source identity/revision, small accepted effect/evidence or
+  `NeedsSeed` control-marker construction, and `CommittedTransition`
+  completion.
+
+Reuse existing allocation-free phase probes where they already identify these
+costs; measurement must not add per-operation full-source work or allocating
+labels/maps. This evidence distinguishes P0 representation/index costs, A0 CRDT
+mutation cost, A1 evidence cost, and post-A1 projection cost. Lower-layer
+optimization requires the dominant phase to be reproduced in an isolated
+microbenchmark. The gate must not reinterpret the current Gate 0C Worker
+protocol as a production authority contract.
 
 **Red tests first:**
 
-1. authority commit returns A0/A1 before projection or Seed materialization;
-2. projection/source-materialization failure cannot alter accepted history;
-3. Raw, exact/structural edit, undo/redo, remote admission, and source
-   replacement are classified once as replayable `Advance`,
-   `SourceUnchanged`, or generation invalidation followed by coherent `Seed`;
-   source replacement may use the Seed branch only when its accepted replay
-   effect is not safely and cheaply available without adding full-source work to
-   A0/A1;
-4. recovery, archive reopen, and session replacement invalidate the old
-   generation and issue coherent Seed recovery rather than masquerading as
-   `SourceTransition`;
-5. source-equal advance changes authority version, reuses only the payload, and
-   publishes or wraps it with the new projection stamp;
-6. Seed capture executes after the authority result; and
-7. the existing public `SyncEditor` facade preserves behavior and signatures.
+1. every authority attempt emits exactly one terminal A0 outcome, while only an
+   accepted causal advance emits A1 and one committed transition;
+2. rejected and equal-version no-advance outcomes emit no A1, B, or
+   `CommittedTransition`;
+3. a source-equal causal advance is `SourceUnchanged`, retains distinct
+   before/after causal versions, and cannot authorize an old intent;
+4. `Seed@R` plus a contiguous suffix of replayable Advance and
+   `SourceUnchanged` transitions `R→N` is observationally equal to a fresh
+   projection at `N`;
+5. a `NeedsSeed` transition is never applied as Replay; it captures one coherent
+   `Seed@S` after A1, and `Seed@S` plus the contiguous replayable suffix `S→N`
+   is observationally equal to a fresh projection at `N`;
+6. parser failure preserves the committed transition and fails only its
+   projection continuation;
+7. remote partial admission does not conflate the accepted transition with
+   pending operations or issues;
+8. local and peer cursor reconciliation consume the same transition as parser
+   synchronization;
+9. the legacy synchronous result is observationally equal to interpreting the
+   committed transition through the new seam;
+10. Raw, exact/structural edit, source replacement, and every currently
+    reachable authority path are classified exactly once without forcing
+    additional full-source P0/A0/A1 work;
+11. recovery, archive reopen, and session replacement invalidate the old
+    generation and issue coherent Seed recovery rather than masquerading as a
+    source transition;
+12. mutation-derived Seed capture occurs after A1; lifecycle recovery Seed
+    capture occurs after generation invalidation and coherent
+    replacement-authority capture without a synthetic A0, A1, or
+    `CommittedTransition`; and
+13. the public `SyncEditor` facade preserves its behavior; its generated
+    interface changes only by the additive
+    `ProjectionObservationPhase::CommittedTransitionSettled` observation
+    variant required to distinguish A1 from A0 without moving 5B ownership.
 
-Extract internal authority and projection modules without duplicating mutation
-logic. Keep the old synchronous production path active. Consume #1241's
-canonical event representation if its production contract exists when this
-commit starts; otherwise relocate only the existing accepted authority
-transition, preserve current semantics with characterization evidence, and do
-not redefine #1241's admission contract.
+Introduce one private concrete `CommittedTransition` seam in the existing
+package. It contains authority-owned receipt evidence, distinct before/after
+causal versions, a typed projection continuation such as replayable Advance,
+`SourceUnchanged`, or `NeedsSeed`, and path-native inputs for interaction
+reconciliation. Valid inputs include accepted edit/span evidence, cursor
+transform input, a source-equal marker, before/after versions, and the
+`NeedsSeed` control marker. It does not contain reconciled cursor values, Block
+selection, source-map results, parser nodes, projection snapshots, or Seed
+full-source payload. `NeedsSeed` completes A1 and triggers coherent source
+capture only after A1 at B.
+
+Do not flatten all paths into one universal splice or introduce full-source diff
+work to manufacture interaction evidence. Retain each mutation path's natural
+effect representation and name any semantic loss explicitly. Transition,
+outcome, rejection, and mismatch values must support equality and debug
+comparison for the differential oracle.
+
+Produce this transition immediately after accepted mutation and causal-version
+capture, before `history_since` or any public receipt/history export. The
+compatibility wrapper first interprets the committed transition through the
+existing synchronous interaction/projection path, then attaches deferred
+incremental history evidence. The transition itself contains no projection
+snapshot or view selection. Reuse accepted path-native `MarkdownTextTransform`
+or lower-layer operation evidence where available; never reconstruct the
+transition from before/after full source.
+
+Implement 5A in this order: authority-outcome and conditional-A1 red tests;
+replayable-suffix and `NeedsSeed` barrier-recovery properties; private
+`CommittedTransition` with custom constructors and typed rejection; legacy
+synchronous interpreter; parser-failure isolation; cursor/peer reconciliation
+parity; P0/A0/A1 measurement; then full-facade parity. Transition, outcome, and
+mismatch values derive equality and debug comparison.
+
+Consume #1241's canonical event representation if its production contract
+exists when this stage starts. Otherwise relocate only the existing accepted
+authority transition, preserve current semantics with characterization
+evidence, and do not redefine #1241's admission contract. Lower-layer CRDT
+public interface work is explicitly conditional on the P0/A0/A1 measurements.
+If a lower-layer stage dominates and an isolated microbenchmark reproduces it,
+open a separate event-graph-walker issue to investigate the specific source
+representation, position-index, mutation, or accepted-effect contract involved.
+Do not add a generic public delta, persistent snapshot root, or immutable
+snapshot handle without that evidence.
+
+#### Commit 5B — extract responsibility owners behind the proven seam
+
+**Files:** generic `SyncEditor` internals, Markdown runtime, focused ownership
+tests, and generated interfaces.
+
+After 5A parity is green, move fields and behavior into three private owners:
+
+- `AuthorityCore` owns `TextState`, undo/history, sync admission, and receipt
+  construction;
+- `ProjectionState[T]` owns parser synchronization, the reactive causal-version
+  mirror, projection memos, source maps, capabilities, parser failure, and
+  pending identity hints; and
+- `InteractionState` owns the local cursor, peer cursors, ephemeral hub,
+  WebSocket/session state, and transition-driven cursor reconciliation.
+
+Before moving a field, check in an exhaustive ownership ledger for every current
+`SyncEditor` field and public method. For each method, record its primary owner,
+read dependencies, mutation owner, orchestration order, failure owner, and
+permitted cross-owner calls. At minimum, mutation, history, causal snapshot,
+undo/redo, and sync admission delegate to `AuthorityCore`; parser health/runtime,
+projection reads, registry/source-map/capability reads, and identity hints
+delegate to `ProjectionState[T]`; cursor, presence, peer, ephemeral subscription,
+WebSocket, and sync-session operations delegate to `InteractionState`.
+Cross-owner public methods remain on the shell and name the single orchestration
+order they preserve. The ledger is a refactor checklist, not a new public
+interface; every entry must be accounted for before 5B closes.
+
+##### Checked-in ownership ledger
+
+This ledger describes the pre-5B facade at `b31ce244`. It accounts for all 22
+`SyncEditor` fields, all six `ProjectionObservationScope` fields, and all 90
+generated public `SyncEditor` methods. `A`, `P`, and `I` below mean
+`AuthorityCore`, `ProjectionState[T]`, and `InteractionState`; `F` means that
+the public facade retains the orchestration body. A mutation owner may call
+another owner only through the calls named in the final column.
+
+Field movement:
+
+| Fields | Primary owner | Read dependencies | Mutation/order and failure owner | Permitted cross-owner calls |
+| --- | --- | --- | --- | --- |
+| `doc`, `undo`, `identity` | A | `undo` reads authority text and timestamps; `identity` seeds history caching and parser source identity during construction | A mutates text/history first and owns `TextError`; construction assigns identity before P exists | P may read text/version; I may read text bounds; construction may derive P's source identifier from identity |
+| `parser`, `document_version`, `projection_dirty`, `parser_failure` | P | authority text and version; committed interaction edit evidence | publish the version mirror, then synchronize the parser; P stores and raises parser failure | A supplies committed text/version; I supplies resolved edit evidence |
+| `cached_proj_node`, `registry_memo`, `source_map_memo`, `projection_anchor`, `registry_anchor`, `source_map_anchor`, `capabilities` | P | parser, runtime, language extras, and identity-hint consumer | build parser, memos, capabilities, then anchors; P owns projection/language callback failures | facade and projection edit paths may read these values; no cross-owner mutation |
+| `pending_transforms` | P | structural identity hints | push before authority mutation and consume once during reconciliation; P owns stale-hint taint/failure | projection edit paths may submit hints only |
+| `cursor`, `cursor_view`, `peer_id`, `hub`, `ws`, `session` | I | authority text bounds; committed edit evidence; transport input | reconcile cursors before P synchronization; I owns cursor, transport, session, and malformed-ephemeral handling | A/P may pass committed edit evidence; session host callbacks may invoke A sync/export |
+| `projection_observation_scope` | I | authority acceptance and projection synchronization events | arm, emit each phase once, then clear; I owns observer reentry/callback failure | A emits acceptance/settlement; P emits mirror synchronization |
+| scope fields `observer`, `accepted`, `transition_settled`, `parser_batch_depth`, `parser_sync_pending`, `emitting` | I | current phase, committed-transition state, and parser batch state | I constructs and mutates every field; emission is terminal per phase and deferred until batch depth zero | A/P report phase facts without retaining the scope |
+
+Construction order is fixed: A document and hint queue; A identity; P parser;
+P version mirror; P memos/capabilities/anchors; I hub/cursor view/session; then
+the facade. `TextState::version()` remains A's authority truth. The similarly
+named P field is only its reactive mirror.
+
+Public-method ownership:
+
+| Public methods | Primary / mutation owner | Read dependencies | Orchestration order and failure owner | Permitted cross-owner calls |
+| --- | --- | --- | --- | --- |
+| `get_text`, `causal_snapshot`, `export_all`, `export_since`, `can_undo`, `can_redo` | A | A document/history | direct; A owns sync export failure | none |
+| `set_tracking`, `clear_undo` | A | P health | P guard, then A undo mutation; P owns guard failure | A may call P health guard |
+| `get_cursor`, `move_cursor`, `move_cursor_left_grapheme`, `move_cursor_right_grapheme`, `move_cursor_left_word`, `move_cursor_right_word` | I | A text | derive/clamp, then mutate I cursor | I may read A text |
+| `set_local_presence`, `delete_local_presence`, `apply_ephemeral`, `encode_ephemeral_all`, `remove_ephemeral_outdated`, `get_peer_cursors`, `get_peer_id`, `get_hub`, `subscribe_ephemeral_local` | I | I peer/hub state | direct; I owns or deliberately swallows malformed ephemeral input | none |
+| `get_sync_status`, `set_on_status_change`, `set_watchdog_scheduler`, `set_watchdog_timeout`, `on_watchdog_fire`, `ws_send`, `ws_on_open`, `ws_on_close`, `ws_broadcast_cursor` | I | I session/transport; watchdog reads P version | direct session/transport order; I owns session failure policy | watchdog may read P's version mirror |
+| `get_version`, `is_dirty`, `is_parser_healthy` | P | P mirror/status | direct | none |
+| `identity` | A | A identity | direct | none |
+| `parser_source_id`, `parser_runtime`, `parser_snapshot`, `parser_syntax_tree`, `parser_ast`, `parser_source`, `parser_diagnostics` | P | P parser/failure | health guard, then return; P owns `Failure` | none |
+| `cached_proj_node`, `registry_memo`, `source_map_memo`, `get_proj_node`, `get_registry`, `get_source_map`, `get_tree`, `get_node`, `node_at_position`, `get_node_range` | P | P parser/memos | health guard, then read; P owns `Failure` | none |
+| `get_errors`, `is_parse_valid`, `diagnostic_publication_source_revision`, `get_pretty_view`, `get_view_tree` | P | P parser/projection/capabilities plus A text/version | guard, derive, then render; P/language callback owns failure | P may read A text/version |
+| `set_text` | F | delegated method state | delegate to `set_text_with_change`; callee owns failure | only the named delegate |
+| `apply_sync` | F | delegated admission state | `admit`, then enforce pending-message policy; A owns missing-version failure | only the named delegate |
+| `new_with_builder` | F | constructor arguments/builders | A document/identity; P parser/version/memos/capabilities/anchors; I hub/session; builder/P owns failure | construction-only wiring |
+| `observe_projection_during` | I | I observation scope | arm, run caller action, clear; I owns reentry and callback failure | action may invoke public mutators |
+| `insert`, `delete`, `backspace`, `set_text_with_change` | F; A/P/I mutate their own state | A text/version, P health/hints, I cursor/scope | P guard and I reentry guard; A edit; I cursor reconciliation; P synchronization; the detecting owner fails | only this ordered sequence |
+| `apply_text_edit`, `apply_text_edit_exact`, `insert_at`, `delete_at`, `set_text_and_record` | F; A/P/I mutate their own state | prior row plus A undo policy | guard/taint; A recorded edit; I reconciliation; P settlement; the detecting owner fails | only this ordered sequence |
+| `insert_and_record`, `delete_and_record`, `backspace_and_record` | F; A/P/I mutate their own state | A text/undo, P health, I cursor | guard/taint; A record; I cursor; P synchronization; false remains a non-raising edit rejection | only this ordered sequence |
+| `undo`, `redo` | F; A/P/I mutate their own state | A undo/document, P health, I cursor | P guard; A history mutation; I reconciliation; P dirty mark; the detecting owner fails | only this ordered sequence |
+| `undo_and_export`, `redo_and_export` | F; A/P/I mutate their own state | preceding row plus A sync export | undo/redo, then A `export_since`; export failure yields `None` as before | only named undo/redo and export delegates |
+| `apply_span_edits` | F; A/P/I mutate their own state | P hints, A text/version, I cursor/scope | guard; P hint; reverse A edits; one I settlement; focus; the detecting owner fails | structural batch sequence only |
+| `delete_node`, `commit_edit`, `apply_text_transform`, `move_node` | P computes; facade edit path mutates | P source map/registry plus A text | resolve projection; compute transform; invoke existing text/span facade; `TreeEditError` or callee failure | P may call only the existing text/span facade |
+| `admit`, `admit_with_limits` | F; A/P/I mutate their own state | A document/sync, P health, I session/cursors | P guard/I reentry; A admission; I reconciliation; P synchronization; I status; detecting owner fails | only this ordered sequence |
+| `mark_dirty` | P | A text/version | P guard, parser/version update, dirty mark; P owns failure | P may read A text/version |
+| `refresh`, `invalidate_pending_identity_hints` | P | P parser/memos/hints | P-only mutation; P owns failure | none |
+| `ws_on_message`, `ws_broadcast_edit` | I | I session/transport plus A sync/export host functions | I session dispatch/broadcast, then named host closure; session retains existing failure policy | I may call A sync/export; projection changes occur only through the text facade |
+
+The grouped rows expand to 90 of 90 methods in
+`modules/canopy/editor/pkg.generated.mbti`. Methods with one owner become thin
+facade delegates. Methods marked `F` retain a single visible cross-owner order;
+owners must not call back into the facade during that order.
+
+The shell `SyncEditor[T]` retains its existing public facade and delegates to
+those owners. `ProjectionState[T]` may depend on the parser and reactive runtime;
+`AuthorityCore` must not. `InteractionState` is a first-class owner rather than
+being hidden inside either authority or projection. Treat `TextState::version()`
+as authority truth and the reactive document-version input as a projection
+mirror. Field movement and transition-semantics changes must not share a patch.
+Inspect generated `.mbti` output after each ownership move; no public interface
+drift is intended.
+
+#### Commit 5C — add the private projection-free construction seam
+
+**Files:** extracted editor owners, private constructors, comparison wiring, and
+focused tests.
+
+Only after the physical split is complete, add a private construction path that
+creates `AuthorityCore` plus `InteractionState` without constructing a parser,
+reactive runtime, or projection memo. Projection-free construction must not
+implicitly start WebSocket, sync-session, subscription, or other external
+interaction effects; construction and activation remain separate wherever
+those effects exist. Construct and activate `ProjectionState[T]` only in the
+selected executor. Capture Seed after authority evidence, preserve the existing
+synchronous interpreter as the differential oracle, and expose the seam only to
+the private comparison flag used by Commit 6. Do not make the owners generic
+framework modules until a second real adapter justifies the seam.
+
+**Commit 5 gate:** P0/A0/A1 costs are separately attributable; transition
+parity, interaction reconciliation, failure isolation, and replay convergence
+are green; the projection-free construction path performs no
+parser/reactive/projection setup or external interaction activation; the
+existing synchronous facade remains behaviorally and publicly unchanged.
 
 ### Commit 6 — integrate the application-lifetime Adapter behind a comparison flag
 
@@ -539,6 +807,13 @@ not expose runtime fallback.
 
 ### Commit 7 — promotion decision, production cutover, and cleanup
 
+**Implementation progress (2026-08-15):** `d78e332b` routes production
+Preview projection through the dedicated Worker, adopts only exact-stamp private
+typed artifacts, preserves last-good output across bounded restart, and removes
+application semantic-attachment reads. The release-browser matrix is green.
+This is not the promotion record: the 2k/10k/50k placement comparison, retained
+raw evidence, ADR status update, and closure checklist remain open.
+
 Run 2k/10k/50k release-browser scenarios for cold Seed, local edits at
 start/middle/end, sustained typing, back-to-back Block intent, demand-only
 Preview, split edit, source-equal advance, failure/restart, cutover bursts, and
@@ -558,6 +833,18 @@ Compare in-process, Worker, and current synchronous baselines with
 counterbalanced run order. The promotion record chooses production placement
 and states whether it prioritizes absolute Block latency or main-thread
 isolation. A dedicated Worker is not approved merely because it functions.
+
+If neither single placement passes every gate, and the evidence specifically
+shows that in-process execution gives acceptable interactive Block latency while
+causing Preview/diagnostics main-thread Long Tasks, whereas Worker execution
+isolates those Long Tasks but misses the Block round-trip target, run one
+conditional hybrid spike. Keep interactive Block parsing, resolution, and
+reconciliation in process; place Preview, MarkdownIR, diagnostics, and cold
+rebuild in the Worker. The split is valid only when it follows the existing
+consistency-group seam and the hybrid passes the same normalized/currentness
+contract. Do not implement the hybrid before both single placements fail. A
+production hybrid selection changes the accepted placement decision and
+therefore requires an ADR update before cutover.
 
 Only after promotion gates pass:
 
@@ -603,8 +890,31 @@ assertions.
       characterization evidence.
 - [ ] Every accepted operation retains exact causal receipt/history evidence
       even when projection, persistence, or presentation later fails.
-- [ ] Authority A0/A1 calls no full source/history export, archive preparation,
-      JSON/transfer, parser, projection, semantic, Preview, or DOM work.
+- [ ] P0 may retain only the existing command-input source materialization, and
+      that cost is measured explicitly.
+- [ ] P0, A0, and A1 perform no history export/encoding, archive preparation,
+      JSON/Worker transfer, parser/projection/semantic work, Preview work, or DOM
+      work. A0 and A1 add no full-source materialization or copy.
+- [ ] P0 separately attributes old-source materialization, UTF-16 mapping,
+      grapheme validation/snapping, requested text-change computation, and
+      authority-input validation.
+- [ ] Every authority attempt has exactly one terminal A0 outcome: accepted
+      causal transition, no advance, or rejection. A0 separately attributes
+      attempted CRDT mutation when present, classification, and linearization.
+- [ ] Only an accepted causal transition reaches A1 and creates
+      `CommittedTransition`; rejection and equal-version no-advance produce no
+      A1 or B. Source-equal text with changed causal version reaches A1 as
+      `SourceUnchanged`.
+- [ ] A1 separately attributes before/after causal versions, source
+      identity/revision, small accepted effect/evidence or `NeedsSeed`
+      control-marker construction, and `CommittedTransition` completion.
+- [ ] One private committed-transition value is the sole semantic seam consumed
+      by interaction reconciliation and projection continuation; authority
+      mutation is not repeated or reconstructed downstream.
+- [ ] `AuthorityCore`, `InteractionState`, and `ProjectionState[T]` have distinct
+      ownership, and projection-free construction creates no parser, reactive
+      runtime, projection memo, semantic attachment, or source map and activates
+      no external interaction effect.
 - [ ] Every projection-relevant authority event is classified exactly once as
       replayable Advance/SourceUnchanged or generation invalidation followed by
       coherent Seed recovery. ReplaceSource uses Seed only when its accepted
@@ -625,8 +935,13 @@ assertions.
 - [ ] Each executor creates and retains its parser, `incr` runtime, semantic
       attachment, projection memos, and collection state inside its own
       Projection Session.
-- [ ] Normalized differential Seed+Advance replay has zero observable
-      differences across the complete corpus.
+- [ ] Normalized differential replayable Advance/SourceUnchanged suffixes have
+      zero observable differences across the complete corpus.
+- [ ] `Seed@R` plus a contiguous replayable Advance/SourceUnchanged suffix
+      `R→N` is observationally equal to a fresh projection at `N`.
+- [ ] Every `NeedsSeed` barrier is excluded from Replay, captures a coherent
+      `Seed@S` after A1, and satisfies `Seed@S` plus contiguous replayable suffix
+      `S→N` equals a fresh projection at `N`.
 - [ ] Production selects only the placement approved by the promotion record and
       never silently changes placement at runtime.
 - [ ] Pending slot, Advance count, encoded bytes, and retained source/effect
@@ -657,6 +972,9 @@ assertions.
       version.
 - [ ] Recovery, archive reopen, session replacement, executor failure, and
       remount dispose old projection state and reject every late result.
+- [ ] Lifecycle recovery Seeds follow generation invalidation and coherent
+      replacement-authority capture without creating a synthetic
+      `CommittedTransition` or A1.
 
 ### Product behavior
 
@@ -673,7 +991,7 @@ assertions.
 
 ### Performance and memory evidence
 
-- [ ] A0–F trace has calibrated known-positive and trace-disabled controls.
+- [ ] P0–F trace has calibrated known-positive and trace-disabled controls.
 - [ ] 2k/10k/50k release-browser scenarios record raw paired data and all named
       phase, queue, payload/copy, and consistency-group metrics.
 - [ ] Reports include maximum contiguous main-thread slice, cumulative
@@ -686,6 +1004,9 @@ assertions.
       current adapter.
 - [ ] No speedup, locality, allocation, or memory claim relies only on a Moon
       microbenchmark or an uncalibrated clean browser result.
+- [ ] A hybrid placement is considered only after both single placements fail
+      complementary gates; any production hybrid has an updated ADR and passes
+      the same differential, currentness, lifecycle, and browser evidence.
 
 ### Cleanup and documentation
 

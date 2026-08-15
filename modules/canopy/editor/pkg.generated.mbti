@@ -129,6 +129,12 @@ pub fn[T] LanguageCapabilities::default() -> Self[T]
 pub fn[T] LanguageCapabilities::new(get_annotations? : (() -> Map[@dowdiness/canopy/core.NodeId, Array[@protocol.ViewAnnotation]])?, get_decorations? : (() -> Array[@protocol.Decoration])?, get_diagnostics? : (() -> (String, @dowdiness/loom/core.DiagnosticSet)?)?, pretty_post_process? : ((@pretty.Layout[@pretty.SyntaxCategory]) -> @pretty.Layout[@pretty.SyntaxCategory])?) -> Self[T]
 pub fn[T] LanguageCapabilities::with_to_view_node(Self[T], (@dowdiness/canopy/core.ProjNode[T], @dowdiness/canopy/core.SourceMap, Map[@dowdiness/canopy/core.NodeId, Array[@protocol.ViewAnnotation]], String?) -> @protocol.ViewNode) -> Self[T]
 
+pub enum ProjectionObservationPhase {
+  AuthorityAccepted
+  CommittedTransitionSettled
+  ProjectionMirrorSynchronized
+} derive(Eq, @debug.Debug)
+
 pub struct SyncEditor[T] {
   // private fields
 }
@@ -190,6 +196,7 @@ pub fn[T] SyncEditor::move_cursor_right_word(Self[T]) -> Unit
 pub fn[T : Eq + @dowdiness/loom/core.Renderable] SyncEditor::move_node(Self[T], @dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.DropPosition, Int) -> Result[Array[@dowdiness/canopy/core.SpanEdit], TreeEditError] raise
 pub fn[T, E] SyncEditor::new_with_builder(String, (@diagnostic.SourceId, String, @cells.Runtime?) -> @pipeline.Parser[T] raise Failure, (@pipeline.Parser[T], @dowdiness/canopy/core.IdentityHintConsumer) -> (@cells.Derived[@dowdiness/canopy/core.ProjNode[T]?], @cells.Derived[Map[@dowdiness/canopy/core.NodeId, @dowdiness/canopy/core.ProjNode[T]]], @cells.Derived[@dowdiness/canopy/core.SourceMap], LanguageCapabilities[T], E), capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime) -> (Self[T], E) raise
 pub fn[T] SyncEditor::node_at_position(Self[T], Int) -> @dowdiness/canopy/core.NodeId? raise Failure
+pub fn[T, R] SyncEditor::observe_projection_during(Self[T], (ProjectionObservationPhase) -> Unit, () -> R raise) -> (R, Bool) raise
 pub fn[T] SyncEditor::on_watchdog_fire(Self[T], Int) -> Unit
 pub fn[T] SyncEditor::parser_ast(Self[T]) -> @cells.Derived[T] raise Failure
 pub fn[T] SyncEditor::parser_diagnostics(Self[T]) -> @cells.Derived[@dowdiness/loom/core.DiagnosticSet] raise Failure

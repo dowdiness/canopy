@@ -43,13 +43,19 @@ fi
 if command -v setsid >/dev/null 2>&1; then
   (
     cd "$LOOMARK_ROOT"
-    exec setsid "$WARREN" dev --direct --port "$DEV_PORT"
+    exec setsid "$WARREN" dev --direct \
+      --entry capability-worker=worker \
+      --entry projection-worker=projection_worker \
+      --port "$DEV_PORT"
   ) >"$WORK_DIR/warren-dev.log" 2>&1 &
   DEV_GROUP="true"
 else
   (
     cd "$LOOMARK_ROOT"
-    exec "$WARREN" dev --direct --port "$DEV_PORT"
+    exec "$WARREN" dev --direct \
+      --entry capability-worker=worker \
+      --entry projection-worker=projection_worker \
+      --port "$DEV_PORT"
   ) >"$WORK_DIR/warren-dev.log" 2>&1 &
 fi
 DEV_PID=$!
@@ -57,7 +63,13 @@ DEV_PID=$!
 attempt=0
 while [ "$attempt" -lt 60 ]; do
   if curl --fail --silent --show-error \
-    "http://127.0.0.1:$DEV_PORT/" >"$WORK_DIR/dev-index.html" 2>/dev/null; then
+      "http://127.0.0.1:$DEV_PORT/" >"$WORK_DIR/dev-index.html" 2>/dev/null &&
+    curl --fail --silent --show-error \
+      "http://127.0.0.1:$DEV_PORT/capability-worker.js" \
+      >"$WORK_DIR/dev-capability-worker.js" 2>/dev/null &&
+    curl --fail --silent --show-error \
+      "http://127.0.0.1:$DEV_PORT/projection-worker.js" \
+      >"$WORK_DIR/dev-projection-worker.js" 2>/dev/null; then
     break
   fi
   if ! kill -0 "$DEV_PID" 2>/dev/null; then
@@ -75,6 +87,8 @@ if [ "$attempt" -eq 60 ]; then
 fi
 grep -q '<main id="app"></main>' "$WORK_DIR/dev-index.html"
 grep -q '/__warren/direct.js' "$WORK_DIR/dev-index.html"
+test -s "$WORK_DIR/dev-capability-worker.js"
+test -s "$WORK_DIR/dev-projection-worker.js"
 if grep -q 'warren-devtool' "$WORK_DIR/dev-index.html"; then
   echo "error: Warren direct mode unexpectedly served the iframe development shell" >&2
   exit 1
@@ -84,12 +98,16 @@ stop_dev_server
 rm -rf "$LOOMARK_ROOT/dist"
 (
   cd "$LOOMARK_ROOT"
-  "$WARREN" build
+  "$WARREN" build \
+    --entry capability-worker=worker \
+    --entry projection-worker=projection_worker
 )
 
 test -s "$LOOMARK_ROOT/dist/favicon.svg"
 test -s "$LOOMARK_ROOT/dist/index.html"
 test -s "$LOOMARK_ROOT/dist/index.js"
+test -s "$LOOMARK_ROOT/dist/capability-worker.js"
+test -s "$LOOMARK_ROOT/dist/projection-worker.js"
 test -s "$LOOMARK_ROOT/dist/styles.css"
 grep -q '<main id="app"></main>' "$LOOMARK_ROOT/dist/index.html"
 grep -q '<script src="./index.js" type="module"></script>' "$LOOMARK_ROOT/dist/index.html"
@@ -112,7 +130,7 @@ if [ -n "$tracked_dist" ]; then
   echo "$tracked_dist" >&2
   exit 1
 fi
-for output in favicon.svg index.html index.js styles.css; do
+for output in favicon.svg index.html index.js capability-worker.js styles.css; do
   git -C "$PROJECT_ROOT" check-ignore -q "apps/loomark/dist/$output"
 done
 

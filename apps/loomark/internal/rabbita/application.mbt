@@ -332,13 +332,14 @@ fn publish(
     },
   }
   detached_snapshot.val = Json::object(fields).stringify()
+  projection_trace_adopted_not_presented()
 }
 
 ///|
 fn preview_document_view(model : DriverModel) -> @rabbita_runtime.Html {
   let source = model.document.source()
-  match model.semantic_document {
-    Some(document) => semantic_preview_view(source, document)
+  match model.preview_artifact {
+    Some(artifact) => semantic_preview_artifact_view(source, artifact)
     None =>
       @html.div(
         style=[
@@ -792,6 +793,7 @@ fn driver_event_name(event : DriverEvent) -> String {
         InvalidRequest(_) => "invalid-request"
         StopListening => "stop-listening"
         Fatal(_) => "fatal"
+        ProjectionWorkerResolved(_, _, _) => "projection-worker-resolved"
         Resize(_) => "resize"
       }
     Archive(_) => "archive-write-completed"
@@ -989,6 +991,7 @@ fn update_editing(
   latest_model : @ref.Ref[DriverModel?],
   event : EditingEvent,
   emit : @cmd.Emit[DriverEvent],
+  projection_session? : @ref.Ref[ProjectionSession?],
 ) -> (DriverModel, @cmd.Cmd) raise {
   let native_token_active = match event {
     RawNativeInput(token~, ..) => raw_input_coordinator.is_active(token)
@@ -1059,6 +1062,7 @@ fn update_editing(
                   raw_input_coordinator.mark_preview_finished(token)
                 },
                 raw_mode_authorized=candidate.raw_mode_authorized,
+                projection_session?,
               )
               let (next, selection_command, repair_command) = match outcome {
                 RawSelectionEditOutcome::Applied(selection)
@@ -1122,11 +1126,17 @@ fn update_editing(
                   ({ selection, inserted } : RawSelectionEditRequest),
                 ),
                 emit,
+                projection_session?,
               )
           }
         RawSelectionEdit(request) => {
           let (next, outcome, persistence_command) = commit_raw_selection_edit(
-            editor, attachment, model, request, emit,
+            editor,
+            attachment,
+            model,
+            request,
+            emit,
+            projection_session?,
           )
           let (next, selection_command) = match outcome {
             RawSelectionEditOutcome::Applied(selection)
@@ -1177,14 +1187,27 @@ fn update_editing(
                   source,
                   "editor-dispatch",
                   emit,
+                  projection_session?,
                 )
-                next = update_preview_document(
-                  attachment,
-                  committed,
-                  old_requested,
-                  accepted~,
-                  changed~,
-                )
+                next = match projection_session {
+                  Some(session) =>
+                    update_preview_document_with_projection(
+                      attachment,
+                      session,
+                      committed,
+                      old_requested,
+                      accepted~,
+                      changed~,
+                    )
+                  None =>
+                    update_preview_after_authority(
+                      attachment,
+                      committed,
+                      old_requested,
+                      accepted~,
+                      changed~,
+                    )
+                }
                 if accepted {
                   raw_input_coordinator.cancel_pending()
                 }
@@ -1326,6 +1349,7 @@ fn update_editing(
                 originating_selection,
                 "loomark-heading-" + requested_level.to_string(),
                 emit,
+                projection_session?,
               )
               if applied {
                 raw_input_coordinator.cancel_pending()
@@ -1367,6 +1391,7 @@ fn update_editing(
                 originating_selection,
                 "loomark-toggle-list",
                 emit,
+                projection_session?,
               )
               if applied {
                 raw_input_coordinator.cancel_pending()
@@ -1392,6 +1417,7 @@ fn update_editing(
                 None,
                 "loomark-delete-block",
                 emit,
+                projection_session?,
               )
               if applied {
                 raw_input_coordinator.cancel_pending()
@@ -1425,6 +1451,7 @@ fn update_editing(
             ),
             "editor-dispatch",
             emit,
+            projection_session?,
           )
           let finish_command = block_input_coordinator.finish(token, emit)
           if accepted && next.source_revision != model.source_revision {
@@ -1553,6 +1580,7 @@ fn update_editing(
             @markdown.MarkdownEditRequest::SplitBlock(node_id~, offset~),
             "editor-dispatch",
             emit,
+            projection_session?,
           )
           if accepted && next.source_revision != model.source_revision {
             raw_input_coordinator.cancel_pending()
@@ -1599,6 +1627,7 @@ fn update_editing(
             @markdown.MarkdownEditRequest::MergeWithPrevious(node_id~),
             "editor-dispatch",
             emit,
+            projection_session?,
           )
           if accepted && next.source_revision != model.source_revision {
             raw_input_coordinator.cancel_pending()
@@ -1695,14 +1724,27 @@ fn update_editing(
               source,
               "editor-dispatch",
               emit,
+              projection_session?,
             )
-            let next = update_preview_document(
-              attachment,
-              committed,
-              preview_requested(model),
-              accepted~,
-              changed~,
-            )
+            let next = match projection_session {
+              Some(session) =>
+                update_preview_document_with_projection(
+                  attachment,
+                  session,
+                  committed,
+                  preview_requested(model),
+                  accepted~,
+                  changed~,
+                )
+              None =>
+                update_preview_after_authority(
+                  attachment,
+                  committed,
+                  preview_requested(model),
+                  accepted~,
+                  changed~,
+                )
+            }
             if accepted && changed {
               raw_input_coordinator.cancel_pending()
             }
@@ -1741,6 +1783,7 @@ fn update_navigation(
   latest_model : @ref.Ref[DriverModel?],
   event : NavigationEvent,
   emit : @cmd.Emit[DriverEvent],
+  projection_session? : @ref.Ref[ProjectionSession?],
 ) -> (DriverModel, @cmd.Cmd) {
   match event {
     SelectRaw | SelectBlock | SelectPreview => {
@@ -1761,13 +1804,20 @@ fn update_navigation(
         model.state,
         @core.ApplicationEvent::SelectMode(mode~),
       )
-      let next = update_preview_document(
-        attachment,
-        { ..model, state: transition.state() },
-        preview_requested(model),
-        accepted=true,
-        changed=false,
-      )
+      let old_requested = preview_requested(model)
+      let next_model = { ..model, state: transition.state() }
+      let next = match projection_session {
+        Some(session) =>
+          update_preview_document_with_projection(
+            attachment,
+            session,
+            next_model,
+            old_requested,
+            accepted=true,
+            changed=false,
+          )
+        None => next_model
+      }
       (next, @rabbita_runtime.none)
     }
     ToggleSplitPreview => {
@@ -1775,13 +1825,22 @@ fn update_navigation(
         raw_input_coordinator.cancel_pending_for_navigation()
       }
       let old_requested = preview_requested(model)
-      let next = update_preview_document(
-        attachment,
-        { ..model, split_preview_open: !model.split_preview_open },
-        old_requested,
-        accepted=true,
-        changed=false,
-      )
+      let next_model = {
+        ..model,
+        split_preview_open: !model.split_preview_open,
+      }
+      let next = match projection_session {
+        Some(session) =>
+          update_preview_document_with_projection(
+            attachment,
+            session,
+            next_model,
+            old_requested,
+            accepted=true,
+            changed=false,
+          )
+        None => next_model
+      }
       (next, @rabbita_runtime.none)
     }
     FocusRaw | FocusBlock | FocusPreview => {
@@ -2047,6 +2106,8 @@ fn update_lifecycle(
   model : DriverModel,
   event : LifecycleEvent,
   emit : @cmd.Emit[DriverEvent],
+  projection_session? : @ref.Ref[ProjectionSession?],
+  projection_worker? : ProjectionWorkerRuntime,
 ) -> (DriverModel, @cmd.Cmd) raise {
   match event {
     EditorFailure => {
@@ -2127,6 +2188,7 @@ fn update_lifecycle(
               source,
               "restore-snapshot",
               emit,
+              projection_session?,
             )
             next = committed
             accepted = accepted && commit_accepted
@@ -2152,13 +2214,25 @@ fn update_lifecycle(
         block_input_coordinator.cancel_pending()
         next = { ..next, state: transition.state() }
       }
-      next = update_preview_document(
-        attachment,
-        next,
-        preview_requested(model),
-        accepted~,
-        changed=source_changed,
-      )
+      next = match projection_session {
+        Some(session) =>
+          update_preview_document_with_projection(
+            attachment,
+            session,
+            next,
+            preview_requested(model),
+            accepted~,
+            changed=source_changed,
+          )
+        None =>
+          update_preview_after_authority(
+            attachment,
+            next,
+            preview_requested(model),
+            accepted~,
+            changed=source_changed,
+          )
+      }
       (next, persistence_command)
     }
     CustomEvent(detail) => {
@@ -2205,6 +2279,58 @@ fn update_lifecycle(
       let next = { ..model, fatal: true, error: Some(message), rejection: None }
       (next, @rabbita_runtime.none)
     }
+    ProjectionWorkerResolved(request_id, expected, raw) =>
+      match projection_worker {
+        None => (model, @rabbita_runtime.none)
+        Some(worker) => {
+          guard worker.accepts(request_id, expected) else {
+            return (model, @rabbita_runtime.none)
+          }
+          match projection_worker_response_artifact(raw) {
+            Err(detail) => worker.recover(model, emit, detail)
+            Ok((response_request_id, stamp, artifact)) =>
+              if response_request_id != request_id || stamp != expected {
+                worker.recover(
+                  model, emit, "projection Worker response envelope mismatch",
+                )
+              } else {
+                worker.mark_healthy()
+                match artifact {
+                  None => (model, @rabbita_runtime.none)
+                  Some(preview_artifact) => {
+                    let projection_error = model.error_code ==
+                      Some("projection-failed") ||
+                      model.error_code == Some("projection-pending")
+                    (
+                      {
+                        ..model,
+                        semantic_document: None,
+                        preview_artifact: Some(preview_artifact),
+                        semantic_read_count: model.semantic_read_count + 1,
+                        error: if projection_error {
+                          None
+                        } else {
+                          model.error
+                        },
+                        error_code: if projection_error {
+                          None
+                        } else {
+                          model.error_code
+                        },
+                        error_operation: if projection_error {
+                          None
+                        } else {
+                          model.error_operation
+                        },
+                      },
+                      @rabbita_runtime.none,
+                    )
+                  }
+                }
+              }
+          }
+        }
+      }
     Resize(viewport) => {
       let next = {
         ..model,
@@ -2242,6 +2368,8 @@ fn update_model(
   latest_model : @ref.Ref[DriverModel?],
   event : DriverEvent,
   emit : @cmd.Emit[DriverEvent],
+  projection_session? : @ref.Ref[ProjectionSession?],
+  projection_worker? : ProjectionWorkerRuntime,
 ) -> (DriverModel, @cmd.Cmd) raise {
   let (next, command) = match event {
     Archive(completion) => update_archive_tracker(model, completion)
@@ -2262,25 +2390,54 @@ fn update_model(
     }
     Editing(edit_event) =>
       update_editing(
-        editor, attachment, raw_input_coordinator, block_input_coordinator, model,
-        latest_model, edit_event, emit,
+        editor,
+        attachment,
+        raw_input_coordinator,
+        block_input_coordinator,
+        model,
+        latest_model,
+        edit_event,
+        emit,
+        projection_session?,
       )
     Navigation(nav_event) =>
       update_navigation(
-        attachment, raw_input_coordinator, block_input_coordinator, model, latest_model,
-        nav_event, emit,
+        attachment,
+        raw_input_coordinator,
+        block_input_coordinator,
+        model,
+        latest_model,
+        nav_event,
+        emit,
+        projection_session?,
       )
     Probe(probe_event) => update_probe(model, latest_model, probe_event, emit)
     Lifecycle(life_event) =>
       update_lifecycle(
-        editor, attachment, raw_input_coordinator, block_input_coordinator, model,
-        life_event, emit,
+        editor,
+        attachment,
+        raw_input_coordinator,
+        block_input_coordinator,
+        model,
+        life_event,
+        emit,
+        projection_session?,
+        projection_worker?,
       )
+  }
+  let next = match projection_session {
+    None => next
+    Some(session_ref) =>
+      match session_ref.val {
+        None => next
+        Some(session) => update_projection_demand(session, next)
+      }
   }
   let raw_input_token = match event {
     Editing(RawNativeInput(token~, ..)) => Some(token)
     _ => None
   }
+  projection_trace_driver_model_adopted()
   publish(next, Some(raw_input_coordinator), raw_input_token)
   (next, command)
 }
@@ -2405,6 +2562,23 @@ fn driver_test_subscription_loader(
 }
 
 ///|
+fn projection_worker_lifetime_loader(
+  payload : Error,
+  _scheduler : &@cmd.Scheduler,
+) -> @sub.RunningSub? {
+  match payload {
+    DriverSubscription::WorkerLifetime(worker) =>
+      Some({
+        unload: _ => worker.dispose(),
+        update_tagger: payload => {
+          guard payload is DriverSubscription::WorkerLifetime(_) else { return }
+        },
+      })
+    _ => None
+  }
+}
+
+///|
 fn driver_control_subscription(emit : @cmd.Emit[DriverEvent]) -> @sub.Sub {
   @sub.custom_sub(
     "loomark.driver-control",
@@ -2427,6 +2601,16 @@ fn driver_test_subscription(
       emit,
     ),
     driver_test_subscription_loader,
+  )
+}
+
+///|
+fn projection_worker_subscription(worker : ProjectionWorkerRuntime) -> @sub.Sub {
+  @sub.custom_sub(
+    "loomark.projection-worker-lifetime",
+    @sub.Local,
+    DriverSubscription::WorkerLifetime(worker),
+    projection_worker_lifetime_loader,
   )
 }
 
@@ -2468,6 +2652,7 @@ fn build_application(
   raw_input_telemetry : RawInputTelemetry?,
   subscriptions : (DriverModel, @cmd.Emit[DriverEvent]) -> @sub.Sub,
   view : (DriverModel, @cmd.Emit[DriverEvent], @rabbita_runtime.Html) -> @rabbita_runtime.Html,
+  projection_session? : @ref.Ref[ProjectionSession?],
 ) -> @rabbita_runtime.App {
   let current_session : @ref.Ref[EditorSession] = {
     val: { editor, attachment },
@@ -2477,9 +2662,18 @@ fn build_application(
     raw_input_telemetry,
   )
   let block_input_coordinator = BlockInputCoordinator::BlockInputCoordinator()
+  let projection_worker = ProjectionWorkerRuntime::new(
+    "loomark-production-projection",
+  )
+  let application_subscriptions = (model, emit) => {
+    @sub.batch([
+      subscriptions(model, emit),
+      projection_worker_subscription(projection_worker),
+    ])
+  }
   let update = (model, event, emit) => {
     let session = current_session.val
-    update_model(
+    let (next, command) = update_model(
       session.editor,
       session.attachment,
       raw_input_coordinator,
@@ -2488,12 +2682,18 @@ fn build_application(
       latest_model,
       event,
       emit,
+      projection_session?,
+      projection_worker~,
     ) catch {
       Failure::Failure(_) as failure => {
         raw_input_coordinator.cancel_pending()
         block_input_coordinator.cancel_pending()
         let (next, command) = recover_after_parser_failure(
-          current_session, model, failure, emit,
+          current_session,
+          model,
+          failure,
+          emit,
+          projection_session?,
         )
         publish(next, Some(raw_input_coordinator), None)
         (next, command)
@@ -2502,7 +2702,11 @@ fn build_application(
         raw_input_coordinator.cancel_pending()
         block_input_coordinator.cancel_pending()
         let (next, command) = recover_after_parser_failure(
-          current_session, model, committed, emit,
+          current_session,
+          model,
+          committed,
+          emit,
+          projection_session?,
         )
         publish(next, Some(raw_input_coordinator), None)
         (next, command)
@@ -2511,27 +2715,37 @@ fn build_application(
         raw_input_coordinator.cancel_pending()
         block_input_coordinator.cancel_pending()
         let (next, command) = quarantine_outer_error(
-          current_session, model, error,
+          current_session,
+          model,
+          error,
+          projection_session?,
         )
         publish(next, Some(raw_input_coordinator), None)
         (next, command)
       }
     }
+    (next, @cmd.batch([command, projection_worker.sync(next, emit)]))
   }
   @rabbita_runtime.new(() => {
     let (model, emit) = @rabbita_runtime.create_state_with_init(
       init=fn(emit) {
-        let command = match baseline {
+        let persistence_command = match baseline {
           Some((request_id, encoded)) =>
             @archive_storage.replace(request_id, encoded, completed=completion => {
               emit(Archive(completion))
             })
           None => @rabbita_runtime.none
         }
-        (initial, command)
+        (
+          initial,
+          @cmd.batch([
+            persistence_command,
+            projection_worker.sync(initial, emit),
+          ]),
+        )
       },
       update~,
-      subscriptions~,
+      subscriptions=application_subscriptions,
     )
     let active_view = application_view(
       model, emit, raw_input_coordinator, block_input_coordinator,
@@ -2602,6 +2816,7 @@ fn initial_model(
     raw_selection: None,
     archive_persistence_enabled,
     semantic_document: None,
+    preview_artifact: None,
     semantic_read_count: 0,
     split_preview_open: false,
     compact_split: compact_split_for_width(host_width),

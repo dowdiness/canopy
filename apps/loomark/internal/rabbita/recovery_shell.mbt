@@ -10,6 +10,7 @@ fn terminal_raw_recovery(
     runtime_state: EditorRuntimeState::RawRecovery(source),
     state: @core.ApplicationState::ApplicationState(@core.Raw),
     semantic_document: None,
+    preview_artifact: None,
     split_preview_open: false,
     active_block_key: None,
     selection: None,
@@ -38,6 +39,59 @@ fn persist_recovered_editor(
 }
 
 ///|
+fn dispose_projection_session(
+  projection_session : @ref.Ref[ProjectionSession?],
+) -> Unit {
+  match projection_session.val {
+    Some(session) => {
+      session.dispose()
+      projection_session.val = None
+    }
+    None => ()
+  }
+}
+
+///|
+fn dispose_optional_projection_session(
+  projection_session : @ref.Ref[ProjectionSession?]?,
+) -> Unit {
+  match projection_session {
+    Some(session) => dispose_projection_session(session)
+    None => ()
+  }
+}
+
+///|
+fn next_projection_generation(
+  projection_session : @ref.Ref[ProjectionSession?],
+) -> Int {
+  match projection_session.val {
+    Some(session) => session.generation + 1
+    None => 1
+  }
+}
+
+///|
+fn replace_projection_session(
+  projection_session : @ref.Ref[ProjectionSession?],
+  source : String,
+  model : DriverModel,
+  generation : Int,
+) -> DriverModel {
+  dispose_projection_session(projection_session)
+  let session = ProjectionSession::ProjectionSession(
+    agent_id="loomark-comparison-",
+    source~,
+    generation~,
+    demand=projection_demand_for_model(model),
+  ) catch {
+    error => return projection_failed_model(model, error.to_string())
+  }
+  projection_session.val = Some(session)
+  model
+}
+
+///|
 /// Rebuild once from the accepted archive. This is the only shell that may
 /// recover after parser Failure or a typed committed-receipt interruption; the
 /// old session is never retried or reset.
@@ -46,12 +100,18 @@ fn recover_after_parser_failure(
   model : DriverModel,
   failure : Error,
   emit : @cmd.Emit[DriverEvent],
+  projection_session? : @ref.Ref[ProjectionSession?],
 ) -> (DriverModel, @cmd.Cmd) {
   ignore(failure)
+  let projection_generation = match projection_session {
+    Some(session) => next_projection_generation(session)
+    None => 1
+  }
   let (state, decision) = reduce_editor_runtime(
     model.runtime_state,
     EditorRecoveryEvent::Failure,
   )
+  dispose_optional_projection_session(projection_session)
   match decision {
     EditorRecoveryDecision::Reject => {
       session_ref.val.attachment.dispose()
@@ -183,6 +243,7 @@ fn recover_after_parser_failure(
         runtime_state: EditorRuntimeState::Healthy,
         state: @core.ApplicationState::ApplicationState(@core.Raw),
         semantic_document: None,
+        preview_artifact: None,
         split_preview_open: false,
         active_block_key: None,
         selection: None,
@@ -194,6 +255,17 @@ fn recover_after_parser_failure(
         error_operation: Some("editor-recovery"),
         rejection: None,
       }
+      let next = match projection_session {
+        Some(session) =>
+          replace_projection_session(
+            session,
+            recovery.source,
+            next,
+            projection_generation,
+          )
+        None => next
+      }
+      projection_trace_recovery_seed_materialized()
       persist_recovered_editor(fresh_editor, next, emit)
     }
   }
@@ -206,11 +278,13 @@ fn quarantine_outer_error(
   session_ref : @ref.Ref[EditorSession],
   model : DriverModel,
   _error : Error,
+  projection_session? : @ref.Ref[ProjectionSession?],
 ) -> (DriverModel, @cmd.Cmd) {
   let editor = session_ref.val.editor
   let source = editor.portable_markdown()
   let advanced = classify_recovered_source(model, source, editor.version())
   session_ref.val.attachment.dispose()
+  dispose_optional_projection_session(projection_session)
   terminal_raw_recovery(
     advanced, source, "Editing is paused. Copy your Markdown and reload to continue.",
   )

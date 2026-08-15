@@ -451,6 +451,12 @@ pub struct MarkdownDocumentVersion {
 } derive(Eq, Debug)
 
 ///|
+/// Encode this causal frontier as the canonical portable text-version token.
+pub fn MarkdownDocumentVersion::to_json_string(self : Self) -> String {
+  self.value.to_json_string()
+}
+
+///|
 /// One document's operation history, carried as a value the caller cannot
 /// interpret.
 ///
@@ -937,6 +943,7 @@ pub fn MarkdownEditor::snapshot(
 ///|
 /// Return portable Markdown with façade-owned empty-block sentinels removed.
 pub fn MarkdownEditor::portable_markdown(self : Self) -> String {
+  markdown_full_export_observed()
   @md_companion.export_markdown_text(self.editor)
 }
 
@@ -944,6 +951,30 @@ pub fn MarkdownEditor::portable_markdown(self : Self) -> String {
 /// Read the current version frontier without exposing editor state.
 pub fn MarkdownEditor::version(self : Self) -> MarkdownDocumentVersion {
   { value: self.editor.get_version() }
+}
+
+///|
+#cfg(target="js")
+extern "js" fn markdown_archive_export_failure_injection() -> String =
+  #|() => {
+  #|  const injection = globalThis.__canopyMarkdownArchiveExportFailure;
+  #|  if (injection == null) return "";
+  #|  injection.count = (injection.count ?? 0) + 1;
+  #|  return String(injection.detail ?? "injected archive export failure");
+  #|}
+
+///|
+#cfg(not(target="js"))
+fn markdown_archive_export_failure_injection() -> String {
+  ""
+}
+
+///|
+fn markdown_archive_export_failure() -> Unit raise Failure {
+  match markdown_archive_export_failure_injection() {
+    "" => ()
+    detail => raise Failure::Failure(detail)
+  }
 }
 
 ///|
@@ -962,10 +993,15 @@ pub fn MarkdownEditor::history_since(
   version? : MarkdownDocumentVersion,
 ) -> MarkdownDocumentHistory raise MarkdownArchiveError {
   let message = try {
-    match version {
-      None => self.editor.export_all()
+    let message = match version {
+      None => {
+        markdown_full_export_observed()
+        self.editor.export_all()
+      }
       Some(cut) => self.editor.export_since(cut.value)
     }
+    markdown_archive_export_failure()
+    message
   } catch {
     // The export methods widen to the supertype, so the binder has no
     // `message()` here as it does at the admission and construction sites.
@@ -988,6 +1024,15 @@ pub fn MarkdownEditor::commit(
 }
 
 ///|
+/// Facade-owned observation phases, including A1 evidence that does not belong
+/// to the lower-level SyncEditor mutation scope.
+pub enum MarkdownProjectionObservationPhase {
+  AuthorityAccepted
+  ProjectionMirrorSynchronized
+  CausalEvidenceAvailable
+} derive(Eq, Debug)
+
+///|
 /// Apply one request and report causal advancement without changing `commit`.
 ///
 /// History export can fail independently after the local edit has committed,
@@ -997,12 +1042,80 @@ pub fn MarkdownEditor::commit_with_receipt(
   self : Self,
   request : MarkdownEditRequest,
 ) -> Result[MarkdownCommitReceipt, MarkdownEditorError] raise {
+  self.commit_with_receipt_impl(request, None)
+}
+
+///|
+/// Apply one request while observing its projection-relevant synchronous
+/// phases. Observation is telemetry only and does not alter edit semantics.
+pub fn MarkdownEditor::commit_with_receipt_observing(
+  self : Self,
+  request : MarkdownEditRequest,
+  observer : (MarkdownProjectionObservationPhase) -> Unit,
+) -> Result[MarkdownCommitReceipt, MarkdownEditorError] raise {
+  self.commit_with_receipt_impl(request, Some(observer))
+}
+
+///|
+fn MarkdownEditor::commit_with_receipt_impl(
+  self : Self,
+  request : MarkdownEditRequest,
+  observer : ((MarkdownProjectionObservationPhase) -> Unit)?,
+) -> Result[MarkdownCommitReceipt, MarkdownEditorError] raise {
+  let authority_event_id = markdown_authority_trace_begin()
   let before_version = self.version()
-  match self.commit_recording_transforms(request) {
-    Err(error) => Err(error)
+  let observed = authority_event_id != 0 || observer is Some(_)
+  let (committed, authority_accepted) = if !observed {
+    (self.commit_recording_transforms(request), false)
+  } else {
+    self.editor.observe_projection_during(
+      phase => {
+        let facade_phase = match phase {
+          @editor.ProjectionObservationPhase::AuthorityAccepted => {
+            if authority_event_id != 0 {
+              markdown_authority_trace_a0(
+                authority_event_id,
+                MARKDOWN_AUTHORITY_OUTCOME_ACCEPTED_TRANSITION,
+              )
+            }
+            MarkdownProjectionObservationPhase::AuthorityAccepted
+          }
+          @editor.ProjectionObservationPhase::CommittedTransitionSettled => {
+            if authority_event_id != 0 {
+              markdown_authority_trace_a1(authority_event_id)
+            }
+            MarkdownProjectionObservationPhase::CausalEvidenceAvailable
+          }
+          @editor.ProjectionObservationPhase::ProjectionMirrorSynchronized =>
+            MarkdownProjectionObservationPhase::ProjectionMirrorSynchronized
+        }
+        match observer {
+          Some(emit) => emit(facade_phase)
+          None => ()
+        }
+      },
+      () => self.commit_recording_transforms(request),
+    )
+  }
+  match committed {
+    Err(error) => {
+      if !authority_accepted && authority_event_id != 0 {
+        markdown_authority_trace_a0(
+          authority_event_id,
+          MARKDOWN_AUTHORITY_OUTCOME_REJECTED,
+        )
+      }
+      Err(error)
+    }
     Ok((result, transforms)) => {
       let after_version = self.version()
       if after_version == before_version {
+        if !authority_accepted && authority_event_id != 0 {
+          markdown_authority_trace_a0(
+            authority_event_id,
+            MARKDOWN_AUTHORITY_OUTCOME_NO_ADVANCE,
+          )
+        }
         Ok({
           result,
           before_version,

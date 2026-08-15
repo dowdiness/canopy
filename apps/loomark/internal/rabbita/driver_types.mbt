@@ -84,6 +84,7 @@ priv enum LifecycleEvent {
   InvalidRequest(String)
   StopListening
   Fatal(String)
+  ProjectionWorkerResolved(Int, ProjectionStamp, String)
   Resize(@common.Viewport)
 }
 
@@ -103,6 +104,7 @@ priv enum DriverEvent {
 priv suberror DriverSubscription {
   Control(@cmd.Emit[DriverEvent])
   Test(@cmd.Emit[String], @cmd.Emit[DriverEvent])
+  WorkerLifetime(ProjectionWorkerRuntime)
 }
 
 ///|
@@ -115,6 +117,7 @@ priv struct DriverModel {
   raw_selection : VersionedRawSelection?
   archive_persistence_enabled : Bool
   semantic_document : @md_markdown.MarkdownIR?
+  preview_artifact : ProjectionPreviewArtifact?
   semantic_read_count : Int
   split_preview_open : Bool
   compact_split : Bool

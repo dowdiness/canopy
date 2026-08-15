@@ -158,6 +158,7 @@ pub fn MarkdownEditor::MarkdownEditor(agent_id~ : String, source~ : String) -> S
 pub fn MarkdownEditor::admit(Self, MarkdownDocumentHistory) -> MarkdownAdmitReport raise
 pub fn MarkdownEditor::commit(Self, MarkdownEditRequest) -> Result[MarkdownCommitResult, MarkdownEditorError] raise
 pub fn MarkdownEditor::commit_with_receipt(Self, MarkdownEditRequest) -> Result[MarkdownCommitReceipt, MarkdownEditorError] raise
+pub fn MarkdownEditor::commit_with_receipt_observing(Self, MarkdownEditRequest, (MarkdownProjectionObservationPhase) -> Unit) -> Result[MarkdownCommitReceipt, MarkdownEditorError] raise
 pub fn MarkdownEditor::history_since(Self, version? : MarkdownDocumentVersion) -> MarkdownDocumentHistory raise MarkdownArchiveError
 pub fn MarkdownEditor::open(agent_id~ : String, history~ : MarkdownDocumentHistory, open_limits~ : MarkdownArchiveOpenLimits) -> Self raise
 pub fn MarkdownEditor::open_with_semantic_attachment(agent_id~ : String, history~ : MarkdownDocumentHistory, open_limits~ : MarkdownArchiveOpenLimits) -> (Self, @dowdiness/markdown.MarkdownSemanticAttachment) raise
@@ -176,6 +177,12 @@ pub(all) enum MarkdownPostCommitIssue {
   ProjectionUnavailable
   ProjectionFailed
   UnexpectedTransformCount(count~ : Int)
+} derive(Eq, @debug.Debug)
+
+pub enum MarkdownProjectionObservationPhase {
+  AuthorityAccepted
+  ProjectionMirrorSynchronized
+  CausalEvidenceAvailable
 } derive(Eq, @debug.Debug)
 
 pub struct MarkdownProjectionSnapshot {

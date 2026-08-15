@@ -8,8 +8,8 @@ The fork is an owned dependency line, not an upstream release dependency.
 - **Fork:** [`dowdiness/rabbita`](https://github.com/dowdiness/rabbita)
 - **Upstream:** [`moonbit-community/rabbita`](https://github.com/moonbit-community/rabbita)
 - **Downstream branch:** `canopy/0.14.x`
-- **Pinned commit:** `cdfa8092ad5bd245ad140549ea35a7467ff8442f`
-- **Pinned tag:** `canopy-rabbita-0.14.2-p3`
+- **Pinned commit:** `938cecdf8967e2ce07880628e4b404f106ca7671`
+- **Baseline tag:** `canopy-rabbita-0.14.2-p3`
 - **Canopy submodule:** `deps/rabbita`
 
 The Canopy `.gitmodules` entry intentionally points at the fork. The

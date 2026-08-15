@@ -37,61 +37,123 @@ fn utf16_offset_to_item_pos(text : String, offset : Int) -> Int {
 }
 
 ///|
+fn AuthorityCore::insert_text(
+  self : AuthorityCore,
+  pos : @text.Pos,
+  text : String,
+) -> Unit raise {
+  self.doc.insert(pos, text)
+}
+
+///|
+fn AuthorityCore::delete_range(
+  self : AuthorityCore,
+  range : @text.Range,
+) -> Unit raise {
+  self.doc.delete_range(range)
+}
+
+///|
+fn AuthorityCore::replace_range(
+  self : AuthorityCore,
+  range : @text.Range,
+  inserted : String,
+) -> Unit raise {
+  self.doc.replace_range(range, inserted)
+}
+
+///|
+fn AuthorityCore::replace_range_and_record(
+  self : AuthorityCore,
+  range : @text.Range,
+  inserted : String,
+  timestamp_ms : Int,
+) -> Unit raise {
+  self.doc.replace_range_and_record(range, inserted, self.undo, timestamp_ms~)
+}
+
+///|
+fn AuthorityCore::stop_capturing(self : AuthorityCore) -> Unit {
+  self.undo.stop_capturing()
+}
+
+///|
 pub fn[T : Eq] SyncEditor::insert(
   self : SyncEditor[T],
   text : String,
 ) -> Unit raise {
   self.ensure_parser_healthy()
+  self.reject_projection_observer_reentry()
   self.taint_pending_transforms()
-  let old_source = self.doc.text()
-  self.cursor = @moji.prev_grapheme_boundary(old_source, self.cursor)
-  let insert_start = self.cursor
+  let before_version = self.authority.doc.version()
+  let old_source = self.authority.doc.text()
+  self.interaction.set_cursor_prev_grapheme_boundary(
+    old_source,
+    self.interaction.cursor,
+  )
+  let insert_start = self.interaction.cursor
   let item_start = utf16_offset_to_item_pos(old_source, insert_start)
-  self.doc.insert(@text.Pos::at(item_start), text)
-  self.cursor = @moji.next_grapheme_boundary(
-    self.doc.text(),
+  self.authority.insert_text(@text.Pos::at(item_start), text)
+  if self.authority.doc.version() != before_version {
+    self.observe_authority_acceptance()
+  }
+  self.interaction.set_cursor_next_grapheme_boundary(
+    self.authority.doc.text(),
     insert_start + text.length(),
   )
   self.apply_local_text_change(
     old_source,
-    self.doc.text(),
+    self.authority.doc.text(),
     Some(@loom_core.Edit::insert(insert_start, text.length())),
+    before_version~,
   )
 }
 
 ///|
 pub fn[T : Eq] SyncEditor::delete(self : SyncEditor[T]) -> Bool raise Failure {
   self.ensure_parser_healthy()
+  self.reject_projection_observer_reentry()
   self.taint_pending_transforms()
-  let old_source = self.doc.text()
-  if !@moji.is_grapheme_boundary(old_source, self.cursor) {
-    self.cursor = @moji.prev_grapheme_boundary(old_source, self.cursor)
+  let before_version = self.authority.doc.version()
+  let old_source = self.authority.doc.text()
+  if !@moji.is_grapheme_boundary(old_source, self.interaction.cursor) {
+    self.interaction.set_cursor_prev_grapheme_boundary(
+      old_source,
+      self.interaction.cursor,
+    )
   }
-  if self.cursor >= old_source.length() {
+  if self.interaction.cursor >= old_source.length() {
     return false
   }
-  let delete_start = self.cursor
-  let right = @moji.next_grapheme_boundary(old_source, self.cursor + 1)
+  let delete_start = self.interaction.cursor
+  let right = @moji.next_grapheme_boundary(
+    old_source,
+    self.interaction.cursor + 1,
+  )
   if right == delete_start {
     return false
   }
   let item_start = utf16_offset_to_item_pos(old_source, delete_start)
   let item_end = utf16_offset_to_item_pos(old_source, right)
   try
-    self.doc.delete_range(@text.Range::from_ints(item_start, item_end))
+    self.authority.delete_range(@text.Range::from_ints(item_start, item_end))
   catch {
     _ => false
   } noraise {
     _ => {
-      let new_text = self.doc.text()
-      self.cursor = @moji.next_grapheme_boundary(
+      if self.authority.doc.version() != before_version {
+        self.observe_authority_acceptance()
+      }
+      let new_text = self.authority.doc.text()
+      self.interaction.set_cursor_next_grapheme_boundary(
         new_text,
-        clamp_utf16_offset(new_text, self.cursor),
+        clamp_utf16_offset(new_text, self.interaction.cursor),
       )
       self.apply_local_text_change(
         old_source,
         new_text,
         Some(@loom_core.Edit::delete(delete_start, right)),
+        before_version~,
       )
       true
     }
@@ -103,27 +165,39 @@ pub fn[T : Eq] SyncEditor::backspace(
   self : SyncEditor[T],
 ) -> Bool raise Failure {
   self.ensure_parser_healthy()
+  self.reject_projection_observer_reentry()
   self.taint_pending_transforms()
-  let old_source = self.doc.text()
-  if !@moji.is_grapheme_boundary(old_source, self.cursor) {
-    self.cursor = @moji.next_grapheme_boundary(old_source, self.cursor)
+  let before_version = self.authority.doc.version()
+  let old_source = self.authority.doc.text()
+  if !@moji.is_grapheme_boundary(old_source, self.interaction.cursor) {
+    self.interaction.set_cursor_next_grapheme_boundary(
+      old_source,
+      self.interaction.cursor,
+    )
   }
-  if self.cursor > 0 {
-    let delete_end = self.cursor
-    let left = @moji.prev_grapheme_boundary(old_source, self.cursor - 1)
+  if self.interaction.cursor > 0 {
+    let delete_end = self.interaction.cursor
+    let left = @moji.prev_grapheme_boundary(
+      old_source,
+      self.interaction.cursor - 1,
+    )
     let item_start = utf16_offset_to_item_pos(old_source, left)
     let item_end = utf16_offset_to_item_pos(old_source, delete_end)
     try
-      self.doc.delete_range(@text.Range::from_ints(item_start, item_end))
+      self.authority.delete_range(@text.Range::from_ints(item_start, item_end))
     catch {
       _ => false
     } noraise {
       _ => {
-        self.cursor = left
+        if self.authority.doc.version() != before_version {
+          self.observe_authority_acceptance()
+        }
+        self.interaction.set_cursor(left)
         self.apply_local_text_change(
           old_source,
-          self.doc.text(),
+          self.authority.doc.text(),
           Some(@loom_core.Edit::delete(left, delete_end)),
+          before_version~,
         )
         true
       }
@@ -135,8 +209,8 @@ pub fn[T : Eq] SyncEditor::backspace(
 
 ///|
 pub fn[T] SyncEditor::move_cursor(self : SyncEditor[T], position : Int) -> Unit {
-  let text = self.doc.text()
-  self.cursor = @moji.prev_grapheme_boundary(
+  let text = self.authority.doc.text()
+  self.interaction.set_cursor_prev_grapheme_boundary(
     text,
     clamp_utf16_offset(text, position),
   )
@@ -144,19 +218,25 @@ pub fn[T] SyncEditor::move_cursor(self : SyncEditor[T], position : Int) -> Unit 
 
 ///|
 pub fn[T] SyncEditor::move_cursor_left_grapheme(self : SyncEditor[T]) -> Unit {
-  if self.cursor == 0 {
+  if self.interaction.cursor == 0 {
     return
   }
-  self.cursor = @moji.prev_grapheme_boundary(self.doc.text(), self.cursor - 1)
+  self.interaction.set_cursor_prev_grapheme_boundary(
+    self.authority.doc.text(),
+    self.interaction.cursor - 1,
+  )
 }
 
 ///|
 pub fn[T] SyncEditor::move_cursor_right_grapheme(self : SyncEditor[T]) -> Unit {
-  let text = self.doc.text()
-  if self.cursor == text.length() {
+  let text = self.authority.doc.text()
+  if self.interaction.cursor == text.length() {
     return
   }
-  self.cursor = @moji.next_grapheme_boundary(text, self.cursor + 1)
+  self.interaction.set_cursor_next_grapheme_boundary(
+    text,
+    self.interaction.cursor + 1,
+  )
 }
 
 ///|
@@ -164,22 +244,26 @@ pub fn[T] SyncEditor::move_cursor_right_grapheme(self : SyncEditor[T]) -> Unit {
 /// boundaries: left lands at word start, right at word end, whitespace is
 /// skipped, punctuation runs are single units. See `word_nav.mbt`.
 pub fn[T] SyncEditor::move_cursor_left_word(self : SyncEditor[T]) -> Unit {
-  self.cursor = prev_word_stop(self.doc.text(), self.cursor)
+  self.interaction.set_cursor(
+    prev_word_stop(self.authority.doc.text(), self.interaction.cursor),
+  )
 }
 
 ///|
 pub fn[T] SyncEditor::move_cursor_right_word(self : SyncEditor[T]) -> Unit {
-  self.cursor = next_word_stop(self.doc.text(), self.cursor)
+  self.interaction.set_cursor(
+    next_word_stop(self.authority.doc.text(), self.interaction.cursor),
+  )
 }
 
 ///|
 pub fn[T] SyncEditor::get_text(self : SyncEditor[T]) -> String {
-  self.doc.text()
+  self.authority.get_text()
 }
 
 ///|
 pub fn[T] SyncEditor::get_cursor(self : SyncEditor[T]) -> Int {
-  self.cursor
+  self.interaction.cursor
 }
 
 ///|
@@ -197,7 +281,7 @@ fn[T] SyncEditor::apply_replace_span(
   // twice just to convert the same endpoint.
   let (item_start, item_end) = if start == old_source.length() &&
     deleted_len == 0 {
-    let end = self.doc.len()
+    let end = self.authority.doc.len()
     (end, end)
   } else {
     (
@@ -209,11 +293,11 @@ fn[T] SyncEditor::apply_replace_span(
     _ => return false
   }
   if record_undo {
-    self.doc.replace_range_and_record(range, inserted, self.undo, timestamp_ms~) catch {
+    self.authority.replace_range_and_record(range, inserted, timestamp_ms) catch {
       _ => return false
     }
   } else {
-    self.doc.replace_range(range, inserted) catch {
+    self.authority.replace_range(range, inserted) catch {
       _ => return false
     }
   }
@@ -231,19 +315,21 @@ fn[T : Eq] SyncEditor::apply_diagnostic_fix_candidate(
   timestamp_ms : Int,
 ) -> Bool raise Failure {
   self.ensure_parser_healthy()
-  let old_source = self.doc.text()
+  self.reject_projection_observer_reentry()
+  let before_version = self.authority.doc.version()
+  let old_source = self.authority.doc.text()
   let expected_source = fix.apply(source_id, old_source) catch {
     _ => return false
   }
   let edits = fix.edits()
   self.taint_pending_transforms()
-  self.undo.stop_capturing()
+  self.authority.stop_capturing()
   let mut applied = true
   edits.rev_each(edit => {
     if applied {
       let range = edit.span().range()
       applied = self.apply_replace_span(
-        self.doc.text(),
+        self.authority.doc.text(),
         range.start().value(),
         range.length(),
         edit.replacement(),
@@ -252,15 +338,92 @@ fn[T : Eq] SyncEditor::apply_diagnostic_fix_candidate(
       )
     }
   })
-  self.undo.stop_capturing()
-  let new_source = self.doc.text()
-  self.cursor = @moji.next_grapheme_boundary(
+  self.authority.stop_capturing()
+  let after_version = self.authority.doc.version()
+  if after_version != before_version {
+    self.observe_authority_acceptance()
+  }
+  let new_source = self.authority.doc.text()
+  self.interaction.set_cursor_next_grapheme_boundary(
     new_source,
-    clamp_utf16_offset(new_source, self.cursor),
+    clamp_utf16_offset(new_source, self.interaction.cursor),
   )
-  self.adjust_peer_cursors_after_text_change(old_source, new_source, None)
-  self.sync_parser_after_text_change(old_source, new_source, None)
+  if after_version == before_version {
+    self.adjust_peer_cursors_after_text_change(old_source, new_source, None)
+    self.sync_parser_after_text_change(old_source, new_source, None)
+  } else {
+    self.settle_committed_text_change(
+      old_source,
+      new_source,
+      before_version,
+      classify_projection_continuation(old_source, new_source, None),
+      None,
+    )
+  }
   applied && new_source == expected_source
+}
+
+///|
+fn[T] SyncEditor::apply_text_edit_mutation_only(
+  self : SyncEditor[T],
+  old_source : String,
+  start : Int,
+  deleted_len : Int,
+  inserted : String,
+  timestamp_ms : Int,
+  record_undo : Bool,
+  policy : SplicePolicy,
+) -> @loom_core.Edit? raise Failure {
+  let text_len = old_source.length()
+  editor_perf_begin("applyEditPolicy")
+  let resolved : (Int, Int)? = match policy {
+    ExactBoundaries =>
+      if start < 0 ||
+        deleted_len < 0 ||
+        start > text_len ||
+        start + deleted_len > text_len {
+        None
+      } else {
+        let boundaries = @moji.grapheme_boundaries(old_source)
+        if boundaries.binary_search(start) is Err(_) ||
+          boundaries.binary_search(start + deleted_len) is Err(_) {
+          None
+        } else {
+          Some((start, deleted_len))
+        }
+      }
+    SnapToGrapheme => {
+      let clamped_start = clamp_utf16_offset(old_source, start)
+      let max_delete_len = text_len - clamped_start
+      let clamped_delete_len = if deleted_len < 0 {
+        0
+      } else if deleted_len > max_delete_len {
+        max_delete_len
+      } else {
+        deleted_len
+      }
+      if clamped_delete_len == 0 {
+        Some((@moji.prev_grapheme_boundary(old_source, clamped_start), 0))
+      } else {
+        let new_start = @moji.prev_grapheme_boundary(old_source, clamped_start)
+        let new_end = @moji.next_grapheme_boundary(
+          old_source,
+          clamped_start + clamped_delete_len,
+        )
+        Some((new_start, new_end - new_start))
+      }
+    }
+  }
+  editor_perf_end("applyEditPolicy")
+  guard resolved is Some((safe_start, safe_delete_len)) else { return None }
+  guard editor_perf_measure("crdtReplace", () => {
+    self.apply_replace_span(
+      old_source, safe_start, safe_delete_len, inserted, timestamp_ms, record_undo,
+    )
+  }) else {
+    return None
+  }
+  Some(@loom_core.Edit::new(safe_start, safe_delete_len, inserted.length()))
 }
 
 ///|
@@ -275,79 +438,40 @@ fn[T : Eq] SyncEditor::apply_text_edit_with_policy(
   policy : SplicePolicy,
 ) -> Bool raise Failure {
   self.ensure_parser_healthy()
+  self.reject_projection_observer_reentry()
+  let before_version = self.authority.doc.version()
   let old_source = editor_perf_measure("applyEditOldSnapshot", () => {
-    self.doc.text()
+    self.authority.doc.text()
   })
-  let text_len = old_source.length()
-  editor_perf_begin("applyEditPolicy")
-  let (safe_start, safe_delete_len) = match policy {
-    ExactBoundaries => {
-      if start < 0 ||
-        deleted_len < 0 ||
-        start > text_len ||
-        start + deleted_len > text_len {
-        editor_perf_end("applyEditPolicy")
-        return false
-      }
-      let boundaries = @moji.grapheme_boundaries(old_source)
-      if boundaries.binary_search(start) is Err(_) ||
-        boundaries.binary_search(start + deleted_len) is Err(_) {
-        editor_perf_end("applyEditPolicy")
-        return false
-      }
-      (start, deleted_len)
-    }
-    SnapToGrapheme => {
-      let clamped_start = clamp_utf16_offset(old_source, start)
-      let max_delete_len = text_len - clamped_start
-      let clamped_delete_len = if deleted_len < 0 {
-        0
-      } else if deleted_len > max_delete_len {
-        max_delete_len
-      } else {
-        deleted_len
-      }
-      if clamped_delete_len == 0 {
-        (@moji.prev_grapheme_boundary(old_source, clamped_start), 0)
-      } else {
-        let new_start = @moji.prev_grapheme_boundary(old_source, clamped_start)
-        let new_end = @moji.next_grapheme_boundary(
-          old_source,
-          clamped_start + clamped_delete_len,
-        )
-        (new_start, new_end - new_start)
-      }
-    }
-  }
-  editor_perf_end("applyEditPolicy")
-  // Funnel all bulk text mutation through one helper so CRDT range-edit and
-  // undo behavior stay aligned at a single boundary.
-  guard editor_perf_measure("crdtReplace", () => {
-    self.apply_replace_span(
-      old_source, safe_start, safe_delete_len, inserted, timestamp_ms, record_undo,
+  guard self.apply_text_edit_mutation_only(
+      old_source, start, deleted_len, inserted, timestamp_ms, record_undo, policy,
     )
-  }) else {
+    is Some(applied_edit) else {
     return false
   }
+  if self.authority.doc.version() != before_version {
+    self.observe_authority_acceptance()
+  }
   let new_text = editor_perf_measure("applyEditNewSnapshot", () => {
-    self.doc.text()
+    self.authority.doc.text()
   })
   if move_cursor_to_edit_end {
-    self.cursor = @moji.next_grapheme_boundary(
+    self.interaction.set_cursor_next_grapheme_boundary(
       new_text,
-      safe_start + inserted.length(),
+      applied_edit.start() + applied_edit.new_len(),
     )
   } else {
-    self.cursor = @moji.next_grapheme_boundary(
+    self.interaction.set_cursor_next_grapheme_boundary(
       new_text,
-      clamp_utf16_offset(new_text, self.cursor),
+      clamp_utf16_offset(new_text, self.interaction.cursor),
     )
   }
   editor_perf_measure("localTextChange", () => {
     self.apply_local_text_change(
       old_source,
       new_text,
-      Some(@loom_core.Edit::new(safe_start, safe_delete_len, inserted.length())),
+      Some(applied_edit),
+      before_version~,
     )
   })
   true
@@ -468,7 +592,8 @@ pub fn[T : Eq] SyncEditor::set_text_with_change(
   new_text : String,
 ) -> (@text_change.TextChange, Bool) raise Failure {
   self.ensure_parser_healthy()
-  let old_text = self.doc.text()
+  self.reject_projection_observer_reentry()
+  let old_text = self.authority.doc.text()
   let splice = match fast_append_text_change(old_text, new_text) {
     Some(splice) => splice
     None => @text_change.compute_text_change(old_text, new_text)
@@ -518,7 +643,7 @@ pub fn[T : Eq] SyncEditor::insert_at(
   timestamp_ms : Int,
 ) -> Unit raise Failure {
   self.ensure_parser_healthy()
-  let text_len = self.doc.len()
+  let text_len = self.authority.doc.len()
   if position < 0 || position > text_len {
     return
   }
@@ -538,7 +663,7 @@ pub fn[T : Eq] SyncEditor::delete_at(
   timestamp_ms : Int,
 ) -> Bool raise Failure {
   self.ensure_parser_healthy()
-  let text_len = self.doc.len()
+  let text_len = self.authority.doc.len()
   if position < 0 || position >= text_len {
     return false
   }
@@ -565,7 +690,9 @@ fn[T : Eq] SyncEditor::set_text_and_record_impl(
   timestamp_ms : Int,
 ) -> Unit raise Failure {
   self.ensure_parser_healthy()
-  let old_text = editor_perf_measure("setTextOldSnapshot", () => self.doc.text())
+  let old_text = editor_perf_measure("setTextOldSnapshot", () => {
+    self.authority.doc.text()
+  })
   if old_text == new_text {
     return
   }

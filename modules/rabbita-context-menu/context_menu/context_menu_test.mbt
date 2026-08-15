@@ -201,7 +201,7 @@ test "focus_cmd_within delegates scoped focus to the embedded menu" {
     .update(@context_menu.FocusNext)
   install_shadow_focus_fixture("menu-host", "test-menu-item-1")
   let scheduler = FocusCmdTestScheduler::new()
-  scheduler.add(model.focus_cmd_within(root_id="menu-host"))
+  @cmd.Scheduler::add(scheduler, model.focus_cmd_within(root_id="menu-host"))
   let log = focus_log()
   clear_focus_fixture()
   inspect(scheduler.after_render_count, content="1")

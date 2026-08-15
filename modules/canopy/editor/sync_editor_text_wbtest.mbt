@@ -404,3 +404,185 @@ test "word navigation: landing snapped to grapheme boundary" {
   editor.move_cursor_right_word()
   inspect(editor.get_cursor(), content="2") // not 1 (inside the cluster)
 }
+
+///|
+test "committed transition rejects equal causal versions" {
+  let editor = try! @probe.new_test_editor("transition-equal-version")
+  let version = editor.get_version()
+  let rejection : CommittedTransitionRejection? = try {
+    let _ = CommittedTransition(
+      before_version=version,
+      after_version=version,
+      continuation=ProjectionContinuation::NeedsSeed,
+    )
+    None
+  } catch {
+    error => Some(error)
+  }
+  assert_eq(rejection, Some(CommittedTransitionRejection::NoCausalAdvance))
+}
+
+///|
+test "accepted edit settles one transition before parser synchronization" {
+  let editor = try! @probe.new_test_editor("transition-observation-order")
+  editor.set_text("Before\n")
+  let phases : Array[ProjectionObservationPhase] = []
+  let (accepted, observed) = editor.observe_projection_during(
+    phase => phases.push(phase),
+    () => editor.apply_text_edit_exact(0, 6, "After", 0),
+  )
+  assert_true(accepted)
+  assert_true(observed)
+  assert_eq(phases, [
+    ProjectionObservationPhase::AuthorityAccepted,
+    ProjectionObservationPhase::CommittedTransitionSettled,
+    ProjectionObservationPhase::ProjectionMirrorSynchronized,
+  ])
+}
+
+///|
+test "remote admission settles one transition before parser synchronization" {
+  let source = try! @probe.new_test_editor("remote-transition-source")
+  let target = try! @probe.new_test_editor("remote-transition-target")
+  source.set_text("remote")
+  let message = try! source.export_all()
+  let phases : Array[ProjectionObservationPhase] = []
+  let (_, accepted) = target.observe_projection_during(
+    phase => phases.push(phase),
+    () => target.admit(message),
+  )
+  assert_true(accepted)
+  assert_eq(phases, [
+    ProjectionObservationPhase::AuthorityAccepted,
+    ProjectionObservationPhase::CommittedTransitionSettled,
+    ProjectionObservationPhase::ProjectionMirrorSynchronized,
+  ])
+  assert_eq(target.get_text(), "remote")
+}
+
+///|
+test "projection continuation classification preserves replay barriers" {
+  let edit = @loom_core.Edit::insert(0, 1)
+  assert_eq(
+    classify_projection_continuation("", "", Some(edit)),
+    ProjectionContinuation::SourceUnchanged,
+  )
+  assert_eq(
+    classify_projection_continuation("", "x", Some(edit)),
+    ProjectionContinuation::Replay(ProjectionReplay::Single(edit)),
+  )
+  assert_eq(
+    classify_projection_continuation("", "x", None),
+    ProjectionContinuation::NeedsSeed,
+  )
+}
+
+///|
+test "remote source-equal advance retains distinct causal versions" {
+  let source = try! @probe.new_test_editor("source-equal-source")
+  let target = try! @probe.new_test_editor("source-equal-target")
+  source.set_text("transient")
+  source.set_text("")
+  let message = try! source.export_all()
+  let before_version = target.get_version()
+  let phases : Array[ProjectionObservationPhase] = []
+  let (_, accepted) = target.observe_projection_during(
+    phase => phases.push(phase),
+    () => target.admit(message),
+  )
+
+  assert_true(accepted)
+  assert_true(target.get_version() != before_version)
+  assert_eq(target.get_text(), "")
+  assert_eq(phases, [
+    ProjectionObservationPhase::AuthorityAccepted,
+    ProjectionObservationPhase::CommittedTransitionSettled,
+    ProjectionObservationPhase::ProjectionMirrorSynchronized,
+  ])
+}
+
+///|
+test "projection observer cannot reenter through direct insert" {
+  let editor = try! @probe.new_test_editor("direct-insert-reentry")
+  editor.set_text("before")
+  let mut nested_rejected = false
+  let (_, accepted) = editor.observe_projection_during(
+    phase => {
+      if phase is ProjectionObservationPhase::AuthorityAccepted {
+        let nested : Result[Unit, Error] = Ok(editor.insert("nested")) catch {
+          error => Err(error)
+        }
+        nested_rejected = nested is Err(_)
+      }
+    },
+    () => editor.apply_text_edit_exact(0, 6, "after", 0),
+  )
+  assert_true(accepted)
+  assert_true(nested_rejected)
+  assert_eq(editor.get_text(), "after")
+}
+
+///|
+test "NeedsSeed uses coherent full parse instead of incremental replay" {
+  let source = try! @probe.new_test_editor("needs-seed-source")
+  let target = try! @probe.new_parser_failure_test_editor("needs-seed-target")
+  source.set_text("remote")
+  let result : Result[@text.SyncReport, Error] = Ok(
+    target.admit(try! source.export_all()),
+  ) catch {
+    error => Err(error)
+  }
+  assert_true(result is Ok(_))
+  assert_true(target.is_parser_healthy())
+  assert_eq(target.get_text(), "remote")
+}
+
+///|
+test "exact no-advance emits neither accepted authority nor transition" {
+  let editor = try! @probe.new_test_editor("exact-no-advance")
+  let phases : Array[ProjectionObservationPhase] = []
+  let (applied, accepted) = editor.observe_projection_during(
+    phase => phases.push(phase),
+    () => editor.apply_text_edit_exact(0, 0, "", 0),
+  )
+  assert_true(applied)
+  assert_false(accepted)
+  assert_eq(phases, [])
+}
+
+///|
+test "facade text edit commits through AuthorityCore" {
+  let editor = try! @probe.new_test_editor("authority-owner")
+  editor.set_text("before")
+  assert_true(editor.apply_text_edit_exact(0, 6, "after", 0))
+  assert_eq(editor.authority.get_text(), "after")
+  assert_eq(editor.get_text(), editor.authority.get_text())
+}
+
+///|
+test "detached ProjectionState cannot mutate authority text" {
+  let editor = try! @probe.new_test_editor("detached-projection")
+  editor.set_text("authority")
+  let projection = editor.projection
+  projection.set_parser_source("projection-only")
+  assert_eq(editor.authority.get_text(), "authority")
+  assert_eq(projection.parser.source().read_or_abort(), "projection-only")
+}
+
+///|
+test "projection-free construction is inert" {
+  let free = try! new_projection_free_editor("projection-free", 500)
+  assert_true(free.interaction.cursor_subscription is None)
+  assert_eq(free.authority.get_text(), "")
+}
+
+///|
+test "interaction activation rejects a second subscription" {
+  let free = try! new_projection_free_editor("activation-once", 500)
+  free.interaction.activate_cursor_view()
+  let second : Result[Unit, Error] = Ok(free.interaction.activate_cursor_view()) catch {
+    error => Err(error)
+  }
+  assert_true(free.interaction.cursor_subscription is Some(_))
+  assert_true(second is Err(_))
+}
