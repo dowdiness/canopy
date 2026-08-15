@@ -23,13 +23,6 @@ echo "==> Initializing submodules..."
 git submodule update --init --recursive
 echo "==> Submodules initialized"
 
-# Install MoonBit package dependencies
-# Retry-wrapped: transient mooncakes CDN 403 (issue #467) auto-recovers.
-echo "==> Running moon update (root)..."
-"$REPO_ROOT/scripts/moon-update.sh"
-echo "==> Running moon update (graphviz)..."
-(cd deps/graphviz && "$REPO_ROOT/scripts/moon-update.sh")
-
 # Pre-build MoonBit modules explicitly
 echo "==> Building crdt module..."
 moon build --target js --release

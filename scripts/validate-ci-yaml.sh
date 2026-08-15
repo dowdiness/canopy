@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Validate all GitHub Actions workflow YAML files in .github/workflows/.
+# Validate all GitHub Actions workflow and local composite-action YAML files.
 # Uses js-yaml for proper structural parsing.
 # Exit code 0 = all valid, 1 = any invalid.
 set -euo pipefail
@@ -13,7 +13,8 @@ if ! node -e "require('js-yaml')" 2>/dev/null; then
 fi
 
 errors=0
-for f in "$REPO_ROOT"/.github/workflows/*.yml; do
+for f in "$REPO_ROOT"/.github/workflows/*.yml "$REPO_ROOT"/.github/actions/*/action.yml; do
+  [ -f "$f" ] || continue
   name="$(basename "$f")"
   if node -e "
     const yaml = require('js-yaml');
@@ -33,7 +34,7 @@ for f in "$REPO_ROOT"/.github/workflows/*.yml; do
 done
 
 if [ "$errors" -gt 0 ]; then
-  echo "❌ $errors workflow file(s) have YAML errors"
+  echo "❌ $errors GitHub Actions YAML file(s) have errors"
   exit 1
 fi
-echo "✅ All workflow YAML files valid"
+echo "✅ All GitHub Actions YAML files valid"

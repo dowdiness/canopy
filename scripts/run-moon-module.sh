@@ -66,8 +66,6 @@ case "$ACTION" in
         moon fmt --check
         ;;
     ci)
-        # Retry-wrapped: transient mooncakes CDN 403 (issue #467) auto-recovers.
-        "$SCRIPT_DIR/moon-update.sh"
         # When checking from within a vendored submodule, suppress only
         # *transitive* vendored errors (deps), not the module under test.
         # Keep the exact module subtree under test unsuppressed.
@@ -78,13 +76,11 @@ case "$ACTION" in
     ci-lenient)
         # Same as `ci`, but exempts the try? [0020] deprecation for vendored
         # submodules canopy cannot migrate (see LENIENT_WARN_FLAGS above).
-        "$SCRIPT_DIR/moon-update.sh"
         keep_dir="$MODULE_DIR"
         run_moon_check_with_vendored_filter "--keep=$keep_dir" "${LENIENT_WARN_FLAGS[@]}" || exit $?
         moon test --release
         ;;
     bench)
-        "$SCRIPT_DIR/moon-update.sh"
         moon bench --release
         ;;
     *)

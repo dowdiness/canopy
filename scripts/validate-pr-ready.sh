@@ -308,12 +308,11 @@ build_plan() {
   add_phase "dependencies.check-deps"
   add_phase "dependencies.shared-substrate"
   add_phase "dependencies.egw-resolver-identity"
-  add_phase "dependencies.moon-update-wrapper"
+  add_phase "dependencies.registry-bootstrap-wiring"
   add_phase "dependencies.agent-doc-links"
   add_phase "dependencies.documentation-lifecycle"
   add_phase "dependencies.export-manifest"
   add_phase "dependencies.update-wrapper-test"
-  add_phase "dependencies.sync"
   add_phase "format.canopy"
   add_phase "interfaces.canopy"
 
@@ -394,7 +393,7 @@ run_phase() {
     dependencies.egw-resolver-identity)
       ./scripts/check-egw-resolver-identity.sh
       ;;
-    dependencies.moon-update-wrapper)
+    dependencies.registry-bootstrap-wiring)
       ./scripts/check-moon-update-wrapped.sh
       ;;
     dependencies.agent-doc-links)
@@ -409,10 +408,6 @@ run_phase() {
     dependencies.update-wrapper-test)
       ./scripts/test-moon-update-wrapper.sh
       ;;
-    dependencies.sync)
-      ./scripts/update-moon-deps.sh
-      assert_clean_worktree
-      ;;
     format.canopy)
       local moon_sources=()
       local source_file
@@ -424,34 +419,102 @@ run_phase() {
       fi
       ;;
     interfaces.canopy)
-      local package_dirs=()
+      # `git ls-files` spans standalone proof modules as well as the root
+      # workspace. Run `moon info` from each package's nearest module root so
+      # a package is never resolved against an unrelated parent module.
+      local module_roots=()
+      local module_packages=()
       local package_file
       local package_dir
-      local existing_dir
-      local already_seen
+      local search_dir
+      local parent_dir
+      local module_root
+      local package_relative
+      local module_index
+      local existing_index
       while IFS= read -r -d '' package_file; do
         if [[ "$package_file" == */* ]]; then
           package_dir="${package_file%/*}"
         else
           package_dir="."
         fi
-        already_seen=0
-        for existing_dir in "${package_dirs[@]}"; do
-          if [ "$existing_dir" = "$package_dir" ]; then
-            already_seen=1
+
+        search_dir="$project_root/$package_dir"
+        while :; do
+          if [ -f "$search_dir/moon.mod" ] || [ -f "$search_dir/moon.mod.json" ]; then
+            break
+          fi
+          parent_dir="${search_dir%/*}"
+          if [ "$parent_dir" = "$search_dir" ] || [ "$search_dir" = "$project_root" ]; then
+            die "could not find a MoonBit module manifest for package $package_dir"
+          fi
+          search_dir="$parent_dir"
+        done
+
+        module_root="${search_dir#"$project_root"/}"
+        if [ "$module_root" = "$search_dir" ]; then
+          module_root="."
+        fi
+        if [ "$package_dir" = "$module_root" ]; then
+          package_relative="."
+        else
+          package_relative="${package_dir#"$module_root"/}"
+        fi
+
+        module_index=-1
+        existing_index=0
+        for existing_index in "${!module_roots[@]}"; do
+          if [ "${module_roots[$existing_index]}" = "$module_root" ]; then
+            module_index="$existing_index"
             break
           fi
         done
-        if [ "$already_seen" -eq 0 ]; then
-          package_dirs+=("$package_dir")
+        if [ "$module_index" -lt 0 ]; then
+          module_roots+=("$module_root")
+          module_packages+=("$package_relative")
+        else
+          module_packages[$module_index]="${module_packages[$module_index]}|$package_relative"
         fi
       done < <(
         git ls-files -z -- \
           'moon.pkg' 'moon.pkg.json' '*/moon.pkg' '*/moon.pkg.json'
       )
-      if [ "${#package_dirs[@]}" -gt 0 ]; then
-        NEW_MOON_MOD=0 moon info --frozen "${package_dirs[@]}"
+
+      local package_args=()
+      local module_root_dir
+      if [ "${#module_roots[@]}" -gt 0 ]; then
+        for module_index in "${!module_roots[@]}"; do
+          IFS='|' read -r -a package_args <<< "${module_packages[$module_index]}"
+          module_root_dir="$project_root/${module_roots[$module_index]}"
+          (
+            cd "$module_root_dir"
+            NEW_MOON_MOD=0 moon info "${package_args[@]}"
+          )
+        done
       fi
+
+      # A base branch can carry source changes whose generated interface was
+      # not refreshed yet. Keep this gate focused on drift introduced by the
+      # candidate branch: restore only generated interfaces whose package has
+      # no diff in base...HEAD, and fail for candidate-owned package drift.
+      local generated_interfaces
+      local generated_interface
+      local generated_package
+      generated_interfaces="$(git diff --name-only -- '*.mbti')"
+      while IFS= read -r generated_interface; do
+        [ -n "$generated_interface" ] || continue
+        if [[ "$generated_interface" == */* ]]; then
+          generated_package="${generated_interface%/*}"
+        else
+          generated_package="."
+        fi
+        if ! git diff --quiet "$base_ref...HEAD" -- "$generated_package"; then
+          die "moon info changed a generated interface for candidate-owned package $generated_package; commit the generated interface and rerun validation"
+        fi
+        git checkout -- "$generated_interface"
+      done <<EOF
+$generated_interfaces
+EOF
       assert_clean_worktree
       ;;
     target.check)

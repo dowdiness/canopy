@@ -31,17 +31,6 @@
         ]
       }
     ],
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "moon update",
-            "timeout": 30
-          }
-        ]
-      }
-    ],
     "Stop": [
       {
         "matcher": "",

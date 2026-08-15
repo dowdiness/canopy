@@ -45,26 +45,25 @@ cat >"$expected_list" <<'EXPECTED_LIST'
 04 dependencies.check-deps
 05 dependencies.shared-substrate
 06 dependencies.egw-resolver-identity
-07 dependencies.moon-update-wrapper
+07 dependencies.registry-bootstrap-wiring
 08 dependencies.agent-doc-links
 09 dependencies.documentation-lifecycle
 10 dependencies.export-manifest
 11 dependencies.update-wrapper-test
-12 dependencies.sync
-13 format.canopy
-14 interfaces.canopy
-15 target.check modules/canopy/lang/markdown/proj
-16 target.test modules/canopy/lang/markdown/proj
-17 target.check modules/canopy/lang/markdown/edits
-18 target.test modules/canopy/lang/markdown/edits
-19 suite.check
-20 suite.manifest-compat
-21 suite.test
-22 suite.build
-23 build.js
-24 typescript.ffi-consumers origin/main
-25 diff.whitespace origin/main...HEAD
-26 evidence.record
+12 format.canopy
+13 interfaces.canopy
+14 target.check modules/canopy/lang/markdown/proj
+15 target.test modules/canopy/lang/markdown/proj
+16 target.check modules/canopy/lang/markdown/edits
+17 target.test modules/canopy/lang/markdown/edits
+18 suite.check
+19 suite.manifest-compat
+20 suite.test
+21 suite.build
+22 build.js
+23 typescript.ffi-consumers origin/main
+24 diff.whitespace origin/main...HEAD
+25 evidence.record
 EXPECTED_LIST
 assert_files_equal "$expected_list" "$list_output" "--list order changed"
 
@@ -132,7 +131,6 @@ for script_name in \
   check-agent-doc-links.sh \
   check-documentation-lifecycle.sh \
   test-moon-update-wrapper.sh \
-  update-moon-deps.sh \
   check-strict.sh \
   check-moonbit-pkg-compat.sh \
   check-test-baseline.sh \
@@ -220,13 +218,9 @@ git -C "$fixture" commit --quiet -m "fixture base"
 git -C "$fixture" tag fixture-base
 git -C "$fixture" switch --quiet -c feature
 git -C "$fixture" commit --quiet --allow-empty -m "fixture feature"
-
-fake_moon_update_guard="$tmp_dir/fake-check-moon-update-wrapped.sh"
-cp "$fixture/scripts/check-moon-update-wrapped.sh" "$fake_moon_update_guard"
-cp "$root_dir/scripts/check-moon-update-wrapped.sh" \
-  "$fixture/scripts/check-moon-update-wrapped.sh"
-git -C "$fixture" add scripts/check-moon-update-wrapped.sh
-git -C "$fixture" commit --quiet -m "exercise the real moon update guard"
+printf '// candidate package change\n' >>"$fixture/pkg/main.mbt"
+git -C "$fixture" add pkg/main.mbt
+git -C "$fixture" commit --quiet -m "candidate package change"
 
 bash32_output="$tmp_dir/bash32-output"
 if ! (
@@ -248,10 +242,6 @@ grep -q "PR-ready validation passed" "$bash32_output" ||
   fail "Bash 3.2 compatibility probe did not complete the public CLI"
 grep -q "validated-no-target=Bash 3.2 compatibility probe" "$bash32_output" ||
   fail "Bash 3.2 compatibility probe did not record its scope"
-
-cp "$fake_moon_update_guard" "$fixture/scripts/check-moon-update-wrapped.sh"
-git -C "$fixture" add scripts/check-moon-update-wrapped.sh
-git -C "$fixture" commit --quiet -m "restore the fake moon update guard"
 
 printf 'not pushed\n' >"$fixture/vendor/test-submodule/state.txt"
 git -C "$fixture/vendor/test-submodule" add state.txt
@@ -327,9 +317,9 @@ check-agent-doc-links.sh
 check-documentation-lifecycle.sh
 node ./scripts/check-export-manifest.mjs
 test-moon-update-wrapper.sh
-update-moon-deps.sh
 moon fmt --check member/pkg/main.mbt pkg/main.mbt
-moon info --frozen member/pkg pkg
+moon info pkg
+moon info .
 check-strict.sh member/pkg
 moon test --release member/pkg
 vendored-filter --keep=pkg --deny-warn --warn-list=-20 .
@@ -447,7 +437,7 @@ if PATH="$fake_bin:$PATH" \
     --target pkg >"$tmp_dir/mutation-output" 2>&1; then
   fail "tracked interface mutation unexpectedly passed"
 fi
-grep -q "worktree is not clean" "$tmp_dir/mutation-output" ||
+grep -Eq "worktree is not clean|candidate-owned package" "$tmp_dir/mutation-output" ||
   fail "tracked mutation diagnostic was not actionable"
 if grep -q "check-strict.sh" "$execution_log"; then
   fail "tracked interface mutation did not stop before targeted checks"

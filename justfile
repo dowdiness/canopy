@@ -40,8 +40,12 @@ hook-tooling-contract:
     @just --dry-run pre-commit
     @just --dry-run hook-submodule-reachability
     @make -n check
+    @make -n registry-refresh
     @node -e 'JSON.parse(require("fs").readFileSync(".claude/settings.json", "utf8"))'
-    @bash -n .githooks/pre-commit .githooks/pre-push scripts/install-hooks.sh scripts/test-install-hooks.sh scripts/test-lefthook-pre-commit-routing.sh scripts/test-lefthook-pre-push-routing.sh scripts/test-pr-ready-validation.sh scripts/test-submodule-reachability.sh scripts/run-submodule-reachability.sh scripts/run-moonbit-rename-route.sh
+    @bash -n .githooks/pre-commit .githooks/pre-push scripts/install-hooks.sh scripts/test-install-hooks.sh scripts/test-lefthook-pre-commit-routing.sh scripts/test-lefthook-pre-push-routing.sh scripts/test-pr-ready-validation.sh scripts/test-submodule-reachability.sh scripts/run-submodule-reachability.sh scripts/run-moonbit-rename-route.sh scripts/check-moon-update-wrapped.sh scripts/test-moon-registry-bootstrap.sh scripts/validate-ci-yaml.sh
+    @bash scripts/check-moon-update-wrapped.sh
+    @python3 scripts/check-moon-registry-manifests.py
+    @bash scripts/test-moon-registry-bootstrap.sh
     @nu --ide-check 100 scripts/check-submodule-reachability.nu
     @nu --ide-check 100 scripts/install-hooks.nu
     @lefthook validate
@@ -116,13 +120,9 @@ install-hooks:
 # Run all CI checks locally
 ci: check-all test-all
 
-# Update MoonBit dependencies
-update:
+# Refresh MoonBit registry dependencies explicitly for local development
+registry-refresh:
     @bash "{{ moon_update }}"
-    @cd deps/event-graph-walker; bash "{{ moon_update }}"
-    @cd deps/loom/loom; bash "{{ moon_update }}"
-    @cd deps/svg-dsl; bash "{{ moon_update }}"
-    @cd deps/graphviz; bash "{{ moon_update }}"
 
 # Run benchmarks
 bench:

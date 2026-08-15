@@ -1,4 +1,4 @@
-.PHONY: help test test-all check check-all fmt fmt-check check-agent-doc-links build build-js build-web test-web-e2e test-canvas-e2e test-demo-react-e2e benchmark-ideal-editor-response setup-ast-grep web-dev clean pre-commit install-hooks ci update bench release-artifacts
+.PHONY: help test test-all check check-all fmt fmt-check check-agent-doc-links build build-js build-web test-web-e2e test-canvas-e2e test-demo-react-e2e benchmark-ideal-editor-response setup-ast-grep web-dev clean pre-commit install-hooks ci registry-refresh bench release-artifacts
 
 .DEFAULT_GOAL := help
 
@@ -6,7 +6,7 @@
 test test-all check check-all fmt fmt-check check-agent-doc-links \
 build build-js build-web test-web-e2e test-canvas-e2e test-demo-react-e2e \
 benchmark-ideal-editor-response setup-ast-grep web-dev clean pre-commit \
-install-hooks ci update bench:
+install-hooks ci registry-refresh bench:
 	@just $@
 
 help:

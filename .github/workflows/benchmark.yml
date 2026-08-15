@@ -84,7 +84,7 @@ jobs:
         continue-on-error: true
         run: |
           echo "Running benchmarks on PR branch..."
-          if { "$GITHUB_WORKSPACE/scripts/moon-update.sh" && moon bench --release -p dowdiness/btree -p dowdiness/visualizer -p dowdiness/canopy/editor -p dowdiness/canopy/projection -p dowdiness/canopy/lang/json/companion; } > pr_bench.txt 2>&1; then
+          if moon bench --release -p dowdiness/btree -p dowdiness/visualizer -p dowdiness/canopy/editor -p dowdiness/canopy/projection -p dowdiness/canopy/lang/json/companion > pr_bench.txt 2>&1; then
             cat pr_bench.txt
           else
             cat pr_bench.txt
@@ -150,7 +150,7 @@ jobs:
         continue-on-error: true
         run: |
           echo "Running benchmarks on base branch..."
-          if { "$GITHUB_WORKSPACE/scripts/moon-update.sh" && moon bench --release -p dowdiness/btree -p dowdiness/visualizer -p dowdiness/canopy/editor -p dowdiness/canopy/projection -p dowdiness/canopy/lang/json/companion; } > base_bench.txt 2>&1; then
+          if moon bench --release -p dowdiness/btree -p dowdiness/visualizer -p dowdiness/canopy/editor -p dowdiness/canopy/projection -p dowdiness/canopy/lang/json/companion > base_bench.txt 2>&1; then
             echo "complete=true" >> "$GITHUB_OUTPUT"
             cat base_bench.txt
           else
@@ -333,13 +333,6 @@ jobs:
         if: needs.benchmark-gate.outputs.run_editor_response == 'true' || github.event_name == 'workflow_dispatch'
         working-directory: apps/ideal/web
         run: npx playwright install --with-deps chromium
-
-      - name: Update MoonBit dependencies
-        if: needs.benchmark-gate.outputs.run_editor_response == 'true' || github.event_name == 'workflow_dispatch'
-        working-directory: apps/ideal
-        # Retry-wrapped: transient mooncakes CDN 403 (issue #467) auto-recovers.
-        run: |
-          "$GITHUB_WORKSPACE/scripts/moon-update.sh"
 
       - name: Run realistic editor response benchmark
         if: needs.benchmark-gate.outputs.run_editor_response == 'true' || github.event_name == 'workflow_dispatch'

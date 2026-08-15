@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 #
-# Run Ideal editor Playwright E2E specs (non-performance). Skips the MoonBit
-# dep update step when CANOPY_SKIP_MOON_BUILD=1 (CI uses pre-built artifacts
-# from build-js). The editor-response perf spec is gated separately by
+# Run Ideal editor Playwright E2E specs (non-performance). CI uses pre-built
+# artifacts from the build-js job. The editor-response perf spec is gated separately by
 # .github/workflows/benchmark.yml.
 
 set -euo pipefail
@@ -11,14 +10,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 cd "$PROJECT_ROOT"
-
-if [[ "${CANOPY_SKIP_MOON_BUILD:-0}" != "1" ]]; then
-    (
-        cd apps/ideal
-        # Retry-wrapped: transient mooncakes CDN 403 (issue #467) auto-recovers.
-        "$SCRIPT_DIR/moon-update.sh"
-    )
-fi
 
 echo "Running Ideal editor Playwright E2E..."
 cd apps/ideal/web
