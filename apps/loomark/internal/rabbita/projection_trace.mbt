@@ -686,6 +686,7 @@ fn projection_trace_generation_invalidated() -> Unit {
 }
 
 ///|
+#warnings("-unused_value")
 fn projection_trace_begin_demand_group(next_requested~ : Bool) -> Unit {
   guard next_requested else { return }
   match projection_trace.val {
@@ -808,6 +809,7 @@ fn projection_trace_recovery_seed_materialized() -> Unit {
 
 ///|
 /// Call only after the semantic document has materialized successfully.
+#warnings("-unused_value")
 fn projection_trace_semantic_attachment_read() -> Unit {
   match projection_trace.val {
     None => ()
@@ -900,6 +902,7 @@ fn projection_trace_test_group_adopted(work_id : Int) -> Unit {
 ///|
 /// Publish the retained Preview payload under the accepted causal stamp without
 /// claiming application adoption.
+#warnings("-unused_value")
 fn projection_trace_retained_preview_materialized() -> Unit {
   match projection_trace.val {
     None => ()

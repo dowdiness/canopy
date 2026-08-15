@@ -12,6 +12,10 @@ separate browser boundaries.
 
 Neither boundary is a public Browser App/Session contract.
 
+`scripts/test-loomark-dev-host-e2e.sh` builds both the private driver and the
+production projection Worker, stages the Worker beside the file-backed test
+page for the duration of the run, and removes the staged asset on exit.
+
 ## Behavioral and lifetime test inventory
 
 | Boundary | Harness assertion | Lifetime claim |

@@ -405,6 +405,7 @@ fn semantic_preview_node(
 }
 
 ///|
+#warnings("-unused_value")
 fn semantic_preview_view(
   source : String,
   semantic_document : @md_markdown.MarkdownIR,

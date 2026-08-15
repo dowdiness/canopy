@@ -105,6 +105,7 @@ test "projection Worker publishes artifact and no HTML authority" {
 }
 
 ///|
+#warnings("-alert_unstable")
 test "artifact renderer preserves safe URL policy and treats raw HTML as text" {
   let artifact : ProjectionPreviewArtifact = {
     root: {
