@@ -13,8 +13,10 @@ Use the scripts themselves, the root [`justfile`](../justfile), and
 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) as the authoritative
 operational sources. `check-submodule-reachability.nu` is the shared blocking
 contract used by PR-ready validation and the narrow Lefthook pre-push route;
-`run-submodule-reachability.sh` only maps Git's pre-push ref-update stream to
-that command. The checker checks initialized/matching gitlinks, conflicts,
-configured-origin fetches, normal origin reachability, exact-SHA fetchability,
-and isolated recursive graphs for pushed commits. Development guidance belongs under
+`run-submodule-reachability.sh` maps Git's pre-push ref-update stream to that
+command, enumerating commits relative to the streamed remote SHA or
+authoritative `origin` refs for new refs rather than stale local tracking refs.
+The checker checks initialized/matching gitlinks, conflicts, configured-origin
+fetches, normal origin reachability, exact-SHA fetchability, and isolated
+recursive graphs for pushed commits. Development guidance belongs under
 [`../docs/development/`](../docs/development/).

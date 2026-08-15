@@ -111,6 +111,10 @@ assert_invoked_once() {
 assert_invoked_count() {
   [ "$(wc -l <"$log" | tr -d ' ')" -eq "$2" ] || { echo "error: $1 did not invoke checker $2 time(s)" >&2; cat "$log" >&2; exit 1; }
 }
+assert_commit_once() {
+  count="$(grep -F -c " $2" "$log" || true)"
+  [ "$count" -eq 1 ] || { echo "error: $1 did not check commit $2 exactly once" >&2; cat "$log" >&2; exit 1; }
+}
 
 # Two new refs share one relevant commit. The checker must deduplicate the
 # commit SHA even though Git supplies two ref-update lines on stdin.
@@ -125,18 +129,21 @@ shared_parent_sha="$(git -C "$parent" rev-parse HEAD)"
 git -C "$parent" branch duplicate-ref "$shared_parent_sha"
 git -C "$parent" switch --quiet main
 git -C "$parent" submodule update --quiet
+# Simulate a stale local origin ref for a deleted remote branch. It must not
+# suppress validation of the same commit when a new ref is pushed.
+git -C "$parent" update-ref refs/remotes/origin/stale "$shared_parent_sha"
 reset_log
 if LEFTHOOK_ROUTING_LOG="$log" LEFTHOOK_ROUTING_CHECKER="$parent/scripts/check-submodule-reachability.nu" PATH="$fixture/bin:$PATH" \
   git -C "$parent" push --quiet origin shared-submodule duplicate-ref >"$fixture/shared.out" 2>&1; then
   echo "error: shared unpushed submodule commit unexpectedly passed" >&2
   exit 1
 fi
-assert_invoked_once shared-commit-deduplication
+assert_commit_once shared-commit-deduplication "$shared_parent_sha"
 git -C "$parent/deps/test-submodule" push --quiet origin "$shared_submodule_sha:refs/pull/shared/head"
 reset_log
 LEFTHOOK_ROUTING_LOG="$log" LEFTHOOK_ROUTING_CHECKER="$parent/scripts/check-submodule-reachability.nu" PATH="$fixture/bin:$PATH" \
   git -C "$parent" push --quiet origin shared-submodule duplicate-ref
-assert_invoked_once shared-commit-after-push
+assert_commit_once shared-commit-after-push "$shared_parent_sha"
 
 printf 'docs\n' >"$parent/docs/README.md"
 git -C "$parent" add docs/README.md && git -C "$parent" commit --no-verify --quiet -m docs
@@ -237,7 +244,8 @@ git -C "$parent" switch --quiet -c nonfast
 printf 'nonfast-base\n' >"$parent/docs/nonfast.txt"
 git -C "$parent" add docs/nonfast.txt
 git -C "$parent" commit --no-verify --quiet -m nonfast-base
-git -C "$parent" push --quiet origin nonfast
+LEFTHOOK_ROUTING_LOG="$log" LEFTHOOK_ROUTING_CHECKER="$parent/scripts/check-submodule-reachability.nu" PATH="$fixture/bin:$PATH" \
+  git -C "$parent" push --quiet origin nonfast
 git -C "$parent" switch --quiet main
 git -C "$parent" submodule update --quiet
 git -C "$parent" switch --quiet nonfast

@@ -24,13 +24,45 @@ add_commit() {
   fi
 }
 
+origin_remote_commits=
+origin_remote_loaded=0
+load_origin_remote_commits() {
+  [ "$origin_remote_loaded" -eq 1 ] && return 0
+  remote_refs=$(git ls-remote --refs origin) || {
+    echo "error: could not enumerate configured origin refs before validating a new push ref" >&2
+    exit 1
+  }
+  origin_remote_commits=
+  while IFS="$(printf '\t')" read -r remote_commit _remote_ref; do
+    [ -n "${remote_commit:-}" ] || continue
+    # A shallow/local partial clone may not contain the advertised base. Leave
+    # it out so rev-list scans conservatively instead of failing open.
+    if git cat-file -e "$remote_commit^{commit}" 2>/dev/null; then
+      origin_remote_commits="$origin_remote_commits $remote_commit"
+    fi
+  done <<EOF
+$remote_refs
+EOF
+  origin_remote_loaded=1
+}
+
 commits_for_push() {
   local_sha=$1
   remote_sha=$2
   if [ "$remote_sha" = "$all_zeroes" ]; then
-    git rev-list --reverse "$local_sha" --not --remotes=origin
+    # A new remote ref has no base SHA in the hook stream. Use authoritative
+    # origin refs, not possibly stale local refs/remotes/origin/*.
+    load_origin_remote_commits
+    if [ -n "$origin_remote_commits" ]; then
+      # shellcheck disable=SC2086 # origin_remote_commits contains validated SHAs.
+      git rev-list --reverse "$local_sha" --not $origin_remote_commits
+    else
+      git rev-list --reverse "$local_sha"
+    fi
   else
-    git rev-list --reverse "$local_sha" --not "$remote_sha" --remotes=origin
+    # The streamed remote SHA is authoritative. Do not subtract local
+    # refs/remotes/origin/*: they may describe deleted or stale remote refs.
+    git rev-list --reverse "$remote_sha..$local_sha"
   fi
 }
 

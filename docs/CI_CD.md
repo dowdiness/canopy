@@ -221,8 +221,9 @@ implementation used by PR-ready validation and the internal
 2.1.10 filters gitlinks out of `{push_files}`, so `{all_files}` is retained only
 as an execution sentinel and `use_stdin: true` supplies Git's authoritative
 ref-update stream. The adapter owns the `.gitmodules` and `deps/` routing policy,
-enumerates every newly introduced relevant commit, and deduplicates shared
-commits across refs. The shared checker materializes each pushed commit's
+enumerates every newly introduced relevant commit, using the streamed remote
+SHA or authoritative `origin` refs for new refs instead of stale local tracking
+refs, and deduplicates shared commits across refs. The shared checker materializes each pushed commit's
 `.gitmodules` and recursively checks its submodule graph, so non-checked-out
 branch pushes and reverted intermediate gitlinks are covered. It invokes the
 shared recipe only for relevant updates and does not run workspace-wide MoonBit
