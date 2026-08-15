@@ -2287,13 +2287,12 @@ fn update_lifecycle(
             return (model, @rabbita_runtime.none)
           }
           match projection_worker_response_artifact(raw) {
-            Err(detail) => {
-              worker.restart()
-              (projection_failed_model(model, detail), @rabbita_runtime.none)
-            }
-            Ok((stamp, artifact)) =>
-              if stamp != expected {
-                (model, @rabbita_runtime.none)
+            Err(detail) => worker.recover(model, emit, detail)
+            Ok((response_request_id, stamp, artifact)) =>
+              if response_request_id != request_id || stamp != expected {
+                worker.recover(
+                  model, emit, "projection Worker response envelope mismatch",
+                )
               } else {
                 worker.mark_healthy()
                 match artifact {

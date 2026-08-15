@@ -223,6 +223,7 @@ test "projection adapter lifetime sequence is exact-next non-wrapping across gen
   let exhausted = {
     ..ProjectionAdapter::ProjectionAdapter(projection_test_limits()),
     last_sequence: 2147483647,
+    current_stamp: Some(projection_test_stamp(1, 2147483647, 1)),
   }
   let (_, overflow) = projection_test_seed(exhausted)
   assert_true(overflow.any(effect => effect is RejectCommand(CounterExhausted)))

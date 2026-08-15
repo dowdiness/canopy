@@ -42,6 +42,8 @@ extern "js" fn start_projection_worker_gate(
   #|   root.dataset.loomarkProjectionWorkerGate = "pending";
   #|   let currentEpoch = 1;
   #|   let nextRequestId = 1;
+  #|   let stampSequence = 0;
+  #|   let activeGeneration = 1;
   #|   let staleRejected = false;
   #|
   #|   const request = (command, requestId = nextRequestId++) => JSON.stringify({
@@ -49,12 +51,27 @@ extern "js" fn start_projection_worker_gate(
   #|     request_id: requestId,
   #|     command,
   #|   });
-  #|   const seed = (agentId, source, generation) => ({
-  #|     kind: "seed", agent_id: agentId, source, generation,
-  #|     demand: { block: true, preview: true, diagnostics: true },
-  #|   });
+  #|   const nextStamp = generation => {
+  #|     stampSequence += 1;
+  #|     return {
+  #|       generation,
+  #|       sequence: stampSequence,
+  #|       source_revision: stampSequence,
+  #|       causal_version: `gate-${stampSequence}`,
+  #|       block_intent: stampSequence,
+  #|     };
+  #|   };
+  #|   const seed = (agentId, source, generation) => {
+  #|     activeGeneration = generation;
+  #|     return {
+  #|       kind: "seed", agent_id: agentId, source,
+  #|       stamp: nextStamp(generation),
+  #|       demand: { block: true, preview: true, diagnostics: true },
+  #|     };
+  #|   };
   #|   const advance = source => ({
   #|     kind: "advance",
+  #|     stamp: nextStamp(activeGeneration),
   #|     source_effect: { kind: "replace-source", source },
   #|   });
   #|   const errorPayload = (requestId, kind, detail) => JSON.stringify({
@@ -435,7 +452,7 @@ extern "js" fn start_projection_worker_gate(
   #|       bounded,
   #|       overflow_recovered: overflowRecovered,
   #|       large_payload_recovered: largePayloadRecovered,
-  #|       latest_source: latest.observables.block.source,
+  #|       latest_source: latest.observables?.block?.source ?? "missing",
   #|       high_water_count: burstTransport.highWaterCount,
   #|       low_count_delays: lowCountDelays,
   #|       high_water_encoded_bytes: burstTransport.highWaterEncodedBytes,

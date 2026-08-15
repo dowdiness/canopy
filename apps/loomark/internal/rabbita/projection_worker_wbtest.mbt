@@ -8,17 +8,35 @@ fn projection_worker_request(request_id : Int, command : Json) -> String {
 }
 
 ///|
+fn projection_worker_test_stamp(
+  generation : Int,
+  sequence? : Int = 1,
+  source_revision? : Int = sequence,
+) -> ProjectionStamp {
+  {
+    generation,
+    sequence,
+    source_revision,
+    causal_version: "projection-session-" + sequence.to_string(),
+    block_intent: sequence,
+  }
+}
+
+///|
 fn projection_worker_seed_command(
   agent_id : String,
   source : String,
   generation : Int,
   demand? : ProjectionDemand = projection_all_demand(),
+  sequence? : Int = 1,
 ) -> Json {
   Json::object({
     "kind": Json::string("seed"),
     "agent_id": Json::string(agent_id),
     "source": Json::string(source),
-    "generation": Json::number(generation.to_double()),
+    "stamp": projection_worker_stamp_json(
+      projection_worker_test_stamp(generation, sequence~),
+    ),
     "demand": Json::object({
       "block": Json::boolean(demand.block),
       "preview": Json::boolean(demand.preview),
@@ -28,7 +46,12 @@ fn projection_worker_seed_command(
 }
 
 ///|
-fn projection_worker_advance_command(source : String?) -> Json {
+fn projection_worker_advance_command(
+  source : String?,
+  generation? : Int = 1,
+  sequence? : Int = 2,
+  source_revision? : Int = sequence,
+) -> Json {
   let source_effect = match source {
     Some(value) =>
       Json::object({
@@ -39,6 +62,9 @@ fn projection_worker_advance_command(source : String?) -> Json {
   }
   Json::object({
     "kind": Json::string("advance"),
+    "stamp": projection_worker_stamp_json(
+      projection_worker_test_stamp(generation, sequence~, source_revision~),
+    ),
     "source_effect": source_effect,
   })
 }
@@ -61,9 +87,13 @@ fn projection_worker_demand_command(
   block : Bool,
   preview : Bool,
   diagnostics : Bool,
+  generation? : Int = 1,
 ) -> Json {
   Json::object({
     "kind": Json::string("demand"),
+    "stamp": projection_worker_stamp_json(
+      projection_worker_test_stamp(generation),
+    ),
     "demand": projection_worker_demand_json(block, preview, diagnostics),
   })
 }
@@ -177,11 +207,11 @@ test "projection Worker Demand changes groups without advancing its stamp" {
   )
   let sequence = projection_worker_response_sequence(seeded)
   let source_revision = projection_worker_response_source_revision(seeded)
-  assert_true(projection_worker_response_artifact(seeded) is Ok((_, None)))
+  assert_true(projection_worker_response_artifact(seeded) is Ok((1, _, None)))
   let demand_off = dispatch(
     projection_worker_request(
       2,
-      projection_worker_demand_command(false, false, false),
+      projection_worker_demand_command(false, false, false, generation=5),
     ),
   )
   assert_eq(projection_worker_response_kind(demand_off), "ok")
@@ -190,11 +220,13 @@ test "projection Worker Demand changes groups without advancing its stamp" {
     projection_worker_response_source_revision(demand_off),
     source_revision,
   )
-  assert_true(projection_worker_response_artifact(demand_off) is Ok((_, None)))
+  assert_true(
+    projection_worker_response_artifact(demand_off) is Ok((2, _, None)),
+  )
   let preview_on = dispatch(
     projection_worker_request(
       3,
-      projection_worker_demand_command(false, true, false),
+      projection_worker_demand_command(false, true, false, generation=5),
     ),
   )
   assert_eq(projection_worker_response_kind(preview_on), "ok")
@@ -204,12 +236,12 @@ test "projection Worker Demand changes groups without advancing its stamp" {
     source_revision,
   )
   assert_true(
-    projection_worker_response_artifact(preview_on) is Ok((_, Some(_))),
+    projection_worker_response_artifact(preview_on) is Ok((3, _, Some(_))),
   )
   let mixed = dispatch(
     projection_worker_request(
       4,
-      projection_worker_demand_command(true, true, false),
+      projection_worker_demand_command(true, true, false, generation=5),
     ),
   )
   guard projection_worker_response_observables(mixed)
@@ -222,7 +254,7 @@ test "projection Worker Demand changes groups without advancing its stamp" {
   let diagnostics_only = dispatch(
     projection_worker_request(
       5,
-      projection_worker_demand_command(false, false, true),
+      projection_worker_demand_command(false, false, true, generation=5),
     ),
   )
   guard projection_worker_response_observables(diagnostics_only)
@@ -290,7 +322,10 @@ test "projection Worker dispatcher preserves caller generation and adopted artif
   }
 
   let unchanged = dispatch(
-    projection_worker_request(2, projection_worker_advance_command(None)),
+    projection_worker_request(
+      2,
+      projection_worker_advance_command(None, generation=7, source_revision=1),
+    ),
   )
   assert_eq(projection_worker_response_kind(unchanged), "ok")
   assert_eq(projection_worker_response_generation(unchanged), 7)
@@ -314,7 +349,10 @@ test "projection Worker adopted output equals an independently seeded latest sou
   let advanced = retained(
     projection_worker_request(
       2,
-      projection_worker_advance_command(Some("# After\n\nTail `code`.\n")),
+      projection_worker_advance_command(
+        Some("# After\n\nTail `code`.\n"),
+        generation=11,
+      ),
     ),
   )
 
@@ -369,7 +407,12 @@ test "projection Worker replayed Seed ReplaceProjectionSource and unchanged matc
     let advanced = dispatch(
       projection_worker_request(
         request_id,
-        projection_worker_advance_command(Some(replacement)),
+        projection_worker_advance_command(
+          Some(replacement),
+          generation=13,
+          sequence=request_id,
+          source_revision=expected_source_revision,
+        ),
       ),
     )
     assert_eq(projection_worker_response_kind(advanced), "ok")
@@ -390,7 +433,12 @@ test "projection Worker replayed Seed ReplaceProjectionSource and unchanged matc
     let unchanged = dispatch(
       projection_worker_request(
         request_id,
-        projection_worker_advance_command(None),
+        projection_worker_advance_command(
+          None,
+          generation=13,
+          sequence=request_id,
+          source_revision=expected_source_revision,
+        ),
       ),
     )
     assert_eq(projection_worker_response_kind(unchanged), "ok")
@@ -500,4 +548,83 @@ fn normalized_projection_observables_json(
       observables.diagnostics.map(normalized_diagnostic_json),
     ),
   })
+}
+
+///|
+test "projection Worker restart Seed preserves the host sequence frontier" {
+  let dispatch = new_projection_worker_dispatcher()
+  let seeded = dispatch(
+    projection_worker_request(
+      1,
+      projection_worker_seed_command(
+        "restart-frontier",
+        "# Restarted\n",
+        4,
+        sequence=25,
+      ),
+    ),
+  )
+  assert_eq(projection_worker_response_kind(seeded), "ok")
+  assert_eq(projection_worker_response_sequence(seeded), 25)
+}
+
+///|
+test "projection Worker rejects decoded invalid stamps without mutating its session" {
+  let dispatch = new_projection_worker_dispatcher()
+  let seeded = dispatch(
+    projection_worker_request(
+      1,
+      projection_worker_seed_command("stamp-rejection", "# Seed\n", 5),
+    ),
+  )
+  assert_eq(projection_worker_response_kind(seeded), "ok")
+  let invalid_advance = dispatch(
+    projection_worker_request(
+      2,
+      projection_worker_advance_command(
+        Some("# Invalid\n"),
+        generation=6,
+        sequence=2,
+        source_revision=2,
+      ),
+    ),
+  )
+  assert_eq(projection_worker_response_kind(invalid_advance), "error")
+  let after_advance = dispatch(
+    projection_worker_request(3, projection_worker_command("snapshot")),
+  )
+  assert_eq(projection_worker_response_kind(after_advance), "ok")
+  assert_eq(projection_worker_response_sequence(after_advance), 1)
+  assert_eq(projection_worker_response_source_revision(after_advance), 1)
+  let sequence_gap = dispatch(
+    projection_worker_request(
+      4,
+      projection_worker_advance_command(
+        Some("# Gap\n"),
+        generation=5,
+        sequence=3,
+        source_revision=2,
+      ),
+    ),
+  )
+  assert_eq(projection_worker_response_kind(sequence_gap), "error")
+  let after_gap = dispatch(
+    projection_worker_request(5, projection_worker_command("snapshot")),
+  )
+  assert_eq(projection_worker_response_kind(after_gap), "ok")
+  assert_eq(projection_worker_response_sequence(after_gap), 1)
+  assert_eq(projection_worker_response_source_revision(after_gap), 1)
+  let invalid_demand = dispatch(
+    projection_worker_request(
+      6,
+      projection_worker_demand_command(false, true, false, generation=6),
+    ),
+  )
+  assert_eq(projection_worker_response_kind(invalid_demand), "error")
+  let after_demand = dispatch(
+    projection_worker_request(7, projection_worker_command("snapshot")),
+  )
+  assert_eq(projection_worker_response_kind(after_demand), "ok")
+  assert_eq(projection_worker_response_sequence(after_demand), 1)
+  assert_eq(projection_worker_response_source_revision(after_demand), 1)
 }

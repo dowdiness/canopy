@@ -1,8 +1,8 @@
 ///|
 priv enum ProjectionWorkerCommand {
-  WorkerSeed(String, String, Int, ProjectionDemand)
-  WorkerAdvance(ProjectionSourceEffect)
-  WorkerDemand(ProjectionDemand)
+  WorkerSeed(String, String, ProjectionStamp, ProjectionDemand)
+  WorkerAdvance(ProjectionStamp, ProjectionSourceEffect)
+  WorkerDemand(ProjectionStamp, ProjectionDemand)
   WorkerSnapshot
   WorkerDispose
 }
@@ -61,6 +61,22 @@ fn projection_worker_decode_demand(
 }
 
 ///|
+fn projection_worker_decode_stamp(
+  fields : Map[String, Json],
+) -> ProjectionStamp? {
+  guard projection_worker_decode_int(fields, "generation") is Some(generation) &&
+    projection_worker_decode_int(fields, "sequence") is Some(sequence) &&
+    projection_worker_decode_int(fields, "source_revision")
+    is Some(source_revision) &&
+    projection_worker_decode_string(fields, "causal_version")
+    is Some(causal_version) &&
+    projection_worker_decode_int(fields, "block_intent") is Some(block_intent) else {
+    return None
+  }
+  Some({ generation, sequence, source_revision, causal_version, block_intent })
+}
+
+///|
 fn projection_worker_decode_request(
   raw : String,
 ) -> Result[(Int, ProjectionWorkerCommand), String] {
@@ -92,9 +108,9 @@ fn projection_worker_decode_request(
       guard projection_worker_decode_string(command, "source") is Some(source) else {
         return Err("seed source is missing")
       }
-      guard projection_worker_decode_int(command, "generation")
-        is Some(generation) else {
-        return Err("seed generation must be an integer")
+      guard command.get("stamp") is Some(Json::Object(stamp_fields)) &&
+        projection_worker_decode_stamp(stamp_fields) is Some(stamp) else {
+        return Err("seed stamp is missing or malformed")
       }
       guard command.get("demand") is Some(Json::Object(demand)) &&
         projection_worker_decode_demand(demand) is Some(decoded_demand) else {
@@ -102,9 +118,13 @@ fn projection_worker_decode_request(
           "seed demand must contain boolean block, preview, and diagnostics",
         )
       }
-      Ok((request_id, WorkerSeed(agent_id, source, generation, decoded_demand)))
+      Ok((request_id, WorkerSeed(agent_id, source, stamp, decoded_demand)))
     }
     "advance" => {
+      guard command.get("stamp") is Some(Json::Object(stamp_fields)) &&
+        projection_worker_decode_stamp(stamp_fields) is Some(stamp) else {
+        return Err("advance stamp is missing or malformed")
+      }
       guard command.get("source_effect") is Some(Json::Object(effect)) else {
         return Err("advance source_effect must be an object")
       }
@@ -117,21 +137,27 @@ fn projection_worker_decode_request(
             is Some(source) else {
             return Err("replacement source is missing")
           }
-          Ok((request_id, WorkerAdvance(ReplaceProjectionSource(source))))
+          Ok(
+            (request_id, WorkerAdvance(stamp, ReplaceProjectionSource(source))),
+          )
         }
         "source-unchanged" =>
-          Ok((request_id, WorkerAdvance(ProjectionSourceUnchanged)))
+          Ok((request_id, WorkerAdvance(stamp, ProjectionSourceUnchanged)))
         _ => Err("unknown source_effect kind")
       }
     }
     "demand" => {
+      guard command.get("stamp") is Some(Json::Object(stamp_fields)) &&
+        projection_worker_decode_stamp(stamp_fields) is Some(stamp) else {
+        return Err("demand stamp is missing or malformed")
+      }
       guard command.get("demand") is Some(Json::Object(demand)) &&
         projection_worker_decode_demand(demand) is Some(decoded) else {
         return Err(
           "demand must contain boolean block, preview, and diagnostics",
         )
       }
-      Ok((request_id, WorkerDemand(decoded)))
+      Ok((request_id, WorkerDemand(stamp, decoded)))
     }
     "snapshot" => Ok((request_id, WorkerSnapshot))
     "dispose" => Ok((request_id, WorkerDispose))
@@ -299,8 +325,8 @@ fn projection_worker_metrics_json(session : ProjectionSession) -> Json {
     "pending_source_effect_bytes": Json::number(
       session.adapter.queued_source_effect_bytes().to_double(),
     ),
-    "generation": Json::number(session.generation.to_double()),
-    "sequence": Json::number(session.sequence.to_double()),
+    "generation": Json::number(session.stamp().generation.to_double()),
+    "sequence": Json::number(session.stamp().sequence.to_double()),
   })
 }
 
@@ -389,13 +415,13 @@ pub fn new_projection_worker_dispatcher() -> (String) -> String {
       return projection_worker_error_response(-1, "decode-failed", detail)
     }
     match command {
-      WorkerSeed(agent_id, source, generation, demand) => {
+      WorkerSeed(agent_id, source, stamp, demand) => {
         guard !disposed.val else {
           return projection_worker_error_response(
             request_id, "disposed", "dispatcher is disposed",
           )
         }
-        guard session.val is None && generation > 0 else {
+        guard session.val is None && stamp.generation > 0 else {
           return projection_worker_error_response(
             request_id, "invalid-state", "Seed requires an empty dispatcher and positive generation",
           )
@@ -403,7 +429,7 @@ pub fn new_projection_worker_dispatcher() -> (String) -> String {
         let created = ProjectionSession::ProjectionSession(
           agent_id~,
           source~,
-          generation~,
+          stamp~,
           demand~,
         ) catch {
           error =>
@@ -423,7 +449,7 @@ pub fn new_projection_worker_dispatcher() -> (String) -> String {
             )
         }
       }
-      WorkerAdvance(effect) => {
+      WorkerAdvance(stamp, effect) => {
         guard !disposed.val else {
           return projection_worker_error_response(
             request_id, "disposed", "dispatcher is disposed",
@@ -434,7 +460,7 @@ pub fn new_projection_worker_dispatcher() -> (String) -> String {
             request_id, "invalid-state", "Advance requires Seed",
           )
         }
-        active.advance(effect) catch {
+        active.advance(effect, stamp~) catch {
           error =>
             return projection_worker_error_response(
               request_id,
@@ -451,7 +477,7 @@ pub fn new_projection_worker_dispatcher() -> (String) -> String {
             )
         }
       }
-      WorkerDemand(demand) => {
+      WorkerDemand(stamp, demand) => {
         guard !disposed.val else {
           return projection_worker_error_response(
             request_id, "disposed", "dispatcher is disposed",
@@ -462,7 +488,7 @@ pub fn new_projection_worker_dispatcher() -> (String) -> String {
             request_id, "invalid-state", "Demand requires Seed",
           )
         }
-        active.demand(demand) catch {
+        active.demand(demand, stamp~) catch {
           error =>
             return projection_worker_error_response(
               request_id,

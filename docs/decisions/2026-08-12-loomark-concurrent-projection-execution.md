@@ -110,8 +110,9 @@ A projection stamp contains:
 
 - projection generation;
 - adapter-lifetime projection sequence;
-- exact source revision used for derivation; and
-- originating causal document version.
+- exact source revision used for derivation;
+- originating causal document version; and
+- Block-intent frontier.
 
 Generation names one projection-session incarnation, so replacing the session
 invalidates its results. Sequence orders adapter observations and deliveries
@@ -127,6 +128,15 @@ reuse its artifact payload and publishes or wraps that payload with the new
 projection sequence and causal document version. Only the newly stamped
 artifact is current. An intent calculated against the older causal frontier
 remains unauthorized.
+
+Every `Seed`, `Advance`, and `Demand` carries the complete runtime-allocated
+stamp into the executor. The executor echoes that stamp rather than synthesizing
+one. Application adoption requires one single-use response claim containing
+both the latest request ID and the complete stamp. A stale success or stale
+error is ignored before payload decoding; a current malformed response or a
+decoded envelope mismatch enters bounded failure recovery. Request IDs,
+generation, and sequence fail closed before integer exhaustion can wrap or reuse
+a correctness token.
 
 ### 5. Publish demand-defined consistency groups
 

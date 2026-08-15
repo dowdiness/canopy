@@ -451,6 +451,12 @@ pub struct MarkdownDocumentVersion {
 } derive(Eq, Debug)
 
 ///|
+/// Encode this causal frontier as the canonical portable text-version token.
+pub fn MarkdownDocumentVersion::to_json_string(self : Self) -> String {
+  self.value.to_json_string()
+}
+
+///|
 /// One document's operation history, carried as a value the caller cannot
 /// interpret.
 ///

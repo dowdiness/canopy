@@ -95,7 +95,10 @@ test "preview artifact JSON rejects malformed ranges" {
 test "projection Worker publishes artifact and no HTML authority" {
   let dispatch = new_projection_worker_dispatcher()
   let response = dispatch(
-    "{\"schema_version\":\"1\",\"request_id\":1,\"command\":{\"kind\":\"seed\",\"agent_id\":\"artifact-test\",\"source\":\"# Title\\n\",\"generation\":1,\"demand\":{\"block\":true,\"preview\":true,\"diagnostics\":true}}}",
+    projection_worker_request(
+      1,
+      projection_worker_seed_command("artifact-test", "# Title\n", 1),
+    ),
   )
   assert_true(response.contains("\"artifact\""))
   assert_false(response.contains("\"html\""))

@@ -75,11 +75,71 @@ extern "js" fn projection_worker_client_dispose_raw(
   #| }
 
 ///|
+suberror ProjectionWorkerCounterError {
+  RequestIdExhausted
+  SequenceExhausted
+  GenerationExhausted
+} derive(Eq, Debug)
+
+///|
+fn projection_worker_allocate_request_id(
+  next_request_id : Int,
+) -> (Int, Int) raise ProjectionWorkerCounterError {
+  guard next_request_id > 0 && checked_next(next_request_id) is Some(next) else {
+    raise ProjectionWorkerCounterError::RequestIdExhausted
+  }
+  (next_request_id, next)
+}
+
+///|
+priv struct ProjectionStampOwner {
+  mut generation : Int
+  mut sequence : Int
+}
+
+///|
+fn ProjectionStampOwner::new(
+  generation? : Int = 1,
+  sequence? : Int = 0,
+) -> ProjectionStampOwner {
+  { generation, sequence }
+}
+
+///|
+fn ProjectionStampOwner::next(
+  self : Self,
+  source_revision~ : Int,
+  causal_version~ : String,
+  block_intent~ : Int,
+) -> ProjectionStamp raise ProjectionWorkerCounterError {
+  guard checked_next(self.sequence) is Some(sequence) else {
+    raise ProjectionWorkerCounterError::SequenceExhausted
+  }
+  self.sequence = sequence
+  {
+    generation: self.generation,
+    sequence,
+    source_revision,
+    causal_version,
+    block_intent,
+  }
+}
+
+///|
+fn ProjectionStampOwner::restart(
+  self : Self,
+) -> Unit raise ProjectionWorkerCounterError {
+  guard checked_next(self.generation) is Some(generation) else {
+    raise ProjectionWorkerCounterError::GenerationExhausted
+  }
+  self.generation = generation
+}
+
+///|
 priv struct ProjectionWorkerClient {
   handle : @js_value.Value
   agent_id : String
   mut next_request_id : Int
-  mut expected_stamp : ProjectionStamp?
   mut disposed : Bool
 }
 
@@ -92,7 +152,6 @@ fn ProjectionWorkerClient::new(
     handle: projection_worker_client_create(epoch),
     agent_id,
     next_request_id: 1,
-    expected_stamp: None,
     disposed: false,
   }
 }
@@ -102,9 +161,11 @@ fn ProjectionWorkerClient::send(
   self : ProjectionWorkerClient,
   command : Json,
   resolve : (Int, String) -> Unit,
-) -> Int {
-  let request_id = self.next_request_id
-  self.next_request_id += 1
+) -> Int raise ProjectionWorkerCounterError {
+  let (request_id, next_request_id) = projection_worker_allocate_request_id(
+    self.next_request_id,
+  )
+  self.next_request_id = next_request_id
   let payload = Json::object({
     "schema_version": Json::string("1"),
     "request_id": Json::number(request_id.to_double()),
@@ -117,9 +178,13 @@ fn ProjectionWorkerClient::send(
 }
 
 ///|
-fn projection_worker_demand_command_json(demand : ProjectionDemand) -> Json {
+fn projection_worker_demand_command_json(
+  stamp : ProjectionStamp,
+  demand : ProjectionDemand,
+) -> Json {
   Json::object({
     "kind": Json::string("demand"),
+    "stamp": projection_worker_stamp_json(stamp),
     "demand": Json::object({
       "block": Json::boolean(demand.block),
       "preview": Json::boolean(demand.preview),
@@ -129,46 +194,19 @@ fn projection_worker_demand_command_json(demand : ProjectionDemand) -> Json {
 }
 
 ///|
-fn projection_worker_client_seed_stamp(generation : Int) -> ProjectionStamp {
-  {
-    generation,
-    sequence: 1,
-    source_revision: 1,
-    causal_version: "projection-session-1",
-    block_intent: 1,
-  }
-}
-
-///|
-fn projection_worker_client_advance_stamp(
-  previous : ProjectionStamp,
-) -> ProjectionStamp {
-  let sequence = previous.sequence + 1
-  {
-    ..previous,
-    sequence,
-    source_revision: previous.source_revision + 1,
-    causal_version: "projection-session-" + sequence.to_string(),
-    block_intent: previous.block_intent + 1,
-  }
-}
-
-///|
 fn ProjectionWorkerClient::seed(
   self : ProjectionWorkerClient,
   source : String,
-  generation : Int,
+  stamp : ProjectionStamp,
   demand : ProjectionDemand,
   resolve : (Int, ProjectionStamp, String) -> Unit,
-) -> (Int, ProjectionStamp) {
-  let stamp = projection_worker_client_seed_stamp(generation)
-  self.expected_stamp = Some(stamp)
-  let request_id = self.send(
+) -> Int raise {
+  self.send(
     Json::object({
       "kind": Json::string("seed"),
       "agent_id": Json::string(self.agent_id),
       "source": Json::string(source),
-      "generation": Json::number(generation.to_double()),
+      "stamp": projection_worker_stamp_json(stamp),
       "demand": Json::object({
         "block": Json::boolean(demand.block),
         "preview": Json::boolean(demand.preview),
@@ -177,47 +215,36 @@ fn ProjectionWorkerClient::seed(
     }),
     (request_id, raw) => resolve(request_id, stamp, raw),
   )
-  (request_id, stamp)
 }
 
 ///|
 fn ProjectionWorkerClient::advance(
   self : ProjectionWorkerClient,
-  source : String,
+  stamp : ProjectionStamp,
+  effect : ProjectionSourceEffect,
   resolve : (Int, ProjectionStamp, String) -> Unit,
-) -> (Int, ProjectionStamp) raise Failure {
-  guard self.expected_stamp is Some(previous) else {
-    raise Failure::Failure("projection Worker Advance requires Seed")
-  }
-  let stamp = projection_worker_client_advance_stamp(previous)
-  self.expected_stamp = Some(stamp)
-  let request_id = self.send(
+) -> Int raise {
+  self.send(
     Json::object({
       "kind": Json::string("advance"),
-      "source_effect": Json::object({
-        "kind": Json::string("replace-source"),
-        "source": Json::string(source),
-      }),
+      "stamp": projection_worker_stamp_json(stamp),
+      "source_effect": projection_source_effect_json(effect),
     }),
     (request_id, raw) => resolve(request_id, stamp, raw),
   )
-  (request_id, stamp)
 }
 
 ///|
 fn ProjectionWorkerClient::demand(
   self : ProjectionWorkerClient,
+  stamp : ProjectionStamp,
   demand : ProjectionDemand,
   resolve : (Int, ProjectionStamp, String) -> Unit,
-) -> (Int, ProjectionStamp) raise Failure {
-  guard self.expected_stamp is Some(stamp) else {
-    raise Failure::Failure("projection Worker Demand requires Seed")
-  }
-  let request_id = self.send(projection_worker_demand_command_json(demand), (
+) -> Int raise {
+  self.send(projection_worker_demand_command_json(stamp, demand), (
     request_id,
     raw,
   ) => resolve(request_id, stamp, raw))
-  (request_id, stamp)
 }
 
 ///|
@@ -256,9 +283,25 @@ fn projection_worker_response_matches(
 }
 
 ///|
+fn projection_worker_claim_response(
+  expected_stamp : ProjectionStamp?,
+  expected_request_id : Int?,
+  callback_stamp : ProjectionStamp,
+  callback_request_id : Int,
+) -> (Bool, Int?) {
+  if projection_worker_response_matches(
+      expected_stamp, expected_request_id, callback_stamp, callback_request_id,
+    ) {
+    (true, None)
+  } else {
+    (false, expected_request_id)
+  }
+}
+
+///|
 fn projection_worker_response_artifact(
   raw : String,
-) -> Result[(ProjectionStamp, ProjectionPreviewArtifact?), String] {
+) -> Result[(Int, ProjectionStamp, ProjectionPreviewArtifact?), String] {
   let parsed = @json.parse(raw) catch {
     _ => return Err("projection Worker response is not valid JSON")
   }
@@ -267,6 +310,9 @@ fn projection_worker_response_artifact(
   }
   guard projection_worker_decode_string(fields, "schema_version") == Some("1") else {
     return Err("projection Worker response has unsupported schema_version")
+  }
+  guard projection_worker_decode_int(fields, "request_id") is Some(request_id) else {
+    return Err("projection Worker response is missing its request ID")
   }
   match projection_worker_decode_string(fields, "kind") {
     Some("error") => {
@@ -304,7 +350,7 @@ fn projection_worker_response_artifact(
           }
         _ => None
       }
-      Ok((stamp, artifact))
+      Ok((request_id, stamp, artifact))
     }
     _ => Err("projection Worker response has unknown kind")
   }
@@ -314,11 +360,13 @@ fn projection_worker_response_artifact(
 priv struct ProjectionWorkerRuntime {
   mut client : ProjectionWorkerClient
   agent_id : String
-  mut epoch : Int
+  stamp_owner : ProjectionStampOwner
+  mut current_stamp : ProjectionStamp?
   mut seeded : Bool
   mut source : String
+  mut source_revision : Int
+  mut causal_version : String
   mut demand : ProjectionDemand
-  mut expected_stamp : ProjectionStamp?
   mut expected_request_id : Int?
   mut restart_count : Int
   mut disposed : Bool
@@ -329,11 +377,13 @@ fn ProjectionWorkerRuntime::new(agent_id : String) -> ProjectionWorkerRuntime {
   {
     client: ProjectionWorkerClient::new(1, agent_id),
     agent_id,
-    epoch: 1,
+    stamp_owner: ProjectionStampOwner::new(),
+    current_stamp: None,
     seeded: false,
     source: "",
+    source_revision: 0,
+    causal_version: "",
     demand: { block: false, preview: false, diagnostics: false },
-    expected_stamp: None,
     expected_request_id: None,
     restart_count: 0,
     disposed: false,
@@ -346,13 +396,15 @@ fn ProjectionWorkerRuntime::accepts(
   request_id : Int,
   stamp : ProjectionStamp,
 ) -> Bool {
-  !self.disposed &&
-  projection_worker_response_matches(
-    self.expected_stamp,
+  guard !self.disposed else { return false }
+  let (accepted, next_request_id) = projection_worker_claim_response(
+    self.current_stamp,
     self.expected_request_id,
     stamp,
     request_id,
   )
+  self.expected_request_id = next_request_id
+  accepted
 }
 
 ///|
@@ -363,16 +415,30 @@ fn ProjectionWorkerRuntime::sync(
 ) -> @cmd.Cmd {
   guard !self.disposed else { return @rabbita_runtime.none }
   let source = model.document.source()
+  let source_revision = model.source_revision
+  let causal_version = model.document_version.to_json_string()
   let demand = projection_demand_for_model(model)
   let seed = !self.seeded
-  let source_changed = self.seeded && source != self.source
+  let authority_changed = self.seeded &&
+    (
+      source_revision != self.source_revision ||
+      causal_version != self.causal_version
+    )
   let demand_changed = self.seeded && demand != self.demand
-  guard seed || source_changed || demand_changed else {
+  let source_effect = if source == self.source {
+    ProjectionSourceUnchanged
+  } else {
+    ReplaceProjectionSource(source)
+  }
+  guard seed || authority_changed || demand_changed else {
     return @rabbita_runtime.none
   }
   self.seeded = true
   self.source = source
+  self.source_revision = source_revision
+  self.causal_version = causal_version
   self.demand = demand
+  self.expected_request_id = None
   @cmd.custom_cmd(scheduler => {
     let resolve = (request_id, stamp, raw) => {
       scheduler.add(
@@ -380,28 +446,62 @@ fn ProjectionWorkerRuntime::sync(
       )
     }
     if seed {
-      let (request_id, stamp) = self.client.seed(
-        source,
-        self.epoch,
-        demand,
-        resolve,
-      )
-      self.expected_stamp = Some(stamp)
+      let stamp = self.stamp_owner.next(
+        source_revision~,
+        causal_version~,
+        block_intent=model.committed_change_count,
+      ) catch {
+        _ => {
+          self.disposed = true
+          scheduler.add(
+            emit(Lifecycle(Fatal("projection Worker stamp exhausted"))),
+          )
+          return
+        }
+      }
+      let request_id = self.client.seed(source, stamp, demand, resolve) catch {
+        error => {
+          self.disposed = true
+          scheduler.add(emit(Lifecycle(Fatal(error.to_string()))))
+          return
+        }
+      }
+      self.current_stamp = Some(stamp)
       self.expected_request_id = Some(request_id)
     } else {
-      if source_changed {
-        let (request_id, stamp) = self.client.advance(source, resolve) catch {
+      if authority_changed {
+        let stamp = self.stamp_owner.next(
+          source_revision~,
+          causal_version~,
+          block_intent=model.committed_change_count,
+        ) catch {
           _ => {
-            self.restart()
+            self.disposed = true
+            scheduler.add(
+              emit(Lifecycle(Fatal("projection Worker stamp exhausted"))),
+            )
             return
           }
         }
-        self.expected_stamp = Some(stamp)
+        let effect = source_effect
+        let request_id = self.client.advance(stamp, effect, resolve) catch {
+          error => {
+            self.disposed = true
+            scheduler.add(emit(Lifecycle(Fatal(error.to_string()))))
+            return
+          }
+        }
+        self.current_stamp = Some(stamp)
         self.expected_request_id = Some(request_id)
       }
       if demand_changed {
-        let (request_id, _) = self.client.demand(demand, resolve) catch {
-          _ => return
+        guard self.current_stamp is Some(stamp) else { return }
+        let request_id = self.client.demand(stamp, demand, resolve) catch {
+          error => {
+            self.disposed = true
+            scheduler.add(emit(Lifecycle(Fatal(error.to_string()))))
+            return
+          }
         }
         self.expected_request_id = Some(request_id)
       }
@@ -410,19 +510,46 @@ fn ProjectionWorkerRuntime::sync(
 }
 
 ///|
-fn ProjectionWorkerRuntime::restart(self : ProjectionWorkerRuntime) -> Unit {
+fn ProjectionWorkerRuntime::restart(
+  self : ProjectionWorkerRuntime,
+) -> Unit raise ProjectionWorkerCounterError {
   self.client.dispose()
+  self.expected_request_id = None
+  self.current_stamp = None
   if self.restart_count >= 1 {
     self.disposed = true
     return
   }
   self.restart_count += 1
-  self.epoch += 1
-  self.client = ProjectionWorkerClient::new(self.epoch, self.agent_id)
+  self.stamp_owner.restart()
+  self.client = ProjectionWorkerClient::new(
+    self.stamp_owner.generation,
+    self.agent_id,
+  )
   self.seeded = false
   self.source = ""
-  self.expected_stamp = None
-  self.expected_request_id = None
+}
+
+///|
+
+///|
+fn ProjectionWorkerRuntime::recover(
+  self : ProjectionWorkerRuntime,
+  model : DriverModel,
+  emit : @cmd.Emit[DriverEvent],
+  detail : String,
+) -> (DriverModel, @cmd.Cmd) {
+  self.restart() catch {
+    _ => {
+      self.disposed = true
+      return (
+        { ..projection_failed_model(model, detail), fatal: true },
+        @rabbita_runtime.none,
+      )
+    }
+  }
+  let next = projection_failed_model(model, detail)
+  (next, self.sync(next, emit))
 }
 
 ///|

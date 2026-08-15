@@ -725,9 +725,16 @@ fn ProjectionAdapter::reduce_seed(
   demand : ProjectionDemand,
   effects : Array[ProjectionEffect],
 ) -> Self {
-  guard checked_next(self.last_sequence) is Some(expected_sequence) else {
-    effects.push(RejectCommand(CounterExhausted))
-    return self
+  let sequence_valid = match self.current_stamp {
+    None => stamp.sequence > 0
+    Some(_) =>
+      match checked_next(self.last_sequence) {
+        Some(expected_sequence) => stamp.sequence == expected_sequence
+        None => {
+          effects.push(RejectCommand(CounterExhausted))
+          return self
+        }
+      }
   }
   let valid_generation = match self.current_stamp {
     None => stamp.generation > 0
@@ -740,7 +747,7 @@ fn ProjectionAdapter::reduce_seed(
         }
       }
   }
-  guard stamp.sequence == expected_sequence else {
+  guard sequence_valid else {
     effects.push(RejectCommand(NonContiguousSequence))
     return self
   }
@@ -1294,6 +1301,7 @@ priv struct ProjectionSession {
   mut generation : Int
   mut source_revision : Int
   mut block_intent : Int
+  mut host_stamp : ProjectionStamp?
   mut presentation_id : Int
   mut demand : ProjectionDemand
   mut disposed : Bool
@@ -1309,6 +1317,7 @@ fn ProjectionSession::ProjectionSession(
   agent_id~ : String,
   source~ : String,
   generation? : Int = 1,
+  stamp? : ProjectionStamp,
   demand? : ProjectionDemand = projection_all_demand(),
 ) -> ProjectionSession raise {
   let (editor, attachment) = @markdown.MarkdownEditor::with_semantic_attachment(
@@ -1324,17 +1333,20 @@ fn ProjectionSession::ProjectionSession(
       max_source_effect_bytes: 1048576,
     }),
     source,
-    sequence: 1,
+    sequence: stamp.map(value => value.sequence).unwrap_or(1),
     causal_counter: 1,
-    generation,
-    source_revision: 1,
-    block_intent: 1,
+    generation: stamp.map(value => value.generation).unwrap_or(generation),
+    source_revision: stamp.map(value => value.source_revision).unwrap_or(1),
+    block_intent: stamp.map(value => value.block_intent).unwrap_or(1),
+    host_stamp: stamp,
     presentation_id: 1,
     demand,
     disposed: false,
   }
-  let stamp = session.stamp()
-  let (adapter, effects) = session.adapter.reduce(Seed(stamp, source, demand))
+  let initial_stamp = stamp.unwrap_or_else(() => session.stamp())
+  let (adapter, effects) = session.adapter.reduce(
+    Seed(initial_stamp, source, demand),
+  )
   session.adapter = adapter
   session.execute_effects(effects)
   session
@@ -1342,12 +1354,16 @@ fn ProjectionSession::ProjectionSession(
 
 ///|
 fn ProjectionSession::stamp(self : Self) -> ProjectionStamp {
-  {
-    generation: self.generation,
-    sequence: self.sequence,
-    source_revision: self.source_revision,
-    causal_version: "projection-session-" + self.causal_counter.to_string(),
-    block_intent: self.block_intent,
+  match self.host_stamp {
+    Some(stamp) => stamp
+    None =>
+      {
+        generation: self.generation,
+        sequence: self.sequence,
+        source_revision: self.source_revision,
+        causal_version: "projection-session-" + self.causal_counter.to_string(),
+        block_intent: self.block_intent,
+      }
   }
 }
 
@@ -1361,6 +1377,15 @@ fn projection_effects_adopt_work(
       AdoptArtifact(work_id~, ..) => work_id == expected_work_id
       _ => false
     }
+  })
+}
+
+///|
+fn projection_effects_reject_host_stamp(
+  effects : Array[ProjectionEffect],
+) -> Bool {
+  effects.any(effect => {
+    effect is RejectCommand(_) || effect is CaptureLatestSeed(..)
   })
 }
 
@@ -1420,6 +1445,7 @@ fn ProjectionSession::execute_effects(
         self.sequence = stamp.sequence
         self.source_revision = stamp.source_revision
         self.block_intent = stamp.block_intent
+        self.host_stamp = Some(stamp)
         self.execute_effects(next)
       }
       _ => ()
@@ -1444,12 +1470,20 @@ fn ProjectionSession::execute_effects(
 fn ProjectionSession::demand(
   self : Self,
   demand : ProjectionDemand,
+  stamp? : ProjectionStamp,
 ) -> Unit raise {
   guard !self.disposed else {
     raise Failure::Failure("projection session disposed")
   }
-  let (adapter, effects) = self.adapter.reduce(Demand(self.stamp(), demand))
+  let demand_stamp = stamp.unwrap_or_else(() => self.stamp())
+  let (adapter, effects) = self.adapter.reduce(Demand(demand_stamp, demand))
+  guard !projection_effects_reject_host_stamp(effects) else {
+    raise Failure::Failure("projection command rejected")
+  }
   self.adapter = adapter
+  if stamp is Some(value) {
+    self.host_stamp = Some(value)
+  }
   self.demand = demand
   self.execute_effects(effects)
 }
@@ -1473,32 +1507,67 @@ fn ProjectionSession::preview_document(
 fn ProjectionSession::advance(
   self : Self,
   effect : ProjectionSourceEffect,
+  stamp? : ProjectionStamp,
 ) -> Unit raise {
   guard !self.disposed else {
     raise Failure::Failure("projection session disposed")
   }
-  match effect {
-    ProjectionSourceUnchanged => ()
-    ReplaceProjectionSource(source) => {
-      let result = self.editor.commit(
-        @markdown.MarkdownEditRequest::ReplaceSource(source),
+  match stamp {
+    Some(advance_stamp) => {
+      let (adapter, effects) = self.adapter.reduce(
+        Advance(advance_stamp, effect, self.demand),
       )
-      match result {
-        Ok(_) => ()
-        Err(error) => raise error
+      guard !projection_effects_reject_host_stamp(effects) else {
+        raise Failure::Failure("projection command rejected")
       }
-      self.source = source
-      self.source_revision += 1
-      self.block_intent += 1
+      match effect {
+        ProjectionSourceUnchanged => ()
+        ReplaceProjectionSource(source) => {
+          let result = self.editor.commit(
+            @markdown.MarkdownEditRequest::ReplaceSource(source),
+          )
+          match result {
+            Ok(_) => ()
+            Err(error) => raise error
+          }
+          self.source = source
+        }
+      }
+      self.generation = advance_stamp.generation
+      self.sequence = advance_stamp.sequence
+      self.source_revision = advance_stamp.source_revision
+      self.block_intent = advance_stamp.block_intent
+      self.host_stamp = Some(advance_stamp)
+      self.adapter = adapter
+      self.execute_effects(effects)
+    }
+    None => {
+      match effect {
+        ProjectionSourceUnchanged => ()
+        ReplaceProjectionSource(source) => {
+          let result = self.editor.commit(
+            @markdown.MarkdownEditRequest::ReplaceSource(source),
+          )
+          match result {
+            Ok(_) => ()
+            Err(error) => raise error
+          }
+          self.source = source
+          self.source_revision += 1
+          self.block_intent += 1
+        }
+      }
+      self.sequence += 1
+      self.causal_counter += 1
+      self.host_stamp = None
+      let advance_stamp = self.stamp()
+      let (adapter, effects) = self.adapter.reduce(
+        Advance(advance_stamp, effect, self.demand),
+      )
+      self.adapter = adapter
+      self.execute_effects(effects)
     }
   }
-  self.sequence += 1
-  self.causal_counter += 1
-  let (adapter, effects) = self.adapter.reduce(
-    Advance(self.stamp(), effect, self.demand),
-  )
-  self.adapter = adapter
-  self.execute_effects(effects)
 }
 
 ///|
