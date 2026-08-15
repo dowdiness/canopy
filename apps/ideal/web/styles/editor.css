@@ -774,6 +774,74 @@ canopy-editor {
   height: auto;
 }
 
+/* ── Interactive Incr canvas ───────────────────────────── */
+
+.incr-canvas-content {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0;
+  overflow: hidden;
+}
+
+.incr-canvas-meta {
+  flex-shrink: 0;
+  padding: var(--space-xs) var(--space-md);
+  border-bottom: 1px solid var(--canopy-border);
+  color: var(--canopy-muted);
+  font-size: var(--text-label);
+}
+
+.incr-canvas-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: var(--canopy-panel-bg);
+}
+
+.incr-canvas-interaction {
+  position: relative;
+  min-width: 720px;
+  height: 220px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.incr-canvas-interaction:active {
+  cursor: grabbing;
+}
+
+.incr-canvas-svg-host,
+.incr-canvas-svg {
+  display: block;
+  width: 100%;
+  height: 220px;
+}
+
+.incr-canvas-svg {
+  overflow: visible;
+}
+
+.incr-canvas-edge {
+  stroke: var(--canopy-muted);
+  stroke-width: 1.25;
+  opacity: 0.65;
+}
+
+.incr-canvas-node rect {
+  stroke-width: 1.5;
+}
+
+.incr-canvas-node text {
+  fill: #1f2933;
+  font-family: var(--canopy-font-mono);
+  font-size: 11px;
+  pointer-events: none;
+  user-select: none;
+}
+
 /* ── Panel scrim (mobile only — hidden on desktop) ─────── */
 
 .panel-scrim {

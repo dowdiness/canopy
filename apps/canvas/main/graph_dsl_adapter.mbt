@@ -18,6 +18,7 @@ struct SourceNodePosition {
 
 ///|
 struct SourceBackedGraph {
+  handle : Int
   attachment : @graph_dsl.GraphAttachment
   mut parser_failure : Failure?
   mut source : String
@@ -35,10 +36,12 @@ fn source_graph_source_id(handle : Int) -> @core.SourceId {
 
 ///|
 fn SourceBackedGraph::SourceBackedGraph(
+  handle : Int,
   source_id : @core.SourceId,
   source : String,
 ) -> SourceBackedGraph raise Failure {
   {
+    handle,
     attachment: @graph_dsl.GraphAttachment::GraphAttachment(source_id, source),
     parser_failure: None,
     source,
@@ -792,19 +795,43 @@ fn SourceBackedGraph::sync_layout_from_state(
 }
 
 ///|
+fn SourceBackedGraph::pointer_down_handle(
+  self : SourceBackedGraph,
+  node_id : NodeId,
+  port_id : String,
+  sx : Double,
+  sy : Double,
+) -> Bool {
+  let screen = ScreenPoint::from_xy(x=sx, y=sy) catch {
+    @spatial.CoordinateError::NonFinite => return false
+  }
+  let state = source_graph_base_canvas_state(self)
+  let world = state.viewport.screen_to_world(screen) catch {
+    @spatial.CoordinateError::NonFinite => return false
+  }
+  let next = @graph_model.update_connect_start(state, node_id, port_id, world)
+  if next.interaction != state.interaction {
+    self.interaction = next.interaction
+    true
+  } else {
+    false
+  }
+}
+
+///|
 fn SourceBackedGraph::pointer_down(
   self : SourceBackedGraph,
   node_id : String,
   sx : Double,
   sy : Double,
-) -> Unit {
+) -> Bool {
   let target : NodeId? = if node_id == "" {
     None
   } else {
     Some(NodeId(node_id))
   }
   let screen = ScreenPoint::from_xy(x=sx, y=sy) catch {
-    @spatial.CoordinateError::NonFinite => return
+    @spatial.CoordinateError::NonFinite => return false
   }
   let before = source_graph_base_canvas_state(self)
   let state = @graph_model.update_pointer_down(
@@ -812,11 +839,14 @@ fn SourceBackedGraph::pointer_down(
     target,
     screen,
   ) catch {
-    @spatial.CoordinateError::NonFinite => return
+    @spatial.CoordinateError::NonFinite => return false
   }
   if state.interaction != before.interaction {
     self.drag_preview = @graph_model.idle_drag_preview()
     self.interaction = state.interaction
+    true
+  } else {
+    false
   }
 }
 
@@ -894,6 +924,64 @@ fn SourceBackedGraph::pointer_up(
   self.drag_preview = @graph_model.idle_drag_preview()
   self.interaction = next.interaction
   self.action_log = next.action_log.copy()
+}
+
+///|
+fn SourceBackedGraph::pointer_interrupt(self : SourceBackedGraph) -> Unit {
+  let next = @graph_model.update_pointer_interrupt(
+    source_graph_base_canvas_state(self),
+  )
+  self.viewport = next.viewport
+  self.drag_preview = @graph_model.idle_drag_preview()
+  self.interaction = next.interaction
+  self.action_log = next.action_log.copy()
+}
+
+///|
+fn SourceBackedGraph::complete_connection(
+  self : SourceBackedGraph,
+  source_node_id : NodeId,
+  source_port_id : String,
+  target : (NodeId, String)?,
+) -> Unit {
+  let state = source_graph_base_canvas_state(self)
+  let operation = match target {
+    Some((target_node_id, target_port_id)) =>
+      if @graph_model.can_commit_edge(
+        state,
+        source_node_id,
+        source_port_id,
+        target_node_id,
+        target_port_id,
+      ) {
+        Some(
+          GraphOperation(
+            ConnectPorts(
+              source_node_id,
+              source_port_id,
+              target_node_id,
+              target_port_id,
+            ),
+          ),
+        )
+      } else {
+        None
+      }
+    None => None
+  }
+  self.pointer_interrupt()
+  match operation {
+    Some(operation) =>
+      ignore(
+        apply_source_graph_operation(
+          self.handle,
+          operation.to_json().stringify(),
+        ),
+      ) catch {
+        Failure::Failure(_) => ()
+      }
+    None => ()
+  }
 }
 
 ///|
@@ -1094,7 +1182,7 @@ pub fn sample_graph_dsl_source() -> String {
 pub fn create_source_graph(source : String) -> Int raise Failure {
   let handle = _source_registry.length()
   let source_id = source_graph_source_id(handle)
-  _source_registry.push(Some(SourceBackedGraph(source_id, source)))
+  _source_registry.push(Some(SourceBackedGraph(handle, source_id, source)))
   handle
 }
 
@@ -1184,20 +1272,22 @@ pub fn set_source_graph_source_result(
 }
 
 ///|
-pub fn source_graph_pointer_down(
+#warnings("-unused_value")
+fn source_graph_pointer_down(
   handle : Int,
   node_id : String,
   sx : Double,
   sy : Double,
 ) -> Unit {
   match source_graph_by_handle(handle) {
-    Some(graph) => graph.pointer_down(node_id, sx, sy)
+    Some(graph) => ignore(graph.pointer_down(node_id, sx, sy))
     None => ()
   }
 }
 
 ///|
-pub fn source_graph_pointer_move(
+#warnings("-unused_value")
+fn source_graph_pointer_move(
   handle : Int,
   sx : Double,
   sy : Double,
@@ -1209,7 +1299,8 @@ pub fn source_graph_pointer_move(
 }
 
 ///|
-pub fn source_graph_pointer_up(
+#warnings("-unused_value")
+fn source_graph_pointer_up(
   handle : Int,
   node_id : String,
   target_port_id : String,
@@ -1217,6 +1308,15 @@ pub fn source_graph_pointer_up(
 ) -> Unit {
   match source_graph_by_handle(handle) {
     Some(graph) => graph.pointer_up(node_id, target_port_id, additive)
+    None => ()
+  }
+}
+
+///|
+#warnings("-unused_value")
+fn source_graph_pointer_interrupt(handle : Int) -> Unit {
+  match source_graph_by_handle(handle) {
+    Some(graph) => graph.pointer_interrupt()
     None => ()
   }
 }

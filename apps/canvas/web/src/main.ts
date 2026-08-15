@@ -5,7 +5,6 @@ import * as cmView from '@codemirror/view';
 import {
   GraphAdapter,
   type CanvasModule,
-  type Connecting,
   type EdgeData,
   type NodeData,
   type NodeParamData,
@@ -37,7 +36,10 @@ type SourceDemoModule = CanvasModule &
   Required<
     Pick<
       CanvasModule,
-      'sample_graph_dsl_source' | 'mount_source_demo' | 'mount_canvas_context_menu'
+      'sample_graph_dsl_source' |
+      'mount_source_demo' |
+      'mount_canvas_context_menu' |
+      'mount_canvas_pointer_session'
     >
   >;
 
@@ -60,8 +62,6 @@ let adapter: GraphAdapter;
 let rafPending = false;
 let lastState: RenderState | null = null;
 
-const isMacLike = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
-
 const root       = document.getElementById('canvas-root') as HTMLDivElement;
 const world      = document.getElementById('world') as HTMLDivElement;
 const edgesSvg   = document.getElementById('edges') as unknown as SVGSVGElement;
@@ -76,8 +76,6 @@ const edgePaths = new Map<string, SVGPathElement>();
 let pendingPath: SVGPathElement | null = null;
 let contextPoint: [number, number] = [0, 0];
 let contextEdge: EdgeData | null = null;
-let sourcePointerId = -1;
-let sourceConnecting: Connecting | null = null;
 
 type EdgeSelection = Pick<EdgeData, 'source' | 'source_port' | 'target' | 'target_port'>;
 let selectedEdge: EdgeSelection | null = null;
@@ -156,11 +154,6 @@ function screenToWorld(
     (point[1] - y) / scale,
   ];
   return worldPoint.every(Number.isFinite) ? worldPoint : null;
-}
-
-function eventWorldCoords(e: MouseEvent): [number, number] | null {
-  const point = finiteLocalCoords(e);
-  return point == null ? null : screenToWorld(point, currentRenderState());
 }
 
 function portTypeName(portType: Tagged): string {
@@ -288,7 +281,7 @@ function render(): void {
   // Resolve the in-flight connection once, so input handles use one batched
   // MoonBit compatibility snapshot while the drag is live.
   let connectCtx: ConnectCtx | null = null;
-  const connecting = state.connecting ?? sourceConnecting ?? undefined;
+  const connecting = state.connecting;
   if (connecting) {
     connectCtx = {
       inputs: inputCompatibilityByTarget(
@@ -682,66 +675,6 @@ function addNodeAt(kindKey: string, point: [number, number]): void {
   scheduleRender();
 }
 
-function hoverNodeId(hit: HitTarget): string {
-  return hit.kind === 'node' || hit.kind === 'handle' ? hit.nodeId : '';
-}
-
-function updateHover(hit: HitTarget): void {
-  if (adapter.isSourceBacked) return;
-  adapter.hoverNode(hoverNodeId(hit));
-}
-
-function startSourceConnection(
-  pointerId: number,
-  hit: HitTarget,
-  screenPoint: [number, number],
-): void {
-  if (hit.kind !== 'handle' || hit.side !== 'output') return;
-  const worldPoint = screenToWorld(screenPoint, currentRenderState());
-  if (!worldPoint) return;
-  const [cursor_x, cursor_y] = worldPoint;
-  clearSelectedEdge();
-  hideContextMenu();
-  root.setPointerCapture(pointerId);
-  sourcePointerId = pointerId;
-  sourceConnecting = {
-    from: hit.nodeId,
-    from_port: hit.portId,
-    cursor_x,
-    cursor_y,
-  };
-  scheduleRender();
-}
-
-function moveSourceConnection(e: PointerEvent): void {
-  if (e.pointerId !== sourcePointerId || !sourceConnecting) return;
-  const worldPoint = eventWorldCoords(e);
-  if (!worldPoint) return;
-  const [cursor_x, cursor_y] = worldPoint;
-  sourceConnecting = { ...sourceConnecting, cursor_x, cursor_y };
-  scheduleRender();
-}
-
-function finishSourceConnection(e: PointerEvent): void {
-  if (e.pointerId !== sourcePointerId) return;
-  const connecting = sourceConnecting;
-  const under = document.elementFromPoint(e.clientX, e.clientY);
-  const hit = hitFromTarget(under);
-  sourcePointerId = -1;
-  sourceConnecting = null;
-  if (connecting && hit.kind === 'handle' && hit.side === 'input') {
-    adapter.connectPorts(connecting.from, hit.nodeId, hit.portId);
-  }
-  scheduleRender();
-}
-
-function cancelSourceConnection(e: PointerEvent): void {
-  if (e.pointerId !== sourcePointerId) return;
-  sourcePointerId = -1;
-  sourceConnecting = null;
-  scheduleRender();
-}
-
 function editableKeyboardTarget(target: EventTarget | null): boolean {
   const element = target instanceof HTMLElement ? target : null;
   if (!element) return false;
@@ -875,189 +808,13 @@ function handleContextMenuSelect(key: string): void {
 
 // ─── Event wiring ─────────────────────────────────────────────────────────────
 
-let activePointerId = -1;
-let pointerDownNodeId = '';
-let pointerUpAdditive = false;
-
-root.addEventListener('pointerdown', (e: PointerEvent) => {
-  if (adapter.isSourceBacked) {
-    if (e.button !== 0) return;
-    const screenPoint = finiteLocalCoords(e);
-    if (!screenPoint) return;
-    const hit = hitFromTarget(e.target);
-    if (hit.kind === 'edge') {
-      hideContextMenu();
-      selectEdge(hit.edge);
-      scheduleRender();
-      return;
-    }
-    if (hit.kind === 'handle') {
-      startSourceConnection(e.pointerId, hit, screenPoint);
-      return;
-    }
-    if (hit.kind === 'node' && !screenToWorld(screenPoint, currentRenderState())) {
-      return;
-    }
-    if (activePointerId !== -1) return;
-    clearSelectedEdge();
-    hideContextMenu();
-    root.setPointerCapture(e.pointerId);
-    activePointerId = e.pointerId;
-    pointerUpAdditive = e.shiftKey || e.metaKey || e.ctrlKey;
-    const [sx, sy] = screenPoint;
-    pointerDownNodeId = hit.kind === 'node' ? hit.nodeId : '';
-    adapter.pointerDown(pointerDownNodeId, sx, sy);
-    if (hit.kind === 'background') root.classList.add('panning');
-    scheduleRender();
-    return;
-  }
-  // macOS Ctrl+click is a secondary-click gesture but still reports button 0.
-  // Let the contextmenu handler own it without breaking Ctrl-additive
-  // selection on non-Mac platforms.
-  if (e.button !== 0 || (isMacLike && e.ctrlKey)) return;
-  if (activePointerId !== -1) return;
-  const screenPoint = finiteLocalCoords(e);
-  if (!screenPoint) return;
+// Pointer ownership lives in the app-private Rabbita island. This listener is
+// presentation-only: edge selection is a click, not a pointer session.
+root.addEventListener('click', (e: MouseEvent) => {
   const hit = hitFromTarget(e.target);
-  if (
-    hit.kind === 'node' ||
-    (hit.kind === 'handle' && hit.side === 'output')
-  ) {
-    if (!screenToWorld(screenPoint, currentRenderState())) return;
-  }
-  if (hit.kind === 'handle' && hit.side === 'input') {
-    hideContextMenu();
-    clearSelectedEdge();
-    scheduleRender();
-    return;
-  }
+  if (hit.kind !== 'edge') return;
   hideContextMenu();
-  if (hit.kind === 'edge') {
-    selectEdge(hit.edge);
-    scheduleRender();
-    return;
-  }
-  clearSelectedEdge();
-  root.setPointerCapture(e.pointerId);
-  activePointerId = e.pointerId;
-  pointerUpAdditive = e.shiftKey || e.metaKey || e.ctrlKey;
-  const [sx, sy] = screenPoint;
-
-  switch (hit.kind) {
-    case 'handle':
-      // Only output handles initiate a connection in the prototype.
-      if (hit.side === 'output') {
-        adapter.pointerDownHandle(hit.nodeId, hit.portId, sx, sy);
-        pointerDownNodeId = ''; // pointerup uses hover target, not down target
-      } else {
-        // Input handle clicks are inert for now; do not start background pan.
-        pointerDownNodeId = '';
-      }
-      break;
-    case 'node':
-      pointerDownNodeId = hit.nodeId;
-      adapter.pointerDown(hit.nodeId, sx, sy);
-      break;
-    case 'background':
-      pointerDownNodeId = '';
-      adapter.pointerDown('', sx, sy);
-      root.classList.add('panning');
-      break;
-  }
-  scheduleRender();
-});
-
-root.addEventListener('pointermove', (e: PointerEvent) => {
-  if (adapter.isSourceBacked) {
-    if (e.pointerId === sourcePointerId) {
-      moveSourceConnection(e);
-      return;
-    }
-    if (e.pointerId !== activePointerId) {
-      scheduleRender();
-      return;
-    }
-    const [sx, sy] = localCoords(e);
-    adapter.pointerMove(sx, sy);
-    scheduleRender();
-    return;
-  }
-  updateHover(hitFromTarget(e.target));
-  if (e.pointerId !== activePointerId) {
-    scheduleRender();
-    return;
-  }
-  const [sx, sy] = localCoords(e);
-  adapter.pointerMove(sx, sy);
-  scheduleRender();
-});
-
-root.addEventListener('pointerleave', () => {
-  if (adapter.isSourceBacked) return;
-  updateHover({ kind: 'background' });
-  scheduleRender();
-});
-
-root.addEventListener('pointerup', (e: PointerEvent) => {
-  if (adapter.isSourceBacked) {
-    if (e.pointerId === sourcePointerId) {
-      finishSourceConnection(e);
-      return;
-    }
-    if (e.pointerId !== activePointerId) return;
-    const under = document.elementFromPoint(e.clientX, e.clientY);
-    const hit = hitFromTarget(under);
-    const upNodeId =
-      hit.kind === 'node'   ? hit.nodeId :
-      hit.kind === 'handle' ? hit.nodeId :
-      pointerDownNodeId;
-    adapter.pointerUp(upNodeId, '', pointerUpAdditive);
-    activePointerId = -1;
-    pointerDownNodeId = '';
-    pointerUpAdditive = false;
-    root.classList.remove('panning');
-    scheduleRender();
-    return;
-  }
-  if (e.pointerId !== activePointerId) return;
-  // setPointerCapture redirects later events to the capturer, so e.target is
-  // unreliable for hit-testing on release. Use elementFromPoint instead.
-  const under = document.elementFromPoint(e.clientX, e.clientY);
-  const hit = hitFromTarget(under);
-  const upNodeId =
-    hit.kind === 'node'   ? hit.nodeId :
-    hit.kind === 'handle' ? hit.nodeId :
-    pointerDownNodeId;
-  const targetPortId = hit.kind === 'handle' && hit.side === 'input' ? hit.portId : '';
-  adapter.pointerUp(upNodeId, targetPortId, pointerUpAdditive);
-  activePointerId = -1;
-  pointerDownNodeId = '';
-  pointerUpAdditive = false;
-  root.classList.remove('panning');
-  scheduleRender();
-});
-
-root.addEventListener('pointercancel', (e: PointerEvent) => {
-  if (adapter.isSourceBacked) {
-    if (e.pointerId === sourcePointerId) {
-      cancelSourceConnection(e);
-      return;
-    }
-    if (e.pointerId !== activePointerId) return;
-    adapter.pointerUp('', '', false);
-    activePointerId = -1;
-    pointerDownNodeId = '';
-    pointerUpAdditive = false;
-    root.classList.remove('panning');
-    scheduleRender();
-    return;
-  }
-  if (e.pointerId !== activePointerId) return;
-  adapter.pointerUp('', '', false);
-  activePointerId = -1;
-  pointerDownNodeId = '';
-  pointerUpAdditive = false;
-  root.classList.remove('panning');
+  selectEdge(hit.edge);
   scheduleRender();
 });
 
@@ -1127,6 +884,9 @@ function requireSourceDemoModule(mb: CanvasModule): SourceDemoModule {
   if (typeof mb.mount_canvas_context_menu !== 'function') {
     throw new Error('Canvas module is missing context menu export: mount_canvas_context_menu');
   }
+  if (typeof mb.mount_canvas_pointer_session !== 'function') {
+    throw new Error('Canvas module is missing pointer session export: mount_canvas_pointer_session');
+  }
   return mb as SourceDemoModule;
 }
 
@@ -1164,6 +924,22 @@ async function init(): Promise<void> {
     scheduleRender();
     return undefined;
   });
+  sourceDemoModule.mount_canvas_pointer_session(
+    adapter.handleId,
+    sourceMode,
+    () => {
+      scheduleRender();
+      return undefined;
+    },
+    () => {
+      hideContextMenu();
+      return undefined;
+    },
+    () => {
+      clearSelectedEdge();
+      return undefined;
+    },
+  );
   renderLibrary();
   render();
 }

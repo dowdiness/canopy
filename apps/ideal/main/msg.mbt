@@ -6,6 +6,16 @@ enum OverlayEvent {
 }
 
 ///|
+enum IncrCanvasMsg {
+  PointerDown(Double, Double, Int?)
+  PointerMove(Double, Double, Int?)
+  PointerUp(Int?)
+  PointerCancel(Int?)
+  CaptureLost(Int?)
+  Wheel(Double, Double, Double)
+}
+
+///|
 #warnings("-unused_constructor-unused_field")
 enum Msg {
   // Mode & layout
@@ -13,6 +23,7 @@ enum Msg {
   TogglePanel(PanelId)
   OutlineResize(@resizable.Msg)
   SelectBottomTab(BottomTab)
+  IncrCanvas(IncrCanvasMsg)
   // From Web Component events (inspector panel dispatch)
   StructuralEditRequested(op~ : String, node_id~ : String)
   // Undo/redo

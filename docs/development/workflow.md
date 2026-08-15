@@ -89,7 +89,7 @@ After making changes to MoonBit code that affects the web interface:
 
 ```bash
 # From the repo root
-make build-js
+just build-js
 ```
 
 ## Git Commit Process

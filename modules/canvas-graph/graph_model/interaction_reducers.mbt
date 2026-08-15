@@ -376,3 +376,24 @@ pub fn update_pointer_up(
   }
   { ..selected_state, interaction: new_interaction }
 }
+
+///|
+/// Handle browser interruption without committing a drag, connection, or click.
+/// A moved pan has already changed the live viewport, so preserve it and record
+/// one final viewport action before clearing the transient gesture state.
+pub fn update_pointer_interrupt(state : CanvasState) -> CanvasState {
+  let action_state = match state.interaction.panning {
+    Some(_) if state.interaction.did_move =>
+      record_action(state, SetViewport(state.viewport))
+    _ => state
+  }
+  let new_interaction : InteractionState = {
+    ..action_state.interaction,
+    dragging: None,
+    panning: None,
+    connecting: None,
+    pointer_down: false,
+    did_move: false,
+  }
+  { ..action_state, interaction: new_interaction }
+}

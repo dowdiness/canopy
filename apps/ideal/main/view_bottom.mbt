@@ -116,6 +116,7 @@ let bottom_tab_defs : Array[(BottomTab, String)] = [
   (History, "History"),
   (CrdtState, "CRDT State"),
   (Graphviz, "Graphviz"),
+  (IncrCanvas, "Incr Canvas"),
   (IncrGraph, "Incr Graph"),
 ]
 
@@ -167,6 +168,7 @@ fn bottom_tab_slug(tab : BottomTab) -> String {
     CrdtState => "crdt"
     Graphviz => "graphviz"
     IncrGraph => "incr"
+    IncrCanvas => "incr-canvas"
   }
 }
 
@@ -202,6 +204,7 @@ fn bottom_tab_panel_id(tab : BottomTab) -> String {
     History => "canopy-history-container"
     Graphviz => "canopy-graphviz-container"
     IncrGraph => "canopy-incr-container"
+    IncrCanvas => "canopy-incr-canvas-container"
     _ => "canopy-bottom-panel-" + bottom_tab_slug(tab)
   }
 }
@@ -322,6 +325,7 @@ fn view_bottom_content(dispatch : Emit[Msg], model : Model) -> Html raise {
     History => view_history_panel(model)
     Graphviz => view_graphviz_panel(model)
     IncrGraph => view_incr_graph_panel(model)
+    IncrCanvas => view_incr_canvas_panel(dispatch, model)
   }
   @html.fragment([view_bottom_tabs(dispatch, model), content])
 }

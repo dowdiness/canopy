@@ -31,6 +31,8 @@ files inside `docs/development/`.
   workspace modules, examples, and submodules.
 - **[Monorepo & Submodules](monorepo.md)** — git submodule setup and daily
   cheat sheet.
+- **[Rabbita fork](rabbita-fork.md)** — ownership, pinned commits, and upgrade
+  procedure for Canopy's downstream Rabbita dependency.
 
 ## Process and maintenance
 

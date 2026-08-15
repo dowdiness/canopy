@@ -55,7 +55,7 @@ Text CRDT → Incremental Parse → Projection → Rendering
 
 ## Quick Start
 
-Requires [MoonBit](https://www.moonbitlang.com/download/) and [Node.js](https://nodejs.org/).
+Requires [MoonBit](https://www.moonbitlang.com/download/), [Node.js](https://nodejs.org/), [just](https://github.com/casey/just), and [Nushell](https://www.nushell.sh/).
 
 ```sh
 git clone --recursive https://github.com/dowdiness/canopy.git
@@ -67,7 +67,7 @@ cd canopy
 moon test
 
 # Build the JS FFI artifacts the web demo expects.
-make build-js
+just build-js
 
 # Run the Waku web demo. Canonical routes: /, /ml, /json, /markdown,
 # /journey, /posts, /memo, /resume, /genui.

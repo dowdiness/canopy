@@ -38,6 +38,11 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Install Nushell
+        uses: hustcer/setup-nu@f3fd65374ffc4d60974c0dd2f7263c6c5c285f81
+        with:
+          version: "0.114.1"
+
       - name: Check FFI export manifest (lambda app seam)
         run: node ./scripts/check-export-manifest.mjs
 
@@ -61,6 +66,8 @@ jobs:
       run_loomark_dev_host_e2e: ${{ steps.filter.outputs.run_loomark_dev_host_e2e }}
       run_loomark_standalone_e2e: ${{ steps.filter.outputs.run_loomark_standalone_e2e }}
       run_pr_ready_bash3: ${{ steps.filter.outputs.run_pr_ready_bash3 }}
+      run_tooling_validation: ${{ steps.filter.outputs.run_tooling_validation }}
+      run_release_version_validation: ${{ steps.filter.outputs.run_release_version_validation }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -120,7 +127,161 @@ jobs:
               - 'scripts/test-canvas-e2e.sh'
             run_pr_ready_bash3:
               - 'scripts/**'
+              - 'justfile'
+              - 'lefthook.yml'
               - '.github/workflows/ci.yml'
+            run_tooling_validation:
+              - 'justfile'
+              - 'Makefile'
+              - 'lefthook.yml'
+              - '.githooks/pre-commit'
+              - '.githooks/pre-push'
+              - '.githooks/README.md'
+              - '.claude/settings.json'
+              - 'scripts/check-submodule-reachability.nu'
+              - 'scripts/run-submodule-reachability.sh'
+              - 'scripts/test-submodule-reachability.sh'
+              - 'scripts/test-lefthook-pre-push-routing.sh'
+              - 'scripts/test-pr-ready-validation.sh'
+              - 'scripts/install-hooks.nu'
+              - 'scripts/install-hooks.sh'
+              - 'scripts/test-install-hooks.sh'
+              - 'scripts/test-lefthook-pre-commit-routing.sh'
+              - 'scripts/run-moonbit-rename-route.sh'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/release.yml'
+            run_release_version_validation:
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/release.yml'
+              - 'scripts/release-version-policy.nu'
+              - 'scripts/generate-release-changelog.nu'
+              - 'scripts/test-generate-release-changelog.nu'
+              - 'scripts/test-release-workflow-wiring.mjs'
+              - 'scripts/resolve-release-version.nu'
+              - 'scripts/test-resolve-release-version.nu'
+              - 'scripts/verify-release-target.nu'
+              - 'scripts/test-verify-release-target.sh'
+
+  tooling-validation:
+    name: Just, Make, and Lefthook Configuration
+    needs: changes
+    if: needs.changes.outputs.run_tooling_validation == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Install just
+        uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026
+        with:
+          tool: just@1.58.0
+
+      - name: Install Nushell
+        uses: hustcer/setup-nu@f3fd65374ffc4d60974c0dd2f7263c6c5c285f81
+        with:
+          version: "0.114.1"
+
+      - name: Validate justfile
+        run: just --unstable --fmt --check
+
+      - name: Validate just recipes
+        run: |
+          just --list
+          just --dry-run check
+          just --dry-run fmt-check
+          just --dry-run pre-commit
+          just --dry-run update
+          just --dry-run release-artifacts v0.2.0
+
+      - name: Validate Make compatibility
+        run: |
+          make -n help
+          make -n check
+          make -n release-artifacts VERSION=v0.2.0
+
+      - name: Validate Nushell scripts
+        run: |
+          nu --ide-check 100 scripts/check-submodule-reachability.nu
+          nu --ide-check 100 scripts/install-hooks.nu
+
+      - name: Test Nushell installer
+        run: bash scripts/test-install-hooks.sh
+
+      - name: Validate Claude settings
+        run: node -e 'JSON.parse(require("fs").readFileSync(".claude/settings.json", "utf8"))'
+
+      - name: Validate compatibility entry points
+        run: |
+          bash -n .githooks/pre-commit .githooks/pre-push scripts/run-submodule-reachability.sh scripts/test-submodule-reachability.sh scripts/test-lefthook-pre-push-routing.sh scripts/test-pr-ready-validation.sh scripts/install-hooks.sh
+          grep -Fq 'exec just pre-commit' .githooks/pre-commit
+          grep -Fq 'exec lefthook run pre-push' .githooks/pre-push
+          grep -Fq 'exec just install-hooks' scripts/install-hooks.sh
+
+      - name: Validate Lefthook configuration
+        env:
+          LEFTHOOK_VERSION: 2.1.10
+        run: |
+          curl --fail --silent --show-error --location \
+            "https://github.com/evilmartians/lefthook/releases/download/v${LEFTHOOK_VERSION}/lefthook_${LEFTHOOK_VERSION}_Linux_x86_64" \
+            --output "${RUNNER_TEMP}/lefthook"
+          printf '%s  %s\n' \
+            'f1de34ea0572363a525a2000d40f5a646733893ad28c924b34ac98304518073f' \
+            "${RUNNER_TEMP}/lefthook" | sha256sum --check --status
+          chmod +x "${RUNNER_TEMP}/lefthook"
+          "${RUNNER_TEMP}/lefthook" validate
+
+      - name: Test path-aware Lefthook pre-commit routing
+        run: LEFTHOOK_BIN="${RUNNER_TEMP}/lefthook" bash scripts/test-lefthook-pre-commit-routing.sh
+
+      - name: Test narrow Lefthook pre-push submodule routing
+        run: LEFTHOOK_BIN="${RUNNER_TEMP}/lefthook" bash scripts/test-lefthook-pre-push-routing.sh
+
+      - name: Test shared submodule reachability checker
+        run: bash scripts/test-submodule-reachability.sh
+
+  release-version-validation:
+    name: Release Contract Validation
+    needs: changes
+    if: needs.changes.outputs.run_release_version_validation == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Install Nushell
+        uses: hustcer/setup-nu@f3fd65374ffc4d60974c0dd2f7263c6c5c285f81
+        with:
+          version: "0.114.1"
+
+      - name: Validate release script syntax
+        run: |
+          nu --ide-check 100 scripts/release-version-policy.nu
+          nu --ide-check 100 scripts/generate-release-changelog.nu
+          nu --ide-check 100 scripts/test-generate-release-changelog.nu
+          nu --ide-check 100 scripts/resolve-release-version.nu
+          nu --ide-check 100 scripts/test-resolve-release-version.nu
+          nu --ide-check 100 scripts/verify-release-target.nu
+          bash -n scripts/test-verify-release-target.sh
+
+      - name: Check release workflow wiring
+        run: |
+          ./scripts/validate-ci-yaml.sh
+          node scripts/test-release-workflow-wiring.mjs
+
+      - name: Run release changelog regression tests
+        run: scripts/test-generate-release-changelog.nu
+
+      - name: Run resolver regression tests
+        run: scripts/test-resolve-release-version.nu
+
+      - name: Run release target regression tests
+        run: scripts/test-verify-release-target.sh
 
   pr-ready-bash3:
     name: PR-ready Bash 3.2 Contract
@@ -141,6 +302,11 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: '20'
+
+      - name: Install Nushell
+        uses: hustcer/setup-nu@f3fd65374ffc4d60974c0dd2f7263c6c5c285f81
+        with:
+          version: "0.114.1"
 
       - name: Test the system Bash 3.2 contract
         shell: /bin/bash --noprofile --norc -eo pipefail {0}
@@ -880,6 +1046,8 @@ jobs:
       - waku-build
       - waku-e2e
       - waku-workerd
+      - tooling-validation
+      - release-version-validation
       - ideal-web-e2e
       - demo-react-e2e
       - canvas-e2e
@@ -910,6 +1078,12 @@ jobs:
              ! ok "${{ needs.waku-build.result }}" || \
              ! ok "${{ needs.waku-e2e.result }}" || \
              ! ok "${{ needs.waku-workerd.result }}" || \
+             ! path_filtered_ok \
+               "${{ needs.tooling-validation.result }}" \
+               "${{ needs.changes.outputs.run_tooling_validation }}" || \
+             ! path_filtered_ok \
+               "${{ needs.release-version-validation.result }}" \
+               "${{ needs.changes.outputs.run_release_version_validation }}" || \
              ! ok "${{ needs.ideal-web-e2e.result }}" || \
              ! ok "${{ needs.demo-react-e2e.result }}" || \
              ! path_filtered_ok \

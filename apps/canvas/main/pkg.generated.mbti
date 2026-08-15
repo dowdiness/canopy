@@ -3,6 +3,7 @@ package "dowdiness/canopy-canvas/main"
 
 import {
   "dowdiness/canopy-canvas-graph/graph_model",
+  "dowdiness/canopy-canvas-graph/spatial",
   "moonbitlang/core/json",
 }
 
@@ -35,19 +36,11 @@ pub fn get_source_graph_render_state(Int) -> String
 
 pub fn get_source_graph_source(Int) -> String
 
-pub fn hover_node(Int, String) -> Unit
-
 pub fn mount_canvas_context_menu((String) -> Unit, () -> Unit) -> Unit
 
+pub fn mount_canvas_pointer_session(Int, Bool, () -> Unit, () -> Unit, () -> Unit) -> Unit
+
 pub fn mount_source_demo(Int, Bool, () -> Unit) -> Unit
-
-pub fn pointer_down(Int, String, Double, Double) -> Unit
-
-pub fn pointer_down_handle(Int, String, String, Double, Double) -> Unit
-
-pub fn pointer_move(Int, Double, Double) -> Unit
-
-pub fn pointer_up(Int, String, String, Bool) -> Unit
 
 pub fn sample_graph_dsl_source() -> String
 
@@ -56,12 +49,6 @@ pub fn set_source_graph_source(Int, String) -> Unit raise Failure
 pub fn set_source_graph_source_result(Int, String) -> String raise Failure
 
 pub fn source_graph_insert_unique(Int, String, String) -> String raise Failure
-
-pub fn source_graph_pointer_down(Int, String, Double, Double) -> Unit
-
-pub fn source_graph_pointer_move(Int, Double, Double) -> Unit
-
-pub fn source_graph_pointer_up(Int, String, String, Bool) -> Unit
 
 pub fn source_graph_zoom(Int, Double, Double, Double) -> Unit
 
@@ -127,7 +114,7 @@ pub using @graph_model {type NodeId}
 
 pub using @graph_model {type NodeKind}
 
-pub using @graph_model {type NodePosition}
+pub type NodePosition = @spatial.ItemPosition[@graph_model.NodeId]
 
 pub using @graph_model {type NodeSize}
 

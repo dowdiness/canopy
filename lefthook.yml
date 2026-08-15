@@ -1,0 +1,70 @@
+min_version: 2.1.0
+assert_lefthook_installed: true
+glob_matcher: doublestar
+
+pre-commit:
+  parallel: false
+  jobs:
+    - name: repository-contract
+      run: just hook-repository-contract
+
+    - name: moonbit
+      glob:
+        - "**/*.mbt"
+        - "**/*.mbt.md"
+        - "**/*.mbti"
+        - "**/moon.mod"
+        - "**/moon.mod.json"
+        - "**/moon.pkg"
+        - "**/moon.pkg.json"
+        - "moon.work"
+        - "moon.work.json"
+        - "justfile"
+        - "scripts/run-moon-module.sh"
+        - "scripts/vendored-check-common.sh"
+        - "scripts/run-moonbit-rename-route.sh"
+        - "modules/**"
+        - "apps/**"
+        - "examples/**"
+        - "adapters/**"
+        - "deps/**"
+      group:
+        piped: true
+        jobs:
+          - name: check
+            run: just hook-moonbit-check
+          - name: format
+            run: just hook-moonbit-format-check
+
+    - name: moonbit-rename
+      run: ./scripts/run-moonbit-rename-route.sh
+
+    - name: tooling
+      glob:
+        - "lefthook.yml"
+        - "justfile"
+        - "Makefile"
+        - ".githooks/**"
+        - ".claude/settings.json"
+        - "scripts/install-hooks.nu"
+        - "scripts/install-hooks.sh"
+        - "scripts/test-install-hooks.sh"
+        - "scripts/test-lefthook-pre-commit-routing.sh"
+        - "scripts/test-lefthook-pre-push-routing.sh"
+        - "scripts/check-submodule-reachability.nu"
+        - "scripts/run-submodule-reachability.sh"
+        - "scripts/test-submodule-reachability.sh"
+        - "scripts/test-pr-ready-validation.sh"
+        - "scripts/run-moonbit-rename-route.sh"
+        - ".github/workflows/ci.yml"
+      run: just hook-tooling-contract
+
+pre-push:
+  parallel: false
+  jobs:
+    - name: submodule-reachability
+      # Lefthook 2.1.10 filters gitlinks out of {push_files} as directories.
+      # The all-files sentinel keeps this run job executable; the adapter
+      # ignores those arguments and uses Git's ref-update stream instead.
+      use_stdin: true
+      run: ./scripts/run-submodule-reachability.sh {all_files}

@@ -383,9 +383,9 @@ fn CanvasRuntime::pointer_down(
   node_id : NodeId?,
   sx : Double,
   sy : Double,
-) -> Unit {
+) -> Bool {
   let screen = ScreenPoint::from_xy(x=sx, y=sy) catch {
-    @spatial.CoordinateError::NonFinite => return
+    @spatial.CoordinateError::NonFinite => return false
   }
   let before = self.state_peek()
   let state = @graph_model.update_pointer_down(
@@ -393,11 +393,14 @@ fn CanvasRuntime::pointer_down(
     node_id,
     screen,
   ) catch {
-    @spatial.CoordinateError::NonFinite => return
+    @spatial.CoordinateError::NonFinite => return false
   }
   if state.interaction != before.interaction {
     self.set_drag_preview(@graph_model.idle_drag_preview())
     self.set_interaction(state.interaction)
+    true
+  } else {
+    false
   }
 }
 
@@ -408,17 +411,20 @@ fn CanvasRuntime::pointer_down_handle(
   port_id : String,
   sx : Double,
   sy : Double,
-) -> Unit {
+) -> Bool {
   let screen = ScreenPoint::from_xy(x=sx, y=sy) catch {
-    @spatial.CoordinateError::NonFinite => return
+    @spatial.CoordinateError::NonFinite => return false
   }
   let state = self.state_peek()
   let world = state.viewport.screen_to_world(screen) catch {
-    @spatial.CoordinateError::NonFinite => return
+    @spatial.CoordinateError::NonFinite => return false
   }
   let next = @graph_model.update_connect_start(state, node_id, port_id, world)
   if next.interaction != state.interaction {
     self.set_interaction(next.interaction)
+    true
+  } else {
+    false
   }
 }
 
@@ -520,6 +526,13 @@ fn CanvasRuntime::pointer_up(
       target_port_id,
       additive,
     ),
+  )
+}
+
+///|
+fn CanvasRuntime::pointer_interrupt(self : CanvasRuntime) -> Unit {
+  self.sync_commit_state(
+    @graph_model.update_pointer_interrupt(self.state_peek()),
   )
 }
 

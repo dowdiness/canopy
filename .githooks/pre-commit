@@ -1,3 +1,4 @@
 #!/bin/sh
 
-moon check
+# Compatibility path for checkouts that still use core.hooksPath=.githooks.
+exec just pre-commit

@@ -32,12 +32,14 @@ than duplicating its globs.
 |-----|--------------|
 | `dep-check` | `./scripts/check-deps.sh` (module-scope rules [A]–[E] + canopy package-layering rules [F]–[I]; the rules table lives in the script header), `./scripts/check-shared-substrate.sh`, `./scripts/check-egw-resolver-identity.sh`, `./scripts/check-moon-update-wrapped.sh`, `node ./scripts/check-export-manifest.mjs`, `./scripts/test-moon-update-wrapper.sh`, `./scripts/test-pr-ready-validation.sh` |
 | `pr-ready-bash3` | Path-filtered macOS check that asserts `/bin/bash` 3.2, exercises local submodule failures, and runs the real PR-ready shell graph with only compiler work faked |
+| `tooling-validation` | Path-filtered Ubuntu validation for the pinned justfile, Make compatibility wrapper, Nushell installer script, and Lefthook configuration |
+| `release-version-validation` | Path-filtered Ubuntu release-contract syntax and regression tests for version resolution, changelog ranges, and remote target resolution |
 | `test-main` | `./scripts/update-moon-deps.sh`, `./scripts/check-agent-doc-links.sh`, `./scripts/run-moon-module.sh check modules/canopy`, `./scripts/run-moon-module.sh test modules/canopy`, `moon build --release` |
 | `test-submodules` | Matrix over `deps/event-graph-walker`, `deps/loom/loom`, `deps/svg-dsl`, `deps/graphviz` — each runs `./scripts/run-moon-module.sh ci <path>` |
 | `test-examples` | Matrix over `apps/ideal`, `apps/block-editor`, `apps/canvas` — each runs `./scripts/run-moon-module.sh ci <path>` |
 | `prove` | `moon prove` in `modules/semantic/proof` after installing Why3 1.7.2 + Z3 via opam (cached) |
 | `benchmark` | PR only: `moon bench --release` at the root and in `deps/event-graph-walker` |
-| `format-check` | `./scripts/check-agent-doc-links.sh` and `./scripts/run-moon-module.sh fmt-check modules/canopy` |
+| `format-check` | `./scripts/check-agent-doc-links.sh`, `./scripts/check-documentation-lifecycle.sh`, `NEW_MOON_MOD=0 moon fmt`, and a diff check that rejects Canopy-owned formatting changes |
 | `build-js` | `./scripts/update-moon-deps.sh`, `./scripts/build-js.sh`; uploads the generated JS/d.ts/mbti artifacts listed below |
 | `web-build` | Default Waku build plus TypeScript/boundary checks for `apps/web`, then the ProseMirror typecheck |
 | `waku-build` | Builds the production Worker from downloaded MoonBit artifacts, verifies bundle/type boundaries, runs preview/production Wrangler dry-runs and startup analysis, and uploads the release artifacts |
@@ -107,29 +109,47 @@ Packages release artifacts using `./scripts/package-release.sh`. Currently
 covers **native** and **JavaScript**; WebAssembly is not part of the release
 workflow.
 
+The release checkout uses full history (`fetch-depth: 0`) so the changelog
+ generator can inspect tags reachable from the explicit `SOURCE_SHA`. It
+accepts only strict stable Canopy tags (`vMAJOR.MINOR.PATCH` without leading
+zeroes), peels annotated tags, excludes the current version, and selects the
+nearest previous reachable tag by commit history. A shallow repository fails
+rather than producing incomplete notes. If no previous tag is reachable, the
+generator falls back to the latest 10 commits through `SOURCE_SHA`.
+
+The generated `CHANGELOG.txt` is the sole release-note source: the GitHub
+Release action uses `body_path` and does not request auto-generated release
+notes. Releases with a previous tag link to its compare range; first releases
+link to the version's commits page.
+
 ## Running locally
 
-Common entry points (Makefile targets that wrap `scripts/`):
+Common entry points (just recipes that wrap `scripts/`):
+
+The root `Makefile` is a thin GNU Make compatibility wrapper; `just` is the
+canonical command runner and owns the recipes.
 
 ```sh
-make help                  # List all targets
-make test                  # Tests for the workspace
-make test-all              # Fan out into submodules
-make check                 # moon check
-make check-all             # check + fmt-check across modules
-make fmt                   # moon fmt && moon info
-make fmt-check             # CI's format gate
-make build                 # moon build --release
-make build-js              # Build the FFI JS artifacts CI uploads
-make build-web             # build-js + default Waku build in apps/web
-make test-web-e2e          # canonical Waku and production-preview Playwright suites
-make test-demo-react-e2e   # Playwright suite for examples/demo-react
-make test-canvas-e2e       # Playwright suite for apps/canvas/web
-make bench                 # moon bench --release (root + event-graph-walker)
-make ci                    # check-all + test-all
-make web-dev               # build-js then start the apps/web Waku dev server
-make install-hooks         # Install pre-commit hook
-make update                # moon update across root + maintained submodules
+just help                  # List all recipes
+just test                  # Tests for the main Canopy module
+just test-all              # Tests for the root workspace
+just check                 # moon check
+just check-all             # check + fmt-check across modules
+just fmt                   # moon fmt && moon info
+just fmt-check             # CI's format gate
+just build                 # moon build --release
+just build-js              # Build the FFI JS artifacts CI uploads
+just build-web             # build-js + default Waku build in apps/web
+just test-web-e2e          # canonical Waku and production-preview Playwright suites
+just test-demo-react-e2e   # Playwright suite for examples/demo-react
+just test-canvas-e2e       # Playwright suite for apps/canvas/web
+just bench                 # moon bench --release (root + event-graph-walker)
+just ci                    # check-all + test-all
+just web-dev               # build-js then start the apps/web Waku dev server
+just install-hooks         # Install the pre-commit hook
+just update                # moon update across root + maintained submodules
+just release-artifacts v0.2.0 # Package release artifacts (positional version)
+make release-artifacts VERSION=v0.2.0 # GNU Make compatibility form
 ```
 
 The shared module helper is `./scripts/run-moon-module.sh <subcommand> <path>`
@@ -163,7 +183,7 @@ Fetch the base again immediately before `--verify-evidence`; if it moved, sync
 the branch and rerun the full validator before opening, updating, or merging the
 PR. This local gate deliberately does not replace the required CI matrix.
 
-When `scripts/**` or `ci.yml` changes, the path-filtered `pr-ready-bash3` job
+When `scripts/**`, `justfile`, `lefthook.yml`, or `ci.yml` changes, the path-filtered `pr-ready-bash3` job
 asserts that the macOS system `/bin/bash` is 3.2, runs the CLI fixture contract,
 and executes the real downstream shell graph with a fake `moon` compiler. It
 verifies orchestration portability only; it does not claim macOS parity for
@@ -171,17 +191,56 @@ MoonBit, JavaScript, proof, or browser gates.
 
 ## Pre-commit hook
 
-`make install-hooks` (or `./scripts/install-hooks.sh`) installs the hook in
-`.githooks/`. The hook runs `moon check` for the changed package. If you need
-to bypass it (e.g. during a rebase you understand), `git commit --no-verify` is
-available, but CI's `format-check` and `test-main` will catch the same issues
-on push.
+Lefthook is the current hook manager. Run `just install-hooks` to install the
+hook described by `lefthook.yml`. Its path-aware `pre-commit` routing always
+runs the repository contract, runs the main-module MoonBit check and format
+jobs only when staged MoonBit-related paths match, and runs the tooling
+contract only for hook/task/compatibility changes. The MoonBit jobs receive no
+staged-file arguments: they retain the existing `modules/canopy` module scope.
+`glob_matcher: doublestar` covers root and nested paths, while the piped group
+keeps MoonBit `check` before `fmt-check`. The MoonBit route also includes the
+just recipe and the scripts that implement its module and vendored checks, so
+changing those operations exercises the operations themselves.
+
+A separate `moonbit-rename` job reads staged rename metadata with Git's
+pre-image and post-image paths. If a MoonBit source is moved outside the normal
+route, it runs the same `check` then `fmt-check` tasks; ordinary staged
+additions, modifications, and deletions continue through the glob group.
+
+The public `just check` and `just fmt-check` recipes retain their explicit
+repository-contract plus main-module behavior. The `pre-commit` recipe is the
+single local entry point into Lefthook, and `.githooks/pre-commit` remains a
+compatibility shim that delegates to it. The installer removes the repository's
+legacy direct local `core.hooksPath=.githooks` setting, but refuses to replace
+any other effective hook path, including included or global configuration.
+
+The shared `scripts/check-submodule-reachability.nu` command is the sole
+implementation used by PR-ready validation and the internal
+`hook-submodule-reachability` recipe. Lefthook's pre-push job starts the thin
+`scripts/run-submodule-reachability.sh` adapter unconditionally: Lefthook
+2.1.10 filters gitlinks out of `{push_files}`, so `{all_files}` is retained only
+as an execution sentinel and `use_stdin: true` supplies Git's authoritative
+ref-update stream. The adapter owns the `.gitmodules` and `deps/` routing policy,
+enumerates every newly introduced relevant commit, using the streamed remote
+SHA or authoritative `origin` refs for new refs instead of stale local tracking
+refs, and deduplicates shared commits across refs. The shared checker materializes each pushed commit's
+`.gitmodules` and recursively checks its submodule graph, so non-checked-out
+branch pushes and reverted intermediate gitlinks are covered. It invokes the
+shared recipe only for relevant updates and does not run workspace-wide MoonBit
+checks. The legacy `.githooks/pre-push` shim forwards Git's remote arguments and
+ref-update stdin to the same Lefthook hook.
+Manual cleanup is needed only for those non-legacy settings; use the reported
+scope and origin to locate the configuration. If you need to bypass the hook
+(e.g. during a rebase you understand), `git commit --no-verify` is available,
+but the applicable CI jobs, including `tooling-validation` for hook and task
+changes, will still run on push.
 
 ## Adding new gating checks
 
 Add the job to `ci.yml`, then add its name to the `needs:` list and status
-predicate under `all-checks-passed`. For `pr-ready-bash3`, the aggregate accepts
-`success`, or `skipped` only when `run_pr_ready_bash3` is exactly `false`;
+predicate under `all-checks-passed`. For path-filtered jobs such as
+`pr-ready-bash3` and `tooling-validation`, the aggregate accepts `success`, or
+`skipped` only when the corresponding filter output is exactly `false`;
 unexpected skips fail the aggregate. A missing entry there silently lets
 failures through.
 
@@ -194,7 +253,10 @@ failures through.
 - **`prove` fails to find Why3 or Z3.** The cache key includes the OS and
   arch; cache misses re-install via opam. If versions ever change, bump the
   cache key in `ci.yml`.
-- **`format-check` fails.** Run `make fmt` locally and commit the result.
+- **`format-check` fails.** Run `just fmt` locally and commit the result.
+- **The hook does not run.** For the legacy local `.githooks` setting, run
+  `just install-hooks`; remove a non-legacy local or global `core.hooksPath`
+  setting manually first, then rerun the installer.
 - **Submodule checkouts.** Every checkout step uses `submodules: recursive`.
   If you add a new workflow, copy that setting.
 

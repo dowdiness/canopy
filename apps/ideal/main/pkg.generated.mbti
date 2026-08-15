@@ -98,12 +98,17 @@ pub enum BottomTab {
   CrdtState
   Graphviz
   IncrGraph
+  IncrCanvas
 } derive(Eq)
 
 pub enum EditorMode {
   Text
   Structure
 } derive(Eq)
+
+type IncrCanvasMsg
+
+type IncrCanvasState derive(Eq)
 
 pub struct Model {
   editor : @editor.SyncEditor[@ast.Term]
@@ -129,6 +134,7 @@ pub struct Model {
   intent_log : Array[String]
   patch_log : Array[PatchEntry]
   incr_tap : @visualizer.RecomputeTap
+  // private fields
 }
 
 type Msg

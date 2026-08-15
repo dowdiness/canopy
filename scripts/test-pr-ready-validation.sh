@@ -4,6 +4,7 @@ set -euo pipefail
 
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 validator="$root_dir/scripts/validate-pr-ready.sh"
+submodule_checker="$root_dir/scripts/check-submodule-reachability.nu"
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
 
@@ -24,6 +25,9 @@ assert_files_equal() {
 
 if [ ! -x "$validator" ]; then
   fail "expected executable validator at $validator"
+fi
+if [ ! -x "$submodule_checker" ]; then
+  fail "expected executable submodule checker at $submodule_checker"
 fi
 
 list_output="$tmp_dir/list-output"
@@ -91,6 +95,7 @@ fake_bin="$tmp_dir/bin"
 execution_log="$tmp_dir/execution.log"
 mkdir -p "$fixture/scripts" "$fixture/pkg" "$fake_bin"
 cp "$validator" "$fixture/scripts/validate-pr-ready.sh"
+cp "$submodule_checker" "$fixture/scripts/check-submodule-reachability.nu"
 
 cat >"$fake_bin/moon" <<'FAKE_MOON'
 #!/usr/bin/env bash

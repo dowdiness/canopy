@@ -2,6 +2,7 @@ import {
   "moonbit-community/rabbita",
   "moonbit-community/rabbita/html",
   "moonbit-community/rabbita/sub",
+  "moonbit-community/rabbita/dom",
   "moonbit-community/rabbita/js" @js_value,
   "dowdiness/rabbita_codemirror" @cm,
   "dowdiness/rabbita_codemirror/js" @cm_js,
@@ -35,6 +36,8 @@ import {
   "dowdiness/graphviz/lib/layout" @gv_layout,
   "dowdiness/graphviz/lib/svg" @gv_svg,
   "dowdiness/visualizer",
+  "dowdiness/canopy-canvas-graph/spatial",
+  "dowdiness/incr",
   "dowdiness/ideal-editor/main/ui",
 }
 

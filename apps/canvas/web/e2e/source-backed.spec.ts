@@ -201,6 +201,118 @@ test('source-backed canvas gestures lower into canonical source', async ({ page 
   expect(runtimeErrors).toEqual([]);
 });
 
+test('source-backed self connection is rejected by compatibility validation', async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto('/?source=1');
+  await expectSource(page, SAMPLE_SOURCE);
+
+  await dragBetween(page, outputHandle(page, 'osc'), inputHandle(page, 'osc'));
+  await expect(page.locator('#edges path.edge-pending')).toHaveCount(1);
+  await page.mouse.up();
+
+  await expect(page.locator('#edges path.edge')).toHaveCount(0);
+  await expect(page.locator('#edges path.edge-pending')).toHaveCount(0);
+  await expectSource(page, SAMPLE_SOURCE);
+  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('source-backed release hit ignores elements outside the canvas root', async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto('/?source=1');
+  await expectSource(page, SAMPLE_SOURCE);
+
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    const source = [...document.querySelectorAll('.handle.output')].find((handle) => (
+      handle.closest('.canvas-node')?.querySelector('.node-title')?.textContent === 'osc'
+    ));
+    if (!source) throw new Error('source output handle is missing');
+    const outside = document.createElement('div');
+    outside.id = 'outside-release-target';
+    outside.dataset.handle = 'input';
+    outside.dataset.nodeId = 'meter';
+    outside.dataset.portId = 'input';
+    outside.style.cssText = 'position:fixed;left:0;top:0;width:32px;height:32px;z-index:99999';
+    document.body.appendChild(outside);
+    root.setPointerCapture = () => undefined;
+    const rect = source.getBoundingClientRect();
+    source.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId: 105,
+      button: 0,
+      clientX: rect.left + rect.width / 2,
+      clientY: rect.top + rect.height / 2,
+    }));
+    root.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true,
+      pointerId: 105,
+      buttons: 1,
+      clientX: 16.25,
+      clientY: 16.75,
+    }));
+    root.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles: true,
+      pointerId: 105,
+      button: 0,
+      clientX: 16.25,
+      clientY: 16.75,
+    }));
+  });
+
+  await expect(page.locator('#edges path.edge')).toHaveCount(0);
+  await expect(page.locator('#edges path.edge-pending')).toHaveCount(0);
+  await expectSource(page, SAMPLE_SOURCE);
+  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  await page.evaluate(() => document.querySelector('#outside-release-target')?.remove());
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('source-backed pointercancel drops the local connection preview', async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto('/?source=1');
+  await expectSource(page, SAMPLE_SOURCE);
+
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    const source = [...document.querySelectorAll('.handle.output')].find((handle) => (
+      handle.closest('.canvas-node')?.querySelector('.node-title')?.textContent === 'osc'
+    ));
+    if (!source) throw new Error('source output handle is missing');
+    root.setPointerCapture = () => undefined;
+    const rect = source.getBoundingClientRect();
+    source.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId: 74,
+      button: 0,
+      clientX: rect.left + rect.width / 2,
+      clientY: rect.top + rect.height / 2,
+    }));
+    root.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true,
+      pointerId: 74,
+      buttons: 1,
+      clientX: rect.left + rect.width / 2 + 40,
+      clientY: rect.top + rect.height / 2 + 40,
+    }));
+    root.dispatchEvent(new PointerEvent('pointercancel', {
+      bubbles: true,
+      pointerId: 74,
+      clientX: rect.left + rect.width / 2 + 40,
+      clientY: rect.top + rect.height / 2 + 40,
+    }));
+  });
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+
+  await expect(page.locator('#edges path.edge-pending')).toHaveCount(0);
+  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  await expectSource(page, SAMPLE_SOURCE);
+  expect(runtimeErrors).toEqual([]);
+});
+
 test('source-backed connection ignores non-finite preview moves', async ({ page }) => {
   const runtimeErrors = collectRuntimeErrors(page);
 
@@ -529,5 +641,167 @@ test('source-backed mode mutates canonical source and render state together', as
     'Source applied; render state is reparsed from Loom GraphDoc.',
   );
 
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('source-backed pointercancel interrupts a node drag without changing source', async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto('/?source=1');
+  await expectSource(page, SAMPLE_SOURCE);
+  const node = sourceNode(page, 'osc');
+  const before = await node.evaluate((element) => ({
+    left: (element as HTMLElement).style.left,
+    top: (element as HTMLElement).style.top,
+  }));
+
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    const node = [...document.querySelectorAll('.canvas-node')].find((candidate) => (
+      candidate.querySelector('.node-title')?.textContent === 'osc'
+    ));
+    if (!node) throw new Error('source-backed node is missing');
+    root.setPointerCapture = () => undefined;
+    const rect = node.getBoundingClientRect();
+    node.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId: 72,
+      button: 0,
+      clientX: rect.left + rect.width / 2,
+      clientY: rect.top + rect.height / 2,
+    }));
+    root.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true,
+      pointerId: 72,
+      buttons: 1,
+      clientX: rect.left + rect.width / 2 + 48,
+      clientY: rect.top + rect.height / 2 + 32,
+    }));
+    root.dispatchEvent(new PointerEvent('pointercancel', {
+      bubbles: true,
+      pointerId: 72,
+      clientX: rect.left + rect.width / 2 + 48,
+      clientY: rect.top + rect.height / 2 + 32,
+    }));
+  });
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+
+  await expectSource(page, SAMPLE_SOURCE);
+  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  const after = await node.evaluate((element) => ({
+    left: (element as HTMLElement).style.left,
+    top: (element as HTMLElement).style.top,
+  }));
+  expect(after.left).toBe(before.left);
+  expect(after.top).toBe(before.top);
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('source-backed output connection shares the root pointer owner', async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto('/?source=1');
+  await expectSource(page, SAMPLE_SOURCE);
+
+  const captureIds = await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    const source = [...document.querySelectorAll('.handle.output')].find((handle) => (
+      handle.closest('.canvas-node')?.querySelector('.node-title')?.textContent === 'osc'
+    ));
+    if (!source) throw new Error('source output handle is missing');
+    const ids: number[] = [];
+    root.setPointerCapture = (pointerId: number) => ids.push(pointerId);
+    const rect = source.getBoundingClientRect();
+    source.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId: 101,
+      button: 0,
+      clientX: rect.left + rect.width / 2,
+      clientY: rect.top + rect.height / 2,
+    }));
+    root.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true,
+      pointerId: 101,
+      buttons: 1,
+      clientX: rect.left + rect.width / 2 + 40.25,
+      clientY: rect.top + rect.height / 2 + 24.75,
+    }));
+    root.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId: 102,
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+    }));
+    root.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true,
+      pointerId: 102,
+      buttons: 1,
+      clientX: 220,
+      clientY: 220,
+    }));
+    root.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles: true,
+      pointerId: 102,
+      clientX: 220,
+      clientY: 220,
+    }));
+    return ids;
+  });
+
+  expect(captureIds).toEqual([101]);
+  await expect(page.locator('#edges path.edge-pending')).toHaveCount(1);
+
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    root.dispatchEvent(new PointerEvent('lostpointercapture', {
+      bubbles: true,
+      pointerId: 101,
+    }));
+  });
+  await expect(page.locator('#edges path.edge-pending')).toHaveCount(0);
+  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    root.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId: 103,
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+    }));
+  });
+  await expect(page.locator('#canvas-root')).toHaveClass(/panning/);
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('source-backed capture failure does not enter a graph session', async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto('/?source=1');
+  await expectSource(page, SAMPLE_SOURCE);
+
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    root.setPointerCapture = () => {
+      throw new DOMException('pointer is no longer active', 'NotFoundError');
+    };
+    const source = [...document.querySelectorAll('.handle.output')].find((handle) => (
+      handle.closest('.canvas-node')?.querySelector('.node-title')?.textContent === 'osc'
+    ));
+    if (!source) throw new Error('source output handle is missing');
+    const rect = source.getBoundingClientRect();
+    source.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId: 104,
+      button: 0,
+      clientX: rect.left + rect.width / 2,
+      clientY: rect.top + rect.height / 2,
+    }));
+  });
+
+  await expect(page.locator('#edges path.edge-pending')).toHaveCount(0);
+  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
   expect(runtimeErrors).toEqual([]);
 });
