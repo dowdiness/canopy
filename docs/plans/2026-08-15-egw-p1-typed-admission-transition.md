@@ -7,6 +7,8 @@ Canonical issue: <https://github.com/dowdiness/canopy/issues/1256>
 This plan is the implementation plan for the issue above. The issue must link
 back to this plan before implementation starts.
 
+Research record: [`docs/research/2026-08-15-egw-p1-admission-transition-options.md`](../research/2026-08-15-egw-p1-admission-transition-options.md).
+
 **This plan must be reviewed and accepted before a fresh P1 EGW branch is
 created from the current `origin/main`.**
 
@@ -49,6 +51,8 @@ The EGW submodule, starting from the P0 merge on a fresh branch:
 - `deps/event-graph-walker/internal/oplog/errors.mbt`
 - `deps/event-graph-walker/internal/oplog/*_wbtest.mbt` and related oplog tests
 - the intentionally changed EGW `internal/oplog/pkg.generated.mbti`
+- `deps/event-graph-walker/text/errors.mbt` for the intentional pending-limit
+  error mapping
 - package-local ownership, partial-transition, retry, and capacity properties
 
 The P1 boundary includes:
@@ -58,8 +62,10 @@ The P1 boundary includes:
   commit results;
 - exact identity-level accounting for committed, duplicate, retained,
   staged, and discarded membership;
-- a hard pending-capacity reservation that is checked before authority
-  mutation and remains safe for a partial suffix;
+- an exact peak pending-capacity gate checked before authority mutation and
+  safe for a partial suffix; the live planner pending membership is the
+  reservation in the current synchronous shell, with no independent reserved
+  counter unless a future reentrant shell requires one;
 - a new core capability for typed admission, while preserving the existing
   `commit_remote` compatibility behavior through P2;
 - no new planner algorithm: `RemoteAdmissionPlanner` remains the sole owner of
@@ -78,10 +84,11 @@ The P1 boundary includes:
 - Canopy submodule/gitlink changes;
 - a new ADR for this phase.
 
-P1 may intentionally change the EGW internal oplog generated interface for the
-new typed capability. It must not widen or otherwise change unrelated
-Branch/Document/Text or Canopy-facing interfaces. Every `.mbti` change must be
-reviewed as an explicit compatibility decision.
+P1 may intentionally change the EGW internal oplog generated interface and
+text error mapping for the new typed capability/limit variant. It must not
+widen or otherwise change unrelated Branch/Document or Canopy-facing
+interfaces. Every `.mbti` change must be reviewed as an explicit compatibility
+decision.
 
 ## Current State
 
@@ -150,12 +157,17 @@ remain a plan-review decision, but its semantic contents are not optional:
 - the complete pending-after identity view, including unrelated retained work;
 - discarded identities, partitioned by retained-pending versus staged origin
   where that provenance matters;
-- the staged identities that became the uncommitted partial suffix;
+- the uncommitted suffix identities, with staged versus retained provenance;
 - the before/after frontier needed to prove authority movement;
 - complete versus partial status, with the causal graph failure on `Partial`.
 
 Arrays returned in a receipt must be owning or immutable views according to the
-EGW API convention; no mutable planner collection may escape.
+EGW API convention; no mutable planner collection may escape. The receipt must
+also distinguish the complete pending-after snapshot from the pending identities
+in this admission's coverage: unrelated retained pending work belongs in the
+snapshot but must not be misclassified as delivered input. Terminal ownership
+and staged/retained/discarded provenance are separate views of the same
+transition, not overlapping owners.
 
 ### 2. Make partial a normal typed outcome
 
@@ -201,26 +213,45 @@ where the first authority operation fails and the whole planned suffix remains
 pending. The prepared value carries this prospective requirement.
 
 At the begin transition, after stale/consumed/invalid validation and before any
-authority mutation, the core atomically checks and records the capacity needed
-for either complete or partial execution. The transition must then obey:
+authority mutation, the core checks the peak requirement. Registering the full
+non-discarded staged set is the current synchronous shell's one-time capacity
+reservation; successful acknowledgements only remove live pending nodes. The
+transition must obey:
 
 ```text
 complete:
-  release capacity that is no longer needed
+  all planned identities are acknowledged or duplicate; remaining pending is
+  the complete-after set
 
 partial:
-  transfer the exact uncommitted suffix's capacity to core pending
+  the exact uncommitted suffix remains in core pending with its provenance
 
 rejected before mutation:
-  change neither authority, planner membership, generation, nor capacity
+  change neither authority, planner membership, generation, nor pending policy
 ```
 
-The accounting must count unique pending membership rather than operation
-attempts. It must account for existing retained pending identities, new staged
-identities, duplicates, and discard closure. The exact formula and internal
-reservation representation are plan-review items, but a post-prefix
-`PendingLimitExceeded` is not an acceptable design: capacity failure must not
-be discovered after authority has advanced.
+The accounting must count unique live pending membership rather than operation
+attempts or stale index entries. For the current generation, the peak before
+any acknowledgement is:
+
+```text
+required_pending =
+  live_pending_before_begin
+  - discarded_pending_count
+  + new_staged_count
+```
+
+`new_staged_count` includes every unique, non-admitted, non-existing-pending,
+non-discarded staged identity, including unresolved nodes that are not in the
+compatibility-ordered `planned` list. The formula must be calculated during
+preparation and rechecked at begin. Begin validates it before removing or
+registering any planner node; registering the full staged set is the one-time
+reservation, and successful acknowledgements only decrease live pending
+membership. A post-prefix `PendingLimitExceeded` is not an acceptable design:
+capacity failure must not be discovered after authority has advanced. A
+separate mutable planner reservation counter is deferred because the current
+OpLog commit shell is synchronous and generation-invalidates interleaving
+prepared admissions.
 
 ### 4. Make ownership partitions explicit and disjoint
 
@@ -257,16 +288,21 @@ plan review before implementation:
 2. **Partial algebra:** accept `Partial` as an ordinary typed outcome carrying
    both the receipt and causal failure, while pre-mutation lifecycle and
    capacity failures remain errors.
-3. **Capacity contract:** accept a worst-case pre-mutation reservation covering
-   both complete and partial suffixes, and settle the exact required-capacity
-   formula and `PendingLimitExceeded(limit~, required~)` spelling.
-4. **Compatibility lifetime:** keep `commit_remote` as the legacy wrapper
+3. **Capacity contract:** accept the exact peak formula above, with full staged
+   registration as the current shell's one-time reservation and no independent
+   live reservation counter in P1.
+4. **Limit vocabulary:** rename the optional preparation policy from
+   `max_pending_after_complete?` to `max_pending?`, replace the complete-only
+   `PendingForecastExceeded(limit~, predicted~)` contract with
+   `PendingLimitExceeded(limit~, required~)`, and update its EGW text error
+   mapping. If API inventory finds an external caller, retain only a clearly
+   named compatibility adapter; never give one label two meanings.
+5. **Compatibility lifetime:** keep `commit_remote` as the legacy wrapper
    through P2; do not change Branch, Document, SyncSession, or Canopy callers
    in P1.
-5. **Interface delta:** permit only the intentional internal oplog generated
-   interface change for the typed capability and receipt; reject unrelated
-   `.mbti` drift.
-6. **Receipt shape:** settle the exact field names and whether identity
+6. **Interface delta:** permit only the intentional internal oplog generated
+   interface and EGW error-mapping changes; reject unrelated `.mbti` drift.
+7. **Receipt shape:** settle the exact field names and whether identity
    collections are arrays, immutable views, or another owning representation.
 
 No implementation branch should be created until these decisions are accepted.
@@ -293,34 +329,42 @@ No implementation branch should be created until these decisions are accepted.
 5. Extend the private `PreparedAdmission` representation only with data that
    is knowable before authority mutation: ordered planned identities,
    duplicate/retained/staged/discarded provenance, generation/policy evidence,
-   and the worst-case pending-capacity requirement.
+   the exact `new_staged_count`, and the worst-case `required_pending` value.
 6. Preserve non-mutating `prepare_remote`: it must not advance planner
    generation, alter pending membership, consume a capability, or reserve live
    capacity. Repeated preparation with unchanged state must produce equivalent
    prospective evidence.
 7. Add private constructors/validation that make the prepared value internally
    self-consistent and preserve defensive ownership of mutable arrays and
-   identity sets.
+   identity sets. Do not add a live `reserved` planner counter in this phase.
 8. Define the reviewed `AdmissionReceipt` and `AdmissionOutcome` values. Keep
    actual committed-prefix data out of `PreparedAdmission`.
 
 ### P1.2 — Add the hard capacity transition
 
-9. Define the unique-membership calculation for the maximum pending state over
-   every commit prefix, including first-operation failure, retained existing
-   pending work, newly staged work, duplicate identities, and rejection
-   closure.
+9. Define and test the exact unique-membership calculation:
+    `live_pending_before_begin - discarded_pending_count + new_staged_count`.
+    Include first-operation failure, retained existing pending work, every
+    unresolved staged node, duplicate identities, and rejection closure; do
+    not substitute `planned.length()` for `new_staged_count`. When
+    `max_pending?` is supplied, preparation rejects `required_pending > limit`
+    without creating a capability, and begin repeats the check for stale-safe
+    atomicity.
 10. At `begin_admission`, validate generation, single-use state, structure,
-    and required capacity before applying discard/register/consume changes.
-    A rejected begin leaves planner, generation, capacity, and authority
-    unchanged.
-11. Transfer the prospective capacity to the actual transition exactly once.
-    Complete releases unused capacity; partial transfers capacity for the
-    exact suffix retained by the planner. Add assertions preventing capacity
-    leaks, double release, and post-mutation capacity failure.
-12. Replace the complete-only forecast contract with the reviewed hard-limit
-    error semantics. Keep the compatibility mapping explicit if the error
-    variant changes.
+    and `required_pending <= max_pending?` before applying discard/register/
+    consume changes. A rejected begin leaves planner, generation, pending
+    membership, and authority unchanged.
+11. Register the complete non-discarded staged set as the one-time live
+    reservation. Complete and partial acknowledgements only remove successful
+    identities, so the live pending membership cannot grow after begin. Add
+    assertions preventing over-limit registration, lost suffixes, and
+    double-accounting; do not add a separate reservation counter unless the
+    API inventory finds reentrant admissions.
+12. Replace the complete-only forecast API with the reviewed hard-limit
+    vocabulary: `max_pending?` and
+    `PendingLimitExceeded(limit~, required~)`. Update the EGW text error
+    mapping and all P0 forecast tests without changing Document/Branch
+    behavior.
 
 ### P1.3 — Implement the typed commit capability and wrapper
 
@@ -329,9 +373,9 @@ No implementation branch should be created until these decisions are accepted.
     and construct the receipt from the exact prefix, suffix, duplicate,
     retained, staged, and discarded partitions.
 14. On a causal graph failure, return `AdmissionOutcome::Partial` with the
-    committed prefix, exact pending-after view, staged-to-pending suffix,
-    discard evidence, and causal cause. Never authorize retry of the committed
-    prefix.
+    committed prefix, exact pending-after view, uncommitted suffix with
+    staged/retained provenance, discard evidence, and causal cause. Never
+    authorize retry of the committed prefix.
 15. Keep `commit_remote` as a thin compatibility wrapper that maps complete to
     its existing array result and partial to the existing legacy error shape.
     Do not add a second planner or a second authority commit loop.
@@ -350,8 +394,8 @@ No implementation branch should be created until these decisions are accepted.
 19. Add retry-after-partial tests. Re-prepare only the exact pending suffix,
     complete it, and prove that no committed identity is attempted twice.
 20. Add stale, consumed, invalid, and capacity-rejection tests. Each must prove
-    operation count, frontier, pending membership, generation, reservation,
-    and receipt state are unchanged.
+    operation count, frontier, pending membership, generation, required-capacity
+    calculation, and receipt state are unchanged.
 21. Add duplicate and conflicting-identity tests that distinguish full payload
     equality from identity reuse. A matching duplicate is an admitted no-op;
     a conflicting identity is rejected before mutation.
@@ -361,7 +405,7 @@ No implementation branch should be created until these decisions are accepted.
 23. Add a property/model test for the ownership partition:
 
     ```text
-    delivered identities = Authority ∪ core-pending ∪ Duplicate ∪ Discarded
+    admission coverage identities = Authority ∪ core-pending ∪ Duplicate ∪ Discarded
     these sets are pairwise disjoint
     every committed identity is in Authority exactly once
     every retained suffix identity is in core pending exactly once
@@ -375,9 +419,12 @@ No implementation branch should be created until these decisions are accepted.
 
 25. Run targeted oplog tests and benchmarks, then the full EGW check/test gate.
 26. Run `moon fmt` and `moon info`; inspect every generated interface diff.
-    Accept only the intentional internal oplog typed-capability delta.
-27. Verify that Branch, Document, Text, SyncSession, wire/archive, projection,
-    and Canopy gitlink files are unchanged by the P1 implementation.
+    Accept only the intentional internal oplog typed-capability/limit delta;
+    the new error mapping must not widen unrelated public surfaces.
+27. Verify that Branch and Document behavior, SyncSession, wire/archive,
+    projection, and the Canopy gitlink are unchanged by the P1 implementation.
+    The EGW text error mapping may gain the new pending-limit variant, but no
+    text admission behavior or public Canopy API may change.
 28. Open the EGW P1 PR only after local validation. Inspect raw CI with
     `gh pr checks <NUMBER>` and do not merge while any required check is
     pending, failing, or unapproved skipped.
@@ -394,17 +441,19 @@ No implementation branch should be created until these decisions are accepted.
 - [ ] `AdmissionReceipt` exposes exact identity-level evidence for committed,
       duplicate, pending-after, staged, retained, and discarded membership,
       including the before/after frontier needed by callers.
-- [ ] The final ownership partition for every delivered identity is exactly one
-      of Authority, core pending, admitted duplicate, or discarded; no identity
-      is lost or dual-owned.
+- [ ] The final ownership partition for every admission-coverage identity is
+      exactly one of Authority, core pending, admitted duplicate, or discarded;
+      no identity is lost or dual-owned.
 - [ ] Prepare remains non-mutating, including generation, pending membership,
       live capacity, and capability consumption.
 - [ ] Stale, consumed, invalid, and pending-capacity rejection all occur before
-      authority mutation and leave authority, planner, generation, capacity,
-      and prepared lifecycle state unchanged.
-- [ ] Capacity is checked/reserved before the first authority mutation for the
-      worst complete or partial pending membership; partial suffix retention
-      cannot fail later for lack of capacity.
+      authority mutation and leave authority, planner, generation, pending
+      membership, and prepared lifecycle state unchanged.
+- [ ] Capacity uses the exact peak formula
+      `live_pending_before_begin - discarded_pending_count + new_staged_count`,
+      is checked before the first authority mutation, and registers the full
+      staged set as the current shell's one-time reservation; partial suffix
+      retention cannot fail later for lack of capacity.
 - [ ] Complete, zero-prefix partial, middle partial, and n-minus-one partial
       cases return exact receipts and preserve unrelated retained pending work.
 - [ ] Retrying a partial suffix never retries a committed identity and ends
@@ -413,9 +462,11 @@ No implementation branch should be created until these decisions are accepted.
       rejected atomically.
 - [ ] `commit_remote` remains a compatibility wrapper through P2, while the
       typed capability retains receipt information for new callers.
-- [ ] Existing Branch/Document/Text behavior and public Canopy interfaces remain
-      unchanged; no production cutover occurs in P1.
-- [ ] Only intentionally reviewed EGW internal oplog `.mbti` changes exist.
+- [ ] Existing Branch/Document behavior and public Canopy interfaces remain
+      unchanged; only the EGW text error mapping for the intentional new
+      pending-limit variant may change; no production cutover occurs in P1.
+- [ ] Only intentionally reviewed EGW internal oplog interface changes and
+      pending-limit error-mapping changes exist.
 - [ ] EGW targeted tests, `moon check --deny-warn`, `moon test`, formatting,
       interface inspection, and raw PR checks pass.
 
@@ -465,20 +516,25 @@ pending, failing, or unapproved skipped.
 - The partial commit boundary is inherently discovered during authority
   execution. Treating the partial prefix as preparation data would make the
   receipt false; keep it exclusively in `AdmissionOutcome`.
-- A capacity calculation based only on complete-after membership recreates the
-  P0 limitation. The first-operation failure case must be included before
-  `begin_admission` mutates planner or authority state.
+- A capacity calculation based only on complete-after membership, or on
+  `planned.length()`, recreates the P0 limitation. The first-operation failure
+  case must include every staged node before `begin_admission` mutates planner
+  or authority state.
 - Retained, staged, duplicate, and discarded are provenance categories, not
   four additional owners. Receipt construction must enforce disjoint final
   ownership rather than merely report overlapping counters.
+- A separate live reservation counter would create release/compaction/stale
+  invariants without a current reentrant admission need. If future execution
+  becomes asynchronous or reentrant, revisit this as a new design boundary.
 - A compatibility wrapper can hide receipt information from legacy callers.
   That is intentional through P2, but the typed capability must remain the
   canonical implementation path so P2 does not need to reconstruct history.
 - `PreparedAdmission` and receipt arrays cross package boundaries only through
   reviewed owning/immutable representations. Exposing planner-owned mutable
   collections would violate the state boundary.
-- The internal oplog `.mbti` may change for the new capability. Any unrelated
-  generated-interface change is an API regression and must stop the PR.
+- The internal oplog `.mbti` and EGW text error mapping may change for the new
+  capability/limit variant. Any unrelated generated-interface change is an API
+  regression and must stop the PR.
 - The Canopy submodule remains at its existing pointer. Mixing a local P1 EGW
   checkout into a parent commit would accidentally turn an internal capability
   experiment into a production integration change.
@@ -492,6 +548,9 @@ pending, failing, or unapproved skipped.
 - P2 may move the typed outcome through a Document batch shell and projection
   boundary. P1 must not anticipate that cutover by changing outer pending,
   publication, or Canopy-facing APIs.
-- The exact receipt field names, capacity formula, and final capability method
-  spelling are the explicit plan-review decisions listed above. Once accepted,
-  implementation must update this plan if any of them change.
+- The exact receipt field names and final capability method spelling remain the
+  explicit plan-review decisions listed above. The peak-capacity formula and
+  no-live-counter choice are now the recommended result of the alternatives
+  research; implementation must update this plan if review rejects either.
+- The alternatives and source citations are recorded in
+  `docs/research/2026-08-15-egw-p1-admission-transition-options.md`.
