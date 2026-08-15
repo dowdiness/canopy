@@ -11,17 +11,6 @@
             "statusMessage": "Running pre-commit lint & test..."
           }
         ]
-      },
-      {
-        "matcher": "Bash(git push*)",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "git submodule foreach 'git diff --exit-code @{push}.. 2>/dev/null || echo WARNING: unpushed submodule commits in $name'",
-            "timeout": 30,
-            "statusMessage": "Checking for unpushed submodule commits..."
-          }
-        ]
       }
     ],
     "PostToolUse": [
