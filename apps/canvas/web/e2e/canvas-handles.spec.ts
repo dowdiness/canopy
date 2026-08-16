@@ -551,7 +551,7 @@ test('selected canvas nodes delete with incident edges from the keyboard', async
   expect(runtimeErrors).toEqual([]);
 });
 
-test('selected canvas edge deletes with keyboard without removing nodes', async ({ page }) => {
+test('selected canvas edge deletes before a coexisting node selection', async ({ page }) => {
   const runtimeErrors: string[] = [];
   page.on('pageerror', (error) => runtimeErrors.push(error.message));
   page.on('console', (message) => {
@@ -564,13 +564,28 @@ test('selected canvas edge deletes with keyboard without removing nodes', async 
   await expect(page.locator('.canvas-node')).toHaveCount(6);
   await expect(edgePaths(page)).toHaveCount(3);
 
-  await clickEdge(page, 1);
-  await expect(edgePaths(page).nth(1)).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
-  await page.keyboard.press('Delete');
+  const node = page.locator('.canvas-node[data-node-id="1"]');
+  await node.click();
+  await expect(node).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
 
+  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  await clickEdge(page, 0);
+  await expect(edgePaths(page).nth(0)).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
+  await expect(node).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
+  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+
+  await page.keyboard.press('Delete');
   await expect(page.locator('.canvas-node')).toHaveCount(6);
   await expect(edgePaths(page)).toHaveCount(2);
-  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  await expect(page.locator('#edges path.edge.selected')).toHaveCount(0);
+  await expect(node).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
+  await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
+
+  await page.keyboard.press('Delete');
+  await expect(page.locator('.canvas-node')).toHaveCount(5);
+  await expect(page.locator('.canvas-node[data-node-id="1"]')).toHaveCount(0);
+  await expect(edgePaths(page)).toHaveCount(2);
+  await expect(page.locator('#action-stat')).toHaveText('3 actions logged');
   expect(runtimeErrors).toEqual([]);
 });
 

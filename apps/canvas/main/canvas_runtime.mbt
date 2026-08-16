@@ -28,6 +28,7 @@ struct CanvasFullRenderJson {
   nodes : Array[NodeJson]
   edges : Array[EdgeJson]
   selected : String?
+  selected_edge : String?
   selected_nodes : Array[String]
   connecting : ConnectingJson?
   validation : Array[ValidationJson]
@@ -57,6 +58,7 @@ priv struct CanvasRuntimeCells {
   drag_preview : @incr.Input[DragPreview]
   viewport : @incr.Input[Viewport]
   selection : @incr.Input[SelectionState]
+  selected_edge : @incr.Input[EdgeId?]
   interaction : @incr.Input[InteractionState]
   render_watch : @incr.Watch[CanvasFullRenderJson]
   inspector_watch : @incr.Watch[InspectorNodeJson?]
@@ -80,6 +82,7 @@ fn canvas_render(
   viewport : @incr.InputView[Viewport],
   drag_preview : @incr.InputView[DragPreview],
   selection : @incr.InputView[SelectionState],
+  selected_edge : @incr.InputView[EdgeId?],
   interaction : @incr.InputView[InteractionState],
   actions : @incr.InputView[Array[GraphOperation]],
 ) -> @incr.Derived[CanvasFullRenderJson] {
@@ -90,6 +93,7 @@ fn canvas_render(
         viewport.get(),
         drag_preview.get(),
         selection.get(),
+        selected_edge.get(),
         interaction.get(),
         actions.get().length(),
       )
@@ -126,6 +130,7 @@ fn CanvasRuntime::with_host_policy(policy : CanvasHostPolicy) -> CanvasRuntime {
     @graph_model.selection_from_interaction(initial.interaction),
     label="canvas.selection",
   )
+  let selected_edge = scope.input(None, label="canvas.selected_edge")
   let interaction = scope.input(initial.interaction, label="canvas.gesture")
 
   let validated = scope.derived(
@@ -153,6 +158,7 @@ fn CanvasRuntime::with_host_policy(policy : CanvasHostPolicy) -> CanvasRuntime {
     viewport[:],
     drag_preview[:],
     selection[:],
+    selected_edge[:],
     interaction[:],
     actions[:],
   )
@@ -202,6 +208,7 @@ fn CanvasRuntime::with_host_policy(policy : CanvasHostPolicy) -> CanvasRuntime {
     drag_preview,
     viewport,
     selection,
+    selected_edge,
     interaction,
     render_watch,
     inspector_watch,
@@ -229,6 +236,7 @@ fn CanvasRuntime::set_document(
     edges: document.edges.copy(),
     next_node_id: document.next_node_id,
   })
+  self.reconcile_selected_edge(document.edges)
 }
 
 ///|
@@ -296,6 +304,40 @@ fn CanvasRuntime::set_selection(
     selected: selection.selected,
     selected_nodes: selection.selected_nodes.copy(),
   })
+}
+
+///|
+fn CanvasRuntime::reconcile_selected_edge(
+  self : CanvasRuntime,
+  edges : Array[Edge],
+) -> Unit {
+  match self.cells.selected_edge.peek() {
+    None => ()
+    Some(id) =>
+      if edges.search_by(fn(edge) { edge.id == id }) is None {
+        self.cells.selected_edge.set(None)
+      }
+  }
+}
+
+///|
+fn CanvasRuntime::select_edge(self : CanvasRuntime, edge : EdgeId) -> Unit {
+  if self.peek_document().edges.search_by(fn(candidate) { candidate.id == edge })
+    is Some(_) {
+    self.cells.selected_edge.set(Some(edge))
+  } else {
+    self.cells.selected_edge.set(None)
+  }
+}
+
+///|
+fn CanvasRuntime::clear_selected_edge(self : CanvasRuntime) -> Unit {
+  self.cells.selected_edge.set(None)
+}
+
+///|
+fn CanvasRuntime::selected_edge(self : CanvasRuntime) -> EdgeId? {
+  self.cells.selected_edge.peek()
 }
 
 ///|
@@ -609,6 +651,46 @@ fn CanvasRuntime::delete_nodes(
   self.sync_commit_state(
     @graph_model.record_action(self.state_peek(), DeleteNodes(nodes)),
   )
+}
+
+///|
+/// Edge-first semantic deletion owned by the MoonBit host.
+fn CanvasRuntime::delete_selection(self : CanvasRuntime) -> Bool {
+  match self.selected_edge() {
+    Some(edge_id) => {
+      let state = self.state_peek()
+      match state.edges.search_by(fn(edge) { edge.id == edge_id }) {
+        Some(index) => {
+          let edge = state.edges[index]
+          self.sync_document_action_state(
+            @graph_model.record_action(
+              state,
+              DisconnectPorts(
+                edge.source,
+                edge.source_port,
+                edge.target,
+                edge.target_port,
+              ),
+            ),
+          )
+          true
+        }
+        None => {
+          self.clear_selected_edge()
+          true
+        }
+      }
+    }
+    None => {
+      let nodes = self.peek_selection().selected_nodes
+      if nodes.length() == 0 {
+        false
+      } else {
+        self.delete_nodes(nodes)
+        true
+      }
+    }
+  }
 }
 
 ///|

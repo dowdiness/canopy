@@ -24,6 +24,7 @@ struct SourceBackedGraph {
   mut source : String
   mut viewport : Viewport
   mut interaction : InteractionState
+  mut selected_edge : EdgeId?
   mut drag_preview : DragPreview
   mut layout : Array[SourceNodePosition]
   mut action_log : Array[GraphOperation]
@@ -47,6 +48,7 @@ fn SourceBackedGraph::SourceBackedGraph(
     source,
     viewport: default_source_graph_viewport(),
     interaction: @graph_model.empty_interaction(),
+    selected_edge: None,
     drag_preview: @graph_model.idle_drag_preview(),
     layout: [],
     action_log: [],
@@ -702,6 +704,9 @@ fn SourceBackedGraph::prune_selection_to_doc(
     [head, ..] => Some(head)
     [] => None
   }
+  self.reconcile_selected_edge_from_state(
+    canvas_state_with_source_layout(canvas_from_graph_doc(doc), self.layout),
+  )
   self.drag_preview = @graph_model.idle_drag_preview()
   self.interaction = {
     dragging: None,
@@ -715,9 +720,97 @@ fn SourceBackedGraph::prune_selection_to_doc(
 }
 
 ///|
-/// Rewrite one node's selection token after a rename (the token embeds the
-/// binding, so renaming changes it). This is a rename-local continuation, not
-/// binding-recovery: only the renamed node's `old` token maps to `new`.
+/// Clear an edge selection whose stable endpoint identity no longer exists in
+/// the current source-backed graph snapshot.
+fn SourceBackedGraph::reconcile_selected_edge_from_state(
+  self : SourceBackedGraph,
+  state : CanvasState,
+) -> Unit {
+  match self.selected_edge {
+    None => ()
+    Some(id) =>
+      if state.edges.search_by(fn(edge) { edge.id == id }) is None {
+        self.selected_edge = None
+      }
+  }
+}
+
+///|
+fn SourceBackedGraph::select_edge(
+  self : SourceBackedGraph,
+  edge : EdgeId,
+) -> Unit {
+  let state = source_graph_base_canvas_state(self)
+  if state.edges.search_by(fn(candidate) { candidate.id == edge }) is Some(_) {
+    self.selected_edge = Some(edge)
+  } else {
+    self.selected_edge = None
+  }
+}
+
+///|
+fn SourceBackedGraph::clear_selected_edge(self : SourceBackedGraph) -> Unit {
+  self.selected_edge = None
+}
+
+///|
+fn SourceBackedGraph::delete_selection(
+  self : SourceBackedGraph,
+) -> SourceGraphOperationResultJson? raise Failure {
+  match self.selected_edge {
+    Some(edge_id) => {
+      let state = source_graph_base_canvas_state(self)
+      match state.edges.search_by(fn(edge) { edge.id == edge_id }) {
+        Some(index) => {
+          let edge = state.edges[index]
+          // Preserve the existing disconnectEdge contract: selection is
+          // ephemeral and clears even when source lowering is rejected.
+          self.clear_selected_edge()
+          let result = self.apply_operation(
+            GraphOperation(
+              DisconnectPorts(
+                edge.source,
+                edge.source_port,
+                edge.target,
+                edge.target_port,
+              ),
+            ),
+          )
+          Some({
+            ..result,
+            message: if result.applied {
+              Some("Disconnected selected edge through graph-dsl source.")
+            } else {
+              result.message
+            },
+          })
+        }
+        None => {
+          self.clear_selected_edge()
+          Some(source_graph_result_json_for_graph(self, false, None))
+        }
+      }
+    }
+    None => {
+      let nodes = self.interaction.selected_nodes
+      if nodes.length() == 0 {
+        None
+      } else {
+        let result = self.apply_operation(GraphOperation(DeleteNodes(nodes)))
+        Some({
+          ..result,
+          message: if result.applied {
+            Some("Deleted selected nodes through graph-dsl source.")
+          } else {
+            result.message
+          },
+        })
+      }
+    }
+  }
+}
+
+///|
 fn SourceBackedGraph::rename_selection_token(
   self : SourceBackedGraph,
   old : NodeId,
@@ -780,6 +873,9 @@ fn SourceBackedGraph::sync_local_operation_state(
       }
     _ => ()
   }
+  self.reconcile_selected_edge_from_state(
+    canvas_state_with_source_layout(canvas_from_graph_doc(new_doc), self.layout),
+  )
 }
 
 ///|
@@ -1338,6 +1434,34 @@ fn source_graph_pointer_interrupt(handle : Int) -> Unit {
 }
 
 ///|
+pub fn select_source_graph_edge(handle : Int, edge_id : String) -> Unit {
+  match source_graph_by_handle(handle) {
+    Some(graph) => graph.select_edge(EdgeId(edge_id))
+    None => ()
+  }
+}
+
+///|
+pub fn clear_source_graph_edge(handle : Int) -> Unit {
+  match source_graph_by_handle(handle) {
+    Some(graph) => graph.clear_selected_edge()
+    None => ()
+  }
+}
+
+///|
+pub fn delete_source_graph_selection(handle : Int) -> String raise Failure {
+  match source_graph_by_handle(handle) {
+    Some(graph) =>
+      match graph.delete_selection() {
+        Some(result) => result.to_json().stringify()
+        None => "null"
+      }
+    None => source_graph_operation_result(false, "", [], 0, Some("source graph handle not found"))
+  }
+}
+
+///|
 pub fn get_source_graph_input_port_compatibility(
   handle : Int,
   source : String,
@@ -1359,7 +1483,7 @@ fn source_render_state_string(
   state : CanvasState,
   validation : Array[ValidationJson],
 ) -> String {
-  let rendered = render_state_json(state, validation)
+  let rendered = render_state_json(state, validation, graph.selected_edge)
   match source_graph_doc_for_render(graph) {
     Some(doc) => {
       // Index the doc's nodes by token once so per-node param resolution is
@@ -1408,6 +1532,31 @@ pub fn get_source_graph_action_log(handle : Int) -> String {
 }
 
 ///|
+fn SourceBackedGraph::apply_operation(
+  self : SourceBackedGraph,
+  operation : GraphOperation,
+) -> SourceGraphOperationResultJson raise Failure {
+  let doc = match source_graph_current_doc(self) {
+    Ok(doc) => doc
+    Err(message) =>
+      return source_graph_result_json_for_graph(self, false, Some(message))
+  }
+  let lowered = match lower_source_operation(doc, operation) {
+    Ok(edit) => edit
+    Err(message) =>
+      return source_graph_result_json_for_graph(self, false, Some(message))
+  }
+  match self.apply_source_edit(lowered) {
+    Ok(new_doc) => {
+      self.sync_local_operation_state(doc, new_doc, operation)
+      self.append_operation(realized_source_operation(new_doc, operation))
+      source_graph_result_json_for_graph(self, true, None)
+    }
+    Err(message) => source_graph_result_json_for_graph(self, false, Some(message))
+  }
+}
+
+///|
 pub fn apply_source_graph_operation(
   handle : Int,
   operation_json : String,
@@ -1428,22 +1577,5 @@ pub fn apply_source_graph_operation(
     Err(message) =>
       return source_graph_result_for_graph(graph, false, Some(message))
   }
-  let doc = match source_graph_current_doc(graph) {
-    Ok(doc) => doc
-    Err(message) =>
-      return source_graph_result_for_graph(graph, false, Some(message))
-  }
-  let lowered = match lower_source_operation(doc, operation) {
-    Ok(edit) => edit
-    Err(message) =>
-      return source_graph_result_for_graph(graph, false, Some(message))
-  }
-  match graph.apply_source_edit(lowered) {
-    Ok(new_doc) => {
-      graph.sync_local_operation_state(doc, new_doc, operation)
-      graph.append_operation(realized_source_operation(new_doc, operation))
-      source_graph_result_for_graph(graph, true, None)
-    }
-    Err(message) => source_graph_result_for_graph(graph, false, Some(message))
-  }
+  graph.apply_operation(operation).to_json().stringify()
 }
