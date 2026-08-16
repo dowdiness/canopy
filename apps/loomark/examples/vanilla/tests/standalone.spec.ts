@@ -369,7 +369,7 @@ test("projection trace is absent by default and records only after explicit opt-
     /.+/,
   )
 
-  await page.goto("/?projection-benchmark=1")
+  await page.goto("/?projection-benchmark=1&persistence-trace=1")
   await replaceRawValue(page.locator("#loomark-input"), "# Trace\n\nBody\n")
   await page.locator("#loomark-mode-preview").click()
   await expect(page.locator("#loomark-preview p")).toHaveText("Body")
