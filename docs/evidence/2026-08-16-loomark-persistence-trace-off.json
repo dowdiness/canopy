@@ -1,0 +1,389 @@
+{
+  "schema_version": 3,
+  "generated_at": "2026-08-16T04:32:01.061Z",
+  "environment": {
+    "commit_sha": "7d1f9fb",
+    "node": "v24.14.1",
+    "playwright": "1.61.1",
+    "samples": 3,
+    "sizes": [
+      2000
+    ],
+    "placements": [
+      "synchronous"
+    ],
+    "archive_persistence": [
+      "disabled"
+    ],
+    "persistence_trace": false,
+    "run_order": "configured placement order repeated for each sample and corpus size",
+    "edit_protocol": "cold whole-source Seed followed by one-character native insertText edits",
+    "forced_gc": "Chromium --js-flags=--expose-gc before post_gc_heap_bytes"
+  },
+  "controls": {
+    "tracing_requested": false,
+    "main_thread_tracing_requested": false,
+    "all_main_thread_intervals_complete": null,
+    "all_main_thread_positive_controls": null,
+    "all_runs_completed": true,
+    "all_traces_enabled": null,
+    "all_traces_nonempty": null,
+    "all_traces_lossless": null,
+    "all_trace_contracts_valid": null
+  },
+  "summaries": [
+    {
+      "lines": 2000,
+      "placement": "synchronous",
+      "archive_persistence": "disabled",
+      "scenario": "cold-seed-preview",
+      "duration": {
+        "samples": 3,
+        "median_ms": 2524.300000011921,
+        "p95_ms": 2842.5,
+        "min_ms": 2472.2999999970198,
+        "max_ms": 2842.5
+      },
+      "long_task_total": {
+        "samples": 3,
+        "median_ms": 2380,
+        "p95_ms": 2701,
+        "min_ms": 2332,
+        "max_ms": 2701
+      },
+      "max_frame_gap": {
+        "samples": 3,
+        "median_ms": 2416.6,
+        "p95_ms": 2733.2000000000003,
+        "min_ms": 2366.6,
+        "max_ms": 2733.2000000000003
+      }
+    },
+    {
+      "lines": 2000,
+      "placement": "synchronous",
+      "archive_persistence": "disabled",
+      "scenario": "local-edit-start",
+      "duration": {
+        "samples": 3,
+        "median_ms": 288.90000000596046,
+        "p95_ms": 289.90000000596046,
+        "min_ms": 287,
+        "max_ms": 289.90000000596046
+      },
+      "long_task_total": {
+        "samples": 3,
+        "median_ms": 176,
+        "p95_ms": 177,
+        "min_ms": 171,
+        "max_ms": 177
+      },
+      "max_frame_gap": {
+        "samples": 3,
+        "median_ms": 166.70000000000027,
+        "p95_ms": 166.70000000000027,
+        "min_ms": 166.5999999999999,
+        "max_ms": 166.70000000000027
+      }
+    },
+    {
+      "lines": 2000,
+      "placement": "synchronous",
+      "archive_persistence": "disabled",
+      "scenario": "local-edit-middle",
+      "duration": {
+        "samples": 3,
+        "median_ms": 254.90000000596046,
+        "p95_ms": 273.70000000298023,
+        "min_ms": 254.90000000596046,
+        "max_ms": 273.70000000298023
+      },
+      "long_task_total": {
+        "samples": 3,
+        "median_ms": 144,
+        "p95_ms": 157,
+        "min_ms": 142,
+        "max_ms": 157
+      },
+      "max_frame_gap": {
+        "samples": 3,
+        "median_ms": 133.30000000000018,
+        "p95_ms": 166.69999999999982,
+        "min_ms": 133.29999999999973,
+        "max_ms": 166.69999999999982
+      }
+    },
+    {
+      "lines": 2000,
+      "placement": "synchronous",
+      "archive_persistence": "disabled",
+      "scenario": "local-edit-end",
+      "duration": {
+        "samples": 3,
+        "median_ms": 237.90000000596046,
+        "p95_ms": 239.70000000298023,
+        "min_ms": 237.30000001192093,
+        "max_ms": 239.70000000298023
+      },
+      "long_task_total": {
+        "samples": 3,
+        "median_ms": 125,
+        "p95_ms": 132,
+        "min_ms": 122,
+        "max_ms": 132
+      },
+      "max_frame_gap": {
+        "samples": 3,
+        "median_ms": 116.69999999999982,
+        "p95_ms": 116.69999999999982,
+        "min_ms": 116.69999999999982,
+        "max_ms": 116.69999999999982
+      }
+    },
+    {
+      "lines": 2000,
+      "placement": "synchronous",
+      "archive_persistence": "disabled",
+      "scenario": "sustained-typing-8-edits",
+      "duration": {
+        "samples": 3,
+        "median_ms": 404.8999999910593,
+        "p95_ms": 454.09999999403954,
+        "min_ms": 389.8999999910593,
+        "max_ms": 454.09999999403954
+      },
+      "long_task_total": {
+        "samples": 3,
+        "median_ms": 84,
+        "p95_ms": 86,
+        "min_ms": 79,
+        "max_ms": 86
+      },
+      "max_frame_gap": {
+        "samples": 3,
+        "median_ms": 83.30000000000018,
+        "p95_ms": 83.30000000000018,
+        "min_ms": 66.69999999999982,
+        "max_ms": 83.30000000000018
+      }
+    },
+    {
+      "lines": 2000,
+      "placement": "synchronous",
+      "archive_persistence": "disabled",
+      "scenario": "source-equal-advance",
+      "duration": {
+        "samples": 3,
+        "median_ms": 56,
+        "p95_ms": 57.099999994039536,
+        "min_ms": 55.599999994039536,
+        "max_ms": 57.099999994039536
+      },
+      "long_task_total": {
+        "samples": 3,
+        "median_ms": 0,
+        "p95_ms": 0,
+        "min_ms": 0,
+        "max_ms": 0
+      },
+      "max_frame_gap": {
+        "samples": 3,
+        "median_ms": 16.699999999999818,
+        "p95_ms": 16.700000000000273,
+        "min_ms": 16.699999999999818,
+        "max_ms": 16.700000000000273
+      }
+    }
+  ],
+  "runs": [
+    {
+      "placement": "synchronous",
+      "archive_persistence": "disabled",
+      "lines": 2000,
+      "round": 0,
+      "source_bytes": 32889,
+      "scenarios": [
+        {
+          "name": "cold-seed-preview",
+          "duration_ms": 2524.300000011921,
+          "long_task_count": 1,
+          "long_task_total_ms": 2380,
+          "max_frame_gap_ms": 2416.6,
+          "request_ids": []
+        },
+        {
+          "name": "local-edit-start",
+          "duration_ms": 288.90000000596046,
+          "long_task_count": 1,
+          "long_task_total_ms": 177,
+          "max_frame_gap_ms": 166.70000000000027,
+          "request_ids": []
+        },
+        {
+          "name": "local-edit-middle",
+          "duration_ms": 273.70000000298023,
+          "long_task_count": 1,
+          "long_task_total_ms": 157,
+          "max_frame_gap_ms": 166.69999999999982,
+          "request_ids": []
+        },
+        {
+          "name": "local-edit-end",
+          "duration_ms": 237.30000001192093,
+          "long_task_count": 1,
+          "long_task_total_ms": 122,
+          "max_frame_gap_ms": 116.69999999999982,
+          "request_ids": []
+        },
+        {
+          "name": "sustained-typing-8-edits",
+          "duration_ms": 389.8999999910593,
+          "long_task_count": 1,
+          "long_task_total_ms": 79,
+          "max_frame_gap_ms": 66.69999999999982,
+          "request_ids": []
+        },
+        {
+          "name": "source-equal-advance",
+          "duration_ms": 57.099999994039536,
+          "long_task_count": 0,
+          "long_task_total_ms": 0,
+          "max_frame_gap_ms": 16.700000000000273,
+          "request_ids": []
+        }
+      ],
+      "trace": {
+        "enabled": false
+      },
+      "persistence_intervals": [],
+      "main_thread": null,
+      "post_gc_heap_bytes": 38322482
+    },
+    {
+      "placement": "synchronous",
+      "archive_persistence": "disabled",
+      "lines": 2000,
+      "round": 1,
+      "source_bytes": 32889,
+      "scenarios": [
+        {
+          "name": "cold-seed-preview",
+          "duration_ms": 2472.2999999970198,
+          "long_task_count": 1,
+          "long_task_total_ms": 2332,
+          "max_frame_gap_ms": 2366.6,
+          "request_ids": []
+        },
+        {
+          "name": "local-edit-start",
+          "duration_ms": 289.90000000596046,
+          "long_task_count": 1,
+          "long_task_total_ms": 171,
+          "max_frame_gap_ms": 166.70000000000027,
+          "request_ids": []
+        },
+        {
+          "name": "local-edit-middle",
+          "duration_ms": 254.90000000596046,
+          "long_task_count": 1,
+          "long_task_total_ms": 144,
+          "max_frame_gap_ms": 133.29999999999973,
+          "request_ids": []
+        },
+        {
+          "name": "local-edit-end",
+          "duration_ms": 237.90000000596046,
+          "long_task_count": 1,
+          "long_task_total_ms": 125,
+          "max_frame_gap_ms": 116.69999999999982,
+          "request_ids": []
+        },
+        {
+          "name": "sustained-typing-8-edits",
+          "duration_ms": 454.09999999403954,
+          "long_task_count": 1,
+          "long_task_total_ms": 86,
+          "max_frame_gap_ms": 83.30000000000018,
+          "request_ids": []
+        },
+        {
+          "name": "source-equal-advance",
+          "duration_ms": 56,
+          "long_task_count": 0,
+          "long_task_total_ms": 0,
+          "max_frame_gap_ms": 16.699999999999818,
+          "request_ids": []
+        }
+      ],
+      "trace": {
+        "enabled": false
+      },
+      "persistence_intervals": [],
+      "main_thread": null,
+      "post_gc_heap_bytes": 38335030
+    },
+    {
+      "placement": "synchronous",
+      "archive_persistence": "disabled",
+      "lines": 2000,
+      "round": 2,
+      "source_bytes": 32889,
+      "scenarios": [
+        {
+          "name": "cold-seed-preview",
+          "duration_ms": 2842.5,
+          "long_task_count": 1,
+          "long_task_total_ms": 2701,
+          "max_frame_gap_ms": 2733.2000000000003,
+          "request_ids": []
+        },
+        {
+          "name": "local-edit-start",
+          "duration_ms": 287,
+          "long_task_count": 1,
+          "long_task_total_ms": 176,
+          "max_frame_gap_ms": 166.5999999999999,
+          "request_ids": []
+        },
+        {
+          "name": "local-edit-middle",
+          "duration_ms": 254.90000000596046,
+          "long_task_count": 1,
+          "long_task_total_ms": 142,
+          "max_frame_gap_ms": 133.30000000000018,
+          "request_ids": []
+        },
+        {
+          "name": "local-edit-end",
+          "duration_ms": 239.70000000298023,
+          "long_task_count": 1,
+          "long_task_total_ms": 132,
+          "max_frame_gap_ms": 116.69999999999982,
+          "request_ids": []
+        },
+        {
+          "name": "sustained-typing-8-edits",
+          "duration_ms": 404.8999999910593,
+          "long_task_count": 1,
+          "long_task_total_ms": 84,
+          "max_frame_gap_ms": 83.30000000000018,
+          "request_ids": []
+        },
+        {
+          "name": "source-equal-advance",
+          "duration_ms": 55.599999994039536,
+          "long_task_count": 0,
+          "long_task_total_ms": 0,
+          "max_frame_gap_ms": 16.699999999999818,
+          "request_ids": []
+        }
+      ],
+      "trace": {
+        "enabled": false
+      },
+      "persistence_intervals": [],
+      "main_thread": null,
+      "post_gc_heap_bytes": 38331574
+    }
+  ]
+}

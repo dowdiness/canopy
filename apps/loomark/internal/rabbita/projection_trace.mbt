@@ -61,6 +61,30 @@ const PROJECTION_TRACE_PHASE_E : Int = 6
 const PROJECTION_TRACE_PHASE_F : Int = 7
 
 ///|
+const PROJECTION_TRACE_PHASE_H1 : Int = 8
+
+///|
+const PROJECTION_TRACE_PHASE_H2 : Int = 9
+
+///|
+const PROJECTION_TRACE_PHASE_H3 : Int = 10
+
+///|
+const PROJECTION_TRACE_PHASE_H4 : Int = 11
+
+///|
+const PROJECTION_TRACE_PHASE_H5 : Int = 12
+
+///|
+const PROJECTION_TRACE_PHASE_H6_HISTORY_JSON : Int = 13
+
+///|
+const PROJECTION_TRACE_PHASE_H6_ARCHIVE_ENVELOPE : Int = 14
+
+///|
+const PROJECTION_TRACE_PHASE_H7 : Int = 15
+
+///|
 const PROJECTION_TRACE_STATUS_RECORDED : Int = 1
 
 ///|
@@ -779,6 +803,23 @@ fn projection_trace_observe_authority(
 }
 
 ///|
+/// Record one post-commit persistence milestone on the current request.
+fn projection_trace_persistence_phase(phase : Int) -> Unit {
+  match projection_trace.val {
+    Some(trace) if trace.current_request_id != 0 =>
+      projection_trace_test_progress(
+        event_id=trace.current_event_id,
+        request_id=trace.current_request_id,
+        group_work_id=0,
+        presentation_id=0,
+        group=PROJECTION_TRACE_GROUP_NONE,
+        phase~,
+      )
+    _ => ()
+  }
+}
+
+///|
 /// Record a fresh recovery session's Seed materialization and execution. The
 /// recovered model has no Preview demand, so the request issues no group work.
 fn projection_trace_recovery_seed_materialized() -> Unit {
@@ -1124,7 +1165,7 @@ extern "js" fn projection_benchmark_publish_trace_raw(raw : String) -> Unit =
 
 ///|
 fn projection_benchmark_trace_enable() -> Unit {
-  if projection_benchmark_enabled {
+  if persistence_trace_enabled {
     projection_trace_enable(
       capacity=65536,
       clock=projection_benchmark_now_micros,

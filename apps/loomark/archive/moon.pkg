@@ -3,6 +3,10 @@ import {
   "moonbitlang/core/json",
 }
 
+import {
+  "moonbitlang/core/bench",
+} for "wbtest"
+
 warnings = "-7-29"
 
 options(

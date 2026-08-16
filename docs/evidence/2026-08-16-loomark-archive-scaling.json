@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "date": "2026-08-16",
+  "harness_commit": "f152a0c",
+  "target": "js-release",
+  "corpus": "alternating paragraph and blank lines",
+  "samples_per_completed_case": 10,
+  "measurements": [
+    {
+      "lines": 2000,
+      "complete_history_export_mean_ms": 273.91,
+      "complete_history_export_sigma_ms": 14.23,
+      "history_json_encoding_mean_ms": 694.40,
+      "history_json_encoding_sigma_ms": 166.89,
+      "complete_archive_encoding_mean_ms": 1150.0,
+      "complete_archive_encoding_sigma_ms": 193.19
+    },
+    {
+      "lines": 10000,
+      "complete_history_export_mean_ms": 1610.0,
+      "complete_history_export_sigma_ms": 61.53,
+      "history_json_encoding_mean_ms": 3800.0,
+      "history_json_encoding_sigma_ms": 541.67,
+      "complete_archive_encoding_mean_ms": 11750.0,
+      "complete_archive_encoding_sigma_ms": 775.36
+    }
+  ],
+  "censored": [
+    {
+      "lines": 50000,
+      "case": "complete history export",
+      "timeout_ms": 900000,
+      "result": "censored before MoonBench calibration completed"
+    }
+  ],
+  "not_run": [
+    {
+      "lines": 50000,
+      "case": "history JSON encoding and complete archive encoding",
+      "reason": "not run individually after the full nine-case batch timed out"
+    }
+  ]
+}

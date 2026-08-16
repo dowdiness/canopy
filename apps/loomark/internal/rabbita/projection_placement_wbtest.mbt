@@ -30,6 +30,24 @@ test "projection benchmark instrumentation requires an exact private opt-in" {
 }
 
 ///|
+test "archive persistence control requires benchmark opt-in and exact disable" {
+  assert_true(archive_persistence_enabled_from_query(false, Some("0")))
+  assert_true(archive_persistence_enabled_from_query(true, None))
+  assert_true(archive_persistence_enabled_from_query(true, Some("")))
+  assert_true(archive_persistence_enabled_from_query(true, Some("disabled")))
+  assert_false(archive_persistence_enabled_from_query(true, Some("0")))
+}
+
+///|
+test "persistence trace control requires benchmark opt-in and exact disable" {
+  assert_false(persistence_trace_enabled_from_query(false, Some("1")))
+  assert_false(persistence_trace_enabled_from_query(true, None))
+  assert_false(persistence_trace_enabled_from_query(true, Some("")))
+  assert_false(persistence_trace_enabled_from_query(true, Some("enabled")))
+  assert_true(persistence_trace_enabled_from_query(true, Some("1")))
+}
+
+///|
 test "in-process projection client emits the Worker envelope synchronously" {
   let client = ProjectionInProcessClient::new("in-process-test")
   let stamp = projection_worker_client_test_stamp(3)

@@ -827,6 +827,20 @@ therefore rejects presentation optimization and returns the investigation to
 the pre-frame authority path. This result does not satisfy the remaining
 Commit 7 scenario, retention, or closure criteria below.
 
+**Persistence-preparation outcome (2026-08-16):** Harness commit `f152a0c`
+split B-to-D and compared archive persistence enabled and disabled through the
+same production release-browser path. The 2,000-line middle-edit median fell
+from 2,105.5 ms to 238.3 ms when private benchmark configuration disabled
+archive preparation. On the enabled path, complete history export took
+292.1 ms, history JSON encoding 820.1 ms, and archive-envelope stringify
+639.4 ms; B-to-H7 persistence preparation totaled 1,783.2 ms. The
+[persistence characterization](../performance/2026-08-16-loomark-persistence-preparation.md)
+therefore identifies complete-replacement archive preparation as the pre-frame
+bottleneck. Production persistence remains enabled and unchanged. The next
+prototype must preserve archive recovery, atomicity, and history durability;
+any checkpoint plus operation-tail design requires a new ADR. This result does
+not satisfy the remaining Commit 7 scenario, retention, or closure criteria.
+
 Run 2k/10k/50k release-browser scenarios for cold Seed, local edits at
 start/middle/end, sustained typing, back-to-back Block intent, demand-only
 Preview, split edit, source-equal advance, failure/restart, cutover bursts, and

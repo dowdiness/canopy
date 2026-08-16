@@ -12,6 +12,8 @@ const sizes = (process.env.LOOMARK_PROJECTION_SIZES ?? "2000,10000,50000")
   .map(Number)
 const placements = (process.env.LOOMARK_PROJECTION_PLACEMENTS ?? "worker,in-process,synchronous")
   .split(",")
+const archiveModes = (process.env.LOOMARK_ARCHIVE_PERSISTENCE ?? "enabled")
+  .split(",")
 const latinSquare = placements.length === 3
   ? [
       ["worker", "in-process", "synchronous"],
@@ -20,6 +22,7 @@ const latinSquare = placements.length === 3
     ]
   : [placements]
 const mainThreadTraceEnabled = process.env.LOOMARK_MAIN_THREAD_TRACE === "1"
+const persistenceTraceEnabled = process.env.LOOMARK_PERSISTENCE_TRACE !== "0"
 
 const mime = new Map([
   [".css", "text/css"],
@@ -51,6 +54,54 @@ function summarize(values) {
     min_ms: values.length === 0 ? null : Math.min(...values),
     max_ms: values.length === 0 ? null : Math.max(...values),
   }
+}
+
+function persistenceIntervals(trace, scenarios) {
+  const phases = new Map([
+    [4, "b"],
+    [8, "h1_receipt_history"],
+    [9, "h2_classification"],
+    [10, "h3_archive_started"],
+    [11, "h4_portable_markdown"],
+    [12, "h5_complete_history"],
+    [13, "h6_history_json"],
+    [14, "h6_archive_envelope"],
+    [15, "h7_storage_scheduled"],
+  ])
+  const scenarioByRequest = new Map(
+    scenarios.flatMap(scenario => (
+      (scenario.request_ids ?? []).map(requestId => [requestId, scenario.name])
+    )),
+  )
+  const requests = new Map()
+  for (const entry of trace?.entries ?? []) {
+    const name = phases.get(entry.phase)
+    if (name === undefined || entry.request_id === 0) continue
+    if (!requests.has(entry.request_id)) requests.set(entry.request_id, new Map())
+    requests.get(entry.request_id).set(name, entry.timestamp_us)
+  }
+  return [...requests.entries()]
+    .sort(([left], [right]) => left - right)
+    .map(([requestId, marks]) => {
+      const interval = (start, end) => (
+        marks.has(start) && marks.has(end)
+          ? (marks.get(end) - marks.get(start)) / 1000
+          : null
+      )
+      return {
+        request_id: requestId,
+        scenario: scenarioByRequest.get(requestId) ?? null,
+        b_to_h1_ms: interval("b", "h1_receipt_history"),
+        h1_to_h2_ms: interval("h1_receipt_history", "h2_classification"),
+        h2_to_h3_ms: interval("h2_classification", "h3_archive_started"),
+        h3_to_h4_ms: interval("h3_archive_started", "h4_portable_markdown"),
+        h4_to_h5_ms: interval("h4_portable_markdown", "h5_complete_history"),
+        h5_to_history_json_ms: interval("h5_complete_history", "h6_history_json"),
+        history_to_envelope_ms: interval("h6_history_json", "h6_archive_envelope"),
+        envelope_to_h7_ms: interval("h6_archive_envelope", "h7_storage_scheduled"),
+        b_to_h7_ms: interval("b", "h7_storage_scheduled"),
+      }
+    })
 }
 
 async function serve() {
@@ -209,7 +260,19 @@ async function waitForPreview(page, source, renderedMarker) {
   )
 }
 
+async function traceRequestIds(page) {
+  await page.locator("#loomark-projection-trace-dump").dispatchEvent("click")
+  const raw = await page.locator("html").getAttribute("data-loomark-projection-trace")
+  const trace = JSON.parse(raw ?? "{}")
+  return new Set(
+    (trace.entries ?? [])
+      .map(entry => entry.request_id)
+      .filter(requestId => requestId !== 0),
+  )
+}
+
 async function measured(page, name, action, settle) {
+  const requestsBefore = await traceRequestIds(page)
   await page.evaluate(scenario => {
     const state = globalThis.__loomarkPlacementBench
     state.longTasks.length = 0
@@ -230,14 +293,18 @@ async function measured(page, name, action, settle) {
       max_frame_gap_ms: Math.max(0, ...state.frameGaps),
     }
   }, { name, started })
-  return { name, ...observed }
+  const requestsAfter = await traceRequestIds(page)
+  const request_ids = [...requestsAfter].filter(requestId => !requestsBefore.has(requestId))
+  return { name, ...observed, request_ids }
 }
 
-async function runSample(browser, origin, placement, blocks, round) {
+async function runSample(browser, origin, placement, archiveMode, blocks, round) {
   const context = await browser.newContext()
   const page = await context.newPage()
   await installObservers(page)
-  await page.goto(`${origin}/?projection-placement=${placement}&projection-benchmark=1`)
+  const archiveValue = archiveMode === "disabled" ? "0" : "1"
+  const traceValue = persistenceTraceEnabled ? "1" : "0"
+  await page.goto(`${origin}/?projection-placement=${placement}&projection-benchmark=1&archive-persistence=${archiveValue}&persistence-trace=${traceValue}`)
   await page.locator("#loomark-split-toggle").click()
   await page.locator("#loomark-preview").waitFor()
   const mainThreadTrace = await startMainThreadTrace(context, page)
@@ -295,11 +362,13 @@ async function runSample(browser, origin, placement, blocks, round) {
   await context.close()
   return {
     placement,
+    archive_persistence: archiveMode,
     lines: blocks,
     round,
     source_bytes: Buffer.byteLength(base),
     scenarios,
     trace,
+    persistence_intervals: persistenceIntervals(trace, scenarios),
     main_thread: mainThread,
     post_gc_heap_bytes: heap,
   }
@@ -307,6 +376,7 @@ async function runSample(browser, origin, placement, blocks, round) {
 
 async function childMain() {
   const placement = process.env.LOOMARK_PROJECTION_CHILD_PLACEMENT
+  const archiveMode = process.env.LOOMARK_PROJECTION_CHILD_ARCHIVE
   const lines = Number(process.env.LOOMARK_PROJECTION_CHILD_LINES)
   const round = Number(process.env.LOOMARK_PROJECTION_CHILD_ROUND)
   const { server, origin } = await serve()
@@ -315,7 +385,7 @@ async function childMain() {
     args: ["--js-flags=--expose-gc", "--enable-precise-memory-info"],
   })
   try {
-    const result = await runSample(browser, origin, placement, lines, round)
+    const result = await runSample(browser, origin, placement, archiveMode, lines, round)
     process.stdout.write(JSON.stringify(result))
   } finally {
     await browser.close()
@@ -323,7 +393,7 @@ async function childMain() {
   }
 }
 
-function runIsolated(placement, lines, round) {
+function runIsolated(placement, archiveMode, lines, round) {
   const deadlineMs = lines <= 2000 ? 180_000 : 120_000
   return new Promise(resolve => {
     const child = spawn(process.execPath, [new URL(import.meta.url).pathname], {
@@ -332,6 +402,7 @@ function runIsolated(placement, lines, round) {
         ...process.env,
         LOOMARK_PROJECTION_CHILD: "1",
         LOOMARK_PROJECTION_CHILD_PLACEMENT: placement,
+        LOOMARK_PROJECTION_CHILD_ARCHIVE: archiveMode,
         LOOMARK_PROJECTION_CHILD_LINES: String(lines),
         LOOMARK_PROJECTION_CHILD_ROUND: String(round),
       },
@@ -355,6 +426,7 @@ function runIsolated(placement, lines, round) {
       if (censored) {
         resolve({
           placement,
+          archive_persistence: archiveMode,
           lines,
           round,
           censored_timeout_ms: deadlineMs,
@@ -365,6 +437,7 @@ function runIsolated(placement, lines, round) {
       if (code !== 0) {
         resolve({
           placement,
+          archive_persistence: archiveMode,
           lines,
           round,
           error: `isolated benchmark exited ${code}: ${stderr.trim()}`,
@@ -376,6 +449,7 @@ function runIsolated(placement, lines, round) {
       } catch (error) {
         resolve({
           placement,
+          archive_persistence: archiveMode,
           lines,
           round,
           error: `invalid isolated benchmark output: ${
@@ -396,8 +470,10 @@ const runs = []
 for (const blocks of sizes) {
   for (let round = 0; round < samples; round += 1) {
     for (const placement of latinSquare[round % latinSquare.length]) {
-      console.error(`benchmark lines=${blocks} round=${round + 1}/${samples} placement=${placement}`)
-      runs.push(await runIsolated(placement, blocks, round))
+      for (const archiveMode of archiveModes) {
+        console.error(`benchmark lines=${blocks} round=${round + 1}/${samples} placement=${placement} archive=${archiveMode}`)
+        runs.push(await runIsolated(placement, archiveMode, blocks, round))
+      }
     }
   }
 }
@@ -405,36 +481,40 @@ for (const blocks of sizes) {
 const summaries = []
 for (const blocks of sizes) {
   for (const placement of placements) {
-    for (const name of [
-      "cold-seed-preview",
-      "local-edit-start",
-      "local-edit-middle",
-      "local-edit-end",
-      "sustained-typing-8-edits",
-      "source-equal-advance",
-    ]) {
-      const matching = runs
-        .filter(run => (
-          run.lines === blocks &&
-          run.placement === placement &&
-          Array.isArray(run.scenarios)
-        ))
-        .map(run => run.scenarios.find(scenario => scenario.name === name))
-        .filter(Boolean)
-      summaries.push({
-        lines: blocks,
-        placement,
-        scenario: name,
-        duration: summarize(matching.map(result => result.duration_ms)),
-        long_task_total: summarize(matching.map(result => result.long_task_total_ms)),
-        max_frame_gap: summarize(matching.map(result => result.max_frame_gap_ms)),
-      })
+    for (const archiveMode of archiveModes) {
+      for (const name of [
+        "cold-seed-preview",
+        "local-edit-start",
+        "local-edit-middle",
+        "local-edit-end",
+        "sustained-typing-8-edits",
+        "source-equal-advance",
+      ]) {
+        const matching = runs
+          .filter(run => (
+            run.lines === blocks &&
+            run.placement === placement &&
+            run.archive_persistence === archiveMode &&
+            Array.isArray(run.scenarios)
+          ))
+          .map(run => run.scenarios.find(scenario => scenario.name === name))
+          .filter(Boolean)
+        summaries.push({
+          lines: blocks,
+          placement,
+          archive_persistence: archiveMode,
+          scenario: name,
+          duration: summarize(matching.map(result => result.duration_ms)),
+          long_task_total: summarize(matching.map(result => result.long_task_total_ms)),
+          max_frame_gap: summarize(matching.map(result => result.max_frame_gap_ms)),
+        })
+      }
     }
   }
 }
 
 const report = {
-  schema_version: 2,
+  schema_version: 3,
   generated_at: new Date().toISOString(),
   environment: {
     commit_sha: process.env.LOOMARK_PROJECTION_COMMIT ?? "unrecorded",
@@ -443,6 +523,8 @@ const report = {
     samples,
     sizes,
     placements,
+    archive_persistence: archiveModes,
+    persistence_trace: persistenceTraceEnabled,
     run_order: placements.length === 3
       ? "3x3 Latin square rotated by sample within each corpus size"
       : "configured placement order repeated for each sample and corpus size",
@@ -450,29 +532,37 @@ const report = {
     forced_gc: "Chromium --js-flags=--expose-gc before post_gc_heap_bytes",
   },
   controls: {
-    tracing_requested: true,
+    tracing_requested: persistenceTraceEnabled,
     main_thread_tracing_requested: mainThreadTraceEnabled,
-    all_main_thread_intervals_complete: !mainThreadTraceEnabled || runs.every(
-      run => run.main_thread?.intervals?.length === 6,
-    ),
-    all_main_thread_positive_controls: !mainThreadTraceEnabled || runs.every(run => {
-      const cold = run.main_thread?.intervals?.find(
-        interval => interval.scenario === "cold-seed-preview",
-      )
-      const noOp = run.main_thread?.intervals?.find(
-        interval => interval.scenario === "source-equal-advance",
-      )
-      return cold?.function_call_ms > 0 && cold?.elapsed_ms > noOp?.elapsed_ms
-    }),
+    all_main_thread_intervals_complete: mainThreadTraceEnabled
+      ? runs.every(run => run.main_thread?.intervals?.length === 6)
+      : null,
+    all_main_thread_positive_controls: mainThreadTraceEnabled
+      ? runs.every(run => {
+        const cold = run.main_thread?.intervals?.find(
+          interval => interval.scenario === "cold-seed-preview",
+        )
+        const noOp = run.main_thread?.intervals?.find(
+          interval => interval.scenario === "source-equal-advance",
+        )
+        return cold?.function_call_ms > 0 && cold?.elapsed_ms > noOp?.elapsed_ms
+      })
+      : null,
     all_runs_completed: runs.every(run => !run.error),
-    all_traces_enabled: runs.every(run => run.trace?.enabled === true),
-    all_traces_nonempty: runs.every(run => run.trace?.count > 0),
-    all_traces_lossless: runs.every(run => (
-      run.trace?.dropped_count === 0 && run.trace?.overflowed === false
-    )),
-    all_trace_contracts_valid: runs.every(
-      run => run.trace?.contract_violated === false,
-    ),
+    all_traces_enabled: persistenceTraceEnabled
+      ? runs.every(run => run.trace?.enabled === true)
+      : null,
+    all_traces_nonempty: persistenceTraceEnabled
+      ? runs.every(run => run.trace?.count > 0)
+      : null,
+    all_traces_lossless: persistenceTraceEnabled
+      ? runs.every(run => (
+        run.trace?.dropped_count === 0 && run.trace?.overflowed === false
+      ))
+      : null,
+    all_trace_contracts_valid: persistenceTraceEnabled
+      ? runs.every(run => run.trace?.contract_violated === false)
+      : null,
   },
   summaries,
   runs,
@@ -482,6 +572,7 @@ await import("node:fs/promises").then(({ writeFile }) => writeFile(output, `${JS
 console.table(summaries.map(summary => ({
   lines: summary.lines,
   placement: summary.placement,
+  archive_persistence: summary.archive_persistence,
   scenario: summary.scenario,
   median_ms: summary.duration.median_ms?.toFixed(1),
   p95_ms: summary.duration.p95_ms?.toFixed(1),

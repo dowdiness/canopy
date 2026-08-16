@@ -57,6 +57,15 @@ pub(all) suberror LoomarkArchiveDecodeError {
 }
 
 ///|
+/// Fixed preparation milestones exposed only to diagnostic callers.
+pub(all) enum LoomarkArchivePreparationPhase {
+  PortableMarkdownCaptured
+  CompleteHistoryCaptured
+  HistoryJsonEncoded
+  ArchiveEnvelopeEncoded
+} derive(Eq, Debug)
+
+///|
 /// A versioned Loomark document archive with an opaque history payload.
 pub struct LoomarkDocumentArchive {
   priv document_id : LoomarkDocumentId
@@ -142,6 +151,39 @@ pub fn LoomarkDocumentArchive::capture(
 }
 
 ///|
+/// Capture while reporting completed preparation milestones.
+pub fn LoomarkDocumentArchive::capture_observing(
+  document_id~ : LoomarkDocumentId,
+  editor~ : @markdown.MarkdownEditor,
+  observer : (LoomarkArchivePreparationPhase) -> Unit,
+) -> LoomarkDocumentArchive raise {
+  let portable_markdown = editor.portable_markdown()
+  observer(LoomarkArchivePreparationPhase::PortableMarkdownCaptured)
+  let history = editor.history_since() catch {
+    @markdown.MarkdownArchiveError::ExportFailed(detail~) =>
+      raise LoomarkArchiveCaptureError::HistoryUnavailable(detail~)
+    @markdown.MarkdownArchiveError::HistoryAdmissionFailed(detail~) =>
+      raise LoomarkArchiveCaptureError::HistoryUnavailable(detail~)
+    @markdown.MarkdownArchiveError::IncompleteHistory =>
+      raise LoomarkArchiveCaptureError::HistoryUnavailable(
+        detail="history is incomplete",
+      )
+    @markdown.MarkdownArchiveError::InvalidAgentId =>
+      raise LoomarkArchiveCaptureError::HistoryUnavailable(
+        detail="invalid agent id",
+      )
+    @markdown.MarkdownArchiveError::WriterCreationFailed(detail~) =>
+      raise LoomarkArchiveCaptureError::HistoryUnavailable(detail~)
+    @markdown.MarkdownArchiveError::LimitExceeded(..) =>
+      raise LoomarkArchiveCaptureError::HistoryUnavailable(
+        detail="history export limit exceeded",
+      )
+  }
+  observer(LoomarkArchivePreparationPhase::CompleteHistoryCaptured)
+  { document_id, portable_markdown, history }
+}
+
+///|
 /// Encode the exact v1 envelope deterministically.
 pub fn LoomarkDocumentArchive::to_json_string(self : Self) -> String {
   Json::object({
@@ -151,6 +193,25 @@ pub fn LoomarkDocumentArchive::to_json_string(self : Self) -> String {
     "history": Json::string(self.history.to_json_string()),
     "extensions": Json::empty_object(),
   }).stringify()
+}
+
+///|
+/// Encode while reporting history and envelope completion separately.
+pub fn LoomarkDocumentArchive::to_json_string_observing(
+  self : Self,
+  observer : (LoomarkArchivePreparationPhase) -> Unit,
+) -> String {
+  let history_json = self.history.to_json_string()
+  observer(LoomarkArchivePreparationPhase::HistoryJsonEncoded)
+  let encoded = Json::object({
+    "schema_version": Json::string(LOOMARK_ARCHIVE_SCHEMA_VERSION.to_string()),
+    "document_id": Json::string(self.document_id.value()),
+    "portable_markdown": Json::string(self.portable_markdown),
+    "history": Json::string(history_json),
+    "extensions": Json::empty_object(),
+  }).stringify()
+  observer(LoomarkArchivePreparationPhase::ArchiveEnvelopeEncoded)
+  encoded
 }
 
 ///|
