@@ -216,8 +216,10 @@ test "accepted preview-demand edit omits synchronous projection phases" {
     PROJECTION_TRACE_PHASE_C,
     PROJECTION_TRACE_PHASE_A1,
     PROJECTION_TRACE_PHASE_B,
+    PROJECTION_TRACE_PHASE_H1,
+    PROJECTION_TRACE_PHASE_H2,
   ])
-  assert_eq(ticks.val, 4)
+  assert_eq(ticks.val, 6)
 }
 
 ///|
@@ -348,14 +350,16 @@ test "source-equal causal advance synchronizes the projection mirror" {
     PROJECTION_TRACE_PHASE_C,
     PROJECTION_TRACE_PHASE_A1,
     PROJECTION_TRACE_PHASE_B,
+    PROJECTION_TRACE_PHASE_H1,
+    PROJECTION_TRACE_PHASE_H2,
     0,
   ])
   assert_eq(
-    projection_trace_request_disposition(4),
+    projection_trace_request_disposition(6),
     Some(PROJECTION_TRACE_REQUEST_NO_DEMAND),
   )
-  assert_eq(projection_trace_reason(4), Some(PROJECTION_TRACE_REASON_NO_DEMAND))
-  assert_eq(ticks.val, 5)
+  assert_eq(projection_trace_reason(6), Some(PROJECTION_TRACE_REASON_NO_DEMAND))
+  assert_eq(ticks.val, 7)
 }
 
 ///|
@@ -400,24 +404,26 @@ test "source-equal demanded Preview republishes retained artifact" {
     PROJECTION_TRACE_PHASE_C,
     PROJECTION_TRACE_PHASE_A1,
     PROJECTION_TRACE_PHASE_B,
+    PROJECTION_TRACE_PHASE_H1,
+    PROJECTION_TRACE_PHASE_H2,
     0,
     PROJECTION_TRACE_PHASE_D,
     PROJECTION_TRACE_PHASE_E,
     PROJECTION_TRACE_PHASE_F,
   ])
-  let work_id = projection_trace_group_work_id(5)
+  let work_id = projection_trace_group_work_id(7)
   assert_true(work_id != Some(0))
   assert_eq(
-    projection_trace_request_disposition(4),
+    projection_trace_request_disposition(6),
     Some(PROJECTION_TRACE_REQUEST_DISPATCHED),
   )
-  assert_eq(projection_trace_group_work_id(6), work_id)
-  assert_eq(projection_trace_group_work_id(7), work_id)
+  assert_eq(projection_trace_group_work_id(8), work_id)
+  assert_eq(projection_trace_group_work_id(9), work_id)
   assert_eq(
-    projection_trace_group_outcome(7),
+    projection_trace_group_outcome(9),
     Some(PROJECTION_TRACE_GROUP_OUTCOME_ADOPTED_NOT_PRESENTED),
   )
-  assert_eq(ticks.val, 8)
+  assert_eq(ticks.val, 10)
 }
 
 ///|
@@ -456,25 +462,27 @@ test "source-equal authority request adopts newly demanded Preview once" {
     PROJECTION_TRACE_PHASE_C,
     PROJECTION_TRACE_PHASE_A1,
     PROJECTION_TRACE_PHASE_B,
+    PROJECTION_TRACE_PHASE_H1,
+    PROJECTION_TRACE_PHASE_H2,
     0,
     PROJECTION_TRACE_PHASE_D,
     PROJECTION_TRACE_PHASE_E,
     PROJECTION_TRACE_PHASE_F,
   ])
   let request_id = projection_trace_request_id(1)
-  for index in 3..<8 {
+  for index in 3..<10 {
     assert_eq(projection_trace_request_id(index), request_id)
   }
   assert_eq(
-    projection_trace_request_disposition(4),
+    projection_trace_request_disposition(6),
     Some(PROJECTION_TRACE_REQUEST_DISPATCHED),
   )
-  let work_id = projection_trace_group_work_id(5)
+  let work_id = projection_trace_group_work_id(7)
   assert_true(work_id != Some(0))
-  assert_eq(projection_trace_group_work_id(6), work_id)
-  assert_eq(projection_trace_group_work_id(7), work_id)
+  assert_eq(projection_trace_group_work_id(8), work_id)
+  assert_eq(projection_trace_group_work_id(9), work_id)
   assert_eq(projection_trace_terminal_count(work_id.unwrap_or(0)), 1)
-  assert_eq(ticks.val, 8)
+  assert_eq(ticks.val, 10)
 }
 
 ///|
@@ -502,20 +510,22 @@ test "Block-only structural edit records independent Block D E F" {
     PROJECTION_TRACE_PHASE_C,
     PROJECTION_TRACE_PHASE_A1,
     PROJECTION_TRACE_PHASE_B,
+    PROJECTION_TRACE_PHASE_H1,
+    PROJECTION_TRACE_PHASE_H2,
     0,
     PROJECTION_TRACE_PHASE_D,
     PROJECTION_TRACE_PHASE_E,
     PROJECTION_TRACE_PHASE_F,
   ])
   assert_eq(
-    projection_trace_request_disposition(4),
+    projection_trace_request_disposition(6),
     Some(PROJECTION_TRACE_REQUEST_DISPATCHED),
   )
-  assert_eq(projection_trace_group(5), Some(PROJECTION_TRACE_GROUP_BLOCK))
-  assert_eq(projection_trace_group(6), Some(PROJECTION_TRACE_GROUP_BLOCK))
   assert_eq(projection_trace_group(7), Some(PROJECTION_TRACE_GROUP_BLOCK))
+  assert_eq(projection_trace_group(8), Some(PROJECTION_TRACE_GROUP_BLOCK))
+  assert_eq(projection_trace_group(9), Some(PROJECTION_TRACE_GROUP_BLOCK))
   assert_eq(
-    projection_trace_group_outcome(7),
+    projection_trace_group_outcome(9),
     Some(PROJECTION_TRACE_GROUP_OUTCOME_ADOPTED_NOT_PRESENTED),
   )
 }
@@ -539,9 +549,9 @@ test "Block work defers simultaneous Preview work to the Worker" {
     emit,
   )
   assert_true(accepted)
-  let block_work = projection_trace_group_work_id(5)
+  let block_work = projection_trace_group_work_id(7)
   assert_true(block_work != Some(0))
-  assert_eq(projection_trace_group(5), Some(PROJECTION_TRACE_GROUP_BLOCK))
+  assert_eq(projection_trace_group(7), Some(PROJECTION_TRACE_GROUP_BLOCK))
   for index in 0..<projection_trace_count() {
     assert_true(
       projection_trace_group(index) != Some(PROJECTION_TRACE_GROUP_PREVIEW),
@@ -571,7 +581,7 @@ test "Block no-op closes request as NoDemand without Block work" {
   )
   assert_true(accepted)
   assert_eq(
-    projection_trace_request_disposition(4),
+    projection_trace_request_disposition(6),
     Some(PROJECTION_TRACE_REQUEST_NO_DEMAND),
   )
   for index in 0..<projection_trace_count() {
