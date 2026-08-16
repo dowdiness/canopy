@@ -125,6 +125,9 @@ Only needed if you are modifying Canopy itself.
 - [Loomark presentation critical-path characterization](performance/2026-08-15-loomark-presentation-critical-path.md)
   — separates the pre-frame JavaScript bottleneck from Rabbita view, DOM,
   layout, and paint work at 2,000 lines.
+- [Loomark post-commit persistence preparation characterization](performance/2026-08-16-loomark-persistence-preparation.md)
+  — attributes the 2,000-line pre-frame delay to complete archive preparation
+  and records isolated archive scaling.
 - [Real Browser Editor Response Baseline](performance/2026-05-13-real-browser-editor-response.md)
 - [Benchmark Redesign](performance/BENCHMARK_REDESIGN.md)
 - [Performance Analysis](performance/PERFORMANCE_ANALYSIS.md)
