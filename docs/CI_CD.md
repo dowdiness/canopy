@@ -30,7 +30,7 @@ than duplicating its globs.
 
 | Job | What it runs |
 |-----|--------------|
-| `dep-check` | `./scripts/check-deps.sh` (module-scope rules [A]–[E] + canopy package-layering rules [F]–[I]; the rules table lives in the script header), `./scripts/check-shared-substrate.sh`, `./scripts/check-egw-resolver-identity.sh`, `nu ./scripts/check-moon-update-wrapped.nu` (registry-bootstrap wiring and manifest contract), `nu ./scripts/test-moon-registry-bootstrap.nu`, `node ./scripts/check-export-manifest.mjs`, `./scripts/test-moon-update-wrapper.sh`, `./scripts/test-pr-ready-validation.sh` |
+| `dep-check` | `./scripts/check-deps.sh` (module-scope rules [A]–[E] + canopy package-layering rules [F]–[I]; the rules table lives in the script header), `./scripts/check-shared-substrate.sh`, `./scripts/check-egw-resolver-identity.sh`, `nu ./scripts/check-moon-registry-bootstrap.nu` (registry cache/bootstrap, manifest, benchmark, and deploy contracts), `node ./scripts/check-export-manifest.mjs`, `./scripts/test-moon-update-wrapper.sh`, `./scripts/test-pr-ready-validation.sh` |
 | `pr-ready-bash3` | Path-filtered macOS check that asserts `/bin/bash` 3.2, exercises local submodule failures, and runs the real PR-ready shell graph with only compiler work faked |
 | `tooling-validation` | Path-filtered Ubuntu validation for GitHub Actions YAML, the pinned justfile, Cursor bootstrap shell, registry-bootstrap contract, Cloudflare build bootstrap scripts, Nushell installer script, and Lefthook configuration |
 | `release-version-validation` | Path-filtered Ubuntu release-contract syntax and regression tests for version resolution, changelog ranges, and remote target resolution |

@@ -57,13 +57,12 @@ cat >"$expected_list" <<'EXPECTED_LIST'
 16 target.check modules/canopy/lang/markdown/edits
 17 target.test modules/canopy/lang/markdown/edits
 18 suite.check
-19 suite.manifest-compat
-20 suite.test
-21 suite.build
-22 build.js
-23 typescript.ffi-consumers origin/main
-24 diff.whitespace origin/main...HEAD
-25 evidence.record
+19 suite.test
+20 suite.build
+21 build.js
+22 typescript.ffi-consumers origin/main
+23 diff.whitespace origin/main...HEAD
+24 evidence.record
 EXPECTED_LIST
 assert_files_equal "$expected_list" "$list_output" "--list order changed"
 
@@ -124,8 +123,8 @@ printf '\n' >>"$PR_READY_TEST_LOG"
 FAKE_NODE
 chmod +x "$fake_bin/moon" "$fake_bin/node"
 
-cat >"$fixture/scripts/check-moon-update-wrapped.nu" <<'FAKE_MOON_BOOTSTRAP_GUARD'
-let line = "check-moon-update-wrapped.nu\n"
+cat >"$fixture/scripts/check-moon-registry-bootstrap.nu" <<'FAKE_MOON_BOOTSTRAP_GUARD'
+let line = "check-moon-registry-bootstrap.nu\n"
 $line | save --append $env.PR_READY_TEST_LOG
 FAKE_MOON_BOOTSTRAP_GUARD
 
@@ -137,7 +136,6 @@ for script_name in \
   check-documentation-lifecycle.sh \
   test-moon-update-wrapper.sh \
   check-strict.sh \
-  check-moonbit-pkg-compat.sh \
   check-test-baseline.sh \
   build-js.sh \
   check-ffi-consumers.sh; do
@@ -317,7 +315,7 @@ cat >"$expected_execution" <<'EXPECTED_EXECUTION'
 check-deps.sh
 check-shared-substrate.sh
 check-egw-resolver-identity.sh
-check-moon-update-wrapped.nu
+check-moon-registry-bootstrap.nu
 check-agent-doc-links.sh
 check-documentation-lifecycle.sh
 node ./scripts/check-export-manifest.mjs
@@ -331,7 +329,6 @@ vendored-filter --keep=pkg --deny-warn --warn-list=-20 .
 moon check --deny-warn --warn-list=-20 .
 moon test --release .
 check-strict.sh
-check-moonbit-pkg-compat.sh
 check-test-baseline.sh 7 moon test --release
 moon build --release
 build-js.sh
