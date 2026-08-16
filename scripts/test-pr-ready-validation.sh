@@ -95,6 +95,7 @@ execution_log="$tmp_dir/execution.log"
 mkdir -p "$fixture/scripts" "$fixture/pkg" "$fake_bin"
 cp "$validator" "$fixture/scripts/validate-pr-ready.sh"
 cp "$submodule_checker" "$fixture/scripts/check-submodule-reachability.nu"
+cp "$root_dir/scripts/check-moon-interfaces.nu" "$fixture/scripts/check-moon-interfaces.nu"
 
 cat >"$fake_bin/moon" <<'FAKE_MOON'
 #!/usr/bin/env bash
@@ -123,11 +124,15 @@ printf '\n' >>"$PR_READY_TEST_LOG"
 FAKE_NODE
 chmod +x "$fake_bin/moon" "$fake_bin/node"
 
+cat >"$fixture/scripts/check-moon-update-wrapped.nu" <<'FAKE_MOON_BOOTSTRAP_GUARD'
+let line = "check-moon-update-wrapped.nu\n"
+$line | save --append $env.PR_READY_TEST_LOG
+FAKE_MOON_BOOTSTRAP_GUARD
+
 for script_name in \
   check-deps.sh \
   check-shared-substrate.sh \
   check-egw-resolver-identity.sh \
-  check-moon-update-wrapped.sh \
   check-agent-doc-links.sh \
   check-documentation-lifecycle.sh \
   test-moon-update-wrapper.sh \
@@ -312,7 +317,7 @@ cat >"$expected_execution" <<'EXPECTED_EXECUTION'
 check-deps.sh
 check-shared-substrate.sh
 check-egw-resolver-identity.sh
-check-moon-update-wrapped.sh
+check-moon-update-wrapped.nu
 check-agent-doc-links.sh
 check-documentation-lifecycle.sh
 node ./scripts/check-export-manifest.mjs

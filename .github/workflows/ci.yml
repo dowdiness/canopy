@@ -21,6 +21,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Install Nushell
+        uses: hustcer/setup-nu@f3fd65374ffc4d60974c0dd2f7263c6c5c285f81
+        with:
+          version: "0.114.1"
+
       - name: Run check-deps
         run: ./scripts/check-deps.sh
 
@@ -31,20 +36,15 @@ jobs:
         run: ./scripts/check-egw-resolver-identity.sh
 
       - name: Check MoonBit registry bootstrap wiring
-        run: ./scripts/check-moon-update-wrapped.sh
+        run: nu ./scripts/check-moon-update-wrapped.nu
 
       - name: Test MoonBit registry bootstrap contract
-        run: ./scripts/test-moon-registry-bootstrap.sh
+        run: nu ./scripts/test-moon-registry-bootstrap.nu
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
           node-version: '20'
-
-      - name: Install Nushell
-        uses: hustcer/setup-nu@f3fd65374ffc4d60974c0dd2f7263c6c5c285f81
-        with:
-          version: "0.114.1"
 
       - name: Check FFI export manifest (lambda app seam)
         run: node ./scripts/check-export-manifest.mjs
@@ -158,9 +158,10 @@ jobs:
               - 'scripts/test-install-hooks.sh'
               - 'scripts/test-lefthook-pre-commit-routing.sh'
               - 'scripts/run-moonbit-rename-route.sh'
-              - 'scripts/check-moon-update-wrapped.sh'
-              - 'scripts/check-moon-registry-manifests.py'
-              - 'scripts/test-moon-registry-bootstrap.sh'
+              - 'scripts/check-moon-update-wrapped.nu'
+              - 'scripts/check-moon-registry-manifests.nu'
+              - 'scripts/check-moon-interfaces.nu'
+              - 'scripts/test-moon-registry-bootstrap.nu'
               - 'scripts/validate-ci-yaml.sh'
               - 'scripts/moon-update.sh'
               - '.github/actions/setup-moonbit/**'
@@ -233,8 +234,12 @@ jobs:
 
       - name: Validate MoonBit registry bootstrap wiring
         run: |
-          bash scripts/check-moon-update-wrapped.sh
-          bash scripts/test-moon-registry-bootstrap.sh
+          nu --ide-check 100 scripts/check-moon-update-wrapped.nu
+          nu --ide-check 100 scripts/check-moon-registry-manifests.nu
+          nu --ide-check 100 scripts/test-moon-registry-bootstrap.nu
+          nu scripts/check-moon-update-wrapped.nu
+          nu scripts/check-moon-registry-manifests.nu
+          nu scripts/test-moon-registry-bootstrap.nu
 
       - name: Validate Nushell scripts
         run: |
@@ -354,8 +359,7 @@ jobs:
           mkdir -p "$bash32_bin"
           ln -s /bin/bash "$bash32_bin/bash"
 
-          PATH="$bash32_bin:$PATH" \
-            /bin/bash ./scripts/check-moon-update-wrapped.sh
+          nu ./scripts/check-moon-update-wrapped.nu
           PATH="$bash32_bin:$PATH" \
             /bin/bash ./scripts/test-pr-ready-validation.sh
           PATH="$bash32_bin:$PATH" \

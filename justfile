@@ -42,10 +42,14 @@ hook-tooling-contract:
     @make -n check
     @make -n registry-refresh
     @node -e 'JSON.parse(require("fs").readFileSync(".claude/settings.json", "utf8"))'
-    @bash -n .githooks/pre-commit .githooks/pre-push scripts/install-hooks.sh scripts/test-install-hooks.sh scripts/test-lefthook-pre-commit-routing.sh scripts/test-lefthook-pre-push-routing.sh scripts/test-pr-ready-validation.sh scripts/test-submodule-reachability.sh scripts/run-submodule-reachability.sh scripts/run-moonbit-rename-route.sh scripts/check-moon-update-wrapped.sh scripts/test-moon-registry-bootstrap.sh scripts/validate-ci-yaml.sh
-    @bash scripts/check-moon-update-wrapped.sh
-    @python3 scripts/check-moon-registry-manifests.py
-    @bash scripts/test-moon-registry-bootstrap.sh
+    @bash -n .githooks/pre-commit .githooks/pre-push scripts/install-hooks.sh scripts/test-install-hooks.sh scripts/test-lefthook-pre-commit-routing.sh scripts/test-lefthook-pre-push-routing.sh scripts/test-pr-ready-validation.sh scripts/test-submodule-reachability.sh scripts/run-submodule-reachability.sh scripts/run-moonbit-rename-route.sh scripts/validate-ci-yaml.sh
+    @nu --ide-check 100 scripts/check-moon-update-wrapped.nu
+    @nu --ide-check 100 scripts/check-moon-registry-manifests.nu
+    @nu --ide-check 100 scripts/check-moon-interfaces.nu
+    @nu --ide-check 100 scripts/test-moon-registry-bootstrap.nu
+    @nu scripts/check-moon-update-wrapped.nu
+    @nu scripts/check-moon-registry-manifests.nu
+    @nu scripts/test-moon-registry-bootstrap.nu
     @nu --ide-check 100 scripts/check-submodule-reachability.nu
     @nu --ide-check 100 scripts/install-hooks.nu
     @lefthook validate

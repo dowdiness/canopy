@@ -11,10 +11,10 @@ from [`../moon.work`](../moon.work).
 Do not maintain a script inventory or copied command reference in this file.
 Use the scripts themselves, the root [`justfile`](../justfile), and
 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) as the authoritative
-operational sources. `check-moon-update-wrapped.sh`,
-`check-moon-registry-manifests.py`, and `test-moon-registry-bootstrap.sh`
-enforce the cache-aware MoonBit registry bootstrap boundary; `moon-update.sh`
-remains the bounded-retry implementation
+operational sources. `check-moon-update-wrapped.nu`,
+`check-moon-registry-manifests.nu`, `check-moon-interfaces.nu`, and
+`test-moon-registry-bootstrap.nu` enforce the cache-aware MoonBit registry
+bootstrap boundary; `moon-update.sh` remains the bounded-retry implementation
 used by CI bootstrap, local `registry-refresh`, and its regression test.
 `check-submodule-reachability.nu` is the shared blocking contract used by
 PR-ready validation and the narrow Lefthook pre-push route;
