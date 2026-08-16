@@ -93,6 +93,14 @@ process deadline. Set `LOOMARK_PROJECTION_COMMIT` to the exact harness commit
 when retaining evidence. The 2026-08-15 result and raw files are indexed in
 [`docs/performance/2026-08-15-loomark-projection-placement.md`](../../../../docs/performance/2026-08-15-loomark-projection-placement.md).
 
+Set `LOOMARK_MAIN_THREAD_TRACE=1` to add calibrated Chromium main-thread
+intervals for each scenario. `LOOMARK_PROJECTION_PLACEMENTS` accepts a
+comma-separated subset when characterizing one placement; the default remains
+the counterbalanced three-placement matrix. Main-thread `FunctionCall` time
+includes input dispatch and authority work and must not be interpreted as DOM
+or paint time. The 2,000-line phase characterization is recorded in
+[`docs/performance/2026-08-15-loomark-presentation-critical-path.md`](../../../../docs/performance/2026-08-15-loomark-presentation-critical-path.md).
+
 ## Driver seam
 
 The generated JavaScript for `internal/dev_host` is private test infrastructure.
