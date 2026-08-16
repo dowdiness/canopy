@@ -161,9 +161,11 @@ names remain a plan-review decision, but its semantic contents are not optional:
 
 - committed operations and their `RawVersion` identities;
 - `already_admitted` identities accepted as authority-owned no-ops;
-- `pending_from_transition` identities whose terminal owner is core pending,
-  including the exact retained/staged uncommitted suffix and any pending
-  identity delivered as a no-op, represented at most once;
+- `pending_from_transition` identities whose terminal owner is still core
+  pending after the actual commit attempt, including the exact retained/staged
+  uncommitted suffix; a `duplicate_of_pending` identity appears here only if
+  it remains pending after the attempt, never merely because of its arrival
+  provenance;
 - discarded identities split into `discarded_pending` and `discarded_staged`;
 - `pending_before_count` and `pending_after_count`, counting unique live
   pending membership without copying unrelated pending identities;
@@ -210,6 +212,16 @@ a fallible post-mutation step. Terminal ownership and
 staged/retained/discarded provenance are separate views of the same transition,
 not overlapping owners.
 
+### Receipt collection ordering
+
+Receipt arrays are deterministic for diagnostics, but their element order is
+not part of the P1 contract. Callers must treat identity collections as sets
+unless an accessor explicitly documents an ordering guarantee. The commit loop
+may still execute `PreparedAdmission::operations()` in prepared order; that
+implementation order must not silently become a public receipt-order promise.
+This leaves P2 free to change planner collection mechanics without changing
+semantic ownership.
+
 ### 2. Make partial a normal typed outcome
 
 The new core capability should be shaped as:
@@ -245,6 +257,37 @@ It delegates to the typed capability. A complete outcome returns committed
 operations. A partial outcome is translated back to the existing
 `PartialRemoteAdmission` error for legacy callers; the new typed path retains
 the full receipt. No `Document` or `Branch` migration belongs in P1.
+
+### Close the post-begin error algebra
+
+`commit_admission` has a phase-indexed error boundary:
+
+```text
+before begin_admission succeeds / the internal result is Applied:
+  lifecycle, structure, and pending-limit failures may raise OpLogError
+
+after begin_admission succeeds with Applied:
+  commit_admission returns AdmissionOutcome::Complete or
+  AdmissionOutcome::Partial
+```
+
+No recoverable `OpLogError` may escape after the planner transition has been
+applied or after an authority prefix may have been committed. Prefer a private
+post-begin seam equivalent to
+`(@core.Op) -> @core.Op raise @causal_graph.CausalGraphError`; if the existing
+production adapter still has a wider error type, translate supposedly
+impossible variants to an invariant defect at that boundary. The post-begin
+commit seam is narrowed to `CausalGraphError`, which becomes
+`AdmissionOutcome::Partial`. Any other supposedly impossible internal error is
+an invariant defect and must not be exposed as an ordinary recoverable
+`OpLogError`; if a real recoverable post-begin condition is discovered, P1 must
+add an explicit `AdmissionOutcome` variant before allowing it to escape.
+
+The legacy `commit_remote` wrapper may translate a returned `Partial` outcome
+into `PartialRemoteAdmission` after the canonical typed capability has produced
+its receipt. That compatibility translation is outside the typed capability's
+post-begin guarantee and must not be implemented as an unstructured error from
+`commit_admission` itself.
 
 ### 3. Validate the pending-membership precondition
 
@@ -331,19 +374,24 @@ pending          → core pending
 discarded        → no owner
 ```
 
-`already_admitted` is the authority-owned disposition for an incoming matching
-identity. A matching pending identity belongs to `pending`, not to a generic
-duplicate owner. Delivery evidence may distinguish:
+`already_admitted` is the authority-owned terminal category for an incoming
+matching identity. A duplicate of a pending identity is delivery evidence only;
+its final ownership is determined by the actual outcome. Delivery evidence may
+distinguish:
 
 ```text
-already-admitted duplicate  → identity is in already_admitted
-pending duplicate           → identity is in pending
-same-batch duplicate        → occurrence evidence only
+already-admitted duplicate  → duplicate_of_admitted evidence;
+                               terminal identity is already_admitted
+pending duplicate           → duplicate_of_pending evidence only;
+                               terminal identity is committed, pending, or discarded
+same-batch duplicate        → same_batch_duplicate evidence only
 ```
 
-Same-batch duplicate occurrences and retransmission counts are separate
-delivery evidence; they may record coalescing or duplicate provenance but
-never create another identity set in the ownership partition.
+Duplicate occurrence counts and provenance never create another identity set in
+the ownership partition. In particular, a pending duplicate that is awakened
+by a dependency in the same admission is placed in `committed` if it commits,
+in `pending` only if it remains uncommitted, and in `discarded` if rejection
+closure removes it.
 
 `retained`, `staged`, and `discarded` are provenance partitions used to explain
 how an affected identity reached its final category; they must not create a
@@ -352,8 +400,10 @@ second owner. In particular:
 - a committed identity is never also retained or retried;
 - an admitted duplicate is not re-committed and is represented in
   `already_admitted` at most once;
-- a pending duplicate is represented in `pending` at most once, with any
-  duplicate occurrence evidence kept separately;
+- a duplicate of a pending identity is represented in `pending_from_transition`
+  only when it remains pending after the commit attempt; if it commits or is
+  discarded, it appears only in that terminal category, with duplicate
+  provenance kept separately;
 - the partial suffix is the exact uncommitted suffix of
   `PreparedAdmission::operations()` and may contain both retained-pending and
   newly staged provenance;
@@ -416,7 +466,8 @@ plan review before implementation:
    committed, `already_admitted`, `pending_from_transition`, discarded
    provenance, global pending before/after counts, and receipt-owned frontier
    snapshots. No complete global pending identity snapshot or planner-owned
-   view may escape.
+   view may escape. Array order is deterministic but non-contractual unless an
+   accessor explicitly documents otherwise.
 
 No implementation branch should be created until these decisions are accepted.
 
@@ -492,40 +543,50 @@ No implementation branch should be created until these decisions are accepted.
     evidence, `pending_after_count`, owning frontier snapshot, and causal
     cause. Never authorize retry of the committed prefix.
 15. Keep `commit_remote` as a thin compatibility wrapper that maps complete to
-    its existing array result and partial to the existing legacy error shape.
+    its existing array result and translates a typed partial outcome to the
+    existing legacy error shape only after the typed receipt is constructed.
     Do not add a second planner or a second authority commit loop.
-16. Confirm that all semantic decisions, discard closure, pending-limit checks,
+16. Narrow the post-begin commit seam to `CausalGraphError` →
+    `AdmissionOutcome::Partial`. Any other supposedly impossible internal
+    error is an invariant defect, not a recoverable `OpLogError`; add an
+    explicit outcome variant before admitting any real recoverable case.
+17. Confirm that all semantic decisions, discard closure, pending-limit checks,
     and ownership transfers occur before the first authority mutation or are
     deterministic acknowledgements of an already committed prefix.
 
 ### P1.4 — Close exact ownership and lifecycle properties
 
-17. Add complete-admission tests with admitted duplicates, pending duplicates,
+18. Add complete-admission tests with admitted duplicates, pending duplicates,
     retained pending work, staged arrivals, invalid-root discard, and no
-    pending suffix. A pending duplicate must remain a pending no-op rather than
-    being misclassified as an admitted duplicate.
-18. Add partial tests for zero-prefix failure, middle-prefix failure, and
+    pending suffix. Split pending-duplicate coverage into two cases:
+    an unresolved pending duplicate remains pending, while a pending duplicate
+    awakened by a dependency and committed is `committed` with duplicate
+    provenance retained only as delivery evidence. Add the discarded case if
+    rejection closure invalidates the awakened identity.
+19. Add partial tests for zero-prefix failure, middle-prefix failure, and
     n-minus-one-prefix failure. Each test must assert committed operations,
     exact suffix identities, pending-from-transition membership,
     staged/retained provenance, discarded identities, before/after counts,
     required-pending value, and causal cause. White-box assertions may compare the complete
     planner pending maps; the receipt must not copy them.
-19. Add core-owned recovery tests after partial admission. The suffix is
+20. Add core-owned recovery tests after partial admission. The suffix is
     already in core pending: re-plan it with `prepare_remote([])` or with a
     later dependency-bearing batch, and prove that no committed identity is
     attempted twice. Add network-resend idempotence as a separate test; do not
     make reconstructing and resending the receipt suffix the recovery protocol.
-20. Add stale, consumed, invalid, and pending-limit-rejection tests. Each must prove
+21. Add stale, consumed, invalid, and pending-limit-rejection tests. Each must prove
     operation count, frontier, pending membership, generation, required-pending
-    calculation, and receipt state are unchanged.
-21. Add duplicate and conflicting-identity tests that distinguish full payload
+    calculation, and receipt state are unchanged. Exercise the post-begin seam
+    with causal failure and assert that no non-causal recoverable `OpLogError`
+    can escape after `Applied`.
+22. Add duplicate and conflicting-identity tests that distinguish full payload
     equality from identity reuse. A matching duplicate is an admitted no-op;
     a conflicting identity is rejected before mutation.
-22. Add unrelated-retained tests that prove pending work outside the current
+23. Add unrelated-retained tests that prove pending work outside the current
     rejection closure remains intact. Compare planner pending membership in
     white-box tests and assert only the before/after counts appear in the
     production receipt.
-23. Add a property/model test for the ownership partition:
+24. Add a property/model test for the ownership partition:
 
     ```text
     affected identities = committed ∪ already_admitted ∪ pending ∪ discarded
@@ -538,24 +599,24 @@ No implementation branch should be created until these decisions are accepted.
     Track same-batch duplicate occurrences and pending retransmissions only as
     separate delivery evidence; never add them to the ownership partition.
 
-24. Preserve existing planner fixed-point, atomic rejection, alias-mutation,
+25. Preserve existing planner fixed-point, atomic rejection, alias-mutation,
     and ancestry regressions from P0. The new typed receipt must agree with the
     existing planner state and compatibility wrapper.
 
 ### P1.5 — Validate the internal capability without production cutover
 
-25. Run targeted oplog tests and benchmarks, then the full EGW check/test gate.
-26. Run `moon fmt` and `moon info`; inspect every generated interface diff.
+26. Run targeted oplog tests and benchmarks, then the full EGW check/test gate.
+27. Run `moon fmt` and `moon info`; inspect every generated interface diff.
     Accept only the intentional internal oplog typed-capability/limit delta;
     the new error mapping must not widen unrelated public surfaces.
-27. Verify that Branch and Document behavior, SyncSession, wire/archive,
+28. Verify that Branch and Document behavior, SyncSession, wire/archive,
     projection, and the Canopy gitlink are unchanged by the P1 implementation.
     The EGW text error mapping may gain the new pending-limit variant, but no
     text admission behavior or public Canopy API may change.
-28. Open the EGW P1 PR only after local validation. Inspect raw CI with
+29. Open the EGW P1 PR only after local validation. Inspect raw CI with
     `gh pr checks <NUMBER>` and do not merge while any required check is
     pending, failing, or unapproved skipped.
-29. After merge, record the P1 merge SHA and validation evidence in issue
+30. After merge, record the P1 merge SHA and validation evidence in issue
     #1256. Start P2 only from that updated EGW `main`.
 
 ## Acceptance Criteria
@@ -566,11 +627,21 @@ No implementation branch should be created until these decisions are accepted.
       actual transitions; partial carries a common receipt and causal cause as
       a normal value, while receipt status/cause fields cannot contradict the
       enum variant.
+- [ ] Before `begin_admission` succeeds with the internal `Applied` result,
+      `commit_admission` may raise only pre-mutation `OpLogError` variants.
+      After `Applied`, every non-defect exit returns `Complete` or `Partial`;
+      no recoverable `OpLogError` can hide an applied planner transition or a
+      committed prefix.
+- [ ] `pending_from_transition` contains only identities that remain core
+      pending after the actual attempt; pending-duplicate provenance never
+      determines terminal ownership.
 - [ ] `AdmissionReceipt` exposes only transition-local owning evidence:
       committed, `already_admitted`, `pending_from_transition`, discarded
       provenance, unique pending before/after counts, and receipt-owned
       before/after frontier snapshots. It never copies the complete global
-      pending identity set or returns a planner-owned view.
+      pending identity set or returns a planner-owned view. Identity-array
+      order is deterministic but non-contractual unless explicitly documented
+      by an accessor.
 - [ ] The affected identity partition is exactly
       `committed ∪ already_admitted ∪ pending ∪ discarded`; these sets are
       pairwise disjoint, with committed/already-admitted owned by Authority,
@@ -662,6 +733,10 @@ pending, failing, or unapproved skipped.
 - A separate mutable pending-limit state would add invariants without a
   current reentrant admission need. If future execution becomes asynchronous
   or reentrant, revisit this as a new design boundary.
+- A wider post-begin callback error can hide an applied planner transition or
+  committed prefix if it escapes as ordinary `OpLogError`. Narrow the seam to
+  `CausalGraphError`, classify impossible variants as invariant defects, and
+  add an outcome variant before admitting a real recoverable case.
 - A compatibility wrapper can hide receipt information from legacy callers.
   That is intentional through P2, but the typed capability must remain the
   canonical implementation path so P2 does not need to reconstruct history.

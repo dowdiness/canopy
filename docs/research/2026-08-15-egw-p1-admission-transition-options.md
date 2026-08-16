@@ -69,12 +69,15 @@ truthful field of the prepared value.
 
 P0 also distinguishes duplicate delivery from ownership: a matching admitted
 identity is accepted by `preflight_remote_identities` and is not staged, while a
-matching identity already in planner pending is also skipped by preparation and
-remains canonical pending (`oplog.mbt:310-325`,
-`remote_admission_planner.mbt:996-1025`). Same-batch duplicate occurrences are
-a third delivery-level case; they may be coalesced without creating another
-identity owner. A receipt must therefore classify incoming occurrences
-separately from terminal RawVersion ownership.
+matching identity already in planner pending is skipped by preparation
+(`oplog.mbt:310-325`, `remote_admission_planner.mbt:996-1025`). The latter is
+only `duplicate_of_pending` delivery evidence. If a dependency in the same
+admission wakes that pending node, the actual commit attempt can place it in
+Authority, leave it in core pending after a partial prefix, or discard it by
+rejection closure. Same-batch duplicate occurrences are a third delivery-level
+case; they may be coalesced without creating another identity owner. A receipt
+must therefore classify incoming occurrences separately from terminal
+RawVersion ownership.
 
 ### The exact begin-after pending membership is larger than the planned count
 
@@ -156,6 +159,14 @@ ownership evidence, keeps partial non-rollback, and does not move Document or
 Branch in P1. It also uses MoonBit's exhaustive enum matching rather than
 encoding complete/partial in nullable fields or strings.
 
+The typed capability must close its post-begin error algebra: lifecycle,
+structure, and pending-limit failures may raise before the internal begin result
+is `Applied`; after `Applied`, the capability returns `Complete` or `Partial`.
+The post-begin commit seam is narrowed to `CausalGraphError`, and any other
+supposedly impossible internal error is an invariant defect rather than an
+ordinary recoverable `OpLogError`. The legacy wrapper may translate a returned
+partial outcome into its historical error after the typed receipt exists.
+
 ### B. Put the committed prefix into `PreparedAdmission` — reject
 
 This is impossible without making preparation a speculative mutable commit or
@@ -228,6 +239,9 @@ but it finds four required corrections to the draft Plan:
    identity set. Own defensive snapshots for committed,
    `already_admitted`, `pending_from_transition`, discarded provenance,
    before/after counts, and before/after frontiers.
+   `pending_from_transition` contains a duplicate-of-pending identity only when
+   it remains pending after the attempt; delivery provenance alone never
+   determines the field.
 4. **Make recovery core-owned.** A partial suffix is already pending; recovery
    re-plans it through the core planner. Network resend idempotence is a
    separate property, not the normal recovery protocol.
@@ -246,7 +260,10 @@ owner. A matching duplicate is already owned by Authority; same-batch duplicate
 occurrences and pending retransmissions are auxiliary delivery evidence, not
 identity owners. Retained/staged/discarded categories are provenance axes.
 Receipt arrays must be owning snapshots, with accessors allowed to return
-views over receipt-owned storage only.
+views over receipt-owned storage only. Their order is deterministic for
+diagnostics but non-contractual; callers treat them as sets unless an accessor
+explicitly documents order. This avoids turning current planner iteration order
+into a P2 compatibility constraint.
 
 ### ADR 0008 amendment prerequisite
 
@@ -300,8 +317,8 @@ Checked but not selected:
   post-mutation receipt step;
 - `@immut/hashset`: not selected for the receipt because an opaque receipt with
   read-only `ArrayView` accessors matches current `PreparedAdmission` and
-  preserves deterministic order; use immutable sets only if review finds a
-  membership-query requirement;
+  provides deterministic diagnostics without making order contractual; use
+  immutable sets only if review finds a membership-query requirement;
 - `@rle.Rle`: not relevant to identity ownership accounting.
 
 ## Conclusion
