@@ -48,13 +48,6 @@ def read-file [path: string] {
   }
 }
 
-def require-line [text: string expected: string message: string] {
-  let count = ($text | lines | where {|line| $line == $expected } | length)
-  if $count != 1 {
-    fail $message
-  }
-}
-
 def require-text [text: string expected: string message: string] {
   if not ($text | str contains $expected) {
     fail $message
@@ -236,22 +229,31 @@ def check-manifests [root: string] {
   print $"ok: ($count) registry dependencies have explicit versions"
 }
 
-def check-wiring [root: string action: string justfile: string] {
-  require-line $action "      id: moonbit-registry-cache" "setup action lacks the stable registry cache id"
-  require-line $action "      uses: hustcer/setup-moonbit@9199da0ab63ea0c0bab1dc15f03d76e17ed4f75f" "MoonBit setup action is not pinned to the approved full SHA"
-  require-line $action "      uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25" "registry cache action is not pinned to the approved full SHA"
-  require-text $action "key: moonbit-registry-v2-${{ runner.os }}-${{ runner.arch }}-toolchain-0.10.4+ade96c819-core-0.10.4+ade96c819-${{ hashFiles('moon.work', '**/moon.mod', '**/moon.mod.json') }}" "registry cache key does not encode schema, platform, toolchain, core, and manifests"
-  require-text $action "moonbit-registry-v2-${{ runner.os }}-${{ runner.arch }}-toolchain-0.10.4+ade96c819-core-0.10.4+ade96c819-" "registry cache restore key is not scoped to schema/platform/toolchain/core"
-  for path in ["~/.moon/registry/index" "~/.moon/registry/cache" "~/.moon/registry/symbols"] {
-    require-text $action $"  ($path)" $"registry cache path is missing: ($path)"
-  }
-  require-line $action "      if: steps.moonbit-registry-cache.outputs.cache-hit != 'true'" "bootstrap does not require an exact cache hit"
+def check-wiring [root: string action_doc: any justfile: string] {
+  let action_steps = ($action_doc | get runs | get steps)
+  let moonbit_step = (find-step $action_steps "Install MoonBit")
+  let cache_step = (find-step $action_steps "Cache MoonBit registry state")
+  let bootstrap_step = (find-step $action_steps "Bootstrap MoonBit registry")
 
-  let cache_line = ($action | lines | enumerate | where item == "      id: moonbit-registry-cache" | get index | first)
-  let bootstrap_line = ($action | lines | enumerate | where item == "    - name: Bootstrap MoonBit registry" | get index | first)
-  if $cache_line >= $bootstrap_line { fail "registry bootstrap must follow the registry cache step" }
-  let bootstrap_runs = ($action | lines | where {|line| $line == '      run: "$GITHUB_WORKSPACE/scripts/moon-update.sh"' } | length)
-  if $bootstrap_runs != 1 { fail "setup action must bootstrap the registry through the retry wrapper exactly once" }
+  require-equal (field $moonbit_step "uses") "hustcer/setup-moonbit@9199da0ab63ea0c0bab1dc15f03d76e17ed4f75f" "MoonBit setup action pin changed"
+  require-equal (field $cache_step "id") "moonbit-registry-cache" "registry cache step id changed"
+  require-equal (field $cache_step "uses") "actions/cache@caa296126883cff596d87d8935842f9db880ef25" "registry cache action pin changed"
+  require-equal (field $bootstrap_step "if") "steps.moonbit-registry-cache.outputs.cache-hit != 'true'" "bootstrap condition changed"
+  require-equal (field $bootstrap_step "run") "$GITHUB_WORKSPACE/scripts/moon-update.sh" "bootstrap command changed"
+
+  let cache_with = (field $cache_step "with")
+  let cache_key = (field $cache_with "key")
+  let restore_keys = (field $cache_with "restore-keys")
+  let cache_paths = (field $cache_with "path")
+  require-text $cache_key "moonbit-registry-v2-${{ runner.os }}-${{ runner.arch }}-toolchain-0.10.4+ade96c819-core-0.10.4+ade96c819-${{ hashFiles('moon.work', '**/moon.mod', '**/moon.mod.json') }}" "registry cache key does not encode schema, platform, toolchain, core, and manifests"
+  require-text $restore_keys "moonbit-registry-v2-${{ runner.os }}-${{ runner.arch }}-toolchain-0.10.4+ade96c819-core-0.10.4+ade96c819-" "registry cache restore key is not scoped to schema/platform/toolchain/core"
+  for path in ["~/.moon/registry/index" "~/.moon/registry/cache" "~/.moon/registry/symbols"] {
+    require-text $cache_paths $path $"registry cache path is missing: ($path)"
+  }
+
+  let cache_index = ($action_steps | enumerate | where {|row| (field $row.item "name") == "Cache MoonBit registry state" } | get index | first)
+  let bootstrap_index = ($action_steps | enumerate | where {|row| (field $row.item "name") == "Bootstrap MoonBit registry" } | get index | first)
+  if $cache_index >= $bootstrap_index { fail "registry bootstrap must follow the registry cache step" }
 
   let registry_refresh_lines = ($justfile | lines | where {|line| $line == "registry-refresh:" } | length)
   if $registry_refresh_lines != 1 { fail "just registry-refresh must be defined exactly once" }
@@ -407,11 +409,11 @@ def main [] {
   if not ($benchmark_path | path exists) { fail "benchmark workflow is missing" }
   if not ($just_path | path exists) { fail "justfile is missing" }
 
-  let action = (read-file $action_path)
+  let action_doc = (yaml-file $action_path)
   let justfile = (read-file $just_path)
   let benchmark_doc = (yaml-file $benchmark_path)
 
-  check-wiring $root $action $justfile
+  check-wiring $root $action_doc $justfile
   check-benchmark-and-deploy $root $benchmark_doc
   check-manifests $root
   print "ok: MoonBit registry bootstrap contract passes"
