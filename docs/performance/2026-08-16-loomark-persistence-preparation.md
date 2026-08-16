@@ -54,11 +54,11 @@ middle native `insertText` edit.
 
 | Archive persistence | End-to-end median | Samples |
 |---|---:|---:|
-| Enabled | 2,138.1 ms | 3 |
-| Disabled | 254.4 ms | 3 |
-| Difference | 1,883.7 ms | — |
+| Enabled | 2,105.5 ms | 3 |
+| Disabled | 238.3 ms | 3 |
+| Difference | 1,867.2 ms | — |
 
-Disabling preparation removes 88.1% of the measured median. This is a private
+Disabling preparation removes 88.7% of the measured median. This is a private
 positive control, not a production proposal: authority mutation, projection,
 Preview, and browser presentation remain active in both conditions.
 
@@ -68,28 +68,30 @@ Median phase durations for the same middle edit:
 
 | Interval | Median |
 |---|---:|
-| B → H1 incremental receipt history | 15.4 ms |
+| B → H1 incremental receipt history | 11.0 ms |
 | H1 → H2 classification | 0.0 ms |
 | H2 → H3 archive dispatch | 0.0 ms |
 | H3 → H4 portable Markdown | 0.2 ms |
-| H4 → H5 complete history export | 326.9 ms |
-| H5 → H6-history history JSON | 806.7 ms |
-| H6-history → H6-envelope envelope stringify | 652.0 ms |
-| H6-envelope → H7 command construction | 0.1 ms |
-| B → H7 total persistence preparation | 1,801.8 ms |
+| H4 → H5 complete history export | 292.1 ms |
+| H5 → H6-history history JSON | 820.1 ms |
+| H6-history → H6-envelope envelope stringify | 639.4 ms |
+| H6-envelope → H7 command construction | 0.0 ms |
+| B → H7 total persistence preparation | 1,783.2 ms |
 
-History JSON encoding and envelope stringify total 1,458.7 ms, 81.0% of B→H7.
-Complete history export contributes another 326.9 ms. Incremental receipt history,
+History JSON encoding and envelope stringify total 1,459.5 ms, 81.8% of B→H7.
+Complete history export contributes another 292.1 ms. Incremental receipt history,
 classification, portable Markdown capture, and command construction do not explain
 the response.
 
 ## Trace control
 
-With persistence disabled, the 2,000-line middle-edit median was 254.4 ms with
-tracing and 254.9 ms without tracing, a 0.5 ms (0.20%) absolute difference.
-All retained trace-on runs were complete, non-empty, lossless, and
-contract-valid. The trace-disabled evidence reports `enabled=false`, contains
-no phase entries, and reports trace-specific controls as `null`.
+With persistence disabled, the 2,000-line middle-edit median was 238.3 ms with
+tracing and 254.9 ms without tracing. The trace-on run was 16.6 ms faster, so
+these non-interleaved runs establish no measurable positive trace overhead but
+do not estimate it more narrowly. All retained trace-on runs were complete,
+non-empty, lossless, and contract-valid. The trace-disabled evidence reports
+`enabled=false`, contains no phase entries, and reports trace-specific controls
+as `null`.
 
 Independent enabled-path runs varied more strongly with shared-runner load, so the
 trace overhead claim is limited to the persistence-disabled control. Attribution

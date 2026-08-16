@@ -830,10 +830,10 @@ Commit 7 scenario, retention, or closure criteria below.
 **Persistence-preparation outcome (2026-08-16):** Harness commit `f152a0c`
 split B-to-D and compared archive persistence enabled and disabled through the
 same production release-browser path. The 2,000-line middle-edit median fell
-from 2,138.1 ms to 254.4 ms when private benchmark configuration disabled
+from 2,105.5 ms to 238.3 ms when private benchmark configuration disabled
 archive preparation. On the enabled path, complete history export took
-326.9 ms, history JSON encoding 806.7 ms, and archive-envelope stringify
-652.0 ms; B-to-H7 persistence preparation totaled 1,801.8 ms. The
+292.1 ms, history JSON encoding 820.1 ms, and archive-envelope stringify
+639.4 ms; B-to-H7 persistence preparation totaled 1,783.2 ms. The
 [persistence characterization](../performance/2026-08-16-loomark-persistence-preparation.md)
 therefore identifies complete-replacement archive preparation as the pre-frame
 bottleneck. Production persistence remains enabled and unchanged. The next
