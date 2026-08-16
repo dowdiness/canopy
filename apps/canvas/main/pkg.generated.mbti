@@ -50,11 +50,7 @@ pub fn set_source_graph_source_result(Int, String) -> String raise Failure
 
 pub fn source_graph_insert_unique(Int, String, String) -> String raise Failure
 
-pub fn source_graph_zoom(Int, Double, Int, Bool, Double, Double) -> Unit
-
 pub fn try_destroy_source_graph(Int) -> Bool
-
-pub fn zoom(Int, Double, Int, Bool, Double, Double) -> Unit
 
 // Errors
 

@@ -275,22 +275,28 @@ test('source-backed wheel shares normalized camera semantics', async ({ page }) 
 
   await page.goto('/?source=1');
   await expectSource(page, SAMPLE_SOURCE);
-  const dispatchWheel = async (deltaY: number, deltaMode: number) => {
-    await page.evaluate(({ deltaY, deltaMode }) => {
+  const dispatchWheel = async (
+    deltaY: number,
+    deltaMode: number,
+  ): Promise<boolean> => {
+    return page.evaluate(({ deltaY, deltaMode }) => {
       const root = document.querySelector('#canvas-root') as HTMLDivElement;
       const rect = root.getBoundingClientRect();
-      root.dispatchEvent(new WheelEvent('wheel', {
+      const event = new WheelEvent('wheel', {
         bubbles: true,
+        cancelable: true,
         deltaY,
         deltaMode,
-        clientX: rect.left + 120,
-        clientY: rect.top + 80,
-      }));
+        clientX: rect.left + 120.25,
+        clientY: rect.top + 80.75,
+      });
+      root.dispatchEvent(event);
+      return event.defaultPrevented;
     }, { deltaY, deltaMode });
   };
 
   await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
-  await dispatchWheel(0, 0);
+  expect(await dispatchWheel(0, 0)).toBe(true);
   await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
   await dispatchWheel(-2, 1);
   await expect(page.locator('#action-stat')).toHaveText('1 action logged');
@@ -307,7 +313,7 @@ test('source-backed wheel shares normalized camera semantics', async ({ page }) 
     }));
   });
   await expect(page.locator('#canvas-root')).toHaveClass(/panning/);
-  await dispatchWheel(-100, 0);
+  expect(await dispatchWheel(-100, 0)).toBe(true);
   await expect(page.locator('#action-stat')).toHaveText('1 action logged');
   await page.evaluate(() => {
     const root = document.querySelector('#canvas-root') as HTMLDivElement;
@@ -320,6 +326,41 @@ test('source-backed wheel shares normalized camera semantics', async ({ page }) 
     }));
   });
   await expect(page.locator('#canvas-root')).not.toHaveClass(/panning/);
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('source-backed connection keeps its preview while wheel is consumed', async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto('/?source=1');
+  await expectSource(page, SAMPLE_SOURCE);
+
+  const start = await center(outputHandle(page, 'osc'), 'source output handle');
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(start.x + 40.25, start.y + 40.75, { steps: 4 });
+  await expect(page.locator('#edges path.edge-pending')).toHaveCount(1);
+
+  const prevented = await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    const rect = root.getBoundingClientRect();
+    const event = new WheelEvent('wheel', {
+      bubbles: true,
+      cancelable: true,
+      deltaY: -100,
+      deltaMode: 0,
+      clientX: rect.left + 120.25,
+      clientY: rect.top + 80.75,
+    });
+    root.dispatchEvent(event);
+    return event.defaultPrevented;
+  });
+  expect(prevented).toBe(true);
+  await expect(page.locator('#edges path.edge-pending')).toHaveCount(1);
+  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+
+  await page.mouse.up();
+  await expect(page.locator('#edges path.edge-pending')).toHaveCount(0);
   expect(runtimeErrors).toEqual([]);
 });
 

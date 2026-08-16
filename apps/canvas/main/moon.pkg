@@ -36,7 +36,6 @@ options(
       "exports": [
         "create_canvas",
         "mount_canvas_pointer_session",
-        "zoom",
         "add_node",
         "delete_nodes",
         "disconnect_ports",
@@ -57,7 +56,6 @@ options(
         "mount_canvas_context_menu",
         "source_graph_insert_unique",
         "get_source_graph_input_port_compatibility",
-        "source_graph_zoom",
       ],
     },
   },

@@ -40,16 +40,25 @@ pub fn DecodedLoomarkDocumentArchive::document_id(Self) -> LoomarkDocumentId
 pub fn DecodedLoomarkDocumentArchive::history(Self) -> @markdown.MarkdownDocumentHistory
 pub fn DecodedLoomarkDocumentArchive::portable_markdown(Self) -> String
 
+pub(all) enum LoomarkArchivePreparationPhase {
+  PortableMarkdownCaptured
+  CompleteHistoryCaptured
+  HistoryJsonEncoded
+  ArchiveEnvelopeEncoded
+} derive(Eq, @debug.Debug)
+
 pub struct LoomarkDocumentArchive {
   // private fields
 }
 pub fn LoomarkDocumentArchive::capture(document_id~ : LoomarkDocumentId, editor~ : @markdown.MarkdownEditor) -> Self raise
+pub fn LoomarkDocumentArchive::capture_observing(document_id~ : LoomarkDocumentId, editor~ : @markdown.MarkdownEditor, (LoomarkArchivePreparationPhase) -> Unit) -> Self raise
 pub fn LoomarkDocumentArchive::decode_json_string(String) -> DecodedLoomarkDocumentArchive raise
 pub fn LoomarkDocumentArchive::document_id(Self) -> LoomarkDocumentId
 pub fn LoomarkDocumentArchive::from_json_string(String, validation_agent_id~ : String, open_limits~ : @markdown.MarkdownArchiveOpenLimits) -> Self raise
 pub fn LoomarkDocumentArchive::history(Self) -> @markdown.MarkdownDocumentHistory
 pub fn LoomarkDocumentArchive::portable_markdown(Self) -> String
 pub fn LoomarkDocumentArchive::to_json_string(Self) -> String
+pub fn LoomarkDocumentArchive::to_json_string_observing(Self, (LoomarkArchivePreparationPhase) -> Unit) -> String
 
 pub struct LoomarkDocumentId {
   // private fields

@@ -7,14 +7,6 @@ export type CanvasModule = {
     onHideContextMenu: () => undefined,
     onClearSelectedEdge: () => undefined,
   ) => undefined;
-  zoom: (
-    h: number,
-    deltaY: number,
-    deltaMode: number,
-    ctrlKey: boolean,
-    cx: number,
-    cy: number,
-  ) => void;
   add_node: (h: number, kindKey: string, sx: number, sy: number) => void;
   delete_nodes: (h: number, nodeIdsJson: string) => void;
   disconnect_ports: (
@@ -49,14 +41,6 @@ export type CanvasModule = {
     source: string,
     sourcePort: string,
   ) => string;
-  source_graph_zoom?: (
-    h: number,
-    deltaY: number,
-    deltaMode: number,
-    ctrlKey: boolean,
-    cx: number,
-    cy: number,
-  ) => void;
   sample_graph_dsl_source?: () => string;
   mount_source_demo?: (h: number, enabled: boolean, onChange: () => undefined) => undefined;
   mount_canvas_context_menu?: (
@@ -84,14 +68,6 @@ type SourceCanvasModule = CanvasModule & {
     source: string,
     sourcePort: string,
   ) => string;
-  source_graph_zoom: (
-    h: number,
-    deltaY: number,
-    deltaMode: number,
-    ctrlKey: boolean,
-    cx: number,
-    cy: number,
-  ) => void;
 };
 
 const SOURCE_METHODS = [
@@ -105,7 +81,6 @@ const SOURCE_METHODS = [
   'apply_source_graph_operation',
   'source_graph_insert_unique',
   'get_source_graph_input_port_compatibility',
-  'source_graph_zoom',
 ] as const;
 
 export type Tagged = string | [string, ...unknown[]];
@@ -460,36 +435,6 @@ export class GraphAdapter {
       )
       : this.mb.get_input_port_compatibility(this.handle, sourceNodeId, sourcePortId);
     return JSON.parse(json) as PortCompatibility[];
-  }
-
-  zoom(
-    deltaY: number,
-    deltaMode: number,
-    ctrlKey: boolean,
-    cx: number,
-    cy: number,
-  ): void {
-    this.assertLive();
-    if (this.isSourceBacked) {
-      this.sourceModule().source_graph_zoom(
-        this.handle,
-        deltaY,
-        deltaMode,
-        ctrlKey,
-        cx,
-        cy,
-      );
-    } else {
-      this.mb.zoom(
-        this.handle,
-        deltaY,
-        deltaMode,
-        ctrlKey,
-        cx,
-        cy,
-      );
-    }
-    this.emitLatestOperations();
   }
 
   addNode(kindKey: string, sx: number, sy: number): void {

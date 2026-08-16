@@ -9,18 +9,6 @@ pub fn create_canvas() -> Int {
 }
 
 ///|
-pub fn zoom(
-  handle : Int,
-  delta_y : Double,
-  delta_mode : Int,
-  ctrl_key : Bool,
-  cx : Double,
-  cy : Double,
-) -> Unit {
-  _registry[handle].zoom(delta_y, delta_mode, ctrl_key, cx, cy)
-}
-
-///|
 /// Add a workflow node from the library/context menu at canvas-local screen
 /// coordinates. `kind_key` is intentionally string-based at the FFI boundary;
 /// MoonBit converts it to an extensible `WorkflowNodeKind` inside the model.
