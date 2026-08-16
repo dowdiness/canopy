@@ -754,43 +754,50 @@ fn SourceBackedGraph::clear_selected_edge(self : SourceBackedGraph) -> Unit {
 }
 
 ///|
+/// Disconnect one captured edge target through canonical source lowering.
+fn SourceBackedGraph::disconnect_edge(
+  self : SourceBackedGraph,
+  edge_id : EdgeId,
+) -> SourceGraphOperationResultJson raise Failure {
+  let state = source_graph_base_canvas_state(self)
+  match state.edges.search_by(fn(edge) { edge.id == edge_id }) {
+    Some(index) => {
+      let edge = state.edges[index]
+      // Preserve the existing context-disconnect contract: selection is
+      // ephemeral and clears even when source lowering is rejected.
+      self.clear_selected_edge()
+      let result = self.apply_operation(
+        GraphOperation(
+          DisconnectPorts(
+            edge.source,
+            edge.source_port,
+            edge.target,
+            edge.target_port,
+          ),
+        ),
+      )
+      {
+        ..result,
+        message: if result.applied {
+          Some("Disconnected selected edge through graph-dsl source.")
+        } else {
+          result.message
+        },
+      }
+    }
+    None => {
+      self.clear_selected_edge()
+      source_graph_result_json_for_graph(self, false, None)
+    }
+  }
+}
+
+///|
 fn SourceBackedGraph::delete_selection(
   self : SourceBackedGraph,
 ) -> SourceGraphOperationResultJson? raise Failure {
   match self.selected_edge {
-    Some(edge_id) => {
-      let state = source_graph_base_canvas_state(self)
-      match state.edges.search_by(fn(edge) { edge.id == edge_id }) {
-        Some(index) => {
-          let edge = state.edges[index]
-          // Preserve the existing disconnectEdge contract: selection is
-          // ephemeral and clears even when source lowering is rejected.
-          self.clear_selected_edge()
-          let result = self.apply_operation(
-            GraphOperation(
-              DisconnectPorts(
-                edge.source,
-                edge.source_port,
-                edge.target,
-                edge.target_port,
-              ),
-            ),
-          )
-          Some({
-            ..result,
-            message: if result.applied {
-              Some("Disconnected selected edge through graph-dsl source.")
-            } else {
-              result.message
-            },
-          })
-        }
-        None => {
-          self.clear_selected_edge()
-          Some(source_graph_result_json_for_graph(self, false, None))
-        }
-      }
-    }
+    Some(edge_id) => Some(self.disconnect_edge(edge_id))
     None => {
       let nodes = self.interaction.selected_nodes
       if nodes.length() == 0 {
@@ -1429,14 +1436,6 @@ fn source_graph_pointer_up(
 fn source_graph_pointer_interrupt(handle : Int) -> Unit {
   match source_graph_by_handle(handle) {
     Some(graph) => graph.pointer_interrupt()
-    None => ()
-  }
-}
-
-///|
-pub fn select_source_graph_edge(handle : Int, edge_id : String) -> Unit {
-  match source_graph_by_handle(handle) {
-    Some(graph) => graph.select_edge(EdgeId(edge_id))
     None => ()
   }
 }

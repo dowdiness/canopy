@@ -28,10 +28,6 @@ type LibraryItem = {
   description: string;
 };
 
-type ContextMenuItem = LibraryItem;
-
-type Point = { x: number; y: number };
-
 type SourceDemoModule = CanvasModule &
   Required<
     Pick<
@@ -39,28 +35,15 @@ type SourceDemoModule = CanvasModule &
       'sample_graph_dsl_source' |
       'mount_source_demo' |
       'mount_canvas_context_menu' |
+      'dismiss_canvas_context_menu' |
       'mount_canvas_pointer_session'
     >
   >;
 
-const LIBRARY: LibraryItem[] = [
-  { key: 'timer', label: 'Timer trigger', description: 'Start on a schedule' },
-  { key: 'http', label: 'HTTP request', description: 'Call an external API' },
-  { key: 'formatter', label: 'Format data', description: 'Map and reshape payloads' },
-  { key: 'condition', label: 'Condition', description: 'Branch by a rule' },
-  { key: 'loop', label: 'Loop', description: 'Repeat over records' },
-  { key: 'parallel', label: 'Parallel split', description: 'Run branches together' },
-  { key: 'custom', label: 'Custom step', description: 'Reserve an integration point' },
-];
-
 const SVG_NS = 'http://www.w3.org/2000/svg';
-const CONTEXT_MENU_SHOW_EVENT = 'canopy-canvas-context-menu-show';
-const CONTEXT_MENU_HIDE_EVENT = 'canopy-canvas-context-menu-hide';
-const EDGE_CONTEXT_MENU_KEY = 'disconnect-edge';
 
 let adapter: GraphAdapter;
 let rafPending = false;
-let lastState: RenderState | null = null;
 
 const root       = document.getElementById('canvas-root') as HTMLDivElement;
 const world      = document.getElementById('world') as HTMLDivElement;
@@ -70,12 +53,10 @@ const libraryEl  = document.getElementById('node-library') as HTMLDivElement;
 const validation = document.getElementById('validation-list') as HTMLDivElement;
 const inspectorNode = document.getElementById('inspector-node') as HTMLDivElement;
 const actionStat = document.getElementById('action-stat') as HTMLSpanElement;
-const contextMenu = document.getElementById('context-menu') as HTMLDivElement;
 const nodeDivs = new Map<string, HTMLDivElement>();
 const edgePaths = new Map<string, SVGPathElement>();
 let pendingPath: SVGPathElement | null = null;
-let contextPoint: [number, number] = [0, 0];
-let contextEdge: EdgeData | null = null;
+let libraryCatalog: LibraryItem[] = [];
 
 
 // ─── Geometry ────────────────────────────────────────────────────────────────
@@ -115,22 +96,10 @@ function bezierPath(sx: number, sy: number, tx: number, ty: number): string | nu
     : null;
 }
 
-function localCoords(e: MouseEvent): [number, number] {
-  const rect = root.getBoundingClientRect();
-  return [e.clientX - rect.left, e.clientY - rect.top];
-}
-
-function finiteLocalCoords(e: MouseEvent): [number, number] | null {
-  const point = localCoords(e);
-  return point.every(Number.isFinite) ? point : null;
-}
-
 // Event admission can run before the deferred RAF render. Read the model
 // synchronously so geometry is checked against the state that will consume it.
 function currentRenderState(): RenderState {
-  const state = adapter.renderState();
-  lastState = state;
-  return state;
+  return adapter.renderState();
 }
 
 function screenToWorld(
@@ -235,7 +204,6 @@ function scheduleRender(): void {
 function render(): void {
   rafPending = false;
   const state = adapter.renderState();
-  lastState = state;
 
   const { x, y, scale } = state.viewport;
   const transform = `translate(${x}px, ${y}px) scale(${scale})`;
@@ -597,40 +565,6 @@ function focusNode(nodeId: string): void {
   ], { duration: 900, easing: 'cubic-bezier(.2,.8,.2,1)' });
 }
 
-// ─── DOM helpers ─────────────────────────────────────────────────────────────
-
-type HitTarget =
-  | { kind: 'background' }
-  | { kind: 'node'; nodeId: string }
-  | { kind: 'edge'; edge: EdgeData }
-  | { kind: 'handle'; nodeId: string; side: 'input' | 'output'; portId: string };
-
-function hitFromTarget(target: EventTarget | null): HitTarget {
-  let el = target instanceof Element ? target : null;
-  while (el && el !== root) {
-    const element = el as HTMLElement | SVGElement;
-    if (element.dataset?.edgeId) {
-      const edgeId = element.dataset.edgeId;
-      const state = lastState ?? adapter.renderState();
-      const edge = state.edges.find((candidate) => candidate.id === edgeId);
-      if (edge) return { kind: 'edge', edge };
-    }
-    if (element.dataset?.handle && element.dataset?.nodeId && element.dataset?.portId) {
-      return {
-        kind: 'handle',
-        nodeId: element.dataset.nodeId,
-        side: element.dataset.handle as 'input' | 'output',
-        portId: element.dataset.portId,
-      };
-    }
-    if (element.dataset?.nodeId && element.classList.contains('canvas-node')) {
-      return { kind: 'node', nodeId: element.dataset.nodeId };
-    }
-    el = el.parentElement;
-  }
-  return { kind: 'background' };
-}
-
 function addNodeAt(kindKey: string, point: [number, number]): void {
   if (!adapter.isSourceBacked) {
     if (!screenToWorld(point, currentRenderState())) return;
@@ -638,12 +572,9 @@ function addNodeAt(kindKey: string, point: [number, number]): void {
   adapter.clearSelectedEdge();
   if (adapter.isSourceBacked) {
     adapter.insertUniqueNode(kindKey, kindKey);
-    hideContextMenu();
-    scheduleRender();
-    return;
+  } else {
+    adapter.addNode(kindKey, point[0], point[1]);
   }
-  adapter.addNode(kindKey, point[0], point[1]);
-  hideContextMenu();
   scheduleRender();
 }
 
@@ -672,50 +603,21 @@ function updateSourceOperationStatus(
     : `${failurePrefix}: ${sourceOperationDetail(result)}`;
 }
 
-function disconnectEdge(edge: EdgeData): boolean {
-  const result = adapter.disconnectPorts(
-    edge.source,
-    edge.source_port,
-    edge.target,
-    edge.target_port,
-  );
-  if (result) {
+function handleContextSourceResult(json: string): void {
+  const result = JSON.parse(json) as SourceGraphOperationResult;
+  if (!result.applied || result.message != null) {
     updateSourceOperationStatus(
       result,
-      'Disconnected selected edge through graph-dsl source.',
-      'Source disconnect rejected',
+      result.message ?? 'Context operation applied through graph-dsl source.',
+      'Source context operation rejected',
     );
   }
-  adapter.clearSelectedEdge();
-  hideContextMenu();
-  scheduleRender();
-  return true;
-}
-
-function hideContextMenuElement(): void {
-  contextMenu.hidden = true;
-  contextEdge = null;
-}
-
-function hideContextMenu(): void {
-  const wasOpen = !contextMenu.hidden;
-  hideContextMenuElement();
-  if (wasOpen) {
-    contextMenu.dispatchEvent(new CustomEvent(CONTEXT_MENU_HIDE_EVENT));
-  }
-}
-
-function showContextMenu(anchor: Point, items: ContextMenuItem[]): void {
-  contextMenu.hidden = false;
-  contextMenu.dispatchEvent(new CustomEvent(CONTEXT_MENU_SHOW_EVENT, {
-    detail: JSON.stringify({ x: anchor.x, y: anchor.y, items }),
-  }));
 }
 
 function renderLibrary(filter = ''): void {
   const lower = filter.trim().toLowerCase();
   libraryEl.replaceChildren();
-  for (const item of LIBRARY) {
+  for (const item of libraryCatalog) {
     if (lower && !`${item.label} ${item.description}`.toLowerCase().includes(lower)) continue;
     const button = document.createElement('button');
     button.type = 'button';
@@ -726,48 +628,6 @@ function renderLibrary(filter = ''): void {
     libraryEl.appendChild(button);
   }
 }
-
-function renderEdgeContextMenu(edge: EdgeData, anchor: Point): void {
-  contextEdge = edge;
-  showContextMenu(anchor, [
-    { key: EDGE_CONTEXT_MENU_KEY, label: 'Disconnect edge', description: edgeTitle(edge) },
-  ]);
-}
-
-function renderContextMenu(anchor: Point): void {
-  contextEdge = null;
-  showContextMenu(anchor, LIBRARY);
-}
-
-function handleContextMenuSelect(key: string): void {
-  if (key === EDGE_CONTEXT_MENU_KEY) {
-    if (contextEdge) disconnectEdge(contextEdge);
-    return;
-  }
-  addNodeAt(key, contextPoint);
-}
-
-// ─── Event wiring ─────────────────────────────────────────────────────────────
-
-root.addEventListener('contextmenu', (e: MouseEvent) => {
-  e.preventDefault();
-  const point = finiteLocalCoords(e);
-  if (!point) return;
-  const hit = hitFromTarget(e.target);
-  if (hit.kind !== 'edge' && !adapter.isSourceBacked) {
-    if (!screenToWorld(point, currentRenderState())) return;
-  }
-  const anchor = { x: e.clientX, y: e.clientY };
-  if (hit.kind === 'edge') {
-    adapter.selectEdge(hit.edge.id);
-    renderEdgeContextMenu(hit.edge, anchor);
-  } else {
-    adapter.clearSelectedEdge();
-    contextPoint = point;
-    renderContextMenu(anchor);
-  }
-  scheduleRender();
-});
 
 document.addEventListener('keydown', (e: KeyboardEvent) => {
   if (
@@ -791,8 +651,8 @@ document.addEventListener('keydown', (e: KeyboardEvent) => {
           'Source delete rejected',
         );
       }
+      adapter.dismissContextMenu();
       e.preventDefault();
-      hideContextMenu();
       scheduleRender();
     }
     return;
@@ -818,8 +678,14 @@ function requireSourceDemoModule(mb: CanvasModule): SourceDemoModule {
   if (typeof mb.mount_source_demo !== 'function') {
     throw new Error('Canvas module is missing source demo export: mount_source_demo');
   }
+  if (typeof mb.get_workflow_node_catalog !== 'function') {
+    throw new Error('Canvas module is missing workflow catalog export: get_workflow_node_catalog');
+  }
   if (typeof mb.mount_canvas_context_menu !== 'function') {
     throw new Error('Canvas module is missing context menu export: mount_canvas_context_menu');
+  }
+  if (typeof mb.dismiss_canvas_context_menu !== 'function') {
+    throw new Error('Canvas module is missing context menu export: dismiss_canvas_context_menu');
   }
   if (typeof mb.mount_canvas_pointer_session !== 'function') {
     throw new Error('Canvas module is missing pointer session export: mount_canvas_pointer_session');
@@ -847,13 +713,18 @@ async function init(): Promise<void> {
   adapter = sourceMode
     ? GraphAdapter.createSourceBacked(mod, sourceDemoModule.sample_graph_dsl_source())
     : GraphAdapter.create(mod);
+  libraryCatalog = JSON.parse(
+    sourceDemoModule.get_workflow_node_catalog(),
+  ) as LibraryItem[];
   sourceDemoModule.mount_canvas_context_menu(
-    key => {
-      handleContextMenuSelect(key);
+    adapter.handleId,
+    sourceMode,
+    () => {
+      scheduleRender();
       return undefined;
     },
-    () => {
-      hideContextMenuElement();
+    result => {
+      handleContextSourceResult(result);
       return undefined;
     },
   );
@@ -866,10 +737,6 @@ async function init(): Promise<void> {
     sourceMode,
     () => {
       scheduleRender();
-      return undefined;
-    },
-    () => {
-      hideContextMenu();
       return undefined;
     },
   );

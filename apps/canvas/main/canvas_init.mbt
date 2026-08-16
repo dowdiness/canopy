@@ -30,11 +30,6 @@ fn decode_node_ids(json_text : String) -> Array[NodeId] {
 }
 
 ///|
-pub fn select_edge(handle : Int, edge_id : String) -> Unit {
-  _registry[handle].select_edge(EdgeId(edge_id))
-}
-
-///|
 pub fn clear_selected_edge(handle : Int) -> Unit {
   _registry[handle].clear_selected_edge()
 }
@@ -51,22 +46,6 @@ pub fn delete_nodes(handle : Int, node_ids_json : String) -> Unit {
     return
   }
   _registry[handle].delete_nodes(node_ids)
-}
-
-///|
-pub fn disconnect_ports(
-  handle : Int,
-  source : String,
-  source_port : String,
-  target : String,
-  target_port : String,
-) -> Unit {
-  _registry[handle].disconnect_ports(
-    NodeId(source),
-    source_port,
-    NodeId(target),
-    target_port,
-  )
 }
 
 ///|
