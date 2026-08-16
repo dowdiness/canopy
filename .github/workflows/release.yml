@@ -61,9 +61,6 @@ jobs:
       - name: Set up MoonBit
         uses: ./.github/actions/setup-moonbit
 
-      - name: Update dependencies
-        run: just update
-
       - name: Run tests
         run: just test-all
 

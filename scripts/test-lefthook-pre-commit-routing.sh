@@ -188,7 +188,9 @@ test_moonbit_rename_route_script() {
 }
 
 test_tooling_config() {
-  stage_file Makefile 'updated Makefile'
+  cp "$REPO_ROOT/lefthook.yml" "$FIXTURE/lefthook.yml"
+  printf '%s\n' '# staged tooling configuration change' >> "$FIXTURE/lefthook.yml"
+  git -C "$FIXTURE" add lefthook.yml
 }
 
 test_claude_settings() {

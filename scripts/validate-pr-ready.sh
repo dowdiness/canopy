@@ -308,12 +308,11 @@ build_plan() {
   add_phase "dependencies.check-deps"
   add_phase "dependencies.shared-substrate"
   add_phase "dependencies.egw-resolver-identity"
-  add_phase "dependencies.moon-update-wrapper"
+  add_phase "dependencies.registry-bootstrap-wiring"
   add_phase "dependencies.agent-doc-links"
   add_phase "dependencies.documentation-lifecycle"
   add_phase "dependencies.export-manifest"
   add_phase "dependencies.update-wrapper-test"
-  add_phase "dependencies.sync"
   add_phase "format.canopy"
   add_phase "interfaces.canopy"
 
@@ -394,8 +393,8 @@ run_phase() {
     dependencies.egw-resolver-identity)
       ./scripts/check-egw-resolver-identity.sh
       ;;
-    dependencies.moon-update-wrapper)
-      ./scripts/check-moon-update-wrapped.sh
+    dependencies.registry-bootstrap-wiring)
+      nu ./scripts/check-moon-update-wrapped.nu
       ;;
     dependencies.agent-doc-links)
       bash ./scripts/check-agent-doc-links.sh
@@ -409,10 +408,6 @@ run_phase() {
     dependencies.update-wrapper-test)
       ./scripts/test-moon-update-wrapper.sh
       ;;
-    dependencies.sync)
-      ./scripts/update-moon-deps.sh
-      assert_clean_worktree
-      ;;
     format.canopy)
       local moon_sources=()
       local source_file
@@ -424,34 +419,7 @@ run_phase() {
       fi
       ;;
     interfaces.canopy)
-      local package_dirs=()
-      local package_file
-      local package_dir
-      local existing_dir
-      local already_seen
-      while IFS= read -r -d '' package_file; do
-        if [[ "$package_file" == */* ]]; then
-          package_dir="${package_file%/*}"
-        else
-          package_dir="."
-        fi
-        already_seen=0
-        for existing_dir in "${package_dirs[@]}"; do
-          if [ "$existing_dir" = "$package_dir" ]; then
-            already_seen=1
-            break
-          fi
-        done
-        if [ "$already_seen" -eq 0 ]; then
-          package_dirs+=("$package_dir")
-        fi
-      done < <(
-        git ls-files -z -- \
-          'moon.pkg' 'moon.pkg.json' '*/moon.pkg' '*/moon.pkg.json'
-      )
-      if [ "${#package_dirs[@]}" -gt 0 ]; then
-        NEW_MOON_MOD=0 moon info --frozen "${package_dirs[@]}"
-      fi
+      NEW_MOON_MOD=0 nu ./scripts/check-moon-interfaces.nu --base "$base_ref"
       assert_clean_worktree
       ;;
     target.check)

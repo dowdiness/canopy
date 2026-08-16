@@ -39,9 +39,15 @@ hook-tooling-contract:
     @just --unstable --fmt --check
     @just --dry-run pre-commit
     @just --dry-run hook-submodule-reachability
-    @make -n check
     @node -e 'JSON.parse(require("fs").readFileSync(".claude/settings.json", "utf8"))'
-    @bash -n .githooks/pre-commit .githooks/pre-push scripts/install-hooks.sh scripts/test-install-hooks.sh scripts/test-lefthook-pre-commit-routing.sh scripts/test-lefthook-pre-push-routing.sh scripts/test-pr-ready-validation.sh scripts/test-submodule-reachability.sh scripts/run-submodule-reachability.sh scripts/run-moonbit-rename-route.sh
+    @bash -n .cursor/install.sh .githooks/pre-commit .githooks/pre-push scripts/install-hooks.sh scripts/test-install-hooks.sh scripts/test-lefthook-pre-commit-routing.sh scripts/test-lefthook-pre-push-routing.sh scripts/test-pr-ready-validation.sh scripts/test-submodule-reachability.sh scripts/run-submodule-reachability.sh scripts/run-moonbit-rename-route.sh scripts/validate-ci-yaml.sh
+    @nu --ide-check 100 scripts/check-moon-update-wrapped.nu
+    @nu --ide-check 100 scripts/check-moon-registry-manifests.nu
+    @nu --ide-check 100 scripts/check-moon-interfaces.nu
+    @nu --ide-check 100 scripts/test-moon-registry-bootstrap.nu
+    @nu scripts/check-moon-update-wrapped.nu
+    @nu scripts/check-moon-registry-manifests.nu
+    @nu scripts/test-moon-registry-bootstrap.nu
     @nu --ide-check 100 scripts/check-submodule-reachability.nu
     @nu --ide-check 100 scripts/install-hooks.nu
     @lefthook validate
@@ -116,13 +122,9 @@ install-hooks:
 # Run all CI checks locally
 ci: check-all test-all
 
-# Update MoonBit dependencies
-update:
+# Refresh MoonBit registry dependencies explicitly for local development
+registry-refresh:
     @bash "{{ moon_update }}"
-    @cd deps/event-graph-walker; bash "{{ moon_update }}"
-    @cd deps/loom/loom; bash "{{ moon_update }}"
-    @cd deps/svg-dsl; bash "{{ moon_update }}"
-    @cd deps/graphviz; bash "{{ moon_update }}"
 
 # Run benchmarks
 bench:

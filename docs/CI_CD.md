@@ -30,17 +30,17 @@ than duplicating its globs.
 
 | Job | What it runs |
 |-----|--------------|
-| `dep-check` | `./scripts/check-deps.sh` (module-scope rules [A]–[E] + canopy package-layering rules [F]–[I]; the rules table lives in the script header), `./scripts/check-shared-substrate.sh`, `./scripts/check-egw-resolver-identity.sh`, `./scripts/check-moon-update-wrapped.sh`, `node ./scripts/check-export-manifest.mjs`, `./scripts/test-moon-update-wrapper.sh`, `./scripts/test-pr-ready-validation.sh` |
+| `dep-check` | `./scripts/check-deps.sh` (module-scope rules [A]–[E] + canopy package-layering rules [F]–[I]; the rules table lives in the script header), `./scripts/check-shared-substrate.sh`, `./scripts/check-egw-resolver-identity.sh`, `nu ./scripts/check-moon-update-wrapped.nu` (registry-bootstrap wiring and manifest contract), `nu ./scripts/test-moon-registry-bootstrap.nu`, `node ./scripts/check-export-manifest.mjs`, `./scripts/test-moon-update-wrapper.sh`, `./scripts/test-pr-ready-validation.sh` |
 | `pr-ready-bash3` | Path-filtered macOS check that asserts `/bin/bash` 3.2, exercises local submodule failures, and runs the real PR-ready shell graph with only compiler work faked |
-| `tooling-validation` | Path-filtered Ubuntu validation for the pinned justfile, Make compatibility wrapper, Nushell installer script, and Lefthook configuration |
+| `tooling-validation` | Path-filtered Ubuntu validation for GitHub Actions YAML, the pinned justfile, Cursor bootstrap shell, registry-bootstrap contract, Cloudflare build bootstrap scripts, Nushell installer script, and Lefthook configuration |
 | `release-version-validation` | Path-filtered Ubuntu release-contract syntax and regression tests for version resolution, changelog ranges, and remote target resolution |
-| `test-main` | `./scripts/update-moon-deps.sh`, `./scripts/check-agent-doc-links.sh`, `./scripts/run-moon-module.sh check modules/canopy`, `./scripts/run-moon-module.sh test modules/canopy`, `moon build --release` |
+| `test-main` | setup-moonbit registry bootstrap, `./scripts/check-agent-doc-links.sh`, `./scripts/run-moon-module.sh check modules/canopy`, `./scripts/run-moon-module.sh test modules/canopy`, `moon build --release` |
 | `test-submodules` | Matrix over `deps/event-graph-walker`, `deps/loom/loom`, `deps/svg-dsl`, `deps/graphviz` — each runs `./scripts/run-moon-module.sh ci <path>` |
 | `test-examples` | Matrix over `apps/ideal`, `apps/block-editor`, `apps/canvas` — each runs `./scripts/run-moon-module.sh ci <path>` |
 | `prove` | `moon prove` in `modules/semantic/proof` after installing Why3 1.7.2 + Z3 via opam (cached) |
 | `benchmark` | PR only: `moon bench --release` at the root and in `deps/event-graph-walker` |
 | `format-check` | `./scripts/check-agent-doc-links.sh`, `./scripts/check-documentation-lifecycle.sh`, `NEW_MOON_MOD=0 moon fmt`, and a diff check that rejects Canopy-owned formatting changes |
-| `build-js` | `./scripts/update-moon-deps.sh`, `./scripts/build-js.sh`; uploads the generated JS/d.ts/mbti artifacts listed below |
+| `build-js` | setup-moonbit registry bootstrap, `./scripts/build-js.sh`; uploads the generated JS/d.ts/mbti artifacts listed below |
 | `web-build` | Default Waku build plus TypeScript/boundary checks for `apps/web`, then the ProseMirror typecheck |
 | `waku-build` | Builds the production Worker from downloaded MoonBit artifacts, verifies bundle/type boundaries, runs preview/production Wrangler dry-runs and startup analysis, and uploads the release artifacts |
 | `waku-e2e` | Canonical route, lifecycle, compatibility, and production-preview Playwright suites for `apps/web` |
@@ -49,6 +49,17 @@ than duplicating its globs.
 | `demo-react-e2e` | Playwright suite for `examples/demo-react` |
 | `canvas-e2e` | Playwright suite for `apps/canvas/web`; selected by the `run_canvas_e2e` output from the `changes` job |
 | `all-checks-passed` | Aggregation gate; fails unless every required job succeeds or is an accepted path-filtered skip |
+
+The local `setup-moonbit` composite action owns MoonBit registry bootstrap for
+CI. Its registry cache is keyed by a schema version, runner platform, exact
+MoonBit toolchain/core pair, `moon.work`, and every workspace `moon.mod` or
+`moon.mod.json`. An exact cache hit performs no registry refresh; a cold or
+partial restore invokes the bounded-retry wrapper once, and the resulting state
+is saved under the exact key. Build, test, benchmark, proof, release, and deploy
+operations in prepared CI environments do not refresh the registry themselves.
+The self-contained Cloudflare Workers Builds scripts bootstrap once after their
+own toolchain/submodule setup, and `just registry-refresh` remains the explicit
+local refresh entry point.
 
 #### Uploaded artifacts (`build-js`)
 
@@ -126,8 +137,7 @@ link to the version's commits page.
 
 Common entry points (just recipes that wrap `scripts/`):
 
-The root `Makefile` is a thin GNU Make compatibility wrapper; `just` is the
-canonical command runner and owns the recipes.
+`just` is the canonical command runner and owns the repository recipes.
 
 ```sh
 just help                  # List all recipes
@@ -147,9 +157,8 @@ just bench                 # moon bench --release (root + event-graph-walker)
 just ci                    # check-all + test-all
 just web-dev               # build-js then start the apps/web Waku dev server
 just install-hooks         # Install the pre-commit hook
-just update                # moon update across root + maintained submodules
+just registry-refresh      # explicitly refresh the local MoonBit registry
 just release-artifacts v0.2.0 # Package release artifacts (positional version)
-make release-artifacts VERSION=v0.2.0 # GNU Make compatibility form
 ```
 
 The shared module helper is `./scripts/run-moon-module.sh <subcommand> <path>`

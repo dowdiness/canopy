@@ -43,7 +43,6 @@ pre-commit:
       glob:
         - "lefthook.yml"
         - "justfile"
-        - "Makefile"
         - ".githooks/**"
         - ".claude/settings.json"
         - "scripts/install-hooks.nu"

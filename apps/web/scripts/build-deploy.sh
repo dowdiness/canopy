@@ -23,12 +23,10 @@ echo "==> Initializing submodules..."
 git submodule update --init --recursive
 echo "==> Submodules initialized"
 
-# Install MoonBit package dependencies
-# Retry-wrapped: transient mooncakes CDN 403 (issue #467) auto-recovers.
-echo "==> Running moon update (root)..."
+# Cloudflare Workers Builds is an independent environment from GitHub Actions.
+# Bootstrap the global registry once before the first MoonBit build.
+echo "==> Bootstrapping MoonBit registry..."
 "$REPO_ROOT/scripts/moon-update.sh"
-echo "==> Running moon update (graphviz)..."
-(cd deps/graphviz && "$REPO_ROOT/scripts/moon-update.sh")
 
 # Pre-build MoonBit modules explicitly
 echo "==> Building crdt module..."

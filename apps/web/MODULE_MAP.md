@@ -95,7 +95,7 @@ These Vite adapters are not browser entry dependencies. Production Worker bundle
 
 ## Deployment compatibility
 
-`npm run build:deploy:waku` is the Cloudflare Workers Builds production build alias. It initializes the pinned submodules, installs MoonBit dependencies, builds the generated JavaScript, and builds Waku. It is retained because Cloudflare Workers Builds external settings currently call this exact script name. The external deploy command still references `wrangler.waku.jsonc`; that compatibility symlink resolves to the canonical `wrangler.jsonc` so Waku and native deployment share one configuration source.
+`npm run build:deploy:waku` is the Cloudflare Workers Builds production build alias. It initializes the pinned submodules, installs MoonBit, bootstraps the registry once through `scripts/moon-update.sh`, builds the generated JavaScript, and builds Waku. It is retained because Cloudflare Workers Builds external settings currently call this exact script name. The external deploy command still references `wrangler.waku.jsonc`; that compatibility symlink resolves to the canonical `wrangler.jsonc` so Waku and native deployment share one configuration source.
 
 ## Boundary vocabulary and allowed direction
 

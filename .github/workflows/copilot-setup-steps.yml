@@ -34,9 +34,5 @@ jobs:
       - name: Set up MoonBit
         uses: ./.github/actions/setup-moonbit
 
-      - name: Update MoonBit dependencies
-        run: |
-            moon version --all
-            # Retry-wrapped: transient mooncakes CDN 403 (issue #467) auto-recovers.
-            "$GITHUB_WORKSPACE/scripts/moon-update.sh"
-            
+      - name: Verify MoonBit installation
+        run: moon version --all

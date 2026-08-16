@@ -60,6 +60,8 @@ jobs:
     needs: benchmark-gate
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      complete: ${{ steps.pr-result.outputs.complete }}
     steps:
       - name: Skip PR benchmarks
         if: needs.benchmark-gate.outputs.run_moon_benchmarks != 'true' && github.event_name != 'workflow_dispatch'
@@ -75,8 +77,13 @@ jobs:
         if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
         uses: ./.github/actions/setup-moonbit
 
+      - name: Initialize PR benchmark result
+        if: always() && (needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch')
+        run: printf '%s\n' '(PR benchmark did not complete)' > pr_bench.txt
+
       - name: Run PR benchmarks
         if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
+        id: pr-benchmark
         # Targeted bench: measure Canopy-owned packages against their current
         # transitive dependencies. EGW and Loom own their package benchmarks;
         # running those suites here can include release-scale workloads that do
@@ -84,16 +91,28 @@ jobs:
         continue-on-error: true
         run: |
           echo "Running benchmarks on PR branch..."
-          if { "$GITHUB_WORKSPACE/scripts/moon-update.sh" && moon bench --release -p dowdiness/btree -p dowdiness/visualizer -p dowdiness/canopy/editor -p dowdiness/canopy/projection -p dowdiness/canopy/lang/json/companion; } > pr_bench.txt 2>&1; then
+          if moon bench --release -p dowdiness/btree -p dowdiness/visualizer -p dowdiness/canopy/editor -p dowdiness/canopy/projection -p dowdiness/canopy/lang/json/companion > pr_bench.txt 2>&1; then
+            echo "complete=true" >> "$GITHUB_OUTPUT"
             cat pr_bench.txt
           else
+            echo "complete=false" >> "$GITHUB_OUTPUT"
             cat pr_bench.txt
-            echo "(PR benchmark failed)"
+            echo "(PR benchmark failed)" | tee -a pr_bench.txt
+            exit 1
           fi
 
+      - name: Record PR benchmark result
+        if: always() && (needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch')
+        id: pr-result
+        run: |
+          if [ "${{ steps.pr-benchmark.outputs.complete }}" = "true" ] && [ -f pr_bench.txt ]; then
+            echo "complete=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "complete=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Upload PR benchmark results
-        if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
+        if: always() && (needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch')
         uses: actions/upload-artifact@v7
         with:
           name: pr-benchmark-results
@@ -106,6 +125,8 @@ jobs:
     needs: benchmark-gate
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      complete: ${{ steps.base-result.outputs.complete }}
     steps:
       - name: Skip base benchmarks
         if: needs.benchmark-gate.outputs.run_moon_benchmarks != 'true' && github.event_name != 'workflow_dispatch'
@@ -118,7 +139,7 @@ jobs:
         with:
           path: |
             base_bench.txt
-          key: benchmark-base-v6-${{ runner.os }}-${{ github.event.pull_request.base.sha || github.ref_name }}
+          key: benchmark-base-v7-bootstrap-v2-benchmark-v2-${{ runner.os }}-${{ github.event.pull_request.base.sha || github.ref_name }}
 
       - name: Validate base benchmark cache
         if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
@@ -135,12 +156,22 @@ jobs:
         if: (needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch') && steps.base-cache-files.outputs.complete != 'true'
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.base_ref || github.event.repository.default_branch }}
+          ref: ${{ github.event.pull_request.base.sha || github.event.repository.default_branch }}
           submodules: recursive
 
       - name: Set up MoonBit
         if: (needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch') && steps.base-cache-files.outputs.complete != 'true'
-        uses: ./.github/actions/setup-moonbit
+        # Resolve the setup action from the workflow's running commit, not the
+        # base source tree checked out above. The benchmarked source remains
+        # base while the cache-aware bootstrap stays the PR-side implementation.
+        uses: $/.github/actions/setup-moonbit
+
+      - name: Initialize base benchmark result
+        if: always() && (needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch')
+        run: |
+          if [ "${{ steps.base-cache-files.outputs.complete }}" != "true" ]; then
+            printf '%s\n' '(base benchmark did not complete)' > base_bench.txt
+          fi
 
       - name: Run base benchmarks
         if: (needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch') && steps.base-cache-files.outputs.complete != 'true'
@@ -150,13 +181,14 @@ jobs:
         continue-on-error: true
         run: |
           echo "Running benchmarks on base branch..."
-          if { "$GITHUB_WORKSPACE/scripts/moon-update.sh" && moon bench --release -p dowdiness/btree -p dowdiness/visualizer -p dowdiness/canopy/editor -p dowdiness/canopy/projection -p dowdiness/canopy/lang/json/companion; } > base_bench.txt 2>&1; then
+          if moon bench --release -p dowdiness/btree -p dowdiness/visualizer -p dowdiness/canopy/editor -p dowdiness/canopy/projection -p dowdiness/canopy/lang/json/companion > base_bench.txt 2>&1; then
             echo "complete=true" >> "$GITHUB_OUTPUT"
             cat base_bench.txt
           else
             echo "complete=false" >> "$GITHUB_OUTPUT"
             cat base_bench.txt
             echo "(base branch benchmark failed — may not compile)" | tee -a base_bench.txt
+            exit 1
           fi
 
 
@@ -169,8 +201,18 @@ jobs:
             base_bench.txt
           key: ${{ steps.base-benchmark-cache.outputs.cache-primary-key }}
 
+      - name: Record base benchmark result
+        if: always() && (needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch')
+        id: base-result
+        run: |
+          if { [ "${{ steps.base-cache-files.outputs.complete }}" = "true" ] || [ "${{ steps.base-benchmark.outputs.complete }}" = "true" ]; } && [ -f base_bench.txt ]; then
+            echo "complete=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "complete=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Upload base benchmark results
-        if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
+        if: always() && (needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch')
         uses: actions/upload-artifact@v7
         with:
           name: base-benchmark-results
@@ -191,21 +233,23 @@ jobs:
         run: echo "No MoonBit benchmark-relevant changes detected; skipping benchmark comparison."
 
       - name: Download PR benchmark results
-        if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
+        if: always() && (needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch')
+        continue-on-error: true
         uses: actions/download-artifact@v8
         with:
           name: pr-benchmark-results
           path: benchmark-results/pr
 
       - name: Download base benchmark results
-        if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
+        if: always() && (needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch')
+        continue-on-error: true
         uses: actions/download-artifact@v8
         with:
           name: base-benchmark-results
           path: benchmark-results/base
 
       - name: Compare results
-        if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
+        if: always() && (needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch')
         id: compare
         run: |
           cat_benchmark_file() {
@@ -217,11 +261,33 @@ jobs:
             fi
           }
 
+          pr_complete="${{ needs.benchmark-pr.outputs.complete }}"
+          base_complete="${{ needs.benchmark-base.outputs.complete }}"
+          pr_job_result="${{ needs.benchmark-pr.result }}"
+          base_job_result="${{ needs.benchmark-base.result }}"
+          incomplete=false
+          if [ "$pr_complete" != "true" ] || [ "$base_complete" != "true" ] ||
+             [ "$pr_job_result" != "success" ] || [ "$base_job_result" != "success" ] ||
+             [ ! -f benchmark-results/pr/pr_bench.txt ] ||
+             [ ! -f benchmark-results/base/base_bench.txt ]; then
+            incomplete=true
+          fi
+
           base_ref="${{ github.base_ref || github.event.repository.default_branch }}"
           {
             echo "## Benchmark Comparison Report"
             echo ""
             echo "Comparing PR branch against \`${base_ref}\`"
+            echo ""
+            echo "### Gate status"
+            if [ "$incomplete" = true ]; then
+              echo "**FAIL: both benchmark branches must complete before comparison.**"
+              echo ""
+              echo "PR result: complete=${pr_complete}, job=${pr_job_result}"
+              echo "Base result: complete=${base_complete}, job=${base_job_result}"
+            else
+              echo "PASS: both benchmark branches produced complete results."
+            fi
             echo ""
 
             echo "### Main Module Benchmarks"
@@ -243,8 +309,13 @@ jobs:
             echo "*Benchmarks run with \`--release\` flag*"
           } > comparison.md
 
+          cat comparison.md
+          if [ "$incomplete" = true ]; then
+            exit 1
+          fi
+
       - name: Post comment to PR
-        if: (needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch') && github.event_name == 'pull_request'
+        if: always() && (needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch') && github.event_name == 'pull_request'
         continue-on-error: true
         uses: actions/github-script@v9
         with:
@@ -280,7 +351,7 @@ jobs:
             }
 
       - name: Upload benchmark comparison
-        if: needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch'
+        if: always() && (needs.benchmark-gate.outputs.run_moon_benchmarks == 'true' || github.event_name == 'workflow_dispatch')
         uses: actions/upload-artifact@v7
         with:
           name: benchmark-comparison
@@ -333,13 +404,6 @@ jobs:
         if: needs.benchmark-gate.outputs.run_editor_response == 'true' || github.event_name == 'workflow_dispatch'
         working-directory: apps/ideal/web
         run: npx playwright install --with-deps chromium
-
-      - name: Update MoonBit dependencies
-        if: needs.benchmark-gate.outputs.run_editor_response == 'true' || github.event_name == 'workflow_dispatch'
-        working-directory: apps/ideal
-        # Retry-wrapped: transient mooncakes CDN 403 (issue #467) auto-recovers.
-        run: |
-          "$GITHUB_WORKSPACE/scripts/moon-update.sh"
 
       - name: Run realistic editor response benchmark
         if: needs.benchmark-gate.outputs.run_editor_response == 'true' || github.event_name == 'workflow_dispatch'

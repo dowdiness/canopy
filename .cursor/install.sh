@@ -31,7 +31,7 @@ git submodule update --init --recursive
 scripts/moon-update.sh
 
 # JS FFI artifacts consumed by the web front-ends.
-make build-js
+just build-js
 
 # apps/web needs node ^22.15.0; prefer nvm's pinned 22.22.2 when available so
 # npm's engines check is satisfied.

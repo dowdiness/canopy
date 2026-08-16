@@ -21,6 +21,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Install Nushell
+        uses: hustcer/setup-nu@f3fd65374ffc4d60974c0dd2f7263c6c5c285f81
+        with:
+          version: "0.114.1"
+
       - name: Run check-deps
         run: ./scripts/check-deps.sh
 
@@ -30,23 +35,21 @@ jobs:
       - name: Check egw resolver identity
         run: ./scripts/check-egw-resolver-identity.sh
 
-      - name: Check moon update is retry-wrapped
-        run: ./scripts/check-moon-update-wrapped.sh
+      - name: Check MoonBit registry bootstrap wiring
+        run: nu ./scripts/check-moon-update-wrapped.nu
+
+      - name: Test MoonBit registry bootstrap contract
+        run: nu ./scripts/test-moon-registry-bootstrap.nu
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
           node-version: '20'
 
-      - name: Install Nushell
-        uses: hustcer/setup-nu@f3fd65374ffc4d60974c0dd2f7263c6c5c285f81
-        with:
-          version: "0.114.1"
-
       - name: Check FFI export manifest (lambda app seam)
         run: node ./scripts/check-export-manifest.mjs
 
-      - name: Test moon update retry wrapper
+      - name: Test retry-wrapper regression
         run: ./scripts/test-moon-update-wrapper.sh
 
       - name: Test PR-ready validation contract
@@ -79,6 +82,8 @@ jobs:
           filters: |
             run_cm6_adapter_e2e:
               - 'adapters/editor/**'
+              - '.github/actions/setup-moonbit/**'
+              - 'scripts/moon-update.sh'
               - '.github/workflows/ci.yml'
             run_loomark_dev_host_e2e:
               - 'apps/loomark/**'
@@ -89,6 +94,8 @@ jobs:
               - 'deps/rabbita/**'
               - '.github/workflows/ci.yml'
               - 'scripts/test-loomark-dev-host-e2e.sh'
+              - '.github/actions/setup-moonbit/**'
+              - 'scripts/moon-update.sh'
             run_loomark_standalone_e2e:
               - 'apps/loomark/**'
               - 'modules/canopy/editor/markdown/**'
@@ -101,18 +108,19 @@ jobs:
               - '.gitignore'
               - '.gitmodules'
               - 'scripts/install-local-warren.sh'
-              - 'scripts/moon-update.sh'
               - 'scripts/test-loomark-standalone-e2e.sh'
-              - 'scripts/update-moon-deps.sh'
+              - 'scripts/moon-update.sh'
             run_prove:
               - 'modules/semantic/proof/**'
               - '.github/actions/setup-moonbit/**'
-              - '.github/workflows/ci.yml'
               - 'scripts/moon-update.sh'
+              - '.github/workflows/ci.yml'
             run_e2e:
               - 'apps/web/**'
               - 'apps/ideal/**'
               - 'examples/demo-react/**'
+              - '.github/actions/setup-moonbit/**'
+              - 'scripts/moon-update.sh'
               - '.github/workflows/ci.yml'
               - 'scripts/build-js.sh'
               - 'scripts/test-ideal-web-e2e.sh'
@@ -121,6 +129,8 @@ jobs:
               - 'apps/canvas/**'
               - 'apps/web/vite-plugin-moonbit.ts'
               - 'modules/canvas-graph/**'
+              - '.github/actions/setup-moonbit/**'
+              - 'scripts/moon-update.sh'
               - '.github/workflows/ci.yml'
               - 'scripts/build-js.sh'
               - 'scripts/link-canvas-artifacts.sh'
@@ -132,7 +142,9 @@ jobs:
               - '.github/workflows/ci.yml'
             run_tooling_validation:
               - 'justfile'
-              - 'Makefile'
+              - '.cursor/install.sh'
+              - 'apps/web/scripts/build-deploy.sh'
+              - 'apps/ideal/scripts/build-deploy.sh'
               - 'lefthook.yml'
               - '.githooks/pre-commit'
               - '.githooks/pre-push'
@@ -148,8 +160,18 @@ jobs:
               - 'scripts/test-install-hooks.sh'
               - 'scripts/test-lefthook-pre-commit-routing.sh'
               - 'scripts/run-moonbit-rename-route.sh'
+              - 'scripts/check-moon-update-wrapped.nu'
+              - 'scripts/check-moon-registry-manifests.nu'
+              - 'scripts/check-moon-interfaces.nu'
+              - 'scripts/test-moon-registry-bootstrap.nu'
+              - 'scripts/validate-ci-yaml.sh'
+              - 'scripts/moon-update.sh'
+              - '.github/actions/setup-moonbit/**'
               - '.github/workflows/ci.yml'
               - '.github/workflows/release.yml'
+              - '.github/workflows/benchmark.yml'
+              - '.github/workflows/copilot-setup-steps.yml'
+              - '.github/workflows/deploy-cloudflare.yml'
             run_release_version_validation:
               - '.github/workflows/ci.yml'
               - '.github/workflows/release.yml'
@@ -163,7 +185,7 @@ jobs:
               - 'scripts/test-verify-release-target.sh'
 
   tooling-validation:
-    name: Just, Make, and Lefthook Configuration
+    name: Just and Lefthook Configuration
     needs: changes
     if: needs.changes.outputs.run_tooling_validation == 'true'
     runs-on: ubuntu-latest
@@ -180,6 +202,11 @@ jobs:
         with:
           tool: just@1.58.0
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+
       - name: Install Nushell
         uses: hustcer/setup-nu@f3fd65374ffc4d60974c0dd2f7263c6c5c285f81
         with:
@@ -188,20 +215,26 @@ jobs:
       - name: Validate justfile
         run: just --unstable --fmt --check
 
+      - name: Validate GitHub Actions YAML
+        run: ./scripts/validate-ci-yaml.sh
+
       - name: Validate just recipes
         run: |
           just --list
           just --dry-run check
           just --dry-run fmt-check
           just --dry-run pre-commit
-          just --dry-run update
+          just --dry-run registry-refresh
           just --dry-run release-artifacts v0.2.0
 
-      - name: Validate Make compatibility
+      - name: Validate MoonBit registry bootstrap wiring
         run: |
-          make -n help
-          make -n check
-          make -n release-artifacts VERSION=v0.2.0
+          nu --ide-check 100 scripts/check-moon-update-wrapped.nu
+          nu --ide-check 100 scripts/check-moon-registry-manifests.nu
+          nu --ide-check 100 scripts/test-moon-registry-bootstrap.nu
+          nu scripts/check-moon-update-wrapped.nu
+          nu scripts/check-moon-registry-manifests.nu
+          nu scripts/test-moon-registry-bootstrap.nu
 
       - name: Validate Nushell scripts
         run: |
@@ -216,7 +249,7 @@ jobs:
 
       - name: Validate compatibility entry points
         run: |
-          bash -n .githooks/pre-commit .githooks/pre-push scripts/run-submodule-reachability.sh scripts/test-submodule-reachability.sh scripts/test-lefthook-pre-push-routing.sh scripts/test-pr-ready-validation.sh scripts/install-hooks.sh
+          bash -n .cursor/install.sh apps/web/scripts/build-deploy.sh apps/ideal/scripts/build-deploy.sh .githooks/pre-commit .githooks/pre-push scripts/run-submodule-reachability.sh scripts/test-submodule-reachability.sh scripts/test-lefthook-pre-push-routing.sh scripts/test-pr-ready-validation.sh scripts/install-hooks.sh
           grep -Fq 'exec just pre-commit' .githooks/pre-commit
           grep -Fq 'exec lefthook run pre-push' .githooks/pre-push
           grep -Fq 'exec just install-hooks' scripts/install-hooks.sh
@@ -321,8 +354,7 @@ jobs:
           mkdir -p "$bash32_bin"
           ln -s /bin/bash "$bash32_bin/bash"
 
-          PATH="$bash32_bin:$PATH" \
-            /bin/bash ./scripts/check-moon-update-wrapped.sh
+          nu ./scripts/check-moon-update-wrapped.nu
           PATH="$bash32_bin:$PATH" \
             /bin/bash ./scripts/test-pr-ready-validation.sh
           PATH="$bash32_bin:$PATH" \
@@ -342,9 +374,6 @@ jobs:
 
       - name: Verify MoonBit installation
         run: moon version --all
-
-      - name: Update dependencies
-        run: ./scripts/update-moon-deps.sh
 
       - name: Check code
         run: |
@@ -471,11 +500,6 @@ jobs:
           eval $(opam env)
           why3 config detect
 
-      - name: Update MoonBit dependencies
-        working-directory: modules/semantic/proof
-        run: |
-          "$GITHUB_WORKSPACE/scripts/moon-update.sh"
-
       - name: Run moon prove
         working-directory: modules/semantic/proof
         run: |
@@ -521,9 +545,6 @@ jobs:
 
       - name: Set up MoonBit
         uses: ./.github/actions/setup-moonbit
-
-      - name: Update dependencies
-        run: ./scripts/update-moon-deps.sh
 
       - name: Build JavaScript artifacts
         run: ./scripts/build-js.sh
@@ -578,9 +599,6 @@ jobs:
           cache-dependency-path: |
             apps/web/package-lock.json
             examples/prosemirror/package-lock.json
-
-      - name: Update MoonBit dependencies
-        run: ./scripts/update-moon-deps.sh
 
       - name: Build web
         run: ./scripts/build-web.sh
@@ -985,9 +1003,6 @@ jobs:
       - name: Verify MoonBit installation
         run: moon version --all
 
-      - name: Update MoonBit dependencies
-        run: ./scripts/update-moon-deps.sh
-
       - name: Run Loomark dev-host browser suite
         run: ./scripts/test-loomark-dev-host-e2e.sh
 
@@ -1022,9 +1037,6 @@ jobs:
 
       - name: Verify MoonBit installation
         run: moon version --all
-
-      - name: Update MoonBit dependencies
-        run: ./scripts/update-moon-deps.sh
 
       - name: Run Loomark standalone browser suite
         run: ./scripts/test-loomark-standalone-e2e.sh
