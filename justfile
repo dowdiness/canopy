@@ -40,7 +40,7 @@ hook-tooling-contract:
     @just --dry-run pre-commit
     @just --dry-run hook-submodule-reachability
     @node -e 'JSON.parse(require("fs").readFileSync(".claude/settings.json", "utf8"))'
-    @bash -n .githooks/pre-commit .githooks/pre-push scripts/install-hooks.sh scripts/test-install-hooks.sh scripts/test-lefthook-pre-commit-routing.sh scripts/test-lefthook-pre-push-routing.sh scripts/test-pr-ready-validation.sh scripts/test-submodule-reachability.sh scripts/run-submodule-reachability.sh scripts/run-moonbit-rename-route.sh scripts/validate-ci-yaml.sh
+    @bash -n .cursor/install.sh .githooks/pre-commit .githooks/pre-push scripts/install-hooks.sh scripts/test-install-hooks.sh scripts/test-lefthook-pre-commit-routing.sh scripts/test-lefthook-pre-push-routing.sh scripts/test-pr-ready-validation.sh scripts/test-submodule-reachability.sh scripts/run-submodule-reachability.sh scripts/run-moonbit-rename-route.sh scripts/validate-ci-yaml.sh
     @nu --ide-check 100 scripts/check-moon-update-wrapped.nu
     @nu --ide-check 100 scripts/check-moon-registry-manifests.nu
     @nu --ide-check 100 scripts/check-moon-interfaces.nu

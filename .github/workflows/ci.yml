@@ -142,6 +142,7 @@ jobs:
               - '.github/workflows/ci.yml'
             run_tooling_validation:
               - 'justfile'
+              - '.cursor/install.sh'
               - 'lefthook.yml'
               - '.githooks/pre-commit'
               - '.githooks/pre-push'
