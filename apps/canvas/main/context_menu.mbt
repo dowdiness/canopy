@@ -1,8 +1,7 @@
 // Canvas context-menu Rabbita island.
 //
-// TypeScript still owns graph hit-testing and source-backed action execution;
-// this cell owns the menu surface by composing Canvas item data with
-// `dowdiness/rabbita-context-menu/context_menu`.
+// This app-private island owns context targets, workflow catalog items, and
+// action meaning. Graph/source hosts still own the domain mutations.
 
 ///|
 let context_menu_root_id : String = "context-menu"
@@ -14,91 +13,169 @@ let canvas_root_id : String = "canvas-root"
 let context_menu_panel_id : String = "canvas-context-menu-panel"
 
 ///|
-let context_menu_show_event : String = "canopy-canvas-context-menu-show"
+priv enum CanvasContextTarget {
+  Background(insert_at~ : ScreenPoint)
+  Edge(EdgeId)
+}
 
 ///|
-let context_menu_hide_event : String = "canopy-canvas-context-menu-hide"
+priv struct CanvasContextRequest {
+  anchor : @context_menu.Point
+  target : CanvasContextTarget
+}
+
+///|
+priv enum CanvasContextAction {
+  AddNode(String)
+  Disconnect
+}
 
 ///|
 priv struct CanvasContextMenuItem {
-  key : String
+  action : CanvasContextAction
   label : String
   description : String
-} derive(@json.FromJson)
-
-///|
-priv struct CanvasContextMenuPayload {
-  x : Float
-  y : Float
-  items : Array[CanvasContextMenuItem]
-} derive(@json.FromJson)
-
-///|
-fn CanvasContextMenuPayload::anchor(
-  self : CanvasContextMenuPayload,
-) -> @context_menu.Point {
-  @context_menu.Point(x=self.x, y=self.y)
 }
 
 ///|
 priv struct CanvasContextMenuModel {
+  handle : Int
+  source_backed : Bool
   items : Array[CanvasContextMenuItem]
+  target : CanvasContextTarget?
   context_menu : @context_menu.Model
-  on_select : (String) -> Unit
-  on_close : () -> Unit
+  on_change : () -> Unit
+  on_source_result : (String) -> Unit
 }
 
 ///|
 priv enum CanvasContextMenuMsg {
-  Show(String)
-  Hide
+  Request(CanvasContextRequest)
   ContextMenu(@context_menu.Msg)
 }
 
 ///|
-fn decode_context_menu_payload(json_text : String) -> CanvasContextMenuPayload? {
-  let json = @json.parse(json_text) catch { _ => return None }
-  let payload : CanvasContextMenuPayload = @json.from_json(json) catch {
-    _ => return None
+fn canvas_context_pointer_state(
+  handle : Int,
+  source_backed : Bool,
+) -> CanvasPointerState {
+  { handle, source_backed, session: Idle }
+}
+
+///|
+fn canvas_context_edge_description(
+  handle : Int,
+  source_backed : Bool,
+  edge_id : EdgeId,
+) -> String {
+  let state = if source_backed {
+    match source_graph_by_handle(handle) {
+      Some(graph) => source_graph_base_canvas_state(graph)
+      None => empty_source_canvas_state()
+    }
+  } else {
+    _registry[handle].state_peek()
   }
-  Some(payload)
+  match state.edges.search_by(fn(edge) { edge.id == edge_id }) {
+    Some(index) => {
+      let edge = state.edges[index]
+      edge.source.to_string() +
+      "." +
+      edge.source_port +
+      " → " +
+      edge.target.to_string() +
+      "." +
+      edge.target_port
+    }
+    None => "Disconnect edge"
+  }
+}
+
+///|
+fn canvas_context_menu_items(
+  model : CanvasContextMenuModel,
+  target : CanvasContextTarget,
+) -> Array[CanvasContextMenuItem] {
+  match target {
+    Background(_) =>
+      workflow_node_catalog().map(fn(item) {
+        {
+          action: AddNode(item.key),
+          label: item.label,
+          description: item.description,
+        }
+      })
+    Edge(edge_id) =>
+      [
+        {
+          action: Disconnect,
+          label: "Disconnect edge",
+          description: canvas_context_edge_description(
+            model.handle,
+            model.source_backed,
+            edge_id,
+          ),
+        },
+      ]
+  }
 }
 
 ///|
 fn context_menu_model(
-  on_select : (String) -> Unit,
-  on_close : () -> Unit,
+  handle : Int,
+  source_backed : Bool,
+  on_change : () -> Unit,
+  on_source_result : (String) -> Unit,
 ) -> CanvasContextMenuModel {
   {
+    handle,
+    source_backed,
     items: [],
+    target: None,
     context_menu: @context_menu.Model::new(id=context_menu_panel_id).with_close_focus_id(
       canvas_root_id,
     ),
-    on_select,
-    on_close,
+    on_change,
+    on_source_result,
   }
 }
 
 ///|
-fn CanvasContextMenuModel::with_payload(
+fn CanvasContextMenuModel::open_request(
   self : CanvasContextMenuModel,
-  payload : CanvasContextMenuPayload,
-) -> CanvasContextMenuModel {
-  {
-    ..self,
-    items: payload.items,
-    context_menu: self.context_menu.open(
-      anchor=payload.anchor(),
-      item_count=payload.items.length(),
-    ),
+  request : CanvasContextRequest,
+) -> CanvasContextMenuModel? {
+  match request.target {
+    Background(insert_at~) => {
+      let pointer_state = canvas_context_pointer_state(
+        self.handle,
+        self.source_backed,
+      )
+      if !self.source_backed &&
+        canvas_pointer_world_point(pointer_state, insert_at) is None {
+        return None
+      }
+      canvas_clear_selected_edge(self.handle, self.source_backed)
+    }
+    Edge(edge_id) =>
+      canvas_select_edge(self.handle, self.source_backed, edge_id)
   }
+  Some({
+    ..self,
+    items: canvas_context_menu_items(self, request.target),
+    target: Some(request.target),
+    context_menu: self.context_menu.open(
+      anchor=request.anchor,
+      item_count=canvas_context_menu_items(self, request.target).length(),
+    ),
+  })
 }
 
 ///|
 fn CanvasContextMenuModel::closed(
   self : CanvasContextMenuModel,
 ) -> CanvasContextMenuModel {
-  { ..self, items: [], context_menu: self.context_menu.close() }
+  { ..self, items: [], target: None, context_menu: self.context_menu.close() }
 }
 
 ///|
@@ -107,31 +184,82 @@ fn CanvasContextMenuModel::with_context_menu_msg(
   msg : @context_menu.Msg,
 ) -> CanvasContextMenuModel {
   let context_menu = self.context_menu.update(msg)
-  {
-    ..self,
-    context_menu,
-    items: if context_menu.is_open() {
-      self.items
-    } else {
-      []
-    },
+  if context_menu.is_open() {
+    { ..self, context_menu, }
+  } else {
+    self.closed()
   }
 }
 
 ///|
-fn context_menu_close_cmd(model : CanvasContextMenuModel) -> @rabbita.Cmd {
-  @rabbita.effect(fn() { (model.on_close)() })
+fn canvas_context_failure_result(
+  handle : Int,
+  detail : String,
+) -> SourceGraphOperationResultJson {
+  match source_graph_by_handle(handle) {
+    Some(graph) =>
+      source_graph_result_json_for_graph(graph, false, Some(detail))
+    None =>
+      source_graph_operation_result_json(false, "", [detail], 0, Some(detail))
+  }
 }
 
 ///|
-fn context_menu_select_cmd(
+fn canvas_context_insert_unique(handle : Int, kind : String) -> String {
+  source_graph_insert_unique(handle, kind, kind) catch {
+    Failure::Failure(detail) =>
+      canvas_context_failure_result(handle, detail).to_json().stringify()
+  }
+}
+
+///|
+fn canvas_context_apply(
   model : CanvasContextMenuModel,
-  key : String,
+  target : CanvasContextTarget,
+  action : CanvasContextAction,
+) -> Unit {
+  match (target, action) {
+    (Background(insert_at~), AddNode(kind)) =>
+      if model.source_backed {
+        (model.on_source_result)(
+          canvas_context_insert_unique(model.handle, kind),
+        )
+      } else {
+        _registry[model.handle].add_node(kind, insert_at.x(), insert_at.y())
+      }
+    (Edge(edge_id), Disconnect) =>
+      if model.source_backed {
+        let result = match source_graph_by_handle(model.handle) {
+          Some(graph) =>
+            graph.disconnect_edge(edge_id) catch {
+              Failure::Failure(detail) =>
+                canvas_context_failure_result(model.handle, detail)
+            }
+          None =>
+            canvas_context_failure_result(
+              model.handle,
+              "source graph handle not found",
+            )
+        }
+        (model.on_source_result)(result.to_json().stringify())
+      } else {
+        ignore(_registry[model.handle].disconnect_edge(edge_id))
+      }
+    _ => ()
+  }
+  (model.on_change)()
+}
+
+///|
+fn context_menu_action_cmd(
+  model : CanvasContextMenuModel,
+  item : CanvasContextMenuItem,
 ) -> @rabbita.Cmd {
-  @rabbita.effect(fn() {
-    (model.on_select)(key)
-    (model.on_close)()
-  })
+  match model.target {
+    None => @rabbita.none
+    Some(target) =>
+      @rabbita.effect(fn() { canvas_context_apply(model, target, item.action) })
+  }
 }
 
 ///|
@@ -141,27 +269,25 @@ fn context_menu_update(
   model : CanvasContextMenuModel,
 ) -> (@rabbita.Cmd, CanvasContextMenuModel) {
   match msg {
-    Show(json_text) =>
-      match decode_context_menu_payload(json_text) {
-        Some(payload) => {
-          let model = model.with_payload(payload)
+    Request(request) =>
+      match model.open_request(request) {
+        None => (@rabbita.none, model.closed())
+        Some(model) =>
           (
             @rabbita.batch([
               model.context_menu.position_cmd(),
               model.context_menu.focus_cmd(),
+              @rabbita.effect(fn() { (model.on_change)() }),
             ]),
             model,
           )
-        }
-        None => (@rabbita.none, model.closed())
       }
-    Hide => (@rabbita.none, model.closed())
     ContextMenu(context_menu_msg) =>
       match context_menu_msg {
         @context_menu.Activate(index) =>
           match model.items.get(index) {
             Some(item) => {
-              let cmd = context_menu_select_cmd(model, item.key)
+              let cmd = context_menu_action_cmd(model, item)
               let cmd = if context_menu_msg.requests_close_focus() {
                 @rabbita.batch([cmd, model.context_menu.close_focus_cmd()])
               } else {
@@ -173,12 +299,9 @@ fn context_menu_update(
           }
         @context_menu.Close | @context_menu.Dismiss(_) => {
           let cmd = if context_menu_msg.requests_close_focus() {
-            @rabbita.batch([
-              context_menu_close_cmd(model),
-              model.context_menu.close_focus_cmd(),
-            ])
+            model.context_menu.close_focus_cmd()
           } else {
-            context_menu_close_cmd(model)
+            @rabbita.none
           }
           (cmd, model.with_context_menu_msg(context_menu_msg))
         }
@@ -240,26 +363,57 @@ fn context_menu_view(
 
 ///|
 #cfg(target="js")
-extern "js" fn context_menu_event_detail(event : @dom.Event) -> String =
-  #| (event) => {
-  #|   const detail = event && "detail" in event ? event.detail : "";
-  #|   return typeof detail === "string" ? detail : "";
-  #| }
+fn canvas_context_request(
+  event : @dom.Event,
+  root : @dom.Element,
+) -> CanvasContextRequest? {
+  let mouse = match event.to_mouse_event() {
+    Some(mouse) => mouse
+    None => return None
+  }
+  let client_x = mouse.get_client_x()
+  let client_y = mouse.get_client_y()
+  guard !client_x.is_nan() && !client_x.is_inf() else { return None }
+  guard !client_y.is_nan() && !client_y.is_inf() else { return None }
+  let event_root = match event.current_target().to_option() {
+    Some(target) =>
+      match target.to_element() {
+        Some(element) => element
+        None => root
+      }
+    None => root
+  }
+  let rect = event_root.get_bounding_client_rect()
+  let insert_at = ScreenPoint::from_xy(
+    x=client_x - rect.get_left(),
+    y=client_y - rect.get_top(),
+  ) catch {
+    @spatial.CoordinateError::NonFinite => return None
+  }
+  let target = match
+    canvas_pointer_hit_from_element(event.target().to_element()) {
+    CanvasPointerHit::Edge(edge_id) => CanvasContextTarget::Edge(edge_id)
+    _ => CanvasContextTarget::Background(insert_at~)
+  }
+  Some({
+    anchor: @context_menu.Point(
+      x=Float::from_double(client_x),
+      y=Float::from_double(client_y),
+    ),
+    target,
+  })
+}
 
 ///|
 #cfg(target="js")
 priv suberror CanvasContextMenuSub {
-  ShowEvent(@rabbita.Emit[CanvasContextMenuMsg])
-  HideEvent(@rabbita.Emit[CanvasContextMenuMsg])
+  ContextMenuEvent(@rabbita.Emit[CanvasContextMenuMsg])
 }
 
 ///|
 #cfg(target="js")
 fn context_menu_event_target() -> @dom.EventTarget {
-  @dom.document()
-  .get_element_by_id(context_menu_root_id)
-  .unwrap()
-  .as_event_target()
+  @dom.document().get_element_by_id(canvas_root_id).unwrap().as_event_target()
 }
 
 ///|
@@ -269,36 +423,24 @@ fn context_menu_sub_loader(
   scheduler : &@cmd.Scheduler,
 ) -> @sub.RunningSub? {
   match payload {
-    CanvasContextMenuSub::ShowEvent(emit) => {
+    CanvasContextMenuSub::ContextMenuEvent(emit) => {
       let tagger = @ref.Ref(emit)
+      let root = @dom.document().get_element_by_id(canvas_root_id).unwrap()
       let target = context_menu_event_target()
       let listener : @dom.Listener = event => {
-        scheduler.add((tagger.val)(Show(context_menu_event_detail(event))))
+        // Prevent the browser menu synchronously; admission itself is
+        // scheduled only after typed coordinates and hit classification exist.
+        event.prevent_default()
+        match canvas_context_request(event, root) {
+          Some(request) => scheduler.add((tagger.val)(Request(request)))
+          None => ()
+        }
       }
-      target.add_event_listener(context_menu_show_event, listener)
+      target.add_event_listener("contextmenu", listener)
       Some({
-        unload: _ => {
-          target.remove_event_listener(context_menu_show_event, listener)
-        },
+        unload: _ => target.remove_event_listener("contextmenu", listener),
         update_tagger: next => {
-          guard next is CanvasContextMenuSub::ShowEvent(new_emit) else {
-            return
-          }
-          tagger.val = new_emit
-        },
-      })
-    }
-    CanvasContextMenuSub::HideEvent(emit) => {
-      let tagger = @ref.Ref(emit)
-      let target = context_menu_event_target()
-      let listener : @dom.Listener = _ => scheduler.add((tagger.val)(Hide))
-      target.add_event_listener(context_menu_hide_event, listener)
-      Some({
-        unload: _ => {
-          target.remove_event_listener(context_menu_hide_event, listener)
-        },
-        update_tagger: next => {
-          guard next is CanvasContextMenuSub::HideEvent(new_emit) else {
+          guard next is CanvasContextMenuSub::ContextMenuEvent(new_emit) else {
             return
           }
           tagger.val = new_emit
@@ -317,15 +459,9 @@ fn context_menu_subscriptions(
 ) -> @sub.Sub {
   @sub.batch([
     @sub.custom_sub(
-      context_menu_show_event,
+      "canvas.context-menu",
       @sub.Scope::Local,
-      CanvasContextMenuSub::ShowEvent(emit),
-      context_menu_sub_loader,
-    ),
-    @sub.custom_sub(
-      context_menu_hide_event,
-      @sub.Scope::Local,
-      CanvasContextMenuSub::HideEvent(emit),
+      CanvasContextMenuSub::ContextMenuEvent(emit),
       context_menu_sub_loader,
     ),
     model.context_menu.subscriptions(emit.map(msg => ContextMenu(msg))),
@@ -335,12 +471,16 @@ fn context_menu_subscriptions(
 ///|
 #cfg(target="js")
 pub fn mount_canvas_context_menu(
-  on_select : (String) -> Unit,
-  on_close : () -> Unit,
+  handle : Int,
+  source_backed : Bool,
+  on_change : () -> Unit,
+  on_source_result : (String) -> Unit,
 ) -> Unit {
   @rabbita.new(
     @rabbita.cell(
-      model=context_menu_model(on_select, on_close),
+      model=context_menu_model(
+        handle, source_backed, on_change, on_source_result,
+      ),
       update=context_menu_update,
       view=context_menu_view,
       subscriptions=context_menu_subscriptions,

@@ -1150,3 +1150,35 @@ test "source-backed edge selection is ephemeral and edge-first" {
   assert_eq(graph.action_log.length(), 3)
   destroy_source_graph(handle)
 }
+
+///|
+test "source-backed disconnect_edge uses its captured edge target" {
+  let handle = create_source_graph("osc = sine(freq: 440Hz)\nmeter = scope()")
+  let graph = match source_graph_by_handle(handle) {
+    Some(graph) => graph
+    None => abort("expected source graph handle")
+  }
+  let osc = handle_token(handle, "osc")
+  let meter = handle_token(handle, "meter")
+  inspect(
+    operation_result_applied(
+      apply_source_graph_operation(
+        handle,
+        GraphOperation(ConnectPorts(osc, "out", meter, "input"))
+        .to_json()
+        .stringify(),
+      ),
+    ),
+    content="true",
+  )
+  let edge = source_graph_base_canvas_state(graph).edges[0]
+  let result = graph.disconnect_edge(edge.id)
+  assert_true(result.applied)
+  assert_eq(source_graph_base_canvas_state(graph).edges.length(), 0)
+  assert_eq(graph.action_log.length(), 2)
+
+  let stale = graph.disconnect_edge(edge.id)
+  assert_false(stale.applied)
+  assert_eq(graph.action_log.length(), 2)
+  destroy_source_graph(handle)
+}

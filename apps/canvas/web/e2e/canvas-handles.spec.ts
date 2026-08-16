@@ -492,7 +492,7 @@ test('invalid add-node context geometry leaves selection unchanged', async ({ pa
     root.dispatchEvent(event);
   });
 
-  await expect(page.locator('#context-menu')).toBeHidden();
+  await expect(page.locator('#context-menu [role="menu"]')).toBeHidden();
   await expect(edgePaths(page).first()).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
   await expect(page.locator('.canvas-node')).toHaveCount(6);
   await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
@@ -520,7 +520,7 @@ test('overflowed add-node context geometry leaves state unchanged', async ({ pag
     root.dispatchEvent(event);
   });
 
-  await expect(page.locator('#context-menu')).toBeHidden();
+  await expect(page.locator('#context-menu [role="menu"]')).toBeHidden();
   await expect(page.locator('.canvas-node')).toHaveCount(6);
   await expect(page.locator('#action-stat')).toHaveText('1 action logged');
   expect(runtimeErrors).toEqual([]);
@@ -589,6 +589,27 @@ test('selected canvas edge deletes before a coexisting node selection', async ({
   expect(runtimeErrors).toEqual([]);
 });
 
+test('canvas context menu adds a node from the MoonBit catalog', async ({ page }) => {
+  const runtimeErrors: string[] = [];
+  page.on('pageerror', (error) => runtimeErrors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') runtimeErrors.push(message.text());
+  });
+
+  await page.goto('/');
+  await expect(page.locator('.canvas-node')).toHaveCount(6);
+
+  await openBackgroundContextMenu(page);
+  const menu = page.locator('#context-menu [role="menu"]');
+  await expect(menu.getByRole('menuitem', { name: 'Timer trigger' })).toHaveCount(1);
+  await menu.getByRole('menuitem', { name: 'Timer trigger' }).click();
+
+  await expect(page.locator('.canvas-node')).toHaveCount(7);
+  await expect(page.locator('.canvas-node .node-title', { hasText: 'Timer trigger' })).toHaveCount(2);
+  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  expect(runtimeErrors).toEqual([]);
+});
+
 test('canvas edge context menu disconnects the edge', async ({ page }) => {
   const runtimeErrors: string[] = [];
   page.on('pageerror', (error) => runtimeErrors.push(error.message));
@@ -622,7 +643,7 @@ test('canvas context menu supports headless keyboard navigation and dismissal', 
   await page.goto('/');
   await expect(page.locator('.canvas-node')).toHaveCount(6);
 
-  const menu = page.locator('#context-menu');
+  const menu = page.locator('#context-menu [role="menu"]');
   const canvasRoot = page.locator('#canvas-root');
   const searchInput = page.locator('#node-search');
   const items = contextMenuItems(page);

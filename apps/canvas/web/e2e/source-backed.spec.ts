@@ -90,9 +90,15 @@ async function edgeMidpoint(edge: Locator): Promise<Point> {
   });
 }
 
-async function clickEdge(page: Page, index: number): Promise<void> {
+async function clickEdge(page: Page, index: number, button: 'left' | 'right' = 'left'): Promise<void> {
   const point = await edgeMidpoint(edgePaths(page).nth(index));
-  await page.mouse.click(point.x, point.y);
+  await page.mouse.click(point.x, point.y, { button });
+}
+
+async function openBackgroundContextMenu(page: Page): Promise<void> {
+  const box = await page.locator('#canvas-root').boundingBox();
+  if (!box) throw new Error('canvas root is not visible');
+  await page.mouse.click(box.x + box.width - 48, box.y + 48, { button: 'right' });
 }
 
 async function dragBy(page: Page, locator: Locator, dx: number, dy: number): Promise<void> {
@@ -557,6 +563,47 @@ test('source-backed selected edge deletion lowers into canonical source', async 
   await expect(page.locator('#source-status')).toContainText(
     'Disconnected selected edge through graph-dsl source.',
   );
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('source-backed context menu inserts through canonical source lowering', async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto('/?source=1');
+  await expectSource(page, SAMPLE_SOURCE);
+  await openBackgroundContextMenu(page);
+  const menu = page.locator('#context-menu [role="menu"]');
+  await menu.getByRole('menuitem', { name: 'Custom step' }).click();
+
+  await expectSource(page, `${SAMPLE_SOURCE}\ncustom = custom()`);
+  await expect(page.locator('.canvas-node')).toHaveCount(3);
+  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('source-backed edge context menu disconnects its captured edge', async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto('/?source=1');
+  await expectSource(page, SAMPLE_SOURCE);
+  await dragBetween(page, outputHandle(page, 'osc'), inputHandle(page, 'meter'));
+  await page.mouse.up();
+  await expect(edgePaths(page)).toHaveCount(1);
+  await expectSource(page, 'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)');
+
+  await clickEdge(page, 0, 'right');
+  const menu = page.locator('#context-menu [role="menu"]');
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole('menuitem', { name: 'Disconnect edge' })).toHaveCount(1);
+  await menu.getByRole('menuitem', { name: 'Disconnect edge' }).click();
+
+  await expectSource(page, SAMPLE_SOURCE);
+  await expect(edgePaths(page)).toHaveCount(0);
+  await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'success');
+  await expect(page.locator('#source-status')).toHaveText(
+    'Disconnected selected edge through graph-dsl source.',
+  );
+  await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
   expect(runtimeErrors).toEqual([]);
 });
 

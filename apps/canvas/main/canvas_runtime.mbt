@@ -694,19 +694,34 @@ fn CanvasRuntime::delete_selection(self : CanvasRuntime) -> Bool {
 }
 
 ///|
-fn CanvasRuntime::disconnect_ports(
+/// Disconnect one captured edge target without consulting current selection.
+fn CanvasRuntime::disconnect_edge(
   self : CanvasRuntime,
-  source : NodeId,
-  source_port : String,
-  target : NodeId,
-  target_port : String,
-) -> Unit {
-  self.sync_document_action_state(
-    @graph_model.record_action(
-      self.state_peek(),
-      DisconnectPorts(source, source_port, target, target_port),
-    ),
-  )
+  edge_id : EdgeId,
+) -> Bool {
+  let state = self.state_peek()
+  match state.edges.search_by(fn(edge) { edge.id == edge_id }) {
+    Some(index) => {
+      let edge = state.edges[index]
+      self.clear_selected_edge()
+      self.sync_document_action_state(
+        @graph_model.record_action(
+          state,
+          DisconnectPorts(
+            edge.source,
+            edge.source_port,
+            edge.target,
+            edge.target_port,
+          ),
+        ),
+      )
+      true
+    }
+    None => {
+      self.clear_selected_edge()
+      false
+    }
+  }
 }
 
 ///|

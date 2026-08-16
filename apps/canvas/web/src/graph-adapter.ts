@@ -4,20 +4,11 @@ export type CanvasModule = {
     h: number,
     sourceBacked: boolean,
     onChange: () => undefined,
-    onHideContextMenu: () => undefined,
   ) => undefined;
   add_node: (h: number, kindKey: string, sx: number, sy: number) => void;
   delete_nodes: (h: number, nodeIdsJson: string) => void;
-  select_edge: (h: number, edgeId: string) => void;
   clear_selected_edge: (h: number) => void;
   delete_selection: (h: number) => boolean;
-  disconnect_ports: (
-    h: number,
-    source: string,
-    sourcePort: string,
-    target: string,
-    targetPort: string,
-  ) => void;
   get_input_port_compatibility: (
     h: number,
     source: string,
@@ -32,7 +23,6 @@ export type CanvasModule = {
   set_source_graph_source_result?: (h: number, source: string) => string;
   get_source_graph_render_state?: (h: number) => string;
   get_source_graph_action_log?: (h: number) => string;
-  select_source_graph_edge?: (h: number, edgeId: string) => void;
   clear_source_graph_edge?: (h: number) => void;
   delete_source_graph_selection?: (h: number) => string;
   apply_source_graph_operation?: (h: number, operationJson: string) => string;
@@ -48,9 +38,12 @@ export type CanvasModule = {
   ) => string;
   sample_graph_dsl_source?: () => string;
   mount_source_demo?: (h: number, enabled: boolean, onChange: () => undefined) => undefined;
+  get_workflow_node_catalog: () => string;
   mount_canvas_context_menu?: (
-    onSelect: (key: string) => undefined,
-    onClose: () => undefined,
+    h: number,
+    sourceBacked: boolean,
+    onChange: () => undefined,
+    onSourceResult: (result: string) => undefined,
   ) => undefined;
 };
 
@@ -62,7 +55,6 @@ type SourceCanvasModule = CanvasModule & {
   set_source_graph_source_result: (h: number, source: string) => string;
   get_source_graph_render_state: (h: number) => string;
   get_source_graph_action_log: (h: number) => string;
-  select_source_graph_edge: (h: number, edgeId: string) => void;
   clear_source_graph_edge: (h: number) => void;
   delete_source_graph_selection: (h: number) => string;
   apply_source_graph_operation: (h: number, operationJson: string) => string;
@@ -86,7 +78,6 @@ const SOURCE_METHODS = [
   'set_source_graph_source_result',
   'get_source_graph_render_state',
   'get_source_graph_action_log',
-  'select_source_graph_edge',
   'clear_source_graph_edge',
   'delete_source_graph_selection',
   'apply_source_graph_operation',
@@ -403,49 +394,6 @@ export class GraphAdapter {
       parameter: nextParameter,
       value: nextValue,
     });
-  }
-
-  disconnectPorts(
-    sourceNodeId: string,
-    sourcePortId: string,
-    targetNodeId: string,
-    targetPortId: string,
-  ): SourceGraphOperationResult | null {
-    this.assertLive();
-    if (
-      sourceNodeId.length === 0 ||
-      targetNodeId.length === 0 ||
-      sourcePortId.length === 0 ||
-      targetPortId.length === 0
-    ) {
-      return null;
-    }
-    const operation: GraphOperation = {
-      version: 2,
-      type: 'DisconnectPorts',
-      source: sourceNodeId,
-      source_port: sourcePortId,
-      target: targetNodeId,
-      target_port: targetPortId,
-    };
-    if (this.isSourceBacked) {
-      return this.applyOperation(operation);
-    }
-    this.mb.disconnect_ports(
-      this.handle,
-      sourceNodeId,
-      sourcePortId,
-      targetNodeId,
-      targetPortId,
-    );
-    this.emitLatestOperations();
-    return null;
-  }
-
-  selectEdge(edgeId: string): void {
-    this.assertLive();
-    if (this.isSourceBacked) this.sourceModule().select_source_graph_edge(this.handle, edgeId);
-    else this.mb.select_edge(this.handle, edgeId);
   }
 
   clearSelectedEdge(): void {

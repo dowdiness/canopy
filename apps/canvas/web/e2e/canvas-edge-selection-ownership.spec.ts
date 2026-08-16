@@ -8,7 +8,7 @@ function source(name: string): string {
   return readFileSync(resolve(sourceDir, name), 'utf8');
 }
 
-test('workflow edge selection authority is not held by TypeScript', () => {
+test('workflow edge and context-menu authority is not held by TypeScript', () => {
   const main = source('main.ts');
   const adapter = source('graph-adapter.ts');
 
@@ -20,7 +20,14 @@ test('workflow edge selection authority is not held by TypeScript', () => {
   expect(main).not.toContain('deleteSelectedNodes');
   expect(main).not.toContain("root.addEventListener('click'");
   expect(main).toContain('adapter.deleteSelection()');
-  expect(main).toContain('adapter.selectEdge(');
-  expect(adapter).toContain('select_edge');
+  expect(main).not.toContain('contextPoint');
+  expect(main).not.toContain('contextEdge');
+  expect(main).not.toContain('root.addEventListener(\'contextmenu\'');
+  expect(main).not.toContain('canopy-canvas-context-menu-show');
+  expect(main).not.toContain('canopy-canvas-context-menu-hide');
+  expect(main).toContain('mount_canvas_context_menu');
+  expect(main).toContain('get_workflow_node_catalog');
+  expect(adapter).not.toContain('select_edge');
+  expect(adapter).not.toContain('disconnect_ports');
   expect(adapter).toContain('delete_selection');
 });
