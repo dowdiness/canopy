@@ -534,31 +534,35 @@ const report = {
   controls: {
     tracing_requested: persistenceTraceEnabled,
     main_thread_tracing_requested: mainThreadTraceEnabled,
-    all_main_thread_intervals_complete: !mainThreadTraceEnabled || runs.every(
-      run => run.main_thread?.intervals?.length === 6,
-    ),
-    all_main_thread_positive_controls: !mainThreadTraceEnabled || runs.every(run => {
-      const cold = run.main_thread?.intervals?.find(
-        interval => interval.scenario === "cold-seed-preview",
-      )
-      const noOp = run.main_thread?.intervals?.find(
-        interval => interval.scenario === "source-equal-advance",
-      )
-      return cold?.function_call_ms > 0 && cold?.elapsed_ms > noOp?.elapsed_ms
-    }),
+    all_main_thread_intervals_complete: mainThreadTraceEnabled
+      ? runs.every(run => run.main_thread?.intervals?.length === 6)
+      : null,
+    all_main_thread_positive_controls: mainThreadTraceEnabled
+      ? runs.every(run => {
+        const cold = run.main_thread?.intervals?.find(
+          interval => interval.scenario === "cold-seed-preview",
+        )
+        const noOp = run.main_thread?.intervals?.find(
+          interval => interval.scenario === "source-equal-advance",
+        )
+        return cold?.function_call_ms > 0 && cold?.elapsed_ms > noOp?.elapsed_ms
+      })
+      : null,
     all_runs_completed: runs.every(run => !run.error),
-    all_traces_enabled: !persistenceTraceEnabled || runs.every(
-      run => run.trace?.enabled === true,
-    ),
-    all_traces_nonempty: !persistenceTraceEnabled || runs.every(
-      run => run.trace?.count > 0,
-    ),
-    all_traces_lossless: !persistenceTraceEnabled || runs.every(run => (
-      run.trace?.dropped_count === 0 && run.trace?.overflowed === false
-    )),
-    all_trace_contracts_valid: !persistenceTraceEnabled || runs.every(
-      run => run.trace?.contract_violated === false,
-    ),
+    all_traces_enabled: persistenceTraceEnabled
+      ? runs.every(run => run.trace?.enabled === true)
+      : null,
+    all_traces_nonempty: persistenceTraceEnabled
+      ? runs.every(run => run.trace?.count > 0)
+      : null,
+    all_traces_lossless: persistenceTraceEnabled
+      ? runs.every(run => (
+        run.trace?.dropped_count === 0 && run.trace?.overflowed === false
+      ))
+      : null,
+    all_trace_contracts_valid: persistenceTraceEnabled
+      ? runs.every(run => run.trace?.contract_violated === false)
+      : null,
   },
   summaries,
   runs,
