@@ -142,7 +142,6 @@ jobs:
               - '.github/workflows/ci.yml'
             run_tooling_validation:
               - 'justfile'
-              - 'Makefile'
               - 'lefthook.yml'
               - '.githooks/pre-commit'
               - '.githooks/pre-push'
@@ -224,13 +223,6 @@ jobs:
           just --dry-run pre-commit
           just --dry-run registry-refresh
           just --dry-run release-artifacts v0.2.0
-
-      - name: Validate Make compatibility
-        run: |
-          make -n help
-          make -n check
-          make -n registry-refresh
-          make -n release-artifacts VERSION=v0.2.0
 
       - name: Validate MoonBit registry bootstrap wiring
         run: |

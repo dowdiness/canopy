@@ -12,7 +12,6 @@ const command_pathspecs = [
   "*.bash"
   "*.zsh"
   "*.nu"
-  "Makefile"
   "justfile"
   "Taskfile*"
   ".claude/settings.json"
@@ -86,14 +85,11 @@ def main [] {
   let root = ($env.FILE_PWD | path dirname | path expand)
   let action_path = ($root | path join ".github/actions/setup-moonbit/action.yml")
   let just_path = ($root | path join "justfile")
-  let make_path = ($root | path join "Makefile")
   if not ($action_path | path exists) { fail "setup action is missing" }
   if not ($just_path | path exists) { fail "justfile is missing" }
-  if not ($make_path | path exists) { fail "Makefile is missing" }
 
   let action = (read-file $action_path)
   let justfile = (read-file $just_path)
-  let makefile = (read-file $make_path)
 
   require-line $action "      id: moonbit-registry-cache" "setup action lacks the stable registry cache id"
   require-line $action "      uses: hustcer/setup-moonbit@9199da0ab63ea0c0bab1dc15f03d76e17ed4f75f" "MoonBit setup action is not pinned to the approved full SHA"
@@ -113,9 +109,8 @@ def main [] {
 
   let registry_refresh_lines = ($justfile | lines | where {|line| $line == "registry-refresh:" } | length)
   if $registry_refresh_lines != 1 { fail "just registry-refresh must be defined exactly once" }
-  require-text $makefile "registry-refresh" "Makefile must forward registry-refresh to just"
   if ($justfile | lines | any {|line| ($line | str trim) == "update:" }) {
-    fail "ambiguous update recipe remains in justfile or Makefile"
+    fail "ambiguous update recipe remains in justfile"
   }
   let refresh_calls = ($justfile | lines | where {|line| $line | str contains 'bash "{{ moon_update }}"' } | length)
   if $refresh_calls != 1 { fail "just registry-refresh must call the retry wrapper exactly once" }

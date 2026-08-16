@@ -57,8 +57,7 @@ MoonBit toolchain/core pair, `moon.work`, and every workspace `moon.mod` or
 partial restore invokes the bounded-retry wrapper once, and the resulting state
 is saved under the exact key. Build, test, benchmark, proof, release, and deploy
 operations do not refresh the registry themselves. Use `just registry-refresh`
-(or `make registry-refresh`) only when a developer explicitly wants a local
-registry refresh.
+only when a developer explicitly wants a local registry refresh.
 
 #### Uploaded artifacts (`build-js`)
 
@@ -136,8 +135,7 @@ link to the version's commits page.
 
 Common entry points (just recipes that wrap `scripts/`):
 
-The root `Makefile` is a thin GNU Make compatibility wrapper; `just` is the
-canonical command runner and owns the recipes.
+`just` is the canonical command runner and owns the repository recipes.
 
 ```sh
 just help                  # List all recipes
@@ -157,9 +155,8 @@ just bench                 # moon bench --release (root + event-graph-walker)
 just ci                    # check-all + test-all
 just web-dev               # build-js then start the apps/web Waku dev server
 just install-hooks         # Install the pre-commit hook
-just registry-refresh     # explicitly refresh the local MoonBit registry
+just registry-refresh      # explicitly refresh the local MoonBit registry
 just release-artifacts v0.2.0 # Package release artifacts (positional version)
-make release-artifacts VERSION=v0.2.0 # GNU Make compatibility form
 ```
 
 The shared module helper is `./scripts/run-moon-module.sh <subcommand> <path>`
