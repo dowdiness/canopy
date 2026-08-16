@@ -251,9 +251,12 @@ def check-wiring [root: string action_doc: any justfile: string] {
     require-text $cache_paths $path $"registry cache path is missing: ($path)"
   }
 
+  let install_index = ($action_steps | enumerate | where {|row| (field $row.item "name") == "Install MoonBit" } | get index | first)
   let cache_index = ($action_steps | enumerate | where {|row| (field $row.item "name") == "Cache MoonBit registry state" } | get index | first)
   let bootstrap_index = ($action_steps | enumerate | where {|row| (field $row.item "name") == "Bootstrap MoonBit registry" } | get index | first)
-  if $cache_index >= $bootstrap_index { fail "registry bootstrap must follow the registry cache step" }
+  if $install_index >= $cache_index or $cache_index >= $bootstrap_index {
+    fail "MoonBit setup steps must be ordered: install, cache, bootstrap"
+  }
 
   let registry_refresh_lines = ($justfile | lines | where {|line| $line == "registry-refresh:" } | length)
   if $registry_refresh_lines != 1 { fail "just registry-refresh must be defined exactly once" }
