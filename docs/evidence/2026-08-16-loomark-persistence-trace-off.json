@@ -1,8 +1,8 @@
 {
   "schema_version": 3,
-  "generated_at": "2026-08-16T04:20:06.301Z",
+  "generated_at": "2026-08-16T04:32:01.061Z",
   "environment": {
-    "commit_sha": "f152a0c",
+    "commit_sha": "7d1f9fb",
     "node": "v24.14.1",
     "playwright": "1.61.1",
     "samples": 3,
@@ -23,13 +23,13 @@
   "controls": {
     "tracing_requested": false,
     "main_thread_tracing_requested": false,
-    "all_main_thread_intervals_complete": true,
-    "all_main_thread_positive_controls": true,
+    "all_main_thread_intervals_complete": null,
+    "all_main_thread_positive_controls": null,
     "all_runs_completed": true,
-    "all_traces_enabled": true,
-    "all_traces_nonempty": true,
-    "all_traces_lossless": true,
-    "all_trace_contracts_valid": true
+    "all_traces_enabled": null,
+    "all_traces_nonempty": null,
+    "all_traces_lossless": null,
+    "all_trace_contracts_valid": null
   },
   "summaries": [
     {
@@ -39,24 +39,24 @@
       "scenario": "cold-seed-preview",
       "duration": {
         "samples": 3,
-        "median_ms": 2794.4000000059605,
-        "p95_ms": 3510,
-        "min_ms": 2587.2999999970198,
-        "max_ms": 3510
+        "median_ms": 2524.300000011921,
+        "p95_ms": 2842.5,
+        "min_ms": 2472.2999999970198,
+        "max_ms": 2842.5
       },
       "long_task_total": {
         "samples": 3,
-        "median_ms": 2640,
-        "p95_ms": 3364,
-        "min_ms": 2433,
-        "max_ms": 3364
+        "median_ms": 2380,
+        "p95_ms": 2701,
+        "min_ms": 2332,
+        "max_ms": 2701
       },
       "max_frame_gap": {
         "samples": 3,
-        "median_ms": 2683.2000000000003,
-        "p95_ms": 3366.5,
-        "min_ms": 2483.2999999999997,
-        "max_ms": 3366.5
+        "median_ms": 2416.6,
+        "p95_ms": 2733.2000000000003,
+        "min_ms": 2366.6,
+        "max_ms": 2733.2000000000003
       }
     },
     {
@@ -66,24 +66,24 @@
       "scenario": "local-edit-start",
       "duration": {
         "samples": 3,
-        "median_ms": 304.80000001192093,
-        "p95_ms": 506,
-        "min_ms": 289.40000000596046,
-        "max_ms": 506
+        "median_ms": 288.90000000596046,
+        "p95_ms": 289.90000000596046,
+        "min_ms": 287,
+        "max_ms": 289.90000000596046
       },
       "long_task_total": {
         "samples": 3,
-        "median_ms": 183,
-        "p95_ms": 359,
-        "min_ms": 179,
-        "max_ms": 359
+        "median_ms": 176,
+        "p95_ms": 177,
+        "min_ms": 171,
+        "max_ms": 177
       },
       "max_frame_gap": {
         "samples": 3,
         "median_ms": 166.70000000000027,
-        "p95_ms": 366.7000000000003,
+        "p95_ms": 166.70000000000027,
         "min_ms": 166.5999999999999,
-        "max_ms": 366.7000000000003
+        "max_ms": 166.70000000000027
       }
     },
     {
@@ -93,24 +93,24 @@
       "scenario": "local-edit-middle",
       "duration": {
         "samples": 3,
-        "median_ms": 253.5,
-        "p95_ms": 330.5,
-        "min_ms": 252.80000001192093,
-        "max_ms": 330.5
+        "median_ms": 254.90000000596046,
+        "p95_ms": 273.70000000298023,
+        "min_ms": 254.90000000596046,
+        "max_ms": 273.70000000298023
       },
       "long_task_total": {
         "samples": 3,
-        "median_ms": 145,
-        "p95_ms": 214,
-        "min_ms": 141,
-        "max_ms": 214
+        "median_ms": 144,
+        "p95_ms": 157,
+        "min_ms": 142,
+        "max_ms": 157
       },
       "max_frame_gap": {
         "samples": 3,
-        "median_ms": 133.4000000000001,
-        "p95_ms": 216.60000000000036,
-        "min_ms": 133.30000000000018,
-        "max_ms": 216.60000000000036
+        "median_ms": 133.30000000000018,
+        "p95_ms": 166.69999999999982,
+        "min_ms": 133.29999999999973,
+        "max_ms": 166.69999999999982
       }
     },
     {
@@ -120,24 +120,24 @@
       "scenario": "local-edit-end",
       "duration": {
         "samples": 3,
-        "median_ms": 224.5,
-        "p95_ms": 295.6000000089407,
-        "min_ms": 223.79999999701977,
-        "max_ms": 295.6000000089407
+        "median_ms": 237.90000000596046,
+        "p95_ms": 239.70000000298023,
+        "min_ms": 237.30000001192093,
+        "max_ms": 239.70000000298023
       },
       "long_task_total": {
         "samples": 3,
-        "median_ms": 126,
-        "p95_ms": 169,
+        "median_ms": 125,
+        "p95_ms": 132,
         "min_ms": 122,
-        "max_ms": 169
+        "max_ms": 132
       },
       "max_frame_gap": {
         "samples": 3,
-        "median_ms": 116.70000000000027,
-        "p95_ms": 166.59999999999945,
-        "min_ms": 116.59999999999991,
-        "max_ms": 166.59999999999945
+        "median_ms": 116.69999999999982,
+        "p95_ms": 116.69999999999982,
+        "min_ms": 116.69999999999982,
+        "max_ms": 116.69999999999982
       }
     },
     {
@@ -147,24 +147,24 @@
       "scenario": "sustained-typing-8-edits",
       "duration": {
         "samples": 3,
-        "median_ms": 406.29999999701977,
-        "p95_ms": 562.8999999910593,
-        "min_ms": 391,
-        "max_ms": 562.8999999910593
+        "median_ms": 404.8999999910593,
+        "p95_ms": 454.09999999403954,
+        "min_ms": 389.8999999910593,
+        "max_ms": 454.09999999403954
       },
       "long_task_total": {
         "samples": 3,
-        "median_ms": 83,
-        "p95_ms": 142,
-        "min_ms": 83,
-        "max_ms": 142
+        "median_ms": 84,
+        "p95_ms": 86,
+        "min_ms": 79,
+        "max_ms": 86
       },
       "max_frame_gap": {
         "samples": 3,
-        "median_ms": 83.40000000000055,
-        "p95_ms": 149.89999999999964,
-        "min_ms": 83.40000000000009,
-        "max_ms": 149.89999999999964
+        "median_ms": 83.30000000000018,
+        "p95_ms": 83.30000000000018,
+        "min_ms": 66.69999999999982,
+        "max_ms": 83.30000000000018
       }
     },
     {
@@ -174,10 +174,10 @@
       "scenario": "source-equal-advance",
       "duration": {
         "samples": 3,
-        "median_ms": 48.5,
-        "p95_ms": 57.1000000089407,
-        "min_ms": 42,
-        "max_ms": 57.1000000089407
+        "median_ms": 56,
+        "p95_ms": 57.099999994039536,
+        "min_ms": 55.599999994039536,
+        "max_ms": 57.099999994039536
       },
       "long_task_total": {
         "samples": 3,
@@ -188,10 +188,10 @@
       },
       "max_frame_gap": {
         "samples": 3,
-        "median_ms": 16.700000000000728,
-        "p95_ms": 16.700000000000728,
-        "min_ms": 16.700000000000273,
-        "max_ms": 16.700000000000728
+        "median_ms": 16.699999999999818,
+        "p95_ms": 16.700000000000273,
+        "min_ms": 16.699999999999818,
+        "max_ms": 16.700000000000273
       }
     }
   ],
@@ -205,47 +205,47 @@
       "scenarios": [
         {
           "name": "cold-seed-preview",
-          "duration_ms": 2587.2999999970198,
+          "duration_ms": 2524.300000011921,
           "long_task_count": 1,
-          "long_task_total_ms": 2433,
-          "max_frame_gap_ms": 2483.2999999999997,
+          "long_task_total_ms": 2380,
+          "max_frame_gap_ms": 2416.6,
           "request_ids": []
         },
         {
           "name": "local-edit-start",
-          "duration_ms": 304.80000001192093,
+          "duration_ms": 288.90000000596046,
           "long_task_count": 1,
-          "long_task_total_ms": 183,
-          "max_frame_gap_ms": 166.5999999999999,
+          "long_task_total_ms": 177,
+          "max_frame_gap_ms": 166.70000000000027,
           "request_ids": []
         },
         {
           "name": "local-edit-middle",
-          "duration_ms": 252.80000001192093,
+          "duration_ms": 273.70000000298023,
           "long_task_count": 1,
-          "long_task_total_ms": 145,
-          "max_frame_gap_ms": 133.4000000000001,
+          "long_task_total_ms": 157,
+          "max_frame_gap_ms": 166.69999999999982,
           "request_ids": []
         },
         {
           "name": "local-edit-end",
-          "duration_ms": 224.5,
+          "duration_ms": 237.30000001192093,
           "long_task_count": 1,
-          "long_task_total_ms": 126,
-          "max_frame_gap_ms": 116.59999999999991,
+          "long_task_total_ms": 122,
+          "max_frame_gap_ms": 116.69999999999982,
           "request_ids": []
         },
         {
           "name": "sustained-typing-8-edits",
-          "duration_ms": 406.29999999701977,
+          "duration_ms": 389.8999999910593,
           "long_task_count": 1,
-          "long_task_total_ms": 83,
-          "max_frame_gap_ms": 83.40000000000009,
+          "long_task_total_ms": 79,
+          "max_frame_gap_ms": 66.69999999999982,
           "request_ids": []
         },
         {
           "name": "source-equal-advance",
-          "duration_ms": 42,
+          "duration_ms": 57.099999994039536,
           "long_task_count": 0,
           "long_task_total_ms": 0,
           "max_frame_gap_ms": 16.700000000000273,
@@ -257,7 +257,7 @@
       },
       "persistence_intervals": [],
       "main_thread": null,
-      "post_gc_heap_bytes": 38338190
+      "post_gc_heap_bytes": 38322482
     },
     {
       "placement": "synchronous",
@@ -268,50 +268,50 @@
       "scenarios": [
         {
           "name": "cold-seed-preview",
-          "duration_ms": 3510,
-          "long_task_count": 2,
-          "long_task_total_ms": 3364,
-          "max_frame_gap_ms": 3366.5,
+          "duration_ms": 2472.2999999970198,
+          "long_task_count": 1,
+          "long_task_total_ms": 2332,
+          "max_frame_gap_ms": 2366.6,
           "request_ids": []
         },
         {
           "name": "local-edit-start",
-          "duration_ms": 506,
+          "duration_ms": 289.90000000596046,
           "long_task_count": 1,
-          "long_task_total_ms": 359,
-          "max_frame_gap_ms": 366.7000000000003,
+          "long_task_total_ms": 171,
+          "max_frame_gap_ms": 166.70000000000027,
           "request_ids": []
         },
         {
           "name": "local-edit-middle",
-          "duration_ms": 330.5,
+          "duration_ms": 254.90000000596046,
           "long_task_count": 1,
-          "long_task_total_ms": 214,
-          "max_frame_gap_ms": 216.60000000000036,
+          "long_task_total_ms": 144,
+          "max_frame_gap_ms": 133.29999999999973,
           "request_ids": []
         },
         {
           "name": "local-edit-end",
-          "duration_ms": 295.6000000089407,
+          "duration_ms": 237.90000000596046,
           "long_task_count": 1,
-          "long_task_total_ms": 169,
-          "max_frame_gap_ms": 166.59999999999945,
+          "long_task_total_ms": 125,
+          "max_frame_gap_ms": 116.69999999999982,
           "request_ids": []
         },
         {
           "name": "sustained-typing-8-edits",
-          "duration_ms": 562.8999999910593,
+          "duration_ms": 454.09999999403954,
           "long_task_count": 1,
-          "long_task_total_ms": 142,
-          "max_frame_gap_ms": 149.89999999999964,
+          "long_task_total_ms": 86,
+          "max_frame_gap_ms": 83.30000000000018,
           "request_ids": []
         },
         {
           "name": "source-equal-advance",
-          "duration_ms": 48.5,
+          "duration_ms": 56,
           "long_task_count": 0,
           "long_task_total_ms": 0,
-          "max_frame_gap_ms": 16.700000000000728,
+          "max_frame_gap_ms": 16.699999999999818,
           "request_ids": []
         }
       ],
@@ -320,7 +320,7 @@
       },
       "persistence_intervals": [],
       "main_thread": null,
-      "post_gc_heap_bytes": 38353489
+      "post_gc_heap_bytes": 38335030
     },
     {
       "placement": "synchronous",
@@ -331,50 +331,50 @@
       "scenarios": [
         {
           "name": "cold-seed-preview",
-          "duration_ms": 2794.4000000059605,
+          "duration_ms": 2842.5,
           "long_task_count": 1,
-          "long_task_total_ms": 2640,
-          "max_frame_gap_ms": 2683.2000000000003,
+          "long_task_total_ms": 2701,
+          "max_frame_gap_ms": 2733.2000000000003,
           "request_ids": []
         },
         {
           "name": "local-edit-start",
-          "duration_ms": 289.40000000596046,
+          "duration_ms": 287,
           "long_task_count": 1,
-          "long_task_total_ms": 179,
-          "max_frame_gap_ms": 166.70000000000027,
+          "long_task_total_ms": 176,
+          "max_frame_gap_ms": 166.5999999999999,
           "request_ids": []
         },
         {
           "name": "local-edit-middle",
-          "duration_ms": 253.5,
+          "duration_ms": 254.90000000596046,
           "long_task_count": 1,
-          "long_task_total_ms": 141,
+          "long_task_total_ms": 142,
           "max_frame_gap_ms": 133.30000000000018,
           "request_ids": []
         },
         {
           "name": "local-edit-end",
-          "duration_ms": 223.79999999701977,
+          "duration_ms": 239.70000000298023,
           "long_task_count": 1,
-          "long_task_total_ms": 122,
-          "max_frame_gap_ms": 116.70000000000027,
+          "long_task_total_ms": 132,
+          "max_frame_gap_ms": 116.69999999999982,
           "request_ids": []
         },
         {
           "name": "sustained-typing-8-edits",
-          "duration_ms": 391,
+          "duration_ms": 404.8999999910593,
           "long_task_count": 1,
-          "long_task_total_ms": 83,
-          "max_frame_gap_ms": 83.40000000000055,
+          "long_task_total_ms": 84,
+          "max_frame_gap_ms": 83.30000000000018,
           "request_ids": []
         },
         {
           "name": "source-equal-advance",
-          "duration_ms": 57.1000000089407,
+          "duration_ms": 55.599999994039536,
           "long_task_count": 0,
           "long_task_total_ms": 0,
-          "max_frame_gap_ms": 16.700000000000728,
+          "max_frame_gap_ms": 16.699999999999818,
           "request_ids": []
         }
       ],
@@ -383,7 +383,7 @@
       },
       "persistence_intervals": [],
       "main_thread": null,
-      "post_gc_heap_bytes": 38347397
+      "post_gc_heap_bytes": 38331574
     }
   ]
 }

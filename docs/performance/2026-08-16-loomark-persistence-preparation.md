@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-16
 **Issue:** [#1244](https://github.com/dowdiness/canopy/issues/1244)
-**Harness commit:** `f152a0c`
+**Harness commits:** `f152a0c` (trace and controls), `7d1f9fb` (tri-state control reporting)
 **Production baseline:** `6c7923232ffc68edcc84c75597f90dee6b37e4aa`
 
 ## Decision
@@ -86,9 +86,10 @@ the response.
 ## Trace control
 
 With persistence disabled, the 2,000-line middle-edit median was 254.4 ms with
-tracing and 253.5 ms without tracing, a 0.9 ms (0.35%) difference. All retained
-trace-on runs were complete, non-empty, lossless, and contract-valid. The
-trace-disabled evidence reports `enabled=false` and contains no phase entries.
+tracing and 254.9 ms without tracing, a 0.5 ms (0.20%) absolute difference.
+All retained trace-on runs were complete, non-empty, lossless, and
+contract-valid. The trace-disabled evidence reports `enabled=false`, contains
+no phase entries, and reports trace-specific controls as `null`.
 
 Independent enabled-path runs varied more strongly with shared-runner load, so the
 trace overhead claim is limited to the persistence-disabled control. Attribution
