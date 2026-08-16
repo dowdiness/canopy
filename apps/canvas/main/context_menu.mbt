@@ -4,13 +4,13 @@
 // action meaning. Graph/source hosts still own the domain mutations.
 
 ///|
-let context_menu_root_id : String = "context-menu"
+const CONTEXT_MENU_ROOT_ID : String = "context-menu"
 
 ///|
-let canvas_root_id : String = "canvas-root"
+const CANVAS_ROOT_ID : String = "canvas-root"
 
 ///|
-let context_menu_panel_id : String = "canvas-context-menu-panel"
+const CONTEXT_MENU_PANEL_ID : String = "canvas-context-menu-panel"
 
 ///|
 priv enum CanvasContextTarget {
@@ -52,7 +52,12 @@ priv struct CanvasContextMenuModel {
 priv enum CanvasContextMenuMsg {
   Request(CanvasContextRequest)
   ContextMenu(@context_menu.Msg)
+  DismissAfterExternalMutation
 }
+
+///|
+#cfg(target="js")
+let context_menu_dismissers : Map[Int, () -> Unit] = Map([])
 
 ///|
 fn canvas_context_pointer_state(
@@ -132,8 +137,8 @@ fn context_menu_model(
     source_backed,
     items: [],
     target: None,
-    context_menu: @context_menu.Model::new(id=context_menu_panel_id).with_close_focus_id(
-      canvas_root_id,
+    context_menu: @context_menu.Model::new(id=CONTEXT_MENU_PANEL_ID).with_close_focus_id(
+      CANVAS_ROOT_ID,
     ),
     on_change,
     on_source_result,
@@ -160,13 +165,14 @@ fn CanvasContextMenuModel::open_request(
     Edge(edge_id) =>
       canvas_select_edge(self.handle, self.source_backed, edge_id)
   }
+  let items = canvas_context_menu_items(self, request.target)
   Some({
     ..self,
-    items: canvas_context_menu_items(self, request.target),
+    items,
     target: Some(request.target),
     context_menu: self.context_menu.open(
       anchor=request.anchor,
-      item_count=canvas_context_menu_items(self, request.target).length(),
+      item_count=items.length(),
     ),
   })
 }
@@ -271,7 +277,7 @@ fn context_menu_update(
   match msg {
     Request(request) =>
       match model.open_request(request) {
-        None => (@rabbita.none, model.closed())
+        None => (@rabbita.none, model)
         Some(model) =>
           (
             @rabbita.batch([
@@ -282,6 +288,15 @@ fn context_menu_update(
             model,
           )
       }
+    DismissAfterExternalMutation =>
+      (
+        if model.context_menu.is_open() {
+          model.context_menu.close_focus_cmd()
+        } else {
+          @rabbita.none
+        },
+        model.closed(),
+      )
     ContextMenu(context_menu_msg) =>
       match context_menu_msg {
         @context_menu.Activate(index) =>
@@ -395,25 +410,23 @@ fn canvas_context_request(
     CanvasPointerHit::Edge(edge_id) => CanvasContextTarget::Edge(edge_id)
     _ => CanvasContextTarget::Background(insert_at~)
   }
-  Some({
-    anchor: @context_menu.Point(
-      x=Float::from_double(client_x),
-      y=Float::from_double(client_y),
-    ),
-    target,
-  })
+  let anchor_x = Float::from_double(client_x)
+  let anchor_y = Float::from_double(client_y)
+  guard !anchor_x.is_nan() && !anchor_x.is_inf() else { return None }
+  guard !anchor_y.is_nan() && !anchor_y.is_inf() else { return None }
+  Some({ anchor: @context_menu.Point(x=anchor_x, y=anchor_y), target })
 }
 
 ///|
 #cfg(target="js")
 priv suberror CanvasContextMenuSub {
-  ContextMenuEvent(@rabbita.Emit[CanvasContextMenuMsg])
+  ContextMenuEvent(Int, @rabbita.Emit[CanvasContextMenuMsg])
 }
 
 ///|
 #cfg(target="js")
 fn context_menu_event_target() -> @dom.EventTarget {
-  @dom.document().get_element_by_id(canvas_root_id).unwrap().as_event_target()
+  @dom.document().get_element_by_id(CANVAS_ROOT_ID).unwrap().as_event_target()
 }
 
 ///|
@@ -423,10 +436,14 @@ fn context_menu_sub_loader(
   scheduler : &@cmd.Scheduler,
 ) -> @sub.RunningSub? {
   match payload {
-    CanvasContextMenuSub::ContextMenuEvent(emit) => {
+    CanvasContextMenuSub::ContextMenuEvent(handle, emit) => {
       let tagger = @ref.Ref(emit)
-      let root = @dom.document().get_element_by_id(canvas_root_id).unwrap()
+      let root = @dom.document().get_element_by_id(CANVAS_ROOT_ID).unwrap()
       let target = context_menu_event_target()
+      let dismiss = () => {
+        scheduler.add((tagger.val)(DismissAfterExternalMutation))
+      }
+      context_menu_dismissers[handle] = dismiss
       let listener : @dom.Listener = event => {
         // Prevent the browser menu synchronously; admission itself is
         // scheduled only after typed coordinates and hit classification exist.
@@ -438,9 +455,12 @@ fn context_menu_sub_loader(
       }
       target.add_event_listener("contextmenu", listener)
       Some({
-        unload: _ => target.remove_event_listener("contextmenu", listener),
+        unload: _ => {
+          target.remove_event_listener("contextmenu", listener)
+          context_menu_dismissers.remove(handle)
+        },
         update_tagger: next => {
-          guard next is CanvasContextMenuSub::ContextMenuEvent(new_emit) else {
+          guard next is CanvasContextMenuSub::ContextMenuEvent(_, new_emit) else {
             return
           }
           tagger.val = new_emit
@@ -461,11 +481,20 @@ fn context_menu_subscriptions(
     @sub.custom_sub(
       "canvas.context-menu",
       @sub.Scope::Local,
-      CanvasContextMenuSub::ContextMenuEvent(emit),
+      CanvasContextMenuSub::ContextMenuEvent(model.handle, emit),
       context_menu_sub_loader,
     ),
     model.context_menu.subscriptions(emit.map(msg => ContextMenu(msg))),
   ])
+}
+
+///|
+#cfg(target="js")
+pub fn dismiss_canvas_context_menu(handle : Int) -> Unit {
+  match context_menu_dismissers.get(handle) {
+    Some(dismiss) => dismiss()
+    None => ()
+  }
 }
 
 ///|
@@ -485,5 +514,5 @@ pub fn mount_canvas_context_menu(
       view=context_menu_view,
       subscriptions=context_menu_subscriptions,
     ),
-  ).mount(context_menu_root_id)
+  ).mount(CONTEXT_MENU_ROOT_ID)
 }

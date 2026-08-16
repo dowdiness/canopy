@@ -101,6 +101,24 @@ async function openBackgroundContextMenu(page: Page): Promise<void> {
   await page.mouse.click(box.x + box.width - 48, box.y + 48, { button: 'right' });
 }
 
+async function dispatchContextMenu(
+  page: Page,
+  selector: string,
+  clientX: number,
+  clientY: number,
+): Promise<void> {
+  await page.evaluate(({ selector, clientX, clientY }) => {
+    const target = document.querySelector(selector);
+    if (!target) throw new Error(`context-menu target not found: ${selector}`);
+    const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    Object.defineProperties(event, {
+      clientX: { value: clientX },
+      clientY: { value: clientY },
+    });
+    target.dispatchEvent(event);
+  }, { selector, clientX, clientY });
+}
+
 async function dragBy(page: Page, locator: Locator, dx: number, dy: number): Promise<void> {
   const start = await center(locator, 'draggable node');
   await page.mouse.move(start.x, start.y);
@@ -563,6 +581,20 @@ test('source-backed selected edge deletion lowers into canonical source', async 
   await expect(page.locator('#source-status')).toContainText(
     'Disconnected selected edge through graph-dsl source.',
   );
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('source-backed finite but Float-overflowing background anchors are rejected', async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto('/?source=1');
+  await expectSource(page, SAMPLE_SOURCE);
+  await dispatchContextMenu(page, '#canvas-root', Number.MAX_VALUE, 0);
+
+  await expect(page.locator('#context-menu [role="menu"]')).toBeHidden();
+  await expectSource(page, SAMPLE_SOURCE);
+  await expect(page.locator('.canvas-node')).toHaveCount(2);
+  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
   expect(runtimeErrors).toEqual([]);
 });
 

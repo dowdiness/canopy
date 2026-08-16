@@ -45,6 +45,7 @@ export type CanvasModule = {
     onChange: () => undefined,
     onSourceResult: (result: string) => undefined,
   ) => undefined;
+  dismiss_canvas_context_menu: (h: number) => undefined;
 };
 
 type SourceCanvasModule = CanvasModule & {
@@ -414,6 +415,11 @@ export class GraphAdapter {
     const handled = this.mb.delete_selection(this.handle);
     this.emitLatestOperations();
     return { handled, sourceResult: null };
+  }
+
+  dismissContextMenu(): void {
+    this.assertLive();
+    this.mb.dismiss_canvas_context_menu(this.handle);
   }
 
   inputPortCompatibility(sourceNodeId: string, sourcePortId: string): PortCompatibility[] {

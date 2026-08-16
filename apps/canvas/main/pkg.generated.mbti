@@ -28,6 +28,8 @@ pub fn delete_source_graph_selection(Int) -> String raise Failure
 
 pub fn destroy_source_graph(Int) -> Unit
 
+pub fn dismiss_canvas_context_menu(Int) -> Unit
+
 pub fn get_action_log(Int) -> String
 
 pub fn get_input_port_compatibility(Int, String, String) -> String

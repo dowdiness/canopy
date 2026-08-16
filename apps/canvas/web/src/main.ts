@@ -35,6 +35,7 @@ type SourceDemoModule = CanvasModule &
       'sample_graph_dsl_source' |
       'mount_source_demo' |
       'mount_canvas_context_menu' |
+      'dismiss_canvas_context_menu' |
       'mount_canvas_pointer_session'
     >
   >;
@@ -650,6 +651,7 @@ document.addEventListener('keydown', (e: KeyboardEvent) => {
           'Source delete rejected',
         );
       }
+      adapter.dismissContextMenu();
       e.preventDefault();
       scheduleRender();
     }
@@ -681,6 +683,9 @@ function requireSourceDemoModule(mb: CanvasModule): SourceDemoModule {
   }
   if (typeof mb.mount_canvas_context_menu !== 'function') {
     throw new Error('Canvas module is missing context menu export: mount_canvas_context_menu');
+  }
+  if (typeof mb.dismiss_canvas_context_menu !== 'function') {
+    throw new Error('Canvas module is missing context menu export: dismiss_canvas_context_menu');
   }
   if (typeof mb.mount_canvas_pointer_session !== 'function') {
     throw new Error('Canvas module is missing pointer session export: mount_canvas_pointer_session');

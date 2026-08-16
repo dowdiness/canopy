@@ -58,6 +58,7 @@ options(
         "sample_graph_dsl_source",
         "mount_source_demo",
         "mount_canvas_context_menu",
+        "dismiss_canvas_context_menu",
         "source_graph_insert_unique",
         "get_source_graph_input_port_compatibility",
       ],
