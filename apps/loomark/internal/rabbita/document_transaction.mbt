@@ -49,6 +49,42 @@ fn apply_projection_authority(
 }
 
 ///|
+/// Map archive-package milestones into the fixed application trace.
+fn observe_archive_preparation_phase(
+  phase : @archive.LoomarkArchivePreparationPhase,
+) -> Unit {
+  let trace_phase = match phase {
+    @archive.LoomarkArchivePreparationPhase::PortableMarkdownCaptured =>
+      PROJECTION_TRACE_PHASE_H4
+    @archive.LoomarkArchivePreparationPhase::CompleteHistoryCaptured =>
+      PROJECTION_TRACE_PHASE_H5
+    @archive.LoomarkArchivePreparationPhase::HistoryJsonEncoded =>
+      PROJECTION_TRACE_PHASE_H6_HISTORY_JSON
+    @archive.LoomarkArchivePreparationPhase::ArchiveEnvelopeEncoded =>
+      PROJECTION_TRACE_PHASE_H6_ARCHIVE_ENVELOPE
+  }
+  projection_trace_persistence_phase(trace_phase)
+}
+
+///|
+/// Select the observer-free production path unless tracing is active.
+fn prepare_traced_local_archive(
+  editor : @markdown.MarkdownEditor,
+  model : DriverModel,
+) -> @repository.PreparedLocalArchive raise {
+  if projection_trace_enabled() {
+    projection_trace_persistence_phase(PROJECTION_TRACE_PHASE_H3)
+    @repository.prepare_local_archive_observing(
+      document_id=model.document_id,
+      editor~,
+      observe_archive_preparation_phase,
+    )
+  } else {
+    @repository.prepare_local_archive(document_id=model.document_id, editor~)
+  }
+}
+
+///|
 /// Schedule one complete replacement without putting a command in the model.
 fn archive_replacement(
   editor : @markdown.MarkdownEditor,
@@ -58,10 +94,7 @@ fn archive_replacement(
   guard model.archive_persistence_enabled else {
     return (model, @rabbita_runtime.none)
   }
-  let prepared = @repository.prepare_local_archive(
-    document_id=model.document_id,
-    editor~,
-  ) catch {
+  let prepared = prepare_traced_local_archive(editor, model) catch {
     Failure::Failure(_) as failure => raise failure
     @repository.LocalArchivePreparationError::HistoryUnavailable(_) =>
       return (record_local_persistence_failure(model), @rabbita_runtime.none)
@@ -71,6 +104,7 @@ fn archive_replacement(
   let command = @archive_storage.replace(request_id, prepared.encoded(), completed=completion => {
     emit(Archive(completion))
   })
+  projection_trace_persistence_phase(PROJECTION_TRACE_PHASE_H7)
   ({ ..model, archive_tracker, }, command)
 }
 
@@ -248,6 +282,7 @@ fn commit_edit_request(
       (failed, None, false, false, @rabbita_runtime.none)
     }
     Ok(receipt) => {
+      projection_trace_persistence_phase(PROJECTION_TRACE_PHASE_H1)
       let result = receipt.result()
       let (committed, accepted, changed) = classify_commit(next, receipt)
       let committed = match projection_session {
@@ -255,7 +290,9 @@ fn commit_edit_request(
           apply_projection_authority(session, committed, accepted, changed)
         None => committed
       }
-      match @repository.history_trigger(receipt) {
+      let persistence_decision = @repository.history_trigger(receipt)
+      projection_trace_persistence_phase(PROJECTION_TRACE_PHASE_H2)
+      match persistence_decision {
         @repository.LocalArchivePersistenceDecision::Replace => {
           let (persisted, command) = archive_replacement(
             editor, committed, emit,

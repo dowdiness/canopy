@@ -187,6 +187,26 @@ pub fn prepare_local_archive(
 }
 
 ///|
+/// Prepare a replacement while forwarding diagnostic capture milestones.
+pub fn prepare_local_archive_observing(
+  document_id~ : @archive.LoomarkDocumentId,
+  editor~ : @markdown.MarkdownEditor,
+  observer : (@archive.LoomarkArchivePreparationPhase) -> Unit,
+) -> PreparedLocalArchive raise {
+  let archive = @archive.LoomarkDocumentArchive::capture_observing(
+    document_id~,
+    editor~,
+    observer,
+  ) catch {
+    Failure::Failure(_) as failure => raise failure
+    @archive.LoomarkArchiveCaptureError::HistoryUnavailable(detail~) =>
+      raise LocalArchivePreparationError::HistoryUnavailable(detail~)
+    error => raise error
+  }
+  { encoded: archive.to_json_string_observing(observer) }
+}
+
+///|
 /// Return the deterministic encoded replacement payload.
 pub fn PreparedLocalArchive::encoded(self : Self) -> String {
   self.encoded

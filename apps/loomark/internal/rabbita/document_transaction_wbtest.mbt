@@ -138,3 +138,45 @@ test "commit_edit_request preserves accepted frontier after export failure" {
   assert_eq(projection_trace_phase(6), Some(PROJECTION_TRACE_PHASE_E))
   assert_eq(projection_trace_phase(7), Some(PROJECTION_TRACE_PHASE_F))
 }
+
+///|
+#cfg(target="js")
+test "accepted persisted edit attributes post-commit preparation phases" {
+  projection_trace_enable(capacity=16, clock=() => 1)
+  defer projection_trace_disable()
+  let editor = try! @markdown.MarkdownEditor(
+    agent_id="persistence-trace-writer",
+    source="# Before\n",
+  )
+  let model = {
+    ..document_transaction_test_model(editor.snapshot(), editor.version()),
+    archive_persistence_enabled: true,
+  }
+  let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
+
+  let (_next, result, accepted, changed, _command) = try! commit_edit_request(
+    editor,
+    model,
+    @markdown.MarkdownEditRequest::ReplaceSource("# After\n"),
+    "persistence-trace",
+    emit,
+  )
+
+  assert_true(result is Some(_))
+  assert_true(accepted)
+  assert_true(changed)
+  assert_eq(projection_trace_phases(), [
+    PROJECTION_TRACE_PHASE_A0,
+    PROJECTION_TRACE_PHASE_C,
+    PROJECTION_TRACE_PHASE_A1,
+    PROJECTION_TRACE_PHASE_B,
+    PROJECTION_TRACE_PHASE_H1,
+    PROJECTION_TRACE_PHASE_H2,
+    PROJECTION_TRACE_PHASE_H3,
+    PROJECTION_TRACE_PHASE_H4,
+    PROJECTION_TRACE_PHASE_H5,
+    PROJECTION_TRACE_PHASE_H6_HISTORY_JSON,
+    PROJECTION_TRACE_PHASE_H6_ARCHIVE_ENVELOPE,
+    PROJECTION_TRACE_PHASE_H7,
+  ])
+}

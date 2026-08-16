@@ -39,7 +39,7 @@ fn mount_standalone_editor(
       editor,
       document_id,
       replica_id,
-      archive_persistence_enabled=true,
+      archive_persistence_enabled~,
     ),
     archive_tracker,
     local_storage_warning,
