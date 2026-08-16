@@ -1354,21 +1354,6 @@ pub fn get_source_graph_input_port_compatibility(
 }
 
 ///|
-pub fn source_graph_zoom(
-  handle : Int,
-  delta_y : Double,
-  delta_mode : Int,
-  ctrl_key : Bool,
-  cx : Double,
-  cy : Double,
-) -> Unit {
-  match source_graph_by_handle(handle) {
-    Some(graph) => graph.zoom(delta_y, delta_mode, ctrl_key, cx, cy)
-    None => ()
-  }
-}
-
-///|
 fn source_render_state_string(
   graph : SourceBackedGraph,
   state : CanvasState,

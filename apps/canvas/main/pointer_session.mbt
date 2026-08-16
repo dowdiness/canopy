@@ -43,6 +43,14 @@ priv struct CanvasPointerInput {
 }
 
 ///|
+priv struct CanvasWheelInput {
+  delta_y : Double
+  delta_mode : Int
+  ctrl_key : Bool
+  screen : ScreenPoint?
+}
+
+///|
 priv enum CanvasPointerMsg {
   PointerDown(CanvasPointerInput)
   PointerMove(CanvasPointerInput)
@@ -50,6 +58,7 @@ priv enum CanvasPointerMsg {
   PointerCancel(CanvasPointerInput)
   PointerLeave
   LostPointerCapture(CanvasPointerInput)
+  Wheel(CanvasWheelInput)
 }
 
 ///|
@@ -538,20 +547,53 @@ fn canvas_pointer_message(
   event : @dom.Event,
   root : @dom.Element,
 ) -> CanvasPointerMsg? {
-  match event.to_pointer_event() {
-    None => None
-    Some(pointer) => {
-      let input = canvas_pointer_input(pointer, root)
-      match event_name {
-        "pointerdown" => Some(PointerDown(input))
-        "pointermove" => Some(PointerMove(input))
-        "pointerup" => Some(PointerUp(input))
-        "pointercancel" => Some(PointerCancel(input))
-        "pointerleave" => Some(PointerLeave)
-        "lostpointercapture" => Some(LostPointerCapture(input))
-        _ => None
+  match event_name {
+    "wheel" =>
+      match event.to_wheel_event() {
+        None => None
+        Some(wheel) => {
+          // Consume synchronously before scheduling the message. Keep this
+          // access order for Firefox/macOS wheel-unit compatibility.
+          wheel.prevent_default()
+          let delta_y = wheel.get_delta_y()
+          let delta_mode = wheel.get_delta_mode()
+          let ctrl_key = wheel.get_ctrl_key()
+          let screen : ScreenPoint? = match wheel.current_target().to_option() {
+            None => None
+            Some(target) =>
+              match target.to_element() {
+                None => None
+                Some(root) => {
+                  let rect = root.get_bounding_client_rect()
+                  let point = ScreenPoint::from_xy(
+                    x=wheel.get_client_x() - rect.get_left(),
+                    y=wheel.get_client_y() - rect.get_top(),
+                  ) catch {
+                    @spatial.CoordinateError::NonFinite => return None
+                  }
+                  Some(point)
+                }
+              }
+          }
+          Some(Wheel({ delta_y, delta_mode, ctrl_key, screen }))
+        }
       }
-    }
+    _ =>
+      match event.to_pointer_event() {
+        None => None
+        Some(pointer) => {
+          let input = canvas_pointer_input(pointer, root)
+          match event_name {
+            "pointerdown" => Some(PointerDown(input))
+            "pointermove" => Some(PointerMove(input))
+            "pointerup" => Some(PointerUp(input))
+            "pointercancel" => Some(PointerCancel(input))
+            "pointerleave" => Some(PointerLeave)
+            "lostpointercapture" => Some(LostPointerCapture(input))
+            _ => None
+          }
+        }
+      }
   }
 }
 
@@ -572,7 +614,15 @@ fn canvas_pointer_subscription_loader(
           None => ()
         }
       }
-      target.add_event_listener(event_name, listener)
+      if event_name == "wheel" {
+        target.add_event_listener_with_options(
+          event_name,
+          listener,
+          passive=false,
+        )
+      } else {
+        target.add_event_listener(event_name, listener)
+      }
       Some({
         unload: _ => target.remove_event_listener(event_name, listener),
         update_tagger: next => {
@@ -614,6 +664,7 @@ fn canvas_pointer_subscriptions(
     canvas_pointer_subscription("pointercancel", emit),
     canvas_pointer_subscription("pointerleave", emit),
     canvas_pointer_subscription("lostpointercapture", emit),
+    canvas_pointer_subscription("wheel", emit),
   ])
 }
 
@@ -635,6 +686,33 @@ fn canvas_pointer_update(
     PointerCancel(input) => canvas_pointer_interrupt(model, input, on_change)
     LostPointerCapture(input) =>
       canvas_pointer_interrupt(model, input, on_change)
+    Wheel(input) => {
+      guard model.session is Idle else { return model }
+      guard input.screen is Some(screen) else { return model }
+      if model.source_backed {
+        match source_graph_by_handle(model.handle) {
+          Some(graph) =>
+            graph.zoom(
+              input.delta_y,
+              input.delta_mode,
+              input.ctrl_key,
+              screen.x(),
+              screen.y(),
+            )
+          None => return model
+        }
+      } else {
+        _registry[model.handle].zoom(
+          input.delta_y,
+          input.delta_mode,
+          input.ctrl_key,
+          screen.x(),
+          screen.y(),
+        )
+      }
+      on_change()
+      model
+    }
     PointerLeave => {
       if !model.source_backed {
         _registry[model.handle].hover_node("")

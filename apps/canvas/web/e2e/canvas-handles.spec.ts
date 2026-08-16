@@ -147,18 +147,21 @@ test('canvas wheel normalizes units and rejects no-op or active input', async ({
     deltaY: number,
     deltaMode: number,
     ctrlKey = false,
-  ) => {
-    await page.evaluate(({ deltaY, deltaMode, ctrlKey }) => {
+  ): Promise<boolean> => {
+    return page.evaluate(({ deltaY, deltaMode, ctrlKey }) => {
       const root = document.querySelector('#canvas-root') as HTMLDivElement;
       const rect = root.getBoundingClientRect();
-      root.dispatchEvent(new WheelEvent('wheel', {
+      const event = new WheelEvent('wheel', {
         bubbles: true,
+        cancelable: true,
         deltaY,
         deltaMode,
         ctrlKey,
-        clientX: rect.left + 120,
-        clientY: rect.top + 80,
-      }));
+        clientX: rect.left + 120.25,
+        clientY: rect.top + 80.75,
+      });
+      root.dispatchEvent(event);
+      return event.defaultPrevented;
     }, { deltaY, deltaMode, ctrlKey });
   };
 
@@ -167,7 +170,7 @@ test('canvas wheel normalizes units and rejects no-op or active input', async ({
   await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
   const initialTransform = await worldTransform(page);
 
-  await dispatchWheel(0, 0);
+  expect(await dispatchWheel(0, 0)).toBe(true);
   await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
   expect(await worldTransform(page)).toBe(initialTransform);
 
@@ -207,7 +210,7 @@ test('canvas wheel normalizes units and rejects no-op or active input', async ({
   });
   await expect(page.locator('#canvas-root')).toHaveClass(/panning/);
   const activeTransform = await worldTransform(page);
-  await dispatchWheel(-100, 0);
+  expect(await dispatchWheel(-100, 0)).toBe(true);
   await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
   expect(await worldTransform(page)).toBe(activeTransform);
   await page.evaluate(() => {
