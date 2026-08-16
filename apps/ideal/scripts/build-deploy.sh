@@ -12,6 +12,11 @@ echo "→ Submodules..."
 cd "$REPO_ROOT"
 git submodule update --init --recursive
 
+# This script is also usable outside the GitHub Actions setup boundary.
+# Bootstrap the global registry once before the first MoonBit build.
+echo "→ MoonBit registry..."
+"$REPO_ROOT/scripts/moon-update.sh"
+
 # 2. Moon build (release JS)
 # apps/ideal is a moon.work member, so workspace mode skips the JS
 # bundle vite expects. See #335.

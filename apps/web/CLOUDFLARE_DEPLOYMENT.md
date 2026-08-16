@@ -46,10 +46,11 @@ Configure the connected `dowdiness/canopy` repository with these values:
 | Build variable | `SKIP_DEPENDENCY_INSTALL=1` |
 
 The explicit `npm ci` owns dependency installation. `build:deploy:waku`
-initializes the pinned public Git submodules, installs the MoonBit toolchain and
-package dependencies, builds the generated JavaScript, and builds Waku. The
-deploy command uses the lockfile-pinned Wrangler and publishes the new version
-directly; it does not create a gradual traffic split.
+initializes the pinned public Git submodules, installs the MoonBit toolchain,
+bootstraps the MoonBit registry once through `scripts/moon-update.sh`, builds
+the generated JavaScript, and builds Waku. The deploy command uses the
+lockfile-pinned Wrangler and publishes the new version directly; it does not
+create a gradual traffic split.
 
 ## Local validation
 

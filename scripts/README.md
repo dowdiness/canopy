@@ -14,8 +14,9 @@ Use the scripts themselves, the root [`justfile`](../justfile), and
 operational sources. `check-moon-update-wrapped.nu`,
 `check-moon-registry-manifests.nu`, `check-moon-interfaces.nu`, and
 `test-moon-registry-bootstrap.nu` enforce the cache-aware MoonBit registry
-bootstrap boundary; `moon-update.sh` remains the bounded-retry implementation
-used by CI bootstrap, local `registry-refresh`, and its regression test.
+bootstrap boundaries; `moon-update.sh` remains the bounded-retry implementation
+used by the CI action, self-contained Cloudflare build scripts, local
+`registry-refresh`, and its regression test.
 `check-submodule-reachability.nu` is the shared blocking contract used by
 PR-ready validation and the narrow Lefthook pre-push route;
 `run-submodule-reachability.sh` maps Git's pre-push ref-update stream to that

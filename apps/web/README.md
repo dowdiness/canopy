@@ -66,7 +66,7 @@ Cloudflare Workers Builds deploys every `main` push at 100% to `canopy-examples`
 | Build command | `npm ci && npm run build:deploy:waku` |
 | Deploy command | `npx wrangler deploy --config wrangler.waku.jsonc --env production` |
 
-`build:deploy:waku` remains as a compatibility alias because Cloudflare Workers Builds external settings currently call it. It initializes pinned submodules, installs MoonBit, builds generated JavaScript, and builds Waku. The external deploy command continues to use `wrangler.waku.jsonc`, which is a symlink to the canonical `wrangler.jsonc`.
+`build:deploy:waku` remains as a compatibility alias because Cloudflare Workers Builds external settings currently call it. It initializes pinned submodules, installs MoonBit, bootstraps the registry once through `scripts/moon-update.sh`, builds generated JavaScript, and builds Waku. The external deploy command continues to use `wrangler.waku.jsonc`, which is a symlink to the canonical `wrangler.jsonc`.
 
 ### Wrangler startup validation
 

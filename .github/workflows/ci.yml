@@ -143,6 +143,8 @@ jobs:
             run_tooling_validation:
               - 'justfile'
               - '.cursor/install.sh'
+              - 'apps/web/scripts/build-deploy.sh'
+              - 'apps/ideal/scripts/build-deploy.sh'
               - 'lefthook.yml'
               - '.githooks/pre-commit'
               - '.githooks/pre-push'
@@ -183,7 +185,7 @@ jobs:
               - 'scripts/test-verify-release-target.sh'
 
   tooling-validation:
-    name: Just, Make, and Lefthook Configuration
+    name: Just and Lefthook Configuration
     needs: changes
     if: needs.changes.outputs.run_tooling_validation == 'true'
     runs-on: ubuntu-latest
@@ -247,7 +249,7 @@ jobs:
 
       - name: Validate compatibility entry points
         run: |
-          bash -n .githooks/pre-commit .githooks/pre-push scripts/run-submodule-reachability.sh scripts/test-submodule-reachability.sh scripts/test-lefthook-pre-push-routing.sh scripts/test-pr-ready-validation.sh scripts/install-hooks.sh
+          bash -n .cursor/install.sh apps/web/scripts/build-deploy.sh apps/ideal/scripts/build-deploy.sh .githooks/pre-commit .githooks/pre-push scripts/run-submodule-reachability.sh scripts/test-submodule-reachability.sh scripts/test-lefthook-pre-push-routing.sh scripts/test-pr-ready-validation.sh scripts/install-hooks.sh
           grep -Fq 'exec just pre-commit' .githooks/pre-commit
           grep -Fq 'exec lefthook run pre-push' .githooks/pre-push
           grep -Fq 'exec just install-hooks' scripts/install-hooks.sh

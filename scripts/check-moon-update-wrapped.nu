@@ -1,9 +1,10 @@
 #!/usr/bin/env nu
 
-# Guard the single MoonBit registry bootstrap boundary. Registry refresh is an
-# environment/bootstrap concern; build, test, benchmark, deploy, and release
-# operations consume the state prepared by setup-moonbit instead of refreshing
-# it themselves.
+# Guard the MoonBit registry bootstrap boundaries. Registry refresh is an
+# environment/bootstrap concern; GitHub Actions, self-contained Cloudflare
+# build scripts, and explicit local refresh each own their environment boundary.
+# Build, test, benchmark, deploy, and release operations consume prepared state
+# instead of refreshing it a second time.
 
 const command_pathspecs = [
   "*.yml"
@@ -132,6 +133,8 @@ def main [] {
     [
       ".cursor/install.sh:"
       ".github/actions/setup-moonbit/action.yml:"
+      "apps/web/scripts/build-deploy.sh:"
+      "apps/ideal/scripts/build-deploy.sh:"
       "justfile:"
       "scripts/check-moon-update-wrapped.nu:"
       "scripts/moon-update.sh:"
@@ -140,7 +143,7 @@ def main [] {
     ])
   if not ($wrapper_refreshes | is-empty) {
     $wrapper_refreshes | print -e
-    fail "registry refresh remains outside setup-moonbit or the explicit local/test boundary"
+    fail "registry refresh remains outside an approved environment or local/test boundary"
   }
 
   let other_refreshes = (without-prefixes

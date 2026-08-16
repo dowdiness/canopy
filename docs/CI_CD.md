@@ -32,7 +32,7 @@ than duplicating its globs.
 |-----|--------------|
 | `dep-check` | `./scripts/check-deps.sh` (module-scope rules [A]–[E] + canopy package-layering rules [F]–[I]; the rules table lives in the script header), `./scripts/check-shared-substrate.sh`, `./scripts/check-egw-resolver-identity.sh`, `nu ./scripts/check-moon-update-wrapped.nu` (registry-bootstrap wiring and manifest contract), `nu ./scripts/test-moon-registry-bootstrap.nu`, `node ./scripts/check-export-manifest.mjs`, `./scripts/test-moon-update-wrapper.sh`, `./scripts/test-pr-ready-validation.sh` |
 | `pr-ready-bash3` | Path-filtered macOS check that asserts `/bin/bash` 3.2, exercises local submodule failures, and runs the real PR-ready shell graph with only compiler work faked |
-| `tooling-validation` | Path-filtered Ubuntu validation for GitHub Actions YAML, the pinned justfile, Cursor bootstrap shell, registry-bootstrap contract, Nushell installer script, and Lefthook configuration |
+| `tooling-validation` | Path-filtered Ubuntu validation for GitHub Actions YAML, the pinned justfile, Cursor bootstrap shell, registry-bootstrap contract, Cloudflare build bootstrap scripts, Nushell installer script, and Lefthook configuration |
 | `release-version-validation` | Path-filtered Ubuntu release-contract syntax and regression tests for version resolution, changelog ranges, and remote target resolution |
 | `test-main` | setup-moonbit registry bootstrap, `./scripts/check-agent-doc-links.sh`, `./scripts/run-moon-module.sh check modules/canopy`, `./scripts/run-moon-module.sh test modules/canopy`, `moon build --release` |
 | `test-submodules` | Matrix over `deps/event-graph-walker`, `deps/loom/loom`, `deps/svg-dsl`, `deps/graphviz` — each runs `./scripts/run-moon-module.sh ci <path>` |
@@ -56,8 +56,10 @@ MoonBit toolchain/core pair, `moon.work`, and every workspace `moon.mod` or
 `moon.mod.json`. An exact cache hit performs no registry refresh; a cold or
 partial restore invokes the bounded-retry wrapper once, and the resulting state
 is saved under the exact key. Build, test, benchmark, proof, release, and deploy
-operations do not refresh the registry themselves. Use `just registry-refresh`
-only when a developer explicitly wants a local registry refresh.
+operations in prepared CI environments do not refresh the registry themselves.
+The self-contained Cloudflare Workers Builds scripts bootstrap once after their
+own toolchain/submodule setup, and `just registry-refresh` remains the explicit
+local refresh entry point.
 
 #### Uploaded artifacts (`build-js`)
 
