@@ -5,7 +5,6 @@ import * as cmView from '@codemirror/view';
 import {
   GraphAdapter,
   type CanvasModule,
-  type EdgeData,
   type NodeData,
   type NodeParamData,
   type PortCompatibility,
@@ -59,43 +58,6 @@ let pendingPath: SVGPathElement | null = null;
 let libraryCatalog: LibraryItem[] = [];
 
 
-// ─── Geometry ────────────────────────────────────────────────────────────────
-
-function portOffset(n: NodeData, side: 'input' | 'output', portId: string): number | null {
-  const ports = side === 'input' ? n.inputs : n.outputs;
-  if (!Number.isFinite(n.h) || n.h < 0 || ports.length === 0) return null;
-  const index = ports.findIndex((p) => p.id === portId);
-  if (index < 0) return null;
-  const offset = ((index + 1) * n.h) / (ports.length + 1);
-  return Number.isFinite(offset) ? offset : null;
-}
-
-/** Output handle for a specific port (world coords). */
-function outputAnchor(n: NodeData, portId: string): [number, number] | null {
-  const offset = portOffset(n, 'output', portId);
-  if (offset == null) return null;
-  const x = n.x + n.w;
-  const y = n.y + offset;
-  return Number.isFinite(x) && Number.isFinite(y) ? [x, y] : null;
-}
-/** Input handle for a specific port (world coords). */
-function inputAnchor(n: NodeData, portId: string): [number, number] | null {
-  const offset = portOffset(n, 'input', portId);
-  if (offset == null) return null;
-  const y = n.y + offset;
-  return Number.isFinite(n.x) && Number.isFinite(y) ? [n.x, y] : null;
-}
-
-/** Cubic bezier from src to dst with horizontal handles, react-flow style. */
-function bezierPath(sx: number, sy: number, tx: number, ty: number): string | null {
-  if (![sx, sy, tx, ty].every(Number.isFinite)) return null;
-  const dx = Math.max(40, Math.abs(tx - sx) * 0.5);
-  const controls = [sx + dx, sy, tx - dx, ty];
-  return controls.every(Number.isFinite)
-    ? `M ${sx} ${sy} C ${controls[0]} ${controls[1]}, ${controls[2]} ${controls[3]}, ${tx} ${ty}`
-    : null;
-}
-
 // Event admission can run before the deferred RAF render. Read the model
 // synchronously so geometry is checked against the state that will consume it.
 function currentRenderState(): RenderState {
@@ -131,10 +93,6 @@ function portTitle(port: PortDef): string {
   return `${port.label}: ${portTypeName(port.port_type)}`;
 }
 
-
-function edgeTitle(edge: EdgeData): string {
-  return `${edge.source}.${edge.source_port} → ${edge.target}.${edge.target_port}`;
-}
 
 
 // ─── Connection compatibility (display only) ───────────────────────────────────
@@ -211,7 +169,6 @@ function render(): void {
   edgesSvg.style.transform = transform;
 
   // Nodes ────────────────────────────────────────────────────────────────────
-  const nodesById = new Map<string, NodeData>();
   const seenNodes = new Set<string>();
   const selected = new Set(state.selected_nodes ?? []);
   const invalidNodeIds = new Set(
@@ -232,8 +189,6 @@ function render(): void {
 
   for (const node of state.nodes) {
     seenNodes.add(node.id);
-    nodesById.set(node.id, node);
-
     let div = nodeDivs.get(node.id);
     if (!div) {
       div = document.createElement('div');
@@ -289,16 +244,6 @@ function render(): void {
   // Edges ────────────────────────────────────────────────────────────────────
   const seenEdges = new Set<string>();
   for (const edge of state.edges) {
-    const src = nodesById.get(edge.source);
-    const dst = nodesById.get(edge.target);
-    if (!src || !dst) continue;
-    const source = outputAnchor(src, edge.source_port);
-    const target = inputAnchor(dst, edge.target_port);
-    if (!source || !target) continue;
-    const [sx, sy] = source;
-    const [tx, ty] = target;
-    const pathData = bezierPath(sx, sy, tx, ty);
-    if (!pathData) continue;
     seenEdges.add(edge.id);
     let path = edgePaths.get(edge.id);
     if (!path) {
@@ -307,40 +252,25 @@ function render(): void {
       edgesSvg.appendChild(path);
       edgePaths.set(edge.id, path);
     }
-    path.setAttribute('d', pathData);
+    path.setAttribute('d', edge.path_d);
     path.setAttribute('data-edge-id', String(edge.id));
-    path.classList.toggle('selected', state.selected_edge === edge.id);
+    path.classList.toggle('selected', edge.selected);
     path.setAttribute('role', 'button');
     path.setAttribute('tabindex', '0');
-    path.setAttribute('aria-label', `Disconnect ${edgeTitle(edge)}`);
+    path.setAttribute('aria-label', edge.aria_label);
   }
   for (const [id, path] of edgePaths) {
     if (!seenEdges.has(id)) { path.remove(); edgePaths.delete(id); }
   }
 
   // In-flight connection ─────────────────────────────────────────────────────
-  if (connecting) {
-    const src = nodesById.get(connecting.from);
-    if (src) {
-      const source = outputAnchor(src, connecting.from_port);
-      const tx = connecting.cursor_x;
-      const ty = connecting.cursor_y;
-      const pathData = source && bezierPath(source[0], source[1], tx, ty);
-      if (pathData && !pendingPath) {
-        pendingPath = document.createElementNS(SVG_NS, 'path');
-        pendingPath.setAttribute('class', 'edge-pending');
-        edgesSvg.appendChild(pendingPath);
-      }
-      if (pathData && pendingPath) {
-        pendingPath.setAttribute('d', pathData);
-      } else if (pendingPath) {
-        pendingPath.remove();
-        pendingPath = null;
-      }
-    } else if (pendingPath) {
-      pendingPath.remove();
-      pendingPath = null;
+  if (connecting?.path_d) {
+    if (!pendingPath) {
+      pendingPath = document.createElementNS(SVG_NS, 'path');
+      pendingPath.setAttribute('class', 'edge-pending');
+      edgesSvg.appendChild(pendingPath);
     }
+    pendingPath.setAttribute('d', connecting.path_d);
   } else if (pendingPath) {
     pendingPath.remove();
     pendingPath = null;

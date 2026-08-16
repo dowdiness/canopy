@@ -12,7 +12,6 @@ priv struct CanvasHostPolicy {
   initial_state : () -> CanvasState
   validate_document : (CanvasDocument) -> Array[ValidationJson]
   node_to_json : (CanvasNode) -> NodeJson
-  edge_to_json : (Edge) -> EdgeJson
   inspector_node : (CanvasDocument, NodeId) -> InspectorNodeJson?
   selected_inspector_source : String
   hovered_inspector_source : String
@@ -24,7 +23,6 @@ fn CanvasHostPolicy::CanvasHostPolicy(
   initial_state~ : () -> CanvasState,
   validate_document~ : (CanvasDocument) -> Array[ValidationJson],
   node_to_json~ : (CanvasNode) -> NodeJson,
-  edge_to_json~ : (Edge) -> EdgeJson,
   inspector_node~ : (CanvasDocument, NodeId) -> InspectorNodeJson?,
   selected_inspector_source~ : String,
   hovered_inspector_source~ : String,
@@ -34,7 +32,6 @@ fn CanvasHostPolicy::CanvasHostPolicy(
     initial_state,
     validate_document,
     node_to_json,
-    edge_to_json,
     inspector_node,
     selected_inspector_source,
     hovered_inspector_source,
@@ -48,7 +45,6 @@ fn workflow_canvas_host_policy() -> CanvasHostPolicy {
     initial_state=() => CanvasState::default(),
     validate_document=validate_workflow_document,
     node_to_json~,
-    edge_to_json~,
     inspector_node=workflow_inspector_node,
     selected_inspector_source="selected",
     hovered_inspector_source="hovered",
@@ -78,7 +74,7 @@ fn CanvasHostPolicy::lower_canvas(
 ) -> LoweredCanvas {
   {
     nodes: normalized.document.nodes.map(self.node_to_json),
-    edges: normalized.document.edges.map(self.edge_to_json),
+    edges: normalized.document.edges.copy(),
     validation: normalized.validation.copy(),
   }
 }
@@ -134,8 +130,31 @@ fn connecting_to_json(connecting : ConnectState?) -> ConnectingJson? {
         from_port: c.from_port,
         cursor_x: c.cursor().x(),
         cursor_y: c.cursor().y(),
+        path_d: None,
       })
     }
+  }
+}
+
+///|
+fn connecting_to_json_with_path(
+  connecting : ConnectState?,
+  nodes : Array[NodeJson],
+) -> ConnectingJson? {
+  match connecting_to_json(connecting) {
+    None => None
+    Some(value) =>
+      Some({ ..value, path_d: project_pending_path(nodes, Some(value)) })
+  }
+}
+
+///|
+fn edge_render_to_json(edge : EdgeRenderProjection) -> EdgeJson {
+  {
+    id: edge.id,
+    path_d: edge.path_d,
+    selected: edge.selected,
+    aria_label: edge.aria_label,
   }
 }
 
@@ -155,19 +174,25 @@ fn CanvasHostPolicy::render_full_canvas(
     Some(id) => Some(node_id_to_string(id))
   }
   let selected_nodes = selection.selected_nodes.map(node_id_to_string)
+  let rendered_nodes = lowered.nodes.map(fn(node) {
+    render_node_with_preview(node, drag_preview)
+  })
   {
     viewport,
-    nodes: lowered.nodes.map(fn(node) {
-      render_node_with_preview(node, drag_preview)
-    }),
-    edges: lowered.edges.copy(),
+    nodes: rendered_nodes.copy(),
+    edges: project_edge_renders(rendered_nodes, lowered.edges, selected_edge).map(
+      edge_render_to_json,
+    ),
     selected,
     selected_edge: match selected_edge {
       None => None
       Some(id) => Some(id.to_string())
     },
     selected_nodes,
-    connecting: connecting_to_json(interaction.connecting),
+    connecting: connecting_to_json_with_path(
+      interaction.connecting,
+      rendered_nodes,
+    ),
     validation: lowered.validation.copy(),
     action_count,
   }
@@ -205,17 +230,25 @@ fn CanvasHostPolicy::render_state_json(
     Some(id) => Some(node_id_to_string(id))
   }
   let selected_nodes = state.interaction.selected_nodes.map(node_id_to_string)
+  let rendered_nodes = state.nodes.map(self.node_to_json)
   {
     viewport: state.viewport,
-    nodes: state.nodes.map(self.node_to_json),
-    edges: state.edges.map(self.edge_to_json),
+    nodes: rendered_nodes.copy(),
+    edges: project_edge_renders(
+      rendered_nodes,
+      state.edges,
+      selected_edge,
+    ).map(edge_render_to_json),
     selected,
     selected_edge: match selected_edge {
       None => None
       Some(id) => Some(id.to_string())
     },
     selected_nodes,
-    connecting: connecting_to_json(state.interaction.connecting),
+    connecting: connecting_to_json_with_path(
+      state.interaction.connecting,
+      rendered_nodes,
+    ),
     validation,
     action_count: state.action_log.length(),
     inspector: None,
@@ -242,17 +275,6 @@ fn node_to_json(n : CanvasNode) -> NodeJson {
     outputs: n.outputs,
     configured: n.configured,
     params: [],
-  }
-}
-
-///|
-fn edge_to_json(e : Edge) -> EdgeJson {
-  {
-    id: e.id.to_string(),
-    source: e.source.to_string(),
-    source_port: e.source_port,
-    target: e.target.to_string(),
-    target_port: e.target_port,
   }
 }
 

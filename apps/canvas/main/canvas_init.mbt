@@ -90,10 +90,9 @@ struct NodeJson {
 ///|
 struct EdgeJson {
   id : String
-  source : String
-  source_port : String
-  target : String
-  target_port : String
+  path_d : String
+  selected : Bool
+  aria_label : String
 } derive(Eq, ToJson)
 
 ///|
@@ -104,6 +103,7 @@ struct ConnectingJson {
   from_port : String
   cursor_x : Double
   cursor_y : Double
+  path_d : String?
 } derive(Eq, ToJson)
 
 ///|

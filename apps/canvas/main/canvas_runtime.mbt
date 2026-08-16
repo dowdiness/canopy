@@ -18,7 +18,7 @@ struct NormalizedCanvas {
 ///|
 struct LoweredCanvas {
   nodes : Array[NodeJson]
-  edges : Array[EdgeJson]
+  edges : Array[Edge]
   validation : Array[ValidationJson]
 } derive(Eq)
 

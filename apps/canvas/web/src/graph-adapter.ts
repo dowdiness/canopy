@@ -117,10 +117,9 @@ export type NodeData = {
 };
 export type EdgeData = {
   id: string;
-  source: string;
-  source_port: string;
-  target: string;
-  target_port: string;
+  path_d: string;
+  selected: boolean;
+  aria_label: string;
 };
 export type PortCompatibility = {
   node_id: string;
@@ -132,6 +131,7 @@ export type Connecting = {
   from_port: string;
   cursor_x: number;
   cursor_y: number;
+  path_d?: string;
 };
 export type ValidationMessage = {
   severity: 'error' | 'warning';

@@ -264,6 +264,11 @@ test('canvas handles create edges and reject invalid gestures', async ({ page })
   await expect(page.locator('.canvas-node')).toHaveCount(6);
   await expect(edgePaths(page)).toHaveCount(3);
   await expect(pendingEdgePaths(page)).toHaveCount(0);
+  await expect(edgePaths(page).first()).toHaveAttribute('d', /^M /);
+  await expect(edgePaths(page).first()).toHaveAttribute('role', 'button');
+  await expect(edgePaths(page).first()).toHaveAttribute('tabindex', '0');
+  await expect(edgePaths(page).first()).toHaveAttribute('data-edge-id');
+  await expect(edgePaths(page).first()).toHaveAttribute('aria-label', /^Disconnect /);
   expect(runtimeErrors).toEqual([]);
 
   const source = outputHandle(page, 1);

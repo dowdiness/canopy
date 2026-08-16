@@ -75,7 +75,7 @@ test "get_render_state exposes workflow JSON shape" {
   let json_str = get_render_state(handle)
   assert_true(json_str.contains("\"nodes\""))
   assert_true(json_str.contains("Timer trigger"))
-  assert_true(json_str.contains("\"source_port\""))
+  assert_true(json_str.contains("\"path_d\""))
   assert_true(json_str.contains("\"validation\""))
 }
 
