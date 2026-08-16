@@ -87,20 +87,27 @@ fn render_bezier_path(
 }
 
 ///|
-fn project_edge_render(
+fn edge_render_node_index(
   nodes : Array[NodeJson],
+) -> Map[String, NodeJson] {
+  Map::from_array(nodes.map(fn(node) { (node.id, node) }))
+}
+
+///|
+fn project_edge_render(
+  node_index : Map[String, NodeJson],
   edge : Edge,
   selected_edge : EdgeId?,
 ) -> EdgeRenderProjection? {
   let source_id = edge.source.to_string()
   let target_id = edge.target.to_string()
-  let source = match nodes.search_by(fn(node) { node.id == source_id }) {
+  let source = match node_index.get(source_id) {
     None => return None
-    Some(index) => nodes[index]
+    Some(node) => node
   }
-  let target = match nodes.search_by(fn(node) { node.id == target_id }) {
+  let target = match node_index.get(target_id) {
     None => return None
-    Some(index) => nodes[index]
+    Some(node) => node
   }
   let source_anchor = match render_output_anchor(source, edge.source_port) {
     None => return None
@@ -124,11 +131,13 @@ fn project_edge_render(
 
 ///|
 fn project_edge_renders(
-  nodes : Array[NodeJson],
+  node_index : Map[String, NodeJson],
   edges : Array[Edge],
   selected_edge : EdgeId?,
 ) -> Array[EdgeRenderProjection] {
-  edges.filter_map(fn(edge) { project_edge_render(nodes, edge, selected_edge) })
+  edges.filter_map(fn(edge) {
+    project_edge_render(node_index, edge, selected_edge)
+  })
 }
 
 ///|
@@ -138,16 +147,15 @@ fn pending_cursor_point(connection : ConnectingJson) -> @spatial.WorldPoint? {
 
 ///|
 fn project_pending_path(
-  nodes : Array[NodeJson],
+  node_index : Map[String, NodeJson],
   connecting : ConnectingJson?,
 ) -> String? {
   match connecting {
     None => None
     Some(connection) =>
-      match nodes.search_by(fn(node) { node.id == connection.from }) {
+      match node_index.get(connection.from) {
         None => None
-        Some(index) => {
-          let source = nodes[index]
+        Some(source) =>
           match render_output_anchor(source, connection.from_port) {
             None => None
             Some(anchor) =>
@@ -156,7 +164,6 @@ fn project_pending_path(
                 Some(cursor) => render_bezier_path(anchor, cursor)
               }
           }
-        }
       }
   }
 }

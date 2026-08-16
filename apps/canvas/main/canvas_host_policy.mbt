@@ -139,12 +139,14 @@ fn connecting_to_json(connecting : ConnectState?) -> ConnectingJson? {
 ///|
 fn connecting_to_json_with_path(
   connecting : ConnectState?,
-  nodes : Array[NodeJson],
+  node_index : Map[String, NodeJson],
 ) -> ConnectingJson? {
   match connecting_to_json(connecting) {
     None => None
-    Some(value) =>
-      Some({ ..value, path_d: project_pending_path(nodes, Some(value)) })
+    Some(value) => Some({
+      ..value,
+      path_d: project_pending_path(node_index, Some(value)),
+    })
   }
 }
 
@@ -177,10 +179,11 @@ fn CanvasHostPolicy::render_full_canvas(
   let rendered_nodes = lowered.nodes.map(fn(node) {
     render_node_with_preview(node, drag_preview)
   })
+  let node_index = edge_render_node_index(rendered_nodes)
   {
     viewport,
     nodes: rendered_nodes.copy(),
-    edges: project_edge_renders(rendered_nodes, lowered.edges, selected_edge).map(
+    edges: project_edge_renders(node_index, lowered.edges, selected_edge).map(
       edge_render_to_json,
     ),
     selected,
@@ -191,7 +194,7 @@ fn CanvasHostPolicy::render_full_canvas(
     selected_nodes,
     connecting: connecting_to_json_with_path(
       interaction.connecting,
-      rendered_nodes,
+      node_index,
     ),
     validation: lowered.validation.copy(),
     action_count,
@@ -231,11 +234,12 @@ fn CanvasHostPolicy::render_state_json(
   }
   let selected_nodes = state.interaction.selected_nodes.map(node_id_to_string)
   let rendered_nodes = state.nodes.map(self.node_to_json)
+  let node_index = edge_render_node_index(rendered_nodes)
   {
     viewport: state.viewport,
     nodes: rendered_nodes.copy(),
     edges: project_edge_renders(
-      rendered_nodes,
+      node_index,
       state.edges,
       selected_edge,
     ).map(edge_render_to_json),
@@ -247,7 +251,7 @@ fn CanvasHostPolicy::render_state_json(
     selected_nodes,
     connecting: connecting_to_json_with_path(
       state.interaction.connecting,
-      rendered_nodes,
+      node_index,
     ),
     validation,
     action_count: state.action_log.length(),
