@@ -46,9 +46,7 @@ pub fn update_viewport_scale_around(
   absolute_scale : @spatial.Scale,
   anchor : ScreenPoint,
 ) -> CanvasState {
-  if state.viewport.scale() == absolute_scale {
-    return state
-  }
+  guard state.viewport.scale() != absolute_scale else { return state }
   let new_viewport = state.viewport.with_scale_around(anchor~, absolute_scale~) catch {
     @spatial.CoordinateError::NonFinite => return state
   }

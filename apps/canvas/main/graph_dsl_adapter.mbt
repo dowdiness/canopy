@@ -1021,8 +1021,8 @@ fn SourceBackedGraph::zoom(
     delta_mode,
     ctrl_key,
     canvas_pointer_is_mac_like(),
-    min_scale=0.1,
-    max_scale=8.0,
+    min_scale=CANVAS_MIN_SCALE,
+    max_scale=CANVAS_MAX_SCALE,
   ) {
     Some(scale) => scale
     None => return

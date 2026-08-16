@@ -19,6 +19,12 @@ const CANVAS_WHEEL_PAGE_UNIT_FACTOR : Double = 1.0
 const CANVAS_WHEEL_PINCH_FACTOR : Double = 10.0
 
 ///|
+const CANVAS_MIN_SCALE : Double = 0.1
+
+///|
+const CANVAS_MAX_SCALE : Double = 8.0
+
+///|
 fn canvas_wheel_delta_unit(delta_mode : Int) -> CanvasWheelDeltaUnit? {
   match delta_mode {
     0 => Some(Pixel)

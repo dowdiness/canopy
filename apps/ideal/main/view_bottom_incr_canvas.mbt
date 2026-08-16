@@ -336,17 +336,17 @@ fn incr_canvas_pointer_attrs(dispatch : Emit[Msg]) -> @html.Attrs {
   })
   .on_wheel(event => {
     event.prevent_default()
+    // Keep deltaY before deltaMode: Firefox/macOS can expose different
+    // deltaMode semantics based on access order. Match workflow Canvas and
+    // the d3/xyflow browser-wheel contract for the future shared bridge.
+    let delta_y = event.get_delta_y()
+    let delta_mode = event.get_delta_mode()
+    let ctrl_key = event.get_ctrl_key()
     match incr_canvas_screen_point_from_wheel_event(event) {
       Some(screen) =>
         dispatch(
           IncrCanvas(
-            Wheel(
-              event.get_delta_y(),
-              event.get_delta_mode(),
-              event.get_ctrl_key(),
-              screen.x(),
-              screen.y(),
-            ),
+            Wheel(delta_y, delta_mode, ctrl_key, screen.x(), screen.y()),
           ),
         )
       None => @rabbita_cmd.none
