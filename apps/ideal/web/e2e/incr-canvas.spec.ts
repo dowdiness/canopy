@@ -268,6 +268,61 @@ test.describe('Bottom panel — interactive Incr Canvas', () => {
     await expect(page.locator('#canopy-incr-canvas-container')).toHaveCount(0);
   });
 
+  test('normalizes wheel units and ignores zero or active input', async ({ page }) => {
+    const openCanvas = async () => {
+      await page.reload();
+      await expect(page.getByRole('button', { name: 'Panels' })).toBeVisible();
+      await page.getByRole('button', { name: 'Panels' }).click();
+      await page.getByRole('tab', { name: 'Incr Canvas' }).click();
+      const stage = page.locator('.incr-canvas-interaction');
+      const node = page.locator('#canopy-incr-canvas-container .incr-canvas-node').first();
+      await expect(stage).toBeVisible({ timeout: 5000 });
+      await expect(node).toBeVisible({ timeout: 5000 });
+      return { stage, node };
+    };
+
+    const dispatchWheel = async (
+      stage: import('@playwright/test').Locator,
+      deltaY: number,
+      deltaMode: number,
+    ) => {
+      await stage.evaluate((element, values) => {
+        const rect = element.getBoundingClientRect();
+        element.dispatchEvent(new WheelEvent('wheel', {
+          bubbles: true,
+          deltaY: values.deltaY,
+          deltaMode: values.deltaMode,
+          clientX: rect.left + 80,
+          clientY: rect.top + 60,
+        }));
+      }, { deltaY, deltaMode });
+    };
+
+    await waitForEditorReady(page);
+    const first = await openCanvas();
+    const initial = await first.node.getAttribute('transform');
+    await dispatchWheel(first.stage, 0, 0);
+    await expect(first.node).toHaveAttribute('transform', initial ?? '');
+    await dispatchWheel(first.stage, -50, 0);
+    await expect(first.node).not.toHaveAttribute('transform', initial ?? '');
+    const pixel = await first.node.getAttribute('transform');
+
+    const second = await openCanvas();
+    await dispatchWheel(second.stage, -2, 1);
+    await expect(second.node).toHaveAttribute('transform', pixel ?? '');
+
+    const third = await openCanvas();
+    const beforeActive = await third.node.getAttribute('transform');
+    const stageBox = await third.stage.boundingBox();
+    expect(stageBox).not.toBeNull();
+    if (!stageBox) return;
+    await page.mouse.move(stageBox.x + stageBox.width - 24, stageBox.y + 120);
+    await page.mouse.down();
+    await dispatchWheel(third.stage, -100, 0);
+    await expect(third.node).toHaveAttribute('transform', beforeActive ?? '');
+    await page.mouse.up();
+  });
+
   test('supports background pan and anchor zoom without changing graph identity', async ({
     page,
   }) => {

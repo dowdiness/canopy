@@ -539,18 +539,34 @@ fn CanvasRuntime::pointer_interrupt(self : CanvasRuntime) -> Unit {
 ///|
 fn CanvasRuntime::zoom(
   self : CanvasRuntime,
-  delta : Double,
+  delta_y : Double,
+  delta_mode : Int,
+  ctrl_key : Bool,
   cx : Double,
   cy : Double,
 ) -> Unit {
-  if delta.is_nan() || delta.is_inf() {
-    return
-  }
+  let before = self.state_peek()
+  guard !before.interaction.pointer_down else { return }
   let screen = ScreenPoint::from_xy(x=cx, y=cy) catch {
     @spatial.CoordinateError::NonFinite => return
   }
-  let before = self.state_peek()
-  let next = @graph_model.update_zoom(before, delta, screen)
+  let absolute_scale = match canvas_wheel_target_scale(
+    before.viewport.scale(),
+    delta_y,
+    delta_mode,
+    ctrl_key,
+    canvas_pointer_is_mac_like(),
+    min_scale=CANVAS_MIN_SCALE,
+    max_scale=CANVAS_MAX_SCALE,
+  ) {
+    Some(scale) => scale
+    None => return
+  }
+  let next = @graph_model.update_viewport_scale_around(
+    before,
+    absolute_scale,
+    screen,
+  )
   if next.viewport != before.viewport || next.action_log != before.action_log {
     self.sync_action_viewport_state(next)
   }

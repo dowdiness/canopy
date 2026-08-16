@@ -129,6 +129,101 @@ async function worldTransform(page: Page): Promise<string> {
   return page.locator('#world').evaluate((el) => (el as HTMLElement).style.transform);
 }
 
+async function worldScale(page: Page): Promise<number> {
+  const transform = await worldTransform(page);
+  const match = transform.match(/scale\(([^)]+)\)/);
+  if (!match) throw new Error(`world transform has no scale: ${transform}`);
+  return Number(match[1]);
+}
+
+test('canvas wheel normalizes units and rejects no-op or active input', async ({ page }) => {
+  const runtimeErrors: string[] = [];
+  page.on('pageerror', (error) => runtimeErrors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') runtimeErrors.push(message.text());
+  });
+
+  const dispatchWheel = async (
+    deltaY: number,
+    deltaMode: number,
+    ctrlKey = false,
+  ) => {
+    await page.evaluate(({ deltaY, deltaMode, ctrlKey }) => {
+      const root = document.querySelector('#canvas-root') as HTMLDivElement;
+      const rect = root.getBoundingClientRect();
+      root.dispatchEvent(new WheelEvent('wheel', {
+        bubbles: true,
+        deltaY,
+        deltaMode,
+        ctrlKey,
+        clientX: rect.left + 120,
+        clientY: rect.top + 80,
+      }));
+    }, { deltaY, deltaMode, ctrlKey });
+  };
+
+  await page.goto('/');
+  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  const initialTransform = await worldTransform(page);
+
+  await dispatchWheel(0, 0);
+  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  expect(await worldTransform(page)).toBe(initialTransform);
+
+  await dispatchWheel(-50, 0);
+  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  const pixelScale = await worldScale(page);
+
+  await page.reload();
+  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  await dispatchWheel(-2, 1);
+  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  const lineScale = await worldScale(page);
+  expect(lineScale).toBeCloseTo(pixelScale, 9);
+
+  await page.reload();
+  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  await dispatchWheel(-10, 0);
+  const smallScale = await worldScale(page);
+  await page.reload();
+  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  await dispatchWheel(-100, 0);
+  const largeScale = await worldScale(page);
+  expect(largeScale).toBeGreaterThan(smallScale);
+
+  await page.reload();
+  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    root.setPointerCapture = () => undefined;
+    root.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true,
+      pointerId: 121,
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+    }));
+  });
+  await expect(page.locator('#canvas-root')).toHaveClass(/panning/);
+  const activeTransform = await worldTransform(page);
+  await dispatchWheel(-100, 0);
+  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  expect(await worldTransform(page)).toBe(activeTransform);
+  await page.evaluate(() => {
+    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    root.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles: true,
+      pointerId: 121,
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+    }));
+  });
+  await expect(page.locator('#canvas-root')).not.toHaveClass(/panning/);
+  expect(runtimeErrors).toEqual([]);
+});
+
 test('canvas handles create edges and reject invalid gestures', async ({ page }) => {
   const runtimeErrors: string[] = [];
   page.on('pageerror', (error) => runtimeErrors.push(error.message));

@@ -7,7 +7,14 @@ export type CanvasModule = {
     onHideContextMenu: () => undefined,
     onClearSelectedEdge: () => undefined,
   ) => undefined;
-  zoom: (h: number, delta: number, cx: number, cy: number) => void;
+  zoom: (
+    h: number,
+    deltaY: number,
+    deltaMode: number,
+    ctrlKey: boolean,
+    cx: number,
+    cy: number,
+  ) => void;
   add_node: (h: number, kindKey: string, sx: number, sy: number) => void;
   delete_nodes: (h: number, nodeIdsJson: string) => void;
   disconnect_ports: (
@@ -42,7 +49,14 @@ export type CanvasModule = {
     source: string,
     sourcePort: string,
   ) => string;
-  source_graph_zoom?: (h: number, delta: number, cx: number, cy: number) => void;
+  source_graph_zoom?: (
+    h: number,
+    deltaY: number,
+    deltaMode: number,
+    ctrlKey: boolean,
+    cx: number,
+    cy: number,
+  ) => void;
   sample_graph_dsl_source?: () => string;
   mount_source_demo?: (h: number, enabled: boolean, onChange: () => undefined) => undefined;
   mount_canvas_context_menu?: (
@@ -70,7 +84,14 @@ type SourceCanvasModule = CanvasModule & {
     source: string,
     sourcePort: string,
   ) => string;
-  source_graph_zoom: (h: number, delta: number, cx: number, cy: number) => void;
+  source_graph_zoom: (
+    h: number,
+    deltaY: number,
+    deltaMode: number,
+    ctrlKey: boolean,
+    cx: number,
+    cy: number,
+  ) => void;
 };
 
 const SOURCE_METHODS = [
@@ -441,12 +462,32 @@ export class GraphAdapter {
     return JSON.parse(json) as PortCompatibility[];
   }
 
-  zoom(delta: number, cx: number, cy: number): void {
+  zoom(
+    deltaY: number,
+    deltaMode: number,
+    ctrlKey: boolean,
+    cx: number,
+    cy: number,
+  ): void {
     this.assertLive();
     if (this.isSourceBacked) {
-      this.sourceModule().source_graph_zoom(this.handle, delta, cx, cy);
+      this.sourceModule().source_graph_zoom(
+        this.handle,
+        deltaY,
+        deltaMode,
+        ctrlKey,
+        cx,
+        cy,
+      );
     } else {
-      this.mb.zoom(this.handle, delta, cx, cy);
+      this.mb.zoom(
+        this.handle,
+        deltaY,
+        deltaMode,
+        ctrlKey,
+        cx,
+        cy,
+      );
     }
     this.emitLatestOperations();
   }

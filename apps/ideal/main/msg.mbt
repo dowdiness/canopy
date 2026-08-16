@@ -12,7 +12,7 @@ enum IncrCanvasMsg {
   PointerUp(Int?)
   PointerCancel(Int?)
   CaptureLost(Int?)
-  Wheel(Double, Double, Double)
+  Wheel(Double, Int, Bool, Double, Double)
 }
 
 ///|

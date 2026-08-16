@@ -30,7 +30,15 @@ fn handle_incr_canvas(
           incr_canvas_pointer_up(current.incr_canvas, pointer_id)
         CaptureLost(pointer_id) =>
           incr_canvas_capture_lost_for_pointer(current.incr_canvas, pointer_id)
-        Wheel(delta, x, y) => incr_canvas_zoom(current.incr_canvas, delta, x, y)
+        Wheel(delta_y, delta_mode, ctrl_key, x, y) =>
+          incr_canvas_wheel(
+            current.incr_canvas,
+            delta_y,
+            delta_mode,
+            ctrl_key,
+            x,
+            y,
+          )
       }
       Some((none, { ..current, incr_canvas: state }))
     }

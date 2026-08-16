@@ -9,8 +9,15 @@ pub fn create_canvas() -> Int {
 }
 
 ///|
-pub fn zoom(handle : Int, delta : Double, cx : Double, cy : Double) -> Unit {
-  _registry[handle].zoom(delta, cx, cy)
+pub fn zoom(
+  handle : Int,
+  delta_y : Double,
+  delta_mode : Int,
+  ctrl_key : Bool,
+  cx : Double,
+  cy : Double,
+) -> Unit {
+  _registry[handle].zoom(delta_y, delta_mode, ctrl_key, cx, cy)
 }
 
 ///|

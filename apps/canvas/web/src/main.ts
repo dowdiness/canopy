@@ -820,8 +820,14 @@ root.addEventListener('click', (e: MouseEvent) => {
 
 root.addEventListener('wheel', (e: WheelEvent) => {
   e.preventDefault();
+  // Keep deltaY before deltaMode: Firefox/macOS can expose different
+  // deltaMode semantics based on access order. This matches the d3/xyflow
+  // browser-wheel contract that PR1 preserves for the future Rabbita bridge.
+  const deltaY = e.deltaY;
+  const deltaMode = e.deltaMode;
+  const ctrlKey = e.ctrlKey;
   const [cx, cy] = localCoords(e);
-  adapter.zoom(e.deltaY, cx, cy);
+  adapter.zoom(deltaY, deltaMode, ctrlKey, cx, cy);
   scheduleRender();
 }, { passive: false });
 
