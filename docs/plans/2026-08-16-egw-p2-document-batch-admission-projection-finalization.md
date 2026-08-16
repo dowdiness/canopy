@@ -53,6 +53,9 @@ compared with a fresh canonical replay.
 - Complete, partial, duplicate-only, pending-only, malformed, stale,
   consumed, and hard-pending-limit cases.
 - Post-commit projection failure reporting and recovery.
+- Document-owned projection health and read/mutation admission guards.
+- Pure Document target preflight; all pending cleanup remains inside the typed
+  core transition.
 - `IndexedState` cache invalidation/rebuild rules.
 - Existing single-operation `apply_remote` compatibility coverage.
 - M-boundary benchmarks comparing per-operation ingress with one batch shell.
@@ -181,21 +184,66 @@ projection failure, invalidate the cache, perform a fresh `Branch::checkout`
 at the authoritative receipt frontier, install the fresh tree, and only then
 return the typed result. A successful fresh checkout is reported as a
 recovered projection status. `ProjectionRecoveryRequired` is reserved for a
-failure of that recovery operation; while that status is present, no reader
-may claim the Document is valid. If implementation preflight finds that the
-existing read surface cannot enforce the terminal state without a public API
-delta, the plan must stop for review rather than silently permit lazy reads of
-a partial tree.
+failure of that recovery operation.
+
+Document must own this state rather than relying on callers to remember the
+last result:
+
+```text
+private ProjectionHealth
+  Ready
+  RecoveryRequired(authoritative_frontier)
+```
+
+The constructor starts at `Ready`. Projection failure invalidates the cache,
+clears the cursor, and sets `RecoveryRequired` before attempting the fresh
+checkout. Successful installation invalidates the cache again, clears the
+cursor, and returns the health to `Ready`. Failed recovery leaves the health at
+`RecoveryRequired` and returns the authoritative frontier in the typed result.
+
+The package-private `recover_projection` retry boundary is the only operation
+that installs a replacement tree. Fallible local mutations and remote
+admission first retry recovery and propagate an intentional internal
+`DocumentError::ProjectionRecoveryRequired(frontier~)` if it still fails.
+Non-fallible derived readers (`to_text`, `visible_count`, position readers, and
+visible-item readers) retry recovery and abort with an explicit invariant
+message if recovery still fails; they must never silently read the partial
+tree. Authority-only readers such as the frontier and OpLog inspection remain
+available. This preserves existing non-fallible reader signatures while making
+`RecoveryRequired` Document-owned and fail-closed.
+
+## Admission ownership and target preflight
+
+The current `Document::preflight_remote_targets` is not pure: its invalid-root
+path calls `OpLog::discard_pending_dependents`. P2 must not call that mutating
+path outside `commit_admission`.
+
+The P2 shell calls `prepare_remote` first; core preparation owns semantic
+pending cleanup, staged registration, ready ordering, and the receipt's
+`discarded_pending`/`discarded_staged` evidence. Document target validation is a
+pure check over the prepared operations and current tree. It returns success,
+a current-message target error, or a projection-divergence result without
+changing OpLog or planner state.
+
+A graph-known Insert that is missing from the FugueTree is projection
+divergence, not a remote-invalid root. The shell recovers the current
+authoritative frontier and reruns the pure target check; it never discards
+pending work for this case. If the pure check still fails, the admission is
+rejected without a second pending mutation. Core pending additions, removals,
+and rejection closure must all remain represented by one `PreparedAdmission`
+→ `AdmissionOutcome` transition.
 
 ## Current and desired interfaces
 
-The P2 seam is package-internal and provisional. The exact enum and constructor
-names are a plan-review decision, not an implementation authorization.
+The P2 seam is package-internal. The exact admission/projection result enum
+name and constructor names remain a plan-review decision, not an
+implementation authorization. `ProjectionHealth` ownership and the
+`ProjectionRecoveryRequired` error contract are fixed by this plan.
 
 ```text
 Document::admit_remote(operations, max_pending?)
   → pre-commit failure
-  | admission outcome + projected status
+  | admission outcome + projected/recovered status
   | admission outcome + recovery-required status
 ```
 
@@ -279,60 +327,77 @@ pending suffix is never projected by the Document shell.
     not translated into a pre-commit error.
 11. Add a recovery test that compares the recovered Document text and frontier
     with `Branch::checkout` at the receipt frontier. The test must prove that a
-    partial FugueTree is not reused as the canonical recovered state and that
-    readers are enabled only after the fresh tree is installed. Add the
-    recovery-required assertion for a deliberately failing recovery seam if the
-    package-local test seam can inject that failure without changing public
-    APIs.
+    partial FugueTree is not reused as the canonical recovered state, that
+    `ProjectionHealth` returns to `Ready` only after fresh-tree installation,
+    and that the cursor is cleared. Add a deliberately failing recovery seam
+    assertion: health remains `RecoveryRequired`, derived readers fail closed,
+    and a later mutation/admission retries recovery before mutating.
 12. Add a retry test that re-plans only the core pending suffix and does not
     re-commit identities already present in the receipt's committed view.
-13. Keep the existing single-operation `apply_remote` tests and add a
-    differential assertion that its observable text and frontier remain
-    unchanged while its compatibility path is not silently widened to the P2
-    batch contract.
+13. Make `Document::apply_remote(op)` a thin compatibility wrapper over
+    `admit_remote([op])` without changing its public signature. Map a recovered
+    complete result to `Unit`, a recovered partial result back to the existing
+    `PartialRemoteAdmission` error, preserve pre-commit errors, and expose
+    recovery failure as `DocumentError::ProjectionRecoveryRequired`. The P2
+    shell is the single implementation path for one-op and batch authority
+    commit plus projection finalization; do not retain the old legacy shell.
+14. Add a cursor regression: create a local sequential-insert cursor, perform
+    complete/partial/recovered remote admission, then insert locally and prove
+    text/frontier equality with fresh checkout. `cursor` is cleared at batch
+    entry and after every fresh-tree installation.
 
 ### P2.2 — Implement the package-internal batch shell
 
-14. Validate all incoming content and target/origin preconditions before the
-    first authority mutation, using existing Document validation and the core
-    planner rather than a second pending algorithm.
-15. Call `prepare_remote(operations, max_pending?)` exactly once and retain the
-    prepared capability until the one typed commit call. Do not call
-    `validate_remote_batch` in a way that imposes the complete-frontier closure
-    contract on an incomplete P2 batch.
-16. Call `commit_admission` exactly once. Map pre-commit `OpLogError` failures
-    separately from the returned complete/partial outcome.
-17. For a non-empty `receipt.committed()` view, perform one projection
+15. Validate incoming content before any state change, then call
+    `prepare_remote(operations, max_pending?)` exactly once. Do not call the
+    mutating `OpLog::discard_pending_dependents` path from Document. Core
+    preparation owns all pending mutation and receipt provenance.
+16. Run the pure Document target check over the prepared operations. If a
+    graph-known Insert is absent from the tree, recover the current frontier and
+    rerun this pure check; never classify that divergence as a pending invalid
+    root. Do not call `validate_remote_batch` in a way that imposes the
+    complete-frontier closure contract on an incomplete P2 batch.
+17. Retain the prepared capability until the one `commit_admission` call. Map
+    pre-commit `OpLogError` failures separately from the returned
+    complete/partial outcome.
+18. For a non-empty `receipt.committed()` view, perform one projection
     finalization. Never project staged, retained, discarded, duplicate-only, or
     still-pending identities. For an empty committed view, skip projection.
-18. Return the typed admission evidence together with projected-complete or
+19. Return the typed admission evidence together with projected-complete or
     projected-partial status. Preserve a partial admission's causal cause and
     receipt even when the committed prefix projects successfully.
-19. On a projection error after authority commit, invalidate the cache, retain
-    the receipt/frontier in the result, and perform no rollback or second
+20. On a projection error after authority commit, invalidate the cache, clear
+    the cursor, set `ProjectionHealth::RecoveryRequired` before any recovery
+    attempt, retain the receipt/frontier, and perform no rollback or second
     authority transition.
-20. Recover synchronously by checking out a fresh Branch at the authoritative
-    receipt frontier, installing its fresh tree through the confirmed
-    package-local seam, and rebuilding or lazily re-enabling `IndexedState`
-    only after tree replacement succeeds. If recovery itself fails, preserve
-    recovery-required evidence and prevent any reader from treating the
-    partially projected Document as valid.
-21. Keep all effectful work in the shell: the admission/projection status
+21. Recover synchronously through the package-private `recover_projection`
+    boundary by checking out a fresh Branch at the authoritative receipt
+    frontier and installing its fresh tree. On success, invalidate the cache,
+    clear the cursor, and return health to `Ready`; on failure, retain
+    `RecoveryRequired` and return the typed recovery-required status.
+22. Keep all effectful work in the shell: the admission/projection status
     decision must be deterministic from the typed outcome, projection result,
-    cache state, and recovery result. Do not make OpLog own Document recovery.
+    health, cache state, and recovery result. Do not make OpLog own Document
+    recovery or call a mutating pending-discard helper.
 
 ### P2.3 — Differential validation and M-boundary evidence
 
-22. Run complete, duplicate-only, pending-only, all partial-prefix, malformed,
+23. Run complete, duplicate-only, pending-only, all partial-prefix, malformed,
     lifecycle-rejection, projection-failure, recovery, and retry traces against
     both the new shell and fresh `Branch::checkout`.
-23. Add release benchmarks for M = 1, 10, 100, and 1000 comparing:
+24. Add release benchmarks for M = 1, 10, 100, and 1000 comparing:
     `M × Document::apply_remote` with `1 × Document::admit_remote`. Separate
     complete, duplicate-only, pending-only, and partial cases.
-24. Record prepare count, typed commit count, projection-finalization count,
-    end-to-end time, and allocation observations. Do not describe these as
-    H-scan or editor-latency evidence; H-scan remains P3 scope.
-25. Run the targeted EGW gate, inspect generated interfaces, and update issue
+25. Record separate `projection_finalization_attempts` and
+    `recovery_checkouts`; a post-commit failure is one direct finalization
+    attempt followed by a recovery checkout, not two finalization attempts.
+    Each benchmark must fail fast: complete accepts only the expected Complete
+    outcome and committed count; duplicate/pending accepts only an empty
+    committed view; partial accepts only the expected prefix length. Unexpected
+    outcomes or errors are test failures, never measurements.
+26. Record end-to-end time and allocation observations. Do not describe these
+    as H-scan or editor-latency evidence; H-scan remains P3 scope.
+27. Run the targeted EGW gate, inspect generated interfaces, and update issue
     #1256 with the P2 review/validation evidence. Do not update the Canopy
     gitlink as part of P2.
 
@@ -340,7 +405,13 @@ pending suffix is never projected by the Document shell.
 
 - [ ] P2 has one package-internal batch shell with one `prepare_remote` and one
       `commit_admission` per batch.
+- [ ] Document owns private `ProjectionHealth`; recovery failure persists as
+      `RecoveryRequired(authoritative_frontier)` rather than caller-only state.
+- [ ] Fallible mutation/admission retries recovery before mutation; non-fallible
+      derived readers fail closed instead of reading a partial tree.
 - [ ] `merge_remote` is not reused for incomplete incoming batches.
+- [ ] Document target preflight is pure and no Document path calls
+      `OpLog::discard_pending_dependents` outside the typed transition.
 - [ ] Complete and non-empty partial outcomes perform exactly one projection
       finalization over `receipt.committed()` only.
 - [ ] Duplicate-only, pending-only, and zero-prefix partial outcomes skip
@@ -357,13 +428,18 @@ pending suffix is never projected by the Document shell.
       state.
 - [ ] Partial retries re-plan the core-owned suffix without retrying committed
       identities.
-- [ ] Existing single-operation `apply_remote` behavior remains covered and
-      compatible.
-- [ ] No Document/Branch public API, SyncSession, wire/archive, canonical
-      TextEvent, TextReplica, Plain projection, or Canopy gitlink change is
-      included.
-- [ ] M-boundary benchmark evidence is separated from P3 H-scan and editor
-      latency claims.
+- [ ] Existing single-operation `apply_remote` keeps its public signature and
+      delegates to the P2 shell; complete/partial/pre-commit/recovery mappings
+      remain explicit.
+- [ ] Remote admission clears `cursor` at entry and after fresh-tree recovery;
+      local edits after recovery match fresh checkout.
+- [ ] No Canopy public API, SyncSession, wire/archive, canonical TextEvent,
+      TextReplica, Plain projection, or Canopy gitlink change is included. An
+      intentional internal `DocumentError`/`.mbti` delta is allowed only for
+      the health/recovery contract and must be reviewed.
+- [ ] M-boundary benchmarks separately record projection finalization attempts
+      and recovery checkouts, fail fast on wrong outcomes, and are separated
+      from P3 H-scan and editor latency claims.
 
 ## Validation
 
@@ -417,12 +493,19 @@ specific delta in the PR and issue.
 - `Branch::inner_tree` returns a tree alias, not a Document replacement
   operation. Reusing it without a confirmed replacement seam could leave the
   Document pointing at the partially mutated tree.
+- `ProjectionHealth` must be Document-owned. A returned typed status without a
+  health field would allow ignored results to reach readers, local mutation,
+  or the next admission. The chosen fail-closed behavior for non-fallible
+  readers and the recovery error carrier must remain explicit.
 - `Branch::checkout` is a canonical replay primitive, but recovery cost is
   proportional to the replayed history. P2 should prove correctness first and
   defer H-scale optimization to P3 or a separately measured phase.
 - Restoring a detached `IndexedState` cache after a post-commit projection
   attempt can hide derived-state divergence. Cache restoration is legal only
   on pre-commit no-mutation exits.
+- Reusing the current mutating `preflight_remote_targets` helper would create a
+  planner transition outside the P1 receipt. Split pure Document target
+  validation from core-owned pending cleanup before implementing the shell.
 - Existing preflight makes several projection errors unreachable for valid
   admissions, but the failure result is still required for invariant defects,
   future projection adapters, and injected tests. Do not erase the recovery
@@ -439,6 +522,9 @@ specific delta in the PR and issue.
   the new shell is the first Document consumer of `commit_admission`.
 - P2 is a Document responsibility phase. SyncSession continues to own its
   current legacy ingress until P3 explicitly cuts that façade over.
+- `merge_remote` remains a complete-frontier compatibility API and is not the
+  implementation path for incomplete P2 batches; `apply_remote` is the thin
+  one-operation wrapper over the new P2 shell.
 - The P2 plan is intentionally docs-only. After plan acceptance, create a
   fresh implementation branch from the latest EGW `main` containing
   `0e4ec93`; do not continue from the retained P1 branch/worktree.
