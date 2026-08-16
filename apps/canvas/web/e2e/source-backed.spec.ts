@@ -536,14 +536,23 @@ test('source-backed selected edge deletion lowers into canonical source', async 
   await expect(edgePaths(page)).toHaveCount(1);
   await expectSource(page, 'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)');
 
+  const osc = sourceNode(page, 'osc');
+  await osc.click();
+  await expect(osc).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
+
   await clickEdge(page, 0);
   await expect(edgePaths(page).first()).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
+  await expect(osc).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
+  await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
+
   await page.keyboard.press('Backspace');
 
   await expectSource(page, SAMPLE_SOURCE);
   await expect(page.locator('.canvas-node')).toHaveCount(2);
   await expect(edgePaths(page)).toHaveCount(0);
-  await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
+  await expect(page.locator('#edges path.edge.selected')).toHaveCount(0);
+  await expect(osc).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
+  await expect(page.locator('#action-stat')).toHaveText('3 actions logged');
   await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'success');
   await expect(page.locator('#source-status')).toContainText(
     'Disconnected selected edge through graph-dsl source.',
@@ -598,7 +607,7 @@ test('source-backed deletion ignores source editor focus', async ({ page }) => {
   // Select a canvas node so a missing focus guard WOULD delete it. The keydown
   // bubbles to the document handler even from CodeMirror (CM6 does not
   // stopPropagation by default), so `editableKeyboardTarget` is the only thing
-  // between this Backspace and `deleteSelectedNodes`.
+  // between this Backspace and the MoonBit `deleteSelection` request.
   await sourceNode(page, 'meter').click();
   await expect(sourceNode(page, 'meter')).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
 

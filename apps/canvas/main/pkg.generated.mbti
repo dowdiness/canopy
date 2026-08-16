@@ -12,11 +12,19 @@ pub fn add_node(Int, String, Double, Double) -> Unit
 
 pub fn apply_source_graph_operation(Int, String) -> String raise Failure
 
+pub fn clear_selected_edge(Int) -> Unit
+
+pub fn clear_source_graph_edge(Int) -> Unit
+
 pub fn create_canvas() -> Int
 
 pub fn create_source_graph(String) -> Int raise Failure
 
 pub fn delete_nodes(Int, String) -> Unit
+
+pub fn delete_selection(Int) -> Bool
+
+pub fn delete_source_graph_selection(Int) -> String raise Failure
 
 pub fn destroy_source_graph(Int) -> Unit
 
@@ -38,11 +46,15 @@ pub fn get_source_graph_source(Int) -> String
 
 pub fn mount_canvas_context_menu((String) -> Unit, () -> Unit) -> Unit
 
-pub fn mount_canvas_pointer_session(Int, Bool, () -> Unit, () -> Unit, () -> Unit) -> Unit
+pub fn mount_canvas_pointer_session(Int, Bool, () -> Unit, () -> Unit) -> Unit
 
 pub fn mount_source_demo(Int, Bool, () -> Unit) -> Unit
 
 pub fn sample_graph_dsl_source() -> String
+
+pub fn select_edge(Int, String) -> Unit
+
+pub fn select_source_graph_edge(Int, String) -> Unit
 
 pub fn set_source_graph_source(Int, String) -> Unit raise Failure
 

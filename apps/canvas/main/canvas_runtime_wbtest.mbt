@@ -187,6 +187,43 @@ test "runtime delete_nodes removes selected nodes and incident edges" {
 }
 
 ///|
+test "runtime edge selection is ephemeral and edge-first" {
+  let runtime = CanvasRuntime::CanvasRuntime()
+  let initial = runtime.state_peek()
+  let edge = initial.edges[0]
+  runtime.set_selection({
+    selected: Some(NodeId("1")),
+    selected_nodes: [NodeId("1")],
+  })
+  runtime.select_edge(edge.id)
+  assert_eq(runtime.render_state().selected_edge, Some(edge.id.to_string()))
+  assert_eq(runtime.action_log_snapshot().length(), 0)
+
+  assert_true(runtime.delete_selection())
+  let after_edge = runtime.render_state()
+  assert_eq(after_edge.selected_edge, None)
+  assert_eq(after_edge.nodes.length(), 6)
+  assert_eq(after_edge.edges.length(), 2)
+  assert_eq(after_edge.selected_nodes, ["1"])
+  assert_eq(after_edge.action_count, 1)
+  match runtime.action_log_snapshot()[0].action() {
+    DisconnectPorts(source, source_port, target, target_port) => {
+      @debug.assert_eq(source, NodeId("1"))
+      inspect(source_port, content="tick")
+      @debug.assert_eq(target, NodeId("2"))
+      inspect(target_port, content="in")
+    }
+    _ => fail("expected DisconnectPorts action")
+  }
+
+  assert_true(runtime.delete_selection())
+  let after_node = runtime.render_state()
+  assert_eq(after_node.nodes.length(), 5)
+  assert_eq(after_node.action_count, 2)
+  assert_eq(after_node.selected_nodes, [])
+}
+
+///|
 test "runtime sparse inspector follows hover until a node is selected" {
   let runtime = CanvasRuntime::CanvasRuntime()
   runtime.sync_viewport_state({

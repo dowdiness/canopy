@@ -30,6 +30,21 @@ fn decode_node_ids(json_text : String) -> Array[NodeId] {
 }
 
 ///|
+pub fn select_edge(handle : Int, edge_id : String) -> Unit {
+  _registry[handle].select_edge(EdgeId(edge_id))
+}
+
+///|
+pub fn clear_selected_edge(handle : Int) -> Unit {
+  _registry[handle].clear_selected_edge()
+}
+
+///|
+pub fn delete_selection(handle : Int) -> Bool {
+  _registry[handle].delete_selection()
+}
+
+///|
 pub fn delete_nodes(handle : Int, node_ids_json : String) -> Unit {
   let node_ids = decode_node_ids(node_ids_json)
   if node_ids.length() == 0 {
@@ -149,13 +164,14 @@ fn render_viewport_to_json(viewport : Viewport) -> Json {
 
 ///|
 /// Serializable render snapshot sent to TypeScript each RAF frame.
-/// `selected`/`connecting`/`inspector` are absent (key omitted) when not active
-/// — MoonBit derive(ToJson) omits None keys. TypeScript: use `!= null` checks.
+/// `selected`/`selected_edge`/`connecting`/`inspector` are absent (key omitted)
+/// when not active — MoonBit derive(ToJson) omits None keys. TypeScript: use `!= null` checks.
 struct RenderStateJson {
   viewport : Viewport
   nodes : Array[NodeJson]
   edges : Array[EdgeJson]
   selected : String?
+  selected_edge : String?
   selected_nodes : Array[String]
   connecting : ConnectingJson?
   validation : Array[ValidationJson]
@@ -172,6 +188,10 @@ impl ToJson for RenderStateJson with fn to_json(self) {
   match self.selected {
     None => ()
     Some(selected) => fields["selected"] = selected.to_json()
+  }
+  match self.selected_edge {
+    None => ()
+    Some(selected_edge) => fields["selected_edge"] = selected_edge.to_json()
   }
   fields["selected_nodes"] = self.selected_nodes.to_json()
   match self.connecting {

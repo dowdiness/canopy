@@ -146,6 +146,7 @@ fn CanvasHostPolicy::render_full_canvas(
   viewport : Viewport,
   drag_preview : DragPreview,
   selection : SelectionState,
+  selected_edge : EdgeId?,
   interaction : InteractionState,
   action_count : Int,
 ) -> CanvasFullRenderJson {
@@ -161,6 +162,10 @@ fn CanvasHostPolicy::render_full_canvas(
     }),
     edges: lowered.edges.copy(),
     selected,
+    selected_edge: match selected_edge {
+      None => None
+      Some(id) => Some(id.to_string())
+    },
     selected_nodes,
     connecting: connecting_to_json(interaction.connecting),
     validation: lowered.validation.copy(),
@@ -179,6 +184,7 @@ fn CanvasHostPolicy::render_state_from_parts(
     nodes: full.nodes.copy(),
     edges: full.edges.copy(),
     selected: full.selected,
+    selected_edge: full.selected_edge,
     selected_nodes: full.selected_nodes.copy(),
     connecting: full.connecting,
     validation: full.validation.copy(),
@@ -192,6 +198,7 @@ fn CanvasHostPolicy::render_state_json(
   self : CanvasHostPolicy,
   state : CanvasState,
   validation : Array[ValidationJson],
+  selected_edge : EdgeId?,
 ) -> RenderStateJson {
   let selected : String? = match state.interaction.selected {
     None => None
@@ -203,6 +210,10 @@ fn CanvasHostPolicy::render_state_json(
     nodes: state.nodes.map(self.node_to_json),
     edges: state.edges.map(self.edge_to_json),
     selected,
+    selected_edge: match selected_edge {
+      None => None
+      Some(id) => Some(id.to_string())
+    },
     selected_nodes,
     connecting: connecting_to_json(state.interaction.connecting),
     validation,
@@ -323,8 +334,11 @@ fn workflow_inspector_node(
 fn render_state_json(
   state : CanvasState,
   validation : Array[ValidationJson],
+  selected_edge : EdgeId?,
 ) -> RenderStateJson {
-  workflow_canvas_host_policy().render_state_json(state, validation)
+  workflow_canvas_host_policy().render_state_json(
+    state, validation, selected_edge,
+  )
 }
 
 ///|
@@ -332,5 +346,5 @@ fn render_state_string(
   state : CanvasState,
   validation : Array[ValidationJson],
 ) -> String {
-  render_state_json(state, validation).to_json().stringify()
+  render_state_json(state, validation, None).to_json().stringify()
 }

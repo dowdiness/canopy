@@ -23,7 +23,7 @@ priv struct CanvasPointerState {
 ///|
 priv enum CanvasPointerHit {
   Background
-  Edge
+  Edge(EdgeId)
   Node(String)
   Handle(node_id~ : String, side~ : CanvasHandleSide, port_id~ : String)
 }
@@ -59,6 +59,7 @@ priv enum CanvasPointerMsg {
   PointerLeave
   LostPointerCapture(CanvasPointerInput)
   Wheel(CanvasWheelInput)
+  Click(CanvasPointerHit)
 }
 
 ///|
@@ -120,7 +121,11 @@ fn canvas_pointer_hit_from_element(element : @dom.Element?) -> CanvasPointerHit 
     None => Background
     Some(element) => {
       match element.closest("[data-edge-id]") {
-        Some(_) => return Edge
+        Some(edge) =>
+          match edge.get_attribute("data-edge-id") {
+            Some(id) => return Edge(EdgeId(id))
+            None => ()
+          }
         None => ()
       }
       match element.closest("[data-handle]") {
@@ -225,7 +230,7 @@ fn canvas_pointer_release_capture(root : @dom.Element, pointer_id : Int) -> Unit
 fn canvas_pointer_node_id(hit : CanvasPointerHit, fallback : String) -> String {
   match hit {
     Node(node_id) | Handle(node_id~, ..) => node_id
-    Background | Edge => fallback
+    Background | Edge(_) => fallback
   }
 }
 
@@ -272,7 +277,6 @@ fn canvas_pointer_start(
   input : CanvasPointerInput,
   on_change : () -> Unit,
   on_hide_context_menu : () -> Unit,
-  on_clear_selected_edge : () -> Unit,
 ) -> CanvasPointerState {
   let event = input.event
   guard model.session is Idle else { return model }
@@ -286,14 +290,21 @@ fn canvas_pointer_start(
   }
   let hit = input.hit
   match hit {
-    Edge => {
+    Edge(_) => {
       on_hide_context_menu()
       on_change()
       return model
     }
     Handle(side=Input, ..) => {
       on_hide_context_menu()
-      on_clear_selected_edge()
+      if model.source_backed {
+        match source_graph_by_handle(model.handle) {
+          Some(graph) => graph.clear_selected_edge()
+          None => ()
+        }
+      } else {
+        _registry[model.handle].clear_selected_edge()
+      }
       on_change()
       return model
     }
@@ -326,7 +337,7 @@ fn canvas_pointer_start(
       GraphGesture(pointer_id~, down_node_id="", additive~)
     Node(node_id) => GraphGesture(pointer_id~, down_node_id=node_id, additive~)
     Background => GraphGesture(pointer_id~, down_node_id="", additive~)
-    Edge | Handle(side=Input, ..) => return model
+    Edge(_) | Handle(side=Input, ..) => return model
   }
   root.set_pointer_capture(pointer_id) catch {
     @dom.DOMExceptionError(..) => return model
@@ -376,7 +387,14 @@ fn canvas_pointer_start(
   }
   let next = { ..model, session: next_session }
   on_hide_context_menu()
-  on_clear_selected_edge()
+  if model.source_backed {
+    match source_graph_by_handle(model.handle) {
+      Some(graph) => graph.clear_selected_edge()
+      None => ()
+    }
+  } else {
+    _registry[model.handle].clear_selected_edge()
+  }
   match hit {
     Background => canvas_pointer_set_panning(root, true)
     _ => ()
@@ -397,7 +415,7 @@ fn canvas_pointer_move(
       if !model.source_backed {
         let node_id = match input.hit {
           Node(node_id) | Handle(node_id~, ..) => node_id
-          Background | Edge => ""
+          Background | Edge(_) => ""
         }
         _registry[model.handle].hover_node(node_id)
         on_change()
@@ -578,6 +596,8 @@ fn canvas_pointer_message(
           Some(Wheel({ delta_y, delta_mode, ctrl_key, screen }))
         }
       }
+    "click" =>
+      Some(Click(canvas_pointer_hit_from_element(event.target().to_element())))
     _ =>
       match event.to_pointer_event() {
         None => None
@@ -658,6 +678,7 @@ fn canvas_pointer_subscriptions(
   emit : @rabbita.Emit[CanvasPointerMsg],
 ) -> @sub.Sub {
   @sub.batch([
+    canvas_pointer_subscription("click", emit),
     canvas_pointer_subscription("pointerdown", emit),
     canvas_pointer_subscription("pointermove", emit),
     canvas_pointer_subscription("pointerup", emit),
@@ -674,13 +695,28 @@ fn canvas_pointer_update(
   message : CanvasPointerMsg,
   on_change : () -> Unit,
   on_hide_context_menu : () -> Unit,
-  on_clear_selected_edge : () -> Unit,
 ) -> CanvasPointerState {
   match message {
+    Click(hit) => {
+      match hit {
+        Edge(edge_id) => {
+          if model.source_backed {
+            match source_graph_by_handle(model.handle) {
+              Some(graph) => graph.select_edge(edge_id)
+              None => ()
+            }
+          } else {
+            _registry[model.handle].select_edge(edge_id)
+          }
+          on_hide_context_menu()
+          on_change()
+        }
+        _ => ()
+      }
+      model
+    }
     PointerDown(input) =>
-      canvas_pointer_start(
-        model, input, on_change, on_hide_context_menu, on_clear_selected_edge,
-      )
+      canvas_pointer_start(model, input, on_change, on_hide_context_menu)
     PointerMove(input) => canvas_pointer_move(model, input, on_change)
     PointerUp(input) => canvas_pointer_finish(model, input, on_change)
     PointerCancel(input) => canvas_pointer_interrupt(model, input, on_change)
@@ -735,16 +771,13 @@ pub fn mount_canvas_pointer_session(
   source_backed : Bool,
   on_change : () -> Unit,
   on_hide_context_menu : () -> Unit,
-  on_clear_selected_edge : () -> Unit,
 ) -> Unit {
   @rabbita.new(fn() {
     let (model, _emit) = @rabbita.create_state(
       { handle, source_backed, session: Idle },
       update=fn(model, message, _emit) {
         (
-          canvas_pointer_update(
-            model, message, on_change, on_hide_context_menu, on_clear_selected_edge,
-          ),
+          canvas_pointer_update(model, message, on_change, on_hide_context_menu),
           @rabbita.none,
         )
       },

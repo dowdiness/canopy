@@ -1112,3 +1112,41 @@ test "invalid source keeps last-good canvas graph available" {
   )
   attachment.dispose()
 }
+
+///|
+test "source-backed edge selection is ephemeral and edge-first" {
+  let handle = create_source_graph("osc = sine(freq: 440Hz)\nmeter = scope()")
+  let graph = match source_graph_by_handle(handle) {
+    Some(graph) => graph
+    None => abort("expected source graph handle")
+  }
+  let osc = handle_token(handle, "osc")
+  let meter = handle_token(handle, "meter")
+  let connect = GraphOperation(ConnectPorts(osc, "out", meter, "input"))
+  inspect(
+    operation_result_applied(
+      apply_source_graph_operation(handle, connect.to_json().stringify()),
+    ),
+    content="true",
+  )
+  let edge = source_graph_base_canvas_state(graph).edges[0]
+  graph.interaction = {
+    ..graph.interaction,
+    selected: Some(osc),
+    selected_nodes: [osc],
+  }
+  graph.select_edge(edge.id)
+  assert_true(
+    get_source_graph_render_state(handle).contains(
+      "\"selected_edge\":\"" + edge.id.to_string() + "\"",
+    ),
+  )
+  assert_true(graph.delete_selection() is Some(_))
+  assert_eq(graph.selected_edge, None)
+  @debug.assert_eq(graph.interaction.selected_nodes, [osc])
+  assert_eq(graph.action_log.length(), 2)
+
+  assert_true(graph.delete_selection() is Some(_))
+  assert_eq(graph.action_log.length(), 3)
+  destroy_source_graph(handle)
+}

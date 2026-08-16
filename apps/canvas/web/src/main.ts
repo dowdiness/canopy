@@ -77,8 +77,6 @@ let pendingPath: SVGPathElement | null = null;
 let contextPoint: [number, number] = [0, 0];
 let contextEdge: EdgeData | null = null;
 
-type EdgeSelection = Pick<EdgeData, 'source' | 'source_port' | 'target' | 'target_port'>;
-let selectedEdge: EdgeSelection | null = null;
 
 // ─── Geometry ────────────────────────────────────────────────────────────────
 
@@ -164,33 +162,11 @@ function portTitle(port: PortDef): string {
   return `${port.label}: ${portTypeName(port.port_type)}`;
 }
 
-function edgeSelectionFromEdge(edge: EdgeData): EdgeSelection {
-  return {
-    source: edge.source,
-    source_port: edge.source_port,
-    target: edge.target,
-    target_port: edge.target_port,
-  };
-}
-
-function edgeMatchesSelection(edge: EdgeData, selection: EdgeSelection): boolean {
-  return edge.source === selection.source &&
-    edge.source_port === selection.source_port &&
-    edge.target === selection.target &&
-    edge.target_port === selection.target_port;
-}
 
 function edgeTitle(edge: EdgeData): string {
   return `${edge.source}.${edge.source_port} → ${edge.target}.${edge.target_port}`;
 }
 
-function selectEdge(edge: EdgeData): void {
-  selectedEdge = edgeSelectionFromEdge(edge);
-}
-
-function clearSelectedEdge(): void {
-  selectedEdge = null;
-}
 
 // ─── Connection compatibility (display only) ───────────────────────────────────
 // Input-handle previews ask MoonBit for one batched `can_commit_edge` snapshot
@@ -259,10 +235,6 @@ function scheduleRender(): void {
 function render(): void {
   rafPending = false;
   const state = adapter.renderState();
-  const edgeSelection = selectedEdge;
-  if (edgeSelection && !state.edges.some((edge) => edgeMatchesSelection(edge, edgeSelection))) {
-    selectedEdge = null;
-  }
   lastState = state;
 
   const { x, y, scale } = state.viewport;
@@ -369,7 +341,7 @@ function render(): void {
     }
     path.setAttribute('d', pathData);
     path.setAttribute('data-edge-id', String(edge.id));
-    path.classList.toggle('selected', selectedEdge != null && edgeMatchesSelection(edge, selectedEdge));
+    path.classList.toggle('selected', state.selected_edge === edge.id);
     path.setAttribute('role', 'button');
     path.setAttribute('tabindex', '0');
     path.setAttribute('aria-label', `Disconnect ${edgeTitle(edge)}`);
@@ -442,7 +414,7 @@ function commitSourceRename(nodeId: string, currentName: string, nextName: strin
     'Renamed node binding through graph-dsl source.',
     'Source rename rejected',
   );
-  clearSelectedEdge();
+  adapter.clearSelectedEdge();
   scheduleRender();
 }
 
@@ -460,7 +432,7 @@ function commitSourceParam(
     `Updated ${param.name} through graph-dsl source.`,
     'Source parameter edit rejected',
   );
-  clearSelectedEdge();
+  adapter.clearSelectedEdge();
   scheduleRender();
 }
 
@@ -663,7 +635,7 @@ function addNodeAt(kindKey: string, point: [number, number]): void {
   if (!adapter.isSourceBacked) {
     if (!screenToWorld(point, currentRenderState())) return;
   }
-  clearSelectedEdge();
+  adapter.clearSelectedEdge();
   if (adapter.isSourceBacked) {
     adapter.insertUniqueNode(kindKey, kindKey);
     hideContextMenu();
@@ -714,38 +686,7 @@ function disconnectEdge(edge: EdgeData): boolean {
       'Source disconnect rejected',
     );
   }
-  clearSelectedEdge();
-  hideContextMenu();
-  scheduleRender();
-  return true;
-}
-
-function deleteSelectedEdge(): boolean {
-  const edgeSelection = selectedEdge;
-  if (!edgeSelection) return false;
-  const state = lastState ?? adapter.renderState();
-  const edge = state.edges.find((candidate) => edgeMatchesSelection(candidate, edgeSelection));
-  if (!edge) {
-    clearSelectedEdge();
-    scheduleRender();
-    return true;
-  }
-  return disconnectEdge(edge);
-}
-
-function deleteSelectedNodes(): boolean {
-  const state = lastState ?? adapter.renderState();
-  const selectedNodes = state.selected_nodes ?? [];
-  if (selectedNodes.length === 0) return false;
-  const result = adapter.deleteNodes(selectedNodes);
-  if (result) {
-    updateSourceOperationStatus(
-      result,
-      'Deleted selected nodes through graph-dsl source.',
-      'Source delete rejected',
-    );
-  }
-  clearSelectedEdge();
+  adapter.clearSelectedEdge();
   hideContextMenu();
   scheduleRender();
   return true;
@@ -808,16 +749,6 @@ function handleContextMenuSelect(key: string): void {
 
 // ─── Event wiring ─────────────────────────────────────────────────────────────
 
-// Pointer ownership lives in the app-private Rabbita island. This listener is
-// presentation-only: edge selection is a click, not a pointer session.
-root.addEventListener('click', (e: MouseEvent) => {
-  const hit = hitFromTarget(e.target);
-  if (hit.kind !== 'edge') return;
-  hideContextMenu();
-  selectEdge(hit.edge);
-  scheduleRender();
-});
-
 root.addEventListener('contextmenu', (e: MouseEvent) => {
   e.preventDefault();
   const point = finiteLocalCoords(e);
@@ -828,10 +759,10 @@ root.addEventListener('contextmenu', (e: MouseEvent) => {
   }
   const anchor = { x: e.clientX, y: e.clientY };
   if (hit.kind === 'edge') {
-    selectEdge(hit.edge);
+    adapter.selectEdge(hit.edge.id);
     renderEdgeContextMenu(hit.edge, anchor);
   } else {
-    clearSelectedEdge();
+    adapter.clearSelectedEdge();
     contextPoint = point;
     renderContextMenu(anchor);
   }
@@ -846,11 +777,24 @@ document.addEventListener('keydown', (e: KeyboardEvent) => {
     !e.altKey &&
     !editableKeyboardTarget(e.target)
   ) {
-    if (selectedEdge) {
-      if (deleteSelectedEdge()) e.preventDefault();
-      return;
+    const result = adapter.deleteSelection();
+    if (result.handled) {
+      const sourceResult = result.sourceResult;
+      if (
+        adapter.isSourceBacked &&
+        sourceResult &&
+        (sourceResult.applied || sourceResult.message != null)
+      ) {
+        updateSourceOperationStatus(
+          sourceResult,
+          sourceResult.message ?? 'Deleted selection through graph-dsl source.',
+          'Source delete rejected',
+        );
+      }
+      e.preventDefault();
+      hideContextMenu();
+      scheduleRender();
     }
-    if (deleteSelectedNodes()) e.preventDefault();
     return;
   }
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'l') {
@@ -926,10 +870,6 @@ async function init(): Promise<void> {
     },
     () => {
       hideContextMenu();
-      return undefined;
-    },
-    () => {
-      clearSelectedEdge();
       return undefined;
     },
   );

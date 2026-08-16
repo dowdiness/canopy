@@ -5,10 +5,12 @@ export type CanvasModule = {
     sourceBacked: boolean,
     onChange: () => undefined,
     onHideContextMenu: () => undefined,
-    onClearSelectedEdge: () => undefined,
   ) => undefined;
   add_node: (h: number, kindKey: string, sx: number, sy: number) => void;
   delete_nodes: (h: number, nodeIdsJson: string) => void;
+  select_edge: (h: number, edgeId: string) => void;
+  clear_selected_edge: (h: number) => void;
+  delete_selection: (h: number) => boolean;
   disconnect_ports: (
     h: number,
     source: string,
@@ -30,6 +32,9 @@ export type CanvasModule = {
   set_source_graph_source_result?: (h: number, source: string) => string;
   get_source_graph_render_state?: (h: number) => string;
   get_source_graph_action_log?: (h: number) => string;
+  select_source_graph_edge?: (h: number, edgeId: string) => void;
+  clear_source_graph_edge?: (h: number) => void;
+  delete_source_graph_selection?: (h: number) => string;
   apply_source_graph_operation?: (h: number, operationJson: string) => string;
   source_graph_insert_unique?: (
     h: number,
@@ -57,6 +62,9 @@ type SourceCanvasModule = CanvasModule & {
   set_source_graph_source_result: (h: number, source: string) => string;
   get_source_graph_render_state: (h: number) => string;
   get_source_graph_action_log: (h: number) => string;
+  select_source_graph_edge: (h: number, edgeId: string) => void;
+  clear_source_graph_edge: (h: number) => void;
+  delete_source_graph_selection: (h: number) => string;
   apply_source_graph_operation: (h: number, operationJson: string) => string;
   source_graph_insert_unique: (
     h: number,
@@ -78,6 +86,9 @@ const SOURCE_METHODS = [
   'set_source_graph_source_result',
   'get_source_graph_render_state',
   'get_source_graph_action_log',
+  'select_source_graph_edge',
+  'clear_source_graph_edge',
+  'delete_source_graph_selection',
   'apply_source_graph_operation',
   'source_graph_insert_unique',
   'get_source_graph_input_port_compatibility',
@@ -154,6 +165,7 @@ export type RenderState = {
   connecting?: Connecting;
   validation: ValidationMessage[];
   action_count: number;
+  selected_edge?: string;
   inspector?: InspectorNode;
 };
 
@@ -198,6 +210,11 @@ export type SourceGraphOperationResult = {
   diagnostics: string[];
   action_count: number;
   message?: string;
+};
+
+export type DeleteSelectionResult = {
+  handled: boolean;
+  sourceResult: SourceGraphOperationResult | null;
 };
 
 type AdapterMode = 'canvas' | 'source';
@@ -423,6 +440,32 @@ export class GraphAdapter {
     );
     this.emitLatestOperations();
     return null;
+  }
+
+  selectEdge(edgeId: string): void {
+    this.assertLive();
+    if (this.isSourceBacked) this.sourceModule().select_source_graph_edge(this.handle, edgeId);
+    else this.mb.select_edge(this.handle, edgeId);
+  }
+
+  clearSelectedEdge(): void {
+    this.assertLive();
+    if (this.isSourceBacked) this.sourceModule().clear_source_graph_edge(this.handle);
+    else this.mb.clear_selected_edge(this.handle);
+  }
+
+  deleteSelection(): DeleteSelectionResult {
+    this.assertLive();
+    if (this.isSourceBacked) {
+      const sourceResult = JSON.parse(
+        this.sourceModule().delete_source_graph_selection(this.handle),
+      ) as SourceGraphOperationResult | null;
+      this.emitLatestOperations();
+      return { handled: sourceResult != null, sourceResult };
+    }
+    const handled = this.mb.delete_selection(this.handle);
+    this.emitLatestOperations();
+    return { handled, sourceResult: null };
   }
 
   inputPortCompatibility(sourceNodeId: string, sourcePortId: string): PortCompatibility[] {
