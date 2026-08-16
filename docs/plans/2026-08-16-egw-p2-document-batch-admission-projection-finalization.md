@@ -14,9 +14,7 @@ The Canopy `deps/event-graph-walker` gitlink remains intentionally unchanged.
 Related accepted decision: [EGW ADR 0008](https://github.com/dowdiness/event-graph-walker/blob/0e4ec9347c4655449cf3dd5a2a543f1d9cfe335b/docs/adr/0008-core-owned-batch-remote-admission-over-legacy-op.md).
 Related implementation plan: [EGW P1 typed prepared-admission transition](https://github.com/dowdiness/canopy/blob/0497f39e0152ee6214f853c65c31d2a867c9e524/docs/plans/2026-08-15-egw-p1-typed-admission-transition.md).
 
-**Status:** characterization complete; the review-boundary corrections are
-incorporated in this revision, but implementation is not authorized until the
-plan is accepted.
+**Status:** reviewed and accepted; implementation authorized.
 
 ## Why
 
