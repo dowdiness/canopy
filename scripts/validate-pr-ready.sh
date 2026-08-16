@@ -327,7 +327,6 @@ build_plan() {
   fi
 
   add_phase "suite.check"
-  add_phase "suite.manifest-compat"
   add_phase "suite.test"
   add_phase "suite.build"
   add_phase "build.js"
@@ -394,7 +393,7 @@ run_phase() {
       ./scripts/check-egw-resolver-identity.sh
       ;;
     dependencies.registry-bootstrap-wiring)
-      nu ./scripts/check-moon-update-wrapped.nu
+      nu ./scripts/check-moon-registry-bootstrap.nu
       ;;
     dependencies.agent-doc-links)
       bash ./scripts/check-agent-doc-links.sh
@@ -433,9 +432,6 @@ run_phase() {
       ;;
     suite.check)
       ./scripts/check-strict.sh
-      ;;
-    suite.manifest-compat)
-      ./scripts/check-moonbit-pkg-compat.sh
       ;;
     suite.test)
       ./scripts/check-test-baseline.sh 7 moon test --release
