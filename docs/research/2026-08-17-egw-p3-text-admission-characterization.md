@@ -97,10 +97,11 @@ Document projection/recovery guard
 → return DocumentAdmission(outcome, projection status)
 ```
 
-The P2 `DocumentAdmission` fields are package-private to
-`internal/document`; the generated interface exposes the type but no
-`outcome()` or `projection()` accessor. Text therefore cannot yet consume the
-typed result across the package seam.
+`DocumentAdmission` is already a `pub struct` whose read-only fields are
+available to direct dependents. Text can consume the typed result directly as
+`admission.outcome` and `admission.projection`; P3 must not add duplicate
+`outcome()` or `projection()` methods. The missing cross-package APIs are
+limited to receipt redelivery evidence and Document pending count/clear.
 
 ## 2. `SyncReport` mapping
 
@@ -278,20 +279,15 @@ The cross-package API names are fixed for the implementation plan:
 pub fn AdmissionReceipt::redelivery_count(
   self : AdmissionReceipt,
 ) -> Int
-pub fn DocumentAdmission::outcome(
-  self : DocumentAdmission,
-) -> @oplog.AdmissionOutcome
-pub fn DocumentAdmission::projection(
-  self : DocumentAdmission,
-) -> ProjectionStatus
 pub fn Document::pending_count(self : Document) -> Int
 pub fn Document::clear_pending(self : Document) -> Unit
 ```
 
-These are read-only/direct-dependent `pub` accessors; none requires `pub(all)`
-or exposes mutable collections. Any OpLog adapter behind the Document methods
-is package plumbing, not a second Text ownership API. Regenerated `.mbti`
-files are part of implementation review.
+These are the only new direct-dependent `pub` APIs; none requires `pub(all)` or
+exposes mutable collections. Text reads the existing `DocumentAdmission.outcome`
+and `DocumentAdmission.projection` fields directly. Any OpLog adapter behind
+the Document methods is package plumbing, not a second Text ownership API.
+Regenerated `.mbti` files are part of implementation review.
 
 ## 4. Partial and error mapping
 
@@ -420,6 +416,8 @@ wire/schema/format/receiver limits
 ```
 
 Before deleting the outer lifecycle, plan review must accept the canonical
-duplicate count, the core clear-all contract, and the cross-package
-`DocumentAdmission`/receipt accessors. No P3 branch, `ready-for-agent` label,
-Text production cutover, or Canopy gitlink update is authorized by this report.
+redelivery count, the core clear-all contract, and the three minimal
+cross-package APIs: receipt redelivery evidence, `Document::pending_count`, and
+`Document::clear_pending`. Existing `DocumentAdmission` fields are reused; no
+accessor methods are added. No P3 branch, `ready-for-agent` label, Text
+production cutover, or Canopy gitlink update is authorized by this report.

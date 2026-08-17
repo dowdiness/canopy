@@ -132,11 +132,12 @@ operations, unique already-admitted identities, pending provenance, discarded
 identities, pending counts, and before/after frontiers. `ProjectionStatus`
 records skipped, projected, recovered, and recovery-required derived state.
 
-The current cross-package seam is incomplete for Text: `DocumentAdmission`'s
-fields are private to `internal/document`, while the public `DocumentAdmission`
-type has no accessor for its `AdmissionOutcome` or `ProjectionStatus`.
-`OpLog::has_pending()` is public, but pending count and clear-all are not.
-These are P3.1 API-closure candidates, not reasons to recreate a Text planner.
+The current cross-package seam is already sufficient for the typed result:
+`DocumentAdmission` is a `pub struct`, and direct dependents can read its
+read-only `outcome` and `projection` fields without struct-literal
+construction or mutation. P3 must reuse those existing fields rather than add
+`outcome()` or `projection()` methods. The missing P3.1 APIs are limited to
+redelivery evidence, pending count, and clear-all pending.
 
 ## Desired State
 
@@ -343,14 +344,6 @@ pub fn AdmissionReceipt::redelivery_count(
   self : AdmissionReceipt,
 ) -> Int
 
-pub fn DocumentAdmission::outcome(
-  self : DocumentAdmission,
-) -> @oplog.AdmissionOutcome
-
-pub fn DocumentAdmission::projection(
-  self : DocumentAdmission,
-) -> ProjectionStatus
-
 pub fn Document::pending_count(
   self : Document,
 ) -> Int
@@ -362,11 +355,11 @@ pub fn Document::clear_pending(
 
 `redelivery_count` is generic core evidence, not a Text-wire-specific type
 name. Its contract is the unique incoming identity count defined in section A.
-`DocumentAdmission::outcome` and `projection` are read-only accessors; they do
-not expose mutable arrays. `Document::pending_count` and `clear_pending` are
-projection-independent adapters over the private TextState Document. Any
-OpLog-level plumbing required to implement them is package support, not an
-additional Text-facing ownership API.
+Text reads the existing `DocumentAdmission.outcome` and
+`DocumentAdmission.projection` fields directly. `Document::pending_count` and
+`clear_pending` are projection-independent adapters over the private TextState
+Document. Any OpLog-level plumbing required to implement them is package
+support, not an additional Text-facing ownership API.
 
 `pub`, not `pub(all)`, is required for the direct Text dependent. Every public
 method or receipt-field change requires regenerated `.mbti` files and a
@@ -568,8 +561,9 @@ these EGW plan/research files.
 - **Partial visibility:** A typed partial outcome advances authority before
   returning a Text error. The committed prefix, pending suffix, cache, and
   projection status must be compared together.
-- **Cross-package API drift:** `DocumentAdmission` accessors and receipt fields
-  widen internal interfaces and require `.mbti` review.
+- **Cross-package API drift:** the new receipt redelivery field and pending
+  adapters widen internal interfaces and require `.mbti` review; existing
+  `DocumentAdmission` fields are reused without new accessors.
 - **Benchmark contamination:** Setup work, export H-scans, and P2's Document
   M-boundary can invalidate a Text-ingress claim. The harness must isolate the
   admission boundary and publish its measurement boundary.
