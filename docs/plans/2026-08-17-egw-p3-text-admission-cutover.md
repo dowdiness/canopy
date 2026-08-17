@@ -147,10 +147,23 @@ For one Text message, the imperative shell should be:
 
 ```text
 wire decode / structural validation / receiver limits
-→ one Document::admit_remote(message operations, max_pending)
+→ one Document::admit_remote(
+    message operations,
+    max_pending_after_complete=Text public limit,
+  )
 → one typed outcome + projection-status conversion
 → SyncReport or compatible TextError
 ```
+
+The Text public pending limit and the core's optional admission-peak safety
+limit are distinct policies. Text's existing
+`Limits.max_pending_operations()` preserves the old complete-transition
+contract: a ready batch is accepted when the pending membership after all
+planned operations commit is within the limit. The core hard
+`max_pending_during_admission` policy, when a caller explicitly enables it,
+counts the begin-time membership including staged operations and is not the
+Text compatibility limit. The Text cutover must not pass the public limit to
+that hard-peak parameter.
 
 Observable invariants:
 
@@ -296,10 +309,29 @@ serialization, encoded-byte limits, decoded-wire-operation limits, and
 parents-per-operation limits. Keep the existing `@sync.Failure` classes and
 atomic rejection behavior.
 
-The pending limit must be supplied to `Document::admit_remote` so that the
-core prospective transition enforces it against the complete core pending
-membership. Text may still perform M-sized receiver policy checks; it must not
-use them to decide causal applicability or pending ownership.
+The pending limit mapping is an explicit compatibility boundary:
+
+```text
+max_pending_operations
+  Text's existing public receiver contract
+  = complete_pending_after
+  = live pending membership after all planned operations commit
+
+max_pending_during_admission
+  distinct core safety policy
+  = begin-time/partial-safe membership including staged operations
+```
+
+`Document::admit_remote` must enforce `max_pending_after_complete` before
+authority mutation using the same prepared transition that will be committed.
+At the core API boundary, the existing `max_pending` argument remains the
+hard admission-peak policy for direct OpLog/Document callers; the new
+`max_pending_after_complete` argument is the distinct compatibility policy.
+The Text façade passes its public limit only to the complete-after policy and
+explicitly omits the hard peak policy unless a future Text contract adopts
+one. This preserves atomic rejection and the old meaning of
+`Limits.max_pending_operations()` without making Text decide causal
+applicability or pending ownership.
 
 ### E. Partial/error mapping
 
@@ -398,8 +430,10 @@ Change only the Text ingress implementation after P3.1 is accepted.
    limits, encoded-byte limits, decoded-operation limits, and
    `map_sync_failure`. `SyncSession::export_all` and `export_since` retain
    their history scans as a separate export concern.
-3. Pass `message.operations` (the constructor's canonical operation array) and
-   `limits.max_pending_operations()` to one `Document::admit_remote` call.
+3. Pass `message.operations` (the constructor's canonical operation array)
+   and `limits.max_pending_operations()` as
+   `max_pending_after_complete` to one `Document::admit_remote` call. Do not
+   reuse that value as the distinct core hard-peak policy.
 4. Convert the typed result to `SyncReport` or `TextError` using the accepted
    receipt and canonical-redelivery rules above.
 5. Invalidate `cached_version` once based on the committed view.
@@ -434,7 +468,14 @@ Add tests in the owning packages for:
 - current invalid message: atomic rejection with no authority or pending change;
 - retained-pending invalid root: root and dependent closure discarded while an
   unrelated current operation commits;
-- pending limit: core hard limit, including retained plus staged membership;
+- pending-limit compatibility: ready, mixed, and all-ready batches use the
+  complete-after public contract; separately test any distinct core hard
+  admission-peak policy;
+- pending-limit boundaries: `max_pending_operations=0` with one ready
+  operation succeeds; `max_pending_operations=1` with one ready and one
+  unresolved operation succeeds; and an all-ready batch of `L + 1` operations
+  succeeds with `max_pending_operations=L`; add corresponding rejection tests
+  only for the separately named hard-peak policy;
 - zero-prefix and middle-prefix partial outcomes: committed prefix retained,
   suffix pending, retry does not recommit the prefix;
 - `pending_sync_count`: live core count before/after every transition;
@@ -520,12 +561,17 @@ those export paths requires a separate issue and separate evidence.
       collection escape.
 - [ ] One Text message invokes one Document admission and one typed commit;
       projection finalization is zero or one according to committed evidence.
-- [ ] Current invalid and limit failures remain atomic.
+- [ ] Current invalid and limit failures remain atomic, including the
+      complete-after pending-limit compatibility contract.
 - [ ] Partial committed prefixes and pending suffixes survive retry without
       duplicate authority commits.
 - [ ] Projection recovery errors retain their precedence and retryability.
 - [ ] Text version-cache invalidation follows receipt committed evidence.
-- [ ] Wire/schema/format/receiver-limit behavior is unchanged.
+- [ ] Wire/schema/format/receiver-limit behavior is unchanged. In particular,
+      a ready operation with `max_pending_operations = 0` succeeds, a mixed
+      batch succeeds when its complete pending-after membership is within the
+      limit, and an all-ready batch of `L + 1` operations succeeds with limit
+      `L` when its complete pending-after membership is zero.
 - [ ] Differential and H/M benchmark evidence is recorded on the same fixture.
 - [ ] No `export_all`/`export_since` H-scan, wire/archive, Tree/container,
       editor, or Canopy gitlink change is included.
