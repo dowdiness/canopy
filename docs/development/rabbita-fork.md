@@ -1,6 +1,6 @@
 # Canopy Rabbita fork
 
-Canopy uses a downstream fork of Rabbita for typed pointer-event, pointer-capture, and coordinate hit-testing DOM boundaries.
+Canopy uses a downstream fork of Rabbita for typed pointer-event, pointer-capture, coordinate hit-testing, and keyed accessible SVG boundaries.
 The fork is an owned dependency line, not an upstream release dependency.
 
 ## Ownership
@@ -8,8 +8,8 @@ The fork is an owned dependency line, not an upstream release dependency.
 - **Fork:** [`dowdiness/rabbita`](https://github.com/dowdiness/rabbita)
 - **Upstream:** [`moonbit-community/rabbita`](https://github.com/moonbit-community/rabbita)
 - **Downstream branch:** `canopy/0.14.x`
-- **Pinned commit:** `938cecdf8967e2ce07880628e4b404f106ca7671`
-- **Baseline tag:** `canopy-rabbita-0.14.2-p3`
+- **Pinned commit:** `5d9c8ae0cb0b582c856cf8b512f14ea2dee94f95`
+- **Baseline tag:** `canopy-rabbita-0.14.2-p4`
 - **Canopy submodule:** `deps/rabbita`
 
 The Canopy `.gitmodules` entry intentionally points at the fork. The
@@ -32,7 +32,11 @@ The pinned fork contains:
 - migration of Rabbita/RUI pointer-capture consumers to the new effect and
   fractional coordinate contract;
 - `Document::element_from_point(Double, Double) -> Element?`, a thin binding
-  for release-position hit-testing.
+  for release-position hit-testing;
+- `svg.Attrs::role` and `svg.Attrs::aria_label` for typed edge-path
+  accessibility attributes;
+- `svg.keyed_node`, which exposes keyed SVG children to Rabbita's keyed VDOM
+  reconciliation so edge-path DOM identity survives reorder.
 
 Canopy needs a MoonBit-typed pointer-capture boundary for its Canvas hosts. This
 patch is intentionally maintained downstream rather than proposed as an

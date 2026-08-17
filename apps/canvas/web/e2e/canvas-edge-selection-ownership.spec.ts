@@ -8,6 +8,10 @@ function source(name: string): string {
   return readFileSync(resolve(sourceDir, name), 'utf8');
 }
 
+function indexHtml(): string {
+  return readFileSync(resolve(process.cwd(), 'index.html'), 'utf8');
+}
+
 test('workflow edge and context-menu authority is not held by TypeScript', () => {
   const main = source('main.ts');
   const adapter = source('graph-adapter.ts');
@@ -26,22 +30,26 @@ test('workflow edge and context-menu authority is not held by TypeScript', () =>
   expect(main).not.toContain('canopy-canvas-context-menu-show');
   expect(main).not.toContain('canopy-canvas-context-menu-hide');
   expect(main).toContain('mount_canvas_context_menu');
-  expect(main).toContain('edge.path_d');
-  expect(main).not.toContain('function portOffset');
-  expect(main).not.toContain('function inputAnchor');
-  expect(main).not.toContain('function outputAnchor');
-  expect(main).not.toContain('function bezierPath');
-  expect(main).not.toContain('function edgeTitle');
-  expect(main).toContain('path_d');
-  expect(main).toContain('aria_label');
-  expect(main).toContain('pendingPath');
+  expect(main).toContain('adapter.publishRenderState()');
+  expect(main).toContain('mount_canvas_edge_layer');
+  expect(main).not.toContain('SVG_NS');
+  expect(main).not.toContain('edgesSvg');
+  expect(main).not.toContain('edgePaths');
+  expect(main).not.toContain('pendingPath');
+  expect(main).not.toContain('createElementNS');
+  expect(main).not.toContain('edge.path_d');
   expect(main).not.toContain('outputAnchor(');
   expect(main).not.toContain('inputAnchor(');
   expect(main).not.toContain('nodesById');
   expect(main).not.toContain('edge.source_port');
   expect(main).not.toContain('edge.target_port');
+  expect(indexHtml()).toContain('id="canvas-edge-layer"');
+  expect(indexHtml()).not.toContain('<svg id="edges"');
   expect(main).toContain('get_workflow_node_catalog');
   expect(adapter).not.toContain('select_edge');
   expect(adapter).not.toContain('disconnect_ports');
+  expect(adapter).not.toContain('EdgeData');
+  expect(adapter).not.toContain('path_d');
+  expect(adapter).toContain('publish_render_state');
   expect(adapter).toContain('delete_selection');
 });

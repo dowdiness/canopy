@@ -15,7 +15,9 @@ import {
   "moonbit-community/rabbita/cmd",
   "moonbit-community/rabbita/dom",
   "moonbit-community/rabbita/html",
+  "moonbit-community/rabbita/js",
   "moonbit-community/rabbita/sub",
+  "moonbit-community/rabbita/svg",
 }
 
 import {
@@ -36,6 +38,8 @@ options(
       "exports": [
         "create_canvas",
         "mount_canvas_pointer_session",
+        "mount_canvas_edge_layer",
+        "publish_render_state",
         "add_node",
         "delete_nodes",
         "clear_selected_edge",

@@ -39,22 +39,17 @@ type SourceDemoModule = CanvasModule &
     >
   >;
 
-const SVG_NS = 'http://www.w3.org/2000/svg';
-
 let adapter: GraphAdapter;
 let rafPending = false;
 
 const root       = document.getElementById('canvas-root') as HTMLDivElement;
 const world      = document.getElementById('world') as HTMLDivElement;
-const edgesSvg   = document.getElementById('edges') as unknown as SVGSVGElement;
 const search     = document.getElementById('node-search') as HTMLInputElement;
 const libraryEl  = document.getElementById('node-library') as HTMLDivElement;
 const validation = document.getElementById('validation-list') as HTMLDivElement;
 const inspectorNode = document.getElementById('inspector-node') as HTMLDivElement;
 const actionStat = document.getElementById('action-stat') as HTMLSpanElement;
 const nodeDivs = new Map<string, HTMLDivElement>();
-const edgePaths = new Map<string, SVGPathElement>();
-let pendingPath: SVGPathElement | null = null;
 let libraryCatalog: LibraryItem[] = [];
 
 
@@ -161,12 +156,11 @@ function scheduleRender(): void {
 
 function render(): void {
   rafPending = false;
-  const state = adapter.renderState();
+  const state = adapter.publishRenderState();
 
   const { x, y, scale } = state.viewport;
   const transform = `translate(${x}px, ${y}px) scale(${scale})`;
-  world.style.transform    = transform;
-  edgesSvg.style.transform = transform;
+  world.style.transform = transform;
 
   // Nodes ────────────────────────────────────────────────────────────────────
   const seenNodes = new Set<string>();
@@ -239,41 +233,6 @@ function render(): void {
   }
   for (const [id, div] of nodeDivs) {
     if (!seenNodes.has(id)) { div.remove(); nodeDivs.delete(id); }
-  }
-
-  // Edges ────────────────────────────────────────────────────────────────────
-  const seenEdges = new Set<string>();
-  for (const edge of state.edges) {
-    seenEdges.add(edge.id);
-    let path = edgePaths.get(edge.id);
-    if (!path) {
-      path = document.createElementNS(SVG_NS, 'path');
-      path.setAttribute('class', 'edge');
-      edgesSvg.appendChild(path);
-      edgePaths.set(edge.id, path);
-    }
-    path.setAttribute('d', edge.path_d);
-    path.setAttribute('data-edge-id', String(edge.id));
-    path.classList.toggle('selected', edge.selected);
-    path.setAttribute('role', 'button');
-    path.setAttribute('tabindex', '0');
-    path.setAttribute('aria-label', edge.aria_label);
-  }
-  for (const [id, path] of edgePaths) {
-    if (!seenEdges.has(id)) { path.remove(); edgePaths.delete(id); }
-  }
-
-  // In-flight connection ─────────────────────────────────────────────────────
-  if (connecting?.path_d) {
-    if (!pendingPath) {
-      pendingPath = document.createElementNS(SVG_NS, 'path');
-      pendingPath.setAttribute('class', 'edge-pending');
-      edgesSvg.appendChild(pendingPath);
-    }
-    pendingPath.setAttribute('d', connecting.path_d);
-  } else if (pendingPath) {
-    pendingPath.remove();
-    pendingPath = null;
   }
 
   renderValidation(state);
@@ -658,6 +617,7 @@ async function init(): Promise<void> {
       return undefined;
     },
   );
+  sourceDemoModule.mount_canvas_edge_layer();
   sourceDemoModule.mount_source_demo(adapter.handleId, sourceMode, () => {
     scheduleRender();
     return undefined;
