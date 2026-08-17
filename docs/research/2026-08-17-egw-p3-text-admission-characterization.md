@@ -4,7 +4,8 @@
 
 This is a read-only characterization of the merged P2 EGW tree. It records the
 current Text façade contract before the P3 façade cutover. It is evidence for
-plan review, not implementation authorization.
+the accepted P3 implementation plan; the report itself does not authorize
+out-of-scope changes.
 
 - Canonical issue: <https://github.com/dowdiness/canopy/issues/1256>
 - EGW PR head reviewed: `c149610970a583a401f7f2e743159a9f1324b58f`
@@ -415,9 +416,11 @@ wire/schema/format/receiver limits
 → SyncReport or compatible TextError
 ```
 
-Before deleting the outer lifecycle, plan review must accept the canonical
-redelivery count, the core clear-all contract, and the three minimal
-cross-package APIs: receipt redelivery evidence, `Document::pending_count`, and
-`Document::clear_pending`. Existing `DocumentAdmission` fields are reused; no
-accessor methods are added. No P3 branch, `ready-for-agent` label, Text
-production cutover, or Canopy gitlink update is authorized by this report.
+Plan review accepted the canonical redelivery count, the core clear-all
+contract, and the three minimal cross-package APIs: receipt redelivery
+evidence, `Document::pending_count`, and `Document::clear_pending`. Existing
+`DocumentAdmission` fields are reused; no accessor methods are added. The
+accepted plan authorizes the scoped P3 implementation after the docs-only PR
+merges; this report does not authorize out-of-scope changes. No P3 branch,
+`ready-for-agent` label, Text production cutover, or Canopy gitlink update has
+yet been created.

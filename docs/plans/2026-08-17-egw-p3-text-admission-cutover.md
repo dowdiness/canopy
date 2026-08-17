@@ -4,9 +4,10 @@
 
 Canonical issue: <https://github.com/dowdiness/canopy/issues/1256>
 
-The issue and this plan are reciprocal references. This document is a **draft
-plan only**. It is not implementation authorization and must not be treated as
-`ready-for-agent` work.
+The issue and this plan are reciprocal references. This document is the
+**accepted implementation plan** for P3. Its acceptance authorizes
+implementation within the scope below after this docs-only acceptance is
+merged; it does not authorize out-of-scope work.
 
 Related characterization: [EGW P3.0 Text admission characterization](../research/2026-08-17-egw-p3-text-admission-characterization.md).
 
@@ -18,16 +19,17 @@ The reviewed PR-head and merge commit have identical content-tree SHA
 `abf16198183df4d145086bcad9afd0f8237bc3d4`. The Canopy
 `deps/event-graph-walker` gitlink remains unchanged.
 
-**Status:** P3.0 characterization complete; docs-only plan draft in review;
-implementation not started. This document is not implementation authorization.
+**Status:** P3.0 characterization complete; plan reviewed and accepted;
+implementation authorized but not started. This document is the accepted
+implementation plan for the scoped P3 cutover.
 
 ```text
 P0: ACCEPTED / MERGED
 P1: ACCEPTED / MERGED
 P2: ACCEPTED / MERGED
 P2 merge: 91aaffc6679b2e1864b80ef6cc505d1d3b9aa548
-P3: PLAN IN REVIEW
-P3 implementation: NOT STARTED
+P3: REVIEWED AND ACCEPTED
+P3 implementation: AUTHORIZED / NOT STARTED
 Canopy gitlink: unchanged
 ```
 
@@ -170,9 +172,9 @@ Observable invariants:
   non-empty.
 - Export history scans remain unchanged and are not part of the P3 claim.
 
-## P3.0 — Contract characterization and acceptance questions
+## P3.0 — Contract characterization and accepted contracts
 
-P3.0 is complete only when plan review accepts the following contracts.
+P3.0 is complete. Plan review accepted the following contracts.
 
 ### A. `SyncReport` and the three distinct counts
 
@@ -506,7 +508,7 @@ those export paths requires a separate issue and separate evidence.
 
 ## Acceptance Criteria
 
-- [ ] P3.0 characterization is reviewed and the decoded-count,
+- [x] P3.0 characterization is reviewed and the decoded-count,
       canonical-op-count, canonical-redelivery, pending-count, and clear-all
       contracts are accepted.
 - [ ] `SyncReport` values remain compatible for complete, duplicate, pending,
@@ -575,7 +577,7 @@ these EGW plan/research files.
 - The P2 branch/worktree is retained only as clean historical evidence and is
   not a P3 implementation base.
 - P3 must start from fresh current EGW main only after this plan is accepted.
-- The issue remains open; `ready-for-agent` must remain absent until contract
-  review completes.
+- The issue remains open; `ready-for-agent` remains absent until this accepted
+  docs-only PR merges and the issue metadata is updated.
 - The Canopy gitlink is updated only after the EGW P3 implementation has
   merged and Canopy integration validation is a separate accepted cut.
