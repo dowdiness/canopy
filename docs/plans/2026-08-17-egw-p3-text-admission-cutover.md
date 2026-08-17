@@ -324,11 +324,13 @@ max_pending_during_admission
 
 `Document::admit_remote` must enforce `max_pending_after_complete` before
 authority mutation using the same prepared transition that will be committed.
-If the hard peak policy is exposed, it has a separate named argument and
-separate tests. The Text façade passes its public limit only to the
-complete-after policy and explicitly omits the hard peak policy unless a
-future Text contract adopts one. This preserves atomic rejection and the old
-meaning of `Limits.max_pending_operations()` without making Text decide causal
+At the core API boundary, the existing `max_pending` argument remains the
+hard admission-peak policy for direct OpLog/Document callers; the new
+`max_pending_after_complete` argument is the distinct compatibility policy.
+The Text façade passes its public limit only to the complete-after policy and
+explicitly omits the hard peak policy unless a future Text contract adopts
+one. This preserves atomic rejection and the old meaning of
+`Limits.max_pending_operations()` without making Text decide causal
 applicability or pending ownership.
 
 ### E. Partial/error mapping
@@ -469,11 +471,11 @@ Add tests in the owning packages for:
 - pending-limit compatibility: ready, mixed, and all-ready batches use the
   complete-after public contract; separately test any distinct core hard
   admission-peak policy;
-- pending-limit boundaries: `max_pending=0` with one ready operation succeeds;
-  `max_pending=1` with one ready and one unresolved operation succeeds; and
-  an all-ready batch of `L + 1` operations succeeds with `max_pending=L`;
-  add corresponding rejection tests only for the separately named hard-peak
-  policy;
+- pending-limit boundaries: `max_pending_operations=0` with one ready
+  operation succeeds; `max_pending_operations=1` with one ready and one
+  unresolved operation succeeds; and an all-ready batch of `L + 1` operations
+  succeeds with `max_pending_operations=L`; add corresponding rejection tests
+  only for the separately named hard-peak policy;
 - zero-prefix and middle-prefix partial outcomes: committed prefix retained,
   suffix pending, retry does not recommit the prefix;
 - `pending_sync_count`: live core count before/after every transition;
