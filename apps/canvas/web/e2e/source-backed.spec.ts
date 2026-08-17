@@ -221,6 +221,8 @@ test('source-backed canvas gestures lower into canonical source', async ({ page 
 
   await expectSource(page, 'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)');
   await expect(page.locator('#edges path.edge')).toHaveCount(1);
+  await expect(page.locator('#edges path.edge')).toHaveAttribute('d', /^M /);
+  await expect(page.locator('#edges path.edge')).toHaveAttribute('aria-label', /^Disconnect /);
   await expect(page.locator('#action-stat')).toHaveText('1 action logged');
   expect(runtimeErrors).toEqual([]);
 });
