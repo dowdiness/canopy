@@ -46,7 +46,12 @@ The Text façade still owns a second admission lifecycle. Its current
 `SyncSession::apply_with_limits` expands resident history, reconstructs an
 H-sized identity/payload view, merges an outer pending array with the incoming
 message, runs a second dependency planner, and calls `Document::apply_remote`
-for each applicable operation. It then replaces the outer pending array.
+for each applicable operation. P2 already made that wrapper thin: every
+`Document::apply_remote(op)` calls `Document::admit_remote([op])`, which performs
+one one-op OpLog prepare/typed commit and up to one projection finalization.
+For `A` applicable operations (`A = M` for a complete ready message), the
+current path therefore performs A one-op typed admissions and up to A
+one-op projections before replacing the outer pending array.
 
 This duplication is not only a performance concern. It gives two modules a
 claim over causal applicability, pending membership, duplicate evidence, and
@@ -102,7 +107,9 @@ prepare_for_admission()
 → message limits and outer prepare_sync
 → TextState.inner.get_all_ops()
 → outer pending array copy
-→ per-applicable Document::apply_remote
+→ A × Document::apply_remote
+   ↳ A × Document::admit_remote([op])
+      ↳ A one-op typed commits and up to A projections
 → outer pending array replacement
 → SyncReport
 ```
@@ -195,7 +202,7 @@ For complete outcomes, the public report mapping is:
 ```text
 applied_operations = receipt.committed().length()
 pending_operations = receipt.pending_after_count()
-duplicate_operations = canonical_redeliveries
+duplicate_operations = receipt.redelivery_count()  // canonical redeliveries
 ```
 
 `canonical_redeliveries` is independent of terminal ownership. A pending
@@ -204,11 +211,16 @@ included in the same transition; its identity may then contribute to both
 `duplicate_operations` and `applied_operations`. This is not double commit;
 it is delivery evidence plus committed-result evidence.
 
-The P3.1 option is a core-owned receipt field named
-`redelivered()`/`redelivery_count()` (final name requires review), counting one
-canonical incoming operation classified as an already-admitted or pending
-re-delivery. It must not claim to count raw wire duplicates. Never compute
-`duplicate_operations` as
+The fixed core evidence API is
+`pub fn AdmissionReceipt::redelivery_count(self : AdmissionReceipt) -> Int`.
+It counts unique incoming `RawVersion` identities whose matching payload was
+already present in Authority or live core pending when admission was prepared.
+It includes already-admitted identities, already-pending identities, pending
+identities that wake and commit in the same transition, and pending identities
+that are later discarded. It excludes unrelated retained pending, raw equal
+occurrences removed before Document admission, and conflicting identities.
+This delivery axis is independent of committed/already-admitted/pending/
+discarded ownership evidence. Never compute `duplicate_operations` as
 `decoded_operation_count - message.op_count()`; that would change the public
 meaning and mix resource-limit evidence with admission delivery evidence.
 Unique identity arrays alone cannot identify duplicate-pending deliveries when
@@ -225,36 +237,53 @@ SyncSession::pending_sync_count()
 
 The count must exclude stale order, waiter, and ready-queue tombstones. It must
 include retained pending identities after a partial or complete transition.
-The existing `RemoteAdmissionPlanner::pending_count` is a source-verified
-private candidate; the package needs a narrow public OpLog/Document adapter.
+The fixed cross-package count API is
+`pub fn Document::pending_count(self : Document) -> Int`.
+It reports live core pending membership for the private TextState Document.
+The read-only producer audit fixes case A: `TextState.inner` is private;
+Text local insert/delete/undelete operations only acknowledge local admitted
+identities and do not register remote pending; no other production Text or
+`peer_sync/text` path can access the inner Document; and Text has no production
+call to `Document::discard_pending_dependents`. Remote pending registration
+for this private Document therefore belongs only to Text SyncSession after the
+P3 batch cutover.
 
-### C. `clear_pending_sync`
+The producer audit fixes the scope to case A: for the private Document owned by
+TextState, Text SyncSession is the only producer of remote pending membership.
+The fixed cross-package API is:
 
-Preserve the existing `Unit` signature and opaque-payload interface. Before
-adding the adapter, audit every producer of Document-local pending state and
-prove that Text sync is the only producer. If another producer exists, the
-capability must be scoped to the pending class required by this compatibility
-method; “clear all core pending” and “clear Text sync pending” are not
-interchangeable contracts.
+```moonbit
+pub fn Document::clear_pending(self : Document) -> Unit
+```
 
-For the Text-owned pending class, the accepted core transition must:
+The existing compatibility method delegates to it:
+
+```text
+SyncSession::clear_pending_sync()
+  → Document::clear_pending()
+  → all live core pending membership for that TextState
+```
+
+The clear transition must:
 
 - remove every live pending identity in one transition, including its
   dependent closure;
 - remove associated waiter and ready-queue membership, not just the primary
   map entry;
-- advance planner generation;
-- make every existing `PreparedAdmission` stale and reject it;
-- leave Authority, causal graph, frontier, projection, and Text version cache
-  unchanged;
+- advance planner generation exactly once when live pending membership changes;
+- be a no-op that does not advance generation when pending is already empty;
+- make every existing `PreparedAdmission` stale and reject it after a
+  membership-changing clear;
+- leave Authority, causal graph, frontier, `ProjectionHealth`, projection tree,
+  cursor, and Text version cache unchanged;
+- remain callable during `ProjectionRecoveryRequired` without attempting
+  recovery or reading derived projection state;
 - prevent cleared operations from reviving when a dependency arrives later;
 - allow a new valid admission after the clear to succeed;
 - expose no discarded payload or identity from this compatibility method.
 
-The count after clear must be live membership, not stale index cardinality.
-This is a recommendation awaiting acceptance. It must not be implemented by
-retaining a hidden Text array. A future selective-discard API would be a new
-capability with explicit evidence, not part of this migration.
+This is a fixed plan-level contract. A future selective-discard API would be a
+separate capability rather than a hidden compatibility queue.
 
 ### D. Wire and receiver limits
 
@@ -307,18 +336,41 @@ mistaken for a causal version change.
 
 ## P3.1 — Core evidence/API closure
 
-After P3.0 acceptance, add only the smallest missing interfaces:
+The following direct-dependent API names are fixed for implementation:
 
-1. Add receipt-owned canonical redelivery evidence if the accepted report
-   mapping cannot be derived from existing public fields. This is delivery
-   evidence and must not be an owner set or raw decoded-duplicate count.
-2. Add read-only `DocumentAdmission` accessors for typed outcome and projection
-   status. Do not expose mutable arrays; reuse `AdmissionReceipt`'s immutable
-   views and existing outcome variants.
-3. Add a read-only pending count adapter from OpLog through Document.
-4. Add one core-owned clear-all pending capability with the generation,
-   waiter/ready cleanup, stale-prepared rejection, no-revival, and new-admission
-   behavior specified above.
+```moonbit
+pub fn AdmissionReceipt::redelivery_count(
+  self : AdmissionReceipt,
+) -> Int
+
+pub fn DocumentAdmission::outcome(
+  self : DocumentAdmission,
+) -> @oplog.AdmissionOutcome
+
+pub fn DocumentAdmission::projection(
+  self : DocumentAdmission,
+) -> ProjectionStatus
+
+pub fn Document::pending_count(
+  self : Document,
+) -> Int
+
+pub fn Document::clear_pending(
+  self : Document,
+) -> Unit
+```
+
+`redelivery_count` is generic core evidence, not a Text-wire-specific type
+name. Its contract is the unique incoming identity count defined in section A.
+`DocumentAdmission::outcome` and `projection` are read-only accessors; they do
+not expose mutable arrays. `Document::pending_count` and `clear_pending` are
+projection-independent adapters over the private TextState Document. Any
+OpLog-level plumbing required to implement them is package support, not an
+additional Text-facing ownership API.
+
+`pub`, not `pub(all)`, is required for the direct Text dependent. Every public
+method or receipt-field change requires regenerated `.mbti` files and a
+reviewed diff. The generated interfaces are not hand-edited.
 
 Existing API First checks before adding each symbol:
 
@@ -392,14 +444,16 @@ Add tests in the owning packages for:
   suffix pending, retry does not recommit the prefix;
 - `pending_sync_count`: live core count before/after every transition;
 - `clear_pending_sync`: accepted clear-all closure, unchanged frontier, stale
-  prepared-admission rejection, and no hidden outer state;
+  prepared-admission rejection, empty-clear generation no-op, recovery-independent
+  behavior, and no hidden outer state;
 - projection recovery: `RecoveryRequired` wins over partial conversion;
 - version cache: only non-empty committed receipts invalidate it;
 - wire/schema/format/limit compatibility;
 - `peer_sync/text` report and error classification;
-- structure counters: no `get_all_ops`, no outer `prepare_sync`, one
-  `Document::admit_remote`, one typed commit, at most one finalization, and no
-  per-operation `apply_remote`.
+- structure counters: the after path has no `get_all_ops`, no outer
+  `prepare_sync`, one `Document::admit_remote`, one typed commit, at most one
+  finalization, and no per-operation `apply_remote`; the before path matches
+  the lifecycle table below.
 
 ### H/M baseline and after matrix
 
@@ -421,6 +475,22 @@ Record:
 - batch projection finalizations and per-operation projection calls;
 - pending before/after;
 - end-to-end time under the same runtime and release mode.
+
+For `A` applicable operations (`A = M` for a complete ready message), the
+required lifecycle comparison is:
+
+| Lifecycle boundary | P3 before | P3 after |
+| --- | --- | --- |
+| Text `prepare_for_mutation` guard | `1` | `1` |
+| outer `prepare_sync` | `1` | `0` |
+| Document admission entry guard | `A` through wrappers | `1` |
+| `Document::apply_remote` | `A` one-op calls | `0` |
+| `Document::admit_remote` | `A` through the wrapper | `1` message batch |
+| OpLog typed commit | `A` successful one-op commits | `1` message commit |
+| projection finalization | up to `A` one-op projections | up to `1` message projection |
+
+This makes the optimization claim an M-one-op-batches-to-one-message-batch
+cut, not a claim that P2's typed shell was absent before P3.
 
 The current baseline's static structure is recorded in the P3.0
 characterization. The pre-cutover native-release observations and [raw

@@ -26,17 +26,27 @@ not a known-size wire-ingress-only measurement. The result characterizes the
 current H-dependent Text admission boundary; it does not claim that the old
 Text path was used to build the resident fixture.
 
-The current path's structural counters are fixed by source inspection:
+The current path's structural counters are fixed by source inspection. Let
+`A` be the number of operations selected as applicable by the outer planner;
+for a complete ready message, `A = M`.
 
 ```text
 get_all_ops calls:             1 per measured apply
-outer prepare_sync calls:     1
-Document::admit_remote calls:  0
-Typed commit_admission calls: 0
-Document::apply_remote calls: applicable operation count
-Batch finalizations:          0
-Outer pending owner:          1 TextState array
+outer prepare_sync calls:      1
+Text prepare_for_mutation:     1
+Document admission guards:     A (M for complete ready messages)
+Document::apply_remote calls:  A (M for complete ready messages)
+Document::admit_remote calls:  A, through apply_remote([op])
+OpLog typed commit calls:      A successful one-op admissions
+one-op projections:            up to A (M for complete ready messages)
+Outer pending owner:           1 TextState array
 ```
+
+P2 already made `Document::apply_remote` a thin typed wrapper. Therefore the
+current Text path performs one `Document::admit_remote([op])`, one typed commit
+when that one-op admission commits, and up to one projection finalization for
+each applicable operation. P3 removes the M one-op batches; it does not
+introduce the first production use of the typed shell.
 
 The `conflicting-identity` H=0 rows are a non-applicable fixture: an empty
 receiver has no resident identity to conflict with. The `partial` lane is not

@@ -22,8 +22,10 @@ P2 provides the required deep admission seam in `Document`, but Text still
 runs a second admission module around it. The current shell expands all
 resident operations, builds an H-sized identity/payload view, plans against
 outer pending records, then calls `Document::apply_remote` once per applicable
-operation. The P3 target is to keep the Text module's small wire-facing
-interface while moving causal ownership, pending membership, and the one
+operation. Each P2 wrapper call already routes through one
+`Document::admit_remote([op])`, one typed one-op commit, and up to one projection.
+The P3 target is to keep the Text module's small wire-facing interface while
+moving causal ownership, pending membership, and the one message-level
 authority transition behind `Document::admit_remote`.
 
 The three public-contract questions are not equivalent:
@@ -65,9 +67,18 @@ prepare_for_admission()
 → prepare_sync(message, limits, local history, outer pending)
 → invalidate version cache if applicable is non-empty
 → Document::apply_remote(op) for each applicable op
+   ↳ Document::admit_remote([op]) for each one-op wrapper call
+      ↳ one OpLog prepare/typed commit and up to one projection
 → replace outer pending array
 → PreparedSync::report()
 ```
+
+For `A` applicable operations (`A = M` for a complete ready message), the
+current path therefore performs `A` `Document::apply_remote` calls, `A`
+`Document::admit_remote` calls through those wrappers, `A` successful one-op
+typed commits, and up to `A` one-op projection finalizations. P3 changes this
+from M one-op batches to one message batch; it does not introduce the typed
+Document shell into production.
 
 `prepare_sync` is pure with respect to the receiver. It creates an H-sized
 `local_payload_map`, a candidate map containing outer pending and current
@@ -156,13 +167,16 @@ arrays. It has no field that directly counts the current delivery. The
 `pending_retained` array can also contain retained work affected by the
 transition, so it cannot by itself identify duplicate-pending deliveries.
 
-**P3.0 contract recommendation:** add a receipt-owned
-`redelivered()`/`redelivery_count()` field only if the count is needed after the
-exact canonicalization rule is accepted. It must count one delivery per
-canonical `SyncMessage` operation classified as an admitted or pending
-re-delivery. It must not silently claim to count raw wire duplicates, and
-`decoded_operation_count - message.op_count()` must not be added to
-`SyncReport::duplicate_operations`.
+**P3.0 contract:** add the generic core accessor
+`pub fn AdmissionReceipt::redelivery_count(self : AdmissionReceipt) -> Int`.
+It counts one unique incoming `RawVersion` identity whose matching payload was
+already present in Authority or live core pending when admission was prepared.
+It includes already-admitted and already-pending identities, including pending
+identities that later wake and commit or are later discarded. It excludes
+unrelated retained pending, raw equal occurrences removed before Document
+admission, and conflicting identities. It must not silently claim to count raw
+wire duplicates, and `decoded_operation_count - message.op_count()` must not be
+added to `SyncReport::duplicate_operations`.
 
 ## 3. Pending API characterization
 
@@ -178,7 +192,10 @@ for `Document` or `OpLog`.
 Text definition plus contract, recovery, convergence, and peer-integration
 uses. These are observable count assertions, not payload access. The count
 must continue to represent live core pending membership, including retained
-records and not stale order/waiter entries.
+records and not stale order/waiter entries. The fixed P3 adapter is
+`pub fn Document::pending_count(self : Document) -> Int`; it is a planner
+operation, not a projection read, and remains callable during
+`ProjectionRecoveryRequired` without invoking recovery.
 
 ### `clear_pending_sync`
 
@@ -196,26 +213,85 @@ its dependent closure, increments its generation when membership changes, and
 compacts stale indexes through the OpLog adapter. It does not currently expose
 a clear-all operation or discarded identities.
 
-**P3.0 contract recommendation:** preserve the `Unit` signature and define
-`clear_pending_sync()` as a core-owned clear-all transition. First audit all
-Document-local pending producers; if Text sync is not the only producer, the
-capability must be scoped rather than assuming that all core pending is Text
-pending. The accepted transition must:
+**P3.0 contract:** preserve the `Unit` signature and define
+`clear_pending_sync()` as a core-owned clear-all transition for this private
+TextState Document. The producer audit below establishes that Text SyncSession
+is the only producer of remote pending membership for this Document. The
+transition must:
 
 - remove every live pending identity and its dependent closure;
 - remove waiter and ready-queue membership, not just the primary map entry;
-- advance planner generation and make existing `PreparedAdmission` values
-  stale;
-- leave Authority, causal graph, frontier, projection, and Text version cache
-  unchanged;
+- advance planner generation exactly once when live pending membership changes;
+- be a no-op that does not advance generation when pending is already empty;
+- make existing `PreparedAdmission` values stale after a membership-changing
+  clear;
+- leave Authority, causal graph, frontier, ProjectionHealth, projection tree,
+  cursor, and Text version cache unchanged;
+- remain callable during `ProjectionRecoveryRequired` without attempting
+  recovery or reading derived projection state;
 - prevent cleared operations from reviving when a dependency arrives later;
 - allow a new valid admission after clear;
 - return no identities, preserving the existing opaque-payload interface.
 
-This recommendation is a plan-level contract, not an implementation decision.
-It must be accepted before the outer array is removed. If callers need
-provenance or selective discard later, that is a separate capability rather
-than a hidden compatibility queue.
+This is the accepted plan-level contract. A future selective-discard API would
+be a separate capability rather than a hidden compatibility queue.
+
+### Producer audit result
+
+The read-only audit fixes the producer scope to case A for the private
+`Document` held by `TextState`:
+
+- `TextState.inner` is private (`text/text_doc.mbt:37`), so peer façades and
+  direct dependents cannot mutate its planner through that field.
+- Text production code uses `inner.insert`/`delete`/`undelete` for local
+  authority operations and the current `SyncSession::apply_with_limits` uses
+  `inner.apply_remote` only for outer-planner-applicable operations
+  (`text/sync.mbt:1272-1300`). Local operations acknowledge admitted local
+  identities and may remove/compact a matching planner node, but do not
+  register remote pending membership.
+- The P3 production call that can register remote pending membership for this
+  private Document is Text `SyncSession::apply_with_limits`, after it switches
+  to `inner.admit_remote`.
+- No other production Text or `peer_sync/text` path has access to `inner`, and
+  Text has no production call to `Document::discard_pending_dependents`.
+  Remote pending registration is owned by the OpLog admission begin transition
+  (`internal/oplog/remote_admission_planner.mbt:1266-1486`); local
+  `acknowledge_admitted` is removal/compaction, not a pending producer.
+
+Therefore the compatibility contract is fixed as:
+
+```text
+For the private Document owned by TextState,
+Text SyncSession is the only producer of remote pending membership.
+
+SyncSession::clear_pending_sync()
+  → Document::clear_pending()
+  → all live core pending membership for that TextState
+```
+
+This does not describe the legacy outer `TextState.pending_sync_records`;
+that second owner is removed by P3.
+
+The cross-package API names are fixed for the implementation plan:
+
+```moonbit
+pub fn AdmissionReceipt::redelivery_count(
+  self : AdmissionReceipt,
+) -> Int
+pub fn DocumentAdmission::outcome(
+  self : DocumentAdmission,
+) -> @oplog.AdmissionOutcome
+pub fn DocumentAdmission::projection(
+  self : DocumentAdmission,
+) -> ProjectionStatus
+pub fn Document::pending_count(self : Document) -> Int
+pub fn Document::clear_pending(self : Document) -> Unit
+```
+
+These are read-only/direct-dependent `pub` accessors; none requires `pub(all)`
+or exposes mutable collections. Any OpLog adapter behind the Document methods
+is package plumbing, not a second Text ownership API. Regenerated `.mbti`
+files are part of implementation review.
 
 ## 4. Partial and error mapping
 
@@ -302,11 +378,12 @@ before/after improvement claim is made.
 | `get_all_ops()` calls for admission | 1; expands H operations |
 | H-sized identity/payload maps | 1 payload map plus 1 known-operation map |
 | outer `prepare_sync` calls | 1 |
-| Document projection-recovery guard | 1 `prepare_for_mutation` call before preflight |
-| `Document::admit_remote` calls | 0 |
-| typed `commit_admission` calls | 0 |
-| per-operation `Document::apply_remote` calls | `prepared.applicable.length()`; M for complete ready batches |
-| batch projection finalizations | 0; the legacy shell projects per operation |
+| Text projection-recovery guard | 1 `prepare_for_mutation` call before preflight |
+| Document admission entry guards | `A` through wrapper calls; M for complete ready batches |
+| `Document::admit_remote` calls | `A` through `apply_remote([op])`; M for complete ready batches |
+| typed `commit_admission` calls | `A` successful one-op admissions; M for complete ready batches |
+| per-operation `Document::apply_remote` calls | `A`; M for complete ready batches |
+| one-op projection finalizations | up to `A`; M for complete ready batches |
 | outer pending owner | 1 `TextState.pending_sync_records` array |
 | export H-scan | present, but excluded from P3 ingress work |
 
@@ -321,6 +398,11 @@ It does not characterize wasm-gc/JS browser runtime, editor input-to-paint,
 main-thread blocking, or Loomark perceived speed. The partial lane is
 explicitly unsupported by the current public Text path; P3.3 still needs an
 injected-core-failure or model trace for partial.
+
+The structural before/after target is explicit: P3 removes the outer
+`prepare_sync`, the per-operation `Document::apply_remote` loop, and its M
+one-op typed admissions. P3 retains one message-level `Document::admit_remote`
+and one typed commit for the incoming batch.
 
 The baseline does not attribute P2's Document M-boundary measurements to the
 Text ingress path. Before/after performance claims require the same fixture,
