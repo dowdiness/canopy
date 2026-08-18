@@ -9,8 +9,10 @@
 #   [E] submodule/*    must not path-dep into dowdiness/canopy (moon.mod.json or moon.mod)
 #
 # Package-level layering rules inside the dowdiness/canopy module (see
-# docs/plans/2026-06-11-architecture-redesign-proposal.md, "Dependency and
-# boundary rules"). "Language grammar" below = the out-of-module grammar
+# docs/architecture/ARCHITECTURE_DIAGRAM.md and
+# docs/decisions/2026-08-18-architecture-composition.md). The 2026-06-11
+# redesign proposal is historical; do not treat it as the current layer list.
+# "Language grammar" below = the out-of-module grammar
 # modules in GRAMMAR_MODULES (dowdiness/lambda, dowdiness/json,
 # dowdiness/markdown) — importing one is a language import even though it
 # bypasses dowdiness/canopy/lang.
@@ -37,14 +39,14 @@
 # EXCEPTIONS entries.
 #
 # NOT enforced here (deliberate gaps — do not read this lint as the full
-# proposal section):
+# composition map):
 #   - the general "L(n) depends only on L(n-1)" layering (only the named
 #     pairs above are checked);
-#   - the positive clause "lang/<L> depends on lang/runtime + its grammar
-#     only" — lang/* importing editor/core/protocol is the current S3
-#     design and passes;
+#   - lang/* importing editor/core/protocol — allowed; language construction
+#     may depend on editor orchestration (2026-08-07 SPI / 2026-08-18
+#     composition);
 #   - editor/** importing ffi/*, and ffi/** imports generally;
-#   - "ffi/<L> is the only home of editor-state JSON serialization"
+#   - "one mutation flow: typed APIs or FFI, not both"
 #     (not expressible as an import rule).
 #
 # Exits non-zero on any violation. Intended to run in CI.

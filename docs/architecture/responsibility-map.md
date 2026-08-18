@@ -6,17 +6,22 @@ Canopy's parser/CRDT submodules.
 
 It is the **ownership decision guide**: which layer should own new work, which
 existing APIs should be reused first, and which follow-up issues should be
-handled before larger feature work. For the full package inventory, pipeline
-overview, extension points, and non-goals, see [Architecture](../architecture.md).
-For a reuse index of public APIs, see [API Map](../api-map.md). For the detailed
-module list, see [Module Structure](modules.md).
+handled before larger feature work. For how session, collaboration, and
+document authority nest, see the
+[composition map](ARCHITECTURE_DIAGRAM.md). For the full package inventory,
+pipeline overview, extension points, and non-goals, see
+[Architecture](../architecture.md). For a reuse index of public APIs, see
+[API Map](../api-map.md). For the detailed module list, see
+[Module Structure](modules.md).
 
 ## Current Stance
 
 ### Implemented (code-backed)
 
-- Canopy is currently text-first: text CRDT state is the durable document, while
-  CST, projection, semantic data, and rendered views are derived.
+- Canopy is currently text-first **for a mounted session**: text CRDT state is
+  the durable session document, while CST, projection, semantic data, and
+  rendered views are derived. Across reopen and file association, causal
+  history is the editing base, and only after admission.
 - `NodeId`, `ProjNode`, and `SourceMap` are the main extension anchors for
   projection, semantic annotations, structural edits, and UI overlays.
 - `protocol.ViewNode` and `ViewPatch` are the UI boundary. New renderers should
@@ -113,32 +118,31 @@ column is the actual update boundary; "Integration" is where Canopy consumes it.
 
 ## Priority Issues
 
-The audit led to these Canopy issues:
+[GitHub Issues](https://github.com/dowdiness/canopy/issues) are the canonical
+backlog. The 2026-05-31 audit list below is trimmed to items still open as of
+2026-08-18. Closed from that audit: #413 (this map), #414 (SourceMap helpers),
+#415 (range/span inventory), #418 (`incr` 0.6 plan).
 
-1. [#413](https://github.com/dowdiness/canopy/issues/413) - codify this
-   responsibility map and extension points.
-2. [#414](https://github.com/dowdiness/canopy/issues/414) - centralize
-   projection construction and `SourceMap` helper APIs.
-3. [#416](https://github.com/dowdiness/canopy/issues/416) - define semantic
-   annotation flow over `NodeId` side tables and `@incr`. *(planned)*
-4. [#418](https://github.com/dowdiness/canopy/issues/418) - plan migration
-   from `incr` 0.5.x to the 0.6 target facade. *(planned)*
-5. [#417](https://github.com/dowdiness/canopy/issues/417) - specify
-   WebSocket recovery and text/tree CRDT boundaries.
-6. [#415](https://github.com/dowdiness/canopy/issues/415) - inventory and
-   possibly introduce shared range/span primitives.
-7. [#419](https://github.com/dowdiness/canopy/issues/419) - evaluate Canopy as
-   a structural editor shell for MoonDsp.
+Open follow-ups from that audit:
 
-Recommended order:
+1. [#417](https://github.com/dowdiness/canopy/issues/417) — WebSocket recovery
+   and text/tree CRDT boundaries. Later collaboration ADRs own the target
+   split; this issue remains until leftover editor transport and the
+   payload-opaque runtime are sequenced.
+2. [#416](https://github.com/dowdiness/canopy/issues/416) — semantic annotation
+   flow over identity side tables and `@incr`. *(planned)*
+3. [#419](https://github.com/dowdiness/canopy/issues/419) — evaluate Canopy as
+   a structural editor shell for MoonDsp. Keep as a spike.
 
-1. Do #413 and #414 before adding another substantial language or editor mode.
-2. Decide #418 before implementing the general semantic pipeline in #416.
-3. Treat #415 as an inventory and unit-contract task first; avoid a broad type
-   migration until the shared boundary is proven.
-4. Handle #417 before concurrent structural editing becomes product-critical.
-5. Keep #419 as a spike until Canopy's projection and semantic contracts are
-   stable enough to host MoonDsp authoring without leaking DSP runtime details.
+Product-lifetime work that superseded the old "do #413 first" order:
+
+1. [#1241](https://github.com/dowdiness/canopy/issues/1241) — canonical text-event
+   admission, then
+2. [#1244](https://github.com/dowdiness/canopy/issues/1244) — projection off the
+   authority commit path.
+
+See the [composition map](ARCHITECTURE_DIAGRAM.md) for sequencing of file-backed
+authority, staged publication, and collaboration runtime extraction.
 
 ## Design Rules for New Work
 
@@ -160,7 +164,8 @@ When adding semantic overlays:
 
 When adding collaboration features:
 
-- Follow the [EGW collaboration responsibility boundary](../decisions/2026-07-21-egw-collaboration-responsibility-boundary.md).
+- Follow the [composition map](ARCHITECTURE_DIAGRAM.md) and the
+  [EGW collaboration responsibility boundary](../decisions/2026-07-21-egw-collaboration-responsibility-boundary.md).
 - Keep CRDT operations, façade codecs, and the document-local causal pending
   queue in EGW core. A companion versioned with that core interprets apply
   reports and decides peer bootstrap or recovery commands.
@@ -194,4 +199,8 @@ When exploring MoonDsp integration:
 - Adding language-specific state to generic editor/core packages.
 - Building MoonDsp audio-runtime assumptions into Canopy editor packages.
 - Optimizing incremental behavior before profiling or before the dependency
-  graph shape is stable. *(incr 0.6 migration tracked in #418 — planned)*
+  graph shape is stable.
+- Introducing a fourth architecture beside session, collaboration, and document
+  authority without placing it on the [composition map](ARCHITECTURE_DIAGRAM.md).
+- Using typed editor APIs and the FFI surface for the same mutation flow in one
+  app session.

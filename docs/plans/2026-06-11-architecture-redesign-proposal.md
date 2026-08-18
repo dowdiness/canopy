@@ -1,7 +1,11 @@
 # Architecture Redesign — Staged Restructuring Proposal
 
 **Date:** 2026-06-11
-**Status:** Proposed (Codex design-validated 2026-06-11; amendments folded in)
+**Status:** Historical. S0–S5 executed. This file is a 2026-06-11 snapshot, not
+the current target.
+**Canonical architecture:**
+[composition map](../architecture/ARCHITECTURE_DIAGRAM.md) ·
+[composition decision](../decisions/2026-08-18-architecture-composition.md)
 **Related:**
 [Library API boundary ADR (S0, accepted)](../decisions/2026-06-11-library-api-boundary.md) ·
 [Shared-substrate incr version lock](../decisions/2026-06-10-shared-substrate-incr-version-lock.md) ·
@@ -9,13 +13,26 @@
 [Identity and reuse mechanisms](../decisions/2026-06-01-identity-and-reuse-mechanisms.md) ·
 [Archived TODO snapshot](../archive/TODO-snapshot-2026-08-03.md) §14 (library identity) · §15 (editor decoupling) · §18 (shared-runtime workspace)
 
-This is the umbrella proposal plus staged migration index — a `docs/plans/`
-execution spec, **not** a `docs/architecture/` record. Concrete files, types,
-and counts below are point-in-time evidence (2026-06-11 snapshot; code is the
-source of truth). The durable principle-level architecture statements live in
-`docs/architecture/` and are updated as stages land. Each stage (S1–S5b) gets
-its own narrow plan doc when execution starts; this document is the canonical
-statement of *why*, *what target*, and *in what order*.
+This was the umbrella proposal plus staged migration index for the 2026-06
+library split — a `docs/plans/` execution spec, **not** a
+`docs/architecture/` record. Concrete files, types, and counts below are
+point-in-time evidence (2026-06-11 snapshot; code is the source of truth).
+
+**Disposition (2026-08-18):**
+
+| Stage | Outcome |
+|---|---|
+| S0 library API boundary | Landed |
+| S1 `protocol/wire` | Landed |
+| S2 `sync_session` + `transport_ws` | Packages landed; editor orchestration still exposes transport (leftover) |
+| S3 `lang/runtime` | Landed; SPI may depend on editor (2026-08-07). New-language cost did not reach ≤2 packages |
+| S4 `ffi/host` | Landed; dual write path and `crdt_reexport` remain |
+| S5a/S5b substrate governance | Landed; dual-source EGW closed |
+| S6 Ideal modularization | Continuous; not a current architecture queue |
+| Import-graph lint | Partial: named pairs in `scripts/check-deps.sh`, not full L(n) |
+
+Remaining leftovers follow the composition map's sequencing, not the
+unchecked boxes in [Acceptance Criteria](#acceptance-criteria) below.
 
 ## Why
 

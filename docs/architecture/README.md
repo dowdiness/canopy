@@ -6,13 +6,13 @@ the files inside `docs/architecture/`.
 
 ## Pipeline and structure
 
-- **[System Architecture Diagram](ARCHITECTURE_DIAGRAM.md)** — high-level data
-  flow: Text CRDT → Incremental Parse → Projection → Rendering.
+- **[System Architecture Diagram](ARCHITECTURE_DIAGRAM.md)** — composition map:
+  session pipeline, collaboration layers, and document authority. Session data
+  flow (text CRDT → parse → projection → view) is one nested part.
 - **[Module Structure](modules.md)** — how the monorepo and git submodules map
-  onto that pipeline.
+  onto those layers.
 - **[Responsibility Map and Extension Priorities](responsibility-map.md)** —
-  ownership boundaries, reuse-first APIs, and the follow-up issue sequence for
-  new language, semantic, collaboration, and MoonDsp work.
+  ownership boundaries, reuse-first APIs, and the current open follow-ups.
 - **[Edit Action Progression](edit-action-progression.md)** — how edits flow
   from user input down through the pipeline.
 
