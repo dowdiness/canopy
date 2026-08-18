@@ -119,6 +119,9 @@ Only needed if you are modifying Canopy itself.
 
 **Performance:**
 
+- [Canopy remote-admission phase attribution](performance/2026-08-18-canopy-remote-admission-phase-attribution.md)
+  — isolates materialized-text snapshot lifecycle work from authority admission and
+  parser/projection reconciliation, with an independent history/length matrix.
 - [Canopy post-admission version expansion characterization](performance/2026-08-18-canopy-post-admission-version-expansion.md)
   — attributes the next remote-admission bottleneck to an H-bound maintained-version
   rebuild after P3 and records the event-graph-walker prototype gate.

@@ -1,0 +1,583 @@
+{
+  "schema": 1,
+  "measured_at": "2026-08-18",
+  "canopy_commit": "5733710920facd17d87647be6096c5a34da39c5a",
+  "event_graph_walker_commit": "3640bfa314ca29c14146ceb8fe1ab49223578b70",
+  "target": "native-release",
+  "independent_processes_per_cell": 3,
+  "units": "microseconds",
+  "fixture": {
+    "incoming_operations": 1,
+    "history_operations": "H",
+    "materialized_utf16_units": "L",
+    "history_and_length_varied_independently": true
+  },
+  "phases": {
+    "pre": "parser health, observer reentry guard, pending-transform taint",
+    "v0": "pre-admission authority version read",
+    "t0": "pre-admission authority text snapshot",
+    "authority": "authority admit_with_tracking",
+    "v1": "post-admission authority version read",
+    "observe": "authority acceptance observation",
+    "t1": "post-admission authority text snapshot",
+    "r0": "local cursor clamp",
+    "r1": "peer cursor adjustment",
+    "r2": "known-edit diff or fallback diff selection",
+    "r3": "parser/projection reconciliation"
+  },
+  "phase_matrix_medians": [
+    {
+      "H": 0,
+      "L": 0,
+      "v0": 0.07,
+      "t0": 0.14,
+      "authority": 23.895,
+      "v1": 0.04,
+      "observe": 0.061,
+      "t1": 3.496,
+      "r0": 0.04,
+      "r1": 0,
+      "r2": 0.041,
+      "r3": 18.315,
+      "measured_total": 46.098
+    },
+    {
+      "H": 1000,
+      "L": 0,
+      "v0": 0.06,
+      "t0": 0.19,
+      "authority": 34.215,
+      "v1": 0.04,
+      "observe": 0.09,
+      "t1": 109.71600000000001,
+      "r0": 0.05,
+      "r1": 0,
+      "r2": 0.05,
+      "r3": 28.545,
+      "measured_total": 172.95600000000002
+    },
+    {
+      "H": 10000,
+      "L": 0,
+      "v0": 0.08,
+      "t0": 0.161,
+      "authority": 58.289,
+      "v1": 0.04,
+      "observe": 0.111,
+      "t1": 1452.888,
+      "r0": 0.131,
+      "r1": 0,
+      "r2": 0.13,
+      "r3": 31.720000000000002,
+      "measured_total": 1543.55
+    },
+    {
+      "H": 100000,
+      "L": 0,
+      "v0": 0.06,
+      "t0": 0.31,
+      "authority": 76.895,
+      "v1": 0.041,
+      "observe": 0.101,
+      "t1": 38311.256,
+      "r0": 0.932,
+      "r1": 0,
+      "r2": 0.16,
+      "r3": 48.293,
+      "measured_total": 38438.048
+    },
+    {
+      "H": 100000,
+      "L": 2000,
+      "v0": 0.07,
+      "t0": 2.615,
+      "authority": 1627.929,
+      "v1": 0.06,
+      "observe": 0.11,
+      "t1": 44675.911,
+      "r0": 0.3,
+      "r1": 0,
+      "r2": 0.15,
+      "r3": 1387.921,
+      "measured_total": 47695.066
+    },
+    {
+      "H": 100000,
+      "L": 10000,
+      "v0": 0.09,
+      "t0": 12.995000000000001,
+      "authority": 1355.527,
+      "v1": 0.07100000000000001,
+      "observe": 0.26,
+      "t1": 52278.32,
+      "r0": 0.551,
+      "r1": 0,
+      "r2": 0.15,
+      "r3": 7078.795,
+      "measured_total": 60726.759
+    },
+    {
+      "H": 100000,
+      "L": 50000,
+      "v0": 0.06,
+      "t0": 62.899,
+      "authority": 579.653,
+      "v1": 0.08,
+      "observe": 0.13,
+      "t1": 138774.065,
+      "r0": 0.622,
+      "r1": 0,
+      "r2": 0.251,
+      "r3": 37441.548,
+      "measured_total": 176859.30800000002
+    }
+  ],
+  "whole_call_control": {
+    "H": 100000,
+    "L": 0,
+    "direct_public_admission_median": 176264.60699999996,
+    "instrumented_method_whole_call_median": 173391.596,
+    "instrumented_phase_medians": {
+      "pre": 1.212,
+      "v0": 0.6910000000000001,
+      "t0": 1.913,
+      "authority": 68.206,
+      "v1": 0.04,
+      "observe": 0.27,
+      "t1": 41825.808,
+      "r0": 0.752,
+      "r1": 0,
+      "r2": 0.14100000000000001,
+      "r3": 43.371
+    },
+    "instrumented_phase_sum": 41942.403999999995,
+    "unattributed_method_residual": 131449.19199999998
+  },
+  "raw_phase_matrix": [
+    {
+      "H": 0,
+      "L": 0,
+      "phases": {
+        "v0": 0.07,
+        "t0": 0.131,
+        "authority": 23.895,
+        "v1": 0.03,
+        "observe": 0.061,
+        "t1": 3.306,
+        "r0": 0.04,
+        "r1": 0,
+        "r2": 0.041,
+        "r3": 16.361
+      },
+      "rep": 1
+    },
+    {
+      "H": 1000,
+      "L": 0,
+      "phases": {
+        "v0": 0.07,
+        "t0": 0.19,
+        "authority": 25.517,
+        "v1": 0.04,
+        "observe": 0.09,
+        "t1": 109.71600000000001,
+        "r0": 0.07,
+        "r1": 0,
+        "r2": 0.06,
+        "r3": 22.341
+      },
+      "rep": 1
+    },
+    {
+      "H": 10000,
+      "L": 0,
+      "phases": {
+        "v0": 0.07,
+        "t0": 0.16,
+        "authority": 58.289,
+        "v1": 0.04,
+        "observe": 0.111,
+        "t1": 3477.286,
+        "r0": 0.26,
+        "r1": 0,
+        "r2": 0.14,
+        "r3": 42.239000000000004
+      },
+      "rep": 1
+    },
+    {
+      "H": 100000,
+      "L": 0,
+      "phases": {
+        "v0": 0.06,
+        "t0": 0.401,
+        "authority": 75.096,
+        "v1": 0.04,
+        "observe": 0.101,
+        "t1": 39772.645000000004,
+        "r0": 1.052,
+        "r1": 0,
+        "r2": 0.16,
+        "r3": 43.133
+      },
+      "rep": 1
+    },
+    {
+      "H": 100000,
+      "L": 2000,
+      "phases": {
+        "v0": 0.07,
+        "t0": 2.685,
+        "authority": 1456.1390000000001,
+        "v1": 0.06,
+        "observe": 0.11,
+        "t1": 43187.55099999998,
+        "r0": 0.281,
+        "r1": 0,
+        "r2": 0.16,
+        "r3": 1376.83
+      },
+      "rep": 1
+    },
+    {
+      "H": 100000,
+      "L": 10000,
+      "phases": {
+        "v0": 0.09,
+        "t0": 12.774000000000001,
+        "authority": 1160.607,
+        "v1": 0.07,
+        "observe": 0.181,
+        "t1": 50392.639,
+        "r0": 0.4,
+        "r1": 0,
+        "r2": 0.15,
+        "r3": 6804.389
+      },
+      "rep": 1
+    },
+    {
+      "H": 100000,
+      "L": 50000,
+      "phases": {
+        "v0": 0.06,
+        "t0": 62.899,
+        "authority": 579.653,
+        "v1": 0.08,
+        "observe": 0.121,
+        "t1": 138774.065,
+        "r0": 1.062,
+        "r1": 0,
+        "r2": 0.14,
+        "r3": 37088.592000000004
+      },
+      "rep": 1
+    },
+    {
+      "H": 0,
+      "L": 0,
+      "phases": {
+        "v0": 0.07,
+        "t0": 0.14,
+        "authority": 22.503,
+        "v1": 0.04,
+        "observe": 0.06,
+        "t1": 3.496,
+        "r0": 0.04,
+        "r1": 0,
+        "r2": 0.04,
+        "r3": 18.315
+      },
+      "rep": 2
+    },
+    {
+      "H": 1000,
+      "L": 0,
+      "phases": {
+        "v0": 0.06,
+        "t0": 0.17,
+        "authority": 34.415,
+        "v1": 0.04,
+        "observe": 0.101,
+        "t1": 104.236,
+        "r0": 0.05,
+        "r1": 0,
+        "r2": 0.04,
+        "r3": 29.485
+      },
+      "rep": 2
+    },
+    {
+      "H": 10000,
+      "L": 0,
+      "phases": {
+        "v0": 0.08,
+        "t0": 0.2,
+        "authority": 68.93,
+        "v1": 0.04,
+        "observe": 0.19,
+        "t1": 1406.651,
+        "r0": 0.11,
+        "r1": 0,
+        "r2": 0.13,
+        "r3": 31.259
+      },
+      "rep": 2
+    },
+    {
+      "H": 100000,
+      "L": 0,
+      "phases": {
+        "v0": 0.06,
+        "t0": 0.31,
+        "authority": 79.041,
+        "v1": 0.05,
+        "observe": 0.08,
+        "t1": 38062.984000000004,
+        "r0": 0.932,
+        "r1": 0,
+        "r2": 0.16,
+        "r3": 48.293
+      },
+      "rep": 2
+    },
+    {
+      "H": 100000,
+      "L": 2000,
+      "phases": {
+        "v0": 0.06,
+        "t0": 2.615,
+        "authority": 1627.929,
+        "v1": 0.07,
+        "observe": 0.111,
+        "t1": 44675.911,
+        "r0": 0.531,
+        "r1": 0,
+        "r2": 0.15,
+        "r3": 1681.23
+      },
+      "rep": 2
+    },
+    {
+      "H": 100000,
+      "L": 10000,
+      "phases": {
+        "v0": 0.07,
+        "t0": 12.995000000000001,
+        "authority": 1355.527,
+        "v1": 0.07100000000000001,
+        "observe": 0.26,
+        "t1": 52278.32,
+        "r0": 0.551,
+        "r1": 0,
+        "r2": 0.16,
+        "r3": 7078.795
+      },
+      "rep": 2
+    },
+    {
+      "H": 100000,
+      "L": 50000,
+      "phases": {
+        "v0": 0.06,
+        "t0": 58.281,
+        "authority": 732.205,
+        "v1": 0.07100000000000001,
+        "observe": 0.3,
+        "t1": 130255.44,
+        "r0": 0.622,
+        "r1": 0,
+        "r2": 0.251,
+        "r3": 37441.548
+      },
+      "rep": 2
+    },
+    {
+      "H": 0,
+      "L": 0,
+      "phases": {
+        "v0": 0.13,
+        "t0": 0.21,
+        "authority": 39.084,
+        "v1": 0.07,
+        "observe": 0.11,
+        "t1": 5.59,
+        "r0": 0.07100000000000001,
+        "r1": 0,
+        "r2": 0.08,
+        "r3": 27.833000000000002
+      },
+      "rep": 3
+    },
+    {
+      "H": 1000,
+      "L": 0,
+      "phases": {
+        "v0": 0.05,
+        "t0": 0.201,
+        "authority": 34.215,
+        "v1": 0.03,
+        "observe": 0.09,
+        "t1": 116.803,
+        "r0": 0.05,
+        "r1": 0,
+        "r2": 0.05,
+        "r3": 28.545
+      },
+      "rep": 3
+    },
+    {
+      "H": 10000,
+      "L": 0,
+      "phases": {
+        "v0": 0.08,
+        "t0": 0.161,
+        "authority": 49.244,
+        "v1": 0.04,
+        "observe": 0.091,
+        "t1": 1452.888,
+        "r0": 0.131,
+        "r1": 0,
+        "r2": 0.05,
+        "r3": 31.720000000000002
+      },
+      "rep": 3
+    },
+    {
+      "H": 100000,
+      "L": 0,
+      "phases": {
+        "v0": 0.05,
+        "t0": 0.31,
+        "authority": 76.895,
+        "v1": 0.041,
+        "observe": 0.24,
+        "t1": 38311.256,
+        "r0": 0.872,
+        "r1": 0,
+        "r2": 0.13,
+        "r3": 55.194
+      },
+      "rep": 3
+    },
+    {
+      "H": 100000,
+      "L": 2000,
+      "phases": {
+        "v0": 0.15,
+        "t0": 2.595,
+        "authority": 1840.762,
+        "v1": 0.06,
+        "observe": 0.1,
+        "t1": 45318.075000000004,
+        "r0": 0.3,
+        "r1": 0,
+        "r2": 0.15,
+        "r3": 1387.921
+      },
+      "rep": 3
+    },
+    {
+      "H": 100000,
+      "L": 10000,
+      "phases": {
+        "v0": 0.161,
+        "t0": 13.556000000000001,
+        "authority": 1672.68,
+        "v1": 0.08,
+        "observe": 0.291,
+        "t1": 59560.858,
+        "r0": 0.962,
+        "r1": 0,
+        "r2": 0.14,
+        "r3": 7349.722
+      },
+      "rep": 3
+    },
+    {
+      "H": 100000,
+      "L": 50000,
+      "phases": {
+        "v0": 0.09,
+        "t0": 72.158,
+        "authority": 565.815,
+        "v1": 0.09,
+        "observe": 0.13,
+        "t1": 144177.388,
+        "r0": 0.611,
+        "r1": 0,
+        "r2": 0.27,
+        "r3": 38303.797
+      },
+      "rep": 3
+    }
+  ],
+  "raw_whole_call_control": [
+    {
+      "H": 100000,
+      "L": 0,
+      "full": 190606.032,
+      "instrumented_full": 192392.326,
+      "phases": {
+        "pre": 1.212,
+        "v0": 1.213,
+        "t0": 1.913,
+        "authority": 100.187,
+        "v1": 0.05,
+        "observe": 0.27,
+        "t1": 56357.224,
+        "r0": 0.9420000000000001,
+        "r1": 0,
+        "r2": 0.15,
+        "r3": 48.932
+      },
+      "rep": 1
+    },
+    {
+      "H": 100000,
+      "L": 0,
+      "full": 173919.34899999993,
+      "instrumented_full": 170142.76,
+      "phases": {
+        "pre": 1.232,
+        "v0": 0.6910000000000001,
+        "t0": 1.703,
+        "authority": 67.306,
+        "v1": 0.04,
+        "observe": 0.261,
+        "t1": 41034.884,
+        "r0": 0.752,
+        "r1": 0,
+        "r2": 0.14100000000000001,
+        "r3": 40.225
+      },
+      "rep": 2
+    },
+    {
+      "H": 100000,
+      "L": 0,
+      "full": 176264.60699999996,
+      "instrumented_full": 173391.596,
+      "phases": {
+        "pre": 0.9420000000000001,
+        "v0": 0.682,
+        "t0": 2.044,
+        "authority": 68.206,
+        "v1": 0.031,
+        "observe": 0.31,
+        "t1": 41825.808,
+        "r0": 0.752,
+        "r1": 0,
+        "r2": 0.14,
+        "r3": 43.371
+      },
+      "rep": 3
+    }
+  ],
+  "limitations": [
+    "Native release only; no cross-runtime claim.",
+    "Three processes per cell; medians characterize large effects, not microsecond-scale differences.",
+    "The whole-call residual is measured; attributing it specifically to native scope-exit reference-count cleanup is an inference, not an allocator-counter observation.",
+    "Temporary white-box instrumentation was removed after capture."
+  ]
+}
