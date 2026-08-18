@@ -1,0 +1,845 @@
+{
+  "schema_version": 1,
+  "date": "2026-08-18",
+  "target": "native-release",
+  "canopy_commit": "2f27a4d4b272423d3df432b744e413c8b12dd290",
+  "event_graph_walker_commit": "9dee515f755a59f76bacab6ff582284ab1fbe7cf",
+  "moon": "0.1.20260713 (75c7e1f 2026-07-13)",
+  "moonc": "v0.10.4+2cc641edf (2026-07-15)",
+  "samples_per_cell": 3,
+  "fixture": {
+    "resident_history_operations": [
+      0,
+      1000,
+      10000,
+      100000
+    ],
+    "incoming_message_operations": [
+      1,
+      10,
+      100
+    ],
+    "materialized_text_code_units": "0 or 1 via alternating insert/delete operations",
+    "cache_precondition": "TextState version cache valid immediately before measured admission",
+    "setup_timing": "fixture construction, history admission, and cache priming excluded from inner clocks",
+    "limits": {
+      "max_encoded_bytes": 268435456,
+      "max_decoded_operations": 300000
+    }
+  },
+  "lanes": {
+    "paired_text_admission": {
+      "description": "separate receivers; sync.apply versus sync.apply followed by version; fixed A-then-B order means paired deltas are supporting evidence only",
+      "summary": [
+        {
+          "history": 0,
+          "message": 1,
+          "apply_median_us": 14.907,
+          "apply_version_median_us": 15.498000000000001,
+          "paired_delta_median_us": 0.5
+        },
+        {
+          "history": 0,
+          "message": 10,
+          "apply_median_us": 77.116,
+          "apply_version_median_us": 77.345,
+          "paired_delta_median_us": 2.423000000000002
+        },
+        {
+          "history": 0,
+          "message": 100,
+          "apply_median_us": 739.291,
+          "apply_version_median_us": 772.0020000000001,
+          "paired_delta_median_us": 26.65700000000004
+        },
+        {
+          "history": 1000,
+          "message": 1,
+          "apply_median_us": 395.954,
+          "apply_version_median_us": 478.671,
+          "paired_delta_median_us": 61.35700000000003
+        },
+        {
+          "history": 1000,
+          "message": 10,
+          "apply_median_us": 594.388,
+          "apply_version_median_us": 547.216,
+          "paired_delta_median_us": -40.38099999999997
+        },
+        {
+          "history": 1000,
+          "message": 100,
+          "apply_median_us": 1251.162,
+          "apply_version_median_us": 1367.5710000000001,
+          "paired_delta_median_us": 116.4090000000001
+        },
+        {
+          "history": 10000,
+          "message": 1,
+          "apply_median_us": 6916.115,
+          "apply_version_median_us": 12648.888,
+          "paired_delta_median_us": 5350.101000000001
+        },
+        {
+          "history": 10000,
+          "message": 10,
+          "apply_median_us": 6529.186,
+          "apply_version_median_us": 12972.562,
+          "paired_delta_median_us": 6313.809
+        },
+        {
+          "history": 10000,
+          "message": 100,
+          "apply_median_us": 8342.033,
+          "apply_version_median_us": 14711.49,
+          "paired_delta_median_us": 6369.457
+        },
+        {
+          "history": 100000,
+          "message": 1,
+          "apply_median_us": 123319.212,
+          "apply_version_median_us": 226709.277,
+          "paired_delta_median_us": 103390.065
+        },
+        {
+          "history": 100000,
+          "message": 10,
+          "apply_median_us": 115881.786,
+          "apply_version_median_us": 216233.56,
+          "paired_delta_median_us": 102446.134
+        },
+        {
+          "history": 100000,
+          "message": 100,
+          "apply_median_us": 116072.983,
+          "apply_version_median_us": 217214.986,
+          "paired_delta_median_us": 99023.147
+        }
+      ],
+      "raw": [
+        {
+          "history": 0,
+          "message": 1,
+          "apply_us": 14.298,
+          "apply_version_us": 14.798,
+          "version_delta_us": 0.5,
+          "rep": 1
+        },
+        {
+          "history": 0,
+          "message": 10,
+          "apply_us": 79.787,
+          "apply_version_us": 106.196,
+          "version_delta_us": 26.408999999999992,
+          "rep": 1
+        },
+        {
+          "history": 0,
+          "message": 100,
+          "apply_us": 719.659,
+          "apply_version_us": 802.945,
+          "version_delta_us": 83.28600000000006,
+          "rep": 1
+        },
+        {
+          "history": 1000,
+          "message": 1,
+          "apply_us": 307.809,
+          "apply_version_us": 487.294,
+          "version_delta_us": 179.48499999999996,
+          "rep": 1
+        },
+        {
+          "history": 1000,
+          "message": 10,
+          "apply_us": 594.388,
+          "apply_version_us": 547.216,
+          "version_delta_us": -47.172000000000025,
+          "rep": 1
+        },
+        {
+          "history": 1000,
+          "message": 100,
+          "apply_us": 1296.303,
+          "apply_version_us": 1326.596,
+          "version_delta_us": 30.292999999999893,
+          "rep": 1
+        },
+        {
+          "history": 10000,
+          "message": 1,
+          "apply_us": 6916.115,
+          "apply_version_us": 15216.083,
+          "version_delta_us": 8299.968,
+          "rep": 1
+        },
+        {
+          "history": 10000,
+          "message": 10,
+          "apply_us": 6397.756,
+          "apply_version_us": 10829.009,
+          "version_delta_us": 4431.253,
+          "rep": 1
+        },
+        {
+          "history": 10000,
+          "message": 100,
+          "apply_us": 7736.387,
+          "apply_version_us": 11862.533,
+          "version_delta_us": 4126.146,
+          "rep": 1
+        },
+        {
+          "history": 0,
+          "message": 1,
+          "apply_us": 26.115000000000002,
+          "apply_version_us": 25.986,
+          "version_delta_us": -0.12900000000000134,
+          "rep": 2
+        },
+        {
+          "history": 0,
+          "message": 10,
+          "apply_us": 77.116,
+          "apply_version_us": 77.345,
+          "version_delta_us": 0.2289999999999992,
+          "rep": 2
+        },
+        {
+          "history": 0,
+          "message": 100,
+          "apply_us": 745.345,
+          "apply_version_us": 772.0020000000001,
+          "version_delta_us": 26.65700000000004,
+          "rep": 2
+        },
+        {
+          "history": 1000,
+          "message": 1,
+          "apply_us": 395.954,
+          "apply_version_us": 457.31100000000004,
+          "version_delta_us": 61.35700000000003,
+          "rep": 2
+        },
+        {
+          "history": 1000,
+          "message": 10,
+          "apply_us": 697.37,
+          "apply_version_us": 656.989,
+          "version_delta_us": -40.38099999999997,
+          "rep": 2
+        },
+        {
+          "history": 1000,
+          "message": 100,
+          "apply_us": 1251.162,
+          "apply_version_us": 1367.5710000000001,
+          "version_delta_us": 116.4090000000001,
+          "rep": 2
+        },
+        {
+          "history": 10000,
+          "message": 1,
+          "apply_us": 6174.6410000000005,
+          "apply_version_us": 11463.506,
+          "version_delta_us": 5288.864999999999,
+          "rep": 2
+        },
+        {
+          "history": 10000,
+          "message": 10,
+          "apply_us": 6658.753,
+          "apply_version_us": 12972.562,
+          "version_delta_us": 6313.809,
+          "rep": 2
+        },
+        {
+          "history": 10000,
+          "message": 100,
+          "apply_us": 8342.033,
+          "apply_version_us": 14711.49,
+          "version_delta_us": 6369.457,
+          "rep": 2
+        },
+        {
+          "history": 0,
+          "message": 1,
+          "apply_us": 14.907,
+          "apply_version_us": 15.498000000000001,
+          "version_delta_us": 0.5910000000000011,
+          "rep": 3
+        },
+        {
+          "history": 0,
+          "message": 10,
+          "apply_us": 74.655,
+          "apply_version_us": 77.078,
+          "version_delta_us": 2.423000000000002,
+          "rep": 3
+        },
+        {
+          "history": 0,
+          "message": 100,
+          "apply_us": 739.291,
+          "apply_version_us": 760.048,
+          "version_delta_us": 20.756999999999948,
+          "rep": 3
+        },
+        {
+          "history": 1000,
+          "message": 1,
+          "apply_us": 457.843,
+          "apply_version_us": 478.671,
+          "version_delta_us": 20.827999999999975,
+          "rep": 3
+        },
+        {
+          "history": 1000,
+          "message": 10,
+          "apply_us": 495.301,
+          "apply_version_us": 520.075,
+          "version_delta_us": 24.774000000000058,
+          "rep": 3
+        },
+        {
+          "history": 1000,
+          "message": 100,
+          "apply_us": 1190.819,
+          "apply_version_us": 1387.332,
+          "version_delta_us": 196.51300000000015,
+          "rep": 3
+        },
+        {
+          "history": 10000,
+          "message": 1,
+          "apply_us": 7298.787,
+          "apply_version_us": 12648.888,
+          "version_delta_us": 5350.101000000001,
+          "rep": 3
+        },
+        {
+          "history": 10000,
+          "message": 10,
+          "apply_us": 6529.186,
+          "apply_version_us": 14034.935,
+          "version_delta_us": 7505.749,
+          "rep": 3
+        },
+        {
+          "history": 10000,
+          "message": 100,
+          "apply_us": 8651.427,
+          "apply_version_us": 17704.527000000002,
+          "version_delta_us": 9053.100000000002,
+          "rep": 3
+        },
+        {
+          "history": 100000,
+          "message": 1,
+          "apply_us": 165281.868,
+          "apply_version_us": 270352.655,
+          "version_delta_us": 105070.787,
+          "rep": 1
+        },
+        {
+          "history": 100000,
+          "message": 10,
+          "apply_us": 119298.697,
+          "apply_version_us": 212367.538,
+          "version_delta_us": 93068.841,
+          "rep": 1
+        },
+        {
+          "history": 100000,
+          "message": 100,
+          "apply_us": 116072.983,
+          "apply_version_us": 208485.693,
+          "version_delta_us": 92412.71,
+          "rep": 1
+        },
+        {
+          "history": 100000,
+          "message": 1,
+          "apply_us": 113974.105,
+          "apply_version_us": 213734.724,
+          "version_delta_us": 99760.619,
+          "rep": 2
+        },
+        {
+          "history": 100000,
+          "message": 10,
+          "apply_us": 113336.791,
+          "apply_version_us": 216233.56,
+          "version_delta_us": 102896.769,
+          "rep": 2
+        },
+        {
+          "history": 100000,
+          "message": 100,
+          "apply_us": 113073.922,
+          "apply_version_us": 219850.213,
+          "version_delta_us": 106776.291,
+          "rep": 2
+        },
+        {
+          "history": 100000,
+          "message": 1,
+          "apply_us": 123319.212,
+          "apply_version_us": 226709.277,
+          "version_delta_us": 103390.065,
+          "rep": 3
+        },
+        {
+          "history": 100000,
+          "message": 10,
+          "apply_us": 115881.786,
+          "apply_version_us": 218327.92,
+          "version_delta_us": 102446.134,
+          "rep": 3
+        },
+        {
+          "history": 100000,
+          "message": 100,
+          "apply_us": 118191.839,
+          "apply_version_us": 217214.986,
+          "version_delta_us": 99023.147,
+          "rep": 3
+        }
+      ]
+    },
+    "isolated_direct_version": {
+      "description": "history-primed receiver admits M outside the clock; only first post-admission TextState.version call is timed",
+      "summary": [
+        {
+          "history": 0,
+          "message": 1,
+          "direct_version_median_us": 5.3420000000000005
+        },
+        {
+          "history": 1000,
+          "message": 1,
+          "direct_version_median_us": 444.308
+        },
+        {
+          "history": 10000,
+          "message": 1,
+          "direct_version_median_us": 10410.789
+        },
+        {
+          "history": 100000,
+          "message": 1,
+          "direct_version_median_us": 211752.999
+        },
+        {
+          "history": 100000,
+          "message": 10,
+          "direct_version_median_us": 205915.902
+        },
+        {
+          "history": 100000,
+          "message": 100,
+          "direct_version_median_us": 199511.731
+        }
+      ],
+      "raw": [
+        {
+          "history": 0,
+          "message": 1,
+          "direct_version_us": 5.313,
+          "rep": 1
+        },
+        {
+          "history": 1000,
+          "message": 1,
+          "direct_version_us": 474.317,
+          "rep": 1
+        },
+        {
+          "history": 10000,
+          "message": 1,
+          "direct_version_us": 11036.414,
+          "rep": 1
+        },
+        {
+          "history": 100000,
+          "message": 1,
+          "direct_version_us": 211752.999,
+          "rep": 1
+        },
+        {
+          "history": 100000,
+          "message": 10,
+          "direct_version_us": 205915.902,
+          "rep": 1
+        },
+        {
+          "history": 100000,
+          "message": 100,
+          "direct_version_us": 200994.64500000002,
+          "rep": 1
+        },
+        {
+          "history": 0,
+          "message": 1,
+          "direct_version_us": 5.3420000000000005,
+          "rep": 2
+        },
+        {
+          "history": 1000,
+          "message": 1,
+          "direct_version_us": 417.80400000000003,
+          "rep": 2
+        },
+        {
+          "history": 10000,
+          "message": 1,
+          "direct_version_us": 10410.789,
+          "rep": 2
+        },
+        {
+          "history": 100000,
+          "message": 1,
+          "direct_version_us": 200327.731,
+          "rep": 2
+        },
+        {
+          "history": 100000,
+          "message": 10,
+          "direct_version_us": 228540.78399999999,
+          "rep": 2
+        },
+        {
+          "history": 100000,
+          "message": 100,
+          "direct_version_us": 199511.731,
+          "rep": 2
+        },
+        {
+          "history": 0,
+          "message": 1,
+          "direct_version_us": 5.438,
+          "rep": 3
+        },
+        {
+          "history": 1000,
+          "message": 1,
+          "direct_version_us": 444.308,
+          "rep": 3
+        },
+        {
+          "history": 10000,
+          "message": 1,
+          "direct_version_us": 6150.876,
+          "rep": 3
+        },
+        {
+          "history": 100000,
+          "message": 1,
+          "direct_version_us": 213651.97699999996,
+          "rep": 3
+        },
+        {
+          "history": 100000,
+          "message": 10,
+          "direct_version_us": 198015.46300000002,
+          "rep": 3
+        },
+        {
+          "history": 100000,
+          "message": 100,
+          "direct_version_us": 196723.494,
+          "rep": 3
+        }
+      ]
+    },
+    "canopy_sync_editor_admission": {
+      "description": "full public SyncEditor.admit_with_limits transition including before/after authority versions and parser reconciliation",
+      "summary": [
+        {
+          "history": 0,
+          "message": 1,
+          "canopy_admission_median_us": 20.342
+        },
+        {
+          "history": 0,
+          "message": 10,
+          "canopy_admission_median_us": 88.141
+        },
+        {
+          "history": 0,
+          "message": 100,
+          "canopy_admission_median_us": 804.354
+        },
+        {
+          "history": 1000,
+          "message": 1,
+          "canopy_admission_median_us": 392.194
+        },
+        {
+          "history": 1000,
+          "message": 10,
+          "canopy_admission_median_us": 448.62600000000003
+        },
+        {
+          "history": 1000,
+          "message": 100,
+          "canopy_admission_median_us": 1304.474
+        },
+        {
+          "history": 10000,
+          "message": 1,
+          "canopy_admission_median_us": 6281.902
+        },
+        {
+          "history": 10000,
+          "message": 10,
+          "canopy_admission_median_us": 6906.3
+        },
+        {
+          "history": 10000,
+          "message": 100,
+          "canopy_admission_median_us": 6667.018
+        },
+        {
+          "history": 100000,
+          "message": 1,
+          "canopy_admission_median_us": 126339.54
+        },
+        {
+          "history": 100000,
+          "message": 10,
+          "canopy_admission_median_us": 125745.747
+        },
+        {
+          "history": 100000,
+          "message": 100,
+          "canopy_admission_median_us": 126656.11600000001
+        }
+      ],
+      "raw": [
+        {
+          "history": 0,
+          "message": 1,
+          "canopy_admission_us": 20.064,
+          "rep": 1
+        },
+        {
+          "history": 0,
+          "message": 10,
+          "canopy_admission_us": 83.904,
+          "rep": 1
+        },
+        {
+          "history": 0,
+          "message": 100,
+          "canopy_admission_us": 804.354,
+          "rep": 1
+        },
+        {
+          "history": 1000,
+          "message": 1,
+          "canopy_admission_us": 385.766,
+          "rep": 1
+        },
+        {
+          "history": 1000,
+          "message": 10,
+          "canopy_admission_us": 475.652,
+          "rep": 1
+        },
+        {
+          "history": 1000,
+          "message": 100,
+          "canopy_admission_us": 1239.644,
+          "rep": 1
+        },
+        {
+          "history": 10000,
+          "message": 1,
+          "canopy_admission_us": 5207.7480000000005,
+          "rep": 1
+        },
+        {
+          "history": 10000,
+          "message": 10,
+          "canopy_admission_us": 5861.438,
+          "rep": 1
+        },
+        {
+          "history": 10000,
+          "message": 100,
+          "canopy_admission_us": 5498.0560000000005,
+          "rep": 1
+        },
+        {
+          "history": 0,
+          "message": 1,
+          "canopy_admission_us": 20.342,
+          "rep": 2
+        },
+        {
+          "history": 0,
+          "message": 10,
+          "canopy_admission_us": 88.141,
+          "rep": 2
+        },
+        {
+          "history": 0,
+          "message": 100,
+          "canopy_admission_us": 842.941,
+          "rep": 2
+        },
+        {
+          "history": 1000,
+          "message": 1,
+          "canopy_admission_us": 563.0070000000001,
+          "rep": 2
+        },
+        {
+          "history": 1000,
+          "message": 10,
+          "canopy_admission_us": 448.62600000000003,
+          "rep": 2
+        },
+        {
+          "history": 1000,
+          "message": 100,
+          "canopy_admission_us": 1366.441,
+          "rep": 2
+        },
+        {
+          "history": 10000,
+          "message": 1,
+          "canopy_admission_us": 6281.902,
+          "rep": 2
+        },
+        {
+          "history": 10000,
+          "message": 10,
+          "canopy_admission_us": 7814.5470000000005,
+          "rep": 2
+        },
+        {
+          "history": 10000,
+          "message": 100,
+          "canopy_admission_us": 6667.018,
+          "rep": 2
+        },
+        {
+          "history": 0,
+          "message": 1,
+          "canopy_admission_us": 26.255,
+          "rep": 3
+        },
+        {
+          "history": 0,
+          "message": 10,
+          "canopy_admission_us": 163.835,
+          "rep": 3
+        },
+        {
+          "history": 0,
+          "message": 100,
+          "canopy_admission_us": 799.985,
+          "rep": 3
+        },
+        {
+          "history": 1000,
+          "message": 1,
+          "canopy_admission_us": 392.194,
+          "rep": 3
+        },
+        {
+          "history": 1000,
+          "message": 10,
+          "canopy_admission_us": 443.72700000000003,
+          "rep": 3
+        },
+        {
+          "history": 1000,
+          "message": 100,
+          "canopy_admission_us": 1304.474,
+          "rep": 3
+        },
+        {
+          "history": 10000,
+          "message": 1,
+          "canopy_admission_us": 7840.45,
+          "rep": 3
+        },
+        {
+          "history": 10000,
+          "message": 10,
+          "canopy_admission_us": 6906.3,
+          "rep": 3
+        },
+        {
+          "history": 10000,
+          "message": 100,
+          "canopy_admission_us": 7310.004,
+          "rep": 3
+        },
+        {
+          "history": 100000,
+          "message": 1,
+          "canopy_admission_us": 126339.54,
+          "rep": 1
+        },
+        {
+          "history": 100000,
+          "message": 10,
+          "canopy_admission_us": 125745.747,
+          "rep": 1
+        },
+        {
+          "history": 100000,
+          "message": 100,
+          "canopy_admission_us": 126656.11600000001,
+          "rep": 1
+        },
+        {
+          "history": 100000,
+          "message": 1,
+          "canopy_admission_us": 124370.56400000001,
+          "rep": 2
+        },
+        {
+          "history": 100000,
+          "message": 10,
+          "canopy_admission_us": 123316.979,
+          "rep": 2
+        },
+        {
+          "history": 100000,
+          "message": 100,
+          "canopy_admission_us": 128063.49300000002,
+          "rep": 2
+        },
+        {
+          "history": 100000,
+          "message": 1,
+          "canopy_admission_us": 127243.049,
+          "rep": 3
+        },
+        {
+          "history": 100000,
+          "message": 10,
+          "canopy_admission_us": 126095.68000000001,
+          "rep": 3
+        },
+        {
+          "history": 100000,
+          "message": 100,
+          "canopy_admission_us": 124358.666,
+          "rep": 3
+        }
+      ]
+    }
+  },
+  "limitations": [
+    "MoonBench exposes no allocator counter; retained allocation is not reported.",
+    "Paired Text lane always runs apply-only before apply-plus-version; use the isolated direct-version lane for mechanism attribution.",
+    "Absolute latency is native-only and not a cross-runtime performance claim.",
+    "Temporary benchmark source is intentionally not retained in the production test suite."
+  ]
+}
