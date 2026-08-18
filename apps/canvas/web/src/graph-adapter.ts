@@ -5,6 +5,8 @@ export type CanvasModule = {
     sourceBacked: boolean,
     onChange: () => undefined,
   ) => undefined;
+  mount_canvas_edge_layer: () => undefined;
+  publish_render_state: (h: number, sourceBacked: boolean) => string;
   add_node: (h: number, kindKey: string, sx: number, sy: number) => void;
   delete_nodes: (h: number, nodeIdsJson: string) => void;
   clear_selected_edge: (h: number) => void;
@@ -115,12 +117,6 @@ export type NodeData = {
   configured: boolean;
   params?: NodeParamData[];
 };
-export type EdgeData = {
-  id: string;
-  path_d: string;
-  selected: boolean;
-  aria_label: string;
-};
 export type PortCompatibility = {
   node_id: string;
   port_id: string;
@@ -131,7 +127,6 @@ export type Connecting = {
   from_port: string;
   cursor_x: number;
   cursor_y: number;
-  path_d?: string;
 };
 export type ValidationMessage = {
   severity: 'error' | 'warning';
@@ -151,13 +146,11 @@ export type InspectorNode = {
 export type RenderState = {
   viewport: ViewportData;
   nodes: NodeData[];
-  edges: EdgeData[];
   selected?: string;
   selected_nodes: string[];
   connecting?: Connecting;
   validation: ValidationMessage[];
   action_count: number;
-  selected_edge?: string;
   inspector?: InspectorNode;
 };
 
@@ -279,6 +272,15 @@ export class GraphAdapter {
       ? this.sourceModule().get_source_graph_render_state(this.handle)
       : this.mb.get_render_state(this.handle);
     const state = JSON.parse(json) as RenderState;
+    this.emitOperationsThrough(state.action_count);
+    return state;
+  }
+
+  publishRenderState(): RenderState {
+    this.assertLive();
+    const state = JSON.parse(
+      this.mb.publish_render_state(this.handle, this.isSourceBacked),
+    ) as RenderState;
     this.emitOperationsThrough(state.action_count);
     return state;
   }

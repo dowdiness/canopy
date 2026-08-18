@@ -93,7 +93,7 @@ struct EdgeJson {
   path_d : String
   selected : Bool
   aria_label : String
-} derive(Eq, ToJson)
+} derive(Eq, ToJson, FromJson)
 
 ///|
 /// Serialized in-flight connection. `from` is the source node id;

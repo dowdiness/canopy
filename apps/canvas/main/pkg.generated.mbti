@@ -48,9 +48,13 @@ pub fn get_workflow_node_catalog() -> String
 
 pub fn mount_canvas_context_menu(Int, Bool, () -> Unit, (String) -> Unit) -> Unit
 
+pub fn mount_canvas_edge_layer() -> Unit
+
 pub fn mount_canvas_pointer_session(Int, Bool, () -> Unit) -> Unit
 
 pub fn mount_source_demo(Int, Bool, () -> Unit) -> Unit
+
+pub fn publish_render_state(Int, Bool) -> String
 
 pub fn sample_graph_dsl_source() -> String
 
@@ -69,7 +73,7 @@ type CanvasFullRenderJson derive(Eq)
 
 type ConnectingJson derive(Eq, ToJson)
 
-type EdgeJson derive(Eq, ToJson)
+type EdgeJson derive(Eq, ToJson, @json.FromJson)
 
 type InspectorNodeJson derive(Eq, ToJson)
 

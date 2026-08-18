@@ -446,6 +446,9 @@ test('source-backed connection ignores non-finite preview moves', async ({ page 
   await page.mouse.move(start.x + 40, start.y + 40, { steps: 4 });
   const pending = page.locator('#edges path.edge-pending');
   await expect(pending).toHaveCount(1);
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  }));
   const before = await pending.getAttribute('d');
 
   await page.evaluate(() => {

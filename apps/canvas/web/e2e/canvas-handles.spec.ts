@@ -245,6 +245,34 @@ test('canvas wheel normalizes units and rejects no-op or active input', async ({
   expect(runtimeErrors).toEqual([]);
 });
 
+test('Rabbita edge paths preserve keyed identity and focus on selection updates', async ({ page }) => {
+  await page.goto('/');
+  await expect(edgePaths(page)).toHaveCount(3);
+  const edge = edgePaths(page).first();
+  await edge.focus();
+  await expect(edge).toBeFocused();
+  await edge.evaluate((node) => {
+    (window as typeof window & { __canvasEdgeIdentity?: SVGPathElement }).__canvasEdgeIdentity =
+      node as SVGPathElement;
+  });
+
+  await clickEdge(page, 0);
+  await expect(edge).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
+  const identity = await edge.evaluate((node) => {
+    const windowWithIdentity = window as typeof window & {
+      __canvasEdgeIdentity?: SVGPathElement;
+    };
+    return {
+      same: windowWithIdentity.__canvasEdgeIdentity === node,
+      focused: document.activeElement === node,
+      edgeId: node.getAttribute('data-edge-id'),
+    };
+  });
+  expect(identity.same).toBe(true);
+  expect(identity.focused).toBe(true);
+  expect(identity.edgeId).toBeTruthy();
+});
+
 test('canvas handles create edges and reject invalid gestures', async ({ page }) => {
   const runtimeErrors: string[] = [];
   page.on('pageerror', (error) => runtimeErrors.push(error.message));
