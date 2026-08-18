@@ -119,6 +119,9 @@ Only needed if you are modifying Canopy itself.
 
 **Performance:**
 
+- [Canopy post-admission version expansion characterization](performance/2026-08-18-canopy-post-admission-version-expansion.md)
+  — attributes the next remote-admission bottleneck to an H-bound maintained-version
+  rebuild after P3 and records the event-graph-walker prototype gate.
 - [Loomark projection placement promotion evidence](performance/2026-08-15-loomark-projection-placement.md)
   — rejects Worker and in-process promotion after release-browser comparison and
   records the presentation stop condition.
