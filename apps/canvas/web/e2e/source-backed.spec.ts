@@ -222,7 +222,44 @@ test('source-backed canvas gestures lower into canonical source', async ({ page 
   await expectSource(page, 'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)');
   await expect(page.locator('#edges path.edge')).toHaveCount(1);
   await expect(page.locator('#edges path.edge')).toHaveAttribute('d', /^M /);
-  await expect(page.locator('#edges path.edge')).toHaveAttribute('aria-label', /^Disconnect /);
+  await expect(page.locator('#edges path.edge')).toHaveAttribute('aria-label', /^Connection /);
+  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('source-backed edge keyboard activation selects without changing source', async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto('/?source=1');
+  await expectSource(page, SAMPLE_SOURCE);
+
+  await dragBetween(page, outputHandle(page, 'osc'), inputHandle(page, 'meter'));
+  await expect(page.locator('#edges path.edge-pending')).toHaveCount(1);
+  await page.mouse.up();
+  await expectSource(page, 'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)');
+  await expect(edgePaths(page)).toHaveCount(1);
+  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+
+  const edge = edgePaths(page).first();
+  await edge.focus();
+  await page.keyboard.press('Enter');
+  await expect(edge).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
+  await expect(edge).toBeFocused();
+  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  await expectSource(page, 'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)');
+
+  const defaultPrevented = await edge.evaluate((node) => {
+    const event = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      code: 'Space',
+      key: ' ',
+    });
+    node.dispatchEvent(event);
+    return event.defaultPrevented;
+  });
+  expect(defaultPrevented).toBe(true);
+  await expect(edge).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
   await expect(page.locator('#action-stat')).toHaveText('1 action logged');
   expect(runtimeErrors).toEqual([]);
 });

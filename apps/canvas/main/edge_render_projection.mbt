@@ -125,7 +125,7 @@ fn project_edge_render(
     id: edge.id.to_string(),
     path_d,
     selected: selected_edge == Some(edge.id),
-    aria_label: "Disconnect \{source_id}.\{edge.source_port} → \{target_id}.\{edge.target_port}",
+    aria_label: "Connection \{source_id}.\{edge.source_port} → \{target_id}.\{edge.target_port}",
   })
 }
 
