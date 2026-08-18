@@ -9,7 +9,7 @@ test "edge layer view renders accessible keyed paths and pending path" {
           id: "edge-1",
           path_d: "M 0 0 C 40 0, 40 10, 80 10",
           selected: true,
-          aria_label: "Disconnect source.out → target.in",
+          aria_label: "Connection source.out → target.in",
         },
       ],
       connecting_path_d: Some("M 0 0 C 40 0, 40 10, 80 10"),
@@ -24,7 +24,7 @@ test "edge layer view renders accessible keyed paths and pending path" {
   assert_true(rendered.contains("role=\"button\""))
   assert_true(rendered.contains("tabindex=\"0\""))
   assert_true(
-    rendered.contains("aria-label=\"Disconnect source.out → target.in\""),
+    rendered.contains("aria-label=\"Connection source.out → target.in\""),
   )
   assert_true(rendered.contains("class=\"edge selected\""))
   assert_true(rendered.contains("class=\"edge-pending\""))
@@ -32,7 +32,7 @@ test "edge layer view renders accessible keyed paths and pending path" {
 
 ///|
 test "edge layer update accepts the shared render snapshot shape" {
-  let json = "{\"viewport\":{\"x\":1.0,\"y\":2.0,\"scale\":3.0},\"nodes\":[],\"edges\":[{\"id\":\"edge-1\",\"path_d\":\"M 0 0\",\"selected\":false,\"aria_label\":\"Disconnect source.out → target.in\"}],\"selected_nodes\":[],\"validation\":[],\"action_count\":0,\"connecting\":{\"from\":\"source\",\"from_port\":\"out\",\"cursor_x\":1.0,\"cursor_y\":2.0,\"path_d\":[\"M 0 0\"]}}"
+  let json = "{\"viewport\":{\"x\":1.0,\"y\":2.0,\"scale\":3.0},\"nodes\":[],\"edges\":[{\"id\":\"edge-1\",\"path_d\":\"M 0 0\",\"selected\":false,\"aria_label\":\"Connection source.out → target.in\"}],\"selected_nodes\":[],\"validation\":[],\"action_count\":0,\"connecting\":{\"from\":\"source\",\"from_port\":\"out\",\"cursor_x\":1.0,\"cursor_y\":2.0,\"path_d\":[\"M 0 0\"]}}"
   let parsed_snapshot = parse_canvas_edge_layer_snapshot(json)
   assert_true(parsed_snapshot is Some(_))
   let next = canvas_edge_layer_update(

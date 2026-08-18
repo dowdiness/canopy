@@ -273,6 +273,84 @@ test('Rabbita edge paths preserve keyed identity and focus on selection updates'
   expect(identity.edgeId).toBeTruthy();
 });
 
+test('edge keyboard activation selects without actions or Space scrolling', async ({ page }) => {
+  await page.goto('/');
+  await expect(edgePaths(page)).toHaveCount(3);
+  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+
+  const backgroundDefaultPrevented = await page.locator('#canvas-root').evaluate((node) => {
+    const event = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      key: 'Enter',
+    });
+    node.dispatchEvent(event);
+    return event.defaultPrevented;
+  });
+  expect(backgroundDefaultPrevented).toBe(false);
+
+  const first = edgePaths(page).first();
+  await first.focus();
+  const unrelatedDefaultPrevented = await first.evaluate((node) => {
+    const event = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      key: 'ArrowRight',
+    });
+    node.dispatchEvent(event);
+    return event.defaultPrevented;
+  });
+  expect(unrelatedDefaultPrevented).toBe(false);
+  await first.evaluate((node) => {
+    (window as typeof window & { __canvasKeyboardEdgeIdentity?: SVGPathElement }).__canvasKeyboardEdgeIdentity =
+      node as SVGPathElement;
+  });
+  await page.keyboard.press('Enter');
+  await expect(first).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
+  await expect(first).toBeFocused();
+  expect(await first.evaluate((node) => {
+    const windowWithIdentity = window as typeof window & {
+      __canvasKeyboardEdgeIdentity?: SVGPathElement;
+    };
+    return windowWithIdentity.__canvasKeyboardEdgeIdentity === node;
+  })).toBe(true);
+  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+
+  const second = edgePaths(page).nth(1);
+  await second.focus();
+  const defaultPrevented = await second.evaluate((node) => {
+    const event = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      code: 'Space',
+      key: ' ',
+    });
+    node.dispatchEvent(event);
+    return event.defaultPrevented;
+  });
+  expect(defaultPrevented).toBe(true);
+  await expect(second).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
+  await expect(second).toBeFocused();
+  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+
+  const third = edgePaths(page).nth(2);
+  await third.focus();
+  const legacySpaceDefaultPrevented = await third.evaluate((node) => {
+    const event = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      code: 'Space',
+      key: 'Spacebar',
+    });
+    node.dispatchEvent(event);
+    return event.defaultPrevented;
+  });
+  expect(legacySpaceDefaultPrevented).toBe(true);
+  await expect(third).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
+  await expect(third).toBeFocused();
+  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+});
+
 test('canvas handles create edges and reject invalid gestures', async ({ page }) => {
   const runtimeErrors: string[] = [];
   page.on('pageerror', (error) => runtimeErrors.push(error.message));
@@ -296,7 +374,7 @@ test('canvas handles create edges and reject invalid gestures', async ({ page })
   await expect(edgePaths(page).first()).toHaveAttribute('role', 'button');
   await expect(edgePaths(page).first()).toHaveAttribute('tabindex', '0');
   await expect(edgePaths(page).first()).toHaveAttribute('data-edge-id');
-  await expect(edgePaths(page).first()).toHaveAttribute('aria-label', /^Disconnect /);
+  await expect(edgePaths(page).first()).toHaveAttribute('aria-label', /^Connection /);
   expect(runtimeErrors).toEqual([]);
 
   const source = outputHandle(page, 1);

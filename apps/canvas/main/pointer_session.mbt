@@ -608,6 +608,22 @@ fn canvas_pointer_message(
       }
     "click" =>
       Some(Click(canvas_pointer_hit_from_element(event.target().to_element())))
+    "keydown" =>
+      match event.to_keyboard_event() {
+        None => None
+        Some(keyboard) =>
+          match keyboard.key() {
+            "Enter" | " " | "Spacebar" =>
+              match canvas_pointer_hit_from_element(keyboard.target().to_element()) {
+                Edge(edge_id) => {
+                  keyboard.prevent_default()
+                  Some(Click(Edge(edge_id)))
+                }
+                _ => None
+              }
+            _ => None
+          }
+      }
     _ =>
       match event.to_pointer_event() {
         None => None
@@ -689,6 +705,7 @@ fn canvas_pointer_subscriptions(
 ) -> @sub.Sub {
   @sub.batch([
     canvas_pointer_subscription("click", emit),
+    canvas_pointer_subscription("keydown", emit),
     canvas_pointer_subscription("pointerdown", emit),
     canvas_pointer_subscription("pointermove", emit),
     canvas_pointer_subscription("pointerup", emit),

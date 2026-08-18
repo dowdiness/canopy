@@ -94,7 +94,7 @@ test "edge projection derives anchors and exact horizontal cubic paths" {
     project_edge_render(node_index, edge, None),
   )
   assert_eq(projected.path_d, "M 110 60 C 205 60, 205 80, 300 80")
-  assert_eq(projected.aria_label, "Disconnect source.out → target.in")
+  assert_eq(projected.aria_label, "Connection source.out → target.in")
   assert_true(!projected.selected)
 
   let nearby_target = { ..target, x: 130.0 }
