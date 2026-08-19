@@ -18,10 +18,11 @@ Loomark archive reopen is dominated by history decode and causal admission, but 
 
 In:
 - `deps/event-graph-walker/internal/document/` and `deps/event-graph-walker/internal/oplog/` for package-local authority and admission probes;
-- `deps/event-graph-walker/internal/branch/` for the concrete test-only position-based Candidate C boundary;
+- `deps/event-graph-walker/internal/branch/` for the concrete test-only position-based Candidate C boundary and an EGW-local `is-main` probe harness;
 - `modules/canopy/editor/markdown/` for the black-box Markdown restore/oracle seam;
 - `apps/loomark/archive/` and the standalone restore harness for archive/open behavior;
 - `scripts/test-loomark-editable-branch-restore-feasibility.nu` as the canonical Nushell gate runner;
+- `scripts/README.md` and `.github/workflows/ci.yml` for the fixed runner contract and Nushell validation routing;
 - fixed gate artifacts: `manifest.json`, `result.json`, `capability-ledger.json`, `candidate-captures.json`, `candidate-results.json`, `operation-matrix.jsonl`, `oracle-differential.jsonl`, `cold-history.jsonl`, `negative-results.json`, and `validation.log`.
 
 Out:
@@ -45,17 +46,19 @@ A test-only gate compares a full-history Markdown/EGW restore oracle with serial
 ## Steps
 
 1. Add the EGW package-local capability, ClosedTail, pending, partial-admission, and canonical-history read probes without exposing production symbols.
-2. Add the concrete Candidate A/B/C capture and bytes-only restore fixtures; do not extend the v1 archive envelope.
-3. Add the Markdown black-box oracle and first-edit/recovery parity cases.
-4. Run the complete operation matrix, differential comparison, cold-read accounting, and measurement suite.
-5. Write the capability ledger, candidate comparison, negative-result ledger, raw traces, API-boundary decision, and validation evidence.
-6. Review generated interfaces and validate the EGW submodule independently before any parent pointer change.
+2. Add the EGW-local `is-main` producer and bytes-only JSONL handoff; add the Markdown/browser consumer that reads only the handoff bytes.
+3. Add the concrete Candidate A/B/C capture and bytes-only restore fixtures; do not extend the v1 archive envelope.
+4. Add the Markdown black-box oracle and first-edit/recovery parity cases.
+5. Re-check #1281's accepted effect/receipt boundary. If it has not landed, record `shared_effect_boundary: absent` and proceed without inventing a Markdown-side substitute.
+6. Run the complete operation matrix, differential comparison, cold-read accounting, and measurement suite.
+7. Write the capability ledger, candidate comparison, negative-result ledger, raw traces, API-boundary decision, and validation evidence.
+8. Review generated interfaces and validate the EGW submodule independently before any parent pointer change.
 
 ## Acceptance Criteria
 
 - [ ] Candidate state crosses a bytes-only Worker/process boundary; no source object or mutable authority alias is retained.
-- [ ] Full-history restore remains the oracle and candidate behavior matches for text, frontier, next identity, target visibility, pending/duplicate/conflict outcomes, and recovery classification.
-- [ ] EGW white-box tests cover partial admission, pending membership, missing parent/origin/target, ClosedTail classification, and cold-history provider reads.
+- [ ] Full-history restore remains the oracle and candidate behavior matches for text, frontier, fresh-writer distinctness, normalized next-operation behavior, target visibility, pending/duplicate/conflict outcomes, and recovery classification.
+- [ ] EGW white-box tests cover partial admission, pending membership, missing parent/origin/target, implicit same-agent predecessor closure, ClosedTail classification, and cold-history provider reads.
 - [ ] Markdown black-box tests cover text readiness, editability, recovery, first local edit, and public error behavior without depending on EGW internals.
 - [ ] Strict-forward and closed-tail cases record zero cold-history provider reads; in-memory scans are measured separately.
 - [ ] Candidate C is either concretely restored without a full graph walk or recorded as a bounded negative result.
@@ -67,8 +70,9 @@ A test-only gate compares a full-history Markdown/EGW restore oracle with serial
 ## Validation
 
 ```bash
+nu --ide-check scripts/test-loomark-editable-branch-restore-feasibility.nu
 nu scripts/test-loomark-editable-branch-restore-feasibility.nu --output-dir artifacts/loomark-editable-branch-restore-feasibility
-cd deps/event-graph-walker && NEW_MOON_MOD=0 moon check && NEW_MOON_MOD=0 moon test
+cd deps/event-graph-walker && just ci
 cd ../.. && NEW_MOON_MOD=0 moon check modules/canopy/editor/markdown
 NEW_MOON_MOD=0 moon test -p dowdiness/canopy/editor/markdown
 NEW_MOON_MOD=0 moon fmt
@@ -122,34 +126,34 @@ Candidate C has one explicit capture/restore artifact shape. The capture is an o
 CandidateCArtifact {
   schema_version
   base {
-    exact_frontier
-    portable_text
-    position_to_identity_index
-    identity_payload_visibility_table
-    writer_identity_and_next_sequence
+    exact_frontier  // canonical RawVersion set, never destination-local LV
+    portable_text  // UTF-8 source; mappings below carry explicit UTF-16 units
+    position_to_identity_index  // ordered UTF-16 spans -> canonical RawVersion
+    identity_payload_visibility_table  // identity, payload, tombstone/winner state
+    historical_writer_sequence_floors  // provenance only; never active writer state
     committed_membership_and_duplicate_evidence
   }
   closed_tail {
-    operation_identity
-    parents
+    operation_identity  // canonical RawVersion identity
+    declared_parents
+    canonical_position_or_delete_target  // UTF-16 insertion offset or RawVersion target
     payload
-    insert_origin_or_delete_target
     operation_kind
   }[]
   integrity { base_digest, tail_digest }
 }
 ```
 
-Restore decodes and validates the artifact, materializes an editable position-based branch, applies `closed_tail` in causal order, and verifies text, frontier, next identity, target visibility, and duplicate/conflict behavior against the oracle. The artifact must not contain a raw `FugueTree`, `IndexedState`, full `OpLog`, `Ref`, or `CausalSnapshot`. A missing field or unresolved lookup produces a recorded Candidate C negative result; invoking a full graph walk is a Candidate C failure, not a successful restore.
+Restore decodes and validates the artifact, allocates a fresh writing-instance identity, materializes an editable position-based branch, applies `closed_tail` in causal order, and verifies text, frontier, fresh-writer distinctness, normalized next-operation behavior, target visibility, and duplicate/conflict behavior against the oracle. `exact_frontier` and every operation identity use canonical RawVersion identities; position mappings use explicitly tagged UTF-16 source offsets, never destination-local LV or item-space integers. For every tail operation, closure also derives the implicit same-agent predecessor `(agent, sequence - 1)` when applicable and verifies its ancestry. The artifact must not contain a raw `FugueTree`, `IndexedState`, full `OpLog`, `Ref`, or `CausalSnapshot`. A missing field or unresolved lookup produces a recorded Candidate C negative result; invoking a full graph walk is a Candidate C failure, not a successful restore.
 
 The gate uses the following operation matrix as one artifact rather than scattering the cases across user stories:
 
 | Trace | Minimum behavior to compare | Expected fast-path classification |
 |---|---|---|
-| Local insert/delete/undelete | next identity, position/target semantics, text, frontier | strict-forward |
+| Local insert/delete/undelete | fresh writer allocation, normalized next-operation identity/parents, position/target semantics, text, frontier | strict-forward |
 | Duplicate/conflicting identity | membership, payload validation, classification | strict-forward or explicit rejection |
 | Partial admission prefix | committed prefix, pending remainder, authority/frontier transition | explicit partial result |
-| Parent-before-child and pending drain | pending membership, wake/drain result, frontier | closed tail |
+| Parent-before-child and pending drain | pending membership, wake/drain result, implicit predecessor closure, frontier | closed tail |
 | Tail-contained parallel branch | parents, origins, targets, payloads all resolvable | closed concurrent |
 | Missing parent/origin/target | exact missing dependency and fallback reason | non-closed fallback |
 | Concurrent work whose ancestor precedes the base | merge result and cold-history boundary | non-closed fallback |
@@ -206,16 +210,17 @@ The gate succeeds only when a candidate can be restored without hot-loading full
 - This is a test-only feasibility slice. It does not implement `Verified BaseBranch`, `ClosedTail`, checkpointing, materialized-state persistence, history compaction, or a new production restore path.
 - The Markdown/Loomark seam is the black-box product oracle. It verifies archive/open behavior, text readiness, editability, recovery classification, first edit behavior, and public façade parity.
 - The EGW seam is package-local and white-box. It verifies authority hydration, identity membership, pending registration/drain, origin/target lookup, partial admission, ClosedTail validation, and candidate-specific history access. It must not be shared through a production public API.
-- The two seam results are joined by serialized evidence, not by importing EGW internal types into Canopy or by exposing a storage handle through Markdown.
+- The two seam results are joined by serialized evidence, not by importing EGW internal types into Canopy or by exposing a storage handle through Markdown. The EGW-local `is-main` producer emits one versioned JSONL envelope per case to stdout; Nushell captures it into `candidate-captures.json`/`cold-history.jsonl`. The Markdown/browser consumer reads only those bytes and emits its own versioned JSONL observations; Nushell joins records by `run_id` and `case_id`.
+- The JSONL handoff envelope is `{ schema_version, run_id, case_id, producer, status, payload }`; producer values are `egw_authority`, `markdown_oracle`, or `runner`. Package-local tests never import this DTO; only the is-main producer and Nushell process exchange it.
 - Candidate state must cross a bytes-only serialization boundary. The final acceptance suite must run a producer and consumer as separate processes, or use a Worker with a bytes-only `postMessage` boundary and no object transfer. The consumer receives no source object, mutable collection, `Ref`, `CausalSnapshot`, operation log, or materializer alias. An in-process decode may supplement this test but cannot replace it.
 - Candidate serialization is a test fixture/sidecar. The current v1 portable archive remains the full-history oracle and is not extended with unknown candidate fields.
-- The authority-capability ledger uses ordered levels from exact frontier, through committed identity membership, payload/target lookup, writer identity and next-sequence continuity, duplicate evidence, causal ancestry/pending lookup, to the complete resident operation log. The projection ledger uses plain text, text plus position/identity index, disposable legacy materializer, and canonical editable branch.
+- The authority-capability ledger uses ordered levels from exact frontier, through committed identity membership, payload/target lookup, writer allocation policy, historical sequence provenance, duplicate evidence, causal ancestry/pending lookup, to the complete resident operation log. The projection ledger uses plain text, text plus position/identity index, disposable legacy materializer, and canonical editable branch.
 - The ledger must map every row of the operation matrix to its minimum authority level and projection level. Duplicate membership and writer sequence are explicit ledger entries, not assumptions hidden inside a generic summary.
 - Candidate A evaluates a minimal authority summary with the smallest projection that can satisfy the operation matrix. Candidate B adds a versioned, disposable legacy Fugue/IndexedState cache only as a compatibility candidate. Candidate C is the concrete retained position-based branch described in the Solution; the existing text-event prototype is supporting evidence only.
 - A candidate is not accepted because its visible text matches. Acceptance requires behavioral equivalence for text, frontier, emitted operation identity and payload, writer sequencing behavior, duplicate/conflict outcomes, pending membership, target visibility, and recovery classification.
 - Internal representation equality is not required. The observable contract is the next operation and admission behavior, not equality of FugueTree layout or cache allocation.
-- Writer sequence is compared observationally: the candidate must generate the same next identity and causal operation behavior as the full-history oracle. An implementation counter need not have the same internal representation if its externally emitted identity is equivalent.
-- `ClosedTail` is initially a test invariant and validator, not a production type. For every tail operation, every required parent, origin, target, identity, and payload must be resolved from the retained base authority or the tail itself.
+- Writer allocation is restore-time behavior, not captured active state. Every restored instance receives a fresh writer identity; two fresh restores must never emit colliding identities. After normalizing the fresh writer identity, the candidate must match the full-history oracle's next-operation sequence, parents, kind, payload, and causal behavior. Historical sequence floors in Candidate C are provenance/evidence only and are never reused as the active writer.
+- `ClosedTail` is initially a test invariant and validator, not a production type. For every tail operation, every required declared parent, implicit same-agent predecessor `(agent, sequence - 1)` when applicable, origin/position, delete/undelete target, identity, and payload must be resolved from the retained base authority or the tail itself. The implicit predecessor's ancestry must also be closed; declared parents alone are insufficient.
 - The gate classifies three paths: strict-forward direct application; a closed but concurrent tail that can be boundedly materialized; and a non-closed case that must use cold-history fallback.
 - A tail is not considered closed merely because it contains a parent chain. Origin metadata, delete/undelete targets, duplicate identity evidence, payload validation, and pending dependencies are part of closure.
 - A cold-history fallback must be explicit. It must report the reason for fallback, the boundary or ancestry it required, events read, bytes read, and whether the candidate was discarded or repaired.
@@ -239,7 +244,7 @@ The gate succeeds only when a candidate can be restored without hot-loading full
 - The core correctness suite covers initial materialization, local insert at start/middle/end, sequential insert, visible delete, stale delete, undelete, non-BMP scalar handling, duplicate delivery, same-identity payload conflict, causally-forward admission traces, missing parent, pending drain, and partial admission at the EGW seam.
 - The core correctness suite also covers tail-contained parallel branches, concurrent work whose common ancestor is before the retained base, unresolved origins, unresolved targets, and a tail with a missing parent. These cases must classify strict-forward, closed-concurrent, or non-closed fallback rather than merely assert a final string.
 - The persistence round-trip suite serializes candidate state, destroys the source instance, restores it through the bytes-only Worker/process-equivalent boundary, and verifies no live alias to the original operation log, `Ref`, causal snapshot, or materializer is required.
-- The oracle comparison records visible text, exact frontier, generated operation identity and payload, writer identity/sequence behavior, committed identity membership, pending membership at the EGW seam, target visibility, duplicate/conflict classification, and fallback classification. Facade-level comparisons use only stable Markdown values or an explicitly documented opaque history decode adapter.
+- The oracle comparison records visible text, exact frontier, fresh-writer allocation and normalized next-operation behavior, target visibility, and recovery classification at the Markdown seam. Canonical operation identity/payload, committed membership, pending membership, duplicate/conflict classification, origin/target resolution, and partial outcomes belong exclusively to the EGW white-box seam; they are not decoded through the Markdown facade.
 - A cold-history probe records provider read count, operation count, byte count, requested ancestry/boundary, and fallback reason. Strict-forward and closed-tail fast-path cases require zero provider reads; any in-memory scan of the retained candidate is recorded separately and does not qualify as a provider read.
 - Failure tests cover checksum mismatch, generation mismatch, unsupported candidate version, incomplete base, incomplete tail, unresolved dependency, semantic mismatch with a seemingly valid checksum, and candidate hydration failure. Each failure must reject or discard the accelerator without changing canonical authority.
 - The first-edit suite measures and compares local insert, local delete, and local undelete immediately after restore. A candidate that restores quickly but performs a hidden full replay on the first edit fails the fast-path contract.
@@ -248,10 +253,13 @@ The gate succeeds only when a candidate can be restored without hot-loading full
 - One canonical Nushell runner, `nu scripts/test-loomark-editable-branch-restore-feasibility.nu --output-dir <dir>`, owns the gate exit status and must write exactly the fixed artifact set: `manifest.json`, `result.json`, `capability-ledger.json`, `candidate-captures.json`, `candidate-results.json`, `operation-matrix.jsonl`, `oracle-differential.jsonl`, `cold-history.jsonl`, `negative-results.json`, and `validation.log`. `result.json` contains `schema_version: 1`, `status` (`pass` or `fail`), `failure_class` (null or one of the fixed classes below), candidate outcomes, and artifact paths.
 - Fixed failure classes are `preflight_invalid`, `toolchain_failure`, `submodule_failure`, `harness_failure`, `oracle_mismatch`, `causal_semantics_mismatch`, `unexpected_cold_read`, `evidence_missing`, `interface_drift`, `measurement_failure`, and `runner_failure`. A Candidate A/B/C inability to satisfy the contract is not a runner failure: it is `candidate_outcome: negative` in `candidate-results.json`, with the missing capability and evidence in `negative-results.json`, and the overall gate may still pass.
 - The runner returns exit code `0` only when all required suites and artifacts complete, even if one or more candidates are negative. It returns `10` for preflight, `20` for toolchain, `21` for submodule, `30` for harness, `31` for oracle mismatch, `32` for causal semantics mismatch, `33` for unexpected cold read, `34` for missing evidence, `35` for interface drift, `40` for measurement, and `50` for runner-internal failure.
+- Runner preflight requires a clean worktree and records the baseline hashes of affected `.mbti` files. `interface_drift` is raised only for new drift produced by the gate; unrelated pre-existing generated-interface changes are a separate `preflight_invalid` result.
+- CI syntax-checks the Nushell runner with `nu --ide-check` and runs its fixture tests; the gate runner is included in the same tooling path filter as the affected Markdown/EGW packages.
+- The fixed runner exit-code contract is documented in the Nushell runner header and the scripts tooling documentation so that the numeric codes are not an unregistered local convention.
 - Tests retain the full-history oracle and candidate traces as raw evidence so that a failed candidate can be analyzed without rerunning the entire browser harness.
-- Prior art includes the existing Markdown archive/open contract, `open_with_semantic_attachment`, explicit archive restore limits, existing archive/repository lifecycle tests, EGW admission contract tests, the Causal Cut prototype, the fresh-writer authority prototype, the editable text-session materializer prototype, and the paper-aligned text-event adapter prototype.
+- Prior art includes the existing Markdown archive/open contract, `open_with_semantic_attachment`, explicit archive restore limits, existing archive/repository lifecycle tests, EGW admission contract tests, the Causal Cut prototype, the fresh-writer authority prototype, and the editable text-session materializer prototype. The paper-aligned text-event adapter is Gate A branch evidence, not a required source file in every clean checkout.
 - No test requires a public test-only API. EGW instrumentation remains package-local `*_wbtest` evidence; Markdown integration remains black-box. If a cross-package helper is unavoidable, it must be explicitly classified as a test-helper package and its generated-interface change reviewed; it may not appear accidentally in a production façade.
-- The gate is complete only when a candidate result, capability ledger, operation matrix result, negative-result ledger, raw traces, validation output, and `moon fmt && moon info`/`.mbti` review are recorded. A passing subset of local text tests is not sufficient.
+- The acceptance checklist is satisfied only when `result.json.status == "pass"`, every candidate has `pass`, `negative`, or explicit `not_applicable` outcome evidence, and the submodule/interface/review criteria are recorded in `manifest.json` and `validation.log`. A passing subset of local text tests is not sufficient.
 
 ## Out of Scope
 
@@ -278,7 +286,8 @@ The gate succeeds only when a candidate can be restored without hot-loading full
 - The accepted Causal Authority residency architecture already supports the direction of cold text/frontier presentation with durable history and explicit fallback. This gate supplies the missing proof for the current production EGW implementation; it does not replace that architecture.
 - The accepted architecture requires local event generation to remain disabled until a text/frontier candidate has been validated against authority. The gate must preserve that rule in its failure cases.
 - The completed local archive repository owns a complete local archive and explicit recovery classification today. This gate must not silently change that durable contract while testing a future active-store separation.
-- The existing EGW Gate A reference-model issue and the P3 characterization remain related evidence, not substitutes for this gate. This gate tests whether current production behavior can hydrate an editable branch without full history hot loading.
+- The existing EGW Gate A reference-model issue and the P3 characterization remain related evidence, not substitutes for this gate. This gate tests whether current production behavior can hydrate an editable branch without full history hot loading. The paper-aligned text-event adapter is referenced as Gate A branch evidence, not assumed to exist in every clean checkout.
+- Before publishing the API-boundary decision, re-check #1281. If its authority-owned effect/receipt boundary has landed and passed review, record the exact consumed contract; otherwise record that the shared boundary is absent and keep the R0 result independent.
 - The expected outcomes are intentionally asymmetric: A is the preferred result; B is an acceptable temporary migration bridge only if it is bounded, discardable, versioned, and reconstructible; C is the migration direction if legacy materialization cannot be reduced to a bounded disposable cache. C is not considered evaluated until a concrete retained branch can be serialized and restored without `Branch::checkout`-style full walking.
 - This is also an API-boundary investigation. If the gate shows that a stable product workflow needs a capability beyond the current Markdown façade, the result must describe the smallest opaque additive API and keep EGW authority types private. If the capability is needed only to observe tests, no public API change is justified.
 - Any EGW white-box change follows submodule ownership rules: commit and validate it in the EGW repository, push it through its own review, and update the Canopy pointer only after the referenced commit is reachable. The gate evidence must identify both repository revisions.
