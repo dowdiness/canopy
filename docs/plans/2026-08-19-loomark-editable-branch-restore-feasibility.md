@@ -17,7 +17,7 @@ In:
 - `deps/event-graph-walker/internal/branch/` for the concrete test-only position-based Candidate C boundary;
 - `modules/canopy/editor/markdown/` for the black-box Markdown restore/oracle seam;
 - `apps/loomark/archive/` and the standalone restore harness for archive/open behavior;
-- `scripts/test-loomark-editable-branch-restore-feasibility.sh` as the canonical gate runner;
+- `scripts/test-loomark-editable-branch-restore-feasibility.nu` as the canonical Nushell gate runner;
 - raw capability, oracle, negative-result, cold-read, and differential evidence.
 
 Out:
@@ -63,7 +63,7 @@ A test-only gate compares a full-history Markdown/EGW restore oracle with serial
 ## Validation
 
 ```bash
-./scripts/test-loomark-editable-branch-restore-feasibility.sh
+nu scripts/test-loomark-editable-branch-restore-feasibility.nu
 cd deps/event-graph-walker && NEW_MOON_MOD=0 moon check && NEW_MOON_MOD=0 moon test
 cd ../.. && NEW_MOON_MOD=0 moon check modules/canopy/editor/markdown
 NEW_MOON_MOD=0 moon test -p dowdiness/canopy/editor/markdown
@@ -215,7 +215,7 @@ The gate succeeds only when a candidate can be restored without hot-loading full
 - The first-edit suite measures and compares local insert, local delete, and local undelete immediately after restore. A candidate that restores quickly but performs a hidden full replay on the first edit fails the fast-path contract.
 - The causal trace suite runs one, ten, and one hundred locally simulated causally-forward operations, duplicate delivery, pending dependency arrival, and a concurrent fallback. It records latency and cold-history reads but does not implement or claim a remote transport or production collaboration feature.
 - The measurement suite records serialized candidate bytes, restore time, first-edit latency, tail replay time, causal trace latency, peak memory where available, cold-history events, and cold-history bytes. It reports p50/p95/max where sample counts support those summaries.
-- One canonical runner, `./scripts/test-loomark-editable-branch-restore-feasibility.sh`, owns the gate exit status. It runs the EGW white-box suite, the Markdown black-box suite, the bytes-only restore check, the oracle differential, the capability/negative-result evidence writer, and the generated-interface drift check. A passing command requires all required evidence artifacts and zero unexplained cold reads on strict-forward/closed-tail cases.
+- One canonical Nushell runner, `nu scripts/test-loomark-editable-branch-restore-feasibility.nu`, owns the gate exit status. It runs the EGW white-box suite, the Markdown black-box suite, the bytes-only restore check, the oracle differential, the capability/negative-result evidence writer, and the generated-interface drift check. A passing command requires all required evidence artifacts and zero unexplained cold reads on strict-forward/closed-tail cases.
 - Tests retain the full-history oracle and candidate traces as raw evidence so that a failed candidate can be analyzed without rerunning the entire browser harness.
 - Prior art includes the existing Markdown archive/open contract, `open_with_semantic_attachment`, explicit archive restore limits, existing archive/repository lifecycle tests, EGW admission contract tests, the Causal Cut prototype, the fresh-writer authority prototype, the editable text-session materializer prototype, and the paper-aligned text-event adapter prototype.
 - No test requires a public test-only API. EGW instrumentation remains package-local `*_wbtest` evidence; Markdown integration remains black-box. If a cross-package helper is unavoidable, it must be explicitly classified as a test-helper package and its generated-interface change reviewed; it may not appear accidentally in a production façade.
