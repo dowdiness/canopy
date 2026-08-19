@@ -5,6 +5,7 @@ import {
   "moonbitlang/core/ref",
   "dowdiness/canopy-canvas-graph/graph_model",
   "dowdiness/canopy-canvas-graph/spatial",
+  "dowdiness/canvas-layout/skyline" @layout,
   "dowdiness/incr",
   "dowdiness/graph-dsl" @graph_dsl,
   "dowdiness/loom/core",

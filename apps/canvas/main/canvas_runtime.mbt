@@ -644,6 +644,45 @@ fn CanvasRuntime::add_node(
 }
 
 ///|
+const ARRANGE_GAP : Double = 16.0
+
+///|
+/// Compact the current multi-selection with the canvas-layout Skyline policy.
+/// The generic packer is not imported here; only the adapter is.
+fn CanvasRuntime::arrange_selection(self : CanvasRuntime) -> Unit raise Failure {
+  let state = self.state_peek()
+  let nodes = state.interaction.selected_nodes.filter_map(id => {
+    @graph_model.find_node(state.nodes, id)
+  })
+  if nodes.length() < 2 {
+    return
+  }
+  try {
+    let region_width = @layout.compact_region_width(nodes, gap=ARRANGE_GAP)
+    let plan = @layout.arrange_with_skyline(
+      nodes,
+      region_width~,
+      gap=ARRANGE_GAP,
+    )
+    if plan.positions.length() == 0 {
+      return
+    }
+    self.sync_commit_state(
+      @graph_model.record_action(state, plan.to_move_nodes()),
+    )
+  } catch {
+    @layout.NonFiniteGeometry | @layout.CoordinateOverflow => ()
+    @layout.InvalidRegionWidth(_)
+    | @layout.InvalidGap(_)
+    | @layout.ItemTooWide(..)
+    | @layout.NoPlacement(..) =>
+      fail(
+        "arrange_selection: compact skyline policy could not pack the selection",
+      )
+  }
+}
+
+///|
 fn CanvasRuntime::delete_nodes(
   self : CanvasRuntime,
   nodes : Array[NodeId],
