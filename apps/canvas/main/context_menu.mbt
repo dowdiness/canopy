@@ -234,7 +234,7 @@ fn canvas_context_apply(
   model : CanvasContextMenuModel,
   target : CanvasContextTarget,
   action : CanvasContextAction,
-) -> Unit {
+) -> Unit raise Failure {
   match (target, action) {
     (Background(insert_at~), AddNode(kind)) =>
       if model.source_backed {
@@ -246,9 +246,7 @@ fn canvas_context_apply(
       }
     (Background(_), Arrange) =>
       if !model.source_backed {
-        _registry[model.handle].arrange_selection() catch {
-          Failure::Failure(detail) => abort(detail)
-        }
+        _registry[model.handle].arrange_selection()
       }
     (Edge(edge_id), Disconnect) =>
       if model.source_backed {
@@ -281,7 +279,10 @@ fn context_menu_action_cmd(
   match model.target {
     None => @rabbita.none
     Some(target) =>
-      @rabbita.effect(fn() { canvas_context_apply(model, target, item.action) })
+      @rabbita.attempt(
+        _ => @rabbita.none,
+        () => canvas_context_apply(model, target, item.action),
+      )
   }
 }
 
