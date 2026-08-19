@@ -48,4 +48,3 @@ pub fn Size::Size(width~ : Int, height~ : Int) -> Self raise PackError
 // Type aliases
 
 // Traits
-

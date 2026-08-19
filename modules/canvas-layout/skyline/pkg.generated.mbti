@@ -31,4 +31,3 @@ pub fn LayoutPlan::to_move_nodes(Self) -> @graph_model.WorkflowAction
 // Type aliases
 
 // Traits
-
