@@ -58,9 +58,10 @@ A test-only gate compares a full-history Markdown/EGW restore oracle with serial
 
 - [ ] Candidate state crosses a bytes-only Worker/process boundary; no source object or mutable authority alias is retained.
 - [ ] Full-history restore remains the oracle and candidate behavior matches for text, frontier, fresh-writer distinctness, normalized next-operation behavior, target visibility, pending/duplicate/conflict outcomes, and recovery classification.
-- [ ] EGW white-box tests cover partial admission, pending membership, missing parent/origin/target, implicit same-agent predecessor closure, ClosedTail classification, and cold-history provider reads.
+- [ ] EGW white-box tests cover partial admission, pending membership, missing parent/origin/target, implicit same-agent predecessor closure, ClosedTail validation, and cold-history provider reads.
+- [ ] Candidate C tests treat its position-to-identity index as UTF-16 source spans mapped to canonical identities; non-BMP cases verify conversion only at the Markdown façade seam and never reuse destination-local LV or item-space integers.
 - [ ] Markdown black-box tests cover text readiness, editability, recovery, first local edit, and public error behavior without depending on EGW internals.
-- [ ] Strict-forward and closed-tail cases record zero cold-history provider reads; in-memory scans are measured separately.
+- [ ] Strict-forward and closed-concurrent cases record zero cold-history provider reads; in-memory scans are measured separately.
 - [ ] Candidate C is either concretely restored without a full graph walk or recorded as a bounded negative result.
 - [ ] The capability ledger maps every operation-matrix row to its minimum authority and projection level.
 - [ ] A later Markdown API recommendation, if any, is opaque and additive; no raw EGW state becomes public.
@@ -153,8 +154,10 @@ The gate uses the following operation matrix as one artifact rather than scatter
 | Local insert/delete/undelete | fresh writer allocation, normalized next-operation identity/parents, position/target semantics, text, frontier | strict-forward |
 | Duplicate/conflicting identity | membership, payload validation, classification | strict-forward or explicit rejection |
 | Partial admission prefix | committed prefix, pending remainder, authority/frontier transition | explicit partial result |
-| Parent-before-child and pending drain | pending membership, wake/drain result, implicit predecessor closure, frontier | closed tail |
-| Tail-contained parallel branch | parents, origins, targets, payloads all resolvable | closed concurrent |
+| Source-equal causal advance | advanced frontier/version, zero visible-text effect, unchanged cursor/parser/projection state | strict-forward |
+| Zero-commit recovered admission | recovered classification, no visible-text effect, coherent snapshot requirement | explicit recovery result |
+| Parent-before-child and pending drain | pending membership, wake/drain result, implicit predecessor closure, frontier | closed-concurrent |
+| Tail-contained parallel branch | parents, origins, targets, payloads all resolvable | closed-concurrent |
 | Missing parent/origin/target | exact missing dependency and fallback reason | non-closed fallback |
 | Concurrent work whose ancestor precedes the base | merge result and cold-history boundary | non-closed fallback |
 
@@ -240,12 +243,14 @@ The gate succeeds only when a candidate can be restored without hot-loading full
 - Tests verify externally observable behavior and capability boundaries, not private field layout. A candidate that happens to serialize the same internal array is not considered more correct than one with a different representation if behavior is equivalent.
 - The full-history restore path is the reference-model oracle. Every candidate is compared after a fresh restoration and after the same deterministic operation trace.
 - The EGW white-box probe observes cold-history access at the canonical-history provider seam. The Markdown black-box suite observes only product-level archive/open and recovery behavior. Counting only high-level decode calls is insufficient for the EGW candidate, while the v1 whole-blob path is reported honestly as a coarse load rather than a partial read.
-- Partial admission, pending identity membership, exact missing dependency, origin/target resolution, and ClosedTail classification are asserted in EGW package-local tests. The Markdown suite asserts the corresponding public text/frontier/editability/error behavior; it must not pretend that the façade exposes internal pending identities.
-- The core correctness suite covers initial materialization, local insert at start/middle/end, sequential insert, visible delete, stale delete, undelete, non-BMP scalar handling, duplicate delivery, same-identity payload conflict, causally-forward admission traces, missing parent, pending drain, and partial admission at the EGW seam.
+- Before any zero-read assertion is accepted, a known-positive control performs one canonical-history provider read and proves that provider read count, operation count, and byte count all record it.
+- Partial admission, pending identity membership, exact missing dependency, origin/target resolution, and ClosedTail validation are asserted in EGW package-local tests. The Markdown suite asserts the corresponding public text/frontier/editability/error behavior; it must not pretend that the façade exposes internal pending identities.
+- The core correctness suite covers initial materialization, local insert at start/middle/end, sequential insert, visible delete, stale delete, undelete, non-BMP scalar handling, duplicate delivery, same-identity payload conflict, causally-forward admission traces, source-equal causal advance, zero-commit recovered admission, missing parent, pending drain, and partial admission at the EGW seam.
+- Source-equal cases assert an advanced frontier/version with no visible-text effect and unchanged cursor/parser/projection state. Zero-commit recovered cases assert the recovery classification and coherent snapshot requirement without fabricating a text effect.
 - The core correctness suite also covers tail-contained parallel branches, concurrent work whose common ancestor is before the retained base, unresolved origins, unresolved targets, and a tail with a missing parent. These cases must classify strict-forward, closed-concurrent, or non-closed fallback rather than merely assert a final string.
 - The persistence round-trip suite serializes candidate state, destroys the source instance, restores it through the bytes-only Worker/process-equivalent boundary, and verifies no live alias to the original operation log, `Ref`, causal snapshot, or materializer is required.
 - The oracle comparison records visible text, exact frontier, fresh-writer allocation and normalized next-operation behavior, target visibility, and recovery classification at the Markdown seam. Canonical operation identity/payload, committed membership, pending membership, duplicate/conflict classification, origin/target resolution, and partial outcomes belong exclusively to the EGW white-box seam; they are not decoded through the Markdown facade.
-- A cold-history probe records provider read count, operation count, byte count, requested ancestry/boundary, and fallback reason. Strict-forward and closed-tail fast-path cases require zero provider reads; any in-memory scan of the retained candidate is recorded separately and does not qualify as a provider read.
+- A cold-history probe records provider read count, operation count, byte count, requested ancestry/boundary, and fallback reason. Strict-forward and closed-concurrent fast-path cases require zero provider reads; any in-memory scan of the retained candidate is recorded separately and does not qualify as a provider read.
 - Failure tests cover checksum mismatch, generation mismatch, unsupported candidate version, incomplete base, incomplete tail, unresolved dependency, semantic mismatch with a seemingly valid checksum, and candidate hydration failure. Each failure must reject or discard the accelerator without changing canonical authority.
 - The first-edit suite measures and compares local insert, local delete, and local undelete immediately after restore. A candidate that restores quickly but performs a hidden full replay on the first edit fails the fast-path contract.
 - The causal trace suite runs one, ten, and one hundred locally simulated causally-forward operations, duplicate delivery, pending dependency arrival, and a concurrent fallback. It records latency and cold-history reads but does not implement or claim a remote transport or production collaboration feature.
