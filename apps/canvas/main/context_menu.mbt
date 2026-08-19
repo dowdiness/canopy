@@ -27,7 +27,6 @@ priv struct CanvasContextRequest {
 ///|
 priv enum CanvasContextAction {
   AddNode(String)
-  Arrange
   Disconnect
 }
 
@@ -103,24 +102,14 @@ fn canvas_context_menu_items(
   target : CanvasContextTarget,
 ) -> Array[CanvasContextMenuItem] {
   match target {
-    Background(_) => {
-      let items = workflow_node_catalog().map(fn(item) {
+    Background(_) =>
+      workflow_node_catalog().map(fn(item) {
         {
           action: AddNode(item.key),
           label: item.label,
           description: item.description,
         }
       })
-      if !model.source_backed &&
-        _registry[model.handle].peek_selection().selected_nodes.length() >= 2 {
-        items.insert(0, {
-          action: Arrange,
-          label: "Arrange compactly",
-          description: "Pack the selection into a compact strip",
-        })
-      }
-      items
-    }
     Edge(edge_id) =>
       [
         {
@@ -234,7 +223,7 @@ fn canvas_context_apply(
   model : CanvasContextMenuModel,
   target : CanvasContextTarget,
   action : CanvasContextAction,
-) -> Unit raise Failure {
+) -> Unit {
   match (target, action) {
     (Background(insert_at~), AddNode(kind)) =>
       if model.source_backed {
@@ -243,10 +232,6 @@ fn canvas_context_apply(
         )
       } else {
         _registry[model.handle].add_node(kind, insert_at.x(), insert_at.y())
-      }
-    (Background(_), Arrange) =>
-      if !model.source_backed {
-        _registry[model.handle].arrange_selection()
       }
     (Edge(edge_id), Disconnect) =>
       if model.source_backed {
@@ -279,10 +264,7 @@ fn context_menu_action_cmd(
   match model.target {
     None => @rabbita.none
     Some(target) =>
-      @rabbita.attempt(
-        _ => @rabbita.none,
-        () => canvas_context_apply(model, target, item.action),
-      )
+      @rabbita.effect(fn() { canvas_context_apply(model, target, item.action) })
   }
 }
 

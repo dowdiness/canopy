@@ -6,7 +6,6 @@ import {
   "dowdiness/graph-dsl@0.1.0",
   "dowdiness/diagnostic@0.1.0",
   "dowdiness/canopy-canvas-graph@0.1.0",
-  "dowdiness/canvas-layout@0.1.0",
   "dowdiness/loom@0.1.0",
   "dowdiness/rabbita_codemirror@0.0.1",
   "dowdiness/incr@0.15.0",
