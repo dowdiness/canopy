@@ -29,6 +29,8 @@ members = [
   "./modules/rabbita-menu",
   "./modules/rabbita-context-menu",
   "./modules/canvas-graph",
+  "./modules/skyline",
+  "./modules/canvas-layout",
   "./modules/rabbita-status",
   "./modules/rabbita-tabs",
   "./modules/rabbita-treeview",

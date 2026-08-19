@@ -3,6 +3,8 @@ members = [
   "../../deps/loom/diagnostic",
   "../../deps/loom/examples/graph-dsl",
   "../../modules/canvas-graph",
+  "../../modules/skyline",
+  "../../modules/canvas-layout",
   "../../deps/loom/loom",
   "../../modules/rabbita_codemirror",
   "../../deps/loom/incr/incr",

@@ -829,6 +829,43 @@ test('canvas context menu adds a node from the MoonBit catalog', async ({ page }
   expect(runtimeErrors).toEqual([]);
 });
 
+test('canvas context menu arranges a multi-selection compactly', async ({ page }) => {
+  const runtimeErrors: string[] = [];
+  page.on('pageerror', (error) => runtimeErrors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      runtimeErrors.push(message.text());
+    }
+  });
+
+  await page.goto('/');
+  await expect(page.locator('.canvas-node')).toHaveCount(6);
+
+  const first = page.locator('.canvas-node[data-node-id="1"]');
+  const second = page.locator('.canvas-node[data-node-id="2"]');
+  await first.click();
+  await expect(first).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
+  await second.click({ modifiers: ['Shift'] });
+  await expect(second).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
+
+  await openBackgroundContextMenu(page);
+  const items = contextMenuItems(page);
+  await expect(items).toHaveCount(8);
+  await expect(items.first()).toHaveText(/Arrange compactly/);
+  await items.first().click();
+
+  await expect.poll(async () => first.evaluate((element) => (element as HTMLElement).style.left))
+    .toBe('-520px');
+  await expect.poll(async () => first.evaluate((element) => (element as HTMLElement).style.top))
+    .toBe('-190px');
+  await expect.poll(async () => second.evaluate((element) => (element as HTMLElement).style.left))
+    .toBe('-260px');
+  await expect.poll(async () => second.evaluate((element) => (element as HTMLElement).style.top))
+    .toBe('-190px');
+  await expect(page.locator('#action-stat')).toHaveText('3 actions logged');
+  expect(runtimeErrors).toEqual([]);
+});
+
 test('canvas edge context menu disconnects the edge', async ({ page }) => {
   const runtimeErrors: string[] = [];
   page.on('pageerror', (error) => runtimeErrors.push(error.message));

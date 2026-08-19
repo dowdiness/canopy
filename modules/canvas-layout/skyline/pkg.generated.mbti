@@ -1,0 +1,34 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/canvas-layout/skyline"
+
+import {
+  "dowdiness/canopy-canvas-graph/graph_model",
+  "dowdiness/canopy-canvas-graph/spatial",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn arrange_with_skyline(ArrayView[@graph_model.CanvasNode], region_width~ : Double, gap? : Double, origin? : @spatial.WorldPoint) -> LayoutPlan raise LayoutError
+
+pub fn compact_region_width(ArrayView[@graph_model.CanvasNode], gap~ : Double) -> Double raise LayoutError
+
+// Errors
+pub(all) suberror LayoutError {
+  InvalidRegionWidth(Double)
+  InvalidGap(Double)
+  NonFiniteGeometry
+  ItemTooWide(item_width~ : Int, bin_width~ : Int)
+  NoPlacement(width~ : Int, height~ : Int)
+  CoordinateOverflow
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub struct LayoutPlan {
+  positions : Array[@spatial.ItemPosition[@graph_model.NodeId]]
+} derive(Eq, @debug.Debug)
+pub fn LayoutPlan::to_move_nodes(Self) -> @graph_model.WorkflowAction
+
+// Type aliases
+
+// Traits
+

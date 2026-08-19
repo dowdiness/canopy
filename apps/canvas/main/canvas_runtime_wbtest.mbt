@@ -224,6 +224,69 @@ test "runtime edge selection is ephemeral and edge-first" {
 }
 
 ///|
+test "runtime arrange_selection packs a multi-selection with MoveNodes" {
+  let runtime = CanvasRuntime::CanvasRuntime()
+  let node1 = NodeId("1")
+  let node2 = NodeId("2")
+  let first = contract_state_node(runtime.state_peek(), node1)
+  let (one_sx, one_sy) = contract_screen_point(
+    runtime.render_state().viewport,
+    first.position().x(),
+    first.position().y(),
+  )
+  ignore(runtime.pointer_down(Some(node1), one_sx, one_sy))
+  runtime.pointer_up("1", "", false)
+  let second = contract_state_node(runtime.state_peek(), node2)
+  let (two_sx, two_sy) = contract_screen_point(
+    runtime.render_state().viewport,
+    second.position().x(),
+    second.position().y(),
+  )
+  ignore(runtime.pointer_down(Some(node2), two_sx, two_sy))
+  runtime.pointer_up("2", "", true)
+
+  runtime.arrange_selection()
+
+  let packed1 = contract_state_node(runtime.state_peek(), node1)
+  let packed2 = contract_state_node(runtime.state_peek(), node2)
+  debug_inspect(packed1.position().x(), content="-520")
+  debug_inspect(packed1.position().y(), content="-190")
+  debug_inspect(packed2.position().x(), content="-260")
+  debug_inspect(packed2.position().y(), content="-190")
+  let actions = runtime.action_log_snapshot()
+  match actions[actions.length() - 1].action() {
+    MoveNodes(positions) => {
+      debug_inspect(positions.length(), content="2")
+      debug_inspect(
+        positions[0].id.to_string(),
+        content=(
+          #|"1"
+        ),
+      )
+      debug_inspect(
+        positions[1].id.to_string(),
+        content=(
+          #|"2"
+        ),
+      )
+    }
+    _ => fail("expected MoveNodes as the last action")
+  }
+}
+
+///|
+test "runtime arrange_selection is a no-op without a multi-selection" {
+  let runtime = CanvasRuntime::CanvasRuntime()
+  let before = contract_state_node(runtime.state_peek(), NodeId("2"))
+  runtime.arrange_selection()
+  let after = contract_state_node(runtime.state_peek(), NodeId("2"))
+  debug_inspect(after.position().x(), content="-190")
+  debug_inspect(after.position().y(), content="-190")
+  @debug.assert_eq(after.position(), before.position())
+  assert_eq(runtime.action_log_snapshot().length(), 0)
+}
+
+///|
 test "runtime sparse inspector follows hover until a node is selected" {
   let runtime = CanvasRuntime::CanvasRuntime()
   runtime.sync_viewport_state({

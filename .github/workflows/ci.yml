@@ -126,6 +126,8 @@ jobs:
               - 'apps/canvas/**'
               - 'apps/web/vite-plugin-moonbit.ts'
               - 'modules/canvas-graph/**'
+              - 'modules/skyline/**'
+              - 'modules/canvas-layout/**'
               - '.github/actions/setup-moonbit/**'
               - 'scripts/moon-update.sh'
               - '.github/workflows/ci.yml'
