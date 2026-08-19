@@ -18,7 +18,7 @@ In:
 - `modules/canopy/editor/markdown/` for the black-box Markdown restore/oracle seam;
 - `apps/loomark/archive/` and the standalone restore harness for archive/open behavior;
 - `scripts/test-loomark-editable-branch-restore-feasibility.nu` as the canonical Nushell gate runner;
-- raw capability, oracle, negative-result, cold-read, and differential evidence.
+- fixed gate artifacts: `manifest.json`, `result.json`, `capability-ledger.json`, `candidate-captures.json`, `candidate-results.json`, `operation-matrix.jsonl`, `oracle-differential.jsonl`, `cold-history.jsonl`, `negative-results.json`, and `validation.log`.
 
 Out:
 - production checkpoint/materialized-state persistence;
@@ -57,13 +57,13 @@ A test-only gate compares a full-history Markdown/EGW restore oracle with serial
 - [ ] Candidate C is either concretely restored without a full graph walk or recorded as a bounded negative result.
 - [ ] The capability ledger maps every operation-matrix row to its minimum authority and projection level.
 - [ ] A later Markdown API recommendation, if any, is opaque and additive; no raw EGW state becomes public.
-- [ ] The canonical runner exits non-zero for missing evidence, unexplained reads, oracle mismatch, or generated-interface drift.
+- [ ] The canonical runner writes the fixed artifact set and exits non-zero for missing evidence, unexplained reads, oracle mismatch, harness failure, or generated-interface drift. A valid candidate-negative result exits zero and is recorded as evidence.
 - [ ] EGW changes follow independent submodule review/push order and all affected `.mbti` files are reviewed.
 
 ## Validation
 
 ```bash
-nu scripts/test-loomark-editable-branch-restore-feasibility.nu
+nu scripts/test-loomark-editable-branch-restore-feasibility.nu --output-dir artifacts/loomark-editable-branch-restore-feasibility
 cd deps/event-graph-walker && NEW_MOON_MOD=0 moon check && NEW_MOON_MOD=0 moon test
 cd ../.. && NEW_MOON_MOD=0 moon check modules/canopy/editor/markdown
 NEW_MOON_MOD=0 moon test -p dowdiness/canopy/editor/markdown
@@ -111,6 +111,32 @@ The gate will evaluate three representative combinations:
 - **Candidate A:** a minimal authority summary with the smallest plain-text or indexed projection that can satisfy the operation matrix;
 - **Candidate B:** the same authority summary with a disposable, versioned legacy Fugue/IndexedState projection;
 - **Candidate C:** a concrete test-only canonical position-based editable branch containing the state required for local identity/position operations without reconstructing the branch through a full history walk. The existing text-event adapter is evidence for a migration direction, not Candidate C by itself. If no such retained branch can be constructed, C records a bounded negative result rather than being treated as a passing candidate.
+
+Candidate C has one explicit capture/restore artifact shape. The capture is an owned, versioned value with no live references:
+
+```text
+CandidateCArtifact {
+  schema_version
+  base {
+    exact_frontier
+    portable_text
+    position_to_identity_index
+    identity_payload_visibility_table
+    writer_identity_and_next_sequence
+    committed_membership_and_duplicate_evidence
+  }
+  closed_tail {
+    operation_identity
+    parents
+    payload
+    insert_origin_or_delete_target
+    operation_kind
+  }[]
+  integrity { base_digest, tail_digest }
+}
+```
+
+Restore decodes and validates the artifact, materializes an editable position-based branch, applies `closed_tail` in causal order, and verifies text, frontier, next identity, target visibility, and duplicate/conflict behavior against the oracle. The artifact must not contain a raw `FugueTree`, `IndexedState`, full `OpLog`, `Ref`, or `CausalSnapshot`. A missing field or unresolved lookup produces a recorded Candidate C negative result; invoking a full graph walk is a Candidate C failure, not a successful restore.
 
 The gate uses the following operation matrix as one artifact rather than scattering the cases across user stories:
 
@@ -215,7 +241,9 @@ The gate succeeds only when a candidate can be restored without hot-loading full
 - The first-edit suite measures and compares local insert, local delete, and local undelete immediately after restore. A candidate that restores quickly but performs a hidden full replay on the first edit fails the fast-path contract.
 - The causal trace suite runs one, ten, and one hundred locally simulated causally-forward operations, duplicate delivery, pending dependency arrival, and a concurrent fallback. It records latency and cold-history reads but does not implement or claim a remote transport or production collaboration feature.
 - The measurement suite records serialized candidate bytes, restore time, first-edit latency, tail replay time, causal trace latency, peak memory where available, cold-history events, and cold-history bytes. It reports p50/p95/max where sample counts support those summaries.
-- One canonical Nushell runner, `nu scripts/test-loomark-editable-branch-restore-feasibility.nu`, owns the gate exit status. It runs the EGW white-box suite, the Markdown black-box suite, the bytes-only restore check, the oracle differential, the capability/negative-result evidence writer, and the generated-interface drift check. A passing command requires all required evidence artifacts and zero unexplained cold reads on strict-forward/closed-tail cases.
+- One canonical Nushell runner, `nu scripts/test-loomark-editable-branch-restore-feasibility.nu --output-dir <dir>`, owns the gate exit status and must write exactly the fixed artifact set: `manifest.json`, `result.json`, `capability-ledger.json`, `candidate-captures.json`, `candidate-results.json`, `operation-matrix.jsonl`, `oracle-differential.jsonl`, `cold-history.jsonl`, `negative-results.json`, and `validation.log`. `result.json` contains `schema_version: 1`, `status` (`pass` or `fail`), `failure_class` (null or one of the fixed classes below), candidate outcomes, and artifact paths.
+- Fixed failure classes are `preflight_invalid`, `toolchain_failure`, `submodule_failure`, `harness_failure`, `oracle_mismatch`, `causal_semantics_mismatch`, `unexpected_cold_read`, `evidence_missing`, `interface_drift`, `measurement_failure`, and `runner_failure`. A Candidate A/B/C inability to satisfy the contract is not a runner failure: it is `candidate_outcome: negative` in `candidate-results.json`, with the missing capability and evidence in `negative-results.json`, and the overall gate may still pass.
+- The runner returns exit code `0` only when all required suites and artifacts complete, even if one or more candidates are negative. It returns `10` for preflight, `20` for toolchain, `21` for submodule, `30` for harness, `31` for oracle mismatch, `32` for causal semantics mismatch, `33` for unexpected cold read, `34` for missing evidence, `35` for interface drift, `40` for measurement, and `50` for runner-internal failure.
 - Tests retain the full-history oracle and candidate traces as raw evidence so that a failed candidate can be analyzed without rerunning the entire browser harness.
 - Prior art includes the existing Markdown archive/open contract, `open_with_semantic_attachment`, explicit archive restore limits, existing archive/repository lifecycle tests, EGW admission contract tests, the Causal Cut prototype, the fresh-writer authority prototype, the editable text-session materializer prototype, and the paper-aligned text-event adapter prototype.
 - No test requires a public test-only API. EGW instrumentation remains package-local `*_wbtest` evidence; Markdown integration remains black-box. If a cross-package helper is unavoidable, it must be explicitly classified as a test-helper package and its generated-interface change reviewed; it may not appear accidentally in a production façade.
