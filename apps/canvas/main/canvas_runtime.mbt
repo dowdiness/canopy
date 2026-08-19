@@ -430,11 +430,7 @@ fn CanvasRuntime::pointer_down(
     @spatial.CoordinateError::NonFinite => return false
   }
   let before = self.state_peek()
-  let state = @graph_model.update_pointer_down(
-    before,
-    node_id,
-    screen,
-  ) catch {
+  let state = @graph_model.update_pointer_down(before, node_id, screen) catch {
     @spatial.CoordinateError::NonFinite => return false
   }
   if state.interaction != before.interaction {
@@ -510,8 +506,7 @@ fn CanvasRuntime::sync_pan_move(
   screen : ScreenPoint,
 ) -> Unit {
   let next = @graph_model.update_pan_move(state, screen)
-  if next.viewport == state.viewport &&
-    next.interaction == state.interaction {
+  if next.viewport == state.viewport && next.interaction == state.interaction {
     ()
   } else {
     self.sync_viewport_state(next)
@@ -592,22 +587,21 @@ fn CanvasRuntime::zoom(
   let screen = ScreenPoint::from_xy(x=cx, y=cy) catch {
     @spatial.CoordinateError::NonFinite => return
   }
-  let absolute_scale = match canvas_wheel_target_scale(
-    before.viewport.scale(),
-    delta_y,
-    delta_mode,
-    ctrl_key,
-    canvas_pointer_is_mac_like(),
-    min_scale=CANVAS_MIN_SCALE,
-    max_scale=CANVAS_MAX_SCALE,
-  ) {
+  let absolute_scale = match
+    canvas_wheel_target_scale(
+      before.viewport.scale(),
+      delta_y,
+      delta_mode,
+      ctrl_key,
+      canvas_pointer_is_mac_like(),
+      min_scale=CANVAS_MIN_SCALE,
+      max_scale=CANVAS_MAX_SCALE,
+    ) {
     Some(scale) => scale
     None => return
   }
   let next = @graph_model.update_viewport_scale_around(
-    before,
-    absolute_scale,
-    screen,
+    before, absolute_scale, screen,
   )
   if next.viewport != before.viewport || next.action_log != before.action_log {
     self.sync_action_viewport_state(next)
@@ -641,45 +635,6 @@ fn CanvasRuntime::add_node(
   self.sync_document_action_state(
     (self.policy.add_node)(state, kind_key, world),
   )
-}
-
-///|
-const ARRANGE_GAP : Double = 16.0
-
-///|
-/// Compact the current multi-selection with the canvas-layout Skyline policy.
-/// The generic packer is not imported here; only the adapter is.
-fn CanvasRuntime::arrange_selection(self : CanvasRuntime) -> Unit raise Failure {
-  let state = self.state_peek()
-  let nodes = state.interaction.selected_nodes.filter_map(id => {
-    @graph_model.find_node(state.nodes, id)
-  })
-  if nodes.length() < 2 {
-    return
-  }
-  try {
-    let region_width = @layout.compact_region_width(nodes, gap=ARRANGE_GAP)
-    let plan = @layout.arrange_with_skyline(
-      nodes,
-      region_width~,
-      gap=ARRANGE_GAP,
-    )
-    if plan.positions.length() == 0 {
-      return
-    }
-    self.sync_commit_state(
-      @graph_model.record_action(state, plan.to_move_nodes()),
-    )
-  } catch {
-    @layout.NonFiniteGeometry | @layout.CoordinateOverflow => ()
-    @layout.InvalidRegionWidth(_)
-    | @layout.InvalidGap(_)
-    | @layout.ItemTooWide(..)
-    | @layout.NoPlacement(..) =>
-      fail(
-        "arrange_selection: compact skyline policy could not pack the selection",
-      )
-  }
 }
 
 ///|

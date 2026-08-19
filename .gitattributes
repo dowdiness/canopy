@@ -17,8 +17,6 @@ apps/loomark/internal/archive_storage/js/pkg.generated.mbti whitespace=-blank-at
 apps/loomark/internal/archive_storage/pkg.generated.mbti whitespace=-blank-at-eof
 apps/loomark/repository/pkg.generated.mbti whitespace=-blank-at-eof
 modules/canvas-graph/spatial/pkg.generated.mbti whitespace=-blank-at-eof
-modules/skyline/pkg.generated.mbti whitespace=-blank-at-eof
-modules/canvas-layout/skyline/pkg.generated.mbti whitespace=-blank-at-eof
 
 # Preserve the existing CRLF line endings in Ideal Playwright specs while
 # treating their line terminators as valid whitespace in diff checks.

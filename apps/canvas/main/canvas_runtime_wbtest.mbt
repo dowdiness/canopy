@@ -7,15 +7,18 @@ fn make_test_state() -> CanvasState {
     ),
     nodes: [
       @graph_model.make_workflow_node(
-        NodeId("1"), TimerTrigger,
+        NodeId("1"),
+        TimerTrigger,
         try! @spatial.WorldPoint::from_xy(x=100.0, y=100.0),
       ),
       @graph_model.make_workflow_node(
-        NodeId("2"), HttpRequest,
+        NodeId("2"),
+        HttpRequest,
         try! @spatial.WorldPoint::from_xy(x=420.0, y=100.0),
       ),
       @graph_model.make_workflow_node(
-        NodeId("3"), DataFormatter,
+        NodeId("3"),
+        DataFormatter,
         try! @spatial.WorldPoint::from_xy(x=760.0, y=100.0),
       ),
     ],
@@ -31,7 +34,8 @@ test "validate_workflow reports missing typed input ports independently" {
   let nodes = make_test_state().nodes.copy()
   nodes.push(
     @graph_model.make_workflow_node(
-      NodeId("4"), ConditionalBranch,
+      NodeId("4"),
+      ConditionalBranch,
       try! @spatial.WorldPoint::from_xy(x=0.0, y=0.0),
     ),
   )
@@ -101,9 +105,7 @@ test "runtime ignores non-finite drag moves before commit" {
   let runtime = CanvasRuntime::CanvasRuntime()
   let initial = runtime.state_peek()
   let node = initial.nodes[0]
-  let screen = initial.viewport.world_to_screen(
-    node.position(),
-  )
+  let screen = initial.viewport.world_to_screen(node.position())
   ignore(runtime.pointer_down(Some(node.id), screen.x(), screen.y()))
   runtime.pointer_move(1.0 / 0.0, screen.y())
   runtime.pointer_up(node.id.to_string(), "", false)
@@ -120,15 +122,14 @@ test "runtime ignores non-finite drag moves before commit" {
 test "runtime pointer admission rejects missing nodes without mutation" {
   let runtime = CanvasRuntime::CanvasRuntime()
   let before = runtime.state_peek()
-  assert_false(
-    runtime.pointer_down(Some(NodeId("missing")), 0.0, 0.0),
-  )
+  assert_false(runtime.pointer_down(Some(NodeId("missing")), 0.0, 0.0))
   let after = runtime.state_peek()
   assert_eq(after.interaction, before.interaction)
   assert_eq(after.action_log.length(), before.action_log.length())
 }
 
 ///|
+
 ///|
 test "runtime wheel rejects zero and active gesture input" {
   let runtime = CanvasRuntime::CanvasRuntime()
@@ -221,69 +222,6 @@ test "runtime edge selection is ephemeral and edge-first" {
   assert_eq(after_node.nodes.length(), 5)
   assert_eq(after_node.action_count, 2)
   assert_eq(after_node.selected_nodes, [])
-}
-
-///|
-test "runtime arrange_selection packs a multi-selection with MoveNodes" {
-  let runtime = CanvasRuntime::CanvasRuntime()
-  let node1 = NodeId("1")
-  let node2 = NodeId("2")
-  let first = contract_state_node(runtime.state_peek(), node1)
-  let (one_sx, one_sy) = contract_screen_point(
-    runtime.render_state().viewport,
-    first.position().x(),
-    first.position().y(),
-  )
-  ignore(runtime.pointer_down(Some(node1), one_sx, one_sy))
-  runtime.pointer_up("1", "", false)
-  let second = contract_state_node(runtime.state_peek(), node2)
-  let (two_sx, two_sy) = contract_screen_point(
-    runtime.render_state().viewport,
-    second.position().x(),
-    second.position().y(),
-  )
-  ignore(runtime.pointer_down(Some(node2), two_sx, two_sy))
-  runtime.pointer_up("2", "", true)
-
-  runtime.arrange_selection()
-
-  let packed1 = contract_state_node(runtime.state_peek(), node1)
-  let packed2 = contract_state_node(runtime.state_peek(), node2)
-  debug_inspect(packed1.position().x(), content="-520")
-  debug_inspect(packed1.position().y(), content="-190")
-  debug_inspect(packed2.position().x(), content="-260")
-  debug_inspect(packed2.position().y(), content="-190")
-  let actions = runtime.action_log_snapshot()
-  match actions[actions.length() - 1].action() {
-    MoveNodes(positions) => {
-      debug_inspect(positions.length(), content="2")
-      debug_inspect(
-        positions[0].id.to_string(),
-        content=(
-          #|"1"
-        ),
-      )
-      debug_inspect(
-        positions[1].id.to_string(),
-        content=(
-          #|"2"
-        ),
-      )
-    }
-    _ => fail("expected MoveNodes as the last action")
-  }
-}
-
-///|
-test "runtime arrange_selection is a no-op without a multi-selection" {
-  let runtime = CanvasRuntime::CanvasRuntime()
-  let before = contract_state_node(runtime.state_peek(), NodeId("2"))
-  runtime.arrange_selection()
-  let after = contract_state_node(runtime.state_peek(), NodeId("2"))
-  debug_inspect(after.position().x(), content="-190")
-  debug_inspect(after.position().y(), content="-190")
-  @debug.assert_eq(after.position(), before.position())
-  assert_eq(runtime.action_log_snapshot().length(), 0)
 }
 
 ///|
