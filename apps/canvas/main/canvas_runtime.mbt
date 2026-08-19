@@ -31,6 +31,7 @@ struct CanvasFullRenderJson {
   selected_edge : String?
   selected_nodes : Array[String]
   connecting : ConnectingJson?
+  input_compatibility : Array[PortCompatibilityJson]
   validation : Array[ValidationJson]
   action_count : Int
 } derive(Eq)
@@ -78,6 +79,7 @@ priv struct CanvasRuntime {
 fn canvas_render(
   scope : @incr.Scope,
   policy : CanvasHostPolicy,
+  document : @incr.InputView[CanvasDocument],
   lowered : @incr.Derived[LoweredCanvas],
   viewport : @incr.InputView[Viewport],
   drag_preview : @incr.InputView[DragPreview],
@@ -88,14 +90,31 @@ fn canvas_render(
 ) -> @incr.Derived[CanvasFullRenderJson] {
   scope.derived(
     () => {
+      let current_interaction = interaction.get()
+      let compatibility = match current_interaction.connecting {
+        None => []
+        Some(_) =>
+          input_compatibility_for_render_state(
+            @graph_model.canvas_state_from_parts(
+              document.get(),
+              viewport.get(),
+              @graph_model.interaction_with_selection(
+                current_interaction,
+                selection.get(),
+              ),
+              actions.get(),
+            ),
+          )
+      }
       policy.render_full_canvas(
         lowered.get_or_abort(),
         viewport.get(),
         drag_preview.get(),
         selection.get(),
         selected_edge.get(),
-        interaction.get(),
+        current_interaction,
         actions.get().length(),
+        compatibility,
       )
     },
     label="canvas.render",
@@ -154,6 +173,7 @@ fn CanvasRuntime::with_host_policy(policy : CanvasHostPolicy) -> CanvasRuntime {
   let render = canvas_render(
     scope,
     policy,
+    document[:],
     lowered,
     viewport[:],
     drag_preview[:],
@@ -792,12 +812,18 @@ fn input_port_compatibility_for_state(
 }
 
 ///|
-fn CanvasRuntime::input_port_compatibility(
-  self : CanvasRuntime,
-  source : NodeId,
-  source_port : String,
+fn input_compatibility_for_render_state(
+  state : CanvasState,
 ) -> Array[PortCompatibilityJson] {
-  input_port_compatibility_for_state(self.state_peek(), source, source_port)
+  match state.interaction.connecting {
+    None => []
+    Some(connecting) =>
+      input_port_compatibility_for_state(
+        state,
+        connecting.from_node,
+        connecting.from_port,
+      )
+  }
 }
 
 ///|

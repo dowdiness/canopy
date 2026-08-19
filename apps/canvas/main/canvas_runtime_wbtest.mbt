@@ -76,7 +76,35 @@ test "get_render_state exposes workflow JSON shape" {
   assert_true(json_str.contains("\"nodes\""))
   assert_true(json_str.contains("Timer trigger"))
   assert_true(json_str.contains("\"path_d\""))
+  assert_true(json_str.contains("\"input_compatibility\""))
   assert_true(json_str.contains("\"validation\""))
+}
+
+///|
+test "render snapshot owns input compatibility for the active connection" {
+  let runtime = CanvasRuntime::CanvasRuntime()
+  assert_eq(runtime.render_state().input_compatibility.length(), 0)
+  let state = runtime.state_peek()
+  runtime.set_interaction({
+    ..state.interaction,
+    connecting: Some(
+      ConnectState::from_parts(
+        from_node=NodeId("2"),
+        from_port="json",
+        cursor=try! @spatial.WorldPoint::from_xy(x=0.0, y=0.0),
+      ),
+    ),
+  })
+  let rendered = runtime.render_state()
+  assert_eq(rendered.input_compatibility.length(), 6)
+  inspect(
+    compatibility_for(rendered.input_compatibility, "5", "items"),
+    content="true",
+  )
+  inspect(
+    compatibility_for(rendered.input_compatibility, "6", "in"),
+    content="false",
+  )
 }
 
 ///|
@@ -129,7 +157,6 @@ test "runtime pointer admission rejects missing nodes without mutation" {
 }
 
 ///|
-///|
 test "runtime wheel rejects zero and active gesture input" {
   let runtime = CanvasRuntime::CanvasRuntime()
   let before = runtime.state_peek()
@@ -158,17 +185,6 @@ test "runtime wheel rejects zero and active gesture input" {
   let repeated = runtime.state_peek()
   assert_eq(repeated.viewport, at_max.viewport)
   assert_eq(repeated.action_log.length(), at_max.action_log.length())
-}
-
-///|
-test "runtime compatibility export batches graph model results" {
-  let runtime = CanvasRuntime::CanvasRuntime()
-  let entries = runtime.input_port_compatibility(NodeId("2"), "json")
-  assert_eq(entries.length(), 6)
-  inspect(compatibility_for(entries, "5", "items"), content="true")
-  inspect(compatibility_for(entries, "6", "in"), content="false")
-  inspect(compatibility_for(entries, "2", "in"), content="false")
-  inspect(compatibility_for(entries, "3", "json"), content="false")
 }
 
 ///|

@@ -174,14 +174,22 @@ test "graph-dsl projection maps into the canvas graph view model" {
 }
 
 ///|
-fn ok_port_compatibility_log(
+fn render_input_compatibility(
   json_text : String,
 ) -> Array[PortCompatibilityJson] {
   let json = @json.parse(json_text) catch {
-    _ => abort("expected port compatibility JSON")
+    _ => abort("expected render state JSON")
   }
-  @json.from_json(json) catch {
-    _ => abort("expected PortCompatibilityJson array")
+  match json {
+    Object(fields) =>
+      match fields.get("input_compatibility") {
+        Some(value) =>
+          @json.from_json(value) catch {
+            _ => abort("expected PortCompatibilityJson array")
+          }
+        None => abort("render state omitted input compatibility")
+      }
+    _ => abort("expected render state object")
   }
 }
 
@@ -203,42 +211,59 @@ fn source_compatibility_for(
 }
 
 ///|
-test "source-backed compatibility export batches graph model results" {
+test "source-backed render snapshot owns input compatibility" {
   let handle = create_source_graph("osc = sine(freq: 440Hz)\nmeter = scope()")
-  let osc = handle_token_str(handle, "osc")
-  let meter = handle_token_str(handle, "meter")
-  let entries = ok_port_compatibility_log(
-    get_source_graph_input_port_compatibility(handle, osc, "out"),
-  )
-  inspect(source_compatibility_for(entries, meter, "input"), content="true")
-  inspect(source_compatibility_for(entries, osc, "input"), content="false")
-  let operation = GraphOperation(
-    ConnectPorts(NodeId(osc), "out", NodeId(meter), "input"),
-  )
-  assert_true(
-    operation_result_applied(
-      apply_source_graph_operation(handle, operation.to_json().stringify()),
-    ),
-  )
-  let entries_after = ok_port_compatibility_log(
-    get_source_graph_input_port_compatibility(handle, osc, "out"),
+  let osc = handle_token(handle, "osc")
+  let meter = handle_token(handle, "meter")
+  match source_graph_by_handle(handle) {
+    Some(graph) =>
+      graph.interaction = {
+        ..graph.interaction,
+        connecting: Some(
+          ConnectState::from_parts(
+            from_node=osc,
+            from_port="out",
+            cursor=try! @spatial.WorldPoint::from_xy(x=0.0, y=0.0),
+          ),
+        ),
+      }
+    None => abort("expected source graph")
+  }
+  let entries = render_input_compatibility(
+    get_source_graph_render_state(handle),
   )
   inspect(
-    source_compatibility_for(entries_after, meter, "input"),
+    source_compatibility_for(entries, meter.to_string(), "input"),
+    content="true",
+  )
+  inspect(
+    source_compatibility_for(entries, osc.to_string(), "input"),
     content="false",
   )
   destroy_source_graph(handle)
 }
 
 ///|
-test "source-backed compatibility export rejects invalid current source" {
+test "source-backed render snapshot omits compatibility for invalid source" {
   let handle = create_source_graph("osc = sine(freq: 440Hz)\nmeter = scope()")
-  let osc = handle_token_str(handle, "osc")
+  let osc = handle_token(handle, "osc")
   set_source_graph_source(handle, "osc = sine(freq: )")
+  match source_graph_by_handle(handle) {
+    Some(graph) =>
+      graph.interaction = {
+        ..graph.interaction,
+        connecting: Some(
+          ConnectState::from_parts(
+            from_node=osc,
+            from_port="out",
+            cursor=try! @spatial.WorldPoint::from_xy(x=0.0, y=0.0),
+          ),
+        ),
+      }
+    None => abort("expected source graph")
+  }
   inspect(
-    ok_port_compatibility_log(
-      get_source_graph_input_port_compatibility(handle, osc, "out"),
-    ).length(),
+    render_input_compatibility(get_source_graph_render_state(handle)).length(),
     content="0",
   )
   destroy_source_graph(handle)

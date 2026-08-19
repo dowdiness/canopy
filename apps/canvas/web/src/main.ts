@@ -91,9 +91,9 @@ function portTitle(port: PortDef): string {
 
 
 // ─── Connection compatibility (display only) ───────────────────────────────────
-// Input-handle previews ask MoonBit for one batched `can_commit_edge` snapshot
-// through GraphAdapter, so the cosmetic highlight follows the same
-// authoritative commit/reject logic as pointerup without per-handle rebuilds.
+// Input-handle previews consume the batched `can_commit_edge` results from
+// the render snapshot, so the cosmetic highlight follows the same
+// authoritative commit/reject logic as pointerup without a second FFI read.
 
 type InputCompatibility = Map<string, Map<string, boolean>>;
 
@@ -169,15 +169,13 @@ function render(): void {
     state.validation.filter((msg) => msg.node_id != null).map((msg) => msg.node_id as string),
   );
 
-  // Resolve the in-flight connection once, so input handles use one batched
-  // MoonBit compatibility snapshot while the drag is live.
+  // Resolve the in-flight connection from the same render snapshot as the
+  // nodes, so every input handle observes one compatibility decision.
   let connectCtx: ConnectCtx | null = null;
   const connecting = state.connecting;
   if (connecting) {
     connectCtx = {
-      inputs: inputCompatibilityByTarget(
-        adapter.inputPortCompatibility(connecting.from, connecting.from_port),
-      ),
+      inputs: inputCompatibilityByTarget(state.input_compatibility),
     };
   }
 
