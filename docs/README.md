@@ -131,6 +131,12 @@ Only needed if you are modifying Canopy itself.
 
 - [CI/CD](CI_CD.md)
 
+**Research / Evidence:**
+
+- [Browser active-store durability guarantees](research/2026-08-20-browser-active-store-durability.md)
+  — current standards and vendor behavior informing the provider-neutral
+  Loomark active-store contract (issue #1297).
+
 ## Deep Design (Grand Design)
 
 Long-range design explorations. Treat as **direction, not implemented
