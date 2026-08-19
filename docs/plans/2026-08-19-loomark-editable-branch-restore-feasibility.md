@@ -6,6 +6,10 @@ Canonical issue: <https://github.com/dowdiness/canopy/issues/1288>
 
 The issue owns active status and backlog membership. This plan owns the test-only execution contract and links back to the issue above.
 
+Related issue: [#1281 — avoid full text snapshots during remote admission reconciliation](https://github.com/dowdiness/canopy/issues/1281).
+
+The relationship is coordination, not a dependency: #1281 covers warm resident-authority remote admission; this gate covers cold archive restore and editable-branch hydration. Both must reuse any accepted authority-owned effect/receipt boundary rather than inventing parallel Markdown-side authority logic.
+
 ## Why
 
 Loomark archive reopen is dominated by history decode and causal admission, but the current production `Document` has not proved that plain text plus an exact frontier can restore an editable branch. Before choosing a checkpoint, persistent branch, active-store schema, or public Markdown API, the project needs an evidence gate that identifies the minimum authority capability and projection state required for real edits and causal admission.
