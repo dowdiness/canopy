@@ -19,7 +19,7 @@ Loomark archive reopen is dominated by history decode and causal admission, but 
 In:
 - `deps/event-graph-walker/internal/document/` and `deps/event-graph-walker/internal/oplog/` for package-local authority and admission probes;
 - `deps/event-graph-walker/internal/branch/` for the concrete test-only position-based Candidate C boundary;
-- `deps/event-graph-walker/internal/restore_feasibility_probe/` for a test-only EGW executable package with `options("is-main": true)` and native stdout capture; it is excluded from production package exports;
+- `deps/event-graph-walker/internal/restore_feasibility_probe/` for a test-only EGW executable package with repo-proven `pkgtype(kind: "executable")` and native stdout capture; its exclusion from production package exports is a preflight acceptance condition;
 - `modules/canopy/editor/markdown/` for package-owned façade contract/oracle adapters;
 - `apps/loomark/archive/` and `apps/loomark/examples/vanilla/` for the true public-façade black-box restore harness;
 - `scripts/test-loomark-editable-branch-restore-feasibility.nu` as the canonical Nushell gate runner;
@@ -37,7 +37,7 @@ Out:
 - The accepted Causal Authority residency architecture separates durable history, current text, and temporary merge state, but explicitly records implementation as incomplete.
 - The current local archive is a complete v1 envelope whose history is decoded and admitted on reopen.
 - The Markdown facade does not expose EGW pending identities, partial admission details, or cold-history segment reads.
-- EGW package-local prototypes already provide evidence seams for causal cuts, fresh writers, editable text materialization, and text-event lowering, but none is a replay-free production restore API.
+- EGW package-local prototypes already provide evidence seams for causal cuts, fresh writers, and editable text materialization. Paper-aligned text-event lowering is Gate A branch evidence rather than a guaranteed source file in this checkout, and none of these prototypes is a replay-free production restore API.
 - The varied-history measurement shows history decode/admission dominates the measured local reopen path.
 
 ## Desired State
@@ -67,7 +67,7 @@ A test-only gate compares a full-history Markdown/EGW restore oracle with serial
 - [ ] The capability ledger maps every operation-matrix row to its minimum authority and projection level.
 - [ ] A later Markdown API recommendation, if any, is opaque and additive; no raw EGW state becomes public.
 - [ ] The canonical runner writes the fixed artifact set and exits non-zero for missing evidence, unexplained reads, oracle mismatch, harness failure, or generated-interface drift. A valid candidate-negative result exits zero and is recorded as evidence.
-- [ ] EGW changes follow independent submodule review/push order and all affected `.mbti` files are reviewed.
+- [ ] EGW changes follow independent submodule review/push order, the EGW package archive remains one verified publish artifact with the probe's visibility classified, and all affected `.mbti` files are reviewed.
 
 ## Validation
 
@@ -214,7 +214,7 @@ The gate succeeds only when a candidate can be restored without hot-loading full
 - This is a test-only feasibility slice. It does not implement `Verified BaseBranch`, `ClosedTail`, checkpointing, materialized-state persistence, history compaction, or a new production restore path.
 - The Markdown/Loomark seam is the black-box product oracle. The true black-box consumer lives in the archive/standalone harness and imports only the public Markdown façade; package-local Markdown tests may supply typed contract adapters but are not claimed as black-box. It verifies archive/open behavior, text readiness, editability, recovery classification, first edit behavior, and public façade parity.
 - The EGW seam is package-local and white-box. It verifies authority hydration, identity membership, pending registration/drain, origin/target lookup, partial admission, ClosedTail validation, and candidate-specific history access. It must not be shared through a production public API.
-- The EGW producer is a separate test-only executable package at `internal/restore_feasibility_probe/` with `options("is-main": true)` and native support. It calls only intentionally `pub` internal module APIs or owns its probe implementation; package-private `*_wbtest` helpers are never imported across package boundaries. The package is excluded from production package exports and verified by the EGW publish checks.
+- The EGW producer is a separate test-only executable package at `internal/restore_feasibility_probe/` with repo-proven `pkgtype(kind: "executable")` and native support. It calls only intentionally `pub` internal module APIs or owns its probe implementation; package-private `*_wbtest` helpers are never imported across package boundaries. Before implementation is accepted, the EGW publish check must prove that the producer is excluded from production package exports and that the extracted package still passes its frozen check; if exclusion cannot be proved, the producer must be replaced by a package-local test stdout path rather than widening the published module.
 - The two seam results are joined by serialized evidence, not by importing EGW internal types into Canopy or by exposing a storage handle through Markdown. The EGW-local `is-main` producer emits one versioned JSONL envelope per case to stdout; Nushell captures it into `candidate-captures.jsonl`/`cold-history.jsonl`. The Markdown/browser consumer reads only those bytes and emits its own versioned JSONL observations; Nushell joins records by `run_id` and `case_id`.
 - The JSONL handoff envelope is `{ schema_version, run_id, case_id, producer, status, payload }`; producer values are `egw_authority`, `markdown_oracle`, or `runner`. Package-local tests never import this DTO; only the is-main producer and Nushell process exchange it.
 - `manifest.json` records `shared_effect_boundary` as `present` with the consumed contract and source revision, or `absent` when #1281 has not landed/been accepted. This field is required even when R0 proceeds independently.
