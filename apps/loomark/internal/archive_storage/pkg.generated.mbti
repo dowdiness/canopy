@@ -12,7 +12,7 @@ pub const ACTIVE_DOCUMENT_KEY : String = "loomark.active-document-archive"
 
 pub fn fresh_id(String) -> String
 
-pub fn load((LocalArchiveStorageRead) -> Unit) -> Unit
+pub fn load(result~ : @cmd.Emit[LocalArchiveStorageRead]) -> @cmd.Cmd
 
 pub fn replace(@repository.LocalArchiveRequestId, String, completed~ : @cmd.Emit[LocalArchiveWriteCompletion]) -> @cmd.Cmd
 
@@ -39,4 +39,3 @@ pub fn LocalArchiveWriteCompletion::result(Self) -> LocalArchiveStorageWrite
 // Type aliases
 
 // Traits
-

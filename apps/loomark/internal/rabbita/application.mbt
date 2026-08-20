@@ -703,11 +703,37 @@ fn preview_view(
 }
 
 ///|
+fn standalone_bootstrap_view(model : DriverModel) -> @rabbita_runtime.Html {
+  match model.error_code {
+    Some("storage-unavailable") => archive_recovery_view(StorageUnavailable)
+    Some("storage-read-failed") => archive_recovery_view(StorageReadFailed)
+    Some("editor-initialization-failed") =>
+      archive_recovery_view(EditorInitializationFailed)
+    Some("unsupported-archive") => archive_recovery_view(UnsupportedArchive)
+    Some("corrupt-archive") => archive_recovery_view(CorruptArchive)
+    Some("archive-over-limit") => archive_recovery_view(ArchiveOverLimit)
+    Some("incomplete-archive") => archive_recovery_view(IncompleteArchive)
+    _ =>
+      @html.div(
+        id="loomark-bootstrap",
+        attrs=@html.Attrs::build().role("status"),
+        style=[
+          "min-height:100vh;display:grid;place-items:center;background:oklch(0.968 0.008 85);color:oklch(0.5 0.02 265)",
+        ],
+        @html.p("Loading local document…"),
+      )
+  }
+}
+
+///|
 fn standalone_preview_view(
   model : DriverModel,
   emit : @cmd.Emit[DriverEvent],
   active_view : @rabbita_runtime.Html,
 ) -> @rabbita_runtime.Html {
+  if !model.archive_persistence_enabled {
+    return standalone_bootstrap_view(model)
+  }
   match model.runtime_state {
     EditorRuntimeState::RawRecovery(_) => raw_recovery_view(model, emit)
     _ => {
@@ -825,6 +851,7 @@ fn driver_event_name(event : DriverEvent) -> String {
         ProjectionWorkerResolved(_, _, _) => "projection-worker-resolved"
         Resize(_) => "resize"
       }
+    Bootstrap(_) => "standalone-bootstrap-completed"
     Archive(_) => "archive-write-completed"
   }
 }
@@ -2413,8 +2440,21 @@ fn update_model(
   emit : @cmd.Emit[DriverEvent],
   projection_session? : @ref.Ref[ProjectionSession?],
   projection_worker? : ProjectionWorkerRuntime,
+  session_ref? : @ref.Ref[EditorSession],
 ) -> (DriverModel, @cmd.Cmd) raise {
   let (next, command) = match event {
+    Bootstrap(loaded) =>
+      match session_ref {
+        Some(session_ref) =>
+          update_standalone_bootstrap(
+            session_ref,
+            model,
+            loaded,
+            model.document.source(),
+            emit,
+          )
+        None => (model, @rabbita_runtime.none)
+      }
     Archive(completion) => update_archive_tracker(model, completion)
     _ if model.fatal && !recovery_control_event(event) => {
       match event {
@@ -2514,7 +2554,7 @@ fn driver_control_subscription_loader(
           None => ()
         }
       }
-      scheduler.run_effect(@cmd.AfterRender, install)
+      scheduler.add(@cmd.custom_cmd(install, kind=@cmd.AfterRender))
       Some({
         unload: _ => {
           if !disposed {
@@ -2570,7 +2610,7 @@ fn driver_test_subscription_loader(
           None => ()
         }
       }
-      scheduler.run_effect(@cmd.AfterRender, install)
+      scheduler.add(@cmd.custom_cmd(install, kind=@cmd.AfterRender))
       Some({
         unload: scheduler => {
           if !disposed {
@@ -2662,7 +2702,7 @@ fn standalone_subscriptions(
   model : DriverModel,
   emit : @cmd.Emit[DriverEvent],
 ) -> @sub.Sub {
-  if model.fatal {
+  if model.fatal || !model.archive_persistence_enabled {
     @sub.none
   } else {
     @sub.on_resize(emit.map(viewport => Lifecycle(Resize(viewport))))
@@ -2692,6 +2732,7 @@ fn build_application(
   attachment : @md_markdown.MarkdownSemanticAttachment,
   initial : DriverModel,
   baseline : (@repository.LocalArchiveRequestId, String)?,
+  bootstrap : Bool,
   raw_input_telemetry : RawInputTelemetry?,
   subscriptions : (DriverModel, @cmd.Emit[DriverEvent]) -> @sub.Sub,
   view : (DriverModel, @cmd.Emit[DriverEvent], @rabbita_runtime.Html) -> @rabbita_runtime.Html,
@@ -2738,6 +2779,7 @@ fn build_application(
       emit,
       projection_session?,
       projection_worker?,
+      session_ref=current_session,
     ) catch {
       Failure::Failure(_) as failure => {
         raw_input_coordinator.cancel_pending()
@@ -2787,6 +2829,11 @@ fn build_application(
   @rabbita_runtime.new(() => {
     let (model, emit) = @rabbita_runtime.create_state_with_init(
       init=fn(emit) {
+        let bootstrap_command = if bootstrap {
+          @archive_storage.load(result=loaded => emit(Bootstrap(loaded)))
+        } else {
+          @rabbita_runtime.none
+        }
         let persistence_command = match baseline {
           Some((request_id, encoded)) =>
             @archive_storage.replace(request_id, encoded, completed=completion => {
@@ -2798,7 +2845,12 @@ fn build_application(
           Some(runtime) => runtime.sync(initial, emit)
           None => @rabbita_runtime.none
         }
-        (initial, @cmd.batch([persistence_command, projection_command]))
+        (
+          initial,
+          @cmd.batch([
+            bootstrap_command, persistence_command, projection_command,
+          ]),
+        )
       },
       update~,
       subscriptions=application_subscriptions,
@@ -2825,6 +2877,7 @@ fn standalone_application(
     attachment,
     initial,
     baseline,
+    true,
     None,
     standalone_subscriptions,
     standalone_preview_view,
@@ -2843,6 +2896,7 @@ fn private_dev_host_application(
     attachment,
     initial,
     baseline,
+    false,
     Some(RawInputTelemetry::new()),
     private_dev_host_subscriptions,
     private_dev_host_preview_view,
@@ -2950,20 +3004,54 @@ fn mount_application(
 }
 
 ///|
-/// Mount the production standalone application once for the page lifetime.
+/// Mount the standalone shell immediately; its initial archive load is a
+/// Rabbita Cmd and the editor session is adopted when that Cmd completes.
 pub fn mount_standalone(host_id : String, source : String) -> String {
   if mounted.val {
     return "{\"ok\":false,\"error\":\"host-already-mounted\"}"
   }
   mounted.val = true
-  @archive_storage.load(loaded => {
-    finish_standalone_bootstrap(host_id, source, loaded) catch {
-      _ =>
-        recovery_application(RecoveryCategory::EditorInitializationFailed).mount(
-          host_id,
-        )
+  let replica_id = @archive_storage.fresh_id("loomark-standalone-writer-")
+  let document_id = @archive.LoomarkDocumentId::from_string(
+    @archive_storage.fresh_id("loomark-document-"),
+  ) catch {
+    _ => {
+      recovery_application(RecoveryCategory::EditorInitializationFailed).mount(
+        host_id,
+      )
+      return "{\"ok\":true}"
     }
-  })
+  }
+  let (editor, attachment) = @markdown.MarkdownEditor::with_semantic_attachment(
+    agent_id=replica_id,
+    source~,
+  ) catch {
+    _ => {
+      recovery_application(RecoveryCategory::EditorInitializationFailed).mount(
+        host_id,
+      )
+      return "{\"ok\":true}"
+    }
+  }
+  let initial = initial_model(
+    host_id,
+    editor,
+    document_id,
+    replica_id,
+    archive_persistence_enabled=false,
+  ) catch {
+    _ => {
+      attachment.dispose()
+      recovery_application(RecoveryCategory::EditorInitializationFailed).mount(
+        host_id,
+      )
+      return "{\"ok\":true}"
+    }
+  }
+  detached_focus_token.val = ""
+  publish(initial, None, None)
+  let app = standalone_application(editor, attachment, initial, None)
+  app.mount(host_id)
   "{\"ok\":true}"
 }
 

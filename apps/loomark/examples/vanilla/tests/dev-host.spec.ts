@@ -371,13 +371,13 @@ async function failHost(page: Page, message: string): Promise<void> {
 test("private development host remains independent of archive storage", async ({ browser }) => {
   const context = await browser.newContext()
   await context.addInitScript(() => {
-    const state = window as typeof window & { __loomarkStorageWrites: number }
-    state.__loomarkStorageWrites = 0
-    Object.defineProperty(window, "localStorage", {
+    const state = window as typeof window & { __loomarkIndexedDbAccesses: number }
+    state.__loomarkIndexedDbAccesses = 0
+    Object.defineProperty(window, "indexedDB", {
       configurable: true,
-      value: {
-        getItem: () => null,
-        setItem: () => { state.__loomarkStorageWrites += 1 },
+      get() {
+        state.__loomarkIndexedDbAccesses += 1
+        return undefined
       },
     })
   })
@@ -387,8 +387,8 @@ test("private development host remains independent of archive storage", async ({
     await requestSource(host.page, "after\n")
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("after\n")
     await expect.poll(() => host.page.evaluate(() => (
-      window as typeof window & { __loomarkStorageWrites: number }
-    ).__loomarkStorageWrites)).toBe(0)
+      window as typeof window & { __loomarkIndexedDbAccesses: number }
+    ).__loomarkIndexedDbAccesses)).toBe(0)
   } finally {
     await context.close()
   }
