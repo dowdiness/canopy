@@ -6,7 +6,9 @@
 /// Wraps a TextState and maintains cursor position
 pub struct Editor {
   doc : @text.TextState
-  mut cursor : Int // Unicode-scalar position, 0-based
+  // Cursor positions use TextState's item-space coordinates: one Unicode
+  // codepoint per position, rather than JavaScript UTF-16 code units.
+  mut cursor : Int
 } derive(Debug)
 
 ///|
@@ -23,7 +25,7 @@ pub fn Editor::get_text(self : Editor) -> String {
 }
 
 ///|
-/// Get the current cursor position
+/// Get the current cursor position in TextState item-space coordinates.
 pub fn Editor::get_cursor(self : Editor) -> Int {
   self.cursor
 }
@@ -41,24 +43,20 @@ pub fn Editor::move_cursor(self : Editor, position : Int) -> Unit {
   }
 }
 
-///|
-fn unicode_scalar_length(text : String) -> Int {
-  let mut length = 0
-  for _ in text {
-    length += 1
-  }
-  length
-}
-
 ///| Insert text at current cursor position
 
 ///|
 
 ///|
-/// After insertion, cursor moves to after the inserted text
+/// After insertion, cursor moves to after the inserted text.
+///
+/// TextState positions are item-space offsets, so derive the cursor advance
+/// from the document's authoritative visible-item count instead of
+/// String::length, which counts UTF-16 code units on JavaScript.
 pub fn Editor::insert(self : Editor, text : String) -> Unit raise {
+  let before_len = self.doc.len()
   self.doc.insert(@text.Pos::at(self.cursor), text)
-  self.cursor += unicode_scalar_length(text)
+  self.cursor += self.doc.len() - before_len
 }
 
 ///| Insert text at a specific position
