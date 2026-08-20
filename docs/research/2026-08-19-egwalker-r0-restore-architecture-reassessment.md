@@ -113,14 +113,14 @@ Source: [Loomark P3 archive reopen evidence](../evidence/2026-08-18-loomark-p3-a
 | Serialized Fugue/IndexedState | Keep only as Candidate B control | It may be a bounded migration bridge but is not paper-aligned canonical state. |
 | `ClosedTail` with zero cold reads for concurrent work | Reject | Eg-walker concurrency explicitly requires event-graph conflict-region replay and temporary merge state. |
 | Full operation-map `CausalCut` resident on every edit | Reject | It duplicates authority and has already failed the matched admission performance gate. |
-| Always full replay to validate cached text | Reject as normal path | It defeats the paper's cached-document load advantage. Investigate a trusted, generation-bound capture receipt; reserve replay for the test oracle and bounded recovery. |
+| Always full replay to validate cached text | Reject as normal path | It defeats the paper's cached-document load advantage. Use the later content-addressed snapshot receipt with separate publication provenance; reserve replay for the test oracle and bounded recovery. |
 | Precomputed critical-version list as the primary contract | Do not require | Criticality can become invalid when concurrent history arrives. The contract should be proof of the selected replay base and entry-point coverage, not trust in a stale label. |
 
 ## Recommended R0 model
 
 ### Candidate P — paper branch
 
-Capture and restore an owned `document_text + canonical frontier` branch with a generation-bound authority receipt. Allocate a fresh writer identity. Append local scalar-indexed events directly. No history decode, full graph walk, Fugue hydration, or per-character causal table is allowed on this path.
+Capture and restore an owned `document_text + canonical frontier` branch with the later content-addressed authority snapshot commit; mutable fixture generation remains only in its separate publication ref. Allocate a fresh writer identity. Append local scalar-indexed events directly. No history decode, full graph walk, Fugue hydration, or per-character causal table is allowed on this path.
 
 ### Fast-forward remote path
 
@@ -152,8 +152,8 @@ The Candidate A/B/C and `ClosedTail` names below refer to the branch plan [`2026
 
 ## Remaining decisions
 
-- What exact generation-bound receipt proves that cached text and frontier were emitted by the same authority state without replaying history on every open?
-- What minimum event-graph metadata index must be warm to prove membership, duplicates, frontier coverage, and replay-base safety while operation payloads remain cold?
-- Does R0 implement a simple correct critical-version detector for evidence, reuse/port a conflict-subgraph algorithm, or record placeholder replay as negative when the detector is unavailable?
-- How should the paper's Unicode-scalar positions cross the browser's UTF-16 façade without leaking UTF-16 into canonical events?
-- What product behavior is required for undelete after restore, given that undelete is outside the paper's operation model?
+- Resolved by [the content-addressed capture receipt](2026-08-20-r0-capture-receipt-reassessment.md): an immutable snapshot commit binds text/frontier content, while fixture generation/sequence remains in a separate mutable publication ref.
+- Resolved by [the cold event-graph capability boundary](2026-08-20-r0-cold-event-graph-capability-boundary.md): resident exact-head/writer commitments authenticate batched metadata while operation bodies remain cold.
+- Deferred to Wayfinder #1315: prove the critical replay base/conflict region from authenticated causal metadata, with bounded fallback when unavailable.
+- Resolved by [the canonical positional-event and Unicode contract](2026-08-20-r0-canonical-positional-event-unicode-contract.md): canonical events use parent-frontier-relative scalar positions and convert only at the UTF-16 adapter.
+- Partially resolved and deferred to Wayfinder #1316: undelete has a dedicated canonical target identity; its indexed/cold lookup and restored product behavior remain to be fixed.

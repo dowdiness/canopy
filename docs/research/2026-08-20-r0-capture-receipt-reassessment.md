@@ -117,24 +117,30 @@ Sources at Loro commit [`4d3d3f1`](https://github.com/loro-dev/loro/tree/4d3d3f1
 For each canonical event `e`, compute:
 
 ```text
+body_digest(e) = SHA-256(
+  domain("loomark-r0-event-body:v1")
+  || exact_canonical_event_body_bytes(e)
+)
+
 event_digest(e) = SHA-256(
   domain("loomark-r0-event:v1")
-  || canonical_event_identity_and_payload(e)
-  || sorted(
-       explicit_parent_identity_and_digest
-       ∪ implicit_same-writer_predecessor_identity_and_digest
-     )
+  || canonical_raw_identity(e)
+  || body_digest(e)
+  || sorted_declared_parent_identity_and_digest_records
+  || optional_implicit_same-writer_predecessor_identity_and_digest
+  || sorted_role_tagged_semantic_reference_records
 )
 ```
 
-The test codec reuses the shape of EGW's canonical sync encoding: unsigned varints for nonnegative integers and lengths, length-prefixed UTF-8 strings, one-byte variant/optional tags, and stable raw identities. It must freeze exact tags for insert/delete/undelete, payload, left/right origin or dedicated target, and any paper TextEvent positional field before implementation. Dependency count is encoded before dependency records.
+The test codec reuses the shape of EGW's canonical sync encoding: unsigned varints for nonnegative integers and lengths, length-prefixed UTF-8 strings, one-byte variant/optional tags, and stable raw identities. The canonical positional profile freezes exact tags for one-scalar insert, one-scalar delete, dedicated-target undelete, and parent-relative scalar position; it contains no Fugue origins. A separately tagged legacy compatibility/oracle profile may encode left/right origins but never defines canonical event identity. Declared-parent count, optional predecessor, and role-tagged semantic-reference count are encoded separately.
 
 Requirements:
 
-- Canonical event bytes include identity, kind, payload, positional/target fields, and every field that changes admission semantics.
-- The implicit predecessor `(agent, sequence - 1)` is included even when not repeated in explicit parents. Sequence `0` has no implicit predecessor; the encoded dependency count makes that case total and unambiguous.
+- Canonical body bytes include kind, payload, and positional/target fields. `event_digest` separately binds stable raw identity, `body_digest`, and every dependency/reference field that changes admission semantics.
+- The implicit predecessor `(agent, sequence - 1)` is encoded in its own role when sequence is greater than zero, even when the same identity is also a declared parent. Sequence `0` has no predecessor; the optional tag makes that case total and unambiguous.
 - Missing dependency digest means the event remains pending and no exact capture can be issued.
-- Parent dependencies are sorted and deduplicated by stable `(agent UTF-8 lexical order, sequence numeric order)` identity before hashing. An EGW-local implementation should iterate with `Op::parents_iter()` rather than allocate `Op::parents()` merely for hashing.
+- Declared parents are sorted and deduplicated by canonical raw identity: unsigned bytewise lexical order of validated UTF-8 agent bytes, then numeric sequence. Do not reuse MoonBit `String::compare`, whose ordering is not the receipt's UTF-8 byte order. An EGW-local implementation should iterate with `Op::parents_iter()` rather than allocate `Op::parents()` merely for hashing.
+- Before UTF-8 encoding/hashing, test-only preflight rejects malformed UTF-16 in every string field, including document/agent IDs. This avoids JS `TextEncoder` replacement diverging from native encode failure.
 - Sorting costs O(d log d) for an event with `d` unique dependencies unless a canonical sorted representation is retained.
 - The overlay is derived, discardable sidecar metadata. Canonical operation identities and wire bytes do not change.
 - SHA-256 may be supplied by the test executable's explicit `moonbitlang/x/crypto` dependency or by Nushell over emitted canonical event records; production EGW packages gain no implicit crypto dependency.
@@ -161,13 +167,16 @@ R0SnapshotCommitV1 {
   graph_root
   exact_raw_heads_sorted
   exact_raw_heads_sha256
+  exact_head_records_sorted
+  writer_commitments_sorted
   document_text_byte_length
+  document_text_scalar_length
   document_text_sha256
   snapshot_commit_id = SHA-256(canonical preceding fields)
 }
 ```
 
-`document_id_sha256` is SHA-256 over the exact UTF-8 `LoomarkDocumentId::value()` bytes without normalization. `document_text_byte_length` and `document_text_sha256` use the exact UTF-8 document-text bytes without Unicode or line-ending normalization. `exact_raw_heads_sorted` is encoded as a count followed by raw identities sorted by `(agent UTF-8 lexical order, sequence numeric order)`; count `0` is the unique empty encoding. Snapshot fields use the same domain-separated, length-prefixed/uvarint test codec rather than JSON object order.
+`document_id_sha256` is SHA-256 over the exact validated UTF-8 `LoomarkDocumentId::value()` bytes without normalization. `document_text_byte_length`, `document_text_scalar_length`, and `document_text_sha256` use the exact well-formed document text without Unicode or line-ending normalization; byte length/hash are over strict UTF-8 and scalar length counts Unicode scalar values. `exact_raw_heads_sorted` is encoded as a count followed by raw identities in canonical raw-identity order; count `0` is the unique empty encoding. `exact_raw_heads_sha256 = SHA-256(domain("loomark-r0-heads:v1") || canonical_exact_raw_heads_encoding)`. Exact head records and writer commitments follow the cold-boundary refinement. Snapshot fields use the same domain-separated, length-prefixed/uvarint test codec rather than JSON object order.
 
 The content commit contains no store epoch, mutable generation counter, active marker, writer identity, or destination-local LV. Equivalent graph/text captures produce the same commit ID across runs.
 
@@ -187,9 +196,9 @@ These are test-fixture provenance fields, not a production storage schema. Nushe
 ## Capture and validation lifecycle
 
 1. The producer builds the event-digest overlay from canonical history once, or maintains it from authority-owned committed-event evidence. The EGW-local test producer reuses `internal/oplog`'s typed `AdmissionReceipt::committed()`, `AdmissionOutcome::Partial`, pending counts, frontier evidence, and `OpLog::get_frontier_raw()`. The public Text façade still exposes counts rather than committed identities and exposes exact raw heads only through full `export_all()`; R0 records that public capability gap and does not duplicate admission logic.
-2. At capture, pending must be zero; exact raw heads, overlay root, and plain document text must describe one settled authority state.
+2. At capture, pending must be zero; exact raw heads, overlay root, and plain document text must describe one settled authority state. Text byte length, scalar length, and hash are derived during the same capture and bound by the immutable commit.
 3. The EGW producer emits owned canonical event/head/text records and exits. Before any publication-ref fields exist, Nushell independently derives event digests, graph root, component hashes, and `snapshot_commit_id`, writes immutable commit/sidecar fixtures, reads them back, then advances the test publication ref last.
-4. A separate Markdown/JS harness consumer re-hashes the immutable snapshot framing, document text, and sorted heads through existing test/black-box surfaces. It does not independently recompute `graph_root` from cold event payloads on the fast path.
+4. A separate Markdown/JS harness consumer re-hashes the immutable snapshot framing, document text byte/scalar lengths, and sorted heads through existing test/black-box surfaces. It does not independently recompute `graph_root` from cold event payloads on the fast path.
 5. The candidate fast path may report receipt validation and read-only hash-valid text. Gate-level `editable_ready` acceptance is granted only after the independent oracle case for the same `run_id`/`case_id` has succeeded; this ordering is test evidence and does not introduce a public read-only Markdown API.
 6. The full-history oracle independently rebuilds the event-digest overlay, replays canonical history, and compares graph root, text, raw heads, normalized first local event, and later trace behavior. Mismatch invalidates the candidate even when all fast-path hashes are internally consistent.
 7. Non-head event payload/parent corruption is detected by oracle rebuild or later authenticated cold reads, not by the O(F + T) fast-path check. The fast path detects altered text, sorted heads, snapshot framing, commit ID, and publication-ref mismatch.

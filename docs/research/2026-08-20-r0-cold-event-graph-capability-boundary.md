@@ -32,13 +32,14 @@ R0SnapshotCommitV1 {
   exact_head_records_sorted : Array[(RawVersion, EventDigest)]
   writer_commitments_sorted : Array[WriterCommitment]
   document_text_byte_length
+  document_text_scalar_length
   document_text_sha256
   snapshot_commit_id
 }
 
 WriterCommitment {
   agent
-  leaf_count             // zero or max admitted sequence + 1
+  leaf_count             // max admitted sequence + 1; empty writers omitted
   tip_event_digest       // digest at sequence leaf_count - 1
   event_meta_mmr_root
 }
@@ -46,12 +47,13 @@ WriterCommitment {
 
 Rules:
 
-- Head and writer arrays are sorted by stable UTF-8 agent order, then numeric sequence where applicable.
-- Writer records are unique by agent and empty writer commitments are never emitted. Admitted sequences must be exactly `0..<leaf_count`; any negative sequence, duplicate sequence, or gap refuses capture.
-- `exact_raw_heads_sorted` is the identity projection of `exact_head_records_sorted`, and its existing SHA-256 field remains in the receipt. Length, order, and identities must match exactly.
+- Head and writer arrays use canonical raw-identity order: unsigned bytewise lexical order of preflight-validated UTF-8 agent bytes, then numeric sequence where applicable. MoonBit `String::compare` is not this comparator.
+- Test-only canonical preflight rejects malformed UTF-16 in every string field, including document/agent IDs, before UTF-8 encoding or hashing; this prevents JS replacement behavior from diverging from native failure.
+- Writer records are unique by agent and empty writer commitments are never emitted. R0 preflight rejects a sequence above `0x7fff_fffe`, because `leaf_count = max_sequence + 1` must remain a positive signed 32-bit `Int`. Admitted sequences must be exactly `0..<leaf_count`; any negative sequence, duplicate sequence, gap, or count overflow refuses capture.
+- `exact_raw_heads_sorted` is the identity projection of `exact_head_records_sorted`; length, order, and identities must match exactly. `exact_raw_heads_sha256 = SHA-256(domain("loomark-r0-heads:v1") || canonical_exact_raw_heads_encoding)`, where the canonical encoding is head count followed by canonical raw identities in stored order.
 - Every exact head must equal that writer commitment's tip identity `(agent, leaf_count - 1)` and `tip_event_digest`. Writers whose tips are causally dominated need not appear in the exact head set. Capture/oracle validation proves each omitted writer tip is in the ancestry of an exact head.
 - `graph_root` is verified directly against the resident exact `(RawVersion, EventDigest)` head records; the fast path never rebuilds it from cold payloads.
-- `snapshot_commit_id` is SHA-256 over the frozen canonical encoding of every preceding `R0SnapshotCommitV1` field except itself: document ID, graph root, exact raw heads, exact-head hash, exact head records, writer commitments, text byte length, and text hash. The resident text bytes are transitively bound by recomputing their byte length/hash before accepting the commit. No field may be loaded or substituted independently from another snapshot; a publication ref selects one immutable commit ID and advances only after the complete candidate object is durable.
+- `snapshot_commit_id` is SHA-256 over the frozen canonical encoding of every preceding `R0SnapshotCommitV1` field except itself: document ID, graph root, exact raw heads, exact-head hash, exact head records, writer commitments, text byte length, text scalar length, and text hash. The resident text bytes are transitively bound by recomputing their byte length/hash before accepting the commit. No field may be loaded or substituted independently from another snapshot; a publication ref selects one immutable commit ID and advances only after the complete candidate object is durable.
 - The exact head digests, not only head identities, are resident. They allow the first local event and a closed strict-forward region to extend the Merkle-DAG without a provider read.
 - Resident size is O(text bytes + exact heads + writers), never O(history).
 
@@ -76,10 +78,10 @@ EventMetaV1 {
 
 - `declared_parents` contains only the operation's declared causal parents. These are the only edges replayed into `CausalGraph`.
 - `implicit_predecessor` is present exactly when sequence is greater than zero. It is a readiness/sequence proof, not silently converted into a declared graph edge. Admission additionally proves that predecessor is reachable through the declared-parent closure; mere predecessor presence is insufficient.
-- `semantic_references` contains every operation-model role needed for validation but not declared causal traversal, such as legacy left/right origins or a dedicated undelete target. A reference is retained with its role and required kind even when the same identity also appears as a declared parent or predecessor; identity deduplication must never erase semantic role evidence.
+- For canonical positional events, `semantic_references` contains only operation-model roles needed for validation but not declared causal traversal: currently the dedicated undelete target. A reference is retained with its role and required kind even when the same identity also appears as a declared parent or predecessor; identity deduplication must never erase semantic role evidence. Legacy left/right Fugue origins belong to a separately tagged compatibility/oracle metadata profile and never enter canonical event identity.
 - `kind` and `RequiredReferencedKind` are authenticated metadata because current admission must reject references whose target is not an insert. The planner fetches the referenced `EventMetaV1` and verifies its authenticated `kind` satisfies the required kind; the referring record cannot assert the target's actual kind by itself. Inserted text, scalar position, and other operation body fields stay cold.
 - All arrays use stable identity ordering.
-- The event digest binds kind, body digest, declared parent records, implicit predecessor, and semantic reference records.
+- `body_digest` is SHA-256 of the positional decision's domain-separated exact canonical body bytes. `event_digest` is SHA-256 of the event domain, canonical raw identity, `body_digest`, sorted declared-parent identity/digest records, optional implicit-predecessor record, and sorted role-tagged semantic-reference records. This is the single authoritative composition shared with the capture-receipt and positional-event decisions.
 - The metadata leaf hash binds the complete `EventMetaV1` value at leaf position `sequence` in that writer's accumulator.
 - A provider may retain derived Lamport/outdegree hints, but they are optional acceleration. The gate cannot require or trust them without recomputation from authenticated metadata.
 
@@ -107,7 +109,7 @@ writer_root = SHA-256(
 )
 ```
 
-Append uses binary carry over equal-height peaks. An inclusion proof contains sequence/leaf position, containing peak height, bottom-up sibling digests with left/right direction, and every other peak needed to reconstruct `writer_root`. The verifier rejects wrong leaf position, height, peak order/count, extra bytes, or a root mismatch. Proofs and roots from an unregistered scheme are unsupported rather than heuristically accepted.
+Leaves are height 0 via `leaf_hash`. Append uses binary carry over equal-height peaks; when two child peaks of height `h` merge, the `node_hash` height field is the new internal node's own height `h + 1`. An inclusion proof contains sequence/leaf position, containing peak height, bottom-up sibling digests with left/right direction, and every other peak needed to reconstruct `writer_root`. The verifier rejects wrong leaf position, height, peak order/count, extra bytes, or a root mismatch. Proofs and roots from an unregistered scheme are unsupported rather than heuristically accepted.
 
 ### Tier 2 — cold event payload
 
@@ -117,7 +119,7 @@ EventPayloadV1 {
 }
 ```
 
-The exact operation-model codec is frozen by the positional-event/Unicode decision. The bytes include every kind, position, text, target, or origin field that changes semantics. On read, the consumer verifies byte length and `body_digest` from authenticated `EventMetaV1` before using the payload.
+The exact test-only operation-model fixture codec is frozen by the positional-event/Unicode decision. Canonical positional bytes include kind, scalar position/text, or dedicated undelete target; they contain no Fugue origins. A separately tagged legacy compatibility/oracle profile includes origin fields that change legacy semantics. On read, the consumer verifies byte length and `body_digest` from authenticated `EventMetaV1` before using the payload.
 
 Incoming network/test-region payload is counted separately and is not a cold-provider payload read.
 
@@ -168,7 +170,7 @@ The provider shell performs I/O only. Pure verification turns encoded responses 
 
 ### Receipt validation and read-only text
 
-- Recompute text byte length/hash, exact-head identity projection/hash, head↔writer-tip invariants, and graph root, then recompute `snapshot_commit_id` over the complete canonical field set. Reject any mixed-snapshot substitution before observing text or planning an edit.
+- Recompute text byte length/scalar length/hash, exact-head identity projection/hash, head↔writer-tip invariants, and graph root, then recompute `snapshot_commit_id` over the complete canonical field set. Reject any mixed-snapshot substitution before observing text or planning an edit.
 - Provider metadata queries: zero.
 - Provider payload reads: zero.
 - Full-history reads/walks: zero.
@@ -231,7 +233,7 @@ The runner invokes the provider's distinct `read_full_history` operation. It can
 - `OpLog::get_frontier_raw()` supplies head-only authority evidence without `get_all_ops()` at the internal package seam.
 - `OpLog::{get_op,get_ops,get_ops_rle}` back test payload reads without expanding the complete log. For arbitrary raw IDs, the provider resolves every ID with `CausalGraph::raw_to_lv()`, rejects any missing mapping, calls `get_ops` with the aligned LV array, and verifies result count/identity alignment. `get_ops_rle` is reserved for an already range-shaped replay set.
 - `CausalGraph::{raw_to_lv,lv_to_raw,get_entry,graph_diff,diff_frontiers_lvs,is_ancestor}` remain white-box oracle/reference APIs.
-- `Op::parents_iter()`, `origin_left()`, `origin_right()`, identity/content accessors, `Map`, `Bytes`, and `Buffer` support canonical sidecar construction.
+- `Op::parents_iter()`, identity/content accessors, `Map`, `Bytes`, and `Buffer` support canonical sidecar construction. `origin_left()`/`origin_right()` are used only by the separately tagged legacy compatibility/oracle profile.
 - No public helper exposes the required declared-parent/predecessor/semantic-reference split. A new executable-local canonicalization helper is unavoidable; its sole responsibility is constructing `EventMetaV1`, and property tests compare it with existing admission readiness/target validation.
 - `moonbitlang/x/crypto` is not currently an EGW dependency. Using it requires an explicit executable-only `moon.pkg`/module dependency change reviewed in the EGW submodule; otherwise Nushell performs SHA-256 over emitted canonical records.
 
@@ -272,6 +274,8 @@ payload_bytes
 index_nodes_read
 planner_metadata_nodes_visited
 resident_records_visited
+resident_text_code_units_visited
+resident_text_scalars_visited
 scan_records_visited
 full_history_events
 full_history_bytes
@@ -289,6 +293,7 @@ elapsed_us
 - `index_nodes_read` counts Merkle/MMR nodes fetched for proof generation/verification. Their encoded bytes are included in `proof_bytes`; the node count is an additional structural metric, not an uncharged byte category.
 - `planner_metadata_nodes_visited` counts verified event records inspected by the deterministic planner, including cache hits.
 - `resident_records_visited` counts O(heads/writers) candidate-header records inspected. Scanning all prior exact heads for strict-forward coverage is allowed and visible here; it is not a provider scan.
+- `resident_text_code_units_visited` and `resident_text_scalars_visited` count verified resident/temporary plain-text traversal for UTF-16↔scalar conversion. They are independent of provider scans and remain visible on a zero-provider-read path.
 - `scan_records_visited` is nonzero whenever the provider sequentially examines cold records not named in the request. A batch of named point lookups is not a scan.
 - `full_history_events/bytes` are nonzero only for the explicit fallback/oracle operation.
 - Incoming-region bytes, candidate bytes, capture/rebuild bytes, and oracle bytes are separate artifact fields.
@@ -304,7 +309,8 @@ Before any zero assertion can pass, preflight must independently prove detection
 1. one metadata lookup and proof read;
 2. one payload batch read;
 3. one sequential metadata scan produced by an intentionally naive/misbehaving provider implementation, proving `scan_records_visited` detects work outside the three-operation semantic boundary;
-4. one explicit full-history read.
+4. one explicit full-history read;
+5. one resident UTF-16↔scalar conversion that proves both text-visit counters are wired.
 
 Each control verifies logical calls, physical calls, records/events, and byte counters.
 
@@ -335,7 +341,7 @@ Each control verifies logical calls, physical calls, records/events, and byte co
 
 ## Consequences
 
-- The snapshot receipt preserves its raw-head identity/hash fields and additionally retains exact head event digests and writer commitments. `snapshot_commit_id` directly commits the full canonical resident field set and transitively commits resident text through its verified byte length/hash, preventing valid pieces from different snapshots from being mixed. This linked decision explicitly refines the capture-receipt field set.
+- The snapshot receipt preserves its raw-head identity/hash fields and additionally retains exact head event digests, writer commitments, and the derived document scalar length. `snapshot_commit_id` directly commits the full canonical resident field set and transitively commits resident text through its verified byte length/scalar length/hash, preventing valid pieces from different snapshots from being mixed. This linked decision explicitly refines the capture-receipt field set.
 - The cold provider capability is storage-neutral but not integrity-neutral: positive results require proof verification against the snapshot commit.
 - Current typed internal admission receipts are sufficient to evaluate incremental sidecar maintenance in the test-only EGW producer; the public Text façade still does not expose this capability, which R0 records rather than widening.
 - The provider contract establishes data access and accounting only. Unicode positional event fields, critical replay-base selection, undelete semantics, and production storage remain separate decisions.
