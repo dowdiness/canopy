@@ -2,11 +2,7 @@
 package "dowdiness/loomark/internal/archive_storage/js"
 
 // Values
-pub fn get_item(String, (Int, String) -> Unit) -> Unit
-
 pub fn random_uuid() -> String
-
-pub fn set_item(String, String, (Int) -> Unit) -> Unit
 
 // Errors
 
@@ -15,4 +11,3 @@ pub fn set_item(String, String, (Int) -> Unit) -> Unit
 // Type aliases
 
 // Traits
-
