@@ -15,7 +15,7 @@ This fixes two problems in the previous resolution:
 1. `@text.Version` is a version vector, not the exact event-graph frontier. Exact frontier authority is the raw `SyncMessage.heads` set returned from `get_frontier_raw()`.
 2. SHA-256 over `SyncMessage::to_canonical_bytes()` requires full `export_all()` and full-history serialization at every capture. It is O(history) and detects byte mismatch, but does not prove that cached text is the semantic replay result.
 
-The recommended receipt makes repeated capture O(new events × dependency-sort cost + frontier + text bytes) **when authority-owned committed-event and exact-head evidence is available**, keeps restore independent of history size, and leaves semantic equivalence to a trusted atomic authority transition plus the independent full-history R0 oracle. Current EGW does not expose enough committed-event identity evidence to maintain this overlay for every remote/pending/partial path, and its public Text façade obtains raw heads only as part of `export_all()` with a full operation copy. R0 must measure one-time rebuild/full export and record incremental or head-only capture as a bounded negative where those seams are absent.
+The recommended receipt makes repeated capture O(new events × dependency-sort cost + frontier + text bytes) **when authority-owned committed-event and exact-head evidence is available**, keeps restore independent of history size, and leaves semantic equivalence to a trusted atomic authority transition plus the independent full-history R0 oracle. The public Text façade does not expose enough committed-event identity evidence to maintain this overlay for every remote/pending/partial path, and obtains raw heads only as part of `export_all()` with a full operation copy. However, the EGW-local R0 producer can reuse `internal/oplog`'s typed `AdmissionReceipt::committed()`, partial outcome, pending counts, frontier evidence, and `OpLog::get_frontier_raw()` without widening Text. R0 must measure that internal positive seam, while public Text/head-only capability remains absent and is recorded rather than invented.
 
 ## Correct state vocabulary
 
@@ -31,6 +31,7 @@ Sources at EGW commit [`3640bfa`](https://github.com/dowdiness/event-graph-walke
 - [`Version` and `Version::from_ops`](https://github.com/dowdiness/event-graph-walker/blob/3640bfa314ca29c14146ceb8fe1ab49223578b70/text/types.mbt#L66-L118)
 - [`Version::to_json_string`](https://github.com/dowdiness/event-graph-walker/blob/3640bfa314ca29c14146ceb8fe1ab49223578b70/text/sync.mbt#L480-L501)
 - [`current_heads` and `SyncSession::export_all`](https://github.com/dowdiness/event-graph-walker/blob/3640bfa314ca29c14146ceb8fe1ab49223578b70/text/sync.mbt#L808-L835)
+- [`AdmissionReceipt` committed/pending/frontier evidence](https://github.com/dowdiness/event-graph-walker/blob/3640bfa314ca29c14146ceb8fe1ab49223578b70/internal/oplog/typed_admission.mbt#L1-L134)
 
 ## What a digest can and cannot prove
 
@@ -185,7 +186,7 @@ These are test-fixture provenance fields, not a production storage schema. Nushe
 
 ## Capture and validation lifecycle
 
-1. The producer builds the event-digest overlay from canonical history once, or maintains it from authority-owned committed-event evidence when that evidence is available. Current EGW's Text façade exposes counts but not the complete identity set committed by remote/pending/partial admission, and exposes exact raw heads only through full `export_all()`. A fixture producer that already owns the canonical input stream may compute test heads/digests, but that does not prove a production capture seam. Incremental and head-only capabilities must not duplicate admission logic and record bounded negatives unless accepted authority receipts supply them.
+1. The producer builds the event-digest overlay from canonical history once, or maintains it from authority-owned committed-event evidence. The EGW-local test producer reuses `internal/oplog`'s typed `AdmissionReceipt::committed()`, `AdmissionOutcome::Partial`, pending counts, frontier evidence, and `OpLog::get_frontier_raw()`. The public Text façade still exposes counts rather than committed identities and exposes exact raw heads only through full `export_all()`; R0 records that public capability gap and does not duplicate admission logic.
 2. At capture, pending must be zero; exact raw heads, overlay root, and plain document text must describe one settled authority state.
 3. The EGW producer emits owned canonical event/head/text records and exits. Before any publication-ref fields exist, Nushell independently derives event digests, graph root, component hashes, and `snapshot_commit_id`, writes immutable commit/sidecar fixtures, reads them back, then advances the test publication ref last.
 4. A separate Markdown/JS harness consumer re-hashes the immutable snapshot framing, document text, and sorted heads through existing test/black-box surfaces. It does not independently recompute `graph_root` from cold event payloads on the fast path.
@@ -196,7 +197,7 @@ These are test-fixture provenance fields, not a production storage schema. Nushe
 ## Performance and evidence requirements
 
 - Report one-time overlay rebuild and full-export/head-discovery cost for an authority that lacks the index or a head-only receipt.
-- Report steady-state digest maintenance per new event and serialized side-index bytes only for paths where authority-owned committed-event identities are available; otherwise record the exact missing receipt capability as negative.
+- Report steady-state digest maintenance per new event and serialized side-index bytes through the EGW-local typed admission receipt. Record the public Text/head-only seam as absent; do not add it merely to make R0 pass.
 - Report capture time separately from restore and first edit.
 - Restore/first edit must not compute `export_all`, `to_canonical_bytes` over full history, or walk all event digests.
 - Strict-forward tests require zero operation-payload cold reads; metadata root/head lookup is counted separately.
