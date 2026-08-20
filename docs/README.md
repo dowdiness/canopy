@@ -203,6 +203,12 @@ behavior** — check the code before relying on any specific detail.
   — separates File and Causal Authority, Archive-backed and File-backed
   persistence, and bounded External admission for associated Markdown files.
 
+## Research
+
+- [Progressive editable-restore UX](research/2026-08-20-progressive-editable-restore-ux.md)
+  — primary-source evidence and scenario matrix for Loomark cold restore when
+  canonical text is readable before editable causal state.
+
 ## Historical / Archive
 
 > Do not treat files in this section as current guidance. They record decisions
