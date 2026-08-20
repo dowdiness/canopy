@@ -1,4 +1,173 @@
-import { expect, test, type Locator } from "@playwright/test"
+import { expect, test, type Locator, type Page } from "@playwright/test"
+
+const ARCHIVE_DATABASE_NAME = "loomark.local-repository"
+const ARCHIVE_DATABASE_VERSION = 1
+const ARCHIVE_STORE_NAME = "archives"
+const ARCHIVE_KEY = "loomark.active-document-archive"
+
+type ArchiveRecord = {
+  exists: boolean
+  value?: unknown
+}
+
+type ArchiveEnvelope = {
+  document_id?: string
+  portable_markdown?: string
+  history?: string
+  [key: string]: unknown
+}
+
+async function readArchiveRecord(page: Page): Promise<ArchiveRecord> {
+  return page.evaluate(({ databaseName, storeName, key }) => new Promise<ArchiveRecord>((resolve, reject) => {
+    let open: IDBOpenDBRequest
+    try {
+      open = indexedDB.open(databaseName)
+    } catch (error) {
+      reject(error)
+      return
+    }
+    open.onupgradeneeded = () => {
+      const database = open.result
+      if (!database.objectStoreNames.contains(storeName)) database.createObjectStore(storeName)
+    }
+    open.onerror = () => reject(open.error ?? new Error("archive database open failed"))
+    open.onsuccess = () => {
+      const database = open.result
+      if (!database.objectStoreNames.contains(storeName)) {
+        database.close()
+        resolve({ exists: false })
+        return
+      }
+      let transaction: IDBTransaction
+      try {
+        transaction = database.transaction(storeName, "readonly")
+      } catch (error) {
+        database.close()
+        reject(error)
+        return
+      }
+      let found = false
+      let value: unknown
+      let settled = false
+      const fail = (error: unknown) => {
+        if (settled) return
+        settled = true
+        database.close()
+        reject(error)
+      }
+      transaction.onerror = () => fail(transaction.error ?? new Error("archive read failed"))
+      transaction.onabort = () => fail(transaction.error ?? new Error("archive read aborted"))
+      transaction.oncomplete = () => {
+        if (settled) return
+        settled = true
+        database.close()
+        resolve(found ? { exists: true, value } : { exists: false })
+      }
+      let request: IDBRequest<IDBCursorWithValue | null>
+      try {
+        request = transaction.objectStore(storeName).openCursor(key)
+      } catch (error) {
+        fail(error)
+        return
+      }
+      request.onerror = () => fail(request.error ?? new Error("archive cursor failed"))
+      request.onsuccess = () => {
+        const cursor = request.result
+        if (cursor !== null) {
+          found = true
+          value = cursor.value
+        }
+      }
+    }
+  }), {
+    databaseName: ARCHIVE_DATABASE_NAME,
+    storeName: ARCHIVE_STORE_NAME,
+    key: ARCHIVE_KEY,
+  })
+}
+
+async function writeArchiveRecord(page: Page, value: unknown): Promise<void> {
+  await page.evaluate(({ databaseName, databaseVersion, storeName, key, value }) => new Promise<void>((resolve, reject) => {
+    const open = indexedDB.open(databaseName, databaseVersion)
+    open.onupgradeneeded = () => {
+      const database = open.result
+      if (!database.objectStoreNames.contains(storeName)) database.createObjectStore(storeName)
+    }
+    open.onerror = () => reject(open.error ?? new Error("archive database open failed"))
+    open.onsuccess = () => {
+      const database = open.result
+      let transaction: IDBTransaction
+      try {
+        transaction = database.transaction(storeName, "readwrite")
+      } catch (error) {
+        database.close()
+        reject(error)
+        return
+      }
+      let settled = false
+      const fail = (error: unknown) => {
+        if (settled) return
+        settled = true
+        database.close()
+        reject(error)
+      }
+      transaction.onerror = () => fail(transaction.error ?? new Error("archive seed failed"))
+      transaction.onabort = () => fail(transaction.error ?? new Error("archive seed aborted"))
+      transaction.oncomplete = () => {
+        if (settled) return
+        settled = true
+        database.close()
+        resolve()
+      }
+      try {
+        transaction.objectStore(storeName).put(value, key)
+      } catch (error) {
+        try {
+          transaction.abort()
+        } catch (_) {}
+        fail(error)
+      }
+    }
+  }), {
+    databaseName: ARCHIVE_DATABASE_NAME,
+    databaseVersion: ARCHIVE_DATABASE_VERSION,
+    storeName: ARCHIVE_STORE_NAME,
+    key: ARCHIVE_KEY,
+    value,
+  })
+}
+
+async function readArchiveEnvelope(page: Page): Promise<ArchiveEnvelope | null> {
+  const record = await readArchiveRecord(page)
+  if (!record.exists || typeof record.value !== "string") return null
+  try {
+    const parsed: unknown = JSON.parse(record.value)
+    return parsed !== null && typeof parsed === "object" ? parsed as ArchiveEnvelope : null
+  } catch (_) {
+    return null
+  }
+}
+
+async function readArchiveRaw(page: Page): Promise<string | null> {
+  const record = await readArchiveRecord(page)
+  return record.exists && typeof record.value === "string" ? record.value : null
+}
+
+async function waitForBaseline(page: Page): Promise<void> {
+  await expect.poll(() => readArchiveEnvelope(page)).not.toBeNull()
+}
+
+function installArchivePutFailure(key: string): void {
+  const state = globalThis as typeof globalThis & { __loomarkArchivePutFailure?: boolean }
+  if (state.__loomarkArchivePutFailure) return
+  const prototype = IDBObjectStore.prototype as any
+  const originalPut = prototype.put
+  prototype.put = function(this: IDBObjectStore, value: unknown, recordKey?: IDBValidKey) {
+    if (recordKey === key) throw new DOMException("full", "QuotaExceededError")
+    return originalPut.call(this, value, recordKey)
+  }
+  state.__loomarkArchivePutFailure = true
+}
 
 async function replaceRawValue(input: Locator, value: string): Promise<void> {
   await input.evaluate((element, nextValue) => {
@@ -122,20 +291,17 @@ test("first standalone visit stores a complete baseline archive", async ({ page 
   await page.goto("/")
 
   await expect(page.locator("#loomark-root")).toBeVisible()
-  await expect.poll(() => page.evaluate(() => localStorage.getItem("loomark.active-document-archive"))).not.toBeNull()
-  const baseline = await page.evaluate(() => JSON.parse(
-    localStorage.getItem("loomark.active-document-archive") ?? "{}",
-  ) as { document_id?: string; portable_markdown?: string; history?: string })
-  expect(baseline.document_id).toBeTruthy()
-  expect(baseline.portable_markdown).toBe("")
-  expect(baseline.history).toBeTruthy()
+  await waitForBaseline(page)
+  const baseline = await readArchiveEnvelope(page)
+  expect(baseline?.document_id).toBeTruthy()
+  expect(baseline?.portable_markdown).toBe("")
+  expect(baseline?.history).toBeTruthy()
 })
 
 test("standalone IME commits one non-BMP final value and ignores cancellation", async ({ page }) => {
   await page.goto("/")
-  await expect.poll(() => page.evaluate(() => (
-    JSON.parse(localStorage.getItem("loomark.active-document-archive") ?? "{}").portable_markdown as string | undefined
-  ))).toBe("")
+  await waitForBaseline(page)
+  await expect.poll(() => readArchiveEnvelope(page).then(archive => archive?.portable_markdown)).toBe("")
   const input = page.locator("#loomark-input")
   await input.focus()
   await input.evaluate(element => {
@@ -150,15 +316,11 @@ test("standalone IME commits one non-BMP final value and ignores cancellation", 
     selectionEnd: 2,
   })
   await expect(input).toHaveValue("😀")
-  expect(await page.evaluate(() => (
-    JSON.parse(localStorage.getItem("loomark.active-document-archive") ?? "{}").portable_markdown as string
-  ))).toBe("")
+  expect((await readArchiveEnvelope(page))?.portable_markdown).toBe("")
 
   await session.send("Input.insertText", { text: "👨‍👩‍👧‍👦" })
 
-  await expect.poll(() => page.evaluate(() => (
-    JSON.parse(localStorage.getItem("loomark.active-document-archive") ?? "{}").portable_markdown as string
-  ))).toBe("👨‍👩‍👧‍👦")
+  await expect.poll(() => readArchiveEnvelope(page).then(archive => archive?.portable_markdown)).toBe("👨‍👩‍👧‍👦")
   await expect(input).toHaveValue("👨‍👩‍👧‍👦")
   await expect(input).toBeFocused()
   await expect.poll(() => input.evaluate(element => {
@@ -177,39 +339,35 @@ test("standalone IME commits one non-BMP final value and ignores cancellation", 
     selectionEnd: 0,
   })
 
-  expect(await page.evaluate(() => (
-    JSON.parse(localStorage.getItem("loomark.active-document-archive") ?? "{}").portable_markdown as string
-  ))).toBe("👨‍👩‍👧‍👦")
+  expect((await readArchiveEnvelope(page))?.portable_markdown).toBe("👨‍👩‍👧‍👦")
   await expect(input).toHaveValue("👨‍👩‍👧‍👦")
 })
 
 test("standalone edit replaces the archive and reload restores the durable source", async ({ page }) => {
   await page.goto("/")
-  await expect.poll(() => page.evaluate(() => (
-    JSON.parse(localStorage.getItem("loomark.active-document-archive") ?? "{}").document_id as string | undefined
-  ))).toBeTruthy()
-  const documentId = await page.evaluate(() => (
-    JSON.parse(localStorage.getItem("loomark.active-document-archive") ?? "{}").document_id as string
-  ))
+  await waitForBaseline(page)
+  const documentId = (await readArchiveEnvelope(page))?.document_id
+  expect(documentId).toBeTruthy()
   await replaceRawValue(page.locator("#loomark-input"), "# Durable\n\nSaved locally\n")
-  await expect.poll(() => page.evaluate(() => {
-    const raw = localStorage.getItem("loomark.active-document-archive")
-    return raw === null ? null : (JSON.parse(raw) as { portable_markdown?: string }).portable_markdown
-  })).toBe("# Durable\n\nSaved locally\n")
+  await expect.poll(() => readArchiveEnvelope(page).then(archive => archive?.portable_markdown))
+    .toBe("# Durable\n\nSaved locally\n")
 
   await page.reload()
   await expect(page.locator("#loomark-input")).toHaveValue("# Durable\n\nSaved locally\n")
-  await expect.poll(() => page.evaluate(() => (
-    JSON.parse(localStorage.getItem("loomark.active-document-archive") ?? "{}").document_id as string
-  ))).toBe(documentId)
+  await expect.poll(() => readArchiveEnvelope(page).then(archive => archive?.document_id))
+    .toBe(documentId)
 })
 
-test("corrupt local archives mount a recovery view without an editor", async ({ page }) => {
+test("corrupt IDB archives mount a recovery view without an editor", async ({ page }) => {
   const corruptArchive = "not-json"
-  await page.addInitScript(corruptArchive => {
-    localStorage.setItem("loomark.active-document-archive", corruptArchive)
-  }, corruptArchive)
   await page.goto("/")
+  await waitForBaseline(page)
+  await writeArchiveRecord(page, corruptArchive)
+  await page.evaluate(({ key, value }) => localStorage.setItem(key, value), {
+    key: ARCHIVE_KEY,
+    value: JSON.stringify({ schema_version: "1", document_id: "legacy", portable_markdown: "", history: "", extensions: {} }),
+  })
+  await page.reload()
 
   await expect(page.locator("#loomark-recovery-root")).toBeVisible()
   await expect(page.locator("#loomark-recovery-root")).toHaveAttribute(
@@ -217,34 +375,33 @@ test("corrupt local archives mount a recovery view without an editor", async ({ 
     "corrupt-archive",
   )
   await expect(page.locator("#loomark-input")).toHaveCount(0)
-  await expect.poll(() => page.evaluate(() => (
-    localStorage.getItem("loomark.active-document-archive")
-  ))).toBe(corruptArchive)
+  await expect.poll(() => readArchiveRaw(page)).toBe(corruptArchive)
 })
 
-test("unsupported local archives remain preserved behind recovery", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("loomark.active-document-archive", JSON.stringify({
-      schema_version: "2",
-      document_id: "doc",
-      portable_markdown: "",
-      history: "",
-      extensions: {},
-    }))
+test("unsupported IDB archives remain preserved behind recovery", async ({ page }) => {
+  const unsupportedArchive = JSON.stringify({
+    schema_version: "2",
+    document_id: "doc",
+    portable_markdown: "",
+    history: "",
+    extensions: {},
   })
   await page.goto("/")
+  await waitForBaseline(page)
+  await writeArchiveRecord(page, unsupportedArchive)
+  await page.reload()
 
   await expect(page.locator("#loomark-recovery-root")).toHaveAttribute(
     "data-loomark-recovery-category",
     "unsupported-archive",
   )
-  await expect.poll(() => page.evaluate(() => localStorage.getItem("loomark.active-document-archive"))).toContain('"schema_version":"2"')
+  await expect.poll(() => readArchiveRaw(page)).toBe(unsupportedArchive)
   await expect(page.locator("#loomark-input")).toHaveCount(0)
 })
 
-test("storage read failures mount a separate recovery view", async ({ page }) => {
+test("indexeddb read failures mount a separate recovery view", async ({ page }) => {
   await page.addInitScript(() => {
-    Object.defineProperty(window, "localStorage", {
+    Object.defineProperty(globalThis, "indexedDB", {
       configurable: true,
       get() {
         throw Object.assign(new Error("blocked"), { name: "UnknownError" })
@@ -260,30 +417,41 @@ test("storage read failures mount a separate recovery view", async ({ page }) =>
   await expect(page.locator("#loomark-input")).toHaveCount(0)
 })
 
-test("a failed replacement keeps the applied source but reload restores the previous archive", async ({ page }) => {
+test("a failed replacement keeps the applied source but reload restores the previous IDB archive", async ({ page }) => {
   await page.goto("/")
+  await waitForBaseline(page)
   await replaceRawValue(page.locator("#loomark-input"), "# Previous\n")
-  await expect.poll(() => page.evaluate(() => (
-    JSON.parse(localStorage.getItem("loomark.active-document-archive") ?? "{}").portable_markdown as string
-  ))).toBe("# Previous\n")
+  await expect.poll(() => readArchiveEnvelope(page).then(archive => archive?.portable_markdown))
+    .toBe("# Previous\n")
 
-  await page.evaluate(() => {
-    const original = Storage.prototype.setItem
-    Storage.prototype.setItem = function(key, value) {
-      if (key === "loomark.active-document-archive") {
-        throw Object.assign(new Error("full"), { name: "QuotaExceededError" })
-      }
-      original.call(this, key, value)
-    }
-  })
+  await page.addInitScript(installArchivePutFailure, ARCHIVE_KEY)
+  await page.evaluate(installArchivePutFailure, ARCHIVE_KEY)
   await replaceRawValue(page.locator("#loomark-input"), "# Applied\n")
   await expect(page.locator("#loomark-input")).toHaveValue("# Applied\n")
   await expect(page.locator("#loomark-error")).toContainText(
     "Changes are applied but not saved locally.",
   )
+  await expect.poll(() => readArchiveEnvelope(page).then(archive => archive?.portable_markdown))
+    .toBe("# Previous\n")
 
   await page.reload()
   await expect(page.locator("#loomark-input")).toHaveValue("# Previous\n")
+})
+
+test("legacy local archives migrate once and remain readable from IDB", async ({ page }) => {
+  const legacyArchive = "legacy-archive"
+  await page.addInitScript(
+    ({ key, value }) => localStorage.setItem(key, value),
+    { key: ARCHIVE_KEY, value: legacyArchive },
+  )
+  await page.goto("/")
+
+  await expect(page.locator("#loomark-recovery-root")).toHaveAttribute(
+    "data-loomark-recovery-category",
+    "corrupt-archive",
+  )
+  await expect.poll(() => readArchiveRaw(page)).toBe(legacyArchive)
+  await expect.poll(() => page.evaluate(key => localStorage.getItem(key), ARCHIVE_KEY)).toBeNull()
 })
 
 test("production output boots one instrumentation-free Loomark root", async ({ page }) => {

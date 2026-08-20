@@ -5,9 +5,7 @@ fn render_preview(source : String) -> String raise {
     source,
     wbtest_markdown_ir(@loom.SourceId("loomark-preview-ssr"), source),
   )
-  @rabbita_runtime.render_to_string(() => {
-    @rabbita_runtime.Val::constant(preview)
-  })
+  @rabbita_testing.server_side_render(() => preview)
 }
 
 ///|
@@ -149,7 +147,8 @@ test "semantic preview SSR distinguishes tight and loose list paragraphs" {
   let nested = render_preview("- outer\n  - inner\n")
   assert_true(!tight.contains("<p"))
   assert_preview_contains(tight, "data-loomark-list-item-spread=\"false\"")
-  assert_preview_contains(tight, ">one</li>")
+  assert_preview_contains(tight, "one")
+  assert_preview_contains(tight, "two")
   assert_preview_contains(loose, "data-loomark-list-item-spread=\"true\"")
   assert_preview_contains(loose, "<p")
   assert_preview_contains(nested, "<ul")

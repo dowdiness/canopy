@@ -9,7 +9,13 @@ pub fn fresh_id(prefix : String) -> String {
 pub const ACTIVE_DOCUMENT_KEY : String = "loomark.active-document-archive"
 
 ///|
-/// Typed result of the browser provider's callback-shaped read.
+/// The one browser database used by the standalone local archive.
+let local_repository_config : @indexed_db.Config = @indexed_db.Config::Config(
+  "loomark.local-repository", 1, "archives",
+)
+
+///|
+/// Typed result of one IndexedDB binding read.
 pub(all) enum LocalArchiveStorageRead {
   Missing
   Loaded(String)
@@ -45,19 +51,25 @@ pub fn LocalArchiveWriteCompletion::result(
 }
 
 ///|
-/// Map the JS provider's read code into the repository shell taxonomy.
-pub fn load(callback : (LocalArchiveStorageRead) -> Unit) -> Unit {
-  @storage_js.get_item(ACTIVE_DOCUMENT_KEY, (kind, value) => {
-    match kind {
-      0 => callback(Missing)
-      1 => callback(Loaded(value))
-      2 =>
-        callback(
-          Failed(@repository.LocalArchiveStorageReadFailure::Unavailable),
-        )
-      _ => callback(Failed(@repository.LocalArchiveStorageReadFailure::Failed))
-    }
-  })
+/// Map the IndexedDB binding's result into the repository shell taxonomy.
+pub fn load(result~ : @cmd.Emit[LocalArchiveStorageRead]) -> @cmd.Cmd {
+  @indexed_db.get(
+    local_repository_config,
+    ACTIVE_DOCUMENT_KEY,
+    migrate_legacy=true,
+    result=stored => {
+      result(
+        match stored {
+          @indexed_db.ReadResult::Missing => Missing
+          @indexed_db.ReadResult::Loaded(value) => Loaded(value)
+          @indexed_db.ReadResult::Unavailable =>
+            Failed(@repository.LocalArchiveStorageReadFailure::Unavailable)
+          @indexed_db.ReadResult::Failed =>
+            Failed(@repository.LocalArchiveStorageReadFailure::Failed)
+        },
+      )
+    },
+  )
 }
 
 ///|
@@ -67,24 +79,22 @@ pub fn replace(
   encoded : String,
   completed~ : @cmd.Emit[LocalArchiveWriteCompletion],
 ) -> @cmd.Cmd {
-  @cmd.custom_cmd(kind=@cmd.Immediately, scheduler => {
-    @storage_js.set_item(ACTIVE_DOCUMENT_KEY, encoded, kind => {
-      let result = match kind {
-        0 => LocalArchiveStorageWrite::Stored
-        1 =>
-          LocalArchiveStorageWrite::Failed(
-            @repository.LocalArchiveStorageWriteFailure::Unavailable,
-          )
-        2 =>
-          LocalArchiveStorageWrite::Failed(
-            @repository.LocalArchiveStorageWriteFailure::QuotaExceeded,
-          )
-        _ =>
-          LocalArchiveStorageWrite::Failed(
-            @repository.LocalArchiveStorageWriteFailure::Failed,
-          )
-      }
-      scheduler.add(completed({ request_id, result }))
-    })
+  @indexed_db.put(local_repository_config, ACTIVE_DOCUMENT_KEY, encoded, result=stored => {
+    let result = match stored {
+      @indexed_db.WriteResult::Stored => LocalArchiveStorageWrite::Stored
+      @indexed_db.WriteResult::Unavailable =>
+        LocalArchiveStorageWrite::Failed(
+          @repository.LocalArchiveStorageWriteFailure::Unavailable,
+        )
+      @indexed_db.WriteResult::QuotaExceeded =>
+        LocalArchiveStorageWrite::Failed(
+          @repository.LocalArchiveStorageWriteFailure::QuotaExceeded,
+        )
+      @indexed_db.WriteResult::Failed =>
+        LocalArchiveStorageWrite::Failed(
+          @repository.LocalArchiveStorageWriteFailure::Failed,
+        )
+    }
+    completed({ request_id, result })
   })
 }

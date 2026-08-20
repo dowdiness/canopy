@@ -22,143 +22,209 @@ fn recovery_category(
 }
 
 ///|
-/// Mount one editor after the browser archive decision has completed.
-fn mount_standalone_editor(
-  host_id : String,
+fn recovery_code(category : RecoveryCategory) -> String {
+  match category {
+    RecoveryCategory::StorageUnavailable => "storage-unavailable"
+    RecoveryCategory::StorageReadFailed => "storage-read-failed"
+    RecoveryCategory::EditorInitializationFailed =>
+      "editor-initialization-failed"
+    RecoveryCategory::UnsupportedArchive => "unsupported-archive"
+    RecoveryCategory::CorruptArchive => "corrupt-archive"
+    RecoveryCategory::ArchiveOverLimit => "archive-over-limit"
+    RecoveryCategory::IncompleteArchive => "incomplete-archive"
+  }
+}
+
+///|
+fn bootstrap_rejected(
+  session_ref : @ref.Ref[EditorSession],
+  model : DriverModel,
+  category : RecoveryCategory,
+) -> (DriverModel, @cmd.Cmd) {
+  session_ref.val.attachment.dispose()
+  (
+    {
+      ..model,
+      archive_persistence_enabled: false,
+      fatal: true,
+      error: None,
+      error_code: Some(recovery_code(category)),
+      error_operation: Some("standalone-bootstrap"),
+      rejection: None,
+    },
+    @cmd.none,
+  )
+}
+
+///|
+fn adopt_bootstrap_session(
+  session_ref : @ref.Ref[EditorSession],
+  model : DriverModel,
   editor : @markdown.MarkdownEditor,
   attachment : @md_markdown.MarkdownSemanticAttachment,
   document_id : @archive.LoomarkDocumentId,
   replica_id : String,
-  baseline : (@repository.LocalArchiveRequestId, String)?,
   archive_tracker : @repository.LocalArchiveRequestTracker,
   local_storage_warning : Bool,
-) -> Unit raise {
-  let initial = {
-    ..initial_model(
-      host_id,
-      editor,
-      document_id,
-      replica_id,
-      archive_persistence_enabled~,
-    ),
-    archive_tracker,
-    local_storage_warning,
+  command : @cmd.Cmd,
+) -> (DriverModel, @cmd.Cmd) {
+  let document = editor.snapshot() catch {
+    _ => {
+      attachment.dispose()
+      return bootstrap_rejected(
+        session_ref,
+        model,
+        RecoveryCategory::EditorInitializationFailed,
+      )
+    }
   }
-  detached_focus_token.val = ""
-  publish(initial, None, None)
-  let app = standalone_application(editor, attachment, initial, baseline)
-  app.mount(host_id)
+  session_ref.val.attachment.dispose()
+  session_ref.val = { editor, attachment }
+  (
+    {
+      ..model,
+      state: @core.ApplicationState::ApplicationState(@core.Raw),
+      runtime_state: EditorRuntimeState::Healthy,
+      document,
+      document_version: editor.version(),
+      document_id,
+      raw_selection: None,
+      archive_persistence_enabled: true,
+      semantic_document: None,
+      preview_artifact: None,
+      semantic_read_count: 0,
+      split_preview_open: false,
+      active_block_key: None,
+      replica_id,
+      source_revision: 0,
+      text_input_generation: 0,
+      fatal: false,
+      error: None,
+      error_code: None,
+      error_operation: None,
+      error_count: 0,
+      committed_change_count: 0,
+      reconstruction_attempt_count: 0,
+      selection: None,
+      measurement: None,
+      event_detail: None,
+      rejection: None,
+      archive_tracker,
+      local_storage_warning,
+    },
+    command,
+  )
 }
 
 ///|
-/// Construct a new local document and schedule its complete baseline archive.
-fn mount_new_standalone_document(
-  host_id : String,
+/// Create a fresh local document after an empty archive slot is observed.
+fn create_bootstrap_document(
+  session_ref : @ref.Ref[EditorSession],
+  model : DriverModel,
   source : String,
-) -> Unit raise {
+  emit : @cmd.Emit[DriverEvent],
+) -> (DriverModel, @cmd.Cmd) {
   let replica_id = @archive_storage.fresh_id("loomark-standalone-writer-")
   let document_id = @archive.LoomarkDocumentId::from_string(
     @archive_storage.fresh_id("loomark-document-"),
   ) catch {
-    _ => {
-      recovery_application(RecoveryCategory::EditorInitializationFailed).mount(
-        host_id,
+    _ =>
+      return bootstrap_rejected(
+        session_ref,
+        model,
+        RecoveryCategory::EditorInitializationFailed,
       )
-      return
-    }
   }
   let (editor, attachment) = @markdown.MarkdownEditor::with_semantic_attachment(
     agent_id=replica_id,
     source~,
   ) catch {
-    _ => {
-      recovery_application(RecoveryCategory::EditorInitializationFailed).mount(
-        host_id,
+    _ =>
+      return bootstrap_rejected(
+        session_ref,
+        model,
+        RecoveryCategory::EditorInitializationFailed,
       )
-      return
-    }
   }
   let tracker = @repository.LocalArchiveRequestTracker::new()
   let prepared = @repository.prepare_local_archive(document_id~, editor~) catch {
-    _ => {
-      mount_standalone_editor(
-        host_id,
-        editor,
-        attachment,
-        document_id,
-        replica_id,
-        None,
-        tracker,
-        true,
+    _ =>
+      return adopt_bootstrap_session(
+        session_ref, model, editor, attachment, document_id, replica_id, tracker,
+        true, @cmd.none,
       )
-      return
-    }
   }
   let (tracker, request_id) = tracker.request()
-  mount_standalone_editor(
-    host_id,
-    editor,
-    attachment,
-    document_id,
-    replica_id,
-    Some((request_id, prepared.encoded())),
-    tracker,
-    false,
+  let command = @archive_storage.replace(request_id, prepared.encoded(), completed=completion => {
+    emit(Archive(completion))
+  })
+  adopt_bootstrap_session(
+    session_ref, model, editor, attachment, document_id, replica_id, tracker, false,
+    command,
   )
 }
 
 ///|
-/// Mount the already validated local document with its fresh writing instance.
-fn mount_reopened_standalone_document(
-  host_id : String,
-  reopened : @repository.ReopenedLocalArchive,
-  replica_id : String,
-) -> Unit raise {
-  mount_standalone_editor(
-    host_id,
-    reopened.editor(),
-    reopened.attachment(),
-    reopened.document_id(),
-    replica_id,
-    None,
-    @repository.LocalArchiveRequestTracker::new(),
-    false,
-  )
-}
-
-///|
-/// Complete the callback-shaped standalone bootstrap without exposing storage.
-fn finish_standalone_bootstrap(
-  host_id : String,
-  source : String,
+/// Finish the initial storage Cmd inside the existing Rabbita update loop.
+fn update_standalone_bootstrap(
+  session_ref : @ref.Ref[EditorSession],
+  model : DriverModel,
   loaded : @archive_storage.LocalArchiveStorageRead,
-) -> Unit raise {
+  source : String,
+  emit : @cmd.Emit[DriverEvent],
+) -> (DriverModel, @cmd.Cmd) {
+  guard !model.archive_persistence_enabled else { return (model, @cmd.none) }
   match loaded {
     @archive_storage.LocalArchiveStorageRead::Missing =>
-      mount_new_standalone_document(host_id, source)
+      create_bootstrap_document(session_ref, model, source, emit)
     @archive_storage.LocalArchiveStorageRead::Failed(
       @repository.LocalArchiveStorageReadFailure::Unavailable
     ) =>
-      recovery_application(RecoveryCategory::StorageUnavailable).mount(host_id)
+      bootstrap_rejected(
+        session_ref,
+        model,
+        RecoveryCategory::StorageUnavailable,
+      )
     @archive_storage.LocalArchiveStorageRead::Failed(
       @repository.LocalArchiveStorageReadFailure::Failed
     ) =>
-      recovery_application(RecoveryCategory::StorageReadFailed).mount(host_id)
+      bootstrap_rejected(
+        session_ref,
+        model,
+        RecoveryCategory::StorageReadFailed,
+      )
     @archive_storage.LocalArchiveStorageRead::Loaded(encoded) => {
       let policy = @repository.LocalRestorePolicy::trusted()
       let replica_id = @archive_storage.fresh_id("loomark-standalone-writer-")
-      match
-        @repository.classify_local_archive_record(
-          Some(encoded),
-          agent_id=replica_id,
-          policy~,
-        ) {
+      let classified = @repository.classify_local_archive_record(
+        Some(encoded),
+        agent_id=replica_id,
+        policy~,
+      ) catch {
+        _ =>
+          return bootstrap_rejected(
+            session_ref,
+            model,
+            RecoveryCategory::CorruptArchive,
+          )
+      }
+      match classified {
         @repository.LocalArchiveLoad::Valid(reopened) =>
-          mount_reopened_standalone_document(host_id, reopened, replica_id)
+          adopt_bootstrap_session(
+            session_ref,
+            model,
+            reopened.editor(),
+            reopened.attachment(),
+            reopened.document_id(),
+            replica_id,
+            @repository.LocalArchiveRequestTracker::new(),
+            false,
+            @cmd.none,
+          )
         @repository.LocalArchiveLoad::Rejected(failure) =>
-          recovery_application(recovery_category(failure)).mount(host_id)
+          bootstrap_rejected(session_ref, model, recovery_category(failure))
         @repository.LocalArchiveLoad::Missing =>
-          mount_new_standalone_document(host_id, source)
+          create_bootstrap_document(session_ref, model, source, emit)
       }
     }
   }

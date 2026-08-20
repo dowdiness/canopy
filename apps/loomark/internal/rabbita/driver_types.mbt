@@ -97,6 +97,7 @@ priv enum DriverEvent {
   Navigation(NavigationEvent)
   Probe(ProbeEvent)
   Lifecycle(LifecycleEvent)
+  Bootstrap(@archive_storage.LocalArchiveStorageRead)
   Archive(@archive_storage.LocalArchiveWriteCompletion)
 }
 
