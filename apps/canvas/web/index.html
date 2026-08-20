@@ -61,6 +61,11 @@
     }
     #canvas-root.panning { cursor: grabbing; }
 
+    #canvas-render-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
     #world {
       position: absolute;
       top: 0; left: 0;
@@ -372,6 +377,7 @@
 
     .canvas-node {
       position: absolute;
+      pointer-events: auto;
       border-radius: 14px;
       cursor: pointer;
       user-select: none;
@@ -656,8 +662,7 @@
     <div id="source-panel-root"></div>
 
     <section id="canvas-root" tabindex="-1" aria-label="Workflow canvas">
-      <div id="canvas-edge-layer"></div>
-      <div id="world"></div>
+      <div id="canvas-render-layer"></div>
     </section>
 
     <aside class="panel inspector-panel" aria-label="Validation and activity">

@@ -147,12 +147,72 @@ async function worldTransform(page: Page): Promise<string> {
   return page.locator('#world').evaluate((el) => (el as HTMLElement).style.transform);
 }
 
+async function waitForRenderFrames(page: Page): Promise<void> {
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  }));
+}
+
 async function worldScale(page: Page): Promise<number> {
   const transform = await worldTransform(page);
   const match = transform.match(/scale\(([^)]+)\)/);
   if (!match) throw new Error(`world transform has no scale: ${transform}`);
   return Number(match[1]);
 }
+
+async function captureNextRenderState(page: Page): Promise<any> {
+  return page.evaluate(() => new Promise((resolve) => {
+    const target = document.getElementById('canvas-render-layer');
+    const root = document.getElementById('canvas-root');
+    if (!target || !root) throw new Error('canvas render layer is not mounted');
+    const eventName = 'canopy-canvas-render-state';
+    const listener = (event: Event) => {
+      target.removeEventListener(eventName, listener);
+      resolve(JSON.parse((event as CustomEvent<string>).detail));
+    };
+    target.addEventListener(eventName, listener);
+    root.dispatchEvent(new WheelEvent('wheel', {
+      bubbles: true,
+      cancelable: true,
+      deltaY: -1,
+      deltaMode: 0,
+      clientX: 120.25,
+      clientY: 80.75,
+    }));
+  }));
+}
+
+test('Rabbita keyed nodes preserve DOM identity when snapshot order changes', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.canvas-node')).toHaveCount(6);
+
+  const firstBefore = await page.locator('.canvas-node').nth(0).elementHandle();
+  const secondBefore = await page.locator('.canvas-node').nth(1).elementHandle();
+  const firstId = await page.locator('.canvas-node').nth(0).getAttribute('data-node-id');
+  const secondId = await page.locator('.canvas-node').nth(1).getAttribute('data-node-id');
+  if (!firstBefore || !secondBefore || !firstId || !secondId) {
+    throw new Error('expected keyed workflow nodes');
+  }
+
+  const snapshot = await captureNextRenderState(page);
+  snapshot.nodes.reverse();
+  await page.evaluate((nextSnapshot) => {
+    const target = document.getElementById('canvas-render-layer');
+    if (!target) throw new Error('canvas render layer is not mounted');
+    target.dispatchEvent(new CustomEvent('canopy-canvas-render-state', {
+      detail: JSON.stringify(nextSnapshot),
+    }));
+  }, snapshot);
+  await expect.poll(() => page.locator('.canvas-node').evaluateAll(
+    nodes => nodes.map(node => node.getAttribute('data-node-id')),
+  )).toEqual(snapshot.nodes.map((node: { id: string }) => node.id));
+
+  const firstAfter = await page.locator(`.canvas-node[data-node-id="${firstId}"]`).elementHandle();
+  const secondAfter = await page.locator(`.canvas-node[data-node-id="${secondId}"]`).elementHandle();
+  if (!firstAfter || !secondAfter) throw new Error('expected reordered keyed workflow nodes');
+  expect(await firstAfter.evaluate((node, before) => node === before, firstBefore)).toBe(true);
+  expect(await secondAfter.evaluate((node, before) => node === before, secondBefore)).toBe(true);
+});
 
 test('canvas wheel normalizes units and rejects no-op or active input', async ({ page }) => {
   const runtimeErrors: string[] = [];
@@ -194,22 +254,26 @@ test('canvas wheel normalizes units and rejects no-op or active input', async ({
 
   await dispatchWheel(-50, 0);
   await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  await waitForRenderFrames(page);
   const pixelScale = await worldScale(page);
 
   await page.reload();
   await expect(page.locator('.canvas-node')).toHaveCount(6);
   await dispatchWheel(-2, 1);
   await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  await waitForRenderFrames(page);
   const lineScale = await worldScale(page);
   expect(lineScale).toBeCloseTo(pixelScale, 9);
 
   await page.reload();
   await expect(page.locator('.canvas-node')).toHaveCount(6);
   await dispatchWheel(-10, 0);
+  await waitForRenderFrames(page);
   const smallScale = await worldScale(page);
   await page.reload();
   await expect(page.locator('.canvas-node')).toHaveCount(6);
   await dispatchWheel(-100, 0);
+  await waitForRenderFrames(page);
   const largeScale = await worldScale(page);
   expect(largeScale).toBeGreaterThan(smallScale);
 

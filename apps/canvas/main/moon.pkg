@@ -39,7 +39,7 @@ options(
       "exports": [
         "create_canvas",
         "mount_canvas_pointer_session",
-        "mount_canvas_edge_layer",
+        "mount_canvas_render_layer",
         "publish_render_state",
         "add_node",
         "delete_nodes",
