@@ -194,23 +194,6 @@ fn render_input_compatibility(
 }
 
 ///|
-fn source_compatibility_for(
-  entries : Array[PortCompatibilityJson],
-  node_id : String,
-  port_id : String,
-) -> Bool {
-  match
-    entries
-    .iter()
-    .find_first(fn(entry) {
-      entry.node_id == node_id && entry.port_id == port_id
-    }) {
-    Some(entry) => entry.compatible
-    None => abort("missing compatibility entry: " + node_id + "." + port_id)
-  }
-}
-
-///|
 test "source-backed render snapshot owns input compatibility" {
   let handle = create_source_graph("osc = sine(freq: 440Hz)\nmeter = scope()")
   let osc = handle_token(handle, "osc")
@@ -233,11 +216,11 @@ test "source-backed render snapshot owns input compatibility" {
     get_source_graph_render_state(handle),
   )
   inspect(
-    source_compatibility_for(entries, meter.to_string(), "input"),
+    compatibility_for(entries, meter.to_string(), "input"),
     content="true",
   )
   inspect(
-    source_compatibility_for(entries, osc.to_string(), "input"),
+    compatibility_for(entries, osc.to_string(), "input"),
     content="false",
   )
   destroy_source_graph(handle)
