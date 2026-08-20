@@ -170,6 +170,7 @@ fn CanvasHostPolicy::render_full_canvas(
   selected_edge : EdgeId?,
   interaction : InteractionState,
   action_count : Int,
+  input_compatibility : Array[PortCompatibilityJson],
 ) -> CanvasFullRenderJson {
   let selected : String? = match selection.selected {
     None => None
@@ -192,10 +193,8 @@ fn CanvasHostPolicy::render_full_canvas(
       Some(id) => Some(id.to_string())
     },
     selected_nodes,
-    connecting: connecting_to_json_with_path(
-      interaction.connecting,
-      node_index,
-    ),
+    connecting: connecting_to_json_with_path(interaction.connecting, node_index),
+    input_compatibility,
     validation: lowered.validation.copy(),
     action_count,
   }
@@ -215,6 +214,7 @@ fn CanvasHostPolicy::render_state_from_parts(
     selected_edge: full.selected_edge,
     selected_nodes: full.selected_nodes.copy(),
     connecting: full.connecting,
+    input_compatibility: full.input_compatibility.copy(),
     validation: full.validation.copy(),
     action_count: full.action_count,
     inspector,
@@ -227,6 +227,7 @@ fn CanvasHostPolicy::render_state_json(
   state : CanvasState,
   validation : Array[ValidationJson],
   selected_edge : EdgeId?,
+  input_compatibility : Array[PortCompatibilityJson],
 ) -> RenderStateJson {
   let selected : String? = match state.interaction.selected {
     None => None
@@ -253,6 +254,7 @@ fn CanvasHostPolicy::render_state_json(
       state.interaction.connecting,
       node_index,
     ),
+    input_compatibility,
     validation,
     action_count: state.action_log.length(),
     inspector: None,
@@ -363,7 +365,10 @@ fn render_state_json(
   selected_edge : EdgeId?,
 ) -> RenderStateJson {
   workflow_canvas_host_policy().render_state_json(
-    state, validation, selected_edge,
+    state,
+    validation,
+    selected_edge,
+    input_compatibility_for_render_state(state),
   )
 }
 

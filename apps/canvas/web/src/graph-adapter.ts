@@ -11,11 +11,6 @@ export type CanvasModule = {
   delete_nodes: (h: number, nodeIdsJson: string) => void;
   clear_selected_edge: (h: number) => void;
   delete_selection: (h: number) => boolean;
-  get_input_port_compatibility: (
-    h: number,
-    source: string,
-    sourcePort: string,
-  ) => string;
   get_render_state: (h: number) => string;
   get_action_log: (h: number) => string;
   create_source_graph?: (source: string) => number;
@@ -32,11 +27,6 @@ export type CanvasModule = {
     h: number,
     bindingBase: string,
     constructorName: string,
-  ) => string;
-  get_source_graph_input_port_compatibility?: (
-    h: number,
-    source: string,
-    sourcePort: string,
   ) => string;
   sample_graph_dsl_source?: () => string;
   mount_source_demo?: (h: number, enabled: boolean, onChange: () => undefined) => undefined;
@@ -66,11 +56,6 @@ type SourceCanvasModule = CanvasModule & {
     bindingBase: string,
     constructorName: string,
   ) => string;
-  get_source_graph_input_port_compatibility: (
-    h: number,
-    source: string,
-    sourcePort: string,
-  ) => string;
 };
 
 const SOURCE_METHODS = [
@@ -85,7 +70,6 @@ const SOURCE_METHODS = [
   'delete_source_graph_selection',
   'apply_source_graph_operation',
   'source_graph_insert_unique',
-  'get_source_graph_input_port_compatibility',
 ] as const;
 
 export type Tagged = string | [string, ...unknown[]];
@@ -149,6 +133,7 @@ export type RenderState = {
   selected?: string;
   selected_nodes: string[];
   connecting?: Connecting;
+  input_compatibility: PortCompatibility[];
   validation: ValidationMessage[];
   action_count: number;
   inspector?: InspectorNode;
@@ -422,18 +407,6 @@ export class GraphAdapter {
   dismissContextMenu(): void {
     this.assertLive();
     this.mb.dismiss_canvas_context_menu(this.handle);
-  }
-
-  inputPortCompatibility(sourceNodeId: string, sourcePortId: string): PortCompatibility[] {
-    this.assertLive();
-    const json = this.isSourceBacked
-      ? this.sourceModule().get_source_graph_input_port_compatibility(
-        this.handle,
-        sourceNodeId,
-        sourcePortId,
-      )
-      : this.mb.get_input_port_compatibility(this.handle, sourceNodeId, sourcePortId);
-    return JSON.parse(json) as PortCompatibility[];
   }
 
   addNode(kindKey: string, sx: number, sy: number): void {

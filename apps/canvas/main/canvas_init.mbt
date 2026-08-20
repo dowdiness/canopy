@@ -49,18 +49,6 @@ pub fn delete_nodes(handle : Int, node_ids_json : String) -> Unit {
 }
 
 ///|
-pub fn get_input_port_compatibility(
-  handle : Int,
-  source : String,
-  source_port : String,
-) -> String {
-  _registry[handle]
-  .input_port_compatibility(NodeId(source), source_port)
-  .to_json()
-  .stringify()
-}
-
-///|
 struct NodeParamJson {
   name : String
   value_kind : String
@@ -145,6 +133,7 @@ fn render_viewport_to_json(viewport : Viewport) -> Json {
 /// Serializable render snapshot sent to TypeScript each RAF frame.
 /// `selected`/`selected_edge`/`connecting`/`inspector` are absent (key omitted)
 /// when not active — MoonBit derive(ToJson) omits None keys. TypeScript: use `!= null` checks.
+/// `input_compatibility` is always present and is empty when no connection is active.
 struct RenderStateJson {
   viewport : Viewport
   nodes : Array[NodeJson]
@@ -153,6 +142,7 @@ struct RenderStateJson {
   selected_edge : String?
   selected_nodes : Array[String]
   connecting : ConnectingJson?
+  input_compatibility : Array[PortCompatibilityJson]
   validation : Array[ValidationJson]
   action_count : Int
   inspector : InspectorNodeJson?
@@ -177,6 +167,7 @@ impl ToJson for RenderStateJson with fn to_json(self) {
     None => ()
     Some(connecting) => fields["connecting"] = connecting.to_json()
   }
+  fields["input_compatibility"] = self.input_compatibility.to_json()
   fields["validation"] = self.validation.to_json()
   fields["action_count"] = self.action_count.to_json()
   match self.inspector {
