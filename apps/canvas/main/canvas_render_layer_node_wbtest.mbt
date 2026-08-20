@@ -62,3 +62,74 @@ test "render layer view renders keyed nodes, handles, edges, and connection stat
   assert_true(rendered.contains("class=\"handle input compatible-target\""))
   assert_true(rendered.contains("class=\"edge-pending\""))
 }
+
+///|
+#warnings("-alert_unstable")
+test "missing compatibility is incompatible only during a connection" {
+  let input = @graph_model.port("in", "in", Any)
+  let target = edge_projection_test_node(
+    "target",
+    300.0,
+    40.0,
+    100.0,
+    80.0,
+    [input],
+    [],
+  )
+  let explicitly_incompatible : Map[(String, String), Bool] = Map([])
+  explicitly_incompatible[("target", "in")] = false
+  assert_eq(
+    canvas_handle_class(
+      target,
+      "input",
+      input,
+      true,
+      explicitly_incompatible,
+    ),
+    "handle input incompatible-target",
+  )
+  let active : CanvasRenderLayerState = {
+    snapshot: Some({
+      viewport: { x: 0.0, y: 0.0, scale: 1.0 },
+      nodes: [target],
+      edges: [],
+      selected_nodes: [],
+      connecting: Some({
+        from: "source",
+        from_port: "out",
+        cursor_x: 0.0,
+        cursor_y: 0.0,
+        path_d: None,
+      }),
+      input_compatibility: [],
+      validation: [],
+    }),
+  }
+  let idle : CanvasRenderLayerState = {
+    snapshot: Some({
+      viewport: { x: 0.0, y: 0.0, scale: 1.0 },
+      nodes: [target],
+      edges: [],
+      selected_nodes: [],
+      connecting: None,
+      input_compatibility: [],
+      validation: [],
+    }),
+  }
+  let active_rendered = @rabbita.render_to_string(
+    () => @rabbita.Val::constant(canvas_render_layer_view(active)),
+  )
+  let idle_rendered = @rabbita.render_to_string(
+    () => @rabbita.Val::constant(canvas_render_layer_view(idle)),
+  )
+  assert_true(
+    active_rendered.contains("class=\"handle input incompatible-target\""),
+  )
+  assert_true(idle_rendered.contains("class=\"handle input\""))
+  assert_false(
+    idle_rendered.contains("class=\"handle input compatible-target\""),
+  )
+  assert_false(
+    idle_rendered.contains("class=\"handle input incompatible-target\""),
+  )
+}

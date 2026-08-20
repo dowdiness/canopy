@@ -218,16 +218,16 @@ fn canvas_handle_class(
   node : NodeJson,
   side : String,
   port : PortDef,
+  connecting_active : Bool,
   compatibility : Map[(String, String), Bool],
 ) -> String {
   let class = "handle " + side
-  if side != "input" {
+  if side != "input" || !connecting_active {
     return class
   }
   match compatibility.get((node.id, port.id)) {
     Some(true) => class + " compatible-target"
-    Some(false) => class + " incompatible-target"
-    None => class
+    _ => class + " incompatible-target"
   }
 }
 
@@ -238,13 +238,20 @@ fn canvas_handle_view(
   port : PortDef,
   index : Int,
   port_count : Int,
+  connecting_active : Bool,
   compatibility : Map[(String, String), Bool],
 ) -> @rabbita.Html {
   let side_title = if side == "input" { "Input" } else { "Output" }
   let top = ((index + 1).to_double() * 100.0 / (port_count + 1).to_double()).to_string() +
     "%"
   let attrs = @html.Attrs::build()
-    .class(canvas_handle_class(node, side, port, compatibility))
+    .class(canvas_handle_class(
+      node,
+      side,
+      port,
+      connecting_active,
+      compatibility,
+    ))
     .data_set("handle", side)
     .data_set("node-id", node.id)
     .data_set("port-id", port.id)
@@ -303,6 +310,7 @@ fn canvas_node_view(
   connecting : ConnectingJson?,
   compatibility : Map[(String, String), Bool],
 ) -> @rabbita.Html {
+  let connecting_active = connecting is Some(_)
   let attrs = @html.Attrs::build()
     .class(canvas_node_class(node, selected_nodes, invalid_nodes, connecting))
     .data_set("node-id", node.id)
@@ -321,6 +329,7 @@ fn canvas_node_view(
       port,
       index,
       node.inputs.length(),
+      connecting_active,
       compatibility,
     )
   }
@@ -331,6 +340,7 @@ fn canvas_node_view(
       port,
       index,
       node.outputs.length(),
+      connecting_active,
       compatibility,
     )
   }
