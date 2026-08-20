@@ -49,8 +49,9 @@ Out:
 
 - `application.mbt` claims the one-shot mount before asynchronous storage completion and
   exposes only `mount_standalone` through the generated Rabbita interface.
-- `standalone_bootstrap.mbt` handles storage read, repository classification, session
-  adoption, and recovery directly in the Rabbita update loop.
+- `application.mbt` initiates the asynchronous storage read;
+  `standalone_bootstrap.mbt` handles its completion, repository classification,
+  session adoption, and recovery directly in the Rabbita update loop.
 - `archive.mbt` can structurally decode an archive and expose portable Markdown before
   admission.
 - `repository.mbt` already exposes `reopen_decoded_local_archive`, so the progressive path
@@ -233,4 +234,6 @@ activation, directed selection, scroll, focus, and announcements.
 - Lifecycle research: <https://github.com/dowdiness/canopy/issues/1321>
 - Wayfinder map: <https://github.com/dowdiness/canopy/issues/1295>
 - Gate R0: [canonical issue #1288](https://github.com/dowdiness/canopy/issues/1288)
-  and its [test-only feasibility plan](https://github.com/dowdiness/canopy/blob/docs/loomark-editable-branch-restore-feasibility/docs/plans/2026-08-19-loomark-editable-branch-restore-feasibility.md)
+  owns live status; its branch-scoped
+  [test-only feasibility plan](https://github.com/dowdiness/canopy/blob/docs/loomark-editable-branch-restore-feasibility/docs/plans/2026-08-19-loomark-editable-branch-restore-feasibility.md)
+  is supporting evidence, not this plan's status source.
