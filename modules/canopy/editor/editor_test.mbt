@@ -33,6 +33,19 @@ test "multiple inserts" {
 }
 
 ///|
+/// `Editor` cursor positions are CRDT item-space offsets: one Unicode
+/// codepoint occupies one position, even when JavaScript stores it as two
+/// UTF-16 code units.
+test "non-BMP insert keeps cursor in item-space" {
+  let editor = try! Editor::new("alice")
+  try! editor.insert("😀")
+  inspect(editor.get_cursor(), content="1")
+  try! editor.insert("X")
+  inspect(editor.get_text(), content="😀X")
+  inspect(editor.get_cursor(), content="2")
+}
+
+///|
 test "insert at specific position" {
   let editor = try! Editor::new("alice")
   try! editor.insert("Heo")
