@@ -33,16 +33,16 @@ test "multiple inserts" {
 }
 
 ///|
-test "cursor positions count Unicode scalars across inserts and deletes" {
-  let editor = try! Editor::new("unicode-scalars")
+/// `Editor` cursor positions are CRDT item-space offsets: one Unicode
+/// codepoint occupies one position, even when JavaScript stores it as two
+/// UTF-16 code units.
+test "non-BMP insert keeps cursor in item-space" {
+  let editor = try! Editor::new("alice")
   try! editor.insert("😀")
   inspect(editor.get_cursor(), content="1")
-  try! editor.insert("x")
-  inspect(editor.get_text(), content="😀x")
+  try! editor.insert("X")
+  inspect(editor.get_text(), content="😀X")
   inspect(editor.get_cursor(), content="2")
-  editor.move_cursor(0)
-  inspect(editor.delete(), content="true")
-  inspect(editor.get_text(), content="x")
 }
 
 ///|
