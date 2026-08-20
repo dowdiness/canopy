@@ -9,6 +9,12 @@ them. Longer design reasoning lives under
 > If a claim here disagrees with the code, the code wins. Update this file
 > rather than the code.
 
+Canopy nests three architectures: a **session pipeline** (this page),
+**collaboration** layers, and **document authority** over time. The
+[composition map](architecture/ARCHITECTURE_DIAGRAM.md) is the nesting rule.
+The pipeline below is the mounted-session loop. It does not settle document
+identity across reopen, file association, or publication.
+
 ## Pipeline
 
 ```
@@ -17,7 +23,7 @@ Text CRDT ─► Incremental parse ─► Projection ─► View patches ─► 
    └────────────── structural edits feed back ───────────────────────┘
 ```
 
-1. Durable text state is the source of truth.
+1. Durable text state is the source of truth for the mounted session.
 2. Incremental parsing derives reusable syntax structure from text changes.
 3. Projection derives stable editor identity and language-specific structure.
 4. The editor derives view changes; protocol modules serialize the frontend
@@ -32,6 +38,8 @@ Text CRDT ─► Incremental parse ─► Projection ─► View patches ─► 
 - The parser substrate owns lossless, incrementally reusable syntax structure.
 - Canopy owns projection identity, language behavior, editor state, and the
   protocol-facing view boundary.
+- Product shells own document lifetime: archive envelope, causal admission,
+  file association, and publication policy.
 - Frontend adapters own rendering and input translation, not parsing or
   replicated-state semantics.
 - Language packages own syntax-specific projection and edit calculation, not
@@ -42,8 +50,10 @@ the [module/package map](development/module-package-map.md).
 
 ## Invariants
 
-- **Text is ground truth.** Structural actions are translated into text edits
-  before they enter durable replicated state.
+- **Session text is ground truth for the mounted editor.** Structural actions
+  are translated into text edits before they enter durable replicated state.
+  Across reopen and file association, causal history — not a text snapshot —
+  is the editing base, and only after admission.
 - **Derived identity is stable across reparses.** Unchanged structure retains
   identity so interface state does not flicker when nearby text changes.
 - **Syntax structure is position-independent.** Relative widths permit
@@ -79,7 +89,7 @@ the representation model.
 ## Where to read next
 
 - [`docs/architecture/ARCHITECTURE_DIAGRAM.md`](architecture/ARCHITECTURE_DIAGRAM.md)
-  — pipeline diagram.
+  — composition map (session, collaboration, document authority).
 - [`docs/architecture/Incremental-Hylomorphism.md`](architecture/Incremental-Hylomorphism.md)
   — the compositional engine underneath.
 - [`docs/architecture/multi-representation-system.md`](architecture/multi-representation-system.md)

@@ -69,10 +69,12 @@ collaboration packages. Adapters and runnable applications in `apps/` consume
 those interfaces.
 
 Dependencies point toward reusable substrate and must not grow upward into
-application code. Code that needs a product runtime, deployment target, or
-specific frontend belongs in an adapter or application rather than a reusable
-module. Submodules under `deps/` never grow upward dependencies on the primary
-module.
+application code. Code that needs a product runtime, deployment target,
+document lifetime, or a specific frontend belongs in an adapter or
+application rather than a reusable module. Submodules under `deps/` never
+grow upward dependencies on the primary module. How session, collaboration,
+and document authority nest is in the
+[composition map](ARCHITECTURE_DIAGRAM.md).
 
 Representative seams:
 

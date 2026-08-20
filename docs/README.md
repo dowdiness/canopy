@@ -36,7 +36,7 @@ Read in order to build a mental model of the system.
 5. **[Architecture Overview](architecture.md)** — single-page summary of the
    pipeline, package responsibilities, key invariants, and extension points.
 6. **[System Architecture Diagram](architecture/ARCHITECTURE_DIAGRAM.md)** —
-   high-level data flow: Text CRDT → Incremental Parse → Projection → Rendering.
+   composition map: session pipeline, collaboration, and document authority.
 7. **[Module Structure](architecture/modules.md)** — how the seven repository
    zones map onto the architecture and dependency direction.
 8. **[Responsibility Map](architecture/responsibility-map.md)** — ownership
@@ -214,6 +214,12 @@ behavior** — check the code before relying on any specific detail.
 - [Markdown file-backed authority and external admission](decisions/2026-08-09-markdown-file-backed-authority-and-external-admission.md)
   — separates File and Causal Authority, Archive-backed and File-backed
   persistence, and bounded External admission for associated Markdown files.
+- [Causal Authority residency](decisions/2026-08-12-causal-authority-residency.md)
+  — warm access may retain one causal authority; cold access loads text and
+  frontier first, and local edits require admission of that base.
+- [Architecture composition](decisions/2026-08-18-architecture-composition.md)
+  — nests the session pipeline, collaboration layers, and document authority;
+  new ADRs must name their home in that map.
 
 ## Historical / Archive
 
