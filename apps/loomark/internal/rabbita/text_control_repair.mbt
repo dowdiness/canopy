@@ -1160,7 +1160,10 @@ fn RawInputCoordinator::cancel(self : RawInputCoordinator, token : Int) -> Unit 
 }
 
 ///|
-/// Capture the DOM text cursor before the controlled textarea is rendered again.
+/// Capture the DOM selection before the controlled textarea is rendered again.
+/// Update the mutable coordinator in the browser callback itself: current
+/// Rabbita commands queue the returned command, and delaying this mutation
+/// would let a same-task compositionstart overtake the ordinary input.
 fn block_input_command(
   block : @markdown.MarkdownBlockSnapshot,
   input_id : String,
@@ -1170,22 +1173,18 @@ fn block_input_command(
   coordinator : BlockInputCoordinator,
   emit : @cmd.Emit[DriverEvent],
 ) -> @cmd.Cmd {
-  @cmd.custom_cmd(scheduler => {
-    let selection = @dom_boundary.read_text_selection_id(input_id) catch {
-      _ => return
-    }
-    scheduler.add(
-      coordinator.enqueue(
-        PendingBlockInput::PendingBlockInput(
-          document_id~,
-          expected_version~,
-          node_id=block.node_id(),
-          input_id~,
-          text~,
-          selection~,
-        ),
-        emit,
-      ),
-    )
-  })
+  let selection = @dom_boundary.read_text_selection_id(input_id) catch {
+    _ => return @rabbita_runtime.none
+  }
+  coordinator.enqueue(
+    PendingBlockInput::PendingBlockInput(
+      document_id~,
+      expected_version~,
+      node_id=block.node_id(),
+      input_id~,
+      text~,
+      selection~,
+    ),
+    emit,
+  )
 }

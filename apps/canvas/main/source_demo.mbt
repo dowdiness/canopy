@@ -58,6 +58,20 @@ struct SourceDemoModel {
 }
 
 ///|
+/// The callback is a stable mount capability, not reactive state. Exclude it
+/// from equality so the current Rabbita state API can retain the model without
+/// comparing function values.
+impl Eq for SourceDemoModel with fn equal(self, other) {
+  self.handle == other.handle &&
+  self.editor == other.editor &&
+  self.dirty == other.dirty &&
+  self.parser_failed == other.parser_failed &&
+  self.mounted == other.mounted &&
+  self.status == other.status &&
+  self.status_tone == other.status_tone
+}
+
+///|
 /// Element id of the source-panel CodeMirror editor. It serves as both the
 /// host DOM element id (the `view` renders an empty `div` with this id) and the
 /// binding's logical editor id, so `mount` and `listen` address the same view.
@@ -290,7 +304,7 @@ fn source_demo_update_healthy(
     Mounted => (@rabbita.none, { ..model, mounted: true })
     MountFailed(message) =>
       // `mounted` stays at its prior value (false): mount fires once via
-      // `with_init`, so a failure can only arrive while `mounted` is still
+      // the init command, so a failure can only arrive while `mounted` is still
       // false. No need to set it here.
       (
         @rabbita.none,
@@ -420,8 +434,8 @@ fn source_graph_change_sub_loader(
 
 ///|
 fn source_demo_subscriptions(
-  emit : Emit[SourceDemoMsg],
   model : SourceDemoModel,
+  emit : Emit[SourceDemoMsg],
 ) -> @sub.Sub {
   // Both subscriptions need the editor to exist: `listen` is a no-op until the
   // view is registered, and the graph -> editor sync has nothing to push into
@@ -495,7 +509,7 @@ pub fn mount_source_demo(
   enabled : Bool,
   on_change : () -> Unit,
 ) -> Unit {
-  @rabbita.new(@rabbita.static_cell(source_toggle_view(enabled))).mount(
+  @rabbita.new(() => @rabbita.Val::constant(source_toggle_view(enabled))).mount(
     "source-mode-root",
   )
   guard enabled else { return }
@@ -509,13 +523,15 @@ pub fn mount_source_demo(
     status_tone: @status.Info,
     on_change,
   }
-  let (emit, cell) = @rabbita.cell_with_emit(
-    model~,
-    update=source_demo_update,
-    view=source_demo_view,
+  let (cell, emit) = @rabbita.create_state_with_init(
+    init=fn(emit) { (model, mount_source_cm_cmd(emit, model)) },
+    update=fn(model, msg, emit) {
+      let (command, next) = source_demo_update(emit, msg, model)
+      (next, command)
+    },
     subscriptions=source_demo_subscriptions,
   )
-  @rabbita.new(cell)
-  ..with_init(mount_source_cm_cmd(emit, model))
-  .mount("source-panel-root")
+  @rabbita.new(() => cell.view(model => source_demo_view(emit, model))).mount(
+    "source-panel-root",
+  )
 }
