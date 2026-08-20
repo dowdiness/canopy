@@ -131,6 +131,10 @@ Only needed if you are modifying Canopy itself.
 
 - [CI/CD](CI_CD.md)
 
+## Research
+
+- [Restore/readiness lifecycle interface patterns](research/2026-08-20-restore-lifecycle-interface-patterns.md) — primary-source comparison of Automerge Repo, VS Code, Elm, ports-and-adapters, and capability-oriented lifecycle interfaces for Loomark restore.
+
 ## Deep Design (Grand Design)
 
 Long-range design explorations. Treat as **direction, not implemented
