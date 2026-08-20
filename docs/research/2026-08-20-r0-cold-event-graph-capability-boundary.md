@@ -51,7 +51,7 @@ Rules:
 - `exact_raw_heads_sorted` is the identity projection of `exact_head_records_sorted`, and its existing SHA-256 field remains in the receipt. Length, order, and identities must match exactly.
 - Every exact head must equal that writer commitment's tip identity `(agent, leaf_count - 1)` and `tip_event_digest`. Writers whose tips are causally dominated need not appear in the exact head set. Capture/oracle validation proves each omitted writer tip is in the ancestry of an exact head.
 - `graph_root` is verified directly against the resident exact `(RawVersion, EventDigest)` head records; the fast path never rebuilds it from cold payloads.
-- Writer commitments are bound into `snapshot_commit_id` using the frozen receipt codec.
+- `snapshot_commit_id` is SHA-256 over the frozen canonical encoding of every preceding `R0SnapshotCommitV1` field except itself: document ID, graph root, exact raw heads, exact-head hash, exact head records, writer commitments, text byte length, and text hash. The resident text bytes are transitively bound by recomputing their byte length/hash before accepting the commit. No field may be loaded or substituted independently from another snapshot; a publication ref selects one immutable commit ID and advances only after the complete candidate object is durable.
 - The exact head digests, not only head identities, are resident. They allow the first local event and a closed strict-forward region to extend the Merkle-DAG without a provider read.
 - Resident size is O(text bytes + exact heads + writers), never O(history).
 
@@ -168,7 +168,7 @@ The provider shell performs I/O only. Pure verification turns encoded responses 
 
 ### Receipt validation and read-only text
 
-- Re-hash snapshot commit, text, graph root, head records, and writer commitments.
+- Recompute text byte length/hash, exact-head identity projection/hash, head↔writer-tip invariants, and graph root, then recompute `snapshot_commit_id` over the complete canonical field set. Reject any mixed-snapshot substitution before observing text or planning an edit.
 - Provider metadata queries: zero.
 - Provider payload reads: zero.
 - Full-history reads/walks: zero.
@@ -335,7 +335,7 @@ Each control verifies logical calls, physical calls, records/events, and byte co
 
 ## Consequences
 
-- The snapshot receipt preserves its raw-head identity/hash fields and additionally retains exact head event digests and writer commitments. This linked decision explicitly refines the capture-receipt field set.
+- The snapshot receipt preserves its raw-head identity/hash fields and additionally retains exact head event digests and writer commitments. `snapshot_commit_id` directly commits the full canonical resident field set and transitively commits resident text through its verified byte length/hash, preventing valid pieces from different snapshots from being mixed. This linked decision explicitly refines the capture-receipt field set.
 - The cold provider capability is storage-neutral but not integrity-neutral: positive results require proof verification against the snapshot commit.
 - Current typed internal admission receipts are sufficient to evaluate incremental sidecar maintenance in the test-only EGW producer; the public Text façade still does not expose this capability, which R0 records rather than widening.
 - The provider contract establishes data access and accounting only. Unicode positional event fields, critical replay-base selection, undelete semantics, and production storage remain separate decisions.
