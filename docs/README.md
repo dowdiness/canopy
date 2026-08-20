@@ -112,6 +112,10 @@ Only needed if you are modifying Canopy itself.
   — active evidence-gated implementation plan for
   [issue #1244](https://github.com/dowdiness/canopy/issues/1244), governed by
   the [asynchronous source-stamped projection decision](decisions/2026-08-12-loomark-concurrent-projection-execution.md).
+- [Private Rabbita restore coordinator](plans/2026-08-20-loomark-private-restore-coordinator.md)
+  — blocked implementation plan for
+  [issue #1322](https://github.com/dowdiness/canopy/issues/1322), governed by the
+  [private restore coordinator decision](decisions/2026-08-20-loomark-private-restore-coordinator.md).
 - [Legacy TODO snapshot](archive/TODO-snapshot-2026-08-03.md) — historical
   candidates being triaged in
   [issue #1124](https://github.com/dowdiness/canopy/issues/1124), not active
@@ -206,6 +210,12 @@ behavior** — check the code before relying on any specific detail.
 - [Markdown file-backed authority and external admission](decisions/2026-08-09-markdown-file-backed-authority-and-external-admission.md)
   — separates File and Causal Authority, Archive-backed and File-backed
   persistence, and bounded External admission for associated Markdown files.
+- [Causal Authority residency](decisions/2026-08-12-causal-authority-residency.md)
+  — preserves one causal authority while choosing warm or cold residency by
+  access path; retained state remains a validated accelerator.
+- [Private restore coordinator for Loomark cold open](decisions/2026-08-20-loomark-private-restore-coordinator.md)
+  — keeps the public cold-open interface unchanged while one private Rabbita
+  module owns readiness, generation-gated fallback, and correlated activation.
 
 ## Historical / Archive
 
