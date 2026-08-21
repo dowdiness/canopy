@@ -285,6 +285,7 @@ def check-wiring [root: string action_doc: any justfile: string] {
       "apps/web/scripts/build-deploy.sh:"
       "apps/ideal/scripts/build-deploy.sh:"
       "justfile:"
+      "scripts/build-loomark-worker.sh:"
       "scripts/check-moon-registry-bootstrap.nu:"
       "scripts/moon-update.sh:"
       "scripts/test-moon-update-wrapper.sh:"
