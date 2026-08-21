@@ -8,6 +8,11 @@ import {
   "moonbit-community/rabbita/sub",
 }
 
+import {
+  "moonbit-community/rabbita/testing" @rabbita_testing,
+  "moonbitlang/async",
+} for "test"
+
 warnings = "-unused_package"
 
 supported_targets = "js+native"

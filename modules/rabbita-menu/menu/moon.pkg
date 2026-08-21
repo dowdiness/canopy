@@ -5,6 +5,11 @@ import {
   "dowdiness/dom_boundary",
 }
 
+import {
+  "moonbit-community/rabbita/testing" @rabbita_testing,
+  "moonbitlang/async",
+} for "wbtest"
+
 warnings = "-unused_package"
 
 supported_targets = "js+native"
