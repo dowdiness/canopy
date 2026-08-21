@@ -83,10 +83,18 @@ def main [] {
     assert-equal (open ($missing_output | path join "result.json") | get failure_class) "evidence_missing" "live missing-evidence classification"
     assert-equal (open ($missing_output | path join "result.json") | get candidate_outcomes | length) 3 "live missing-evidence candidates"
     ^rm -rf $missing_output
+    let participant_output = (^mktemp -d | str trim)
+    let participant_result = (with-env { GATE_R0_TEST_DUPLICATE_MARKDOWN_PARTICIPANT: "1" } {
+      ^nu $runner --allow-dirty --output-dir $participant_output
+    } | complete)
+    assert-equal $participant_result.exit_code 34 "duplicate Markdown participant exit"
+    assert-equal (open ($participant_output | path join "result.json") | get failure_class) "evidence_missing" "duplicate Markdown participant classification"
+    ^rm -rf $participant_output
     let egw_observations = (open ($output | path join "cold-history.jsonl") | lines | each {|line| $line | from json })
     for row in $matrix {
       let observation = ($egw_observations | where case_id == $row.trace | first)
       assert-equal (($observation.payload.transition | str length) > 0) true $"transition witness for ($row.trace)"
+      assert-equal $observation.payload.classification $row.expected $"classification for ($row.trace)"
     }
     print "PASS Gate R0 canonical artifact contract"
   } catch {|err|

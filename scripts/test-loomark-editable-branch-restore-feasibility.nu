@@ -113,8 +113,9 @@ def validate-envelopes [rows: list<any> required_cases: list<string>] {
   ""
 }
 
-def normalize-operations [operations: list<any>] {
-  $operations | each {|operation|
+def normalize-operations [operations: list<any> writer_id: string] {
+  $operations | each {|raw|
+    let operation = ($raw | to json -r | str replace --all $writer_id '$fresh-writer' | from json)
     { identity: $operation.id parents: $operation.parents payload: { kind: $operation.kind content: ($operation | get -o content) origin_left: ($operation | get -o origin_left) origin_right: ($operation | get -o origin_right) } }
   }
 }
@@ -124,9 +125,10 @@ def run-markdown-oracle [root: string mode: string = "undelete"] {
   if $produced.exit_code != 0 { fail $"Markdown archive producer failed: ($produced.stderr)" }
   let producer_raw = ($produced.stdout | str trim | from json)
   let oracle_history = ($producer_raw.payload.oracle_post_edit_history | from json)
-  let oracle_next_operations = (normalize-operations $oracle_history.operations)
+  let oracle_next_operations = (normalize-operations $oracle_history.operations $producer_raw.payload.oracle_writer_id)
   if ($oracle_next_operations | is-empty) { fail "Markdown oracle emitted no next operations" }
-  let producer = ($producer_raw | upsert payload.oracle_next_operation ($oracle_next_operations | first) | upsert payload.oracle_next_operations $oracle_next_operations)
+  let oracle_frontier = ($producer_raw.payload.oracle_post_edit_frontier | str replace --all $producer_raw.payload.oracle_writer_id '$fresh-writer' | from json)
+  let producer = ($producer_raw | upsert payload.oracle_next_operation ($oracle_next_operations | first) | upsert payload.oracle_next_operations $oracle_next_operations | upsert payload.oracle_post_edit_frontier $oracle_frontier)
   let archive_bytes = $producer.payload.archive_json
   let archive_file = (^mktemp | str trim)
   $archive_bytes | save -f $archive_file
@@ -135,38 +137,55 @@ def run-markdown-oracle [root: string mode: string = "undelete"] {
   if $consumer.exit_code != 0 { fail $"Markdown fresh consumer failed: ($consumer.stderr)" }
   let consumer_raw = ($consumer.stdout | str trim | from json)
   let consumer_history = ($consumer_raw.payload.post_insert_history | from json)
-  let consumer_next_operations = (normalize-operations $consumer_history.operations)
-  if ($consumer_next_operations | is-empty) { fail "Markdown consumer emitted no next operations" }
-  let consumer_row = ($consumer_raw | upsert payload.next_operation ($consumer_next_operations | first) | upsert payload.next_operations $consumer_next_operations)
+  let consumer_next_operations = (normalize-operations $consumer_history.operations $consumer_raw.payload.fresh_writer_id)
+  if $mode != "restore" and ($consumer_next_operations | is-empty) { fail "Markdown consumer emitted no next operations" }
+  let consumer_frontier = ($consumer_raw.payload.frontier_after_insert | str replace --all $consumer_raw.payload.fresh_writer_id '$fresh-writer' | from json)
+  let consumer_row = if $mode == "restore" {
+    $consumer_raw | upsert payload.next_operation null | upsert payload.next_operations []
+  } else {
+    $consumer_raw | upsert payload.next_operation ($consumer_next_operations | first) | upsert payload.next_operations $consumer_next_operations
+  } | upsert payload.frontier_after_insert $consumer_frontier
   [$producer $consumer_row]
 }
 
 def operation-matrix [] {
   [
     {trace: "initial-materialization" authority: "exact_frontier" projection: "plain_text" expected: "oracle"}
-    {trace: "local-insert-start" authority: "writer_policy" projection: "editable_branch" expected: "strict_forward"}
-    {trace: "local-insert-middle" authority: "writer_policy" projection: "editable_branch" expected: "strict_forward"}
-    {trace: "local-insert-end" authority: "writer_policy" projection: "editable_branch" expected: "strict_forward"}
-    {trace: "sequential-insert" authority: "writer_policy" projection: "editable_branch" expected: "strict_forward"}
-    {trace: "non-bmp-utf16" authority: "position_identity_index" projection: "editable_branch" expected: "strict_forward"}
-    {trace: "visible-delete" authority: "payload_target_lookup" projection: "editable_branch" expected: "strict_forward"}
+    {trace: "local-insert-start" authority: "writer_policy" projection: "editable_branch" expected: "strict-forward"}
+    {trace: "local-insert-middle" authority: "writer_policy" projection: "editable_branch" expected: "strict-forward"}
+    {trace: "local-insert-end" authority: "writer_policy" projection: "editable_branch" expected: "strict-forward"}
+    {trace: "sequential-insert" authority: "writer_policy" projection: "editable_branch" expected: "strict-forward"}
+    {trace: "non-bmp-utf16" authority: "position_identity_index" projection: "editable_branch" expected: "strict-forward"}
+    {trace: "visible-delete" authority: "payload_target_lookup" projection: "editable_branch" expected: "strict-forward"}
     {trace: "stale-delete" authority: "payload_target_lookup" projection: "editable_branch" expected: "recovery"}
-    {trace: "undelete" authority: "payload_target_lookup" projection: "editable_branch" expected: "strict_forward"}
+    {trace: "undelete" authority: "payload_target_lookup" projection: "editable_branch" expected: "strict-forward"}
     {trace: "duplicate" authority: "identity_membership" projection: "plain_text" expected: "duplicate"}
     {trace: "conflict" authority: "identity_membership" projection: "plain_text" expected: "conflict"}
-    {trace: "partial-prefix" authority: "ancestry_pending" projection: "plain_text" expected: "partial_admission"}
-    {trace: "source-equal-advance" authority: "exact_frontier" projection: "plain_text" expected: "strict_forward"}
+    {trace: "partial-prefix" authority: "ancestry_pending" projection: "plain_text" expected: "partial-admission"}
+    {trace: "source-equal-advance" authority: "exact_frontier" projection: "plain_text" expected: "strict-forward"}
     {trace: "zero-commit-recovery" authority: "ancestry_pending" projection: "plain_text" expected: "recovery"}
     {trace: "missing-parent" authority: "ancestry_pending" projection: "plain_text" expected: "fallback"}
-    {trace: "pending-drain" authority: "ancestry_pending" projection: "editable_branch" expected: "pending_drain"}
-    {trace: "tail-contained-parallel" authority: "ancestry_pending" projection: "editable_branch" expected: "closed_concurrent"}
+    {trace: "pending-drain" authority: "ancestry_pending" projection: "editable_branch" expected: "pending-drain"}
+    {trace: "tail-contained-parallel" authority: "ancestry_pending" projection: "editable_branch" expected: "closed-concurrent"}
     {trace: "missing-origin" authority: "payload_target_lookup" projection: "editable_branch" expected: "fallback"}
     {trace: "missing-target" authority: "payload_target_lookup" projection: "editable_branch" expected: "fallback"}
     {trace: "ancestor-before-base" authority: "ancestry_pending" projection: "editable_branch" expected: "fallback"}
-    {trace: "trace-1" authority: "writer_policy" projection: "editable_branch" expected: "strict_forward"}
-    {trace: "trace-10" authority: "writer_policy" projection: "editable_branch" expected: "strict_forward"}
-    {trace: "trace-100" authority: "writer_policy" projection: "editable_branch" expected: "strict_forward"}
+    {trace: "trace-1" authority: "writer_policy" projection: "editable_branch" expected: "strict-forward"}
+    {trace: "trace-10" authority: "writer_policy" projection: "editable_branch" expected: "strict-forward"}
+    {trace: "trace-100" authority: "writer_policy" projection: "editable_branch" expected: "strict-forward"}
   ]
+}
+
+def candidate-outcomes [] {
+  [
+    { candidate: "A" issue: "#1291" outcome: "not_applicable" reason: "separate retained-state evaluation ticket" }
+    { candidate: "B" issue: "#1290" outcome: "not_applicable" reason: "separate retained-state evaluation ticket" }
+    { candidate: "C" issue: "#1292" outcome: "not_applicable" reason: "separate retained-state evaluation ticket" }
+  ]
+}
+
+def artifact-paths [] {
+  ["manifest.json" "result.json" "capability-ledger.json" "candidate-captures.jsonl" "candidate-results.json" "operation-matrix.jsonl" "oracle-differential.jsonl" "cold-history.jsonl" "negative-results.json" "validation.log"]
 }
 
 def write-failure-artifacts [output: string failure: string] {
@@ -179,7 +198,7 @@ def write-failure-artifacts [output: string failure: string] {
   if not (($output | path join "cold-history.jsonl") | path exists) { write-jsonl ($output | path join "cold-history.jsonl") [] }
   write-json ($output | path join "negative-results.json") { schema_version: 1 negatives: [] }
   $"Gate R0 failure: ($failure)\n" | save -f ($output | path join "validation.log")
-  write-json ($output | path join "result.json") { schema_version: 1 status: "fail" failure_class: $failure }
+  write-json ($output | path join "result.json") { schema_version: 1 status: "fail" failure_class: $failure candidate_outcomes: (candidate-outcomes) artifact_paths: (artifact-paths) }
 }
 
 def main [--output-dir: string --allow-dirty --inject-failure: string] {
@@ -219,6 +238,22 @@ def main [--output-dir: string --allow-dirty --inject-failure: string] {
     let required_egw = (["known-positive-provider-read" "strict-forward" "closed-concurrent"] | append (operation-matrix | get trace))
     let egw_failure = (validate-envelopes $egw $required_egw)
     if ($egw_failure | is-not-empty) { write-failure-artifacts $output_dir $egw_failure; exit (exit-code $egw_failure) }
+    for matrix_row in (operation-matrix) {
+      let observation = ($egw | where case_id == $matrix_row.trace | first)
+      if $observation.payload.classification != $matrix_row.expected { write-failure-artifacts $output_dir "causal_semantics_mismatch"; exit 32 }
+    }
+    let semantic_checks = [
+      { case_id: "duplicate" field: "duplicate" expected: "observed" }
+      { case_id: "conflict" field: "conflict" expected: "rejected" }
+      { case_id: "partial-prefix" field: "pending" expected: "unresolved" }
+      { case_id: "missing-parent" field: "pending" expected: "unresolved" }
+      { case_id: "ancestor-before-base" field: "pending" expected: "unresolved" }
+      { case_id: "pending-drain" field: "pending" expected: "drained" }
+    ]
+    for check in $semantic_checks {
+      let observation = ($egw | where case_id == $check.case_id | first)
+      if ($observation.payload | get $check.field) != $check.expected { write-failure-artifacts $output_dir "causal_semantics_mismatch"; exit 32 }
+    }
     let positive = ($egw | where case_id == "known-positive-provider-read" | first)
     if $positive.payload.provider_calls != 1 or $positive.payload.provider_operations <= 0 or $positive.payload.provider_bytes <= 0 {
       write-failure-artifacts $output_dir "evidence_missing"; exit 34
@@ -227,12 +262,20 @@ def main [--output-dir: string --allow-dirty --inject-failure: string] {
     if ($fast | any {|row| $row.payload.provider_calls != 0 or $row.payload.provider_operations != 0 or $row.payload.provider_bytes != 0 }) {
       write-failure-artifacts $output_dir "unexpected_cold_read"; exit 33
     }
-    let markdown = (run-markdown-oracle $root)
+    let markdown_raw = (run-markdown-oracle $root)
+    let markdown = if ($env | get -o GATE_R0_TEST_DUPLICATE_MARKDOWN_PARTICIPANT | default "") == "1" {
+      $markdown_raw | append ($markdown_raw | where producer == "markdown_oracle" | first)
+    } else {
+      $markdown_raw
+    }
     write-jsonl ($output_dir | path join "candidate-captures.jsonl") ($egw | append $markdown)
     let markdown_failure = (validate-envelopes $markdown [])
     if ($markdown_failure | is-not-empty) { write-failure-artifacts $output_dir $markdown_failure; exit (exit-code $markdown_failure) }
-    if ($markdown | where case_id == "full-history-oracle" | length) != 2 {
-      error make { msg: "evidence_missing: Markdown producer/consumer correlation missing" }
+    let archive_participants = ($markdown | where producer == "markdown_archive_producer")
+    let oracle_participants = ($markdown | where producer == "markdown_oracle")
+    if ($archive_participants | length) != 1 or ($oracle_participants | length) != 1 {
+      write-failure-artifacts $output_dir "evidence_missing"
+      exit 34
     }
     let orders = [["restore" "immediate-insert" "visible-delete" "undelete" "trace-1" "trace-10" "trace-100"] ["trace-100" "trace-10" "trace-1" "undelete" "visible-delete" "immediate-insert" "restore"]]
     mut measurements = []
@@ -245,6 +288,9 @@ def main [--output-dir: string --allow-dirty --inject-failure: string] {
     }
     let archive_producer = ($markdown | where producer == "markdown_archive_producer" | first)
     let archive_consumer = ($markdown | where producer == "markdown_oracle" | first)
+    if $archive_consumer.payload.fresh_writer_id == $archive_producer.payload.oracle_writer_id {
+      error make { msg: "causal_semantics_mismatch: independent restores reused a writer identity" }
+    }
     if $archive_consumer.payload.next_operation != $archive_producer.payload.oracle_next_operation or $archive_consumer.payload.next_operations != $archive_producer.payload.oracle_next_operations or $archive_consumer.payload.frontier_after_insert != $archive_producer.payload.oracle_post_edit_frontier {
       error make { msg: "causal_semantics_mismatch: normalized next operation or post-edit frontier differs" }
     }
@@ -285,11 +331,7 @@ def main [--output-dir: string --allow-dirty --inject-failure: string] {
         probe_packaging_evidence: "internal/restore_feasibility_probe is pkgtype executable beneath EGW internal/, absent from public package exports"
       }
     }
-    let candidates = [
-      { candidate: "A" issue: "#1291" outcome: "not_applicable" reason: "separate retained-state evaluation ticket" }
-      { candidate: "B" issue: "#1290" outcome: "not_applicable" reason: "separate retained-state evaluation ticket" }
-      { candidate: "C" issue: "#1292" outcome: "not_applicable" reason: "separate retained-state evaluation ticket" }
-    ]
+    let candidates = (candidate-outcomes)
     let ledger = {
       schema_version: 1
       authority_levels: ["exact_frontier" "identity_membership" "payload_target_lookup" "writer_policy" "sequence_provenance" "duplicate_evidence" "ancestry_pending" "resident_operation_log"]
@@ -310,7 +352,7 @@ def main [--output-dir: string --allow-dirty --inject-failure: string] {
       status: "pass"
       failure_class: null
       candidate_outcomes: $candidates
-      artifact_paths: ["manifest.json" "result.json" "capability-ledger.json" "candidate-captures.jsonl" "candidate-results.json" "operation-matrix.jsonl" "oracle-differential.jsonl" "cold-history.jsonl" "negative-results.json" "validation.log"]
+      artifact_paths: (artifact-paths)
     }
   } catch {|err|
     let detail = ($err | to json -r)

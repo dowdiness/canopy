@@ -31,7 +31,7 @@ fn producer() -> Unit {
   )
   let encoded = captured.to_json_string()
   let oracle = try! @markdown.MarkdownEditor::open(
-    agent_id="gate-r0-markdown-fresh-writer",
+    agent_id="gate-r0-markdown-oracle-writer",
     history=captured.history(),
     open_limits=limits(),
   )
@@ -68,6 +68,7 @@ fn producer() -> Unit {
         "oracle_post_edit_frontier": Json::string(
           oracle.version().to_json_string(),
         ),
+        "oracle_writer_id": Json::string("gate-r0-markdown-oracle-writer"),
       }),
     }).stringify(),
   )
