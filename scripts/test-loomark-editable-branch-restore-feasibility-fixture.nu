@@ -91,6 +91,26 @@ def main [] {
     assert-equal (open ($participant_output | path join "result.json") | get failure_class) "evidence_missing" "duplicate Markdown participant classification"
     ^rm -rf $participant_output
     let egw_observations = (open ($output | path join "cold-history.jsonl") | lines | each {|line| $line | from json })
+    for expected in [
+      { case_id: "immediate-insert-zero-read" mode: "insert" operations: 1 }
+      { case_id: "immediate-delete-zero-read" mode: "delete" operations: 2 }
+      { case_id: "immediate-undelete-zero-read" mode: "undelete" operations: 3 }
+    ] {
+      let observation = ($egw_observations | where case_id == $expected.case_id | first)
+      assert-equal $observation.payload.product_mode $expected.mode $"product correlation for ($expected.case_id)"
+      assert-equal $observation.payload.operation_count $expected.operations $"operation count for ($expected.case_id)"
+      assert-equal $observation.payload.provider_calls 0 $"provider calls for ($expected.case_id)"
+      assert-equal $observation.payload.provider_operations 0 $"provider operations for ($expected.case_id)"
+      assert-equal $observation.payload.provider_bytes 0 $"provider bytes for ($expected.case_id)"
+    }
+    let source_equal = ($egw_observations | where case_id == "source-equal-advance" | first)
+    assert-equal $source_equal.payload.source_equal_text_unchanged true "source-equal text"
+    assert-equal $source_equal.payload.source_equal_frontier_advanced true "source-equal frontier"
+    let closed_tail = ($egw_observations | where case_id == "tail-contained-parallel" | first)
+    assert-equal $closed_tail.payload.implicit_predecessor_observed true "closed-tail implicit predecessor"
+    assert-equal $closed_tail.payload.ancestor_closure_observed true "closed-tail ancestor closure"
+    assert-equal $archive_capture.payload.product_recovery_classification $consumer_capture.payload.product_recovery_classification "derived product recovery classification"
+    assert-equal $consumer_capture.payload.recovery_observability "facade-does-not-expose-recovery-status" "recovery observability"
     for row in $matrix {
       let observation = ($egw_observations | where case_id == $row.trace | first)
       assert-equal (($observation.payload.transition | str length) > 0) true $"transition witness for ($row.trace)"
