@@ -37,6 +37,7 @@ def main [] {
     let archive_capture = ($captures | where producer == "markdown_archive_producer" | first)
     let consumer_capture = ($captures | where producer == "markdown_oracle" | first)
     assert-equal $consumer_capture.payload.next_operation $archive_capture.payload.oracle_next_operation "normalized next operation"
+    assert-equal $consumer_capture.payload.next_operations $archive_capture.payload.oracle_next_operations "normalized next operation increment"
     assert-equal $consumer_capture.payload.frontier_after_insert $archive_capture.payload.oracle_post_edit_frontier "post-edit frontier"
     let matrix = (open ($output | path join "operation-matrix.jsonl") | lines | each {|line| $line | from json })
     let egw_cases = (open ($output | path join "cold-history.jsonl") | lines | each {|line| $line | from json } | get case_id)
