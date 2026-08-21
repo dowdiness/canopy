@@ -40,6 +40,10 @@ fn producer() -> Unit {
       "payload": Json::object({
         "archive_json": Json::string(encoded),
         "archive_bytes": Json::number(encoded.length().to_double()),
+        "source_writer_id": Json::string("gate-r0-markdown-producer"),
+        "expected_before_text": Json::string(source.portable_markdown()),
+        "expected_after_text": Json::string(source.portable_markdown() + "restored\n"),
+        "source_frontier": Json::string(source.version().to_json_string()),
       }),
     }).stringify(),
   )
@@ -56,10 +60,31 @@ fn consumer(encoded : String) -> Unit {
     open_limits=limits(),
   )
   let before = restored.portable_markdown()
+  let frontier_before = restored.version().to_json_string()
   ignore(
     try! restored.commit(
       @markdown.MarkdownEditRequest::ReplaceText(
         start=before.length(),
+        delete_len=0,
+        inserted="restored\n",
+      ),
+    ),
+  )
+  let after_insert = restored.portable_markdown()
+  ignore(
+    try! restored.commit(
+      @markdown.MarkdownEditRequest::ReplaceText(
+        start=before.length(),
+        delete_len="restored\n".length(),
+        inserted="",
+      ),
+    ),
+  )
+  let after_delete = restored.portable_markdown()
+  ignore(
+    try! restored.commit(
+      @markdown.MarkdownEditRequest::ReplaceText(
+        start=after_delete.length(),
         delete_len=0,
         inserted="restored\n",
       ),
@@ -72,10 +97,17 @@ fn consumer(encoded : String) -> Unit {
     ),
     "coarse_archive_loads": Json::number(1.0),
     "text": Json::string(restored.portable_markdown()),
-    "frontier": Json::string(restored.version().to_json_string()),
+    "frontier_before": Json::string(frontier_before),
+    "frontier_after": Json::string(restored.version().to_json_string()),
+    "fresh_writer_id": Json::string("gate-r0-markdown-fresh-writer"),
     "editable": Json::boolean(true),
     "recovery": Json::string("none"),
     "first_edit": Json::string("insert"),
+    "immediate_insert_text": Json::string(after_insert),
+    "visible_delete_text": Json::string(after_delete),
+    "undelete_text": Json::string(restored.portable_markdown()),
+    "target_visibility": Json::string(if after_delete == before { "hidden" } else { "unexpected" }),
+    "normalized_next_operation": Json::string("replace-text"),
   })
   println(
     Json::object({

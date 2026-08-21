@@ -75,18 +75,48 @@ def operation-matrix [] {
   ]
 }
 
-def main [--output-dir: string --allow-dirty] {
+def write-failure-artifacts [output: string failure: string] {
+  write-json ($output | path join "manifest.json") { schema_version: 1 run_id: "gate-r0-v1" status: "fail" }
+  write-json ($output | path join "capability-ledger.json") { schema_version: 1 rows: [] }
+  write-jsonl ($output | path join "candidate-captures.jsonl") []
+  write-json ($output | path join "candidate-results.json") { schema_version: 1 candidates: [] }
+  write-jsonl ($output | path join "operation-matrix.jsonl") []
+  write-jsonl ($output | path join "oracle-differential.jsonl") []
+  write-jsonl ($output | path join "cold-history.jsonl") []
+  write-json ($output | path join "negative-results.json") { schema_version: 1 negatives: [] }
+  $"Gate R0 failure: ($failure)\n" | save -f ($output | path join "validation.log")
+  write-json ($output | path join "result.json") { schema_version: 1 status: "fail" failure_class: $failure }
+}
+
+def main [--output-dir: string --allow-dirty --inject-failure: string] {
   let root = ([$env.FILE_PWD, ".."] | path join | path expand)
   mkdir $output_dir
+  if ($inject_failure | is-not-empty) {
+    write-failure-artifacts $output_dir $inject_failure
+    exit (exit-code $inject_failure)
+  }
   let status = (^git -C $root status --porcelain | complete)
   if $status.exit_code != 0 { exit 10 }
   if (not $allow_dirty) and ($status.stdout | str trim | is-not-empty) {
-    write-json ($output_dir | path join "result.json") { schema_version: 1 status: "fail" failure_class: "preflight_invalid" }
+    write-failure-artifacts $output_dir "preflight_invalid"
     exit 10
   }
   try {
     let egw = (run-producer $root "deps/event-graph-walker/internal/restore_feasibility_probe")
     let markdown = (run-markdown-oracle $root)
+    let archive_producer = ($markdown | where producer == "markdown_archive_producer" | first)
+    let archive_consumer = ($markdown | where producer == "markdown_oracle" | first)
+    if $archive_consumer.payload.text != $archive_producer.payload.expected_after_text {
+      error make { msg: "oracle_mismatch: restored edit text differs from producer expectation" }
+    }
+    let causal_bad = (($archive_consumer.payload.visible_delete_text != $archive_producer.payload.expected_before_text) or ($archive_consumer.payload.undelete_text != $archive_producer.payload.expected_after_text) or ($archive_consumer.payload.target_visibility != "hidden"))
+    if $causal_bad {
+      error make { msg: "causal_semantics_mismatch: delete/undelete evidence is inconsistent" }
+    }
+    let identity_bad = (($archive_consumer.payload.fresh_writer_id == $archive_producer.payload.source_writer_id) or ($archive_consumer.payload.frontier_before != $archive_producer.payload.source_frontier))
+    if $identity_bad {
+      error make { msg: "causal_semantics_mismatch: fresh writer or restored frontier differs" }
+    }
     let captures = ($egw | append $markdown)
     let positive = ($egw | where case_id == "known-positive-provider-read" | first)
     if $positive.payload.provider_calls != 1 or $positive.payload.provider_operations <= 0 or $positive.payload.provider_bytes <= 0 {
@@ -136,7 +166,21 @@ def main [--output-dir: string --allow-dirty] {
       artifact_paths: ["manifest.json" "result.json" "capability-ledger.json" "candidate-captures.jsonl" "candidate-results.json" "operation-matrix.jsonl" "oracle-differential.jsonl" "cold-history.jsonl" "negative-results.json" "validation.log"]
     }
   } catch {|err|
-    write-json ($output_dir | path join "result.json") { schema_version: 1 status: "fail" failure_class: "harness_failure" detail: ($err | to json -r) }
-    exit 30
+    let detail = ($err | to json -r)
+    let failure = if ($detail | str contains "oracle_mismatch") {
+      "oracle_mismatch"
+    } else if ($detail | str contains "causal_semantics_mismatch") {
+      "causal_semantics_mismatch"
+    } else if ($detail | str contains "unexpected_cold_read") {
+      "unexpected_cold_read"
+    } else if ($detail | str contains "evidence_missing") {
+      "evidence_missing"
+    } else if ($detail | str contains "measurement_failure") {
+      "measurement_failure"
+    } else {
+      "harness_failure"
+    }
+    write-failure-artifacts $output_dir $failure
+    exit (exit-code $failure)
   }
 }
