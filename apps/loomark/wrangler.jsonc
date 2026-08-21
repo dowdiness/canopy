@@ -11,7 +11,7 @@
   "name": "loomark",
   "compatibility_date": "2026-08-06",
   "build": {
-    "command": "../../scripts/build-loomark-worker.sh"
+    "command": "if [ -x ../../scripts/build-loomark-worker.sh ]; then ../../scripts/build-loomark-worker.sh; else scripts/build-loomark-worker.sh; fi"
   },
   "assets": {
     "directory": "./dist"
