@@ -117,8 +117,9 @@ Only needed if you are modifying Canopy itself.
   [issue #1322](https://github.com/dowdiness/canopy/issues/1322), governed by the
   [private restore coordinator decision](decisions/2026-08-20-loomark-private-restore-coordinator.md).
 - [Editable Loomark branch restore feasibility](plans/2026-08-19-loomark-editable-branch-restore-feasibility.md)
-  — Gate R0 evidence and decision plan for restoring an editable branch
-  without eagerly materializing full causal history.
+  — Gate R0 implementation plan pending the coordinated #1318 rewrite. Its
+  `ClosedTail` and retained position/identity Candidate C wording is superseded
+  by the accepted [R0 research contracts](#research); do not implement it as-is.
 - [Legacy TODO snapshot](archive/TODO-snapshot-2026-08-03.md) — historical
   candidates being triaged in
   [issue #1124](https://github.com/dowdiness/canopy/issues/1124), not active
@@ -168,6 +169,8 @@ Only needed if you are modifying Canopy itself.
   — V2 rank sidecar and union-critical replay requirements.
 - [Undelete after paper-branch restore](research/2026-08-21-r0-undelete-after-paper-branch-restore.md)
   — original-insert targeting and LWW visibility behavior after cold restore.
+- [Gate R0 evidence and performance decision contract](research/2026-08-21-r0-evidence-performance-decision-contract.md)
+  — operation matrix, trace morphologies, counters, budgets, measurements, and path-specific pass/negative rules.
 
 ## Deep Design (Grand Design)
 
