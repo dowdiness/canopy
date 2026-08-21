@@ -128,7 +128,12 @@ def run-markdown-oracle [root: string mode: string = "undelete"] {
   let oracle_next_operations = (normalize-operations $oracle_history.operations $producer_raw.payload.oracle_writer_id)
   if ($oracle_next_operations | is-empty) { fail "Markdown oracle emitted no next operations" }
   let oracle_frontier = ($producer_raw.payload.oracle_post_edit_frontier | str replace --all $producer_raw.payload.oracle_writer_id '$fresh-writer' | from json)
-  let producer = ($producer_raw | upsert payload.oracle_next_operation ($oracle_next_operations | first) | upsert payload.oracle_next_operations $oracle_next_operations | upsert payload.oracle_post_edit_frontier $oracle_frontier)
+  let producer_recovery = if $producer_raw.payload.open_succeeded and $producer_raw.payload.representative_commit_succeeded {
+    "open-and-commit-succeeded-without-public-recovery-signal"
+  } else {
+    "product-operation-failed"
+  }
+  let producer = ($producer_raw | upsert payload.oracle_next_operation ($oracle_next_operations | first) | upsert payload.oracle_next_operations $oracle_next_operations | upsert payload.oracle_post_edit_frontier $oracle_frontier | upsert payload.product_recovery_classification $producer_recovery)
   let archive_bytes = $producer.payload.archive_json
   let archive_file = (^mktemp | str trim)
   $archive_bytes | save -f $archive_file
@@ -140,11 +145,18 @@ def run-markdown-oracle [root: string mode: string = "undelete"] {
   let consumer_next_operations = (normalize-operations $consumer_history.operations $consumer_raw.payload.fresh_writer_id)
   if $mode != "restore" and ($consumer_next_operations | is-empty) { fail "Markdown consumer emitted no next operations" }
   let consumer_frontier = ($consumer_raw.payload.frontier_after_insert | str replace --all $consumer_raw.payload.fresh_writer_id '$fresh-writer' | from json)
+  let consumer_recovery = if $consumer_raw.payload.open_succeeded and $consumer_raw.payload.representative_commit_succeeded {
+    "open-and-commit-succeeded-without-public-recovery-signal"
+  } else if $consumer_raw.payload.open_succeeded and $mode == "restore" {
+    "open-succeeded-no-edit-requested"
+  } else {
+    "product-operation-failed"
+  }
   let consumer_row = if $mode == "restore" {
     $consumer_raw | upsert payload.next_operation null | upsert payload.next_operations []
   } else {
     $consumer_raw | upsert payload.next_operation ($consumer_next_operations | first) | upsert payload.next_operations $consumer_next_operations
-  } | upsert payload.frontier_after_insert $consumer_frontier
+  } | upsert payload.frontier_after_insert $consumer_frontier | upsert payload.product_recovery_classification $consumer_recovery
   [$producer $consumer_row]
 }
 
@@ -235,7 +247,7 @@ def main [--output-dir: string --allow-dirty --inject-failure: string] {
   try {
     let egw = (run-producer $root "deps/event-graph-walker/internal/restore_feasibility_probe")
     write-jsonl ($output_dir | path join "cold-history.jsonl") $egw
-    let required_egw = (["known-positive-provider-read" "strict-forward" "closed-concurrent"] | append (operation-matrix | get trace))
+    let required_egw = (["known-positive-provider-read" "strict-forward" "closed-concurrent" "immediate-insert-zero-read" "immediate-delete-zero-read" "immediate-undelete-zero-read"] | append (operation-matrix | get trace))
     let egw_failure = (validate-envelopes $egw $required_egw)
     if ($egw_failure | is-not-empty) { write-failure-artifacts $output_dir $egw_failure; exit (exit-code $egw_failure) }
     for matrix_row in (operation-matrix) {
@@ -258,9 +270,19 @@ def main [--output-dir: string --allow-dirty --inject-failure: string] {
     if $positive.payload.provider_calls != 1 or $positive.payload.provider_operations <= 0 or $positive.payload.provider_bytes <= 0 {
       write-failure-artifacts $output_dir "evidence_missing"; exit 34
     }
-    let fast = ($egw | where {|row| $row.case_id == "strict-forward" or $row.case_id == "closed-concurrent" })
+    let fast = ($egw | where {|row| $row.case_id == "strict-forward" or $row.case_id == "closed-concurrent" or ($row.case_id | str starts-with "immediate-") })
     if ($fast | any {|row| $row.payload.provider_calls != 0 or $row.payload.provider_operations != 0 or $row.payload.provider_bytes != 0 }) {
       write-failure-artifacts $output_dir "unexpected_cold_read"; exit 33
+    }
+    for expected in [
+      { case_id: "immediate-insert-zero-read" mode: "insert" operations: 1 }
+      { case_id: "immediate-delete-zero-read" mode: "delete" operations: 2 }
+      { case_id: "immediate-undelete-zero-read" mode: "undelete" operations: 3 }
+    ] {
+      let observation = ($egw | where case_id == $expected.case_id | first)
+      if $observation.payload.product_mode != $expected.mode or $observation.payload.operation_count != $expected.operations {
+        write-failure-artifacts $output_dir "causal_semantics_mismatch"; exit 32
+      }
     }
     let markdown_raw = (run-markdown-oracle $root)
     let markdown = if ($env | get -o GATE_R0_TEST_DUPLICATE_MARKDOWN_PARTICIPANT | default "") == "1" {
@@ -288,6 +310,9 @@ def main [--output-dir: string --allow-dirty --inject-failure: string] {
     }
     let archive_producer = ($markdown | where producer == "markdown_archive_producer" | first)
     let archive_consumer = ($markdown | where producer == "markdown_oracle" | first)
+    if $archive_consumer.payload.product_recovery_classification != $archive_producer.payload.product_recovery_classification or $archive_consumer.payload.recovery_observability != "facade-does-not-expose-recovery-status" {
+      error make { msg: "causal_semantics_mismatch: product recovery observation differs" }
+    }
     if $archive_consumer.payload.fresh_writer_id == $archive_producer.payload.oracle_writer_id {
       error make { msg: "causal_semantics_mismatch: independent restores reused a writer identity" }
     }

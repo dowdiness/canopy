@@ -69,6 +69,11 @@ fn producer() -> Unit {
           oracle.version().to_json_string(),
         ),
         "oracle_writer_id": Json::string("gate-r0-markdown-oracle-writer"),
+        "open_succeeded": Json::boolean(true),
+        "representative_commit_succeeded": Json::boolean(true),
+        "recovery_observability": Json::string(
+          "facade-does-not-expose-recovery-status",
+        ),
       }),
     }).stringify(),
   )
@@ -137,7 +142,11 @@ fn consumer(archive_path : String, mode : String) -> Unit {
     "frontier_after": Json::string(restored.version().to_json_string()),
     "fresh_writer_id": Json::string("gate-r0-markdown-fresh-writer"),
     "editable": Json::boolean(true),
-    "recovery": Json::string("none"),
+    "open_succeeded": Json::boolean(true),
+    "representative_commit_succeeded": Json::boolean(mode != "restore"),
+    "recovery_observability": Json::string(
+      "facade-does-not-expose-recovery-status",
+    ),
     "first_edit": Json::string("insert"),
     "immediate_insert_text": Json::string(after_insert),
     "post_insert_history": Json::string(history_after_insert.to_json_string()),
