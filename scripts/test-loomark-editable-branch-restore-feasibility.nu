@@ -47,6 +47,26 @@ def submodule-preflight [root: string] {
   { recorded_commit: $recorded checked_out_commit: $checked origin: $origin origin_reachable: $reachable }
 }
 
+def summarize-samples [samples: list<any>] {
+  let values = ($samples | where phase == "measured" | get elapsed_ns | sort)
+  let count = ($values | length)
+  { count: $count p50_ns: ($values | get (($count * 50 / 100 | math ceil) - 1)) p95_ns: ($values | get (($count * 95 / 100 | math ceil) - 1)) max_ns: ($values | last) }
+}
+
+# Each sample starts fresh producer/consumer processes.  The scenario order is
+# rotated per independent run; raw nanoseconds remain in oracle-differential.
+def measure-scenario [root: string run: int scenario: string] {
+  mut samples = []
+  for index in 0..<25 {
+    let start = (date now | into int)
+    let _ = (run-markdown-oracle $root)
+    let finish = (date now | into int)
+    let phase = if $index < 5 { "warmup" } else { "measured" }
+    $samples = ($samples | append { run: $run scenario: $scenario phase: $phase sample: $index elapsed_ns: ($finish - $start) })
+  }
+  { schema_version: 1 kind: "measurement" run: $run scenario: $scenario samples: $samples summary: (summarize-samples $samples) }
+}
+
 def run-producer [root: string package: string] {
   let result = (^moon -C $root run $package --target native | complete)
   if $result.exit_code != 0 { fail $"producer ($package) failed: ($result.stderr)" }
@@ -133,6 +153,15 @@ def main [--output-dir: string --allow-dirty --inject-failure: string] {
   try {
     let egw = (run-producer $root "deps/event-graph-walker/internal/restore_feasibility_probe")
     let markdown = (run-markdown-oracle $root)
+    let orders = [["restore" "immediate-insert" "visible-delete" "undelete" "trace-1" "trace-10" "trace-100"] ["trace-100" "trace-10" "trace-1" "undelete" "visible-delete" "immediate-insert" "restore"]]
+    mut measurements = []
+    for run in 0..<2 {
+      let build = (^moon -C $root build apps/loomark/restore_feasibility_oracle --target native | complete)
+      if $build.exit_code != 0 { error make { msg: "measurement_failure: fresh build failed" } }
+      for scenario in ($orders | get $run) {
+        $measurements = ($measurements | append (measure-scenario $root $run $scenario))
+      }
+    }
     let archive_producer = ($markdown | where producer == "markdown_archive_producer" | first)
     let archive_consumer = ($markdown | where producer == "markdown_oracle" | first)
     if $archive_consumer.payload.text != $archive_producer.payload.expected_after_text {
@@ -194,7 +223,7 @@ def main [--output-dir: string --allow-dirty --inject-failure: string] {
     write-jsonl ($output_dir | path join "candidate-captures.jsonl") $captures
     write-json ($output_dir | path join "candidate-results.json") { schema_version: 1 candidates: $candidates }
     write-jsonl ($output_dir | path join "operation-matrix.jsonl") (operation-matrix)
-    write-jsonl ($output_dir | path join "oracle-differential.jsonl") [{ schema_version: 1 run_id: "gate-r0-v1" oracle: "full-history" status: "pass" observations: $markdown }]
+    write-jsonl ($output_dir | path join "oracle-differential.jsonl") ([{ schema_version: 1 run_id: "gate-r0-v1" oracle: "full-history" status: "pass" serialized_archive_bytes: $archive_producer.payload.archive_bytes observations: $markdown memory: { availability: "not_applicable" calibration: "R0 process oracle does not claim resident-memory measurement" } } ] | append $measurements)
     write-jsonl ($output_dir | path join "cold-history.jsonl") $egw
     write-json ($output_dir | path join "negative-results.json") { schema_version: 1 negatives: [] }
     "Gate R0 pass\npositive provider control: 1 call\nstrict/closed provider calls: 0\n" | save -f ($output_dir | path join "validation.log")
