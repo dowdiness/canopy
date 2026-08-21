@@ -25,6 +25,9 @@ def main [] {
     let gate_result = (open ($output | path join "result.json"))
     assert-equal $gate_result.schema_version 1 "result schema"
     assert-equal $gate_result.status "pass" "result status"
+    let captures = (open ($output | path join "candidate-captures.jsonl") | lines | each {|line| $line | from json })
+    assert-equal (($captures | where producer == "markdown_archive_producer" | length) > 0) true "archive producer evidence"
+    assert-equal (($captures | where producer == "markdown_oracle" | length) > 0) true "fresh markdown consumer evidence"
     print "PASS Gate R0 canonical artifact contract"
   } catch {|err|
     ^rm -rf $output
