@@ -6,9 +6,13 @@
   // over wrangler.toml: a repository-root wrangler.jsonc shadows every
   // subdirectory wrangler.toml (e.g. apps/relay-server's). The Cloudflare Git
   // integration for this worker must set its root directory to apps/loomark
-  // so that `npx wrangler deploy` finds this file.
+  // so that `npx wrangler deploy` finds this file. The custom build keeps the
+  // external Workers Build on the same MoonBit/Warren bootstrap as CI.
   "name": "loomark",
   "compatibility_date": "2026-08-06",
+  "build": {
+    "command": "../../scripts/build-loomark-worker.sh"
+  },
   "assets": {
     "directory": "./dist"
   }
