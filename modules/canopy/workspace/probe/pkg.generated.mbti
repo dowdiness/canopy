@@ -36,4 +36,3 @@ type TestToken derive(Eq)
 // Type aliases
 
 // Traits
-

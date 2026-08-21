@@ -79,4 +79,3 @@ pub(open) trait SyncTransport {
   fn on_receive(Self, (Bytes) -> Unit) -> Unit
   fn close(Self) -> Unit
 }
-
