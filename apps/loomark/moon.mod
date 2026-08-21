@@ -11,6 +11,7 @@ import {
   "dowdiness/text_change@0.1.0",
   "dowdiness/dom_boundary@0.1.0",
   "dowdiness/js_ffi@0.1.0",
+  "moonbitlang/x@0.4.44",
   "moonbit-community/rabbita@0.14.1",
   "Yoorkin/rui@0.1.1",
 }

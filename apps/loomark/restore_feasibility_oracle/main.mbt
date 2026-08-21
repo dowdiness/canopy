@@ -50,7 +50,10 @@ fn producer() -> Unit {
 }
 
 ///|
-fn consumer(encoded : String) -> Unit {
+fn consumer(archive_path : String) -> Unit {
+  // The producer process has exited.  This fresh process receives only the
+  // opaque archive-bytes file, never a source editor or history object.
+  let encoded = try! @fs.read_file_to_string(archive_path)
   let decoded = try! @archive.LoomarkDocumentArchive::decode_json_string(
     encoded,
   )
@@ -126,8 +129,8 @@ fn main {
   match @env.args().get(1) {
     Some("producer") => producer()
     Some("consumer") =>
-      match @env.get_env_var("GATE_R0_ARCHIVE_JSON") {
-        Some(encoded) => consumer(encoded)
+      match @env.get_env_var("GATE_R0_ARCHIVE_PATH") {
+        Some(archive_path) => consumer(archive_path)
         None => panic()
       }
     _ => panic()

@@ -3,6 +3,7 @@ import {
   "dowdiness/loomark/archive",
   "moonbitlang/core/env",
   "moonbitlang/core/json",
+  "moonbitlang/x/fs",
 }
 
 pkgtype(kind: "executable")

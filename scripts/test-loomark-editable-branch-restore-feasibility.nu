@@ -42,7 +42,10 @@ def run-markdown-oracle [root: string] {
   if $produced.exit_code != 0 { fail $"Markdown archive producer failed: ($produced.stderr)" }
   let producer = ($produced.stdout | str trim | from json)
   let archive_bytes = $producer.payload.archive_json
-  let consumer = (with-env { GATE_R0_ARCHIVE_JSON: $archive_bytes } { ^moon -C $root run apps/loomark/restore_feasibility_oracle --target native consumer } | complete)
+  let archive_file = (^mktemp | str trim)
+  $archive_bytes | save -f $archive_file
+  let consumer = (with-env { GATE_R0_ARCHIVE_PATH: $archive_file } { ^moon -C $root run apps/loomark/restore_feasibility_oracle --target native consumer } | complete)
+  ^rm -f $archive_file
   if $consumer.exit_code != 0 { fail $"Markdown fresh consumer failed: ($consumer.stderr)" }
   [$producer ($consumer.stdout | str trim | from json)]
 }
