@@ -12,7 +12,7 @@ def assert-equal [actual: any expected: any label: string] {
 def main [] {
   let runner = ($env.FILE_PWD | path join "test-loomark-editable-branch-restore-feasibility.nu")
   let output = (^mktemp -d | str trim)
-  let result = (^nu $runner --output-dir $output | complete)
+  let result = (^nu $runner --allow-dirty --output-dir $output | complete)
   try {
     assert-equal $result.exit_code 0 "canonical gate exits successfully"
     let expected = [

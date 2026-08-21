@@ -1,0 +1,7 @@
+import {
+  "dowdiness/canopy/editor/markdown",
+  "dowdiness/loomark/archive",
+  "moonbitlang/core/json",
+}
+
+pkgtype(kind: "executable")

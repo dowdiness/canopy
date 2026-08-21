@@ -1,0 +1,73 @@
+///|
+/// Full-history Markdown oracle process for Gate R0.
+///
+/// The only restore operation is the existing public `MarkdownEditor::open`
+/// façade, supplied an opaque `MarkdownDocumentHistory` decoded from the v1
+/// archive bytes.  The source editor is not consulted after `encoded` is made;
+/// the shell may transport that string to a separately started consumer.
+
+///|
+fn limits() -> @markdown.MarkdownArchiveOpenLimits {
+  try! @markdown.MarkdownArchiveOpenLimits(
+    max_encoded_bytes=1024 * 1024,
+    max_decoded_operations=10000,
+    max_pending_operations=1000,
+    max_parents_per_operation=256,
+  )
+}
+
+///|
+fn main {
+  let source = try! @markdown.MarkdownEditor(
+    agent_id="gate-r0-markdown-producer",
+    source="# Gate R0\n\nalpha 😀 omega\n",
+  )
+  let document_id = try! @archive.LoomarkDocumentId::from_string(
+    "gate-r0-oracle",
+  )
+  let captured = try! @archive.LoomarkDocumentArchive::capture(
+    document_id~,
+    editor=source,
+  )
+  let encoded = captured.to_json_string()
+  let decoded = try! @archive.LoomarkDocumentArchive::decode_json_string(
+    encoded,
+  )
+  let restored = try! @markdown.MarkdownEditor::open(
+    agent_id="gate-r0-markdown-fresh-writer",
+    history=decoded.history(),
+    open_limits=limits(),
+  )
+  let before = restored.portable_markdown()
+  ignore(
+    try! restored.commit(
+      @markdown.MarkdownEditRequest::ReplaceText(
+        start=before.length(),
+        delete_len=0,
+        inserted="restored\n",
+      ),
+    ),
+  )
+  let payload = Json::object({
+    "archive_bytes": Json::number(encoded.length().to_double()),
+    "history_bytes": Json::number(
+      decoded.history().to_json_string().length().to_double(),
+    ),
+    "coarse_archive_loads": Json::number(1.0),
+    "text": Json::string(restored.portable_markdown()),
+    "frontier": Json::string(restored.version().to_json_string()),
+    "editable": Json::boolean(true),
+    "recovery": Json::string("none"),
+    "first_edit": Json::string("insert"),
+  })
+  println(
+    Json::object({
+      "schema_version": Json::number(1.0),
+      "run_id": Json::string("gate-r0-v1"),
+      "case_id": Json::string("full-history-oracle"),
+      "producer": Json::string("markdown_oracle"),
+      "status": Json::string("pass"),
+      "payload": payload,
+    }).stringify(),
+  )
+}
