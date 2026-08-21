@@ -118,4 +118,3 @@ pub impl ToJson for ViewPatch
 // Type aliases
 
 // Traits
-

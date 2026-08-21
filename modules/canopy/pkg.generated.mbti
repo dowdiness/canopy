@@ -35,4 +35,3 @@ pub using @protocol {type ViewPatch}
 pub using @editor {type ViewUpdateState}
 
 // Traits
-
