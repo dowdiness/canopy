@@ -25,3 +25,12 @@ The checker checks initialized/matching gitlinks, conflicts, configured-origin
 fetches, normal origin reachability, exact-SHA fetchability, and isolated
 recursive graphs for pushed commits. Development guidance belongs under
 [`../docs/development/`](../docs/development/).
+
+`test-loomark-editable-branch-restore-feasibility.nu` is the canonical Gate R0
+evidence command. Run `nu scripts/test-loomark-editable-branch-restore-feasibility.nu
+--output-dir artifacts/loomark-editable-branch-restore-feasibility` from a clean
+checkout. It writes exactly the ten documented evidence artifacts and uses exit
+codes 0 (pass), 10 (preflight), 20/21 (toolchain/submodule), 30–35 (harness,
+oracle, causal, cold-read, evidence, interface), 40 (measurement), and 50
+(runner). Candidate outcomes are evidence, including valid negatives, rather
+than runner failures.

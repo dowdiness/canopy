@@ -233,6 +233,10 @@ jobs:
         run: |
           nu --ide-check 100 scripts/check-submodule-reachability.nu
           nu --ide-check 100 scripts/install-hooks.nu
+          nu --ide-check 100 scripts/test-loomark-editable-branch-restore-feasibility.nu
+
+      - name: Test Gate R0 evidence runner
+        run: nu scripts/test-loomark-editable-branch-restore-feasibility-fixture.nu
 
       - name: Test Nushell installer
         run: bash scripts/test-install-hooks.sh
