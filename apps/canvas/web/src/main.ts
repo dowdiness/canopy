@@ -7,11 +7,8 @@ import {
   type CanvasModule,
   type NodeData,
   type NodeParamData,
-  type PortCompatibility,
-  type PortDef,
   type RenderState,
   type SourceGraphOperationResult,
-  type Tagged,
 } from './graph-adapter';
 
 export { GraphAdapter } from './graph-adapter';
@@ -43,13 +40,11 @@ let adapter: GraphAdapter;
 let rafPending = false;
 
 const root       = document.getElementById('canvas-root') as HTMLDivElement;
-const world      = document.getElementById('world') as HTMLDivElement;
 const search     = document.getElementById('node-search') as HTMLInputElement;
 const libraryEl  = document.getElementById('node-library') as HTMLDivElement;
 const validation = document.getElementById('validation-list') as HTMLDivElement;
 const inspectorNode = document.getElementById('inspector-node') as HTMLDivElement;
 const actionStat = document.getElementById('action-stat') as HTMLSpanElement;
-const nodeDivs = new Map<string, HTMLDivElement>();
 let libraryCatalog: LibraryItem[] = [];
 
 
@@ -80,72 +75,6 @@ function screenToWorld(
   return worldPoint.every(Number.isFinite) ? worldPoint : null;
 }
 
-function portTypeName(portType: Tagged): string {
-  return Array.isArray(portType) ? String(portType[0]) : String(portType);
-}
-
-function portTitle(port: PortDef): string {
-  return `${port.label}: ${portTypeName(port.port_type)}`;
-}
-
-
-
-// ─── Connection compatibility (display only) ───────────────────────────────────
-// Input-handle previews ask MoonBit for one batched `can_commit_edge` snapshot
-// through GraphAdapter, so the cosmetic highlight follows the same
-// authoritative commit/reject logic as pointerup without per-handle rebuilds.
-
-type InputCompatibility = Map<string, Map<string, boolean>>;
-
-/** Context for the in-flight connection, resolved once per render. */
-type ConnectCtx = {
-  inputs: InputCompatibility;
-};
-
-function inputCompatibilityByTarget(entries: PortCompatibility[]): InputCompatibility {
-  const byNode = new Map<string, Map<string, boolean>>();
-  for (const entry of entries) {
-    let byPort = byNode.get(entry.node_id);
-    if (!byPort) {
-      byPort = new Map<string, boolean>();
-      byNode.set(entry.node_id, byPort);
-    }
-    byPort.set(entry.port_id, entry.compatible);
-  }
-  return byNode;
-}
-
-function inputCompatible(ctx: ConnectCtx, nodeId: string, portId: string): boolean {
-  return ctx.inputs.get(nodeId)?.get(portId) === true;
-}
-
-function renderPortHandles(div: HTMLDivElement, node: NodeData, connectCtx: ConnectCtx | null): void {
-  div.querySelectorAll(':scope > .handle').forEach((handle) => handle.remove());
-  const addHandles = (side: 'input' | 'output', ports: PortDef[]) => {
-    ports.forEach((port, index) => {
-      const handle = document.createElement('div');
-      handle.className = `handle ${side}`;
-      handle.dataset.handle = side;
-      handle.dataset.nodeId = String(node.id);
-      handle.dataset.portId = port.id;
-      handle.dataset.portLabel = port.label;
-      handle.style.top = `${((index + 1) * 100) / (ports.length + 1)}%`;
-      handle.title = `${side === 'input' ? 'Input' : 'Output'} ${portTitle(port)}`;
-      handle.setAttribute('aria-label', `${node.title} ${side} ${portTitle(port)}`);
-      if (connectCtx && side === 'input') {
-        handle.classList.add(
-          inputCompatible(connectCtx, node.id, port.id)
-            ? 'compatible-target'
-            : 'incompatible-target',
-        );
-      }
-      div.appendChild(handle);
-    });
-  };
-  addHandles('input', node.inputs);
-  addHandles('output', node.outputs);
-}
-
 // ─── RAF render loop ─────────────────────────────────────────────────────────
 
 function scheduleRender(): void {
@@ -157,84 +86,6 @@ function scheduleRender(): void {
 function render(): void {
   rafPending = false;
   const state = adapter.publishRenderState();
-
-  const { x, y, scale } = state.viewport;
-  const transform = `translate(${x}px, ${y}px) scale(${scale})`;
-  world.style.transform = transform;
-
-  // Nodes ────────────────────────────────────────────────────────────────────
-  const seenNodes = new Set<string>();
-  const selected = new Set(state.selected_nodes ?? []);
-  const invalidNodeIds = new Set(
-    state.validation.filter((msg) => msg.node_id != null).map((msg) => msg.node_id as string),
-  );
-
-  // Resolve the in-flight connection once, so input handles use one batched
-  // MoonBit compatibility snapshot while the drag is live.
-  let connectCtx: ConnectCtx | null = null;
-  const connecting = state.connecting;
-  if (connecting) {
-    connectCtx = {
-      inputs: inputCompatibilityByTarget(
-        adapter.inputPortCompatibility(connecting.from, connecting.from_port),
-      ),
-    };
-  }
-
-  for (const node of state.nodes) {
-    seenNodes.add(node.id);
-    let div = nodeDivs.get(node.id);
-    if (!div) {
-      div = document.createElement('div');
-      div.className = 'canvas-node workflow-node';
-      div.dataset.nodeId = String(node.id);
-
-      const body = document.createElement('div');
-      body.className = 'node-body';
-      body.innerHTML = `
-        <div class="node-kicker">Workflow step</div>
-        <div class="node-title"></div>
-        <div class="node-subtitle"></div>
-        <div class="ports" aria-label="typed ports"></div>
-      `;
-      div.appendChild(body);
-
-      world.appendChild(div);
-      nodeDivs.set(node.id, div);
-    }
-
-    div.style.left   = `${node.x}px`;
-    div.style.top    = `${node.y}px`;
-    div.style.width  = `${node.w}px`;
-    div.style.height = `${node.h}px`;
-    div.dataset.kind = node.kind[0];
-    div.classList.toggle('selected', selected.has(node.id));
-    div.classList.toggle('invalid', invalidNodeIds.has(node.id));
-    div.classList.toggle('unconfigured', !node.configured);
-    div.classList.toggle('connecting-source', connecting?.from === node.id);
-    div.title = `${node.title}\n${node.subtitle}`;
-
-    const title = div.querySelector('.node-title') as HTMLDivElement;
-    const subtitle = div.querySelector('.node-subtitle') as HTMLDivElement;
-    const ports = div.querySelector('.ports') as HTMLDivElement;
-    title.textContent = node.title;
-    subtitle.textContent = node.subtitle;
-    renderPortHandles(div, node, connectCtx);
-    ports.replaceChildren(
-      ...[...node.inputs.map((p) => ['in', p] as const), ...node.outputs.map((p) => ['out', p] as const)]
-        .map(([direction, port]) => {
-          const pill = document.createElement('span');
-          pill.className = `port-pill ${direction}`;
-          pill.textContent = `${direction}:${port.label}`;
-          pill.title = portTitle(port);
-          return pill;
-        }),
-    );
-  }
-  for (const [id, div] of nodeDivs) {
-    if (!seenNodes.has(id)) { div.remove(); nodeDivs.delete(id); }
-  }
-
   renderValidation(state);
   renderInspector(state);
 }
@@ -446,7 +297,9 @@ function renderInspector(state: RenderState): void {
 }
 
 function focusNode(nodeId: string): void {
-  const node = nodeDivs.get(nodeId);
+  const node = root.querySelector<HTMLElement>(
+    `.canvas-node[data-node-id="${CSS.escape(nodeId)}"]`,
+  );
   if (!node) return;
   node.animate([
     { boxShadow: '0 0 0 2px rgba(255,255,255,.9), 0 0 0 8px rgba(130,80,223,.35)' },
@@ -617,7 +470,7 @@ async function init(): Promise<void> {
       return undefined;
     },
   );
-  sourceDemoModule.mount_canvas_edge_layer();
+  sourceDemoModule.mount_canvas_render_layer();
   sourceDemoModule.mount_source_demo(adapter.handleId, sourceMode, () => {
     scheduleRender();
     return undefined;

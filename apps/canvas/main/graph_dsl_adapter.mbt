@@ -1088,23 +1088,6 @@ fn SourceBackedGraph::complete_connection(
 }
 
 ///|
-fn SourceBackedGraph::input_port_compatibility(
-  self : SourceBackedGraph,
-  source : NodeId,
-  source_port : String,
-) -> Array[PortCompatibilityJson] {
-  match source_graph_current_doc(self) {
-    Ok(doc) =>
-      input_port_compatibility_for_state(
-        self.state_for_doc(doc),
-        source,
-        source_port,
-      )
-    Err(_) => []
-  }
-}
-
-///|
 fn SourceBackedGraph::zoom(
   self : SourceBackedGraph,
   delta_y : Double,
@@ -1461,28 +1444,21 @@ pub fn delete_source_graph_selection(handle : Int) -> String raise Failure {
 }
 
 ///|
-pub fn get_source_graph_input_port_compatibility(
-  handle : Int,
-  source : String,
-  source_port : String,
-) -> String {
-  match source_graph_by_handle(handle) {
-    Some(graph) =>
-      graph
-      .input_port_compatibility(NodeId(source), source_port)
-      .to_json()
-      .stringify()
-    None => ([] : Array[PortCompatibilityJson]).to_json().stringify()
-  }
-}
-
-///|
 fn source_render_state_string(
   graph : SourceBackedGraph,
   state : CanvasState,
   validation : Array[ValidationJson],
 ) -> String {
-  let rendered = render_state_json(state, validation, graph.selected_edge)
+  let input_compatibility = match graph.attachment.current_result() {
+    Ok(_) => input_compatibility_for_render_state(state)
+    Err(_) => []
+  }
+  let rendered = workflow_canvas_host_policy().render_state_json(
+    state,
+    validation,
+    graph.selected_edge,
+    input_compatibility,
+  )
   match source_graph_doc_for_render(graph) {
     Some(doc) => {
       // Index the doc's nodes by token once so per-node param resolution is
