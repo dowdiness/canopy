@@ -3506,12 +3506,15 @@ test("a newer Block edit supersedes pending Raw input", async ({ browser }) => {
       }))
       const module = await import(moduleUrl)
       module.dev_host_select_block()
-      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
-      const blockInput = document.getElementById("loomark-block-input") as HTMLTextAreaElement
-      blockInput.value = "block"
-      blockInput.setSelectionRange(blockInput.value.length, blockInput.value.length)
-      blockInput.dispatchEvent(new Event("input", { bubbles: true }))
     }, moduleUrl)
+    const blockInput = host.page.locator("#loomark-block-input")
+    await expect(blockInput).toBeAttached()
+    await blockInput.evaluate(element => {
+      const input = element as HTMLTextAreaElement
+      input.value = "block"
+      input.setSelectionRange(input.value.length, input.value.length)
+      input.dispatchEvent(new Event("input", { bubbles: true }))
+    })
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("block")
     expect(await snapshot(host.page)).toMatchObject({
       source: "block",
