@@ -59,7 +59,8 @@ def measure-scenario [root: string run: int scenario: string] {
   mut samples = []
   for index in 0..<25 {
     let start = (date now | into int)
-    let _ = (run-markdown-oracle $root)
+    let mode = if $scenario == "restore" { "restore" } else if $scenario == "immediate-insert" { "insert" } else if $scenario == "visible-delete" { "delete" } else { "undelete" }
+    let _ = (run-markdown-oracle $root $mode)
     let finish = (date now | into int)
     let phase = if $index < 5 { "warmup" } else { "measured" }
     $samples = ($samples | append { run: $run scenario: $scenario phase: $phase sample: $index elapsed_ns: ($finish - $start) })
@@ -75,14 +76,14 @@ def run-producer [root: string package: string] {
   $rows
 }
 
-def run-markdown-oracle [root: string] {
+def run-markdown-oracle [root: string mode: string = "undelete"] {
   let produced = (^moon -C $root run apps/loomark/restore_feasibility_oracle --target native producer | complete)
   if $produced.exit_code != 0 { fail $"Markdown archive producer failed: ($produced.stderr)" }
   let producer = ($produced.stdout | str trim | from json)
   let archive_bytes = $producer.payload.archive_json
   let archive_file = (^mktemp | str trim)
   $archive_bytes | save -f $archive_file
-  let consumer = (with-env { GATE_R0_ARCHIVE_PATH: $archive_file } { ^moon -C $root run apps/loomark/restore_feasibility_oracle --target native consumer } | complete)
+  let consumer = (with-env { GATE_R0_ARCHIVE_PATH: $archive_file } { ^moon -C $root run apps/loomark/restore_feasibility_oracle --target native consumer $mode } | complete)
   ^rm -f $archive_file
   if $consumer.exit_code != 0 { fail $"Markdown fresh consumer failed: ($consumer.stderr)" }
   [$producer ($consumer.stdout | str trim | from json)]

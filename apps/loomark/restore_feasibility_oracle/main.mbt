@@ -50,7 +50,7 @@ fn producer() -> Unit {
 }
 
 ///|
-fn consumer(archive_path : String) -> Unit {
+fn consumer(archive_path : String, mode : String) -> Unit {
   // The producer process has exited.  This fresh process receives only the
   // opaque archive-bytes file, never a source editor or history object.
   let encoded = try! @fs.read_file_to_string(archive_path)
@@ -64,6 +64,7 @@ fn consumer(archive_path : String) -> Unit {
   )
   let before = restored.portable_markdown()
   let frontier_before = restored.version().to_json_string()
+  if mode != "restore" {
   ignore(
     try! restored.commit(
       @markdown.MarkdownEditRequest::ReplaceText(
@@ -73,7 +74,9 @@ fn consumer(archive_path : String) -> Unit {
       ),
     ),
   )
+  }
   let after_insert = restored.portable_markdown()
+  if mode == "delete" || mode == "undelete" {
   ignore(
     try! restored.commit(
       @markdown.MarkdownEditRequest::ReplaceText(
@@ -83,7 +86,9 @@ fn consumer(archive_path : String) -> Unit {
       ),
     ),
   )
+  }
   let after_delete = restored.portable_markdown()
+  if mode == "undelete" {
   ignore(
     try! restored.commit(
       @markdown.MarkdownEditRequest::ReplaceText(
@@ -93,6 +98,7 @@ fn consumer(archive_path : String) -> Unit {
       ),
     ),
   )
+  }
   let payload = Json::object({
     "archive_bytes": Json::number(encoded.length().to_double()),
     "history_bytes": Json::number(
@@ -111,6 +117,8 @@ fn consumer(archive_path : String) -> Unit {
     "undelete_text": Json::string(restored.portable_markdown()),
     "target_visibility": Json::string(if after_delete == before { "hidden" } else { "unexpected" }),
     "normalized_next_operation": Json::string("replace-text"),
+    "measurement_mode": Json::string(mode),
+    "operation_count": Json::number((if mode == "restore" { 0 } else if mode == "insert" { 1 } else if mode == "delete" { 2 } else { 3 }).to_double()),
   })
   println(
     Json::object({
@@ -130,7 +138,7 @@ fn main {
     Some("producer") => producer()
     Some("consumer") =>
       match @env.get_env_var("GATE_R0_ARCHIVE_PATH") {
-        Some(archive_path) => consumer(archive_path)
+        Some(archive_path) => consumer(archive_path, @env.args().get(2).unwrap_or("undelete"))
         None => panic()
       }
     _ => panic()
