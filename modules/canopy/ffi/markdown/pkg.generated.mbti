@@ -27,4 +27,3 @@ pub fn try_destroy_markdown_editor(Int) -> Bool
 // Type aliases
 
 // Traits
-

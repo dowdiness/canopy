@@ -30,4 +30,3 @@ pub fn syntax_to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @core.ProjNode[@m
 // Type aliases
 
 // Traits
-

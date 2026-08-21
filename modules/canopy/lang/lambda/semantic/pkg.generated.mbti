@@ -30,4 +30,3 @@ pub impl ToJson for SemanticProjection
 // Type aliases
 
 // Traits
-

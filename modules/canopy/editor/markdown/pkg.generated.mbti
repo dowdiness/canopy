@@ -202,4 +202,3 @@ pub fn MarkdownTextTransform::start(Self) -> Int
 // Type aliases
 
 // Traits
-

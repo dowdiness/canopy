@@ -20,4 +20,3 @@ pub fn optimize_projected(@core.ProjNode[@ast.Term], @scope.ScopeGraph, policy? 
 // Type aliases
 
 // Traits
-

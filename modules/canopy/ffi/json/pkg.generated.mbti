@@ -41,4 +41,3 @@ pub fn try_destroy_json_editor(Int) -> Bool
 // Type aliases
 
 // Traits
-

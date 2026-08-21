@@ -160,4 +160,3 @@ pub fn ws_set_status_callback(Int) -> Unit
 // Type aliases
 
 // Traits
-
