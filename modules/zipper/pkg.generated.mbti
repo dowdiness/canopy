@@ -52,4 +52,3 @@ pub impl[T : @debug.Debug] Show for RoseZipper[T]
 // Type aliases
 
 // Traits
-
