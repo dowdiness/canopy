@@ -25,6 +25,10 @@ def main [] {
     let gate_result = (open ($output | path join "result.json"))
     assert-equal $gate_result.schema_version 1 "result schema"
     assert-equal $gate_result.status "pass" "result status"
+    let manifest = (open ($output | path join "manifest.json"))
+    assert-equal ($manifest.preflight.interface_hashes | is-empty) false "interface baseline hashes"
+    assert-equal $manifest.preflight.submodule.recorded_commit $manifest.preflight.submodule.checked_out_commit "submodule recorded checkout"
+    assert-equal $manifest.preflight.toolchain.available true "toolchain preflight"
     let captures = (open ($output | path join "candidate-captures.jsonl") | lines | each {|line| $line | from json })
     assert-equal (($captures | where producer == "markdown_archive_producer" | length) > 0) true "archive producer evidence"
     assert-equal (($captures | where producer == "markdown_oracle" | length) > 0) true "fresh markdown consumer evidence"
