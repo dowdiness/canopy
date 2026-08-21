@@ -132,6 +132,10 @@ def check-materialized-commit [root: string, commit: string] {
 }
 
 def main [--commit: string = ""] {
+  # Git exports repository-local variables to hooks. They override every
+  # `git -C` below unless removed, redirecting the isolated checkout back into
+  # the source worktree and corrupting its HEAD and submodule core.worktree.
+  hide-env --ignore-errors GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_CONFIG GIT_CONFIG_PARAMETERS GIT_CONFIG_COUNT GIT_OBJECT_DIRECTORY GIT_DIR GIT_WORK_TREE GIT_IMPLICIT_WORK_TREE GIT_GRAFT_FILE GIT_INDEX_FILE GIT_NO_REPLACE_OBJECTS GIT_REPLACE_REF_BASE GIT_PREFIX GIT_SHALLOW_FILE GIT_COMMON_DIR
   try {
     # FILE_PWD is the directory containing this script, so an absolute
     # invocation from another Git worktree cannot inspect the caller's repo.

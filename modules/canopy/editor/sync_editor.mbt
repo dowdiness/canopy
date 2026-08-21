@@ -45,22 +45,22 @@ fn AuthorityCore::export_since(
 }
 
 ///|
-fn AuthorityCore::admit_with_tracking(
+fn AuthorityCore::admit_transition_with_tracking(
   self : AuthorityCore,
   msg : @text.SyncMessage,
   limits : @sync.Limits?,
-) -> Result[@text.SyncReport, @text.TextError] {
+) -> Result[@text.TextAdmissionTransition, @text.TextError] {
   self.undo.set_tracking(false)
-  let report_result : Result[@text.SyncReport, @text.TextError] = Ok(
+  let transition_result : Result[@text.TextAdmissionTransition, @text.TextError] = Ok(
     match limits {
-      None => self.doc.sync().apply(msg)
-      Some(limits) => self.doc.sync().apply_with_limits(msg, limits)
+      None => self.doc.sync().apply_transition(msg)
+      Some(limits) => self.doc.sync().apply_transition_with_limits(msg, limits)
     },
   ) catch {
     error => Err(error)
   }
   self.undo.set_tracking(true)
-  report_result
+  transition_result
 }
 
 ///|
@@ -979,7 +979,11 @@ pub fn[T : Eq] SyncEditor::apply_span_edits(
           SnapToGrapheme,
         ) {
         Some(applied_edit) =>
-          replay_spans.push({ edit: applied_edit, inserted: edit.inserted })
+          replay_spans.push({
+            edit: applied_edit,
+            inserted: edit.inserted,
+            source_after: None,
+          })
         None => ()
       }
     }
@@ -1023,46 +1027,55 @@ fn[T] SyncEditor::adjust_cursor(self : SyncEditor[T]) -> Unit {
 }
 
 ///|
-fn[T : Eq] SyncEditor::admit_with_policy(
+fn[T : Eq] SyncEditor::admit_with_policy_using_snapshot_reader(
   self : SyncEditor[T],
   msg : @text.SyncMessage,
   limits : @sync.Limits?,
+  read_snapshot : () -> String,
 ) -> @text.SyncReport raise {
   self.ensure_parser_healthy()
   self.reject_projection_observer_reentry()
-  self.taint_pending_transforms()
-  let before_version = self.authority.doc.version()
-  let old_source = self.authority.doc.text()
-  let report_result = self.authority.admit_with_tracking(msg, limits)
-  let after_version = self.authority.doc.version()
-  if after_version != before_version {
-    self.observe_authority_acceptance()
-  }
-  // Reconcile derived state even when apply reports an error, because the
-  // document may have been partially mutated before the failure surfaced.
-  let new_source = self.authority.doc.text()
-  self.adjust_cursor()
-  if after_version == before_version {
-    self.adjust_peer_cursors_after_text_change(old_source, new_source, None)
-    self.sync_parser_after_text_change(old_source, new_source, None)
-  } else {
-    let continuation = classify_projection_continuation(
-      old_source,
-      new_source,
-      None,
-    )
-    self.settle_committed_text_change(
-      old_source,
-      new_source,
-      before_version,
-      continuation,
-      None,
-    )
-  }
-  let report = match report_result {
-    Ok(report) => report
+  let transition = match
+    self.authority.admit_transition_with_tracking(msg, limits) {
+    Ok(transition) => transition
     Err(error) => raise error
   }
+  let authority_advanced = transition.version_after() !=
+    transition.version_before()
+  if authority_advanced {
+    self.observe_authority_acceptance()
+  }
+  let parser_source = self.projection.parser.source().read_or_abort()
+  match transition.availability() {
+    @text.TextEffectAvailability::Exact(effects) => {
+      let prepared = prepare_text_admission(parser_source, effects)
+      self.settle_prepared_text_admission(
+        parser_source,
+        prepared,
+        transition.version_after(),
+        authority_advanced,
+      )
+    }
+    @text.TextEffectAvailability::SnapshotRequired => {
+      let coherent_source = read_snapshot()
+      if authority_advanced {
+        self.observe_committed_transition_settled()
+      }
+      self.interaction.clamp_cursor_to_length(coherent_source.length())
+      self.adjust_peer_cursors_after_text_change(
+        parser_source,
+        coherent_source,
+        None,
+      )
+      self.taint_pending_transforms()
+      self.sync_parser_from_supplied_seed(coherent_source)
+    }
+    @text.TextEffectAvailability::Unavailable =>
+      if authority_advanced {
+        self.observe_committed_transition_settled()
+      }
+  }
+  let report = transition.finish()
   if report.pending_operations() == 0 {
     // Clear a prior Error status once any sync applies — another peer
     // (via RelayedCrdtOps) having filled the causal gap counts as recovery.
@@ -1070,6 +1083,17 @@ fn[T : Eq] SyncEditor::admit_with_policy(
     self.interaction.note_sync_applied()
   }
   report
+}
+
+///|
+fn[T : Eq] SyncEditor::admit_with_policy(
+  self : SyncEditor[T],
+  msg : @text.SyncMessage,
+  limits : @sync.Limits?,
+) -> @text.SyncReport raise {
+  self.admit_with_policy_using_snapshot_reader(msg, limits, () => {
+    self.authority.doc.text()
+  })
 }
 
 ///|

@@ -33,6 +33,19 @@ test "multiple inserts" {
 }
 
 ///|
+test "cursor positions count Unicode scalars across inserts and deletes" {
+  let editor = try! Editor::new("unicode-scalars")
+  try! editor.insert("😀")
+  inspect(editor.get_cursor(), content="1")
+  try! editor.insert("x")
+  inspect(editor.get_text(), content="😀x")
+  inspect(editor.get_cursor(), content="2")
+  editor.move_cursor(0)
+  inspect(editor.delete(), content="true")
+  inspect(editor.get_text(), content="x")
+}
+
+///|
 test "insert at specific position" {
   let editor = try! Editor::new("alice")
   try! editor.insert("Heo")

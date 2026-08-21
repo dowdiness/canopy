@@ -277,4 +277,49 @@ expect_fail_at nested-unreachable "$parent" "$nested_commit" "submodule commit i
 # the object absent from nested-origin rather than the reachable top-level ref.
 test -n "$nested_bad_sha"
 
+# Commit-mode materialization from a linked worktree must not rewrite the
+# source worktree's shared submodule gitdir or detach its parent HEAD.
+parent="$(setup_fixture linked-worktree-source-isolation)"
+linked="$tmp_dir/linked-worktree-source-isolation/linked"
+git -C "$parent" worktree add --quiet "$linked" -b linked-source
+git -c protocol.file.allow=always -C "$linked" submodule update --quiet --init --recursive
+printf 'linked source head\n' >"$linked/source-head.txt"
+git -C "$linked" add source-head.txt
+git -C "$linked" commit --quiet -m "advance linked source head"
+source_submodule="$linked/deps/test-submodule"
+source_gitdir="$(git -C "$source_submodule" rev-parse --absolute-git-dir)"
+source_parent_gitdir="$(git -C "$linked" rev-parse --absolute-git-dir)"
+before_core_worktree="$(git config --file "$source_gitdir/config" --get core.worktree)"
+before_status="$(git -C "$linked" submodule status --recursive)"
+before_head="$(git -C "$linked" symbolic-ref --quiet HEAD)"
+linked_commit="$(git -C "$linked" rev-parse HEAD^)"
+checker_status=0
+GIT_DIR="$source_parent_gitdir" \
+  GIT_WORK_TREE="$linked" \
+  GIT_INDEX_FILE="$source_parent_gitdir/index" \
+  run_checker_at "$linked" "$linked_commit" \
+    >"$tmp_dir/linked-worktree-source-isolation.out" 2>&1 || checker_status=$?
+if ! after_core_worktree="$(git config --file "$source_gitdir/config" --get core.worktree)"; then
+  fail "commit mode removed the source submodule core.worktree"
+fi
+if [[ "$after_core_worktree" != "$before_core_worktree" ]]; then
+  fail "commit mode rewrote the source submodule core.worktree"
+fi
+if ! after_status="$(git -C "$linked" submodule status --recursive)"; then
+  fail "commit mode left the source submodule unusable"
+fi
+if [[ "$after_status" != "$before_status" ]]; then
+  fail "commit mode changed the source recursive submodule status"
+fi
+if ! after_head="$(git -C "$linked" symbolic-ref --quiet HEAD)"; then
+  fail "commit mode detached the source parent worktree"
+fi
+if [[ "$after_head" != "$before_head" ]]; then
+  fail "commit mode detached the source parent worktree"
+fi
+if ((checker_status != 0)); then
+  cat "$tmp_dir/linked-worktree-source-isolation.out" >&2
+  fail "linked-worktree-source-isolation unexpectedly failed"
+fi
+
 echo "ok: submodule reachability contract cases pass"
