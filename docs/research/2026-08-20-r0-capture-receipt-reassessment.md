@@ -112,6 +112,8 @@ Sources at Loro commit [`4d3d3f1`](https://github.com/loro-dev/loro/tree/4d3d3f1
 
 ## Recommended test-only commitment
 
+**Historical note on versioning:** The initial draft of this decision used V1 type names and domain tags (`event_digest` with `:v1` domains, `R0SnapshotCommitV1`). V1 is unimplemented and uninterpreted; it is superseded in every active schema, code block, and prose reference below before Gate R0 implementation. All new R0 sidecar and snapshot-commit artifacts use V2. Body/algebra bytes remain V1, so `body_digest` (domain `loomark-r0-event-body:v1`) and the exact-head identity hash (`loomark-r0-heads:v1`) remain `:v1`. `R0PublicationRefV1` also remains V1 because it is a separate mutable provenance pointer whose fields and semantics did not change.
+
 ### Event digest overlay
 
 For each canonical event `e`, compute:
@@ -122,10 +124,11 @@ body_digest(e) = SHA-256(
   || exact_canonical_event_body_bytes(e)
 )
 
-event_digest(e) = SHA-256(
-  domain("loomark-r0-event:v1")
+event_digest_v2(e) = SHA-256(
+  domain("loomark-r0-event:v2")
   || canonical_raw_identity(e)
   || body_digest(e)
+  || causal_rank_timestamp              // uvarint
   || sorted_declared_parent_identity_and_digest_records
   || optional_implicit_same-writer_predecessor_identity_and_digest
   || sorted_role_tagged_semantic_reference_records
@@ -136,10 +139,10 @@ The test codec reuses the shape of EGW's canonical sync encoding: unsigned varin
 
 Requirements:
 
-- Canonical body bytes include kind, payload, and positional/target fields. `event_digest` separately binds stable raw identity, `body_digest`, and every dependency/reference field that changes admission semantics.
+- Canonical body bytes include kind, payload, and positional/target fields. `event_digest_v2` separately binds stable raw identity, `body_digest`, `causal_rank_timestamp`, and every dependency/reference field that changes admission semantics.
 - The implicit predecessor `(agent, sequence - 1)` is encoded in its own role when sequence is greater than zero, even when the same identity is also a declared parent. Sequence `0` has no predecessor; the optional tag makes that case total and unambiguous.
 - Missing dependency digest means the event remains pending and no exact capture can be issued.
-- Declared parents are sorted and deduplicated by canonical raw identity: unsigned bytewise lexical order of validated UTF-8 agent bytes, then numeric sequence. Do not reuse MoonBit `String::compare`, whose ordering is not the receipt's UTF-8 byte order. An EGW-local implementation should iterate with `Op::parents_iter()` rather than allocate `Op::parents()` merely for hashing.
+- Duplicate declared-parent identities are rejected by canonical R0 preflight because EGW preserves duplicate-parent multiplicity in operation identity; the codec must not collapse distinct accepted operations onto one digest. A history containing duplicate declared-parent identities is outside the canonical V2 profile and produces a reproducible candidate negative/full-history oracle path rather than being silently normalized. After duplicate rejection, declared parents are sorted by canonical raw identity: unsigned bytewise lexical order of validated UTF-8 agent bytes, then numeric sequence. Do not reuse MoonBit `String::compare`, whose ordering is not the receipt's UTF-8 byte order. An EGW-local implementation should iterate with `Op::parents_iter()` rather than allocate `Op::parents()` merely for hashing.
 - Before UTF-8 encoding/hashing, test-only preflight rejects malformed UTF-16 in every string field, including document/agent IDs. This avoids JS `TextEncoder` replacement diverging from native encode failure.
 - Sorting costs O(d log d) for an event with `d` unique dependencies unless a canonical sorted representation is retained.
 - The overlay is derived, discardable sidecar metadata. Canonical operation identities and wire bytes do not change.
@@ -148,10 +151,10 @@ Requirements:
 ### Graph commitment
 
 ```text
-graph_root = SHA-256(
-  domain("loomark-r0-graph:v1")
+graph_root_v2 = SHA-256(
+  domain("loomark-r0-graph:v2")
   || head_count
-  || sorted(exact_raw_head_identity_and_event_digest)
+  || sorted(exact_raw_head_identity_and_event_digest_v2_and_causal_rank)
 )
 ```
 
@@ -162,23 +165,25 @@ Because each event digest includes dependency digests, the root transitively com
 ### Immutable snapshot commit
 
 ```text
-R0SnapshotCommitV1 {
+R0SnapshotCommitV2 {
   document_id_sha256
-  graph_root
+  graph_root_v2
   exact_raw_heads_sorted
   exact_raw_heads_sha256
-  exact_head_records_sorted
-  writer_commitments_sorted
+  exact_head_records_sorted : Array[R0HeadRecordV2]
+  writer_commitments_sorted : Array[WriterCommitmentV2]
   document_text_byte_length
   document_text_scalar_length
   document_text_sha256
-  snapshot_commit_id = SHA-256(canonical preceding fields)
+  snapshot_commit_id = SHA-256(
+    domain("loomark-r0-snapshot:v2") || canonical preceding fields
+  )
 }
 ```
 
-`document_id_sha256` is SHA-256 over the exact validated UTF-8 `LoomarkDocumentId::value()` bytes without normalization. `document_text_byte_length`, `document_text_scalar_length`, and `document_text_sha256` use the exact well-formed document text without Unicode or line-ending normalization; byte length/hash are over strict UTF-8 and scalar length counts Unicode scalar values. `exact_raw_heads_sorted` is encoded as a count followed by raw identities in canonical raw-identity order; count `0` is the unique empty encoding. `exact_raw_heads_sha256 = SHA-256(domain("loomark-r0-heads:v1") || canonical_exact_raw_heads_encoding)`. Exact head records and writer commitments follow the cold-boundary refinement. Snapshot fields use the same domain-separated, length-prefixed/uvarint test codec rather than JSON object order.
+`document_id_sha256` is a raw-bytes hash—SHA-256 over the exact validated UTF-8 `LoomarkDocumentId::value()` bytes without a custom framing domain or normalization. `document_text_sha256` is likewise a raw UTF-8 content hash; structural ambiguity is prevented by the length-prefixed snapshot framing that contains them. `document_text_byte_length`, `document_text_scalar_length`, and `document_text_sha256` use the exact well-formed document text without Unicode or line-ending normalization; byte length/hash are over strict UTF-8 and scalar length counts Unicode scalar values. `exact_raw_heads_sorted` is encoded as a count followed by raw identities in canonical raw-identity order; count `0` is the unique empty encoding. `exact_raw_heads_sha256 = SHA-256(domain("loomark-r0-heads:v1") || canonical_exact_raw_heads_encoding)`. Exact head records and writer commitments follow the cold-boundary schema (`R0HeadRecordV2`, `WriterCommitmentV2`). Snapshot fields use the same domain-separated, length-prefixed/uvarint test codec rather than JSON object order.
 
-The content commit contains no store epoch, mutable generation counter, active marker, writer identity, or destination-local LV. Equivalent graph/text captures produce the same commit ID across runs.
+The `loomark-r0-snapshot:v2` domain prevents the V2 canonical field set from being interpreted as another receipt generation. The content commit contains no store epoch, mutable generation counter, active marker, capturing-producer identity, or destination-local LV; writer agent identities remain present inside head records and `WriterCommitmentV2` because they are graph content. Equivalent graph/text captures produce the same commit ID across runs.
 
 ### Separate publication ref
 
@@ -198,7 +203,7 @@ These are test-fixture provenance fields, not a production storage schema. Nushe
 1. The producer builds the event-digest overlay from canonical history once, or maintains it from authority-owned committed-event evidence. The EGW-local test producer reuses `internal/oplog`'s typed `AdmissionReceipt::committed()`, `AdmissionOutcome::Partial`, pending counts, frontier evidence, and `OpLog::get_frontier_raw()`. The public Text façade still exposes counts rather than committed identities and exposes exact raw heads only through full `export_all()`; R0 records that public capability gap and does not duplicate admission logic.
 2. At capture, pending must be zero; exact raw heads, overlay root, and plain document text must describe one settled authority state. Text byte length, scalar length, and hash are derived during the same capture and bound by the immutable commit.
 3. The EGW producer emits owned canonical event/head/text records and exits. Before any publication-ref fields exist, Nushell independently derives event digests, graph root, component hashes, and `snapshot_commit_id`, writes immutable commit/sidecar fixtures, reads them back, then advances the test publication ref last.
-4. A separate Markdown/JS harness consumer re-hashes the immutable snapshot framing, document text byte/scalar lengths, and sorted heads through existing test/black-box surfaces. It does not independently recompute `graph_root` from cold event payloads on the fast path.
+4. A separate Markdown/JS harness consumer re-hashes the immutable snapshot framing, document text byte/scalar lengths, and sorted heads through existing test/black-box surfaces. It does not independently recompute `graph_root_v2` from cold event payloads on the fast path.
 5. The candidate fast path may report receipt validation and read-only hash-valid text. Gate-level `editable_ready` acceptance is granted only after the independent oracle case for the same `run_id`/`case_id` has succeeded; this ordering is test evidence and does not introduce a public read-only Markdown API.
 6. The full-history oracle independently rebuilds the event-digest overlay, replays canonical history, and compares graph root, text, raw heads, normalized first local event, and later trace behavior. Mismatch invalidates the candidate even when all fast-path hashes are internally consistent.
 7. Non-head event payload/parent corruption is detected by oracle rebuild or later authenticated cold reads, not by the O(F + T) fast-path check. The fast path detects altered text, sorted heads, snapshot framing, commit ID, and publication-ref mismatch.

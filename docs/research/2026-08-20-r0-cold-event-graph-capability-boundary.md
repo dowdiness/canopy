@@ -17,6 +17,8 @@ The structural reason for this scheme is canonical per-writer sequence order; it
 
 The provider exposes primitive bytes and proofs only. It does not answer `is_ancestor`, strict-forward, critical-version, conflict-region, or semantic-equivalence questions. Those belong to EGW's deterministic planner so storage cannot duplicate or hide authority semantics.
 
+**Historical note on versioning:** The initial draft of this decision used V1 type names and domain tags (`R0SnapshotCommitV1`, `EventMetaV1`, `:v1` domains). V1 is unimplemented and uninterpreted; it is superseded in every active schema, code block, and prose reference below before Gate R0 implementation. All new R0 sidecar and snapshot-commit artifacts use V2. Body/algebra bytes are unchanged, so `EventPayloadV1` and `body_digest` (domain `loomark-r0-event-body:v1`) remain the active names for the payload tier. The exact-head identity hash (`loomark-r0-heads:v1`) also remains `:v1` because head identity bytes are unchanged; the separate `R0PublicationRefV1` provenance pointer is unchanged.
+
 ## State tiers
 
 ### Tier 0 — resident paper branch and snapshot commit
@@ -24,24 +26,26 @@ The provider exposes primitive bytes and proofs only. It does not answer `is_anc
 Loaded with the candidate, independent of history size:
 
 ```text
-R0SnapshotCommitV1 {
+R0SnapshotCommitV2 {
   document_id_sha256
-  graph_root
+  graph_root_v2
   exact_raw_heads_sorted
   exact_raw_heads_sha256
-  exact_head_records_sorted : Array[(RawVersion, EventDigest)]
-  writer_commitments_sorted : Array[WriterCommitment]
+  exact_head_records_sorted : Array[R0HeadRecordV2]
+  writer_commitments_sorted : Array[WriterCommitmentV2]
   document_text_byte_length
   document_text_scalar_length
   document_text_sha256
   snapshot_commit_id
 }
 
-WriterCommitment {
+R0HeadRecordV2 = (RawVersion, EventDigestV2, causal_rank_timestamp : Int)
+
+WriterCommitmentV2 {
   agent
   leaf_count             // max admitted sequence + 1; empty writers omitted
-  tip_event_digest       // digest at sequence leaf_count - 1
-  event_meta_mmr_root
+  tip_event_digest_v2    // digest at sequence leaf_count - 1
+  event_meta_mmr_root_v2
 }
 ```
 
@@ -51,39 +55,42 @@ Rules:
 - Test-only canonical preflight rejects malformed UTF-16 in every string field, including document/agent IDs, before UTF-8 encoding or hashing; this prevents JS replacement behavior from diverging from native failure.
 - Writer records are unique by agent and empty writer commitments are never emitted. R0 preflight rejects a sequence above `0x7fff_fffe`, because `leaf_count = max_sequence + 1` must remain a positive signed 32-bit `Int`. Admitted sequences must be exactly `0..<leaf_count`; any negative sequence, duplicate sequence, gap, or count overflow refuses capture.
 - `exact_raw_heads_sorted` is the identity projection of `exact_head_records_sorted`; length, order, and identities must match exactly. `exact_raw_heads_sha256 = SHA-256(domain("loomark-r0-heads:v1") || canonical_exact_raw_heads_encoding)`, where the canonical encoding is head count followed by canonical raw identities in stored order.
-- Every exact head must equal that writer commitment's tip identity `(agent, leaf_count - 1)` and `tip_event_digest`. Writers whose tips are causally dominated need not appear in the exact head set. Capture/oracle validation proves each omitted writer tip is in the ancestry of an exact head.
-- `graph_root` is verified directly against the resident exact `(RawVersion, EventDigest)` head records; the fast path never rebuilds it from cold payloads.
-- `snapshot_commit_id` is SHA-256 over the frozen canonical encoding of every preceding `R0SnapshotCommitV1` field except itself: document ID, graph root, exact raw heads, exact-head hash, exact head records, writer commitments, text byte length, text scalar length, and text hash. The resident text bytes are transitively bound by recomputing their byte length/hash before accepting the commit. No field may be loaded or substituted independently from another snapshot; a publication ref selects one immutable commit ID and advances only after the complete candidate object is durable.
+- Every exact head must equal that writer commitment's tip identity `(agent, leaf_count - 1)` and `tip_event_digest_v2`. Writers whose tips are causally dominated need not appear in the exact head set. Their tip digest is integrity-bound by `snapshot_commit_id`; the O(heads + writers) fast path does not fetch the MMR tip leaf merely to cross-check it. Full-history capture/oracle validation proves each omitted writer tip and digest belong to the graph and that the tip is in the ancestry of an exact head.
+- `graph_root_v2` is verified directly against the resident exact `R0HeadRecordV2` head records; the fast path never rebuilds it from cold payloads.
+- `snapshot_commit_id` is `SHA-256(domain("loomark-r0-snapshot:v2") || canonical preceding fields)` over every preceding `R0SnapshotCommitV2` field except itself: document ID, graph root, exact raw heads, exact-head hash, exact head records, writer commitments, text byte length, text scalar length, and text hash. The resident text bytes are transitively bound by recomputing their byte length/hash before accepting the commit. No field may be loaded or substituted independently from another snapshot; a publication ref selects one immutable commit ID and advances only after the complete candidate object is durable.
 - The exact head digests, not only head identities, are resident. They allow the first local event and a closed strict-forward region to extend the Merkle-DAG without a provider read.
 - Resident size is O(text bytes + exact heads + writers), never O(history).
 
 This explicitly refines the closed capture-receipt decision: it preserves `exact_raw_heads_sorted`/`exact_raw_heads_sha256`, adds authenticated exact head records, and adds writer commitments required by cold lookup. The capture-receipt ticket receives a linked correction comment when this decision closes. No per-event metadata becomes resident.
+
+Tier-0 head ranks preserve first-local zero-read: root rank 0, otherwise max head rank + 1, max `Int` → `rank_exhausted` fallback.
 
 ### Tier 1 — authenticated event metadata, indexed but not resident
 
 One logical metadata leaf is:
 
 ```text
-EventMetaV1 {
+EventMetaV2 {
   identity
   kind
-  event_digest
+  event_digest_v2
   body_digest
-  declared_parents : Array[(RawVersion, EventDigest)]
-  implicit_predecessor : (RawVersion, EventDigest)?
-  semantic_references : Array[(ReferenceKind, RawVersion, EventDigest, RequiredReferencedKind)]
+  causal_rank_timestamp          // GraphEntry.timestamp (non-negative Int)
+  declared_parents : Array[(RawVersion, EventDigestV2)]
+  implicit_predecessor : (RawVersion, EventDigestV2)?
+  semantic_references : Array[(ReferenceKind, RawVersion, EventDigestV2, RequiredReferencedKind)]
   payload_byte_length
 }
 ```
 
-- `declared_parents` contains only the operation's declared causal parents. These are the only edges replayed into `CausalGraph`.
+- `declared_parents` contains only the operation's declared causal parents. These are the only edges replayed into `CausalGraph`. Canonical R0 preflight rejects duplicate declared-parent identities rather than deduplicating them, because EGW preserves duplicate-parent multiplicity in operation identity.
 - `implicit_predecessor` is present exactly when sequence is greater than zero. It is a readiness/sequence proof, not silently converted into a declared graph edge. Admission additionally proves that predecessor is reachable through the declared-parent closure; mere predecessor presence is insufficient.
 - For canonical positional events, `semantic_references` contains only operation-model roles needed for validation but not declared causal traversal: currently the dedicated undelete target. A reference is retained with its role and required kind even when the same identity also appears as a declared parent or predecessor; identity deduplication must never erase semantic role evidence. Legacy left/right Fugue origins belong to a separately tagged compatibility/oracle metadata profile and never enter canonical event identity.
-- `kind` and `RequiredReferencedKind` are authenticated metadata because current admission must reject references whose target is not an insert. The planner fetches the referenced `EventMetaV1` and verifies its authenticated `kind` satisfies the required kind; the referring record cannot assert the target's actual kind by itself. Inserted text, scalar position, and other operation body fields stay cold.
+- `kind` and `RequiredReferencedKind` are authenticated metadata because current admission must reject references whose target is not an insert. The planner fetches the referenced `EventMetaV2` and verifies its authenticated `kind` satisfies the required kind; the referring record cannot assert the target's actual kind by itself. Inserted text, scalar position, and other operation body fields stay cold.
 - All arrays use stable identity ordering.
-- `body_digest` is SHA-256 of the positional decision's domain-separated exact canonical body bytes. `event_digest` is SHA-256 of the event domain, canonical raw identity, `body_digest`, sorted declared-parent identity/digest records, optional implicit-predecessor record, and sorted role-tagged semantic-reference records. This is the single authoritative composition shared with the capture-receipt and positional-event decisions.
-- The metadata leaf hash binds the complete `EventMetaV1` value at leaf position `sequence` in that writer's accumulator.
-- A provider may retain derived Lamport/outdegree hints, but they are optional acceleration. The gate cannot require or trust them without recomputation from authenticated metadata.
+- `body_digest` is SHA-256 of the positional decision's domain-separated exact canonical body bytes. The [capture receipt](2026-08-20-r0-capture-receipt-reassessment.md#event-digest-overlay) owns the exact `event_digest_v2` composition over the `:v2` event domain, canonical raw identity, `body_digest`, `causal_rank_timestamp`, parents, predecessor, and semantic references; this boundary consumes that digest and does not redefine its framing.
+- The metadata leaf hash binds the complete `EventMetaV2` value at leaf position `sequence` in that writer's accumulator.
+- The verifier checks Int bounds (non-negative MoonBit `Int`) and strict parent-rank monotonicity on every traversed declared edge; the independent full-history oracle rebuilds ranks and rejects any V2 sidecar mismatch. A provider may retain additional derived hints (outdegree, etc.), but they remain optional acceleration beyond the required V2 rank.
 
 Why per-writer accumulators work:
 
@@ -98,10 +105,10 @@ The reference accumulator is an append-only MMR per writer, not an MMR over glob
 R0 freezes this MMR framing:
 
 ```text
-leaf_hash = SHA-256(domain("loomark-r0-meta-leaf:v1") || canonical EventMetaV1)
-node_hash = SHA-256(domain("loomark-r0-meta-node:v1") || uvarint(height) || left || right)
-writer_root = SHA-256(
-  domain("loomark-r0-writer-root:v1")
+meta_leaf_hash_v2 = SHA-256(domain("loomark-r0-meta-leaf:v2") || canonical EventMetaV2)
+meta_node_hash_v2 = SHA-256(domain("loomark-r0-meta-node:v2") || uvarint(height) || left || right)
+writer_root_v2    = SHA-256(
+  domain("loomark-r0-writer-root:v2")
   || length_prefixed_utf8(agent)
   || uvarint(leaf_count)
   || uvarint(peak_count)
@@ -109,7 +116,7 @@ writer_root = SHA-256(
 )
 ```
 
-Leaves are height 0 via `leaf_hash`. Append uses binary carry over equal-height peaks; when two child peaks of height `h` merge, the `node_hash` height field is the new internal node's own height `h + 1`. An inclusion proof contains sequence/leaf position, containing peak height, bottom-up sibling digests with left/right direction, and every other peak needed to reconstruct `writer_root`. The verifier rejects wrong leaf position, height, peak order/count, extra bytes, or a root mismatch. Proofs and roots from an unregistered scheme are unsupported rather than heuristically accepted.
+`WriterCommitmentV2.event_meta_mmr_root_v2` stores exactly the `writer_root_v2` value below. Leaves are height 0 via `meta_leaf_hash_v2`. Append uses binary carry over equal-height peaks; when two child peaks of height `h` merge, the `meta_node_hash_v2` height field is the new internal node's own height `h + 1`. An inclusion proof contains sequence/leaf position, containing peak height, bottom-up sibling digests with left/right direction, and every other peak needed to reconstruct `writer_root_v2`. The verifier rejects wrong leaf position, height, peak order/count, extra bytes, or a root mismatch. Proofs and roots from an unregistered scheme are unsupported rather than heuristically accepted.
 
 ### Tier 2 — cold event payload
 
@@ -119,7 +126,7 @@ EventPayloadV1 {
 }
 ```
 
-The exact test-only operation-model fixture codec is frozen by the positional-event/Unicode decision. Canonical positional bytes include kind, scalar position/text, or dedicated undelete target; they contain no Fugue origins. A separately tagged legacy compatibility/oracle profile includes origin fields that change legacy semantics. On read, the consumer verifies byte length and `body_digest` from authenticated `EventMetaV1` before using the payload.
+`EventPayloadV1.canonical_event_body_bytes` is the encoded form of the positional decision's `CanonicalTextEventBodyV1`; there is one body codec, not a second payload representation. Canonical positional bytes include kind, scalar position/text, or dedicated undelete target; they contain no Fugue origins. A separately tagged legacy compatibility/oracle profile includes origin fields that change legacy semantics. On read, the consumer verifies byte length and `body_digest` from authenticated `EventMetaV2` before using the payload.
 
 Incoming network/test-region payload is counted separately and is not a cold-provider payload read.
 
@@ -190,7 +197,7 @@ Legacy origin/target-based operations may fail this contract and remain a Candid
 
 ### Closed strict-forward region
 
-A region is `closed_strict_forward` only when every incoming declared parent and semantic reference needed by the region resolves from another incoming event or the resident exact head records, every nonzero implicit predecessor resolves **and is proven reachable through the declared-parent closure**, and every incoming entry point proves coverage of every prior exact head.
+A region is `closed_strict_forward` only when every incoming declared parent and semantic reference needed by the region resolves from another incoming event or the resident exact head records, every nonzero implicit predecessor resolves **and is proven reachable through the declared-parent closure**, every incoming entry point proves coverage of every prior exact head, and every semantic-reference fact needed to determine the visible effect is supplied in the incoming/hot region. A semantic reference whose target kind, identity-to-text mapping, or effect requires cold evidence is not closed strict-forward even when its causal parents cover the heads; #1316 classifies cold undelete as indexed semantic-reference replay.
 
 - Existing-provider metadata queries: zero.
 - Existing-provider payload reads: zero.
@@ -216,7 +223,7 @@ If the proof needs an older event, classify `indexed_forward`, not closed strict
 - Metadata and payload reads are expected and bounded by the selected region, not required to be zero.
 - An unavailable proof, missing payload, exceeded resource policy, or unprovable replay base causes explicit full-history fallback.
 
-The next replay-base ticket fixes the exact planner algorithm and bound. The provider never selects the critical version itself.
+The [#1315 replay-base decision](2026-08-21-r0-concurrency-replay-base-proof.md) fixes the exact planner algorithm. #1317 still owns numeric metadata/proof/payload/time budgets. The provider never selects the critical version itself.
 
 ### Full fallback and oracle
 
@@ -234,7 +241,7 @@ The runner invokes the provider's distinct `read_full_history` operation. It can
 - `OpLog::{get_op,get_ops,get_ops_rle}` back test payload reads without expanding the complete log. For arbitrary raw IDs, the provider resolves every ID with `CausalGraph::raw_to_lv()`, rejects any missing mapping, calls `get_ops` with the aligned LV array, and verifies result count/identity alignment. `get_ops_rle` is reserved for an already range-shaped replay set.
 - `CausalGraph::{raw_to_lv,lv_to_raw,get_entry,graph_diff,diff_frontiers_lvs,is_ancestor}` remain white-box oracle/reference APIs.
 - `Op::parents_iter()`, identity/content accessors, `Map`, `Bytes`, and `Buffer` support canonical sidecar construction. `origin_left()`/`origin_right()` are used only by the separately tagged legacy compatibility/oracle profile.
-- No public helper exposes the required declared-parent/predecessor/semantic-reference split. A new executable-local canonicalization helper is unavoidable; its sole responsibility is constructing `EventMetaV1`, and property tests compare it with existing admission readiness/target validation.
+- No public helper exposes the required declared-parent/predecessor/semantic-reference split. `EventMetaV2`, `R0HeadRecordV2`, and their named constructors live in the executable-local test package so no cross-package writable fields or `.mbti` surface are needed. A new package-local canonicalization helper is unavoidable; its sole responsibility is constructing those values, and property tests compare it with existing admission readiness/target validation.
 - `moonbitlang/x/crypto` is not currently an EGW dependency. Using it requires an explicit executable-only `moon.pkg`/module dependency change reviewed in the EGW submodule; otherwise Nushell performs SHA-256 over emitted canonical records.
 
 ### Checked but not used as the provider boundary
@@ -294,7 +301,7 @@ elapsed_us
 - `planner_metadata_nodes_visited` counts verified event records inspected by the deterministic planner, including cache hits.
 - `resident_records_visited` counts O(heads/writers) candidate-header records inspected. Scanning all prior exact heads for strict-forward coverage is allowed and visible here; it is not a provider scan.
 - `resident_text_code_units_visited` and `resident_text_scalars_visited` count verified resident/temporary plain-text traversal for UTF-16↔scalar conversion. They are independent of provider scans and remain visible on a zero-provider-read path.
-- `scan_records_visited` is nonzero whenever the provider sequentially examines cold records not named in the request. A batch of named point lookups is not a scan.
+- `scan_records_visited` is nonzero whenever the provider sequentially examines cold records not named in the request. A batch of named point lookups is not a scan. This provider-scan counter is distinct from #1315's `scan_events_visited`, which counts identities deliberately popped by the pure replay-base planner.
 - `full_history_events/bytes` are nonzero only for the explicit fallback/oracle operation.
 - Incoming-region bytes, candidate bytes, capture/rebuild bytes, and oracle bytes are separate artifact fields.
 - Cache hits retain the logical query and planner-visit counts while physical calls/bytes may be zero. They never make a metadata-dependent algorithm qualify as zero-query.
@@ -341,7 +348,7 @@ Each control verifies logical calls, physical calls, records/events, and byte co
 
 ## Consequences
 
-- The snapshot receipt preserves its raw-head identity/hash fields and additionally retains exact head event digests, writer commitments, and the derived document scalar length. `snapshot_commit_id` directly commits the full canonical resident field set and transitively commits resident text through its verified byte length/scalar length/hash, preventing valid pieces from different snapshots from being mixed. This linked decision explicitly refines the capture-receipt field set.
+- The snapshot receipt owns and preserves its raw-head identity/hash, exact head event digests, writer commitments, and derived document scalar length; this boundary consumes that field set rather than independently adding the scalar length. `snapshot_commit_id` directly commits the full canonical resident field set and transitively commits resident text through its verified byte length/scalar length/hash, preventing valid pieces from different snapshots from being mixed. This linked decision explicitly refines the capture-receipt field set.
 - The cold provider capability is storage-neutral but not integrity-neutral: positive results require proof verification against the snapshot commit.
 - Current typed internal admission receipts are sufficient to evaluate incremental sidecar maintenance in the test-only EGW producer; the public Text façade still does not expose this capability, which R0 records rather than widening.
-- The provider contract establishes data access and accounting only. Unicode positional event fields, critical replay-base selection, undelete semantics, and production storage remain separate decisions.
+- The provider contract establishes data access and accounting only. Unicode positional event fields remain a separate decision. Critical replay-base selection is resolved by the [concurrency replay-base proof](2026-08-21-r0-concurrency-replay-base-proof.md) (#1315) with V2 sidecar `causal_rank_timestamp`. Undelete semantics are resolved by the [undelete after paper-branch restore](2026-08-21-r0-undelete-after-paper-branch-restore.md) (#1316). Production storage is unchanged; V2 is test-only sidecar/storage/receipt.

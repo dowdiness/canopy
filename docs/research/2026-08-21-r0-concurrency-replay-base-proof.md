@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-21
 
-**Status:** pending morning acceptance. Issue [#1315](https://github.com/dowdiness/canopy/issues/1315) remains open until acceptance.
+**Status:** accepted. Integrated into the canonical R0 research set.
 
 **Wayfinder:** [#1315](https://github.com/dowdiness/canopy/issues/1315)
 
@@ -18,13 +18,13 @@ Freeze the corrected concurrency decision. The genuine-concurrency path uses a *
 
 1. **Strict-forward entry-point coverage stays zero-read for fully hot-resolved effects.** Every declared parent and nonzero implicit predecessor resolves inside incoming events or resident exact head records; each predecessor is proven reachable through declared-parent closure; coverage reaches every resident head. A semantic reference whose target kind, identity-to-text mapping, or effect requires cold evidence is not called closed strict-forward even when its causal parents cover the heads; #1316 classifies cold undelete as indexed semantic-reference replay. The zero-read label applies only when all semantic-reference evidence needed for the effect is supplied in the incoming/hot region.
 
-2. **Genuine concurrency uses a one-colour waterline scan.** The planner descends from the union of current exact heads and incoming heads over individual raw events, using the Loro `latest_single_head_critical_version` pattern (Loro `dag.rs` L11 scan; `/tmp/loro/crates/loro-internal/docs/critical-version-spec.md` L11). The scan is single-colour — there is no red/blue distinction; all entries descend from the same union frontier. The scan operates strictly per-event: each heap entry is one raw identity; duplicates (same agent and sequence) are deduped by identity, not by span/alignment vocabulary.
+2. **Genuine concurrency uses a one-colour waterline scan.** The planner descends from the union of current exact heads and incoming heads over individual raw events, using the Loro `latest_single_head_critical_version` pattern (Loro `dag.rs` L11 scan; `/tmp/loro/crates/loro-internal/docs/critical-version-spec.md` L11). The scan is single-colour — there is no red/blue distinction; all entries descend from the same union frontier. The scan operates strictly per-event: each heap entry is one raw identity; repeated heap paths to the same identity are deduped, while duplicate identities inside one declared-parent vector are invalid canonical input and rejected before the scan. #1316 uses the same reducer with a third semantic target seed; it refuses to accept the target itself as the base, expands it, and requires a union-critical base strictly before the target (empty base for a root target).
 
 3. **Priority is by a V2 sidecar `causal_rank_timestamp` with identity secondary.** The heap orders entries by:
    - Primary: `causal_rank_timestamp = GraphEntry.timestamp` (Lamport timestamp, extracted exactly from the graph entry by the producer).
    - Secondary: canonical UTF-8 raw identity (unsigned bytewise lexical order of validated UTF-8 agent bytes, then numeric sequence) — the existing bound identity, not a second field.
 
-   `causal_rank_timestamp` is not a Lamport timestamp alias. It is a substantive linked refinement to #1312/#1313/#1314: it is included in the V2 sidecar types (`EventMetaV2`, `R0HeadRecordV2`) and bound through V2 domain-separated leaf/head/graph/snapshot digests. The V1 event digest and `EventMetaV1` are unchanged. The verifier checks `Int` bounds (MoonBit signed 32-bit, `0..0x7fff_ffff` for canonical positions; Lamport timestamp is a non-negative `Int`) and strict parent-rank monotonicity for every fetched declared edge: every declared parent's `causal_rank_timestamp` is strictly less than the child's `causal_rank_timestamp`. The producer extracts the exact `GraphEntry.timestamp` value. The pure verifier checks strict rank decrease on every declared edge it actually traverses; this local topological-rank property is sufficient for the waterline ordering and does not require walking below the selected base. At the selected base, the committed rank is accepted as a boundary certificate. The independent full-history oracle rebuilds `GraphEntry.timestamp` values from the complete operation graph and rejects any V2 sidecar rank mismatch. No production schema, API, or wire format changes; the V2 refinement is test-only sidecar/storage/receipt, and V1 is superseded before implementation.
+   `causal_rank_timestamp` is the exact hash-bound Lamport rank extracted from `GraphEntry.timestamp`. It is a substantive linked refinement to #1312/#1313/#1314: it is included in the V2 sidecar types (`EventMetaV2`, `R0HeadRecordV2`) and bound through V2 domain-separated meta-leaf, writer-root, graph-root, and snapshot-commit digests. The verifier checks that the Lamport rank is a non-negative MoonBit signed 32-bit `Int` and strict parent-rank monotonicity for every fetched declared edge: every declared parent's `causal_rank_timestamp` is strictly less than the child's `causal_rank_timestamp`. The producer extracts the exact `GraphEntry.timestamp` value. The pure verifier checks strict rank decrease on every declared edge it actually traverses; this local topological-rank property is sufficient for the waterline ordering and does not require walking below the selected base. At the selected base, the committed rank is accepted as a boundary certificate. The independent full-history oracle rebuilds `GraphEntry.timestamp` values from the complete operation graph and rejects any V2 sidecar rank mismatch. No production schema, API, or wire format changes; the V2 sidecar is test-only.
 
 4. **Dedup identical events.** When the heap top entries share the same raw identity (same agent and sequence), pop all of them and merge. This is the Loro aggregation step: identical positions in the descent coalesce into one entry.
 
@@ -34,59 +34,16 @@ Freeze the corrected concurrency decision. The genuine-concurrency path uses a *
 
 7. **Do not accept a meet or any non-critical base.** The candidate replay base must be critical in the union graph. The meet of current and incoming versions is only a candidate; if it is not critical, the algorithm must retreat to the latest single-head critical version or fall back to full history. This follows Eg-walker §3.5's critical version definition and Loro's strengthened entry-point coverage. Separately, Loro PR #1058 fixed a redundant-path classification bug that retreated the replay base to the beginning of history, causing a 124-byte update to replay all history at hundreds of times normal cost (`/tmp/loro/crates/loro-internal/docs/critical-version-spec.md` §1.3); it is performance evidence for preserving the tips/dedup discipline, not the proof that a non-critical meet is unsafe.
 
-### V2 sidecar refinement
+### V2 sidecar and rank semantics
 
-The V2 refinement is a test-only sidecar over the existing V1 types. V1 canonical event body, `event_digest`, `EventMetaV1`, and the V1 domain-separated leaf/head/graph/snapshot digests are unchanged. The V2 types add `causal_rank_timestamp` without altering any production schema, API, or wire format. V1 is superseded before implementation; all new R0 test sidecar, storage, and receipt artifacts use V2.
-
-```text
-EventMetaV2 {
-  identity
-  kind
-  event_digest_v2                // V2 digest, see below
-  body_digest                    // unchanged from V1
-  causal_rank_timestamp          // NEW: GraphEntry.timestamp (non-negative Int)
-  declared_parents : Array[(RawVersion, EventDigestV2)]
-  implicit_predecessor : (RawVersion, EventDigestV2)?
-  semantic_references : Array[(ReferenceKind, RawVersion, EventDigestV2, RequiredReferencedKind)]
-  payload_byte_length
-}
-```
-
-```text
-R0HeadRecordV2 = (RawVersion, EventDigestV2, causal_rank_timestamp : Int)
-```
-
-V2 digest composition:
-
-```text
-event_digest_v2 = SHA-256(
-  domain("loomark-r0-event:v2")
-  || canonical raw identity
-  || body_digest
-  || causal_rank_timestamp        // uvarint
-  || sorted declared-parent identity/digest records
-  || optional implicit-predecessor identity/digest record
-  || sorted role-tagged semantic-reference records
-)
-```
-
-V2 domain-separated types:
-
-```text
-meta_leaf_hash_v2    = SHA-256(domain("loomark-r0-meta-leaf:v2") || canonical EventMetaV2)
-writer_root_v2       = SHA-256(domain("loomark-r0-writer-root:v2") || ...)
-graph_root_v2        = SHA-256(domain("loomark-r0-graph:v2") || ...)
-snapshot_commit_v2   = R0SnapshotCommitV2 { ... }   // includes R0HeadRecordV2 array
-```
-
-The V2 snapshot commit retains every V1 field and additionally binds `causal_rank_timestamp` in each head record. The V2 `snapshot_commit_id` is SHA-256 over the complete canonical V2 field set.
+The [capture receipt](2026-08-20-r0-capture-receipt-reassessment.md) authoritatively defines `event_digest_v2`, `graph_root_v2`, and `R0SnapshotCommitV2`; the [cold capability boundary](2026-08-20-r0-cold-event-graph-capability-boundary.md) authoritatively defines `EventMetaV2`, `R0HeadRecordV2`, `WriterCommitmentV2`, and the MMR framing. This section retains only the rank-specific semantics that #1315 owns: `causal_rank_timestamp` extraction, binding obligations, first-local rank allocation, and verifier obligations. No production schema, API, or wire format is altered; the V2 sidecar is test-only.
 
 V2 binding obligations:
 
 - **Meta-leaf:** `meta_leaf_hash_v2` commits the complete `EventMetaV2` including `causal_rank_timestamp`.
 - **Writer root:** `writer_root_v2` transitively commits every leaf's `causal_rank_timestamp` through the Merkle accumulator.
 - **Graph root:** `graph_root_v2` commits sorted `(RawVersion, EventDigestV2, causal_rank_timestamp)` head records.
-- **Snapshot commit:** `snapshot_commit_v2` commits the V2 graph root and V2 head records, transitively binding every head's `causal_rank_timestamp`.
+- **Snapshot commit:** `snapshot_commit_id` commits the V2 graph root, ranked head records, and `WriterCommitmentV2` values, transitively binding every head rank and every metadata-leaf rank.
 
 Tier-0 head ranks preserve zero-read first local event. With no resident heads, a new root receives rank `0`. Otherwise `new_rank = max(resident head causal_rank_timestamps) + 1`. If the maximum head rank is already `0x7fff_ffff`, rank allocation returns an explicit pure `rank_exhausted` rejection/fallback before event emission; arithmetic never wraps. No provider read is required.
 
@@ -137,7 +94,7 @@ After the waterline scan selects the critical base:
 - **No non-critical base.** If the scan cannot produce a critical base, the result is explicit full-history fallback, not a degraded acceptance.
 - **No simplified planner.** The earlier simplified planner that skipped entry-point coverage is explicitly rejected. The scan operates over individual raw events from the union frontier with full dedup.
 - **No span/alignment/id_last vocabulary in the EGW scan.** The EGW scan operates strictly per-event with raw-identity dedup. Loro's span/alignment machinery is an implementation optimization for change-granular storage; the EGW scan's correctness argument does not depend on it.
-- **No production schema/API/wire change.** The V2 refinement is test-only sidecar/storage/receipt. V1 types and digests are unchanged; V1 is superseded before implementation.
+- **No production schema/API/wire change.** The V2 sidecar is test-only sidecar/storage/receipt.
 
 ### Budget dimensions
 
@@ -188,7 +145,7 @@ The core performs no provider I/O, no text mutation, no tracker allocation, and 
 | P6 | The replay identity set equals exactly the events above the critical base in the union graph | Compare scan output with oracle-computed conflict region |
 | P7 | The disposable tracker produces the same text effects as full-history replay for the same input | Differential test: tracker effects vs. oracle effects |
 | P8 | No Fugue/OpLog/live LV alias escapes the tracker lifecycle | Code review; no public API returns tracker internals |
-| P9 | V2 leaf/head/snapshot binding: `causal_rank_timestamp` is bound through `meta_leaf_hash_v2`, `writer_root_v2`, `graph_root_v2`, and `snapshot_commit_v2` | Digest comparison: different timestamps → different V2 digests at each layer |
+| P9 | V2 rank binding: `causal_rank_timestamp` is bound through `meta_leaf_hash_v2`, `writer_root_v2`, `graph_root_v2`, and `snapshot_commit_id` | Digest comparison: different timestamps → different V2 digests at each layer |
 | P10 | Implicit predecessor is verified reachable via declared-parent closure, not inserted as a graph edge | Unit test: predecessor presence ≠ graph edge; reachability proven separately |
 | P11 | Declared-edge scan is permitted only after predecessor-via-declared-closure proof | Regression test: removing the closure proof causes incorrect replay set on implicit-predecessor redundancy graph |
 
@@ -199,7 +156,7 @@ The existing accounting contract from the cold capability boundary decision appl
 - `scan_events_visited`: number of individual raw events the waterline scan pops from the heap (including deduped duplicates).
 - `scan_dedups`: number of times multiple heap entries with the same raw identity are coalesced.
 - `scan_critical_base_found`: boolean; true when the heap empties with a single event, false when fallback is triggered.
-- `scan_fallback_reason`: one of `root_death`, `trim_death`, `missing_dependency`, `corrupt_proof`, `resource_bound`, `rank_exhausted`, `no_critical_base`.
+- `scan_fallback_reason`: one of `root_death`, `trim_death`, `missing_dependency`, `corrupt_proof`, `resource_bound`, `no_critical_base`. `rank_exhausted` is reported by the separate first-local allocation phase, not this scan counter.
 - `replay_set_current_count`, `replay_set_shared_count`, `replay_set_incoming_count`: classification counts after colour derivation (above-base only).
 - `tracker_events_replayed`: total events fed to the disposable tracker (current + shared-above-base + incoming-only).
 - `tracker_events_output`: events whose transformed effects are applied to resident text (incoming-only only).
@@ -244,8 +201,8 @@ No existing public helper implements the one-colour waterline scan over individu
 
 This decision requires linked changes in the following areas when implemented:
 
-1. **`EventMetaV2`**: new test-only type adding `causal_rank_timestamp` field. V1 `EventMetaV1` and V1 event digest are unchanged and superseded before implementation.
-2. **V2 domain-separated types**: `meta_leaf_hash_v2`, `writer_root_v2`, `graph_root_v2`, `R0SnapshotCommitV2` with V2 domains. V1 domains are unchanged.
+1. **`EventMetaV2`**: test-only type with `causal_rank_timestamp` field. Exact bytes and types are defined in the [capture receipt](2026-08-20-r0-capture-receipt-reassessment.md) and [cold capability boundary](2026-08-20-r0-cold-event-graph-capability-boundary.md).
+2. **V2 domain-separated types**: `meta_leaf_hash_v2`, `writer_root_v2`, `graph_root_v2`, `R0SnapshotCommitV2` with `:v2` domains.
 3. **EGW producer/oracle**: extract `GraphEntry.timestamp` for `causal_rank_timestamp`; the candidate verifies Int bounds and strict traversed-edge monotonicity, while the full-history oracle independently rebuilds and compares complete graph ranks.
 4. **Waterline scan helper**: new executable-local package implementing the L11 one-colour descent with `causal_rank_timestamp` ordering and identity dedup. No span/alignment vocabulary.
 5. **Disposable tracker**: new executable-local unbounded-placeholder tracker for conflict-zone replay. No Fugue/OpLog/LV alias.
@@ -265,7 +222,7 @@ This decision requires linked changes in the following areas when implemented:
 | Fugue/OpLog as tracker | Reject | Persistent CRDT state; the paper explicitly discards internal state |
 | `causal_rank_timestamp` as Lamport timestamp only | Reject | Lamport timestamps alone do not provide a total order for concurrent events; the secondary raw-identity ordering (existing bound identity, not a second field) is needed for deterministic heap behavior |
 | `causal_rank_timestamp` as production wire field | Reject | Test-only V2 sidecar; production wire/storage is unchanged |
-| Modifying V1 `EventMetaV1` or V1 event digest | Reject | V1 stays unchanged; the V2 sidecar refinement supersedes V1 before implementation |
+| Using unversioned metadata types | Reject | All R0 artifacts use V2; unversioned types are superseded before implementation |
 | Provider-owned critical-version RPC | Reject | Duplicates EGW authority semantics; the provider performs I/O only |
 | Multi-head critical version scan | Defer | Loro's L11 finds single-head only; multi-head critical versions require a different criterion and are not yet needed |
 | Simplified planner skipping entry-point coverage | Reject | Proven incorrect; the cold capability boundary decision already requires full coverage proof |
@@ -281,12 +238,11 @@ This decision requires linked changes in the following areas when implemented:
 
 ## Consequences
 
-- Production APIs, wire formats, and storage schemas are unchanged. The V2 refinement is test-only sidecar/storage/receipt.
-- V1 `EventMetaV1` and V1 event digest are unchanged. V1 is superseded before implementation; all new R0 artifacts use V2.
-- The cold capability boundary's types are refined to V2 (`EventMetaV2`, `R0HeadRecordV2`, `WriterCommitmentV2`, V2 domain-separated leaf/head/graph/snapshot digests).
+- Production APIs, wire formats, and storage schemas are unchanged. The V2 sidecar is test-only sidecar/storage/receipt.
+- All R0 sidecar and snapshot-commit artifacts use V2 (`EventMetaV2`, `R0HeadRecordV2`, `WriterCommitmentV2`, `R0SnapshotCommitV2`, V2 domain-separated event/meta-leaf/writer-root/graph-root/snapshot-commit digests). Exact ownership is split between the capture receipt and cold capability boundary as stated above; the V1 body/algebra and publication-ref artifacts remain unchanged.
 - The strict-forward path remains zero-read; this decision only affects the genuine-concurrency path.
 - Issues #1312, #1313, #1314 may remain closed; the V2 sidecar refinement is a linked refinement.
-- Issue #1315 remains open pending morning acceptance.
+- Issue #1315 is resolved by this decision.
 - Issue #1317 owns budget dimension configuration.
 - No Fugue/OpLog/live LV alias is introduced.
 - The disposable tracker is executable-local and does not affect any public API.
@@ -300,7 +256,7 @@ This decision requires linked changes in the following areas when implemented:
 - EGW `CausalGraph::get_entry` (`deps/event-graph-walker/internal/causal_graph/graph.mbt` L99): entry access by LV.
 - EGW `pkg.generated.mbti` (`deps/event-graph-walker/internal/core/pkg.generated.mbti` L29–L33): public `GraphEntry` shape confirmation.
 - Four coordinated R0 docs:
-  - `docs/research/2026-08-19-egwalker-r0-restore-architecture-reassessment.md`: paper branch model, ordinary/concurrent path split, #1315 deferral.
-  - `docs/research/2026-08-20-r0-capture-receipt-reassessment.md`: content-addressed snapshot commit, event digest overlay, `EventMetaV1` shape.
-  - `docs/research/2026-08-20-r0-cold-event-graph-capability-boundary.md`: authenticated metadata provider, `EventMetaV1` fields, path contracts, accounting schema, strict-forward zero-read rule.
+  - `docs/research/2026-08-19-egwalker-r0-restore-architecture-reassessment.md`: paper branch model, ordinary/concurrent path split, and integrated #1315 resolution.
+  - `docs/research/2026-08-20-r0-capture-receipt-reassessment.md`: content-addressed snapshot commit, event digest overlay, `EventMetaV2` shape.
+  - `docs/research/2026-08-20-r0-cold-event-graph-capability-boundary.md`: authenticated metadata provider, `EventMetaV2` fields, path contracts, accounting schema, strict-forward zero-read rule.
   - `docs/research/2026-08-20-r0-canonical-positional-event-unicode-contract.md`: canonical event algebra, scalar positions, digest composition, #1315 dependency for replay-set proof.

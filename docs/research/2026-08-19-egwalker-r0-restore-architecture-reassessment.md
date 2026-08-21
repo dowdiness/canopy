@@ -18,6 +18,8 @@ PaperBranch {
 }
 ```
 
+`validated_capture_receipt` is the accepted test-only `R0SnapshotCommitV2`: exact ranked head records and writer commitments remain O(heads + writers) resident so the first local event can allocate its causal rank without a provider read. The capture-receipt and cold-boundary decisions own its exact encoding; it does not add per-character identity state.
+
 Canonical history remains an immutable event graph of original position-based operations. The normal branch contains no per-character causal IDs, tombstone table, Fugue tree, or IndexedState. Local edits append original index-based events whose parents are the branch frontier and update the text directly. A remote region may use the same direct path only when every new entry point is causally after every head of the current frontier. Genuine concurrency reads the required event-graph conflict region, builds a placeholder-backed temporary merge tracker, emits transformed index operations, and discards the tracker.
 
 This collapses the previous Candidate A and Candidate C into two runtime paths of one design:
@@ -148,12 +150,12 @@ The Candidate A/B/C and `ClosedTail` names below refer to the branch plan [`2026
 4. Candidate B remains a legacy migration control and should not block Candidate A or C.
 5. The final decision must compare a combined paper path (A ordinary + C concurrency) against the legacy control. A and C are complementary, not competing production architectures.
 6. The operation matrix must classify ordinary local and causally-after events as no-replay, and genuine concurrency as bounded cold conflict replay. `ClosedTail` terminology and zero-read closed-concurrent acceptance should be removed.
-7. Undelete is an explicit Canopy extension absent from the paper. Its canonical event must have a dedicated undelete-target field rather than overloading the legacy `origin_left` representation. Resolution should use indexed/cold authority lookup and must not force a resident tombstone map into the normal branch. Its fast-path eligibility must be reported separately.
+7. Undelete is an explicit Canopy extension absent from the paper. Its canonical event has a dedicated undelete-target field (the original Insert `RawVersion`) rather than overloading the legacy `origin_left` representation. Resolution uses indexed bounded replay with a disposable tracker and must not force a resident tombstone map into the normal branch. Resolved by [the undelete decision](2026-08-21-r0-undelete-after-paper-branch-restore.md) (#1316).
 
 ## Remaining decisions
 
 - Resolved by [the content-addressed capture receipt](2026-08-20-r0-capture-receipt-reassessment.md): an immutable snapshot commit binds text/frontier content, while fixture generation/sequence remains in a separate mutable publication ref.
 - Resolved by [the cold event-graph capability boundary](2026-08-20-r0-cold-event-graph-capability-boundary.md): resident exact-head/writer commitments authenticate batched metadata while operation bodies remain cold.
-- Deferred to Wayfinder #1315: prove the critical replay base/conflict region from authenticated causal metadata, with bounded fallback when unavailable.
+- Resolved by [the concurrency replay-base proof](2026-08-21-r0-concurrency-replay-base-proof.md) (Wayfinder #1315): critical replay base from authenticated causal metadata via one-colour waterline scan, with V2 sidecar `causal_rank_timestamp` and bounded fallback.
 - Resolved by [the canonical positional-event and Unicode contract](2026-08-20-r0-canonical-positional-event-unicode-contract.md): canonical events use parent-frontier-relative scalar positions and convert only at the UTF-16 adapter.
-- Partially resolved and deferred to Wayfinder #1316: undelete has a dedicated canonical target identity; its indexed/cold lookup and restored product behavior remain to be fixed.
+- Resolved by [the undelete after paper-branch restore](2026-08-21-r0-undelete-after-paper-branch-restore.md) (Wayfinder #1316): undelete target is the original Insert identity as an explicit planner seed; indexed bounded replay with a disposable tracker; no persistent tombstone map or reverse index.

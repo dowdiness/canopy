@@ -25,7 +25,7 @@ CanonicalTextEventBodyV1 =
   | Undelete(target_identity)  // Canopy extension, outside the paper
 ```
 
-One insert scalar and one delete effect own one `RawVersion`. Replace and multi-scalar input lower to a deterministic sequence of scalar events. UI intent and accepted UTF-16 transform batches may be retained in a separate capture/application wrapper, but do not enter event identity.
+These V1-suffixed names are the unchanged body/algebra layer, not the V2 authenticated sidecar generation. `CanonicalTextEventV1` is a conceptual algebra rather than one serialized envelope: its identity/parents are represented by `EventMetaV2`, while its encoded body is exactly `EventPayloadV1.canonical_event_body_bytes`. One insert scalar and one delete effect own one `RawVersion`. Replace and multi-scalar input lower to a deterministic sequence of scalar events. UI intent and accepted UTF-16 transform batches may be retained in a separate capture/application wrapper, but do not enter event identity.
 
 This selects the paper/Gate A scalar model rather than the initial UTF-16 event hypothesis. UTF-16 remains the correct editor boundary, but making it the event coordinate would leak one backend encoding into the event algebra and add a conversion on every EGW item-space operation.
 
@@ -81,7 +81,7 @@ This follows the paper's event storage statement that one insert event contains 
 
 ### Position domain
 
-`ParentRelativeScalarPositionV1` is a canonical nonnegative integer in `0..0x7fff_ffff`:
+`ParentRelativeScalarPositionV1` is a canonical nonnegative integer in `0..<0x7fff_ffff`:
 
 - insert is valid when `parent_scalar_length < 0x7fff_ffff` and `position <= parent_scalar_length`, so the resulting length remains representable;
 - delete is valid when `position < parent_scalar_length`;
@@ -97,7 +97,7 @@ MoonBit `Int` is signed 32-bit. JavaScript's larger safe-integer range is irrele
 
 A numeric event position is **explicitly defined** against the visible scalar sequence at the event's declared parent frontier. It is not an identity-relative anchor, destination-local LV, receiver-current position, or arbitrary snapshot position.
 
-For a first local event after R0 restore, the pure validator returns an in-memory verified capability over the existing `R0SnapshotCommitV1` and its text bytes. This is not a second serialized snapshot/base DTO. The owning snapshot schema is refined to include `document_text_scalar_length` alongside its text byte length/hash.
+For a first local event after R0 restore, the pure validator returns an in-memory verified capability over the `R0SnapshotCommitV2` and its text bytes. This is not a second serialized snapshot/base DTO. The capture receipt owns `document_text_scalar_length` alongside text byte length/hash; this positional validator consumes and recomputes that committed field.
 
 Validation proves:
 
@@ -106,7 +106,7 @@ Validation proves:
 3. the UTF-16 request is converted against those exact resident text bytes;
 4. the resulting scalar index is valid in that text.
 
-`document_text_scalar_length` is a newly explicit derived snapshot field, recomputed from verified text during receipt validation and included in `snapshot_commit_id`. It makes the branch's canonical item-space length explicit and supports O(1) append-at-end checks; arbitrary offset conversion may still scan resident text.
+`document_text_scalar_length` is the capture-receipt-owned derived snapshot field, recomputed from verified text during receipt validation and included in `snapshot_commit_id`. It makes the branch's canonical item-space length explicit and supports O(1) append-at-end checks; arbitrary offset conversion may still scan resident text.
 
 A production/canonical event does **not** carry `snapshot_commit_id`. Snapshot commits are R0 capture artifacts, are not guaranteed to exist at every peer, and cannot replace a causal frontier—especially when the frontier has multiple heads. The capture wrapper binds the first event to the selected snapshot; the event itself remains portable by using its declared parents. Each following local scalar event is relative to the frontier/text produced by its predecessor.
 
@@ -138,7 +138,7 @@ Undelete(target_identity)
 
 - is a Canopy extension rather than an Eg-walker operation;
 - uses a canonical causal target because deleted content has no visible position;
-- its exact lookup/replay behavior remains ticket #1316.
+- its exact lookup/replay behavior is resolved by the [undelete after paper-branch restore](2026-08-21-r0-undelete-after-paper-branch-restore.md) (#1316): the target Insert is an explicit planner seed; indexed bounded replay with a disposable tracker; no persistent tombstone map or reverse index.
 
 Canonical events contain no Fugue origins. Legacy left/right origins and delete targets are derived only inside the compatibility adapter and do not enter canonical event digest/metadata.
 
@@ -193,25 +193,18 @@ A replace lowers to multiple events and is not graph-atomic. This matches the pa
 
 ### Canonical digest fields
 
-The authoritative two-stage digest is:
+This decision owns the canonical body bytes and their unchanged body digest:
 
 ```text
 body_digest = SHA-256(
   domain("loomark-r0-event-body:v1")
   || exact canonical body bytes
 )
-
-event_digest = SHA-256(
-  domain("loomark-r0-event:v1")
-  || canonical raw identity
-  || body_digest
-  || sorted declared-parent identity/digest records
-  || optional implicit-predecessor identity/digest record
-  || sorted role-tagged semantic-reference records
-)
 ```
 
-Canonical body bytes contain the kind plus parent-relative scalar position and exact length-prefixed UTF-8 scalar bytes for insert, the position for delete, or the undelete target identity. The undelete target's required kind (`RequiredReferencedKind`) and target event digest are additionally bound in its semantic-reference record. The target's actual kind is not asserted by the referring event; it is verified from the target's own authenticated `EventMetaV1`. Parent/reference identity order is unsigned bytewise lexical order of validated UTF-8 agent bytes, then numeric sequence.
+The [capture receipt](2026-08-20-r0-capture-receipt-reassessment.md#event-digest-overlay) owns the complete `event_digest_v2` composition that binds this `body_digest`, rank, identity, parents, predecessor, and semantic references. This document does not duplicate that framing.
+
+Canonical body bytes contain the kind plus parent-relative scalar position and exact length-prefixed UTF-8 scalar bytes for insert, the position for delete, or the undelete target identity. The undelete target's required kind (`RequiredReferencedKind`) and target event digest are additionally bound in its semantic-reference record. The target's actual kind is not asserted by the referring event; it is verified from the target's own authenticated metadata (`EventMetaV2`). Parent/reference identity order is unsigned bytewise lexical order of validated UTF-8 agent bytes, then numeric sequence.
 
 Sequence zero has no predecessor. A semantic undelete target remains role-tagged even if it also appears in another dependency position.
 
@@ -231,7 +224,7 @@ Critical-base and conflict/replay-set selection is causal-graph planning. It use
 
 It does not inspect scalar position, inserted scalar, UTF-16 length, or neighboring text to choose which historical payload identities to fetch. Position-driven replay-set growth would violate the R0 provider contract.
 
-Therefore `EventMetaV1` does **not** add inserted/deleted UTF-16 lengths for canonical text events. `payload_byte_length` remains encoded-body accounting, not text-effect length. Legacy origin references stay adapter-only; canonical `semantic_references` contains only the undelete target.
+Therefore `EventMetaV2` does **not** add inserted/deleted UTF-16 lengths for canonical text events. `payload_byte_length` remains encoded-body accounting, not text-effect length. Legacy origin references stay adapter-only; canonical `semantic_references` contains only the undelete target.
 
 After the pure planner fixes the replay set, the shell fetches exactly those payloads. Temporary replay applies scalar events and converts resulting scalar effects to UTF-16 at the Markdown boundary.
 
@@ -258,7 +251,7 @@ A plain-text implementation may use a rope/piece/run representation with scalar 
 | Path | Coordinate/payload behavior | Cold reads |
 |---|---|---|
 | First local event | Validate UTF-16 request against resident text, convert to scalar, parents = resident exact heads | metadata 0, payload 0 |
-| Closed strict-forward | Every declared parent/reference and nonzero implicit predecessor resolves inside incoming events or resident exact head records; each predecessor is proven reachable through declared-parent closure; coverage reaches every resident head | existing metadata 0, existing payload 0 |
+| Closed strict-forward | Every declared parent/reference and nonzero implicit predecessor resolves inside incoming events or resident exact head records; each predecessor is proven reachable through declared-parent closure; coverage reaches every resident head. A semantic reference whose target kind, identity-to-text mapping, or visible effect requires cold evidence is **not** closed strict-forward even when causal parents cover the heads | existing metadata 0, existing payload 0 |
 | Indexed forward | Causal proof may read metadata; positions remain incoming payload | existing payload 0 |
 | Genuine concurrency | Select bounded replay set from metadata, then fetch exactly its payloads | bounded metadata + selected payload |
 | Sidecar removed | Recompute conversion from resident/temporary text | same event/text result; latency may differ |
@@ -355,15 +348,15 @@ These are evidence, not a substitute for the new canonical-event differential pr
 | Normalize to NFC | Rejected: changes user bytes, event identity, and receipt hash. |
 | Preserve lone surrogates as raw UTF-16 | Rejected: contradicts current authoritative ingress and strict UTF-8 canonical encoding. |
 | Persist scalar↔UTF-16 per-character sidecar | Rejected: unnecessary for correctness and contrary to the paper branch. Run/rope aggregate lengths remain an allowed plain-text representation. |
-| Put text-effect lengths in `EventMetaV1` now | Rejected: replay-set selection must be causal-only; effect fields are used after payload selection. Reopen only if #1315 demonstrates the planner cannot satisfy that proof. |
+| Put text-effect lengths in `EventMetaV2` now | Rejected: replay-set selection must be causal-only; effect fields are used after payload selection. #1315 confirmed the planner satisfies the causal-only proof. |
 
 ## Consequences
 
 - The earlier Gate A one-scalar contract is affirmed, not replaced.
-- R0 snapshot content adds `document_text_scalar_length` and binds it through `snapshot_commit_id`.
-- `EventMetaV1.semantic_references` is narrowed for canonical events to the undelete target; Fugue origins exist only in legacy adapter evidence.
+- The capture receipt binds `document_text_scalar_length` through `snapshot_commit_id`; this decision fixes its Unicode-scalar meaning.
+- `EventMetaV2.semantic_references` is narrowed for canonical events to the undelete target; Fugue origins exist only in legacy adapter evidence.
 - The test-only canonical fixture/body codec freezes scalar positions, not UTF-16 spans; no production wire codec is authorized.
 - Markdown's ordered transform vector is the capture seam; raw browser intent and same-base planned spans remain imperative-shell inputs.
-- Ticket #1315 must prove replay-set selection from authenticated causal metadata before opening positional payloads. A contrary result reopens this metadata consequence rather than silently reading extra payloads.
-- Ticket #1316 owns explicit undelete target semantics.
+- Ticket #1315 is resolved by the [concurrency replay-base proof](2026-08-21-r0-concurrency-replay-base-proof.md): replay-set selection uses authenticated `EventMetaV2` causal metadata with V2 sidecar `causal_rank_timestamp` and one-colour waterline scan. The metadata consequence is confirmed, not reopened.
+- Ticket #1316 is resolved by the [undelete after paper-branch restore](2026-08-21-r0-undelete-after-paper-branch-restore.md): undelete target is the original Insert identity as an explicit planner seed; indexed bounded replay with a disposable tracker; no persistent tombstone map or reverse index.
 - No production archive, storage provider, Text/Markdown public API, or wire format changes are authorized by this decision.

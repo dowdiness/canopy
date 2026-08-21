@@ -6,7 +6,7 @@
 
 **Depends on:** [restore architecture](2026-08-19-egwalker-r0-restore-architecture-reassessment.md), [capture receipt](2026-08-20-r0-capture-receipt-reassessment.md), [cold capability boundary](2026-08-20-r0-cold-event-graph-capability-boundary.md), [positional-event/Unicode contract](2026-08-20-r0-canonical-positional-event-unicode-contract.md), Wayfinder [#1315](https://github.com/dowdiness/canopy/issues/1315)
 
-**Status:** Pending morning acceptance. #1316 remains open.
+**Status:** accepted. Integrated into the canonical R0 research set.
 
 ## Question
 
@@ -29,10 +29,10 @@ If the target Insert identity cannot be resolved against the current exact heads
 This follows the existing internal EGW contract:
 
 - `Op::undelete` stores the target in `origin_left` and sets `content = Undelete` (`internal/core/operation.mbt:143-160`).
-- `Op::get_delete_target` returns `origin_left` for both `Delete` and `Undelete` (`internal/core/operation.mbt:192`).
+- `Op::get_delete_target` returns `origin_left` for both `Delete` and `Undelete` (`internal/core/operation.mbt:190`).
 - Admission rejects any undelete whose target is not an Insert via `OriginTargetNotInsert` (`internal/oplog/errors.mbt:16-19`, `internal/oplog/remote_admission_planner.mbt:482`, `internal/oplog/remote_admission_planner.mbt:960`, `internal/oplog/remote_admission_planner.mbt:1163`).
 - The container `TextUndeleteOp` carries an explicit `target : RawVersion` (`container/text_block.mbt:26-29`).
-- The positional-event/Unicode contract already narrows `EventMetaV1.semantic_references` to the undelete target for canonical events and binds `RequiredReferencedKind` in the role-tagged semantic-reference record ([positional-event/Unicode contract](2026-08-20-r0-canonical-positional-event-unicode-contract.md)).
+- The positional-event/Unicode contract already narrows `EventMetaV2.semantic_references` to the undelete target for canonical events and binds `RequiredReferencedKind` in the role-tagged semantic-reference record ([positional-event/Unicode contract](2026-08-20-r0-canonical-positional-event-unicode-contract.md)).
 
 ### D2 — Authority-accepted remote undelete event
 
@@ -60,7 +60,7 @@ The R0 planner must preserve this distinction. A restored branch that receives a
 
 ### D4 — Cross-process pre-snapshot local undo is bounded negative
 
-No public target receipt or undo stack crosses the restore boundary. The container `UndoItem::TextDelete(block, id)` captures the block `TreeNodeId` and the target `RawVersion` of the deleted Insert (`container/undo_types.mbt:10`). The undo stack is process-local mutable state; it is not part of the `R0SnapshotCommitV1` and does not survive a bytes-only handoff.
+No public target receipt or undo stack crosses the restore boundary. The container `UndoItem::TextDelete(block, id)` captures the block `TreeNodeId` and the target `RawVersion` of the deleted Insert (`container/undo_types.mbt:10`). The undo stack is process-local mutable state; it is not part of the `R0SnapshotCommitV2` and does not survive a bytes-only handoff.
 
 After restore, the new process has:
 
@@ -92,7 +92,7 @@ This is not a gap in the receipt; it is the paper-aligned boundary. The normal b
 Undelete after restore is classified as **indexed semantic-reference replay**:
 
 1. The planner receives the target Insert identity as an explicit seed (D1).
-2. It reads authenticated `EventMetaV2` for the target identity from the cold metadata provider; V2 retains the V1 `kind` field and adds the rank required by #1315.
+2. It reads authenticated `EventMetaV2` for the target identity from the cold metadata provider; V2 includes the `kind` field and adds the rank required by #1315.
 3. It verifies the target's authenticated `kind` is `Insert` (satisfying `RequiredReferencedKind = Insert`). A proven non-Insert is a semantic reject; the oracle is checked for confirmation.
 4. It runs #1315's backward L11 scan from the union of current exact heads, complete incoming heads, and the explicit target seed. It accepts only a single-head critical lower bound of that complete union that is **strictly causally before** the target Insert. If the scan first reaches the target itself, it expands the target instead of accepting it; if the target is a root, the base is empty. A concurrent target/undelete branch that has no such single-head cut falls back rather than using a target-only ancestor.
 5. The same backward scan enumerates every current, incoming, and target-seed event strictly above the union-critical base; no forward/reverse provider query is needed. This includes concurrent delete/undelete contenders because they are reached from the current or complete incoming heads even though their target reference is not a causal edge. Any event outside those versions cannot affect that branch.
@@ -128,7 +128,7 @@ with sentinel initialization (`cur_ts = 0`, `cur_agent = ""`, `cur_is_undelete =
 
 - higher `GraphEntry.timestamp` (Lamport timestamp) wins;
 - at equal timestamp, `is_undelete = true` beats `is_undelete = false` (add-wins);
-- at equal timestamp and equal kind, the agent tie-break calls/reuses the current `should_win_delete` MoonBit `String` comparison (`new_agent > cur_agent`), not canonical UTF-8 ordering.
+- at equal timestamp and equal kind, the agent tie-break calls/reuses the current `should_win_delete` MoonBit `String` comparison (`new_agent > cur_agent`), not canonical UTF-8 ordering. This LWW comparator is intentionally different from #1315's canonical UTF-8 raw-identity ordering used only to make the replay scan heap deterministic; implementations must not unify them.
 
 Source: `should_win_delete` in `internal/fugue/tree.mbt:187-207`:
 
@@ -141,9 +141,9 @@ new_agent > cur_agent
 
 The `DeleteIndex::recompute_winner` method scans all delete/undelete ops targeting one item, skips the retreat set, and applies this same precedence (`internal/branch/delete_index.mbt:61-100`). The R0 disposable tracker must reproduce this exact algorithm over the bounded replay set, not invent a different rule.
 
-### D9 — #1315 versioned V2 sidecar for `causal_rank_timestamp`
+### D9 — `causal_rank_timestamp` in V2 sidecar
 
-The test-only hash-bound refinement required by #1315 uses a **versioned V2 sidecar**: `EventMetaV2` / `R0HeadRecordV2` carry a `causal_rank_timestamp` field. This does **not** reinterpret `EventMetaV1` or the V1 head record schema. The V1 records and domains remain unchanged; V2 is their versioned successor and supersedes V1 before Gate R0 implementation. The full V2 schema is defined in #1315 and is not duplicated here. Gate R0 itself is test-only: every candidate provider/read path in this decision consumes V2, while no production provider or storage schema is authorized.
+The V2 sidecar types (`EventMetaV2`, `R0HeadRecordV2`) carry a `causal_rank_timestamp` field. The [capture receipt](2026-08-20-r0-capture-receipt-reassessment.md) owns V2 event/graph/snapshot digests, while the [cold capability boundary](2026-08-20-r0-cold-event-graph-capability-boundary.md) owns `EventMetaV2`, `R0HeadRecordV2`, `WriterCommitmentV2`, and MMR framing; rank-specific semantics (extraction, binding obligations, first-local allocation, verifier obligations) are in [#1315](2026-08-21-r0-concurrency-replay-base-proof.md). Gate R0 itself is test-only: every candidate provider/read path in this decision consumes V2, while no production provider or storage schema is authorized.
 
 The planner verifies:
 
@@ -220,7 +220,7 @@ The full-history Loomark/internal `Document` + `DeleteIndex` oracle determines r
 3. All cold/pre-snapshot remote undelete outcomes traverse the same indexed bounded replay; one target metadata read never determines visibility or effect.
 4. No persistent tombstone map, reverse index, kind field in resident head record, or reverse provider query is added to the normal branch.
 5. The disposable tracker reproduces the exact `should_win_delete` precedence with sentinel initialization and MoonBit `String` comparison for agent tie-break.
-6. `causal_rank_timestamp` uses the #1315 versioned V2 sidecar (`EventMetaV2`/`R0HeadRecordV2`); V1 records are not modified.
+6. `causal_rank_timestamp` uses the #1315 V2 sidecar (`EventMetaV2`/`R0HeadRecordV2`).
 7. Full-history Loomark/internal `Document` + `DeleteIndex` oracle independently rebuilds ranks and matches candidate winner/text/frontier on every case.
 8. Missing/unresolved target follows staged resolution (incoming/hot → snapshot range → pending/fallback), not unconditional corruption reject.
 9. Proven non-Insert target is a semantic reject; oracle checked.
@@ -241,9 +241,9 @@ Undelete after restore follows the concurrent-path accounting from the [cold cap
 - Full-history fallback emits a separate `read_full_history` observation.
 - Hot-batch evidence supplied in the current session is not a cold-provider read.
 
-## Required #1313/#1314 wording refinement
+## Integrated cross-decision refinements
 
-The [positional-event/Unicode contract](2026-08-20-r0-canonical-positional-event-unicode-contract.md) defines `Undelete(target_identity)` and states "its exact lookup/replay behavior remains ticket #1316." This decision freezes that behavior:
+The [positional-event/Unicode contract](2026-08-20-r0-canonical-positional-event-unicode-contract.md) defines `Undelete(target_identity)` and previously deferred its lookup/replay behavior to this decision. This decision freezes that behavior:
 
 - The target is the original Insert `RawVersion`.
 - `RequiredReferencedKind = Insert`.
@@ -252,19 +252,19 @@ The [positional-event/Unicode contract](2026-08-20-r0-canonical-positional-event
 - The winner algorithm reproduces existing `should_win_delete`.
 - Replay base is a single-head critical lower bound of the complete current/incoming/target-seed union and is strictly causally before the target; if the target is a root, the base is empty.
 
-The [restore architecture reassessment](2026-08-19-egwalker-r0-restore-architecture-reassessment.md) states "Undelete is an explicit Canopy extension absent from the paper. Its canonical event must have a dedicated undelete-target field rather than overloading the legacy `origin_left` representation. Resolution should use indexed/cold authority lookup and must not force a resident tombstone map into the normal branch." This decision confirms that framing and specifies the exact indexed lookup and replay mechanism.
+The [restore architecture reassessment](2026-08-19-egwalker-r0-restore-architecture-reassessment.md) now records this accepted result: the dedicated target is the original Insert identity and resolution uses indexed bounded replay with a disposable tracker, without a resident tombstone map. This document owns the detailed mechanism.
 
 ## Existing API First
 
 ### Reused
 
-- `Op::undelete` and `Op::get_delete_target` — existing target identity construction and extraction (`internal/core/operation.mbt:143-160`, `internal/core/operation.mbt:192`).
+- `Op::undelete` and `Op::get_delete_target` — existing target identity construction and extraction (`internal/core/operation.mbt:143-160`, `internal/core/operation.mbt:190`).
 - `should_win_delete` — existing LWW winner precedence with sentinel initialization and MoonBit `String` comparison (`internal/fugue/tree.mbt:187-207`).
 - `DeleteIndex::build` and `DeleteIndex::recompute_winner` — existing winner algorithm evidence (`internal/branch/delete_index.mbt:22-100`). Used as oracle, not as resident state.
 - `CausalGraph::get_entry` — accessor at `internal/causal_graph/graph.mbt:99`; its returned `GraphEntry.timestamp` field is defined at `internal/core/graph_types.mbt:99-113`.
 - `OpLogError::OriginTargetNotInsert` — existing target-kind validation error (`internal/oplog/errors.mbt:16-19`).
 - `Document::undelete_if_deleted` — existing local target-aware undelete with `Stale`/`Applied` result; legacy full-Document oracle behavior (`internal/document/document.mbt:571-583`).
-- `EventMetaV1` and `RequiredReferencedKind` — existing authenticated metadata and semantic-reference role from the cold capability boundary and positional-event contract.
+- `EventMetaV2` and `RequiredReferencedKind` — authenticated metadata and semantic-reference role from the cold capability boundary and positional-event contract.
 - Authenticated metadata batch lookup — existing provider capability from the cold capability boundary.
 
 ### Checked but not used as the primary mechanism
@@ -324,6 +324,6 @@ This decision records the bounded negative and does not authorize a new receipt 
 - `deps/event-graph-walker/container/undo_types.mbt` — `UndoItem::TextDelete(block, id)`
 - `docs/research/2026-08-19-egwalker-r0-restore-architecture-reassessment.md` — paper branch, undelete as Canopy extension
 - `docs/research/2026-08-20-r0-capture-receipt-reassessment.md` — snapshot commit fields, no undo state
-- `docs/research/2026-08-20-r0-cold-event-graph-capability-boundary.md` — provider contract, `EventMetaV1`, accounting
+- `docs/research/2026-08-20-r0-cold-event-graph-capability-boundary.md` — provider contract, `EventMetaV2`, accounting
 - `docs/research/2026-08-20-r0-canonical-positional-event-unicode-contract.md` — canonical `Undelete(target_identity)`, `RequiredReferencedKind`
 - `docs/plans/2026-08-19-loomark-editable-branch-restore-feasibility.md` — R0 gate scope and acceptance criteria
