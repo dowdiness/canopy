@@ -116,14 +116,26 @@ def validate-envelopes [rows: list<any> required_cases: list<string>] {
 def run-markdown-oracle [root: string mode: string = "undelete"] {
   let produced = (^moon -C $root run apps/loomark/restore_feasibility_oracle --target native producer | complete)
   if $produced.exit_code != 0 { fail $"Markdown archive producer failed: ($produced.stderr)" }
-  let producer = ($produced.stdout | str trim | from json)
+  let producer_raw = ($produced.stdout | str trim | from json)
+  let archive = ($producer_raw.payload.archive_json | from json)
+  let base_history = ($archive.history | from json)
+  let base_operation_count = ($base_history.operations | length)
+  let oracle_history = ($producer_raw.payload.oracle_post_edit_history | from json)
+  let oracle_op = ($oracle_history.operations | get $base_operation_count)
+  let oracle_next = { identity: $oracle_op.id parents: $oracle_op.parents payload: { kind: $oracle_op.kind content: ($oracle_op | get -o content) origin_left: ($oracle_op | get -o origin_left) origin_right: ($oracle_op | get -o origin_right) } }
+  let producer = ($producer_raw | upsert payload.oracle_next_operation $oracle_next)
   let archive_bytes = $producer.payload.archive_json
   let archive_file = (^mktemp | str trim)
   $archive_bytes | save -f $archive_file
   let consumer = (with-env { GATE_R0_ARCHIVE_PATH: $archive_file } { ^moon -C $root run apps/loomark/restore_feasibility_oracle --target native consumer $mode } | complete)
   ^rm -f $archive_file
   if $consumer.exit_code != 0 { fail $"Markdown fresh consumer failed: ($consumer.stderr)" }
-  [$producer ($consumer.stdout | str trim | from json)]
+  let consumer_raw = ($consumer.stdout | str trim | from json)
+  let consumer_history = ($consumer_raw.payload.post_insert_history | from json)
+  let consumer_op = ($consumer_history.operations | get $base_operation_count)
+  let consumer_next = { identity: $consumer_op.id parents: $consumer_op.parents payload: { kind: $consumer_op.kind content: ($consumer_op | get -o content) origin_left: ($consumer_op | get -o origin_left) origin_right: ($consumer_op | get -o origin_right) } }
+  let consumer_row = ($consumer_raw | upsert payload.next_operation $consumer_next)
+  [$producer $consumer_row]
 }
 
 def operation-matrix [] {
@@ -230,6 +242,9 @@ def main [--output-dir: string --allow-dirty --inject-failure: string] {
     }
     let archive_producer = ($markdown | where producer == "markdown_archive_producer" | first)
     let archive_consumer = ($markdown | where producer == "markdown_oracle" | first)
+    if $archive_consumer.payload.next_operation != $archive_producer.payload.oracle_next_operation or $archive_consumer.payload.frontier_after_insert != $archive_producer.payload.oracle_post_edit_frontier {
+      error make { msg: "causal_semantics_mismatch: normalized next operation or post-edit frontier differs" }
+    }
     if $archive_consumer.payload.text != $archive_producer.payload.expected_after_text {
       error make { msg: "oracle_mismatch: restored edit text differs from producer expectation" }
     }

@@ -30,6 +30,22 @@ fn producer() -> Unit {
     editor=source,
   )
   let encoded = captured.to_json_string()
+  let oracle = try! @markdown.MarkdownEditor::open(
+    agent_id="gate-r0-markdown-fresh-writer",
+    history=captured.history(),
+    open_limits=limits(),
+  )
+  let oracle_before = oracle.portable_markdown()
+  ignore(
+    try! oracle.commit(
+      @markdown.MarkdownEditRequest::ReplaceText(
+        start=oracle_before.length(),
+        delete_len=0,
+        inserted="restored\n",
+      ),
+    ),
+  )
+  let oracle_history = try! oracle.history_since()
   println(
     Json::object({
       "schema_version": Json::number(1.0),
@@ -46,6 +62,12 @@ fn producer() -> Unit {
           source.portable_markdown() + "restored\n",
         ),
         "source_frontier": Json::string(source.version().to_json_string()),
+        "oracle_post_edit_history": Json::string(
+          oracle_history.to_json_string(),
+        ),
+        "oracle_post_edit_frontier": Json::string(
+          oracle.version().to_json_string(),
+        ),
       }),
     }).stringify(),
   )
@@ -78,6 +100,8 @@ fn consumer(archive_path : String, mode : String) -> Unit {
     )
   }
   let after_insert = restored.portable_markdown()
+  let frontier_after_insert = restored.version().to_json_string()
+  let history_after_insert = try! restored.history_since()
   if mode == "delete" || mode == "undelete" {
     ignore(
       try! restored.commit(
@@ -115,6 +139,8 @@ fn consumer(archive_path : String, mode : String) -> Unit {
     "recovery": Json::string("none"),
     "first_edit": Json::string("insert"),
     "immediate_insert_text": Json::string(after_insert),
+    "post_insert_history": Json::string(history_after_insert.to_json_string()),
+    "frontier_after_insert": Json::string(frontier_after_insert),
     "visible_delete_text": Json::string(after_delete),
     "undelete_text": Json::string(restored.portable_markdown()),
     "target_visibility": Json::string(
@@ -124,7 +150,6 @@ fn consumer(archive_path : String, mode : String) -> Unit {
         "unexpected"
       },
     ),
-    "normalized_next_operation": Json::string("replace-text"),
     "measurement_mode": Json::string(mode),
     "operation_count": Json::number(
       (if mode == "restore" {
