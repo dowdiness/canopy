@@ -1,5 +1,14 @@
 # Gate R0: Editable Branch Restore Feasibility
 
+> **Status: rewrite pending.** The accepted R0 research contracts through
+> [the evidence/performance decision](../research/2026-08-21-r0-evidence-performance-decision-contract.md)
+> supersede this plan's `ClosedTail`, persistent position/identity Candidate C,
+> closed-concurrent zero-read wording, and globally competing A/B/C roles. A is
+> now the ordinary paper path, C its concurrency/undelete extension, and B a
+> legacy control only. Issue
+> [#1318](https://github.com/dowdiness/canopy/issues/1318) owns the coordinated
+> rewrite. Do not implement this plan as-is.
+
 ## GitHub Issue
 
 Canonical issue: <https://github.com/dowdiness/canopy/issues/1288>
