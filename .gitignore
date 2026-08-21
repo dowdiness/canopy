@@ -42,3 +42,5 @@ reference/
 .slopless/
 test_output.html
 test_output.svg
+# Gate R0 canonical local evidence output (the runner may target this path).
+/artifacts/loomark-editable-branch-restore-feasibility/
