@@ -20,7 +20,7 @@ export PATH="$HOME/.moon/bin:$PATH"
 # MoonBit toolchain, pinned to the same pair as CI. Normally already present in
 # the base image; the guard makes a fresh base self-heal instead of failing.
 if ! command -v moon >/dev/null 2>&1; then
-  curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s 0.10.4+ade96c819
+  curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s 0.10.8+8606a5800
   export PATH="$HOME/.moon/bin:$PATH"
 fi
 
