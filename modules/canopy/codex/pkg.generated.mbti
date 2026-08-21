@@ -18,4 +18,3 @@ pub fn unified_diff_to_intents(String, String) -> Array[@protocol.UserIntent] ra
 // Type aliases
 
 // Traits
-

@@ -20,4 +20,3 @@ pub fn Tone::attrs(Self) -> @html.Attrs
 // Type aliases
 
 // Traits
-

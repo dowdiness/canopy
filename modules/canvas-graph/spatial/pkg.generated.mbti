@@ -71,4 +71,3 @@ pub fn WorldPoint::y(Self) -> Double
 // Type aliases
 
 // Traits
-

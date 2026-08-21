@@ -87,4 +87,3 @@ pub fn VisualNodeStatus::stroke(Self) -> String
 // Type aliases
 
 // Traits
-

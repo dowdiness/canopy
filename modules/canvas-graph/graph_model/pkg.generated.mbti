@@ -227,4 +227,3 @@ pub impl Show for WorkflowNodeKind
 pub type NodePosition = @spatial.ItemPosition[NodeId]
 
 // Traits
-

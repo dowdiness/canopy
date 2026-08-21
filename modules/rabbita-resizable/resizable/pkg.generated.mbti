@@ -49,4 +49,3 @@ pub(all) enum Msg {
 // Type aliases
 
 // Traits
-

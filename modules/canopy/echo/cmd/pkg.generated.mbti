@@ -16,4 +16,3 @@ type StoredPost derive(ToJson, @debug.Debug, @json.FromJson)
 // Type aliases
 
 // Traits
-

@@ -51,4 +51,3 @@ pub struct TransactionSpec(@moonbit-community/rabbita/js.Value)
 // Type aliases
 
 // Traits
-
