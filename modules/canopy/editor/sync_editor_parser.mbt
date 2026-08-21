@@ -112,19 +112,27 @@ fn[T : Eq] ProjectionState::set_parser_source(
 }
 
 ///|
-fn[T : Eq] SyncEditor::sync_parser_from_coherent_seed(
+fn[T : Eq] SyncEditor::sync_parser_from_supplied_seed(
   self : SyncEditor[T],
+  seed : String,
 ) -> Unit raise Failure {
   self.projection.ensure_parser_healthy()
   editor_perf_measure("documentVersionUpdate", () => {
     self.projection.set_document_version(self.authority.doc.version())
   })
   editor_perf_measure("parserSeed", () => {
-    let seed = self.authority.doc.text()
     self.projection.set_parser_source(seed)
   })
   self.projection.mark_projection_dirty()
   self.observe_parser_synchronized()
+}
+
+///|
+fn[T : Eq] SyncEditor::sync_parser_from_coherent_seed(
+  self : SyncEditor[T],
+) -> Unit raise Failure {
+  let seed = self.authority.doc.text()
+  self.sync_parser_from_supplied_seed(seed)
 }
 
 ///|
@@ -250,7 +258,106 @@ fn resolve_applied_edit(
 priv struct ProjectionReplaySpan {
   edit : @loom_core.Edit
   inserted : String
+  source_after : String?
 } derive(Eq, Debug)
+
+///|
+priv struct PreparedTextAdmission {
+  source : String
+  replay_spans : Array[ProjectionReplaySpan]
+}
+
+///|
+fn scalar_position_to_utf16_offset(
+  source : String,
+  scalar_position : Int,
+) -> Int raise Failure {
+  guard scalar_position >= 0 else {
+    fail("negative scalar position in authority text effect")
+  }
+  if scalar_position == 0 {
+    return 0
+  }
+  let mut scalar_offset = 0
+  let mut utf16_offset = 0
+  for char in source {
+    scalar_offset += 1
+    utf16_offset += if char.to_int() > 0xFFFF { 2 } else { 1 }
+    if scalar_offset == scalar_position {
+      return utf16_offset
+    }
+  }
+  fail("scalar position exceeds parser-held source")
+}
+
+///|
+fn prepare_text_admission(
+  source : String,
+  effects : ArrayView[@text.TextEffect],
+) -> PreparedTextAdmission raise Failure {
+  let mut candidate = source
+  let replay_spans : Array[ProjectionReplaySpan] = []
+  for effect in effects {
+    match effect {
+      @text.TextEffect::Insert(position, inserted) => {
+        let utf16_start = scalar_position_to_utf16_offset(
+          candidate,
+          position.value(),
+        )
+        let edit = @loom_core.Edit::insert(utf16_start, inserted.length())
+        candidate = candidate[:utf16_start].to_owned() +
+          inserted +
+          candidate[utf16_start:].to_owned()
+        replay_spans.push({ edit, inserted, source_after: Some(candidate) })
+      }
+      @text.TextEffect::Delete(range) => {
+        let utf16_start = scalar_position_to_utf16_offset(
+          candidate,
+          range.start().value(),
+        )
+        let utf16_end = scalar_position_to_utf16_offset(
+          candidate,
+          range.end().value(),
+        )
+        let edit = @loom_core.Edit::delete(utf16_start, utf16_end)
+        candidate = candidate[:utf16_start].to_owned() +
+          candidate[utf16_end:].to_owned()
+        replay_spans.push({ edit, inserted: "", source_after: Some(candidate) })
+      }
+    }
+  }
+  { source: candidate, replay_spans }
+}
+
+///|
+fn[T : Eq] SyncEditor::settle_prepared_text_admission(
+  self : SyncEditor[T],
+  parser_source : String,
+  prepared : PreparedTextAdmission,
+  after_version : @text.Version,
+  authority_advanced : Bool,
+) -> Unit raise Failure {
+  if authority_advanced {
+    self.observe_committed_transition_settled()
+  }
+  if prepared.source == parser_source {
+    if authority_advanced {
+      self.projection.set_document_version(after_version)
+      self.observe_parser_synchronized()
+    }
+    return
+  }
+  self.interaction.clamp_cursor_to_length(prepared.source.length())
+  for span in prepared.replay_spans {
+    self.adjust_peer_cursors_after_text_change(
+      parser_source,
+      prepared.source,
+      Some(span.edit),
+    )
+  }
+  self.taint_pending_transforms()
+  self.sync_parser_from_replay_spans(prepared.replay_spans, prepared.source)
+}
 
 ///|
 priv enum ProjectionReplay {
@@ -317,11 +424,16 @@ fn[T : Eq] ProjectionState::replay_parser_spans(
   let mut source = self.parser.source().read_or_abort()
   try {
     for span in spans {
-      let start = span.edit.start()
-      let old_end = start + span.edit.old_len()
-      let next_source = source[:start].to_owned() +
-        span.inserted +
-        source[old_end:].to_owned()
+      let next_source = match span.source_after {
+        Some(source_after) => source_after
+        None => {
+          let start = span.edit.start()
+          let old_end = start + span.edit.old_len()
+          source[:start].to_owned() +
+          span.inserted +
+          source[old_end:].to_owned()
+        }
+      }
       self.parser.apply_edit(span.edit, next_source)
       source = next_source
     }

@@ -146,3 +146,50 @@ test "merge_to_edits - disjoint inserts stay separate" {
   inspect(edits[1].old_len, content="0")
   inspect(edits[1].new_len, content="1")
 }
+
+///|
+test "merge_to_edits - astral prefix keeps UTF-16 edit coordinates" {
+  let edits = merge_to_edits("😀a", "😀b")
+  inspect(edits.length(), content="1")
+  inspect(edits[0].start, content="2")
+  inspect(edits[0].old_len, content="1")
+  inspect(edits[0].new_len, content="1")
+}
+
+///|
+test "merge_to_edits - repeated astral clusters preserve the suffix" {
+  let edits = merge_to_edits("😀x😀", "😀y😀")
+  inspect(edits.length(), content="1")
+  inspect(edits[0].start, content="2")
+  inspect(edits[0].old_len, content="1")
+  inspect(edits[0].new_len, content="1")
+}
+
+///|
+test "merge_to_edits - combining graphemes remain indivisible" {
+  let edits = merge_to_edits("e\u{0301}", "o\u{0301}")
+  inspect(edits.length(), content="1")
+  inspect(edits[0].start, content="0")
+  inspect(edits[0].old_len, content="2")
+  inspect(edits[0].new_len, content="2")
+}
+
+///|
+test "merge_to_edits - CRLF remains one grapheme edit" {
+  let edits = merge_to_edits("a\r\nb", "a\nb")
+  inspect(edits.length(), content="1")
+  inspect(edits[0].start, content="1")
+  inspect(edits[0].old_len, content="2")
+  inspect(edits[0].new_len, content="1")
+}
+
+///|
+test "merge_to_edits - large middles use one bounded replacement" {
+  let old_text = "a".repeat(129) + "X" + "b".repeat(128)
+  let new_text = "c".repeat(129) + "X" + "d".repeat(128)
+  let edits = merge_to_edits(old_text, new_text)
+  inspect(edits.length(), content="1")
+  inspect(edits[0].start, content="0")
+  inspect(edits[0].old_len, content="258")
+  inspect(edits[0].new_len, content="258")
+}

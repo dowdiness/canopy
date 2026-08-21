@@ -1,5 +1,11 @@
 # #1281 authority-transition implementation invariants
 
+**Status:** Complete.
+
+**Decision record:** [Authority-owned remote admission transition](../../decisions/2026-08-19-authority-owned-remote-admission-transition.md)
+
+**Completion:** Implemented for [issue #1281](https://github.com/dowdiness/canopy/issues/1281). Validation covers the native editor package, the full JavaScript suite, exact/fallback/unavailable transition settlement, Unicode coordinate conversion, and the recorded history/length benchmark matrix.
+
 This implementation note makes the accepted issue specification executable. It
 does not change the governing decisions or authorize a second admission path.
 
@@ -99,6 +105,11 @@ calls `finish()` to surface the recovery error. If replay or seed raises after
 authority commit, Canopy records and propagates the existing parser failure and
 does not call `finish()`; authority remains committed and later `finish()` cannot
 declare the parser synchronized.
+
+Fallback cursor reconciliation preserves separated grapheme edits while its LCS
+matrix fits a 65,536-cell budget. Larger changed middles use one grapheme-aligned
+replacement, intentionally trading interior cursor affinity for bounded settlement
+time and memory.
 
 ## Observation and compatibility
 

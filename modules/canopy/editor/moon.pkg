@@ -17,7 +17,6 @@ import {
   "dowdiness/seam",
   "dowdiness/pretty",
   "dowdiness/canopy/protocol",
-  "moonbitlang/core/bench",
   "moonbitlang/core/debug",
   "moonbitlang/core/quickcheck",
   "moonbitlang/core/buffer",
@@ -34,6 +33,7 @@ import {
 
 import {
   "dowdiness/canopy/workspace/probe",
+  "moonbitlang/core/bench",
 } for "wbtest"
 
 warnings = "-7-29"
@@ -43,9 +43,10 @@ options(
   targets: {
     "sync_editor_perf_probe_js.mbt": [ "js" ],
     "sync_editor_perf_probe_native.mbt": [ "not", "js" ],
-    "error_path_wbtest.mbt": [ "not", "js" ],
-    "sync_editor_ws_wbtest.mbt": [ "not", "js" ],
+    "error_path_wbtest.mbt": [ "wasm", "wasm-gc" ],
+    "sync_editor_ws_wbtest.mbt": [ "wasm", "wasm-gc" ],
+    "sync_status_wbtest.mbt": [ "wasm", "wasm-gc" ],
     "test_ws_helper_js_wbtest.mbt": [ "js" ],
-    "test_ws_helper_native_wbtest.mbt": [ "not", "js" ],
+    "test_ws_helper_native_wbtest.mbt": [ "wasm", "wasm-gc" ],
   },
 )

@@ -461,6 +461,116 @@ test "remote admission settles one transition before parser synchronization" {
 }
 
 ///|
+test "remote admission preparation converts sequential scalar effects to UTF-16 edits" {
+  let effects : Array[@text.TextEffect] = [
+    @text.TextEffect::Insert(@text.Pos::at(2), "x"),
+    @text.TextEffect::Delete(try! @text.Range::from_ints(1, 2)),
+  ]
+  let prepared = try! prepare_text_admission("A😀B\r\n", effects[:])
+  assert_eq(prepared.source, "AxB\r\n")
+  assert_eq(prepared.replay_spans, [
+    {
+      edit: @loom_core.Edit::insert(3, 1),
+      inserted: "x",
+      source_after: Some("A😀xB\r\n"),
+    },
+    {
+      edit: @loom_core.Edit::delete(1, 3),
+      inserted: "",
+      source_after: Some("AxB\r\n"),
+    },
+  ])
+}
+
+///|
+test "remote exact delete clamps the local cursor in UTF-16 coordinates" {
+  let source = try! @probe.new_test_editor("remote-utf16-clamp-source")
+  let target = try! @probe.new_test_editor("remote-utf16-clamp-target")
+  source.set_text("😀x")
+  ignore(try! target.admit(try! source.export_all()))
+  let target_version = target.get_version()
+  target.move_cursor(3)
+  source.set_text("😀")
+
+  ignore(try! target.admit(try! source.export_since(target_version)))
+
+  assert_eq(target.get_text(), "😀")
+  assert_eq(target.get_cursor(), 2)
+}
+
+///|
+test "remote admission snapshot detector distinguishes exact and fallback paths" {
+  let exact_source = try! @probe.new_test_editor(
+    "snapshot-detector-exact-source",
+  )
+  let exact_target = try! @probe.new_test_editor(
+    "snapshot-detector-exact-target",
+  )
+  exact_source.set_text("A")
+  let mut exact_reads = 0
+  ignore(
+    try! exact_target.admit_with_policy_using_snapshot_reader(
+      try! exact_source.export_all(),
+      None,
+      () => {
+        exact_reads += 1
+        exact_target.authority.doc.text()
+      },
+    ),
+  )
+  assert_eq(exact_reads, 0)
+
+  let fallback_source = try! @probe.new_test_editor(
+    "snapshot-detector-fallback-source",
+  )
+  let fallback_target = try! @probe.new_test_editor(
+    "snapshot-detector-fallback-target",
+  )
+  fallback_source.set_text("ABCD")
+  let mut fallback_reads = 0
+  ignore(
+    try! fallback_target.admit_with_policy_using_snapshot_reader(
+      try! fallback_source.export_all(),
+      None,
+      () => {
+        fallback_reads += 1
+        fallback_target.authority.doc.text()
+      },
+    ),
+  )
+  assert_eq(fallback_reads, 1)
+}
+
+///|
+test "snapshot fallback adjusts peer cursors after an astral prefix" {
+  let source = try! @probe.new_test_editor("snapshot-unicode-source")
+  let target = try! @probe.new_test_editor("snapshot-unicode-target")
+  source.set_text("😀a")
+  ignore(try! target.admit(try! source.export_all()))
+  let target_version = target.get_version()
+  target.interaction.cursor_view.set_cursor("peer", 3, "Peer", "#000000")
+  source.set_text("😀Xa")
+  source.insert_at(3, "zz", 1001)
+  ignore(try! source.delete_at(3, 1002))
+  ignore(try! source.delete_at(3, 1003))
+  let mut snapshot_reads = 0
+  ignore(
+    try! target.admit_with_policy_using_snapshot_reader(
+      try! source.export_since(target_version),
+      None,
+      () => {
+        snapshot_reads += 1
+        target.authority.doc.text()
+      },
+    ),
+  )
+
+  assert_eq(snapshot_reads, 1)
+  assert_eq(target.get_text(), "😀Xa")
+  assert_eq(target.get_peer_cursors().get("peer").unwrap().adjusted_cursor, 4)
+}
+
+///|
 test "projection continuation classification preserves replay barriers" {
   let edit = @loom_core.Edit::insert(0, 1)
   assert_eq(

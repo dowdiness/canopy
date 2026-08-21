@@ -1,0 +1,504 @@
+{
+  "schema": 1,
+  "measured_at": "2026-08-19",
+  "canopy_commit_before_uncommitted_change": "dbff0651bf3004e65dc194a5c37e39558805f835",
+  "event_graph_walker_commit": "31fb57b4dc9e423a94dda15a42bfbdcbd7c103e6",
+  "target": "native release",
+  "independent_processes_per_mode_cell": 3,
+  "units": "microseconds",
+  "fixture": {
+    "history_operations": [
+      0,
+      1000,
+      10000,
+      100000
+    ],
+    "visible_utf16_units_at_history_100000": [
+      0,
+      2000,
+      10000,
+      50000
+    ],
+    "incoming_operations": 1,
+    "history_source": "raw TextState",
+    "initial_target_hydration": "raw authority apply_with_limits followed by coherent parser seed",
+    "measured_ingress": "SyncEditor production admission transition / admit",
+    "setup_limits": {
+      "max_encoded_bytes": 268435456,
+      "max_decoded_operations": "H"
+    }
+  },
+  "phase_definitions": {
+    "transition_us": "AuthorityCore::admit_transition_with_tracking for one incoming message",
+    "preparation_us": "read parser-held source, inspect exact effects, and prepare candidate source plus UTF-16 parser edits",
+    "reconciliation_us": "settle prepared admission and finish the authority transition",
+    "whole_call_us": "SyncEditor::admit around the same one-operation fixture, including method-exit work"
+  },
+  "matrix_medians": [
+    {
+      "H": 0,
+      "L": 0,
+      "transition_us": 34.086,
+      "preparation_us": 3.074,
+      "reconciliation_us": 19.492,
+      "whole_call_us": 72.481,
+      "phase_sum_us": 56.652
+    },
+    {
+      "H": 1000,
+      "L": 0,
+      "transition_us": 49.644,
+      "preparation_us": 6.8340000000000005,
+      "reconciliation_us": 26.284,
+      "whole_call_us": 86.507,
+      "phase_sum_us": 82.762
+    },
+    {
+      "H": 10000,
+      "L": 0,
+      "transition_us": 82.471,
+      "preparation_us": 7.516,
+      "reconciliation_us": 28.337,
+      "whole_call_us": 137.071,
+      "phase_sum_us": 118.32400000000001
+    },
+    {
+      "H": 100000,
+      "L": 0,
+      "transition_us": 125.175,
+      "preparation_us": 7.649,
+      "reconciliation_us": 31.665,
+      "whole_call_us": 159.68800000000002,
+      "phase_sum_us": 164.48899999999998
+    },
+    {
+      "H": 100000,
+      "L": 2000,
+      "transition_us": 1237.82,
+      "preparation_us": 20.813,
+      "reconciliation_us": 36.284,
+      "whole_call_us": 1516.212,
+      "phase_sum_us": 1294.9170000000001
+    },
+    {
+      "H": 100000,
+      "L": 10000,
+      "transition_us": 1775.702,
+      "preparation_us": 18.344,
+      "reconciliation_us": 59.984,
+      "whole_call_us": 1433.209,
+      "phase_sum_us": 1854.03
+    },
+    {
+      "H": 100000,
+      "L": 50000,
+      "transition_us": 820.83,
+      "preparation_us": 45.718,
+      "reconciliation_us": 118.93900000000001,
+      "whole_call_us": 1292.603,
+      "phase_sum_us": 985.487
+    }
+  ],
+  "baseline_comparison_H100000_L0": {
+    "H": 100000,
+    "L": 0,
+    "baseline_direct_public_admission_us": 176264.60699999996,
+    "new_whole_call_us": 159.68800000000002,
+    "native_whole_call_ratio": 1103.8062158709479,
+    "baseline_post_authority_text_snapshot_us": 38311.256,
+    "new_preparation_us": 7.649,
+    "baseline_reconciliation_us": 48.293,
+    "new_reconciliation_us": 31.665
+  },
+  "samples": [
+    {
+      "mode": "whole",
+      "H": 0,
+      "L": 0,
+      "whole_call_us": 72.481,
+      "trial": 1,
+      "index": 0
+    },
+    {
+      "mode": "whole",
+      "H": 1000,
+      "L": 0,
+      "whole_call_us": 86.507,
+      "trial": 1,
+      "index": 1
+    },
+    {
+      "mode": "whole",
+      "H": 10000,
+      "L": 0,
+      "whole_call_us": 137.071,
+      "trial": 1,
+      "index": 2
+    },
+    {
+      "mode": "whole",
+      "H": 100000,
+      "L": 0,
+      "whole_call_us": 187.39600000000002,
+      "trial": 1,
+      "index": 3
+    },
+    {
+      "mode": "whole",
+      "H": 100000,
+      "L": 2000,
+      "whole_call_us": 1761.809,
+      "trial": 1,
+      "index": 4
+    },
+    {
+      "mode": "whole",
+      "H": 100000,
+      "L": 10000,
+      "whole_call_us": 1433.209,
+      "trial": 1,
+      "index": 5
+    },
+    {
+      "mode": "whole",
+      "H": 100000,
+      "L": 50000,
+      "whole_call_us": 1035.82,
+      "trial": 1,
+      "index": 6
+    },
+    {
+      "mode": "phases",
+      "H": 0,
+      "L": 0,
+      "transition_us": 51.958,
+      "preparation_us": 4.172,
+      "reconciliation_us": 27.174,
+      "trial": 1,
+      "index": 7
+    },
+    {
+      "mode": "phases",
+      "H": 1000,
+      "L": 0,
+      "transition_us": 69.563,
+      "preparation_us": 9.041,
+      "reconciliation_us": 31.824,
+      "trial": 1,
+      "index": 8
+    },
+    {
+      "mode": "phases",
+      "H": 10000,
+      "L": 0,
+      "transition_us": 82.471,
+      "preparation_us": 7.516,
+      "reconciliation_us": 27.219,
+      "trial": 1,
+      "index": 9
+    },
+    {
+      "mode": "phases",
+      "H": 100000,
+      "L": 0,
+      "transition_us": 120.157,
+      "preparation_us": 7.167,
+      "reconciliation_us": 31.665,
+      "trial": 1,
+      "index": 10
+    },
+    {
+      "mode": "phases",
+      "H": 100000,
+      "L": 2000,
+      "transition_us": 1517.172,
+      "preparation_us": 23.502,
+      "reconciliation_us": 61.671,
+      "trial": 1,
+      "index": 11
+    },
+    {
+      "mode": "phases",
+      "H": 100000,
+      "L": 10000,
+      "transition_us": 1871.534,
+      "preparation_us": 19.323,
+      "reconciliation_us": 60.639,
+      "trial": 1,
+      "index": 12
+    },
+    {
+      "mode": "phases",
+      "H": 100000,
+      "L": 50000,
+      "transition_us": 832.351,
+      "preparation_us": 45.718,
+      "reconciliation_us": 118.93900000000001,
+      "trial": 1,
+      "index": 13
+    },
+    {
+      "mode": "whole",
+      "H": 0,
+      "L": 0,
+      "whole_call_us": 53.517,
+      "trial": 2,
+      "index": 0
+    },
+    {
+      "mode": "whole",
+      "H": 1000,
+      "L": 0,
+      "whole_call_us": 149.875,
+      "trial": 2,
+      "index": 1
+    },
+    {
+      "mode": "whole",
+      "H": 10000,
+      "L": 0,
+      "whole_call_us": 134.44,
+      "trial": 2,
+      "index": 2
+    },
+    {
+      "mode": "whole",
+      "H": 100000,
+      "L": 0,
+      "whole_call_us": 159.68800000000002,
+      "trial": 2,
+      "index": 3
+    },
+    {
+      "mode": "whole",
+      "H": 100000,
+      "L": 2000,
+      "whole_call_us": 1411.228,
+      "trial": 2,
+      "index": 4
+    },
+    {
+      "mode": "whole",
+      "H": 100000,
+      "L": 10000,
+      "whole_call_us": 1438.1100000000001,
+      "trial": 2,
+      "index": 5
+    },
+    {
+      "mode": "whole",
+      "H": 100000,
+      "L": 50000,
+      "whole_call_us": 1303.684,
+      "trial": 2,
+      "index": 6
+    },
+    {
+      "mode": "phases",
+      "H": 0,
+      "L": 0,
+      "transition_us": 33.88,
+      "preparation_us": 2.657,
+      "reconciliation_us": 19.492,
+      "trial": 2,
+      "index": 7
+    },
+    {
+      "mode": "phases",
+      "H": 1000,
+      "L": 0,
+      "transition_us": 49.644,
+      "preparation_us": 6.732,
+      "reconciliation_us": 26.013,
+      "trial": 2,
+      "index": 8
+    },
+    {
+      "mode": "phases",
+      "H": 10000,
+      "L": 0,
+      "transition_us": 77.63,
+      "preparation_us": 7.122,
+      "reconciliation_us": 28.337,
+      "trial": 2,
+      "index": 9
+    },
+    {
+      "mode": "phases",
+      "H": 100000,
+      "L": 0,
+      "transition_us": 125.175,
+      "preparation_us": 7.649,
+      "reconciliation_us": 30.455000000000002,
+      "trial": 2,
+      "index": 10
+    },
+    {
+      "mode": "phases",
+      "H": 100000,
+      "L": 2000,
+      "transition_us": 1143.873,
+      "preparation_us": 20.813,
+      "reconciliation_us": 34.806,
+      "trial": 2,
+      "index": 11
+    },
+    {
+      "mode": "phases",
+      "H": 100000,
+      "L": 10000,
+      "transition_us": 1475.448,
+      "preparation_us": 15.06,
+      "reconciliation_us": 47.668,
+      "trial": 2,
+      "index": 12
+    },
+    {
+      "mode": "phases",
+      "H": 100000,
+      "L": 50000,
+      "transition_us": 820.83,
+      "preparation_us": 48.946,
+      "reconciliation_us": 134.999,
+      "trial": 2,
+      "index": 13
+    },
+    {
+      "mode": "whole",
+      "H": 0,
+      "L": 0,
+      "whole_call_us": 90.06,
+      "trial": 3,
+      "index": 0
+    },
+    {
+      "mode": "whole",
+      "H": 1000,
+      "L": 0,
+      "whole_call_us": 81.649,
+      "trial": 3,
+      "index": 1
+    },
+    {
+      "mode": "whole",
+      "H": 10000,
+      "L": 0,
+      "whole_call_us": 181.74,
+      "trial": 3,
+      "index": 2
+    },
+    {
+      "mode": "whole",
+      "H": 100000,
+      "L": 0,
+      "whole_call_us": 152.716,
+      "trial": 3,
+      "index": 3
+    },
+    {
+      "mode": "whole",
+      "H": 100000,
+      "L": 2000,
+      "whole_call_us": 1516.212,
+      "trial": 3,
+      "index": 4
+    },
+    {
+      "mode": "whole",
+      "H": 100000,
+      "L": 10000,
+      "whole_call_us": 1308.539,
+      "trial": 3,
+      "index": 5
+    },
+    {
+      "mode": "whole",
+      "H": 100000,
+      "L": 50000,
+      "whole_call_us": 1292.603,
+      "trial": 3,
+      "index": 6
+    },
+    {
+      "mode": "phases",
+      "H": 0,
+      "L": 0,
+      "transition_us": 34.086,
+      "preparation_us": 3.074,
+      "reconciliation_us": 18.138,
+      "trial": 3,
+      "index": 7
+    },
+    {
+      "mode": "phases",
+      "H": 1000,
+      "L": 0,
+      "transition_us": 45.962,
+      "preparation_us": 6.8340000000000005,
+      "reconciliation_us": 26.284,
+      "trial": 3,
+      "index": 8
+    },
+    {
+      "mode": "phases",
+      "H": 10000,
+      "L": 0,
+      "transition_us": 98.39,
+      "preparation_us": 7.8500000000000005,
+      "reconciliation_us": 30.591,
+      "trial": 3,
+      "index": 9
+    },
+    {
+      "mode": "phases",
+      "H": 100000,
+      "L": 0,
+      "transition_us": 148.877,
+      "preparation_us": 10.088000000000001,
+      "reconciliation_us": 37.485,
+      "trial": 3,
+      "index": 10
+    },
+    {
+      "mode": "phases",
+      "H": 100000,
+      "L": 2000,
+      "transition_us": 1237.82,
+      "preparation_us": 18.277,
+      "reconciliation_us": 36.284,
+      "trial": 3,
+      "index": 11
+    },
+    {
+      "mode": "phases",
+      "H": 100000,
+      "L": 10000,
+      "transition_us": 1775.702,
+      "preparation_us": 18.344,
+      "reconciliation_us": 59.984,
+      "trial": 3,
+      "index": 12
+    },
+    {
+      "mode": "phases",
+      "H": 100000,
+      "L": 50000,
+      "transition_us": 788.016,
+      "preparation_us": 44.897,
+      "reconciliation_us": 112.019,
+      "trial": 3,
+      "index": 13
+    }
+  ],
+  "commands": {
+    "check": "rtk moon check modules/canopy/editor",
+    "cell": "rtk moon bench --target native --release -p dowdiness/canopy/editor -f sync_editor_remote_admission_benchmark_wbtest.mbt -i <0..13>"
+  },
+  "limitations": [
+    "Native release only; no cross-runtime or end-user speedup claim is made.",
+    "Each phase and whole-call mode runs in a fresh process because the retained editor/parser runtime graph makes two H=100000 fixtures in one process exceed the benchmark environment resource envelope.",
+    "The initial H-operation hydration bypasses production ingress limits only during unmeasured setup; the measured one-operation message uses the production admission path.",
+    "Whole-call and segmented medians come from equivalent independent fixtures, so their difference is not an allocator or destruction counter.",
+    "MoonBench exposes no allocator counter."
+  ]
+}

@@ -126,6 +126,9 @@ Only needed if you are modifying Canopy itself.
 
 **Performance:**
 
+- [Canopy remote-admission authority transition](performance/2026-08-19-canopy-remote-admission-authority-transition.md)
+  — records the #1281 exact-effect cutover, correctness seam, native release
+  history/length matrix, and whole-call control.
 - [Canopy remote-admission phase attribution](performance/2026-08-18-canopy-remote-admission-phase-attribution.md)
   — isolates materialized-text snapshot lifecycle work from authority admission and
   parser/projection reconciliation, with an independent history/length matrix.
@@ -240,6 +243,8 @@ behavior** — check the code before relying on any specific detail.
 - [Causal Authority residency](decisions/2026-08-12-causal-authority-residency.md)
   — preserves one causal authority while choosing warm or cold residency by
   access path; retained state remains a validated accelerator.
+- [Authority-owned remote admission transition](decisions/2026-08-19-authority-owned-remote-admission-transition.md)
+  — consumes one opaque EGW admission transition, reconciles exact effects without a full authority snapshot, and bounds grapheme-safe snapshot fallback.
 - [Private restore coordinator for Loomark cold open](decisions/2026-08-20-loomark-private-restore-coordinator.md)
   — keeps the public cold-open interface unchanged while one private Rabbita
   module owns readiness, generation-gated fallback, and correlated activation.
@@ -266,6 +271,8 @@ behavior** — check the code before relying on any specific detail.
 
 Recently completed (for quick reference):
 
+- [Completed #1281 authority-transition implementation invariants](archive/completed-phases/2026-08-21-1281-authority-transition-implementation-invariants.md)
+  — records the implemented transition precedence, two-phase prepare/settle contract, Unicode coordinate seam, and compatibility constraints.
 - [Markdown List Payloads](archive/completed-phases/2026-06-20-markdown-list-payloads.md)
 - [Canvas Handles And Edges](archive/completed-phases/2026-05-14-canvas-handles-edges.md)
 - [Lambda Annotation Plumbing — Design](archive/completed-phases/2026-04-18-lambda-annotation-plumbing-design.md)

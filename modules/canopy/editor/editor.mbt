@@ -6,7 +6,7 @@
 /// Wraps a TextState and maintains cursor position
 pub struct Editor {
   doc : @text.TextState
-  mut cursor : Int // Current cursor position (0-based)
+  mut cursor : Int // Unicode-scalar position, 0-based
 } derive(Debug)
 
 ///|
@@ -41,6 +41,15 @@ pub fn Editor::move_cursor(self : Editor, position : Int) -> Unit {
   }
 }
 
+///|
+fn unicode_scalar_length(text : String) -> Int {
+  let mut length = 0
+  for _ in text {
+    length += 1
+  }
+  length
+}
+
 ///| Insert text at current cursor position
 
 ///|
@@ -49,7 +58,7 @@ pub fn Editor::move_cursor(self : Editor, position : Int) -> Unit {
 /// After insertion, cursor moves to after the inserted text
 pub fn Editor::insert(self : Editor, text : String) -> Unit raise {
   self.doc.insert(@text.Pos::at(self.cursor), text)
-  self.cursor += text.length()
+  self.cursor += unicode_scalar_length(text)
 }
 
 ///| Insert text at a specific position

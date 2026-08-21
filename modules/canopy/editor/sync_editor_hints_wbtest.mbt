@@ -239,10 +239,9 @@ test "multi-span authority batch replays once and matches fresh parse" {
 
 ///|
 test "multi-span parser failure preserves accepted final causal version" {
-  let source = try! @probe.new_test_editor("multi-span-failure-source")
-  source.set_text("ab")
   let editor = try! @probe.new_parser_failure_test_editor("multi-span-failure")
-  ignore(try! editor.admit(try! source.export_all()))
+  try! editor.authority.doc.insert(@text.Pos::at(0), "ab")
+  editor.sync_parser_from_supplied_seed("ab")
   let before_version = editor.get_version()
   let result : Result[Unit, Error] = Ok(
     editor.apply_span_edits(
