@@ -113,17 +113,20 @@ def validate-envelopes [rows: list<any> required_cases: list<string>] {
   ""
 }
 
+def normalize-operations [operations: list<any>] {
+  $operations | each {|operation|
+    { identity: $operation.id parents: $operation.parents payload: { kind: $operation.kind content: ($operation | get -o content) origin_left: ($operation | get -o origin_left) origin_right: ($operation | get -o origin_right) } }
+  }
+}
+
 def run-markdown-oracle [root: string mode: string = "undelete"] {
   let produced = (^moon -C $root run apps/loomark/restore_feasibility_oracle --target native producer | complete)
   if $produced.exit_code != 0 { fail $"Markdown archive producer failed: ($produced.stderr)" }
   let producer_raw = ($produced.stdout | str trim | from json)
-  let archive = ($producer_raw.payload.archive_json | from json)
-  let base_history = ($archive.history | from json)
-  let base_operation_count = ($base_history.operations | length)
   let oracle_history = ($producer_raw.payload.oracle_post_edit_history | from json)
-  let oracle_op = ($oracle_history.operations | get $base_operation_count)
-  let oracle_next = { identity: $oracle_op.id parents: $oracle_op.parents payload: { kind: $oracle_op.kind content: ($oracle_op | get -o content) origin_left: ($oracle_op | get -o origin_left) origin_right: ($oracle_op | get -o origin_right) } }
-  let producer = ($producer_raw | upsert payload.oracle_next_operation $oracle_next)
+  let oracle_next_operations = (normalize-operations $oracle_history.operations)
+  if ($oracle_next_operations | is-empty) { fail "Markdown oracle emitted no next operations" }
+  let producer = ($producer_raw | upsert payload.oracle_next_operation ($oracle_next_operations | first) | upsert payload.oracle_next_operations $oracle_next_operations)
   let archive_bytes = $producer.payload.archive_json
   let archive_file = (^mktemp | str trim)
   $archive_bytes | save -f $archive_file
@@ -132,9 +135,9 @@ def run-markdown-oracle [root: string mode: string = "undelete"] {
   if $consumer.exit_code != 0 { fail $"Markdown fresh consumer failed: ($consumer.stderr)" }
   let consumer_raw = ($consumer.stdout | str trim | from json)
   let consumer_history = ($consumer_raw.payload.post_insert_history | from json)
-  let consumer_op = ($consumer_history.operations | get $base_operation_count)
-  let consumer_next = { identity: $consumer_op.id parents: $consumer_op.parents payload: { kind: $consumer_op.kind content: ($consumer_op | get -o content) origin_left: ($consumer_op | get -o origin_left) origin_right: ($consumer_op | get -o origin_right) } }
-  let consumer_row = ($consumer_raw | upsert payload.next_operation $consumer_next)
+  let consumer_next_operations = (normalize-operations $consumer_history.operations)
+  if ($consumer_next_operations | is-empty) { fail "Markdown consumer emitted no next operations" }
+  let consumer_row = ($consumer_raw | upsert payload.next_operation ($consumer_next_operations | first) | upsert payload.next_operations $consumer_next_operations)
   [$producer $consumer_row]
 }
 
@@ -242,7 +245,7 @@ def main [--output-dir: string --allow-dirty --inject-failure: string] {
     }
     let archive_producer = ($markdown | where producer == "markdown_archive_producer" | first)
     let archive_consumer = ($markdown | where producer == "markdown_oracle" | first)
-    if $archive_consumer.payload.next_operation != $archive_producer.payload.oracle_next_operation or $archive_consumer.payload.frontier_after_insert != $archive_producer.payload.oracle_post_edit_frontier {
+    if $archive_consumer.payload.next_operation != $archive_producer.payload.oracle_next_operation or $archive_consumer.payload.next_operations != $archive_producer.payload.oracle_next_operations or $archive_consumer.payload.frontier_after_insert != $archive_producer.payload.oracle_post_edit_frontier {
       error make { msg: "causal_semantics_mismatch: normalized next operation or post-edit frontier differs" }
     }
     if $archive_consumer.payload.text != $archive_producer.payload.expected_after_text {
