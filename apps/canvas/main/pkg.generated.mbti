@@ -44,9 +44,9 @@ pub fn get_workflow_node_catalog() -> String
 
 pub fn mount_canvas_context_menu(Int, Bool, () -> Unit, (String) -> Unit) -> Unit
 
-pub fn mount_canvas_edge_layer() -> Unit
-
 pub fn mount_canvas_pointer_session(Int, Bool, () -> Unit) -> Unit
+
+pub fn mount_canvas_render_layer() -> Unit
 
 pub fn mount_source_demo(Int, Bool, () -> Unit) -> Unit
 
@@ -67,7 +67,7 @@ pub fn try_destroy_source_graph(Int) -> Bool
 // Types and methods
 type CanvasFullRenderJson derive(Eq)
 
-type ConnectingJson derive(Eq, ToJson)
+type ConnectingJson derive(Eq, ToJson, @json.FromJson)
 
 type EdgeJson derive(Eq, ToJson, @json.FromJson)
 
@@ -75,9 +75,9 @@ type InspectorNodeJson derive(Eq, ToJson)
 
 type LoweredCanvas derive(Eq)
 
-type NodeJson derive(Eq, ToJson)
+type NodeJson derive(Eq, ToJson, @json.FromJson)
 
-type NodeParamJson derive(Eq, ToJson)
+type NodeParamJson derive(Eq, ToJson, @json.FromJson)
 
 type NormalizedCanvas derive(Eq)
 
@@ -97,7 +97,7 @@ type SourceNodePosition
 
 type ValidatedCanvas derive(Eq)
 
-type ValidationJson derive(Eq, ToJson)
+type ValidationJson derive(Eq, ToJson, @json.FromJson)
 
 // Type aliases
 pub using @graph_model {type CanvasNode}

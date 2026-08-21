@@ -12,7 +12,7 @@ function indexHtml(): string {
   return readFileSync(resolve(process.cwd(), 'index.html'), 'utf8');
 }
 
-test('workflow edge and context-menu authority is not held by TypeScript', () => {
+test('workflow render and context-menu authority is not held by TypeScript', () => {
   const main = source('main.ts');
   const adapter = source('graph-adapter.ts');
 
@@ -31,7 +31,12 @@ test('workflow edge and context-menu authority is not held by TypeScript', () =>
   expect(main).not.toContain('canopy-canvas-context-menu-hide');
   expect(main).toContain('mount_canvas_context_menu');
   expect(main).toContain('adapter.publishRenderState()');
-  expect(main).toContain('mount_canvas_edge_layer');
+  expect(main).toContain('mount_canvas_render_layer');
+  expect(main).not.toContain('nodeDivs');
+  expect(main).not.toContain('renderPortHandles');
+  expect(main).not.toContain('inputCompatibilityByTarget');
+  expect(main).not.toContain('world.style.transform');
+  expect(main).not.toContain('className = `canvas-node workflow-node`');
   expect(main).not.toContain('SVG_NS');
   expect(main).not.toContain('edgesSvg');
   expect(main).not.toContain('edgePaths');
@@ -43,7 +48,8 @@ test('workflow edge and context-menu authority is not held by TypeScript', () =>
   expect(main).not.toContain('nodesById');
   expect(main).not.toContain('edge.source_port');
   expect(main).not.toContain('edge.target_port');
-  expect(indexHtml()).toContain('id="canvas-edge-layer"');
+  expect(indexHtml()).toContain('id="canvas-render-layer"');
+  expect(indexHtml()).not.toContain('id="canvas-edge-layer"');
   expect(indexHtml()).not.toContain('<svg id="edges"');
   expect(main).toContain('get_workflow_node_catalog');
   expect(adapter).not.toContain('select_edge');

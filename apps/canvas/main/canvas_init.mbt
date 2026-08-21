@@ -55,7 +55,7 @@ struct NodeParamJson {
   value : String
   unit : String?
   editable : Bool
-} derive(Eq, ToJson)
+} derive(Eq, ToJson, FromJson)
 
 ///|
 /// Serializable node snapshot. Uses plain String for `id` to carry
@@ -73,7 +73,7 @@ struct NodeJson {
   outputs : Array[PortDef]
   configured : Bool
   params : Array[NodeParamJson]
-} derive(Eq, ToJson)
+} derive(Eq, ToJson, FromJson)
 
 ///|
 struct EdgeJson {
@@ -92,7 +92,7 @@ struct ConnectingJson {
   cursor_x : Double
   cursor_y : Double
   path_d : String?
-} derive(Eq, ToJson)
+} derive(Eq, ToJson, FromJson)
 
 ///|
 struct PortCompatibilityJson {
@@ -106,7 +106,7 @@ struct ValidationJson {
   severity : String
   message : String
   node_id : String?
-} derive(Eq, ToJson)
+} derive(Eq, ToJson, FromJson)
 
 ///|
 struct InspectorNodeJson {

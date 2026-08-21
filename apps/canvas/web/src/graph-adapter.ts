@@ -5,7 +5,7 @@ export type CanvasModule = {
     sourceBacked: boolean,
     onChange: () => undefined,
   ) => undefined;
-  mount_canvas_edge_layer: () => undefined;
+  mount_canvas_render_layer: () => undefined;
   publish_render_state: (h: number, sourceBacked: boolean) => string;
   add_node: (h: number, kindKey: string, sx: number, sy: number) => void;
   delete_nodes: (h: number, nodeIdsJson: string) => void;
