@@ -242,7 +242,7 @@ The runner invokes the provider's distinct `read_full_history` operation. It can
 - `CausalGraph::{raw_to_lv,lv_to_raw,get_entry,graph_diff,diff_frontiers_lvs,is_ancestor}` remain white-box oracle/reference APIs.
 - `Op::parents_iter()`, identity/content accessors, `Map`, `Bytes`, and `Buffer` support canonical sidecar construction. `origin_left()`/`origin_right()` are used only by the separately tagged legacy compatibility/oracle profile.
 - No public helper exposes the required declared-parent/predecessor/semantic-reference split. `EventMetaV2`, `R0HeadRecordV2`, and their named constructors live in the executable-local test package so no cross-package writable fields or `.mbti` surface are needed. A new package-local canonicalization helper is unavoidable; its sole responsibility is constructing those values, and property tests compare it with existing admission readiness/target validation.
-- `moonbitlang/x/crypto` is not currently an EGW dependency. Using it requires an explicit executable-only `moon.pkg`/module dependency change reviewed in the EGW submodule; otherwise Nushell performs SHA-256 over emitted canonical records.
+- `moonbitlang/x/crypto` is not currently an EGW dependency. Gate R0 selects an explicit probe dependency for native/JS hashing and uses Nushell only as an independent verifier; a Nushell-only candidate boundary is not accepted. The EGW submodule review and publish preflight must prove the probe/crypto dependency is excluded from the production archive, or candidate support records bounded negatives without widening production packages.
 
 ### Checked but not used as the provider boundary
 

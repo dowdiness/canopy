@@ -146,7 +146,7 @@ Requirements:
 - Before UTF-8 encoding/hashing, test-only preflight rejects malformed UTF-16 in every string field, including document/agent IDs. This avoids JS `TextEncoder` replacement diverging from native encode failure.
 - Sorting costs O(d log d) for an event with `d` unique dependencies unless a canonical sorted representation is retained.
 - The overlay is derived, discardable sidecar metadata. Canonical operation identities and wire bytes do not change.
-- SHA-256 may be supplied by the test executable's explicit `moonbitlang/x/crypto` dependency or by Nushell over emitted canonical event records; production EGW packages gain no implicit crypto dependency.
+- Gate R0 fixes `selected_hash_boundary = executable_crypto_dependency`: the native/JS test executable uses explicit `moonbitlang/x/crypto`, while Nushell independently verifies emitted canonical-record hashes. A Nushell-only candidate hash boundary is not accepted because the fresh JS consumer must verify and extend digests for first-local events. Publish preflight must prove the probe/crypto dependency is excluded from the production archive.
 
 ### Graph commitment
 

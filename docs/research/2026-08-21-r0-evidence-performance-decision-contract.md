@@ -144,7 +144,7 @@ Canonical generator rules:
 - `U-mixed(n)`: repeat `[Insert x, Insert y, DeleteScalar(position of x), Undelete(identity of x)]`; required scales are divisible by four.
 - `C-multiroot(n)`: two independent root chains of `floor(n/2)` and `n - floor(n/2)` events with no merge.
 
-`scalar_pattern` is the seven-scalar `S-unicode` sequence above. Delete/undelete rows retain the exact selected identity in generator evidence. Parent/frontier and body records are emitted in a checked-in `fixture-catalog-v1.json` during #1289; the catalog contains the fully expanded canonical event bytes and expected SHA-256 for every required scale. Native and JS consumers must compare against that immutable catalog. #1289 may mechanically compute the hashes from these rules, but may not change an event, position, parent, writer, scale, or seed to improve a result; #1319 reviews the initial catalog before candidate work starts. `manifest.json` records the catalog revision and hash in addition to each generated graph hash.
+`scalar_pattern` is the seven-scalar `S-unicode` sequence above. Delete/undelete rows retain the exact selected identity in generator evidence. Parent/frontier and body records are emitted in a checked-in `fixture-catalog-v1.json` during #1289; the catalog contains the fully expanded canonical event bytes and expected SHA-256 for every required scale. Native and JS consumers must compare against that immutable catalog. #1289 may mechanically compute the hashes from these rules, but may not change an event, position, parent, writer, scale, or seed to improve a result. #1319 verifies these generation rules are decision-complete before implementation; after #1289 emits the initial catalog, a separate independent catalog review recorded in #1289 must pass before #1291/#1292 paper-path work or #1290 legacy-control measurement starts. `manifest.json` records the catalog revision/hash, each generated graph hash, and `fixture_seed: "none"` for every formula-generated fixture (no random source is permitted).
 
 ### Required native/JS morphologies
 
@@ -234,7 +234,7 @@ The canonical runner writes exactly the registered artifact filenames. This deci
 
 | Artifact | Authoritative content |
 |---|---|
-| `manifest.json` | source/submodule/tool/browser revisions; clean base; fixture seeds/hashes; `r0_resource_profile_v1`; sample/warm-up counts; target/runtime; shared-effect-boundary presence; measurement capabilities; baseline failures; selected SHA-256 boundary (`executable_crypto_dependency` or `nushell_canonical_records`) |
+| `manifest.json` | source/submodule/tool/browser revisions; clean base; fixture seeds/hashes; `r0_resource_profile_v1`; sample/warm-up counts; target/runtime; shared-effect-boundary presence; measurement capabilities; baseline failures; selected SHA-256 boundary (`executable_crypto_dependency` for Gate R0; native/JS probe hashing plus independent Nushell verification) |
 | `result.json` | gate `pass`/`fail`; fixed failure class/exit code; candidate/path outcomes; selected promotable paths or `none`; artifact hashes |
 | `capability-ledger.json` | every matrix row → minimum authority tier, projection state, expected path, required reads, demonstrated result |
 | `candidate-captures.jsonl` | owned bytes-only capture identity, content/publication IDs, component byte counts/hashes, capture/rebuild/maintenance timing, producer revision; no live handles |
@@ -300,6 +300,7 @@ Fixed Candidate negative reasons are:
 - `payload_missing_or_corrupt`;
 - `replay_base_unprovable`;
 - `placeholder_tracker_unavailable`;
+- `legacy_control_unavailable`;
 - `resource_bound`;
 - `read_not_bounded`;
 - `semantic_mismatch_detected`;
@@ -399,7 +400,7 @@ The plan and implementation tickets must be rewritten to reflect this decision:
 - replace “closed-concurrent zero reads” with bounded authenticated concurrency accounting;
 - include the fixed matrix, S/C/A morphologies, resource profile, artifacts, sampling, thresholds, and negative taxonomy here;
 - preserve the EGW submodule push-before-parent-pointer rule and require publish preflight to prove the executable probe is excluded while the extracted module remains exactly one verified archive; if not, use package-local test stdout rather than widening exports;
-- choose and record the executable-only `moonbitlang/x/crypto` boundary or Nushell canonical-record hashing without adding an implicit production crypto dependency;
+- use and record `selected_hash_boundary = executable_crypto_dependency`: native/JS probe hashing through `moonbitlang/x/crypto` plus independent Nushell verification, while proving the probe dependency is excluded from the production archive;
 - keep the current Markdown façade limitation explicit: no text import is causal candidate evidence, and browser candidate timing is not applicable without a later reviewed opaque seam;
 - start implementation with the runner/independent oracle, then ordinary restore, bounded concurrency, undelete, legacy control, and final comparison as separate slices.
 
