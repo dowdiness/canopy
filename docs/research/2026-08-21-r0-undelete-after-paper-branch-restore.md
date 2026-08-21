@@ -285,7 +285,6 @@ The [restore architecture reassessment](2026-08-19-egwalker-r0-restore-architect
 | Resident tombstone map | Persists per-character CRDT metadata contrary to the paper branch. |
 | Reverse index (target → ops) | Same objection; duplicates `DeleteIndex` into the normal branch. |
 | Kind field in resident head record | Replay-set selection must be causal-only; kind is verified from the target's own metadata. |
-
 | Reverse provider query | Provider contract exposes named-point lookup only; "which ops target this" is not a provider decision. |
 | Guess target from resident text | Resident text has no causal identity; violates the bytes-only handoff. |
 | Overload `origin_left` as canonical target | Conflates Fugue positional origin with semantic reference; breaks the canonical event digest. |

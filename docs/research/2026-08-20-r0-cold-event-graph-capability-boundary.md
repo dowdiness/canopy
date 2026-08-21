@@ -49,6 +49,8 @@ WriterCommitmentV2 {
 }
 ```
 
+Both encode under the [shared test codec](2026-08-20-r0-canonical-positional-event-unicode-contract.md#shared-test-codec) in this exact field order: `R0HeadRecordV2 = RawVersion || fixed 32-byte digest || uvarint(causal_rank_timestamp)`; `WriterCommitmentV2 = lp_utf8(agent) || uvarint(leaf_count) || fixed 32-byte tip digest || fixed 32-byte MMR root`.
+
 Rules:
 
 - Head and writer arrays use canonical raw-identity order: unsigned bytewise lexical order of preflight-validated UTF-8 agent bytes, then numeric sequence where applicable. MoonBit `String::compare` is not this comparator.
@@ -83,6 +85,8 @@ EventMetaV2 {
 }
 ```
 
+The `EventMetaV2` field order and encodings are frozen under the [shared test codec](2026-08-20-r0-canonical-positional-event-unicode-contract.md#shared-test-codec): `identity` as `RawVersion`; `kind` as the kind tag byte (`InsertScalar 0x01`, `DeleteScalar 0x02`, `Undelete 0x03`); `event_digest_v2` and `body_digest` as fixed 32 bytes; `causal_rank_timestamp` as uvarint; `declared_parents` as `uvarint(count)` then `(RawVersion || fixed 32-byte digest)` records; `implicit_predecessor` as `opt` tag (`0x00`/`0x01`) then `RawVersion || fixed 32-byte digest` when present; `semantic_references` as `uvarint(count)` then `(role tag || RawVersion || fixed 32-byte digest || required-kind tag)` records (`UndeleteTarget` role `0x01`, required kind Insert `0x01`); `payload_byte_length` as uvarint. Arrays use count-then-records with canonical raw-identity ordering.
+
 - `declared_parents` contains only the operation's declared causal parents. These are the only edges replayed into `CausalGraph`. Canonical R0 preflight rejects duplicate declared-parent identities rather than deduplicating them, because EGW preserves duplicate-parent multiplicity in operation identity.
 - `implicit_predecessor` is present exactly when sequence is greater than zero. It is a readiness/sequence proof, not silently converted into a declared graph edge. Admission additionally proves that predecessor is reachable through the declared-parent closure; mere predecessor presence is insufficient.
 - For canonical positional events, `semantic_references` contains only operation-model roles needed for validation but not declared causal traversal: currently the dedicated undelete target. A reference is retained with its role and required kind even when the same identity also appears as a declared parent or predecessor; identity deduplication must never erase semantic role evidence. Legacy left/right Fugue origins belong to a separately tagged compatibility/oracle metadata profile and never enter canonical event identity.
@@ -109,14 +113,26 @@ meta_leaf_hash_v2 = SHA-256(domain("loomark-r0-meta-leaf:v2") || canonical Event
 meta_node_hash_v2 = SHA-256(domain("loomark-r0-meta-node:v2") || uvarint(height) || left || right)
 writer_root_v2    = SHA-256(
   domain("loomark-r0-writer-root:v2")
-  || length_prefixed_utf8(agent)
+  || lp_utf8(agent)
   || uvarint(leaf_count)
   || uvarint(peak_count)
-  || peaks_in_descending_height_order(height, digest)
+  || peaks in descending height order, each: uvarint(height) || fixed 32-byte digest
 )
 ```
 
-`WriterCommitmentV2.event_meta_mmr_root_v2` stores exactly the `writer_root_v2` value below. Leaves are height 0 via `meta_leaf_hash_v2`. Append uses binary carry over equal-height peaks; when two child peaks of height `h` merge, the `meta_node_hash_v2` height field is the new internal node's own height `h + 1`. An inclusion proof contains sequence/leaf position, containing peak height, bottom-up sibling digests with left/right direction, and every other peak needed to reconstruct `writer_root_v2`. The verifier rejects wrong leaf position, height, peak order/count, extra bytes, or a root mismatch. Proofs and roots from an unregistered scheme are unsupported rather than heuristically accepted.
+All encodings come from the shared test codec; `lp_utf8` is the codec's length-prefixed UTF-8 string. `WriterCommitmentV2.event_meta_mmr_root_v2` stores exactly the `writer_root_v2` value below. Leaves are height 0 via `meta_leaf_hash_v2`. Append uses binary carry over equal-height peaks; when two child peaks of height `h` merge, the `meta_node_hash_v2` height field is the new internal node's own height `h + 1`. An inclusion proof is frozen as:
+
+```text
+mmr_inclusion_proof_v2 =
+  uvarint(leaf_position)                 // the leaf's sequence
+  || uvarint(containing_peak_height)
+  || uvarint(sibling_count)
+  || bottom-up sibling records, each: (proof-direction tag || fixed 32-byte digest)
+  || uvarint(other_peak_count)
+  || other peaks in descending height order, each: (uvarint(height) || fixed 32-byte digest)
+```
+
+`sibling_count` and `other_peak_count` are explicit; `sibling_count` must equal `containing_peak_height`. Every other peak carries the height that is included in `writer_root_v2`, and those peaks are emitted in strictly descending height order. Together with the bottom-up siblings (direction tags left `0x00` / right `0x01`), they reconstruct `writer_root_v2` without deriving an omitted height. The verifier rejects wrong leaf position, height, sibling/other-peak count, peak order, direction tag, extra bytes, or a root mismatch. Proofs and roots from an unregistered scheme are unsupported rather than heuristically accepted.
 
 ### Tier 2 — cold event payload
 
@@ -173,6 +189,28 @@ The provider does **not** expose:
 
 The provider shell performs I/O only. Pure verification turns encoded responses into owned `VerifiedEventMeta`/`VerifiedEventPayload` values; pure planners consume those values and return the next metadata/payload request or a decision.
 
+### Provider fixture
+
+The provider fixture is a separate immutable test input, never a provider read result:
+
+```text
+ProviderFixtureEnvelopeV1 =
+  domain("loomark-r0-provider-fixture:v1")
+  || snapshot_commit_id                    // fixed 32 bytes
+  || uvarint(meta_record_count)
+  || sorted meta records, each: (RawVersion || lp_bytes(canonical EventMetaV2) || lp_bytes(mmr_inclusion_proof_v2))
+  || uvarint(payload_record_count)
+  || sorted payload records, each: (RawVersion || lp_bytes(EventPayloadV1.canonical_event_body_bytes))
+  || lp_bytes(full_history_bytes)
+```
+
+- The JS shell decodes the provider fixture, but the candidate core accesses provider data only through the three provider operations (`lookup_event_meta_batch`, `read_event_payload_batch`, `read_full_history`); fixture-internal layout is never exposed to the core.
+- `full_history_bytes` is exactly the native authority's current package-owned `SyncSession::export_all().to_canonical_bytes()` output captured for that snapshot. It is the oracle/fallback body and is served only by `read_full_history`; its events/bytes remain counted in `full_history_events`/`full_history_bytes`, and the counters stay exact. The fixture is a conformance/control input, not a fourth read path, and candidate paths may not decode or inspect this field except after an explicit full-history fallback decision.
+- The checked-in fixture catalog is conformance input only: its canonical bytes/hashes are compared against produced bytes, but the catalog never serves as provider data.
+- `resident_candidate_bytes` covers only bytes decoded before editability; the pinned catalog and provider fixture are test inputs and are exempt from it.
+
+Gate R0 requires a checked-in `deps/event-graph-walker/internal/restore_feasibility_probe/fixtures/r0-codec-golden-vectors.json` covering empty and nonempty vectors for: codec primitives (`uvarint`, `lp_bytes`/`lp_utf8`, `domain`, `opt`, arrays, kind/coordinate/role/required-kind/proof-direction tags, `RawVersion`), canonical body, `EventMetaV2`, MMR inclusion proofs, `R0SnapshotCommitV2`, `PaperBranchCandidateEnvelopeV1`, and `ProviderFixtureEnvelopeV1`. Native, fresh JS, and independent Nushell must byte/hash match every vector before the fixture catalog is generated (#1289).
+
 ## Path contracts
 
 ### Receipt validation and read-only text
@@ -218,7 +256,7 @@ If the proof needs an older event, classify `indexed_forward`, not closed strict
 - The pure planner walks only authenticated metadata needed to prove a replay base and conflict region.
 - Metadata requests are batched by traversal frontier.
 - Every planning request carries explicit maximum metadata nodes, proof bytes, payload events, payload bytes, and elapsed time. Exceeding any limit returns a pure `FallbackRequired` decision.
-- After the replay set is fixed within those limits, fetch payloads for exactly that set in stable topological order/batches.
+- After the replay set is fixed within those limits, fetch payloads for exactly that set in #1315's frozen Kahn order over declared-parent edges with canonical raw-identity ready-set ordering; destination LV/admission/storage order is never a tie-break.
 - Temporary placeholder merge state is discarded after producing text effects.
 - Metadata and payload reads are expected and bounded by the selected region, not required to be zero.
 - An unavailable proof, missing payload, exceeded resource policy, or unprovable replay base causes explicit full-history fallback.
@@ -253,7 +291,7 @@ The runner invokes the provider's distinct `read_full_history` operation. It can
 - `walk_and_collect()` / `diff_and_collect()`: combine metadata traversal with payload expansion and therefore hide tier accounting; use only as oracle comparisons.
 - `CausalCut`: wbtest prototype built from a full operation copy; not retained provider state.
 
-The producer is the planned executable package `deps/event-graph-walker/internal/restore_feasibility_probe/` inside the EGW module and imports the intentionally public `internal/oplog`, `internal/causal_graph`, and `internal/core` packages. This creates only an executable/test-package boundary and reviewed internal `.mbti` dependencies, not a Canopy or Markdown façade. If publish preflight cannot prove exclusion from production package exports, use the plan's package-local test-stdout fallback and record the boundary result.
+The producer is the planned executable package `deps/event-graph-walker/internal/restore_feasibility_probe/` inside the EGW module and imports the intentionally public `internal/oplog`, `internal/causal_graph`, and `internal/core` packages. This creates only an executable/test-package boundary and reviewed internal `.mbti` dependencies, not a Canopy or Markdown façade. If publish preflight cannot prove executable/probe/crypto exclusion from production package exports, do not create a substitute package or widen exports. The runner completes independently runnable oracle/control artifacts, records A/C `negative: capture_capability_absent` and `negative: js_consumer_capability_absent`, and does not run candidate `moon run` commands.
 
 ## Read accounting contract
 

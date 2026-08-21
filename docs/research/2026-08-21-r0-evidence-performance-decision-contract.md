@@ -144,7 +144,23 @@ Canonical generator rules:
 - `U-mixed(n)`: repeat `[Insert x, Insert y, DeleteScalar(position of x), Undelete(identity of x)]`; required scales are divisible by four.
 - `C-multiroot(n)`: two independent root chains of `floor(n/2)` and `n - floor(n/2)` events with no merge.
 
-`scalar_pattern` is the seven-scalar `S-unicode` sequence above. Delete/undelete rows retain the exact selected identity in generator evidence. Parent/frontier and body records are emitted in a checked-in `fixture-catalog-v1.json` during #1289; the catalog contains the fully expanded canonical event bytes and expected SHA-256 for every required scale. Native and JS consumers must compare against that immutable catalog. #1289 may mechanically compute the hashes from these rules, but may not change an event, position, parent, writer, scale, or seed to improve a result. #1319 verifies these generation rules are decision-complete before implementation; after #1289 emits the initial catalog, a separate independent catalog review recorded in #1289 must pass before #1291/#1292 paper-path work or #1290 legacy-control measurement starts. `manifest.json` records the catalog revision/hash, each generated graph hash, and `fixture_seed: "none"` for every formula-generated fixture (no random source is permitted).
+`scalar_pattern` is the seven-scalar `S-unicode` sequence above. Delete/undelete rows retain the exact selected identity in generator evidence.
+
+The generator is byte-complete before the catalog exists:
+
+- Each fixture starts from empty text. Its ASCII `fixture_id` is `<shape>-<n>`, except `A-long-10000-r001`, `A-long-10000-r010`, and `A-long-10000-r050`; `document_id` is exactly `loomark-r0-fixture-` followed by that `fixture_id`.
+- Catalog event ordinal `i` is zero-based generation order. Unless a morphology overrides it, an insert uses `scalar_pattern[i mod 7]`; an append position is the current visible scalar length at that event's declared parent frontier.
+- Unless a morphology overrides writer/parents, events form one chain, event 0 has no declared parent, each later event declares the previous event as its sole parent, and writer blocks of 64 alternate `r0-a`, `r0-b`, beginning with `r0-a`. Each writer's sequence is its zero-based count of prior generated events for that writer.
+- `S-linear` uses the default chain and append rule. `S-distributed` uses the default chain/writers/scalar rule and position `(i * 2654435761) mod (current_scalar_length + 1)`.
+- `S-tombstone` first emits `ceil(2n/3)` default appends. Delete ordinal `j` then emits `DeleteScalar((j * 2654435761) mod current_scalar_length)` on the same default chain/writer schedule; `j` starts at zero and current length is recomputed after each delete.
+- `S-replacement` emits 50 default appends, then repeats 50 deletes at `current_scalar_length - 1` followed by 50 default appends, stopping immediately after event ordinal `n - 1`; an incomplete final block is not padded.
+- `S-unicode` uses the default chain/writers and appends `scalar_pattern[i mod 7]`.
+- Each `C-short` block records `base_length`, emits eight `r0-a` events first and eight `r0-b` events second. The first event of each branch declares the prior shared frontier; later branch events declare only their prior same-branch event and insert at `base_length + branch_offset`. One `r0-merge` event then declares both tips in canonical raw-identity order and appends at `base_length + 16`. Repeat 588 blocks, then emit four `r0-merge` chain appends. All inserted scalars use their global catalog ordinal.
+- `A-long` emits the shared prefix as an `r0-merge` chain, then the complete `r0-a` branch followed by the complete `r0-b` branch in catalog order. Each branch starts from the shared-prefix tip and appends at `shared_length + branch_offset`. The final `r0-merge` event has the next contiguous merge-writer sequence, declares both branch tips in canonical raw-identity order, and appends at `shared_length + a_len + b_len`. Empty shared/branch cases use the corresponding root/tip frontier without inventing a parent.
+- Each `U-mixed` block uses one `r0-a` chain: insert U+0078 at the current end; insert U+0079 at the new end; delete the first insert at the block's starting scalar position; undelete that exact first Insert `RawVersion`. Event counts are divisible by four.
+- `C-multiroot` emits the complete `r0-a` root chain first and complete `r0-b` root chain second. Each first event has no parent; later events parent only the prior same-writer event; each inserts `scalar_pattern[i mod 7]` at its chain-local visible end. No merge is emitted.
+
+Every multi-parent list is stored in canonical raw-identity order. The catalog records the event-generation ordinal but that ordinal is never a causal identity, tie-break, or destination LV. Parent/frontier and body records are emitted in a checked-in `fixture-catalog-v1.json` during #1289; the catalog contains `fixture_id`, `document_id`, the fully expanded canonical event bytes, expected stable topological replay IDs for every registered concurrency case, and expected SHA-256 for every required scale. Native and JS consumers must compare against that immutable catalog. #1289 may mechanically compute the hashes from these rules, but may not change an event, position, parent, writer, scale, or seed to improve a result. #1319 verifies these generation rules are decision-complete before implementation; after #1289 emits the initial catalog, a separate independent catalog review recorded in #1289 must pass before #1291/#1292 paper-path work or #1290 legacy-control measurement starts. `manifest.json` records the catalog revision/hash, each generated graph hash, and `fixture_seed: "none"` for every formula-generated fixture (no random source is permitted).
 
 ### Required native/JS morphologies
 
@@ -162,18 +178,11 @@ Canonical generator rules:
 
 Each fixture records at least: event count, writer count, exact head count, graph run count, maximum/mean parent count, maximum causal rank, inserted scalars/bytes, deletes, undeletes, tombstoned scalars, final UTF-8 bytes/scalars/UTF-16 units, canonical body bytes, full-history bytes, snapshot bytes, V2 metadata/index bytes, reconstructed replay-region events, and seed/hash.
 
-The 100k scale is required only for native producer/oracle and sidecar structural scaling. The fresh JS consumer is required through 10k. The 100k scale is structural-size/rebuild evidence only: generate once for canonical bytes/size and run five descriptive full-overlay rebuild samples after one warm-up, reporting every raw value without p50/p95 or promotion use. It does not use the 30-sample latency procedure. Browser product timing uses only fixtures that fit the unchanged v1 archive/storage boundary and records `QuotaExceededError` or timeout as a storage/harness limitation, never as a candidate timing sample.
+The 100k scale is required only for native producer/oracle and sidecar structural scaling. The fresh JS consumer is required through 10k. The 100k scale is structural-size/rebuild evidence only: generate once for canonical bytes/size and run five descriptive full-overlay rebuild samples after one warm-up, reporting every raw value without p50/p95 or promotion use. It does not use the 30-sample latency procedure. Generation of the 100k canonical bytes/size is owned by #1289; the five descriptive rebuild samples are measured by #1291. Browser product timing uses only fixtures that fit the unchanged v1 archive/storage boundary and records `QuotaExceededError` or timeout as a storage/harness limitation, never as a candidate timing sample.
 
 ### Required Chromium product fixtures
 
-The release-browser black-box oracle/control slice uses at least these valid archive shapes with the same final Markdown where practical:
-
-1. append-only;
-2. distributed edits;
-3. insert/delete-heavy;
-4. replacement-heavy small final text;
-5. Unicode/non-BMP;
-6. one ordinary first edit immediately after each restore.
+#1289 generates and checks in `apps/loomark/examples/vanilla/fixtures/r0-browser-v1/browser-fixture-catalog-v1.json` plus the five complete v1 archive files it names. The catalog rows are fixed to `S-linear-1000`, `S-distributed-1000`, `S-tombstone-1000`, `S-replacement-1000`, and `S-unicode-1000`; the native `LegacyOracleEventV1` adapter constructs each archive through the unchanged production `Document`/v1 archive encoder. Every row records `fixture_id`, relative archive path, archive SHA-256/byte length, expected restored UTF-8 text/hash, `disposition: "valid"`, and the exact first edit: append U+005A at the restored text's UTF-16 end, with expected text/hash after that edit. The browser-fixture catalog and archive files are immutable after their independent #1289 regeneration/hash review; a quota failure or timeout is recorded as the runtime storage/harness limitation for that fixed row and never permits substitution or a candidate timing sample.
 
 The current browser surface times only full-history oracle open and public plain-text/edit behavior. Candidate paper-branch timing is `not_applicable: product_restore_seam_absent`; a text import with no causal past is not a candidate. Concurrency/undelete remote timing remains EGW native/JS evidence until Loomark has a production-equivalent sync seam. The runner must not label a package-local remote probe as browser collaboration evidence.
 
@@ -234,16 +243,16 @@ The canonical runner writes exactly the registered artifact filenames. This deci
 
 | Artifact | Authoritative content |
 |---|---|
-| `manifest.json` | source/submodule/tool/browser revisions; clean base; fixture seeds/hashes; `r0_resource_profile_v1`; sample/warm-up counts; target/runtime; shared-effect-boundary presence; measurement capabilities; baseline failures; selected SHA-256 boundary (`executable_crypto_dependency` for Gate R0; native/JS probe hashing plus independent Nushell verification) |
+| `manifest.json` | source/submodule/tool/browser revisions; clean base; fixture catalog, `r0-codec-golden-vectors.json`, and browser-fixture catalog/archive revisions/hashes; fixture seeds/hashes; `r0_resource_profile_v1`; sample/warm-up counts; target/runtime; shared-effect-boundary presence; measurement capabilities; baseline failures; selected SHA-256 boundary (`executable_crypto_dependency` for Gate R0; native/JS probe hashing plus independent Nushell verification); executable/crypto preflight commands, source/tool/crypto versions, and pass/fail |
 | `result.json` | gate `pass`/`fail`; fixed failure class/exit code; candidate/path outcomes; selected promotable paths or `none`; artifact hashes |
 | `capability-ledger.json` | every matrix row → minimum authority tier, projection state, expected path, required reads, demonstrated result |
-| `candidate-captures.jsonl` | owned bytes-only capture identity, content/publication IDs, component byte counts/hashes, capture/rebuild/maintenance timing, producer revision; no live handles |
+| `candidate-captures.jsonl` | owned bytes-only capture identity, content/publication IDs, canonical candidate bytes and separate provider-fixture bytes with component byte counts/hashes, capture/rebuild/maintenance timing, producer revision; no live handles; verification projection excluded |
 | `candidate-results.json` | raw samples and p50/p95/max by candidate/path/fixture/phase; ratios; byte/memory summaries; `pass`/`negative`/`not_applicable`; selection result |
 | `operation-matrix.jsonl` | one expanded row/sample with expected/actual classification, observation hashes, counters, and outcome |
 | `oracle-differential.jsonl` | candidate/oracle observations at the owning seam, normalized fields, equality result, detected-before-mutation flag |
 | `cold-history.jsonl` | one provider event plus phase totals; candidate and oracle streams separate; positive controls included |
 | `negative-results.json` | fixed negative reason, first failed obligation, fallback evidence, missing capability, limits/observed values, reproducible command/case |
-| `validation.log` | raw commands/output for preflight, hashes, Nushell check, EGW CI, `verify-publish-package.nu` one-archive/executable-exclusion proof, MoonBit checks/tests/fmt/info, `.mbti` diff review, browser run, submodule reachability/push order, independent reviews |
+| `validation.log` | raw commands/output for executable/crypto/golden-vector preflight, hashes, Nushell check, EGW CI, `verify-publish-package.nu` one-archive/executable-and-crypto-exclusion proof plus extracted `--frozen` check, MoonBit checks/tests/fmt/info, `.mbti` diff review, browser run, submodule reachability/push order, independent reviews |
 
 Raw timing samples live inside `candidate-results.json`; raw row observations live in the JSONL artifacts. Summaries without raw values are `evidence_missing`.
 
@@ -263,7 +272,7 @@ Raw timing samples live inside `candidate-results.json`; raw row observations li
 - Even `pair_id` runs candidate then oracle; odd `pair_id` runs oracle then candidate, yielding exactly 15 pairs in each order. Each arm starts a fresh consumer and a freshly reset cold provider/cache; input bytes, fixture hash, resource profile, and runtime build are identical within the pair. No arm may reuse provider cache or candidate state from its mate.
 - Phase clocks start after exact input bytes are available and end before evidence serialization. Process startup and evidence-write time are reported separately, not charged to the algorithm phase.
 - Capture/rebuild and incremental-maintenance timings use 10 warm-ups and 50 measured iterations over preconstructed deterministic inputs; mutation/setup outside the named phase is excluded and separately reported.
-- Percentiles use nearest-rank selection and raw values are retained. Every summary emits `n`, the one-based selected rank, and the selected sorted raw value (p95 rank 29 for n=30; rank 48 for n=50). p95 is descriptive; no confidence interval is claimed.
+- Percentiles use nearest-rank selection (`rank = ceil(p*n)`, one-based) and raw values are retained. Every summary emits `n`, the one-based selected rank, and the selected sorted raw value (p95 rank 29 for n=30; rank 48 for n=50). p95 is descriptive; no confidence interval is claimed.
 
 ### Chromium product measurements
 
@@ -399,7 +408,7 @@ The plan and implementation tickets must be rewritten to reflect this decision:
 - keep B as legacy control only;
 - replace “closed-concurrent zero reads” with bounded authenticated concurrency accounting;
 - include the fixed matrix, S/C/A morphologies, resource profile, artifacts, sampling, thresholds, and negative taxonomy here;
-- preserve the EGW submodule push-before-parent-pointer rule and require publish preflight to prove the executable probe is excluded while the extracted module remains exactly one verified archive; if not, use package-local test stdout rather than widening exports;
+- preserve the EGW submodule push-before-parent-pointer rule and require publish preflight to prove executable/probe/crypto exclusion while the extracted module remains exactly one verified archive; if not, run only the independently runnable oracle/control lane, record A/C `capture_capability_absent` plus `js_consumer_capability_absent`, and do not create a substitute package or run candidate commands;
 - use and record `selected_hash_boundary = executable_crypto_dependency`: native/JS probe hashing through `moonbitlang/x/crypto` plus independent Nushell verification, while proving the probe dependency is excluded from the production archive;
 - keep the current Markdown façade limitation explicit: no text import is causal candidate evidence, and browser candidate timing is not applicable without a later reviewed opaque seam;
 - start implementation with the runner/independent oracle, then ordinary restore, bounded concurrency, undelete, legacy control, and final comparison as separate slices.

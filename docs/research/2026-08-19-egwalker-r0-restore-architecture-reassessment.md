@@ -120,7 +120,7 @@ Source: [Loomark P3 archive reopen evidence](../evidence/2026-08-18-loomark-p3-a
 
 ## Recommended R0 model
 
-### Candidate P — paper branch
+### PaperBranch model — Candidate A ordinary path plus Candidate C extension
 
 Capture and restore an owned `document_text + canonical frontier` branch with the later content-addressed authority snapshot commit; mutable fixture generation remains only in its separate publication ref. Allocate a fresh writer identity. Append local scalar-indexed events directly. No history decode, full graph walk, Fugue hydration, or per-character causal table is allowed on this path.
 

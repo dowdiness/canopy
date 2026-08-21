@@ -117,9 +117,9 @@ Only needed if you are modifying Canopy itself.
   [issue #1322](https://github.com/dowdiness/canopy/issues/1322), governed by the
   [private restore coordinator decision](decisions/2026-08-20-loomark-private-restore-coordinator.md).
 - [Editable Loomark branch restore feasibility](plans/2026-08-19-loomark-editable-branch-restore-feasibility.md)
-  — Gate R0 implementation plan pending the coordinated #1318 rewrite. Its
-  `ClosedTail` and retained position/identity Candidate C wording is superseded
-  by the accepted [R0 research contracts](#research); do not implement it as-is.
+  — decision-complete Gate R0 implementation plan governed by the accepted
+  [R0 research contracts](#research); implementation begins with the
+  runner/oracle/catalog gate in issue #1289.
 - [Legacy TODO snapshot](archive/TODO-snapshot-2026-08-03.md) — historical
   candidates being triaged in
   [issue #1124](https://github.com/dowdiness/canopy/issues/1124), not active
