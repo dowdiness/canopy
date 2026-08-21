@@ -1,6 +1,7 @@
 import {
   "dowdiness/canopy/editor/markdown",
   "dowdiness/loomark/archive",
+  "moonbitlang/core/env",
   "moonbitlang/core/json",
 }
 

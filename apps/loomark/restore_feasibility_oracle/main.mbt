@@ -17,7 +17,7 @@ fn limits() -> @markdown.MarkdownArchiveOpenLimits {
 }
 
 ///|
-fn main {
+fn producer() -> Unit {
   let source = try! @markdown.MarkdownEditor(
     agent_id="gate-r0-markdown-producer",
     source="# Gate R0\n\nalpha 😀 omega\n",
@@ -30,6 +30,23 @@ fn main {
     editor=source,
   )
   let encoded = captured.to_json_string()
+  println(
+    Json::object({
+      "schema_version": Json::number(1.0),
+      "run_id": Json::string("gate-r0-v1"),
+      "case_id": Json::string("full-history-oracle"),
+      "producer": Json::string("markdown_archive_producer"),
+      "status": Json::string("pass"),
+      "payload": Json::object({
+        "archive_json": Json::string(encoded),
+        "archive_bytes": Json::number(encoded.length().to_double()),
+      }),
+    }).stringify(),
+  )
+}
+
+///|
+fn consumer(encoded : String) -> Unit {
   let decoded = try! @archive.LoomarkDocumentArchive::decode_json_string(
     encoded,
   )
@@ -70,4 +87,17 @@ fn main {
       "payload": payload,
     }).stringify(),
   )
+}
+
+///|
+fn main {
+  match @env.args().get(1) {
+    Some("producer") => producer()
+    Some("consumer") =>
+      match @env.get_env_var("GATE_R0_ARCHIVE_JSON") {
+        Some(encoded) => consumer(encoded)
+        None => panic()
+      }
+    _ => panic()
+  }
 }

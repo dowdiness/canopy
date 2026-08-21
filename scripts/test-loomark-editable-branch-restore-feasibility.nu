@@ -37,6 +37,16 @@ def run-producer [root: string package: string] {
   $rows
 }
 
+def run-markdown-oracle [root: string] {
+  let produced = (^moon -C $root run apps/loomark/restore_feasibility_oracle --target native producer | complete)
+  if $produced.exit_code != 0 { fail $"Markdown archive producer failed: ($produced.stderr)" }
+  let producer = ($produced.stdout | str trim | from json)
+  let archive_bytes = $producer.payload.archive_json
+  let consumer = (with-env { GATE_R0_ARCHIVE_JSON: $archive_bytes } { ^moon -C $root run apps/loomark/restore_feasibility_oracle --target native consumer } | complete)
+  if $consumer.exit_code != 0 { fail $"Markdown fresh consumer failed: ($consumer.stderr)" }
+  [$producer ($consumer.stdout | str trim | from json)]
+}
+
 def operation-matrix [] {
   [
     {trace: "initial-materialization" authority: "exact_frontier" projection: "plain_text" expected: "oracle"}
@@ -76,7 +86,7 @@ def main [--output-dir: string --allow-dirty] {
   }
   try {
     let egw = (run-producer $root "deps/event-graph-walker/internal/restore_feasibility_probe")
-    let markdown = (run-producer $root "apps/loomark/restore_feasibility_oracle")
+    let markdown = (run-markdown-oracle $root)
     let captures = ($egw | append $markdown)
     let positive = ($egw | where case_id == "known-positive-provider-read" | first)
     if $positive.payload.provider_calls != 1 or $positive.payload.provider_operations <= 0 or $positive.payload.provider_bytes <= 0 {
