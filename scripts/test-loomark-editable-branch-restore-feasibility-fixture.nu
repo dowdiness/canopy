@@ -59,6 +59,20 @@ def main [] {
       assert-equal $failed.failure_class $expected.failure $"result failure for ($expected.failure)"
       ^rm -rf $injected
     }
+    let cold_output = (^mktemp -d | str trim)
+    let cold_result = (with-env { GATE_R0_TEST_FORCE_COLD_READ: "strict-forward" } {
+      ^nu $runner --allow-dirty --output-dir $cold_output
+    } | complete)
+    assert-equal $cold_result.exit_code 33 "live unexpected cold-read exit"
+    assert-equal (open ($cold_output | path join "result.json") | get failure_class) "unexpected_cold_read" "live unexpected cold-read classification"
+    ^rm -rf $cold_output
+    let missing_output = (^mktemp -d | str trim)
+    let missing_result = (with-env { GATE_R0_TEST_OMIT_CASE: "pending-drain" } {
+      ^nu $runner --allow-dirty --output-dir $missing_output
+    } | complete)
+    assert-equal $missing_result.exit_code 34 "live missing-evidence exit"
+    assert-equal (open ($missing_output | path join "result.json") | get failure_class) "evidence_missing" "live missing-evidence classification"
+    ^rm -rf $missing_output
     let egw_observations = (open ($output | path join "cold-history.jsonl") | lines | each {|line| $line | from json })
     for row in $matrix {
       let observation = ($egw_observations | where case_id == $row.trace | first)
