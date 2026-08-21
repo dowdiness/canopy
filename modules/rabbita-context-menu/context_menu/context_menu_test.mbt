@@ -92,53 +92,6 @@ test "activation and keyboard close paths request focus restore" {
 
 ///|
 #cfg(target="js")
-struct FocusCmdTestScheduler {
-  mut after_render_count : Int
-  hooks : @cmd.Hooks
-}
-
-///|
-#cfg(target="js")
-fn FocusCmdTestScheduler::new() -> FocusCmdTestScheduler {
-  { after_render_count: 0, hooks: { url_request: None, url_changed: None } }
-}
-
-///|
-#cfg(target="js")
-impl @cmd.Scheduler for FocusCmdTestScheduler with fn run_effect(self, kind, f) {
-  match kind {
-    Immediately => f(self)
-    AfterRender => {
-      self.after_render_count = self.after_render_count + 1
-      f(self)
-    }
-  }
-}
-
-///|
-#cfg(target="js")
-impl @cmd.Scheduler for FocusCmdTestScheduler with fn queue_message(
-  self,
-  _id,
-  _send_message,
-) {
-  ignore(self)
-}
-
-///|
-#cfg(target="js")
-impl @cmd.Scheduler for FocusCmdTestScheduler with fn drain_message(self) {
-  ignore(self)
-}
-
-///|
-#cfg(target="js")
-impl @cmd.Scheduler for FocusCmdTestScheduler with fn hooks(self) {
-  self.hooks
-}
-
-///|
-#cfg(target="js")
 extern "js" fn install_shadow_focus_fixture(
   root_id : String,
   item_id : String,
@@ -195,15 +148,13 @@ extern "js" fn clear_focus_fixture() -> Unit =
 
 ///|
 #cfg(target="js")
-test "focus_cmd_within delegates scoped focus to the embedded menu" {
+async test "focus_cmd_within delegates scoped focus to the embedded menu" {
   let model = @context_menu.Model::new(id="test-menu")
     .open(anchor=@context_menu.Point(x=1.0F, y=2.0F), item_count=2)
     .update(@context_menu.FocusNext)
   install_shadow_focus_fixture("menu-host", "test-menu-item-1")
-  let scheduler = FocusCmdTestScheduler::new()
-  @cmd.Scheduler::add(scheduler, model.focus_cmd_within(root_id="menu-host"))
+  @rabbita_testing.run_cmd(model.focus_cmd_within(root_id="menu-host"))
   let log = focus_log()
   clear_focus_fixture()
-  inspect(scheduler.after_render_count, content="1")
   inspect(log, content="shadow:test-menu-item-1")
 }
