@@ -78,5 +78,5 @@ pub impl[T : Debug] Show for RoseZipper[T] with fn output(self, logger) {
 
 ///|
 pub fn[T] RoseZipper::from_root(tree : RoseNode[T]) -> RoseZipper[T] {
-  { focus: tree, path: @list.List::default(), depth: 0 }
+  { focus: tree, path: Default::default(), depth: 0 }
 }
