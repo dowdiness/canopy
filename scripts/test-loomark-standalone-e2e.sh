@@ -119,10 +119,9 @@ stop_dev_server
 rm -rf "$LOOMARK_ROOT/dist"
 (
   cd "$LOOMARK_ROOT"
-  "$WARREN" build \
-    --browser-entry main \
-    --server-entry "" \
-    --public-dir "$STATIC_DIR"
+  # Exercise Warren's default entry discovery, which is also used by the
+  # Cloudflare Workers Build for the Loomark static-assets worker.
+  "$WARREN" build --public-dir "$STATIC_DIR"
 )
 
 test -s "$LOOMARK_ROOT/dist/favicon.svg"

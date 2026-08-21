@@ -513,25 +513,25 @@ pub fn mount_source_demo(
     "source-mode-root",
   )
   guard enabled else { return }
-  let model = {
-    handle,
-    editor: get_source_graph_source(handle),
-    dirty: false,
-    parser_failed: false,
-    mounted: false,
-    status: "Source mode active: operations lower into graph-dsl text.",
-    status_tone: @status.Info,
-    on_change,
-  }
-  let (cell, emit) = @rabbita.create_state_with_init(
-    init=fn(emit) { (model, mount_source_cm_cmd(emit, model)) },
-    update=fn(model, msg, emit) {
-      let (command, next) = source_demo_update(emit, msg, model)
-      (next, command)
-    },
-    subscriptions=source_demo_subscriptions,
-  )
-  @rabbita.new(() => cell.view(model => source_demo_view(emit, model))).mount(
-    "source-panel-root",
-  )
+  @rabbita.new(fn() {
+    let model = {
+      handle,
+      editor: get_source_graph_source(handle),
+      dirty: false,
+      parser_failed: false,
+      mounted: false,
+      status: "Source mode active: operations lower into graph-dsl text.",
+      status_tone: @status.Info,
+      on_change,
+    }
+    let (cell, emit) = @rabbita.create_state_with_init(
+      init=fn(emit) { (model, mount_source_cm_cmd(emit, model)) },
+      update=fn(model, msg, emit) {
+        let (command, next) = source_demo_update(emit, msg, model)
+        (next, command)
+      },
+      subscriptions=source_demo_subscriptions,
+    )
+    cell.view(model => source_demo_view(emit, model))
+  }).mount("source-panel-root")
 }

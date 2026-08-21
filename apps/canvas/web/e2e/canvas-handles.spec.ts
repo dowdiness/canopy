@@ -603,9 +603,10 @@ test('same-frame viewport changes use current geometry for pointerdown', async (
   await page.goto('/');
   await expect(page.locator('.canvas-node')).toHaveCount(6);
 
-  const captureIds = await page.evaluate(() => {
+  await page.evaluate(() => {
     const root = document.querySelector('#canvas-root') as HTMLDivElement;
     const captureIds: number[] = [];
+    (window as Window & { __canopyCaptureIds?: number[] }).__canopyCaptureIds = captureIds;
     root.setPointerCapture = (pointerId: number) => captureIds.push(pointerId);
     root.dispatchEvent(new PointerEvent('pointerdown', {
       bubbles: true,
@@ -645,11 +646,15 @@ test('same-frame viewport changes use current geometry for pointerdown', async (
       clientX: 20,
       clientY: 20,
     }));
-    return captureIds;
   });
 
-  expect(captureIds).toEqual([51, 53]);
+  // Rabbita drains subscription messages on a microtask; wait for the queued
+  // pointer sequence before observing the imperative pointer-capture calls.
   await expect(page.locator('#canvas-root')).toHaveClass(/panning/);
+  const captureIds = await page.evaluate(() => (
+    (window as Window & { __canopyCaptureIds?: number[] }).__canopyCaptureIds ?? []
+  ));
+  expect(captureIds).toEqual([51, 53]);
   await page.evaluate(() => {
     const root = document.querySelector('#canvas-root') as HTMLDivElement;
     root.dispatchEvent(new PointerEvent('pointerup', {
@@ -1216,9 +1221,10 @@ test('canvas root owns one pointer and interrupts once on lost capture', async (
   await page.goto('/');
   await expect(page.locator('.canvas-node')).toHaveCount(6);
 
-  const captureIds = await page.evaluate(() => {
+  await page.evaluate(() => {
     const root = document.querySelector('#canvas-root') as HTMLDivElement;
     const ids: number[] = [];
+    (window as Window & { __canopyCaptureIds?: number[] }).__canopyCaptureIds = ids;
     root.setPointerCapture = (pointerId: number) => ids.push(pointerId);
     root.dispatchEvent(new PointerEvent('pointerdown', {
       bubbles: true,
@@ -1254,10 +1260,12 @@ test('canvas root owns one pointer and interrupts once on lost capture', async (
       clientX: 240,
       clientY: 240,
     }));
-    return ids;
   });
-  expect(captureIds).toEqual([81]);
   await expect(page.locator('#canvas-root')).toHaveClass(/panning/);
+  const captureIds = await page.evaluate(() => (
+    (window as Window & { __canopyCaptureIds?: number[] }).__canopyCaptureIds ?? []
+  ));
+  expect(captureIds).toEqual([81]);
 
   await page.evaluate(() => {
     const root = document.querySelector('#canvas-root') as HTMLDivElement;
@@ -1351,12 +1359,13 @@ test('canvas pointer coordinates keep fractional child-target input', async ({ p
 
   await page.goto('/');
   await expect(page.locator('.canvas-node')).toHaveCount(6);
-  const captureIds = await page.evaluate(() => {
+  await page.evaluate(() => {
     const root = document.querySelector('#canvas-root') as HTMLDivElement;
     const node = document.querySelector('.canvas-node[data-node-id="1"]');
     const child = node?.querySelector('.node-title');
     if (!node || !child) throw new Error('canvas child target is missing');
     const ids: number[] = [];
+    (window as Window & { __canopyCaptureIds?: number[] }).__canopyCaptureIds = ids;
     root.setPointerCapture = (pointerId: number) => ids.push(pointerId);
     const rect = child.getBoundingClientRect();
     child.dispatchEvent(new PointerEvent('pointerdown', {
@@ -1380,10 +1389,12 @@ test('canvas pointer coordinates keep fractional child-target input', async ({ p
       clientX: rect.left + 40.5,
       clientY: rect.top + 28.25,
     }));
-    return ids;
   });
 
-  expect(captureIds).toEqual([93]);
   await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  const captureIds = await page.evaluate(() => (
+    (window as Window & { __canopyCaptureIds?: number[] }).__canopyCaptureIds ?? []
+  ));
+  expect(captureIds).toEqual([93]);
   expect(runtimeErrors).toEqual([]);
 });

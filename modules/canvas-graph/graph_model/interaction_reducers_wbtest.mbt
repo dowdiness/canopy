@@ -57,7 +57,7 @@ fn make_test_state() -> CanvasState {
 test "pan_start records pointer and viewport snapshots" {
   let state = make_test_state()
   let s = update_pan_start(state, screen_point(150.0, 250.0))
-  guard s.interaction.panning is Some(p)
+  guard! s.interaction.panning is Some(p)
   inspect(p.start_pointer().x(), content="150")
   inspect(p.start_pointer().y(), content="250")
   let snapshot = try! p.viewport_at(p.start_pointer())
@@ -209,7 +209,7 @@ test "semantic scale keeps cursor world position fixed" {
 test "node_drag_start records offsets for the dragged node" {
   let state = make_test_state()
   let s = update_node_drag_start(state, NodeId("1"), world_point(110.0, 120.0))
-  guard s.interaction.dragging is Some(d)
+  guard! s.interaction.dragging is Some(d)
   assert_eq(d.initial_ids(), [NodeId("1")])
   let positions = try! d.positions_at(world_point(110.0, 120.0))
   inspect(positions[0].point.x(), content="100")
@@ -225,7 +225,7 @@ test "node_drag_start includes all selected nodes for multi-drag" {
     SelectNodes([NodeId("1"), NodeId("2")]),
   )
   let s = update_node_drag_start(state, NodeId("1"), world_point(110.0, 120.0))
-  guard s.interaction.dragging is Some(d)
+  guard! s.interaction.dragging is Some(d)
   assert_eq(d.initial_ids().length(), 2)
 }
 
@@ -412,7 +412,7 @@ test "connect_start records source node, source port, and cursor world position"
     "tick",
     world_point(250.0, 80.0),
   )
-  guard s.interaction.connecting is Some(c)
+  guard! s.interaction.connecting is Some(c)
   assert_eq(c.from_node, NodeId("1"))
   inspect(c.from_port, content="tick")
   inspect(c.cursor().x(), content="250")
@@ -430,7 +430,7 @@ test "connect_move updates cursor world position" {
     world_point(0.0, 0.0),
   )
   let s1 = update_connect_move(s0, world_point(333.0, 444.0))
-  guard s1.interaction.connecting is Some(c)
+  guard! s1.interaction.connecting is Some(c)
   inspect(c.cursor().x(), content="333")
   inspect(c.cursor().y(), content="444")
   assert_true(s1.interaction.did_move)
