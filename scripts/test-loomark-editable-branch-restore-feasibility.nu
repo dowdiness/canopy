@@ -90,6 +90,29 @@ def run-producer [root: string package: string] {
   $rows
 }
 
+def validate-envelopes [rows: list<any> required_cases: list<string>] {
+  for row in $rows {
+    let schema = ($row | get -o schema_version)
+    let run_id = ($row | get -o run_id | default "")
+    let case_id = ($row | get -o case_id | default "")
+    let status = ($row | get -o status | default "")
+    if $schema != 1 or $run_id != "gate-r0-v1" or ($case_id | is-empty) {
+      return "evidence_missing"
+    }
+    if $status == "fail" {
+      let classification = ($row | get -o payload.failure_class | default "harness_failure")
+      return $classification
+    }
+    if $status != "pass" { return "evidence_missing" }
+  }
+  for case_id in $required_cases {
+    if ($rows | where case_id == $case_id | length) != 1 {
+      return "evidence_missing"
+    }
+  }
+  ""
+}
+
 def run-markdown-oracle [root: string mode: string = "undelete"] {
   let produced = (^moon -C $root run apps/loomark/restore_feasibility_oracle --target native producer | complete)
   if $produced.exit_code != 0 { fail $"Markdown archive producer failed: ($produced.stderr)" }
@@ -134,11 +157,11 @@ def operation-matrix [] {
 def write-failure-artifacts [output: string failure: string] {
   write-json ($output | path join "manifest.json") { schema_version: 1 run_id: "gate-r0-v1" status: "fail" }
   write-json ($output | path join "capability-ledger.json") { schema_version: 1 rows: [] }
-  write-jsonl ($output | path join "candidate-captures.jsonl") []
+  if not (($output | path join "candidate-captures.jsonl") | path exists) { write-jsonl ($output | path join "candidate-captures.jsonl") [] }
   write-json ($output | path join "candidate-results.json") { schema_version: 1 candidates: [] }
   write-jsonl ($output | path join "operation-matrix.jsonl") []
   write-jsonl ($output | path join "oracle-differential.jsonl") []
-  write-jsonl ($output | path join "cold-history.jsonl") []
+  if not (($output | path join "cold-history.jsonl") | path exists) { write-jsonl ($output | path join "cold-history.jsonl") [] }
   write-json ($output | path join "negative-results.json") { schema_version: 1 negatives: [] }
   $"Gate R0 failure: ($failure)\n" | save -f ($output | path join "validation.log")
   write-json ($output | path join "result.json") { schema_version: 1 status: "fail" failure_class: $failure }
@@ -177,7 +200,25 @@ def main [--output-dir: string --allow-dirty --inject-failure: string] {
   }
   try {
     let egw = (run-producer $root "deps/event-graph-walker/internal/restore_feasibility_probe")
+    write-jsonl ($output_dir | path join "cold-history.jsonl") $egw
+    let required_egw = (["known-positive-provider-read" "strict-forward" "closed-concurrent"] | append (operation-matrix | get trace))
+    let egw_failure = (validate-envelopes $egw $required_egw)
+    if ($egw_failure | is-not-empty) { write-failure-artifacts $output_dir $egw_failure; exit (exit-code $egw_failure) }
+    let positive = ($egw | where case_id == "known-positive-provider-read" | first)
+    if $positive.payload.provider_calls != 1 or $positive.payload.provider_operations <= 0 or $positive.payload.provider_bytes <= 0 {
+      write-failure-artifacts $output_dir "evidence_missing"; exit 34
+    }
+    let fast = ($egw | where {|row| $row.case_id == "strict-forward" or $row.case_id == "closed-concurrent" })
+    if ($fast | any {|row| $row.payload.provider_calls != 0 or $row.payload.provider_operations != 0 or $row.payload.provider_bytes != 0 }) {
+      write-failure-artifacts $output_dir "unexpected_cold_read"; exit 33
+    }
     let markdown = (run-markdown-oracle $root)
+    write-jsonl ($output_dir | path join "candidate-captures.jsonl") ($egw | append $markdown)
+    let markdown_failure = (validate-envelopes $markdown [])
+    if ($markdown_failure | is-not-empty) { write-failure-artifacts $output_dir $markdown_failure; exit (exit-code $markdown_failure) }
+    if ($markdown | where case_id == "full-history-oracle" | length) != 2 {
+      error make { msg: "evidence_missing: Markdown producer/consumer correlation missing" }
+    }
     let orders = [["restore" "immediate-insert" "visible-delete" "undelete" "trace-1" "trace-10" "trace-100"] ["trace-100" "trace-10" "trace-1" "undelete" "visible-delete" "immediate-insert" "restore"]]
     mut measurements = []
     for run in 0..<2 {
@@ -201,14 +242,6 @@ def main [--output-dir: string --allow-dirty --inject-failure: string] {
       error make { msg: "causal_semantics_mismatch: fresh writer or restored frontier differs" }
     }
     let captures = ($egw | append $markdown)
-    let positive = ($egw | where case_id == "known-positive-provider-read" | first)
-    if $positive.payload.provider_calls != 1 or $positive.payload.provider_operations <= 0 or $positive.payload.provider_bytes <= 0 {
-      fail "known-positive provider control did not fire exactly once with bytes and operations"
-    }
-    let fast = ($egw | where {|row| $row.case_id == "strict-forward" or $row.case_id == "closed-concurrent" })
-    if ($fast | any {|row| $row.payload.provider_calls != 0 or $row.payload.provider_operations != 0 or $row.payload.provider_bytes != 0 }) {
-      fail "zero-read fast path observed a canonical provider read"
-    }
     let postflight_interfaces = (interface-hashes $root)
     if $preflight_interfaces != $postflight_interfaces {
       write-failure-artifacts $output_dir "interface_drift"
