@@ -51,75 +51,6 @@ fn incr_canvas_status(
 }
 
 ///|
-fn append_incr_canvas_edge(
-  buf : StringBuilder,
-  state : IncrCanvasState,
-  edge : @visualizer.RecomputeSnapshotEdge,
-) -> Unit {
-  match
-    (
-      incr_canvas_screen_position(state, edge.from),
-      incr_canvas_screen_position(state, edge.to),
-    ) {
-    (Some(from), Some(to)) =>
-      buf.write_string(
-        "<line class=\"incr-canvas-edge\" x1=\"\{from.x()}\" y1=\"\{from.y()}\" x2=\"\{to.x()}\" y2=\"\{to.y()}\" />",
-      )
-    _ => ()
-  }
-}
-
-///|
-fn append_incr_canvas_node(
-  buf : StringBuilder,
-  state : IncrCanvasState,
-  snapshot : @visualizer.RecomputeSnapshot,
-  node : @visualizer.RecomputeSnapshotNode,
-) -> Unit {
-  match incr_canvas_screen_position(state, node.id) {
-    Some(center) => {
-      let status = incr_canvas_status(snapshot, node.id)
-      let selected = state.selected.contains(node.id)
-      let stroke = if selected { "#b090e0" } else { status.stroke() }
-      let label = @history_render.escape_html_string(
-        incr_canvas_node_label(node),
-      )
-      let cell_id = @history_render.escape_html_string(
-        incr_canvas_cell_id(node.id),
-      )
-      let half_width = INCR_CANVAS_NODE_WIDTH / 2.0
-      let half_height = INCR_CANVAS_NODE_HEIGHT / 2.0
-      buf.write_string(
-        "<g class=\"incr-canvas-node\" data-cell-id=\"\{cell_id}\" transform=\"translate(\{center.x()} \{center.y()})\"><rect x=\"\{0.0 - half_width}\" y=\"\{0.0 - half_height}\" width=\"\{INCR_CANVAS_NODE_WIDTH}\" height=\"\{INCR_CANVAS_NODE_HEIGHT}\" rx=\"6\" fill=\"\{status.fill()}\" stroke=\"\{stroke}\" /><text x=\"0\" y=\"5\" text-anchor=\"middle\">\{label}</text></g>",
-      )
-    }
-    None => ()
-  }
-}
-
-///|
-/// Render the Ideal-local interactive graph. The SVG is deliberately small
-/// and local: positions belong to `IncrCanvasState`, while nodes and edges are
-/// read directly from the current `RecomputeSnapshot`.
-fn render_incr_canvas_svg(
-  state : IncrCanvasState,
-  snapshot : @visualizer.RecomputeSnapshot,
-) -> String {
-  let buf = StringBuilder::new()
-  buf.write_string(
-    "<svg class=\"incr-canvas-svg\" width=\"100%\" height=\"220\" role=\"img\" aria-label=\"Interactive Incr dependency graph\" style=\"pointer-events:none\">",
-  )
-  for edge in snapshot.edges {
-    append_incr_canvas_edge(buf, state, edge)
-  }
-  for node in snapshot.nodes {
-    append_incr_canvas_node(buf, state, snapshot, node)
-  }
-  buf.write_string("</svg>")
-  buf.to_string()
-}
-
-///|
 const INCR_CANVAS_ACTIVE_POINTER_ATTRIBUTE : String = "data-incr-active-pointer-id"
 
 ///|
@@ -368,17 +299,13 @@ fn incr_canvas_interaction_attrs(
 }
 
 ///|
-#warnings("-alert_xss_vulnerable")
 fn view_incr_canvas_panel(dispatch : Emit[Msg], model : Model) -> Html {
   let snapshot = model.incr_tap.snapshot()
-  let svg = if model.workspace.bottom_visible {
-    render_incr_canvas_svg(model.incr_canvas, snapshot)
+  let svg : Html = if model.workspace.bottom_visible {
+    incr_canvas_svg_view(model.incr_canvas, snapshot)
   } else {
-    ""
+    @html.nothing
   }
-  // Use a distinct outer tag from the raw-innerHTML SVG panels. Rabbita then
-  // replaces the subtree when switching tabs instead of trying to patch a
-  // stale innerHTML property in place.
   @html.div(
     class="bottom-content incr-canvas-content",
     attrs=bottom_panel_attrs(IncrCanvas),
@@ -392,13 +319,7 @@ fn view_incr_canvas_panel(dispatch : Emit[Msg], model : Model) -> Html {
         @html.div(
           class="incr-canvas-interaction",
           attrs=incr_canvas_interaction_attrs(dispatch, model.incr_canvas),
-          [
-            @html.div(
-              class="incr-canvas-svg-host",
-              attrs=@html.Attrs::build().inner_html(svg),
-              ([] : Array[Html]),
-            ),
-          ],
+          [svg],
         ),
       ]),
     ],

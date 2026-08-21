@@ -4,6 +4,7 @@ import {
   "moonbit-community/rabbita/sub",
   "moonbit-community/rabbita/dom",
   "moonbit-community/rabbita/js" @js_value,
+  "moonbit-community/rabbita/svg",
   "dowdiness/rabbita_codemirror" @cm,
   "dowdiness/rabbita_codemirror/js" @cm_js,
   "dowdiness/rabbita-menu/menu",

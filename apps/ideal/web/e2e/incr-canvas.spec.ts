@@ -10,6 +10,48 @@ async function waitForEditorReady(page: import('@playwright/test').Page) {
 }
 
 test.describe('Bottom panel — interactive Incr Canvas', () => {
+  test('renders one keyed SVG tree and preserves node and edge identity across rerenders', async ({
+    page,
+  }) => {
+    await waitForEditorReady(page);
+    await page.getByRole('button', { name: 'Panels' }).click();
+    await page.getByRole('tab', { name: 'Incr Canvas' }).click();
+
+    const panel = page.locator('#canopy-incr-canvas-container');
+    const stage = panel.locator('.incr-canvas-interaction');
+    const svg = stage.locator(':scope > svg.incr-canvas-svg');
+    const node = svg.locator('.incr-canvas-node').first();
+    const edge = svg.locator('.incr-canvas-edge').first();
+    await expect(svg).toHaveCount(1);
+    await expect(svg).toHaveAttribute('role', 'img');
+    await expect(svg).toHaveAttribute('aria-label', 'Interactive Incr dependency graph');
+    expect(await svg.evaluate(element => element.namespaceURI)).toBe(
+      'http://www.w3.org/2000/svg',
+    );
+    await expect(node).toHaveCount(1);
+    await expect(edge).toHaveCount(1);
+    await expect(stage.locator('.incr-canvas-svg-host')).toHaveCount(0);
+
+    await node.evaluate(element => element.setAttribute('data-test-marker', 'node'));
+    await edge.evaluate(element => element.setAttribute('data-test-marker', 'edge'));
+    const before = await node.getAttribute('transform');
+    const box = await stage.boundingBox();
+    expect(box).not.toBeNull();
+    if (!box) return;
+
+    await page.mouse.move(box.x + box.width - 24, box.y + 120);
+    await page.mouse.wheel(0, -50);
+    await expect(node).not.toHaveAttribute('transform', before ?? '');
+    await expect(node).toHaveAttribute('data-test-marker', 'node');
+    await expect(edge).toHaveAttribute('data-test-marker', 'edge');
+
+    const nodeBox = await node.boundingBox();
+    expect(nodeBox).not.toBeNull();
+    if (!nodeBox) return;
+    await page.mouse.click(nodeBox.x + nodeBox.width / 2, nodeBox.y + nodeBox.height / 2);
+    await expect(node.locator('rect')).toHaveAttribute('stroke', '#b090e0');
+  });
+
   test('renders CellId-backed nodes and supports local drag', async ({ page }) => {
     await waitForEditorReady(page);
     await page.getByRole('button', { name: 'Panels' }).click();
@@ -199,7 +241,7 @@ test.describe('Bottom panel — interactive Incr Canvas', () => {
       x: firstBox.x + 20.25,
       y: firstBox.y + 20.75,
     };
-    const child = first.stage.locator('.incr-canvas-svg-host');
+    const child = first.stage.locator('.incr-canvas-svg');
     const beforeChild = await first.node.getAttribute('transform');
     await child.evaluate((element, point) => {
       const event = new WheelEvent('wheel', {

@@ -813,7 +813,6 @@ canopy-editor {
   cursor: grabbing;
 }
 
-.incr-canvas-svg-host,
 .incr-canvas-svg {
   display: block;
   width: 100%;
