@@ -275,7 +275,7 @@ Unavoidable new helpers remain executable-local and single-purpose: V2 construct
 
 ```bash
 # Runner and evidence
-nu --ide-check scripts/test-loomark-editable-branch-restore-feasibility.nu
+nu --ide-check 100 scripts/test-loomark-editable-branch-restore-feasibility.nu
 nu scripts/test-loomark-editable-branch-restore-feasibility.nu --suite self-test --output-dir /tmp/loomark-r0-self-test
 nu scripts/test-loomark-editable-branch-restore-feasibility.nu --suite all --output-dir artifacts/loomark-editable-branch-restore-feasibility
 
