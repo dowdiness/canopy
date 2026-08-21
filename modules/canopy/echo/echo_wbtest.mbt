@@ -36,8 +36,8 @@ test "to_sparse_vec - basic" {
 
 ///|
 test "to_sparse_vec - zero total returns zero vector" {
-  let tf : TermFreq = { counts: Map::default(), total: 0 }
-  let vec = to_sparse_vec(tf, 1, Map::default())
+  let tf : TermFreq = { counts: Default::default(), total: 0 }
+  let vec = to_sparse_vec(tf, 1, Default::default())
   inspect(vec.entries.length(), content="0")
   inspect(vec.norm, content="0")
 }
@@ -61,7 +61,7 @@ test "cosine_similarity - orthogonal vectors" {
 
 ///|
 test "cosine_similarity - zero norm" {
-  let zero : SparseVec = { entries: Map::default(), norm: 0.0 }
+  let zero : SparseVec = { entries: Default::default(), norm: 0.0 }
   let nonzero : SparseVec = { entries: { "a": 1.0 }, norm: 1.0 }
   inspect(cosine_similarity(zero, nonzero), content="0")
   inspect(cosine_similarity(nonzero, zero), content="0")

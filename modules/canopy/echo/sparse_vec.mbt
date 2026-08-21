@@ -6,7 +6,7 @@ priv struct TermFreq {
 
 ///|
 fn term_freq(tokens : Array[String]) -> TermFreq {
-  let counts : Map[String, Int] = Map::default()
+  let counts : Map[String, Int] = Default::default()
   for token in tokens {
     counts[token] = counts.get(token).unwrap_or(0) + 1
   }
@@ -21,7 +21,7 @@ priv struct SparseVec {
 
 ///|
 fn SparseVec::zero() -> SparseVec {
-  { entries: Map::default(), norm: 0.0 }
+  { entries: Default::default(), norm: 0.0 }
 }
 
 ///|
@@ -37,7 +37,7 @@ fn to_sparse_vec(
   if tf.total == 0 {
     return SparseVec::zero()
   }
-  let entries : Map[String, Double] = Map::default()
+  let entries : Map[String, Double] = Default::default()
   let mut sum_sq = 0.0
   for term, count in tf.counts {
     let tf_val = count.to_double() / tf.total.to_double()
