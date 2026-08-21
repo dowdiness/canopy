@@ -20,11 +20,11 @@ pub fn[T] RoseZipper::go_down(
   let children = self.focus.children
   // Build left siblings in reverse order (nearest first) via cons — this
   // makes go_left O(1) and matches the reversed-list convention in RoseCtx.
-  let mut left : @list.List[RoseNode[T]] = @list.List::default()
+  let mut left : @list.List[RoseNode[T]] = Default::default()
   for i in 0..<index {
     left = @list.cons(children[i], left)
   }
-  let mut right : @list.List[RoseNode[T]] = @list.List::default()
+  let mut right : @list.List[RoseNode[T]] = Default::default()
   for i = children.length() - 1; i > index; i = i - 1 {
     right = @list.cons(children[i], right)
   }
