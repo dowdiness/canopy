@@ -36,6 +36,7 @@ def main [] {
     assert-equal (($captures | where producer == "markdown_oracle" | length) > 0) true "fresh markdown consumer evidence"
     let archive_capture = ($captures | where producer == "markdown_archive_producer" | first)
     let consumer_capture = ($captures | where producer == "markdown_oracle" | first)
+    assert-equal ($consumer_capture.payload.fresh_writer_id != $archive_capture.payload.oracle_writer_id) true "independent fresh writer identities"
     assert-equal $consumer_capture.payload.next_operation $archive_capture.payload.oracle_next_operation "normalized next operation"
     assert-equal $consumer_capture.payload.next_operations $archive_capture.payload.oracle_next_operations "normalized next operation increment"
     assert-equal $consumer_capture.payload.frontier_after_insert $archive_capture.payload.oracle_post_edit_frontier "post-edit frontier"
@@ -62,6 +63,8 @@ def main [] {
       assert-equal $injected_result.exit_code $expected.code $"exit code for ($expected.failure)"
       let failed = (open ($injected | path join "result.json"))
       assert-equal $failed.failure_class $expected.failure $"result failure for ($expected.failure)"
+      assert-equal ($failed.candidate_outcomes | length) 3 $"failure candidates for ($expected.failure)"
+      assert-equal ($failed.artifact_paths | length) 10 $"failure artifacts for ($expected.failure)"
       ^rm -rf $injected
     }
     let cold_output = (^mktemp -d | str trim)
@@ -70,6 +73,7 @@ def main [] {
     } | complete)
     assert-equal $cold_result.exit_code 33 "live unexpected cold-read exit"
     assert-equal (open ($cold_output | path join "result.json") | get failure_class) "unexpected_cold_read" "live unexpected cold-read classification"
+    assert-equal (open ($cold_output | path join "result.json") | get artifact_paths | length) 10 "live cold-read artifact paths"
     ^rm -rf $cold_output
     let missing_output = (^mktemp -d | str trim)
     let missing_result = (with-env { GATE_R0_TEST_OMIT_CASE: "pending-drain" } {
@@ -77,6 +81,7 @@ def main [] {
     } | complete)
     assert-equal $missing_result.exit_code 34 "live missing-evidence exit"
     assert-equal (open ($missing_output | path join "result.json") | get failure_class) "evidence_missing" "live missing-evidence classification"
+    assert-equal (open ($missing_output | path join "result.json") | get candidate_outcomes | length) 3 "live missing-evidence candidates"
     ^rm -rf $missing_output
     let egw_observations = (open ($output | path join "cold-history.jsonl") | lines | each {|line| $line | from json })
     for row in $matrix {
