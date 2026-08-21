@@ -245,8 +245,8 @@ def check-wiring [root: string action_doc: any justfile: string] {
   let cache_key = (field $cache_with "key")
   let restore_keys = (field $cache_with "restore-keys")
   let cache_paths = (field $cache_with "path")
-  require-text $cache_key "moonbit-registry-v2-${{ runner.os }}-${{ runner.arch }}-toolchain-0.10.4+ade96c819-core-0.10.4+ade96c819-${{ hashFiles('moon.work', '**/moon.mod', '**/moon.mod.json') }}" "registry cache key does not encode schema, platform, toolchain, core, and manifests"
-  require-text $restore_keys "moonbit-registry-v2-${{ runner.os }}-${{ runner.arch }}-toolchain-0.10.4+ade96c819-core-0.10.4+ade96c819-" "registry cache restore key is not scoped to schema/platform/toolchain/core"
+  require-text $cache_key "moonbit-registry-v2-${{ runner.os }}-${{ runner.arch }}-toolchain-0.10.8+8606a5800-core-0.10.8+8606a5800-${{ hashFiles('moon.work', '**/moon.mod', '**/moon.mod.json') }}" "registry cache key does not encode schema, platform, toolchain, core, and manifests"
+  require-text $restore_keys "moonbit-registry-v2-${{ runner.os }}-${{ runner.arch }}-toolchain-0.10.8+8606a5800-core-0.10.8+8606a5800-" "registry cache restore key is not scoped to schema/platform/toolchain/core"
   for path in ["~/.moon/registry/index" "~/.moon/registry/cache" "~/.moon/registry/symbols"] {
     require-text $cache_paths $path $"registry cache path is missing: ($path)"
   }

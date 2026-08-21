@@ -7,7 +7,7 @@ if [ "$#" -gt 1 ] || [ "${1:-waku}" != "waku" ]; then
 fi
 
 # Install MoonBit CLI
-MOONBIT_VERSION="0.10.4+ade96c819"
+MOONBIT_VERSION="0.10.8+8606a5800"
 curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s -- "$MOONBIT_VERSION"
 export PATH="$HOME/.moon/bin:$PATH"
 moon version --all

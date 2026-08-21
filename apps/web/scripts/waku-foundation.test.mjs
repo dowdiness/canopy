@@ -322,7 +322,7 @@ test('gives Cloudflare Workers Builds an explicit Waku production target', () =>
     'utf8',
   );
   assert.match(deployScript, /\$\{1:-waku\}/);
-  assert.match(deployScript, /MOONBIT_VERSION="0\.10\.4\+ade96c819"/);
+  assert.match(deployScript, /MOONBIT_VERSION="0\.10\.8\+8606a5800"/);
   assert.match(deployScript, /bash -s -- "\$MOONBIT_VERSION"/);
   assert.equal(
     (deployScript.match(/\$REPO_ROOT\/scripts\/moon-update\.sh/g) ?? []).length,
