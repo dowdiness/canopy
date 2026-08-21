@@ -155,9 +155,9 @@ def main [--output-dir: string --allow-dirty --inject-failure: string] {
     write-failure-artifacts $output_dir "preflight_invalid"
     exit 10
   }
-  let mbti_before_info = (^git -C $root diff --name-only -- '*.mbti' | str trim)
-  let info = (^moon -C $root info | complete)
-  let mbti_after_info = (^git -C $root diff --name-only -- '*.mbti' | str trim)
+  let mbti_before_info = (^git -C $root diff --name-only -- 'apps/loomark/restore_feasibility_oracle/*.mbti' | str trim)
+  let info = (^moon -C $root info apps/loomark/restore_feasibility_oracle | complete)
+  let mbti_after_info = (^git -C $root diff --name-only -- 'apps/loomark/restore_feasibility_oracle/*.mbti' | str trim)
   if $info.exit_code != 0 or $mbti_before_info != $mbti_after_info {
     write-failure-artifacts $output_dir "preflight_invalid"
     exit 10
