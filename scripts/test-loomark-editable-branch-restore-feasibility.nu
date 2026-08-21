@@ -29,6 +29,24 @@ def write-jsonl [path: string rows: list<any>] {
   ($rows | each {|row| $row | to json -r } | str join "\n") + "\n" | save -f $path
 }
 
+# The generated-interface preflight is intentionally scoped to tracked .mbti
+# files, so runner output under the repository cannot change its baseline.
+def interface-hashes [root: string] {
+  (^git -C $root ls-files '*.mbti' | lines | where {|path| $path | str trim | is-not-empty } | each {|path|
+    let absolute = ($root | path join $path)
+    { path: $path hash: (^sha256sum $absolute | str trim | split row " " | first) }
+  })
+}
+
+def submodule-preflight [root: string] {
+  let path = ($root | path join "deps/event-graph-walker")
+  let recorded = (^git -C $root ls-tree HEAD deps/event-graph-walker | str trim | split row "\t" | first | split row " " | get 2)
+  let checked = (^git -C $path rev-parse HEAD | str trim)
+  let origin = (^git -C $path remote get-url origin | str trim)
+  let reachable = ((^git -C $path branch -r --contains $checked | str trim | is-not-empty))
+  { recorded_commit: $recorded checked_out_commit: $checked origin: $origin origin_reachable: $reachable }
+}
+
 def run-producer [root: string package: string] {
   let result = (^moon -C $root run $package --target native | complete)
   if $result.exit_code != 0 { fail $"producer ($package) failed: ($result.stderr)" }
@@ -104,6 +122,14 @@ def main [--output-dir: string --allow-dirty --inject-failure: string] {
     write-failure-artifacts $output_dir "preflight_invalid"
     exit 10
   }
+  let preflight_interfaces = (interface-hashes $root)
+  let submodule = (submodule-preflight $root)
+  let toolchain = (^moon --version | complete)
+  if $toolchain.exit_code != 0 { write-failure-artifacts $output_dir "toolchain_failure"; exit 20 }
+  if $submodule.recorded_commit != $submodule.checked_out_commit or not $submodule.origin_reachable {
+    write-failure-artifacts $output_dir "submodule_failure"
+    exit 21
+  }
   try {
     let egw = (run-producer $root "deps/event-graph-walker/internal/restore_feasibility_probe")
     let markdown = (run-markdown-oracle $root)
@@ -129,6 +155,11 @@ def main [--output-dir: string --allow-dirty --inject-failure: string] {
     if ($fast | any {|row| $row.payload.provider_calls != 0 or $row.payload.provider_operations != 0 or $row.payload.provider_bytes != 0 }) {
       fail "zero-read fast path observed a canonical provider read"
     }
+    let postflight_interfaces = (interface-hashes $root)
+    if $preflight_interfaces != $postflight_interfaces {
+      write-failure-artifacts $output_dir "interface_drift"
+      exit 35
+    }
     let manifest = {
       schema_version: 1
       run_id: "gate-r0-v1"
@@ -140,6 +171,12 @@ def main [--output-dir: string --allow-dirty --inject-failure: string] {
       archive_format_changed: false
       wire_format_changed: false
       public_markdown_interface_changed: false
+      preflight: {
+        interface_hashes: $preflight_interfaces
+        interface_baseline_agrees_after_run: true
+        submodule: $submodule
+        toolchain: { available: true version: ($toolchain.stdout | str trim) }
+      }
     }
     let candidates = [
       { candidate: "A" issue: "#1291" outcome: "not_applicable" reason: "separate retained-state evaluation ticket" }
