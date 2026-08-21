@@ -116,6 +116,9 @@ Only needed if you are modifying Canopy itself.
   — blocked implementation plan for
   [issue #1322](https://github.com/dowdiness/canopy/issues/1322), governed by the
   [private restore coordinator decision](decisions/2026-08-20-loomark-private-restore-coordinator.md).
+- [Editable Loomark branch restore feasibility](plans/2026-08-19-loomark-editable-branch-restore-feasibility.md)
+  — Gate R0 evidence and decision plan for restoring an editable branch
+  without eagerly materializing full causal history.
 - [Legacy TODO snapshot](archive/TODO-snapshot-2026-08-03.md) — historical
   candidates being triaged in
   [issue #1124](https://github.com/dowdiness/canopy/issues/1124), not active
@@ -150,6 +153,18 @@ Only needed if you are modifying Canopy itself.
 ## Research
 
 - [Restore/readiness lifecycle interface patterns](research/2026-08-20-restore-lifecycle-interface-patterns.md) — primary-source comparison of Automerge Repo, VS Code, Elm, ports-and-adapters, and capability-oriented lifecycle interfaces for Loomark restore.
+- [EG-walker R0 restore architecture reassessment](research/2026-08-19-egwalker-r0-restore-architecture-reassessment.md)
+  — responsibility map and candidate restore seams for editable cold open.
+- [Canonical positional-event and Unicode contract](research/2026-08-20-r0-canonical-positional-event-unicode-contract.md)
+  — scalar authority events, UTF-16 adaptation, and receipt identity.
+- [Capture receipt reassessment](research/2026-08-20-r0-capture-receipt-reassessment.md)
+  — authenticated capture metadata and recoverable cold-state requirements.
+- [Cold event-graph capability boundary](research/2026-08-20-r0-cold-event-graph-capability-boundary.md)
+  — minimum provider capabilities for causal admission without hot history.
+- [Concurrency replay-base proof](research/2026-08-21-r0-concurrency-replay-base-proof.md)
+  — V2 rank sidecar and union-critical replay requirements.
+- [Undelete after paper-branch restore](research/2026-08-21-r0-undelete-after-paper-branch-restore.md)
+  — original-insert targeting and LWW visibility behavior after cold restore.
 
 ## Deep Design (Grand Design)
 
