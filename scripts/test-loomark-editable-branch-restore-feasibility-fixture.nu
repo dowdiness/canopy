@@ -33,6 +33,26 @@ def main [] {
     for row in $matrix {
       assert-equal ($egw_cases | any {|case_id| $case_id == $row.trace }) true $"EGW observation for ($row.trace)"
     }
+    for expected in [
+      { failure: "preflight_invalid" code: 10 }
+      { failure: "toolchain_failure" code: 20 }
+      { failure: "submodule_failure" code: 21 }
+      { failure: "harness_failure" code: 30 }
+      { failure: "oracle_mismatch" code: 31 }
+      { failure: "causal_semantics_mismatch" code: 32 }
+      { failure: "unexpected_cold_read" code: 33 }
+      { failure: "evidence_missing" code: 34 }
+      { failure: "interface_drift" code: 35 }
+      { failure: "measurement_failure" code: 40 }
+      { failure: "runner_failure" code: 50 }
+    ] {
+      let injected = (^mktemp -d | str trim)
+      let injected_result = (^nu $runner --allow-dirty --output-dir $injected --inject-failure $expected.failure | complete)
+      assert-equal $injected_result.exit_code $expected.code $"exit code for ($expected.failure)"
+      let failed = (open ($injected | path join "result.json"))
+      assert-equal $failed.failure_class $expected.failure $"result failure for ($expected.failure)"
+      ^rm -rf $injected
+    }
     let egw_observations = (open ($output | path join "cold-history.jsonl") | lines | each {|line| $line | from json })
     for row in $matrix {
       let observation = ($egw_observations | where case_id == $row.trace | first)
