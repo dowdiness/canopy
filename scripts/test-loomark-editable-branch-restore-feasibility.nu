@@ -59,11 +59,23 @@ def measure-scenario [root: string run: int scenario: string] {
   mut samples = []
   for index in 0..<25 {
     let start = (date now | into int)
-    let mode = if $scenario == "restore" { "restore" } else if $scenario == "immediate-insert" { "insert" } else if $scenario == "visible-delete" { "delete" } else { "undelete" }
-    let _ = (run-markdown-oracle $root $mode)
+    let observation = if ($scenario | str starts-with "trace-") {
+      let result = (^moon -C $root run deps/event-graph-walker/internal/restore_feasibility_probe --target native $scenario | complete)
+      if $result.exit_code != 0 { error make { msg: "measurement_failure: trace mode failed" } }
+      let row = ($result.stdout | lines | last | from json)
+      let expected = ($scenario | str replace "trace-" "" | into int)
+      if $row.payload.measurement_mode != $scenario or $row.payload.operation_count != $expected { error make { msg: "measurement_failure: trace mode evidence mismatch" } }
+      $row
+    } else {
+      let mode = if $scenario == "restore" { "restore" } else if $scenario == "immediate-insert" { "insert" } else if $scenario == "visible-delete" { "delete" } else { "undelete" }
+      let rows = (run-markdown-oracle $root $mode)
+      let row = ($rows | where producer == "markdown_oracle" | first)
+      if $row.payload.measurement_mode != $mode { error make { msg: "measurement_failure: markdown mode evidence mismatch" } }
+      $row
+    }
     let finish = (date now | into int)
     let phase = if $index < 5 { "warmup" } else { "measured" }
-    $samples = ($samples | append { run: $run scenario: $scenario phase: $phase sample: $index elapsed_ns: ($finish - $start) })
+    $samples = ($samples | append { run: $run scenario: $scenario phase: $phase sample: $index elapsed_ns: ($finish - $start) observation: $observation.payload })
   }
   { schema_version: 1 kind: "measurement" run: $run scenario: $scenario samples: $samples summary: (summarize-samples $samples) }
 }
@@ -140,6 +152,13 @@ def main [--output-dir: string --allow-dirty --inject-failure: string] {
   let status = (^git -C $root status --porcelain | complete)
   if $status.exit_code != 0 { exit 10 }
   if (not $allow_dirty) and ($status.stdout | str trim | is-not-empty) {
+    write-failure-artifacts $output_dir "preflight_invalid"
+    exit 10
+  }
+  let mbti_before_info = (^git -C $root diff --name-only -- '*.mbti' | str trim)
+  let info = (^moon -C $root info | complete)
+  let mbti_after_info = (^git -C $root diff --name-only -- '*.mbti' | str trim)
+  if $info.exit_code != 0 or $mbti_before_info != $mbti_after_info {
     write-failure-artifacts $output_dir "preflight_invalid"
     exit 10
   }
