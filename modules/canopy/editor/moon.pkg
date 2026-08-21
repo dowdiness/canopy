@@ -45,7 +45,7 @@ options(
     "sync_editor_perf_probe_native.mbt": [ "not", "js" ],
     "error_path_wbtest.mbt": [ "wasm", "wasm-gc" ],
     "sync_editor_ws_wbtest.mbt": [ "wasm", "wasm-gc" ],
-    "sync_status_wbtest.mbt": [ "wasm", "wasm-gc" ],
+    "sync_status_wbtest.mbt": [ "js", "wasm", "wasm-gc" ],
     "test_ws_helper_js_wbtest.mbt": [ "js" ],
     "test_ws_helper_native_wbtest.mbt": [ "wasm", "wasm-gc" ],
   },
