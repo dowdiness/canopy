@@ -58,4 +58,3 @@ pub fn DefinitionIndex::length(Self) -> Int
 // Type aliases
 
 // Traits
-

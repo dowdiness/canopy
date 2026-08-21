@@ -13,4 +13,3 @@ pub fn is_empty_paragraph_text(String) -> Bool
 // Type aliases
 
 // Traits
-

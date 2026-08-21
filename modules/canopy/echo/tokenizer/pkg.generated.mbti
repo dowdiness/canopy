@@ -15,4 +15,3 @@ pub fn segment(String) -> Array[String]
 // Type aliases
 
 // Traits
-
