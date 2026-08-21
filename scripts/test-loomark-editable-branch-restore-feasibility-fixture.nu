@@ -28,6 +28,11 @@ def main [] {
     let captures = (open ($output | path join "candidate-captures.jsonl") | lines | each {|line| $line | from json })
     assert-equal (($captures | where producer == "markdown_archive_producer" | length) > 0) true "archive producer evidence"
     assert-equal (($captures | where producer == "markdown_oracle" | length) > 0) true "fresh markdown consumer evidence"
+    let matrix = (open ($output | path join "operation-matrix.jsonl") | lines | each {|line| $line | from json })
+    let egw_cases = (open ($output | path join "cold-history.jsonl") | lines | each {|line| $line | from json } | get case_id)
+    for row in $matrix {
+      assert-equal ($egw_cases | any {|case_id| $case_id == $row.trace }) true $"EGW observation for ($row.trace)"
+    }
     print "PASS Gate R0 canonical artifact contract"
   } catch {|err|
     ^rm -rf $output
