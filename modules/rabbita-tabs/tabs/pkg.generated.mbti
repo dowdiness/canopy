@@ -24,4 +24,3 @@ pub fn Model::tab_attrs(Self, Int, panel_id~ : String, dispatch~ : (Int) -> @cmd
 // Type aliases
 
 // Traits
-

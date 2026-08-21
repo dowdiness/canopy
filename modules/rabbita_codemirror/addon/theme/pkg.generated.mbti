@@ -17,4 +17,3 @@ pub fn Theme::to_extension(Self) -> @js.Extension
 // Type aliases
 
 // Traits
-

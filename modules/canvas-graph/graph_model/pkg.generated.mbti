@@ -227,4 +227,3 @@ pub impl Show for WorkflowNodeKind
 pub type NodePosition = @canvas-spatial.ItemPosition[NodeId]
 
 // Traits
-

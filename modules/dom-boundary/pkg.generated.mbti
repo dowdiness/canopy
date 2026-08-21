@@ -129,4 +129,3 @@ pub(all) enum TextSelectionDirection {
 // Type aliases
 
 // Traits
-
