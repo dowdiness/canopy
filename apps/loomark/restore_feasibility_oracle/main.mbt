@@ -42,7 +42,9 @@ fn producer() -> Unit {
         "archive_bytes": Json::number(encoded.length().to_double()),
         "source_writer_id": Json::string("gate-r0-markdown-producer"),
         "expected_before_text": Json::string(source.portable_markdown()),
-        "expected_after_text": Json::string(source.portable_markdown() + "restored\n"),
+        "expected_after_text": Json::string(
+          source.portable_markdown() + "restored\n",
+        ),
         "source_frontier": Json::string(source.version().to_json_string()),
       }),
     }).stringify(),
@@ -65,39 +67,39 @@ fn consumer(archive_path : String, mode : String) -> Unit {
   let before = restored.portable_markdown()
   let frontier_before = restored.version().to_json_string()
   if mode != "restore" {
-  ignore(
-    try! restored.commit(
-      @markdown.MarkdownEditRequest::ReplaceText(
-        start=before.length(),
-        delete_len=0,
-        inserted="restored\n",
+    ignore(
+      try! restored.commit(
+        @markdown.MarkdownEditRequest::ReplaceText(
+          start=before.length(),
+          delete_len=0,
+          inserted="restored\n",
+        ),
       ),
-    ),
-  )
+    )
   }
   let after_insert = restored.portable_markdown()
   if mode == "delete" || mode == "undelete" {
-  ignore(
-    try! restored.commit(
-      @markdown.MarkdownEditRequest::ReplaceText(
-        start=before.length(),
-        delete_len="restored\n".length(),
-        inserted="",
+    ignore(
+      try! restored.commit(
+        @markdown.MarkdownEditRequest::ReplaceText(
+          start=before.length(),
+          delete_len="restored\n".length(),
+          inserted="",
+        ),
       ),
-    ),
-  )
+    )
   }
   let after_delete = restored.portable_markdown()
   if mode == "undelete" {
-  ignore(
-    try! restored.commit(
-      @markdown.MarkdownEditRequest::ReplaceText(
-        start=after_delete.length(),
-        delete_len=0,
-        inserted="restored\n",
+    ignore(
+      try! restored.commit(
+        @markdown.MarkdownEditRequest::ReplaceText(
+          start=after_delete.length(),
+          delete_len=0,
+          inserted="restored\n",
+        ),
       ),
-    ),
-  )
+    )
   }
   let payload = Json::object({
     "archive_bytes": Json::number(encoded.length().to_double()),
@@ -115,10 +117,26 @@ fn consumer(archive_path : String, mode : String) -> Unit {
     "immediate_insert_text": Json::string(after_insert),
     "visible_delete_text": Json::string(after_delete),
     "undelete_text": Json::string(restored.portable_markdown()),
-    "target_visibility": Json::string(if after_delete == before { "hidden" } else { "unexpected" }),
+    "target_visibility": Json::string(
+      if after_delete == before {
+        "hidden"
+      } else {
+        "unexpected"
+      },
+    ),
     "normalized_next_operation": Json::string("replace-text"),
     "measurement_mode": Json::string(mode),
-    "operation_count": Json::number((if mode == "restore" { 0 } else if mode == "insert" { 1 } else if mode == "delete" { 2 } else { 3 }).to_double()),
+    "operation_count": Json::number(
+      (if mode == "restore" {
+        0
+      } else if mode == "insert" {
+        1
+      } else if mode == "delete" {
+        2
+      } else {
+        3
+      }).to_double(),
+    ),
   })
   println(
     Json::object({
@@ -138,7 +156,8 @@ fn main {
     Some("producer") => producer()
     Some("consumer") =>
       match @env.get_env_var("GATE_R0_ARCHIVE_PATH") {
-        Some(archive_path) => consumer(archive_path, @env.args().get(2).unwrap_or("undelete"))
+        Some(archive_path) =>
+          consumer(archive_path, @env.args().get(2).unwrap_or("undelete"))
         None => panic()
       }
     _ => panic()
