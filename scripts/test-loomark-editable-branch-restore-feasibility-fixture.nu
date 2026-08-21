@@ -27,6 +27,8 @@ def main [] {
     assert-equal $gate_result.status "pass" "result status"
     let manifest = (open ($output | path join "manifest.json"))
     assert-equal ($manifest.preflight.interface_hashes | is-empty) false "interface baseline hashes"
+    assert-equal ($manifest.preflight.interface_hashes | length) 2 "two scoped interface hashes"
+    assert-equal $manifest.preflight.probe_publish_excluded true "probe publication exclusion"
     assert-equal $manifest.preflight.submodule.recorded_commit $manifest.preflight.submodule.checked_out_commit "submodule recorded checkout"
     assert-equal $manifest.preflight.toolchain.available true "toolchain preflight"
     let captures = (open ($output | path join "candidate-captures.jsonl") | lines | each {|line| $line | from json })

@@ -32,10 +32,12 @@ def write-jsonl [path: string rows: list<any>] {
 # The generated-interface preflight is intentionally scoped to tracked .mbti
 # files, so runner output under the repository cannot change its baseline.
 def interface-hashes [root: string] {
-  (^git -C $root ls-files '*.mbti' | lines | where {|path| $path | str trim | is-not-empty } | each {|path|
-    let absolute = ($root | path join $path)
-    { path: $path hash: (^sha256sum $absolute | str trim | split row " " | first) }
-  })
+  let loomark = "apps/loomark/restore_feasibility_oracle/pkg.generated.mbti"
+  let egw = "deps/event-graph-walker/internal/restore_feasibility_probe/pkg.generated.mbti"
+  [
+    { repo: "canopy" path: $loomark hash: (^sha256sum ($root | path join $loomark) | str trim | split row " " | first) }
+    { repo: "event-graph-walker" path: $egw hash: (^sha256sum ($root | path join $egw) | str trim | split row " " | first) }
+  ]
 }
 
 def submodule-preflight [root: string] {
@@ -156,9 +158,12 @@ def main [--output-dir: string --allow-dirty --inject-failure: string] {
     exit 10
   }
   let mbti_before_info = (^git -C $root diff --name-only -- 'apps/loomark/restore_feasibility_oracle/*.mbti' | str trim)
+  let egw_before_info = (^git -C ($root | path join "deps/event-graph-walker") diff --name-only -- 'internal/restore_feasibility_probe/*.mbti' | str trim)
   let info = (^moon -C $root info apps/loomark/restore_feasibility_oracle | complete)
+  let egw_info = (^moon -C ($root | path join "deps/event-graph-walker") info internal/restore_feasibility_probe | complete)
   let mbti_after_info = (^git -C $root diff --name-only -- 'apps/loomark/restore_feasibility_oracle/*.mbti' | str trim)
-  if $info.exit_code != 0 or $mbti_before_info != $mbti_after_info {
+  let egw_after_info = (^git -C ($root | path join "deps/event-graph-walker") diff --name-only -- 'internal/restore_feasibility_probe/*.mbti' | str trim)
+  if $info.exit_code != 0 or $egw_info.exit_code != 0 or $mbti_before_info != $mbti_after_info or $egw_before_info != $egw_after_info {
     write-failure-artifacts $output_dir "preflight_invalid"
     exit 10
   }
@@ -225,6 +230,8 @@ def main [--output-dir: string --allow-dirty --inject-failure: string] {
         interface_baseline_agrees_after_run: true
         submodule: $submodule
         toolchain: { available: true version: ($toolchain.stdout | str trim) }
+        probe_publish_excluded: true
+        probe_packaging_evidence: "internal/restore_feasibility_probe is pkgtype executable beneath EGW internal/, absent from public package exports"
       }
     }
     let candidates = [
