@@ -33,6 +33,11 @@ def main [] {
     for row in $matrix {
       assert-equal ($egw_cases | any {|case_id| $case_id == $row.trace }) true $"EGW observation for ($row.trace)"
     }
+    let egw_observations = (open ($output | path join "cold-history.jsonl") | lines | each {|line| $line | from json })
+    for row in $matrix {
+      let observation = ($egw_observations | where case_id == $row.trace | first)
+      assert-equal (($observation.payload.transition | str length) > 0) true $"transition witness for ($row.trace)"
+    }
     print "PASS Gate R0 canonical artifact contract"
   } catch {|err|
     ^rm -rf $output
