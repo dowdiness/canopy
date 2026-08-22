@@ -28,6 +28,39 @@ fn captured_archive(
 }
 
 ///|
+/// Create the common editor, document identity, and initial version for queue tests.
+fn queue_document(
+  agent_id : String,
+  document_id : String,
+  source : String,
+) -> (
+  @markdown.MarkdownEditor,
+  @archive.LoomarkDocumentId,
+  @markdown.MarkdownDocumentVersion,
+) {
+  let editor = try! @markdown.MarkdownEditor(agent_id~, source~)
+  let document_id = try! @archive.LoomarkDocumentId::from_string(document_id)
+  (editor, document_id, editor.version())
+}
+
+///|
+/// Commit one queue-test edit and prepare its complete immutable archive.
+fn queue_archive_after_replace(
+  editor~ : @markdown.MarkdownEditor,
+  document_id~ : @archive.LoomarkDocumentId,
+  source : String,
+) -> (@markdown.MarkdownDocumentVersion, PreparedLocalArchive) {
+  ignore(
+    editor.commit(@markdown.MarkdownEditRequest::ReplaceSource(source)) catch {
+      _ => abort("queue test edit failed")
+    },
+  )
+  let document_version = editor.version()
+  let archive = try! prepare_local_archive(document_id~, editor~)
+  (document_version, archive)
+}
+
+///|
 test "repository classifies a missing record and a valid archive" {
   let policy = restore_policy_for_tests()
   match
@@ -204,15 +237,14 @@ test "history trigger follows receipt history rather than source equality" {
 
 ///|
 test "persistence queue reports applied then durable local" {
-  let editor = try! @markdown.MarkdownEditor(
-    agent_id="repository-queue",
-    source="before",
+  let (editor, document_id, initial_version) = queue_document(
+    "repository-queue", "doc-queue", "before",
   )
-  let initial_version = editor.version()
-  let document_id = try! @archive.LoomarkDocumentId::from_string("doc-queue")
-  ignore(editor.commit(@markdown.MarkdownEditRequest::ReplaceSource("after")))
-  let current_version = editor.version()
-  let archive = try! prepare_local_archive(document_id~, editor~)
+  let (current_version, archive) = queue_archive_after_replace(
+    editor~,
+    document_id~,
+    "after",
+  )
   let queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
     document_id~,
     current=initial_version,
@@ -241,17 +273,14 @@ test "persistence queue reports applied then durable local" {
 
 ///|
 test "persistence queue coalesces and promotes the latest archive" {
-  let editor = try! @markdown.MarkdownEditor(
-    agent_id="repository-queue-coalesce",
-    source="zero",
+  let (editor, document_id, initial_version) = queue_document(
+    "repository-queue-coalesce", "doc-queue-coalesce", "zero",
   )
-  let initial_version = editor.version()
-  let document_id = try! @archive.LoomarkDocumentId::from_string(
-    "doc-queue-coalesce",
+  let (first_version, first_archive) = queue_archive_after_replace(
+    editor~,
+    document_id~,
+    "one",
   )
-  ignore(editor.commit(@markdown.MarkdownEditRequest::ReplaceSource("one")))
-  let first_version = editor.version()
-  let first_archive = try! prepare_local_archive(document_id~, editor~)
   let queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
     document_id~,
     current=initial_version,
@@ -263,9 +292,11 @@ test "persistence queue coalesces and promotes the latest archive" {
   )
   guard first_write is Some(first_write) else { fail("expected first write") }
 
-  ignore(editor.commit(@markdown.MarkdownEditRequest::ReplaceSource("two")))
-  let second_version = editor.version()
-  let second_archive = try! prepare_local_archive(document_id~, editor~)
+  let (second_version, second_archive) = queue_archive_after_replace(
+    editor~,
+    document_id~,
+    "two",
+  )
   let (queue, second_write) = queue.enqueue(
     document_version=second_version,
     archive=second_archive,
@@ -320,17 +351,14 @@ test "persistence queue coalesces and promotes the latest archive" {
 
 ///|
 test "persistence queue retries the latest failed version only once" {
-  let editor = try! @markdown.MarkdownEditor(
-    agent_id="repository-queue-retry",
-    source="before",
+  let (editor, document_id, initial_version) = queue_document(
+    "repository-queue-retry", "doc-queue-retry", "before",
   )
-  let initial_version = editor.version()
-  let document_id = try! @archive.LoomarkDocumentId::from_string(
-    "doc-queue-retry",
+  let (current_version, archive) = queue_archive_after_replace(
+    editor~,
+    document_id~,
+    "after",
   )
-  ignore(editor.commit(@markdown.MarkdownEditRequest::ReplaceSource("after")))
-  let current_version = editor.version()
-  let archive = try! prepare_local_archive(document_id~, editor~)
   let queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
     document_id~,
     current=initial_version,
@@ -374,17 +402,14 @@ test "persistence queue retries the latest failed version only once" {
 
 ///|
 test "persistence queue ignores wrong document and delayed acknowledgments" {
-  let editor = try! @markdown.MarkdownEditor(
-    agent_id="repository-queue-stale",
-    source="before",
+  let (editor, document_id, initial_version) = queue_document(
+    "repository-queue-stale", "doc-queue-stale", "before",
   )
-  let initial_version = editor.version()
-  let document_id = try! @archive.LoomarkDocumentId::from_string(
-    "doc-queue-stale",
+  let (current_version, archive) = queue_archive_after_replace(
+    editor~,
+    document_id~,
+    "after",
   )
-  ignore(editor.commit(@markdown.MarkdownEditRequest::ReplaceSource("after")))
-  let current_version = editor.version()
-  let archive = try! prepare_local_archive(document_id~, editor~)
   let queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
     document_id~,
     current=initial_version,
@@ -427,17 +452,14 @@ test "persistence queue ignores wrong document and delayed acknowledgments" {
 
 ///|
 test "persistence failure supersedes an older pending archive" {
-  let editor = try! @markdown.MarkdownEditor(
-    agent_id="repository-queue-supersede-failure",
-    source="zero",
+  let (editor, document_id, initial_version) = queue_document(
+    "repository-queue-supersede-failure", "doc-queue-supersede-failure", "zero",
   )
-  let initial_version = editor.version()
-  let document_id = try! @archive.LoomarkDocumentId::from_string(
-    "doc-queue-supersede-failure",
+  let (first_version, first_archive) = queue_archive_after_replace(
+    editor~,
+    document_id~,
+    "one",
   )
-  ignore(editor.commit(@markdown.MarkdownEditRequest::ReplaceSource("one")))
-  let first_version = editor.version()
-  let first_archive = try! prepare_local_archive(document_id~, editor~)
   let queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
     document_id~,
     current=initial_version,
@@ -448,9 +470,11 @@ test "persistence failure supersedes an older pending archive" {
     archive=first_archive,
   )
   guard first_write is Some(first_write) else { fail("expected first write") }
-  ignore(editor.commit(@markdown.MarkdownEditRequest::ReplaceSource("two")))
-  let second_version = editor.version()
-  let second_archive = try! prepare_local_archive(document_id~, editor~)
+  let (second_version, second_archive) = queue_archive_after_replace(
+    editor~,
+    document_id~,
+    "two",
+  )
   let (queue, second_write) = queue.enqueue(
     document_version=second_version,
     archive=second_archive,
@@ -488,23 +512,13 @@ test "persistence failure supersedes an older pending archive" {
 
 ///|
 test "deactivated document ignores pending acknowledgment" {
-  let first_editor = try! @markdown.MarkdownEditor(
-    agent_id="repository-queue-deactivated-first",
-    source="first",
+  let (first_editor, first_document_id, first_initial_version) = queue_document(
+    "repository-queue-deactivated-first", "doc-queue-deactivated-first", "first",
   )
-  let first_initial_version = first_editor.version()
-  let first_document_id = try! @archive.LoomarkDocumentId::from_string(
-    "doc-queue-deactivated-first",
-  )
-  ignore(
-    first_editor.commit(
-      @markdown.MarkdownEditRequest::ReplaceSource("first edited"),
-    ),
-  )
-  let first_version = first_editor.version()
-  let first_archive = try! prepare_local_archive(
-    document_id=first_document_id,
+  let (first_version, first_archive) = queue_archive_after_replace(
     editor=first_editor,
+    document_id=first_document_id,
+    "first edited",
   )
   let first_queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
     document_id=first_document_id,
@@ -520,23 +534,13 @@ test "deactivated document ignores pending acknowledgment" {
   }
 
   // Deactivation replaces the active Session queue before the old write settles.
-  let second_editor = try! @markdown.MarkdownEditor(
-    agent_id="repository-queue-deactivated-second",
-    source="second",
+  let (second_editor, second_document_id, second_initial_version) = queue_document(
+    "repository-queue-deactivated-second", "doc-queue-deactivated-second", "second",
   )
-  let second_initial_version = second_editor.version()
-  let second_document_id = try! @archive.LoomarkDocumentId::from_string(
-    "doc-queue-deactivated-second",
-  )
-  ignore(
-    second_editor.commit(
-      @markdown.MarkdownEditRequest::ReplaceSource("second edited"),
-    ),
-  )
-  let second_version = second_editor.version()
-  let second_archive = try! prepare_local_archive(
-    document_id=second_document_id,
+  let (second_version, second_archive) = queue_archive_after_replace(
     editor=second_editor,
+    document_id=second_document_id,
+    "second edited",
   )
   let second_queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
     document_id=second_document_id,

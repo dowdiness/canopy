@@ -1,4 +1,5 @@
-///| The product-visible local durability state for one accepted document.
+///|
+/// The product-visible local durability state for one accepted document.
 pub(all) enum LocalArchivePersistenceStatus {
   DurableLocal(@markdown.MarkdownDocumentVersion)
   Applied(
@@ -12,20 +13,23 @@ pub(all) enum LocalArchivePersistenceStatus {
   )
 } derive(Eq, Debug)
 
-///| The provider-neutral outcome consumed by the persistence queue.
+///|
+/// The provider-neutral outcome consumed by the persistence queue.
 pub(all) enum LocalArchiveWriteOutcome {
   Stored
   Failed(LocalArchiveStorageWriteFailure)
 } derive(Eq, Debug)
 
-///| The result of applying one correlated write acknowledgment.
+///|
+/// The result of applying one correlated write acknowledgment.
 pub(all) enum LocalArchiveQueueCompletion {
   Ignored
   Completed
   Promoted(LocalArchivePendingWrite)
 } derive(Eq)
 
-///| One complete immutable archive replacement and its Session correlation.
+///|
+/// One complete immutable archive replacement and its Session correlation.
 pub struct LocalArchivePendingWrite {
   priv request_id : LocalArchiveRequestId
   priv document_id : @archive.LoomarkDocumentId
@@ -59,7 +63,8 @@ pub fn LocalArchivePendingWrite::encoded(self : Self) -> String {
   self.archive.encoded()
 }
 
-///| Pure per-document single-flight persistence state.
+///|
+/// Pure per-document single-flight persistence state.
 pub struct LocalArchivePersistenceQueue {
   priv document_id : @archive.LoomarkDocumentId
   priv current : @markdown.MarkdownDocumentVersion
@@ -126,7 +131,8 @@ fn LocalArchivePersistenceQueue::allocate_pending(
   ({ ..self, next_request_value: self.next_request_value + 1 }, pending)
 }
 
-///| Accept a complete archive, starting it or coalescing it as the latest.
+///|
+/// Accept a complete archive, starting it or coalescing it as the latest.
 pub fn LocalArchivePersistenceQueue::enqueue(
   self : Self,
   document_version~ : @markdown.MarkdownDocumentVersion,
@@ -158,7 +164,8 @@ pub fn LocalArchivePersistenceQueue::enqueue(
   }
 }
 
-///| Retry only the current failed version; an active write makes it busy.
+///|
+/// Retry only the current failed version; an active write makes it busy.
 pub fn LocalArchivePersistenceQueue::retry(
   self : Self,
   document_version~ : @markdown.MarkdownDocumentVersion,
@@ -171,7 +178,8 @@ pub fn LocalArchivePersistenceQueue::retry(
   self.enqueue(document_version~, archive~)
 }
 
-///| Record a current-version failure and supersede older pending work.
+///|
+/// Record a current-version failure and supersede older pending work.
 pub fn LocalArchivePersistenceQueue::mark_failed(
   self : Self,
   document_version~ : @markdown.MarkdownDocumentVersion,
@@ -195,7 +203,8 @@ fn LocalArchivePendingWrite::matches(
   self.document_version == other.document_version
 }
 
-///| Apply one acknowledgment and optionally promote the latest pending archive.
+///|
+/// Apply one acknowledgment and optionally promote the latest pending archive.
 pub fn LocalArchivePersistenceQueue::complete(
   self : Self,
   pending : LocalArchivePendingWrite,
@@ -246,12 +255,14 @@ pub fn LocalArchivePersistenceQueue::complete(
   }
 }
 
-///| Monotonic identity assigned to one repository replacement request.
+///|
+/// Monotonic identity assigned to one repository replacement request.
 pub struct LocalArchiveRequestId {
   priv value : Int
 } derive(Eq, Debug)
 
-///| Storage-write categories reserved for the imperative provider shell.
+///|
+/// Storage-write categories reserved for the imperative provider shell.
 pub(all) enum LocalArchiveStorageWriteFailure {
   Unavailable
   QuotaExceeded
