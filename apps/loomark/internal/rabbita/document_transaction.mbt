@@ -86,6 +86,23 @@ fn prepare_traced_local_archive(
 }
 
 ///|
+/// Turn an optional queue write into the sole storage command for that write.
+fn local_archive_write_command(
+  pending : @repository.LocalArchivePendingWrite?,
+  emit : @cmd.Emit[DriverEvent],
+) -> @cmd.Cmd {
+  match pending {
+    Some(pending) => {
+      projection_trace_persistence_phase(PROJECTION_TRACE_PHASE_H7)
+      @archive_storage.replace(pending, completed=completion => {
+        emit(Archive(completion))
+      })
+    }
+    None => @rabbita_runtime.none
+  }
+}
+
+///|
 /// Schedule one complete replacement without putting a command in the model.
 fn archive_replacement(
   editor : @markdown.MarkdownEditor,
@@ -105,15 +122,7 @@ fn archive_replacement(
     document_version=model.document_version,
     archive=prepared,
   )
-  let command = match pending {
-    Some(pending) => {
-      projection_trace_persistence_phase(PROJECTION_TRACE_PHASE_H7)
-      @archive_storage.replace(pending, completed=completion => {
-        emit(Archive(completion))
-      })
-    }
-    None => @rabbita_runtime.none
-  }
+  let command = local_archive_write_command(pending, emit)
   ({ ..model, archive_queue, }, command)
 }
 
@@ -137,15 +146,7 @@ fn retry_local_persistence(
     document_version=model.document_version,
     archive=prepared,
   )
-  let command = match pending {
-    Some(pending) => {
-      projection_trace_persistence_phase(PROJECTION_TRACE_PHASE_H7)
-      @archive_storage.replace(pending, completed=completion => {
-        emit(Archive(completion))
-      })
-    }
-    None => @rabbita_runtime.none
-  }
+  let command = local_archive_write_command(pending, emit)
   ({ ..model, archive_queue, }, command)
 }
 
