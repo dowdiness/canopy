@@ -15,7 +15,9 @@ fn limits() -> @markdown.MarkdownArchiveOpenLimits {
     max_parents_per_operation=256,
   )
 }
-///| Limits for the largest required 10,000-event browser fixture.
+
+///|
+/// Limits for the largest required 10,000-event browser fixture.
 fn browser_limits() -> @markdown.MarkdownArchiveOpenLimits {
   try! @markdown.MarkdownArchiveOpenLimits(
     max_encoded_bytes=32 * 1024 * 1024,
@@ -24,7 +26,6 @@ fn browser_limits() -> @markdown.MarkdownArchiveOpenLimits {
     max_parents_per_operation=256,
   )
 }
-
 
 ///|
 fn producer() -> Unit {
@@ -92,8 +93,7 @@ fn producer() -> Unit {
       }),
     }).stringify(),
   )
-  let oracle_attachment : @md_markdown.MarkdownSemanticAttachment =
-    oracle_reopened.attachment()
+  let oracle_attachment : @md_markdown.MarkdownSemanticAttachment = oracle_reopened.attachment()
   oracle_attachment.dispose()
 }
 
@@ -207,7 +207,8 @@ fn consumer(encoded : String, mode : String) -> Unit {
   attachment.dispose()
 }
 
-///| Encode immutable legacy-oracle history through the production archive encoder.
+///|
+/// Encode immutable legacy-oracle history through the production archive encoder.
 fn browser_fixture(
   history_path : String,
   document_id_value : String,
@@ -222,7 +223,9 @@ fn browser_fixture(
     history~,
     open_limits=browser_limits(),
   )
-  let document_id = try! @archive.LoomarkDocumentId::from_string(document_id_value)
+  let document_id = try! @archive.LoomarkDocumentId::from_string(
+    document_id_value,
+  )
   let archive = try! @archive.LoomarkDocumentArchive::capture(
     document_id~,
     editor~,
