@@ -14,7 +14,7 @@ cat > "$fake_bin/moon" <<'FAKE_MOON'
 set -euo pipefail
 
 if [ "${1:-}" = "version" ] && [ "${2:-}" = "--all" ]; then
-  echo "moonc ${FAKE_MOON_VERSION:-v0.10.8+8606a5800} /tmp/fake-moonc"
+  echo "moonc ${FAKE_MOON_VERSION:?FAKE_MOON_VERSION is required} /tmp/fake-moonc"
   exit 0
 fi
 
@@ -98,7 +98,7 @@ cat > "$HOME/.moon/bin/moon" <<'FAKE_INSTALLED_MOON'
 set -euo pipefail
 
 if [ "${1:-}" = "version" ] && [ "${2:-}" = "--all" ]; then
-  echo "moonc ${FAKE_INSTALLED_MOON_VERSION:-v0.10.8+8606a5800} /tmp/installed-moonc"
+  echo "moonc ${FAKE_INSTALLED_MOON_VERSION:?FAKE_INSTALLED_MOON_VERSION is required} /tmp/installed-moonc"
   exit 0
 fi
 
@@ -108,6 +108,10 @@ chmod +x "$HOME/.moon/bin/moon"
 INSTALLER
 FAKE_CURL
 chmod +x "$fake_bin/curl"
+
+toolchain_version="$($root_dir/scripts/moon-toolchain.sh get compiler)"
+core_version="$($root_dir/scripts/moon-toolchain.sh get core)"
+wrong_version="v${toolchain_version}-mismatch"
 
 assert_eq() {
   local actual="$1"
@@ -119,13 +123,15 @@ assert_eq() {
   fi
 }
 
+assert_eq "$toolchain_version" "$core_version" "compiler and core must remain a compatibility pair"
+
 run_wrapper() {
   local scenario="$1"
   local attempts_file="$2"
   local output_file="$3"
-  local moon_version="${4:-v0.10.8+8606a5800}"
+  local moon_version="${4:-v$toolchain_version}"
   local curl_scenario="${5:-success}"
-  local installed_version="${6:-v0.10.8+8606a5800}"
+  local installed_version="${6:-v$toolchain_version}"
   local home_dir="$output_file.home"
   mkdir -p "$home_dir"
 
@@ -160,16 +166,16 @@ fi
 
 repaired_attempts="$tmp_dir/repaired-attempts"
 repaired_output="$tmp_dir/repaired-output.log"
-run_wrapper registry-clone-transient "$repaired_attempts" "$repaired_output" v0.10.8+ade96c819
+run_wrapper registry-clone-transient "$repaired_attempts" "$repaired_output" "$wrong_version"
 assert_eq "$(cat "$repaired_attempts")" "2" "mismatched MoonBit should install the pinned compiler before retrying"
 assert_eq "$(cat "$repaired_output.curl-calls")" "1" "mismatched MoonBit should invoke the installer once"
-grep -q "installing MoonBit 0.10.8+8606a5800" "$repaired_output" || {
+grep -q "installing MoonBit $toolchain_version" "$repaired_output" || {
   echo "error: mismatched MoonBit did not trigger the pinned installation" >&2
   cat "$repaired_output" >&2
   exit 1
 }
 
-if run_wrapper registry-clone-transient "$tmp_dir/failed-install-attempts" "$tmp_dir/failed-install.log" v0.10.8+ade96c819 fail; then
+if run_wrapper registry-clone-transient "$tmp_dir/failed-install-attempts" "$tmp_dir/failed-install.log" "$wrong_version" fail; then
   echo "error: failed MoonBit installation unexpectedly succeeded" >&2
   exit 1
 fi
@@ -180,11 +186,11 @@ grep -q "failed to install MoonBit" "$tmp_dir/failed-install.log" || {
 }
 assert_eq "$(cat "$tmp_dir/failed-install.log.curl-calls")" "1" "failed MoonBit installation should invoke the installer once"
 
-if run_wrapper registry-clone-transient "$tmp_dir/bad-install-attempts" "$tmp_dir/bad-install.log" v0.10.8+ade96c819 success v0.10.8+ade96c819; then
+if run_wrapper registry-clone-transient "$tmp_dir/bad-install-attempts" "$tmp_dir/bad-install.log" "$wrong_version" success "$wrong_version"; then
   echo "error: mismatched post-install MoonBit unexpectedly succeeded" >&2
   exit 1
 fi
-grep -q "does not provide moonc v0.10.8+8606a5800" "$tmp_dir/bad-install.log" || {
+grep -q "does not provide moonc v$toolchain_version" "$tmp_dir/bad-install.log" || {
   echo "error: mismatched post-install MoonBit was not rejected" >&2
   cat "$tmp_dir/bad-install.log" >&2
   exit 1
@@ -217,4 +223,4 @@ grep -q "not retrying" "$missing_output" || {
   exit 1
 }
 
-echo "ok: moon-update pins MoonBit and retries registry clone flakes only"
+echo "ok: moon-update enforces the canonical MoonBit pair and retries registry clone flakes only"

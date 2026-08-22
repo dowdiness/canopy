@@ -20,32 +20,17 @@
 
 set -uo pipefail
 
-# async@0.21.0 requires this MoonBit/compiler-core compatibility pair. Keep
-# the guard here as well as in the CI action and standalone build wrapper:
+# async@0.21.0 requires the repository's MoonBit/compiler-core pair. Keep
+# this guard at the registry boundary as well as in direct build wrappers:
 # Workers Builds may retain a dashboard command that invokes this script
 # directly, before it reaches the repository's normal toolchain bootstrap.
-PINNED_MOONBIT_VERSION="0.10.8+8606a5800"
-moon_is_pinned() {
-  moon version --all 2>/dev/null |
-    awk -v expected="v$PINNED_MOONBIT_VERSION" '$1 == "moonc" && $2 == expected { found=1 } END { exit(found ? 0 : 1) }'
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+TOOLCHAIN_HELPER="$SCRIPT_DIR/moon-toolchain.sh"
+"$TOOLCHAIN_HELPER" ensure || {
+  status=$?
+  exit "$status"
 }
-if ! command -v moon >/dev/null 2>&1 || ! moon_is_pinned; then
-  command -v curl >/dev/null 2>&1 || {
-    echo "moon-update: curl is required to install MoonBit $PINNED_MOONBIT_VERSION." >&2
-    exit 2
-  }
-  echo "moon-update: installing MoonBit $PINNED_MOONBIT_VERSION for async@0.21.0 compatibility..." >&2
-  if ! curl -fsSL https://cli.moonbitlang.com/install/unix.sh |
-    bash -s -- "$PINNED_MOONBIT_VERSION"; then
-    echo "moon-update: failed to install MoonBit $PINNED_MOONBIT_VERSION." >&2
-    exit 1
-  fi
-  export PATH="$HOME/.moon/bin:$PATH"
-  if ! moon_is_pinned; then
-    echo "moon-update: installed MoonBit does not provide moonc v$PINNED_MOONBIT_VERSION." >&2
-    exit 1
-  fi
-fi
+export PATH="$HOME/.moon/bin:$PATH"
 
 MAX_ATTEMPTS="${MOON_UPDATE_MAX_ATTEMPTS:-3}"
 # BASE_DELAY=0 is a deliberate test affordance — the regression suite sets

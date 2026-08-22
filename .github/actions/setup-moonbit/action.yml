@@ -13,15 +13,17 @@ runs:
     - name: Export NEW_MOON_MOD opt-out
       shell: bash
       run: echo "NEW_MOON_MOD=0" >> "$GITHUB_ENV"
+    - name: Read MoonBit toolchain manifest
+      id: moonbit-toolchain
+      shell: bash
+      run: "$GITHUB_WORKSPACE/scripts/moon-toolchain.sh github-output >> \"$GITHUB_OUTPUT\""
     # MoonBit toolchain and core are pinned as a compatibility pair. The core
     # CDN publishes matching versioned archives (unlike older releases).
-    # async@0.21.0 (used by the current Rabbita) requires MoonBit 0.10.8.
-    # Keep the compiler and core on the same verified compatibility pair.
     - name: Install MoonBit
       uses: hustcer/setup-moonbit@9199da0ab63ea0c0bab1dc15f03d76e17ed4f75f
       with:
-        version: 0.10.8+8606a5800
-        core-version: 0.10.8+8606a5800
+        version: ${{ steps.moonbit-toolchain.outputs.compiler }}
+        core-version: ${{ steps.moonbit-toolchain.outputs.core }}
       env:
         GITHUB_TOKEN: ${{ github.token }}
 
@@ -40,9 +42,9 @@ runs:
           ~/.moon/registry/index
           ~/.moon/registry/cache
           ~/.moon/registry/symbols
-        key: moonbit-registry-v2-${{ runner.os }}-${{ runner.arch }}-toolchain-0.10.8+8606a5800-core-0.10.8+8606a5800-${{ hashFiles('moon.work', '**/moon.mod', '**/moon.mod.json') }}
+        key: moonbit-registry-v2-${{ runner.os }}-${{ runner.arch }}-toolchain-${{ hashFiles('.moonbit-toolchain') }}-${{ hashFiles('moon.work', '**/moon.mod', '**/moon.mod.json') }}
         restore-keys: |
-          moonbit-registry-v2-${{ runner.os }}-${{ runner.arch }}-toolchain-0.10.8+8606a5800-core-0.10.8+8606a5800-
+          moonbit-registry-v2-${{ runner.os }}-${{ runner.arch }}-toolchain-${{ hashFiles('.moonbit-toolchain') }}-
 
     - name: Bootstrap MoonBit registry
       if: steps.moonbit-registry-cache.outputs.cache-hit != 'true'
