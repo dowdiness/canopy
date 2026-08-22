@@ -28,14 +28,17 @@ def write-jsonl [path: string rows: list<any>] {
 }
 
 export def reset-artifact-output [output: string] {
-  let output_type = ($output | path type)
-  if $output_type == "symlink" {
+  if ($output | path type) == "symlink" {
     fail $"artifact output directory must not be a symlink: ($output)"
   }
-  if $output_type != null and $output_type != "dir" {
-    fail $"artifact output path must be a directory: ($output)"
+  if ($output | path exists) {
+    let output_type = ($output | path type)
+    if $output_type != "dir" {
+      fail $"artifact output path must be a directory: ($output)"
+    }
+  } else {
+    mkdir $output
   }
-  mkdir $output
   for entry in (ls -a $output) {
     rm -rf $entry.name
   }

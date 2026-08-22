@@ -46,6 +46,11 @@ def main [] {
     { candidate: "C" outcome: "not_applicable" }
   ]
   try {
+    let new_output = ($temp | path join "new-output")
+    reset-artifact-output $new_output
+    expect (($new_output | path type) == "dir") "missing output root was not created"
+    expect ((ls -a $new_output | is-empty)) "new output root was not empty"
+
     mkdir $output
     "stale" | save ($output | path join "stale.txt")
     mkdir ($output | path join "stale-directory")
