@@ -247,6 +247,7 @@ test "persistence queue reports applied then durable local" {
   )
   let queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
     document_id~,
+    queue_epoch="repository-queue",
     current=initial_version,
     durable=None,
   )
@@ -283,6 +284,7 @@ test "persistence queue coalesces and promotes the latest archive" {
   )
   let queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
     document_id~,
+    queue_epoch="repository-queue-coalesce",
     current=initial_version,
     durable=None,
   )
@@ -343,7 +345,12 @@ test "persistence queue coalesces and promotes the latest archive" {
         fail("expected first durable version")
       }
       assert_true(durable == first_version)
-      assert_true(error == LocalArchiveStorageWriteFailure::QuotaExceeded)
+      assert_true(
+        error ==
+        LocalArchivePersistenceFailure::Storage(
+          LocalArchiveStorageWriteFailure::QuotaExceeded,
+        ),
+      )
     }
     _ => fail("expected storage-failed status")
   }
@@ -361,6 +368,7 @@ test "persistence queue retries the latest failed version only once" {
   )
   let queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
     document_id~,
+    queue_epoch="repository-queue-retry",
     current=initial_version,
     durable=None,
   )
@@ -374,7 +382,12 @@ test "persistence queue retries the latest failed version only once" {
     LocalArchivePersistenceStatus::StorageFailed(current~, durable~, error~) => {
       assert_true(current == current_version)
       assert_true(durable is None)
-      assert_true(error == LocalArchiveStorageWriteFailure::Failed)
+      assert_true(
+        error ==
+        LocalArchivePersistenceFailure::Storage(
+          LocalArchiveStorageWriteFailure::Failed,
+        ),
+      )
     }
     _ => fail("expected storage-failed status")
   }
@@ -412,6 +425,7 @@ test "persistence queue ignores wrong document and delayed acknowledgments" {
   )
   let queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
     document_id~,
+    queue_epoch="repository-queue-stale",
     current=initial_version,
     durable=None,
   )
@@ -421,6 +435,7 @@ test "persistence queue ignores wrong document and delayed acknowledgments" {
   let other_id = try! @archive.LoomarkDocumentId::from_string("doc-queue-other")
   let other_queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
     document_id=other_id,
+    queue_epoch="other-queue",
     current=initial_version,
     durable=None,
   )
@@ -462,6 +477,7 @@ test "persistence failure supersedes an older pending archive" {
   )
   let queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
     document_id~,
+    queue_epoch="repository-queue-supersede-failure",
     current=initial_version,
     durable=None,
   )
@@ -482,7 +498,7 @@ test "persistence failure supersedes an older pending archive" {
   assert_true(second_write is None)
   let queue = queue.mark_failed(
     document_version=second_version,
-    error=LocalArchiveStorageWriteFailure::Failed,
+    error=LocalArchivePersistenceFailure::PreparationFailed,
   )
   match queue.status() {
     LocalArchivePersistenceStatus::StorageFailed(current~, durable~, error~) => {
@@ -522,6 +538,7 @@ test "deactivated document ignores pending acknowledgment" {
   )
   let first_queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
     document_id=first_document_id,
+    queue_epoch="deactivated-first",
     current=first_initial_version,
     durable=None,
   )
@@ -544,6 +561,7 @@ test "deactivated document ignores pending acknowledgment" {
   )
   let second_queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
     document_id=second_document_id,
+    queue_epoch="deactivated-second",
     current=second_initial_version,
     durable=None,
   )
@@ -575,6 +593,52 @@ test "deactivated document ignores pending acknowledgment" {
   assert_true(completed is LocalArchiveQueueCompletion::Completed)
   assert_true(
     second_queue.status() is LocalArchivePersistenceStatus::DurableLocal(_),
+  )
+  ignore(first_queue)
+}
+
+///|
+test "same document queue epoch rejects a delayed acknowledgment" {
+  let (editor, document_id, initial_version) = queue_document(
+    "repository-queue-epoch", "doc-queue-epoch", "source",
+  )
+  let (current_version, archive) = queue_archive_after_replace(
+    editor~,
+    document_id~,
+    "edited",
+  )
+  let first_queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
+    document_id~,
+    queue_epoch="writing-instance-one",
+    current=initial_version,
+    durable=None,
+  )
+  let (first_queue, first_write) = first_queue.enqueue(
+    document_version=current_version,
+    archive~,
+  )
+  guard first_write is Some(first_write) else {
+    fail("expected first document write")
+  }
+
+  let second_queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
+    document_id~,
+    queue_epoch="writing-instance-two",
+    current=initial_version,
+    durable=None,
+  )
+  let (second_queue, second_write) = second_queue.enqueue(
+    document_version=current_version,
+    archive~,
+  )
+  guard second_write is Some(_) else { fail("expected second document write") }
+  let (second_queue, ignored) = second_queue.complete(
+    first_write,
+    LocalArchiveWriteOutcome::Stored,
+  )
+  assert_true(ignored is LocalArchiveQueueCompletion::Ignored)
+  assert_true(
+    second_queue.status() is LocalArchivePersistenceStatus::Applied(..),
   )
   ignore(first_queue)
 }

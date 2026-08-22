@@ -14,7 +14,7 @@ pub(all) enum LocalArchivePersistenceStatus {
   StorageFailed(
     current~ : @markdown.MarkdownDocumentVersion,
     durable~ : @markdown.MarkdownDocumentVersion?,
-    error~ : LocalArchiveStorageWriteFailure
+    error~ : LocalArchivePersistenceFailure
   )
 } derive(Eq, Debug)
 
@@ -23,6 +23,17 @@ pub(all) enum LocalArchivePersistenceStatus {
 pub(all) enum LocalArchiveWriteOutcome {
   Stored
   Failed(LocalArchiveStorageWriteFailure)
+} derive(Eq, Debug)
+
+///|
+/// Failure categories retained by the product-visible persistence state.
+///
+/// Provider failures and archive-preparation failures have different owners;
+/// keeping them distinct prevents the UI and retry policy from inferring the
+/// origin from a generic storage error.
+pub(all) enum LocalArchivePersistenceFailure {
+  Storage(LocalArchiveStorageWriteFailure)
+  PreparationFailed
 } derive(Eq, Debug)
 
 ///|
@@ -38,7 +49,10 @@ pub(all) enum LocalArchiveQueueCompletion {
 
 ///|
 /// One complete immutable archive replacement and its Session correlation.
+/// The queue epoch prevents a delayed write from a previous queue lifetime
+/// from matching a newly created queue for the same logical document.
 pub struct LocalArchivePendingWrite {
+  priv queue_epoch : String
   priv request_id : LocalArchiveRequestId
   priv document_id : @archive.LoomarkDocumentId
   priv document_version : @markdown.MarkdownDocumentVersion
@@ -78,24 +92,30 @@ pub fn LocalArchivePendingWrite::encoded(self : Self) -> String {
 /// - at most one archive is in flight;
 /// - at most one immutable latest archive is pending;
 /// - only a matching acknowledgment can advance `durable`;
+/// - queue epoch, request ID, document ID, and opaque version all correlate an acknowledgment;
 /// - a stale or deactivated-document acknowledgment leaves the queue unchanged.
 pub struct LocalArchivePersistenceQueue {
+  priv queue_epoch : String
   priv document_id : @archive.LoomarkDocumentId
   priv current : @markdown.MarkdownDocumentVersion
   priv durable : @markdown.MarkdownDocumentVersion?
   priv in_flight : LocalArchivePendingWrite?
   priv pending_latest : LocalArchivePendingWrite?
   priv next_request_value : Int
-  priv failure : LocalArchiveStorageWriteFailure?
+  priv failure : LocalArchivePersistenceFailure?
 } derive(Eq)
 
 ///|
+/// `queue_epoch` identifies one active queue lifetime. Callers must provide a
+/// fresh value when replacing a queue, even if the logical document is reused.
 pub fn LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
   document_id~ : @archive.LoomarkDocumentId,
+  queue_epoch~ : String,
   current~ : @markdown.MarkdownDocumentVersion,
   durable~ : @markdown.MarkdownDocumentVersion?,
 ) -> LocalArchivePersistenceQueue {
   {
+    queue_epoch,
     document_id,
     current,
     durable,
@@ -137,6 +157,7 @@ fn LocalArchivePersistenceQueue::allocate_pending(
   archive~ : PreparedLocalArchive,
 ) -> (LocalArchivePersistenceQueue, LocalArchivePendingWrite) {
   let pending = LocalArchivePendingWrite::{
+    queue_epoch: self.queue_epoch,
     request_id: LocalArchiveRequestId::{ value: self.next_request_value },
     document_id: self.document_id,
     document_version,
@@ -197,7 +218,7 @@ pub fn LocalArchivePersistenceQueue::retry(
 pub fn LocalArchivePersistenceQueue::mark_failed(
   self : Self,
   document_version~ : @markdown.MarkdownDocumentVersion,
-  error~ : LocalArchiveStorageWriteFailure,
+  error~ : LocalArchivePersistenceFailure,
 ) -> LocalArchivePersistenceQueue {
   {
     ..self,
@@ -212,6 +233,7 @@ fn LocalArchivePendingWrite::matches(
   self : Self,
   other : LocalArchivePendingWrite,
 ) -> Bool {
+  self.queue_epoch == other.queue_epoch &&
   self.request_id == other.request_id &&
   self.document_id == other.document_id &&
   self.document_version == other.document_version
@@ -220,8 +242,9 @@ fn LocalArchivePendingWrite::matches(
 ///|
 /// Apply one acknowledgment and optionally promote the latest pending archive.
 ///
-/// The request ID, document ID, and opaque target version must all match the
-/// registered in-flight write before any state transition is allowed.
+/// The queue epoch, request ID, document ID, and opaque target version must
+/// all match the registered in-flight write before any state transition is
+/// allowed.
 pub fn LocalArchivePersistenceQueue::complete(
   self : Self,
   pending : LocalArchivePendingWrite,
@@ -262,7 +285,14 @@ pub fn LocalArchivePersistenceQueue::complete(
         LocalArchiveWriteOutcome::Stored =>
           (Some(current_write), if is_current { None } else { self.failure })
         LocalArchiveWriteOutcome::Failed(error) =>
-          (self.durable, if is_current { Some(error) } else { self.failure })
+          (
+            self.durable,
+            if is_current {
+              Some(LocalArchivePersistenceFailure::Storage(error))
+            } else {
+              self.failure
+            },
+          )
       }
       (
         { ..self, durable, in_flight: None, failure },

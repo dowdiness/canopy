@@ -22,6 +22,12 @@ Persist the standalone Loomark active document as one complete application-owned
 
 #1169 continues to own formal Session durability observations, a single-flight queue, latest-wins coalescing, explicit retry, and durable-version tracking. #1170 continues to own separately versioned Session metadata. Document catalogs, networking, replication, backup, and undo across restart are out of scope.
 
+### #1169 queue contract
+
+The queue is a deterministic functional core with one in-flight archive and one immutable latest pending archive. A completion is accepted only when its queue epoch, request identity, logical document identity, and opaque target version all match the registered write. The queue epoch is the active writing-instance lifetime and must be replaced when a queue is replaced, including when the same logical document is activated again.
+
+Provider write failures and complete-archive preparation failures remain distinct in the persistence failure taxonomy. Every bootstrap, baseline, commit, retry, and promoted write uses one shared imperative-shell Command adapter so completion correlation and persistence tracing cannot drift by call path.
+
 ## Decisions
 
 - The first provider is `localStorage`.

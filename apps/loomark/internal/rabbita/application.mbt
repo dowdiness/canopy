@@ -252,13 +252,19 @@ fn record_error(
 
 ///|
 fn local_persistence_failure_name(
-  error : @repository.LocalArchiveStorageWriteFailure,
+  error : @repository.LocalArchivePersistenceFailure,
 ) -> String {
   match error {
-    @repository.LocalArchiveStorageWriteFailure::Unavailable => "unavailable"
-    @repository.LocalArchiveStorageWriteFailure::QuotaExceeded =>
-      "quota-exceeded"
-    @repository.LocalArchiveStorageWriteFailure::Failed => "failed"
+    @repository.LocalArchivePersistenceFailure::Storage(error) =>
+      match error {
+        @repository.LocalArchiveStorageWriteFailure::Unavailable =>
+          "unavailable"
+        @repository.LocalArchiveStorageWriteFailure::QuotaExceeded =>
+          "quota-exceeded"
+        @repository.LocalArchiveStorageWriteFailure::Failed => "failed"
+      }
+    @repository.LocalArchivePersistenceFailure::PreparationFailed =>
+      "archive-preparation-failed"
   }
 }
 
@@ -2938,13 +2944,7 @@ fn build_application(
         } else {
           @rabbita_runtime.none
         }
-        let persistence_command = match baseline {
-          Some(pending) =>
-            @archive_storage.replace(pending, completed=completion => {
-              emit(Archive(completion))
-            })
-          None => @rabbita_runtime.none
-        }
+        let persistence_command = local_archive_write_command(baseline, emit)
         let projection_command = match projection_worker {
           Some(runtime) => runtime.sync(initial, emit)
           None => @rabbita_runtime.none
@@ -3068,6 +3068,7 @@ fn initial_model(
     rejection: None,
     archive_queue: @repository.LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
       document_id~,
+      queue_epoch=replica_id,
       current=current_version,
       durable=durable_version,
     ),

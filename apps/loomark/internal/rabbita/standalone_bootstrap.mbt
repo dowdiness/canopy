@@ -148,6 +148,7 @@ fn create_bootstrap_document(
   }
   let archive_queue = @repository.LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
     document_id~,
+    queue_epoch=replica_id,
     current=editor.version(),
     durable=None,
   )
@@ -162,7 +163,7 @@ fn create_bootstrap_document(
         replica_id,
         archive_queue.mark_failed(
           document_version=editor.version(),
-          error=@repository.LocalArchiveStorageWriteFailure::Failed,
+          error=@repository.LocalArchivePersistenceFailure::PreparationFailed,
         ),
         @cmd.none,
       )
@@ -171,13 +172,7 @@ fn create_bootstrap_document(
     document_version=editor.version(),
     archive=prepared,
   )
-  let command = match pending {
-    Some(pending) =>
-      @archive_storage.replace(pending, completed=completion => {
-        emit(Archive(completion))
-      })
-    None => @cmd.none
-  }
+  let command = local_archive_write_command(pending, emit)
   adopt_bootstrap_session(
     session_ref, model, editor, attachment, document_id, replica_id, archive_queue,
     command,
@@ -239,6 +234,7 @@ fn update_standalone_bootstrap(
             replica_id,
             @repository.LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
               document_id=reopened.document_id(),
+              queue_epoch=replica_id,
               current=reopened.editor().version(),
               durable=Some(reopened.editor().version()),
             ),

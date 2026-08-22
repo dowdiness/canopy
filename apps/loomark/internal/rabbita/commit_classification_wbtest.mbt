@@ -47,6 +47,7 @@ fn test_model(
     rejection: None,
     archive_queue: @repository.LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
       document_id~,
+      queue_epoch="replica-a",
       current=version,
       durable=Some(version),
     ),

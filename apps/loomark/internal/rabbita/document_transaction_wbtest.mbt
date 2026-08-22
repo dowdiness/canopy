@@ -68,6 +68,7 @@ fn document_transaction_test_model(
     rejection: None,
     archive_queue: @repository.LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
       document_id~,
+      queue_epoch="replica-a",
       current=version,
       durable=Some(version),
     ),
@@ -116,7 +117,9 @@ test "commit_edit_request preserves accepted frontier after export failure" {
     ) => {
       assert_true(current == next.document_version)
       assert_true(durable is Some(_))
-      assert_true(error == @repository.LocalArchiveStorageWriteFailure::Failed)
+      assert_true(
+        error == @repository.LocalArchivePersistenceFailure::PreparationFailed,
+      )
     }
     _ => fail("expected current-version storage failure")
   }

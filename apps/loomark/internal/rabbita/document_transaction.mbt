@@ -17,7 +17,7 @@ fn record_local_persistence_failure(model : DriverModel) -> DriverModel {
   guard model.archive_persistence_enabled else { return model }
   let archive_queue = model.archive_queue.mark_failed(
     document_version=model.document_version,
-    error=@repository.LocalArchiveStorageWriteFailure::Failed,
+    error=@repository.LocalArchivePersistenceFailure::PreparationFailed,
   )
   { ..model, archive_queue, }
 }
@@ -82,23 +82,6 @@ fn prepare_traced_local_archive(
     )
   } else {
     @repository.prepare_local_archive(document_id=model.document_id, editor~)
-  }
-}
-
-///|
-/// Turn an optional queue write into the sole storage command for that write.
-fn local_archive_write_command(
-  pending : @repository.LocalArchivePendingWrite?,
-  emit : @cmd.Emit[DriverEvent],
-) -> @cmd.Cmd {
-  match pending {
-    Some(pending) => {
-      projection_trace_persistence_phase(PROJECTION_TRACE_PHASE_H7)
-      @archive_storage.replace(pending, completed=completion => {
-        emit(Archive(completion))
-      })
-    }
-    None => @rabbita_runtime.none
   }
 }
 

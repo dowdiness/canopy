@@ -58,20 +58,25 @@ pub(all) enum LocalArchivePersistenceDecision {
   Skip
 } derive(Eq, @debug.Debug)
 
+pub(all) enum LocalArchivePersistenceFailure {
+  Storage(LocalArchiveStorageWriteFailure)
+  PreparationFailed
+} derive(Eq, @debug.Debug)
+
 pub struct LocalArchivePersistenceQueue {
   // private fields
 } derive(Eq)
-pub fn LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(document_id~ : @archive.LoomarkDocumentId, current~ : @dowdiness/canopy/editor/markdown.MarkdownDocumentVersion, durable~ : @dowdiness/canopy/editor/markdown.MarkdownDocumentVersion?) -> Self
+pub fn LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(document_id~ : @archive.LoomarkDocumentId, queue_epoch~ : String, current~ : @dowdiness/canopy/editor/markdown.MarkdownDocumentVersion, durable~ : @dowdiness/canopy/editor/markdown.MarkdownDocumentVersion?) -> Self
 pub fn LocalArchivePersistenceQueue::complete(Self, LocalArchivePendingWrite, LocalArchiveWriteOutcome) -> (Self, LocalArchiveQueueCompletion)
 pub fn LocalArchivePersistenceQueue::enqueue(Self, document_version~ : @dowdiness/canopy/editor/markdown.MarkdownDocumentVersion, archive~ : PreparedLocalArchive) -> (Self, LocalArchivePendingWrite?)
-pub fn LocalArchivePersistenceQueue::mark_failed(Self, document_version~ : @dowdiness/canopy/editor/markdown.MarkdownDocumentVersion, error~ : LocalArchiveStorageWriteFailure) -> Self
+pub fn LocalArchivePersistenceQueue::mark_failed(Self, document_version~ : @dowdiness/canopy/editor/markdown.MarkdownDocumentVersion, error~ : LocalArchivePersistenceFailure) -> Self
 pub fn LocalArchivePersistenceQueue::retry(Self, document_version~ : @dowdiness/canopy/editor/markdown.MarkdownDocumentVersion, archive~ : PreparedLocalArchive) -> (Self, LocalArchivePendingWrite?)
 pub fn LocalArchivePersistenceQueue::status(Self) -> LocalArchivePersistenceStatus
 
 pub(all) enum LocalArchivePersistenceStatus {
   DurableLocal(@dowdiness/canopy/editor/markdown.MarkdownDocumentVersion)
   Applied(current~ : @dowdiness/canopy/editor/markdown.MarkdownDocumentVersion, durable~ : @dowdiness/canopy/editor/markdown.MarkdownDocumentVersion?)
-  StorageFailed(current~ : @dowdiness/canopy/editor/markdown.MarkdownDocumentVersion, durable~ : @dowdiness/canopy/editor/markdown.MarkdownDocumentVersion?, error~ : LocalArchiveStorageWriteFailure)
+  StorageFailed(current~ : @dowdiness/canopy/editor/markdown.MarkdownDocumentVersion, durable~ : @dowdiness/canopy/editor/markdown.MarkdownDocumentVersion?, error~ : LocalArchivePersistenceFailure)
 } derive(Eq, @debug.Debug)
 
 pub(all) enum LocalArchiveQueueCompletion {
