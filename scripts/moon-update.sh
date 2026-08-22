@@ -25,8 +25,11 @@ set -uo pipefail
 # Workers Builds may retain a dashboard command that invokes this script
 # directly, before it reaches the repository's normal toolchain bootstrap.
 PINNED_MOONBIT_VERSION="0.10.8+8606a5800"
-if ! command -v moon >/dev/null 2>&1 ||
-  ! moon version --all 2>/dev/null | grep -Fq "moonc v$PINNED_MOONBIT_VERSION"; then
+moon_is_pinned() {
+  moon version --all 2>/dev/null |
+    awk -v expected="v$PINNED_MOONBIT_VERSION" '$1 == "moonc" && $2 == expected { found=1 } END { exit(found ? 0 : 1) }'
+}
+if ! command -v moon >/dev/null 2>&1 || ! moon_is_pinned; then
   command -v curl >/dev/null 2>&1 || {
     echo "moon-update: curl is required to install MoonBit $PINNED_MOONBIT_VERSION." >&2
     exit 2
@@ -38,8 +41,7 @@ if ! command -v moon >/dev/null 2>&1 ||
     exit 1
   fi
   export PATH="$HOME/.moon/bin:$PATH"
-  if ! moon version --all 2>/dev/null |
-    grep -Fq "moonc v$PINNED_MOONBIT_VERSION"; then
+  if ! moon_is_pinned; then
     echo "moon-update: installed MoonBit does not provide moonc v$PINNED_MOONBIT_VERSION." >&2
     exit 1
   fi
