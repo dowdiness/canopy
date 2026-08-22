@@ -1,6 +1,6 @@
 import { createReadStream, existsSync, statSync } from "node:fs"
 import { createServer } from "node:http"
-import { extname, join, normalize } from "node:path"
+import { extname, normalize, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const distRoot = process.env.LOOMARK_STANDALONE_DIST ??
@@ -24,10 +24,12 @@ const server = createServer((request, response) => {
     ? pathname.slice(r0FixturePrefix.length)
     : pathname === "/" ? "index.html" : pathname.slice(1)
   const normalizedPath = normalize(relativePath)
-  const filePath = join(fixtureRequest ? r0FixtureRoot : distRoot, normalizedPath)
+  const selectedRoot = resolve(fixtureRequest ? r0FixtureRoot : distRoot)
+  const filePath = resolve(selectedRoot, normalizedPath)
 
   if (
     normalizedPath.startsWith("..") ||
+    !filePath.startsWith(`${selectedRoot}${sep}`) ||
     !existsSync(filePath) ||
     !statSync(filePath).isFile()
   ) {
@@ -42,7 +44,11 @@ const server = createServer((request, response) => {
   })
   createReadStream(filePath).pipe(response)
 }).listen(port, "127.0.0.1", () => {
-  process.stdout.write(`Loomark standalone output at http://127.0.0.1:${port}\n`)
+  const address = server.address()
+  const boundPort = typeof address === "object" && address !== null
+    ? address.port
+    : port
+  process.stdout.write(`Loomark standalone output at http://127.0.0.1:${boundPort}\n`)
 })
 
 for (const signal of ["SIGINT", "SIGTERM"]) {

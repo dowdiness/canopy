@@ -14,8 +14,8 @@ if (!Number.isSafeInteger(expectedCount) || expectedCount !== 1000) {
 }
 
 const fixtureRoot = dirname(archivePath)
-const port = 4400 + Math.floor(Math.random() * 1000)
-const origin = `http://127.0.0.1:${port}`
+const port = 0
+let origin = ""
 const archiveKey = "loomark.active-document-archive"
 const serverPath = fileURLToPath(new URL("./serve-standalone-dist.mjs", import.meta.url))
 const server = spawn(process.execPath, [serverPath], {
@@ -31,7 +31,9 @@ const ready = new Promise((resolve, reject) => {
   const timeout = setTimeout(() => reject(new Error("standalone server timeout")), 5000)
   server.stdout.setEncoding("utf8")
   server.stdout.on("data", chunk => {
-    if (chunk.includes(origin)) {
+    const match = chunk.match(/http:\/\/127\.0\.0\.1:(\d+)/)
+    if (match !== null) {
+      origin = match[0]
       clearTimeout(timeout)
       resolve()
     }
@@ -119,6 +121,7 @@ let page
 try {
   await ready
   browser = await chromium.launch({ headless: true })
+  const browserVersion = browser.version()
   context = await browser.newContext()
   page = await context.newPage()
   const seeded = await seedFromBrowserAsset(page)
@@ -188,7 +191,8 @@ try {
   ) {
     throw new Error("browser portable text/history mismatch")
   }
-  if (beforeEdit.archiveStorageReads !== 2) {
+  const applicationArchiveReads = beforeEdit.archiveStorageReads - 1
+  if (applicationArchiveReads !== 1) {
     throw new Error("unexpected archive storage read count")
   }
   if (beforeEdit.candidateConsumerStarts !== 0 || beforeEdit.candidateEventReads !== 0) {
@@ -216,12 +220,15 @@ try {
       historyEvents: JSON.parse(archive.history).operations.length,
     }
   }, archiveKey)
-  if (
-    afterEdit.portableText !== seeded.fixture.expected_text_after_edit ||
-    afterEdit.historyEvents !== expectedCount + 1
-  ) {
-    throw new Error("exact first edit differs")
-  }
+  const firstEditResultEqual = (
+    afterEdit.portableText === seeded.fixture.expected_text_after_edit &&
+    afterEdit.historyEvents === expectedCount + 1
+  )
+  if (!firstEditResultEqual) throw new Error("exact first edit differs")
+  const firstEditLocalOperations = afterEdit.historyEvents - beforeEdit.historyEvents
+  const coordinatePositionsEqual = (
+    seeded.fixture.first_edit.utf16_position === beforeEdit.browserUtf16End
+  )
 
   await page.reload({ waitUntil: "commit" })
   await page.locator("#loomark-input").waitFor({ state: "visible", timeout: 30000 })
@@ -237,6 +244,7 @@ try {
     status: "pass",
     payload: {
       record: "browser_oracle_result",
+      browser_version: browserVersion,
       operation_count: expectedCount,
       post_edit_operation_count: afterEdit.historyEvents,
       archive_sha256: seeded.archiveSha256,
@@ -244,24 +252,26 @@ try {
       restored_history_sha256: seeded.historySha256,
       browser_portable_text_equal: true,
       browser_portable_history_equal: true,
-      selected_consumer: "full_history_v1",
-      candidate_consumer_starts: 0,
-      full_history_consumer_starts: 1,
+      selected_consumer: seeded.fixture.consumer,
+      candidate_consumer_starts: beforeEdit.candidateConsumerStarts,
+      full_history_consumer_starts: applicationArchiveReads,
       edit_persisted_after_fresh_page: true,
       fresh_page: true,
       first_edit: {
         scalar: "U+005A",
         canonical_utf16_position: seeded.fixture.first_edit.utf16_position,
         browser_control_utf16_position: beforeEdit.browserUtf16End,
-        result_equal: true,
+        coordinate_positions_equal: coordinatePositionsEqual,
+        adapter_mapping_proved: firstEditResultEqual,
+        result_equal: firstEditResultEqual,
       },
       read_accounting: {
         archive_transport_bytes: seeded.archiveTransportBytes,
         catalog_transport_bytes: seeded.catalogTransportBytes,
-        archive_decode_read_operations: 1,
+        archive_decode_read_operations: applicationArchiveReads,
         oracle_full_history_event_reads: beforeEdit.historyEvents,
-        candidate_event_reads: 0,
-        first_edit_local_operations: 1,
+        candidate_event_reads: beforeEdit.candidateEventReads,
+        first_edit_local_operations: firstEditLocalOperations,
         observation_storage_reads_excluded: true,
       },
     },
