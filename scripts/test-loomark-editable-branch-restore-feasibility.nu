@@ -185,7 +185,7 @@ def run-browser-catalog [root: string output: string] {
   for fixture in $catalog.fixtures {
     let canonical_fixture = ($canonical_catalog.fixtures | where fixture_id == $fixture.fixture_id | first)
     if $canonical_fixture.canonical_sha256 != $fixture.canonical_fixture_sha256 {
-      fail $"browser fixture source catalog mismatch: ($fixture.fixture_id)"
+      fail $"evidence_missing: browser fixture source catalog mismatch: ($fixture.fixture_id)"
     }
     let archive_path = ($fixture_root | path join $fixture.archive_path)
     if not ($archive_path | path exists) { fail $"browser fixture missing: ($fixture.archive_path)" }
@@ -197,26 +197,26 @@ def run-browser-catalog [root: string output: string] {
       fail $"browser fixture catalog mismatch: ($fixture.fixture_id)"
     }
     let result = (^node $oracle $archive_path $fixture.fixture_id ($fixture.event_count | into string) $dist | complete)
-    if $result.exit_code != 0 { fail $"fresh Chromium fixture failed for ($fixture.fixture_id): ($result.stderr)" }
+    if $result.exit_code != 0 { fail $"oracle_mismatch: fresh Chromium fixture failed for ($fixture.fixture_id): ($result.stderr)" }
     let row = ($result.stdout | lines | where {|line| $line | str trim | is-not-empty } | last | from json)
     if ($row.payload.browser_version | is-empty) {
       fail $"browser revision missing: ($fixture.fixture_id)"
     }
     if $row.schema_version != 1 or $row.run_id != "gate-r0-v1" or $row.case_id != $fixture.fixture_id or $row.status != "pass" or $row.payload.record != "browser_oracle_result" or $row.payload.operation_count != 1000 or $row.payload.post_edit_operation_count != 1001 or $row.payload.archive_sha256 != $fixture.archive_sha256 or $row.payload.restored_text_sha256 != $fixture.expected_text_sha256 or $row.payload.restored_history_sha256 != $fixture.history_sha256 or $row.payload.selected_consumer != "full_history_v1" or $row.payload.candidate_consumer_starts != 0 or $row.payload.full_history_consumer_starts != 1 or $row.payload.first_edit.scalar != "U+005A" or $row.payload.first_edit.canonical_utf16_position != $fixture.expected_text_utf16_units or not $row.payload.first_edit.browser_control_position_valid or not $row.payload.first_edit.adapter_mapping_proved or not $row.payload.first_edit.result_equal or not $row.payload.edit_persisted_after_fresh_page {
-      fail $"browser fixture result mismatch: ($fixture.fixture_id)"
+      fail $"oracle_mismatch: browser fixture result mismatch: ($fixture.fixture_id)"
     }
     let accounting = $row.payload.read_accounting
     if $accounting.archive_transport_bytes != $fixture.archive_bytes or $accounting.archive_decode_read_operations != 1 or $accounting.oracle_full_history_event_reads != 1000 or $accounting.candidate_event_reads != 0 or $accounting.first_edit_local_operations != 1 {
-      fail $"browser fixture read accounting mismatch: ($fixture.fixture_id)"
+      fail $"oracle_mismatch: browser fixture read accounting mismatch: ($fixture.fixture_id)"
     }
     $observations = ($observations | append $row)
   }
   if not ($observations | any {|row| not $row.payload.first_edit.coordinate_positions_equal }) {
-    fail "browser corpus did not exercise CRLF coordinate mapping"
+    fail "oracle_mismatch: browser corpus did not exercise CRLF coordinate mapping"
   }
   let browser_revisions = ($observations | get payload.browser_version | uniq)
   if ($browser_revisions | length) != 1 {
-    fail "browser revision differs across fixtures"
+    fail "oracle_mismatch: browser revision differs across fixtures"
   }
   rm -rf $dist
   $observations
@@ -470,16 +470,27 @@ def main [
     exit 10
   }
   if $suite == "self-test" {
-    runner-self-test $root
-    let _candidate_bundle = (run-candidate-suite $root $output_dir "concurrency" "C-multiroot-4")
+    try {
+      runner-self-test $root
+      if ($env | get -o GATE_R0_TEST_SELF_TEST_CANDIDATE_FAILURE | default "") == "1" {
+        fail "injected self-test candidate failure"
+      }
+      let _candidate_bundle = (run-candidate-suite $root $output_dir "concurrency" "C-multiroot-4")
+    } catch {|err|
+      let detail = ($err | get -o msg | default "self-test candidate failure")
+      write-failure-artifacts $output_dir "harness_failure"
+      $"($detail)\n" | save --append ($output_dir | path join "validation.log")
+      exit 30
+    }
     return
   }
   if $suite in ["ordinary" "concurrency" "legacy"] {
     try {
       let _candidate_bundle = (run-candidate-suite $root $output_dir $suite $candidate_case)
     } catch {|err|
+      let detail = ($err | get -o msg | default "candidate suite failure")
       write-failure-artifacts $output_dir "harness_failure"
-      $"($err | to json -r)\n" | save --append ($output_dir | path join "validation.log")
+      $"($detail)\n" | save --append ($output_dir | path join "validation.log")
       exit 30
     }
     return
@@ -608,6 +619,8 @@ def main [
       write-failure-artifacts $output_dir "interface_drift"
       exit 35
     }
+    let fixture_catalog_path = ($root | path join "deps/event-graph-walker/internal/restore_feasibility_probe/fixtures/fixture-catalog-v1.json")
+    let fixture_catalog = (open $fixture_catalog_path)
     let browser_catalog_path = ($root | path join "apps/loomark/examples/vanilla/fixtures/r0-browser-v1/browser-fixture-catalog-v1.json")
     let browser_catalog = (open $browser_catalog_path)
     let manifest = {
@@ -622,11 +635,11 @@ def main [
       wire_format_changed: false
       public_markdown_interface_changed: false
       fixture_catalog: {
-        status: (if $suite == "all" { "available" } else { "not_run" })
+        status: "available"
         path: "deps/event-graph-walker/internal/restore_feasibility_probe/fixtures/fixture-catalog-v1.json"
-        sha256: $candidate_bundle.catalog_sha256
-        fixture_seed: $candidate_bundle.catalog.fixture_seed
-        fixture_hashes: ($candidate_bundle.catalog.fixtures | each {|fixture| {
+        sha256: (^sha256sum $fixture_catalog_path | str trim | split row " " | first)
+        fixture_seed: $fixture_catalog.fixture_seed
+        fixture_hashes: ($fixture_catalog.fixtures | each {|fixture| {
           fixture_id: $fixture.fixture_id
           canonical_sha256: $fixture.canonical_sha256
         } })

@@ -181,19 +181,18 @@ try {
     const originalGet = IDBObjectStore.prototype.get
     const originalOpenCursor = IDBObjectStore.prototype.openCursor
     globalThis.__loomarkR0ReadAccounting = {
-      archiveStorageReads: 0,
-      candidateEventReads: 0,
-      candidateConsumerStarts: 0,
+      applicationArchiveReads: 0,
+      observationArchiveReads: 0,
     }
     IDBObjectStore.prototype.get = function(nextKey) {
       if (this.name === storeName && nextKey === key) {
-        globalThis.__loomarkR0ReadAccounting.archiveStorageReads += 1
+        globalThis.__loomarkR0ReadAccounting.observationArchiveReads += 1
       }
       return originalGet.call(this, nextKey)
     }
     IDBObjectStore.prototype.openCursor = function(query, direction) {
       if (this.name === storeName && query === key) {
-        globalThis.__loomarkR0ReadAccounting.archiveStorageReads += 1
+        globalThis.__loomarkR0ReadAccounting.applicationArchiveReads += 1
       }
       return originalOpenCursor.call(this, query, direction)
     }
@@ -230,15 +229,18 @@ try {
       cache: "no-store",
     })
     const indexSource = await indexResponse.text()
+    const candidateBundleMarkerDetected = candidateMarkers.some(marker => (
+      indexSource.includes(marker)
+    ))
     return {
       portableText: archive.portable_markdown,
       historySha256,
       historyEvents: history.operations.length,
-      archiveStorageReads: globalThis.__loomarkR0ReadAccounting.archiveStorageReads,
-      candidateConsumerStarts: candidateMarkers.some(marker => indexSource.includes(marker))
-        ? 1
-        : globalThis.__loomarkR0ReadAccounting.candidateConsumerStarts,
-      candidateEventReads: globalThis.__loomarkR0ReadAccounting.candidateEventReads,
+      applicationArchiveReads: globalThis.__loomarkR0ReadAccounting.applicationArchiveReads,
+      observationArchiveReads: globalThis.__loomarkR0ReadAccounting.observationArchiveReads,
+      candidateBundleMarkerDetected,
+      candidateConsumerStarts: candidateBundleMarkerDetected ? 1 : 0,
+      candidateEventReads: candidateBundleMarkerDetected ? 1 : 0,
       browserUtf16End: document.querySelector("#loomark-input")?.value.length ?? null,
     }
   }, {
@@ -251,9 +253,12 @@ try {
   ) {
     throw new Error("browser portable text/history mismatch")
   }
-  const applicationArchiveReads = beforeEdit.archiveStorageReads - 1
-  if (applicationArchiveReads !== 1) {
-    throw new Error(`unexpected archive storage read count: ${beforeEdit.archiveStorageReads}`)
+  const applicationArchiveReads = beforeEdit.applicationArchiveReads
+  if (applicationArchiveReads !== 1 || beforeEdit.observationArchiveReads !== 1) {
+    throw new Error(`unexpected archive storage read count: ${JSON.stringify({
+      application: applicationArchiveReads,
+      observation: beforeEdit.observationArchiveReads,
+    })}`)
   }
   if (beforeEdit.candidateConsumerStarts !== 0 || beforeEdit.candidateEventReads !== 0) {
     throw new Error("candidate_consumer_selected")
@@ -311,6 +316,10 @@ try {
       browser_portable_text_equal: true,
       browser_portable_history_equal: true,
       selected_consumer: seeded.fixture.consumer,
+      candidate_detection: {
+        basis: "catalog selection plus release-bundle exclusion canary",
+        release_bundle_marker_detected: beforeEdit.candidateBundleMarkerDetected,
+      },
       candidate_consumer_starts: beforeEdit.candidateConsumerStarts,
       full_history_consumer_starts: applicationArchiveReads,
       edit_persisted_after_fresh_page: true,
@@ -331,6 +340,7 @@ try {
         oracle_full_history_event_reads: beforeEdit.historyEvents,
         candidate_event_reads: beforeEdit.candidateEventReads,
         first_edit_local_operations: firstEditLocalOperations,
+        observation_storage_read_operations: beforeEdit.observationArchiveReads,
         observation_storage_reads_excluded: true,
       },
     },
