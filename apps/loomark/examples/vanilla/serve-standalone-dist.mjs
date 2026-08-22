@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url"
 
 const distRoot = process.env.LOOMARK_STANDALONE_DIST ??
   fileURLToPath(new URL("../../dist/", import.meta.url))
+const r0FixtureRoot = process.env.LOOMARK_R0_BROWSER_FIXTURE_ROOT
+const r0FixturePrefix = "/fixtures/r0-browser-v1/"
 const port = Number.parseInt(process.env.LOOMARK_STANDALONE_PORT ?? "4317", 10)
 const contentTypes = new Map([
   [".css", "text/css; charset=utf-8"],
@@ -17,11 +19,18 @@ const contentTypes = new Map([
 
 const server = createServer((request, response) => {
   const pathname = new URL(request.url ?? "/", `http://127.0.0.1:${port}`).pathname
-  const relativePath = pathname === "/" ? "index.html" : pathname.slice(1)
+  const fixtureRequest = r0FixtureRoot !== undefined && pathname.startsWith(r0FixturePrefix)
+  const relativePath = fixtureRequest
+    ? pathname.slice(r0FixturePrefix.length)
+    : pathname === "/" ? "index.html" : pathname.slice(1)
   const normalizedPath = normalize(relativePath)
-  const filePath = join(distRoot, normalizedPath)
+  const filePath = join(fixtureRequest ? r0FixtureRoot : distRoot, normalizedPath)
 
-  if (normalizedPath.startsWith("..") || !existsSync(filePath) || !statSync(filePath).isFile()) {
+  if (
+    normalizedPath.startsWith("..") ||
+    !existsSync(filePath) ||
+    !statSync(filePath).isFile()
+  ) {
     response.writeHead(404, { "content-type": "text/plain; charset=utf-8" })
     response.end("Not found")
     return

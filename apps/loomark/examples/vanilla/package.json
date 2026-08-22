@@ -7,6 +7,9 @@
     "typecheck:standalone": "tsc --noEmit -p tsconfig.standalone.json",
     "test:dev-host": "playwright test --config=playwright.dev-host.config.ts",
     "test:standalone": "node ./run-standalone-tests.mjs",
+    "fixtures:r0:generate": "node ./generate-r0-browser-fixtures.mjs",
+    "fixtures:r0:test": "node ./test-r0-browser-fixtures.mjs",
+    "fixtures:r0:verify": "node ./verify-r0-browser-fixtures.mjs",
     "bench:startup": "node ./bench-startup.mjs",
     "bench:projection": "node ./bench-projection-placement.mjs"
   },
