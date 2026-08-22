@@ -14,7 +14,7 @@ cat > "$fake_bin/moon" <<'FAKE_MOON'
 set -euo pipefail
 
 if [ "${1:-}" = "version" ] && [ "${2:-}" = "--all" ]; then
-  echo "moonc v0.10.8+8606a5800"
+  echo "moonc v0.10.8+8606a5800 /tmp/fake-moonc"
   exit 0
 fi
 
