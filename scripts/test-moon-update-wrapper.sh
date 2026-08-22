@@ -76,6 +76,14 @@ cat > "$fake_bin/curl" <<'FAKE_CURL'
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [ -n "${FAKE_CURL_CALLS_FILE:-}" ]; then
+  curl_calls=0
+  if [ -f "$FAKE_CURL_CALLS_FILE" ]; then
+    curl_calls="$(cat "$FAKE_CURL_CALLS_FILE")"
+  fi
+  printf '%s\n' "$((curl_calls + 1))" > "$FAKE_CURL_CALLS_FILE"
+fi
+
 if [ "${FAKE_CURL_SCENARIO:-success}" = "fail" ]; then
   exit 42
 fi
@@ -126,6 +134,7 @@ run_wrapper() {
     FAKE_MOON_BIN="$fake_bin/moon" \
     FAKE_MOON_VERSION="$moon_version" \
     FAKE_INSTALLED_MOON_VERSION="$installed_version" \
+    FAKE_CURL_CALLS_FILE="$output_file.curl-calls" \
     FAKE_CURL_SCENARIO="$curl_scenario" \
     FAKE_MOON_SCENARIO="$scenario" \
     FAKE_MOON_ATTEMPTS_FILE="$attempts_file" \
@@ -143,18 +152,24 @@ grep -q "transient registry/CDN/network failure" "$transient_output" || {
   cat "$transient_output" >&2
   exit 1
 }
+if [ -e "$transient_output.curl-calls" ]; then
+  echo "error: matching MoonBit unexpectedly invoked the installer" >&2
+  cat "$transient_output.curl-calls" >&2
+  exit 1
+fi
 
 repaired_attempts="$tmp_dir/repaired-attempts"
 repaired_output="$tmp_dir/repaired-output.log"
-run_wrapper registry-clone-transient "$repaired_attempts" "$repaired_output" v0.10.4+ade96c819
+run_wrapper registry-clone-transient "$repaired_attempts" "$repaired_output" v0.10.8+ade96c819
 assert_eq "$(cat "$repaired_attempts")" "2" "mismatched MoonBit should install the pinned compiler before retrying"
+assert_eq "$(cat "$repaired_output.curl-calls")" "1" "mismatched MoonBit should invoke the installer once"
 grep -q "installing MoonBit 0.10.8+8606a5800" "$repaired_output" || {
   echo "error: mismatched MoonBit did not trigger the pinned installation" >&2
   cat "$repaired_output" >&2
   exit 1
 }
 
-if run_wrapper registry-clone-transient "$tmp_dir/failed-install-attempts" "$tmp_dir/failed-install.log" v0.10.4+ade96c819 fail; then
+if run_wrapper registry-clone-transient "$tmp_dir/failed-install-attempts" "$tmp_dir/failed-install.log" v0.10.8+ade96c819 fail; then
   echo "error: failed MoonBit installation unexpectedly succeeded" >&2
   exit 1
 fi
@@ -163,8 +178,9 @@ grep -q "failed to install MoonBit" "$tmp_dir/failed-install.log" || {
   cat "$tmp_dir/failed-install.log" >&2
   exit 1
 }
+assert_eq "$(cat "$tmp_dir/failed-install.log.curl-calls")" "1" "failed MoonBit installation should invoke the installer once"
 
-if run_wrapper registry-clone-transient "$tmp_dir/bad-install-attempts" "$tmp_dir/bad-install.log" v0.10.4+ade96c819 success v0.10.4+ade96c819; then
+if run_wrapper registry-clone-transient "$tmp_dir/bad-install-attempts" "$tmp_dir/bad-install.log" v0.10.8+ade96c819 success v0.10.8+ade96c819; then
   echo "error: mismatched post-install MoonBit unexpectedly succeeded" >&2
   exit 1
 fi
@@ -173,6 +189,7 @@ grep -q "does not provide moonc v0.10.8+8606a5800" "$tmp_dir/bad-install.log" ||
   cat "$tmp_dir/bad-install.log" >&2
   exit 1
 }
+assert_eq "$(cat "$tmp_dir/bad-install.log.curl-calls")" "1" "bad post-install MoonBit should invoke the installer once"
 
 exhausted_attempts="$tmp_dir/exhausted-attempts"
 exhausted_output="$tmp_dir/exhausted-output.log"
