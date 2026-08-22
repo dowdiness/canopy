@@ -53,32 +53,11 @@ pub(all) enum LocalArchiveQueueCompletion {
 /// from matching a newly created queue for the same logical document.
 pub struct LocalArchivePendingWrite {
   priv queue_epoch : String
-  priv request_id : LocalArchiveRequestId
+  priv request_id : Int
   priv document_id : @archive.LoomarkDocumentId
   priv document_version : @markdown.MarkdownDocumentVersion
   priv archive : PreparedLocalArchive
 } derive(Eq)
-
-///|
-pub fn LocalArchivePendingWrite::request_id(
-  self : Self,
-) -> LocalArchiveRequestId {
-  self.request_id
-}
-
-///|
-pub fn LocalArchivePendingWrite::document_id(
-  self : Self,
-) -> @archive.LoomarkDocumentId {
-  self.document_id
-}
-
-///|
-pub fn LocalArchivePendingWrite::document_version(
-  self : Self,
-) -> @markdown.MarkdownDocumentVersion {
-  self.document_version
-}
 
 ///|
 pub fn LocalArchivePendingWrite::encoded(self : Self) -> String {
@@ -175,7 +154,7 @@ fn LocalArchivePersistenceQueue::allocate_pending(
 ) -> (LocalArchivePersistenceQueue, LocalArchivePendingWrite) {
   let pending = LocalArchivePendingWrite::{
     queue_epoch: self.queue_epoch,
-    request_id: LocalArchiveRequestId::{ value: self.next_request_value },
+    request_id: self.next_request_value,
     document_id: self.document_id,
     document_version,
     archive,
@@ -273,7 +252,7 @@ pub fn LocalArchivePersistenceQueue::complete(
   guard in_flight.matches(pending) else {
     return (self, LocalArchiveQueueCompletion::Ignored)
   }
-  let current_write = pending.document_version()
+  let current_write = pending.document_version
   let is_current = self.current == current_write
   let same_epoch = pending.queue_epoch == self.queue_epoch
   match self.pending_latest {
@@ -287,7 +266,7 @@ pub fn LocalArchivePersistenceQueue::complete(
         self.durable
       }
       let failure = if same_epoch &&
-        next_pending.document_version() == self.current {
+        next_pending.document_version == self.current {
         None
       } else {
         self.failure
@@ -335,12 +314,6 @@ pub fn LocalArchivePersistenceQueue::complete(
     }
   }
 }
-
-///|
-/// Monotonic identity assigned to one repository replacement request.
-pub struct LocalArchiveRequestId {
-  priv value : Int
-} derive(Eq, Debug)
 
 ///|
 /// Storage-write categories reserved for the imperative provider shell.

@@ -34,7 +34,6 @@ pub struct LocalArchiveWriteCompletion {
   // private fields
 }
 pub fn LocalArchiveWriteCompletion::pending(Self) -> @repository.LocalArchivePendingWrite
-pub fn LocalArchiveWriteCompletion::request_id(Self) -> @repository.LocalArchiveRequestId
 pub fn LocalArchiveWriteCompletion::result(Self) -> LocalArchiveStorageWrite
 
 // Type aliases

@@ -48,10 +48,7 @@ pub(all) enum LocalArchiveLoadFailure {
 pub struct LocalArchivePendingWrite {
   // private fields
 } derive(Eq)
-pub fn LocalArchivePendingWrite::document_id(Self) -> @archive.LoomarkDocumentId
-pub fn LocalArchivePendingWrite::document_version(Self) -> @dowdiness/canopy/editor/markdown.MarkdownDocumentVersion
 pub fn LocalArchivePendingWrite::encoded(Self) -> String
-pub fn LocalArchivePendingWrite::request_id(Self) -> LocalArchiveRequestId
 
 pub(all) enum LocalArchivePersistenceDecision {
   Replace
@@ -85,10 +82,6 @@ pub(all) enum LocalArchiveQueueCompletion {
   Completed
   Promoted(LocalArchivePendingWrite)
 } derive(Eq)
-
-pub struct LocalArchiveRequestId {
-  // private fields
-} derive(Eq, @debug.Debug)
 
 pub(all) enum LocalArchiveStorageReadFailure {
   Unavailable

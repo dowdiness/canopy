@@ -44,13 +44,6 @@ pub fn LocalArchiveWriteCompletion::pending(
 }
 
 ///|
-pub fn LocalArchiveWriteCompletion::request_id(
-  self : Self,
-) -> @repository.LocalArchiveRequestId {
-  self.pending.request_id()
-}
-
-///|
 pub fn LocalArchiveWriteCompletion::result(
   self : Self,
 ) -> LocalArchiveStorageWrite {
