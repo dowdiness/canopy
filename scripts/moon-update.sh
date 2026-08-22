@@ -20,6 +20,23 @@
 
 set -uo pipefail
 
+# async@0.21.0 requires this MoonBit/compiler-core compatibility pair. Keep
+# the guard here as well as in the CI action and standalone build wrapper:
+# Workers Builds may retain a dashboard command that invokes this script
+# directly, before it reaches the repository's normal toolchain bootstrap.
+PINNED_MOONBIT_VERSION="0.10.8+8606a5800"
+if ! command -v moon >/dev/null 2>&1 ||
+  ! moon version --all 2>/dev/null | grep -Fq "moonc v$PINNED_MOONBIT_VERSION"; then
+  command -v curl >/dev/null 2>&1 || {
+    echo "moon-update: curl is required to install MoonBit $PINNED_MOONBIT_VERSION." >&2
+    exit 2
+  }
+  echo "moon-update: installing MoonBit $PINNED_MOONBIT_VERSION for async@0.21.0 compatibility..." >&2
+  curl -fsSL https://cli.moonbitlang.com/install/unix.sh |
+    bash -s -- "$PINNED_MOONBIT_VERSION"
+  export PATH="$HOME/.moon/bin:$PATH"
+fi
+
 MAX_ATTEMPTS="${MOON_UPDATE_MAX_ATTEMPTS:-3}"
 # BASE_DELAY=0 is a deliberate test affordance — the regression suite sets
 # MOON_UPDATE_RETRY_DELAY=0 to exercise the retry path without real sleeps. The
