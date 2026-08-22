@@ -41,7 +41,6 @@ priv struct CanvasContextMenuItem {
 ///|
 priv struct CanvasContextMenuModel {
   handle : Int
-  source_backed : Bool
   items : Array[CanvasContextMenuItem]
   target : CanvasContextTarget?
   context_menu : @context_menu.Model
@@ -61,26 +60,15 @@ priv enum CanvasContextMenuMsg {
 let context_menu_dismissers : Map[Int, () -> Unit] = Map([])
 
 ///|
-fn canvas_context_pointer_state(
-  handle : Int,
-  source_backed : Bool,
-) -> CanvasPointerState {
-  { handle, source_backed, session: Idle }
+fn canvas_context_pointer_state(handle : Int) -> CanvasPointerState {
+  { handle, session: Idle }
 }
 
 ///|
-fn canvas_context_edge_description(
-  handle : Int,
-  source_backed : Bool,
-  edge_id : EdgeId,
-) -> String {
-  let state = if source_backed {
-    match source_graph_by_handle(handle) {
-      Some(graph) => source_graph_base_canvas_state(graph)
-      None => empty_source_canvas_state()
-    }
-  } else {
-    _registry[handle].state_peek()
+fn canvas_context_edge_description(handle : Int, edge_id : EdgeId) -> String {
+  let state = match canvas_backing(handle) {
+    Some(backing) => backing.state()
+    None => empty_source_canvas_state()
   }
   match state.edges.search_by(fn(edge) { edge.id == edge_id }) {
     Some(index) => {
@@ -111,8 +99,12 @@ fn canvas_context_menu_items(
           description: item.description,
         }
       })
-      if !model.source_backed &&
-        _registry[model.handle].peek_selection().selected_nodes.length() >= 2 {
+      let can_arrange = match canvas_backing(model.handle) {
+        Some(Runtime(runtime)) =>
+          runtime.peek_selection().selected_nodes.length() >= 2
+        _ => false
+      }
+      if can_arrange {
         items.insert(0, {
           action: Arrange,
           label: "Arrange compactly",
@@ -126,11 +118,7 @@ fn canvas_context_menu_items(
         {
           action: Disconnect,
           label: "Disconnect edge",
-          description: canvas_context_edge_description(
-            model.handle,
-            model.source_backed,
-            edge_id,
-          ),
+          description: canvas_context_edge_description(model.handle, edge_id),
         },
       ]
   }
@@ -139,13 +127,11 @@ fn canvas_context_menu_items(
 ///|
 fn context_menu_model(
   handle : Int,
-  source_backed : Bool,
   on_change : () -> Unit,
   on_source_result : (String) -> Unit,
 ) -> CanvasContextMenuModel {
   {
     handle,
-    source_backed,
     items: [],
     target: None,
     context_menu: @context_menu.Model::new(id=CONTEXT_MENU_PANEL_ID).with_close_focus_id(
@@ -163,18 +149,15 @@ fn CanvasContextMenuModel::open_request(
 ) -> CanvasContextMenuModel? {
   match request.target {
     Background(insert_at~) => {
-      let pointer_state = canvas_context_pointer_state(
-        self.handle,
-        self.source_backed,
-      )
-      if !self.source_backed &&
-        canvas_pointer_world_point(pointer_state, insert_at) is None {
-        return None
+      let pointer_state = canvas_context_pointer_state(self.handle)
+      match canvas_backing(self.handle) {
+        Some(Runtime(_)) if canvas_pointer_world_point(pointer_state, insert_at)
+          is None => return None
+        _ => ()
       }
-      canvas_clear_selected_edge(self.handle, self.source_backed)
+      canvas_clear_selected_edge(self.handle)
     }
-    Edge(edge_id) =>
-      canvas_select_edge(self.handle, self.source_backed, edge_id)
+    Edge(edge_id) => canvas_select_edge(self.handle, edge_id)
   }
   let items = canvas_context_menu_items(self, request.target)
   Some({
@@ -237,34 +220,31 @@ fn canvas_context_apply(
 ) -> Unit raise Failure {
   match (target, action) {
     (Background(insert_at~), AddNode(kind)) =>
-      if model.source_backed {
-        (model.on_source_result)(
-          canvas_context_insert_unique(model.handle, kind),
-        )
-      } else {
-        _registry[model.handle].add_node(kind, insert_at.x(), insert_at.y())
+      match canvas_backing(model.handle) {
+        Some(Source(_)) =>
+          (model.on_source_result)(
+            canvas_context_insert_unique(model.handle, kind),
+          )
+        Some(Runtime(runtime)) =>
+          runtime.add_node(kind, insert_at.x(), insert_at.y())
+        None => ()
       }
     (Background(_), Arrange) =>
-      if !model.source_backed {
-        _registry[model.handle].arrange_selection()
+      match canvas_backing(model.handle) {
+        Some(Runtime(runtime)) => runtime.arrange_selection()
+        _ => ()
       }
     (Edge(edge_id), Disconnect) =>
-      if model.source_backed {
-        let result = match source_graph_by_handle(model.handle) {
-          Some(graph) =>
-            graph.disconnect_edge(edge_id) catch {
-              Failure::Failure(detail) =>
-                canvas_context_failure_result(model.handle, detail)
-            }
-          None =>
-            canvas_context_failure_result(
-              model.handle,
-              "source graph handle not found",
-            )
+      match canvas_backing(model.handle) {
+        Some(Source(graph)) => {
+          let result = graph.disconnect_edge(edge_id) catch {
+            Failure::Failure(detail) =>
+              canvas_context_failure_result(model.handle, detail)
+          }
+          (model.on_source_result)(result.to_json().stringify())
         }
-        (model.on_source_result)(result.to_json().stringify())
-      } else {
-        ignore(_registry[model.handle].disconnect_edge(edge_id))
+        Some(Runtime(runtime)) => ignore(runtime.disconnect_edge(edge_id))
+        None => ()
       }
     _ => ()
   }
@@ -519,15 +499,12 @@ pub fn dismiss_canvas_context_menu(handle : Int) -> Unit {
 #cfg(target="js")
 pub fn mount_canvas_context_menu(
   handle : Int,
-  source_backed : Bool,
   on_change : () -> Unit,
   on_source_result : (String) -> Unit,
 ) -> Unit {
   @rabbita.new(
     @rabbita.cell(
-      model=context_menu_model(
-        handle, source_backed, on_change, on_source_result,
-      ),
+      model=context_menu_model(handle, on_change, on_source_result),
       update=context_menu_update,
       view=context_menu_view,
       subscriptions=context_menu_subscriptions,

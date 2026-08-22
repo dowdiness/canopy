@@ -77,14 +77,10 @@ fn SourceBackedGraph::apply_attachment_mutation(
 }
 
 ///|
-let _source_registry : Array[SourceBackedGraph?] = []
-
-///|
 fn source_graph_by_handle(handle : Int) -> SourceBackedGraph? {
-  if handle < 0 || handle >= _source_registry.length() {
-    None
-  } else {
-    _source_registry[handle]
+  match canvas_backing(handle) {
+    Some(Source(graph)) => Some(graph)
+    _ => None
   }
 }
 
@@ -1230,20 +1226,23 @@ pub fn sample_graph_dsl_source() -> String {
 
 ///|
 pub fn create_source_graph(source : String) -> Int raise Failure {
-  let handle = _source_registry.length()
+  let handle = canvas_instances.length()
   let source_id = source_graph_source_id(handle)
-  _source_registry.push(Some(SourceBackedGraph(source_id, source)))
+  canvas_instances.push(Some(Source(SourceBackedGraph(source_id, source))))
   handle
 }
 
 ///|
 pub fn try_destroy_source_graph(handle : Int) -> Bool {
-  match source_graph_by_handle(handle) {
-    Some(graph) => graph.dispose()
-    None => return true
+  match canvas_backing(handle) {
+    Some(Source(graph)) => {
+      graph.dispose()
+      canvas_instances[handle] = None
+      true
+    }
+    Some(Runtime(_)) => false
+    None => true
   }
-  _source_registry[handle] = None
-  true
 }
 
 ///|
@@ -1429,12 +1428,15 @@ fn source_render_state_string(
 }
 
 ///|
+fn SourceBackedGraph::render_state_json(self : SourceBackedGraph) -> String {
+  let state = source_graph_canvas_state(self)
+  source_render_state_string(self, state, source_graph_validation(self))
+}
+
+///|
 pub fn get_source_graph_render_state(handle : Int) -> String {
   match source_graph_by_handle(handle) {
-    Some(graph) => {
-      let state = source_graph_canvas_state(graph)
-      source_render_state_string(graph, state, source_graph_validation(graph))
-    }
+    Some(graph) => graph.render_state_json()
     None =>
       render_state_string(empty_source_canvas_state(), [
         {

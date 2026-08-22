@@ -535,11 +535,17 @@ fn dispatch_canvas_render_state(json : String) -> Unit {
 /// consumers. The custom event is only an app-private transport seam; the
 /// returned string is the same snapshot consumed by the TypeScript shell.
 #cfg(target="js")
-pub fn publish_render_state(handle : Int, source_backed : Bool) -> String {
-  let json = if source_backed {
-    get_source_graph_render_state(handle)
-  } else {
-    get_render_state(handle)
+pub fn publish_render_state(handle : Int) -> String {
+  let json = match canvas_backing(handle) {
+    Some(backing) => backing.render_state_json()
+    None => {
+      // Preserve the old workflow registry's out-of-range failure while
+      // retaining the source boundary's error result for an empty slot.
+      if handle < 0 || handle >= canvas_instances.length() {
+        ignore(canvas_instances[handle])
+      }
+      get_source_graph_render_state(handle)
+    }
   }
   dispatch_canvas_render_state(json)
   json

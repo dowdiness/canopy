@@ -460,7 +460,6 @@ async function init(): Promise<void> {
   ) as LibraryItem[];
   sourceDemoModule.mount_canvas_context_menu(
     adapter.handleId,
-    sourceMode,
     () => {
       scheduleRender();
       return undefined;
@@ -477,7 +476,6 @@ async function init(): Promise<void> {
   });
   sourceDemoModule.mount_canvas_pointer_session(
     adapter.handleId,
-    sourceMode,
     () => {
       scheduleRender();
       return undefined;
