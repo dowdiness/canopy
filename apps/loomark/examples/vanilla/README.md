@@ -49,9 +49,26 @@ npm run fixtures:r0:test      # catalog, digest, archive, and fail-closed contro
 npm run fixtures:r0:verify    # regenerate in a temporary directory and byte-compare
 ```
 
-The canonical Gate R0 runner owns the fresh-Chromium correctness run. This
-corpus does not provide browser performance evidence; browser measurement
-remains a separate obligation.
+The canonical Gate R0 runner owns both the fresh-Chromium correctness run and
+the fixed browser measurement lane. It builds release JavaScript, assembles the
+production Warren static output, pins Chromium `149.0.7827.55`, warms each
+fixture once, then performs 20 measured reloads. Every measured reload restores
+the fixed full-history archive, appends U+005A as a real browser edit, and waits
+for the resulting complete archive replacement.
+
+Raw samples and nearest-rank summaries are retained for the IndexedDB storage
+read, the black-box interval from storage completion to expected text, total
+restore-to-text observation, first edit to persisted archive, its IndexedDB
+write transaction, and restore plus first edit. The valid fixture corpus has no
+recovery run, so fallback/error timing is explicitly not applicable. Candidate
+A/C browser timing is likewise `not_applicable: product_restore_seam_absent`;
+the lane must not present plain-text import as candidate restore evidence.
+
+Run the fast schema/invariant checks independently with:
+
+```bash
+npm run measurement:r0:test
+```
 
 ## Startup benchmark
 
