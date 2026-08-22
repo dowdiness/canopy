@@ -32,9 +32,17 @@ if ! command -v moon >/dev/null 2>&1 ||
     exit 2
   }
   echo "moon-update: installing MoonBit $PINNED_MOONBIT_VERSION for async@0.21.0 compatibility..." >&2
-  curl -fsSL https://cli.moonbitlang.com/install/unix.sh |
-    bash -s -- "$PINNED_MOONBIT_VERSION"
+  if ! curl -fsSL https://cli.moonbitlang.com/install/unix.sh |
+    bash -s -- "$PINNED_MOONBIT_VERSION"; then
+    echo "moon-update: failed to install MoonBit $PINNED_MOONBIT_VERSION." >&2
+    exit 1
+  fi
   export PATH="$HOME/.moon/bin:$PATH"
+  if ! moon version --all 2>/dev/null |
+    grep -Fq "moonc v$PINNED_MOONBIT_VERSION"; then
+    echo "moon-update: installed MoonBit does not provide moonc v$PINNED_MOONBIT_VERSION." >&2
+    exit 1
+  fi
 fi
 
 MAX_ATTEMPTS="${MOON_UPDATE_MAX_ATTEMPTS:-3}"
