@@ -1,5 +1,10 @@
 ///|
 /// The product-visible local durability state for one accepted document.
+///
+/// `MarkdownDocumentVersion` is opaque: states compare versions for equality
+/// and never infer ordering from their representation. `DurableLocal` is only
+/// reported when the current accepted version equals the last acknowledged
+/// durable version.
 pub(all) enum LocalArchivePersistenceStatus {
   DurableLocal(@markdown.MarkdownDocumentVersion)
   Applied(
@@ -22,6 +27,9 @@ pub(all) enum LocalArchiveWriteOutcome {
 
 ///|
 /// The result of applying one correlated write acknowledgment.
+///
+/// `Ignored` means the queue was not changed. `Promoted` means exactly one
+/// immutable latest archive became the next in-flight write.
 pub(all) enum LocalArchiveQueueCompletion {
   Ignored
   Completed
@@ -65,6 +73,12 @@ pub fn LocalArchivePendingWrite::encoded(self : Self) -> String {
 
 ///|
 /// Pure per-document single-flight persistence state.
+///
+/// Invariants:
+/// - at most one archive is in flight;
+/// - at most one immutable latest archive is pending;
+/// - only a matching acknowledgment can advance `durable`;
+/// - a stale or deactivated-document acknowledgment leaves the queue unchanged.
 pub struct LocalArchivePersistenceQueue {
   priv document_id : @archive.LoomarkDocumentId
   priv current : @markdown.MarkdownDocumentVersion
@@ -205,6 +219,9 @@ fn LocalArchivePendingWrite::matches(
 
 ///|
 /// Apply one acknowledgment and optionally promote the latest pending archive.
+///
+/// The request ID, document ID, and opaque target version must all match the
+/// registered in-flight write before any state transition is allowed.
 pub fn LocalArchivePersistenceQueue::complete(
   self : Self,
   pending : LocalArchivePendingWrite,
