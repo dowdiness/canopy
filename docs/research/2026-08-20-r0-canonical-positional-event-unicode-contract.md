@@ -191,6 +191,45 @@ use-case/UI intent -> planned same-base spans -> accepted sequential transforms
 
 A replace lowers to multiple events and is not graph-atomic. This matches the paper and current EGW behavior. Run compression may store consecutive scalar events compactly without changing their identities.
 
+### Shared test codec
+
+One test-only codec is defined here and referenced by every other R0 document; there is no second wire/sidecar codec. It is used only for test fixtures, digest framing, and executable handoffs; no production wire format is authorized.
+
+```text
+uvarint(n)     minimal unsigned LEB128 encoding of nonnegative integer n;
+               no padding or leading zero bytes; values above MoonBit's
+               signed 32-bit Int maximum are rejected before conversion
+lp_bytes(b)    uvarint(len(b)) || b
+lp_utf8(s)     lp_bytes(strict UTF-8 bytes of preflight-validated string s);
+               no normalization
+domain(s)      lp_utf8(s), the domain-separation tag
+digest         fixed 32 raw bytes (SHA-256 output), never length-prefixed
+opt            one tag byte: 0x00 absent, 0x01 present; tagged value follows
+               when present
+array          uvarint(count) followed by count records in the stated order
+RawVersion     lp_utf8(agent) || uvarint(sequence)
+```
+
+Frozen tags:
+
+```text
+kind tags            InsertScalar 0x01 | DeleteScalar 0x02 | Undelete 0x03
+coordinate tag       parent-frontier scalar position 0x01, then uvarint(position)
+role tag             UndeleteTarget 0x01
+required-kind tag    Insert 0x01
+proof-direction tag  left sibling 0x00 | right sibling 0x01
+```
+
+Canonical body bytes (exact, one encoding only):
+
+```text
+InsertScalar:  0x01 || 0x01 || uvarint(position) || lp_bytes(exact one scalar UTF-8)
+DeleteScalar:  0x02 || 0x01 || uvarint(position)
+Undelete:      0x03 || RawVersion(target)
+```
+
+Bounds and strict UTF-8 from U1 are preserved exactly: positions stay within `0..<0x7fff_ffff` with the stated insert/delete validity rules, every string is preflight-validated well-formed UTF-16 converted to strict UTF-8 with no normalization, and an insert body carries exactly one Unicode scalar encoded in 1–4 UTF-8 bytes. The coordinate tag is not an identity-relative anchor: the position that follows is defined against the visible scalar sequence at the event's declared parent frontier.
+
 ### Canonical digest fields
 
 This decision owns the canonical body bytes and their unchanged body digest:
@@ -204,7 +243,7 @@ body_digest = SHA-256(
 
 The [capture receipt](2026-08-20-r0-capture-receipt-reassessment.md#event-digest-overlay) owns the complete `event_digest_v2` composition that binds this `body_digest`, rank, identity, parents, predecessor, and semantic references. This document does not duplicate that framing.
 
-Canonical body bytes contain the kind plus parent-relative scalar position and exact length-prefixed UTF-8 scalar bytes for insert, the position for delete, or the undelete target identity. The undelete target's required kind (`RequiredReferencedKind`) and target event digest are additionally bound in its semantic-reference record. The target's actual kind is not asserted by the referring event; it is verified from the target's own authenticated metadata (`EventMetaV2`). Parent/reference identity order is unsigned bytewise lexical order of validated UTF-8 agent bytes, then numeric sequence.
+Canonical body bytes (encoded per the shared test codec above) contain the kind plus parent-relative scalar position and exact length-prefixed UTF-8 scalar bytes for insert, the position for delete, or the undelete target identity. The undelete target's required kind (`RequiredReferencedKind` tag `0x01` = Insert) and target event digest are additionally bound in its semantic-reference record. The target's actual kind is not asserted by the referring event; it is verified from the target's own authenticated metadata (`EventMetaV2`). Parent/reference identity order is unsigned bytewise lexical order of validated UTF-8 agent bytes, then numeric sequence.
 
 Sequence zero has no predecessor. A semantic undelete target remains role-tagged even if it also appears in another dependency position.
 
