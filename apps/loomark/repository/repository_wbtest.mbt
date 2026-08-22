@@ -487,6 +487,95 @@ test "persistence failure supersedes an older pending archive" {
 }
 
 ///|
+test "deactivated document ignores pending acknowledgment" {
+  let first_editor = try! @markdown.MarkdownEditor(
+    agent_id="repository-queue-deactivated-first",
+    source="first",
+  )
+  let first_initial_version = first_editor.version()
+  let first_document_id = try! @archive.LoomarkDocumentId::from_string(
+    "doc-queue-deactivated-first",
+  )
+  ignore(
+    first_editor.commit(
+      @markdown.MarkdownEditRequest::ReplaceSource("first edited"),
+    ),
+  )
+  let first_version = first_editor.version()
+  let first_archive = try! prepare_local_archive(
+    document_id=first_document_id,
+    editor=first_editor,
+  )
+  let first_queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
+    document_id=first_document_id,
+    current=first_initial_version,
+    durable=None,
+  )
+  let (first_queue, first_write) = first_queue.enqueue(
+    document_version=first_version,
+    archive=first_archive,
+  )
+  guard first_write is Some(first_write) else {
+    fail("expected first document write")
+  }
+
+  // Deactivation replaces the active Session queue before the old write settles.
+  let second_editor = try! @markdown.MarkdownEditor(
+    agent_id="repository-queue-deactivated-second",
+    source="second",
+  )
+  let second_initial_version = second_editor.version()
+  let second_document_id = try! @archive.LoomarkDocumentId::from_string(
+    "doc-queue-deactivated-second",
+  )
+  ignore(
+    second_editor.commit(
+      @markdown.MarkdownEditRequest::ReplaceSource("second edited"),
+    ),
+  )
+  let second_version = second_editor.version()
+  let second_archive = try! prepare_local_archive(
+    document_id=second_document_id,
+    editor=second_editor,
+  )
+  let second_queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
+    document_id=second_document_id,
+    current=second_initial_version,
+    durable=None,
+  )
+  let (second_queue, second_write) = second_queue.enqueue(
+    document_version=second_version,
+    archive=second_archive,
+  )
+  guard second_write is Some(second_write) else {
+    fail("expected second document write")
+  }
+
+  let (second_queue, ignored) = second_queue.complete(
+    first_write,
+    LocalArchiveWriteOutcome::Stored,
+  )
+  assert_true(ignored is LocalArchiveQueueCompletion::Ignored)
+  match second_queue.status() {
+    LocalArchivePersistenceStatus::Applied(current~, durable~) => {
+      assert_true(current == second_version)
+      assert_true(durable is None)
+    }
+    _ => fail("deactivated acknowledgment must not change the active document")
+  }
+
+  let (second_queue, completed) = second_queue.complete(
+    second_write,
+    LocalArchiveWriteOutcome::Stored,
+  )
+  assert_true(completed is LocalArchiveQueueCompletion::Completed)
+  assert_true(
+    second_queue.status() is LocalArchivePersistenceStatus::DurableLocal(_),
+  )
+  ignore(first_queue)
+}
+
+///|
 test "reopen preserves identity and history for continued convergence" {
   let archive = captured_archive(
     "repository-reopen-source", "doc-reopen", "hello world",
