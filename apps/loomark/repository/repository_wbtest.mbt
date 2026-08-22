@@ -644,6 +644,66 @@ test "same document queue epoch rejects a delayed acknowledgment" {
 }
 
 ///|
+test "rebound queue drains the old write before new-epoch persistence" {
+  let (editor, document_id, initial_version) = queue_document(
+    "repository-queue-rebound", "doc-queue-rebound", "zero",
+  )
+  let (first_version, first_archive) = queue_archive_after_replace(
+    editor~,
+    document_id~,
+    "one",
+  )
+  let queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
+    document_id~,
+    queue_epoch="writing-instance-one",
+    current=initial_version,
+    durable=None,
+  )
+  let (queue, first_write) = queue.enqueue(
+    document_version=first_version,
+    archive=first_archive,
+  )
+  guard first_write is Some(first_write) else {
+    fail("expected first document write")
+  }
+
+  let queue = queue.rebind_epoch(queue_epoch="writing-instance-two")
+  let (second_version, second_archive) = queue_archive_after_replace(
+    editor~,
+    document_id~,
+    "two",
+  )
+  let (queue, second_write) = queue.enqueue(
+    document_version=second_version,
+    archive=second_archive,
+  )
+  assert_true(second_write is None)
+
+  let (queue, completion) = queue.complete(
+    first_write,
+    LocalArchiveWriteOutcome::Stored,
+  )
+  let promoted = match completion {
+    LocalArchiveQueueCompletion::Promoted(write) => write
+    _ => fail("expected the old write to release the ordering barrier")
+  }
+  match queue.status() {
+    LocalArchivePersistenceStatus::Applied(current~, durable~) => {
+      assert_true(current == second_version)
+      assert_true(durable is None)
+    }
+    _ => fail("old epoch completion must not advance durability")
+  }
+
+  let (queue, completed) = queue.complete(
+    promoted,
+    LocalArchiveWriteOutcome::Stored,
+  )
+  assert_true(completed is LocalArchiveQueueCompletion::Completed)
+  assert_true(queue.status() is LocalArchivePersistenceStatus::DurableLocal(_))
+}
+
+///|
 test "reopen preserves identity and history for continued convergence" {
   let archive = captured_archive(
     "repository-reopen-source", "doc-reopen", "hello world",

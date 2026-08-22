@@ -127,6 +127,23 @@ pub fn LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
 }
 
 ///|
+/// Begin a new active queue lifetime while preserving an older in-flight write
+/// as an ordering barrier. Older pending work and failure state are discarded;
+/// the old completion may only release the barrier and promote new work.
+pub fn LocalArchivePersistenceQueue::rebind_epoch(
+  self : Self,
+  queue_epoch~ : String,
+) -> LocalArchivePersistenceQueue {
+  {
+    ..self,
+    queue_epoch,
+    pending_latest: None,
+    next_request_value: 1,
+    failure: None,
+  }
+}
+
+///|
 pub fn LocalArchivePersistenceQueue::status(
   self : Self,
 ) -> LocalArchivePersistenceStatus {
@@ -258,13 +275,19 @@ pub fn LocalArchivePersistenceQueue::complete(
   }
   let current_write = pending.document_version()
   let is_current = self.current == current_write
+  let same_epoch = pending.queue_epoch == self.queue_epoch
   match self.pending_latest {
     Some(next_pending) => {
-      let durable = match outcome {
-        LocalArchiveWriteOutcome::Stored => Some(current_write)
-        LocalArchiveWriteOutcome::Failed(_) => self.durable
+      let durable = if same_epoch {
+        match outcome {
+          LocalArchiveWriteOutcome::Stored => Some(current_write)
+          LocalArchiveWriteOutcome::Failed(_) => self.durable
+        }
+      } else {
+        self.durable
       }
-      let failure = if next_pending.document_version() == self.current {
+      let failure = if same_epoch &&
+        next_pending.document_version() == self.current {
         None
       } else {
         self.failure
@@ -283,11 +306,22 @@ pub fn LocalArchivePersistenceQueue::complete(
     None => {
       let (durable, failure) = match outcome {
         LocalArchiveWriteOutcome::Stored =>
-          (Some(current_write), if is_current { None } else { self.failure })
+          (
+            if same_epoch {
+              Some(current_write)
+            } else {
+              self.durable
+            },
+            if same_epoch && is_current {
+              None
+            } else {
+              self.failure
+            },
+          )
         LocalArchiveWriteOutcome::Failed(error) =>
           (
             self.durable,
-            if is_current {
+            if same_epoch && is_current {
               Some(LocalArchivePersistenceFailure::Storage(error))
             } else {
               self.failure

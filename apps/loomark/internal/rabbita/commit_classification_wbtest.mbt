@@ -132,8 +132,78 @@ test "recovery reopens the exact accepted history once without replay" {
 
   assert_eq(recovered.reconstruction_attempt_count, 1)
   assert_eq(recovered.committed_change_count, accepted.committed_change_count)
+  assert_true(recovered.replica_id != accepted.replica_id)
   assert_eq(session.val.editor.portable_markdown(), "# Accepted\n")
   assert_true(try! (session.val.editor.history_since() == accepted_history))
+}
+
+///|
+test "recovery rebinds the queue before persisting the fresh session" {
+  let (editor, attachment) = try! @markdown.MarkdownEditor::with_semantic_attachment(
+    agent_id="recovery-queue-original-writer",
+    source="# Before\n",
+  )
+  let initial = test_model(editor.snapshot(), editor.version())
+  let receipt = match
+    (try! editor.commit_with_receipt(
+      @markdown.MarkdownEditRequest::ReplaceSource("# Accepted\n"),
+    )) {
+    Ok(receipt) => receipt
+    Err(_) => abort("expected accepted receipt")
+  }
+  let (accepted, _, _) = classify_commit(initial, receipt)
+  let old_archive = try! @repository.prepare_local_archive(
+    document_id=accepted.document_id,
+    editor~,
+  )
+  let (old_queue, old_write) = accepted.archive_queue.enqueue(
+    document_version=accepted.document_version,
+    archive=old_archive,
+  )
+  let accepted = {
+    ..accepted,
+    archive_persistence_enabled: true,
+    archive_queue: old_queue,
+  }
+  guard old_write is Some(old_write) else {
+    abort("expected an in-flight archive before recovery")
+  }
+  let old_replica_id = accepted.replica_id
+  let session = @ref.Ref(EditorSession::{ editor, attachment })
+  let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
+
+  let (recovered, _) = recover_after_parser_failure(
+    session,
+    accepted,
+    Failure::Failure("injected post-commit failure"),
+    emit,
+  )
+  assert_true(recovered.replica_id != old_replica_id)
+
+  let (recovered_queue, completion) = recovered.archive_queue.complete(
+    old_write,
+    @repository.LocalArchiveWriteOutcome::Stored,
+  )
+  let recovered_write = match completion {
+    @repository.LocalArchiveQueueCompletion::Promoted(write) => write
+    _ => abort("expected recovery archive after the old write settles")
+  }
+  match recovered_queue.status() {
+    @repository.LocalArchivePersistenceStatus::Applied(current~, durable~) => {
+      assert_eq(current, recovered.document_version)
+      assert_true(durable is Some(_))
+    }
+    _ => abort("old recovery write must not mark the recovered archive durable")
+  }
+  let (recovered_queue, completion) = recovered_queue.complete(
+    recovered_write,
+    @repository.LocalArchiveWriteOutcome::Stored,
+  )
+  assert_true(completion is @repository.LocalArchiveQueueCompletion::Completed)
+  assert_true(
+    recovered_queue.status()
+    is @repository.LocalArchivePersistenceStatus::DurableLocal(_),
+  )
 }
 
 ///|

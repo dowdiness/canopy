@@ -70,6 +70,7 @@ pub fn LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(document_id~ :
 pub fn LocalArchivePersistenceQueue::complete(Self, LocalArchivePendingWrite, LocalArchiveWriteOutcome) -> (Self, LocalArchiveQueueCompletion)
 pub fn LocalArchivePersistenceQueue::enqueue(Self, document_version~ : @dowdiness/canopy/editor/markdown.MarkdownDocumentVersion, archive~ : PreparedLocalArchive) -> (Self, LocalArchivePendingWrite?)
 pub fn LocalArchivePersistenceQueue::mark_failed(Self, document_version~ : @dowdiness/canopy/editor/markdown.MarkdownDocumentVersion, error~ : LocalArchivePersistenceFailure) -> Self
+pub fn LocalArchivePersistenceQueue::rebind_epoch(Self, queue_epoch~ : String) -> Self
 pub fn LocalArchivePersistenceQueue::retry(Self, document_version~ : @dowdiness/canopy/editor/markdown.MarkdownDocumentVersion, archive~ : PreparedLocalArchive) -> (Self, LocalArchivePendingWrite?)
 pub fn LocalArchivePersistenceQueue::status(Self) -> LocalArchivePersistenceStatus
 
