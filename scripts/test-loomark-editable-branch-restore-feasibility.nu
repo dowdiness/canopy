@@ -202,7 +202,7 @@ def run-browser-catalog [root: string output: string] {
     if ($row.payload.browser_version | is-empty) {
       fail $"browser revision missing: ($fixture.fixture_id)"
     }
-    if $row.schema_version != 1 or $row.run_id != "gate-r0-v1" or $row.case_id != $fixture.fixture_id or $row.status != "pass" or $row.payload.record != "browser_oracle_result" or $row.payload.operation_count != 1000 or $row.payload.post_edit_operation_count != 1001 or $row.payload.archive_sha256 != $fixture.archive_sha256 or $row.payload.restored_text_sha256 != $fixture.expected_text_sha256 or $row.payload.restored_history_sha256 != $fixture.history_sha256 or $row.payload.selected_consumer != "full_history_v1" or $row.payload.candidate_consumer_starts != 0 or $row.payload.full_history_consumer_starts != 1 or $row.payload.first_edit.scalar != "U+005A" or $row.payload.first_edit.canonical_utf16_position != $fixture.expected_text_utf16_units or not $row.payload.first_edit.adapter_mapping_proved or not $row.payload.first_edit.result_equal or not $row.payload.edit_persisted_after_fresh_page {
+    if $row.schema_version != 1 or $row.run_id != "gate-r0-v1" or $row.case_id != $fixture.fixture_id or $row.status != "pass" or $row.payload.record != "browser_oracle_result" or $row.payload.operation_count != 1000 or $row.payload.post_edit_operation_count != 1001 or $row.payload.archive_sha256 != $fixture.archive_sha256 or $row.payload.restored_text_sha256 != $fixture.expected_text_sha256 or $row.payload.restored_history_sha256 != $fixture.history_sha256 or $row.payload.selected_consumer != "full_history_v1" or $row.payload.candidate_consumer_starts != 0 or $row.payload.full_history_consumer_starts != 1 or $row.payload.first_edit.scalar != "U+005A" or $row.payload.first_edit.canonical_utf16_position != $fixture.expected_text_utf16_units or not $row.payload.first_edit.browser_control_position_valid or not $row.payload.first_edit.adapter_mapping_proved or not $row.payload.first_edit.result_equal or not $row.payload.edit_persisted_after_fresh_page {
       fail $"browser fixture result mismatch: ($fixture.fixture_id)"
     }
     let accounting = $row.payload.read_accounting
@@ -210,6 +210,13 @@ def run-browser-catalog [root: string output: string] {
       fail $"browser fixture read accounting mismatch: ($fixture.fixture_id)"
     }
     $observations = ($observations | append $row)
+  }
+  if not ($observations | any {|row| not $row.payload.first_edit.coordinate_positions_equal }) {
+    fail "browser corpus did not exercise CRLF coordinate mapping"
+  }
+  let browser_revisions = ($observations | get payload.browser_version | uniq)
+  if ($browser_revisions | length) != 1 {
+    fail "browser revision differs across fixtures"
   }
   rm -rf $dist
   write-json ($output | path join "browser-fixture-catalog.json") $catalog
@@ -468,7 +475,7 @@ def main [
     } else {
       { catalog: { schema_version: 1 fixture_seed: "none" fixtures: [] } captures: [] observations: [] }
     }
-    let browser_observations = if $suite == "all" {
+    let browser_observations = if $suite in ["all" "oracle"] {
       run-browser-catalog $root $output_dir
     } else {
       write-json ($output_dir | path join "browser-fixture-catalog.json") { schema_version: 1 fixture_seed: "none" fixtures: [] }

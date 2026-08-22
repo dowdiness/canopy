@@ -27,11 +27,13 @@ const server = spawn(process.execPath, [serverPath], {
   },
   stdio: ["ignore", "pipe", "inherit"],
 })
+let readyBuffer = ""
 const ready = new Promise((resolve, reject) => {
   const timeout = setTimeout(() => reject(new Error("standalone server timeout")), 5000)
   server.stdout.setEncoding("utf8")
   server.stdout.on("data", chunk => {
-    const match = chunk.match(/http:\/\/127\.0\.0\.1:(\d+)/)
+    readyBuffer += chunk
+    const match = readyBuffer.match(/http:\/\/127\.0\.0\.1:(\d+)/)
     if (match !== null) {
       origin = match[0]
       clearTimeout(timeout)
@@ -226,9 +228,13 @@ try {
   )
   if (!firstEditResultEqual) throw new Error("exact first edit differs")
   const firstEditLocalOperations = afterEdit.historyEvents - beforeEdit.historyEvents
+  const browserControlPositionValid = (
+    beforeEdit.browserUtf16End === expectedBrowserText.length
+  )
   const coordinatePositionsEqual = (
     seeded.fixture.first_edit.utf16_position === beforeEdit.browserUtf16End
   )
+  const adapterMappingProved = firstEditResultEqual && browserControlPositionValid
 
   await page.reload({ waitUntil: "commit" })
   await page.locator("#loomark-input").waitFor({ state: "visible", timeout: 30000 })
@@ -262,7 +268,8 @@ try {
         canonical_utf16_position: seeded.fixture.first_edit.utf16_position,
         browser_control_utf16_position: beforeEdit.browserUtf16End,
         coordinate_positions_equal: coordinatePositionsEqual,
-        adapter_mapping_proved: firstEditResultEqual,
+        browser_control_position_valid: browserControlPositionValid,
+        adapter_mapping_proved: adapterMappingProved,
         result_equal: firstEditResultEqual,
       },
       read_accounting: {
