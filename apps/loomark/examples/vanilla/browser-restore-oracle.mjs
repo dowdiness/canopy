@@ -20,6 +20,72 @@ if (history.operations.length !== expectedCount) {
   throw new Error(`archive operation count ${history.operations.length} != ${expectedCount}`)
 }
 
+const ARCHIVE_DATABASE = "loomark.local-repository"
+const ARCHIVE_STORE = "archives"
+const ARCHIVE_KEY = "loomark.active-document-archive"
+
+async function seedArchive(context, origin, encoded) {
+  const seedPage = await context.newPage()
+  try {
+    await seedPage.goto(`${origin}/__loomark_idb_seed__`)
+    await seedPage.evaluate(async ({ value, databaseName, storeName, key }) => {
+      await new Promise((resolve, reject) => {
+        const request = indexedDB.open(databaseName, 1)
+        request.onupgradeneeded = () => {
+          const database = request.result
+          if (!database.objectStoreNames.contains(storeName)) {
+            database.createObjectStore(storeName)
+          }
+        }
+        request.onerror = () => reject(request.error ?? new Error("archive database open failed"))
+        request.onsuccess = () => {
+          const database = request.result
+          const transaction = database.transaction(storeName, "readwrite")
+          transaction.objectStore(storeName).put(value, key)
+          transaction.oncomplete = () => {
+            database.close()
+            resolve()
+          }
+          transaction.onerror = () => reject(transaction.error ?? new Error("archive seed failed"))
+          transaction.onabort = () => reject(transaction.error ?? new Error("archive seed aborted"))
+        }
+      })
+    }, { value: encoded, databaseName: ARCHIVE_DATABASE, storeName: ARCHIVE_STORE, key: ARCHIVE_KEY })
+  } finally {
+    await seedPage.close()
+  }
+}
+
+async function readArchive(page) {
+  return page.evaluate(async ({ databaseName, storeName, key }) => await new Promise((resolve, reject) => {
+    const request = indexedDB.open(databaseName, 1)
+    request.onerror = () => reject(request.error ?? new Error("archive database open failed"))
+    request.onsuccess = () => {
+      const database = request.result
+      const transaction = database.transaction(storeName, "readonly")
+      const read = transaction.objectStore(storeName).get(key)
+      read.onsuccess = () => {
+        database.close()
+        resolve(read.result ?? null)
+      }
+      read.onerror = () => reject(read.error ?? new Error("archive read failed"))
+    }
+  }), { databaseName: ARCHIVE_DATABASE, storeName: ARCHIVE_STORE, key: ARCHIVE_KEY })
+}
+
+async function waitForArchive(page, matches, timeout = 30000) {
+  const deadline = Date.now() + timeout
+  while (Date.now() < deadline) {
+    const encoded = await readArchive(page)
+    if (encoded != null) {
+      const parsed = JSON.parse(encoded)
+      if (matches(parsed, encoded)) return encoded
+    }
+    await page.waitForTimeout(100)
+  }
+  throw new Error("timed out waiting for IndexedDB archive")
+}
+
 const port = 4400 + Math.floor(Math.random() * 1000)
 const serverPath = fileURLToPath(new URL("./serve-standalone-dist.mjs", import.meta.url))
 const server = spawn(process.execPath, [serverPath], {
@@ -48,22 +114,20 @@ let context
 let page
 try {
   await ready
+  const origin = `http://127.0.0.1:${port}`
   browser = await chromium.launch({ headless: true })
   context = await browser.newContext()
-  await context.addInitScript(encoded => {
-    localStorage.setItem("loomark.active-document-archive", encoded)
-  }, archiveJson)
+  await seedArchive(context, origin, archiveJson)
   page = await context.newPage()
-  await page.goto(`http://127.0.0.1:${port}/`)
+  await page.goto(`${origin}/`)
   const input = page.locator("#loomark-input")
   await input.waitFor({ state: "visible", timeout: 30000 })
   const browserText = archive.portable_markdown.replace(/\r\n?/g, "\n")
-  await page.waitForFunction(({ expectedText, expectedArchive }) => {
+  await page.waitForFunction(expectedText => {
     const textarea = document.querySelector("#loomark-input")
-    return textarea instanceof HTMLTextAreaElement &&
-      textarea.value === expectedText &&
-      localStorage.getItem("loomark.active-document-archive") === expectedArchive
-  }, { expectedText: browserText, expectedArchive: archiveJson }, { timeout: 30000 })
+    return textarea instanceof HTMLTextAreaElement && textarea.value === expectedText
+  }, browserText, { timeout: 30000 })
+  await waitForArchive(page, (_parsed, encoded) => encoded === archiveJson)
 
   await input.focus()
   await input.evaluate(element => {
@@ -72,16 +136,12 @@ try {
   })
   await page.keyboard.type("x")
   const expectedAfter = `${archive.portable_markdown}x`
-  await page.waitForFunction(expected => {
-    const encoded = localStorage.getItem("loomark.active-document-archive")
-    return encoded != null && JSON.parse(encoded).portable_markdown === expected
-  }, expectedAfter, { timeout: 30000 })
+  const acceptedArchiveJson = await waitForArchive(
+    page,
+    parsed => parsed.portable_markdown === expectedAfter,
+  )
   await page.waitForTimeout(100)
 
-  const acceptedArchiveJson = await page.evaluate(() => (
-    localStorage.getItem("loomark.active-document-archive")
-  ))
-  if (acceptedArchiveJson == null) throw new Error("accepted archive is missing")
   const acceptedArchive = JSON.parse(acceptedArchiveJson)
   const acceptedHistory = JSON.parse(acceptedArchive.history)
   if (acceptedHistory.operations.length !== expectedCount + 1) {
@@ -92,16 +152,15 @@ try {
   await browser.close()
   browser = await chromium.launch({ headless: true })
   context = await browser.newContext()
-  await context.addInitScript(encoded => {
-    localStorage.setItem("loomark.active-document-archive", encoded)
-  }, acceptedArchiveJson)
+  await seedArchive(context, origin, acceptedArchiveJson)
   page = await context.newPage()
-  await page.goto(`http://127.0.0.1:${port}/`)
+  await page.goto(`${origin}/`)
   await page.locator("#loomark-input").waitFor({ state: "visible", timeout: 30000 })
   await page.waitForFunction(expected => {
     const textarea = document.querySelector("#loomark-input")
     return textarea instanceof HTMLTextAreaElement && textarea.value === expected
   }, expectedAfter.replace(/\r\n?/g, "\n"), { timeout: 30000 })
+  await waitForArchive(page, parsed => parsed.portable_markdown === expectedAfter)
 
   process.stdout.write(`${JSON.stringify({
     schema_version: 1,
@@ -123,7 +182,7 @@ try {
   if (page != null) {
     const observed = await page.locator("#loomark-input").inputValue().catch(() => "")
     process.stderr.write(`browser input: ${JSON.stringify({ length: observed.length, prefix: observed.slice(0, 16), suffix: observed.slice(-16) })}\n`)
-    const stored = await page.evaluate(() => localStorage.getItem("loomark.active-document-archive"))
+    const stored = await readArchive(page).catch(() => null)
     process.stderr.write(`browser archive bytes: ${stored == null ? 0 : Buffer.byteLength(stored)}\n`)
   }
   throw error
