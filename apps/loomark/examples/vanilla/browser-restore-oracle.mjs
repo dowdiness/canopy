@@ -4,6 +4,11 @@ import { dirname } from "node:path"
 import { fileURLToPath } from "node:url"
 import { chromium } from "playwright"
 
+import {
+  buildBrowserMeasurement,
+  buildBrowserTimingNotApplicable,
+} from "./r0-browser-measurement.mjs"
+
 const [archivePath, caseId, expectedCountRaw, distRoot] = process.argv.slice(2)
 if (archivePath == null || caseId == null || expectedCountRaw == null) {
   throw new Error("usage: browser-restore-oracle.mjs ARCHIVE CASE EXPECTED_COUNT [DIST_ROOT]")
@@ -19,6 +24,7 @@ let origin = ""
 const archiveDatabase = "loomark.local-repository"
 const archiveStore = "archives"
 const archiveKey = "loomark.active-document-archive"
+const measuredReloads = 20
 const serverPath = fileURLToPath(new URL("./serve-standalone-dist.mjs", import.meta.url))
 const server = spawn(process.execPath, [serverPath], {
   env: {
@@ -130,6 +136,7 @@ async function seedFromBrowserAsset(page) {
     })
     return {
       fixture,
+      encoded,
       archiveTransportBytes: archiveDigest.bytes,
       catalogTransportBytes: new TextEncoder().encode(catalogText).length,
       archiveSha256: archiveDigest.sha256,
@@ -137,6 +144,29 @@ async function seedFromBrowserAsset(page) {
       historySha256: historyDigest.sha256,
     }
   }, { caseId, archiveDatabase, archiveStore, archiveKey })
+}
+
+async function seedEncodedArchive(page, encoded) {
+  await page.evaluate(async ({ databaseName, storeName, key, value }) => await new Promise((resolve, reject) => {
+    const request = indexedDB.open(databaseName, 1)
+    request.onerror = () => reject(request.error ?? new Error("archive database open failed"))
+    request.onsuccess = () => {
+      const database = request.result
+      const transaction = database.transaction(storeName, "readwrite")
+      transaction.objectStore(storeName).put(value, key)
+      transaction.oncomplete = () => {
+        database.close()
+        resolve()
+      }
+      transaction.onerror = () => reject(transaction.error ?? new Error("archive seed failed"))
+      transaction.onabort = () => reject(transaction.error ?? new Error("archive seed aborted"))
+    }
+  }), {
+    databaseName: archiveDatabase,
+    storeName: archiveStore,
+    key: archiveKey,
+    value: encoded,
+  })
 }
 
 async function readArchive(page) {
@@ -156,6 +186,18 @@ async function readArchive(page) {
   }), { databaseName: archiveDatabase, storeName: archiveStore, key: archiveKey })
 }
 
+async function waitForExpectedText(page, expected, timeout = 30000) {
+  await page.waitForFunction(value => (
+    document.querySelector("#loomark-input")?.value === value
+  ), expected, { timeout })
+  return page.evaluate(value => {
+    if (document.querySelector("#loomark-input")?.value !== value) {
+      throw new Error("expected text changed before observation")
+    }
+    return performance.now()
+  }, expected)
+}
+
 async function waitForArchive(page, matches, timeout = 30000) {
   const deadline = Date.now() + timeout
   while (Date.now() < deadline) {
@@ -164,7 +206,7 @@ async function waitForArchive(page, matches, timeout = 30000) {
       const parsed = JSON.parse(encoded)
       if (matches(parsed, encoded)) return encoded
     }
-    await page.waitForTimeout(100)
+    await page.waitForTimeout(10)
   }
   throw new Error("timed out waiting for IndexedDB archive")
 }
@@ -178,23 +220,63 @@ try {
   const browserVersion = browser.version()
   context = await browser.newContext()
   await context.addInitScript(({ storeName, key }) => {
+    const originalTransaction = IDBDatabase.prototype.transaction
     const originalGet = IDBObjectStore.prototype.get
     const originalOpenCursor = IDBObjectStore.prototype.openCursor
-    globalThis.__loomarkR0ReadAccounting = {
+    const originalPut = IDBObjectStore.prototype.put
+    const transactionRecords = new WeakMap()
+    const measurement = {
       applicationArchiveReads: 0,
       observationArchiveReads: 0,
+      transactions: [],
+    }
+    globalThis.__loomarkR0Measurement = measurement
+
+    IDBDatabase.prototype.transaction = function(storeNames, mode, options) {
+      const transaction = Reflect.apply(originalTransaction, this, [storeNames, mode, options])
+      const names = typeof storeNames === "string" ? [storeNames] : Array.from(storeNames)
+      if (names.includes(storeName)) {
+        const record = {
+          kind: "unclassified",
+          mode,
+          start_ms: performance.now(),
+          end_ms: null,
+          terminal: null,
+        }
+        transactionRecords.set(transaction, record)
+        measurement.transactions.push(record)
+        const finish = terminal => {
+          if (record.end_ms !== null) return
+          record.end_ms = performance.now()
+          record.terminal = terminal
+        }
+        transaction.addEventListener("complete", () => finish("complete"), { once: true })
+        transaction.addEventListener("abort", () => finish("abort"), { once: true })
+        transaction.addEventListener("error", () => finish("error"), { once: true })
+      }
+      return transaction
+    }
+    const classify = (store, kind) => {
+      const record = transactionRecords.get(store.transaction)
+      if (record !== undefined && record.kind === "unclassified") record.kind = kind
     }
     IDBObjectStore.prototype.get = function(nextKey) {
       if (this.name === storeName && nextKey === key) {
-        globalThis.__loomarkR0ReadAccounting.observationArchiveReads += 1
+        measurement.observationArchiveReads += 1
+        classify(this, "observation_read")
       }
       return originalGet.call(this, nextKey)
     }
     IDBObjectStore.prototype.openCursor = function(query, direction) {
       if (this.name === storeName && query === key) {
-        globalThis.__loomarkR0ReadAccounting.applicationArchiveReads += 1
+        measurement.applicationArchiveReads += 1
+        classify(this, "application_read")
       }
       return originalOpenCursor.call(this, query, direction)
+    }
+    IDBObjectStore.prototype.put = function(value, nextKey) {
+      if (this.name === storeName && nextKey === key) classify(this, "application_write")
+      return originalPut.call(this, value, nextKey)
     }
   }, { storeName: archiveStore, key: archiveKey })
   page = await context.newPage()
@@ -203,16 +285,14 @@ try {
     throw new Error("catalog event count differs from runner input")
   }
 
-  await page.goto(`${origin}/`, { waitUntil: "commit" })
   const input = page.locator("#loomark-input")
-  await input.waitFor({ state: "visible", timeout: 30000 })
   const expectedBrowserText = browserText(seeded.fixture.expected_text)
-  await page.waitForFunction(expected => (
-    document.querySelector("#loomark-input")?.value === expected
-  ), expectedBrowserText, { timeout: 30000 })
+  await page.goto(`${origin}/`, { waitUntil: "commit" })
+  await input.waitFor({ state: "visible", timeout: 30000 })
+  await waitForExpectedText(page, expectedBrowserText)
 
   const beforeEditArchive = await readArchive(page)
-  if (beforeEditArchive === null) throw new Error("archive disappeared before first edit")
+  if (beforeEditArchive === null) throw new Error("archive disappeared during warm-up")
   const beforeEdit = await page.evaluate(async ({ encoded, candidateMarkers }) => {
     const archive = JSON.parse(encoded)
     const history = JSON.parse(archive.history)
@@ -236,8 +316,8 @@ try {
       portableText: archive.portable_markdown,
       historySha256,
       historyEvents: history.operations.length,
-      applicationArchiveReads: globalThis.__loomarkR0ReadAccounting.applicationArchiveReads,
-      observationArchiveReads: globalThis.__loomarkR0ReadAccounting.observationArchiveReads,
+      applicationArchiveReads: globalThis.__loomarkR0Measurement.applicationArchiveReads,
+      observationArchiveReads: globalThis.__loomarkR0Measurement.observationArchiveReads,
       candidateBundleMarkerDetected,
       candidateConsumerStarts: candidateBundleMarkerDetected ? 1 : 0,
       candidateEventReads: candidateBundleMarkerDetected ? 1 : 0,
@@ -253,10 +333,9 @@ try {
   ) {
     throw new Error("browser portable text/history mismatch")
   }
-  const applicationArchiveReads = beforeEdit.applicationArchiveReads
-  if (applicationArchiveReads !== 1 || beforeEdit.observationArchiveReads !== 1) {
+  if (beforeEdit.applicationArchiveReads !== 1 || beforeEdit.observationArchiveReads !== 1) {
     throw new Error(`unexpected archive storage read count: ${JSON.stringify({
-      application: applicationArchiveReads,
+      application: beforeEdit.applicationArchiveReads,
       observation: beforeEdit.observationArchiveReads,
     })}`)
   }
@@ -264,26 +343,77 @@ try {
     throw new Error("candidate_consumer_selected")
   }
 
-  await input.focus()
-  await input.evaluate(element => {
-    const length = element.value.length
-    element.setSelectionRange(length, length, "forward")
-  })
-  await page.keyboard.type("Z")
-  const afterEditArchive = await waitForArchive(
-    page,
-    archive => archive.portable_markdown === seeded.fixture.expected_text_after_edit,
-  )
-  const parsedAfterEditArchive = JSON.parse(afterEditArchive)
-  const afterEdit = {
-    portableText: parsedAfterEditArchive.portable_markdown,
-    historyEvents: JSON.parse(parsedAfterEditArchive.history).operations.length,
+  let afterEdit
+  const measurementSamples = []
+  for (let sample = 0; sample < measuredReloads; sample += 1) {
+    await seedEncodedArchive(page, seeded.encoded)
+    await page.reload({ waitUntil: "commit" })
+    await input.waitFor({ state: "visible", timeout: 30000 })
+    const textObservedMs = await waitForExpectedText(page, expectedBrowserText)
+    await input.focus()
+    await input.evaluate(element => {
+      const length = element.value.length
+      element.setSelectionRange(length, length, "forward")
+    })
+    const editStartedMs = await page.evaluate(() => performance.now())
+    await page.keyboard.type("Z")
+    const afterEditArchive = await waitForArchive(
+      page,
+      archive => archive.portable_markdown === seeded.fixture.expected_text_after_edit,
+    )
+    const editObservedMs = await page.evaluate(() => performance.now())
+    const parsedAfterEditArchive = JSON.parse(afterEditArchive)
+    afterEdit = {
+      portableText: parsedAfterEditArchive.portable_markdown,
+      historyEvents: JSON.parse(parsedAfterEditArchive.history).operations.length,
+    }
+    if (
+      afterEdit.portableText !== seeded.fixture.expected_text_after_edit ||
+      afterEdit.historyEvents !== expectedCount + 1
+    ) {
+      throw new Error("exact first edit differs")
+    }
+    const timing = await page.evaluate(({ textObservedMs, editStartedMs, editObservedMs }) => {
+      const completed = globalThis.__loomarkR0Measurement.transactions.filter(
+        transaction => transaction.terminal === "complete" && transaction.end_ms !== null,
+      )
+      const reads = completed.filter(transaction => transaction.kind === "application_read")
+      const writes = completed.filter(
+        transaction => transaction.kind === "application_write" && transaction.start_ms >= editStartedMs,
+      )
+      if (reads.length !== 1) {
+        throw new Error(`measurement_failure: expected one completed application read, found ${reads.length}`)
+      }
+      if (writes.length !== 1) {
+        throw new Error(`measurement_failure: expected one completed first-edit write, found ${writes.length}`)
+      }
+      const read = reads[0]
+      const write = writes[0]
+      const values = {
+        storage_read_ms: read.end_ms - read.start_ms,
+        archive_open_ms: textObservedMs - read.end_ms,
+        restore_to_text_observed_ms: textObservedMs,
+        first_edit_ms: editObservedMs - editStartedMs,
+        first_edit_storage_write_ms: write.end_ms - write.start_ms,
+        restore_plus_first_edit_ms: editObservedMs,
+      }
+      return Object.fromEntries(Object.entries(values).map(([name, value]) => [
+        name,
+        Number(value.toFixed(3)),
+      ]))
+    }, { textObservedMs, editStartedMs, editObservedMs })
+    measurementSamples.push({ sample, ...timing })
   }
-  const firstEditResultEqual = (
-    afterEdit.portableText === seeded.fixture.expected_text_after_edit &&
-    afterEdit.historyEvents === expectedCount + 1
-  )
-  if (!firstEditResultEqual) throw new Error("exact first edit differs")
+  if (afterEdit === undefined) {
+    throw new Error("measurement_failure: browser measurement emitted no observations")
+  }
+  const browserMeasurement = buildBrowserMeasurement({
+    fixtureId: caseId,
+    browserVersion,
+    samples: measurementSamples,
+  })
+  const firstEditResultEqual = true
+  const applicationArchiveReads = beforeEdit.applicationArchiveReads
   const firstEditLocalOperations = afterEdit.historyEvents - beforeEdit.historyEvents
   const browserControlPositionValid = (
     beforeEdit.browserUtf16End === expectedBrowserText.length
@@ -294,10 +424,8 @@ try {
   const adapterMappingProved = firstEditResultEqual && browserControlPositionValid
 
   await page.reload({ waitUntil: "commit" })
-  await page.locator("#loomark-input").waitFor({ state: "visible", timeout: 30000 })
-  await page.waitForFunction(expected => (
-    document.querySelector("#loomark-input")?.value === expected
-  ), browserText(seeded.fixture.expected_text_after_edit), { timeout: 30000 })
+  await input.waitFor({ state: "visible", timeout: 30000 })
+  await waitForExpectedText(page, browserText(seeded.fixture.expected_text_after_edit))
 
   process.stdout.write(`${JSON.stringify({
     schema_version: 1,
@@ -333,6 +461,10 @@ try {
         adapter_mapping_proved: adapterMappingProved,
         result_equal: firstEditResultEqual,
       },
+      browser_measurement: browserMeasurement,
+      candidate_browser_timing: ["A", "C"].map(candidate => (
+        buildBrowserTimingNotApplicable(caseId, candidate)
+      )),
       read_accounting: {
         archive_transport_bytes: seeded.archiveTransportBytes,
         catalog_transport_bytes: seeded.catalogTransportBytes,

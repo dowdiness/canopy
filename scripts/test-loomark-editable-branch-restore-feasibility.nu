@@ -6,7 +6,7 @@ use ./gate-r0/artifacts.nu [
   reset-artifact-output
   write-failure-bundle
 ]
-use ./gate-r0/browser.nu run-browser-catalog
+use ./gate-r0/browser.nu [browser-result-rows run-browser-catalog]
 
 # Gate R0 canonical evidence runner.  Exit codes: 0 pass; 10 preflight; 20
 # toolchain; 21 submodule; 30 harness; 31 oracle; 32 causal; 33 cold read; 34
@@ -418,6 +418,7 @@ def main [
     } else {
       []
     }
+    let browser_results = (browser-result-rows $browser_observations)
     let egw = (run-producer $root "deps/event-graph-walker/internal/restore_feasibility_probe")
     write-jsonl ($output_dir | path join "cold-history.jsonl") $egw
     let required_egw = (["known-positive-provider-read" "strict-forward" "closed-concurrent" "immediate-insert-zero-read" "immediate-delete-zero-read" "immediate-undelete-zero-read"] | append (operation-matrix | get trace))
@@ -549,7 +550,22 @@ def main [
       }
       browser_oracle_correctness: "pass"
       browser_revision: (($browser_observations | first).payload.browser_version)
-      browser_measurement: "not_run"
+      browser_measurement: {
+        status: "pass"
+        output: "release_warren_static"
+        build_commands: [
+          "NEW_MOON_MOD=0 moon build --target js --release"
+          "./scripts/install-local-warren.sh"
+          "(cd apps/loomark && ../../_build/tools/bin/warren build)"
+        ]
+        fixture_count: ($browser_observations | length)
+        warmup_navigations_per_fixture: 1
+        measured_reloads_per_fixture: 20
+        total_measured_reloads: (($browser_observations | length) * 20)
+        required_intervals: [storage_read_ms archive_open_ms restore_to_text_observed_ms first_edit_ms first_edit_storage_write_ms restore_plus_first_edit_ms]
+        fallback_error: "not_applicable: valid_fixture_no_recovery"
+        candidate_timing: "not_applicable: product_restore_seam_absent"
+      }
       preflight: {
         interface_hashes: $preflight_interfaces
         interface_baseline_agrees_after_run: true
@@ -581,18 +597,29 @@ def main [
     write-json ($output_dir | path join "manifest.json") $manifest
     write-json ($output_dir | path join "capability-ledger.json") $ledger
     write-jsonl ($output_dir | path join "candidate-captures.jsonl") $captures
-    write-json ($output_dir | path join "candidate-results.json") { schema_version: 1 candidates: $candidates observations: $candidate_bundle.observations }
+    write-json ($output_dir | path join "candidate-results.json") { schema_version: 1 candidates: $candidates observations: ($candidate_bundle.observations | append $browser_results) }
     write-jsonl ($output_dir | path join "operation-matrix.jsonl") $operation_rows
     write-jsonl ($output_dir | path join "oracle-differential.jsonl") ([{ schema_version: 1 run_id: "gate-r0-v1" oracle: "full-history" status: "pass" serialized_archive_bytes: $archive_producer.payload.archive_bytes observations: $markdown memory: { availability: "not_applicable" calibration: "R0 process oracle does not claim resident-memory measurement" } } ] | append $measurements)
     write-jsonl ($output_dir | path join "cold-history.jsonl") $egw
     write-json ($output_dir | path join "negative-results.json") { schema_version: 1 negatives: $candidates }
-    $"Gate R0 pass\npositive provider control: 1 call\nstrict/closed provider calls: 0\nfresh Chromium fixture correctness: ($browser_observations | length)\nbrowser measurement: not run\n" | save -f ($output_dir | path join "validation.log")
+    let validation_lines = [
+      "Gate R0 pass"
+      "positive provider control: 1 call"
+      "strict/closed provider calls: 0"
+      $"fresh Chromium fixture correctness: ($browser_observations | length)"
+      "browser build: NEW_MOON_MOD=0 moon build --target js --release => pass"
+      "browser build: ./scripts/install-local-warren.sh => pass"
+      "browser build: (cd apps/loomark && ../../_build/tools/bin/warren build) => pass"
+      "browser measurement: 1 warm-up + 20 measured reloads per fixture"
+      "browser candidate timing: not_applicable: product_restore_seam_absent"
+    ]
+    (($validation_lines | str join "\n") + "\n") | save -f ($output_dir | path join "validation.log")
     write-json ($output_dir | path join "result.json") {
       schema_version: 1
       status: "pass"
       failure_class: null
-      implementation_complete: false
-      blocked_obligations: [browser_measurement]
+      implementation_complete: true
+      blocked_obligations: []
       candidate_outcomes: $candidates
       artifact_paths: (artifact-paths)
     }
