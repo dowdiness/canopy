@@ -117,6 +117,7 @@ jobs:
               - '.gitmodules'
               - 'moon.mod.json'
               - 'scripts/test-loomark-editable-branch-restore-feasibility.nu'
+              - 'scripts/gate-r0/**'
               - 'scripts/moon-update.sh'
             run_prove:
               - 'modules/semantic/proof/**'
@@ -1090,6 +1091,9 @@ jobs:
       - name: Install browser oracle dependencies
         working-directory: apps/loomark/examples/vanilla
         run: npm ci
+
+      - name: Run Gate R0 artifact contract tests
+        run: nu scripts/gate-r0/test-artifacts.nu
 
       - name: Run complete Gate R0 evidence harness
         run: >-
