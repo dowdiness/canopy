@@ -28,6 +28,7 @@ members = [
   "./modules/rabbita-resizable",
   "./modules/rabbita-menu",
   "./modules/rabbita-context-menu",
+  "./modules/canvas-spatial",
   "./modules/canvas-graph",
   "./modules/skyline",
   "./modules/canvas-layout",

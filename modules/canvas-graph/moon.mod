@@ -2,6 +2,10 @@ name = "dowdiness/canopy-canvas-graph"
 
 version = "0.1.0"
 
+import {
+  "dowdiness/canvas-spatial@0.1.0",
+}
+
 readme = "README.md"
 
 repository = "https://github.com/dowdiness/canopy"

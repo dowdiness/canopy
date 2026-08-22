@@ -2,6 +2,9 @@
 
 Reusable graph model and pure interaction core for Canopy canvas workflows.
 
+Spatial geometry is provided by the independent `dowdiness/canvas-spatial`
+module, which graph consumers import directly.
+
 The library owns:
 
 - stable node/edge/port identifiers

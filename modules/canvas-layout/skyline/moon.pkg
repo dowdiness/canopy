@@ -1,7 +1,7 @@
 import {
   "dowdiness/skyline" @pack,
   "dowdiness/canopy-canvas-graph/graph_model",
-  "dowdiness/canopy-canvas-graph/spatial",
+  "dowdiness/canvas-spatial" @spatial,
   "moonbitlang/core/debug",
   "moonbitlang/core/int",
 }
