@@ -273,10 +273,13 @@ def artifact-paths [] {
   ]
 }
 
+# The output directory is runner-owned. Remove every unregistered entry so a
+# rerun cannot retain stale source-catalog copies, temporary directories, or an
+# unrelated file that would replace the classified failure exit.
 def cleanup-runner-internals [output: string] {
   for entry in (ls -a $output) {
     let name = ($entry.name | path basename)
-    if ($name | str starts-with ".") or $name in ["fixture-catalog.json" "browser-fixture-catalog.json" "browser-results.json"] {
+    if not ($name in (artifact-paths)) {
       rm -rf $entry.name
     }
   }
@@ -464,7 +467,10 @@ def main [
     exit (exit-code $inject_failure)
   }
   let status = (^git -C $root status --porcelain | complete)
-  if $status.exit_code != 0 { exit 10 }
+  if $status.exit_code != 0 {
+    write-failure-artifacts $output_dir "preflight_invalid"
+    exit 10
+  }
   if (not $allow_dirty) and ($status.stdout | str trim | is-not-empty) {
     write-failure-artifacts $output_dir "preflight_invalid"
     exit 10
