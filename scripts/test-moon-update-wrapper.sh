@@ -14,7 +14,7 @@ cat > "$fake_bin/moon" <<'FAKE_MOON'
 set -euo pipefail
 
 if [ "${1:-}" = "version" ] && [ "${2:-}" = "--all" ]; then
-  echo "moonc v0.10.8+8606a5800 /tmp/fake-moonc"
+  echo "moonc ${FAKE_MOON_VERSION:-v0.10.8+8606a5800} /tmp/fake-moonc"
   exit 0
 fi
 
@@ -72,6 +72,35 @@ esac
 FAKE_MOON
 chmod +x "$fake_bin/moon"
 
+cat > "$fake_bin/curl" <<'FAKE_CURL'
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "${FAKE_CURL_SCENARIO:-success}" = "fail" ]; then
+  exit 42
+fi
+
+cat <<'INSTALLER'
+#!/usr/bin/env bash
+set -euo pipefail
+
+mkdir -p "$HOME/.moon/bin"
+cat > "$HOME/.moon/bin/moon" <<'FAKE_INSTALLED_MOON'
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "${1:-}" = "version" ] && [ "${2:-}" = "--all" ]; then
+  echo "moonc ${FAKE_INSTALLED_MOON_VERSION:-v0.10.8+8606a5800} /tmp/installed-moonc"
+  exit 0
+fi
+
+exec "$FAKE_MOON_BIN" "$@"
+FAKE_INSTALLED_MOON
+chmod +x "$HOME/.moon/bin/moon"
+INSTALLER
+FAKE_CURL
+chmod +x "$fake_bin/curl"
+
 assert_eq() {
   local actual="$1"
   local expected="$2"
@@ -86,8 +115,18 @@ run_wrapper() {
   local scenario="$1"
   local attempts_file="$2"
   local output_file="$3"
+  local moon_version="${4:-v0.10.8+8606a5800}"
+  local curl_scenario="${5:-success}"
+  local installed_version="${6:-v0.10.8+8606a5800}"
+  local home_dir="$output_file.home"
+  mkdir -p "$home_dir"
 
   PATH="$fake_bin:$PATH" \
+    HOME="$home_dir" \
+    FAKE_MOON_BIN="$fake_bin/moon" \
+    FAKE_MOON_VERSION="$moon_version" \
+    FAKE_INSTALLED_MOON_VERSION="$installed_version" \
+    FAKE_CURL_SCENARIO="$curl_scenario" \
     FAKE_MOON_SCENARIO="$scenario" \
     FAKE_MOON_ATTEMPTS_FILE="$attempts_file" \
     MOON_UPDATE_MAX_ATTEMPTS=3 \
@@ -102,6 +141,36 @@ assert_eq "$(cat "$transient_attempts")" "2" "transient registry clone should re
 grep -q "transient registry/CDN/network failure" "$transient_output" || {
   echo "error: transient retry message missing" >&2
   cat "$transient_output" >&2
+  exit 1
+}
+
+repaired_attempts="$tmp_dir/repaired-attempts"
+repaired_output="$tmp_dir/repaired-output.log"
+run_wrapper registry-clone-transient "$repaired_attempts" "$repaired_output" v0.10.4+ade96c819
+assert_eq "$(cat "$repaired_attempts")" "2" "mismatched MoonBit should install the pinned compiler before retrying"
+grep -q "installing MoonBit 0.10.8+8606a5800" "$repaired_output" || {
+  echo "error: mismatched MoonBit did not trigger the pinned installation" >&2
+  cat "$repaired_output" >&2
+  exit 1
+}
+
+if run_wrapper registry-clone-transient "$tmp_dir/failed-install-attempts" "$tmp_dir/failed-install.log" v0.10.4+ade96c819 fail; then
+  echo "error: failed MoonBit installation unexpectedly succeeded" >&2
+  exit 1
+fi
+grep -q "failed to install MoonBit" "$tmp_dir/failed-install.log" || {
+  echo "error: failed MoonBit installation was not reported" >&2
+  cat "$tmp_dir/failed-install.log" >&2
+  exit 1
+}
+
+if run_wrapper registry-clone-transient "$tmp_dir/bad-install-attempts" "$tmp_dir/bad-install.log" v0.10.4+ade96c819 success v0.10.4+ade96c819; then
+  echo "error: mismatched post-install MoonBit unexpectedly succeeded" >&2
+  exit 1
+fi
+grep -q "does not provide moonc v0.10.8+8606a5800" "$tmp_dir/bad-install.log" || {
+  echo "error: mismatched post-install MoonBit was not rejected" >&2
+  cat "$tmp_dir/bad-install.log" >&2
   exit 1
 }
 
@@ -131,4 +200,4 @@ grep -q "not retrying" "$missing_output" || {
   exit 1
 }
 
-echo "ok: moon-update retry wrapper retries registry clone flakes only"
+echo "ok: moon-update pins MoonBit and retries registry clone flakes only"
