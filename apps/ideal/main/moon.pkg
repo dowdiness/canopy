@@ -38,7 +38,7 @@ import {
   "dowdiness/graphviz/lib/layout" @gv_layout,
   "dowdiness/graphviz/lib/svg" @gv_svg,
   "dowdiness/visualizer",
-  "dowdiness/canopy-canvas-graph/spatial",
+  "dowdiness/canvas-spatial" @spatial,
   "dowdiness/incr",
   "dowdiness/ideal-editor/main/ui",
 }

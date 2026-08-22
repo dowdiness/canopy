@@ -2,6 +2,7 @@ members = [
   ".",
   "../../deps/loom/diagnostic",
   "../../deps/loom/examples/graph-dsl",
+  "../../modules/canvas-spatial",
   "../../modules/canvas-graph",
   "../../modules/skyline",
   "../../modules/canvas-layout",

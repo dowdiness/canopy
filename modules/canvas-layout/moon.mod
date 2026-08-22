@@ -5,6 +5,7 @@ version = "0.1.0"
 import {
   "dowdiness/skyline@0.1.0",
   "dowdiness/canopy-canvas-graph@0.1.0",
+  "dowdiness/canvas-spatial@0.1.0",
 }
 
 readme = "README.md"
