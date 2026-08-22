@@ -6,7 +6,7 @@ if [ "$#" -gt 1 ] || [ "${1:-waku}" != "waku" ]; then
   exit 2
 fi
 
-SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(CDPATH= cd -- "$SCRIPT_DIR/../../.." && pwd)"
 
 # Cloudflare Workers Builds is independent from GitHub Actions; self-heal to

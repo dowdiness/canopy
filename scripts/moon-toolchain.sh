@@ -4,7 +4,7 @@
 # requiring jq, Node, or shell-sourcing untrusted manifest contents.
 set -eu
 
-SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 MANIFEST=${MOONBIT_TOOLCHAIN_MANIFEST:-$SCRIPT_DIR/../.moonbit-toolchain}
 
 fail() {

@@ -19,7 +19,7 @@ export PATH="$HOME/.moon/bin:$PATH"
 
 # MoonBit toolchain, pinned to the same pair as CI. Normally already present in
 # the base image; the helper makes a fresh base self-heal instead of failing.
-SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
 "$SCRIPT_DIR/../scripts/moon-toolchain.sh" ensure
 
 # Submodules live under deps/ and are wiped by the per-Build re-clone.

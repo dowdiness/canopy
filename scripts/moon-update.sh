@@ -24,7 +24,7 @@ set -uo pipefail
 # this guard at the registry boundary as well as in direct build wrappers:
 # Workers Builds may retain a dashboard command that invokes this script
 # directly, before it reaches the repository's normal toolchain bootstrap.
-SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
 TOOLCHAIN_HELPER="$SCRIPT_DIR/moon-toolchain.sh"
 "$TOOLCHAIN_HELPER" ensure || {
   status=$?
