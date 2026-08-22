@@ -3,7 +3,8 @@ import { createServer } from "node:http"
 import { extname, join, normalize } from "node:path"
 import { fileURLToPath } from "node:url"
 
-const distRoot = fileURLToPath(new URL("../../dist/", import.meta.url))
+const distRoot = process.env.LOOMARK_STANDALONE_DIST ??
+  fileURLToPath(new URL("../../dist/", import.meta.url))
 const port = Number.parseInt(process.env.LOOMARK_STANDALONE_PORT ?? "4317", 10)
 const contentTypes = new Map([
   [".css", "text/css; charset=utf-8"],
