@@ -273,15 +273,12 @@ def artifact-paths [] {
   ]
 }
 
-# The output directory is runner-owned. Remove every unregistered entry so a
-# rerun cannot retain stale source-catalog copies, temporary directories, or an
-# unrelated file that would replace the classified failure exit.
+# The output directory is runner-owned. Remove every prior entry before a run
+# or failure bundle so stale files, symlinks, and required-name directories
+# cannot survive or replace the classified result.
 def cleanup-runner-internals [output: string] {
   for entry in (ls -a $output) {
-    let name = ($entry.name | path basename)
-    if not ($name in (artifact-paths)) {
-      rm -rf $entry.name
-    }
+    rm -rf $entry.name
   }
 }
 
