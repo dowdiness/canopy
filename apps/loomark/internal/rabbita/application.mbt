@@ -1072,9 +1072,7 @@ fn update_archive_queue(
   )
   let command = match queue_completion {
     @repository.LocalArchiveQueueCompletion::Promoted(pending) =>
-      @archive_storage.replace(pending, completed=next_completion => {
-        emit(Archive(next_completion))
-      })
+      local_archive_write_command(Some(pending), emit)
     _ => @rabbita_runtime.none
   }
   let event_detail = match queue_completion {
