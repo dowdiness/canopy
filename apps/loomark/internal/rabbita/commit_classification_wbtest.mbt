@@ -4,16 +4,18 @@ fn test_model(
   document : @markdown.MarkdownDocumentSnapshot,
   version : @markdown.MarkdownDocumentVersion,
 ) -> DriverModel {
+  let document_id = @archive.LoomarkDocumentId::from_string("test-doc") catch {
+    _ => abort("test document id must construct")
+  }
   {
     state: @core.ApplicationState::ApplicationState(@core.Raw),
     runtime_state: EditorRuntimeState::Healthy,
     document,
     document_version: version,
-    document_id: @archive.LoomarkDocumentId::from_string("test-doc") catch {
-      _ => abort("test document id must construct")
-    },
+    document_id,
     raw_selection: None,
     archive_persistence_enabled: false,
+    bootstrap_pending: false,
     semantic_document: None,
     preview_artifact: None,
     semantic_read_count: 0,
@@ -43,8 +45,11 @@ fn test_model(
     event_unload_count: 0,
     listening: false,
     rejection: None,
-    archive_tracker: @repository.LocalArchiveRequestTracker::new(),
-    local_storage_warning: false,
+    archive_queue: @repository.LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
+      document_id~,
+      current=version,
+      durable=Some(version),
+    ),
   }
 }
 

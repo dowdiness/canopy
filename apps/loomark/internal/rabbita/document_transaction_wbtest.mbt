@@ -23,18 +23,20 @@ fn document_transaction_test_model(
   document : @markdown.MarkdownDocumentSnapshot,
   version : @markdown.MarkdownDocumentVersion,
 ) -> DriverModel {
+  let document_id = @archive.LoomarkDocumentId::from_string(
+    "document-transaction-test",
+  ) catch {
+    _ => abort("test document id must construct")
+  }
   {
     state: @core.ApplicationState::ApplicationState(@core.Raw),
     runtime_state: EditorRuntimeState::Healthy,
     document,
     document_version: version,
-    document_id: @archive.LoomarkDocumentId::from_string(
-      "document-transaction-test",
-    ) catch {
-      _ => abort("test document id must construct")
-    },
+    document_id,
     raw_selection: None,
     archive_persistence_enabled: false,
+    bootstrap_pending: false,
     semantic_document: None,
     preview_artifact: None,
     semantic_read_count: 0,
@@ -64,8 +66,11 @@ fn document_transaction_test_model(
     event_unload_count: 0,
     listening: false,
     rejection: None,
-    archive_tracker: @repository.LocalArchiveRequestTracker::new(),
-    local_storage_warning: false,
+    archive_queue: @repository.LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
+      document_id~,
+      current=version,
+      durable=Some(version),
+    ),
   }
 }
 
@@ -103,6 +108,30 @@ test "commit_edit_request preserves accepted frontier after export failure" {
   assert_eq(next.document.source(), "# After\n")
   assert_true(next.document_version != model.document_version)
   assert_eq(next.document_version, editor.version())
+  match next.archive_queue.status() {
+    @repository.LocalArchivePersistenceStatus::StorageFailed(
+      current~,
+      durable~,
+      error~
+    ) => {
+      assert_true(current == next.document_version)
+      assert_true(durable is Some(_))
+      assert_true(error == @repository.LocalArchiveStorageWriteFailure::Failed)
+    }
+    _ => fail("expected current-version storage failure")
+  }
+  markdown_archive_export_failure_reset()
+  let (retried, _retry_command) = try! retry_local_persistence(
+    editor, next, emit,
+  )
+  match retried.archive_queue.status() {
+    @repository.LocalArchivePersistenceStatus::Applied(..) => ()
+    @repository.LocalArchivePersistenceStatus::DurableLocal(_) =>
+      fail("retry unexpectedly reported durable")
+    @repository.LocalArchivePersistenceStatus::StorageFailed(..) =>
+      fail("retry remained storage-failed")
+  }
+  assert_eq(retried.document_version, next.document_version)
   assert_eq(next.committed_change_count, model.committed_change_count + 1)
   assert_eq(next.source_revision, model.source_revision + 1)
   assert_false(next.fail_next_editor_commit)

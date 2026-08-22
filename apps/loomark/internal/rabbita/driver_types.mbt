@@ -64,6 +64,7 @@ priv struct EditorSession {
 /// resize, and driver protocol errors.
 priv enum LifecycleEvent {
   EditorFailure
+  RetryLocalPersistence(@archive.LoomarkDocumentId)
   ForceParserFailure
   ForceReconstructionFailure
   ArmRawRenderBarrier
@@ -117,6 +118,7 @@ priv struct DriverModel {
   document_id : @archive.LoomarkDocumentId
   raw_selection : VersionedRawSelection?
   archive_persistence_enabled : Bool
+  bootstrap_pending : Bool
   semantic_document : @md_markdown.MarkdownIR?
   preview_artifact : ProjectionPreviewArtifact?
   semantic_read_count : Int
@@ -146,6 +148,5 @@ priv struct DriverModel {
   event_unload_count : Int
   listening : Bool
   rejection : String?
-  archive_tracker : @repository.LocalArchiveRequestTracker
-  local_storage_warning : Bool
+  archive_queue : @repository.LocalArchivePersistenceQueue
 } derive(Eq)

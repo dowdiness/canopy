@@ -32,15 +32,22 @@ pub(all) enum LocalArchiveStorageWrite {
 ///|
 /// Completion correlated with the repository request that initiated it.
 pub struct LocalArchiveWriteCompletion {
-  priv request_id : @repository.LocalArchiveRequestId
+  priv pending : @repository.LocalArchivePendingWrite
   priv result : LocalArchiveStorageWrite
+}
+
+///|
+pub fn LocalArchiveWriteCompletion::pending(
+  self : Self,
+) -> @repository.LocalArchivePendingWrite {
+  self.pending
 }
 
 ///|
 pub fn LocalArchiveWriteCompletion::request_id(
   self : Self,
 ) -> @repository.LocalArchiveRequestId {
-  self.request_id
+  self.pending.request_id()
 }
 
 ///|
@@ -75,26 +82,30 @@ pub fn load(result~ : @cmd.Emit[LocalArchiveStorageRead]) -> @cmd.Cmd {
 ///|
 /// Schedule one atomic complete archive replacement.
 pub fn replace(
-  request_id : @repository.LocalArchiveRequestId,
-  encoded : String,
+  pending : @repository.LocalArchivePendingWrite,
   completed~ : @cmd.Emit[LocalArchiveWriteCompletion],
 ) -> @cmd.Cmd {
-  @indexed_db.put(local_repository_config, ACTIVE_DOCUMENT_KEY, encoded, result=stored => {
-    let result = match stored {
-      @indexed_db.WriteResult::Stored => LocalArchiveStorageWrite::Stored
-      @indexed_db.WriteResult::Unavailable =>
-        LocalArchiveStorageWrite::Failed(
-          @repository.LocalArchiveStorageWriteFailure::Unavailable,
-        )
-      @indexed_db.WriteResult::QuotaExceeded =>
-        LocalArchiveStorageWrite::Failed(
-          @repository.LocalArchiveStorageWriteFailure::QuotaExceeded,
-        )
-      @indexed_db.WriteResult::Failed =>
-        LocalArchiveStorageWrite::Failed(
-          @repository.LocalArchiveStorageWriteFailure::Failed,
-        )
-    }
-    completed({ request_id, result })
-  })
+  @indexed_db.put(
+    local_repository_config,
+    ACTIVE_DOCUMENT_KEY,
+    pending.encoded(),
+    result=stored => {
+      let result = match stored {
+        @indexed_db.WriteResult::Stored => LocalArchiveStorageWrite::Stored
+        @indexed_db.WriteResult::Unavailable =>
+          LocalArchiveStorageWrite::Failed(
+            @repository.LocalArchiveStorageWriteFailure::Unavailable,
+          )
+        @indexed_db.WriteResult::QuotaExceeded =>
+          LocalArchiveStorageWrite::Failed(
+            @repository.LocalArchiveStorageWriteFailure::QuotaExceeded,
+          )
+        @indexed_db.WriteResult::Failed =>
+          LocalArchiveStorageWrite::Failed(
+            @repository.LocalArchiveStorageWriteFailure::Failed,
+          )
+      }
+      completed({ pending, result })
+    },
+  )
 }

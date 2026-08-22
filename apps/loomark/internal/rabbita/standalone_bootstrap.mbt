@@ -46,6 +46,7 @@ fn bootstrap_rejected(
     {
       ..model,
       archive_persistence_enabled: false,
+      bootstrap_pending: false,
       fatal: true,
       error: None,
       error_code: Some(recovery_code(category)),
@@ -64,8 +65,7 @@ fn adopt_bootstrap_session(
   attachment : @md_markdown.MarkdownSemanticAttachment,
   document_id : @archive.LoomarkDocumentId,
   replica_id : String,
-  archive_tracker : @repository.LocalArchiveRequestTracker,
-  local_storage_warning : Bool,
+  archive_queue : @repository.LocalArchivePersistenceQueue,
   command : @cmd.Cmd,
 ) -> (DriverModel, @cmd.Cmd) {
   let document = editor.snapshot() catch {
@@ -90,6 +90,7 @@ fn adopt_bootstrap_session(
       document_id,
       raw_selection: None,
       archive_persistence_enabled: true,
+      bootstrap_pending: false,
       semantic_document: None,
       preview_artifact: None,
       semantic_read_count: 0,
@@ -109,8 +110,7 @@ fn adopt_bootstrap_session(
       measurement: None,
       event_detail: None,
       rejection: None,
-      archive_tracker,
-      local_storage_warning,
+      archive_queue,
     },
     command,
   )
@@ -146,20 +146,40 @@ fn create_bootstrap_document(
         RecoveryCategory::EditorInitializationFailed,
       )
   }
-  let tracker = @repository.LocalArchiveRequestTracker::new()
+  let archive_queue = @repository.LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
+    document_id~,
+    current=editor.version(),
+    durable=None,
+  )
   let prepared = @repository.prepare_local_archive(document_id~, editor~) catch {
     _ =>
       return adopt_bootstrap_session(
-        session_ref, model, editor, attachment, document_id, replica_id, tracker,
-        true, @cmd.none,
+        session_ref,
+        model,
+        editor,
+        attachment,
+        document_id,
+        replica_id,
+        archive_queue.mark_failed(
+          document_version=editor.version(),
+          error=@repository.LocalArchiveStorageWriteFailure::Failed,
+        ),
+        @cmd.none,
       )
   }
-  let (tracker, request_id) = tracker.request()
-  let command = @archive_storage.replace(request_id, prepared.encoded(), completed=completion => {
-    emit(Archive(completion))
-  })
+  let (archive_queue, pending) = archive_queue.enqueue(
+    document_version=editor.version(),
+    archive=prepared,
+  )
+  let command = match pending {
+    Some(pending) =>
+      @archive_storage.replace(pending, completed=completion => {
+        emit(Archive(completion))
+      })
+    None => @cmd.none
+  }
   adopt_bootstrap_session(
-    session_ref, model, editor, attachment, document_id, replica_id, tracker, false,
+    session_ref, model, editor, attachment, document_id, replica_id, archive_queue,
     command,
   )
 }
@@ -217,8 +237,11 @@ fn update_standalone_bootstrap(
             reopened.attachment(),
             reopened.document_id(),
             replica_id,
-            @repository.LocalArchiveRequestTracker::new(),
-            false,
+            @repository.LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
+              document_id=reopened.document_id(),
+              current=reopened.editor().version(),
+              durable=Some(reopened.editor().version()),
+            ),
             @cmd.none,
           )
         @repository.LocalArchiveLoad::Rejected(failure) =>
