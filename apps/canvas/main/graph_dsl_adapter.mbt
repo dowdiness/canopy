@@ -18,7 +18,6 @@ struct SourceNodePosition {
 
 ///|
 struct SourceBackedGraph {
-  handle : Int
   attachment : @graph_dsl.GraphAttachment
   mut parser_failure : Failure?
   mut source : String
@@ -37,12 +36,10 @@ fn source_graph_source_id(handle : Int) -> @core.SourceId {
 
 ///|
 fn SourceBackedGraph::SourceBackedGraph(
-  handle : Int,
   source_id : @core.SourceId,
   source : String,
 ) -> SourceBackedGraph raise Failure {
   {
-    handle,
     attachment: @graph_dsl.GraphAttachment::GraphAttachment(source_id, source),
     parser_failure: None,
     source,
@@ -1075,12 +1072,7 @@ fn SourceBackedGraph::complete_connection(
   self.pointer_interrupt()
   match operation {
     Some(operation) =>
-      ignore(
-        apply_source_graph_operation(
-          self.handle,
-          operation.to_json().stringify(),
-        ),
-      ) catch {
+      ignore(self.apply_operation(operation)) catch {
         Failure::Failure(_) => ()
       }
     None => ()
@@ -1182,27 +1174,7 @@ fn source_graph_insert_unique_result(
   let operation = GraphOperation(
     AddNode(source_graph_node_payload(binding, constructor_name)),
   )
-  let result_json = apply_source_graph_operation(
-    handle,
-    operation.to_json().stringify(),
-  )
-  let json = @json.parse(result_json) catch {
-    _ =>
-      return source_graph_result_json_for_graph(
-        graph,
-        false,
-        Some("source graph operation result JSON parse failed"),
-      )
-  }
-  let result : SourceGraphOperationResultJson = @json.from_json(json) catch {
-    _ =>
-      return source_graph_result_json_for_graph(
-        graph,
-        false,
-        Some("source graph operation result JSON decode failed"),
-      )
-  }
-  result
+  graph.apply_operation(operation)
 }
 
 ///|
@@ -1235,33 +1207,9 @@ fn source_graph_connect_sample_result(
   }
   let source = NodeId(nodes[0].id())
   let target = NodeId(nodes[1].id())
-  let result_json = apply_source_graph_operation(
-    handle,
-    GraphOperation(ConnectPorts(source, "out", target, "input"))
-    .to_json()
-    .stringify(),
+  graph.apply_operation(
+    GraphOperation(ConnectPorts(source, "out", target, "input")),
   )
-  let json = @json.parse(result_json) catch {
-    _ =>
-      return source_graph_operation_result_json(
-        false,
-        "",
-        ["source graph operation result JSON parse failed"],
-        0,
-        Some("source graph operation result JSON parse failed"),
-      )
-  }
-  let result : SourceGraphOperationResultJson = @json.from_json(json) catch {
-    _ =>
-      return source_graph_operation_result_json(
-        false,
-        "",
-        ["source graph operation result JSON decode failed"],
-        0,
-        Some("source graph operation result JSON decode failed"),
-      )
-  }
-  result
 }
 
 ///|
@@ -1284,7 +1232,7 @@ pub fn sample_graph_dsl_source() -> String {
 pub fn create_source_graph(source : String) -> Int raise Failure {
   let handle = _source_registry.length()
   let source_id = source_graph_source_id(handle)
-  _source_registry.push(Some(SourceBackedGraph(handle, source_id, source)))
+  _source_registry.push(Some(SourceBackedGraph(source_id, source)))
   handle
 }
 

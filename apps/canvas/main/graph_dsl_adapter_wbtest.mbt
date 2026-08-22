@@ -959,6 +959,45 @@ test "source-backed unique insert chooses a fresh graph-dsl binding" {
 }
 
 ///|
+test "source-backed typed helpers return the applied operation result" {
+  let handle = create_source_graph("osc = sine(freq: 440Hz)\nmeter = scope()")
+  let inserted = source_graph_insert_unique_result(handle, "reverb", "plate")
+  assert_true(inserted.applied)
+  inspect(
+    inserted.source,
+    content="osc = sine(freq: 440Hz)\nmeter = scope()\nreverb = plate()",
+  )
+  let connected = source_graph_connect_sample_result(handle)
+  assert_true(connected.applied)
+  inspect(
+    connected.source,
+    content="osc = sine(freq: 440Hz)\nmeter = scope(input: osc)\nreverb = plate()",
+  )
+  inspect(connected.action_count, content="2")
+  destroy_source_graph(handle)
+}
+
+///|
+test "source-backed complete_connection applies its typed operation" {
+  let handle = create_source_graph("osc = sine(freq: 440Hz)\nmeter = scope()")
+  let graph = match source_graph_by_handle(handle) {
+    Some(graph) => graph
+    None => abort("expected source graph handle")
+  }
+  graph.complete_connection(
+    handle_token(handle, "osc"),
+    "out",
+    Some((handle_token(handle, "meter"), "input")),
+  )
+  inspect(
+    graph.source,
+    content="osc = sine(freq: 440Hz)\nmeter = scope(input: osc)",
+  )
+  inspect(graph.action_log.length(), content="1")
+  destroy_source_graph(handle)
+}
+
+///|
 test "source-backed handle rejects local graph operations without mutating source" {
   let source = "osc = sine(freq: 440Hz)\nmeter = scope()"
   let handle = create_source_graph(source)
