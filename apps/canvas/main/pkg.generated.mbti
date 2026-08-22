@@ -42,15 +42,15 @@ pub fn get_source_graph_source(Int) -> String
 
 pub fn get_workflow_node_catalog() -> String
 
-pub fn mount_canvas_context_menu(Int, Bool, () -> Unit, (String) -> Unit) -> Unit
+pub fn mount_canvas_context_menu(Int, () -> Unit, (String) -> Unit) -> Unit
 
-pub fn mount_canvas_pointer_session(Int, Bool, () -> Unit) -> Unit
+pub fn mount_canvas_pointer_session(Int, () -> Unit) -> Unit
 
 pub fn mount_canvas_render_layer() -> Unit
 
 pub fn mount_source_demo(Int, Bool, () -> Unit) -> Unit
 
-pub fn publish_render_state(Int, Bool) -> String
+pub fn publish_render_state(Int) -> String
 
 pub fn sample_graph_dsl_source() -> String
 

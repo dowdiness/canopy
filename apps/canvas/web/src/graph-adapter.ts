@@ -2,11 +2,10 @@ export type CanvasModule = {
   create_canvas: () => number;
   mount_canvas_pointer_session: (
     h: number,
-    sourceBacked: boolean,
     onChange: () => undefined,
   ) => undefined;
   mount_canvas_render_layer: () => undefined;
-  publish_render_state: (h: number, sourceBacked: boolean) => string;
+  publish_render_state: (h: number) => string;
   add_node: (h: number, kindKey: string, sx: number, sy: number) => void;
   delete_nodes: (h: number, nodeIdsJson: string) => void;
   clear_selected_edge: (h: number) => void;
@@ -33,7 +32,6 @@ export type CanvasModule = {
   get_workflow_node_catalog: () => string;
   mount_canvas_context_menu?: (
     h: number,
-    sourceBacked: boolean,
     onChange: () => undefined,
     onSourceResult: (result: string) => undefined,
   ) => undefined;
@@ -264,7 +262,7 @@ export class GraphAdapter {
   publishRenderState(): RenderState {
     this.assertLive();
     const state = JSON.parse(
-      this.mb.publish_render_state(this.handle, this.isSourceBacked),
+      this.mb.publish_render_state(this.handle),
     ) as RenderState;
     this.emitOperationsThrough(state.action_count);
     return state;

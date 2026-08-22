@@ -31,7 +31,7 @@ test "workflow context disconnect uses the captured edge target" {
 ///|
 test "background menu stays catalog-only without a multi-selection" {
   let handle = create_canvas()
-  let model = context_menu_model(handle, false, () => (), _s => ())
+  let model = context_menu_model(handle, () => (), _s => ())
   let items = canvas_context_menu_items(model, test_background_target())
   inspect(items.length(), content="7")
   inspect(items[0].label, content="Timer trigger")
@@ -40,7 +40,10 @@ test "background menu stays catalog-only without a multi-selection" {
 ///|
 test "background menu prepends arrange for a multi-selection" {
   let handle = create_canvas()
-  let runtime = _registry[handle]
+  let runtime = match canvas_backing(handle) {
+    Some(Runtime(runtime)) => runtime
+    _ => abort("expected runtime backing")
+  }
   let node1 = NodeId("1")
   let node2 = NodeId("2")
   let first = contract_state_node(runtime.state_peek(), node1)
@@ -60,7 +63,7 @@ test "background menu prepends arrange for a multi-selection" {
   ignore(runtime.pointer_down(Some(node2), two_sx, two_sy))
   runtime.pointer_up("2", "", true)
 
-  let model = context_menu_model(handle, false, () => (), _s => ())
+  let model = context_menu_model(handle, () => (), _s => ())
   let items = canvas_context_menu_items(model, test_background_target())
   inspect(items.length(), content="8")
   inspect(items[0].label, content="Arrange compactly")
@@ -69,29 +72,10 @@ test "background menu prepends arrange for a multi-selection" {
 
 ///|
 test "background menu hides arrange on a source-backed graph" {
-  let handle = create_canvas()
-  let runtime = _registry[handle]
-  let node1 = NodeId("1")
-  let node2 = NodeId("2")
-  let first = contract_state_node(runtime.state_peek(), node1)
-  let (one_sx, one_sy) = contract_screen_point(
-    runtime.render_state().viewport,
-    first.position().x(),
-    first.position().y(),
-  )
-  ignore(runtime.pointer_down(Some(node1), one_sx, one_sy))
-  runtime.pointer_up("1", "", false)
-  let second = contract_state_node(runtime.state_peek(), node2)
-  let (two_sx, two_sy) = contract_screen_point(
-    runtime.render_state().viewport,
-    second.position().x(),
-    second.position().y(),
-  )
-  ignore(runtime.pointer_down(Some(node2), two_sx, two_sy))
-  runtime.pointer_up("2", "", true)
-
-  let model = context_menu_model(handle, true, () => (), _s => ())
+  let handle = create_source_graph("osc = sine(freq: 440Hz)\nmeter = scope()")
+  let model = context_menu_model(handle, () => (), _s => ())
   let items = canvas_context_menu_items(model, test_background_target())
   inspect(items.length(), content="7")
   inspect(items[0].label, content="Timer trigger")
+  destroy_source_graph(handle)
 }

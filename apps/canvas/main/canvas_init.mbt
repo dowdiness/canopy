@@ -1,11 +1,8 @@
 ///|
-/// Global handle registry. Index = handle (Int returned by create_canvas).
-let _registry : Array[CanvasRuntime] = []
-
-///|
 pub fn create_canvas() -> Int {
-  _registry.push(CanvasRuntime::CanvasRuntime())
-  _registry.length() - 1
+  let handle = canvas_instances.length()
+  canvas_instances.push(Some(Runtime(CanvasRuntime::CanvasRuntime())))
+  handle
 }
 
 ///|
@@ -18,7 +15,10 @@ pub fn add_node(
   sx : Double,
   sy : Double,
 ) -> Unit {
-  _registry[handle].add_node(kind_key, sx, sy)
+  match canvas_runtime_for_public(handle) {
+    Some(runtime) => runtime.add_node(kind_key, sx, sy)
+    None => ()
+  }
 }
 
 ///|
@@ -31,12 +31,18 @@ fn decode_node_ids(json_text : String) -> Array[NodeId] {
 
 ///|
 pub fn clear_selected_edge(handle : Int) -> Unit {
-  _registry[handle].clear_selected_edge()
+  match canvas_runtime_for_public(handle) {
+    Some(runtime) => runtime.clear_selected_edge()
+    None => ()
+  }
 }
 
 ///|
 pub fn delete_selection(handle : Int) -> Bool {
-  _registry[handle].delete_selection()
+  match canvas_runtime_for_public(handle) {
+    Some(runtime) => runtime.delete_selection()
+    None => false
+  }
 }
 
 ///|
@@ -45,7 +51,10 @@ pub fn delete_nodes(handle : Int, node_ids_json : String) -> Unit {
   if node_ids.length() == 0 {
     return
   }
-  _registry[handle].delete_nodes(node_ids)
+  match canvas_runtime_for_public(handle) {
+    Some(runtime) => runtime.delete_nodes(node_ids)
+    None => ()
+  }
 }
 
 ///|
@@ -182,10 +191,16 @@ extend RenderStateJson with ToJson::{to_json}
 
 ///|
 pub fn get_render_state(handle : Int) -> String {
-  _registry[handle].render_state().to_json().stringify()
+  match canvas_runtime_for_public(handle) {
+    Some(runtime) => runtime.render_state().to_json().stringify()
+    None => ""
+  }
 }
 
 ///|
 pub fn get_action_log(handle : Int) -> String {
-  _registry[handle].action_log_json()
+  match canvas_runtime_for_public(handle) {
+    Some(runtime) => runtime.action_log_json()
+    None => ([] : Array[GraphOperation]).to_json().stringify()
+  }
 }
