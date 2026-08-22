@@ -106,4 +106,3 @@ pub using @core {type FocusHint}
 pub using @core {type SpanEdit}
 
 // Traits
-

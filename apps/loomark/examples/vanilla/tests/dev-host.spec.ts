@@ -371,13 +371,13 @@ async function failHost(page: Page, message: string): Promise<void> {
 test("private development host remains independent of archive storage", async ({ browser }) => {
   const context = await browser.newContext()
   await context.addInitScript(() => {
-    const state = window as typeof window & { __loomarkStorageWrites: number }
-    state.__loomarkStorageWrites = 0
-    Object.defineProperty(window, "localStorage", {
+    const state = window as typeof window & { __loomarkIndexedDbAccesses: number }
+    state.__loomarkIndexedDbAccesses = 0
+    Object.defineProperty(window, "indexedDB", {
       configurable: true,
-      value: {
-        getItem: () => null,
-        setItem: () => { state.__loomarkStorageWrites += 1 },
+      get() {
+        state.__loomarkIndexedDbAccesses += 1
+        return undefined
       },
     })
   })
@@ -387,8 +387,8 @@ test("private development host remains independent of archive storage", async ({
     await requestSource(host.page, "after\n")
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("after\n")
     await expect.poll(() => host.page.evaluate(() => (
-      window as typeof window & { __loomarkStorageWrites: number }
-    ).__loomarkStorageWrites)).toBe(0)
+      window as typeof window & { __loomarkIndexedDbAccesses: number }
+    ).__loomarkIndexedDbAccesses)).toBe(0)
   } finally {
     await context.close()
   }
@@ -3506,12 +3506,15 @@ test("a newer Block edit supersedes pending Raw input", async ({ browser }) => {
       }))
       const module = await import(moduleUrl)
       module.dev_host_select_block()
-      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
-      const blockInput = document.getElementById("loomark-block-input") as HTMLTextAreaElement
-      blockInput.value = "block"
-      blockInput.setSelectionRange(blockInput.value.length, blockInput.value.length)
-      blockInput.dispatchEvent(new Event("input", { bubbles: true }))
     }, moduleUrl)
+    const blockInput = host.page.locator("#loomark-block-input")
+    await expect(blockInput).toBeAttached()
+    await blockInput.evaluate(element => {
+      const input = element as HTMLTextAreaElement
+      input.value = "block"
+      input.setSelectionRange(input.value.length, input.value.length)
+      input.dispatchEvent(new Event("input", { bubbles: true }))
+    })
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("block")
     expect(await snapshot(host.page)).toMatchObject({
       source: "block",

@@ -284,4 +284,3 @@ pub using @sync_session {type SyncStatus}
 pub using @sync_session {trait SyncTransport}
 
 // Traits
-

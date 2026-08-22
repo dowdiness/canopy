@@ -52,7 +52,7 @@ Production deterministic/property tests cover those integration boundaries, incl
 
 ## Run
 
-The repository pins MoonBit `0.10.4+ade96c819`; the proof toolchain uses Why3 1.7.2 and Z3 4.13.x.
+The repository pins its MoonBit compiler/core pair in [`../../../.moonbit-toolchain`](../../../.moonbit-toolchain); the proof toolchain uses Why3 1.7.2 and Z3 4.13.x.
 
 ```bash
 cd modules/btree/proof

@@ -71,14 +71,14 @@ test "decode rejects wrong version" {
 ///|
 test "decode_message_result reports wrong version" {
   let result = decode_message_result(b"\xFF\x01\x00")
-  guard result is Err(err)
+  guard! result is Err(err)
   inspect(err.message(), content="unsupported protocol version: 255")
 }
 
 ///|
 test "v2 frame is rejected after v3 cutover" {
   let result = decode_message_result(b"\x02\x01\x00")
-  guard result is Err(err)
+  guard! result is Err(err)
   match err {
     UnsupportedVersion(version~) => inspect(version, content="b'\\x02'")
     _ => fail("expected UnsupportedVersion")
@@ -97,7 +97,7 @@ test "decode rejects too short" {
 ///|
 test "decode_message_result reports unknown message type" {
   let result = decode_message_result(b"\x03\xFF\x00")
-  guard result is Err(err)
+  guard! result is Err(err)
   inspect(err.message(), content="unknown protocol message type: 255")
 }
 
@@ -270,13 +270,13 @@ test "v3: SyncRequest with empty version_json" {
 ///|
 test "decode_message_result reports missing room control subtype" {
   let result = decode_message_result(b"\x03\x05\x00")
-  guard result is Err(err)
+  guard! result is Err(err)
   inspect(err.message(), content="missing room control subtype")
 }
 
 ///|
 test "decode_message_result reports invalid room control subtype before peer id" {
   let result = decode_message_result(b"\x03\x05\x00\xFF")
-  guard result is Err(err)
+  guard! result is Err(err)
   inspect(err.message(), content="invalid room control subtype: 255")
 }

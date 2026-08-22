@@ -74,4 +74,3 @@ pub fn[T] WorkspaceCellHandle::read(Self[T]) -> Result[T, @types.ReadError]
 // Type aliases
 
 // Traits
-

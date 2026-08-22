@@ -23,6 +23,7 @@ import {
 
 import {
   "dowdiness/diagnostic",
+  "moonbit-community/rabbita/testing" @rabbita_testing,
 } for "wbtest"
 
 // Keep this package JS-only until `defer_sync` in `source_demo.mbt` has a

@@ -39,4 +39,3 @@ pub fn Msg::requests_focus(Self) -> Bool
 // Type aliases
 
 // Traits
-

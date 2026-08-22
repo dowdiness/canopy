@@ -927,13 +927,14 @@ test('source-backed output connection shares the root pointer owner', async ({ p
   await page.goto('/?source=1');
   await expectSource(page, SAMPLE_SOURCE);
 
-  const captureIds = await page.evaluate(() => {
+  await page.evaluate(() => {
     const root = document.querySelector('#canvas-root') as HTMLDivElement;
     const source = [...document.querySelectorAll('.handle.output')].find((handle) => (
       handle.closest('.canvas-node')?.querySelector('.node-title')?.textContent === 'osc'
     ));
     if (!source) throw new Error('source output handle is missing');
     const ids: number[] = [];
+    (window as Window & { __canopyCaptureIds?: number[] }).__canopyCaptureIds = ids;
     root.setPointerCapture = (pointerId: number) => ids.push(pointerId);
     const rect = source.getBoundingClientRect();
     source.dispatchEvent(new PointerEvent('pointerdown', {
@@ -970,11 +971,13 @@ test('source-backed output connection shares the root pointer owner', async ({ p
       clientX: 220,
       clientY: 220,
     }));
-    return ids;
   });
 
-  expect(captureIds).toEqual([101]);
   await expect(page.locator('#edges path.edge-pending')).toHaveCount(1);
+  const captureIds = await page.evaluate(() => (
+    (window as Window & { __canopyCaptureIds?: number[] }).__canopyCaptureIds ?? []
+  ));
+  expect(captureIds).toEqual([101]);
 
   await page.evaluate(() => {
     const root = document.querySelector('#canvas-root') as HTMLDivElement;

@@ -171,4 +171,3 @@ pub impl Show for PresenceStatus
 pub using @wire {type EphemeralNamespace}
 
 // Traits
-

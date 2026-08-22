@@ -20,4 +20,3 @@ pub fn new_json_editor(String, capture_timeout_ms? : Int, parent_runtime? : @cel
 // Type aliases
 
 // Traits
-

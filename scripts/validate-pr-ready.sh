@@ -154,7 +154,7 @@ run_target_check() {
     case "$module_path" in
       deps/*)
         NEW_MOON_MOD=0 run_moon_check_with_vendored_filter \
-          "--keep=$module_path" --deny-warn --warn-list=-20-82-83 "$package_path"
+          "--keep=$module_path" --deny-warn --warn-list=-20-82-83-87 "$package_path"
         ;;
       *)
         NEW_MOON_MOD=0 run_moon_check_with_vendored_filter \

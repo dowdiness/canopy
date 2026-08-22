@@ -35,4 +35,3 @@ pub(all) enum TreeCommand {
 // Type aliases
 
 // Traits
-

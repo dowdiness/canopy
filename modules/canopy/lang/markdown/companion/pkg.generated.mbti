@@ -24,4 +24,3 @@ pub fn new_markdown_editor_with_semantic_attachment(String, capture_timeout_ms? 
 // Type aliases
 
 // Traits
-

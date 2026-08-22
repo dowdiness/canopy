@@ -14,4 +14,3 @@ pub fn JsWebSocket::send_bytes(Self, Bytes) -> Unit
 // Type aliases
 
 // Traits
-

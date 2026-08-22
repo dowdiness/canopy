@@ -13,7 +13,7 @@ moon prove  →  moonc (WhyML codegen)  →  Why3  →  z3 (SMT solver)
 ```
 
 **Tested versions:**
-- MoonBit 0.10.4+ade96c819 (repository-pinned toolchain)
+- MoonBit compiler/core pair from [`.moonbit-toolchain`](../../.moonbit-toolchain) (repository-pinned toolchain)
 - Why3 1.7.2 (install via `opam install why3.1.7.2`)
 - Z3 4.13.x (install via `pip3 install z3-solver==4.13.4.0` or `opam install z3`)
 

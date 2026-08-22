@@ -4,15 +4,6 @@
 // built-in quickcheck for random test generation.
 
 ///|
-fn unicode_scalar_length(text : String) -> Int {
-  let mut length = 0
-  for _ in text {
-    length += 1
-  }
-  length
-}
-
-///|
 /// Property: New editor is always empty
 test "property: new editor is empty" {
   let editor = try! Editor::new("test-agent")
@@ -21,25 +12,25 @@ test "property: new editor is empty" {
 }
 
 ///|
-/// Property: Text length matches inserted text length
+/// Property: Item count matches inserted text item count
 test "property: insert updates length correctly" {
   let texts : Array[String] = @quickcheck.samples(20)
   for text in texts {
     let editor = try! Editor::new("test-agent")
     try! editor.insert(text)
-    assert_eq(editor.get_text().length(), text.length())
+    assert_eq(editor.get_text().to_array().length(), text.to_array().length())
   }
 }
 
 ///|
-/// Property: Cursor is always within valid Unicode-scalar bounds
+/// Property: Cursor is always within valid item-space bounds.
 test "property: cursor bounds after insert" {
   let texts : Array[String] = @quickcheck.samples(20)
   for text in texts {
     let editor = try! Editor::new("test-agent")
     try! editor.insert(text)
     let cursor = editor.get_cursor()
-    let len = unicode_scalar_length(editor.get_text())
+    let len = editor.get_text().to_array().length()
     assert_true(cursor >= 0)
     assert_true(cursor <= len)
   }
@@ -85,9 +76,9 @@ test "property: insert then delete all gives empty" {
     let editor = try! Editor::new("test-agent")
     try! editor.insert(text)
 
-    // Delete all characters one by one
+    // Delete all codepoints one by one
     editor.move_cursor(0)
-    for _i = 0; _i < unicode_scalar_length(text); _i = _i + 1 {
+    for _i = 0; _i < text.to_array().length(); _i = _i + 1 {
       let _ = editor.delete()
     }
     assert_eq(editor.get_text(), "")
@@ -107,8 +98,8 @@ test "property: text length is never negative" {
         let _ = editor.delete()
       }
 
-      // Check length is valid after each operation
-      assert_true(editor.get_text().length() >= 0)
+      // Check item count is valid after each operation
+      assert_true(editor.get_text().to_array().length() >= 0)
     }
   }
 }
@@ -122,7 +113,7 @@ test "property: cursor move clamps to bounds" {
     try! editor.insert("hello")
     editor.move_cursor(position)
     let cursor = editor.get_cursor()
-    let len = unicode_scalar_length(editor.get_text())
+    let len = editor.get_text().to_array().length()
     assert_true(cursor >= 0)
     assert_true(cursor <= len)
   }
@@ -138,12 +129,15 @@ test "property: insert at start position" {
     }
     let editor = try! Editor::new("test-agent")
     try! editor.insert("world")
-    let original_len = editor.get_text().length()
+    let original_len = editor.get_text().to_array().length()
     editor.move_cursor(0)
     try! editor.insert(text)
 
-    // After insert, total length should be sum of both
-    assert_eq(editor.get_text().length(), original_len + text.length())
+    // After insert, total item count should be the sum of both inputs.
+    assert_eq(
+      editor.get_text().to_array().length(),
+      original_len + text.to_array().length(),
+    )
   }
 }
 
@@ -156,9 +150,9 @@ test "property: multiple inserts accumulate length" {
     let mut expected_len = 0
     for text in texts {
       try! editor.insert(text)
-      expected_len = expected_len + unicode_scalar_length(text)
+      expected_len = expected_len + text.to_array().length()
     }
-    assert_eq(unicode_scalar_length(editor.get_text()), expected_len)
+    assert_eq(editor.get_text().to_array().length(), expected_len)
   }
 }
 
@@ -172,8 +166,8 @@ test "property: cursor advances after insert" {
     try! editor.insert(text)
     let end_pos = editor.get_cursor()
 
-    // Cursor positions count Unicode scalars.
-    assert_eq(end_pos, start_pos + unicode_scalar_length(text))
+    // Cursor should advance by the inserted item count.
+    assert_eq(end_pos, start_pos + text.to_array().length())
   }
 }
 
@@ -187,10 +181,10 @@ test "property: delete reduces length by at most 1" {
     }
     let editor = try! Editor::new("test-agent")
     try! editor.insert(text)
-    let before_len = unicode_scalar_length(editor.get_text())
+    let before_len = editor.get_text().to_array().length()
     editor.move_cursor(0)
     let deleted = editor.delete()
-    let after_len = unicode_scalar_length(editor.get_text())
+    let after_len = editor.get_text().to_array().length()
     if deleted {
       assert_eq(after_len, before_len - 1)
     } else {
@@ -231,9 +225,9 @@ test "property: sequential operations maintain invariants" {
         editor.move_cursor(0)
       }
 
-      // Verify invariants hold
+      // Verify item-space invariants hold
       let cursor = editor.get_cursor()
-      let len = unicode_scalar_length(editor.get_text())
+      let len = editor.get_text().to_array().length()
       assert_true(cursor >= 0)
       assert_true(cursor <= len)
       assert_true(len >= 0)
@@ -242,7 +236,7 @@ test "property: sequential operations maintain invariants" {
 }
 
 ///|
-/// Property: Cursor never exceeds the text's Unicode-scalar length
+/// Property: Cursor never exceeds text length after any operation
 test "property: cursor invariant holds after operations" {
   let op_sequences : Array[Array[Bool]] = @quickcheck.samples(10)
   for ops in op_sequences {
@@ -255,7 +249,7 @@ test "property: cursor invariant holds after operations" {
         let _ = editor.delete()
       }
       let cursor = editor.get_cursor()
-      let len = unicode_scalar_length(editor.get_text())
+      let len = editor.get_text().to_array().length()
       assert_true(cursor <= len)
     }
   }

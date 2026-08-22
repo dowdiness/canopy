@@ -18,11 +18,9 @@ export NEW_MOON_MOD=0
 export PATH="$HOME/.moon/bin:$PATH"
 
 # MoonBit toolchain, pinned to the same pair as CI. Normally already present in
-# the base image; the guard makes a fresh base self-heal instead of failing.
-if ! command -v moon >/dev/null 2>&1; then
-  curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s 0.10.4+ade96c819
-  export PATH="$HOME/.moon/bin:$PATH"
-fi
+# the base image; the helper makes a fresh base self-heal instead of failing.
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
+"$SCRIPT_DIR/../scripts/moon-toolchain.sh" ensure
 
 # Submodules live under deps/ and are wiped by the per-Build re-clone.
 git submodule update --init --recursive

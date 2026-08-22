@@ -76,4 +76,3 @@ pub fn reset_jsx_state() -> Unit
 // Type aliases
 
 // Traits
-

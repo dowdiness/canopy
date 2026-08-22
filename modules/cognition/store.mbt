@@ -43,18 +43,18 @@ pub fn CognitionStore::new_with_provider_and_ranker(
   provider : CognitionProvider,
   ranker : ContextRanker,
 ) -> CognitionStore {
-  let dependencies : Map[CognitionKey, Array[CognitionKey]] = Map::default()
+  let dependencies : Map[CognitionKey, Array[CognitionKey]] = Default::default()
   {
-    values: Map::default(),
-    workspace_files: Map::default(),
-    revisions: Map::default(),
+    values: Default::default(),
+    workspace_files: Default::default(),
+    revisions: Default::default(),
     dependencies,
-    reverse_dependencies: Map::default(),
-    dirty: Map::default(),
-    recompute_counts: Map::default(),
-    provider_requests: Map::default(),
-    provider_statuses: Map::default(),
-    provider_results: Map::default(),
+    reverse_dependencies: Default::default(),
+    dirty: Default::default(),
+    recompute_counts: Default::default(),
+    provider_requests: Default::default(),
+    provider_statuses: Default::default(),
+    provider_results: Default::default(),
     provider,
     ranker,
     reactive: CognitionReactive::CognitionReactive(dependencies),

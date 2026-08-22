@@ -7,7 +7,7 @@ LOOMARK_ROOT="$PROJECT_ROOT/apps/loomark"
 WARREN_BIN_DIR="$PROJECT_ROOT/_build/tools/bin"
 WARREN="$WARREN_BIN_DIR/warren"
 DEV_PORT="${LOOMARK_STANDALONE_DEV_PORT:-4318}"
-WORK_DIR="$(mktemp -d)"
+WORK_DIR="$(mktemp -d "$LOOMARK_ROOT/.standalone-e2e.XXXXXX")"
 DEV_PID=""
 DEV_GROUP="false"
 
@@ -35,6 +35,25 @@ trap cleanup EXIT HUP INT TERM
 
 "$PROJECT_ROOT/scripts/install-local-warren.sh" "$WARREN_BIN_DIR"
 
+STATIC_DIR="$WORK_DIR/public"
+mkdir -p "$STATIC_DIR"
+cp -a "$LOOMARK_ROOT/public/." "$STATIC_DIR/"
+
+build_worker_entry() {
+  local package="$1"
+  local output="$2"
+  local artifact
+  artifact="$(
+    cd "$LOOMARK_ROOT"
+    NEW_MOON_MOD=0 moon run --build-only --target js --release "$package" |
+      python3 -c 'import json, sys; print(json.load(sys.stdin)["artifacts_path"][0])'
+  )"
+  cp "$artifact" "$STATIC_DIR/$output"
+}
+
+build_worker_entry worker capability-worker.js
+build_worker_entry projection_worker projection-worker.js
+
 if curl --fail --silent "http://127.0.0.1:$DEV_PORT/" >/dev/null 2>&1; then
   echo "error: standalone development port $DEV_PORT is already serving HTTP" >&2
   exit 1
@@ -44,8 +63,9 @@ if command -v setsid >/dev/null 2>&1; then
   (
     cd "$LOOMARK_ROOT"
     exec setsid "$WARREN" dev --direct \
-      --entry capability-worker=worker \
-      --entry projection-worker=projection_worker \
+      --browser-entry main \
+      --server-entry "" \
+      --public-dir "$STATIC_DIR" \
       --port "$DEV_PORT"
   ) >"$WORK_DIR/warren-dev.log" 2>&1 &
   DEV_GROUP="true"
@@ -53,8 +73,9 @@ else
   (
     cd "$LOOMARK_ROOT"
     exec "$WARREN" dev --direct \
-      --entry capability-worker=worker \
-      --entry projection-worker=projection_worker \
+      --browser-entry main \
+      --server-entry "" \
+      --public-dir "$STATIC_DIR" \
       --port "$DEV_PORT"
   ) >"$WORK_DIR/warren-dev.log" 2>&1 &
 fi
@@ -98,9 +119,9 @@ stop_dev_server
 rm -rf "$LOOMARK_ROOT/dist"
 (
   cd "$LOOMARK_ROOT"
-  "$WARREN" build \
-    --entry capability-worker=worker \
-    --entry projection-worker=projection_worker
+  # Exercise Warren's default entry discovery, which is also used by the
+  # Cloudflare Workers Build for the Loomark static-assets worker.
+  "$WARREN" build --public-dir "$STATIC_DIR"
 )
 
 test -s "$LOOMARK_ROOT/dist/favicon.svg"
@@ -110,7 +131,7 @@ test -s "$LOOMARK_ROOT/dist/capability-worker.js"
 test -s "$LOOMARK_ROOT/dist/projection-worker.js"
 test -s "$LOOMARK_ROOT/dist/styles.css"
 grep -q '<main id="app"></main>' "$LOOMARK_ROOT/dist/index.html"
-grep -q '<script src="./index.js" type="module"></script>' "$LOOMARK_ROOT/dist/index.html"
+grep -Eq '<script src="(/|\./)index\.js" type="module"></script>' "$LOOMARK_ROOT/dist/index.html"
 grep -q '<link rel="icon" href="./favicon.svg" type="image/svg+xml"' "$LOOMARK_ROOT/dist/index.html"
 grep -q '<link rel="stylesheet" href="./styles.css"' "$LOOMARK_ROOT/dist/index.html"
 for private_name in \

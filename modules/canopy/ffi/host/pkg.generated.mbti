@@ -27,4 +27,3 @@ pub fn[H] HostRegistry::view_state(Self[H], Int) -> @editor.ViewUpdateState
 // Type aliases
 
 // Traits
-

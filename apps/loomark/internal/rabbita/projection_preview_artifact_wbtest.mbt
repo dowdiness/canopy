@@ -128,10 +128,8 @@ test "artifact renderer preserves safe URL policy and treats raw HTML as text" {
       ],
     },
   }
-  let rendered = @rabbita_runtime.render_to_string(() => {
-    @rabbita_runtime.Val::constant(
-      semantic_preview_artifact_view("source", artifact),
-    )
+  let rendered = @rabbita_testing.server_side_render(() => {
+    semantic_preview_artifact_view("source", artifact)
   })
   assert_true(rendered.contains("loomark-preview-url-rejected"))
   assert_true(rendered.contains("loomark-preview-html"))

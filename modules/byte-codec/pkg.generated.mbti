@@ -48,4 +48,3 @@ pub fn Reader::read_byte(Self) -> Byte raise CodecError
 // Type aliases
 
 // Traits
-

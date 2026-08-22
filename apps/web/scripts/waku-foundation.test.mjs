@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 import {
   moonbitBuildCoordinator,
@@ -322,8 +324,13 @@ test('gives Cloudflare Workers Builds an explicit Waku production target', () =>
     'utf8',
   );
   assert.match(deployScript, /\$\{1:-waku\}/);
-  assert.match(deployScript, /MOONBIT_VERSION="0\.10\.4\+ade96c819"/);
-  assert.match(deployScript, /bash -s -- "\$MOONBIT_VERSION"/);
+  const toolchainHelper = new URL('../../../scripts/moon-toolchain.sh', import.meta.url);
+  const helperPath = fileURLToPath(toolchainHelper);
+  const compilerVersion = execFileSync(helperPath, ['get', 'compiler'], { encoding: 'utf8' }).trim();
+  const coreVersion = execFileSync(helperPath, ['get', 'core'], { encoding: 'utf8' }).trim();
+  assert.equal(compilerVersion, coreVersion);
+  assert.match(deployScript, /scripts\/moon-toolchain\.sh"\s+ensure/);
+  assert.doesNotMatch(deployScript, /MOONBIT_VERSION|cli\.moonbitlang\.com\/install/);
   assert.equal(
     (deployScript.match(/\$REPO_ROOT\/scripts\/moon-update\.sh/g) ?? []).length,
     1,

@@ -33,9 +33,10 @@ export NEW_MOON_MOD="${NEW_MOON_MOD:-0}"
 
 DENY_WARN_FLAGS=(--deny-warn)
 
-# Vendored submodules built standalone still use deprecated `try?` ([0020])
-# and MoonBit 0.10.4's [0082]/[0083] diagnostics; Canopy does not own their
-# source. Keep Canopy-owned example modules on the narrower [0020] exemption.
+# Vendored submodules built standalone still use deprecated `try?` ([0020]),
+# older compiler diagnostics ([0082]/[0083]), and the current compiler's
+# inexhaustive-guard diagnostic ([0087]); Canopy does not own their source.
+# Keep Canopy-owned example modules on the narrower [0020] exemption.
 is_vendored_module=0
 for vendored_dir in $VENDORED_DIRS; do
     if [ "$MODULE_DIR" = "$vendored_dir" ] ||
@@ -45,7 +46,7 @@ for vendored_dir in $VENDORED_DIRS; do
     fi
 done
 if [ "$is_vendored_module" -eq 1 ]; then
-    LENIENT_WARN_FLAGS=(--deny-warn --warn-list=-20-82-83)
+    LENIENT_WARN_FLAGS=(--deny-warn --warn-list=-20-82-83-87)
 else
     LENIENT_WARN_FLAGS=(--deny-warn --warn-list=-20)
 fi
@@ -74,7 +75,7 @@ case "$ACTION" in
         moon test --release
         ;;
     ci-lenient)
-        # Same as `ci`, but exempts the try? [0020] deprecation for vendored
+        # Same as `ci`, but exempts the vendored warning set for current
         # submodules canopy cannot migrate (see LENIENT_WARN_FLAGS above).
         keep_dir="$MODULE_DIR"
         run_moon_check_with_vendored_filter "--keep=$keep_dir" "${LENIENT_WARN_FLAGS[@]}" || exit $?

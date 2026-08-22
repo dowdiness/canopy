@@ -11,4 +11,3 @@ pub const PROBE_SUBJECT : String = "text-crdt intent preservation"
 // Type aliases
 
 // Traits
-

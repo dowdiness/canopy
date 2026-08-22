@@ -6,14 +6,14 @@ if [ "$#" -gt 1 ] || [ "${1:-waku}" != "waku" ]; then
   exit 2
 fi
 
-# Install MoonBit CLI
-MOONBIT_VERSION="0.10.4+ade96c819"
-curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s -- "$MOONBIT_VERSION"
-export PATH="$HOME/.moon/bin:$PATH"
-moon version --all
-
-SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(CDPATH= cd -- "$SCRIPT_DIR/../../.." && pwd)"
+
+# Cloudflare Workers Builds is independent from GitHub Actions; self-heal to
+# the repository's MoonBit/compiler pair before building.
+export PATH="$HOME/.moon/bin:$PATH"
+"$REPO_ROOT/scripts/moon-toolchain.sh" ensure
+moon version --all
 
 # Move to repo root regardless of the caller's current working directory.
 cd "$REPO_ROOT"

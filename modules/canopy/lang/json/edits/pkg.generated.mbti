@@ -38,4 +38,3 @@ pub(all) enum JsonType {
 // Type aliases
 
 // Traits
-

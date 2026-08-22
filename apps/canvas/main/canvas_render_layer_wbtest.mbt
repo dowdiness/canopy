@@ -26,7 +26,7 @@ test "render layer view renders accessible keyed paths and pending path" {
     }),
   }
   let html = canvas_render_layer_view(model)
-  let rendered = @rabbita.render_to_string(() => @rabbita.Val::constant(html))
+  let rendered = @rabbita_testing.server_side_render(() => html)
   assert_true(rendered.contains("<svg"))
   assert_true(rendered.contains("id=\"edges\""))
   assert_true(rendered.contains("transform:translate(10px, 20px) scale(1.5)"))

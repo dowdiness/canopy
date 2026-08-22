@@ -206,6 +206,34 @@ def manifest-paths [root: string] {
   [$toml $json] | flatten | sort
 }
 
+def check-toolchain-consumers [root: string] {
+  let consumers = [
+    "scripts/moon-update.sh"
+    "scripts/build-loomark-worker.sh"
+    "scripts/moon-toolchain.sh"
+    "scripts/test-moon-update-wrapper.sh"
+    ".cursor/install.sh"
+    "apps/web/scripts/build-deploy.sh"
+    "apps/web/scripts/waku-foundation.test.mjs"
+    ".github/actions/setup-moonbit/action.yml"
+  ]
+  let helper = ($root | path join "scripts/moon-toolchain.sh")
+  let version_result = (^sh $helper get compiler | complete)
+  if $version_result.exit_code != 0 {
+    fail ($version_result.stderr | str trim)
+  }
+  let compiler = ($version_result.stdout | str trim)
+  # Match any MoonBit release+build token, not only the current manifest value;
+  # otherwise a stale old pin would escape detection after a version bump.
+  let result = (^git -C $root grep -nE -- '0\.[0-9]+\.[0-9]+\+[0-9a-fA-F]+' -- ...$consumers | complete)
+  if $result.exit_code == 0 {
+    $result.stdout | print -e
+    fail "MoonBit toolchain consumers must read .moonbit-toolchain via scripts/moon-toolchain.sh"
+  } else if $result.exit_code != 1 {
+    fail ($result.stderr | str trim)
+  }
+}
+
 def check-manifests [root: string] {
   let results = (manifest-paths $root | each {|path|
     if ($path | str ends-with ".json") {
@@ -245,8 +273,8 @@ def check-wiring [root: string action_doc: any justfile: string] {
   let cache_key = (field $cache_with "key")
   let restore_keys = (field $cache_with "restore-keys")
   let cache_paths = (field $cache_with "path")
-  require-text $cache_key "moonbit-registry-v2-${{ runner.os }}-${{ runner.arch }}-toolchain-0.10.4+ade96c819-core-0.10.4+ade96c819-${{ hashFiles('moon.work', '**/moon.mod', '**/moon.mod.json') }}" "registry cache key does not encode schema, platform, toolchain, core, and manifests"
-  require-text $restore_keys "moonbit-registry-v2-${{ runner.os }}-${{ runner.arch }}-toolchain-0.10.4+ade96c819-core-0.10.4+ade96c819-" "registry cache restore key is not scoped to schema/platform/toolchain/core"
+  require-text $cache_key "moonbit-registry-v2-${{ runner.os }}-${{ runner.arch }}-toolchain-${{ hashFiles('.moonbit-toolchain') }}-${{ hashFiles('moon.work', '**/moon.mod', '**/moon.mod.json') }}" "registry cache key does not encode schema, platform, manifest, and dependency manifests"
+  require-text $restore_keys "moonbit-registry-v2-${{ runner.os }}-${{ runner.arch }}-toolchain-${{ hashFiles('.moonbit-toolchain') }}-" "registry cache restore key is not scoped to schema/platform/manifest"
   for path in ["~/.moon/registry/index" "~/.moon/registry/cache" "~/.moon/registry/symbols"] {
     require-text $cache_paths $path $"registry cache path is missing: ($path)"
   }
@@ -285,6 +313,7 @@ def check-wiring [root: string action_doc: any justfile: string] {
       "apps/web/scripts/build-deploy.sh:"
       "apps/ideal/scripts/build-deploy.sh:"
       "justfile:"
+      "scripts/build-loomark-worker.sh:"
       "scripts/check-moon-registry-bootstrap.nu:"
       "scripts/moon-update.sh:"
       "scripts/test-moon-update-wrapper.sh:"
@@ -418,6 +447,7 @@ def main [] {
 
   check-wiring $root $action_doc $justfile
   check-benchmark-and-deploy $root $benchmark_doc
+  check-toolchain-consumers $root
   check-manifests $root
   print "ok: MoonBit registry bootstrap contract passes"
 }

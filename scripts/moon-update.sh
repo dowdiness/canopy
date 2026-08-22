@@ -20,6 +20,18 @@
 
 set -uo pipefail
 
+# async@0.21.0 requires the repository's MoonBit/compiler-core pair. Keep
+# this guard at the registry boundary as well as in direct build wrappers:
+# Workers Builds may retain a dashboard command that invokes this script
+# directly, before it reaches the repository's normal toolchain bootstrap.
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname "$0")" && pwd)"
+TOOLCHAIN_HELPER="$SCRIPT_DIR/moon-toolchain.sh"
+"$TOOLCHAIN_HELPER" ensure || {
+  status=$?
+  exit "$status"
+}
+export PATH="$HOME/.moon/bin:$PATH"
+
 MAX_ATTEMPTS="${MOON_UPDATE_MAX_ATTEMPTS:-3}"
 # BASE_DELAY=0 is a deliberate test affordance — the regression suite sets
 # MOON_UPDATE_RETRY_DELAY=0 to exercise the retry path without real sleeps. The

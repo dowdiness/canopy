@@ -46,4 +46,3 @@ pub using @companion {type LambdaCompanion}
 pub using @edits {type TreeEditOp}
 
 // Traits
-

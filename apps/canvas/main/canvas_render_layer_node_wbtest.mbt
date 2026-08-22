@@ -41,7 +41,7 @@ test "render layer view renders keyed nodes, handles, edges, and connection stat
     }),
   }
   let html = canvas_render_layer_view(model)
-  let rendered = @rabbita.render_to_string(() => @rabbita.Val::constant(html))
+  let rendered = @rabbita_testing.server_side_render(() => html)
   assert_true(rendered.contains("id=\"edges\""))
   assert_true(rendered.contains("id=\"world\""))
   assert_true(rendered.contains("data-node-id=\"source\""))
@@ -116,11 +116,11 @@ test "missing compatibility is incompatible only during a connection" {
       validation: [],
     }),
   }
-  let active_rendered = @rabbita.render_to_string(
-    () => @rabbita.Val::constant(canvas_render_layer_view(active)),
+  let active_rendered = @rabbita_testing.server_side_render(
+    () => canvas_render_layer_view(active),
   )
-  let idle_rendered = @rabbita.render_to_string(
-    () => @rabbita.Val::constant(canvas_render_layer_view(idle)),
+  let idle_rendered = @rabbita_testing.server_side_render(
+    () => canvas_render_layer_view(idle),
   )
   assert_true(
     active_rendered.contains("class=\"handle input incompatible-target\""),
