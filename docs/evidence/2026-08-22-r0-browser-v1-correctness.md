@@ -17,7 +17,8 @@ restored text's UTF-16 end).
 
 The changed surface is the browser oracle corpus (catalog + five archive
 files), the browser oracle/verification scripts, the runner's browser-lane
-assertions, and the oracle adapter evidence — nothing else.
+assertions and fixed artifact-set ownership, and the oracle adapter evidence —
+nothing else.
 
 ## Exact builds
 
@@ -25,11 +26,15 @@ Branch `fix/r0-browser-v1-contract-20260822`.
 
 | build | revision |
 |---|---|
-| Base (`origin/main` at fetch) | `4779d163b24a1d5628c38526032209cf46397f5c` |
-| Implementation/review HEAD | `e4e596c472064327a32a47d4e84e9dcd8f797d02` |
-| Commit 1 | `0089070f19f7d9a42c24ebe445ca082b392a396b` — `fix(gate-r0): align browser oracle corpus contract` |
-| Commit 2 | `9d892bad3f16a517af7246d9b733fa0b3830302d` — `fix(gate-r0): derive browser adapter evidence` |
-| Commit 3 (HEAD) | `e4e596c472064327a32a47d4e84e9dcd8f797d02` — `test(gate-r0): require CRLF adapter control` |
+| Base (`origin/main` at final fetch) | `974013c42c21801a4448e6593b3edbb985835e8a` |
+| Rebased commit 1 | `2e139598fe25fbd6787db24d1cc38c985f6c5255` — `fix(gate-r0): align browser oracle corpus contract` |
+| Rebased commit 2 | `daf969aa9f5dbd7264d079940acb34ba452eca69` — `fix(gate-r0): derive browser adapter evidence` |
+| Rebased commit 3 | `5ad22460a50c1affa8b1b33dcf613e427389d029` — `test(gate-r0): require CRLF adapter control` |
+| Rebased commit 4 | `a444028bafa9168b4eb585e12ee15155717bb1b3` — `docs(gate-r0): record browser v1 correctness evidence` |
+| Artifact repair | `38070fcc31a0cfc2779533c21734162821da6de1` — `fix(gate-r0): restore fixed artifact ownership` |
+| Failure-path hardening | `1e8ac3f9095f08ef8e6efe4d2e1d0f53a02273bf` — `fix(gate-r0): harden artifact failure paths` |
+| Reused-output classification | `3c4f2cb0575fd8ae899d43f54c3fa47ba4bb612a` — `fix(gate-r0): classify reused-output failures` |
+| Code HEAD (runner-owned output reset) | `128dfcaef70ae0fba9d14ae3dc9aeb856e92a20b` — `fix(gate-r0): reset runner-owned outputs` |
 | EGW submodule (checked out) | `9d71c86699322ca1d365e46f33b3ca71fd209859` |
 
 The runner's `submodule-preflight` enforces recorded gitlink == checked-out
@@ -116,56 +121,97 @@ a mutation test in `test-r0-browser-fixtures.mjs`.
 browser page itself fetches the catalog and archive with `cache: "no-store"`,
 recomputes the archive/text/history SHA-256 in-page with
 `crypto.subtle.digest`, verifies every catalog digest and the operation count,
-and only then seeds `localStorage` with the verified archive.
+and only then seeds the production IndexedDB archive slot with the verified
+archive. Main #1331 moved production archive persistence to IndexedDB, so the
+seeded surface is the production database/store/key
+`loomark.local-repository` / `archives` / `loomark.active-document-archive`
+(`apps/loomark/internal/archive_storage/storage.mbt`); the full-history
+consumer therefore restores through the unchanged production persistence path.
 
-A `Storage.prototype.getItem` wrapper counts application reads of the archive
-key: the full-history consumer starts exactly once
+Read accounting instruments `IDBObjectStore.prototype.get` and
+`IDBObjectStore.prototype.openCursor` on that store for the archive key. The
+harness's own read is one `get` (`readArchive`); the application's archive read
+goes through the `openCursor` path used by the Rabbita `@indexed_db.get`
+binding. Separate counters require exactly one observation `get` and one
+application `openCursor`, without subtracting a magic offset. The full-history
+consumer starts exactly once
 (`full_history_consumer_starts = 1`) and the candidate consumer never starts
-(`candidate_consumer_starts = 0`, `candidate_event_reads = 0`); the release
-`index.js` contains no candidate markers. The runner asserts
+(`candidate_consumer_starts = 0`, `candidate_event_reads = 0`); the selected
+catalog consumer is `full_history_v1`, and a conservative release-bundle canary
+finds no candidate marker in `index.js`. The runner asserts
 `archive_transport_bytes == fixture.archive_bytes`,
 `archive_decode_read_operations == 1`, `oracle_full_history_event_reads ==
 1000`, `candidate_event_reads == 0`, and `first_edit_local_operations == 1`.
+All five fixtures pass with `full_history_consumer_starts = 1` and
+`candidate_consumer_starts = 0`.
+
+## Canonical output and manifest provenance
+
+The canonical run output is exactly ten files — `manifest.json`, `result.json`,
+`capability-ledger.json`, `candidate-captures.jsonl`, `candidate-results.json`,
+`operation-matrix.jsonl`, `oracle-differential.jsonl`, `cold-history.jsonl`,
+`negative-results.json`, and `validation.log`. Source catalogs are not run
+artifacts: the runner removes stale run copies of `fixture-catalog.json`,
+`browser-fixture-catalog.json`, and `browser-results.json`, plus all dotfile
+internals including the temporary `.candidate-suite/` directory, then asserts
+the output directory contains exactly the ten canonical files.
+
+Hashes and provenance live in the manifest: `fixture_catalog` carries the EGW
+source catalog SHA-256, `fixture_seed`, and per-fixture `canonical_sha256`;
+`browser_fixture_catalog` carries the browser catalog SHA-256 and per-fixture
+archive `sha256`/`bytes`/`canonical_fixture_sha256`. The five browser
+correctness observations are recorded in `operation-matrix.jsonl` (trace
+`browser-full-history-v1`, authority `full_history_oracle`, projection
+`loomark_product`, `outcome: "pass"`) with the full `browser_oracle_result`
+payload as the observation row.
 
 ## Exact validation
 
 | gate | result |
 |---|---|
-| `npm run fixtures:r0:verify` (regenerate + byte-compare) | PASS |
-| `npm run fixtures:r0:test` (catalog, digest, archive, fail-closed controls) | PASS |
-| Native five-browser run (`--suite oracle`): five fresh-Chromium observations | PASS |
-| `nu --ide-check` (runner syntax) | PASS |
+| Failure injection: each injected failure class writes the exact ten-artifact set | PASS |
+| Reused-output cleanup: legacy outputs, dotfile internals, arbitrary unregistered files/directories removed before artifact-set assert | PASS |
+| Injected `git status` failure — exit 10 with exact-ten `preflight_invalid` bundle | PASS |
+| `--self-test` (failure injection, candidate seam, provider-read controls) | PASS |
+| Injected nested candidate failure in `--suite self-test` — exit 30, exact-ten failure artifacts, diagnostic retained | PASS |
+| `--suite self-test --allow-dirty` — exact-ten artifact set | PASS |
+| `--suite oracle --allow-dirty` — exact-ten artifact set, five fresh-Chromium observations, 1:15.38 (maxrss 947964 KB) | PASS |
+| Five browser fixtures on Chromium `149.0.7827.55` | PASS |
+| `fixtures:r0:verify` (regenerate + byte-compare) and `fixtures:r0:test` (catalog, digest, archive, fail-closed controls) | PASS |
 | TS typecheck standalone + dev host (`typecheck:standalone`, `typecheck:dev-host`) | PASS |
-| CI workflow YAML | PASS |
-| Independent reviewers (regeneration/hash review of the browser fixture catalog) | PASS |
-
-Observed browser revision: Chromium `149.0.7827.55`.
+| `nu --ide-check` (runner syntax) | PASS |
+| Docs lifecycle/diff check (`scripts/check-documentation-lifecycle.sh`) | PASS |
+| Independent review of exact code HEAD `128dfcae…` | PASS — no remaining high-confidence correctness or CI blocker |
 
 ## Local runner outcome
 
-The canonical clean local runner on Moon `0.1.20260814` exited `10`
-(`preflight_invalid`) because `moon info` removed one trailing blank line from
-`apps/loomark/restore_feasibility_oracle/pkg.generated.mbti`; the drift was
-reverted.
+The clean local runner `--suite oracle --allow-dirty` passed in 1:15.38
+(maxrss 947964 KB) with result status `pass`, `implementation_complete: false`,
+`blocked_obligations: [browser_measurement]`, and five browser observations.
+The manifest records `browser_oracle_correctness: "pass"` and
+`browser_measurement: "not_run"`.
 
-After `moon info`, the local runner `--suite oracle --allow-dirty` passed in
-1:33.85 (maxrss 948012 KB) with result status `pass`,
-`implementation_complete: false`, `blocked_obligations: [browser_measurement]`,
-and five browser observations. The manifest records
-`browser_oracle_correctness: "pass"` and `browser_measurement: "not_run"`.
+The earlier trailing-blank-line `.mbti` drift failure (Moon `0.1.20260814`) is
+obsolete: main #1331 normalized the current toolchain/interfaces, and the
+runner's interface preflight now agrees before and after `moon info` with no
+drift to revert.
 
-The canonical CI pins Moon `0.10.4+ade96c819`
-(`.github/actions/setup-moonbit`); this evidence records no local run of that
-canonical CI toolchain. The local run above used the `0.1.20260814` snapshot
-and is separate from CI.
+The canonical CI pins Moon `compiler`/`core` `0.10.8+8606a5800`
+(`.moonbit-toolchain`, read by `.github/actions/setup-moonbit` via
+`scripts/moon-toolchain.sh`); this evidence records the local oracle run above,
+and CI coverage remains per `.github/workflows/ci.yml`.
 
 ## Pre-commit status
 
 Pre-commit was **not** green: `hook-moonbit-check` (`moon check --deny-warn`)
-failed on the existing dependency/project warning-as-error baseline
-(`Map::default`, `guard_inexhaustive`, and similar pre-existing warnings), not
-on the changed surface. The three commits were created with `--no-verify`
-after exact changed-surface validation (the gates above).
+failed on the existing dependency warning-as-error baseline (22 pre-existing
+deprecation warnings across `deps/alga`, `deps/loom`, and `deps/svg-dsl`), not
+on the changed surface. Rebased code commits `38070fcc` (restore fixed artifact
+ownership), `1e8ac3f9` (failure-path hardening), `3c4f2cb0` (reused-output
+classification), and `128dfcae` (runner-owned output reset) were created with
+`--no-verify` after exact changed-surface validation (the gates above); the
+rebased commits were carried through
+`git rebase`, which does not run the pre-commit hooks.
 
 ## Scope negatives
 
@@ -173,7 +219,10 @@ after exact changed-surface validation (the gates above).
   `not_run` in the manifest, the result is `implementation_complete: false`
   blocked on `[browser_measurement]`, and the browser oracle corpus explicitly
   provides no performance evidence.
-- No candidate/publish/public-API/wire/storage/provider-operation changes in
-  this correction: the manifest records `archive_format_changed: false`,
+- No production API/wire/archive-format/provider-operation change in this
+  correction: the manifest records `archive_format_changed: false`,
   `wire_format_changed: false`, and `public_markdown_interface_changed: false`;
-  candidate suites record `not_applicable` outcomes only.
+  candidate suites record `not_applicable` outcomes only. The IndexedDB
+  persistence surface (#1331) comes from the rebase base on main, not this
+  correction; this evidence only seeds and reads the production slot that base
+  already defines.
