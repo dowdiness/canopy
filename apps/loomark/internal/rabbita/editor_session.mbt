@@ -25,7 +25,7 @@ fn capture_recovery_document(
 fn reopen_recovery_document(
   recovery : RecoveryDocument,
   writer_prefix : String,
-) -> (@markdown.MarkdownEditor, @md_markdown.MarkdownSemanticAttachment) raise {
+) -> (@markdown.MarkdownEditor, @md_markdown.MarkdownSemanticAttachment, String) raise {
   let writer_id = @archive_storage.fresh_id(writer_prefix)
   let reopened = @repository.reopen_local_history(
     recovery.history,
@@ -33,5 +33,5 @@ fn reopen_recovery_document(
     agent_id=writer_id,
     policy=@repository.LocalRestorePolicy::trusted(),
   )
-  (reopened.editor(), reopened.attachment())
+  (reopened.editor(), reopened.attachment(), writer_id)
 }

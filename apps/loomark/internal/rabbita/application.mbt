@@ -251,6 +251,63 @@ fn record_error(
 }
 
 ///|
+fn local_persistence_failure_name(
+  error : @repository.LocalArchivePersistenceFailure,
+) -> String {
+  match error {
+    @repository.LocalArchivePersistenceFailure::Storage(error) =>
+      match error {
+        @repository.LocalArchiveStorageWriteFailure::Unavailable =>
+          "unavailable"
+        @repository.LocalArchiveStorageWriteFailure::QuotaExceeded =>
+          "quota-exceeded"
+        @repository.LocalArchiveStorageWriteFailure::Failed => "failed"
+      }
+    @repository.LocalArchivePersistenceFailure::PreparationFailed =>
+      "archive-preparation-failed"
+  }
+}
+
+///|
+fn local_persistence_snapshot(
+  status : @repository.LocalArchivePersistenceStatus,
+) -> Json {
+  match status {
+    @repository.LocalArchivePersistenceStatus::DurableLocal(version) =>
+      Json::object({
+        "status": "durable-local".to_json(),
+        "current_version": version.to_json_string().to_json(),
+        "durable_version": version.to_json_string().to_json(),
+        "error": Json::null(),
+      })
+    @repository.LocalArchivePersistenceStatus::Applied(current~, durable~) =>
+      Json::object({
+        "status": "applied".to_json(),
+        "current_version": current.to_json_string().to_json(),
+        "durable_version": match durable {
+          Some(version) => version.to_json_string().to_json()
+          None => Json::null()
+        },
+        "error": Json::null(),
+      })
+    @repository.LocalArchivePersistenceStatus::StorageFailed(
+      current~,
+      durable~,
+      error~
+    ) =>
+      Json::object({
+        "status": "storage-failed".to_json(),
+        "current_version": current.to_json_string().to_json(),
+        "durable_version": match durable {
+          Some(version) => version.to_json_string().to_json()
+          None => Json::null()
+        },
+        "error": local_persistence_failure_name(error).to_json(),
+      })
+  }
+}
+
+///|
 fn publish(
   model : DriverModel,
   raw_input_coordinator : RawInputCoordinator?,
@@ -266,6 +323,9 @@ fn publish(
     "version": @core.SNAPSHOT_VERSION.to_json(),
     "mode": mode_name(model.state.mode()).to_json(),
     "runtime_state": runtime_state_name(model.runtime_state).to_json(),
+    "local_persistence": local_persistence_snapshot(
+      model.archive_queue.status(),
+    ),
     "split_preview_open": model.split_preview_open.to_json(),
     "source_revision": model.source_revision.to_json(),
     "semantic_read_count": model.semantic_read_count.to_json(),
@@ -611,12 +671,29 @@ fn preview_view(
       ),
     ],
   )
-  let error_view = if model.local_storage_warning {
-    @rui.alert(
-      id="loomark-error",
-      variant=@rui.Destructive,
-      style=["border-radius:0"],
-      @rui.alert_description("Changes are applied but not saved locally."),
+  let persistence_failed = match model.archive_queue.status() {
+    @repository.LocalArchivePersistenceStatus::StorageFailed(..) => true
+    _ => false
+  }
+  let error_view = if persistence_failed {
+    @html.div(
+      id="loomark-error-container",
+      style=["display:flex;align-items:center;gap:0.5rem"],
+      [
+        @rui.alert(
+          id="loomark-error",
+          variant=@rui.Destructive,
+          style=["border-radius:0;flex:1"],
+          @rui.alert_description("Changes are applied but not saved locally."),
+        ),
+        @rui.button(
+          variant=@rui.Ghost,
+          size=@rui.Xs,
+          attrs=@html.Attrs::build().aria_label("Retry saving locally"),
+          on_click=emit(Lifecycle(RetryLocalPersistence(model.document_id))),
+          "Retry save",
+        ),
+      ],
     )
   } else {
     match model.error {
@@ -832,6 +909,7 @@ fn driver_event_name(event : DriverEvent) -> String {
     Lifecycle(life_event) =>
       match life_event {
         EditorFailure => "editor-failure"
+        RetryLocalPersistence(_) => "retry-local-persistence"
         ForceParserFailure => "force-parser-failure"
         ForceReconstructionFailure => "force-reconstruction-failure"
         ArmRawRenderBarrier => "arm-raw-render-barrier"
@@ -981,24 +1059,34 @@ fn dispatch_driver(detail : String) -> Unit {
 ///|
 
 ///|
-/// Archive completion channel: tracker acknowledgment always lands, even in
-/// fatal state, so an older acknowledgment cannot clear a newer warning.
-fn update_archive_tracker(
+/// Archive completion channel: only a correlated acknowledgment can advance
+/// the queue, and a promoted pending archive is the sole next command.
+fn update_archive_queue(
   model : DriverModel,
   completion : @archive_storage.LocalArchiveWriteCompletion,
+  emit : @cmd.Emit[DriverEvent],
 ) -> (DriverModel, @cmd.Cmd) {
-  let tracker = match completion.result() {
+  let outcome = match completion.result() {
     @archive_storage.LocalArchiveStorageWrite::Stored =>
-      model.archive_tracker.complete_success(completion.request_id())
-    @archive_storage.LocalArchiveStorageWrite::Failed(_) =>
-      model.archive_tracker.complete_failure(completion.request_id())
+      @repository.LocalArchiveWriteOutcome::Stored
+    @archive_storage.LocalArchiveStorageWrite::Failed(error) =>
+      @repository.LocalArchiveWriteOutcome::Failed(error)
   }
-  let next = {
-    ..model,
-    archive_tracker: tracker,
-    local_storage_warning: tracker.has_warning(),
+  let (archive_queue, queue_completion) = model.archive_queue.complete(
+    completion.pending(),
+    outcome,
+  )
+  let command = match queue_completion {
+    @repository.LocalArchiveQueueCompletion::Promoted(pending) =>
+      local_archive_write_command(Some(pending), emit)
+    _ => @rabbita_runtime.none
   }
-  (next, @rabbita_runtime.none)
+  let event_detail = match queue_completion {
+    @repository.LocalArchiveQueueCompletion::Ignored =>
+      Some("archive-ack-ignored")
+    _ => model.event_detail
+  }
+  ({ ..model, archive_queue, event_detail }, command)
 }
 
 ///|
@@ -2184,6 +2272,16 @@ fn update_lifecycle(
       let next = { ..model, fail_next_editor_commit: true }
       (next, @rabbita_runtime.none)
     }
+    RetryLocalPersistence(document_id) => {
+      guard document_id == model.document_id &&
+        model.archive_persistence_enabled else {
+        return (
+          { ..model, event_detail: Some("retry-local-persistence-ignored") },
+          @rabbita_runtime.none,
+        )
+      }
+      retry_local_persistence(editor, model, emit)
+    }
     ForceParserFailure => {
       let next = { ..model, force_parser_failure: true }
       (next, @rabbita_runtime.none)
@@ -2455,7 +2553,19 @@ fn update_model(
           )
         None => (model, @rabbita_runtime.none)
       }
-    Archive(completion) => update_archive_tracker(model, completion)
+    Archive(completion) => update_archive_queue(model, completion, emit)
+    _ if model.bootstrap_pending =>
+      (
+        {
+          ..model,
+          rejection: Some(
+            "operation=" +
+            driver_event_name(event) +
+            ";reason=bootstrap-pending",
+          ),
+        },
+        @rabbita_runtime.none,
+      )
     _ if model.fatal && !recovery_control_event(event) => {
       match event {
         Editing(RawNativeInput(token~, ..)) =>
@@ -2731,7 +2841,7 @@ fn build_application(
   editor : @markdown.MarkdownEditor,
   attachment : @md_markdown.MarkdownSemanticAttachment,
   initial : DriverModel,
-  baseline : (@repository.LocalArchiveRequestId, String)?,
+  baseline : @repository.LocalArchivePendingWrite?,
   bootstrap : Bool,
   raw_input_telemetry : RawInputTelemetry?,
   subscriptions : (DriverModel, @cmd.Emit[DriverEvent]) -> @sub.Sub,
@@ -2834,13 +2944,7 @@ fn build_application(
         } else {
           @rabbita_runtime.none
         }
-        let persistence_command = match baseline {
-          Some((request_id, encoded)) =>
-            @archive_storage.replace(request_id, encoded, completed=completion => {
-              emit(Archive(completion))
-            })
-          None => @rabbita_runtime.none
-        }
+        let persistence_command = local_archive_write_command(baseline, emit)
         let projection_command = match projection_worker {
           Some(runtime) => runtime.sync(initial, emit)
           None => @rabbita_runtime.none
@@ -2870,7 +2974,7 @@ fn standalone_application(
   editor : @markdown.MarkdownEditor,
   attachment : @md_markdown.MarkdownSemanticAttachment,
   initial : DriverModel,
-  baseline : (@repository.LocalArchiveRequestId, String)?,
+  baseline : @repository.LocalArchivePendingWrite?,
 ) -> @rabbita_runtime.App {
   build_application(
     editor,
@@ -2889,7 +2993,7 @@ fn private_dev_host_application(
   editor : @markdown.MarkdownEditor,
   attachment : @md_markdown.MarkdownSemanticAttachment,
   initial : DriverModel,
-  baseline : (@repository.LocalArchiveRequestId, String)?,
+  baseline : @repository.LocalArchivePendingWrite?,
 ) -> @rabbita_runtime.App {
   build_application(
     editor,
@@ -2911,20 +3015,28 @@ fn initial_model(
   document_id : @archive.LoomarkDocumentId,
   replica_id : String,
   archive_persistence_enabled~ : Bool,
+  bootstrap_pending~ : Bool,
 ) -> DriverModel raise {
   let host_width = @dom_boundary.measure_element_id(host_id)
     .offset_width()
     .to_int() catch {
       _ => SPLIT_STACK_BREAKPOINT
     }
+  let current_version = editor.version()
+  let durable_version = if bootstrap_pending {
+    None
+  } else {
+    Some(current_version)
+  }
   {
     state: @core.ApplicationState::ApplicationState(@core.Raw),
     runtime_state: EditorRuntimeState::Healthy,
     document: editor.snapshot(),
-    document_version: editor.version(),
+    document_version: current_version,
     document_id,
     raw_selection: None,
     archive_persistence_enabled,
+    bootstrap_pending,
     semantic_document: None,
     preview_artifact: None,
     semantic_read_count: 0,
@@ -2954,8 +3066,12 @@ fn initial_model(
     event_unload_count: 0,
     listening: true,
     rejection: None,
-    archive_tracker: @repository.LocalArchiveRequestTracker::new(),
-    local_storage_warning: false,
+    archive_queue: @repository.LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
+      document_id~,
+      queue_epoch=replica_id,
+      current=current_version,
+      durable=durable_version,
+    ),
   }
 }
 
@@ -2970,7 +3086,7 @@ fn mount_application(
     @markdown.MarkdownEditor,
     @md_markdown.MarkdownSemanticAttachment,
     DriverModel,
-    (@repository.LocalArchiveRequestId, String)?,
+    @repository.LocalArchivePendingWrite?,
   ) -> @rabbita_runtime.App,
 ) -> String raise {
   if mounted.val {
@@ -2994,6 +3110,7 @@ fn mount_application(
     document_id,
     replica_id,
     archive_persistence_enabled=false,
+    bootstrap_pending=false,
   )
   detached_focus_token.val = ""
   publish(initial, None, None)
@@ -3039,6 +3156,7 @@ pub fn mount_standalone(host_id : String, source : String) -> String {
     document_id,
     replica_id,
     archive_persistence_enabled=false,
+    bootstrap_pending=true,
   ) catch {
     _ => {
       attachment.dispose()

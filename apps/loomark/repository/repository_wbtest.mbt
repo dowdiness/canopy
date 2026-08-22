@@ -28,6 +28,39 @@ fn captured_archive(
 }
 
 ///|
+/// Create the common editor, document identity, and initial version for queue tests.
+fn queue_document(
+  agent_id : String,
+  document_id : String,
+  source : String,
+) -> (
+  @markdown.MarkdownEditor,
+  @archive.LoomarkDocumentId,
+  @markdown.MarkdownDocumentVersion,
+) {
+  let editor = try! @markdown.MarkdownEditor(agent_id~, source~)
+  let document_id = try! @archive.LoomarkDocumentId::from_string(document_id)
+  (editor, document_id, editor.version())
+}
+
+///|
+/// Commit one queue-test edit and prepare its complete immutable archive.
+fn queue_archive_after_replace(
+  editor~ : @markdown.MarkdownEditor,
+  document_id~ : @archive.LoomarkDocumentId,
+  source : String,
+) -> (@markdown.MarkdownDocumentVersion, PreparedLocalArchive) {
+  ignore(
+    editor.commit(@markdown.MarkdownEditRequest::ReplaceSource(source)) catch {
+      _ => abort("queue test edit failed")
+    },
+  )
+  let document_version = editor.version()
+  let archive = try! prepare_local_archive(document_id~, editor~)
+  (document_version, archive)
+}
+
+///|
 test "repository classifies a missing record and a valid archive" {
   let policy = restore_policy_for_tests()
   match
@@ -203,32 +236,471 @@ test "history trigger follows receipt history rather than source equality" {
 }
 
 ///|
-test "request tracker ignores stale completions" {
-  let tracker = LocalArchiveRequestTracker::new()
-  let (tracker, first) = tracker.request()
-  let (tracker, second) = tracker.request()
-  assert_false(second == first)
+test "persistence queue reports applied then durable local" {
+  let (editor, document_id, initial_version) = queue_document(
+    "repository-queue", "doc-queue", "before",
+  )
+  let (current_version, archive) = queue_archive_after_replace(
+    editor~,
+    document_id~,
+    "after",
+  )
+  let queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
+    document_id~,
+    queue_epoch="repository-queue",
+    current=initial_version,
+    durable=None,
+  )
+  let (queue, write) = queue.enqueue(document_version=current_version, archive~)
+  guard write is Some(write) else { fail("expected first write") }
+  match queue.status() {
+    LocalArchivePersistenceStatus::Applied(current~, durable~) => {
+      assert_true(current == current_version)
+      assert_true(durable is None)
+    }
+    _ => fail("expected applied status")
+  }
+  let (queue, completion) = queue.complete(
+    write,
+    LocalArchiveWriteOutcome::Stored,
+  )
+  assert_true(completion is LocalArchiveQueueCompletion::Completed)
+  match queue.status() {
+    LocalArchivePersistenceStatus::DurableLocal(version) =>
+      assert_true(version == current_version)
+    _ => fail("expected durable-local status")
+  }
+}
 
-  let tracker = tracker.complete_failure(first)
-  assert_false(tracker.has_warning())
-  let tracker = tracker.complete_failure(second)
-  assert_true(tracker.has_warning())
-  let tracker = tracker.complete_success(first)
-  assert_true(tracker.has_warning())
-  let tracker = tracker.complete_success(second)
-  assert_true(tracker.has_warning())
+///|
+test "persistence queue coalesces and promotes the latest archive" {
+  let (editor, document_id, initial_version) = queue_document(
+    "repository-queue-coalesce", "doc-queue-coalesce", "zero",
+  )
+  let (first_version, first_archive) = queue_archive_after_replace(
+    editor~,
+    document_id~,
+    "one",
+  )
+  let queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
+    document_id~,
+    queue_epoch="repository-queue-coalesce",
+    current=initial_version,
+    durable=None,
+  )
+  let (queue, first_write) = queue.enqueue(
+    document_version=first_version,
+    archive=first_archive,
+  )
+  guard first_write is Some(first_write) else { fail("expected first write") }
 
-  let (tracker, third) = tracker.request()
-  let tracker = tracker.complete_success(third)
-  assert_false(tracker.has_warning())
-  let tracker = tracker.complete_failure(third)
-  assert_false(tracker.has_warning())
+  let (second_version, second_archive) = queue_archive_after_replace(
+    editor~,
+    document_id~,
+    "two",
+  )
+  let (queue, second_write) = queue.enqueue(
+    document_version=second_version,
+    archive=second_archive,
+  )
+  assert_true(second_write is None)
+  match queue.status() {
+    LocalArchivePersistenceStatus::Applied(current~, durable~) => {
+      assert_true(current == second_version)
+      assert_true(durable is None)
+    }
+    _ => fail("expected latest applied status")
+  }
 
-  let (tracker, fourth) = tracker.request()
-  let tracker = tracker.complete_failure(fourth)
-  assert_true(tracker.has_warning())
-  let tracker = tracker.complete_success(fourth)
-  assert_true(tracker.has_warning())
+  let (queue, completion) = queue.complete(
+    first_write,
+    LocalArchiveWriteOutcome::Stored,
+  )
+  let promoted = match completion {
+    LocalArchiveQueueCompletion::Promoted(write) => write
+    _ => fail("expected pending write promotion")
+  }
+  match queue.status() {
+    LocalArchivePersistenceStatus::Applied(current~, durable~) => {
+      assert_true(current == second_version)
+      guard durable is Some(durable) else {
+        fail("expected first durable version")
+      }
+      assert_true(durable == first_version)
+    }
+    _ => fail("expected applied status while latest write runs")
+  }
+
+  let (queue, completion) = queue.complete(
+    promoted,
+    LocalArchiveWriteOutcome::Failed(
+      LocalArchiveStorageWriteFailure::QuotaExceeded,
+    ),
+  )
+  assert_true(completion is LocalArchiveQueueCompletion::Completed)
+  match queue.status() {
+    LocalArchivePersistenceStatus::StorageFailed(current~, durable~, error~) => {
+      assert_true(current == second_version)
+      guard durable is Some(durable) else {
+        fail("expected first durable version")
+      }
+      assert_true(durable == first_version)
+      assert_true(
+        error ==
+        LocalArchivePersistenceFailure::Storage(
+          LocalArchiveStorageWriteFailure::QuotaExceeded,
+        ),
+      )
+    }
+    _ => fail("expected storage-failed status")
+  }
+}
+
+///|
+test "persistence queue retries the latest failed version only once" {
+  let (editor, document_id, initial_version) = queue_document(
+    "repository-queue-retry", "doc-queue-retry", "before",
+  )
+  let (current_version, archive) = queue_archive_after_replace(
+    editor~,
+    document_id~,
+    "after",
+  )
+  let queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
+    document_id~,
+    queue_epoch="repository-queue-retry",
+    current=initial_version,
+    durable=None,
+  )
+  let (queue, write) = queue.enqueue(document_version=current_version, archive~)
+  guard write is Some(write) else { fail("expected first write") }
+  let (queue, _) = queue.complete(
+    write,
+    LocalArchiveWriteOutcome::Failed(LocalArchiveStorageWriteFailure::Failed),
+  )
+  match queue.status() {
+    LocalArchivePersistenceStatus::StorageFailed(current~, durable~, error~) => {
+      assert_true(current == current_version)
+      assert_true(durable is None)
+      assert_true(
+        error ==
+        LocalArchivePersistenceFailure::Storage(
+          LocalArchiveStorageWriteFailure::Failed,
+        ),
+      )
+    }
+    _ => fail("expected storage-failed status")
+  }
+
+  let retry_archive = try! prepare_local_archive(document_id~, editor~)
+  let (queue, retry_write) = queue.retry(
+    document_version=current_version,
+    archive=retry_archive,
+  )
+  guard retry_write is Some(retry_write) else { fail("expected retry write") }
+  let (busy_queue, duplicate_retry) = queue.retry(
+    document_version=current_version,
+    archive=try! prepare_local_archive(document_id~, editor~),
+  )
+  assert_true(duplicate_retry is None)
+  assert_true(busy_queue.status() is LocalArchivePersistenceStatus::Applied(..))
+
+  let (queue, completion) = queue.complete(
+    retry_write,
+    LocalArchiveWriteOutcome::Stored,
+  )
+  assert_true(completion is LocalArchiveQueueCompletion::Completed)
+  assert_true(queue.status() is LocalArchivePersistenceStatus::DurableLocal(_))
+}
+
+///|
+test "persistence queue ignores wrong document and delayed acknowledgments" {
+  let (editor, document_id, initial_version) = queue_document(
+    "repository-queue-stale", "doc-queue-stale", "before",
+  )
+  let (current_version, archive) = queue_archive_after_replace(
+    editor~,
+    document_id~,
+    "after",
+  )
+  let queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
+    document_id~,
+    queue_epoch="repository-queue-stale",
+    current=initial_version,
+    durable=None,
+  )
+  let (queue, write) = queue.enqueue(document_version=current_version, archive~)
+  guard write is Some(write) else { fail("expected first write") }
+
+  let other_id = try! @archive.LoomarkDocumentId::from_string("doc-queue-other")
+  let other_queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
+    document_id=other_id,
+    queue_epoch="other-queue",
+    current=initial_version,
+    durable=None,
+  )
+  let other_archive = try! prepare_local_archive(document_id=other_id, editor~)
+  let (_other_queue, wrong_write) = other_queue.enqueue(
+    document_version=current_version,
+    archive=other_archive,
+  )
+  guard wrong_write is Some(wrong_write) else { fail("expected wrong write") }
+  let (queue, ignored) = queue.complete(
+    wrong_write,
+    LocalArchiveWriteOutcome::Stored,
+  )
+  assert_true(ignored is LocalArchiveQueueCompletion::Ignored)
+  assert_true(queue.status() is LocalArchivePersistenceStatus::Applied(..))
+
+  let (queue, completed) = queue.complete(
+    write,
+    LocalArchiveWriteOutcome::Stored,
+  )
+  assert_true(completed is LocalArchiveQueueCompletion::Completed)
+  let (queue, delayed) = queue.complete(
+    write,
+    LocalArchiveWriteOutcome::Failed(LocalArchiveStorageWriteFailure::Failed),
+  )
+  assert_true(delayed is LocalArchiveQueueCompletion::Ignored)
+  assert_true(queue.status() is LocalArchivePersistenceStatus::DurableLocal(_))
+}
+
+///|
+test "persistence failure supersedes an older pending archive" {
+  let (editor, document_id, initial_version) = queue_document(
+    "repository-queue-supersede-failure", "doc-queue-supersede-failure", "zero",
+  )
+  let (first_version, first_archive) = queue_archive_after_replace(
+    editor~,
+    document_id~,
+    "one",
+  )
+  let queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
+    document_id~,
+    queue_epoch="repository-queue-supersede-failure",
+    current=initial_version,
+    durable=None,
+  )
+  let (queue, first_write) = queue.enqueue(
+    document_version=first_version,
+    archive=first_archive,
+  )
+  guard first_write is Some(first_write) else { fail("expected first write") }
+  let (second_version, second_archive) = queue_archive_after_replace(
+    editor~,
+    document_id~,
+    "two",
+  )
+  let (queue, second_write) = queue.enqueue(
+    document_version=second_version,
+    archive=second_archive,
+  )
+  assert_true(second_write is None)
+  let queue = queue.mark_failed(
+    document_version=second_version,
+    error=LocalArchivePersistenceFailure::PreparationFailed,
+  )
+  match queue.status() {
+    LocalArchivePersistenceStatus::StorageFailed(current~, durable~, error~) => {
+      ignore(error)
+      assert_true(current == second_version)
+      assert_true(durable is None)
+    }
+    _ => fail("expected latest failure")
+  }
+  let (queue, completion) = queue.complete(
+    first_write,
+    LocalArchiveWriteOutcome::Stored,
+  )
+  assert_true(completion is LocalArchiveQueueCompletion::Completed)
+  match queue.status() {
+    LocalArchivePersistenceStatus::StorageFailed(current~, durable~, error~) => {
+      ignore(error)
+      assert_true(current == second_version)
+      guard durable is Some(durable) else {
+        fail("expected first durable version")
+      }
+      assert_true(durable == first_version)
+    }
+    _ => fail("older success must not clear latest failure")
+  }
+}
+
+///|
+test "deactivated document ignores pending acknowledgment" {
+  let (first_editor, first_document_id, first_initial_version) = queue_document(
+    "repository-queue-deactivated-first", "doc-queue-deactivated-first", "first",
+  )
+  let (first_version, first_archive) = queue_archive_after_replace(
+    editor=first_editor,
+    document_id=first_document_id,
+    "first edited",
+  )
+  let first_queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
+    document_id=first_document_id,
+    queue_epoch="deactivated-first",
+    current=first_initial_version,
+    durable=None,
+  )
+  let (first_queue, first_write) = first_queue.enqueue(
+    document_version=first_version,
+    archive=first_archive,
+  )
+  guard first_write is Some(first_write) else {
+    fail("expected first document write")
+  }
+
+  // Deactivation replaces the active Session queue before the old write settles.
+  let (second_editor, second_document_id, second_initial_version) = queue_document(
+    "repository-queue-deactivated-second", "doc-queue-deactivated-second", "second",
+  )
+  let (second_version, second_archive) = queue_archive_after_replace(
+    editor=second_editor,
+    document_id=second_document_id,
+    "second edited",
+  )
+  let second_queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
+    document_id=second_document_id,
+    queue_epoch="deactivated-second",
+    current=second_initial_version,
+    durable=None,
+  )
+  let (second_queue, second_write) = second_queue.enqueue(
+    document_version=second_version,
+    archive=second_archive,
+  )
+  guard second_write is Some(second_write) else {
+    fail("expected second document write")
+  }
+
+  let (second_queue, ignored) = second_queue.complete(
+    first_write,
+    LocalArchiveWriteOutcome::Stored,
+  )
+  assert_true(ignored is LocalArchiveQueueCompletion::Ignored)
+  match second_queue.status() {
+    LocalArchivePersistenceStatus::Applied(current~, durable~) => {
+      assert_true(current == second_version)
+      assert_true(durable is None)
+    }
+    _ => fail("deactivated acknowledgment must not change the active document")
+  }
+
+  let (second_queue, completed) = second_queue.complete(
+    second_write,
+    LocalArchiveWriteOutcome::Stored,
+  )
+  assert_true(completed is LocalArchiveQueueCompletion::Completed)
+  assert_true(
+    second_queue.status() is LocalArchivePersistenceStatus::DurableLocal(_),
+  )
+  ignore(first_queue)
+}
+
+///|
+test "same document queue epoch rejects a delayed acknowledgment" {
+  let (editor, document_id, initial_version) = queue_document(
+    "repository-queue-epoch", "doc-queue-epoch", "source",
+  )
+  let (current_version, archive) = queue_archive_after_replace(
+    editor~,
+    document_id~,
+    "edited",
+  )
+  let first_queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
+    document_id~,
+    queue_epoch="writing-instance-one",
+    current=initial_version,
+    durable=None,
+  )
+  let (first_queue, first_write) = first_queue.enqueue(
+    document_version=current_version,
+    archive~,
+  )
+  guard first_write is Some(first_write) else {
+    fail("expected first document write")
+  }
+
+  let second_queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
+    document_id~,
+    queue_epoch="writing-instance-two",
+    current=initial_version,
+    durable=None,
+  )
+  let (second_queue, second_write) = second_queue.enqueue(
+    document_version=current_version,
+    archive~,
+  )
+  guard second_write is Some(_) else { fail("expected second document write") }
+  let (second_queue, ignored) = second_queue.complete(
+    first_write,
+    LocalArchiveWriteOutcome::Stored,
+  )
+  assert_true(ignored is LocalArchiveQueueCompletion::Ignored)
+  assert_true(
+    second_queue.status() is LocalArchivePersistenceStatus::Applied(..),
+  )
+  ignore(first_queue)
+}
+
+///|
+test "rebound queue drains the old write before new-epoch persistence" {
+  let (editor, document_id, initial_version) = queue_document(
+    "repository-queue-rebound", "doc-queue-rebound", "zero",
+  )
+  let (first_version, first_archive) = queue_archive_after_replace(
+    editor~,
+    document_id~,
+    "one",
+  )
+  let queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
+    document_id~,
+    queue_epoch="writing-instance-one",
+    current=initial_version,
+    durable=None,
+  )
+  let (queue, first_write) = queue.enqueue(
+    document_version=first_version,
+    archive=first_archive,
+  )
+  guard first_write is Some(first_write) else {
+    fail("expected first document write")
+  }
+
+  let queue = queue.rebind_epoch(queue_epoch="writing-instance-two")
+  let (second_version, second_archive) = queue_archive_after_replace(
+    editor~,
+    document_id~,
+    "two",
+  )
+  let (queue, second_write) = queue.enqueue(
+    document_version=second_version,
+    archive=second_archive,
+  )
+  assert_true(second_write is None)
+
+  let (queue, completion) = queue.complete(
+    first_write,
+    LocalArchiveWriteOutcome::Stored,
+  )
+  let promoted = match completion {
+    LocalArchiveQueueCompletion::Promoted(write) => write
+    _ => fail("expected the old write to release the ordering barrier")
+  }
+  match queue.status() {
+    LocalArchivePersistenceStatus::Applied(current~, durable~) => {
+      assert_true(current == second_version)
+      assert_true(durable is None)
+    }
+    _ => fail("old epoch completion must not advance durability")
+  }
+
+  let (queue, completed) = queue.complete(
+    promoted,
+    LocalArchiveWriteOutcome::Stored,
+  )
+  assert_true(completed is LocalArchiveQueueCompletion::Completed)
+  assert_true(queue.status() is LocalArchivePersistenceStatus::DurableLocal(_))
 }
 
 ///|

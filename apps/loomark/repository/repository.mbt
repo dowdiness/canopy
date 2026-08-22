@@ -169,7 +169,7 @@ pub(all) suberror LocalArchivePreparationError {
 /// One immutable complete encoded replacement, ready for a storage shell.
 pub struct PreparedLocalArchive {
   priv encoded : String
-}
+} derive(Eq)
 
 ///|
 /// Prepare the sole complete envelope from a logical ID and editor state.
@@ -231,85 +231,9 @@ pub fn history_trigger(
 }
 
 ///|
-/// Monotonic identity assigned to one repository replacement request.
-pub struct LocalArchiveRequestId {
-  priv value : Int
-} derive(Eq, Debug)
-
-///|
-/// Deterministic acknowledgment/warning state for repository operations.
-pub struct LocalArchiveRequestTracker {
-  priv next_value : Int
-  priv latest : LocalArchiveRequestId?
-  priv warning : Bool
-} derive(Eq)
-
-///|
-/// Start an empty acknowledgment tracker.
-pub fn LocalArchiveRequestTracker::new() -> LocalArchiveRequestTracker {
-  { next_value: 1, latest: None, warning: false }
-}
-
-///|
-/// Allocate the next request without changing warning state.
-pub fn LocalArchiveRequestTracker::request(
-  self : Self,
-) -> (LocalArchiveRequestTracker, LocalArchiveRequestId) {
-  let request_id = LocalArchiveRequestId::{ value: self.next_value }
-  (
-    {
-      next_value: self.next_value + 1,
-      latest: Some(request_id),
-      warning: self.warning,
-    },
-    request_id,
-  )
-}
-
-///|
-/// Apply success only when it acknowledges the latest request.
-pub fn LocalArchiveRequestTracker::complete_success(
-  self : Self,
-  request_id : LocalArchiveRequestId,
-) -> LocalArchiveRequestTracker {
-  match self.latest {
-    Some(latest) if latest == request_id =>
-      { ..self, latest: None, warning: false }
-    _ => self
-  }
-}
-
-///|
-/// Apply failure only when it belongs to the latest request.
-pub fn LocalArchiveRequestTracker::complete_failure(
-  self : Self,
-  request_id : LocalArchiveRequestId,
-) -> LocalArchiveRequestTracker {
-  match self.latest {
-    Some(latest) if latest == request_id =>
-      { ..self, latest: None, warning: true }
-    _ => self
-  }
-}
-
-///|
-/// Whether the latest acknowledged operation currently warns.
-pub fn LocalArchiveRequestTracker::has_warning(self : Self) -> Bool {
-  self.warning
-}
-
-///|
 /// Storage-read categories reserved for the imperative provider shell.
 pub(all) enum LocalArchiveStorageReadFailure {
   Unavailable
-  Failed
-} derive(Eq, Debug)
-
-///|
-/// Storage-write categories reserved for the imperative provider shell.
-pub(all) enum LocalArchiveStorageWriteFailure {
-  Unavailable
-  QuotaExceeded
   Failed
 } derive(Eq, Debug)
 

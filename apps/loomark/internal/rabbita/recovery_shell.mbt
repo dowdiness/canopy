@@ -177,7 +177,7 @@ fn recover_after_parser_failure(
           "Your document could not be reopened. Copy it and reload to try again.",
         )
       }
-      let (fresh_editor, fresh_attachment) = reopen_recovery_document(
+      let (fresh_editor, fresh_attachment, fresh_replica_id) = reopen_recovery_document(
         recovery, "loomark-recovery-writer-",
       ) catch {
         _ => {
@@ -219,6 +219,13 @@ fn recover_after_parser_failure(
           )
           return (terminal, @rabbita_runtime.none)
         }
+      }
+      let model = {
+        ..model,
+        replica_id: fresh_replica_id,
+        archive_queue: model.archive_queue.rebind_epoch(
+          queue_epoch=fresh_replica_id,
+        ),
       }
       let (healthy_state, healthy_decision) = reduce_editor_runtime(
         state,

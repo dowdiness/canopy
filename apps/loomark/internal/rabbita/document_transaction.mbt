@@ -12,13 +12,14 @@ fn editor_error_detail(error : @markdown.MarkdownEditorError) -> String {
 }
 
 ///|
-/// Record a preparation/export failure as the latest completed repository
-/// request so an older acknowledgment cannot clear the warning.
+/// Record a preparation/export failure against the current accepted version.
 fn record_local_persistence_failure(model : DriverModel) -> DriverModel {
   guard model.archive_persistence_enabled else { return model }
-  let (tracker, request_id) = model.archive_tracker.request()
-  let tracker = tracker.complete_failure(request_id)
-  { ..model, archive_tracker: tracker, local_storage_warning: true }
+  let archive_queue = model.archive_queue.mark_failed(
+    document_version=model.document_version,
+    error=@repository.LocalArchivePersistenceFailure::PreparationFailed,
+  )
+  { ..model, archive_queue, }
 }
 
 ///|
@@ -100,12 +101,36 @@ fn archive_replacement(
       return (record_local_persistence_failure(model), @rabbita_runtime.none)
     error => raise error
   }
-  let (archive_tracker, request_id) = model.archive_tracker.request()
-  let command = @archive_storage.replace(request_id, prepared.encoded(), completed=completion => {
-    emit(Archive(completion))
-  })
-  projection_trace_persistence_phase(PROJECTION_TRACE_PHASE_H7)
-  ({ ..model, archive_tracker, }, command)
+  let (archive_queue, pending) = model.archive_queue.enqueue(
+    document_version=model.document_version,
+    archive=prepared,
+  )
+  let command = local_archive_write_command(pending, emit)
+  ({ ..model, archive_queue, }, command)
+}
+
+///|
+/// Re-materialize the current accepted archive after an explicit retry.
+fn retry_local_persistence(
+  editor : @markdown.MarkdownEditor,
+  model : DriverModel,
+  emit : @cmd.Emit[DriverEvent],
+) -> (DriverModel, @cmd.Cmd) raise {
+  guard model.archive_persistence_enabled else {
+    return (model, @rabbita_runtime.none)
+  }
+  let prepared = prepare_traced_local_archive(editor, model) catch {
+    Failure::Failure(_) as failure => raise failure
+    @repository.LocalArchivePreparationError::HistoryUnavailable(_) =>
+      return (record_local_persistence_failure(model), @rabbita_runtime.none)
+    error => raise error
+  }
+  let (archive_queue, pending) = model.archive_queue.retry(
+    document_version=model.document_version,
+    archive=prepared,
+  )
+  let command = local_archive_write_command(pending, emit)
+  ({ ..model, archive_queue, }, command)
 }
 
 ///|

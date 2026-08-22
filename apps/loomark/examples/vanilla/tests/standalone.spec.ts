@@ -158,15 +158,30 @@ async function waitForBaseline(page: Page): Promise<void> {
 }
 
 function installArchivePutFailure(key: string): void {
-  const state = globalThis as typeof globalThis & { __loomarkArchivePutFailure?: boolean }
+  const state = globalThis as typeof globalThis & {
+    __loomarkArchivePutFailure?: boolean
+    __loomarkArchivePutOriginal?: typeof IDBObjectStore.prototype.put
+  }
   if (state.__loomarkArchivePutFailure) return
   const prototype = IDBObjectStore.prototype as any
   const originalPut = prototype.put
+  state.__loomarkArchivePutOriginal = originalPut
   prototype.put = function(this: IDBObjectStore, value: unknown, recordKey?: IDBValidKey) {
     if (recordKey === key) throw new DOMException("full", "QuotaExceededError")
     return originalPut.call(this, value, recordKey)
   }
   state.__loomarkArchivePutFailure = true
+}
+
+function removeArchivePutFailure(): void {
+  const state = globalThis as typeof globalThis & {
+    __loomarkArchivePutFailure?: boolean
+    __loomarkArchivePutOriginal?: typeof IDBObjectStore.prototype.put
+  }
+  if (!state.__loomarkArchivePutFailure || !state.__loomarkArchivePutOriginal) return
+  IDBObjectStore.prototype.put = state.__loomarkArchivePutOriginal
+  delete state.__loomarkArchivePutFailure
+  delete state.__loomarkArchivePutOriginal
 }
 
 async function replaceRawValue(input: Locator, value: string): Promise<void> {
@@ -436,6 +451,29 @@ test("a failed replacement keeps the applied source but reload restores the prev
 
   await page.reload()
   await expect(page.locator("#loomark-input")).toHaveValue("# Previous\n")
+})
+
+test("explicit local persistence retry clears the applied-but-unsaved state", async ({ page }) => {
+  await page.goto("/")
+  await waitForBaseline(page)
+  await replaceRawValue(page.locator("#loomark-input"), "# Previous\n")
+  await expect.poll(() => readArchiveEnvelope(page).then(archive => archive?.portable_markdown))
+    .toBe("# Previous\n")
+
+  await page.addInitScript(installArchivePutFailure, ARCHIVE_KEY)
+  await page.evaluate(installArchivePutFailure, ARCHIVE_KEY)
+  await replaceRawValue(page.locator("#loomark-input"), "# Applied\n")
+  await expect(page.locator("#loomark-error")).toContainText(
+    "Changes are applied but not saved locally.",
+  )
+
+  await page.evaluate(removeArchivePutFailure)
+  await page.getByRole("button", { name: "Retry saving locally" }).click()
+  await expect(page.locator("#loomark-error")).toHaveCount(0)
+  await expect.poll(() => readArchiveEnvelope(page).then(archive => archive?.portable_markdown))
+    .toBe("# Applied\n")
+  await page.reload()
+  await expect(page.locator("#loomark-input")).toHaveValue("# Applied\n")
 })
 
 test("legacy local archives migrate once and remain readable from IDB", async ({ page }) => {
