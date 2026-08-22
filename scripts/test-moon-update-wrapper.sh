@@ -13,6 +13,11 @@ cat > "$fake_bin/moon" <<'FAKE_MOON'
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [ "${1:-}" = "version" ] && [ "${2:-}" = "--all" ]; then
+  echo "moonc v0.10.8+8606a5800"
+  exit 0
+fi
+
 if [ "${1:-}" != "update" ]; then
   echo "fake moon: expected update subcommand" >&2
   exit 2
