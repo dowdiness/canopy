@@ -16,6 +16,8 @@ if (!Number.isSafeInteger(expectedCount) || expectedCount !== 1000) {
 const fixtureRoot = dirname(archivePath)
 const port = 0
 let origin = ""
+const archiveDatabase = "loomark.local-repository"
+const archiveStore = "archives"
 const archiveKey = "loomark.active-document-archive"
 const serverPath = fileURLToPath(new URL("./serve-standalone-dist.mjs", import.meta.url))
 const server = spawn(process.execPath, [serverPath], {
@@ -51,7 +53,7 @@ function browserText(source) {
 async function seedFromBrowserAsset(page) {
   const catalogUrl = `${origin}/fixtures/r0-browser-v1/browser-fixture-catalog-v1.json`
   await page.goto(catalogUrl, { waitUntil: "commit" })
-  return page.evaluate(async ({ caseId, archiveKey }) => {
+  return page.evaluate(async ({ caseId, archiveDatabase, archiveStore, archiveKey }) => {
     const hash = async text => {
       const bytes = new TextEncoder().encode(text)
       const digest = await crypto.subtle.digest("SHA-256", bytes)
@@ -105,7 +107,27 @@ async function seedFromBrowserAsset(page) {
     if (history.operations.length !== fixture.event_count) {
       throw new Error("expected_portable_history_mismatch")
     }
-    localStorage.setItem(archiveKey, encoded)
+    await new Promise((resolve, reject) => {
+      const request = indexedDB.open(archiveDatabase, 1)
+      request.onupgradeneeded = () => {
+        const database = request.result
+        if (!database.objectStoreNames.contains(archiveStore)) {
+          database.createObjectStore(archiveStore)
+        }
+      }
+      request.onerror = () => reject(request.error ?? new Error("archive database open failed"))
+      request.onsuccess = () => {
+        const database = request.result
+        const transaction = database.transaction(archiveStore, "readwrite")
+        transaction.objectStore(archiveStore).put(encoded, archiveKey)
+        transaction.oncomplete = () => {
+          database.close()
+          resolve()
+        }
+        transaction.onerror = () => reject(transaction.error ?? new Error("archive seed failed"))
+        transaction.onabort = () => reject(transaction.error ?? new Error("archive seed aborted"))
+      }
+    })
     return {
       fixture,
       archiveTransportBytes: archiveDigest.bytes,
@@ -114,7 +136,37 @@ async function seedFromBrowserAsset(page) {
       textSha256: textDigest.sha256,
       historySha256: historyDigest.sha256,
     }
-  }, { caseId, archiveKey })
+  }, { caseId, archiveDatabase, archiveStore, archiveKey })
+}
+
+async function readArchive(page) {
+  return page.evaluate(async ({ databaseName, storeName, key }) => await new Promise((resolve, reject) => {
+    const request = indexedDB.open(databaseName, 1)
+    request.onerror = () => reject(request.error ?? new Error("archive database open failed"))
+    request.onsuccess = () => {
+      const database = request.result
+      const transaction = database.transaction(storeName, "readonly")
+      const read = transaction.objectStore(storeName).get(key)
+      read.onsuccess = () => {
+        database.close()
+        resolve(read.result ?? null)
+      }
+      read.onerror = () => reject(read.error ?? new Error("archive read failed"))
+    }
+  }), { databaseName: archiveDatabase, storeName: archiveStore, key: archiveKey })
+}
+
+async function waitForArchive(page, matches, timeout = 30000) {
+  const deadline = Date.now() + timeout
+  while (Date.now() < deadline) {
+    const encoded = await readArchive(page)
+    if (encoded != null) {
+      const parsed = JSON.parse(encoded)
+      if (matches(parsed, encoded)) return encoded
+    }
+    await page.waitForTimeout(100)
+  }
+  throw new Error("timed out waiting for IndexedDB archive")
 }
 
 let browser
@@ -125,26 +177,32 @@ try {
   browser = await chromium.launch({ headless: true })
   const browserVersion = browser.version()
   context = await browser.newContext()
-  page = await context.newPage()
-  const seeded = await seedFromBrowserAsset(page)
-  if (seeded.fixture.event_count !== expectedCount) {
-    throw new Error("catalog event count differs from runner input")
-  }
-
-  await context.addInitScript(key => {
-    const originalGetItem = Storage.prototype.getItem
+  await context.addInitScript(({ storeName, key }) => {
+    const originalGet = IDBObjectStore.prototype.get
+    const originalOpenCursor = IDBObjectStore.prototype.openCursor
     globalThis.__loomarkR0ReadAccounting = {
       archiveStorageReads: 0,
       candidateEventReads: 0,
       candidateConsumerStarts: 0,
     }
-    Storage.prototype.getItem = function(nextKey) {
-      if (nextKey === key) {
+    IDBObjectStore.prototype.get = function(nextKey) {
+      if (this.name === storeName && nextKey === key) {
         globalThis.__loomarkR0ReadAccounting.archiveStorageReads += 1
       }
-      return originalGetItem.call(this, nextKey)
+      return originalGet.call(this, nextKey)
     }
-  }, archiveKey)
+    IDBObjectStore.prototype.openCursor = function(query, direction) {
+      if (this.name === storeName && query === key) {
+        globalThis.__loomarkR0ReadAccounting.archiveStorageReads += 1
+      }
+      return originalOpenCursor.call(this, query, direction)
+    }
+  }, { storeName: archiveStore, key: archiveKey })
+  page = await context.newPage()
+  const seeded = await seedFromBrowserAsset(page)
+  if (seeded.fixture.event_count !== expectedCount) {
+    throw new Error("catalog event count differs from runner input")
+  }
 
   await page.goto(`${origin}/`, { waitUntil: "commit" })
   const input = page.locator("#loomark-input")
@@ -154,9 +212,9 @@ try {
     document.querySelector("#loomark-input")?.value === expected
   ), expectedBrowserText, { timeout: 30000 })
 
-  const beforeEdit = await page.evaluate(async ({ key, candidateMarkers }) => {
-    const encoded = localStorage.getItem(key)
-    if (encoded === null) throw new Error("archive disappeared before first edit")
+  const beforeEditArchive = await readArchive(page)
+  if (beforeEditArchive === null) throw new Error("archive disappeared before first edit")
+  const beforeEdit = await page.evaluate(async ({ encoded, candidateMarkers }) => {
     const archive = JSON.parse(encoded)
     const history = JSON.parse(archive.history)
     const historyDigest = await crypto.subtle.digest(
@@ -184,7 +242,7 @@ try {
       browserUtf16End: document.querySelector("#loomark-input")?.value.length ?? null,
     }
   }, {
-    key: archiveKey,
+    encoded: beforeEditArchive,
     candidateMarkers: ["restore_feasibility_probe", "paper_branch_candidate"],
   })
   if (
@@ -195,7 +253,7 @@ try {
   }
   const applicationArchiveReads = beforeEdit.archiveStorageReads - 1
   if (applicationArchiveReads !== 1) {
-    throw new Error("unexpected archive storage read count")
+    throw new Error(`unexpected archive storage read count: ${beforeEdit.archiveStorageReads}`)
   }
   if (beforeEdit.candidateConsumerStarts !== 0 || beforeEdit.candidateEventReads !== 0) {
     throw new Error("candidate_consumer_selected")
@@ -207,21 +265,15 @@ try {
     element.setSelectionRange(length, length, "forward")
   })
   await page.keyboard.type("Z")
-  await page.waitForFunction(({ key, expected }) => {
-    const encoded = localStorage.getItem(key)
-    return encoded !== null && JSON.parse(encoded).portable_markdown === expected
-  }, {
-    key: archiveKey,
-    expected: seeded.fixture.expected_text_after_edit,
-  }, { timeout: 30000 })
-
-  const afterEdit = await page.evaluate(key => {
-    const archive = JSON.parse(localStorage.getItem(key))
-    return {
-      portableText: archive.portable_markdown,
-      historyEvents: JSON.parse(archive.history).operations.length,
-    }
-  }, archiveKey)
+  const afterEditArchive = await waitForArchive(
+    page,
+    archive => archive.portable_markdown === seeded.fixture.expected_text_after_edit,
+  )
+  const parsedAfterEditArchive = JSON.parse(afterEditArchive)
+  const afterEdit = {
+    portableText: parsedAfterEditArchive.portable_markdown,
+    historyEvents: JSON.parse(parsedAfterEditArchive.history).operations.length,
+  }
   const firstEditResultEqual = (
     afterEdit.portableText === seeded.fixture.expected_text_after_edit &&
     afterEdit.historyEvents === expectedCount + 1
@@ -288,7 +340,7 @@ try {
   if (page != null) {
     const observed = await page.locator("#loomark-input").inputValue().catch(() => "")
     process.stderr.write(`browser input: ${JSON.stringify({ length: observed.length, prefix: observed.slice(0, 16), suffix: observed.slice(-16) })}\n`)
-    const stored = await page.evaluate(() => localStorage.getItem("loomark.active-document-archive")).catch(() => null)
+    const stored = await readArchive(page).catch(() => null)
     process.stderr.write(`browser archive bytes: ${stored == null ? 0 : Buffer.byteLength(stored)}\n`)
   }
   throw error

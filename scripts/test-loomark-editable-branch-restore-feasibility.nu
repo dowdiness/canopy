@@ -219,8 +219,6 @@ def run-browser-catalog [root: string output: string] {
     fail "browser revision differs across fixtures"
   }
   rm -rf $dist
-  write-json ($output | path join "browser-fixture-catalog.json") $catalog
-  write-json ($output | path join "browser-results.json") { schema_version: 1 observations: $observations }
   $observations
 }
 
@@ -261,23 +259,50 @@ def candidate-outcomes [] {
 }
 
 def artifact-paths [] {
-  ["manifest.json" "result.json" "capability-ledger.json" "fixture-catalog.json" "browser-fixture-catalog.json" "browser-results.json" "candidate-captures.jsonl" "candidate-results.json" "operation-matrix.jsonl" "oracle-differential.jsonl" "cold-history.jsonl" "negative-results.json" "validation.log"]
+  [
+    "manifest.json"
+    "result.json"
+    "capability-ledger.json"
+    "candidate-captures.jsonl"
+    "candidate-results.json"
+    "operation-matrix.jsonl"
+    "oracle-differential.jsonl"
+    "cold-history.jsonl"
+    "negative-results.json"
+    "validation.log"
+  ]
+}
+
+def cleanup-runner-internals [output: string] {
+  for entry in (ls -a $output) {
+    let name = ($entry.name | path basename)
+    if ($name | str starts-with ".") or $name in ["fixture-catalog.json" "browser-fixture-catalog.json" "browser-results.json"] {
+      rm -rf $entry.name
+    }
+  }
+}
+
+def assert-artifact-set [output: string] {
+  let expected = (artifact-paths | sort)
+  let actual = (ls -a $output | get name | each {|path| $path | path basename } | sort)
+  if $actual != $expected {
+    fail $"artifact set differs: expected=($expected | to json -r) actual=($actual | to json -r)"
+  }
 }
 
 def write-failure-artifacts [output: string failure: string] {
+  cleanup-runner-internals $output
   write-json ($output | path join "manifest.json") { schema_version: 1 run_id: "gate-r0-v1" status: "fail" }
   write-json ($output | path join "capability-ledger.json") { schema_version: 1 rows: [] }
-  if not (($output | path join "fixture-catalog.json") | path exists) { write-json ($output | path join "fixture-catalog.json") { schema_version: 1 fixture_seed: "none" fixtures: [] } }
-  write-json ($output | path join "browser-fixture-catalog.json") { schema_version: 1 fixture_seed: "none" fixtures: [] }
-  write-json ($output | path join "browser-results.json") { schema_version: 1 observations: [] }
-  if not (($output | path join "candidate-captures.jsonl") | path exists) { write-jsonl ($output | path join "candidate-captures.jsonl") [] }
+  write-jsonl ($output | path join "candidate-captures.jsonl") []
   write-json ($output | path join "candidate-results.json") { schema_version: 1 candidates: [] }
   write-jsonl ($output | path join "operation-matrix.jsonl") []
   write-jsonl ($output | path join "oracle-differential.jsonl") []
-  if not (($output | path join "cold-history.jsonl") | path exists) { write-jsonl ($output | path join "cold-history.jsonl") [] }
+  write-jsonl ($output | path join "cold-history.jsonl") []
   write-json ($output | path join "negative-results.json") { schema_version: 1 negatives: [] }
   $"Gate R0 failure: ($failure)\n" | save -f ($output | path join "validation.log")
   write-json ($output | path join "result.json") { schema_version: 1 status: "fail" failure_class: $failure candidate_outcomes: (candidate-outcomes) artifact_paths: (artifact-paths) }
+  assert-artifact-set $output
 }
 
 def candidate-cases [suite: string] {
@@ -297,6 +322,7 @@ def run-candidate-suite [root: string output: string suite: string candidate_cas
   let pinned_catalog_path = ($egw_root | path join "internal/restore_feasibility_probe/fixtures/fixture-catalog-v1.json")
   if not ($pinned_catalog_path | path exists) { fail "pinned fixture catalog is missing" }
   let pinned_source = (open --raw $pinned_catalog_path)
+  let catalog_sha256 = (^sha256sum $pinned_catalog_path | str trim | split row " " | first)
   let regenerated_path = ($output | path join ".regenerated-fixture-catalog.json")
   let regenerated = (with-env { NEW_MOON_MOD: "0" } {
     ^moon -C $egw_root run --quiet --release --target native $package -- generate-catalog --output $regenerated_path | complete
@@ -309,10 +335,6 @@ def run-candidate-suite [root: string output: string suite: string candidate_cas
   if $catalog.schema_version != 1 or $catalog.fixture_seed != "none" or ($catalog.fixtures | is-empty) {
     fail "fixture catalog schema mismatch"
   }
-  let catalog_path = ($output | path join "fixture-catalog.json")
-  $pinned_source | save -f $catalog_path
-  write-json ($output | path join "browser-fixture-catalog.json") { schema_version: 1 fixture_seed: "none" fixtures: [] }
-  write-json ($output | path join "browser-results.json") { schema_version: 1 observations: [] }
   mut captures = []
   mut results = []
   for case_id in $cases {
@@ -350,6 +372,16 @@ def run-candidate-suite [root: string output: string suite: string candidate_cas
     archive_format_changed: false
     wire_format_changed: false
     public_markdown_interface_changed: false
+    fixture_catalog: {
+      status: "available"
+      path: "deps/event-graph-walker/internal/restore_feasibility_probe/fixtures/fixture-catalog-v1.json"
+      sha256: $catalog_sha256
+      fixture_seed: $catalog.fixture_seed
+      fixture_hashes: ($catalog.fixtures | each {|fixture| {
+        fixture_id: $fixture.fixture_id
+        canonical_sha256: $fixture.canonical_sha256
+      } })
+    }
   }
   write-json ($output | path join "capability-ledger.json") { schema_version: 1 rows: (operation-matrix) }
   write-jsonl ($output | path join "candidate-captures.jsonl") $captures
@@ -367,6 +399,13 @@ def run-candidate-suite [root: string output: string suite: string candidate_cas
     candidate_outcomes: $outcomes
     artifact_paths: (artifact-paths)
   }
+  assert-artifact-set $output
+  {
+    catalog: $catalog
+    catalog_sha256: $catalog_sha256
+    captures: $captures
+    observations: $results
+  }
 }
 
 def runner-self-test [root: string] {
@@ -376,6 +415,7 @@ def runner-self-test [root: string] {
       let output = ($temp | path join $failure)
       mkdir $output
       write-failure-artifacts $output $failure
+      assert-artifact-set $output
       let result = (open ($output | path join "result.json"))
       if $result.status != "fail" or $result.failure_class != $failure or (exit-code $failure) == 0 {
         fail $"failure injection self-test failed: ($failure)"
@@ -383,7 +423,8 @@ def runner-self-test [root: string] {
     }
     let candidate_output = ($temp | path join "candidate")
     mkdir $candidate_output
-    run-candidate-suite $root $candidate_output "concurrency" "C-multiroot-4"
+    let _candidate_bundle = (run-candidate-suite $root $candidate_output "concurrency" "C-multiroot-4")
+    assert-artifact-set $candidate_output
     let candidate_result = (open ($candidate_output | path join "result.json"))
     if $candidate_result.status != "pass" { fail "candidate process-seam self-test failed" }
     let authority = (run-producer $root "deps/event-graph-walker/internal/restore_feasibility_probe")
@@ -413,6 +454,7 @@ def main [
   if $ide_check { print "Gate R0 runner syntax valid"; return }
   if $self_test { runner-self-test $root; return }
   mkdir $output_dir
+  cleanup-runner-internals $output_dir
   if not ($suite in ["all" "self-test" "oracle" "ordinary" "concurrency" "legacy"]) {
     write-failure-artifacts $output_dir "preflight_invalid"
     exit 10
@@ -429,12 +471,12 @@ def main [
   }
   if $suite == "self-test" {
     runner-self-test $root
-    run-candidate-suite $root $output_dir "concurrency" "C-multiroot-4"
+    let _candidate_bundle = (run-candidate-suite $root $output_dir "concurrency" "C-multiroot-4")
     return
   }
   if $suite in ["ordinary" "concurrency" "legacy"] {
     try {
-      run-candidate-suite $root $output_dir $suite $candidate_case
+      let _candidate_bundle = (run-candidate-suite $root $output_dir $suite $candidate_case)
     } catch {|err|
       write-failure-artifacts $output_dir "harness_failure"
       $"($err | to json -r)\n" | save --append ($output_dir | path join "validation.log")
@@ -464,22 +506,15 @@ def main [
     let candidate_bundle = if $suite == "all" {
       let candidate_output = ($output_dir | path join ".candidate-suite")
       mkdir $candidate_output
-      run-candidate-suite $root $candidate_output "all" $candidate_case
-      let bundle = {
-        catalog: (open ($candidate_output | path join "fixture-catalog.json"))
-        captures: (open --raw ($candidate_output | path join "candidate-captures.jsonl") | lines | where {|line| $line | str trim | is-not-empty } | each {|line| $line | from json })
-        observations: ((open ($candidate_output | path join "candidate-results.json")).observations)
-      }
+      let bundle = (run-candidate-suite $root $candidate_output "all" $candidate_case)
       rm -rf $candidate_output
       $bundle
     } else {
-      { catalog: { schema_version: 1 fixture_seed: "none" fixtures: [] } captures: [] observations: [] }
+      { catalog: { schema_version: 1 fixture_seed: "none" fixtures: [] } catalog_sha256: null captures: [] observations: [] }
     }
     let browser_observations = if $suite in ["all" "oracle"] {
       run-browser-catalog $root $output_dir
     } else {
-      write-json ($output_dir | path join "browser-fixture-catalog.json") { schema_version: 1 fixture_seed: "none" fixtures: [] }
-      write-json ($output_dir | path join "browser-results.json") { schema_version: 1 observations: [] }
       []
     }
     let egw = (run-producer $root "deps/event-graph-walker/internal/restore_feasibility_probe")
@@ -586,6 +621,16 @@ def main [
       archive_format_changed: false
       wire_format_changed: false
       public_markdown_interface_changed: false
+      fixture_catalog: {
+        status: (if $suite == "all" { "available" } else { "not_run" })
+        path: "deps/event-graph-walker/internal/restore_feasibility_probe/fixtures/fixture-catalog-v1.json"
+        sha256: $candidate_bundle.catalog_sha256
+        fixture_seed: $candidate_bundle.catalog.fixture_seed
+        fixture_hashes: ($candidate_bundle.catalog.fixtures | each {|fixture| {
+          fixture_id: $fixture.fixture_id
+          canonical_sha256: $fixture.canonical_sha256
+        } })
+      }
       browser_fixture_catalog: {
         status: "available"
         path: "apps/loomark/examples/vanilla/fixtures/r0-browser-v1/browser-fixture-catalog-v1.json"
@@ -618,12 +663,23 @@ def main [
       projection_levels: ["plain_text" "position_identity_index" "disposable_legacy_materializer" "editable_branch"]
       rows: (operation-matrix)
     }
+    let operation_rows = ((operation-matrix) | append ($browser_observations | each {|row| {
+      schema_version: 1
+      run_id: "gate-r0-v1"
+      trace: "browser-full-history-v1"
+      case_id: $row.case_id
+      authority: "full_history_oracle"
+      projection: "loomark_product"
+      expected: "oracle"
+      actual: "oracle"
+      outcome: "pass"
+      observation: $row.payload
+    } }))
     write-json ($output_dir | path join "manifest.json") $manifest
     write-json ($output_dir | path join "capability-ledger.json") $ledger
-    write-json ($output_dir | path join "fixture-catalog.json") $candidate_bundle.catalog
     write-jsonl ($output_dir | path join "candidate-captures.jsonl") $captures
     write-json ($output_dir | path join "candidate-results.json") { schema_version: 1 candidates: $candidates observations: $candidate_bundle.observations }
-    write-jsonl ($output_dir | path join "operation-matrix.jsonl") (operation-matrix)
+    write-jsonl ($output_dir | path join "operation-matrix.jsonl") $operation_rows
     write-jsonl ($output_dir | path join "oracle-differential.jsonl") ([{ schema_version: 1 run_id: "gate-r0-v1" oracle: "full-history" status: "pass" serialized_archive_bytes: $archive_producer.payload.archive_bytes observations: $markdown memory: { availability: "not_applicable" calibration: "R0 process oracle does not claim resident-memory measurement" } } ] | append $measurements)
     write-jsonl ($output_dir | path join "cold-history.jsonl") $egw
     write-json ($output_dir | path join "negative-results.json") { schema_version: 1 negatives: $candidates }
@@ -637,6 +693,7 @@ def main [
       candidate_outcomes: $candidates
       artifact_paths: (artifact-paths)
     }
+    assert-artifact-set $output_dir
   } catch {|err|
     let detail = ($err | to json -r)
     let failure = if ($detail | str contains "oracle_mismatch") {
