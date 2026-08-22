@@ -16,7 +16,9 @@ runs:
     - name: Read MoonBit toolchain manifest
       id: moonbit-toolchain
       shell: bash
-      run: "$GITHUB_WORKSPACE/scripts/moon-toolchain.sh github-output >> \"$GITHUB_OUTPUT\""
+      run: |
+        action_root="$(CDPATH= cd -- "$GITHUB_ACTION_PATH/../../.." && pwd)"
+        "$action_root/scripts/moon-toolchain.sh" github-output >> "$GITHUB_OUTPUT"
     # MoonBit toolchain and core are pinned as a compatibility pair. The core
     # CDN publishes matching versioned archives (unlike older releases).
     - name: Install MoonBit
