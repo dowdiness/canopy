@@ -35,6 +35,24 @@ The one mount-ownership site in the private adapter is the migration point that
 disposal, repeated-unmount, fatal-cleanup, reentrancy, remount, and host-reuse
 tests before deleting this adapter and harness.
 
+## Gate R0 browser oracle corpus
+
+`fixtures/r0-browser-v1/browser-fixture-catalog-v1.json` binds five fixed
+1,000-event complete-v1 archives to their archive, text, and history hashes and
+to the exact first edit: append U+005A at the restored text's UTF-16 end. The
+browser fetches and verifies those assets itself before seeding the production
+local-archive path; candidate restore is not selected by this oracle.
+
+```bash
+npm run fixtures:r0:generate  # regenerate through EGW LegacyOracleEventV1 + v1 encoder
+npm run fixtures:r0:test      # catalog, digest, archive, and fail-closed controls
+npm run fixtures:r0:verify    # regenerate in a temporary directory and byte-compare
+```
+
+The canonical Gate R0 runner owns the fresh-Chromium correctness run. This
+corpus does not provide browser performance evidence; browser measurement
+remains a separate obligation.
+
 ## Startup benchmark
 
 `npm run bench:startup` runs `bench-startup.mjs`, which boots the standalone

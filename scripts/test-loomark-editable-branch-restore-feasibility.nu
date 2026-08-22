@@ -163,36 +163,62 @@ def prepare-browser-standalone [root: string output: string] {
 
 def run-browser-catalog [root: string output: string] {
   let fixture_root = ($root | path join "apps/loomark/examples/vanilla/fixtures/r0-browser-v1")
-  let catalog_path = ($fixture_root | path join "catalog.json")
+  let catalog_path = ($fixture_root | path join "browser-fixture-catalog-v1.json")
   if not ($catalog_path | path exists) { fail "browser fixture catalog is missing" }
+  let integrity = (^node ($root | path join "apps/loomark/examples/vanilla/test-r0-browser-fixtures.mjs") | complete)
+  if $integrity.exit_code != 0 { fail $"browser fixture integrity failed: ($integrity.stderr)" }
   let catalog = (open $catalog_path)
-  if $catalog.schema_version != 1 or $catalog.fixture_seed != "none" or ($catalog.fixtures | length) < 3 {
+  let canonical_catalog = (open ($root | path join "deps/event-graph-walker/internal/restore_feasibility_probe/fixtures/fixture-catalog-v1.json"))
+  let expected_ids = [
+    S-linear-1000
+    S-distributed-1000
+    S-tombstone-1000
+    S-replacement-1000
+    S-unicode-1000
+  ]
+  if $catalog.schema_version != 1 or $catalog.fixture_seed != "none" or ($catalog.fixtures | get fixture_id) != $expected_ids {
     fail "browser fixture catalog schema mismatch"
   }
   let dist = (prepare-browser-standalone $root $output)
   let oracle = ($root | path join "apps/loomark/examples/vanilla/browser-restore-oracle.mjs")
   mut observations = []
   for fixture in $catalog.fixtures {
-    let archive_path = ($fixture_root | path join $fixture.path)
-    if not ($archive_path | path exists) { fail $"browser fixture missing: ($fixture.path)" }
+    let canonical_fixture = ($canonical_catalog.fixtures | where fixture_id == $fixture.fixture_id | first)
+    if $canonical_fixture.canonical_sha256 != $fixture.canonical_fixture_sha256 {
+      fail $"evidence_missing: browser fixture source catalog mismatch: ($fixture.fixture_id)"
+    }
+    let archive_path = ($fixture_root | path join $fixture.archive_path)
+    if not ($archive_path | path exists) { fail $"browser fixture missing: ($fixture.archive_path)" }
     let archive_hash = (^sha256sum $archive_path | str trim | split row " " | first)
     let archive_bytes = (^stat -c "%s" $archive_path | str trim | into int)
     let archive = (open $archive_path)
     let history = ($archive.history | from json)
-    if $fixture.operation_count != 10000 or $archive_hash != $fixture.archive_sha256 or $archive_bytes != $fixture.archive_bytes or $archive.document_id != $fixture.document_id or ($history.operations | length) != $fixture.operation_count {
-      fail $"browser fixture catalog mismatch: ($fixture.case_id)"
+    if $fixture.event_count != 1000 or $archive_hash != $fixture.archive_sha256 or $archive_bytes != $fixture.archive_bytes or $archive.document_id != $"loomark-r0-fixture-($fixture.fixture_id)" or ($history.operations | length) != $fixture.event_count {
+      fail $"browser fixture catalog mismatch: ($fixture.fixture_id)"
     }
-    let result = (^node $oracle $archive_path $fixture.case_id ($fixture.operation_count | into string) $dist | complete)
-    if $result.exit_code != 0 { fail $"fresh Chromium fixture failed for ($fixture.case_id): ($result.stderr)" }
+    let result = (^node $oracle $archive_path $fixture.fixture_id ($fixture.event_count | into string) $dist | complete)
+    if $result.exit_code != 0 { fail $"oracle_mismatch: fresh Chromium fixture failed for ($fixture.fixture_id): ($result.stderr)" }
     let row = ($result.stdout | lines | where {|line| $line | str trim | is-not-empty } | last | from json)
-    if $row.schema_version != 1 or $row.run_id != "gate-r0-v1" or $row.case_id != $fixture.case_id or $row.status != "pass" or $row.payload.record != "browser_oracle_result" or $row.payload.operation_count != 10000 or $row.payload.post_edit_operation_count <= 10000 or $row.payload.restored_text_sha256 != $fixture.text_sha256 or not $row.payload.edit_persisted_after_fresh_process {
-      fail $"browser fixture result mismatch: ($fixture.case_id)"
+    if ($row.payload.browser_version | is-empty) {
+      fail $"browser revision missing: ($fixture.fixture_id)"
+    }
+    if $row.schema_version != 1 or $row.run_id != "gate-r0-v1" or $row.case_id != $fixture.fixture_id or $row.status != "pass" or $row.payload.record != "browser_oracle_result" or $row.payload.operation_count != 1000 or $row.payload.post_edit_operation_count != 1001 or $row.payload.archive_sha256 != $fixture.archive_sha256 or $row.payload.restored_text_sha256 != $fixture.expected_text_sha256 or $row.payload.restored_history_sha256 != $fixture.history_sha256 or $row.payload.selected_consumer != "full_history_v1" or $row.payload.candidate_consumer_starts != 0 or $row.payload.full_history_consumer_starts != 1 or $row.payload.first_edit.scalar != "U+005A" or $row.payload.first_edit.canonical_utf16_position != $fixture.expected_text_utf16_units or not $row.payload.first_edit.browser_control_position_valid or not $row.payload.first_edit.adapter_mapping_proved or not $row.payload.first_edit.result_equal or not $row.payload.edit_persisted_after_fresh_page {
+      fail $"oracle_mismatch: browser fixture result mismatch: ($fixture.fixture_id)"
+    }
+    let accounting = $row.payload.read_accounting
+    if $accounting.archive_transport_bytes != $fixture.archive_bytes or $accounting.archive_decode_read_operations != 1 or $accounting.oracle_full_history_event_reads != 1000 or $accounting.candidate_event_reads != 0 or $accounting.first_edit_local_operations != 1 {
+      fail $"oracle_mismatch: browser fixture read accounting mismatch: ($fixture.fixture_id)"
     }
     $observations = ($observations | append $row)
   }
+  if not ($observations | any {|row| not $row.payload.first_edit.coordinate_positions_equal }) {
+    fail "oracle_mismatch: browser corpus did not exercise CRLF coordinate mapping"
+  }
+  let browser_revisions = ($observations | get payload.browser_version | uniq)
+  if ($browser_revisions | length) != 1 {
+    fail "oracle_mismatch: browser revision differs across fixtures"
+  }
   rm -rf $dist
-  write-json ($output | path join "browser-fixture-catalog.json") $catalog
-  write-json ($output | path join "browser-results.json") { schema_version: 1 observations: $observations }
   $observations
 }
 
@@ -233,23 +259,50 @@ def candidate-outcomes [] {
 }
 
 def artifact-paths [] {
-  ["manifest.json" "result.json" "capability-ledger.json" "fixture-catalog.json" "browser-fixture-catalog.json" "browser-results.json" "candidate-captures.jsonl" "candidate-results.json" "operation-matrix.jsonl" "oracle-differential.jsonl" "cold-history.jsonl" "negative-results.json" "validation.log"]
+  [
+    "manifest.json"
+    "result.json"
+    "capability-ledger.json"
+    "candidate-captures.jsonl"
+    "candidate-results.json"
+    "operation-matrix.jsonl"
+    "oracle-differential.jsonl"
+    "cold-history.jsonl"
+    "negative-results.json"
+    "validation.log"
+  ]
+}
+
+# The output directory is runner-owned. Remove every prior entry before a run
+# or failure bundle so stale files, symlinks, and required-name directories
+# cannot survive or replace the classified result.
+def cleanup-runner-internals [output: string] {
+  for entry in (ls -a $output) {
+    rm -rf $entry.name
+  }
+}
+
+def assert-artifact-set [output: string] {
+  let expected = (artifact-paths | sort)
+  let actual = (ls -a $output | get name | each {|path| $path | path basename } | sort)
+  if $actual != $expected {
+    fail $"artifact set differs: expected=($expected | to json -r) actual=($actual | to json -r)"
+  }
 }
 
 def write-failure-artifacts [output: string failure: string] {
+  cleanup-runner-internals $output
   write-json ($output | path join "manifest.json") { schema_version: 1 run_id: "gate-r0-v1" status: "fail" }
   write-json ($output | path join "capability-ledger.json") { schema_version: 1 rows: [] }
-  if not (($output | path join "fixture-catalog.json") | path exists) { write-json ($output | path join "fixture-catalog.json") { schema_version: 1 fixture_seed: "none" fixtures: [] } }
-  write-json ($output | path join "browser-fixture-catalog.json") { schema_version: 1 fixture_seed: "none" fixtures: [] }
-  write-json ($output | path join "browser-results.json") { schema_version: 1 observations: [] }
-  if not (($output | path join "candidate-captures.jsonl") | path exists) { write-jsonl ($output | path join "candidate-captures.jsonl") [] }
+  write-jsonl ($output | path join "candidate-captures.jsonl") []
   write-json ($output | path join "candidate-results.json") { schema_version: 1 candidates: [] }
   write-jsonl ($output | path join "operation-matrix.jsonl") []
   write-jsonl ($output | path join "oracle-differential.jsonl") []
-  if not (($output | path join "cold-history.jsonl") | path exists) { write-jsonl ($output | path join "cold-history.jsonl") [] }
+  write-jsonl ($output | path join "cold-history.jsonl") []
   write-json ($output | path join "negative-results.json") { schema_version: 1 negatives: [] }
   $"Gate R0 failure: ($failure)\n" | save -f ($output | path join "validation.log")
   write-json ($output | path join "result.json") { schema_version: 1 status: "fail" failure_class: $failure candidate_outcomes: (candidate-outcomes) artifact_paths: (artifact-paths) }
+  assert-artifact-set $output
 }
 
 def candidate-cases [suite: string] {
@@ -269,6 +322,7 @@ def run-candidate-suite [root: string output: string suite: string candidate_cas
   let pinned_catalog_path = ($egw_root | path join "internal/restore_feasibility_probe/fixtures/fixture-catalog-v1.json")
   if not ($pinned_catalog_path | path exists) { fail "pinned fixture catalog is missing" }
   let pinned_source = (open --raw $pinned_catalog_path)
+  let catalog_sha256 = (^sha256sum $pinned_catalog_path | str trim | split row " " | first)
   let regenerated_path = ($output | path join ".regenerated-fixture-catalog.json")
   let regenerated = (with-env { NEW_MOON_MOD: "0" } {
     ^moon -C $egw_root run --quiet --release --target native $package -- generate-catalog --output $regenerated_path | complete
@@ -281,10 +335,6 @@ def run-candidate-suite [root: string output: string suite: string candidate_cas
   if $catalog.schema_version != 1 or $catalog.fixture_seed != "none" or ($catalog.fixtures | is-empty) {
     fail "fixture catalog schema mismatch"
   }
-  let catalog_path = ($output | path join "fixture-catalog.json")
-  $pinned_source | save -f $catalog_path
-  write-json ($output | path join "browser-fixture-catalog.json") { schema_version: 1 fixture_seed: "none" fixtures: [] }
-  write-json ($output | path join "browser-results.json") { schema_version: 1 observations: [] }
   mut captures = []
   mut results = []
   for case_id in $cases {
@@ -322,6 +372,16 @@ def run-candidate-suite [root: string output: string suite: string candidate_cas
     archive_format_changed: false
     wire_format_changed: false
     public_markdown_interface_changed: false
+    fixture_catalog: {
+      status: "available"
+      path: "deps/event-graph-walker/internal/restore_feasibility_probe/fixtures/fixture-catalog-v1.json"
+      sha256: $catalog_sha256
+      fixture_seed: $catalog.fixture_seed
+      fixture_hashes: ($catalog.fixtures | each {|fixture| {
+        fixture_id: $fixture.fixture_id
+        canonical_sha256: $fixture.canonical_sha256
+      } })
+    }
   }
   write-json ($output | path join "capability-ledger.json") { schema_version: 1 rows: (operation-matrix) }
   write-jsonl ($output | path join "candidate-captures.jsonl") $captures
@@ -339,6 +399,13 @@ def run-candidate-suite [root: string output: string suite: string candidate_cas
     candidate_outcomes: $outcomes
     artifact_paths: (artifact-paths)
   }
+  assert-artifact-set $output
+  {
+    catalog: $catalog
+    catalog_sha256: $catalog_sha256
+    captures: $captures
+    observations: $results
+  }
 }
 
 def runner-self-test [root: string] {
@@ -348,6 +415,7 @@ def runner-self-test [root: string] {
       let output = ($temp | path join $failure)
       mkdir $output
       write-failure-artifacts $output $failure
+      assert-artifact-set $output
       let result = (open ($output | path join "result.json"))
       if $result.status != "fail" or $result.failure_class != $failure or (exit-code $failure) == 0 {
         fail $"failure injection self-test failed: ($failure)"
@@ -355,7 +423,8 @@ def runner-self-test [root: string] {
     }
     let candidate_output = ($temp | path join "candidate")
     mkdir $candidate_output
-    run-candidate-suite $root $candidate_output "concurrency" "C-multiroot-4"
+    let _candidate_bundle = (run-candidate-suite $root $candidate_output "concurrency" "C-multiroot-4")
+    assert-artifact-set $candidate_output
     let candidate_result = (open ($candidate_output | path join "result.json"))
     if $candidate_result.status != "pass" { fail "candidate process-seam self-test failed" }
     let authority = (run-producer $root "deps/event-graph-walker/internal/restore_feasibility_probe")
@@ -385,6 +454,7 @@ def main [
   if $ide_check { print "Gate R0 runner syntax valid"; return }
   if $self_test { runner-self-test $root; return }
   mkdir $output_dir
+  cleanup-runner-internals $output_dir
   if not ($suite in ["all" "self-test" "oracle" "ordinary" "concurrency" "legacy"]) {
     write-failure-artifacts $output_dir "preflight_invalid"
     exit 10
@@ -394,22 +464,36 @@ def main [
     exit (exit-code $inject_failure)
   }
   let status = (^git -C $root status --porcelain | complete)
-  if $status.exit_code != 0 { exit 10 }
+  if $status.exit_code != 0 {
+    write-failure-artifacts $output_dir "preflight_invalid"
+    exit 10
+  }
   if (not $allow_dirty) and ($status.stdout | str trim | is-not-empty) {
     write-failure-artifacts $output_dir "preflight_invalid"
     exit 10
   }
   if $suite == "self-test" {
-    runner-self-test $root
-    run-candidate-suite $root $output_dir "concurrency" "C-multiroot-4"
+    try {
+      runner-self-test $root
+      if ($env | get -o GATE_R0_TEST_SELF_TEST_CANDIDATE_FAILURE | default "") == "1" {
+        fail "injected self-test candidate failure"
+      }
+      let _candidate_bundle = (run-candidate-suite $root $output_dir "concurrency" "C-multiroot-4")
+    } catch {|err|
+      let detail = ($err | get -o msg | default "self-test candidate failure")
+      write-failure-artifacts $output_dir "harness_failure"
+      $"($detail)\n" | save --append ($output_dir | path join "validation.log")
+      exit 30
+    }
     return
   }
   if $suite in ["ordinary" "concurrency" "legacy"] {
     try {
-      run-candidate-suite $root $output_dir $suite $candidate_case
+      let _candidate_bundle = (run-candidate-suite $root $output_dir $suite $candidate_case)
     } catch {|err|
+      let detail = ($err | get -o msg | default "candidate suite failure")
       write-failure-artifacts $output_dir "harness_failure"
-      $"($err | to json -r)\n" | save --append ($output_dir | path join "validation.log")
+      $"($detail)\n" | save --append ($output_dir | path join "validation.log")
       exit 30
     }
     return
@@ -436,22 +520,15 @@ def main [
     let candidate_bundle = if $suite == "all" {
       let candidate_output = ($output_dir | path join ".candidate-suite")
       mkdir $candidate_output
-      run-candidate-suite $root $candidate_output "all" $candidate_case
-      let bundle = {
-        catalog: (open ($candidate_output | path join "fixture-catalog.json"))
-        captures: (open --raw ($candidate_output | path join "candidate-captures.jsonl") | lines | where {|line| $line | str trim | is-not-empty } | each {|line| $line | from json })
-        observations: ((open ($candidate_output | path join "candidate-results.json")).observations)
-      }
+      let bundle = (run-candidate-suite $root $candidate_output "all" $candidate_case)
       rm -rf $candidate_output
       $bundle
     } else {
-      { catalog: { schema_version: 1 fixture_seed: "none" fixtures: [] } captures: [] observations: [] }
+      { catalog: { schema_version: 1 fixture_seed: "none" fixtures: [] } catalog_sha256: null captures: [] observations: [] }
     }
-    let browser_observations = if $suite == "all" {
+    let browser_observations = if $suite in ["all" "oracle"] {
       run-browser-catalog $root $output_dir
     } else {
-      write-json ($output_dir | path join "browser-fixture-catalog.json") { schema_version: 1 fixture_seed: "none" fixtures: [] }
-      write-json ($output_dir | path join "browser-results.json") { schema_version: 1 observations: [] }
       []
     }
     let egw = (run-producer $root "deps/event-graph-walker/internal/restore_feasibility_probe")
@@ -545,6 +622,10 @@ def main [
       write-failure-artifacts $output_dir "interface_drift"
       exit 35
     }
+    let fixture_catalog_path = ($root | path join "deps/event-graph-walker/internal/restore_feasibility_probe/fixtures/fixture-catalog-v1.json")
+    let fixture_catalog = (open $fixture_catalog_path)
+    let browser_catalog_path = ($root | path join "apps/loomark/examples/vanilla/fixtures/r0-browser-v1/browser-fixture-catalog-v1.json")
+    let browser_catalog = (open $browser_catalog_path)
     let manifest = {
       schema_version: 1
       run_id: "gate-r0-v1"
@@ -556,6 +637,32 @@ def main [
       archive_format_changed: false
       wire_format_changed: false
       public_markdown_interface_changed: false
+      fixture_catalog: {
+        status: "available"
+        path: "deps/event-graph-walker/internal/restore_feasibility_probe/fixtures/fixture-catalog-v1.json"
+        sha256: (^sha256sum $fixture_catalog_path | str trim | split row " " | first)
+        fixture_seed: $fixture_catalog.fixture_seed
+        fixture_hashes: ($fixture_catalog.fixtures | each {|fixture| {
+          fixture_id: $fixture.fixture_id
+          canonical_sha256: $fixture.canonical_sha256
+        } })
+      }
+      browser_fixture_catalog: {
+        status: "available"
+        path: "apps/loomark/examples/vanilla/fixtures/r0-browser-v1/browser-fixture-catalog-v1.json"
+        sha256: (^sha256sum $browser_catalog_path | str trim | split row " " | first)
+        fixture_seed: $browser_catalog.fixture_seed
+        archives: ($browser_catalog.fixtures | each {|fixture| {
+          fixture_id: $fixture.fixture_id
+          path: $fixture.archive_path
+          sha256: $fixture.archive_sha256
+          bytes: $fixture.archive_bytes
+          canonical_fixture_sha256: $fixture.canonical_fixture_sha256
+        } })
+      }
+      browser_oracle_correctness: "pass"
+      browser_revision: (($browser_observations | first).payload.browser_version)
+      browser_measurement: "not_run"
       preflight: {
         interface_hashes: $preflight_interfaces
         interface_baseline_agrees_after_run: true
@@ -572,23 +679,37 @@ def main [
       projection_levels: ["plain_text" "position_identity_index" "disposable_legacy_materializer" "editable_branch"]
       rows: (operation-matrix)
     }
+    let operation_rows = ((operation-matrix) | append ($browser_observations | each {|row| {
+      schema_version: 1
+      run_id: "gate-r0-v1"
+      trace: "browser-full-history-v1"
+      case_id: $row.case_id
+      authority: "full_history_oracle"
+      projection: "loomark_product"
+      expected: "oracle"
+      actual: "oracle"
+      outcome: "pass"
+      observation: $row.payload
+    } }))
     write-json ($output_dir | path join "manifest.json") $manifest
     write-json ($output_dir | path join "capability-ledger.json") $ledger
-    write-json ($output_dir | path join "fixture-catalog.json") $candidate_bundle.catalog
     write-jsonl ($output_dir | path join "candidate-captures.jsonl") $captures
     write-json ($output_dir | path join "candidate-results.json") { schema_version: 1 candidates: $candidates observations: $candidate_bundle.observations }
-    write-jsonl ($output_dir | path join "operation-matrix.jsonl") (operation-matrix)
+    write-jsonl ($output_dir | path join "operation-matrix.jsonl") $operation_rows
     write-jsonl ($output_dir | path join "oracle-differential.jsonl") ([{ schema_version: 1 run_id: "gate-r0-v1" oracle: "full-history" status: "pass" serialized_archive_bytes: $archive_producer.payload.archive_bytes observations: $markdown memory: { availability: "not_applicable" calibration: "R0 process oracle does not claim resident-memory measurement" } } ] | append $measurements)
     write-jsonl ($output_dir | path join "cold-history.jsonl") $egw
     write-json ($output_dir | path join "negative-results.json") { schema_version: 1 negatives: $candidates }
-    $"Gate R0 pass\npositive provider control: 1 call\nstrict/closed provider calls: 0\nfresh Chromium fixtures: ($browser_observations | length)\n" | save -f ($output_dir | path join "validation.log")
+    $"Gate R0 pass\npositive provider control: 1 call\nstrict/closed provider calls: 0\nfresh Chromium fixture correctness: ($browser_observations | length)\nbrowser measurement: not run\n" | save -f ($output_dir | path join "validation.log")
     write-json ($output_dir | path join "result.json") {
       schema_version: 1
       status: "pass"
       failure_class: null
+      implementation_complete: false
+      blocked_obligations: [browser_measurement]
       candidate_outcomes: $candidates
       artifact_paths: (artifact-paths)
     }
+    assert-artifact-set $output_dir
   } catch {|err|
     let detail = ($err | to json -r)
     let failure = if ($detail | str contains "oracle_mismatch") {

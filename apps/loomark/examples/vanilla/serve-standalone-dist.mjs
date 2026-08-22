@@ -1,10 +1,12 @@
 import { createReadStream, existsSync, statSync } from "node:fs"
 import { createServer } from "node:http"
-import { extname, join, normalize } from "node:path"
+import { extname, normalize, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const distRoot = process.env.LOOMARK_STANDALONE_DIST ??
   fileURLToPath(new URL("../../dist/", import.meta.url))
+const r0FixtureRoot = process.env.LOOMARK_R0_BROWSER_FIXTURE_ROOT
+const r0FixturePrefix = "/fixtures/r0-browser-v1/"
 const port = Number.parseInt(process.env.LOOMARK_STANDALONE_PORT ?? "4317", 10)
 const contentTypes = new Map([
   [".css", "text/css; charset=utf-8"],
@@ -17,11 +19,20 @@ const contentTypes = new Map([
 
 const server = createServer((request, response) => {
   const pathname = new URL(request.url ?? "/", `http://127.0.0.1:${port}`).pathname
-  const relativePath = pathname === "/" ? "index.html" : pathname.slice(1)
+  const fixtureRequest = r0FixtureRoot !== undefined && pathname.startsWith(r0FixturePrefix)
+  const relativePath = fixtureRequest
+    ? pathname.slice(r0FixturePrefix.length)
+    : pathname === "/" ? "index.html" : pathname.slice(1)
   const normalizedPath = normalize(relativePath)
-  const filePath = join(distRoot, normalizedPath)
+  const selectedRoot = resolve(fixtureRequest ? r0FixtureRoot : distRoot)
+  const filePath = resolve(selectedRoot, normalizedPath)
 
-  if (normalizedPath.startsWith("..") || !existsSync(filePath) || !statSync(filePath).isFile()) {
+  if (
+    normalizedPath.startsWith("..") ||
+    !filePath.startsWith(`${selectedRoot}${sep}`) ||
+    !existsSync(filePath) ||
+    !statSync(filePath).isFile()
+  ) {
     response.writeHead(404, { "content-type": "text/plain; charset=utf-8" })
     response.end("Not found")
     return
@@ -33,7 +44,11 @@ const server = createServer((request, response) => {
   })
   createReadStream(filePath).pipe(response)
 }).listen(port, "127.0.0.1", () => {
-  process.stdout.write(`Loomark standalone output at http://127.0.0.1:${port}\n`)
+  const address = server.address()
+  const boundPort = typeof address === "object" && address !== null
+    ? address.port
+    : port
+  process.stdout.write(`Loomark standalone output at http://127.0.0.1:${boundPort}\n`)
 })
 
 for (const signal of ["SIGINT", "SIGTERM"]) {

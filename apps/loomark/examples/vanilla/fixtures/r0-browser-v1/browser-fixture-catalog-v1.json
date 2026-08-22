@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "generator": "r0_fixture_generator_v1",
+  "oracle_adapter": "LegacyOracleEventV1",
+  "fixture_seed": "none",
+  "fixtures": [
+    {
+      "fixture_id": "S-linear-1000",
+      "archive_path": "S-linear-1000.v1.json",
+      "archive_sha256": "bdbbe25276d0f58b2ca09cf913fb3df239a06a77d6c377d41f117d7f2ff14a79",
+      "archive_bytes": 230798,
+      "expected_text": "aéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n",
+      "expected_text_sha256": "415e34f0588c44f86ad4fe6165983d085efa106c7b6dcfa76da59dbac45737f6",
+      "expected_text_bytes": 1715,
+      "expected_text_scalars": 1000,
+      "expected_text_utf16_units": 1143,
+      "history_sha256": "7cecffc45c6cc066d6c3d74ca747f80caceb063e3ff9ba482f110776e2db2dd4",
+      "history_bytes": 194386,
+      "event_count": 1000,
+      "canonical_fixture_sha256": "5dde0a09f6f60ddbcc7f4ab77451a0bdeda3215fb4bb58a991f85199a6a868f5",
+      "disposition": "valid",
+      "consumer": "full_history_v1",
+      "first_edit": {
+        "kind": "append_unicode_scalar",
+        "scalar": "U+005A",
+        "utf16_position": 1143
+      },
+      "expected_text_after_edit": "aéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\nZ",
+      "expected_text_after_edit_sha256": "abee6dbd13667a5041d29c5de099cffdc56bf4faea2a44938d81107bfbb89fb3"
+    },
+    {
+      "fixture_id": "S-distributed-1000",
+      "archive_path": "S-distributed-1000.v1.json",
+      "archive_sha256": "f16c2724481262fc408d1dcb86d891dd450e6453e157c1d5015675f3e3c02272",
+      "archive_bytes": 265877,
+      "expected_text": "aae\r\r🙂eaa\n\ne\née\n🙂🙂éé́\ŕ\r🙂\réaéé\ŕéé🙂́\ŕ́🙂a\n\ra\rée\reé\né\n\ré🙂aa\n\ré\n\re\r🙂aá🙂́ee\n\n\r\n\r\r\né\ree\r\né́🙂🙂🙂🙂ee\r\r\r\ŕ\r🙂\n\náééee\né\r\ré🙂🙂\réé\raé\r\ree\r\ńa\né🙂é\r\r\n🙂é🙂🙂aa\ń\raee🙂🙂aée🙂aé́á\r\réée🙂e\n🙂🙂aéea\né\na\réá🙂aeé\ra\r🙂\néee\n\n\ŕ\ń🙂🙂e🙂áa🙂e🙂eae🙂\n\reá\neeéáea🙂ea\né́aa\naaa🙂\ré\na🙂a\ré́́ea\ré\raé\néeé\ŕ\n\ń\r\ré🙂e\r\n\n\r\ré🙂é\reeéáé\n\ré\ńe\ré\n🙂éé́a🙂🙂á🙂é🙂́́\r🙂a\ré́\n\ńéé\n\ré\réa🙂é\naé\ra\reé́́\ná́é🙂é\n🙂🙂\réeaa\n\r🙂\ń\re\ń\r\n🙂́\r\r\r🙂🙂é🙂́\ŕeaaéeéaéé\n🙂a\re\re🙂\r\nééa\réeéa🙂a\néeéé🙂🙂e🙂áe\r\ré́e\ra🙂á́🙂a🙂́\n\r\r\re\ré́eaé\r🙂é\n\n🙂🙂🙂é́é🙂\r\r🙂eé🙂🙂́\ń🙂é\re\r🙂́a🙂🙂🙂eééa\n🙂\ŕ́🙂🙂́a🙂é́\r\n\r🙂\n\né\n\na\réé́\ré́é\neeaé\naéa\n\n🙂ééa🙂́áe🙂\ŕa🙂a\ŕ\néea🙂\naa🙂a🙂\ń\n🙂🙂́e\ŕe\néééeeee🙂e\ŕ\r\r\ré\r🙂ée🙂e\n\n\r🙂a\ná\n🙂éa🙂eaae\néeé́\naa🙂\ré🙂éé\né́🙂🙂́́́\ŕé🙂́\n\réé\n\r\re\n🙂́é́aaaa🙂\r🙂́🙂\n\né🙂é́́é🙂🙂\n\rá\neéé🙂aa\n\n\re🙂\rééae\r\ŕ́éé́éeé\raa\naá\r\naeaéé🙂aé́é\n🙂a\ra\rea\n🙂eáe\na🙂\na\na\neé\neeae\n\r\r🙂eéáé\r\n\ré́́\r\ré\reaaee\neéa🙂éé\r\né\r\né\r\n\ré\ne🙂a🙂́🙂\n\reaaé́é\ńe\rá́🙂🙂\n\n\n🙂ae\reé🙂éa🙂eé\r🙂eé́\ré\na\naé🙂\ra\néée🙂é\nééé\n\r\nééé\n🙂\ńa\ré\n\rea\ń\n\r\n\n🙂🙂\r\ŕ🙂́\r\n🙂🙂🙂́e🙂́a\ńa\n\r\né\r\n\n🙂éaé\naaéaeé́🙂é́é🙂eáa🙂é\neea\nea🙂eaaé🙂🙂\náéá́é́\r\nae\n\ré\neaee\r\n\né́aaé\n\ne\n\né́🙂aé́\né",
+      "expected_text_sha256": "369cc47e1e5f7221e7a4ced256c5cae1a86a9e04d84303568324193bcbb779cc",
+      "expected_text_bytes": 1715,
+      "expected_text_scalars": 1000,
+      "expected_text_utf16_units": 1143,
+      "history_sha256": "87040ea00f30a657c554e18a541994206c0ee52cb0cf061b9383add738145f87",
+      "history_bytes": 223778,
+      "event_count": 1000,
+      "canonical_fixture_sha256": "affa318885f156757170839ac7196afbeba6ff0b482bd09941c1081d25d81571",
+      "disposition": "valid",
+      "consumer": "full_history_v1",
+      "first_edit": {
+        "kind": "append_unicode_scalar",
+        "scalar": "U+005A",
+        "utf16_position": 1143
+      },
+      "expected_text_after_edit": "aae\r\r🙂eaa\n\ne\née\n🙂🙂éé́\ŕ\r🙂\réaéé\ŕéé🙂́\ŕ́🙂a\n\ra\rée\reé\né\n\ré🙂aa\n\ré\n\re\r🙂aá🙂́ee\n\n\r\n\r\r\né\ree\r\né́🙂🙂🙂🙂ee\r\r\r\ŕ\r🙂\n\náééee\né\r\ré🙂🙂\réé\raé\r\ree\r\ńa\né🙂é\r\r\n🙂é🙂🙂aa\ń\raee🙂🙂aée🙂aé́á\r\réée🙂e\n🙂🙂aéea\né\na\réá🙂aeé\ra\r🙂\néee\n\n\ŕ\ń🙂🙂e🙂áa🙂e🙂eae🙂\n\reá\neeéáea🙂ea\né́aa\naaa🙂\ré\na🙂a\ré́́ea\ré\raé\néeé\ŕ\n\ń\r\ré🙂e\r\n\n\r\ré🙂é\reeéáé\n\ré\ńe\ré\n🙂éé́a🙂🙂á🙂é🙂́́\r🙂a\ré́\n\ńéé\n\ré\réa🙂é\naé\ra\reé́́\ná́é🙂é\n🙂🙂\réeaa\n\r🙂\ń\re\ń\r\n🙂́\r\r\r🙂🙂é🙂́\ŕeaaéeéaéé\n🙂a\re\re🙂\r\nééa\réeéa🙂a\néeéé🙂🙂e🙂áe\r\ré́e\ra🙂á́🙂a🙂́\n\r\r\re\ré́eaé\r🙂é\n\n🙂🙂🙂é́é🙂\r\r🙂eé🙂🙂́\ń🙂é\re\r🙂́a🙂🙂🙂eééa\n🙂\ŕ́🙂🙂́a🙂é́\r\n\r🙂\n\né\n\na\réé́\ré́é\neeaé\naéa\n\n🙂ééa🙂́áe🙂\ŕa🙂a\ŕ\néea🙂\naa🙂a🙂\ń\n🙂🙂́e\ŕe\néééeeee🙂e\ŕ\r\r\ré\r🙂ée🙂e\n\n\r🙂a\ná\n🙂éa🙂eaae\néeé́\naa🙂\ré🙂éé\né́🙂🙂́́́\ŕé🙂́\n\réé\n\r\re\n🙂́é́aaaa🙂\r🙂́🙂\n\né🙂é́́é🙂🙂\n\rá\neéé🙂aa\n\n\re🙂\rééae\r\ŕ́éé́éeé\raa\naá\r\naeaéé🙂aé́é\n🙂a\ra\rea\n🙂eáe\na🙂\na\na\neé\neeae\n\r\r🙂eéáé\r\n\ré́́\r\ré\reaaee\neéa🙂éé\r\né\r\né\r\n\ré\ne🙂a🙂́🙂\n\reaaé́é\ńe\rá́🙂🙂\n\n\n🙂ae\reé🙂éa🙂eé\r🙂eé́\ré\na\naé🙂\ra\néée🙂é\nééé\n\r\nééé\n🙂\ńa\ré\n\rea\ń\n\r\n\n🙂🙂\r\ŕ🙂́\r\n🙂🙂🙂́e🙂́a\ńa\n\r\né\r\n\n🙂éaé\naaéaeé́🙂é́é🙂eáa🙂é\neea\nea🙂eaaé🙂🙂\náéá́é́\r\nae\n\ré\neaee\r\n\né́aaé\n\ne\n\né́🙂aé́\néZ",
+      "expected_text_after_edit_sha256": "e95bdaa08f63714c18cc5db510faf785751d1e42b0463c5ea2affca8f3b35774"
+    },
+    {
+      "fixture_id": "S-tombstone-1000",
+      "archive_path": "S-tombstone-1000.v1.json",
+      "archive_sha256": "ae3db5e1e2f3922ac1676f28db9a2d83681942664837af883127bdb9506816a6",
+      "archive_bytes": 228595,
+      "expected_text": "éé🙂\ré́🙂\n\rae\naéé\n\ŕ\naée🙂\ŕ\rée🙂\re🙂\re🙂\n\ré́🙂aééaé́\ré\n\ré🙂\raée🙂\rée\r\née🙂\naée🙂á🙂\naé́\n\re\nae🙂\naé\n\raée🙂e🙂\naé🙂\raeé\naéé🙂\n\re🙂é́🙂\raé́\na🙂\n\ré\raé🙂é\réé\né\raéaée\ré🙂ée🙂\rééé🙂aéé🙂e\né🙂ée\ná🙂e\n\raé\n\raée\raée🙂ééé\raé́\réé🙂\raé\n\raé🙂\n\raéé\ŕ🙂\née🙂éé\n\réé🙂\ré́🙂\n\r🙂\n\re🙂\n\raé\naée🙂\nééé🙂\nae🙂a\raé🙂aée🙂\n\re\raé́aé́🙂\naé\n\r\raé🙂\néaeé́🙂́ée\né\ré\n\ré́\nae\naéé🙂aé🙂\n\r",
+      "expected_text_sha256": "024ca6e545c454d996b9ca922b4ca4e8b86368533b1b2a79349334b8cc824aae",
+      "expected_text_bytes": 572,
+      "expected_text_scalars": 334,
+      "expected_text_utf16_units": 380,
+      "history_sha256": "8f644947fc9c827f6f3706740fd6b1205a4e7665438c5e035b707e65b0fab9f1",
+      "history_bytes": 194281,
+      "event_count": 1000,
+      "canonical_fixture_sha256": "c933d86e7cba819f54b43d58801ebb95296639e26867ff741c7726f982caed48",
+      "disposition": "valid",
+      "consumer": "full_history_v1",
+      "first_edit": {
+        "kind": "append_unicode_scalar",
+        "scalar": "U+005A",
+        "utf16_position": 380
+      },
+      "expected_text_after_edit": "éé🙂\ré́🙂\n\rae\naéé\n\ŕ\naée🙂\ŕ\rée🙂\re🙂\re🙂\n\ré́🙂aééaé́\ré\n\ré🙂\raée🙂\rée\r\née🙂\naée🙂á🙂\naé́\n\re\nae🙂\naé\n\raée🙂e🙂\naé🙂\raeé\naéé🙂\n\re🙂é́🙂\raé́\na🙂\n\ré\raé🙂é\réé\né\raéaée\ré🙂ée🙂\rééé🙂aéé🙂e\né🙂ée\ná🙂e\n\raé\n\raée\raée🙂ééé\raé́\réé🙂\raé\n\raé🙂\n\raéé\ŕ🙂\née🙂éé\n\réé🙂\ré́🙂\n\r🙂\n\re🙂\n\raé\naée🙂\nééé🙂\nae🙂a\raé🙂aée🙂\n\re\raé́aé́🙂\naé\n\r\raé🙂\néaeé́🙂́ée\né\ré\n\ré́\nae\naéé🙂aé🙂\n\rZ",
+      "expected_text_after_edit_sha256": "3af9112f4dd5fdb0eb2f943e427e8016bb3ee97c8b9652b16b155d3a6f0f4f2c"
+    },
+    {
+      "fixture_id": "S-replacement-1000",
+      "archive_path": "S-replacement-1000.v1.json",
+      "archive_sha256": "aaea249c3a5271b1639618456984a6f3373556c5a3da3952a747b50fb7070bb4",
+      "archive_bytes": 227264,
+      "expected_text": "",
+      "expected_text_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "expected_text_bytes": 0,
+      "expected_text_scalars": 0,
+      "expected_text_utf16_units": 0,
+      "history_sha256": "54f1dce3ae5398566064adca31395eca4576fc48f0f1d9abd80aaae4fbe60566",
+      "history_bytes": 194044,
+      "event_count": 1000,
+      "canonical_fixture_sha256": "3a73302a5e637d5b46b7d11e5b9e35ad1f548fbb1a4f003e20a21b4f8d3fc319",
+      "disposition": "valid",
+      "consumer": "full_history_v1",
+      "first_edit": {
+        "kind": "append_unicode_scalar",
+        "scalar": "U+005A",
+        "utf16_position": 0
+      },
+      "expected_text_after_edit": "Z",
+      "expected_text_after_edit_sha256": "bbeebd879e1dff6918546dc0c179fdde505f2a21591c9a9c96e36b054ec5af83"
+    },
+    {
+      "fixture_id": "S-unicode-1000",
+      "archive_path": "S-unicode-1000.v1.json",
+      "archive_sha256": "1970811f6b3047d440a0b97f5a7f3814394803c85c487f033c705214715edf56",
+      "archive_bytes": 230799,
+      "expected_text": "aéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n",
+      "expected_text_sha256": "415e34f0588c44f86ad4fe6165983d085efa106c7b6dcfa76da59dbac45737f6",
+      "expected_text_bytes": 1715,
+      "expected_text_scalars": 1000,
+      "expected_text_utf16_units": 1143,
+      "history_sha256": "7cecffc45c6cc066d6c3d74ca747f80caceb063e3ff9ba482f110776e2db2dd4",
+      "history_bytes": 194386,
+      "event_count": 1000,
+      "canonical_fixture_sha256": "ad2b766ce9c3cdd5395be1a6d15528762bde8d6a4794228bd37a5dcb3ae624e1",
+      "disposition": "valid",
+      "consumer": "full_history_v1",
+      "first_edit": {
+        "kind": "append_unicode_scalar",
+        "scalar": "U+005A",
+        "utf16_position": 1143
+      },
+      "expected_text_after_edit": "aéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\n\raéé🙂\nZ",
+      "expected_text_after_edit_sha256": "abee6dbd13667a5041d29c5de099cffdc56bf4faea2a44938d81107bfbb89fb3"
+    }
+  ]
+}
