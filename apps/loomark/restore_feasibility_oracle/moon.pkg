@@ -1,0 +1,11 @@
+import {
+  "dowdiness/canopy/editor/markdown",
+  "dowdiness/loomark/archive",
+  "dowdiness/loomark/repository",
+  "dowdiness/markdown" @md_markdown,
+  "moonbitlang/core/env",
+  "moonbitlang/x/fs",
+  "moonbitlang/core/json",
+}
+
+pkgtype(kind: "executable")

@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "fixture_seed": "none",
+  "fixtures": [
+    {
+      "case_id": "S-linear-10000",
+      "path": "S-linear-10000.archive.json",
+      "document_id": "loomark-r0-browser-S-linear-10000",
+      "operation_count": 10000,
+      "archive_bytes": 2336365,
+      "archive_sha256": "51477e292acb2d33ef82b94cc1e1d1b152cfdc4026bb646c88d3e35e260f021b",
+      "text_sha256": "c5afabf3b4183fc6386097236b55767ee24b66acc1e14031501d8b7b03d67843"
+    },
+    {
+      "case_id": "S-tombstone-10000",
+      "path": "S-tombstone-10000.archive.json",
+      "document_id": "loomark-r0-browser-S-tombstone-10000",
+      "operation_count": 10000,
+      "archive_bytes": 2314343,
+      "archive_sha256": "ef5f7188e8b16dc83293715c17349d70131f8443db8d13eb77bdc1a38af62f74",
+      "text_sha256": "4e420f2c95c1ae9aabebe0347f7e3ccc6f6948cef17d09af6708981fb19e7f22"
+    },
+    {
+      "case_id": "U-mixed-10000",
+      "path": "U-mixed-10000.archive.json",
+      "document_id": "loomark-r0-browser-U-mixed-10000",
+      "operation_count": 10000,
+      "archive_bytes": 2311840,
+      "archive_sha256": "daa79aea43df6ac8caf736e848f55971ad5514b5a974475fe916af23e11a1293",
+      "text_sha256": "72ec318ff4fb95261791cba8f399d5d945b91f8ced39aa6388adaac55dcf4b8e"
+    }
+  ]
+}

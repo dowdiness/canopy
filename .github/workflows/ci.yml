@@ -65,6 +65,7 @@ jobs:
       run_cm6_adapter_e2e: ${{ steps.filter.outputs.run_cm6_adapter_e2e }}
       run_loomark_dev_host_e2e: ${{ steps.filter.outputs.run_loomark_dev_host_e2e }}
       run_loomark_standalone_e2e: ${{ steps.filter.outputs.run_loomark_standalone_e2e }}
+      run_gate_r0: ${{ steps.filter.outputs.run_gate_r0 }}
       run_pr_ready_bash3: ${{ steps.filter.outputs.run_pr_ready_bash3 }}
       run_tooling_validation: ${{ steps.filter.outputs.run_tooling_validation }}
       run_release_version_validation: ${{ steps.filter.outputs.run_release_version_validation }}
@@ -106,6 +107,16 @@ jobs:
               - '.gitmodules'
               - 'scripts/install-local-warren.sh'
               - 'scripts/test-loomark-standalone-e2e.sh'
+              - 'scripts/moon-update.sh'
+            run_gate_r0:
+              - 'apps/loomark/**'
+              - 'modules/canopy/editor/markdown/**'
+              - 'deps/event-graph-walker'
+              - '.github/actions/setup-moonbit/**'
+              - '.github/workflows/ci.yml'
+              - '.gitmodules'
+              - 'moon.mod.json'
+              - 'scripts/test-loomark-editable-branch-restore-feasibility.nu'
               - 'scripts/moon-update.sh'
             run_prove:
               - 'modules/semantic/proof/**'
@@ -1029,6 +1040,70 @@ jobs:
       - name: Run Loomark standalone browser suite
         run: ./scripts/test-loomark-standalone-e2e.sh
 
+  gate-r0:
+    name: Loomark Editable-Branch Restore Gate R0
+    needs: [changes]
+    if: needs.changes.outputs.run_gate_r0 == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    container:
+      image: mcr.microsoft.com/playwright:v1.61.1-noble
+      options: --ipc=host
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install native build toolchain
+        run: |
+          apt-get update
+          apt-get install --yes --no-install-recommends build-essential
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Trust container workspace
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Fetch Gate R0 submodule reachability witness
+        run: git -C deps/event-graph-walker fetch --no-tags origin main
+
+      - name: Set up MoonBit
+        uses: ./.github/actions/setup-moonbit
+
+      - name: Install Nushell
+        uses: hustcer/setup-nu@f3fd65374ffc4d60974c0dd2f7263c6c5c285f81
+        with:
+          version: "0.114.1"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: apps/loomark/examples/vanilla/package-lock.json
+
+      - name: Install browser oracle dependencies
+        working-directory: apps/loomark/examples/vanilla
+        run: npm ci
+
+      - name: Run complete Gate R0 evidence harness
+        run: >-
+          nu scripts/test-loomark-editable-branch-restore-feasibility.nu
+          --suite all
+          --output-dir "${RUNNER_TEMP}/gate-r0"
+
+      - name: Upload Gate R0 evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: loomark-gate-r0-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/gate-r0
+          if-no-files-found: error
+          retention-days: 30
+
   all-checks-passed:
     name: All Checks Passed
     runs-on: ubuntu-latest
@@ -1054,6 +1129,7 @@ jobs:
       - cm6-adapter-e2e
       - loomark-dev-host-e2e
       - loomark-standalone-e2e
+      - gate-r0
     if: always()
     steps:
       - name: Check all job statuses
@@ -1095,7 +1171,10 @@ jobs:
                "${{ needs.changes.outputs.run_loomark_dev_host_e2e }}" || \
              ! path_filtered_ok \
                "${{ needs.loomark-standalone-e2e.result }}" \
-               "${{ needs.changes.outputs.run_loomark_standalone_e2e }}"; then
+               "${{ needs.changes.outputs.run_loomark_standalone_e2e }}" || \
+             ! path_filtered_ok \
+               "${{ needs.gate-r0.result }}" \
+               "${{ needs.changes.outputs.run_gate_r0 }}"; then
             echo "❌ One or more required checks failed"
             exit 1
           fi
