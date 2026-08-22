@@ -96,7 +96,7 @@ fn make_cli() -> @argparse.Command {
 ///|
 fn main {
   let cli = make_cli()
-  let matches = cli.parse(argv=@sys.get_cli_args()[1:]) catch {
+  let matches = cli.parse(argv=@env.args()) catch {
     err => {
       println(err)
       return

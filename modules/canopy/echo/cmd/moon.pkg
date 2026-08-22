@@ -4,6 +4,7 @@ import {
   "moonbitlang/core/debug",
   "moonbitlang/core/json",
   "moonbitlang/core/argparse",
+  "moonbitlang/core/env",
   "moonbitlang/x/sys",
   "moonbitlang/x/fs",
 }
