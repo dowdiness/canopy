@@ -313,10 +313,12 @@ fn commit_edit_request(
       (failed, None, false, false, @rabbita_runtime.none)
     }
     Ok(receipt) => {
-      mark_causal_ready_for_prototype()
       projection_trace_persistence_phase(PROJECTION_TRACE_PHASE_H1)
       let result = receipt.result()
       let (committed, accepted, changed) = classify_commit(next, receipt)
+      if accepted {
+        mark_causal_ready_for_prototype(committed.document.source().length())
+      }
       let committed = match projection_session {
         Some(session) =>
           apply_projection_authority(session, committed, accepted, changed)

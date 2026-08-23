@@ -104,12 +104,22 @@ extern "js" fn four_clock_prototype_query_value() -> String =
   #|   .get("four-clock-prototype") ?? ""
 
 ///|
-extern "js" fn publish_causal_ready_prototype_mark() -> Unit =
-  #| () => {
+extern "js" fn publish_causal_ready_prototype_mark(
+  committed_length : Int,
+) -> Unit =
+  #| (committedLength) => {
   #|   const root = document.documentElement;
   #|   const previous = Number(root.dataset.loomarkCausalReadySequence ?? "0");
-  #|   root.dataset.loomarkCausalReadySequence = (previous + 1).toString();
-  #|   root.dataset.loomarkCausalReadyMs = performance.now().toString();
+  #|   const sequence = previous + 1;
+  #|   const now = performance.now();
+  #|   root.dataset.loomarkCausalReadySequence = sequence.toString();
+  #|   root.dataset.loomarkCausalReadyMs = now.toString();
+  #|   root.dataset.loomarkCausalReadyLength = committedLength.toString();
+  #|   globalThis.__loomarkSustainedInputMeasurement?.causalMarks.push({
+  #|     sequence,
+  #|     now,
+  #|     committedLength,
+  #|   });
   #| }
 
 ///|
@@ -152,8 +162,8 @@ let four_clock_prototype_enabled : Bool = four_clock_prototype_enabled_from_quer
 )
 
 ///|
-fn mark_causal_ready_for_prototype() -> Unit {
+fn mark_causal_ready_for_prototype(committed_length : Int) -> Unit {
   if four_clock_prototype_enabled {
-    publish_causal_ready_prototype_mark()
+    publish_causal_ready_prototype_mark(committed_length)
   }
 }
