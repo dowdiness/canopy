@@ -10,6 +10,8 @@ import {
 // Values
 pub const ACTIVE_DOCUMENT_KEY : String = "loomark.active-document-archive"
 
+pub const LOCAL_TEXT_KEY : String = "loomark.active-document-text"
+
 pub fn fresh_id(String) -> String
 
 pub fn load(result~ : @cmd.Emit[LocalArchiveStorageRead]) -> @cmd.Cmd
@@ -21,7 +23,8 @@ pub fn replace(@repository.LocalArchivePendingWrite, completed~ : @cmd.Emit[Loca
 // Types and methods
 pub(all) enum LocalArchiveStorageRead {
   Missing
-  Loaded(String)
+  LocalText(String)
+  LegacyArchive(String)
   Failed(@repository.LocalArchiveStorageReadFailure)
 } derive(Eq, @debug.Debug)
 

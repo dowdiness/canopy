@@ -9,11 +9,17 @@ import {
 // Values
 pub fn classify_local_archive_record(String?, agent_id~ : String, policy~ : LocalRestorePolicy) -> LocalArchiveLoad raise
 
+pub fn decode_local_text(String) -> LocalTextDecode
+
+pub fn decode_v1_archive_text(String) -> LocalTextDecode
+
 pub fn history_trigger(@dowdiness/canopy/editor/markdown.MarkdownCommitReceipt) -> LocalArchivePersistenceDecision
 
 pub fn prepare_local_archive(document_id~ : @archive.LoomarkDocumentId, editor~ : @dowdiness/canopy/editor/markdown.MarkdownEditor) -> PreparedLocalArchive raise
 
 pub fn prepare_local_archive_observing(document_id~ : @archive.LoomarkDocumentId, editor~ : @dowdiness/canopy/editor/markdown.MarkdownEditor, (@archive.LoomarkArchivePreparationPhase) -> Unit) -> PreparedLocalArchive raise
+
+pub fn prepare_local_text(document_id~ : @archive.LoomarkDocumentId, source~ : String) -> PreparedLocalArchive
 
 pub fn reopen_decoded_local_archive(@archive.DecodedLoomarkDocumentArchive, agent_id~ : String, policy~ : LocalRestorePolicy) -> ReopenedLocalArchive raise
 
@@ -104,6 +110,12 @@ pub struct LocalRestorePolicy {
 }
 pub fn LocalRestorePolicy::LocalRestorePolicy(@dowdiness/canopy/editor/markdown.MarkdownArchiveOpenLimits) -> Self
 pub fn LocalRestorePolicy::trusted() -> Self
+
+pub(all) enum LocalTextDecode {
+  Valid(document_id~ : @archive.LoomarkDocumentId, source~ : String)
+  UnsupportedArchive(String)
+  Invalid
+} derive(Eq, @debug.Debug)
 
 pub struct PreparedLocalArchive {
   // private fields

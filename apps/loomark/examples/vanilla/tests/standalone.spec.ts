@@ -4,6 +4,7 @@ const ARCHIVE_DATABASE_NAME = "loomark.local-repository"
 const ARCHIVE_DATABASE_VERSION = 1
 const ARCHIVE_STORE_NAME = "archives"
 const ARCHIVE_KEY = "loomark.active-document-archive"
+const LOCAL_TEXT_KEY = "loomark.active-document-text"
 
 type ArchiveRecord = {
   exists: boolean
@@ -17,7 +18,10 @@ type ArchiveEnvelope = {
   [key: string]: unknown
 }
 
-async function readArchiveRecord(page: Page): Promise<ArchiveRecord> {
+async function readArchiveRecord(
+  page: Page,
+  key = ARCHIVE_KEY,
+): Promise<ArchiveRecord> {
   return page.evaluate(({ databaseName, storeName, key }) => new Promise<ArchiveRecord>((resolve, reject) => {
     let open: IDBOpenDBRequest
     try {
@@ -82,11 +86,15 @@ async function readArchiveRecord(page: Page): Promise<ArchiveRecord> {
   }), {
     databaseName: ARCHIVE_DATABASE_NAME,
     storeName: ARCHIVE_STORE_NAME,
-    key: ARCHIVE_KEY,
+    key,
   })
 }
 
-async function writeArchiveRecord(page: Page, value: unknown): Promise<void> {
+async function writeArchiveRecord(
+  page: Page,
+  value: unknown,
+  key = ARCHIVE_KEY,
+): Promise<void> {
   await page.evaluate(({ databaseName, databaseVersion, storeName, key, value }) => new Promise<void>((resolve, reject) => {
     const open = indexedDB.open(databaseName, databaseVersion)
     open.onupgradeneeded = () => {
@@ -132,13 +140,34 @@ async function writeArchiveRecord(page: Page, value: unknown): Promise<void> {
     databaseName: ARCHIVE_DATABASE_NAME,
     databaseVersion: ARCHIVE_DATABASE_VERSION,
     storeName: ARCHIVE_STORE_NAME,
-    key: ARCHIVE_KEY,
+    key,
     value,
   })
 }
 
+async function deleteArchiveRecord(page: Page, key: string): Promise<void> {
+  await page.evaluate(({ databaseName, storeName, key }) => new Promise<void>((resolve, reject) => {
+    const open = indexedDB.open(databaseName)
+    open.onerror = () => reject(open.error)
+    open.onsuccess = () => {
+      const database = open.result
+      const transaction = database.transaction(storeName, "readwrite")
+      transaction.onerror = () => reject(transaction.error)
+      transaction.oncomplete = () => {
+        database.close()
+        resolve()
+      }
+      transaction.objectStore(storeName).delete(key)
+    }
+  }), {
+    databaseName: ARCHIVE_DATABASE_NAME,
+    storeName: ARCHIVE_STORE_NAME,
+    key,
+  })
+}
+
 async function readArchiveEnvelope(page: Page): Promise<ArchiveEnvelope | null> {
-  const record = await readArchiveRecord(page)
+  const record = await readArchiveRecord(page, LOCAL_TEXT_KEY)
   if (!record.exists || typeof record.value !== "string") return null
   try {
     const parsed: unknown = JSON.parse(record.value)
@@ -148,8 +177,11 @@ async function readArchiveEnvelope(page: Page): Promise<ArchiveEnvelope | null> 
   }
 }
 
-async function readArchiveRaw(page: Page): Promise<string | null> {
-  const record = await readArchiveRecord(page)
+async function readArchiveRaw(
+  page: Page,
+  key = LOCAL_TEXT_KEY,
+): Promise<string | null> {
+  const record = await readArchiveRecord(page, key)
   return record.exists && typeof record.value === "string" ? record.value : null
 }
 
@@ -214,13 +246,13 @@ async function replaceRawValue(input: Locator, value: string): Promise<void> {
  * | boundary | case | required observation |
  * | production boot | clean Warren static output | exactly one visible Loomark root mounts into the declared host |
  * | production isolation | first load and ordinary interaction | private driver DOM and JavaScript exports are absent |
- * | canonical editing | Raw, Block, Preview, and split Preview | every accepted edit converges on one canonical source |
- * | root ownership | mode, document, and viewport changes | state changes inside the existing root without a second mount |
- * | responsive shell | desktop and narrow viewport | editor chrome remains usable and split Preview stacks when required |
+ * | canonical editing | source-only Raw | every accepted edit replaces the LocalText record |
+ * | root ownership | document changes | state changes inside the existing root without a second mount |
  * | release output | clean rebuild and ordinary static server | page, release JavaScript, and declared public assets load without dev inputs |
  * | page lifetime | reload or close | the page ends ownership without claiming unmount or host reuse |
- * | local baseline | first visit with an empty repository | one complete archive establishes the active document identity |
- * | local durability | accepted edit then reload | the complete archive reopens with stable document identity and durable source |
+ * | local baseline | first visit with an empty repository | one LocalText record establishes the active document identity |
+ * | local durability | accepted edit then reload | LocalText reopens with stable document identity and durable source |
+ * | compatibility | legacy v1 fallback | source opens without history decode and v1 bytes remain untouched |
  * | recovery | corrupt, unsupported, or unreadable record | storage remains unchanged and no editable document mounts |
  * | replacement failure | accepted edit after provider failure | applied source remains visible and reload restores the prior durable archive |
  */
@@ -302,15 +334,16 @@ test("standalone projection Worker passes Gate 0C parity, restart, timeout, and 
   expect(report.promotion_rejection).toBe("release-browser-placement-evidence-required")
 })
 
-test("first standalone visit stores a complete baseline archive", async ({ page }) => {
+test("first standalone visit stores a LocalText baseline", async ({ page }) => {
   await page.goto("/")
 
   await expect(page.locator("#loomark-root")).toBeVisible()
   await waitForBaseline(page)
   const baseline = await readArchiveEnvelope(page)
   expect(baseline?.document_id).toBeTruthy()
+  expect(baseline?.format).toBe("loomark-local-text-v1")
   expect(baseline?.portable_markdown).toBe("")
-  expect(baseline?.history).toBeTruthy()
+  expect(baseline?.history).toBeUndefined()
 })
 
 test("standalone IME commits one non-BMP final value and ignores cancellation", async ({ page }) => {
@@ -373,11 +406,36 @@ test("standalone edit replaces the archive and reload restores the durable sourc
     .toBe(documentId)
 })
 
+test("legacy v1 source opens without history decode and remains untouched", async ({ page }) => {
+  const legacyArchive = JSON.stringify({
+    schema_version: "1",
+    document_id: "legacy-source-document",
+    portable_markdown: "# Legacy source\n",
+    history: "not-decoded",
+    extensions: {},
+  })
+  await page.goto("/")
+  await waitForBaseline(page)
+  await deleteArchiveRecord(page, LOCAL_TEXT_KEY)
+  await writeArchiveRecord(page, legacyArchive, ARCHIVE_KEY)
+
+  await page.reload()
+  const input = page.locator("#loomark-input")
+  await expect(input).toHaveValue("# Legacy source\n")
+  await expect.poll(() => readArchiveRaw(page, ARCHIVE_KEY)).toBe(legacyArchive)
+
+  await replaceRawValue(input, "# Local edit\n")
+  await expect.poll(() => readArchiveEnvelope(page).then(record => record?.portable_markdown))
+    .toBe("# Local edit\n")
+  await expect.poll(() => readArchiveRaw(page, ARCHIVE_KEY)).toBe(legacyArchive)
+})
+
 test("corrupt IDB archives mount a recovery view without an editor", async ({ page }) => {
   const corruptArchive = "not-json"
   await page.goto("/")
   await waitForBaseline(page)
-  await writeArchiveRecord(page, corruptArchive)
+  await deleteArchiveRecord(page, LOCAL_TEXT_KEY)
+  await writeArchiveRecord(page, corruptArchive, ARCHIVE_KEY)
   await page.evaluate(({ key, value }) => localStorage.setItem(key, value), {
     key: ARCHIVE_KEY,
     value: JSON.stringify({ schema_version: "1", document_id: "legacy", portable_markdown: "", history: "", extensions: {} }),
@@ -390,7 +448,7 @@ test("corrupt IDB archives mount a recovery view without an editor", async ({ pa
     "corrupt-archive",
   )
   await expect(page.locator("#loomark-input")).toHaveCount(0)
-  await expect.poll(() => readArchiveRaw(page)).toBe(corruptArchive)
+  await expect.poll(() => readArchiveRaw(page, ARCHIVE_KEY)).toBe(corruptArchive)
 })
 
 test("unsupported IDB archives remain preserved behind recovery", async ({ page }) => {
@@ -403,14 +461,15 @@ test("unsupported IDB archives remain preserved behind recovery", async ({ page 
   })
   await page.goto("/")
   await waitForBaseline(page)
-  await writeArchiveRecord(page, unsupportedArchive)
+  await deleteArchiveRecord(page, LOCAL_TEXT_KEY)
+  await writeArchiveRecord(page, unsupportedArchive, ARCHIVE_KEY)
   await page.reload()
 
   await expect(page.locator("#loomark-recovery-root")).toHaveAttribute(
     "data-loomark-recovery-category",
     "unsupported-archive",
   )
-  await expect.poll(() => readArchiveRaw(page)).toBe(unsupportedArchive)
+  await expect.poll(() => readArchiveRaw(page, ARCHIVE_KEY)).toBe(unsupportedArchive)
   await expect(page.locator("#loomark-input")).toHaveCount(0)
 })
 
@@ -439,8 +498,8 @@ test("a failed replacement keeps the applied source but reload restores the prev
   await expect.poll(() => readArchiveEnvelope(page).then(archive => archive?.portable_markdown))
     .toBe("# Previous\n")
 
-  await page.addInitScript(installArchivePutFailure, ARCHIVE_KEY)
-  await page.evaluate(installArchivePutFailure, ARCHIVE_KEY)
+  await page.addInitScript(installArchivePutFailure, LOCAL_TEXT_KEY)
+  await page.evaluate(installArchivePutFailure, LOCAL_TEXT_KEY)
   await replaceRawValue(page.locator("#loomark-input"), "# Applied\n")
   await expect(page.locator("#loomark-input")).toHaveValue("# Applied\n")
   await expect(page.locator("#loomark-error")).toContainText(
@@ -460,8 +519,8 @@ test("explicit local persistence retry clears the applied-but-unsaved state", as
   await expect.poll(() => readArchiveEnvelope(page).then(archive => archive?.portable_markdown))
     .toBe("# Previous\n")
 
-  await page.addInitScript(installArchivePutFailure, ARCHIVE_KEY)
-  await page.evaluate(installArchivePutFailure, ARCHIVE_KEY)
+  await page.addInitScript(installArchivePutFailure, LOCAL_TEXT_KEY)
+  await page.evaluate(installArchivePutFailure, LOCAL_TEXT_KEY)
   await replaceRawValue(page.locator("#loomark-input"), "# Applied\n")
   await expect(page.locator("#loomark-error")).toContainText(
     "Changes are applied but not saved locally.",
@@ -488,7 +547,7 @@ test("legacy local archives migrate once and remain readable from IDB", async ({
     "data-loomark-recovery-category",
     "corrupt-archive",
   )
-  await expect.poll(() => readArchiveRaw(page)).toBe(legacyArchive)
+  await expect.poll(() => readArchiveRaw(page, ARCHIVE_KEY)).toBe(legacyArchive)
   await expect.poll(() => page.evaluate(key => localStorage.getItem(key), ARCHIVE_KEY)).toBeNull()
 })
 
@@ -519,7 +578,7 @@ test("production output boots one instrumentation-free Loomark root", async ({ p
   expect(pageErrors).toEqual([])
 })
 
-test("Raw, Block, and Preview editing stays inside the original production root", async ({ page }) => {
+test("standalone LocalText exposes only the Raw surface", async ({ page }) => {
   await page.goto("/")
   const root = page.locator("#loomark-root")
   await expect(root).toBeVisible()
@@ -527,217 +586,18 @@ test("Raw, Block, and Preview editing stays inside the original production root"
     "data-loomark-projection-placement",
     "synchronous",
   )
-  await root.evaluate(element => element.setAttribute("data-mount-probe", "original"))
+  await expect(page.getByRole("tab", { name: "Raw Markdown" })).toHaveCount(1)
+  await expect(page.getByRole("tab")).toHaveCount(1)
+  await expect(page.locator("#loomark-mode-block")).toHaveCount(0)
+  await expect(page.locator("#loomark-mode-preview")).toHaveCount(0)
+  await expect(page.locator("#loomark-split-toggle")).toHaveCount(0)
 
-  await replaceRawValue(page.locator("#loomark-input"), "# Before\n\nBody\n")
-  await page.locator("#loomark-mode-block").click()
-  await expect(page.locator("#loomark-block-input")).toHaveValue("Before")
-  await page.locator("#loomark-block-input").fill("After")
-  await expect(page.locator("#loomark-block")).toHaveAttribute(
-    "data-loomark-source",
-    "# After\n\nBody\n",
-  )
+  await replaceRawValue(page.locator("#loomark-input"), "# Raw only\n")
+  await expect.poll(() =>
+    readArchiveEnvelope(page).then(record => record?.portable_markdown),
+  ).toBe("# Raw only\n")
 
-  await page.locator("#loomark-mode-preview").click()
-  await expect(page.locator('#loomark-preview h1[data-slot="typography-h1"]')).toHaveText(
-    "After",
-  )
-  await expect(page.locator("#loomark-preview p")).toHaveText("Body")
-  await expect(root).toHaveAttribute("data-mount-probe", "original")
+  await page.reload()
+  await expect(page.locator("#loomark-input")).toHaveValue("# Raw only\n")
   await expect(root).toHaveCount(1)
-})
-
-for (const placement of ["worker", "in-process", "synchronous"] as const) {
-  test(`${placement} comparison placement preserves canonical Preview`, async ({ page }) => {
-    await page.goto(`/?projection-placement=${placement}`)
-    const root = page.locator("#loomark-root")
-    await expect(root).toHaveAttribute("data-loomark-projection-placement", placement)
-    await replaceRawValue(page.locator("#loomark-input"), "# Placement\n\nBody\n")
-    await page.locator("#loomark-mode-preview").click()
-    await expect(page.locator('#loomark-preview h1[data-slot="typography-h1"]')).toHaveText(
-      "Placement",
-    )
-    await expect(page.locator("#loomark-preview p")).toHaveText("Body")
-    await expect(page.locator("#loomark-preview")).toHaveAttribute(
-      "data-loomark-source",
-      "# Placement\n\nBody\n",
-    )
-  })
-}
-
-test("projection trace is absent by default and records only after explicit opt-in", async ({
-  page,
-}) => {
-  await page.goto("/")
-  await expect(page.locator("#loomark-projection-trace-dump")).toHaveCount(0)
-  await expect(page.locator("html")).not.toHaveAttribute(
-    "data-loomark-projection-trace",
-    /.+/,
-  )
-
-  await page.goto("/?projection-benchmark=1&persistence-trace=1")
-  await replaceRawValue(page.locator("#loomark-input"), "# Trace\n\nBody\n")
-  await page.locator("#loomark-mode-preview").click()
-  await expect(page.locator("#loomark-preview p")).toHaveText("Body")
-  await page.locator("#loomark-projection-trace-dump").dispatchEvent("click")
-  const trace = await page.locator("html").getAttribute("data-loomark-projection-trace")
-  expect(trace).not.toBeNull()
-  const report = JSON.parse(trace ?? "{}") as {
-    enabled?: boolean
-    count?: number
-    dropped_count?: number
-    overflowed?: boolean
-    contract_violated?: boolean
-  }
-  expect(report.enabled).toBe(true)
-  expect(report.count).toBeGreaterThan(0)
-  expect(report.dropped_count).toBe(0)
-  expect(report.overflowed).toBe(false)
-  expect(report.contract_violated).toBe(false)
-})
-
-test("ordinary consecutive Block input preserves both characters and the caret", async ({ page }) => {
-  await page.goto("/")
-  await replaceRawValue(page.locator("#loomark-input"), "x")
-  await page.locator("#loomark-mode-block").click()
-
-  const input = page.locator("#loomark-block-input")
-  const block = page.locator("#loomark-block")
-  await expect(input).toHaveValue("x")
-
-  await input.selectText()
-  await input.pressSequentially("a")
-  await expect(block).toHaveAttribute("data-loomark-source", "a")
-  await expect(input).toHaveValue("a")
-  await expect
-    .poll(() => input.evaluate(element => ({
-      start: (element as HTMLTextAreaElement).selectionStart,
-      end: (element as HTMLTextAreaElement).selectionEnd,
-    })))
-    .toEqual({ start: 1, end: 1 })
-
-  await input.pressSequentially("b")
-  await expect(block).toHaveAttribute("data-loomark-source", "ab")
-  await expect(input).toHaveValue("ab")
-  await expect
-    .poll(() => input.evaluate(element => ({
-      start: (element as HTMLTextAreaElement).selectionStart,
-      end: (element as HTMLTextAreaElement).selectionEnd,
-    })))
-    .toEqual({ start: 2, end: 2 })
-  await expect(page.locator("#loomark-error")).toHaveCount(0)
-})
-
-test("Block input preserves the latest value when two events arrive before redraw", async ({ page }) => {
-  await page.goto("/")
-  await replaceRawValue(page.locator("#loomark-input"), "x")
-  await page.locator("#loomark-mode-block").click()
-  const input = page.locator("#loomark-block-input")
-  const block = page.locator("#loomark-block")
-  await expect(input).toHaveValue("x")
-
-  await input.evaluate(element => {
-    const textarea = element as HTMLTextAreaElement
-    textarea.value = "a"
-    textarea.setSelectionRange(1, 1)
-    textarea.dispatchEvent(new InputEvent("input", {
-      bubbles: true,
-      composed: true,
-      data: "a",
-      inputType: "insertText",
-    }))
-
-    textarea.value = "ab"
-    textarea.setSelectionRange(2, 2)
-    textarea.dispatchEvent(new InputEvent("input", {
-      bubbles: true,
-      composed: true,
-      data: "b",
-      inputType: "insertText",
-    }))
-  })
-
-  await expect(block).toHaveAttribute("data-loomark-source", "ab")
-  await expect(input).toHaveValue("ab")
-  await expect
-    .poll(() => input.evaluate(element => ({
-      start: (element as HTMLTextAreaElement).selectionStart,
-      end: (element as HTMLTextAreaElement).selectionEnd,
-    })))
-    .toEqual({ start: 2, end: 2 })
-  await expect(page.locator("#loomark-error")).toHaveCount(0)
-})
-
-test("Preview wraps long unbreakable content inside the reading frame", async ({ page }) => {
-  await page.goto("/")
-  const longUrl = `https://example.com/${`a`.repeat(200)}`
-  const source =
-    `# Long content\n\nVisit ${longUrl} and read this paragraph.\n\nInline code: \`${`x`.repeat(150)}\`\n`
-  await replaceRawValue(page.locator("#loomark-input"), source)
-  await page.locator("#loomark-mode-preview").click()
-  const preview = page.locator("#loomark-preview")
-  await expect(preview).toHaveAttribute("data-loomark-source", source)
-  // Long URLs and inline code wrap inside the reading frame instead of
-  // stretching the Preview pane into a horizontal scroll.
-  await expect
-    .poll(async () => preview.evaluate(el => el.scrollWidth > el.clientWidth))
-    .toBe(false)
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () => document.documentElement.scrollWidth > window.innerWidth,
-      ),
-    )
-    .toBe(false)
-})
-
-test("frames stay borderless and only the split divider separates panes", async ({ page }) => {
-  await page.goto("/")
-
-  const raw = page.locator("#loomark-input")
-  // Raw keeps RUI's transparent control border; no side rail is drawn.
-  await expect(raw).toHaveCSS("border-left-color", "rgba(0, 0, 0, 0)")
-  await expect(raw).toHaveCSS("border-right-color", "rgba(0, 0, 0, 0)")
-  await expect(raw).toHaveCSS("padding-left", "16px")
-
-  await page.setViewportSize({ width: 640, height: 844 })
-  await replaceRawValue(raw, "# Narrow\n")
-  await page.locator("#loomark-split-toggle").click()
-
-  const split = page.locator("#loomark-split")
-  await expect(split).toHaveAttribute("data-orientation", "vertical")
-  await expect(split.locator('[data-slot="resizable-handle"]')).toHaveAttribute(
-    "aria-orientation",
-    "horizontal",
-  )
-  // The resizable handle line is the only divider between the panes.
-  await expect(
-    split.locator('[data-slot="resizable-handle-line"]'),
-  ).toBeVisible()
-
-  const preview = page.locator("#loomark-preview")
-  await expect(preview).toHaveAttribute("data-loomark-source", "# Narrow\n")
-  // Raw keeps RUI's transparent control border (1px, no visible rail);
-  // Preview carries no side border at all. Neither frame draws a rail.
-  await expect(raw).toHaveCSS("border-left-color", "rgba(0, 0, 0, 0)")
-  await expect(raw).toHaveCSS("border-right-color", "rgba(0, 0, 0, 0)")
-  await expect(preview).toHaveCSS("border-left-width", "0px")
-  await expect(preview).toHaveCSS("border-right-width", "0px")
-  for (const frame of [raw, preview]) {
-    await expect(frame).toHaveCSS("padding-left", "12px")
-    await expect(frame).toHaveCSS("padding-right", "12px")
-    await expect(frame).toHaveCSS("width", "640px")
-  }
-
-  await page.locator("#loomark-mode-block").click()
-  await expect(page.locator("#loomark-block")).toHaveCSS("padding-left", "12px")
-  const blockFrame = page.locator("#loomark-block-frame")
-  await expect(blockFrame).toHaveCSS("border-left-width", "0px")
-  await expect(blockFrame).toHaveCSS("border-right-width", "0px")
-  await expect(blockFrame).toHaveCSS("width", "640px")
-  await expect(page.getByRole("toolbar", { name: "Block formatting" })).toHaveCSS(
-    "padding-left",
-    "12px",
-  )
-  await expect(page.locator("#loomark-root")).toHaveCount(1)
 })

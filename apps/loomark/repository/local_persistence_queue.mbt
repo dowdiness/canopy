@@ -135,7 +135,9 @@ pub fn LocalArchivePersistenceQueue::status(
       )
     None =>
       match self.durable {
-        Some(durable) if durable == self.current =>
+        Some(durable) if durable == self.current &&
+          self.in_flight is None &&
+          self.pending_latest is None =>
           LocalArchivePersistenceStatus::DurableLocal(self.current)
         _ =>
           LocalArchivePersistenceStatus::Applied(

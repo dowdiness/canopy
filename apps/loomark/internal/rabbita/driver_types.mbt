@@ -4,6 +4,7 @@
 /// from the mode gate (driver source replacement works in any mode).
 priv enum EditingEvent {
   ReplaceSource(String)
+  LocalTextInput(String)
   RawInput(String, @dom_boundary.TextSelection?)
   RawNativeInput(token~ : Int, candidate~ : RawNativeInputCandidate)
   RawSelectionEdit(RawSelectionEditRequest)

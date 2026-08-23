@@ -273,6 +273,38 @@ test "persistence queue reports applied then durable local" {
 }
 
 ///|
+test "persistence queue waits for the latest same-version source" {
+  let (editor, document_id, version) = queue_document(
+    "repository-same-version", "doc-same-version", "",
+  )
+  let queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
+    document_id~,
+    queue_epoch="repository-same-version",
+    current=version,
+    durable=None,
+  )
+  let first = prepare_local_text(document_id~, source="one")
+  let second = prepare_local_text(document_id~, source="two")
+  let (queue, first_write) = queue.enqueue(
+    document_version=version,
+    archive=first,
+  )
+  guard first_write is Some(first_write) else { fail("expected first write") }
+  let (queue, _) = queue.enqueue(document_version=version, archive=second)
+  let (queue, completion) = queue.complete(
+    first_write,
+    LocalArchiveWriteOutcome::Stored,
+  )
+  guard completion is LocalArchiveQueueCompletion::Promoted(promoted) else {
+    fail("expected latest source promotion")
+  }
+  assert_true(queue.status() is LocalArchivePersistenceStatus::Applied(..))
+  let (queue, _) = queue.complete(promoted, LocalArchiveWriteOutcome::Stored)
+  assert_true(queue.status() is LocalArchivePersistenceStatus::DurableLocal(_))
+  ignore(editor)
+}
+
+///|
 test "persistence queue coalesces and promotes the latest archive" {
   let (editor, document_id, initial_version) = queue_document(
     "repository-queue-coalesce", "doc-queue-coalesce", "zero",
@@ -754,4 +786,37 @@ test "reopen preserves identity and history for continued convergence" {
   )
   assert_eq(reopened.editor().snapshot().source(), peer.snapshot().source())
   reopened.attachment().dispose()
+}
+
+///|
+test "LocalText decodes source without constructing an editor" {
+  let document_id = @archive.LoomarkDocumentId::from_string(
+    "local-text-source-only-document",
+  ) catch {
+    _ => abort("test document ID must be valid")
+  }
+  let prepared = prepare_local_text(document_id~, source="alpha\nβeta 🪶\n")
+  assert_eq(
+    decode_local_text(prepared.encoded()),
+    LocalTextDecode::Valid(document_id~, source="alpha\nβeta 🪶\n"),
+  )
+}
+
+///|
+test "legacy v1 fallback reads source without decoding history" {
+  let encoded =
+    #|{"schema_version":"1","document_id":"legacy-document","portable_markdown":"# Legacy\n","history":"not-decoded","extensions":{}}
+  match decode_v1_archive_text(encoded) {
+    LocalTextDecode::Valid(document_id~, source~) => {
+      assert_eq(document_id.value(), "legacy-document")
+      assert_eq(source, "# Legacy\n")
+    }
+    _ => fail("expected legacy source fallback")
+  }
+  let unsupported =
+    #|{"schema_version":"2","document_id":"future","portable_markdown":"","history":"","extensions":{}}
+  assert_eq(
+    decode_v1_archive_text(unsupported),
+    LocalTextDecode::UnsupportedArchive("2"),
+  )
 }

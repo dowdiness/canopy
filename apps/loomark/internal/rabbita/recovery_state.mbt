@@ -1,8 +1,10 @@
 ///|
-/// Runtime health of the mutable editor session. RawRecovery is terminal for
-/// this mount: the user must explicitly reload before another editor exists.
+/// Runtime health of the mutable editor session. LocalText owns standalone Raw
+/// editing without constructing CRDT state. RawRecovery is terminal for this
+/// mount: the user must explicitly reload before another editor exists.
 priv enum EditorRuntimeState {
   Healthy
+  LocalText(String)
   Restarting
   RawRecovery(String)
 } derive(Eq)
@@ -43,6 +45,8 @@ fn reduce_editor_runtime(
       )
     (Restarting, EditorRecoveryEvent::Failure) =>
       (EditorRuntimeState::RawRecovery(""), EditorRecoveryDecision::Continue)
+    (LocalText(source), _) =>
+      (EditorRuntimeState::LocalText(source), EditorRecoveryDecision::Reject)
     (RawRecovery(source), _) =>
       (EditorRuntimeState::RawRecovery(source), EditorRecoveryDecision::Reject)
     _ => (state, EditorRecoveryDecision::Reject)
