@@ -7,6 +7,10 @@ let mounted : @ref.Ref[Bool] = { val: false }
 let detached_snapshot : @ref.Ref[String] = { val: "{}" }
 
 ///|
+extern "js" fn read_textarea_value(id : String) -> String =
+  #| id => document.getElementById(id)?.value ?? ""
+
+///|
 const HELLO_EXAMPLE_SOURCE : String = "# Hello World\n\nWelcome to the Canopy Markdown editor.\n\nThis editor has three modes: raw, block, and preview.\n"
 
 ///|
@@ -192,6 +196,7 @@ fn mode_name(mode : @core.ApplicationMode) -> String {
 fn runtime_state_name(state : EditorRuntimeState) -> String {
   match state {
     EditorRuntimeState::Healthy => "healthy"
+    EditorRuntimeState::LocalText(_) => "local-text"
     EditorRuntimeState::Restarting => "restarting"
     EditorRuntimeState::RawRecovery(_) => "raw-recovery"
   }
@@ -200,7 +205,8 @@ fn runtime_state_name(state : EditorRuntimeState) -> String {
 ///|
 fn runtime_source(model : DriverModel) -> String {
   match model.runtime_state {
-    EditorRuntimeState::RawRecovery(source) => source
+    EditorRuntimeState::LocalText(source)
+    | EditorRuntimeState::RawRecovery(source) => source
     _ => model.document.source()
   }
 }
@@ -443,7 +449,12 @@ fn raw_editor_view(
   emit : @cmd.Emit[DriverEvent],
   raw_input_coordinator : RawInputCoordinator,
 ) -> @rabbita_runtime.Html {
-  let source = raw_input_coordinator.display_source(model.document.source())
+  let local_text = model.runtime_state is EditorRuntimeState::LocalText(_)
+  let source = if local_text {
+    runtime_source(model)
+  } else {
+    raw_input_coordinator.display_source(model.document.source())
+  }
   @html.div(
     style=[
       "box-sizing:border-box;width:100%;min-width:0;overflow-y:auto;overflow-x:hidden",
@@ -455,6 +466,9 @@ fn raw_editor_view(
       attrs=@html.Attrs::build()
         .aria_label("Raw Markdown source")
         .on_compositionstart(_ => {
+          if local_text {
+            return @rabbita_runtime.none
+          }
           match read_raw_selection() {
             Some(selection) =>
               ignore(
@@ -467,6 +481,11 @@ fn raw_editor_view(
           @rabbita_runtime.none
         })
         .on_compositionend(_ => {
+          if local_text {
+            return emit(
+              Editing(LocalTextInput(read_textarea_value("loomark-input"))),
+            )
+          }
           @cmd.batch([
             raw_input_coordinator.finish_composition(
               model.document.source(),
@@ -476,9 +495,21 @@ fn raw_editor_view(
           ])
         })
         .on_beforeinput(event => {
-          raw_input_coordinator.capture_native_before_input(model, event)
+          if local_text {
+            @rabbita_runtime.none
+          } else {
+            raw_input_coordinator.capture_native_before_input(model, event)
+          }
         })
         .on_input(event => {
+          if local_text {
+            if raw_input_event_is_composing(event) {
+              return @rabbita_runtime.none
+            }
+            return emit(
+              Editing(LocalTextInput(read_textarea_value("loomark-input"))),
+            )
+          }
           if raw_input_event_is_composing(event) {
             raw_input_coordinator.suppress_composing_input_repair()
           }
@@ -488,6 +519,9 @@ fn raw_editor_view(
         "display:block;min-width:0;min-height:clamp(24rem,70vh,36rem);width:var(--lm-page-width);margin-inline:auto;field-sizing:content;resize:none;overflow:hidden;--rui-control-base-border:transparent;--rui-control-base-shadow:none;background:transparent;padding:1rem var(--lm-page-x-padding);font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,\"Liberation Mono\",\"Courier New\",monospace;font-size:1.125rem;line-height:1.65",
       ],
       on_input=@cmd.Emit(source => {
+        if local_text {
+          return @rabbita_runtime.none
+        }
         match read_raw_selection() {
           Some(selection) =>
             if raw_input_coordinator.update_composition(source, selection) {
@@ -565,6 +599,7 @@ fn preview_view(
   active_view : @rabbita_runtime.Html,
   driver_controls : @rabbita_runtime.Html,
 ) -> @rabbita_runtime.Html {
+  let local_text = model.runtime_state is EditorRuntimeState::LocalText(_)
   let raw_selected = model.state.mode() == @core.Raw
   let block_selected = model.state.mode() == @core.Block
   let preview_selected = model.state.mode() == @core.Preview
@@ -609,23 +644,27 @@ fn preview_view(
   // affordance visible but disabled so the limitation is explicit. The toggle
   // stays enabled while a split is already open (e.g. after switching modes).
   let split_disabled = preview_selected && !model.split_preview_open
-  let split_toggle = @rui.button(
-    id="loomark-split-toggle",
-    variant=@rui.Ghost,
-    size=@rui.IconSm,
-    disabled=split_disabled,
-    attrs=@html.Attrs::build()
-      .aria_label(
-        if model.split_preview_open {
-          "Close split Preview"
-        } else {
-          "Open split Preview"
-        },
-      )
-      .aria_pressed(model.split_preview_open.to_string()),
-    on_click=emit(Navigation(ToggleSplitPreview)),
-    mode_icon("M4 4h6v16H4V4Zm10 0h6v16h-6V4Z"),
-  )
+  let split_toggle = if local_text {
+    @html.nothing
+  } else {
+    @rui.button(
+      id="loomark-split-toggle",
+      variant=@rui.Ghost,
+      size=@rui.IconSm,
+      disabled=split_disabled,
+      attrs=@html.Attrs::build()
+        .aria_label(
+          if model.split_preview_open {
+            "Close split Preview"
+          } else {
+            "Open split Preview"
+          },
+        )
+        .aria_pressed(model.split_preview_open.to_string()),
+      on_click=emit(Navigation(ToggleSplitPreview)),
+      mode_icon("M4 4h6v16H4V4Zm10 0h6v16h-6V4Z"),
+    )
+  }
   let examples = @html.div(
     attrs=@html.Attrs::build().role("toolbar").aria_label("Example documents"),
     style=[
@@ -746,7 +785,11 @@ fn preview_view(
                         aria_label="Editor view",
                         id="loomark-toolbar",
                         style=["min-height:3.25rem;padding:0;overflow:visible"],
-                        [block_button, raw_button, preview_button],
+                        if local_text {
+                          [raw_button]
+                        } else {
+                          [block_button, raw_button, preview_button]
+                        },
                       ),
                       split_toggle,
                     ],
@@ -866,6 +909,7 @@ fn driver_event_name(event : DriverEvent) -> String {
     Editing(edit_event) =>
       match edit_event {
         ReplaceSource(_) => "source"
+        LocalTextInput(_) => "local-text-input"
         RawInput(_, _) => "raw-input"
         RawNativeInput(..) => "raw-native-input"
         RawSelectionEdit(_) => "raw-selection-edit"
@@ -1101,7 +1145,10 @@ fn editing_mode_applicable(
 ) -> String? {
   match event {
     ReplaceSource(_) | ProbeBlockSelection(_) | RawNativeInput(..) => None
-    RawInput(_, _) | RawSelectionEdit(_) | CommitCapturedRawSelection(_) =>
+    LocalTextInput(_)
+    | RawInput(_, _)
+    | RawSelectionEdit(_)
+    | CommitCapturedRawSelection(_) =>
       if mode == @core.Raw || (mode == @core.Preview && split_preview_open) {
         None
       } else {
@@ -1170,6 +1217,40 @@ fn update_editing(
     }
     None =>
       match event {
+        LocalTextInput(source) =>
+          match model.runtime_state {
+            EditorRuntimeState::LocalText(previous) => {
+              raw_input_coordinator.cancel_pending()
+              if source == previous {
+                (model, @rabbita_runtime.none)
+              } else {
+                local_text_replacement(
+                  {
+                    ..model,
+                    runtime_state: EditorRuntimeState::LocalText(source),
+                    source_revision: model.source_revision + 1,
+                    text_input_generation: model.text_input_generation + 1,
+                    committed_change_count: model.committed_change_count + 1,
+                    error: None,
+                    error_code: None,
+                    error_operation: None,
+                  },
+                  source,
+                  emit,
+                )
+              }
+            }
+            _ =>
+              (
+                {
+                  ..model,
+                  rejection: Some(
+                    "operation=local-text-input;reason=local-text-inactive",
+                  ),
+                },
+                @rabbita_runtime.none,
+              )
+          }
         RawNativeInput(token~, candidate~) => {
           raw_input_coordinator.mark_reducer_started(token)
           let request = normalize_raw_input_candidate(model, candidate)
@@ -1303,6 +1384,19 @@ fn update_editing(
           (next, @cmd.batch([persistence_command, selection_command]))
         }
         ReplaceSource(source) | RawInput(source, _) => {
+          if model.runtime_state is EditorRuntimeState::LocalText(_) {
+            return update_editing(
+              editor,
+              attachment,
+              raw_input_coordinator,
+              block_input_coordinator,
+              model,
+              latest_model,
+              LocalTextInput(source),
+              emit,
+              projection_session?,
+            )
+          }
           let raw_input_epoch = raw_input_coordinator.epoch()
           let raw_selection = match event {
             RawInput(_, selection) => selection
@@ -1929,6 +2023,23 @@ fn update_navigation(
   emit : @cmd.Emit[DriverEvent],
   projection_session? : @ref.Ref[ProjectionSession?],
 ) -> (DriverModel, @cmd.Cmd) {
+  if model.runtime_state is EditorRuntimeState::LocalText(_) {
+    match event {
+      SelectBlock
+      | SelectPreview
+      | ToggleSplitPreview
+      | FocusBlock
+      | FocusPreview =>
+        return (
+          {
+            ..model,
+            rejection: Some("operation=navigation;reason=local-text-raw-only"),
+          },
+          @rabbita_runtime.none,
+        )
+      _ => ()
+    }
+  }
   match event {
     SelectRaw | SelectBlock | SelectPreview => {
       // The outer or-pattern already narrowed `event` to the Select*

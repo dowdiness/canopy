@@ -4,6 +4,7 @@ const ARCHIVE_DATABASE_NAME = "loomark.local-repository"
 const ARCHIVE_DATABASE_VERSION = 1
 const ARCHIVE_STORE_NAME = "archives"
 const ARCHIVE_KEY = "loomark.active-document-archive"
+const LOCAL_TEXT_PROTOTYPE_KEY = "loomark.prototype-local-text"
 
 type ArchiveRecord = {
   exists: boolean
@@ -17,7 +18,10 @@ type ArchiveEnvelope = {
   [key: string]: unknown
 }
 
-async function readArchiveRecord(page: Page): Promise<ArchiveRecord> {
+async function readArchiveRecord(
+  page: Page,
+  key = ARCHIVE_KEY,
+): Promise<ArchiveRecord> {
   return page.evaluate(({ databaseName, storeName, key }) => new Promise<ArchiveRecord>((resolve, reject) => {
     let open: IDBOpenDBRequest
     try {
@@ -82,11 +86,15 @@ async function readArchiveRecord(page: Page): Promise<ArchiveRecord> {
   }), {
     databaseName: ARCHIVE_DATABASE_NAME,
     storeName: ARCHIVE_STORE_NAME,
-    key: ARCHIVE_KEY,
+    key,
   })
 }
 
-async function writeArchiveRecord(page: Page, value: unknown): Promise<void> {
+async function writeArchiveRecord(
+  page: Page,
+  value: unknown,
+  key = ARCHIVE_KEY,
+): Promise<void> {
   await page.evaluate(({ databaseName, databaseVersion, storeName, key, value }) => new Promise<void>((resolve, reject) => {
     const open = indexedDB.open(databaseName, databaseVersion)
     open.onupgradeneeded = () => {
@@ -132,7 +140,7 @@ async function writeArchiveRecord(page: Page, value: unknown): Promise<void> {
     databaseName: ARCHIVE_DATABASE_NAME,
     databaseVersion: ARCHIVE_DATABASE_VERSION,
     storeName: ARCHIVE_STORE_NAME,
-    key: ARCHIVE_KEY,
+    key,
     value,
   })
 }
@@ -148,8 +156,11 @@ async function readArchiveEnvelope(page: Page): Promise<ArchiveEnvelope | null> 
   }
 }
 
-async function readArchiveRaw(page: Page): Promise<string | null> {
-  const record = await readArchiveRecord(page)
+async function readArchiveRaw(
+  page: Page,
+  key = ARCHIVE_KEY,
+): Promise<string | null> {
+  const record = await readArchiveRecord(page, key)
   return record.exists && typeof record.value === "string" ? record.value : null
 }
 
@@ -300,6 +311,54 @@ test("standalone projection Worker passes Gate 0C parity, restart, timeout, and 
   )
   expect(report.promotion_recommended).toBe(false)
   expect(report.promotion_rejection).toBe("release-browser-placement-evidence-required")
+})
+
+test("LocalText standalone restores and saves Raw source without CRDT views", async ({ page }) => {
+  const query = "/?projection-benchmark=1&local-text-prototype=1"
+  const source = "# Fast local\n\nRestored without CRDT 🪶\n"
+  const edited = source + "Saved\n"
+
+  await page.goto(query)
+  await expect(page.locator("#loomark-input")).toBeVisible()
+  await writeArchiveRecord(page, JSON.stringify({
+    prototype_format: "loomark-local-text-prototype-v1",
+    document_id: "local-text-e2e-document",
+    portable_markdown: source,
+  }), LOCAL_TEXT_PROTOTYPE_KEY)
+
+  await page.reload()
+  const input = page.locator("#loomark-input")
+  await expect(input).toHaveValue(source)
+  await expect(page.getByRole("tab")).toHaveCount(1)
+
+  await replaceRawValue(input, edited)
+  await expect.poll(async () => {
+    const raw = await readArchiveRaw(page, LOCAL_TEXT_PROTOTYPE_KEY)
+    return raw === null ? null : JSON.parse(raw).portable_markdown
+  }).toBe(edited)
+})
+
+test("LocalText persists only the committed IME value", async ({ page }) => {
+  await page.goto("/?projection-benchmark=1&local-text-prototype=1")
+  const input = page.locator("#loomark-input")
+  await expect(input).toBeVisible()
+  await input.focus()
+  const session = await page.context().newCDPSession(page)
+
+  await session.send("Input.imeSetComposition", {
+    text: "仮",
+    selectionStart: 1,
+    selectionEnd: 1,
+  })
+  await expect(input).toHaveValue("仮")
+  expect(JSON.parse((await readArchiveRaw(page, LOCAL_TEXT_PROTOTYPE_KEY))!).portable_markdown)
+    .toBe("")
+
+  await session.send("Input.insertText", { text: "確定" })
+  await expect.poll(async () => {
+    const raw = await readArchiveRaw(page, LOCAL_TEXT_PROTOTYPE_KEY)
+    return raw === null ? null : JSON.parse(raw).portable_markdown
+  }).toBe("確定")
 })
 
 test("first standalone visit stores a complete baseline archive", async ({ page }) => {

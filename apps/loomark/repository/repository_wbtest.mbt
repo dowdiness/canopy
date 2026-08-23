@@ -273,6 +273,38 @@ test "persistence queue reports applied then durable local" {
 }
 
 ///|
+test "persistence queue waits for the latest same-version source" {
+  let (editor, document_id, version) = queue_document(
+    "repository-same-version", "doc-same-version", "",
+  )
+  let queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
+    document_id~,
+    queue_epoch="repository-same-version",
+    current=version,
+    durable=None,
+  )
+  let first = prepare_local_text_source_prototype(document_id~, source="one")
+  let second = prepare_local_text_source_prototype(document_id~, source="two")
+  let (queue, first_write) = queue.enqueue(
+    document_version=version,
+    archive=first,
+  )
+  guard first_write is Some(first_write) else { fail("expected first write") }
+  let (queue, _) = queue.enqueue(document_version=version, archive=second)
+  let (queue, completion) = queue.complete(
+    first_write,
+    LocalArchiveWriteOutcome::Stored,
+  )
+  guard completion is LocalArchiveQueueCompletion::Promoted(promoted) else {
+    fail("expected latest source promotion")
+  }
+  assert_true(queue.status() is LocalArchivePersistenceStatus::Applied(..))
+  let (queue, _) = queue.complete(promoted, LocalArchiveWriteOutcome::Stored)
+  assert_true(queue.status() is LocalArchivePersistenceStatus::DurableLocal(_))
+  ignore(editor)
+}
+
+///|
 test "persistence queue coalesces and promotes the latest archive" {
   let (editor, document_id, initial_version) = queue_document(
     "repository-queue-coalesce", "doc-queue-coalesce", "zero",
@@ -757,36 +789,21 @@ test "reopen preserves identity and history for continued convergence" {
 }
 
 ///|
-test "LocalText prototype round-trips through the normal Markdown façade" {
-  let (editor, document_id, _) = queue_document(
-    "local-text-prototype-source", "local-text-prototype-document", "alpha\nβeta 🪶\n",
-  )
-  let prepared = prepare_local_text_prototype(document_id~, editor~)
-  match
-    classify_local_text_prototype_record(
-      Some(prepared.encoded()),
-      agent_id="local-text-prototype-reopened",
-    ) {
-    LocalArchiveLoad::Valid(reopened) => {
-      assert_eq(reopened.document_id(), document_id)
-      assert_eq(reopened.editor().portable_markdown(), "alpha\nβeta 🪶\n")
-      reopened.attachment().dispose()
-    }
-    _ => fail("expected valid LocalText prototype record")
+test "LocalText prototype decodes source without constructing an editor" {
+  let document_id = @archive.LoomarkDocumentId::from_string(
+    "local-text-source-only-document",
+  ) catch {
+    _ => abort("test document ID must be valid")
   }
-}
-
-///|
-test "LocalText prototype rejects records outside its private format" {
-  let malformed =
-    #|{"prototype_format":"other","document_id":"doc","portable_markdown":"text"}
-  match
-    classify_local_text_prototype_record(
-      Some(malformed),
-      agent_id="local-text-prototype-reject",
-    ) {
-    LocalArchiveLoad::Rejected(LocalArchiveLoadFailure::MalformedArchive(_)) =>
-      ()
-    _ => fail("expected malformed LocalText prototype rejection")
+  let prepared = prepare_local_text_source_prototype(
+    document_id~,
+    source="alpha\nβeta 🪶\n",
+  )
+  match decode_local_text_prototype_record(prepared.encoded()) {
+    Some((decoded_id, source)) => {
+      assert_eq(decoded_id, document_id)
+      assert_eq(source, "alpha\nβeta 🪶\n")
+    }
+    None => fail("expected valid source-only LocalText record")
   }
 }
