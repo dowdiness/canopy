@@ -212,16 +212,17 @@ fn commit_archive_error(
 }
 
 ///|
-/// Shared atomic-commit shell: failure injection, editor commit, receipt
-/// classification, and persistence dispatch. Mode-specific concerns
-/// (selection extraction, preview demand, application state) stay with the
-/// caller. The outer update wrapper owns the only parser-Failure recovery.
+/// Shared atomic-commit shell: failure injection, editor commit, and receipt
+/// classification. Persistence is intentionally outside the interactive edit
+/// path. Mode-specific concerns (selection extraction, preview demand,
+/// application state) stay with the caller. The outer update wrapper owns the
+/// only parser-Failure recovery.
 fn commit_edit_request(
   editor : @markdown.MarkdownEditor,
   model : DriverModel,
   request : @markdown.MarkdownEditRequest,
   operation : String,
-  emit : @cmd.Emit[DriverEvent],
+  _emit : @cmd.Emit[DriverEvent],
   projection_session? : @ref.Ref[ProjectionSession?],
 ) -> (DriverModel, @markdown.MarkdownCommitResult?, Bool, Bool, @cmd.Cmd) raise {
   let fail_commit = model.fail_next_editor_commit
@@ -350,18 +351,8 @@ fn commit_edit_request(
           apply_projection_authority(session, committed, accepted, changed)
         None => committed
       }
-      let persistence_decision = @repository.history_trigger(receipt)
       projection_trace_persistence_phase(PROJECTION_TRACE_PHASE_H2)
-      match persistence_decision {
-        @repository.LocalArchivePersistenceDecision::Replace => {
-          let (persisted, command) = archive_replacement(
-            editor, committed, emit,
-          )
-          (persisted, Some(result), accepted, changed, command)
-        }
-        @repository.LocalArchivePersistenceDecision::Skip =>
-          (committed, Some(result), accepted, changed, @rabbita_runtime.none)
-      }
+      (committed, Some(result), accepted, changed, @rabbita_runtime.none)
     }
   }
 }
