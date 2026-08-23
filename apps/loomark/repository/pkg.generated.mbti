@@ -9,11 +9,15 @@ import {
 // Values
 pub fn classify_local_archive_record(String?, agent_id~ : String, policy~ : LocalRestorePolicy) -> LocalArchiveLoad raise
 
+pub fn classify_local_text_prototype_record(String?, agent_id~ : String) -> LocalArchiveLoad
+
 pub fn history_trigger(@dowdiness/canopy/editor/markdown.MarkdownCommitReceipt) -> LocalArchivePersistenceDecision
 
 pub fn prepare_local_archive(document_id~ : @archive.LoomarkDocumentId, editor~ : @dowdiness/canopy/editor/markdown.MarkdownEditor) -> PreparedLocalArchive raise
 
 pub fn prepare_local_archive_observing(document_id~ : @archive.LoomarkDocumentId, editor~ : @dowdiness/canopy/editor/markdown.MarkdownEditor, (@archive.LoomarkArchivePreparationPhase) -> Unit) -> PreparedLocalArchive raise
+
+pub fn prepare_local_text_prototype(document_id~ : @archive.LoomarkDocumentId, editor~ : @dowdiness/canopy/editor/markdown.MarkdownEditor) -> PreparedLocalArchive
 
 pub fn reopen_decoded_local_archive(@archive.DecodedLoomarkDocumentArchive, agent_id~ : String, policy~ : LocalRestorePolicy) -> ReopenedLocalArchive raise
 

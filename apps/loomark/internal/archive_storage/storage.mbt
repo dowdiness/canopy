@@ -9,6 +9,27 @@ pub fn fresh_id(prefix : String) -> String {
 pub const ACTIVE_DOCUMENT_KEY : String = "loomark.active-document-archive"
 
 ///|
+/// PROTOTYPE: isolated benchmark slot. Production never reads or writes it.
+const LOCAL_TEXT_PROTOTYPE_KEY : String = "loomark.prototype-local-text"
+
+///|
+extern "js" fn local_text_prototype_storage_enabled() -> Bool =
+  #| () => {
+  #|   const query = new URLSearchParams(globalThis.location?.search ?? "");
+  #|   return query.get("projection-benchmark") === "1" &&
+  #|     query.get("local-text-prototype") === "1";
+  #| }
+
+///|
+fn selected_document_key() -> String {
+  if local_text_prototype_storage_enabled() {
+    LOCAL_TEXT_PROTOTYPE_KEY
+  } else {
+    ACTIVE_DOCUMENT_KEY
+  }
+}
+
+///|
 /// The one browser database used by the standalone local archive.
 let local_repository_config : @indexed_db.Config = @indexed_db.Config::Config(
   "loomark.local-repository", 1, "archives",
@@ -53,23 +74,19 @@ pub fn LocalArchiveWriteCompletion::result(
 ///|
 /// Map the IndexedDB binding's result into the repository shell taxonomy.
 pub fn load(result~ : @cmd.Emit[LocalArchiveStorageRead]) -> @cmd.Cmd {
-  @indexed_db.get(
-    local_repository_config,
-    ACTIVE_DOCUMENT_KEY,
-    migrate_legacy=true,
-    result=stored => {
-      result(
-        match stored {
-          @indexed_db.ReadResult::Missing => Missing
-          @indexed_db.ReadResult::Loaded(value) => Loaded(value)
-          @indexed_db.ReadResult::Unavailable =>
-            Failed(@repository.LocalArchiveStorageReadFailure::Unavailable)
-          @indexed_db.ReadResult::Failed =>
-            Failed(@repository.LocalArchiveStorageReadFailure::Failed)
-        },
-      )
-    },
-  )
+  let key = selected_document_key()
+  @indexed_db.get(local_repository_config, key, migrate_legacy=true, result=stored => {
+    result(
+      match stored {
+        @indexed_db.ReadResult::Missing => Missing
+        @indexed_db.ReadResult::Loaded(value) => Loaded(value)
+        @indexed_db.ReadResult::Unavailable =>
+          Failed(@repository.LocalArchiveStorageReadFailure::Unavailable)
+        @indexed_db.ReadResult::Failed =>
+          Failed(@repository.LocalArchiveStorageReadFailure::Failed)
+      },
+    )
+  })
 }
 
 ///|
@@ -78,27 +95,23 @@ pub fn replace(
   pending : @repository.LocalArchivePendingWrite,
   completed~ : @cmd.Emit[LocalArchiveWriteCompletion],
 ) -> @cmd.Cmd {
-  @indexed_db.put(
-    local_repository_config,
-    ACTIVE_DOCUMENT_KEY,
-    pending.encoded(),
-    result=stored => {
-      let result = match stored {
-        @indexed_db.WriteResult::Stored => LocalArchiveStorageWrite::Stored
-        @indexed_db.WriteResult::Unavailable =>
-          LocalArchiveStorageWrite::Failed(
-            @repository.LocalArchiveStorageWriteFailure::Unavailable,
-          )
-        @indexed_db.WriteResult::QuotaExceeded =>
-          LocalArchiveStorageWrite::Failed(
-            @repository.LocalArchiveStorageWriteFailure::QuotaExceeded,
-          )
-        @indexed_db.WriteResult::Failed =>
-          LocalArchiveStorageWrite::Failed(
-            @repository.LocalArchiveStorageWriteFailure::Failed,
-          )
-      }
-      completed({ pending, result })
-    },
-  )
+  let key = selected_document_key()
+  @indexed_db.put(local_repository_config, key, pending.encoded(), result=stored => {
+    let result = match stored {
+      @indexed_db.WriteResult::Stored => LocalArchiveStorageWrite::Stored
+      @indexed_db.WriteResult::Unavailable =>
+        LocalArchiveStorageWrite::Failed(
+          @repository.LocalArchiveStorageWriteFailure::Unavailable,
+        )
+      @indexed_db.WriteResult::QuotaExceeded =>
+        LocalArchiveStorageWrite::Failed(
+          @repository.LocalArchiveStorageWriteFailure::QuotaExceeded,
+        )
+      @indexed_db.WriteResult::Failed =>
+        LocalArchiveStorageWrite::Failed(
+          @repository.LocalArchiveStorageWriteFailure::Failed,
+        )
+    }
+    completed({ pending, result })
+  })
 }

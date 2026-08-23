@@ -213,6 +213,85 @@ pub fn PreparedLocalArchive::encoded(self : Self) -> String {
 }
 
 ///|
+/// PROTOTYPE: private text-only persistence record. This deliberately lives
+/// outside the production v1 archive contract and is selected only by the
+/// exact browser benchmark opt-in.
+const LOCAL_TEXT_PROTOTYPE_FORMAT : String = "loomark-local-text-prototype-v1"
+
+///|
+/// PROTOTYPE: prepare the smallest owning local record without exporting CRDT
+/// history. The existing persistence queue and storage adapter remain in use.
+pub fn prepare_local_text_prototype(
+  document_id~ : @archive.LoomarkDocumentId,
+  editor~ : @markdown.MarkdownEditor,
+) -> PreparedLocalArchive {
+  {
+    encoded: Json::object({
+      "prototype_format": Json::string(LOCAL_TEXT_PROTOTYPE_FORMAT),
+      "document_id": Json::string(document_id.value()),
+      "portable_markdown": Json::string(editor.portable_markdown()),
+    }).stringify(),
+  }
+}
+
+///|
+fn reject_local_text_prototype(detail : String) -> LocalArchiveLoad {
+  LocalArchiveLoad::Rejected(LocalArchiveLoadFailure::MalformedArchive(detail~))
+}
+
+///|
+/// PROTOTYPE: reopen the private text-only record through the same Markdown
+/// editor façade. It creates a fresh local causal past and does not claim
+/// continuation of a collaborative document.
+pub fn classify_local_text_prototype_record(
+  raw_record : String?,
+  agent_id~ : String,
+) -> LocalArchiveLoad {
+  let encoded = match raw_record {
+    None => return LocalArchiveLoad::Missing
+    Some(encoded) => encoded
+  }
+  let value = @json.parse(encoded) catch {
+    _ => return reject_local_text_prototype("invalid prototype JSON")
+  }
+  guard value is Json::Object(fields) else {
+    return reject_local_text_prototype("prototype record must be an object")
+  }
+  guard fields.get("prototype_format") is Some(Json::String(format)) &&
+    format == LOCAL_TEXT_PROTOTYPE_FORMAT else {
+    return reject_local_text_prototype("invalid prototype record format")
+  }
+  if fields.length() != 3 ||
+    !fields.contains("document_id") ||
+    !fields.contains("portable_markdown") {
+    return reject_local_text_prototype("invalid prototype record fields")
+  }
+  let document_id = match fields.get("document_id") {
+    Some(Json::String(value)) =>
+      @archive.LoomarkDocumentId::from_string(value) catch {
+        _ => return reject_local_text_prototype("invalid prototype document id")
+      }
+    _ => return reject_local_text_prototype("invalid prototype document id")
+  }
+  let source = match fields.get("portable_markdown") {
+    Some(Json::String(value)) => value
+    _ => return reject_local_text_prototype("invalid prototype Markdown")
+  }
+  let (editor, attachment) = @markdown.MarkdownEditor::with_semantic_attachment(
+    agent_id~,
+    source~,
+  ) catch {
+    _ =>
+      return LocalArchiveLoad::Rejected(
+        LocalArchiveLoadFailure::WriterCreationFailed(
+          detail="prototype editor initialization failed",
+        ),
+      )
+  }
+  LocalArchiveLoad::Valid({ document_id, editor, attachment })
+}
+
+///|
 /// Whether a commit authorizes a complete archive replacement.
 pub(all) enum LocalArchivePersistenceDecision {
   Replace

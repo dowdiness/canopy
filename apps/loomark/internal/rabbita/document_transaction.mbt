@@ -73,6 +73,12 @@ fn prepare_traced_local_archive(
   editor : @markdown.MarkdownEditor,
   model : DriverModel,
 ) -> @repository.PreparedLocalArchive raise {
+  if local_text_prototype_enabled {
+    return @repository.prepare_local_text_prototype(
+      document_id=model.document_id,
+      editor~,
+    )
+  }
   if projection_trace_enabled() {
     projection_trace_persistence_phase(PROJECTION_TRACE_PHASE_H3)
     @repository.prepare_local_archive_observing(
@@ -307,6 +313,7 @@ fn commit_edit_request(
       (failed, None, false, false, @rabbita_runtime.none)
     }
     Ok(receipt) => {
+      mark_causal_ready_for_prototype()
       projection_trace_persistence_phase(PROJECTION_TRACE_PHASE_H1)
       let result = receipt.result()
       let (committed, accepted, changed) = classify_commit(next, receipt)

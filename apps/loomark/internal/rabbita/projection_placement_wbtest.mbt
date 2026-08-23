@@ -48,6 +48,22 @@ test "persistence trace control requires benchmark opt-in and exact disable" {
 }
 
 ///|
+test "LocalText prototype requires exact nested private opt-in" {
+  assert_false(local_text_prototype_enabled_from_query(false, Some("1")))
+  assert_false(local_text_prototype_enabled_from_query(true, None))
+  assert_false(local_text_prototype_enabled_from_query(true, Some("true")))
+  assert_true(local_text_prototype_enabled_from_query(true, Some("1")))
+}
+
+///|
+test "four-clock prototype requires exact nested private opt-in" {
+  assert_false(four_clock_prototype_enabled_from_query(false, Some("1")))
+  assert_false(four_clock_prototype_enabled_from_query(true, None))
+  assert_false(four_clock_prototype_enabled_from_query(true, Some("true")))
+  assert_true(four_clock_prototype_enabled_from_query(true, Some("1")))
+}
+
+///|
 test "in-process projection client emits the Worker envelope synchronously" {
   let client = ProjectionInProcessClient::new("in-process-test")
   let stamp = projection_worker_client_test_stamp(3)

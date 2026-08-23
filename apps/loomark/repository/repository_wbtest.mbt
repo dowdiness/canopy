@@ -755,3 +755,38 @@ test "reopen preserves identity and history for continued convergence" {
   assert_eq(reopened.editor().snapshot().source(), peer.snapshot().source())
   reopened.attachment().dispose()
 }
+
+///|
+test "LocalText prototype round-trips through the normal Markdown façade" {
+  let (editor, document_id, _) = queue_document(
+    "local-text-prototype-source", "local-text-prototype-document", "alpha\nβeta 🪶\n",
+  )
+  let prepared = prepare_local_text_prototype(document_id~, editor~)
+  match
+    classify_local_text_prototype_record(
+      Some(prepared.encoded()),
+      agent_id="local-text-prototype-reopened",
+    ) {
+    LocalArchiveLoad::Valid(reopened) => {
+      assert_eq(reopened.document_id(), document_id)
+      assert_eq(reopened.editor().portable_markdown(), "alpha\nβeta 🪶\n")
+      reopened.attachment().dispose()
+    }
+    _ => fail("expected valid LocalText prototype record")
+  }
+}
+
+///|
+test "LocalText prototype rejects records outside its private format" {
+  let malformed =
+    #|{"prototype_format":"other","document_id":"doc","portable_markdown":"text"}
+  match
+    classify_local_text_prototype_record(
+      Some(malformed),
+      agent_id="local-text-prototype-reject",
+    ) {
+    LocalArchiveLoad::Rejected(LocalArchiveLoadFailure::MalformedArchive(_)) =>
+      ()
+    _ => fail("expected malformed LocalText prototype rejection")
+  }
+}

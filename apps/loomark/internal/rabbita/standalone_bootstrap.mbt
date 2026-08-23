@@ -152,7 +152,13 @@ fn create_bootstrap_document(
     current=editor.version(),
     durable=None,
   )
-  let prepared = @repository.prepare_local_archive(document_id~, editor~) catch {
+  let prepared = try {
+    if local_text_prototype_enabled {
+      @repository.prepare_local_text_prototype(document_id~, editor~)
+    } else {
+      @repository.prepare_local_archive(document_id~, editor~)
+    }
+  } catch {
     _ =>
       return adopt_bootstrap_session(
         session_ref,
@@ -211,11 +217,20 @@ fn update_standalone_bootstrap(
     @archive_storage.LocalArchiveStorageRead::Loaded(encoded) => {
       let policy = @repository.LocalRestorePolicy::trusted()
       let replica_id = @archive_storage.fresh_id("loomark-standalone-writer-")
-      let classified = @repository.classify_local_archive_record(
-        Some(encoded),
-        agent_id=replica_id,
-        policy~,
-      ) catch {
+      let classified = try {
+        if local_text_prototype_enabled {
+          @repository.classify_local_text_prototype_record(
+            Some(encoded),
+            agent_id=replica_id,
+          )
+        } else {
+          @repository.classify_local_archive_record(
+            Some(encoded),
+            agent_id=replica_id,
+            policy~,
+          )
+        }
+      } catch {
         _ =>
           return bootstrap_rejected(
             session_ref,

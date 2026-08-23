@@ -12,7 +12,8 @@
     "fixtures:r0:verify": "node ./verify-r0-browser-fixtures.mjs",
     "measurement:r0:test": "node --test ./test-r0-browser-measurement.mjs",
     "bench:startup": "node ./bench-startup.mjs",
-    "bench:projection": "node ./bench-projection-placement.mjs"
+    "bench:projection": "node ./bench-projection-placement.mjs",
+    "bench:local-text-prototype": "node ./bench-local-text-prototype.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.61.1",
