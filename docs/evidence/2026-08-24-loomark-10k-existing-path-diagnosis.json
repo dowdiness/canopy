@@ -1,0 +1,666 @@
+{
+  "prototype": true,
+  "note": "Raw retained source reports from temporary instrumentation; the instrumentation was removed after diagnosis.",
+  "source_reports": [
+    {
+      "schema_version": 1,
+      "prototype": true,
+      "question": "Which restore/commit/parser/projection/DOM phase owns persistence-disabled 10k input latency?",
+      "environment": {
+        "commit_sha": "f2ee331d2eeaec3deece271da102a509aaf6111d",
+        "node": "v24.14.1",
+        "sample_count": 1,
+        "browser_runs": 1,
+        "line_count": 2000,
+        "query": "?projection-benchmark=1&four-clock-prototype=1&local-text-prototype=1&archive-persistence=0&persistence-trace=1",
+        "child_deadline_ms": 300000,
+        "run_isolation": "fresh Chromium process and browser context for every sample"
+      },
+      "controls": {
+        "all_runs_complete": true,
+        "all_sources_exact": true,
+        "all_persistence_writes_absent": true,
+        "all_traces_valid": true
+      },
+      "summary": {
+        "restore_total_ms": {
+          "p50": 4930.3,
+          "p95": 4930.3,
+          "min": 4930.3,
+          "max": 4930.3,
+          "raw": [
+            4930.3
+          ]
+        },
+        "input_visible_ms": {
+          "p50": 77.8,
+          "p95": 77.8,
+          "min": 77.8,
+          "max": 77.8,
+          "raw": [
+            77.8
+          ]
+        },
+        "causal_ready_ms": {
+          "p50": 239.3,
+          "p95": 239.3,
+          "min": 239.3,
+          "max": 239.3,
+          "raw": [
+            239.3
+          ]
+        },
+        "causal_to_visible_ms": {
+          "p50": -161.5,
+          "p95": -161.5,
+          "min": -161.5,
+          "max": -161.5,
+          "raw": [
+            -161.5
+          ]
+        },
+        "before_to_authority_ms": {
+          "p50": 187.199,
+          "p95": 187.199,
+          "min": 187.199,
+          "max": 187.199,
+          "raw": [
+            187.199
+          ]
+        },
+        "transition_to_mirror_ms": {
+          "p50": 35.701,
+          "p95": 35.701,
+          "min": 35.701,
+          "max": 35.701,
+          "raw": [
+            35.701
+          ]
+        },
+        "mirror_to_receipt_ms": {
+          "p50": 15.899,
+          "p95": 15.899,
+          "min": 15.899,
+          "max": 15.899,
+          "raw": [
+            15.899
+          ]
+        }
+      },
+      "runs": [
+        {
+          "round": 0,
+          "line_count": 2000,
+          "source_bytes": 42038,
+          "record_bytes": 44162,
+          "browser_version": "149.0.7827.55",
+          "load_average": [
+            8.45,
+            7.01,
+            6.71
+          ],
+          "restore": {
+            "total_ms": 4930.3,
+            "idb_reads": [
+              {
+                "kind": "application_read",
+                "mode": "readwrite",
+                "start_ms": 193.89999999850988,
+                "end_ms": 198.69999999552965,
+                "terminal": "complete"
+              }
+            ],
+            "write_count": 0,
+            "max_long_task_ms": 4625,
+            "max_frame_gap_ms": 4666.5,
+            "script_ms": 4688.926,
+            "task_ms": 4838.549,
+            "layout_ms": 57.329,
+            "style_ms": 15.337
+          },
+          "input": {
+            "before_ms": 4980.7,
+            "native_input_ms": 66.7,
+            "visible_ms": 77.8,
+            "causal_ready_ms": 239.3,
+            "causal_to_visible_ms": -161.5,
+            "causal_sequence": 1,
+            "causal_committed_length": 42039,
+            "expected_committed_length": 42039,
+            "max_long_task_ms": 138,
+            "max_frame_gap_ms": 133.3,
+            "script_ms": 184.116,
+            "task_ms": 228.895,
+            "layout_ms": 1.471,
+            "style_ms": 0.225,
+            "internal_spans_ms": {
+              "applyEditOldSnapshot": 0.1,
+              "applyEditPolicy": 13.6,
+              "crdtReplace": 0.8,
+              "applyEditNewSnapshot": 0,
+              "committedTransition": 0,
+              "peerCursorAdjust": 0,
+              "documentVersionUpdate": 0,
+              "parserApply": 35.7,
+              "parserSync": 35.7,
+              "localTextChange": 36.2
+            },
+            "projection_trace": {
+              "event_id": 1,
+              "request_id": 1,
+              "marks_ms": {
+                "authority_accepted": 5167.899,
+                "transition_settled": 5168.299,
+                "projection_mirror_synchronized": 5204,
+                "projection_dispatch_ready": 5204,
+                "receipt_ready": 5219.899,
+                "persistence_classified": 5220.099
+              },
+              "before_to_authority_ms": 187.199,
+              "authority_to_transition_ms": 0.4,
+              "transition_to_mirror_ms": 35.701,
+              "mirror_to_receipt_ms": 15.899,
+              "receipt_to_classification_ms": 0.2
+            },
+            "persistence_write_count": 0
+          }
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "prototype": true,
+      "question": "Which restore/commit/parser/projection/DOM phase owns persistence-disabled 10k input latency?",
+      "environment": {
+        "commit_sha": "f2ee331d2eeaec3deece271da102a509aaf6111d",
+        "node": "v24.14.1",
+        "sample_count": 1,
+        "browser_runs": 1,
+        "line_count": 10000,
+        "query": "?projection-benchmark=1&four-clock-prototype=1&local-text-prototype=1&archive-persistence=0&persistence-trace=1",
+        "child_deadline_ms": 900000,
+        "run_isolation": "fresh Chromium process and browser context for every sample"
+      },
+      "controls": {
+        "all_runs_complete": true,
+        "all_sources_exact": true,
+        "all_persistence_writes_absent": true,
+        "all_traces_valid": true
+      },
+      "summary": {
+        "restore_total_ms": {
+          "p50": 123450.6,
+          "p95": 123450.6,
+          "min": 123450.6,
+          "max": 123450.6,
+          "raw": [
+            123450.6
+          ]
+        },
+        "input_visible_ms": {
+          "p50": 825.6,
+          "p95": 825.6,
+          "min": 825.6,
+          "max": 825.6,
+          "raw": [
+            825.6
+          ]
+        },
+        "causal_ready_ms": {
+          "p50": 1258.5,
+          "p95": 1258.5,
+          "min": 1258.5,
+          "max": 1258.5,
+          "raw": [
+            1258.5
+          ]
+        },
+        "causal_to_visible_ms": {
+          "p50": -432.9,
+          "p95": -432.9,
+          "min": -432.9,
+          "max": -432.9,
+          "raw": [
+            -432.9
+          ]
+        },
+        "before_to_authority_ms": {
+          "p50": 1136,
+          "p95": 1136,
+          "min": 1136,
+          "max": 1136,
+          "raw": [
+            1136
+          ]
+        },
+        "transition_to_mirror_ms": {
+          "p50": 83.1,
+          "p95": 83.1,
+          "min": 83.1,
+          "max": 83.1,
+          "raw": [
+            83.1
+          ]
+        },
+        "mirror_to_receipt_ms": {
+          "p50": 37.1,
+          "p95": 37.1,
+          "min": 37.1,
+          "max": 37.1,
+          "raw": [
+            37.1
+          ]
+        }
+      },
+      "runs": [
+        {
+          "round": 0,
+          "line_count": 10000,
+          "source_bytes": 210038,
+          "record_bytes": 220162,
+          "browser_version": "149.0.7827.55",
+          "load_average": [
+            6.33,
+            6.89,
+            6.72
+          ],
+          "restore": {
+            "total_ms": 123450.6,
+            "idb_reads": [
+              {
+                "kind": "application_read",
+                "mode": "readwrite",
+                "start_ms": 151.60000000149012,
+                "end_ms": 156.10000000149012,
+                "terminal": "complete"
+              }
+            ],
+            "write_count": 0,
+            "max_long_task_ms": 123118,
+            "max_frame_gap_ms": 123228.4,
+            "script_ms": 123181.024,
+            "task_ms": 123381.452,
+            "layout_ms": 102.405,
+            "style_ms": 22.796
+          },
+          "input": {
+            "before_ms": 123555,
+            "native_input_ms": 812.1,
+            "visible_ms": 825.6,
+            "causal_ready_ms": 1258.5,
+            "causal_to_visible_ms": -432.9,
+            "causal_sequence": 1,
+            "causal_committed_length": 210039,
+            "expected_committed_length": 210039,
+            "max_long_task_ms": 483,
+            "max_frame_gap_ms": 800,
+            "script_ms": 593.934,
+            "task_ms": 1323.552,
+            "layout_ms": 7.068,
+            "style_ms": 1,
+            "internal_spans_ms": {
+              "applyEditOldSnapshot": 0.1,
+              "applyEditPolicy": 70.4,
+              "crdtReplace": 0.9,
+              "applyEditNewSnapshot": 0.1,
+              "committedTransition": 0,
+              "peerCursorAdjust": 0,
+              "documentVersionUpdate": 0,
+              "parserApply": 83,
+              "parserSync": 83.1,
+              "localTextChange": 85.2
+            },
+            "projection_trace": {
+              "event_id": 1,
+              "request_id": 1,
+              "marks_ms": {
+                "authority_accepted": 124691,
+                "transition_settled": 124693.199,
+                "projection_mirror_synchronized": 124776.299,
+                "projection_dispatch_ready": 124776.299,
+                "receipt_ready": 124813.399,
+                "persistence_classified": 124813.5
+              },
+              "before_to_authority_ms": 1136,
+              "authority_to_transition_ms": 2.199,
+              "transition_to_mirror_ms": 83.1,
+              "mirror_to_receipt_ms": 37.1,
+              "receipt_to_classification_ms": 0.101
+            },
+            "persistence_write_count": 0
+          }
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "prototype": true,
+      "question": "Which restore/commit/parser/projection/DOM phase owns persistence-disabled 10k input latency?",
+      "environment": {
+        "commit_sha": "f2ee331d2eeaec3deece271da102a509aaf6111d",
+        "node": "v24.14.1",
+        "sample_count": 1,
+        "browser_runs": 1,
+        "line_count": 10000,
+        "query": "?projection-benchmark=1&four-clock-prototype=1&local-text-prototype=1&archive-persistence=0&persistence-trace=1",
+        "child_deadline_ms": 900000,
+        "run_isolation": "fresh Chromium process and browser context for every sample"
+      },
+      "controls": {
+        "all_runs_complete": true,
+        "all_sources_exact": true,
+        "all_persistence_writes_absent": true,
+        "all_traces_valid": true
+      },
+      "summary": {
+        "restore_total_ms": {
+          "p50": 118597.6,
+          "p95": 118597.6,
+          "min": 118597.6,
+          "max": 118597.6,
+          "raw": [
+            118597.6
+          ]
+        },
+        "input_visible_ms": {
+          "p50": 1047.6,
+          "p95": 1047.6,
+          "min": 1047.6,
+          "max": 1047.6,
+          "raw": [
+            1047.6
+          ]
+        },
+        "causal_ready_ms": {
+          "p50": 1538.8,
+          "p95": 1538.8,
+          "min": 1538.8,
+          "max": 1538.8,
+          "raw": [
+            1538.8
+          ]
+        },
+        "causal_to_visible_ms": {
+          "p50": -491.2,
+          "p95": -491.2,
+          "min": -491.2,
+          "max": -491.2,
+          "raw": [
+            -491.2
+          ]
+        },
+        "before_to_authority_ms": {
+          "p50": 1340,
+          "p95": 1340,
+          "min": 1340,
+          "max": 1340,
+          "raw": [
+            1340
+          ]
+        },
+        "transition_to_mirror_ms": {
+          "p50": 138.4,
+          "p95": 138.4,
+          "min": 138.4,
+          "max": 138.4,
+          "raw": [
+            138.4
+          ]
+        },
+        "mirror_to_receipt_ms": {
+          "p50": 56,
+          "p95": 56,
+          "min": 56,
+          "max": 56,
+          "raw": [
+            56
+          ]
+        }
+      },
+      "runs": [
+        {
+          "round": 0,
+          "line_count": 10000,
+          "source_bytes": 210038,
+          "record_bytes": 220162,
+          "browser_version": "149.0.7827.55",
+          "load_average": [
+            7.07,
+            7.2,
+            6.88
+          ],
+          "restore": {
+            "total_ms": 118597.6,
+            "idb_reads": [
+              {
+                "kind": "application_read",
+                "mode": "readwrite",
+                "start_ms": 131,
+                "end_ms": 133.60000000149012,
+                "terminal": "complete"
+              }
+            ],
+            "write_count": 0,
+            "max_long_task_ms": 118296,
+            "max_frame_gap_ms": 118395.3,
+            "script_ms": 118356.652,
+            "task_ms": 118547.885,
+            "layout_ms": 86.536,
+            "style_ms": 23.107
+          },
+          "input": {
+            "before_ms": 118714.5,
+            "native_input_ms": 938.7,
+            "visible_ms": 1047.6,
+            "causal_ready_ms": 1538.8,
+            "causal_to_visible_ms": -491.2,
+            "causal_sequence": 1,
+            "causal_committed_length": 210039,
+            "expected_committed_length": 210039,
+            "max_long_task_ms": 571,
+            "max_frame_gap_ms": 1016.7,
+            "script_ms": 778.652,
+            "task_ms": 1660.64,
+            "layout_ms": 7.976,
+            "style_ms": 0.809,
+            "internal_spans_ms": {
+              "applyEditOldSnapshot": 0.1,
+              "applyEditPolicy": 68.7,
+              "crdtReplace": 2.4,
+              "applyEditNewSnapshot": 0.1,
+              "committedTransition": 0,
+              "peerCursorAdjust": 0,
+              "documentVersionUpdate": 0,
+              "parserApply": 138.4,
+              "parserSync": 138.4,
+              "localTextChange": 142.6
+            },
+            "projection_trace": {
+              "event_id": 1,
+              "request_id": 1,
+              "marks_ms": {
+                "authority_accepted": 120054.5,
+                "transition_settled": 120058.8,
+                "projection_mirror_synchronized": 120197.2,
+                "projection_dispatch_ready": 120197.2,
+                "receipt_ready": 120253.2,
+                "persistence_classified": 120253.399
+              },
+              "before_to_authority_ms": 1340,
+              "authority_to_transition_ms": 4.3,
+              "transition_to_mirror_ms": 138.4,
+              "mirror_to_receipt_ms": 56,
+              "receipt_to_classification_ms": 0.199
+            },
+            "persistence_write_count": 0
+          }
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "prototype": true,
+      "question": "Which restore/commit/parser/projection/DOM phase owns persistence-disabled 10k input latency?",
+      "environment": {
+        "commit_sha": "f2ee331d2eeaec3deece271da102a509aaf6111d",
+        "node": "v24.14.1",
+        "sample_count": 1,
+        "browser_runs": 1,
+        "line_count": 10000,
+        "query": "?projection-benchmark=1&four-clock-prototype=1&local-text-prototype=1&archive-persistence=0&persistence-trace=1",
+        "child_deadline_ms": 900000,
+        "run_isolation": "fresh Chromium process and browser context for every sample"
+      },
+      "controls": {
+        "all_runs_complete": true,
+        "all_sources_exact": true,
+        "all_persistence_writes_absent": true,
+        "all_traces_valid": true
+      },
+      "summary": {
+        "restore_total_ms": {
+          "p50": 131245.6,
+          "p95": 131245.6,
+          "min": 131245.6,
+          "max": 131245.6,
+          "raw": [
+            131245.6
+          ]
+        },
+        "input_visible_ms": {
+          "p50": 824.7,
+          "p95": 824.7,
+          "min": 824.7,
+          "max": 824.7,
+          "raw": [
+            824.7
+          ]
+        },
+        "causal_ready_ms": {
+          "p50": 1440.1,
+          "p95": 1440.1,
+          "min": 1440.1,
+          "max": 1440.1,
+          "raw": [
+            1440.1
+          ]
+        },
+        "causal_to_visible_ms": {
+          "p50": -615.4,
+          "p95": -615.4,
+          "min": -615.4,
+          "max": -615.4,
+          "raw": [
+            -615.4
+          ]
+        },
+        "before_to_authority_ms": {
+          "p50": 1200,
+          "p95": 1200,
+          "min": 1200,
+          "max": 1200,
+          "raw": [
+            1200
+          ]
+        },
+        "transition_to_mirror_ms": {
+          "p50": 156.699,
+          "p95": 156.699,
+          "min": 156.699,
+          "max": 156.699,
+          "raw": [
+            156.699
+          ]
+        },
+        "mirror_to_receipt_ms": {
+          "p50": 81.201,
+          "p95": 81.201,
+          "min": 81.201,
+          "max": 81.201,
+          "raw": [
+            81.201
+          ]
+        }
+      },
+      "runs": [
+        {
+          "round": 0,
+          "line_count": 10000,
+          "source_bytes": 210038,
+          "record_bytes": 220162,
+          "browser_version": "149.0.7827.55",
+          "load_average": [
+            8.5,
+            7,
+            6.25
+          ],
+          "restore": {
+            "total_ms": 131245.6,
+            "idb_reads": [
+              {
+                "kind": "application_read",
+                "mode": "readwrite",
+                "start_ms": 135.10000000149012,
+                "end_ms": 138.79999999701977,
+                "terminal": "complete"
+              }
+            ],
+            "write_count": 0,
+            "max_long_task_ms": 130919,
+            "max_frame_gap_ms": 131044.8,
+            "script_ms": 130986.231,
+            "task_ms": 131183.936,
+            "layout_ms": 97.58,
+            "style_ms": 30.378
+          },
+          "input": {
+            "before_ms": 131410.5,
+            "native_input_ms": 810,
+            "visible_ms": 824.7,
+            "causal_ready_ms": 1440.1,
+            "causal_to_visible_ms": -615.4,
+            "causal_sequence": 1,
+            "causal_committed_length": 210039,
+            "expected_committed_length": 210039,
+            "max_long_task_ms": 728,
+            "max_frame_gap_ms": 800,
+            "script_ms": 841.48,
+            "task_ms": 1597.648,
+            "layout_ms": 8.281,
+            "style_ms": 0.928,
+            "internal_spans_ms": {
+              "applyEditOldSnapshot": 0,
+              "applyEditPolicy": 71.7,
+              "crdtReplace": 1.9,
+              "applyEditNewSnapshot": 0.1,
+              "committedTransition": 0,
+              "peerCursorAdjust": 0,
+              "documentVersionUpdate": 0.1,
+              "parserApply": 156.6,
+              "parserSync": 156.7,
+              "localTextChange": 158.8
+            },
+            "projection_trace": {
+              "event_id": 1,
+              "request_id": 1,
+              "marks_ms": {
+                "authority_accepted": 132610.5,
+                "transition_settled": 132612.6,
+                "projection_mirror_synchronized": 132769.299,
+                "projection_dispatch_ready": 132769.299,
+                "receipt_ready": 132850.5,
+                "persistence_classified": 132850.799
+              },
+              "before_to_authority_ms": 1200,
+              "authority_to_transition_ms": 2.1,
+              "transition_to_mirror_ms": 156.699,
+              "mirror_to_receipt_ms": 81.201,
+              "receipt_to_classification_ms": 0.299
+            },
+            "persistence_write_count": 0
+          }
+        }
+      ]
+    }
+  ]
+}
