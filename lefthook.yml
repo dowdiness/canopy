@@ -4,40 +4,35 @@ glob_matcher: doublestar
 
 pre-commit:
   parallel: false
+  fail_on_changes: always
+  jobs:
+    - name: moonbit-prepare
+      run: just hook-moonbit-prepare
+
+pre-push:
+  parallel: false
   jobs:
     - name: repository-contract
-      run: just hook-repository-contract
+      # A stable file template keeps branch-deletion and empty-commit pushes
+      # from being skipped when Lefthook has no {push_files}.
+      files: printf 'lefthook.yml\n'
+      run: just hook-repository-contract {files}
 
-    - name: moonbit
+    - name: documentation
       glob:
-        - "**/*.mbt"
-        - "**/*.mbt.md"
-        - "**/*.mbti"
-        - "**/moon.mod"
-        - "**/moon.mod.json"
-        - "**/moon.pkg"
-        - "**/moon.pkg.json"
-        - "moon.work"
-        - "moon.work.json"
-        - "justfile"
-        - "scripts/run-moon-module.sh"
-        - "scripts/vendored-check-common.sh"
-        - "scripts/run-moonbit-rename-route.sh"
-        - "modules/**"
-        - "apps/**"
-        - "examples/**"
-        - "adapters/**"
-        - "deps/**"
-      group:
-        piped: true
-        jobs:
-          - name: check
-            run: just hook-moonbit-check
-          - name: format
-            run: just hook-moonbit-format-check
+        - "AGENTS.md"
+        - "CLAUDE.md"
+        - "docs/**"
+      run: just hook-documentation-contract
 
-    - name: moonbit-rename
-      run: ./scripts/run-moonbit-rename-route.sh
+    - name: web
+      glob:
+        - "apps/web/**/*.js"
+        - "apps/web/**/*.mjs"
+        - "apps/web/**/*.ts"
+        - "apps/web/**/*.tsx"
+        - "apps/web/*.json"
+      run: just hook-web-contract
 
     - name: tooling
       glob:
@@ -45,25 +40,18 @@ pre-commit:
         - "justfile"
         - ".githooks/**"
         - ".claude/settings.json"
-        - "scripts/install-hooks.nu"
-        - "scripts/install-hooks.sh"
-        - "scripts/test-install-hooks.sh"
-        - "scripts/test-lefthook-pre-commit-routing.sh"
-        - "scripts/test-lefthook-pre-push-routing.sh"
-        - "scripts/check-submodule-reachability.nu"
-        - "scripts/run-submodule-reachability.sh"
-        - "scripts/test-submodule-reachability.sh"
-        - "scripts/test-pr-ready-validation.sh"
-        - "scripts/run-moonbit-rename-route.sh"
+        - "scripts/**"
         - ".github/workflows/ci.yml"
       run: just hook-tooling-contract
 
-pre-push:
-  parallel: false
-  jobs:
     - name: submodule-reachability
       # Lefthook 2.1.10 filters gitlinks out of {push_files} as directories.
       # The all-files sentinel keeps this run job executable; the adapter
       # ignores those arguments and uses Git's ref-update stream instead.
       use_stdin: true
       run: ./scripts/run-submodule-reachability.sh {all_files}
+
+    - name: moonbit-validate
+      # See repository-contract: validation must run even with no push files.
+      files: printf 'lefthook.yml\n'
+      run: just hook-moonbit-validate {files}

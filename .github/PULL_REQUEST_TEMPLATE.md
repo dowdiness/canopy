@@ -39,36 +39,25 @@ Boundary matrix / first failing regression:
 
 Target packages:
 
-<!-- List each --target path, or the exact --no-target reason. -->
+<!-- List each affected MoonBit package or module, or explain why none applies. -->
 
 Additional conditional gates:
 
 <!-- Proof, browser E2E, or other checks not covered by the standard gate. -->
 
-## PR-ready evidence
-
-Validated HEAD: `<40-character SHA>`
-
-Validated base: `origin/main@<40-character SHA>`
+## Push and CI readiness
 
 ```bash
 git fetch origin main
-# Repeat --target for every affected MoonBit package:
-./scripts/validate-pr-ready.sh \
-  --target <package-path> \
-  --target <another-package-path>
-# Use instead when no MoonBit package is affected:
-# ./scripts/validate-pr-ready.sh --no-target "<reason>"
-git fetch origin main
-./scripts/validate-pr-ready.sh --verify-evidence
+git push
 ```
 
-- [ ] The full validator passed for the exact HEAD and base above.
-- [ ] The base was fetched again and `--verify-evidence` passed immediately
-      before this PR was opened, updated, or merged.
-- [ ] The committed `.mbti` diff against the validated base was reviewed for
+- [ ] The branch contains the fetched `origin/main`, and the normal push
+      completed without bypassing Lefthook's affected local checks.
+- [ ] The committed `.mbti` diff against `origin/main` was reviewed for
       unintended API or trait-bound changes.
 - [ ] Any changed submodule commit is pushed and reachable from its remote.
-- [ ] Validation was rerun after every commit, amend, rebase, cherry-pick,
-      submodule-pointer, manifest, or generated-interface change.
+- [ ] The branch was pushed again after every commit, amend, rebase,
+      cherry-pick, submodule-pointer, manifest, or generated-interface change.
 - [ ] Independent review findings were resolved before the final validation.
+- [ ] GitHub CI's `All Checks Passed` gate is green before merge.

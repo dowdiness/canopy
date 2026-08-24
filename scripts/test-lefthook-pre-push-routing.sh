@@ -24,6 +24,7 @@ parent_origin="$fixture/parent-origin.git"
 submodule_origin="$fixture/submodule-origin.git"
 submodule_seed="$fixture/submodule-seed"
 log="$fixture/just.log"
+validation_log="$fixture/validation.log"
 legacy_args="$fixture/legacy-args"
 legacy_stdin="$fixture/legacy-stdin"
 
@@ -68,11 +69,12 @@ JUSTFILE
 
 cat >"$fixture/bin/just" <<'FAKE_JUST'
 #!/bin/sh
-printf '%s\n' "$*" >>"$LEFTHOOK_ROUTING_LOG"
 if [ "${1:-}" = hook-submodule-reachability ]; then
+  printf '%s\n' "$*" >>"$LEFTHOOK_ROUTING_LOG"
   shift
   exec nu "$LEFTHOOK_ROUTING_CHECKER" --commit "${1:-}"
 fi
+printf '%s\n' "$*" >>"$LEFTHOOK_VALIDATION_LOG"
 exit 0
 FAKE_JUST
 chmod +x "$fixture/bin/just"
@@ -84,6 +86,7 @@ cat >"$LEFTHOOK_LEGACY_STDIN"
 exec "$LEFTHOOK_REAL" "$@" <"$LEFTHOOK_LEGACY_STDIN"
 FAKE_LEFTHOOK
 chmod +x "$fixture/bin/lefthook"
+export LEFTHOOK_VALIDATION_LOG="$validation_log"
 
 cat >"$parent/.git/hooks/pre-push" <<HOOK
 #!/bin/sh
@@ -101,7 +104,7 @@ LEFTHOOK_ROUTING_LOG="$log" LEFTHOOK_ROUTING_CHECKER="$parent/scripts/check-subm
   cat "$log" >&2
   exit 1
 }
-reset_log() { : >"$log"; }
+reset_log() { : >"$log"; : >"$validation_log"; }
 assert_skipped() {
   [ ! -s "$log" ] || { echo "error: $1 unexpectedly ran the checker" >&2; cat "$log" >&2; exit 1; }
 }
@@ -111,10 +114,28 @@ assert_invoked_once() {
 assert_invoked_count() {
   [ "$(wc -l <"$log" | tr -d ' ')" -eq "$2" ] || { echo "error: $1 did not invoke checker $2 time(s)" >&2; cat "$log" >&2; exit 1; }
 }
+assert_validation() {
+  name=$1
+  shift
+  expected_validation="$fixture/expected-validation.log"
+  : >"$expected_validation"
+  for expected_call in "$@"; do
+    printf '%s\n' "$expected_call" >>"$expected_validation"
+  done
+  if ! diff -u "$expected_validation" "$validation_log"; then
+    echo "error: $name validation routing mismatch" >&2
+    exit 1
+  fi
+}
 assert_commit_once() {
   count="$(grep -F -c " $2" "$log" || true)"
   [ "$count" -eq 1 ] || { echo "error: $1 did not check commit $2 exactly once" >&2; cat "$log" >&2; exit 1; }
 }
+
+assert_validation initial-push \
+  'hook-repository-contract lefthook.yml' \
+  hook-tooling-contract \
+  'hook-moonbit-validate lefthook.yml'
 
 # Two new refs share one relevant commit. The checker must deduplicate the
 # commit SHA even though Git supplies two ref-update lines on stdin.
@@ -151,6 +172,10 @@ reset_log
 LEFTHOOK_ROUTING_LOG="$log" LEFTHOOK_ROUTING_CHECKER="$parent/scripts/check-submodule-reachability.nu" PATH="$fixture/bin:$PATH" \
   git -C "$parent" push --quiet origin main
 assert_skipped docs-only
+assert_validation docs-only \
+  'hook-repository-contract lefthook.yml' \
+  hook-documentation-contract \
+  'hook-moonbit-validate lefthook.yml'
 
 printf 'fn fixture() -> Int { 1 }\n' >"$parent/modules/fixture/main.mbt"
 git -C "$parent" add modules/fixture/main.mbt && git -C "$parent" commit --no-verify --quiet -m moonbit
@@ -158,6 +183,9 @@ reset_log
 LEFTHOOK_ROUTING_LOG="$log" LEFTHOOK_ROUTING_CHECKER="$parent/scripts/check-submodule-reachability.nu" PATH="$fixture/bin:$PATH" \
   git -C "$parent" push --quiet origin main
 assert_skipped normal-moonbit
+assert_validation normal-moonbit \
+  'hook-repository-contract lefthook.yml' \
+  'hook-moonbit-validate lefthook.yml'
 
 make_unpushed_parent_commit() {
   local label="$1"

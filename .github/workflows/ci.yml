@@ -49,9 +49,6 @@ jobs:
       - name: Test retry-wrapper regression
         run: ./scripts/test-moon-update-wrapper.sh
 
-      - name: Test PR-ready validation contract
-        run: ./scripts/test-pr-ready-validation.sh
-
   changes:
     name: Change Detection
     runs-on: ubuntu-latest
@@ -65,7 +62,6 @@ jobs:
       run_cm6_adapter_e2e: ${{ steps.filter.outputs.run_cm6_adapter_e2e }}
       run_loomark_dev_host_e2e: ${{ steps.filter.outputs.run_loomark_dev_host_e2e }}
       run_loomark_standalone_e2e: ${{ steps.filter.outputs.run_loomark_standalone_e2e }}
-      run_pr_ready_bash3: ${{ steps.filter.outputs.run_pr_ready_bash3 }}
       run_tooling_validation: ${{ steps.filter.outputs.run_tooling_validation }}
       run_release_version_validation: ${{ steps.filter.outputs.run_release_version_validation }}
     steps:
@@ -136,11 +132,6 @@ jobs:
               - 'scripts/build-js.sh'
               - 'scripts/link-canvas-artifacts.sh'
               - 'scripts/test-canvas-e2e.sh'
-            run_pr_ready_bash3:
-              - 'scripts/**'
-              - 'justfile'
-              - 'lefthook.yml'
-              - '.github/workflows/ci.yml'
             run_tooling_validation:
               - 'justfile'
               - '.cursor/install.sh'
@@ -155,12 +146,12 @@ jobs:
               - 'scripts/run-submodule-reachability.sh'
               - 'scripts/test-submodule-reachability.sh'
               - 'scripts/test-lefthook-pre-push-routing.sh'
-              - 'scripts/test-pr-ready-validation.sh'
+              - 'scripts/local-validation.nu'
+              - 'scripts/test-local-validation.sh'
               - 'scripts/install-hooks.nu'
               - 'scripts/install-hooks.sh'
               - 'scripts/test-install-hooks.sh'
               - 'scripts/test-lefthook-pre-commit-routing.sh'
-              - 'scripts/run-moonbit-rename-route.sh'
               - 'scripts/check-moon-registry-bootstrap.nu'
               - 'scripts/check-moon-interfaces.nu'
               - 'scripts/validate-ci-yaml.sh'
@@ -235,16 +226,20 @@ jobs:
         run: |
           nu --ide-check 100 scripts/check-submodule-reachability.nu
           nu --ide-check 100 scripts/install-hooks.nu
+          nu --ide-check 100 scripts/local-validation.nu
 
       - name: Test Nushell installer
         run: bash scripts/test-install-hooks.sh
+
+      - name: Test local validation lifecycle
+        run: bash scripts/test-local-validation.sh
 
       - name: Validate Claude settings
         run: node -e 'JSON.parse(require("fs").readFileSync(".claude/settings.json", "utf8"))'
 
       - name: Validate compatibility entry points
         run: |
-          bash -n .cursor/install.sh apps/web/scripts/build-deploy.sh apps/ideal/scripts/build-deploy.sh .githooks/pre-commit .githooks/pre-push scripts/run-submodule-reachability.sh scripts/test-submodule-reachability.sh scripts/test-lefthook-pre-push-routing.sh scripts/test-pr-ready-validation.sh scripts/install-hooks.sh
+          bash -n .cursor/install.sh apps/web/scripts/build-deploy.sh apps/ideal/scripts/build-deploy.sh .githooks/pre-commit .githooks/pre-push scripts/run-submodule-reachability.sh scripts/test-local-validation.sh scripts/test-submodule-reachability.sh scripts/test-lefthook-pre-commit-routing.sh scripts/test-lefthook-pre-push-routing.sh scripts/install-hooks.sh
           grep -Fq 'exec just pre-commit' .githooks/pre-commit
           grep -Fq 'exec lefthook run pre-push' .githooks/pre-push
           grep -Fq 'exec just install-hooks' scripts/install-hooks.sh
@@ -310,50 +305,6 @@ jobs:
 
       - name: Run release target regression tests
         run: scripts/test-verify-release-target.sh
-
-  pr-ready-bash3:
-    name: PR-ready Bash 3.2 Contract
-    needs: changes
-    if: needs.changes.outputs.run_pr_ready_bash3 == 'true'
-    runs-on: macos-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-          submodules: recursive
-          fetch-depth: 0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: '20'
-
-      - name: Install Nushell
-        uses: hustcer/setup-nu@f3fd65374ffc4d60974c0dd2f7263c6c5c285f81
-        with:
-          version: "0.114.1"
-
-      - name: Test the system Bash 3.2 contract
-        shell: /bin/bash --noprofile --norc -eo pipefail {0}
-        run: |
-          if [ "${BASH_VERSINFO[0]}" -ne 3 ] || \
-             [ "${BASH_VERSINFO[1]}" -ne 2 ]; then
-            echo "error: expected /bin/bash 3.2, got ${BASH_VERSION}" >&2
-            exit 1
-          fi
-
-          bash32_bin="${RUNNER_TEMP}/canopy-bash32-bin"
-          mkdir -p "$bash32_bin"
-          ln -s /bin/bash "$bash32_bin/bash"
-
-          nu ./scripts/check-moon-registry-bootstrap.nu
-          PATH="$bash32_bin:$PATH" \
-            /bin/bash ./scripts/test-pr-ready-validation.sh
-          PATH="$bash32_bin:$PATH" \
-            /bin/bash ./scripts/test-pr-ready-bash32.sh
 
   test-main:
     name: Test Main Module
@@ -1107,7 +1058,6 @@ jobs:
     needs:
       - dep-check
       - changes
-      - pr-ready-bash3
       - test-main
       - test-submodules
       - test-examples
@@ -1138,9 +1088,6 @@ jobs:
           }
           if ! ok "${{ needs.dep-check.result }}" || \
              ! ok "${{ needs.changes.result }}" || \
-             ! path_filtered_ok \
-               "${{ needs.pr-ready-bash3.result }}" \
-               "${{ needs.changes.outputs.run_pr_ready_bash3 }}" || \
              ! ok "${{ needs.test-main.result }}" || \
              ! ok "${{ needs.test-submodules.result }}" || \
              ! ok "${{ needs.test-examples.result }}" || \
