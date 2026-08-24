@@ -313,6 +313,15 @@ fn local_persistence_snapshot(
 }
 
 ///|
+/// Whether the currently presented surface owns the browser Raw draft.
+fn raw_draft_surface_live(
+  mode : @core.ApplicationMode,
+  split_preview_open : Bool,
+) -> Bool {
+  mode == @core.Raw || (mode == @core.Preview && split_preview_open)
+}
+
+///|
 fn publish(
   model : DriverModel,
   raw_input_coordinator : RawInputCoordinator?,
@@ -324,7 +333,10 @@ fn publish(
   }
   let fields : Map[String, Json] = {
     "source": match raw_input_coordinator {
-      Some(coordinator) if model.state.mode() == @core.Raw &&
+      Some(coordinator) if raw_draft_surface_live(
+          model.state.mode(),
+          model.split_preview_open,
+        ) &&
         (
           model.runtime_state is EditorRuntimeState::Healthy ||
           model.runtime_state is EditorRuntimeState::LocalText(_)
@@ -506,10 +518,16 @@ fn raw_editor_view(
         .on_compositionend(_ => {
           let source = read_textarea_value("loomark-input")
           raw_input_coordinator.finish_fast_composition()
-          raw_input_coordinator.set_fast_source(source)
+          let generation = raw_input_coordinator.install_fast_source(source)
           @cmd.batch([
-            @cmd.delay(emit(Editing(RawFastPreview)), RAW_FAST_PREVIEW_MS),
-            @cmd.delay(emit(Editing(RawFastFlush(source))), RAW_FAST_FLUSH_MS),
+            @cmd.delay(
+              emit(Editing(RawFastPreview(generation))),
+              RAW_FAST_PREVIEW_MS,
+            ),
+            @cmd.delay(
+              emit(Editing(RawFastFlush(generation, source))),
+              RAW_FAST_FLUSH_MS,
+            ),
           ])
         })
         .on_beforeinput(_ => @rabbita_runtime.none)
@@ -518,9 +536,9 @@ fn raw_editor_view(
         "display:block;min-width:0;min-height:clamp(24rem,70vh,36rem);width:var(--lm-page-width);margin-inline:auto;field-sizing:content;resize:none;overflow:hidden;--rui-control-base-border:transparent;--rui-control-base-shadow:none;background:transparent;padding:1rem var(--lm-page-x-padding);font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,\"Liberation Mono\",\"Courier New\",monospace;font-size:1.125rem;line-height:1.65",
       ],
       on_input=@cmd.Emit(source => {
-        raw_input_coordinator.set_fast_source(source)
+        let generation = raw_input_coordinator.install_fast_source(source)
         let preview = @cmd.delay(
-          emit(Editing(RawFastPreview)),
+          emit(Editing(RawFastPreview(generation))),
           RAW_FAST_PREVIEW_MS,
         )
         if raw_input_coordinator.fast_composing() {
@@ -528,7 +546,10 @@ fn raw_editor_view(
         } else {
           @cmd.batch([
             preview,
-            @cmd.delay(emit(Editing(RawFastFlush(source))), RAW_FAST_FLUSH_MS),
+            @cmd.delay(
+              emit(Editing(RawFastFlush(generation, source))),
+              RAW_FAST_FLUSH_MS,
+            ),
           ])
         }
       }),
@@ -869,8 +890,8 @@ fn driver_event_name(event : DriverEvent) -> String {
         ReplaceSource(_) => "source"
         LocalTextInput(_) => "local-text-input"
         RawInput(_, _) => "raw-input"
-        RawFastPreview => "raw-fast-preview"
-        RawFastFlush(_) => "raw-fast-flush"
+        RawFastPreview(_) => "raw-fast-preview"
+        RawFastFlush(_, _) => "raw-fast-flush"
         RawSelectionEdit(_) => "raw-selection-edit"
         CommitCapturedRawSelection(_) => "commit-captured-raw-selection"
         BlockFocused(_) => "block-focused"
@@ -1106,12 +1127,12 @@ fn editing_mode_applicable(
   match event {
     ReplaceSource(_) | ProbeBlockSelection(_) => None
     LocalTextInput(_)
-    | RawFastPreview
-    | RawFastFlush(_)
+    | RawFastPreview(_)
+    | RawFastFlush(_, _)
     | RawInput(_, _)
     | RawSelectionEdit(_)
     | CommitCapturedRawSelection(_) =>
-      if mode == @core.Raw || (mode == @core.Preview && split_preview_open) {
+      if raw_draft_surface_live(mode, split_preview_open) {
         None
       } else {
         Some("Raw input is unavailable outside Raw mode")
@@ -1147,6 +1168,9 @@ fn update_editing(
   projection_session? : @ref.Ref[ProjectionSession?],
 ) -> (DriverModel, @cmd.Cmd) raise {
   match event {
+    RawFastPreview(generation) | RawFastFlush(generation, _) if !raw_input_coordinator.draft_is_current(
+        generation,
+      ) => return (model, @rabbita_runtime.none)
     BlockInput(token~, input~) => {
       if !block_input_coordinator.is_active(token) {
         return (model, block_input_coordinator.finish(token, emit))
@@ -1206,8 +1230,8 @@ fn update_editing(
                 @rabbita_runtime.none,
               )
           }
-        RawFastPreview => (model, @rabbita_runtime.none)
-        RawFastFlush(source) =>
+        RawFastPreview(_) => (model, @rabbita_runtime.none)
+        RawFastFlush(_, source) =>
           if raw_input_coordinator.fast_composing() {
             (model, @rabbita_runtime.none)
           } else {
@@ -1989,7 +2013,7 @@ fn update_navigation(
       }
       let needs_flush = match raw_input_coordinator.fast_source_value() {
         Some(source) =>
-          model.state.mode() == @core.Raw &&
+          raw_draft_surface_live(model.state.mode(), model.split_preview_open) &&
           raw_textarea_value(model.document.source()) !=
           raw_textarea_value(source)
         None => false
@@ -2046,7 +2070,8 @@ fn update_navigation(
     ToggleSplitPreview => {
       let needs_flush = match raw_input_coordinator.fast_source_value() {
         Some(source) =>
-          model.state.mode() != @core.Raw &&
+          model.state.mode() == @core.Preview &&
+          raw_draft_surface_live(model.state.mode(), model.split_preview_open) &&
           raw_textarea_value(model.document.source()) !=
           raw_textarea_value(source)
         None => false
@@ -2766,7 +2791,7 @@ fn update_model_with_raw_preview_runtime(
   match event {
     Bootstrap(_) | Lifecycle(RestoreSnapshot(..)) =>
       raw_input_coordinator.set_fast_source(runtime_source(next))
-    _ if next.state.mode() != @core.Raw =>
+    _ if !raw_draft_surface_live(next.state.mode(), next.split_preview_open) =>
       raw_input_coordinator.set_fast_source(next.document.source())
     _ => ()
   }

@@ -58,6 +58,27 @@ test "Raw fast source and composition state are browser-owned" {
 }
 
 ///|
+test "Raw draft generations distinguish A to B to A and navigation cancellation" {
+  let coordinator = RawInputCoordinator::RawInputCoordinator()
+  let first_a = coordinator.install_fast_source("A")
+  let _ = coordinator.install_fast_source("B")
+  let latest_a = coordinator.install_fast_source("A")
+  assert_false(coordinator.draft_is_current(first_a))
+  assert_true(coordinator.draft_is_current(latest_a))
+  coordinator.cancel_pending_for_navigation()
+  assert_false(coordinator.draft_is_current(latest_a))
+}
+
+///|
+test "Raw draft generation wraps without arithmetic overflow" {
+  let coordinator = RawInputCoordinator::RawInputCoordinator()
+  coordinator.draft_generation.val = 0xFFFFFFFFFFFFFFFFUL
+  let wrapped = coordinator.install_fast_source("draft")
+  assert_eq(wrapped, 0UL)
+  assert_true(coordinator.draft_is_current(wrapped))
+}
+
+///|
 test "Raw coordinator without telemetry keeps phase snapshots empty" {
   let coordinator = RawInputCoordinator::RawInputCoordinator()
   guard coordinator.phase_json() is None else {

@@ -56,6 +56,7 @@ const RAW_FAST_FLUSH_MS : Int = 250
 /// and persistence remain outside this shell until an explicit flush event.
 priv struct RawInputCoordinator {
   epoch : @ref.Ref[Int]
+  draft_generation : @ref.Ref[UInt64]
   fast_source : @ref.Ref[String?]
   fast_composing : @ref.Ref[Bool]
   render_barrier_armed : @ref.Ref[Bool]
@@ -66,6 +67,7 @@ priv struct RawInputCoordinator {
 fn RawInputCoordinator::RawInputCoordinator() -> RawInputCoordinator {
   {
     epoch: @ref.Ref(0),
+    draft_generation: @ref.Ref(0UL),
     fast_source: @ref.Ref(None),
     fast_composing: @ref.Ref(false),
     render_barrier_armed: @ref.Ref(false),
@@ -79,11 +81,45 @@ fn RawInputCoordinator::epoch(self : RawInputCoordinator) -> Int {
 }
 
 ///|
+fn RawInputCoordinator::advance_draft_generation(
+  self : RawInputCoordinator,
+) -> UInt64 {
+  // A delayed Raw tick lives for at most one page-local scheduling window.
+  // Resetting after UInt64::max is safe because producing 2^64 draft installs
+  // before any such tick settles is physically unreachable.
+  let next = if self.draft_generation.val == 0xFFFFFFFFFFFFFFFFUL {
+    0UL
+  } else {
+    self.draft_generation.val + 1UL
+  }
+  self.draft_generation.val = next
+  next
+}
+
+///|
+fn RawInputCoordinator::install_fast_source(
+  self : RawInputCoordinator,
+  source : String,
+) -> UInt64 {
+  let generation = self.advance_draft_generation()
+  self.fast_source.val = Some(source)
+  generation
+}
+
+///|
 fn RawInputCoordinator::set_fast_source(
   self : RawInputCoordinator,
   source : String,
 ) -> Unit {
-  self.fast_source.val = Some(source)
+  self.install_fast_source(source) |> ignore
+}
+
+///|
+fn RawInputCoordinator::draft_is_current(
+  self : RawInputCoordinator,
+  generation : UInt64,
+) -> Bool {
+  self.draft_generation.val == generation
 }
 
 ///|
@@ -129,6 +165,7 @@ fn RawInputCoordinator::display_source(
 /// their accepted source after cancellation.
 fn RawInputCoordinator::cancel_pending(self : RawInputCoordinator) -> Unit {
   self.epoch.val += 1
+  self.advance_draft_generation() |> ignore
   self.fast_composing.val = false
 }
 

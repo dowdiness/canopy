@@ -407,6 +407,52 @@ test("standalone edit replaces the archive and reload restores the durable sourc
     .toBe(documentId)
 })
 
+test("standalone A to B to A keeps the prior Source record until the latest quiet flush", async ({ page }) => {
+  await page.goto("/")
+  await waitForBaseline(page)
+  await page.evaluate(() => {
+    const scope = globalThis as typeof globalThis & {
+      __loomarkPendingFlushes?: () => number
+      __loomarkRunNextFlush?: () => void
+    }
+    const nativeSetTimeout = globalThis.setTimeout.bind(globalThis)
+    const pending: Array<() => void> = []
+    let syntheticTimer = -1
+    scope.__loomarkPendingFlushes = () => pending.length
+    scope.__loomarkRunNextFlush = () => { pending.shift()?.() }
+    globalThis.setTimeout = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
+      if (timeout === 250 && typeof handler === "function") {
+        pending.push(() => handler(...args))
+        return syntheticTimer--
+      }
+      return nativeSetTimeout(handler, timeout, ...args)
+    }) as typeof globalThis.setTimeout
+  })
+
+  const input = page.locator("#loomark-input")
+  await replaceRawValue(input, "A")
+  await replaceRawValue(input, "B")
+  await replaceRawValue(input, "A")
+  await expect.poll(() => page.evaluate(() => (
+    globalThis as typeof globalThis & { __loomarkPendingFlushes?: () => number }
+  ).__loomarkPendingFlushes?.())).toBe(3)
+
+  await page.evaluate(() => {
+    ;(globalThis as typeof globalThis & { __loomarkRunNextFlush?: () => void })
+      .__loomarkRunNextFlush?.()
+  })
+  await page.waitForTimeout(20)
+  expect((await readArchiveEnvelope(page))?.portable_markdown).toBe("")
+
+  await page.evaluate(() => {
+    const scope = globalThis as typeof globalThis & { __loomarkRunNextFlush?: () => void }
+    scope.__loomarkRunNextFlush?.()
+    scope.__loomarkRunNextFlush?.()
+  })
+  await expect.poll(() => readArchiveEnvelope(page).then(record => record?.portable_markdown))
+    .toBe("A")
+})
+
 test("legacy v1 source opens without history decode and remains untouched", async ({ page }) => {
   const legacyArchive = JSON.stringify({
     schema_version: "1",

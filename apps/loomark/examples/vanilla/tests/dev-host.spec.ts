@@ -554,6 +554,59 @@ test("Raw split Preview reflects browser source independently of a rejected cano
   }
 })
 
+test("Preview split keeps ownership of its editable Raw browser draft", async ({ browser }) => {
+  const host = await mountHost(browser, "# Before\n")
+  try {
+    await toggleSplitPreview(host.page)
+    await selectPreview(host.page)
+    const input = host.page.locator("#loomark-input")
+    const committedBefore = Number((await snapshot(host.page)).committed_change_count)
+    await replaceRawValue(input, "# Draft\n")
+
+    await host.page.waitForTimeout(20)
+    await expect(input).toHaveValue("# Draft\n")
+    await expect(host.page.locator('#loomark-preview h1[data-slot="typography-h1"]').first())
+      .toHaveText("Draft")
+    await expectPreviewSource(host.page, "# Draft\n")
+    await expect.poll(async () => (await snapshot(host.page)).committed_change_count)
+      .toBe(committedBefore + 1)
+    await expect.poll(async () => (await snapshot(host.page)).source).toBe("# Draft\n")
+  } finally {
+    await host.context.close()
+  }
+})
+
+test("Preview split flushes its Raw draft before Block navigation and ignores stale ticks", async ({ browser }) => {
+  const host = await mountHost(browser, "# Before\n")
+  try {
+    await toggleSplitPreview(host.page)
+    await selectPreview(host.page)
+    const input = host.page.locator("#loomark-input")
+    const before = await snapshot(host.page)
+    const committedBefore = Number(before.committed_change_count)
+    const errorsBefore = Number(before.error_count)
+    await replaceRawValue(input, "# Boundary\n")
+    await selectBlock(host.page)
+
+    expect(await snapshot(host.page)).toMatchObject({
+      source: "# Boundary\n",
+      mode: "block",
+      committed_change_count: committedBefore + 1,
+    })
+    await host.page.waitForTimeout(350)
+    expect(await snapshot(host.page)).toMatchObject({
+      source: "# Boundary\n",
+      mode: "block",
+      committed_change_count: committedBefore + 1,
+      error_code: null,
+      error_operation: null,
+      error_count: errorsBefore,
+    })
+  } finally {
+    await host.context.close()
+  }
+})
+
 test("Raw canonical flush does not wait for a large speculative Preview", async ({ browser }) => {
   const host = await mountHost(browser, "# Before\n")
   try {
@@ -2146,6 +2199,67 @@ test("Raw browser draft coalesces to one canonical quiet-period flush", async ({
     await expect.poll(async () => (await snapshot(host.page)).source).toBe("startabc")
   } finally {
     await host.context.close()
+  }
+})
+
+test("Raw quiet period is fenced by draft identity across A to B to A", async ({ browser }) => {
+  const context = await browser.newContext()
+  await context.addInitScript(() => {
+    const scope = globalThis as typeof globalThis & {
+      __loomarkArmFlushClock?: () => void
+      __loomarkPendingFlushes?: () => number
+      __loomarkRunNextFlush?: () => void
+    }
+    const nativeSetTimeout = globalThis.setTimeout.bind(globalThis)
+    const pending: Array<() => void> = []
+    let armed = false
+    let syntheticTimer = -1
+    scope.__loomarkArmFlushClock = () => { armed = true }
+    scope.__loomarkPendingFlushes = () => pending.length
+    scope.__loomarkRunNextFlush = () => { pending.shift()?.() }
+    globalThis.setTimeout = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
+      if (armed && timeout === 250 && typeof handler === "function") {
+        pending.push(() => handler(...args))
+        return syntheticTimer--
+      }
+      return nativeSetTimeout(handler, timeout, ...args)
+    }) as typeof globalThis.setTimeout
+  })
+  const mounted = await mountPage(context, "start")
+  try {
+    await mounted.page.evaluate(() => {
+      ;(globalThis as typeof globalThis & { __loomarkArmFlushClock?: () => void })
+        .__loomarkArmFlushClock?.()
+    })
+    const input = mounted.page.locator("#loomark-input")
+    const committedBefore = Number((await snapshot(mounted.page)).committed_change_count)
+    await replaceRawValue(input, "A")
+    await replaceRawValue(input, "B")
+    await replaceRawValue(input, "A")
+    await expect.poll(() => mounted.page.evaluate(() => (
+      globalThis as typeof globalThis & { __loomarkPendingFlushes?: () => number }
+    ).__loomarkPendingFlushes?.())).toBe(3)
+
+    await mounted.page.evaluate(() => {
+      ;(globalThis as typeof globalThis & { __loomarkRunNextFlush?: () => void })
+        .__loomarkRunNextFlush?.()
+    })
+    await mounted.page.waitForTimeout(20)
+    expect(await snapshot(mounted.page)).toMatchObject({
+      source: "A",
+      committed_change_count: committedBefore,
+    })
+
+    await mounted.page.evaluate(() => {
+      const scope = globalThis as typeof globalThis & { __loomarkRunNextFlush?: () => void }
+      scope.__loomarkRunNextFlush?.()
+      scope.__loomarkRunNextFlush?.()
+    })
+    await expect.poll(async () => (await snapshot(mounted.page)).committed_change_count)
+      .toBe(committedBefore + 1)
+    await expect.poll(async () => (await snapshot(mounted.page)).source).toBe("A")
+  } finally {
+    await context.close()
   }
 })
 

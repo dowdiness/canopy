@@ -6,8 +6,8 @@ priv enum EditingEvent {
   ReplaceSource(String)
   LocalTextInput(String)
   RawInput(String, @dom_boundary.TextSelection?)
-  RawFastPreview
-  RawFastFlush(String)
+  RawFastPreview(UInt64)
+  RawFastFlush(UInt64, String)
   RawSelectionEdit(RawSelectionEditRequest)
   CommitCapturedRawSelection(String)
   BlockFocused(String)
