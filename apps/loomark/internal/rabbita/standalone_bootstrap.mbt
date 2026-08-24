@@ -249,10 +249,9 @@ fn start_local_text(
     durable=if persist { None } else { Some(model.document_version) },
   )
   let (archive_queue, command) = if persist {
-    let prepared = @repository.prepare_local_text(document_id~, source~)
-    let (queue, pending) = queue.enqueue(
+    let (queue, pending) = queue.enqueue_local_text(
       document_version=model.document_version,
-      archive=prepared,
+      source~,
     )
     (queue, local_archive_write_command(pending, emit))
   } else {
