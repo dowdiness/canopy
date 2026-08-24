@@ -49,9 +49,10 @@ HTTP server.
 ## Local document ownership
 
 The standalone application keeps one active LocalText document in this
-browser's local storage. Each accepted Raw edit replaces a small record
-containing the stable logical document identity and portable Markdown. The
-record contains no causal history.
+browser's local storage. Raw typing stays browser-owned; after a 250 ms quiet
+period, the latest draft becomes the accepted LocalText source and atomically
+replaces a small record containing the stable logical document identity and
+portable Markdown. The record contains no causal history.
 
 If LocalText is absent, Loomark reads `document_id` and `portable_markdown` from
 the existing v1 archive without decoding or admitting its history. The v1 bytes
@@ -59,10 +60,11 @@ remain untouched. The first subsequent edit writes the new LocalText slot, so
 reloads prefer the fast source-only path while the old archive remains as a
 backup.
 
-An applied edit remains visible if LocalText replacement fails. Loomark warns
-that those changes are not saved locally; reloading recovers the last
-successfully stored LocalText, or the untouched v1 fallback when no LocalText
-has been stored. Invalid and unsupported records remain behind the existing
+A browser draft is not yet durable during the quiet period. After acceptance,
+the edit remains visible if LocalText replacement fails. Loomark warns that
+those changes are not saved locally; reloading recovers the last successfully
+stored LocalText, or the untouched v1 fallback when no LocalText has been
+stored. Invalid and unsupported records remain behind the existing
 non-editable recovery screen. Selection, focus, and browser-local undo remain
 page-lifetime state and are not restored after reload.
 

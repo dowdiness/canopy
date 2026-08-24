@@ -140,19 +140,6 @@ fn RawInputCoordinator::cancel_pending_for_navigation(
 }
 
 ///|
-#cfg(target="js")
-fn raw_input_event_is_composing(event : @dom.InputEvent) -> Bool {
-  event.is_composing()
-}
-
-///|
-#cfg(not(target="js"))
-fn raw_input_event_is_composing(event : @dom.InputEvent) -> Bool {
-  ignore(event)
-  false
-}
-
-///|
 fn RawInputCoordinator::phase_json(self : RawInputCoordinator) -> Json? {
   ignore(self)
   None

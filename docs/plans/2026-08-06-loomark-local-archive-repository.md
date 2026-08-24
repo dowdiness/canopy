@@ -2,23 +2,28 @@
 
 Issue: #1140
 
-Status: active — local candidate passes targeted, workspace, and browser validation
+Status: deferred promotion contract; superseded by source-only LocalText in production
 
 ## Goal
 
-Persist the standalone Loomark active document as one complete application-owned archive in browser-local storage. A successful replacement is acknowledged only after the provider accepts the complete archive. Reopening preserves logical document identity and causal history while creating a fresh writing instance.
+Preserve the historical full-history restore oracle as one complete application-owned archive in browser-local storage. Production standalone now follows the source-only LocalText contract in `apps/loomark/README.md`: ordinary Raw input neither decodes nor rewrites causal history. The oracle remains isolated evidence for a future collaboration promotion path.
 
 ## Scope boundary
 
-#1140 owns:
+For the explicit `FullHistoryOracleBootstrap` path, #1140 owns:
 
 - one active-document archive slot;
 - complete archive preparation, atomic replacement, loading, and typed failures;
 - a repository-operation acknowledgment;
-- immediate persistence after every history-changing commit;
+- immediate persistence after every history-changing oracle commit;
 - baseline archive creation for a new active document;
 - recovery-blocked startup when an existing archive cannot be safely opened;
 - a storage warning after a post-acceptance replacement failure.
+
+Gate R0 is manual promotion evidence for this future oracle, not a production
+LocalText regression gate. It may remain red while the capability is deferred;
+a future promotion must make it pass without moving complete-history work into
+the production source-only input path.
 
 #1169 continues to own formal Session durability observations, a single-flight queue, latest-wins coalescing, explicit retry, and durable-version tracking. #1170 continues to own separately versioned Session metadata. Document catalogs, networking, replication, backup, and undo across restart are out of scope.
 
@@ -29,6 +34,8 @@ The queue is a deterministic functional core with one in-flight archive and one 
 Provider write failures and complete-archive preparation failures remain distinct in the persistence failure taxonomy. Every bootstrap, baseline, commit, retry, and promoted write uses one shared imperative-shell Command adapter so completion correlation and persistence tracing cannot drift by call path.
 
 ## Decisions
+
+These decisions describe the full-history oracle, not production LocalText.
 
 - The first provider is `localStorage`.
 - One fixed storage slot contains one complete archive envelope. Logical document identity remains inside that envelope.

@@ -325,7 +325,10 @@ fn publish(
   let fields : Map[String, Json] = {
     "source": match raw_input_coordinator {
       Some(coordinator) if model.state.mode() == @core.Raw &&
-        model.runtime_state is EditorRuntimeState::Healthy =>
+        (
+          model.runtime_state is EditorRuntimeState::Healthy ||
+          model.runtime_state is EditorRuntimeState::LocalText(_)
+        ) =>
         match coordinator.fast_source_value() {
           Some(source) => source.to_json()
           None => runtime_source(model).to_json()
@@ -480,11 +483,12 @@ fn raw_editor_view(
   raw_input_coordinator : RawInputCoordinator,
 ) -> @rabbita_runtime.Html {
   let local_text = model.runtime_state is EditorRuntimeState::LocalText(_)
-  let source = if local_text {
+  let committed_source = if local_text {
     runtime_source(model)
   } else {
-    raw_input_coordinator.display_source(model.document.source())
+    model.document.source()
   }
+  let source = raw_input_coordinator.display_source(committed_source)
   @html.div(
     style=[
       "box-sizing:border-box;width:100%;min-width:0;overflow-y:auto;overflow-x:hidden",
@@ -496,17 +500,11 @@ fn raw_editor_view(
       attrs=@html.Attrs::build()
         .aria_label("Raw Markdown source")
         .on_compositionstart(_ => {
-          if local_text {
-            return @rabbita_runtime.none
-          }
           raw_input_coordinator.begin_fast_composition()
           @rabbita_runtime.none
         })
         .on_compositionend(_ => {
           let source = read_textarea_value("loomark-input")
-          if local_text {
-            return emit(Editing(LocalTextInput(source)))
-          }
           raw_input_coordinator.finish_fast_composition()
           raw_input_coordinator.set_fast_source(source)
           @cmd.batch([
@@ -515,24 +513,11 @@ fn raw_editor_view(
           ])
         })
         .on_beforeinput(_ => @rabbita_runtime.none)
-        .on_input(event => {
-          if local_text {
-            if raw_input_event_is_composing(event) {
-              return @rabbita_runtime.none
-            }
-            return emit(
-              Editing(LocalTextInput(read_textarea_value("loomark-input"))),
-            )
-          }
-          @rabbita_runtime.none
-        }),
+        .on_input(_ => @rabbita_runtime.none),
       style=[
         "display:block;min-width:0;min-height:clamp(24rem,70vh,36rem);width:var(--lm-page-width);margin-inline:auto;field-sizing:content;resize:none;overflow:hidden;--rui-control-base-border:transparent;--rui-control-base-shadow:none;background:transparent;padding:1rem var(--lm-page-x-padding);font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,\"Liberation Mono\",\"Courier New\",monospace;font-size:1.125rem;line-height:1.65",
       ],
       on_input=@cmd.Emit(source => {
-        if local_text {
-          return @rabbita_runtime.none
-        }
         raw_input_coordinator.set_fast_source(source)
         let preview = @cmd.delay(
           emit(Editing(RawFastPreview)),
@@ -1235,7 +1220,11 @@ fn update_editing(
                   block_input_coordinator,
                   model,
                   latest_model,
-                  RawInput(source, None),
+                  if model.runtime_state is EditorRuntimeState::LocalText(_) {
+                    LocalTextInput(source)
+                  } else {
+                    RawInput(source, None)
+                  },
                   emit,
                   projection_session?,
                 )
@@ -2776,7 +2765,7 @@ fn update_model_with_raw_preview_runtime(
   }
   match event {
     Bootstrap(_) | Lifecycle(RestoreSnapshot(..)) =>
-      raw_input_coordinator.set_fast_source(next.document.source())
+      raw_input_coordinator.set_fast_source(runtime_source(next))
     _ if next.state.mode() != @core.Raw =>
       raw_input_coordinator.set_fast_source(next.document.source())
     _ => ()

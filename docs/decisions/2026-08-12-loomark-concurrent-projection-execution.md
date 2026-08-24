@@ -196,8 +196,12 @@ Exact slot counts, selected limits, and configuration mechanisms are
 implementation policy recorded by the plan and promotion evidence; changing
 them does not change the protocol or artifact interface.
 
-Causal operations, receipts, history, and persistence are never coalesced.
-Promotion requires evidence that ordinary typing does not degenerate into a
+Causal operations, receipts, and history are never coalesced inside a
+full-history authority. That rule applies to the explicit restore oracle and a
+future collaboration promotion path. Production LocalText owns no causal
+history: browser drafts coalesce before one source-only acceptance and storage
+replacement. Promotion requires evidence that ordinary full-history typing
+does not degenerate into a
 Seed per edit, burst work catches up, and obsolete tails become collectible.
 
 ### 7. Make Block-mode lag explicit

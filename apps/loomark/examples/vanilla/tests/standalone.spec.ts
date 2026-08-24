@@ -246,12 +246,12 @@ async function replaceRawValue(input: Locator, value: string): Promise<void> {
  * | boundary | case | required observation |
  * | production boot | clean Warren static output | exactly one visible Loomark root mounts into the declared host |
  * | production isolation | first load and ordinary interaction | private driver DOM and JavaScript exports are absent |
- * | canonical editing | source-only Raw | every accepted edit replaces the LocalText record |
+ * | canonical editing | source-only Raw | latest browser draft is accepted and stored after the quiet period |
  * | root ownership | document changes | state changes inside the existing root without a second mount |
  * | release output | clean rebuild and ordinary static server | page, release JavaScript, and declared public assets load without dev inputs |
  * | page lifetime | reload or close | the page ends ownership without claiming unmount or host reuse |
  * | local baseline | first visit with an empty repository | one LocalText record establishes the active document identity |
- * | local durability | accepted edit then reload | LocalText reopens with stable document identity and durable source |
+ * | local durability | quiet flush then reload | LocalText reopens with stable document identity and durable source |
  * | compatibility | legacy v1 fallback | source opens without history decode and v1 bytes remain untouched |
  * | recovery | corrupt, unsupported, or unreadable record | storage remains unchanged and no editable document mounts |
  * | replacement failure | accepted edit after provider failure | applied source remains visible and reload restores the prior durable archive |
@@ -397,6 +397,7 @@ test("standalone edit replaces the archive and reload restores the durable sourc
   const documentId = (await readArchiveEnvelope(page))?.document_id
   expect(documentId).toBeTruthy()
   await replaceRawValue(page.locator("#loomark-input"), "# Durable\n\nSaved locally\n")
+  expect((await readArchiveEnvelope(page))?.portable_markdown).toBe("")
   await expect.poll(() => readArchiveEnvelope(page).then(archive => archive?.portable_markdown))
     .toBe("# Durable\n\nSaved locally\n")
 
