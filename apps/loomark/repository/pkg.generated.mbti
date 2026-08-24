@@ -55,7 +55,7 @@ pub struct LocalArchivePendingWrite {
   // private fields
 } derive(Eq)
 pub fn LocalArchivePendingWrite::encoded(Self) -> String
-pub fn LocalArchivePendingWrite::is_source_only(Self) -> Bool
+pub fn LocalArchivePendingWrite::record_kind(Self) -> LocalArchiveRecordKind
 
 pub(all) enum LocalArchivePersistenceDecision {
   Replace
@@ -90,6 +90,11 @@ pub(all) enum LocalArchiveQueueCompletion {
   Promoted(LocalArchivePendingWrite)
 } derive(Eq)
 
+pub(all) enum LocalArchiveRecordKind {
+  FullHistory
+  LocalText
+} derive(Eq, @debug.Debug)
+
 pub(all) enum LocalArchiveStorageReadFailure {
   Unavailable
   Failed
@@ -122,7 +127,7 @@ pub struct PreparedLocalArchive {
   // private fields
 } derive(Eq)
 pub fn PreparedLocalArchive::encoded(Self) -> String
-pub fn PreparedLocalArchive::is_source_only(Self) -> Bool
+pub fn PreparedLocalArchive::record_kind(Self) -> LocalArchiveRecordKind
 
 pub struct ReopenedLocalArchive {
   // private fields

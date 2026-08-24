@@ -65,9 +65,11 @@ pub fn LocalArchivePendingWrite::encoded(self : Self) -> String {
 }
 
 ///|
-/// Whether this write targets the source-only LocalText slot.
-pub fn LocalArchivePendingWrite::is_source_only(self : Self) -> Bool {
-  self.archive.is_source_only()
+/// Return the prepared record format for exhaustive storage routing.
+pub fn LocalArchivePendingWrite::record_kind(
+  self : Self,
+) -> LocalArchiveRecordKind {
+  self.archive.record_kind()
 }
 
 ///|

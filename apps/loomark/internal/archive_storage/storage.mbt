@@ -107,10 +107,9 @@ pub fn replace(
   pending : @repository.LocalArchivePendingWrite,
   completed~ : @cmd.Emit[LocalArchiveWriteCompletion],
 ) -> @cmd.Cmd {
-  let key = if pending.is_source_only() {
-    LOCAL_TEXT_KEY
-  } else {
-    ACTIVE_DOCUMENT_KEY
+  let key = match pending.record_kind() {
+    @repository.LocalArchiveRecordKind::FullHistory => ACTIVE_DOCUMENT_KEY
+    @repository.LocalArchiveRecordKind::LocalText => LOCAL_TEXT_KEY
   }
   @indexed_db.put(local_repository_config, key, pending.encoded(), result=stored => {
     let result = match stored {

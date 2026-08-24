@@ -166,10 +166,17 @@ pub(all) suberror LocalArchivePreparationError {
 }
 
 ///|
+/// Persistence format carried by one prepared local replacement.
+pub(all) enum LocalArchiveRecordKind {
+  FullHistory
+  LocalText
+} derive(Eq, Debug)
+
+///|
 /// One immutable complete encoded replacement, ready for a storage shell.
 pub struct PreparedLocalArchive {
   priv encoded : String
-  priv source_only : Bool
+  priv record_kind : LocalArchiveRecordKind
 } derive(Eq)
 
 ///|
@@ -184,7 +191,7 @@ pub fn prepare_local_archive(
       raise LocalArchivePreparationError::HistoryUnavailable(detail~)
     error => raise error
   }
-  { encoded: archive.to_json_string(), source_only: false }
+  { encoded: archive.to_json_string(), record_kind: FullHistory }
 }
 
 ///|
@@ -204,7 +211,10 @@ pub fn prepare_local_archive_observing(
       raise LocalArchivePreparationError::HistoryUnavailable(detail~)
     error => raise error
   }
-  { encoded: archive.to_json_string_observing(observer), source_only: false }
+  {
+    encoded: archive.to_json_string_observing(observer),
+    record_kind: FullHistory,
+  }
 }
 
 ///|
@@ -214,9 +224,9 @@ pub fn PreparedLocalArchive::encoded(self : Self) -> String {
 }
 
 ///|
-/// Whether this replacement belongs in the source-only LocalText slot.
-pub fn PreparedLocalArchive::is_source_only(self : Self) -> Bool {
-  self.source_only
+/// Return the replacement format so the storage shell can select its slot.
+pub fn PreparedLocalArchive::record_kind(self : Self) -> LocalArchiveRecordKind {
+  self.record_kind
 }
 
 ///|
@@ -242,7 +252,7 @@ pub fn prepare_local_text(
       "document_id": Json::string(document_id.value()),
       "portable_markdown": Json::string(source),
     }).stringify(),
-    source_only: true,
+    record_kind: LocalText,
   }
 }
 
