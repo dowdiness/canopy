@@ -1,0 +1,13 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "canopy/quint-sync-recovery-prototype"
+
+// Values
+
+// Errors
+
+// Types and methods
+type Driver
+
+// Type aliases
+
+// Traits

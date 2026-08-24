@@ -47,4 +47,5 @@ members = [
   "./examples/codemirror",
   "./examples/resizable",
   "./examples/disclosure",
+  "./examples/quint-sync-recovery-prototype",
 ]

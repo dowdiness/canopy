@@ -1,0 +1,13 @@
+import {
+  "mizchi/quint_connect",
+  "dowdiness/canopy/sync_session",
+  "dowdiness/canopy/protocol/wire",
+  "dowdiness/event-graph-walker/text",
+  "moonbitlang/core/json",
+  "moonbitlang/async",
+  "moonbitlang/async/fs",
+  "moonbitlang/core/env",
+  "moonbitlang/core/debug",
+}
+
+pkgtype(kind: "executable")
