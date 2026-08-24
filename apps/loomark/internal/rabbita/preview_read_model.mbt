@@ -59,11 +59,34 @@ fn update_preview_document_synchronously(
       {
         ..model,
         semantic_document: Some(document),
+        preview_artifact: None,
+        raw_preview: model.raw_preview.clear(),
         semantic_read_count: model.semantic_read_count + 1,
       }
     }
     PreviewDocumentKeep => model
-    PreviewDocumentClear => { ..model, semantic_document: None }
+    PreviewDocumentClear =>
+      {
+        ..model,
+        semantic_document: None,
+        preview_artifact: None,
+        raw_preview: model.raw_preview.clear(),
+      }
+  }
+}
+
+///|
+/// A source-changing authority advance invalidates the old canonical stamp,
+/// even when the source later reverses to identical text.
+fn invalidate_preview_after_authority(
+  model : DriverModel,
+  accepted~ : Bool,
+  changed~ : Bool,
+) -> DriverModel {
+  if accepted && changed {
+    { ..model, preview_artifact: None }
+  } else {
+    model
   }
 }
 
@@ -77,6 +100,7 @@ fn update_preview_after_authority(
   accepted~ : Bool,
   changed~ : Bool,
 ) -> DriverModel {
+  let model = invalidate_preview_after_authority(model, accepted~, changed~)
   if selected_projection_placement is ProjectionSynchronous {
     update_preview_document_synchronously(
       attachment,
@@ -143,6 +167,7 @@ fn update_preview_document_with_projection(
   accepted~ : Bool,
   changed~ : Bool,
 ) -> DriverModel {
+  let model = invalidate_preview_after_authority(model, accepted~, changed~)
   match projection_session.val {
     None => {
       ignore(attachment)

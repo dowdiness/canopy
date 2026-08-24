@@ -91,7 +91,7 @@ fn BlockInputTestContext::reduce(
   let (next, _) = try! update_editing(
     self.editor,
     self.attachment,
-    RawInputCoordinator::RawInputCoordinator(None),
+    RawInputCoordinator::RawInputCoordinator(),
     coordinator,
     model,
     latest_model,
@@ -523,7 +523,7 @@ test "Fatal-state rejection cancels active Block input" {
   let (next, _) = try! update_model(
     context.editor,
     context.attachment,
-    RawInputCoordinator::RawInputCoordinator(None),
+    RawInputCoordinator::RawInputCoordinator(),
     coordinator,
     model,
     latest_model,
@@ -579,7 +579,7 @@ test "Entering fatal state cancels pending and active Block input" {
   let (next, _) = try! update_model(
     context.editor,
     context.attachment,
-    RawInputCoordinator::RawInputCoordinator(None),
+    RawInputCoordinator::RawInputCoordinator(),
     coordinator,
     model,
     latest_model,
@@ -761,7 +761,7 @@ test "Accepted snapshot restore cancels pending Block input" {
   let (next, _) = try! update_lifecycle(
     context.editor,
     context.attachment,
-    RawInputCoordinator::RawInputCoordinator(None),
+    RawInputCoordinator::RawInputCoordinator(),
     coordinator,
     model,
     RestoreSnapshot(version=1, source="x", mode=@core.Block),

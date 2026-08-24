@@ -1,6 +1,7 @@
 ///|
 priv enum ProjectionWorkerCommand {
   WorkerSeed(String, String, ProjectionStamp, ProjectionDemand)
+  WorkerFastPreview(String, ProjectionStamp)
   WorkerAdvance(ProjectionStamp, ProjectionSourceEffect)
   WorkerDemand(ProjectionStamp, ProjectionDemand)
   WorkerSnapshot
@@ -119,6 +120,16 @@ fn projection_worker_decode_request(
         )
       }
       Ok((request_id, WorkerSeed(agent_id, source, stamp, decoded_demand)))
+    }
+    "fast-preview" => {
+      guard projection_worker_decode_string(command, "source") is Some(source) else {
+        return Err("fast-preview source is missing")
+      }
+      guard command.get("stamp") is Some(Json::Object(stamp_fields)) &&
+        projection_worker_decode_stamp(stamp_fields) is Some(stamp) else {
+        return Err("fast-preview stamp is missing or malformed")
+      }
+      Ok((request_id, WorkerFastPreview(source, stamp)))
     }
     "advance" => {
       guard command.get("stamp") is Some(Json::Object(stamp_fields)) &&
@@ -377,6 +388,37 @@ fn projection_worker_observables_json(
 }
 
 ///|
+/// Parse only the typed Preview artifact for the browser-owned Raw source.
+/// This path intentionally has no MarkdownEditor, CRDT, or archive session.
+fn projection_worker_fast_preview_response(
+  request_id : Int,
+  source : String,
+  stamp : ProjectionStamp,
+) -> String raise {
+  let parser = @loom.new_parser(
+    @loom.SourceId("projection-fast-preview"),
+    source,
+    @md_markdown.markdown_grammar,
+  )
+  let snapshot = parser.snapshot().read_or_abort()
+  let document = @md_markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
+    parser.source_id(),
+    snapshot.syntax,
+    snapshot.diagnostics,
+  )
+  let preview = normalized_preview_projection(source, document)
+  Json::object({
+    "schema_version": Json::string("1"),
+    "request_id": Json::number(request_id.to_double()),
+    "kind": Json::string("ok"),
+    "stamp": projection_worker_stamp_json(stamp),
+    "observables": Json::object({
+      "preview": normalized_preview_projection_json(preview),
+    }),
+  }).stringify()
+}
+
+///|
 fn projection_worker_ok_response(
   request_id : Int,
   session : ProjectionSession,
@@ -444,6 +486,21 @@ pub fn new_projection_worker_dispatcher() -> (String) -> String {
         }
         session.val = Some(created)
         projection_worker_ok_response(request_id, created) catch {
+          error =>
+            projection_worker_error_response(
+              request_id,
+              "execution-failed",
+              error.to_string(),
+            )
+        }
+      }
+      WorkerFastPreview(source, stamp) => {
+        guard !disposed.val else {
+          return projection_worker_error_response(
+            request_id, "disposed", "projection Worker dispatcher disposed",
+          )
+        }
+        projection_worker_fast_preview_response(request_id, source, stamp) catch {
           error =>
             projection_worker_error_response(
               request_id,

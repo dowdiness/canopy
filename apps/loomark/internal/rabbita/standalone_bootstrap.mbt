@@ -98,6 +98,7 @@ fn adopt_full_history_session(
       bootstrap_pending: false,
       semantic_document: None,
       preview_artifact: None,
+      raw_preview: RawPreviewModel::disabled(),
       semantic_read_count: 0,
       split_preview_open: false,
       active_block_key: None,

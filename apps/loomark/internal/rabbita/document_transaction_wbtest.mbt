@@ -19,6 +19,7 @@ fn document_transaction_test_model(
     bootstrap_pending: false,
     semantic_document: None,
     preview_artifact: None,
+    raw_preview: RawPreviewModel::enabled(),
     semantic_read_count: 0,
     split_preview_open: false,
     compact_split: false,
