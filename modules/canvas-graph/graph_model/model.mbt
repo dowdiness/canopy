@@ -127,7 +127,7 @@ pub impl ToJson for PortDef with fn to_json(self) {
   let fields : Map[String, Json] = Map([])
   fields["id"] = self.id.to_json()
   fields["label"] = self.label.to_json()
-  fields["port_type"] = self.port_type.to_json()
+  fields["port_type"] = ToJson::to_json(self.port_type)
   if self.allows_fan_in {
     fields["allows_fan_in"] = true.to_json()
   }
@@ -415,16 +415,16 @@ pub impl ToJson for GraphOperation with fn to_json(self) {
     }
     ConnectPorts(source, source_port, target, target_port) => {
       fields["type"] = "ConnectPorts".to_json()
-      fields["source"] = source.to_json()
+      fields["source"] = ToJson::to_json(source)
       fields["source_port"] = source_port.to_json()
-      fields["target"] = target.to_json()
+      fields["target"] = ToJson::to_json(target)
       fields["target_port"] = target_port.to_json()
     }
     DisconnectPorts(source, source_port, target, target_port) => {
       fields["type"] = "DisconnectPorts".to_json()
-      fields["source"] = source.to_json()
+      fields["source"] = ToJson::to_json(source)
       fields["source_port"] = source_port.to_json()
-      fields["target"] = target.to_json()
+      fields["target"] = ToJson::to_json(target)
       fields["target_port"] = target_port.to_json()
     }
     DeleteNodes(nodes) => {
@@ -433,12 +433,12 @@ pub impl ToJson for GraphOperation with fn to_json(self) {
     }
     RenameNode(node_id, name) => {
       fields["type"] = "RenameNode".to_json()
-      fields["node_id"] = node_id.to_json()
+      fields["node_id"] = ToJson::to_json(node_id)
       fields["name"] = name.to_json()
     }
     SetNodeParam(node_id, parameter, value) => {
       fields["type"] = "SetNodeParam".to_json()
-      fields["node_id"] = node_id.to_json()
+      fields["node_id"] = ToJson::to_json(node_id)
       fields["parameter"] = parameter.to_json()
       fields["value"] = value.to_json()
     }
