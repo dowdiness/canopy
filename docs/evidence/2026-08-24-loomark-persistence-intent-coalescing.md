@@ -91,7 +91,9 @@ fixture had SHA-256
 
 W2 is the 200–400 ms interval after input, containing the nominal 250 ms quiet
 flush. The per-sample W2 value is the maximum long-task duration in that
-interval.
+interval. The raw samples retain every 0–400 ms long-task offset and duration;
+the W2 summaries apply the 200 ms lower bound. The checked-in runner now emits
+this bounded W2 summary directly.
 
 ### Current-main baseline
 
@@ -163,3 +165,6 @@ Worker placement, chunking, or a different Source representation.
 
 The compact machine-readable result and raw-run digests are in
 [`2026-08-24-loomark-persistence-intent-coalescing.json`](2026-08-24-loomark-persistence-intent-coalescing.json).
+The complete baseline, three candidate launches, and candidate size-matrix
+samples are in
+[`2026-08-24-loomark-persistence-intent-coalescing-raw.json`](2026-08-24-loomark-persistence-intent-coalescing-raw.json).

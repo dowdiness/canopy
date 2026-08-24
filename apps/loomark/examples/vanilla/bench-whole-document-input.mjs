@@ -15,6 +15,8 @@ const localTextKey = "loomark.active-document-text"
 const databaseName = "loomark.local-repository"
 const storeName = "archives"
 const settleMs = 400
+const w2StartMs = 200
+const w2EndMs = 400
 const sizes = parseSizes(process.env.LOOMARK_WHOLE_DOCUMENT_SIZES ?? "65536,262144,1048576")
 const warmups = parseCount(process.env.LOOMARK_WHOLE_DOCUMENT_WARMUPS ?? "5", "LOOMARK_WHOLE_DOCUMENT_WARMUPS", 0)
 const samples = parseCount(process.env.LOOMARK_WHOLE_DOCUMENT_SAMPLES ?? "30", "LOOMARK_WHOLE_DOCUMENT_SAMPLES", 1)
@@ -422,6 +424,9 @@ async function withBrowser(action) {
 }
 
 function summarizeRows(rows) {
+  const w2MaximumPerSample = rows.map(row => row.long_tasks
+    .filter(task => task.offset_ms >= w2StartMs && task.offset_ms <= w2EndMs)
+    .reduce((maximum, task) => Math.max(maximum, task.duration_ms), 0))
   const metrics = [
     "native_mutation_ms",
     "input_handler_ms",
@@ -441,6 +446,14 @@ function summarizeRows(rows) {
         (maximum, value) => Math.max(maximum, value),
         0,
       ),
+    },
+  ], [
+    "w2_long_tasks",
+    {
+      window_start_ms: w2StartMs,
+      window_end_ms: w2EndMs,
+      samples_with_long_tasks: w2MaximumPerSample.filter(value => value > 0).length,
+      maximum_per_sample_ms: summarize(w2MaximumPerSample),
     },
   ]]))
 }

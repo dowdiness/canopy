@@ -1,6 +1,7 @@
 {
   "schema": "loomark-persistence-intent-coalescing-evidence-v1",
   "issue": 1360,
+  "raw_evidence": "2026-08-24-loomark-persistence-intent-coalescing-raw.json",
   "base_commit": "298f3ccf527de1447adde3bcab82140dd4eaddb2",
   "candidate_code_commit": "0458a5827598bcdec4a14c956b8d93dd43e9ec73",
   "environment": {
