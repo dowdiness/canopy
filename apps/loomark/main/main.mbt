@@ -499,9 +499,18 @@ extern "js" fn start_projection_worker_gate(
   #| }
 
 ///|
+extern "js" fn gate_r0_full_history_oracle_enabled() -> Bool =
+  #| () => new URLSearchParams(location.search)
+  #|   .get("gate-r0-full-history-oracle") === "1"
+
+///|
 /// Start the page-owned Loomark application exactly once.
 fn main {
-  ignore(@app.mount_standalone("app", ""))
+  if gate_r0_full_history_oracle_enabled() {
+    ignore(@app.mount_full_history_oracle("app", ""))
+  } else {
+    ignore(@app.mount_standalone("app", ""))
+  }
   start_warren_worker_capability_smoke()
   start_projection_worker_gate(@app.new_projection_worker_dispatcher())
 }

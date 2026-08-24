@@ -169,6 +169,7 @@ pub(all) suberror LocalArchivePreparationError {
 /// One immutable complete encoded replacement, ready for a storage shell.
 pub struct PreparedLocalArchive {
   priv encoded : String
+  priv source_only : Bool
 } derive(Eq)
 
 ///|
@@ -183,7 +184,7 @@ pub fn prepare_local_archive(
       raise LocalArchivePreparationError::HistoryUnavailable(detail~)
     error => raise error
   }
-  { encoded: archive.to_json_string() }
+  { encoded: archive.to_json_string(), source_only: false }
 }
 
 ///|
@@ -203,13 +204,19 @@ pub fn prepare_local_archive_observing(
       raise LocalArchivePreparationError::HistoryUnavailable(detail~)
     error => raise error
   }
-  { encoded: archive.to_json_string_observing(observer) }
+  { encoded: archive.to_json_string_observing(observer), source_only: false }
 }
 
 ///|
 /// Return the deterministic encoded replacement payload.
 pub fn PreparedLocalArchive::encoded(self : Self) -> String {
   self.encoded
+}
+
+///|
+/// Whether this replacement belongs in the source-only LocalText slot.
+pub fn PreparedLocalArchive::is_source_only(self : Self) -> Bool {
+  self.source_only
 }
 
 ///|
@@ -235,6 +242,7 @@ pub fn prepare_local_text(
       "document_id": Json::string(document_id.value()),
       "portable_markdown": Json::string(source),
     }).stringify(),
+    source_only: true,
   }
 }
 

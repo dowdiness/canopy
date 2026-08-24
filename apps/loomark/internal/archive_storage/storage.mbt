@@ -57,7 +57,9 @@ pub fn LocalArchiveWriteCompletion::result(
 }
 
 ///|
-fn load_legacy_archive(result : @cmd.Emit[LocalArchiveStorageRead]) -> @cmd.Cmd {
+pub fn load_legacy_archive(
+  result~ : @cmd.Emit[LocalArchiveStorageRead],
+) -> @cmd.Cmd {
   @indexed_db.get(
     local_repository_config,
     ACTIVE_DOCUMENT_KEY,
@@ -86,7 +88,7 @@ pub fn load(result~ : @cmd.Emit[LocalArchiveStorageRead]) -> @cmd.Cmd {
     migrate_legacy=false,
     result=stored => {
       match stored {
-        @indexed_db.ReadResult::Missing => load_legacy_archive(result)
+        @indexed_db.ReadResult::Missing => load_legacy_archive(result~)
         @indexed_db.ReadResult::Loaded(value) => result(LocalText(value))
         @indexed_db.ReadResult::Unavailable =>
           result(
@@ -100,12 +102,17 @@ pub fn load(result~ : @cmd.Emit[LocalArchiveStorageRead]) -> @cmd.Cmd {
 }
 
 ///|
-/// Schedule one atomic complete archive replacement.
+/// Schedule one atomic complete replacement in its format-owned slot.
 pub fn replace(
   pending : @repository.LocalArchivePendingWrite,
   completed~ : @cmd.Emit[LocalArchiveWriteCompletion],
 ) -> @cmd.Cmd {
-  @indexed_db.put(local_repository_config, LOCAL_TEXT_KEY, pending.encoded(), result=stored => {
+  let key = if pending.is_source_only() {
+    LOCAL_TEXT_KEY
+  } else {
+    ACTIVE_DOCUMENT_KEY
+  }
+  @indexed_db.put(local_repository_config, key, pending.encoded(), result=stored => {
     let result = match stored {
       @indexed_db.WriteResult::Stored => LocalArchiveStorageWrite::Stored
       @indexed_db.WriteResult::Unavailable =>

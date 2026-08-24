@@ -11,10 +11,10 @@ extern "js" fn read_textarea_value(id : String) -> String =
   #| id => document.getElementById(id)?.value ?? ""
 
 ///|
-const HELLO_EXAMPLE_SOURCE : String = "# Hello World\n\nWelcome to the Canopy Markdown editor.\n\nRaw Markdown is saved locally without constructing CRDT history.\n"
+const HELLO_EXAMPLE_SOURCE : String = "# Hello World\n\nWelcome to the Canopy Markdown editor.\n\nThis editor has three modes: raw, block, and preview.\n"
 
 ///|
-const BLOG_EXAMPLE_SOURCE : String = "# Getting Started\n\nCanopy is an incremental projectional editor.\n\n## Features\n\nLoomark keeps standalone Markdown source local and responsive.\n\nCollaboration is activated separately from ordinary local editing."
+const BLOG_EXAMPLE_SOURCE : String = "# Getting Started\n\nCanopy is an incremental projectional editor.\n\n## Features\n\nThe editor supports real-time collaboration via CRDT.\n\nEvery keystroke is incrementally parsed and projected into a structured view."
 
 ///|
 const LIST_EXAMPLE_SOURCE : String = "# Shopping List\n\nThings to pick up:\n\n- Apples\n- Bread\n- Coffee\n- Dark chocolate"
@@ -2648,20 +2648,22 @@ fn update_model(
   emit : @cmd.Emit[DriverEvent],
   projection_session? : @ref.Ref[ProjectionSession?],
   projection_worker? : ProjectionWorkerRuntime,
+  bootstrap_mode? : StandaloneBootstrapMode,
   session_ref? : @ref.Ref[EditorSession],
 ) -> (DriverModel, @cmd.Cmd) raise {
   let (next, command) = match event {
     Bootstrap(loaded) =>
-      match session_ref {
-        Some(session_ref) =>
+      match (session_ref, bootstrap_mode) {
+        (Some(session_ref), Some(mode)) =>
           update_standalone_bootstrap(
             session_ref,
             model,
             loaded,
             model.document.source(),
+            mode,
             emit,
           )
-        None => (model, @rabbita_runtime.none)
+        _ => (model, @rabbita_runtime.none)
       }
     Archive(completion) => update_archive_queue(model, completion, emit)
     _ if model.bootstrap_pending =>
@@ -2952,7 +2954,7 @@ fn build_application(
   attachment : @md_markdown.MarkdownSemanticAttachment,
   initial : DriverModel,
   baseline : @repository.LocalArchivePendingWrite?,
-  bootstrap : Bool,
+  bootstrap_mode : StandaloneBootstrapMode?,
   raw_input_telemetry : RawInputTelemetry?,
   subscriptions : (DriverModel, @cmd.Emit[DriverEvent]) -> @sub.Sub,
   view : (DriverModel, @cmd.Emit[DriverEvent], @rabbita_runtime.Html) -> @rabbita_runtime.Html,
@@ -2999,6 +3001,7 @@ fn build_application(
       emit,
       projection_session?,
       projection_worker?,
+      bootstrap_mode?,
       session_ref=current_session,
     ) catch {
       Failure::Failure(_) as failure => {
@@ -3049,10 +3052,14 @@ fn build_application(
   @rabbita_runtime.new(() => {
     let (model, emit) = @rabbita_runtime.create_state_with_init(
       init=fn(emit) {
-        let bootstrap_command = if bootstrap {
-          @archive_storage.load(result=loaded => emit(Bootstrap(loaded)))
-        } else {
-          @rabbita_runtime.none
+        let bootstrap_command = match bootstrap_mode {
+          Some(LocalTextBootstrap) =>
+            @archive_storage.load(result=loaded => emit(Bootstrap(loaded)))
+          Some(FullHistoryOracleBootstrap) =>
+            @archive_storage.load_legacy_archive(result=loaded => {
+              emit(Bootstrap(loaded))
+            })
+          None => @rabbita_runtime.none
         }
         let persistence_command = local_archive_write_command(baseline, emit)
         let projection_command = match projection_worker {
@@ -3085,13 +3092,14 @@ fn standalone_application(
   attachment : @md_markdown.MarkdownSemanticAttachment,
   initial : DriverModel,
   baseline : @repository.LocalArchivePendingWrite?,
+  bootstrap_mode : StandaloneBootstrapMode,
 ) -> @rabbita_runtime.App {
   build_application(
     editor,
     attachment,
     initial,
     baseline,
-    true,
+    Some(bootstrap_mode),
     None,
     standalone_subscriptions,
     standalone_preview_view,
@@ -3110,7 +3118,7 @@ fn private_dev_host_application(
     attachment,
     initial,
     baseline,
-    false,
+    None,
     Some(RawInputTelemetry::new()),
     private_dev_host_subscriptions,
     private_dev_host_preview_view,
@@ -3233,7 +3241,11 @@ fn mount_application(
 ///|
 /// Mount the standalone shell immediately; its initial archive load is a
 /// Rabbita Cmd and the editor session is adopted when that Cmd completes.
-pub fn mount_standalone(host_id : String, source : String) -> String {
+fn mount_standalone_with_mode(
+  host_id : String,
+  source : String,
+  bootstrap_mode : StandaloneBootstrapMode,
+) -> String {
   if mounted.val {
     return "{\"ok\":false,\"error\":\"host-already-mounted\"}"
   }
@@ -3280,9 +3292,27 @@ pub fn mount_standalone(host_id : String, source : String) -> String {
   }
   detached_focus_token.val = ""
   publish(initial, None, None)
-  let app = standalone_application(editor, attachment, initial, None)
+  let app = standalone_application(
+    editor,
+    attachment,
+    initial,
+    None,
+    bootstrap_mode,
+  )
   app.mount(host_id)
   "{\"ok\":true}"
+}
+
+///|
+/// Mount production standalone in its source-only LocalText lane.
+pub fn mount_standalone(host_id : String, source : String) -> String {
+  mount_standalone_with_mode(host_id, source, LocalTextBootstrap)
+}
+
+///|
+/// Mount the fixed full-history baseline used only by Gate R0's browser oracle.
+pub fn mount_full_history_oracle(host_id : String, source : String) -> String {
+  mount_standalone_with_mode(host_id, source, FullHistoryOracleBootstrap)
 }
 
 ///|

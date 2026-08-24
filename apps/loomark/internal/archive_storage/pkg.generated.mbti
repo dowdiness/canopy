@@ -16,6 +16,8 @@ pub fn fresh_id(String) -> String
 
 pub fn load(result~ : @cmd.Emit[LocalArchiveStorageRead]) -> @cmd.Cmd
 
+pub fn load_legacy_archive(result~ : @cmd.Emit[LocalArchiveStorageRead]) -> @cmd.Cmd
+
 pub fn replace(@repository.LocalArchivePendingWrite, completed~ : @cmd.Emit[LocalArchiveWriteCompletion]) -> @cmd.Cmd
 
 // Errors

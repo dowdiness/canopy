@@ -30,6 +30,8 @@ pub fn measure_preview() -> Unit
 
 pub fn mount(String, String) -> String
 
+pub fn mount_full_history_oracle(String, String) -> String
+
 pub fn mount_standalone(String, String) -> String
 
 pub fn new_projection_worker_dispatcher() -> (String) -> String

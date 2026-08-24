@@ -195,6 +195,7 @@ test "repository prepares one complete immutable encoded archive" {
   )
   let document_id = try! @archive.LoomarkDocumentId::from_string("doc-prepare")
   let prepared = try! prepare_local_archive(document_id~, editor~)
+  assert_false(prepared.is_source_only())
   let decoded = try! @archive.LoomarkDocumentArchive::from_json_string(
     prepared.encoded(),
     validation_agent_id="repository-prepare-decode",
@@ -796,6 +797,7 @@ test "LocalText decodes source without constructing an editor" {
     _ => abort("test document ID must be valid")
   }
   let prepared = prepare_local_text(document_id~, source="alpha\nβeta 🪶\n")
+  assert_true(prepared.is_source_only())
   assert_eq(
     decode_local_text(prepared.encoded()),
     LocalTextDecode::Valid(document_id~, source="alpha\nβeta 🪶\n"),
