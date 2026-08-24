@@ -65,6 +65,14 @@ pub fn LocalArchivePendingWrite::encoded(self : Self) -> String {
 }
 
 ///|
+/// Return the prepared record format for exhaustive storage routing.
+pub fn LocalArchivePendingWrite::record_kind(
+  self : Self,
+) -> LocalArchiveRecordKind {
+  self.archive.record_kind()
+}
+
+///|
 /// Pure per-document single-flight persistence state.
 ///
 /// Invariants:
@@ -135,7 +143,9 @@ pub fn LocalArchivePersistenceQueue::status(
       )
     None =>
       match self.durable {
-        Some(durable) if durable == self.current =>
+        Some(durable) if durable == self.current &&
+          self.in_flight is None &&
+          self.pending_latest is None =>
           LocalArchivePersistenceStatus::DurableLocal(self.current)
         _ =>
           LocalArchivePersistenceStatus::Applied(

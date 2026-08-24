@@ -110,6 +110,27 @@ fn archive_replacement(
 }
 
 ///|
+/// Persist standalone LocalText without consulting or constructing CRDT state.
+fn local_text_replacement(
+  model : DriverModel,
+  source : String,
+  emit : @cmd.Emit[DriverEvent],
+) -> (DriverModel, @cmd.Cmd) {
+  guard model.archive_persistence_enabled else {
+    return (model, @rabbita_runtime.none)
+  }
+  let prepared = @repository.prepare_local_text(
+    document_id=model.document_id,
+    source~,
+  )
+  let (archive_queue, pending) = model.archive_queue.enqueue(
+    document_version=model.document_version,
+    archive=prepared,
+  )
+  ({ ..model, archive_queue, }, local_archive_write_command(pending, emit))
+}
+
+///|
 /// Re-materialize the current accepted archive after an explicit retry.
 fn retry_local_persistence(
   editor : @markdown.MarkdownEditor,
@@ -118,6 +139,20 @@ fn retry_local_persistence(
 ) -> (DriverModel, @cmd.Cmd) raise {
   guard model.archive_persistence_enabled else {
     return (model, @rabbita_runtime.none)
+  }
+  if model.runtime_state is EditorRuntimeState::LocalText(source) {
+    let prepared = @repository.prepare_local_text(
+      document_id=model.document_id,
+      source~,
+    )
+    let (archive_queue, pending) = model.archive_queue.retry(
+      document_version=model.document_version,
+      archive=prepared,
+    )
+    return (
+      { ..model, archive_queue, },
+      local_archive_write_command(pending, emit),
+    )
   }
   let prepared = prepare_traced_local_archive(editor, model) catch {
     Failure::Failure(_) as failure => raise failure

@@ -1,5 +1,10 @@
 ///|
-/// Map repository admission failures to stable recovery categories.
+priv enum StandaloneBootstrapMode {
+  LocalTextBootstrap
+  FullHistoryOracleBootstrap
+}
+
+///|
 fn recovery_category(
   failure : @repository.LocalArchiveLoadFailure,
 ) -> RecoveryCategory {
@@ -58,7 +63,7 @@ fn bootstrap_rejected(
 }
 
 ///|
-fn adopt_bootstrap_session(
+fn adopt_full_history_session(
   session_ref : @ref.Ref[EditorSession],
   model : DriverModel,
   editor : @markdown.MarkdownEditor,
@@ -117,14 +122,13 @@ fn adopt_bootstrap_session(
 }
 
 ///|
-/// Create a fresh local document after an empty archive slot is observed.
-fn create_bootstrap_document(
+fn create_full_history_document(
   session_ref : @ref.Ref[EditorSession],
   model : DriverModel,
   source : String,
   emit : @cmd.Emit[DriverEvent],
 ) -> (DriverModel, @cmd.Cmd) {
-  let replica_id = @archive_storage.fresh_id("loomark-standalone-writer-")
+  let replica_id = @archive_storage.fresh_id("loomark-r0-oracle-writer-")
   let document_id = @archive.LoomarkDocumentId::from_string(
     @archive_storage.fresh_id("loomark-document-"),
   ) catch {
@@ -146,7 +150,7 @@ fn create_bootstrap_document(
         RecoveryCategory::EditorInitializationFailed,
       )
   }
-  let archive_queue = @repository.LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
+  let queue = @repository.LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
     document_id~,
     queue_epoch=replica_id,
     current=editor.version(),
@@ -154,29 +158,155 @@ fn create_bootstrap_document(
   )
   let prepared = @repository.prepare_local_archive(document_id~, editor~) catch {
     _ =>
-      return adopt_bootstrap_session(
+      return adopt_full_history_session(
         session_ref,
         model,
         editor,
         attachment,
         document_id,
         replica_id,
-        archive_queue.mark_failed(
+        queue.mark_failed(
           document_version=editor.version(),
           error=@repository.LocalArchivePersistenceFailure::PreparationFailed,
         ),
         @cmd.none,
       )
   }
-  let (archive_queue, pending) = archive_queue.enqueue(
+  let (archive_queue, pending) = queue.enqueue(
     document_version=editor.version(),
     archive=prepared,
   )
-  let command = local_archive_write_command(pending, emit)
-  adopt_bootstrap_session(
-    session_ref, model, editor, attachment, document_id, replica_id, archive_queue,
+  adopt_full_history_session(
+    session_ref,
+    model,
+    editor,
+    attachment,
+    document_id,
+    replica_id,
+    archive_queue,
+    local_archive_write_command(pending, emit),
+  )
+}
+
+///|
+fn reopen_full_history_archive(
+  session_ref : @ref.Ref[EditorSession],
+  model : DriverModel,
+  encoded : String,
+) -> (DriverModel, @cmd.Cmd) {
+  let replica_id = @archive_storage.fresh_id("loomark-r0-oracle-writer-")
+  let classified = @repository.classify_local_archive_record(
+    Some(encoded),
+    agent_id=replica_id,
+    policy=@repository.LocalRestorePolicy::trusted(),
+  ) catch {
+    _ =>
+      return bootstrap_rejected(
+        session_ref,
+        model,
+        RecoveryCategory::CorruptArchive,
+      )
+  }
+  match classified {
+    @repository.LocalArchiveLoad::Valid(reopened) =>
+      adopt_full_history_session(
+        session_ref,
+        model,
+        reopened.editor(),
+        reopened.attachment(),
+        reopened.document_id(),
+        replica_id,
+        @repository.LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
+          document_id=reopened.document_id(),
+          queue_epoch=replica_id,
+          current=reopened.editor().version(),
+          durable=Some(reopened.editor().version()),
+        ),
+        @cmd.none,
+      )
+    @repository.LocalArchiveLoad::Rejected(failure) =>
+      bootstrap_rejected(session_ref, model, recovery_category(failure))
+    @repository.LocalArchiveLoad::Missing =>
+      bootstrap_rejected(session_ref, model, RecoveryCategory::CorruptArchive)
+  }
+}
+
+///|
+/// Enter source-only standalone editing without constructing CRDT state.
+fn start_local_text(
+  model : DriverModel,
+  document_id : @archive.LoomarkDocumentId,
+  source : String,
+  replica_id : String,
+  persist : Bool,
+  emit : @cmd.Emit[DriverEvent],
+) -> (DriverModel, @cmd.Cmd) {
+  let queue = @repository.LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
+    document_id~,
+    queue_epoch=replica_id,
+    current=model.document_version,
+    durable=if persist { None } else { Some(model.document_version) },
+  )
+  let (archive_queue, command) = if persist {
+    let prepared = @repository.prepare_local_text(document_id~, source~)
+    let (queue, pending) = queue.enqueue(
+      document_version=model.document_version,
+      archive=prepared,
+    )
+    (queue, local_archive_write_command(pending, emit))
+  } else {
+    (queue, @cmd.none)
+  }
+  (
+    {
+      ..model,
+      runtime_state: EditorRuntimeState::LocalText(source),
+      document_id,
+      archive_persistence_enabled: true,
+      bootstrap_pending: false,
+      replica_id,
+      archive_queue,
+    },
     command,
   )
+}
+
+///|
+fn create_local_text_document(
+  session_ref : @ref.Ref[EditorSession],
+  model : DriverModel,
+  source : String,
+  emit : @cmd.Emit[DriverEvent],
+) -> (DriverModel, @cmd.Cmd) {
+  let replica_id = @archive_storage.fresh_id("loomark-standalone-writer-")
+  let document_id = @archive.LoomarkDocumentId::from_string(
+    @archive_storage.fresh_id("loomark-document-"),
+  ) catch {
+    _ =>
+      return bootstrap_rejected(
+        session_ref,
+        model,
+        RecoveryCategory::EditorInitializationFailed,
+      )
+  }
+  start_local_text(model, document_id, source, replica_id, true, emit)
+}
+
+///|
+/// Create a fresh source-only local document after an empty slot is observed.
+fn create_bootstrap_document(
+  session_ref : @ref.Ref[EditorSession],
+  model : DriverModel,
+  source : String,
+  mode : StandaloneBootstrapMode,
+  emit : @cmd.Emit[DriverEvent],
+) -> (DriverModel, @cmd.Cmd) {
+  match mode {
+    LocalTextBootstrap =>
+      create_local_text_document(session_ref, model, source, emit)
+    FullHistoryOracleBootstrap =>
+      create_full_history_document(session_ref, model, source, emit)
+  }
 }
 
 ///|
@@ -186,12 +316,13 @@ fn update_standalone_bootstrap(
   model : DriverModel,
   loaded : @archive_storage.LocalArchiveStorageRead,
   source : String,
+  mode : StandaloneBootstrapMode,
   emit : @cmd.Emit[DriverEvent],
 ) -> (DriverModel, @cmd.Cmd) {
   guard !model.archive_persistence_enabled else { return (model, @cmd.none) }
   match loaded {
     @archive_storage.LocalArchiveStorageRead::Missing =>
-      create_bootstrap_document(session_ref, model, source, emit)
+      create_bootstrap_document(session_ref, model, source, mode, emit)
     @archive_storage.LocalArchiveStorageRead::Failed(
       @repository.LocalArchiveStorageReadFailure::Unavailable
     ) =>
@@ -208,43 +339,65 @@ fn update_standalone_bootstrap(
         model,
         RecoveryCategory::StorageReadFailed,
       )
-    @archive_storage.LocalArchiveStorageRead::Loaded(encoded) => {
-      let policy = @repository.LocalRestorePolicy::trusted()
-      let replica_id = @archive_storage.fresh_id("loomark-standalone-writer-")
-      let classified = @repository.classify_local_archive_record(
-        Some(encoded),
-        agent_id=replica_id,
-        policy~,
-      ) catch {
-        _ =>
-          return bootstrap_rejected(
+    @archive_storage.LocalArchiveStorageRead::LocalText(encoded) =>
+      match mode {
+        FullHistoryOracleBootstrap =>
+          bootstrap_rejected(
             session_ref,
             model,
             RecoveryCategory::CorruptArchive,
           )
-      }
-      match classified {
-        @repository.LocalArchiveLoad::Valid(reopened) =>
-          adopt_bootstrap_session(
-            session_ref,
-            model,
-            reopened.editor(),
-            reopened.attachment(),
-            reopened.document_id(),
-            replica_id,
-            @repository.LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
-              document_id=reopened.document_id(),
-              queue_epoch=replica_id,
-              current=reopened.editor().version(),
-              durable=Some(reopened.editor().version()),
-            ),
-            @cmd.none,
+        LocalTextBootstrap => {
+          let replica_id = @archive_storage.fresh_id(
+            "loomark-standalone-writer-",
           )
-        @repository.LocalArchiveLoad::Rejected(failure) =>
-          bootstrap_rejected(session_ref, model, recovery_category(failure))
-        @repository.LocalArchiveLoad::Missing =>
-          create_bootstrap_document(session_ref, model, source, emit)
+          match @repository.decode_local_text(encoded) {
+            @repository.LocalTextDecode::Valid(
+              document_id~,
+              source=local_source
+            ) =>
+              start_local_text(
+                model, document_id, local_source, replica_id, false, emit,
+              )
+            _ =>
+              bootstrap_rejected(
+                session_ref,
+                model,
+                RecoveryCategory::CorruptArchive,
+              )
+          }
+        }
       }
-    }
+    @archive_storage.LocalArchiveStorageRead::LegacyArchive(encoded) =>
+      match mode {
+        FullHistoryOracleBootstrap =>
+          reopen_full_history_archive(session_ref, model, encoded)
+        LocalTextBootstrap => {
+          let replica_id = @archive_storage.fresh_id(
+            "loomark-standalone-writer-",
+          )
+          match @repository.decode_v1_archive_text(encoded) {
+            @repository.LocalTextDecode::Valid(
+              document_id~,
+              source=local_source
+            ) =>
+              start_local_text(
+                model, document_id, local_source, replica_id, false, emit,
+              )
+            @repository.LocalTextDecode::UnsupportedArchive(_) =>
+              bootstrap_rejected(
+                session_ref,
+                model,
+                RecoveryCategory::UnsupportedArchive,
+              )
+            @repository.LocalTextDecode::Invalid =>
+              bootstrap_rejected(
+                session_ref,
+                model,
+                RecoveryCategory::CorruptArchive,
+              )
+          }
+        }
+      }
   }
 }

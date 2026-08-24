@@ -166,9 +166,17 @@ pub(all) suberror LocalArchivePreparationError {
 }
 
 ///|
+/// Persistence format carried by one prepared local replacement.
+pub(all) enum LocalArchiveRecordKind {
+  FullHistory
+  LocalText
+} derive(Eq, Debug)
+
+///|
 /// One immutable complete encoded replacement, ready for a storage shell.
 pub struct PreparedLocalArchive {
   priv encoded : String
+  priv record_kind : LocalArchiveRecordKind
 } derive(Eq)
 
 ///|
@@ -183,7 +191,7 @@ pub fn prepare_local_archive(
       raise LocalArchivePreparationError::HistoryUnavailable(detail~)
     error => raise error
   }
-  { encoded: archive.to_json_string() }
+  { encoded: archive.to_json_string(), record_kind: FullHistory }
 }
 
 ///|
@@ -203,13 +211,106 @@ pub fn prepare_local_archive_observing(
       raise LocalArchivePreparationError::HistoryUnavailable(detail~)
     error => raise error
   }
-  { encoded: archive.to_json_string_observing(observer) }
+  {
+    encoded: archive.to_json_string_observing(observer),
+    record_kind: FullHistory,
+  }
 }
 
 ///|
 /// Return the deterministic encoded replacement payload.
 pub fn PreparedLocalArchive::encoded(self : Self) -> String {
   self.encoded
+}
+
+///|
+/// Return the replacement format so the storage shell can select its slot.
+pub fn PreparedLocalArchive::record_kind(self : Self) -> LocalArchiveRecordKind {
+  self.record_kind
+}
+
+///|
+/// Source-only decode result used by LocalText and legacy-v1 fallback reads.
+pub(all) enum LocalTextDecode {
+  Valid(document_id~ : @archive.LoomarkDocumentId, source~ : String)
+  UnsupportedArchive(String)
+  Invalid
+} derive(Eq, Debug)
+
+///|
+const LOCAL_TEXT_FORMAT : String = "loomark-local-text-v1"
+
+///|
+/// Prepare the standalone source record without consulting CRDT state.
+pub fn prepare_local_text(
+  document_id~ : @archive.LoomarkDocumentId,
+  source~ : String,
+) -> PreparedLocalArchive {
+  {
+    encoded: Json::object({
+      "format": Json::string(LOCAL_TEXT_FORMAT),
+      "document_id": Json::string(document_id.value()),
+      "portable_markdown": Json::string(source),
+    }).stringify(),
+    record_kind: LocalText,
+  }
+}
+
+///|
+fn decode_document_source(
+  fields : Map[String, Json],
+) -> (@archive.LoomarkDocumentId, String)? {
+  let document_id = match fields.get("document_id") {
+    Some(Json::String(value)) =>
+      @archive.LoomarkDocumentId::from_string(value) catch {
+        _ => return None
+      }
+    _ => return None
+  }
+  match fields.get("portable_markdown") {
+    Some(Json::String(source)) => Some((document_id, source))
+    _ => None
+  }
+}
+
+///|
+/// Decode the production LocalText record without creating an editor.
+pub fn decode_local_text(encoded : String) -> LocalTextDecode {
+  let value = @json.parse(encoded) catch {
+    _ => return LocalTextDecode::Invalid
+  }
+  guard value is Json::Object(fields) && fields.length() == 3 else {
+    return LocalTextDecode::Invalid
+  }
+  guard fields.get("format") is Some(Json::String(format)) &&
+    format == LOCAL_TEXT_FORMAT else {
+    return LocalTextDecode::Invalid
+  }
+  match decode_document_source(fields) {
+    Some((document_id, source)) => LocalTextDecode::Valid(document_id~, source~)
+    None => LocalTextDecode::Invalid
+  }
+}
+
+///|
+/// Read only the source fields from a legacy v1 archive. History remains
+/// untouched in storage and is never decoded or admitted on this path.
+pub fn decode_v1_archive_text(encoded : String) -> LocalTextDecode {
+  let value = @json.parse(encoded) catch {
+    _ => return LocalTextDecode::Invalid
+  }
+  guard value is Json::Object(fields) else { return LocalTextDecode::Invalid }
+  let version = match fields.get("schema_version") {
+    Some(Json::String(version)) => version
+    _ => return LocalTextDecode::Invalid
+  }
+  if version != "1" {
+    return LocalTextDecode::UnsupportedArchive(version)
+  }
+  match decode_document_source(fields) {
+    Some((document_id, source)) => LocalTextDecode::Valid(document_id~, source~)
+    None => LocalTextDecode::Invalid
+  }
 }
 
 ///|

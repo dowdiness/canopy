@@ -24,6 +24,7 @@ let origin = ""
 const archiveDatabase = "loomark.local-repository"
 const archiveStore = "archives"
 const archiveKey = "loomark.active-document-archive"
+const localTextKey = "loomark.active-document-text"
 const measuredReloads = 20
 const serverPath = fileURLToPath(new URL("./serve-standalone-dist.mjs", import.meta.url))
 const server = spawn(process.execPath, [serverPath], {
@@ -59,7 +60,13 @@ function browserText(source) {
 async function seedFromBrowserAsset(page) {
   const catalogUrl = `${origin}/fixtures/r0-browser-v1/browser-fixture-catalog-v1.json`
   await page.goto(catalogUrl, { waitUntil: "commit" })
-  return page.evaluate(async ({ caseId, archiveDatabase, archiveStore, archiveKey }) => {
+  return page.evaluate(async ({
+    caseId,
+    archiveDatabase,
+    archiveStore,
+    archiveKey,
+    localTextKey,
+  }) => {
     const hash = async text => {
       const bytes = new TextEncoder().encode(text)
       const digest = await crypto.subtle.digest("SHA-256", bytes)
@@ -125,7 +132,13 @@ async function seedFromBrowserAsset(page) {
       request.onsuccess = () => {
         const database = request.result
         const transaction = database.transaction(archiveStore, "readwrite")
-        transaction.objectStore(archiveStore).put(encoded, archiveKey)
+        const store = transaction.objectStore(archiveStore)
+        store.put(encoded, archiveKey)
+        store.put(JSON.stringify({
+          format: "loomark-local-text-v1",
+          document_id: "gate-r0-stale-local-text",
+          portable_markdown: "stale LocalText must not shadow the Gate R0 archive",
+        }), localTextKey)
         transaction.oncomplete = () => {
           database.close()
           resolve()
@@ -143,7 +156,7 @@ async function seedFromBrowserAsset(page) {
       textSha256: textDigest.sha256,
       historySha256: historyDigest.sha256,
     }
-  }, { caseId, archiveDatabase, archiveStore, archiveKey })
+  }, { caseId, archiveDatabase, archiveStore, archiveKey, localTextKey })
 }
 
 async function seedEncodedArchive(page, encoded) {
@@ -287,7 +300,7 @@ try {
 
   const input = page.locator("#loomark-input")
   const expectedBrowserText = browserText(seeded.fixture.expected_text)
-  await page.goto(`${origin}/`, { waitUntil: "commit" })
+  await page.goto(`${origin}/?gate-r0-full-history-oracle=1`, { waitUntil: "commit" })
   await input.waitFor({ state: "visible", timeout: 30000 })
   await waitForExpectedText(page, expectedBrowserText)
 

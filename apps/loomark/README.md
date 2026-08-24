@@ -1,8 +1,11 @@
 # Loomark
 
 Loomark is the standalone Rabbita Markdown editor. One Rabbita root owns the
-browser page for its lifetime, and every Raw editor, Block editor, and Preview
-change passes through the same canonical document transaction.
+browser page for its lifetime. The production standalone surface edits Raw
+Markdown directly as LocalText; it does not decode prior history or insert the
+stored source into CRDT state during startup or ordinary local input. The
+shared shell still owns an empty editor session. Block and Preview remain development-host
+surfaces until an explicit collaboration promotion path exists.
 
 ## Development
 
@@ -45,21 +48,23 @@ HTTP server.
 
 ## Local document ownership
 
-The standalone application keeps one active Loomark document in this browser's
-local storage. Each history-changing commit replaces one complete archive that
-contains the document's stable logical identity, portable Markdown, and causal
-history. Reloading continues that document under a fresh writing-instance
-identity.
+The standalone application keeps one active LocalText document in this
+browser's local storage. Each accepted Raw edit replaces a small record
+containing the stable logical document identity and portable Markdown. The
+record contains no causal history.
 
-An applied edit remains visible if local replacement fails, while the previous
-readable archive remains intact. Loomark warns that those changes are not saved
-locally; reloading recovers the last successfully replaced archive. An existing
-archive that cannot be safely opened is preserved behind a non-editable
-recovery screen.
+If LocalText is absent, Loomark reads `document_id` and `portable_markdown` from
+the existing v1 archive without decoding or admitting its history. The v1 bytes
+remain untouched. The first subsequent edit writes the new LocalText slot, so
+reloads prefer the fast source-only path while the old archive remains as a
+backup.
 
-Mode, selection, focus, and undo are Session state rather than document archive
-content. In particular, local undo history ends when the page lifetime ends and
-is not restored after reload.
+An applied edit remains visible if LocalText replacement fails. Loomark warns
+that those changes are not saved locally; reloading recovers the last
+successfully stored LocalText, or the untouched v1 fallback when no LocalText
+has been stored. Invalid and unsupported records remain behind the existing
+non-editable recovery screen. Selection, focus, and browser-local undo remain
+page-lifetime state and are not restored after reload.
 
 ## Browser validation
 
