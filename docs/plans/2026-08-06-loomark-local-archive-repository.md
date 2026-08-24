@@ -4,6 +4,8 @@ Issue: #1140
 
 Status: deferred promotion contract; superseded by source-only LocalText in production
 
+Superseding decision: [Source-first interactive editing](../decisions/2026-08-24-loomark-source-first-interactive-contract.md)
+
 ## Goal
 
 Preserve the historical full-history restore oracle as one complete application-owned archive in browser-local storage. Production standalone now follows the source-only LocalText contract in `apps/loomark/README.md`: ordinary Raw input neither decodes nor rewrites causal history. The oracle remains isolated evidence for a future collaboration promotion path.
@@ -25,7 +27,7 @@ LocalText regression gate. It may remain red while the capability is deferred;
 a future promotion must make it pass without moving complete-history work into
 the production source-only input path.
 
-#1169 continues to own formal Session durability observations, a single-flight queue, latest-wins coalescing, explicit retry, and durable-version tracking. #1170 continues to own separately versioned Session metadata. Document catalogs, networking, replication, backup, and undo across restart are out of scope.
+#1169's queue and archive-status vocabulary remain available to a future Causal archive capability; they do not define production Source durability. #1170 owns separately versioned Session metadata against the acknowledged Source record. Document catalogs now build on Source records, while networking, replication, backup, and undo across restart remain out of scope for this historical archive plan.
 
 ### #1169 queue contract
 

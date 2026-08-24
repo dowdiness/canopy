@@ -8,6 +8,30 @@ Canopy provides incremental, causally ordered document editing; Loomark is the M
 The Loomark-owned Markdown entity whose identity and causal history continue across writing instances. It contains Canopy Markdown causal state but is not identical to that state, its Markdown body file, Metadata, snapshot, or running session.
 _Avoid_: Loomark document, logical document, file, buffer, session
 
+**Browser draft**:
+The exact Markdown value and directed selection currently owned and displayed by the native Raw text control. It may be newer than Canonical source and Source durability, is never called Accepted or Saved, and exists only for the active browser lifetime.
+_Avoid_: Canonical source, unsaved document, optimistic commit
+
+**Canonical source**:
+The Markdown source accepted by the current production application after composition and its explicit quiet-period or editing boundary. In Source-backed browser editing it uses the native text control's LF line representation. It is the single-user content Authority and the input to parsing, modes, and Source persistence; it does not imply causal history or durability.
+_Avoid_: Browser draft, Document archive, Saved status
+
+**Source record**:
+The atomically replaceable local recovery value containing one Editing Document identity and its exact Canonical source, without causal history, undo state, Session metadata, or derived artifacts.
+_Avoid_: Document archive, Session snapshot, causal checkpoint
+
+**Source durability**:
+The condition in which the current Canonical source and Editing Document identity are represented by an acknowledged Source record. It makes no claim about Browser drafts, causal history, undo/redo, Session state, replication, or backup.
+_Avoid_: Source acceptance, Metadata durability, causal durability
+
+**Source-backed persistence**:
+The current production persistence capability in which an atomic Source record is sufficient for local content recovery. It allocates no Causal Authority and provides no restart history, collaborative identity, or causal undo guarantee.
+_Avoid_: Archive-backed persistence, temporary draft, exported Markdown
+
+**Causal archive capability**:
+An optional future capability that persists portable source together with exact causal history, frontier, writer evidence, and Editing Document identity for collaboration or causal replay. It is promoted separately and never adds complete-history work to the production Raw input task.
+_Avoid_: Source record, baseline production persistence, Preview cache
+
 **Detached Editing Document**:
 An Editing Document with no active Writing instance lease. It retains causal state independently of an editor runtime and remains owned by the persistence shell until the appropriate durability condition permits release — File durability for File-backed persistence, or acknowledged archive Local durability for Archive-backed persistence — or until explicit recovery permits release.
 _Avoid_: Closed file, snapshot, editor session
@@ -41,8 +65,8 @@ The human-readable `.md` file associated with an Editing Document for Git and ex
 _Avoid_: Save file, archive, document, exported copy
 
 **Archive-backed persistence**:
-A persistence capability in which no Markdown body file is associated with the Editing Document. One atomic application-owned archive replacement retains portable content and causal Metadata together; exported Markdown remains an unassociated copy.
-_Avoid_: Browser mode, File-backed persistence, temporary session
+A collaboration-capable persistence mode in which no Markdown body file is associated with the Editing Document and one atomic application-owned archive replacement retains portable content and causal Metadata together. It requires the Causal archive capability and is not the current production Source-backed persistence contract.
+_Avoid_: Source-backed persistence, File-backed persistence, temporary session
 
 **File-backed persistence**:
 A persistence capability with a continuing File association to a Markdown body file. File Authority, File baseline, external-change admission, and Content conflict behavior apply only in this mode; writable operation additionally requires Safe file replacement.
@@ -65,7 +89,7 @@ The explicit continuation of an Editing Document from its shared identity and ca
 _Avoid_: Import Markdown, hash match, file association
 
 **File encoding profile**:
-The byte-level encoding retained for a Markdown body file. The initial profile accepts UTF-8 only, keeps an optional BOM outside the Editing Document source, performs no Unicode normalization, and rejects invalid UTF-8 without rewriting it; exact line terminators remain part of the Editing Document source.
+The byte-level encoding retained by a future File-backed capability for a Markdown body file. The initial profile accepts UTF-8 only, keeps an optional BOM outside the Editing Document source, performs no Unicode normalization, and rejects invalid UTF-8 without rewriting it; exact file line terminators belong to this capability. Source-backed browser editing instead uses Canonical source's LF representation.
 _Avoid_: Content format, Markdown syntax, automatic encoding detection
 
 **Metadata**:
@@ -81,8 +105,8 @@ The Markdown body file's authority over portable content at file-backed open, sa
 _Avoid_: Causal Authority, current editor state, Metadata
 
 **Causal Authority**:
-The accepted operation history's authority over causal order, Editing Document identity, and writer identity. Metadata preserves it durably; a Markdown body file cannot reconstruct it.
-_Avoid_: File Authority, file history, Metadata
+When the Causal archive capability is enabled, the accepted operation history's authority over causal order, collaborative Editing Document identity, and writer identity. Metadata preserves it durably; a Markdown body file or Source record cannot reconstruct it. Production Source-backed persistence owns no Causal Authority.
+_Avoid_: Canonical source, File Authority, Source record, Metadata
 
 **File association**:
 The relationship between an Editing Document and the current location and safely resolved physical target of its Markdown body file. A path change updates the association without changing the Editing Document's identity or causal history.
@@ -245,11 +269,11 @@ The explicit comparison of normal-editing Recovery Markdown content with a reada
 _Avoid_: Causal recovery, External admission, automatic restore
 
 **Document archive**:
-An application-owned recovery value containing an Editing Document's identity, portable Markdown, and opaque causal history. In file-backed editing it is Metadata and does not override a divergent Markdown body file.
-_Avoid_: Snapshot, session snapshot, save file
+An application-owned recovery value for the optional Causal archive capability, containing an Editing Document's identity, portable Markdown, and opaque causal history. It is not created by production Source-backed persistence; in file-backed editing it is Metadata and does not override a divergent Markdown body file.
+_Avoid_: Source record, snapshot, session snapshot, save file
 
 **Active document**:
-The sole Editing Document selected for the current standalone application while document catalogs and document switching remain unavailable.
+The sole Editing Document selected for editing in the current standalone application. A Document catalog may contain many Source records, but only the Active document owns the current Browser draft and acceptance boundary.
 _Avoid_: Current file, active session, recent document
 
 **Baseline archive**:
@@ -257,8 +281,8 @@ The first complete archive that establishes a new active Editing Document's iden
 _Avoid_: Empty snapshot, default file
 
 **Local archive repository**:
-The application-managed Metadata repository that retains the latest complete document archive for the standalone application's active document. It is the content Authority only when no Markdown body file is present.
-_Avoid_: Session store, backup, replica
+The application-managed repository used only when the Causal archive capability is enabled to retain a complete Document archive. Production Source-backed persistence uses Source records instead.
+_Avoid_: Source record store, Session store, backup, replica
 
 **Local restore policy**:
 The resource-admission policy used when reopening a device-owned document archive. It is distinct from policy for history received from another replica.
@@ -297,12 +321,12 @@ The user-facing status after Aggregate acknowledgment while required persistence
 _Avoid_: Applied locally, Saved status, replicated
 
 **Saved status**:
-The user-facing confirmation that content is durable — through File durability for File-backed persistence, or acknowledged archive Local durability for Archive-backed persistence. In File-backed mode, this status remains active when Metadata durability fails and Loomark separately warns that editing history was not preserved. Archive-backed mode reaches this status only when one atomic archive replacement durably carries both content and causal Metadata.
-_Avoid_: Metadata durability, repository acknowledgment, fully saved
+The user-facing confirmation that current Canonical source is durable — through Source durability for production Source-backed persistence, File durability for File-backed persistence, or acknowledged archive Local durability for Archive-backed persistence. It never covers a newer Browser draft. Modes that do not preserve causal history report that limitation separately and never imply causal or Session durability.
+_Avoid_: Browser draft, Metadata durability, repository acknowledgment, fully saved
 
 **Autosave**:
-The automatic persistence triggered by an accepted causal change. In File-backed persistence, a source-changing commit establishes File durability before Metadata durability; a source-equal history change updates Metadata without rewriting an unchanged Markdown body file. In Archive-backed persistence, one atomic archive replacement carries the accepted portable content and causal Metadata; acknowledgment establishes Local durability and Metadata durability together, without a Markdown body file or External change observation.
-_Avoid_: Repository acknowledgment, periodic backup, history no-op
+Automatic persistence after the relevant acceptance boundary. In Source-backed persistence, a quiet-period or explicit-boundary acceptance atomically replaces the Source record without preparing causal history. In File-backed persistence, a source-changing commit establishes File durability before Metadata durability. In Archive-backed persistence, one atomic archive replacement carries accepted portable content and causal Metadata.
+_Avoid_: Browser input task, Repository acknowledgment, periodic backup, history no-op
 
 **Self-write acknowledgment**:
 Recognition that an observed file change exactly matches one expected Autosave generation for the same File association and File encoding profile. It advances the File baseline; any mismatch is handled as an External file change rather than hidden by timing-based watcher suppression.
@@ -325,8 +349,8 @@ The current accepted in-memory document state, which may be newer than its Markd
 _Avoid_: Saved document, durable document
 
 **Local durability**:
-For the standalone application when no Markdown body file is present, the condition in which the current accepted document version is represented by an acknowledged archive in the local archive repository.
-_Avoid_: Applied, replicated, backed up
+The mode-specific condition in which current accepted content is locally recoverable: Source durability in production Source-backed persistence, or acknowledged complete-archive durability when the Causal archive capability is enabled. The status must name which guarantee it represents.
+_Avoid_: Browser draft, Applied, replicated, backed up
 
 **Recovery-blocked**:
 The condition in which an existing archive cannot be safely reopened and remains preserved while editing and replacement are withheld.

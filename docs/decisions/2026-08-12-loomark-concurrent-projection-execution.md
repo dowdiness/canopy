@@ -12,6 +12,7 @@
 
 **Related:**
 
+- [Source-first interactive editing](2026-08-24-loomark-source-first-interactive-contract.md)
 - [Causal Authority residency](2026-08-12-causal-authority-residency.md)
 - [Indexed projection lifecycle](2026-07-22-indexed-projection-lifecycle.md)
 - [EGW collaboration responsibility boundary](2026-07-21-egw-collaboration-responsibility-boundary.md)
