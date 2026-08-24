@@ -235,6 +235,23 @@ fn ProjectionWorkerClient::advance(
 }
 
 ///|
+fn ProjectionWorkerClient::fast_preview(
+  self : ProjectionWorkerClient,
+  source : String,
+  stamp : ProjectionStamp,
+  resolve : (Int, ProjectionStamp, String) -> Unit,
+) -> Int raise {
+  self.send(
+    Json::object({
+      "kind": Json::string("fast-preview"),
+      "source": Json::string(source),
+      "stamp": projection_worker_stamp_json(stamp),
+    }),
+    (request_id, raw) => resolve(request_id, stamp, raw),
+  )
+}
+
+///|
 fn ProjectionWorkerClient::demand(
   self : ProjectionWorkerClient,
   stamp : ProjectionStamp,
@@ -347,6 +364,24 @@ fn ProjectionInProcessClient::advance(
 
 ///|
 #warnings("-unused_value")
+fn ProjectionInProcessClient::fast_preview(
+  self : ProjectionInProcessClient,
+  source : String,
+  stamp : ProjectionStamp,
+  resolve : (Int, ProjectionStamp, String) -> Unit,
+) -> Int raise {
+  self.send(
+    Json::object({
+      "kind": Json::string("fast-preview"),
+      "source": Json::string(source),
+      "stamp": projection_worker_stamp_json(stamp),
+    }),
+    (request_id, raw) => resolve(request_id, stamp, raw),
+  )
+}
+
+///|
+#warnings("-unused_value")
 fn ProjectionInProcessClient::demand(
   self : ProjectionInProcessClient,
   stamp : ProjectionStamp,
@@ -395,6 +430,19 @@ fn ProjectionClient::advance(
   match self {
     DedicatedWorker(client) => client.advance(stamp, effect, resolve)
     MainThread(client) => client.advance(stamp, effect, resolve)
+  }
+}
+
+///|
+fn ProjectionClient::fast_preview(
+  self : ProjectionClient,
+  source : String,
+  stamp : ProjectionStamp,
+  resolve : (Int, ProjectionStamp, String) -> Unit,
+) -> Int raise {
+  match self {
+    DedicatedWorker(client) => client.fast_preview(source, stamp, resolve)
+    MainThread(client) => client.fast_preview(source, stamp, resolve)
   }
 }
 
@@ -465,7 +513,7 @@ fn projection_worker_claim_response(
 ///|
 fn projection_worker_response_artifact(
   raw : String,
-) -> Result[(Int, ProjectionStamp, ProjectionPreviewArtifact?), String] {
+) -> Result[(Int, ProjectionStamp, NormalizedPreviewProjection?), String] {
   let parsed = @json.parse(raw) catch {
     _ => return Err("projection Worker response is not valid JSON")
   }
@@ -498,23 +546,28 @@ fn projection_worker_response_artifact(
         projection_worker_response_stamp(stamp_fields) is Some(stamp) else {
         return Err("projection Worker response is missing its stamp")
       }
-      let artifact = match fields.get("observables") {
+      let preview = match fields.get("observables") {
         Some(Json::Object(observables)) =>
           match observables.get("preview") {
-            Some(Json::Object(preview)) =>
+            Some(Json::Object(preview)) => {
+              guard projection_worker_decode_string(preview, "source")
+                is Some(source) else {
+                return Err("projection Worker Preview is missing its source")
+              }
               match preview.get("artifact") {
                 Some(encoded) =>
                   match projection_preview_artifact_from_json(encoded) {
-                    Ok(value) => Some(value)
+                    Ok(artifact) => Some({ source, artifact })
                     Err(detail) => return Err(detail)
                   }
                 None => None
               }
+            }
             _ => None
           }
         _ => None
       }
-      Ok((request_id, stamp, artifact))
+      Ok((request_id, stamp, preview))
     }
     _ => Err("projection Worker response has unknown kind")
   }

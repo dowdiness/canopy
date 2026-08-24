@@ -1,5 +1,7 @@
 # Gate R0: Editable Branch Restore Feasibility
 
+**Status:** Deferred manual promotion evidence for the future Causal archive capability. It is not a production LocalText regression gate and may remain red while that capability is not offered.
+
 ## GitHub Issue
 
 Canonical issue: <https://github.com/dowdiness/canopy/issues/1288>
@@ -26,7 +28,7 @@ This plan is ready for #1319's decision-complete handoff review; implementation 
 
 ## Why
 
-Loomark archive reopen is dominated by history decode and causal admission, but the current production `Document` has not proved that plain text plus an exact frontier can restore an editable branch. Before choosing a checkpoint, persistent branch, active-store schema, or public Markdown API, the project needs an evidence gate that identifies the minimum authority capability and projection state required for real edits and causal admission.
+A future collaboration-capable Loomark reopen will be dominated by history decode and causal admission unless a smaller editable causal state is proved. Production LocalText intentionally restores a Source record and owns no causal branch. Before promoting the Causal archive capability or choosing its checkpoint, persistent branch, active-store schema, or public Markdown API, this evidence gate must identify the minimum authority capability and projection state required for real edits and causal admission.
 
 ## Scope
 
@@ -49,7 +51,7 @@ Out:
 ## Current State
 
 - The accepted Causal Authority residency architecture separates durable history, current text, and temporary merge state, but explicitly records implementation as incomplete.
-- The current local archive is a complete v1 envelope whose history is decoded and admitted on reopen.
+- The historical full-history oracle is a complete v1 envelope whose history is decoded and admitted on reopen; production LocalText reads only its portable source as a migration fallback and writes Source records.
 - The Markdown facade does not expose EGW pending identities, partial admission details, or cold-history segment reads.
 - The accepted PaperBranch architecture ([#1311](../research/2026-08-19-egwalker-r0-restore-architecture-reassessment.md)) collapses the previous competing Candidate A/B/C into two runtime paths of one design: **ordinary** (direct positional editing, zero provider reads) and **concurrent** (bounded critical-region replay with disposable placeholder tracker). Candidate B remains only as measured legacy migration control.
 - The accepted canonical event algebra ([#1314](../research/2026-08-20-r0-canonical-positional-event-unicode-contract.md)) uses scalar positions with UTF-16 only at the editor/capture adapter.
@@ -355,7 +357,7 @@ Inspect every generated `.mbti` change for public or trait-bound drift. Independ
 - Fixed failure classes are `preflight_invalid`, `toolchain_failure`, `submodule_failure`, `harness_failure`, `oracle_mismatch`, `causal_semantics_mismatch`, `unexpected_cold_read`, `evidence_missing`, `interface_drift`, `measurement_failure`, and `runner_failure`. Exit codes: 10, 20, 21, 30, 31, 32, 33, 34, 35, 40, 50.
 - The runner returns exit code `0` only when all required suites and artifacts complete, even if one or more candidates are negative.
 - Runner preflight requires a clean worktree and records the baseline hashes of affected `.mbti` files.
-- `.github/workflows/ci.yml` adds a `gate-r0-runner` path-filtered job for the runner, probe, fixture catalog, plan, and Loomark/Markdown harness. It runs `nu --ide-check` and `--suite self-test`, and is added to `All Checks Passed`; EGW `just ci` remains the frozen all-target/publish gate.
+- `.github/workflows/ci.yml` exposes Gate R0 through explicit `workflow_dispatch`. Pull requests and pushes skip it, and `All Checks Passed` accepts that skip. A future Causal archive promotion must run the manual gate and make it pass before changing the production capability; EGW `just ci` remains the frozen all-target/publish gate.
 - No test requires a public test-only API. EGW instrumentation remains package-local `*_wbtest` evidence; Markdown integration remains black-box.
 - The acceptance checklist is satisfied only when `result.json.status == "pass"`, every candidate has `pass`, `negative`, or explicit `not_applicable` outcome evidence, and the submodule/interface/review criteria are recorded in `manifest.json` and `validation.log`.
 
@@ -381,9 +383,9 @@ Inspect every generated `.mbti` change for public or trait-bound drift. Independ
 ## Further Notes
 
 - The Loomark varied-history measurements establish the motivation: replay cost grows with serialized history and history shape, while projection refresh is small. They do not prove that any particular retained-state format is editable.
-- The accepted Causal Authority residency architecture already supports the direction of cold text/frontier presentation with durable history and explicit fallback. This gate supplies the missing proof for the current production EGW implementation.
+- The accepted Causal Authority residency architecture supports the direction of cold text/frontier presentation with durable history and explicit fallback. This gate supplies missing proof only for a future collaboration-capable production mode; Source-backed LocalText does not depend on it.
 - The accepted architecture requires local event generation to remain disabled until a text/frontier candidate has been validated against authority.
-- The completed local archive repository owns a complete local archive and explicit recovery classification today. This gate must not silently change that durable contract.
+- The complete local archive remains the preserved historical oracle. The source-first production decision supersedes it as the baseline durability contract; this gate cannot change either contract implicitly.
 - Before publishing the API-boundary decision, re-check #1281. If its authority-owned effect/receipt boundary has landed and passed review, record the exact consumed contract; otherwise record that the shared boundary is absent.
 - The expected outcomes are intentionally asymmetric: ordinary path (A) is the preferred result; concurrent extension (C) is the migration direction for genuine concurrency and cold undelete; Candidate B remains measured legacy control evidence only and is never canonical selection or an authorized production bridge.
 - Any EGW white-box change follows submodule ownership rules: commit and validate it in the EGW repository, push it through its own review, and update the Canopy pointer only after the referenced commit is reachable. The gate evidence must identify both repository revisions.

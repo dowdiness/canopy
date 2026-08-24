@@ -6,7 +6,8 @@ priv enum EditingEvent {
   ReplaceSource(String)
   LocalTextInput(String)
   RawInput(String, @dom_boundary.TextSelection?)
-  RawNativeInput(token~ : Int, candidate~ : RawNativeInputCandidate)
+  RawFastPreview(UInt64)
+  RawFastFlush(UInt64, String)
   RawSelectionEdit(RawSelectionEditRequest)
   CommitCapturedRawSelection(String)
   BlockFocused(String)
@@ -98,6 +99,7 @@ priv enum DriverEvent {
   Editing(EditingEvent)
   Navigation(NavigationEvent)
   Probe(ProbeEvent)
+  GotRawPreviewMsg(RawPreviewMsg)
   Lifecycle(LifecycleEvent)
   Bootstrap(@archive_storage.LocalArchiveStorageRead)
   Archive(@archive_storage.LocalArchiveWriteCompletion)
@@ -108,6 +110,7 @@ priv suberror DriverSubscription {
   Control(@cmd.Emit[DriverEvent])
   Test(@cmd.Emit[String], @cmd.Emit[DriverEvent])
   WorkerLifetime(ProjectionWorkerRuntime)
+  RawPreviewLifetime(RawPreviewRuntime)
 }
 
 ///|
@@ -121,7 +124,8 @@ priv struct DriverModel {
   archive_persistence_enabled : Bool
   bootstrap_pending : Bool
   semantic_document : @md_markdown.MarkdownIR?
-  preview_artifact : ProjectionPreviewArtifact?
+  preview_artifact : StampedPreviewProjection?
+  raw_preview : RawPreviewModel
   semantic_read_count : Int
   split_preview_open : Bool
   compact_split : Bool

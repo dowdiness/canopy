@@ -51,12 +51,13 @@ test "Worker client decodes typed Preview artifacts and explicit failures" {
     ),
   )
   let decoded = projection_worker_response_artifact(raw)
-  guard decoded is Ok((1, stamp, Some(artifact))) else {
-    fail("successful Worker response must carry a typed Preview artifact")
+  guard decoded is Ok((1, stamp, Some(preview))) else {
+    fail("successful Worker response must carry a source-bound Preview")
     return
   }
   assert_eq(stamp, projection_worker_client_test_stamp(3))
-  assert_eq(artifact.root.children.length(), 2)
+  assert_eq(preview.source, "# Heading\n\nBody\n")
+  assert_eq(preview.artifact.root.children.length(), 2)
   let failed = projection_worker_response_artifact(
     "{\"schema_version\":\"1\",\"request_id\":1,\"kind\":\"error\",\"error\":{\"kind\":\"timeout\",\"detail\":\"projection timed out\"}}",
   )

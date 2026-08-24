@@ -107,6 +107,15 @@ priv struct NormalizedPreviewProjection {
 } derive(Eq, Debug)
 
 ///|
+/// A Preview artifact remains inseparable from the exact Worker stamp and
+/// source that produced its UTF-16 ranges.
+#warnings("-unused_value")
+priv struct StampedPreviewProjection {
+  stamp : ProjectionStamp
+  preview : NormalizedPreviewProjection
+} derive(Eq, Debug)
+
+///|
 #warnings("-unused_constructor")
 priv enum ProjectionArtifact {
   BlockArtifact(NormalizedBlockProjection)
@@ -1214,6 +1223,14 @@ fn normalized_projection_node_key(
 }
 
 ///|
+fn normalized_preview_projection(
+  source : String,
+  document : @md_markdown.MarkdownIR,
+) -> NormalizedPreviewProjection {
+  { source, artifact: projection_preview_artifact_from_markdown_ir(document) }
+}
+
+///|
 fn normalized_projection_observables(
   editor : @markdown.MarkdownEditor,
   attachment : @md_markdown.MarkdownSemanticAttachment,
@@ -1266,10 +1283,7 @@ fn normalized_projection_observables(
   let document = attachment.document()
   {
     block: { source, blocks, node_keys, roles, resolver_evidence },
-    preview: {
-      source,
-      artifact: projection_preview_artifact_from_markdown_ir(document),
-    },
+    preview: normalized_preview_projection(source, document),
     diagnostics: document.diagnostics().map(normalize_diagnostic),
   }
 }
@@ -1403,8 +1417,22 @@ fn ProjectionSession::execute_effects(
       _ => false
     }
   })
-  let observables = if needs_materialization {
+  let preview_only = self.demand.preview &&
+    !self.demand.block &&
+    !self.demand.diagnostics
+  let observables = if needs_materialization && !preview_only {
     Some(normalized_projection_observables(self.editor, self.attachment))
+  } else {
+    None
+  }
+  let preview_observable = if needs_materialization && preview_only {
+    let snapshot = self.editor.snapshot()
+    Some(
+      normalized_preview_projection(
+        snapshot.source(),
+        self.attachment.document(),
+      ),
+    )
   } else {
     None
   }
@@ -1412,11 +1440,20 @@ fn ProjectionSession::execute_effects(
     match effect {
       StartGroupWork(work_id~, stamp~, group~, ..) =>
         if !projection_effects_adopt_work(effects, work_id) {
-          let values = observables.unwrap()
           let artifact = match group {
-            Block => BlockArtifact(values.block)
-            Preview => PreviewArtifact(values.preview)
-            Diagnostics => DiagnosticsArtifact(values.diagnostics)
+            Block => {
+              let values = observables.unwrap()
+              BlockArtifact(values.block)
+            }
+            Preview =>
+              match preview_observable {
+                Some(value) => PreviewArtifact(value)
+                None => PreviewArtifact(observables.unwrap().preview)
+              }
+            Diagnostics => {
+              let values = observables.unwrap()
+              DiagnosticsArtifact(values.diagnostics)
+            }
           }
           let result : ProjectionWorkResult = {
             work_id,

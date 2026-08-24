@@ -106,7 +106,7 @@ fn run_projection_trace_event(
   let (next, _) = try! update_model(
     editor,
     attachment,
-    RawInputCoordinator::RawInputCoordinator(None),
+    RawInputCoordinator::RawInputCoordinator(),
     BlockInputCoordinator::BlockInputCoordinator(),
     model,
     latest_model,
@@ -138,7 +138,7 @@ fn run_projection_trace_recovered_event(
 ) -> DriverModel {
   let latest_model : @ref.Ref[DriverModel?] = @ref.Ref(Some(model))
   let emit : @cmd.Emit[DriverEvent] = @cmd.Emit(_ => @rabbita_runtime.none)
-  let raw_input_coordinator = RawInputCoordinator::RawInputCoordinator(None)
+  let raw_input_coordinator = RawInputCoordinator::RawInputCoordinator()
   let block_input_coordinator = BlockInputCoordinator::BlockInputCoordinator()
   let active = session.val
   let (next, _) = update_model(

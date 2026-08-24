@@ -2,20 +2,24 @@
 
 **Date:** 2026-08-12
 
-**Status:** Accepted target architecture; implementation is not complete.
+**Status:** Accepted target architecture for the future Causal archive capability; not the baseline production LocalText contract.
 
 **Related:**
 
+- [Source-first interactive editing](2026-08-24-loomark-source-first-interactive-contract.md)
 - [Indexed projection lifecycle](2026-07-22-indexed-projection-lifecycle.md)
 - [EGW collaboration responsibility boundary](2026-07-21-egw-collaboration-responsibility-boundary.md)
 - [Loomark startup history corpus](../performance/2026-08-10-loomark-startup-history-corpus.md)
 - [Eg-walker paper](https://arxiv.org/abs/2409.14252)
 
-**Decision:** Preserve one causal authority and choose its residency according
-to the access path. Warm access may retain authority across reconnects; cold
-access may load a plain-text projection and exact causal frontier first, while
-keeping durable history available and reading only the required portion for
-merge or replay. Local edits require causal admission of that loaded base.
+**Decision:** When Loomark enables the Causal archive capability, preserve one
+causal authority and choose its residency according to the access path. Warm
+access may retain authority across reconnects; cold access may load a plain-text
+projection and exact causal frontier first, while keeping durable history
+available and reading only the required portion for merge or replay. Local edits
+in that capability require causal admission of the loaded base. Production
+Source-backed LocalText owns no causal authority and is governed by the
+source-first decision above.
 
 ## Context
 

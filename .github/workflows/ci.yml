@@ -65,7 +65,6 @@ jobs:
       run_cm6_adapter_e2e: ${{ steps.filter.outputs.run_cm6_adapter_e2e }}
       run_loomark_dev_host_e2e: ${{ steps.filter.outputs.run_loomark_dev_host_e2e }}
       run_loomark_standalone_e2e: ${{ steps.filter.outputs.run_loomark_standalone_e2e }}
-      run_gate_r0: ${{ steps.filter.outputs.run_gate_r0 }}
       run_pr_ready_bash3: ${{ steps.filter.outputs.run_pr_ready_bash3 }}
       run_tooling_validation: ${{ steps.filter.outputs.run_tooling_validation }}
       run_release_version_validation: ${{ steps.filter.outputs.run_release_version_validation }}
@@ -107,17 +106,6 @@ jobs:
               - '.gitmodules'
               - 'scripts/install-local-warren.sh'
               - 'scripts/test-loomark-standalone-e2e.sh'
-              - 'scripts/moon-update.sh'
-            run_gate_r0:
-              - 'apps/loomark/**'
-              - 'modules/canopy/editor/markdown/**'
-              - 'deps/event-graph-walker'
-              - '.github/actions/setup-moonbit/**'
-              - '.github/workflows/ci.yml'
-              - '.gitmodules'
-              - 'moon.mod.json'
-              - 'scripts/test-loomark-editable-branch-restore-feasibility.nu'
-              - 'scripts/gate-r0/**'
               - 'scripts/moon-update.sh'
             run_prove:
               - 'modules/semantic/proof/**'
@@ -1044,9 +1032,8 @@ jobs:
         run: ./scripts/test-loomark-standalone-e2e.sh
 
   gate-r0:
-    name: Loomark Editable-Branch Restore Gate R0
-    needs: [changes]
-    if: needs.changes.outputs.run_gate_r0 == 'true'
+    name: Loomark Experimental Full-History Gate R0
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1182,9 +1169,7 @@ jobs:
              ! path_filtered_ok \
                "${{ needs.loomark-standalone-e2e.result }}" \
                "${{ needs.changes.outputs.run_loomark_standalone_e2e }}" || \
-             ! path_filtered_ok \
-               "${{ needs.gate-r0.result }}" \
-               "${{ needs.changes.outputs.run_gate_r0 }}"; then
+             ! ok "${{ needs.gate-r0.result }}"; then
             echo "❌ One or more required checks failed"
             exit 1
           fi

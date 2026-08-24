@@ -139,7 +139,7 @@ fn resizable_split_view(
           side=@rui.SecondPanel,
           attrs=@html.Attrs::build().data_set("panel", "preview"),
           style=["display:flex;min-height:0;overflow:hidden"],
-          preview_document_view(model),
+          preview_document_view(model, raw_input_coordinator),
         ),
       ])
     },

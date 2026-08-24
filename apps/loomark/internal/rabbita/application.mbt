@@ -313,6 +313,15 @@ fn local_persistence_snapshot(
 }
 
 ///|
+/// Whether the currently presented surface owns the browser Raw draft.
+fn raw_draft_surface_live(
+  mode : @core.ApplicationMode,
+  split_preview_open : Bool,
+) -> Bool {
+  mode == @core.Raw || (mode == @core.Preview && split_preview_open)
+}
+
+///|
 fn publish(
   model : DriverModel,
   raw_input_coordinator : RawInputCoordinator?,
@@ -323,7 +332,21 @@ fn publish(
     _ => ()
   }
   let fields : Map[String, Json] = {
-    "source": runtime_source(model).to_json(),
+    "source": match raw_input_coordinator {
+      Some(coordinator) if raw_draft_surface_live(
+          model.state.mode(),
+          model.split_preview_open,
+        ) &&
+        (
+          model.runtime_state is EditorRuntimeState::Healthy ||
+          model.runtime_state is EditorRuntimeState::LocalText(_)
+        ) =>
+        match coordinator.fast_source_value() {
+          Some(source) => source.to_json()
+          None => runtime_source(model).to_json()
+        }
+      _ => runtime_source(model).to_json()
+    },
     "replica_id": model.replica_id.to_json(),
     "version": @core.SNAPSHOT_VERSION.to_json(),
     "mode": mode_name(model.state.mode()).to_json(),
@@ -401,8 +424,23 @@ fn publish(
 }
 
 ///|
-fn preview_document_view(model : DriverModel) -> @rabbita_runtime.Html {
-  let source = model.document.source()
+fn current_preview_source(
+  model : DriverModel,
+  raw_input_coordinator : RawInputCoordinator,
+) -> String {
+  if model.split_preview_open {
+    raw_input_coordinator.fast_source_value().unwrap_or(model.document.source())
+  } else {
+    model.document.source()
+  }
+}
+
+///|
+fn preview_document_view(
+  model : DriverModel,
+  raw_input_coordinator : RawInputCoordinator,
+) -> @rabbita_runtime.Html {
+  let source = current_preview_source(model, raw_input_coordinator)
   let unavailable = () => {
     @html.div(
       style=[
@@ -424,16 +462,24 @@ fn preview_document_view(model : DriverModel) -> @rabbita_runtime.Html {
       ),
     )
   }
-  if selected_projection_placement is ProjectionSynchronous {
-    match model.semantic_document {
-      Some(document) => semantic_preview_view(source, document)
-      None => unavailable()
-    }
-  } else {
-    match model.preview_artifact {
-      Some(artifact) => semantic_preview_artifact_view(source, artifact)
-      None => unavailable()
-    }
+  match model.raw_preview.artifact() {
+    Some(stamped) if stamped.preview.source == source =>
+      semantic_preview_artifact_view(source, stamped.preview.artifact)
+    _ =>
+      match model.preview_artifact {
+        Some(stamped) if stamped.preview.source == source =>
+          semantic_preview_artifact_view(source, stamped.preview.artifact)
+        _ =>
+          if selected_projection_placement is ProjectionSynchronous {
+            match model.semantic_document {
+              Some(document) if source == model.document.source() =>
+                semantic_preview_view(source, document)
+              _ => unavailable()
+            }
+          } else {
+            unavailable()
+          }
+      }
   }
 }
 
@@ -449,11 +495,12 @@ fn raw_editor_view(
   raw_input_coordinator : RawInputCoordinator,
 ) -> @rabbita_runtime.Html {
   let local_text = model.runtime_state is EditorRuntimeState::LocalText(_)
-  let source = if local_text {
+  let committed_source = if local_text {
     runtime_source(model)
   } else {
-    raw_input_coordinator.display_source(model.document.source())
+    model.document.source()
   }
+  let source = raw_input_coordinator.display_source(committed_source)
   @html.div(
     style=[
       "box-sizing:border-box;width:100%;min-width:0;overflow-y:auto;overflow-x:hidden",
@@ -465,112 +512,45 @@ fn raw_editor_view(
       attrs=@html.Attrs::build()
         .aria_label("Raw Markdown source")
         .on_compositionstart(_ => {
-          if local_text {
-            return @rabbita_runtime.none
-          }
-          match read_raw_selection() {
-            Some(selection) =>
-              ignore(
-                raw_input_coordinator.begin_native_composition(
-                  model, source, selection,
-                ),
-              )
-            None => raw_input_coordinator.cancel_pending()
-          }
+          raw_input_coordinator.begin_fast_composition()
           @rabbita_runtime.none
         })
         .on_compositionend(_ => {
-          if local_text {
-            return emit(
-              Editing(LocalTextInput(read_textarea_value("loomark-input"))),
-            )
-          }
+          let source = read_textarea_value("loomark-input")
+          raw_input_coordinator.finish_fast_composition()
+          let generation = raw_input_coordinator.install_fast_source(source)
           @cmd.batch([
-            raw_input_coordinator.finish_composition(
-              model.document.source(),
-              emit,
+            @cmd.delay(
+              emit(Editing(RawFastPreview(generation))),
+              RAW_FAST_PREVIEW_MS,
             ),
-            raw_input_coordinator.finalize_deferred_composition(model, emit),
+            @cmd.delay(
+              emit(Editing(RawFastFlush(generation, source))),
+              RAW_FAST_FLUSH_MS,
+            ),
           ])
         })
-        .on_beforeinput(event => {
-          if local_text {
-            @rabbita_runtime.none
-          } else {
-            raw_input_coordinator.capture_native_before_input(model, event)
-          }
-        })
-        .on_input(event => {
-          if local_text {
-            if raw_input_event_is_composing(event) {
-              return @rabbita_runtime.none
-            }
-            return emit(
-              Editing(LocalTextInput(read_textarea_value("loomark-input"))),
-            )
-          }
-          if raw_input_event_is_composing(event) {
-            raw_input_coordinator.suppress_composing_input_repair()
-          }
-          @rabbita_runtime.none
-        }),
+        .on_beforeinput(_ => @rabbita_runtime.none)
+        .on_input(_ => @rabbita_runtime.none),
       style=[
         "display:block;min-width:0;min-height:clamp(24rem,70vh,36rem);width:var(--lm-page-width);margin-inline:auto;field-sizing:content;resize:none;overflow:hidden;--rui-control-base-border:transparent;--rui-control-base-shadow:none;background:transparent;padding:1rem var(--lm-page-x-padding);font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,\"Liberation Mono\",\"Courier New\",monospace;font-size:1.125rem;line-height:1.65",
       ],
       on_input=@cmd.Emit(source => {
-        if local_text {
-          return @rabbita_runtime.none
-        }
-        match read_raw_selection() {
-          Some(selection) =>
-            if raw_input_coordinator.update_composition(source, selection) {
-              @rabbita_runtime.none
-            } else {
-              let matched = raw_input_coordinator.has_captured_before_input()
-              let repair_unmatched = raw_input_coordinator.take_unmatched_input_repair()
-              let deferred = raw_input_coordinator.defer_native_input(
-                source, selection,
-              )
-              let active_delivery = raw_input_coordinator.has_active_delivery()
-              let input_command = if deferred {
-                @rabbita_runtime.none
-              } else {
-                raw_input_coordinator.enqueue(source, selection, emit)
-              }
-              if deferred || matched || !repair_unmatched || active_delivery {
-                input_command
-              } else {
-                let repair_epoch = raw_input_coordinator.epoch()
-                let repair_selection = rejected_text_selection(
-                  model.document.source(),
-                  source,
-                  selection,
-                )
-                @cmd.batch([
-                  input_command,
-                  after_render(
-                    scheduler => {
-                      ignore(scheduler)
-                      guard raw_input_coordinator.epoch() == repair_epoch else {
-                        return
-                      }
-                      @dom_boundary.write_text_value_id(
-                        "loomark-input",
-                        raw_textarea_value(model.document.source()),
-                      )
-                      @dom_boundary.write_text_selection_id(
-                        "loomark-input", repair_selection,
-                      )
-                    },
-                    emit,
-                  ),
-                ])
-              }
-            }
-          None => {
-            raw_input_coordinator.cancel_pending()
-            @rabbita_runtime.none
-          }
+        let generation = raw_input_coordinator.install_fast_source(source)
+        let preview = @cmd.delay(
+          emit(Editing(RawFastPreview(generation))),
+          RAW_FAST_PREVIEW_MS,
+        )
+        if raw_input_coordinator.fast_composing() {
+          preview
+        } else {
+          @cmd.batch([
+            preview,
+            @cmd.delay(
+              emit(Editing(RawFastFlush(generation, source))),
+              RAW_FAST_FLUSH_MS,
+            ),
+          ])
         }
       }),
     ),
@@ -586,7 +566,7 @@ fn editor_view(
 ) -> @rabbita_runtime.Html {
   match model.state.mode() {
     @core.Raw => raw_editor_view(model, emit, raw_input_coordinator)
-    @core.Preview => preview_document_view(model)
+    @core.Preview => preview_document_view(model, raw_input_coordinator)
     @core.Block => block_editor_view(model, block_input_coordinator, emit)
   }
 }
@@ -910,7 +890,8 @@ fn driver_event_name(event : DriverEvent) -> String {
         ReplaceSource(_) => "source"
         LocalTextInput(_) => "local-text-input"
         RawInput(_, _) => "raw-input"
-        RawNativeInput(..) => "raw-native-input"
+        RawFastPreview(_) => "raw-fast-preview"
+        RawFastFlush(_, _) => "raw-fast-flush"
         RawSelectionEdit(_) => "raw-selection-edit"
         CommitCapturedRawSelection(_) => "commit-captured-raw-selection"
         BlockFocused(_) => "block-focused"
@@ -949,6 +930,7 @@ fn driver_event_name(event : DriverEvent) -> String {
         SelectionRead(..) => "selection-read"
         Measured(..) => "measured"
       }
+    GotRawPreviewMsg(_) => "raw-preview"
     Lifecycle(life_event) =>
       match life_event {
         EditorFailure => "editor-failure"
@@ -1143,12 +1125,14 @@ fn editing_mode_applicable(
   split_preview_open : Bool,
 ) -> String? {
   match event {
-    ReplaceSource(_) | ProbeBlockSelection(_) | RawNativeInput(..) => None
+    ReplaceSource(_) | ProbeBlockSelection(_) => None
     LocalTextInput(_)
+    | RawFastPreview(_)
+    | RawFastFlush(_, _)
     | RawInput(_, _)
     | RawSelectionEdit(_)
     | CommitCapturedRawSelection(_) =>
-      if mode == @core.Raw || (mode == @core.Preview && split_preview_open) {
+      if raw_draft_surface_live(mode, split_preview_open) {
         None
       } else {
         Some("Raw input is unavailable outside Raw mode")
@@ -1183,14 +1167,10 @@ fn update_editing(
   emit : @cmd.Emit[DriverEvent],
   projection_session? : @ref.Ref[ProjectionSession?],
 ) -> (DriverModel, @cmd.Cmd) raise {
-  let native_token_active = match event {
-    RawNativeInput(token~, ..) => raw_input_coordinator.is_active(token)
-    _ => true
-  }
-  if event is RawNativeInput(..) && !native_token_active {
-    return (model, @rabbita_runtime.none)
-  }
   match event {
+    RawFastPreview(generation) | RawFastFlush(generation, _) if !raw_input_coordinator.draft_is_current(
+        generation,
+      ) => return (model, @rabbita_runtime.none)
     BlockInput(token~, input~) => {
       if !block_input_coordinator.is_active(token) {
         return (model, block_input_coordinator.finish(token, emit))
@@ -1250,86 +1230,31 @@ fn update_editing(
                 @rabbita_runtime.none,
               )
           }
-        RawNativeInput(token~, candidate~) => {
-          raw_input_coordinator.mark_reducer_started(token)
-          let request = normalize_raw_input_candidate(model, candidate)
-          raw_input_coordinator.mark_reducer_finished(token)
-          match request {
-            None => {
-              let repair_epoch = raw_input_coordinator.epoch()
-              let expected = candidate.before_input.selection
-              raw_input_coordinator.discard(token)
-              (
-                model,
-                rejected_raw_input_after_render(
-                  latest_model, raw_input_coordinator, repair_epoch, expected, emit,
-                ),
-              )
-            }
-            Some(request) => {
-              let (next, outcome, persistence_command) = commit_raw_selection_edit(
-                editor,
-                attachment,
-                model,
-                request,
-                emit,
-                editor_started=() => {
-                  raw_input_coordinator.mark_editor_started(token)
-                },
-                editor_finished=() => {
-                  raw_input_coordinator.mark_editor_finished(token)
-                },
-                preview_started=() => {
-                  raw_input_coordinator.mark_preview_started(token)
-                },
-                preview_finished=() => {
-                  raw_input_coordinator.mark_preview_finished(token)
-                },
-                raw_mode_authorized=candidate.raw_mode_authorized,
-                projection_session?,
-              )
-              let (next, selection_command, repair_command) = match outcome {
-                RawSelectionEditOutcome::Applied(selection)
-                | RawSelectionEditOutcome::Unchanged(selection) =>
-                  (
-                    next,
-                    raw_native_selection_after_render(
-                      latest_model, raw_input_coordinator, selection, emit,
-                    ),
-                    @rabbita_runtime.none,
-                  )
-                RawSelectionEditOutcome::Rejected(
-                  RawSelectionEditRejection::EditorCommitFailed
-                ) => {
-                  raw_input_coordinator.discard_deferred()
-                  let repair_epoch = raw_input_coordinator.epoch()
-                  let expected = candidate.before_input.selection
-                  (
-                    next,
-                    @rabbita_runtime.none,
-                    rejected_raw_input_after_render(
-                      latest_model, raw_input_coordinator, repair_epoch, expected,
-                      emit,
-                    ),
-                  )
-                }
-                RawSelectionEditOutcome::Rejected(_) => {
-                  raw_input_coordinator.discard_deferred()
-                  (next, @rabbita_runtime.none, @rabbita_runtime.none)
-                }
-              }
-              let finish_command = raw_input_coordinator.finish(
-                token, latest_model, emit,
-              )
-              (
-                next,
-                @cmd.batch([
-                  persistence_command, selection_command, repair_command, finish_command,
-                ]),
-              )
+        RawFastPreview(_) => (model, @rabbita_runtime.none)
+        RawFastFlush(_, source) =>
+          if raw_input_coordinator.fast_composing() {
+            (model, @rabbita_runtime.none)
+          } else {
+            match raw_input_coordinator.fast_source_value() {
+              Some(current) if current == source =>
+                update_editing(
+                  editor,
+                  attachment,
+                  raw_input_coordinator,
+                  block_input_coordinator,
+                  model,
+                  latest_model,
+                  if model.runtime_state is EditorRuntimeState::LocalText(_) {
+                    LocalTextInput(source)
+                  } else {
+                    RawInput(source, None)
+                  },
+                  emit,
+                  projection_session?,
+                )
+              _ => (model, @rabbita_runtime.none)
             }
           }
-        }
         CommitCapturedRawSelection(inserted) =>
           match model.raw_selection {
             None => {
@@ -1366,6 +1291,7 @@ fn update_editing(
             RawSelectionEditOutcome::Applied(selection)
             | RawSelectionEditOutcome::Unchanged(selection) => {
               raw_input_coordinator.cancel_pending()
+              raw_input_coordinator.set_fast_source(next.document.source())
               (next, raw_selection_after_render(latest_model, selection, emit))
             }
             RawSelectionEditOutcome::Rejected(rejection) =>
@@ -1447,6 +1373,9 @@ fn update_editing(
                 }
                 if accepted {
                   raw_input_coordinator.cancel_pending()
+                  raw_input_coordinator.set_fast_source(next.document.source())
+                } else if raw_event {
+                  raw_input_coordinator.set_fast_source(next.document.source())
                 }
                 persistence_command = @cmd.batch([
                   persistence_command, commit_command,
@@ -2010,9 +1939,41 @@ fn update_editing(
 }
 
 ///|
+/// Commit the browser-owned Raw source only when leaving the fast text path.
+/// The commit is a mode-boundary operation, never a per-keystroke operation.
+fn flush_fast_raw_source(
+  editor : @markdown.MarkdownEditor,
+  raw_input_coordinator : RawInputCoordinator,
+  model : DriverModel,
+  emit : @cmd.Emit[DriverEvent],
+  projection_session? : @ref.Ref[ProjectionSession?],
+) -> (DriverModel, Bool, Bool, @cmd.Cmd) raise {
+  match raw_input_coordinator.fast_source_value() {
+    Some(source) if raw_textarea_value(model.document.source()) !=
+      raw_textarea_value(source) => {
+      let (next, accepted, changed, command) = commit_source(
+        editor,
+        model,
+        model.state,
+        source,
+        "raw-mode-boundary",
+        emit,
+        projection_session?,
+      )
+      if accepted {
+        raw_input_coordinator.set_fast_source(next.document.source())
+      }
+      (next, accepted, changed, command)
+    }
+    _ => (model, false, false, @rabbita_runtime.none)
+  }
+}
+
+///|
 /// View-surface dispatcher: mode selection, split, focus commands, and the
 /// effect reports that accompany them. Not mode-gated.
 fn update_navigation(
+  editor : @markdown.MarkdownEditor,
   attachment : @md_markdown.MarkdownSemanticAttachment,
   raw_input_coordinator : RawInputCoordinator,
   block_input_coordinator : BlockInputCoordinator,
@@ -2021,7 +1982,7 @@ fn update_navigation(
   event : NavigationEvent,
   emit : @cmd.Emit[DriverEvent],
   projection_session? : @ref.Ref[ProjectionSession?],
-) -> (DriverModel, @cmd.Cmd) {
+) -> (DriverModel, @cmd.Cmd) raise {
   if model.runtime_state is EditorRuntimeState::LocalText(_) {
     match event {
       SelectBlock
@@ -2049,6 +2010,28 @@ fn update_navigation(
         SelectBlock => @core.Block
         SelectPreview => @core.Preview
         _ => @core.Raw
+      }
+      let needs_flush = match raw_input_coordinator.fast_source_value() {
+        Some(source) =>
+          raw_draft_surface_live(model.state.mode(), model.split_preview_open) &&
+          raw_textarea_value(model.document.source()) !=
+          raw_textarea_value(source)
+        None => false
+      }
+      let (model, flush_command) = if needs_flush {
+        let (next, accepted, _, command) = flush_fast_raw_source(
+          editor,
+          raw_input_coordinator,
+          model,
+          emit,
+          projection_session?,
+        )
+        if !accepted {
+          return (next, command)
+        }
+        (next, command)
+      } else {
+        (model, @rabbita_runtime.none)
       }
       if mode != model.state.mode() {
         raw_input_coordinator.cancel_pending_for_navigation()
@@ -2079,9 +2062,35 @@ fn update_navigation(
             changed=false,
           )
       }
-      (next, @rabbita_runtime.none)
+      if mode == @core.Raw {
+        raw_input_coordinator.set_fast_source(next.document.source())
+      }
+      (next, flush_command)
     }
     ToggleSplitPreview => {
+      let needs_flush = match raw_input_coordinator.fast_source_value() {
+        Some(source) =>
+          model.state.mode() == @core.Preview &&
+          raw_draft_surface_live(model.state.mode(), model.split_preview_open) &&
+          raw_textarea_value(model.document.source()) !=
+          raw_textarea_value(source)
+        None => false
+      }
+      let (model, flush_command) = if needs_flush {
+        let (next, accepted, _, command) = flush_fast_raw_source(
+          editor,
+          raw_input_coordinator,
+          model,
+          emit,
+          projection_session?,
+        )
+        if !accepted {
+          return (next, command)
+        }
+        (next, command)
+      } else {
+        (model, @rabbita_runtime.none)
+      }
       if model.state.mode() == @core.Preview && model.split_preview_open {
         raw_input_coordinator.cancel_pending_for_navigation()
       }
@@ -2109,7 +2118,7 @@ fn update_navigation(
             changed=false,
           )
       }
-      (next, @rabbita_runtime.none)
+      (next, flush_command)
     }
     FocusRaw | FocusBlock | FocusPreview => {
       // The outer or-pattern already narrowed `event` to the Focus*
@@ -2575,7 +2584,12 @@ fn update_lifecycle(
                 worker.mark_healthy()
                 match artifact {
                   None => (model, @rabbita_runtime.none)
-                  Some(preview_artifact) => {
+                  Some(preview) => {
+                    guard preview.source == model.document.source() else {
+                      return worker.recover(
+                        model, emit, "projection Worker Preview source mismatch",
+                      )
+                    }
                     let projection_error = model.error_code ==
                       Some("projection-failed") ||
                       model.error_code == Some("projection-pending")
@@ -2583,7 +2597,7 @@ fn update_lifecycle(
                       {
                         ..model,
                         semantic_document: None,
-                        preview_artifact: Some(preview_artifact),
+                        preview_artifact: Some({ stamp, preview }),
                         semantic_read_count: model.semantic_read_count + 1,
                         error: if projection_error {
                           None
@@ -2651,6 +2665,39 @@ fn update_model(
   bootstrap_mode? : StandaloneBootstrapMode,
   session_ref? : @ref.Ref[EditorSession],
 ) -> (DriverModel, @cmd.Cmd) raise {
+  update_model_with_raw_preview_runtime(
+    editor,
+    attachment,
+    raw_input_coordinator,
+    block_input_coordinator,
+    model,
+    latest_model,
+    event,
+    emit,
+    projection_session?,
+    projection_worker?,
+    bootstrap_mode?,
+    session_ref?,
+    raw_preview_runtime?=None,
+  )
+}
+
+///|
+fn update_model_with_raw_preview_runtime(
+  editor : @markdown.MarkdownEditor,
+  attachment : @md_markdown.MarkdownSemanticAttachment,
+  raw_input_coordinator : RawInputCoordinator,
+  block_input_coordinator : BlockInputCoordinator,
+  model : DriverModel,
+  latest_model : @ref.Ref[DriverModel?],
+  event : DriverEvent,
+  emit : @cmd.Emit[DriverEvent],
+  projection_session? : @ref.Ref[ProjectionSession?],
+  projection_worker? : ProjectionWorkerRuntime,
+  bootstrap_mode? : StandaloneBootstrapMode,
+  raw_preview_runtime? : RawPreviewRuntime,
+  session_ref? : @ref.Ref[EditorSession],
+) -> (DriverModel, @cmd.Cmd) raise {
   let (next, command) = match event {
     Bootstrap(loaded) =>
       match (session_ref, bootstrap_mode) {
@@ -2680,8 +2727,6 @@ fn update_model(
       )
     _ if model.fatal && !recovery_control_event(event) => {
       match event {
-        Editing(RawNativeInput(token~, ..)) =>
-          raw_input_coordinator.cancel(token)
         Editing(BlockInput(..)) => block_input_coordinator.cancel_pending()
         _ => ()
       }
@@ -2707,6 +2752,7 @@ fn update_model(
       )
     Navigation(nav_event) =>
       update_navigation(
+        editor,
         attachment,
         raw_input_coordinator,
         block_input_coordinator,
@@ -2717,6 +2763,10 @@ fn update_model(
         projection_session?,
       )
     Probe(probe_event) => update_probe(model, latest_model, probe_event, emit)
+    GotRawPreviewMsg(msg) =>
+      update_raw_preview_msg(
+        msg, model, raw_input_coordinator, raw_preview_runtime, emit,
+      )
     Lifecycle(life_event) =>
       update_lifecycle(
         editor,
@@ -2738,12 +2788,21 @@ fn update_model(
         Some(session) => update_projection_demand(session, next)
       }
   }
-  let raw_input_token = match event {
-    Editing(RawNativeInput(token~, ..)) => Some(token)
-    _ => None
+  match event {
+    Bootstrap(_) | Lifecycle(RestoreSnapshot(..)) =>
+      raw_input_coordinator.set_fast_source(runtime_source(next))
+    _ if !raw_draft_surface_live(next.state.mode(), next.split_preview_open) =>
+      raw_input_coordinator.set_fast_source(next.document.source())
+    _ => ()
+  }
+  let next = match next.raw_preview.artifact() {
+    Some(stamped) if stamped.preview.source !=
+      current_preview_source(next, raw_input_coordinator) =>
+      { ..next, raw_preview: next.raw_preview.clear() }
+    _ => next
   }
   projection_trace_driver_model_adopted()
-  publish(next, Some(raw_input_coordinator), raw_input_token)
+  publish(next, Some(raw_input_coordinator), None)
   (next, command)
 }
 
@@ -2955,19 +3014,22 @@ fn build_application(
   initial : DriverModel,
   baseline : @repository.LocalArchivePendingWrite?,
   bootstrap_mode : StandaloneBootstrapMode?,
-  raw_input_telemetry : RawInputTelemetry?,
   subscriptions : (DriverModel, @cmd.Emit[DriverEvent]) -> @sub.Sub,
   view : (DriverModel, @cmd.Emit[DriverEvent], @rabbita_runtime.Html) -> @rabbita_runtime.Html,
   projection_session? : @ref.Ref[ProjectionSession?],
 ) -> @rabbita_runtime.App {
   projection_benchmark_trace_enable()
+  let initial = match bootstrap_mode {
+    Some(LocalTextBootstrap) =>
+      { ..initial, raw_preview: RawPreviewModel::disabled() }
+    _ => initial
+  }
   let current_session : @ref.Ref[EditorSession] = {
     val: { editor, attachment },
   }
   let latest_model : @ref.Ref[DriverModel?] = { val: None }
-  let raw_input_coordinator = RawInputCoordinator::RawInputCoordinator(
-    raw_input_telemetry,
-  )
+  let raw_input_coordinator = RawInputCoordinator::RawInputCoordinator()
+  raw_input_coordinator.set_fast_source(initial.document.source())
   let block_input_coordinator = BlockInputCoordinator::BlockInputCoordinator()
   let projection_worker = match selected_projection_placement {
     ProjectionWorker =>
@@ -2978,19 +3040,36 @@ fn build_application(
       )
     ProjectionSynchronous => None
   }
+  // Raw Preview is a development/full-history capability. Production
+  // LocalText is Raw-only and must not allocate an idle Worker.
+  let raw_preview_runtime = match bootstrap_mode {
+    Some(LocalTextBootstrap) => None
+    _ => Some(RawPreviewRuntime::new("loomark-raw-preview"))
+  }
   let application_subscriptions = (model, emit) => {
-    match projection_worker {
-      Some(runtime) =>
+    match (projection_worker, raw_preview_runtime) {
+      (Some(projection), Some(raw_preview)) =>
         @sub.batch([
           subscriptions(model, emit),
-          projection_worker_subscription(runtime),
+          projection_worker_subscription(projection),
+          raw_preview_subscriptions(raw_preview),
         ])
-      None => subscriptions(model, emit)
+      (Some(projection), None) =>
+        @sub.batch([
+          subscriptions(model, emit),
+          projection_worker_subscription(projection),
+        ])
+      (None, Some(raw_preview)) =>
+        @sub.batch([
+          subscriptions(model, emit),
+          raw_preview_subscriptions(raw_preview),
+        ])
+      (None, None) => subscriptions(model, emit)
     }
   }
   let update = (model, event, emit) => {
     let session = current_session.val
-    let (next, command) = update_model(
+    let (next, command) = update_model_with_raw_preview_runtime(
       session.editor,
       session.attachment,
       raw_input_coordinator,
@@ -3003,6 +3082,7 @@ fn build_application(
       projection_worker?,
       bootstrap_mode?,
       session_ref=current_session,
+      raw_preview_runtime?,
     ) catch {
       Failure::Failure(_) as failure => {
         raw_input_coordinator.cancel_pending()
@@ -3014,6 +3094,7 @@ fn build_application(
           emit,
           projection_session?,
         )
+        raw_input_coordinator.set_fast_source(next.document.source())
         publish(next, Some(raw_input_coordinator), None)
         (next, command)
       }
@@ -3027,6 +3108,7 @@ fn build_application(
           emit,
           projection_session?,
         )
+        raw_input_coordinator.set_fast_source(next.document.source())
         publish(next, Some(raw_input_coordinator), None)
         (next, command)
       }
@@ -3039,6 +3121,7 @@ fn build_application(
           error,
           projection_session?,
         )
+        raw_input_coordinator.set_fast_source(next.document.source())
         publish(next, Some(raw_input_coordinator), None)
         (next, command)
       }
@@ -3047,7 +3130,20 @@ fn build_application(
       Some(runtime) => runtime.sync(next, emit)
       None => @rabbita_runtime.none
     }
-    (next, @cmd.batch([command, projection_command]))
+    let raw_preview_command = match
+      (raw_preview_runtime, raw_input_coordinator.fast_source_value()) {
+      (Some(runtime), Some(source)) =>
+        if !next.fatal &&
+          !next.bootstrap_pending &&
+          preview_requested(next) &&
+          source != next.document.source() {
+          runtime.request(source, emit)
+        } else {
+          @rabbita_runtime.none
+        }
+      _ => @rabbita_runtime.none
+    }
+    (next, @cmd.batch([command, projection_command, raw_preview_command]))
   }
   @rabbita_runtime.new(() => {
     let (model, emit) = @rabbita_runtime.create_state_with_init(
@@ -3100,7 +3196,6 @@ fn standalone_application(
     initial,
     baseline,
     Some(bootstrap_mode),
-    None,
     standalone_subscriptions,
     standalone_preview_view,
   )
@@ -3119,7 +3214,6 @@ fn private_dev_host_application(
     initial,
     baseline,
     None,
-    Some(RawInputTelemetry::new()),
     private_dev_host_subscriptions,
     private_dev_host_preview_view,
   )
@@ -3157,6 +3251,7 @@ fn initial_model(
     bootstrap_pending,
     semantic_document: None,
     preview_artifact: None,
+    raw_preview: RawPreviewModel::enabled(),
     semantic_read_count: 0,
     split_preview_open: false,
     compact_split: compact_split_for_width(host_width),
