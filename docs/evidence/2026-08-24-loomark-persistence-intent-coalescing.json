@@ -1,0 +1,129 @@
+{
+  "schema": "loomark-persistence-intent-coalescing-evidence-v1",
+  "issue": 1360,
+  "base_commit": "298f3ccf527de1447adde3bcab82140dd4eaddb2",
+  "candidate_code_commit": "0458a5827598bcdec4a14c956b8d93dd43e9ec73",
+  "environment": {
+    "browser": "149.0.7827.55",
+    "node": "v24.14.1",
+    "platform": "linux",
+    "os_release": "6.18.33.2-microsoft-standard-WSL2",
+    "architecture": "x64",
+    "cpu": "AMD Ryzen 7 6800H with Radeon Graphics",
+    "headless": true,
+    "viewport": { "width": 1280, "height": 720 },
+    "warmups_per_scenario": 5,
+    "samples_per_scenario": 30,
+    "settle_ms": 400,
+    "persistence_required": true
+  },
+  "fixture_1mib": {
+    "utf16_length": 1048576,
+    "utf8_bytes": 1048576,
+    "sha256": "bd2b39512f137e45eb14063920e77769422728321640fc9214787e00a5dd74ae"
+  },
+  "baseline": {
+    "raw_sha256": "96043a54950e718fc1ddee3b3e0e321571c5412ff615629dc9a003a54d0c72b6",
+    "w2_samples_with_long_tasks": 30,
+    "w2_maximum_long_task_p50_ms": 68,
+    "w2_maximum_long_task_p95_ms": 91,
+    "w2_maximum_long_task_max_ms": 91,
+    "put_request_offset_p95_ms": 341.3,
+    "put_acknowledgment_p95_ms": 32.5,
+    "native_mutation_p95_ms": 37.5,
+    "input_handler_p95_ms": 0.1
+  },
+  "candidate_1mib_launches": [
+    {
+      "raw_sha256": "4c979704ece33dbd074c80d4697faa14ce0b932d2358cdd821514fd237f6fd36",
+      "w2_samples_with_long_tasks": 30,
+      "w2_maximum_long_task_p50_ms": 66,
+      "w2_maximum_long_task_p95_ms": 113,
+      "w2_maximum_long_task_max_ms": 191,
+      "put_request_offset_p95_ms": 364.0,
+      "put_acknowledgment_p95_ms": 37.9,
+      "native_mutation_p95_ms": 41.5,
+      "input_handler_p95_ms": 0.1
+    },
+    {
+      "raw_sha256": "dcf05766ec599c32e553703e073672b22d0a48f8cc70564ae459201615df7e1d",
+      "w2_samples_with_long_tasks": 30,
+      "w2_maximum_long_task_p50_ms": 66,
+      "w2_maximum_long_task_p95_ms": 91,
+      "w2_maximum_long_task_max_ms": 92,
+      "put_request_offset_p95_ms": 341.9,
+      "put_acknowledgment_p95_ms": 34.0,
+      "native_mutation_p95_ms": 65.0,
+      "input_handler_p95_ms": 0.1
+    },
+    {
+      "raw_sha256": "87aa6817d6711fbf73a4e44f174d42488f15318539432e045e0484dee20a1318",
+      "w2_samples_with_long_tasks": 30,
+      "w2_maximum_long_task_p50_ms": 68,
+      "w2_maximum_long_task_p95_ms": 90,
+      "w2_maximum_long_task_max_ms": 106,
+      "put_request_offset_p95_ms": 340.9,
+      "put_acknowledgment_p95_ms": 32.0,
+      "native_mutation_p95_ms": 37.3,
+      "input_handler_p95_ms": 0.1
+    }
+  ],
+  "candidate_1mib_launch_medians": {
+    "w2_samples_with_long_tasks": 30,
+    "w2_maximum_long_task_p50_ms": 66,
+    "w2_maximum_long_task_p95_ms": 91,
+    "w2_maximum_long_task_max_ms": 106,
+    "put_request_offset_p95_ms": 341.9,
+    "put_acknowledgment_p95_ms": 34.0,
+    "native_mutation_p95_ms": 41.5,
+    "input_handler_p95_ms": 0.1
+  },
+  "candidate_matrix": {
+    "raw_sha256": "294e1041a6ebffed3fc3f2b9835ddcc7a488c067d742f509b7758a3daf8a29ec",
+    "scenarios": [
+      {
+        "size_utf16": 65536,
+        "w2_samples_with_long_tasks": 0,
+        "w2_maximum_long_task_p95_ms": 0,
+        "native_mutation_p95_ms": 3.5,
+        "input_handler_p95_ms": 0.1,
+        "put_request_offset_p95_ms": 254.1,
+        "put_acknowledgment_p95_ms": 2.1
+      },
+      {
+        "size_utf16": 262144,
+        "w2_samples_with_long_tasks": 0,
+        "w2_maximum_long_task_p95_ms": 0,
+        "native_mutation_p95_ms": 9.1,
+        "input_handler_p95_ms": 0.1,
+        "put_request_offset_p95_ms": 257.8,
+        "put_acknowledgment_p95_ms": 4.5
+      },
+      {
+        "size_utf16": 1048576,
+        "w2_samples_with_long_tasks": 30,
+        "w2_maximum_long_task_p50_ms": 70,
+        "w2_maximum_long_task_p95_ms": 89,
+        "w2_maximum_long_task_max_ms": 169,
+        "native_mutation_p95_ms": 37.4,
+        "input_handler_p95_ms": 0.1,
+        "put_request_offset_p95_ms": 339.5,
+        "put_acknowledgment_p95_ms": 38.9
+      }
+    ]
+  },
+  "selected_materialization": {
+    "observed_local_text_puts_per_sample": 1,
+    "candidate_1mib_materializations_across_30_measured_samples": 30,
+    "candidate_1mib_encoded_utf16_total": 31460955,
+    "candidate_1mib_encoded_utf16_min_per_sample": 1048684,
+    "candidate_1mib_encoded_utf16_max_per_sample": 1048713,
+    "derivation": "storage.replace calls selected pending.encoded exactly once; the runner observed one acknowledged LocalText put per sample; encoded lengths use the fixed v1 JSON shape and measured ASCII source lengths"
+  },
+  "decision": {
+    "historical_material_win_gate_ms": 70.5,
+    "candidate_reached_gate": false,
+    "result": "STOP",
+    "reason": "Pre-encoding latest-intent coalescing is implemented and preserves correctness, but this runner exercises one idle selected checkpoint per sample. The selected 1 MiB checkpoint still materializes and encodes the complete Source and remains a long task. No Worker, chunking, format migration, or second queue is authorized by this evidence."
+  }
+}
