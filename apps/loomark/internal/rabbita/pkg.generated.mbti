@@ -6,61 +6,19 @@ import {
 }
 
 // Values
-pub fn arm_raw_render_barrier() -> Unit
-
-pub fn capture_focus() -> String
-
-pub fn fail(String) -> Unit
-
-pub fn focus_block() -> Unit
-
-pub fn focus_preview() -> Unit
-
-pub fn focus_raw() -> Unit
-
-pub fn force_editor_failure() -> Unit
-
-pub fn force_parser_failure() -> Unit
-
-pub fn force_reconstruction_failure() -> Unit
-
-pub fn measure_failure() -> Unit
-
-pub fn measure_preview() -> Unit
-
-pub fn mount(String, String) -> String
+pub fn dispatch_private_dev_host(String) -> Unit
 
 pub fn mount_full_history_oracle(String, String) -> String
+
+pub fn mount_private_dev_host(String, String) -> String
 
 pub fn mount_standalone(String, String) -> String
 
 pub fn new_projection_worker_dispatcher() -> (String) -> String
 
-pub fn probe_deleted_block_selection() -> Unit
+pub fn private_dev_host_focus_token() -> String
 
-pub fn probe_stale_block_selection() -> Unit
-
-pub fn release_raw_render_barrier() -> Unit
-
-pub fn request_source(String) -> Unit
-
-pub fn restore_focus(String) -> Unit
-
-pub fn restore_snapshot(Int, String, String) -> Unit
-
-pub fn select_block() -> Unit
-
-pub fn select_preview() -> Unit
-
-pub fn select_raw() -> Unit
-
-pub fn snapshot() -> String
-
-pub fn stop_listening() -> Unit
-
-pub fn write_selection(Int, Int) -> Unit
-
-pub fn write_selection_failure() -> Unit
+pub fn private_dev_host_snapshot() -> String
 
 // Errors
 type ProjectionWorkerCounterError derive(Eq, @debug.Debug)

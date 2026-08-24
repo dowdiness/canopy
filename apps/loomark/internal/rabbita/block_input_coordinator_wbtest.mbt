@@ -118,7 +118,7 @@ fn assert_block_input_rejected(
 }
 
 ///|
-fn assert_block_delivery_finished(state : BlockInputState) -> Unit {
+fn assert_block_delivery_finished(state : BlockInputState) -> Unit raise {
   guard state.pending is None else {
     fail("a finished Block delivery must not retain pending input")
   }

@@ -181,7 +181,7 @@ fn run_projection_trace_recovered_event(
 }
 
 ///|
-fn projection_trace_phases() -> Array[Int] {
+fn projection_trace_phases() -> Array[Int] raise {
   let phases : Array[Int] = []
   for index in 0..<projection_trace_count() {
     match projection_trace_phase(index) {
