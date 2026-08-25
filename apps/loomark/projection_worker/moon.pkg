@@ -1,7 +1,0 @@
-import {
-  "dowdiness/loomark/internal/rabbita" @app,
-}
-
-supported_targets = "js"
-
-pkgtype(kind: "executable")

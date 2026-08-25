@@ -1,5 +1,6 @@
 import {
-  "dowdiness/loomark/internal/rabbita" @app,
+  "dowdiness/loomark/app",
+  "moonbit-community/rabbita",
 }
 
 supported_targets = "js"

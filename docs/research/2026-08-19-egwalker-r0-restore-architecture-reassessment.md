@@ -142,7 +142,7 @@ Measure a disposable serialized Fugue/IndexedState projection only to establish 
 
 ## Consequences for existing R0 tickets
 
-The Candidate A/B/C and `ClosedTail` names below refer to the branch plan [`2026-08-19-loomark-editable-branch-restore-feasibility.md`](../plans/2026-08-19-loomark-editable-branch-restore-feasibility.md) and its linked GitHub issues; they are not concepts from the accepted architecture ADR or Eg-walker paper.
+The Candidate A/B/C and `ClosedTail` names below refer to the branch plan [`2026-08-19-loomark-editable-branch-restore-feasibility.md`](../archive/plans/2026-08-19-loomark-editable-branch-restore-feasibility.md) and its linked GitHub issues; they are not concepts from the accepted architecture ADR or Eg-walker paper.
 
 1. The oracle/runner ticket should first establish a `PaperBranch` tracer: capture text/frontier/receipt, cross a separate-process byte boundary, restore, append one local positional event, and compare with the full-history oracle.
 2. Candidate A should become the paper branch and fast-forward path, not an unspecified minimum authority summary.

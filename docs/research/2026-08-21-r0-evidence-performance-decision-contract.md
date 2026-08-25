@@ -430,4 +430,4 @@ The plan and implementation tickets must be rewritten to reflect this decision:
 - `docs/research/2026-08-17-egw-p3-text-admission-characterization.md`: structural admission counters and complete/duplicate/pending/partial distinctions.
 - `apps/loomark/examples/vanilla/bench-startup.mjs`: current warm-up, raw sample, and nearest-rank browser harness behavior.
 - `.github/workflows/ci.yml`: release benchmark, MoonBit, TypeScript, and Playwright validation surfaces.
-- `docs/plans/2026-08-19-loomark-editable-branch-restore-feasibility.md`: existing runner/artifact/failure contract, portions of which #1318 must replace after this decision.
+- `docs/archive/plans/2026-08-19-loomark-editable-branch-restore-feasibility.md`: existing runner/artifact/failure contract, portions of which #1318 must replace after this decision.

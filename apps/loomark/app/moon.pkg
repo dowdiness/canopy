@@ -1,0 +1,8 @@
+import {
+  "dowdiness/loomark/internal/browser_storage",
+  "moonbit-community/rabbita",
+  "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/html",
+}
+
+supported_targets = "js"

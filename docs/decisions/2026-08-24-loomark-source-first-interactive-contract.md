@@ -1,4 +1,4 @@
-# Loomark production editing is source-first and input-budgeted
+# Loomark separates current and saved text
 
 **Date:** 2026-08-24
 
@@ -6,102 +6,62 @@
 
 **Issue:** [#1162](https://github.com/dowdiness/canopy/issues/1162)
 
-**Implementation:** [PR #1345](https://github.com/dowdiness/canopy/pull/1345)
-
 **Related:**
 
-- [Loomark projection execution is asynchronous and source-stamped](2026-08-12-loomark-concurrent-projection-execution.md)
-- [Causal Authority residency](2026-08-12-causal-authority-residency.md)
-- [Loomark local archive repository](../plans/2026-08-06-loomark-local-archive-repository.md)
-- [Loomark editable-branch restore feasibility](../plans/2026-08-19-loomark-editable-branch-restore-feasibility.md)
-- [#1347 — bound Source durability without entering Raw input tasks](https://github.com/dowdiness/canopy/issues/1347)
+- [Loomark production E2E boundary](2026-08-24-loomark-production-e2e-boundary.md)
+- [Standard Rabbita Text app](../plans/2026-08-24-loomark-standard-rabbita-text-app.md)
+- [#1347 — bound local saving without entering Text input tasks](https://github.com/dowdiness/canopy/issues/1347)
 
 ## Context
 
-Loomark's immediate product is a fast, comfortable, private single-user Markdown
-editor. Earlier specifications made every visible edit immediately advance a
-causal transaction and prepare a complete history archive. Real-browser and
-archive-preparation measurements showed that this contract cannot satisfy the
-interactive target: complete history work can take orders of magnitude longer
-than one input task, and even ordinary parsing or CRDT work can exceed the
-budget on larger documents.
+Loomark's immediate product is a fast, comfortable, private single-user Markdown editor. Earlier specifications made every visible edit immediately advance complete editing history and prepare an archive of that history. Real-browser measurements showed that this work cannot satisfy the interactive target: complete history work can take orders of magnitude longer than one input task, and even Markdown parsing can exceed the budget on larger documents.
 
-The product therefore needs separate guarantees for what the browser is showing,
-what the application has accepted, what can be recovered locally, and what a
-future collaborative editor can replay causally. Treating all four as one
-"document state" either makes typing slow or makes durability claims dishonest.
+The product therefore distinguishes the current Document text, the Saved text that can be recovered after reopening, and the optional complete editing history required for collaboration. Treating them as one saving guarantee either makes typing slow or makes saving claims dishonest. The current text itself does not need separate draft and accepted copies: Text mode and Block mode update one Document text directly, while saving and Preview generation may follow later.
 
 ## Decision
 
-Production Loomark uses four explicit layers:
+Production Loomark uses these values:
 
-1. **Browser draft** — the native text control's exact visible value and
-   selection. The browser updates it in the input task. It may be newer than
-   canonical or durable state and is never described as saved.
-2. **Canonical source** — the latest source accepted by the single-user
-   application after composition ends and the 250 ms quiet period expires, or
-   at an explicit editing boundary. It uses the browser text control's LF line
-   representation and is the authority for production editing.
-3. **Source record** — an atomically replaced local record containing document
-   identity and exact canonical Markdown source. Acknowledgment establishes
-   source durability and nothing more.
-4. **Causal archive** — optional history, frontier, and writer evidence needed
-   for collaboration, cross-instance causal undo, or exact branch replay. It is
-   not allocated, prepared, or persisted by the current production input path.
+1. **Document text** — the current Markdown text of the Loomark document. Text mode and Block mode update it immediately; Preview mode renders it after parsing.
+2. **Saved text** — the latest Document text successfully written to browser storage together with the Loomark document identity. Browser storage does not preserve edit history or undo across page reloads.
+3. **Complete editing history** — optional information needed for collaboration, cross-window undo, or exact replay. The current production input and browser-storage paths do not prepare or save it.
 
-The Raw input task has a hard p95 and maximum target of 10 ms. Parsing, CRDT
-mutation, hashing, JSON encoding, archive preparation, IndexedDB work, and
-speculative Preview work must not execute in that task. Frame latency is
-measured separately.
+The Text input task has a hard p95 and maximum target of 10 ms. Updating the Rabbita Model with the new Document text belongs to that task. Markdown parsing, history mutation, hashing, JSON encoding, archive preparation, browser-storage work, and Preview generation must not execute synchronously in that task. Frame latency is measured separately.
 
-Canonical acceptance never waits for speculative Preview. Preview may consume a
-browser draft early, but an artifact is displayable only when bound to the exact
-requested source and current projection provenance. Preview failure, timeout,
-or obsolescence cannot delay canonical source or source durability.
+IME composition updates the same Document text shown in Text mode. Saving and Preview generation wait until composition ends. They do not require a second text value in the Model.
 
-IME intermediate values remain browser drafts. They do not become canonical or
-durable until composition finishes and the normal acceptance boundary runs.
+Browser saving is trailing: after input becomes quiet, the latest Document text is written to browser storage. #1347 tracks continuous-typing max-wait and page-lifecycle handling, which must remain outside the input task. Until implemented, the UI and documentation must not claim a bounded crash-loss window during uninterrupted typing.
 
-The current minimum durability guarantee is trailing: after input becomes quiet,
-the latest canonical source is atomically stored. #1347 tracks continuous-typing
-max-wait and lifecycle hardening, which must remain outside the input task. Until implemented, the UI and documentation must not claim a bounded
-crash-loss window during uninterrupted typing.
+Preview parsing also waits until input becomes quiet. Switching to Preview requests parsing of the latest Document text immediately. The delay is selected from production E2E measurements and user-visible behavior rather than fixed by this decision.
 
-Causal archive work is promoted only by an explicit collaboration requirement
-and its manual evidence gate. Promotion must preserve the source-first input
-budget and add causal capability behind a separate preparation and persistence
-boundary; it must not restore complete-history preparation to ordinary input.
+Complete editing history is added only for an explicit collaboration or history-continuity requirement and only after its evidence gate passes. Adding it must preserve the Text input budget and keep history preparation outside ordinary input.
+
+The current release exposes Text mode only. Block mode and Preview mode remain product features, not development features, but return to the product UI only after they meet their performance and consistency requirements.
 
 ## Consequences
 
-- Visible browser text can briefly be newer than canonical and durable source.
-  This is a named Browser draft, not a falsely accepted transaction.
-- A crash before quiet-period acceptance may lose that draft. Once source
-  durability is acknowledged, reopen restores the exact stored source and
-  document identity.
-- Production restart does not promise causal history, collaborative identity,
-  or undo/redo continuity.
-- Source-backed browser editing uses LF line terminators. Exact imported file
-  terminator profiles require a separately promoted File-backed capability.
-- Source-only document catalogs, switching, and session metadata may proceed
-  without waiting for the future causal archive design.
-- Existing causal architecture remains valid for collaboration-capable modes,
-  but it no longer defines the baseline production editor contract.
-- Performance regressions are product correctness failures when the measured Raw
-  input task exceeds the 10 ms gate.
+- There is one current Document text in the Rabbita Model, not separate draft and canonical copies.
+- Saving and Preview may lag behind Document text independently.
+- A crash before saving completes may lose changes that are present in Document text.
+- A save failure leaves Document text editable, shows that changes are not saved, and permits an explicit Retry.
+- Once saving completes, reopening restores the exact Saved text and Loomark document identity.
+- When browser storage has no document, Loomark creates a new empty Loomark document.
+- When a stored document exists but cannot be loaded safely, Loomark preserves it and enters Recovery instead of replacing it automatically.
+- Reopening does not restore prior undo history or internal block identities.
+- Browser-based Text mode uses LF line terminators. Exact imported-file terminators require a separate file capability.
+- A catalog of Loomark documents can be built without waiting for complete editing-history storage.
+- Exceeding the measured 10 ms Text input limit is a product correctness failure.
+- Until Block mode and Preview mode satisfy their gates, the release contains no unreachable mode UI or mode-specific application branches.
+- The Model needs no revision, generation, or sequence value unless a measured implementation demonstrates an ordering problem that Rabbita, cancellation, serialization, or direct input comparison cannot solve.
 
 ## Rejected alternatives
 
-**Prepare a complete causal archive after every edit.** Rejected because its
-cost is incompatible with the input objective and it couples single-user source
-recovery to future collaboration metadata.
+**Save complete editing history after every edit.** Rejected because its cost is incompatible with the Text input objective and it couples ordinary local recovery to future collaboration requirements.
 
-**Keep canonical source browser-owned indefinitely.** Rejected because parsing,
-mode changes, recovery, and persistence need a clear acceptance boundary.
+**Keep separate draft and accepted text values.** Rejected because Markdown input updates the current Document text directly. Saving, parsing, and Preview can be delayed independently without duplicating the text in the Model.
 
-**Let Preview completion authorize canonical acceptance.** Rejected because a
-derived, fallible, and potentially obsolete computation must not control source
-authority.
+**Parse Markdown synchronously on every Text input.** Rejected because parsing may exceed the input budget on larger documents. Preview parsing waits until input is quiet or Preview is selected.
 
-**Claim bounded durability from trailing debounce alone.** Rejected because
-continuous input can postpone a trailing callback indefinitely.
+**Claim bounded saving from trailing debounce alone.** Rejected because continuous input can postpone a trailing callback indefinitely.
+
+**Ship Block mode and Preview mode as hidden development paths.** Rejected because both are product features. They are omitted from the current release until their product requirements are met, then restored through ordinary user-facing behavior and production E2E coverage.

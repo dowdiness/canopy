@@ -17,4 +17,3 @@ pub fn view_overlay(@cmd.Emit[@action_overlay.OverlayMsg], @action_overlay.Overl
 // Type aliases
 
 // Traits
-

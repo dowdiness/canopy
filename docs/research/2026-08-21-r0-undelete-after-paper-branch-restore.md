@@ -325,4 +325,4 @@ This decision records the bounded negative and does not authorize a new receipt 
 - `docs/research/2026-08-20-r0-capture-receipt-reassessment.md` — snapshot commit fields, no undo state
 - `docs/research/2026-08-20-r0-cold-event-graph-capability-boundary.md` — provider contract, `EventMetaV2`, accounting
 - `docs/research/2026-08-20-r0-canonical-positional-event-unicode-contract.md` — canonical `Undelete(target_identity)`, `RequiredReferencedKind`
-- `docs/plans/2026-08-19-loomark-editable-branch-restore-feasibility.md` — R0 gate scope and acceptance criteria
+- `docs/archive/plans/2026-08-19-loomark-editable-branch-restore-feasibility.md` — R0 gate scope and acceptance criteria

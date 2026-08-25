@@ -62,4 +62,3 @@ pub(all) struct TabStyle {
 // Type aliases
 
 // Traits
-
