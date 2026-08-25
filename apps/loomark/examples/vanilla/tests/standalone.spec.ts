@@ -221,6 +221,9 @@ type ObservedLocalTextPut = {
   encodedUtf16: number
 }
 
+// Delay the application's first correlated transaction-completion callback.
+// IndexedDB may already have committed A, but the queue remains in flight until
+// this callback is released and can therefore coalesce later accepted source.
 function installArchivePutHold(key: string): void {
   const state = globalThis as typeof globalThis & {
     __loomarkArchiveAckHeld?: () => boolean
@@ -535,16 +538,22 @@ test("an in-flight LocalText write coalesces pending source before encoding", as
   await page.evaluate(() => {
     const scope = globalThis as typeof globalThis & {
       __loomarkPendingFlushes?: () => number
+      __loomarkCompletedFlushes?: () => number
       __loomarkRunNextFlush?: () => void
     }
     const nativeSetTimeout = globalThis.setTimeout.bind(globalThis)
     const pending: Array<() => void> = []
+    let completed = 0
     let syntheticTimer = -1
     scope.__loomarkPendingFlushes = () => pending.length
+    scope.__loomarkCompletedFlushes = () => completed
     scope.__loomarkRunNextFlush = () => { pending.shift()?.() }
     globalThis.setTimeout = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
       if (timeout === 250 && typeof handler === "function") {
-        pending.push(() => handler(...args))
+        pending.push(() => {
+          handler(...args)
+          completed += 1
+        })
         return syntheticTimer--
       }
       return nativeSetTimeout(handler, timeout, ...args)
@@ -571,8 +580,17 @@ test("an in-flight LocalText write coalesces pending source before encoding", as
 
   await replaceRawValue(input, "B")
   await flush()
+  await expect(input).toHaveValue("B")
+  await expect.poll(() => page.evaluate(() => (
+    globalThis as typeof globalThis & { __loomarkCompletedFlushes?: () => number }
+  ).__loomarkCompletedFlushes?.())).toBe(2)
+
   await replaceRawValue(input, "C")
   await flush()
+  await expect(input).toHaveValue("C")
+  await expect.poll(() => page.evaluate(() => (
+    globalThis as typeof globalThis & { __loomarkCompletedFlushes?: () => number }
+  ).__loomarkCompletedFlushes?.())).toBe(3)
 
   const observedBeforeRelease = await page.evaluate(() => (
     globalThis as typeof globalThis & {
