@@ -1,0 +1,5574 @@
+{
+  "schema": "loomark-persistence-intent-coalescing-raw-v1",
+  "baseline": {
+    "schema": "loomark-whole-document-input-v1",
+    "environment": {
+      "commit": "298f3ccf527de1447adde3bcab82140dd4eaddb2",
+      "browser": "149.0.7827.55",
+      "node": "v24.14.1",
+      "platform": "linux",
+      "os_release": "6.18.33.2-microsoft-standard-WSL2",
+      "architecture": "x64",
+      "cpu": "AMD Ryzen 7 6800H with Radeon Graphics",
+      "headless": true,
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "warmups": 5,
+      "samples": 30,
+      "trace_samples": 0,
+      "settle_ms": 400,
+      "persistence_required": true
+    },
+    "invocation": {
+      "sizes": [
+        1048576
+      ],
+      "environment": {
+        "LOOMARK_WHOLE_DOCUMENT_SIZES": "1048576",
+        "LOOMARK_WHOLE_DOCUMENT_WARMUPS": "5",
+        "LOOMARK_WHOLE_DOCUMENT_SAMPLES": "30",
+        "LOOMARK_WHOLE_DOCUMENT_TRACE_SAMPLES": "0",
+        "LOOMARK_WHOLE_DOCUMENT_REQUIRE_PERSISTENCE": null
+      }
+    },
+    "fixtures": [
+      {
+        "requested_utf16": 1048576,
+        "utf16_length": 1048576,
+        "utf8_bytes": 1048576,
+        "sha256": "bd2b39512f137e45eb14063920e77769422728321640fc9214787e00a5dd74ae"
+      }
+    ],
+    "scenarios": [
+      {
+        "size_utf16": 1048576,
+        "surface": "native_textarea",
+        "matched_width_px": 736,
+        "summary": {
+          "native_mutation_ms": {
+            "samples": 30,
+            "p50_ms": 36.5,
+            "p95_ms": 40.7,
+            "maximum_ms": 92.4
+          },
+          "input_handler_ms": {
+            "samples": 30,
+            "p50_ms": 0,
+            "p95_ms": 0.1,
+            "maximum_ms": 0.1
+          },
+          "put_request_offset_ms": {
+            "samples": 0,
+            "p50_ms": null,
+            "p95_ms": null,
+            "maximum_ms": null
+          },
+          "put_acknowledgment_ms": {
+            "samples": 0,
+            "p50_ms": null,
+            "p95_ms": null,
+            "maximum_ms": null
+          },
+          "browser_command_wall_ms": {
+            "samples": 30,
+            "p50_ms": 69.38,
+            "p95_ms": 77.282,
+            "maximum_ms": 124.047
+          },
+          "long_tasks": {
+            "samples_with_long_tasks": 0,
+            "count": 0,
+            "maximum_ms": 0
+          }
+        },
+        "samples": [
+          {
+            "native_mutation_ms": 37.8,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 69.492
+          },
+          {
+            "native_mutation_ms": 40.7,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 73.994
+          },
+          {
+            "native_mutation_ms": 36.3,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 72.226
+          },
+          {
+            "native_mutation_ms": 36.9,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 68.95
+          },
+          {
+            "native_mutation_ms": 35.7,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 66.11
+          },
+          {
+            "native_mutation_ms": 35.5,
+            "input_handler_ms": 0.1,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 70.123
+          },
+          {
+            "native_mutation_ms": 36.5,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 67.01
+          },
+          {
+            "native_mutation_ms": 34.6,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 66.336
+          },
+          {
+            "native_mutation_ms": 36.9,
+            "input_handler_ms": 0.1,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 72.017
+          },
+          {
+            "native_mutation_ms": 35.4,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 66.902
+          },
+          {
+            "native_mutation_ms": 38.1,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 69.38
+          },
+          {
+            "native_mutation_ms": 37.3,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 72.307
+          },
+          {
+            "native_mutation_ms": 34.7,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 66.554
+          },
+          {
+            "native_mutation_ms": 35.9,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 66.972
+          },
+          {
+            "native_mutation_ms": 36.5,
+            "input_handler_ms": 0.1,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 71.265
+          },
+          {
+            "native_mutation_ms": 35.3,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 67.691
+          },
+          {
+            "native_mutation_ms": 35.7,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 66.651
+          },
+          {
+            "native_mutation_ms": 38.1,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 73.5
+          },
+          {
+            "native_mutation_ms": 35.3,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 67.518
+          },
+          {
+            "native_mutation_ms": 38.7,
+            "input_handler_ms": 0.1,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 69.587
+          },
+          {
+            "native_mutation_ms": 38.3,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 75.073
+          },
+          {
+            "native_mutation_ms": 34.4,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 64.163
+          },
+          {
+            "native_mutation_ms": 92.4,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 124.047
+          },
+          {
+            "native_mutation_ms": 36.3,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 71.82
+          },
+          {
+            "native_mutation_ms": 34.9,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 65.125
+          },
+          {
+            "native_mutation_ms": 35,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 67.61
+          },
+          {
+            "native_mutation_ms": 37.3,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 72.142
+          },
+          {
+            "native_mutation_ms": 38.4,
+            "input_handler_ms": 0.1,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 69.134
+          },
+          {
+            "native_mutation_ms": 39.7,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 71.406
+          },
+          {
+            "native_mutation_ms": 39.6,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 77.282
+          }
+        ]
+      },
+      {
+        "size_utf16": 1048576,
+        "surface": "loomark_production",
+        "matched_width_px": 736,
+        "summary": {
+          "native_mutation_ms": {
+            "samples": 30,
+            "p50_ms": 34.9,
+            "p95_ms": 37.5,
+            "maximum_ms": 37.9
+          },
+          "input_handler_ms": {
+            "samples": 30,
+            "p50_ms": 0,
+            "p95_ms": 0.1,
+            "maximum_ms": 0.1
+          },
+          "put_request_offset_ms": {
+            "samples": 30,
+            "p50_ms": 318.4,
+            "p95_ms": 341.3,
+            "maximum_ms": 342.2
+          },
+          "put_acknowledgment_ms": {
+            "samples": 30,
+            "p50_ms": 8.6,
+            "p95_ms": 32.5,
+            "maximum_ms": 38.6
+          },
+          "browser_command_wall_ms": {
+            "samples": 30,
+            "p50_ms": 73.392,
+            "p95_ms": 79.263,
+            "maximum_ms": 81.582
+          },
+          "long_tasks": {
+            "samples_with_long_tasks": 30,
+            "count": 40,
+            "maximum_ms": 91
+          }
+        },
+        "samples": [
+          {
+            "native_mutation_ms": 36.2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 323.8,
+            "put_acknowledgment_ms": 25.2,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 37.7,
+                "duration_ms": 54
+              },
+              {
+                "offset_ms": 250.2,
+                "duration_ms": 73
+              }
+            ],
+            "browser_command_wall_ms": 74.98
+          },
+          {
+            "native_mutation_ms": 34.8,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 315,
+            "put_acknowledgment_ms": 6.1,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 36.1,
+                "duration_ms": 59
+              },
+              {
+                "offset_ms": 250.4,
+                "duration_ms": 64
+              }
+            ],
+            "browser_command_wall_ms": 72.463
+          },
+          {
+            "native_mutation_ms": 34.3,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 312.4,
+            "put_acknowledgment_ms": 0.4,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.4,
+                "duration_ms": 62
+              }
+            ],
+            "browser_command_wall_ms": 72.303
+          },
+          {
+            "native_mutation_ms": 36.5,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 332.3,
+            "put_acknowledgment_ms": 0.3,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.4,
+                "duration_ms": 82
+              }
+            ],
+            "browser_command_wall_ms": 74.041
+          },
+          {
+            "native_mutation_ms": 34.5,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 319.4,
+            "put_acknowledgment_ms": 17.5,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.4,
+                "duration_ms": 69
+              }
+            ],
+            "browser_command_wall_ms": 79.263
+          },
+          {
+            "native_mutation_ms": 36.2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 329.5,
+            "put_acknowledgment_ms": 6.3,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.6,
+                "duration_ms": 79
+              }
+            ],
+            "browser_command_wall_ms": 73.392
+          },
+          {
+            "native_mutation_ms": 37.9,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 312.4,
+            "put_acknowledgment_ms": 29.9,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.2,
+                "duration_ms": 62
+              }
+            ],
+            "browser_command_wall_ms": 75.978
+          },
+          {
+            "native_mutation_ms": 36.5,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 321.9,
+            "put_acknowledgment_ms": 32.2,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.4,
+                "duration_ms": 71
+              }
+            ],
+            "browser_command_wall_ms": 73.896
+          },
+          {
+            "native_mutation_ms": 37.5,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 330.9,
+            "put_acknowledgment_ms": 0.4,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.4,
+                "duration_ms": 80
+              }
+            ],
+            "browser_command_wall_ms": 74.96
+          },
+          {
+            "native_mutation_ms": 34.5,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 311,
+            "put_acknowledgment_ms": 8.4,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.3,
+                "duration_ms": 60
+              }
+            ],
+            "browser_command_wall_ms": 70.791
+          },
+          {
+            "native_mutation_ms": 36.3,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 321.4,
+            "put_acknowledgment_ms": 31.5,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.4,
+                "duration_ms": 71
+              }
+            ],
+            "browser_command_wall_ms": 75.584
+          },
+          {
+            "native_mutation_ms": 36,
+            "input_handler_ms": 0.1,
+            "put_request_offset_ms": 315.3,
+            "put_acknowledgment_ms": 6.7,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.4,
+                "duration_ms": 65
+              },
+              {
+                "offset_ms": 322.3,
+                "duration_ms": 68
+              }
+            ],
+            "browser_command_wall_ms": 73.474
+          },
+          {
+            "native_mutation_ms": 34.9,
+            "input_handler_ms": 0.1,
+            "put_request_offset_ms": 317.1,
+            "put_acknowledgment_ms": 32.5,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.4,
+                "duration_ms": 66
+              }
+            ],
+            "browser_command_wall_ms": 72.55
+          },
+          {
+            "native_mutation_ms": 37,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 341.3,
+            "put_acknowledgment_ms": 8.8,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 43.2,
+                "duration_ms": 54
+              },
+              {
+                "offset_ms": 250.4,
+                "duration_ms": 91
+              }
+            ],
+            "browser_command_wall_ms": 81.582
+          },
+          {
+            "native_mutation_ms": 35.6,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 323.3,
+            "put_acknowledgment_ms": 11.8,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.3,
+                "duration_ms": 73
+              },
+              {
+                "offset_ms": 336.8,
+                "duration_ms": 51
+              }
+            ],
+            "browser_command_wall_ms": 73.393
+          },
+          {
+            "native_mutation_ms": 33.4,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 312.3,
+            "put_acknowledgment_ms": 31.6,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.3,
+                "duration_ms": 62
+              }
+            ],
+            "browser_command_wall_ms": 68.878
+          },
+          {
+            "native_mutation_ms": 33.8,
+            "input_handler_ms": 0.1,
+            "put_request_offset_ms": 313.3,
+            "put_acknowledgment_ms": 0.5,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.4,
+                "duration_ms": 63
+              },
+              {
+                "offset_ms": 320.7,
+                "duration_ms": 54
+              }
+            ],
+            "browser_command_wall_ms": 70.653
+          },
+          {
+            "native_mutation_ms": 33.8,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 318.4,
+            "put_acknowledgment_ms": 38.6,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.6,
+                "duration_ms": 67
+              }
+            ],
+            "browser_command_wall_ms": 70.695
+          },
+          {
+            "native_mutation_ms": 34.1,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 340.9,
+            "put_acknowledgment_ms": 8.6,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 35.3,
+                "duration_ms": 71
+              },
+              {
+                "offset_ms": 250.6,
+                "duration_ms": 90
+              }
+            ],
+            "browser_command_wall_ms": 70.319
+          },
+          {
+            "native_mutation_ms": 35.4,
+            "input_handler_ms": 0.1,
+            "put_request_offset_ms": 318.5,
+            "put_acknowledgment_ms": 18.4,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.4,
+                "duration_ms": 68
+              }
+            ],
+            "browser_command_wall_ms": 74.409
+          },
+          {
+            "native_mutation_ms": 36.4,
+            "input_handler_ms": 0.1,
+            "put_request_offset_ms": 315,
+            "put_acknowledgment_ms": 0.4,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.4,
+                "duration_ms": 64
+              },
+              {
+                "offset_ms": 321.3,
+                "duration_ms": 53
+              }
+            ],
+            "browser_command_wall_ms": 73.336
+          },
+          {
+            "native_mutation_ms": 34,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 316.6,
+            "put_acknowledgment_ms": 31.3,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 251.3,
+                "duration_ms": 65
+              }
+            ],
+            "browser_command_wall_ms": 70.939
+          },
+          {
+            "native_mutation_ms": 33.4,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 331.7,
+            "put_acknowledgment_ms": 8,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.3,
+                "duration_ms": 81
+              }
+            ],
+            "browser_command_wall_ms": 77.243
+          },
+          {
+            "native_mutation_ms": 34.2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 307.2,
+            "put_acknowledgment_ms": 8.1,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.4,
+                "duration_ms": 56
+              }
+            ],
+            "browser_command_wall_ms": 71.461
+          },
+          {
+            "native_mutation_ms": 36,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 312.9,
+            "put_acknowledgment_ms": 0.4,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.3,
+                "duration_ms": 62
+              }
+            ],
+            "browser_command_wall_ms": 74.278
+          },
+          {
+            "native_mutation_ms": 33.6,
+            "input_handler_ms": 0.1,
+            "put_request_offset_ms": 309.5,
+            "put_acknowledgment_ms": 31.7,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.5,
+                "duration_ms": 59
+              }
+            ],
+            "browser_command_wall_ms": 70.237
+          },
+          {
+            "native_mutation_ms": 34.8,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 342.2,
+            "put_acknowledgment_ms": 15.2,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 35.9,
+                "duration_ms": 54
+              },
+              {
+                "offset_ms": 250.4,
+                "duration_ms": 91
+              }
+            ],
+            "browser_command_wall_ms": 71.848
+          },
+          {
+            "native_mutation_ms": 35.1,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 320.3,
+            "put_acknowledgment_ms": 9.7,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.4,
+                "duration_ms": 70
+              }
+            ],
+            "browser_command_wall_ms": 71.593
+          },
+          {
+            "native_mutation_ms": 36.1,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 308.3,
+            "put_acknowledgment_ms": 0.1,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.4,
+                "duration_ms": 58
+              }
+            ],
+            "browser_command_wall_ms": 75.335
+          },
+          {
+            "native_mutation_ms": 34,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 326.1,
+            "put_acknowledgment_ms": 7.2,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.7,
+                "duration_ms": 75
+              },
+              {
+                "offset_ms": 333.7,
+                "duration_ms": 51
+              }
+            ],
+            "browser_command_wall_ms": 78.103
+          }
+        ]
+      }
+    ],
+    "traces": []
+  },
+  "candidate_launches": [
+    {
+      "schema": "loomark-whole-document-input-v1",
+      "environment": {
+        "commit": "0458a5827598bcdec4a14c956b8d93dd43e9ec73",
+        "browser": "149.0.7827.55",
+        "node": "v24.14.1",
+        "platform": "linux",
+        "os_release": "6.18.33.2-microsoft-standard-WSL2",
+        "architecture": "x64",
+        "cpu": "AMD Ryzen 7 6800H with Radeon Graphics",
+        "headless": true,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "warmups": 5,
+        "samples": 30,
+        "trace_samples": 0,
+        "settle_ms": 400,
+        "persistence_required": true
+      },
+      "invocation": {
+        "sizes": [
+          1048576
+        ],
+        "environment": {
+          "LOOMARK_WHOLE_DOCUMENT_SIZES": "1048576",
+          "LOOMARK_WHOLE_DOCUMENT_WARMUPS": "5",
+          "LOOMARK_WHOLE_DOCUMENT_SAMPLES": "30",
+          "LOOMARK_WHOLE_DOCUMENT_TRACE_SAMPLES": "0",
+          "LOOMARK_WHOLE_DOCUMENT_REQUIRE_PERSISTENCE": null
+        }
+      },
+      "fixtures": [
+        {
+          "requested_utf16": 1048576,
+          "utf16_length": 1048576,
+          "utf8_bytes": 1048576,
+          "sha256": "bd2b39512f137e45eb14063920e77769422728321640fc9214787e00a5dd74ae"
+        }
+      ],
+      "scenarios": [
+        {
+          "size_utf16": 1048576,
+          "surface": "native_textarea",
+          "matched_width_px": 736,
+          "summary": {
+            "native_mutation_ms": {
+              "samples": 30,
+              "p50_ms": 35.7,
+              "p95_ms": 39.5,
+              "maximum_ms": 40.2
+            },
+            "input_handler_ms": {
+              "samples": 30,
+              "p50_ms": 0,
+              "p95_ms": 0.1,
+              "maximum_ms": 0.1
+            },
+            "put_request_offset_ms": {
+              "samples": 0,
+              "p50_ms": null,
+              "p95_ms": null,
+              "maximum_ms": null
+            },
+            "put_acknowledgment_ms": {
+              "samples": 0,
+              "p50_ms": null,
+              "p95_ms": null,
+              "maximum_ms": null
+            },
+            "browser_command_wall_ms": {
+              "samples": 30,
+              "p50_ms": 66.061,
+              "p95_ms": 69.718,
+              "maximum_ms": 72.389
+            },
+            "long_tasks": {
+              "samples_with_long_tasks": 0,
+              "count": 0,
+              "maximum_ms": 0
+            }
+          },
+          "samples": [
+            {
+              "native_mutation_ms": 36.1,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 64.987
+            },
+            {
+              "native_mutation_ms": 35.9,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 66.261
+            },
+            {
+              "native_mutation_ms": 34,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 67.65
+            },
+            {
+              "native_mutation_ms": 34.1,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 63.231
+            },
+            {
+              "native_mutation_ms": 37,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 66.063
+            },
+            {
+              "native_mutation_ms": 35.5,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 67.953
+            },
+            {
+              "native_mutation_ms": 40.2,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 67.645
+            },
+            {
+              "native_mutation_ms": 36.9,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 65.713
+            },
+            {
+              "native_mutation_ms": 36.6,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 69.331
+            },
+            {
+              "native_mutation_ms": 35.1,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 64.882
+            },
+            {
+              "native_mutation_ms": 34.4,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 64.431
+            },
+            {
+              "native_mutation_ms": 34.9,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 66.826
+            },
+            {
+              "native_mutation_ms": 35.5,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 63.614
+            },
+            {
+              "native_mutation_ms": 36,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 63.897
+            },
+            {
+              "native_mutation_ms": 36.9,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 69.718
+            },
+            {
+              "native_mutation_ms": 36.3,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 66.514
+            },
+            {
+              "native_mutation_ms": 37.3,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 67.224
+            },
+            {
+              "native_mutation_ms": 34.5,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 68.257
+            },
+            {
+              "native_mutation_ms": 34.4,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 64.633
+            },
+            {
+              "native_mutation_ms": 34.5,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 63.407
+            },
+            {
+              "native_mutation_ms": 35.7,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 67.814
+            },
+            {
+              "native_mutation_ms": 36.5,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 65.098
+            },
+            {
+              "native_mutation_ms": 36.1,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 64.866
+            },
+            {
+              "native_mutation_ms": 36.9,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 69.673
+            },
+            {
+              "native_mutation_ms": 35,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 66.061
+            },
+            {
+              "native_mutation_ms": 35.4,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 65.284
+            },
+            {
+              "native_mutation_ms": 35,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 67.817
+            },
+            {
+              "native_mutation_ms": 35.3,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 65.219
+            },
+            {
+              "native_mutation_ms": 35.8,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 64.031
+            },
+            {
+              "native_mutation_ms": 39.5,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 72.389
+            }
+          ]
+        },
+        {
+          "size_utf16": 1048576,
+          "surface": "loomark_production",
+          "matched_width_px": 736,
+          "summary": {
+            "native_mutation_ms": {
+              "samples": 30,
+              "p50_ms": 33.9,
+              "p95_ms": 41.5,
+              "maximum_ms": 117.9
+            },
+            "input_handler_ms": {
+              "samples": 30,
+              "p50_ms": 0,
+              "p95_ms": 0.1,
+              "maximum_ms": 0.1
+            },
+            "put_request_offset_ms": {
+              "samples": 30,
+              "p50_ms": 317,
+              "p95_ms": 364,
+              "maximum_ms": 441.8
+            },
+            "put_acknowledgment_ms": {
+              "samples": 30,
+              "p50_ms": 9.8,
+              "p95_ms": 37.9,
+              "maximum_ms": 39.4
+            },
+            "browser_command_wall_ms": {
+              "samples": 30,
+              "p50_ms": 69.608,
+              "p95_ms": 76.822,
+              "maximum_ms": 154.091
+            },
+            "long_tasks": {
+              "samples_with_long_tasks": 30,
+              "count": 38,
+              "maximum_ms": 191
+            }
+          },
+          "samples": [
+            {
+              "native_mutation_ms": 34.7,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 313.5,
+              "put_acknowledgment_ms": 26.8,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 63
+                }
+              ],
+              "browser_command_wall_ms": 70.606
+            },
+            {
+              "native_mutation_ms": 32.7,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": 315.4,
+              "put_acknowledgment_ms": 0.5,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.5,
+                  "duration_ms": 65
+                }
+              ],
+              "browser_command_wall_ms": 67.885
+            },
+            {
+              "native_mutation_ms": 35,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": 311.1,
+              "put_acknowledgment_ms": 22.2,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.5,
+                  "duration_ms": 60
+                }
+              ],
+              "browser_command_wall_ms": 69.09
+            },
+            {
+              "native_mutation_ms": 35.3,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": 333.8,
+              "put_acknowledgment_ms": 0.2,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.5,
+                  "duration_ms": 83
+                }
+              ],
+              "browser_command_wall_ms": 69.924
+            },
+            {
+              "native_mutation_ms": 33.9,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 310.5,
+              "put_acknowledgment_ms": 27.1,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 60
+                }
+              ],
+              "browser_command_wall_ms": 69.608
+            },
+            {
+              "native_mutation_ms": 34.9,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 315.3,
+              "put_acknowledgment_ms": 0.5,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.3,
+                  "duration_ms": 65
+                },
+                {
+                  "offset_ms": 321.6,
+                  "duration_ms": 52
+                }
+              ],
+              "browser_command_wall_ms": 70.15
+            },
+            {
+              "native_mutation_ms": 34.5,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 314.9,
+              "put_acknowledgment_ms": 29.6,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 64
+                }
+              ],
+              "browser_command_wall_ms": 68.639
+            },
+            {
+              "native_mutation_ms": 41.5,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 328.6,
+              "put_acknowledgment_ms": 9.8,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.3,
+                  "duration_ms": 78
+                }
+              ],
+              "browser_command_wall_ms": 76.134
+            },
+            {
+              "native_mutation_ms": 31.1,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 310.6,
+              "put_acknowledgment_ms": 27.5,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.8,
+                  "duration_ms": 59
+                }
+              ],
+              "browser_command_wall_ms": 72.273
+            },
+            {
+              "native_mutation_ms": 33.4,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 315.3,
+              "put_acknowledgment_ms": 6.3,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 64
+                },
+                {
+                  "offset_ms": 322,
+                  "duration_ms": 51
+                }
+              ],
+              "browser_command_wall_ms": 68.983
+            },
+            {
+              "native_mutation_ms": 34.9,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": 335.1,
+              "put_acknowledgment_ms": 39.4,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.6,
+                  "duration_ms": 84
+                }
+              ],
+              "browser_command_wall_ms": 69.292
+            },
+            {
+              "native_mutation_ms": 32.6,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": 334.4,
+              "put_acknowledgment_ms": 0.5,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 84
+                }
+              ],
+              "browser_command_wall_ms": 65.829
+            },
+            {
+              "native_mutation_ms": 34.3,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 309.7,
+              "put_acknowledgment_ms": 34.4,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.5,
+                  "duration_ms": 59
+                }
+              ],
+              "browser_command_wall_ms": 70.051
+            },
+            {
+              "native_mutation_ms": 33.6,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 316.2,
+              "put_acknowledgment_ms": 7.2,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.3,
+                  "duration_ms": 66
+                },
+                {
+                  "offset_ms": 323.9,
+                  "duration_ms": 52
+                }
+              ],
+              "browser_command_wall_ms": 76.406
+            },
+            {
+              "native_mutation_ms": 117.9,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 333.4,
+              "put_acknowledgment_ms": 35.6,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.5,
+                  "duration_ms": 83
+                }
+              ],
+              "browser_command_wall_ms": 154.091
+            },
+            {
+              "native_mutation_ms": 34,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 344.4,
+              "put_acknowledgment_ms": 0.2,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 41.6,
+                  "duration_ms": 50
+                },
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 94
+                }
+              ],
+              "browser_command_wall_ms": 76.822
+            },
+            {
+              "native_mutation_ms": 33.3,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 325.3,
+              "put_acknowledgment_ms": 0.1,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.3,
+                  "duration_ms": 75
+                }
+              ],
+              "browser_command_wall_ms": 66.747
+            },
+            {
+              "native_mutation_ms": 36.7,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": 364,
+              "put_acknowledgment_ms": 13.2,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 113
+                }
+              ],
+              "browser_command_wall_ms": 71.632
+            },
+            {
+              "native_mutation_ms": 31.9,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 342.4,
+              "put_acknowledgment_ms": 26.9,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.3,
+                  "duration_ms": 92
+                }
+              ],
+              "browser_command_wall_ms": 65.177
+            },
+            {
+              "native_mutation_ms": 33.5,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 317,
+              "put_acknowledgment_ms": 0.3,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 66
+                }
+              ],
+              "browser_command_wall_ms": 67.453
+            },
+            {
+              "native_mutation_ms": 32.1,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 441.8,
+              "put_acknowledgment_ms": 0.5,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.6,
+                  "duration_ms": 191
+                }
+              ],
+              "browser_command_wall_ms": 65.676
+            },
+            {
+              "native_mutation_ms": 31.6,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 342.8,
+              "put_acknowledgment_ms": 0.4,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 38.6,
+                  "duration_ms": 50
+                },
+                {
+                  "offset_ms": 250.3,
+                  "duration_ms": 92
+                }
+              ],
+              "browser_command_wall_ms": 71.212
+            },
+            {
+              "native_mutation_ms": 34.9,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 312.9,
+              "put_acknowledgment_ms": 11.5,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 62
+                }
+              ],
+              "browser_command_wall_ms": 76.059
+            },
+            {
+              "native_mutation_ms": 36.7,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 311.7,
+              "put_acknowledgment_ms": 6.8,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 61
+                }
+              ],
+              "browser_command_wall_ms": 71.187
+            },
+            {
+              "native_mutation_ms": 36.9,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 309.9,
+              "put_acknowledgment_ms": 37.9,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 59
+                }
+              ],
+              "browser_command_wall_ms": 71.191
+            },
+            {
+              "native_mutation_ms": 32.6,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 343.6,
+              "put_acknowledgment_ms": 9,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 34,
+                  "duration_ms": 51
+                },
+                {
+                  "offset_ms": 250.3,
+                  "duration_ms": 93
+                }
+              ],
+              "browser_command_wall_ms": 67.69
+            },
+            {
+              "native_mutation_ms": 33.9,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": 320.1,
+              "put_acknowledgment_ms": 10.2,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 69
+                }
+              ],
+              "browser_command_wall_ms": 67.413
+            },
+            {
+              "native_mutation_ms": 33.4,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 323.2,
+              "put_acknowledgment_ms": 30.2,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.3,
+                  "duration_ms": 73
+                }
+              ],
+              "browser_command_wall_ms": 67.531
+            },
+            {
+              "native_mutation_ms": 34.1,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": 321.4,
+              "put_acknowledgment_ms": 0.4,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 33.7,
+                  "duration_ms": 50
+                },
+                {
+                  "offset_ms": 250.5,
+                  "duration_ms": 71
+                },
+                {
+                  "offset_ms": 328.4,
+                  "duration_ms": 50
+                }
+              ],
+              "browser_command_wall_ms": 68.82
+            },
+            {
+              "native_mutation_ms": 31.4,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": 313.5,
+              "put_acknowledgment_ms": 31.9,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 63
+                }
+              ],
+              "browser_command_wall_ms": 74.534
+            }
+          ]
+        }
+      ],
+      "traces": []
+    },
+    {
+      "schema": "loomark-whole-document-input-v1",
+      "environment": {
+        "commit": "0458a5827598bcdec4a14c956b8d93dd43e9ec73",
+        "browser": "149.0.7827.55",
+        "node": "v24.14.1",
+        "platform": "linux",
+        "os_release": "6.18.33.2-microsoft-standard-WSL2",
+        "architecture": "x64",
+        "cpu": "AMD Ryzen 7 6800H with Radeon Graphics",
+        "headless": true,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "warmups": 5,
+        "samples": 30,
+        "trace_samples": 0,
+        "settle_ms": 400,
+        "persistence_required": true
+      },
+      "invocation": {
+        "sizes": [
+          1048576
+        ],
+        "environment": {
+          "LOOMARK_WHOLE_DOCUMENT_SIZES": "1048576",
+          "LOOMARK_WHOLE_DOCUMENT_WARMUPS": "5",
+          "LOOMARK_WHOLE_DOCUMENT_SAMPLES": "30",
+          "LOOMARK_WHOLE_DOCUMENT_TRACE_SAMPLES": "0",
+          "LOOMARK_WHOLE_DOCUMENT_REQUIRE_PERSISTENCE": null
+        }
+      },
+      "fixtures": [
+        {
+          "requested_utf16": 1048576,
+          "utf16_length": 1048576,
+          "utf8_bytes": 1048576,
+          "sha256": "bd2b39512f137e45eb14063920e77769422728321640fc9214787e00a5dd74ae"
+        }
+      ],
+      "scenarios": [
+        {
+          "size_utf16": 1048576,
+          "surface": "native_textarea",
+          "matched_width_px": 736,
+          "summary": {
+            "native_mutation_ms": {
+              "samples": 30,
+              "p50_ms": 36.2,
+              "p95_ms": 40.9,
+              "maximum_ms": 138.1
+            },
+            "input_handler_ms": {
+              "samples": 30,
+              "p50_ms": 0,
+              "p95_ms": 0.1,
+              "maximum_ms": 0.1
+            },
+            "put_request_offset_ms": {
+              "samples": 0,
+              "p50_ms": null,
+              "p95_ms": null,
+              "maximum_ms": null
+            },
+            "put_acknowledgment_ms": {
+              "samples": 0,
+              "p50_ms": null,
+              "p95_ms": null,
+              "maximum_ms": null
+            },
+            "browser_command_wall_ms": {
+              "samples": 30,
+              "p50_ms": 66.603,
+              "p95_ms": 75.923,
+              "maximum_ms": 172.085
+            },
+            "long_tasks": {
+              "samples_with_long_tasks": 0,
+              "count": 0,
+              "maximum_ms": 0
+            }
+          },
+          "samples": [
+            {
+              "native_mutation_ms": 36.2,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 66.548
+            },
+            {
+              "native_mutation_ms": 35.1,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 65.036
+            },
+            {
+              "native_mutation_ms": 35.6,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 67.756
+            },
+            {
+              "native_mutation_ms": 37.2,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 65.72
+            },
+            {
+              "native_mutation_ms": 37.7,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 66.838
+            },
+            {
+              "native_mutation_ms": 40.9,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 75.923
+            },
+            {
+              "native_mutation_ms": 37.2,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 66.557
+            },
+            {
+              "native_mutation_ms": 35.9,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 68.095
+            },
+            {
+              "native_mutation_ms": 36,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 70.132
+            },
+            {
+              "native_mutation_ms": 35.7,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 65.075
+            },
+            {
+              "native_mutation_ms": 35.8,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 64.746
+            },
+            {
+              "native_mutation_ms": 37.1,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 68.958
+            },
+            {
+              "native_mutation_ms": 36.5,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 65.683
+            },
+            {
+              "native_mutation_ms": 37.5,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 67.094
+            },
+            {
+              "native_mutation_ms": 35.8,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 69.688
+            },
+            {
+              "native_mutation_ms": 35.3,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 66.386
+            },
+            {
+              "native_mutation_ms": 138.1,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 172.085
+            },
+            {
+              "native_mutation_ms": 37.5,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 66.244
+            },
+            {
+              "native_mutation_ms": 35.7,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 66.265
+            },
+            {
+              "native_mutation_ms": 34.3,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 68.808
+            },
+            {
+              "native_mutation_ms": 35.4,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 66.092
+            },
+            {
+              "native_mutation_ms": 37,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 66.603
+            },
+            {
+              "native_mutation_ms": 35.2,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 67.972
+            },
+            {
+              "native_mutation_ms": 38,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 69.188
+            },
+            {
+              "native_mutation_ms": 36.4,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 65.617
+            },
+            {
+              "native_mutation_ms": 37,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 70.726
+            },
+            {
+              "native_mutation_ms": 39.4,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 69.067
+            },
+            {
+              "native_mutation_ms": 35.4,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 65.698
+            },
+            {
+              "native_mutation_ms": 36,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 70.943
+            },
+            {
+              "native_mutation_ms": 36.2,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 66.34
+            }
+          ]
+        },
+        {
+          "size_utf16": 1048576,
+          "surface": "loomark_production",
+          "matched_width_px": 736,
+          "summary": {
+            "native_mutation_ms": {
+              "samples": 30,
+              "p50_ms": 34,
+              "p95_ms": 65,
+              "maximum_ms": 163.8
+            },
+            "input_handler_ms": {
+              "samples": 30,
+              "p50_ms": 0,
+              "p95_ms": 0.1,
+              "maximum_ms": 0.1
+            },
+            "put_request_offset_ms": {
+              "samples": 30,
+              "p50_ms": 317,
+              "p95_ms": 341.9,
+              "maximum_ms": 343.2
+            },
+            "put_acknowledgment_ms": {
+              "samples": 30,
+              "p50_ms": 10.1,
+              "p95_ms": 34,
+              "maximum_ms": 35.8
+            },
+            "browser_command_wall_ms": {
+              "samples": 30,
+              "p50_ms": 69.8,
+              "p95_ms": 98.108,
+              "maximum_ms": 199.721
+            },
+            "long_tasks": {
+              "samples_with_long_tasks": 30,
+              "count": 39,
+              "maximum_ms": 92
+            }
+          },
+          "samples": [
+            {
+              "native_mutation_ms": 33.7,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 309.7,
+              "put_acknowledgment_ms": 32.1,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 59
+                }
+              ],
+              "browser_command_wall_ms": 70.204
+            },
+            {
+              "native_mutation_ms": 32.8,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 333.5,
+              "put_acknowledgment_ms": 0.5,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.5,
+                  "duration_ms": 83
+                }
+              ],
+              "browser_command_wall_ms": 67.941
+            },
+            {
+              "native_mutation_ms": 30.9,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 325.6,
+              "put_acknowledgment_ms": 31.6,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 75
+                }
+              ],
+              "browser_command_wall_ms": 66.166
+            },
+            {
+              "native_mutation_ms": 41.6,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 316.4,
+              "put_acknowledgment_ms": 0.4,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.5,
+                  "duration_ms": 66
+                }
+              ],
+              "browser_command_wall_ms": 76.592
+            },
+            {
+              "native_mutation_ms": 31.8,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": 316.2,
+              "put_acknowledgment_ms": 32.7,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.5,
+                  "duration_ms": 65
+                }
+              ],
+              "browser_command_wall_ms": 72.878
+            },
+            {
+              "native_mutation_ms": 33.5,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 340.2,
+              "put_acknowledgment_ms": 8.8,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 34.1,
+                  "duration_ms": 50
+                },
+                {
+                  "offset_ms": 250.3,
+                  "duration_ms": 90
+                }
+              ],
+              "browser_command_wall_ms": 68.876
+            },
+            {
+              "native_mutation_ms": 31.7,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 309.9,
+              "put_acknowledgment_ms": 22.5,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 59
+                }
+              ],
+              "browser_command_wall_ms": 66.506
+            },
+            {
+              "native_mutation_ms": 34.4,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 317,
+              "put_acknowledgment_ms": 0.4,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.9,
+                  "duration_ms": 66
+                }
+              ],
+              "browser_command_wall_ms": 70.542
+            },
+            {
+              "native_mutation_ms": 34.1,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 311.5,
+              "put_acknowledgment_ms": 31.3,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 251.1,
+                  "duration_ms": 60
+                }
+              ],
+              "browser_command_wall_ms": 68.96
+            },
+            {
+              "native_mutation_ms": 33.8,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 329.1,
+              "put_acknowledgment_ms": 8.1,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 78
+                }
+              ],
+              "browser_command_wall_ms": 70.749
+            },
+            {
+              "native_mutation_ms": 31.9,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": 309.6,
+              "put_acknowledgment_ms": 9.1,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.5,
+                  "duration_ms": 59
+                }
+              ],
+              "browser_command_wall_ms": 65.628
+            },
+            {
+              "native_mutation_ms": 34.4,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 322.3,
+              "put_acknowledgment_ms": 31.7,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.5,
+                  "duration_ms": 71
+                }
+              ],
+              "browser_command_wall_ms": 76.501
+            },
+            {
+              "native_mutation_ms": 34.4,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 321.4,
+              "put_acknowledgment_ms": 0.5,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 34.5,
+                  "duration_ms": 53
+                },
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 71
+                },
+                {
+                  "offset_ms": 328,
+                  "duration_ms": 53
+                }
+              ],
+              "browser_command_wall_ms": 69.8
+            },
+            {
+              "native_mutation_ms": 32.1,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 310.6,
+              "put_acknowledgment_ms": 35.8,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.3,
+                  "duration_ms": 60
+                }
+              ],
+              "browser_command_wall_ms": 65.427
+            },
+            {
+              "native_mutation_ms": 163.8,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": 343.2,
+              "put_acknowledgment_ms": 0.4,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 34.8,
+                  "duration_ms": 55
+                },
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 92
+                }
+              ],
+              "browser_command_wall_ms": 199.721
+            },
+            {
+              "native_mutation_ms": 33.3,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 305.5,
+              "put_acknowledgment_ms": 19.5,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.3,
+                  "duration_ms": 55
+                }
+              ],
+              "browser_command_wall_ms": 66.468
+            },
+            {
+              "native_mutation_ms": 33.7,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": 311.4,
+              "put_acknowledgment_ms": 29.7,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.5,
+                  "duration_ms": 61
+                }
+              ],
+              "browser_command_wall_ms": 69.42
+            },
+            {
+              "native_mutation_ms": 35.7,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": 328.1,
+              "put_acknowledgment_ms": 0.3,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.3,
+                  "duration_ms": 77
+                },
+                {
+                  "offset_ms": 334.4,
+                  "duration_ms": 63
+                }
+              ],
+              "browser_command_wall_ms": 70.995
+            },
+            {
+              "native_mutation_ms": 34,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": 315.3,
+              "put_acknowledgment_ms": 30.3,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 65
+                }
+              ],
+              "browser_command_wall_ms": 68.641
+            },
+            {
+              "native_mutation_ms": 31.4,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": 341.9,
+              "put_acknowledgment_ms": 0.2,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 35.3,
+                  "duration_ms": 51
+                },
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 91
+                }
+              ],
+              "browser_command_wall_ms": 67.665
+            },
+            {
+              "native_mutation_ms": 33.3,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 310.1,
+              "put_acknowledgment_ms": 10.1,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.3,
+                  "duration_ms": 60
+                }
+              ],
+              "browser_command_wall_ms": 73.497
+            },
+            {
+              "native_mutation_ms": 35.5,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": 311.9,
+              "put_acknowledgment_ms": 32.2,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.5,
+                  "duration_ms": 61
+                }
+              ],
+              "browser_command_wall_ms": 71.641
+            },
+            {
+              "native_mutation_ms": 38.5,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 316.4,
+              "put_acknowledgment_ms": 0.4,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 36.4,
+                  "duration_ms": 54
+                },
+                {
+                  "offset_ms": 250.3,
+                  "duration_ms": 66
+                }
+              ],
+              "browser_command_wall_ms": 75.837
+            },
+            {
+              "native_mutation_ms": 33.4,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 318.1,
+              "put_acknowledgment_ms": 34,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 67
+                }
+              ],
+              "browser_command_wall_ms": 67.806
+            },
+            {
+              "native_mutation_ms": 35.8,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 327.2,
+              "put_acknowledgment_ms": 14.7,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.3,
+                  "duration_ms": 77
+                }
+              ],
+              "browser_command_wall_ms": 71.007
+            },
+            {
+              "native_mutation_ms": 65,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 321.3,
+              "put_acknowledgment_ms": 8.6,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 70
+                }
+              ],
+              "browser_command_wall_ms": 98.108
+            },
+            {
+              "native_mutation_ms": 35.8,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 322,
+              "put_acknowledgment_ms": 29.2,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.3,
+                  "duration_ms": 71
+                }
+              ],
+              "browser_command_wall_ms": 70.4
+            },
+            {
+              "native_mutation_ms": 35.1,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": 316.9,
+              "put_acknowledgment_ms": 0.3,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 33.5,
+                  "duration_ms": 54
+                },
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 66
+                },
+                {
+                  "offset_ms": 323.1,
+                  "duration_ms": 52
+                }
+              ],
+              "browser_command_wall_ms": 69.603
+            },
+            {
+              "native_mutation_ms": 35,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 317.9,
+              "put_acknowledgment_ms": 30.4,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.5,
+                  "duration_ms": 67
+                }
+              ],
+              "browser_command_wall_ms": 69.197
+            },
+            {
+              "native_mutation_ms": 34.7,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 332.1,
+              "put_acknowledgment_ms": 0.2,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.3,
+                  "duration_ms": 81
+                }
+              ],
+              "browser_command_wall_ms": 75.324
+            }
+          ]
+        }
+      ],
+      "traces": []
+    },
+    {
+      "schema": "loomark-whole-document-input-v1",
+      "environment": {
+        "commit": "0458a5827598bcdec4a14c956b8d93dd43e9ec73",
+        "browser": "149.0.7827.55",
+        "node": "v24.14.1",
+        "platform": "linux",
+        "os_release": "6.18.33.2-microsoft-standard-WSL2",
+        "architecture": "x64",
+        "cpu": "AMD Ryzen 7 6800H with Radeon Graphics",
+        "headless": true,
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "warmups": 5,
+        "samples": 30,
+        "trace_samples": 0,
+        "settle_ms": 400,
+        "persistence_required": true
+      },
+      "invocation": {
+        "sizes": [
+          1048576
+        ],
+        "environment": {
+          "LOOMARK_WHOLE_DOCUMENT_SIZES": "1048576",
+          "LOOMARK_WHOLE_DOCUMENT_WARMUPS": "5",
+          "LOOMARK_WHOLE_DOCUMENT_SAMPLES": "30",
+          "LOOMARK_WHOLE_DOCUMENT_TRACE_SAMPLES": "0",
+          "LOOMARK_WHOLE_DOCUMENT_REQUIRE_PERSISTENCE": null
+        }
+      },
+      "fixtures": [
+        {
+          "requested_utf16": 1048576,
+          "utf16_length": 1048576,
+          "utf8_bytes": 1048576,
+          "sha256": "bd2b39512f137e45eb14063920e77769422728321640fc9214787e00a5dd74ae"
+        }
+      ],
+      "scenarios": [
+        {
+          "size_utf16": 1048576,
+          "surface": "native_textarea",
+          "matched_width_px": 736,
+          "summary": {
+            "native_mutation_ms": {
+              "samples": 30,
+              "p50_ms": 36.4,
+              "p95_ms": 43.2,
+              "maximum_ms": 90.9
+            },
+            "input_handler_ms": {
+              "samples": 30,
+              "p50_ms": 0,
+              "p95_ms": 0.1,
+              "maximum_ms": 0.1
+            },
+            "put_request_offset_ms": {
+              "samples": 0,
+              "p50_ms": null,
+              "p95_ms": null,
+              "maximum_ms": null
+            },
+            "put_acknowledgment_ms": {
+              "samples": 0,
+              "p50_ms": null,
+              "p95_ms": null,
+              "maximum_ms": null
+            },
+            "browser_command_wall_ms": {
+              "samples": 30,
+              "p50_ms": 66.612,
+              "p95_ms": 77.175,
+              "maximum_ms": 121.584
+            },
+            "long_tasks": {
+              "samples_with_long_tasks": 0,
+              "count": 0,
+              "maximum_ms": 0
+            }
+          },
+          "samples": [
+            {
+              "native_mutation_ms": 34.3,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 63.121
+            },
+            {
+              "native_mutation_ms": 32.1,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 61.668
+            },
+            {
+              "native_mutation_ms": 35.4,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 68.517
+            },
+            {
+              "native_mutation_ms": 32.1,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 59.592
+            },
+            {
+              "native_mutation_ms": 36.7,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 65.367
+            },
+            {
+              "native_mutation_ms": 39.2,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 72.315
+            },
+            {
+              "native_mutation_ms": 90.9,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 121.584
+            },
+            {
+              "native_mutation_ms": 43.2,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 77.175
+            },
+            {
+              "native_mutation_ms": 35.2,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 63.615
+            },
+            {
+              "native_mutation_ms": 35.4,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 63.59
+            },
+            {
+              "native_mutation_ms": 36.4,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 69.748
+            },
+            {
+              "native_mutation_ms": 37,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 65.631
+            },
+            {
+              "native_mutation_ms": 37.5,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 66.52
+            },
+            {
+              "native_mutation_ms": 40,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 74.638
+            },
+            {
+              "native_mutation_ms": 34.9,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 65.356
+            },
+            {
+              "native_mutation_ms": 34.9,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 65.139
+            },
+            {
+              "native_mutation_ms": 34.8,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 69.49
+            },
+            {
+              "native_mutation_ms": 35.7,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 65.412
+            },
+            {
+              "native_mutation_ms": 37.7,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 66.612
+            },
+            {
+              "native_mutation_ms": 37,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 69.968
+            },
+            {
+              "native_mutation_ms": 37.6,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 66.258
+            },
+            {
+              "native_mutation_ms": 37.4,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 67.9
+            },
+            {
+              "native_mutation_ms": 36.1,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 71.001
+            },
+            {
+              "native_mutation_ms": 34.5,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 65.299
+            },
+            {
+              "native_mutation_ms": 36.8,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 67.237
+            },
+            {
+              "native_mutation_ms": 35.4,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 67.942
+            },
+            {
+              "native_mutation_ms": 35.8,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 64.66
+            },
+            {
+              "native_mutation_ms": 37.9,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 66.931
+            },
+            {
+              "native_mutation_ms": 37.8,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 71.158
+            },
+            {
+              "native_mutation_ms": 39.3,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": null,
+              "put_acknowledgment_ms": null,
+              "put_outcome": null,
+              "long_tasks": [],
+              "browser_command_wall_ms": 68.983
+            }
+          ]
+        },
+        {
+          "size_utf16": 1048576,
+          "surface": "loomark_production",
+          "matched_width_px": 736,
+          "summary": {
+            "native_mutation_ms": {
+              "samples": 30,
+              "p50_ms": 34.2,
+              "p95_ms": 37.3,
+              "maximum_ms": 37.7
+            },
+            "input_handler_ms": {
+              "samples": 30,
+              "p50_ms": 0,
+              "p95_ms": 0.1,
+              "maximum_ms": 0.1
+            },
+            "put_request_offset_ms": {
+              "samples": 30,
+              "p50_ms": 317.4,
+              "p95_ms": 340.9,
+              "maximum_ms": 356.8
+            },
+            "put_acknowledgment_ms": {
+              "samples": 30,
+              "p50_ms": 11,
+              "p95_ms": 32,
+              "maximum_ms": 33.5
+            },
+            "browser_command_wall_ms": {
+              "samples": 30,
+              "p50_ms": 68.584,
+              "p95_ms": 77.063,
+              "maximum_ms": 80.626
+            },
+            "long_tasks": {
+              "samples_with_long_tasks": 30,
+              "count": 40,
+              "maximum_ms": 106
+            }
+          },
+          "samples": [
+            {
+              "native_mutation_ms": 31.7,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 316.6,
+              "put_acknowledgment_ms": 30.9,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 66
+                }
+              ],
+              "browser_command_wall_ms": 66.515
+            },
+            {
+              "native_mutation_ms": 34.3,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 313.9,
+              "put_acknowledgment_ms": 12.6,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.5,
+                  "duration_ms": 63
+                }
+              ],
+              "browser_command_wall_ms": 70.268
+            },
+            {
+              "native_mutation_ms": 31.5,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 335.2,
+              "put_acknowledgment_ms": 30.9,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.6,
+                  "duration_ms": 84
+                }
+              ],
+              "browser_command_wall_ms": 65.853
+            },
+            {
+              "native_mutation_ms": 35.5,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 337.5,
+              "put_acknowledgment_ms": 0.4,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 32.9,
+                  "duration_ms": 50
+                },
+                {
+                  "offset_ms": 250.3,
+                  "duration_ms": 87
+                }
+              ],
+              "browser_command_wall_ms": 69.392
+            },
+            {
+              "native_mutation_ms": 35.1,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": 309.9,
+              "put_acknowledgment_ms": 29.3,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 59
+                }
+              ],
+              "browser_command_wall_ms": 77.063
+            },
+            {
+              "native_mutation_ms": 34.4,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 310.6,
+              "put_acknowledgment_ms": 5.5,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 60
+                }
+              ],
+              "browser_command_wall_ms": 72.314
+            },
+            {
+              "native_mutation_ms": 32.1,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 317.4,
+              "put_acknowledgment_ms": 33.5,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.3,
+                  "duration_ms": 67
+                }
+              ],
+              "browser_command_wall_ms": 66.065
+            },
+            {
+              "native_mutation_ms": 31.3,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 337.4,
+              "put_acknowledgment_ms": 0.5,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 31.2,
+                  "duration_ms": 50
+                },
+                {
+                  "offset_ms": 250.3,
+                  "duration_ms": 87
+                }
+              ],
+              "browser_command_wall_ms": 63.985
+            },
+            {
+              "native_mutation_ms": 31.7,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 311,
+              "put_acknowledgment_ms": 25.3,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 60
+                }
+              ],
+              "browser_command_wall_ms": 66.3
+            },
+            {
+              "native_mutation_ms": 33.9,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": 339.3,
+              "put_acknowledgment_ms": 6.5,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.8,
+                  "duration_ms": 88
+                }
+              ],
+              "browser_command_wall_ms": 68.466
+            },
+            {
+              "native_mutation_ms": 31.6,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 335,
+              "put_acknowledgment_ms": 31.7,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 84
+                }
+              ],
+              "browser_command_wall_ms": 64.035
+            },
+            {
+              "native_mutation_ms": 32.3,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": 312.2,
+              "put_acknowledgment_ms": 0.2,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 39.1,
+                  "duration_ms": 52
+                },
+                {
+                  "offset_ms": 250.5,
+                  "duration_ms": 61
+                }
+              ],
+              "browser_command_wall_ms": 72.824
+            },
+            {
+              "native_mutation_ms": 32.5,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 312.3,
+              "put_acknowledgment_ms": 23.5,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.8,
+                  "duration_ms": 61
+                }
+              ],
+              "browser_command_wall_ms": 65.569
+            },
+            {
+              "native_mutation_ms": 37.3,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": 340.9,
+              "put_acknowledgment_ms": 8.4,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 33.8,
+                  "duration_ms": 52
+                },
+                {
+                  "offset_ms": 250.3,
+                  "duration_ms": 90
+                }
+              ],
+              "browser_command_wall_ms": 72.12
+            },
+            {
+              "native_mutation_ms": 32.2,
+              "input_handler_ms": 0.1,
+              "put_request_offset_ms": 309.8,
+              "put_acknowledgment_ms": 8.7,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.3,
+                  "duration_ms": 59
+                }
+              ],
+              "browser_command_wall_ms": 65.313
+            },
+            {
+              "native_mutation_ms": 35.9,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 313.5,
+              "put_acknowledgment_ms": 0.1,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.5,
+                  "duration_ms": 63
+                }
+              ],
+              "browser_command_wall_ms": 70.412
+            },
+            {
+              "native_mutation_ms": 37,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 315.4,
+              "put_acknowledgment_ms": 0.4,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 32.7,
+                  "duration_ms": 50
+                },
+                {
+                  "offset_ms": 250.3,
+                  "duration_ms": 65
+                },
+                {
+                  "offset_ms": 322.1,
+                  "duration_ms": 70
+                }
+              ],
+              "browser_command_wall_ms": 71.358
+            },
+            {
+              "native_mutation_ms": 34.2,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 312.7,
+              "put_acknowledgment_ms": 22.1,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.7,
+                  "duration_ms": 62
+                }
+              ],
+              "browser_command_wall_ms": 67.564
+            },
+            {
+              "native_mutation_ms": 36.9,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 328.9,
+              "put_acknowledgment_ms": 0.3,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 42.5,
+                  "duration_ms": 53
+                },
+                {
+                  "offset_ms": 250.3,
+                  "duration_ms": 78
+                }
+              ],
+              "browser_command_wall_ms": 80.626
+            },
+            {
+              "native_mutation_ms": 31.1,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 322.4,
+              "put_acknowledgment_ms": 19.8,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 72
+                }
+              ],
+              "browser_command_wall_ms": 65.052
+            },
+            {
+              "native_mutation_ms": 34.9,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 317.1,
+              "put_acknowledgment_ms": 0.3,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 35,
+                  "duration_ms": 50
+                },
+                {
+                  "offset_ms": 250.3,
+                  "duration_ms": 66
+                }
+              ],
+              "browser_command_wall_ms": 71.458
+            },
+            {
+              "native_mutation_ms": 34.4,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 308.8,
+              "put_acknowledgment_ms": 22.4,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 58
+                }
+              ],
+              "browser_command_wall_ms": 68.473
+            },
+            {
+              "native_mutation_ms": 33,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 335,
+              "put_acknowledgment_ms": 15.8,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 84
+                }
+              ],
+              "browser_command_wall_ms": 67.487
+            },
+            {
+              "native_mutation_ms": 31.2,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 319.2,
+              "put_acknowledgment_ms": 11,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.6,
+                  "duration_ms": 68
+                },
+                {
+                  "offset_ms": 332.7,
+                  "duration_ms": 59
+                }
+              ],
+              "browser_command_wall_ms": 63.665
+            },
+            {
+              "native_mutation_ms": 34.6,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 324.3,
+              "put_acknowledgment_ms": 29.2,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 74
+                }
+              ],
+              "browser_command_wall_ms": 68.584
+            },
+            {
+              "native_mutation_ms": 34.7,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 340.4,
+              "put_acknowledgment_ms": 6.7,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.3,
+                  "duration_ms": 90
+                },
+                {
+                  "offset_ms": 347.4,
+                  "duration_ms": 50
+                }
+              ],
+              "browser_command_wall_ms": 69.694
+            },
+            {
+              "native_mutation_ms": 35.1,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 324,
+              "put_acknowledgment_ms": 32,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 73
+                }
+              ],
+              "browser_command_wall_ms": 69.574
+            },
+            {
+              "native_mutation_ms": 33.5,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 334.5,
+              "put_acknowledgment_ms": 8.1,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.3,
+                  "duration_ms": 84
+                }
+              ],
+              "browser_command_wall_ms": 74.133
+            },
+            {
+              "native_mutation_ms": 37.7,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 310.4,
+              "put_acknowledgment_ms": 18.5,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.4,
+                  "duration_ms": 60
+                }
+              ],
+              "browser_command_wall_ms": 70.014
+            },
+            {
+              "native_mutation_ms": 35.7,
+              "input_handler_ms": 0,
+              "put_request_offset_ms": 356.8,
+              "put_acknowledgment_ms": 0.4,
+              "put_outcome": "stored",
+              "long_tasks": [
+                {
+                  "offset_ms": 250.3,
+                  "duration_ms": 106
+                }
+              ],
+              "browser_command_wall_ms": 70.903
+            }
+          ]
+        }
+      ],
+      "traces": []
+    }
+  ],
+  "candidate_matrix": {
+    "schema": "loomark-whole-document-input-v1",
+    "environment": {
+      "commit": "0458a5827598bcdec4a14c956b8d93dd43e9ec73",
+      "browser": "149.0.7827.55",
+      "node": "v24.14.1",
+      "platform": "linux",
+      "os_release": "6.18.33.2-microsoft-standard-WSL2",
+      "architecture": "x64",
+      "cpu": "AMD Ryzen 7 6800H with Radeon Graphics",
+      "headless": true,
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "warmups": 5,
+      "samples": 30,
+      "trace_samples": 0,
+      "settle_ms": 400,
+      "persistence_required": true
+    },
+    "invocation": {
+      "sizes": [
+        65536,
+        262144,
+        1048576
+      ],
+      "environment": {
+        "LOOMARK_WHOLE_DOCUMENT_SIZES": "65536,262144,1048576",
+        "LOOMARK_WHOLE_DOCUMENT_WARMUPS": "5",
+        "LOOMARK_WHOLE_DOCUMENT_SAMPLES": "30",
+        "LOOMARK_WHOLE_DOCUMENT_TRACE_SAMPLES": "0",
+        "LOOMARK_WHOLE_DOCUMENT_REQUIRE_PERSISTENCE": null
+      }
+    },
+    "fixtures": [
+      {
+        "requested_utf16": 65536,
+        "utf16_length": 65536,
+        "utf8_bytes": 65536,
+        "sha256": "e4708b363c3f9a2137896aac85d78146eb50793513794a149c25b866df72d127"
+      },
+      {
+        "requested_utf16": 262144,
+        "utf16_length": 262144,
+        "utf8_bytes": 262144,
+        "sha256": "e44d180d726326b85132ed435e835e334114a0cee226588bffe4044ff5a3fd3f"
+      },
+      {
+        "requested_utf16": 1048576,
+        "utf16_length": 1048576,
+        "utf8_bytes": 1048576,
+        "sha256": "bd2b39512f137e45eb14063920e77769422728321640fc9214787e00a5dd74ae"
+      }
+    ],
+    "scenarios": [
+      {
+        "size_utf16": 65536,
+        "surface": "native_textarea",
+        "matched_width_px": 736,
+        "summary": {
+          "native_mutation_ms": {
+            "samples": 30,
+            "p50_ms": 2.2,
+            "p95_ms": 2.9,
+            "maximum_ms": 3.8
+          },
+          "input_handler_ms": {
+            "samples": 30,
+            "p50_ms": 0,
+            "p95_ms": 0.1,
+            "maximum_ms": 0.1
+          },
+          "put_request_offset_ms": {
+            "samples": 0,
+            "p50_ms": null,
+            "p95_ms": null,
+            "maximum_ms": null
+          },
+          "put_acknowledgment_ms": {
+            "samples": 0,
+            "p50_ms": null,
+            "p95_ms": null,
+            "maximum_ms": null
+          },
+          "browser_command_wall_ms": {
+            "samples": 30,
+            "p50_ms": 4.424,
+            "p95_ms": 6.14,
+            "maximum_ms": 6.233
+          },
+          "long_tasks": {
+            "samples_with_long_tasks": 0,
+            "count": 0,
+            "maximum_ms": 0
+          }
+        },
+        "samples": [
+          {
+            "native_mutation_ms": 2.2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.707
+          },
+          {
+            "native_mutation_ms": 2.3,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.477
+          },
+          {
+            "native_mutation_ms": 2.2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.261
+          },
+          {
+            "native_mutation_ms": 2.3,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.874
+          },
+          {
+            "native_mutation_ms": 2.4,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.431
+          },
+          {
+            "native_mutation_ms": 2.9,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 5.591
+          },
+          {
+            "native_mutation_ms": 2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 3.909
+          },
+          {
+            "native_mutation_ms": 2.2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.345
+          },
+          {
+            "native_mutation_ms": 2.9,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 5.255
+          },
+          {
+            "native_mutation_ms": 3.8,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 6.14
+          },
+          {
+            "native_mutation_ms": 1.9,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 3.947
+          },
+          {
+            "native_mutation_ms": 2.6,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.781
+          },
+          {
+            "native_mutation_ms": 2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.222
+          },
+          {
+            "native_mutation_ms": 2.1,
+            "input_handler_ms": 0.1,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.204
+          },
+          {
+            "native_mutation_ms": 2.2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.037
+          },
+          {
+            "native_mutation_ms": 2.6,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.643
+          },
+          {
+            "native_mutation_ms": 2.2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.122
+          },
+          {
+            "native_mutation_ms": 2.1,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.693
+          },
+          {
+            "native_mutation_ms": 2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.25
+          },
+          {
+            "native_mutation_ms": 2.1,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.302
+          },
+          {
+            "native_mutation_ms": 2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.209
+          },
+          {
+            "native_mutation_ms": 2.3,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.422
+          },
+          {
+            "native_mutation_ms": 2.2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.277
+          },
+          {
+            "native_mutation_ms": 2.3,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.812
+          },
+          {
+            "native_mutation_ms": 2.2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 5.171
+          },
+          {
+            "native_mutation_ms": 2.2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.819
+          },
+          {
+            "native_mutation_ms": 2.2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.663
+          },
+          {
+            "native_mutation_ms": 2.3,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 6.233
+          },
+          {
+            "native_mutation_ms": 2.1,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.424
+          },
+          {
+            "native_mutation_ms": 2.1,
+            "input_handler_ms": 0.1,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.421
+          }
+        ]
+      },
+      {
+        "size_utf16": 65536,
+        "surface": "loomark_production",
+        "matched_width_px": 736,
+        "summary": {
+          "native_mutation_ms": {
+            "samples": 30,
+            "p50_ms": 2.1,
+            "p95_ms": 3.5,
+            "maximum_ms": 5.1
+          },
+          "input_handler_ms": {
+            "samples": 30,
+            "p50_ms": 0,
+            "p95_ms": 0.1,
+            "maximum_ms": 0.1
+          },
+          "put_request_offset_ms": {
+            "samples": 30,
+            "p50_ms": 252.4,
+            "p95_ms": 254.1,
+            "maximum_ms": 254.2
+          },
+          "put_acknowledgment_ms": {
+            "samples": 30,
+            "p50_ms": 0.4,
+            "p95_ms": 2.1,
+            "maximum_ms": 2.6
+          },
+          "browser_command_wall_ms": {
+            "samples": 30,
+            "p50_ms": 4.762,
+            "p95_ms": 5.95,
+            "maximum_ms": 7.689
+          },
+          "long_tasks": {
+            "samples_with_long_tasks": 0,
+            "count": 0,
+            "maximum_ms": 0
+          }
+        },
+        "samples": [
+          {
+            "native_mutation_ms": 2.2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 252.4,
+            "put_acknowledgment_ms": 0.2,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.911
+          },
+          {
+            "native_mutation_ms": 2.1,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 252.9,
+            "put_acknowledgment_ms": 0.4,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.6
+          },
+          {
+            "native_mutation_ms": 2.3,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 252.7,
+            "put_acknowledgment_ms": 0.4,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 5.249
+          },
+          {
+            "native_mutation_ms": 2.2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 252.9,
+            "put_acknowledgment_ms": 2.6,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 5.052
+          },
+          {
+            "native_mutation_ms": 2.3,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 253.9,
+            "put_acknowledgment_ms": 0.3,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.839
+          },
+          {
+            "native_mutation_ms": 2.6,
+            "input_handler_ms": 0.1,
+            "put_request_offset_ms": 254.1,
+            "put_acknowledgment_ms": 2.1,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 5.18
+          },
+          {
+            "native_mutation_ms": 1.9,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 252,
+            "put_acknowledgment_ms": 0.3,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.509
+          },
+          {
+            "native_mutation_ms": 5.1,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 252.1,
+            "put_acknowledgment_ms": 2.1,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 7.689
+          },
+          {
+            "native_mutation_ms": 2.2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 252.3,
+            "put_acknowledgment_ms": 0.3,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.749
+          },
+          {
+            "native_mutation_ms": 2,
+            "input_handler_ms": 0.1,
+            "put_request_offset_ms": 252.4,
+            "put_acknowledgment_ms": 0.2,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.762
+          },
+          {
+            "native_mutation_ms": 2.7,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 252,
+            "put_acknowledgment_ms": 0.3,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.831
+          },
+          {
+            "native_mutation_ms": 2.1,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 252.4,
+            "put_acknowledgment_ms": 0.5,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.283
+          },
+          {
+            "native_mutation_ms": 2.1,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 252.4,
+            "put_acknowledgment_ms": 0.5,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.317
+          },
+          {
+            "native_mutation_ms": 2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 252.1,
+            "put_acknowledgment_ms": 0.2,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.464
+          },
+          {
+            "native_mutation_ms": 2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 252.4,
+            "put_acknowledgment_ms": 0.2,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.809
+          },
+          {
+            "native_mutation_ms": 2.4,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 252.1,
+            "put_acknowledgment_ms": 0.2,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 5.05
+          },
+          {
+            "native_mutation_ms": 2.1,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 251.8,
+            "put_acknowledgment_ms": 1.6,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.518
+          },
+          {
+            "native_mutation_ms": 2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 252.3,
+            "put_acknowledgment_ms": 1.2,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.335
+          },
+          {
+            "native_mutation_ms": 1.9,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 252.7,
+            "put_acknowledgment_ms": 0.3,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.097
+          },
+          {
+            "native_mutation_ms": 2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 251.9,
+            "put_acknowledgment_ms": 0.5,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.786
+          },
+          {
+            "native_mutation_ms": 3.5,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 252.5,
+            "put_acknowledgment_ms": 1.5,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 5.95
+          },
+          {
+            "native_mutation_ms": 2.1,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 252.4,
+            "put_acknowledgment_ms": 0.2,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.607
+          },
+          {
+            "native_mutation_ms": 1.9,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 252,
+            "put_acknowledgment_ms": 0.4,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.706
+          },
+          {
+            "native_mutation_ms": 2.3,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 252.2,
+            "put_acknowledgment_ms": 0.4,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 5.188
+          },
+          {
+            "native_mutation_ms": 2.7,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 253.3,
+            "put_acknowledgment_ms": 0.3,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 5.207
+          },
+          {
+            "native_mutation_ms": 2.1,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 254.2,
+            "put_acknowledgment_ms": 0.3,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.356
+          },
+          {
+            "native_mutation_ms": 2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 254,
+            "put_acknowledgment_ms": 0.2,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.829
+          },
+          {
+            "native_mutation_ms": 2.1,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 252.2,
+            "put_acknowledgment_ms": 1.5,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.764
+          },
+          {
+            "native_mutation_ms": 1.9,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 252.8,
+            "put_acknowledgment_ms": 0.4,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.384
+          },
+          {
+            "native_mutation_ms": 2.1,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 254.1,
+            "put_acknowledgment_ms": 0.4,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 4.647
+          }
+        ]
+      },
+      {
+        "size_utf16": 262144,
+        "surface": "native_textarea",
+        "matched_width_px": 736,
+        "summary": {
+          "native_mutation_ms": {
+            "samples": 30,
+            "p50_ms": 7.8,
+            "p95_ms": 9.5,
+            "maximum_ms": 71.1
+          },
+          "input_handler_ms": {
+            "samples": 30,
+            "p50_ms": 0,
+            "p95_ms": 0.1,
+            "maximum_ms": 0.1
+          },
+          "put_request_offset_ms": {
+            "samples": 0,
+            "p50_ms": null,
+            "p95_ms": null,
+            "maximum_ms": null
+          },
+          "put_acknowledgment_ms": {
+            "samples": 0,
+            "p50_ms": null,
+            "p95_ms": null,
+            "maximum_ms": null
+          },
+          "browser_command_wall_ms": {
+            "samples": 30,
+            "p50_ms": 13.74,
+            "p95_ms": 17.836,
+            "maximum_ms": 77.304
+          },
+          "long_tasks": {
+            "samples_with_long_tasks": 0,
+            "count": 0,
+            "maximum_ms": 0
+          }
+        },
+        "samples": [
+          {
+            "native_mutation_ms": 6.5,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 11.356
+          },
+          {
+            "native_mutation_ms": 7.8,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 13.897
+          },
+          {
+            "native_mutation_ms": 8.1,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 13.777
+          },
+          {
+            "native_mutation_ms": 8.2,
+            "input_handler_ms": 0.1,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 13.373
+          },
+          {
+            "native_mutation_ms": 7.7,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 12.735
+          },
+          {
+            "native_mutation_ms": 6.9,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 11.983
+          },
+          {
+            "native_mutation_ms": 7.9,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 15.148
+          },
+          {
+            "native_mutation_ms": 9.3,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 16.374
+          },
+          {
+            "native_mutation_ms": 7.4,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 15.8
+          },
+          {
+            "native_mutation_ms": 6.7,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 12.486
+          },
+          {
+            "native_mutation_ms": 6.7,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 12.149
+          },
+          {
+            "native_mutation_ms": 7.5,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 14.82
+          },
+          {
+            "native_mutation_ms": 9.5,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 17.836
+          },
+          {
+            "native_mutation_ms": 8.2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 13.244
+          },
+          {
+            "native_mutation_ms": 7.3,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 12.488
+          },
+          {
+            "native_mutation_ms": 7.4,
+            "input_handler_ms": 0.1,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 12.56
+          },
+          {
+            "native_mutation_ms": 8.2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 13.789
+          },
+          {
+            "native_mutation_ms": 7.7,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 13.715
+          },
+          {
+            "native_mutation_ms": 8.1,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 13.74
+          },
+          {
+            "native_mutation_ms": 71.1,
+            "input_handler_ms": 0.1,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 77.304
+          },
+          {
+            "native_mutation_ms": 7.7,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 12.867
+          },
+          {
+            "native_mutation_ms": 8.7,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 14.345
+          },
+          {
+            "native_mutation_ms": 8.7,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 14.948
+          },
+          {
+            "native_mutation_ms": 8.2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 14.296
+          },
+          {
+            "native_mutation_ms": 8.1,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 13.204
+          },
+          {
+            "native_mutation_ms": 7.7,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 13.17
+          },
+          {
+            "native_mutation_ms": 7.7,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 14.881
+          },
+          {
+            "native_mutation_ms": 7.8,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 13.795
+          },
+          {
+            "native_mutation_ms": 9.1,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 16.687
+          },
+          {
+            "native_mutation_ms": 6.9,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 12.984
+          }
+        ]
+      },
+      {
+        "size_utf16": 262144,
+        "surface": "loomark_production",
+        "matched_width_px": 736,
+        "summary": {
+          "native_mutation_ms": {
+            "samples": 30,
+            "p50_ms": 7.7,
+            "p95_ms": 9.1,
+            "maximum_ms": 61.7
+          },
+          "input_handler_ms": {
+            "samples": 30,
+            "p50_ms": 0,
+            "p95_ms": 0.1,
+            "maximum_ms": 0.1
+          },
+          "put_request_offset_ms": {
+            "samples": 30,
+            "p50_ms": 256.6,
+            "p95_ms": 257.8,
+            "maximum_ms": 258.6
+          },
+          "put_acknowledgment_ms": {
+            "samples": 30,
+            "p50_ms": 2.2,
+            "p95_ms": 4.5,
+            "maximum_ms": 4.8
+          },
+          "browser_command_wall_ms": {
+            "samples": 30,
+            "p50_ms": 14.458,
+            "p95_ms": 20.831,
+            "maximum_ms": 67.792
+          },
+          "long_tasks": {
+            "samples_with_long_tasks": 0,
+            "count": 0,
+            "maximum_ms": 0
+          }
+        },
+        "samples": [
+          {
+            "native_mutation_ms": 8.6,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 257,
+            "put_acknowledgment_ms": 3.1,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 18.382
+          },
+          {
+            "native_mutation_ms": 7.5,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 256.7,
+            "put_acknowledgment_ms": 0.5,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 16.698
+          },
+          {
+            "native_mutation_ms": 7.6,
+            "input_handler_ms": 0.1,
+            "put_request_offset_ms": 256.6,
+            "put_acknowledgment_ms": 4.8,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 14.458
+          },
+          {
+            "native_mutation_ms": 7,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 257.8,
+            "put_acknowledgment_ms": 3.4,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 13.594
+          },
+          {
+            "native_mutation_ms": 8.3,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 257,
+            "put_acknowledgment_ms": 3.3,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 14.688
+          },
+          {
+            "native_mutation_ms": 6.6,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 257.2,
+            "put_acknowledgment_ms": 2.4,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 12.489
+          },
+          {
+            "native_mutation_ms": 61.7,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 258.6,
+            "put_acknowledgment_ms": 2.7,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 67.792
+          },
+          {
+            "native_mutation_ms": 8.4,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 256.4,
+            "put_acknowledgment_ms": 4.2,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 15.619
+          },
+          {
+            "native_mutation_ms": 7.7,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 256.5,
+            "put_acknowledgment_ms": 0.4,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 13.328
+          },
+          {
+            "native_mutation_ms": 8.1,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 256.7,
+            "put_acknowledgment_ms": 2.1,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 15.706
+          },
+          {
+            "native_mutation_ms": 7.5,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 256.7,
+            "put_acknowledgment_ms": 2.8,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 15.202
+          },
+          {
+            "native_mutation_ms": 7,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 256.1,
+            "put_acknowledgment_ms": 2.8,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 15.126
+          },
+          {
+            "native_mutation_ms": 8.9,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 256.4,
+            "put_acknowledgment_ms": 4.5,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 15.06
+          },
+          {
+            "native_mutation_ms": 8.5,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 256.2,
+            "put_acknowledgment_ms": 0.2,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 16.628
+          },
+          {
+            "native_mutation_ms": 7.7,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 256.9,
+            "put_acknowledgment_ms": 0.4,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 13.351
+          },
+          {
+            "native_mutation_ms": 6.8,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 256.4,
+            "put_acknowledgment_ms": 2.1,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 15.268
+          },
+          {
+            "native_mutation_ms": 7.1,
+            "input_handler_ms": 0.1,
+            "put_request_offset_ms": 256.6,
+            "put_acknowledgment_ms": 0.4,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 14.095
+          },
+          {
+            "native_mutation_ms": 7.5,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 255.8,
+            "put_acknowledgment_ms": 3.7,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 14.444
+          },
+          {
+            "native_mutation_ms": 9.1,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 256.6,
+            "put_acknowledgment_ms": 0.5,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 17.199
+          },
+          {
+            "native_mutation_ms": 7,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 256.7,
+            "put_acknowledgment_ms": 3,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 14.053
+          },
+          {
+            "native_mutation_ms": 6.8,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 256.9,
+            "put_acknowledgment_ms": 0.4,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 13.466
+          },
+          {
+            "native_mutation_ms": 7.7,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 256.4,
+            "put_acknowledgment_ms": 0.4,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 13.977
+          },
+          {
+            "native_mutation_ms": 7.5,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 256.3,
+            "put_acknowledgment_ms": 0.3,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 14.154
+          },
+          {
+            "native_mutation_ms": 7,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 256.4,
+            "put_acknowledgment_ms": 2.6,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 14.174
+          },
+          {
+            "native_mutation_ms": 8,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 256.5,
+            "put_acknowledgment_ms": 2.4,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 13.843
+          },
+          {
+            "native_mutation_ms": 8.2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 257.6,
+            "put_acknowledgment_ms": 2.2,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 14.946
+          },
+          {
+            "native_mutation_ms": 8.5,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 256,
+            "put_acknowledgment_ms": 2.1,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 15.809
+          },
+          {
+            "native_mutation_ms": 8.2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 256.7,
+            "put_acknowledgment_ms": 3.9,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 14.116
+          },
+          {
+            "native_mutation_ms": 7.8,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 256.5,
+            "put_acknowledgment_ms": 0.3,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 20.831
+          },
+          {
+            "native_mutation_ms": 6.4,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 256.9,
+            "put_acknowledgment_ms": 0.4,
+            "put_outcome": "stored",
+            "long_tasks": [],
+            "browser_command_wall_ms": 13.109
+          }
+        ]
+      },
+      {
+        "size_utf16": 1048576,
+        "surface": "native_textarea",
+        "matched_width_px": 736,
+        "summary": {
+          "native_mutation_ms": {
+            "samples": 30,
+            "p50_ms": 36.9,
+            "p95_ms": 47.4,
+            "maximum_ms": 67.5
+          },
+          "input_handler_ms": {
+            "samples": 30,
+            "p50_ms": 0,
+            "p95_ms": 0.1,
+            "maximum_ms": 0.1
+          },
+          "put_request_offset_ms": {
+            "samples": 0,
+            "p50_ms": null,
+            "p95_ms": null,
+            "maximum_ms": null
+          },
+          "put_acknowledgment_ms": {
+            "samples": 0,
+            "p50_ms": null,
+            "p95_ms": null,
+            "maximum_ms": null
+          },
+          "browser_command_wall_ms": {
+            "samples": 30,
+            "p50_ms": 67.571,
+            "p95_ms": 80.603,
+            "maximum_ms": 97.289
+          },
+          "long_tasks": {
+            "samples_with_long_tasks": 0,
+            "count": 0,
+            "maximum_ms": 0
+          }
+        },
+        "samples": [
+          {
+            "native_mutation_ms": 37.1,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 65.677
+          },
+          {
+            "native_mutation_ms": 38.3,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 67.84
+          },
+          {
+            "native_mutation_ms": 37.5,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 71.212
+          },
+          {
+            "native_mutation_ms": 37,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 67.821
+          },
+          {
+            "native_mutation_ms": 35.7,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 66.587
+          },
+          {
+            "native_mutation_ms": 34.6,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 67.737
+          },
+          {
+            "native_mutation_ms": 39.4,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 68.166
+          },
+          {
+            "native_mutation_ms": 35.4,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 64.871
+          },
+          {
+            "native_mutation_ms": 37,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 69.406
+          },
+          {
+            "native_mutation_ms": 37.7,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 68.041
+          },
+          {
+            "native_mutation_ms": 37,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 67.563
+          },
+          {
+            "native_mutation_ms": 36.9,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 71.714
+          },
+          {
+            "native_mutation_ms": 35.7,
+            "input_handler_ms": 0.1,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 66.279
+          },
+          {
+            "native_mutation_ms": 34.4,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 65.386
+          },
+          {
+            "native_mutation_ms": 35,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 67.571
+          },
+          {
+            "native_mutation_ms": 40,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 69.7
+          },
+          {
+            "native_mutation_ms": 38.2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 67.354
+          },
+          {
+            "native_mutation_ms": 47.4,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 80.603
+          },
+          {
+            "native_mutation_ms": 36.9,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 65.199
+          },
+          {
+            "native_mutation_ms": 37.3,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 67.126
+          },
+          {
+            "native_mutation_ms": 36.2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 70.454
+          },
+          {
+            "native_mutation_ms": 35.8,
+            "input_handler_ms": 0.1,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 65.987
+          },
+          {
+            "native_mutation_ms": 35.1,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 65.512
+          },
+          {
+            "native_mutation_ms": 34.9,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 68.262
+          },
+          {
+            "native_mutation_ms": 36.2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 66.244
+          },
+          {
+            "native_mutation_ms": 36.3,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 65.303
+          },
+          {
+            "native_mutation_ms": 37.3,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 69.647
+          },
+          {
+            "native_mutation_ms": 37,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 67.539
+          },
+          {
+            "native_mutation_ms": 67.5,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 97.289
+          },
+          {
+            "native_mutation_ms": 36.8,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": null,
+            "put_acknowledgment_ms": null,
+            "put_outcome": null,
+            "long_tasks": [],
+            "browser_command_wall_ms": 70.673
+          }
+        ]
+      },
+      {
+        "size_utf16": 1048576,
+        "surface": "loomark_production",
+        "matched_width_px": 736,
+        "summary": {
+          "native_mutation_ms": {
+            "samples": 30,
+            "p50_ms": 32.9,
+            "p95_ms": 37.4,
+            "maximum_ms": 40.9
+          },
+          "input_handler_ms": {
+            "samples": 30,
+            "p50_ms": 0,
+            "p95_ms": 0.1,
+            "maximum_ms": 0.1
+          },
+          "put_request_offset_ms": {
+            "samples": 30,
+            "p50_ms": 320.4,
+            "p95_ms": 339.5,
+            "maximum_ms": 419.5
+          },
+          "put_acknowledgment_ms": {
+            "samples": 30,
+            "p50_ms": 9.9,
+            "p95_ms": 38.9,
+            "maximum_ms": 48.1
+          },
+          "browser_command_wall_ms": {
+            "samples": 30,
+            "p50_ms": 68.368,
+            "p95_ms": 76.843,
+            "maximum_ms": 78.836
+          },
+          "long_tasks": {
+            "samples_with_long_tasks": 30,
+            "count": 39,
+            "maximum_ms": 169
+          }
+        },
+        "samples": [
+          {
+            "native_mutation_ms": 34.3,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 320.7,
+            "put_acknowledgment_ms": 0.2,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.3,
+                "duration_ms": 70
+              },
+              {
+                "offset_ms": 349.1,
+                "duration_ms": 50
+              }
+            ],
+            "browser_command_wall_ms": 68.775
+          },
+          {
+            "native_mutation_ms": 32.3,
+            "input_handler_ms": 0.1,
+            "put_request_offset_ms": 308.4,
+            "put_acknowledgment_ms": 28.7,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.6,
+                "duration_ms": 57
+              }
+            ],
+            "browser_command_wall_ms": 68.368
+          },
+          {
+            "native_mutation_ms": 32,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 330.5,
+            "put_acknowledgment_ms": 0.4,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 34.5,
+                "duration_ms": 53
+              },
+              {
+                "offset_ms": 250.5,
+                "duration_ms": 80
+              },
+              {
+                "offset_ms": 337.3,
+                "duration_ms": 51
+              }
+            ],
+            "browser_command_wall_ms": 67.382
+          },
+          {
+            "native_mutation_ms": 40.9,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 308.3,
+            "put_acknowledgment_ms": 32.4,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.6,
+                "duration_ms": 57
+              }
+            ],
+            "browser_command_wall_ms": 76.843
+          },
+          {
+            "native_mutation_ms": 32.9,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 330.3,
+            "put_acknowledgment_ms": 0.3,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.4,
+                "duration_ms": 80
+              }
+            ],
+            "browser_command_wall_ms": 73.841
+          },
+          {
+            "native_mutation_ms": 32.4,
+            "input_handler_ms": 0.1,
+            "put_request_offset_ms": 306.5,
+            "put_acknowledgment_ms": 9.9,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.4,
+                "duration_ms": 56
+              }
+            ],
+            "browser_command_wall_ms": 67.734
+          },
+          {
+            "native_mutation_ms": 31.2,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 314.3,
+            "put_acknowledgment_ms": 6.2,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.3,
+                "duration_ms": 64
+              }
+            ],
+            "browser_command_wall_ms": 66.027
+          },
+          {
+            "native_mutation_ms": 32.6,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 419.5,
+            "put_acknowledgment_ms": 28.3,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.5,
+                "duration_ms": 169
+              }
+            ],
+            "browser_command_wall_ms": 67.35
+          },
+          {
+            "native_mutation_ms": 32.9,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 330.7,
+            "put_acknowledgment_ms": 0.2,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.4,
+                "duration_ms": 80
+              }
+            ],
+            "browser_command_wall_ms": 66.621
+          },
+          {
+            "native_mutation_ms": 32.8,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 305.8,
+            "put_acknowledgment_ms": 14,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.4,
+                "duration_ms": 55
+              }
+            ],
+            "browser_command_wall_ms": 68.134
+          },
+          {
+            "native_mutation_ms": 33.4,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 320.4,
+            "put_acknowledgment_ms": 48.1,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.3,
+                "duration_ms": 70
+              }
+            ],
+            "browser_command_wall_ms": 67.353
+          },
+          {
+            "native_mutation_ms": 31.9,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 314.5,
+            "put_acknowledgment_ms": 7.3,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.3,
+                "duration_ms": 64
+              }
+            ],
+            "browser_command_wall_ms": 67.331
+          },
+          {
+            "native_mutation_ms": 32.3,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 325.5,
+            "put_acknowledgment_ms": 32.3,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.4,
+                "duration_ms": 75
+              }
+            ],
+            "browser_command_wall_ms": 68.534
+          },
+          {
+            "native_mutation_ms": 30.9,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 331.1,
+            "put_acknowledgment_ms": 8.6,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.7,
+                "duration_ms": 80
+              }
+            ],
+            "browser_command_wall_ms": 72.18
+          },
+          {
+            "native_mutation_ms": 37.4,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 308.4,
+            "put_acknowledgment_ms": 18.9,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.5,
+                "duration_ms": 58
+              }
+            ],
+            "browser_command_wall_ms": 72.26
+          },
+          {
+            "native_mutation_ms": 31.4,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 310.3,
+            "put_acknowledgment_ms": 7,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.3,
+                "duration_ms": 60
+              },
+              {
+                "offset_ms": 317.7,
+                "duration_ms": 50
+              }
+            ],
+            "browser_command_wall_ms": 66.142
+          },
+          {
+            "native_mutation_ms": 30.5,
+            "input_handler_ms": 0.1,
+            "put_request_offset_ms": 329.8,
+            "put_acknowledgment_ms": 31.8,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.5,
+                "duration_ms": 79
+              }
+            ],
+            "browser_command_wall_ms": 65.631
+          },
+          {
+            "native_mutation_ms": 31.5,
+            "input_handler_ms": 0.1,
+            "put_request_offset_ms": 336.2,
+            "put_acknowledgment_ms": 17.1,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.3,
+                "duration_ms": 86
+              }
+            ],
+            "browser_command_wall_ms": 65.397
+          },
+          {
+            "native_mutation_ms": 34.7,
+            "input_handler_ms": 0.1,
+            "put_request_offset_ms": 323.3,
+            "put_acknowledgment_ms": 10.5,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.4,
+                "duration_ms": 73
+              },
+              {
+                "offset_ms": 335.2,
+                "duration_ms": 58
+              }
+            ],
+            "browser_command_wall_ms": 70.46
+          },
+          {
+            "native_mutation_ms": 36.3,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 312.4,
+            "put_acknowledgment_ms": 30.2,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.5,
+                "duration_ms": 62
+              }
+            ],
+            "browser_command_wall_ms": 72.978
+          },
+          {
+            "native_mutation_ms": 35,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 328.4,
+            "put_acknowledgment_ms": 0.3,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.4,
+                "duration_ms": 78
+              },
+              {
+                "offset_ms": 335.4,
+                "duration_ms": 69
+              }
+            ],
+            "browser_command_wall_ms": 72.547
+          },
+          {
+            "native_mutation_ms": 33.2,
+            "input_handler_ms": 0.1,
+            "put_request_offset_ms": 339.5,
+            "put_acknowledgment_ms": 31.9,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.5,
+                "duration_ms": 89
+              }
+            ],
+            "browser_command_wall_ms": 69.107
+          },
+          {
+            "native_mutation_ms": 35,
+            "input_handler_ms": 0.1,
+            "put_request_offset_ms": 336,
+            "put_acknowledgment_ms": 0.3,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 33.2,
+                "duration_ms": 51
+              },
+              {
+                "offset_ms": 250.4,
+                "duration_ms": 85
+              }
+            ],
+            "browser_command_wall_ms": 69.062
+          },
+          {
+            "native_mutation_ms": 34,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 309.6,
+            "put_acknowledgment_ms": 9.9,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.3,
+                "duration_ms": 59
+              }
+            ],
+            "browser_command_wall_ms": 68.777
+          },
+          {
+            "native_mutation_ms": 35.5,
+            "input_handler_ms": 0.1,
+            "put_request_offset_ms": 323,
+            "put_acknowledgment_ms": 29.2,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.4,
+                "duration_ms": 72
+              }
+            ],
+            "browser_command_wall_ms": 78.836
+          },
+          {
+            "native_mutation_ms": 36.3,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 315.9,
+            "put_acknowledgment_ms": 0.3,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 32.6,
+                "duration_ms": 50
+              },
+              {
+                "offset_ms": 250.3,
+                "duration_ms": 65
+              },
+              {
+                "offset_ms": 323.4,
+                "duration_ms": 50
+              }
+            ],
+            "browser_command_wall_ms": 70.041
+          },
+          {
+            "native_mutation_ms": 31.9,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 317.2,
+            "put_acknowledgment_ms": 38.9,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.5,
+                "duration_ms": 66
+              }
+            ],
+            "browser_command_wall_ms": 65.792
+          },
+          {
+            "native_mutation_ms": 34.5,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 334.2,
+            "put_acknowledgment_ms": 0.3,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.3,
+                "duration_ms": 84
+              }
+            ],
+            "browser_command_wall_ms": 70.329
+          },
+          {
+            "native_mutation_ms": 33.4,
+            "input_handler_ms": 0,
+            "put_request_offset_ms": 319.2,
+            "put_acknowledgment_ms": 12.9,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.4,
+                "duration_ms": 68
+              }
+            ],
+            "browser_command_wall_ms": 67.446
+          },
+          {
+            "native_mutation_ms": 32.1,
+            "input_handler_ms": 0.1,
+            "put_request_offset_ms": 316.6,
+            "put_acknowledgment_ms": 0.3,
+            "put_outcome": "stored",
+            "long_tasks": [
+              {
+                "offset_ms": 250.4,
+                "duration_ms": 66
+              }
+            ],
+            "browser_command_wall_ms": 66.67
+          }
+        ]
+      }
+    ],
+    "traces": []
+  }
+}

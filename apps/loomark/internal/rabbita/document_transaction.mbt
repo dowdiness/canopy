@@ -119,13 +119,9 @@ fn local_text_replacement(
   guard model.archive_persistence_enabled else {
     return (model, @rabbita_runtime.none)
   }
-  let prepared = @repository.prepare_local_text(
-    document_id=model.document_id,
-    source~,
-  )
-  let (archive_queue, pending) = model.archive_queue.enqueue(
+  let (archive_queue, pending) = model.archive_queue.enqueue_local_text(
     document_version=model.document_version,
-    archive=prepared,
+    source~,
   )
   ({ ..model, archive_queue, }, local_archive_write_command(pending, emit))
 }
@@ -141,13 +137,9 @@ fn retry_local_persistence(
     return (model, @rabbita_runtime.none)
   }
   if model.runtime_state is EditorRuntimeState::LocalText(source) {
-    let prepared = @repository.prepare_local_text(
-      document_id=model.document_id,
-      source~,
-    )
-    let (archive_queue, pending) = model.archive_queue.retry(
+    let (archive_queue, pending) = model.archive_queue.retry_local_text(
       document_version=model.document_version,
-      archive=prepared,
+      source~,
     )
     return (
       { ..model, archive_queue, },

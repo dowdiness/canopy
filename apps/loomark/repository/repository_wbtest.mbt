@@ -284,14 +284,21 @@ test "persistence queue waits for the latest same-version source" {
     current=version,
     durable=None,
   )
-  let first = prepare_local_text(document_id~, source="one")
-  let second = prepare_local_text(document_id~, source="two")
-  let (queue, first_write) = queue.enqueue(
+  let (queue, first_write) = queue.enqueue_local_text(
     document_version=version,
-    archive=first,
+    source="one",
   )
   guard first_write is Some(first_write) else { fail("expected first write") }
-  let (queue, _) = queue.enqueue(document_version=version, archive=second)
+  let (queue, second_write) = queue.enqueue_local_text(
+    document_version=version,
+    source="two",
+  )
+  assert_true(second_write is None)
+  let (queue, third_write) = queue.enqueue_local_text(
+    document_version=version,
+    source="three",
+  )
+  assert_true(third_write is None)
   let (queue, completion) = queue.complete(
     first_write,
     LocalArchiveWriteOutcome::Stored,
@@ -299,10 +306,147 @@ test "persistence queue waits for the latest same-version source" {
   guard completion is LocalArchiveQueueCompletion::Promoted(promoted) else {
     fail("expected latest source promotion")
   }
+  assert_eq(
+    promoted.encoded(),
+    prepare_local_text(document_id~, source="three").encoded(),
+  )
   assert_true(queue.status() is LocalArchivePersistenceStatus::Applied(..))
   let (queue, _) = queue.complete(promoted, LocalArchiveWriteOutcome::Stored)
   assert_true(queue.status() is LocalArchivePersistenceStatus::DurableLocal(_))
   ignore(editor)
+}
+
+///|
+test "persistence queue retries unencoded local text" {
+  let (_, document_id, version) = queue_document(
+    "repository-local-text-retry", "doc-local-text-retry", "before",
+  )
+  let queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
+    document_id~,
+    queue_epoch="repository-local-text-retry",
+    current=version,
+    durable=None,
+  )
+  let (queue, first_write) = queue.enqueue_local_text(
+    document_version=version,
+    source="failed",
+  )
+  guard first_write is Some(first_write) else { fail("expected first write") }
+  let (queue, _) = queue.complete(
+    first_write,
+    LocalArchiveWriteOutcome::Failed(LocalArchiveStorageWriteFailure::Failed),
+  )
+  let (queue, retry_write) = queue.retry_local_text(
+    document_version=version,
+    source="latest",
+  )
+  guard retry_write is Some(retry_write) else {
+    fail("expected local text retry write")
+  }
+  assert_eq(
+    retry_write.encoded(),
+    prepare_local_text(document_id~, source="latest").encoded(),
+  )
+  let (queue, completion) = queue.complete(
+    retry_write,
+    LocalArchiveWriteOutcome::Stored,
+  )
+  assert_true(completion is LocalArchiveQueueCompletion::Completed)
+  assert_true(queue.status() is LocalArchivePersistenceStatus::DurableLocal(_))
+}
+
+///|
+test "local text A to B to A rejects the first A acknowledgment" {
+  let (_, document_id, version) = queue_document(
+    "repository-local-text-aba", "doc-local-text-aba", "before",
+  )
+  let queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
+    document_id~,
+    queue_epoch="repository-local-text-aba",
+    current=version,
+    durable=None,
+  )
+  let (queue, first_a) = queue.enqueue_local_text(
+    document_version=version,
+    source="A",
+  )
+  guard first_a is Some(first_a) else { fail("expected first A write") }
+  let (queue, _) = queue.enqueue_local_text(
+    document_version=version,
+    source="B",
+  )
+  let (queue, _) = queue.enqueue_local_text(
+    document_version=version,
+    source="A",
+  )
+  let (queue, completion) = queue.complete(
+    first_a,
+    LocalArchiveWriteOutcome::Stored,
+  )
+  guard completion is LocalArchiveQueueCompletion::Promoted(later_a) else {
+    fail("expected later A promotion")
+  }
+  let (queue, stale) = queue.complete(first_a, LocalArchiveWriteOutcome::Stored)
+  assert_true(stale is LocalArchiveQueueCompletion::Ignored)
+  assert_eq(
+    later_a.encoded(),
+    prepare_local_text(document_id~, source="A").encoded(),
+  )
+  let (queue, completion) = queue.complete(
+    later_a,
+    LocalArchiveWriteOutcome::Stored,
+  )
+  assert_true(completion is LocalArchiveQueueCompletion::Completed)
+  assert_true(queue.status() is LocalArchivePersistenceStatus::DurableLocal(_))
+}
+
+///|
+test "local text supersedes a prepared pending archive" {
+  let (editor, document_id, initial_version) = queue_document(
+    "repository-local-text-mixed", "doc-local-text-mixed", "zero",
+  )
+  let (first_version, first_archive) = queue_archive_after_replace(
+    editor~,
+    document_id~,
+    "one",
+  )
+  let queue = LocalArchivePersistenceQueue::LocalArchivePersistenceQueue(
+    document_id~,
+    queue_epoch="repository-local-text-mixed",
+    current=initial_version,
+    durable=None,
+  )
+  let (queue, first_write) = queue.enqueue(
+    document_version=first_version,
+    archive=first_archive,
+  )
+  guard first_write is Some(first_write) else { fail("expected first write") }
+  let (second_version, second_archive) = queue_archive_after_replace(
+    editor~,
+    document_id~,
+    "two",
+  )
+  let (queue, _) = queue.enqueue(
+    document_version=second_version,
+    archive=second_archive,
+  )
+  let (queue, _) = queue.enqueue_local_text(
+    document_version=second_version,
+    source="latest source",
+  )
+  let (queue, completion) = queue.complete(
+    first_write,
+    LocalArchiveWriteOutcome::Stored,
+  )
+  guard completion is LocalArchiveQueueCompletion::Promoted(promoted) else {
+    fail("expected local text promotion")
+  }
+  assert_true(promoted.record_kind() is LocalArchiveRecordKind::LocalText)
+  assert_eq(
+    promoted.encoded(),
+    prepare_local_text(document_id~, source="latest source").encoded(),
+  )
+  ignore(queue)
 }
 
 ///|

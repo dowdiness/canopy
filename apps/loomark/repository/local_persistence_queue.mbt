@@ -48,7 +48,19 @@ pub(all) enum LocalArchiveQueueCompletion {
 } derive(Eq)
 
 ///|
-/// One complete immutable archive replacement and its Session correlation.
+/// The immutable payload held by a queued write.
+///
+/// FullHistory is already prepared by its capability-owned shell. LocalText
+/// remains unencoded until this queue selects it and the storage shell requests
+/// its encoded replacement.
+priv enum LocalArchivePendingPayload {
+  Prepared(PreparedLocalArchive)
+  LocalText(String)
+} derive(Eq)
+
+///|
+/// One selected immutable replacement and its Session correlation.
+///
 /// The queue epoch prevents a delayed write from a previous queue lifetime
 /// from matching a newly created queue for the same logical document.
 pub struct LocalArchivePendingWrite {
@@ -56,20 +68,32 @@ pub struct LocalArchivePendingWrite {
   priv request_id : Int
   priv document_id : @archive.LoomarkDocumentId
   priv document_version : @markdown.MarkdownDocumentVersion
-  priv archive : PreparedLocalArchive
+  priv payload : LocalArchivePendingPayload
 } derive(Eq)
 
 ///|
+/// Materialize the selected replacement for the storage shell.
+///
+/// Pending LocalText values never escape the queue, so superseded source is
+/// not encoded. Prepared FullHistory bytes pass through unchanged.
 pub fn LocalArchivePendingWrite::encoded(self : Self) -> String {
-  self.archive.encoded()
+  match self.payload {
+    LocalArchivePendingPayload::Prepared(archive) => archive.encoded()
+    LocalArchivePendingPayload::LocalText(source) =>
+      prepare_local_text(document_id=self.document_id, source~).encoded()
+  }
 }
 
 ///|
-/// Return the prepared record format for exhaustive storage routing.
+/// Return the selected record format without materializing LocalText.
 pub fn LocalArchivePendingWrite::record_kind(
   self : Self,
 ) -> LocalArchiveRecordKind {
-  self.archive.record_kind()
+  match self.payload {
+    LocalArchivePendingPayload::Prepared(archive) => archive.record_kind()
+    LocalArchivePendingPayload::LocalText(_) =>
+      LocalArchiveRecordKind::LocalText
+  }
 }
 
 ///|
@@ -160,26 +184,26 @@ pub fn LocalArchivePersistenceQueue::status(
 fn LocalArchivePersistenceQueue::allocate_pending(
   self : Self,
   document_version~ : @markdown.MarkdownDocumentVersion,
-  archive~ : PreparedLocalArchive,
+  payload : LocalArchivePendingPayload,
 ) -> (LocalArchivePersistenceQueue, LocalArchivePendingWrite) {
   let pending = LocalArchivePendingWrite::{
     queue_epoch: self.queue_epoch,
     request_id: self.next_request_value,
     document_id: self.document_id,
     document_version,
-    archive,
+    payload,
   }
   ({ ..self, next_request_value: self.next_request_value + 1 }, pending)
 }
 
 ///|
-/// Accept a complete archive, starting it or coalescing it as the latest.
-pub fn LocalArchivePersistenceQueue::enqueue(
+/// Start one payload or coalesce it as the latest pending payload.
+fn LocalArchivePersistenceQueue::enqueue_payload(
   self : Self,
   document_version~ : @markdown.MarkdownDocumentVersion,
-  archive~ : PreparedLocalArchive,
+  payload : LocalArchivePendingPayload,
 ) -> (LocalArchivePersistenceQueue, LocalArchivePendingWrite?) {
-  let (next, pending) = self.allocate_pending(document_version~, archive~)
+  let (next, pending) = self.allocate_pending(document_version~, payload)
   match next.in_flight {
     None =>
       (
@@ -206,17 +230,69 @@ pub fn LocalArchivePersistenceQueue::enqueue(
 }
 
 ///|
+/// Accept a complete archive, starting it or coalescing it as the latest.
+pub fn LocalArchivePersistenceQueue::enqueue(
+  self : Self,
+  document_version~ : @markdown.MarkdownDocumentVersion,
+  archive~ : PreparedLocalArchive,
+) -> (LocalArchivePersistenceQueue, LocalArchivePendingWrite?) {
+  self.enqueue_payload(
+    document_version~,
+    LocalArchivePendingPayload::Prepared(archive),
+  )
+}
+
+///|
+/// Accept unencoded source text, starting it or coalescing it as the latest.
+pub fn LocalArchivePersistenceQueue::enqueue_local_text(
+  self : Self,
+  document_version~ : @markdown.MarkdownDocumentVersion,
+  source~ : String,
+) -> (LocalArchivePersistenceQueue, LocalArchivePendingWrite?) {
+  self.enqueue_payload(
+    document_version~,
+    LocalArchivePendingPayload::LocalText(source),
+  )
+}
+
+///|
+/// Retry a payload only for the current failed version; an active write is busy.
+fn LocalArchivePersistenceQueue::retry_payload(
+  self : Self,
+  document_version~ : @markdown.MarkdownDocumentVersion,
+  payload : LocalArchivePendingPayload,
+) -> (LocalArchivePersistenceQueue, LocalArchivePendingWrite?) {
+  guard self.failure is Some(_) && self.in_flight is None else {
+    return (self, None)
+  }
+  guard self.current == document_version else { return (self, None) }
+  self.enqueue_payload(document_version~, payload)
+}
+
+///|
 /// Retry only the current failed version; an active write makes it busy.
 pub fn LocalArchivePersistenceQueue::retry(
   self : Self,
   document_version~ : @markdown.MarkdownDocumentVersion,
   archive~ : PreparedLocalArchive,
 ) -> (LocalArchivePersistenceQueue, LocalArchivePendingWrite?) {
-  guard self.failure is Some(_) && self.in_flight is None else {
-    return (self, None)
-  }
-  guard self.current == document_version else { return (self, None) }
-  self.enqueue(document_version~, archive~)
+  self.retry_payload(
+    document_version~,
+    LocalArchivePendingPayload::Prepared(archive),
+  )
+}
+
+///|
+/// Retry unencoded source text only for the current failed version.
+pub fn LocalArchivePersistenceQueue::retry_local_text(
+  self : Self,
+  document_version~ : @markdown.MarkdownDocumentVersion,
+  source~ : String,
+) -> (LocalArchivePersistenceQueue, LocalArchivePendingWrite?) {
+  self.retry_payload(
+    document_version~,
+    LocalArchivePendingPayload::LocalText(source),
+  )
 }
 
 ///|
