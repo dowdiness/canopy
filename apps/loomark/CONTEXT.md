@@ -11,7 +11,7 @@ _Avoid_: file, buffer, session
 
 **Document text**:
 The current Markdown text. Text input updates it immediately.
-_Avoid_: canonical source, draft text
+_Avoid_: canonical source, draft text, surface, surface text
 
 **Saved text**:
 The most recent Document text successfully written to browser storage. It may
