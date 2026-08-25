@@ -1,0 +1,34 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/internal/preview"
+
+import {
+  "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/html",
+}
+
+// Values
+pub fn record_after_render(PreviewResult) -> @cmd.Cmd
+
+// Errors
+
+// Types and methods
+pub struct PreviewEngine {
+  // private fields
+}
+pub fn PreviewEngine::new() -> Self
+pub fn PreviewEngine::prepare(Self, String, result~ : @cmd.Emit[Result[PreviewResult, PreviewFailure]]) -> @cmd.Cmd
+
+pub struct PreviewFailure {
+  // private fields
+} derive(Eq)
+pub fn PreviewFailure::message(Self) -> String
+
+pub struct PreviewResult {
+  // private fields
+} derive(Eq)
+pub fn PreviewResult::content(Self) -> @html.Html
+pub fn PreviewResult::input_text(Self) -> String
+
+// Type aliases
+
+// Traits

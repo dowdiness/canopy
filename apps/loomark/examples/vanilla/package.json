@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.standalone.json",
-    "test": "node ./run-standalone-tests.mjs"
+    "test": "node ./run-standalone-tests.mjs",
+    "measure:preview": "node ./measure-split-preview.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.61.1",

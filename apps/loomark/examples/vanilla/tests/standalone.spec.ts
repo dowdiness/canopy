@@ -140,7 +140,7 @@ function removeDocumentPutFailure(): void {
   delete state.__loomarkDocumentPutOriginal
 }
 
-test("fresh production opens an empty Text editor without modes or workers", async ({ page }) => {
+test("fresh production opens an empty Text layout without workers", async ({ page }) => {
   const workerUrls: string[] = []
   page.on("worker", worker => workerUrls.push(worker.url()))
 
@@ -155,8 +155,126 @@ test("fresh production opens an empty Text editor without modes or workers", asy
     document_id: expect.any(String),
     text: "",
   })
+  await expect(page.getByRole("button", { name: "Text" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  )
+  await expect(page.getByRole("button", { name: "Preview" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Split" })).toBeVisible()
   await expect(page.getByRole("tab")).toHaveCount(0)
   expect(workerUrls).toEqual([])
+})
+
+test("Preview presents safe typed Markdown without becoming an editor", async ({ page }) => {
+  await page.goto("/")
+  const source = [
+    "# Preview heading",
+    "",
+    "Paragraph with **strong text**, [label](https://example.com/path),",
+    "and ![alternative](https://example.com/image.png).",
+    "",
+    "<button id=\"unsafe-preview-button\">unsafe</button>",
+  ].join("\n")
+  await page.getByRole("textbox", { name: "Text" }).fill(source)
+
+  const previewControl = page.getByRole("button", { name: "Preview" })
+  await previewControl.click()
+  await expect(previewControl).toHaveAttribute("aria-pressed", "true")
+
+  const preview = page.getByRole("region", { name: "Preview result" })
+  await expect(preview).toBeVisible()
+  await expect(preview.getByRole("heading", { name: "Preview heading" })).toBeVisible()
+  await expect(preview.locator("strong")).toHaveText("strong text")
+  await expect(preview).toContainText("label")
+  await expect(preview).toContainText("https://example.com/path")
+  await expect(preview).toContainText("alternative")
+  await expect(preview).toContainText("https://example.com/image.png")
+  await expect(preview).toContainText('<button id="unsafe-preview-button">unsafe</button>')
+  await expect(preview.locator("a[href]")).toHaveCount(0)
+  await expect(preview.locator("img")).toHaveCount(0)
+  await expect(preview.locator("#unsafe-preview-button")).toHaveCount(0)
+})
+
+test("Preview intent prepares without changing layout and Text return does not focus", async ({
+  page,
+}) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill("# Prepared before activation\n")
+  await page.evaluate(() => performance.clearMeasures())
+
+  const previewControl = page.getByRole("button", { name: "Preview" })
+  await previewControl.hover()
+  await expect(page.getByRole("button", { name: "Text" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  )
+  await expect.poll(() => page.evaluate(() => (
+    performance.getEntriesByName("loomark-preview-total").length
+  ))).toBeGreaterThan(0)
+
+  await previewControl.click()
+  await expect(
+    page.getByRole("region", { name: "Preview result" })
+      .getByRole("heading", { name: "Prepared before activation" }),
+  ).toBeVisible()
+
+  await page.getByRole("button", { name: "Text" }).click()
+  const returnedText = page.getByRole("textbox", { name: "Text" })
+  await expect(returnedText).toBeVisible()
+  await expect(returnedText).not.toBeFocused()
+})
+
+test("Split converges to latest text and defers Preview during IME composition", async ({
+  page,
+}) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill("# Initial\n")
+  await page.getByRole("button", { name: "Split" }).click()
+  const preview = page.getByRole("region", { name: "Preview result" })
+  await expect(preview.getByRole("heading", { name: "Initial" })).toBeVisible()
+
+  await page.evaluate(() => performance.clearMeasures())
+  await text.evaluate(element => {
+    const textarea = element as HTMLTextAreaElement
+    textarea.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }))
+    textarea.value = "# 変換中"
+    textarea.dispatchEvent(new InputEvent("input", {
+      bubbles: true,
+      composed: true,
+      data: "変換中",
+      inputType: "insertCompositionText",
+    }))
+  })
+  await page.waitForTimeout(50)
+  expect(await page.evaluate(() => (
+    performance.getEntriesByName("loomark-preview-total").length
+  ))).toBe(0)
+  await expect(preview.getByRole("heading", { name: "Initial" })).toBeVisible()
+
+  await text.evaluate(element => {
+    element.dispatchEvent(new CompositionEvent("compositionend", {
+      bubbles: true,
+      data: "変換中",
+    }))
+  })
+  await expect(preview.getByRole("heading", { name: "変換中" })).toBeVisible()
+
+  await text.evaluate(element => {
+    const textarea = element as HTMLTextAreaElement
+    for (const value of ["# First", "# Second", "# Latest"]) {
+      textarea.value = value
+      textarea.dispatchEvent(new InputEvent("input", {
+        bubbles: true,
+        composed: true,
+        data: value,
+        inputType: "insertText",
+      }))
+    }
+  })
+  await expect(text).toHaveValue("# Latest")
+  await expect(preview.getByRole("heading", { name: "Latest" })).toBeVisible()
 })
 
 test("quiet Autosave restores exact Saved text after reload", async ({ page }) => {
