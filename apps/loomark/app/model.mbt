@@ -24,7 +24,7 @@ priv enum SaveState {
 ///|
 priv enum Msg {
   Opened(@browser_storage.OpenResult)
-  TextChanged(String)
+  TextChanged(@text_change.TextChange)
   CompositionStarted
   CompositionEnded
   SaveRequested(String)

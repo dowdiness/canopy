@@ -1,0 +1,25 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/internal/text_area"
+
+import {
+  "dowdiness/text_change",
+  "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/html",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct TextArea {
+  // private fields
+}
+pub fn TextArea::TextArea(String) -> Self
+pub fn TextArea::attach(Self, @html.Attrs, (@text_change.TextChange) -> @cmd.Cmd, (Bool) -> @cmd.Cmd) -> @html.Attrs
+pub fn TextArea::initialize(Self, String) -> @cmd.Cmd
+pub fn TextArea::value(Self, (String) -> @cmd.Cmd) -> @cmd.Cmd
+
+// Type aliases
+
+// Traits

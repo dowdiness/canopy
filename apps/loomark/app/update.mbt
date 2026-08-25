@@ -11,6 +11,7 @@ fn update(
   model : Model,
   msg : Msg,
   emit : @rabbita.Emit[Msg],
+  text_area : @text_area.TextArea,
 ) -> (Model, @rabbita.Cmd) {
   match (model, msg) {
     (Loading, Opened(result)) =>
@@ -23,32 +24,46 @@ fn update(
               composing: false,
               save: Saving(""),
             }),
-            @browser_storage.save(
-              document_id,
-              "",
-              result=emit.map(result => SaveCompleted("", result)),
-            ),
+            @cmd.batch([
+              text_area.initialize(""),
+              @browser_storage.save(
+                document_id,
+                "",
+                result=emit.map(result => SaveCompleted("", result)),
+              ),
+            ]),
           )
         @browser_storage.OpenResult::Loaded(document_id, text) =>
           (
             Editing({ document_id, text, composing: false, save: Saved }),
-            @cmd.none,
+            text_area.initialize(text),
           )
         @browser_storage.OpenResult::Failed(failure) =>
           (Recovery(failure), @cmd.none)
       }
-    (Editing(editing), TextChanged(text)) => {
-      let save = match editing.save {
-        Saving(candidate) => Saving(candidate)
-        _ => Waiting
+    (Editing(editing), TextChanged(change)) =>
+      match change.apply(editing.text) {
+        None =>
+          (
+            model,
+            text_area.value(text => {
+              emit(TextChanged(@text_change.TextChange::ReplaceAll(text)))
+            }),
+          )
+        Some(text) if text == editing.text => (model, @cmd.none)
+        Some(text) => {
+          let save = match editing.save {
+            Saving(candidate) => Saving(candidate)
+            _ => Waiting
+          }
+          let command = if editing.composing {
+            @cmd.none
+          } else {
+            @cmd.delay(emit(SaveRequested(text)), AUTOSAVE_QUIET_MS)
+          }
+          (Editing({ ..editing, text, save }), command)
+        }
       }
-      let command = if editing.composing {
-        @cmd.none
-      } else {
-        @cmd.delay(emit(SaveRequested(text)), AUTOSAVE_QUIET_MS)
-      }
-      (Editing({ ..editing, text, save }), command)
-    }
     (Editing(editing), CompositionStarted) =>
       (Editing({ ..editing, composing: true }), @cmd.none)
     (Editing(editing), CompositionEnded) => {
