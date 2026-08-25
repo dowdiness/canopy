@@ -1,8 +1,10 @@
 # Loomark persistence-intent coalescing
 
 - **Issue:** [#1360](https://github.com/dowdiness/canopy/issues/1360)
-- **Base:** `298f3ccf527de1447adde3bcab82140dd4eaddb2`
-- **Measured code:** `0458a5827598bcdec4a14c956b8d93dd43e9ec73`
+- **Initial base:** `298f3ccf527de1447adde3bcab82140dd4eaddb2`
+- **Initial measured code:** `0458a5827598bcdec4a14c956b8d93dd43e9ec73`
+- **Paired-guard base:** `1f24c66042115763040a029d05fc753eb30902a4`
+- **Paired-guard measured code:** `8b792bf495000549aa0f9664871a2c8a3da7dec9`
 - **Decision:** `STOP` after implementing the selected boundary
 
 ## Result
@@ -52,6 +54,12 @@ kinds reuse `LocalArchivePersistenceQueue`, `LocalArchivePendingWrite`, request
 identity, document identity, queue epoch, opaque document version, completion,
 failure, and retry transitions.
 
+`prepare_local_text` is total for valid `String` and `LoomarkDocumentId` inputs.
+It constructs and stringifies a MoonBit `Json` value and has no recoverable
+preparation-failure channel. `PreparationFailed` remains the fallible
+FullHistory-capture category; LocalText's fallible shell boundary begins at the
+correlated IndexedDB replacement.
+
 ## Correctness evidence
 
 Repository tests cover:
@@ -66,12 +74,19 @@ Repository tests cover:
 - existing prepared FullHistory promotion, stale completion, document switch,
   queue epoch, failure, and retry behavior.
 
+The standalone browser test now holds A's real IndexedDB transaction-completion
+callback, accepts and flushes B and then C while A remains in flight, releases
+A, and observes exactly two LocalText puts: A and C. Both encoded values are
+measured at the exact expected UTF-16 length; reload restores C. This traverses
+`queue.complete → Promoted → update_archive_queue → local_archive_write_command
+→ archive_storage.replace → pending.encoded → IndexedDB`.
+
 Validation completed before measurement:
 
 - repository JS tests: 19/19;
 - internal Rabbita JS tests: 162/162;
 - Loomark module JS tests: 7,508/7,508;
-- standalone browser tests: 15/15;
+- standalone browser tests: 16/16;
 - independent MoonBit review: PASS with no remaining blocker or warning;
 - generated repository interface: two intentional additive methods and no
   trait-bound drift.
@@ -129,6 +144,30 @@ and the median W2 p95 was unchanged from the current-main baseline.
 | 256 KiB | 0/30 | 0 ms | 9.1 ms | 0.1 ms | 257.8 ms | 4.5 ms |
 | 1 MiB | 30/30 | 89 ms | 37.4 ms | 0.1 ms | 339.5 ms | 38.9 ms |
 
+### Counterbalanced immediate-input guard
+
+The initial launch medians left the `1.10×` native-mutation guard unresolved:
+41.5/37.5 was `1.1067×`, while the size matrix reported 37.4 ms. Before the
+follow-up samples were observed, the comparison was fixed as five adjacent
+base/candidate pairs with alternating order (`B-C`, `C-B`, `B-C`, `C-B`,
+`B-C`). Each launch used five warmups and thirty 1 MiB samples. The decision
+statistic is the median of the five candidate/base native-mutation p95 ratios;
+the gate passes when that statistic is at most `1.10`.
+
+| Pair | Order | Base native p95 | Candidate native p95 | Ratio |
+|---:|---|---:|---:|---:|
+| 1 | B-C | 38.2 ms | 36.2 ms | 0.9476× |
+| 2 | C-B | 34.6 ms | 34.5 ms | 0.9971× |
+| 3 | B-C | 38.2 ms | 35.8 ms | 0.9372× |
+| 4 | C-B | 42.7 ms | 35.8 ms | 0.8384× |
+| 5 | B-C | 42.7 ms | 40.3 ms | 0.9438× |
+| **Median** | — | **38.2 ms** | **35.8 ms** | **0.9438×** |
+
+The maximum paired ratio was `0.9971×`. Input-handler p95 was 0.1 ms for every
+base and candidate launch. The immediate-input guard therefore **passes**.
+The same launches retained the selected-checkpoint STOP result: candidate W2
+long-task p95 had an 87 ms launch median and remained above 70.5 ms.
+
 ## Materialization and durability accounting
 
 The runner observed one acknowledged LocalText `put` per measured sample. Code
@@ -161,10 +200,14 @@ creates a long task.
 
 Further work requires a separate evidence-backed decision after #1351 provides
 revision-bound snapshots. This issue does not authorize guessing between
-Worker placement, chunking, or a different Source representation.
+Worker placement, chunking, or a different Source representation. The
+counterbalanced immediate-input guard passes; that result does not change the
+selected-checkpoint STOP.
 
 The compact machine-readable result and raw-run digests are in
 [`2026-08-24-loomark-persistence-intent-coalescing.json`](2026-08-24-loomark-persistence-intent-coalescing.json).
 The complete baseline, three candidate launches, and candidate size-matrix
 samples are in
 [`2026-08-24-loomark-persistence-intent-coalescing-raw.json`](2026-08-24-loomark-persistence-intent-coalescing-raw.json).
+The ten counterbalanced immediate-input launches are in
+[`2026-08-24-loomark-persistence-intent-immediate-input-paired-raw.json`](2026-08-24-loomark-persistence-intent-immediate-input-paired-raw.json).

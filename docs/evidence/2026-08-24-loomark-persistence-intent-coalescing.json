@@ -1,9 +1,12 @@
 {
   "schema": "loomark-persistence-intent-coalescing-evidence-v1",
   "issue": 1360,
-  "raw_evidence": "2026-08-24-loomark-persistence-intent-coalescing-raw.json",
-  "base_commit": "298f3ccf527de1447adde3bcab82140dd4eaddb2",
-  "candidate_code_commit": "0458a5827598bcdec4a14c956b8d93dd43e9ec73",
+  "initial_raw_evidence": "2026-08-24-loomark-persistence-intent-coalescing-raw.json",
+  "initial_base_commit": "298f3ccf527de1447adde3bcab82140dd4eaddb2",
+  "initial_candidate_code_commit": "0458a5827598bcdec4a14c956b8d93dd43e9ec73",
+  "paired_immediate_input_raw_evidence": "2026-08-24-loomark-persistence-intent-immediate-input-paired-raw.json",
+  "paired_base_commit": "1f24c66042115763040a029d05fc753eb30902a4",
+  "paired_candidate_code_commit": "8b792bf495000549aa0f9664871a2c8a3da7dec9",
   "environment": {
     "browser": "149.0.7827.55",
     "node": "v24.14.1",
@@ -120,6 +123,77 @@
     "candidate_1mib_encoded_utf16_min_per_sample": 1048684,
     "candidate_1mib_encoded_utf16_max_per_sample": 1048713,
     "derivation": "storage.replace calls selected pending.encoded exactly once; the runner observed one acknowledged LocalText put per sample; encoded lengths use the fixed v1 JSON shape and measured ASCII source lengths"
+  },
+  "local_text_preparation_contract": {
+    "recoverable": false,
+    "result_shape": "PreparedLocalArchive",
+    "reason": "prepare_local_text constructs and stringifies a MoonBit Json value from valid String and LoomarkDocumentId inputs; it has no recoverable preparation-failure channel",
+    "fallible_boundary": "correlated IndexedDB replacement"
+  },
+  "immediate_input_gate": {
+    "threshold_ratio": 1.1,
+    "metric": "loomark_production.native_mutation_ms.p95_ms",
+    "aggregation": "median of five adjacent candidate/base p95 ratios",
+    "launch_order": [
+      "base",
+      "candidate",
+      "candidate",
+      "base",
+      "base",
+      "candidate",
+      "candidate",
+      "base",
+      "base",
+      "candidate"
+    ],
+    "fixed_before_samples_were_observed": true,
+    "pairs": [
+      {
+        "pair": 1,
+        "base_p95_ms": 38.2,
+        "candidate_p95_ms": 36.2,
+        "ratio": 0.9476439790575917,
+        "base_raw_sha256": "a98692fb1fd29e775825cf9e4f3a5849a3af2ebda5d384589030fc07a140947a",
+        "candidate_raw_sha256": "7083d9329c11be0f7ab0a60f14612128bce64612975202dad41cf8eb09ab20b7"
+      },
+      {
+        "pair": 2,
+        "base_p95_ms": 34.6,
+        "candidate_p95_ms": 34.5,
+        "ratio": 0.9971098265895953,
+        "base_raw_sha256": "34d926870ea925fd5f8bccbd904b84d08fe7f5de7a5a02e2e120a40c4ff2447c",
+        "candidate_raw_sha256": "614899c3a0f6e3bfbac65f5f676de2dab67314bfe3f56b26671a67c70f1b92de"
+      },
+      {
+        "pair": 3,
+        "base_p95_ms": 38.2,
+        "candidate_p95_ms": 35.8,
+        "ratio": 0.9371727748691098,
+        "base_raw_sha256": "6eacb71e405e4a65349180addb5f4ef168f426152d2afa7667dec998fef7aad4",
+        "candidate_raw_sha256": "6ba4fb34589d9cbf04bbcad0c023d352bd2de0975929fb3ba6c8a4b41d270396"
+      },
+      {
+        "pair": 4,
+        "base_p95_ms": 42.7,
+        "candidate_p95_ms": 35.8,
+        "ratio": 0.838407494145199,
+        "base_raw_sha256": "9d36d3d63b7e933f38983d08a431708fb469d4a4d1eb1ee12945b1d0abd42c2b",
+        "candidate_raw_sha256": "3252a41d11c85166bd782db36c1315443db3cef6a6b2a1bc2e7e9cf0e89c76b4"
+      },
+      {
+        "pair": 5,
+        "base_p95_ms": 42.7,
+        "candidate_p95_ms": 40.3,
+        "ratio": 0.9437939110070256,
+        "base_raw_sha256": "3a3fc9458112800f4f3cdce97571ab71a24f64379a899a3bb2aa94aa4764dae5",
+        "candidate_raw_sha256": "89a2793517071858e477f2db8b4666cbf0a7991f00ebc4a1ef49de9c92264f3a"
+      }
+    ],
+    "observed_ratio": 0.9437939110070256,
+    "maximum_pair_ratio": 0.9971098265895953,
+    "input_handler_base_p95_median_ms": 0.1,
+    "input_handler_candidate_p95_median_ms": 0.1,
+    "passed": true
   },
   "decision": {
     "historical_material_win_gate_ms": 70.5,
