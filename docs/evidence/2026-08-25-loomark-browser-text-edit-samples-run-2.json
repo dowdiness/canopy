@@ -1,0 +1,606 @@
+{
+  "measuredAt": "2026-08-25T09:09:56.858Z",
+  "browser": "149.0.7827.55",
+  "node": "v24.14.1",
+  "fixture": {
+    "units": 250,
+    "utf16CodeUnits": 22419,
+    "lines": 1000,
+    "approximateMarkdownBlocks": 500
+  },
+  "repetitions": 5,
+  "metrics": "Accepted edits: 90 · Complete value reads: 0 · Value-length reads: 180 · Recoveries: 0 · Complete-source diffs: 0 · Last input: insertText · Last recovery: -",
+  "notes": [
+    "The practical corpus is installed through browser storage before measurement.",
+    "Every measured operation and its unmeasured inverse use native beforeinput/input events.",
+    "No complete textarea value is read and no complete-source diff is called on the measured path.",
+    "loomark-preview-total is after-render wall time and includes frame scheduling wait."
+  ],
+  "samples": [
+    {
+      "position": "beginning",
+      "block": 0,
+      "operation": "insert",
+      "repetition": 0,
+      "phases": {
+        "loomark-preview-parser-edit": 3.5999999940395355,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 7,
+        "loomark-preview-materialize": 2.3999999910593033,
+        "loomark-preview-total": 14.399999991059303
+      }
+    },
+    {
+      "position": "beginning",
+      "block": 0,
+      "operation": "insert",
+      "repetition": 1,
+      "phases": {
+        "loomark-preview-parser-edit": 0.7999999970197678,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 3.2999999970197678,
+        "loomark-preview-materialize": 1.1000000089406967,
+        "loomark-preview-total": 13
+      }
+    },
+    {
+      "position": "beginning",
+      "block": 0,
+      "operation": "insert",
+      "repetition": 2,
+      "phases": {
+        "loomark-preview-parser-edit": 0.9000000059604645,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 2.3999999910593033,
+        "loomark-preview-materialize": 0.7999999970197678,
+        "loomark-preview-total": 8.099999994039536
+      }
+    },
+    {
+      "position": "beginning",
+      "block": 0,
+      "operation": "insert",
+      "repetition": 3,
+      "phases": {
+        "loomark-preview-parser-edit": 0.5999999940395355,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 2,
+        "loomark-preview-materialize": 0.8999999910593033,
+        "loomark-preview-total": 6.799999997019768
+      }
+    },
+    {
+      "position": "beginning",
+      "block": 0,
+      "operation": "insert",
+      "repetition": 4,
+      "phases": {
+        "loomark-preview-parser-edit": 0.6000000089406967,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 1.9000000059604645,
+        "loomark-preview-materialize": 0.699999988079071,
+        "loomark-preview-total": 14.700000002980232
+      }
+    },
+    {
+      "position": "beginning",
+      "block": 0,
+      "operation": "delete",
+      "repetition": 0,
+      "phases": {
+        "loomark-preview-parser-edit": 1.5999999940395355,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 2.2000000029802322,
+        "loomark-preview-materialize": 0.7000000029802322,
+        "loomark-preview-total": 15.600000008940697
+      }
+    },
+    {
+      "position": "beginning",
+      "block": 0,
+      "operation": "delete",
+      "repetition": 1,
+      "phases": {
+        "loomark-preview-parser-edit": 0.30000001192092896,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 1.7999999970197678,
+        "loomark-preview-materialize": 0.7999999970197678,
+        "loomark-preview-total": 15.5
+      }
+    },
+    {
+      "position": "beginning",
+      "block": 0,
+      "operation": "delete",
+      "repetition": 2,
+      "phases": {
+        "loomark-preview-parser-edit": 0.5999999940395355,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 1.7999999970197678,
+        "loomark-preview-materialize": 0.7000000029802322,
+        "loomark-preview-total": 15.099999994039536
+      }
+    },
+    {
+      "position": "beginning",
+      "block": 0,
+      "operation": "delete",
+      "repetition": 3,
+      "phases": {
+        "loomark-preview-parser-edit": 0.5999999940395355,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 2.7000000029802322,
+        "loomark-preview-materialize": 0.7999999970197678,
+        "loomark-preview-total": 15.299999997019768
+      }
+    },
+    {
+      "position": "beginning",
+      "block": 0,
+      "operation": "delete",
+      "repetition": 4,
+      "phases": {
+        "loomark-preview-parser-edit": 0.5999999940395355,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 3.2999999970197678,
+        "loomark-preview-materialize": 0.7999999970197678,
+        "loomark-preview-total": 15.700000002980232
+      }
+    },
+    {
+      "position": "beginning",
+      "block": 0,
+      "operation": "replace",
+      "repetition": 0,
+      "phases": {
+        "loomark-preview-parser-edit": 1.4000000059604645,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 2.5,
+        "loomark-preview-materialize": 0.7000000029802322,
+        "loomark-preview-total": 10.899999991059303
+      }
+    },
+    {
+      "position": "beginning",
+      "block": 0,
+      "operation": "replace",
+      "repetition": 1,
+      "phases": {
+        "loomark-preview-parser-edit": 0.9000000059604645,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 3.300000011920929,
+        "loomark-preview-materialize": 1.5,
+        "loomark-preview-total": 14.200000002980232
+      }
+    },
+    {
+      "position": "beginning",
+      "block": 0,
+      "operation": "replace",
+      "repetition": 2,
+      "phases": {
+        "loomark-preview-parser-edit": 0.7000000029802322,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 2.2999999970197678,
+        "loomark-preview-materialize": 0.7000000029802322,
+        "loomark-preview-total": 13.5
+      }
+    },
+    {
+      "position": "beginning",
+      "block": 0,
+      "operation": "replace",
+      "repetition": 3,
+      "phases": {
+        "loomark-preview-parser-edit": 0.699999988079071,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 1.7000000029802322,
+        "loomark-preview-materialize": 0.6000000089406967,
+        "loomark-preview-total": 13.900000005960464
+      }
+    },
+    {
+      "position": "beginning",
+      "block": 0,
+      "operation": "replace",
+      "repetition": 4,
+      "phases": {
+        "loomark-preview-parser-edit": 0.7000000029802322,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 2.2999999970197678,
+        "loomark-preview-materialize": 1.4000000059604645,
+        "loomark-preview-total": 14.700000002980232
+      }
+    },
+    {
+      "position": "middle",
+      "block": 125,
+      "operation": "insert",
+      "repetition": 0,
+      "phases": {
+        "loomark-preview-parser-edit": 1.7000000029802322,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 3.7999999970197678,
+        "loomark-preview-materialize": 0.7999999970197678,
+        "loomark-preview-total": 10.599999994039536
+      }
+    },
+    {
+      "position": "middle",
+      "block": 125,
+      "operation": "insert",
+      "repetition": 1,
+      "phases": {
+        "loomark-preview-parser-edit": 0.7999999970197678,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 2.5,
+        "loomark-preview-materialize": 1.2999999970197678,
+        "loomark-preview-total": 7.699999988079071
+      }
+    },
+    {
+      "position": "middle",
+      "block": 125,
+      "operation": "insert",
+      "repetition": 2,
+      "phases": {
+        "loomark-preview-parser-edit": 0.5999999940395355,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 2,
+        "loomark-preview-materialize": 0.6000000089406967,
+        "loomark-preview-total": 5.9000000059604645
+      }
+    },
+    {
+      "position": "middle",
+      "block": 125,
+      "operation": "insert",
+      "repetition": 3,
+      "phases": {
+        "loomark-preview-parser-edit": 0.5999999940395355,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 1.9000000059604645,
+        "loomark-preview-materialize": 0.5999999940395355,
+        "loomark-preview-total": 5.300000011920929
+      }
+    },
+    {
+      "position": "middle",
+      "block": 125,
+      "operation": "insert",
+      "repetition": 4,
+      "phases": {
+        "loomark-preview-parser-edit": 0.800000011920929,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 1.7000000029802322,
+        "loomark-preview-materialize": 0.4000000059604645,
+        "loomark-preview-total": 5.4000000059604645
+      }
+    },
+    {
+      "position": "middle",
+      "block": 125,
+      "operation": "delete",
+      "repetition": 0,
+      "phases": {
+        "loomark-preview-parser-edit": 1.0999999940395355,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 2.2999999970197678,
+        "loomark-preview-materialize": 0.7000000029802322,
+        "loomark-preview-total": 15.299999997019768
+      }
+    },
+    {
+      "position": "middle",
+      "block": 125,
+      "operation": "delete",
+      "repetition": 1,
+      "phases": {
+        "loomark-preview-parser-edit": 0.699999988079071,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 1.7999999970197678,
+        "loomark-preview-materialize": 0.7000000029802322,
+        "loomark-preview-total": 15.400000005960464
+      }
+    },
+    {
+      "position": "middle",
+      "block": 125,
+      "operation": "delete",
+      "repetition": 2,
+      "phases": {
+        "loomark-preview-parser-edit": 0.5,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 1.7999999970197678,
+        "loomark-preview-materialize": 0.5,
+        "loomark-preview-total": 15.099999994039536
+      }
+    },
+    {
+      "position": "middle",
+      "block": 125,
+      "operation": "delete",
+      "repetition": 3,
+      "phases": {
+        "loomark-preview-parser-edit": 0.5999999940395355,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 1.9000000059604645,
+        "loomark-preview-materialize": 0.5,
+        "loomark-preview-total": 16
+      }
+    },
+    {
+      "position": "middle",
+      "block": 125,
+      "operation": "delete",
+      "repetition": 4,
+      "phases": {
+        "loomark-preview-parser-edit": 0.5,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 1.7000000029802322,
+        "loomark-preview-materialize": 0.5999999940395355,
+        "loomark-preview-total": 15.5
+      }
+    },
+    {
+      "position": "middle",
+      "block": 125,
+      "operation": "replace",
+      "repetition": 0,
+      "phases": {
+        "loomark-preview-parser-edit": 0.8999999910593033,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 2.1000000089406967,
+        "loomark-preview-materialize": 0.5999999940395355,
+        "loomark-preview-total": 14.5
+      }
+    },
+    {
+      "position": "middle",
+      "block": 125,
+      "operation": "replace",
+      "repetition": 1,
+      "phases": {
+        "loomark-preview-parser-edit": 0.3999999910593033,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 1.5999999940395355,
+        "loomark-preview-materialize": 0.6000000089406967,
+        "loomark-preview-total": 13.599999994039536
+      }
+    },
+    {
+      "position": "middle",
+      "block": 125,
+      "operation": "replace",
+      "repetition": 2,
+      "phases": {
+        "loomark-preview-parser-edit": 0.4000000059604645,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 1.800000011920929,
+        "loomark-preview-materialize": 0.5999999940395355,
+        "loomark-preview-total": 12.700000002980232
+      }
+    },
+    {
+      "position": "middle",
+      "block": 125,
+      "operation": "replace",
+      "repetition": 3,
+      "phases": {
+        "loomark-preview-parser-edit": 0.3999999910593033,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 1.7999999970197678,
+        "loomark-preview-materialize": 0.6000000089406967,
+        "loomark-preview-total": 15.400000005960464
+      }
+    },
+    {
+      "position": "middle",
+      "block": 125,
+      "operation": "replace",
+      "repetition": 4,
+      "phases": {
+        "loomark-preview-parser-edit": 0.7000000029802322,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 2.2000000029802322,
+        "loomark-preview-materialize": 0.5999999940395355,
+        "loomark-preview-total": 12.399999991059303
+      }
+    },
+    {
+      "position": "end",
+      "block": 249,
+      "operation": "insert",
+      "repetition": 0,
+      "phases": {
+        "loomark-preview-parser-edit": 0.8999999910593033,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 2.0999999940395355,
+        "loomark-preview-materialize": 0.6000000089406967,
+        "loomark-preview-total": 8.799999997019768
+      }
+    },
+    {
+      "position": "end",
+      "block": 249,
+      "operation": "insert",
+      "repetition": 1,
+      "phases": {
+        "loomark-preview-parser-edit": 2,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 2.2000000029802322,
+        "loomark-preview-materialize": 0.5,
+        "loomark-preview-total": 12.5
+      }
+    },
+    {
+      "position": "end",
+      "block": 249,
+      "operation": "insert",
+      "repetition": 2,
+      "phases": {
+        "loomark-preview-parser-edit": 0.4000000059604645,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 2.4000000059604645,
+        "loomark-preview-materialize": 1,
+        "loomark-preview-total": 12.400000005960464
+      }
+    },
+    {
+      "position": "end",
+      "block": 249,
+      "operation": "insert",
+      "repetition": 3,
+      "phases": {
+        "loomark-preview-parser-edit": 0.5,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 2.7000000029802322,
+        "loomark-preview-materialize": 1.0999999940395355,
+        "loomark-preview-total": 11.799999997019768
+      }
+    },
+    {
+      "position": "end",
+      "block": 249,
+      "operation": "insert",
+      "repetition": 4,
+      "phases": {
+        "loomark-preview-parser-edit": 0.5,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 2.1000000089406967,
+        "loomark-preview-materialize": 0.7999999970197678,
+        "loomark-preview-total": 12.200000002980232
+      }
+    },
+    {
+      "position": "end",
+      "block": 249,
+      "operation": "delete",
+      "repetition": 0,
+      "phases": {
+        "loomark-preview-parser-edit": 1,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 2,
+        "loomark-preview-materialize": 0.5,
+        "loomark-preview-total": 15.399999991059303
+      }
+    },
+    {
+      "position": "end",
+      "block": 249,
+      "operation": "delete",
+      "repetition": 1,
+      "phases": {
+        "loomark-preview-parser-edit": 0.8999999910593033,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 2.2999999970197678,
+        "loomark-preview-materialize": 0.5,
+        "loomark-preview-total": 15
+      }
+    },
+    {
+      "position": "end",
+      "block": 249,
+      "operation": "delete",
+      "repetition": 2,
+      "phases": {
+        "loomark-preview-parser-edit": 0.9000000059604645,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 2.5,
+        "loomark-preview-materialize": 0.6000000089406967,
+        "loomark-preview-total": 16
+      }
+    },
+    {
+      "position": "end",
+      "block": 249,
+      "operation": "delete",
+      "repetition": 3,
+      "phases": {
+        "loomark-preview-parser-edit": 0.6000000089406967,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 2.4000000059604645,
+        "loomark-preview-materialize": 0.5999999940395355,
+        "loomark-preview-total": 16.100000008940697
+      }
+    },
+    {
+      "position": "end",
+      "block": 249,
+      "operation": "delete",
+      "repetition": 4,
+      "phases": {
+        "loomark-preview-parser-edit": 0.5999999940395355,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 2.6000000089406967,
+        "loomark-preview-materialize": 0.5,
+        "loomark-preview-total": 15.299999997019768
+      }
+    },
+    {
+      "position": "end",
+      "block": 249,
+      "operation": "replace",
+      "repetition": 0,
+      "phases": {
+        "loomark-preview-parser-edit": 1.4000000059604645,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 2.7000000029802322,
+        "loomark-preview-materialize": 0.5999999940395355,
+        "loomark-preview-total": 12.400000005960464
+      }
+    },
+    {
+      "position": "end",
+      "block": 249,
+      "operation": "replace",
+      "repetition": 1,
+      "phases": {
+        "loomark-preview-parser-edit": 0.5,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 2.0999999940395355,
+        "loomark-preview-materialize": 0.5,
+        "loomark-preview-total": 11.700000002980232
+      }
+    },
+    {
+      "position": "end",
+      "block": 249,
+      "operation": "replace",
+      "repetition": 2,
+      "phases": {
+        "loomark-preview-parser-edit": 0.5999999940395355,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 2.2000000029802322,
+        "loomark-preview-materialize": 0.5,
+        "loomark-preview-total": 13
+      }
+    },
+    {
+      "position": "end",
+      "block": 249,
+      "operation": "replace",
+      "repetition": 3,
+      "phases": {
+        "loomark-preview-parser-edit": 0.5999999940395355,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 2.2000000029802322,
+        "loomark-preview-materialize": 0.5999999940395355,
+        "loomark-preview-total": 13.600000008940697
+      }
+    },
+    {
+      "position": "end",
+      "block": 249,
+      "operation": "replace",
+      "repetition": 4,
+      "phases": {
+        "loomark-preview-parser-edit": 0.5999999940395355,
+        "loomark-preview-parser": 0,
+        "loomark-preview-semantic": 2,
+        "loomark-preview-materialize": 0.4000000059604645,
+        "loomark-preview-total": 12.800000011920929
+      }
+    }
+  ]
+}
