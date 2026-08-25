@@ -118,21 +118,45 @@ fn Driver::watchdog(self : Driver, id : Int) -> Unit {
 }
 
 ///|
+fn Driver::start_recovery(self : Driver, peer : String) -> Unit raise {
+  // Each named recovery explicitly injects its own first retryable failure.
+  self.fail_next_apply = true
+  let host = self.host()
+  let msg = empty_message()
+  let buf = Buffer()
+  buf.write_string_utf16le(msg.to_json_string().view())
+  self.session.on_message(
+    @wire.encode_relayed_crdt_ops(peer, buf.to_bytes()),
+    host,
+  )
+}
+
+///|
+fn Driver::receive_response(
+  self : Driver,
+  sender : String,
+  request_id : Int,
+  helpful : Bool,
+) -> Unit raise {
+  let sync_json = if helpful { empty_message().to_json_string() } else { "" }
+  let host = self.host()
+  self.session.on_message(
+    @wire.encode_sync_response(
+      target=sender,
+      request_id=request_id.to_string(),
+      sync_json~,
+    ),
+    host,
+  )
+}
+
+///|
 fn Driver::apply_action(self : Driver, action : String) -> Unit raise {
   match action {
-    "open" => self.session.on_open()
-    "startRecovery" | "startRecoveryAgain" => {
-      // Each named recovery explicitly injects its own first retryable failure.
-      self.fail_next_apply = true
-      let host = self.host()
-      let msg = empty_message()
-      let buf = Buffer()
-      buf.write_string_utf16le(msg.to_json_string().view())
-      self.session.on_message(
-        @wire.encode_relayed_crdt_ops("alice", buf.to_bytes()),
-        host,
-      )
-    }
+    "open" | "openAlice" => self.session.on_open()
+    "openBob" | "openCarol" | "bobRepliesEmpty" | "bobRepliesHelpful" => ()
+    "startRecovery" | "startRecoveryAgain" => self.start_recovery("alice")
+    "aliceStartsRecovery" => self.start_recovery("bob")
     "watchdogCurrent" =>
       if self.broken {
         // Negative control: the real driver skips this named operation.
@@ -146,6 +170,14 @@ fn Driver::apply_action(self : Driver, action : String) -> Unit raise {
       let id = self.scheduled[self.scheduled.length() - 1].0
       self.watchdog(id)
     }
+    "aliceReceivesEmpty" =>
+      if self.broken {
+        ()
+      } else {
+        self.receive_response("bob", 1, false)
+      }
+    "aliceFiresStaleTimeout1" => self.watchdog(self.scheduled[0].0)
+    "aliceReceivesHelpful" => self.receive_response("bob", 2, true)
     "noteSyncApplied" => self.session.note_sync_applied()
     "peerLeftTarget" => {
       let host = self.host()
@@ -179,16 +211,78 @@ fn project(driver : Driver) -> Json {
 }
 
 ///|
+fn project_choreo(driver : Driver) -> Json {
+  guard project(driver) is Object(fields) else {
+    abort("project must be an object")
+  }
+  let projected = fields.copy()
+  let request_id = if driver.scheduled.is_empty() {
+    0
+  } else {
+    driver.scheduled[driver.scheduled.length() - 1].0
+  }
+  projected["requestId"] = itf_int(request_id)
+  Json::object(projected)
+}
+
+///|
 fn expected(value : Json) -> Result[Json, String] {
   Ok(value)
 }
 
 ///|
+fn expected_choreo(value : Json) -> Result[Json, String] {
+  guard value is Object(fields) else {
+    return Err("Choreo display must be an object")
+  }
+  let status = match fields.get("status") {
+    Some(String(status)) => status
+    _ => return Err("Choreo display is missing status")
+  }
+  let target = match fields.get("target") {
+    Some(String(target)) => target
+    _ => return Err("Choreo display is missing target")
+  }
+  let attempt = match fields.get("attempt") {
+    Some(value) =>
+      match @quint_connect.decode_itf_int(value) {
+        Ok(attempt) => attempt
+        Err(reason) => return Err(reason)
+      }
+    None => return Err("Choreo display is missing attempt")
+  }
+  let normalized_status = match status {
+    "Recovering" => "Recovering(\{target},\{attempt})"
+    "Error(Exhausted)" => "Error(Exhausted(peer_id=\{target}))"
+    "Error(TargetLeft)" => "Error(TargetLeft(peer_id=\{target}))"
+    other => other
+  }
+  let normalized = fields.copy()
+  // Target is observable through public Recovering/Error status while active;
+  // requestId remains explicit and is compared with the scheduler callback ID.
+  normalized.remove("target")
+  normalized["status"] = normalized_status.to_json()
+  Ok(Json::object(normalized))
+}
+
+///|
 async fn main {
   let args = @env.args()
-  guard args.length() >= 2 else { abort("usage: prototype TRACE [--broken]") }
+  guard args.length() >= 2 else {
+    abort("usage: prototype TRACE [--choreo] [--broken]")
+  }
   let broken = args.any(arg => arg == "--broken")
-  let trace = match @quint_connect.parse_itf(@fs.read_file(args[1]).text()) {
+  let choreo = args.any(arg => arg == "--choreo")
+  let trace_text = @fs.read_file(args[1]).text()
+  let trace_result = if choreo {
+    @quint_connect.parse_itf_with_config(trace_text, {
+      state_path: ["RecoveryChoreo::choreo::display"],
+      nondet_path: [],
+    })
+  } else {
+    @quint_connect.parse_itf(trace_text)
+  }
+  let trace = match trace_result {
     Ok(value) => value
     Err(error) => abort("ITF parse failed: \{@debug.to_string(error)}")
   }
@@ -205,8 +299,16 @@ async fn main {
         Ok(driver)
       }
     },
-    project,
-    expected,
+    if choreo {
+      project_choreo
+    } else {
+      project
+    },
+    if choreo {
+      expected_choreo
+    } else {
+      expected
+    },
   )
   match result {
     Ok(summary) => println("PASS: \{summary.states_checked} states matched")
