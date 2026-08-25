@@ -1,14 +1,34 @@
 // Whitebox tests for position-based edit API (insert_at / delete_at).
 
 ///|
+fn assert_range_change(
+  change : @text_change.TextChange,
+  start : Int,
+  delete_len : Int,
+  inserted : String,
+) -> Unit {
+  match change {
+    @text_change.TextChange::ReplaceRange(
+      start=actual_start,
+      delete_len=actual_delete_len,
+      inserted=actual_inserted
+    ) =>
+      if actual_start != start ||
+        actual_delete_len != delete_len ||
+        actual_inserted != inserted {
+        abort("ReplaceRange fields differ from expected values")
+      }
+    @text_change.TextChange::ReplaceAll(_) => abort("expected ReplaceRange")
+  }
+}
+
+///|
 test "set_text_with_change returns the applied splice" {
   let editor = try! @probe.new_test_editor("test-agent")
   editor.set_text("hello")
   let (change, accepted) = editor.set_text_with_change("hello!")
   assert_true(accepted)
-  inspect(change.start, content="5")
-  inspect(change.delete_len, content="0")
-  inspect(change.inserted, content="!")
+  assert_range_change(change, 5, 0, "!")
   inspect(editor.get_text(), content="hello!")
 }
 
@@ -18,9 +38,7 @@ test "set_text_with_change returns a replacement splice" {
   editor.set_text("hello")
   let (change, accepted) = editor.set_text_with_change("jello")
   assert_true(accepted)
-  inspect(change.start, content="0")
-  inspect(change.delete_len, content="1")
-  inspect(change.inserted, content="j")
+  assert_range_change(change, 0, 1, "j")
   inspect(editor.get_text(), content="jello")
 }
 
@@ -32,18 +50,14 @@ test "set_text_with_change preserves grapheme-aware append fallbacks" {
     "é",
   )
   assert_true(combining_accepted)
-  inspect(combining_change.start, content="0")
-  inspect(combining_change.delete_len, content="1")
-  inspect(combining_change.inserted, content="é")
+  assert_range_change(combining_change, 0, 1, "é")
   inspect(combining.get_text(), content="é")
 
   let crlf = try! @probe.new_test_editor("crlf-agent")
   crlf.set_text("\r")
   let (crlf_change, crlf_accepted) = crlf.set_text_with_change("\r\n")
   assert_true(crlf_accepted)
-  inspect(crlf_change.start, content="0")
-  inspect(crlf_change.delete_len, content="1")
-  inspect(crlf_change.inserted, content="\r\n")
+  assert_range_change(crlf_change, 0, 1, "\r\n")
   inspect(crlf.get_text(), content="\r\n")
 
   let emoji_append = try! @probe.new_test_editor("emoji-append-agent")
@@ -52,9 +66,7 @@ test "set_text_with_change preserves grapheme-aware append fallbacks" {
     "a😀x",
   )
   assert_true(emoji_append_accepted)
-  inspect(emoji_append_change.start, content="3")
-  inspect(emoji_append_change.delete_len, content="0")
-  inspect(emoji_append_change.inserted, content="x")
+  assert_range_change(emoji_append_change, 3, 0, "x")
   inspect(emoji_append.get_text(), content="a😀x")
 
   let emoji_insert = try! @probe.new_test_editor("emoji-insert-agent")
@@ -63,9 +75,7 @@ test "set_text_with_change preserves grapheme-aware append fallbacks" {
     "a😀",
   )
   assert_true(emoji_insert_accepted)
-  inspect(emoji_insert_change.start, content="1")
-  inspect(emoji_insert_change.delete_len, content="0")
-  inspect(emoji_insert_change.inserted, content="😀")
+  assert_range_change(emoji_insert_change, 1, 0, "😀")
   inspect(emoji_insert.get_text(), content="a😀")
 }
 

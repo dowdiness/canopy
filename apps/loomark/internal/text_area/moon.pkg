@@ -1,9 +1,7 @@
 import {
-  "dowdiness/loomark/internal/browser_storage",
-  "dowdiness/loomark/internal/text_area",
   "dowdiness/text_change",
-  "moonbit-community/rabbita",
   "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/dom",
   "moonbit-community/rabbita/html",
 }
 

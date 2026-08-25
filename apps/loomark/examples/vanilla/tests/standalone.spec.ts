@@ -229,12 +229,38 @@ test("IME composition saves only after composition ends", async ({ page }) => {
   await page.waitForTimeout(300)
   expect((await readStoredDocument(page))?.text).toBe("")
 
-  await text.evaluate(element => {
+  const terminalValueReads = await text.evaluate(element => {
+    const descriptor = Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      "value",
+    )
+    if (!descriptor?.get || !descriptor.set) throw new Error("textarea value descriptor missing")
+    let reads = 0
+    Object.defineProperty(HTMLTextAreaElement.prototype, "value", {
+      configurable: true,
+      enumerable: descriptor.enumerable,
+      get() {
+        reads += 1
+        return descriptor.get?.call(this)
+      },
+      set(value: string) {
+        descriptor.set?.call(this, value)
+      },
+    })
     element.dispatchEvent(new CompositionEvent("compositionend", {
       bubbles: true,
       data: "変換中",
     }))
+    element.dispatchEvent(new InputEvent("input", {
+      bubbles: true,
+      composed: true,
+      data: "変換中",
+      inputType: "insertText",
+    }))
+    Object.defineProperty(HTMLTextAreaElement.prototype, "value", descriptor)
+    return reads
   })
+  expect(terminalValueReads).toBe(0)
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
     .toBe("変換中")
 })
@@ -278,6 +304,90 @@ test("invalid stored document opens Recovery without overwriting it", async ({ p
     .toBeVisible()
   await expect(page.getByRole("textbox", { name: "Text" })).toHaveCount(0)
   expect(await readStoredDocumentRaw(page)).toBe(invalidDocument)
+})
+
+test("native range edits avoid complete value access and native undo reads once", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.waitFor()
+  await page.evaluate(() => {
+    const descriptor = Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      "value",
+    )
+    if (!descriptor?.get || !descriptor.set) throw new Error("textarea value descriptor missing")
+    ;(globalThis as any).__loomarkValueDescriptor = descriptor
+    ;(globalThis as any).__loomarkValueReads = 0
+    ;(globalThis as any).__loomarkValueWrites = 0
+    Object.defineProperty(HTMLTextAreaElement.prototype, "value", {
+      configurable: true,
+      enumerable: descriptor.enumerable,
+      get() {
+        ;(globalThis as any).__loomarkValueReads += 1
+        return descriptor.get?.call(this)
+      },
+      set(value: string) {
+        ;(globalThis as any).__loomarkValueWrites += 1
+        descriptor.set?.call(this, value)
+      },
+    })
+  })
+
+  await text.focus()
+  await page.keyboard.type("abc")
+  await text.evaluate(element => (element as HTMLTextAreaElement).setSelectionRange(1, 2))
+  await page.keyboard.insertText("X")
+  await page.keyboard.press("Backspace")
+  await page.keyboard.press("End")
+  await page.keyboard.press("Enter")
+  await page.keyboard.insertText("🤣é")
+
+  expect(await page.evaluate(() => ({
+    reads: (globalThis as any).__loomarkValueReads as number,
+    writes: (globalThis as any).__loomarkValueWrites as number,
+  }))).toEqual({ reads: 0, writes: 0 })
+
+  await page.keyboard.press("Control+Z")
+  expect(await page.evaluate(() => ({
+    reads: (globalThis as any).__loomarkValueReads as number,
+    writes: (globalThis as any).__loomarkValueWrites as number,
+  }))).toEqual({ reads: 1, writes: 0 })
+
+  const browserText = await page.evaluate(() => {
+    const descriptor = (globalThis as any).__loomarkValueDescriptor as PropertyDescriptor
+    Object.defineProperty(HTMLTextAreaElement.prototype, "value", descriptor)
+    return (document.getElementById("loomark-text") as HTMLTextAreaElement).value
+  })
+  await expect.poll(() => readStoredDocument(page).then(document => document?.text))
+    .toBe(browserText)
+})
+
+test("mismatched insertion facts recover from the current textarea value", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.waitFor()
+
+  await text.evaluate(element => {
+    const textarea = element as HTMLTextAreaElement
+    textarea.dispatchEvent(new InputEvent("beforeinput", {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      data: "before",
+      inputType: "insertText",
+    }))
+    textarea.value = "after!"
+    textarea.dispatchEvent(new InputEvent("input", {
+      bubbles: true,
+      composed: true,
+      data: "after!",
+      inputType: "insertText",
+    }))
+  })
+
+  await expect(text).toHaveValue("after!")
+  await expect.poll(() => readStoredDocument(page).then(document => document?.text))
+    .toBe("after!")
 })
 
 test("Text input processing stays within 10 ms", async ({ page }) => {

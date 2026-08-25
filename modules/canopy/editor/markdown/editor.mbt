@@ -529,7 +529,7 @@ pub(all) enum MarkdownCommitOrigin {
 /// is relative to the source produced by every preceding transform. Applying
 /// the ordered sequence yields the receipt's post-commit snapshot source.
 pub struct MarkdownTextTransform {
-  priv change : @text_change.TextChange
+  priv change : @core.SpanEdit
 } derive(Eq, Debug)
 
 ///|
@@ -1206,11 +1206,7 @@ fn MarkdownEditor::commit_recording_transforms(
           let transform = match
             project_portable_transform(
               before,
-              @core.SpanEdit::{
-                start: change.start,
-                delete_len: change.delete_len,
-                inserted: change.inserted,
-              },
+              span_edit_from_text_change(change),
               after,
             ) {
             Ok(transform) => transform
@@ -1580,14 +1576,20 @@ fn portable_not_committed_error(
 }
 
 ///|
-fn markdown_text_transform(edit : @core.SpanEdit) -> MarkdownTextTransform {
-  MarkdownTextTransform::{
-    change: @text_change.TextChange::{
-      start: edit.start,
-      delete_len: edit.delete_len,
-      inserted: edit.inserted,
-    },
+fn span_edit_from_text_change(
+  change : @text_change.TextChange,
+) -> @core.SpanEdit {
+  match change {
+    @text_change.TextChange::ReplaceRange(start~, delete_len~, inserted~) =>
+      { start, delete_len, inserted }
+    @text_change.TextChange::ReplaceAll(_) =>
+      abort("text diff unexpectedly returned ReplaceAll")
   }
+}
+
+///|
+fn markdown_text_transform(edit : @core.SpanEdit) -> MarkdownTextTransform {
+  MarkdownTextTransform::{ change: edit }
 }
 
 ///|
@@ -1691,20 +1693,23 @@ fn reconcile_text_control_edit(
 ) -> String {
   let normalized_canonical = normalize_text_control_line_endings(canonical_text)
   let normalized_control = normalize_text_control_line_endings(control_text)
-  let change = @text_change.compute_text_change(
-    normalized_canonical, normalized_control,
-  )
-  let canonical_start = canonical_offset_for_text_control(
-    canonical_text,
-    change.start,
-  )
-  let canonical_end = canonical_offset_for_text_control(
-    canonical_text,
-    change.start + change.delete_len,
-  )
-  canonical_text[:canonical_start].to_owned() +
-  change.inserted +
-  canonical_text[canonical_end:].to_owned()
+  match
+    @text_change.compute_text_change(normalized_canonical, normalized_control) {
+    @text_change.TextChange::ReplaceRange(start~, delete_len~, inserted~) => {
+      let canonical_start = canonical_offset_for_text_control(
+        canonical_text, start,
+      )
+      let canonical_end = canonical_offset_for_text_control(
+        canonical_text,
+        start + delete_len,
+      )
+      canonical_text[:canonical_start].to_owned() +
+      inserted +
+      canonical_text[canonical_end:].to_owned()
+    }
+    @text_change.TextChange::ReplaceAll(_) =>
+      abort("compute_text_change unexpectedly returned ReplaceAll")
+  }
 }
 
 ///|

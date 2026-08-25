@@ -1,5 +1,9 @@
 ///|
-fn view(model : Model, emit : @rabbita.Emit[Msg]) -> @rabbita.Html {
+fn view(
+  model : Model,
+  emit : @rabbita.Emit[Msg],
+  text_area : @text_area.TextArea,
+) -> @rabbita.Html {
   @html.div(
     id="loomark-root",
     attrs=@html.Attrs::build()
@@ -43,15 +47,19 @@ fn view(model : Model, emit : @rabbita.Emit[Msg]) -> @rabbita.Html {
             Saved | Waiting | Saving(_) => @html.nothing
           },
           @html.textarea(
-            id="loomark-text",
-            value=editing.text,
             rows=24,
             autofocus=true,
-            on_input=emit.map(text => TextChanged(text)),
-            attrs=@html.Attrs::build()
-              .aria_label("Text")
-              .on_compositionstart(_ => emit(CompositionStarted))
-              .on_compositionend(_ => emit(CompositionEnded)),
+            attrs=text_area.attach(
+              @html.Attrs::build().aria_label("Text"),
+              change => emit(TextChanged(change)),
+              composing => {
+                if composing {
+                  emit(CompositionStarted)
+                } else {
+                  emit(CompositionEnded)
+                }
+              },
+            ),
             style=[
               "box-sizing:border-box;width:100%;min-height:calc(100dvh - 2rem)",
             ],

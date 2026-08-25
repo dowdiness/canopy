@@ -53,15 +53,20 @@ pub fn unified_diff_to_intents(
   // drives through), so future fixes to the centralized text-change logic reach
   // Codex lowering too. Its endpoints land on grapheme-cluster boundaries by
   // construction, which is what `apply_text_edit_exact` then re-checks.
-  let change = @text_change.compute_text_change(old_text, new_text)
-  let from = line_start + change.start
-  [
-    @protocol.UserIntent::TextEdit(
-      from~,
-      to=from + change.delete_len,
-      insert=change.inserted,
-    ),
-  ]
+  match @text_change.compute_text_change(old_text, new_text) {
+    @text_change.TextChange::ReplaceRange(start~, delete_len~, inserted~) => {
+      let from = line_start + start
+      [
+        @protocol.UserIntent::TextEdit(
+          from~,
+          to=from + delete_len,
+          insert=inserted,
+        ),
+      ]
+    }
+    @text_change.TextChange::ReplaceAll(_) =>
+      abort("compute_text_change unexpectedly returned ReplaceAll")
+  }
 }
 
 ///|
