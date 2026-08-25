@@ -2,6 +2,7 @@
 package "dowdiness/loomark/internal/preview"
 
 import {
+  "dowdiness/text_change",
   "moonbit-community/rabbita/cmd",
   "moonbit-community/rabbita/html",
 }
@@ -15,8 +16,10 @@ pub fn record_after_render(PreviewResult) -> @cmd.Cmd
 pub struct PreviewEngine {
   // private fields
 }
+pub fn PreviewEngine::advance(Self, @text_change.TextChange, String) -> @cmd.Cmd
 pub fn PreviewEngine::new() -> Self
 pub fn PreviewEngine::prepare(Self, String, result~ : @cmd.Emit[Result[PreviewResult, PreviewFailure]]) -> @cmd.Cmd
+pub fn PreviewEngine::reset(Self, String) -> @cmd.Cmd
 
 pub struct PreviewFailure {
   // private fields

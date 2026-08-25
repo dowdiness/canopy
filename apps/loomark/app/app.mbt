@@ -6,12 +6,19 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
     msg,
     emit,
   ) => {
-    update(model, msg, emit, input_text => {
-      preview_engine.prepare(
-        input_text,
-        result=emit.map(result => PreviewPrepared(input_text, result)),
-      )
-    })
+    update(
+      model,
+      msg,
+      emit,
+      input_text => {
+        preview_engine.prepare(
+          input_text,
+          result=emit.map(result => PreviewPrepared(input_text, result)),
+        )
+      },
+      (change, input_text) => preview_engine.advance(change, input_text),
+      input_text => preview_engine.reset(input_text),
+    )
   })
   model.view(model => view(model, emit))
 }

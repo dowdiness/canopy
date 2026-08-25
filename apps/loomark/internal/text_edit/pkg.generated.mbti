@@ -1,0 +1,48 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/internal/text_edit"
+
+import {
+  "dowdiness/text_change",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn after_input(input_type~ : String, data~ : String?, composing~ : Bool, selection_start~ : Int, selection_end~ : Int, value_length~ : Int) -> InputObservation
+
+pub fn before_input(input_type~ : String, data~ : String?, composing~ : Bool, selection_start~ : Int, selection_end~ : Int, value_length~ : Int) -> InputObservation
+
+pub fn composition_end(data~ : String, selection_start~ : Int, selection_end~ : Int, value_length~ : Int) -> InputObservation
+
+pub fn composition_start(selection_start~ : Int, selection_end~ : Int, value_length~ : Int) -> InputObservation
+
+pub fn missing_before_input() -> RecoveryReason
+
+pub fn resolve(String, InputObservation, InputObservation) -> Resolution
+
+pub fn resolve_composition(String, InputObservation, InputObservation) -> Resolution
+
+// Errors
+
+// Types and methods
+pub struct InputObservation {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn InputObservation::input_type(Self) -> String
+
+pub enum RecoveryReason {
+  MissingBeforeInput
+  UnsupportedInputType(String)
+  InconsistentInput
+  InvalidUtf16Range
+} derive(Eq, @debug.Debug)
+pub fn RecoveryReason::label(Self) -> String
+
+pub enum Resolution {
+  Accepted(@text_change.TextChange, String)
+  IgnoreComposition
+  Recover(RecoveryReason)
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits

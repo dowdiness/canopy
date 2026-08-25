@@ -398,30 +398,200 @@ test("invalid stored document opens Recovery without overwriting it", async ({ p
   expect(await readStoredDocumentRaw(page)).toBe(invalidDocument)
 })
 
-test("Text input processing stays within 10 ms", async ({ page }) => {
+test("native range edits avoid complete value reads and complete-source diff", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"])
   await page.goto("/")
   const text = page.getByRole("textbox", { name: "Text" })
-  const durations = await text.evaluate(element => {
-    const textarea = element as HTMLTextAreaElement
-    const dispatch = (value: string) => {
-      textarea.value = value
-      textarea.dispatchEvent(new InputEvent("input", {
-        bubbles: true,
-        composed: true,
-        data: value,
-        inputType: "insertText",
-      }))
-    }
-    for (let index = 0; index < 10; index += 1) dispatch(`warmup-${index}`)
-    return Array.from({ length: 50 }, (_, index) => {
-      const started = performance.now()
-      dispatch(`sample-${index}`)
-      return performance.now() - started
+  await text.waitFor()
+  await page.waitForTimeout(50)
+  await page.evaluate(() => {
+    const descriptor = Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      "value",
+    )
+    if (!descriptor?.get || !descriptor.set) throw new Error("textarea value descriptor missing")
+    ;(globalThis as any).__loomarkValueReads = 0
+    ;(globalThis as any).__loomarkValueWrites = 0
+    Object.defineProperty(HTMLTextAreaElement.prototype, "value", {
+      configurable: true,
+      enumerable: descriptor.enumerable,
+      get() {
+        ;(globalThis as any).__loomarkValueReads += 1
+        return descriptor.get?.call(this)
+      },
+      set(value: string) {
+        ;(globalThis as any).__loomarkValueWrites += 1
+        descriptor.set?.call(this, value)
+      },
     })
   })
-  const sorted = [...durations].sort((left, right) => left - right)
-  const p95 = sorted[Math.ceil(sorted.length * 0.95) - 1]
-  const maximum = sorted[sorted.length - 1]
-  expect(p95).toBeLessThanOrEqual(10)
-  expect(maximum).toBeLessThanOrEqual(10)
+  await text.focus()
+  await page.keyboard.type("abc")
+  await text.evaluate(element => (element as HTMLTextAreaElement).setSelectionRange(1, 2))
+  await page.keyboard.insertText("X")
+  await page.keyboard.press("Backspace")
+  await text.evaluate(element => (element as HTMLTextAreaElement).setSelectionRange(1, 1))
+  await page.keyboard.press("Delete")
+  await page.keyboard.press("End")
+  await page.keyboard.press("Enter")
+  await page.keyboard.insertText("🤣é")
+  await page.evaluate(() => navigator.clipboard.writeText("日本"))
+  await page.keyboard.press("Control+V")
+  await text.evaluate((element, length) => {
+    const textarea = element as HTMLTextAreaElement
+    textarea.setSelectionRange(length - 2, length)
+  }, "a\n🤣é日本".length)
+  await page.keyboard.press("Control+X")
+
+  const valueAccesses = await page.evaluate(() => ({
+    reads: (globalThis as any).__loomarkValueReads as number,
+    writes: (globalThis as any).__loomarkValueWrites as number,
+  }))
+  expect(valueAccesses).toEqual({ reads: 0, writes: 0 })
+
+  const expected = "a\n🤣é"
+  await expect(text).toHaveValue(expected)
+  await expect.poll(() => readStoredDocument(page).then(document => document?.text))
+    .toBe(expected)
+  await expect(page.locator(".loomark-input-metrics")).toContainText(
+    "Complete value reads: 0",
+  )
+  await expect(page.locator(".loomark-input-metrics")).toContainText("Recoveries: 0")
+  await expect(page.locator(".loomark-input-metrics")).toContainText(
+    "Complete-source diffs: 0",
+  )
+})
+
+test("real Chromium IME commits one accepted edit without complete text", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.focus()
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send("Input.imeSetComposition", {
+    text: "に",
+    selectionStart: 1,
+    selectionEnd: 1,
+    replacementStart: 0,
+    replacementEnd: 0,
+  })
+  await page.waitForTimeout(300)
+  expect((await readStoredDocument(page))?.text).toBe("")
+  await cdp.send("Input.imeSetComposition", {
+    text: "日本",
+    selectionStart: 2,
+    selectionEnd: 2,
+    replacementStart: 0,
+    replacementEnd: 1,
+  })
+  await cdp.send("Input.insertText", { text: "日本" })
+
+  await expect(text).toHaveValue("日本")
+  await expect.poll(() => readStoredDocument(page).then(document => document?.text))
+    .toBe("日本")
+  await expect(page.locator(".loomark-input-metrics")).toContainText("Accepted edits: 1")
+  await expect(page.locator(".loomark-input-metrics")).toContainText(
+    "Complete value reads: 0",
+  )
+  await expect(page.locator(".loomark-input-metrics")).toContainText("Recoveries: 0")
+})
+
+test("real Chromium IME cancellation preserves accepted text", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.focus()
+  await page.keyboard.type("abc")
+  await text.evaluate(element => (element as HTMLTextAreaElement).setSelectionRange(1, 1))
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send("Input.imeSetComposition", {
+    text: "に",
+    selectionStart: 1,
+    selectionEnd: 1,
+    replacementStart: 1,
+    replacementEnd: 1,
+  })
+  await cdp.send("Input.imeSetComposition", {
+    text: "",
+    selectionStart: 0,
+    selectionEnd: 0,
+    replacementStart: 1,
+    replacementEnd: 2,
+  })
+
+  await expect(text).toHaveValue("abc")
+  await expect(page.locator(".loomark-input-metrics")).toContainText("Accepted edits: 3")
+  await expect(page.locator(".loomark-input-metrics")).toContainText(
+    "Complete value reads: 0",
+  )
+  await expect(page.locator(".loomark-input-metrics")).toContainText("Recoveries: 0")
+})
+
+test("ready Preview parser consumes the same native UTF-16 edits", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"])
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.focus()
+  await page.keyboard.type("# One")
+  await page.keyboard.press("Enter")
+  await page.keyboard.press("Enter")
+  await page.keyboard.type("Paragraph abc")
+  await page.getByRole("button", { name: "Split" }).click()
+  const preview = page.getByRole("region", { name: "Preview result" })
+  await expect(preview.getByRole("heading", { name: "One" })).toBeVisible()
+
+  await text.focus()
+  await text.evaluate(element => (element as HTMLTextAreaElement).setSelectionRange(2, 5))
+  await page.keyboard.insertText("Two🤣")
+  await expect(preview.getByRole("heading", { name: "Two🤣" })).toBeVisible()
+  await page.keyboard.press("Backspace")
+  await expect(preview.getByRole("heading", { name: "Two" })).toBeVisible()
+
+  await page.evaluate(() => navigator.clipboard.writeText("日本"))
+  await text.evaluate(element => {
+    const textarea = element as HTMLTextAreaElement
+    textarea.setSelectionRange(17, 20)
+  })
+  await page.keyboard.press("Control+V")
+  await expect(preview).toContainText("Paragraph 日本")
+  await text.evaluate(element => (element as HTMLTextAreaElement).setSelectionRange(17, 19))
+  await page.keyboard.press("Control+X")
+  await expect(preview).not.toContainText("日本")
+  await expect(preview).toContainText("Paragraph")
+  await expect(page.locator(".loomark-input-metrics")).toContainText(
+    "Complete value reads: 0",
+  )
+  await expect(page.locator(".loomark-input-metrics")).toContainText("Recoveries: 0")
+})
+
+test("browser undo is an explicit whole-value recovery", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.focus()
+  await page.keyboard.type("abc")
+  await page.keyboard.press("Control+Z")
+
+  await expect(text).toHaveValue("")
+  await expect(page.locator(".loomark-input-metrics")).toContainText(
+    "Complete value reads: 1",
+  )
+  await expect(page.locator(".loomark-input-metrics")).toContainText("Recoveries: 1")
+  await expect(page.locator(".loomark-input-metrics")).toContainText(
+    "unsupported-input-type:historyUndo",
+  )
+})
+
+test("rapid native Text edits converge without recovery", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.focus()
+  const expected = Array.from(
+    { length: 60 },
+    (_, index) => String.fromCharCode(97 + (index % 26)),
+  ).join("")
+  for (const character of expected) await page.keyboard.type(character)
+  await expect(text).toHaveValue(expected)
+  await expect(page.locator(".loomark-input-metrics")).toContainText("Accepted edits: 60")
+  await expect(page.locator(".loomark-input-metrics")).toContainText(
+    "Complete value reads: 0",
+  )
+  await expect(page.locator(".loomark-input-metrics")).toContainText("Recoveries: 0")
 })

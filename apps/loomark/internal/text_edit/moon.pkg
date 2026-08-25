@@ -1,0 +1,9 @@
+import {
+  "dowdiness/text_change",
+}
+
+import {
+  "moonbitlang/core/bench",
+} for "wbtest"
+
+supported_targets = "js"

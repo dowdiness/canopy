@@ -31,6 +31,28 @@ fn PreviewState::initial() -> PreviewState {
 }
 
 ///|
+priv struct InputMetrics {
+  accepted_edits : Int
+  complete_value_reads : Int
+  value_length_reads : Int
+  recovery_count : Int
+  last_input_type : String
+  last_recovery : String
+} derive(Eq)
+
+///|
+fn InputMetrics::initial() -> InputMetrics {
+  {
+    accepted_edits: 0,
+    complete_value_reads: 0,
+    value_length_reads: 0,
+    recovery_count: 0,
+    last_input_type: "-",
+    last_recovery: "-",
+  }
+}
+
+///|
 priv struct EditingState {
   document_id : String
   text : String
@@ -38,6 +60,7 @@ priv struct EditingState {
   save : SaveState
   display : DisplayLayout
   preview : PreviewState
+  metrics : InputMetrics
   initial_text_focus : Bool
 } derive(Eq)
 
@@ -52,9 +75,11 @@ priv enum SaveState {
 ///|
 priv enum Msg {
   Opened(@browser_storage.OpenResult)
-  TextChanged(String)
+  BeforeInputCaptured(@text_edit.InputObservation)
+  InputCaptured(@text_edit.InputObservation?, @text_edit.InputObservation)
   CompositionStarted
-  CompositionEnded
+  CompositionEnded(@text_edit.InputObservation?, @text_edit.InputObservation)
+  WholeValueRead(@text_edit.RecoveryReason, String?)
   SaveRequested(String)
   SaveCompleted(String, @browser_storage.SaveResult)
   RetrySave

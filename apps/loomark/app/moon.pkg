@@ -1,6 +1,9 @@
 import {
   "dowdiness/loomark/internal/browser_storage",
   "dowdiness/loomark/internal/preview",
+  "dowdiness/loomark/internal/text_edit",
+  "dowdiness/loomark/internal/text_surface",
+  "dowdiness/text_change",
   "moonbit-community/rabbita",
   "moonbit-community/rabbita/cmd",
   "moonbit-community/rabbita/html",

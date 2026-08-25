@@ -7,8 +7,4 @@ import {
   "moonbit-community/rabbita/html",
 }
 
-import {
-  "moonbitlang/core/bench",
-} for "wbtest"
-
 supported_targets = "js"

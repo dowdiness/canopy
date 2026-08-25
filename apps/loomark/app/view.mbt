@@ -46,17 +46,37 @@ fn document_textarea(
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
   @html.textarea(
-    id="loomark-text",
+    id=TEXT_SURFACE_ID,
     class="loomark-text",
-    value=editing.text,
     rows=24,
     autofocus=editing.initial_text_focus,
-    on_input=emit.map(text => TextChanged(text)),
     attrs=@html.Attrs::build()
       .aria_label("Text")
-      .on_compositionstart(_ => emit(CompositionStarted))
-      .on_compositionend(_ => emit(CompositionEnded)),
+      .on_beforeinput(event => {
+        emit(BeforeInputCaptured(@text_surface.capture_before_input(event)))
+      })
+      .on_input(event => {
+        let (before, after) = @text_surface.capture_input(event)
+        emit(InputCaptured(before, after))
+      })
+      .on_compositionstart(event => {
+        ignore(@text_surface.capture_composition_start(event))
+        emit(CompositionStarted)
+      })
+      .on_compositionend(event => {
+        let (started, ended) = @text_surface.capture_composition_end(event)
+        emit(CompositionEnded(started, ended))
+      }),
     @html.nothing,
+  )
+}
+
+///|
+fn input_metrics(metrics : InputMetrics) -> @rabbita.Html {
+  @html.p(
+    class="loomark-input-metrics",
+    attrs=@html.Attrs::build().aria_live("polite"),
+    "Accepted edits: \{metrics.accepted_edits} · Complete value reads: \{metrics.complete_value_reads} · Value-length reads: \{metrics.value_length_reads} · Recoveries: \{metrics.recovery_count} · Complete-source diffs: 0 · Last input: \{metrics.last_input_type} · Last recovery: \{metrics.last_recovery}",
   )
 }
 
@@ -148,6 +168,7 @@ fn view(model : Model, emit : @rabbita.Emit[Msg]) -> @rabbita.Html {
             None => @html.nothing
           },
           layout_controls(editing.display, emit),
+          input_metrics(editing.metrics),
           editing_surface(editing, emit),
         ])
     },

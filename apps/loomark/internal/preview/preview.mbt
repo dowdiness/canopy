@@ -16,7 +16,6 @@ pub fn PreviewFailure::message(self : PreviewFailure) -> String {
 ///|
 priv struct PreviewTiming {
   started_ms : Double
-  diff_ms : Double
   parser_ms : Double
   semantic_ms : Double
   materialize_ms : Double
@@ -41,7 +40,7 @@ pub fn PreviewResult::content(self : PreviewResult) -> @html.Html {
 
 ///|
 priv enum PreviewEngineState {
-  Uninitialized
+  Uninitialized(String?)
   Broken(String)
   Ready(
     @loom.Parser[@markdown.Block],
@@ -57,7 +56,7 @@ pub struct PreviewEngine {
 
 ///|
 pub fn PreviewEngine::new() -> PreviewEngine {
-  { state: Uninitialized }
+  { state: Uninitialized(None) }
 }
 
 ///|
@@ -99,13 +98,6 @@ pub fn record_after_render(result : PreviewResult) -> @cmd.Cmd {
       let timing = result.timing
       let input_length = result.input_text.length()
       let mut phase_start = timing.started_ms
-      record_preview_measure(
-        "loomark-preview-diff",
-        phase_start,
-        timing.diff_ms,
-        input_length,
-      )
-      phase_start = phase_start + timing.diff_ms
       record_preview_measure(
         "loomark-preview-parser",
         phase_start,
@@ -228,23 +220,72 @@ fn render_markdown(source : String, node : @markdown.MarkdownIR) -> @html.Html {
 }
 
 ///|
+pub fn PreviewEngine::reset(
+  self : PreviewEngine,
+  input_text : String,
+) -> @cmd.Cmd {
+  @cmd.custom_cmd(_ => self.state = Uninitialized(Some(input_text)))
+}
+
+///|
+/// Apply the exact accepted browser edit without reconstructing it from text.
+pub fn PreviewEngine::advance(
+  self : PreviewEngine,
+  change : @text_change.TextChange,
+  input_text : String,
+) -> @cmd.Cmd {
+  @cmd.custom_cmd(_ => {
+    let started_ms = now_ms()
+    match self.state {
+      Uninitialized(_) => self.state = Uninitialized(Some(input_text))
+      Broken(_) => ()
+      Ready(parser, attachment, source) => {
+        let expected_length = source.length() -
+          change.delete_len +
+          change.inserted.length()
+        if expected_length != input_text.length() {
+          self.state = Broken(
+            "accepted TextChange length does not match Document text",
+          )
+        } else {
+          try
+            parser.apply_edit(
+              @loom_core.Edit::new(
+                change.start,
+                change.delete_len,
+                change.inserted.length(),
+              ),
+              input_text,
+            )
+          catch {
+            Failure::Failure(message) => self.state = Broken(message)
+          } noraise {
+            _ => self.state = Ready(parser, attachment, input_text)
+          }
+        }
+      }
+    }
+    record_preview_measure(
+      "loomark-preview-parser-edit",
+      started_ms,
+      now_ms() - started_ms,
+      input_text.length(),
+    )
+  })
+}
+
+///|
 fn PreviewEngine::prepare_now(
   self : PreviewEngine,
   input_text : String,
 ) -> Result[PreviewResult, PreviewFailure] {
   let started_ms = now_ms()
-  let diff_started = now_ms()
-  let change = match self.state {
-    Uninitialized | Broken(_) => None
-    Ready(_, _, source) if source == input_text => None
-    Ready(_, _, source) =>
-      Some(@text_change.compute_text_change(source, input_text))
-  }
-  let diff_ms = now_ms() - diff_started
   let parser_started = now_ms()
   let attachment = match self.state {
     Broken(message) => return Err({ message, })
-    Uninitialized => {
+    Uninitialized(Some(source)) if source != input_text =>
+      return Err({ message: "Preview source does not match Document text" })
+    Uninitialized(_) => {
       let parser = @loom.new_parser(
         preview_source_id, input_text, @markdown.markdown_grammar,
       ) catch {
@@ -254,28 +295,9 @@ fn PreviewEngine::prepare_now(
       self.state = Ready(parser, attachment, input_text)
       attachment
     }
-    Ready(parser, attachment, _) => {
-      match change {
-        None => ()
-        Some(change) => {
-          parser.apply_edit(
-            @loom_core.Edit::new(
-              change.start,
-              change.delete_len,
-              change.inserted.length(),
-            ),
-            input_text,
-          ) catch {
-            Failure::Failure(message) => {
-              self.state = Broken(message)
-              return Err({ message, })
-            }
-          }
-          self.state = Ready(parser, attachment, input_text)
-        }
-      }
-      attachment
-    }
+    Ready(_, _, source) if source != input_text =>
+      return Err({ message: "Preview source does not match Document text" })
+    Ready(_, attachment, _) => attachment
   }
   let parser_ms = now_ms() - parser_started
   let semantic_started = now_ms()
@@ -287,7 +309,7 @@ fn PreviewEngine::prepare_now(
   Ok({
     input_text,
     content,
-    timing: { started_ms, diff_ms, parser_ms, semantic_ms, materialize_ms },
+    timing: { started_ms, parser_ms, semantic_ms, materialize_ms },
   })
 }
 

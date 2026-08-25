@@ -1,0 +1,29 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/internal/text_surface"
+
+import {
+  "dowdiness/loomark/internal/text_edit",
+  "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/dom",
+}
+
+// Values
+pub fn capture_before_input(@dom.InputEvent) -> @text_edit.InputObservation
+
+pub fn capture_composition_end(@dom.CompositionEvent) -> (@text_edit.InputObservation?, @text_edit.InputObservation)
+
+pub fn capture_composition_start(@dom.CompositionEvent) -> @text_edit.InputObservation
+
+pub fn capture_input(@dom.InputEvent) -> (@text_edit.InputObservation?, @text_edit.InputObservation)
+
+pub fn install(String, String) -> @cmd.Cmd
+
+pub fn read(String, result~ : @cmd.Emit[String?]) -> @cmd.Cmd
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

@@ -2,7 +2,16 @@
 const AUTOSAVE_QUIET_MS : Int = 250
 
 ///|
+const TEXT_SURFACE_ID : String = "loomark-text"
+
+///|
 type PreparePreview = (String) -> @rabbita.Cmd
+
+///|
+type AdvancePreview = (@text_change.TextChange, String) -> @rabbita.Cmd
+
+///|
+type ResetPreview = (String) -> @rabbita.Cmd
 
 ///|
 fn editing_state(
@@ -17,6 +26,7 @@ fn editing_state(
     save,
     display: Text,
     preview: PreviewState::initial(),
+    metrics: InputMetrics::initial(),
     initial_text_focus: true,
   }
 }
@@ -31,6 +41,14 @@ fn preview_is_presented(display : DisplayLayout) -> Bool {
   match display {
     Text => false
     Preview | Split => true
+  }
+}
+
+///|
+fn text_is_presented(display : DisplayLayout) -> Bool {
+  match display {
+    Preview => false
+    Text | Split => true
   }
 }
 
@@ -79,56 +97,240 @@ fn request_visible_preview(
 }
 
 ///|
+fn save_after_edit(
+  editing : EditingState,
+  text : String,
+  emit : @rabbita.Emit[Msg],
+) -> (SaveState, @rabbita.Cmd) {
+  let save = match editing.save {
+    Saving(candidate) => Saving(candidate)
+    _ => Waiting
+  }
+  (save, @cmd.delay(emit(SaveRequested(text)), AUTOSAVE_QUIET_MS))
+}
+
+///|
+fn accept_edit(
+  editing : EditingState,
+  input_type : String,
+  change : @text_change.TextChange,
+  text : String,
+  emit : @rabbita.Emit[Msg],
+  prepare : PreparePreview,
+  advance : AdvancePreview,
+) -> (Model, @rabbita.Cmd) {
+  let (save, save_command) = save_after_edit(editing, text, emit)
+  let changed = {
+    ..editing,
+    text,
+    composing: false,
+    save,
+    metrics: {
+      ..editing.metrics,
+      accepted_edits: editing.metrics.accepted_edits + 1,
+      last_input_type: input_type,
+    },
+  }
+  let (changed, preview_command) = request_visible_preview(changed, prepare)
+  (
+    Editing(changed),
+    @cmd.batch([save_command, advance(change, text), preview_command]),
+  )
+}
+
+///|
+fn request_whole_value(
+  editing : EditingState,
+  reason : @text_edit.RecoveryReason,
+  emit : @rabbita.Emit[Msg],
+) -> (Model, @rabbita.Cmd) {
+  (
+    Editing({
+      ..editing,
+      metrics: {
+        ..editing.metrics,
+        recovery_count: editing.metrics.recovery_count + 1,
+        last_recovery: reason.label(),
+      },
+    }),
+    @text_surface.read(
+      TEXT_SURFACE_ID,
+      result=emit.map(text => WholeValueRead(reason, text)),
+    ),
+  )
+}
+
+///|
+fn resolve_input(
+  editing : EditingState,
+  before : @text_edit.InputObservation,
+  after : @text_edit.InputObservation,
+  emit : @rabbita.Emit[Msg],
+  prepare : PreparePreview,
+  advance : AdvancePreview,
+) -> (Model, @rabbita.Cmd) {
+  let resolution = @text_edit.resolve(editing.text, before, after)
+  match resolution {
+    @text_edit.Resolution::Accepted(change, text) =>
+      accept_edit(
+        editing,
+        before.input_type(),
+        change,
+        text,
+        emit,
+        prepare,
+        advance,
+      )
+    @text_edit.Resolution::IgnoreComposition => (Editing(editing), @cmd.none)
+    @text_edit.Resolution::Recover(reason) =>
+      request_whole_value(editing, reason, emit)
+  }
+}
+
+///|
 fn update(
   model : Model,
   msg : Msg,
   emit : @rabbita.Emit[Msg],
   prepare : PreparePreview,
+  advance : AdvancePreview,
+  reset_preview : ResetPreview,
 ) -> (Model, @rabbita.Cmd) {
   match (model, msg) {
     (Loading, Opened(result)) =>
       match result {
-        @browser_storage.OpenResult::New(document_id) =>
+        @browser_storage.OpenResult::New(document_id) => {
+          let editing = editing_state(document_id, "", Saving(""))
           (
-            Editing(editing_state(document_id, "", Saving(""))),
-            @browser_storage.save(
-              document_id,
-              "",
-              result=emit.map(result => SaveCompleted("", result)),
-            ),
+            Editing(editing),
+            @cmd.batch([
+              @text_surface.install(TEXT_SURFACE_ID, ""),
+              reset_preview(""),
+              @browser_storage.save(
+                document_id,
+                "",
+                result=emit.map(result => SaveCompleted("", result)),
+              ),
+            ]),
           )
-        @browser_storage.OpenResult::Loaded(document_id, text) =>
-          (Editing(editing_state(document_id, text, Saved)), @cmd.none)
+        }
+        @browser_storage.OpenResult::Loaded(document_id, text) => {
+          let editing = editing_state(document_id, text, Saved)
+          (
+            Editing(editing),
+            @cmd.batch([
+              @text_surface.install(TEXT_SURFACE_ID, text),
+              reset_preview(text),
+            ]),
+          )
+        }
         @browser_storage.OpenResult::Failed(failure) =>
           (Recovery(failure), @cmd.none)
       }
-    (Editing(editing), TextChanged(text)) => {
-      let save = match editing.save {
-        Saving(candidate) => Saving(candidate)
-        _ => Waiting
+    (Editing(editing), BeforeInputCaptured(observation)) => {
+      let editing = {
+        ..editing,
+        metrics: {
+          ..editing.metrics,
+          value_length_reads: editing.metrics.value_length_reads + 1,
+        },
       }
-      let save_command = if editing.composing {
-        @cmd.none
+      ignore(observation)
+      (Editing(editing), @cmd.none)
+    }
+    (Editing(editing), InputCaptured(before, observation)) => {
+      let editing = {
+        ..editing,
+        metrics: {
+          ..editing.metrics,
+          value_length_reads: editing.metrics.value_length_reads + 1,
+        },
+      }
+      if editing.composing {
+        (Editing(editing), @cmd.none)
       } else {
-        @cmd.delay(emit(SaveRequested(text)), AUTOSAVE_QUIET_MS)
+        match before {
+          Some(before) =>
+            resolve_input(editing, before, observation, emit, prepare, advance)
+          None =>
+            request_whole_value(
+              editing,
+              @text_edit.missing_before_input(),
+              emit,
+            )
+        }
       }
-      let changed = { ..editing, text, save }
-      let (changed, preview_command) = request_visible_preview(changed, prepare)
-      (Editing(changed), @cmd.batch([save_command, preview_command]))
     }
     (Editing(editing), CompositionStarted) =>
-      (Editing({ ..editing, composing: true }), @cmd.none)
-    (Editing(editing), CompositionEnded) => {
-      let save_command = match editing.save {
-        Waiting =>
-          @cmd.delay(emit(SaveRequested(editing.text)), AUTOSAVE_QUIET_MS)
-        Saved | Saving(_) | Failed(_) => @cmd.none
-      }
-      let (editing, preview_command) = request_visible_preview(
-        { ..editing, composing: false },
-        prepare,
+      (
+        Editing({
+          ..editing,
+          composing: true,
+          metrics: {
+            ..editing.metrics,
+            value_length_reads: editing.metrics.value_length_reads + 1,
+          },
+        }),
+        @cmd.none,
       )
-      (Editing(editing), @cmd.batch([save_command, preview_command]))
+    (Editing(editing), CompositionEnded(started, observation)) => {
+      let editing = {
+        ..editing,
+        composing: false,
+        metrics: {
+          ..editing.metrics,
+          value_length_reads: editing.metrics.value_length_reads + 1,
+        },
+      }
+      match started {
+        None =>
+          request_whole_value(editing, @text_edit.missing_before_input(), emit)
+        Some(started) => {
+          let resolution = @text_edit.resolve_composition(
+            editing.text,
+            started,
+            observation,
+          )
+          match resolution {
+            @text_edit.Resolution::Accepted(change, text) =>
+              accept_edit(
+                editing, "insertCompositionText", change, text, emit, prepare, advance,
+              )
+            @text_edit.Resolution::IgnoreComposition =>
+              (Editing(editing), @cmd.none)
+            @text_edit.Resolution::Recover(reason) =>
+              request_whole_value(editing, reason, emit)
+          }
+        }
+      }
+    }
+    (Editing(editing), WholeValueRead(reason, value)) => {
+      let metrics = {
+        ..editing.metrics,
+        complete_value_reads: editing.metrics.complete_value_reads + 1,
+        last_recovery: reason.label(),
+      }
+      match value {
+        None => (Editing({ ..editing, metrics, }), @cmd.none)
+        Some(text) => {
+          let (save, save_command) = save_after_edit(editing, text, emit)
+          let recovered = {
+            ..editing,
+            text,
+            composing: false,
+            save,
+            metrics,
+            preview: PreviewState::initial(),
+          }
+          let (recovered, preview_command) = request_visible_preview(
+            recovered, prepare,
+          )
+          (
+            Editing(recovered),
+            @cmd.batch([reset_preview(text), save_command, preview_command]),
+          )
+        }
+      }
     }
     (Editing(editing), SaveRequested(candidate)) =>
       if candidate != editing.text || editing.composing {
@@ -185,8 +387,15 @@ fn update(
       }
     (Editing(editing), DisplaySelected(display)) => {
       let selected = { ..editing, display, initial_text_focus: false }
-      let (selected, command) = request_visible_preview(selected, prepare)
-      (Editing(selected), command)
+      let (selected, preview_command) = request_visible_preview(
+        selected, prepare,
+      )
+      let install_command = if text_is_presented(display) {
+        @text_surface.install(TEXT_SURFACE_ID, selected.text)
+      } else {
+        @cmd.none
+      }
+      (Editing(selected), @cmd.batch([preview_command, install_command]))
     }
     (Editing(editing), PreviewIntent) => {
       let (editing, command) = request_preview(editing, prepare)
