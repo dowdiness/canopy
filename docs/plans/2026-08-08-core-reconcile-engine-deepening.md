@@ -228,9 +228,9 @@ observables: result tree, final counter value, and trace.
     (fast path 219.8 → 203.2 µs @ 1000 defs; fallback 9.30 → 7.92 ms;
     exact-key 50.97 → 48.11 ms; recorded in the evidence JSON). Mutation
     re-probe with the Phase 1 mutations: 4 and 8 failures respectively.
-25. ✅ `./scripts/validate-pr-ready.sh --target modules/canopy/core
-    --target modules/canopy/projection` passed at HEAD `4b1b33a7`
-    (validated-base `f55c5e33`). ADR recorded post-implementation:
+25. ✅ The then-current full PR-ready gate passed for
+    `modules/canopy/core` and `modules/canopy/projection` at HEAD `4b1b33a7`
+    against base `f55c5e33`. ADR recorded post-implementation:
     `docs/decisions/2026-08-08-core-reconcile-one-engine-behind-three-adapters.md`.
 
 ## Acceptance Criteria
@@ -269,7 +269,8 @@ NEW_MOON_MOD=0 moon test --target js modules/canopy/core modules/canopy/projecti
 NEW_MOON_MOD=0 moon fmt && NEW_MOON_MOD=0 moon info
 git diff '*.mbti'   # must be empty for core
 moon bench --release   # fast-path + forced-fallback + exact-key workloads
-./scripts/validate-pr-ready.sh --target modules/canopy/core --target modules/canopy/projection   # repo gate
+git fetch origin main
+git push   # Lefthook validates affected packages; GitHub CI is the full merge gate
 ```
 
 ## Risks

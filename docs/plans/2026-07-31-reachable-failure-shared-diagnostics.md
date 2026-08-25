@@ -168,5 +168,6 @@ and does not introduce entity-backed diagnostic remapping.
 Run focused tests for `lang/lambda/scope`, `lang/lambda/semantic`, `editor`,
 `lang/lambda/companion`, and `ffi/lambda`, followed by workspace `moon check`,
 `moon test`, `moon info`, and `moon fmt`. Inspect every generated `.mbti` diff,
-then validate the committed clean HEAD with `validate-pr-ready.sh` for every
-affected MoonBit package.
+then fetch `origin/main` and push the committed clean HEAD normally so Lefthook
+validates every affected MoonBit package. GitHub CI's `All Checks Passed` job
+remains the exact-commit merge gate.
