@@ -120,8 +120,9 @@ own MoonBit module and workspace:
   `moon.mod` and are listed in the root `moon.work`. Loomark's executable
   package is `apps/loomark/main`; Warren serves it with `warren dev --direct`
   and assembles ignored static output with `warren build`. Within Loomark,
-  `archive/` owns the document envelope, `repository/` owns pure local-recovery
-  decisions, and `internal/archive_storage/` owns the browser storage binding.
+  `app/` owns the Rabbita Model, Msg, update, and view;
+  `internal/browser_storage/` owns the browser storage binding; and `main/`
+  mounts the application.
 - `apps/web/` and `apps/relay-server/` are TypeScript/Worker projects, not
   MoonBit modules.
 

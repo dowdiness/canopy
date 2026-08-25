@@ -164,6 +164,33 @@ def module-targets [changes: list<any>] {
   | sort
 }
 
+def packages-in-module [root: string, module: string] {
+  let absolute_root = ($root | path expand)
+  let module_root = if $module == "." {
+    $absolute_root
+  } else {
+    $absolute_root | path join $module
+  }
+  [
+    (glob ($module_root | path join "**/moon.pkg"))
+    (glob ($module_root | path join "**/moon.pkg.json"))
+  ]
+  | flatten
+  | each {|manifest|
+      let relative = (
+        $manifest
+        | path dirname
+        | path relative-to $absolute_root
+        | into string
+      )
+      let package = if $relative == "" { "." } else { $relative }
+      if (module-for-package $root $package) == $module { $package } else { null }
+    }
+  | compact
+  | uniq
+  | sort
+}
+
 def combine-package-and-module-targets [root: string, packages: list<any>, modules: list<any>] {
   let uncovered_packages = (
     $packages
@@ -172,7 +199,12 @@ def combine-package-and-module-targets [root: string, packages: list<any>, modul
         not ($modules | any {|module| $module == $owner })
       }
   )
-  [$uncovered_packages $modules]
+  let module_packages = (
+    $modules
+    | each {|module| packages-in-module $root $module }
+    | flatten
+  )
+  [$uncovered_packages $module_packages]
   | flatten
   | uniq
   | sort

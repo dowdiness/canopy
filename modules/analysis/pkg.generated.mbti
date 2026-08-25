@@ -33,4 +33,3 @@ pub fn SourceSnapshot::matches(Self, Self) -> Bool
 // Type aliases
 
 // Traits
-

@@ -65,7 +65,7 @@ Because of this, the Automerge Repo assumption that "every open document is alwa
 
 When a document reconnects while still warm (still in memory), it reuses the existing authority. When it reopens cold (from disk), it must verify that the portable text, exact frontier (the last known sync point), and canonical history all agree before allowing local edits. Being able to read the text does not mean you are allowed to edit it causally ([`2026-08-12-causal-authority-residency.md:38-86`](../decisions/2026-08-12-causal-authority-residency.md)).
 
-The restore lifecycle has seven states. It covers loading, two readable recovery states, waiting for the editor to appear on screen, editable, terminal readable failure, and unavailable. Async results are matched by mount generation ([`2026-08-20-loomark-private-restore-coordinator.md:33-79`](../decisions/2026-08-20-loomark-private-restore-coordinator.md)). The `AuthorityDirectory` must not skip this ordering.
+The restore lifecycle has seven states. It covers loading, two readable recovery states, waiting for the editor to appear on screen, editable, terminal readable failure, and unavailable. Async results are matched by mount generation ([`2026-08-20-loomark-private-restore-coordinator.md:33-79`](../archive/decisions/2026-08-20-loomark-private-restore-coordinator.md)). The `AuthorityDirectory` must not skip this ordering.
 
 ### Collaboration is already split into five layers
 

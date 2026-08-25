@@ -131,8 +131,6 @@ ProseMirror tree positions to this API.
 | `SyncEditor::admit_with_limits` | `editor/` | Call-local admission limits for owning façades; preserves the same reconciliation shell. |
 | `MarkdownArchiveOpenLimits` / `MarkdownEditor::open` | `editor/markdown/` | Archive restore requires all four resource limits explicitly and refuses causal gaps. |
 | `MarkdownEditor::open_with_semantic_attachment` | `editor/markdown/` | Reopen history with a fresh writer while attaching semantic consumers to the same live parser. |
-| `LoomarkDocumentArchive` | `apps/loomark/archive/` | Capture and decode the application-owned document identity, portable Markdown, and opaque causal history envelope. |
-| `LocalRestorePolicy` / `classify_local_archive_record` / `prepare_local_archive` | `apps/loomark/repository/` | Apply explicit local admission policy and prepare complete immutable replacements without browser I/O. |
 | `encode_message` / `decode_message` | `editor/` | Binary sync protocol serialization. |
 | `encode_sync_request` / `encode_sync_response` | `editor/` | Handshake messages. |
 | `SyncStatus` / `SyncErrorReason` | `editor/` | Status enums for sync health. |
@@ -141,7 +139,7 @@ ProseMirror tree positions to this API.
 | `RelayRoom::on_connect` / `on_message` / `on_disconnect` | `relay/` | Lifecycle hooks. |
 | `encode_peer_joined` / `encode_peer_left` | `relay/` | Presence messages. |
 
-**Avoid:** Custom binary framing; use `encode_message`/`decode_message`. Restore archives with explicit open limits and `MarkdownEditor::open` or `MarkdownEditor::open_with_semantic_attachment`, rather than peer `admit`. Loomark document recovery uses document archives instead of application Session snapshots.
+**Avoid:** Custom binary framing; use `encode_message`/`decode_message`. Restore archives with explicit open limits and `MarkdownEditor::open` or `MarkdownEditor::open_with_semantic_attachment`, rather than peer `admit`.
 
 ---
 

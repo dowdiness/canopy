@@ -108,18 +108,8 @@ Only needed if you are modifying Canopy itself.
   [plans/TEMPLATE.md](plans/TEMPLATE.md) when adding a new one).
 - [Advisory plans](plans/advisory/) — dependency-ordered specifications for
   [issue #1125](https://github.com/dowdiness/canopy/issues/1125).
-- [Loomark concurrent projection execution](plans/2026-08-12-loomark-concurrent-projection-execution.md)
-  — active evidence-gated implementation plan for
-  [issue #1244](https://github.com/dowdiness/canopy/issues/1244), governed by
-  the [asynchronous source-stamped projection decision](decisions/2026-08-12-loomark-concurrent-projection-execution.md).
-- [Private Rabbita restore coordinator](plans/2026-08-20-loomark-private-restore-coordinator.md)
-  — blocked implementation plan for
-  [issue #1322](https://github.com/dowdiness/canopy/issues/1322), governed by the
-  [private restore coordinator decision](decisions/2026-08-20-loomark-private-restore-coordinator.md).
-- [Editable Loomark branch restore feasibility](plans/2026-08-19-loomark-editable-branch-restore-feasibility.md)
-  — decision-complete Gate R0 implementation plan governed by the accepted
-  [R0 research contracts](#research); implementation begins with the
-  runner/oracle/catalog gate in issue #1289.
+- [Loomark standard Rabbita Text app](plans/2026-08-24-loomark-standard-rabbita-text-app.md)
+  — the current Text editor, Autosave, Recovery, and production E2E contract.
 - [Legacy TODO snapshot](archive/TODO-snapshot-2026-08-03.md) — historical
   candidates being triaged in
   [issue #1124](https://github.com/dowdiness/canopy/issues/1124), not active
@@ -248,9 +238,6 @@ behavior** — check the code before relying on any specific detail.
   access path; retained state remains a validated accelerator.
 - [Authority-owned remote admission transition](decisions/2026-08-19-authority-owned-remote-admission-transition.md)
   — consumes one opaque EGW admission transition, reconciles exact effects without a full authority snapshot, and bounds grapheme-safe snapshot fallback.
-- [Private restore coordinator for Loomark cold open](decisions/2026-08-20-loomark-private-restore-coordinator.md)
-  — keeps the public cold-open interface unchanged while one private Rabbita
-  module owns readiness, generation-gated fallback, and correlated activation.
 
 ## Historical / Archive
 

@@ -1,9 +1,0 @@
-import {
-  "moonbitlang/core/immut/vector",
-}
-
-warnings = "-7-29"
-
-options(
-  is_main: false,
-)

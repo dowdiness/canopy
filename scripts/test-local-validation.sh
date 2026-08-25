@@ -99,7 +99,7 @@ git -C "$fixture" add moon.mod
   PATH="$fake_bin:$PATH" LOCAL_VALIDATION_TEST_LOG="$log" \
     nu scripts/local-validation.nu prepare-commit
 )
-printf 'moon info .\n' >"$expected"
+printf 'moon info . other pkg\n' >"$expected"
 diff -u "$expected" "$log" || fail "module manifest did not regenerate its own packages only"
 
 git -C "$fixture" reset --hard --quiet HEAD
@@ -177,7 +177,7 @@ git -C "$fixture" add second/module "$tabbed_path" 'pkg space/moon.pkg'
   PATH="$fake_bin:$PATH" LOCAL_VALIDATION_TEST_LOG="$log" \
     nu scripts/local-validation.nu prepare-commit
 )
-printf 'moon fmt pkg space/name\t雪.mbt second/module/pkg/main.mbt\nmoon info pkg space second/module\n' >"$expected"
+printf 'moon fmt pkg space/name\t雪.mbt second/module/pkg/main.mbt\nmoon info pkg space second/module/pkg\n' >"$expected"
 diff -u "$expected" "$log" || fail "NUL-safe resolver lost nested, spaced, tabbed, or Unicode paths"
 
 git -C "$fixture" reset --hard --quiet HEAD
@@ -219,6 +219,10 @@ fi
 cat >"$expected" <<'EXPECTED_PUSH'
 check-strict.sh .
 moon test --release .
+check-strict.sh other
+moon test --release other
+check-strict.sh pkg
+moon test --release pkg
 EXPECTED_PUSH
 diff -u "$expected" "$log" || fail "pre-push validation did not check and test the changed module packages"
 grep -q 'workspace validation is deferred to GitHub CI: moon.work' "$tmp_dir/global-push.out" ||

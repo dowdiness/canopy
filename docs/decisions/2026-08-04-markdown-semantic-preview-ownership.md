@@ -6,11 +6,11 @@
 
 **Related:**
 
-- [Loomark application handoff](../plans/2026-08-01-loomark-application-handoff.md)
+- [Loomark application handoff](../archive/plans/2026-08-01-loomark-application-handoff.md)
 - [Loom Markdown semantic attachment boundary](../../deps/loom/docs/decisions/2026-08-04-markdown-semantic-attachment-boundary.md)
 - [Issue #1145](https://github.com/dowdiness/canopy/issues/1145)
 - [Lifecycle follow-up #1159](https://github.com/dowdiness/canopy/issues/1159)
-- [Concurrent projection execution target](2026-08-12-loomark-concurrent-projection-execution.md)
+- [Concurrent projection execution target](../archive/decisions/2026-08-12-loomark-concurrent-projection-execution.md)
 
 **Decision:** The Markdown editor offers an explicit, opt-in construction path
 that returns its existing editing facade together with one semantic observer
