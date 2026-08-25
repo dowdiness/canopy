@@ -8,11 +8,12 @@ pub fn compute_edit(old_text : String, new_text : String) -> @loom_core.Edit {
     Some(change) => change
     None => @text_change.compute_text_change(old_text, new_text)
   }
-  @loom_core.Edit::new(
-    change.start,
-    change.delete_len,
-    change.inserted.length(),
-  )
+  match change {
+    @text_change.TextChange::ReplaceRange(start~, delete_len~, inserted~) =>
+      @loom_core.Edit::new(start, delete_len, inserted.length())
+    @text_change.TextChange::ReplaceAll(_) =>
+      abort("text diff unexpectedly returned ReplaceAll")
+  }
 }
 
 ///|

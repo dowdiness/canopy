@@ -85,13 +85,13 @@ test "perf: MarkdownEditor apply precomputed change (250 blocks)" (b : @bench.T)
   b.bench(() => {
     let change = changes[tick % changes.length()]
     tick += 1
-    editor.editor.apply_text_edit(
-      change.start,
-      change.delete_len,
-      change.inserted,
-      0,
-    ) catch {
-      error => abort("commit benchmark edit failed: \{error}")
+    match change {
+      @text_change.TextChange::ReplaceRange(start~, delete_len~, inserted~) =>
+        editor.editor.apply_text_edit(start, delete_len, inserted, 0) catch {
+          error => abort("commit benchmark edit failed: \{error}")
+        }
+      @text_change.TextChange::ReplaceAll(_) =>
+        abort("compute_text_change unexpectedly returned ReplaceAll")
     }
     b.keep(editor.editor.get_text())
   })

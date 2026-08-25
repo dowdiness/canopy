@@ -553,11 +553,13 @@ fn fast_append_text_change(
   new_text : String,
 ) -> @text_change.TextChange? {
   if old_text == new_text {
-    return Some(@text_change.TextChange::{
-      start: old_text.length(),
-      delete_len: 0,
-      inserted: "",
-    })
+    return Some(
+      @text_change.TextChange::ReplaceRange(
+        start=old_text.length(),
+        delete_len=0,
+        inserted="",
+      ),
+    )
   }
   guard new_text.has_prefix(old_text) else { return None }
   let suffix = new_text[old_text.length():]
@@ -572,11 +574,13 @@ fn fast_append_text_change(
   guard !(old_text.has_suffix("\r") && suffix.has_prefix("\n")) else {
     return None
   }
-  Some(@text_change.TextChange::{
-    start: old_text.length(),
-    delete_len: 0,
-    inserted: suffix.to_owned(),
-  })
+  Some(
+    @text_change.TextChange::ReplaceRange(
+      start=old_text.length(),
+      delete_len=0,
+      inserted=suffix.to_owned(),
+    ),
+  )
 }
 
 ///|
@@ -602,14 +606,12 @@ pub fn[T : Eq] SyncEditor::set_text_with_change(
     return (splice, true)
   }
   self.taint_pending_transforms()
-  let accepted = self.apply_text_edit_internal(
-    splice.start,
-    splice.delete_len,
-    splice.inserted,
-    0,
-    false,
-    true,
-  )
+  let accepted = match splice {
+    @text_change.TextChange::ReplaceRange(start~, delete_len~, inserted~) =>
+      self.apply_text_edit_internal(start, delete_len, inserted, 0, false, true)
+    @text_change.TextChange::ReplaceAll(_) =>
+      abort("text diff unexpectedly returned ReplaceAll")
+  }
   (splice, accepted)
 }
 
@@ -702,14 +704,14 @@ fn[T : Eq] SyncEditor::set_text_and_record_impl(
   })
   ignore(
     editor_perf_measure("setTextApply", () => {
-      self.apply_text_edit_internal(
-        splice.start,
-        splice.delete_len,
-        splice.inserted,
-        timestamp_ms,
-        true,
-        false,
-      )
+      match splice {
+        @text_change.TextChange::ReplaceRange(start~, delete_len~, inserted~) =>
+          self.apply_text_edit_internal(
+            start, delete_len, inserted, timestamp_ms, true, false,
+          )
+        @text_change.TextChange::ReplaceAll(_) =>
+          abort("compute_text_change unexpectedly returned ReplaceAll")
+      }
     }),
   )
 }
