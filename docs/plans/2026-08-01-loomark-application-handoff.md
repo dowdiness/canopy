@@ -362,7 +362,7 @@ After artifact exists, run:
     cd apps/web && npm run build:waku
     cd apps/web && npm run test:waku:e2e
 
-On clean candidate HEAD: moon fmt, moon info, inspect generated mbti diff, moon check, moon test, then scripts/validate-pr-ready.sh with each affected target. Fetch origin/main first; repeat after base movement; end with scripts/validate-pr-ready.sh --verify-evidence.
+On a clean candidate HEAD, run the focused validation above and inspect every generated `.mbti` diff. Fetch `origin/main`, sync if the base moved, then push normally so Lefthook validates affected packages. GitHub CI's `All Checks Passed` job remains the exact-commit merge gate.
 
 ## Acceptance criteria
 

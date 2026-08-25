@@ -304,7 +304,7 @@ NEW_MOON_MOD=0 moon fmt
 NEW_MOON_MOD=0 moon info
 ```
 
-Inspect every generated `.mbti` change for public or trait-bound drift. Independently review the EGW patch, push its commit before updating the Canopy gitlink, verify configured-origin reachability, then run `./scripts/validate-pr-ready.sh --target <package-path>` for every affected package on a clean current-base HEAD. The gate is evidence-only and must not introduce a production public API or archive schema change.
+Inspect every generated `.mbti` change for public or trait-bound drift. Independently review the EGW patch, push its commit before updating the Canopy gitlink, and verify configured-origin reachability. On a clean current-base HEAD, push normally so Lefthook validates each affected package; GitHub CI's `All Checks Passed` job remains the exact-commit merge gate. Validation must not introduce a production public API or archive schema change.
 
 ## Risks
 

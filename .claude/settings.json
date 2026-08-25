@@ -1,36 +1,5 @@
 {
   "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash(git commit*)",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "moon fmt && moon info && DRIFT=$(git diff --stat -- '*.mbt' '*.mbti'); if [ -n \"$DRIFT\" ]; then echo '{\"decision\":\"block\",\"reason\":\"moon fmt/info changed files. Stage or revert before committing:\\n'\"$(echo $DRIFT | head -5)\"'\"}'; else moon check && moon test; fi",
-            "timeout": 120,
-            "statusMessage": "Running pre-commit lint & test..."
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Edit|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "moon check 2>&1 | head -20"
-          },
-          {
-            "type": "command",
-            "command": "test -f scripts/test-focus.sh && bash scripts/test-focus.sh || true",
-            "timeout": 60,
-            "async": true,
-            "statusMessage": "Running focused tests..."
-          }
-        ]
-      }
-    ],
     "Stop": [
       {
         "matcher": "",

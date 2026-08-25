@@ -19,15 +19,14 @@ else
 fi
 
 FIXTURE=$(mktemp -d "${TMPDIR:-/tmp}/canopy-lefthook-routing.XXXXXX")
-LOG="$FIXTURE/calls.log"
-OUTPUT="$FIXTURE/lefthook-output.log"
-EXPECTED="$FIXTURE/expected.log"
+ARTIFACTS="$FIXTURE/_build"
+LOG="$ARTIFACTS/calls.log"
+OUTPUT="$ARTIFACTS/lefthook-output.log"
+EXPECTED="$ARTIFACTS/expected.log"
 trap 'rm -rf "$FIXTURE"' EXIT HUP INT TERM
 
-mkdir -p "$FIXTURE/bin" "$FIXTURE/modules/canopy/core" "$FIXTURE/scripts"
+mkdir -p "$FIXTURE/bin" "$FIXTURE/modules/canopy/core" "$FIXTURE/scripts" "$ARTIFACTS"
 cp "$REPO_ROOT/lefthook.yml" "$FIXTURE/lefthook.yml"
-cp "$REPO_ROOT/scripts/run-moonbit-rename-route.sh" "$FIXTURE/scripts/run-moonbit-rename-route.sh"
-chmod +x "$FIXTURE/scripts/run-moonbit-rename-route.sh"
 
 cat > "$FIXTURE/bin/just" <<'EOF'
 #!/bin/sh
@@ -45,6 +44,7 @@ printf '%s\n' 'baseline' > "$FIXTURE/modules/canopy/core/deleted.mbt"
 printf '%s\n' 'baseline' > "$FIXTURE/modules/canopy/core/rename-before.mbt"
 printf '%s\n' 'baseline' > "$FIXTURE/scripts/run-moon-module.sh"
 printf '%s\n' 'baseline' > "$FIXTURE/scripts/vendored-check-common.sh"
+printf '%s\n' '_build/' > "$FIXTURE/.gitignore"
 
 git -C "$FIXTURE" init --quiet
 git -C "$FIXTURE" symbolic-ref HEAD refs/heads/main
@@ -94,7 +94,6 @@ assert_calls() {
 run_case() {
   name=$1
   setup=$2
-  shift 2
   reset_fixture
   "$setup"
   if ! (cd "$FIXTURE" && "$LEFTHOOK_BIN" run pre-commit >"$OUTPUT" 2>&1); then
@@ -102,7 +101,7 @@ run_case() {
     echo "FAIL $name: Lefthook run failed" >&2
     exit 1
   fi
-  assert_calls "$name" "$@"
+  assert_calls "$name" hook-moonbit-prepare
 }
 
 test_unrelated() {
@@ -181,12 +180,6 @@ test_vendored_check_script() {
   stage_file scripts/vendored-check-common.sh 'updated vendored check helper'
 }
 
-test_moonbit_rename_route_script() {
-  cp "$REPO_ROOT/scripts/run-moonbit-rename-route.sh" "$FIXTURE/scripts/run-moonbit-rename-route.sh"
-  printf '%s\n' '# staged route implementation change' >> "$FIXTURE/scripts/run-moonbit-rename-route.sh"
-  git -C "$FIXTURE" add scripts/run-moonbit-rename-route.sh
-}
-
 test_tooling_config() {
   cp "$REPO_ROOT/lefthook.yml" "$FIXTURE/lefthook.yml"
   printf '%s\n' '# staged tooling configuration change' >> "$FIXTURE/lefthook.yml"
@@ -231,61 +224,31 @@ test_renamed_moonbit_with_deleted_route() {
   git -C "$FIXTURE" rm --quiet modules/canopy/core/deleted.mbt
 }
 
-run_case 'unrelated text only' test_unrelated \
-  hook-repository-contract
-run_case 'AGENTS.md only' test_agent_docs \
-  hook-repository-contract
-run_case 'root MoonBit file' test_root_moonbit \
-  hook-repository-contract hook-moonbit-check hook-moonbit-format-check
-run_case 'nested MoonBit file' test_nested_moonbit \
-  hook-repository-contract hook-moonbit-check hook-moonbit-format-check
-run_case 'Moon package manifest' test_package_manifest \
-  hook-repository-contract hook-moonbit-check hook-moonbit-format-check
-run_case 'Moon package JSON manifest' test_package_manifest_json \
-  hook-repository-contract hook-moonbit-check hook-moonbit-format-check
-run_case 'Moon module manifest' test_module_manifest \
-  hook-repository-contract hook-moonbit-check hook-moonbit-format-check
-run_case 'Moon module JSON manifest' test_module_manifest_json \
-  hook-repository-contract hook-moonbit-check hook-moonbit-format-check
-run_case 'Moon workspace manifest' test_workspace_manifest \
-  hook-repository-contract hook-moonbit-check hook-moonbit-format-check
-run_case 'Moon workspace JSON manifest' test_workspace_manifest_json \
-  hook-repository-contract hook-moonbit-check hook-moonbit-format-check
-run_case 'MoonBit documentation' test_moonbit_documentation \
-  hook-repository-contract hook-moonbit-check hook-moonbit-format-check
-run_case 'generated interface' test_generated_interface \
-  hook-repository-contract hook-moonbit-check hook-moonbit-format-check
-run_case 'modules zone' test_modules_zone \
-  hook-repository-contract hook-moonbit-check hook-moonbit-format-check
-run_case 'apps zone' test_apps_zone \
-  hook-repository-contract hook-moonbit-check hook-moonbit-format-check
-run_case 'examples zone' test_examples_zone \
-  hook-repository-contract hook-moonbit-check hook-moonbit-format-check
-run_case 'adapters zone' test_adapters_zone \
-  hook-repository-contract hook-moonbit-check hook-moonbit-format-check
-run_case 'dependencies zone' test_dependencies_zone \
-  hook-repository-contract hook-moonbit-check hook-moonbit-format-check
-run_case 'MoonBit runner script' test_moonbit_runner_script \
-  hook-repository-contract hook-moonbit-check hook-moonbit-format-check
-run_case 'vendored check script' test_vendored_check_script \
-  hook-repository-contract hook-moonbit-check hook-moonbit-format-check
-run_case 'MoonBit rename route script' test_moonbit_rename_route_script \
-  hook-repository-contract hook-moonbit-check hook-moonbit-format-check hook-tooling-contract
-run_case 'tooling configuration' test_tooling_config \
-  hook-repository-contract hook-tooling-contract
-run_case 'Claude settings' test_claude_settings \
-  hook-repository-contract hook-tooling-contract
-run_case 'justfile hook tasks' test_justfile \
-  hook-repository-contract hook-moonbit-check hook-moonbit-format-check hook-tooling-contract
-run_case 'MoonBit and tooling' test_moonbit_and_tooling \
-  hook-repository-contract hook-moonbit-check hook-moonbit-format-check hook-tooling-contract
-run_case 'deleted MoonBit file' test_deleted_moonbit \
-  hook-repository-contract hook-moonbit-check hook-moonbit-format-check
-run_case 'renamed MoonBit file' test_renamed_moonbit \
-  hook-repository-contract hook-moonbit-check hook-moonbit-format-check
-run_case 'renamed MoonBit file outside route' test_renamed_moonbit_outside_route \
-  hook-repository-contract hook-moonbit-check hook-moonbit-format-check
-run_case 'renamed MoonBit file with normal route' test_renamed_moonbit_with_normal_route \
-  hook-repository-contract hook-moonbit-check hook-moonbit-format-check
-run_case 'renamed MoonBit file with deleted route' test_renamed_moonbit_with_deleted_route \
-  hook-repository-contract hook-moonbit-check hook-moonbit-format-check
+run_case 'unrelated text only' test_unrelated
+run_case 'AGENTS.md only' test_agent_docs
+run_case 'root MoonBit file' test_root_moonbit
+run_case 'nested MoonBit file' test_nested_moonbit
+run_case 'Moon package manifest' test_package_manifest
+run_case 'Moon package JSON manifest' test_package_manifest_json
+run_case 'Moon module manifest' test_module_manifest
+run_case 'Moon module JSON manifest' test_module_manifest_json
+run_case 'Moon workspace manifest' test_workspace_manifest
+run_case 'Moon workspace JSON manifest' test_workspace_manifest_json
+run_case 'MoonBit documentation' test_moonbit_documentation
+run_case 'generated interface' test_generated_interface
+run_case 'modules zone' test_modules_zone
+run_case 'apps zone' test_apps_zone
+run_case 'examples zone' test_examples_zone
+run_case 'adapters zone' test_adapters_zone
+run_case 'dependencies zone' test_dependencies_zone
+run_case 'MoonBit runner script' test_moonbit_runner_script
+run_case 'vendored check script' test_vendored_check_script
+run_case 'tooling configuration' test_tooling_config
+run_case 'Claude settings' test_claude_settings
+run_case 'justfile hook tasks' test_justfile
+run_case 'MoonBit and tooling' test_moonbit_and_tooling
+run_case 'deleted MoonBit file' test_deleted_moonbit
+run_case 'renamed MoonBit file' test_renamed_moonbit
+run_case 'renamed MoonBit file outside route' test_renamed_moonbit_outside_route
+run_case 'renamed MoonBit file with normal route' test_renamed_moonbit_with_normal_route
+run_case 'renamed MoonBit file with deleted route' test_renamed_moonbit_with_deleted_route

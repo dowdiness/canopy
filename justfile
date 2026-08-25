@@ -19,8 +19,27 @@ test-all:
     @moon test
 
 # Verify the repository-level contract used by every pre-commit route
-hook-repository-contract:
+hook-repository-contract *sentinel:
     @bash ./scripts/check-agent-doc-links.sh
+
+# Format staged MoonBit sources and regenerate interfaces before commit.
+hook-moonbit-prepare:
+    @nu ./scripts/local-validation.nu prepare-commit
+
+# Check and test changed MoonBit packages before push.
+hook-moonbit-validate *sentinel:
+    @nu ./scripts/local-validation.nu validate-push
+
+# Validate active documentation contracts selected by Lefthook.
+hook-documentation-contract:
+    @bash ./scripts/check-agent-doc-links.sh
+    @./scripts/check-documentation-lifecycle.sh
+
+# Run existing lightweight contracts for the Waku application.
+hook-web-contract:
+    @npm --prefix apps/web run typecheck
+    @npm --prefix apps/web run check:boundaries
+    @npm --prefix apps/web run test:boundaries
 
 # Run the main module's MoonBit check from Lefthook
 hook-moonbit-check:
@@ -40,12 +59,13 @@ hook-tooling-contract:
     @just --dry-run pre-commit
     @just --dry-run hook-submodule-reachability
     @node -e 'JSON.parse(require("fs").readFileSync(".claude/settings.json", "utf8"))'
-    @bash -n .cursor/install.sh .githooks/pre-commit .githooks/pre-push scripts/install-hooks.sh scripts/test-install-hooks.sh scripts/test-lefthook-pre-commit-routing.sh scripts/test-lefthook-pre-push-routing.sh scripts/test-pr-ready-validation.sh scripts/test-submodule-reachability.sh scripts/run-submodule-reachability.sh scripts/run-moonbit-rename-route.sh scripts/validate-ci-yaml.sh
+    @bash -n .cursor/install.sh .githooks/pre-commit .githooks/pre-push scripts/install-hooks.sh scripts/test-install-hooks.sh scripts/test-lefthook-pre-commit-routing.sh scripts/test-lefthook-pre-push-routing.sh scripts/test-local-validation.sh scripts/test-submodule-reachability.sh scripts/run-submodule-reachability.sh scripts/validate-ci-yaml.sh
     @nu --ide-check 100 scripts/check-moon-registry-bootstrap.nu
     @nu --ide-check 100 scripts/check-moon-interfaces.nu
     @nu scripts/check-moon-registry-bootstrap.nu
     @nu --ide-check 100 scripts/check-submodule-reachability.nu
     @nu --ide-check 100 scripts/install-hooks.nu
+    @nu --ide-check 100 scripts/local-validation.nu
     @lefthook validate
 
 # Run moon check for main module

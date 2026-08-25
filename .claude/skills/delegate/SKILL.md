@@ -43,8 +43,8 @@ Every Agent prompt uses these sections (omit irrelevant ones):
 [Code snippets, API surfaces, recent changes — enough to work without exploring]
 
 ## Constraints
-- Run `moon check` after every file edit
-- Run `moon test` after all edits complete
+- Run the focused failing test after behavioral changes
+- Do not bypass Lefthook's pre-commit or pre-push gates
 - [Additional project-specific constraints]
 
 ## Unknowns
@@ -83,7 +83,7 @@ Implement [feature] in [package].
 Include the .mbti interface of packages the agent will call.]
 
 ## Constraints
-- Run moon check after every file edit
+- Run the focused failing test after behavioral changes
 - Follow patterns in [reference file] for style
 - Use [specific types/constructors] — do not invent new ones
 - Write tests in [package]_test.mbt (blackbox) or _wbtest.mbt (whitebox)
@@ -200,5 +200,5 @@ After every agent returns, before integrating:
 1. **Read the output line by line** — green tests != clean code
 2. **Check scope** — did the agent modify files outside its boundary?
 3. **Diff .mbti** — did moon info reveal unintended API changes?
-4. **Run verification** — `moon check && moon test` from the main context
+4. **Run verification** — use the affected targeted checks during review; the required local gate runs before push
 5. **Flag unknowns** — did the agent report anything from the Unknowns section?

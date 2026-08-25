@@ -16,8 +16,8 @@ operational sources. `check-moon-registry-bootstrap.nu` and
 interface boundaries; `moon-update.sh` remains the bounded-retry implementation
 used by the CI action, self-contained Cloudflare build scripts, local
 `registry-refresh`, and its regression test.
-`check-submodule-reachability.nu` is the shared blocking contract used by
-PR-ready validation and the narrow Lefthook pre-push route;
+`check-submodule-reachability.nu` is the shared blocking contract used by the
+narrow Lefthook pre-push route;
 `run-submodule-reachability.sh` maps Git's pre-push ref-update stream to that
 command, enumerating commits relative to the streamed remote SHA or
 authoritative `origin` refs for new refs rather than stale local tracking refs.

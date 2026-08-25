@@ -131,7 +131,7 @@ The base rule (microbenchmark before optimizing) applies. Additionally: stale pr
 
 <!-- textlint-disable slopless/word-repetition -->
 
-Hooks enforce `moon check` after every edit and `moon fmt && moon info` before commits. After edits, also run `moon test` and rebuild JS if web is affected. For packages with `"proof-enabled": true`, also run `moon prove` from the proof package directory. After `moon info`, check `git diff *.mbti` for unintended trait bound changes — widening a bound is an API regression even if all current consumers satisfy it. See [docs/development/task-tracking.md](docs/development/task-tracking.md) for tracking workflow.
+Repository hooks run nothing after individual edits. Before commit, Lefthook runs targeted `moon fmt` and `moon info`; if either changes files, review and stage them before retrying the commit. Before push, Lefthook checks and tests affected packages and routes documentation, tooling, web, and submodule changes to their existing lightweight contracts. Workspace builds and browser E2E remain GitHub CI responsibilities. For packages with `"proof-enabled": true`, run `moon prove` from the proof package directory before push. After `moon info`, check `git diff *.mbti` for unintended trait bound changes — widening a bound is an API regression even if all current consumers satisfy it. See [docs/development/task-tracking.md](docs/development/task-tracking.md) for tracking workflow.
 
 **One file per edit call.** A single `edit` targeting lines from two different files with one snapshot hash will silently corrupt the second file. Always re-read for a fresh hash between edits, even within the same package.
 
@@ -158,20 +158,17 @@ exact commit that is reviewed:
    findings before final validation.
 6. Fetch `origin/main` again. If HEAD no longer contains it, sync the branch and
    repeat the affected targeted checks and review. Commit the candidate result,
-   then run the final gate on that clean HEAD:
-   `./scripts/validate-pr-ready.sh --target <package-path>`. Repeat `--target`
-   for each affected MoonBit package. For changes with no MoonBit package,
-   provide `--no-target "<reason>"` instead.
+   then push normally; Lefthook runs the affected local gate before the push.
 7. Immediately before opening, updating, or merging the PR, fetch `origin/main`
-   once more and run `./scripts/validate-pr-ready.sh --verify-evidence`. If the
-   base moved, repeat step 6; otherwise copy the HEAD/base evidence into the PR
-   description.
+   once more. If the base moved, repeat step 6; otherwise verify that the current
+   HEAD is pushed and open or update the PR. GitHub CI validates the exact PR
+   commit and remains the merge authority.
 
-Do not open a PR until the final gate succeeds on the current HEAD. A commit,
-amend, rebase, cherry-pick, submodule-pointer change, manifest change, or
-generated-interface change, or fetched base-ref movement invalidates earlier
-evidence; rerun the full gate. The validator is a local preflight and does not
-replace required GitHub CI.
+Do not open a PR until the normal push succeeds for the current HEAD. After a
+commit, amend, rebase, cherry-pick, submodule-pointer change, manifest change,
+or generated-interface change, push again so the pre-push gate checks that
+candidate. The local gate is a fast preflight and does not replace required
+GitHub CI, which remains the only full-workspace gate.
 
 ### Existing API First Rule
 
@@ -229,7 +226,9 @@ fit the data shape. Use `NEW_MOON_MOD=0 moon ide doc`, `peek-def`,
 4. any new helper introduced, and why
 5. remaining imperative code, and why it is necessary
 
-Run `moon check` after edits and `moon test` for affected packages.
+During implementation, run the failing targeted test and affected package check
+as needed for the red-green loop. Lefthook runs the required affected package
+check and release test before push.
 
 ### Functional Core / Imperative Shell
 

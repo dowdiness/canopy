@@ -30,8 +30,7 @@ than duplicating its globs.
 
 | Job | What it runs |
 |-----|--------------|
-| `dep-check` | `./scripts/check-deps.sh` (module-scope rules [A]–[E] + canopy package-layering rules [F]–[I]; the rules table lives in the script header), `./scripts/check-shared-substrate.sh`, `./scripts/check-egw-resolver-identity.sh`, `nu ./scripts/check-moon-registry-bootstrap.nu` (registry cache/bootstrap, manifest, benchmark, and deploy contracts), `node ./scripts/check-export-manifest.mjs`, `./scripts/test-moon-update-wrapper.sh`, `./scripts/test-pr-ready-validation.sh` |
-| `pr-ready-bash3` | Path-filtered macOS check that asserts `/bin/bash` 3.2, exercises local submodule failures, and runs the real PR-ready shell graph with only compiler work faked |
+| `dep-check` | `./scripts/check-deps.sh` (module-scope rules [A]–[E] + canopy package-layering rules [F]–[I]; the rules table lives in the script header), `./scripts/check-shared-substrate.sh`, `./scripts/check-egw-resolver-identity.sh`, `nu ./scripts/check-moon-registry-bootstrap.nu` (registry cache/bootstrap, manifest, benchmark, and deploy contracts), `node ./scripts/check-export-manifest.mjs`, `./scripts/test-moon-update-wrapper.sh` |
 | `tooling-validation` | Path-filtered Ubuntu validation for GitHub Actions YAML, the pinned justfile, Cursor bootstrap shell, registry-bootstrap contract, Cloudflare build bootstrap scripts, Nushell installer script, and Lefthook configuration |
 | `release-version-validation` | Path-filtered Ubuntu release-contract syntax and regression tests for version resolution, changelog ranges, and remote target resolution |
 | `test-main` | setup-moonbit registry bootstrap, `./scripts/check-agent-doc-links.sh`, `./scripts/run-moon-module.sh check modules/canopy`, `./scripts/run-moon-module.sh test modules/canopy`, `moon build --release` |
@@ -165,56 +164,41 @@ The shared module helper is `./scripts/run-moon-module.sh <subcommand> <path>`
 where `<subcommand>` is `check`, `test`, `ci`, `fmt-check`, or `bench`. It
 validates that `<path>` is a real MoonBit module before invoking `moon`.
 
-### PR-ready validation
+### Opening a pull request
 
-After the targeted edit loop and independent review are complete, commit the
-candidate result and run the ordered local gate on that clean HEAD:
+After the targeted edit loop and independent review are complete, commit and
+push the candidate normally. Lefthook runs the affected local gate before the
+push, and GitHub CI validates the exact pull-request commit:
 
 ```sh
 git fetch origin main
-./scripts/validate-pr-ready.sh --target modules/canopy/lang/markdown/proj --target modules/canopy/lang/markdown/edits
-git fetch origin main
-./scripts/validate-pr-ready.sh --verify-evidence
+git push
 ```
 
-Use `--no-target "<reason>"` instead of `--target` only when no MoonBit package
-is affected. `--list` takes the same target policy and prints the stable phase
-order without executing it. The validator checks that HEAD contains the fetched
-base, fetches and prunes each submodule origin before checking gitlink
-reachability, verifies dependency identity, checks Canopy-owned formatting and
-generated interfaces, runs targeted and full release gates, builds JavaScript,
-and records the validated HEAD, base, and target policy in an ignored,
-worktree-local `_build` file.
-
 Any commit, amend, rebase, cherry-pick, submodule-pointer, manifest, or generated
-interface change, or movement of the fetched base ref makes that evidence stale.
-Fetch the base again immediately before `--verify-evidence`; if it moved, sync
-the branch and rerun the full validator before opening, updating, or merging the
-PR. This local gate deliberately does not replace the required CI matrix.
-
-When `scripts/**`, `justfile`, `lefthook.yml`, or `ci.yml` changes, the path-filtered `pr-ready-bash3` job
-asserts that the macOS system `/bin/bash` is 3.2, runs the CLI fixture contract,
-and executes the real downstream shell graph with a fake `moon` compiler. It
-verifies orchestration portability only; it does not claim macOS parity for
-MoonBit, JavaScript, proof, or browser gates.
+interface change requires another normal push. Fetch `origin/main` immediately
+before opening, updating, or merging the PR; if it moved, sync the branch and
+push again. The local gate is a feedback optimization, not durable evidence.
+Workspace builds, complete suites, JavaScript artifact builds, and browser E2E
+remain GitHub CI work, and `All Checks Passed` remains the merge authority.
 
 ## Pre-commit hook
 
 Lefthook is the current hook manager. Run `just install-hooks` to install the
-hook described by `lefthook.yml`. Its path-aware `pre-commit` routing always
-runs the repository contract, runs the main-module MoonBit check and format
-jobs only when staged MoonBit-related paths match, and runs the tooling
-contract only for hook/task/compatibility changes. The MoonBit jobs receive no
-staged-file arguments: they retain the existing `modules/canopy` module scope.
-`glob_matcher: doublestar` covers root and nested paths, while the piped group
-keeps MoonBit `check` before `fmt-check`. The MoonBit route also includes the
-just recipe and the scripts that implement its module and vendored checks, so
-changing those operations exercises the operations themselves.
+hooks described by `lefthook.yml`. Pre-commit runs one targeted MoonBit
+preparation job: it formats staged source post-images, regenerates interfaces
+for affected non-test packages using both rename images, and stops when files
+changed so the author can review and stage them. It does not check or test.
+Changing `moon.mod` regenerates every package owned by that module without
+crossing a nested module boundary. A `moon.work` change is reported and left to
+the full CI workspace gate because it changes global membership. Removing or
+moving a module manifest also reports its now-unresolvable old scope to CI.
 
-A separate `moonbit-rename` job reads staged rename metadata with Git's
-pre-image and post-image paths. If a MoonBit source is moved outside the normal
-route, it runs the same `check` then `fmt-check` tasks; ordinary staged
-additions, modifications, and deletions continue through the glob group.
+Pre-push uses Lefthook globs to route documentation, tooling, and web changes
+to existing lightweight contracts. One NUL-safe Nushell adapter resolves all
+changed MoonBit paths to package or module targets and checks and release-tests
+each target once; `moon.mod` uses its module target, while `moon.work` remains an
+explicitly reported full-CI concern.
 
 The public `just check` and `just fmt-check` recipes retain their explicit
 repository-contract plus main-module behavior. The `pre-commit` recipe is the
@@ -224,7 +208,7 @@ legacy direct local `core.hooksPath=.githooks` setting, but refuses to replace
 any other effective hook path, including included or global configuration.
 
 The shared `scripts/check-submodule-reachability.nu` command is the sole
-implementation used by PR-ready validation and the internal
+implementation used by the internal
 `hook-submodule-reachability` recipe. Lefthook's pre-push job starts the thin
 `scripts/run-submodule-reachability.sh` adapter unconditionally: Lefthook
 2.1.10 filters gitlinks out of `{push_files}`, so `{all_files}` is retained only
@@ -248,8 +232,8 @@ changes, will still run on push.
 
 Add the job to `ci.yml`, then add its name to the `needs:` list and status
 predicate under `all-checks-passed`. For path-filtered jobs such as
-`pr-ready-bash3` and `tooling-validation`, the aggregate accepts `success`, or
-`skipped` only when the corresponding filter output is exactly `false`;
+`tooling-validation`, the aggregate accepts `success`, or `skipped` only when
+the corresponding filter output is exactly `false`;
 unexpected skips fail the aggregate. A missing entry there silently lets
 failures through.
 
