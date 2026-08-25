@@ -11,14 +11,16 @@ Loomark is one standard Rabbita application in `apps/loomark/app`. Its private
 pub fn app() -> @rabbita.Val[@rabbita.Html]
 ```
 
-`apps/loomark/main/main.mbt` mounts that application. Browser I/O is contained
-in `apps/loomark/internal/browser_storage`, whose Interface is `open` and
-`save`.
+`apps/loomark/main/main.mbt` mounts that application. Browser integration is
+split between `apps/loomark/internal/browser_storage`, whose interface is
+`open` and `save`, and `apps/loomark/internal/text_area`, which converts native
+textarea input sequences into shared `TextChange` operations.
 
 See the [Standard Rabbita Text App plan](../../docs/plans/2026-08-24-loomark-standard-rabbita-text-app.md) and the accepted decisions:
 
 - [Current and saved text](../../docs/decisions/2026-08-24-loomark-source-first-interactive-contract.md)
 - [Production E2E boundary](../../docs/decisions/2026-08-24-loomark-production-e2e-boundary.md)
+- [Textarea edit ownership](../../docs/decisions/2026-08-25-loomark-textarea-edit-boundary.md)
 
 ## Autosave and Recovery
 

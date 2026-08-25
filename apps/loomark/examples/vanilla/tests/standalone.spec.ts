@@ -362,6 +362,34 @@ test("native range edits avoid complete value access and native undo reads once"
     .toBe(browserText)
 })
 
+test("mismatched insertion facts recover from the current textarea value", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.waitFor()
+
+  await text.evaluate(element => {
+    const textarea = element as HTMLTextAreaElement
+    textarea.dispatchEvent(new InputEvent("beforeinput", {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      data: "before",
+      inputType: "insertText",
+    }))
+    textarea.value = "after!"
+    textarea.dispatchEvent(new InputEvent("input", {
+      bubbles: true,
+      composed: true,
+      data: "after!",
+      inputType: "insertText",
+    }))
+  })
+
+  await expect(text).toHaveValue("after!")
+  await expect.poll(() => readStoredDocument(page).then(document => document?.text))
+    .toBe("after!")
+})
+
 test("Text input processing stays within 10 ms", async ({ page }) => {
   await page.goto("/")
   const text = page.getByRole("textbox", { name: "Text" })

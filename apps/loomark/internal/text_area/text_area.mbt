@@ -163,6 +163,7 @@ fn decide_input(
     WaitingForInput(before) => {
       guard !is_composing &&
         before.input_type == after.input_type &&
+        before.data == after.data &&
         valid_input(before) &&
         valid_input(after) else {
         return (Idle, ReadValue)
