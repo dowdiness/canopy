@@ -18,6 +18,14 @@ moon check
 moon test
 ```
 
+`quint-sync-recovery` is a durable verification example rather than an
+interactive demo. Its canonical command runs pinned Quint/Apalache checks,
+Choreo simulations, and MoonBit conformance replay:
+
+```sh
+./examples/quint-sync-recovery/run.sh
+```
+
 ## Frontend / TypeScript / browser examples
 
 These examples use npm tooling. Build the MoonBit JavaScript artifacts first

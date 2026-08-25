@@ -1,4 +1,4 @@
-name = "canopy/quint-sync-recovery-prototype"
+name = "canopy/quint-sync-recovery-verification"
 
 version = "0.0.0"
 

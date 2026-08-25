@@ -1,0 +1,9 @@
+{
+  "name": "canopy-quint-sync-recovery-verification",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Pinned Quint toolchain for Canopy SyncSession verification",
+  "devDependencies": {
+    "@informalsystems/quint": "0.32.0"
+  }
+}

@@ -13,6 +13,17 @@ struct Driver {
 }
 
 ///|
+enum ChoreoCommand {
+  Init
+  OpenPeer(String)
+  StartRecovery(String)
+  Respond(String, Int)
+  DeliverResponse(String, Int, Bool)
+  FireWatchdog(Int)
+  SyncApplied
+}
+
+///|
 fn status_text(status : @sync_session.SyncStatus) -> String {
   match status {
     Disconnected => "Disconnected"
@@ -28,7 +39,7 @@ fn status_text(status : @sync_session.SyncStatus) -> String {
 
 ///|
 fn empty_message() -> @text.SyncMessage raise {
-  @text.TextState::new("quint-sync-prototype").sync().export_all()
+  @text.TextState::new("quint-sync-verification").sync().export_all()
 }
 
 ///|
@@ -153,10 +164,8 @@ fn Driver::receive_response(
 ///|
 fn Driver::apply_action(self : Driver, action : String) -> Unit raise {
   match action {
-    "open" | "openAlice" => self.session.on_open()
-    "openBob" | "openCarol" | "bobRepliesEmpty" | "bobRepliesHelpful" => ()
+    "open" => self.session.on_open()
     "startRecovery" | "startRecoveryAgain" => self.start_recovery("alice")
-    "aliceStartsRecovery" => self.start_recovery("bob")
     "watchdogCurrent" =>
       if self.broken {
         // Negative control: the real driver skips this named operation.
@@ -170,21 +179,95 @@ fn Driver::apply_action(self : Driver, action : String) -> Unit raise {
       let id = self.scheduled[self.scheduled.length() - 1].0
       self.watchdog(id)
     }
-    "aliceReceivesEmpty" =>
-      if self.broken {
-        ()
-      } else {
-        self.receive_response("bob", 1, false)
-      }
-    "aliceFiresStaleTimeout1" => self.watchdog(self.scheduled[0].0)
-    "aliceReceivesHelpful" => self.receive_response("bob", 2, true)
     "noteSyncApplied" => self.session.note_sync_applied()
     "peerLeftTarget" => {
       let host = self.host()
       self.session.on_message(@wire.encode_message(PeerLeft("alice")), host)
     }
     "done" => return
-    _ => raise Failure::Failure("unknown action")
+    _ => raise Failure::Failure("unknown local action")
+  }
+  self.phase += 1
+}
+
+///|
+fn required_string(picks : Json, name : String) -> Result[String, String] {
+  match @quint_connect.required_nondet(picks, name) {
+    Ok(String(value)) => Ok(value)
+    Ok(_) => Err("nondeterministic pick \{name} must be a string")
+    Err(reason) => Err(reason)
+  }
+}
+
+///|
+fn required_int(picks : Json, name : String) -> Result[Int, String] {
+  match @quint_connect.required_nondet(picks, name) {
+    Ok(value) => @quint_connect.decode_itf_int(value)
+    Err(reason) => Err(reason)
+  }
+}
+
+///|
+fn decode_choreo_command(
+  action : String,
+  picks : Json,
+) -> Result[ChoreoCommand, String] {
+  match action {
+    "Init" => Ok(Init)
+    "OpenPeer" => required_string(picks, "peer").map(peer => OpenPeer(peer))
+    "StartRecovery" =>
+      required_string(picks, "target").map(target => StartRecovery(target))
+    "RespondEmpty" | "RespondHelpful" => {
+      let sender = match required_string(picks, "sender") {
+        Ok(sender) => sender
+        Err(reason) => return Err(reason)
+      }
+      let id = match required_int(picks, "id") {
+        Ok(id) => id
+        Err(reason) => return Err(reason)
+      }
+      Ok(Respond(sender, id))
+    }
+    "DeliverEmpty" | "DeliverHelpful" => {
+      let sender = match required_string(picks, "sender") {
+        Ok(sender) => sender
+        Err(reason) => return Err(reason)
+      }
+      let id = match required_int(picks, "id") {
+        Ok(id) => id
+        Err(reason) => return Err(reason)
+      }
+      Ok(DeliverResponse(sender, id, action == "DeliverHelpful"))
+    }
+    "FireWatchdog" => required_int(picks, "id").map(id => FireWatchdog(id))
+    "SyncAppliedCommand" => Ok(SyncApplied)
+    "UnsafeAttemptFive" => Err("model mutation command is not replayable")
+    _ => Err("unknown Choreo command \{action}")
+  }
+}
+
+///|
+fn Driver::apply_choreo_command(
+  self : Driver,
+  command : ChoreoCommand,
+) -> Unit raise {
+  match command {
+    Init => return
+    OpenPeer(peer) => if peer == "alice" { self.session.on_open() }
+    StartRecovery(target) => self.start_recovery(target)
+    Respond(sender, id) =>
+      if sender.is_empty() || id <= 0 {
+        raise Failure::Failure("invalid responder command")
+      }
+    DeliverResponse(sender, id, helpful) =>
+      if self.broken && !helpful {
+        // Negative control: skip a real implementation input.
+        ()
+      } else {
+        self.receive_response(sender, id, helpful)
+      }
+    FireWatchdog(id) => self.watchdog(id)
+    SyncApplied => self.session.note_sync_applied()
   }
   self.phase += 1
 }
@@ -269,35 +352,57 @@ fn expected_choreo(value : Json) -> Result[Json, String] {
 async fn main {
   let args = @env.args()
   guard args.length() >= 2 else {
-    abort("usage: prototype TRACE [--choreo] [--broken]")
+    abort("usage: verification TRACE... [--choreo] [--broken]")
   }
   let broken = args.any(arg => arg == "--broken")
   let choreo = args.any(arg => arg == "--choreo")
-  let trace_text = @fs.read_file(args[1]).text()
-  let trace_result = if choreo {
-    @quint_connect.parse_itf_with_config(trace_text, {
-      state_path: ["RecoveryChoreo::choreo::display"],
-      nondet_path: [],
-    })
-  } else {
-    @quint_connect.parse_itf(trace_text)
+  let paths : Array[String] = []
+  for index = 1; index < args.length(); index = index + 1 {
+    let arg = args[index]
+    if arg == "--broken" || arg == "--choreo" {
+      ()
+    } else if arg.has_prefix("--") {
+      abort("unknown option: \{arg}")
+    } else {
+      paths.push(arg)
+    }
   }
-  let trace = match trace_result {
-    Ok(value) => value
-    Err(error) => abort("ITF parse failed: \{@debug.to_string(error)}")
+  guard !paths.is_empty() else { abort("at least one trace is required") }
+  let traces = []
+  for path in paths {
+    let trace_text = @fs.read_file(path).text()
+    let trace_result = if choreo {
+      @quint_connect.parse_itf_with_config(trace_text, {
+        state_path: ["RecoveryChoreo::choreo::display"],
+        nondet_path: ["RecoveryChoreo::choreo::s", "extensions", "command"],
+      })
+    } else {
+      @quint_connect.parse_itf(trace_text)
+    }
+    match trace_result {
+      Ok(trace) => traces.push(trace)
+      Err(error) =>
+        abort("ITF parse failed for \{path}: \{@debug.to_string(error)}")
+    }
   }
-  let result = @quint_connect.replay(
-    trace,
-    Driver::new(broken),
-    fn(driver, action, _) {
-      if action == "init" {
-        Ok(driver)
-      } else {
-        driver.apply_action(action) catch {
-          _ => return Err("driver error")
+  let result = @quint_connect.replay_suite(
+    traces,
+    () => Driver::new(broken),
+    fn(driver, action, picks) {
+      if choreo {
+        let command = match decode_choreo_command(action, picks) {
+          Ok(command) => command
+          Err(reason) => return Err(reason)
         }
-        Ok(driver)
+        driver.apply_choreo_command(command) catch {
+          error => return Err("driver error: \{@debug.to_string(error)}")
+        }
+      } else if action != "init" {
+        driver.apply_action(action) catch {
+          error => return Err("driver error: \{@debug.to_string(error)}")
+        }
       }
+      Ok(driver)
     },
     if choreo {
       project_choreo
@@ -311,7 +416,10 @@ async fn main {
     },
   )
   match result {
-    Ok(summary) => println("PASS: \{summary.states_checked} states matched")
+    Ok(summary) =>
+      println(
+        "PASS: \{summary.traces_checked} traces, \{summary.states_checked} states matched",
+      )
     Err(error) => abort("DIVERGENCE: \{@debug.to_string(error)}")
   }
 }
