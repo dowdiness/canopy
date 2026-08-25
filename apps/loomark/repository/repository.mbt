@@ -242,6 +242,11 @@ const LOCAL_TEXT_FORMAT : String = "loomark-local-text-v1"
 
 ///|
 /// Prepare the standalone source record without consulting CRDT state.
+///
+/// This LocalText v1 transformation is total for valid `String` and document
+/// identity inputs: it constructs and stringifies a MoonBit `Json` value and
+/// has no recoverable preparation-failure channel. IndexedDB replacement
+/// remains fallible and is reported through the correlated write completion.
 pub fn prepare_local_text(
   document_id~ : @archive.LoomarkDocumentId,
   source~ : String,

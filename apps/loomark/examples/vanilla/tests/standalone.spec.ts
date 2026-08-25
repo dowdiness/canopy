@@ -216,6 +216,74 @@ function removeArchivePutFailure(): void {
   delete state.__loomarkArchivePutOriginal
 }
 
+type ObservedLocalTextPut = {
+  source: string
+  encodedUtf16: number
+}
+
+function installArchivePutHold(key: string): void {
+  const state = globalThis as typeof globalThis & {
+    __loomarkArchiveAckHeld?: () => boolean
+    __loomarkArchiveReleaseAck?: () => void
+    __loomarkObservedLocalTextPuts?: () => ObservedLocalTextPut[]
+  }
+  const transactionPrototype = IDBTransaction.prototype
+  const completionDescriptor = Object.getOwnPropertyDescriptor(
+    transactionPrototype,
+    "oncomplete",
+  )
+  if (!completionDescriptor?.get || !completionDescriptor.set) {
+    throw new Error("IDBTransaction.oncomplete is not interceptable")
+  }
+  const heldTransactions = new WeakSet<IDBTransaction>()
+  const observed: ObservedLocalTextPut[] = []
+  let holdNext = true
+  let release: (() => void) | undefined
+  Object.defineProperty(transactionPrototype, "oncomplete", {
+    configurable: completionDescriptor.configurable,
+    enumerable: completionDescriptor.enumerable,
+    get() {
+      return completionDescriptor.get?.call(this)
+    },
+    set(handler: ((event: Event) => void) | null) {
+      completionDescriptor.set?.call(this, handler === null ? null : (event: Event) => {
+        if (heldTransactions.has(this) && release === undefined) {
+          release = () => handler.call(this, event)
+        } else {
+          handler.call(this, event)
+        }
+      })
+    },
+  })
+  const originalPut = IDBObjectStore.prototype.put
+  IDBObjectStore.prototype.put = function(
+    this: IDBObjectStore,
+    value: unknown,
+    recordKey?: IDBValidKey,
+  ) {
+    const request = originalPut.call(this, value, recordKey)
+    if (recordKey === key && typeof value === "string") {
+      const decoded = JSON.parse(value) as ArchiveEnvelope
+      observed.push({
+        source: decoded.portable_markdown ?? "",
+        encodedUtf16: value.length,
+      })
+      if (holdNext) {
+        holdNext = false
+        heldTransactions.add(this.transaction)
+      }
+    }
+    return request
+  }
+  state.__loomarkArchiveAckHeld = () => release !== undefined
+  state.__loomarkArchiveReleaseAck = () => {
+    const pending = release
+    release = undefined
+    pending?.()
+  }
+  state.__loomarkObservedLocalTextPuts = () => observed.slice()
+}
+
 async function replaceRawValue(input: Locator, value: string): Promise<void> {
   await input.evaluate((element, nextValue) => {
     const textarea = element as HTMLTextAreaElement
@@ -252,6 +320,7 @@ async function replaceRawValue(input: Locator, value: string): Promise<void> {
  * | page lifetime | reload or close | the page ends ownership without claiming unmount or host reuse |
  * | local baseline | first visit with an empty repository | one LocalText record establishes the active document identity |
  * | local durability | quiet flush then reload | LocalText reopens with stable document identity and durable source |
+ * | in-flight replacement | A write acknowledgment held while B then C are accepted | only A and C are encoded and C reloads |
  * | compatibility | legacy v1 fallback | source opens without history decode and v1 bytes remain untouched |
  * | recovery | corrupt, unsupported, or unreadable record | storage remains unchanged and no editable document mounts |
  * | replacement failure | accepted edit after provider failure | applied source remains visible and reload restores the prior durable archive |
@@ -451,6 +520,84 @@ test("standalone A to B to A keeps the prior Source record until the latest quie
   })
   await expect.poll(() => readArchiveEnvelope(page).then(record => record?.portable_markdown))
     .toBe("A")
+})
+
+test("an in-flight LocalText write coalesces pending source before encoding", async ({ page }) => {
+  await page.goto("/")
+  await waitForBaseline(page)
+  const documentId = (await readArchiveEnvelope(page))?.document_id
+  expect(documentId).toBeTruthy()
+  const encodedUtf16 = JSON.stringify({
+    format: "loomark-local-text-v1",
+    document_id: documentId,
+    portable_markdown: "A",
+  }).length
+  await page.evaluate(() => {
+    const scope = globalThis as typeof globalThis & {
+      __loomarkPendingFlushes?: () => number
+      __loomarkRunNextFlush?: () => void
+    }
+    const nativeSetTimeout = globalThis.setTimeout.bind(globalThis)
+    const pending: Array<() => void> = []
+    let syntheticTimer = -1
+    scope.__loomarkPendingFlushes = () => pending.length
+    scope.__loomarkRunNextFlush = () => { pending.shift()?.() }
+    globalThis.setTimeout = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
+      if (timeout === 250 && typeof handler === "function") {
+        pending.push(() => handler(...args))
+        return syntheticTimer--
+      }
+      return nativeSetTimeout(handler, timeout, ...args)
+    }) as typeof globalThis.setTimeout
+  })
+  await page.evaluate(installArchivePutHold, LOCAL_TEXT_KEY)
+
+  const input = page.locator("#loomark-input")
+  const flush = async () => {
+    await expect.poll(() => page.evaluate(() => (
+      globalThis as typeof globalThis & { __loomarkPendingFlushes?: () => number }
+    ).__loomarkPendingFlushes?.())).toBe(1)
+    await page.evaluate(() => {
+      ;(globalThis as typeof globalThis & { __loomarkRunNextFlush?: () => void })
+        .__loomarkRunNextFlush?.()
+    })
+  }
+
+  await replaceRawValue(input, "A")
+  await flush()
+  await expect.poll(() => page.evaluate(() => (
+    globalThis as typeof globalThis & { __loomarkArchiveAckHeld?: () => boolean }
+  ).__loomarkArchiveAckHeld?.())).toBe(true)
+
+  await replaceRawValue(input, "B")
+  await flush()
+  await replaceRawValue(input, "C")
+  await flush()
+
+  const observedBeforeRelease = await page.evaluate(() => (
+    globalThis as typeof globalThis & {
+      __loomarkObservedLocalTextPuts?: () => ObservedLocalTextPut[]
+    }
+  ).__loomarkObservedLocalTextPuts?.())
+  expect(observedBeforeRelease?.map(write => write.source)).toEqual(["A"])
+
+  await page.evaluate(() => {
+    ;(globalThis as typeof globalThis & { __loomarkArchiveReleaseAck?: () => void })
+      .__loomarkArchiveReleaseAck?.()
+  })
+  await expect.poll(() => page.evaluate(() => (
+    globalThis as typeof globalThis & {
+      __loomarkObservedLocalTextPuts?: () => ObservedLocalTextPut[]
+    }
+  ).__loomarkObservedLocalTextPuts?.())).toEqual([
+    { source: "A", encodedUtf16 },
+    { source: "C", encodedUtf16 },
+  ])
+  await expect.poll(() => readArchiveEnvelope(page).then(record => record?.portable_markdown))
+    .toBe("C")
+
+  await page.reload()
+  await expect(page.locator("#loomark-input")).toHaveValue("C")
 })
 
 test("legacy v1 source opens without history decode and remains untouched", async ({ page }) => {
