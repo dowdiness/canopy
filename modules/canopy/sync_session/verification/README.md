@@ -1,8 +1,9 @@
 # Quint SyncSession recovery verification
 
 This is Canopy's durable verification suite for the public `SyncSession`
-recovery protocol. It is verification-only: production MoonBit packages do not
-depend on Quint, Choreo, or `quint_connect`.
+recovery protocol. It is co-located with its owning package but remains a
+standalone MoonBit module: production packages do not depend on Quint, Choreo,
+or `quint_connect`.
 
 ## Verification architecture
 
@@ -57,8 +58,9 @@ The adapter drives only public seams:
 
 - `SyncSession::on_open`, `on_message`, `on_watchdog_fire`, and
   `note_sync_applied`;
-- `SyncIo` send and watchdog callbacks;
-- `SyncHost` apply/status/peer-leave callbacks;
+- `SyncIo` send and current-version callbacks;
+- `SyncHost` apply and peer-leave callbacks;
+- `SyncSession` status-change and watchdog-scheduler callbacks;
 - public wire encoders and decoder.
 
 It compares status, attempt, ordered outgoing message kinds, watchdog count and
@@ -71,7 +73,7 @@ real session is not required for recovery-policy conformance.
 From the repository root:
 
 ```sh
-./examples/quint-sync-recovery/run.sh
+./modules/canopy/sync_session/verification/run.sh
 ```
 
 The command runs:
@@ -86,6 +88,26 @@ The command runs:
 
 The mutation controls are gating: attempt 5 must violate `safety`, and skipping
 a real empty-response delivery must produce `StateDiverged`.
+
+## Test replacement boundary
+
+The deterministic local and named Choreo replays replace these former
+`session_wbtest.mbt` scenarios:
+
+- matching empty response advances the retry;
+- target leave transitions recovery to `Error(TargetLeft)`;
+- a stale watchdog is ignored;
+- an old watchdog remains stale after a response-driven retry;
+- a current watchdog sends the next retry;
+- four current watchdog fires exhaust recovery.
+
+The MoonBit package keeps focused tests for contracts outside that projection:
+retryable-error classification, status rendering, deferred-message buffering,
+stale or wrong-sender responses, internal recovery cleanup, non-target leave,
+close behavior, watchdog behavior without recovery, timeout-value plumbing,
+`RecoveryContext` units, and `InMemoryTransport`. Do not remove one of those
+unless the replay projection and a gating trace first observe the same value or
+effect.
 
 ## Pinned toolchain
 

@@ -95,7 +95,6 @@ jobs:
               - 'scripts/moon-update.sh'
               - '.github/workflows/ci.yml'
             run_quint_sync:
-              - 'examples/quint-sync-recovery/**'
               - 'modules/canopy/sync_session/**'
               - 'modules/canopy/protocol/wire/**'
               - 'deps/event-graph-walker'
@@ -468,7 +467,7 @@ jobs:
         with:
           node-version: '24'
           cache: 'npm'
-          cache-dependency-path: examples/quint-sync-recovery/package-lock.json
+          cache-dependency-path: modules/canopy/sync_session/verification/package-lock.json
 
       - name: Setup Java 17
         uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6
@@ -477,11 +476,11 @@ jobs:
           java-version: '17'
 
       - name: Install pinned Quint toolchain
-        working-directory: examples/quint-sync-recovery
+        working-directory: modules/canopy/sync_session/verification
         run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Run SyncSession verification suite
-        run: ./examples/quint-sync-recovery/run.sh
+        run: ./modules/canopy/sync_session/verification/run.sh
 
   format-check:
     name: Format Check

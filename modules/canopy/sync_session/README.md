@@ -38,3 +38,11 @@ This package imports `protocol/wire` (frame codec, namespace enumeration)
 and the egw text CRDT types only — never `editor`, `ephemeral`, or a
 concrete transport. WebSocket binding lives in `transport_ws/` (Tier 3,
 L3 adapter); `SyncEditor` keeps its stable surface and delegates here.
+
+## Verification
+
+[`verification/`](verification/) is a standalone module containing the Quint
+recovery specification, bounded distributed model, Choreo trace generator, and
+MoonBit public-API conformance replay. It is co-located here because it is a
+required verification asset owned by `SyncSession`, not a removable example.
+Its separate `moon.mod` keeps Quint tooling out of this production package.
