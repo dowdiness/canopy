@@ -4,6 +4,9 @@ version = "0.1.0"
 
 import {
   "moonbit-community/rabbita@0.14.1",
+  "dowdiness/loom@0.1.0",
+  "dowdiness/markdown@0.1.0",
+  "dowdiness/text_change@0.1.0",
 }
 
 license = "Apache-2.0"
