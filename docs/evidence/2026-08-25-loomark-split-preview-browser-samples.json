@@ -1,0 +1,604 @@
+{
+  "measuredAt": "2026-08-25T07:57:56.745Z",
+  "browser": "149.0.7827.55",
+  "node": "v24.14.1",
+  "fixture": {
+    "units": 250,
+    "utf16CodeUnits": 22419,
+    "lines": 1000,
+    "approximateMarkdownBlocks": 500
+  },
+  "repetitions": 5,
+  "notes": [
+    "Each measured sample follows a completed unmeasured setup transition.",
+    "loomark-preview-total is wall time through Rabbita after-render and includes frame scheduling wait.",
+    "The sum of diff/parser/semantic/materialize excludes Rabbita propagation, VDOM diff, DOM patch, layout, and paint."
+  ],
+  "samples": [
+    {
+      "position": "beginning",
+      "block": 0,
+      "operation": "insert",
+      "repetition": 0,
+      "phases": {
+        "loomark-preview-diff": 31.399999998509884,
+        "loomark-preview-parser": 4.600000001490116,
+        "loomark-preview-semantic": 6.100000001490116,
+        "loomark-preview-materialize": 1.6000000014901161,
+        "loomark-preview-total": 46.100000001490116
+      }
+    },
+    {
+      "position": "beginning",
+      "block": 0,
+      "operation": "insert",
+      "repetition": 1,
+      "phases": {
+        "loomark-preview-diff": 27.5,
+        "loomark-preview-parser": 1.1000000014901161,
+        "loomark-preview-semantic": 3.899999998509884,
+        "loomark-preview-materialize": 1.8999999985098839,
+        "loomark-preview-total": 45.899999998509884
+      }
+    },
+    {
+      "position": "beginning",
+      "block": 0,
+      "operation": "insert",
+      "repetition": 2,
+      "phases": {
+        "loomark-preview-diff": 24.700000002980232,
+        "loomark-preview-parser": 0.6000000014901161,
+        "loomark-preview-semantic": 2.5999999940395355,
+        "loomark-preview-materialize": 1,
+        "loomark-preview-total": 39.5
+      }
+    },
+    {
+      "position": "beginning",
+      "block": 0,
+      "operation": "insert",
+      "repetition": 3,
+      "phases": {
+        "loomark-preview-diff": 27.700000002980232,
+        "loomark-preview-parser": 0.7000000029802322,
+        "loomark-preview-semantic": 1.7999999970197678,
+        "loomark-preview-materialize": 0.7999999970197678,
+        "loomark-preview-total": 47.20000000298023
+      }
+    },
+    {
+      "position": "beginning",
+      "block": 0,
+      "operation": "insert",
+      "repetition": 4,
+      "phases": {
+        "loomark-preview-diff": 34.5,
+        "loomark-preview-parser": 0.7999999970197678,
+        "loomark-preview-semantic": 2,
+        "loomark-preview-materialize": 1,
+        "loomark-preview-total": 48
+      }
+    },
+    {
+      "position": "beginning",
+      "block": 0,
+      "operation": "delete",
+      "repetition": 0,
+      "phases": {
+        "loomark-preview-diff": 24.899999998509884,
+        "loomark-preview-parser": 0.5,
+        "loomark-preview-semantic": 2,
+        "loomark-preview-materialize": 0.8999999985098839,
+        "loomark-preview-total": 44.899999998509884
+      }
+    },
+    {
+      "position": "beginning",
+      "block": 0,
+      "operation": "delete",
+      "repetition": 1,
+      "phases": {
+        "loomark-preview-diff": 23.69999999552965,
+        "loomark-preview-parser": 0.7000000029802322,
+        "loomark-preview-semantic": 2.600000001490116,
+        "loomark-preview-materialize": 0.7999999970197678,
+        "loomark-preview-total": 40.399999998509884
+      }
+    },
+    {
+      "position": "beginning",
+      "block": 0,
+      "operation": "delete",
+      "repetition": 2,
+      "phases": {
+        "loomark-preview-diff": 27.799999997019768,
+        "loomark-preview-parser": 1,
+        "loomark-preview-semantic": 4,
+        "loomark-preview-materialize": 2.2000000029802322,
+        "loomark-preview-total": 45.29999999701977
+      }
+    },
+    {
+      "position": "beginning",
+      "block": 0,
+      "operation": "delete",
+      "repetition": 3,
+      "phases": {
+        "loomark-preview-diff": 26.700000002980232,
+        "loomark-preview-parser": 0.7999999970197678,
+        "loomark-preview-semantic": 2.7000000029802322,
+        "loomark-preview-materialize": 1.3999999985098839,
+        "loomark-preview-total": 43.20000000298023
+      }
+    },
+    {
+      "position": "beginning",
+      "block": 0,
+      "operation": "delete",
+      "repetition": 4,
+      "phases": {
+        "loomark-preview-diff": 24.5,
+        "loomark-preview-parser": 0.7999999970197678,
+        "loomark-preview-semantic": 2.100000001490116,
+        "loomark-preview-materialize": 0.6999999955296516,
+        "loomark-preview-total": 37.099999994039536
+      }
+    },
+    {
+      "position": "beginning",
+      "block": 0,
+      "operation": "replace",
+      "repetition": 0,
+      "phases": {
+        "loomark-preview-diff": 26.600000001490116,
+        "loomark-preview-parser": 1.8999999985098839,
+        "loomark-preview-semantic": 2.8000000044703484,
+        "loomark-preview-materialize": 0.7999999970197678,
+        "loomark-preview-total": 41.20000000298023
+      }
+    },
+    {
+      "position": "beginning",
+      "block": 0,
+      "operation": "replace",
+      "repetition": 1,
+      "phases": {
+        "loomark-preview-diff": 23.19999999552965,
+        "loomark-preview-parser": 1,
+        "loomark-preview-semantic": 4.300000004470348,
+        "loomark-preview-materialize": 0.6999999955296516,
+        "loomark-preview-total": 47.19999999552965
+      }
+    },
+    {
+      "position": "beginning",
+      "block": 0,
+      "operation": "replace",
+      "repetition": 2,
+      "phases": {
+        "loomark-preview-diff": 24.899999998509884,
+        "loomark-preview-parser": 0.6999999955296516,
+        "loomark-preview-semantic": 2.100000001490116,
+        "loomark-preview-materialize": 0.6000000014901161,
+        "loomark-preview-total": 37.5
+      }
+    },
+    {
+      "position": "beginning",
+      "block": 0,
+      "operation": "replace",
+      "repetition": 3,
+      "phases": {
+        "loomark-preview-diff": 23.100000001490116,
+        "loomark-preview-parser": 0.6999999955296516,
+        "loomark-preview-semantic": 2,
+        "loomark-preview-materialize": 0.6000000014901161,
+        "loomark-preview-total": 36.69999999552965
+      }
+    },
+    {
+      "position": "beginning",
+      "block": 0,
+      "operation": "replace",
+      "repetition": 4,
+      "phases": {
+        "loomark-preview-diff": 22.799999997019768,
+        "loomark-preview-parser": 0.8000000044703484,
+        "loomark-preview-semantic": 2.1999999955296516,
+        "loomark-preview-materialize": 0.9000000059604645,
+        "loomark-preview-total": 36.79999999701977
+      }
+    },
+    {
+      "position": "middle",
+      "block": 125,
+      "operation": "insert",
+      "repetition": 0,
+      "phases": {
+        "loomark-preview-diff": 22.69999999552965,
+        "loomark-preview-parser": 1.2000000029802322,
+        "loomark-preview-semantic": 2.2999999970197678,
+        "loomark-preview-materialize": 0.5,
+        "loomark-preview-total": 36.600000001490116
+      }
+    },
+    {
+      "position": "middle",
+      "block": 125,
+      "operation": "insert",
+      "repetition": 1,
+      "phases": {
+        "loomark-preview-diff": 24.5,
+        "loomark-preview-parser": 0.8000000044703484,
+        "loomark-preview-semantic": 2.7999999970197678,
+        "loomark-preview-materialize": 0.7000000029802322,
+        "loomark-preview-total": 38.70000000298023
+      }
+    },
+    {
+      "position": "middle",
+      "block": 125,
+      "operation": "insert",
+      "repetition": 2,
+      "phases": {
+        "loomark-preview-diff": 23.900000005960464,
+        "loomark-preview-parser": 0.7999999970197678,
+        "loomark-preview-semantic": 2.2999999970197678,
+        "loomark-preview-materialize": 0.7000000029802322,
+        "loomark-preview-total": 38.20000000298023
+      }
+    },
+    {
+      "position": "middle",
+      "block": 125,
+      "operation": "insert",
+      "repetition": 3,
+      "phases": {
+        "loomark-preview-diff": 23.100000001490116,
+        "loomark-preview-parser": 0.7999999970197678,
+        "loomark-preview-semantic": 2.100000001490116,
+        "loomark-preview-materialize": 0.7000000029802322,
+        "loomark-preview-total": 36.80000000447035
+      }
+    },
+    {
+      "position": "middle",
+      "block": 125,
+      "operation": "insert",
+      "repetition": 4,
+      "phases": {
+        "loomark-preview-diff": 23.600000001490116,
+        "loomark-preview-parser": 0.7999999970197678,
+        "loomark-preview-semantic": 2.100000001490116,
+        "loomark-preview-materialize": 0.6000000014901161,
+        "loomark-preview-total": 36.19999999552965
+      }
+    },
+    {
+      "position": "middle",
+      "block": 125,
+      "operation": "delete",
+      "repetition": 0,
+      "phases": {
+        "loomark-preview-diff": 23.399999998509884,
+        "loomark-preview-parser": 0.8000000044703484,
+        "loomark-preview-semantic": 2.2999999970197678,
+        "loomark-preview-materialize": 0.6000000014901161,
+        "loomark-preview-total": 36.70000000298023
+      }
+    },
+    {
+      "position": "middle",
+      "block": 125,
+      "operation": "delete",
+      "repetition": 1,
+      "phases": {
+        "loomark-preview-diff": 23.69999999552965,
+        "loomark-preview-parser": 0.7000000029802322,
+        "loomark-preview-semantic": 1.8999999985098839,
+        "loomark-preview-materialize": 0.7000000029802322,
+        "loomark-preview-total": 36.29999999701977
+      }
+    },
+    {
+      "position": "middle",
+      "block": 125,
+      "operation": "delete",
+      "repetition": 2,
+      "phases": {
+        "loomark-preview-diff": 23.299999997019768,
+        "loomark-preview-parser": 0.8000000044703484,
+        "loomark-preview-semantic": 2.1999999955296516,
+        "loomark-preview-materialize": 0.6000000014901161,
+        "loomark-preview-total": 35.899999998509884
+      }
+    },
+    {
+      "position": "middle",
+      "block": 125,
+      "operation": "delete",
+      "repetition": 3,
+      "phases": {
+        "loomark-preview-diff": 24.30000000447035,
+        "loomark-preview-parser": 0.7999999970197678,
+        "loomark-preview-semantic": 2.2000000029802322,
+        "loomark-preview-materialize": 0.6999999955296516,
+        "loomark-preview-total": 37.20000000298023
+      }
+    },
+    {
+      "position": "middle",
+      "block": 125,
+      "operation": "delete",
+      "repetition": 4,
+      "phases": {
+        "loomark-preview-diff": 22.899999998509884,
+        "loomark-preview-parser": 0.6000000014901161,
+        "loomark-preview-semantic": 2,
+        "loomark-preview-materialize": 0.6000000014901161,
+        "loomark-preview-total": 34.79999999701977
+      }
+    },
+    {
+      "position": "middle",
+      "block": 125,
+      "operation": "replace",
+      "repetition": 0,
+      "phases": {
+        "loomark-preview-diff": 23,
+        "loomark-preview-parser": 1.2999999970197678,
+        "loomark-preview-semantic": 2.3000000044703484,
+        "loomark-preview-materialize": 0.6000000014901161,
+        "loomark-preview-total": 35.79999999701977
+      }
+    },
+    {
+      "position": "middle",
+      "block": 125,
+      "operation": "replace",
+      "repetition": 1,
+      "phases": {
+        "loomark-preview-diff": 22.299999997019768,
+        "loomark-preview-parser": 0.6000000014901161,
+        "loomark-preview-semantic": 1.8000000044703484,
+        "loomark-preview-materialize": 1.0999999940395355,
+        "loomark-preview-total": 41.899999998509884
+      }
+    },
+    {
+      "position": "middle",
+      "block": 125,
+      "operation": "replace",
+      "repetition": 2,
+      "phases": {
+        "loomark-preview-diff": 24.799999997019768,
+        "loomark-preview-parser": 0.5,
+        "loomark-preview-semantic": 2.2999999970197678,
+        "loomark-preview-materialize": 0.7000000029802322,
+        "loomark-preview-total": 37.79999999701977
+      }
+    },
+    {
+      "position": "middle",
+      "block": 125,
+      "operation": "replace",
+      "repetition": 3,
+      "phases": {
+        "loomark-preview-diff": 23.600000001490116,
+        "loomark-preview-parser": 0.6000000014901161,
+        "loomark-preview-semantic": 2.5999999940395355,
+        "loomark-preview-materialize": 0.8000000044703484,
+        "loomark-preview-total": 37.100000001490116
+      }
+    },
+    {
+      "position": "middle",
+      "block": 125,
+      "operation": "replace",
+      "repetition": 4,
+      "phases": {
+        "loomark-preview-diff": 23.299999997019768,
+        "loomark-preview-parser": 0.7000000029802322,
+        "loomark-preview-semantic": 2.100000001490116,
+        "loomark-preview-materialize": 0.6999999955296516,
+        "loomark-preview-total": 36.5
+      }
+    },
+    {
+      "position": "end",
+      "block": 249,
+      "operation": "insert",
+      "repetition": 0,
+      "phases": {
+        "loomark-preview-diff": 23.100000001490116,
+        "loomark-preview-parser": 1.5,
+        "loomark-preview-semantic": 2.2000000029802322,
+        "loomark-preview-materialize": 0.6000000014901161,
+        "loomark-preview-total": 37.400000005960464
+      }
+    },
+    {
+      "position": "end",
+      "block": 249,
+      "operation": "insert",
+      "repetition": 1,
+      "phases": {
+        "loomark-preview-diff": 24.399999998509884,
+        "loomark-preview-parser": 0.7000000029802322,
+        "loomark-preview-semantic": 2.100000001490116,
+        "loomark-preview-materialize": 2,
+        "loomark-preview-total": 38.100000001490116
+      }
+    },
+    {
+      "position": "end",
+      "block": 249,
+      "operation": "insert",
+      "repetition": 2,
+      "phases": {
+        "loomark-preview-diff": 22.80000000447035,
+        "loomark-preview-parser": 2.2999999970197678,
+        "loomark-preview-semantic": 2.399999998509884,
+        "loomark-preview-materialize": 0.6000000014901161,
+        "loomark-preview-total": 37.399999998509884
+      }
+    },
+    {
+      "position": "end",
+      "block": 249,
+      "operation": "insert",
+      "repetition": 3,
+      "phases": {
+        "loomark-preview-diff": 24.5,
+        "loomark-preview-parser": 0.8999999985098839,
+        "loomark-preview-semantic": 3.1999999955296516,
+        "loomark-preview-materialize": 0.6000000014901161,
+        "loomark-preview-total": 38.69999999552965
+      }
+    },
+    {
+      "position": "end",
+      "block": 249,
+      "operation": "insert",
+      "repetition": 4,
+      "phases": {
+        "loomark-preview-diff": 23.5,
+        "loomark-preview-parser": 0.7000000029802322,
+        "loomark-preview-semantic": 3.899999998509884,
+        "loomark-preview-materialize": 0.5,
+        "loomark-preview-total": 42.20000000298023
+      }
+    },
+    {
+      "position": "end",
+      "block": 249,
+      "operation": "delete",
+      "repetition": 0,
+      "phases": {
+        "loomark-preview-diff": 24.19999999552965,
+        "loomark-preview-parser": 0.8000000044703484,
+        "loomark-preview-semantic": 2.1999999955296516,
+        "loomark-preview-materialize": 0.6000000014901161,
+        "loomark-preview-total": 40
+      }
+    },
+    {
+      "position": "end",
+      "block": 249,
+      "operation": "delete",
+      "repetition": 1,
+      "phases": {
+        "loomark-preview-diff": 22.19999999552965,
+        "loomark-preview-parser": 0.8000000044703484,
+        "loomark-preview-semantic": 2.2999999970197678,
+        "loomark-preview-materialize": 0.3999999985098839,
+        "loomark-preview-total": 34.899999998509884
+      }
+    },
+    {
+      "position": "end",
+      "block": 249,
+      "operation": "delete",
+      "repetition": 2,
+      "phases": {
+        "loomark-preview-diff": 23.599999994039536,
+        "loomark-preview-parser": 0.7000000029802322,
+        "loomark-preview-semantic": 2,
+        "loomark-preview-materialize": 0.5,
+        "loomark-preview-total": 36
+      }
+    },
+    {
+      "position": "end",
+      "block": 249,
+      "operation": "delete",
+      "repetition": 3,
+      "phases": {
+        "loomark-preview-diff": 23.200000002980232,
+        "loomark-preview-parser": 0.5999999940395355,
+        "loomark-preview-semantic": 1.9000000059604645,
+        "loomark-preview-materialize": 0.5,
+        "loomark-preview-total": 35.5
+      }
+    },
+    {
+      "position": "end",
+      "block": 249,
+      "operation": "delete",
+      "repetition": 4,
+      "phases": {
+        "loomark-preview-diff": 22.899999998509884,
+        "loomark-preview-parser": 0.8999999985098839,
+        "loomark-preview-semantic": 2.3000000044703484,
+        "loomark-preview-materialize": 0.6999999955296516,
+        "loomark-preview-total": 36.29999999701977
+      }
+    },
+    {
+      "position": "end",
+      "block": 249,
+      "operation": "replace",
+      "repetition": 0,
+      "phases": {
+        "loomark-preview-diff": 22.600000001490116,
+        "loomark-preview-parser": 1.5,
+        "loomark-preview-semantic": 2.0999999940395355,
+        "loomark-preview-materialize": 0.6000000014901161,
+        "loomark-preview-total": 36.600000001490116
+      }
+    },
+    {
+      "position": "end",
+      "block": 249,
+      "operation": "replace",
+      "repetition": 1,
+      "phases": {
+        "loomark-preview-diff": 23.299999997019768,
+        "loomark-preview-parser": 0.7000000029802322,
+        "loomark-preview-semantic": 2.1999999955296516,
+        "loomark-preview-materialize": 0.5,
+        "loomark-preview-total": 35.79999999701977
+      }
+    },
+    {
+      "position": "end",
+      "block": 249,
+      "operation": "replace",
+      "repetition": 2,
+      "phases": {
+        "loomark-preview-diff": 24.19999999552965,
+        "loomark-preview-parser": 0.6000000014901161,
+        "loomark-preview-semantic": 1.7999999970197678,
+        "loomark-preview-materialize": 0.5,
+        "loomark-preview-total": 35.899999998509884
+      }
+    },
+    {
+      "position": "end",
+      "block": 249,
+      "operation": "replace",
+      "repetition": 3,
+      "phases": {
+        "loomark-preview-diff": 23.200000002980232,
+        "loomark-preview-parser": 0.7000000029802322,
+        "loomark-preview-semantic": 2.100000001490116,
+        "loomark-preview-materialize": 2.6999999955296516,
+        "loomark-preview-total": 38.70000000298023
+      }
+    },
+    {
+      "position": "end",
+      "block": 249,
+      "operation": "replace",
+      "repetition": 4,
+      "phases": {
+        "loomark-preview-diff": 24.30000000447035,
+        "loomark-preview-parser": 0.6999999955296516,
+        "loomark-preview-semantic": 2,
+        "loomark-preview-materialize": 0.5,
+        "loomark-preview-total": 36.899999998509884
+      }
+    }
+  ]
+}
