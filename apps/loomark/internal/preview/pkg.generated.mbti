@@ -1,0 +1,50 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/internal/preview"
+
+import {
+  "dowdiness/markdown",
+  "dowdiness/text_change",
+  "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/html",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn after_paint(@cmd.Cmd) -> @cmd.Cmd
+
+pub fn apply_cmd(PreviewEngine, @text_change.TextChange, String, result~ : @cmd.Emit[Result[Unit, PreviewFailure]]) -> @cmd.Cmd
+
+pub fn is_empty(@markdown.MarkdownIR) -> Bool
+
+pub fn prepare_cmd(PreviewEngine, String, result~ : @cmd.Emit[Result[PreviewOutput, PreviewFailure]]) -> @cmd.Cmd
+
+pub fn refresh_cmd(PreviewEngine, String, result~ : @cmd.Emit[Result[PreviewOutput, PreviewFailure]]) -> @cmd.Cmd
+
+pub fn render(@markdown.MarkdownIR) -> @html.Html
+
+// Errors
+
+// Types and methods
+pub struct PreviewEngine {
+  // private fields
+}
+pub fn PreviewEngine::PreviewEngine() -> Self
+pub fn PreviewEngine::apply(Self, @text_change.TextChange, String) -> Result[Unit, PreviewFailure]
+pub fn PreviewEngine::prepare(Self, String) -> Result[PreviewOutput, PreviewFailure]
+pub fn PreviewEngine::refresh(Self, String) -> Result[PreviewOutput, PreviewFailure]
+
+pub(all) enum PreviewFailure {
+  InitializationFailed
+  TransitionFailed
+  OutOfSync
+  Unusable
+} derive(Eq, @debug.Debug)
+
+pub(all) struct PreviewOutput {
+  html : @html.Html
+  empty : Bool
+} derive(Eq)
+
+// Type aliases
+
+// Traits

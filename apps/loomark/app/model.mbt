@@ -14,6 +14,7 @@ priv struct EditingState {
   mode : EditorMode
   focused_mode : EditorMode
   compact : Bool
+  preview : PreviewState
 } derive(Eq)
 
 ///|
@@ -21,6 +22,21 @@ priv enum EditorMode {
   Text
   Preview
   Split
+} derive(Eq)
+
+///|
+priv struct PreviewResult {
+  text : String
+  html : @rabbita.Html
+  empty : Bool
+} derive(Eq)
+
+///|
+priv enum PreviewState {
+  Unrequested
+  Preparing
+  Ready(PreviewResult)
+  Failed(PreviewResult?)
 } derive(Eq)
 
 ///|
@@ -39,6 +55,17 @@ priv enum Msg {
   CompositionEnded
   ModeSelected(EditorMode)
   ModeKeyPressed(String)
+  BeginPreviewPreparation
+  PreviewPrepared(
+    String,
+    Result[@preview.PreviewOutput, @preview.PreviewFailure]
+  )
+  ParserAdvanced(String, Bool, Result[Unit, @preview.PreviewFailure])
+  PreviewRefreshRequested(String)
+  PreviewRefreshed(
+    String,
+    Result[@preview.PreviewOutput, @preview.PreviewFailure]
+  )
   ViewportChanged(Int)
   SaveRequested(String)
   SaveCompleted(String, @browser_storage.SaveResult)

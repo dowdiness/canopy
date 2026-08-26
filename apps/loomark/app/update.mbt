@@ -2,6 +2,9 @@
 const AUTOSAVE_QUIET_MS : Int = 250
 
 ///|
+const PREVIEW_QUIET_MS : Int = 50
+
+///|
 const COMPACT_MAX_WIDTH : Int = 640
 
 ///|
@@ -32,6 +35,51 @@ fn adjacent_mode(mode : EditorMode, key : String) -> EditorMode? {
 }
 
 ///|
+fn preview_last(state : PreviewState) -> PreviewResult? {
+  match state {
+    Ready(result) => Some(result)
+    Failed(result) => result
+    Unrequested | Preparing => None
+  }
+}
+
+///|
+fn completed_preview(
+  text : String,
+  output : @preview.PreviewOutput,
+) -> PreviewResult {
+  { text, html: output.html, empty: output.empty }
+}
+
+///|
+fn select_mode(
+  editing : EditingState,
+  mode : EditorMode,
+  emit : @rabbita.Emit[Msg],
+  preview_engine : @preview.PreviewEngine,
+) -> (EditingState, @rabbita.Cmd) {
+  let entering_preview = editing.mode == Text && mode != Text
+  match editing.preview {
+    Unrequested if mode != Text =>
+      (
+        { ..editing, mode, focused_mode: mode, preview: Preparing },
+        @preview.after_paint(emit(BeginPreviewPreparation)),
+      )
+    Failed(_) if entering_preview =>
+      (
+        { ..editing, mode, focused_mode: mode },
+        @preview.refresh_cmd(
+          preview_engine,
+          editing.text,
+          result=emit.map(result => PreviewRefreshed(editing.text, result)),
+        ),
+      )
+    Unrequested | Preparing | Ready(_) | Failed(_) =>
+      ({ ..editing, mode, focused_mode: mode }, @cmd.none)
+  }
+}
+
+///|
 fn initial_state(
   emit : @rabbita.Emit[Msg],
   compact : Bool,
@@ -48,6 +96,7 @@ fn update(
   msg : Msg,
   emit : @rabbita.Emit[Msg],
   text_area : @text_area.TextArea,
+  preview_engine : @preview.PreviewEngine,
 ) -> (Model, @rabbita.Cmd) {
   match (model, msg) {
     (Loading(compact), Opened(result)) =>
@@ -62,6 +111,7 @@ fn update(
               mode: Text,
               focused_mode: Text,
               compact,
+              preview: Unrequested,
             }),
             @cmd.batch([
               text_area.initialize(""),
@@ -82,6 +132,7 @@ fn update(
               mode: Text,
               focused_mode: Text,
               compact,
+              preview: Unrequested,
             }),
             text_area.initialize(text),
           )
@@ -103,12 +154,32 @@ fn update(
             Saving(candidate) => Saving(candidate)
             _ => Waiting
           }
-          let command = if editing.composing {
+          let save_command = if editing.composing {
             @cmd.none
           } else {
             @cmd.delay(emit(SaveRequested(text)), AUTOSAVE_QUIET_MS)
           }
-          (Editing({ ..editing, text, save }), command)
+          let preview_command = match editing.preview {
+            Unrequested | Preparing => @cmd.none
+            Ready(_) =>
+              @preview.apply_cmd(
+                preview_engine,
+                change,
+                text,
+                result=emit.map(result => ParserAdvanced(text, false, result)),
+              )
+            Failed(_) =>
+              @preview.apply_cmd(
+                preview_engine,
+                change,
+                text,
+                result=emit.map(result => ParserAdvanced(text, true, result)),
+              )
+          }
+          (
+            Editing({ ..editing, text, save }),
+            @cmd.batch([save_command, preview_command]),
+          )
         }
       }
     (Editing(editing), CompositionStarted) =>
@@ -121,12 +192,21 @@ fn update(
       }
       (Editing({ ..editing, composing: false }), command)
     }
-    (Editing(editing), ModeSelected(mode)) =>
-      (Editing({ ..editing, mode, focused_mode: mode }), @cmd.none)
+    (Editing(editing), ModeSelected(mode)) => {
+      let (editing, command) = select_mode(editing, mode, emit, preview_engine)
+      (Editing(editing), command)
+    }
     (Editing(editing), ModeKeyPressed(key)) =>
       match key {
-        "Enter" | " " =>
-          (Editing({ ..editing, mode: editing.focused_mode }), @cmd.none)
+        "Enter" | " " => {
+          let (editing, command) = select_mode(
+            editing,
+            editing.focused_mode,
+            emit,
+            preview_engine,
+          )
+          (Editing(editing), command)
+        }
         _ =>
           match adjacent_mode(editing.focused_mode, key) {
             Some(focused_mode) =>
@@ -136,6 +216,99 @@ fn update(
               )
             None => (model, @cmd.none)
           }
+      }
+    (Editing(editing), BeginPreviewPreparation) =>
+      match editing.preview {
+        Preparing =>
+          (
+            model,
+            @preview.prepare_cmd(
+              preview_engine,
+              editing.text,
+              result=emit.map(result => PreviewPrepared(editing.text, result)),
+            ),
+          )
+        Unrequested | Ready(_) | Failed(_) => (model, @cmd.none)
+      }
+    (Editing(editing), PreviewPrepared(candidate, result)) =>
+      match result {
+        Ok(output) =>
+          (
+            Editing({
+              ..editing,
+              preview: Ready(completed_preview(candidate, output)),
+            }),
+            @cmd.none,
+          )
+        Err(_) => (Editing({ ..editing, preview: Failed(None) }), @cmd.none)
+      }
+    (Editing(editing), ParserAdvanced(candidate, retry_on_failure, result)) =>
+      match result {
+        Ok(_) =>
+          (
+            model,
+            @cmd.delay(
+              emit(PreviewRefreshRequested(candidate)),
+              PREVIEW_QUIET_MS,
+            ),
+          )
+        Err(_) => {
+          let command = if retry_on_failure {
+            @cmd.delay(
+              emit(PreviewRefreshRequested(candidate)),
+              PREVIEW_QUIET_MS,
+            )
+          } else {
+            @cmd.none
+          }
+          (
+            Editing({
+              ..editing,
+              preview: Failed(preview_last(editing.preview)),
+            }),
+            command,
+          )
+        }
+      }
+    (Editing(editing), PreviewRefreshRequested(candidate)) =>
+      if candidate != editing.text {
+        (model, @cmd.none)
+      } else {
+        match editing.preview {
+          Unrequested | Preparing => (model, @cmd.none)
+          Ready(_) | Failed(_) =>
+            (
+              model,
+              @preview.refresh_cmd(
+                preview_engine,
+                candidate,
+                result=emit.map(result => PreviewRefreshed(candidate, result)),
+              ),
+            )
+        }
+      }
+    (Editing(editing), PreviewRefreshed(candidate, result)) =>
+      if candidate != editing.text {
+        (model, @cmd.none)
+      } else {
+        match result {
+          Ok(output) =>
+            (
+              Editing({
+                ..editing,
+                preview: Ready(completed_preview(candidate, output)),
+              }),
+              @cmd.none,
+            )
+          Err(_) =>
+            (
+              Editing({
+                ..editing,
+                preview: Failed(preview_last(editing.preview)),
+              }),
+              @cmd.none,
+            )
+        }
       }
     (Loading(_), ViewportChanged(width)) =>
       (Loading(compact_viewport(width)), @cmd.none)

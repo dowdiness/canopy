@@ -262,10 +262,13 @@ button {
 }
 
 .loomark-reading-frame {
+  display: grid;
   width: var(--lm-page-width);
   min-width: 0;
   margin: 0 auto;
   padding: 2rem var(--lm-page-x-padding) 4rem;
+  gap: 1rem;
+  grid-auto-rows: max-content;
   font-size: 1rem;
   line-height: 1.7;
 }
@@ -275,9 +278,79 @@ button {
   overflow-wrap: break-word;
 }
 
-.loomark-preview-empty {
+.loomark-reading-frame ul,
+.loomark-reading-frame ol {
+  margin: 0;
+  padding-inline-start: 1.5rem;
+}
+
+.loomark-reading-frame pre {
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+.loomark-reading-frame img {
+  max-width: 100%;
+  height: auto;
+}
+
+.loomark-reading-frame a {
+  color: var(--lm-accent);
+  text-underline-offset: 0.18em;
+}
+
+.loomark-preview-code-block {
+  margin: 0;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  background: oklch(0.94 0.008 85);
+  white-space: pre;
+}
+
+.loomark-preview-code-block code {
+  font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.loomark-preview-h5,
+.loomark-preview-h6 {
+  margin: 0;
+  font-weight: 600;
+}
+
+.loomark-preview-h5 {
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.loomark-preview-h6 {
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.loomark-preview-empty,
+.loomark-preview-status {
   margin: 0;
   color: var(--lm-muted);
+}
+
+.loomark-preview-failure {
+  margin: 0;
+  color: var(--lm-danger);
+}
+
+.loomark-preview-stale-alert {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 0.625rem var(--lm-page-x-padding);
+  border-bottom: 1px solid oklch(0.78 0.07 25);
+  background: var(--lm-danger-soft);
+  color: var(--lm-danger);
+  font-size: 0.875rem;
+  line-height: 1.4;
 }
 
 .loomark-resize-handle {

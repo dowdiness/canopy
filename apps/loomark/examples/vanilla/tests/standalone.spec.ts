@@ -167,6 +167,8 @@ test("fresh production opens Text mode and preserves its textarea across modes",
     ;(globalThis as typeof globalThis & { __loomarkTextArea?: HTMLTextAreaElement })
       .__loomarkTextArea = element as HTMLTextAreaElement
   })
+  await text.pressSequentially("abc")
+  await text.evaluate(element => (element as HTMLTextAreaElement).setSelectionRange(1, 2))
 
   await previewTab.click()
   await expect(text).toBeHidden()
@@ -195,7 +197,63 @@ test("fresh production opens Text mode and preserves its textarea across modes",
     (globalThis as typeof globalThis & { __loomarkTextArea?: HTMLTextAreaElement })
       .__loomarkTextArea === document.getElementById("loomark-text")
   ))).toBe(true)
+  expect(await text.evaluate(element => ({
+    start: (element as HTMLTextAreaElement).selectionStart,
+    end: (element as HTMLTextAreaElement).selectionEnd,
+  }))).toEqual({ start: 1, end: 2 })
+  await text.focus()
+  await page.keyboard.press("Control+Z")
+  await expect(text).toHaveValue("")
   expect(workerUrls).toEqual([])
+})
+
+test("Preview prepares after its status paints and refreshes typed Markdown", async ({ page }) => {
+  await page.goto("/")
+
+  const source = [
+    "# Preview heading",
+    "",
+    "[Canopy](https://example.test)",
+    "",
+    '<div id="unsafe-preview">raw HTML</div>',
+    "",
+  ].join("\n")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill(source)
+  await page.evaluate(() => {
+    const state = globalThis as typeof globalThis & {
+      __loomarkPreparingObserved?: boolean
+    }
+    state.__loomarkPreparingObserved = false
+    const observer = new MutationObserver(() => {
+      if (document.body.textContent?.includes("Preparing preview…")) {
+        state.__loomarkPreparingObserved = true
+        observer.disconnect()
+      }
+    })
+    observer.observe(document.body, { childList: true, subtree: true })
+  })
+  await page.getByRole("tab", { name: "Preview" }).click()
+
+  await expect.poll(() => page.evaluate(() => (
+    (globalThis as typeof globalThis & { __loomarkPreparingObserved?: boolean })
+      .__loomarkPreparingObserved ?? false
+  ))).toBe(true)
+  await expect(page.getByRole("heading", { name: "Preview heading" })).toBeVisible()
+  const link = page.getByRole("link", { name: "Canopy" })
+  await expect(link).toHaveAttribute("href", "https://example.test")
+  await expect(link).toHaveAttribute("target", "_blank")
+  await expect(link).toHaveAttribute("rel", "noopener noreferrer")
+  await expect(page.getByText('<div id="unsafe-preview">raw HTML</div>')).toBeVisible()
+  await expect(page.locator("#unsafe-preview")).toHaveCount(0)
+
+  await page.getByRole("tab", { name: "Split" }).click()
+  await text.fill("# Updated heading\n")
+  await expect(page.getByRole("heading", { name: "Preview heading" })).toBeVisible()
+  await page.getByRole("tab", { name: "Text" }).click()
+  await page.getByRole("tab", { name: "Preview" }).click()
+  await expect(page.getByRole("heading", { name: "Updated heading" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Preview heading" })).toHaveCount(0)
 })
 
 test("mode tabs move focus without activation and activate with Enter or Space", async ({ page }) => {
@@ -382,6 +440,47 @@ test("IME composition saves only after composition ends", async ({ page }) => {
     .toBe("変換中")
 })
 
+test("Preview schedules no new work until IME composition commits", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill("# Before\n")
+  await page.getByRole("tab", { name: "Split" }).click()
+  await expect(page.getByRole("heading", { name: "Before" })).toBeVisible()
+
+  await text.evaluate(element => {
+    const textarea = element as HTMLTextAreaElement
+    textarea.setSelectionRange(0, textarea.value.length)
+    textarea.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }))
+    textarea.value = "# During\n"
+    textarea.dispatchEvent(new InputEvent("input", {
+      bubbles: true,
+      composed: true,
+      data: "# During\n",
+      inputType: "insertCompositionText",
+    }))
+  })
+  await page.waitForTimeout(100)
+  await expect(page.getByRole("heading", { name: "Before" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "During" })).toHaveCount(0)
+
+  await text.evaluate(element => {
+    const textarea = element as HTMLTextAreaElement
+    textarea.value = "# After\n"
+    textarea.dispatchEvent(new CompositionEvent("compositionend", {
+      bubbles: true,
+      data: "# After\n",
+    }))
+    textarea.dispatchEvent(new InputEvent("input", {
+      bubbles: true,
+      composed: true,
+      data: "# After\n",
+      inputType: "insertText",
+    }))
+  })
+  await expect(page.getByRole("heading", { name: "After" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Before" })).toHaveCount(0)
+})
+
 test("save failure keeps Text editable and Retry saves the latest text", async ({ page }) => {
   await page.goto("/")
   await expect.poll(() => readStoredDocument(page)).toEqual({
@@ -505,6 +604,51 @@ test("mismatched insertion facts recover from the current textarea value", async
   await expect(text).toHaveValue("after!")
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
     .toBe("after!")
+})
+
+test("Text input stays within 10 ms with per-edit Parser transitions", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill("# A")
+  await page.getByRole("tab", { name: "Preview" }).click()
+  await expect(page.getByRole("heading", { name: "A" })).toBeVisible()
+  await page.getByRole("tab", { name: "Text" }).click()
+
+  const durations = await text.evaluate(element => {
+    const textarea = element as HTMLTextAreaElement
+    const dispatchExactInsert = () => {
+      const start = textarea.value.length
+      textarea.setSelectionRange(start, start)
+      textarea.dispatchEvent(new InputEvent("beforeinput", {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        data: "x",
+        inputType: "insertText",
+      }))
+      textarea.value += "x"
+      textarea.setSelectionRange(start + 1, start + 1)
+      textarea.dispatchEvent(new InputEvent("input", {
+        bubbles: true,
+        composed: true,
+        data: "x",
+        inputType: "insertText",
+      }))
+    }
+    for (let index = 0; index < 10; index += 1) dispatchExactInsert()
+    return Array.from({ length: 50 }, () => {
+      const started = performance.now()
+      dispatchExactInsert()
+      return performance.now() - started
+    })
+  })
+  const sorted = [...durations].sort((left, right) => left - right)
+  expect(sorted[Math.ceil(sorted.length * 0.95) - 1]).toBeLessThanOrEqual(10)
+  expect(sorted[sorted.length - 1]).toBeLessThanOrEqual(10)
+
+  await page.waitForTimeout(100)
+  await page.getByRole("tab", { name: "Preview" }).click()
+  await expect(page.getByRole("heading", { name: `A${"x".repeat(60)}` })).toBeVisible()
 })
 
 test("Text input processing stays within 10 ms", async ({ page }) => {

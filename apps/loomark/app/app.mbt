@@ -1,10 +1,13 @@
 ///|
 pub fn app() -> @rabbita.Val[@rabbita.Html] {
   let text_area = @text_area.TextArea::TextArea("loomark-text")
+  let preview_engine = @preview.PreviewEngine::PreviewEngine()
   let initial_compact = compact_viewport(@dom.window().inner_width())
   let (model, emit) = @rabbita.create_state_with_init(
     init=emit => initial_state(emit, initial_compact),
-    update=(model, msg, emit) => update(model, msg, emit, text_area),
+    update=(model, msg, emit) => {
+      update(model, msg, emit, text_area, preview_engine)
+    },
     subscriptions=(_, emit) => {
       @sub.on_resize(viewport => emit(ViewportChanged(viewport.width)))
     },
@@ -63,7 +66,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
                 } else {
                   ["display:none;overflow:hidden"]
                 },
-                preview_view(),
+                preview_view(editing.preview),
               ),
             ]
           }

@@ -1,19 +1,18 @@
 import {
-  "dowdiness/loomark/internal/browser_storage",
-  "dowdiness/loomark/internal/mode_tabs",
-  "dowdiness/loomark/internal/preview",
-  "dowdiness/loomark/internal/text_area",
+  "dowdiness/diagnostic",
+  "dowdiness/loom",
+  "dowdiness/markdown",
   "dowdiness/text_change",
   "moonbit-community/rabbita",
   "moonbit-community/rabbita/cmd",
   "moonbit-community/rabbita/dom",
   "moonbit-community/rabbita/html",
-  "moonbit-community/rabbita/sub",
   "Yoorkin/rui",
 }
 
 import {
   "moonbit-community/rabbita/testing" @rabbita_testing,
+  "moonbitlang/core/bench",
 } for "wbtest"
 
 supported_targets = "js"

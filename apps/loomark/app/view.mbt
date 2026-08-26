@@ -103,7 +103,51 @@ fn text_area_view(
 }
 
 ///|
-fn preview_view() -> @rabbita.Html {
+fn preview_result_view(result : PreviewResult) -> @rabbita.Html {
+  if result.empty {
+    @html.p(
+      class="loomark-preview-empty",
+      attrs=@html.Attrs::build().role("status"),
+      "Nothing to preview",
+    )
+  } else {
+    result.html
+  }
+}
+
+///|
+fn preview_view(state : PreviewState) -> @rabbita.Html {
+  let (alert, content) = match state {
+    Unrequested => (@html.nothing, @html.nothing)
+    Preparing =>
+      (
+        @html.nothing,
+        @html.p(
+          class="loomark-preview-status",
+          attrs=@html.Attrs::build().role("status"),
+          "Preparing preview…",
+        ),
+      )
+    Ready(result) => (@html.nothing, preview_result_view(result))
+    Failed(None) =>
+      (
+        @html.nothing,
+        @html.p(
+          class="loomark-preview-failure",
+          attrs=@html.Attrs::build().role("alert"),
+          "Preview could not be prepared.",
+        ),
+      )
+    Failed(Some(result)) =>
+      (
+        @html.div(
+          class="loomark-preview-stale-alert",
+          attrs=@html.Attrs::build().role("alert"),
+          "Preview could not be updated. Showing the last completed preview.",
+        ),
+        preview_result_view(result),
+      )
+  }
   @html.div(
     id="loomark-preview-scroll",
     class="loomark-preview-scroll",
@@ -111,13 +155,7 @@ fn preview_view() -> @rabbita.Html {
       .role("region")
       .aria_label("Markdown preview")
       .tabindex(0),
-    @html.div(class="loomark-reading-frame", [
-      @html.p(
-        class="loomark-preview-empty",
-        attrs=@html.Attrs::build().role("status"),
-        "Nothing to preview",
-      ),
-    ]),
+    [alert, @html.div(class="loomark-reading-frame", content)],
   )
 }
 
