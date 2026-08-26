@@ -2,8 +2,10 @@
 
 **Issue:** [#1372](https://github.com/dowdiness/canopy/issues/1372)
 
-**Status:** Ready for implementation after the issue and this plan link each
-other.
+**Status:** Implementation reached the practical-corpus performance stop
+condition. See
+[production performance evidence](../evidence/2026-08-26-loomark-preview-split-production-performance.md)
+before continuing.
 
 This plan extends the completed
 [standard Rabbita Text app](2026-08-24-loomark-standard-rabbita-text-app.md).
@@ -451,6 +453,8 @@ leaks. Any widened generated trait bound is an API regression.
 - TypeScript product code does not change; Playwright production tests do.
 - Implementation evidence records exact environment, commits, fixture, raw
   samples, and separated cold/steady phases.
+- The current evidence is
+  [2026-08-26-loomark-preview-split-production-performance.md](../evidence/2026-08-26-loomark-preview-split-production-performance.md).
 - Link the final evidence from #1372 and this plan.
 - Do not claim Safari device validation without macOS/iOS Safari hardware tests.
 
