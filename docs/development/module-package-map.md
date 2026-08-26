@@ -70,7 +70,7 @@ A root package may live more than one directory deep; for example
 `modules/canopy/lang/lambda/companion/` imports as
 `dowdiness/canopy/lang/lambda/companion`.
 
-Required verification assets owned by one package may live in a nested
+Package-owned verification assets may live in a nested
 `verification/` directory under that package. When third-party verification
 tooling needs dependencies that production must not inherit, make that
 directory a standalone module with its own `moon.mod`; list it explicitly in

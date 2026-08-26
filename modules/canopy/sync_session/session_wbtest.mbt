@@ -184,6 +184,24 @@ test "SyncSession: SyncResponse from wrong sender is ignored" {
 }
 
 ///|
+test "SyncSession: SyncResponse with empty delta increments retries" {
+  let session = SyncSession()
+  let empty_msg = empty_msg_or_fail()
+  session.recovery_epoch = 1
+  session.recovery = Some(RecoveryContext::new("alice", empty_msg, 1))
+  // SyncResponse with matching request_id but empty delta
+  let wire = @wire.encode_sync_response(
+    target="alice",
+    request_id="1",
+    sync_json="",
+  )
+  session.on_message(wire, test_host([], []))
+  // Should have incremented retries
+  inspect(session.recovery is Some(_), content="true")
+  inspect(session.recovery.unwrap().retries, content="1")
+}
+
+///|
 test "SyncSession: PeerLeft aborts recovery for that peer" {
   let session = SyncSession()
   let empty_msg = empty_msg_or_fail()
@@ -221,6 +239,25 @@ test "SyncSession: on_close clears recovery state" {
 // Status transitions around PeerLeft during recovery
 
 ///|
+test "SyncSession: PeerLeft during recovery → Error(TargetLeft)" {
+  let session = SyncSession()
+  session.on_open()
+  let empty_msg = empty_msg_or_fail()
+  session.recovery_epoch = 1
+  session.recovery = Some(RecoveryContext::new("alice", empty_msg, 1))
+  session.set_status(Recovering(peer_id="alice", attempt=1))
+  let wire = @wire.encode_message(PeerLeft("alice"))
+  session.on_message(wire, test_host([], []))
+  inspect(session.recovery is None, content="true")
+  inspect(
+    session.get_status(),
+    content=(
+      #|Error(reason=TargetLeft(peer_id="alice"))
+    ),
+  )
+}
+
+///|
 test "SyncSession: PeerLeft for different peer does not change status" {
   let session = SyncSession()
   session.on_open()
@@ -239,7 +276,72 @@ test "SyncSession: PeerLeft for different peer does not change status" {
   )
 }
 
-// Watchdog: no-op and scheduler plumbing
+// Watchdog: staleness, retry, exhaustion
+
+///|
+test "SyncSession: stale watchdog ignored" {
+  let session = SyncSession()
+  session.on_open()
+  let empty_msg = empty_msg_or_fail()
+  session.recovery_epoch = 5
+  session.recovery = Some(RecoveryContext::new("alice", empty_msg, 5))
+  session.set_status(Recovering(peer_id="alice", attempt=1))
+  // Fire watchdog with stale request_id 3 (current epoch is 5)
+  session.on_watchdog_fire(3, test_io([]))
+  // Status and recovery state should be unchanged
+  inspect(
+    session.get_status(),
+    content=(
+      #|Recovering(peer_id="alice", attempt=1)
+    ),
+  )
+  inspect(session.recovery is Some(_), content="true")
+  inspect(session.recovery.unwrap().retries, content="0")
+}
+
+///|
+test "SyncSession: watchdog for prior epoch is ignored after response-driven retry" {
+  // End-to-end stale path: recovery is in progress on request_id=1, an
+  // empty SyncResponse for id=1 arrives (triggering retry → epoch bumps
+  // to 2), then the now-stale watchdog for id=1 fires. The session must
+  // not double-retry, and the status must stay on Recovering(..,2).
+  let session = SyncSession()
+  session.on_open()
+  let empty_msg = empty_msg_or_fail()
+  // No scheduler — we're driving watchdog fires manually.
+  session.set_watchdog_scheduler(None)
+  session.recovery_epoch = 1
+  session.recovery = Some(RecoveryContext::new("alice", empty_msg, 1))
+  session.set_status(Recovering(peer_id="alice", attempt=1))
+  // Inject an empty SyncResponse for the current epoch → triggers retry.
+  let response_wire = @wire.encode_sync_response(
+    target="alice",
+    request_id="1",
+    sync_json="",
+  )
+  session.on_message(response_wire, test_host([], []))
+  // The retry path bumped the epoch and advanced attempt.
+  inspect(session.recovery_epoch, content="2")
+  let after_response = session.recovery.unwrap()
+  inspect(after_response.retries, content="1")
+  inspect(
+    session.get_status(),
+    content=(
+      #|Recovering(peer_id="alice", attempt=2)
+    ),
+  )
+  // Now the old watchdog for id=1 fires — must be a no-op.
+  session.on_watchdog_fire(1, test_io([]))
+  let after_stale = session.recovery.unwrap()
+  inspect(after_stale.retries, content="1") // unchanged
+  inspect(session.recovery_epoch, content="2") // unchanged
+  inspect(
+    session.get_status(),
+    content=(
+      #|Recovering(peer_id="alice", attempt=2)
+    ),
+  ) // unchanged
+}
 
 ///|
 test "SyncSession: watchdog when no recovery does nothing" {
@@ -248,6 +350,70 @@ test "SyncSession: watchdog when no recovery does nothing" {
   // No recovery in progress
   session.on_watchdog_fire(99, test_io([]))
   inspect(session.get_status(), content="Idle")
+}
+
+///|
+test "SyncSession: watchdog fire triggers retry" {
+  let session = SyncSession()
+  session.on_open()
+  let empty_msg = empty_msg_or_fail()
+  session.recovery_epoch = 1
+  session.recovery = Some(RecoveryContext::new("alice", empty_msg, 1))
+  session.set_status(Recovering(peer_id="alice", attempt=1))
+  // No scheduler — avoid infinite re-arms during test
+  session.set_watchdog_scheduler(None)
+  // Fire watchdog for the current request_id
+  let sent : Array[Bytes] = []
+  session.on_watchdog_fire(1, test_io(sent))
+  // The retry actually sent a SyncRequest frame
+  inspect(sent.length(), content="1")
+  // Should have advanced retries
+  let recovery = session.recovery.unwrap()
+  inspect(recovery.retries, content="1")
+  // Status should show attempt 2
+  inspect(
+    session.get_status(),
+    content=(
+      #|Recovering(peer_id="alice", attempt=2)
+    ),
+  )
+}
+
+///|
+test "SyncSession: watchdog exhaustion → Error(Exhausted)" {
+  let session = SyncSession()
+  session.on_open()
+  let empty_msg = empty_msg_or_fail()
+  // No scheduler — prevent infinite re-arms during test
+  session.set_watchdog_scheduler(None)
+  session.recovery_epoch = 1
+  let ctx = RecoveryContext::new("alice", empty_msg, 1)
+  session.recovery = Some(ctx)
+  session.set_status(Recovering(peer_id="alice", attempt=1))
+  // Four watchdog fires total are needed to exhaust: the initial
+  // recovery attempt plus `max_retries_after_initial` (3) retries.
+  // Fires 1-3 advance retries 0→1, 1→2, 2→3. Fire 4 sees retries=3
+  // and hits the is_exhausted() branch.
+  // After each fire we pass the current recovery_epoch so the
+  // stale-check in on_watchdog_fire matches.
+  let sent : Array[Bytes] = []
+  let io = test_io(sent)
+  session.on_watchdog_fire(1, io) // retries 0 → advances to 1 (epoch bumps to 2)
+  inspect(session.recovery is Some(_), content="true")
+  session.on_watchdog_fire(session.recovery_epoch, io) // retries 1 → advances to 2 (epoch → 3)
+  inspect(session.recovery is Some(_), content="true")
+  session.on_watchdog_fire(session.recovery_epoch, io) // retries 2 → advances to 3 (epoch → 4)
+  inspect(session.recovery is Some(_), content="true")
+  session.on_watchdog_fire(session.recovery_epoch, io) // retries 3 → exhausted, clears
+  inspect(session.recovery is None, content="true")
+  // Exactly three retry SyncRequests went out; the exhausted fire sends none.
+  inspect(sent.length(), content="3")
+  inspect(
+    session.get_status(),
+    content=(
+      #|Error(reason=Exhausted(peer_id="alice"))
+    ),
+  )
 }
 
 // Watchdog scheduler: recorded call with request_id

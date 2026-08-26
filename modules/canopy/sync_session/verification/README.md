@@ -86,28 +86,20 @@ The command runs:
 - a deterministic named Choreo witness;
 - model and implementation mutation controls.
 
-The mutation controls are gating: attempt 5 must violate `safety`, and skipping
-a real empty-response delivery must produce `StateDiverged`.
+The mutation controls gate this command: attempt 5 must violate `safety`, and
+skipping a real empty-response delivery must produce `StateDiverged`.
 
-## Test replacement boundary
+## Relationship to regular tests
 
-The deterministic local and named Choreo replays replace these former
-`session_wbtest.mbt` scenarios:
+This suite is an opt-in local verification tool, not a replacement for the
+MoonBit test suite. Focused `session_wbtest.mbt` cases retain fast, diagnostic
+coverage of empty responses, target leave, current and stale watchdogs, retry,
+and exhaustion. Quint deliberately overlaps those cases while adding bounded
+state-space exploration, distributed scheduling, and generated-trace replay.
 
-- matching empty response advances the retry;
-- target leave transitions recovery to `Error(TargetLeft)`;
-- a stale watchdog is ignored;
-- an old watchdog remains stale after a response-driven retry;
-- a current watchdog sends the next retry;
-- four current watchdog fires exhaust recovery.
-
-The MoonBit package keeps focused tests for contracts outside that projection:
-retryable-error classification, status rendering, deferred-message buffering,
-stale or wrong-sender responses, internal recovery cleanup, non-target leave,
-close behavior, watchdog behavior without recovery, timeout-value plumbing,
-`RecoveryContext` units, and `InMemoryTransport`. Do not remove one of those
-unless the replay projection and a gating trace first observe the same value or
-effect.
+Keep both layers: normal MoonBit tests protect every change in the standard CI,
+while this command provides deeper evidence when recovery semantics or their
+dependencies change.
 
 ## Pinned toolchain
 
@@ -126,12 +118,12 @@ git submodule update --init --recursive
 ```
 
 The runner installs the locked npm dependencies when the local Quint binary is
-missing. CI installs them explicitly with `npm ci`.
+missing.
 
 ## Maintenance contract
 
-Changes to any of these surfaces must run and, where semantics change, update
-this suite:
+Run this suite locally, and update it when semantics change, for changes to any
+of these surfaces:
 
 - `modules/canopy/sync_session/**`
 - `modules/canopy/protocol/wire/**`
@@ -139,8 +131,9 @@ this suite:
 - retry limits, request-ID matching, watchdog behavior, response handling,
   status transitions, or peer-leave policy
 
-The path-filtered `Quint Sync Recovery Verification` CI job enforces the suite
-and is included in `All Checks Passed`.
+It is intentionally not part of the standard CI gate because its pinned external
+toolchain and bounded symbolic run are comparatively expensive. Run it before
+releases and when investigating message-ordering or recovery-state failures.
 
 ## Reuse check
 
