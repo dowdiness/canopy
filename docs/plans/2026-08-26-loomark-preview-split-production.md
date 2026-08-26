@@ -224,7 +224,10 @@ it so re-entry normally has a current result.
 
 Restore only the pure direct renderer behavior from commit
 `65f134a7bac3c7a624f9d4bde5f0186594f4942f` and its focused tests. Do not restore
-the old Driver, projection artifact renderer, Worker, examples, or state.
+the old Driver, projection artifact renderer, Worker, or state. Restore the five
+example documents as app-owned source constants and immediate whole-Document
+replacement actions; they use the current `TextChange::ReplaceAll`, Parser,
+Preview, and Autosave path rather than old application machinery.
 
 The renderer must:
 
@@ -272,8 +275,9 @@ the next tab, which automatically selects it. The accepted interaction uses
 manual activation: Arrow keys move focus; Enter or Space selects. Implement
 three typed Html buttons with `role="tab"`, roving `tabindex`, `aria-selected`,
 `aria-controls`, matching accessible names and native `title` text, visible
-selected state, and visible focus. Activation leaves focus on the selected tab;
-the next Tab enters visible content.
+selected state, and visible focus. Activation leaves focus on the selected tab.
+The five restored example actions follow the mode tabs in DOM and keyboard
+order, followed by the visible content.
 
 Render the textarea under a stable structural path. Browser E2E must prove that
 the exact `HTMLTextAreaElement` object survives mode changes, RUI dragging, and
@@ -281,10 +285,13 @@ responsive orientation changes. Stop if any of those operations replaces it.
 
 ## Visual and accessibility behavior
 
-Restore the previous warm-light editor frame without restoring old product
-features:
+Retain the previous full-height editor structure while applying the accepted
+cool gray-white palette and restored example actions:
 
-- fixed top mode bar, left-aligned icon-only controls, and empty remaining bar;
+- fixed top mode bar with left-aligned icon-only mode controls and the five
+  `Demo`, `Hello`, `Guide`, `List`, and `Code` actions on the right;
+- near-white, low-chroma gray paper and shell surfaces without an outer frame,
+  shadow, webfont, dark-mode branch, or custom scrollbar styling;
 - centered 46 rem reading width and compact mobile inset;
 - borderless, non-resizable monospace textarea;
 - previous Markdown typography;
@@ -298,10 +305,11 @@ features:
 Keep `#loomark-text` and `#loomark-preview-scroll` as stable internal DOM seams.
 Do not attach scroll listeners in this issue.
 
-Preview is a focusable region named `Markdown preview`. In Split, keyboard order
-is textarea, Preview region, then links. Preparing and empty completion are
-polite status messages; failures are alerts; completed Markdown is not a live
-region.
+Preview is a focusable region named `Markdown preview`. From the mode bar,
+keyboard order passes through the five example actions before entering visible
+content. Within Split content, order is textarea, Preview region, then links.
+Preparing and empty completion are polite status messages; failures are alerts;
+completed Markdown is not a live region.
 
 ## Existing API First
 
@@ -394,6 +402,10 @@ Extend `standalone.spec.ts` without production debug APIs:
 - RUI pointer and keyboard resize plus 25–75 bounds;
 - horizontal/vertical orientation across 640 px while preserving textarea;
 - read-only Preview, empty state, links, raw HTML safety, and responsive layout;
+- immediate example-document replacement through current Document, Preview,
+  and Autosave paths;
+- independent native Text and Preview scrolling in both Split orientations,
+  with the textarea scrollbar at its pane's right edge;
 - 50 ms refresh behavior and IME boundary;
 - initial and stale failure reducer coverage, with browser coverage only where a
   real boundary can fail without a production hook; and

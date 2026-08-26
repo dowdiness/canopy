@@ -1,8 +1,8 @@
 ///|
-const HELLO_EXAMPLE_SOURCE : String = "# Hello World\n\nWelcome to the Canopy Markdown editor.\n\nThis editor has three modes: raw, block, and preview.\n"
+const HELLO_EXAMPLE_SOURCE : String = "# Hello World\n\nWelcome to Loomark.\n\nUse Text to edit Markdown, Preview to read the rendered document, and Split to work with both at once.\n"
 
 ///|
-const BLOG_EXAMPLE_SOURCE : String = "# Getting Started\n\nCanopy is an incremental projectional editor.\n\n## Features\n\nThe editor supports real-time collaboration via CRDT.\n\nEvery keystroke is incrementally parsed and projected into a structured view."
+const BLOG_EXAMPLE_SOURCE : String = "# Getting Started\n\nLoomark is a source-first incremental Markdown editor.\n\n## Features\n\nText remains the editing authority.\n\nPreview and Split share one read-only rendered result that updates from precise browser edits."
 
 ///|
 const LIST_EXAMPLE_SOURCE : String = "# Shopping List\n\nThings to pick up:\n\n- Apples\n- Bread\n- Coffee\n- Dark chocolate"
@@ -14,7 +14,7 @@ const CODE_EXAMPLE_SOURCE : String = "# README\n\nA minimal example project.\n\n
 const MARKDOWN_DEMO_SOURCE : String =
   $|# Markdown Feature Tour
   $|
-  $|A long-form tour of Markdown syntax for editing in the Raw source view.
+  $|A long-form tour of Markdown syntax for editing in Text mode.
   $|The standalone document is stored directly as portable Markdown.
   $|
   $|---

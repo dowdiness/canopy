@@ -376,12 +376,18 @@ test("Example documents immediately replace the active Document", async ({ page 
 
   await examples.getByRole("button", { name: "Apply Hello example" }).click()
   await expect(text).toHaveValue(
-    "# Hello World\n\nWelcome to the Canopy Markdown editor.\n\n" +
-      "This editor has three modes: raw, block, and preview.\n",
+    "# Hello World\n\nWelcome to Loomark.\n\n" +
+      "Use Text to edit Markdown, Preview to read the rendered document, " +
+      "and Split to work with both at once.\n",
   )
 
   await examples.getByRole("button", { name: "Guide: Apply Blog example" }).click()
-  await expect(text).toHaveValue(/^# Getting Started\n/)
+  await expect(text).toHaveValue(
+    "# Getting Started\n\nLoomark is a source-first incremental Markdown editor.\n\n" +
+      "## Features\n\nText remains the editing authority.\n\n" +
+      "Preview and Split share one read-only rendered result that updates " +
+      "from precise browser edits.",
+  )
 
   await examples.getByRole("button", { name: "Apply List example" }).click()
   await expect(text).toHaveValue(
