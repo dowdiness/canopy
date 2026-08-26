@@ -75,6 +75,7 @@ fn mode_bar(
         mode_tab(Split, selected, focused, emit),
       ],
     ),
+    examples_bar(emit),
   ])
 }
 

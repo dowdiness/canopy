@@ -263,6 +263,13 @@ test("mode tabs move focus without activation and activate with Enter or Space",
   const previewTab = page.getByRole("tab", { name: "Preview" })
   const splitTab = page.getByRole("tab", { name: "Split" })
   const preview = page.getByRole("region", { name: "Markdown preview" })
+  const exampleButtons = [
+    "Apply Markdown feature tour example",
+    "Apply Hello example",
+    "Guide: Apply Blog example",
+    "Apply List example",
+    "Apply Code example",
+  ].map(name => page.getByRole("button", { name }))
 
   await textTab.focus()
   await page.keyboard.press("ArrowRight")
@@ -274,10 +281,13 @@ test("mode tabs move focus without activation and activate with Enter or Space",
   await expect(previewTab).toBeFocused()
   await expect(previewTab).toHaveAttribute("aria-selected", "true")
   await expect(preview).toBeVisible()
+  for (const button of exampleButtons) {
+    await page.keyboard.press("Tab")
+    await expect(button).toBeFocused()
+  }
   await page.keyboard.press("Tab")
   await expect(preview).toBeFocused()
-  await page.keyboard.press("Shift+Tab")
-  await expect(previewTab).toBeFocused()
+  await previewTab.focus()
 
   await page.keyboard.press("ArrowRight")
   await expect(splitTab).toBeFocused()
@@ -285,6 +295,10 @@ test("mode tabs move focus without activation and activate with Enter or Space",
   await page.keyboard.press("Space")
   await expect(splitTab).toBeFocused()
   await expect(splitTab).toHaveAttribute("aria-selected", "true")
+  for (const button of exampleButtons) {
+    await page.keyboard.press("Tab")
+    await expect(button).toBeFocused()
+  }
   await page.keyboard.press("Tab")
   await expect(page.getByRole("textbox", { name: "Text" })).toBeFocused()
 })
@@ -346,6 +360,91 @@ test("Split uses RUI keyboard resizing and preserves textarea across orientation
   await resize.focus()
   await page.keyboard.press("ArrowDown")
   await expect(resize).toHaveValue("51")
+})
+
+test("Example documents immediately replace the active Document", async ({ page }) => {
+  await page.goto("/")
+
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill("# Work in progress\n")
+  const examples = page.getByRole("toolbar", { name: "Example documents" })
+
+  await examples.getByRole("button", {
+    name: "Apply Markdown feature tour example",
+  }).click()
+  await expect(text).toHaveValue(/^# Markdown Feature Tour\n/)
+
+  await examples.getByRole("button", { name: "Apply Hello example" }).click()
+  await expect(text).toHaveValue(
+    "# Hello World\n\nWelcome to the Canopy Markdown editor.\n\n" +
+      "This editor has three modes: raw, block, and preview.\n",
+  )
+
+  await examples.getByRole("button", { name: "Guide: Apply Blog example" }).click()
+  await expect(text).toHaveValue(/^# Getting Started\n/)
+
+  await examples.getByRole("button", { name: "Apply List example" }).click()
+  await expect(text).toHaveValue(
+    "# Shopping List\n\nThings to pick up:\n\n" +
+      "- Apples\n- Bread\n- Coffee\n- Dark chocolate",
+  )
+
+  await examples.getByRole("button", { name: "Apply Code example" }).click()
+  await expect(text).toHaveValue(/^# README\n/)
+  await expect.poll(() => readStoredDocument(page).then(document => document?.text))
+    .toMatch(/^# README\n/)
+})
+
+test("Split keeps Text and Preview independently scrollable", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 700 })
+  await page.goto("/")
+
+  const source = Array.from({ length: 80 }, (_, index) => (
+    `## Section ${index}\n\nParagraph ${index} with enough text for both panes.`
+  )).join("\n\n")
+  const text = page.getByRole("textbox", { name: "Text" })
+  const preview = page.getByRole("region", { name: "Markdown preview" })
+  await text.fill(source)
+  await page.getByRole("tab", { name: "Split" }).click()
+  await expect(preview.getByRole("heading", { name: "Section 79" })).toBeVisible()
+
+  const assertIndependentScroll = async () => {
+    const metrics = await page.evaluate(() => {
+      const textarea = document.getElementById("loomark-text") as HTMLTextAreaElement
+      const textPane = document.querySelector(".loomark-text-pane") as HTMLElement
+      const previewScroll = document.getElementById("loomark-preview-scroll") as HTMLElement
+      const textareaBox = textarea.getBoundingClientRect()
+      const textPaneBox = textPane.getBoundingClientRect()
+      textarea.scrollTop = 120
+      previewScroll.scrollTop = 240
+      return {
+        text: {
+          clientHeight: textarea.clientHeight,
+          scrollHeight: textarea.scrollHeight,
+          scrollTop: textarea.scrollTop,
+          rightEdgeOffset: Math.abs(textareaBox.right - textPaneBox.right),
+        },
+        preview: {
+          clientHeight: previewScroll.clientHeight,
+          scrollHeight: previewScroll.scrollHeight,
+          scrollTop: previewScroll.scrollTop,
+        },
+      }
+    })
+    expect(metrics.text.scrollHeight).toBeGreaterThan(metrics.text.clientHeight)
+    expect(metrics.preview.scrollHeight).toBeGreaterThan(metrics.preview.clientHeight)
+    expect(metrics.text.scrollTop).toBeGreaterThan(0)
+    expect(metrics.text.rightEdgeOffset).toBeLessThanOrEqual(1)
+    expect(metrics.preview.scrollTop).toBeGreaterThan(0)
+  }
+
+  await assertIndependentScroll()
+  await page.setViewportSize({ width: 640, height: 700 })
+  await expect(page.getByRole("separator")).toHaveAttribute(
+    "aria-orientation",
+    "horizontal",
+  )
+  await assertIndependentScroll()
 })
 
 test("quiet Autosave restores exact Saved text after reload", async ({ page }) => {

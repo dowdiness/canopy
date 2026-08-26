@@ -139,6 +139,14 @@ fn update(
         @browser_storage.OpenResult::Failed(failure) =>
           (Recovery(failure, compact), @cmd.none)
       }
+    (Editing(_), ExampleSelected(text)) =>
+      (
+        model,
+        @cmd.batch([
+          text_area.initialize(text),
+          emit(TextChanged(@text_change.TextChange::ReplaceAll(text))),
+        ]),
+      )
     (Editing(editing), TextChanged(change)) =>
       match change.apply(editing.text) {
         None =>

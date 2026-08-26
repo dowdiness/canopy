@@ -50,6 +50,7 @@ priv enum SaveState {
 ///|
 priv enum Msg {
   Opened(@browser_storage.OpenResult)
+  ExampleSelected(String)
   TextChanged(@text_change.TextChange)
   CompositionStarted
   CompositionEnded
