@@ -231,16 +231,23 @@ fn update(
         Unrequested | Ready(_) | Failed(_) => (model, @cmd.none)
       }
     (Editing(editing), PreviewPrepared(candidate, result)) =>
-      match result {
-        Ok(output) =>
-          (
-            Editing({
-              ..editing,
-              preview: Ready(completed_preview(candidate, output)),
-            }),
-            @cmd.none,
-          )
-        Err(_) => (Editing({ ..editing, preview: Failed(None) }), @cmd.none)
+      if candidate != editing.text {
+        (
+          Editing({ ..editing, preview: Failed(None) }),
+          @preview.discard_cmd(preview_engine),
+        )
+      } else {
+        match result {
+          Ok(output) =>
+            (
+              Editing({
+                ..editing,
+                preview: Ready(completed_preview(candidate, output)),
+              }),
+              @cmd.none,
+            )
+          Err(_) => (Editing({ ..editing, preview: Failed(None) }), @cmd.none)
+        }
       }
     (Editing(editing), ParserAdvanced(candidate, retry_on_failure, result)) =>
       match result {

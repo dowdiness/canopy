@@ -14,6 +14,8 @@ pub fn after_paint(@cmd.Cmd) -> @cmd.Cmd
 
 pub fn apply_cmd(PreviewEngine, @text_change.TextChange, String, result~ : @cmd.Emit[Result[Unit, PreviewFailure]]) -> @cmd.Cmd
 
+pub fn discard_cmd(PreviewEngine) -> @cmd.Cmd
+
 pub fn is_empty(@markdown.MarkdownIR) -> Bool
 
 pub fn prepare_cmd(PreviewEngine, String, result~ : @cmd.Emit[Result[PreviewOutput, PreviewFailure]]) -> @cmd.Cmd

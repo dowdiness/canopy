@@ -160,6 +160,11 @@ pub fn PreviewEngine::refresh(
 }
 
 ///|
+fn PreviewEngine::discard(self : PreviewEngine) -> Unit {
+  self.break_pair()
+}
+
+///|
 /// Emit a command after DOM patching and one animation-frame boundary. The
 /// zero-delay task after the frame gives the patched Preparing state a paint
 /// opportunity before synchronous Parser construction starts.
@@ -201,4 +206,9 @@ pub fn refresh_cmd(
   result~ : @cmd.Emit[Result[PreviewOutput, PreviewFailure]],
 ) -> @cmd.Cmd {
   @cmd.custom_cmd(scheduler => scheduler.add(result(engine.refresh(source))))
+}
+
+///|
+pub fn discard_cmd(engine : PreviewEngine) -> @cmd.Cmd {
+  @cmd.custom_cmd(_ => engine.discard())
 }

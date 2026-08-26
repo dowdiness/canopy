@@ -46,6 +46,21 @@ test "PreviewEngine keeps a healthy pair for ReplaceAll" {
 }
 
 ///|
+test "PreviewEngine discards a stale preparation pair before retry" {
+  let engine = PreviewEngine::PreviewEngine()
+  ignore(engine.prepare("stale\n"))
+  engine.discard()
+  guard engine.state is Broken else { abort("stale pair stayed active") }
+  guard engine.refresh("latest\n") is Ok(_) else {
+    abort("discarded pair was not replaced")
+  }
+  match engine.state {
+    Healthy(source~, ..) => assert_eq(source, "latest\n")
+    NoPair | Broken => abort("expected replacement Preview pair")
+  }
+}
+
+///|
 test "PreviewEngine replaces only an unusable pair on allowed refresh" {
   let engine = PreviewEngine::PreviewEngine()
   ignore(engine.prepare("Before\n"))
