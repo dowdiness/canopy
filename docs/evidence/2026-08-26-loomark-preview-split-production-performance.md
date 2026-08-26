@@ -89,8 +89,8 @@ The release benchmark isolates pure `MarkdownIR -> typed Html` materialization:
 
 | Fixture | Mean | Observed range |
 |---|---:|---:|
-| Practical 500 blocks | 2.95 ms | 2.89–3.06 ms |
-| Scaling 2,500 blocks | 19.56 ms | 18.76–20.35 ms |
+| Practical 500 blocks | 3.14 ms | 2.89–3.38 ms |
+| Scaling 2,500 blocks | 21.17 ms | 19.04–25.85 ms |
 
 The 2,500-block result is scaling characterization and does not substitute for
 the practical browser gate.
