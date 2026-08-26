@@ -1,6 +1,6 @@
 # Module, Package, Workspace, and Submodule Map
 
-Canopy's repository is organised into seven zones. Four overlapping identity
+Canopy's repository is organised into eight zones. Four overlapping identity
 systems are easy to confuse:
 
 1. **MoonBit modules** under `modules/`, each with its own `moon.mod`.
@@ -21,7 +21,8 @@ it, and whether edits belong in this repository or in a submodule repository.
 | Adapters | `adapters/` | Non-MoonBit runtime and interface adapters |
 | Dependencies | `deps/` | Separately owned Git submodules |
 | Rules | `rules/` | Policy definitions |
-| Scripts | `scripts/` | Operations and tooling |
+| Tools | `tools/` | Local developer and verification executables |
+| Scripts | `scripts/` | Repository operations and automation |
 
 ## Manifest formats
 
@@ -69,6 +70,16 @@ package list.
 A root package may live more than one directory deep; for example
 `modules/canopy/lang/lambda/companion/` imports as
 `dowdiness/canopy/lang/lambda/companion`.
+
+Keep ordinary tests and specifications that compile with a production package
+under that package. Executable verification harnesses that import production
+packages and require third-party toolchains live under
+`tools/verification/<owner>/` instead. Give such a harness its own `moon.mod`,
+restrict `supported_targets` when it uses target-specific APIs, and link it from
+the owning package README. Root workspace membership may provide local module
+resolution; it does not authorize CI to run the external verification toolchain.
+`tools/verification/sync_session/` is the reference layout. This differs from
+`examples/`, whose contents remain removable.
 
 ## Canopy-owned reusable modules
 

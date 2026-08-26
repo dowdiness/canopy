@@ -19,3 +19,6 @@
 [submodule "rabbita"]
 	path = deps/rabbita
 	url = https://github.com/dowdiness/rabbita.git
+[submodule "choreo"]
+	path = deps/choreo
+	url = https://github.com/informalsystems/choreo.git

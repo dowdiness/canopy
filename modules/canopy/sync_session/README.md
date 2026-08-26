@@ -38,3 +38,11 @@ This package imports `protocol/wire` (frame codec, namespace enumeration)
 and the egw text CRDT types only — never `editor`, `ephemeral`, or a
 concrete transport. WebSocket binding lives in `transport_ws/` (Tier 3,
 L3 adapter); `SyncEditor` keeps its stable surface and delegates here.
+
+## Verification
+
+[`tools/verification/sync_session/`](../../../tools/verification/sync_session/)
+is a standalone local tool containing the Quint recovery specification, bounded
+distributed model, Choreo trace generator, and MoonBit public-API conformance
+replay. Its separate native-only module keeps verification dependencies out of
+this production package and keeps its executable out of JavaScript builds.

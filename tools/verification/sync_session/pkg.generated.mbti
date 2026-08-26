@@ -1,0 +1,15 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "canopy/quint-sync-recovery-verification"
+
+// Values
+
+// Errors
+
+// Types and methods
+type ChoreoCommand
+
+type Driver
+
+// Type aliases
+
+// Traits

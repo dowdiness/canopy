@@ -47,4 +47,5 @@ members = [
   "./examples/codemirror",
   "./examples/resizable",
   "./examples/disclosure",
+  "./tools/verification/sync_session",
 ]
