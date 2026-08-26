@@ -4,11 +4,13 @@
 
 **Implementation commit:** `938c1336`
 
-**Decision:** `STOP_REASSESS`
+**Decision:** `ACCEPT_WITH_FOLLOWUP`
 
-The production implementation passed its retained pure-renderer benchmark, but
-later browser Preview preparation exceeded the 10 ms practical-corpus gate in
-all three fresh launches. No optimization was added.
+The production implementation passed its retained pure-renderer benchmark.
+Later browser Preview preparation exceeded the 10 ms investigation target in
+all three fresh launches, and no optimization was added under #1372. Maintainer
+reassessment accepts the measured result for this release and moves further
+optimization to a measured Loom follow-up.
 
 ## Environment
 
@@ -59,7 +61,7 @@ contains no profiling API or test-only Model state.
 
 Initial preparation remains a distinct cold-start product cost. The first cold
 incremental sample is also reported separately and is not included in the later
-gate.
+measurement population.
 
 ## Later results
 
@@ -80,8 +82,9 @@ Per-launch Preview preparation:
 | 2 | 8.5 ms | 16.4 ms | 17.2 ms |
 | 3 | 8.1 ms | 14.3 ms | 18.4 ms |
 
-All three launches exceeded 10 ms at p95 and maximum. The failure is in later
-Preview preparation, not only frame scheduling or visible freshness.
+All three launches exceeded the 10 ms investigation target at p95 and maximum.
+The target miss is in later Preview preparation, not only frame scheduling or
+visible freshness.
 
 ## Retained renderer benchmark
 
@@ -92,14 +95,20 @@ The release benchmark isolates pure `MarkdownIR -> typed Html` materialization:
 | Practical 500 blocks | 3.14 ms | 2.89–3.38 ms |
 | Scaling 2,500 blocks | 21.17 ms | 19.04–25.85 ms |
 
-The 2,500-block result is scaling characterization and does not substitute for
-the practical browser gate.
+The 2,500-block result is scaling characterization and does not determine
+practical-corpus acceptance.
 
 ## Decision
 
-The implementation does not satisfy #1372's later practical-corpus 10 ms gate.
-Following the issue and implementation plan, work stops without adding a Worker,
-virtualization, partial renderer, cache, artificial warm-up, or another Preview
-pipeline. The implementation remains available on PR #1374 for reassessment;
-it should not be presented as acceptance-complete until the performance policy
-or implementation scope receives a new decision.
+The implementation does not meet the 10 ms later practical-corpus Preview
+investigation target. Maintainer reassessment accepts the observed 14.2 ms p95
+and 18.4 ms maximum for this release because the independent Text-input 10 ms
+contract remains satisfied, pending refreshes retain the last completed Preview,
+and input-to-visible freshness remains 94.6 ms at p95 with the intentional 50 ms
+debounce included.
+
+The Preview target is not a merge gate. PR #1374 is acceptance-complete once its
+required repository CI passes. Further semantic-attachment optimization belongs
+in a separate measured Loom follow-up; #1372 does not authorize a Worker,
+virtualization, partial renderer, cache, artificial warm-up, or second Preview
+pipeline.

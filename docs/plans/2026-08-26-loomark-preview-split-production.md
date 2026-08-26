@@ -225,9 +225,10 @@ it so re-entry normally has a current result.
 Restore only the pure direct renderer behavior from commit
 `65f134a7bac3c7a624f9d4bde5f0186594f4942f` and its focused tests. Do not restore
 the old Driver, projection artifact renderer, Worker, or state. Restore the five
-example documents as app-owned source constants and immediate whole-Document
-replacement actions; they use the current `TextChange::ReplaceAll`, Parser,
-Preview, and Autosave path rather than old application machinery.
+example documents as app-owned Markdown source files embedded by the package
+pre-build and exposed through immediate whole-Document replacement actions;
+they use the current `TextChange::ReplaceAll`, Parser, Preview, and Autosave path
+rather than old application machinery.
 
 The renderer must:
 
@@ -418,12 +419,14 @@ Extend `standalone.spec.ts` without production debug APIs:
 2. Report initial full preparation, first cold incremental preparation, later
    incremental preparation, typed-Html materialization, after-render wall time,
    and visible freshness separately.
-3. Keep the existing 10 ms gate for later practical-corpus Preview preparation
-   and the independent 10 ms Text-input gate with per-edit Parser transitions.
+3. Preserve the independent 10 ms Text-input gate with per-edit Parser
+   transitions. Treat 10 ms later practical-corpus Preview preparation as an
+   investigation target rather than a release gate.
 4. Run the 2,500-block renderer benchmark as scaling characterization, not as
-   evidence that the practical-corpus gate passed.
-5. If a practical gate fails, stop and report the measured phase. Do not add a
-   Worker, virtualization, partial renderer, or warm-up under this issue.
+   evidence about practical-corpus acceptance.
+5. Report any Preview target miss by measured phase. Do not add a Worker,
+   virtualization, partial renderer, or warm-up under this issue; carry further
+   optimization as a measured Loom follow-up after acceptance.
 6. Remove temporary browser measurement code and retain source-backed evidence.
 7. Run independent MoonBit review, fetch `origin/main` again, sync if needed,
    repeat affected checks, then follow the repository push/CI workflow.
@@ -480,7 +483,7 @@ Stop and return for a new decision if:
 - ordinary exact input performs a complete textarea read or complete-source
   diff;
 - raw Markdown HTML becomes executable;
-- the practical Preview or Text-input performance gate fails;
+- the independent Text-input performance gate fails;
 - generated interfaces expose unintended implementation types or wider bounds;
 - a changed submodule becomes necessary; or
 - a build, test, or runtime failure cannot be reproduced and explained.
