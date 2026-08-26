@@ -140,7 +140,7 @@ function removeDocumentPutFailure(): void {
   delete state.__loomarkDocumentPutOriginal
 }
 
-test("fresh production opens an empty Text editor without modes or workers", async ({ page }) => {
+test("fresh production opens Text mode and preserves its textarea across modes", async ({ page }) => {
   const workerUrls: string[] = []
   page.on("worker", worker => workerUrls.push(worker.url()))
 
@@ -148,15 +148,132 @@ test("fresh production opens an empty Text editor without modes or workers", asy
   await page.waitForLoadState("networkidle")
 
   const text = page.getByRole("textbox", { name: "Text" })
+  const textTab = page.getByRole("tab", { name: "Text" })
+  const previewTab = page.getByRole("tab", { name: "Preview" })
+  const splitTab = page.getByRole("tab", { name: "Split" })
+  const preview = page.getByRole("region", { name: "Markdown preview" })
+
   await expect(text).toBeVisible()
   await expect(text).toBeFocused()
   await expect(text).toHaveValue("")
+  await expect(textTab).toHaveAttribute("aria-selected", "true")
+  await expect(previewTab).toHaveAttribute("aria-selected", "false")
+  await expect(splitTab).toHaveAttribute("aria-selected", "false")
   await expect.poll(() => readStoredDocument(page)).toEqual({
     document_id: expect.any(String),
     text: "",
   })
-  await expect(page.getByRole("tab")).toHaveCount(0)
+  await text.evaluate(element => {
+    ;(globalThis as typeof globalThis & { __loomarkTextArea?: HTMLTextAreaElement })
+      .__loomarkTextArea = element as HTMLTextAreaElement
+  })
+
+  await previewTab.click()
+  await expect(text).toBeHidden()
+  await expect(preview).toBeVisible()
+  expect(await page.evaluate(() => (
+    (globalThis as typeof globalThis & { __loomarkTextArea?: HTMLTextAreaElement })
+      .__loomarkTextArea === document.getElementById("loomark-text")
+  ))).toBe(true)
+
+  await splitTab.click()
+  await expect(text).toBeVisible()
+  await expect(preview).toBeVisible()
+  await expect(page.getByRole("separator")).toHaveCount(1)
+  await expect(page.getByRole("slider", { name: "Resize editor and preview" }))
+    .toHaveCount(1)
+  await expect(page.locator('[data-slot="resizable-handle-grip"]')).toBeVisible()
+  expect(await page.evaluate(() => (
+    (globalThis as typeof globalThis & { __loomarkTextArea?: HTMLTextAreaElement })
+      .__loomarkTextArea === document.getElementById("loomark-text")
+  ))).toBe(true)
+
+  await textTab.click()
+  await expect(text).toBeVisible()
+  await expect(preview).toBeHidden()
+  expect(await page.evaluate(() => (
+    (globalThis as typeof globalThis & { __loomarkTextArea?: HTMLTextAreaElement })
+      .__loomarkTextArea === document.getElementById("loomark-text")
+  ))).toBe(true)
   expect(workerUrls).toEqual([])
+})
+
+test("mode tabs move focus without activation and activate with Enter or Space", async ({ page }) => {
+  await page.goto("/")
+
+  const textTab = page.getByRole("tab", { name: "Text" })
+  const previewTab = page.getByRole("tab", { name: "Preview" })
+  const splitTab = page.getByRole("tab", { name: "Split" })
+  const preview = page.getByRole("region", { name: "Markdown preview" })
+
+  await textTab.focus()
+  await page.keyboard.press("ArrowRight")
+  await expect(previewTab).toBeFocused()
+  await expect(textTab).toHaveAttribute("aria-selected", "true")
+  await expect(preview).toBeHidden()
+
+  await page.keyboard.press("Enter")
+  await expect(previewTab).toBeFocused()
+  await expect(previewTab).toHaveAttribute("aria-selected", "true")
+  await expect(preview).toBeVisible()
+  await page.keyboard.press("Tab")
+  await expect(preview).toBeFocused()
+  await page.keyboard.press("Shift+Tab")
+  await expect(previewTab).toBeFocused()
+
+  await page.keyboard.press("ArrowRight")
+  await expect(splitTab).toBeFocused()
+  await expect(previewTab).toHaveAttribute("aria-selected", "true")
+  await page.keyboard.press("Space")
+  await expect(splitTab).toBeFocused()
+  await expect(splitTab).toHaveAttribute("aria-selected", "true")
+  await page.keyboard.press("Tab")
+  await expect(page.getByRole("textbox", { name: "Text" })).toBeFocused()
+})
+
+test("Split uses RUI keyboard resizing and preserves textarea across orientation", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 700 })
+  await page.goto("/")
+
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill("# Stable textarea\n")
+  await text.evaluate(element => {
+    ;(globalThis as typeof globalThis & { __loomarkTextArea?: HTMLTextAreaElement })
+      .__loomarkTextArea = element as HTMLTextAreaElement
+  })
+  await page.getByRole("tab", { name: "Split" }).click()
+
+  const separator = page.getByRole("separator")
+  const resize = page.getByRole("slider", { name: "Resize editor and preview" })
+  await expect(separator).toHaveAttribute("aria-orientation", "vertical")
+  await expect(resize).toHaveValue("50")
+  await resize.focus()
+  await page.keyboard.press("ArrowRight")
+  await expect(resize).toHaveValue("51")
+
+  const groupBox = await page.locator("#loomark-editor-panels").boundingBox()
+  const gripBox = await page.locator('[data-slot="resizable-handle-grip"]')
+    .boundingBox()
+  expect(groupBox).not.toBeNull()
+  expect(gripBox).not.toBeNull()
+  if (!groupBox || !gripBox) throw new Error("Split resize geometry missing")
+  await page.mouse.move(gripBox.x + gripBox.width / 2, gripBox.y + gripBox.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(groupBox.x + groupBox.width * 0.9, groupBox.y + groupBox.height / 2)
+  await page.mouse.up()
+  await expect(resize).toHaveValue("75")
+
+  await page.setViewportSize({ width: 640, height: 700 })
+  await expect(separator).toHaveAttribute("aria-orientation", "horizontal")
+  await expect(resize).toHaveValue("50")
+  expect(await page.evaluate(() => (
+    (globalThis as typeof globalThis & { __loomarkTextArea?: HTMLTextAreaElement })
+      .__loomarkTextArea === document.getElementById("loomark-text")
+  ))).toBe(true)
+  await expect(text).toHaveValue("# Stable textarea\n")
+  await resize.focus()
+  await page.keyboard.press("ArrowDown")
+  await expect(resize).toHaveValue("51")
 })
 
 test("quiet Autosave restores exact Saved text after reload", async ({ page }) => {

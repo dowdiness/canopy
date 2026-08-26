@@ -2,8 +2,44 @@
 const AUTOSAVE_QUIET_MS : Int = 250
 
 ///|
-fn initial_state(emit : @rabbita.Emit[Msg]) -> (Model, @rabbita.Cmd) {
-  (Loading, @browser_storage.open(result=emit.map(result => Opened(result))))
+const COMPACT_MAX_WIDTH : Int = 640
+
+///|
+fn compact_viewport(width : Int) -> Bool {
+  width <= COMPACT_MAX_WIDTH
+}
+
+///|
+fn mode_dom_id(mode : EditorMode) -> String {
+  match mode {
+    Text => "loomark-mode-text"
+    Preview => "loomark-mode-preview"
+    Split => "loomark-mode-split"
+  }
+}
+
+///|
+fn adjacent_mode(mode : EditorMode, key : String) -> EditorMode? {
+  match (mode, key) {
+    (Text, "ArrowLeft") => Some(Split)
+    (Preview, "ArrowLeft") => Some(Text)
+    (Split, "ArrowLeft") => Some(Preview)
+    (Text, "ArrowRight") => Some(Preview)
+    (Preview, "ArrowRight") => Some(Split)
+    (Split, "ArrowRight") => Some(Text)
+    _ => None
+  }
+}
+
+///|
+fn initial_state(
+  emit : @rabbita.Emit[Msg],
+  compact : Bool,
+) -> (Model, @rabbita.Cmd) {
+  (
+    Loading(compact),
+    @browser_storage.open(result=emit.map(result => Opened(result))),
+  )
 }
 
 ///|
@@ -14,7 +50,7 @@ fn update(
   text_area : @text_area.TextArea,
 ) -> (Model, @rabbita.Cmd) {
   match (model, msg) {
-    (Loading, Opened(result)) =>
+    (Loading(compact), Opened(result)) =>
       match result {
         @browser_storage.OpenResult::New(document_id) =>
           (
@@ -23,6 +59,9 @@ fn update(
               text: "",
               composing: false,
               save: Saving(""),
+              mode: Text,
+              focused_mode: Text,
+              compact,
             }),
             @cmd.batch([
               text_area.initialize(""),
@@ -35,11 +74,19 @@ fn update(
           )
         @browser_storage.OpenResult::Loaded(document_id, text) =>
           (
-            Editing({ document_id, text, composing: false, save: Saved }),
+            Editing({
+              document_id,
+              text,
+              composing: false,
+              save: Saved,
+              mode: Text,
+              focused_mode: Text,
+              compact,
+            }),
             text_area.initialize(text),
           )
         @browser_storage.OpenResult::Failed(failure) =>
-          (Recovery(failure), @cmd.none)
+          (Recovery(failure, compact), @cmd.none)
       }
     (Editing(editing), TextChanged(change)) =>
       match change.apply(editing.text) {
@@ -74,6 +121,28 @@ fn update(
       }
       (Editing({ ..editing, composing: false }), command)
     }
+    (Editing(editing), ModeSelected(mode)) =>
+      (Editing({ ..editing, mode, focused_mode: mode }), @cmd.none)
+    (Editing(editing), ModeKeyPressed(key)) =>
+      match key {
+        "Enter" | " " =>
+          (Editing({ ..editing, mode: editing.focused_mode }), @cmd.none)
+        _ =>
+          match adjacent_mode(editing.focused_mode, key) {
+            Some(focused_mode) =>
+              (
+                Editing({ ..editing, focused_mode, }),
+                @mode_tabs.focus(mode_dom_id(focused_mode)),
+              )
+            None => (model, @cmd.none)
+          }
+      }
+    (Loading(_), ViewportChanged(width)) =>
+      (Loading(compact_viewport(width)), @cmd.none)
+    (Editing(editing), ViewportChanged(width)) =>
+      (Editing({ ..editing, compact: compact_viewport(width) }), @cmd.none)
+    (Recovery(failure, _), ViewportChanged(width)) =>
+      (Recovery(failure, compact_viewport(width)), @cmd.none)
     (Editing(editing), SaveRequested(candidate)) =>
       if candidate != editing.text || editing.composing {
         (model, @cmd.none)

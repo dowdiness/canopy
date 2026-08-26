@@ -1,10 +1,14 @@
 import {
   "dowdiness/loomark/internal/browser_storage",
+  "dowdiness/loomark/internal/mode_tabs",
   "dowdiness/loomark/internal/text_area",
   "dowdiness/text_change",
   "moonbit-community/rabbita",
   "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/dom",
   "moonbit-community/rabbita/html",
+  "moonbit-community/rabbita/sub",
+  "Yoorkin/rui",
 }
 
 supported_targets = "js"

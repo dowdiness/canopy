@@ -1,8 +1,8 @@
 ///|
 priv enum Model {
-  Loading
+  Loading(Bool)
   Editing(EditingState)
-  Recovery(@browser_storage.OpenFailure)
+  Recovery(@browser_storage.OpenFailure, Bool)
 } derive(Eq)
 
 ///|
@@ -11,6 +11,16 @@ priv struct EditingState {
   text : String
   composing : Bool
   save : SaveState
+  mode : EditorMode
+  focused_mode : EditorMode
+  compact : Bool
+} derive(Eq)
+
+///|
+priv enum EditorMode {
+  Text
+  Preview
+  Split
 } derive(Eq)
 
 ///|
@@ -27,6 +37,9 @@ priv enum Msg {
   TextChanged(@text_change.TextChange)
   CompositionStarted
   CompositionEnded
+  ModeSelected(EditorMode)
+  ModeKeyPressed(String)
+  ViewportChanged(Int)
   SaveRequested(String)
   SaveCompleted(String, @browser_storage.SaveResult)
   RetrySave
