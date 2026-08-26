@@ -1,6 +1,6 @@
 {
   "run": 1,
-  "measuredAt": "2026-08-26T12:03:16.524Z",
+  "measuredAt": "2026-08-26T12:12:33.236Z",
   "browser": "149.0.7827.55",
   "node": "v24.14.1",
   "fixture": {
@@ -9,554 +9,554 @@
     "utf16CodeUnits": 22420
   },
   "initial": {
-    "visibleFreshnessMs": 152.90000000037253,
+    "visibleFreshnessMs": 157.59999999962747,
     "phases": {
-      "loomark-preview-initial": 116.90000000037253,
+      "loomark-preview-initial": 128.70000000018626,
       "loomark-preview-parser-transition": null,
       "loomark-preview-refresh": null,
-      "loomark-preview-semantic": 3.2000000001862645,
-      "loomark-preview-materialize": 9.599999999627471,
-      "loomark-preview-after-render": 21.299999999813735
+      "loomark-preview-semantic": 2.599999999627471,
+      "loomark-preview-materialize": 7.900000000372529,
+      "loomark-preview-after-render": 12.799999999813735
     }
   },
   "firstColdIncremental": {
-    "visibleFreshnessMs": 73.8999999994412,
+    "visibleFreshnessMs": 77.6000000005588,
     "phases": {
       "loomark-preview-initial": null,
-      "loomark-preview-parser-transition": 3.5,
-      "loomark-preview-refresh": 15.299999999813735,
-      "loomark-preview-semantic": 8.5,
-      "loomark-preview-materialize": 6.7999999998137355,
-      "loomark-preview-after-render": 3.5
+      "loomark-preview-parser-transition": 4.400000000372529,
+      "loomark-preview-refresh": 16.600000000558794,
+      "loomark-preview-semantic": 11.100000000558794,
+      "loomark-preview-materialize": 5.3999999994412065,
+      "loomark-preview-after-render": 4.699999999254942
     }
   },
   "later": [
     {
       "index": 0,
-      "visibleFreshnessMs": 85.40000000037253,
+      "visibleFreshnessMs": 89.59999999962747,
       "phases": {
         "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 21.200000000186265,
-        "loomark-preview-refresh": 9.700000000186265,
-        "loomark-preview-semantic": 5.7999999998137355,
-        "loomark-preview-materialize": 3.900000000372529,
-        "loomark-preview-after-render": 3.099999999627471
+        "loomark-preview-parser-transition": 24.09999999962747,
+        "loomark-preview-refresh": 10.799999999813735,
+        "loomark-preview-semantic": 6.599999999627471,
+        "loomark-preview-materialize": 4.2000000001862645,
+        "loomark-preview-after-render": 3.599999999627471
       }
     },
     {
       "index": 1,
-      "visibleFreshnessMs": 84.29999999981374,
+      "visibleFreshnessMs": 92.70000000018626,
       "phases": {
         "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 13,
-        "loomark-preview-refresh": 13.900000000372529,
-        "loomark-preview-semantic": 9.299999999813735,
-        "loomark-preview-materialize": 4.6000000005587935,
-        "loomark-preview-after-render": 6.2000000001862645
+        "loomark-preview-parser-transition": 15.799999999813735,
+        "loomark-preview-refresh": 19,
+        "loomark-preview-semantic": 11,
+        "loomark-preview-materialize": 8,
+        "loomark-preview-after-render": 2.2999999998137355
       }
     },
     {
       "index": 2,
-      "visibleFreshnessMs": 91.8999999994412,
+      "visibleFreshnessMs": 116,
       "phases": {
         "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 25.600000000558794,
-        "loomark-preview-refresh": 10.299999999813735,
-        "loomark-preview-semantic": 7.2999999998137355,
-        "loomark-preview-materialize": 3,
-        "loomark-preview-after-render": 4.7999999998137355
+        "loomark-preview-parser-transition": 33.30000000074506,
+        "loomark-preview-refresh": 11.099999999627471,
+        "loomark-preview-semantic": 7.599999999627471,
+        "loomark-preview-materialize": 3.5,
+        "loomark-preview-after-render": 20.300000000745058
       }
     },
     {
       "index": 3,
-      "visibleFreshnessMs": 73.40000000037253,
+      "visibleFreshnessMs": 90.3999999994412,
       "phases": {
         "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 8.800000000745058,
-        "loomark-preview-refresh": 9.100000000558794,
-        "loomark-preview-semantic": 6.6000000005587935,
-        "loomark-preview-materialize": 2.5,
-        "loomark-preview-after-render": 4.2999999998137355
+        "loomark-preview-parser-transition": 10.5,
+        "loomark-preview-refresh": 10.700000000186265,
+        "loomark-preview-semantic": 7.2000000001862645,
+        "loomark-preview-materialize": 3.3999999994412065,
+        "loomark-preview-after-render": 17.90000000037253
       }
     },
     {
       "index": 4,
-      "visibleFreshnessMs": 91.69999999925494,
+      "visibleFreshnessMs": 91,
       "phases": {
         "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 24.600000000558794,
-        "loomark-preview-refresh": 7.699999999254942,
-        "loomark-preview-semantic": 5.699999999254942,
-        "loomark-preview-materialize": 2,
-        "loomark-preview-after-render": 8.300000000745058
+        "loomark-preview-parser-transition": 23.200000000186265,
+        "loomark-preview-refresh": 9.299999999813735,
+        "loomark-preview-semantic": 6.7999999998137355,
+        "loomark-preview-materialize": 2.5,
+        "loomark-preview-after-render": 7.400000000372529
       }
     },
     {
       "index": 5,
-      "visibleFreshnessMs": 75,
+      "visibleFreshnessMs": 76.3999999994412,
       "phases": {
         "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 7.2000000001862645,
-        "loomark-preview-refresh": 9.399999999441206,
-        "loomark-preview-semantic": 5.699999999254942,
-        "loomark-preview-materialize": 3.7000000001862645,
-        "loomark-preview-after-render": 7.2999999998137355
+        "loomark-preview-parser-transition": 14.5,
+        "loomark-preview-refresh": 8.700000000186265,
+        "loomark-preview-semantic": 6.2999999998137355,
+        "loomark-preview-materialize": 2.2999999998137355,
+        "loomark-preview-after-render": 2.2999999998137355
       }
     },
     {
       "index": 6,
-      "visibleFreshnessMs": 84.6000000005588,
+      "visibleFreshnessMs": 95.20000000018626,
       "phases": {
         "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 19.59999999962747,
-        "loomark-preview-refresh": 10.200000000186265,
-        "loomark-preview-semantic": 6.800000000745058,
-        "loomark-preview-materialize": 3.3999999994412065,
-        "loomark-preview-after-render": 3.7000000001862645
+        "loomark-preview-parser-transition": 27.200000000186265,
+        "loomark-preview-refresh": 12.099999999627471,
+        "loomark-preview-semantic": 7,
+        "loomark-preview-materialize": 5.099999999627471,
+        "loomark-preview-after-render": 4.7999999998137355
       }
     },
     {
       "index": 7,
-      "visibleFreshnessMs": 79.1000000005588,
+      "visibleFreshnessMs": 78,
       "phases": {
         "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 10.200000000186265,
-        "loomark-preview-refresh": 12.799999999813735,
-        "loomark-preview-semantic": 7.900000000372529,
-        "loomark-preview-materialize": 4.7999999998137355,
-        "loomark-preview-after-render": 5
+        "loomark-preview-parser-transition": 14,
+        "loomark-preview-refresh": 10.299999999813735,
+        "loomark-preview-semantic": 7.5,
+        "loomark-preview-materialize": 2.7999999998137355,
+        "loomark-preview-after-render": 2.5
       }
     },
     {
       "index": 8,
-      "visibleFreshnessMs": 89.80000000074506,
+      "visibleFreshnessMs": 117.20000000018626,
       "phases": {
         "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 22.299999999813735,
-        "loomark-preview-refresh": 12.900000000372529,
-        "loomark-preview-semantic": 7.7999999998137355,
-        "loomark-preview-materialize": 5.1000000005587935,
-        "loomark-preview-after-render": 3.5
+        "loomark-preview-parser-transition": 31.40000000037253,
+        "loomark-preview-refresh": 16.40000000037253,
+        "loomark-preview-semantic": 9.5,
+        "loomark-preview-materialize": 6.900000000372529,
+        "loomark-preview-after-render": 18.40000000037253
       }
     },
     {
       "index": 9,
-      "visibleFreshnessMs": 75.59999999962747,
+      "visibleFreshnessMs": 72.40000000037253,
       "phases": {
         "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 13.100000000558794,
-        "loomark-preview-refresh": 9.299999999813735,
-        "loomark-preview-semantic": 6.7999999998137355,
-        "loomark-preview-materialize": 2.5,
-        "loomark-preview-after-render": 2.400000000372529
+        "loomark-preview-parser-transition": 9.200000000186265,
+        "loomark-preview-refresh": 9.5,
+        "loomark-preview-semantic": 6.7000000001862645,
+        "loomark-preview-materialize": 2.7999999998137355,
+        "loomark-preview-after-render": 2.900000000372529
       }
     },
     {
       "index": 10,
-      "visibleFreshnessMs": 85,
+      "visibleFreshnessMs": 86,
       "phases": {
         "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 21.59999999962747,
-        "loomark-preview-refresh": 9.599999999627471,
-        "loomark-preview-semantic": 7.2999999998137355,
+        "loomark-preview-parser-transition": 23.40000000037253,
+        "loomark-preview-refresh": 9.100000000558794,
+        "loomark-preview-semantic": 6.7000000001862645,
         "loomark-preview-materialize": 2.2999999998137355,
-        "loomark-preview-after-render": 3.1000000005587935
+        "loomark-preview-after-render": 2.3999999994412065
       }
     },
     {
       "index": 11,
-      "visibleFreshnessMs": 73.19999999925494,
+      "visibleFreshnessMs": 78.59999999962747,
       "phases": {
         "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 8.5,
-        "loomark-preview-refresh": 8.5,
-        "loomark-preview-semantic": 6.400000000372529,
-        "loomark-preview-materialize": 2,
-        "loomark-preview-after-render": 5.400000000372529
+        "loomark-preview-parser-transition": 9.700000000186265,
+        "loomark-preview-refresh": 9.599999999627471,
+        "loomark-preview-semantic": 7.099999999627471,
+        "loomark-preview-materialize": 2.5,
+        "loomark-preview-after-render": 8.299999999813735
       }
     },
     {
       "index": 12,
-      "visibleFreshnessMs": 83.79999999981374,
+      "visibleFreshnessMs": 92,
       "phases": {
         "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 20.90000000037253,
+        "loomark-preview-parser-transition": 22.5,
         "loomark-preview-refresh": 8.599999999627471,
-        "loomark-preview-semantic": 6.5,
-        "loomark-preview-materialize": 2.099999999627471,
-        "loomark-preview-after-render": 3.5
+        "loomark-preview-semantic": 6.3999999994412065,
+        "loomark-preview-materialize": 2.2000000001862645,
+        "loomark-preview-after-render": 9.200000000186265
       }
     },
     {
       "index": 13,
-      "visibleFreshnessMs": 71.09999999962747,
+      "visibleFreshnessMs": 73.70000000018626,
       "phases": {
         "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 7.2999999998137355,
-        "loomark-preview-refresh": 9.199999999254942,
-        "loomark-preview-semantic": 7,
-        "loomark-preview-materialize": 2.199999999254942,
-        "loomark-preview-after-render": 3.7000000001862645
+        "loomark-preview-parser-transition": 7.7000000001862645,
+        "loomark-preview-refresh": 8.899999999441206,
+        "loomark-preview-semantic": 6.7999999998137355,
+        "loomark-preview-materialize": 2.099999999627471,
+        "loomark-preview-after-render": 6.1000000005587935
       }
     },
     {
       "index": 14,
-      "visibleFreshnessMs": 86.40000000037253,
+      "visibleFreshnessMs": 85,
       "phases": {
         "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 22.100000000558794,
-        "loomark-preview-refresh": 9.200000000186265,
-        "loomark-preview-semantic": 7.2000000001862645,
-        "loomark-preview-materialize": 2,
-        "loomark-preview-after-render": 4
-      }
-    },
-    {
-      "index": 15,
-      "visibleFreshnessMs": 84.20000000018626,
-      "phases": {
-        "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 7.6000000005587935,
-        "loomark-preview-refresh": 10.600000000558794,
-        "loomark-preview-semantic": 8.400000000372529,
+        "loomark-preview-parser-transition": 21.700000000186265,
+        "loomark-preview-refresh": 9.5,
+        "loomark-preview-semantic": 7.2999999998137355,
         "loomark-preview-materialize": 2.2000000001862645,
-        "loomark-preview-after-render": 14.899999999441206
-      }
-    },
-    {
-      "index": 16,
-      "visibleFreshnessMs": 89.29999999981374,
-      "phases": {
-        "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 21.299999999813735,
-        "loomark-preview-refresh": 8.299999999813735,
-        "loomark-preview-semantic": 6,
-        "loomark-preview-materialize": 2.2999999998137355,
-        "loomark-preview-after-render": 8.099999999627471
-      }
-    },
-    {
-      "index": 17,
-      "visibleFreshnessMs": 74.79999999981374,
-      "phases": {
-        "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 6.5,
-        "loomark-preview-refresh": 8.5,
-        "loomark-preview-semantic": 6.6000000005587935,
-        "loomark-preview-materialize": 1.8999999994412065,
-        "loomark-preview-after-render": 8.800000000745058
-      }
-    },
-    {
-      "index": 18,
-      "visibleFreshnessMs": 80.79999999981374,
-      "phases": {
-        "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 19.699999999254942,
-        "loomark-preview-refresh": 8.099999999627471,
-        "loomark-preview-semantic": 6.2999999998137355,
-        "loomark-preview-materialize": 1.7999999998137355,
-        "loomark-preview-after-render": 1.900000000372529
-      }
-    },
-    {
-      "index": 19,
-      "visibleFreshnessMs": 69.5,
-      "phases": {
-        "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 6.599999999627471,
-        "loomark-preview-refresh": 8.400000000372529,
-        "loomark-preview-semantic": 6.800000000745058,
-        "loomark-preview-materialize": 1.599999999627471,
-        "loomark-preview-after-render": 3.2999999998137355
-      }
-    },
-    {
-      "index": 20,
-      "visibleFreshnessMs": 84.79999999981374,
-      "phases": {
-        "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 22.40000000037253,
-        "loomark-preview-refresh": 7.8999999994412065,
-        "loomark-preview-semantic": 6.099999999627471,
-        "loomark-preview-materialize": 1.7999999998137355,
-        "loomark-preview-after-render": 3.2999999998137355
-      }
-    },
-    {
-      "index": 21,
-      "visibleFreshnessMs": 77.70000000018626,
-      "phases": {
-        "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 6.3999999994412065,
-        "loomark-preview-refresh": 8.5,
-        "loomark-preview-semantic": 7,
-        "loomark-preview-materialize": 1.5,
-        "loomark-preview-after-render": 11.600000000558794
-      }
-    },
-    {
-      "index": 22,
-      "visibleFreshnessMs": 81.79999999981374,
-      "phases": {
-        "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 18.600000000558794,
-        "loomark-preview-refresh": 7.900000000372529,
-        "loomark-preview-semantic": 6,
-        "loomark-preview-materialize": 1.900000000372529,
-        "loomark-preview-after-render": 2.7000000001862645
-      }
-    },
-    {
-      "index": 23,
-      "visibleFreshnessMs": 67.40000000037253,
-      "phases": {
-        "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 5.7999999998137355,
-        "loomark-preview-refresh": 8.299999999813735,
-        "loomark-preview-semantic": 6.599999999627471,
-        "loomark-preview-materialize": 1.7000000001862645,
-        "loomark-preview-after-render": 2.400000000372529
-      }
-    },
-    {
-      "index": 24,
-      "visibleFreshnessMs": 81.79999999981374,
-      "phases": {
-        "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 18.699999999254942,
-        "loomark-preview-refresh": 8.799999999813735,
-        "loomark-preview-semantic": 6.7999999998137355,
-        "loomark-preview-materialize": 1.8999999994412065,
-        "loomark-preview-after-render": 3.3999999994412065
-      }
-    },
-    {
-      "index": 25,
-      "visibleFreshnessMs": 68.30000000074506,
-      "phases": {
-        "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 6,
-        "loomark-preview-refresh": 8,
-        "loomark-preview-semantic": 6.2999999998137355,
-        "loomark-preview-materialize": 1.7000000001862645,
-        "loomark-preview-after-render": 3.2999999998137355
-      }
-    },
-    {
-      "index": 26,
-      "visibleFreshnessMs": 81.5,
-      "phases": {
-        "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 20,
-        "loomark-preview-refresh": 7.7999999998137355,
-        "loomark-preview-semantic": 6.2000000001862645,
-        "loomark-preview-materialize": 1.599999999627471,
-        "loomark-preview-after-render": 2.7000000001862645
-      }
-    },
-    {
-      "index": 27,
-      "visibleFreshnessMs": 68,
-      "phases": {
-        "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 5.6000000005587935,
-        "loomark-preview-refresh": 8.5,
-        "loomark-preview-semantic": 6.7999999998137355,
-        "loomark-preview-materialize": 1.599999999627471,
         "loomark-preview-after-render": 2.7999999998137355
       }
     },
     {
-      "index": 28,
-      "visibleFreshnessMs": 81.29999999981374,
+      "index": 15,
+      "visibleFreshnessMs": 70.29999999981374,
       "phases": {
         "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 19,
-        "loomark-preview-refresh": 7.800000000745058,
-        "loomark-preview-semantic": 6.1000000005587935,
-        "loomark-preview-materialize": 1.7000000001862645,
+        "loomark-preview-parser-transition": 7.7000000001862645,
+        "loomark-preview-refresh": 8.5,
+        "loomark-preview-semantic": 6.2999999998137355,
+        "loomark-preview-materialize": 2.2000000001862645,
         "loomark-preview-after-render": 3
       }
     },
     {
-      "index": 29,
-      "visibleFreshnessMs": 74.79999999981374,
+      "index": 16,
+      "visibleFreshnessMs": 83.90000000037253,
       "phases": {
         "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 5.800000000745058,
-        "loomark-preview-refresh": 7.5,
-        "loomark-preview-semantic": 5.7999999998137355,
-        "loomark-preview-materialize": 1.5,
-        "loomark-preview-after-render": 10.400000000372529
-      }
-    },
-    {
-      "index": 30,
-      "visibleFreshnessMs": 92.90000000037253,
-      "phases": {
-        "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 19,
-        "loomark-preview-refresh": 8.100000000558794,
-        "loomark-preview-semantic": 6.400000000372529,
-        "loomark-preview-materialize": 1.7000000001862645,
-        "loomark-preview-after-render": 14.799999999813735
-      }
-    },
-    {
-      "index": 31,
-      "visibleFreshnessMs": 75.29999999981374,
-      "phases": {
-        "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 5.7000000001862645,
-        "loomark-preview-refresh": 7.3999999994412065,
-        "loomark-preview-semantic": 5.7999999998137355,
-        "loomark-preview-materialize": 1.5,
-        "loomark-preview-after-render": 10.900000000372529
-      }
-    },
-    {
-      "index": 32,
-      "visibleFreshnessMs": 78.79999999981374,
-      "phases": {
-        "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 18.5,
-        "loomark-preview-refresh": 7.400000000372529,
-        "loomark-preview-semantic": 5.900000000372529,
-        "loomark-preview-materialize": 1.5,
-        "loomark-preview-after-render": 2.199999999254942
-      }
-    },
-    {
-      "index": 33,
-      "visibleFreshnessMs": 70.5,
-      "phases": {
-        "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 6,
-        "loomark-preview-refresh": 8.400000000372529,
-        "loomark-preview-semantic": 6.7000000001862645,
-        "loomark-preview-materialize": 1.7000000001862645,
-        "loomark-preview-after-render": 4.900000000372529
-      }
-    },
-    {
-      "index": 34,
-      "visibleFreshnessMs": 90.69999999925494,
-      "phases": {
-        "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 21.199999999254942,
-        "loomark-preview-refresh": 8.199999999254942,
-        "loomark-preview-semantic": 6.199999999254942,
-        "loomark-preview-materialize": 2,
-        "loomark-preview-after-render": 10.400000000372529
-      }
-    },
-    {
-      "index": 35,
-      "visibleFreshnessMs": 74.79999999981374,
-      "phases": {
-        "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 5.7999999998137355,
-        "loomark-preview-refresh": 7.7999999998137355,
-        "loomark-preview-semantic": 5.7999999998137355,
-        "loomark-preview-materialize": 2,
-        "loomark-preview-after-render": 10.300000000745058
-      }
-    },
-    {
-      "index": 36,
-      "visibleFreshnessMs": 81,
-      "phases": {
-        "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 19.100000000558794,
-        "loomark-preview-refresh": 7.400000000372529,
-        "loomark-preview-semantic": 5.7000000001862645,
-        "loomark-preview-materialize": 1.599999999627471,
+        "loomark-preview-parser-transition": 21.699999999254942,
+        "loomark-preview-refresh": 8.599999999627471,
+        "loomark-preview-semantic": 6.599999999627471,
+        "loomark-preview-materialize": 1.900000000372529,
         "loomark-preview-after-render": 2.599999999627471
       }
     },
     {
-      "index": 37,
-      "visibleFreshnessMs": 67.8999999994412,
+      "index": 17,
+      "visibleFreshnessMs": 82.1000000005588,
       "phases": {
         "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 5.400000000372529,
-        "loomark-preview-refresh": 9.099999999627471,
-        "loomark-preview-semantic": 7,
-        "loomark-preview-materialize": 2,
-        "loomark-preview-after-render": 2.400000000372529
+        "loomark-preview-parser-transition": 7.099999999627471,
+        "loomark-preview-refresh": 8.599999999627471,
+        "loomark-preview-semantic": 6.7000000001862645,
+        "loomark-preview-materialize": 1.8999999994412065,
+        "loomark-preview-after-render": 15.400000000372529
       }
     },
     {
-      "index": 38,
-      "visibleFreshnessMs": 83.5,
+      "index": 18,
+      "visibleFreshnessMs": 89.20000000018626,
       "phases": {
         "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 20.600000000558794,
-        "loomark-preview-refresh": 8.400000000372529,
-        "loomark-preview-semantic": 6.6000000005587935,
-        "loomark-preview-materialize": 1.7000000001862645,
-        "loomark-preview-after-render": 3.2999999998137355
+        "loomark-preview-parser-transition": 23.40000000037253,
+        "loomark-preview-refresh": 9.399999999441206,
+        "loomark-preview-semantic": 7.099999999627471,
+        "loomark-preview-materialize": 2.2999999998137355,
+        "loomark-preview-after-render": 5.300000000745058
       }
     },
     {
-      "index": 39,
-      "visibleFreshnessMs": 68.6000000005588,
+      "index": 19,
+      "visibleFreshnessMs": 72.59999999962747,
       "phases": {
         "loomark-preview-initial": null,
         "loomark-preview-parser-transition": 7.1000000005587935,
+        "loomark-preview-refresh": 8.299999999813735,
+        "loomark-preview-semantic": 6.5,
+        "loomark-preview-materialize": 1.7000000001862645,
+        "loomark-preview-after-render": 6.2000000001862645
+      }
+    },
+    {
+      "index": 20,
+      "visibleFreshnessMs": 83,
+      "phases": {
+        "loomark-preview-initial": null,
+        "loomark-preview-parser-transition": 21.100000000558794,
+        "loomark-preview-refresh": 8.200000000186265,
+        "loomark-preview-semantic": 6.300000000745058,
+        "loomark-preview-materialize": 1.8999999994412065,
+        "loomark-preview-after-render": 2.7999999998137355
+      }
+    },
+    {
+      "index": 21,
+      "visibleFreshnessMs": 69,
+      "phases": {
+        "loomark-preview-initial": null,
+        "loomark-preview-parser-transition": 6.7999999998137355,
+        "loomark-preview-refresh": 8.200000000186265,
+        "loomark-preview-semantic": 6.400000000372529,
+        "loomark-preview-materialize": 1.7999999998137355,
+        "loomark-preview-after-render": 2.7999999998137355
+      }
+    },
+    {
+      "index": 22,
+      "visibleFreshnessMs": 83.80000000074506,
+      "phases": {
+        "loomark-preview-initial": null,
+        "loomark-preview-parser-transition": 20.299999999813735,
+        "loomark-preview-refresh": 8.100000000558794,
+        "loomark-preview-semantic": 6.2000000001862645,
+        "loomark-preview-materialize": 1.7999999998137355,
+        "loomark-preview-after-render": 4.099999999627471
+      }
+    },
+    {
+      "index": 23,
+      "visibleFreshnessMs": 71.69999999925494,
+      "phases": {
+        "loomark-preview-initial": null,
+        "loomark-preview-parser-transition": 5.900000000372529,
+        "loomark-preview-refresh": 8.299999999813735,
+        "loomark-preview-semantic": 6.599999999627471,
+        "loomark-preview-materialize": 1.7000000001862645,
+        "loomark-preview-after-render": 6.400000000372529
+      }
+    },
+    {
+      "index": 24,
+      "visibleFreshnessMs": 91,
+      "phases": {
+        "loomark-preview-initial": null,
+        "loomark-preview-parser-transition": 20.600000000558794,
+        "loomark-preview-refresh": 8.200000000186265,
+        "loomark-preview-semantic": 6.5,
+        "loomark-preview-materialize": 1.7000000001862645,
+        "loomark-preview-after-render": 11
+      }
+    },
+    {
+      "index": 25,
+      "visibleFreshnessMs": 74.79999999981374,
+      "phases": {
+        "loomark-preview-initial": null,
+        "loomark-preview-parser-transition": 6.2000000001862645,
+        "loomark-preview-refresh": 8.599999999627471,
+        "loomark-preview-semantic": 6.7999999998137355,
+        "loomark-preview-materialize": 1.7999999998137355,
+        "loomark-preview-after-render": 9
+      }
+    },
+    {
+      "index": 26,
+      "visibleFreshnessMs": 90.09999999962747,
+      "phases": {
+        "loomark-preview-initial": null,
+        "loomark-preview-parser-transition": 21.40000000037253,
         "loomark-preview-refresh": 7.7999999998137355,
+        "loomark-preview-semantic": 6.099999999627471,
+        "loomark-preview-materialize": 1.7000000001862645,
+        "loomark-preview-after-render": 9.100000000558794
+      }
+    },
+    {
+      "index": 27,
+      "visibleFreshnessMs": 68.29999999981374,
+      "phases": {
+        "loomark-preview-initial": null,
+        "loomark-preview-parser-transition": 6.2999999998137355,
+        "loomark-preview-refresh": 8,
         "loomark-preview-semantic": 6.2999999998137355,
-        "loomark-preview-materialize": 1.5,
+        "loomark-preview-materialize": 1.7000000001862645,
+        "loomark-preview-after-render": 2.900000000372529
+      }
+    },
+    {
+      "index": 28,
+      "visibleFreshnessMs": 82.59999999962747,
+      "phases": {
+        "loomark-preview-initial": null,
+        "loomark-preview-parser-transition": 20.399999999441206,
+        "loomark-preview-refresh": 8.299999999813735,
+        "loomark-preview-semantic": 6.5,
+        "loomark-preview-materialize": 1.7999999998137355,
         "loomark-preview-after-render": 2.7000000001862645
       }
     },
     {
-      "index": 40,
-      "visibleFreshnessMs": 86.79999999981374,
+      "index": 29,
+      "visibleFreshnessMs": 70.6000000005588,
       "phases": {
         "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 19.799999999813735,
-        "loomark-preview-refresh": 8,
+        "loomark-preview-parser-transition": 6,
+        "loomark-preview-refresh": 8.399999999441206,
+        "loomark-preview-semantic": 6.5,
+        "loomark-preview-materialize": 1.8999999994412065,
+        "loomark-preview-after-render": 5
+      }
+    },
+    {
+      "index": 30,
+      "visibleFreshnessMs": 91.40000000037253,
+      "phases": {
+        "loomark-preview-initial": null,
+        "loomark-preview-parser-transition": 21,
+        "loomark-preview-refresh": 8.200000000186265,
+        "loomark-preview-semantic": 6.5,
+        "loomark-preview-materialize": 1.7000000001862645,
+        "loomark-preview-after-render": 11
+      }
+    },
+    {
+      "index": 31,
+      "visibleFreshnessMs": 75.8999999994412,
+      "phases": {
+        "loomark-preview-initial": null,
+        "loomark-preview-parser-transition": 6.5,
+        "loomark-preview-refresh": 7.7000000001862645,
+        "loomark-preview-semantic": 6,
+        "loomark-preview-materialize": 1.7000000001862645,
+        "loomark-preview-after-render": 10.599999999627471
+      }
+    },
+    {
+      "index": 32,
+      "visibleFreshnessMs": 80.8999999994412,
+      "phases": {
+        "loomark-preview-initial": null,
+        "loomark-preview-parser-transition": 20.59999999962747,
+        "loomark-preview-refresh": 7.099999999627471,
+        "loomark-preview-semantic": 5.599999999627471,
+        "loomark-preview-materialize": 1.5,
+        "loomark-preview-after-render": 2.300000000745058
+      }
+    },
+    {
+      "index": 33,
+      "visibleFreshnessMs": 69.70000000018626,
+      "phases": {
+        "loomark-preview-initial": null,
+        "loomark-preview-parser-transition": 7.2000000001862645,
+        "loomark-preview-refresh": 7.7999999998137355,
         "loomark-preview-semantic": 6.099999999627471,
-        "loomark-preview-materialize": 1.900000000372529,
-        "loomark-preview-after-render": 8.099999999627471
+        "loomark-preview-materialize": 1.7000000001862645,
+        "loomark-preview-after-render": 3.300000000745058
+      }
+    },
+    {
+      "index": 34,
+      "visibleFreshnessMs": 82.29999999981374,
+      "phases": {
+        "loomark-preview-initial": null,
+        "loomark-preview-parser-transition": 20.399999999441206,
+        "loomark-preview-refresh": 7.7999999998137355,
+        "loomark-preview-semantic": 6.1000000005587935,
+        "loomark-preview-materialize": 1.699999999254942,
+        "loomark-preview-after-render": 3
+      }
+    },
+    {
+      "index": 35,
+      "visibleFreshnessMs": 71.80000000074506,
+      "phases": {
+        "loomark-preview-initial": null,
+        "loomark-preview-parser-transition": 8.400000000372529,
+        "loomark-preview-refresh": 9.399999999441206,
+        "loomark-preview-semantic": 7,
+        "loomark-preview-materialize": 2.2999999998137355,
+        "loomark-preview-after-render": 2.900000000372529
+      }
+    },
+    {
+      "index": 36,
+      "visibleFreshnessMs": 88.1000000005588,
+      "phases": {
+        "loomark-preview-initial": null,
+        "loomark-preview-parser-transition": 22.699999999254942,
+        "loomark-preview-refresh": 8.199999999254942,
+        "loomark-preview-semantic": 6.5,
+        "loomark-preview-materialize": 1.699999999254942,
+        "loomark-preview-after-render": 6.1000000005587935
+      }
+    },
+    {
+      "index": 37,
+      "visibleFreshnessMs": 75.5,
+      "phases": {
+        "loomark-preview-initial": null,
+        "loomark-preview-parser-transition": 7.7000000001862645,
+        "loomark-preview-refresh": 7.7999999998137355,
+        "loomark-preview-semantic": 6.2000000001862645,
+        "loomark-preview-materialize": 1.599999999627471,
+        "loomark-preview-after-render": 8.900000000372529
+      }
+    },
+    {
+      "index": 38,
+      "visibleFreshnessMs": 91.90000000037253,
+      "phases": {
+        "loomark-preview-initial": null,
+        "loomark-preview-parser-transition": 22.5,
+        "loomark-preview-refresh": 8.100000000558794,
+        "loomark-preview-semantic": 6.400000000372529,
+        "loomark-preview-materialize": 1.7000000001862645,
+        "loomark-preview-after-render": 9.399999999441206
+      }
+    },
+    {
+      "index": 39,
+      "visibleFreshnessMs": 70.3999999994412,
+      "phases": {
+        "loomark-preview-initial": null,
+        "loomark-preview-parser-transition": 7.3999999994412065,
+        "loomark-preview-refresh": 8.399999999441206,
+        "loomark-preview-semantic": 6.7999999998137355,
+        "loomark-preview-materialize": 1.599999999627471,
+        "loomark-preview-after-render": 3.7000000001862645
+      }
+    },
+    {
+      "index": 40,
+      "visibleFreshnessMs": 82.79999999981374,
+      "phases": {
+        "loomark-preview-initial": null,
+        "loomark-preview-parser-transition": 21.700000000186265,
+        "loomark-preview-refresh": 7.7000000001862645,
+        "loomark-preview-semantic": 6,
+        "loomark-preview-materialize": 1.7000000001862645,
+        "loomark-preview-after-render": 2.2999999998137355
       }
     },
     {
       "index": 41,
-      "visibleFreshnessMs": 73.59999999962747,
+      "visibleFreshnessMs": 69.90000000037253,
       "phases": {
         "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 6.7999999998137355,
-        "loomark-preview-refresh": 7.6000000005587935,
-        "loomark-preview-semantic": 5.7000000001862645,
-        "loomark-preview-materialize": 1.900000000372529,
-        "loomark-preview-after-render": 8.199999999254942
+        "loomark-preview-parser-transition": 6.599999999627471,
+        "loomark-preview-refresh": 8.5,
+        "loomark-preview-semantic": 6.3999999994412065,
+        "loomark-preview-materialize": 2,
+        "loomark-preview-after-render": 3.7999999998137355
       }
     },
     {
       "index": 42,
-      "visibleFreshnessMs": 81.5,
+      "visibleFreshnessMs": 92.30000000074506,
       "phases": {
         "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 19.399999999441206,
-        "loomark-preview-refresh": 8,
-        "loomark-preview-semantic": 6.3999999994412065,
-        "loomark-preview-materialize": 1.6000000005587935,
-        "loomark-preview-after-render": 3.099999999627471
+        "loomark-preview-parser-transition": 20.700000000186265,
+        "loomark-preview-refresh": 8.100000000558794,
+        "loomark-preview-semantic": 6.400000000372529,
+        "loomark-preview-materialize": 1.7000000001862645,
+        "loomark-preview-after-render": 12.599999999627471
       }
     },
     {
       "index": 43,
-      "visibleFreshnessMs": 67.70000000018626,
+      "visibleFreshnessMs": 74.59999999962747,
       "phases": {
         "loomark-preview-initial": null,
-        "loomark-preview-parser-transition": 6.2000000001862645,
-        "loomark-preview-refresh": 7.7000000001862645,
-        "loomark-preview-semantic": 5.8999999994412065,
-        "loomark-preview-materialize": 1.800000000745058,
-        "loomark-preview-after-render": 3
+        "loomark-preview-parser-transition": 6.3999999994412065,
+        "loomark-preview-refresh": 8.5,
+        "loomark-preview-semantic": 6.7000000001862645,
+        "loomark-preview-materialize": 1.7999999998137355,
+        "loomark-preview-after-render": 8.700000000186265
       }
     }
   ]
