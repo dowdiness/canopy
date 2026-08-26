@@ -2,7 +2,7 @@
 set -euo pipefail
 
 suite_dir="$(cd "$(dirname "$0")" && pwd -P)"
-repo_root="$(cd "$suite_dir/../../../.." && pwd -P)"
+repo_root="$(cd "$suite_dir/../../.." && pwd -P)"
 cd "$repo_root"
 
 expected_quint=0.32.0
@@ -55,11 +55,11 @@ local_trace="$tmp/recovery-0.itf.json"
 jq -e '[.states[]."mbt::actionTaken"] == ["init", "open", "startRecovery", "watchdogCurrent", "watchdogStale", "watchdogCurrent", "watchdogCurrent", "watchdogExhaust", "noteSyncApplied", "startRecoveryAgain", "peerLeftTarget", "done"]' "$local_trace" >/dev/null
 "$quint_bin" run "$suite_dir/Recovery.qnt" --main Recovery --invariant safety \
   --seed 0x032 --step step --max-steps 11 --verbosity 0
-NEW_MOON_MOD=0 moon run --target native ./modules/canopy/sync_session/verification -- \
+NEW_MOON_MOD=0 moon run --target native ./tools/verification/sync_session -- \
   "$local_trace"
 
 set +e
-local_negative="$(NEW_MOON_MOD=0 moon run --target native ./modules/canopy/sync_session/verification -- \
+local_negative="$(NEW_MOON_MOD=0 moon run --target native ./tools/verification/sync_session -- \
   "$local_trace" --broken 2>&1)"
 local_negative_status=$?
 set -e
@@ -121,13 +121,13 @@ jq -e '[.states[]."mbt::actionTaken"] == ["init", "openAlice", "openBob", "openC
   --step step --max-steps 20 --max-samples 200 --n-traces 200 --verbosity 0
 jq -es '([.[].states[]."RecoveryChoreo::choreo::display".status] | index("Error(Exhausted)")) != null and ([.[].states[]."RecoveryChoreo::choreo::display".attempt."#bigint"] | unique | sort) == ["0","1","2","3","4"] and any(.[].states[]."RecoveryChoreo::choreo::display"; .target == "bob") and any(.[].states[]."RecoveryChoreo::choreo::display"; .target == "carol") and any(.[].states[]."RecoveryChoreo::choreo::s".system."#map"[]; .[0] == "alice" and .[1].core.recoveries."#bigint" == "2") and any(.[].states[]."RecoveryChoreo::choreo::display"; .status == "Idle" and .applied."#bigint" == "6")' "$tmp"/choreo-random-*.itf.json >/dev/null
 
-NEW_MOON_MOD=0 moon run --target native ./modules/canopy/sync_session/verification -- \
+NEW_MOON_MOD=0 moon run --target native ./tools/verification/sync_session -- \
   "$choreo_named" --choreo
-NEW_MOON_MOD=0 moon run --target native ./modules/canopy/sync_session/verification -- \
+NEW_MOON_MOD=0 moon run --target native ./tools/verification/sync_session -- \
   "$tmp"/choreo-random-*.itf.json --choreo
 
 set +e
-choreo_negative="$(NEW_MOON_MOD=0 moon run --target native ./modules/canopy/sync_session/verification -- \
+choreo_negative="$(NEW_MOON_MOD=0 moon run --target native ./tools/verification/sync_session -- \
   "$choreo_named" --choreo --broken 2>&1)"
 choreo_negative_status=$?
 choreo_mutation="$("$quint_bin" run "$choreo_spec/RecoveryChoreo.qnt" \

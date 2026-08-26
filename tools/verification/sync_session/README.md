@@ -1,9 +1,9 @@
 # Quint SyncSession recovery verification
 
-This is Canopy's durable verification suite for the public `SyncSession`
-recovery protocol. It is co-located with its owning package but remains a
-standalone MoonBit module: production packages do not depend on Quint, Choreo,
-or `quint_connect`.
+This is Canopy's durable local verification suite for the public `SyncSession`
+recovery protocol. It lives under `tools/verification` as a standalone,
+native-only MoonBit module: production packages do not depend on Quint, Choreo,
+or `quint_connect`, and the external verification runner is not part of CI.
 
 ## Verification architecture
 
@@ -73,7 +73,7 @@ real session is not required for recovery-policy conformance.
 From the repository root:
 
 ```sh
-./modules/canopy/sync_session/verification/run.sh
+./tools/verification/sync_session/run.sh
 ```
 
 The command runs:

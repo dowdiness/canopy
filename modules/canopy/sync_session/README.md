@@ -41,8 +41,8 @@ L3 adapter); `SyncEditor` keeps its stable surface and delegates here.
 
 ## Verification
 
-[`verification/`](verification/) is a standalone module containing the Quint
-recovery specification, bounded distributed model, Choreo trace generator, and
-MoonBit public-API conformance replay. It is co-located here because it is a
-package-owned verification tool for `SyncSession`, not a removable example.
-Its separate `moon.mod` keeps Quint tooling out of this production package.
+[`tools/verification/sync_session/`](../../../tools/verification/sync_session/)
+is a standalone local tool containing the Quint recovery specification, bounded
+distributed model, Choreo trace generator, and MoonBit public-API conformance
+replay. Its separate native-only module keeps verification dependencies out of
+this production package and keeps its executable out of JavaScript builds.

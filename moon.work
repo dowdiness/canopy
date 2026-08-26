@@ -47,5 +47,5 @@ members = [
   "./examples/codemirror",
   "./examples/resizable",
   "./examples/disclosure",
-  "./modules/canopy/sync_session/verification",
+  "./tools/verification/sync_session",
 ]
