@@ -17,6 +17,7 @@ _build
 .vite/
 apps/web/src/pages.gen.ts
 apps/web/worker-startup.cpuprofile
+apps/loomark/app/example_*.g.mbt
 
 .playwright-mcp/
 .playwright-cli/

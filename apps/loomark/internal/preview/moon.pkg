@@ -1,0 +1,18 @@
+import {
+  "dowdiness/diagnostic",
+  "dowdiness/loom",
+  "dowdiness/markdown",
+  "dowdiness/text_change",
+  "moonbit-community/rabbita",
+  "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/dom",
+  "moonbit-community/rabbita/html",
+  "Yoorkin/rui",
+}
+
+import {
+  "moonbit-community/rabbita/testing" @rabbita_testing,
+  "moonbitlang/core/bench",
+} for "wbtest"
+
+supported_targets = "js"

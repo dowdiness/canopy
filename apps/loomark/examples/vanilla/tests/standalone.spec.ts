@@ -140,7 +140,7 @@ function removeDocumentPutFailure(): void {
   delete state.__loomarkDocumentPutOriginal
 }
 
-test("fresh production opens an empty Text editor without modes or workers", async ({ page }) => {
+test("fresh production opens Text mode and preserves its textarea across modes", async ({ page }) => {
   const workerUrls: string[] = []
   page.on("worker", worker => workerUrls.push(worker.url()))
 
@@ -148,15 +148,309 @@ test("fresh production opens an empty Text editor without modes or workers", asy
   await page.waitForLoadState("networkidle")
 
   const text = page.getByRole("textbox", { name: "Text" })
+  const textTab = page.getByRole("tab", { name: "Text" })
+  const previewTab = page.getByRole("tab", { name: "Preview" })
+  const splitTab = page.getByRole("tab", { name: "Split" })
+  const preview = page.getByRole("region", { name: "Markdown preview" })
+
   await expect(text).toBeVisible()
   await expect(text).toBeFocused()
   await expect(text).toHaveValue("")
+  await expect(textTab).toHaveAttribute("aria-selected", "true")
+  await expect(previewTab).toHaveAttribute("aria-selected", "false")
+  await expect(splitTab).toHaveAttribute("aria-selected", "false")
   await expect.poll(() => readStoredDocument(page)).toEqual({
     document_id: expect.any(String),
     text: "",
   })
-  await expect(page.getByRole("tab")).toHaveCount(0)
+  await text.evaluate(element => {
+    ;(globalThis as typeof globalThis & { __loomarkTextArea?: HTMLTextAreaElement })
+      .__loomarkTextArea = element as HTMLTextAreaElement
+  })
+  await text.pressSequentially("abc")
+  await text.evaluate(element => (element as HTMLTextAreaElement).setSelectionRange(1, 2))
+
+  await previewTab.click()
+  await expect(text).toBeHidden()
+  await expect(preview).toBeVisible()
+  expect(await page.evaluate(() => (
+    (globalThis as typeof globalThis & { __loomarkTextArea?: HTMLTextAreaElement })
+      .__loomarkTextArea === document.getElementById("loomark-text")
+  ))).toBe(true)
+
+  await splitTab.click()
+  await expect(text).toBeVisible()
+  await expect(preview).toBeVisible()
+  await expect(page.getByRole("separator")).toHaveCount(1)
+  await expect(page.getByRole("slider", { name: "Resize editor and preview" }))
+    .toHaveCount(1)
+  await expect(page.locator('[data-slot="resizable-handle-grip"]')).toBeVisible()
+  expect(await page.evaluate(() => (
+    (globalThis as typeof globalThis & { __loomarkTextArea?: HTMLTextAreaElement })
+      .__loomarkTextArea === document.getElementById("loomark-text")
+  ))).toBe(true)
+
+  await textTab.click()
+  await expect(text).toBeVisible()
+  await expect(preview).toBeHidden()
+  expect(await page.evaluate(() => (
+    (globalThis as typeof globalThis & { __loomarkTextArea?: HTMLTextAreaElement })
+      .__loomarkTextArea === document.getElementById("loomark-text")
+  ))).toBe(true)
+  expect(await text.evaluate(element => ({
+    start: (element as HTMLTextAreaElement).selectionStart,
+    end: (element as HTMLTextAreaElement).selectionEnd,
+  }))).toEqual({ start: 1, end: 2 })
+  await text.focus()
+  await page.keyboard.press("Control+Z")
+  await expect(text).toHaveValue("")
   expect(workerUrls).toEqual([])
+})
+
+test("Preview prepares after its status paints and refreshes typed Markdown", async ({ page }) => {
+  await page.goto("/")
+
+  const source = [
+    "# Preview heading",
+    "",
+    "[Canopy](https://example.test)",
+    "",
+    '<div id="unsafe-preview">raw HTML</div>',
+    "",
+  ].join("\n")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill(source)
+  await page.evaluate(() => {
+    const state = globalThis as typeof globalThis & {
+      __loomarkPreparingObserved?: boolean
+    }
+    state.__loomarkPreparingObserved = false
+    const observer = new MutationObserver(() => {
+      if (document.body.textContent?.includes("Preparing preview…")) {
+        state.__loomarkPreparingObserved = true
+        observer.disconnect()
+      }
+    })
+    observer.observe(document.body, { childList: true, subtree: true })
+  })
+  await page.getByRole("tab", { name: "Preview" }).click()
+
+  await expect.poll(() => page.evaluate(() => (
+    (globalThis as typeof globalThis & { __loomarkPreparingObserved?: boolean })
+      .__loomarkPreparingObserved ?? false
+  ))).toBe(true)
+  await expect(page.getByRole("heading", { name: "Preview heading" })).toBeVisible()
+  const link = page.getByRole("link", { name: "Canopy" })
+  await expect(link).toHaveAttribute("href", "https://example.test")
+  await expect(link).toHaveAttribute("target", "_blank")
+  await expect(link).toHaveAttribute("rel", "noopener noreferrer")
+  await expect(page.getByText('<div id="unsafe-preview">raw HTML</div>')).toBeVisible()
+  await expect(page.locator("#unsafe-preview")).toHaveCount(0)
+
+  await page.getByRole("tab", { name: "Split" }).click()
+  await text.fill("# Updated heading\n")
+  await expect(page.getByRole("heading", { name: "Preview heading" })).toBeVisible()
+  await page.getByRole("tab", { name: "Text" }).click()
+  await page.getByRole("tab", { name: "Preview" }).click()
+  await expect(page.getByRole("heading", { name: "Updated heading" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Preview heading" })).toHaveCount(0)
+})
+
+test("mode tabs move focus without activation and activate with Enter or Space", async ({ page }) => {
+  await page.goto("/")
+
+  const textTab = page.getByRole("tab", { name: "Text" })
+  const previewTab = page.getByRole("tab", { name: "Preview" })
+  const splitTab = page.getByRole("tab", { name: "Split" })
+  const preview = page.getByRole("region", { name: "Markdown preview" })
+  const exampleButtons = [
+    "Apply Markdown feature tour example",
+    "Apply Hello example",
+    "Guide: Apply Blog example",
+    "Apply List example",
+    "Apply Code example",
+  ].map(name => page.getByRole("button", { name }))
+
+  await textTab.focus()
+  await page.keyboard.press("ArrowRight")
+  await expect(previewTab).toBeFocused()
+  await expect(textTab).toHaveAttribute("aria-selected", "true")
+  await expect(preview).toBeHidden()
+
+  await page.keyboard.press("Enter")
+  await expect(previewTab).toBeFocused()
+  await expect(previewTab).toHaveAttribute("aria-selected", "true")
+  await expect(preview).toBeVisible()
+  for (const button of exampleButtons) {
+    await page.keyboard.press("Tab")
+    await expect(button).toBeFocused()
+  }
+  await page.keyboard.press("Tab")
+  await expect(preview).toBeFocused()
+  await previewTab.focus()
+
+  await page.keyboard.press("ArrowRight")
+  await expect(splitTab).toBeFocused()
+  await expect(previewTab).toHaveAttribute("aria-selected", "true")
+  await page.keyboard.press("Space")
+  await expect(splitTab).toBeFocused()
+  await expect(splitTab).toHaveAttribute("aria-selected", "true")
+  for (const button of exampleButtons) {
+    await page.keyboard.press("Tab")
+    await expect(button).toBeFocused()
+  }
+  await page.keyboard.press("Tab")
+  await expect(page.getByRole("textbox", { name: "Text" })).toBeFocused()
+})
+
+test("Split uses RUI keyboard resizing and preserves textarea across orientation", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 700 })
+  await page.goto("/")
+
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill("# Stable textarea\n")
+  await text.evaluate(element => {
+    ;(globalThis as typeof globalThis & { __loomarkTextArea?: HTMLTextAreaElement })
+      .__loomarkTextArea = element as HTMLTextAreaElement
+  })
+  await page.getByRole("tab", { name: "Split" }).click()
+
+  const separator = page.getByRole("separator")
+  const resize = page.getByRole("slider", { name: "Resize editor and preview" })
+  await expect(separator).toHaveAttribute("aria-orientation", "vertical")
+  await expect(resize).toHaveValue("50")
+  await resize.focus()
+  await page.keyboard.press("ArrowRight")
+  await expect(resize).toHaveValue("51")
+
+  const groupBox = await page.locator("#loomark-editor-panels").boundingBox()
+  const separatorBox = await separator.boundingBox()
+  const gripBox = await page.locator('[data-slot="resizable-handle-grip"]')
+    .boundingBox()
+  expect(groupBox).not.toBeNull()
+  expect(separatorBox).not.toBeNull()
+  expect(gripBox).not.toBeNull()
+  if (!groupBox || !separatorBox || !gripBox) {
+    throw new Error("Split resize geometry missing")
+  }
+  expect(Math.abs(separatorBox.height - groupBox.height)).toBeLessThanOrEqual(1)
+  await page.mouse.move(gripBox.x + gripBox.width / 2, gripBox.y + gripBox.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(groupBox.x + groupBox.width * 0.9, groupBox.y + groupBox.height / 2)
+  await page.mouse.up()
+  await expect(resize).toHaveValue("75")
+
+  await page.setViewportSize({ width: 640, height: 700 })
+  await expect(separator).toHaveAttribute("aria-orientation", "horizontal")
+  await expect(resize).toHaveValue("50")
+  const compactGroupBox = await page.locator("#loomark-editor-panels").boundingBox()
+  const compactSeparatorBox = await separator.boundingBox()
+  expect(compactGroupBox).not.toBeNull()
+  expect(compactSeparatorBox).not.toBeNull()
+  if (!compactGroupBox || !compactSeparatorBox) {
+    throw new Error("Compact Split resize geometry missing")
+  }
+  expect(Math.abs(compactSeparatorBox.width - compactGroupBox.width))
+    .toBeLessThanOrEqual(1)
+  expect(await page.evaluate(() => (
+    (globalThis as typeof globalThis & { __loomarkTextArea?: HTMLTextAreaElement })
+      .__loomarkTextArea === document.getElementById("loomark-text")
+  ))).toBe(true)
+  await expect(text).toHaveValue("# Stable textarea\n")
+  await resize.focus()
+  await page.keyboard.press("ArrowDown")
+  await expect(resize).toHaveValue("51")
+})
+
+test("Example documents immediately replace the active Document", async ({ page }) => {
+  await page.goto("/")
+
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill("# Work in progress\n")
+  const examples = page.getByRole("toolbar", { name: "Example documents" })
+
+  await examples.getByRole("button", {
+    name: "Apply Markdown feature tour example",
+  }).click()
+  await expect(text).toHaveValue(/^# Markdown Feature Tour\n/)
+
+  await examples.getByRole("button", { name: "Apply Hello example" }).click()
+  await expect(text).toHaveValue(
+    "# Hello World\n\nWelcome to Loomark.\n\n" +
+      "Use Text to edit Markdown, Preview to read the rendered document, " +
+      "and Split to work with both at once.\n",
+  )
+
+  await examples.getByRole("button", { name: "Guide: Apply Blog example" }).click()
+  await expect(text).toHaveValue(
+    "# Getting Started\n\nLoomark is a source-first incremental Markdown editor.\n\n" +
+      "## Features\n\nText remains the editing authority.\n\n" +
+      "Preview and Split share one read-only rendered result that updates " +
+      "from precise browser edits.",
+  )
+
+  await examples.getByRole("button", { name: "Apply List example" }).click()
+  await expect(text).toHaveValue(
+    "# Shopping List\n\nThings to pick up:\n\n" +
+      "- Apples\n- Bread\n- Coffee\n- Dark chocolate",
+  )
+
+  await examples.getByRole("button", { name: "Apply Code example" }).click()
+  await expect(text).toHaveValue(/^# README\n/)
+  await expect.poll(() => readStoredDocument(page).then(document => document?.text))
+    .toMatch(/^# README\n/)
+})
+
+test("Split keeps Text and Preview independently scrollable", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 700 })
+  await page.goto("/")
+
+  const source = Array.from({ length: 80 }, (_, index) => (
+    `## Section ${index}\n\nParagraph ${index} with enough text for both panes.`
+  )).join("\n\n")
+  const text = page.getByRole("textbox", { name: "Text" })
+  const preview = page.getByRole("region", { name: "Markdown preview" })
+  await text.fill(source)
+  await page.getByRole("tab", { name: "Split" }).click()
+  await expect(preview.getByRole("heading", { name: "Section 79" })).toBeVisible()
+
+  const assertIndependentScroll = async () => {
+    const metrics = await page.evaluate(() => {
+      const textarea = document.getElementById("loomark-text") as HTMLTextAreaElement
+      const textPane = document.querySelector(".loomark-text-pane") as HTMLElement
+      const previewScroll = document.getElementById("loomark-preview-scroll") as HTMLElement
+      const textareaBox = textarea.getBoundingClientRect()
+      const textPaneBox = textPane.getBoundingClientRect()
+      textarea.scrollTop = 120
+      previewScroll.scrollTop = 240
+      return {
+        text: {
+          clientHeight: textarea.clientHeight,
+          scrollHeight: textarea.scrollHeight,
+          scrollTop: textarea.scrollTop,
+          rightEdgeOffset: Math.abs(textareaBox.right - textPaneBox.right),
+        },
+        preview: {
+          clientHeight: previewScroll.clientHeight,
+          scrollHeight: previewScroll.scrollHeight,
+          scrollTop: previewScroll.scrollTop,
+        },
+      }
+    })
+    expect(metrics.text.scrollHeight).toBeGreaterThan(metrics.text.clientHeight)
+    expect(metrics.preview.scrollHeight).toBeGreaterThan(metrics.preview.clientHeight)
+    expect(metrics.text.scrollTop).toBeGreaterThan(0)
+    expect(metrics.text.rightEdgeOffset).toBeLessThanOrEqual(1)
+    expect(metrics.preview.scrollTop).toBeGreaterThan(0)
+  }
+
+  await assertIndependentScroll()
+  await page.setViewportSize({ width: 640, height: 700 })
+  await expect(page.getByRole("separator")).toHaveAttribute(
+    "aria-orientation",
+    "horizontal",
+  )
+  await assertIndependentScroll()
 })
 
 test("quiet Autosave restores exact Saved text after reload", async ({ page }) => {
@@ -263,6 +557,47 @@ test("IME composition saves only after composition ends", async ({ page }) => {
   expect(terminalValueReads).toBe(0)
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
     .toBe("変換中")
+})
+
+test("Preview schedules no new work until IME composition commits", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill("# Before\n")
+  await page.getByRole("tab", { name: "Split" }).click()
+  await expect(page.getByRole("heading", { name: "Before" })).toBeVisible()
+
+  await text.evaluate(element => {
+    const textarea = element as HTMLTextAreaElement
+    textarea.setSelectionRange(0, textarea.value.length)
+    textarea.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }))
+    textarea.value = "# During\n"
+    textarea.dispatchEvent(new InputEvent("input", {
+      bubbles: true,
+      composed: true,
+      data: "# During\n",
+      inputType: "insertCompositionText",
+    }))
+  })
+  await page.waitForTimeout(100)
+  await expect(page.getByRole("heading", { name: "Before" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "During" })).toHaveCount(0)
+
+  await text.evaluate(element => {
+    const textarea = element as HTMLTextAreaElement
+    textarea.value = "# After\n"
+    textarea.dispatchEvent(new CompositionEvent("compositionend", {
+      bubbles: true,
+      data: "# After\n",
+    }))
+    textarea.dispatchEvent(new InputEvent("input", {
+      bubbles: true,
+      composed: true,
+      data: "# After\n",
+      inputType: "insertText",
+    }))
+  })
+  await expect(page.getByRole("heading", { name: "After" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Before" })).toHaveCount(0)
 })
 
 test("save failure keeps Text editable and Retry saves the latest text", async ({ page }) => {
@@ -388,6 +723,51 @@ test("mismatched insertion facts recover from the current textarea value", async
   await expect(text).toHaveValue("after!")
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
     .toBe("after!")
+})
+
+test("Text input stays within 10 ms with per-edit Parser transitions", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill("# A")
+  await page.getByRole("tab", { name: "Preview" }).click()
+  await expect(page.getByRole("heading", { name: "A" })).toBeVisible()
+  await page.getByRole("tab", { name: "Text" }).click()
+
+  const durations = await text.evaluate(element => {
+    const textarea = element as HTMLTextAreaElement
+    const dispatchExactInsert = () => {
+      const start = textarea.value.length
+      textarea.setSelectionRange(start, start)
+      textarea.dispatchEvent(new InputEvent("beforeinput", {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        data: "x",
+        inputType: "insertText",
+      }))
+      textarea.value += "x"
+      textarea.setSelectionRange(start + 1, start + 1)
+      textarea.dispatchEvent(new InputEvent("input", {
+        bubbles: true,
+        composed: true,
+        data: "x",
+        inputType: "insertText",
+      }))
+    }
+    for (let index = 0; index < 10; index += 1) dispatchExactInsert()
+    return Array.from({ length: 50 }, () => {
+      const started = performance.now()
+      dispatchExactInsert()
+      return performance.now() - started
+    })
+  })
+  const sorted = [...durations].sort((left, right) => left - right)
+  expect(sorted[Math.ceil(sorted.length * 0.95) - 1]).toBeLessThanOrEqual(10)
+  expect(sorted[sorted.length - 1]).toBeLessThanOrEqual(10)
+
+  await page.waitForTimeout(100)
+  await page.getByRole("tab", { name: "Preview" }).click()
+  await expect(page.getByRole("heading", { name: `A${"x".repeat(60)}` })).toBeVisible()
 })
 
 test("Text input processing stays within 10 ms", async ({ page }) => {

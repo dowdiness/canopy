@@ -1,10 +1,49 @@
 import {
   "dowdiness/loomark/internal/browser_storage",
+  "dowdiness/loomark/internal/mode_tabs",
+  "dowdiness/loomark/internal/preview",
   "dowdiness/loomark/internal/text_area",
   "dowdiness/text_change",
   "moonbit-community/rabbita",
   "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/dom",
   "moonbit-community/rabbita/html",
+  "moonbit-community/rabbita/sub",
+  "Yoorkin/rui",
 }
 
+import {
+  "moonbit-community/rabbita/testing" @rabbita_testing,
+} for "wbtest"
+
 supported_targets = "js"
+
+options(
+  "pre-build": [
+    {
+      "input": "example_documents/demo.md",
+      "output": "example_demo.g.mbt",
+      "command": ":embed --text -i $input -o $output --name embedded_markdown_demo_source",
+    },
+    {
+      "input": "example_documents/hello.md",
+      "output": "example_hello.g.mbt",
+      "command": ":embed --text -i $input -o $output --name embedded_hello_example_source",
+    },
+    {
+      "input": "example_documents/guide.md",
+      "output": "example_guide.g.mbt",
+      "command": ":embed --text -i $input -o $output --name embedded_blog_example_source",
+    },
+    {
+      "input": "example_documents/list.md",
+      "output": "example_list.g.mbt",
+      "command": ":embed --text -i $input -o $output --name embedded_list_example_source",
+    },
+    {
+      "input": "example_documents/code.md",
+      "output": "example_code.g.mbt",
+      "command": ":embed --text -i $input -o $output --name embedded_code_example_source",
+    },
+  ],
+)
