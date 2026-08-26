@@ -357,6 +357,11 @@ button {
   background: var(--lm-rule);
 }
 
+.loomark-resize-handle[data-orientation="vertical"] {
+  height: auto !important;
+  align-self: stretch;
+}
+
 .loomark-resize-handle:focus-within {
   background: var(--lm-accent);
 }

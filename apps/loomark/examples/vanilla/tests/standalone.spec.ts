@@ -310,11 +310,16 @@ test("Split uses RUI keyboard resizing and preserves textarea across orientation
   await expect(resize).toHaveValue("51")
 
   const groupBox = await page.locator("#loomark-editor-panels").boundingBox()
+  const separatorBox = await separator.boundingBox()
   const gripBox = await page.locator('[data-slot="resizable-handle-grip"]')
     .boundingBox()
   expect(groupBox).not.toBeNull()
+  expect(separatorBox).not.toBeNull()
   expect(gripBox).not.toBeNull()
-  if (!groupBox || !gripBox) throw new Error("Split resize geometry missing")
+  if (!groupBox || !separatorBox || !gripBox) {
+    throw new Error("Split resize geometry missing")
+  }
+  expect(Math.abs(separatorBox.height - groupBox.height)).toBeLessThanOrEqual(1)
   await page.mouse.move(gripBox.x + gripBox.width / 2, gripBox.y + gripBox.height / 2)
   await page.mouse.down()
   await page.mouse.move(groupBox.x + groupBox.width * 0.9, groupBox.y + groupBox.height / 2)
@@ -324,6 +329,15 @@ test("Split uses RUI keyboard resizing and preserves textarea across orientation
   await page.setViewportSize({ width: 640, height: 700 })
   await expect(separator).toHaveAttribute("aria-orientation", "horizontal")
   await expect(resize).toHaveValue("50")
+  const compactGroupBox = await page.locator("#loomark-editor-panels").boundingBox()
+  const compactSeparatorBox = await separator.boundingBox()
+  expect(compactGroupBox).not.toBeNull()
+  expect(compactSeparatorBox).not.toBeNull()
+  if (!compactGroupBox || !compactSeparatorBox) {
+    throw new Error("Compact Split resize geometry missing")
+  }
+  expect(Math.abs(compactSeparatorBox.width - compactGroupBox.width))
+    .toBeLessThanOrEqual(1)
   expect(await page.evaluate(() => (
     (globalThis as typeof globalThis & { __loomarkTextArea?: HTMLTextAreaElement })
       .__loomarkTextArea === document.getElementById("loomark-text")
