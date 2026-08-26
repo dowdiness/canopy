@@ -234,7 +234,13 @@ fn update(
       if candidate != editing.text {
         (
           Editing({ ..editing, preview: Failed(None) }),
-          @preview.discard_cmd(preview_engine),
+          @cmd.batch([
+            @preview.discard_cmd(preview_engine),
+            @cmd.delay(
+              emit(PreviewRefreshRequested(editing.text)),
+              PREVIEW_QUIET_MS,
+            ),
+          ]),
         )
       } else {
         match result {
