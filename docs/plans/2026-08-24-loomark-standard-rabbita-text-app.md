@@ -1,5 +1,12 @@
 # Loomark standard Rabbita Text app
 
+**Status:** Active for Text-mode scope. Preview/Split scope moved to
+[2026-08-26-loomark-preview-split-production.md](2026-08-26-loomark-preview-split-production.md)
+(#1372). This plan remains authoritative for Loading, Autosave, Recovery,
+and the production E2E suite. Its "no Parser" statement now means that a
+session remaining in Text mode creates no Parser; the new plan owns lazy
+Preview preparation after Preview or Split is selected.
+
 ## Goal
 
 Loomark is a Text editor that restores and Autosaves one Loomark document in
