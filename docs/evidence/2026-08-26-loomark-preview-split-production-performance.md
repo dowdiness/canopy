@@ -2,7 +2,7 @@
 
 **Issue:** [#1372](https://github.com/dowdiness/canopy/issues/1372)
 
-**Implementation commit:** `fee54528`
+**Implementation commit:** `938c1336`
 
 **Decision:** `STOP_REASSESS`
 
@@ -53,9 +53,9 @@ contains no profiling API or test-only Model state.
 
 | Launch | Initial preparation | Initial typed Html | Initial after-render | Initial visible | First cold preparation | First cold typed Html | First cold after-render | First cold visible |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| 1 | 128.7 ms | 7.9 ms | 12.8 ms | 157.6 ms | 16.6 ms | 5.4 ms | 4.7 ms | 77.6 ms |
-| 2 | 133.1 ms | 12.0 ms | 20.4 ms | 162.5 ms | 12.5 ms | 5.3 ms | 6.8 ms | 76.0 ms |
-| 3 | 122.0 ms | 10.7 ms | 12.7 ms | 147.0 ms | 14.8 ms | 7.9 ms | 4.2 ms | 76.0 ms |
+| 1 | 113.1 ms | 10.9 ms | 15.4 ms | 148.3 ms | 10.6 ms | 3.6 ms | 4.5 ms | 70.1 ms |
+| 2 | 120.0 ms | 7.1 ms | 10.2 ms | 143.6 ms | 15.9 ms | 7.2 ms | 3.5 ms | 75.3 ms |
+| 3 | 139.5 ms | 7.7 ms | 11.6 ms | 160.9 ms | 17.5 ms | 7.2 ms | 5.6 ms | 79.7 ms |
 
 Initial preparation remains a distinct cold-start product cost. The first cold
 incremental sample is also reported separately and is not included in the later
@@ -65,20 +65,20 @@ gate.
 
 | Phase | Samples | Median | p95 | Maximum |
 |---|---:|---:|---:|---:|
-| Parser transition | 132 | 18.7 ms | 27.0 ms | 33.3 ms |
-| Preview preparation | 132 | 8.5 ms | **12.9 ms** | **19.0 ms** |
-| Semantic attachment read | 132 | 6.6 ms | 8.3 ms | 11.0 ms |
-| Typed-Html materialization | 132 | 1.9 ms | 4.9 ms | 8.0 ms |
-| Rabbita after-render | 132 | 3.8 ms | 16.9 ms | 20.3 ms |
-| Input-to-visible freshness | 132 | 82.4 ms | 95.2 ms | 117.2 ms |
+| Parser transition | 132 | 16.5 ms | 27.9 ms | 30.6 ms |
+| Preview preparation | 132 | 8.3 ms | **14.2 ms** | **18.4 ms** |
+| Semantic attachment read | 132 | 6.2 ms | 9.1 ms | 11.9 ms |
+| Typed-Html materialization | 132 | 1.9 ms | 5.2 ms | 9.7 ms |
+| Rabbita after-render | 132 | 3.5 ms | 14.3 ms | 17.4 ms |
+| Input-to-visible freshness | 132 | 80.5 ms | 94.6 ms | 108.0 ms |
 
 Per-launch Preview preparation:
 
 | Launch | Median | p95 | Maximum |
 |---|---:|---:|---:|
-| 1 | 8.5 ms | 12.1 ms | 19.0 ms |
-| 2 | 8.6 ms | 12.9 ms | 14.4 ms |
-| 3 | 8.5 ms | 12.6 ms | 14.1 ms |
+| 1 | 8.3 ms | 13.0 ms | 14.2 ms |
+| 2 | 8.5 ms | 16.4 ms | 17.2 ms |
+| 3 | 8.1 ms | 14.3 ms | 18.4 ms |
 
 All three launches exceeded 10 ms at p95 and maximum. The failure is in later
 Preview preparation, not only frame scheduling or visible freshness.
