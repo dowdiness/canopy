@@ -455,7 +455,7 @@ fn normalize_provider_dependencies(
       normalized.push(dependency)
     }
   }
-  normalized.sort_by(fn(a, b) { a.compare(b) })
+  normalized.sort_by(fn(a, b) { Compare::compare(a, b) })
   normalized
 }
 

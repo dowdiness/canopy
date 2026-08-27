@@ -151,7 +151,7 @@ pub impl ToJson for Diagnostic with fn to_json(self) {
   let m : Map[String, Json] = Map([])
   m["from"] = self.from.to_json()
   m["to"] = self.to.to_json()
-  m["severity"] = self.severity.to_json()
+  m["severity"] = ToJson::to_json(self.severity)
   m["message"] = self.message.to_json()
   m["code"] = match self.code {
     Some(code) => code.to_json()
@@ -165,7 +165,7 @@ pub impl ToJson for Diagnostic with fn to_json(self) {
     Some(id) => id.to_json()
     None => Json::null()
   }
-  m["fixes"] = Json::array(self.fixes.map(fix => fix.to_json()))
+  m["fixes"] = Json::array(self.fixes.map(fix => ToJson::to_json(fix)))
   Json::object(m)
 }
 
@@ -191,13 +191,13 @@ pub impl ToJson for ViewPatch with fn to_json(self) {
     ReplaceNode(node_id~, node~) => {
       m["type"] = "ReplaceNode".to_json()
       m["node_id"] = node_id.to_json()
-      m["node"] = node.to_json()
+      m["node"] = ToJson::to_json(node)
     }
     InsertChild(parent_id~, index~, child~) => {
       m["type"] = "InsertChild".to_json()
       m["parent_id"] = parent_id.to_json()
       m["index"] = index.to_json()
-      m["child"] = child.to_json()
+      m["child"] = ToJson::to_json(child)
     }
     RemoveChild(parent_id~, index~, child_id~) => {
       m["type"] = "RemoveChild".to_json()
@@ -217,11 +217,15 @@ pub impl ToJson for ViewPatch with fn to_json(self) {
     }
     SetDecorations(decorations~) => {
       m["type"] = "SetDecorations".to_json()
-      m["decorations"] = Json::array(decorations.map(fn(d) { d.to_json() }))
+      m["decorations"] = Json::array(
+        decorations.map(fn(d) { ToJson::to_json(d) }),
+      )
     }
     SetDiagnostics(diagnostics~) => {
       m["type"] = "SetDiagnostics".to_json()
-      m["diagnostics"] = Json::array(diagnostics.map(fn(d) { d.to_json() }))
+      m["diagnostics"] = Json::array(
+        diagnostics.map(fn(d) { ToJson::to_json(d) }),
+      )
     }
     SetSelection(anchor~, head~) => {
       m["type"] = "SetSelection".to_json()
@@ -235,7 +239,7 @@ pub impl ToJson for ViewPatch with fn to_json(self) {
     FullTree(root~) => {
       m["type"] = "FullTree".to_json()
       m["root"] = match root {
-        Some(r) => r.to_json()
+        Some(r) => ToJson::to_json(r)
         None => Json::null()
       }
     }

@@ -143,8 +143,8 @@ test "references_outside_subtree: subtree is just the body — def init refs exc
 test "declaration_for_name_at_module_end: root def visible" {
   let (proj, registry, source_map) = build_fixture("let x = 0\n0")
   let g = build(registry, source_map)
-  guard declaration_for_name_at_module_end(g, proj.id(), "x") is Some(decl)
-  guard decl.kind is ModuleDef(def_index~)
+  guard! declaration_for_name_at_module_end(g, proj.id(), "x") is Some(decl)
+  guard! decl.kind is ModuleDef(def_index~)
   inspect(def_index, content="0")
 }
 
@@ -163,8 +163,8 @@ test "declaration_for_name_at_module_end: shadowed — later wins" {
   // let x = 0\nlet x = 1\n0 — at module end, x resolves to def 1.
   let (proj, registry, source_map) = build_fixture("let x = 0\nlet x = 1\n0")
   let g = build(registry, source_map)
-  guard declaration_for_name_at_module_end(g, proj.id(), "x") is Some(decl)
-  guard decl.kind is ModuleDef(def_index~)
+  guard! declaration_for_name_at_module_end(g, proj.id(), "x") is Some(decl)
+  guard! decl.kind is ModuleDef(def_index~)
   inspect(def_index, content="1")
 }
 
@@ -198,8 +198,8 @@ test "declaration_for_name_at_module_end: block module — block-local visible" 
   )
   let g = build(registry, source_map)
   let block = proj.children[0].children[0]
-  guard declaration_for_name_at_module_end(g, block.id(), "x") is Some(decl)
-  guard decl.kind is ModuleDef(def_index~)
+  guard! declaration_for_name_at_module_end(g, block.id(), "x") is Some(decl)
+  guard! decl.kind is ModuleDef(def_index~)
   inspect(def_index, content="0")
   // z not visible — block is inside z's init, cutoff excludes own def.
   inspect(

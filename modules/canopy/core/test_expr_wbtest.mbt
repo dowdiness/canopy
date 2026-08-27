@@ -264,7 +264,7 @@ test "ProjNode::fold — branch passes folded children to f" {
   let b = ProjNode(Leaf("b"), 3, 4, 12, [])
   let root = ProjNode(Branch("r", [Leaf("a"), Leaf("b")]), 0, 5, 10, [a, b])
   let result = root.fold((n, children) => {
-    children.length().to_string() + ":" + n.id().to_string()
+    children.length().to_string() + ":" + Show::to_string(n.id())
   })
   // root has 2 children, id=10
   inspect(result, content="2:NodeId(10)")
@@ -341,6 +341,6 @@ test "ProjNode::walk_preorder passes correct FoldNode fields" {
 ///|
 test "ToJson for ProjNode[TestExpr] compiles" {
   let node = ProjNode(Leaf("x"), 0, 1, 0, [])
-  let json = node.to_json()
+  let json = ToJson::to_json(node)
   inspect(json.stringify().length() > 0, content="true")
 }

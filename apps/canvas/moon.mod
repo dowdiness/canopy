@@ -10,7 +10,7 @@ import {
   "dowdiness/canvas-layout@0.1.0",
   "dowdiness/loom@0.1.0",
   "dowdiness/rabbita_codemirror@0.0.1",
-  "dowdiness/incr@0.15.0",
+  "dowdiness/incr@0.15.1",
   "dowdiness/dom_boundary@0.1.0",
   "dowdiness/js_ffi@0.1.0",
   "dowdiness/rabbita-menu@0.1.0",

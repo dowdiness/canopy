@@ -181,11 +181,11 @@ fn dependency_edges_from(
     }
   }
   edges.sort_by(fn(a, b) {
-    let by_from = a.from.compare(b.from)
+    let by_from = Compare::compare(a.from, b.from)
     if by_from != 0 {
       by_from
     } else {
-      a.input.compare(b.input)
+      Compare::compare(a.input, b.input)
     }
   })
   edges

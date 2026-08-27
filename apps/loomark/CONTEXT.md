@@ -44,7 +44,7 @@ _Avoid_: warm-up, preloading
 
 **Preview refresh**:
 Replacing Preview from the latest committed Document text. Refresh is delayed
-by 50 ms after input so rapid changes normally produce one visible update.
+by 32 ms after input so rapid changes normally produce one visible update.
 _Avoid_: projection refresh, render loop
 
 **Stale Preview**:

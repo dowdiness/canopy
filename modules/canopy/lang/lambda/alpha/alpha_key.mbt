@@ -42,7 +42,7 @@ impl Hash for AlphaKeyRepr with fn hash_combine(self, hasher) {
     KUnit => hasher.combine_int(1)
     KVar(alpha_ref) => {
       hasher.combine_int(2)
-      alpha_ref.hash_combine(hasher)
+      Hash::hash_combine(alpha_ref, hasher)
     }
     KLam(body) => {
       hasher.combine_int(3)

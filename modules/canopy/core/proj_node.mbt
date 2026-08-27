@@ -262,7 +262,7 @@ pub fn[T] assign_fresh_ids(
 
 ///|
 pub impl[T : ToJson] ToJson for ProjNode[T] with fn to_json(self) {
-  let children_json : Array[Json] = self.children.map(c => c.to_json())
+  let children_json : Array[Json] = self.children.map(c => ToJson::to_json(c))
   {
     "node_id": self.node_id,
     "kind": self.kind.to_json(),
