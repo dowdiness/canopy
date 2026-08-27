@@ -4,6 +4,8 @@
 
 **Status:** The diagnosis remains valid. The implementation recommendation is superseded by [the 2026-08-28 strategy reassessment](2026-08-28-loomark-syntax-parser-strategy-reassessment.md), which compares the keyed syntax attachment with direct MarkdownIR lowering.
 
+**Scheduling update:** The 32 ms references below preserve the measured condition. Loomark later adopted 24 ms after [an independent production-browser comparison](../evidence/2026-08-28-loomark-preview-quiet-window-24ms.md).
+
 **Original decision:** Prototype the syntax-only semantic attachment as a two-repository change. Do not optimize `TextChange`, runtime publication, or block-boundary parsing in the same slice.
 
 ## Definition

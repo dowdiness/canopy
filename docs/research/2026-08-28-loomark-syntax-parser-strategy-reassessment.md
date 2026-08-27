@@ -13,12 +13,14 @@ The intended Preview path is:
 ```text
 committed TextChange
   -> SyntaxParser::apply_edit or set_source
-  -> 32 ms candidate-text quiet-window check
+  -> 24 ms candidate-text quiet-window check
   -> SyntaxParser::snapshot().read_or_abort()
   -> experimental_markdown_ir_from_syntax_with_diagnostics
   -> typed Html
   -> publication
 ```
+
+The quiet window was shortened from 32 ms to 24 ms after the production-browser comparison in [the 2026-08-28 evidence report](../evidence/2026-08-28-loomark-preview-quiet-window-24ms.md).
 
 This retains incremental parsing on every committed edit while treating semantic rendering as a one-shot operation after the quiet window. It removes the compatibility `Block` fold and the retained keyed semantic shell from Loomark. Other `Parser[Block]` and `MarkdownSemanticAttachment` consumers remain unchanged.
 

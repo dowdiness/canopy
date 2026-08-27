@@ -45,7 +45,7 @@ state. A session that stays in Text mode creates no Parser.
 
 | Event | Document text | Parser | Visible Preview | Autosave |
 |---|---|---|---|---|
-| Exact textarea edit | Updates immediately | One `apply_edit` command after the native handler returns | Keeps the last result; refresh is debounced by 32 ms | Existing behavior |
+| Exact textarea edit | Updates immediately | One `apply_edit` command after the native handler returns | Keeps the last result; refresh is debounced by 24 ms | Existing behavior |
 | `ReplaceAll` fallback | Updates immediately | One `set_source` command after the native handler returns | Same debounce | Existing behavior |
 | IME intermediate update | Unchanged | No new work | Previously scheduled work may finish | Unchanged |
 | IME end | Applies once | Advances once | Schedules one refresh | Existing behavior |
@@ -55,7 +55,7 @@ state. A session that stays in Text mode creates no Parser.
 | Semantic or Html invariant violation | Unchanged | No recoverable error channel; execution aborts | No new result | Continues only if execution survives |
 | Allowed retry | Unchanged | Replaces only an unusable Parser; otherwise reuses it | Publishes success or keeps the failure | Unchanged |
 
-The 32 ms debounce applies only to reading the coherent syntax snapshot,
+The 24 ms debounce applies only to reading the coherent syntax snapshot,
 lowering MarkdownIR, building typed Html, and publishing a visible result.
 Parser source synchronization does not wait for the debounce.
 
@@ -211,7 +211,7 @@ adding a Worker or artificial warm-up.
 
 Reuse the existing Autosave pattern:
 
-- schedule a refresh request with candidate Document text after 32 ms;
+- schedule a refresh request with candidate Document text after 24 ms;
 - when it arrives, compare the candidate with current Model text;
 - ignore a different, older candidate; and
 - lower the current coherent syntax snapshot and build typed Html only for a
@@ -219,7 +219,7 @@ Reuse the existing Autosave pattern:
 
 Do not add a counter or cancellable timeout handle. Entering Preview or Split
 while a normal refresh is pending does not force or reschedule it. If text
-changes and returns to the same value within 32 ms, an older equal-text request
+changes and returns to the same value within 24 ms, an older equal-text request
 may cause one extra refresh. That does not change correctness and is not optimized in this slice.
 
 Once Preview has been prepared, the same rules continue while Text mode hides
@@ -391,7 +391,7 @@ Stop here if the persistent textarea cannot be proven.
 
 1. Add tests that `ReplaceRange` maps to one `apply_edit` and `ReplaceAll` to one
    `set_source` after the native handler returns.
-2. Add the Autosave-style 32 ms candidate comparison and verify that only
+2. Add the Autosave-style 24 ms candidate comparison and verify that only
    semantic read, typed Html, and publication wait.
 3. Cover IME: intermediate events schedule no new work; previously scheduled
    work may finish; composition end advances once.
@@ -413,7 +413,7 @@ Extend `standalone.spec.ts` without production debug APIs:
   and Autosave paths;
 - independent native Text and Preview scrolling in both Split orientations,
   with the textarea scrollbar at its pane's right edge;
-- 32 ms refresh behavior and IME boundary;
+- 24 ms refresh behavior and IME boundary;
 - initial and stale failure reducer coverage, with browser coverage only where a
   real boundary can fail without a production hook; and
 - all existing storage, recovery, exact-input, and 10 ms Text-input tests.
@@ -473,8 +473,10 @@ collection, or RUI type leaks. Any widened generated trait bound is an API regre
 - TypeScript product code does not change; Playwright production tests do.
 - Implementation evidence records exact environment, commits, fixture, raw
   samples, and separated cold/steady phases.
-- The current evidence is
+- The original implementation evidence is
   [2026-08-26-loomark-preview-split-production-performance.md](../evidence/2026-08-26-loomark-preview-split-production-performance.md).
+- The current quiet-window evidence is
+  [2026-08-28-loomark-preview-quiet-window-24ms.md](../evidence/2026-08-28-loomark-preview-quiet-window-24ms.md).
 - Link the final evidence from #1372 and this plan.
 - Do not claim Safari device validation without macOS/iOS Safari hardware tests.
 
