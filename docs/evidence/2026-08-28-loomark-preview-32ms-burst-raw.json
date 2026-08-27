@@ -1,0 +1,119 @@
+{
+  "quietWindowMs": 32,
+  "launches": [
+    {
+      "environment": {
+        "date": "2026-08-27T18:33:53.963Z",
+        "node": "v24.14.1",
+        "platform": "linux",
+        "arch": "x64",
+        "os_release": "6.18.33.2-microsoft-standard-WSL2",
+        "cpu": "AMD Ryzen 7 6800H with Radeon Graphics",
+        "browser_version": "149.0.7827.55",
+        "headless": true,
+        "target": "JavaScript release",
+        "cpu_throttling_rate": 1
+      },
+      "interval20": {
+        "publication_count": 1,
+        "publication_values": [
+          "T"
+        ],
+        "last_input_to_final": 56.399999998509884,
+        "input_duration_max": 1.7999999970197678,
+        "long_tasks": {
+          "n": 0,
+          "max": null
+        }
+      },
+      "interval40": {
+        "publication_count": 20,
+        "publication_values": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f",
+          "g",
+          "h",
+          "i",
+          "j",
+          "k",
+          "l",
+          "m",
+          "n",
+          "o",
+          "p",
+          "q",
+          "r",
+          "s",
+          "t"
+        ],
+        "last_input_to_final": 64.39999999850988,
+        "input_duration_max": 1.7000000029802322,
+        "long_tasks": {
+          "n": 0,
+          "max": null
+        }
+      }
+    },
+    {
+      "environment": {
+        "date": "2026-08-27T18:33:58.792Z",
+        "node": "v24.14.1",
+        "platform": "linux",
+        "arch": "x64",
+        "os_release": "6.18.33.2-microsoft-standard-WSL2",
+        "cpu": "AMD Ryzen 7 6800H with Radeon Graphics",
+        "browser_version": "149.0.7827.55",
+        "headless": true,
+        "target": "JavaScript release",
+        "cpu_throttling_rate": 1
+      },
+      "interval20": {
+        "publication_count": 1,
+        "publication_values": [
+          "T"
+        ],
+        "last_input_to_final": 58,
+        "input_duration_max": 1.6000000014901161,
+        "long_tasks": {
+          "n": 0,
+          "max": null
+        }
+      },
+      "interval40": {
+        "publication_count": 20,
+        "publication_values": [
+          "a",
+          "b",
+          "c",
+          "d",
+          "e",
+          "f",
+          "g",
+          "h",
+          "i",
+          "j",
+          "k",
+          "l",
+          "m",
+          "n",
+          "o",
+          "p",
+          "q",
+          "r",
+          "s",
+          "t"
+        ],
+        "last_input_to_final": 46.19999999552965,
+        "input_duration_max": 1.8999999985098839,
+        "long_tasks": {
+          "n": 0,
+          "max": null
+        }
+      }
+    }
+  ]
+}

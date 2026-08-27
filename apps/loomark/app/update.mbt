@@ -2,7 +2,7 @@
 const AUTOSAVE_QUIET_MS : Int = 250
 
 ///|
-const PREVIEW_QUIET_MS : Int = 32
+const PREVIEW_QUIET_MS : Int = 24
 
 ///|
 const COMPACT_MAX_WIDTH : Int = 640

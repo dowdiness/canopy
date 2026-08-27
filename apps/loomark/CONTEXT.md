@@ -44,8 +44,9 @@ _Avoid_: warm-up, preloading
 
 **Preview refresh**:
 Reading one coherent syntax snapshot, lowering it directly to MarkdownIR, and
-replacing Preview from the latest committed Document text. Refresh is delayed
-by 32 ms after input so rapid changes normally produce one visible update.
+replacing Preview from the latest committed Document text. After the Parser
+transition, lowering waits for a 24 ms candidate-text quiet window so rapid
+changes normally produce one visible update.
 _Avoid_: projection refresh, render loop
 
 **Stale Preview**:
