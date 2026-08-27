@@ -204,7 +204,7 @@ pub fn CognitionStore::is_dirty(
 ///|
 pub fn CognitionStore::dirty_keys(self : CognitionStore) -> Array[CognitionKey] {
   let keys = self.dirty.keys().to_array()
-  keys.sort_by(fn(a, b) { a.compare(b) })
+  keys.sort_by(fn(a, b) { Compare::compare(a, b) })
   keys
 }
 
@@ -301,7 +301,7 @@ pub fn CognitionStore::dirty_dependents(
 ) -> Array[CognitionKey] {
   let changed : Array[CognitionKey] = []
   self.collect_dirty_dependents(key, changed)
-  changed.sort_by(fn(a, b) { a.compare(b) })
+  changed.sort_by(fn(a, b) { Compare::compare(a, b) })
   changed
 }
 
@@ -917,7 +917,7 @@ fn CognitionStore::selected_file_summary_keys(
     if score_a != score_b {
       score_b.compare(score_a)
     } else {
-      a.compare(b)
+      Compare::compare(a, b)
     }
   })
   keys

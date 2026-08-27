@@ -30,7 +30,7 @@ fn build_fixture_with_spans(
 test "go_to_definition: module def — body var jumps to the name token" {
   // "let x = 1\nx" — name "x" at 4..5; body var "x" at 10.
   let (g, sm) = build_fixture_with_spans("let x = 1\nx")
-  guard go_to_definition(g, sm, 10) is Some(r)
+  guard! go_to_definition(g, sm, 10) is Some(r)
   inspect(r.start, content="4")
   inspect(r.end, content="5")
 }
@@ -42,7 +42,7 @@ test "go_to_definition: shadowed module def — later def wins (production id pa
   // 14..15, NOT 4..5. This exercises the module-def binder through the
   // production first-class LetDef id path while Option D supplies the token span.
   let (g, sm) = build_fixture_with_spans("let x = 1\nlet x = 2\nx")
-  guard go_to_definition(g, sm, 20) is Some(r)
+  guard! go_to_definition(g, sm, 20) is Some(r)
   inspect(r.start, content="14")
   inspect(r.end, content="15")
 }
@@ -54,7 +54,7 @@ test "go_to_definition: block-local def — body var jumps to the block binder" 
   // proving binder_span locates a nested decl on its own LetDef node and never
   // falls back to the root module-name span.
   let (g, sm) = build_fixture_with_spans("let x = { let y = 1\n  y }\nx")
-  guard go_to_definition(g, sm, 22) is Some(r)
+  guard! go_to_definition(g, sm, 22) is Some(r)
   inspect(r.start, content="14")
   inspect(r.end, content="15")
 }
@@ -63,7 +63,7 @@ test "go_to_definition: block-local def — body var jumps to the block binder" 
 test "go_to_definition: lambda param — body var jumps to the param token" {
   // "(x) => x" — param "x" at 1..2; body var "x" at 7.
   let (g, sm) = build_fixture_with_spans("(x) => x")
-  guard go_to_definition(g, sm, 7) is Some(r)
+  guard! go_to_definition(g, sm, 7) is Some(r)
   inspect(r.start, content="1")
   inspect(r.end, content="2")
 }
@@ -73,7 +73,7 @@ test "go_to_definition: nested lambda shadowing — innermost param wins" {
   // "(x) => (x) => x" — outer param at 1..2, inner param at 8..9; innermost use at 14
   // resolves to the inner lambda parameter.
   let (g, sm) = build_fixture_with_spans("(x) => (x) => x")
-  guard go_to_definition(g, sm, 14) is Some(r)
+  guard! go_to_definition(g, sm, 14) is Some(r)
   inspect(r.start, content="8")
   inspect(r.end, content="9")
 }
@@ -86,7 +86,7 @@ test "go_to_definition: caret on a wrapping paren resolves to the inner var's bi
   // Intended position→node behavior, not identifier-token-strict (Codex P2 on
   // PR #405 — verified intentional, pinned here).
   let (g, sm) = build_fixture_with_spans("let x = 1\n(x)")
-  guard go_to_definition(g, sm, 10) is Some(r)
+  guard! go_to_definition(g, sm, 10) is Some(r)
   inspect(r.start, content="4")
   inspect(r.end, content="5")
 }

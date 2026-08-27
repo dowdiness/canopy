@@ -125,10 +125,14 @@ pub impl ToJson for ViewNode with fn to_json(self) {
   }
   let (range_start, range_end) = self.text_range
   m["text_range"] = Json::array([range_start.to_json(), range_end.to_json()])
-  m["token_spans"] = Json::array(self.token_spans.map(fn(ts) { ts.to_json() }))
+  m["token_spans"] = Json::array(
+    self.token_spans.map(fn(ts) { ToJson::to_json(ts) }),
+  )
   m["editable"] = self.editable.to_json()
   m["css_class"] = self.css_class.to_json()
-  m["children"] = Json::array(self.children.map(fn(c) { c.to_json() }))
-  m["annotations"] = Json::array(self.annotations.map(fn(a) { a.to_json() }))
+  m["children"] = Json::array(self.children.map(fn(c) { ToJson::to_json(c) }))
+  m["annotations"] = Json::array(
+    self.annotations.map(fn(a) { ToJson::to_json(a) }),
+  )
   Json::object(m)
 }
