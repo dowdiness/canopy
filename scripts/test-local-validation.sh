@@ -228,4 +228,23 @@ diff -u "$expected" "$log" || fail "pre-push validation did not check and test t
 grep -q 'workspace validation is deferred to GitHub CI: moon.work' "$tmp_dir/global-push.out" ||
   fail "workspace manifest validation did not report its global scope"
 
+: >"$log"
+git -C "$fixture" tag nested-base
+printf 'pub fn nested() -> Int { 2 }\n' >"$fixture/nested/module/pkg/main.mbt"
+printf 'pub fn answer() -> Int { 45 }\n' >"$fixture/pkg/main.mbt"
+git -C "$fixture" add nested/module/pkg/main.mbt pkg/main.mbt
+git -C "$fixture" commit --quiet -m "change nested and root module packages"
+(
+  cd "$fixture"
+  PATH="$fake_bin:$PATH" LOCAL_VALIDATION_TEST_LOG="$log" \
+    nu scripts/local-validation.nu validate-push --base nested-base
+)
+cat >"$expected" <<'EXPECTED_NESTED_PUSH'
+check-strict.sh nested/module/pkg
+moon test --release pkg
+check-strict.sh pkg
+moon test --release pkg
+EXPECTED_NESTED_PUSH
+diff -u "$expected" "$log" || fail "pre-push validation leaked the nested module directory into another package"
+
 echo "ok: local validation prepares and validates affected MoonBit targets"

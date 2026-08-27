@@ -244,6 +244,33 @@ def affected-validation-packages [root: string, changes: list<any>] {
   combine-package-and-module-targets $root $direct_packages (module-targets $changes)
 }
 
+def module-test-target [root: string, package: string] {
+  let module = (module-for-package $root $package)
+  if $module == null {
+    fail $"cannot resolve module for package ($package)"
+  }
+  let directory = if $module == "." {
+    $root
+  } else {
+    $root | path join $module
+  }
+  let absolute_package = if $package == "." {
+    $root
+  } else {
+    $root | path join $package
+  }
+  let relative_package = (
+    $absolute_package
+    | path expand
+    | path relative-to ($directory | path expand)
+    | into string
+  )
+  {
+    directory: $directory
+    package: (if $relative_package == "" { "." } else { $relative_package })
+  }
+}
+
 def clean-worktree [] {
   let status = (git-output ["status" "--porcelain=v1" "--untracked-files=all" "--ignore-submodules=none"])
   if ($status | is-not-empty) {
@@ -294,9 +321,14 @@ def validate-push [base: string] {
   report-workspace-manifests $changes
   report-removed-module-manifests $changes
   let packages = (affected-validation-packages $root $changes)
+  let strict_checker = ($root | path join "scripts/check-strict.sh")
   for package in $packages {
-    ^./scripts/check-strict.sh $package
-    ^moon test --release $package
+    ^$strict_checker $package
+    let test_target = (module-test-target $root $package)
+    do {
+      cd $test_target.directory
+      ^moon test --release $test_target.package
+    }
   }
   ^git diff --check $"($base_sha)...($head)"
   clean-worktree
