@@ -5,7 +5,10 @@
 **Status:** Implementation reached the practical-corpus performance stop
 condition. See
 [production performance evidence](../evidence/2026-08-26-loomark-preview-split-production-performance.md)
-before continuing.
+before continuing. The parser strategy was later refined by the
+[SyntaxParser reassessment](../research/2026-08-28-loomark-syntax-parser-strategy-reassessment.md):
+Loomark now keeps one syntax Parser and directly lowers its coherent snapshot at
+each allowed Preview refresh.
 
 This plan extends the completed
 [standard Rabbita Text app](2026-08-24-loomark-standard-rabbita-text-app.md).
@@ -23,8 +26,7 @@ Add three editor modes to the current standard Rabbita app:
 - **Split** shows that textarea and the same Preview in RUI resizable panels.
 
 Document text remains the only editing and saving authority. Preview is derived
-state. A session that stays in Text mode creates no Parser or Markdown
-attachment.
+state. A session that stays in Text mode creates no Parser.
 
 ## Non-goals
 
@@ -47,15 +49,15 @@ attachment.
 | `ReplaceAll` fallback | Updates immediately | One `set_source` command after the native handler returns | Same debounce | Existing behavior |
 | IME intermediate update | Unchanged | No new work | Previously scheduled work may finish | Unchanged |
 | IME end | Applies once | Advances once | Schedules one refresh | Existing behavior |
-| First Preview or Split selection | Unchanged | Shows Preparing, then creates one pair after a paint opportunity | Shows Preparing, then first result | Unchanged |
+| First Preview or Split selection | Unchanged | Shows Preparing, then creates one Parser after a paint opportunity | Shows Preparing, then first result | Unchanged |
 | Return to Text during preparation | Unchanged | Preparation continues | Result is retained but hidden | Unchanged |
-| Parser transition failure | Unchanged | Pair becomes unusable | Last result remains with a stale alert | Continues |
-| Semantic or Html failure | Unchanged | Healthy pair remains | Last result remains with a stale alert | Continues |
-| Allowed retry | Unchanged | Replaces only an unusable pair; otherwise reuses it | Publishes success or keeps the failure | Unchanged |
+| Parser transition failure | Unchanged | Parser becomes unusable | Last result remains with a stale alert | Continues |
+| Semantic or Html invariant violation | Unchanged | No recoverable error channel; execution aborts | No new result | Continues only if execution survives |
+| Allowed retry | Unchanged | Replaces only an unusable Parser; otherwise reuses it | Publishes success or keeps the failure | Unchanged |
 
-The 32 ms debounce applies only to reading the Markdown attachment, building
-typed Html, and publishing a visible result. Parser source synchronization does
-not wait for the debounce.
+The 32 ms debounce applies only to reading the coherent syntax snapshot,
+lowering MarkdownIR, building typed Html, and publishing a visible result.
+Parser source synchronization does not wait for the debounce.
 
 ## Package and file map
 
@@ -76,7 +78,7 @@ apps/loomark/
     *_wbtest.mbt                              # pure transition tests where useful
   internal/preview/
     moon.pkg                                  # new package
-    engine.mbt                                # Parser and attachment shell
+    engine.mbt                                # syntax Parser and direct semantic-read shell
     renderer.mbt                              # pure MarkdownIR -> typed Html
     preview_wbtest.mbt                        # engine and renderer behavior
     renderer_benchmark_wbtest.mbt             # 500/2,500-block materialization
@@ -96,7 +98,7 @@ Keep these decisions deterministic:
 - whether first preparation is required;
 - whether a delayed refresh still matches current Document text;
 - whether a failure shows an initial message or a stale last result;
-- whether an allowed retry reuses a healthy pair or replaces an unusable pair;
+- whether an allowed retry reuses a healthy Parser or replaces an unusable one;
 - exhaustive `MarkdownIR` to typed Rabbita Html rendering; and
 - safe URL classification.
 
@@ -108,14 +110,14 @@ not read the DOM, viewport, Parser, clock, browser storage, or RUI state.
 Effects remain in these owners:
 
 - app-owned `TextArea`: native browser input and textarea element;
-- `PreviewEngine`: Parser, `MarkdownSemanticAttachment`, and their lifecycle;
+- `PreviewEngine`: syntax Parser, coherent snapshot reads, and its lifecycle;
 - Rabbita commands: Parser transitions, delayed refresh, and preparation;
 - standard Rabbita resize subscription: viewport changes;
 - RUI: panel ratio, pointer drag, keyboard resize, and separator semantics; and
 - browser storage: unchanged open and save effects.
 
-Do not put Parser, attachment, RUI ratio, DOM handles, commands, or scroll state
-in the app Model.
+Do not put Parser, RUI ratio, DOM handles, commands, or scroll state in the app
+Model.
 
 ## State and messages
 
@@ -158,32 +160,34 @@ It stays outside the Model.
 
 Its private state has three cases:
 
-1. no pair yet;
-2. one healthy Parser and `MarkdownSemanticAttachment`, plus the Parser source;
+1. no Parser yet;
+2. one healthy `SyntaxParser`, plus the Parser source; and
 3. unusable after a Parser transition failure.
 
 Required behavior:
 
-- First preparation creates `@loom.Parser[@markdown.Block]` with
-  `@markdown.markdown_grammar`, then attaches
-  `MarkdownSemanticAttachment`.
+- First preparation creates `@loom.SyntaxParser` with
+  `@markdown.markdown_grammar.to_syntax_grammar()`.
 - `ReplaceRange` validates against the engine's known source and calls one
-  `Parser::apply_edit(@loom.Edit::new(...), new_text)`.
-- `ReplaceAll` calls one `Parser::set_source(new_text)` and does not recreate a
-  healthy pair.
+  `SyntaxParser::apply_edit(@loom.Edit::new(...), new_text)`.
+- `ReplaceAll` calls one `SyntaxParser::set_source(new_text)` and does not
+  recreate a healthy Parser.
 - Parser work runs as a Rabbita command after the native input handler returns.
-- A Parser transition failure disposes the attachment and marks the pair
-  unusable. Do not apply later exact edits to that pair.
-- At the next allowed retry, create one replacement pair from current Document
-  text. Never keep two active pairs.
-- A semantic read or renderer failure retains its healthy pair; retry reads it
-  again.
-- `MarkdownSemanticAttachment::dispose()` runs before replacing an unusable
-  pair. The current app has one page-lifetime document and no in-app close
-  action, so no new close protocol is introduced.
+- A Parser transition failure marks the Parser unusable. Do not apply later
+  exact edits to it.
+- At the next allowed retry, create one replacement Parser from current Document
+  text. Never keep two active Parsers.
+- An allowed refresh reads one coherent `SyntaxSnapshot`, lowers it with
+  `experimental_markdown_ir_from_syntax_with_diagnostics`, and builds typed
+  Html. No compatibility `Block` AST or retained semantic attachment is created.
+- Snapshot reading, direct MarkdownIR lowering, and typed rendering are total
+  for a healthy Parser. Internal invariant aborts are not converted into
+  `PreviewFailure`. The current app has one page-lifetime document and no
+  in-app close action, so no new close protocol is introduced.
 
-Return structured `Result` values to update. Do not hide failures in mutable
-flags or abort the app.
+Return structured `Result` values for recoverable Parser initialization,
+transition, and source-consistency failures. Do not hide those failures in
+mutable flags or abort the app.
 
 ## Initial preparation and refresh
 
@@ -210,7 +214,8 @@ Reuse the existing Autosave pattern:
 - schedule a refresh request with candidate Document text after 32 ms;
 - when it arrives, compare the candidate with current Model text;
 - ignore a different, older candidate; and
-- read the attachment and build typed Html only for a current candidate.
+- lower the current coherent syntax snapshot and build typed Html only for a
+  current candidate.
 
 Do not add a counter or cancellable timeout handle. Entering Preview or Split
 while a normal refresh is pending does not force or reschedule it. If text
@@ -317,11 +322,12 @@ completed Markdown is not a live region.
 | Responsibility | Existing candidate | Decision |
 |---|---|---|
 | Exact Document change | `@text_change.TextChange::apply` | Reuse for Model update and engine validation. |
-| Incremental Parser change | `Parser::apply_edit` | Reuse for every healthy `ReplaceRange`. |
-| Complete replacement | `Parser::set_source` | Reuse for `ReplaceAll`; do not rebuild a healthy pair. |
-| Parser construction | `@loom.new_parser` / `Parser::new` | Reuse the existing public facade used by Markdown consumers. |
-| Semantic document | `MarkdownSemanticAttachment::document` | Reuse; do not fold syntax independently. |
-| Attachment cleanup | `MarkdownSemanticAttachment::dispose` | Reuse before broken-pair replacement. |
+| Incremental Parser change | `SyntaxParser::apply_edit` | Reuse for every healthy `ReplaceRange`. |
+| Complete replacement | `SyntaxParser::set_source` | Reuse for `ReplaceAll`; do not rebuild a healthy Parser. |
+| Parser construction | `@loom.new_syntax_parser` | Reuse to avoid constructing an unused compatibility `Block` AST. |
+| Coherent parse result | `SyntaxParser::snapshot` | Reuse one source/syntax/diagnostics snapshot. |
+| Semantic document | `experimental_markdown_ir_from_syntax_with_diagnostics` | Reuse for one stateless lowering at each allowed refresh. |
+| Retained semantic cache | `MarkdownSemanticAttachment` | Checked but not reused; measured boundary fallbacks make its structural-key read substantially slower in Loomark. |
 | Preview rendering | Historical direct typed-Html renderer | Restore the pure renderer only. |
 | Resizable layout | RUI resizable panel group, panels, handle | Reuse; RUI owns ratio and interaction. |
 | Mode tabs | RUI tabs | Checked but not reused because Arrow keys automatically activate. |
@@ -375,8 +381,8 @@ Stop here if the persistent textarea cannot be proven.
 
 1. Add pure update tests for mode selection, first preparation, no preparation
    in Text-only use, failure display, and allowed retry decisions.
-2. Add `PreviewEngine`, Parser/attachment creation, latest-text Prepare handling,
-   and disposal on broken-pair replacement.
+2. Add `PreviewEngine`, lazy syntax-Parser creation, latest-text Prepare handling,
+   and replacement of a broken Parser.
 3. Prove Preparing is inserted before cold work with browser-only observation;
    add no production test hook.
 4. Keep initial, current, and stale display states distinct.
@@ -457,9 +463,8 @@ git diff --check
 ```
 
 After `moon info`, the public app interface must remain only
-`app() -> @rabbita.Val[@rabbita.Html]`. Review the new internal Preview
-interface for accidental Parser, attachment, mutable collection, or RUI type
-leaks. Any widened generated trait bound is an API regression.
+`app() -> @rabbita.Val[@rabbita.Html]`. Review the new internal Preview interface for accidental Parser, mutable
+collection, or RUI type leaks. Any widened generated trait bound is an API regression.
 
 ## Documentation, tests, and evidence
 

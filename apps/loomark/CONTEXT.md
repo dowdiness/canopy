@@ -38,12 +38,13 @@ resizable divider.
 _Avoid_: dual editor, two-pane editor
 
 **Preview preparation**:
-Creating Preview resources after Preview or Split is selected for the first
-time. Preparation is skipped when a document remains in Text mode.
+Creating one long-lived syntax Parser after Preview or Split is selected for
+the first time. Preparation is skipped when a document remains in Text mode.
 _Avoid_: warm-up, preloading
 
 **Preview refresh**:
-Replacing Preview from the latest committed Document text. Refresh is delayed
+Reading one coherent syntax snapshot, lowering it directly to MarkdownIR, and
+replacing Preview from the latest committed Document text. Refresh is delayed
 by 32 ms after input so rapid changes normally produce one visible update.
 _Avoid_: projection refresh, render loop
 

@@ -1,16 +1,16 @@
 ///|
 fn preview_test_document(source : String) -> @markdown.MarkdownIR raise {
-  let parser = @loom.new_parser(
+  let parser = @loom.new_syntax_parser(
     @loom.SourceId("loomark-preview-test"),
     source,
-    @markdown.markdown_grammar,
+    @markdown.markdown_grammar.to_syntax_grammar(),
   )
-  let attachment = @markdown.MarkdownSemanticAttachment::MarkdownSemanticAttachment(
-    parser,
+  let snapshot = parser.snapshot().read_or_abort()
+  @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
+    parser.source_id(),
+    snapshot.syntax,
+    snapshot.diagnostics,
   )
-  let document = attachment.document()
-  attachment.dispose()
-  document
 }
 
 ///|
@@ -94,6 +94,13 @@ test "Preview renderer rejects unsafe destinations" {
   assert_eq(safe_destination("java script:alert(1)", image=false), None)
   assert_eq(safe_destination("java\u0000script:alert(1)", image=false), None)
   assert_eq(safe_destination("java\tscript:alert(1)", image=false), None)
+}
+
+///|
+test "Preview renderer preserves syntax diagnostics during direct lowering" {
+  let rendered = render_preview("[unclosed\n")
+  assert_preview_contains(rendered, "Recovered Markdown: [")
+  assert_preview_contains(rendered, "data-loomark-preview-diagnostic")
 }
 
 ///|
