@@ -43,7 +43,7 @@ attachment.
 
 | Event | Document text | Parser | Visible Preview | Autosave |
 |---|---|---|---|---|
-| Exact textarea edit | Updates immediately | One `apply_edit` command after the native handler returns | Keeps the last result; refresh is debounced by 50 ms | Existing behavior |
+| Exact textarea edit | Updates immediately | One `apply_edit` command after the native handler returns | Keeps the last result; refresh is debounced by 32 ms | Existing behavior |
 | `ReplaceAll` fallback | Updates immediately | One `set_source` command after the native handler returns | Same debounce | Existing behavior |
 | IME intermediate update | Unchanged | No new work | Previously scheduled work may finish | Unchanged |
 | IME end | Applies once | Advances once | Schedules one refresh | Existing behavior |
@@ -53,7 +53,7 @@ attachment.
 | Semantic or Html failure | Unchanged | Healthy pair remains | Last result remains with a stale alert | Continues |
 | Allowed retry | Unchanged | Replaces only an unusable pair; otherwise reuses it | Publishes success or keeps the failure | Unchanged |
 
-The 50 ms debounce applies only to reading the Markdown attachment, building
+The 32 ms debounce applies only to reading the Markdown attachment, building
 typed Html, and publishing a visible result. Parser source synchronization does
 not wait for the debounce.
 
@@ -207,14 +207,14 @@ adding a Worker or artificial warm-up.
 
 Reuse the existing Autosave pattern:
 
-- schedule a refresh request with candidate Document text after 50 ms;
+- schedule a refresh request with candidate Document text after 32 ms;
 - when it arrives, compare the candidate with current Model text;
 - ignore a different, older candidate; and
 - read the attachment and build typed Html only for a current candidate.
 
 Do not add a counter or cancellable timeout handle. Entering Preview or Split
 while a normal refresh is pending does not force or reschedule it. If text
-changes and returns to the same value within 50 ms, an older equal-text request
+changes and returns to the same value within 32 ms, an older equal-text request
 may cause one extra refresh. That does not change correctness and is not optimized in this slice.
 
 Once Preview has been prepared, the same rules continue while Text mode hides
@@ -385,7 +385,7 @@ Stop here if the persistent textarea cannot be proven.
 
 1. Add tests that `ReplaceRange` maps to one `apply_edit` and `ReplaceAll` to one
    `set_source` after the native handler returns.
-2. Add the Autosave-style 50 ms candidate comparison and verify that only
+2. Add the Autosave-style 32 ms candidate comparison and verify that only
    semantic read, typed Html, and publication wait.
 3. Cover IME: intermediate events schedule no new work; previously scheduled
    work may finish; composition end advances once.
@@ -407,7 +407,7 @@ Extend `standalone.spec.ts` without production debug APIs:
   and Autosave paths;
 - independent native Text and Preview scrolling in both Split orientations,
   with the textarea scrollbar at its pane's right edge;
-- 50 ms refresh behavior and IME boundary;
+- 32 ms refresh behavior and IME boundary;
 - initial and stale failure reducer coverage, with browser coverage only where a
   real boundary can fail without a production hook; and
 - all existing storage, recovery, exact-input, and 10 ms Text-input tests.
