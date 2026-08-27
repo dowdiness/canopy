@@ -19,7 +19,7 @@ import {
   "dowdiness/event-graph-walker@0.7.1",
   "dowdiness/visualizer@0.1.0",
   "dowdiness/canvas-spatial@0.1.0",
-  "dowdiness/incr@0.15.0",
+  "dowdiness/incr@0.15.1",
 }
 
 preferred_target = "js"
