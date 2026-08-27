@@ -36,6 +36,9 @@ printf '_build/\n' >"$fixture/.gitignore"
 cat >"$fake_bin/moon" <<'FAKE_MOON'
 #!/usr/bin/env bash
 set -euo pipefail
+if [ "${LOCAL_VALIDATION_LOG_PWD:-0}" = 1 ]; then
+  printf 'pwd=%s ' "$PWD" >>"$LOCAL_VALIDATION_TEST_LOG"
+fi
 printf 'moon' >>"$LOCAL_VALIDATION_TEST_LOG"
 printf ' %s' "$@" >>"$LOCAL_VALIDATION_TEST_LOG"
 printf '\n' >>"$LOCAL_VALIDATION_TEST_LOG"
@@ -232,19 +235,25 @@ grep -q 'workspace validation is deferred to GitHub CI: moon.work' "$tmp_dir/glo
 git -C "$fixture" tag nested-base
 printf 'pub fn nested() -> Int { 2 }\n' >"$fixture/nested/module/pkg/main.mbt"
 printf 'pub fn answer() -> Int { 45 }\n' >"$fixture/pkg/main.mbt"
-git -C "$fixture" add nested/module/pkg/main.mbt pkg/main.mbt
-git -C "$fixture" commit --quiet -m "change nested and root module packages"
+mkdir -p "$fixture/spaced module/pkg space"
+printf 'name = "spaced"\n' >"$fixture/spaced module/moon.mod"
+printf 'package "fixture/spaced"\n' >"$fixture/spaced module/pkg space/moon.pkg"
+printf 'pub fn spaced_nested() -> Int { 3 }\n' >"$fixture/spaced module/pkg space/main.mbt"
+git -C "$fixture" add nested/module/pkg/main.mbt pkg/main.mbt "spaced module"
+git -C "$fixture" commit --quiet -m "change nested, root, and spaced module packages"
 (
   cd "$fixture"
-  PATH="$fake_bin:$PATH" LOCAL_VALIDATION_TEST_LOG="$log" \
+  PATH="$fake_bin:$PATH" LOCAL_VALIDATION_TEST_LOG="$log" LOCAL_VALIDATION_LOG_PWD=1 \
     nu scripts/local-validation.nu validate-push --base nested-base
 )
-cat >"$expected" <<'EXPECTED_NESTED_PUSH'
+cat >"$expected" <<EXPECTED_NESTED_PUSH
 check-strict.sh nested/module/pkg
-moon test --release pkg
+pwd=$fixture/nested/module moon test --release pkg
 check-strict.sh pkg
-moon test --release pkg
+pwd=$fixture moon test --release pkg
+check-strict.sh spaced module/pkg space
+pwd=$fixture/spaced module moon test --release pkg space
 EXPECTED_NESTED_PUSH
-diff -u "$expected" "$log" || fail "pre-push validation leaked the nested module directory into another package"
+diff -u "$expected" "$log" || fail "pre-push validation lost module-local PWD or spaced package boundaries"
 
 echo "ok: local validation prepares and validates affected MoonBit targets"
