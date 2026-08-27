@@ -15,16 +15,12 @@ pub(all) struct PreviewOutput {
 ///|
 priv enum EngineState {
   NoPair
-  Healthy(
-    parser~ : @loom.Parser[@markdown.Block],
-    attachment~ : @markdown.MarkdownSemanticAttachment,
-    source~ : String
-  )
+  Healthy(parser~ : @loom.SyntaxParser, source~ : String)
   Broken
 }
 
 ///|
-/// Imperative owner of at most one live Parser/Markdown attachment pair.
+/// Imperative owner of at most one live syntax Parser.
 pub struct PreviewEngine {
   priv mut state : EngineState
 }
@@ -35,49 +31,45 @@ pub fn PreviewEngine::PreviewEngine() -> PreviewEngine {
 }
 
 ///|
-fn create_pair(source : String) -> Result[EngineState, PreviewFailure] {
+fn create_parser_state(source : String) -> Result[EngineState, PreviewFailure] {
   try
-    @loom.new_parser(
+    @loom.new_syntax_parser(
       @loom.SourceId("loomark-preview"),
       source,
-      @markdown.markdown_grammar,
+      @markdown.markdown_grammar.to_syntax_grammar(),
     )
   catch {
     _ => Err(InitializationFailed)
   } noraise {
-    parser => {
-      let attachment = @markdown.MarkdownSemanticAttachment::MarkdownSemanticAttachment(
-        parser,
-      )
-      Ok(Healthy(parser~, attachment~, source~))
-    }
+    parser => Ok(Healthy(parser~, source~))
   }
 }
 
 ///|
-fn output(attachment : @markdown.MarkdownSemanticAttachment) -> PreviewOutput {
-  let document = attachment.document()
+fn output(parser : @loom.SyntaxParser) -> PreviewOutput {
+  let snapshot = parser.snapshot().read_or_abort()
+  let document = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
+    parser.source_id(),
+    snapshot.syntax,
+    snapshot.diagnostics,
+  )
   { html: render(document), empty: is_empty(document) }
 }
 
 ///|
-fn PreviewEngine::break_pair(self : PreviewEngine) -> Unit {
-  match self.state {
-    Healthy(attachment~, ..) => attachment.dispose()
-    NoPair | Broken => ()
-  }
+fn PreviewEngine::break_parser(self : PreviewEngine) -> Unit {
   self.state = Broken
 }
 
 ///|
-/// Create the first pair, or replace an unusable pair, from current text.
+/// Create the first Parser, or replace an unusable Parser, from current text.
 pub fn PreviewEngine::prepare(
   self : PreviewEngine,
   source : String,
 ) -> Result[PreviewOutput, PreviewFailure] {
   match self.state {
     NoPair | Broken =>
-      match create_pair(source) {
+      match create_parser_state(source) {
         Ok(state) => {
           self.state = state
           self.refresh(source)
@@ -87,18 +79,18 @@ pub fn PreviewEngine::prepare(
           Err(failure)
         }
       }
-    Healthy(source=known_source, attachment~, ..) =>
+    Healthy(source=known_source, parser~) =>
       if known_source == source {
-        Ok(output(attachment))
+        Ok(output(parser))
       } else {
-        self.break_pair()
+        self.break_parser()
         Err(OutOfSync)
       }
   }
 }
 
 ///|
-/// Advance a healthy pair once for one committed Document change.
+/// Advance a healthy Parser once for one committed Document change.
 pub fn PreviewEngine::apply(
   self : PreviewEngine,
   change : @text_change.TextChange,
@@ -107,9 +99,9 @@ pub fn PreviewEngine::apply(
   match self.state {
     NoPair => Ok(())
     Broken => Err(Unusable)
-    Healthy(parser~, attachment~, source=old_source) => {
+    Healthy(parser~, source=old_source) => {
       guard change.apply(old_source) == Some(new_source) else {
-        self.break_pair()
+        self.break_parser()
         return Err(OutOfSync)
       }
       let result : Result[Unit, PreviewFailure] = try {
@@ -128,11 +120,11 @@ pub fn PreviewEngine::apply(
       }
       match result {
         Ok(_) => {
-          self.state = Healthy(parser~, attachment~, source=new_source)
+          self.state = Healthy(parser~, source=new_source)
           Ok(())
         }
         Err(failure) => {
-          self.break_pair()
+          self.break_parser()
           Err(failure)
         }
       }
@@ -141,19 +133,20 @@ pub fn PreviewEngine::apply(
 }
 
 ///|
-/// Read and materialize the current semantic result. Broken pairs are replaced
-/// here because callers invoke refresh only at an allowed retry boundary.
+/// Read and materialize the current semantic result. Broken Parsers are
+/// replaced here because callers invoke refresh only at an allowed retry
+/// boundary.
 pub fn PreviewEngine::refresh(
   self : PreviewEngine,
   source : String,
 ) -> Result[PreviewOutput, PreviewFailure] {
   match self.state {
     NoPair | Broken => self.prepare(source)
-    Healthy(source=known_source, attachment~, ..) =>
+    Healthy(source=known_source, parser~) =>
       if known_source == source {
-        Ok(output(attachment))
+        Ok(output(parser))
       } else {
-        self.break_pair()
+        self.break_parser()
         Err(OutOfSync)
       }
   }
@@ -161,7 +154,7 @@ pub fn PreviewEngine::refresh(
 
 ///|
 fn PreviewEngine::discard(self : PreviewEngine) -> Unit {
-  self.break_pair()
+  self.break_parser()
 }
 
 ///|
