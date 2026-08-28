@@ -19,4 +19,6 @@ scripts/moon-update.sh
 scripts/install-local-warren.sh "$WARREN_BIN_DIR"
 
 cd "$PROJECT_ROOT/apps/loomark"
+npm ci
+npm run build:styles
 "$WARREN_BIN_DIR/warren" build

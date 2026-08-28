@@ -18,6 +18,7 @@ _build
 apps/web/src/pages.gen.ts
 apps/web/worker-startup.cpuprofile
 apps/loomark/app/example_*.g.mbt
+apps/loomark/public/styles.css
 
 .playwright-mcp/
 .playwright-cli/

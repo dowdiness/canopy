@@ -41,8 +41,16 @@ backends, or generate identity through a fallback.
 ```bash
 ./scripts/install-local-warren.sh
 cd apps/loomark
+npm ci
+npm run build:styles
 ../../_build/tools/bin/warren dev --direct
 ```
+
+Loomark uses Tailwind CSS v4 for its light-DOM utility classes. During style
+work, run `npm run dev:styles` in a second terminal so
+`public/styles.css` stays current while Warren serves the app. The generated
+stylesheet is ignored; `styles/tailwind.css` and static utility bundles in
+MoonBit are the sources of truth.
 
 ## Production validation
 

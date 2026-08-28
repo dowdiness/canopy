@@ -256,6 +256,57 @@ test("Preview prepares after its status paints and refreshes typed Markdown", as
   await expect(page.getByRole("heading", { name: "Preview heading" })).toHaveCount(0)
 })
 
+test("Tailwind Preflight and utilities preserve the Loomark shell and compact text measure", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 700 })
+  await page.goto("/")
+  await expect(page.getByRole("textbox", { name: "Text" })).toBeVisible()
+
+  const styles = await page.evaluate(() => {
+    const modeBar = document.querySelector('[role="tablist"]')?.parentElement as HTMLElement
+    const selectedTab = document.querySelector('[role="tab"][aria-selected="true"]') as HTMLElement
+    const text = document.getElementById("loomark-text") as HTMLTextAreaElement
+    return {
+      bodyMargin: getComputedStyle(document.body).margin,
+      boxSizing: getComputedStyle(document.documentElement).boxSizing,
+      modeBarDisplay: getComputedStyle(modeBar).display,
+      modeBarMinHeight: getComputedStyle(modeBar).minHeight,
+      selectedBackground: getComputedStyle(selectedTab).backgroundColor,
+      textFont: getComputedStyle(text).fontFamily,
+      textPaddingLeft: Number.parseFloat(getComputedStyle(text).paddingLeft),
+    }
+  })
+  expect(styles.bodyMargin).toBe("0px")
+  expect(styles.boxSizing).toBe("border-box")
+  expect(styles.modeBarDisplay).toBe("flex")
+  expect(styles.modeBarMinHeight).toBe("44px")
+  expect(styles.selectedBackground).not.toBe("rgba(0, 0, 0, 0)")
+  expect(styles.textFont).toContain("ui-monospace")
+  expect(styles.textPaddingLeft).toBeGreaterThanOrEqual(48)
+
+  await page.setViewportSize({ width: 640, height: 700 })
+  await expect.poll(() => page.locator("#loomark-text").evaluate(element => (
+    getComputedStyle(element).paddingLeft
+  ))).toBe("12px")
+
+  await page.getByRole("button", {
+    name: "Apply Markdown feature tour example",
+  }).click()
+  await page.getByRole("tab", { name: "Preview" }).click()
+  const preview = page.getByRole("region", { name: "Markdown preview" })
+  await expect(preview.locator("ul").first()).toBeVisible()
+  expect(await preview.locator("ul").first().evaluate(element => (
+    getComputedStyle(element).listStyleType
+  ))).toBe("disc")
+  expect(await preview.locator("ol").first().evaluate(element => (
+    getComputedStyle(element).listStyleType
+  ))).toBe("decimal")
+  expect(await preview.locator("hr").first().evaluate(element => (
+    Number.parseFloat(getComputedStyle(element).width)
+  ))).toBeGreaterThan(500)
+  expect(await preview.locator("pre code").first()
+    .evaluate(element => getComputedStyle(element).lineHeight)).toBe("21px")
+})
+
 test("mode tabs move focus without activation and activate with Enter or Space", async ({ page }) => {
   await page.goto("/")
 
@@ -417,7 +468,7 @@ test("Split keeps Text and Preview independently scrollable", async ({ page }) =
   const assertIndependentScroll = async () => {
     const metrics = await page.evaluate(() => {
       const textarea = document.getElementById("loomark-text") as HTMLTextAreaElement
-      const textPane = document.querySelector(".loomark-text-pane") as HTMLElement
+      const textPane = document.getElementById("loomark-text-pane") as HTMLElement
       const previewScroll = document.getElementById("loomark-preview-scroll") as HTMLElement
       const textareaBox = textarea.getBoundingClientRect()
       const textPaneBox = textPane.getBoundingClientRect()
