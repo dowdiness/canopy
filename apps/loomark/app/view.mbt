@@ -19,9 +19,9 @@ fn mode_tab(
   @html.button(
     id=mode_dom_id(mode),
     class=if selected {
-      "loomark-mode-tab is-selected"
+      "relative m-0 inline-grid size-8 cursor-pointer appearance-none place-items-center rounded-md border border-[oklch(0.79_0.035_276)] bg-lm-accent-soft p-0 text-lm-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lm-accent"
     } else {
-      "loomark-mode-tab"
+      "relative m-0 inline-grid size-8 cursor-pointer appearance-none place-items-center rounded-md border border-transparent bg-transparent p-0 text-lm-muted hover:bg-[oklch(0.955_0.003_255)] hover:text-lm-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lm-accent"
     },
     title=name,
     type_="button",
@@ -33,8 +33,10 @@ fn mode_tab(
       .tabindex(if mode == focused_mode { 0 } else { -1 }),
     on_click=emit(ModeSelected(mode)),
     @html.span(
-      class="loomark-mode-icon loomark-mode-icon--\{name.to_lower()}",
-      attrs=@html.Attrs::build().aria_hidden("true"),
+      class="pointer-events-none relative block size-4.5",
+      attrs=@html.Attrs::build()
+        .data_set("mode", name.to_lower())
+        .aria_hidden("true"),
       @html.nothing,
     ),
   )
@@ -61,22 +63,25 @@ fn mode_bar(
   focused : EditorMode,
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
-  @html.header(class="loomark-mode-bar", [
-    @html.div(
-      class="loomark-mode-tabs",
-      attrs=@html.Attrs::build()
-        .role("tablist")
-        .aria_label("Editor mode")
-        .aria_orientation("horizontal")
-        .on_keydown(event => mode_keydown(event, emit)),
-      [
-        mode_tab(Text, selected, focused, emit),
-        mode_tab(Preview, selected, focused, emit),
-        mode_tab(Split, selected, focused, emit),
-      ],
-    ),
-    examples_bar(emit),
-  ])
+  @html.header(
+    class="relative z-2 flex min-h-11 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-lm-rule bg-lm-surface px-3 max-[641px]:px-2",
+    [
+      @html.div(
+        class="inline-flex items-center gap-0.5",
+        attrs=@html.Attrs::build()
+          .role("tablist")
+          .aria_label("Editor mode")
+          .aria_orientation("horizontal")
+          .on_keydown(event => mode_keydown(event, emit)),
+        [
+          mode_tab(Text, selected, focused, emit),
+          mode_tab(Preview, selected, focused, emit),
+          mode_tab(Split, selected, focused, emit),
+        ],
+      ),
+      examples_bar(emit),
+    ],
+  )
 }
 
 ///|
@@ -87,7 +92,7 @@ fn text_area_view(
   @html.textarea(
     rows=24,
     autofocus=true,
-    class="loomark-text",
+    class="m-0 block h-full min-h-0 w-full min-w-0 resize-none rounded-none border-0 bg-transparent px-[max(3rem,calc((100%_-_44rem)_/_2))] pt-8 pb-16 font-lm-mono text-base leading-[1.65] text-lm-ink caret-lm-accent outline-0 [tab-size:2] max-[641px]:px-3 max-[641px]:pt-6 max-[641px]:pb-12",
     attrs=text_area.attach(
       @html.Attrs::build().aria_label("Text"),
       change => emit(TextChanged(change)),
@@ -107,7 +112,7 @@ fn text_area_view(
 fn preview_result_view(result : PreviewResult) -> @rabbita.Html {
   if result.empty {
     @html.p(
-      class="loomark-preview-empty",
+      class="m-0 text-lm-muted",
       attrs=@html.Attrs::build().role("status"),
       "Nothing to preview",
     )
@@ -124,7 +129,7 @@ fn preview_view(state : PreviewState) -> @rabbita.Html {
       (
         @html.nothing,
         @html.p(
-          class="loomark-preview-status",
+          class="m-0 text-lm-muted",
           attrs=@html.Attrs::build().role("status"),
           "Preparing preview…",
         ),
@@ -134,7 +139,7 @@ fn preview_view(state : PreviewState) -> @rabbita.Html {
       (
         @html.nothing,
         @html.p(
-          class="loomark-preview-failure",
+          class="m-0 text-lm-danger",
           attrs=@html.Attrs::build().role("alert"),
           "Preview could not be prepared.",
         ),
@@ -142,7 +147,7 @@ fn preview_view(state : PreviewState) -> @rabbita.Html {
     Failed(Some(result)) =>
       (
         @html.div(
-          class="loomark-preview-stale-alert",
+          class="sticky top-0 z-2 border-b border-[oklch(0.78_0.07_25)] bg-lm-danger-soft px-4 py-2.5 text-sm leading-[1.4] text-lm-danger max-[641px]:px-3",
           attrs=@html.Attrs::build().role("alert"),
           "Preview could not be updated. Showing the last completed preview.",
         ),
@@ -151,12 +156,18 @@ fn preview_view(state : PreviewState) -> @rabbita.Html {
   }
   @html.div(
     id="loomark-preview-scroll",
-    class="loomark-preview-scroll",
+    class="h-full min-h-0 w-full min-w-0 overflow-auto outline-0 focus-visible:shadow-[inset_0_0_0_2px_var(--color-lm-accent)]",
     attrs=@html.Attrs::build()
       .role("region")
       .aria_label("Markdown preview")
       .tabindex(0),
-    [alert, @html.div(class="loomark-reading-frame", content)],
+    [
+      alert,
+      @html.div(
+        class="mx-auto grid w-[min(calc(100%-4rem),46rem)] min-w-0 auto-rows-max gap-4 px-4 pt-8 pb-16 text-base leading-[1.7] max-[641px]:w-full max-[641px]:px-3 max-[641px]:pt-6 max-[641px]:pb-12 [&>*]:min-w-0 [&>*]:break-words [&_a]:text-lm-accent [&_a]:underline-offset-[0.18em] [&_img]:h-auto [&_img]:max-w-full [&_ol]:m-0 [&_ol]:list-decimal [&_ol]:ps-6 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_ul]:m-0 [&_ul]:list-disc [&_ul]:ps-6",
+        content,
+      ),
+    ],
   )
 }
 
@@ -173,11 +184,15 @@ fn save_failure_view(
       " Browser storage failed while writing the document."
   }
   @html.div(
-    class="loomark-save-alert",
+    class="flex min-h-12 shrink-0 items-center justify-between gap-4 border-t border-[oklch(0.78_0.07_25)] bg-lm-danger-soft px-4 py-2.5 text-sm text-lm-danger max-[641px]:items-start [&_p]:m-0",
     attrs=@html.Attrs::build().role("alert"),
     [
       @html.p("Changes are not saved in this browser." + reason),
-      @html.button(on_click=emit(RetrySave), "Retry saving"),
+      @html.button(
+        class="min-h-8 shrink-0 cursor-pointer rounded-md border border-current bg-transparent px-2.5 py-1 text-inherit focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lm-danger",
+        on_click=emit(RetrySave),
+        "Retry saving",
+      ),
     ],
   )
 }
@@ -190,13 +205,16 @@ fn view(
 ) -> @rabbita.Html {
   @html.div(
     id="loomark-root",
-    class="loomark-root",
+    class="h-dvh min-h-0 w-full min-w-0 overflow-hidden bg-lm-foundation font-lm-ui text-lm-ink scheme-light selection:bg-[oklch(0.78_0.08_276/0.45)]",
     attrs=@html.Attrs::build()
       .role("region")
       .aria_label("Loomark Markdown Editor"),
     match model {
       Loading(_) =>
-        @html.div(class="loomark-loading", [@html.p("Loading document")])
+        @html.div(
+          class="grid min-h-dvh place-items-center text-lm-muted [&_p]:m-0",
+          [@html.p("Loading document")],
+        )
       Recovery(failure, _) => {
         let message = match failure {
           @browser_storage.OpenFailure::InvalidRecord =>
@@ -208,27 +226,30 @@ fn view(
           @browser_storage.OpenFailure::DocumentIdentityUnavailable =>
             "This browser cannot create a document identity."
         }
-        @html.div(class="loomark-recovery", [
-          @html.h1("Document recovery"),
-          @html.p(message),
-        ])
+        @html.div(
+          class="mx-auto w-[min(calc(100%-2rem),36rem)] pt-[max(4rem,20vh)] pb-8 [&_h1]:mt-0 [&_h1]:mb-3 [&_h1]:text-xl [&_h1]:leading-[1.3] [&_p]:m-0 [&_p]:leading-[1.6] [&_p]:text-lm-muted",
+          [@html.h1("Document recovery"), @html.p(message)],
+        )
       }
       Editing(editing) =>
-        @html.div(class="loomark-editor", [
-          mode_bar(editing.mode, editing.focused_mode, emit),
-          @html.main_(
-            id="loomark-editor-panel",
-            class="loomark-editor-panel",
-            attrs=@html.Attrs::build()
-              .role("tabpanel")
-              .aria_label("\{mode_name(editing.mode)} mode"),
-            editor_panels,
-          ),
-          match editing.save {
-            Failed(failure) => save_failure_view(failure, emit)
-            Saved | Waiting | Saving(_) => @html.nothing
-          },
-        ])
+        @html.div(
+          class="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-lm-paper",
+          [
+            mode_bar(editing.mode, editing.focused_mode, emit),
+            @html.main_(
+              id="loomark-editor-panel",
+              class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+              attrs=@html.Attrs::build()
+                .role("tabpanel")
+                .aria_label("\{mode_name(editing.mode)} mode"),
+              editor_panels,
+            ),
+            match editing.save {
+              Failed(failure) => save_failure_view(failure, emit)
+              Saved | Waiting | Saving(_) => @html.nothing
+            },
+          ],
+        )
     },
   )
 }

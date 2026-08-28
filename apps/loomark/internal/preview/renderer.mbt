@@ -154,8 +154,8 @@ fn render_heading(
       )
     3 => @rui.typography_h3(children)
     4 => @rui.typography_h4(children)
-    5 => @html.h5(class="loomark-preview-h5", children)
-    _ => @html.h6(class="loomark-preview-h6", children)
+    5 => @html.h5(class="m-0 text-base font-semibold leading-6", children)
+    _ => @html.h6(class="m-0 text-sm font-semibold leading-[1.4]", children)
   }
 }
 
@@ -221,7 +221,7 @@ fn render_node(
       )
     @markdown.CodeBlock(info~, value~) =>
       @html.pre(
-        class="loomark-preview-code-block",
+        class="m-0 whitespace-pre rounded-lg bg-[oklch(0.95_0.003_255)] p-4 [&_code]:font-lm-mono [&_code]:text-sm [&_code]:leading-[1.5]",
         @html.code(
           attrs=@html.Attrs::build().data_set("loomark-code-info", info),
           value,

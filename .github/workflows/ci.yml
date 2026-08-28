@@ -86,6 +86,7 @@ jobs:
               - '.gitignore'
               - '.gitmodules'
               - 'scripts/install-local-warren.sh'
+              - 'scripts/build-loomark-worker.sh'
               - 'scripts/test-loomark-standalone-e2e.sh'
               - 'scripts/moon-update.sh'
             run_prove:

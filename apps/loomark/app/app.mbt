@@ -24,7 +24,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
       max=75,
       orientation~,
       aria_label="Resize editor and preview",
-      class="loomark-editor-panels",
+      class="min-h-0 min-w-0 w-full flex-1",
       (scope, model) => {
         match model {
           Editing(editing) => {
@@ -35,8 +35,10 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
               @rui.resizable_panel(
                 scope~,
                 side=@rui.FirstPanel,
-                class="loomark-pane loomark-text-pane",
-                attrs=@html.Attrs::build().hidden(!text_visible),
+                class="flex min-h-0 min-w-0 overflow-hidden bg-lm-paper",
+                attrs=@html.Attrs::build()
+                  .id("loomark-text-pane")
+                  .hidden(!text_visible),
                 style=if split {
                   ["overflow:hidden"]
                 } else if text_visible {
@@ -50,14 +52,14 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
                 scope~,
                 with_handle=true,
                 aria_label="Resize editor and preview",
-                class="loomark-resize-handle",
+                class="bg-lm-rule data-[orientation=vertical]:!h-auto data-[orientation=vertical]:self-stretch focus-within:bg-lm-accent",
                 attrs=@html.Attrs::build().hidden(!split),
                 style=if split { [] } else { ["display:none"] },
               ),
               @rui.resizable_panel(
                 scope~,
                 side=@rui.SecondPanel,
-                class="loomark-pane loomark-preview-pane",
+                class="flex min-h-0 min-w-0 overflow-hidden bg-lm-paper",
                 attrs=@html.Attrs::build().hidden(!preview_visible),
                 style=if split {
                   ["overflow:hidden"]

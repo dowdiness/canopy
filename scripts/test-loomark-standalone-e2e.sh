@@ -9,6 +9,18 @@ WARREN="$WARREN_BIN_DIR/warren"
 
 "$PROJECT_ROOT/scripts/install-local-warren.sh" "$WARREN_BIN_DIR"
 
+(
+  cd "$LOOMARK_ROOT"
+  npm ci
+  npm run build:styles
+)
+
+test -s "$LOOMARK_ROOT/public/styles.css"
+if grep -qE '@(import|source|theme)' "$LOOMARK_ROOT/public/styles.css"; then
+  echo "error: Loomark public stylesheet was not compiled by Tailwind" >&2
+  exit 1
+fi
+
 rm -rf "$LOOMARK_ROOT/dist"
 (
   cd "$LOOMARK_ROOT"

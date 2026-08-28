@@ -1,0 +1,71 @@
+@import "tailwindcss" source(none);
+@source "../app";
+@source not "../app/example_documents";
+@source not "../app/example_*.g.mbt";
+@source "../internal/preview";
+@source not "../internal/preview/*test.mbt";
+@source not "../internal/preview/*benchmark*.mbt";
+
+@theme {
+  --color-lm-foundation: oklch(0.97 0.003 255);
+  --color-lm-surface: oklch(0.995 0.001 255);
+  --color-lm-paper: oklch(0.995 0.001 255);
+  --color-lm-ink: oklch(0.24 0.018 265);
+  --color-lm-muted: oklch(0.5 0.02 265);
+  --color-lm-rule: oklch(0.87 0.004 255);
+  --color-lm-accent: oklch(0.48 0.12 276);
+  --color-lm-accent-soft: oklch(0.91 0.035 276);
+  --color-lm-danger: oklch(0.52 0.16 25);
+  --color-lm-danger-soft: oklch(0.94 0.025 25);
+  --font-lm-ui: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-lm-mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+/* The mode glyphs are authored geometry; utilities own the surrounding control. */
+[data-mode="text"]::before {
+  position: absolute;
+  top: 0.25rem;
+  left: 0.1875rem;
+  width: 0.75rem;
+  height: 1px;
+  background: currentColor;
+  box-shadow: 0 0.25rem 0 currentColor, 0 0.5rem 0 currentColor;
+  content: "";
+}
+
+[data-mode="preview"]::before {
+  position: absolute;
+  top: 0.1875rem;
+  left: 0.1875rem;
+  width: 0.6875rem;
+  height: 0.6875rem;
+  border: 1.5px solid currentColor;
+  border-radius: 75% 0;
+  content: "";
+  transform: rotate(45deg);
+}
+
+[data-mode="preview"]::after {
+  position: absolute;
+  top: 0.4375rem;
+  left: 0.4375rem;
+  width: 0.25rem;
+  height: 0.25rem;
+  border-radius: 50%;
+  background: currentColor;
+  content: "";
+}
+
+[data-mode="split"] {
+  border: 1.5px solid currentColor;
+  border-radius: 0.125rem;
+}
+
+[data-mode="split"]::after {
+  position: absolute;
+  inset-block: 0;
+  left: calc(50% - 0.75px);
+  width: 1.5px;
+  background: currentColor;
+  content: "";
+}
