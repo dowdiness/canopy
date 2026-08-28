@@ -24,7 +24,8 @@ _Avoid_: source mode, raw mode
 
 **Preview**:
 A read-only parse-derived view of Document text. It may lag behind Document text
-and never determines editing or saving.
+and never determines editing or saving. Loomark explicitly enables GFM task-list
+semantics here; task checkboxes display Document text state and remain disabled.
 _Avoid_: rendered document, accepted text
 
 **Preview mode**:

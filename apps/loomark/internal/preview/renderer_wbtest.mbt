@@ -10,6 +10,7 @@ fn preview_test_document(source : String) -> @markdown.MarkdownIR raise {
     parser.source_id(),
     snapshot.syntax,
     snapshot.diagnostics,
+    extensions=@markdown.MarkdownExtensions::task_list(),
   )
 }
 
@@ -101,6 +102,38 @@ test "Preview renderer preserves syntax diagnostics during direct lowering" {
   let rendered = render_preview("[unclosed\n")
   assert_preview_contains(rendered, "Recovered Markdown: [")
   assert_preview_contains(rendered, "data-loomark-preview-diagnostic")
+}
+
+///|
+test "Preview renders GFM task markers as disabled checkboxes" {
+  let unchecked = render_preview("- [ ] todo\n")
+  let checked = render_preview("- [x] done\n")
+  let invalid = render_preview("- [y] literal\n")
+  let later = render_preview("- first\n\n  [x] second\n")
+  let loose = render_preview("- [ ] todo\n\n  continued\n")
+
+  assert_preview_contains(unchecked, "type=\"checkbox\"")
+  assert_preview_contains(unchecked, "disabled")
+  assert_true(!unchecked.contains("checked"))
+  assert_preview_contains(unchecked, "todo")
+  assert_true(!unchecked.contains("[ ]"))
+
+  assert_preview_contains(checked, "type=\"checkbox\"")
+  assert_preview_contains(checked, "disabled")
+  assert_preview_contains(checked, "checked")
+  assert_preview_contains(checked, "done")
+  assert_true(!checked.contains("[x]"))
+
+  assert_true(!invalid.contains("type=\"checkbox\""))
+  assert_true(!later.contains("type=\"checkbox\""))
+  assert_preview_contains(later, "[x] second")
+
+  guard loose.find("<p") is Some(paragraph_start) &&
+    loose.find("type=\"checkbox\"") is Some(checkbox) &&
+    loose.find("</p>") is Some(paragraph_end) else {
+    abort("expected loose task paragraph and checkbox")
+  }
+  assert_true(paragraph_start < checkbox && checkbox < paragraph_end)
 }
 
 ///|
