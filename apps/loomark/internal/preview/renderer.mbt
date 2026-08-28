@@ -128,13 +128,44 @@ fn render_list_children(
 fn render_list_item_children(
   node : @markdown.MarkdownIR,
   render_paragraphs : Bool,
+  task : @markdown.MarkdownIRTask?,
 ) -> Array[@rabbita.Html] {
+  let task_prefix = match task {
+    Some(task) =>
+      [
+        @html.input(
+          input_type=@html.Checkbox,
+          checked=task.checked(),
+          attrs=@html.Attrs::build()
+            .disabled(true)
+            .class(
+              "mr-2 size-4 align-[-0.125em] accent-lm-accent disabled:opacity-100",
+            )
+            .data_set("loomark-task-checkbox", ""),
+        ),
+        @html.text(" "),
+      ]
+    None => []
+  }
   node
   .children()
-  .map(child => {
+  .mapi((index, child) => {
     match child.view() {
-      @markdown.Paragraph =>
-        render_node(child, unwrap_list_item_paragraph=!render_paragraphs)
+      @markdown.Paragraph => {
+        let children = render_children(child)
+        let children = if index == 0 && task is Some(_) {
+          let prefixed = task_prefix.copy()
+          prefixed.append(children)
+          prefixed
+        } else {
+          children
+        }
+        if render_paragraphs {
+          @rui.typography_p(children)
+        } else {
+          @html.fragment(children)
+        }
+      }
       _ => render_node(child)
     }
   })
@@ -169,8 +200,9 @@ fn render_node(
   let children = match node_view {
     @markdown.UnorderedList(spread~, ..) | @markdown.OrderedList(spread~, ..) =>
       render_list_children(node, spread)
-    @markdown.ListItem(spread~, ..) | @markdown.OrderedListItem(spread~, ..) =>
-      render_list_item_children(node, spread || list_parent_spread)
+    @markdown.ListItem(spread~, task~, ..)
+    | @markdown.OrderedListItem(spread~, task~, ..) =>
+      render_list_item_children(node, spread || list_parent_spread, task)
     _ => render_children(node)
   }
   match node_view {
@@ -199,7 +231,7 @@ fn render_node(
         None => @html.ol(attrs~, children)
       }
     }
-    @markdown.ListItem(spread~, marker~) =>
+    @markdown.ListItem(spread~, marker~, ..) =>
       @html.li(
         attrs=@html.Attrs::build()
           .data_set(
@@ -209,7 +241,7 @@ fn render_node(
           .data_set("loomark-list-marker", unordered_marker(marker)),
         children,
       )
-    @markdown.OrderedListItem(spread~, marker~) =>
+    @markdown.OrderedListItem(spread~, marker~, ..) =>
       @html.li(
         attrs=@html.Attrs::build()
           .data_set(

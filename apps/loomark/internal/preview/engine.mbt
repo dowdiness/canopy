@@ -52,6 +52,7 @@ fn output(parser : @loom.SyntaxParser) -> PreviewOutput {
     parser.source_id(),
     snapshot.syntax,
     snapshot.diagnostics,
+    extensions=@markdown.MarkdownExtensions::task_list(),
   )
   { html: render(document), empty: is_empty(document) }
 }
