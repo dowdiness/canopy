@@ -1,8 +1,10 @@
 @import "tailwindcss" source(none);
-@source "../app/app.mbt";
-@source "../app/examples.mbt";
-@source "../app/view.mbt";
-@source "../internal/preview/renderer.mbt";
+@source "../app";
+@source not "../app/example_documents";
+@source not "../app/example_*.g.mbt";
+@source "../internal/preview";
+@source not "../internal/preview/*test.mbt";
+@source not "../internal/preview/*benchmark*.mbt";
 
 @theme {
   --color-lm-foundation: oklch(0.97 0.003 255);
