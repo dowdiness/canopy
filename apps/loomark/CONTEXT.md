@@ -26,6 +26,8 @@ _Avoid_: source mode, raw mode
 A read-only parse-derived view of Document text. It may lag behind Document text
 and never determines editing or saving. Loomark explicitly enables GFM task-list
 semantics here; task checkboxes display Document text state and remain disabled.
+Ordinary unresolved reference candidates render as text. Genuine raw/recovered
+regions render escaped author source without parser labels or inline diagnostics.
 _Avoid_: rendered document, accepted text
 
 **Preview mode**:
@@ -44,10 +46,11 @@ the first time. Preparation is skipped when a document remains in Text mode.
 _Avoid_: warm-up, preloading
 
 **Preview refresh**:
-Reading one coherent syntax snapshot, lowering it directly to MarkdownIR, and
-replacing Preview from the latest committed Document text. After the Parser
-transition, lowering waits for a 24 ms candidate-text quiet window so rapid
-changes normally produce one visible update.
+Reading one coherent syntax snapshot, lowering its captured source directly to
+MarkdownIR without reconstructing the document from CST tokens, and replacing
+Preview from the latest committed Document text. After the Parser transition,
+lowering waits for a 24 ms candidate-text quiet window so rapid changes normally
+produce one visible update.
 _Avoid_: projection refresh, render loop
 
 **Stale Preview**:

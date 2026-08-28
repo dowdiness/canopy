@@ -48,10 +48,8 @@ fn create_parser_state(source : String) -> Result[EngineState, PreviewFailure] {
 ///|
 fn output(parser : @loom.SyntaxParser) -> PreviewOutput {
   let snapshot = parser.snapshot().read_or_abort()
-  let document = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
-    parser.source_id(),
-    snapshot.syntax,
-    snapshot.diagnostics,
+  let document = @markdown.experimental_markdown_ir_from_syntax_snapshot(
+    snapshot,
     extensions=@markdown.MarkdownExtensions::task_list(),
   )
   { html: render(document), empty: is_empty(document) }
