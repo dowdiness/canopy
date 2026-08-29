@@ -80,13 +80,34 @@ fn select_mode(
 }
 
 ///|
+fn update_repository_issues(
+  existing : Array[@source_repository.RepositoryIssue],
+  document_id : String,
+  added : ArrayView[@source_repository.RepositoryIssue],
+) -> Array[@source_repository.RepositoryIssue] {
+  let retained = existing.filter(issue => {
+    match issue {
+      @source_repository.RepositoryIssue::NameDerivationFailed(issue_id) =>
+        issue_id != document_id
+      _ => true
+    }
+  })
+  for issue in added {
+    if !retained.contains(issue) {
+      retained.push(issue)
+    }
+  }
+  retained
+}
+
+///|
 fn initial_state(
   emit : @rabbita.Emit[Msg],
   compact : Bool,
 ) -> (Model, @rabbita.Cmd) {
   (
     Loading(compact),
-    @browser_storage.open(result=emit.map(result => Opened(result))),
+    @source_repository.open(result=emit.map(result => Opened(result))),
   )
 }
 
@@ -101,42 +122,33 @@ fn update(
   match (model, msg) {
     (Loading(compact), Opened(result)) =>
       match result {
-        @browser_storage.OpenResult::New(document_id) =>
-          (
-            Editing({
-              document_id,
-              text: "",
-              composing: false,
-              save: Saving(""),
-              mode: Text,
-              focused_mode: Text,
-              compact,
-              preview: Unrequested,
-            }),
-            @cmd.batch([
-              text_area.initialize(""),
-              @browser_storage.save(
-                document_id,
-                "",
-                result=emit.map(result => SaveCompleted("", result)),
-              ),
-            ]),
-          )
-        @browser_storage.OpenResult::Loaded(document_id, text) =>
-          (
-            Editing({
-              document_id,
-              text,
-              composing: false,
-              save: Saved,
-              mode: Text,
-              focused_mode: Text,
-              compact,
-              preview: Unrequested,
-            }),
-            text_area.initialize(text),
-          )
-        @browser_storage.OpenResult::Failed(failure) =>
+        @source_repository.OpenResult::Ready(snapshot) =>
+          match snapshot.selected() {
+            Some(source) => {
+              let text = source.text()
+              (
+                Editing({
+                  document_id: source.document_id(),
+                  text,
+                  composing: false,
+                  save: Saved,
+                  mode: Text,
+                  focused_mode: Text,
+                  compact,
+                  preview: Unrequested,
+                  catalog: snapshot.catalog(),
+                  repository_issues: snapshot.issues().to_owned(),
+                }),
+                text_area.initialize(text),
+              )
+            }
+            None =>
+              (
+                Recovery(@source_repository.OpenFailure::ReadFailed, compact),
+                @cmd.none,
+              )
+          }
+        @source_repository.OpenResult::Failed(failure) =>
           (Recovery(failure, compact), @cmd.none)
       }
     (Editing(_), ExampleSelected(text)) =>
@@ -342,49 +354,75 @@ fn update(
         (model, @cmd.none)
       } else {
         match editing.save {
-          Waiting =>
+          Waiting => {
+            let document_id = editing.document_id
             (
               Editing({ ..editing, save: Saving(candidate) }),
-              @browser_storage.save(
-                editing.document_id,
+              @source_repository.save(
+                editing.catalog,
+                document_id,
                 candidate,
-                result=emit.map(result => SaveCompleted(candidate, result)),
-              ),
-            )
-          Saved | Saving(_) | Failed(_) => (model, @cmd.none)
-        }
-      }
-    (Editing(editing), SaveCompleted(candidate, result)) =>
-      match result {
-        @browser_storage.SaveResult::Stored =>
-          if candidate == editing.text {
-            (Editing({ ..editing, save: Saved }), @cmd.none)
-          } else if editing.composing {
-            (Editing({ ..editing, save: Waiting }), @cmd.none)
-          } else {
-            let latest = editing.text
-            (
-              Editing({ ..editing, save: Saving(latest) }),
-              @browser_storage.save(
-                editing.document_id,
-                latest,
-                result=emit.map(result => SaveCompleted(latest, result)),
+                result=emit.map(result => {
+                  SaveCompleted(document_id, candidate, result)
+                }),
               ),
             )
           }
-        @browser_storage.SaveResult::Failed(failure) =>
-          (Editing({ ..editing, save: Failed(failure) }), @cmd.none)
+          Saved | Saving(_) | Failed(_) => (model, @cmd.none)
+        }
+      }
+    (Editing(editing), SaveCompleted(document_id, candidate, result)) =>
+      if document_id != editing.document_id || editing.save != Saving(candidate) {
+        (model, @cmd.none)
+      } else {
+        match result {
+          @source_repository.SaveResult::Stored(success) => {
+            let completed = {
+              ..editing,
+              catalog: success.catalog(),
+              repository_issues: update_repository_issues(
+                editing.repository_issues,
+                document_id,
+                success.issues(),
+              ),
+            }
+            if candidate == editing.text {
+              (Editing({ ..completed, save: Saved }), @cmd.none)
+            } else if editing.composing {
+              (Editing({ ..completed, save: Waiting }), @cmd.none)
+            } else {
+              let latest = editing.text
+              (
+                Editing({ ..completed, save: Saving(latest) }),
+                @source_repository.save(
+                  completed.catalog,
+                  document_id,
+                  latest,
+                  result=emit.map(result => {
+                    SaveCompleted(document_id, latest, result)
+                  }),
+                ),
+              )
+            }
+          }
+          @source_repository.SaveResult::Failed(failure) =>
+            (Editing({ ..editing, save: Failed(failure) }), @cmd.none)
+        }
       }
     (Editing(editing), RetrySave) =>
       match editing.save {
         Failed(_) => {
           let latest = editing.text
+          let document_id = editing.document_id
           (
             Editing({ ..editing, save: Saving(latest) }),
-            @browser_storage.save(
-              editing.document_id,
+            @source_repository.save(
+              editing.catalog,
+              document_id,
               latest,
-              result=emit.map(result => SaveCompleted(latest, result)),
+              result=emit.map(result => {
+                SaveCompleted(document_id, latest, result)
+              }),
             ),
           )
         }

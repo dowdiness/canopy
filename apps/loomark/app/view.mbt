@@ -173,14 +173,16 @@ fn preview_view(state : PreviewState) -> @rabbita.Html {
 
 ///|
 fn save_failure_view(
-  failure : @browser_storage.SaveFailure,
+  failure : @source_repository.SaveFailure,
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
   let reason = match failure {
-    @browser_storage.SaveFailure::StorageUnavailable =>
+    @source_repository.SaveFailure::InvalidSource =>
+      " The document identity is invalid."
+    @source_repository.SaveFailure::StorageUnavailable =>
       " Browser storage is unavailable."
-    @browser_storage.SaveFailure::QuotaExceeded => " Browser storage is full."
-    @browser_storage.SaveFailure::WriteFailed =>
+    @source_repository.SaveFailure::QuotaExceeded => " Browser storage is full."
+    @source_repository.SaveFailure::WriteFailed =>
       " Browser storage failed while writing the document."
   }
   @html.div(
@@ -217,14 +219,16 @@ fn view(
         )
       Recovery(failure, _) => {
         let message = match failure {
-          @browser_storage.OpenFailure::InvalidRecord =>
-            "The stored document is invalid and was not overwritten."
-          @browser_storage.OpenFailure::StorageUnavailable =>
+          @source_repository.OpenFailure::StorageUnavailable =>
             "Browser storage is unavailable."
-          @browser_storage.OpenFailure::ReadFailed =>
+          @source_repository.OpenFailure::ReadFailed =>
             "Browser storage failed while reading the document."
-          @browser_storage.OpenFailure::DocumentIdentityUnavailable =>
+          @source_repository.OpenFailure::DocumentIdentityUnavailable =>
             "This browser cannot create a document identity."
+          @source_repository.OpenFailure::QuotaExceeded =>
+            "Browser storage is full."
+          @source_repository.OpenFailure::WriteFailed =>
+            "Browser storage failed while preparing the document."
         }
         @html.div(
           class="mx-auto w-[min(calc(100%-2rem),36rem)] pt-[max(4rem,20vh)] pb-8 [&_h1]:mt-0 [&_h1]:mb-3 [&_h1]:text-xl [&_h1]:leading-[1.3] [&_p]:m-0 [&_p]:leading-[1.6] [&_p]:text-lm-muted",

@@ -1,0 +1,82 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/internal/source_repository"
+
+import {
+  "moonbit-community/rabbita/cmd",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn open(result~ : @cmd.Emit[OpenResult]) -> @cmd.Cmd
+
+pub fn save(Catalog, String, String, result~ : @cmd.Emit[SaveResult]) -> @cmd.Cmd
+
+// Errors
+
+// Types and methods
+type Catalog derive(Eq, @debug.Debug)
+pub fn Catalog::entries(Self) -> ArrayView[CatalogEntry]
+pub fn Catalog::from_entries(Array[CatalogEntry]) -> Self?
+
+type CatalogEntry derive(Eq, @debug.Debug)
+pub fn CatalogEntry::document_id(Self) -> String
+pub fn CatalogEntry::name(Self) -> String?
+pub fn CatalogEntry::new(String, String?) -> Self?
+
+pub(all) enum OpenFailure {
+  StorageUnavailable
+  ReadFailed
+  DocumentIdentityUnavailable
+  QuotaExceeded
+  WriteFailed
+} derive(Eq, @debug.Debug)
+
+pub(all) enum OpenResult {
+  Ready(RepositorySnapshot)
+  Failed(OpenFailure)
+} derive(Eq, @debug.Debug)
+
+pub(all) enum RepositoryIssue {
+  InvalidSource(String)
+  SourceIdentityMismatch(String)
+  UnsupportedSourceSchema(String)
+  UnknownRecord(String)
+  UnsupportedRecord(String)
+  UnsupportedKey(Int)
+  NameDerivationFailed(String)
+  InvalidLegacyRecord
+  LegacyMigrationCollision(String)
+} derive(Eq, @debug.Debug)
+
+type RepositorySnapshot derive(Eq, @debug.Debug)
+pub fn RepositorySnapshot::catalog(Self) -> Catalog
+pub fn RepositorySnapshot::from_sources(Array[SourceRecord]) -> Self?
+pub fn RepositorySnapshot::issues(Self) -> ArrayView[RepositoryIssue]
+pub fn RepositorySnapshot::selected(Self) -> SourceRecord?
+pub fn RepositorySnapshot::sources(Self) -> ArrayView[SourceRecord]
+
+pub(all) enum SaveFailure {
+  InvalidSource
+  StorageUnavailable
+  QuotaExceeded
+  WriteFailed
+} derive(Eq, @debug.Debug)
+
+pub(all) enum SaveResult {
+  Stored(SaveSuccess)
+  Failed(SaveFailure)
+} derive(Eq, @debug.Debug)
+
+type SaveSuccess derive(Eq, @debug.Debug)
+pub fn SaveSuccess::catalog(Self) -> Catalog
+pub fn SaveSuccess::issues(Self) -> ArrayView[RepositoryIssue]
+pub fn SaveSuccess::new(Catalog, Array[RepositoryIssue]) -> Self
+
+type SourceRecord derive(Eq, @debug.Debug)
+pub fn SourceRecord::document_id(Self) -> String
+pub fn SourceRecord::new(String, String) -> Self?
+pub fn SourceRecord::text(Self) -> String
+
+// Type aliases
+
+// Traits

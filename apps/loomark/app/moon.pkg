@@ -1,5 +1,5 @@
 import {
-  "dowdiness/loomark/internal/browser_storage",
+  "dowdiness/loomark/internal/source_repository",
   "dowdiness/loomark/internal/mode_tabs",
   "dowdiness/loomark/internal/preview",
   "dowdiness/loomark/internal/text_area",
@@ -14,6 +14,7 @@ import {
 
 import {
   "moonbit-community/rabbita/testing" @rabbita_testing,
+  "moonbitlang/core/debug",
 } for "wbtest"
 
 supported_targets = "js"

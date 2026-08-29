@@ -3,16 +3,27 @@ import { expect, test, type Page } from "@playwright/test"
 const DOCUMENT_DATABASE_NAME = "loomark"
 const DOCUMENT_DATABASE_VERSION = 1
 const DOCUMENT_STORE_NAME = "documents"
-const ACTIVE_DOCUMENT_KEY = "active"
+const LEGACY_ACTIVE_KEY = "active"
+const SOURCE_KEY_PREFIX = "source/v1/"
+const CATALOG_KEY = "catalog/v1"
 
 type StoredDocument = {
   document_id: string
   text: string
 }
 
-async function readStoredDocumentRaw(page: Page): Promise<unknown> {
-  return page.evaluate(({ databaseName, databaseVersion, storeName, key }) => (
-    new Promise<unknown>((resolve, reject) => {
+type StoreRecord = {
+  key: string | number
+  value: unknown
+}
+
+function sourceKey(documentId: string): string {
+  return `${SOURCE_KEY_PREFIX}${documentId}`
+}
+
+async function scanStoreRecords(page: Page): Promise<StoreRecord[]> {
+  return page.evaluate(({ databaseName, databaseVersion, storeName }) => (
+    new Promise<StoreRecord[]>((resolve, reject) => {
       const open = indexedDB.open(databaseName, databaseVersion)
       open.onupgradeneeded = () => {
         if (!open.result.objectStoreNames.contains(storeName)) {
@@ -23,38 +34,119 @@ async function readStoredDocumentRaw(page: Page): Promise<unknown> {
       open.onsuccess = () => {
         const database = open.result
         const transaction = database.transaction(storeName, "readonly")
-        let value: unknown
-        let settled = false
+        const records: StoreRecord[] = []
         const fail = (error: unknown) => {
-          if (settled) return
-          settled = true
           database.close()
           reject(error)
         }
-        transaction.onerror = () => fail(transaction.error ?? new Error("document read failed"))
-        transaction.onabort = () => fail(transaction.error ?? new Error("document read aborted"))
+        transaction.onerror = () => fail(transaction.error ?? new Error("document scan failed"))
+        transaction.onabort = () => fail(transaction.error ?? new Error("document scan aborted"))
         transaction.oncomplete = () => {
-          if (settled) return
-          settled = true
           database.close()
-          resolve(value)
+          resolve(records)
         }
-        const request = transaction.objectStore(storeName).get(key)
-        request.onerror = () => fail(request.error ?? new Error("document read failed"))
-        request.onsuccess = () => { value = request.result }
+        const request = transaction.objectStore(storeName).openCursor()
+        request.onerror = () => fail(request.error ?? new Error("document cursor failed"))
+        request.onsuccess = () => {
+          const cursor = request.result
+          if (!cursor) return
+          records.push({
+            key: typeof cursor.key === "string" || typeof cursor.key === "number"
+              ? cursor.key
+              : "[unsupported-key]",
+            value: cursor.value,
+          })
+          cursor.continue()
+        }
       }
     })
   ), {
     databaseName: DOCUMENT_DATABASE_NAME,
     databaseVersion: DOCUMENT_DATABASE_VERSION,
     storeName: DOCUMENT_STORE_NAME,
-    key: ACTIVE_DOCUMENT_KEY,
   })
 }
 
-async function readStoredDocument(page: Page): Promise<StoredDocument | null> {
-  const value = await readStoredDocumentRaw(page)
-  if (typeof value !== "string") return null
+async function measureIndexedDbScan(
+  page: Page,
+): Promise<{ count: number; durationMs: number }> {
+  return page.evaluate(({ databaseName, databaseVersion, storeName }) => (
+    new Promise<{ count: number; durationMs: number }>((resolve, reject) => {
+      const open = indexedDB.open(databaseName, databaseVersion)
+      open.onerror = () => reject(open.error ?? new Error("document database open failed"))
+      open.onsuccess = () => {
+        const database = open.result
+        const started = performance.now()
+        const transaction = database.transaction(storeName, "readonly")
+        let count = 0
+        const fail = (error: unknown) => {
+          database.close()
+          reject(error)
+        }
+        transaction.onerror = () => fail(transaction.error ?? new Error("document scan failed"))
+        transaction.onabort = () => fail(transaction.error ?? new Error("document scan aborted"))
+        transaction.oncomplete = () => {
+          const durationMs = performance.now() - started
+          database.close()
+          resolve({ count, durationMs })
+        }
+        const request = transaction.objectStore(storeName).openCursor()
+        request.onerror = () => fail(request.error ?? new Error("document cursor failed"))
+        request.onsuccess = () => {
+          const cursor = request.result
+          if (!cursor) return
+          count += 1
+          cursor.continue()
+        }
+      }
+    })
+  ), {
+    databaseName: DOCUMENT_DATABASE_NAME,
+    databaseVersion: DOCUMENT_DATABASE_VERSION,
+    storeName: DOCUMENT_STORE_NAME,
+  })
+}
+
+async function measureIndexedDbPut(
+  page: Page,
+  key: string,
+  value: string,
+): Promise<number> {
+  return page.evaluate(({ databaseName, databaseVersion, storeName, key, value }) => (
+    new Promise<number>((resolve, reject) => {
+      const open = indexedDB.open(databaseName, databaseVersion)
+      open.onerror = () => reject(open.error ?? new Error("document database open failed"))
+      open.onsuccess = () => {
+        const database = open.result
+        const started = performance.now()
+        const transaction = database.transaction(storeName, "readwrite")
+        const fail = (error: unknown) => {
+          database.close()
+          reject(error)
+        }
+        transaction.onerror = () => fail(transaction.error ?? new Error("document write failed"))
+        transaction.onabort = () => fail(transaction.error ?? new Error("document write aborted"))
+        transaction.oncomplete = () => {
+          const durationMs = performance.now() - started
+          database.close()
+          resolve(durationMs)
+        }
+        transaction.objectStore(storeName).put(value, key)
+      }
+    })
+  ), {
+    databaseName: DOCUMENT_DATABASE_NAME,
+    databaseVersion: DOCUMENT_DATABASE_VERSION,
+    storeName: DOCUMENT_STORE_NAME,
+    key,
+    value,
+  })
+}
+
+function decodeStoredDocument(key: IDBValidKey, value: unknown): StoredDocument | null {
+  if (typeof key !== "string" || !key.startsWith(SOURCE_KEY_PREFIX) || typeof value !== "string") {
+    return null
+  }
   try {
     const parsed: unknown = JSON.parse(value)
     if (
@@ -63,6 +155,7 @@ async function readStoredDocument(page: Page): Promise<StoredDocument | null> {
       || JSON.stringify(Object.keys(parsed).sort()) !== JSON.stringify(["document_id", "text"])
       || !("document_id" in parsed)
       || typeof parsed.document_id !== "string"
+      || parsed.document_id !== key.slice(SOURCE_KEY_PREFIX.length)
       || !("text" in parsed)
       || typeof parsed.text !== "string"
     ) return null
@@ -72,7 +165,26 @@ async function readStoredDocument(page: Page): Promise<StoredDocument | null> {
   }
 }
 
-async function writeStoredDocumentRaw(page: Page, value: string): Promise<void> {
+async function readStoredDocuments(page: Page): Promise<StoredDocument[]> {
+  return (await scanStoreRecords(page))
+    .map(record => decodeStoredDocument(record.key, record.value))
+    .filter((document): document is StoredDocument => document !== null)
+    .sort((left, right) => left.document_id < right.document_id ? -1 : left.document_id > right.document_id ? 1 : 0)
+}
+
+async function readStoredDocument(page: Page): Promise<StoredDocument | null> {
+  return (await readStoredDocuments(page))[0] ?? null
+}
+
+async function readStoredDocumentRaw(page: Page, key: string | number): Promise<unknown> {
+  return (await scanStoreRecords(page)).find(record => record.key === key)?.value
+}
+
+async function writeStoredDocumentRaw(
+  page: Page,
+  key: string | number,
+  value: string,
+): Promise<void> {
   await page.evaluate(({ databaseName, databaseVersion, storeName, key, value }) => (
     new Promise<void>((resolve, reject) => {
       const open = indexedDB.open(databaseName, databaseVersion)
@@ -85,48 +197,90 @@ async function writeStoredDocumentRaw(page: Page, value: string): Promise<void> 
       open.onsuccess = () => {
         const database = open.result
         const transaction = database.transaction(storeName, "readwrite")
-        let settled = false
         const fail = (error: unknown) => {
-          if (settled) return
-          settled = true
           database.close()
           reject(error)
         }
         transaction.onerror = () => fail(transaction.error ?? new Error("document write failed"))
         transaction.onabort = () => fail(transaction.error ?? new Error("document write aborted"))
         transaction.oncomplete = () => {
-          if (settled) return
-          settled = true
           database.close()
           resolve()
         }
-        const request = transaction.objectStore(storeName).put(value, key)
-        request.onerror = () => fail(request.error ?? new Error("document write failed"))
+        transaction.objectStore(storeName).put(value, key)
       }
     })
   ), {
     databaseName: DOCUMENT_DATABASE_NAME,
     databaseVersion: DOCUMENT_DATABASE_VERSION,
     storeName: DOCUMENT_STORE_NAME,
-    key: ACTIVE_DOCUMENT_KEY,
+    key,
     value,
   })
 }
 
-function installDocumentPutFailure(key: string): void {
+async function replaceStoreRecords(page: Page, records: StoreRecord[]): Promise<void> {
+  await page.evaluate(({ databaseName, databaseVersion, storeName, records }) => (
+    new Promise<void>((resolve, reject) => {
+      const open = indexedDB.open(databaseName, databaseVersion)
+      open.onerror = () => reject(open.error ?? new Error("document database open failed"))
+      open.onsuccess = () => {
+        const database = open.result
+        const transaction = database.transaction(storeName, "readwrite")
+        const fail = (error: unknown) => {
+          database.close()
+          reject(error)
+        }
+        transaction.onerror = () => fail(transaction.error ?? new Error("document replace failed"))
+        transaction.onabort = () => fail(transaction.error ?? new Error("document replace aborted"))
+        transaction.oncomplete = () => {
+          database.close()
+          resolve()
+        }
+        const store = transaction.objectStore(storeName)
+        store.clear()
+        for (const record of records) store.put(record.value, record.key)
+      }
+    })
+  ), {
+    databaseName: DOCUMENT_DATABASE_NAME,
+    databaseVersion: DOCUMENT_DATABASE_VERSION,
+    storeName: DOCUMENT_STORE_NAME,
+    records,
+  })
+}
+
+function encodeStoredDocument(document: StoredDocument): string {
+  return JSON.stringify(document)
+}
+
+function installDocumentPutFailure(target: string | { prefix: string }): void {
   const state = globalThis as typeof globalThis & {
     __loomarkDocumentPutFailure?: boolean
+    __loomarkDocumentPutFailureCalls?: number
     __loomarkDocumentPutOriginal?: typeof IDBObjectStore.prototype.put
   }
   if (state.__loomarkDocumentPutFailure) return
   const prototype = IDBObjectStore.prototype as any
   const originalPut = prototype.put
   state.__loomarkDocumentPutOriginal = originalPut
+  state.__loomarkDocumentPutFailureCalls = 0
   prototype.put = function(this: IDBObjectStore, value: unknown, recordKey?: IDBValidKey) {
-    if (recordKey === key) throw new DOMException("full", "QuotaExceededError")
+    const matches = typeof target === "string"
+      ? recordKey === target
+      : typeof recordKey === "string" && recordKey.startsWith(target.prefix)
+    if (matches) {
+      state.__loomarkDocumentPutFailureCalls = (state.__loomarkDocumentPutFailureCalls ?? 0) + 1
+      throw new DOMException("full", "QuotaExceededError")
+    }
     return originalPut.call(this, value, recordKey)
   }
   state.__loomarkDocumentPutFailure = true
+}
+
+async function waitForRepositoryOpen(page: Page): Promise<void> {
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("# Untitled\n")
+  await expect.poll(() => readStoredDocument(page)).not.toBeNull()
 }
 
 function removeDocumentPutFailure(): void {
@@ -155,13 +309,13 @@ test("fresh production opens Text mode and preserves its textarea across modes",
 
   await expect(text).toBeVisible()
   await expect(text).toBeFocused()
-  await expect(text).toHaveValue("")
+  await expect(text).toHaveValue("# Untitled\n")
   await expect(textTab).toHaveAttribute("aria-selected", "true")
   await expect(previewTab).toHaveAttribute("aria-selected", "false")
   await expect(splitTab).toHaveAttribute("aria-selected", "false")
   await expect.poll(() => readStoredDocument(page)).toEqual({
     document_id: expect.any(String),
-    text: "",
+    text: "# Untitled\n",
   })
   await text.evaluate(element => {
     ;(globalThis as typeof globalThis & { __loomarkTextArea?: HTMLTextAreaElement })
@@ -203,8 +357,186 @@ test("fresh production opens Text mode and preserves its textarea across modes",
   }))).toEqual({ start: 1, end: 2 })
   await text.focus()
   await page.keyboard.press("Control+Z")
-  await expect(text).toHaveValue("")
+  await expect(text).toHaveValue("# Untitled\n")
   expect(workerUrls).toEqual([])
+})
+
+test("baseline quota reports storage full without creating a Source", async ({ page }) => {
+  await page.addInitScript(installDocumentPutFailure, { prefix: SOURCE_KEY_PREFIX })
+  await page.goto("/")
+  await expect(page.getByRole("heading", { name: "Document recovery" })).toBeVisible()
+  await expect(page.getByText("Browser storage is full.")).toBeVisible()
+  expect(await scanStoreRecords(page)).toEqual([])
+})
+
+test("opening and saving persist only authoritative Source records", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await expect(text).toHaveValue("# Untitled\n")
+  await expect.poll(() => readStoredDocument(page)).not.toBeNull()
+  const baseline = await readStoredDocument(page)
+  if (!baseline) throw new Error("baseline Source missing")
+
+  await text.fill("# Source only\n")
+  await expect.poll(() => readStoredDocument(page)).toEqual({
+    document_id: baseline.document_id,
+    text: "# Source only\n",
+  })
+  await page.reload()
+  await expect(text).toHaveValue("# Source only\n")
+  expect(await scanStoreRecords(page)).toEqual([{
+    key: sourceKey(baseline.document_id),
+    value: encodeStoredDocument({
+      document_id: baseline.document_id,
+      text: "# Source only\n",
+    }),
+  }])
+})
+
+test("several Sources select the first lexical Document ID without writing metadata", async ({ page }) => {
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const documentA = { document_id: "document-a", text: "# Same\n" }
+  const documentB = { document_id: "document-b", text: "# Same\n" }
+  await replaceStoreRecords(page, [
+    { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB) },
+    { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA) },
+    { key: "source/v2/future", value: "future" },
+  ])
+
+  await page.reload()
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(documentA.text)
+  expect(await readStoredDocumentRaw(page, CATALOG_KEY)).toBeUndefined()
+  expect(await readStoredDocumentRaw(page, "source/v2/future")).toBe("future")
+})
+
+test("legacy active record migrates atomically and is removed", async ({ page }) => {
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const legacy = { document_id: "legacy-document", text: "# Legacy\n" }
+  const encoded = encodeStoredDocument(legacy)
+  await replaceStoreRecords(page, [{ key: LEGACY_ACTIVE_KEY, value: encoded }])
+
+  await page.reload()
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(legacy.text)
+  await expect.poll(() => readStoredDocumentRaw(page, LEGACY_ACTIVE_KEY)).toBeUndefined()
+  expect(await readStoredDocumentRaw(page, sourceKey(legacy.document_id))).toBe(encoded)
+})
+
+test("legacy collision preserves both records and opens a fresh baseline", async ({ page }) => {
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const legacy = { document_id: "legacy-collision", text: "# Legacy\n" }
+  const encoded = encodeStoredDocument(legacy)
+  const targetKey = sourceKey(legacy.document_id)
+  await replaceStoreRecords(page, [
+    { key: LEGACY_ACTIVE_KEY, value: encoded },
+    { key: targetKey, value: "corrupt-target" },
+  ])
+
+  await page.reload()
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("# Untitled\n")
+  expect(await readStoredDocumentRaw(page, LEGACY_ACTIVE_KEY)).toBe(encoded)
+  expect(await readStoredDocumentRaw(page, targetKey)).toBe("corrupt-target")
+})
+
+test("legacy migration failure rolls back the Source put and preserves active", async ({ page }) => {
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const legacy = { document_id: "legacy-rollback", text: "# Preserve\n" }
+  const encoded = encodeStoredDocument(legacy)
+  await replaceStoreRecords(page, [{ key: LEGACY_ACTIVE_KEY, value: encoded }])
+  await page.addInitScript(key => {
+    const prototype = IDBObjectStore.prototype
+    const originalDelete = prototype.delete
+    Object.defineProperty(prototype, "delete", {
+      configurable: true,
+      writable: true,
+      value(this: IDBObjectStore, recordKey: IDBValidKey | IDBKeyRange) {
+        if (recordKey === key) throw new DOMException("blocked", "InvalidStateError")
+        return originalDelete.call(this, recordKey)
+      },
+    })
+  }, LEGACY_ACTIVE_KEY)
+
+  await page.reload()
+  await expect(page.getByRole("heading", { name: "Document recovery" })).toBeVisible()
+  expect(await readStoredDocumentRaw(page, LEGACY_ACTIVE_KEY)).toBe(encoded)
+  expect(await readStoredDocumentRaw(page, sourceKey(legacy.document_id))).toBeUndefined()
+})
+
+test("unknown metadata is preserved and cannot override a Source", async ({ page }) => {
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const document = { document_id: "document-a", text: "# Current\n" }
+  const metadata = JSON.stringify({
+    entries: [{ document_id: "document-a", name: "Stale" }],
+  })
+  await replaceStoreRecords(page, [
+    { key: sourceKey(document.document_id), value: encodeStoredDocument(document) },
+    { key: CATALOG_KEY, value: metadata },
+  ])
+
+  await page.reload()
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(document.text)
+  expect(await readStoredDocumentRaw(page, CATALOG_KEY)).toBe(metadata)
+})
+
+test("IndexedDB cursor scan measures 10, 100, and 1000 Source records", async ({ page }, testInfo) => {
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const largeBody = "Representative large Markdown paragraph.\n\n".repeat(256)
+  for (const count of [10, 100, 1000]) {
+    const records = Array.from({ length: count }, (_, index): StoreRecord => {
+      const document = {
+        document_id: `scan-${index}`,
+        text: `# Scan ${index}\n\n${index % 100 === 0 ? largeBody : "Small body.\n"}`,
+      }
+      return {
+        key: sourceKey(document.document_id),
+        value: encodeStoredDocument(document),
+      }
+    })
+    await replaceStoreRecords(page, records)
+    const samples: number[] = []
+    for (let sample = 0; sample < 5; sample += 1) {
+      const measurement = await measureIndexedDbScan(page)
+      expect(measurement.count).toBe(count)
+      samples.push(measurement.durationMs)
+    }
+    samples.sort((left, right) => left - right)
+    const median = samples[Math.floor(samples.length / 2)]
+    testInfo.annotations.push({
+      type: "indexeddb-scan-median",
+      description: `${count} Sources: ${median.toFixed(3)} ms`,
+    })
+    console.log(`IndexedDB scan ${count} Sources median: ${median.toFixed(3)} ms`)
+  }
+})
+
+test("IndexedDB Source put measures small and 1 MiB records", async ({ page }, testInfo) => {
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  for (const [name, text] of [
+    ["small", "# Small\n"],
+    ["1 MiB", `# Large\n${"x".repeat(1024 * 1024)}`],
+  ] as const) {
+    const document = { document_id: `put-${name}`, text }
+    const key = sourceKey(document.document_id)
+    const encoded = encodeStoredDocument(document)
+    const samples: number[] = []
+    for (let sample = 0; sample < 5; sample += 1) {
+      samples.push(await measureIndexedDbPut(page, key, encoded))
+    }
+    samples.sort((left, right) => left - right)
+    const median = samples[Math.floor(samples.length / 2)]
+    testInfo.annotations.push({
+      type: "indexeddb-put-median",
+      description: `${name} Source: ${median.toFixed(3)} ms`,
+    })
+    console.log(`IndexedDB put ${name} Source median: ${median.toFixed(3)} ms`)
+    expect(await readStoredDocumentRaw(page, key)).toBe(encoded)
+  }
 })
 
 test("Preview prepares after its status paints and refreshes typed Markdown", async ({ page }) => {
@@ -574,7 +906,10 @@ test("quiet Autosave restores exact Saved text after reload", async ({ page }) =
 
 test("rapid Text input writes only the latest text", async ({ page }) => {
   await page.goto("/")
-  await expect.poll(() => readStoredDocument(page).then(document => document?.text)).toBe("")
+  await expect.poll(() => readStoredDocument(page).then(document => document?.text))
+    .toBe("# Untitled\n")
+  const initial = await readStoredDocument(page)
+  if (!initial) throw new Error("baseline Source missing")
   await page.evaluate(key => {
     const scope = globalThis as typeof globalThis & { __loomarkStoredValues?: string[] }
     const originalPut = IDBObjectStore.prototype.put
@@ -589,7 +924,7 @@ test("rapid Text input writes only the latest text", async ({ page }) => {
       }
       return originalPut.call(this, value, recordKey)
     }
-  }, ACTIVE_DOCUMENT_KEY)
+  }, sourceKey(initial.document_id))
 
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill("A")
@@ -605,11 +940,13 @@ test("rapid Text input writes only the latest text", async ({ page }) => {
 
 test("IME composition saves only after composition ends", async ({ page }) => {
   await page.goto("/")
-  await expect.poll(() => readStoredDocument(page).then(document => document?.text)).toBe("")
+  await expect.poll(() => readStoredDocument(page).then(document => document?.text))
+    .toBe("# Untitled\n")
 
   const text = page.getByRole("textbox", { name: "Text" })
   await text.evaluate(element => {
     const textarea = element as HTMLTextAreaElement
+    textarea.setSelectionRange(0, textarea.value.length)
     textarea.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }))
     textarea.value = "変換中"
     textarea.dispatchEvent(new InputEvent("input", {
@@ -621,7 +958,7 @@ test("IME composition saves only after composition ends", async ({ page }) => {
   })
   await expect(text).toHaveValue("変換中")
   await page.waitForTimeout(300)
-  expect((await readStoredDocument(page))?.text).toBe("")
+  expect((await readStoredDocument(page))?.text).toBe("# Untitled\n")
 
   const terminalValueReads = await text.evaluate(element => {
     const descriptor = Object.getOwnPropertyDescriptor(
@@ -704,9 +1041,11 @@ test("save failure keeps Text editable and Retry saves the latest text", async (
   await page.goto("/")
   await expect.poll(() => readStoredDocument(page)).toEqual({
     document_id: expect.any(String),
-    text: "",
+    text: "# Untitled\n",
   })
-  await page.evaluate(installDocumentPutFailure, ACTIVE_DOCUMENT_KEY)
+  const baseline = await readStoredDocument(page)
+  if (!baseline) throw new Error("baseline Source missing")
+  await page.evaluate(installDocumentPutFailure, sourceKey(baseline.document_id))
 
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill("# Not saved\n")
@@ -716,7 +1055,7 @@ test("save failure keeps Text editable and Retry saves the latest text", async (
   await text.fill("# Latest text\n")
   await expect(text).toHaveValue("# Latest text\n")
   await page.waitForTimeout(300)
-  expect((await readStoredDocument(page))?.text).toBe("")
+  expect((await readStoredDocument(page))?.text).toBe("# Untitled\n")
 
   await page.evaluate(removeDocumentPutFailure)
   await page.getByRole("button", { name: "Retry saving" }).click()
@@ -727,18 +1066,53 @@ test("save failure keeps Text editable and Retry saves the latest text", async (
   await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("# Latest text\n")
 })
 
-test("invalid stored document opens Recovery without overwriting it", async ({ page }) => {
-  const invalidDocument = "not-json"
+test("saving one Source preserves unrelated Sources and unknown metadata", async ({ page }) => {
   await page.goto("/")
-  await expect.poll(() => readStoredDocument(page)).not.toBeNull()
-  await writeStoredDocumentRaw(page, invalidDocument)
+  await waitForRepositoryOpen(page)
+  const documentA = { document_id: "document-a", text: "# A\n" }
+  const documentB = { document_id: "document-b", text: "# B\n" }
+  const encodedB = encodeStoredDocument(documentB)
+  const catalogMetadata = "opaque-catalog"
+  const futureMetadata = "opaque-future"
+  await replaceStoreRecords(page, [
+    { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA) },
+    { key: sourceKey(documentB.document_id), value: encodedB },
+    { key: CATALOG_KEY, value: catalogMetadata },
+    { key: "metadata/v2/future", value: futureMetadata },
+  ])
 
   await page.reload()
-  await expect(page.getByRole("heading", { name: "Document recovery" })).toBeVisible()
-  await expect(page.getByText("The stored document is invalid and was not overwritten."))
-    .toBeVisible()
-  await expect(page.getByRole("textbox", { name: "Text" })).toHaveCount(0)
-  expect(await readStoredDocumentRaw(page)).toBe(invalidDocument)
+  const text = page.getByRole("textbox", { name: "Text" })
+  await expect(text).toHaveValue(documentA.text)
+  await text.fill("# Updated A\n")
+  await expect.poll(() => readStoredDocumentRaw(page, sourceKey(documentA.document_id)))
+    .toBe(encodeStoredDocument({ ...documentA, text: "# Updated A\n" }))
+  await page.reload()
+  await expect(text).toHaveValue("# Updated A\n")
+  expect(await readStoredDocumentRaw(page, sourceKey(documentB.document_id))).toBe(encodedB)
+  expect(await readStoredDocumentRaw(page, CATALOG_KEY)).toBe(catalogMetadata)
+  expect(await readStoredDocumentRaw(page, "metadata/v2/future")).toBe(futureMetadata)
+  expect((await scanStoreRecords(page)).map(record => record.key)).toEqual([
+    CATALOG_KEY,
+    "metadata/v2/future",
+    sourceKey(documentA.document_id),
+    sourceKey(documentB.document_id),
+  ])
+})
+
+test("valid and corrupt Source records coexist without overwriting corruption", async ({ page }) => {
+  const invalidDocument = "not-json"
+  const corruptKey = sourceKey("corrupt-document")
+  await page.goto("/")
+  await expect.poll(() => readStoredDocument(page)).not.toBeNull()
+  const baseline = await readStoredDocument(page)
+  if (!baseline) throw new Error("baseline Source missing")
+  await writeStoredDocumentRaw(page, corruptKey, invalidDocument)
+
+  await page.reload()
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(baseline.text)
+  await expect(page.getByRole("heading", { name: "Document recovery" })).toHaveCount(0)
+  expect(await readStoredDocumentRaw(page, corruptKey)).toBe(invalidDocument)
 })
 
 test("native range edits avoid complete value access and native undo reads once", async ({ page }) => {
