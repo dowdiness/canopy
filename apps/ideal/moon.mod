@@ -16,7 +16,7 @@ import {
   "dowdiness/text_change@0.1.0",
   "dowdiness/graphviz@0.1.0",
   "dowdiness/lambda@0.1.0",
-  "dowdiness/event-graph-walker@0.7.1",
+  "dowdiness/event-graph-walker@0.8.0",
   "dowdiness/visualizer@0.1.0",
   "dowdiness/canvas-spatial@0.1.0",
   "dowdiness/incr@0.15.1",

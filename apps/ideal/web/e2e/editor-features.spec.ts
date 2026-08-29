@@ -150,6 +150,39 @@ test.describe('Persistence', () => {
       return text.includes('add5') && !text.includes('apply id 42');
     });
   });
+
+  test('rejects and removes stored text schema 1 state', async ({ page }) => {
+    const room = `schema-1-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const key = `canopy-doc-${room}`;
+    await page.addInitScript(({ storageKey }) => {
+      localStorage.setItem(
+        storageKey,
+        '{"schema":1,"format":"event-graph-walker/text-sync","operations":[],"heads":[]}',
+      );
+    }, { storageKey: key });
+
+    await waitForEditor(page, `/#${room}`);
+    expect(
+      await page.evaluate((storageKey) => localStorage.getItem(storageKey), key),
+    ).toBeNull();
+    expect(
+      await page.evaluate(() => {
+        const bridge = (globalThis as any).__canopy_bridge;
+        try {
+          bridge.crdt.export_since_json(
+            bridge.crdtHandle,
+            '{"schema":1,"format":"event-graph-walker/text-version","entries":[]}',
+          );
+          return false;
+        } catch {
+          return true;
+        }
+      }),
+    ).toBe(true);
+
+    await page.getByRole('button', { name: 'Basics' }).click();
+    await expect(page.locator('#canopy-text-editor .cm-content')).toContainText('double');
+  });
 });
 
 // ── CodeMirror Rendering ─────────────────────────────────────

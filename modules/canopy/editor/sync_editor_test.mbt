@@ -505,8 +505,8 @@ test "SyncEditor: concurrent middle inserts converge with parser state" {
   try! alice.apply_sync(try! bob.export_all())
   try! bob.apply_sync(try! alice.export_all())
 
-  inspect(alice.get_text(), content="abBAcd")
-  inspect(bob.get_text(), content="abBAcd")
+  inspect(alice.get_text(), content="abABcd")
+  inspect(bob.get_text(), content="abABcd")
   inspect(
     @probe.get_test_ast(alice) == @probe.get_test_ast(bob),
     content="true",

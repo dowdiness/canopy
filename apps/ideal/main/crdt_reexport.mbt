@@ -71,12 +71,12 @@ pub fn delete_at(handle : Int, pos : Int, ts : Int) -> Bool raise {
 }
 
 ///|
-pub fn export_all_json(handle : Int) -> String {
+pub fn export_all_json(handle : Int) -> String raise {
   @ffi.export_all_json(handle)
 }
 
 ///|
-pub fn export_since_json(handle : Int, peer_version : String) -> String {
+pub fn export_since_json(handle : Int, peer_version : String) -> String raise {
   @ffi.export_since_json(handle, peer_version)
 }
 

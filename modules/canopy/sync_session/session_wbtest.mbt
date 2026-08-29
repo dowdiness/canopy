@@ -48,6 +48,7 @@ test "SyncSession: retries only causal dependency failures" {
         ),
       ),
       should_retry_sync_error(@text.TextError::VersionNotFound),
+      should_retry_sync_error(@text.TextError::ProjectionRecoveryRequired),
       should_retry_sync_error(
         @text.TextError::SyncFailed(
           @sync.Failure::MalformedMessage(detail="bad envelope"),
@@ -73,7 +74,7 @@ test "SyncSession: retries only causal dependency failures" {
         ),
       ),
     ],
-    content="[true, true, false, false, false, false]",
+    content="[true, true, true, false, false, false, false]",
   )
 }
 
@@ -104,6 +105,74 @@ test "SyncStatus: Show impl" {
 }
 
 // Dispatch: recovery buffering and response staleness
+
+///|
+test "SyncSession: projection recovery failure starts peer recovery" {
+  let session = SyncSession()
+  session.on_open()
+  let message = empty_msg_or_fail()
+  let sent : Array[Bytes] = []
+  let host = SyncHost(
+    io=test_io(sent),
+    apply_sync=_ => raise @text.TextError::ProjectionRecoveryRequired,
+    export_all=() => empty_msg_or_fail(),
+    export_since=_ => empty_msg_or_fail(),
+    apply_ephemeral=(_, _) => (),
+    encode_ephemeral=_ => Bytes::new(0),
+    on_peer_leave=_ => (),
+  )
+  let payload = Buffer()
+  payload.write_string_utf16le(message.to_json_string().view())
+  session.on_message(
+    @wire.encode_relayed_crdt_ops("alice", payload.to_bytes()),
+    host,
+  )
+  inspect(session.recovery is Some(_), content="true")
+  inspect(sent.length(), content="1")
+  inspect(
+    session.get_status(),
+    content=(
+      #|Recovering(peer_id="alice", attempt=1)
+    ),
+  )
+}
+
+///|
+test "SyncSession: projection recovery during delta consumes retry" {
+  let session = SyncSession()
+  session.on_open()
+  let message = empty_msg_or_fail()
+  session.recovery_epoch = 1
+  session.recovery = Some(RecoveryContext::new("alice", message, 1))
+  session.set_status(Recovering(peer_id="alice", attempt=1))
+  let sent : Array[Bytes] = []
+  let host = SyncHost(
+    io=test_io(sent),
+    apply_sync=_ => raise @text.TextError::ProjectionRecoveryRequired,
+    export_all=() => empty_msg_or_fail(),
+    export_since=_ => empty_msg_or_fail(),
+    apply_ephemeral=(_, _) => (),
+    encode_ephemeral=_ => Bytes::new(0),
+    on_peer_leave=_ => (),
+  )
+  session.on_message(
+    @wire.encode_sync_response(
+      target="alice",
+      request_id="1",
+      sync_json=message.to_json_string(),
+    ),
+    host,
+  )
+  inspect(session.recovery is Some(_), content="true")
+  inspect(session.recovery.unwrap().retries, content="1")
+  inspect(sent.length(), content="1")
+  inspect(
+    session.get_status(),
+    content=(
+      #|Recovering(peer_id="alice", attempt=2)
+    ),
+  )
+}
 
 ///|
 test "SyncSession: RelayedCrdtOps buffers during recovery" {

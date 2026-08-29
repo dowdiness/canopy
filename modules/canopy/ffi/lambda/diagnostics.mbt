@@ -118,32 +118,26 @@ pub fn get_diagnostics_json(handle : Int) -> String {
 }
 
 ///|
-const EMPTY_SYNC_JSON : String = "{\"schema\":1,\"format\":\"event-graph-walker/text-sync\",\"operations\":[],\"heads\":[]}"
-
-///|
 /// Export all operations as a SyncMessage JSON string.
-pub fn export_all_json(handle : Int) -> String {
+pub fn export_all_json(handle : Int) -> String raise {
   match lambda_registry.get(handle) {
-    Some(h) =>
-      h.editor.export_all().to_json_string() catch {
-        _ => EMPTY_SYNC_JSON
-      }
-    None => EMPTY_SYNC_JSON
+    Some(h) => h.editor.export_all().to_json_string()
+    None => fail("invalid editor handle")
   }
 }
 
 ///|
 /// Export operations since a peer's version as a SyncMessage JSON string.
-pub fn export_since_json(handle : Int, peer_version_json : String) -> String {
+pub fn export_since_json(
+  handle : Int,
+  peer_version_json : String,
+) -> String raise {
   match lambda_registry.get(handle) {
-    Some(h) =>
-      try {
-        let ver = @text.Version::from_json_string(peer_version_json)
-        h.editor.export_since(ver).to_json_string()
-      } catch {
-        _ => EMPTY_SYNC_JSON
-      }
-    None => EMPTY_SYNC_JSON
+    Some(h) => {
+      let version = @text.Version::from_json_string(peer_version_json)
+      h.editor.export_since(version).to_json_string()
+    }
+    None => fail("invalid editor handle")
   }
 }
 
