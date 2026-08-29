@@ -16,6 +16,17 @@ test "derived name flattens supported inline content" {
 }
 
 ///|
+test "derived name fails closed for an unsafe inline semantic value" {
+  let builder = StringBuilder()
+  assert_false(
+    append_inlines(
+      [@markdown.Inline::Text("prefix"), @markdown.Inline::Error("recovered")],
+      builder,
+    ),
+  )
+}
+
+///|
 test "derived name excludes non-ATX-H1 forms" {
   for
     source in [
