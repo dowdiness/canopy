@@ -5,7 +5,10 @@
 (#1372). This plan remains authoritative for Loading, Autosave, Recovery,
 and the production E2E suite. Its "no Parser" statement now means that a
 session remaining in Text mode creates no Parser; the new plan owns lazy
-Preview preparation after Preview or Split is selected.
+Preview preparation after Preview or Split is selected. The original
+single-`active` storage contract is superseded by
+[the Source repository decision](../decisions/2026-08-29-loomark-source-repository.md)
+and #1303.
 
 ## Goal
 
@@ -52,9 +55,11 @@ apps/loomark/
     model.mbt
     update.mbt
     view.mbt
-  internal/browser_storage/
+  internal/source_repository/
     storage.mbt
-    storage_wbtest.mbt
+    reconciliation.mbt
+    source_codec.mbt
+    catalog_codec.mbt
   main/
     main.mbt
   cmd/
@@ -65,42 +70,25 @@ apps/loomark/
 path and is a symlink to that single entry package; it contains no application
 logic.
 
-The browser-storage Interface is exactly:
-
-```moonbit
-pub fn open(result~ : @cmd.Emit[OpenResult]) -> @cmd.Cmd
-
-pub fn save(
-  document_id : String,
-  text : String,
-  result~ : @cmd.Emit[SaveResult],
-) -> @cmd.Cmd
-```
-
-The storage module owns the IndexedDB configuration, record codec, document ID
-allocation, and storage error classification. No caller knows its database,
-store, or key names.
+The Source repository exposes command boundaries for opening a reconciled
+`RepositorySnapshot` and saving one accepted Source against the in-memory
+Catalog. The package owns IndexedDB configuration, complete-store scanning,
+strict codecs, document ID allocation, legacy migration, catalog derivation,
+and storage error classification. No caller knows its database, store, or key
+names.
 
 ## Storage contract
 
-There is one database, one store, one active key, and one record shape:
+The database remains `loomark`, version `1`, with object store `documents`.
+Each `source/v1/<document-id>` value retains the strict two-field
+`document_id`/`text` shape and is independently authoritative. `catalog/v1` is
+a rebuildable cache derived from a full Source scan. Missing, stale, or malformed
+catalog state does not prevent valid Sources from opening.
 
-```json
-{
-  "document_id": "...",
-  "text": "..."
-}
-```
-
-A valid record has exactly these two fields, both strings, and a non-empty
-`document_id`. Missing, extra, mistyped, or malformed fields are invalid.
-Invalid data is not overwritten; the app enters Recovery.
-
-A missing record creates an identity with `crypto.randomUUID()`. If that API is
-unavailable, opening fails explicitly. There is no UUID fallback.
-
-There is no schema version, alternate key, alternate storage backend, old
-record decoder, migration, compatibility alias, or best-effort recovery.
+An empty repository creates a UUID-backed Source containing exact text
+`# Untitled\n`. The former `active` value is migrated with one atomic Source put
+and legacy delete when no conflicting target exists. Corrupt and unsupported
+records are preserved and reported rather than overwritten.
 
 ## Autosave
 
@@ -148,10 +136,10 @@ must be removed afterward.
 
 ```bash
 cd apps/loomark
-NEW_MOON_MOD=0 moon test internal/browser_storage --target js
-NEW_MOON_MOD=0 moon check internal/browser_storage app main --target js
-NEW_MOON_MOD=0 moon fmt internal/browser_storage app main
-NEW_MOON_MOD=0 moon info internal/browser_storage app main
+NEW_MOON_MOD=0 moon test internal/source_repository app --target js --release
+NEW_MOON_MOD=0 moon check internal/source_repository app main --target js
+NEW_MOON_MOD=0 moon fmt internal/source_repository app main
+NEW_MOON_MOD=0 moon info internal/source_repository app main
 
 cd ../..
 ./scripts/test-loomark-standalone-e2e.sh
@@ -160,5 +148,6 @@ moon test
 ```
 
 After `moon info`, inspect generated `.mbti` files. The only public Loomark app
-interface is `app() -> @rabbita.Val[@rabbita.Html]`; browser storage exposes
-only `open`, `save`, and their result types.
+interface is `app() -> @rabbita.Val[@rabbita.Html]`; Source repository API
+drift must match its generated interface and the accepted Source repository
+ADR.

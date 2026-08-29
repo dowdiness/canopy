@@ -10,6 +10,8 @@
 
 - [Loomark production E2E boundary](2026-08-24-loomark-production-e2e-boundary.md)
 - [Standard Rabbita Text app](../plans/2026-08-24-loomark-standard-rabbita-text-app.md)
+- [Loomark Source repository](2026-08-29-loomark-source-repository.md), which
+  supersedes this decision's original single-record recovery details
 - [#1347 — bound local saving without entering Text input tasks](https://github.com/dowdiness/canopy/issues/1347)
 
 ## Context
@@ -45,8 +47,11 @@ The current release exposes Text mode only. Block mode and Preview mode remain p
 - A crash before saving completes may lose changes that are present in Document text.
 - A save failure leaves Document text editable, shows that changes are not saved, and permits an explicit Retry.
 - Once saving completes, reopening restores the exact Saved text and Loomark document identity.
-- When browser storage has no document, Loomark creates a new empty Loomark document.
-- When a stored document exists but cannot be loaded safely, Loomark preserves it and enters Recovery instead of replacing it automatically.
+- When the Source repository has no valid document, Loomark creates the
+  baseline defined by the later Source repository decision.
+- Record-level corruption is preserved and isolated when another valid Source
+  can open; repository-wide access, migration, identity, or authoritative-write
+  failure enters Recovery.
 - Reopening does not restore prior undo history or internal block identities.
 - Browser-based Text mode uses LF line terminators. Exact imported-file terminators require a separate file capability.
 - A catalog of Loomark documents can be built without waiting for complete editing-history storage.

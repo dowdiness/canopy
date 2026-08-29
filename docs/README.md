@@ -135,6 +135,10 @@ Only needed if you are modifying Canopy itself.
 - [Loomark post-commit persistence preparation characterization](performance/2026-08-16-loomark-persistence-preparation.md)
   — attributes the 2,000-line pre-frame delay to complete archive preparation
   and records isolated archive scaling.
+- [Loomark Source reconciliation characterization](performance/2026-08-29-loomark-source-reconciliation.md)
+  — separates production IndexedDB cursor scans from Source decode, ATX H1 name
+  derivation, Catalog comparison, and complete reconciliation at 10–1,000
+  Sources.
 - [Real Browser Editor Response Baseline](performance/2026-05-13-real-browser-editor-response.md)
 - [Benchmark Redesign](performance/BENCHMARK_REDESIGN.md)
 - [Performance Analysis](performance/PERFORMANCE_ANALYSIS.md)
@@ -238,6 +242,10 @@ behavior** — check the code before relying on any specific detail.
   access path; retained state remains a validated accelerator.
 - [Authority-owned remote admission transition](decisions/2026-08-19-authority-owned-remote-admission-transition.md)
   — consumes one opaque EGW admission transition, reconciles exact effects without a full authority snapshot, and bounds grapheme-safe snapshot fallback.
+- [Loomark Source repository](decisions/2026-08-29-loomark-source-repository.md)
+  — makes versioned Source records independently authoritative, treats the
+  Catalog as rebuildable cache, atomically migrates `active`, and separates
+  Source durability from Catalog repair.
 
 ## Historical / Archive
 

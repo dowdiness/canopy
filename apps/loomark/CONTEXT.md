@@ -63,9 +63,21 @@ The most recent Document text successfully written to browser storage. It may
 be older than the current Document text.
 _Avoid_: edit history, backup
 
-**Browser storage**:
-The IndexedDB record containing one document identity and its Saved text.
-_Avoid_: archive, repository, alternate storage
+**Source repository**:
+The IndexedDB-backed collection of independently authoritative Source records.
+Opening scans and reconciles the collection; it does not treat catalog state as
+Document existence authority.
+_Avoid_: archive, aggregate document record, alternate storage
+
+**Source record**:
+One versioned `source/v1/<document-id>` record containing a Document ID and its
+exact Saved text.
+_Avoid_: catalog entry, session, backup
+
+**Catalog**:
+The rebuildable `catalog/v1` cache of Document IDs and names derived from Source
+records. Catalog failure never invalidates a committed Source.
+_Avoid_: document authority, index of truth
 
 **Autosave**:
 Saving the current Document text after input is quiet for 250 ms and IME
@@ -73,6 +85,8 @@ composition has ended.
 _Avoid_: periodic backup, manual save
 
 **Recovery**:
-The state shown when the browser-storage record cannot be opened safely. Loomark
-preserves the stored value and does not open an editor or replace the value.
-_Avoid_: automatic reset, save failure
+The state shown when the Source repository cannot produce a usable snapshot
+because storage access, migration, identity creation, or authoritative Source
+writing failed. Record-level corruption is isolated when another valid Source
+can open.
+_Avoid_: automatic reset, catalog repair, save failure
