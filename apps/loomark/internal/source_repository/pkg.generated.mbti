@@ -19,7 +19,7 @@ pub fn encode_source(SourceRecord) -> String
 
 pub fn open(result~ : @cmd.Emit[OpenResult]) -> @cmd.Cmd
 
-pub fn save(String, String, result~ : @cmd.Emit[SaveResult]) -> @cmd.Cmd
+pub fn save(Catalog, String, String, result~ : @cmd.Emit[SaveResult]) -> @cmd.Cmd
 
 pub fn source_key(String) -> String?
 
@@ -48,28 +48,55 @@ pub(all) enum NameDerivationFailure {
 } derive(Eq, @debug.Debug)
 
 pub(all) enum OpenFailure {
-  InvalidRecord
   StorageUnavailable
   ReadFailed
   DocumentIdentityUnavailable
-} derive(Eq)
+  WriteFailed
+} derive(Eq, @debug.Debug)
 
 pub(all) enum OpenResult {
-  New(String)
-  Loaded(String, String)
+  Ready(RepositorySnapshot)
   Failed(OpenFailure)
-} derive(Eq)
+} derive(Eq, @debug.Debug)
+
+pub(all) enum RepositoryIssue {
+  InvalidSource(String)
+  SourceIdentityMismatch(String)
+  UnsupportedSourceSchema(String)
+  UnknownRecord(String)
+  UnsupportedRecord(String)
+  UnsupportedKey(Int)
+  InvalidCatalog
+  StaleCatalog
+  CatalogWriteFailure
+  NameDerivationFailed(String)
+  InvalidLegacyRecord
+  LegacyMigrationCollision(String)
+} derive(Eq, @debug.Debug)
+
+pub struct RepositorySnapshot(Array[SourceRecord], Catalog, Array[RepositoryIssue]) derive(Eq, @debug.Debug)
+pub fn RepositorySnapshot::catalog(Self) -> Catalog
+pub fn RepositorySnapshot::from_sources(Array[SourceRecord]) -> Self?
+pub fn RepositorySnapshot::issues(Self) -> ArrayView[RepositoryIssue]
+pub fn RepositorySnapshot::selected(Self) -> SourceRecord?
+pub fn RepositorySnapshot::sources(Self) -> ArrayView[SourceRecord]
 
 pub(all) enum SaveFailure {
+  InvalidSource
   StorageUnavailable
   QuotaExceeded
   WriteFailed
-} derive(Eq)
+} derive(Eq, @debug.Debug)
 
 pub(all) enum SaveResult {
-  Stored
+  Stored(SaveSuccess)
   Failed(SaveFailure)
-} derive(Eq)
+} derive(Eq, @debug.Debug)
+
+pub struct SaveSuccess(Catalog, Array[RepositoryIssue]) derive(Eq, @debug.Debug)
+pub fn SaveSuccess::catalog(Self) -> Catalog
+pub fn SaveSuccess::issues(Self) -> ArrayView[RepositoryIssue]
+pub fn SaveSuccess::new(Catalog, Array[RepositoryIssue]) -> Self
 
 pub(all) enum SourceDecodeFailure {
   InvalidRecord

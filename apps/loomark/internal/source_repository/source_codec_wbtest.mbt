@@ -19,61 +19,28 @@ test "source key and payload identity must match" {
 }
 
 ///|
-test "stored document codec preserves identity and text" {
-  let encoded = encode_document("document-1", "# Text\n")
-  inspect(
-    decode_document(encoded) == OpenResult::Loaded("document-1", "# Text\n"),
-    content="true",
-  )
+test "source decoder rejects malformed missing and extra fields" {
+  for
+    encoded in [
+      "not-json", "{\"document_id\":\"document-1\"}", "{\"document_id\":\"document-1\",\"text\":\"# Text\\n\",\"extra\":\"unexpected\"}",
+    ] {
+    assert_eq(
+      decode_source("source/v1/document-1", encoded),
+      Err(SourceDecodeFailure::InvalidRecord),
+    )
+  }
 }
 
 ///|
-test "stored document decoder rejects malformed JSON" {
-  inspect(decode_document("not-json") == Failed(InvalidRecord), content="true")
-}
-
-///|
-test "stored document decoder rejects missing fields" {
-  inspect(
-    decode_document("{\"document_id\":\"document-1\"}") == Failed(InvalidRecord),
-    content="true",
-  )
-}
-
-///|
-test "stored document decoder rejects extra fields" {
-  inspect(
-    decode_document(
-      "{\"document_id\":\"document-1\",\"text\":\"# Text\\n\",\"extra\":\"unexpected\"}",
-    ) ==
-    Failed(InvalidRecord),
-    content="true",
-  )
-}
-
-///|
-test "stored document decoder rejects an empty identity" {
-  inspect(
-    decode_document("{\"document_id\":\"\",\"text\":\"# Text\\n\"}") ==
-    Failed(InvalidRecord),
-    content="true",
-  )
-}
-
-///|
-test "stored document decoder rejects a non-string identity" {
-  inspect(
-    decode_document("{\"document_id\":1,\"text\":\"# Text\\n\"}") ==
-    Failed(InvalidRecord),
-    content="true",
-  )
-}
-
-///|
-test "stored document decoder rejects non-string text" {
-  inspect(
-    decode_document("{\"document_id\":\"document-1\",\"text\":null}") ==
-    Failed(InvalidRecord),
-    content="true",
-  )
+test "source decoder rejects empty or wrongly typed fields" {
+  for
+    encoded in [
+      "{\"document_id\":\"\",\"text\":\"# Text\\n\"}", "{\"document_id\":1,\"text\":\"# Text\\n\"}",
+      "{\"document_id\":\"document-1\",\"text\":null}",
+    ] {
+    assert_eq(
+      decode_source("source/v1/document-1", encoded),
+      Err(SourceDecodeFailure::InvalidRecord),
+    )
+  }
 }

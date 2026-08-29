@@ -15,6 +15,8 @@ priv struct EditingState {
   focused_mode : EditorMode
   compact : Bool
   preview : PreviewState
+  catalog : @source_repository.Catalog
+  repository_issues : Array[@source_repository.RepositoryIssue]
 } derive(Eq)
 
 ///|
@@ -69,6 +71,6 @@ priv enum Msg {
   )
   ViewportChanged(Int)
   SaveRequested(String)
-  SaveCompleted(String, @source_repository.SaveResult)
+  SaveCompleted(String, String, @source_repository.SaveResult)
   RetrySave
 }

@@ -61,11 +61,3 @@ fn decode_source_value(
     _ => Err(InvalidRecord)
   }
 }
-
-///|
-fn decode_document(encoded : String) -> OpenResult {
-  match decode_source_value(encoded) {
-    Ok(source) => Loaded(source.document_id(), source.text())
-    Err(InvalidRecord | IdentityMismatch) => Failed(InvalidRecord)
-  }
-}
