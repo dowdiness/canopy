@@ -14,14 +14,11 @@ pub fn save(Catalog, String, String, result~ : @cmd.Emit[SaveResult]) -> @cmd.Cm
 // Errors
 
 // Types and methods
-pub struct Catalog(Array[CatalogEntry]) derive(Eq, @debug.Debug)
+type Catalog derive(Eq, @debug.Debug)
 pub fn Catalog::entries(Self) -> ArrayView[CatalogEntry]
 pub fn Catalog::from_entries(Array[CatalogEntry]) -> Self?
 
-pub struct CatalogEntry {
-  document_id : String
-  name : String?
-} derive(Eq, @debug.Debug)
+type CatalogEntry derive(Eq, @debug.Debug)
 pub fn CatalogEntry::document_id(Self) -> String
 pub fn CatalogEntry::name(Self) -> String?
 pub fn CatalogEntry::new(String, String?) -> Self?
@@ -30,6 +27,7 @@ pub(all) enum OpenFailure {
   StorageUnavailable
   ReadFailed
   DocumentIdentityUnavailable
+  QuotaExceeded
   WriteFailed
 } derive(Eq, @debug.Debug)
 
@@ -50,7 +48,7 @@ pub(all) enum RepositoryIssue {
   LegacyMigrationCollision(String)
 } derive(Eq, @debug.Debug)
 
-pub struct RepositorySnapshot(Array[SourceRecord], Catalog, Array[RepositoryIssue]) derive(Eq, @debug.Debug)
+type RepositorySnapshot derive(Eq, @debug.Debug)
 pub fn RepositorySnapshot::catalog(Self) -> Catalog
 pub fn RepositorySnapshot::from_sources(Array[SourceRecord]) -> Self?
 pub fn RepositorySnapshot::issues(Self) -> ArrayView[RepositoryIssue]
@@ -69,15 +67,12 @@ pub(all) enum SaveResult {
   Failed(SaveFailure)
 } derive(Eq, @debug.Debug)
 
-pub struct SaveSuccess(Catalog, Array[RepositoryIssue]) derive(Eq, @debug.Debug)
+type SaveSuccess derive(Eq, @debug.Debug)
 pub fn SaveSuccess::catalog(Self) -> Catalog
 pub fn SaveSuccess::issues(Self) -> ArrayView[RepositoryIssue]
 pub fn SaveSuccess::new(Catalog, Array[RepositoryIssue]) -> Self
 
-pub struct SourceRecord {
-  document_id : String
-  text : String
-} derive(Eq, @debug.Debug)
+type SourceRecord derive(Eq, @debug.Debug)
 pub fn SourceRecord::document_id(Self) -> String
 pub fn SourceRecord::new(String, String) -> Self?
 pub fn SourceRecord::text(Self) -> String

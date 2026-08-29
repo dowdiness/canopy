@@ -225,6 +225,8 @@ fn view(
             "Browser storage failed while reading the document."
           @source_repository.OpenFailure::DocumentIdentityUnavailable =>
             "This browser cannot create a document identity."
+          @source_repository.OpenFailure::QuotaExceeded =>
+            "Browser storage is full."
           @source_repository.OpenFailure::WriteFailed =>
             "Browser storage failed while preparing the document."
         }

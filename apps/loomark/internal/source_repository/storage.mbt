@@ -19,6 +19,7 @@ pub(all) enum OpenFailure {
   StorageUnavailable
   ReadFailed
   DocumentIdentityUnavailable
+  QuotaExceeded
   WriteFailed
 } derive(Eq, Debug)
 
@@ -60,6 +61,19 @@ fn scan_repository(result : @cmd.Emit[OpenResult]) -> @cmd.Cmd {
 }
 
 ///|
+fn finish_open_write(
+  stored : @indexed_db.WriteResult,
+  result : @cmd.Emit[OpenResult],
+) -> @cmd.Cmd {
+  match stored {
+    @indexed_db.WriteResult::Stored => scan_repository(result)
+    @indexed_db.WriteResult::Unavailable => result(Failed(StorageUnavailable))
+    @indexed_db.WriteResult::QuotaExceeded => result(Failed(QuotaExceeded))
+    @indexed_db.WriteResult::Failed => result(Failed(WriteFailed))
+  }
+}
+
+///|
 fn continue_open(
   reconciliation : Reconciliation,
   result : @cmd.Emit[OpenResult],
@@ -68,13 +82,7 @@ fn continue_open(
     Ready(snapshot) => result(Ready(snapshot))
     Migrate(mutations) =>
       @indexed_db.mutate(document_store, mutations, result=stored => {
-        match stored {
-          @indexed_db.WriteResult::Stored => scan_repository(result)
-          @indexed_db.WriteResult::Unavailable =>
-            result(Failed(StorageUnavailable))
-          @indexed_db.WriteResult::QuotaExceeded
-          | @indexed_db.WriteResult::Failed => result(Failed(WriteFailed))
-        }
+        finish_open_write(stored, result)
       })
     Empty(issues, occupied_source_keys) =>
       create_baseline(issues, occupied_source_keys, result)
@@ -97,12 +105,7 @@ fn create_baseline(
   }
   let source = SourceRecord::new(document_id, UNTITLED_SOURCE).unwrap()
   @indexed_db.put(document_store, key, encode_source(source), result=stored => {
-    match stored {
-      @indexed_db.WriteResult::Stored => scan_repository(result)
-      @indexed_db.WriteResult::Unavailable => result(Failed(StorageUnavailable))
-      @indexed_db.WriteResult::QuotaExceeded
-      | @indexed_db.WriteResult::Failed => result(Failed(WriteFailed))
-    }
+    finish_open_write(stored, result)
   })
 }
 

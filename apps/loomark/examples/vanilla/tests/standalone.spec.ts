@@ -254,7 +254,7 @@ function encodeStoredDocument(document: StoredDocument): string {
   return JSON.stringify(document)
 }
 
-function installDocumentPutFailure(key: string): void {
+function installDocumentPutFailure(target: string | { prefix: string }): void {
   const state = globalThis as typeof globalThis & {
     __loomarkDocumentPutFailure?: boolean
     __loomarkDocumentPutFailureCalls?: number
@@ -266,7 +266,10 @@ function installDocumentPutFailure(key: string): void {
   state.__loomarkDocumentPutOriginal = originalPut
   state.__loomarkDocumentPutFailureCalls = 0
   prototype.put = function(this: IDBObjectStore, value: unknown, recordKey?: IDBValidKey) {
-    if (recordKey === key) {
+    const matches = typeof target === "string"
+      ? recordKey === target
+      : typeof recordKey === "string" && recordKey.startsWith(target.prefix)
+    if (matches) {
       state.__loomarkDocumentPutFailureCalls = (state.__loomarkDocumentPutFailureCalls ?? 0) + 1
       throw new DOMException("full", "QuotaExceededError")
     }
@@ -356,6 +359,14 @@ test("fresh production opens Text mode and preserves its textarea across modes",
   await page.keyboard.press("Control+Z")
   await expect(text).toHaveValue("# Untitled\n")
   expect(workerUrls).toEqual([])
+})
+
+test("baseline quota reports storage full without creating a Source", async ({ page }) => {
+  await page.addInitScript(installDocumentPutFailure, { prefix: SOURCE_KEY_PREFIX })
+  await page.goto("/")
+  await expect(page.getByRole("heading", { name: "Document recovery" })).toBeVisible()
+  await expect(page.getByText("Browser storage is full.")).toBeVisible()
+  expect(await scanStoreRecords(page)).toEqual([])
 })
 
 test("opening and saving persist only authoritative Source records", async ({ page }) => {

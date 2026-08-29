@@ -41,3 +41,28 @@ test "repository save rejects an invalid identity before storage" {
   })
   assert_eq(emitted, [SaveResult::Failed(SaveFailure::InvalidSource)])
 }
+
+///|
+test "open write completion rescans and preserves failure classifications" {
+  inspect(
+    Repr(finish_open_write(@indexed_db.WriteResult::Stored, _ => @cmd.none)),
+    content="IndexedDBScan({ name: \"loomark\", version: 1, store_name: \"documents\" })",
+  )
+  let emitted : Array[OpenResult] = []
+  for
+    stored in [
+      @indexed_db.WriteResult::Unavailable,
+      @indexed_db.WriteResult::QuotaExceeded,
+      @indexed_db.WriteResult::Failed,
+    ] {
+    let _ = finish_open_write(stored, result => {
+      emitted.push(result)
+      @cmd.none
+    })
+  }
+  assert_eq(emitted, [
+    OpenResult::Failed(OpenFailure::StorageUnavailable),
+    OpenResult::Failed(OpenFailure::QuotaExceeded),
+    OpenResult::Failed(OpenFailure::WriteFailed),
+  ])
+}

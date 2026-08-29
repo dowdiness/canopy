@@ -1,6 +1,6 @@
 ///|
 /// One authoritative document identity and its exact Canonical Markdown.
-pub struct SourceRecord {
+struct SourceRecord {
   document_id : String
   text : String
 } derive(Eq, Debug)
@@ -29,7 +29,7 @@ priv enum SourceDecodeFailure {
 
 ///|
 /// One rebuildable display-name entry, identified only by Document ID.
-pub struct CatalogEntry {
+struct CatalogEntry {
   document_id : String
   name : String?
 } derive(Eq, Debug)
@@ -52,7 +52,7 @@ pub fn CatalogEntry::name(self : Self) -> String? {
 
 ///|
 /// A deterministic catalog ordered lexically by Document ID.
-pub struct Catalog(Array[CatalogEntry]) derive(Eq, Debug)
+struct Catalog(Array[CatalogEntry]) derive(Eq, Debug)
 
 ///|
 pub fn Catalog::from_entries(entries : Array[CatalogEntry]) -> Self? {
@@ -89,11 +89,10 @@ pub(all) enum RepositoryIssue {
 } derive(Eq, Debug)
 
 ///|
-pub struct RepositorySnapshot(
-  Array[SourceRecord],
-  Catalog,
-  Array[RepositoryIssue]
-) derive(Eq, Debug)
+struct RepositorySnapshot(Array[SourceRecord], Catalog, Array[RepositoryIssue]) derive (
+  Eq,
+  Debug,
+)
 
 ///|
 fn RepositorySnapshot::new(
@@ -157,7 +156,7 @@ pub fn RepositorySnapshot::issues(self : Self) -> ArrayView[RepositoryIssue] {
 }
 
 ///|
-pub struct SaveSuccess(Catalog, Array[RepositoryIssue]) derive(Eq, Debug)
+struct SaveSuccess(Catalog, Array[RepositoryIssue]) derive(Eq, Debug)
 
 ///|
 pub fn SaveSuccess::new(
