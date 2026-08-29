@@ -1,4 +1,5 @@
 @import "tailwindcss" source(none);
+@plugin "@tailwindcss/typography";
 @source "../app";
 @source not "../app/example_documents";
 @source not "../app/example_*.g.mbt";
@@ -19,6 +20,64 @@
   --color-lm-danger-soft: oklch(0.94 0.025 25);
   --font-lm-ui: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-lm-mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+/* Typography owns Markdown rhythm while Loomark keeps the established palette. */
+.loomark-prose {
+  --tw-prose-body: var(--color-lm-ink);
+  --tw-prose-headings: var(--color-lm-ink);
+  --tw-prose-lead: var(--color-lm-muted);
+  --tw-prose-links: var(--color-lm-accent);
+  --tw-prose-bold: var(--color-lm-ink);
+  --tw-prose-counters: var(--color-lm-muted);
+  --tw-prose-bullets: var(--color-lm-muted);
+  --tw-prose-hr: var(--color-lm-rule);
+  --tw-prose-quotes: var(--color-lm-ink);
+  --tw-prose-quote-borders: var(--color-lm-rule);
+  --tw-prose-captions: var(--color-lm-muted);
+  --tw-prose-code: var(--color-lm-ink);
+  --tw-prose-pre-code: var(--color-lm-ink);
+  --tw-prose-pre-bg: oklch(0.95 0.003 255);
+  --tw-prose-th-borders: var(--color-lm-rule);
+  --tw-prose-td-borders: var(--color-lm-rule);
+}
+
+.loomark-prose :where(code):not(:where(pre code))::before,
+.loomark-prose :where(code):not(:where(pre code))::after {
+  content: none;
+}
+
+/* Keep Typography's hierarchy, but stay close to Loomark's former 1rem rhythm. */
+.loomark-prose :where(p) {
+  margin-block: 1.125rem;
+}
+
+.loomark-prose :where(ul, ol, pre, blockquote, figure, table) {
+  margin-block: 1.25rem;
+}
+
+.loomark-prose :where(h1) {
+  margin-block: 0 1.25rem;
+}
+
+.loomark-prose :where(h2) {
+  margin-block: 1.75rem 1rem;
+}
+
+.loomark-prose :where(h3, h4, h5, h6) {
+  margin-block: 1.5rem 0.875rem;
+}
+
+.loomark-prose :where(hr) {
+  margin-block: 1.75rem;
+}
+
+.loomark-prose :where(:first-child) {
+  margin-top: 0;
+}
+
+.loomark-prose :where(:last-child) {
+  margin-bottom: 0;
 }
 
 /* The mode glyphs are authored geometry; utilities own the surrounding control. */

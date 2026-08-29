@@ -244,6 +244,16 @@ test("Preview prepares after its status paints and refreshes typed Markdown", as
   await expect(link).toHaveAttribute("href", "https://example.test")
   await expect(link).toHaveAttribute("target", "_blank")
   await expect(link).toHaveAttribute("rel", "noopener noreferrer")
+  await page.context().route("https://example.test/", route => route.fulfill({
+    status: 200,
+    contentType: "text/html",
+    body: "External preview link opened",
+  }))
+  const popupPromise = page.waitForEvent("popup")
+  await link.click()
+  const popup = await popupPromise
+  await expect.poll(() => popup.url()).toBe("https://example.test/")
+  await popup.close()
   await expect(page.getByText('<div id="unsafe-preview">raw HTML</div>')).toBeVisible()
   await expect(page.locator("#unsafe-preview")).toHaveCount(0)
 
@@ -277,7 +287,7 @@ test("Preview keeps incomplete Markdown literal without parser chrome", async ({
   await expect(preview).not.toContainText("Diagnostic:")
 })
 
-test("Tailwind Preflight and utilities preserve the Loomark shell and compact text measure", async ({ page }) => {
+test("Tailwind Typography and utilities preserve the Loomark shell and reading measure", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 700 })
   await page.goto("/")
   await expect(page.getByRole("textbox", { name: "Text" })).toBeVisible()
@@ -324,8 +334,26 @@ test("Tailwind Preflight and utilities preserve the Loomark shell and compact te
   expect(await preview.locator("hr").first().evaluate(element => (
     Number.parseFloat(getComputedStyle(element).width)
   ))).toBeGreaterThan(500)
-  expect(await preview.locator("pre code").first()
-    .evaluate(element => getComputedStyle(element).lineHeight)).toBe("21px")
+  expect(Number.parseFloat(await preview.locator("pre code").first()
+    .evaluate(element => getComputedStyle(element).lineHeight))).toBeCloseTo(24, 1)
+  expect(await preview.locator("p code").first().evaluate(element => ({
+    before: getComputedStyle(element, "::before").content,
+    after: getComputedStyle(element, "::after").content,
+  }))).toEqual({ before: "none", after: "none" })
+  await expect.poll(() => preview.locator("p").first().evaluate(element => (
+    getComputedStyle(element).fontSize
+  ))).toBe("16px")
+  expect(await preview.locator("p").first().evaluate(element => (
+    getComputedStyle(element).marginTop
+  ))).toBe("18px")
+  expect(await preview.locator("h2").first().evaluate(element => (
+    getComputedStyle(element).marginTop
+  ))).toBe("28px")
+
+  await page.setViewportSize({ width: 1200, height: 700 })
+  await expect.poll(() => preview.locator("p").first().evaluate(element => (
+    getComputedStyle(element).fontSize
+  ))).toBe("18px")
 })
 
 test("mode tabs move focus without activation and activate with Enter or Space", async ({ page }) => {
