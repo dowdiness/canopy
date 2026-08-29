@@ -926,7 +926,7 @@ test "sdeg phase1: production side table memo treats valid delete as absence evi
 }
 
 ///|
-test "sdeg phase1: production side table memo holds malformed snapshots" {
+test "sdeg phase1: unmatched reference opener remains a live heading" {
   let parser = @loom.new_parser(
     @loomcore.SourceId("canopy-test:markdown-heading-side-table:error-node"),
     "# A\n",
@@ -949,8 +949,8 @@ test "sdeg phase1: production side table memo holds malformed snapshots" {
     initial_row.last_live.id,
   ).unwrap()
 
-  inspect(invalid_row.status == HeadingMissing, content="true")
-  inspect(invalid_row.current_id is None, content="true")
+  inspect(invalid_row.status == HeadingLive, content="true")
+  inspect(invalid_row.current_id is Some(_), content="true")
   inspect(invalid_row.consecutive_absences, content="0")
   inspect(invalid.rows.length(), content="1")
   inspect(valid_missing_row.status == HeadingMissing, content="true")

@@ -256,6 +256,27 @@ test("Preview prepares after its status paints and refreshes typed Markdown", as
   await expect(page.getByRole("heading", { name: "Preview heading" })).toHaveCount(0)
 })
 
+test("Preview keeps incomplete Markdown literal without parser chrome", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill("𐐀[unclosed\n")
+  await page.getByRole("tab", { name: "Preview" }).click()
+
+  const preview = page.getByRole("region", { name: "Markdown preview" })
+  await expect(preview).toContainText("𐐀[unclosed")
+  await expect(preview).not.toContainText("Recovered Markdown")
+  await expect(preview).not.toContainText("Raw Markdown")
+  await expect(preview.locator('[data-loomark-preview-fallback]')).toHaveCount(0)
+  await expect(preview.locator('[data-loomark-preview-diagnostic]')).toHaveCount(0)
+  await expect(preview.locator("p > div")).toHaveCount(0)
+
+  await page.getByRole("tab", { name: "Text" }).click()
+  await text.fill("[text](\n")
+  await page.getByRole("tab", { name: "Preview" }).click()
+  await expect(preview).toContainText("[text](")
+  await expect(preview).not.toContainText("Diagnostic:")
+})
+
 test("Tailwind Preflight and utilities preserve the Loomark shell and compact text measure", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 700 })
   await page.goto("/")

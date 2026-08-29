@@ -1,4 +1,10 @@
 ///|
+priv enum RenderPosition {
+  Flow
+  Phrasing
+}
+
+///|
 fn plain_text(node : @markdown.MarkdownIR) -> String {
   match node.text_value() {
     Some(value) => return value
@@ -11,7 +17,8 @@ fn plain_text(node : @markdown.MarkdownIR) -> String {
     @markdown.Autolink(display~, ..) => display
     @markdown.InlineCode(value~) | @markdown.HtmlBlock(value~) => value
     @markdown.HardBreak(..) | @markdown.SoftBreak => "\n"
-    @markdown.Unsupported(message~) | @markdown.Recovered(message~) => message
+    @markdown.Unsupported(message~) => message
+    @markdown.Recovered(value~) => value
     @markdown.ThematicBreak => ""
     @markdown.CodeBlock(value~, ..) => value
     @markdown.Document
@@ -92,20 +99,26 @@ fn safe_destination(destination : String, image~ : Bool) -> String? {
 }
 
 ///|
-fn diagnostics(node : @markdown.MarkdownIR) -> Array[@rabbita.Html] {
-  node
-  .diagnostics()
-  .map(diagnostic => {
-    @html.li(
-      attrs=@html.Attrs::build().data_set("loomark-preview-diagnostic", ""),
-      "Diagnostic: " + diagnostic.format(),
-    )
-  })
+fn render_children(
+  node : @markdown.MarkdownIR,
+  position : RenderPosition,
+) -> Array[@rabbita.Html] {
+  node.children().map(child => render_node(child, position~))
 }
 
 ///|
-fn render_children(node : @markdown.MarkdownIR) -> Array[@rabbita.Html] {
-  node.children().map(child => render_node(child))
+fn render_opaque_source(
+  value : String,
+  position : RenderPosition,
+) -> @rabbita.Html {
+  match position {
+    Phrasing => @html.text(value)
+    Flow =>
+      @html.pre(
+        class="m-0 whitespace-pre-wrap font-lm-sans text-inherit",
+        value,
+      )
+  }
 }
 
 ///|
@@ -118,8 +131,8 @@ fn render_list_children(
   .map(child => {
     match child.view() {
       @markdown.ListItem(..) | @markdown.OrderedListItem(..) =>
-        render_node(child, list_parent_spread=parent_list_spread)
-      _ => render_node(child)
+        render_node(child, position=Flow, list_parent_spread=parent_list_spread)
+      _ => render_node(child, position=Flow)
     }
   })
 }
@@ -152,7 +165,7 @@ fn render_list_item_children(
   .mapi((index, child) => {
     match child.view() {
       @markdown.Paragraph => {
-        let children = render_children(child)
+        let children = render_children(child, Phrasing)
         let children = if index == 0 && task is Some(_) {
           let prefixed = task_prefix.copy()
           prefixed.append(children)
@@ -166,7 +179,7 @@ fn render_list_item_children(
           @html.fragment(children)
         }
       }
-      _ => render_node(child)
+      _ => render_node(child, position=Flow)
     }
   })
 }
@@ -193,17 +206,36 @@ fn render_heading(
 ///|
 fn render_node(
   node : @markdown.MarkdownIR,
+  position? : RenderPosition = Flow,
   list_parent_spread? : Bool = false,
   unwrap_list_item_paragraph? : Bool = false,
 ) -> @rabbita.Html {
   let node_view = node.view()
   let children = match node_view {
+    @markdown.Document | @markdown.BlockQuote => render_children(node, Flow)
     @markdown.UnorderedList(spread~, ..) | @markdown.OrderedList(spread~, ..) =>
       render_list_children(node, spread)
     @markdown.ListItem(spread~, task~, ..)
     | @markdown.OrderedListItem(spread~, task~, ..) =>
       render_list_item_children(node, spread || list_parent_spread, task)
-    _ => render_children(node)
+    @markdown.Heading(..)
+    | @markdown.Paragraph
+    | @markdown.Bold
+    | @markdown.Italic
+    | @markdown.Link(..) => render_children(node, Phrasing)
+    @markdown.Image(..)
+    | @markdown.CodeBlock(..)
+    | @markdown.HtmlBlock(..)
+    | @markdown.ThematicBreak
+    | @markdown.Text(..)
+    | @markdown.InlineCode(..)
+    | @markdown.Autolink(..)
+    | @markdown.InlineHtml(..)
+    | @markdown.SoftBreak
+    | @markdown.HardBreak(..)
+    | @markdown.Unsupported(..)
+    | @markdown.Raw(..)
+    | @markdown.Recovered(..) => []
   }
   match node_view {
     @markdown.Document => @html.fragment(children)
@@ -360,25 +392,8 @@ fn render_node(
         ),
         "Unsupported Markdown: " + message,
       )
-    @markdown.Raw(value~) =>
-      @html.div(
-        attrs=@html.Attrs::build().data_set("loomark-preview-fallback", "raw"),
-        [
-          @html.strong("Raw Markdown:"),
-          @html.pre(value),
-          @html.ul(diagnostics(node)),
-        ],
-      )
-    @markdown.Recovered(message~) =>
-      @html.div(
-        attrs=@html.Attrs::build().data_set(
-          "loomark-preview-fallback", "recovered",
-        ),
-        [
-          @html.strong("Recovered Markdown: " + message),
-          @html.ul(diagnostics(node)),
-        ],
-      )
+    @markdown.Raw(value~) => render_opaque_source(value, position)
+    @markdown.Recovered(value~) => render_opaque_source(value, position)
   }
 }
 

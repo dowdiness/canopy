@@ -1,5 +1,4 @@
 import {
-  "dowdiness/diagnostic",
   "dowdiness/loom",
   "dowdiness/markdown",
   "dowdiness/text_change",

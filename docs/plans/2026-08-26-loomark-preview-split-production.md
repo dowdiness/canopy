@@ -178,8 +178,9 @@ Required behavior:
 - At the next allowed retry, create one replacement Parser from current Document
   text. Never keep two active Parsers.
 - An allowed refresh reads one coherent `SyntaxSnapshot`, lowers it with
-  `experimental_markdown_ir_from_syntax_with_diagnostics`, and builds typed
-  Html. No compatibility `Block` AST or retained semantic attachment is created.
+  `experimental_markdown_ir_from_syntax_snapshot`, and builds typed Html. The
+  lowering reuses snapshot source instead of reconstructing it from CST tokens.
+  No compatibility `Block` AST or retained semantic attachment is created.
 - Snapshot reading, direct MarkdownIR lowering, and typed rendering are total
   for a healthy Parser. Internal invariant aborts are not converted into
   `PreviewFailure`. The current app has one page-lifetime document and no
@@ -238,9 +239,11 @@ rather than old application machinery.
 The renderer must:
 
 - exhaustively handle all 24 current public `MarkdownIRView` variants;
-- use `MarkdownIR::children`, `text_value`, and `diagnostics`;
+- use `MarkdownIR::children` and `text_value`;
 - preserve tight and loose list behavior, ordered starts, break forms, code
-  info, link forms, and diagnostic fallbacks;
+  info, and link forms;
+- render Raw/Recovered author source contextually as escaped flow or phrasing
+  content without parser labels or inline diagnostic lists;
 - render block and inline Markdown HTML as inert text;
 - render long URLs with wrapping, code blocks with internal horizontal
   overflow, and images within the reading width;
@@ -325,8 +328,8 @@ completed Markdown is not a live region.
 | Incremental Parser change | `SyntaxParser::apply_edit` | Reuse for every healthy `ReplaceRange`. |
 | Complete replacement | `SyntaxParser::set_source` | Reuse for `ReplaceAll`; do not rebuild a healthy Parser. |
 | Parser construction | `@loom.new_syntax_parser` | Reuse to avoid constructing an unused compatibility `Block` AST. |
-| Coherent parse result | `SyntaxParser::snapshot` | Reuse one source/syntax/diagnostics snapshot. |
-| Semantic document | `experimental_markdown_ir_from_syntax_with_diagnostics` | Reuse for one stateless lowering at each allowed refresh. |
+| Coherent parse result | `SyntaxParser::snapshot` | Reuse one source-id/source/syntax/diagnostics snapshot. |
+| Semantic document | `experimental_markdown_ir_from_syntax_snapshot` | Reuse snapshot source for one stateless lowering at each allowed refresh. |
 | Retained semantic cache | `MarkdownSemanticAttachment` | Checked but not reused; measured boundary fallbacks make its structural-key read substantially slower in Loomark. |
 | Preview rendering | Historical direct typed-Html renderer | Restore the pure renderer only. |
 | Resizable layout | RUI resizable panel group, panels, handle | Reuse; RUI owns ratio and interaction. |

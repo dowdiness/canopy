@@ -5,11 +5,8 @@ fn preview_test_document(source : String) -> @markdown.MarkdownIR raise {
     source,
     @markdown.markdown_grammar.to_syntax_grammar(),
   )
-  let snapshot = parser.snapshot().read_or_abort()
-  @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
-    parser.source_id(),
-    snapshot.syntax,
-    snapshot.diagnostics,
+  @markdown.experimental_markdown_ir_from_syntax_snapshot(
+    parser.snapshot().read_or_abort(),
     extensions=@markdown.MarkdownExtensions::task_list(),
   )
 }
@@ -98,10 +95,20 @@ test "Preview renderer rejects unsafe destinations" {
 }
 
 ///|
-test "Preview renderer preserves syntax diagnostics during direct lowering" {
-  let rendered = render_preview("[unclosed\n")
-  assert_preview_contains(rendered, "Recovered Markdown: [")
-  assert_preview_contains(rendered, "data-loomark-preview-diagnostic")
+test "Preview renders unresolved and raw recovery source without parser chrome" {
+  let cases = ["[unclosed\n", "[text](\n", "𐐀[unclosed\n"]
+  for source in cases {
+    let rendered = render_preview(source)
+    assert_true(!rendered.contains("Recovered Markdown"))
+    assert_true(!rendered.contains("Raw Markdown"))
+    assert_true(!rendered.contains("Diagnostic:"))
+    assert_true(!rendered.contains("data-loomark-preview-fallback"))
+    assert_true(!rendered.contains("data-loomark-preview-diagnostic"))
+    assert_true(!rendered.contains("<p><div"))
+  }
+  assert_preview_contains(render_preview("[unclosed\n"), "[unclosed")
+  assert_preview_contains(render_preview("[text](\n"), "[text](")
+  assert_preview_contains(render_preview("𐐀[unclosed\n"), "𐐀[unclosed")
 }
 
 ///|
