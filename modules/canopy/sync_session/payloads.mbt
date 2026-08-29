@@ -59,6 +59,7 @@ fn should_retry_sync_error(err : Error) -> Bool {
   match err {
     @text.TextError::SyncFailed(@sync.Failure::MissingDependency(..)) => true
     @text.TextError::VersionNotFound => true
+    @text.TextError::ProjectionRecoveryRequired => true
     _ => false
   }
 }

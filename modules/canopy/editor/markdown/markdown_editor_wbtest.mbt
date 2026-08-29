@@ -2176,6 +2176,18 @@ test "history codec round-trips through the Markdown façade" {
 }
 
 ///|
+test "history codec rejects persisted text schema 1" {
+  let result = Ok(
+    MarkdownDocumentHistory::from_json_string(
+      "{\"schema\":1,\"format\":\"event-graph-walker/text-sync\",\"operations\":[],\"heads\":[]}",
+    ),
+  ) catch {
+    error => Err(error)
+  }
+  assert_true(result is Err(MarkdownHistoryCodecError::Malformed(_)))
+}
+
+///|
 test "portable Markdown delegates façade sentinel export" {
   let editor = try! MarkdownEditor(
     agent_id="portable-markdown-facade",

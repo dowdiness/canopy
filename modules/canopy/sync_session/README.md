@@ -18,7 +18,8 @@ deprecation idiom with at least one release cycle.
   checked *before* advancing, so retries 0–2 each send and 3 surfaces
   `Error(Exhausted)`), deferred-message buffering capped at 32 with
   drop-oldest, stale request-id / watchdog-epoch discard, 1 MB SyncResponse
-  cap on the responder side.
+  cap on the responder side, and terminal local Version encoding failures that
+  send neither a frame nor a watchdog.
 - `SyncTransport` — the transport seam (trait); `InMemoryRoom` /
   `InMemoryTransport` — the in-process reference implementation used by
   tests and local collaboration probes.
@@ -28,8 +29,9 @@ deprecation idiom with at least one release cycle.
 Document state, parsing, and presence. The owning editor supplies those
 per call through two closure records:
 
-- `SyncIo` — `send` + `current_version`; enough for the retry/send paths
-  (`on_watchdog_fire`). Kept narrow because the editor's watchdog surface
+- `SyncIo` — `send` + fallible `current_version_json`; enough for the
+  retry/send paths (`on_watchdog_fire`). Encoding stays in the editor adapter,
+  while this package owns the no-send/error transition. Kept narrow because the editor's watchdog surface
   has no `Eq` bound and cannot build the full host.
 - `SyncHost` — `SyncIo` plus `apply_sync` / `export_all` / `export_since`
   and ephemeral routing closures; consumed only by `on_message`.

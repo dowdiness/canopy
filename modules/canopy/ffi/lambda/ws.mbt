@@ -73,12 +73,14 @@ pub fn ws_enable_watchdog(handle : Int, timeout_ms : Int) -> Unit {
 ///|
 /// Register a JS callback that receives SyncStatus transitions.
 /// The callback payload is a JSON string; the JS host `JSON.parse`s it
-/// and reads the shape { tag, peer_id?, attempt?, reason? }:
+/// and reads the shape { tag, peer_id?, attempt?, reason?, kind?, limit?, actual? }:
 ///   {"tag":"disconnected"}
 ///   {"tag":"idle"}
 ///   {"tag":"recovering","peer_id":"<id>","attempt":<n>}
 ///   {"tag":"error","reason":"exhausted","peer_id":"<id>"}
 ///   {"tag":"error","reason":"target_left","peer_id":"<id>"}
+///   {"tag":"error","reason":"local_version_limit","kind":"DecodedOperations","limit":4096,"actual":4097}
+///   {"tag":"error","reason":"local_version_encoding"}
 /// JSON (vs. a delimited string) avoids ambiguity when peer_id contains
 /// characters that would otherwise need escaping at the boundary.
 /// Host JS wires delivery via `globalThis.__canopy_bridge.onStatusChange`.
@@ -130,6 +132,19 @@ fn encode_sync_status(status : @editor.SyncStatus) -> String {
             "tag": Json::string("error"),
             "reason": Json::string("target_left"),
             "peer_id": Json::string(peer_id),
+          })
+        LocalVersionLimitExceeded(kind~, limit~, actual~) =>
+          Json::object({
+            "tag": Json::string("error"),
+            "reason": Json::string("local_version_limit"),
+            "kind": Json::string(kind.to_string()),
+            "limit": Json::number(limit.to_double()),
+            "actual": Json::number(actual.to_double()),
+          })
+        LocalVersionEncodingFailed =>
+          Json::object({
+            "tag": Json::string("error"),
+            "reason": Json::string("local_version_encoding"),
           })
       }
   }

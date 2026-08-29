@@ -123,12 +123,12 @@ test "cursor bounds checking" {
 test "pending sync clamps cursor after applying ready delete" {
   let editor = try! Editor::new("receiver")
   let initial = try! @text.SyncMessage::from_json_string(
-    "{\"schema\":1,\"format\":\"event-graph-walker/text-sync\",\"operations\":[{\"id\":{\"replica_id\":\"remote\",\"sequence\":0},\"parents\":[],\"kind\":\"insert\",\"content\":\"A\",\"origin_left\":null,\"origin_right\":null}],\"heads\":[{\"replica_id\":\"remote\",\"sequence\":0}]}",
+    "{\"schema\":2,\"format\":\"event-graph-walker/text-sync\",\"operations\":[{\"id\":{\"replica_id\":\"remote\",\"sequence\":0},\"parents\":[],\"kind\":\"insert\",\"content\":\"A\",\"origin_left\":null,\"origin_right\":null}],\"heads\":[{\"replica_id\":\"remote\",\"sequence\":0}]}",
   )
   try! editor.apply_sync(initial)
   editor.move_cursor(1)
   let mixed = try! @text.SyncMessage::from_json_string(
-    "{\"schema\":1,\"format\":\"event-graph-walker/text-sync\",\"operations\":[{\"id\":{\"replica_id\":\"remote\",\"sequence\":1},\"parents\":[{\"replica_id\":\"remote\",\"sequence\":0}],\"kind\":\"delete\",\"content\":null,\"origin_left\":{\"replica_id\":\"remote\",\"sequence\":0},\"origin_right\":null},{\"id\":{\"replica_id\":\"remote\",\"sequence\":3},\"parents\":[{\"replica_id\":\"remote\",\"sequence\":2}],\"kind\":\"insert\",\"content\":\"X\",\"origin_left\":null,\"origin_right\":null}],\"heads\":[{\"replica_id\":\"remote\",\"sequence\":3}]}",
+    "{\"schema\":2,\"format\":\"event-graph-walker/text-sync\",\"operations\":[{\"id\":{\"replica_id\":\"remote\",\"sequence\":1},\"parents\":[{\"replica_id\":\"remote\",\"sequence\":0}],\"kind\":\"delete\",\"content\":null,\"origin_left\":{\"replica_id\":\"remote\",\"sequence\":0},\"origin_right\":null},{\"id\":{\"replica_id\":\"remote\",\"sequence\":3},\"parents\":[{\"replica_id\":\"remote\",\"sequence\":2}],\"kind\":\"insert\",\"content\":\"X\",\"origin_left\":null,\"origin_right\":null}],\"heads\":[{\"replica_id\":\"remote\",\"sequence\":3}]}",
   )
   let result : Result[Unit, Error] = Ok(editor.apply_sync(mixed)) catch {
     error => Err(error)
@@ -207,7 +207,7 @@ test "concurrent inserts at same position" {
   // With FugueMax: Both X and Y are inserted between A and C with origin_left=A, origin_right=C
   // Since A is ancestor of C, both become left children of C
   // With agent tiebreaking, alice < bob alphabetically, so X comes before Y
-  inspect(alice_text, content="AYXC")
+  inspect(alice_text, content="AXYC")
 
   // Verify both contributions are present
   inspect(alice_text.contains("A"), content="true")

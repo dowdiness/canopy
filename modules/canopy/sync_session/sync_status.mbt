@@ -24,6 +24,14 @@ pub enum SyncErrorReason {
   Exhausted(peer_id~ : String)
   /// The target peer disconnected while recovery was in progress.
   TargetLeft(peer_id~ : String)
+  /// The current local Version exceeded the fixed text wire envelope.
+  LocalVersionLimitExceeded(
+    kind~ : @sync.LimitKind,
+    limit~ : Int,
+    actual~ : Int
+  )
+  /// Local Version serialization failed for a reason outside its limit contract.
+  LocalVersionEncodingFailed
 } derive(Debug, Eq)
 
 ///|

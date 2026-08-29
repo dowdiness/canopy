@@ -17,15 +17,15 @@ const DEFAULT_WATCHDOG_MS : Int = 5000
 /// apply_sync closure requires it).
 pub struct SyncIo {
   send : (Bytes) -> Unit
-  current_version : () -> @text.Version
+  current_version_json : () -> String raise @text.TextError
 }
 
 ///|
 pub fn SyncIo::SyncIo(
   send~ : (Bytes) -> Unit,
-  current_version~ : () -> @text.Version,
+  current_version_json~ : () -> String raise @text.TextError,
 ) -> SyncIo {
-  { send, current_version }
+  { send, current_version_json }
 }
 
 ///|
@@ -378,15 +378,32 @@ fn SyncSession::enter_recovery(
 }
 
 ///|
+fn local_version_encoding_reason(error : @text.TextError) -> SyncErrorReason {
+  match error {
+    @text.TextError::SyncFailed(
+      @sync.Failure::LimitExceeded(kind~, limit~, actual~)
+    ) => LocalVersionLimitExceeded(kind~, limit~, actual~)
+    _ => LocalVersionEncodingFailed
+  }
+}
+
+///|
 /// Send a SyncRequest to a specific peer via the relay.
 /// Always uses the current version (not stale from recovery entry).
+/// A local encoding failure ends recovery before any frame or watchdog is sent.
 fn SyncSession::send_sync_request(
   self : SyncSession,
   target : String,
   request_id : Int,
   io : SyncIo,
 ) -> Unit {
-  let version_json = (io.current_version)().to_json_string()
+  let version_json = (io.current_version_json)() catch {
+    error => {
+      self.recovery = None
+      self.set_status(Error(reason=local_version_encoding_reason(error)))
+      return
+    }
+  }
   let wire = @wire.encode_sync_request(
     target~,
     request_id=request_id.to_string(),

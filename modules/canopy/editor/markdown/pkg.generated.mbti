@@ -2,6 +2,7 @@
 package "dowdiness/canopy/editor/markdown"
 
 import {
+  "dowdiness/event-graph-walker/text",
   "moonbitlang/core/debug",
   "moonbitlang/core/immut/vector",
 }
@@ -138,7 +139,7 @@ pub fn MarkdownDocumentUtf16Selection::range_start(Self) -> Int
 pub struct MarkdownDocumentVersion {
   // private fields
 } derive(Eq, @debug.Debug)
-pub fn MarkdownDocumentVersion::to_json_string(Self) -> String
+pub fn MarkdownDocumentVersion::to_json_string(Self) -> String raise @text.TextError
 
 pub(all) enum MarkdownEditRequest {
   ReplaceSource(String)

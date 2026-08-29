@@ -37,7 +37,7 @@ fn sync_after_local_model_change(model : Model, text : String) -> Cmd {
     @cm.set_doc(
       model.cm_id,
       text,
-      source_version=@ffi.get_version_json(model.handle),
+      source_version=Hash::hash(model.editor.get_version()).to_string(),
     ),
     @rabbita.effect(fn() { js_after_local_text_edit() }),
   ])
@@ -48,7 +48,7 @@ fn sync_after_external_crdt_change(model : Model) -> Cmd {
   @cm.set_doc(
     model.cm_id,
     model.editor.get_text(),
-    source_version=@ffi.get_version_json(model.handle),
+    source_version=Hash::hash(model.editor.get_version()).to_string(),
   )
 }
 

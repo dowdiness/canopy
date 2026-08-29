@@ -51,9 +51,9 @@ pub fn ephemeral_set_presence(Int, String, String) -> Unit
 
 pub fn ephemeral_set_presence_with_selection(Int, String, String, Int, Int) -> Unit
 
-pub fn export_all_json(Int) -> String
+pub fn export_all_json(Int) -> String raise
 
-pub fn export_since_json(Int, String) -> String
+pub fn export_since_json(Int, String) -> String raise
 
 pub fn get_ast_dot_resolved(Int) -> String raise Failure
 
@@ -79,7 +79,7 @@ pub fn get_sync_editor() -> @editor.SyncEditor[@ast.Term]?
 
 pub fn get_text(Int) -> String
 
-pub fn get_version_json(Int) -> String
+pub fn get_version_json(Int) -> String raise
 
 pub fn get_view_tree_json(Int) -> String raise Failure
 

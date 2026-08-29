@@ -452,7 +452,9 @@ pub struct MarkdownDocumentVersion {
 
 ///|
 /// Encode this causal frontier as the canonical portable text-version token.
-pub fn MarkdownDocumentVersion::to_json_string(self : Self) -> String {
+pub fn MarkdownDocumentVersion::to_json_string(
+  self : Self,
+) -> String raise @text.TextError {
   self.value.to_json_string()
 }
 
