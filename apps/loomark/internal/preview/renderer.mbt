@@ -114,10 +114,7 @@ fn render_opaque_source(
   match position {
     Phrasing => @html.text(value)
     Flow =>
-      @html.pre(
-        class="m-0 whitespace-pre-wrap font-lm-sans text-inherit",
-        value,
-      )
+      @html.pre(class="m-0 whitespace-pre-wrap font-lm-ui text-inherit", value)
   }
 }
 
@@ -174,7 +171,7 @@ fn render_list_item_children(
           children
         }
         if render_paragraphs {
-          @rui.typography_p(children)
+          @html.p(children)
         } else {
           @html.fragment(children)
         }
@@ -190,16 +187,12 @@ fn render_heading(
   children : Array[@rabbita.Html],
 ) -> @rabbita.Html {
   match depth {
-    1 => @rui.typography_h1(style=["text-align:start"], children)
-    2 =>
-      @rui.typography_h2(
-        style=["border-bottom:none;padding-bottom:0"],
-        children,
-      )
-    3 => @rui.typography_h3(children)
-    4 => @rui.typography_h4(children)
-    5 => @html.h5(class="m-0 text-base font-semibold leading-6", children)
-    _ => @html.h6(class="m-0 text-sm font-semibold leading-[1.4]", children)
+    1 => @html.h1(children)
+    2 => @html.h2(children)
+    3 => @html.h3(children)
+    4 => @html.h4(children)
+    5 => @html.h5(children)
+    _ => @html.h6(children)
   }
 }
 
@@ -244,9 +237,9 @@ fn render_node(
       if unwrap_list_item_paragraph {
         @html.fragment(children)
       } else {
-        @rui.typography_p(children)
+        @html.p(children)
       }
-    @markdown.BlockQuote => @rui.typography_blockquote(children)
+    @markdown.BlockQuote => @html.blockquote(children)
     @markdown.UnorderedList(spread~, marker~) =>
       @html.ul(
         attrs=@html.Attrs::build()
@@ -285,7 +278,6 @@ fn render_node(
       )
     @markdown.CodeBlock(info~, value~) =>
       @html.pre(
-        class="m-0 whitespace-pre rounded-lg bg-[oklch(0.95_0.003_255)] p-4 [&_code]:font-lm-mono [&_code]:text-sm [&_code]:leading-[1.5]",
         @html.code(
           attrs=@html.Attrs::build().data_set("loomark-code-info", info),
           value,
@@ -308,6 +300,7 @@ fn render_node(
             href=destination,
             target=@html.Blank,
             rel="noopener noreferrer",
+            escape=true,
             title?,
             attrs=@html.Attrs::build().data_set(
               "loomark-link-reference-form",
@@ -352,6 +345,7 @@ fn render_node(
             href=destination,
             target=@html.Blank,
             rel="noopener noreferrer",
+            escape=true,
             attrs=@html.Attrs::build().data_set(
               "loomark-autolink-kind",
               match kind {

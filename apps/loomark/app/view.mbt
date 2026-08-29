@@ -164,7 +164,7 @@ fn preview_view(state : PreviewState) -> @rabbita.Html {
     [
       alert,
       @html.div(
-        class="mx-auto grid w-[min(calc(100%-4rem),46rem)] min-w-0 auto-rows-max gap-4 px-4 pt-8 pb-16 text-base leading-[1.7] max-[641px]:w-full max-[641px]:px-3 max-[641px]:pt-6 max-[641px]:pb-12 [&>*]:min-w-0 [&>*]:break-words [&_a]:text-lm-accent [&_a]:underline-offset-[0.18em] [&_img]:h-auto [&_img]:max-w-full [&_ol]:m-0 [&_ol]:list-decimal [&_ol]:ps-6 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap [&_ul]:m-0 [&_ul]:list-disc [&_ul]:ps-6",
+        class="prose loomark-prose lg:prose-lg mx-auto w-[min(calc(100%-4rem),46rem)] max-w-none min-w-0 px-4 pt-8 pb-16 font-lm-ui max-[641px]:w-full max-[641px]:px-3 max-[641px]:pt-6 max-[641px]:pb-12 [&>*]:min-w-0 [&>*]:break-words",
         content,
       ),
     ],

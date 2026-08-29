@@ -112,6 +112,14 @@ test "Preview renders unresolved and raw recovery source without parser chrome" 
 }
 
 ///|
+test "Preview flow recovery keeps the Loomark UI font" {
+  let rendered = @rabbita_testing.server_side_render(() => {
+    render_opaque_source("unresolved", Flow)
+  })
+  assert_preview_contains(rendered, "font-lm-ui")
+}
+
+///|
 test "Preview renders GFM task markers as disabled checkboxes" {
   let unchecked = render_preview("- [ ] todo\n")
   let checked = render_preview("- [x] done\n")
