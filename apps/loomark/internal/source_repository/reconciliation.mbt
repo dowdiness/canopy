@@ -69,7 +69,8 @@ fn reconcile_scan(entries : Array[@indexed_db.ScanEntry]) -> Reconciliation {
     }
     None => ()
   }
-  guard snapshot_from_sources(sources, issues) is Some(snapshot) else {
+  guard snapshot_from_sources(sources, issues, raw_source_keys.to_array())
+    is Some(snapshot) else {
     return Empty(issues, raw_source_keys.to_array())
   }
   Ready(snapshot)

@@ -57,7 +57,9 @@ struct Catalog(Array[CatalogEntry]) derive(Eq, Debug)
 ///|
 pub fn Catalog::from_entries(entries : Array[CatalogEntry]) -> Self? {
   let ordered = entries.copy()
-  ordered.sort_by_key(entry => entry.document_id())
+  ordered.sort_by((left, right) => {
+    left.document_id().lexical_compare(right.document_id())
+  })
   catalog_from_sorted_entries(ordered)
 }
 
@@ -89,28 +91,40 @@ pub(all) enum RepositoryIssue {
 } derive(Eq, Debug)
 
 ///|
-struct RepositorySnapshot(Array[SourceRecord], Catalog, Array[RepositoryIssue]) derive (
-  Eq,
-  Debug,
-)
+struct RepositorySnapshot(
+  Array[SourceRecord],
+  Catalog,
+  Array[RepositoryIssue],
+  Array[String]
+) derive(Eq, Debug)
 
 ///|
 fn RepositorySnapshot::new(
   sources : Array[SourceRecord],
   catalog : Catalog,
   issues : Array[RepositoryIssue],
+  occupied_source_keys : Array[String],
 ) -> Self {
-  RepositorySnapshot(sources.copy(), catalog, issues.copy())
+  let occupied = Set::from_iter(occupied_source_keys.iter())
+  for source in sources {
+    occupied.add(source_key(source.document_id()).unwrap())
+  }
+  let occupied = occupied.to_array()
+  occupied.sort_by((left, right) => left.lexical_compare(right))
+  RepositorySnapshot(sources.copy(), catalog, issues.copy(), occupied)
 }
 
 ///|
 fn snapshot_from_sources(
   sources : Array[SourceRecord],
   initial_issues : Array[RepositoryIssue],
+  occupied_source_keys : Array[String],
 ) -> RepositorySnapshot? {
   guard !sources.is_empty() else { return None }
   let ordered = sources.copy()
-  ordered.sort_by_key(source => source.document_id())
+  ordered.sort_by((left, right) => {
+    left.document_id().lexical_compare(right.document_id())
+  })
   let identities = Set::from_iter(
     ordered.iter().map(source => source.document_id()),
   )
@@ -127,17 +141,28 @@ fn snapshot_from_sources(
     CatalogEntry::new(source.document_id(), name).unwrap()
   })
   guard Catalog::from_entries(entries) is Some(catalog) else { return None }
-  Some(RepositorySnapshot::new(ordered, catalog, issues))
+  Some(RepositorySnapshot::new(ordered, catalog, issues, occupied_source_keys))
 }
 
 ///|
 pub fn RepositorySnapshot::from_sources(sources : Array[SourceRecord]) -> Self? {
-  snapshot_from_sources(sources, [])
+  snapshot_from_sources(sources, [], [])
 }
 
 ///|
 pub fn RepositorySnapshot::sources(self : Self) -> ArrayView[SourceRecord] {
   self.0.view()
+}
+
+///|
+pub fn RepositorySnapshot::source(
+  self : Self,
+  document_id : String,
+) -> SourceRecord? {
+  match self.0.view().search_by(source => source.document_id() == document_id) {
+    Some(index) => self.0.view().get(index)
+    None => None
+  }
 }
 
 ///|
@@ -156,22 +181,49 @@ pub fn RepositorySnapshot::issues(self : Self) -> ArrayView[RepositoryIssue] {
 }
 
 ///|
-struct SaveSuccess(Catalog, Array[RepositoryIssue]) derive(Eq, Debug)
-
-///|
-pub fn SaveSuccess::new(
-  catalog : Catalog,
-  issues : Array[RepositoryIssue],
-) -> Self {
-  SaveSuccess(catalog, issues.copy())
+fn RepositorySnapshot::occupied_source_keys(self : Self) -> ArrayView[String] {
+  self.3.view()
 }
 
 ///|
-pub fn SaveSuccess::catalog(self : Self) -> Catalog {
-  self.0
-}
+fn accepted_source(
+  snapshot : RepositorySnapshot,
+  source : SourceRecord,
+) -> RepositorySnapshot {
+  let document_id = source.document_id()
+  let sources = snapshot
+    .sources()
+    .to_owned()
+    .filter(existing => existing.document_id() != document_id)
+  sources.push(source)
+  sources.sort_by((left, right) => {
+    left.document_id().lexical_compare(right.document_id())
+  })
 
-///|
-pub fn SaveSuccess::issues(self : Self) -> ArrayView[RepositoryIssue] {
-  self.1.view()
+  let issues = snapshot
+    .issues()
+    .to_owned()
+    .filter(issue => {
+      match issue {
+        RepositoryIssue::NameDerivationFailed(issue_id) =>
+          issue_id != document_id
+        _ => true
+      }
+    })
+  let (catalog, current_issues) = next_catalog(
+    snapshot.catalog(),
+    document_id,
+    source.text(),
+  )
+  for issue in current_issues {
+    if !issues.contains(issue) {
+      issues.push(issue)
+    }
+  }
+  RepositorySnapshot::new(
+    sources,
+    catalog,
+    issues,
+    snapshot.occupied_source_keys().to_owned(),
+  )
 }

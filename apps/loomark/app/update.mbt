@@ -80,27 +80,6 @@ fn select_mode(
 }
 
 ///|
-fn update_repository_issues(
-  existing : Array[@source_repository.RepositoryIssue],
-  document_id : String,
-  added : ArrayView[@source_repository.RepositoryIssue],
-) -> Array[@source_repository.RepositoryIssue] {
-  let retained = existing.filter(issue => {
-    match issue {
-      @source_repository.RepositoryIssue::NameDerivationFailed(issue_id) =>
-        issue_id != document_id
-      _ => true
-    }
-  })
-  for issue in added {
-    if !retained.contains(issue) {
-      retained.push(issue)
-    }
-  }
-  retained
-}
-
-///|
 fn initial_state(
   emit : @rabbita.Emit[Msg],
   compact : Bool,
@@ -136,8 +115,7 @@ fn update(
                   focused_mode: Text,
                   compact,
                   preview: Unrequested,
-                  catalog: snapshot.catalog(),
-                  repository_issues: snapshot.issues().to_owned(),
+                  repository: snapshot,
                 }),
                 text_area.initialize(text),
               )
@@ -359,7 +337,7 @@ fn update(
             (
               Editing({ ..editing, save: Saving(candidate) }),
               @source_repository.save(
-                editing.catalog,
+                editing.repository,
                 document_id,
                 candidate,
                 result=emit.map(result => {
@@ -377,15 +355,7 @@ fn update(
       } else {
         match result {
           @source_repository.SaveResult::Stored(success) => {
-            let completed = {
-              ..editing,
-              catalog: success.catalog(),
-              repository_issues: update_repository_issues(
-                editing.repository_issues,
-                document_id,
-                success.issues(),
-              ),
-            }
+            let completed = { ..editing, repository: success }
             if candidate == editing.text {
               (Editing({ ..completed, save: Saved }), @cmd.none)
             } else if editing.composing {
@@ -395,7 +365,7 @@ fn update(
               (
                 Editing({ ..completed, save: Saving(latest) }),
                 @source_repository.save(
-                  completed.catalog,
+                  completed.repository,
                   document_id,
                   latest,
                   result=emit.map(result => {
@@ -417,7 +387,7 @@ fn update(
           (
             Editing({ ..editing, save: Saving(latest) }),
             @source_repository.save(
-              editing.catalog,
+              editing.repository,
               document_id,
               latest,
               result=emit.map(result => {

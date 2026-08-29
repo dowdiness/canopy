@@ -1,10 +1,7 @@
 ///|
-fn test_app_catalog(
-  document_id : String,
-  name : String?,
-) -> @source_repository.Catalog {
-  @source_repository.Catalog::from_entries([
-    @source_repository.CatalogEntry::new(document_id, name).unwrap(),
+fn test_repository() -> @source_repository.RepositorySnapshot {
+  @source_repository.RepositorySnapshot::from_sources([
+    @source_repository.SourceRecord::new("document-1", "# Old\n").unwrap(),
   ]).unwrap()
 }
 
@@ -19,8 +16,7 @@ fn test_editing_state(text : String, save : SaveState) -> EditingState {
     focused_mode: Text,
     compact: false,
     preview: Unrequested,
-    catalog: test_app_catalog("document-1", Some("Old")),
-    repository_issues: [],
+    repository: test_repository(),
   }
 }
 
@@ -36,7 +32,7 @@ fn test_update(model : Model, msg : Msg) -> (Model, @cmd.Cmd) {
 }
 
 ///|
-test "opened snapshot selects the first lexical Document ID" {
+test "opened snapshot installs repository" {
   let snapshot = @source_repository.RepositorySnapshot::from_sources([
     @source_repository.SourceRecord::new("document-b", "# B\n").unwrap(),
     @source_repository.SourceRecord::new("document-a", "# A\n").unwrap(),
@@ -47,9 +43,7 @@ test "opened snapshot selects the first lexical Document ID" {
   )
   guard model is Editing(editing) else { fail("expected Editing") }
   assert_eq(editing.document_id, "document-a")
-  assert_eq(editing.text, "# A\n")
-  assert_true(editing.save == Saved)
-  assert_eq(editing.catalog, snapshot.catalog())
+  assert_eq(editing.repository, snapshot)
 }
 
 ///|
@@ -65,100 +59,71 @@ test "TextChanged remains free of repository IO" {
 }
 
 ///|
-test "SaveRequested starts a Source record transaction" {
+test "SaveRequested uses the repository snapshot" {
   let (model, command) = test_update(
     Editing(test_editing_state("# New\n", Waiting)),
     SaveRequested("# New\n"),
   )
   guard model is Editing(editing) else { fail("expected Editing") }
   assert_true(editing.save == Saving("# New\n"))
-  let rendered = @debug.to_string(command)
-  assert_true(rendered.contains("IndexedDBPut"))
-  assert_true(rendered.contains("source/v1/document-1"))
+  assert_true(@debug.to_string(command).contains("IndexedDBPut"))
 }
 
 ///|
-test "successful Source save installs catalog and retains name issues" {
-  let initial = {
-    ..test_editing_state("# New\n", Saving("# New\n")),
-    repository_issues: [
-      @source_repository.RepositoryIssue::UnknownRecord("other"),
-    ],
-  }
-  let next = test_app_catalog("document-1", Some("New"))
-  let success = @source_repository.SaveSuccess::new(next, [
-    @source_repository.RepositoryIssue::NameDerivationFailed("document-1"),
-  ])
+test "successful save installs returned snapshot" {
+  let initial = test_editing_state("# New\n", Saving("# New\n"))
+  let next = @source_repository.RepositorySnapshot::from_sources([
+    @source_repository.SourceRecord::new("document-1", "# New\n").unwrap(),
+  ]).unwrap()
   let (model, _) = test_update(
     Editing(initial),
     SaveCompleted(
       "document-1",
       "# New\n",
-      @source_repository.SaveResult::Stored(success),
+      @source_repository.SaveResult::Stored(next),
     ),
   )
   guard model is Editing(editing) else { fail("expected Editing") }
   assert_true(editing.save == Saved)
-  assert_eq(editing.catalog, next)
-  assert_eq(editing.repository_issues, [
-    @source_repository.RepositoryIssue::UnknownRecord("other"),
-    @source_repository.RepositoryIssue::NameDerivationFailed("document-1"),
-  ])
+  assert_eq(editing.repository, next)
 }
 
 ///|
-test "successful name derivation resolves the saved Document name issue" {
-  let initial = {
-    ..test_editing_state("# New\n", Saving("# New\n")),
-    repository_issues: [
-      @source_repository.RepositoryIssue::UnknownRecord("other"),
-      @source_repository.RepositoryIssue::NameDerivationFailed("document-1"),
-      @source_repository.RepositoryIssue::NameDerivationFailed("document-2"),
-    ],
-  }
-  let next = test_app_catalog("document-1", Some("New"))
+test "stale completion remains fenced by identity and candidate" {
+  let initial = test_editing_state("# Latest\n", Saving("# Latest\n"))
   let (model, _) = test_update(
     Editing(initial),
     SaveCompleted(
       "document-1",
-      "# New\n",
-      @source_repository.SaveResult::Stored(
-        @source_repository.SaveSuccess::new(next, []),
-      ),
+      "# Old\n",
+      @source_repository.SaveResult::Stored(test_repository()),
     ),
   )
-  guard model is Editing(editing) else { fail("expected Editing") }
-  assert_eq(editing.repository_issues, [
-    @source_repository.RepositoryIssue::UnknownRecord("other"),
-    @source_repository.RepositoryIssue::NameDerivationFailed("document-2"),
-  ])
+  assert_true(model == Editing(initial))
 }
 
 ///|
-test "stale successful completion immediately saves the latest Source" {
+test "stale success immediately saves the latest text" {
   let initial = test_editing_state("# Latest\n", Saving("# Old\n"))
-  let completed_catalog = test_app_catalog("document-1", Some("Old"))
   let (model, command) = test_update(
     Editing(initial),
     SaveCompleted(
       "document-1",
       "# Old\n",
-      @source_repository.SaveResult::Stored(
-        @source_repository.SaveSuccess::new(completed_catalog, []),
-      ),
+      @source_repository.SaveResult::Stored(test_repository()),
     ),
   )
   guard model is Editing(editing) else { fail("expected Editing") }
   assert_true(editing.save == Saving("# Latest\n"))
   let rendered = @debug.to_string(command)
-  assert_true(rendered.contains("source/v1/document-1"))
+  assert_true(rendered.contains("IndexedDBPut"))
   assert_true(rendered.contains("# Latest"))
 }
 
 ///|
-test "Source failure and another Document completion cannot claim saved state" {
+test "failure handling and foreign completion preserve active state" {
   let initial = test_editing_state("# New\n", Saving("# New\n"))
-  let (failed_model, _) = test_update(
+  let (failed, _) = test_update(
     Editing(initial),
     SaveCompleted(
       "document-1",
@@ -168,39 +133,29 @@ test "Source failure and another Document completion cannot claim saved state" {
       ),
     ),
   )
-  guard failed_model is Editing(failed) else { fail("expected Editing") }
+  guard failed is Editing(editing) else { fail("expected Editing") }
   assert_true(
-    failed.save == Failed(@source_repository.SaveFailure::WriteFailed),
+    editing.save == Failed(@source_repository.SaveFailure::WriteFailed),
   )
-
-  let next = test_app_catalog("document-1", Some("New"))
-  let foreign = SaveCompleted(
-    "document-2",
-    "# New\n",
-    @source_repository.SaveResult::Stored(
-      @source_repository.SaveSuccess::new(next, []),
+  let (foreign, _) = test_update(
+    Editing(initial),
+    SaveCompleted(
+      "document-2",
+      "# New\n",
+      @source_repository.SaveResult::Stored(test_repository()),
     ),
   )
-  let (unchanged, _) = test_update(Editing(initial), foreign)
-  assert_true(unchanged == Editing(initial))
+  assert_true(foreign == Editing(initial))
 }
 
 ///|
-test "same-Document stale completions cannot replace the active save" {
+test "same-document stale success and failure cannot replace active save" {
   let initial = test_editing_state("# Latest\n", Saving("# Latest\n"))
-  let stale_catalog = test_app_catalog("document-1", Some("Old"))
   let stale_success = SaveCompleted(
     "document-1",
     "# Old\n",
-    @source_repository.SaveResult::Stored(
-      @source_repository.SaveSuccess::new(stale_catalog, [
-        @source_repository.RepositoryIssue::NameDerivationFailed("document-1"),
-      ]),
-    ),
+    @source_repository.SaveResult::Stored(test_repository()),
   )
-  let (after_success, _) = test_update(Editing(initial), stale_success)
-  assert_true(after_success == Editing(initial))
-
   let stale_failure = SaveCompleted(
     "document-1",
     "# Old\n",
@@ -208,6 +163,8 @@ test "same-Document stale completions cannot replace the active save" {
       @source_repository.SaveFailure::WriteFailed,
     ),
   )
+  let (after_success, _) = test_update(Editing(initial), stale_success)
   let (after_failure, _) = test_update(Editing(initial), stale_failure)
+  assert_true(after_success == Editing(initial))
   assert_true(after_failure == Editing(initial))
 }
