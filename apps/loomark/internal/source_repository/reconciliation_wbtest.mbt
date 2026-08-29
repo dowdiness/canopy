@@ -22,12 +22,13 @@ test "reconciliation isolates corrupt and unsupported records" {
       test_encoded_source("wrong-payload", "# Wrong\n"),
     ),
     @indexed_db.ScanEntry::StringRecord("source/v2/future", "future"),
+    @indexed_db.ScanEntry::StringRecord("catalog/v1", "obsolete"),
     @indexed_db.ScanEntry::StringRecord("other", "value"),
     @indexed_db.ScanEntry::UnsupportedValue("binary"),
     @indexed_db.ScanEntry::UnsupportedKey(6),
   ])
-  guard result is Reconciliation::Ready(snapshot, RepairCatalog(_)) else {
-    fail("expected ready snapshot requiring catalog repair")
+  guard result is Reconciliation::Ready(snapshot) else {
+    fail("expected ready snapshot")
   }
   assert_eq(snapshot.sources().to_owned(), [valid])
   assert_eq(snapshot.catalog().entries().to_owned(), [
@@ -37,41 +38,11 @@ test "reconciliation isolates corrupt and unsupported records" {
     RepositoryIssue::InvalidSource("source/v1/broken"),
     RepositoryIssue::SourceIdentityMismatch("source/v1/wrong-key"),
     RepositoryIssue::UnsupportedSourceSchema("source/v2/future"),
+    RepositoryIssue::UnknownRecord("catalog/v1"),
     RepositoryIssue::UnknownRecord("other"),
     RepositoryIssue::UnsupportedRecord("binary"),
     RepositoryIssue::UnsupportedKey(6),
   ])
-}
-
-///|
-test "reconciliation accepts only a current derived catalog" {
-  let source = test_source("document-a", "# Name\n")
-  let catalog = Catalog::from_entries([
-    CatalogEntry::new("document-a", Some("Name")).unwrap(),
-  ]).unwrap()
-  let source_entry = @indexed_db.ScanEntry::StringRecord(
-    "source/v1/document-a",
-    encode_source(source),
-  )
-  guard reconcile_scan([
-      source_entry,
-      @indexed_db.ScanEntry::StringRecord(CATALOG_KEY, encode_catalog(catalog)),
-    ])
-    is Reconciliation::Ready(snapshot, CatalogCurrent) else {
-    fail("expected current catalog")
-  }
-  assert_eq(snapshot.catalog(), catalog)
-  assert_eq(snapshot.issues().length(), 0)
-  for
-    encoded in ["not-json", encode_catalog(Catalog::from_entries([]).unwrap())] {
-    guard reconcile_scan([
-        source_entry,
-        @indexed_db.ScanEntry::StringRecord(CATALOG_KEY, encoded),
-      ])
-      is Reconciliation::Ready(_, RepairCatalog(_)) else {
-      fail("expected catalog repair")
-    }
-  }
 }
 
 ///|

@@ -7,21 +7,9 @@ import {
 }
 
 // Values
-pub fn decode_catalog(String) -> Result[Catalog, CatalogDecodeFailure]
-
-pub fn decode_source(String, String) -> Result[SourceRecord, SourceDecodeFailure]
-
-pub fn derive_name(String) -> Result[String?, NameDerivationFailure]
-
-pub fn encode_catalog(Catalog) -> String
-
-pub fn encode_source(SourceRecord) -> String
-
 pub fn open(result~ : @cmd.Emit[OpenResult]) -> @cmd.Cmd
 
 pub fn save(Catalog, String, String, result~ : @cmd.Emit[SaveResult]) -> @cmd.Cmd
-
-pub fn source_key(String) -> String?
 
 // Errors
 
@@ -30,10 +18,6 @@ pub struct Catalog(Array[CatalogEntry]) derive(Eq, @debug.Debug)
 pub fn Catalog::entries(Self) -> ArrayView[CatalogEntry]
 pub fn Catalog::from_entries(Array[CatalogEntry]) -> Self?
 
-pub(all) enum CatalogDecodeFailure {
-  InvalidCatalog
-} derive(Eq, @debug.Debug)
-
 pub struct CatalogEntry {
   document_id : String
   name : String?
@@ -41,11 +25,6 @@ pub struct CatalogEntry {
 pub fn CatalogEntry::document_id(Self) -> String
 pub fn CatalogEntry::name(Self) -> String?
 pub fn CatalogEntry::new(String, String?) -> Self?
-
-pub(all) enum NameDerivationFailure {
-  ParseFailed
-  UnsafeInline
-} derive(Eq, @debug.Debug)
 
 pub(all) enum OpenFailure {
   StorageUnavailable
@@ -66,9 +45,6 @@ pub(all) enum RepositoryIssue {
   UnknownRecord(String)
   UnsupportedRecord(String)
   UnsupportedKey(Int)
-  InvalidCatalog
-  StaleCatalog
-  CatalogWriteFailure
   NameDerivationFailed(String)
   InvalidLegacyRecord
   LegacyMigrationCollision(String)
@@ -97,11 +73,6 @@ pub struct SaveSuccess(Catalog, Array[RepositoryIssue]) derive(Eq, @debug.Debug)
 pub fn SaveSuccess::catalog(Self) -> Catalog
 pub fn SaveSuccess::issues(Self) -> ArrayView[RepositoryIssue]
 pub fn SaveSuccess::new(Catalog, Array[RepositoryIssue]) -> Self
-
-pub(all) enum SourceDecodeFailure {
-  InvalidRecord
-  IdentityMismatch
-} derive(Eq, @debug.Debug)
 
 pub struct SourceRecord {
   document_id : String

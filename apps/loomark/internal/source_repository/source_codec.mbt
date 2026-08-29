@@ -2,18 +2,18 @@
 const SOURCE_KEY_PREFIX : String = "source/v1/"
 
 ///|
-pub fn source_key(document_id : String) -> String? {
+fn source_key(document_id : String) -> String? {
   guard document_id != "" else { return None }
   Some(SOURCE_KEY_PREFIX + document_id)
 }
 
 ///|
-pub fn encode_source(source : SourceRecord) -> String {
+fn encode_source(source : SourceRecord) -> String {
   encode_document(source.document_id(), source.text())
 }
 
 ///|
-pub fn decode_source(
+fn decode_source(
   key : String,
   encoded : String,
 ) -> Result[SourceRecord, SourceDecodeFailure] {

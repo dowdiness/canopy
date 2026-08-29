@@ -65,17 +65,7 @@ fn continue_open(
   result : @cmd.Emit[OpenResult],
 ) -> @cmd.Cmd {
   match reconciliation {
-    Ready(snapshot, CatalogCurrent) => result(Ready(snapshot))
-    Ready(snapshot, RepairCatalog(encoded)) =>
-      @indexed_db.put(document_store, CATALOG_KEY, encoded, result=stored => {
-        match stored {
-          @indexed_db.WriteResult::Stored => result(Ready(snapshot))
-          @indexed_db.WriteResult::Unavailable
-          | @indexed_db.WriteResult::QuotaExceeded
-          | @indexed_db.WriteResult::Failed =>
-            result(Ready(snapshot.with_issue(CatalogWriteFailure)))
-        }
-      })
+    Ready(snapshot) => result(Ready(snapshot))
     Migrate(mutations) =>
       @indexed_db.mutate(document_store, mutations, result=stored => {
         match stored {
@@ -131,31 +121,10 @@ pub fn save(
   @indexed_db.put(document_store, key, encode_source(source), result=stored => {
     match stored {
       @indexed_db.WriteResult::Stored =>
-        persist_catalog_after_source(next, issues, result)
+        result(Stored(SaveSuccess::new(next, issues)))
       @indexed_db.WriteResult::Unavailable => result(Failed(StorageUnavailable))
       @indexed_db.WriteResult::QuotaExceeded => result(Failed(QuotaExceeded))
       @indexed_db.WriteResult::Failed => result(Failed(WriteFailed))
-    }
-  })
-}
-
-///|
-fn persist_catalog_after_source(
-  catalog : Catalog,
-  issues : Array[RepositoryIssue],
-  result : @cmd.Emit[SaveResult],
-) -> @cmd.Cmd {
-  @indexed_db.put(document_store, CATALOG_KEY, encode_catalog(catalog), result=stored => {
-    match stored {
-      @indexed_db.WriteResult::Stored =>
-        result(Stored(SaveSuccess::new(catalog, issues)))
-      @indexed_db.WriteResult::Unavailable
-      | @indexed_db.WriteResult::QuotaExceeded
-      | @indexed_db.WriteResult::Failed => {
-        let completed_issues = issues.copy()
-        completed_issues.push(CatalogWriteFailure)
-        result(Stored(SaveSuccess::new(catalog, completed_issues)))
-      }
     }
   })
 }

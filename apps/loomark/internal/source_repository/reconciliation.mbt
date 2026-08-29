@@ -1,25 +1,9 @@
 ///|
-const CATALOG_KEY : String = "catalog/v1"
-
-///|
 const LEGACY_ACTIVE_KEY : String = "active"
 
 ///|
-priv enum PersistedCatalog {
-  CatalogMissing
-  CatalogInvalid
-  CatalogValue(Catalog)
-}
-
-///|
-priv enum CatalogDisposition {
-  CatalogCurrent
-  RepairCatalog(String)
-}
-
-///|
 priv enum Reconciliation {
-  Ready(RepositorySnapshot, CatalogDisposition)
+  Ready(RepositorySnapshot)
   Migrate(Array[@indexed_db.Mutation])
   Empty(Array[RepositoryIssue], Array[String])
 }
@@ -30,17 +14,11 @@ fn reconcile_scan(entries : Array[@indexed_db.ScanEntry]) -> Reconciliation {
   let issues : Array[RepositoryIssue] = []
   let raw_source_keys : Set[String] = Set([])
   let valid_source_ids : Set[String] = Set([])
-  let mut persisted_catalog = PersistedCatalog::CatalogMissing
   let mut legacy : (String, SourceRecord)? = None
   for entry in entries {
     match entry {
       StringRecord(key, encoded) =>
-        if key == CATALOG_KEY {
-          persisted_catalog = match decode_catalog(encoded) {
-            Ok(catalog) => CatalogValue(catalog)
-            Err(_) => CatalogInvalid
-          }
-        } else if key == LEGACY_ACTIVE_KEY {
+        if key == LEGACY_ACTIVE_KEY {
           match decode_source_value(encoded) {
             Ok(source) => legacy = Some((encoded, source))
             Err(_) => issues.push(InvalidLegacyRecord)
@@ -64,9 +42,7 @@ fn reconcile_scan(entries : Array[@indexed_db.ScanEntry]) -> Reconciliation {
         if key.strip_prefix(SOURCE_KEY_PREFIX) is Some(_) {
           raw_source_keys.add(key)
         }
-        if key == CATALOG_KEY {
-          persisted_catalog = CatalogInvalid
-        } else if key == LEGACY_ACTIVE_KEY {
+        if key == LEGACY_ACTIVE_KEY {
           issues.push(InvalidLegacyRecord)
         } else {
           issues.push(UnsupportedRecord(key))
@@ -96,23 +72,7 @@ fn reconcile_scan(entries : Array[@indexed_db.ScanEntry]) -> Reconciliation {
   guard snapshot_from_sources(sources, issues) is Some(snapshot) else {
     return Empty(issues, raw_source_keys.to_array())
   }
-  let catalog = snapshot.catalog()
-  let (snapshot, disposition) = match persisted_catalog {
-    CatalogValue(persisted) if persisted == catalog =>
-      (snapshot, CatalogCurrent)
-    CatalogValue(_) =>
-      (
-        snapshot.with_issue(StaleCatalog),
-        RepairCatalog(encode_catalog(catalog)),
-      )
-    CatalogInvalid =>
-      (
-        snapshot.with_issue(InvalidCatalog),
-        RepairCatalog(encode_catalog(catalog)),
-      )
-    CatalogMissing => (snapshot, RepairCatalog(encode_catalog(catalog)))
-  }
-  Ready(snapshot, disposition)
+  Ready(snapshot)
 }
 
 ///|

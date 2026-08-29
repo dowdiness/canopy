@@ -78,7 +78,7 @@ test "SaveRequested starts a Source record transaction" {
 }
 
 ///|
-test "successful Source save installs catalog and retains non-fatal issues" {
+test "successful Source save installs catalog and retains name issues" {
   let initial = {
     ..test_editing_state("# New\n", Saving("# New\n")),
     repository_issues: [
@@ -87,7 +87,7 @@ test "successful Source save installs catalog and retains non-fatal issues" {
   }
   let next = test_app_catalog("document-1", Some("New"))
   let success = @source_repository.SaveSuccess::new(next, [
-    @source_repository.RepositoryIssue::CatalogWriteFailure,
+    @source_repository.RepositoryIssue::NameDerivationFailed("document-1"),
   ])
   let (model, _) = test_update(
     Editing(initial),
@@ -102,7 +102,35 @@ test "successful Source save installs catalog and retains non-fatal issues" {
   assert_eq(editing.catalog, next)
   assert_eq(editing.repository_issues, [
     @source_repository.RepositoryIssue::UnknownRecord("other"),
-    @source_repository.RepositoryIssue::CatalogWriteFailure,
+    @source_repository.RepositoryIssue::NameDerivationFailed("document-1"),
+  ])
+}
+
+///|
+test "successful name derivation resolves the saved Document name issue" {
+  let initial = {
+    ..test_editing_state("# New\n", Saving("# New\n")),
+    repository_issues: [
+      @source_repository.RepositoryIssue::UnknownRecord("other"),
+      @source_repository.RepositoryIssue::NameDerivationFailed("document-1"),
+      @source_repository.RepositoryIssue::NameDerivationFailed("document-2"),
+    ],
+  }
+  let next = test_app_catalog("document-1", Some("New"))
+  let (model, _) = test_update(
+    Editing(initial),
+    SaveCompleted(
+      "document-1",
+      "# New\n",
+      @source_repository.SaveResult::Stored(
+        @source_repository.SaveSuccess::new(next, []),
+      ),
+    ),
+  )
+  guard model is Editing(editing) else { fail("expected Editing") }
+  assert_eq(editing.repository_issues, [
+    @source_repository.RepositoryIssue::UnknownRecord("other"),
+    @source_repository.RepositoryIssue::NameDerivationFailed("document-2"),
   ])
 }
 
@@ -155,4 +183,31 @@ test "Source failure and another Document completion cannot claim saved state" {
   )
   let (unchanged, _) = test_update(Editing(initial), foreign)
   assert_true(unchanged == Editing(initial))
+}
+
+///|
+test "same-Document stale completions cannot replace the active save" {
+  let initial = test_editing_state("# Latest\n", Saving("# Latest\n"))
+  let stale_catalog = test_app_catalog("document-1", Some("Old"))
+  let stale_success = SaveCompleted(
+    "document-1",
+    "# Old\n",
+    @source_repository.SaveResult::Stored(
+      @source_repository.SaveSuccess::new(stale_catalog, [
+        @source_repository.RepositoryIssue::NameDerivationFailed("document-1"),
+      ]),
+    ),
+  )
+  let (after_success, _) = test_update(Editing(initial), stale_success)
+  assert_true(after_success == Editing(initial))
+
+  let stale_failure = SaveCompleted(
+    "document-1",
+    "# Old\n",
+    @source_repository.SaveResult::Failed(
+      @source_repository.SaveFailure::WriteFailed,
+    ),
+  )
+  let (after_failure, _) = test_update(Editing(initial), stale_failure)
+  assert_true(after_failure == Editing(initial))
 }

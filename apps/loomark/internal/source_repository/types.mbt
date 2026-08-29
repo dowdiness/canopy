@@ -22,10 +22,10 @@ pub fn SourceRecord::text(self : Self) -> String {
 }
 
 ///|
-pub(all) enum SourceDecodeFailure {
+priv enum SourceDecodeFailure {
   InvalidRecord
   IdentityMismatch
-} derive(Eq, Debug)
+}
 
 ///|
 /// One rebuildable display-name entry, identified only by Document ID.
@@ -76,17 +76,6 @@ fn catalog_from_sorted_entries(entries : Array[CatalogEntry]) -> Catalog? {
 }
 
 ///|
-pub(all) enum CatalogDecodeFailure {
-  InvalidCatalog
-} derive(Eq, Debug)
-
-///|
-pub(all) enum NameDerivationFailure {
-  ParseFailed
-  UnsafeInline
-} derive(Eq, Debug)
-
-///|
 pub(all) enum RepositoryIssue {
   InvalidSource(String)
   SourceIdentityMismatch(String)
@@ -94,9 +83,6 @@ pub(all) enum RepositoryIssue {
   UnknownRecord(String)
   UnsupportedRecord(String)
   UnsupportedKey(Int)
-  InvalidCatalog
-  StaleCatalog
-  CatalogWriteFailure
   NameDerivationFailed(String)
   InvalidLegacyRecord
   LegacyMigrationCollision(String)
@@ -168,13 +154,6 @@ pub fn RepositorySnapshot::catalog(self : Self) -> Catalog {
 ///|
 pub fn RepositorySnapshot::issues(self : Self) -> ArrayView[RepositoryIssue] {
   self.2.view()
-}
-
-///|
-fn RepositorySnapshot::with_issue(self : Self, issue : RepositoryIssue) -> Self {
-  let issues = self.2.copy()
-  issues.push(issue)
-  RepositorySnapshot::new(self.0, self.1, issues)
 }
 
 ///|

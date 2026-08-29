@@ -107,6 +107,42 @@ async function measureIndexedDbScan(
   })
 }
 
+async function measureIndexedDbPut(
+  page: Page,
+  key: string,
+  value: string,
+): Promise<number> {
+  return page.evaluate(({ databaseName, databaseVersion, storeName, key, value }) => (
+    new Promise<number>((resolve, reject) => {
+      const open = indexedDB.open(databaseName, databaseVersion)
+      open.onerror = () => reject(open.error ?? new Error("document database open failed"))
+      open.onsuccess = () => {
+        const database = open.result
+        const started = performance.now()
+        const transaction = database.transaction(storeName, "readwrite")
+        const fail = (error: unknown) => {
+          database.close()
+          reject(error)
+        }
+        transaction.onerror = () => fail(transaction.error ?? new Error("document write failed"))
+        transaction.onabort = () => fail(transaction.error ?? new Error("document write aborted"))
+        transaction.oncomplete = () => {
+          const durationMs = performance.now() - started
+          database.close()
+          resolve(durationMs)
+        }
+        transaction.objectStore(storeName).put(value, key)
+      }
+    })
+  ), {
+    databaseName: DOCUMENT_DATABASE_NAME,
+    databaseVersion: DOCUMENT_DATABASE_VERSION,
+    storeName: DOCUMENT_STORE_NAME,
+    key,
+    value,
+  })
+}
+
 function decodeStoredDocument(key: IDBValidKey, value: unknown): StoredDocument | null {
   if (typeof key !== "string" || !key.startsWith(SOURCE_KEY_PREFIX) || typeof value !== "string") {
     return null
@@ -183,16 +219,6 @@ async function writeStoredDocumentRaw(
   })
 }
 
-async function readCatalog(page: Page): Promise<unknown> {
-  const value = await readStoredDocumentRaw(page, CATALOG_KEY)
-  if (typeof value !== "string") return null
-  try {
-    return JSON.parse(value)
-  } catch (_) {
-    return null
-  }
-}
-
 async function replaceStoreRecords(page: Page, records: StoreRecord[]): Promise<void> {
   await page.evaluate(({ databaseName, databaseVersion, storeName, records }) => (
     new Promise<void>((resolve, reject) => {
@@ -251,7 +277,7 @@ function installDocumentPutFailure(key: string): void {
 
 async function waitForRepositoryOpen(page: Page): Promise<void> {
   await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("# Untitled\n")
-  await expect.poll(() => readCatalog(page)).not.toBeNull()
+  await expect.poll(() => readStoredDocument(page)).not.toBeNull()
 }
 
 function removeDocumentPutFailure(): void {
@@ -332,7 +358,31 @@ test("fresh production opens Text mode and preserves its textarea across modes",
   expect(workerUrls).toEqual([])
 })
 
-test("several Sources select the first lexical Document ID and rebuild the catalog", async ({ page }) => {
+test("opening and saving persist only authoritative Source records", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await expect(text).toHaveValue("# Untitled\n")
+  await expect.poll(() => readStoredDocument(page)).not.toBeNull()
+  const baseline = await readStoredDocument(page)
+  if (!baseline) throw new Error("baseline Source missing")
+
+  await text.fill("# Source only\n")
+  await expect.poll(() => readStoredDocument(page)).toEqual({
+    document_id: baseline.document_id,
+    text: "# Source only\n",
+  })
+  await page.reload()
+  await expect(text).toHaveValue("# Source only\n")
+  expect(await scanStoreRecords(page)).toEqual([{
+    key: sourceKey(baseline.document_id),
+    value: encodeStoredDocument({
+      document_id: baseline.document_id,
+      text: "# Source only\n",
+    }),
+  }])
+})
+
+test("several Sources select the first lexical Document ID without writing metadata", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
   const documentA = { document_id: "document-a", text: "# Same\n" }
@@ -345,12 +395,7 @@ test("several Sources select the first lexical Document ID and rebuild the catal
 
   await page.reload()
   await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(documentA.text)
-  await expect.poll(() => readCatalog(page)).toEqual({
-    entries: [
-      { document_id: "document-a", name: "Same" },
-      { document_id: "document-b", name: "Same" },
-    ],
-  })
+  expect(await readStoredDocumentRaw(page, CATALOG_KEY)).toBeUndefined()
   expect(await readStoredDocumentRaw(page, "source/v2/future")).toBe("future")
 })
 
@@ -409,29 +454,21 @@ test("legacy migration failure rolls back the Source put and preserves active", 
   expect(await readStoredDocumentRaw(page, sourceKey(legacy.document_id))).toBeUndefined()
 })
 
-test("missing stale and malformed catalogs are repaired from Sources", async ({ page }) => {
+test("unknown metadata is preserved and cannot override a Source", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
   const document = { document_id: "document-a", text: "# Current\n" }
+  const metadata = JSON.stringify({
+    entries: [{ document_id: "document-a", name: "Stale" }],
+  })
   await replaceStoreRecords(page, [
     { key: sourceKey(document.document_id), value: encodeStoredDocument(document) },
+    { key: CATALOG_KEY, value: metadata },
   ])
 
   await page.reload()
-  const expected = { entries: [{ document_id: "document-a", name: "Current" }] }
-  await expect.poll(() => readCatalog(page)).toEqual(expected)
-
-  await writeStoredDocumentRaw(
-    page,
-    CATALOG_KEY,
-    JSON.stringify({ entries: [{ document_id: "document-a", name: "Stale" }] }),
-  )
-  await page.reload()
-  await expect.poll(() => readCatalog(page)).toEqual(expected)
-
-  await writeStoredDocumentRaw(page, CATALOG_KEY, "not-json")
-  await page.reload()
-  await expect.poll(() => readCatalog(page)).toEqual(expected)
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(document.text)
+  expect(await readStoredDocumentRaw(page, CATALOG_KEY)).toBe(metadata)
 })
 
 test("IndexedDB cursor scan measures 10, 100, and 1000 Source records", async ({ page }, testInfo) => {
@@ -463,6 +500,31 @@ test("IndexedDB cursor scan measures 10, 100, and 1000 Source records", async ({
       description: `${count} Sources: ${median.toFixed(3)} ms`,
     })
     console.log(`IndexedDB scan ${count} Sources median: ${median.toFixed(3)} ms`)
+  }
+})
+
+test("IndexedDB Source put measures small and 1 MiB records", async ({ page }, testInfo) => {
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  for (const [name, text] of [
+    ["small", "# Small\n"],
+    ["1 MiB", `# Large\n${"x".repeat(1024 * 1024)}`],
+  ] as const) {
+    const document = { document_id: `put-${name}`, text }
+    const key = sourceKey(document.document_id)
+    const encoded = encodeStoredDocument(document)
+    const samples: number[] = []
+    for (let sample = 0; sample < 5; sample += 1) {
+      samples.push(await measureIndexedDbPut(page, key, encoded))
+    }
+    samples.sort((left, right) => left - right)
+    const median = samples[Math.floor(samples.length / 2)]
+    testInfo.annotations.push({
+      type: "indexeddb-put-median",
+      description: `${name} Source: ${median.toFixed(3)} ms`,
+    })
+    console.log(`IndexedDB put ${name} Source median: ${median.toFixed(3)} ms`)
+    expect(await readStoredDocumentRaw(page, key)).toBe(encoded)
   }
 })
 
@@ -993,31 +1055,38 @@ test("save failure keeps Text editable and Retry saves the latest text", async (
   await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("# Latest text\n")
 })
 
-test("catalog write failure keeps Source durable and reload repairs the cache", async ({ page }) => {
+test("saving one Source preserves unrelated Sources and unknown metadata", async ({ page }) => {
   await page.goto("/")
-  await expect.poll(() => readStoredDocument(page)).not.toBeNull()
-  await page.evaluate(installDocumentPutFailure, CATALOG_KEY)
+  await waitForRepositoryOpen(page)
+  const documentA = { document_id: "document-a", text: "# A\n" }
+  const documentB = { document_id: "document-b", text: "# B\n" }
+  const encodedB = encodeStoredDocument(documentB)
+  const catalogMetadata = "opaque-catalog"
+  const futureMetadata = "opaque-future"
+  await replaceStoreRecords(page, [
+    { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA) },
+    { key: sourceKey(documentB.document_id), value: encodedB },
+    { key: CATALOG_KEY, value: catalogMetadata },
+    { key: "metadata/v2/future", value: futureMetadata },
+  ])
 
-  const text = page.getByRole("textbox", { name: "Text" })
-  await text.fill("# Durable\n")
-  await expect.poll(() => readStoredDocument(page).then(document => document?.text))
-    .toBe("# Durable\n")
-  expect(await page.evaluate(() => (
-    (globalThis as typeof globalThis & { __loomarkDocumentPutFailureCalls?: number })
-      .__loomarkDocumentPutFailureCalls ?? 0
-  ))).toBeGreaterThan(0)
-  await expect(page.getByRole("alert")).toHaveCount(0)
-  expect(await readCatalog(page)).not.toEqual({
-    entries: [{ document_id: expect.any(String), name: "Durable" }],
-  })
-
-  await page.evaluate(removeDocumentPutFailure)
   await page.reload()
-  await expect(text).toHaveValue("# Durable\n")
-  await expect.poll(async () => {
-    const catalog = await readCatalog(page) as { entries?: Array<{ name?: string }> } | null
-    return catalog?.entries?.[0]?.name
-  }).toBe("Durable")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await expect(text).toHaveValue(documentA.text)
+  await text.fill("# Updated A\n")
+  await expect.poll(() => readStoredDocumentRaw(page, sourceKey(documentA.document_id)))
+    .toBe(encodeStoredDocument({ ...documentA, text: "# Updated A\n" }))
+  await page.reload()
+  await expect(text).toHaveValue("# Updated A\n")
+  expect(await readStoredDocumentRaw(page, sourceKey(documentB.document_id))).toBe(encodedB)
+  expect(await readStoredDocumentRaw(page, CATALOG_KEY)).toBe(catalogMetadata)
+  expect(await readStoredDocumentRaw(page, "metadata/v2/future")).toBe(futureMetadata)
+  expect((await scanStoreRecords(page)).map(record => record.key)).toEqual([
+    CATALOG_KEY,
+    "metadata/v2/future",
+    sourceKey(documentA.document_id),
+    sourceKey(documentB.document_id),
+  ])
 })
 
 test("valid and corrupt Source records coexist without overwriting corruption", async ({ page }) => {

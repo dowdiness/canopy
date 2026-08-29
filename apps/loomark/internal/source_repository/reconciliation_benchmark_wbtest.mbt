@@ -30,24 +30,13 @@ fn reconciliation_bench_sources(
 ///|
 fn reconciliation_bench_entries(
   sources : Array[SourceRecord],
-  include_catalog : Bool,
 ) -> Array[@indexed_db.ScanEntry] {
-  let entries = sources.map(source => {
+  sources.map(source => {
     @indexed_db.ScanEntry::StringRecord(
       source_key(source.document_id()).unwrap(),
       encode_source(source),
     )
   })
-  if include_catalog {
-    let snapshot = RepositorySnapshot::from_sources(sources).unwrap()
-    entries.push(
-      @indexed_db.ScanEntry::StringRecord(
-        CATALOG_KEY,
-        encode_catalog(snapshot.catalog()),
-      ),
-    )
-  }
-  entries
 }
 
 ///|
@@ -57,7 +46,7 @@ fn benchmark_reconciliation(
   large_mix : Bool,
 ) -> Unit {
   let sources = reconciliation_bench_sources(count, large_mix)
-  let entries = reconciliation_bench_entries(sources, true)
+  let entries = reconciliation_bench_entries(sources)
   b.bench(fn() { b.keep(reconcile_scan(entries)) })
 }
 
@@ -79,7 +68,7 @@ test "bench: reconcile 1000 Sources with large-document mix" (b : @bench.T) {
 ///|
 test "bench: decode 1000 Source records with large-document mix" (b : @bench.T) {
   let sources = reconciliation_bench_sources(1000, true)
-  let entries = reconciliation_bench_entries(sources, false)
+  let entries = reconciliation_bench_entries(sources)
   b.bench(fn() {
     let decoded = entries.filter_map(entry => {
       match entry {
@@ -94,15 +83,20 @@ test "bench: decode 1000 Source records with large-document mix" (b : @bench.T) 
 }
 
 ///|
+test "bench: encode 1000 Source records with large-document mix" (b : @bench.T) {
+  let sources = reconciliation_bench_sources(1000, true)
+  b.bench(fn() { b.keep(sources.map(encode_source)) })
+}
+
+///|
 test "bench: derive 1000 names with large-document mix" (b : @bench.T) {
   let sources = reconciliation_bench_sources(1000, true)
   b.bench(fn() { b.keep(sources.map(source => derive_name(source.text()))) })
 }
 
 ///|
-test "bench: compare 1000-entry Catalog" (b : @bench.T) {
+test "bench: update one entry in a 1000-entry in-memory Catalog" (b : @bench.T) {
   let sources = reconciliation_bench_sources(1000, true)
   let catalog = RepositorySnapshot::from_sources(sources).unwrap().catalog()
-  let encoded = encode_catalog(catalog)
-  b.bench(fn() { b.keep(decode_catalog(encoded) == Ok(catalog)) })
+  b.bench(fn() { b.keep(next_catalog(catalog, "document-500", "# Renamed\n")) })
 }

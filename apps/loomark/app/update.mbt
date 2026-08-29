@@ -80,11 +80,18 @@ fn select_mode(
 }
 
 ///|
-fn retain_repository_issues(
+fn update_repository_issues(
   existing : Array[@source_repository.RepositoryIssue],
+  document_id : String,
   added : ArrayView[@source_repository.RepositoryIssue],
 ) -> Array[@source_repository.RepositoryIssue] {
-  let retained = existing.copy()
+  let retained = existing.filter(issue => {
+    match issue {
+      @source_repository.RepositoryIssue::NameDerivationFailed(issue_id) =>
+        issue_id != document_id
+      _ => true
+    }
+  })
   for issue in added {
     if !retained.contains(issue) {
       retained.push(issue)
@@ -365,7 +372,7 @@ fn update(
         }
       }
     (Editing(editing), SaveCompleted(document_id, candidate, result)) =>
-      if document_id != editing.document_id {
+      if document_id != editing.document_id || editing.save != Saving(candidate) {
         (model, @cmd.none)
       } else {
         match result {
@@ -373,8 +380,9 @@ fn update(
             let completed = {
               ..editing,
               catalog: success.catalog(),
-              repository_issues: retain_repository_issues(
+              repository_issues: update_repository_issues(
                 editing.repository_issues,
+                document_id,
                 success.issues(),
               ),
             }

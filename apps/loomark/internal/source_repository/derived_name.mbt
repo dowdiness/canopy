@@ -4,16 +4,16 @@ let name_source_id : @loom.SourceId = @loom.SourceId(
 )
 
 ///|
-pub fn derive_name(source : String) -> Result[String?, NameDerivationFailure] {
+fn derive_name(source : String) -> Result[String?, Unit] {
   let (cst, _) = @markdown.parse_cst(name_source_id, source) catch {
-    _ => return Err(ParseFailed)
+    _ => return Err(())
   }
   let root = @seam.SyntaxNode::from_cst(cst)
   match first_atx_h1(root) {
     None => Ok(None)
     Some(inlines) => {
       let builder = StringBuilder()
-      guard append_inlines(inlines, builder) else { return Err(UnsafeInline) }
+      guard append_inlines(inlines, builder) else { return Err(()) }
       let name = builder.to_string().trim().to_owned()
       if name == "" {
         Ok(None)
