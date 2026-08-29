@@ -28,6 +28,36 @@ test "PreviewEngine prepares one semantic result and advances exact edits" {
 }
 
 ///|
+test "PreviewEngine publishes lazy task-list HTML after an edit" {
+  let source = "- [ ] todo\n\nTail text.\n"
+  let engine = PreviewEngine::PreviewEngine()
+  guard engine.prepare(source) is Ok(initial) else {
+    abort("initial task-list preparation failed")
+  }
+  let initial_html = @rabbita_testing.server_side_render(() => initial.html)
+  assert_true(initial_html.contains("type=\"checkbox\""))
+  assert_true(!initial_html.contains("checked"))
+
+  let position = source.find("[ ]").unwrap() + 1
+  let checked_source = source[:position].to_owned() +
+    "x" +
+    source[position + 1:].to_owned()
+  let change = @text_change.ReplaceRange(
+    start=position,
+    delete_len=1,
+    inserted="x",
+  )
+  assert_eq(engine.apply(change, checked_source), Ok(()))
+  guard engine.refresh(checked_source) is Ok(checked) else {
+    abort("checked task-list refresh failed")
+  }
+  let checked_html = @rabbita_testing.server_side_render(() => checked.html)
+  assert_true(checked_html.contains("type=\"checkbox\""))
+  assert_true(checked_html.contains("checked"))
+  assert_true(!checked_html.contains("[x]"))
+}
+
+///|
 test "PreviewEngine keeps a healthy parser for ReplaceAll" {
   let engine = PreviewEngine::PreviewEngine()
   ignore(engine.prepare("Before\n"))
@@ -64,6 +94,7 @@ test "PreviewEngine discards a stale preparation parser before retry" {
 test "PreviewEngine replaces only an unusable parser on allowed refresh" {
   let engine = PreviewEngine::PreviewEngine()
   ignore(engine.prepare("Before\n"))
+  let replacement_key_floor = engine.next_revision_key
   let inconsistent = @text_change.ReplaceRange(
     start=0,
     delete_len=1,
@@ -79,7 +110,14 @@ test "PreviewEngine replaces only an unusable parser on allowed refresh" {
   }
   assert_true(!result.empty)
   match engine.state {
-    Healthy(source~, ..) => assert_eq(source, "latest\n")
+    Healthy(source~, semantics~, ..) => {
+      assert_eq(source, "latest\n")
+      let publication = semantics.publish()
+      for key in publication.top_level_revision_keys() {
+        assert_true(key >= replacement_key_floor)
+      }
+      assert_true(engine.next_revision_key > replacement_key_floor)
+    }
     NoPair | Broken => abort("expected replacement Preview parser")
   }
 }

@@ -398,6 +398,25 @@ pub fn render(document : @markdown.MarkdownIR) -> @rabbita.Html {
 }
 
 ///|
+/// Render a parser-bound semantic publication while preserving unchanged
+/// top-level virtual DOM subtrees.
+fn render_publication(
+  publication : @markdown.MarkdownSemanticPublication,
+) -> @rabbita.Html {
+  let document = publication.document()
+  let children = document.children()
+  let keys = publication.top_level_revision_keys()
+  guard children.length() == keys.length() else {
+    abort("Markdown publication renderer key count mismatch")
+  }
+  @html.fragment(
+    children.mapi((index, child) => {
+      @html.lazy(keys[index], () => render_node(child))
+    }),
+  )
+}
+
+///|
 /// Report whether a semantic document has no renderable top-level children.
 pub fn is_empty(document : @markdown.MarkdownIR) -> Bool {
   document.children().is_empty()

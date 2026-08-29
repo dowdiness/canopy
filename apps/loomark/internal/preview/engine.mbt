@@ -15,7 +15,11 @@ pub(all) struct PreviewOutput {
 ///|
 priv enum EngineState {
   NoPair
-  Healthy(parser~ : @loom.SyntaxParser, source~ : String)
+  Healthy(
+    parser~ : @loom.SyntaxParser,
+    semantics~ : @markdown.MarkdownSemanticSession,
+    source~ : String
+  )
   Broken
 }
 
@@ -23,15 +27,19 @@ priv enum EngineState {
 /// Imperative owner of at most one live syntax Parser.
 pub struct PreviewEngine {
   priv mut state : EngineState
+  priv mut next_revision_key : Int
 }
 
 ///|
 pub fn PreviewEngine::PreviewEngine() -> PreviewEngine {
-  { state: NoPair }
+  { state: NoPair, next_revision_key: 0 }
 }
 
 ///|
-fn create_parser_state(source : String) -> Result[EngineState, PreviewFailure] {
+fn create_parser_state(
+  source : String,
+  first_revision_key : Int,
+) -> Result[EngineState, PreviewFailure] {
   try
     @loom.new_syntax_parser(
       @loom.SourceId("loomark-preview"),
@@ -41,18 +49,26 @@ fn create_parser_state(source : String) -> Result[EngineState, PreviewFailure] {
   catch {
     _ => Err(InitializationFailed)
   } noraise {
-    parser => Ok(Healthy(parser~, source~))
+    parser => {
+      let semantics = @markdown.MarkdownSemanticSession(
+        parser,
+        extensions=@markdown.MarkdownExtensions::task_list(),
+        first_revision_key~,
+      )
+      Ok(Healthy(parser~, semantics~, source~))
+    }
   }
 }
 
 ///|
-fn output(parser : @loom.SyntaxParser) -> PreviewOutput {
-  let snapshot = parser.snapshot().read_or_abort()
-  let document = @markdown.experimental_markdown_ir_from_syntax_snapshot(
-    snapshot,
-    extensions=@markdown.MarkdownExtensions::task_list(),
-  )
-  { html: render(document), empty: is_empty(document) }
+fn PreviewEngine::output(
+  self : PreviewEngine,
+  semantics : @markdown.MarkdownSemanticSession,
+) -> PreviewOutput {
+  let publication = semantics.publish()
+  self.next_revision_key = semantics.next_revision_key()
+  let document = publication.document()
+  { html: render_publication(publication), empty: is_empty(document) }
 }
 
 ///|
@@ -68,7 +84,7 @@ pub fn PreviewEngine::prepare(
 ) -> Result[PreviewOutput, PreviewFailure] {
   match self.state {
     NoPair | Broken =>
-      match create_parser_state(source) {
+      match create_parser_state(source, self.next_revision_key) {
         Ok(state) => {
           self.state = state
           self.refresh(source)
@@ -78,9 +94,9 @@ pub fn PreviewEngine::prepare(
           Err(failure)
         }
       }
-    Healthy(source=known_source, parser~) =>
+    Healthy(source=known_source, semantics~, ..) =>
       if known_source == source {
-        Ok(output(parser))
+        Ok(self.output(semantics))
       } else {
         self.break_parser()
         Err(OutOfSync)
@@ -98,7 +114,7 @@ pub fn PreviewEngine::apply(
   match self.state {
     NoPair => Ok(())
     Broken => Err(Unusable)
-    Healthy(parser~, source=old_source) => {
+    Healthy(parser~, semantics~, source=old_source) => {
       guard change.apply(old_source) == Some(new_source) else {
         self.break_parser()
         return Err(OutOfSync)
@@ -119,7 +135,7 @@ pub fn PreviewEngine::apply(
       }
       match result {
         Ok(_) => {
-          self.state = Healthy(parser~, source=new_source)
+          self.state = Healthy(parser~, semantics~, source=new_source)
           Ok(())
         }
         Err(failure) => {
@@ -141,9 +157,9 @@ pub fn PreviewEngine::refresh(
 ) -> Result[PreviewOutput, PreviewFailure] {
   match self.state {
     NoPair | Broken => self.prepare(source)
-    Healthy(source=known_source, parser~) =>
+    Healthy(source=known_source, semantics~, ..) =>
       if known_source == source {
-        Ok(output(parser))
+        Ok(self.output(semantics))
       } else {
         self.break_parser()
         Err(OutOfSync)
