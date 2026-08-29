@@ -48,7 +48,7 @@ fn handle_codemirror(
       // version still matches the source currently displayed in CodeMirror;
       // otherwise use the transaction's captured document snapshot fallback.
       let changes = event.changes
-      let current_source_version = @ffi.get_version_json(model.handle)
+      let current_source_version = Hash::hash(model.editor.get_version()).to_string()
       js_perf_begin("cmDocChangedHandler")
       js_perf_begin("syncEditorApply")
       let timestamp_ms = js_now_ms()
@@ -91,7 +91,7 @@ fn handle_codemirror(
         }
       }
       let actual_text = new_model.editor.get_text()
-      let source_version = @ffi.get_version_json(model.handle)
+      let source_version = Hash::hash(model.editor.get_version()).to_string()
       js_perf_begin("publicationPrepare")
       let sync_cmd = match fallback_text {
         Some(text) =>

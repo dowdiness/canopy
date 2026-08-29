@@ -51,7 +51,7 @@ pub fn get_source_map_json(Int) -> String
 
 pub fn get_text(Int) -> String
 
-pub fn get_version_json(Int) -> String
+pub fn get_version_json(Int) -> String raise
 
 pub fn handle_redo(Int) -> Bool raise Failure
 

@@ -79,7 +79,7 @@ pub fn get_sync_editor() -> @editor.SyncEditor[@ast.Term]?
 
 pub fn get_text(Int) -> String
 
-pub fn get_version_json(Int) -> String
+pub fn get_version_json(Int) -> String raise
 
 pub fn get_view_tree_json(Int) -> String raise Failure
 

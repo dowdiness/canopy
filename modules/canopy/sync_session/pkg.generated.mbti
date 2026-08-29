@@ -3,6 +3,7 @@ package "dowdiness/canopy/sync_session"
 
 import {
   "dowdiness/canopy/protocol/wire",
+  "dowdiness/event-graph-walker/sync",
   "dowdiness/event-graph-walker/text",
   "moonbitlang/core/debug",
 }
@@ -29,6 +30,8 @@ type RecoveryContext
 pub enum SyncErrorReason {
   Exhausted(peer_id~ : String)
   TargetLeft(peer_id~ : String)
+  LocalVersionLimitExceeded(kind~ : @sync.LimitKind, limit~ : Int, actual~ : Int)
+  LocalVersionEncodingFailed
 } derive(Eq, @debug.Debug)
 pub impl Show for SyncErrorReason
 
@@ -45,9 +48,9 @@ pub fn SyncHost::SyncHost(io~ : SyncIo, apply_sync~ : (@text.SyncMessage) -> Uni
 
 pub struct SyncIo {
   send : (Bytes) -> Unit
-  current_version : () -> @text.Version
+  current_version_json : () -> String raise @text.TextError
 }
-pub fn SyncIo::SyncIo(send~ : (Bytes) -> Unit, current_version~ : () -> @text.Version) -> Self
+pub fn SyncIo::SyncIo(send~ : (Bytes) -> Unit, current_version_json~ : () -> String raise @text.TextError) -> Self
 
 pub struct SyncSession {
   // private fields

@@ -159,10 +159,10 @@ pub fn apply_sync_json(handle : Int, sync_json : String) -> String {
 
 ///|
 /// Get the current version as a JSON string.
-pub fn get_version_json(handle : Int) -> String {
+pub fn get_version_json(handle : Int) -> String raise {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.get_version().to_json_string()
-    None => "\"\""
+    None => fail("invalid editor handle")
   }
 }
 

@@ -74,7 +74,7 @@ fn LambdaHandle::pattern_source_snapshot(
 ) -> @facts.SourceSnapshot {
   @facts.SourceSnapshot::SourceSnapshot(
     doc_id=self.editor_id.0.to_string(),
-    version=self.editor.get_version().to_json_string().hash(),
+    version=Hash::hash(self.editor.get_version()),
     source~,
   )
 }

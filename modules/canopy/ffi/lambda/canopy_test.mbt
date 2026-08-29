@@ -19,8 +19,12 @@ test "sync JSON export rejects an invalid editor handle" {
   let since : Result[String, Error] = Ok(export_since_json(-1, "")) catch {
     error => Err(error)
   }
+  let version : Result[String, Error] = Ok(get_version_json(-1)) catch {
+    error => Err(error)
+  }
   inspect(all is Err(_), content="true")
   inspect(since is Err(_), content="true")
+  inspect(version is Err(_), content="true")
 }
 
 ///|

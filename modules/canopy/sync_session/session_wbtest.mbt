@@ -13,10 +13,23 @@ fn empty_msg_or_fail() -> @text.SyncMessage raise {
 }
 
 ///|
-/// Fake IO: records sent frames, serves a fresh empty version.
+/// Fake IO: records sent frames, serves a fresh empty Version token.
 fn test_io(sent : Array[Bytes]) -> SyncIo {
-  SyncIo(send=data => sent.push(data), current_version=() => {
-    try! @text.TextState::new("io-peer").version()
+  SyncIo(send=data => sent.push(data), current_version_json=() => {
+    @text.TextState::new("io-peer").version().to_json_string()
+  })
+}
+
+///|
+fn version_limit_io(sent : Array[Bytes]) -> SyncIo {
+  SyncIo(send=data => sent.push(data), current_version_json=() => {
+    raise @text.TextError::SyncFailed(
+      @sync.Failure::LimitExceeded(
+        kind=@sync.LimitKind::DecodedOperations,
+        limit=4096,
+        actual=4097,
+      ),
+    )
   })
 }
 
@@ -24,6 +37,39 @@ fn test_io(sent : Array[Bytes]) -> SyncIo {
 /// Fake host whose document closures are inert: apply_sync succeeds,
 /// exports return an empty SyncMessage, ephemeral payloads vanish.
 /// `left` records on_peer_leave calls.
+test "local Version limit ends recovery without sending or scheduling" {
+  let sent : Array[Bytes] = []
+  let scheduled : Array[(Int, Int)] = []
+  let statuses : Array[SyncStatus] = []
+  let session = SyncSession::SyncSession()
+  session.set_on_status_change(Some(status => statuses.push(status)))
+  session.set_watchdog_scheduler(
+    Some((request_id, timeout) => scheduled.push((request_id, timeout))),
+  )
+  session.enter_recovery(
+    "peer",
+    try! empty_msg_or_fail(),
+    version_limit_io(sent),
+  )
+  inspect(sent.length(), content="0")
+  inspect(scheduled.length(), content="0")
+  inspect(session.recovery is None, content="true")
+  inspect(
+    session.get_status(),
+    content=(
+      #|Error(
+      #|  reason=LocalVersionLimitExceeded(
+      #|    kind=DecodedOperations,
+      #|    limit=4096,
+      #|    actual=4097,
+      #|  ),
+      #|)
+    ),
+  )
+  inspect(statuses.length(), content="2")
+}
+
+///|
 fn test_host(sent : Array[Bytes], left : Array[String]) -> SyncHost {
   SyncHost(
     io=test_io(sent),

@@ -56,7 +56,7 @@ pub fn get_errors_json(handle : Int) -> String raise Failure {
 }
 
 ///|
-pub fn get_version_json(handle : Int) -> String {
+pub fn get_version_json(handle : Int) -> String raise {
   @ffi.get_version_json(handle)
 }
 

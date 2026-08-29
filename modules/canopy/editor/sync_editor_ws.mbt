@@ -8,8 +8,8 @@
 ///|
 /// Narrow IO record for the retry/send paths (no `Eq` bound required).
 fn[T] SyncEditor::sync_io(self : SyncEditor[T]) -> @sync_session.SyncIo {
-  @sync_session.SyncIo::SyncIo(send=data => self.interaction.ws_send(data), current_version=() => {
-    self.get_version()
+  @sync_session.SyncIo::SyncIo(send=data => self.interaction.ws_send(data), current_version_json=() => {
+    self.get_version().to_json_string()
   })
 }
 

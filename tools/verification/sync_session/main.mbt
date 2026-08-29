@@ -33,6 +33,9 @@ fn status_text(status : @sync_session.SyncStatus) -> String {
       match reason {
         TargetLeft(peer_id~) => "Error(TargetLeft(peer_id=\{peer_id}))"
         Exhausted(peer_id~) => "Error(Exhausted(peer_id=\{peer_id}))"
+        LocalVersionLimitExceeded(kind~, limit~, actual~) =>
+          "Error(LocalVersionLimitExceeded(kind=\{kind},limit=\{limit},actual=\{actual}))"
+        LocalVersionEncodingFailed => "Error(LocalVersionEncodingFailed)"
       }
   }
 }
@@ -93,8 +96,8 @@ fn Driver::send(self : Driver, bytes : Bytes) -> Unit {
 
 ///|
 fn Driver::host(self : Driver) -> @sync_session.SyncHost raise {
-  let io = @sync_session.SyncIo::SyncIo(send=bytes => self.send(bytes), current_version=() => {
-    @text.Version::empty()
+  let io = @sync_session.SyncIo::SyncIo(send=bytes => self.send(bytes), current_version_json=() => {
+    @text.Version::empty().to_json_string()
   })
   let apply = fn(msg : @text.SyncMessage) raise {
     self.apply_count[0] += 1
@@ -122,8 +125,8 @@ fn Driver::host(self : Driver) -> @sync_session.SyncHost raise {
 fn Driver::watchdog(self : Driver, id : Int) -> Unit {
   self.session.on_watchdog_fire(
     id,
-    @sync_session.SyncIo::SyncIo(send=bytes => self.send(bytes), current_version=() => {
-      @text.Version::empty()
+    @sync_session.SyncIo::SyncIo(send=bytes => self.send(bytes), current_version_json=() => {
+      @text.Version::empty().to_json_string()
     }),
   )
 }
