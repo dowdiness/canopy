@@ -125,14 +125,12 @@ fn create_baseline(
 
 ///|
 fn finish_save(
-  snapshot : RepositorySnapshot,
-  source : SourceRecord,
+  next : RepositorySnapshot,
   stored : @indexed_db.WriteResult,
   result : @cmd.Emit[SaveResult],
 ) -> @cmd.Cmd {
   match stored {
-    @indexed_db.WriteResult::Stored =>
-      result(Stored(accepted_source(snapshot, source)))
+    @indexed_db.WriteResult::Stored => result(Stored(next))
     @indexed_db.WriteResult::Unavailable => result(Failed(StorageUnavailable))
     @indexed_db.WriteResult::QuotaExceeded => result(Failed(QuotaExceeded))
     @indexed_db.WriteResult::Failed => result(Failed(WriteFailed))
@@ -153,21 +151,21 @@ pub fn save(
     source_key(document_id) is Some(key) else {
     return result(Failed(InvalidSource))
   }
+  let next = accepted_source(snapshot, source)
   @indexed_db.put(document_store, key, encode_source(source), result=stored => {
-    finish_save(snapshot, source, stored, result)
+    finish_save(next, stored, result)
   })
 }
 
 ///|
 fn finish_create(
-  snapshot : RepositorySnapshot,
-  source : SourceRecord,
+  next : RepositorySnapshot,
+  document_id : String,
   stored : @indexed_db.WriteResult,
   result : @cmd.Emit[CreateResult],
 ) -> @cmd.Cmd {
   match stored {
-    @indexed_db.WriteResult::Stored =>
-      result(Created(accepted_source(snapshot, source), source.document_id()))
+    @indexed_db.WriteResult::Stored => result(Created(next, document_id))
     @indexed_db.WriteResult::Unavailable => result(Failed(StorageUnavailable))
     @indexed_db.WriteResult::QuotaExceeded => result(Failed(QuotaExceeded))
     @indexed_db.WriteResult::Failed => result(Failed(WriteFailed))
@@ -185,8 +183,9 @@ fn create_with_document_id(
     return result(Failed(DocumentIdentityUnavailable))
   }
   let source = SourceRecord::new(document_id, UNTITLED_SOURCE).unwrap()
+  let next = accepted_source(snapshot, source)
   @indexed_db.put(document_store, key, encode_source(source), result=stored => {
-    finish_create(snapshot, source, stored, result)
+    finish_create(next, document_id, stored, result)
   })
 }
 

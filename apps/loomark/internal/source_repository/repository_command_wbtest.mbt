@@ -54,16 +54,32 @@ test "save completion publishes the next snapshot after storage completes" {
     SourceRecord::new("document-2", "# Other\n").unwrap(),
   ]).unwrap()
   let source = SourceRecord::new("document-1", "# Saved\n").unwrap()
+  let next = accepted_source(snapshot, source)
   let emitted : Array[SaveResult] = []
-  let _ = finish_save(snapshot, source, @indexed_db.WriteResult::Stored, result => {
-    emitted.push(result)
-    @cmd.none
-  })
-  guard emitted.get(0) is Some(SaveResult::Stored(next)) else {
-    fail("stored completion did not publish a snapshot")
+  for
+    stored in [
+      @indexed_db.WriteResult::Stored,
+      @indexed_db.WriteResult::Unavailable,
+      @indexed_db.WriteResult::QuotaExceeded,
+      @indexed_db.WriteResult::Failed,
+    ] {
+    let _ = finish_save(next, stored, result => {
+      emitted.push(result)
+      @cmd.none
+    })
   }
+  assert_eq(emitted.get(0), Some(SaveResult::Stored(next)))
   assert_eq(next.source("document-1").unwrap().text(), "# Saved\n")
   assert_eq(next.source("document-2").unwrap().text(), "# Other\n")
+  assert_eq(
+    emitted.get(1),
+    Some(SaveResult::Failed(SaveFailure::StorageUnavailable)),
+  )
+  assert_eq(
+    emitted.get(2),
+    Some(SaveResult::Failed(SaveFailure::QuotaExceeded)),
+  )
+  assert_eq(emitted.get(3), Some(SaveResult::Failed(SaveFailure::WriteFailed)))
 }
 
 ///|
@@ -139,6 +155,7 @@ test "create completion maps stored and write failures" {
     SourceRecord::new("document-1", "# One\n").unwrap(),
   ]).unwrap()
   let source = SourceRecord::new("document-2", "# Untitled\n").unwrap()
+  let next = accepted_source(snapshot, source)
   let emitted : Array[CreateResult] = []
   for
     stored in [
@@ -147,7 +164,7 @@ test "create completion maps stored and write failures" {
       @indexed_db.WriteResult::QuotaExceeded,
       @indexed_db.WriteResult::Failed,
     ] {
-    let _ = finish_create(snapshot, source, stored, result => {
+    let _ = finish_create(next, "document-2", stored, result => {
       emitted.push(result)
       @cmd.none
     })
