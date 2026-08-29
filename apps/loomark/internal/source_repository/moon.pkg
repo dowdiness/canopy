@@ -1,4 +1,7 @@
 import {
+  "dowdiness/loom",
+  "dowdiness/seam",
+  "dowdiness/markdown",
   "moonbit-community/rabbita/cmd",
   "moonbit-community/rabbita/indexed_db",
   "moonbitlang/core/json",

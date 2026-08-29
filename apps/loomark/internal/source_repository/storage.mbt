@@ -43,30 +43,6 @@ pub(all) enum SaveResult {
 } derive(Eq)
 
 ///|
-fn encode_document(document_id : String, text : String) -> String {
-  Json::object({
-    "document_id": Json::string(document_id),
-    "text": Json::string(text),
-  }).stringify()
-}
-
-///|
-fn decode_document(encoded : String) -> OpenResult {
-  let value = @json.parse(encoded) catch { _ => return Failed(InvalidRecord) }
-  guard value is Json::Object(fields) && fields.length() == 2 else {
-    return Failed(InvalidRecord)
-  }
-  let document_id = match fields.get("document_id") {
-    Some(Json::String(document_id)) if document_id != "" => document_id
-    _ => return Failed(InvalidRecord)
-  }
-  match fields.get("text") {
-    Some(Json::String(text)) => Loaded(document_id, text)
-    _ => Failed(InvalidRecord)
-  }
-}
-
-///|
 pub fn open(result~ : @cmd.Emit[OpenResult]) -> @cmd.Cmd {
   @indexed_db.get(document_store, ACTIVE_DOCUMENT_KEY, migrate_legacy=false, result=stored => {
     result(

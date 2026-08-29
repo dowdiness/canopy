@@ -12,7 +12,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html]
 ```
 
 `apps/loomark/main/main.mbt` mounts that application. Browser integration is
-split between `apps/loomark/internal/browser_storage`, whose interface is
+split between `apps/loomark/internal/source_repository`, whose interface is
 `open` and `save`, and `apps/loomark/internal/text_area`, which converts native
 textarea input sequences into shared `TextChange` operations.
 

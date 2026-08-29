@@ -8,6 +8,7 @@ import {
   "dowdiness/diagnostic@0.1.0",
   "dowdiness/loom@0.1.0",
   "dowdiness/markdown@0.1.0",
+  "dowdiness/seam@0.1.0",
   "dowdiness/text_change@0.1.0",
 }
 

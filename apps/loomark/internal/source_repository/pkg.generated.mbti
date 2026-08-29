@@ -1,0 +1,89 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/internal/source_repository"
+
+import {
+  "moonbit-community/rabbita/cmd",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn decode_catalog(String) -> Result[Catalog, CatalogDecodeFailure]
+
+pub fn decode_source(String, String) -> Result[SourceRecord, SourceDecodeFailure]
+
+pub fn derive_name(String) -> Result[String?, NameDerivationFailure]
+
+pub fn encode_catalog(Catalog) -> String
+
+pub fn encode_source(SourceRecord) -> String
+
+pub fn open(result~ : @cmd.Emit[OpenResult]) -> @cmd.Cmd
+
+pub fn save(String, String, result~ : @cmd.Emit[SaveResult]) -> @cmd.Cmd
+
+pub fn source_key(String) -> String?
+
+// Errors
+
+// Types and methods
+pub struct Catalog(Array[CatalogEntry]) derive(Eq, @debug.Debug)
+pub fn Catalog::entries(Self) -> ArrayView[CatalogEntry]
+pub fn Catalog::from_entries(Array[CatalogEntry]) -> Self?
+
+pub(all) enum CatalogDecodeFailure {
+  InvalidCatalog
+} derive(Eq, @debug.Debug)
+
+pub struct CatalogEntry {
+  document_id : String
+  name : String?
+} derive(Eq, @debug.Debug)
+pub fn CatalogEntry::document_id(Self) -> String
+pub fn CatalogEntry::name(Self) -> String?
+pub fn CatalogEntry::new(String, String?) -> Self?
+
+pub(all) enum NameDerivationFailure {
+  ParseFailed
+  UnsafeInline
+} derive(Eq, @debug.Debug)
+
+pub(all) enum OpenFailure {
+  InvalidRecord
+  StorageUnavailable
+  ReadFailed
+  DocumentIdentityUnavailable
+} derive(Eq)
+
+pub(all) enum OpenResult {
+  New(String)
+  Loaded(String, String)
+  Failed(OpenFailure)
+} derive(Eq)
+
+pub(all) enum SaveFailure {
+  StorageUnavailable
+  QuotaExceeded
+  WriteFailed
+} derive(Eq)
+
+pub(all) enum SaveResult {
+  Stored
+  Failed(SaveFailure)
+} derive(Eq)
+
+pub(all) enum SourceDecodeFailure {
+  InvalidRecord
+  IdentityMismatch
+} derive(Eq, @debug.Debug)
+
+pub struct SourceRecord {
+  document_id : String
+  text : String
+} derive(Eq, @debug.Debug)
+pub fn SourceRecord::document_id(Self) -> String
+pub fn SourceRecord::new(String, String) -> Self?
+pub fn SourceRecord::text(Self) -> String
+
+// Type aliases
+
+// Traits

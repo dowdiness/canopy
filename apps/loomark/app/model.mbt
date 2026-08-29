@@ -2,7 +2,7 @@
 priv enum Model {
   Loading(Bool)
   Editing(EditingState)
-  Recovery(@browser_storage.OpenFailure, Bool)
+  Recovery(@source_repository.OpenFailure, Bool)
 } derive(Eq)
 
 ///|
@@ -44,12 +44,12 @@ priv enum SaveState {
   Saved
   Waiting
   Saving(String)
-  Failed(@browser_storage.SaveFailure)
+  Failed(@source_repository.SaveFailure)
 } derive(Eq)
 
 ///|
 priv enum Msg {
-  Opened(@browser_storage.OpenResult)
+  Opened(@source_repository.OpenResult)
   ExampleSelected(String)
   TextChanged(@text_change.TextChange)
   CompositionStarted
@@ -69,6 +69,6 @@ priv enum Msg {
   )
   ViewportChanged(Int)
   SaveRequested(String)
-  SaveCompleted(String, @browser_storage.SaveResult)
+  SaveCompleted(String, @source_repository.SaveResult)
   RetrySave
 }

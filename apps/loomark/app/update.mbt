@@ -86,7 +86,7 @@ fn initial_state(
 ) -> (Model, @rabbita.Cmd) {
   (
     Loading(compact),
-    @browser_storage.open(result=emit.map(result => Opened(result))),
+    @source_repository.open(result=emit.map(result => Opened(result))),
   )
 }
 
@@ -101,7 +101,7 @@ fn update(
   match (model, msg) {
     (Loading(compact), Opened(result)) =>
       match result {
-        @browser_storage.OpenResult::New(document_id) =>
+        @source_repository.OpenResult::New(document_id) =>
           (
             Editing({
               document_id,
@@ -115,14 +115,14 @@ fn update(
             }),
             @cmd.batch([
               text_area.initialize(""),
-              @browser_storage.save(
+              @source_repository.save(
                 document_id,
                 "",
                 result=emit.map(result => SaveCompleted("", result)),
               ),
             ]),
           )
-        @browser_storage.OpenResult::Loaded(document_id, text) =>
+        @source_repository.OpenResult::Loaded(document_id, text) =>
           (
             Editing({
               document_id,
@@ -136,7 +136,7 @@ fn update(
             }),
             text_area.initialize(text),
           )
-        @browser_storage.OpenResult::Failed(failure) =>
+        @source_repository.OpenResult::Failed(failure) =>
           (Recovery(failure, compact), @cmd.none)
       }
     (Editing(_), ExampleSelected(text)) =>
@@ -345,7 +345,7 @@ fn update(
           Waiting =>
             (
               Editing({ ..editing, save: Saving(candidate) }),
-              @browser_storage.save(
+              @source_repository.save(
                 editing.document_id,
                 candidate,
                 result=emit.map(result => SaveCompleted(candidate, result)),
@@ -356,7 +356,7 @@ fn update(
       }
     (Editing(editing), SaveCompleted(candidate, result)) =>
       match result {
-        @browser_storage.SaveResult::Stored =>
+        @source_repository.SaveResult::Stored =>
           if candidate == editing.text {
             (Editing({ ..editing, save: Saved }), @cmd.none)
           } else if editing.composing {
@@ -365,14 +365,14 @@ fn update(
             let latest = editing.text
             (
               Editing({ ..editing, save: Saving(latest) }),
-              @browser_storage.save(
+              @source_repository.save(
                 editing.document_id,
                 latest,
                 result=emit.map(result => SaveCompleted(latest, result)),
               ),
             )
           }
-        @browser_storage.SaveResult::Failed(failure) =>
+        @source_repository.SaveResult::Failed(failure) =>
           (Editing({ ..editing, save: Failed(failure) }), @cmd.none)
       }
     (Editing(editing), RetrySave) =>
@@ -381,7 +381,7 @@ fn update(
           let latest = editing.text
           (
             Editing({ ..editing, save: Saving(latest) }),
-            @browser_storage.save(
+            @source_repository.save(
               editing.document_id,
               latest,
               result=emit.map(result => SaveCompleted(latest, result)),
