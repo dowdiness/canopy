@@ -133,7 +133,7 @@ own MoonBit module and workspace:
   and assembles ignored static output with `warren build`. Within Loomark,
   `app/` owns the Rabbita Model, Msg, update, and view;
   `internal/source_repository/` owns authoritative Source persistence and the
-  rebuildable catalog; and `main/` mounts the application.
+  derived in-memory Catalog; and `main/` mounts the application.
 - `apps/web/` and `apps/relay-server/` are TypeScript/Worker projects, not
   MoonBit modules.
 

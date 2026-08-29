@@ -243,9 +243,9 @@ behavior** — check the code before relying on any specific detail.
 - [Authority-owned remote admission transition](decisions/2026-08-19-authority-owned-remote-admission-transition.md)
   — consumes one opaque EGW admission transition, reconciles exact effects without a full authority snapshot, and bounds grapheme-safe snapshot fallback.
 - [Loomark Source repository](decisions/2026-08-29-loomark-source-repository.md)
-  — makes versioned Source records independently authoritative, treats the
-  Catalog as rebuildable cache, atomically migrates `active`, and separates
-  Source durability from Catalog repair.
+  — makes versioned Source records independently authoritative, derives the
+  Catalog in memory, atomically migrates `active`, and keeps normal saves to one
+  Source transaction.
 
 ## Historical / Archive
 

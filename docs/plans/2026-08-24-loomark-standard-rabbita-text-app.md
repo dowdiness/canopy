@@ -59,7 +59,6 @@ apps/loomark/
     storage.mbt
     reconciliation.mbt
     source_codec.mbt
-    catalog_codec.mbt
   main/
     main.mbt
   cmd/
@@ -81,14 +80,16 @@ names.
 
 The database remains `loomark`, version `1`, with object store `documents`.
 Each `source/v1/<document-id>` value retains the strict two-field
-`document_id`/`text` shape and is independently authoritative. `catalog/v1` is
-a rebuildable cache derived from a full Source scan. Missing, stale, or malformed
-catalog state does not prevent valid Sources from opening.
+`document_id`/`text` shape and is independently authoritative. Opening derives
+the complete in-memory Catalog from a full Source scan; no Catalog record is
+persisted.
 
 An empty repository creates a UUID-backed Source containing exact text
 `# Untitled\n`. The former `active` value is migrated with one atomic Source put
-and legacy delete when no conflicting target exists. Corrupt and unsupported
-records are preserved and reported rather than overwritten.
+and legacy delete when no conflicting target exists. Corrupt, unsupported, and
+unknown records are preserved and reported rather than overwritten. A normal
+save writes only its accepted Source and advances the in-memory Catalog after
+transaction completion.
 
 ## Autosave
 

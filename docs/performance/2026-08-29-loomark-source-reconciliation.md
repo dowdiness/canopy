@@ -6,23 +6,25 @@
 
 ## Question
 
-Loomark now scans independently authoritative Source records and rebuilds a
-derived Catalog when the application opens. This characterization separates
-browser cursor cost from Source decoding, Markdown name derivation, Catalog
-comparison, and complete pure reconciliation. It establishes evidence; it does
-not propose an optimization.
+Loomark scans independently authoritative Source records and derives an
+in-memory Catalog when the application opens. This characterization separates
+browser cursor cost from Source decoding, Source encoding, Markdown name
+derivation, complete pure reconciliation, one-entry Catalog transition, and
+Source transaction completion. It establishes evidence; it does not propose an
+optimization.
 
 ## Workloads
 
 The MoonBit JS release benchmarks use 10 and 100 small Markdown Sources and a
 1,000-Source mix in which every hundredth Source contains 256 representative
-Markdown paragraphs. Every Source has an ATX H1 and the complete-reconciliation
-cases include a current 1,000-entry Catalog.
+Markdown paragraphs. Every Source has an ATX H1. Complete reconciliation scans
+only Source records and builds the Catalog in memory.
 
-The production Chromium measurement stores the same counts under
+The production Chromium cursor measurement stores the same counts under
 `source/v1/<document-id>`. Every hundredth value contains a larger Markdown
-body. It records the median of five complete `openCursor()` scans after the
-fixture repository is quiescent.
+body. The Source-write measurement replaces one small Source and one Source
+with a 1 MiB text value. Browser rows report the median of five completed
+transactions after the fixture repository is quiescent.
 
 ## Results
 
@@ -37,12 +39,13 @@ NEW_MOON_MOD=0 moon bench internal/source_repository --target js --release
 
 | Operation | Workload | Mean |
 | --- | --- | ---: |
-| Complete reconciliation | 10 small Sources | 149.50 µs |
-| Complete reconciliation | 100 small Sources | 1.50 ms |
-| Complete reconciliation | 1,000 mixed Sources | 42.48 ms |
-| Strict Source decode | 1,000 mixed Sources | 1.68 ms |
-| ATX H1 name derivation | 1,000 mixed Sources | 35.50 ms |
-| Catalog decode and equality | 1,000 entries | 700.31 µs |
+| Complete reconciliation | 10 small Sources | 129.99 µs |
+| Complete reconciliation | 100 small Sources | 1.31 ms |
+| Complete reconciliation | 1,000 mixed Sources | 38.06 ms |
+| Strict Source decode | 1,000 mixed Sources | 1.54 ms |
+| Strict Source encode | 1,000 mixed Sources | 3.00 ms |
+| ATX H1 name derivation | 1,000 mixed Sources | 31.33 ms |
+| In-memory Catalog transition | replace 1 of 1,000 entries | 158.87 µs |
 
 ### Production Chromium IndexedDB
 
@@ -52,20 +55,24 @@ Command:
 ./scripts/test-loomark-standalone-e2e.sh
 ```
 
-| Cursor workload | Median |
-| --- | ---: |
-| 10 Sources | 1.500 ms |
-| 100 Sources | 2.900 ms |
-| 1,000 Sources | 12.600 ms |
+| Operation | Workload | Median |
+| --- | --- | ---: |
+| Cursor scan | 10 Sources | 1.300 ms |
+| Cursor scan | 100 Sources | 2.700 ms |
+| Cursor scan | 1,000 Sources | 12.900 ms |
+| Source put through transaction completion | small Source | 0.400 ms |
+| Source put through transaction completion | 1 MiB Source | 2.100 ms |
 
 ## Interpretation
 
 At 1,000 mixed Sources, Markdown name derivation accounts for most pure
-reconciliation time. Strict JSON decoding and Catalog comparison are smaller.
-The browser cursor scan is material but remains separate from the 42.48 ms pure
-phase. All of this work occurs during repository open or `SaveRequested`, never
-inside the Raw input task.
+reconciliation time. Strict JSON decoding, encoding, and one-entry Catalog
+transition are smaller. The browser cursor scan remains separate from the
+38.06 ms pure phase. Normal save writes one Source record; it does not encode or
+write a Catalog or touch unrelated Sources.
 
-No hash, generation, cache authority, or handwritten heading scanner is added.
-Future optimization requires a user-visible open-path target and a new profile;
-these measurements alone do not justify increasing repository complexity.
+All complete-source work occurs during repository open or `SaveRequested`,
+never inside the Raw input task. No hash, generation, persistent Catalog,
+sidecar, index, or handwritten heading scanner is added. Future optimization
+requires a user-visible open or partial-listing target and a new profile; these
+measurements alone do not justify increasing repository complexity.

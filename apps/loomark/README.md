@@ -13,9 +13,9 @@ pub fn app() -> @rabbita.Val[@rabbita.Html]
 
 `apps/loomark/main/main.mbt` mounts that application. Browser integration is
 split between `apps/loomark/internal/source_repository`, which reconciles
-versioned Source records and a rebuildable catalog through `open` and `save`,
-and `apps/loomark/internal/text_area`, which converts native
-textarea input sequences into shared `TextChange` operations.
+versioned Source records and derives an in-memory Catalog through `open` and
+`save`, and `apps/loomark/internal/text_area`, which converts native textarea
+input sequences into shared `TextChange` operations.
 
 See the [Standard Rabbita Text App plan](../../docs/plans/2026-08-24-loomark-standard-rabbita-text-app.md) and the accepted decisions:
 
@@ -30,17 +30,16 @@ from `SaveRequested`, after a 250 ms quiet period and after IME composition
 ends. At most one Source write is active.
 
 Each `source/v1/<document-id>` record contains exactly `document_id` and `text`
-and is the durable authority for that document. `catalog/v1` stores names
-derived from the first ATX H1 and is only a rebuildable cache. Opening scans the
-complete store, isolates malformed or unsupported records, selects the first
-valid Document ID lexically, and repairs missing, stale, or malformed catalog
-state without invalidating valid Sources.
+and is the durable authority for that document. Opening scans the complete
+store, isolates malformed or unsupported records, derives first-ATX-H1 names
+into an in-memory Catalog, and selects the first valid Document ID lexically.
+Unknown metadata remains stored but cannot hide or override a Source.
 
 An empty repository creates a UUID-backed Source with exact text
 `# Untitled\n`. The legacy `active` record is moved atomically when safe;
-collisions preserve both records. A normal save commits the Source first and
-writes the catalog separately, so catalog failure never rolls back durable
-text. A Source save failure preserves current text and presents Retry.
+collisions preserve both records. A normal save writes only the accepted Source
+and installs the next in-memory Catalog after that transaction completes. A
+Source save failure preserves current text and presents Retry.
 
 ## Development
 
