@@ -63,6 +63,52 @@ Command:
 | Source put through transaction completion | small Source | 0.400 ms |
 | Source put through transaction completion | 1 MiB Source | 2.100 ms |
 
+## Normal-save preparation follow-up
+
+Issue [#1347](https://github.com/dowdiness/canopy/issues/1347) later measured
+selected 1 MiB normal saves and found complete Source encoding and repeated
+Catalog name derivation on that path. A release-JavaScript benchmark rotates
+eight distinct operands and retains every result.
+
+| Operation | Workload | Previous mean | Current mean |
+| --- | --- | ---: | ---: |
+| Strict Source encode | 64 KiB | 0.614 ms | 38.97 µs |
+| Strict Source encode | 256 KiB | 2.81 ms | 303.99 µs |
+| Strict Source encode | 1 MiB | 50.78 ms | 1.12 ms |
+| Accept Source with unchanged certified title | 1 MiB suffix edit | 58.68 ms | 2.10 ms |
+| Accept Source after title change | 1 MiB | full derivation required | 49.84 ms |
+
+The encoder keeps the exact two-field Source schema and strict decoder but uses
+native JSON serialization in this JS-only package. Catalog reuse is deliberately
+narrow: each save reparses only the previous first terminated line, then reuses
+the name when the first direct Document child is an unchanged ATX H1 and both
+parse diagnostics and CST error/incomplete metadata are empty. No certificate
+is stored. Title changes, recovered headings, and all uncertified forms continue
+through the existing complete parser.
+
+Production Chromium then exercised 30 saves across three fresh launches per
+fixture. Put and acknowledgment offsets include the 250 ms quiet interval.
+
+| Fixture | Previous put p95 | Current put p95 | Previous ack p95 | Current ack p95 |
+| --- | ---: | ---: | ---: | ---: |
+| Practical 500-block Preview | 280.1 ms | 256.1 ms | 301.2 ms | 270.3 ms |
+| 64 KiB Text | 260.4 ms | 256.1 ms | 269.9 ms | 268.7 ms |
+| 256 KiB Text | 276.6 ms | 258.6 ms | 286.2 ms | 271.9 ms |
+| 1 MiB Text | 354.9 ms | 267.1 ms | 368.5 ms | 292.2 ms |
+
+The selected 1 MiB save-phase long task fell from 30/30 samples at 105 ms p95
+to 0/30. A separate post-input long task remained in 30/30 samples and varied
+by launch up to 230 ms p95; this change does not claim to make 1 MiB textarea
+input frame-responsive.
+
+Command:
+
+```bash
+NEW_MOON_MOD=0 moon bench --release --target js \
+  -p dowdiness/loomark/internal/source_repository \
+  -f source_preparation_benchmark_wbtest.mbt --no-parallelize
+```
+
 ## Interpretation
 
 At 1,000 mixed Sources, Markdown name derivation accounts for most pure

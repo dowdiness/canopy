@@ -96,3 +96,29 @@ fn next_catalog(
   entries.push(CatalogEntry::new(document_id, name).unwrap())
   (Catalog::from_entries(entries).unwrap(), issues)
 }
+
+///|
+fn next_catalog_after_source(
+  current : Catalog,
+  document_id : String,
+  previous_source : String?,
+  source : String,
+) -> (Catalog, Array[RepositoryIssue]) {
+  guard previous_source is Some(previous_source) &&
+    current.entries().search_by(entry => entry.document_id() == document_id)
+    is Some(index) else {
+    return next_catalog(current, document_id, source)
+  }
+  let current_entry = current.entries()[index]
+  guard certified_name_prefix_end(previous_source, current_entry.name())
+    is Some(end) &&
+    end <= source.length() &&
+    previous_source.view(end_offset=end).equal(source.view(end_offset=end)) else {
+    return next_catalog(current, document_id, source)
+  }
+  let entries = current
+    .entries()
+    .filter(entry => entry.document_id() != document_id)
+  entries.push(current_entry)
+  (Catalog::from_entries(entries).unwrap(), [])
+}

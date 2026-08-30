@@ -60,6 +60,21 @@ observed by that Snapshot; concurrent-tab coordination remains out of scope.
 Save completions are fenced by Document ID and exact Source candidate before
 they update active durability state.
 
+The JS-only repository uses the browser's native JSON encoder for the fixed
+`document_id`/`text` Source object. The strict MoonBit decoder remains the schema
+and identity authority; serialized byte spelling is not a public or canonical
+hash contract.
+
+A normal save may parse only the previous Source's first terminated line to
+derive an ephemeral prefix certificate. It reuses the current Catalog name only
+when that prefix parses without diagnostics or CST error/incomplete metadata,
+its first direct Document child is a line-terminated ATX H1 at offset zero, it
+derives the same name, and it is exactly equal in the new Source. Name
+derivation remains independent: recovered headings may still produce the same
+Catalog name while receiving no certificate. Every uncertified case runs the
+complete Markdown derivation and preserves its fail-closed behavior. No
+certificate is retained or persisted, so it cannot become Source authority.
+
 Repository issues describe currently observed conditions rather than an
 append-only incident history. A name-derivation issue for a document disappears
 after a later committed Source derives safely. Storage failures remain operation
@@ -73,6 +88,11 @@ results rather than permanent repository issues.
   authority path.
 - No missing, stale, malformed, or unwritable metadata record can hide a Source.
 - The open path still pays the essential complete-scan and name-derivation cost.
+- Suffix-only saves after a certified first-line title avoid redundant complete
+  Markdown name derivation; changed, nested, missing, recovered, or EOF titles
+  retain the full path.
+- Fixed-schema Source encoding uses the deployment target's mature JSON escaping
+  while strict decode and exact text round trips remain covered in MoonBit.
 - The legacy record cannot shadow a successfully migrated Source indefinitely.
 - A blocked migration may open a fresh baseline while preserving both collision
   records for later recovery.

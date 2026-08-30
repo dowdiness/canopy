@@ -210,9 +210,13 @@ fn accepted_source(
         _ => true
       }
     })
-  let (catalog, current_issues) = next_catalog(
+  let previous_source = snapshot
+    .source(document_id)
+    .map(source => source.text())
+  let (catalog, current_issues) = next_catalog_after_source(
     snapshot.catalog(),
     document_id,
+    previous_source,
     source.text(),
   )
   for issue in current_issues {
