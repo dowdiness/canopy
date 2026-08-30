@@ -15,8 +15,7 @@ priv struct EditingState {
   focused_mode : EditorMode
   compact : Bool
   preview : PreviewState
-  catalog : @source_repository.Catalog
-  repository_issues : Array[@source_repository.RepositoryIssue]
+  repository : @source_repository.RepositorySnapshot
 } derive(Eq)
 
 ///|

@@ -53,11 +53,12 @@ and only `active` is deleted. A corrupt target preserves both records and is
 reported as a migration collision. Mutation failure rolls back the target put
 and preserves `active`.
 
-A normal save derives the next in-memory Catalog outside the Raw input task and
-commits only the accepted Source. Transaction completion establishes the
-acknowledged browser-storage state. Only then does the application install the
-next Catalog. Save completions are fenced by Document ID and exact Source
-candidate before they update active durability state.
+A normal save or create derives the next immutable RepositorySnapshot outside
+Raw input. It commits only the accepted Source and installs that snapshot only
+after transaction completion. Occupied keys prevent overwrite of records
+observed by that Snapshot; concurrent-tab coordination remains out of scope.
+Save completions are fenced by Document ID and exact Source candidate before
+they update active durability state.
 
 Repository issues describe currently observed conditions rather than an
 append-only incident history. A name-derivation issue for a document disappears
@@ -78,6 +79,8 @@ results rather than permanent repository issues.
 - Text input continues to update only Browser-draft state; complete-source name
   derivation, serialization, and IndexedDB work begin at `SaveRequested`.
 - Persistent active-document selection remains deferred to #1305.
+- RepositorySnapshots retain the exact observed `source/v1` keys, including
+  malformed and unsupported records.
 - A persisted discovery accelerator requires a separate measured decision and a
   validation protocol that cannot become document authority.
 

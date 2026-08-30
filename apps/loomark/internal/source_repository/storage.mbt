@@ -32,6 +32,14 @@ pub(all) enum SaveFailure {
 } derive(Eq, Debug)
 
 ///|
+pub(all) enum CreateFailure {
+  DocumentIdentityUnavailable
+  StorageUnavailable
+  QuotaExceeded
+  WriteFailed
+} derive(Eq, Debug)
+
+///|
 pub(all) enum OpenResult {
   Ready(RepositorySnapshot)
   Failed(OpenFailure)
@@ -39,8 +47,14 @@ pub(all) enum OpenResult {
 
 ///|
 pub(all) enum SaveResult {
-  Stored(SaveSuccess)
+  Stored(RepositorySnapshot)
   Failed(SaveFailure)
+} derive(Eq, Debug)
+
+///|
+pub(all) enum CreateResult {
+  Created(RepositorySnapshot, String)
+  Failed(CreateFailure)
 } derive(Eq, Debug)
 
 ///|
@@ -110,24 +124,78 @@ fn create_baseline(
 }
 
 ///|
+fn finish_save(
+  next : RepositorySnapshot,
+  stored : @indexed_db.WriteResult,
+  result : @cmd.Emit[SaveResult],
+) -> @cmd.Cmd {
+  match stored {
+    @indexed_db.WriteResult::Stored => result(Stored(next))
+    @indexed_db.WriteResult::Unavailable => result(Failed(StorageUnavailable))
+    @indexed_db.WriteResult::QuotaExceeded => result(Failed(QuotaExceeded))
+    @indexed_db.WriteResult::Failed => result(Failed(WriteFailed))
+  }
+}
+
+///|
 pub fn save(
-  catalog : Catalog,
+  snapshot : RepositorySnapshot,
   document_id : String,
   text : String,
   result~ : @cmd.Emit[SaveResult],
 ) -> @cmd.Cmd {
+  guard snapshot.source(document_id) is Some(_) else {
+    return result(Failed(InvalidSource))
+  }
   guard SourceRecord::new(document_id, text) is Some(source) &&
     source_key(document_id) is Some(key) else {
     return result(Failed(InvalidSource))
   }
-  let (next, issues) = next_catalog(catalog, document_id, text)
+  let next = accepted_source(snapshot, source)
   @indexed_db.put(document_store, key, encode_source(source), result=stored => {
-    match stored {
-      @indexed_db.WriteResult::Stored =>
-        result(Stored(SaveSuccess::new(next, issues)))
-      @indexed_db.WriteResult::Unavailable => result(Failed(StorageUnavailable))
-      @indexed_db.WriteResult::QuotaExceeded => result(Failed(QuotaExceeded))
-      @indexed_db.WriteResult::Failed => result(Failed(WriteFailed))
-    }
+    finish_save(next, stored, result)
   })
+}
+
+///|
+fn finish_create(
+  next : RepositorySnapshot,
+  document_id : String,
+  stored : @indexed_db.WriteResult,
+  result : @cmd.Emit[CreateResult],
+) -> @cmd.Cmd {
+  match stored {
+    @indexed_db.WriteResult::Stored => result(Created(next, document_id))
+    @indexed_db.WriteResult::Unavailable => result(Failed(StorageUnavailable))
+    @indexed_db.WriteResult::QuotaExceeded => result(Failed(QuotaExceeded))
+    @indexed_db.WriteResult::Failed => result(Failed(WriteFailed))
+  }
+}
+
+///|
+fn create_with_document_id(
+  snapshot : RepositorySnapshot,
+  document_id : String,
+  result : @cmd.Emit[CreateResult],
+) -> @cmd.Cmd {
+  guard source_key(document_id) is Some(key) &&
+    !snapshot.occupied_source_keys().contains(key) else {
+    return result(Failed(DocumentIdentityUnavailable))
+  }
+  let source = SourceRecord::new(document_id, UNTITLED_SOURCE).unwrap()
+  let next = accepted_source(snapshot, source)
+  @indexed_db.put(document_store, key, encode_source(source), result=stored => {
+    finish_create(next, document_id, stored, result)
+  })
+}
+
+///|
+pub fn create(
+  snapshot : RepositorySnapshot,
+  result~ : @cmd.Emit[CreateResult],
+) -> @cmd.Cmd {
+  guard random_uuid_available() else {
+    return result(Failed(DocumentIdentityUnavailable))
+  }
+  create_with_document_id(snapshot, random_uuid(), result)
 }

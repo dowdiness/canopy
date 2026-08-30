@@ -7,9 +7,11 @@ import {
 }
 
 // Values
+pub fn create(RepositorySnapshot, result~ : @cmd.Emit[CreateResult]) -> @cmd.Cmd
+
 pub fn open(result~ : @cmd.Emit[OpenResult]) -> @cmd.Cmd
 
-pub fn save(Catalog, String, String, result~ : @cmd.Emit[SaveResult]) -> @cmd.Cmd
+pub fn save(RepositorySnapshot, String, String, result~ : @cmd.Emit[SaveResult]) -> @cmd.Cmd
 
 // Errors
 
@@ -22,6 +24,18 @@ type CatalogEntry derive(Eq, @debug.Debug)
 pub fn CatalogEntry::document_id(Self) -> String
 pub fn CatalogEntry::name(Self) -> String?
 pub fn CatalogEntry::new(String, String?) -> Self?
+
+pub(all) enum CreateFailure {
+  DocumentIdentityUnavailable
+  StorageUnavailable
+  QuotaExceeded
+  WriteFailed
+} derive(Eq, @debug.Debug)
+
+pub(all) enum CreateResult {
+  Created(RepositorySnapshot, String)
+  Failed(CreateFailure)
+} derive(Eq, @debug.Debug)
 
 pub(all) enum OpenFailure {
   StorageUnavailable
@@ -53,6 +67,7 @@ pub fn RepositorySnapshot::catalog(Self) -> Catalog
 pub fn RepositorySnapshot::from_sources(Array[SourceRecord]) -> Self?
 pub fn RepositorySnapshot::issues(Self) -> ArrayView[RepositoryIssue]
 pub fn RepositorySnapshot::selected(Self) -> SourceRecord?
+pub fn RepositorySnapshot::source(Self, String) -> SourceRecord?
 pub fn RepositorySnapshot::sources(Self) -> ArrayView[SourceRecord]
 
 pub(all) enum SaveFailure {
@@ -63,14 +78,9 @@ pub(all) enum SaveFailure {
 } derive(Eq, @debug.Debug)
 
 pub(all) enum SaveResult {
-  Stored(SaveSuccess)
+  Stored(RepositorySnapshot)
   Failed(SaveFailure)
 } derive(Eq, @debug.Debug)
-
-type SaveSuccess derive(Eq, @debug.Debug)
-pub fn SaveSuccess::catalog(Self) -> Catalog
-pub fn SaveSuccess::issues(Self) -> ArrayView[RepositoryIssue]
-pub fn SaveSuccess::new(Catalog, Array[RepositoryIssue]) -> Self
 
 type SourceRecord derive(Eq, @debug.Debug)
 pub fn SourceRecord::document_id(Self) -> String
