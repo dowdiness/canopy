@@ -119,7 +119,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
   @rui.sidebar_provider_with_input(
     input=layout_input,
     default_collapsed=false,
-    class="h-dvh min-h-0 [--rui-sidebar-width:clamp(11rem,24vw,17rem)]",
+    class="h-dvh min-h-0 [--rui-sidebar-width:clamp(11rem,24vw,17rem)] [--rui-sidebar-width-icon:3rem]",
     (sidebar, layout) => {
       let (model, editor_panels) = layout
       view(sidebar, model, emit, editor_panels)

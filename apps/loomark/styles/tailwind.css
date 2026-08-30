@@ -111,6 +111,22 @@
   content: "";
 }
 
+[data-loomark-icon="new-document"]::before,
+[data-loomark-icon="new-document"]::after {
+  position: absolute;
+  top: calc(50% - 0.75px);
+  left: 0.1875rem;
+  width: 0.625rem;
+  height: 1.5px;
+  border-radius: 1px;
+  background: currentColor;
+  content: "";
+}
+
+[data-loomark-icon="new-document"]::after {
+  transform: rotate(90deg);
+}
+
 [data-mode="text"]::before {
   position: absolute;
   top: 0.25rem;

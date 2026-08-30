@@ -103,6 +103,17 @@ fn sidebar_document_icon() -> @rabbita.Html {
 }
 
 ///|
+fn sidebar_new_icon() -> @rabbita.Html {
+  @html.span(
+    class="relative block size-4 shrink-0",
+    attrs=@html.Attrs::build()
+      .data_set("loomark-icon", "new-document")
+      .aria_hidden("true"),
+    @html.nothing,
+  )
+}
+
+///|
 fn document_sidebar(
   scope : @rui.SidebarScope,
   editing : EditingState,
@@ -122,45 +133,39 @@ fn document_sidebar(
     mobile=false,
     side=@rui.SidebarLeft,
     variant=@rui.SidebarDefault,
-    collapsible=@rui.SidebarOffcanvas,
+    collapsible=@rui.SidebarIcon,
     aria_label="Documents",
     class="[--rui-sidebar:var(--color-lm-foundation)] [--rui-sidebar-foreground:var(--color-lm-ink)] [--rui-sidebar-border:var(--color-lm-rule)] [--rui-sidebar-accent:var(--color-lm-accent-soft)] [--rui-sidebar-accent-foreground:var(--color-lm-accent)]",
     [
       @rui.sidebar_header(
-        @html.div(class="flex min-h-9 items-center justify-between gap-2", [
-          @html.strong(class="truncate text-sm font-semibold", "Loomark"),
-          @html.div(class="flex items-center gap-1", [
-            @rui.button(
-              variant=@rui.Ghost,
-              size=@rui.Sm,
+        @rui.sidebar_menu(
+          @rui.sidebar_menu_item(
+            @rui.sidebar_menu_button(
               disabled=!available,
+              aria_label="New document",
+              title="New document",
               on_click=@cmd.batch([emit(CreateRequested), close_after_action]),
-              "New",
+              [sidebar_new_icon(), @html.span("New document")],
             ),
-            @rui.sidebar_trigger(
-              scope,
-              mobile=false,
-              controls="loomark-document-sidebar",
-              aria_label="Close documents",
-              sidebar_panel_icon(),
-            ),
-          ]),
-        ]),
+          ),
+        ),
       ),
       @rui.sidebar_separator(),
       @rui.sidebar_content(
         @rui.sidebar_group([
-          @rui.sidebar_group_label("Documents"),
+          @rui.sidebar_group_label(scope~, "Documents"),
           @rui.sidebar_group_content(
             @rui.sidebar_menu(
               entries.mapi((index, entry) => {
                 let document_id = entry.document_id()
                 let selected = document_id == editing.activation.document_id
+                let label = document_option_label(entries, index, entry)
                 @rui.sidebar_menu_item(
                   @rui.sidebar_menu_button(
                     is_active=selected,
                     disabled=!available && !selected,
-                    aria_label=document_option_label(entries, index, entry),
+                    aria_label=label,
+                    title=label,
                     on_click=@cmd.batch([
                       emit(DocumentSelected(document_id)),
                       close_after_action,
@@ -177,7 +182,7 @@ fn document_sidebar(
                       sidebar_document_icon(),
                       @html.span(
                         class="min-w-0 overflow-hidden text-ellipsis whitespace-normal [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]",
-                        document_option_label(entries, index, entry),
+                        label,
                       ),
                     ],
                   ),
@@ -186,16 +191,6 @@ fn document_sidebar(
             ),
           ),
         ]),
-      ),
-      @rui.sidebar_footer(
-        @html.p(
-          class="m-0 px-2 text-xs text-lm-muted tabular-nums",
-          if entries.length() == 1 {
-            "1 document"
-          } else {
-            "\{entries.length()} documents"
-          },
-        ),
       ),
     ],
   )
