@@ -200,7 +200,7 @@ fn mode_bar(
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
   @html.header(
-    class="relative z-2 flex min-h-11 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-lm-rule bg-lm-surface px-3 py-1.5 max-[641px]:px-2",
+    class="relative z-2 flex min-h-11 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-lm-rule bg-lm-surface px-3 py-1 max-[641px]:px-2 max-[641px]:py-0",
     [
       @html.div(class="flex min-w-0 items-center gap-2", [
         @rui.sidebar_trigger(
