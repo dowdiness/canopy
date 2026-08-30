@@ -207,22 +207,17 @@ fn mode_bar(
   editing : EditingState,
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
-  let sidebar_open = !@rui.sidebar_is_collapsed(scope)
   @html.header(
     class="relative z-2 flex min-h-11 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-lm-rule bg-lm-surface px-3 py-1.5 max-[641px]:px-2",
     [
       @html.div(class="flex min-w-0 items-center gap-2", [
-        if sidebar_open {
-          @html.nothing
-        } else {
-          @rui.sidebar_trigger(
-            scope,
-            mobile=false,
-            controls="loomark-document-sidebar",
-            aria_label="Open documents",
-            sidebar_panel_icon(),
-          )
-        },
+        @rui.sidebar_trigger(
+          scope,
+          mobile=false,
+          controls="loomark-document-sidebar",
+          aria_label="Toggle documents",
+          sidebar_panel_icon(),
+        ),
         @html.div(
           class="inline-flex items-center gap-0.5",
           attrs=@html.Attrs::build()
