@@ -157,6 +157,7 @@ fn document_sidebar(
                 aria_label="New document",
                 title="New document",
                 class="active:opacity-50",
+                style=["width:1.5rem;height:1.5rem"],
                 on_click=@cmd.batch([emit(CreateRequested), close_after_action]),
                 sidebar_new_icon(),
               ),
