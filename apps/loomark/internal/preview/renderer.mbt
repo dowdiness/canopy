@@ -5,11 +5,7 @@ priv enum RenderPosition {
 }
 
 ///|
-fn plain_text(node : @markdown.MarkdownIR) -> String {
-  match node.text_value() {
-    Some(value) => return value
-    None => ()
-  }
+fn plain_text(node : @markdown.MarkdownNode) -> String {
   match node.view() {
     @markdown.Text(value~)
     | @markdown.InlineHtml(value~)
@@ -29,20 +25,20 @@ fn plain_text(node : @markdown.MarkdownIR) -> String {
     | @markdown.OrderedList(..)
     | @markdown.ListItem(..)
     | @markdown.OrderedListItem(..)
-    | @markdown.Bold
-    | @markdown.Italic
+    | @markdown.Strong
+    | @markdown.Emphasis
     | @markdown.Link(..)
     | @markdown.Image(..) => node.children().map(plain_text).join("")
   }
 }
 
 ///|
-fn link_form(form : @markdown.MarkdownIRLinkReferenceForm) -> String {
+fn link_form(form : @markdown.MarkdownReferenceForm) -> String {
   match form {
-    @markdown.InlineLinkForm => "inline"
-    @markdown.FullReferenceLinkForm => "full-reference"
-    @markdown.CollapsedReferenceLinkForm => "collapsed-reference"
-    @markdown.ShortcutReferenceLinkForm => "shortcut-reference"
+    @markdown.Inline => "inline"
+    @markdown.FullReference => "full-reference"
+    @markdown.CollapsedReference => "collapsed-reference"
+    @markdown.ShortcutReference => "shortcut-reference"
   }
 }
 
@@ -100,7 +96,7 @@ fn safe_destination(destination : String, image~ : Bool) -> String? {
 
 ///|
 fn render_children(
-  node : @markdown.MarkdownIR,
+  node : @markdown.MarkdownNode,
   position : RenderPosition,
 ) -> Array[@rabbita.Html] {
   node.children().map(child => render_node(child, position~))
@@ -120,7 +116,7 @@ fn render_opaque_source(
 
 ///|
 fn render_list_children(
-  node : @markdown.MarkdownIR,
+  node : @markdown.MarkdownNode,
   parent_list_spread : Bool,
 ) -> Array[@rabbita.Html] {
   node
@@ -136,16 +132,16 @@ fn render_list_children(
 
 ///|
 fn render_list_item_children(
-  node : @markdown.MarkdownIR,
+  node : @markdown.MarkdownNode,
   render_paragraphs : Bool,
-  task : @markdown.MarkdownIRTask?,
+  task_checked : Bool?,
 ) -> Array[@rabbita.Html] {
-  let task_prefix = match task {
-    Some(task) =>
+  let task_prefix = match task_checked {
+    Some(checked) =>
       [
         @html.input(
           input_type=@html.Checkbox,
-          checked=task.checked(),
+          checked~,
           attrs=@html.Attrs::build()
             .disabled(true)
             .class(
@@ -163,7 +159,7 @@ fn render_list_item_children(
     match child.view() {
       @markdown.Paragraph => {
         let children = render_children(child, Phrasing)
-        let children = if index == 0 && task is Some(_) {
+        let children = if index == 0 && task_checked is Some(_) {
           let prefixed = task_prefix.copy()
           prefixed.append(children)
           prefixed
@@ -198,7 +194,7 @@ fn render_heading(
 
 ///|
 fn render_node(
-  node : @markdown.MarkdownIR,
+  node : @markdown.MarkdownNode,
   position? : RenderPosition = Flow,
   list_parent_spread? : Bool = false,
   unwrap_list_item_paragraph? : Bool = false,
@@ -208,13 +204,17 @@ fn render_node(
     @markdown.Document | @markdown.BlockQuote => render_children(node, Flow)
     @markdown.UnorderedList(spread~, ..) | @markdown.OrderedList(spread~, ..) =>
       render_list_children(node, spread)
-    @markdown.ListItem(spread~, task~, ..)
-    | @markdown.OrderedListItem(spread~, task~, ..) =>
-      render_list_item_children(node, spread || list_parent_spread, task)
+    @markdown.ListItem(spread~, task_checked~, ..)
+    | @markdown.OrderedListItem(spread~, task_checked~, ..) =>
+      render_list_item_children(
+        node,
+        spread || list_parent_spread,
+        task_checked,
+      )
     @markdown.Heading(..)
     | @markdown.Paragraph
-    | @markdown.Bold
-    | @markdown.Italic
+    | @markdown.Strong
+    | @markdown.Emphasis
     | @markdown.Link(..) => render_children(node, Phrasing)
     @markdown.Image(..)
     | @markdown.CodeBlock(..)
@@ -290,10 +290,10 @@ fn render_node(
       )
     @markdown.ThematicBreak => @html.hr()
     @markdown.Text(value~) => @html.text(value)
-    @markdown.Bold => @html.strong(children)
-    @markdown.Italic => @html.em(children)
+    @markdown.Strong => @html.strong(children)
+    @markdown.Emphasis => @html.em(children)
     @markdown.InlineCode(value~) => @html.code(value)
-    @markdown.Link(destination~, title~, surface~) =>
+    @markdown.Link(destination~, title~, reference_form~) =>
       match safe_destination(destination, image=false) {
         Some(destination) =>
           @html.a(
@@ -304,7 +304,7 @@ fn render_node(
             title?,
             attrs=@html.Attrs::build().data_set(
               "loomark-link-reference-form",
-              link_form(surface.form),
+              link_form(reference_form),
             ),
             children,
           )
@@ -316,7 +316,7 @@ fn render_node(
             children,
           )
       }
-    @markdown.Image(destination~, title~, surface=image_surface) => {
+    @markdown.Image(destination~, title~, reference_form~) => {
       let alt = plain_text(node)
       match safe_destination(destination, image=true) {
         Some(destination) =>
@@ -326,7 +326,7 @@ fn render_node(
             title?,
             attrs=@html.Attrs::build().data_set(
               "loomark-image-reference-form",
-              link_form(image_surface.form),
+              link_form(reference_form),
             ),
           )
         None =>
@@ -338,7 +338,7 @@ fn render_node(
           )
       }
     }
-    @markdown.Autolink(kind~, display~, destination~, ..) =>
+    @markdown.Autolink(kind~, display~, destination~) =>
       match safe_destination(destination, image=false) {
         Some(destination) =>
           @html.a(
@@ -349,8 +349,8 @@ fn render_node(
             attrs=@html.Attrs::build().data_set(
               "loomark-autolink-kind",
               match kind {
-                @markdown.UriAutolink => "uri"
-                @markdown.EmailAutolink => "email"
+                @markdown.Uri => "uri"
+                @markdown.Email => "email"
               },
             ),
             display,
@@ -369,11 +369,11 @@ fn render_node(
         value,
       )
     @markdown.SoftBreak => @html.text("\n")
-    @markdown.HardBreak(surface~) =>
+    @markdown.HardBreak(form~) =>
       @html.br(
         attrs=@html.Attrs::build().data_set(
           "loomark-hard-break-form",
-          match surface {
+          match form {
             @markdown.TrailingSpaces(_) => "trailing-spaces"
             @markdown.Backslash => "backslash"
           },
@@ -392,32 +392,30 @@ fn render_node(
 }
 
 ///|
-/// Render one owning semantic Markdown document as typed Rabbita Html.
-pub fn render(document : @markdown.MarkdownIR) -> @rabbita.Html {
-  render_node(document)
+/// Render one opaque semantic Markdown root as typed Rabbita Html.
+pub fn render(root : @markdown.MarkdownNode) -> @rabbita.Html {
+  render_node(root)
 }
 
 ///|
-/// Render a parser-bound semantic publication while preserving unchanged
-/// top-level virtual DOM subtrees.
-fn render_publication(
-  publication : @markdown.MarkdownSemanticPublication,
+/// Render top-level Markdown blocks with Loomark-owned Rabbita lazy keys.
+fn render_top_level_blocks(
+  blocks : ArrayView[@markdown.MarkdownTopLevelBlock],
+  keys : ArrayView[Int],
 ) -> @rabbita.Html {
-  let document = publication.document()
-  let children = document.children()
-  let keys = publication.top_level_revision_keys()
-  guard children.length() == keys.length() else {
-    abort("Markdown publication renderer key count mismatch")
+  guard blocks.length() == keys.length() else {
+    abort("Markdown renderer key count mismatch")
   }
   @html.fragment(
-    children.mapi((index, child) => {
-      @html.lazy(keys[index], () => render_node(child))
+    blocks.mapi((index, block) => {
+      let node = block.node()
+      @html.lazy(keys[index], () => render_node(node))
     }),
   )
 }
 
 ///|
-/// Report whether a semantic document has no renderable top-level children.
-pub fn is_empty(document : @markdown.MarkdownIR) -> Bool {
-  document.children().is_empty()
+/// Report whether a semantic root has no renderable top-level children.
+pub fn is_empty(root : @markdown.MarkdownNode) -> Bool {
+  root.children().is_empty()
 }

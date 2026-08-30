@@ -18,13 +18,13 @@ pub fn apply_cmd(PreviewEngine, Int, @text_change.TextChange, String, result~ : 
 
 pub fn discard_cmd(PreviewEngine, Int) -> @cmd.Cmd
 
-pub fn is_empty(@markdown.MarkdownIR) -> Bool
+pub fn is_empty(@markdown.MarkdownNode) -> Bool
 
 pub fn prepare_cmd(PreviewEngine, Int, String, result~ : @cmd.Emit[Result[PreviewOutput, PreviewFailure]]) -> @cmd.Cmd
 
 pub fn refresh_cmd(PreviewEngine, Int, String, result~ : @cmd.Emit[Result[PreviewOutput, PreviewFailure]]) -> @cmd.Cmd
 
-pub fn render(@markdown.MarkdownIR) -> @html.Html
+pub fn render(@markdown.MarkdownNode) -> @html.Html
 
 // Errors
 
@@ -33,6 +33,7 @@ pub struct PreviewEngine {
   // private fields
 }
 pub fn PreviewEngine::PreviewEngine() -> Self
+pub fn PreviewEngine::accept(Self, PreviewOutput) -> Bool
 
 pub(all) enum PreviewFailure {
   InitializationFailed
@@ -44,6 +45,7 @@ pub(all) enum PreviewFailure {
 pub(all) struct PreviewOutput {
   html : @html.Html
   empty : Bool
+  // private fields
 } derive(Eq)
 
 // Type aliases

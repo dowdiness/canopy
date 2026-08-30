@@ -7,9 +7,34 @@ pub(all) enum PreviewFailure {
 } derive(Eq, Debug)
 
 ///|
+priv struct AcceptedMarkdownRender {
+  previous : @markdown.MarkdownPreviousUpdate
+  lazy_keys : Array[Int]
+}
+
+///|
+priv struct PreviewAcceptance {
+  domain : Ref[Unit]
+  sequence : Int
+}
+
+///|
+impl Eq for PreviewAcceptance with fn equal(self, other) {
+  physical_equal(self.domain, other.domain) && self.sequence == other.sequence
+}
+
+///|
+priv struct PendingMarkdownRender {
+  acceptance : PreviewAcceptance
+  owner_generation : Int?
+  render : AcceptedMarkdownRender
+}
+
+///|
 pub(all) struct PreviewOutput {
   html : @rabbita.Html
   empty : Bool
+  priv acceptance : PreviewAcceptance
 } derive(Eq)
 
 ///|
@@ -17,7 +42,7 @@ priv enum EngineState {
   NoPair
   Healthy(
     parser~ : @loom.SyntaxParser,
-    semantics~ : @markdown.MarkdownSemanticSession,
+    updates~ : @markdown.MarkdownDocumentUpdates,
     source~ : String
   )
   Broken
@@ -27,13 +52,25 @@ priv enum EngineState {
 /// Imperative owner of at most one live syntax Parser.
 pub struct PreviewEngine {
   priv mut state : EngineState
-  priv mut next_revision_key : Int
+  priv mut accepted_render : AcceptedMarkdownRender?
+  priv mut pending_render : PendingMarkdownRender?
+  priv acceptance_domain : Ref[Unit]
+  priv mut next_acceptance_sequence : Int
+  priv mut next_lazy_key : Int
   priv mut owner_generation : Int?
 }
 
 ///|
 pub fn PreviewEngine::PreviewEngine() -> PreviewEngine {
-  { state: NoPair, next_revision_key: 0, owner_generation: None }
+  {
+    state: NoPair,
+    accepted_render: None,
+    pending_render: None,
+    acceptance_domain: Ref::Ref(()),
+    next_acceptance_sequence: 0,
+    next_lazy_key: 0,
+    owner_generation: None,
+  }
 }
 
 ///|
@@ -43,6 +80,8 @@ fn PreviewEngine::activate(self : PreviewEngine, generation : Int) -> Bool {
     None | Some(_) => {
       self.owner_generation = Some(generation)
       self.state = NoPair
+      self.accepted_render = None
+      self.pending_render = None
       true
     }
   }
@@ -54,10 +93,7 @@ fn PreviewEngine::owns(self : PreviewEngine, generation : Int) -> Bool {
 }
 
 ///|
-fn create_parser_state(
-  source : String,
-  first_revision_key : Int,
-) -> Result[EngineState, PreviewFailure] {
+fn create_parser_state(source : String) -> Result[EngineState, PreviewFailure] {
   try
     @loom.new_syntax_parser(
       @loom.SourceId("loomark-preview"),
@@ -68,30 +104,105 @@ fn create_parser_state(
     _ => Err(InitializationFailed)
   } noraise {
     parser => {
-      let semantics = @markdown.MarkdownSemanticSession(
+      let updates = @markdown.MarkdownDocumentUpdates(
         parser,
         extensions=@markdown.MarkdownExtensions::task_list(),
-        first_revision_key~,
       )
-      Ok(Healthy(parser~, semantics~, source~))
+      Ok(Healthy(parser~, updates~, source~))
     }
   }
 }
 
 ///|
+fn PreviewEngine::fresh_lazy_key(self : PreviewEngine) -> Int {
+  let key = self.next_lazy_key
+  self.next_lazy_key += 1
+  key
+}
+
+///|
+fn previous_block_indexes_are_valid(
+  indexes : ArrayView[Int?],
+  previous_key_count : Int,
+) -> Bool {
+  let seen : Set[Int] = Set([])
+  indexes.all(match_index => {
+    match match_index {
+      Some(index) =>
+        index >= 0 && index < previous_key_count && seen.add_and_check(index)
+      None => true
+    }
+  })
+}
+
+///|
+fn markdown_matches_are_valid(
+  blocks : ArrayView[@markdown.MarkdownTopLevelBlock],
+  previous_key_count : Int,
+) -> Bool {
+  previous_block_indexes_are_valid(
+    blocks.map(block => block.matched_previous_block_index())[:],
+    previous_key_count,
+  )
+}
+
+///|
 fn PreviewEngine::output(
   self : PreviewEngine,
-  semantics : @markdown.MarkdownSemanticSession,
+  updates : @markdown.MarkdownDocumentUpdates,
 ) -> PreviewOutput {
-  let publication = semantics.publish()
-  self.next_revision_key = semantics.next_revision_key()
-  let document = publication.document()
-  { html: render_publication(publication), empty: is_empty(document) }
+  let update = updates.document_update()
+  let previous = self.accepted_render.map(state => state.previous)
+  let previous_keys = self.accepted_render.map_or([], state => state.lazy_keys)
+  let blocks = update.top_level_blocks(previous~)
+  let matches_valid = markdown_matches_are_valid(blocks, previous_keys.length())
+  let keys = blocks.map(block => {
+    match (matches_valid, block.matched_previous_block_index()) {
+      (true, Some(index)) => previous_keys[index]
+      _ => self.fresh_lazy_key()
+    }
+  })
+  let acceptance = {
+    domain: self.acceptance_domain,
+    sequence: self.next_acceptance_sequence,
+  }
+  self.next_acceptance_sequence += 1
+  let render = { previous: update.as_previous(), lazy_keys: keys }
+  let output = {
+    html: render_top_level_blocks(blocks, keys),
+    empty: blocks.is_empty(),
+    acceptance,
+  }
+  self.pending_render = Some({
+    acceptance,
+    owner_generation: self.owner_generation,
+    render,
+  })
+  output
+}
+
+///|
+/// Accept renderer state only after the app accepts this exact output.
+pub fn PreviewEngine::accept(
+  self : PreviewEngine,
+  output : PreviewOutput,
+) -> Bool {
+  guard self.pending_render is Some(pending) else { return false }
+  guard physical_equal(output.acceptance.domain, self.acceptance_domain) &&
+    output.acceptance.sequence == pending.acceptance.sequence &&
+    pending.owner_generation == self.owner_generation else {
+    return false
+  }
+  self.accepted_render = Some(pending.render)
+  self.pending_render = None
+  true
 }
 
 ///|
 fn PreviewEngine::break_parser(self : PreviewEngine) -> Unit {
   self.state = Broken
+  self.accepted_render = None
+  self.pending_render = None
 }
 
 ///|
@@ -102,7 +213,7 @@ fn PreviewEngine::prepare(
 ) -> Result[PreviewOutput, PreviewFailure] {
   match self.state {
     NoPair | Broken =>
-      match create_parser_state(source, self.next_revision_key) {
+      match create_parser_state(source) {
         Ok(state) => {
           self.state = state
           self.refresh(source)
@@ -112,9 +223,9 @@ fn PreviewEngine::prepare(
           Err(failure)
         }
       }
-    Healthy(source=known_source, semantics~, ..) =>
+    Healthy(source=known_source, updates~, ..) =>
       if known_source == source {
-        Ok(self.output(semantics))
+        Ok(self.output(updates))
       } else {
         self.break_parser()
         Err(OutOfSync)
@@ -132,7 +243,7 @@ fn PreviewEngine::apply(
   match self.state {
     NoPair => Ok(())
     Broken => Err(Unusable)
-    Healthy(parser~, semantics~, source=old_source) => {
+    Healthy(parser~, updates~, source=old_source) => {
       guard change.apply(old_source) == Some(new_source) else {
         self.break_parser()
         return Err(OutOfSync)
@@ -153,7 +264,8 @@ fn PreviewEngine::apply(
       }
       match result {
         Ok(_) => {
-          self.state = Healthy(parser~, semantics~, source=new_source)
+          self.state = Healthy(parser~, updates~, source=new_source)
+          self.pending_render = None
           Ok(())
         }
         Err(failure) => {
@@ -175,9 +287,9 @@ fn PreviewEngine::refresh(
 ) -> Result[PreviewOutput, PreviewFailure] {
   match self.state {
     NoPair | Broken => self.prepare(source)
-    Healthy(source=known_source, semantics~, ..) =>
+    Healthy(source=known_source, updates~, ..) =>
       if known_source == source {
-        Ok(self.output(semantics))
+        Ok(self.output(updates))
       } else {
         self.break_parser()
         Err(OutOfSync)

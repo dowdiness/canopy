@@ -11,12 +11,12 @@ fn renderer_benchmark_source(block_count : Int) -> String {
 
 ///|
 test "Loomark Preview renderer: practical 500 blocks" (b : @bench.T) {
-  let document = preview_test_document(renderer_benchmark_source(500))
-  b.bench(() => b.keep(render(document)))
+  let root = preview_test_document(renderer_benchmark_source(500)).root()
+  b.bench(() => b.keep(render(root)))
 }
 
 ///|
 test "Loomark Preview renderer: scaling 2500 blocks" (b : @bench.T) {
-  let document = preview_test_document(renderer_benchmark_source(2500))
-  b.bench(() => b.keep(render(document)))
+  let root = preview_test_document(renderer_benchmark_source(2500)).root()
+  b.bench(() => b.keep(render(root)))
 }

@@ -1,12 +1,8 @@
 ///|
-fn preview_test_document(source : String) -> @markdown.MarkdownIR raise {
-  let parser = @loom.new_syntax_parser(
-    @loom.SourceId("loomark-preview-test"),
+fn preview_test_document(source : String) -> @markdown.MarkdownDocument raise {
+  @markdown.parse(
     source,
-    @markdown.markdown_grammar.to_syntax_grammar(),
-  )
-  @markdown.experimental_markdown_ir_from_syntax_snapshot(
-    parser.snapshot().read_or_abort(),
+    source_id=@loom.SourceId("loomark-preview-test"),
     extensions=@markdown.MarkdownExtensions::task_list(),
   )
 }
@@ -14,7 +10,7 @@ fn preview_test_document(source : String) -> @markdown.MarkdownIR raise {
 ///|
 #warnings("-alert_unstable")
 fn render_preview(source : String) -> String raise {
-  let preview = render(preview_test_document(source))
+  let preview = render(preview_test_document(source).root())
   @rabbita_testing.server_side_render(() => preview)
 }
 
@@ -163,6 +159,6 @@ test "Preview renderer distinguishes tight and loose lists" {
 
 ///|
 test "Preview empty state follows semantic children" {
-  assert_true(is_empty(preview_test_document("")))
-  assert_true(!is_empty(preview_test_document("# Heading\n")))
+  assert_true(is_empty(preview_test_document("").root()))
+  assert_true(!is_empty(preview_test_document("# Heading\n").root()))
 }
