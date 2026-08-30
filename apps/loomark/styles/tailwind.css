@@ -95,20 +95,28 @@
   content: "";
 }
 
-[data-loomark-icon="document"] {
+[data-loomark-icon="folder"]::before,
+[data-loomark-icon="folder"]::after {
+  position: absolute;
   border: 1.25px solid currentColor;
-  border-radius: 0.125rem;
+  content: "";
 }
 
-[data-loomark-icon="document"]::before {
-  position: absolute;
-  top: 0.25rem;
-  left: 0.25rem;
-  width: 0.45rem;
-  height: 1px;
-  background: currentColor;
-  box-shadow: 0 0.25rem 0 currentColor, 0 0.5rem 0 currentColor;
-  content: "";
+[data-loomark-icon="folder"]::before {
+  top: 0.1875rem;
+  left: 0.125rem;
+  width: 0.4375rem;
+  height: 0.25rem;
+  border-bottom: 0;
+  border-radius: 0.125rem 0.125rem 0 0;
+}
+
+[data-loomark-icon="folder"]::after {
+  top: 0.375rem;
+  left: 0.0625rem;
+  width: 0.875rem;
+  height: 0.5625rem;
+  border-radius: 0.125rem;
 }
 
 [data-loomark-icon="new-document"]::before,

@@ -92,11 +92,11 @@ fn sidebar_panel_icon() -> @rabbita.Html {
 }
 
 ///|
-fn sidebar_document_icon() -> @rabbita.Html {
+fn sidebar_folder_icon() -> @rabbita.Html {
   @html.span(
-    class="relative mt-0.5 block size-4 shrink-0",
+    class="relative block size-4 shrink-0",
     attrs=@html.Attrs::build()
-      .data_set("loomark-icon", "document")
+      .data_set("loomark-icon", "folder")
       .aria_hidden("true"),
     @html.nothing,
   )
@@ -136,58 +136,59 @@ fn document_sidebar(
     collapsible=@rui.SidebarIcon,
     aria_label="Documents",
     class="[--rui-sidebar:var(--color-lm-foundation)] [--rui-sidebar-foreground:var(--color-lm-ink)] [--rui-sidebar-border:var(--color-lm-rule)] [--rui-sidebar-accent:var(--color-lm-accent-soft)] [--rui-sidebar-accent-foreground:var(--color-lm-accent)]",
-    [
-      @rui.sidebar_header(
-        @rui.sidebar_menu(
-          @rui.sidebar_menu_item(
-            @rui.sidebar_menu_button(
-              disabled=!available,
-              aria_label="New document",
-              title="New document",
-              on_click=@cmd.batch([emit(CreateRequested), close_after_action]),
-              [sidebar_new_icon(), @html.span("New document")],
-            ),
-          ),
-        ),
-      ),
-      @rui.sidebar_separator(),
-      @rui.sidebar_content(
-        @rui.sidebar_group([
-          @rui.sidebar_group_label(scope~, "Documents"),
-          @rui.sidebar_group_content(
-            @rui.sidebar_menu(
-              entries.mapi((index, entry) => {
-                let document_id = entry.document_id()
-                let selected = document_id == editing.activation.document_id
-                let label = document_option_label(entries, index, entry)
-                @rui.sidebar_menu_item(
-                  @rui.sidebar_menu_button(
-                    is_active=selected,
-                    disabled=!available && !selected,
-                    aria_label=label,
-                    title=label,
-                    on_click=@cmd.batch([
-                      emit(DocumentSelected(document_id)),
-                      close_after_action,
-                    ]),
-                    style=[
-                      "height:auto;min-height:2.75rem;align-items:flex-start;padding-block:0.5rem",
-                    ],
-                    [
-                      sidebar_document_icon(),
+    @rui.sidebar_content(
+      @rui.sidebar_group(
+        @rui.sidebar_group_content(
+          @rui.sidebar_menu(
+            @rui.sidebar_menu_item([
+              @rui.sidebar_menu_button(
+                aria_label="Documents",
+                title="Documents",
+                on_click=if @rui.sidebar_is_collapsed(scope) {
+                  @rui.sidebar_expand(scope)
+                } else {
+                  @rui.sidebar_collapse(scope)
+                },
+                [sidebar_folder_icon(), @html.span("Documents")],
+              ),
+              @rui.sidebar_menu_action(
+                disabled=!available,
+                aria_label="New document",
+                title="New document",
+                on_click=@cmd.batch([emit(CreateRequested), close_after_action]),
+                sidebar_new_icon(),
+              ),
+              @rui.sidebar_menu_sub(
+                entries.mapi((index, entry) => {
+                  let document_id = entry.document_id()
+                  let selected = document_id == editing.activation.document_id
+                  let label = document_option_label(entries, index, entry)
+                  @rui.sidebar_menu_sub_item(
+                    @rui.sidebar_menu_sub_button(
+                      is_active=selected,
+                      disabled=!available && !selected,
+                      aria_label=label,
+                      title=label,
+                      on_click=@cmd.batch([
+                        emit(DocumentSelected(document_id)),
+                        close_after_action,
+                      ]),
+                      style=[
+                        "height:auto;min-height:2.25rem;align-items:flex-start;padding-block:0.375rem",
+                      ],
                       @html.span(
                         class="min-w-0 overflow-hidden text-ellipsis whitespace-normal [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]",
                         label,
                       ),
-                    ],
-                  ),
-                )
-              }),
-            ),
+                    ),
+                  )
+                }),
+              ),
+            ]),
           ),
-        ]),
+        ),
       ),
-    ],
+    ),
   )
 }
 
