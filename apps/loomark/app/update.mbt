@@ -2,6 +2,9 @@
 const AUTOSAVE_QUIET_MS : Int = 250
 
 ///|
+const AUTOSAVE_MAXIMUM_MS : Int = 2000
+
+///|
 const COMPACT_MAX_WIDTH : Int = 640
 
 ///|
@@ -41,6 +44,35 @@ fn can_activate(editing : EditingState) -> Bool {
 }
 
 ///|
+fn save_effect_command(
+  editing : EditingState,
+  effect : SaveEffect,
+  emit : @rabbita.Emit[Msg],
+) -> @rabbita.Cmd {
+  let owner = editing.activation
+  match effect {
+    NoSaveEffect => @cmd.none
+    ArmQuiet(epoch, candidate) =>
+      @cmd.delay(emit(QuietElapsed(owner, epoch, candidate)), AUTOSAVE_QUIET_MS)
+    ArmQuietAndMaximum(epoch, candidate) =>
+      @cmd.batch([
+        @cmd.delay(
+          emit(QuietElapsed(owner, epoch, candidate)),
+          AUTOSAVE_QUIET_MS,
+        ),
+        @cmd.delay(emit(MaximumElapsed(owner, epoch)), AUTOSAVE_MAXIMUM_MS),
+      ])
+    Persist(candidate) =>
+      @source_repository.save(
+        editing.repository,
+        owner.document_id,
+        candidate,
+        result=emit.map(result => SaveCompleted(owner, candidate, result)),
+      )
+  }
+}
+
+///|
 fn activate_document(
   editing : EditingState,
   source : @source_repository.SourceRecord,
@@ -70,6 +102,7 @@ fn activate_document(
       text: source.text(),
       composing: false,
       save: Saved,
+      last_checkpoint_epoch: 0,
       creation: Idle,
       preview,
     },
@@ -119,6 +152,7 @@ fn update(
                   text,
                   composing: false,
                   save: Saved,
+                  last_checkpoint_epoch: 0,
                   creation: Idle,
                   mode: Text,
                   compact,
@@ -174,16 +208,8 @@ fn update(
             )
           Some(text) if text == editing.text => (model, @cmd.none)
           Some(text) => {
-            let save = match editing.save {
-              Saving(candidate) => Saving(candidate)
-              _ => Waiting
-            }
-            let save_command = if editing.composing {
-              @cmd.none
-            } else {
-              @cmd.delay(emit(SaveRequested(owner, text)), AUTOSAVE_QUIET_MS)
-            }
-            let editing = { ..editing, text, save }
+            let (editing, save_effect) = save_after_text_changed(editing, text)
+            let save_command = save_effect_command(editing, save_effect, emit)
             let (preview, preview_command) = preview_engine.document_changed(
               editing.preview,
               preview_input(editing),
@@ -209,15 +235,8 @@ fn update(
       } else if editing.creation == Creating {
         (model, text_area.initialize(editing.text))
       } else {
-        let command = match editing.save {
-          Waiting =>
-            @cmd.delay(
-              emit(SaveRequested(owner, editing.text)),
-              AUTOSAVE_QUIET_MS,
-            )
-          Saved | Saving(_) | Failed(_) => @cmd.none
-        }
-        (Editing({ ..editing, composing: false }), command)
+        let (editing, save_effect) = save_after_composition_ended(editing)
+        (Editing(editing), save_effect_command(editing, save_effect, emit))
       }
     (Editing(editing), ModeSelected(mode)) => {
       let (editing, command) = select_mode(editing, mode, emit, preview_engine)
@@ -299,76 +318,58 @@ fn update(
       (Editing({ ..editing, compact: compact_viewport(width) }), @cmd.none)
     (Recovery(failure, _), ViewportChanged(width)) =>
       (Recovery(failure, compact_viewport(width)), @cmd.none)
-    (Editing(editing), SaveRequested(owner, candidate)) =>
-      if owner != editing.activation ||
-        candidate != editing.text ||
-        editing.composing ||
-        editing.creation == Creating {
+    (Editing(editing), QuietElapsed(owner, epoch, candidate)) =>
+      if owner != editing.activation || candidate != editing.text {
         (model, @cmd.none)
       } else {
-        match editing.save {
-          Waiting => {
-            let document_id = owner.document_id
-            (
-              Editing({ ..editing, save: Saving(candidate) }),
-              @source_repository.save(
-                editing.repository,
-                document_id,
-                candidate,
-                result=emit.map(result => {
-                  SaveCompleted(owner, candidate, result)
-                }),
-              ),
-            )
+        let (editing, save_effect) = save_after_eligible(editing, epoch)
+        (Editing(editing), save_effect_command(editing, save_effect, emit))
+      }
+    (Editing(editing), MaximumElapsed(owner, epoch)) =>
+      if owner != editing.activation {
+        (model, @cmd.none)
+      } else {
+        let (editing, save_effect) = save_after_eligible(editing, epoch)
+        (Editing(editing), save_effect_command(editing, save_effect, emit))
+      }
+    (Editing(editing), VisibilityChanged(hidden)) =>
+      if !hidden {
+        (model, @cmd.none)
+      } else {
+        match editing.save.pending_epoch() {
+          None => (model, @cmd.none)
+          Some(epoch) => {
+            let (editing, save_effect) = save_after_eligible(editing, epoch)
+            (Editing(editing), save_effect_command(editing, save_effect, emit))
           }
-          Saved | Saving(_) | Failed(_) => (model, @cmd.none)
         }
       }
     (Editing(editing), SaveCompleted(owner, candidate, result)) =>
-      if owner != editing.activation || editing.save != Saving(candidate) {
+      if owner != editing.activation {
         (model, @cmd.none)
       } else {
-        match result {
-          @source_repository.SaveResult::Stored(success) => {
-            let completed = { ..editing, repository: success }
-            if candidate == editing.text {
-              (Editing({ ..completed, save: Saved }), @cmd.none)
-            } else if editing.composing {
-              (Editing({ ..completed, save: Waiting }), @cmd.none)
-            } else {
-              let latest = editing.text
-              (
-                Editing({ ..completed, save: Saving(latest) }),
-                @source_repository.save(
-                  completed.repository,
-                  owner.document_id,
-                  latest,
-                  result=emit.map(result => SaveCompleted(owner, latest, result)),
-                ),
-              )
+        match editing.save {
+          Saving(active_candidate, pending) if active_candidate == candidate =>
+            match result {
+              @source_repository.SaveResult::Stored(repository) => {
+                let (editing, save_effect) = save_after_success(
+                  editing, candidate, pending, repository,
+                )
+                (
+                  Editing(editing),
+                  save_effect_command(editing, save_effect, emit),
+                )
+              }
+              @source_repository.SaveResult::Failed(failure) =>
+                (Editing(save_after_failure(editing, failure)), @cmd.none)
             }
-          }
-          @source_repository.SaveResult::Failed(failure) =>
-            (Editing({ ..editing, save: Failed(failure) }), @cmd.none)
+          Saved | Waiting(_) | Saving(_, _) | Failed(_, _) => (model, @cmd.none)
         }
       }
-    (Editing(editing), RetrySave) =>
-      match editing.save {
-        Failed(_) => {
-          let latest = editing.text
-          let owner = editing.activation
-          (
-            Editing({ ..editing, save: Saving(latest) }),
-            @source_repository.save(
-              editing.repository,
-              owner.document_id,
-              latest,
-              result=emit.map(result => SaveCompleted(owner, latest, result)),
-            ),
-          )
-        }
-        Saved | Waiting | Saving(_) => (model, @cmd.none)
-      }
+    (Editing(editing), RetrySave) => {
+      let (editing, save_effect) = save_after_retry(editing)
+      (Editing(editing), save_effect_command(editing, save_effect, emit))
+    }
     _ => (model, @cmd.none)
   }
 }

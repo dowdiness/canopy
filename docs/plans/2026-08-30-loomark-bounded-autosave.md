@@ -303,59 +303,59 @@ input or long-task benefit. Five seconds lengthened deliberate exposure. The
 1 MiB long tasks followed textarea/rendering work at every interval and are not
 resolved by changing checkpoint frequency. Two seconds is the selected policy.
 
-### Local production-build prototype: exact acknowledged-text comparison
+### Integrated production candidate: exact acknowledged-text comparison
 
-The minimal exact comparison was measured in a minified Warren production build
-on Chromium `149.0.7827.55`. The prototype compared new text with the active
-acknowledged Source in `Saved` and `Waiting`. Temporary instrumentation measured
-the complete app `TextChanged` update branch and was removed after measurement.
+The implemented exact comparison was measured in a minified Warren production
+build on Chromium `149.0.7827.55`. No temporary app instrumentation was present;
+the samples measure browser dispatch around the final Text input path. Raw
+samples are retained in
+[`docs/evidence/2026-08-31-loomark-bounded-autosave-production-raw.json`](../evidence/2026-08-31-loomark-bounded-autosave-production-raw.json).
 
-Each warmed cell used three fresh launches, ten warmups, and fifty measured
-updates per launch.
+Each warmed cell used three fresh launches, ten warmup revert pairs, and fifty
+measured pairs per launch.
 
-| Fixture / operation | App update p95 | App update max |
-| --- | ---: | ---: |
-| Practical Preview / same-length mismatch | 0.1 ms | 0.2 ms |
-| Practical Preview / exact revert | 0.1 ms | 0.1 ms |
-| 64 KiB / same-length mismatch | 0.2 ms | 1.3 ms |
-| 64 KiB / exact revert | 0.1 ms | 1.5 ms |
-| 256 KiB / same-length mismatch | 0.5 ms | 1.2 ms |
-| 256 KiB / exact revert | 0.4 ms | 1.0 ms |
-| 1 MiB / same-length mismatch | 1.8 ms | 3.5 ms |
-| 1 MiB / exact revert | 1.5 ms | 3.3 ms |
-
-The 1 MiB tail was also measured with no warmup and one operation per fresh
-Chromium launch.
-
-| 1 MiB cold operation | Samples | App update p95 / max | Browser dispatch p95 / max |
+| Fixture / operation | Samples | Browser dispatch p95 | Maximum |
 | --- | ---: | ---: | ---: |
-| Same-length mismatch | 50 | 1.8 / 3.4 ms | 6.3 / 7.9 ms |
-| Exact revert | 50 pairs | 1.8 / 3.4 ms | 5.6 / 9.7 ms |
+| Practical Preview / same-length mismatch | 150 | 0.9 ms | 3.3 ms |
+| Practical Preview / exact revert | 150 | 0.8 ms | 1.3 ms |
+| 64 KiB / same-length mismatch | 150 | 0.2 ms | 0.4 ms |
+| 64 KiB / exact revert | 150 | 0.2 ms | 0.3 ms |
+| 256 KiB / same-length mismatch | 150 | 0.6 ms | 0.7 ms |
+| 256 KiB / exact revert | 150 | 0.6 ms | 0.7 ms |
+| 1 MiB / same-length mismatch | 150 | 3.7 ms | 4.3 ms |
+| 1 MiB / exact revert | 150 | 3.7 ms | 4.5 ms |
 
-Exact revert enabled activation controls before the quiet timer and produced
-zero puts. The baseline remained unavailable until quiet and produced one put.
-The result held for Practical Preview, 64 KiB, 256 KiB, and 1 MiB fixtures.
+The 1 MiB cold tail used one mismatch/revert pair per fresh Chromium launch.
 
-A synthetic run that queued 60–120 updates in one JavaScript task produced one
-36.9 ms baseline outlier and one 39.1 ms exact-comparison outlier. Those tails
-occurred in both variants and do not isolate equality cost. They also prevent a
-claim that every possible synthetic delivery pattern is below 10 ms. Final
-validation uses the repository's production input boundary and reports p95,
-maximum, and raw outliers.
+| 1 MiB cold operation | Samples | p95 | p99 | Maximum |
+| --- | ---: | ---: | ---: | ---: |
+| Same-length mismatch | 50 | 4.7 ms | 4.8 ms | 4.8 ms |
+| Exact revert | 50 | 3.6 ms | 4.1 ms | 4.1 ms |
 
-These values are planning evidence from temporary local instrumentation. They
-select the initial implementation path, but they are not a retained repository
-performance boundary. The current committed browser timing test covers fifty
-synthetic dispatches on its default small document; it does not preserve this
-large-fixture or fresh-launch matrix. The implementation pull request must link
-raw samples produced from its exact final commit.
+Every exact revert restored activation controls before quiet, retained the
+acknowledged Source, and produced zero puts, including after the stale 2,000 ms
+maximum timer was delivered.
 
-The cold 1 MiB browser maximum has only 0.3 ms of observed margin. The integrated
-implementation must rerun this gate. If the final candidate exceeds 10 ms, move
-acknowledged-text equality to the quiet/maximum eligibility task. That fallback
-keeps exact comparison and avoids redundant puts, but publishes `Saved` only
-after the deferred task. Do not introduce a hash, mismatch certificate, Rope, or
-history structure for this issue.
+The 1 MiB active-overlap fixture requested 46 inputs with a 50 ms sleep across
+three launches. Browser work stretched input-start gaps to at most 166.4 ms, so
+no 250 ms quiet interval occurred during the stream. Each launch produced three
+coalesced checkpoints at approximately 2.0, 4.2, and 5.7–5.9 seconds; the final
+Source matched current text. This replaces completion-driven trains with the
+selected maximum epochs plus one final quiet checkpoint.
+
+Overlap input dispatch p95 was 0.3 ms. One launch had a 22.8 ms maximum and each
+launch retained a 136–157 ms browser textarea/rendering long task. These are the
+known 1 MiB browser-input limitation rather than Source comparison or save
+preparation, so this work does not claim frame responsiveness for that stress
+fixture.
+
+The dedicated exact-comparison path stays below the accepted 10 ms input gate,
+so acknowledged comparison remains in `TextChanged`. If a later integrated
+candidate makes that dedicated path exceed 10 ms, move acknowledged comparison
+to the quiet/maximum eligibility task. That fallback keeps exact comparison and
+avoids redundant puts, but publishes `Saved` only after deferred reconciliation.
+Do not add a hash, mismatch certificate, Rope, or history structure for this
+issue.
 
 ## Existing APIs to reuse
 
@@ -438,7 +438,7 @@ messages:
 ```text
 QuietElapsed(Activation, epoch, captured_candidate)
 MaximumElapsed(Activation, epoch)
-VisibilityChanged(Activation, checkpoint_epoch: Int?, hidden: Bool)
+VisibilityChanged(hidden: Bool)
 SaveCompleted(Activation, candidate, SaveResult)
 ```
 
@@ -461,8 +461,8 @@ The shell maps:
 - `ArmQuiet` to `@cmd.delay(..., 250)`;
 - `ArmMaximum` to `@cmd.delay(..., 2_000)`;
 - `Persist` to `@source_repository.save`; and
-- visibility to `@sub.on_visibility_change` while capturing the current
-  Activation and optional pending epoch from the subscription Model.
+- visibility to `@sub.on_visibility_change`; the update branch reads the
+  current pending epoch when the page-global event is delivered.
 
 The core does not read a clock, query browser visibility, access IndexedDB, or
 mutate RepositorySnapshot.
@@ -650,8 +650,8 @@ No delayed quiet, maximum, hidden, or completion message can leave `Failed`.
 
 ## Visibility
 
-Add `VisibilityChanged(Activation, Int?, Bool)` to `Msg` and compose
-subscriptions in `apps/loomark/app/app.mbt`:
+Add `VisibilityChanged(Bool)` to `Msg` and compose subscriptions in
+`apps/loomark/app/app.mbt`:
 
 ```text
 @sub.batch([
@@ -660,15 +660,17 @@ subscriptions in `apps/loomark/app/app.mbt`:
 ])
 ```
 
-The subscription tagger reads the current Model. For `Editing`, it captures the
-current Activation and the epoch of `Waiting` or `Saving(_, Some(_))`; other
-states capture no epoch. The update branch acts only when Activation and a
-present epoch still match. A hidden event from an older activation or consumed
-checkpoint therefore cannot make later work eligible.
+Visibility is a page-global fact rather than document-owned delayed work. The
+subscription therefore emits only the Boolean state. On delivery, the update
+branch reads the current `Waiting` or `Saving(_, Some(_))` checkpoint and passes
+its epoch to the shared eligibility transition. This avoids losing a hidden
+event when Rabbita has processed input but has not yet refreshed the
+subscription tagger. It also avoids applying captured document state: activation
+and checkpoint ownership come from the current Model.
 
 `hidden=true` with a current pending epoch invokes the shared eligibility
-transition. It is not a separate save path. `hidden=false` and a missing epoch
-are no-ops.
+transition. It is not a separate save path. `hidden=false` and a missing current
+epoch are no-ops.
 
 The browser may freeze or terminate before Rabbita processes the event or before
 IndexedDB completes. Documentation must describe hidden persistence as best
@@ -931,8 +933,8 @@ No new ADR is needed. The existing decision owns current-versus-saved text.
 
 ### Stale-work safety
 
-- [ ] Stale Activation quiet, maximum, hidden, and completion messages are
-  ignored.
+- [ ] Stale Activation quiet, maximum, and completion messages are ignored.
+- [ ] Visibility reads only the current pending checkpoint at delivery.
 - [ ] Stale checkpoint epochs are ignored, including equal-text A → B → A
   across dirty intervals.
 - [ ] Stale quiet candidates are ignored.
@@ -952,8 +954,8 @@ No new ADR is needed. The existing decision owns current-versus-saved text.
 ### Browser lifecycle and recovery
 
 - [ ] Hidden makes pending text eligible through the shared transition.
-- [ ] Hidden remains composition-, creation-, failure-, Activation-, and
-  single-flight-safe.
+- [ ] Hidden remains composition-, creation-, failure-, current-activation-,
+  and single-flight-safe.
 - [ ] Visible is a no-op.
 - [ ] Reload restores the exact acknowledged Source.
 - [ ] Documentation calls hidden persistence best effort.

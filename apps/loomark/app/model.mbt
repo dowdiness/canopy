@@ -17,6 +17,7 @@ priv struct EditingState {
   text : String
   composing : Bool
   save : SaveState
+  last_checkpoint_epoch : Int
   creation : DocumentCreation
   mode : EditorMode
   compact : Bool
@@ -32,11 +33,23 @@ priv enum EditorMode {
 } derive(Eq)
 
 ///|
+priv enum CheckpointEligibility {
+  Deferred
+  Eligible
+} derive(Eq)
+
+///|
+priv struct Checkpoint {
+  epoch : Int
+  eligibility : CheckpointEligibility
+} derive(Eq)
+
+///|
 priv enum SaveState {
   Saved
-  Waiting
-  Saving(String)
-  Failed(@source_repository.SaveFailure)
+  Waiting(Checkpoint)
+  Saving(String, Checkpoint?)
+  Failed(@source_repository.SaveFailure, Bool)
 } derive(Eq)
 
 ///|
@@ -56,7 +69,9 @@ priv enum Msg {
   ModeSelected(EditorMode)
   PreviewEvent(@preview.Event)
   ViewportChanged(Int)
-  SaveRequested(Activation, String)
+  QuietElapsed(Activation, Int, String)
+  MaximumElapsed(Activation, Int)
+  VisibilityChanged(Bool)
   SaveCompleted(Activation, String, @source_repository.SaveResult)
   RetrySave
   DocumentSelected(String)

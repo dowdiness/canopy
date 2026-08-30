@@ -79,9 +79,11 @@ Source records. It is rebuilt on open and advances only after Source commit.
 _Avoid_: persisted metadata, document authority, index of truth
 
 **Autosave**:
-Saving the current Document text after input is quiet for 250 ms and IME
-composition has ended.
-_Avoid_: periodic backup, manual save
+Saving the current Document text after 250 ms of quiet or after one
+non-restarting 2,000 ms maximum-wait timer becomes processable. IME composition
+defers persistence until its committed result. A hidden page makes pending text
+eligible as a best effort. Exact return to acknowledged text requires no write.
+_Avoid_: periodic backup, manual save, termination guarantee
 
 **Recovery**:
 The state shown when the Source repository cannot produce a usable snapshot

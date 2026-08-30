@@ -25,9 +25,16 @@ See the [Standard Rabbita Text App plan](../../docs/plans/2026-08-24-loomark-sta
 
 ## Autosave and Recovery
 
-Text input updates the Document text immediately. Repository work begins only
-from `SaveRequested`, after a 250 ms quiet period and after IME composition
-ends. At most one Source write is active.
+Text input updates the Document text immediately. Autosave makes latest text
+eligible after 250 ms quiet, when one non-restarting 2,000 ms maximum-wait timer
+becomes processable, or when the page becomes hidden. The maximum is application
+policy rather than a wall-clock acknowledgment guarantee. IME composition
+defers persistence until its committed result.
+
+At most one Source write and one newer text-free checkpoint exist. Transaction
+completion starts a latest follow-up only when that checkpoint is already
+eligible. Exact return to the acknowledged Source restores `Saved` without a
+redundant write; failure requires explicit Retry.
 
 Each `source/v1/<document-id>` record contains exactly `document_id` and `text`
 and is the durable authority for that document. Opening scans the complete
@@ -39,7 +46,9 @@ An empty repository creates a UUID-backed Source with exact text
 `# Untitled\n`. The legacy `active` record is moved atomically when safe;
 collisions preserve both records. A normal save writes only the accepted Source
 and installs the next in-memory Catalog after that transaction completes. A
-Source save failure preserves current text and presents Retry.
+Source save failure preserves current text and presents Retry. Hidden-page
+persistence is best effort because the browser may freeze or terminate before
+IndexedDB completion.
 
 ## Development
 

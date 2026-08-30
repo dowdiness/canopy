@@ -294,6 +294,37 @@ function removeDocumentPutFailure(): void {
   delete state.__loomarkDocumentPutOriginal
 }
 
+type PutObservation = {
+  at: number
+  value: string
+}
+
+function installDocumentPutLog(targetKey: string): void {
+  const state = globalThis as typeof globalThis & {
+    __loomarkDocumentPutLog?: PutObservation[]
+  }
+  const originalPut = IDBObjectStore.prototype.put
+  state.__loomarkDocumentPutLog = []
+  IDBObjectStore.prototype.put = function(
+    this: IDBObjectStore,
+    value: unknown,
+    recordKey?: IDBValidKey,
+  ) {
+    if (recordKey === targetKey && typeof value === "string") {
+      state.__loomarkDocumentPutLog?.push({ at: performance.now(), value })
+    }
+    return originalPut.call(this, value, recordKey)
+  }
+}
+
+async function readDocumentPutLog(page: Page): Promise<PutObservation[]> {
+  return page.evaluate(() => (
+    (globalThis as typeof globalThis & {
+      __loomarkDocumentPutLog?: PutObservation[]
+    }).__loomarkDocumentPutLog ?? []
+  ))
+}
+
 test("fresh production opens Text mode and preserves its textarea and undo history across modes", async ({ page }) => {
   const workerUrls: string[] = []
   page.on("worker", worker => workerUrls.push(worker.url()))
@@ -1049,6 +1080,161 @@ test("quiet Autosave restores exact Saved text after reload", async ({ page }) =
   expect((await readStoredDocument(page))?.document_id).toBe(saved?.document_id)
 })
 
+test("exact acknowledged revert restores Saved without a redundant put", async ({ page }) => {
+  await page.goto("/")
+  await expect.poll(() => readStoredDocument(page).then(document => document?.text))
+    .toBe("# Untitled\n")
+  const baseline = await readStoredDocument(page)
+  if (!baseline) throw new Error("baseline Source missing")
+  await page.evaluate(installDocumentPutLog, sourceKey(baseline.document_id))
+
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.evaluate(element => {
+    const textarea = element as HTMLTextAreaElement
+    for (const value of ["# Draft\n", "# Untitled\n"]) {
+      textarea.value = value
+      textarea.dispatchEvent(new InputEvent("input", {
+        bubbles: true,
+        composed: true,
+        data: value,
+        inputType: "insertText",
+      }))
+    }
+  })
+
+  await expect(page.getByRole("button", { name: "New document" })).toBeEnabled()
+  await page.waitForTimeout(2_250)
+  expect(await readDocumentPutLog(page)).toEqual([])
+  expect((await readStoredDocument(page))?.text).toBe("# Untitled\n")
+})
+
+test("uninterrupted input reaches maximum eligibility without final quiet", async ({ page }) => {
+  await page.goto("/")
+  await expect.poll(() => readStoredDocument(page).then(document => document?.text))
+    .toBe("# Untitled\n")
+  const baseline = await readStoredDocument(page)
+  if (!baseline) throw new Error("baseline Source missing")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await page.evaluate(installDocumentPutLog, sourceKey(baseline.document_id))
+
+  const stream = await text.evaluate(async element => {
+    const textarea = element as HTMLTextAreaElement
+    const started = performance.now()
+    let previousInput = started
+    const inputGaps: number[] = []
+    for (let index = 0; index < 46; index += 1) {
+      const inputStarted = performance.now()
+      if (index > 0) inputGaps.push(inputStarted - previousInput)
+      previousInput = inputStarted
+      const value = `${textarea.value}x`
+      textarea.value = value
+      textarea.dispatchEvent(new InputEvent("input", {
+        bubbles: true,
+        composed: true,
+        data: "x",
+        inputType: "insertText",
+      }))
+      await new Promise(resolve => setTimeout(resolve, 50))
+    }
+    return {
+      started,
+      finalText: textarea.value,
+      maximumInputGap: Math.max(...inputGaps),
+    }
+  })
+
+  expect(stream.maximumInputGap).toBeLessThan(250)
+  const duringStream = await readDocumentPutLog(page)
+  expect(duringStream.length).toBeGreaterThanOrEqual(1)
+  const firstPutOffset = duringStream[0].at - stream.started
+  expect(firstPutOffset).toBeGreaterThanOrEqual(1_800)
+  expect(firstPutOffset).toBeLessThan(3_000)
+
+  await expect.poll(() => readStoredDocument(page).then(document => document?.text))
+    .toBe(stream.finalText)
+  const completed = await readDocumentPutLog(page)
+  expect(completed.length).toBe(2)
+})
+
+test("large active-write overlap remains coalesced", async ({ page }) => {
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const baseline = await readStoredDocument(page)
+  if (!baseline) throw new Error("baseline Source missing")
+  const largeText = `# Large\n${"x".repeat(1024 * 1024)}`
+  await replaceStoreRecords(page, [
+    {
+      key: sourceKey(baseline.document_id),
+      value: encodeStoredDocument({ ...baseline, text: largeText }),
+    },
+  ])
+  await page.reload()
+  const text = page.getByRole("textbox", { name: "Text" })
+  await expect(text).toHaveValue(largeText)
+  await page.evaluate(installDocumentPutLog, sourceKey(baseline.document_id))
+
+  const finalText = await text.evaluate(async element => {
+    const textarea = element as HTMLTextAreaElement
+    for (let index = 0; index < 46; index += 1) {
+      textarea.value = `${textarea.value}x`
+      textarea.dispatchEvent(new InputEvent("input", {
+        bubbles: true,
+        composed: true,
+        data: "x",
+        inputType: "insertText",
+      }))
+      await new Promise(resolve => setTimeout(resolve, 50))
+    }
+    return textarea.value
+  })
+
+  await expect.poll(() => readStoredDocument(page).then(document => document?.text))
+    .toBe(finalText)
+  const puts = await readDocumentPutLog(page)
+  expect(puts.length).toBeGreaterThanOrEqual(2)
+  expect(puts.length).toBeLessThanOrEqual(3)
+  expect((JSON.parse(puts[0].value) as StoredDocument).text).not.toBe(finalText)
+  expect((JSON.parse(puts.at(-1)?.value ?? "null") as StoredDocument).text)
+    .toBe(finalText)
+})
+
+test("hidden visibility makes pending text eligible before quiet", async ({ page }) => {
+  await page.goto("/")
+  await expect.poll(() => readStoredDocument(page).then(document => document?.text))
+    .toBe("# Untitled\n")
+  const baseline = await readStoredDocument(page)
+  if (!baseline) throw new Error("baseline Source missing")
+  await page.evaluate(installDocumentPutLog, sourceKey(baseline.document_id))
+  const text = page.getByRole("textbox", { name: "Text" })
+  const changedAt = await text.evaluate(async element => {
+    const textarea = element as HTMLTextAreaElement
+    textarea.value = "# Hidden checkpoint\n"
+    const changedAt = performance.now()
+    textarea.dispatchEvent(new InputEvent("input", {
+      bubbles: true,
+      composed: true,
+      data: textarea.value,
+      inputType: "insertText",
+    }))
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      get: () => true,
+    })
+    document.dispatchEvent(new Event("visibilitychange"))
+    return changedAt
+  })
+  await expect.poll(() => page.evaluate(() => document.hidden)).toBe(true)
+  await expect.poll(() => readDocumentPutLog(page).then(log => log.length))
+    .toBeGreaterThanOrEqual(1)
+  const [firstPut] = await readDocumentPutLog(page)
+  expect(firstPut.at - changedAt).toBeLessThan(250)
+  await expect.poll(() => readStoredDocument(page).then(document => document?.text))
+    .toBe("# Hidden checkpoint\n")
+  await page.evaluate(() => {
+    delete (document as unknown as { hidden?: boolean }).hidden
+  })
+})
+
 test("rapid Text input writes only the latest text", async ({ page }) => {
   await page.goto("/")
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
@@ -1139,6 +1325,30 @@ test("IME composition saves only after composition ends", async ({ page }) => {
   expect(terminalValueReads).toBe(0)
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
     .toBe("変換中")
+})
+
+test("no-op IME composition arms no Autosave checkpoint", async ({ page }) => {
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const baseline = await readStoredDocument(page)
+  if (!baseline) throw new Error("baseline Source missing")
+  await page.evaluate(installDocumentPutLog, sourceKey(baseline.document_id))
+
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.evaluate(element => {
+    const textarea = element as HTMLTextAreaElement
+    textarea.dispatchEvent(new CompositionEvent("compositionstart", {
+      bubbles: true,
+    }))
+    textarea.dispatchEvent(new CompositionEvent("compositionend", {
+      bubbles: true,
+      data: textarea.value,
+    }))
+  })
+
+  await page.waitForTimeout(2_250)
+  expect(await readDocumentPutLog(page)).toEqual([])
+  expect((await readStoredDocument(page))?.text).toBe(baseline.text)
 })
 
 test("Preview schedules no new work until IME composition commits", async ({ page }) => {
@@ -1415,4 +1625,65 @@ test("Text input processing stays within 10 ms", async ({ page }) => {
   const maximum = sorted[sorted.length - 1]
   expect(p95).toBeLessThanOrEqual(10)
   expect(maximum).toBeLessThanOrEqual(10)
+})
+
+test("1 MiB exact Saved comparison stays within 10 ms", async ({ page }) => {
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const baseline = await readStoredDocument(page)
+  if (!baseline) throw new Error("baseline Source missing")
+  const largeText = `# Equality fixture\n${"x".repeat(1024 * 1024)}`
+  await replaceStoreRecords(page, [
+    {
+      key: sourceKey(baseline.document_id),
+      value: encodeStoredDocument({ ...baseline, text: largeText }),
+    },
+  ])
+  await page.reload()
+  const text = page.getByRole("textbox", { name: "Text" })
+  await expect(text).toHaveValue(largeText)
+  await page.evaluate(installDocumentPutLog, sourceKey(baseline.document_id))
+
+  const durations = await text.evaluate(element => {
+    const textarea = element as HTMLTextAreaElement
+    const baseLast = textarea.value.at(-1)
+    if (!baseLast) throw new Error("large fixture is empty")
+    const dispatchReplacement = (replacement: string) => {
+      const end = textarea.value.length
+      textarea.setSelectionRange(end - 1, end)
+      textarea.dispatchEvent(new InputEvent("beforeinput", {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        data: replacement,
+        inputType: "insertReplacementText",
+      }))
+      textarea.setRangeText(replacement, end - 1, end, "end")
+      textarea.dispatchEvent(new InputEvent("input", {
+        bubbles: true,
+        composed: true,
+        data: replacement,
+        inputType: "insertReplacementText",
+      }))
+    }
+    for (let index = 0; index < 10; index += 1) {
+      dispatchReplacement("y")
+      dispatchReplacement(baseLast)
+    }
+    return Array.from({ length: 25 }, () => {
+      const dirtyStarted = performance.now()
+      dispatchReplacement("y")
+      const dirtyDuration = performance.now() - dirtyStarted
+      const revertStarted = performance.now()
+      dispatchReplacement(baseLast)
+      return [dirtyDuration, performance.now() - revertStarted]
+    }).flat()
+  })
+
+  const sorted = [...durations].sort((left, right) => left - right)
+  expect(sorted[Math.ceil(sorted.length * 0.95) - 1]).toBeLessThanOrEqual(10)
+  expect(sorted[sorted.length - 1]).toBeLessThanOrEqual(10)
+  await expect(page.getByRole("button", { name: "New document" })).toBeEnabled()
+  await page.waitForTimeout(350)
+  expect(await readDocumentPutLog(page)).toEqual([])
 })
