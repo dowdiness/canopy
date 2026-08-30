@@ -58,13 +58,75 @@ fn mode_keydown(
 }
 
 ///|
-fn mode_bar(
-  selected : EditorMode,
-  focused : EditorMode,
+fn document_base_label(entry : @source_repository.CatalogEntry) -> String {
+  entry.name().unwrap_or("Unnamed document")
+}
+
+///|
+fn document_option_label(
+  entries : ArrayView[@source_repository.CatalogEntry],
+  index : Int,
+  entry : @source_repository.CatalogEntry,
+) -> String {
+  let base = document_base_label(entry)
+  let total = entries.count_if(other => document_base_label(other) == base)
+  if total == 1 {
+    base
+  } else {
+    let ordinal = entries
+      .view(end=index + 1)
+      .count_if(other => document_base_label(other) == base)
+    "\{base} (\{ordinal} of \{total})"
+  }
+}
+
+///|
+fn document_controls(
+  editing : EditingState,
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
+  let available = can_activate(editing)
+  let entries = editing.repository.catalog().entries()
+  @html.div(class="flex min-w-0 flex-wrap items-center justify-end gap-1.5", [
+    @rui.native_select(
+      size=@rui.NativeSelectSm,
+      id=DOCUMENT_SELECT_ID,
+      value=editing.activation.document_id,
+      aria_label="Document",
+      on_change=emit.map(document_id => DocumentSelected(document_id)),
+      class="max-w-[11rem] max-[641px]:max-w-[8rem]",
+      wrapper_style=[
+        "width:clamp(7rem,18vw,11rem)",
+        if available {
+          "opacity:1"
+        } else {
+          "opacity:0.5"
+        },
+      ],
+      entries.mapi((index, entry) => {
+        let document_id = entry.document_id()
+        @rui.native_select_option(
+          value=document_id,
+          selected=document_id == editing.activation.document_id,
+          disabled=!available && document_id != editing.activation.document_id,
+          document_option_label(entries, index, entry),
+        )
+      }),
+    ),
+    @rui.button(
+      variant=@rui.Outline,
+      size=@rui.Sm,
+      disabled=!available,
+      on_click=emit(CreateRequested),
+      "New document",
+    ),
+  ])
+}
+
+///|
+fn mode_bar(editing : EditingState, emit : @rabbita.Emit[Msg]) -> @rabbita.Html {
   @html.header(
-    class="relative z-2 flex min-h-11 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-lm-rule bg-lm-surface px-3 max-[641px]:px-2",
+    class="relative z-2 flex min-h-11 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-lm-rule bg-lm-surface px-3 py-1.5 max-[641px]:px-2",
     [
       @html.div(
         class="inline-flex items-center gap-0.5",
@@ -74,12 +136,17 @@ fn mode_bar(
           .aria_orientation("horizontal")
           .on_keydown(event => mode_keydown(event, emit)),
         [
-          mode_tab(Text, selected, focused, emit),
-          mode_tab(Preview, selected, focused, emit),
-          mode_tab(Split, selected, focused, emit),
+          mode_tab(Text, editing.mode, editing.focused_mode, emit),
+          mode_tab(Preview, editing.mode, editing.focused_mode, emit),
+          mode_tab(Split, editing.mode, editing.focused_mode, emit),
         ],
       ),
-      examples_bar(emit),
+      document_controls(editing, emit),
+      examples_bar(
+        emit,
+        editing.activation,
+        disabled=editing.creation == Creating,
+      ),
     ],
   )
 }
@@ -88,23 +155,34 @@ fn mode_bar(
 fn text_area_view(
   emit : @rabbita.Emit[Msg],
   text_area : @text_area.TextArea,
+  activation : Activation,
+  disabled? : Bool,
 ) -> @rabbita.Html {
-  @html.textarea(
-    rows=24,
-    autofocus=true,
-    class="m-0 block h-full min-h-0 w-full min-w-0 resize-none rounded-none border-0 bg-transparent px-[max(3rem,calc((100%_-_44rem)_/_2))] pt-8 pb-16 font-lm-mono text-base leading-[1.65] text-lm-ink caret-lm-accent outline-0 [tab-size:2] max-[641px]:px-3 max-[641px]:pt-6 max-[641px]:pb-12",
-    attrs=text_area.attach(
-      @html.Attrs::build().aria_label("Text"),
-      change => emit(TextChanged(change)),
-      composing => {
-        if composing {
-          emit(CompositionStarted)
-        } else {
-          emit(CompositionEnded)
-        }
-      },
-    ),
-    @html.nothing,
+  @html.div(
+    class="h-full min-h-0 w-full min-w-0",
+    Map([
+      (
+        "activation-\{activation.generation}",
+        @html.textarea(
+          rows=24,
+          autofocus=true,
+          disabled?,
+          class="m-0 block h-full min-h-0 w-full min-w-0 resize-none rounded-none border-0 bg-transparent px-[max(3rem,calc((100%_-_44rem)_/_2))] pt-8 pb-16 font-lm-mono text-base leading-[1.65] text-lm-ink caret-lm-accent outline-0 [tab-size:2] max-[641px]:px-3 max-[641px]:pt-6 max-[641px]:pb-12",
+          attrs=text_area.attach(
+            @html.Attrs::build().aria_label("Text"),
+            change => emit(TextChanged(activation, change)),
+            composing => {
+              if composing {
+                emit(CompositionStarted(activation))
+              } else {
+                emit(CompositionEnded(activation))
+              }
+            },
+          ),
+          @html.nothing,
+        ),
+      ),
+    ]),
   )
 }
 
@@ -166,6 +244,35 @@ fn preview_view(state : PreviewState) -> @rabbita.Html {
       @html.div(
         class="prose loomark-prose lg:prose-lg mx-auto w-[min(calc(100%-4rem),46rem)] max-w-none min-w-0 px-4 pt-8 pb-16 font-lm-ui max-[641px]:w-full max-[641px]:px-3 max-[641px]:pt-6 max-[641px]:pb-12 [&>*]:min-w-0 [&>*]:break-words",
         content,
+      ),
+    ],
+  )
+}
+
+///|
+fn creation_failure_view(
+  failure : @source_repository.CreateFailure,
+  emit : @rabbita.Emit[Msg],
+) -> @rabbita.Html {
+  let reason = match failure {
+    @source_repository.CreateFailure::DocumentIdentityUnavailable =>
+      "This browser cannot create a document identity."
+    @source_repository.CreateFailure::StorageUnavailable =>
+      "Browser storage is unavailable."
+    @source_repository.CreateFailure::QuotaExceeded =>
+      "Browser storage is full."
+    @source_repository.CreateFailure::WriteFailed =>
+      "Browser storage failed while creating the document."
+  }
+  @html.div(
+    class="flex min-h-12 shrink-0 items-center justify-between gap-4 border-t border-[oklch(0.78_0.07_25)] bg-lm-danger-soft px-4 py-2.5 text-sm text-lm-danger max-[641px]:items-start [&_p]:m-0",
+    attrs=@html.Attrs::build().role("alert"),
+    [
+      @html.p("A new document could not be created. " + reason),
+      @html.button(
+        class="min-h-8 shrink-0 cursor-pointer rounded-md border border-current bg-transparent px-2.5 py-1 text-inherit focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lm-danger",
+        on_click=emit(CreateRequested),
+        "Retry creating",
       ),
     ],
   )
@@ -239,7 +346,7 @@ fn view(
         @html.div(
           class="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-lm-paper",
           [
-            mode_bar(editing.mode, editing.focused_mode, emit),
+            mode_bar(editing, emit),
             @html.main_(
               id="loomark-editor-panel",
               class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
@@ -248,9 +355,11 @@ fn view(
                 .aria_label("\{mode_name(editing.mode)} mode"),
               editor_panels,
             ),
-            match editing.save {
-              Failed(failure) => save_failure_view(failure, emit)
-              Saved | Waiting | Saving(_) => @html.nothing
+            match (editing.save, editing.creation) {
+              (Failed(failure), _) => save_failure_view(failure, emit)
+              (_, CreationFailed(failure)) =>
+                creation_failure_view(failure, emit)
+              (Saved | Waiting | Saving(_), Idle | Creating) => @html.nothing
             },
           ],
         )

@@ -6,11 +6,18 @@ priv enum Model {
 } derive(Eq)
 
 ///|
-priv struct EditingState {
+priv struct Activation {
   document_id : String
+  generation : Int
+} derive(Eq)
+
+///|
+priv struct EditingState {
+  activation : Activation
   text : String
   composing : Bool
   save : SaveState
+  creation : DocumentCreation
   mode : EditorMode
   focused_mode : EditorMode
   compact : Bool
@@ -49,27 +56,44 @@ priv enum SaveState {
 } derive(Eq)
 
 ///|
+priv enum DocumentCreation {
+  Idle
+  Creating
+  CreationFailed(@source_repository.CreateFailure)
+} derive(Eq)
+
+///|
 priv enum Msg {
   Opened(@source_repository.OpenResult)
-  ExampleSelected(String)
-  TextChanged(@text_change.TextChange)
-  CompositionStarted
-  CompositionEnded
+  ExampleSelected(Activation, String)
+  TextChanged(Activation, @text_change.TextChange)
+  CompositionStarted(Activation)
+  CompositionEnded(Activation)
   ModeSelected(EditorMode)
   ModeKeyPressed(String)
-  BeginPreviewPreparation
+  BeginPreviewPreparation(Activation)
   PreviewPrepared(
+    Activation,
     String,
     Result[@preview.PreviewOutput, @preview.PreviewFailure]
   )
-  ParserAdvanced(String, Bool, Result[Unit, @preview.PreviewFailure])
-  PreviewRefreshRequested(String)
+  ParserAdvanced(
+    Activation,
+    String,
+    Bool,
+    Result[Unit, @preview.PreviewFailure]
+  )
+  PreviewRefreshRequested(Activation, String)
   PreviewRefreshed(
+    Activation,
     String,
     Result[@preview.PreviewOutput, @preview.PreviewFailure]
   )
   ViewportChanged(Int)
-  SaveRequested(String)
-  SaveCompleted(String, String, @source_repository.SaveResult)
+  SaveRequested(Activation, String)
+  SaveCompleted(Activation, String, @source_repository.SaveResult)
   RetrySave
+  DocumentSelected(String)
+  CreateRequested
+  CreateCompleted(Activation, @source_repository.CreateResult)
 }

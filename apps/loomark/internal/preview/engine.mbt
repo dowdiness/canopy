@@ -28,11 +28,29 @@ priv enum EngineState {
 pub struct PreviewEngine {
   priv mut state : EngineState
   priv mut next_revision_key : Int
+  priv mut owner_generation : Int?
 }
 
 ///|
 pub fn PreviewEngine::PreviewEngine() -> PreviewEngine {
-  { state: NoPair, next_revision_key: 0 }
+  { state: NoPair, next_revision_key: 0, owner_generation: None }
+}
+
+///|
+fn PreviewEngine::activate(self : PreviewEngine, generation : Int) -> Bool {
+  match self.owner_generation {
+    Some(current) if generation <= current => false
+    None | Some(_) => {
+      self.owner_generation = Some(generation)
+      self.state = NoPair
+      true
+    }
+  }
+}
+
+///|
+fn PreviewEngine::owns(self : PreviewEngine, generation : Int) -> Bool {
+  self.owner_generation == Some(generation)
 }
 
 ///|
@@ -78,7 +96,7 @@ fn PreviewEngine::break_parser(self : PreviewEngine) -> Unit {
 
 ///|
 /// Create the first Parser, or replace an unusable Parser, from current text.
-pub fn PreviewEngine::prepare(
+fn PreviewEngine::prepare(
   self : PreviewEngine,
   source : String,
 ) -> Result[PreviewOutput, PreviewFailure] {
@@ -106,7 +124,7 @@ pub fn PreviewEngine::prepare(
 
 ///|
 /// Advance a healthy Parser once for one committed Document change.
-pub fn PreviewEngine::apply(
+fn PreviewEngine::apply(
   self : PreviewEngine,
   change : @text_change.TextChange,
   new_source : String,
@@ -151,7 +169,7 @@ pub fn PreviewEngine::apply(
 /// Read and materialize the current semantic result. Broken Parsers are
 /// replaced here because callers invoke refresh only at an allowed retry
 /// boundary.
-pub fn PreviewEngine::refresh(
+fn PreviewEngine::refresh(
   self : PreviewEngine,
   source : String,
 ) -> Result[PreviewOutput, PreviewFailure] {
@@ -173,6 +191,44 @@ fn PreviewEngine::discard(self : PreviewEngine) -> Unit {
 }
 
 ///|
+fn PreviewEngine::prepare_owned(
+  self : PreviewEngine,
+  generation : Int,
+  source : String,
+) -> Result[PreviewOutput, PreviewFailure]? {
+  guard self.owns(generation) else { return None }
+  Some(self.prepare(source))
+}
+
+///|
+fn PreviewEngine::apply_owned(
+  self : PreviewEngine,
+  generation : Int,
+  change : @text_change.TextChange,
+  source : String,
+) -> Result[Unit, PreviewFailure]? {
+  guard self.owns(generation) else { return None }
+  Some(self.apply(change, source))
+}
+
+///|
+fn PreviewEngine::refresh_owned(
+  self : PreviewEngine,
+  generation : Int,
+  source : String,
+) -> Result[PreviewOutput, PreviewFailure]? {
+  guard self.owns(generation) else { return None }
+  Some(self.refresh(source))
+}
+
+///|
+fn PreviewEngine::discard_owned(self : PreviewEngine, generation : Int) -> Bool {
+  guard self.owns(generation) else { return false }
+  self.discard()
+  true
+}
+
+///|
 /// Emit a command after DOM patching and one animation-frame boundary. The
 /// zero-delay task after the frame gives the patched Preparing state a paint
 /// opportunity before synchronous Parser construction starts.
@@ -187,36 +243,54 @@ pub fn after_paint(command : @cmd.Cmd) -> @cmd.Cmd {
 }
 
 ///|
+pub fn activate_cmd(engine : PreviewEngine, generation : Int) -> @cmd.Cmd {
+  @cmd.custom_cmd(_ => ignore(engine.activate(generation)))
+}
+
+///|
 pub fn prepare_cmd(
   engine : PreviewEngine,
+  generation : Int,
   source : String,
   result~ : @cmd.Emit[Result[PreviewOutput, PreviewFailure]],
 ) -> @cmd.Cmd {
-  @cmd.custom_cmd(scheduler => scheduler.add(result(engine.prepare(source))))
+  @cmd.custom_cmd(scheduler => {
+    if engine.prepare_owned(generation, source) is Some(output) {
+      scheduler.add(result(output))
+    }
+  })
 }
 
 ///|
 pub fn apply_cmd(
   engine : PreviewEngine,
+  generation : Int,
   change : @text_change.TextChange,
   source : String,
   result~ : @cmd.Emit[Result[Unit, PreviewFailure]],
 ) -> @cmd.Cmd {
   @cmd.custom_cmd(scheduler => {
-    scheduler.add(result(engine.apply(change, source)))
+    if engine.apply_owned(generation, change, source) is Some(output) {
+      scheduler.add(result(output))
+    }
   })
 }
 
 ///|
 pub fn refresh_cmd(
   engine : PreviewEngine,
+  generation : Int,
   source : String,
   result~ : @cmd.Emit[Result[PreviewOutput, PreviewFailure]],
 ) -> @cmd.Cmd {
-  @cmd.custom_cmd(scheduler => scheduler.add(result(engine.refresh(source))))
+  @cmd.custom_cmd(scheduler => {
+    if engine.refresh_owned(generation, source) is Some(output) {
+      scheduler.add(result(output))
+    }
+  })
 }
 
 ///|
-pub fn discard_cmd(engine : PreviewEngine) -> @cmd.Cmd {
-  @cmd.custom_cmd(_ => engine.discard())
+pub fn discard_cmd(engine : PreviewEngine, generation : Int) -> @cmd.Cmd {
+  @cmd.custom_cmd(_ => ignore(engine.discard_owned(generation)))
 }

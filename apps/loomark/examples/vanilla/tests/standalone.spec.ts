@@ -294,7 +294,7 @@ function removeDocumentPutFailure(): void {
   delete state.__loomarkDocumentPutOriginal
 }
 
-test("fresh production opens Text mode and preserves its textarea across modes", async ({ page }) => {
+test("fresh production opens Text mode and preserves its textarea and undo history across modes", async ({ page }) => {
   const workerUrls: string[] = []
   page.on("worker", worker => workerUrls.push(worker.url()))
 
@@ -357,6 +357,9 @@ test("fresh production opens Text mode and preserves its textarea across modes",
   }))).toEqual({ start: 1, end: 2 })
   await text.focus()
   await page.keyboard.press("Control+Z")
+  if (await text.inputValue() !== "# Untitled\n") {
+    await page.keyboard.press("Control+Z")
+  }
   await expect(text).toHaveValue("# Untitled\n")
   expect(workerUrls).toEqual([])
 })
@@ -398,16 +401,164 @@ test("several Sources select the first lexical Document ID without writing metad
   await waitForRepositoryOpen(page)
   const documentA = { document_id: "document-a", text: "# Same\n" }
   const documentB = { document_id: "document-b", text: "# Same\n" }
+  const documentC = { document_id: "document-c", text: "Body only\n" }
   await replaceStoreRecords(page, [
     { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB) },
     { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA) },
+    { key: sourceKey(documentC.document_id), value: encodeStoredDocument(documentC) },
     { key: "source/v2/future", value: "future" },
   ])
 
   await page.reload()
   await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(documentA.text)
+  await expect(page.getByRole("combobox", { name: "Document" }).locator("option"))
+    .toHaveText(["Same (1 of 2)", "Same (2 of 2)", "Unnamed document"])
   expect(await readStoredDocumentRaw(page, CATALOG_KEY)).toBeUndefined()
   expect(await readStoredDocumentRaw(page, "source/v2/future")).toBe("future")
+})
+
+test("Document selector switches saved Sources A to B to A without cross-document undo", async ({ page }) => {
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const documentA = { document_id: "document-a", text: "# A\n" }
+  const documentB = { document_id: "document-b", text: "# B\n" }
+  await replaceStoreRecords(page, [
+    { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA) },
+    { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB) },
+  ])
+
+  await page.reload()
+  const selector = page.getByRole("combobox", { name: "Document" })
+  const text = page.getByRole("textbox", { name: "Text" })
+  await expect(selector).toHaveValue(documentA.document_id)
+  await expect(selector.locator("option")).toHaveText(["A", "B"])
+
+  await text.fill("# A edited\n")
+  await expect.poll(() => readStoredDocumentRaw(page, sourceKey(documentA.document_id)))
+    .toBe(encodeStoredDocument({ ...documentA, text: "# A edited\n" }))
+  await page.getByRole("tab", { name: "Split" }).click()
+  await expect(page.getByRole("heading", { name: "A edited" })).toBeVisible()
+
+  await selector.selectOption(documentB.document_id)
+  await expect(text).toHaveValue(documentB.text)
+  await expect(page.getByRole("tab", { name: "Split" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  )
+  await expect(page.getByRole("heading", { name: "B" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "A edited" })).toHaveCount(0)
+  await text.focus()
+  await page.keyboard.press("Control+Z")
+  await expect(text).toHaveValue(documentB.text)
+
+  await selector.selectOption(documentA.document_id)
+  await expect(text).toHaveValue("# A edited\n")
+  await expect(page.getByRole("heading", { name: "A edited" })).toBeVisible()
+  expect(await readStoredDocumentRaw(page, sourceKey(documentB.document_id)))
+    .toBe(encodeStoredDocument(documentB))
+})
+
+test("New Document commits one baseline Source before activating it", async ({ page }) => {
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const before = await readStoredDocuments(page)
+  expect(before).toHaveLength(1)
+
+  const selector = page.getByRole("combobox", { name: "Document" })
+  await page.getByRole("button", { name: "New document" }).click()
+  await expect.poll(() => readStoredDocuments(page).then(documents => documents.length)).toBe(2)
+  const after = await readStoredDocuments(page)
+  const created = after.find(document => document.document_id !== before[0].document_id)
+  if (!created) throw new Error("created Source missing")
+  expect(created.text).toBe("# Untitled\n")
+  await expect(selector).toHaveValue(created.document_id)
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("# Untitled\n")
+  await expect(selector.locator("option")).toHaveText([
+    "Untitled (1 of 2)",
+    "Untitled (2 of 2)",
+  ])
+
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill("# Project notes\n")
+  await expect.poll(() => readStoredDocumentRaw(page, sourceKey(created.document_id)))
+    .toBe(encodeStoredDocument({ ...created, text: "# Project notes\n" }))
+  await expect(selector.locator("option:checked")).toHaveText("Project notes")
+  const renamed = await readStoredDocuments(page)
+
+  await page.reload()
+  await expect(selector.locator("option")).toHaveCount(2)
+  expect(await selector.locator("option").allTextContents()).toEqual(
+    expect.arrayContaining(["Untitled", "Project notes"]),
+  )
+  expect(await readStoredDocuments(page)).toEqual(renamed)
+})
+
+test("creation failure preserves the active document and can retry", async ({ page }) => {
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const baseline = await readStoredDocument(page)
+  if (!baseline) throw new Error("baseline Source missing")
+  await page.evaluate(installDocumentPutFailure, { prefix: SOURCE_KEY_PREFIX })
+
+  await page.getByRole("button", { name: "New document" }).click()
+  await expect(page.getByRole("alert")).toContainText(
+    "A new document could not be created. Browser storage is full.",
+  )
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(baseline.text)
+  await expect(page.getByRole("combobox", { name: "Document" })).toHaveValue(
+    baseline.document_id,
+  )
+  expect(await readStoredDocuments(page)).toEqual([baseline])
+
+  await page.evaluate(removeDocumentPutFailure)
+  await page.getByRole("button", { name: "Retry creating" }).click()
+  await expect(page.getByRole("alert")).toHaveCount(0)
+  await expect.poll(() => readStoredDocuments(page).then(documents => documents.length)).toBe(2)
+})
+
+test("Document controls remain accessible without horizontal overflow at 390 px", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  await expect(page.getByRole("combobox", { name: "Document" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "New document" })).toBeVisible()
+  await expect(page.getByRole("tab", { name: "Text" })).toBeVisible()
+  await expect(page.getByRole("tab", { name: "Preview" })).toBeVisible()
+  await expect(page.getByRole("tab", { name: "Split" })).toBeVisible()
+  expect(await page.evaluate(() => ({
+    viewport: window.innerWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }))).toEqual({ viewport: 390, scrollWidth: 390 })
+})
+
+test("document action attempted before save stays on the active Source", async ({ page }) => {
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const documentA = { document_id: "document-a", text: "# A\n" }
+  const documentB = { document_id: "document-b", text: "# B\n" }
+  await replaceStoreRecords(page, [
+    { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA) },
+    { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB) },
+  ])
+
+  await page.reload()
+  const text = page.getByRole("textbox", { name: "Text" })
+  const selector = page.getByRole("combobox", { name: "Document" })
+  await text.pressSequentially("x")
+  await expect(selector.locator(`option[value="${documentA.document_id}"]`)).toBeEnabled()
+  await expect(selector.locator(`option[value="${documentB.document_id}"]`)).toBeDisabled()
+  await expect(selector.locator("..")).toHaveCSS("opacity", "0.5")
+  await expect(page.getByRole("button", { name: "New document" })).toBeDisabled()
+  await expect(selector).toHaveValue(documentA.document_id)
+  await expect(text).toHaveValue("# A\nx")
+  await expect(page.getByText("Wait for saving to finish.")).toHaveCount(0)
+  await expect.poll(() => readStoredDocumentRaw(page, sourceKey(documentA.document_id)))
+    .toBe(encodeStoredDocument({ ...documentA, text: "# A\nx" }))
+  await expect(selector.locator(`option[value="${documentB.document_id}"]`)).toBeEnabled()
+  await expect(selector.locator("..")).toHaveCSS("opacity", "1")
+  await expect(page.getByRole("button", { name: "New document" })).toBeEnabled()
+  await selector.selectOption(documentB.document_id)
+  await expect(text).toHaveValue(documentB.text)
 })
 
 test("legacy active record migrates atomically and is removed", async ({ page }) => {
@@ -695,6 +846,10 @@ test("mode tabs move focus without activation and activate with Enter or Space",
   const previewTab = page.getByRole("tab", { name: "Preview" })
   const splitTab = page.getByRole("tab", { name: "Split" })
   const preview = page.getByRole("region", { name: "Markdown preview" })
+  const documentControls = [
+    page.getByRole("combobox", { name: "Document" }),
+    page.getByRole("button", { name: "New document" }),
+  ]
   const exampleButtons = [
     "Apply Markdown feature tour example",
     "Apply Hello example",
@@ -713,9 +868,9 @@ test("mode tabs move focus without activation and activate with Enter or Space",
   await expect(previewTab).toBeFocused()
   await expect(previewTab).toHaveAttribute("aria-selected", "true")
   await expect(preview).toBeVisible()
-  for (const button of exampleButtons) {
+  for (const control of [...documentControls, ...exampleButtons]) {
     await page.keyboard.press("Tab")
-    await expect(button).toBeFocused()
+    await expect(control).toBeFocused()
   }
   await page.keyboard.press("Tab")
   await expect(preview).toBeFocused()
@@ -727,9 +882,9 @@ test("mode tabs move focus without activation and activate with Enter or Space",
   await page.keyboard.press("Space")
   await expect(splitTab).toBeFocused()
   await expect(splitTab).toHaveAttribute("aria-selected", "true")
-  for (const button of exampleButtons) {
+  for (const control of [...documentControls, ...exampleButtons]) {
     await page.keyboard.press("Tab")
-    await expect(button).toBeFocused()
+    await expect(control).toBeFocused()
   }
   await page.keyboard.press("Tab")
   await expect(page.getByRole("textbox", { name: "Text" })).toBeFocused()
