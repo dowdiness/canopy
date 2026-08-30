@@ -172,11 +172,6 @@ fn document_sidebar(
                     ]),
                     style=[
                       "height:auto;min-height:2.75rem;align-items:flex-start;padding-block:0.5rem",
-                      if selected {
-                        "box-shadow:inset 2px 0 0 var(--color-lm-accent)"
-                      } else {
-                        ""
-                      },
                     ],
                     [
                       sidebar_document_icon(),
