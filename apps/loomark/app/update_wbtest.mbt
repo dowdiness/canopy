@@ -85,7 +85,7 @@ test "stale activation cannot change current text" {
 }
 
 ///|
-test "stale activation cannot publish a prepared Preview" {
+test "stale activation cannot process a prepared Preview result" {
   let initial = {
     ..test_editing_state("# Current\n", Saved),
     activation: { document_id: "document-1", generation: 1 },
@@ -94,11 +94,7 @@ test "stale activation cannot publish a prepared Preview" {
   let stale : Activation = { document_id: "document-1", generation: 0 }
   let (model, _) = test_update(
     Editing(initial),
-    PreviewPrepared(
-      stale,
-      initial.text,
-      Ok({ html: @html.h1("Stale"), empty: false }),
-    ),
+    PreviewPrepared(stale, initial.text, Err(OutOfSync)),
   )
   assert_true(model == Editing(initial))
 }

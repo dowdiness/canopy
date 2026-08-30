@@ -60,8 +60,11 @@ fn benchmark_preview_cycle(
 ) -> Unit {
   let (initial, operations) = preview_cycle_fixture(block_count, interior~)
   let engine = PreviewEngine::PreviewEngine()
-  guard engine.prepare(initial) is Ok(_) else {
+  guard engine.prepare(initial) is Ok(initial_output) else {
     abort("benchmark Preview preparation failed")
+  }
+  guard engine.accept(initial_output) else {
+    abort("benchmark Preview initial acceptance failed")
   }
   let mut operation_index = 0
   b.bench(() => {
@@ -71,6 +74,9 @@ fn benchmark_preview_cycle(
     }
     guard engine.refresh(source) is Ok(output) else {
       abort("benchmark Preview refresh failed")
+    }
+    guard engine.accept(output) else {
+      abort("benchmark Preview acceptance failed")
     }
     b.keep(output)
     operation_index = (operation_index + 1) % operations.length()

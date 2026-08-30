@@ -2,13 +2,21 @@ import { spawn } from "node:child_process"
 import { once } from "node:events"
 import { fileURLToPath } from "node:url"
 
-const port = Number.parseInt(process.env.LOOMARK_STANDALONE_PORT ?? "4317", 10)
+const portText = process.env.LOOMARK_STANDALONE_PORT ?? "4317"
+const port = Number(portText)
+if (!/^\d+$/.test(portText) || !Number.isInteger(port) || port < 1 || port > 65_535) {
+  throw new Error("LOOMARK_STANDALONE_PORT must be an integer from 1 through 65535")
+}
 const serverPath = fileURLToPath(new URL("./serve-standalone-dist.mjs", import.meta.url))
 const playwrightPath = fileURLToPath(new URL("./node_modules/playwright/cli.js", import.meta.url))
+const playwrightConfig = process.env.LOOMARK_PLAYWRIGHT_CONFIG ?? "playwright.standalone.config.ts"
 const server = spawn(process.execPath, [serverPath], {
   env: { ...process.env, LOOMARK_STANDALONE_PORT: String(port) },
   stdio: ["ignore", "pipe", "inherit"],
 })
+
+let playwright
+let stopping = false
 
 const serverReady = new Promise((resolve, reject) => {
   const timeout = setTimeout(
@@ -43,12 +51,23 @@ async function stopServer() {
   if (server.exitCode === null) server.kill("SIGKILL")
 }
 
+async function stopForSignal(exitCode) {
+  if (stopping) return
+  stopping = true
+  if (playwright?.exitCode === null) playwright.kill("SIGTERM")
+  await stopServer()
+  process.exit(exitCode)
+}
+
+process.once("SIGINT", () => void stopForSignal(130))
+process.once("SIGTERM", () => void stopForSignal(143))
+
 try {
   await serverReady
 
-  const playwright = spawn(
+  playwright = spawn(
     process.execPath,
-    [playwrightPath, "test", "--config=playwright.standalone.config.ts", ...process.argv.slice(2)],
+    [playwrightPath, "test", `--config=${playwrightConfig}`, ...process.argv.slice(2)],
     { stdio: "inherit" },
   )
   const [code] = await once(playwright, "close")

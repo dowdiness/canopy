@@ -361,7 +361,7 @@ fn update(
         )
       } else {
         match result {
-          Ok(output) =>
+          Ok(output) if preview_engine.accept(output) =>
             (
               Editing({
                 ..editing,
@@ -369,7 +369,8 @@ fn update(
               }),
               @cmd.none,
             )
-          Err(_) => (Editing({ ..editing, preview: Failed(None) }), @cmd.none)
+          Ok(_) | Err(_) =>
+            (Editing({ ..editing, preview: Failed(None) }), @cmd.none)
         }
       }
     (Editing(editing), ParserAdvanced(owner, candidate, retry, result)) =>
@@ -429,7 +430,7 @@ fn update(
         (model, @cmd.none)
       } else {
         match result {
-          Ok(output) =>
+          Ok(output) if preview_engine.accept(output) =>
             (
               Editing({
                 ..editing,
@@ -437,6 +438,7 @@ fn update(
               }),
               @cmd.none,
             )
+          Ok(_) => (model, @cmd.none)
           Err(_) =>
             (
               Editing({
