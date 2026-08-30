@@ -81,67 +81,172 @@ fn document_option_label(
 }
 
 ///|
-fn document_controls(
+fn sidebar_panel_icon() -> @rabbita.Html {
+  @html.span(
+    class="relative block size-4 shrink-0",
+    attrs=@html.Attrs::build()
+      .data_set("loomark-icon", "sidebar")
+      .aria_hidden("true"),
+    @html.nothing,
+  )
+}
+
+///|
+fn sidebar_document_icon() -> @rabbita.Html {
+  @html.span(
+    class="relative mt-0.5 block size-4 shrink-0",
+    attrs=@html.Attrs::build()
+      .data_set("loomark-icon", "document")
+      .aria_hidden("true"),
+    @html.nothing,
+  )
+}
+
+///|
+fn document_sidebar(
+  scope : @rui.SidebarScope,
   editing : EditingState,
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
   let available = can_activate(editing)
   let entries = editing.repository.catalog().entries()
-  @html.div(class="flex min-w-0 flex-wrap items-center justify-end gap-1.5", [
-    @rui.native_select(
-      size=@rui.NativeSelectSm,
-      id=DOCUMENT_SELECT_ID,
-      value=editing.activation.document_id,
-      aria_label="Document",
-      on_change=emit.map(document_id => DocumentSelected(document_id)),
-      class="max-w-[11rem] max-[641px]:max-w-[8rem]",
-      wrapper_style=[
-        "width:clamp(7rem,18vw,11rem)",
-        if available {
-          "opacity:1"
-        } else {
-          "opacity:0.5"
-        },
-      ],
-      entries.mapi((index, entry) => {
-        let document_id = entry.document_id()
-        @rui.native_select_option(
-          value=document_id,
-          selected=document_id == editing.activation.document_id,
-          disabled=!available && document_id != editing.activation.document_id,
-          document_option_label(entries, index, entry),
-        )
-      }),
-    ),
-    @rui.button(
-      variant=@rui.Outline,
-      size=@rui.Sm,
-      disabled=!available,
-      on_click=emit(CreateRequested),
-      "New document",
-    ),
-  ])
+  let mobile = editing.compact
+  @rui.sidebar(
+    scope,
+    id="loomark-document-sidebar",
+    mobile~,
+    side=@rui.SidebarLeft,
+    variant=@rui.SidebarDefault,
+    collapsible=@rui.SidebarOffcanvas,
+    aria_label="Documents",
+    style=[
+      "--rui-sidebar-width:18rem", "--rui-sidebar-width-mobile:20rem", "--rui-sidebar:var(--color-lm-foundation)",
+      "--rui-sidebar-foreground:var(--color-lm-ink)", "--rui-sidebar-border:var(--color-lm-rule)",
+      "--rui-sidebar-accent:var(--color-lm-accent-soft)", "--rui-sidebar-accent-foreground:var(--color-lm-accent)",
+    ],
+    [
+      @rui.sidebar_header(
+        @html.div(class="flex min-h-9 items-center justify-between gap-2", [
+          @html.div(class="flex min-w-0 items-center gap-2", [
+            if mobile {
+              @rui.sidebar_trigger(
+                scope,
+                mobile=true,
+                controls="loomark-document-sidebar",
+                aria_label="Close documents",
+                sidebar_panel_icon(),
+              )
+            } else {
+              @html.nothing
+            },
+            @html.strong(class="truncate text-sm font-semibold", "Loomark"),
+          ]),
+          @rui.button(
+            variant=@rui.Ghost,
+            size=@rui.Sm,
+            disabled=!available,
+            on_click=@cmd.batch([
+              emit(CreateRequested),
+              @rui.sidebar_close_mobile(scope),
+            ]),
+            "New",
+          ),
+        ]),
+      ),
+      @rui.sidebar_separator(),
+      @rui.sidebar_content(
+        @rui.sidebar_group([
+          @rui.sidebar_group_label("Documents"),
+          @rui.sidebar_group_content(
+            @rui.sidebar_menu(
+              entries.mapi((index, entry) => {
+                let document_id = entry.document_id()
+                let selected = document_id == editing.activation.document_id
+                @rui.sidebar_menu_item(
+                  @rui.sidebar_menu_button(
+                    is_active=selected,
+                    disabled=!available && !selected,
+                    aria_label=document_option_label(entries, index, entry),
+                    on_click=@cmd.batch([
+                      emit(DocumentSelected(document_id)),
+                      @rui.sidebar_close_mobile(scope),
+                    ]),
+                    style=[
+                      "height:auto;min-height:2.75rem;align-items:flex-start;padding-block:0.5rem",
+                      if selected {
+                        "box-shadow:inset 2px 0 0 var(--color-lm-accent)"
+                      } else {
+                        ""
+                      },
+                    ],
+                    [
+                      sidebar_document_icon(),
+                      @html.span(
+                        class="min-w-0 overflow-hidden text-ellipsis whitespace-normal [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]",
+                        document_option_label(entries, index, entry),
+                      ),
+                    ],
+                  ),
+                )
+              }),
+            ),
+          ),
+        ]),
+      ),
+      @rui.sidebar_footer(
+        @html.p(
+          class="m-0 px-2 text-xs text-lm-muted tabular-nums",
+          if entries.length() == 1 {
+            "1 document"
+          } else {
+            "\{entries.length()} documents"
+          },
+        ),
+      ),
+      if mobile {
+        @html.nothing
+      } else {
+        @rui.sidebar_rail(scope)
+      },
+    ],
+  )
 }
 
 ///|
-fn mode_bar(editing : EditingState, emit : @rabbita.Emit[Msg]) -> @rabbita.Html {
+fn mode_bar(
+  scope : @rui.SidebarScope,
+  editing : EditingState,
+  emit : @rabbita.Emit[Msg],
+) -> @rabbita.Html {
   @html.header(
     class="relative z-2 flex min-h-11 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-lm-rule bg-lm-surface px-3 py-1.5 max-[641px]:px-2",
     [
-      @html.div(
-        class="inline-flex items-center gap-0.5",
-        attrs=@html.Attrs::build()
-          .role("tablist")
-          .aria_label("Editor mode")
-          .aria_orientation("horizontal")
-          .on_keydown(event => mode_keydown(event, emit)),
-        [
-          mode_tab(Text, editing.mode, editing.focused_mode, emit),
-          mode_tab(Preview, editing.mode, editing.focused_mode, emit),
-          mode_tab(Split, editing.mode, editing.focused_mode, emit),
-        ],
-      ),
-      document_controls(editing, emit),
+      @html.div(class="flex min-w-0 items-center gap-2", [
+        @rui.sidebar_trigger(
+          scope,
+          mobile=editing.compact,
+          controls="loomark-document-sidebar",
+          aria_label=if editing.compact {
+            "Open documents"
+          } else {
+            "Toggle documents"
+          },
+          sidebar_panel_icon(),
+        ),
+        @html.div(
+          class="inline-flex items-center gap-0.5",
+          attrs=@html.Attrs::build()
+            .role("tablist")
+            .aria_label("Editor mode")
+            .aria_orientation("horizontal")
+            .on_keydown(event => mode_keydown(event, emit)),
+          [
+            mode_tab(Text, editing.mode, editing.focused_mode, emit),
+            mode_tab(Preview, editing.mode, editing.focused_mode, emit),
+            mode_tab(Split, editing.mode, editing.focused_mode, emit),
+          ],
+        ),
+      ]),
       examples_bar(
         emit,
         editing.activation,
@@ -308,13 +413,14 @@ fn save_failure_view(
 
 ///|
 fn view(
+  sidebar : @rui.SidebarScope,
   model : Model,
   emit : @rabbita.Emit[Msg],
   editor_panels : @rabbita.Html,
 ) -> @rabbita.Html {
   @html.div(
     id="loomark-root",
-    class="h-dvh min-h-0 w-full min-w-0 overflow-hidden bg-lm-foundation font-lm-ui text-lm-ink scheme-light selection:bg-[oklch(0.78_0.08_276/0.45)]",
+    class="flex h-dvh min-h-0 w-full min-w-0 overflow-hidden bg-lm-foundation font-lm-ui text-lm-ink scheme-light selection:bg-[oklch(0.78_0.08_276/0.45)]",
     attrs=@html.Attrs::build()
       .role("region")
       .aria_label("Loomark Markdown Editor"),
@@ -343,26 +449,29 @@ fn view(
         )
       }
       Editing(editing) =>
-        @html.div(
-          class="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-lm-paper",
-          [
-            mode_bar(editing, emit),
-            @html.main_(
-              id="loomark-editor-panel",
-              class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
-              attrs=@html.Attrs::build()
-                .role("tabpanel")
-                .aria_label("\{mode_name(editing.mode)} mode"),
-              editor_panels,
-            ),
-            match (editing.save, editing.creation) {
-              (Failed(failure), _) => save_failure_view(failure, emit)
-              (_, CreationFailed(failure)) =>
-                creation_failure_view(failure, emit)
-              (Saved | Waiting | Saving(_), Idle | Creating) => @html.nothing
-            },
-          ],
-        )
+        @html.fragment([
+          document_sidebar(sidebar, editing, emit),
+          @html.div(
+            class="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-lm-paper",
+            [
+              mode_bar(sidebar, editing, emit),
+              @html.main_(
+                id="loomark-editor-panel",
+                class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+                attrs=@html.Attrs::build()
+                  .role("tabpanel")
+                  .aria_label("\{mode_name(editing.mode)} mode"),
+                editor_panels,
+              ),
+              match (editing.save, editing.creation) {
+                (Failed(failure), _) => save_failure_view(failure, emit)
+                (_, CreationFailed(failure)) =>
+                  creation_failure_view(failure, emit)
+                (Saved | Waiting | Saving(_), Idle | Creating) => @html.nothing
+              },
+            ],
+          ),
+        ])
     },
   )
 }
