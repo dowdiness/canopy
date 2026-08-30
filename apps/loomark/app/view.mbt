@@ -110,21 +110,21 @@ fn document_sidebar(
 ) -> @rabbita.Html {
   let available = can_activate(editing)
   let entries = editing.repository.catalog().entries()
-  let mobile = editing.compact
+  let compact = editing.compact
+  let close_after_action = if compact {
+    @rui.sidebar_collapse(scope)
+  } else {
+    @cmd.none
+  }
   @rui.sidebar(
     scope,
     id="loomark-document-sidebar",
-    mobile~,
+    mobile=false,
     side=@rui.SidebarLeft,
     variant=@rui.SidebarDefault,
     collapsible=@rui.SidebarOffcanvas,
     aria_label="Documents",
-    style=[
-      "--rui-sidebar-width:clamp(14rem,24vw,17rem)", "--rui-sidebar-width-mobile:17rem",
-      "--rui-sidebar:var(--color-lm-foundation)", "--rui-sidebar-foreground:var(--color-lm-ink)",
-      "--rui-sidebar-border:var(--color-lm-rule)", "--rui-sidebar-accent:var(--color-lm-accent-soft)",
-      "--rui-sidebar-accent-foreground:var(--color-lm-accent)",
-    ],
+    class="[--rui-sidebar:var(--color-lm-foundation)] [--rui-sidebar-foreground:var(--color-lm-ink)] [--rui-sidebar-border:var(--color-lm-rule)] [--rui-sidebar-accent:var(--color-lm-accent-soft)] [--rui-sidebar-accent-foreground:var(--color-lm-accent)]",
     [
       @rui.sidebar_header(
         @html.div(class="flex min-h-9 items-center justify-between gap-2", [
@@ -134,15 +134,12 @@ fn document_sidebar(
               variant=@rui.Ghost,
               size=@rui.Sm,
               disabled=!available,
-              on_click=@cmd.batch([
-                emit(CreateRequested),
-                @rui.sidebar_close_mobile(scope),
-              ]),
+              on_click=@cmd.batch([emit(CreateRequested), close_after_action]),
               "New",
             ),
             @rui.sidebar_trigger(
               scope,
-              mobile~,
+              mobile=false,
               controls="loomark-document-sidebar",
               aria_label="Close documents",
               sidebar_panel_icon(),
@@ -166,7 +163,7 @@ fn document_sidebar(
                     aria_label=document_option_label(entries, index, entry),
                     on_click=@cmd.batch([
                       emit(DocumentSelected(document_id)),
-                      @rui.sidebar_close_mobile(scope),
+                      close_after_action,
                     ]),
                     style=[
                       "height:auto;min-height:2.75rem;align-items:flex-start;padding-block:0.5rem",
@@ -210,11 +207,7 @@ fn mode_bar(
   editing : EditingState,
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
-  let sidebar_open = if editing.compact {
-    @rui.sidebar_is_mobile_open(scope)
-  } else {
-    !@rui.sidebar_is_collapsed(scope)
-  }
+  let sidebar_open = !@rui.sidebar_is_collapsed(scope)
   @html.header(
     class="relative z-2 flex min-h-11 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-lm-rule bg-lm-surface px-3 py-1.5 max-[641px]:px-2",
     [
@@ -224,7 +217,7 @@ fn mode_bar(
         } else {
           @rui.sidebar_trigger(
             scope,
-            mobile=editing.compact,
+            mobile=false,
             controls="loomark-document-sidebar",
             aria_label="Open documents",
             sidebar_panel_icon(),
