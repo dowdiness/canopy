@@ -26,7 +26,6 @@ fn mode_tab(
     id=mode_dom_id(mode),
     on_value_change=@cmd.Emit(_ => emit(ModeSelected(mode))),
     title=name,
-    class="hover:[--rui-tabs-bg:var(--color-lm-accent-soft)] hover:[--rui-tabs-fg:var(--color-lm-accent)] active:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lm-accent",
     attrs=@html.Attrs::build().aria_label(name),
     style=[
       "width:1.75rem;height:1.75rem;min-height:1.75rem;flex:none;padding:0",
@@ -213,13 +212,11 @@ fn mode_bar(
         ),
         @rui.tabs_root(
           value=mode_name(editing.mode).to_lower(),
-          class="[--rui-background:var(--color-lm-accent-soft)] [--rui-foreground:var(--color-lm-accent)] [--rui-muted:oklch(0.955_0.003_255)] [--rui-muted-foreground:var(--color-lm-muted)]",
           style=["width:auto"],
           @rui.tabs_list(
             orientation=@rui.TabsHorizontal,
             variant=@rui.TabsDefault,
             aria_label="Editor mode",
-            style=["min-height:2rem"],
             [
               mode_tab(Text, editing.mode, emit),
               mode_tab(Preview, editing.mode, emit),
