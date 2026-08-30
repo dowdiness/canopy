@@ -131,6 +131,78 @@ test "preparation completed for stale text converges on current Input" {
 }
 
 ///|
+test "pure reducer decides stale preparation recovery without PreviewEngine" {
+  let input_a = Input(1, "# Candidate A\n")
+  let current_b = Input(1, "# Current B\n")
+  let transition = preview_transition(
+    { phase: Preparing },
+    current_b,
+    Complete(Prepared(input_a, Err(OutOfSync))),
+  )
+  assert_true(transition.state.phase is Failed(None))
+  assert_true(
+    transition.decision is DiscardAndScheduleRefresh(input) &&
+    input == current_b,
+  )
+}
+
+///|
+priv struct LifecycleCmdHarness {
+  engine : PreviewEngine
+  mut state : State
+  mut current : Input
+}
+
+///|
+fn LifecycleCmdHarness::emit(self : LifecycleCmdHarness) -> @cmd.Emit[Event] {
+  @cmd.Emit(event => {
+    @cmd.custom_cmd(scheduler => {
+      let (state, command) = self.engine.update(
+        self.state,
+        self.current,
+        event,
+        self.emit(),
+      )
+      self.state = state
+      scheduler.add(command)
+    })
+  })
+}
+
+///|
+async test "stale preparation command converges current Preview to Ready" {
+  let engine = PreviewEngine::PreviewEngine()
+  let input_a = Input(1, "# Candidate A\n")
+  let (initial, activate_command) = engine.activate(input_a)
+  @rabbita_testing.run_cmd(activate_command)
+  let harness = LifecycleCmdHarness::{
+    engine,
+    state: initial,
+    current: input_a,
+  }
+  let (preparing, _) = engine.request(initial, input_a, harness.emit())
+  harness.state = preparing
+  let (still_preparing, preparation_command) = engine.update(
+    harness.state,
+    harness.current,
+    { kind: BeginPreparation(input_a.generation) },
+    harness.emit(),
+  )
+  harness.state = still_preparing
+  let current_b = Input(1, "# Current B\n")
+  let make_preparation_stale = @cmd.custom_cmd(_ => harness.current = current_b)
+
+  @rabbita_testing.run_cmd(
+    @cmd.batch([preparation_command, make_preparation_stale]),
+  )
+
+  assert_true(harness.state.phase is Ready(_))
+  let rendered = render_lifecycle_state(harness.state)
+  assert_true(rendered.contains("Current B"))
+  assert_false(rendered.contains("Candidate A"))
+}
+
+///|
 test "Preview view distinguishes initial failure and retained stale Preview" {
   let failed = render_lifecycle_state({ phase: Failed(None) })
   assert_true(failed.contains("role=\"alert\""))

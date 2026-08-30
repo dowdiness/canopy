@@ -54,6 +54,131 @@ pub struct Event {
 }
 
 ///|
+/// Inputs accepted by the deterministic Preview lifecycle core.
+priv enum PreviewInputEvent {
+  Activated
+  Requested
+  DocumentChanged(@text_change.TextChange)
+  Complete(EventKind)
+}
+
+///|
+/// Domain-specific work selected by the pure lifecycle core for the imperative
+/// PreviewEngine shell. Rabbita Cmd remains the sole effect representation.
+priv enum PreviewDecision {
+  NoCommand
+  ActivateGeneration(Int)
+  BeginPreparationAfterPaint(Int)
+  Prepare(Input)
+  Apply(Input, @text_change.TextChange, Bool)
+  DiscardAndScheduleRefresh(Input)
+  ScheduleRefresh(Input)
+  Refresh(Input)
+  Admit(PreviewOutput, State, State)
+}
+
+///|
+priv struct PreviewTransition {
+  state : State
+  decision : PreviewDecision
+}
+
+///|
+/// Deterministically select the next Preview state and shell work.
+///
+/// This boundary neither reads nor mutates PreviewEngine and performs no I/O.
+fn preview_transition(
+  state : State,
+  current : Input,
+  event : PreviewInputEvent,
+) -> PreviewTransition {
+  match event {
+    Activated =>
+      {
+        state: { phase: Unrequested },
+        decision: ActivateGeneration(current.generation),
+      }
+    Requested =>
+      match state.phase {
+        Unrequested =>
+          {
+            state: { phase: Preparing },
+            decision: BeginPreparationAfterPaint(current.generation),
+          }
+        Failed(_) => { state, decision: Refresh(current) }
+        Preparing | Ready(_) => { state, decision: NoCommand }
+      }
+    DocumentChanged(change) =>
+      match state.phase {
+        Unrequested | Preparing => { state, decision: NoCommand }
+        Ready(_) => { state, decision: Apply(current, change, false) }
+        Failed(_) => { state, decision: Apply(current, change, true) }
+      }
+    Complete(completion) =>
+      match completion {
+        BeginPreparation(generation) if generation == current.generation &&
+          state.phase is Preparing => { state, decision: Prepare(current) }
+        Prepared(input, _) if input.generation == current.generation &&
+          state.phase is Preparing &&
+          input.document_text != current.document_text =>
+          {
+            state: { phase: Failed(None) },
+            decision: DiscardAndScheduleRefresh(current),
+          }
+        Prepared(input, result) if input == current && state.phase is Preparing =>
+          match result {
+            Ok(output) =>
+              {
+                state,
+                decision: Admit(
+                  output,
+                  { phase: Ready(completed_preview(input, output)) },
+                  { phase: Failed(None) },
+                ),
+              }
+            Err(_) => { state: { phase: Failed(None) }, decision: NoCommand }
+          }
+        ParserAdvanced(input, retry, result) if input == current =>
+          match result {
+            Ok(_) => { state, decision: ScheduleRefresh(input) }
+            Err(_) =>
+              {
+                state: { phase: Failed(last_preview(state.phase)) },
+                decision: if retry {
+                  ScheduleRefresh(input)
+                } else {
+                  NoCommand
+                },
+              }
+          }
+        RefreshRequested(input) if input == current =>
+          match state.phase {
+            Ready(_) | Failed(_) => { state, decision: Refresh(input) }
+            Unrequested | Preparing => { state, decision: NoCommand }
+          }
+        Refreshed(input, result) if input == current =>
+          match result {
+            Ok(output) =>
+              {
+                state,
+                decision: Admit(
+                  output,
+                  { phase: Ready(completed_preview(input, output)) },
+                  state,
+                ),
+              }
+            Err(_) =>
+              {
+                state: { phase: Failed(last_preview(state.phase)) },
+                decision: NoCommand,
+              }
+          }
+        _ => { state, decision: NoCommand }
+      }
+  }
+}
+
+///|
 fn PreviewEngine::activate_command(
   self : PreviewEngine,
   generation : Int,
@@ -123,12 +248,55 @@ fn PreviewEngine::discard_command(
 }
 
 ///|
+/// Interpret one pure lifecycle decision in the imperative PreviewEngine shell.
+fn PreviewEngine::execute(
+  self : PreviewEngine,
+  transition : PreviewTransition,
+  emit : @cmd.Emit[Event],
+) -> (State, @cmd.Cmd) {
+  match transition.decision {
+    NoCommand => (transition.state, @cmd.none)
+    ActivateGeneration(generation) =>
+      (transition.state, self.activate_command(generation))
+    BeginPreparationAfterPaint(generation) =>
+      (
+        transition.state,
+        after_paint(emit({ kind: BeginPreparation(generation) })),
+      )
+    Prepare(input) => (transition.state, self.prepare_command(input, emit))
+    Apply(input, change, retry) =>
+      (transition.state, self.apply_command(input, change, retry, emit))
+    DiscardAndScheduleRefresh(input) =>
+      (
+        transition.state,
+        @cmd.batch([
+          self.discard_command(input.generation),
+          @cmd.delay(emit({ kind: RefreshRequested(input) }), PREVIEW_QUIET_MS),
+        ]),
+      )
+    ScheduleRefresh(input) =>
+      (
+        transition.state,
+        @cmd.delay(emit({ kind: RefreshRequested(input) }), PREVIEW_QUIET_MS),
+      )
+    Refresh(input) => (transition.state, self.refresh_command(input, emit))
+    Admit(output, accepted, rejected) =>
+      (if self.accept(output) { accepted } else { rejected }, @cmd.none)
+  }
+}
+
+///|
 /// Activate Preview ownership for a selected Loomark document.
 pub fn PreviewEngine::activate(
   self : PreviewEngine,
   input : Input,
 ) -> (State, @cmd.Cmd) {
-  ({ phase: Unrequested }, self.activate_command(input.generation))
+  let transition = preview_transition({ phase: Unrequested }, input, Activated)
+  match transition.decision {
+    ActivateGeneration(generation) =>
+      (transition.state, self.activate_command(generation))
+    _ => (transition.state, @cmd.none)
+  }
 }
 
 ///|
@@ -139,15 +307,7 @@ pub fn PreviewEngine::request(
   input : Input,
   emit : @cmd.Emit[Event],
 ) -> (State, @cmd.Cmd) {
-  match state.phase {
-    Unrequested =>
-      (
-        { phase: Preparing },
-        after_paint(emit({ kind: BeginPreparation(input.generation) })),
-      )
-    Failed(_) => (state, self.refresh_command(input, emit))
-    Preparing | Ready(_) => (state, @cmd.none)
-  }
+  self.execute(preview_transition(state, input, Requested), emit)
 }
 
 ///|
@@ -159,11 +319,7 @@ pub fn PreviewEngine::document_changed(
   change : @text_change.TextChange,
   emit : @cmd.Emit[Event],
 ) -> (State, @cmd.Cmd) {
-  match state.phase {
-    Unrequested | Preparing => (state, @cmd.none)
-    Ready(_) => (state, self.apply_command(input, change, false, emit))
-    Failed(_) => (state, self.apply_command(input, change, true, emit))
-  }
+  self.execute(preview_transition(state, input, DocumentChanged(change)), emit)
 }
 
 ///|
@@ -175,65 +331,7 @@ pub fn PreviewEngine::update(
   event : Event,
   emit : @cmd.Emit[Event],
 ) -> (State, @cmd.Cmd) {
-  match event.kind {
-    BeginPreparation(generation) if generation == current.generation &&
-      state.phase is Preparing => (state, self.prepare_command(current, emit))
-    Prepared(input, result) if input.generation == current.generation &&
-      state.phase is Preparing =>
-      if input.document_text != current.document_text {
-        (
-          { phase: Failed(None) },
-          @cmd.batch([
-            self.discard_command(current.generation),
-            @cmd.delay(
-              emit({ kind: RefreshRequested(current) }),
-              PREVIEW_QUIET_MS,
-            ),
-          ]),
-        )
-      } else {
-        match result {
-          Ok(output) if self.accept(output) =>
-            ({ phase: Ready(completed_preview(input, output)) }, @cmd.none)
-          Ok(_) | Err(_) => ({ phase: Failed(None) }, @cmd.none)
-        }
-      }
-    ParserAdvanced(input, retry, result) if input == current =>
-      match result {
-        Ok(_) =>
-          (
-            state,
-            @cmd.delay(
-              emit({ kind: RefreshRequested(input) }),
-              PREVIEW_QUIET_MS,
-            ),
-          )
-        Err(_) => {
-          let command = if retry {
-            @cmd.delay(
-              emit({ kind: RefreshRequested(input) }),
-              PREVIEW_QUIET_MS,
-            )
-          } else {
-            @cmd.none
-          }
-          ({ phase: Failed(last_preview(state.phase)) }, command)
-        }
-      }
-    RefreshRequested(input) if input == current =>
-      match state.phase {
-        Ready(_) | Failed(_) => (state, self.refresh_command(input, emit))
-        Unrequested | Preparing => (state, @cmd.none)
-      }
-    Refreshed(input, result) if input == current =>
-      match result {
-        Ok(output) if self.accept(output) =>
-          ({ phase: Ready(completed_preview(input, output)) }, @cmd.none)
-        Ok(_) => (state, @cmd.none)
-        Err(_) => ({ phase: Failed(last_preview(state.phase)) }, @cmd.none)
-      }
-    _ => (state, @cmd.none)
-  }
+  self.execute(preview_transition(state, current, Complete(event.kind)), emit)
 }
 
 ///|
