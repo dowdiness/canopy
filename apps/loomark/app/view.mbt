@@ -328,7 +328,7 @@ fn preview_view(state : PreviewState) -> @rabbita.Html {
     [
       alert,
       @html.div(
-        class="prose prose-sm loomark-prose lg:prose-base xl:prose-lg mx-auto w-[min(calc(100%-4rem),46rem)] max-w-none min-w-0 px-4 pt-8 pb-16 font-lm-ui max-[641px]:w-full max-[641px]:px-3 max-[641px]:pt-6 max-[641px]:pb-12 [&>*]:min-w-0 [&>*]:break-words",
+        class="prose prose-sm loomark-prose md:prose-base xl:prose-lg mx-auto w-[min(calc(100%-4rem),46rem)] max-w-none min-w-0 px-4 pt-8 pb-16 font-lm-ui max-[641px]:w-full max-[641px]:px-3 max-[641px]:pt-6 max-[641px]:pb-12 [&>*]:min-w-0 [&>*]:break-words",
         content,
       ),
     ],

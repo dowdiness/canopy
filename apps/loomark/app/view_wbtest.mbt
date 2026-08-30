@@ -36,7 +36,7 @@ test "Preview view distinguishes preparing initial failure and stale result" {
   assert_true(preparing.contains("role=\"status\""))
   assert_true(preparing.contains("Preparing preview…"))
   assert_true(
-    preparing.contains("prose prose-sm loomark-prose lg:prose-base xl:prose-lg"),
+    preparing.contains("prose prose-sm loomark-prose md:prose-base xl:prose-lg"),
   )
 
   let initial_failure = render_preview_state(Failed(None))
