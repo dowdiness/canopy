@@ -302,7 +302,7 @@ fn preview_view(state : PreviewState) -> @rabbita.Html {
       (
         @html.nothing,
         @html.p(
-          class="m-0 text-lm-danger",
+          class="m-0 opacity-100 text-lm-danger transition-opacity duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] starting:opacity-0 motion-reduce:duration-[80ms] motion-reduce:ease-[ease]",
           attrs=@html.Attrs::build().role("alert"),
           "Preview could not be prepared.",
         ),
@@ -310,7 +310,7 @@ fn preview_view(state : PreviewState) -> @rabbita.Html {
     Failed(Some(result)) =>
       (
         @html.div(
-          class="sticky top-0 z-2 border-b border-[oklch(0.78_0.07_25)] bg-lm-danger-soft px-4 py-2.5 text-sm leading-[1.4] text-lm-danger max-[641px]:px-3",
+          class="sticky top-0 z-2 border-b border-[oklch(0.78_0.07_25)] bg-lm-danger-soft px-4 py-2.5 text-sm leading-[1.4] text-lm-danger opacity-100 transition-opacity duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] starting:opacity-0 motion-reduce:duration-[80ms] motion-reduce:ease-[ease] max-[641px]:px-3",
           attrs=@html.Attrs::build().role("alert"),
           "Preview could not be updated. Showing the last completed preview.",
         ),
@@ -350,7 +350,7 @@ fn creation_failure_view(
       "Browser storage failed while creating the document."
   }
   @html.div(
-    class="flex min-h-12 shrink-0 items-center justify-between gap-4 border-t border-[oklch(0.78_0.07_25)] bg-lm-danger-soft px-4 py-2.5 text-sm text-lm-danger max-[641px]:items-start [&_p]:m-0",
+    class="flex min-h-12 shrink-0 items-center justify-between gap-4 border-t border-[oklch(0.78_0.07_25)] bg-lm-danger-soft px-4 py-2.5 text-sm text-lm-danger opacity-100 transition-opacity duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] starting:opacity-0 motion-reduce:duration-[80ms] motion-reduce:ease-[ease] max-[641px]:items-start [&_p]:m-0",
     attrs=@html.Attrs::build().role("alert"),
     [
       @html.p("A new document could not be created. " + reason),
@@ -378,7 +378,7 @@ fn save_failure_view(
       " Browser storage failed while writing the document."
   }
   @html.div(
-    class="flex min-h-12 shrink-0 items-center justify-between gap-4 border-t border-[oklch(0.78_0.07_25)] bg-lm-danger-soft px-4 py-2.5 text-sm text-lm-danger max-[641px]:items-start [&_p]:m-0",
+    class="flex min-h-12 shrink-0 items-center justify-between gap-4 border-t border-[oklch(0.78_0.07_25)] bg-lm-danger-soft px-4 py-2.5 text-sm text-lm-danger opacity-100 transition-opacity duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] starting:opacity-0 motion-reduce:duration-[80ms] motion-reduce:ease-[ease] max-[641px]:items-start [&_p]:m-0",
     attrs=@html.Attrs::build().role("alert"),
     [
       @html.p("Changes are not saved in this browser." + reason),
@@ -429,29 +429,33 @@ fn view(
         )
       }
       Editing(editing) =>
-        @html.fragment([
-          document_sidebar(sidebar, editing, emit),
-          @html.div(
-            class="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-lm-paper",
-            [
-              mode_bar(sidebar, editing, emit),
-              @html.main_(
-                id="loomark-editor-panel",
-                class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
-                attrs=@html.Attrs::build()
-                  .role("tabpanel")
-                  .aria_label("\{mode_name(editing.mode)} mode"),
-                editor_panels,
-              ),
-              match (editing.save, editing.creation) {
-                (Failed(failure), _) => save_failure_view(failure, emit)
-                (_, CreationFailed(failure)) =>
-                  creation_failure_view(failure, emit)
-                (Saved | Waiting | Saving(_), Idle | Creating) => @html.nothing
-              },
-            ],
-          ),
-        ])
+        @html.div(
+          class="flex h-full min-h-0 min-w-0 flex-1 opacity-100 transition-opacity duration-[140ms] ease-[cubic-bezier(0.23,1,0.32,1)] starting:opacity-[0.92] motion-reduce:duration-[80ms] motion-reduce:ease-[ease]",
+          [
+            document_sidebar(sidebar, editing, emit),
+            @html.div(
+              class="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-lm-paper",
+              [
+                mode_bar(sidebar, editing, emit),
+                @html.main_(
+                  id="loomark-editor-panel",
+                  class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+                  attrs=@html.Attrs::build()
+                    .role("tabpanel")
+                    .aria_label("\{mode_name(editing.mode)} mode"),
+                  editor_panels,
+                ),
+                match (editing.save, editing.creation) {
+                  (Failed(failure), _) => save_failure_view(failure, emit)
+                  (_, CreationFailed(failure)) =>
+                    creation_failure_view(failure, emit)
+                  (Saved | Waiting | Saving(_), Idle | Creating) =>
+                    @html.nothing
+                },
+              ],
+            ),
+          ],
+        )
     },
   )
 }
