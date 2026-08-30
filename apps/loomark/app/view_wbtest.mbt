@@ -5,41 +5,37 @@ fn render_preview_state(state : PreviewState) -> String {
 }
 
 ///|
-test "Document controls render Source-derived identities with usable labels" {
+test "Mode tabs use the RUI Tabs trigger contract" {
+  let rendered = @rabbita_testing.server_side_render(() => {
+    mode_tab(Text, Preview, @cmd.Emit(_ => @cmd.none))
+  })
+  assert_true(rendered.contains("data-slot=\"tabs-trigger\""))
+  assert_true(rendered.contains("data-state=\"inactive\""))
+  assert_true(rendered.contains("role=\"tab\""))
+  assert_true(rendered.contains("aria-selected=\"false\""))
+  assert_true(rendered.contains("aria-controls=\"loomark-editor-panel\""))
+  assert_true(rendered.contains("id=\"loomark-mode-text\""))
+
+  let content = @rabbita_testing.server_side_render(() => {
+    mode_content(Text, @html.p("Editor"))
+  })
+  assert_true(content.contains("data-slot=\"tabs-content\""))
+  assert_true(content.contains("role=\"tabpanel\""))
+  assert_true(content.contains("aria-labelledby=\"loomark-mode-text\""))
+  assert_true(content.contains("id=\"loomark-editor-panel\""))
+}
+
+///|
+test "Document sidebar labels disambiguate Source-derived identities" {
   let snapshot = @source_repository.RepositorySnapshot::from_sources([
     @source_repository.SourceRecord::new("document-a", "# Untitled\n").unwrap(),
     @source_repository.SourceRecord::new("document-b", "# Untitled\n").unwrap(),
     @source_repository.SourceRecord::new("document-c", "Body only\n").unwrap(),
   ]).unwrap()
-  let editing : EditingState = {
-    activation: { document_id: "document-a", generation: 0 },
-    text: "# Untitled\n",
-    composing: false,
-    save: Saved,
-    creation: Idle,
-    mode: Text,
-    focused_mode: Text,
-    compact: false,
-    preview: Unrequested,
-    repository: snapshot,
-  }
-  let rendered = @rabbita_testing.server_side_render(() => {
-    document_controls(editing, @cmd.Emit(_ => @cmd.none))
-  })
-  assert_true(rendered.contains("data-slot=\"native-select\""))
-  assert_true(rendered.contains("aria-label=\"Document\""))
-  assert_true(rendered.contains("value=\"document-a\""))
-  assert_true(rendered.contains("value=\"document-b\""))
-  assert_true(rendered.contains("Untitled (1 of 2)"))
-  assert_true(rendered.contains("Untitled (2 of 2)"))
-  assert_true(rendered.contains("Unnamed document"))
-  assert_true(rendered.contains("New document"))
-
-  let unavailable = @rabbita_testing.server_side_render(() => {
-    document_controls({ ..editing, save: Waiting }, @cmd.Emit(_ => @cmd.none))
-  })
-  assert_true(unavailable.contains("disabled"))
-  assert_false(unavailable.contains("Wait for saving to finish."))
+  let entries = snapshot.catalog().entries()
+  assert_eq(document_option_label(entries, 0, entries[0]), "Untitled (1 of 2)")
+  assert_eq(document_option_label(entries, 1, entries[1]), "Untitled (2 of 2)")
+  assert_eq(document_option_label(entries, 2, entries[2]), "Unnamed document")
 }
 
 ///|
@@ -60,7 +56,9 @@ test "Preview view distinguishes preparing initial failure and stale result" {
   let preparing = render_preview_state(Preparing)
   assert_true(preparing.contains("role=\"status\""))
   assert_true(preparing.contains("Preparing preview…"))
-  assert_true(preparing.contains("prose loomark-prose"))
+  assert_true(
+    preparing.contains("prose prose-sm loomark-prose md:prose-base xl:prose-lg"),
+  )
 
   let initial_failure = render_preview_state(Failed(None))
   assert_true(initial_failure.contains("role=\"alert\""))

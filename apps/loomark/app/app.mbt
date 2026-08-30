@@ -1,4 +1,5 @@
 ///|
+/// Prototype: manage and switch Loomark documents inside RUI Sidebar.
 pub fn app() -> @rabbita.Val[@rabbita.Html] {
   let text_area = @text_area.TextArea::TextArea("loomark-text")
   let preview_engine = @preview.PreviewEngine::PreviewEngine()
@@ -112,7 +113,16 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
     },
     by=compact => if compact { "compact" } else { "wide" },
   )
-  model.view2(selected_panels, (model, editor_panels) => {
-    view(model, emit, editor_panels)
+  let layout_input = model.map2(selected_panels, (model, editor_panels) => {
+    (model, editor_panels)
   })
+  @sidebar.sidebar_provider_with_input(
+    input=layout_input,
+    default_collapsed=initial_compact,
+    class="h-dvh min-h-0 [--rui-sidebar-width:clamp(11rem,24vw,17rem)] [--rui-sidebar-width-icon:2.75rem]",
+    (sidebar, layout) => {
+      let (model, editor_panels) = layout
+      view(sidebar, model, emit, editor_panels)
+    },
+  )
 }

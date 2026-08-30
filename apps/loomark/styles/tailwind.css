@@ -80,7 +80,88 @@
   margin-bottom: 0;
 }
 
-/* The mode glyphs are authored geometry; utilities own the surrounding control. */
+/* Small navigation glyphs are authored geometry; utilities own their controls. */
+[data-loomark-icon="sidebar"] {
+  border: 1.5px solid currentColor;
+  border-radius: 0.1875rem;
+}
+
+[data-loomark-icon="sidebar"]::before {
+  position: absolute;
+  inset-block: 0;
+  left: 0.3rem;
+  width: 1.5px;
+  background: currentColor;
+  content: "";
+}
+
+[data-slot="sidebar-menu-action"] [data-loomark-icon="new-document"] {
+  transition: transform 120ms ease-out;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-slot="sidebar-trigger"]:hover {
+    --rui-button-bg: var(--color-lm-accent-soft);
+    --rui-button-fg: var(--color-lm-accent);
+  }
+
+  [data-slot="sidebar-menu-action"]:hover {
+    --rui-sidebar-action-bg: var(--color-lm-accent-soft);
+    --rui-sidebar-action-fg: var(--color-lm-accent);
+  }
+}
+
+[data-slot="sidebar-menu-action"]:active
+  [data-loomark-icon="new-document"] {
+  transform: scale(0.86);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="sidebar-menu-action"] [data-loomark-icon="new-document"] {
+    transition-duration: 80ms;
+  }
+}
+
+[data-loomark-icon="folder"]::before,
+[data-loomark-icon="folder"]::after {
+  position: absolute;
+  border: 1.25px solid currentColor;
+  content: "";
+}
+
+[data-loomark-icon="folder"]::before {
+  top: 0.1875rem;
+  left: 0.125rem;
+  width: 0.4375rem;
+  height: 0.25rem;
+  border-bottom: 0;
+  border-radius: 0.125rem 0.125rem 0 0;
+}
+
+[data-loomark-icon="folder"]::after {
+  top: 0.375rem;
+  left: 0.0625rem;
+  width: 0.875rem;
+  height: 0.5625rem;
+  border-radius: 0.125rem;
+}
+
+[data-loomark-icon="new-document"]::before,
+[data-loomark-icon="new-document"]::after {
+  position: absolute;
+  top: calc(50% - 0.75px);
+  left: 0.1875rem;
+  width: 0.625rem;
+  height: 1.5px;
+  border-radius: 1px;
+  background: currentColor;
+  content: "";
+}
+
+[data-loomark-icon="new-document"]::after {
+  transform: rotate(90deg);
+}
+
 [data-mode="text"]::before {
   position: absolute;
   top: 0.25rem;

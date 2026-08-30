@@ -14,7 +14,6 @@ fn test_editing_state(text : String, save : SaveState) -> EditingState {
     save,
     creation: Idle,
     mode: Text,
-    focused_mode: Text,
     compact: false,
     preview: Unrequested,
     repository: test_repository(),

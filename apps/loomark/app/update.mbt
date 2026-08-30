@@ -1,25 +1,4 @@
 ///|
-const DOCUMENT_SELECT_ID : String = "loomark-document-select"
-
-///|
-extern "js" fn set_document_select_value(id : String, value : String) -> Unit =
-  #| (id, value) => {
-  #|   const select = document.getElementById(id)
-  #|   if (!(select instanceof HTMLSelectElement)) {
-  #|     throw new Error(`Document select not found: ${id}`)
-  #|   }
-  #|   select.value = value
-  #| }
-
-///|
-fn restore_document_selection(document_id : String) -> @cmd.Cmd {
-  @cmd.custom_cmd(
-    _ => set_document_select_value(DOCUMENT_SELECT_ID, document_id),
-    kind=@cmd.after_render,
-  )
-}
-
-///|
 const AUTOSAVE_QUIET_MS : Int = 250
 
 ///|
@@ -31,28 +10,6 @@ const COMPACT_MAX_WIDTH : Int = 640
 ///|
 fn compact_viewport(width : Int) -> Bool {
   width <= COMPACT_MAX_WIDTH
-}
-
-///|
-fn mode_dom_id(mode : EditorMode) -> String {
-  match mode {
-    Text => "loomark-mode-text"
-    Preview => "loomark-mode-preview"
-    Split => "loomark-mode-split"
-  }
-}
-
-///|
-fn adjacent_mode(mode : EditorMode, key : String) -> EditorMode? {
-  match (mode, key) {
-    (Text, "ArrowLeft") => Some(Split)
-    (Preview, "ArrowLeft") => Some(Text)
-    (Split, "ArrowLeft") => Some(Preview)
-    (Text, "ArrowRight") => Some(Preview)
-    (Preview, "ArrowRight") => Some(Split)
-    (Split, "ArrowRight") => Some(Text)
-    _ => None
-  }
 }
 
 ///|
@@ -83,12 +40,12 @@ fn select_mode(
   match editing.preview {
     Unrequested if mode != Text =>
       (
-        { ..editing, mode, focused_mode: mode, preview: Preparing },
+        { ..editing, mode, preview: Preparing },
         @preview.after_paint(emit(BeginPreviewPreparation(editing.activation))),
       )
     Failed(_) if entering_preview =>
       (
-        { ..editing, mode, focused_mode: mode },
+        { ..editing, mode, },
         @preview.refresh_cmd(
           preview_engine,
           editing.activation.generation,
@@ -99,7 +56,7 @@ fn select_mode(
         ),
       )
     Unrequested | Preparing | Ready(_) | Failed(_) =>
-      ({ ..editing, mode, focused_mode: mode }, @cmd.none)
+      ({ ..editing, mode, }, @cmd.none)
   }
 }
 
@@ -182,7 +139,6 @@ fn update(
                   save: Saved,
                   creation: Idle,
                   mode: Text,
-                  focused_mode: Text,
                   compact,
                   preview: Unrequested,
                   repository: snapshot,
@@ -304,27 +260,6 @@ fn update(
       let (editing, command) = select_mode(editing, mode, emit, preview_engine)
       (Editing(editing), command)
     }
-    (Editing(editing), ModeKeyPressed(key)) =>
-      match key {
-        "Enter" | " " => {
-          let (editing, command) = select_mode(
-            editing,
-            editing.focused_mode,
-            emit,
-            preview_engine,
-          )
-          (Editing(editing), command)
-        }
-        _ =>
-          match adjacent_mode(editing.focused_mode, key) {
-            Some(focused_mode) =>
-              (
-                Editing({ ..editing, focused_mode, }),
-                @mode_tabs.focus(mode_dom_id(focused_mode)),
-              )
-            None => (model, @cmd.none)
-          }
-      }
     (Editing(editing), BeginPreviewPreparation(owner)) =>
       if owner != editing.activation {
         (model, @cmd.none)
@@ -500,7 +435,7 @@ fn update(
       if document_id == editing.activation.document_id {
         (model, @cmd.none)
       } else if !can_activate(editing) {
-        (model, restore_document_selection(editing.activation.document_id))
+        (model, @cmd.none)
       } else {
         match editing.repository.source(document_id) {
           None => (model, @cmd.none)

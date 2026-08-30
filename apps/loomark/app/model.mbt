@@ -19,7 +19,6 @@ priv struct EditingState {
   save : SaveState
   creation : DocumentCreation
   mode : EditorMode
-  focused_mode : EditorMode
   compact : Bool
   preview : PreviewState
   repository : @source_repository.RepositorySnapshot
@@ -70,7 +69,6 @@ priv enum Msg {
   CompositionStarted(Activation)
   CompositionEnded(Activation)
   ModeSelected(EditorMode)
-  ModeKeyPressed(String)
   BeginPreviewPreparation(Activation)
   PreviewPrepared(
     Activation,
