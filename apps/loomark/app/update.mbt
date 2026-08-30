@@ -1,25 +1,4 @@
 ///|
-const DOCUMENT_SELECT_ID : String = "loomark-document-select"
-
-///|
-extern "js" fn set_document_select_value(id : String, value : String) -> Unit =
-  #| (id, value) => {
-  #|   const select = document.getElementById(id)
-  #|   if (!(select instanceof HTMLSelectElement)) {
-  #|     throw new Error(`Document select not found: ${id}`)
-  #|   }
-  #|   select.value = value
-  #| }
-
-///|
-fn restore_document_selection(document_id : String) -> @cmd.Cmd {
-  @cmd.custom_cmd(
-    _ => set_document_select_value(DOCUMENT_SELECT_ID, document_id),
-    kind=@cmd.after_render,
-  )
-}
-
-///|
 const AUTOSAVE_QUIET_MS : Int = 250
 
 ///|
@@ -454,7 +433,7 @@ fn update(
       if document_id == editing.activation.document_id {
         (model, @cmd.none)
       } else if !can_activate(editing) {
-        (model, restore_document_selection(editing.activation.document_id))
+        (model, @cmd.none)
       } else {
         match editing.repository.source(document_id) {
           None => (model, @cmd.none)
