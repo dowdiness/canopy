@@ -2,51 +2,38 @@
 package "dowdiness/loomark/internal/preview"
 
 import {
-  "dowdiness/markdown",
   "dowdiness/text_change",
   "moonbit-community/rabbita/cmd",
   "moonbit-community/rabbita/html",
-  "moonbitlang/core/debug",
 }
 
 // Values
-pub fn activate_cmd(PreviewEngine, Int) -> @cmd.Cmd
-
-pub fn after_paint(@cmd.Cmd) -> @cmd.Cmd
-
-pub fn apply_cmd(PreviewEngine, Int, @text_change.TextChange, String, result~ : @cmd.Emit[Result[Unit, PreviewFailure]]) -> @cmd.Cmd
-
-pub fn discard_cmd(PreviewEngine, Int) -> @cmd.Cmd
-
-pub fn is_empty(@markdown.MarkdownNode) -> Bool
-
-pub fn prepare_cmd(PreviewEngine, Int, String, result~ : @cmd.Emit[Result[PreviewOutput, PreviewFailure]]) -> @cmd.Cmd
-
-pub fn refresh_cmd(PreviewEngine, Int, String, result~ : @cmd.Emit[Result[PreviewOutput, PreviewFailure]]) -> @cmd.Cmd
-
-pub fn render(@markdown.MarkdownNode) -> @html.Html
 
 // Errors
 
 // Types and methods
+pub struct Event {
+  // private fields
+}
+
+pub struct Input {
+  // private fields
+} derive(Eq)
+pub fn Input::Input(Int, String) -> Self
+
 pub struct PreviewEngine {
   // private fields
 }
 pub fn PreviewEngine::PreviewEngine() -> Self
-pub fn PreviewEngine::accept(Self, PreviewOutput) -> Bool
+pub fn PreviewEngine::activate(Self, Input) -> (State, @cmd.Cmd)
+pub fn PreviewEngine::document_changed(Self, State, Input, @text_change.TextChange, @cmd.Emit[Event]) -> (State, @cmd.Cmd)
+pub fn PreviewEngine::request(Self, State, Input, @cmd.Emit[Event]) -> (State, @cmd.Cmd)
+pub fn PreviewEngine::update(Self, State, Input, Event, @cmd.Emit[Event]) -> (State, @cmd.Cmd)
 
-pub(all) enum PreviewFailure {
-  InitializationFailed
-  TransitionFailed
-  OutOfSync
-  Unusable
-} derive(Eq, @debug.Debug)
-
-pub(all) struct PreviewOutput {
-  html : @html.Html
-  empty : Bool
+pub struct State {
   // private fields
 } derive(Eq)
+pub fn State::view(Self) -> @html.Html
 
 // Type aliases
 

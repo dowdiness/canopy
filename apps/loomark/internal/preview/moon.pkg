@@ -10,6 +10,7 @@ import {
 
 import {
   "moonbit-community/rabbita/testing" @rabbita_testing,
+  "moonbitlang/async",
   "moonbitlang/core/bench",
 } for "wbtest"
 

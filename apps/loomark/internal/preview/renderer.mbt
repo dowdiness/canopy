@@ -393,7 +393,8 @@ fn render_node(
 
 ///|
 /// Render one opaque semantic Markdown root as typed Rabbita Html.
-pub fn render(root : @markdown.MarkdownNode) -> @rabbita.Html {
+#warnings("-unused_value")
+fn render(root : @markdown.MarkdownNode) -> @rabbita.Html {
   render_node(root)
 }
 
@@ -416,6 +417,7 @@ fn render_top_level_blocks(
 
 ///|
 /// Report whether a semantic root has no renderable top-level children.
-pub fn is_empty(root : @markdown.MarkdownNode) -> Bool {
+#warnings("-unused_value")
+fn is_empty(root : @markdown.MarkdownNode) -> Bool {
   root.children().is_empty()
 }

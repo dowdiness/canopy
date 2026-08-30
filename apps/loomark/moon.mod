@@ -4,6 +4,7 @@ version = "0.1.0"
 
 import {
   "moonbit-community/rabbita@0.15.4",
+  "moonbitlang/async@0.21.0",
   "Yoorkin/rui@0.1.1",
   "dowdiness/diagnostic@0.1.0",
   "dowdiness/loom@0.1.0",

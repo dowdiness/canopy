@@ -2,9 +2,6 @@
 const AUTOSAVE_QUIET_MS : Int = 250
 
 ///|
-const PREVIEW_QUIET_MS : Int = 24
-
-///|
 const COMPACT_MAX_WIDTH : Int = 640
 
 ///|
@@ -13,20 +10,8 @@ fn compact_viewport(width : Int) -> Bool {
 }
 
 ///|
-fn preview_last(state : PreviewState) -> PreviewResult? {
-  match state {
-    Ready(result) => Some(result)
-    Failed(result) => result
-    Unrequested | Preparing => None
-  }
-}
-
-///|
-fn completed_preview(
-  text : String,
-  output : @preview.PreviewOutput,
-) -> PreviewResult {
-  { text, html: output.html, empty: output.empty }
+fn preview_input(editing : EditingState) -> @preview.Input {
+  @preview.Input(editing.activation.generation, editing.text)
 }
 
 ///|
@@ -37,26 +22,16 @@ fn select_mode(
   preview_engine : @preview.PreviewEngine,
 ) -> (EditingState, @rabbita.Cmd) {
   let entering_preview = editing.mode == Text && mode != Text
-  match editing.preview {
-    Unrequested if mode != Text =>
-      (
-        { ..editing, mode, preview: Preparing },
-        @preview.after_paint(emit(BeginPreviewPreparation(editing.activation))),
-      )
-    Failed(_) if entering_preview =>
-      (
-        { ..editing, mode, },
-        @preview.refresh_cmd(
-          preview_engine,
-          editing.activation.generation,
-          editing.text,
-          result=emit.map(result => {
-            PreviewRefreshed(editing.activation, editing.text, result)
-          }),
-        ),
-      )
-    Unrequested | Preparing | Ready(_) | Failed(_) =>
-      ({ ..editing, mode, }, @cmd.none)
+  let editing = { ..editing, mode, }
+  if entering_preview {
+    let (preview, command) = preview_engine.request(
+      editing.preview,
+      preview_input(editing),
+      emit.map(event => PreviewEvent(event)),
+    )
+    ({ ..editing, preview, }, command)
+  } else {
+    (editing, @cmd.none)
   }
 }
 
@@ -77,27 +52,31 @@ fn activate_document(
     document_id: source.document_id(),
     generation: editing.activation.generation + 1,
   }
-  let preview = if editing.mode == Text { Unrequested } else { Preparing }
-  let prepare_command = if editing.mode == Text {
-    @cmd.none
+  let input = @preview.Input(activation.generation, source.text())
+  let (preview, activate_command) = preview_engine.activate(input)
+  let (preview, request_command) = if editing.mode == Text {
+    (preview, @cmd.none)
   } else {
-    @preview.after_paint(emit(BeginPreviewPreparation(activation)))
-  }
-  let next = {
-    ..editing,
-    activation,
-    text: source.text(),
-    composing: false,
-    save: Saved,
-    creation: Idle,
-    preview,
+    preview_engine.request(
+      preview,
+      input,
+      emit.map(event => PreviewEvent(event)),
+    )
   }
   (
-    next,
+    {
+      ..editing,
+      activation,
+      text: source.text(),
+      composing: false,
+      save: Saved,
+      creation: Idle,
+      preview,
+    },
     @cmd.batch([
       text_area.initialize(source.text()),
-      @preview.activate_cmd(preview_engine, activation.generation),
-      prepare_command,
+      activate_command,
+      request_command,
     ]),
   )
 }
@@ -128,6 +107,9 @@ fn update(
           match snapshot.selected() {
             Some(source) => {
               let text = source.text()
+              let (preview, preview_command) = preview_engine.activate(
+                @preview.Input(0, text),
+              )
               (
                 Editing({
                   activation: {
@@ -140,13 +122,10 @@ fn update(
                   creation: Idle,
                   mode: Text,
                   compact,
-                  preview: Unrequested,
+                  preview,
                   repository: snapshot,
                 }),
-                @cmd.batch([
-                  text_area.initialize(text),
-                  @preview.activate_cmd(preview_engine, 0),
-                ]),
+                @cmd.batch([text_area.initialize(text), preview_command]),
               )
             }
             None =>
@@ -204,31 +183,15 @@ fn update(
             } else {
               @cmd.delay(emit(SaveRequested(owner, text)), AUTOSAVE_QUIET_MS)
             }
-            let preview_command = match editing.preview {
-              Unrequested | Preparing => @cmd.none
-              Ready(_) =>
-                @preview.apply_cmd(
-                  preview_engine,
-                  owner.generation,
-                  change,
-                  text,
-                  result=emit.map(result => {
-                    ParserAdvanced(owner, text, false, result)
-                  }),
-                )
-              Failed(_) =>
-                @preview.apply_cmd(
-                  preview_engine,
-                  owner.generation,
-                  change,
-                  text,
-                  result=emit.map(result => {
-                    ParserAdvanced(owner, text, true, result)
-                  }),
-                )
-            }
+            let editing = { ..editing, text, save }
+            let (preview, preview_command) = preview_engine.document_changed(
+              editing.preview,
+              preview_input(editing),
+              change,
+              emit.map(event => PreviewEvent(event)),
+            )
             (
-              Editing({ ..editing, text, save }),
+              Editing({ ..editing, preview, }),
               @cmd.batch([save_command, preview_command]),
             )
           }
@@ -260,130 +223,15 @@ fn update(
       let (editing, command) = select_mode(editing, mode, emit, preview_engine)
       (Editing(editing), command)
     }
-    (Editing(editing), BeginPreviewPreparation(owner)) =>
-      if owner != editing.activation {
-        (model, @cmd.none)
-      } else {
-        match editing.preview {
-          Preparing =>
-            (
-              model,
-              @preview.prepare_cmd(
-                preview_engine,
-                owner.generation,
-                editing.text,
-                result=emit.map(result => {
-                  PreviewPrepared(owner, editing.text, result)
-                }),
-              ),
-            )
-          Unrequested | Ready(_) | Failed(_) => (model, @cmd.none)
-        }
-      }
-    (Editing(editing), PreviewPrepared(owner, candidate, result)) =>
-      if owner != editing.activation {
-        (model, @cmd.none)
-      } else if candidate != editing.text {
-        (
-          Editing({ ..editing, preview: Failed(None) }),
-          @cmd.batch([
-            @preview.discard_cmd(preview_engine, owner.generation),
-            @cmd.delay(
-              emit(PreviewRefreshRequested(owner, editing.text)),
-              PREVIEW_QUIET_MS,
-            ),
-          ]),
-        )
-      } else {
-        match result {
-          Ok(output) if preview_engine.accept(output) =>
-            (
-              Editing({
-                ..editing,
-                preview: Ready(completed_preview(candidate, output)),
-              }),
-              @cmd.none,
-            )
-          Ok(_) | Err(_) =>
-            (Editing({ ..editing, preview: Failed(None) }), @cmd.none)
-        }
-      }
-    (Editing(editing), ParserAdvanced(owner, candidate, retry, result)) =>
-      if owner != editing.activation {
-        (model, @cmd.none)
-      } else {
-        match result {
-          Ok(_) =>
-            (
-              model,
-              @cmd.delay(
-                emit(PreviewRefreshRequested(owner, candidate)),
-                PREVIEW_QUIET_MS,
-              ),
-            )
-          Err(_) => {
-            let command = if retry {
-              @cmd.delay(
-                emit(PreviewRefreshRequested(owner, candidate)),
-                PREVIEW_QUIET_MS,
-              )
-            } else {
-              @cmd.none
-            }
-            (
-              Editing({
-                ..editing,
-                preview: Failed(preview_last(editing.preview)),
-              }),
-              command,
-            )
-          }
-        }
-      }
-    (Editing(editing), PreviewRefreshRequested(owner, candidate)) =>
-      if owner != editing.activation || candidate != editing.text {
-        (model, @cmd.none)
-      } else {
-        match editing.preview {
-          Unrequested | Preparing => (model, @cmd.none)
-          Ready(_) | Failed(_) =>
-            (
-              model,
-              @preview.refresh_cmd(
-                preview_engine,
-                owner.generation,
-                candidate,
-                result=emit.map(result => {
-                  PreviewRefreshed(owner, candidate, result)
-                }),
-              ),
-            )
-        }
-      }
-    (Editing(editing), PreviewRefreshed(owner, candidate, result)) =>
-      if owner != editing.activation || candidate != editing.text {
-        (model, @cmd.none)
-      } else {
-        match result {
-          Ok(output) if preview_engine.accept(output) =>
-            (
-              Editing({
-                ..editing,
-                preview: Ready(completed_preview(candidate, output)),
-              }),
-              @cmd.none,
-            )
-          Ok(_) => (model, @cmd.none)
-          Err(_) =>
-            (
-              Editing({
-                ..editing,
-                preview: Failed(preview_last(editing.preview)),
-              }),
-              @cmd.none,
-            )
-        }
-      }
+    (Editing(editing), PreviewEvent(event)) => {
+      let (preview, command) = preview_engine.update(
+        editing.preview,
+        preview_input(editing),
+        event,
+        emit.map(event => PreviewEvent(event)),
+      )
+      (Editing({ ..editing, preview, }), command)
+    }
     (Loading(_), ViewportChanged(width)) =>
       (Loading(compact_viewport(width)), @cmd.none)
     (Editing(editing), CreateRequested) =>
