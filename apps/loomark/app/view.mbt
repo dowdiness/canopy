@@ -26,6 +26,7 @@ fn mode_tab(
     id=mode_dom_id(mode),
     on_value_change=@cmd.Emit(_ => emit(ModeSelected(mode))),
     title=name,
+    class="hover:[--rui-tabs-fg:var(--rui-foreground,oklch(0.145_0_0))]",
     attrs=@html.Attrs::build().aria_label(name),
     style=[
       "width:1.75rem;height:1.75rem;min-height:1.75rem;flex:none;padding:0",
