@@ -850,6 +850,16 @@ test("RUI mode tabs activate with roving keyboard focus", async ({ page }) => {
 
   await expect(textTab).toHaveAttribute("aria-selected", "true")
   await expect(editorPanel).toHaveAttribute("aria-labelledby", "loomark-mode-text")
+
+  const previewIcon = previewTab.locator("[data-mode=preview]")
+  await expect.poll(() => previewIcon.evaluate(element =>
+    getComputedStyle(element).transitionDuration)).toBe("0.15s")
+  const inactiveColor = await previewIcon.evaluate(element =>
+    getComputedStyle(element, "::before").borderColor)
+  await previewTab.hover()
+  await expect.poll(() => previewIcon.evaluate(element =>
+    getComputedStyle(element, "::before").borderColor)).not.toBe(inactiveColor)
+
   await textTab.focus()
 
   await page.keyboard.press("ArrowRight")
