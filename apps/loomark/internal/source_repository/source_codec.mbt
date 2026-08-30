@@ -33,12 +33,8 @@ fn decode_source(
 }
 
 ///|
-fn encode_document(document_id : String, text : String) -> String {
-  Json::object({
-    "document_id": Json::string(document_id),
-    "text": Json::string(text),
-  }).stringify()
-}
+extern "js" fn encode_document(document_id : String, text : String) -> String =
+  #| (document_id, text) => JSON.stringify({ document_id, text })
 
 ///|
 fn decode_source_value(
