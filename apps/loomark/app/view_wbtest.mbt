@@ -39,7 +39,7 @@ test "Document controls render Source-derived identities with usable labels" {
     document_controls({ ..editing, save: Waiting }, @cmd.Emit(_ => @cmd.none))
   })
   assert_true(unavailable.contains("disabled"))
-  assert_true(unavailable.contains("Wait for saving to finish."))
+  assert_false(unavailable.contains("Wait for saving to finish."))
 }
 
 ///|

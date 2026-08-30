@@ -87,16 +87,6 @@ fn document_controls(
 ) -> @rabbita.Html {
   let available = can_activate(editing)
   let entries = editing.repository.catalog().entries()
-  let status = if editing.composing {
-    "Finish text composition first."
-  } else {
-    match (editing.save, editing.creation) {
-      (_, Creating) => "Creating document…"
-      (Waiting | Saving(_), _) => "Wait for saving to finish."
-      (Failed(_), _) => "Retry saving before changing documents."
-      (Saved, Idle | CreationFailed(_)) => ""
-    }
-  }
   @html.div(class="flex min-w-0 flex-wrap items-center justify-end gap-1.5", [
     @rui.native_select(
       size=@rui.NativeSelectSm,
@@ -105,7 +95,14 @@ fn document_controls(
       aria_label="Document",
       on_change=emit.map(document_id => DocumentSelected(document_id)),
       class="max-w-[11rem] max-[641px]:max-w-[8rem]",
-      wrapper_style=["width:clamp(7rem,18vw,11rem)"],
+      wrapper_style=[
+        "width:clamp(7rem,18vw,11rem)",
+        if available {
+          "opacity:1"
+        } else {
+          "opacity:0.5"
+        },
+      ],
       entries.mapi((index, entry) => {
         let document_id = entry.document_id()
         @rui.native_select_option(
@@ -123,15 +120,6 @@ fn document_controls(
       on_click=emit(CreateRequested),
       "New document",
     ),
-    if status == "" {
-      @html.nothing
-    } else {
-      @html.span(
-        class="min-w-[4.75rem] text-xs text-lm-muted",
-        attrs=@html.Attrs::build().role("status"),
-        status,
-      )
-    },
   ])
 }
 
