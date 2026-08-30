@@ -1,13 +1,13 @@
 ///|
 test "PreviewEngine rejects an operation owned by an older activation" {
   let engine = PreviewEngine::PreviewEngine()
-  assert_true(engine.activate(1))
+  assert_true(engine.activate_generation(1))
   guard engine.prepare_owned(1, "# First\n") is Some(Ok(first)) else {
     fail("current activation should prepare")
   }
   assert_true(engine.accept(first))
   let next_lazy_key_floor = engine.next_lazy_key
-  assert_true(engine.activate(2))
+  assert_true(engine.activate_generation(2))
   guard engine.prepare_owned(1, "# Stale\n") is None else {
     fail("stale activation should not prepare")
   }
@@ -34,7 +34,7 @@ test "PreviewEngine rejects an operation owned by an older activation" {
     Healthy(source~, ..) => assert_eq(source, "# Current\n")
     NoPair | Broken => fail("stale operation changed current parser")
   }
-  assert_false(engine.activate(1))
+  assert_false(engine.activate_generation(1))
 }
 
 ///|

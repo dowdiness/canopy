@@ -6,6 +6,13 @@ fn test_repository() -> @source_repository.RepositorySnapshot {
 }
 
 ///|
+fn test_preview_state(text : String) -> @preview.State {
+  let engine = @preview.PreviewEngine::PreviewEngine()
+  let (state, _) = engine.activate(@preview.Input(0, text))
+  state
+}
+
+///|
 fn test_editing_state(text : String, save : SaveState) -> EditingState {
   {
     activation: { document_id: "document-1", generation: 0 },
@@ -15,7 +22,7 @@ fn test_editing_state(text : String, save : SaveState) -> EditingState {
     creation: Idle,
     mode: Text,
     compact: false,
-    preview: Unrequested,
+    preview: test_preview_state(text),
     repository: test_repository(),
   }
 }
@@ -65,7 +72,7 @@ test "saved document selection activates its exact Source without writing" {
   assert_eq(editing.activation.generation, 1)
   assert_eq(editing.text, "# Second\n")
   assert_true(editing.save == Saved)
-  assert_true(editing.preview == Unrequested)
+  assert_true(editing.preview == test_preview_state("# Second\n"))
   assert_false(@debug.to_string(command).contains("IndexedDB"))
 }
 
@@ -79,21 +86,6 @@ test "stale activation cannot change current text" {
   let (model, _) = test_update(
     Editing(initial),
     TextChanged(stale, @text_change.TextChange::ReplaceAll("# Stale\n")),
-  )
-  assert_true(model == Editing(initial))
-}
-
-///|
-test "stale activation cannot process a prepared Preview result" {
-  let initial = {
-    ..test_editing_state("# Current\n", Saved),
-    activation: { document_id: "document-1", generation: 1 },
-    preview: Preparing,
-  }
-  let stale : Activation = { document_id: "document-1", generation: 0 }
-  let (model, _) = test_update(
-    Editing(initial),
-    PreviewPrepared(stale, initial.text, Err(OutOfSync)),
   )
   assert_true(model == Editing(initial))
 }

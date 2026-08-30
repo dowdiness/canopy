@@ -1,5 +1,6 @@
 ///|
-pub(all) enum PreviewFailure {
+#warnings("-unused_value")
+priv enum PreviewFailure {
   InitializationFailed
   TransitionFailed
   OutOfSync
@@ -31,10 +32,11 @@ priv struct PendingMarkdownRender {
 }
 
 ///|
-pub(all) struct PreviewOutput {
+#warnings("-unused_value")
+priv struct PreviewOutput {
   html : @rabbita.Html
   empty : Bool
-  priv acceptance : PreviewAcceptance
+  acceptance : PreviewAcceptance
 } derive(Eq)
 
 ///|
@@ -74,7 +76,10 @@ pub fn PreviewEngine::PreviewEngine() -> PreviewEngine {
 }
 
 ///|
-fn PreviewEngine::activate(self : PreviewEngine, generation : Int) -> Bool {
+fn PreviewEngine::activate_generation(
+  self : PreviewEngine,
+  generation : Int,
+) -> Bool {
   match self.owner_generation {
     Some(current) if generation <= current => false
     None | Some(_) => {
@@ -182,11 +187,8 @@ fn PreviewEngine::output(
 }
 
 ///|
-/// Accept renderer state only after the app accepts this exact output.
-pub fn PreviewEngine::accept(
-  self : PreviewEngine,
-  output : PreviewOutput,
-) -> Bool {
+/// Accept renderer state only after the Preview lifecycle admits this output.
+fn PreviewEngine::accept(self : PreviewEngine, output : PreviewOutput) -> Bool {
   guard self.pending_render is Some(pending) else { return false }
   guard physical_equal(output.acceptance.domain, self.acceptance_domain) &&
     output.acceptance.sequence == pending.acceptance.sequence &&
@@ -338,71 +340,4 @@ fn PreviewEngine::discard_owned(self : PreviewEngine, generation : Int) -> Bool 
   guard self.owns(generation) else { return false }
   self.discard()
   true
-}
-
-///|
-/// Emit a command after DOM patching and one animation-frame boundary. The
-/// zero-delay task after the frame gives the patched Preparing state a paint
-/// opportunity before synchronous Parser construction starts.
-pub fn after_paint(command : @cmd.Cmd) -> @cmd.Cmd {
-  @cmd.custom_cmd(kind=@cmd.after_render, scheduler => {
-    ignore(
-      @dom.window().request_animation_frame(_ => {
-        ignore(@dom.window().set_timeout(() => scheduler.add(command), 0))
-      }),
-    )
-  })
-}
-
-///|
-pub fn activate_cmd(engine : PreviewEngine, generation : Int) -> @cmd.Cmd {
-  @cmd.custom_cmd(_ => ignore(engine.activate(generation)))
-}
-
-///|
-pub fn prepare_cmd(
-  engine : PreviewEngine,
-  generation : Int,
-  source : String,
-  result~ : @cmd.Emit[Result[PreviewOutput, PreviewFailure]],
-) -> @cmd.Cmd {
-  @cmd.custom_cmd(scheduler => {
-    if engine.prepare_owned(generation, source) is Some(output) {
-      scheduler.add(result(output))
-    }
-  })
-}
-
-///|
-pub fn apply_cmd(
-  engine : PreviewEngine,
-  generation : Int,
-  change : @text_change.TextChange,
-  source : String,
-  result~ : @cmd.Emit[Result[Unit, PreviewFailure]],
-) -> @cmd.Cmd {
-  @cmd.custom_cmd(scheduler => {
-    if engine.apply_owned(generation, change, source) is Some(output) {
-      scheduler.add(result(output))
-    }
-  })
-}
-
-///|
-pub fn refresh_cmd(
-  engine : PreviewEngine,
-  generation : Int,
-  source : String,
-  result~ : @cmd.Emit[Result[PreviewOutput, PreviewFailure]],
-) -> @cmd.Cmd {
-  @cmd.custom_cmd(scheduler => {
-    if engine.refresh_owned(generation, source) is Some(output) {
-      scheduler.add(result(output))
-    }
-  })
-}
-
-///|
-pub fn discard_cmd(engine : PreviewEngine, generation : Int) -> @cmd.Cmd {
-  @cmd.custom_cmd(_ => ignore(engine.discard_owned(generation)))
 }

@@ -20,7 +20,7 @@ priv struct EditingState {
   creation : DocumentCreation
   mode : EditorMode
   compact : Bool
-  preview : PreviewState
+  preview : @preview.State
   repository : @source_repository.RepositorySnapshot
 } derive(Eq)
 
@@ -29,21 +29,6 @@ priv enum EditorMode {
   Text
   Preview
   Split
-} derive(Eq)
-
-///|
-priv struct PreviewResult {
-  text : String
-  html : @rabbita.Html
-  empty : Bool
-} derive(Eq)
-
-///|
-priv enum PreviewState {
-  Unrequested
-  Preparing
-  Ready(PreviewResult)
-  Failed(PreviewResult?)
 } derive(Eq)
 
 ///|
@@ -69,24 +54,7 @@ priv enum Msg {
   CompositionStarted(Activation)
   CompositionEnded(Activation)
   ModeSelected(EditorMode)
-  BeginPreviewPreparation(Activation)
-  PreviewPrepared(
-    Activation,
-    String,
-    Result[@preview.PreviewOutput, @preview.PreviewFailure]
-  )
-  ParserAdvanced(
-    Activation,
-    String,
-    Bool,
-    Result[Unit, @preview.PreviewFailure]
-  )
-  PreviewRefreshRequested(Activation, String)
-  PreviewRefreshed(
-    Activation,
-    String,
-    Result[@preview.PreviewOutput, @preview.PreviewFailure]
-  )
+  PreviewEvent(@preview.Event)
   ViewportChanged(Int)
   SaveRequested(Activation, String)
   SaveCompleted(Activation, String, @source_repository.SaveResult)

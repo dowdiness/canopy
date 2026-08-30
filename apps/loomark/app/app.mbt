@@ -78,7 +78,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
                 } else {
                   ["display:none;overflow:hidden"]
                 },
-                preview_view(editing.preview),
+                editing.preview.view(),
               ),
             ]
           }
