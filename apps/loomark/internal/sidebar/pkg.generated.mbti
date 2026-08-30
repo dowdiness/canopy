@@ -1,0 +1,105 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/internal/sidebar"
+
+import {
+  "moonbit-community/rabbita",
+  "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/html",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn[C : @html.IsChildren] sidebar(SidebarScope, side? : SidebarSide, variant? : SidebarVariant, collapsible? : SidebarCollapsible, mobile? : Bool, aria_label? : String, id? : String, class? : String, title? : String, hidden? : Bool, attrs? : @html.Attrs, style? : Array[String], overlay_attrs? : @html.Attrs, overlay_style? : Array[String], C) -> @html.Html
+
+pub fn sidebar_close_mobile(SidebarScope) -> @cmd.Cmd
+
+pub fn sidebar_collapse(SidebarScope) -> @cmd.Cmd
+
+pub fn[C : @html.IsChildren] sidebar_content(id? : String, class? : String, title? : String, attrs? : @html.Attrs, style? : Array[String], C) -> @html.Html
+
+pub fn sidebar_expand(SidebarScope) -> @cmd.Cmd
+
+pub fn[C : @html.IsChildren] sidebar_footer(id? : String, class? : String, title? : String, attrs? : @html.Attrs, style? : Array[String], C) -> @html.Html
+
+pub fn[C : @html.IsChildren] sidebar_group(id? : String, class? : String, title? : String, aria_label? : String, attrs? : @html.Attrs, style? : Array[String], C) -> @html.Html
+
+pub fn[C : @html.IsChildren] sidebar_group_action(disabled? : Bool, id? : String, class? : String, title? : String, aria_label? : String, on_click? : @cmd.Cmd, attrs? : @html.Attrs, style? : Array[String], C) -> @html.Html
+
+pub fn[C : @html.IsChildren] sidebar_group_content(id? : String, class? : String, title? : String, attrs? : @html.Attrs, style? : Array[String], C) -> @html.Html
+
+pub fn[C : @html.IsChildren] sidebar_group_label(scope? : SidebarScope, hide_when_collapsed? : Bool, id? : String, class? : String, title? : String, attrs? : @html.Attrs, style? : Array[String], C) -> @html.Html
+
+pub fn[C : @html.IsChildren] sidebar_header(id? : String, class? : String, title? : String, attrs? : @html.Attrs, style? : Array[String], C) -> @html.Html
+
+pub fn sidebar_input(name? : String, value? : String, placeholder? : String, auto_complete? : @html.AutoComplete, id? : String, class? : String, title? : String, disabled? : Bool, aria_label? : String, on_change? : @cmd.Emit[String], on_input? : @cmd.Emit[String], attrs? : @html.Attrs, style? : Array[String]) -> @html.Html
+
+pub fn[C : @html.IsChildren] sidebar_inset(id? : String, class? : String, title? : String, attrs? : @html.Attrs, style? : Array[String], C) -> @html.Html
+
+pub fn sidebar_is_collapsed(SidebarScope) -> Bool
+
+pub fn sidebar_is_mobile_open(SidebarScope) -> Bool
+
+pub fn[C : @html.IsChildren] sidebar_menu(id? : String, class? : String, title? : String, attrs? : @html.Attrs, style? : Array[String], C) -> @html.Html
+
+pub fn[C : @html.IsChildren] sidebar_menu_action(show_on_hover? : Bool, disabled? : Bool, id? : String, class? : String, title? : String, aria_label? : String, on_click? : @cmd.Cmd, attrs? : @html.Attrs, style? : Array[String], C) -> @html.Html
+
+pub fn[C : @html.IsChildren] sidebar_menu_badge(id? : String, class? : String, title? : String, attrs? : @html.Attrs, style? : Array[String], C) -> @html.Html
+
+pub fn[C : @html.IsChildren] sidebar_menu_button(href? : String, is_active? : Bool, variant? : SidebarMenuButtonVariant, size? : SidebarMenuButtonSize, disabled? : Bool, aria_label? : String, target? : @html.Target, rel? : String, download? : String, on_click? : @cmd.Cmd, id? : String, class? : String, title? : String, attrs? : @html.Attrs, style? : Array[String], C) -> @html.Html
+
+pub fn[C : @html.IsChildren] sidebar_menu_item(id? : String, class? : String, title? : String, attrs? : @html.Attrs, style? : Array[String], C) -> @html.Html
+
+pub fn[C : @html.IsChildren] sidebar_menu_sub(id? : String, class? : String, title? : String, attrs? : @html.Attrs, style? : Array[String], C) -> @html.Html
+
+pub fn[C : @html.IsChildren] sidebar_menu_sub_button(href? : String, is_active? : Bool, disabled? : Bool, aria_label? : String, target? : @html.Target, rel? : String, download? : String, on_click? : @cmd.Cmd, id? : String, class? : String, title? : String, attrs? : @html.Attrs, style? : Array[String], C) -> @html.Html
+
+pub fn[C : @html.IsChildren] sidebar_menu_sub_item(id? : String, class? : String, title? : String, attrs? : @html.Attrs, style? : Array[String], C) -> @html.Html
+
+pub fn sidebar_open_mobile(SidebarScope) -> @cmd.Cmd
+
+pub fn sidebar_provider(default_collapsed? : Bool, default_mobile_open? : Bool, on_collapsed_change? : @cmd.Emit[Bool], on_mobile_open_change? : @cmd.Emit[Bool], id? : String, class? : String, title? : String, attrs? : @html.Attrs, style? : Array[String], (SidebarScope) -> @html.Html) -> @rabbita.Val[@html.Html]
+
+pub fn[T : Eq] sidebar_provider_with_input(input~ : @rabbita.Val[T], default_collapsed? : Bool, default_mobile_open? : Bool, on_collapsed_change? : @cmd.Emit[Bool], on_mobile_open_change? : @cmd.Emit[Bool], id? : String, class? : String, title? : String, attrs? : @html.Attrs, style? : Array[String], (SidebarScope, T) -> @html.Html) -> @rabbita.Val[@html.Html]
+
+pub fn sidebar_rail(SidebarScope, min_width? : Int, max_width? : Int, id? : String, class? : String, title? : String, aria_label? : String, on_click? : @cmd.Cmd, attrs? : @html.Attrs, style? : Array[String]) -> @html.Html
+
+pub fn sidebar_separator(id? : String, class? : String, title? : String, attrs? : @html.Attrs, style? : Array[String]) -> @html.Html
+
+pub fn[C : @html.IsChildren] sidebar_trigger(SidebarScope, mobile? : Bool, controls? : String, disabled? : Bool, id? : String, class? : String, title? : String, aria_label? : String, on_click? : @cmd.Cmd, attrs? : @html.Attrs, style? : Array[String], C) -> @html.Html
+
+// Errors
+
+// Types and methods
+pub(all) enum SidebarCollapsible {
+  SidebarOffcanvas
+  SidebarIcon
+  SidebarFixed
+} derive(Eq, @debug.Debug)
+
+pub(all) enum SidebarMenuButtonSize {
+  SidebarMenuSm
+  SidebarMenuDefault
+  SidebarMenuLg
+} derive(Eq, @debug.Debug)
+
+pub(all) enum SidebarMenuButtonVariant {
+  SidebarMenuButtonDefault
+  SidebarMenuButtonOutline
+} derive(Eq, @debug.Debug)
+
+type SidebarScope
+
+pub(all) enum SidebarSide {
+  SidebarLeft
+  SidebarRight
+} derive(Eq, @debug.Debug)
+
+pub(all) enum SidebarVariant {
+  SidebarDefault
+  SidebarFloating
+  SidebarInset
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits

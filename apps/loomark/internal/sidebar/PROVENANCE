@@ -1,0 +1,11 @@
+This package copies and adapts the RUI Sidebar implementation from:
+
+  Repository: https://github.com/dowdiness/rabbita
+  Revision:   4a646239bc4ca9fff641cd3c33f1c8e25745ef9b
+  Sources:    rui/sidebar.mbt, rui/button.mbt, rui/dialog.mbt,
+              rui/dom_internal.mbt, rui/input.mbt, rui/theme.mbt
+
+Local changes add a provider that consumes a parent Rabbita Val while retaining
+Sidebar-owned interaction state, and remove component APIs that Loomark does not
+use (including tooltip and skeleton support). See LICENSE for the bundled MIT
+license.

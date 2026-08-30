@@ -112,7 +112,7 @@ fn sidebar_new_icon() -> @rabbita.Html {
 
 ///|
 fn document_sidebar(
-  scope : @rui.SidebarScope,
+  scope : @sidebar.SidebarScope,
   editing : EditingState,
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
@@ -120,36 +120,36 @@ fn document_sidebar(
   let entries = editing.repository.catalog().entries()
   let compact = editing.compact
   let close_after_action = if compact {
-    @rui.sidebar_collapse(scope)
+    @sidebar.sidebar_collapse(scope)
   } else {
     @cmd.none
   }
-  @rui.sidebar(
+  @sidebar.sidebar(
     scope,
     id="loomark-document-sidebar",
     mobile=false,
-    side=@rui.SidebarLeft,
-    variant=@rui.SidebarDefault,
-    collapsible=@rui.SidebarIcon,
+    side=@sidebar.SidebarLeft,
+    variant=@sidebar.SidebarDefault,
+    collapsible=@sidebar.SidebarIcon,
     aria_label="Documents",
     class="[--rui-sidebar:var(--color-lm-foundation)] [--rui-sidebar-foreground:var(--color-lm-ink)] [--rui-sidebar-border:var(--color-lm-rule)] [--rui-sidebar-accent:var(--color-lm-accent-soft)] [--rui-sidebar-accent-foreground:var(--color-lm-accent)]",
-    @rui.sidebar_content(
-      @rui.sidebar_group(
-        @rui.sidebar_group_content(
-          @rui.sidebar_menu(
-            @rui.sidebar_menu_item([
-              @rui.sidebar_menu_button(
+    @sidebar.sidebar_content(
+      @sidebar.sidebar_group(
+        @sidebar.sidebar_group_content(
+          @sidebar.sidebar_menu(
+            @sidebar.sidebar_menu_item([
+              @sidebar.sidebar_menu_button(
                 aria_label="Documents",
                 title="Documents",
                 class="hover:opacity-70 active:opacity-50",
-                on_click=if @rui.sidebar_is_collapsed(scope) {
-                  @rui.sidebar_expand(scope)
+                on_click=if @sidebar.sidebar_is_collapsed(scope) {
+                  @sidebar.sidebar_expand(scope)
                 } else {
-                  @rui.sidebar_collapse(scope)
+                  @sidebar.sidebar_collapse(scope)
                 },
                 [sidebar_folder_icon(), @html.span("Documents")],
               ),
-              @rui.sidebar_menu_action(
+              @sidebar.sidebar_menu_action(
                 disabled=!available,
                 aria_label="New document",
                 title="New document",
@@ -158,13 +158,13 @@ fn document_sidebar(
                 on_click=@cmd.batch([emit(CreateRequested), close_after_action]),
                 sidebar_new_icon(),
               ),
-              @rui.sidebar_menu_sub(
+              @sidebar.sidebar_menu_sub(
                 entries.mapi((index, entry) => {
                   let document_id = entry.document_id()
                   let selected = document_id == editing.activation.document_id
                   let label = document_option_label(entries, index, entry)
-                  @rui.sidebar_menu_sub_item(
-                    @rui.sidebar_menu_sub_button(
+                  @sidebar.sidebar_menu_sub_item(
+                    @sidebar.sidebar_menu_sub_button(
                       is_active=selected,
                       disabled=!available && !selected,
                       aria_label=label,
@@ -195,7 +195,7 @@ fn document_sidebar(
 
 ///|
 fn mode_bar(
-  scope : @rui.SidebarScope,
+  scope : @sidebar.SidebarScope,
   editing : EditingState,
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
@@ -203,7 +203,7 @@ fn mode_bar(
     class="relative z-2 flex min-h-11 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-lm-rule bg-lm-surface px-3 py-1 max-[641px]:px-2 max-[641px]:py-0",
     [
       @html.div(class="flex min-w-0 items-center gap-2", [
-        @rui.sidebar_trigger(
+        @sidebar.sidebar_trigger(
           scope,
           mobile=false,
           controls="loomark-document-sidebar",
@@ -392,7 +392,7 @@ fn save_failure_view(
 
 ///|
 fn view(
-  sidebar : @rui.SidebarScope,
+  sidebar : @sidebar.SidebarScope,
   model : Model,
   emit : @rabbita.Emit[Msg],
   editor_panels : @rabbita.Html,

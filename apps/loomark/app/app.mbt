@@ -116,7 +116,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
   let layout_input = model.map2(selected_panels, (model, editor_panels) => {
     (model, editor_panels)
   })
-  @rui.sidebar_provider_with_input(
+  @sidebar.sidebar_provider_with_input(
     input=layout_input,
     default_collapsed=initial_compact,
     class="h-dvh min-h-0 [--rui-sidebar-width:clamp(11rem,24vw,17rem)] [--rui-sidebar-width-icon:2.75rem]",
