@@ -1,4 +1,42 @@
 ///|
+test "PreviewEngine rejects an operation owned by an older activation" {
+  let engine = PreviewEngine::PreviewEngine()
+  assert_true(engine.activate(1))
+  guard engine.prepare_owned(1, "# First\n") is Some(Ok(_)) else {
+    fail("current activation should prepare")
+  }
+  let next_revision_key_floor = engine.next_revision_key
+  assert_true(engine.activate(2))
+  guard engine.prepare_owned(1, "# Stale\n") is None else {
+    fail("stale activation should not prepare")
+  }
+  guard engine.state is NoPair else {
+    fail("stale preparation mutated the new activation")
+  }
+  guard engine.prepare_owned(2, "# Current\n") is Some(Ok(_)) else {
+    fail("new activation should prepare")
+  }
+  match engine.state {
+    Healthy(semantics~, ..) =>
+      for key in semantics.publish().top_level_revision_keys() {
+        assert_true(key >= next_revision_key_floor)
+      }
+    NoPair | Broken => fail("new activation did not own a healthy parser")
+  }
+  assert_true(engine.next_revision_key > next_revision_key_floor)
+  assert_false(engine.discard_owned(1))
+  guard engine.apply_owned(1, @text_change.ReplaceAll("# Stale\n"), "# Stale\n")
+    is None else {
+    fail("stale activation should not apply")
+  }
+  match engine.state {
+    Healthy(source~, ..) => assert_eq(source, "# Current\n")
+    NoPair | Broken => fail("stale operation changed current parser")
+  }
+  assert_false(engine.activate(1))
+}
+
+///|
 test "PreviewEngine stays uninitialized until preparation" {
   let engine = PreviewEngine::PreviewEngine()
   guard engine.state is NoPair else { abort("parser initialized too early") }

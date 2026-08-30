@@ -46,7 +46,16 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
                 } else {
                   ["display:none;overflow:hidden"]
                 },
-                text_area_view(emit, text_area),
+                if editing.creation == Creating {
+                  text_area_view(
+                    emit,
+                    text_area,
+                    editing.activation,
+                    disabled=true,
+                  )
+                } else {
+                  text_area_view(emit, text_area, editing.activation)
+                },
               ),
               @rui.resizable_handle(
                 scope~,

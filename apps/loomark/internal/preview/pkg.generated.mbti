@@ -10,17 +10,19 @@ import {
 }
 
 // Values
+pub fn activate_cmd(PreviewEngine, Int) -> @cmd.Cmd
+
 pub fn after_paint(@cmd.Cmd) -> @cmd.Cmd
 
-pub fn apply_cmd(PreviewEngine, @text_change.TextChange, String, result~ : @cmd.Emit[Result[Unit, PreviewFailure]]) -> @cmd.Cmd
+pub fn apply_cmd(PreviewEngine, Int, @text_change.TextChange, String, result~ : @cmd.Emit[Result[Unit, PreviewFailure]]) -> @cmd.Cmd
 
-pub fn discard_cmd(PreviewEngine) -> @cmd.Cmd
+pub fn discard_cmd(PreviewEngine, Int) -> @cmd.Cmd
 
 pub fn is_empty(@markdown.MarkdownIR) -> Bool
 
-pub fn prepare_cmd(PreviewEngine, String, result~ : @cmd.Emit[Result[PreviewOutput, PreviewFailure]]) -> @cmd.Cmd
+pub fn prepare_cmd(PreviewEngine, Int, String, result~ : @cmd.Emit[Result[PreviewOutput, PreviewFailure]]) -> @cmd.Cmd
 
-pub fn refresh_cmd(PreviewEngine, String, result~ : @cmd.Emit[Result[PreviewOutput, PreviewFailure]]) -> @cmd.Cmd
+pub fn refresh_cmd(PreviewEngine, Int, String, result~ : @cmd.Emit[Result[PreviewOutput, PreviewFailure]]) -> @cmd.Cmd
 
 pub fn render(@markdown.MarkdownIR) -> @html.Html
 
@@ -31,9 +33,6 @@ pub struct PreviewEngine {
   // private fields
 }
 pub fn PreviewEngine::PreviewEngine() -> Self
-pub fn PreviewEngine::apply(Self, @text_change.TextChange, String) -> Result[Unit, PreviewFailure]
-pub fn PreviewEngine::prepare(Self, String) -> Result[PreviewOutput, PreviewFailure]
-pub fn PreviewEngine::refresh(Self, String) -> Result[PreviewOutput, PreviewFailure]
 
 pub(all) enum PreviewFailure {
   InitializationFailed

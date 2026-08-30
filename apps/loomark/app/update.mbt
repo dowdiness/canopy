@@ -1,4 +1,25 @@
 ///|
+const DOCUMENT_SELECT_ID : String = "loomark-document-select"
+
+///|
+extern "js" fn set_document_select_value(id : String, value : String) -> Unit =
+  #| (id, value) => {
+  #|   const select = document.getElementById(id)
+  #|   if (!(select instanceof HTMLSelectElement)) {
+  #|     throw new Error(`Document select not found: ${id}`)
+  #|   }
+  #|   select.value = value
+  #| }
+
+///|
+fn restore_document_selection(document_id : String) -> @cmd.Cmd {
+  @cmd.custom_cmd(
+    _ => set_document_select_value(DOCUMENT_SELECT_ID, document_id),
+    kind=@cmd.after_render,
+  )
+}
+
+///|
 const AUTOSAVE_QUIET_MS : Int = 250
 
 ///|
@@ -63,20 +84,65 @@ fn select_mode(
     Unrequested if mode != Text =>
       (
         { ..editing, mode, focused_mode: mode, preview: Preparing },
-        @preview.after_paint(emit(BeginPreviewPreparation)),
+        @preview.after_paint(emit(BeginPreviewPreparation(editing.activation))),
       )
     Failed(_) if entering_preview =>
       (
         { ..editing, mode, focused_mode: mode },
         @preview.refresh_cmd(
           preview_engine,
+          editing.activation.generation,
           editing.text,
-          result=emit.map(result => PreviewRefreshed(editing.text, result)),
+          result=emit.map(result => {
+            PreviewRefreshed(editing.activation, editing.text, result)
+          }),
         ),
       )
     Unrequested | Preparing | Ready(_) | Failed(_) =>
       ({ ..editing, mode, focused_mode: mode }, @cmd.none)
   }
+}
+
+///|
+fn can_activate(editing : EditingState) -> Bool {
+  editing.save == Saved && !editing.composing && editing.creation != Creating
+}
+
+///|
+fn activate_document(
+  editing : EditingState,
+  source : @source_repository.SourceRecord,
+  emit : @rabbita.Emit[Msg],
+  text_area : @text_area.TextArea,
+  preview_engine : @preview.PreviewEngine,
+) -> (EditingState, @rabbita.Cmd) {
+  let activation : Activation = {
+    document_id: source.document_id(),
+    generation: editing.activation.generation + 1,
+  }
+  let preview = if editing.mode == Text { Unrequested } else { Preparing }
+  let prepare_command = if editing.mode == Text {
+    @cmd.none
+  } else {
+    @preview.after_paint(emit(BeginPreviewPreparation(activation)))
+  }
+  let next = {
+    ..editing,
+    activation,
+    text: source.text(),
+    composing: false,
+    save: Saved,
+    creation: Idle,
+    preview,
+  }
+  (
+    next,
+    @cmd.batch([
+      text_area.initialize(source.text()),
+      @preview.activate_cmd(preview_engine, activation.generation),
+      prepare_command,
+    ]),
+  )
 }
 
 ///|
@@ -107,17 +173,24 @@ fn update(
               let text = source.text()
               (
                 Editing({
-                  document_id: source.document_id(),
+                  activation: {
+                    document_id: source.document_id(),
+                    generation: 0,
+                  },
                   text,
                   composing: false,
                   save: Saved,
+                  creation: Idle,
                   mode: Text,
                   focused_mode: Text,
                   compact,
                   preview: Unrequested,
                   repository: snapshot,
                 }),
-                text_area.initialize(text),
+                @cmd.batch([
+                  text_area.initialize(text),
+                  @preview.activate_cmd(preview_engine, 0),
+                ]),
               )
             }
             None =>
@@ -129,67 +202,104 @@ fn update(
         @source_repository.OpenResult::Failed(failure) =>
           (Recovery(failure, compact), @cmd.none)
       }
-    (Editing(_), ExampleSelected(text)) =>
-      (
-        model,
-        @cmd.batch([
-          text_area.initialize(text),
-          emit(TextChanged(@text_change.TextChange::ReplaceAll(text))),
-        ]),
-      )
-    (Editing(editing), TextChanged(change)) =>
-      match change.apply(editing.text) {
-        None =>
-          (
-            model,
-            text_area.value(text => {
-              emit(TextChanged(@text_change.TextChange::ReplaceAll(text)))
-            }),
-          )
-        Some(text) if text == editing.text => (model, @cmd.none)
-        Some(text) => {
-          let save = match editing.save {
-            Saving(candidate) => Saving(candidate)
-            _ => Waiting
+    (Editing(editing), ExampleSelected(owner, text)) =>
+      if owner != editing.activation {
+        (model, @cmd.none)
+      } else if editing.creation == Creating {
+        (model, text_area.initialize(editing.text))
+      } else {
+        (
+          model,
+          @cmd.batch([
+            text_area.initialize(text),
+            emit(
+              TextChanged(
+                editing.activation,
+                @text_change.TextChange::ReplaceAll(text),
+              ),
+            ),
+          ]),
+        )
+      }
+    (Editing(editing), TextChanged(owner, change)) =>
+      if owner != editing.activation {
+        (model, @cmd.none)
+      } else if editing.creation == Creating {
+        (model, text_area.initialize(editing.text))
+      } else {
+        match change.apply(editing.text) {
+          None =>
+            (
+              model,
+              text_area.value(text => {
+                emit(
+                  TextChanged(owner, @text_change.TextChange::ReplaceAll(text)),
+                )
+              }),
+            )
+          Some(text) if text == editing.text => (model, @cmd.none)
+          Some(text) => {
+            let save = match editing.save {
+              Saving(candidate) => Saving(candidate)
+              _ => Waiting
+            }
+            let save_command = if editing.composing {
+              @cmd.none
+            } else {
+              @cmd.delay(emit(SaveRequested(owner, text)), AUTOSAVE_QUIET_MS)
+            }
+            let preview_command = match editing.preview {
+              Unrequested | Preparing => @cmd.none
+              Ready(_) =>
+                @preview.apply_cmd(
+                  preview_engine,
+                  owner.generation,
+                  change,
+                  text,
+                  result=emit.map(result => {
+                    ParserAdvanced(owner, text, false, result)
+                  }),
+                )
+              Failed(_) =>
+                @preview.apply_cmd(
+                  preview_engine,
+                  owner.generation,
+                  change,
+                  text,
+                  result=emit.map(result => {
+                    ParserAdvanced(owner, text, true, result)
+                  }),
+                )
+            }
+            (
+              Editing({ ..editing, text, save }),
+              @cmd.batch([save_command, preview_command]),
+            )
           }
-          let save_command = if editing.composing {
-            @cmd.none
-          } else {
-            @cmd.delay(emit(SaveRequested(text)), AUTOSAVE_QUIET_MS)
-          }
-          let preview_command = match editing.preview {
-            Unrequested | Preparing => @cmd.none
-            Ready(_) =>
-              @preview.apply_cmd(
-                preview_engine,
-                change,
-                text,
-                result=emit.map(result => ParserAdvanced(text, false, result)),
-              )
-            Failed(_) =>
-              @preview.apply_cmd(
-                preview_engine,
-                change,
-                text,
-                result=emit.map(result => ParserAdvanced(text, true, result)),
-              )
-          }
-          (
-            Editing({ ..editing, text, save }),
-            @cmd.batch([save_command, preview_command]),
-          )
         }
       }
-    (Editing(editing), CompositionStarted) =>
-      (Editing({ ..editing, composing: true }), @cmd.none)
-    (Editing(editing), CompositionEnded) => {
-      let command = match editing.save {
-        Waiting =>
-          @cmd.delay(emit(SaveRequested(editing.text)), AUTOSAVE_QUIET_MS)
-        Saved | Saving(_) | Failed(_) => @cmd.none
+    (Editing(editing), CompositionStarted(owner)) =>
+      if owner != editing.activation || editing.creation == Creating {
+        (model, @cmd.none)
+      } else {
+        (Editing({ ..editing, composing: true }), @cmd.none)
       }
-      (Editing({ ..editing, composing: false }), command)
-    }
+    (Editing(editing), CompositionEnded(owner)) =>
+      if owner != editing.activation {
+        (model, @cmd.none)
+      } else if editing.creation == Creating {
+        (model, text_area.initialize(editing.text))
+      } else {
+        let command = match editing.save {
+          Waiting =>
+            @cmd.delay(
+              emit(SaveRequested(owner, editing.text)),
+              AUTOSAVE_QUIET_MS,
+            )
+          Saved | Saving(_) | Failed(_) => @cmd.none
+        }
+        (Editing({ ..editing, composing: false }), command)
+      }
     (Editing(editing), ModeSelected(mode)) => {
       let (editing, command) = select_mode(editing, mode, emit, preview_engine)
       (Editing(editing), command)
@@ -215,27 +325,36 @@ fn update(
             None => (model, @cmd.none)
           }
       }
-    (Editing(editing), BeginPreviewPreparation) =>
-      match editing.preview {
-        Preparing =>
-          (
-            model,
-            @preview.prepare_cmd(
-              preview_engine,
-              editing.text,
-              result=emit.map(result => PreviewPrepared(editing.text, result)),
-            ),
-          )
-        Unrequested | Ready(_) | Failed(_) => (model, @cmd.none)
+    (Editing(editing), BeginPreviewPreparation(owner)) =>
+      if owner != editing.activation {
+        (model, @cmd.none)
+      } else {
+        match editing.preview {
+          Preparing =>
+            (
+              model,
+              @preview.prepare_cmd(
+                preview_engine,
+                owner.generation,
+                editing.text,
+                result=emit.map(result => {
+                  PreviewPrepared(owner, editing.text, result)
+                }),
+              ),
+            )
+          Unrequested | Ready(_) | Failed(_) => (model, @cmd.none)
+        }
       }
-    (Editing(editing), PreviewPrepared(candidate, result)) =>
-      if candidate != editing.text {
+    (Editing(editing), PreviewPrepared(owner, candidate, result)) =>
+      if owner != editing.activation {
+        (model, @cmd.none)
+      } else if candidate != editing.text {
         (
           Editing({ ..editing, preview: Failed(None) }),
           @cmd.batch([
-            @preview.discard_cmd(preview_engine),
+            @preview.discard_cmd(preview_engine, owner.generation),
             @cmd.delay(
-              emit(PreviewRefreshRequested(editing.text)),
+              emit(PreviewRefreshRequested(owner, editing.text)),
               PREVIEW_QUIET_MS,
             ),
           ]),
@@ -253,36 +372,40 @@ fn update(
           Err(_) => (Editing({ ..editing, preview: Failed(None) }), @cmd.none)
         }
       }
-    (Editing(editing), ParserAdvanced(candidate, retry_on_failure, result)) =>
-      match result {
-        Ok(_) =>
-          (
-            model,
-            @cmd.delay(
-              emit(PreviewRefreshRequested(candidate)),
-              PREVIEW_QUIET_MS,
-            ),
-          )
-        Err(_) => {
-          let command = if retry_on_failure {
-            @cmd.delay(
-              emit(PreviewRefreshRequested(candidate)),
-              PREVIEW_QUIET_MS,
+    (Editing(editing), ParserAdvanced(owner, candidate, retry, result)) =>
+      if owner != editing.activation {
+        (model, @cmd.none)
+      } else {
+        match result {
+          Ok(_) =>
+            (
+              model,
+              @cmd.delay(
+                emit(PreviewRefreshRequested(owner, candidate)),
+                PREVIEW_QUIET_MS,
+              ),
             )
-          } else {
-            @cmd.none
+          Err(_) => {
+            let command = if retry {
+              @cmd.delay(
+                emit(PreviewRefreshRequested(owner, candidate)),
+                PREVIEW_QUIET_MS,
+              )
+            } else {
+              @cmd.none
+            }
+            (
+              Editing({
+                ..editing,
+                preview: Failed(preview_last(editing.preview)),
+              }),
+              command,
+            )
           }
-          (
-            Editing({
-              ..editing,
-              preview: Failed(preview_last(editing.preview)),
-            }),
-            command,
-          )
         }
       }
-    (Editing(editing), PreviewRefreshRequested(candidate)) =>
-      if candidate != editing.text {
+    (Editing(editing), PreviewRefreshRequested(owner, candidate)) =>
+      if owner != editing.activation || candidate != editing.text {
         (model, @cmd.none)
       } else {
         match editing.preview {
@@ -292,14 +415,17 @@ fn update(
               model,
               @preview.refresh_cmd(
                 preview_engine,
+                owner.generation,
                 candidate,
-                result=emit.map(result => PreviewRefreshed(candidate, result)),
+                result=emit.map(result => {
+                  PreviewRefreshed(owner, candidate, result)
+                }),
               ),
             )
         }
       }
-    (Editing(editing), PreviewRefreshed(candidate, result)) =>
-      if candidate != editing.text {
+    (Editing(editing), PreviewRefreshed(owner, candidate, result)) =>
+      if owner != editing.activation || candidate != editing.text {
         (model, @cmd.none)
       } else {
         match result {
@@ -323,17 +449,81 @@ fn update(
       }
     (Loading(_), ViewportChanged(width)) =>
       (Loading(compact_viewport(width)), @cmd.none)
+    (Editing(editing), CreateRequested) =>
+      if !can_activate(editing) {
+        (model, @cmd.none)
+      } else {
+        let owner = editing.activation
+        (
+          Editing({ ..editing, creation: Creating }),
+          @source_repository.create(
+            editing.repository,
+            result=emit.map(result => CreateCompleted(owner, result)),
+          ),
+        )
+      }
+    (Editing(editing), CreateCompleted(owner, result)) =>
+      if owner != editing.activation || editing.creation != Creating {
+        (model, @cmd.none)
+      } else {
+        match result {
+          @source_repository.CreateResult::Failed(failure) =>
+            (
+              Editing({ ..editing, creation: CreationFailed(failure) }),
+              @cmd.none,
+            )
+          @source_repository.CreateResult::Created(snapshot, document_id) =>
+            match snapshot.source(document_id) {
+              None =>
+                (
+                  Editing({
+                    ..editing,
+                    creation: CreationFailed(
+                      @source_repository.CreateFailure::WriteFailed,
+                    ),
+                  }),
+                  @cmd.none,
+                )
+              Some(source) => {
+                let prepared = { ..editing, repository: snapshot }
+                let (editing, command) = activate_document(
+                  prepared, source, emit, text_area, preview_engine,
+                )
+                (Editing(editing), command)
+              }
+            }
+        }
+      }
+    (Editing(editing), DocumentSelected(document_id)) =>
+      if document_id == editing.activation.document_id {
+        (model, @cmd.none)
+      } else if !can_activate(editing) {
+        (model, restore_document_selection(editing.activation.document_id))
+      } else {
+        match editing.repository.source(document_id) {
+          None => (model, @cmd.none)
+          Some(source) => {
+            let (editing, command) = activate_document(
+              editing, source, emit, text_area, preview_engine,
+            )
+            (Editing(editing), command)
+          }
+        }
+      }
     (Editing(editing), ViewportChanged(width)) =>
       (Editing({ ..editing, compact: compact_viewport(width) }), @cmd.none)
     (Recovery(failure, _), ViewportChanged(width)) =>
       (Recovery(failure, compact_viewport(width)), @cmd.none)
-    (Editing(editing), SaveRequested(candidate)) =>
-      if candidate != editing.text || editing.composing {
+    (Editing(editing), SaveRequested(owner, candidate)) =>
+      if owner != editing.activation ||
+        candidate != editing.text ||
+        editing.composing ||
+        editing.creation == Creating {
         (model, @cmd.none)
       } else {
         match editing.save {
           Waiting => {
-            let document_id = editing.document_id
+            let document_id = owner.document_id
             (
               Editing({ ..editing, save: Saving(candidate) }),
               @source_repository.save(
@@ -341,7 +531,7 @@ fn update(
                 document_id,
                 candidate,
                 result=emit.map(result => {
-                  SaveCompleted(document_id, candidate, result)
+                  SaveCompleted(owner, candidate, result)
                 }),
               ),
             )
@@ -349,8 +539,8 @@ fn update(
           Saved | Saving(_) | Failed(_) => (model, @cmd.none)
         }
       }
-    (Editing(editing), SaveCompleted(document_id, candidate, result)) =>
-      if document_id != editing.document_id || editing.save != Saving(candidate) {
+    (Editing(editing), SaveCompleted(owner, candidate, result)) =>
+      if owner != editing.activation || editing.save != Saving(candidate) {
         (model, @cmd.none)
       } else {
         match result {
@@ -366,11 +556,9 @@ fn update(
                 Editing({ ..completed, save: Saving(latest) }),
                 @source_repository.save(
                   completed.repository,
-                  document_id,
+                  owner.document_id,
                   latest,
-                  result=emit.map(result => {
-                    SaveCompleted(document_id, latest, result)
-                  }),
+                  result=emit.map(result => SaveCompleted(owner, latest, result)),
                 ),
               )
             }
@@ -383,16 +571,14 @@ fn update(
       match editing.save {
         Failed(_) => {
           let latest = editing.text
-          let document_id = editing.document_id
+          let owner = editing.activation
           (
             Editing({ ..editing, save: Saving(latest) }),
             @source_repository.save(
               editing.repository,
-              document_id,
+              owner.document_id,
               latest,
-              result=emit.map(result => {
-                SaveCompleted(document_id, latest, result)
-              }),
+              result=emit.map(result => SaveCompleted(owner, latest, result)),
             ),
           )
         }
