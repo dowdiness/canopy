@@ -144,6 +144,7 @@ fn document_sidebar(
               @rui.sidebar_menu_button(
                 aria_label="Documents",
                 title="Documents",
+                class="hover:opacity-70 active:opacity-50",
                 on_click=if @rui.sidebar_is_collapsed(scope) {
                   @rui.sidebar_expand(scope)
                 } else {
@@ -155,6 +156,7 @@ fn document_sidebar(
                 disabled=!available,
                 aria_label="New document",
                 title="New document",
+                class="hover:opacity-70 active:opacity-50",
                 on_click=@cmd.batch([emit(CreateRequested), close_after_action]),
                 sidebar_new_icon(),
               ),
@@ -169,6 +171,7 @@ fn document_sidebar(
                       disabled=!available && !selected,
                       aria_label=label,
                       title=label,
+                      class="hover:opacity-70 active:opacity-50",
                       on_click=@cmd.batch([
                         emit(DocumentSelected(document_id)),
                         close_after_action,
@@ -207,6 +210,7 @@ fn mode_bar(
           mobile=false,
           controls="loomark-document-sidebar",
           aria_label="Toggle documents",
+          class="hover:opacity-70 active:opacity-50",
           sidebar_panel_icon(),
         ),
         @html.div(
