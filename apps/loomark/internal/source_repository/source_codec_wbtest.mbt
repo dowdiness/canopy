@@ -30,6 +30,22 @@ test "source encoder round-trips valid browser text through strict decoder" {
 }
 
 ///|
+test "source encoder exactly round-trips a 1 MiB Source" {
+  let prefix = "# Stable\r\n"
+  let text = prefix + String::make(1024 * 1024 - prefix.length(), 'x')
+  assert_eq(text.length(), 1024 * 1024)
+  let source = SourceRecord::new("document-1-mib", text).unwrap()
+  guard decode_source(
+      source_key(source.document_id()).unwrap(),
+      encode_source(source),
+    )
+    is Ok(decoded) else {
+    fail("expected exact 1 MiB Source round-trip")
+  }
+  assert_eq(decoded, source)
+}
+
+///|
 test "source key and payload identity must match" {
   let source = SourceRecord::new("document-1", "# Text\n").unwrap()
   assert_eq(source_key(""), None)

@@ -163,6 +163,27 @@ test "accepted suffix edit reuses certified Catalog name" {
 }
 
 ///|
+test "accepted recovered heading suffix edit cannot use certified reuse" {
+  let original = RepositorySnapshot::from_sources([
+    test_source("document-a", "# )bad\n\nOld body\n"),
+  ]).unwrap()
+  assert_eq(original.catalog().entries()[0].name(), Some(")bad"))
+  assert_eq(
+    certified_name_prefix_end(
+      original.source("document-a").unwrap().text(),
+      original.catalog().entries()[0].name(),
+    ),
+    None,
+  )
+
+  let accepted = accepted_source(
+    original,
+    test_source("document-a", "# )bad\n\nNew body\n"),
+  )
+  assert_eq(accepted.catalog().entries()[0].name(), Some(")bad"))
+}
+
+///|
 test "snapshot orders unequal-length identities lexically" {
   let snapshot = RepositorySnapshot::from_sources([
     test_source("z", "# Z\n"),

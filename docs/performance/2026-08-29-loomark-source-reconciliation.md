@@ -81,8 +81,9 @@ eight distinct operands and retains every result.
 The encoder keeps the exact two-field Source schema and strict decoder but uses
 native JSON serialization in this JS-only package. Catalog reuse is deliberately
 narrow: each save reparses only the previous first terminated line, then reuses
-the name when that line certifies an unchanged, offset-zero, top-level ATX H1.
-No certificate is stored. Title changes and all uncertified forms continue
+the name when the first direct Document child is an unchanged ATX H1 and both
+parse diagnostics and CST error/incomplete metadata are empty. No certificate
+is stored. Title changes, recovered headings, and all uncertified forms continue
 through the existing complete parser.
 
 Production Chromium then exercised 30 saves across three fresh launches per

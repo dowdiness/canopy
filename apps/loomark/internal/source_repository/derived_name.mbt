@@ -10,9 +10,20 @@ priv struct NameDerivation {
 }
 
 ///|
-fn reusable_node_prefix_end(source : String, node : @seam.SyntaxNode) -> Int? {
-  let end = node.end()
-  guard node.start() == 0 && end > 0 && end <= source.length() else {
+fn certify_reusable_name_prefix(
+  source : String,
+  root : @seam.SyntaxNode,
+  diagnostics : @loom.DiagnosticSet,
+  candidate : @seam.SyntaxNode,
+) -> Int? {
+  guard diagnostics.is_empty() &&
+    root.first_child() is Some(first) &&
+    first.cst_node() == candidate.cst_node() &&
+    !candidate.cst_node().has_any_error() else {
+    return None
+  }
+  let end = candidate.end()
+  guard candidate.start() == 0 && end > 0 && end <= source.length() else {
     return None
   }
   let terminator = source.view(start_offset=end - 1, end_offset=end)
@@ -27,7 +38,7 @@ fn reusable_node_prefix_end(source : String, node : @seam.SyntaxNode) -> Int? {
 fn derive_name_with_certificate(
   source : String,
 ) -> Result[NameDerivation, Unit] {
-  let (cst, _) = @markdown.parse_cst(name_source_id, source) catch {
+  let (cst, diagnostics) = @markdown.parse_cst(name_source_id, source) catch {
     _ => return Err(())
   }
   let root = @seam.SyntaxNode::from_cst(cst)
@@ -42,7 +53,9 @@ fn derive_name_with_certificate(
       } else {
         Ok({
           name: Some(name),
-          reusable_prefix_end: reusable_node_prefix_end(source, node),
+          reusable_prefix_end: certify_reusable_name_prefix(
+            source, root, diagnostics, node,
+          ),
         })
       }
     }

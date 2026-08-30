@@ -67,8 +67,11 @@ hash contract.
 
 A normal save may parse only the previous Source's first terminated line to
 derive an ephemeral prefix certificate. It reuses the current Catalog name only
-when that prefix is a line-terminated top-level ATX H1 at offset zero, derives
-the same name, and is exactly equal in the new Source. Every other case runs the
+when that prefix parses without diagnostics or CST error/incomplete metadata,
+its first direct Document child is a line-terminated ATX H1 at offset zero, it
+derives the same name, and it is exactly equal in the new Source. Name
+derivation remains independent: recovered headings may still produce the same
+Catalog name while receiving no certificate. Every uncertified case runs the
 complete Markdown derivation and preserves its fail-closed behavior. No
 certificate is retained or persisted, so it cannot become Source authority.
 

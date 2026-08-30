@@ -39,6 +39,24 @@ test "name derivation certifies only a line-terminated top-level first H1" {
 }
 
 ///|
+test "recovered top-level heading derives a name but cannot certify reuse" {
+  let source = "# )bad\n"
+  let (cst, diagnostics) = try! @markdown.parse_cst(name_source_id, source)
+  let root = @seam.SyntaxNode::from_cst(cst)
+  guard root.first_child() is Some(heading) else {
+    fail("expected recovered heading")
+  }
+  assert_true(diagnostics.is_empty())
+  assert_true(heading.cst_node().has_any_error())
+  guard derive_name_with_certificate(source) is Ok(derivation) else {
+    fail("expected recovered heading name")
+  }
+  assert_eq(derivation.name, Some(")bad"))
+  assert_eq(derivation.reusable_prefix_end, None)
+  assert_eq(certified_name_prefix_end(source, derivation.name), None)
+}
+
+///|
 test "derived name uses the first ATX H1 in document order" {
   guard derive_name_with_certificate("## Skip\n\n> # Quoted\n\n# Later\n")
     is Ok(quoted_derivation) &&
