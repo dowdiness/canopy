@@ -120,37 +120,34 @@ fn document_sidebar(
     collapsible=@rui.SidebarOffcanvas,
     aria_label="Documents",
     style=[
-      "--rui-sidebar-width:18rem", "--rui-sidebar-width-mobile:20rem", "--rui-sidebar:var(--color-lm-foundation)",
-      "--rui-sidebar-foreground:var(--color-lm-ink)", "--rui-sidebar-border:var(--color-lm-rule)",
-      "--rui-sidebar-accent:var(--color-lm-accent-soft)", "--rui-sidebar-accent-foreground:var(--color-lm-accent)",
+      "--rui-sidebar-width:clamp(14rem,24vw,17rem)", "--rui-sidebar-width-mobile:17rem",
+      "--rui-sidebar:var(--color-lm-foundation)", "--rui-sidebar-foreground:var(--color-lm-ink)",
+      "--rui-sidebar-border:var(--color-lm-rule)", "--rui-sidebar-accent:var(--color-lm-accent-soft)",
+      "--rui-sidebar-accent-foreground:var(--color-lm-accent)",
     ],
     [
       @rui.sidebar_header(
         @html.div(class="flex min-h-9 items-center justify-between gap-2", [
-          @html.div(class="flex min-w-0 items-center gap-2", [
-            if mobile {
-              @rui.sidebar_trigger(
-                scope,
-                mobile=true,
-                controls="loomark-document-sidebar",
-                aria_label="Close documents",
-                sidebar_panel_icon(),
-              )
-            } else {
-              @html.nothing
-            },
-            @html.strong(class="truncate text-sm font-semibold", "Loomark"),
+          @html.strong(class="truncate text-sm font-semibold", "Loomark"),
+          @html.div(class="flex items-center gap-1", [
+            @rui.button(
+              variant=@rui.Ghost,
+              size=@rui.Sm,
+              disabled=!available,
+              on_click=@cmd.batch([
+                emit(CreateRequested),
+                @rui.sidebar_close_mobile(scope),
+              ]),
+              "New",
+            ),
+            @rui.sidebar_trigger(
+              scope,
+              mobile~,
+              controls="loomark-document-sidebar",
+              aria_label="Close documents",
+              sidebar_panel_icon(),
+            ),
           ]),
-          @rui.button(
-            variant=@rui.Ghost,
-            size=@rui.Sm,
-            disabled=!available,
-            on_click=@cmd.batch([
-              emit(CreateRequested),
-              @rui.sidebar_close_mobile(scope),
-            ]),
-            "New",
-          ),
         ]),
       ),
       @rui.sidebar_separator(),
@@ -203,11 +200,6 @@ fn document_sidebar(
           },
         ),
       ),
-      if mobile {
-        @html.nothing
-      } else {
-        @rui.sidebar_rail(scope)
-      },
     ],
   )
 }
@@ -218,21 +210,26 @@ fn mode_bar(
   editing : EditingState,
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
+  let sidebar_open = if editing.compact {
+    @rui.sidebar_is_mobile_open(scope)
+  } else {
+    !@rui.sidebar_is_collapsed(scope)
+  }
   @html.header(
     class="relative z-2 flex min-h-11 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-lm-rule bg-lm-surface px-3 py-1.5 max-[641px]:px-2",
     [
       @html.div(class="flex min-w-0 items-center gap-2", [
-        @rui.sidebar_trigger(
-          scope,
-          mobile=editing.compact,
-          controls="loomark-document-sidebar",
-          aria_label=if editing.compact {
-            "Open documents"
-          } else {
-            "Toggle documents"
-          },
-          sidebar_panel_icon(),
-        ),
+        if sidebar_open {
+          @html.nothing
+        } else {
+          @rui.sidebar_trigger(
+            scope,
+            mobile=editing.compact,
+            controls="loomark-document-sidebar",
+            aria_label="Open documents",
+            sidebar_panel_icon(),
+          )
+        },
         @html.div(
           class="inline-flex items-center gap-0.5",
           attrs=@html.Attrs::build()
