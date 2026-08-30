@@ -6,7 +6,7 @@ fn examples_bar(
 ) -> @rabbita.Html {
   let button_class = "min-h-8 shrink-0 cursor-pointer appearance-none rounded-md border-0 bg-transparent px-2 py-1 text-xs text-lm-muted transition-colors duration-150 hover:bg-[oklch(0.955_0.003_255)] hover:text-lm-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lm-accent max-[641px]:min-h-11 max-[641px]:px-1"
   @html.div(
-    class="flex min-w-0 items-center justify-end gap-0.5 max-[641px]:flex-1 max-[641px]:justify-start max-[641px]:overflow-x-auto",
+    class="flex min-w-0 items-center justify-end gap-0.5 max-[641px]:flex-1 max-[641px]:overflow-x-auto max-[641px]:[justify-content:safe_flex-end]",
     attrs=@html.Attrs::build().role("toolbar").aria_label("Example documents"),
     [
       @html.button(
