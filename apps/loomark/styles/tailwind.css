@@ -93,12 +93,6 @@
   width: 1.5px;
   background: currentColor;
   content: "";
-  transition: transform 180ms cubic-bezier(0.23, 1, 0.32, 1);
-}
-
-[data-slot="sidebar-trigger"][data-state="open"]
-  [data-loomark-icon="sidebar"]::before {
-  transform: translateX(0.5rem);
 }
 
 [data-slot="sidebar-menu-action"] [data-loomark-icon="new-document"] {
@@ -123,7 +117,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-loomark-icon="sidebar"]::before,
   [data-slot="sidebar-menu-action"] [data-loomark-icon="new-document"] {
     transition-duration: 80ms;
   }
