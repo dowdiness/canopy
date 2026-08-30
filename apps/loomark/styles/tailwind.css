@@ -106,9 +106,14 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  [data-slot="sidebar-menu-action"]:hover
-    [data-loomark-icon="new-document"] {
-    transform: scale(1.1);
+  [data-slot="sidebar-trigger"]:hover {
+    --rui-button-bg: var(--color-lm-accent-soft);
+    --rui-button-fg: var(--color-lm-accent);
+  }
+
+  [data-slot="sidebar-menu-action"]:hover {
+    --rui-sidebar-action-bg: var(--color-lm-accent-soft);
+    --rui-sidebar-action-fg: var(--color-lm-accent);
   }
 }
 

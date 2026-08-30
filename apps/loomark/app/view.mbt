@@ -156,7 +156,7 @@ fn document_sidebar(
                 disabled=!available,
                 aria_label="New document",
                 title="New document",
-                class="hover:opacity-70 active:opacity-50",
+                class="active:opacity-50",
                 on_click=@cmd.batch([emit(CreateRequested), close_after_action]),
                 sidebar_new_icon(),
               ),
@@ -210,7 +210,7 @@ fn mode_bar(
           mobile=false,
           controls="loomark-document-sidebar",
           aria_label="Toggle documents",
-          class="hover:opacity-70 active:opacity-50",
+          class="active:opacity-50",
           sidebar_panel_icon(),
         ),
         @html.div(
