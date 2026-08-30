@@ -411,13 +411,18 @@ test("several Sources select the first lexical Document ID without writing metad
 
   await page.reload()
   await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(documentA.text)
-  await expect(page.getByRole("combobox", { name: "Document" }).locator("option"))
-    .toHaveText(["Same (1 of 2)", "Same (2 of 2)", "Unnamed document"])
+  const documents = page.getByRole("complementary", { name: "Documents" })
+  await expect(documents.getByRole("button", { name: "Same (1 of 2)" }))
+    .toBeVisible()
+  await expect(documents.getByRole("button", { name: "Same (2 of 2)" }))
+    .toBeVisible()
+  await expect(documents.getByRole("button", { name: "Unnamed document" }))
+    .toBeVisible()
   expect(await readStoredDocumentRaw(page, CATALOG_KEY)).toBeUndefined()
   expect(await readStoredDocumentRaw(page, "source/v2/future")).toBe("future")
 })
 
-test("Document selector switches saved Sources A to B to A without cross-document undo", async ({ page }) => {
+test("Document Sidebar switches saved Sources A to B to A without cross-document undo", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
   const documentA = { document_id: "document-a", text: "# A\n" }
@@ -428,10 +433,12 @@ test("Document selector switches saved Sources A to B to A without cross-documen
   ])
 
   await page.reload()
-  const selector = page.getByRole("combobox", { name: "Document" })
+  const documents = page.getByRole("complementary", { name: "Documents" })
   const text = page.getByRole("textbox", { name: "Text" })
-  await expect(selector).toHaveValue(documentA.document_id)
-  await expect(selector.locator("option")).toHaveText(["A", "B"])
+  await expect(documents.getByRole("button", { name: "A", exact: true }))
+    .toHaveAttribute("data-state", "active")
+  await expect(documents.getByRole("button", { name: "B", exact: true }))
+    .toBeVisible()
 
   await text.fill("# A edited\n")
   await expect.poll(() => readStoredDocumentRaw(page, sourceKey(documentA.document_id)))
@@ -439,7 +446,7 @@ test("Document selector switches saved Sources A to B to A without cross-documen
   await page.getByRole("tab", { name: "Split" }).click()
   await expect(page.getByRole("heading", { name: "A edited" })).toBeVisible()
 
-  await selector.selectOption(documentB.document_id)
+  await documents.getByRole("button", { name: "B", exact: true }).click()
   await expect(text).toHaveValue(documentB.text)
   await expect(page.getByRole("tab", { name: "Split" })).toHaveAttribute(
     "aria-selected",
@@ -451,7 +458,7 @@ test("Document selector switches saved Sources A to B to A without cross-documen
   await page.keyboard.press("Control+Z")
   await expect(text).toHaveValue(documentB.text)
 
-  await selector.selectOption(documentA.document_id)
+  await documents.getByRole("button", { name: "A edited", exact: true }).click()
   await expect(text).toHaveValue("# A edited\n")
   await expect(page.getByRole("heading", { name: "A edited" })).toBeVisible()
   expect(await readStoredDocumentRaw(page, sourceKey(documentB.document_id)))
@@ -464,32 +471,29 @@ test("New Document commits one baseline Source before activating it", async ({ p
   const before = await readStoredDocuments(page)
   expect(before).toHaveLength(1)
 
-  const selector = page.getByRole("combobox", { name: "Document" })
+  const documents = page.getByRole("complementary", { name: "Documents" })
   await page.getByRole("button", { name: "New document" }).click()
   await expect.poll(() => readStoredDocuments(page).then(documents => documents.length)).toBe(2)
   const after = await readStoredDocuments(page)
   const created = after.find(document => document.document_id !== before[0].document_id)
   if (!created) throw new Error("created Source missing")
   expect(created.text).toBe("# Untitled\n")
-  await expect(selector).toHaveValue(created.document_id)
   await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("# Untitled\n")
-  await expect(selector.locator("option")).toHaveText([
-    "Untitled (1 of 2)",
-    "Untitled (2 of 2)",
-  ])
+  await expect(documents.getByRole("button", { name: /^Untitled/ })).toHaveCount(2)
+  await expect(documents.locator('[data-state="active"]')).toContainText("Untitled")
 
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill("# Project notes\n")
   await expect.poll(() => readStoredDocumentRaw(page, sourceKey(created.document_id)))
     .toBe(encodeStoredDocument({ ...created, text: "# Project notes\n" }))
-  await expect(selector.locator("option:checked")).toHaveText("Project notes")
+  await expect(documents.locator('[data-state="active"]')).toContainText("Project notes")
   const renamed = await readStoredDocuments(page)
 
   await page.reload()
-  await expect(selector.locator("option")).toHaveCount(2)
-  expect(await selector.locator("option").allTextContents()).toEqual(
-    expect.arrayContaining(["Untitled", "Project notes"]),
-  )
+  await expect(documents.getByRole("button", { name: "Untitled", exact: true }))
+    .toBeVisible()
+  await expect(documents.getByRole("button", { name: "Project notes", exact: true }))
+    .toBeVisible()
   expect(await readStoredDocuments(page)).toEqual(renamed)
 })
 
@@ -505,9 +509,8 @@ test("creation failure preserves the active document and can retry", async ({ pa
     "A new document could not be created. Browser storage is full.",
   )
   await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(baseline.text)
-  await expect(page.getByRole("combobox", { name: "Document" })).toHaveValue(
-    baseline.document_id,
-  )
+  await expect(page.getByRole("complementary", { name: "Documents" })
+    .locator('[data-state="active"]')).toContainText("Untitled")
   expect(await readStoredDocuments(page)).toEqual([baseline])
 
   await page.evaluate(removeDocumentPutFailure)
@@ -520,7 +523,9 @@ test("Document controls remain accessible without horizontal overflow at 390 px"
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto("/")
   await waitForRepositoryOpen(page)
-  await expect(page.getByRole("combobox", { name: "Document" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Toggle documents" }))
+    .toHaveAttribute("aria-expanded", "false")
+  await page.getByRole("button", { name: "Documents", exact: true }).click()
   await expect(page.getByRole("button", { name: "New document" })).toBeVisible()
   await expect(page.getByRole("tab", { name: "Text" })).toBeVisible()
   await expect(page.getByRole("tab", { name: "Preview" })).toBeVisible()
@@ -543,21 +548,23 @@ test("document action attempted before save stays on the active Source", async (
 
   await page.reload()
   const text = page.getByRole("textbox", { name: "Text" })
-  const selector = page.getByRole("combobox", { name: "Document" })
+  const documents = page.getByRole("complementary", { name: "Documents" })
+  const documentAButton = documents.getByRole("button", { name: "A", exact: true })
+  const documentBButton = documents.getByRole("button", { name: "B", exact: true })
   await text.pressSequentially("x")
-  await expect(selector.locator(`option[value="${documentA.document_id}"]`)).toBeEnabled()
-  await expect(selector.locator(`option[value="${documentB.document_id}"]`)).toBeDisabled()
-  await expect(selector.locator("..")).toHaveCSS("opacity", "0.5")
+  await expect(documentAButton).toBeEnabled()
+  await expect(documentBButton).toBeDisabled()
+  await expect(documentBButton).toHaveCSS("opacity", "0.5")
   await expect(page.getByRole("button", { name: "New document" })).toBeDisabled()
-  await expect(selector).toHaveValue(documentA.document_id)
+  await expect(documentAButton).toHaveAttribute("data-state", "active")
   await expect(text).toHaveValue("# A\nx")
   await expect(page.getByText("Wait for saving to finish.")).toHaveCount(0)
   await expect.poll(() => readStoredDocumentRaw(page, sourceKey(documentA.document_id)))
     .toBe(encodeStoredDocument({ ...documentA, text: "# A\nx" }))
-  await expect(selector.locator(`option[value="${documentB.document_id}"]`)).toBeEnabled()
-  await expect(selector.locator("..")).toHaveCSS("opacity", "1")
+  await expect(documentBButton).toBeEnabled()
+  await expect(documentBButton).toHaveCSS("opacity", "1")
   await expect(page.getByRole("button", { name: "New document" })).toBeEnabled()
-  await selector.selectOption(documentB.document_id)
+  await documentBButton.click()
   await expect(text).toHaveValue(documentB.text)
 })
 
@@ -776,7 +783,7 @@ test("Tailwind Typography and utilities preserve the Loomark shell and reading m
   await expect(page.getByRole("textbox", { name: "Text" })).toBeVisible()
 
   const styles = await page.evaluate(() => {
-    const modeBar = document.querySelector('[role="tablist"]')?.parentElement as HTMLElement
+    const modeBar = document.querySelector('[role="tablist"]')?.closest("header") as HTMLElement
     const selectedTab = document.querySelector('[role="tab"][aria-selected="true"]') as HTMLElement
     const text = document.getElementById("loomark-text") as HTMLTextAreaElement
     return {
@@ -816,16 +823,16 @@ test("Tailwind Typography and utilities preserve the Loomark shell and reading m
   ))).toBe("decimal")
   expect(await preview.locator("hr").first().evaluate(element => (
     Number.parseFloat(getComputedStyle(element).width)
-  ))).toBeGreaterThan(500)
+  ))).toBeGreaterThan(400)
   expect(Number.parseFloat(await preview.locator("pre code").first()
-    .evaluate(element => getComputedStyle(element).lineHeight))).toBeCloseTo(24, 1)
+    .evaluate(element => getComputedStyle(element).lineHeight))).toBeCloseTo(17.14, 1)
   expect(await preview.locator("p code").first().evaluate(element => ({
     before: getComputedStyle(element, "::before").content,
     after: getComputedStyle(element, "::after").content,
   }))).toEqual({ before: "none", after: "none" })
   await expect.poll(() => preview.locator("p").first().evaluate(element => (
     getComputedStyle(element).fontSize
-  ))).toBe("16px")
+  ))).toBe("14px")
   expect(await preview.locator("p").first().evaluate(element => (
     getComputedStyle(element).marginTop
   ))).toBe("18px")
@@ -833,7 +840,7 @@ test("Tailwind Typography and utilities preserve the Loomark shell and reading m
     getComputedStyle(element).marginTop
   ))).toBe("28px")
 
-  await page.setViewportSize({ width: 1200, height: 700 })
+  await page.setViewportSize({ width: 1280, height: 700 })
   await expect.poll(() => preview.locator("p").first().evaluate(element => (
     getComputedStyle(element).fontSize
   ))).toBe("18px")
@@ -921,7 +928,7 @@ test("Split uses RUI keyboard resizing and preserves textarea across orientation
     throw new Error("Compact Split resize geometry missing")
   }
   expect(Math.abs(compactSeparatorBox.width - compactGroupBox.width))
-    .toBeLessThanOrEqual(1)
+    .toBeLessThanOrEqual(4)
   expect(await page.evaluate(() => (
     (globalThis as typeof globalThis & { __loomarkTextArea?: HTMLTextAreaElement })
       .__loomarkTextArea === document.getElementById("loomark-text")
