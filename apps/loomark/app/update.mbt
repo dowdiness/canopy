@@ -34,28 +34,6 @@ fn compact_viewport(width : Int) -> Bool {
 }
 
 ///|
-fn mode_dom_id(mode : EditorMode) -> String {
-  match mode {
-    Text => "loomark-mode-text"
-    Preview => "loomark-mode-preview"
-    Split => "loomark-mode-split"
-  }
-}
-
-///|
-fn adjacent_mode(mode : EditorMode, key : String) -> EditorMode? {
-  match (mode, key) {
-    (Text, "ArrowLeft") => Some(Split)
-    (Preview, "ArrowLeft") => Some(Text)
-    (Split, "ArrowLeft") => Some(Preview)
-    (Text, "ArrowRight") => Some(Preview)
-    (Preview, "ArrowRight") => Some(Split)
-    (Split, "ArrowRight") => Some(Text)
-    _ => None
-  }
-}
-
-///|
 fn preview_last(state : PreviewState) -> PreviewResult? {
   match state {
     Ready(result) => Some(result)
@@ -83,12 +61,12 @@ fn select_mode(
   match editing.preview {
     Unrequested if mode != Text =>
       (
-        { ..editing, mode, focused_mode: mode, preview: Preparing },
+        { ..editing, mode, preview: Preparing },
         @preview.after_paint(emit(BeginPreviewPreparation(editing.activation))),
       )
     Failed(_) if entering_preview =>
       (
-        { ..editing, mode, focused_mode: mode },
+        { ..editing, mode, },
         @preview.refresh_cmd(
           preview_engine,
           editing.activation.generation,
@@ -99,7 +77,7 @@ fn select_mode(
         ),
       )
     Unrequested | Preparing | Ready(_) | Failed(_) =>
-      ({ ..editing, mode, focused_mode: mode }, @cmd.none)
+      ({ ..editing, mode, }, @cmd.none)
   }
 }
 
@@ -182,7 +160,6 @@ fn update(
                   save: Saved,
                   creation: Idle,
                   mode: Text,
-                  focused_mode: Text,
                   compact,
                   preview: Unrequested,
                   repository: snapshot,
@@ -304,27 +281,6 @@ fn update(
       let (editing, command) = select_mode(editing, mode, emit, preview_engine)
       (Editing(editing), command)
     }
-    (Editing(editing), ModeKeyPressed(key)) =>
-      match key {
-        "Enter" | " " => {
-          let (editing, command) = select_mode(
-            editing,
-            editing.focused_mode,
-            emit,
-            preview_engine,
-          )
-          (Editing(editing), command)
-        }
-        _ =>
-          match adjacent_mode(editing.focused_mode, key) {
-            Some(focused_mode) =>
-              (
-                Editing({ ..editing, focused_mode, }),
-                @mode_tabs.focus(mode_dom_id(focused_mode)),
-              )
-            None => (model, @cmd.none)
-          }
-      }
     (Editing(editing), BeginPreviewPreparation(owner)) =>
       if owner != editing.activation {
         (model, @cmd.none)

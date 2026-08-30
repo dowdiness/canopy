@@ -5,6 +5,27 @@ fn render_preview_state(state : PreviewState) -> String {
 }
 
 ///|
+test "Mode tabs use the RUI Tabs trigger contract" {
+  let rendered = @rabbita_testing.server_side_render(() => {
+    mode_tab(Text, Preview, @cmd.Emit(_ => @cmd.none))
+  })
+  assert_true(rendered.contains("data-slot=\"tabs-trigger\""))
+  assert_true(rendered.contains("data-state=\"inactive\""))
+  assert_true(rendered.contains("role=\"tab\""))
+  assert_true(rendered.contains("aria-selected=\"false\""))
+  assert_true(rendered.contains("aria-controls=\"loomark-editor-panel\""))
+  assert_true(rendered.contains("id=\"loomark-mode-text\""))
+
+  let content = @rabbita_testing.server_side_render(() => {
+    mode_content(Text, @html.p("Editor"))
+  })
+  assert_true(content.contains("data-slot=\"tabs-content\""))
+  assert_true(content.contains("role=\"tabpanel\""))
+  assert_true(content.contains("aria-labelledby=\"loomark-mode-text\""))
+  assert_true(content.contains("id=\"loomark-editor-panel\""))
+}
+
+///|
 test "Document sidebar labels disambiguate Source-derived identities" {
   let snapshot = @source_repository.RepositorySnapshot::from_sources([
     @source_repository.SourceRecord::new("document-a", "# Untitled\n").unwrap(),

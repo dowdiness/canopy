@@ -8,30 +8,29 @@ fn mode_name(mode : EditorMode) -> String {
 }
 
 ///|
+fn mode_dom_id(mode : EditorMode) -> String {
+  "loomark-mode-\{mode_name(mode).to_lower()}"
+}
+
+///|
 fn mode_tab(
   mode : EditorMode,
   selected_mode : EditorMode,
-  focused_mode : EditorMode,
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
   let name = mode_name(mode)
-  let selected = mode == selected_mode
-  @html.button(
+  @rui.tabs_trigger(
+    value=name.to_lower(),
+    selected=mode == selected_mode,
+    controls="loomark-editor-panel",
     id=mode_dom_id(mode),
-    class=if selected {
-      "relative m-0 inline-grid size-8 cursor-pointer appearance-none place-items-center rounded-md border border-[oklch(0.79_0.035_276)] bg-lm-accent-soft p-0 text-lm-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lm-accent"
-    } else {
-      "relative m-0 inline-grid size-8 cursor-pointer appearance-none place-items-center rounded-md border border-transparent bg-transparent p-0 text-lm-muted hover:bg-[oklch(0.955_0.003_255)] hover:text-lm-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lm-accent"
-    },
+    on_value_change=@cmd.Emit(_ => emit(ModeSelected(mode))),
     title=name,
-    type_="button",
-    attrs=@html.Attrs::build()
-      .role("tab")
-      .aria_label(name)
-      .aria_selected(if selected { "true" } else { "false" })
-      .aria_controls("loomark-editor-panel")
-      .tabindex(if mode == focused_mode { 0 } else { -1 }),
-    on_click=emit(ModeSelected(mode)),
+    class="hover:[--rui-tabs-bg:var(--color-lm-accent-soft)] hover:[--rui-tabs-fg:var(--color-lm-accent)] active:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lm-accent",
+    attrs=@html.Attrs::build().aria_label(name),
+    style=[
+      "width:1.75rem;height:1.75rem;min-height:1.75rem;flex:none;padding:0",
+    ],
     @html.span(
       class="pointer-events-none relative block size-4.5",
       attrs=@html.Attrs::build()
@@ -43,18 +42,16 @@ fn mode_tab(
 }
 
 ///|
-fn mode_keydown(
-  event : @dom.KeyboardEvent,
-  emit : @rabbita.Emit[Msg],
-) -> @rabbita.Cmd {
-  let key = event.key()
-  match key {
-    "ArrowLeft" | "ArrowRight" | "Enter" | " " => {
-      event.prevent_default()
-      emit(ModeKeyPressed(key))
-    }
-    _ => @cmd.none
-  }
+fn mode_content(mode : EditorMode, content : @rabbita.Html) -> @rabbita.Html {
+  @rui.tabs_content(
+    value=mode_name(mode).to_lower(),
+    selected=true,
+    labelledby=mode_dom_id(mode),
+    id="loomark-editor-panel",
+    class="min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+    style=["display:flex"],
+    content,
+  )
 }
 
 ///|
@@ -214,18 +211,21 @@ fn mode_bar(
           class="active:opacity-50",
           sidebar_panel_icon(),
         ),
-        @html.div(
-          class="inline-flex items-center gap-0.5",
-          attrs=@html.Attrs::build()
-            .role("tablist")
-            .aria_label("Editor mode")
-            .aria_orientation("horizontal")
-            .on_keydown(event => mode_keydown(event, emit)),
-          [
-            mode_tab(Text, editing.mode, editing.focused_mode, emit),
-            mode_tab(Preview, editing.mode, editing.focused_mode, emit),
-            mode_tab(Split, editing.mode, editing.focused_mode, emit),
-          ],
+        @rui.tabs_root(
+          value=mode_name(editing.mode).to_lower(),
+          class="[--rui-background:var(--color-lm-accent-soft)] [--rui-foreground:var(--color-lm-accent)] [--rui-muted:oklch(0.955_0.003_255)] [--rui-muted-foreground:var(--color-lm-muted)]",
+          style=["width:auto"],
+          @rui.tabs_list(
+            orientation=@rui.TabsHorizontal,
+            variant=@rui.TabsDefault,
+            aria_label="Editor mode",
+            style=["min-height:2rem"],
+            [
+              mode_tab(Text, editing.mode, emit),
+              mode_tab(Preview, editing.mode, emit),
+              mode_tab(Split, editing.mode, emit),
+            ],
+          ),
         ),
       ]),
       examples_bar(
@@ -438,14 +438,7 @@ fn view(
               class="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-lm-paper",
               [
                 mode_bar(sidebar, editing, emit),
-                @html.main_(
-                  id="loomark-editor-panel",
-                  class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
-                  attrs=@html.Attrs::build()
-                    .role("tabpanel")
-                    .aria_label("\{mode_name(editing.mode)} mode"),
-                  editor_panels,
-                ),
+                mode_content(editing.mode, editor_panels),
                 match (editing.save, editing.creation) {
                   (Failed(failure), _) => save_failure_view(failure, emit)
                   (_, CreationFailed(failure)) =>

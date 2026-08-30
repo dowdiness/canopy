@@ -839,55 +839,38 @@ test("Tailwind Typography and utilities preserve the Loomark shell and reading m
   ))).toBe("18px")
 })
 
-test("mode tabs move focus without activation and activate with Enter or Space", async ({ page }) => {
+test("RUI mode tabs activate with roving keyboard focus", async ({ page }) => {
   await page.goto("/")
 
   const textTab = page.getByRole("tab", { name: "Text" })
   const previewTab = page.getByRole("tab", { name: "Preview" })
   const splitTab = page.getByRole("tab", { name: "Split" })
+  const editorPanel = page.locator("#loomark-editor-panel")
   const preview = page.getByRole("region", { name: "Markdown preview" })
-  const documentControls = [
-    page.getByRole("combobox", { name: "Document" }),
-    page.getByRole("button", { name: "New document" }),
-  ]
-  const exampleButtons = [
-    "Apply Markdown feature tour example",
-    "Apply Hello example",
-    "Guide: Apply Blog example",
-    "Apply List example",
-    "Apply Code example",
-  ].map(name => page.getByRole("button", { name }))
 
-  await textTab.focus()
-  await page.keyboard.press("ArrowRight")
-  await expect(previewTab).toBeFocused()
   await expect(textTab).toHaveAttribute("aria-selected", "true")
-  await expect(preview).toBeHidden()
-
-  await page.keyboard.press("Enter")
-  await expect(previewTab).toBeFocused()
-  await expect(previewTab).toHaveAttribute("aria-selected", "true")
-  await expect(preview).toBeVisible()
-  for (const control of [...documentControls, ...exampleButtons]) {
-    await page.keyboard.press("Tab")
-    await expect(control).toBeFocused()
-  }
-  await page.keyboard.press("Tab")
-  await expect(preview).toBeFocused()
-  await previewTab.focus()
+  await expect(editorPanel).toHaveAttribute("aria-labelledby", "loomark-mode-text")
+  await textTab.focus()
 
   await page.keyboard.press("ArrowRight")
-  await expect(splitTab).toBeFocused()
+  await expect(previewTab).toBeFocused()
   await expect(previewTab).toHaveAttribute("aria-selected", "true")
-  await page.keyboard.press("Space")
+  await expect(editorPanel).toHaveAttribute(
+    "aria-labelledby",
+    "loomark-mode-preview",
+  )
+  await expect(preview).toBeVisible()
+
+  await page.keyboard.press("ArrowRight")
   await expect(splitTab).toBeFocused()
   await expect(splitTab).toHaveAttribute("aria-selected", "true")
-  for (const control of [...documentControls, ...exampleButtons]) {
-    await page.keyboard.press("Tab")
-    await expect(control).toBeFocused()
-  }
-  await page.keyboard.press("Tab")
-  await expect(page.getByRole("textbox", { name: "Text" })).toBeFocused()
+  await expect(editorPanel).toHaveAttribute("aria-labelledby", "loomark-mode-split")
+  await expect(page.getByRole("textbox", { name: "Text" })).toBeVisible()
+  await expect(preview).toBeVisible()
+
+  await page.keyboard.press("ArrowLeft")
+  await expect(previewTab).toBeFocused()
+  await expect(previewTab).toHaveAttribute("aria-selected", "true")
 })
 
 test("Split uses RUI keyboard resizing and preserves textarea across orientation", async ({ page }) => {

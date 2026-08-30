@@ -1,6 +1,5 @@
 import {
   "dowdiness/loomark/internal/source_repository",
-  "dowdiness/loomark/internal/mode_tabs",
   "dowdiness/loomark/internal/preview",
   "dowdiness/loomark/internal/text_area",
   "dowdiness/text_change",
