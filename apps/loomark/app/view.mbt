@@ -33,9 +33,7 @@ fn mode_tab(
     title=name,
     class="group",
     attrs=@html.Attrs::build().aria_label(name),
-    style=[
-      "width:1.75rem;height:1.75rem;min-height:1.75rem;flex:none;padding:0",
-    ],
+    style=["width:2rem;height:2rem;min-height:2rem;flex:none;padding:0"],
     @html.span(
       class="pointer-events-none block size-4.5 \{icon_class} transition-colors duration-150 group-hover:text-[oklch(0.145_0_0)]",
       attrs=@html.Attrs::build().aria_hidden("true"),
@@ -101,7 +99,7 @@ fn sidebar_folder_icon() -> @rabbita.Html {
 ///|
 fn sidebar_new_icon() -> @rabbita.Html {
   @html.span(
-    class="i-lucide-plus block size-4 shrink-0 transition-transform duration-[120ms] active:scale-[0.86] motion-reduce:duration-[80ms]",
+    class="i-lucide-plus block size-4 shrink-0",
     attrs=@html.Attrs::build().aria_hidden("true"),
     @html.nothing,
   )
@@ -159,8 +157,8 @@ fn document_sidebar(
                 disabled=!available,
                 aria_label="New document",
                 title="New document",
-                class="active:opacity-50",
-                style=["width:1.5rem;height:1.5rem"],
+                class="loomark-sidebar-action",
+                style=["width:2rem;height:2rem"],
                 on_click=@cmd.batch([emit(CreateRequested), close_after_action]),
                 sidebar_new_icon(),
               ),
@@ -175,13 +173,13 @@ fn document_sidebar(
                       disabled=!available && !selected,
                       aria_label=label,
                       title=label,
-                      class="pr-8 hover:opacity-70 active:opacity-50",
+                      class="pr-10 hover:opacity-70 active:opacity-50",
                       on_click=@cmd.batch([
                         emit(DocumentSelected(document_id)),
                         close_after_action,
                       ]),
                       style=[
-                        "height:auto;min-height:2.25rem;align-items:flex-start;padding-block:0.375rem",
+                        "height:auto;min-height:2.5rem;align-items:flex-start;padding-block:0.5rem",
                       ],
                       @html.span(
                         class="min-w-0 overflow-hidden text-ellipsis whitespace-normal [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]",
@@ -191,9 +189,13 @@ fn document_sidebar(
                     @sidebar.sidebar_menu_action(
                       disabled=!available || entries.length() <= 1,
                       aria_label="Delete \"\{label}\"",
-                      title="Delete \"\{label}\"",
-                      class="text-lm-danger active:opacity-50",
-                      style=["width:1.5rem;height:1.5rem"],
+                      title=if entries.length() <= 1 {
+                        "Keep at least one document"
+                      } else {
+                        "Delete \"\{label}\""
+                      },
+                      class="loomark-sidebar-action loomark-delete-action",
+                      style=["width:2rem;height:2rem"],
                       on_click=emit(DeleteRequested(document_id)),
                       sidebar_delete_icon(),
                     ),
