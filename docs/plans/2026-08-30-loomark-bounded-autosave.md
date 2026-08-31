@@ -324,37 +324,36 @@ measured pairs per launch.
 
 | Fixture / operation | Samples | Browser dispatch p95 | Maximum |
 | --- | ---: | ---: | ---: |
-| Practical Preview / same-length mismatch | 150 | 1.1 ms | 3.7 ms |
-| Practical Preview / exact revert | 150 | 1.0 ms | 1.7 ms |
-| 64 KiB / same-length mismatch | 150 | 0.2 ms | 0.3 ms |
-| 64 KiB / exact revert | 150 | 0.2 ms | 0.4 ms |
-| 256 KiB / same-length mismatch | 150 | 0.7 ms | 0.8 ms |
-| 256 KiB / exact revert | 150 | 0.7 ms | 1.0 ms |
-| 1 MiB / same-length mismatch | 150 | 5.9 ms | 7.2 ms |
-| 1 MiB / exact revert | 150 | 5.9 ms | 6.9 ms |
+| Practical Preview / same-length mismatch | 150 | 0.9 ms | 3.1 ms |
+| Practical Preview / exact revert | 150 | 0.8 ms | 2.9 ms |
+| 64 KiB / same-length mismatch | 150 | 0.2 ms | 0.4 ms |
+| 64 KiB / exact revert | 150 | 0.2 ms | 0.3 ms |
+| 256 KiB / same-length mismatch | 150 | 0.6 ms | 0.8 ms |
+| 256 KiB / exact revert | 150 | 0.6 ms | 0.8 ms |
+| 1 MiB / same-length mismatch | 150 | 3.5 ms | 4.3 ms |
+| 1 MiB / exact revert | 150 | 3.4 ms | 4.1 ms |
 
 The 1 MiB cold tail used one mismatch/revert pair per fresh Chromium launch.
 
 | 1 MiB cold operation | Samples | p95 | p99 | Maximum |
 | --- | ---: | ---: | ---: | ---: |
-| Same-length mismatch | 50 | 4.9 ms | 5.1 ms | 5.1 ms |
-| Exact revert | 50 | 4.1 ms | 4.3 ms | 4.3 ms |
+| Same-length mismatch | 50 | 4.5 ms | 5.0 ms | 5.0 ms |
+| Exact revert | 50 | 3.9 ms | 4.0 ms | 4.0 ms |
 
 Every exact revert restored activation controls before quiet, retained the
 acknowledged Source, and produced zero puts, including after the stale 2,000 ms
 maximum timer was delivered.
 
 The 1 MiB active-overlap fixture requested 46 inputs with a 50 ms sleep across
-three launches. Browser work stretched input-start gaps to at most 168.2 ms, so
+three launches. Browser work stretched input-start gaps to at most 158.8 ms, so
 no 250 ms quiet interval occurred during the stream. Each launch produced three
-coalesced checkpoints at approximately 2.0–2.1, 4.2–4.3, and 5.8–6.0 seconds;
-the final
+coalesced checkpoints at approximately 2.1, 4.2, and 5.7–5.8 seconds; the final
 Source matched current text. This replaces completion-driven trains with the
 selected maximum epochs plus one final quiet checkpoint.
 
-Overlap input dispatch p95 was 0.3 ms. One launch had a 25.6 ms maximum and the
-launches retained 105–162 ms browser textarea/rendering long tasks. These are
-the
+Overlap input dispatch p95 was 0.3 ms. One launch had a 16.8 ms maximum, and
+the launches retained 104–155 ms browser textarea/rendering long tasks. These
+are the
 known 1 MiB browser-input limitation rather than Source comparison or save
 preparation, so this work does not claim frame responsiveness for that stress
 fixture.
@@ -1080,8 +1079,8 @@ Run Slopless on changed English Markdown and retain zero unresolved findings.
 
 ### One MiB exact comparison remains document-size-dependent
 
-The final revision-token run observed a 7.2 ms maximum across warmed 1 MiB
-mismatch/revert samples and 5.1 ms across cold samples. Later integrated state
+The committed revision-token run observed a 4.3 ms maximum across warmed 1 MiB
+mismatch/revert samples and 5.0 ms across cold samples. Later integrated state
 or larger documents may cross 10 ms. The measured fallback moves acknowledged
 comparison to eligibility without adding another authority.
 
