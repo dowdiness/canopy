@@ -377,10 +377,10 @@ fn view(
                 mode_bar(sidebar, editing, emit),
                 mode_content(editing.mode, editor_panels),
                 match (editing.save, editing.creation) {
-                  (Failed(failure), _) => save_failure_view(failure, emit)
+                  (Failed(failure, _), _) => save_failure_view(failure, emit)
                   (_, CreationFailed(failure)) =>
                     creation_failure_view(failure, emit)
-                  (Saved | Waiting | Saving(_), Idle | Creating) =>
+                  (Saved | Waiting(_) | Saving(_, _), Idle | Creating) =>
                     @html.nothing
                 },
               ],

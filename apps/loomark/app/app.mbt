@@ -10,7 +10,10 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
       update(model, msg, emit, text_area, preview_engine)
     },
     subscriptions=(_, emit) => {
-      @sub.on_resize(viewport => emit(ViewportChanged(viewport.width)))
+      @sub.batch([
+        @sub.on_resize(viewport => emit(ViewportChanged(viewport.width))),
+        @sub.on_visibility_change(hidden => emit(VisibilityChanged(hidden))),
+      ])
     },
   )
 

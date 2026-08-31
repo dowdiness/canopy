@@ -115,6 +115,12 @@ Only needed if you are modifying Canopy itself.
   [issue #1124](https://github.com/dowdiness/canopy/issues/1124), not active
   backlog.
 
+**Completed implementation records:**
+
+- [Loomark bounded Autosave](archive/plans/2026-08-30-loomark-bounded-autosave.md)
+  — completed #1347 specification for quiet and maximum eligibility, exact
+  Saved state, single-flight persistence, IME, visibility, and production gates.
+
 **Performance:**
 
 - [Canopy remote-admission authority transition](performance/2026-08-19-canopy-remote-admission-authority-transition.md)
