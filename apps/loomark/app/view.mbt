@@ -19,6 +19,11 @@ fn mode_tab(
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
   let name = mode_name(mode)
+  let icon_class = match mode {
+    Text => "i-lucide-align-left"
+    Preview => "i-lucide-eye"
+    Split => "i-lucide-columns-2"
+  }
   @rui.tabs_trigger(
     value=name.to_lower(),
     selected=mode == selected_mode,
@@ -32,10 +37,8 @@ fn mode_tab(
       "width:1.75rem;height:1.75rem;min-height:1.75rem;flex:none;padding:0",
     ],
     @html.span(
-      class="pointer-events-none relative block size-4.5 transition-colors duration-150 group-hover:text-[oklch(0.145_0_0)]",
-      attrs=@html.Attrs::build()
-        .data_set("mode", name.to_lower())
-        .aria_hidden("true"),
+      class="pointer-events-none block size-4.5 \{icon_class} transition-colors duration-150 group-hover:text-[oklch(0.145_0_0)]",
+      attrs=@html.Attrs::build().aria_hidden("true"),
       @html.nothing,
     ),
   )
@@ -80,10 +83,8 @@ fn document_option_label(
 ///|
 fn sidebar_panel_icon() -> @rabbita.Html {
   @html.span(
-    class="relative block size-4 shrink-0",
-    attrs=@html.Attrs::build()
-      .data_set("loomark-icon", "sidebar")
-      .aria_hidden("true"),
+    class="i-lucide-panel-left block size-4 shrink-0",
+    attrs=@html.Attrs::build().aria_hidden("true"),
     @html.nothing,
   )
 }
@@ -91,10 +92,8 @@ fn sidebar_panel_icon() -> @rabbita.Html {
 ///|
 fn sidebar_folder_icon() -> @rabbita.Html {
   @html.span(
-    class="relative block size-4 shrink-0",
-    attrs=@html.Attrs::build()
-      .data_set("loomark-icon", "folder")
-      .aria_hidden("true"),
+    class="i-lucide-folder block size-4 shrink-0",
+    attrs=@html.Attrs::build().aria_hidden("true"),
     @html.nothing,
   )
 }
@@ -102,10 +101,8 @@ fn sidebar_folder_icon() -> @rabbita.Html {
 ///|
 fn sidebar_new_icon() -> @rabbita.Html {
   @html.span(
-    class="relative block size-4 shrink-0",
-    attrs=@html.Attrs::build()
-      .data_set("loomark-icon", "new-document")
-      .aria_hidden("true"),
+    class="i-lucide-plus block size-4 shrink-0 transition-transform duration-[120ms] active:scale-[0.86] motion-reduce:duration-[80ms]",
+    attrs=@html.Attrs::build().aria_hidden("true"),
     @html.nothing,
   )
 }
@@ -113,10 +110,8 @@ fn sidebar_new_icon() -> @rabbita.Html {
 ///|
 fn sidebar_delete_icon() -> @rabbita.Html {
   @html.span(
-    class="relative block size-4 shrink-0",
-    attrs=@html.Attrs::build()
-      .data_set("loomark-icon", "delete-document")
-      .aria_hidden("true"),
+    class="i-lucide-trash-2 block size-4 shrink-0",
+    attrs=@html.Attrs::build().aria_hidden("true"),
     @html.nothing,
   )
 }
