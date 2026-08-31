@@ -110,13 +110,16 @@ Only needed if you are modifying Canopy itself.
   [issue #1125](https://github.com/dowdiness/canopy/issues/1125).
 - [Loomark standard Rabbita Text app](plans/2026-08-24-loomark-standard-rabbita-text-app.md)
   — the current Text editor, Autosave, Recovery, and production E2E contract.
-- [Loomark bounded Autosave](plans/2026-08-30-loomark-bounded-autosave.md)
-  — executable #1347 specification for quiet and maximum eligibility, exact
-  Saved state, single-flight persistence, IME, visibility, and production gates.
 - [Legacy TODO snapshot](archive/TODO-snapshot-2026-08-03.md) — historical
   candidates being triaged in
   [issue #1124](https://github.com/dowdiness/canopy/issues/1124), not active
   backlog.
+
+**Completed implementation records:**
+
+- [Loomark bounded Autosave](archive/plans/2026-08-30-loomark-bounded-autosave.md)
+  — completed #1347 specification for quiet and maximum eligibility, exact
+  Saved state, single-flight persistence, IME, visibility, and production gates.
 
 **Performance:**
 

@@ -1,5 +1,14 @@
 # Loomark bounded Autosave
 
+## Archive status
+
+Implementation completed and was validated by
+[PR #1395](https://github.com/dowdiness/canopy/pull/1395).
+
+No ADR needed: this is mechanical plan archival. The accepted architecture is
+recorded in
+[Loomark separates current and saved text](../../decisions/2026-08-24-loomark-source-first-interactive-contract.md).
+
 ## GitHub Issue
 
 Canonical issue: <https://github.com/dowdiness/canopy/issues/1347>
@@ -8,7 +17,7 @@ The issue owns backlog status. This document owns the implementation
 specification. The required reciprocal tracking pair is:
 
 - issue: <https://github.com/dowdiness/canopy/issues/1347>
-- plan: `docs/plans/2026-08-30-loomark-bounded-autosave.md`
+- archived plan: `docs/archive/plans/2026-08-30-loomark-bounded-autosave.md`
 
 Verify both links as part of the documentation acceptance criteria. The
 implementation pull request may close #1347 only when every acceptance criterion
@@ -150,7 +159,7 @@ Generated interface review:
 ## Pre-implementation state
 
 The private save state before this plan in
-[`apps/loomark/app/model.mbt`](../../apps/loomark/app/model.mbt) was:
+[`apps/loomark/app/model.mbt`](../../../apps/loomark/app/model.mbt) was:
 
 ```text
 Saved
@@ -159,7 +168,7 @@ Saving(candidate)
 Failed(failure)
 ```
 
-In [`apps/loomark/app/update.mbt`](../../apps/loomark/app/update.mbt),
+In [`apps/loomark/app/update.mbt`](../../../apps/loomark/app/update.mbt),
 `TextChanged` applies one `TextChange`, updates current text, and schedules:
 
 ```moonbit
@@ -176,13 +185,13 @@ candidate is behind current text, the current completion branch immediately
 starts another save. It does not require current text to have reached quiet or
 maximum eligibility.
 
-[`TextArea`](../../apps/loomark/internal/text_area/text_area.mbt) owns the
+[`TextArea`](../../../apps/loomark/internal/text_area/text_area.mbt) owns the
 browser IME boundary. Native input events are ignored while
 its private state is composing. A committed `compositionend` emits one final
 `TextChanged`, followed by `CompositionEnded`. A cancelled or no-op composition
 emits only `CompositionEnded`.
 
-The [`source_repository`](../../apps/loomark/internal/source_repository/)
+The [`source_repository`](../../../apps/loomark/internal/source_repository/)
 already provides:
 
 - strict fixed-schema Source decoding;
@@ -317,7 +326,7 @@ minified Warren production build on Chromium `149.0.7827.55`. No temporary app
 instrumentation was present; the samples measure browser dispatch around the
 final Text input path. Raw
 samples are retained in
-[`docs/evidence/2026-08-31-loomark-bounded-autosave-production-raw.json`](../evidence/2026-08-31-loomark-bounded-autosave-production-raw.json).
+[`docs/evidence/2026-08-31-loomark-bounded-autosave-production-raw.json`](../../evidence/2026-08-31-loomark-bounded-autosave-production-raw.json).
 
 Each warmed cell used three fresh launches, ten warmup revert pairs, and fifty
 measured pairs per launch.
@@ -1150,17 +1159,17 @@ implementation and production evidence are final.
 
 Repository sources:
 
-- [`apps/loomark/CONTEXT.md`](../../apps/loomark/CONTEXT.md)
-- [`apps/loomark/app/model.mbt`](../../apps/loomark/app/model.mbt)
-- [`apps/loomark/app/update.mbt`](../../apps/loomark/app/update.mbt)
-- [`apps/loomark/app/update_wbtest.mbt`](../../apps/loomark/app/update_wbtest.mbt)
-- [`apps/loomark/app/app.mbt`](../../apps/loomark/app/app.mbt)
-- [`apps/loomark/app/view.mbt`](../../apps/loomark/app/view.mbt)
-- [`apps/loomark/internal/text_area/text_area.mbt`](../../apps/loomark/internal/text_area/text_area.mbt)
-- [`apps/loomark/internal/source_repository/`](../../apps/loomark/internal/source_repository/)
-- [`deps/rabbita/rabbita/cmd/op.mbt`](../../deps/rabbita/rabbita/cmd/op.mbt)
-- [`deps/rabbita/rabbita/sub/sub.mbt`](../../deps/rabbita/rabbita/sub/sub.mbt)
-- [Current-versus-saved-text decision](../decisions/2026-08-24-loomark-source-first-interactive-contract.md)
+- [`apps/loomark/CONTEXT.md`](../../../apps/loomark/CONTEXT.md)
+- [`apps/loomark/app/model.mbt`](../../../apps/loomark/app/model.mbt)
+- [`apps/loomark/app/update.mbt`](../../../apps/loomark/app/update.mbt)
+- [`apps/loomark/app/update_wbtest.mbt`](../../../apps/loomark/app/update_wbtest.mbt)
+- [`apps/loomark/app/app.mbt`](../../../apps/loomark/app/app.mbt)
+- [`apps/loomark/app/view.mbt`](../../../apps/loomark/app/view.mbt)
+- [`apps/loomark/internal/text_area/text_area.mbt`](../../../apps/loomark/internal/text_area/text_area.mbt)
+- [`apps/loomark/internal/source_repository/`](../../../apps/loomark/internal/source_repository/)
+- [`deps/rabbita/rabbita/cmd/op.mbt`](../../../deps/rabbita/rabbita/cmd/op.mbt)
+- [`deps/rabbita/rabbita/sub/sub.mbt`](../../../deps/rabbita/rabbita/sub/sub.mbt)
+- [Current-versus-saved-text decision](../../decisions/2026-08-24-loomark-source-first-interactive-contract.md)
 - [Issue #1347](https://github.com/dowdiness/canopy/issues/1347)
 
 Browser sources:
