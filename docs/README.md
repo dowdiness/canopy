@@ -252,6 +252,9 @@ behavior** — check the code before relying on any specific detail.
   — makes versioned Source records independently authoritative, derives the
   Catalog in memory, atomically migrates `active`, and keeps normal saves to one
   Source transaction.
+- [Loomark document deletion](decisions/2026-08-31-loomark-document-deletion.md)
+  — deletes one known non-final Source from a quiescent document state and
+  publishes its prepared Snapshot only after transaction completion.
 
 ## Historical / Archive
 

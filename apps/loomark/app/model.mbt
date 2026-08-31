@@ -19,6 +19,8 @@ priv struct EditingState {
   save : SaveState
   last_checkpoint_epoch : Int
   creation : DocumentCreation
+  deletion : DocumentDeletion
+  last_delete_request : Int
   mode : EditorMode
   compact : Bool
   preview : @preview.State
@@ -61,6 +63,14 @@ priv enum DocumentCreation {
 } derive(Eq)
 
 ///|
+priv enum DocumentDeletion {
+  NoDeletion
+  DeleteConfirmation(String)
+  Deleting(Int, String)
+  DeleteFailed(String, @source_repository.DeleteFailure)
+} derive(Eq)
+
+///|
 priv enum Msg {
   Opened(@source_repository.OpenResult)
   ExampleSelected(Activation, String)
@@ -78,4 +88,9 @@ priv enum Msg {
   DocumentSelected(String)
   CreateRequested
   CreateCompleted(Activation, @source_repository.CreateResult)
+  DeleteRequested(String)
+  DeleteCancelled
+  DeleteConfirmed(String)
+  DeleteCompleted(Int, @source_repository.DeleteResult)
+  DismissDeleteFailure
 }

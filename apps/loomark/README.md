@@ -13,8 +13,8 @@ pub fn app() -> @rabbita.Val[@rabbita.Html]
 
 `apps/loomark/main/main.mbt` mounts that application. Browser integration is
 split between `apps/loomark/internal/source_repository`, which reconciles
-versioned Source records and derives an in-memory Catalog through `open` and
-`save`, and `apps/loomark/internal/text_area`, which converts native textarea
+versioned Source records and derives an in-memory Catalog through `open`,
+`save`, and `delete`, and `apps/loomark/internal/text_area`, which converts native textarea
 input sequences into shared `TextChange` operations.
 
 See the [Standard Rabbita Text App plan](../../docs/plans/2026-08-24-loomark-standard-rabbita-text-app.md) and the accepted decisions:
@@ -22,6 +22,7 @@ See the [Standard Rabbita Text App plan](../../docs/plans/2026-08-24-loomark-sta
 - [Current and saved text](../../docs/decisions/2026-08-24-loomark-source-first-interactive-contract.md)
 - [Production E2E boundary](../../docs/decisions/2026-08-24-loomark-production-e2e-boundary.md)
 - [Textarea edit ownership](../../docs/decisions/2026-08-25-loomark-textarea-edit-boundary.md)
+- [Document deletion](../../docs/decisions/2026-08-31-loomark-document-deletion.md)
 
 ## Autosave and Recovery
 
@@ -48,7 +49,10 @@ An empty repository creates a UUID-backed Source with exact text
 `# Untitled\n`. The legacy `active` record is moved atomically when safe;
 collisions preserve both records. A normal save writes only the accepted Source
 and installs the next in-memory Catalog after that transaction completes. A
-Source save failure preserves current text and presents Retry. Hidden-page
+Source save failure preserves current text and presents Retry. A confirmed
+Delete removes one known non-final Source in one transaction while document
+mutations are quiescent. The prepared Snapshot becomes visible only after
+transaction completion; deleting the final Source is rejected. Hidden-page
 persistence is best effort because the browser may freeze or terminate before
 IndexedDB completion.
 

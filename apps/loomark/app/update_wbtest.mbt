@@ -30,6 +30,8 @@ fn test_editing_state(text : String, save : SaveState) -> EditingState {
     save,
     last_checkpoint_epoch: 0,
     creation: Idle,
+    deletion: NoDeletion,
+    last_delete_request: 0,
     mode: Text,
     compact: false,
     preview: test_preview_state(text),
@@ -102,6 +104,142 @@ test "saved document selection activates its exact Source without writing" {
   assert_eq(editing.text, "# Second\n")
   assert_true(editing.save == Saved)
   assert_true(editing.preview == test_preview_state("# Second\n"))
+  assert_false(@debug.to_string(command).contains("IndexedDB"))
+}
+
+///|
+test "confirmed non-active deletion starts from a quiescent repository" {
+  let snapshot = @source_repository.RepositorySnapshot::from_sources([
+    @source_repository.SourceRecord::new("document-1", "# One\n").unwrap(),
+    @source_repository.SourceRecord::new("document-2", "# Two\n").unwrap(),
+  ]).unwrap()
+  let initial = { ..test_editing_state("# One\n", Saved), repository: snapshot }
+  let (confirming, _) = test_update(
+    Editing(initial),
+    DeleteRequested("document-2"),
+  )
+  guard confirming is Editing(confirming) else { fail("expected Editing") }
+  assert_true(confirming.deletion == DeleteConfirmation("document-2"))
+  let (model, command) = test_update(
+    Editing(confirming),
+    DeleteConfirmed("document-2"),
+  )
+  guard model is Editing(editing) else { fail("expected Editing") }
+  assert_true(editing.deletion == Deleting(1, "document-2"))
+  assert_eq(editing.last_delete_request, 1)
+  assert_true(editing.activation == initial.activation)
+  assert_eq(editing.text, initial.text)
+  assert_eq(editing.repository, initial.repository)
+  assert_true(
+    @debug.to_string(command).contains("Delete(\"source/v1/document-2\")"),
+  )
+}
+
+///|
+test "acknowledged non-active deletion changes only repository state" {
+  let original = @source_repository.RepositorySnapshot::from_sources([
+    @source_repository.SourceRecord::new("document-1", "# One\n").unwrap(),
+    @source_repository.SourceRecord::new("document-2", "# Two\n").unwrap(),
+  ]).unwrap()
+  let next = @source_repository.RepositorySnapshot::from_sources([
+    @source_repository.SourceRecord::new("document-1", "# One\n").unwrap(),
+  ]).unwrap()
+  let initial = {
+    ..test_editing_state("# One\n", Saved),
+    repository: original,
+    deletion: Deleting(1, "document-2"),
+    last_delete_request: 1,
+  }
+  let (model, command) = test_update(
+    Editing(initial),
+    DeleteCompleted(1, @source_repository.DeleteResult::Deleted(next)),
+  )
+  guard model is Editing(editing) else { fail("expected Editing") }
+  assert_true(editing == { ..initial, repository: next, deletion: NoDeletion })
+  assert_false(@debug.to_string(command).contains("IndexedDB"))
+}
+
+///|
+test "acknowledged active deletion activates deterministic fallback" {
+  let original = @source_repository.RepositorySnapshot::from_sources([
+    @source_repository.SourceRecord::new("document-1", "# One\n").unwrap(),
+    @source_repository.SourceRecord::new("document-2", "# Two\n").unwrap(),
+  ]).unwrap()
+  let next = @source_repository.RepositorySnapshot::from_sources([
+    @source_repository.SourceRecord::new("document-2", "# Two\n").unwrap(),
+  ]).unwrap()
+  let initial = {
+    ..test_editing_state("# One\n", Saved),
+    repository: original,
+    deletion: Deleting(1, "document-1"),
+    last_delete_request: 1,
+  }
+  let (model, _) = test_update(
+    Editing(initial),
+    DeleteCompleted(1, @source_repository.DeleteResult::Deleted(next)),
+  )
+  guard model is Editing(editing) else { fail("expected Editing") }
+  assert_eq(editing.repository, next)
+  assert_eq(editing.activation.document_id, "document-2")
+  assert_eq(editing.activation.generation, 1)
+  assert_eq(editing.text, "# Two\n")
+  assert_true(editing.deletion == NoDeletion)
+}
+
+///|
+test "delete failure and stale completion preserve document state" {
+  let initial = {
+    ..test_editing_state("# One\n", Saved),
+    deletion: Deleting(2, "document-1"),
+    last_delete_request: 2,
+  }
+  let (stale, _) = test_update(
+    Editing(initial),
+    DeleteCompleted(
+      1,
+      @source_repository.DeleteResult::Failed(
+        @source_repository.DeleteFailure::WriteFailed,
+      ),
+    ),
+  )
+  assert_true(stale == Editing(initial))
+  let (failed, _) = test_update(
+    Editing(initial),
+    DeleteCompleted(
+      2,
+      @source_repository.DeleteResult::Failed(
+        @source_repository.DeleteFailure::WriteFailed,
+      ),
+    ),
+  )
+  guard failed is Editing(editing) else { fail("expected Editing") }
+  assert_true(
+    editing ==
+    {
+      ..initial,
+      deletion: DeleteFailed(
+        "document-1",
+        @source_repository.DeleteFailure::WriteFailed,
+      ),
+    },
+  )
+}
+
+///|
+test "document text cannot change while deletion is in flight" {
+  let initial = {
+    ..test_editing_state("# One\n", Saved),
+    deletion: Deleting(1, "document-1"),
+    last_delete_request: 1,
+  }
+  let (model, command) = test_update(
+    Editing(initial),
+    TextChanged(
+      initial.activation,
+      @text_change.TextChange::ReplaceAll("# Changed\n"),
+    ),
+  )
+  assert_true(model == Editing(initial))
   assert_false(@debug.to_string(command).contains("IndexedDB"))
 }
 

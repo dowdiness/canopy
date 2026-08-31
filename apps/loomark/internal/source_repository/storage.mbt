@@ -40,6 +40,15 @@ pub(all) enum CreateFailure {
 } derive(Eq, Debug)
 
 ///|
+pub(all) enum DeleteFailure {
+  InvalidSource
+  LastSource
+  StorageUnavailable
+  QuotaExceeded
+  WriteFailed
+} derive(Eq, Debug)
+
+///|
 pub(all) enum OpenResult {
   Ready(RepositorySnapshot)
   Failed(OpenFailure)
@@ -55,6 +64,12 @@ pub(all) enum SaveResult {
 pub(all) enum CreateResult {
   Created(RepositorySnapshot, String)
   Failed(CreateFailure)
+} derive(Eq, Debug)
+
+///|
+pub(all) enum DeleteResult {
+  Deleted(RepositorySnapshot)
+  Failed(DeleteFailure)
 } derive(Eq, Debug)
 
 ///|
@@ -154,6 +169,41 @@ pub fn save(
   let next = accepted_source(snapshot, source)
   @indexed_db.put(document_store, key, encode_source(source), result=stored => {
     finish_save(next, stored, result)
+  })
+}
+
+///|
+fn finish_delete(
+  next : RepositorySnapshot,
+  stored : @indexed_db.WriteResult,
+  result : @cmd.Emit[DeleteResult],
+) -> @cmd.Cmd {
+  match stored {
+    @indexed_db.WriteResult::Stored => result(Deleted(next))
+    @indexed_db.WriteResult::Unavailable => result(Failed(StorageUnavailable))
+    @indexed_db.WriteResult::QuotaExceeded => result(Failed(QuotaExceeded))
+    @indexed_db.WriteResult::Failed => result(Failed(WriteFailed))
+  }
+}
+
+///|
+pub fn delete(
+  snapshot : RepositorySnapshot,
+  document_id : String,
+  result~ : @cmd.Emit[DeleteResult],
+) -> @cmd.Cmd {
+  guard snapshot.source(document_id) is Some(_) else {
+    return result(Failed(InvalidSource))
+  }
+  guard snapshot.sources().length() > 1 else {
+    return result(Failed(LastSource))
+  }
+  guard accepted_deletion(snapshot, document_id) is Some(next) &&
+    source_key(document_id) is Some(key) else {
+    return result(Failed(InvalidSource))
+  }
+  @indexed_db.mutate(document_store, [@indexed_db.Mutation::Delete(key)], result=stored => {
+    finish_delete(next, stored, result)
   })
 }
 

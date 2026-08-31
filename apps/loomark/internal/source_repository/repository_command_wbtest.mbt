@@ -83,6 +83,102 @@ test "save completion publishes the next snapshot after storage completes" {
 }
 
 ///|
+test "accepted deletion preserves unrelated repository observations" {
+  let snapshot = RepositorySnapshot::new(
+    [
+      SourceRecord::new("document-1", "# One\n").unwrap(),
+      SourceRecord::new("document-2", "# Two\n").unwrap(),
+    ],
+    Catalog::from_entries([
+      CatalogEntry::new("document-1", Some("One")).unwrap(),
+      CatalogEntry::new("document-2", Some("Two")).unwrap(),
+    ]).unwrap(),
+    [
+      RepositoryIssue::NameDerivationFailed("document-1"),
+      RepositoryIssue::UnknownRecord("metadata/future"),
+    ],
+    ["source/v1/document-1", "source/v1/document-2", "source/v1/corrupt"],
+  )
+  let next = accepted_deletion(snapshot, "document-1").unwrap()
+  assert_eq(next.sources().map(source => source.document_id()), ["document-2"])
+  assert_eq(next.issues(), [RepositoryIssue::UnknownRecord("metadata/future")])
+  assert_eq(next.occupied_source_keys(), [
+    "source/v1/corrupt", "source/v1/document-2",
+  ])
+}
+
+///|
+test "repository delete prepares one atomic Source deletion" {
+  let snapshot = RepositorySnapshot::from_sources([
+    SourceRecord::new("document-1", "# One\n").unwrap(),
+    SourceRecord::new("document-2", "# Two\n").unwrap(),
+  ]).unwrap()
+  inspect(
+    Repr(delete(snapshot, "document-2", result=_ => @cmd.none)),
+    content="IndexedDBMutate(\n  { name: \"loomark\", version: 1, store_name: \"documents\" },\n  [Delete(\"source/v1/document-2\")],\n)",
+  )
+}
+
+///|
+test "repository delete rejects unknown and final identities before storage" {
+  let snapshot = RepositorySnapshot::from_sources([
+    SourceRecord::new("document-1", "# One\n").unwrap(),
+  ]).unwrap()
+  let emitted : Array[DeleteResult] = []
+  let unknown = delete(snapshot, "missing", result=result => {
+    emitted.push(result)
+    @cmd.none
+  })
+  let last_source = delete(snapshot, "document-1", result=result => {
+    emitted.push(result)
+    @cmd.none
+  })
+  assert_eq(emitted, [
+    DeleteResult::Failed(DeleteFailure::InvalidSource),
+    DeleteResult::Failed(DeleteFailure::LastSource),
+  ])
+  assert_false(@debug.to_string(unknown).contains("IndexedDBMutate"))
+  assert_false(@debug.to_string(last_source).contains("IndexedDBMutate"))
+}
+
+///|
+test "delete completion publishes only its prepared snapshot" {
+  let original = RepositorySnapshot::from_sources([
+    SourceRecord::new("document-1", "# One\n").unwrap(),
+    SourceRecord::new("document-2", "# Two\n").unwrap(),
+  ]).unwrap()
+  let next = accepted_deletion(original, "document-1").unwrap()
+  let emitted : Array[DeleteResult] = []
+  for
+    stored in [
+      @indexed_db.WriteResult::Stored,
+      @indexed_db.WriteResult::Unavailable,
+      @indexed_db.WriteResult::QuotaExceeded,
+      @indexed_db.WriteResult::Failed,
+    ] {
+    let _ = finish_delete(next, stored, result => {
+      emitted.push(result)
+      @cmd.none
+    })
+  }
+  assert_eq(emitted.get(0), Some(DeleteResult::Deleted(next)))
+  assert_true(next.source("document-1") is None)
+  assert_eq(next.source("document-2").unwrap().text(), "# Two\n")
+  assert_eq(
+    emitted.get(1),
+    Some(DeleteResult::Failed(DeleteFailure::StorageUnavailable)),
+  )
+  assert_eq(
+    emitted.get(2),
+    Some(DeleteResult::Failed(DeleteFailure::QuotaExceeded)),
+  )
+  assert_eq(
+    emitted.get(3),
+    Some(DeleteResult::Failed(DeleteFailure::WriteFailed)),
+  )
+}
+
+///|
 test "open write completion rescans and preserves failure classifications" {
   inspect(
     Repr(finish_open_write(@indexed_db.WriteResult::Stored, _ => @cmd.none)),
