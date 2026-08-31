@@ -15,9 +15,10 @@ fn test_preview_state(text : String) -> @preview.State {
 ///|
 fn test_checkpoint(
   epoch? : Int = 1,
+  quiet_revision? : Int = 1,
   eligibility? : CheckpointEligibility = Deferred,
 ) -> Checkpoint {
-  { epoch, eligibility }
+  { epoch, quiet_revision, eligibility }
 }
 
 ///|
@@ -133,7 +134,7 @@ test "TextChanged remains free of repository IO" {
   assert_eq(editing.last_checkpoint_epoch, 1)
   assert_false(@debug.to_string(command).contains("IndexedDB"))
   assert_eq(messages.length(), 2)
-  guard messages[0] is QuietElapsed(_, 1, "# New\n") else {
+  guard messages[0] is QuietElapsed(_, 1, 1) else {
     fail("expected quiet timer message")
   }
   guard messages[1] is MaximumElapsed(_, 1) else {
@@ -174,10 +175,10 @@ test "later deferred edit re-arms quiet without restarting maximum" {
     ),
   )
   guard model is Editing(editing) else { fail("expected Editing") }
-  assert_true(editing.save == Waiting(test_checkpoint()))
+  assert_true(editing.save == Waiting(test_checkpoint(quiet_revision=2)))
   assert_eq(editing.last_checkpoint_epoch, 1)
   assert_eq(messages.length(), 1)
-  guard messages[0] is QuietElapsed(_, 1, "# Latest\n") else {
+  guard messages[0] is QuietElapsed(_, 1, 2) else {
     fail("expected only the latest quiet message")
   }
 }
@@ -332,7 +333,7 @@ test "current quiet uses the repository snapshot" {
   let initial = test_editing_state("# New\n", Waiting(test_checkpoint()))
   let (model, command) = test_update(
     Editing(initial),
-    QuietElapsed(initial.activation, 1, "# New\n"),
+    QuietElapsed(initial.activation, 1, 1),
   )
   guard model is Editing(editing) else { fail("expected Editing") }
   assert_true(editing.save == Saving("# New\n", None))
@@ -353,14 +354,14 @@ test "quiet and maximum race starts exactly one write" {
   assert_true(@debug.to_string(first_command).contains("IndexedDBPut"))
   let (after_stale_quiet, second_command) = test_update(
     after_maximum,
-    QuietElapsed(initial.activation, 1, "# New\n"),
+    QuietElapsed(initial.activation, 1, 1),
   )
   assert_true(after_stale_quiet == after_maximum)
   assert_false(@debug.to_string(second_command).contains("IndexedDBPut"))
 
   let (after_quiet, reverse_first) = test_update(
     Editing(initial),
-    QuietElapsed(initial.activation, 1, "# New\n"),
+    QuietElapsed(initial.activation, 1, 1),
   )
   guard after_quiet is Editing(saving_after_quiet) else {
     fail("expected Editing")
@@ -376,7 +377,7 @@ test "quiet and maximum race starts exactly one write" {
 }
 
 ///|
-test "stale epoch and quiet candidate cannot start a write" {
+test "stale epoch and quiet revision cannot start a write" {
   let checkpoint = test_checkpoint(epoch=2)
   let initial = {
     ..test_editing_state("# Latest\n", Waiting(checkpoint)),
@@ -388,7 +389,7 @@ test "stale epoch and quiet candidate cannot start a write" {
   )
   let (after_old_quiet, quiet_command) = test_update(
     Editing(initial),
-    QuietElapsed(initial.activation, 2, "# Old\n"),
+    QuietElapsed(initial.activation, 2, 0),
   )
   assert_true(after_old_maximum == Editing(initial))
   assert_true(after_old_quiet == Editing(initial))
@@ -515,7 +516,7 @@ test "completion without pending state allocates a fenced checkpoint" {
   assert_eq(editing.last_checkpoint_epoch, 2)
   assert_false(@debug.to_string(command).contains("IndexedDBPut"))
   assert_eq(messages.length(), 2)
-  guard messages[0] is QuietElapsed(_, 2, "# Latest\n") else {
+  guard messages[0] is QuietElapsed(_, 2, 1) else {
     fail("expected defensive quiet timer")
   }
   guard messages[1] is MaximumElapsed(_, 2) else {
@@ -566,7 +567,7 @@ test "composition commit arms one deferred checkpoint after ending" {
   assert_false(editing.composing)
   assert_true(editing.save == Waiting(test_checkpoint()))
   assert_eq(end_messages.length(), 2)
-  guard end_messages[0] is QuietElapsed(_, 1, "# Committed\n") else {
+  guard end_messages[0] is QuietElapsed(_, 1, 1) else {
     fail("expected composition quiet timer")
   }
   guard end_messages[1] is MaximumElapsed(_, 1) else {
@@ -735,4 +736,73 @@ test "same-document stale success and failure cannot replace active save" {
   let (after_failure, _) = test_update(Editing(initial), stale_failure)
   assert_true(after_success == Editing(initial))
   assert_true(after_failure == Editing(initial))
+}
+
+///|
+test "old equal-text quiet timer cannot satisfy a later ABA edit" {
+  let initial = test_editing_state("# Old\n", Saved)
+  let (after_first, _) = test_update(
+    Editing(initial),
+    TextChanged(
+      initial.activation,
+      @text_change.TextChange::ReplaceAll("# B\n"),
+    ),
+  )
+  let (after_middle, _) = test_update(
+    after_first,
+    TextChanged(
+      initial.activation,
+      @text_change.TextChange::ReplaceAll("# C\n"),
+    ),
+  )
+  let (after_aba, _) = test_update(
+    after_middle,
+    TextChanged(
+      initial.activation,
+      @text_change.TextChange::ReplaceAll("# B\n"),
+    ),
+  )
+  let (after_old_quiet, command) = test_update(
+    after_aba,
+    QuietElapsed(initial.activation, 1, 1),
+  )
+  guard after_old_quiet is Editing(editing) else { fail("expected Editing") }
+  assert_true(editing.save == Waiting(test_checkpoint(quiet_revision=3)))
+  assert_false(@debug.to_string(command).contains("IndexedDBPut"))
+}
+
+///|
+test "failed attempt exact acknowledged revert is truthfully Saved" {
+  let failure = @source_repository.SaveFailure::WriteFailed
+  let initial = test_editing_state("# Unsaved\n", Failed(failure, false))
+  let (model, command) = test_update(
+    Editing(initial),
+    TextChanged(
+      initial.activation,
+      @text_change.TextChange::ReplaceAll("# Old\n"),
+    ),
+  )
+  guard model is Editing(editing) else { fail("expected Editing") }
+  assert_true(editing.save == Saved)
+  assert_true(can_activate(editing))
+  assert_false(@debug.to_string(command).contains("IndexedDBPut"))
+}
+
+///|
+test "active failure after acknowledged revert is truthfully Saved" {
+  let initial = test_editing_state("# Old\n", Saving("# Unsaved\n", None))
+  let (model, command) = test_update(
+    Editing(initial),
+    SaveCompleted(
+      initial.activation,
+      "# Unsaved\n",
+      @source_repository.SaveResult::Failed(
+        @source_repository.SaveFailure::WriteFailed,
+      ),
+    ),
+  )
+  guard model is Editing(editing) else { fail("expected Editing") }
+  assert_true(editing.save == Saved)
+  assert_true(can_activate(editing))
+  assert_false(@debug.to_string(command).contains("IndexedDBPut"))
 }

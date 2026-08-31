@@ -46,7 +46,9 @@ it does not guarantee IndexedDB acknowledgment, physical-media flush, or page
 termination completion. Hidden visibility makes current pending text eligible
 as a best effort. At most one Source write and one newer text-free checkpoint
 exist, and completion promotes latest text only when that checkpoint is already
-eligible.
+eligible. Each dirty interval has a private checkpoint epoch. Each deferred
+committed edit advances a private quiet revision, allowing delayed quiet work
+to reject equal-text ABA without retaining candidate text.
 
 Preview parsing also waits until input becomes quiet. Switching to Preview requests parsing of the latest Document text immediately. The delay is selected from production E2E measurements and user-visible behavior rather than fixed by this decision.
 
@@ -64,10 +66,14 @@ performance and consistency requirements.
 - A crash before saving completes may lose changes that are present in Document text.
 - Exact return to acknowledged or in-flight text removes redundant pending
   persistence while retaining one current Document text authority.
-- A save failure leaves Document text editable, shows that changes are not saved, and permits an explicit Retry.
+- A save failure leaves Document text editable. It shows that changes are not
+  saved and permits explicit Retry while current text differs from the
+  acknowledged Source; exact return to that Source is truthfully `Saved`
+  without another write.
 - Once saving completes, reopening restores the exact Saved text and Loomark document identity.
-- Uncancelled quiet and maximum messages are fenced by Activation, checkpoint
-  epoch, and, for quiet, exact candidate text.
+- Uncancelled quiet and maximum messages are fenced by Activation and
+  checkpoint epoch. Quiet additionally requires the latest monotone quiet
+  revision, so an equal-text ABA path cannot validate an older timer.
 - Hidden-page persistence is best effort because the browser may freeze or
   terminate before transaction completion.
 - When the Source repository has no valid document, Loomark creates the
@@ -82,8 +88,9 @@ performance and consistency requirements.
 - Text, Preview, and Split are reachable product modes over one current
   Document text. The release contains no hidden Block-mode branch.
 - Activation generation distinguishes document ownership. A private checkpoint
-  epoch additionally distinguishes equal-text dirty intervals because Rabbita's
-  delayed commands are not cancelled.
+  epoch distinguishes dirty intervals, while a private quiet revision
+  distinguishes edits within one interval because Rabbita's delayed commands
+  are not cancelled.
 
 ## Rejected alternatives
 

@@ -1,16 +1,16 @@
 ///|
 priv enum SaveEffect {
   NoSaveEffect
-  ArmQuiet(Int, String)
-  ArmQuietAndMaximum(Int, String)
+  ArmQuiet(Int, Int)
+  ArmQuietAndMaximum(Int, Int)
   Persist(String)
 }
 
 ///|
-fn SaveState::pending_epoch(self : SaveState) -> Int? {
+fn SaveState::pending_checkpoint(self : SaveState) -> Checkpoint? {
   match self {
-    Waiting(checkpoint) => Some(checkpoint.epoch)
-    Saving(_, Some(checkpoint)) => Some(checkpoint.epoch)
+    Waiting(checkpoint) => Some(checkpoint)
+    Saving(_, Some(checkpoint)) => Some(checkpoint)
     Saved | Saving(_, None) | Failed(_, _) => None
   }
 }
@@ -21,11 +21,19 @@ fn Checkpoint::eligible(self : Checkpoint) -> Checkpoint {
 }
 
 ///|
+fn Checkpoint::after_text_changed(self : Checkpoint) -> Checkpoint {
+  match self.eligibility {
+    Deferred => { ..self, quiet_revision: self.quiet_revision + 1 }
+    Eligible => self
+  }
+}
+
+///|
 fn allocate_checkpoint(editing : EditingState) -> (EditingState, Checkpoint) {
   let epoch = editing.last_checkpoint_epoch + 1
   (
     { ..editing, last_checkpoint_epoch: epoch },
-    { epoch, eligibility: Deferred },
+    { epoch, quiet_revision: 1, eligibility: Deferred },
   )
 }
 
@@ -33,15 +41,14 @@ fn allocate_checkpoint(editing : EditingState) -> (EditingState, Checkpoint) {
 fn checkpoint_edit_effect(
   editing : EditingState,
   checkpoint : Checkpoint,
-  text : String,
   new_epoch : Bool,
 ) -> SaveEffect {
   if editing.composing || checkpoint.eligibility == Eligible {
     NoSaveEffect
   } else if new_epoch {
-    ArmQuietAndMaximum(checkpoint.epoch, text)
+    ArmQuietAndMaximum(checkpoint.epoch, checkpoint.quiet_revision)
   } else {
-    ArmQuiet(checkpoint.epoch, text)
+    ArmQuiet(checkpoint.epoch, checkpoint.quiet_revision)
   }
 }
 
@@ -60,25 +67,31 @@ fn save_after_text_changed(
 ) -> (EditingState, SaveEffect) {
   match editing.save {
     Failed(failure, retry_after_composition) =>
-      (
-        { ..editing, text, save: Failed(failure, retry_after_composition) },
-        NoSaveEffect,
-      )
+      if text_equals_acknowledged(editing, text) {
+        ({ ..editing, text, save: Saved }, NoSaveEffect)
+      } else {
+        (
+          { ..editing, text, save: Failed(failure, retry_after_composition) },
+          NoSaveEffect,
+        )
+      }
     Saving(candidate, pending) =>
       if text == candidate {
         ({ ..editing, text, save: Saving(candidate, None) }, NoSaveEffect)
       } else {
         match pending {
-          Some(checkpoint) =>
+          Some(checkpoint) => {
+            let checkpoint = checkpoint.after_text_changed()
             (
               { ..editing, text, save: Saving(candidate, Some(checkpoint)) },
-              checkpoint_edit_effect(editing, checkpoint, text, false),
+              checkpoint_edit_effect(editing, checkpoint, false),
             )
+          }
           None => {
             let (editing, checkpoint) = allocate_checkpoint(editing)
             (
               { ..editing, text, save: Saving(candidate, Some(checkpoint)) },
-              checkpoint_edit_effect(editing, checkpoint, text, true),
+              checkpoint_edit_effect(editing, checkpoint, true),
             )
           }
         }
@@ -90,16 +103,17 @@ fn save_after_text_changed(
         let (editing, checkpoint) = allocate_checkpoint(editing)
         (
           { ..editing, text, save: Waiting(checkpoint) },
-          checkpoint_edit_effect(editing, checkpoint, text, true),
+          checkpoint_edit_effect(editing, checkpoint, true),
         )
       }
     Waiting(checkpoint) =>
       if text_equals_acknowledged(editing, text) {
         ({ ..editing, text, save: Saved }, NoSaveEffect)
       } else {
+        let checkpoint = checkpoint.after_text_changed()
         (
           { ..editing, text, save: Waiting(checkpoint) },
-          checkpoint_edit_effect(editing, checkpoint, text, false),
+          checkpoint_edit_effect(editing, checkpoint, false),
         )
       }
   }
@@ -140,11 +154,11 @@ fn save_after_composition_ended(
       ({ ..editing, save: Saving(candidate, None) }, Persist(candidate))
     }
     Waiting(checkpoint) =>
-      (editing, ArmQuietAndMaximum(checkpoint.epoch, editing.text))
+      (editing, ArmQuietAndMaximum(checkpoint.epoch, checkpoint.quiet_revision))
     Saving(_, None) | Saving(_, Some({ eligibility: Eligible, .. })) =>
       (editing, NoSaveEffect)
     Saving(_, Some(checkpoint)) =>
-      (editing, ArmQuietAndMaximum(checkpoint.epoch, editing.text))
+      (editing, ArmQuietAndMaximum(checkpoint.epoch, checkpoint.quiet_revision))
     Failed(_, false) | Saved => (editing, NoSaveEffect)
     Failed(_, true) => {
       let candidate = editing.text
@@ -181,7 +195,7 @@ fn save_after_success(
         let effect = if editing.composing || editing.creation == Creating {
           NoSaveEffect
         } else {
-          ArmQuietAndMaximum(checkpoint.epoch, editing.text)
+          ArmQuietAndMaximum(checkpoint.epoch, checkpoint.quiet_revision)
         }
         ({ ..completed, save: Waiting(checkpoint) }, effect)
       }
@@ -194,7 +208,11 @@ fn save_after_failure(
   editing : EditingState,
   failure : @source_repository.SaveFailure,
 ) -> EditingState {
-  { ..editing, save: Failed(failure, false) }
+  if text_equals_acknowledged(editing, editing.text) {
+    { ..editing, save: Saved }
+  } else {
+    { ..editing, save: Failed(failure, false) }
+  }
 }
 
 ///|

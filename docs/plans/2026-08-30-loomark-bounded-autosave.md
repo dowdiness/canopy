@@ -58,11 +58,14 @@ document.
 A checkpoint is one coalesced intent to persist latest current text. It contains
 no text. It has:
 
-- an **epoch**, identifying one dirty interval; and
+- an **epoch**, identifying one dirty interval;
+- a **quiet revision**, identifying the latest committed edit within that
+  interval; and
 - an **eligibility**, either `Deferred` or `Eligible`.
 
-`Deferred` means no save trigger has become due. `Eligible` means quiet,
-maximum-wait, or hidden-page handling has allowed an attempt.
+`Deferred` means no save trigger has become due. Its quiet revision advances on
+each committed edit without restarting the epoch's maximum timer. `Eligible`
+means quiet, maximum-wait, or hidden-page handling has allowed an attempt.
 
 ### In-flight candidate
 
@@ -144,10 +147,10 @@ Generated interface review:
 - remediation of the separate 1 MiB textarea/rendering long task; and
 - upstream MoonBit core changes.
 
-## Current state
+## Pre-implementation state
 
-The current private save state in
-[`apps/loomark/app/model.mbt`](../../apps/loomark/app/model.mbt) is:
+The private save state before this plan in
+[`apps/loomark/app/model.mbt`](../../apps/loomark/app/model.mbt) was:
 
 ```text
 Saved
@@ -164,7 +167,9 @@ In [`apps/loomark/app/update.mbt`](../../apps/loomark/app/update.mbt),
 ```
 
 The delayed request acts only when its Activation and captured candidate remain
-current. Older quiet messages are delivered but ignored.
+current. Different-text messages are ignored, but an equal-text ABA path such
+as B → C → B can make an older B timer appear current before the final B has
+been quiet for 250 ms.
 
 `SaveCompleted` installs the acknowledged `RepositorySnapshot`. When its
 candidate is behind current text, the current completion branch immediately
@@ -233,11 +238,13 @@ revision graph, mismatch certificate, or text copy.
 9. Returning exactly to the in-flight candidate removes pending work and waits
    for that transaction's completion.
 10. Failure retains current text and the preceding acknowledged snapshot.
-11. Failure never retries automatically.
+11. Failure never retries automatically while current text differs from that
+    acknowledged Source; exact return to it restores truthful `Saved` without a
+    write.
 12. Retry writes latest committed text only after composition ends.
 13. Intermediate composition values never become candidates.
-14. Stale Activation, epoch, quiet candidate, and completion messages are
-    no-ops.
+14. Stale Activation, epoch, quiet revision, and completion messages are
+    no-ops, including equal-text ABA within one dirty interval.
 15. Hidden-page eligibility is best effort and follows the same composition,
     creation, failure, Activation, and single-flight rules.
 16. Actual document activation and creation remain unavailable outside exact
@@ -305,9 +312,10 @@ resolved by changing checkpoint frequency. Two seconds is the selected policy.
 
 ### Integrated production candidate: exact acknowledged-text comparison
 
-The implemented exact comparison was measured in a minified Warren production
-build on Chromium `149.0.7827.55`. No temporary app instrumentation was present;
-the samples measure browser dispatch around the final Text input path. Raw
+The final revision-token candidate's exact comparison was measured in a
+minified Warren production build on Chromium `149.0.7827.55`. No temporary app
+instrumentation was present; the samples measure browser dispatch around the
+final Text input path. Raw
 samples are retained in
 [`docs/evidence/2026-08-31-loomark-bounded-autosave-production-raw.json`](../evidence/2026-08-31-loomark-bounded-autosave-production-raw.json).
 
@@ -316,35 +324,37 @@ measured pairs per launch.
 
 | Fixture / operation | Samples | Browser dispatch p95 | Maximum |
 | --- | ---: | ---: | ---: |
-| Practical Preview / same-length mismatch | 150 | 0.9 ms | 3.3 ms |
-| Practical Preview / exact revert | 150 | 0.8 ms | 1.3 ms |
-| 64 KiB / same-length mismatch | 150 | 0.2 ms | 0.4 ms |
-| 64 KiB / exact revert | 150 | 0.2 ms | 0.3 ms |
-| 256 KiB / same-length mismatch | 150 | 0.6 ms | 0.7 ms |
-| 256 KiB / exact revert | 150 | 0.6 ms | 0.7 ms |
-| 1 MiB / same-length mismatch | 150 | 3.7 ms | 4.3 ms |
-| 1 MiB / exact revert | 150 | 3.7 ms | 4.5 ms |
+| Practical Preview / same-length mismatch | 150 | 1.1 ms | 3.7 ms |
+| Practical Preview / exact revert | 150 | 1.0 ms | 1.7 ms |
+| 64 KiB / same-length mismatch | 150 | 0.2 ms | 0.3 ms |
+| 64 KiB / exact revert | 150 | 0.2 ms | 0.4 ms |
+| 256 KiB / same-length mismatch | 150 | 0.7 ms | 0.8 ms |
+| 256 KiB / exact revert | 150 | 0.7 ms | 1.0 ms |
+| 1 MiB / same-length mismatch | 150 | 5.9 ms | 7.2 ms |
+| 1 MiB / exact revert | 150 | 5.9 ms | 6.9 ms |
 
 The 1 MiB cold tail used one mismatch/revert pair per fresh Chromium launch.
 
 | 1 MiB cold operation | Samples | p95 | p99 | Maximum |
 | --- | ---: | ---: | ---: | ---: |
-| Same-length mismatch | 50 | 4.7 ms | 4.8 ms | 4.8 ms |
-| Exact revert | 50 | 3.6 ms | 4.1 ms | 4.1 ms |
+| Same-length mismatch | 50 | 4.9 ms | 5.1 ms | 5.1 ms |
+| Exact revert | 50 | 4.1 ms | 4.3 ms | 4.3 ms |
 
 Every exact revert restored activation controls before quiet, retained the
 acknowledged Source, and produced zero puts, including after the stale 2,000 ms
 maximum timer was delivered.
 
 The 1 MiB active-overlap fixture requested 46 inputs with a 50 ms sleep across
-three launches. Browser work stretched input-start gaps to at most 166.4 ms, so
+three launches. Browser work stretched input-start gaps to at most 168.2 ms, so
 no 250 ms quiet interval occurred during the stream. Each launch produced three
-coalesced checkpoints at approximately 2.0, 4.2, and 5.7–5.9 seconds; the final
+coalesced checkpoints at approximately 2.0–2.1, 4.2–4.3, and 5.8–6.0 seconds;
+the final
 Source matched current text. This replaces completion-driven trains with the
 selected maximum epochs plus one final quiet checkpoint.
 
-Overlap input dispatch p95 was 0.3 ms. One launch had a 22.8 ms maximum and each
-launch retained a 136–157 ms browser textarea/rendering long task. These are the
+Overlap input dispatch p95 was 0.3 ms. One launch had a 25.6 ms maximum and the
+launches retained 105–162 ms browser textarea/rendering long tasks. These are
+the
 known 1 MiB browser-input limitation rather than Source comparison or save
 preparation, so this work does not claim frame responsiveness for that stress
 fixture.
@@ -393,6 +403,7 @@ CheckpointEligibility =
 
 Checkpoint = {
   epoch: Int
+  quiet_revision: Int
   eligibility: CheckpointEligibility
 }
 
@@ -412,6 +423,17 @@ valid states. No public interface change is intended.
 not persisted and resets safely with a new EditingState because Activation
 generation separately fences document ownership.
 
+A post-implementation comparison with
+[OpenSeek at `738d63c`](https://github.com/moonbitlang/openseek/tree/738d63c20e1f40a356f8c03da585c7ba987188e5)
+confirmed the identity split. Its `goal_auto_promotable` requires a marker newer
+than the command baseline because identical text cannot prove that the current
+intent persisted. Its Quick Open debounce stamps delayed work with an advancing
+generation. Loomark applies that pattern as an ephemeral quiet revision rather
+than a persisted marker or content hash. OpenSeek's cancellable custom
+subscription is a viable future timer-lifetime optimization, but it adds no
+correctness beyond revision fencing and has no measured benefit in this input
+boundary.
+
 ## State invariants
 
 1. `Saved` has no active write and no pending checkpoint.
@@ -423,12 +445,15 @@ generation separately fences document ownership.
 6. `Eligible` is monotone within one epoch; later edits do not downgrade it.
 7. A new epoch is allocated only when dirty work first appears with no pending
    checkpoint.
-8. Later edits in the same pending interval retain its epoch and do not restart
-   its maximum timer.
+8. Later Deferred edits in the same pending interval retain its epoch, advance
+   its quiet revision, and do not restart its maximum timer.
 9. All timer messages require current Activation and epoch.
-10. Quiet additionally requires its captured candidate to equal current text.
+10. Quiet additionally requires the checkpoint's latest quiet revision, so
+    equal-text ABA cannot validate older work.
 11. Completion requires current Activation and the exact active candidate.
 12. RepositorySnapshot advances only from a successful acknowledged completion.
+13. A failed attempt publishes `Saved` when current text still exactly equals
+    the unchanged acknowledged Source; otherwise it publishes `Failed`.
 
 ## Messages
 
@@ -436,7 +461,7 @@ Replace the undifferentiated delayed save request with trigger-specific private
 messages:
 
 ```text
-QuietElapsed(Activation, epoch, captured_candidate)
+QuietElapsed(Activation, epoch, quiet_revision)
 MaximumElapsed(Activation, epoch)
 VisibilityChanged(hidden: Bool)
 SaveCompleted(Activation, candidate, SaveResult)
@@ -450,7 +475,7 @@ and Preview.
 Private transition logic returns only the effects the app shell must execute:
 
 ```text
-ArmQuiet(Activation, epoch, candidate)
+ArmQuiet(Activation, epoch, quiet_revision)
 ArmMaximum(Activation, epoch)
 Persist(Activation, candidate)
 NoEffect
@@ -495,17 +520,18 @@ The base is `candidate`.
 
 ### `Failed(failure, retry)`
 
-Text changes update current Document text but preserve `Failed` and the Retry
-flag. They arm no quiet or maximum timer. Only explicit Retry may begin another
-write.
+Text changes update current Document text and compare it with the unchanged
+acknowledged Source. Exact equality returns `Saved` without a write. Inequality
+preserves `Failed` and the Retry flag and arms no quiet or maximum timer. Only
+explicit Retry may begin another write while inequality remains.
 
 ## Checkpoint creation and editing
 
 When inequality first appears with no checkpoint:
 
 1. increment `last_checkpoint_epoch`;
-2. create `Checkpoint(epoch, Deferred)`;
-3. arm quiet with current text; and
+2. create `Checkpoint(epoch, quiet_revision=1, Deferred)`;
+3. arm quiet with its epoch and quiet revision; and
 4. arm maximum once for that epoch.
 
 If composition is active, create the checkpoint without timers. The committed
@@ -514,7 +540,7 @@ If composition is active, create the checkpoint without timers. The committed
 A later unequal edit with an existing `Deferred` checkpoint:
 
 - preserves epoch;
-- arms a new quiet candidate when not composing; and
+- increments quiet revision and arms that revision when not composing; and
 - does not arm another maximum during normal input.
 
 A later unequal edit with an existing `Eligible` checkpoint preserves
@@ -533,7 +559,7 @@ make_pending_eligible
 The operation:
 
 1. validates Activation and epoch;
-2. validates captured candidate for quiet;
+2. validates the latest checkpoint quiet revision for quiet;
 3. changes `Deferred` to `Eligible`;
 4. retains `Eligible` unchanged on races; and
 5. calls `maybe_persist`.
@@ -563,7 +589,8 @@ failed guard is a no-op.
 | `Saving(A, None)`, unequal edit | `Saving(A, Some(new Deferred))` | Arm quiet and maximum unless composing |
 | `Saving(A, Some(Deferred))`, unequal edit | preserve epoch and `Deferred` | Arm quiet unless composing |
 | `Saving(A, Some(Eligible))`, unequal edit | preserve epoch and `Eligible` | None |
-| `Failed(f, retry)`, committed text | preserve `Failed(f, retry)` | None |
+| `Failed(f, retry)`, text equals acknowledged Source | `Saved` | None |
+| `Failed(f, retry)`, other committed text | preserve `Failed(f, retry)` | None |
 | `Waiting(Deferred)`, current quiet | `Saving(current, None)` if unblocked; otherwise `Waiting(Eligible)` | Persist if unblocked |
 | `Saving(A, Some(Deferred))`, current quiet | `Saving(A, Some(Eligible))` | None |
 | deferred checkpoint, current maximum | same eligibility result as quiet | Persist only when no write and unblocked |
@@ -574,7 +601,8 @@ failed guard is a no-op.
 | active success for A, current differs, pending `Eligible`, composition inactive | `Saving(current, None)` | Install snapshot; persist latest once |
 | active success for A, current differs, pending `Eligible`, composition active | `Waiting(Eligible)` | Install snapshot; wait for composition end |
 | active success for A, current differs, pending absent | `Waiting(new Deferred)` after incrementing `last_checkpoint_epoch` | Defensive fail-closed epoch; arm quiet and maximum when unblocked |
-| active failure | `Failed(failure, false)` | Preserve current text and preceding snapshot |
+| active failure, current equals preceding acknowledged Source | `Saved` | Preserve current text and preceding snapshot |
+| active failure, current differs from preceding acknowledged Source | `Failed(failure, false)` | Preserve current text and preceding snapshot |
 | `Failed(f, false)`, Retry while composition inactive | `Saving(current, None)` | Persist latest text |
 | `Failed(f, _)`, Retry while composition active | `Failed(f, true)` | None |
 | stale timer or completion | unchanged | None |
@@ -643,10 +671,12 @@ Failure:
 - retains latest current text;
 - retains the preceding acknowledged RepositorySnapshot;
 - discards pending automatic promotion;
-- stores one honest failure; and
-- requires explicit Retry.
+- publishes `Saved` when current text exactly equals that Source; and
+- otherwise stores one honest failure that requires explicit Retry.
 
-No delayed quiet, maximum, hidden, or completion message can leave `Failed`.
+No delayed quiet, maximum, hidden, or stale completion message can leave an
+unequal `Failed` state. A later committed edit can leave it only by returning
+exactly to the acknowledged Source.
 
 ## Visibility
 
@@ -766,7 +796,7 @@ explicit.
 
 ### 4. Add the private state model
 
-1. Add checkpoint eligibility and epoch.
+1. Add checkpoint eligibility, epoch, and quiet revision.
 2. Extend `Saving` with one optional pending checkpoint.
 3. Extend `Failed` with deferred Retry intent.
 4. Initialize the epoch in every EditingState constructor and test fixture.
@@ -780,8 +810,9 @@ Run targeted check and tests before continuing.
 1. In `Saved` and `Waiting`, compare new text with the active acknowledged
    Source.
 2. In `Saving`, compare new text with the in-flight candidate.
-3. Preserve `Failed` through edits.
-4. Add exact revert tests before and during a write.
+3. Preserve `Failed` through unequal edits and restore `Saved` on exact
+   acknowledged revert.
+4. Add exact revert tests before, during, and after a failed write.
 5. Add missing-active-Source fail-closed coverage.
 
 No parser, encoding, or IndexedDB work enters `TextChanged`.
@@ -790,7 +821,8 @@ No parser, encoding, or IndexedDB work enters `TextChanged`.
 
 1. Allocate one epoch on the first unequal edit without pending work.
 2. Arm quiet and maximum once for the new epoch when not composing.
-3. Arm quiet only for later Deferred edits.
+3. Increment quiet revision and arm only that revision for later Deferred
+   edits.
 4. Preserve Eligible through later edits.
 5. Create state without timers during composition.
 
@@ -798,7 +830,7 @@ No parser, encoding, or IndexedDB work enters `TextChanged`.
 
 1. Add quiet and maximum messages.
 2. Fence both by Activation and epoch.
-3. Fence quiet by exact captured candidate.
+3. Fence quiet by exact checkpoint quiet revision.
 4. Route both through one eligibility helper.
 5. Start at most one write.
 6. Add race tests in both message orders.
@@ -810,7 +842,9 @@ No parser, encoding, or IndexedDB work enters `TextChanged`.
 3. Leave Deferred latest text waiting.
 4. Promote Eligible latest text once.
 5. Preserve Eligible through composition.
-6. Enter Failed without automatic promotion on error.
+6. Reconcile error completion with the unchanged acknowledged Source; publish
+   `Saved` only on exact equality and otherwise enter `Failed` without automatic
+   promotion.
 
 ### 9. Complete IME and Retry
 
@@ -937,7 +971,8 @@ No new ADR is needed. The existing decision owns current-versus-saved text.
 - [ ] Visibility reads only the current pending checkpoint at delivery.
 - [ ] Stale checkpoint epochs are ignored, including equal-text A → B → A
   across dirty intervals.
-- [ ] Stale quiet candidates are ignored.
+- [ ] Stale quiet revisions are ignored, including B → C → B within one dirty
+  interval.
 - [ ] Old maximum duplicates after composition are harmless.
 
 ### IME and failure
@@ -948,7 +983,9 @@ No new ADR is needed. The existing decision owns current-versus-saved text.
 - [ ] Cancelled and no-op composition create no dirty work.
 - [ ] Failure preserves current text and the preceding acknowledged Source.
 - [ ] Failure never retries automatically.
-- [ ] Edits after failure preserve Failed and arm no timer.
+- [ ] Unequal edits after failure preserve Failed and arm no timer.
+- [ ] Exact acknowledged revert after failure restores truthful `Saved` without
+  a put, including when the active write fails after the revert.
 - [ ] Retry during composition starts only after the final committed result.
 
 ### Browser lifecycle and recovery
@@ -1041,17 +1078,19 @@ Run Slopless on changed English Markdown and retain zero unresolved findings.
 
 ## Risks and mitigations
 
-### Cold 1 MiB input has little margin
+### One MiB exact comparison remains document-size-dependent
 
-The observed exact-revert dispatch maximum was 9.7 ms. Integrated state and
-browser differences may cross 10 ms. The measured fallback moves acknowledged
+The final revision-token run observed a 7.2 ms maximum across warmed 1 MiB
+mismatch/revert samples and 5.1 ms across cold samples. Later integrated state
+or larger documents may cross 10 ms. The measured fallback moves acknowledged
 comparison to eligibility without adding another authority.
 
 ### Uncancelled timers accumulate briefly
 
-Every edit leaves a quiet timer and every epoch leaves a maximum timer. Activation,
-epoch, candidate, and state guards make delivery harmless. Timer cancellation
-is not required for correctness.
+Every Deferred edit leaves a quiet timer and every epoch leaves a maximum
+timer. Activation, epoch, quiet revision, and state guards make delivery
+harmless without retaining candidate text. Timer cancellation is not required
+for correctness.
 
 ### Browser scheduling is not a hard deadline
 

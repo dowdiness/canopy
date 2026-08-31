@@ -41,6 +41,7 @@ priv enum CheckpointEligibility {
 ///|
 priv struct Checkpoint {
   epoch : Int
+  quiet_revision : Int
   eligibility : CheckpointEligibility
 } derive(Eq)
 
@@ -69,7 +70,7 @@ priv enum Msg {
   ModeSelected(EditorMode)
   PreviewEvent(@preview.Event)
   ViewportChanged(Int)
-  QuietElapsed(Activation, Int, String)
+  QuietElapsed(Activation, Int, Int)
   MaximumElapsed(Activation, Int)
   VisibilityChanged(Bool)
   SaveCompleted(Activation, String, @source_repository.SaveResult)

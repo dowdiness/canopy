@@ -283,6 +283,103 @@ async function waitForRepositoryOpen(page: Page): Promise<void> {
   await expect.poll(() => readStoredDocument(page)).not.toBeNull()
 }
 
+function installDelayedDocumentAbort(targetKey: string): void {
+  const state = globalThis as typeof globalThis & {
+    __loomarkDelayedAbortStarted?: boolean
+    __loomarkDelayedAbortFinished?: boolean
+    __loomarkDelayedAbortOriginal?: typeof IDBObjectStore.prototype.put
+  }
+  const prototype = IDBObjectStore.prototype as any
+  const originalPut = prototype.put
+  state.__loomarkDelayedAbortOriginal = originalPut
+  state.__loomarkDelayedAbortStarted = false
+  state.__loomarkDelayedAbortFinished = false
+  prototype.put = function(
+    this: IDBObjectStore,
+    value: unknown,
+    recordKey?: IDBValidKey,
+  ) {
+    const request = originalPut.call(this, value, recordKey)
+    if (recordKey === targetKey) {
+      state.__loomarkDelayedAbortStarted = true
+      const store = this
+      const transaction = this.transaction
+      const started = performance.now()
+      const keepAlive = () => {
+        if (performance.now() - started >= 500) {
+          transaction.abort()
+          state.__loomarkDelayedAbortFinished = true
+          return
+        }
+        const keepAliveRequest = store.get(recordKey)
+        keepAliveRequest.addEventListener("success", keepAlive)
+        keepAliveRequest.addEventListener("error", keepAlive)
+      }
+      keepAlive()
+    }
+    return request
+  }
+}
+
+function installDelayedDocumentCommit(targetKey: string): void {
+  const state = globalThis as typeof globalThis & {
+    __loomarkDelayedCommitActive?: boolean
+    __loomarkDelayedCommitCompletions?: number
+    __loomarkDelayedCommitConcurrentPuts?: number
+    __loomarkDelayedCommitInputs?: number
+    __loomarkDelayedCommitPuts?: PutObservation[]
+  }
+  const prototype = IDBObjectStore.prototype as any
+  const originalPut = prototype.put
+  state.__loomarkDelayedCommitActive = false
+  state.__loomarkDelayedCommitCompletions = 0
+  state.__loomarkDelayedCommitConcurrentPuts = 0
+  state.__loomarkDelayedCommitInputs = 0
+  state.__loomarkDelayedCommitPuts = []
+  document.addEventListener("input", () => {
+    if (state.__loomarkDelayedCommitActive) {
+      state.__loomarkDelayedCommitInputs =
+        (state.__loomarkDelayedCommitInputs ?? 0) + 1
+    }
+  })
+  prototype.put = function(
+    this: IDBObjectStore,
+    value: unknown,
+    recordKey?: IDBValidKey,
+  ) {
+    const request = originalPut.call(this, value, recordKey)
+    if (recordKey === targetKey && typeof value === "string") {
+      if (state.__loomarkDelayedCommitActive) {
+        state.__loomarkDelayedCommitConcurrentPuts =
+          (state.__loomarkDelayedCommitConcurrentPuts ?? 0) + 1
+      }
+      state.__loomarkDelayedCommitPuts?.push({
+        at: performance.now(),
+        value,
+      })
+      state.__loomarkDelayedCommitActive = true
+      const store = this
+      const transaction = this.transaction
+      transaction.addEventListener("complete", () => {
+        state.__loomarkDelayedCommitActive = false
+        state.__loomarkDelayedCommitCompletions =
+          (state.__loomarkDelayedCommitCompletions ?? 0) + 1
+      })
+      transaction.addEventListener("abort", () => {
+        state.__loomarkDelayedCommitActive = false
+      })
+      const started = performance.now()
+      const keepAlive = () => {
+        if (performance.now() - started >= 500) return
+        const keepAliveRequest = store.get(recordKey)
+        keepAliveRequest.addEventListener("success", keepAlive)
+      }
+      keepAlive()
+    }
+    return request
+  }
+}
+
 function removeDocumentPutFailure(): void {
   const state = globalThis as typeof globalThis & {
     __loomarkDocumentPutFailure?: boolean
@@ -1108,6 +1205,42 @@ test("exact acknowledged revert restores Saved without a redundant put", async (
   expect((await readStoredDocument(page))?.text).toBe("# Untitled\n")
 })
 
+test("equal-text ABA still receives a full trailing quiet window", async ({ page }) => {
+  await page.goto("/")
+  await expect.poll(() => readStoredDocument(page).then(document => document?.text))
+    .toBe("# Untitled\n")
+  const baseline = await readStoredDocument(page)
+  if (!baseline) throw new Error("baseline Source missing")
+  await page.evaluate(installDocumentPutLog, sourceKey(baseline.document_id))
+
+  const text = page.getByRole("textbox", { name: "Text" })
+  const finalInputAt = await text.evaluate(async element => {
+    const textarea = element as HTMLTextAreaElement
+    const values = ["# B\n", "# C\n", "# B\n"]
+    let finalInputAt = 0
+    for (const [index, value] of values.entries()) {
+      textarea.value = value
+      finalInputAt = performance.now()
+      textarea.dispatchEvent(new InputEvent("input", {
+        bubbles: true,
+        composed: true,
+        data: value,
+        inputType: "insertText",
+      }))
+      if (index < values.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
+    }
+    return finalInputAt
+  })
+
+  await page.waitForTimeout(150)
+  expect(await readDocumentPutLog(page)).toEqual([])
+  await expect.poll(() => readDocumentPutLog(page)).toHaveLength(1)
+  const [put] = await readDocumentPutLog(page)
+  expect(put.at - finalInputAt).toBeGreaterThanOrEqual(250)
+})
+
 test("uninterrupted input reaches maximum eligibility without final quiet", async ({ page }) => {
   await page.goto("/")
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
@@ -1171,11 +1304,20 @@ test("large active-write overlap remains coalesced", async ({ page }) => {
   await page.reload()
   const text = page.getByRole("textbox", { name: "Text" })
   await expect(text).toHaveValue(largeText)
-  await page.evaluate(installDocumentPutLog, sourceKey(baseline.document_id))
+  await page.evaluate(
+    installDelayedDocumentCommit,
+    sourceKey(baseline.document_id),
+  )
 
-  const finalText = await text.evaluate(async element => {
+  const stream = await text.evaluate(async element => {
     const textarea = element as HTMLTextAreaElement
+    const started = performance.now()
+    let previousInput = started
+    const inputGaps: number[] = []
     for (let index = 0; index < 46; index += 1) {
+      const inputStarted = performance.now()
+      if (index > 0) inputGaps.push(inputStarted - previousInput)
+      previousInput = inputStarted
       textarea.value = `${textarea.value}x`
       textarea.dispatchEvent(new InputEvent("input", {
         bubbles: true,
@@ -1185,17 +1327,40 @@ test("large active-write overlap remains coalesced", async ({ page }) => {
       }))
       await new Promise(resolve => setTimeout(resolve, 50))
     }
-    return textarea.value
+    return {
+      duration: performance.now() - started,
+      finalText: textarea.value,
+      maximumInputGap: Math.max(...inputGaps),
+    }
   })
 
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
-    .toBe(finalText)
-  const puts = await readDocumentPutLog(page)
-  expect(puts.length).toBeGreaterThanOrEqual(2)
-  expect(puts.length).toBeLessThanOrEqual(3)
-  expect((JSON.parse(puts[0].value) as StoredDocument).text).not.toBe(finalText)
-  expect((JSON.parse(puts.at(-1)?.value ?? "null") as StoredDocument).text)
-    .toBe(finalText)
+    .toBe(stream.finalText)
+  const overlap = await page.evaluate(() => {
+    const state = globalThis as typeof globalThis & {
+      __loomarkDelayedCommitCompletions?: number
+      __loomarkDelayedCommitConcurrentPuts?: number
+      __loomarkDelayedCommitInputs?: number
+      __loomarkDelayedCommitPuts?: PutObservation[]
+    }
+    return {
+      completions: state.__loomarkDelayedCommitCompletions ?? 0,
+      concurrentPuts: state.__loomarkDelayedCommitConcurrentPuts ?? 0,
+      inputs: state.__loomarkDelayedCommitInputs ?? 0,
+      puts: state.__loomarkDelayedCommitPuts ?? [],
+    }
+  })
+  expect(stream.maximumInputGap).toBeLessThan(250)
+  expect(overlap.inputs).toBeGreaterThan(0)
+  expect(overlap.completions).toBeGreaterThanOrEqual(1)
+  expect(overlap.concurrentPuts).toBe(0)
+  expect(overlap.puts.length).toBeGreaterThanOrEqual(2)
+  const maximumPolicyWrites = Math.ceil(stream.duration / 2_000) + 1
+  expect(overlap.puts.length).toBeLessThanOrEqual(maximumPolicyWrites)
+  expect((JSON.parse(overlap.puts[0].value) as StoredDocument).text)
+    .not.toBe(stream.finalText)
+  expect((JSON.parse(overlap.puts.at(-1)?.value ?? "null") as StoredDocument).text)
+    .toBe(stream.finalText)
 })
 
 test("hidden visibility makes pending text eligible before quiet", async ({ page }) => {
@@ -1419,6 +1584,65 @@ test("save failure keeps Text editable and Retry saves the latest text", async (
     .toBe("# Latest text\n")
   await page.reload()
   await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("# Latest text\n")
+})
+
+test("failed attempt exact acknowledged revert restores truthful Saved", async ({ page }) => {
+  await page.goto("/")
+  await expect.poll(() => readStoredDocument(page).then(document => document?.text))
+    .toBe("# Untitled\n")
+  const baseline = await readStoredDocument(page)
+  if (!baseline) throw new Error("baseline Source missing")
+  await page.evaluate(installDocumentPutFailure, sourceKey(baseline.document_id))
+
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill("# Not saved\n")
+  await expect(page.getByRole("alert")).toContainText("Changes are not saved")
+  const failedCalls = await page.evaluate(() => (
+    (globalThis as typeof globalThis & {
+      __loomarkDocumentPutFailureCalls?: number
+    }).__loomarkDocumentPutFailureCalls ?? 0
+  ))
+  expect(failedCalls).toBe(1)
+
+  await text.fill("# Untitled\n")
+  await expect(page.getByRole("alert")).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "New document" })).toBeEnabled()
+  await page.waitForTimeout(300)
+  const callsAfterRevert = await page.evaluate(() => (
+    (globalThis as typeof globalThis & {
+      __loomarkDocumentPutFailureCalls?: number
+    }).__loomarkDocumentPutFailureCalls ?? 0
+  ))
+  expect(callsAfterRevert).toBe(failedCalls)
+  expect((await readStoredDocument(page))?.text).toBe("# Untitled\n")
+})
+
+test("active failure after acknowledged revert restores truthful Saved", async ({ page }) => {
+  await page.goto("/")
+  await expect.poll(() => readStoredDocument(page).then(document => document?.text))
+    .toBe("# Untitled\n")
+  const baseline = await readStoredDocument(page)
+  if (!baseline) throw new Error("baseline Source missing")
+  await page.evaluate(installDelayedDocumentAbort, sourceKey(baseline.document_id))
+
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill("# In flight\n")
+  await expect.poll(() => page.evaluate(() => (
+    (globalThis as typeof globalThis & {
+      __loomarkDelayedAbortStarted?: boolean
+    }).__loomarkDelayedAbortStarted ?? false
+  ))).toBe(true)
+  await text.fill("# Untitled\n")
+  await expect.poll(() => page.evaluate(() => (
+    (globalThis as typeof globalThis & {
+      __loomarkDelayedAbortFinished?: boolean
+    }).__loomarkDelayedAbortFinished ?? false
+  ))).toBe(true)
+
+  await expect(page.getByRole("alert")).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "New document" })).toBeEnabled()
+  await expect.poll(() => readStoredDocument(page).then(document => document?.text))
+    .toBe("# Untitled\n")
 })
 
 test("saving one Source preserves unrelated Sources and unknown metadata", async ({ page }) => {

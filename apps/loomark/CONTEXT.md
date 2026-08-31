@@ -80,9 +80,12 @@ _Avoid_: persisted metadata, document authority, index of truth
 
 **Autosave**:
 Saving the current Document text after 250 ms of quiet or after one
-non-restarting 2,000 ms maximum-wait timer becomes processable. IME composition
-defers persistence until its committed result. A hidden page makes pending text
-eligible as a best effort. Exact return to acknowledged text requires no write.
+non-restarting 2,000 ms maximum-wait timer becomes processable. Checkpoint epoch
+identifies the dirty interval; quiet revision identifies its latest committed
+edit even when text returns to an earlier value. IME composition defers
+persistence until its committed result. A hidden page makes pending text
+eligible as a best effort. Exact return to acknowledged text requires no write,
+including after a failed attempt.
 _Avoid_: periodic backup, manual save, termination guarantee
 
 **Recovery**:

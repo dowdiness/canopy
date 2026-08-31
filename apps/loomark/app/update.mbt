@@ -52,12 +52,15 @@ fn save_effect_command(
   let owner = editing.activation
   match effect {
     NoSaveEffect => @cmd.none
-    ArmQuiet(epoch, candidate) =>
-      @cmd.delay(emit(QuietElapsed(owner, epoch, candidate)), AUTOSAVE_QUIET_MS)
-    ArmQuietAndMaximum(epoch, candidate) =>
+    ArmQuiet(epoch, quiet_revision) =>
+      @cmd.delay(
+        emit(QuietElapsed(owner, epoch, quiet_revision)),
+        AUTOSAVE_QUIET_MS,
+      )
+    ArmQuietAndMaximum(epoch, quiet_revision) =>
       @cmd.batch([
         @cmd.delay(
-          emit(QuietElapsed(owner, epoch, candidate)),
+          emit(QuietElapsed(owner, epoch, quiet_revision)),
           AUTOSAVE_QUIET_MS,
         ),
         @cmd.delay(emit(MaximumElapsed(owner, epoch)), AUTOSAVE_MAXIMUM_MS),
@@ -318,12 +321,18 @@ fn update(
       (Editing({ ..editing, compact: compact_viewport(width) }), @cmd.none)
     (Recovery(failure, _), ViewportChanged(width)) =>
       (Recovery(failure, compact_viewport(width)), @cmd.none)
-    (Editing(editing), QuietElapsed(owner, epoch, candidate)) =>
-      if owner != editing.activation || candidate != editing.text {
+    (Editing(editing), QuietElapsed(owner, epoch, quiet_revision)) =>
+      if owner != editing.activation {
         (model, @cmd.none)
       } else {
-        let (editing, save_effect) = save_after_eligible(editing, epoch)
-        (Editing(editing), save_effect_command(editing, save_effect, emit))
+        match editing.save.pending_checkpoint() {
+          Some(checkpoint) if checkpoint.epoch == epoch &&
+            checkpoint.quiet_revision == quiet_revision => {
+            let (editing, save_effect) = save_after_eligible(editing, epoch)
+            (Editing(editing), save_effect_command(editing, save_effect, emit))
+          }
+          _ => (model, @cmd.none)
+        }
       }
     (Editing(editing), MaximumElapsed(owner, epoch)) =>
       if owner != editing.activation {
@@ -336,10 +345,13 @@ fn update(
       if !hidden {
         (model, @cmd.none)
       } else {
-        match editing.save.pending_epoch() {
+        match editing.save.pending_checkpoint() {
           None => (model, @cmd.none)
-          Some(epoch) => {
-            let (editing, save_effect) = save_after_eligible(editing, epoch)
+          Some(checkpoint) => {
+            let (editing, save_effect) = save_after_eligible(
+              editing,
+              checkpoint.epoch,
+            )
             (Editing(editing), save_effect_command(editing, save_effect, emit))
           }
         }

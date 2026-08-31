@@ -33,8 +33,10 @@ defers persistence until its committed result.
 
 At most one Source write and one newer text-free checkpoint exist. Transaction
 completion starts a latest follow-up only when that checkpoint is already
-eligible. Exact return to the acknowledged Source restores `Saved` without a
-redundant write; failure requires explicit Retry.
+eligible. Checkpoint epoch and quiet revision reject delayed work even when
+text follows an equal-value ABA path. Exact return to the acknowledged Source
+restores `Saved` without a redundant write, including after a failed attempt;
+other failures require explicit Retry.
 
 Each `source/v1/<document-id>` record contains exactly `document_id` and `text`
 and is the durable authority for that document. Opening scans the complete
