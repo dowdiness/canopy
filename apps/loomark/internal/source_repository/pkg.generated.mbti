@@ -9,6 +9,8 @@ import {
 // Values
 pub fn create(RepositorySnapshot, result~ : @cmd.Emit[CreateResult]) -> @cmd.Cmd
 
+pub fn delete(RepositorySnapshot, String, result~ : @cmd.Emit[DeleteResult]) -> @cmd.Cmd
+
 pub fn open(result~ : @cmd.Emit[OpenResult]) -> @cmd.Cmd
 
 pub fn save(RepositorySnapshot, String, String, result~ : @cmd.Emit[SaveResult]) -> @cmd.Cmd
@@ -35,6 +37,19 @@ pub(all) enum CreateFailure {
 pub(all) enum CreateResult {
   Created(RepositorySnapshot, String)
   Failed(CreateFailure)
+} derive(Eq, @debug.Debug)
+
+pub(all) enum DeleteFailure {
+  InvalidSource
+  LastSource
+  StorageUnavailable
+  QuotaExceeded
+  WriteFailed
+} derive(Eq, @debug.Debug)
+
+pub(all) enum DeleteResult {
+  Deleted(RepositorySnapshot)
+  Failed(DeleteFailure)
 } derive(Eq, @debug.Debug)
 
 pub(all) enum OpenFailure {

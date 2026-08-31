@@ -540,11 +540,18 @@ test("several Sources select the first lexical Document ID without writing metad
   await page.reload()
   await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(documentA.text)
   const documents = page.getByRole("complementary", { name: "Documents" })
-  await expect(documents.getByRole("button", { name: "Same (1 of 2)" }))
-    .toBeVisible()
-  await expect(documents.getByRole("button", { name: "Same (2 of 2)" }))
-    .toBeVisible()
-  await expect(documents.getByRole("button", { name: "Unnamed document" }))
+  await expect(documents.getByRole("button", {
+    name: "Same (1 of 2)",
+    exact: true,
+  })).toBeVisible()
+  await expect(documents.getByRole("button", {
+    name: "Same (2 of 2)",
+    exact: true,
+  })).toBeVisible()
+  await expect(documents.getByRole("button", {
+    name: "Unnamed document",
+    exact: true,
+  }))
     .toBeVisible()
   expect(await readStoredDocumentRaw(page, CATALOG_KEY)).toBeUndefined()
   expect(await readStoredDocumentRaw(page, "source/v2/future")).toBe("future")
@@ -623,6 +630,84 @@ test("New Document commits one baseline Source before activating it", async ({ p
   await expect(documents.getByRole("button", { name: "Project notes", exact: true }))
     .toBeVisible()
   expect(await readStoredDocuments(page)).toEqual(renamed)
+})
+
+test("Delete document removes a non-active Source without moving the editor", async ({ page }) => {
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const documentA = { document_id: "document-a", text: "# A\n" }
+  const documentB = { document_id: "document-b", text: "# B\n" }
+  await replaceStoreRecords(page, [
+    { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA) },
+    { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB) },
+  ])
+  await page.reload()
+
+  const text = page.getByRole("textbox", { name: "Text" })
+  await expect(text).toHaveValue(documentA.text)
+  await page.getByRole("button", { name: 'Delete "B"' }).click()
+  const dialog = page.getByRole("alertdialog")
+  await expect(dialog).toContainText('Delete "B"?')
+  await dialog.getByRole("button", { name: "Delete document" }).click()
+
+  await expect.poll(() => readStoredDocumentRaw(page, sourceKey(documentB.document_id)))
+    .toBeUndefined()
+  await expect(text).toHaveValue(documentA.text)
+  await page.reload()
+  await expect(text).toHaveValue(documentA.text)
+  await expect(page.getByRole("button", { name: "B", exact: true })).toHaveCount(0)
+})
+
+test("Delete document activates the lexical fallback only after commit", async ({ page }) => {
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const documentA = { document_id: "document-a", text: "# A\n" }
+  const documentB = { document_id: "document-b", text: "# B\n" }
+  await replaceStoreRecords(page, [
+    { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA) },
+    { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB) },
+  ])
+  await page.reload()
+
+  await page.getByRole("button", { name: 'Delete "A"' }).click()
+  const dialog = page.getByRole("alertdialog")
+  await dialog.getByRole("button", { name: "Delete document" }).click()
+
+  const text = page.getByRole("textbox", { name: "Text" })
+  await expect(text).toHaveValue(documentB.text)
+  await expect.poll(() => readStoredDocumentRaw(page, sourceKey(documentA.document_id)))
+    .toBeUndefined()
+  await page.reload()
+  await expect(text).toHaveValue(documentB.text)
+})
+
+test("Delete document cancellation preserves the Source and editor", async ({ page }) => {
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const documentA = { document_id: "document-a", text: "# A\n" }
+  const documentB = { document_id: "document-b", text: "# B\n" }
+  await replaceStoreRecords(page, [
+    { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA) },
+    { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB) },
+  ])
+  await page.reload()
+
+  await page.getByRole("button", { name: 'Delete "B"' }).click()
+  const dialog = page.getByRole("alertdialog")
+  await dialog.getByRole("button", { name: "Cancel" }).click()
+
+  await expect(dialog).toHaveCount(0)
+  await expect.poll(() => readStoredDocumentRaw(page, sourceKey(documentB.document_id)))
+    .toBe(encodeStoredDocument(documentB))
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill("# Still editable\n")
+  await expect(text).toHaveValue("# Still editable\n")
+})
+
+test("Delete document rejects deleting the final Source", async ({ page }) => {
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  await expect(page.getByRole("button", { name: /^Delete "/ })).toBeDisabled()
 })
 
 test("creation failure preserves the active document and can retry", async ({ page }) => {

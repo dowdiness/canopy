@@ -186,6 +186,39 @@ fn RepositorySnapshot::occupied_source_keys(self : Self) -> ArrayView[String] {
 }
 
 ///|
+fn accepted_deletion(
+  snapshot : RepositorySnapshot,
+  document_id : String,
+) -> RepositorySnapshot? {
+  guard snapshot.source(document_id) is Some(_) &&
+    snapshot.sources().length() > 1 else {
+    return None
+  }
+  let key = source_key(document_id).unwrap()
+  let sources = snapshot
+    .sources()
+    .filter(source => source.document_id() != document_id)
+  let entries = snapshot
+    .catalog()
+    .entries()
+    .filter(entry => entry.document_id() != document_id)
+  let issues = snapshot
+    .issues()
+    .filter(issue => {
+      match issue {
+        RepositoryIssue::NameDerivationFailed(issue_id) =>
+          issue_id != document_id
+        _ => true
+      }
+    })
+  let occupied_source_keys = snapshot
+    .occupied_source_keys()
+    .filter(occupied => occupied != key)
+  guard Catalog::from_entries(entries) is Some(catalog) else { return None }
+  Some(RepositorySnapshot::new(sources, catalog, issues, occupied_source_keys))
+}
+
+///|
 fn accepted_source(
   snapshot : RepositorySnapshot,
   source : SourceRecord,

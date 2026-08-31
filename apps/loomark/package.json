@@ -6,6 +6,8 @@
     "dev:styles": "tailwindcss -i ./styles/tailwind.css -o ./public/styles.css --watch"
   },
   "devDependencies": {
+    "@egoist/tailwindcss-icons": "^1.9.2",
+    "@iconify-json/lucide": "^1.2.127",
     "@tailwindcss/cli": "4.3.3",
     "@tailwindcss/typography": "0.5.20",
     "tailwindcss": "4.3.3"

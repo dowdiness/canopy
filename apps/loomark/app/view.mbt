@@ -19,6 +19,11 @@ fn mode_tab(
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
   let name = mode_name(mode)
+  let icon_class = match mode {
+    Text => "i-lucide-align-left"
+    Preview => "i-lucide-eye"
+    Split => "i-lucide-columns-2"
+  }
   @rui.tabs_trigger(
     value=name.to_lower(),
     selected=mode == selected_mode,
@@ -28,14 +33,10 @@ fn mode_tab(
     title=name,
     class="group",
     attrs=@html.Attrs::build().aria_label(name),
-    style=[
-      "width:1.75rem;height:1.75rem;min-height:1.75rem;flex:none;padding:0",
-    ],
+    style=["width:2rem;height:2rem;min-height:2rem;flex:none;padding:0"],
     @html.span(
-      class="pointer-events-none relative block size-4.5 transition-colors duration-150 group-hover:text-[oklch(0.145_0_0)]",
-      attrs=@html.Attrs::build()
-        .data_set("mode", name.to_lower())
-        .aria_hidden("true"),
+      class="pointer-events-none block size-4.5 \{icon_class} transition-colors duration-150 group-hover:text-[oklch(0.145_0_0)]",
+      attrs=@html.Attrs::build().aria_hidden("true"),
       @html.nothing,
     ),
   )
@@ -80,10 +81,8 @@ fn document_option_label(
 ///|
 fn sidebar_panel_icon() -> @rabbita.Html {
   @html.span(
-    class="relative block size-4 shrink-0",
-    attrs=@html.Attrs::build()
-      .data_set("loomark-icon", "sidebar")
-      .aria_hidden("true"),
+    class="i-lucide-panel-left block size-4 shrink-0",
+    attrs=@html.Attrs::build().aria_hidden("true"),
     @html.nothing,
   )
 }
@@ -91,10 +90,8 @@ fn sidebar_panel_icon() -> @rabbita.Html {
 ///|
 fn sidebar_folder_icon() -> @rabbita.Html {
   @html.span(
-    class="relative block size-4 shrink-0",
-    attrs=@html.Attrs::build()
-      .data_set("loomark-icon", "folder")
-      .aria_hidden("true"),
+    class="i-lucide-folder block size-4 shrink-0",
+    attrs=@html.Attrs::build().aria_hidden("true"),
     @html.nothing,
   )
 }
@@ -102,10 +99,17 @@ fn sidebar_folder_icon() -> @rabbita.Html {
 ///|
 fn sidebar_new_icon() -> @rabbita.Html {
   @html.span(
-    class="relative block size-4 shrink-0",
-    attrs=@html.Attrs::build()
-      .data_set("loomark-icon", "new-document")
-      .aria_hidden("true"),
+    class="i-lucide-plus block size-4 shrink-0",
+    attrs=@html.Attrs::build().aria_hidden("true"),
+    @html.nothing,
+  )
+}
+
+///|
+fn sidebar_delete_icon() -> @rabbita.Html {
+  @html.span(
+    class="i-lucide-trash-2 block size-4 shrink-0",
+    attrs=@html.Attrs::build().aria_hidden("true"),
     @html.nothing,
   )
 }
@@ -153,8 +157,8 @@ fn document_sidebar(
                 disabled=!available,
                 aria_label="New document",
                 title="New document",
-                class="active:opacity-50",
-                style=["width:1.5rem;height:1.5rem"],
+                class="loomark-sidebar-action",
+                style=["width:2rem;height:2rem"],
                 on_click=@cmd.batch([emit(CreateRequested), close_after_action]),
                 sidebar_new_icon(),
               ),
@@ -163,26 +167,39 @@ fn document_sidebar(
                   let document_id = entry.document_id()
                   let selected = document_id == editing.activation.document_id
                   let label = document_option_label(entries, index, entry)
-                  @sidebar.sidebar_menu_sub_item(
+                  @sidebar.sidebar_menu_sub_item([
                     @sidebar.sidebar_menu_sub_button(
                       is_active=selected,
                       disabled=!available && !selected,
                       aria_label=label,
                       title=label,
-                      class="hover:opacity-70 active:opacity-50",
+                      class="pr-10 hover:opacity-70 active:opacity-50",
                       on_click=@cmd.batch([
                         emit(DocumentSelected(document_id)),
                         close_after_action,
                       ]),
                       style=[
-                        "height:auto;min-height:2.25rem;align-items:flex-start;padding-block:0.375rem",
+                        "height:auto;min-height:2.5rem;align-items:flex-start;padding-block:0.5rem",
                       ],
                       @html.span(
                         class="min-w-0 overflow-hidden text-ellipsis whitespace-normal [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]",
                         label,
                       ),
                     ),
-                  )
+                    @sidebar.sidebar_menu_action(
+                      disabled=!available || entries.length() <= 1,
+                      aria_label="Delete \"\{label}\"",
+                      title=if entries.length() <= 1 {
+                        "Keep at least one document"
+                      } else {
+                        "Delete \"\{label}\""
+                      },
+                      class="loomark-sidebar-action loomark-delete-action",
+                      style=["width:2rem;height:2rem"],
+                      on_click=emit(DeleteRequested(document_id)),
+                      sidebar_delete_icon(),
+                    ),
+                  ])
                 }),
               ),
             ]),
@@ -241,6 +258,7 @@ fn text_area_view(
   text_area : @text_area.TextArea,
   activation : Activation,
   disabled? : Bool,
+  read_only? : Bool,
 ) -> @rabbita.Html {
   @html.div(
     class="h-full min-h-0 w-full min-w-0",
@@ -251,6 +269,7 @@ fn text_area_view(
           rows=24,
           autofocus=true,
           disabled?,
+          read_only?,
           class="m-0 block h-full min-h-0 w-full min-w-0 resize-none rounded-none border-0 bg-transparent px-[max(3rem,calc((100%_-_44rem)_/_2))] pt-8 pb-16 font-lm-mono text-base leading-[1.65] text-lm-ink caret-lm-accent outline-0 [tab-size:2] max-[641px]:px-3 max-[641px]:pt-6 max-[641px]:pb-12",
           attrs=text_area.attach(
             @html.Attrs::build().aria_label("Text"),
@@ -302,6 +321,45 @@ fn creation_failure_view(
 }
 
 ///|
+fn delete_failure_view(
+  document_id : String,
+  failure : @source_repository.DeleteFailure,
+  emit : @rabbita.Emit[Msg],
+) -> @rabbita.Html {
+  let reason = match failure {
+    @source_repository.DeleteFailure::InvalidSource =>
+      "The document is no longer available."
+    @source_repository.DeleteFailure::LastSource =>
+      "The last document cannot be deleted."
+    @source_repository.DeleteFailure::StorageUnavailable =>
+      "Browser storage is unavailable."
+    @source_repository.DeleteFailure::QuotaExceeded =>
+      "Browser storage could not complete the deletion."
+    @source_repository.DeleteFailure::WriteFailed =>
+      "Browser storage failed while deleting the document."
+  }
+  @html.div(
+    class="flex min-h-12 shrink-0 items-center justify-between gap-4 border-t border-[oklch(0.78_0.07_25)] bg-lm-danger-soft px-4 py-2.5 text-sm text-lm-danger opacity-100 transition-opacity duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] starting:opacity-0 motion-reduce:duration-[80ms] motion-reduce:ease-[ease] max-[641px]:items-start [&_p]:m-0",
+    attrs=@html.Attrs::build().role("alert"),
+    [
+      @html.p("The document was not deleted. " + reason),
+      @html.div(class="flex shrink-0 gap-2", [
+        @html.button(
+          class="min-h-8 cursor-pointer rounded-md border border-current bg-transparent px-2.5 py-1 text-inherit focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lm-danger",
+          on_click=emit(DeleteRequested(document_id)),
+          "Try again",
+        ),
+        @html.button(
+          class="min-h-8 cursor-pointer rounded-md border border-current bg-transparent px-2.5 py-1 text-inherit focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lm-danger",
+          on_click=emit(DismissDeleteFailure),
+          "Dismiss",
+        ),
+      ]),
+    ],
+  )
+}
+
+///|
 fn save_failure_view(
   failure : @source_repository.SaveFailure,
   emit : @rabbita.Emit[Msg],
@@ -335,6 +393,7 @@ fn view(
   model : Model,
   emit : @rabbita.Emit[Msg],
   editor_panels : @rabbita.Html,
+  delete_dialog : @rabbita.Html,
 ) -> @rabbita.Html {
   @html.div(
     id="loomark-root",
@@ -342,51 +401,65 @@ fn view(
     attrs=@html.Attrs::build()
       .role("region")
       .aria_label("Loomark Markdown Editor"),
-    match model {
-      Loading(_) =>
-        @html.div(
-          class="grid min-h-dvh place-items-center text-lm-muted [&_p]:m-0",
-          [@html.p("Loading document")],
-        )
-      Recovery(failure, _) => {
-        let message = match failure {
-          @source_repository.OpenFailure::StorageUnavailable =>
-            "Browser storage is unavailable."
-          @source_repository.OpenFailure::ReadFailed =>
-            "Browser storage failed while reading the document."
-          @source_repository.OpenFailure::DocumentIdentityUnavailable =>
-            "This browser cannot create a document identity."
-          @source_repository.OpenFailure::QuotaExceeded =>
-            "Browser storage is full."
-          @source_repository.OpenFailure::WriteFailed =>
-            "Browser storage failed while preparing the document."
+    [
+      match model {
+        Loading(_) =>
+          @html.div(
+            class="grid min-h-dvh place-items-center text-lm-muted [&_p]:m-0",
+            [@html.p("Loading document")],
+          )
+        Recovery(failure, _) => {
+          let message = match failure {
+            @source_repository.OpenFailure::StorageUnavailable =>
+              "Browser storage is unavailable."
+            @source_repository.OpenFailure::ReadFailed =>
+              "Browser storage failed while reading the document."
+            @source_repository.OpenFailure::DocumentIdentityUnavailable =>
+              "This browser cannot create a document identity."
+            @source_repository.OpenFailure::QuotaExceeded =>
+              "Browser storage is full."
+            @source_repository.OpenFailure::WriteFailed =>
+              "Browser storage failed while preparing the document."
+          }
+          @html.div(
+            class="mx-auto w-[min(calc(100%-2rem),36rem)] pt-[max(4rem,20vh)] pb-8 [&_h1]:mt-0 [&_h1]:mb-3 [&_h1]:text-xl [&_h1]:leading-[1.3] [&_p]:m-0 [&_p]:leading-[1.6] [&_p]:text-lm-muted",
+            [@html.h1("Document recovery"), @html.p(message)],
+          )
         }
-        @html.div(
-          class="mx-auto w-[min(calc(100%-2rem),36rem)] pt-[max(4rem,20vh)] pb-8 [&_h1]:mt-0 [&_h1]:mb-3 [&_h1]:text-xl [&_h1]:leading-[1.3] [&_p]:m-0 [&_p]:leading-[1.6] [&_p]:text-lm-muted",
-          [@html.h1("Document recovery"), @html.p(message)],
-        )
-      }
-      Editing(editing) =>
-        @html.div(
-          class="flex h-full min-h-0 min-w-0 flex-1 opacity-100 transition-opacity duration-[140ms] ease-[cubic-bezier(0.23,1,0.32,1)] starting:opacity-[0.92] motion-reduce:duration-[80ms] motion-reduce:ease-[ease]",
-          [
-            document_sidebar(sidebar, editing, emit),
-            @html.div(
-              class="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-lm-paper",
-              [
-                mode_bar(sidebar, editing, emit),
-                mode_content(editing.mode, editor_panels),
-                match (editing.save, editing.creation) {
-                  (Failed(failure, _), _) => save_failure_view(failure, emit)
-                  (_, CreationFailed(failure)) =>
-                    creation_failure_view(failure, emit)
-                  (Saved | Waiting(_) | Saving(_, _), Idle | Creating) =>
-                    @html.nothing
-                },
-              ],
-            ),
-          ],
-        )
-    },
+        Editing(editing) =>
+          @html.div(
+            class="flex h-full min-h-0 min-w-0 flex-1 opacity-100 transition-opacity duration-[140ms] ease-[cubic-bezier(0.23,1,0.32,1)] starting:opacity-[0.92] motion-reduce:duration-[80ms] motion-reduce:ease-[ease]",
+            [
+              document_sidebar(sidebar, editing, emit),
+              @html.div(
+                class="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-lm-paper",
+                [
+                  mode_bar(sidebar, editing, emit),
+                  mode_content(editing.mode, editor_panels),
+                  match (editing.save, editing.creation, editing.deletion) {
+                    (Failed(failure, _), _, _) =>
+                      save_failure_view(failure, emit)
+                    (_, CreationFailed(failure), _) =>
+                      creation_failure_view(failure, emit)
+                    (_, _, DeleteFailed(document_id, failure)) =>
+                      delete_failure_view(document_id, failure, emit)
+                    (
+                      Saved
+                      | Waiting(_)
+                      | Saving(_, _),
+                      Idle
+                      | Creating,
+                      NoDeletion
+                      | DeleteConfirmation(_)
+                      | Deleting(_, _),
+                    ) => @html.nothing
+                  },
+                ],
+              ),
+            ],
+          )
+      },
+      delete_dialog,
+    ],
   )
 }

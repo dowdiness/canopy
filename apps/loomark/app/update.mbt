@@ -39,8 +39,19 @@ fn select_mode(
 }
 
 ///|
+fn deletion_blocks_document_changes(editing : EditingState) -> Bool {
+  match editing.deletion {
+    DeleteConfirmation(_) | Deleting(_, _) => true
+    NoDeletion | DeleteFailed(_, _) => false
+  }
+}
+
+///|
 fn can_activate(editing : EditingState) -> Bool {
-  editing.save == Saved && !editing.composing && editing.creation != Creating
+  editing.save == Saved &&
+  !editing.composing &&
+  editing.creation != Creating &&
+  !deletion_blocks_document_changes(editing)
 }
 
 ///|
@@ -157,6 +168,8 @@ fn update(
                   save: Saved,
                   last_checkpoint_epoch: 0,
                   creation: Idle,
+                  deletion: NoDeletion,
+                  last_delete_request: 0,
                   mode: Text,
                   compact,
                   preview,
@@ -177,7 +190,8 @@ fn update(
     (Editing(editing), ExampleSelected(owner, text)) =>
       if owner != editing.activation {
         (model, @cmd.none)
-      } else if editing.creation == Creating {
+      } else if editing.creation == Creating ||
+        deletion_blocks_document_changes(editing) {
         (model, text_area.initialize(editing.text))
       } else {
         (
@@ -196,7 +210,8 @@ fn update(
     (Editing(editing), TextChanged(owner, change)) =>
       if owner != editing.activation {
         (model, @cmd.none)
-      } else if editing.creation == Creating {
+      } else if editing.creation == Creating ||
+        deletion_blocks_document_changes(editing) {
         (model, text_area.initialize(editing.text))
       } else {
         match change.apply(editing.text) {
@@ -227,7 +242,9 @@ fn update(
         }
       }
     (Editing(editing), CompositionStarted(owner)) =>
-      if owner != editing.activation || editing.creation == Creating {
+      if owner != editing.activation ||
+        editing.creation == Creating ||
+        deletion_blocks_document_changes(editing) {
         (model, @cmd.none)
       } else {
         (Editing({ ..editing, composing: true }), @cmd.none)
@@ -235,7 +252,8 @@ fn update(
     (Editing(editing), CompositionEnded(owner)) =>
       if owner != editing.activation {
         (model, @cmd.none)
-      } else if editing.creation == Creating {
+      } else if editing.creation == Creating ||
+        deletion_blocks_document_changes(editing) {
         (model, text_area.initialize(editing.text))
       } else {
         let (editing, save_effect) = save_after_composition_ended(editing)
@@ -316,6 +334,85 @@ fn update(
             (Editing(editing), command)
           }
         }
+      }
+    (Editing(editing), DeleteRequested(document_id)) =>
+      if !can_activate(editing) ||
+        editing.repository.source(document_id) is None ||
+        editing.repository.sources().length() <= 1 {
+        (model, @cmd.none)
+      } else {
+        (
+          Editing({ ..editing, deletion: DeleteConfirmation(document_id) }),
+          @cmd.none,
+        )
+      }
+    (Editing(editing), DeleteCancelled) =>
+      match editing.deletion {
+        DeleteConfirmation(_) =>
+          (Editing({ ..editing, deletion: NoDeletion }), @cmd.none)
+        NoDeletion | Deleting(_, _) | DeleteFailed(_, _) => (model, @cmd.none)
+      }
+    (Editing(editing), DeleteConfirmed(document_id)) =>
+      if editing.deletion != DeleteConfirmation(document_id) ||
+        editing.save != Saved ||
+        editing.composing ||
+        editing.creation == Creating ||
+        editing.repository.source(document_id) is None ||
+        editing.repository.sources().length() <= 1 {
+        (model, @cmd.none)
+      } else {
+        let request = editing.last_delete_request + 1
+        (
+          Editing({
+            ..editing,
+            deletion: Deleting(request, document_id),
+            last_delete_request: request,
+          }),
+          @source_repository.delete(
+            editing.repository,
+            document_id,
+            result=emit.map(result => DeleteCompleted(request, result)),
+          ),
+        )
+      }
+    (Editing(editing), DeleteCompleted(request, result)) =>
+      match editing.deletion {
+        Deleting(active_request, document_id) if active_request == request =>
+          match result {
+            @source_repository.DeleteResult::Failed(failure) =>
+              (
+                Editing({
+                  ..editing,
+                  deletion: DeleteFailed(document_id, failure),
+                }),
+                @cmd.none,
+              )
+            @source_repository.DeleteResult::Deleted(repository) =>
+              if document_id != editing.activation.document_id {
+                (
+                  Editing({ ..editing, repository, deletion: NoDeletion }),
+                  @cmd.none,
+                )
+              } else {
+                let source = repository.selected().unwrap()
+                let prepared = { ..editing, repository, deletion: NoDeletion }
+                let (editing, command) = activate_document(
+                  prepared, source, emit, text_area, preview_engine,
+                )
+                (Editing(editing), command)
+              }
+          }
+        NoDeletion
+        | DeleteConfirmation(_)
+        | DeleteFailed(_, _)
+        | Deleting(_, _) => (model, @cmd.none)
+      }
+    (Editing(editing), DismissDeleteFailure) =>
+      match editing.deletion {
+        DeleteFailed(_, _) =>
+          (Editing({ ..editing, deletion: NoDeletion }), @cmd.none)
+        NoDeletion | DeleteConfirmation(_) | Deleting(_, _) =>
+          (model, @cmd.none)
       }
     (Editing(editing), ViewportChanged(width)) =>
       (Editing({ ..editing, compact: compact_viewport(width) }), @cmd.none)

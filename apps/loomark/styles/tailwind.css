@@ -1,5 +1,6 @@
 @import "tailwindcss" source(none);
 @plugin "@tailwindcss/typography";
+@plugin "@egoist/tailwindcss-icons";
 @source "../app";
 @source not "../app/example_documents";
 @source not "../app/example_*.g.mbt";
@@ -80,23 +81,23 @@
   margin-bottom: 0;
 }
 
-/* Small navigation glyphs are authored geometry; utilities own their controls. */
-[data-loomark-icon="sidebar"] {
-  border: 1.5px solid currentColor;
-  border-radius: 0.1875rem;
+.loomark-delete-action {
+  --rui-sidebar-action-fg: var(--color-lm-muted);
 }
 
-[data-loomark-icon="sidebar"]::before {
-  position: absolute;
-  inset-block: 0;
-  left: 0.3rem;
-  width: 1.5px;
-  background: currentColor;
-  content: "";
+.loomark-delete-action:focus-visible {
+  --rui-sidebar-action-bg: var(--color-lm-danger-soft);
+  --rui-sidebar-action-fg: var(--color-lm-danger);
 }
 
-[data-slot="sidebar-menu-action"] [data-loomark-icon="new-document"] {
-  transition: transform 120ms ease-out;
+.loomark-sidebar-action[aria-disabled="true"] {
+  --rui-sidebar-action-fg: var(--color-lm-muted);
+  --rui-sidebar-action-opacity: 0.3;
+}
+
+.loomark-sidebar-action:active:not([aria-disabled="true"]) {
+  --rui-sidebar-action-opacity: 0.65;
+  --rui-sidebar-action-press-offset: 1px;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -109,103 +110,9 @@
     --rui-sidebar-action-bg: var(--color-lm-accent-soft);
     --rui-sidebar-action-fg: var(--color-lm-accent);
   }
-}
 
-[data-slot="sidebar-menu-action"]:active
-  [data-loomark-icon="new-document"] {
-  transform: scale(0.86);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  [data-slot="sidebar-menu-action"] [data-loomark-icon="new-document"] {
-    transition-duration: 80ms;
+  .loomark-delete-action:hover:not([aria-disabled="true"]) {
+    --rui-sidebar-action-bg: var(--color-lm-danger-soft);
+    --rui-sidebar-action-fg: var(--color-lm-danger);
   }
-}
-
-[data-loomark-icon="folder"]::before,
-[data-loomark-icon="folder"]::after {
-  position: absolute;
-  border: 1.25px solid currentColor;
-  content: "";
-}
-
-[data-loomark-icon="folder"]::before {
-  top: 0.1875rem;
-  left: 0.125rem;
-  width: 0.4375rem;
-  height: 0.25rem;
-  border-bottom: 0;
-  border-radius: 0.125rem 0.125rem 0 0;
-}
-
-[data-loomark-icon="folder"]::after {
-  top: 0.375rem;
-  left: 0.0625rem;
-  width: 0.875rem;
-  height: 0.5625rem;
-  border-radius: 0.125rem;
-}
-
-[data-loomark-icon="new-document"]::before,
-[data-loomark-icon="new-document"]::after {
-  position: absolute;
-  top: calc(50% - 0.75px);
-  left: 0.1875rem;
-  width: 0.625rem;
-  height: 1.5px;
-  border-radius: 1px;
-  background: currentColor;
-  content: "";
-}
-
-[data-loomark-icon="new-document"]::after {
-  transform: rotate(90deg);
-}
-
-[data-mode="text"]::before {
-  position: absolute;
-  top: 0.25rem;
-  left: 0.1875rem;
-  width: 0.75rem;
-  height: 1px;
-  background: currentColor;
-  box-shadow: 0 0.25rem 0 currentColor, 0 0.5rem 0 currentColor;
-  content: "";
-}
-
-[data-mode="preview"]::before {
-  position: absolute;
-  top: 0.1875rem;
-  left: 0.1875rem;
-  width: 0.6875rem;
-  height: 0.6875rem;
-  border: 1.5px solid currentColor;
-  border-radius: 75% 0;
-  content: "";
-  transform: rotate(45deg);
-}
-
-[data-mode="preview"]::after {
-  position: absolute;
-  top: 0.4375rem;
-  left: 0.4375rem;
-  width: 0.25rem;
-  height: 0.25rem;
-  border-radius: 50%;
-  background: currentColor;
-  content: "";
-}
-
-[data-mode="split"] {
-  border: 1.5px solid currentColor;
-  border-radius: 0.125rem;
-}
-
-[data-mode="split"]::after {
-  position: absolute;
-  inset-block: 0;
-  left: calc(50% - 0.75px);
-  width: 1.5px;
-  background: currentColor;
-  content: "";
 }
