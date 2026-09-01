@@ -2,8 +2,11 @@
 const LEGACY_ACTIVE_KEY : String = "active"
 
 ///|
+const EDITING_DOCUMENT_KEY : String = "editing-document"
+
+///|
 priv enum Reconciliation {
-  Ready(RepositorySnapshot)
+  Ready(RepositorySnapshot, SourceRecord?)
   Migrate(Array[@indexed_db.Mutation])
 }
 
@@ -14,10 +17,13 @@ fn reconcile_scan(entries : Array[@indexed_db.ScanEntry]) -> Reconciliation {
   let raw_source_keys : Set[String] = Set([])
   let valid_source_ids : Set[String] = Set([])
   let mut legacy : (String, SourceRecord)? = None
+  let mut editing_document_id : String? = None
   for entry in entries {
     match entry {
       StringRecord(key, encoded) =>
-        if key == LEGACY_ACTIVE_KEY {
+        if key == EDITING_DOCUMENT_KEY {
+          editing_document_id = Some(encoded)
+        } else if key == LEGACY_ACTIVE_KEY {
           match decode_source_value(encoded) {
             Ok(source) => legacy = Some((encoded, source))
             Err(_) => issues.push(InvalidLegacyRecord)
@@ -42,7 +48,9 @@ fn reconcile_scan(entries : Array[@indexed_db.ScanEntry]) -> Reconciliation {
         if key.strip_prefix(SOURCE_KEY_PREFIX) is Some(_) {
           raw_source_keys.add(key)
         }
-        if key == LEGACY_ACTIVE_KEY {
+        if key == EDITING_DOCUMENT_KEY {
+          ()
+        } else if key == LEGACY_ACTIVE_KEY {
           issues.push(InvalidLegacyRecord)
         } else {
           issues.push(UnsupportedRecord(key))
@@ -69,13 +77,21 @@ fn reconcile_scan(entries : Array[@indexed_db.ScanEntry]) -> Reconciliation {
     }
     None => ()
   }
-  match snapshot_from_sources(sources, issues, raw_source_keys.to_array()) {
-    Some(snapshot) => Ready(snapshot)
+  let snapshot = match
+    snapshot_from_sources(sources, issues, raw_source_keys.to_array()) {
+    Some(snapshot) => snapshot
     None =>
-      Ready(
-        snapshot_from_sources([], issues, raw_source_keys.to_array()).unwrap(),
-      )
+      snapshot_from_sources([], issues, raw_source_keys.to_array()).unwrap()
   }
+  let initial = match editing_document_id {
+    Some(document_id) =>
+      match snapshot.source(document_id) {
+        Some(source) => Some(source)
+        None => snapshot.selected()
+      }
+    None => snapshot.selected()
+  }
+  Ready(snapshot, initial)
 }
 
 ///|

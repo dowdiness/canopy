@@ -54,7 +54,7 @@ pub(all) enum ProbeFailure {
 
 ///|
 pub(all) enum OpenResult {
-  Ready(RepositorySnapshot)
+  Ready(RepositorySnapshot, SourceRecord?)
   Failed(OpenFailure)
 } derive(Eq, Debug)
 
@@ -90,6 +90,18 @@ pub fn open(result~ : @cmd.Emit[OpenResult]) -> @cmd.Cmd {
 }
 
 ///|
+/// Best-effort memory of the current saved Editing Document.
+pub fn remember_editing_document(
+  snapshot : RepositorySnapshot,
+  document_id : String,
+) -> @cmd.Cmd {
+  guard snapshot.source(document_id) is Some(_) else { return @cmd.none }
+  @indexed_db.put(document_store, EDITING_DOCUMENT_KEY, document_id, result=_ => {
+    @cmd.none
+  })
+}
+
+///|
 fn scan_repository(result : @cmd.Emit[OpenResult]) -> @cmd.Cmd {
   @indexed_db.scan(document_store, result=scanned => {
     match scanned {
@@ -120,7 +132,7 @@ fn continue_open(
   result : @cmd.Emit[OpenResult],
 ) -> @cmd.Cmd {
   match reconciliation {
-    Ready(snapshot) => result(Ready(snapshot))
+    Ready(snapshot, initial) => result(Ready(snapshot, initial))
     Migrate(mutations) =>
       @indexed_db.mutate(document_store, mutations, result=stored => {
         finish_open_write(stored, result)

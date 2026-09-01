@@ -15,6 +15,17 @@ Loomark document when the user first changes its text; leaving it untouched does
 not add it to Recent documents.
 _Avoid_: blank record, draft
 
+**Editing Document**:
+The Loomark document currently shown in the Editor and owning its TextArea and
+Preview. A requested Document switch does not change the Editing Document until
+the requested document is ready and activated.
+_Avoid_: active document, open document, selected document
+
+**Selection target**:
+The Loomark document requested by a Document switch. It may differ temporarily
+from the Editing Document while the requested document is being prepared.
+_Avoid_: Editing Document, active document
+
 **Document text**:
 The current Markdown text. Text input updates it immediately.
 _Avoid_: canonical source, draft text, surface, surface text
@@ -189,6 +200,7 @@ _Avoid_: delete failure, timed-out deletion
 
 **Recovery**:
 The state shown for a Loomark document whose Browser storage record cannot be
-opened safely. Loomark preserves it as unavailable without preventing valid
-Loomark documents or a New document from opening.
+opened safely. That document cannot become the Editing Document, but Loomark
+preserves it as unavailable and opens another valid Loomark document or a New
+document.
 _Avoid_: automatic reset, save failure
