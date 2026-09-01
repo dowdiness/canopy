@@ -1,0 +1,26 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/internal/view"
+
+import {
+  "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/html",
+}
+
+// Values
+pub fn failure_notice(String, String, @cmd.Cmd) -> @html.Html
+
+pub fn folder_icon() -> @html.Html
+
+pub fn panel_icon() -> @html.Html
+
+pub fn plus_icon() -> @html.Html
+
+pub fn trash_icon() -> @html.Html
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

@@ -115,42 +115,6 @@ fn recent_entries(
 }
 
 ///|
-fn sidebar_panel_icon() -> @rabbita.Html {
-  @html.span(
-    class="i-lucide-panel-left block size-4 shrink-0",
-    attrs=@html.Attrs::build().aria_hidden("true"),
-    @html.nothing,
-  )
-}
-
-///|
-fn sidebar_folder_icon() -> @rabbita.Html {
-  @html.span(
-    class="i-lucide-folder block size-4 shrink-0",
-    attrs=@html.Attrs::build().aria_hidden("true"),
-    @html.nothing,
-  )
-}
-
-///|
-fn sidebar_new_icon() -> @rabbita.Html {
-  @html.span(
-    class="i-lucide-plus block size-4 shrink-0",
-    attrs=@html.Attrs::build().aria_hidden("true"),
-    @html.nothing,
-  )
-}
-
-///|
-fn sidebar_delete_icon() -> @rabbita.Html {
-  @html.span(
-    class="i-lucide-trash-2 block size-4 shrink-0",
-    attrs=@html.Attrs::build().aria_hidden("true"),
-    @html.nothing,
-  )
-}
-
-///|
 fn document_sidebar(
   scope : @sidebar.SidebarScope,
   editing : EditingState,
@@ -188,7 +152,7 @@ fn document_sidebar(
                 } else {
                   @sidebar.sidebar_collapse(scope)
                 },
-                [sidebar_folder_icon(), @html.span("Documents")],
+                [folder_icon(), @html.span("Documents")],
               ),
               @sidebar.sidebar_menu_action(
                 disabled=!available,
@@ -197,7 +161,7 @@ fn document_sidebar(
                 class="loomark-sidebar-action",
                 style=["width:2rem;height:2rem"],
                 on_click=@cmd.batch([emit(CreateRequested), close_after_action]),
-                sidebar_new_icon(),
+                plus_icon(),
               ),
               @sidebar.sidebar_menu_sub(
                 entries.mapi((index, entry) => {
@@ -251,7 +215,7 @@ fn document_sidebar(
                       class="loomark-sidebar-action loomark-delete-action",
                       style=["width:2rem;height:2rem"],
                       on_click=emit(DeleteRequested(document_id)),
-                      sidebar_delete_icon(),
+                      trash_icon(),
                     ),
                   ])
                 }),
@@ -280,7 +244,7 @@ fn mode_bar(
           controls="loomark-document-sidebar",
           aria_label="Toggle documents",
           class="active:opacity-50",
-          sidebar_panel_icon(),
+          panel_icon(),
         ),
         @rui.tabs_root(
           value=mode_name(editing.mode).to_lower(),
@@ -360,17 +324,10 @@ fn creation_failure_view(
     @source_repository.CreateFailure::WriteFailed =>
       "Browser storage failed while creating the document."
   }
-  @html.div(
-    class="flex min-h-12 shrink-0 items-center justify-between gap-4 border-t border-[oklch(0.78_0.07_25)] bg-lm-danger-soft px-4 py-2.5 text-sm text-lm-danger opacity-100 transition-opacity duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] starting:opacity-0 motion-reduce:duration-[80ms] motion-reduce:ease-[ease] max-[641px]:items-start [&_p]:m-0",
-    attrs=@html.Attrs::build().role("alert"),
-    [
-      @html.p("A new document could not be created. " + reason),
-      @html.button(
-        class="min-h-8 shrink-0 cursor-pointer rounded-md border border-current bg-transparent px-2.5 py-1 text-inherit focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lm-danger",
-        on_click=emit(CreateRequested),
-        "Retry creating",
-      ),
-    ],
+  failure_notice(
+    "A new document could not be created. " + reason,
+    "Retry creating",
+    emit(CreateRequested),
   )
 }
 
@@ -423,17 +380,10 @@ fn save_failure_view(
     @source_repository.SaveFailure::WriteFailed =>
       " Browser storage failed while writing the document."
   }
-  @html.div(
-    class="flex min-h-12 shrink-0 items-center justify-between gap-4 border-t border-[oklch(0.78_0.07_25)] bg-lm-danger-soft px-4 py-2.5 text-sm text-lm-danger opacity-100 transition-opacity duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] starting:opacity-0 motion-reduce:duration-[80ms] motion-reduce:ease-[ease] max-[641px]:items-start [&_p]:m-0",
-    attrs=@html.Attrs::build().role("alert"),
-    [
-      @html.p("Changes are not saved in this browser." + reason),
-      @html.button(
-        class="min-h-8 shrink-0 cursor-pointer rounded-md border border-current bg-transparent px-2.5 py-1 text-inherit focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lm-danger",
-        on_click=emit(RetrySave),
-        "Retry saving",
-      ),
-    ],
+  failure_notice(
+    "Changes are not saved in this browser." + reason,
+    "Retry saving",
+    emit(RetrySave),
   )
 }
 
