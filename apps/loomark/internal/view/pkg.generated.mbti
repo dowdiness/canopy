@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "dowdiness/loomark/view"
+package "dowdiness/loomark/internal/view"
 
 import {
   "moonbit-community/rabbita/cmd",
