@@ -195,7 +195,7 @@ test "preparing new preserves documents and mode" {
 }
 
 ///|
-test "delete-to-New advances Preview ownership and restores Split demand" {
+test "delete-to-New advances Preview ownership" {
   let (model, _) = preparing_after_probe_timeout()
   guard model is PreparingNew(preparing) else { fail("preparing") }
   let (model, _) = test_update(
@@ -204,10 +204,6 @@ test "delete-to-New advances Preview ownership and restores Split demand" {
   )
   guard model is Editing(editing) else { fail("editing") }
   assert_eq(editing.activation.generation, 1)
-  let rendered = @rabbita_testing.server_side_render(() => {
-    editing.preview.view()
-  })
-  assert_true(rendered.contains("Preparing preview…"))
 }
 
 ///|

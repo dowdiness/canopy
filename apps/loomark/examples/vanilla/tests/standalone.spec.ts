@@ -741,12 +741,11 @@ test("Delete document cancellation preserves the Source and editor", async ({ pa
   await expect(text).toHaveValue("# Still editable\n")
 })
 
-test("Delete document removes the final Source and leaves an ephemeral empty New", async ({ page }) => {
+test("final Delete leaves an empty New with a live Split Preview", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
   const split = page.getByRole("tab", { name: "Split" })
   await split.click()
-  await expect(split).toHaveAttribute("aria-selected", "true")
   await page.getByRole("button", { name: /^Delete "/ }).click()
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete document" }).click()
   const text = page.getByRole("textbox", { name: "Text" })

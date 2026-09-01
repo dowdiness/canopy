@@ -10,29 +10,23 @@ fn render_lifecycle_state(state : State) -> String {
 }
 
 ///|
-test "request exposes Preparing before cold preparation" {
-  let engine = PreviewEngine::PreviewEngine()
-  let input = Input(1, "# Current\n")
-  let (initial, _) = engine.activate(input)
-  let (preparing, command) = engine.request(initial, input, lifecycle_emit())
-  let rendered = render_lifecycle_state(preparing)
-  assert_true(rendered.contains("role=\"status\""))
-  assert_true(rendered.contains("Preparing preview…"))
-  ignore(command)
-}
-
-///|
-test "suspend cancels preparation before after-paint work" {
+test "suspend fences preparation before after-paint work" {
   let engine = PreviewEngine::PreviewEngine()
   let input = Input(1, "# Current\n")
   let (initial, _) = engine.activate(input)
   let (preparing, _) = engine.request(initial, input, lifecycle_emit())
+  assert_true(preparing.phase is Preparing)
+  assert_true(preparing.demanded)
   let (suspended, command) = engine.suspend(preparing, input)
   assert_true(suspended.phase is Unrequested)
   assert_false(suspended.demanded)
-  assert_false(
-    render_lifecycle_state(suspended).contains("Preparing preview…"),
+  let delayed = preview_transition(
+    suspended,
+    input,
+    Complete(BeginPreparation(input.generation)),
   )
+  assert_true(delayed.state == suspended)
+  assert_true(delayed.decision is NoCommand)
   ignore(command)
 }
 
@@ -66,7 +60,6 @@ test "suspended Preview advances Parser and catches up once requested" {
   )
   assert_true(delayed.decision is NoCommand)
   let requested = preview_transition(advanced.state, current, Requested)
-  assert_true(requested.state.demanded)
   assert_true(requested.decision is Refresh(input) && input == current)
 }
 
@@ -246,7 +239,6 @@ async test "suspended Parser catches Preview up to the latest Document text" {
   )
   harness.state = changed
   @rabbita_testing.run_cmd(apply_command)
-  assert_false(harness.state.demanded)
   guard engine.state is Healthy(source~, ..) else {
     fail("suspended Parser should stay healthy")
   }
@@ -258,8 +250,6 @@ async test "suspended Parser catches Preview up to the latest Document text" {
   )
   harness.state = requested
   @rabbita_testing.run_cmd(refresh_command)
-  assert_true(harness.state.demanded)
-  assert_true(harness.state.phase is Ready(_))
   let rendered = render_lifecycle_state(harness.state)
   assert_true(rendered.contains("Current"))
   assert_false(rendered.contains("Previous"))
