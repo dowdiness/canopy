@@ -32,29 +32,33 @@ becomes processable, or when the page becomes hidden. The maximum is application
 policy rather than a wall-clock acknowledgment guarantee. IME composition
 defers persistence until its committed result.
 
-At most one Source write and one newer text-free checkpoint exist. Transaction
-completion starts a latest follow-up only when that checkpoint is already
-eligible. Checkpoint epoch and quiet revision reject delayed work even when
+For each document, at most one Source write and one newer text-free checkpoint
+exist; different documents may persist independently. Transaction completion
+starts a latest follow-up only when that checkpoint is already eligible. Checkpoint epoch and quiet revision reject delayed work even when
 text follows an equal-value ABA path. Exact return to the acknowledged Source
 restores `Saved` without a redundant write, including after a failed attempt;
 other failures require explicit Retry.
 
-Each `source/v1/<document-id>` record contains exactly `document_id` and `text`
-and is the durable authority for that document. Opening scans the complete
-store, isolates malformed or unsupported records, derives first-ATX-H1 names
-into an in-memory Catalog, and selects the first valid Document ID lexically.
-Unknown metadata remains stored but cannot hide or override a Source.
+Each `source/v1/<document-id>` record contains `document_id`, `text`, and its
+Change order and is the durable authority for that document. Opening scans the
+complete store, isolates malformed or unsupported records, derives first-ATX-H1
+names into an in-memory Catalog, and orders valid Sources by newest Change order
+with a Document ID tie break. The independent `editing-document` string record
+selects an exact valid Source after that reconciliation; a missing, malformed,
+or stale value uses the deterministic Catalog selection instead. Opening never
+repairs or rewrites it.
 
-An empty repository creates a UUID-backed Source with exact text
-`# Untitled\n`. The legacy `active` record is moved atomically when safe;
-collisions preserve both records. A normal save writes only the accepted Source
-and installs the next in-memory Catalog after that transaction completes. A
-Source save failure preserves current text and presents Retry. A confirmed
-Delete removes one known non-final Source in one transaction while document
-mutations are quiescent. The prepared Snapshot becomes visible only after
-transaction completion; deleting the final Source is rejected. Hidden-page
-persistence is best effort because the browser may freeze or terminate before
-IndexedDB completion.
+An empty repository opens an ephemeral New document without writing a Source.
+The legacy `active` record is moved atomically when safe; collisions preserve
+both records. A normal save writes only the accepted Source and applies its
+acknowledgment to the latest in-memory Snapshot. Activating a saved Source writes
+its Document ID to `editing-document` on a best-effort basis without adding
+application state, retry, or a Source durability claim. Source save failures
+preserve current text and present Retry. A confirmed Delete is ordered within
+the target document's persistence lane; deleting the Editing Document activates
+and remembers a saved fallback, or opens an ephemeral New document when none
+remains. Hidden-page persistence is best effort because the browser may freeze
+or terminate before IndexedDB completion.
 
 ## Development
 

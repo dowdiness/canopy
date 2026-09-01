@@ -1,9 +1,11 @@
 # Loomark multi-document v1 release contract
 
-**Status:** Proposed for the first multi-document release. This is a deliberately
-small, temporary v1 contract, not permanent Loomark architecture. Revisit each
-choice after the v1 product is complete and measured rather than extending this
-plan by assumption.
+**Status:** Product contract for the first multi-document release. The accepted
+Source repository, Autosave, and Delete decisions supersede this plan's earlier
+physical storage, cold-read, and persistence-lifecycle sketches; use those
+decisions and current code for implementation mechanics. The remaining product
+choices are deliberately small and temporary, not permanent Loomark
+architecture.
 
 **Issues:** [#1300](https://github.com/dowdiness/canopy/issues/1300),
 [#1303](https://github.com/dowdiness/canopy/issues/1303),
@@ -35,23 +37,21 @@ list preparation outside the ordinary Text input task.
 
 ### IndexedDB shape
 
-- Each document is one structured IndexedDB record containing its identity,
-  Document text, most-recent-change value, and the bounded information needed to
-  display its first content in Recent documents.
-- Document text and list information are replaced together. V1 does not keep a
-  separate catalog, manifest, Header record, or Source record.
-- The Recent documents view reads a browser-maintained index without
-  materializing every Document text. Opening a document reads that document's
-  complete record.
-- One malformed document record is preserved and shown as unavailable without
-  blocking valid documents. V1 does not hide, delete, repair, or replace it.
-- The latest selected DocumentId is small session data outside document records.
-  Reopening Loomark loads that document in Text mode. If it no longer exists,
-  Loomark selects the most recently changed remaining document; if none exists,
-  it shows an unstored New document. A malformed selected document is reported
-  rather than silently replaced by another document.
-- Export writes only Document text; IndexedDB list and session fields never enter
-  the Markdown file.
+- Each `source/v1/<document-id>` record contains the Document identity, Document
+  text, and Change order. It contains no separate current-document field.
+- Opening scans and validates every Source independently, derives Recent
+  documents in memory, and preserves malformed or unsupported records without
+  letting them hide valid Sources. V1 persists no Catalog or list index.
+- The independent `editing-document` string record contains only the Document ID
+  written after a saved Source becomes the Editing Document. Reopening applies
+  it only after Source reconciliation. Missing, malformed, stale, or unknown
+  values select the most recently changed valid Source, or an unstored New
+  document when none exists.
+- Opening, New document creation, and the first save of a New document do not
+  write `editing-document`; its write is best effort and has no application
+  state, retry, or Source durability claim.
+- Export writes only Document text; Browser storage fields never enter the
+  Markdown file.
 
 ### Create and identify
 

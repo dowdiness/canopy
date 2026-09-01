@@ -15,6 +15,8 @@ pub fn open(result~ : @cmd.Emit[OpenResult]) -> @cmd.Cmd
 
 pub fn probe(RepositorySnapshot, String, result~ : @cmd.Emit[ProbeResult]) -> @cmd.Cmd
 
+pub fn remember_editing_document(RepositorySnapshot, String) -> @cmd.Cmd
+
 pub fn save(RepositorySnapshot, String, String, change_order? : ChangeOrder, result~ : @cmd.Emit[SaveResult]) -> @cmd.Cmd
 
 pub fn store_new(RepositorySnapshot, String, String, ChangeOrder, result~ : @cmd.Emit[SaveResult]) -> @cmd.Cmd
@@ -76,7 +78,7 @@ pub(all) enum OpenFailure {
 } derive(Eq, @debug.Debug)
 
 pub(all) enum OpenResult {
-  Ready(RepositorySnapshot)
+  Ready(RepositorySnapshot, SourceRecord?)
   Failed(OpenFailure)
 } derive(Eq, @debug.Debug)
 

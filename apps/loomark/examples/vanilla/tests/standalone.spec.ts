@@ -4,6 +4,7 @@ const DOCUMENT_DATABASE_NAME = "loomark"
 const DOCUMENT_DATABASE_VERSION = 1
 const DOCUMENT_STORE_NAME = "documents"
 const LEGACY_ACTIVE_KEY = "active"
+const EDITING_DOCUMENT_KEY = "editing-document"
 const SOURCE_KEY_PREFIX = "source/v1/"
 const CATALOG_KEY = "catalog/v1"
 
@@ -258,8 +259,11 @@ async function replaceStoreRecords(page: Page, records: StoreRecord[]): Promise<
   })
 }
 
-function encodeStoredDocument(document: StoredDocument): string {
-  return JSON.stringify({ ...document, change_order: 0 })
+function encodeStoredDocument(
+  document: StoredDocument,
+  changeOrder = 0,
+): string {
+  return JSON.stringify({ ...document, change_order: changeOrder })
 }
 
 async function expectStoredDocument(
@@ -456,6 +460,41 @@ async function readDocumentPutLog(page: Page): Promise<PutObservation[]> {
   ))
 }
 
+type StoreMutationObservation = {
+  method: "put" | "delete"
+  key?: IDBValidKey
+}
+
+function installStoreMutationLog(): void {
+  const state = globalThis as typeof globalThis & {
+    __loomarkStoreMutationLog?: StoreMutationObservation[]
+  }
+  const prototype = IDBObjectStore.prototype as any
+  const originalPut = prototype.put
+  const originalDelete = prototype.delete
+  state.__loomarkStoreMutationLog = []
+  prototype.put = function(
+    this: IDBObjectStore,
+    value: unknown,
+    recordKey?: IDBValidKey,
+  ) {
+    state.__loomarkStoreMutationLog?.push({ method: "put", key: recordKey })
+    return originalPut.call(this, value, recordKey)
+  }
+  prototype.delete = function(this: IDBObjectStore, recordKey: IDBValidKey) {
+    state.__loomarkStoreMutationLog?.push({ method: "delete", key: recordKey })
+    return originalDelete.call(this, recordKey)
+  }
+}
+
+async function readStoreMutationLog(page: Page): Promise<StoreMutationObservation[]> {
+  return page.evaluate(() => (
+    (globalThis as typeof globalThis & {
+      __loomarkStoreMutationLog?: StoreMutationObservation[]
+    }).__loomarkStoreMutationLog ?? []
+  ))
+}
+
 test("fresh production opens Text mode and preserves its textarea and undo history across modes", async ({ page }) => {
   const workerUrls: string[] = []
   page.on("worker", worker => workerUrls.push(worker.url()))
@@ -561,7 +600,7 @@ test("opening and saving persist only authoritative Source records", async ({ pa
   expect(JSON.parse(savedRaw as string).change_order).toEqual(expect.any(Number))
 })
 
-test("several Sources select the first lexical Document ID without writing metadata", async ({ page }) => {
+test("several Sources select the first lexical Document ID", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
   const documentA = { document_id: "document-a", text: "# Same\n" }
@@ -591,7 +630,42 @@ test("several Sources select the first lexical Document ID without writing metad
   }))
     .toBeVisible()
   expect(await readStoredDocumentRaw(page, CATALOG_KEY)).toBeUndefined()
+  expect(await readStoredDocumentRaw(page, EDITING_DOCUMENT_KEY)).toBeUndefined()
   expect(await readStoredDocumentRaw(page, "source/v2/future")).toBe("future")
+})
+
+test("startup is read-only and restores an accepted Editing Document", async ({ page }) => {
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const documentA = { document_id: "document-a", text: "# A\n" }
+  const documentB = { document_id: "document-b", text: "# B\n" }
+  await replaceStoreRecords(page, [
+    { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA) },
+    { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB) },
+    { key: EDITING_DOCUMENT_KEY, value: documentB.document_id },
+  ])
+
+  await page.addInitScript(installStoreMutationLog)
+  await page.reload()
+  const documents = page.getByRole("complementary", { name: "Documents" })
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(documentB.text)
+  await expect(documents.getByRole("button", { name: "B", exact: true }))
+    .toHaveAttribute("data-state", "active")
+  expect(await readStoreMutationLog(page)).toEqual([])
+})
+
+test("a non-string Editing Document is equivalent to no Editing Document", async ({ page }) => {
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const documentA = { document_id: "document-a", text: "# A\n" }
+  await replaceStoreRecords(page, [
+    { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA) },
+    { key: EDITING_DOCUMENT_KEY, value: { unsupported: true } },
+  ])
+
+  await page.reload()
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(documentA.text)
+  await expect(page.getByRole("heading", { name: "Document recovery" })).toHaveCount(0)
 })
 
 test("Document Sidebar switches saved Sources A to B to A without cross-document undo", async ({ page }) => {
@@ -619,6 +693,8 @@ test("Document Sidebar switches saved Sources A to B to A without cross-document
 
   await documents.getByRole("button", { name: "B", exact: true }).click()
   await expect(text).toHaveValue(documentB.text)
+  await expect.poll(() => readStoredDocumentRaw(page, EDITING_DOCUMENT_KEY))
+    .toBe(documentB.document_id)
   await expect(page.getByRole("tab", { name: "Split" })).toHaveAttribute(
     "aria-selected",
     "true",
@@ -631,20 +707,79 @@ test("Document Sidebar switches saved Sources A to B to A without cross-document
 
   await documents.getByRole("button", { name: "A edited", exact: true }).click()
   await expect(text).toHaveValue("# A edited\n")
+  await expect.poll(() => readStoredDocumentRaw(page, EDITING_DOCUMENT_KEY))
+    .toBe(documentA.document_id)
   await expect(page.getByRole("heading", { name: "A edited" })).toBeVisible()
   expect(await readStoredDocumentRaw(page, sourceKey(documentB.document_id)))
     .toBe(encodeStoredDocument(documentB))
+  await page.reload()
+  await expect(text).toHaveValue("# A edited\n")
 })
 
-test("New Document activates an empty ephemeral document and persists on first edit", async ({ page }) => {
+test("Editing Document writes are last-invocation-wins", async ({ page }) => {
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const documentA = { document_id: "document-a", text: "# A\n" }
+  const documentB = { document_id: "document-b", text: "# B\n" }
+  await replaceStoreRecords(page, [
+    { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA) },
+    { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB) },
+  ])
+
+  await page.reload()
+  await page.evaluate(installDelayedDocumentCommit, EDITING_DOCUMENT_KEY)
+  const documents = page.getByRole("complementary", { name: "Documents" })
+  const text = page.getByRole("textbox", { name: "Text" })
+  await documents.getByRole("button", { name: "B", exact: true }).click()
+  await documents.getByRole("button", { name: "A", exact: true }).click()
+  await expect(text).toHaveValue(documentA.text)
+  await expect.poll(() => page.evaluate(() => (
+    (globalThis as typeof globalThis & {
+      __loomarkDelayedCommitCompletions?: number
+    }).__loomarkDelayedCommitCompletions ?? 0
+  ))).toBe(2)
+  await expect.poll(() => readStoredDocumentRaw(page, EDITING_DOCUMENT_KEY))
+    .toBe(documentA.document_id)
+
+  await page.reload()
+  await expect(text).toHaveValue(documentA.text)
+})
+
+test("remember failure cannot affect editing or Source recovery", async ({ page }) => {
+  await page.addInitScript(installDocumentPutFailure, EDITING_DOCUMENT_KEY)
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const documentA = { document_id: "document-a", text: "# A\n" }
+  const documentB = { document_id: "document-b", text: "# B\n" }
+  await replaceStoreRecords(page, [
+    { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA) },
+    { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB) },
+  ])
+
+  await page.reload()
+  const documents = page.getByRole("complementary", { name: "Documents" })
+  const text = page.getByRole("textbox", { name: "Text" })
+  await documents.getByRole("button", { name: "B", exact: true }).click()
+  await expect(text).toHaveValue(documentB.text)
+  await expect(page.getByRole("heading", { name: "Document recovery" })).toHaveCount(0)
+  expect(await readStoredDocumentRaw(page, EDITING_DOCUMENT_KEY)).toBeUndefined()
+
+  await page.reload()
+  await expect(text).toHaveValue(documentA.text)
+  await expect(page.getByRole("heading", { name: "Document recovery" })).toHaveCount(0)
+})
+
+test("New stays ephemeral and its first Source save is not remembered", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
   const before = await readStoredDocuments(page)
   expect(before).toHaveLength(1)
 
   const documents = page.getByRole("complementary", { name: "Documents" })
+  await page.evaluate(installStoreMutationLog)
   await page.getByRole("button", { name: "New document" }).click()
   await expect.poll(() => readStoredDocuments(page).then(documents => documents.length)).toBe(1)
+  expect(await readStoreMutationLog(page)).toEqual([])
   const after = await readStoredDocuments(page)
   expect(after).toEqual(before)
   await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("")
@@ -659,13 +794,20 @@ test("New Document activates an empty ephemeral document and persists on first e
   if (!created) throw new Error("created Source missing")
   await expectStoredDocument(page, { ...created, text: "# Project notes\n" })
   await expect(documents.locator('[data-state="active"]')).toContainText("Project notes")
+  const mutations = await readStoreMutationLog(page)
+  expect(mutations.some(mutation => mutation.key === sourceKey(created.document_id)))
+    .toBe(true)
+  expect(mutations.some(mutation => mutation.key === EDITING_DOCUMENT_KEY))
+    .toBe(false)
+  expect(await readStoredDocumentRaw(page, EDITING_DOCUMENT_KEY)).toBeUndefined()
   const renamed = await readStoredDocuments(page)
 
   await page.reload()
   await expect(documents.getByRole("button", { name: "Untitled", exact: true }))
     .toBeVisible()
   await expect(documents.getByRole("button", { name: "Project notes", exact: true }))
-    .toBeVisible()
+    .toHaveAttribute("data-state", "active")
+  expect(await readStoredDocumentRaw(page, EDITING_DOCUMENT_KEY)).toBeUndefined()
   expect(await readStoredDocuments(page)).toEqual(renamed)
 })
 
@@ -695,14 +837,17 @@ test("Delete document removes a non-active Source without moving the editor", as
   await expect(page.getByRole("button", { name: "B", exact: true })).toHaveCount(0)
 })
 
-test("Delete document activates the lexical fallback only after commit", async ({ page }) => {
+test("Delete document activates and remembers the newest fallback", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
   const documentA = { document_id: "document-a", text: "# A\n" }
   const documentB = { document_id: "document-b", text: "# B\n" }
+  const documentC = { document_id: "document-c", text: "# C\n" }
   await replaceStoreRecords(page, [
-    { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA) },
-    { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB) },
+    { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA, 5) },
+    { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB, 10) },
+    { key: sourceKey(documentC.document_id), value: encodeStoredDocument(documentC, 20) },
+    { key: EDITING_DOCUMENT_KEY, value: documentA.document_id },
   ])
   await page.reload()
 
@@ -711,11 +856,13 @@ test("Delete document activates the lexical fallback only after commit", async (
   await dialog.getByRole("button", { name: "Delete document" }).click()
 
   const text = page.getByRole("textbox", { name: "Text" })
-  await expect(text).toHaveValue(documentB.text)
+  await expect(text).toHaveValue(documentC.text)
+  await expect.poll(() => readStoredDocumentRaw(page, EDITING_DOCUMENT_KEY))
+    .toBe(documentC.document_id)
   await expect.poll(() => readStoredDocumentRaw(page, sourceKey(documentA.document_id)))
     .toBeUndefined()
   await page.reload()
-  await expect(text).toHaveValue(documentB.text)
+  await expect(text).toHaveValue(documentC.text)
 })
 
 test("Delete document cancellation preserves the Source and editor", async ({ page }) => {

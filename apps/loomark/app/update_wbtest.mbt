@@ -48,6 +48,18 @@ test "loading and recovery ignore document lifecycle feedback" {
 }
 
 ///|
+test "repository open activates its resolved initial Document" {
+  let snapshot = test_snapshot()
+  let initial = snapshot.source("two").unwrap()
+  let (model, _) = test_update(
+    Loading(false),
+    Opened(Ready(snapshot, Some(initial))),
+  )
+  guard model is Editing(editing) else { fail("editing") }
+  assert_eq(editing.activation.document_id, "two")
+}
+
+///|
 test "active delete is accepted and composition defers confirmation" {
   let initial = test_editing()
   let (model, _) = test_update(Editing(initial), DeleteRequested("one"))
@@ -77,6 +89,17 @@ test "same document selection is a no-op" {
 }
 
 ///|
+test "only saved Document activation is remembered" {
+  let saved = test_update(Editing(test_editing()), DocumentSelected("two")).1
+  let ephemeral = test_update(
+      Editing({ ..test_editing(), creation: Creating }),
+      CreateCompleted("one", Created("new")),
+    ).1
+  assert_true(@debug.to_string(saved).contains("editing-document"))
+  assert_false(@debug.to_string(ephemeral).contains("editing-document"))
+}
+
+///|
 test "stale create completion is ignored" {
   let initial = { ..test_editing(), creation: Creating }
   let (model, _) = test_update(
@@ -98,6 +121,25 @@ test "pending target cannot be selected" {
   )
   guard model is Editing(editing) else { fail("editing") }
   assert_eq(editing.activation.document_id, "one")
+}
+
+///|
+test "deleting the Editing Document remembers its saved fallback" {
+  let initial = { ..test_editing(), deletion: DeleteConfirmation("one") }
+  let (model, _) = test_update(Editing(initial), DeleteConfirmed("one"))
+  guard model is Editing(deleting) else { fail("deleting") }
+  guard deleting.documents.delete_status("one") is Some(Deleting(operation)) else {
+    fail("delete operation")
+  }
+  let (model, command) = test_update(
+    Editing(deleting),
+    DocumentsLifecycle(DeleteCompleted(operation, Deleted("one"))),
+  )
+  guard model is Editing(editing) else { fail("fallback") }
+  assert_eq(editing.activation.document_id, "two")
+  let command = @debug.to_string(command)
+  assert_true(command.contains("editing-document"))
+  assert_true(command.contains("two"))
 }
 
 ///|

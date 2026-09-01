@@ -159,7 +159,7 @@ fn activate(
     document_id,
     generation: editing.activation.generation + 1,
   }
-  let (preview, command) = activate_surface(
+  let (preview, surface) = activate_surface(
     activation,
     text,
     editing.mode,
@@ -167,7 +167,11 @@ fn activate(
     text_area,
     preview_engine,
   )
-  ({ ..editing, activation, preview }, command)
+  let remember = @source_repository.remember_editing_document(
+    editing.documents.snapshot(),
+    document_id,
+  )
+  ({ ..editing, activation, preview }, @cmd.batch([surface, remember]))
 }
 
 ///|
@@ -207,8 +211,8 @@ fn update(
   preview_engine : @preview.PreviewEngine,
 ) -> (Model, @rabbita.Cmd) {
   match (model, msg) {
-    (Loading(compact), Opened(Ready(snapshot))) =>
-      match snapshot.selected() {
+    (Loading(compact), Opened(Ready(snapshot, initial))) =>
+      match initial {
         Some(source) => {
           let documents = initial_documents(snapshot)
           let activation = { document_id: source.document_id(), generation: 0 }

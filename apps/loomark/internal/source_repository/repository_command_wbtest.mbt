@@ -7,18 +7,15 @@ test "repository open begins with a complete store scan" {
 }
 
 ///|
-test "repository open returns an empty snapshot without storage repair" {
+test "repository open returns the accepted Snapshot and initial document without repair" {
+  let source = SourceRecord::new("document-1", "# One\n").unwrap()
+  let snapshot = RepositorySnapshot::from_sources([source]).unwrap()
   let emitted : Array[OpenResult] = []
-  let command = continue_open(
-    Reconciliation::Ready(RepositorySnapshot::from_sources([]).unwrap()),
-    result => {
-      emitted.push(result)
-      @cmd.none
-    },
-  )
-  assert_eq(emitted, [
-    OpenResult::Ready(RepositorySnapshot::from_sources([]).unwrap()),
-  ])
+  let command = continue_open(Reconciliation::Ready(snapshot, Some(source)), result => {
+    emitted.push(result)
+    @cmd.none
+  })
+  assert_eq(emitted, [OpenResult::Ready(snapshot, Some(source))])
   assert_false(@debug.to_string(command).contains("IndexedDBPut"))
 }
 
@@ -36,6 +33,19 @@ test "repository open routes legacy migration through one atomic mutation" {
     ),
     content="IndexedDBMutate(\n  { name: \"loomark\", version: 1, store_name: \"documents\" },\n  [Put(\"source/v1/document-1\", \"encoded\"), Delete(\"active\")],\n)",
   )
+}
+
+///|
+test "repository remembers only an accepted Editing Document" {
+  let snapshot = RepositorySnapshot::from_sources([
+    SourceRecord::new("document-1", "# One\n").unwrap(),
+  ]).unwrap()
+  inspect(
+    Repr(remember_editing_document(snapshot, "document-1")),
+    content="IndexedDBPut(\n  { name: \"loomark\", version: 1, store_name: \"documents\" },\n  \"editing-document\",\n  \"document-1\",\n)",
+  )
+  let unknown = remember_editing_document(snapshot, "missing")
+  assert_false(@debug.to_string(unknown).contains("IndexedDBPut"))
 }
 
 ///|

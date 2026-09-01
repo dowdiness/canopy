@@ -30,9 +30,10 @@ test "reconciliation isolates corrupt and unsupported records" {
     @indexed_db.ScanEntry::UnsupportedValue("binary"),
     @indexed_db.ScanEntry::UnsupportedKey(6),
   ])
-  guard result is Reconciliation::Ready(snapshot) else {
+  guard result is Reconciliation::Ready(snapshot, Some(initial)) else {
     fail("expected ready snapshot")
   }
+  assert_eq(initial, valid)
   assert_eq(snapshot.sources().to_owned(), [valid])
   assert_eq(snapshot.occupied_source_keys().to_owned(), [
     "source/v1/broken", "source/v1/document-b", "source/v1/old", "source/v1/wrong-key",
@@ -50,6 +51,47 @@ test "reconciliation isolates corrupt and unsupported records" {
     RepositoryIssue::UnsupportedRecord("binary"),
     RepositoryIssue::UnsupportedKey(6),
   ])
+}
+
+///|
+test "initial Document is the accepted Editing Document or deterministic fallback" {
+  let selected = SourceRecord::new(
+    "document-a",
+    "# A\n",
+    change_order=ChangeOrder::from_int64(20L).unwrap(),
+  ).unwrap()
+  let editing = SourceRecord::new(
+    "document-b",
+    "# B\n",
+    change_order=ChangeOrder::from_int64(10L).unwrap(),
+  ).unwrap()
+  let sources = [
+    @indexed_db.ScanEntry::StringRecord(
+      source_key("document-a").unwrap(),
+      encode_source(selected),
+    ),
+    @indexed_db.ScanEntry::StringRecord(
+      source_key("document-b").unwrap(),
+      encode_source(editing),
+    ),
+  ]
+  let cases : Array[(Array[@indexed_db.ScanEntry], SourceRecord)] = [
+    ([], selected),
+    ([StringRecord(EDITING_DOCUMENT_KEY, "document-b")], editing),
+    ([StringRecord(EDITING_DOCUMENT_KEY, "")], selected),
+    ([StringRecord(EDITING_DOCUMENT_KEY, "missing")], selected),
+    ([UnsupportedValue(EDITING_DOCUMENT_KEY)], selected),
+  ]
+  for case in cases {
+    let (metadata, expected) = case
+    guard reconcile_scan(metadata + sources)
+      is Reconciliation::Ready(snapshot, Some(initial)) else {
+      fail("expected ready repository")
+    }
+    assert_eq(initial, expected)
+    assert_eq(snapshot.selected(), Some(selected))
+    assert_eq(snapshot.issues(), [])
+  }
 }
 
 ///|
@@ -82,7 +124,7 @@ test "legacy migration decisions preserve collision safety" {
       @indexed_db.ScanEntry::StringRecord(LEGACY_ACTIVE_KEY, active),
       @indexed_db.ScanEntry::StringRecord("source/v1/legacy-id", "corrupt"),
     ])
-    is Reconciliation::Ready(snapshot) else {
+    is Reconciliation::Ready(snapshot, _) else {
     fail("expected ready collision snapshot without mutation")
   }
   assert_eq(snapshot.sources().length(), 0)
@@ -99,7 +141,7 @@ test "invalid legacy is preserved in a ready empty repository" {
   guard reconcile_scan([
       @indexed_db.ScanEntry::StringRecord(LEGACY_ACTIVE_KEY, "not-json"),
     ])
-    is Reconciliation::Ready(snapshot) else {
+    is Reconciliation::Ready(snapshot, _) else {
     fail("expected ready empty repository")
   }
   assert_eq(snapshot.sources().length(), 0)
@@ -109,7 +151,7 @@ test "invalid legacy is preserved in a ready empty repository" {
 
 ///|
 test "empty scan is directly ready with an empty snapshot" {
-  guard reconcile_scan([]) is Reconciliation::Ready(snapshot) else {
+  guard reconcile_scan([]) is Reconciliation::Ready(snapshot, None) else {
     fail("expected ready empty repository")
   }
   assert_eq(snapshot.sources(), [])
