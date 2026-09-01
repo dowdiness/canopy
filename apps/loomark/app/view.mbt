@@ -152,7 +152,7 @@ fn document_sidebar(
                 } else {
                   @sidebar.sidebar_collapse(scope)
                 },
-                [sidebar_folder_icon(), @html.span("Documents")],
+                [folder_icon(), @html.span("Documents")],
               ),
               @sidebar.sidebar_menu_action(
                 disabled=!available,
@@ -161,7 +161,7 @@ fn document_sidebar(
                 class="loomark-sidebar-action",
                 style=["width:2rem;height:2rem"],
                 on_click=@cmd.batch([emit(CreateRequested), close_after_action]),
-                sidebar_new_icon(),
+                new_icon(),
               ),
               @sidebar.sidebar_menu_sub(
                 entries.mapi((index, entry) => {
@@ -215,7 +215,7 @@ fn document_sidebar(
                       class="loomark-sidebar-action loomark-delete-action",
                       style=["width:2rem;height:2rem"],
                       on_click=emit(DeleteRequested(document_id)),
-                      sidebar_delete_icon(),
+                      delete_icon(),
                     ),
                   ])
                 }),
@@ -244,7 +244,7 @@ fn mode_bar(
           controls="loomark-document-sidebar",
           aria_label="Toggle documents",
           class="active:opacity-50",
-          sidebar_panel_icon(),
+          panel_icon(),
         ),
         @rui.tabs_root(
           value=mode_name(editing.mode).to_lower(),
