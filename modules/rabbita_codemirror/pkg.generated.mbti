@@ -12,7 +12,7 @@ import {
 // Values
 pub fn insert(String, Int, String, failed? : @cmd.Emit[String]) -> @cmd.Cmd
 
-pub fn listen(String, doc? : @cmd.Emit[String], selection? : @cmd.Emit[SelRange], focus? : @cmd.Emit[Bool], on_change? : @cmd.Emit[Array[ChangeDelta]], on_change_with_doc? : @cmd.Emit[ChangeEvent], source_version? : () -> String) -> @sub.Sub
+pub fn listen(String, doc? : @cmd.Emit[String], selection? : @cmd.Emit[SelRange], focus? : @cmd.Emit[Bool], on_change? : @cmd.Emit[Array[ChangeDelta]], on_change_with_doc? : @cmd.Emit[ChangeEvent], shortcuts? : Array[Shortcut], source_version? : () -> String) -> @sub.Sub
 
 pub fn mount(String, String, init_doc? : String, source? : String, initial_theme? : @theme.Theme?, initial_readonly? : Bool, initial_keymap? : @keymap.Keymap?, initial_line_numbers? : Bool, initial_line_wrapping? : Bool, on_mounted? : @cmd.Cmd, failed? : @cmd.Emit[String], initial_extension? : ((@moonbit-community/rabbita/js.Value) -> @dowdiness/rabbita_codemirror/js.Extension raise)?) -> @cmd.Cmd
 
@@ -60,6 +60,13 @@ pub struct SelRange {
   to : Int
 }
 pub fn SelRange::new(Int, Int) -> Self
+
+pub struct Shortcut {
+  key : String
+  command : @cmd.Cmd
+  shift_command : @cmd.Cmd?
+}
+pub fn Shortcut::new(String, @cmd.Cmd, shift? : @cmd.Cmd) -> Self
 
 // Type aliases
 

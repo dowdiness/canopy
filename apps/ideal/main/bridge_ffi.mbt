@@ -25,17 +25,6 @@ extern "js" fn js_make_ideal_cm_extension_raw(
   cm : @js_value.Value,
 ) -> @js_value.Value =
   #| function(cm) {
-  #|   const CANOPY_EVENT_REQUEST_UNDO = "request-undo";
-  #|   const CANOPY_EVENT_REQUEST_REDO = "request-redo";
-  #|   const dispatchTextEditorEvent = (eventType) => {
-  #|     const target = document.getElementById("canopy-text-editor");
-  #|     if (target && typeof target.dispatchEvent === "function") {
-  #|       target.dispatchEvent(new CustomEvent(eventType, {
-  #|         bubbles: true,
-  #|         composed: true,
-  #|       }));
-  #|     }
-  #|   };
   #|   const normalizeExtensions = (factory) => {
   #|     const provided = typeof factory === 'function' ? factory(cm) : [];
   #|     return Array.isArray(provided) ? provided : [provided];
@@ -102,30 +91,7 @@ extern "js" fn js_make_ideal_cm_extension_raw(
   #|     },
   #|   });
   #|   const defaultKeymap = Array.isArray(cm.defaultKeymap) ? cm.defaultKeymap : [];
-  #|   const keymap = cm.keymap.of([
-  #|     {
-  #|       key: "Mod-z",
-  #|       run: () => {
-  #|         dispatchTextEditorEvent(CANOPY_EVENT_REQUEST_UNDO);
-  #|         return true;
-  #|       },
-  #|     },
-  #|     {
-  #|       key: "Mod-Shift-z",
-  #|       run: () => {
-  #|         dispatchTextEditorEvent(CANOPY_EVENT_REQUEST_REDO);
-  #|         return true;
-  #|       },
-  #|     },
-  #|     {
-  #|       key: "Mod-y",
-  #|       run: () => {
-  #|         dispatchTextEditorEvent(CANOPY_EVENT_REQUEST_REDO);
-  #|         return true;
-  #|       },
-  #|     },
-  #|     ...defaultKeymap,
-  #|   ]);
+  #|   const keymap = cm.keymap.of(defaultKeymap);
   #|   const languageExtensions = normalizeExtensions(
   #|     globalThis.__canopy_bridge?.createLambdaExtensions,
   #|   );

@@ -476,3 +476,61 @@ pub fn js_add_update_listener(
     ),
   )
 }
+
+///|
+extern "js" fn js_add_shortcuts_raw(
+  view : @js_value.Value,
+  compartment : @js_value.Value,
+  keys : Array[String],
+  has_shift : Array[Bool],
+  on_shortcut : (Int, Bool) -> Unit,
+) -> () -> Unit =
+  #| (view, compartment, keys, hasShift, onShortcut) => {
+  #|   const cm = view._cmModule;
+  #|   if (!cm) {
+  #|     throw new Error("Shortcut attach requires a view created via js_create_view");
+  #|   }
+  #|   const bindings = keys.map((key, index) => {
+  #|     const binding = {
+  #|       key,
+  #|       run: () => {
+  #|         onShortcut(index, false);
+  #|         return true;
+  #|       },
+  #|     };
+  #|     if (hasShift[index]) {
+  #|       binding.shift = () => {
+  #|         onShortcut(index, true);
+  #|         return true;
+  #|       };
+  #|     }
+  #|     return binding;
+  #|   });
+  #|   const extension = cm.Prec.highest(cm.keymap.of(bindings));
+  #|   view.dispatch({ effects: compartment.reconfigure(extension) });
+  #|   let disposed = false;
+  #|   return () => {
+  #|     if (disposed) return;
+  #|     disposed = true;
+  #|     view.dispatch({ effects: compartment.reconfigure([]) });
+  #|   };
+  #| }
+
+///|
+/// Install ordered CodeMirror shortcuts in a dedicated compartment.
+///
+/// Each matching binding invokes `on_shortcut` with its array index and
+/// whether CodeMirror selected its shifted-command slot, then consumes the
+/// key event. `Prec.highest` makes these application commands
+/// deterministic relative to CodeMirror's default and consumer keymaps.
+pub fn js_add_shortcuts(
+  view : CmView,
+  compartment : Compartment,
+  keys : Array[String],
+  has_shift : Array[Bool],
+  on_shortcut : (Int, Bool) -> Unit,
+) -> Disposable {
+  Disposable(
+    js_add_shortcuts_raw(view.0, compartment.0, keys, has_shift, on_shortcut),
+  )
+}
