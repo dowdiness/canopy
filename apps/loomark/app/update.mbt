@@ -5,6 +5,9 @@ const AUTOSAVE_QUIET_MS : Int = 250
 const AUTOSAVE_MAXIMUM_MS : Int = 2000
 
 ///|
+const DELETE_WATCHDOG_MS : Int = 4000
+
+///|
 const COMPACT_MAX_WIDTH : Int = 640
 
 ///|
@@ -13,94 +16,126 @@ fn compact_viewport(width : Int) -> Bool {
 }
 
 ///|
-fn preview_input(editing : EditingState) -> @preview.Input {
-  @preview.Input(editing.activation.generation, editing.text)
-}
+extern "js" fn observed_change_order() -> Int64 =
+  #| () => BigInt(Date.now())
 
 ///|
-fn select_mode(
-  editing : EditingState,
-  mode : EditorMode,
-  emit : @rabbita.Emit[Msg],
-  preview_engine : @preview.PreviewEngine,
-) -> (EditingState, @rabbita.Cmd) {
-  let entering_preview = editing.mode == Text && mode != Text
-  let editing = { ..editing, mode, }
-  if entering_preview {
-    let (preview, command) = preview_engine.request(
-      editing.preview,
-      preview_input(editing),
-      emit.map(event => PreviewEvent(event)),
-    )
-    ({ ..editing, preview, }, command)
-  } else {
-    (editing, @cmd.none)
-  }
+fn preview_input(editing : EditingState) -> @preview.Input {
+  @preview.Input(
+    editing.activation.generation,
+    editing.documents.text(editing.activation.document_id).unwrap_or(""),
+  )
 }
 
 ///|
 fn deletion_blocks_document_changes(editing : EditingState) -> Bool {
-  match editing.deletion {
-    DeleteConfirmation(_) | Deleting(_, _) => true
-    NoDeletion | DeleteFailed(_, _) => false
+  let document_id = editing.activation.document_id
+  let persistence_blocks = match editing.documents.delete_status(document_id) {
+    Some(Available) | Some(Failed(_, _)) | None => false
+    Some(Waiting(_))
+    | Some(Deleting(_))
+    | Some(Probing(_))
+    | Some(Unknown(_)) => true
   }
+  let confirmation_blocks = match editing.deletion {
+    DeleteDeferred(target) | DeleteConfirmation(target) => target == document_id
+    NoDeletion => false
+  }
+  persistence_blocks || confirmation_blocks
 }
 
 ///|
 fn can_activate(editing : EditingState) -> Bool {
-  editing.save == Saved &&
-  !editing.composing &&
   editing.creation != Creating &&
+  !editing.documents.is_composing(editing.activation.document_id) &&
   !deletion_blocks_document_changes(editing)
 }
 
 ///|
-fn save_effect_command(
-  editing : EditingState,
-  effect : SaveEffect,
-  emit : @rabbita.Emit[Msg],
+fn can_select(editing : EditingState, document_id : String) -> Bool {
+  can_activate(editing) &&
+  document_id != editing.activation.document_id &&
+  editing.documents.text(document_id) is Some(_) &&
+  (match editing.documents.delete_status(document_id) {
+    Some(Available) | Some(Failed(_, _)) => true
+    _ => false
+  })
+}
+
+///|
+fn run_decision(
+  documents : Documents,
+  decision : DocumentsDecision,
+  emit : @rabbita.Emit[DocumentsFeedback],
 ) -> @rabbita.Cmd {
-  let owner = editing.activation
-  match effect {
-    NoSaveEffect => @cmd.none
-    ArmQuiet(epoch, quiet_revision) =>
-      @cmd.delay(
-        emit(QuietElapsed(owner, epoch, quiet_revision)),
-        AUTOSAVE_QUIET_MS,
+  match decision {
+    DocumentsArmQuiet(document_id, order) =>
+      @cmd.delay(emit(QuietElapsed(document_id, order)), AUTOSAVE_QUIET_MS)
+    DocumentsArmMaximum(document_id, id) =>
+      @cmd.delay(emit(MaximumElapsed(document_id, id)), AUTOSAVE_MAXIMUM_MS)
+    DocumentsPersist(operation) =>
+      match operation.origin {
+        New =>
+          @source_repository.store_new(
+            documents.snapshot(),
+            operation.source.document_id(),
+            operation.source.text(),
+            operation.source.change_order(),
+            result=emit.map(result => SaveCompleted(operation, result)),
+          )
+        Existing =>
+          @source_repository.save(
+            documents.snapshot(),
+            operation.source.document_id(),
+            operation.source.text(),
+            change_order=operation.source.change_order(),
+            result=emit.map(result => SaveCompleted(operation, result)),
+          )
+      }
+    DeleteSource(operation) =>
+      @source_repository.delete(
+        documents.snapshot(),
+        operation.document_id,
+        result=emit.map(result => DeleteCompleted(operation, result)),
       )
-    ArmQuietAndMaximum(epoch, quiet_revision) =>
-      @cmd.batch([
-        @cmd.delay(
-          emit(QuietElapsed(owner, epoch, quiet_revision)),
-          AUTOSAVE_QUIET_MS,
-        ),
-        @cmd.delay(emit(MaximumElapsed(owner, epoch)), AUTOSAVE_MAXIMUM_MS),
-      ])
-    Persist(candidate) =>
-      @source_repository.save(
-        editing.repository,
-        owner.document_id,
-        candidate,
-        result=emit.map(result => SaveCompleted(owner, candidate, result)),
+    ArmDeleteWatchdog(operation) =>
+      @cmd.delay(emit(DeleteWatchdogElapsed(operation)), DELETE_WATCHDOG_MS)
+    ProbeDelete(operation) =>
+      @source_repository.probe(
+        documents.snapshot(),
+        operation.document_id,
+        result=emit.map(result => DeleteProbeCompleted(operation, result)),
       )
+    ArmProbeWatchdog(operation) =>
+      @cmd.delay(emit(DeleteProbeElapsed(operation)), DELETE_WATCHDOG_MS)
   }
 }
 
 ///|
-fn activate_document(
+fn run_decisions(
+  documents : Documents,
+  decisions : Array[DocumentsDecision],
+  emit : @rabbita.Emit[DocumentsFeedback],
+) -> @rabbita.Cmd {
+  @cmd.batch(decisions.map(decision => run_decision(documents, decision, emit)))
+}
+
+///|
+fn activate(
   editing : EditingState,
-  source : @source_repository.SourceRecord,
+  document_id : String,
   emit : @rabbita.Emit[Msg],
   text_area : @text_area.TextArea,
   preview_engine : @preview.PreviewEngine,
 ) -> (EditingState, @rabbita.Cmd) {
-  let activation : Activation = {
-    document_id: source.document_id(),
+  let text = editing.documents.text(document_id).unwrap_or("")
+  let activation = {
+    document_id,
     generation: editing.activation.generation + 1,
   }
-  let input = @preview.Input(activation.generation, source.text())
-  let (preview, activate_command) = preview_engine.activate(input)
-  let (preview, request_command) = if editing.mode == Text {
+  let input = @preview.Input(activation.generation, text)
+  let (preview, command) = preview_engine.activate(input)
+  let (preview, request) = if editing.mode == Text {
     (preview, @cmd.none)
   } else {
     preview_engine.request(
@@ -110,21 +145,25 @@ fn activate_document(
     )
   }
   (
-    {
-      ..editing,
-      activation,
-      text: source.text(),
-      composing: false,
-      save: Saved,
-      last_checkpoint_epoch: 0,
-      creation: Idle,
-      preview,
-    },
-    @cmd.batch([
-      text_area.initialize(source.text()),
-      activate_command,
-      request_command,
-    ]),
+    { ..editing, activation, preview },
+    @cmd.batch([text_area.initialize(text), command, request]),
+  )
+}
+
+///|
+fn reduce_documents(
+  editing : EditingState,
+  event : DocumentsEvent,
+  emit : @rabbita.Emit[Msg],
+) -> (EditingState, @rabbita.Cmd) {
+  let (documents, decisions) = editing.documents.reduce(event)
+  (
+    { ..editing, documents, },
+    run_decisions(
+      documents,
+      decisions,
+      emit.map(feedback => DocumentsLifecycle(feedback)),
+    ),
   )
 }
 
@@ -148,96 +187,144 @@ fn update(
   preview_engine : @preview.PreviewEngine,
 ) -> (Model, @rabbita.Cmd) {
   match (model, msg) {
-    (Loading(compact), Opened(result)) =>
-      match result {
-        @source_repository.OpenResult::Ready(snapshot) =>
-          match snapshot.selected() {
-            Some(source) => {
-              let text = source.text()
-              let (preview, preview_command) = preview_engine.activate(
-                @preview.Input(0, text),
-              )
-              (
-                Editing({
-                  activation: {
-                    document_id: source.document_id(),
-                    generation: 0,
-                  },
-                  text,
-                  composing: false,
-                  save: Saved,
-                  last_checkpoint_epoch: 0,
-                  creation: Idle,
-                  deletion: NoDeletion,
-                  last_delete_request: 0,
-                  mode: Text,
-                  compact,
-                  preview,
-                  repository: snapshot,
-                }),
-                @cmd.batch([text_area.initialize(text), preview_command]),
-              )
-            }
-            None =>
-              (
-                Recovery(@source_repository.OpenFailure::ReadFailed, compact),
-                @cmd.none,
-              )
+    (Loading(compact), Opened(Ready(snapshot))) =>
+      match snapshot.selected() {
+        Some(source) => {
+          let documents = initial_documents(snapshot)
+          let (preview, command) = preview_engine.activate(
+            @preview.Input(0, source.text()),
+          )
+          (
+            Editing({
+              activation: { document_id: source.document_id(), generation: 0 },
+              documents,
+              creation: Idle,
+              deletion: NoDeletion,
+              mode: Text,
+              compact,
+              preview,
+              new_preparation_request_id: 0,
+            }),
+            @cmd.batch([text_area.initialize(source.text()), command]),
+          )
+        }
+        None => {
+          let documents = initial_documents(snapshot)
+          (
+            PreparingNew(documents, Text, compact, 1),
+            @source_repository.create(
+              snapshot,
+              result=emit.map(result => EmptyCreateCompleted(1, result)),
+            ),
+          )
+        }
+      }
+    (Loading(compact), Opened(Failed(failure))) =>
+      (Recovery(failure, compact), @cmd.none)
+    (
+      PreparingNew(documents, mode, compact, request_id),
+      EmptyCreateCompleted(current_request_id, result),
+    ) =>
+      if request_id != current_request_id {
+        (model, @cmd.none)
+      } else {
+        match result {
+          Failed(failure) =>
+            (Recovery(creation_open_failure(failure), compact), @cmd.none)
+          Created(document_id) => {
+            let (documents, _) = documents.reduce(DocumentsNew(document_id))
+            let (preview, command) = preview_engine.activate(
+              @preview.Input(0, ""),
+            )
+            (
+              Editing({
+                activation: { document_id, generation: 0 },
+                documents,
+                creation: Idle,
+                deletion: NoDeletion,
+                mode,
+                compact,
+                preview,
+                new_preparation_request_id: request_id,
+              }),
+              @cmd.batch([text_area.initialize(""), command]),
+            )
           }
-        @source_repository.OpenResult::Failed(failure) =>
-          (Recovery(failure, compact), @cmd.none)
+        }
       }
     (Editing(editing), ExampleSelected(owner, text)) =>
       if owner != editing.activation {
-        (model, @cmd.none)
+        (Editing(editing), @cmd.none)
       } else if editing.creation == Creating ||
         deletion_blocks_document_changes(editing) {
-        (model, text_area.initialize(editing.text))
+        (
+          Editing(editing),
+          text_area.initialize(
+            editing.documents.text(owner.document_id).unwrap_or(""),
+          ),
+        )
       } else {
         (
-          model,
+          Editing(editing),
           @cmd.batch([
             text_area.initialize(text),
-            emit(
-              TextChanged(
-                editing.activation,
-                @text_change.TextChange::ReplaceAll(text),
-              ),
-            ),
+            emit(TextChanged(owner, @text_change.TextChange::ReplaceAll(text))),
           ]),
         )
       }
     (Editing(editing), TextChanged(owner, change)) =>
       if owner != editing.activation {
-        (model, @cmd.none)
+        (Editing(editing), @cmd.none)
       } else if editing.creation == Creating ||
         deletion_blocks_document_changes(editing) {
-        (model, text_area.initialize(editing.text))
+        (
+          Editing(editing),
+          text_area.initialize(
+            editing.documents.text(owner.document_id).unwrap_or(""),
+          ),
+        )
       } else {
-        match change.apply(editing.text) {
+        match
+          change.apply(editing.documents.text(owner.document_id).unwrap_or("")) {
           None =>
             (
-              model,
+              Editing(editing),
               text_area.value(text => {
                 emit(
                   TextChanged(owner, @text_change.TextChange::ReplaceAll(text)),
                 )
               }),
             )
-          Some(text) if text == editing.text => (model, @cmd.none)
+          Some(text) if editing.documents.text(owner.document_id) == Some(text) =>
+            (Editing(editing), @cmd.none)
           Some(text) => {
-            let (editing, save_effect) = save_after_text_changed(editing, text)
-            let save_command = save_effect_command(editing, save_effect, emit)
-            let (preview, preview_command) = preview_engine.document_changed(
-              editing.preview,
-              preview_input(editing),
-              change,
-              emit.map(event => PreviewEvent(event)),
+            let observed = @source_repository.ChangeOrder::from_int64(
+              observed_change_order(),
+            ).unwrap()
+            let (editing, command) = reduce_documents(
+              editing,
+              DocumentsTextChanged(owner.document_id, text, observed),
+              emit,
             )
-            (
-              Editing({ ..editing, preview, }),
-              @cmd.batch([save_command, preview_command]),
-            )
+            if editing.documents.text(owner.document_id) != Some(text) {
+              (
+                Editing(editing),
+                text_area.initialize(
+                  editing.documents.text(owner.document_id).unwrap_or(""),
+                ),
+              )
+            } else {
+              let (preview, preview_command) = preview_engine.document_changed(
+                editing.preview,
+                preview_input(editing),
+                change,
+                emit.map(event => PreviewEvent(event)),
+              )
+              (
+                Editing({ ..editing, preview, }),
+                @cmd.batch([command, preview_command]),
+              )
+            }
           }
         }
       }
@@ -245,23 +332,43 @@ fn update(
       if owner != editing.activation ||
         editing.creation == Creating ||
         deletion_blocks_document_changes(editing) {
-        (model, @cmd.none)
+        (Editing(editing), @cmd.none)
       } else {
-        (Editing({ ..editing, composing: true }), @cmd.none)
+        let (editing, command) = reduce_documents(
+          editing,
+          DocumentsCompositionStarted(owner.document_id),
+          emit,
+        )
+        (Editing(editing), command)
       }
     (Editing(editing), CompositionEnded(owner)) =>
       if owner != editing.activation {
-        (model, @cmd.none)
-      } else if editing.creation == Creating ||
-        deletion_blocks_document_changes(editing) {
-        (model, text_area.initialize(editing.text))
+        (Editing(editing), @cmd.none)
       } else {
-        let (editing, save_effect) = save_after_composition_ended(editing)
-        (Editing(editing), save_effect_command(editing, save_effect, emit))
+        let (editing, command) = reduce_documents(
+          editing,
+          DocumentsCompositionEnded(owner.document_id),
+          emit,
+        )
+        let deletion = match editing.deletion {
+          DeleteDeferred(document_id) => DeleteConfirmation(document_id)
+          other => other
+        }
+        (Editing({ ..editing, deletion, }), command)
       }
     (Editing(editing), ModeSelected(mode)) => {
-      let (editing, command) = select_mode(editing, mode, emit, preview_engine)
-      (Editing(editing), command)
+      let entering_preview = editing.mode == Text && mode != Text
+      let editing = { ..editing, mode, }
+      if entering_preview {
+        let (preview, command) = preview_engine.request(
+          editing.preview,
+          preview_input(editing),
+          emit.map(event => PreviewEvent(event)),
+        )
+        (Editing({ ..editing, preview, }), command)
+      } else {
+        (Editing(editing), @cmd.none)
+      }
     }
     (Editing(editing), PreviewEvent(event)) => {
       let (preview, command) = preview_engine.update(
@@ -274,211 +381,229 @@ fn update(
     }
     (Loading(_), ViewportChanged(width)) =>
       (Loading(compact_viewport(width)), @cmd.none)
+    (model, DocumentsLifecycle(feedback)) =>
+      reduce_documents_feedback(
+        model, feedback, emit, text_area, preview_engine,
+      )
+    (PreparingNew(documents, mode, _, request_id), ViewportChanged(width)) =>
+      (
+        PreparingNew(documents, mode, compact_viewport(width), request_id),
+        @cmd.none,
+      )
+    (Recovery(failure, _), ViewportChanged(width)) =>
+      (Recovery(failure, compact_viewport(width)), @cmd.none)
+    (Editing(editing), ViewportChanged(width)) =>
+      (Editing({ ..editing, compact: compact_viewport(width) }), @cmd.none)
     (Editing(editing), CreateRequested) =>
       if !can_activate(editing) {
-        (model, @cmd.none)
+        (Editing(editing), @cmd.none)
       } else {
-        let owner = editing.activation
+        let owner = editing.activation.document_id
         (
           Editing({ ..editing, creation: Creating }),
           @source_repository.create(
-            editing.repository,
+            editing.documents.snapshot(),
             result=emit.map(result => CreateCompleted(owner, result)),
           ),
         )
       }
-    (Editing(editing), CreateCompleted(owner, result)) =>
-      if owner != editing.activation || editing.creation != Creating {
-        (model, @cmd.none)
+    (Editing(editing), CreateCompleted(owner, Created(document_id))) =>
+      if editing.creation != Creating || owner != editing.activation.document_id {
+        (Editing(editing), @cmd.none)
       } else {
-        match result {
-          @source_repository.CreateResult::Failed(failure) =>
-            (
-              Editing({ ..editing, creation: CreationFailed(failure) }),
-              @cmd.none,
-            )
-          @source_repository.CreateResult::Created(snapshot, document_id) =>
-            match snapshot.source(document_id) {
-              None =>
-                (
-                  Editing({
-                    ..editing,
-                    creation: CreationFailed(
-                      @source_repository.CreateFailure::WriteFailed,
-                    ),
-                  }),
-                  @cmd.none,
-                )
-              Some(source) => {
-                let prepared = { ..editing, repository: snapshot }
-                let (editing, command) = activate_document(
-                  prepared, source, emit, text_area, preview_engine,
-                )
-                (Editing(editing), command)
-              }
-            }
-        }
+        let (editing, _) = reduce_documents(
+          editing,
+          DocumentsNew(document_id),
+          emit,
+        )
+        let (next, command) = activate(
+          { ..editing, creation: Idle },
+          document_id,
+          emit,
+          text_area,
+          preview_engine,
+        )
+        (Editing(next), command)
+      }
+    (Editing(editing), CreateCompleted(owner, Failed(failure))) =>
+      if editing.creation == Creating && owner == editing.activation.document_id {
+        (Editing({ ..editing, creation: CreationFailed(failure) }), @cmd.none)
+      } else {
+        (Editing(editing), @cmd.none)
       }
     (Editing(editing), DocumentSelected(document_id)) =>
-      if document_id == editing.activation.document_id {
-        (model, @cmd.none)
-      } else if !can_activate(editing) {
-        (model, @cmd.none)
+      if !can_select(editing, document_id) {
+        (Editing(editing), @cmd.none)
       } else {
-        match editing.repository.source(document_id) {
-          None => (model, @cmd.none)
-          Some(source) => {
-            let (editing, command) = activate_document(
-              editing, source, emit, text_area, preview_engine,
-            )
-            (Editing(editing), command)
-          }
-        }
+        let (editing, command) = activate(
+          editing, document_id, emit, text_area, preview_engine,
+        )
+        (Editing(editing), command)
       }
     (Editing(editing), DeleteRequested(document_id)) =>
-      if !can_activate(editing) ||
-        editing.repository.source(document_id) is None ||
-        editing.repository.sources().length() <= 1 {
-        (model, @cmd.none)
+      if editing.deletion != NoDeletion ||
+        editing.documents.text(document_id) is None {
+        (Editing(editing), @cmd.none)
       } else {
-        (
-          Editing({ ..editing, deletion: DeleteConfirmation(document_id) }),
-          @cmd.none,
-        )
+        match editing.documents.delete_status(document_id) {
+          Some(Available) | Some(Failed(_, _)) => {
+            let deferred = editing.documents.is_composing(
+              editing.activation.document_id,
+            )
+            (
+              Editing({
+                ..editing,
+                deletion: if deferred {
+                  DeleteDeferred(document_id)
+                } else {
+                  DeleteConfirmation(document_id)
+                },
+              }),
+              @cmd.none,
+            )
+          }
+          _ => (Editing(editing), @cmd.none)
+        }
       }
     (Editing(editing), DeleteCancelled) =>
       match editing.deletion {
-        DeleteConfirmation(_) =>
+        DeleteDeferred(_) | DeleteConfirmation(_) =>
           (Editing({ ..editing, deletion: NoDeletion }), @cmd.none)
-        NoDeletion | Deleting(_, _) | DeleteFailed(_, _) => (model, @cmd.none)
+        _ => (Editing(editing), @cmd.none)
       }
     (Editing(editing), DeleteConfirmed(document_id)) =>
-      if editing.deletion != DeleteConfirmation(document_id) ||
-        editing.save != Saved ||
-        editing.composing ||
-        editing.creation == Creating ||
-        editing.repository.source(document_id) is None ||
-        editing.repository.sources().length() <= 1 {
-        (model, @cmd.none)
+      if editing.deletion != DeleteConfirmation(document_id) {
+        (Editing(editing), @cmd.none)
       } else {
-        let request = editing.last_delete_request + 1
-        (
-          Editing({
-            ..editing,
-            deletion: Deleting(request, document_id),
-            last_delete_request: request,
-          }),
-          @source_repository.delete(
-            editing.repository,
-            document_id,
-            result=emit.map(result => DeleteCompleted(request, result)),
-          ),
+        let (next, command) = reduce_documents(
+          editing,
+          DeleteConfirmed(document_id),
+          emit,
+        )
+        reconcile_active(
+          { ..next, deletion: NoDeletion },
+          emit,
+          text_area,
+          preview_engine,
+          command,
         )
       }
-    (Editing(editing), DeleteCompleted(request, result)) =>
-      match editing.deletion {
-        Deleting(active_request, document_id) if active_request == request =>
-          match result {
-            @source_repository.DeleteResult::Failed(failure) =>
-              (
-                Editing({
-                  ..editing,
-                  deletion: DeleteFailed(document_id, failure),
-                }),
-                @cmd.none,
-              )
-            @source_repository.DeleteResult::Deleted(repository) =>
-              if document_id != editing.activation.document_id {
-                (
-                  Editing({ ..editing, repository, deletion: NoDeletion }),
-                  @cmd.none,
-                )
-              } else {
-                let source = repository.selected().unwrap()
-                let prepared = { ..editing, repository, deletion: NoDeletion }
-                let (editing, command) = activate_document(
-                  prepared, source, emit, text_area, preview_engine,
-                )
-                (Editing(editing), command)
-              }
-          }
-        NoDeletion
-        | DeleteConfirmation(_)
-        | DeleteFailed(_, _)
-        | Deleting(_, _) => (model, @cmd.none)
-      }
-    (Editing(editing), DismissDeleteFailure) =>
-      match editing.deletion {
-        DeleteFailed(_, _) =>
-          (Editing({ ..editing, deletion: NoDeletion }), @cmd.none)
-        NoDeletion | DeleteConfirmation(_) | Deleting(_, _) =>
-          (model, @cmd.none)
-      }
-    (Editing(editing), ViewportChanged(width)) =>
-      (Editing({ ..editing, compact: compact_viewport(width) }), @cmd.none)
-    (Recovery(failure, _), ViewportChanged(width)) =>
-      (Recovery(failure, compact_viewport(width)), @cmd.none)
-    (Editing(editing), QuietElapsed(owner, epoch, quiet_revision)) =>
-      if owner != editing.activation {
-        (model, @cmd.none)
-      } else {
-        match editing.save.pending_checkpoint() {
-          Some(checkpoint) if checkpoint.epoch == epoch &&
-            checkpoint.quiet_revision == quiet_revision => {
-            let (editing, save_effect) = save_after_eligible(editing, epoch)
-            (Editing(editing), save_effect_command(editing, save_effect, emit))
-          }
-          _ => (model, @cmd.none)
-        }
-      }
-    (Editing(editing), MaximumElapsed(owner, epoch)) =>
-      if owner != editing.activation {
-        (model, @cmd.none)
-      } else {
-        let (editing, save_effect) = save_after_eligible(editing, epoch)
-        (Editing(editing), save_effect_command(editing, save_effect, emit))
-      }
-    (Editing(editing), VisibilityChanged(hidden)) =>
-      if !hidden {
-        (model, @cmd.none)
-      } else {
-        match editing.save.pending_checkpoint() {
-          None => (model, @cmd.none)
-          Some(checkpoint) => {
-            let (editing, save_effect) = save_after_eligible(
-              editing,
-              checkpoint.epoch,
-            )
-            (Editing(editing), save_effect_command(editing, save_effect, emit))
-          }
-        }
-      }
-    (Editing(editing), SaveCompleted(owner, candidate, result)) =>
-      if owner != editing.activation {
-        (model, @cmd.none)
-      } else {
-        match editing.save {
-          Saving(active_candidate, pending) if active_candidate == candidate =>
-            match result {
-              @source_repository.SaveResult::Stored(repository) => {
-                let (editing, save_effect) = save_after_success(
-                  editing, candidate, pending, repository,
-                )
-                (
-                  Editing(editing),
-                  save_effect_command(editing, save_effect, emit),
-                )
-              }
-              @source_repository.SaveResult::Failed(failure) =>
-                (Editing(save_after_failure(editing, failure)), @cmd.none)
-            }
-          Saved | Waiting(_) | Saving(_, _) | Failed(_, _) => (model, @cmd.none)
-        }
-      }
+    (Editing(editing), RetryDelete(document_id)) => {
+      let (next, command) = reduce_documents(
+        editing,
+        RetryDelete(document_id),
+        emit,
+      )
+      (Editing(next), command)
+    }
+    (Editing(editing), VisibilityChanged(true)) => {
+      let (editing, command) = reduce_documents(
+        editing,
+        DocumentsVisibilityFlush(editing.activation.document_id),
+        emit,
+      )
+      (Editing(editing), command)
+    }
     (Editing(editing), RetrySave) => {
-      let (editing, save_effect) = save_after_retry(editing)
-      (Editing(editing), save_effect_command(editing, save_effect, emit))
+      let (editing, command) = reduce_documents(
+        editing,
+        DocumentsRetrySave(editing.activation.document_id),
+        emit,
+      )
+      (Editing(editing), command)
+    }
+    (Editing(editing), DismissDeleteFailure(document_id)) => {
+      let (editing, command) = reduce_documents(
+        editing,
+        DismissDeleteFailure(document_id),
+        emit,
+      )
+      (Editing(editing), command)
     }
     _ => (model, @cmd.none)
+  }
+}
+
+///|
+fn reduce_documents_feedback(
+  model : Model,
+  feedback : DocumentsFeedback,
+  emit : @rabbita.Emit[Msg],
+  text_area : @text_area.TextArea,
+  preview_engine : @preview.PreviewEngine,
+) -> (Model, @rabbita.Cmd) {
+  let event = DocumentsFeedbackReceived(feedback)
+  match model {
+    Editing(editing) => {
+      let (editing, command) = reduce_documents(editing, event, emit)
+      reconcile_active(editing, emit, text_area, preview_engine, command)
+    }
+    PreparingNew(documents, mode, compact, request_id) => {
+      let (documents, decisions) = documents.reduce(event)
+      (
+        PreparingNew(documents, mode, compact, request_id),
+        run_decisions(
+          documents,
+          decisions,
+          emit.map(feedback => DocumentsLifecycle(feedback)),
+        ),
+      )
+    }
+    Loading(_) | Recovery(_, _) => (model, @cmd.none)
+  }
+}
+
+///|
+fn reconcile_active(
+  editing : EditingState,
+  emit : @rabbita.Emit[Msg],
+  text_area : @text_area.TextArea,
+  preview_engine : @preview.PreviewEngine,
+  prior : @rabbita.Cmd,
+) -> (Model, @rabbita.Cmd) {
+  let active_id = editing.activation.document_id
+  let active_unknown = editing.documents.delete_status(active_id)
+    is Some(Unknown(_))
+  if !active_unknown && editing.documents.text(active_id) is Some(_) {
+    (Editing(editing), prior)
+  } else {
+    match editing.documents.fallback_document(active_id) {
+      Some(document_id) => {
+        let (editing, command) = activate(
+          editing, document_id, emit, text_area, preview_engine,
+        )
+        (Editing(editing), @cmd.batch([prior, command]))
+      }
+      None => {
+        let request_id = editing.new_preparation_request_id + 1
+        (
+          PreparingNew(
+            editing.documents,
+            editing.mode,
+            editing.compact,
+            request_id,
+          ),
+          @cmd.batch([
+            prior,
+            @source_repository.create(
+              editing.documents.snapshot(),
+              result=emit.map(result => EmptyCreateCompleted(request_id, result)),
+            ),
+          ]),
+        )
+      }
+    }
+  }
+}
+
+///|
+fn creation_open_failure(
+  failure : @source_repository.CreateFailure,
+) -> @source_repository.OpenFailure {
+  match failure {
+    DocumentIdentityUnavailable => DocumentIdentityUnavailable
+    StorageUnavailable => StorageUnavailable
+    QuotaExceeded => QuotaExceeded
+    WriteFailed => WriteFailed
   }
 }

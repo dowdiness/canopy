@@ -33,6 +33,28 @@ test "Document sidebar labels disambiguate Source-derived identities" {
 }
 
 ///|
+test "Recent documents includes promoted New and current Change order" {
+  let initial = test_editing()
+  let (documents, _) = initial.documents.reduce(
+    DocumentsTextChanged(
+      "two",
+      "two changed",
+      @source_repository.ChangeOrder::from_int64(0L).unwrap(),
+    ),
+  )
+  let (documents, _) = documents.reduce(DocumentsNew("new"))
+  let (documents, _) = documents.reduce(
+    DocumentsTextChanged(
+      "new",
+      "new text",
+      @source_repository.ChangeOrder::from_int64(0L).unwrap(),
+    ),
+  )
+  let entries = recent_entries({ ..initial, documents, })
+  assert_eq(entries.map(entry => entry.document_id()), ["new", "two", "one"])
+}
+
+///|
 test "creation failure explains the result and exposes retry" {
   let rendered = @rabbita_testing.server_side_render(() => {
     creation_failure_view(

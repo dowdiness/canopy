@@ -1,6 +1,7 @@
 ///|
 priv enum Model {
   Loading(Bool)
+  PreparingNew(Documents, EditorMode, Bool, Int)
   Editing(EditingState)
   Recovery(@source_repository.OpenFailure, Bool)
 } derive(Eq)
@@ -14,17 +15,13 @@ priv struct Activation {
 ///|
 priv struct EditingState {
   activation : Activation
-  text : String
-  composing : Bool
-  save : SaveState
-  last_checkpoint_epoch : Int
+  documents : Documents
   creation : DocumentCreation
   deletion : DocumentDeletion
-  last_delete_request : Int
   mode : EditorMode
   compact : Bool
   preview : @preview.State
-  repository : @source_repository.RepositorySnapshot
+  new_preparation_request_id : Int
 } derive(Eq)
 
 ///|
@@ -32,27 +29,6 @@ priv enum EditorMode {
   Text
   Preview
   Split
-} derive(Eq)
-
-///|
-priv enum CheckpointEligibility {
-  Deferred
-  Eligible
-} derive(Eq)
-
-///|
-priv struct Checkpoint {
-  epoch : Int
-  quiet_revision : Int
-  eligibility : CheckpointEligibility
-} derive(Eq)
-
-///|
-priv enum SaveState {
-  Saved
-  Waiting(Checkpoint)
-  Saving(String, Checkpoint?)
-  Failed(@source_repository.SaveFailure, Bool)
 } derive(Eq)
 
 ///|
@@ -65,14 +41,14 @@ priv enum DocumentCreation {
 ///|
 priv enum DocumentDeletion {
   NoDeletion
+  DeleteDeferred(String)
   DeleteConfirmation(String)
-  Deleting(Int, String)
-  DeleteFailed(String, @source_repository.DeleteFailure)
 } derive(Eq)
 
 ///|
 priv enum Msg {
   Opened(@source_repository.OpenResult)
+  EmptyCreateCompleted(Int, @source_repository.CreateResult)
   ExampleSelected(Activation, String)
   TextChanged(Activation, @text_change.TextChange)
   CompositionStarted(Activation)
@@ -80,17 +56,15 @@ priv enum Msg {
   ModeSelected(EditorMode)
   PreviewEvent(@preview.Event)
   ViewportChanged(Int)
-  QuietElapsed(Activation, Int, Int)
-  MaximumElapsed(Activation, Int)
+  DocumentsLifecycle(DocumentsFeedback)
   VisibilityChanged(Bool)
-  SaveCompleted(Activation, String, @source_repository.SaveResult)
   RetrySave
   DocumentSelected(String)
   CreateRequested
-  CreateCompleted(Activation, @source_repository.CreateResult)
+  CreateCompleted(String, @source_repository.CreateResult)
   DeleteRequested(String)
   DeleteCancelled
   DeleteConfirmed(String)
-  DeleteCompleted(Int, @source_repository.DeleteResult)
-  DismissDeleteFailure
+  RetryDelete(String)
+  DismissDeleteFailure(String)
 }

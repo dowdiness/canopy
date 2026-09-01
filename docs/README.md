@@ -115,12 +115,6 @@ Only needed if you are modifying Canopy itself.
   [issue #1124](https://github.com/dowdiness/canopy/issues/1124), not active
   backlog.
 
-**Completed implementation records:**
-
-- [Loomark bounded Autosave](archive/plans/2026-08-30-loomark-bounded-autosave.md)
-  — completed #1347 specification for quiet and maximum eligibility, exact
-  Saved state, single-flight persistence, IME, visibility, and production gates.
-
 **Performance:**
 
 - [Canopy remote-admission authority transition](performance/2026-08-19-canopy-remote-admission-authority-transition.md)
@@ -251,10 +245,12 @@ behavior** — check the code before relying on any specific detail.
 - [Loomark Source repository](decisions/2026-08-29-loomark-source-repository.md)
   — makes versioned Source records independently authoritative, derives the
   Catalog in memory, atomically migrates `active`, and keeps normal saves to one
-  Source transaction.
+  Source transaction; its Source shape, empty-repository behavior, ordering,
+  and completion policy are partially superseded by the following ADR.
 - [Loomark document deletion](decisions/2026-08-31-loomark-document-deletion.md)
-  — deletes one known non-final Source from a quiescent document state and
-  publishes its prepared Snapshot only after transaction completion.
+  — orders Recent documents by persisted Change order, permits empty repository
+  snapshots, and coordinates Delete through pure per-document persistence lanes
+  without blocking unrelated editing.
 
 ## Historical / Archive
 

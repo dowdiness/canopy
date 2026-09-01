@@ -5,8 +5,9 @@ fn delete_dialog(
 ) -> @rabbita.Val[@rabbita.Html] {
   let target = model.map(model => {
     match model {
-      Editing({ deletion: DeleteConfirmation(document_id), repository, .. }) => {
-        let entries = repository.catalog().entries()
+      Editing(editing) if editing.deletion is DeleteConfirmation(document_id) => {
+        let entry_values = recent_entries(editing)
+        let entries = entry_values.view()
         match entries.search_by(entry => entry.document_id() == document_id) {
           Some(index) =>
             entries
@@ -17,7 +18,8 @@ fn delete_dialog(
           None => None
         }
       }
-      Loading(_) | Editing(_) | Recovery(_, _) => None
+      Loading(_) | PreparingNew(_, _, _, _) | Editing(_) | Recovery(_, _) =>
+        None
     }
   })
   target.switch_by(
@@ -152,7 +154,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
               ),
             ]
           }
-          Loading(_) | Recovery(_, _) => []
+          Loading(_) | PreparingNew(_, _, _, _) | Recovery(_, _) => []
         }
       },
     )
@@ -168,7 +170,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
 
   let compact = model.map(model => {
     match model {
-      Loading(compact) => compact
+      Loading(compact) | PreparingNew(_, _, compact, _) => compact
       Editing(editing) => editing.compact
       Recovery(_, compact) => compact
     }

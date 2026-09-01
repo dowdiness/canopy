@@ -1,7 +1,4 @@
 ///|
-const UNTITLED_SOURCE : String = "# Untitled\n"
-
-///|
 let document_store : @indexed_db.Config = @indexed_db.Config::Config(
   "loomark", 1, "documents",
 )
@@ -26,6 +23,7 @@ pub(all) enum OpenFailure {
 ///|
 pub(all) enum SaveFailure {
   InvalidSource
+  ChangeOrderExhausted
   StorageUnavailable
   QuotaExceeded
   WriteFailed
@@ -42,10 +40,16 @@ pub(all) enum CreateFailure {
 ///|
 pub(all) enum DeleteFailure {
   InvalidSource
-  LastSource
   StorageUnavailable
   QuotaExceeded
   WriteFailed
+} derive(Eq, Debug)
+
+///|
+pub(all) enum ProbeFailure {
+  InvalidSource
+  StorageUnavailable
+  ReadFailed
 } derive(Eq, Debug)
 
 ///|
@@ -56,20 +60,28 @@ pub(all) enum OpenResult {
 
 ///|
 pub(all) enum SaveResult {
-  Stored(RepositorySnapshot)
+  Stored(SourceRecord)
   Failed(SaveFailure)
 } derive(Eq, Debug)
 
 ///|
 pub(all) enum CreateResult {
-  Created(RepositorySnapshot, String)
+  Created(String)
   Failed(CreateFailure)
 } derive(Eq, Debug)
 
 ///|
 pub(all) enum DeleteResult {
-  Deleted(RepositorySnapshot)
+  Deleted(String)
   Failed(DeleteFailure)
+} derive(Eq, Debug)
+
+///|
+pub(all) enum ProbeResult {
+  Present(SourceRecord)
+  Missing
+  Unsupported
+  Failed(ProbeFailure)
 } derive(Eq, Debug)
 
 ///|
@@ -113,39 +125,17 @@ fn continue_open(
       @indexed_db.mutate(document_store, mutations, result=stored => {
         finish_open_write(stored, result)
       })
-    Empty(issues, occupied_source_keys) =>
-      create_baseline(issues, occupied_source_keys, result)
   }
-}
-
-///|
-fn create_baseline(
-  _issues : Array[RepositoryIssue],
-  occupied_source_keys : Array[String],
-  result : @cmd.Emit[OpenResult],
-) -> @cmd.Cmd {
-  guard random_uuid_available() else {
-    return result(Failed(DocumentIdentityUnavailable))
-  }
-  let document_id = random_uuid()
-  guard source_key(document_id) is Some(key) &&
-    !occupied_source_keys.contains(key) else {
-    return result(Failed(DocumentIdentityUnavailable))
-  }
-  let source = SourceRecord::new(document_id, UNTITLED_SOURCE).unwrap()
-  @indexed_db.put(document_store, key, encode_source(source), result=stored => {
-    finish_open_write(stored, result)
-  })
 }
 
 ///|
 fn finish_save(
-  next : RepositorySnapshot,
+  source : SourceRecord,
   stored : @indexed_db.WriteResult,
   result : @cmd.Emit[SaveResult],
 ) -> @cmd.Cmd {
   match stored {
-    @indexed_db.WriteResult::Stored => result(Stored(next))
+    @indexed_db.WriteResult::Stored => result(Stored(source))
     @indexed_db.WriteResult::Unavailable => result(Failed(StorageUnavailable))
     @indexed_db.WriteResult::QuotaExceeded => result(Failed(QuotaExceeded))
     @indexed_db.WriteResult::Failed => result(Failed(WriteFailed))
@@ -157,29 +147,30 @@ pub fn save(
   snapshot : RepositorySnapshot,
   document_id : String,
   text : String,
+  change_order? : ChangeOrder,
   result~ : @cmd.Emit[SaveResult],
 ) -> @cmd.Cmd {
-  guard snapshot.source(document_id) is Some(_) else {
+  guard snapshot.source(document_id) is Some(current) else {
     return result(Failed(InvalidSource))
   }
-  guard SourceRecord::new(document_id, text) is Some(source) &&
+  let change_order = change_order.unwrap_or(current.change_order())
+  guard SourceRecord::new(document_id, text, change_order~) is Some(source) &&
     source_key(document_id) is Some(key) else {
     return result(Failed(InvalidSource))
   }
-  let next = accepted_source(snapshot, source)
   @indexed_db.put(document_store, key, encode_source(source), result=stored => {
-    finish_save(next, stored, result)
+    finish_save(source, stored, result)
   })
 }
 
 ///|
 fn finish_delete(
-  next : RepositorySnapshot,
+  document_id : String,
   stored : @indexed_db.WriteResult,
   result : @cmd.Emit[DeleteResult],
 ) -> @cmd.Cmd {
   match stored {
-    @indexed_db.WriteResult::Stored => result(Deleted(next))
+    @indexed_db.WriteResult::Stored => result(Deleted(document_id))
     @indexed_db.WriteResult::Unavailable => result(Failed(StorageUnavailable))
     @indexed_db.WriteResult::QuotaExceeded => result(Failed(QuotaExceeded))
     @indexed_db.WriteResult::Failed => result(Failed(WriteFailed))
@@ -192,34 +183,47 @@ pub fn delete(
   document_id : String,
   result~ : @cmd.Emit[DeleteResult],
 ) -> @cmd.Cmd {
-  guard snapshot.source(document_id) is Some(_) else {
-    return result(Failed(InvalidSource))
-  }
-  guard snapshot.sources().length() > 1 else {
-    return result(Failed(LastSource))
-  }
-  guard accepted_deletion(snapshot, document_id) is Some(next) &&
+  guard snapshot.source(document_id) is Some(_) &&
     source_key(document_id) is Some(key) else {
     return result(Failed(InvalidSource))
   }
   @indexed_db.mutate(document_store, [@indexed_db.Mutation::Delete(key)], result=stored => {
-    finish_delete(next, stored, result)
+    finish_delete(document_id, stored, result)
   })
 }
 
 ///|
-fn finish_create(
-  next : RepositorySnapshot,
+fn finish_probe(
   document_id : String,
-  stored : @indexed_db.WriteResult,
-  result : @cmd.Emit[CreateResult],
+  read : @indexed_db.ReadResult,
+  result : @cmd.Emit[ProbeResult],
 ) -> @cmd.Cmd {
-  match stored {
-    @indexed_db.WriteResult::Stored => result(Created(next, document_id))
-    @indexed_db.WriteResult::Unavailable => result(Failed(StorageUnavailable))
-    @indexed_db.WriteResult::QuotaExceeded => result(Failed(QuotaExceeded))
-    @indexed_db.WriteResult::Failed => result(Failed(WriteFailed))
+  match read {
+    @indexed_db.ReadResult::Loaded(encoded) =>
+      match decode_source(source_key(document_id).unwrap(), encoded) {
+        Ok(source) => result(Present(source))
+        Err(_) => result(Unsupported)
+      }
+    @indexed_db.ReadResult::Missing => result(Missing)
+    @indexed_db.ReadResult::Unavailable => result(Failed(StorageUnavailable))
+    @indexed_db.ReadResult::Failed => result(Failed(ReadFailed))
   }
+}
+
+///|
+/// Check current storage after an earlier operation had an unknown outcome.
+pub fn probe(
+  snapshot : RepositorySnapshot,
+  document_id : String,
+  result~ : @cmd.Emit[ProbeResult],
+) -> @cmd.Cmd {
+  guard snapshot.source(document_id) is Some(_) &&
+    source_key(document_id) is Some(key) else {
+    return result(Failed(InvalidSource))
+  }
+  @indexed_db.get(document_store, key, result=read => {
+    finish_probe(document_id, read, result)
+  })
 }
 
 ///|
@@ -232,11 +236,7 @@ fn create_with_document_id(
     !snapshot.occupied_source_keys().contains(key) else {
     return result(Failed(DocumentIdentityUnavailable))
   }
-  let source = SourceRecord::new(document_id, UNTITLED_SOURCE).unwrap()
-  let next = accepted_source(snapshot, source)
-  @indexed_db.put(document_store, key, encode_source(source), result=stored => {
-    finish_create(next, document_id, stored, result)
-  })
+  result(Created(document_id))
 }
 
 ///|
@@ -248,4 +248,23 @@ pub fn create(
     return result(Failed(DocumentIdentityUnavailable))
   }
   create_with_document_id(snapshot, random_uuid(), result)
+}
+
+///|
+pub fn store_new(
+  snapshot : RepositorySnapshot,
+  document_id : String,
+  text : String,
+  change_order : ChangeOrder,
+  result~ : @cmd.Emit[SaveResult],
+) -> @cmd.Cmd {
+  guard snapshot.source(document_id) is None &&
+    source_key(document_id) is Some(key) &&
+    !snapshot.occupied_source_keys().contains(key) &&
+    SourceRecord::new(document_id, text, change_order~) is Some(source) else {
+    return result(Failed(InvalidSource))
+  }
+  @indexed_db.put(document_store, key, encode_source(source), result=stored => {
+    finish_save(source, stored, result)
+  })
 }
