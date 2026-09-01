@@ -33,9 +33,10 @@ priv enum Phase {
 } derive(Eq)
 
 ///|
-/// Plain Preview presentation state retained in the Rabbita Model.
+/// Preview demand and presentation state retained in the Rabbita Model.
 pub struct State {
   priv phase : Phase
+  priv demanded : Bool
 } derive(Eq)
 
 ///|
@@ -58,6 +59,7 @@ pub struct Event {
 priv enum PreviewInputEvent {
   Activated
   Requested
+  Suspended
   DocumentChanged(@text_change.TextChange)
   Complete(EventKind)
 }
@@ -71,6 +73,7 @@ priv enum PreviewDecision {
   BeginPreparationAfterPaint(Int)
   Prepare(Input)
   Apply(Input, @text_change.TextChange, Bool)
+  Discard(Int)
   DiscardAndScheduleRefresh(Input)
   ScheduleRefresh(Input)
   Refresh(Input)
@@ -95,18 +98,35 @@ fn preview_transition(
   match event {
     Activated =>
       {
-        state: { phase: Unrequested },
+        state: { phase: Unrequested, demanded: false },
         decision: ActivateGeneration(current.generation),
       }
-    Requested =>
+    Requested => {
+      let demanded = { ..state, demanded: true }
       match state.phase {
         Unrequested =>
           {
-            state: { phase: Preparing },
+            state: { phase: Preparing, demanded: true },
             decision: BeginPreparationAfterPaint(current.generation),
           }
-        Failed(_) => { state, decision: Refresh(current) }
-        Preparing | Ready(_) => { state, decision: NoCommand }
+        Failed(_) => { state: demanded, decision: Refresh(current) }
+        Preparing => { state: demanded, decision: NoCommand }
+        Ready(preview) =>
+          if preview.document_text == current.document_text {
+            { state: demanded, decision: NoCommand }
+          } else {
+            { state: demanded, decision: Refresh(current) }
+          }
+      }
+    }
+    Suspended =>
+      if state.phase is Preparing {
+        {
+          state: { phase: Unrequested, demanded: false },
+          decision: Discard(current.generation),
+        }
+      } else {
+        { state: { ..state, demanded: false }, decision: NoCommand }
       }
     DocumentChanged(change) =>
       match state.phase {
@@ -117,13 +137,18 @@ fn preview_transition(
     Complete(completion) =>
       match completion {
         BeginPreparation(generation) if generation == current.generation &&
+          state.demanded &&
           state.phase is Preparing => { state, decision: Prepare(current) }
         Prepared(input, _) if input.generation == current.generation &&
           state.phase is Preparing &&
           input.document_text != current.document_text =>
           {
-            state: { phase: Failed(None) },
-            decision: DiscardAndScheduleRefresh(current),
+            state: { phase: Failed(None), demanded: state.demanded },
+            decision: if state.demanded {
+              DiscardAndScheduleRefresh(current)
+            } else {
+              Discard(current.generation)
+            },
           }
         Prepared(input, result) if input == current && state.phase is Preparing =>
           match result {
@@ -132,26 +157,44 @@ fn preview_transition(
                 state,
                 decision: Admit(
                   output,
-                  { phase: Ready(completed_preview(input, output)) },
-                  { phase: Failed(None) },
+                  {
+                    phase: Ready(completed_preview(input, output)),
+                    demanded: state.demanded,
+                  },
+                  { phase: Failed(None), demanded: state.demanded },
                 ),
               }
-            Err(_) => { state: { phase: Failed(None) }, decision: NoCommand }
+            Err(_) =>
+              {
+                state: { phase: Failed(None), demanded: state.demanded },
+                decision: NoCommand,
+              }
           }
         ParserAdvanced(input, retry, result) if input == current =>
           match result {
-            Ok(_) => { state, decision: ScheduleRefresh(input) }
+            Ok(_) =>
+              {
+                state,
+                decision: if state.demanded {
+                  ScheduleRefresh(input)
+                } else {
+                  NoCommand
+                },
+              }
             Err(_) =>
               {
-                state: { phase: Failed(last_preview(state.phase)) },
-                decision: if retry {
+                state: {
+                  phase: Failed(last_preview(state.phase)),
+                  demanded: state.demanded,
+                },
+                decision: if retry && state.demanded {
                   ScheduleRefresh(input)
                 } else {
                   NoCommand
                 },
               }
           }
-        RefreshRequested(input) if input == current =>
+        RefreshRequested(input) if input == current && state.demanded =>
           match state.phase {
             Ready(_) | Failed(_) => { state, decision: Refresh(input) }
             Unrequested | Preparing => { state, decision: NoCommand }
@@ -163,13 +206,19 @@ fn preview_transition(
                 state,
                 decision: Admit(
                   output,
-                  { phase: Ready(completed_preview(input, output)) },
+                  {
+                    phase: Ready(completed_preview(input, output)),
+                    demanded: state.demanded,
+                  },
                   state,
                 ),
               }
             Err(_) =>
               {
-                state: { phase: Failed(last_preview(state.phase)) },
+                state: {
+                  phase: Failed(last_preview(state.phase)),
+                  demanded: state.demanded,
+                },
                 decision: NoCommand,
               }
           }
@@ -266,6 +315,7 @@ fn PreviewEngine::execute(
     Prepare(input) => (transition.state, self.prepare_command(input, emit))
     Apply(input, change, retry) =>
       (transition.state, self.apply_command(input, change, retry, emit))
+    Discard(generation) => (transition.state, self.discard_command(generation))
     DiscardAndScheduleRefresh(input) =>
       (
         transition.state,
@@ -291,7 +341,11 @@ pub fn PreviewEngine::activate(
   self : PreviewEngine,
   input : Input,
 ) -> (State, @cmd.Cmd) {
-  let transition = preview_transition({ phase: Unrequested }, input, Activated)
+  let transition = preview_transition(
+    { phase: Unrequested, demanded: false },
+    input,
+    Activated,
+  )
   match transition.decision {
     ActivateGeneration(generation) =>
       (transition.state, self.activate_command(generation))
@@ -308,6 +362,19 @@ pub fn PreviewEngine::request(
   emit : @cmd.Emit[Event],
 ) -> (State, @cmd.Cmd) {
   self.execute(preview_transition(state, input, Requested), emit)
+}
+
+///|
+/// Stop Preview output work while retaining completed output and a healthy Parser.
+pub fn PreviewEngine::suspend(
+  self : PreviewEngine,
+  state : State,
+  input : Input,
+) -> (State, @cmd.Cmd) {
+  self.execute(
+    preview_transition(state, input, Suspended),
+    @cmd.Emit(_ => @cmd.none),
+  )
 }
 
 ///|

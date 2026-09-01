@@ -402,12 +402,19 @@ fn update(
       }
     (Editing(editing), ModeSelected(mode)) => {
       let entering_preview = editing.mode == Text && mode != Text
+      let leaving_preview = editing.mode != Text && mode == Text
       let editing = { ..editing, mode, }
       if entering_preview {
         let (preview, command) = preview_engine.request(
           editing.preview,
           preview_input(editing),
           emit.map(event => PreviewEvent(event)),
+        )
+        (Editing({ ..editing, preview, }), command)
+      } else if leaving_preview {
+        let (preview, command) = preview_engine.suspend(
+          editing.preview,
+          preview_input(editing),
         )
         (Editing({ ..editing, preview, }), command)
       } else {

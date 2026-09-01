@@ -102,14 +102,17 @@ _Avoid_: dual editor, two-pane editor
 **Preview preparation**:
 Creating at most one syntax Parser for the selected document after Preview or
 Split is selected. A Document switch discards it; a target in Text mode does
-not create another Parser.
+not create another Parser. Returning to Text retains a healthy Parser and keeps
+it current without producing hidden Preview output.
 _Avoid_: warm-up, preloading
 
 **Preview refresh**:
 Reading one coherent syntax snapshot, lowering it directly to MarkdownIR, and
-replacing Preview from the latest committed Document text. After the Parser
-transition, lowering waits for a 24 ms candidate-text quiet window so rapid
-changes normally produce one visible update.
+replacing Preview from the latest committed Document text while Preview or
+Split is requested. After the Parser transition, lowering waits for a 24 ms
+candidate-text quiet window so rapid changes normally produce one visible
+update. Returning from Text requests one refresh when the retained Preview is
+older than current Document text.
 _Avoid_: projection refresh, render loop
 
 **Stale Preview**:

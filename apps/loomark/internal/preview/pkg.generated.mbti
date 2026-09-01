@@ -28,6 +28,7 @@ pub fn PreviewEngine::PreviewEngine() -> Self
 pub fn PreviewEngine::activate(Self, Input) -> (State, @cmd.Cmd)
 pub fn PreviewEngine::document_changed(Self, State, Input, @text_change.TextChange, @cmd.Emit[Event]) -> (State, @cmd.Cmd)
 pub fn PreviewEngine::request(Self, State, Input, @cmd.Emit[Event]) -> (State, @cmd.Cmd)
+pub fn PreviewEngine::suspend(Self, State, Input) -> (State, @cmd.Cmd)
 pub fn PreviewEngine::update(Self, State, Input, Event, @cmd.Emit[Event]) -> (State, @cmd.Cmd)
 
 pub struct State {
