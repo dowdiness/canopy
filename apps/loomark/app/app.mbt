@@ -18,8 +18,7 @@ fn delete_dialog(
           None => None
         }
       }
-      Loading(_) | PreparingNew(_, _, _, _) | Editing(_) | Recovery(_, _) =>
-        None
+      Loading(_) | PreparingNew(_) | Editing(_) | Recovery(_, _) => None
     }
   })
   target.switch_by(
@@ -154,7 +153,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
               ),
             ]
           }
-          Loading(_) | PreparingNew(_, _, _, _) | Recovery(_, _) => []
+          Loading(_) | PreparingNew(_) | Recovery(_, _) => []
         }
       },
     )
@@ -170,7 +169,8 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
 
   let compact = model.map(model => {
     match model {
-      Loading(compact) | PreparingNew(_, _, compact, _) => compact
+      Loading(compact) => compact
+      PreparingNew(preparing) => preparing.compact
       Editing(editing) => editing.compact
       Recovery(_, compact) => compact
     }

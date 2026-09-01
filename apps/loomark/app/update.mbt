@@ -121,6 +121,32 @@ fn run_decisions(
 }
 
 ///|
+fn activate_surface(
+  activation : Activation,
+  text : String,
+  mode : EditorMode,
+  emit : @rabbita.Emit[Msg],
+  text_area : @text_area.TextArea,
+  preview_engine : @preview.PreviewEngine,
+) -> (@preview.State, @rabbita.Cmd) {
+  let input = @preview.Input(activation.generation, text)
+  let (preview, activate_command) = preview_engine.activate(input)
+  let (preview, request_command) = if mode == Text {
+    (preview, @cmd.none)
+  } else {
+    preview_engine.request(
+      preview,
+      input,
+      emit.map(event => PreviewEvent(event)),
+    )
+  }
+  (
+    preview,
+    @cmd.batch([text_area.initialize(text), activate_command, request_command]),
+  )
+}
+
+///|
 fn activate(
   editing : EditingState,
   document_id : String,
@@ -133,21 +159,15 @@ fn activate(
     document_id,
     generation: editing.activation.generation + 1,
   }
-  let input = @preview.Input(activation.generation, text)
-  let (preview, command) = preview_engine.activate(input)
-  let (preview, request) = if editing.mode == Text {
-    (preview, @cmd.none)
-  } else {
-    preview_engine.request(
-      preview,
-      input,
-      emit.map(event => PreviewEvent(event)),
-    )
-  }
-  (
-    { ..editing, activation, preview },
-    @cmd.batch([text_area.initialize(text), command, request]),
+  let (preview, command) = activate_surface(
+    activation,
+    text,
+    editing.mode,
+    emit,
+    text_area,
+    preview_engine,
   )
+  ({ ..editing, activation, preview }, command)
 }
 
 ///|
@@ -191,12 +211,18 @@ fn update(
       match snapshot.selected() {
         Some(source) => {
           let documents = initial_documents(snapshot)
-          let (preview, command) = preview_engine.activate(
-            @preview.Input(0, source.text()),
+          let activation = { document_id: source.document_id(), generation: 0 }
+          let (preview, command) = activate_surface(
+            activation,
+            source.text(),
+            Text,
+            emit,
+            text_area,
+            preview_engine,
           )
           (
             Editing({
-              activation: { document_id: source.document_id(), generation: 0 },
+              activation,
               documents,
               creation: Idle,
               deletion: NoDeletion,
@@ -205,13 +231,20 @@ fn update(
               preview,
               new_preparation_request_id: 0,
             }),
-            @cmd.batch([text_area.initialize(source.text()), command]),
+            command,
           )
         }
         None => {
           let documents = initial_documents(snapshot)
+          let preparing : PreparingNewState = {
+            documents,
+            mode: Text,
+            compact,
+            request_id: 1,
+            next_activation_generation: 0,
+          }
           (
-            PreparingNew(documents, Text, compact, 1),
+            PreparingNew(preparing),
             @source_repository.create(
               snapshot,
               result=emit.map(result => EmptyCreateCompleted(1, result)),
@@ -221,33 +254,44 @@ fn update(
       }
     (Loading(compact), Opened(Failed(failure))) =>
       (Recovery(failure, compact), @cmd.none)
-    (
-      PreparingNew(documents, mode, compact, request_id),
-      EmptyCreateCompleted(current_request_id, result),
-    ) =>
-      if request_id != current_request_id {
+    (PreparingNew(preparing), EmptyCreateCompleted(request_id, result)) =>
+      if preparing.request_id != request_id {
         (model, @cmd.none)
       } else {
         match result {
           Failed(failure) =>
-            (Recovery(creation_open_failure(failure), compact), @cmd.none)
+            (
+              Recovery(creation_open_failure(failure), preparing.compact),
+              @cmd.none,
+            )
           Created(document_id) => {
-            let (documents, _) = documents.reduce(DocumentsNew(document_id))
-            let (preview, command) = preview_engine.activate(
-              @preview.Input(0, ""),
+            let (documents, _) = preparing.documents.reduce(
+              DocumentsNew(document_id),
+            )
+            let activation = {
+              document_id,
+              generation: preparing.next_activation_generation,
+            }
+            let (preview, command) = activate_surface(
+              activation,
+              "",
+              preparing.mode,
+              emit,
+              text_area,
+              preview_engine,
             )
             (
               Editing({
-                activation: { document_id, generation: 0 },
+                activation,
                 documents,
                 creation: Idle,
                 deletion: NoDeletion,
-                mode,
-                compact,
+                mode: preparing.mode,
+                compact: preparing.compact,
                 preview,
-                new_preparation_request_id: request_id,
+                new_preparation_request_id: preparing.request_id,
               }),
-              @cmd.batch([text_area.initialize(""), command]),
+              command,
             )
           }
         }
@@ -358,12 +402,19 @@ fn update(
       }
     (Editing(editing), ModeSelected(mode)) => {
       let entering_preview = editing.mode == Text && mode != Text
+      let leaving_preview = editing.mode != Text && mode == Text
       let editing = { ..editing, mode, }
       if entering_preview {
         let (preview, command) = preview_engine.request(
           editing.preview,
           preview_input(editing),
           emit.map(event => PreviewEvent(event)),
+        )
+        (Editing({ ..editing, preview, }), command)
+      } else if leaving_preview {
+        let (preview, command) = preview_engine.suspend(
+          editing.preview,
+          preview_input(editing),
         )
         (Editing({ ..editing, preview, }), command)
       } else {
@@ -385,9 +436,9 @@ fn update(
       reduce_documents_feedback(
         model, feedback, emit, text_area, preview_engine,
       )
-    (PreparingNew(documents, mode, _, request_id), ViewportChanged(width)) =>
+    (PreparingNew(preparing), ViewportChanged(width)) =>
       (
-        PreparingNew(documents, mode, compact_viewport(width), request_id),
+        PreparingNew({ ..preparing, compact: compact_viewport(width) }),
         @cmd.none,
       )
     (Recovery(failure, _), ViewportChanged(width)) =>
@@ -538,10 +589,10 @@ fn reduce_documents_feedback(
       let (editing, command) = reduce_documents(editing, event, emit)
       reconcile_active(editing, emit, text_area, preview_engine, command)
     }
-    PreparingNew(documents, mode, compact, request_id) => {
-      let (documents, decisions) = documents.reduce(event)
+    PreparingNew(preparing) => {
+      let (documents, decisions) = preparing.documents.reduce(event)
       (
-        PreparingNew(documents, mode, compact, request_id),
+        PreparingNew({ ..preparing, documents, }),
         run_decisions(
           documents,
           decisions,
@@ -577,12 +628,13 @@ fn reconcile_active(
       None => {
         let request_id = editing.new_preparation_request_id + 1
         (
-          PreparingNew(
-            editing.documents,
-            editing.mode,
-            editing.compact,
+          PreparingNew({
+            documents: editing.documents,
+            mode: editing.mode,
+            compact: editing.compact,
             request_id,
-          ),
+            next_activation_generation: editing.activation.generation + 1,
+          }),
           @cmd.batch([
             prior,
             @source_repository.create(

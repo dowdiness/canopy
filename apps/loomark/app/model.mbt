@@ -1,9 +1,18 @@
 ///|
 priv enum Model {
   Loading(Bool)
-  PreparingNew(Documents, EditorMode, Bool, Int)
+  PreparingNew(PreparingNewState)
   Editing(EditingState)
   Recovery(@source_repository.OpenFailure, Bool)
+} derive(Eq)
+
+///|
+priv struct PreparingNewState {
+  documents : Documents
+  mode : EditorMode
+  compact : Bool
+  request_id : Int
+  next_activation_generation : Int
 } derive(Eq)
 
 ///|

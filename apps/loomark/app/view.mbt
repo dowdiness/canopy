@@ -453,7 +453,7 @@ fn view(
       .aria_label("Loomark Markdown Editor"),
     [
       match model {
-        Loading(_) | PreparingNew(_, _, _, _) =>
+        Loading(_) | PreparingNew(_) =>
           @html.div(
             class="grid min-h-dvh place-items-center text-lm-muted [&_p]:m-0",
             [@html.p("Loading document")],

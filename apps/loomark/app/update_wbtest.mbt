@@ -179,13 +179,31 @@ test "save completion updates inactive document without switching" {
 test "preparing new preserves documents and mode" {
   let documents = initial_documents(test_snapshot())
   let (model, _) = test_update(
-    PreparingNew(documents, Split, false, 1),
+    PreparingNew({
+      documents,
+      mode: Split,
+      compact: false,
+      request_id: 1,
+      next_activation_generation: 0,
+    }),
     EmptyCreateCompleted(1, Created("new")),
   )
   guard model is Editing(editing) else { fail("editing") }
   assert_true(editing.mode is Split)
   assert_eq(editing.documents.text("one"), Some("one"))
   assert_eq(editing.documents.text("two"), Some("two"))
+}
+
+///|
+test "delete-to-New advances Preview ownership" {
+  let (model, _) = preparing_after_probe_timeout()
+  guard model is PreparingNew(preparing) else { fail("preparing") }
+  let (model, _) = test_update(
+    PreparingNew({ ..preparing, mode: Split }),
+    EmptyCreateCompleted(preparing.request_id, Created("new")),
+  )
+  guard model is Editing(editing) else { fail("editing") }
+  assert_eq(editing.activation.generation, 1)
 }
 
 ///|
@@ -214,7 +232,7 @@ test "final active delete falls back to a new document" {
     Editing(state),
     DocumentsLifecycle(DeleteCompleted(operation, Deleted("one"))),
   )
-  guard model is PreparingNew(_, _, _, _) else { fail("should prepare new") }
+  guard model is PreparingNew(_) else { fail("should prepare new") }
 }
 
 ///|
@@ -348,7 +366,7 @@ test "preparing new retains late delete failure for matching creation" {
 test "preparing new ignores stale empty creation completion" {
   let (model, _) = preparing_after_probe_timeout()
   let (model, _) = test_update(model, EmptyCreateCompleted(0, Created("old")))
-  guard model is PreparingNew(_, _, _, 1) else { fail("preparing") }
+  guard model is PreparingNew({ request_id: 1, .. }) else { fail("preparing") }
 }
 
 ///|
@@ -384,10 +402,19 @@ test "preparing new reduces unrelated inactive save completion" {
   )
   guard decisions[0] is DocumentsPersist(operation) else { fail("persist") }
   let (model, _) = test_update(
-    PreparingNew(documents, Text, false, 1),
+    PreparingNew({
+      documents,
+      mode: Text,
+      compact: false,
+      request_id: 1,
+      next_activation_generation: 1,
+    }),
     DocumentsLifecycle(SaveCompleted(operation, Stored(operation.source))),
   )
-  guard model is PreparingNew(documents, _, _, 1) else { fail("preparing") }
-  assert_eq(documents.text("two"), Some("two!"))
-  assert_eq(documents.snapshot().source("two").unwrap().text(), "two!")
+  guard model is PreparingNew(preparing) else { fail("preparing") }
+  assert_eq(preparing.documents.text("two"), Some("two!"))
+  assert_eq(
+    preparing.documents.snapshot().source("two").unwrap().text(),
+    "two!",
+  )
 }

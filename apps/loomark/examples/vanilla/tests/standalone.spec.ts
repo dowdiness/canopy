@@ -741,14 +741,19 @@ test("Delete document cancellation preserves the Source and editor", async ({ pa
   await expect(text).toHaveValue("# Still editable\n")
 })
 
-test("Delete document removes the final Source and leaves an ephemeral empty New", async ({ page }) => {
+test("final Delete leaves an empty New with a live Split Preview", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
+  const split = page.getByRole("tab", { name: "Split" })
+  await split.click()
   await page.getByRole("button", { name: /^Delete "/ }).click()
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete document" }).click()
-  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await expect(text).toHaveValue("")
+  await expect(split).toHaveAttribute("aria-selected", "true")
   await expect.poll(() => readStoredDocuments(page)).toEqual([])
-  await page.getByRole("textbox", { name: "Text" }).fill("# Recreated\n")
+  await text.fill("# Recreated\n")
+  await expect(page.getByRole("heading", { name: "Recreated" })).toBeVisible()
   await expect.poll(() => readStoredDocuments(page)).toHaveLength(1)
 })
 
