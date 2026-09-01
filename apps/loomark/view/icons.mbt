@@ -20,7 +20,7 @@ pub fn folder_icon() -> Html {
 
 ///|
 /// Create the decorative icon used to add a document.
-pub fn new_icon() -> Html {
+pub fn plus_icon() -> Html {
   span(
     class="i-lucide-plus block size-4 shrink-0",
     attrs=Attrs::build().aria_hidden("true"),
@@ -30,7 +30,7 @@ pub fn new_icon() -> Html {
 
 ///|
 /// Create the decorative icon used to delete a document.
-pub fn delete_icon() -> Html {
+pub fn trash_icon() -> Html {
   span(
     class="i-lucide-trash-2 block size-4 shrink-0",
     attrs=Attrs::build().aria_hidden("true"),

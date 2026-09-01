@@ -7,15 +7,15 @@ import {
 }
 
 // Values
-pub fn delete_icon() -> @html.Html
-
 pub fn failure_notice(String, String, @cmd.Cmd) -> @html.Html
 
 pub fn folder_icon() -> @html.Html
 
-pub fn new_icon() -> @html.Html
-
 pub fn panel_icon() -> @html.Html
+
+pub fn plus_icon() -> @html.Html
+
+pub fn trash_icon() -> @html.Html
 
 // Errors
 

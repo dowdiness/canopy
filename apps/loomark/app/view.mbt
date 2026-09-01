@@ -161,7 +161,7 @@ fn document_sidebar(
                 class="loomark-sidebar-action",
                 style=["width:2rem;height:2rem"],
                 on_click=@cmd.batch([emit(CreateRequested), close_after_action]),
-                new_icon(),
+                plus_icon(),
               ),
               @sidebar.sidebar_menu_sub(
                 entries.mapi((index, entry) => {
@@ -215,7 +215,7 @@ fn document_sidebar(
                       class="loomark-sidebar-action loomark-delete-action",
                       style=["width:2rem;height:2rem"],
                       on_click=emit(DeleteRequested(document_id)),
-                      delete_icon(),
+                      trash_icon(),
                     ),
                   ])
                 }),
