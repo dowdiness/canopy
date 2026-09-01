@@ -152,12 +152,20 @@ function decodeStoredDocument(key: IDBValidKey, value: unknown): StoredDocument 
     if (
       parsed === null
       || typeof parsed !== "object"
-      || JSON.stringify(Object.keys(parsed).sort()) !== JSON.stringify(["document_id", "text"])
+      || JSON.stringify(Object.keys(parsed).sort()) !== JSON.stringify([
+        "change_order",
+        "document_id",
+        "text",
+      ])
       || !("document_id" in parsed)
       || typeof parsed.document_id !== "string"
       || parsed.document_id !== key.slice(SOURCE_KEY_PREFIX.length)
       || !("text" in parsed)
       || typeof parsed.text !== "string"
+      || !("change_order" in parsed)
+      || typeof parsed.change_order !== "number"
+      || !Number.isSafeInteger(parsed.change_order)
+      || parsed.change_order < 0
     ) return null
     return { document_id: parsed.document_id, text: parsed.text }
   } catch (_) {
@@ -251,7 +259,30 @@ async function replaceStoreRecords(page: Page, records: StoreRecord[]): Promise<
 }
 
 function encodeStoredDocument(document: StoredDocument): string {
-  return JSON.stringify(document)
+  return JSON.stringify({ ...document, change_order: 0 })
+}
+
+async function expectStoredDocument(
+  page: Page,
+  document: StoredDocument,
+  previousOrder?: number,
+): Promise<number> {
+  await expect.poll(async () => {
+    const raw = await readStoredDocumentRaw(page, sourceKey(document.document_id))
+    if (typeof raw !== "string") return null
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    return parsed.document_id === document.document_id && parsed.text === document.text
+      ? parsed
+      : null
+  }).not.toBeNull()
+  const raw = await readStoredDocumentRaw(page, sourceKey(document.document_id))
+  if (typeof raw !== "string") throw new Error("stored Source missing")
+  const parsed = JSON.parse(raw) as Record<string, unknown>
+  expect(parsed.document_id).toBe(document.document_id)
+  expect(parsed.text).toBe(document.text)
+  expect(parsed.change_order).toEqual(expect.any(Number))
+  if (previousOrder !== undefined) expect(parsed.change_order).toBeGreaterThan(previousOrder)
+  return parsed.change_order as number
 }
 
 function installDocumentPutFailure(target: string | { prefix: string }): void {
@@ -279,7 +310,10 @@ function installDocumentPutFailure(target: string | { prefix: string }): void {
 }
 
 async function waitForRepositoryOpen(page: Page): Promise<void> {
-  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("# Untitled\n")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await expect(text).toHaveValue("")
+  await expect.poll(() => readStoredDocuments(page)).toEqual([])
+  await text.fill("# Untitled\n")
   await expect.poll(() => readStoredDocument(page)).not.toBeNull()
 }
 
@@ -437,7 +471,10 @@ test("fresh production opens Text mode and preserves its textarea and undo histo
 
   await expect(text).toBeVisible()
   await expect(text).toBeFocused()
-  await expect(text).toHaveValue("# Untitled\n")
+  await expect(text).toHaveValue("")
+  expect(await readStoredDocuments(page)).toEqual([])
+  await text.fill("# Untitled\n")
+  await expect.poll(() => readStoredDocument(page)).not.toBeNull()
   await expect(textTab).toHaveAttribute("aria-selected", "true")
   await expect(previewTab).toHaveAttribute("aria-selected", "false")
   await expect(splitTab).toHaveAttribute("aria-selected", "false")
@@ -492,19 +529,22 @@ test("fresh production opens Text mode and preserves its textarea and undo histo
   expect(workerUrls).toEqual([])
 })
 
-test("baseline quota reports storage full without creating a Source", async ({ page }) => {
+test("first edit reports quota full without creating a Source", async ({ page }) => {
   await page.addInitScript(installDocumentPutFailure, { prefix: SOURCE_KEY_PREFIX })
   await page.goto("/")
-  await expect(page.getByRole("heading", { name: "Document recovery" })).toBeVisible()
-  await expect(page.getByText("Browser storage is full.")).toBeVisible()
-  expect(await scanStoreRecords(page)).toEqual([])
+  const text = page.getByRole("textbox", { name: "Text" })
+  await expect(text).toHaveValue("")
+  expect(await readStoredDocuments(page)).toEqual([])
+  await text.fill("# Full\n")
+  await expect(page.getByRole("alert")).toContainText("Browser storage is full.")
+  await expect(page.getByRole("heading", { name: "Document recovery" })).toHaveCount(0)
+  expect(await readStoredDocuments(page)).toEqual([])
 })
 
 test("opening and saving persist only authoritative Source records", async ({ page }) => {
   await page.goto("/")
+  await waitForRepositoryOpen(page)
   const text = page.getByRole("textbox", { name: "Text" })
-  await expect(text).toHaveValue("# Untitled\n")
-  await expect.poll(() => readStoredDocument(page)).not.toBeNull()
   const baseline = await readStoredDocument(page)
   if (!baseline) throw new Error("baseline Source missing")
 
@@ -515,13 +555,10 @@ test("opening and saving persist only authoritative Source records", async ({ pa
   })
   await page.reload()
   await expect(text).toHaveValue("# Source only\n")
-  expect(await scanStoreRecords(page)).toEqual([{
-    key: sourceKey(baseline.document_id),
-    value: encodeStoredDocument({
-      document_id: baseline.document_id,
-      text: "# Source only\n",
-    }),
-  }])
+  const savedRaw = await readStoredDocumentRaw(page, sourceKey(baseline.document_id))
+  expect(savedRaw).toEqual(expect.stringContaining('"document_id":"' + baseline.document_id + '"'))
+  expect(savedRaw).toEqual(expect.stringContaining('"text":"# Source only\\n"'))
+  expect(JSON.parse(savedRaw as string).change_order).toEqual(expect.any(Number))
 })
 
 test("several Sources select the first lexical Document ID without writing metadata", async ({ page }) => {
@@ -576,8 +613,7 @@ test("Document Sidebar switches saved Sources A to B to A without cross-document
     .toBeVisible()
 
   await text.fill("# A edited\n")
-  await expect.poll(() => readStoredDocumentRaw(page, sourceKey(documentA.document_id)))
-    .toBe(encodeStoredDocument({ ...documentA, text: "# A edited\n" }))
+  await expectStoredDocument(page, { ...documentA, text: "# A edited\n" }, 0)
   await page.getByRole("tab", { name: "Split" }).click()
   await expect(page.getByRole("heading", { name: "A edited" })).toBeVisible()
 
@@ -600,7 +636,7 @@ test("Document Sidebar switches saved Sources A to B to A without cross-document
     .toBe(encodeStoredDocument(documentB))
 })
 
-test("New Document commits one baseline Source before activating it", async ({ page }) => {
+test("New Document activates an empty ephemeral document and persists on first edit", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
   const before = await readStoredDocuments(page)
@@ -608,19 +644,20 @@ test("New Document commits one baseline Source before activating it", async ({ p
 
   const documents = page.getByRole("complementary", { name: "Documents" })
   await page.getByRole("button", { name: "New document" }).click()
-  await expect.poll(() => readStoredDocuments(page).then(documents => documents.length)).toBe(2)
+  await expect.poll(() => readStoredDocuments(page).then(documents => documents.length)).toBe(1)
   const after = await readStoredDocuments(page)
-  const created = after.find(document => document.document_id !== before[0].document_id)
-  if (!created) throw new Error("created Source missing")
-  expect(created.text).toBe("# Untitled\n")
-  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("# Untitled\n")
-  await expect(documents.getByRole("button", { name: /^Untitled/ })).toHaveCount(2)
-  await expect(documents.locator('[data-state="active"]')).toContainText("Untitled")
-
+  expect(after).toEqual(before)
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("")
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill("# Project notes\n")
-  await expect.poll(() => readStoredDocumentRaw(page, sourceKey(created.document_id)))
-    .toBe(encodeStoredDocument({ ...created, text: "# Project notes\n" }))
+  await expect.poll(() => readStoredDocuments(page).then(documents => documents.find(
+    document => !before.some(previous => previous.document_id === document.document_id),
+  ) ?? null)).not.toBeNull()
+  const created = (await readStoredDocuments(page)).find(
+    document => !before.some(previous => previous.document_id === document.document_id),
+  )
+  if (!created) throw new Error("created Source missing")
+  await expectStoredDocument(page, { ...created, text: "# Project notes\n" })
   await expect(documents.locator('[data-state="active"]')).toContainText("Project notes")
   const renamed = await readStoredDocuments(page)
 
@@ -704,34 +741,20 @@ test("Delete document cancellation preserves the Source and editor", async ({ pa
   await expect(text).toHaveValue("# Still editable\n")
 })
 
-test("Delete document rejects deleting the final Source", async ({ page }) => {
+test("Delete document removes the final Source and leaves an ephemeral empty New", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
-  await expect(page.getByRole("button", { name: /^Delete "/ })).toBeDisabled()
+  await page.getByRole("button", { name: /^Delete "/ }).click()
+  await page.getByRole("alertdialog").getByRole("button", { name: "Delete document" }).click()
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("")
+  await expect.poll(() => readStoredDocuments(page)).toEqual([])
+  await page.getByRole("textbox", { name: "Text" }).fill("# Recreated\n")
+  await expect.poll(() => readStoredDocuments(page)).toHaveLength(1)
 })
 
-test("creation failure preserves the active document and can retry", async ({ page }) => {
-  await page.goto("/")
-  await waitForRepositoryOpen(page)
-  const baseline = await readStoredDocument(page)
-  if (!baseline) throw new Error("baseline Source missing")
-  await page.evaluate(installDocumentPutFailure, { prefix: SOURCE_KEY_PREFIX })
-
-  await page.getByRole("button", { name: "New document" }).click()
-  await expect(page.getByRole("alert")).toContainText(
-    "A new document could not be created. Browser storage is full.",
-  )
-  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(baseline.text)
-  await expect(page.getByRole("complementary", { name: "Documents" })
-    .locator('[data-state="active"]')).toContainText("Untitled")
-  expect(await readStoredDocuments(page)).toEqual([baseline])
-
-  await page.evaluate(removeDocumentPutFailure)
-  await page.getByRole("button", { name: "Retry creating" }).click()
-  await expect(page.getByRole("alert")).toHaveCount(0)
-  await expect.poll(() => readStoredDocuments(page).then(documents => documents.length)).toBe(2)
-})
-
+// The browser's crypto.randomUUID property is non-configurable in the supported
+// Playwright runtime, so the obsolete identity-retry browser case is covered by
+// the pure repository tests instead of attempting to patch the platform API.
 test("Document controls remain accessible without horizontal overflow at 390 px", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto("/")
@@ -749,7 +772,7 @@ test("Document controls remain accessible without horizontal overflow at 390 px"
   }))).toEqual({ viewport: 390, scrollWidth: 390 })
 })
 
-test("document action attempted before save stays on the active Source", async ({ page }) => {
+test("Document switch does not wait for the active Source to save", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
   const documentA = { document_id: "document-a", text: "# A\n" }
@@ -765,20 +788,11 @@ test("document action attempted before save stays on the active Source", async (
   const documentAButton = documents.getByRole("button", { name: "A", exact: true })
   const documentBButton = documents.getByRole("button", { name: "B", exact: true })
   await text.pressSequentially("x")
-  await expect(documentAButton).toBeEnabled()
-  await expect(documentBButton).toBeDisabled()
-  await expect(documentBButton).toHaveCSS("opacity", "0.5")
-  await expect(page.getByRole("button", { name: "New document" })).toBeDisabled()
-  await expect(documentAButton).toHaveAttribute("data-state", "active")
   await expect(text).toHaveValue("# A\nx")
   await expect(page.getByText("Wait for saving to finish.")).toHaveCount(0)
-  await expect.poll(() => readStoredDocumentRaw(page, sourceKey(documentA.document_id)))
-    .toBe(encodeStoredDocument({ ...documentA, text: "# A\nx" }))
-  await expect(documentBButton).toBeEnabled()
-  await expect(documentBButton).toHaveCSS("opacity", "1")
-  await expect(page.getByRole("button", { name: "New document" })).toBeEnabled()
   await documentBButton.click()
   await expect(text).toHaveValue(documentB.text)
+  await expectStoredDocument(page, { ...documentA, text: "# A\nx" }, 0)
 })
 
 test("legacy active record migrates atomically and is removed", async ({ page }) => {
@@ -806,7 +820,7 @@ test("legacy collision preserves both records and opens a fresh baseline", async
   ])
 
   await page.reload()
-  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("# Untitled\n")
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("")
   expect(await readStoredDocumentRaw(page, LEGACY_ACTIVE_KEY)).toBe(encoded)
   expect(await readStoredDocumentRaw(page, targetKey)).toBe("corrupt-target")
 })
@@ -1246,6 +1260,7 @@ test("Split keeps Text and Preview independently scrollable", async ({ page }) =
 test("quiet Autosave restores exact Saved text after reload", async ({ page }) => {
   const savedText = "# Saved locally\n\nExact text.\n"
   await page.goto("/")
+  await waitForRepositoryOpen(page)
 
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill(savedText)
@@ -1262,8 +1277,9 @@ test("quiet Autosave restores exact Saved text after reload", async ({ page }) =
   expect((await readStoredDocument(page))?.document_id).toBe(saved?.document_id)
 })
 
-test("exact acknowledged revert restores Saved without a redundant put", async ({ page }) => {
+test("exact acknowledged revert gets a fresh persistence order", async ({ page }) => {
   await page.goto("/")
+  await waitForRepositoryOpen(page)
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
     .toBe("# Untitled\n")
   const baseline = await readStoredDocument(page)
@@ -1286,12 +1302,14 @@ test("exact acknowledged revert restores Saved without a redundant put", async (
 
   await expect(page.getByRole("button", { name: "New document" })).toBeEnabled()
   await page.waitForTimeout(2_250)
-  expect(await readDocumentPutLog(page)).toEqual([])
+  await expect.poll(() => readDocumentPutLog(page)).toHaveLength(1)
   expect((await readStoredDocument(page))?.text).toBe("# Untitled\n")
+  await expectStoredDocument(page, baseline, 0)
 })
 
-test("equal-text ABA still receives a full trailing quiet window", async ({ page }) => {
+test("equal-text ABA still receives a fresh persistence order", async ({ page }) => {
   await page.goto("/")
+  await waitForRepositoryOpen(page)
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
     .toBe("# Untitled\n")
   const baseline = await readStoredDocument(page)
@@ -1328,6 +1346,7 @@ test("equal-text ABA still receives a full trailing quiet window", async ({ page
 
 test("uninterrupted input reaches maximum eligibility without final quiet", async ({ page }) => {
   await page.goto("/")
+  await waitForRepositoryOpen(page)
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
     .toBe("# Untitled\n")
   const baseline = await readStoredDocument(page)
@@ -1450,6 +1469,7 @@ test("large active-write overlap remains coalesced", async ({ page }) => {
 
 test("hidden visibility makes pending text eligible before quiet", async ({ page }) => {
   await page.goto("/")
+  await waitForRepositoryOpen(page)
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
     .toBe("# Untitled\n")
   const baseline = await readStoredDocument(page)
@@ -1487,6 +1507,7 @@ test("hidden visibility makes pending text eligible before quiet", async ({ page
 
 test("rapid Text input writes only the latest text", async ({ page }) => {
   await page.goto("/")
+  await waitForRepositoryOpen(page)
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
     .toBe("# Untitled\n")
   const initial = await readStoredDocument(page)
@@ -1521,6 +1542,7 @@ test("rapid Text input writes only the latest text", async ({ page }) => {
 
 test("IME composition saves only after composition ends", async ({ page }) => {
   await page.goto("/")
+  await waitForRepositoryOpen(page)
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
     .toBe("# Untitled\n")
 
@@ -1644,6 +1666,7 @@ test("Preview schedules no new work until IME composition commits", async ({ pag
 
 test("save failure keeps Text editable and Retry saves the latest text", async ({ page }) => {
   await page.goto("/")
+  await waitForRepositoryOpen(page)
   await expect.poll(() => readStoredDocument(page)).toEqual({
     document_id: expect.any(String),
     text: "# Untitled\n",
@@ -1673,6 +1696,7 @@ test("save failure keeps Text editable and Retry saves the latest text", async (
 
 test("failed attempt exact acknowledged revert restores truthful Saved", async ({ page }) => {
   await page.goto("/")
+  await waitForRepositoryOpen(page)
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
     .toBe("# Untitled\n")
   const baseline = await readStoredDocument(page)
@@ -1698,12 +1722,13 @@ test("failed attempt exact acknowledged revert restores truthful Saved", async (
       __loomarkDocumentPutFailureCalls?: number
     }).__loomarkDocumentPutFailureCalls ?? 0
   ))
-  expect(callsAfterRevert).toBe(failedCalls)
+  expect(callsAfterRevert).toBe(failedCalls + 1)
   expect((await readStoredDocument(page))?.text).toBe("# Untitled\n")
 })
 
 test("active failure after acknowledged revert restores truthful Saved", async ({ page }) => {
   await page.goto("/")
+  await waitForRepositoryOpen(page)
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
     .toBe("# Untitled\n")
   const baseline = await readStoredDocument(page)
@@ -1749,8 +1774,7 @@ test("saving one Source preserves unrelated Sources and unknown metadata", async
   const text = page.getByRole("textbox", { name: "Text" })
   await expect(text).toHaveValue(documentA.text)
   await text.fill("# Updated A\n")
-  await expect.poll(() => readStoredDocumentRaw(page, sourceKey(documentA.document_id)))
-    .toBe(encodeStoredDocument({ ...documentA, text: "# Updated A\n" }))
+  await expectStoredDocument(page, { ...documentA, text: "# Updated A\n" }, 0)
   await page.reload()
   await expect(text).toHaveValue("# Updated A\n")
   expect(await readStoredDocumentRaw(page, sourceKey(documentB.document_id))).toBe(encodedB)
@@ -1768,7 +1792,7 @@ test("valid and corrupt Source records coexist without overwriting corruption", 
   const invalidDocument = "not-json"
   const corruptKey = sourceKey("corrupt-document")
   await page.goto("/")
-  await expect.poll(() => readStoredDocument(page)).not.toBeNull()
+  await waitForRepositoryOpen(page)
   const baseline = await readStoredDocument(page)
   if (!baseline) throw new Error("baseline Source missing")
   await writeStoredDocumentRaw(page, corruptKey, invalidDocument)
@@ -1994,5 +2018,5 @@ test("1 MiB exact Saved comparison stays within 10 ms", async ({ page }) => {
   expect(sorted[sorted.length - 1]).toBeLessThanOrEqual(10)
   await expect(page.getByRole("button", { name: "New document" })).toBeEnabled()
   await page.waitForTimeout(350)
-  expect(await readDocumentPutLog(page)).toEqual([])
+  await expect.poll(() => readDocumentPutLog(page)).toHaveLength(1)
 })

@@ -1,12 +1,58 @@
 ///|
-test "source key and strict codec preserve identity and exact text" {
-  let source = SourceRecord::new("document-1", "# Text\r\n").unwrap()
+test "source key and strict codec preserve identity exact text and Change order" {
+  let order = ChangeOrder::from_int64(1_700_000_000_123L).unwrap()
+  let source = SourceRecord::new("document-1", "# Text\r\n", change_order=order).unwrap()
   assert_eq(source_key(source.document_id()), Some("source/v1/document-1"))
   guard decode_source("source/v1/document-1", encode_source(source))
     is Ok(decoded) else {
     fail("expected valid Source round-trip")
   }
   assert_eq(decoded, source)
+  assert_eq(decoded.change_order(), order)
+}
+
+///|
+test "ChangeOrder advance chooses the greater safe successor" {
+  assert_eq(
+    ChangeOrder::from_int64(4L)
+    .unwrap()
+    .advance(ChangeOrder::from_int64(2L).unwrap())
+    .unwrap()
+    .value(),
+    5L,
+  )
+  assert_eq(
+    ChangeOrder::from_int64(4L)
+    .unwrap()
+    .advance(ChangeOrder::from_int64(9L).unwrap())
+    .unwrap()
+    .value(),
+    9L,
+  )
+  assert_eq(
+    ChangeOrder::from_int64(9_007_199_254_740_991L)
+    .unwrap()
+    .advance(ChangeOrder::from_int64(0L).unwrap()),
+    None,
+  )
+}
+
+///|
+test "Change order is restricted to JavaScript safe integers" {
+  assert_true(ChangeOrder::from_int64(9_007_199_254_740_991L) is Some(_))
+  assert_eq(ChangeOrder::from_int64(9_007_199_254_740_992L), None)
+  assert_eq(ChangeOrder::from_int64(-1L), None)
+  for
+    encoded in [
+      "{\"document_id\":\"document-1\",\"text\":\"# Text\\n\",\"change_order\":9007199254740992}",
+      "{\"document_id\":\"document-1\",\"text\":\"# Text\\n\",\"change_order\":1.5}",
+      "{\"document_id\":\"document-1\",\"text\":\"# Text\\n\",\"change_order\":-1}",
+    ] {
+    assert_true(
+      decode_source("source/v1/document-1", encoded)
+      is Err(SourceDecodeFailure::InvalidRecord),
+    )
+  }
 }
 
 ///|

@@ -7,6 +7,22 @@ test "repository open begins with a complete store scan" {
 }
 
 ///|
+test "repository open returns an empty snapshot without storage repair" {
+  let emitted : Array[OpenResult] = []
+  let command = continue_open(
+    Reconciliation::Ready(RepositorySnapshot::from_sources([]).unwrap()),
+    result => {
+      emitted.push(result)
+      @cmd.none
+    },
+  )
+  assert_eq(emitted, [
+    OpenResult::Ready(RepositorySnapshot::from_sources([]).unwrap()),
+  ])
+  assert_false(@debug.to_string(command).contains("IndexedDBPut"))
+}
+
+///|
 test "repository open routes legacy migration through one atomic mutation" {
   inspect(
     Repr(
@@ -29,7 +45,13 @@ test "repository save commits one Source record" {
   ]).unwrap()
   inspect(
     Repr(save(snapshot, "document-1", "# Saved\n", result=_ => @cmd.none)),
-    content="IndexedDBPut(\n  { name: \"loomark\", version: 1, store_name: \"documents\" },\n  \"source/v1/document-1\",\n  \"{\\\"document_id\\\":\\\"document-1\\\",\\\"text\\\":\\\"# Saved\\\\n\\\"}\",\n)",
+    content=(
+      #|IndexedDBPut(
+      #|  { name: "loomark", version: 1, store_name: "documents" },
+      #|  "source/v1/document-1",
+      #|  "{\"document_id\":\"document-1\",\"text\":\"# Saved\\n\",\"change_order\":0}",
+      #|)
+    ),
   )
 }
 
@@ -63,12 +85,21 @@ test "save completion publishes the next snapshot after storage completes" {
       @indexed_db.WriteResult::QuotaExceeded,
       @indexed_db.WriteResult::Failed,
     ] {
-    let _ = finish_save(next, stored, result => {
-      emitted.push(result)
-      @cmd.none
-    })
+    let _ = finish_save(
+      SourceRecord::new("document-1", "# Saved\n").unwrap(),
+      stored,
+      result => {
+        emitted.push(result)
+        @cmd.none
+      },
+    )
   }
-  assert_eq(emitted.get(0), Some(SaveResult::Stored(next)))
+  assert_eq(
+    emitted.get(0),
+    Some(
+      SaveResult::Stored(SourceRecord::new("document-1", "# Saved\n").unwrap()),
+    ),
+  )
   assert_eq(next.source("document-1").unwrap().text(), "# Saved\n")
   assert_eq(next.source("document-2").unwrap().text(), "# Other\n")
   assert_eq(
@@ -108,6 +139,72 @@ test "accepted deletion preserves unrelated repository observations" {
 }
 
 ///|
+test "probe maps storage outcomes and decoded records" {
+  let source = SourceRecord::new("document-1", "# One\n").unwrap()
+  let emitted : Array[ProbeResult] = []
+  for
+    read in [
+      @indexed_db.ReadResult::Loaded(
+        "{\"document_id\":\"document-1\",\"text\":\"# One\\n\",\"change_order\":0}",
+      ),
+      @indexed_db.ReadResult::Loaded(
+        "{\"document_id\":\"document-1\",\"text\":\"# One\\n\"}",
+      ),
+      @indexed_db.ReadResult::Loaded("not-json"),
+      @indexed_db.ReadResult::Missing,
+      @indexed_db.ReadResult::Unavailable,
+      @indexed_db.ReadResult::Failed,
+    ] {
+    let _ = finish_probe("document-1", read, result => {
+      emitted.push(result)
+      @cmd.none
+    })
+  }
+  assert_eq(emitted.get(0), Some(ProbeResult::Present(source)))
+  assert_eq(emitted.get(1), Some(ProbeResult::Unsupported))
+  assert_eq(emitted.get(2), Some(ProbeResult::Unsupported))
+  assert_eq(emitted.get(3), Some(ProbeResult::Missing))
+  assert_eq(
+    emitted.get(4),
+    Some(ProbeResult::Failed(ProbeFailure::StorageUnavailable)),
+  )
+  assert_eq(emitted.get(5), Some(ProbeResult::Failed(ProbeFailure::ReadFailed)))
+}
+
+///|
+test "probe rejects unknown and malformed identities before storage" {
+  let snapshot = RepositorySnapshot::from_sources([
+    SourceRecord::new("document-1", "# One\n").unwrap(),
+  ]).unwrap()
+  let emitted : Array[ProbeResult] = []
+  let unknown = probe(snapshot, "missing", result=result => {
+    emitted.push(result)
+    @cmd.none
+  })
+  let malformed = probe(snapshot, "", result=result => {
+    emitted.push(result)
+    @cmd.none
+  })
+  assert_eq(emitted, [
+    ProbeResult::Failed(ProbeFailure::InvalidSource),
+    ProbeResult::Failed(ProbeFailure::InvalidSource),
+  ])
+  assert_false(@debug.to_string(unknown).contains("IndexedDBGet"))
+  assert_false(@debug.to_string(malformed).contains("IndexedDBGet"))
+}
+
+///|
+test "probe prepares one exact source read" {
+  let snapshot = RepositorySnapshot::from_sources([
+    SourceRecord::new("document-1", "# One\n").unwrap(),
+  ]).unwrap()
+  inspect(
+    Repr(probe(snapshot, "document-1", result=_ => @cmd.none)),
+    content="IndexedDBGet(\n  { name: \"loomark\", version: 1, store_name: \"documents\" },\n  \"source/v1/document-1\",\n  false,\n)",
+  )
+}
+
+///|
 test "repository delete prepares one atomic Source deletion" {
   let snapshot = RepositorySnapshot::from_sources([
     SourceRecord::new("document-1", "# One\n").unwrap(),
@@ -120,7 +217,7 @@ test "repository delete prepares one atomic Source deletion" {
 }
 
 ///|
-test "repository delete rejects unknown and final identities before storage" {
+test "repository delete rejects unknown and permits final identity" {
   let snapshot = RepositorySnapshot::from_sources([
     SourceRecord::new("document-1", "# One\n").unwrap(),
   ]).unwrap()
@@ -133,16 +230,13 @@ test "repository delete rejects unknown and final identities before storage" {
     emitted.push(result)
     @cmd.none
   })
-  assert_eq(emitted, [
-    DeleteResult::Failed(DeleteFailure::InvalidSource),
-    DeleteResult::Failed(DeleteFailure::LastSource),
-  ])
+  assert_eq(emitted, [DeleteResult::Failed(DeleteFailure::InvalidSource)])
   assert_false(@debug.to_string(unknown).contains("IndexedDBMutate"))
-  assert_false(@debug.to_string(last_source).contains("IndexedDBMutate"))
+  assert_true(@debug.to_string(last_source).contains("IndexedDBMutate"))
 }
 
 ///|
-test "delete completion publishes only its prepared snapshot" {
+test "delete completion publishes acknowledged identity" {
   let original = RepositorySnapshot::from_sources([
     SourceRecord::new("document-1", "# One\n").unwrap(),
     SourceRecord::new("document-2", "# Two\n").unwrap(),
@@ -156,12 +250,12 @@ test "delete completion publishes only its prepared snapshot" {
       @indexed_db.WriteResult::QuotaExceeded,
       @indexed_db.WriteResult::Failed,
     ] {
-    let _ = finish_delete(next, stored, result => {
+    let _ = finish_delete("document-1", stored, result => {
       emitted.push(result)
       @cmd.none
     })
   }
-  assert_eq(emitted.get(0), Some(DeleteResult::Deleted(next)))
+  assert_eq(emitted.get(0), Some(DeleteResult::Deleted("document-1")))
   assert_true(next.source("document-1") is None)
   assert_eq(next.source("document-2").unwrap().text(), "# Two\n")
   assert_eq(
@@ -235,51 +329,17 @@ test "create rejects an observed occupied key before storage" {
 }
 
 ///|
-test "create prepares one put for a valid identity" {
-  let snapshot = RepositorySnapshot::from_sources([
-    SourceRecord::new("document-1", "# One\n").unwrap(),
-  ]).unwrap()
-  inspect(
-    Repr(create_with_document_id(snapshot, "document-2", _ => @cmd.none)),
-    content="IndexedDBPut(\n  { name: \"loomark\", version: 1, store_name: \"documents\" },\n  \"source/v1/document-2\",\n  \"{\\\"document_id\\\":\\\"document-2\\\",\\\"text\\\":\\\"# Untitled\\\\n\\\"}\",\n)",
-  )
-}
 
 ///|
-test "create completion maps stored and write failures" {
+test "create reserves identity without storage" {
   let snapshot = RepositorySnapshot::from_sources([
     SourceRecord::new("document-1", "# One\n").unwrap(),
   ]).unwrap()
-  let source = SourceRecord::new("document-2", "# Untitled\n").unwrap()
-  let next = accepted_source(snapshot, source)
   let emitted : Array[CreateResult] = []
-  for
-    stored in [
-      @indexed_db.WriteResult::Stored,
-      @indexed_db.WriteResult::Unavailable,
-      @indexed_db.WriteResult::QuotaExceeded,
-      @indexed_db.WriteResult::Failed,
-    ] {
-    let _ = finish_create(next, "document-2", stored, result => {
-      emitted.push(result)
-      @cmd.none
-    })
-  }
-  guard emitted.get(0) is Some(CreateResult::Created(created, "document-2")) else {
-    fail("stored not created")
-  }
-  assert_eq(created.source("document-1").unwrap().text(), "# One\n")
-  assert_eq(created.source("document-2").unwrap().text(), "# Untitled\n")
-  assert_eq(
-    emitted.get(1),
-    Some(CreateResult::Failed(CreateFailure::StorageUnavailable)),
-  )
-  assert_eq(
-    emitted.get(2),
-    Some(CreateResult::Failed(CreateFailure::QuotaExceeded)),
-  )
-  assert_eq(
-    emitted.get(3),
-    Some(CreateResult::Failed(CreateFailure::WriteFailed)),
-  )
+  let command = create_with_document_id(snapshot, "document-2", result => {
+    emitted.push(result)
+    @cmd.none
+  })
+  assert_eq(emitted, [CreateResult::Created("document-2")])
+  assert_false(@debug.to_string(command).contains("IndexedDB"))
 }

@@ -13,19 +13,35 @@ pub fn delete(RepositorySnapshot, String, result~ : @cmd.Emit[DeleteResult]) -> 
 
 pub fn open(result~ : @cmd.Emit[OpenResult]) -> @cmd.Cmd
 
-pub fn save(RepositorySnapshot, String, String, result~ : @cmd.Emit[SaveResult]) -> @cmd.Cmd
+pub fn probe(RepositorySnapshot, String, result~ : @cmd.Emit[ProbeResult]) -> @cmd.Cmd
+
+pub fn save(RepositorySnapshot, String, String, change_order? : ChangeOrder, result~ : @cmd.Emit[SaveResult]) -> @cmd.Cmd
+
+pub fn store_new(RepositorySnapshot, String, String, ChangeOrder, result~ : @cmd.Emit[SaveResult]) -> @cmd.Cmd
 
 // Errors
 
 // Types and methods
+pub(all) enum AcknowledgedChange {
+  SourceStored(SourceRecord)
+  SourceDeleted(String)
+} derive(Eq, @debug.Debug)
+
 type Catalog derive(Eq, @debug.Debug)
 pub fn Catalog::entries(Self) -> ArrayView[CatalogEntry]
 pub fn Catalog::from_entries(Array[CatalogEntry]) -> Self?
 
 type CatalogEntry derive(Eq, @debug.Debug)
+pub fn CatalogEntry::change_order(Self) -> ChangeOrder
 pub fn CatalogEntry::document_id(Self) -> String
 pub fn CatalogEntry::name(Self) -> String?
-pub fn CatalogEntry::new(String, String?) -> Self?
+pub fn CatalogEntry::new(String, String?, change_order? : ChangeOrder) -> Self?
+
+type ChangeOrder derive(Eq, @debug.Debug)
+pub fn ChangeOrder::advance(Self, Self) -> Self?
+pub fn ChangeOrder::from_int64(Int64) -> Self?
+pub fn ChangeOrder::next(Self) -> Self?
+pub fn ChangeOrder::value(Self) -> Int64
 
 pub(all) enum CreateFailure {
   DocumentIdentityUnavailable
@@ -35,20 +51,19 @@ pub(all) enum CreateFailure {
 } derive(Eq, @debug.Debug)
 
 pub(all) enum CreateResult {
-  Created(RepositorySnapshot, String)
+  Created(String)
   Failed(CreateFailure)
 } derive(Eq, @debug.Debug)
 
 pub(all) enum DeleteFailure {
   InvalidSource
-  LastSource
   StorageUnavailable
   QuotaExceeded
   WriteFailed
 } derive(Eq, @debug.Debug)
 
 pub(all) enum DeleteResult {
-  Deleted(RepositorySnapshot)
+  Deleted(String)
   Failed(DeleteFailure)
 } derive(Eq, @debug.Debug)
 
@@ -65,6 +80,19 @@ pub(all) enum OpenResult {
   Failed(OpenFailure)
 } derive(Eq, @debug.Debug)
 
+pub(all) enum ProbeFailure {
+  InvalidSource
+  StorageUnavailable
+  ReadFailed
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ProbeResult {
+  Present(SourceRecord)
+  Missing
+  Unsupported
+  Failed(ProbeFailure)
+} derive(Eq, @debug.Debug)
+
 pub(all) enum RepositoryIssue {
   InvalidSource(String)
   SourceIdentityMismatch(String)
@@ -78,28 +106,32 @@ pub(all) enum RepositoryIssue {
 } derive(Eq, @debug.Debug)
 
 type RepositorySnapshot derive(Eq, @debug.Debug)
+pub fn RepositorySnapshot::apply_acknowledged(Self, AcknowledgedChange) -> Self?
 pub fn RepositorySnapshot::catalog(Self) -> Catalog
 pub fn RepositorySnapshot::from_sources(Array[SourceRecord]) -> Self?
 pub fn RepositorySnapshot::issues(Self) -> ArrayView[RepositoryIssue]
+pub fn RepositorySnapshot::latest_change_order(Self) -> ChangeOrder
 pub fn RepositorySnapshot::selected(Self) -> SourceRecord?
 pub fn RepositorySnapshot::source(Self, String) -> SourceRecord?
 pub fn RepositorySnapshot::sources(Self) -> ArrayView[SourceRecord]
 
 pub(all) enum SaveFailure {
   InvalidSource
+  ChangeOrderExhausted
   StorageUnavailable
   QuotaExceeded
   WriteFailed
 } derive(Eq, @debug.Debug)
 
 pub(all) enum SaveResult {
-  Stored(RepositorySnapshot)
+  Stored(SourceRecord)
   Failed(SaveFailure)
 } derive(Eq, @debug.Debug)
 
 type SourceRecord derive(Eq, @debug.Debug)
+pub fn SourceRecord::change_order(Self) -> ChangeOrder
 pub fn SourceRecord::document_id(Self) -> String
-pub fn SourceRecord::new(String, String) -> Self?
+pub fn SourceRecord::new(String, String, change_order? : ChangeOrder) -> Self?
 pub fn SourceRecord::text(Self) -> String
 
 // Type aliases

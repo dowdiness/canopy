@@ -1,14 +1,57 @@
 ///|
+/// Largest integer represented exactly by JavaScript Number.
+const MAX_CHANGE_ORDER : Int64 = 9_007_199_254_740_991L
+
+///|
+/// Opaque ordering value assigned when Document text changes.
+struct ChangeOrder(Int64) derive(Eq, Debug)
+
+///|
+pub fn ChangeOrder::from_int64(value : Int64) -> Self? {
+  guard value >= 0L && value <= MAX_CHANGE_ORDER else { return None }
+  Some(ChangeOrder(value))
+}
+
+///|
+pub fn ChangeOrder::value(self : Self) -> Int64 {
+  self.0
+}
+
+///|
+pub fn ChangeOrder::next(self : Self) -> Self? {
+  ChangeOrder::from_int64(self.0 + 1L)
+}
+
+///|
+/// Advance beyond the current order and any browser-observed order.
+pub fn ChangeOrder::advance(self : Self, observed : Self) -> Self? {
+  match self.next() {
+    Some(next) =>
+      if observed.value().compare(next.value()) > 0 {
+        Some(observed)
+      } else {
+        Some(next)
+      }
+    None => None
+  }
+}
+
+///|
 /// One authoritative document identity and its exact Canonical Markdown.
 struct SourceRecord {
   document_id : String
   text : String
+  change_order : ChangeOrder
 } derive(Eq, Debug)
 
 ///|
-pub fn SourceRecord::new(document_id : String, text : String) -> Self? {
+pub fn SourceRecord::new(
+  document_id : String,
+  text : String,
+  change_order? : ChangeOrder = ChangeOrder(0L),
+) -> Self? {
   guard document_id != "" else { return None }
-  Some({ document_id, text })
+  Some({ document_id, text, change_order })
 }
 
 ///|
@@ -22,9 +65,15 @@ pub fn SourceRecord::text(self : Self) -> String {
 }
 
 ///|
+pub fn SourceRecord::change_order(self : Self) -> ChangeOrder {
+  self.change_order
+}
+
+///|
 priv enum SourceDecodeFailure {
   InvalidRecord
   IdentityMismatch
+  UnsupportedSchema
 }
 
 ///|
@@ -32,12 +81,17 @@ priv enum SourceDecodeFailure {
 struct CatalogEntry {
   document_id : String
   name : String?
+  change_order : ChangeOrder
 } derive(Eq, Debug)
 
 ///|
-pub fn CatalogEntry::new(document_id : String, name : String?) -> Self? {
+pub fn CatalogEntry::new(
+  document_id : String,
+  name : String?,
+  change_order? : ChangeOrder = ChangeOrder(0L),
+) -> Self? {
   guard document_id != "" else { return None }
-  Some({ document_id, name })
+  Some({ document_id, name, change_order })
 }
 
 ///|
@@ -51,14 +105,39 @@ pub fn CatalogEntry::name(self : Self) -> String? {
 }
 
 ///|
-/// A deterministic catalog ordered lexically by Document ID.
+pub fn CatalogEntry::change_order(self : Self) -> ChangeOrder {
+  self.change_order
+}
+
+///|
+fn compare_change_order(
+  left_order : ChangeOrder,
+  left_id : String,
+  right_order : ChangeOrder,
+  right_id : String,
+) -> Int {
+  let by_newest = right_order.value().compare(left_order.value())
+  if by_newest != 0 {
+    by_newest
+  } else {
+    left_id.lexical_compare(right_id)
+  }
+}
+
+///|
+/// A deterministic catalog ordered by newest Change order, then Document ID.
 struct Catalog(Array[CatalogEntry]) derive(Eq, Debug)
 
 ///|
 pub fn Catalog::from_entries(entries : Array[CatalogEntry]) -> Self? {
   let ordered = entries.copy()
   ordered.sort_by((left, right) => {
-    left.document_id().lexical_compare(right.document_id())
+    compare_change_order(
+      left.change_order(),
+      left.document_id(),
+      right.change_order(),
+      right.document_id(),
+    )
   })
   catalog_from_sorted_entries(ordered)
 }
@@ -76,6 +155,12 @@ fn catalog_from_sorted_entries(entries : Array[CatalogEntry]) -> Catalog? {
   guard identities.length() == entries.length() else { return None }
   Some(Catalog(entries.copy()))
 }
+
+///|
+pub(all) enum AcknowledgedChange {
+  SourceStored(SourceRecord)
+  SourceDeleted(String)
+} derive(Eq, Debug)
 
 ///|
 pub(all) enum RepositoryIssue {
@@ -120,10 +205,14 @@ fn snapshot_from_sources(
   initial_issues : Array[RepositoryIssue],
   occupied_source_keys : Array[String],
 ) -> RepositorySnapshot? {
-  guard !sources.is_empty() else { return None }
   let ordered = sources.copy()
   ordered.sort_by((left, right) => {
-    left.document_id().lexical_compare(right.document_id())
+    compare_change_order(
+      left.change_order(),
+      left.document_id(),
+      right.change_order(),
+      right.document_id(),
+    )
   })
   let identities = Set::from_iter(
     ordered.iter().map(source => source.document_id()),
@@ -134,11 +223,18 @@ fn snapshot_from_sources(
     let name = match derive_name(source.text()) {
       Ok(name) => name
       Err(_) => {
-        issues.push(NameDerivationFailed(source.document_id()))
+        let issue = NameDerivationFailed(source.document_id())
+        if !issues.contains(issue) {
+          issues.push(issue)
+        }
         None
       }
     }
-    CatalogEntry::new(source.document_id(), name).unwrap()
+    CatalogEntry::new(
+      source.document_id(),
+      name,
+      change_order=source.change_order(),
+    ).unwrap()
   })
   guard Catalog::from_entries(entries) is Some(catalog) else { return None }
   Some(RepositorySnapshot::new(ordered, catalog, issues, occupied_source_keys))
@@ -171,6 +267,14 @@ pub fn RepositorySnapshot::selected(self : Self) -> SourceRecord? {
 }
 
 ///|
+pub fn RepositorySnapshot::latest_change_order(self : Self) -> ChangeOrder {
+  self
+  .selected()
+  .map(source => source.change_order())
+  .unwrap_or(ChangeOrder(0L))
+}
+
+///|
 pub fn RepositorySnapshot::catalog(self : Self) -> Catalog {
   self.1
 }
@@ -186,39 +290,6 @@ fn RepositorySnapshot::occupied_source_keys(self : Self) -> ArrayView[String] {
 }
 
 ///|
-fn accepted_deletion(
-  snapshot : RepositorySnapshot,
-  document_id : String,
-) -> RepositorySnapshot? {
-  guard snapshot.source(document_id) is Some(_) &&
-    snapshot.sources().length() > 1 else {
-    return None
-  }
-  let key = source_key(document_id).unwrap()
-  let sources = snapshot
-    .sources()
-    .filter(source => source.document_id() != document_id)
-  let entries = snapshot
-    .catalog()
-    .entries()
-    .filter(entry => entry.document_id() != document_id)
-  let issues = snapshot
-    .issues()
-    .filter(issue => {
-      match issue {
-        RepositoryIssue::NameDerivationFailed(issue_id) =>
-          issue_id != document_id
-        _ => true
-      }
-    })
-  let occupied_source_keys = snapshot
-    .occupied_source_keys()
-    .filter(occupied => occupied != key)
-  guard Catalog::from_entries(entries) is Some(catalog) else { return None }
-  Some(RepositorySnapshot::new(sources, catalog, issues, occupied_source_keys))
-}
-
-///|
 fn accepted_source(
   snapshot : RepositorySnapshot,
   source : SourceRecord,
@@ -230,7 +301,12 @@ fn accepted_source(
     .filter(existing => existing.document_id() != document_id)
   sources.push(source)
   sources.sort_by((left, right) => {
-    left.document_id().lexical_compare(right.document_id())
+    compare_change_order(
+      left.change_order(),
+      left.document_id(),
+      right.change_order(),
+      right.document_id(),
+    )
   })
 
   let issues = snapshot
@@ -251,6 +327,7 @@ fn accepted_source(
     document_id,
     previous_source,
     source.text(),
+    change_order=source.change_order(),
   )
   for issue in current_issues {
     if !issues.contains(issue) {
@@ -263,4 +340,40 @@ fn accepted_source(
     issues,
     snapshot.occupied_source_keys().to_owned(),
   )
+}
+
+///|
+fn accepted_deletion(
+  snapshot : RepositorySnapshot,
+  document_id : String,
+) -> RepositorySnapshot? {
+  guard snapshot.source(document_id) is Some(_) else { return None }
+  let sources = snapshot
+    .sources()
+    .filter(source => source.document_id() != document_id)
+  let issues = snapshot
+    .issues()
+    .filter(issue => {
+      match issue {
+        RepositoryIssue::NameDerivationFailed(issue_id) =>
+          issue_id != document_id
+        _ => true
+      }
+    })
+  let deleted_key = source_key(document_id).unwrap()
+  let occupied = snapshot
+    .occupied_source_keys()
+    .filter(key => key != deleted_key)
+  snapshot_from_sources(sources, issues, occupied)
+}
+
+///|
+pub fn RepositorySnapshot::apply_acknowledged(
+  self : Self,
+  change : AcknowledgedChange,
+) -> Self? {
+  match change {
+    SourceStored(source) => Some(accepted_source(self, source))
+    SourceDeleted(document_id) => accepted_deletion(self, document_id)
+  }
 }

@@ -2,12 +2,15 @@
 
 **Date:** 2026-08-29
 
-**Status:** Accepted
+**Status:** Accepted; Source shape, empty-repository behavior, Catalog order,
+and write-completion policy are partially superseded by
+[Loomark document deletion](2026-08-31-loomark-document-deletion.md).
 
 **Issue:** [#1303](https://github.com/dowdiness/canopy/issues/1303)
 
 **Related:**
 
+- [Loomark document deletion](2026-08-31-loomark-document-deletion.md)
 - [Loomark separates current and saved text](2026-08-24-loomark-source-first-interactive-contract.md)
 - [Loomark standard Rabbita Text app](../plans/2026-08-24-loomark-standard-rabbita-text-app.md)
 

@@ -18,6 +18,9 @@ test "reconciliation isolates corrupt and unsupported records" {
     ),
     @indexed_db.ScanEntry::StringRecord("source/v1/broken", "not-json"),
     @indexed_db.ScanEntry::StringRecord(
+      "source/v1/old", "{\"document_id\":\"old\",\"text\":\"# Old\\n\"}",
+    ),
+    @indexed_db.ScanEntry::StringRecord(
       "source/v1/wrong-key",
       test_encoded_source("wrong-payload", "# Wrong\n"),
     ),
@@ -32,13 +35,14 @@ test "reconciliation isolates corrupt and unsupported records" {
   }
   assert_eq(snapshot.sources().to_owned(), [valid])
   assert_eq(snapshot.occupied_source_keys().to_owned(), [
-    "source/v1/broken", "source/v1/document-b", "source/v1/wrong-key",
+    "source/v1/broken", "source/v1/document-b", "source/v1/old", "source/v1/wrong-key",
   ])
   assert_eq(snapshot.catalog().entries().to_owned(), [
     CatalogEntry::new("document-b", Some("Same")).unwrap(),
   ])
   assert_eq(snapshot.issues().to_owned(), [
     RepositoryIssue::InvalidSource("source/v1/broken"),
+    RepositoryIssue::UnsupportedRecord("source/v1/old"),
     RepositoryIssue::SourceIdentityMismatch("source/v1/wrong-key"),
     RepositoryIssue::UnsupportedSourceSchema("source/v2/future"),
     RepositoryIssue::UnknownRecord("catalog/v1"),
@@ -78,25 +82,38 @@ test "legacy migration decisions preserve collision safety" {
       @indexed_db.ScanEntry::StringRecord(LEGACY_ACTIVE_KEY, active),
       @indexed_db.ScanEntry::StringRecord("source/v1/legacy-id", "corrupt"),
     ])
-    is Reconciliation::Empty(issues, occupied) else {
-    fail("expected collision without mutation")
+    is Reconciliation::Ready(snapshot) else {
+    fail("expected ready collision snapshot without mutation")
   }
-  assert_eq(occupied, ["source/v1/legacy-id"])
+  assert_eq(snapshot.sources().length(), 0)
+  assert_eq(snapshot.occupied_source_keys().to_owned(), ["source/v1/legacy-id"])
   assert_true(
-    issues.contains(RepositoryIssue::LegacyMigrationCollision("legacy-id")),
+    snapshot
+    .issues()
+    .contains(RepositoryIssue::LegacyMigrationCollision("legacy-id")),
   )
 }
 
 ///|
-test "invalid legacy is preserved and an empty repository stays empty" {
+test "invalid legacy is preserved in a ready empty repository" {
   guard reconcile_scan([
       @indexed_db.ScanEntry::StringRecord(LEGACY_ACTIVE_KEY, "not-json"),
     ])
-    is Reconciliation::Empty(issues, occupied) else {
-    fail("expected empty repository")
+    is Reconciliation::Ready(snapshot) else {
+    fail("expected ready empty repository")
   }
-  assert_eq(occupied, [])
-  assert_eq(issues, [RepositoryIssue::InvalidLegacyRecord])
+  assert_eq(snapshot.sources().length(), 0)
+  assert_eq(snapshot.catalog().entries().length(), 0)
+  assert_eq(snapshot.issues().to_owned(), [RepositoryIssue::InvalidLegacyRecord])
+}
+
+///|
+test "empty scan is directly ready with an empty snapshot" {
+  guard reconcile_scan([]) is Reconciliation::Ready(snapshot) else {
+    fail("expected ready empty repository")
+  }
+  assert_eq(snapshot.sources(), [])
+  assert_eq(snapshot.catalog().entries(), [])
 }
 
 ///|
@@ -120,6 +137,50 @@ test "snapshot source and accepted Source transition preserve repository state" 
     CatalogEntry::new("document-b", Some("New B")).unwrap(),
   ])
   assert_eq(accepted.issues().to_owned(), [])
+}
+
+///|
+test "acknowledged deletion applies to the latest immutable Snapshot" {
+  let newer = SourceRecord::new(
+    "document-b",
+    "# B\n",
+    change_order=ChangeOrder::from_int64(20L).unwrap(),
+  ).unwrap()
+  let older = SourceRecord::new(
+    "document-a",
+    "# A\n",
+    change_order=ChangeOrder::from_int64(10L).unwrap(),
+  ).unwrap()
+  let snapshot = RepositorySnapshot::from_sources([older, newer]).unwrap()
+  let deleted = snapshot
+    .apply_acknowledged(SourceDeleted("document-b"))
+    .unwrap()
+  assert_eq(deleted.sources().to_owned(), [older])
+  assert_eq(deleted.selected(), Some(older))
+  assert_eq(deleted.apply_acknowledged(SourceDeleted("missing")), None)
+}
+
+///|
+test "acknowledged deltas update and can empty the snapshot" {
+  let snapshot = RepositorySnapshot::from_sources([
+    SourceRecord::new("document-a", "# A\n").unwrap(),
+  ]).unwrap()
+  let stored = snapshot
+    .apply_acknowledged(
+      SourceStored(
+        SourceRecord::new(
+          "document-a",
+          "# A newer\n",
+          change_order=ChangeOrder::from_int64(9L).unwrap(),
+        ).unwrap(),
+      ),
+    )
+    .unwrap()
+  assert_eq(stored.selected().unwrap().text(), "# A newer\n")
+  let deleted = stored.apply_acknowledged(SourceDeleted("document-a")).unwrap()
+  assert_eq(deleted.sources(), [])
+  assert_eq(deleted.catalog().entries(), [])
+  assert_eq(deleted.selected(), None)
 }
 
 ///|
@@ -184,7 +245,31 @@ test "accepted recovered heading suffix edit cannot use certified reuse" {
 }
 
 ///|
-test "snapshot orders unequal-length identities lexically" {
+test "snapshot orders newest Change order first with lexical tie break" {
+  let older = SourceRecord::new(
+    "a",
+    "# Older\n",
+    change_order=ChangeOrder::from_int64(10L).unwrap(),
+  ).unwrap()
+  let tied_b = SourceRecord::new(
+    "z",
+    "# Z\n",
+    change_order=ChangeOrder::from_int64(20L).unwrap(),
+  ).unwrap()
+  let tied_a = SourceRecord::new(
+    "b",
+    "# B\n",
+    change_order=ChangeOrder::from_int64(20L).unwrap(),
+  ).unwrap()
+  let snapshot = RepositorySnapshot::from_sources([older, tied_b, tied_a]).unwrap()
+  assert_eq(snapshot.sources().to_owned(), [tied_a, tied_b, older])
+  assert_eq(snapshot.catalog().entries().map(entry => entry.document_id()), [
+    "b", "z", "a",
+  ])
+}
+
+///|
+test "snapshot orders equal Change orders lexically" {
   let snapshot = RepositorySnapshot::from_sources([
     test_source("z", "# Z\n"),
     test_source("aa", "# AA\n"),

@@ -7,9 +7,9 @@ The fork is an owned dependency line, not an upstream release dependency.
 
 - **Fork:** [`dowdiness/rabbita`](https://github.com/dowdiness/rabbita)
 - **Upstream:** [`moonbit-community/rabbita`](https://github.com/moonbit-community/rabbita)
-- **Downstream branch:** `canopy/0.14.x`
-- **Pinned commit:** `5d9c8ae0cb0b582c856cf8b512f14ea2dee94f95`
-- **Baseline tag:** `canopy-rabbita-0.14.2-p4`
+- **Downstream branch:** `prototype/indexeddb-concurrent-admission`
+- **Pinned commit:** `96445ed16092b3eb91c1fd8205012695245c866f`
+- **Baseline tag:** `canopy-loomark-indexeddb-concurrent-admission-20260901`
 - **Canopy submodule:** `deps/rabbita`
 
 The Canopy `.gitmodules` entry intentionally points at the fork. The
@@ -36,7 +36,9 @@ The pinned fork contains:
 - `svg.Attrs::role` and `svg.Attrs::aria_label` for typed edge-path
   accessibility attributes;
 - `svg.keyed_node`, which exposes keyed SVG children to Rabbita's keyed VDOM
-  reconciliation so edge-path DOM identity survives reorder.
+  reconciliation so edge-path DOM identity survives reorder; and
+- concurrent IndexedDB transaction admission, so a later recovery probe is not
+  blocked by an earlier operation whose application acknowledgment is withheld.
 
 Canopy needs a MoonBit-typed pointer-capture boundary for its Canvas hosts. This
 patch is intentionally maintained downstream rather than proposed as an

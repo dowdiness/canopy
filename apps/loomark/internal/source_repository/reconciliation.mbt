@@ -5,7 +5,6 @@ const LEGACY_ACTIVE_KEY : String = "active"
 priv enum Reconciliation {
   Ready(RepositorySnapshot)
   Migrate(Array[@indexed_db.Mutation])
-  Empty(Array[RepositoryIssue], Array[String])
 }
 
 ///|
@@ -32,6 +31,7 @@ fn reconcile_scan(entries : Array[@indexed_db.ScanEntry]) -> Reconciliation {
             }
             Err(InvalidRecord) => issues.push(InvalidSource(key))
             Err(IdentityMismatch) => issues.push(SourceIdentityMismatch(key))
+            Err(UnsupportedSchema) => issues.push(UnsupportedRecord(key))
           }
         } else if key.strip_prefix("source/v") is Some(_) {
           issues.push(UnsupportedSourceSchema(key))
@@ -69,11 +69,13 @@ fn reconcile_scan(entries : Array[@indexed_db.ScanEntry]) -> Reconciliation {
     }
     None => ()
   }
-  guard snapshot_from_sources(sources, issues, raw_source_keys.to_array())
-    is Some(snapshot) else {
-    return Empty(issues, raw_source_keys.to_array())
+  match snapshot_from_sources(sources, issues, raw_source_keys.to_array()) {
+    Some(snapshot) => Ready(snapshot)
+    None =>
+      Ready(
+        snapshot_from_sources([], issues, raw_source_keys.to_array()).unwrap(),
+      )
   }
-  Ready(snapshot)
 }
 
 ///|
@@ -81,6 +83,7 @@ fn next_catalog(
   current : Catalog,
   document_id : String,
   source : String,
+  change_order? : ChangeOrder = ChangeOrder(0L),
 ) -> (Catalog, Array[RepositoryIssue]) {
   let issues : Array[RepositoryIssue] = []
   let name = match derive_name(source) {
@@ -93,7 +96,7 @@ fn next_catalog(
   let entries = current
     .entries()
     .filter(entry => entry.document_id() != document_id)
-  entries.push(CatalogEntry::new(document_id, name).unwrap())
+  entries.push(CatalogEntry::new(document_id, name, change_order~).unwrap())
   (Catalog::from_entries(entries).unwrap(), issues)
 }
 
@@ -103,22 +106,25 @@ fn next_catalog_after_source(
   document_id : String,
   previous_source : String?,
   source : String,
+  change_order? : ChangeOrder = ChangeOrder(0L),
 ) -> (Catalog, Array[RepositoryIssue]) {
   guard previous_source is Some(previous_source) &&
     current.entries().search_by(entry => entry.document_id() == document_id)
     is Some(index) else {
-    return next_catalog(current, document_id, source)
+    return next_catalog(current, document_id, source, change_order~)
   }
   let current_entry = current.entries()[index]
   guard certified_name_prefix_end(previous_source, current_entry.name())
     is Some(end) &&
     end <= source.length() &&
     previous_source.view(end_offset=end).equal(source.view(end_offset=end)) else {
-    return next_catalog(current, document_id, source)
+    return next_catalog(current, document_id, source, change_order~)
   }
   let entries = current
     .entries()
     .filter(entry => entry.document_id() != document_id)
-  entries.push(current_entry)
+  entries.push(
+    CatalogEntry::new(document_id, current_entry.name(), change_order~).unwrap(),
+  )
   (Catalog::from_entries(entries).unwrap(), [])
 }

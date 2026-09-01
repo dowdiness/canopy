@@ -9,7 +9,11 @@ fn source_key(document_id : String) -> String? {
 
 ///|
 fn encode_source(source : SourceRecord) -> String {
-  encode_document(source.document_id(), source.text())
+  encode_document(
+    source.document_id(),
+    source.text(),
+    source.change_order().value(),
+  )
 }
 
 ///|
@@ -33,27 +37,54 @@ fn decode_source(
 }
 
 ///|
-extern "js" fn encode_document(document_id : String, text : String) -> String =
-  #| (document_id, text) => JSON.stringify({ document_id, text })
+extern "js" fn encode_document(
+  document_id : String,
+  text : String,
+  change_order : Int64,
+) -> String =
+  #| (document_id, text, change_order) => JSON.stringify({
+  #|   document_id,
+  #|   text,
+  #|   change_order: Number(change_order),
+  #| })
 
 ///|
 fn decode_source_value(
   encoded : String,
 ) -> Result[SourceRecord, SourceDecodeFailure] {
   let value = @json.parse(encoded) catch { _ => return Err(InvalidRecord) }
-  guard value is Json::Object(fields) && fields.length() == 2 else {
-    return Err(InvalidRecord)
+  guard value is Json::Object(fields) else { return Err(InvalidRecord) }
+  let legacy_shape = match (fields.get("document_id"), fields.get("text")) {
+    (Some(Json::String(document_id)), Some(Json::String(_))) =>
+      document_id != ""
+    _ => false
   }
+  if fields.length() == 2 && legacy_shape {
+    return Err(UnsupportedSchema)
+  }
+  guard fields.length() == 3 else { return Err(InvalidRecord) }
   let document_id = match fields.get("document_id") {
     Some(Json::String(document_id)) if document_id != "" => document_id
     _ => return Err(InvalidRecord)
   }
-  match fields.get("text") {
-    Some(Json::String(text)) =>
-      match SourceRecord::new(document_id, text) {
-        Some(source) => Ok(source)
-        None => Err(InvalidRecord)
+  let text = match fields.get("text") {
+    Some(Json::String(text)) => text
+    _ => return Err(InvalidRecord)
+  }
+  let change_order = match fields.get("change_order") {
+    Some(Json::Number(number, ..)) if !number.is_nan() &&
+      !number.is_inf() &&
+      number >= 0.0 &&
+      number <= 9_007_199_254_740_991.0 &&
+      number.trunc() == number =>
+      match ChangeOrder::from_int64(number.to_int64()) {
+        Some(change_order) => change_order
+        None => return Err(InvalidRecord)
       }
-    _ => Err(InvalidRecord)
+    _ => return Err(InvalidRecord)
+  }
+  match SourceRecord::new(document_id, text, change_order~) {
+    Some(source) => Ok(source)
+    None => Err(InvalidRecord)
   }
 }

@@ -79,6 +79,42 @@ fn document_option_label(
 }
 
 ///|
+fn recent_entries(
+  editing : EditingState,
+) -> Array[@source_repository.CatalogEntry] {
+  let persisted = editing.documents.snapshot().catalog().entries()
+  let entries = editing.documents
+    .current_sources()
+    .filter_map(source => {
+      let document_id = source.document_id()
+      let persisted_entry = match
+        persisted.search_by(entry => entry.document_id() == document_id) {
+        Some(index) => persisted.get(index)
+        None => None
+      }
+      let visible = persisted_entry is Some(_) ||
+        source.text() != "" ||
+        source.change_order().value() > 0L
+      if visible {
+        @source_repository.CatalogEntry::new(
+          document_id,
+          match persisted_entry {
+            Some(entry) => entry.name()
+            None => None
+          },
+          change_order=source.change_order(),
+        )
+      } else {
+        None
+      }
+    })
+  @source_repository.Catalog::from_entries(entries)
+  .unwrap()
+  .entries()
+  .to_owned()
+}
+
+///|
 fn sidebar_panel_icon() -> @rabbita.Html {
   @html.span(
     class="i-lucide-panel-left block size-4 shrink-0",
@@ -121,7 +157,8 @@ fn document_sidebar(
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
   let available = can_activate(editing)
-  let entries = editing.repository.catalog().entries()
+  let entry_values = recent_entries(editing)
+  let entries = entry_values.view()
   let compact = editing.compact
   let close_after_action = if compact {
     @sidebar.sidebar_collapse(scope)
@@ -167,10 +204,20 @@ fn document_sidebar(
                   let document_id = entry.document_id()
                   let selected = document_id == editing.activation.document_id
                   let label = document_option_label(entries, index, entry)
+                  let (target_available, status) = match
+                    editing.documents.delete_status(document_id) {
+                    Some(Available) => (true, None)
+                    Some(Failed(_, _)) => (true, Some("Delete failed"))
+                    Some(Waiting(_)) | Some(Deleting(_)) | Some(Probing(_)) =>
+                      (false, Some("Deleting"))
+                    Some(Unknown(_)) =>
+                      (false, Some("Unknown deletion outcome"))
+                    None => (false, None)
+                  }
                   @sidebar.sidebar_menu_sub_item([
                     @sidebar.sidebar_menu_sub_button(
                       is_active=selected,
-                      disabled=!available && !selected,
+                      disabled=!can_select(editing, document_id),
                       aria_label=label,
                       title=label,
                       class="pr-10 hover:opacity-70 active:opacity-50",
@@ -181,19 +228,26 @@ fn document_sidebar(
                       style=[
                         "height:auto;min-height:2.5rem;align-items:flex-start;padding-block:0.5rem",
                       ],
-                      @html.span(
-                        class="min-w-0 overflow-hidden text-ellipsis whitespace-normal [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]",
-                        label,
-                      ),
+                      @html.div(class="min-w-0", [
+                        @html.span(
+                          class="overflow-hidden text-ellipsis whitespace-normal [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]",
+                          label,
+                        ),
+                        match status {
+                          Some(status) =>
+                            @html.span(
+                              class="block text-xs text-lm-muted",
+                              attrs=@html.Attrs::build().role("status"),
+                              status,
+                            )
+                          None => @html.nothing
+                        },
+                      ]),
                     ),
                     @sidebar.sidebar_menu_action(
-                      disabled=!available || entries.length() <= 1,
+                      disabled=!target_available,
                       aria_label="Delete \"\{label}\"",
-                      title=if entries.length() <= 1 {
-                        "Keep at least one document"
-                      } else {
-                        "Delete \"\{label}\""
-                      },
+                      title="Delete \"\{label}\"",
                       class="loomark-sidebar-action loomark-delete-action",
                       style=["width:2rem;height:2rem"],
                       on_click=emit(DeleteRequested(document_id)),
@@ -327,31 +381,25 @@ fn delete_failure_view(
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
   let reason = match failure {
-    @source_repository.DeleteFailure::InvalidSource =>
-      "The document is no longer available."
-    @source_repository.DeleteFailure::LastSource =>
-      "The last document cannot be deleted."
-    @source_repository.DeleteFailure::StorageUnavailable =>
-      "Browser storage is unavailable."
-    @source_repository.DeleteFailure::QuotaExceeded =>
-      "Browser storage could not complete the deletion."
-    @source_repository.DeleteFailure::WriteFailed =>
-      "Browser storage failed while deleting the document."
+    InvalidSource => "The document is no longer available."
+    StorageUnavailable => "Browser storage is unavailable."
+    QuotaExceeded => "Browser storage is full."
+    WriteFailed => "Browser storage failed while deleting the document."
   }
   @html.div(
-    class="flex min-h-12 shrink-0 items-center justify-between gap-4 border-t border-[oklch(0.78_0.07_25)] bg-lm-danger-soft px-4 py-2.5 text-sm text-lm-danger opacity-100 transition-opacity duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] starting:opacity-0 motion-reduce:duration-[80ms] motion-reduce:ease-[ease] max-[641px]:items-start [&_p]:m-0",
+    class="flex min-h-12 shrink-0 items-center justify-between gap-4 bg-lm-danger-soft px-4 py-2.5 text-sm text-lm-danger",
     attrs=@html.Attrs::build().role("alert"),
     [
       @html.p("The document was not deleted. " + reason),
       @html.div(class="flex shrink-0 gap-2", [
         @html.button(
-          class="min-h-8 cursor-pointer rounded-md border border-current bg-transparent px-2.5 py-1 text-inherit focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lm-danger",
-          on_click=emit(DeleteRequested(document_id)),
+          class="min-h-8 rounded-md border border-current px-2.5 py-1",
+          on_click=emit(RetryDelete(document_id)),
           "Try again",
         ),
         @html.button(
-          class="min-h-8 cursor-pointer rounded-md border border-current bg-transparent px-2.5 py-1 text-inherit focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lm-danger",
-          on_click=emit(DismissDeleteFailure),
+          class="min-h-8 rounded-md border border-current px-2.5 py-1",
+          on_click=emit(DismissDeleteFailure(document_id)),
           "Dismiss",
         ),
       ]),
@@ -367,6 +415,8 @@ fn save_failure_view(
   let reason = match failure {
     @source_repository.SaveFailure::InvalidSource =>
       " The document identity is invalid."
+    @source_repository.SaveFailure::ChangeOrderExhausted =>
+      " This browser has run out of change ordering space."
     @source_repository.SaveFailure::StorageUnavailable =>
       " Browser storage is unavailable."
     @source_repository.SaveFailure::QuotaExceeded => " Browser storage is full."
@@ -403,7 +453,7 @@ fn view(
       .aria_label("Loomark Markdown Editor"),
     [
       match model {
-        Loading(_) =>
+        Loading(_) | PreparingNew(_, _, _, _) =>
           @html.div(
             class="grid min-h-dvh place-items-center text-lm-muted [&_p]:m-0",
             [@html.p("Loading document")],
@@ -436,23 +486,30 @@ fn view(
                 [
                   mode_bar(sidebar, editing, emit),
                   mode_content(editing.mode, editor_panels),
-                  match (editing.save, editing.creation, editing.deletion) {
-                    (Failed(failure, _), _, _) =>
-                      save_failure_view(failure, emit)
-                    (_, CreationFailed(failure), _) =>
-                      creation_failure_view(failure, emit)
-                    (_, _, DeleteFailed(document_id, failure)) =>
-                      delete_failure_view(document_id, failure, emit)
+                  match
                     (
-                      Saved
-                      | Waiting(_)
-                      | Saving(_, _),
-                      Idle
-                      | Creating,
-                      NoDeletion
-                      | DeleteConfirmation(_)
-                      | Deleting(_, _),
-                    ) => @html.nothing
+                      editing.documents.save_status(
+                        editing.activation.document_id,
+                      ),
+                      editing.creation,
+                    ) {
+                    (Some(Failed(failure)), _) =>
+                      save_failure_view(failure, emit)
+                    (_, CreationFailed(failure)) =>
+                      creation_failure_view(failure, emit)
+                    _ =>
+                      match
+                        editing.documents.delete_status(
+                          editing.activation.document_id,
+                        ) {
+                        Some(Failed(operation, failure)) =>
+                          delete_failure_view(
+                            operation.document_id,
+                            failure,
+                            emit,
+                          )
+                        _ => @html.nothing
+                      }
                   },
                 ],
               ),

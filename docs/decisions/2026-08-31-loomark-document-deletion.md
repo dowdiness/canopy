@@ -1,4 +1,4 @@
-# Loomark deletes Sources only from a quiescent document state
+# Loomark deletes documents through per-document persistence lanes
 
 **Date:** 2026-08-31
 
@@ -6,85 +6,107 @@
 
 **Issue:** [#1306](https://github.com/dowdiness/canopy/issues/1306)
 
-**Related:**
-
-- [Loomark Source repository](2026-08-29-loomark-source-repository.md)
-- [Loomark separates current and saved text](2026-08-24-loomark-source-first-interactive-contract.md)
+**Partially supersedes:** [Loomark persists authoritative Sources and derives its Catalog in memory](2026-08-29-loomark-source-repository.md)
 
 ## Context
 
-Deleting a Source must not publish a Catalog that disagrees with IndexedDB or
-overwrite a Snapshot accepted by another repository operation. Loomark already
-admits document switching and creation only while the active document is Saved,
-not composing, and not creating. Only the active document can Autosave.
+Loomark must permanently delete any valid document without first opening it,
+without allowing an older Autosave to recreate it in the same tab, and without
+blocking unrelated document editing. Deleting the open document also needs a
+deterministic fallback.
 
-Allowing edits or another repository mutation during deletion would create a
-Save/Delete ordering problem that the product does not otherwise need. Solving
-that self-created concurrency with per-document queues, Snapshot deltas,
-watchdogs, or a new persisted ordering field would make permanent deletion
-substantially deeper than its product behavior.
-
-Issue #1306 also requires a policy for the final valid Source. Replacing it with
-a newly generated Source would add identity generation and a second mutation to
-an operation whose purpose is deleting one Source.
+The existing repository returns a precomputed complete
+`RepositorySnapshot` from each write, assumes one write in flight, orders the
+Catalog lexically by Document ID, and creates a persisted `# Untitled\n` Source
+when no valid Source exists. Those choices cannot represent concurrent
+per-document persistence, most-recently-changed fallback, or an ephemeral New
+document after deleting the final Source.
 
 ## Decision
 
-Loomark permits deletion only from the existing quiescent document boundary:
-the active document is Saved, composition is inactive, and creation is idle.
-Confirmation and an in-flight Delete temporarily block text mutation, document
-switching, creation, and another Delete. Preview and Editor mode remain usable
-because they do not mutate the Source repository.
+Source records remain the independently authoritative Saved-document records,
+and the Catalog remains a rebuildable in-memory view rather than a persisted
+aggregate. Before the first multi-document release, `source/v1` is redefined to
+contain Document ID, exact Saved text, and an opaque Change order. Earlier
+development-only two-field values are preserved as unsupported records rather
+than guessed or migrated. Change order is issued when Document text changes,
+using browser time with a per-tab monotonic floor seeded above the loaded
+maximum; ties are broken deterministically by Document ID. It orders Recent
+documents but is neither displayed nor treated as a trustworthy cross-tab
+clock.
 
-The repository validates that the target belongs to the supplied immutable
-`RepositorySnapshot` and that at least two valid Sources remain. Unknown targets
-and the final Source fail before IndexedDB work.
+A repository with zero valid Sources is a normal `RepositorySnapshot`. It does
+not create a Source as a repair. The application opens an ephemeral New
+document, reserves its identity without writing Browser storage, and promotes it
+to a Loomark document on its first text change. Deleting the open document opens
+the most recently changed remaining document, or a New document when none
+remains, while preserving the current Editor mode.
 
-The repository computes the next Snapshot and derived Catalog before issuing
-one transaction. That transaction contains only
-`Mutation::Delete(source_key)`. Only transaction completion publishes the
-prepared Snapshot. Abort, unavailability, quota, or another write failure
-preserves the prior Snapshot.
+The Application Model owns pure per-document persistence lanes. Operations for
+different Document IDs may proceed independently; operations for one Document
+ID are ordered. A confirmed Delete waits for an already-running Autosave for the
+same target to settle, regardless of save success, and then becomes the final
+operation for that target. It prevents later same-tab Autosaves from being
+issued.
 
-Delete attempts carry an app-private monotonic request ID. A completion changes
-state only when it matches the single in-flight attempt.
+Repository effects return acknowledged document changes such as a stored Source
+or deleted Document ID, not a precomputed replacement Snapshot.
+The reducer applies each acknowledged change to the latest immutable Snapshot,
+so completion order cannot erase an unrelated document's acknowledged change.
+Delete requests carry an identity separate from the editor `Activation`.
+Unknown Document IDs fail before IndexedDB work.
 
-Deleting the active Source activates `RepositorySnapshot::selected()` after
-commit. Its existing lexical Document ID order is the deterministic fallback.
-Deleting a non-active Source changes only the acknowledged repository Snapshot.
+Delete confirmation starts only after active IME composition ends and identifies
+the target with the same content presentation as its Recent documents entry.
+Saved and unsaved targets use the same confirmation. The row context menu uses
+Rabbita `context_menu`; its overflow control uses `dropdown_menu`; both share one
+actions view and emit the same target-specific message. Confirmation uses
+Rabbita `alert_dialog` only to obtain consent and closes when accepted. Pending,
+failure, and retry state live in the Application Model rather than in the
+modal.
 
-The final valid Source cannot be deleted. The UI disables that action and the
-repository independently enforces the policy.
+A non-open Pending deletion is shown on its Recent documents entry while the
+open document remains editable. If the target is open, it remains visible but
+cannot be edited or switched away from until the deletion settles. Failure
+preserves the Source, Snapshot, text, Preview, selection, and confirmation data
+needed for retry.
 
-The `source/v1` value remains exactly `document_id` and `text`. Delete adds no
-persisted Catalog, ordering field, tombstone, replacement Source, empty
-repository state, or Rabbita provider behavior.
+A missing acknowledgment triggers an automatic Browser storage check after a
+bounded interval; elapsed time alone proves neither success nor failure. If the
+check also fails to settle within a bounded interval, the target enters Unknown
+deletion outcome. Loomark isolates that target from editing and Autosave, opens
+the most recently changed remaining document or a New document, and lets other
+work continue. A late failure restores the target's availability without
+changing the currently open document; a later success or full scan resolves
+durable truth.
+
+Uncoordinated browser tabs remain outside this guarantee. A later write from
+another tab may recreate a document deleted in this tab. Malformed,
+unsupported, and otherwise unavailable records are not Delete document targets
+and remain preserved.
 
 ## Consequences
 
-- Delete has one in-flight state rather than a persistence queue.
-- A stalled transaction can temporarily make document mutations unavailable;
-  no timeout may claim whether an unacknowledged transaction committed.
-- Closing the page needs no special recovery. The next complete Source scan
-  reflects whichever IndexedDB state became durable.
-- Most-recently-changed fallback and deleting the final Source remain separate
-  product decisions requiring their own evidence and storage contracts.
+- Delete does not require Trash, a durable tombstone, a persisted Catalog, or a
+  mutable repository actor.
+- Empty repositories, New-document promotion, Change order, and acknowledged
+  document changes must land before Delete document can satisfy this contract.
+- The Raw input task updates text and in-memory order only; serialization,
+  IndexedDB, and list-content preparation remain outside it.
+- Same-document persistence is serialized without serializing unrelated
+  documents.
+- Pending storage cannot make the entire application permanently unusable;
+  uncertain targets are isolated without inventing a success or failure.
+- Context-menu and overflow entry points reuse Rabbita's high-level components;
+  Loomark does not add DOM or command escape hatches.
 
 ## Rejected alternatives
 
-**Delete the final Source and open an ephemeral replacement.** Rejected because
-it changes the existing non-empty repository invariant and introduces identity
-reservation and first-write promotion unrelated to deleting one Source.
-
-**Atomically replace the final Source with `# Untitled\n`.** Rejected because it
-adds UUID failure and a Source put to the smallest deletion contract.
-
-**Allow Save and Delete concurrently and merge acknowledged deltas.** Rejected
-because the existing Saved-only admission boundary can prevent that race.
-
-**Add per-document persistence lanes.** Rejected because Loomark edits and saves
-only one active document, while Delete is a rare confirmed operation.
-
-**Probe after a watchdog timeout.** Rejected because IndexedDB transaction
-completion or abort already defines the operation result; page termination is
-resolved by the next repository scan.
+A persisted replacement Source for the final deletion was rejected because an
+unedited New document is not yet a Loomark document. Global write
+serialization was rejected because unrelated document saving and deletion are
+independent. Full-Snapshot completion was rejected because concurrent
+acknowledgments can overwrite one another. Durable tombstones and tab locks were
+rejected because cross-tab coordination remains out of scope. Keeping an alert
+dialog open for the transaction lifetime was rejected because it blocks
+unrelated editing and can make a lost callback appear to freeze the app.
