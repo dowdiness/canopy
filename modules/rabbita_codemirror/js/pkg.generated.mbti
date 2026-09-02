@@ -4,6 +4,8 @@ package "dowdiness/rabbita_codemirror/js"
 // Values
 pub fn cm_module_of(@moonbit-community/rabbita/js.Value) -> CmModule
 
+pub fn js_add_shortcuts(CmView, Compartment, Array[String], Array[Bool], (Int, Bool) -> Unit) -> Disposable
+
 pub fn js_add_update_listener(CmView, Compartment, (@moonbit-community/rabbita/js.Value) -> Unit, (@moonbit-community/rabbita/js.Value) -> Unit, (@moonbit-community/rabbita/js.Value) -> Unit, (@moonbit-community/rabbita/js.Value) -> Unit, include_doc? : Bool, include_change_doc? : Bool, source_version? : () -> String) -> Disposable
 
 pub fn js_compartment_new(CmModule) -> Compartment

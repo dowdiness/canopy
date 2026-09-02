@@ -79,6 +79,10 @@ fn subscriptions(model : Model, emit : Emit[Msg]) -> Sub {
       model.cm_id,
       selection=emit.map(range => CmSelectionChanged(range)),
       on_change_with_doc=emit.map(event => CmChanges(event)),
+      shortcuts=[
+        @cm.Shortcut::new("Mod-z", emit(Undo), shift=emit(Redo)),
+        @cm.Shortcut::new("Mod-y", emit(Redo)),
+      ],
       source_version=() => Hash::hash(model.editor.get_version()).to_string(),
     )
   } else {

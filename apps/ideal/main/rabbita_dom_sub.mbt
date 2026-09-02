@@ -12,8 +12,6 @@ priv enum EventName {
   FileOpened
   LongPress
   NodeSelected
-  RequestRedo
-  RequestUndo
   StructuralEditApplied
   SyncStatus
 }
@@ -43,8 +41,6 @@ fn EventName::event_type(self : EventName) -> String {
     FileOpened => "file-loaded"
     LongPress => "long-press"
     NodeSelected => "node-selected"
-    RequestRedo => "request-redo"
-    RequestUndo => "request-undo"
     StructuralEditApplied => "structural-edit-applied"
     SyncStatus => "sync-status"
   }
@@ -59,8 +55,6 @@ fn EventName::key(self : EventName) -> String {
     FileOpened => "file-loaded"
     LongPress => "long-press"
     NodeSelected => "node-selected"
-    RequestRedo => "request-redo"
-    RequestUndo => "request-undo"
     StructuralEditApplied => "structural-edit-applied"
     SyncStatus => "sync-status"
   }
@@ -168,8 +162,6 @@ fn editor_dom_event_subscriptions(emit : @rabbita.Emit[Msg]) -> @sub.Sub {
       NodeSelected,
       emit.map(detail => StructureNodeSelected(event_detail_node_id(detail))),
     ),
-    custom_event_sub(TextEditor, RequestUndo, emit.map(_ => Undo)),
-    custom_event_sub(TextEditor, RequestRedo, emit.map(_ => Redo)),
     // The host dispatches "file-loaded" on #canopy-text-editor with the chosen
     // file's text as the (plain-string) event detail; deliver it as FileLoaded.
     custom_event_sub(

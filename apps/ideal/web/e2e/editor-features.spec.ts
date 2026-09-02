@@ -449,6 +449,72 @@ test.describe('Sync Status', () => {
 // ── Undo / Redo ──────────────────────────────────────────────
 
 test.describe('Undo / Redo', () => {
+  test('text shortcut undoes exactly one CRDT history group', async ({ page }) => {
+    await waitForEditor(page);
+
+    const before = await page.evaluate(() => {
+      const testWindow = window as any;
+      testWindow.__textUndoDomEvents = 0;
+      testWindow.__textRedoDomEvents = 0;
+      document.addEventListener('request-undo', () => {
+        testWindow.__textUndoDomEvents += 1;
+      });
+      document.addEventListener('request-redo', () => {
+        testWindow.__textRedoDomEvents += 1;
+      });
+      const bridge = testWindow.__canopy_bridge;
+      return bridge.crdt.get_text(bridge.crdtHandle);
+    });
+    await page.evaluate(() => {
+      const content = document.querySelector(
+        '#canopy-text-editor .cm-content',
+      ) as HTMLElement;
+      content?.focus();
+    });
+    await page.keyboard.press('Control+End');
+    await page.keyboard.type('x');
+    await page.waitForTimeout(600);
+    await page.keyboard.type('y');
+
+    await page.waitForFunction((expected) => {
+      const bridge = (window as any).__canopy_bridge;
+      return bridge?.crdt?.get_text(bridge.crdtHandle) === expected;
+    }, `${before}xy`);
+
+    await page.keyboard.press('Control+z');
+
+    await page.waitForFunction((expected) => {
+      const bridge = (window as any).__canopy_bridge;
+      return bridge?.crdt?.get_text(bridge.crdtHandle) === expected;
+    }, `${before}x`);
+    await page.waitForTimeout(100);
+    const afterUndo = await page.evaluate(() => {
+      const bridge = (window as any).__canopy_bridge;
+      return bridge.crdt.get_text(bridge.crdtHandle);
+    });
+    expect(afterUndo).toBe(`${before}x`);
+    expect(await page.evaluate(() => (window as any).__textUndoDomEvents)).toBe(0);
+
+    await page.keyboard.press('Control+Shift+Z');
+    await page.waitForFunction((expected) => {
+      const bridge = (window as any).__canopy_bridge;
+      return bridge?.crdt?.get_text(bridge.crdtHandle) === expected;
+    }, `${before}xy`);
+    expect(await page.evaluate(() => (window as any).__textRedoDomEvents)).toBe(0);
+
+    await page.keyboard.press('Control+z');
+    await page.waitForFunction((expected) => {
+      const bridge = (window as any).__canopy_bridge;
+      return bridge?.crdt?.get_text(bridge.crdtHandle) === expected;
+    }, `${before}x`);
+    await page.keyboard.press('Control+y');
+    await page.waitForFunction((expected) => {
+      const bridge = (window as any).__canopy_bridge;
+      return bridge?.crdt?.get_text(bridge.crdtHandle) === expected;
+    }, `${before}xy`);
+    expect(await page.evaluate(() => (window as any).__textRedoDomEvents)).toBe(0);
+  });
+
   test('undo button does not crash with no history', async ({ page }) => {
     await waitForEditor(page);
     // Clicking undo with no edit history should not error

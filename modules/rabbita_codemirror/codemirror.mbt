@@ -71,8 +71,34 @@ pub fn ChangeEvent::new(
 }
 
 ///|
+/// A focused CodeMirror shortcut that schedules a Rabbita command.
+///
+/// Construct shortcuts in `subscriptions`; do not store them in application
+/// Models. Array order defines precedence when keys overlap.
+pub struct Shortcut {
+  key : String
+  command : @cmd.Cmd
+  shift_command : @cmd.Cmd?
+}
+
+///|
+/// Associate a CodeMirror key name such as `Mod-z` with a Rabbita command.
+///
+/// `shift` uses CodeMirror's native shifted-command slot. For example,
+/// `Mod-z` with a redo `shift` handles both undo and `Mod-Shift-z` without
+/// allowing the shifted key to fall through to CodeMirror's local history.
+pub fn Shortcut::new(
+  key : String,
+  command : @cmd.Cmd,
+  shift? : @cmd.Cmd,
+) -> Shortcut {
+  { key, command, shift_command: shift }
+}
+
+///|
 #cfg(target="js")
 priv struct CmEntry {
+  generation : Int
   view : @js_ffi.CmView
   theme_comp : @js_ffi.Compartment
   readonly_comp : @js_ffi.Compartment
@@ -81,7 +107,9 @@ priv struct CmEntry {
   line_wrapping_comp : @js_ffi.Compartment
   extension_comp : @js_ffi.Compartment
   listener_comp : @js_ffi.Compartment
+  shortcut_comp : @js_ffi.Compartment
   update_disposable : @js_ffi.Disposable
+  shortcut_disposable : @js_ffi.Disposable
 }
 
 ///|
@@ -89,9 +117,16 @@ priv struct CmEntry {
 let editors : Map[String, CmEntry] = Map([])
 
 ///|
+/// Monotonic mount generations keep retained Rabbita subscriptions from
+/// targeting a replaced CodeMirror view without retaining retired editor ids.
+#cfg(target="js")
+let next_editor_generation : Ref[Int] = { val: 0 }
+
+///|
 priv suberror CmSubscription {
   CmListen(
     String,
+    Array[Shortcut],
     doc~ : @cmd.Emit[String]?,
     selection~ : @cmd.Emit[SelRange]?,
     focus~ : @cmd.Emit[Bool]?,
@@ -229,6 +264,7 @@ fn no_op_update_listener(
 #cfg(target="js")
 fn dispose_entry(entry : CmEntry) -> Unit {
   entry.update_disposable.dispose()
+  entry.shortcut_disposable.dispose()
   @js_ffi.js_view_destroy(entry.view)
 }
 
@@ -333,6 +369,7 @@ fn build_initial_extension(
   line_wrapping_comp : @js_ffi.Compartment,
   extension_comp : @js_ffi.Compartment,
   listener_comp : @js_ffi.Compartment,
+  shortcut_comp : @js_ffi.Compartment,
   initial_theme : @theme.Theme?,
   initial_readonly : Bool,
   initial_keymap : @keymap.Keymap?,
@@ -357,7 +394,19 @@ fn build_initial_extension(
     ),
     @js_ffi.js_compartment_of(extension_comp, initial_extension),
     @js_ffi.js_compartment_of(listener_comp, empty_extension()),
+    @js_ffi.js_compartment_of(shortcut_comp, empty_extension()),
   ])
+}
+
+///|
+#cfg(target="js")
+fn build_shortcut_signature(shortcuts : Array[Shortcut]) -> String {
+  let encoded = shortcuts.map(shortcut => {
+    let has_shift = if shortcut.shift_command is Some(_) { "1" } else { "0" }
+    "\{shortcut.key.length()}:\{shortcut.key}:\{has_shift}"
+  })
+  let joined = encoded.join("")
+  "\{shortcuts.length()}:\{joined}"
 }
 
 ///|
@@ -382,6 +431,7 @@ fn cm_sub_loader(
   match payload {
     CmListen(
       id,
+      shortcuts,
       doc~,
       selection~,
       focus~,
@@ -397,6 +447,7 @@ fn cm_sub_loader(
       let mut changes_tagger = changes
       let mut changes_with_doc_tagger = changes_with_doc
       let mut source_version_tagger = source_version
+      let mut current_shortcuts = shortcuts
       let include_doc = doc is Some(_)
       let include_change_doc = changes_with_doc is Some(_)
 
@@ -411,6 +462,15 @@ fn cm_sub_loader(
       fn on_focus(value : @js_value.Value) {
         guard focus_tagger is Some(msg) else { return }
         scheduler.add(msg(value.cast()))
+      }
+      fn on_shortcut(index : Int, shifted : Bool) {
+        guard current_shortcuts.get(index) is Some(shortcut) else { return }
+        if shifted {
+          guard shortcut.shift_command is Some(command) else { return }
+          scheduler.add(command)
+        } else {
+          scheduler.add(shortcut.command)
+        }
       }
       fn on_changes(value : @js_value.Value) {
         if include_change_doc {
@@ -432,6 +492,7 @@ fn cm_sub_loader(
       }
 
       entry.update_disposable.dispose()
+      entry.shortcut_disposable.dispose()
       let disposable = @js_ffi.js_add_update_listener(
         entry.view,
         entry.listener_comp,
@@ -443,14 +504,29 @@ fn cm_sub_loader(
         include_doc~,
         include_change_doc~,
       )
-      editors[id] = { ..entry, update_disposable: disposable }
+      let shortcut_disposable = @js_ffi.js_add_shortcuts(
+        entry.view,
+        entry.shortcut_comp,
+        shortcuts.map(shortcut => shortcut.key),
+        shortcuts.map(shortcut => shortcut.shift_command is Some(_)),
+        on_shortcut,
+      )
+      editors[id] = {
+        ..entry,
+        update_disposable: disposable,
+        shortcut_disposable,
+      }
 
       Some({
-        unload: fn(_) { disposable.dispose() },
+        unload: fn(_) {
+          disposable.dispose()
+          shortcut_disposable.dispose()
+        },
         update_tagger: fn(payload) {
           guard payload
             is CmListen(
               _,
+              shortcuts,
               doc~,
               selection~,
               focus~,
@@ -466,6 +542,7 @@ fn cm_sub_loader(
           changes_tagger = changes
           changes_with_doc_tagger = changes_with_doc
           source_version_tagger = source_version
+          current_shortcuts = shortcuts
         },
       })
     }
@@ -525,6 +602,8 @@ pub fn mount(
       }
       guard custom_extension is Some(custom_extension) else { return }
 
+      let generation = next_editor_generation.val
+      next_editor_generation.val = generation + 1
       if editors.get(id) is Some(old_entry) {
         dispose_entry(old_entry)
         editors.remove(id)
@@ -537,14 +616,23 @@ pub fn mount(
       let line_wrapping_comp = @js_ffi.js_compartment_new(cm)
       let extension_comp = @js_ffi.js_compartment_new(cm)
       let listener_comp = @js_ffi.js_compartment_new(cm)
+      let shortcut_comp = @js_ffi.js_compartment_new(cm)
       let extension = build_initial_extension(
         cm_value, theme_comp, readonly_comp, keymap_comp, line_numbers_comp, line_wrapping_comp,
-        extension_comp, listener_comp, initial_theme, initial_readonly, initial_keymap,
-        initial_line_numbers, initial_line_wrapping, custom_extension,
+        extension_comp, listener_comp, shortcut_comp, initial_theme, initial_readonly,
+        initial_keymap, initial_line_numbers, initial_line_wrapping, custom_extension,
       )
       let view = @js_ffi.js_create_view(cm, host_id, init_doc, extension)
       let update_disposable = no_op_update_listener(view, listener_comp)
+      let shortcut_disposable = @js_ffi.js_add_shortcuts(
+        view,
+        shortcut_comp,
+        [],
+        [],
+        (_, _) => (),
+      )
       editors[id] = {
+        generation,
         view,
         theme_comp,
         readonly_comp,
@@ -553,7 +641,9 @@ pub fn mount(
         line_wrapping_comp,
         extension_comp,
         listener_comp,
+        shortcut_comp,
         update_disposable,
+        shortcut_disposable,
       }
       match on_mounted {
         Some(cmd) => scheduler.add(cmd)
@@ -785,7 +875,11 @@ pub fn set_line_wrapping(
 }
 
 ///|
-/// Subscribe to CodeMirror document, selection, focus, and per-change changes.
+/// Subscribe to CodeMirror events and focused shortcuts.
+///
+/// Mount the editor with an `on_mounted` command and subscribe after that
+/// command updates application state. A per-id mount generation then forces
+/// Rabbita to attach this subscription to any replacement view.
 ///
 /// `on_change` is additive: it delivers every replaced range of a transaction
 /// as an ordered `Array[ChangeDelta]` in pre-transaction coordinates, leaving
@@ -808,29 +902,39 @@ pub fn listen(
   focus? : @cmd.Emit[Bool],
   on_change? : @cmd.Emit[Array[ChangeDelta]],
   on_change_with_doc? : @cmd.Emit[ChangeEvent],
+  shortcuts? : Array[Shortcut] = [],
   source_version? : () -> String = () => "",
 ) -> @sub.Sub {
+  let shortcuts = shortcuts.copy()
   let has_doc = doc is Some(_)
   let has_selection = selection is Some(_)
   let has_focus = focus is Some(_)
   let has_changes = on_change is Some(_)
   let has_changes_with_doc = on_change_with_doc is Some(_)
+  let has_shortcuts = shortcuts.length() > 0
 
   guard has_doc ||
     has_selection ||
     has_focus ||
     has_changes ||
-    has_changes_with_doc else {
+    has_changes_with_doc ||
+    has_shortcuts else {
     @sub.none
   }
-  let key = build_listen_key(
+  let event_key = build_listen_key(
     id, has_doc, has_selection, has_focus, has_changes, has_changes_with_doc,
   )
+  let generation = match editors.get(id) {
+    Some(entry) => entry.generation
+    None => -1
+  }
+  let key = "\{event_key};generation=\{generation};shortcuts=\{build_shortcut_signature(shortcuts)}"
   @sub.custom_sub(
     key,
     Local,
     CmListen(
       id,
+      shortcuts,
       doc~,
       selection~,
       focus~,

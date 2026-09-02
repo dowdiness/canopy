@@ -1,4 +1,36 @@
 ///|
+test "shortcut signature preserves order and boundaries" {
+  inspect(
+    build_shortcut_signature([
+      Shortcut::new("a", @cmd.none),
+      Shortcut::new("bc", @cmd.none),
+    ]),
+    content="2:1:a:02:bc:0",
+  )
+}
+
+///|
+test "shortcut signature preserves duplicate occurrences" {
+  inspect(
+    build_shortcut_signature([
+      Shortcut::new("Mod-z", @cmd.none),
+      Shortcut::new("Mod-z", @cmd.none),
+    ]),
+    content="2:5:Mod-z:05:Mod-z:0",
+  )
+}
+
+///|
+test "shortcut signature includes shifted command shape" {
+  inspect(
+    build_shortcut_signature([
+      Shortcut::new("Mod-z", @cmd.none, shift=@cmd.none),
+    ]),
+    content="1:5:Mod-z:1",
+  )
+}
+
+///|
 test "listen key format" {
   inspect(
     build_listen_key("a", true, true, false, true, false),
