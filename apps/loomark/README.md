@@ -61,6 +61,20 @@ and remembers a saved fallback, or opens an ephemeral New document when none
 remains. Hidden-page persistence is best effort because the browser may freeze
 or terminate before IndexedDB completion.
 
+## Import and Export
+
+Import accepts any browser-selected file whose bytes are strict UTF-8. It
+consumes an initial UTF-8 BOM, normalizes CRLF and CR to LF, and preserves every
+other decoded character. Filename, extension, and media type are not admission
+or identity inputs. Each accepted import creates and activates a fresh document
+and starts its normal New-document save immediately; failure keeps the imported
+text available through the existing Retry path.
+
+Export downloads the Editing Document's current in-memory text without waiting
+for Autosave. The browser receives `<Derived name>.md`, or `untitled.md` when no
+name can be derived, as the suggested filename. Export does not create a lasting
+relationship with the downloaded file.
+
 ## Development
 
 ```bash

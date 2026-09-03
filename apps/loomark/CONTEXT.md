@@ -163,9 +163,13 @@ Browser storage write may overwrite Saved text or recreate a deleted document.
 _Avoid_: synchronized tabs, collaborative sessions
 
 **Import**:
-Creating a new Loomark document from supplied Markdown text with browser Text
-mode's LF line endings. Every import creates a new identity, even when its
-filename or content matches an existing document.
+Creating a new Loomark document from strictly decoded UTF-8 bytes. Loomark
+consumes an initial UTF-8 BOM, normalizes CRLF and CR to LF, and preserves every
+other decoded character. Empty files are valid. Filename, extension, and media
+type do not affect admission or identity. Every import creates a new identity,
+including repeated content, immediately becomes the Editing Document, and uses
+the existing New-document save and Retry path. An accepted Import supersedes an
+unfinished New action rather than adding a queue or pending-document owner.
 _Avoid_: open file, replace, file sync
 
 **Export**:

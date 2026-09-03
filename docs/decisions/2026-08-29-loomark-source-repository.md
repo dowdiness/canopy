@@ -60,6 +60,16 @@ cannot hide valid Sources.
 An empty repository opens an ephemeral New document and writes no Source until
 its first Document text change is accepted by Browser storage.
 
+Import strictly decodes selected bytes as UTF-8, consumes an initial UTF-8 BOM,
+normalizes CRLF and CR to LF, and preserves every other decoded character.
+Filename, extension, and media type do not affect admission. Each accepted
+Import receives a fresh Document ID, becomes the Editing Document, and enters
+the existing New-origin save lane immediately rather than waiting for Autosave.
+A storage failure retains the imported text as an Unsaved document and uses the
+existing Retry action. An accepted Import supersedes an unfinished ephemeral New
+action; Loomark does not queue either operation or bind file-read completion to
+the prior Activation.
+
 A valid legacy `active` value is moved with one atomic transaction containing a
 Source put and legacy delete. If a valid target Source exists, that Source wins
 and only `active` is deleted. A corrupt target preserves both records and is
@@ -125,6 +135,8 @@ results rather than permanent repository issues.
   derivation, serialization, and IndexedDB work begin at `SaveRequested`.
 - The best-effort Editing Document record cannot become a second in-memory
   selection authority or a Source durability claim.
+- Import adds no second persistence path: accepted text uses the existing
+  New-origin save, failure, and Retry behavior.
 - RepositorySnapshots retain the exact observed `source/v1` keys, including
   malformed and unsupported records.
 - A persisted discovery accelerator requires a separate measured decision and a

@@ -20,6 +20,37 @@ fn documents_test_current_order(
 }
 
 ///|
+test "Import accepts empty text and immediately persists a fresh document" {
+  let documents = initial_documents(documents_test_snapshot())
+  let (documents, decisions) = documents.reduce(
+    DocumentsImported("imported", "", documents_test_order(7L)),
+  )
+  assert_eq(documents.text("imported"), Some(""))
+  guard decisions is [DocumentsDecision::DocumentsPersist(operation)] else {
+    fail("Import should persist immediately")
+  }
+  assert_true(operation.origin == DocumentOrigin::New)
+  assert_eq(operation.source.document_id(), "imported")
+  assert_eq(operation.source.text(), "")
+  assert_eq(operation.source.change_order().value(), 7L)
+  guard documents.save_status("imported") is Some(Saving(_, None)) else {
+    fail("Import should be saving")
+  }
+  let (documents, _) = documents.reduce(
+    DocumentsFeedbackReceived(SaveCompleted(operation, Failed(WriteFailed))),
+  )
+  assert_eq(documents.text("imported"), Some(""))
+  guard documents.save_status("imported") is Some(Failed(WriteFailed)) else {
+    fail("failed Import should remain retryable")
+  }
+  let (_, retry) = documents.reduce(DocumentsRetrySave("imported"))
+  guard retry is [DocumentsDecision::DocumentsPersist(retry_operation)] else {
+    fail("Import retry should use the existing save lane")
+  }
+  assert_eq(retry_operation.source, operation.source)
+}
+
+///|
 test "a second document persists while the first document is in flight" {
   let documents = initial_documents(documents_test_snapshot())
   let (documents, _) = documents.reduce(
@@ -628,4 +659,9 @@ test "change order exhaustion keeps authority unchanged and fails" {
     is Some(Failed(@source_repository.SaveFailure::ChangeOrderExhausted)) else {
     fail("exhaustion fails")
   }
+  let (documents, decisions) = documents.reduce(
+    DocumentsImported("imported", "text", max),
+  )
+  assert_eq(documents.text("imported"), None)
+  assert_true(decisions.is_empty())
 }

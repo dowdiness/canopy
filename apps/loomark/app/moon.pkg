@@ -11,6 +11,7 @@ import {
   "moonbit-community/rabbita/dom",
   "moonbit-community/rabbita/html",
   "moonbit-community/rabbita/sub",
+  "moonbitlang/core/encoding/utf8",
   "Yoorkin/rui",
 }
 
