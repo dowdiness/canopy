@@ -1,6 +1,6 @@
 import { EditorView as PmView, NodeView } from "prosemirror-view";
 import { Node as PmNode } from "prosemirror-model";
-import { CanopyEvents } from "./events";
+import type { StructureTreeEditCallback } from "./types";
 
 // Kind tag to display badge
 const kindBadges: Record<string, string> = {
@@ -82,9 +82,11 @@ export class StructureCompoundView implements NodeView {
   private node: PmNode;
 
   private view: PmView;
+  private onEdit: StructureTreeEditCallback;
 
-  constructor(node: PmNode, _view: PmView, _getPos: () => number | undefined) {
+  constructor(node: PmNode, _view: PmView, _getPos: () => number | undefined, onEdit: StructureTreeEditCallback) {
     this.view = _view;
+    this.onEdit = onEdit;
     this.node = node;
     const typeName = node.type.name;
     this.dom = document.createElement("div");
@@ -149,6 +151,7 @@ export class StructureCompoundView implements NodeView {
     // Children have their own handlers, so the block handler only fires on
     // the header or the block border — both should be exchange targets.
     this.dom.addEventListener("dragover", (e) => {
+      if (!this.view.editable) return;
       e.preventDefault();
       e.stopPropagation();
       e.dataTransfer!.dropEffect = "move";
@@ -174,16 +177,12 @@ export class StructureCompoundView implements NodeView {
       const sourceId = e.dataTransfer!.getData("application/x-canopy-node");
       if (!sourceId || sourceId === String(nid)) return;
 
-      this.dom.dispatchEvent(new CustomEvent(CanopyEvents.STRUCTURAL_EDIT_REQUEST, {
-        bubbles: true,
-        composed: true, // cross shadow DOM boundary
-        detail: {
-          type: "Drop",
-          source: Number(sourceId),
-          target: nid,
-          position,
-        },
-      }));
+      this.onEdit({
+        type: "Drop",
+        source: Number(sourceId),
+        target: nid,
+        position,
+      });
     });
   }
 
@@ -216,9 +215,13 @@ export class StructureCompoundView implements NodeView {
 export class StructureLeafView implements NodeView {
   dom: HTMLElement;
   private node: PmNode;
+  private view: PmView;
+  private onEdit: StructureTreeEditCallback;
   private nodeType: string;
 
-  constructor(node: PmNode) {
+  constructor(node: PmNode, view: PmView, onEdit: StructureTreeEditCallback) {
+    this.view = view;
+    this.onEdit = onEdit;
     this.node = node;
     this.nodeType = node.type.name;
     const typeName = node.type.name;
@@ -239,6 +242,7 @@ export class StructureLeafView implements NodeView {
 
     // Drop target handlers — leaf nodes accept drops for exchange
     this.dom.addEventListener("dragover", (e) => {
+      if (!this.view.editable) return;
       e.preventDefault();
       e.stopPropagation();
       e.dataTransfer!.dropEffect = "move";
@@ -254,20 +258,17 @@ export class StructureLeafView implements NodeView {
       e.stopPropagation();
       const position = computeDropPosition(e, this.dom);
       clearDropClasses(this.dom);
+      if (!this.view.editable) return;
       const nid = this.node.attrs.nodeId as number;
       const sourceId = e.dataTransfer!.getData("application/x-canopy-node");
       if (!sourceId || sourceId === String(nid)) return;
 
-      this.dom.dispatchEvent(new CustomEvent(CanopyEvents.STRUCTURAL_EDIT_REQUEST, {
-        bubbles: true,
-        composed: true,
-        detail: {
-          type: "Drop",
-          source: Number(sourceId),
-          target: nid,
-          position,
-        },
-      }));
+      this.onEdit({
+        type: "Drop",
+        source: Number(sourceId),
+        target: nid,
+        position,
+      });
     });
   }
 

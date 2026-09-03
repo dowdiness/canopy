@@ -65,7 +65,7 @@ enum Msg {
   OutlineDragEnd
   // Structure-mode Web Component communication.
   StructureNodeSelected(String)
-  StructureStructuralEdit(op~ : String, node_id~ : String)
+  StructureTreeEdit(generation~ : Int, @lambda_edits.TreeEditOp)
   ExternalCrdtChanged
   CmMounted
   CmChanges(@cm.ChangeEvent)

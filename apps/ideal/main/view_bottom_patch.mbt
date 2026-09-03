@@ -81,7 +81,7 @@ fn view_patch_log(model : Model) -> Html raise {
     @html.div(class="bottom-content", attrs=bottom_panel_attrs(Patch), [
       @html.span(class="no-problems", [
         @html.text(
-          "No patches yet. Structure-mode edits aren't traced here — see the Op Log tab.",
+          "No patches yet. Apply a structural edit to populate this trace.",
         ),
       ]),
     ])

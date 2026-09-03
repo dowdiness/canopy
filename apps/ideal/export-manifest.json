@@ -98,7 +98,6 @@
     "export_all_json",
     "export_since_json",
     "apply_sync_json",
-    "apply_tree_edit_json",
     "undo_manager_undo",
     "undo_manager_redo",
     "undo_manager_can_undo",
@@ -114,7 +113,6 @@
     "handle_text_intent_checked",
     "handle_undo",
     "handle_redo",
-    "handle_structural_intent",
     "register_file_host",
     "load_file",
     "save_file"

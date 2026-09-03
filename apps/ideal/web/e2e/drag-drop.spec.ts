@@ -3,7 +3,7 @@
 // synchronization by checking the resulting editor text.
 
 import { test, expect, type Page } from '@playwright/test';
-import { dispatchExternalCrdtChanged } from './support/dom-events';
+import { getCodeMirrorText, getEditorText, setEditorText } from './support/editor-state';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -20,39 +20,16 @@ async function setupStructureMode(page: Page) {
   }, { timeout: 10_000 });
 }
 
-/** Read the current editor text via the CRDT bridge. */
-async function getEditorText(page: Page): Promise<string> {
-  return await page.evaluate(() => {
-    const b = (globalThis as any).__canopy_bridge;
-    if (b?.crdt && b.crdtHandle != null) {
-      return b.crdt.get_text(b.crdtHandle) as string;
-    }
-    return '';
-  });
-}
-
-/** Read the visible CodeMirror document text. */
-async function getCodeMirrorText(page: Page): Promise<string> {
-  return await page.evaluate(() => {
-    const content = document.querySelector('#canopy-text-editor .cm-content');
-    return (content as HTMLElement | null)?.innerText ?? content?.textContent ?? '';
-  });
-}
-
 function normalizeText(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
 }
 
-async function setEditorText(
+async function setStructureText(
   page: Page,
   text: string,
   expectedLabels: string[] | null = ['x', 'y'],
 ) {
-  await page.evaluate((source) => {
-    const b = (globalThis as any).__canopy_bridge;
-    if (b?.crdt && b.crdtHandle != null) b.crdt.set_text(b.crdtHandle, source);
-  }, text);
-  await dispatchExternalCrdtChanged(page);
+  await setEditorText(page, text);
   // Re-enter Structure mode so the structure PM view is rebuilt from the new
   // CRDT text; external text updates are primarily consumed by Text mode.
   await page.getByRole('button', { name: 'Text' }).click();
@@ -100,8 +77,8 @@ async function dragDrop(
   tgtSelector: string,
   tgtNth: number,
   position: 'Before' | 'After' | 'Inside',
-): Promise<'Before' | 'After' | 'Inside' | null> {
-  const requestedPosition = await page.evaluate(
+): Promise<void> {
+  await page.evaluate(
     ({ srcSelector, srcNth, tgtSelector, tgtNth, position }) => {
       const ce = document.querySelector('canopy-editor');
       if (!ce?.shadowRoot) throw new Error('canopy-editor not found');
@@ -141,10 +118,6 @@ async function dragDrop(
           break;
       }
       const clientX = tgtRect.left + tgtRect.width / 2;
-      let requestedPosition: 'Before' | 'After' | 'Inside' | null = null;
-      ce.addEventListener('structural-edit-request', (event) => {
-        requestedPosition = (event as CustomEvent<{ position?: 'Before' | 'After' | 'Inside' }>).detail.position ?? null;
-      }, { once: true });
 
       // Get source nodeId
       const srcNodeId = (src as any).__pmNode?.attrs?.nodeId
@@ -174,14 +147,12 @@ async function dragDrop(
       src.dispatchEvent(new DragEvent('dragend', {
         bubbles: true, composed: true, dataTransfer: dt,
       }));
-      return requestedPosition;
     },
     { srcSelector, srcNth, tgtSelector, tgtNth, position },
   );
 
   // Wait for reparse after edit
   await page.waitForTimeout(500);
-  return requestedPosition;
 }
 
 // ---------------------------------------------------------------------------
@@ -237,7 +208,7 @@ test.describe('Drag-Drop — Before/After/Inside', () => {
   });
 
   test('exchange (Inside) moves whole let-definitions', async ({ page }) => {
-    await setEditorText(page, 'let x = 1\nlet y = 2\nx');
+    await setStructureText(page, 'let x = 1\nlet y = 2\nx');
 
     await dragDrop(page, '.structure-let_def', 0, '.structure-let_def', 1, 'Inside');
 
@@ -245,7 +216,7 @@ test.describe('Drag-Drop — Before/After/Inside', () => {
     expect(textAfter).toEqual('let y = 2\nlet x = 1\nx');
   });
 
-  test('drop syncs CM6 before returning to Text mode', async ({ page }) => {
+  test('drop result is visible after returning to Text mode', async ({ page }) => {
     await dragDrop(page, '.structure-let_def', 0, '.structure-let_def', 1, 'Inside');
 
     const crdtText = await getEditorText(page);
@@ -259,9 +230,9 @@ test.describe('Drag-Drop — Before/After/Inside', () => {
   });
 
   test('Before drop reorders independent root definitions', async ({ page }) => {
-    await setEditorText(page, independentFunctionFixture, null);
+    await setStructureText(page, independentFunctionFixture, null);
 
-    const requestedPosition = await dragDrop(
+    await dragDrop(
       page,
       '.structure-let_def',
       1,
@@ -269,15 +240,13 @@ test.describe('Drag-Drop — Before/After/Inside', () => {
       0,
       'Before',
     );
-
-    expect(requestedPosition).toBe('Before');
     await expect.poll(() => getEditorText(page)).toBe(independentFunctionFixtureAfterReorder);
   });
 
   test('After drop reorders independent root definitions', async ({ page }) => {
-    await setEditorText(page, independentFunctionFixture, null);
+    await setStructureText(page, independentFunctionFixture, null);
 
-    const requestedPosition = await dragDrop(
+    await dragDrop(
       page,
       '.structure-let_def',
       0,
@@ -285,18 +254,16 @@ test.describe('Drag-Drop — Before/After/Inside', () => {
       1,
       'After',
     );
-
-    expect(requestedPosition).toBe('After');
     await expect.poll(() => getEditorText(page)).toBe(independentFunctionFixtureAfterReorder);
   });
 
   test('dependent root-definition drops are rejected without changing the document', async ({ page }) => {
     const textBefore = await getEditorText(page);
 
-    expect(await dragDrop(page, '.structure-let_def', 1, '.structure-let_def', 0, 'Before')).toBe('Before');
+    await dragDrop(page, '.structure-let_def', 1, '.structure-let_def', 0, 'Before');
     expect(await getEditorText(page)).toBe(textBefore);
 
-    expect(await dragDrop(page, '.structure-let_def', 0, '.structure-let_def', 1, 'After')).toBe('After');
+    await dragDrop(page, '.structure-let_def', 0, '.structure-let_def', 1, 'After');
     expect(await getEditorText(page)).toBe(textBefore);
   });
 
@@ -307,5 +274,32 @@ test.describe('Drag-Drop — Before/After/Inside', () => {
 
     const textAfter = await getEditorText(page);
     expect(textAfter).toEqual(textBefore);
+  });
+
+  test('readonly leaf drop does not emit a Structure edit', async ({ page }) => {
+    const callbackCount = await page.evaluate(() => {
+      const editor = document.querySelector('canopy-editor') as any;
+      const leaf = editor?.shadowRoot?.querySelector('.structure-int_literal') as HTMLElement | null;
+      if (!editor || !leaf) throw new Error('Structure leaf not found');
+
+      let count = 0;
+      editor.setStructureTreeEditCallback(() => { count += 1; });
+      editor.setAttribute('readonly', '');
+
+      const rect = leaf.getBoundingClientRect();
+      const dataTransfer = new DataTransfer();
+      dataTransfer.setData('application/x-canopy-node', '999999');
+      leaf.dispatchEvent(new DragEvent('drop', {
+        bubbles: true,
+        composed: true,
+        cancelable: true,
+        dataTransfer,
+        clientX: rect.left + rect.width / 2,
+        clientY: rect.top + rect.height / 2,
+      }));
+      return count;
+    });
+
+    expect(callbackCount).toBe(0);
   });
 });

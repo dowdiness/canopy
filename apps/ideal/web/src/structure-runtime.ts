@@ -12,7 +12,7 @@ import {
   errorDecoPlugin,
   evalGhostPlugin,
 } from "./decorations";
-import type { CrdtModule } from "./types";
+import type { CrdtModule, StructureTreeEditCallback } from "./types";
 
 export type StructureModeSession = {
   applyRemote(syncJson: string): string;
@@ -22,6 +22,7 @@ export type StructureModeSession = {
   setBroadcast(fn: (() => void) | null): void;
   setReadonly(readonly: boolean): void;
   setSelectedNode(id: string | null): void;
+  setStructureTreeEditCallback(callback: StructureTreeEditCallback | null): void;
 };
 
 /**
@@ -55,25 +56,30 @@ function buildDoc(crdtHandle: number, crdt: CrdtModule): PmNode {
   return buildStructureDoc(crdt.get_proj_node_json(crdtHandle));
 }
 
-function createStructureNodeViews() {
+function createStructureNodeViews(onEdit: StructureTreeEditCallback) {
   return {
     module: (node: PmNode, view: PmView, getPos: () => number | undefined) =>
-      new StructureCompoundView(node, view, getPos),
+      new StructureCompoundView(node, view, getPos, onEdit),
     let_def: (node: PmNode, view: PmView, getPos: () => number | undefined) =>
-      new StructureCompoundView(node, view, getPos),
+      new StructureCompoundView(node, view, getPos, onEdit),
     lambda: (node: PmNode, view: PmView, getPos: () => number | undefined) =>
-      new StructureCompoundView(node, view, getPos),
+      new StructureCompoundView(node, view, getPos, onEdit),
     application: (node: PmNode, view: PmView, getPos: () => number | undefined) =>
-      new StructureCompoundView(node, view, getPos),
+      new StructureCompoundView(node, view, getPos, onEdit),
     binary_op: (node: PmNode, view: PmView, getPos: () => number | undefined) =>
-      new StructureCompoundView(node, view, getPos),
+      new StructureCompoundView(node, view, getPos, onEdit),
     if_expr: (node: PmNode, view: PmView, getPos: () => number | undefined) =>
-      new StructureCompoundView(node, view, getPos),
-    int_literal: (node: PmNode) => new StructureLeafView(node),
-    var_ref: (node: PmNode) => new StructureLeafView(node),
-    unbound_ref: (node: PmNode) => new StructureLeafView(node),
-    error_node: (node: PmNode) => new StructureLeafView(node),
-    unit: (node: PmNode) => new StructureLeafView(node),
+      new StructureCompoundView(node, view, getPos, onEdit),
+    int_literal: (node: PmNode, view: PmView) =>
+      new StructureLeafView(node, view, onEdit),
+    var_ref: (node: PmNode, view: PmView) =>
+      new StructureLeafView(node, view, onEdit),
+    unbound_ref: (node: PmNode, view: PmView) =>
+      new StructureLeafView(node, view, onEdit),
+    error_node: (node: PmNode, view: PmView) =>
+      new StructureLeafView(node, view, onEdit),
+    unit: (node: PmNode, view: PmView) =>
+      new StructureLeafView(node, view, onEdit),
   };
 }
 
@@ -107,20 +113,22 @@ export function createStructureModeSession(
   host: HTMLElement,
   crdtHandle: number,
   crdt: CrdtModule,
+  initialOnEdit: StructureTreeEditCallback = () => {},
 ): StructureModeSession {
+  let onEdit = initialOnEdit;
   const bridge = new CrdtBridge(crdtHandle, crdt);
   const pmView = new PmView(parent, {
     state: PmState.create({
       doc: buildDoc(crdtHandle, crdt),
       plugins: [
-        structuralKeymap(host),
+        structuralKeymap(host, edit => onEdit(edit)),
         actionKeyForwardPlugin(host),
         peerCursorPlugin(),
         errorDecoPlugin(),
         evalGhostPlugin(),
       ],
     }),
-    nodeViews: createStructureNodeViews(),
+    nodeViews: createStructureNodeViews(edit => onEdit(edit)),
     dispatchTransaction: (tr) => {
       pmView.updateState(pmView.state.apply(tr));
       if (tr.getMeta("fromExternal")) return;
@@ -195,6 +203,9 @@ export function createStructureModeSession(
     },
     setSelectedNode(id: string | null): void {
       setSelectedNode(pmView, id);
+    },
+    setStructureTreeEditCallback(callback: StructureTreeEditCallback | null): void {
+      onEdit = callback ?? (() => {});
     },
   };
 }

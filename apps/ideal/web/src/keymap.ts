@@ -1,13 +1,13 @@
 import { keymap } from "prosemirror-keymap";
 import { NodeSelection, Plugin } from "prosemirror-state";
 import { CanopyEvents } from "./events";
+import type { StructureTreeEditCallback } from "./types";
 
 /**
  * ProseMirror keymap plugin for structural operations on AST nodes.
  *
- * Instead of calling the CRDT bridge directly, this fires CustomEvents
- * on the host element (the <canopy-editor> Web Component). The bridge
- * (wired in Task 5) will listen for these events and forward them.
+ * Persistent edits use a typed callback; selection, overlay, and history
+ * interactions retain their existing host events until their own migrations.
  *
  * Keybindings:
  *   Backspace      — delete selected node
@@ -15,26 +15,20 @@ import { CanopyEvents } from "./events";
  *   Mod-z          — undo
  *   Mod-Shift-z    — redo
  */
-export function structuralKeymap(host: HTMLElement) {
+export function structuralKeymap(host: HTMLElement, onEdit: StructureTreeEditCallback) {
   return keymap({
     "Backspace": (state) => {
       if (!(state.selection instanceof NodeSelection)) return false;
       const nodeId = state.selection.node.attrs.nodeId;
       if (nodeId == null) return false;
-      host.dispatchEvent(new CustomEvent(CanopyEvents.STRUCTURAL_EDIT_REQUEST, {
-        detail: { op: 'Delete', nodeId: String(nodeId) },
-        bubbles: true, composed: true,
-      }));
+      onEdit({ type: 'Delete', node_id: Number(nodeId) });
       return true;
     },
     "Mod-l": (state) => {
       if (!(state.selection instanceof NodeSelection)) return false;
       const nodeId = state.selection.node.attrs.nodeId;
       if (nodeId == null) return false;
-      host.dispatchEvent(new CustomEvent(CanopyEvents.STRUCTURAL_EDIT_REQUEST, {
-        detail: { op: 'WrapInLambda', nodeId: String(nodeId) },
-        bubbles: true, composed: true,
-      }));
+      onEdit({ type: 'WrapInLambda', node_id: Number(nodeId) });
       return true;
     },
     " ": (state) => {

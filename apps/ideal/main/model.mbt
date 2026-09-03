@@ -127,6 +127,8 @@ pub struct Model {
   cm_id : String
   mounted : Bool
   mode : EditorMode
+  // Stamps Structure-mode subscriptions so queued callbacks from prior mounts are inert.
+  structure_generation : Int
   workspace : WorkspaceLayout
   selected_node : String?
   diagnostics_open : Bool
@@ -147,11 +149,8 @@ pub struct Model {
   // Mutated in place; capped to MAX_INTENT_LOG entries to keep render cheap.
   intent_log : Array[String]
   // Inspector traceability: rolling log of (op, SpanEdits) pairs, most recent
-  // last. Capped to MAX_PATCH_LOG. Populated by the direct-apply dispatch
-  // sites that route through `apply_lambda_tree_edit`; the
-  // `StructureStructuralEdit` FFI path (main.mbt::update) cannot contribute —
-  // the typed payload is consumed by `handle_structural_intent` FFI before
-  // MoonBit sees the message, so no `SpanEdit` array is available to record.
+  // last. Capped to MAX_PATCH_LOG. Every accepted Structure mutation reaches
+  // the model-owned `commit_tree_edit` path and records its produced edits.
   patch_log : Array[PatchEntry]
   // Model-owned tap on the parser's incr Runtime. Created once at init so it
   // observes memo events across the whole session, not per render. Reads via

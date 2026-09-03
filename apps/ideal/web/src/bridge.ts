@@ -97,18 +97,6 @@ export class CrdtBridge {
     this.afterLocalEdit();
   }
 
-  /** Apply a structural edit (delete, wrap, etc.) via the CRDT TreeEditOp bridge */
-  handleStructuralEdit(opType: string, nodeId: number, extra?: Record<string, unknown>): void {
-    const opJson = JSON.stringify({ type: opType, node_id: nodeId, ...extra });
-    const ts = canopyEditTimestampMs();
-    const result = this.crdt.apply_tree_edit_json(this.handle, opJson, ts);
-    if (result !== "ok") {
-      console.error("Structural edit failed:", result);
-      return;
-    }
-    this.afterLocalEdit();
-  }
-
   /** Apply remote CRDT ops and reconcile PM state */
   applyRemote(syncJson: string): string {
     const result = this.crdt.apply_sync_json(this.handle, syncJson);
