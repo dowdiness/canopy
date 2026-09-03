@@ -63,6 +63,7 @@ priv enum Msg {
   CompositionStarted(Activation)
   CompositionEnded(Activation)
   ModeSelected(EditorMode)
+  ExportRequested
   PreviewEvent(@preview.Event)
   ViewportChanged(Int)
   DocumentsLifecycle(DocumentsFeedback)

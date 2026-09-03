@@ -261,11 +261,21 @@ fn mode_bar(
           ),
         ),
       ]),
-      examples_bar(
-        emit,
-        editing.activation,
-        disabled=editing.creation == Creating,
-      ),
+      @html.div(class="flex min-w-0 items-center gap-1", [
+        examples_bar(
+          emit,
+          editing.activation,
+          disabled=editing.creation == Creating,
+        ),
+        @html.button(
+          type_="button",
+          class="min-h-8 shrink-0 rounded-md border border-lm-rule bg-transparent px-2 py-1 text-xs text-lm-muted transition-colors duration-150 hover:bg-[oklch(0.955_0.003_255)] hover:text-lm-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lm-accent max-[641px]:min-h-11",
+          title="Export Markdown",
+          attrs=@html.Attrs::build().aria_label("Export Markdown"),
+          on_click=emit(ExportRequested),
+          "Export",
+        ),
+      ]),
     ],
   )
 }

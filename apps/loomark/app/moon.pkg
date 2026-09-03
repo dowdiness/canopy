@@ -5,6 +5,7 @@ import {
   "dowdiness/loomark/internal/preview",
   "dowdiness/loomark/internal/text_area",
   "dowdiness/text_change",
+  "dowdiness/dom_boundary",
   "moonbit-community/rabbita",
   "moonbit-community/rabbita/cmd",
   "moonbit-community/rabbita/dom",

@@ -44,9 +44,11 @@ tooltip. The Recent documents action bar has no visible heading and owns a
 right-aligned, text-only `New` action without a plus icon; the editor toolbar
 does not duplicate the New action. On narrow screens it temporarily fills the screen, provides a
 back-arrow control to return without selection, and returns to the editor after
-selection. Each entry shows the first content after optional leading
-frontmatter, using its heading, task, quote, or ordinary text appearance; it
-does not fetch or display an image thumbnail or change time. When the first
+selection. Each entry shows the first non-empty readable line from
+parser-recognized Markdown, using its heading, task, quote, or ordinary text
+appearance. The current parser has no frontmatter extension, so YAML-like text
+is ordinary Markdown rather than skipped metadata. An entry does not fetch or
+display an image thumbnail or change time. When the first
 content is an image with alt text, the alt text becomes ordinary primary content
 without loading the image. Inline Markdown is flattened to readable text; only
 the heading, task, quote, or ordinary block appearance remains, and links do not

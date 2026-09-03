@@ -37,6 +37,27 @@ fn test_update(model : Model, msg : Msg) -> (Model, @cmd.Cmd) {
 }
 
 ///|
+test "export payload uses the Editing Document's current text and derived name" {
+  let initial = test_editing()
+  let text = "## Unsaved name\n\nCurrent text\n"
+  let (documents, _) = initial.documents.reduce(
+    DocumentsTextChanged("one", text, documents_test_order(1L)),
+  )
+  let (filename, exported) = export_payload({ ..initial, documents, })
+  assert_eq(filename, "Unsaved name.md")
+  assert_eq(exported, text)
+}
+
+///|
+test "export payload falls back for an empty Editing Document" {
+  let initial = test_editing()
+  let (documents, _) = initial.documents.reduce(
+    DocumentsTextChanged("one", "", documents_test_order(1L)),
+  )
+  assert_eq(export_payload({ ..initial, documents, }), ("untitled.md", ""))
+}
+
+///|
 test "loading and recovery ignore document lifecycle feedback" {
   let feedback = DocumentsLifecycle(
     QuietElapsed("one", documents_test_order(1L)),

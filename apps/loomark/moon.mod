@@ -7,6 +7,7 @@ import {
   "moonbitlang/async@0.21.0",
   "Yoorkin/rui@0.1.1",
   "dowdiness/diagnostic@0.1.0",
+  "dowdiness/dom_boundary@0.1.0",
   "dowdiness/loom@0.1.0",
   "dowdiness/markdown@0.1.0",
   "dowdiness/seam@0.1.0",

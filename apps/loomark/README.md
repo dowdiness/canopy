@@ -41,8 +41,9 @@ other failures require explicit Retry.
 
 Each `source/v1/<document-id>` record contains `document_id`, `text`, and its
 Change order and is the durable authority for that document. Opening scans the
-complete store, isolates malformed or unsupported records, derives first-ATX-H1
-names into an in-memory Catalog, and orders valid Sources by newest Change order
+complete store, isolates malformed or unsupported records, derives names from
+the first non-empty readable line in parser-recognized Markdown into an in-memory
+Catalog, and orders valid Sources by newest Change order
 with a Document ID tie break. The independent `editing-document` string record
 selects an exact valid Source after that reconciliation; a missing, malformed,
 or stale value uses the deterministic Catalog selection instead. Opening never

@@ -495,6 +495,24 @@ async function readStoreMutationLog(page: Page): Promise<StoreMutationObservatio
   ))
 }
 
+test("Export downloads the current Document text with its Derived name", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  const source = "## Export name\n\nCurrent text\n"
+  await text.fill(source)
+
+  const downloadPromise = page.waitForEvent("download")
+  await page.getByRole("button", { name: "Export Markdown" }).click()
+  const download = await downloadPromise
+
+  expect(download.suggestedFilename()).toBe("Export name.md")
+  const stream = await download.createReadStream()
+  stream.setEncoding("utf8")
+  let downloaded = ""
+  for await (const chunk of stream) downloaded += chunk
+  expect(downloaded).toBe(source)
+})
+
 test("fresh production opens Text mode and preserves its textarea and undo history across modes", async ({ page }) => {
   const workerUrls: string[] = []
   page.on("worker", worker => workerUrls.push(worker.url()))

@@ -175,7 +175,7 @@ test "snapshot source and accepted Source transition preserve repository state" 
     SourceRecord::new("document-b", "# New B\n").unwrap(),
   ])
   assert_eq(accepted.catalog().entries().to_owned(), [
-    CatalogEntry::new("document-a", None).unwrap(),
+    CatalogEntry::new("document-a", Some("plain text")).unwrap(),
     CatalogEntry::new("document-b", Some("New B")).unwrap(),
   ])
   assert_eq(accepted.issues().to_owned(), [])

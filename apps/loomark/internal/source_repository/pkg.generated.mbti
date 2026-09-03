@@ -11,6 +11,8 @@ pub fn create(RepositorySnapshot, result~ : @cmd.Emit[CreateResult]) -> @cmd.Cmd
 
 pub fn delete(RepositorySnapshot, String, result~ : @cmd.Emit[DeleteResult]) -> @cmd.Cmd
 
+pub fn derive_name(String) -> Result[String?, Unit]
+
 pub fn open(result~ : @cmd.Emit[OpenResult]) -> @cmd.Cmd
 
 pub fn probe(RepositorySnapshot, String, result~ : @cmd.Emit[ProbeResult]) -> @cmd.Cmd

@@ -28,6 +28,26 @@ fn preview_input(editing : EditingState) -> @preview.Input {
 }
 
 ///|
+fn export_payload(editing : EditingState) -> (String, String) {
+  let text = editing.documents
+    .text(editing.activation.document_id)
+    .unwrap_or("")
+  let filename = match @source_repository.derive_name(text) {
+    Ok(Some(name)) => name + ".md"
+    Ok(None) | Err(_) => "untitled.md"
+  }
+  (filename, text)
+}
+
+///|
+#warnings("-unused_async")
+async fn download_export(filename : String, text : String) -> Unit noraise {
+  @dom_boundary.download_text(filename, text) catch {
+    _ => ()
+  }
+}
+
+///|
 fn deletion_blocks_document_changes(editing : EditingState) -> Bool {
   let document_id = editing.activation.document_id
   let persistence_blocks = match editing.documents.delete_status(document_id) {
@@ -424,6 +444,13 @@ fn update(
       } else {
         (Editing(editing), @cmd.none)
       }
+    }
+    (Editing(editing), ExportRequested) => {
+      let (filename, text) = export_payload(editing)
+      (
+        Editing(editing),
+        @cmd.effect(async fn() noraise { download_export(filename, text) }),
+      )
     }
     (Editing(editing), PreviewEvent(event)) => {
       let (preview, command) = preview_engine.update(
