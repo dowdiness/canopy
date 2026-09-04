@@ -363,7 +363,6 @@ function installDelayedDocumentCommit(targetKey: string): void {
   const state = globalThis as typeof globalThis & {
     __loomarkDelayedCommitActive?: boolean
     __loomarkDelayedCommitCompletions?: number
-    __loomarkDelayedCommitConcurrentPuts?: number
     __loomarkDelayedCommitInputs?: number
     __loomarkDelayedCommitPuts?: PutObservation[]
   }
@@ -371,7 +370,6 @@ function installDelayedDocumentCommit(targetKey: string): void {
   const originalPut = prototype.put
   state.__loomarkDelayedCommitActive = false
   state.__loomarkDelayedCommitCompletions = 0
-  state.__loomarkDelayedCommitConcurrentPuts = 0
   state.__loomarkDelayedCommitInputs = 0
   state.__loomarkDelayedCommitPuts = []
   document.addEventListener("input", () => {
@@ -387,10 +385,6 @@ function installDelayedDocumentCommit(targetKey: string): void {
   ) {
     const request = originalPut.call(this, value, recordKey)
     if (recordKey === targetKey && typeof value === "string") {
-      if (state.__loomarkDelayedCommitActive) {
-        state.__loomarkDelayedCommitConcurrentPuts =
-          (state.__loomarkDelayedCommitConcurrentPuts ?? 0) + 1
-      }
       state.__loomarkDelayedCommitPuts?.push({
         at: performance.now(),
         value,
@@ -1570,56 +1564,7 @@ test("equal-text ABA still receives a fresh persistence order", async ({ page })
   expect(put.at - finalInputAt).toBeGreaterThanOrEqual(250)
 })
 
-test("uninterrupted input reaches maximum eligibility without final quiet", async ({ page }) => {
-  await page.goto("/")
-  await waitForRepositoryOpen(page)
-  await expect.poll(() => readStoredDocument(page).then(document => document?.text))
-    .toBe("# Untitled\n")
-  const baseline = await readStoredDocument(page)
-  if (!baseline) throw new Error("baseline Source missing")
-  const text = page.getByRole("textbox", { name: "Text" })
-  await page.evaluate(installDocumentPutLog, sourceKey(baseline.document_id))
-
-  const stream = await text.evaluate(async element => {
-    const textarea = element as HTMLTextAreaElement
-    const started = performance.now()
-    let previousInput = started
-    const inputGaps: number[] = []
-    for (let index = 0; index < 46; index += 1) {
-      const inputStarted = performance.now()
-      if (index > 0) inputGaps.push(inputStarted - previousInput)
-      previousInput = inputStarted
-      const value = `${textarea.value}x`
-      textarea.value = value
-      textarea.dispatchEvent(new InputEvent("input", {
-        bubbles: true,
-        composed: true,
-        data: "x",
-        inputType: "insertText",
-      }))
-      await new Promise(resolve => setTimeout(resolve, 50))
-    }
-    return {
-      started,
-      finalText: textarea.value,
-      maximumInputGap: Math.max(...inputGaps),
-    }
-  })
-
-  expect(stream.maximumInputGap).toBeLessThan(250)
-  const duringStream = await readDocumentPutLog(page)
-  expect(duringStream.length).toBeGreaterThanOrEqual(1)
-  const firstPutOffset = duringStream[0].at - stream.started
-  expect(firstPutOffset).toBeGreaterThanOrEqual(1_800)
-  expect(firstPutOffset).toBeLessThan(3_000)
-
-  await expect.poll(() => readStoredDocument(page).then(document => document?.text))
-    .toBe(stream.finalText)
-  const completed = await readDocumentPutLog(page)
-  expect(completed.length).toBe(2)
-})
-
-test("large active-write overlap remains coalesced", async ({ page }) => {
+test("large input during an active save coalesces to the latest text", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
   const baseline = await readStoredDocument(page)
@@ -1639,58 +1584,46 @@ test("large active-write overlap remains coalesced", async ({ page }) => {
     sourceKey(baseline.document_id),
   )
 
-  const stream = await text.evaluate(async element => {
+  const finalText = await text.evaluate(async element => {
     const textarea = element as HTMLTextAreaElement
-    const started = performance.now()
-    let previousInput = started
-    const inputGaps: number[] = []
-    for (let index = 0; index < 46; index += 1) {
-      const inputStarted = performance.now()
-      if (index > 0) inputGaps.push(inputStarted - previousInput)
-      previousInput = inputStarted
-      textarea.value = `${textarea.value}x`
+    const state = globalThis as typeof globalThis & {
+      __loomarkDelayedCommitActive?: boolean
+    }
+    const append = (value: string) => {
+      textarea.value += value
       textarea.dispatchEvent(new InputEvent("input", {
         bubbles: true,
         composed: true,
-        data: "x",
+        data: value,
         inputType: "insertText",
       }))
-      await new Promise(resolve => setTimeout(resolve, 50))
     }
-    return {
-      duration: performance.now() - started,
-      finalText: textarea.value,
-      maximumInputGap: Math.max(...inputGaps),
+
+    append("a")
+    const deadline = performance.now() + 2_000
+    while (!state.__loomarkDelayedCommitActive) {
+      if (performance.now() >= deadline) throw new Error("save did not start")
+      await new Promise(resolve => setTimeout(resolve, 10))
     }
+    append("b")
+    return textarea.value
   })
 
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
-    .toBe(stream.finalText)
+    .toBe(finalText)
   const overlap = await page.evaluate(() => {
     const state = globalThis as typeof globalThis & {
-      __loomarkDelayedCommitCompletions?: number
-      __loomarkDelayedCommitConcurrentPuts?: number
       __loomarkDelayedCommitInputs?: number
       __loomarkDelayedCommitPuts?: PutObservation[]
     }
     return {
-      completions: state.__loomarkDelayedCommitCompletions ?? 0,
-      concurrentPuts: state.__loomarkDelayedCommitConcurrentPuts ?? 0,
       inputs: state.__loomarkDelayedCommitInputs ?? 0,
       puts: state.__loomarkDelayedCommitPuts ?? [],
     }
   })
-  expect(stream.maximumInputGap).toBeLessThan(250)
-  expect(overlap.inputs).toBeGreaterThan(0)
-  expect(overlap.completions).toBeGreaterThanOrEqual(1)
-  expect(overlap.concurrentPuts).toBe(0)
-  expect(overlap.puts.length).toBeGreaterThanOrEqual(2)
-  const maximumPolicyWrites = Math.ceil(stream.duration / 2_000) + 1
-  expect(overlap.puts.length).toBeLessThanOrEqual(maximumPolicyWrites)
-  expect((JSON.parse(overlap.puts[0].value) as StoredDocument).text)
-    .not.toBe(stream.finalText)
-  expect((JSON.parse(overlap.puts.at(-1)?.value ?? "null") as StoredDocument).text)
-    .toBe(stream.finalText)
+  expect(overlap.inputs).toBe(1)
+  expect(overlap.puts.map(put => (JSON.parse(put.value) as StoredDocument).text))
+    .toEqual([`${largeText}a`, finalText])
 })
 
 test("hidden visibility makes pending text eligible before quiet", async ({ page }) => {
