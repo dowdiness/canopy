@@ -214,18 +214,6 @@ pub fn handle_text_intent_checked(
   accepted
 }
 
-///|
-/// Undo on the MoonBit editor directly and return whether it succeeded.
-pub fn handle_undo(handle : Int) -> Bool raise Failure {
-  @ffi.handle_undo(handle)
-}
-
-///|
-/// Redo on the MoonBit editor directly and return whether it succeeded.
-pub fn handle_redo(handle : Int) -> Bool raise Failure {
-  @ffi.handle_redo(handle)
-}
-
 // ── File I/O ──────────────────────────────────────────────
 // Re-export the file load/save FFI so the host can inject its FileHost and
 // trigger picker/save through the ideal-editor module (see web/src/main.ts).

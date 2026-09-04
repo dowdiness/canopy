@@ -682,6 +682,67 @@ test "Structure activation generation advances only on entry" {
 }
 
 ///|
+fn apply_structure_history_for_test(
+  model : Model,
+  generation : Int,
+  direction : HistoryDirection,
+) -> Model raise {
+  match
+    handle_structure_mode(
+      test_parent_emit(),
+      StructureHistory(generation~, direction),
+      model,
+    ) {
+    Some((_, changed)) => changed
+    None => abort("StructureHistory was not handled")
+  }
+}
+
+///|
+fn history_test_model(
+  mode : EditorMode,
+  generation : Int,
+) -> (Model, String, String) raise {
+  let base = init_model()
+  let original = base.editor.get_text()
+  let edited = original + "x"
+  base.editor.set_text_and_record(edited, 1)
+  ({ ..base, mode, structure_generation: generation }, original, edited)
+}
+
+///|
+test "Structure history round trips one edit" {
+  let (model, original, edited) = history_test_model(Structure, 1)
+  let undone = apply_structure_history_for_test(model, 1, UndoHistory)
+  inspect(undone.editor.get_text(), content=original)
+  let redone = apply_structure_history_for_test(undone, 1, RedoHistory)
+  inspect(redone.editor.get_text(), content=edited)
+}
+
+///|
+test "stale Structure history does not mutate" {
+  let (model, _, edited) = history_test_model(Structure, 2)
+  let unchanged = apply_structure_history_for_test(model, 1, UndoHistory)
+  inspect(unchanged.editor.get_text(), content=edited)
+}
+
+///|
+test "Structure history outside Structure mode does not mutate" {
+  let (model, _, edited) = history_test_model(Text, 0)
+  let unchanged = apply_structure_history_for_test(model, 0, UndoHistory)
+  inspect(unchanged.editor.get_text(), content=edited)
+}
+
+///|
+test "unavailable Structure history is a no-op" {
+  let base = init_model()
+  let original = base.editor.get_text()
+  let model = { ..base, mode: Structure, structure_generation: 1 }
+  let unchanged = apply_structure_history_for_test(model, 1, UndoHistory)
+  inspect(unchanged.editor.get_text(), content=original)
+}
+
+///|
 test "Structure tree edit uses one canonical commit" {
   let (base, node_id) = selected_test_model()
   let model = { ..base, mode: Structure, structure_generation: 1 }

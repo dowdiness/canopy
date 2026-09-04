@@ -79,8 +79,6 @@ options(
         "ephemeral_remove_outdated",
         "handle_text_intent",
         "handle_text_intent_checked",
-        "handle_undo",
-        "handle_redo",
         "register_file_host",
         "load_file",
         "save_file",

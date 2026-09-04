@@ -5,23 +5,33 @@ priv enum EventTarget {
 }
 
 ///|
-extern "js" fn js_listen_structure_tree_edits(
-  callback : (String) -> Unit,
+extern "js" fn js_listen_structure_inputs(
+  tree_edit_callback : (String) -> Unit,
+  history_callback : (Bool) -> Unit,
 ) -> () -> Unit =
-  #| (callback) => {
+  #| (treeEditCallback, historyCallback) => {
   #|   let active = true;
   #|   let current = null;
+  #|   const uninstall = () => {
+  #|     if (!current) return;
+  #|     current.setStructureTreeEditCallback(null);
+  #|     current.setStructureHistoryCallback(null);
+  #|   };
   #|   const install = () => {
   #|     if (!active) return;
   #|     const next = document.querySelector('#canopy-editor');
   #|     if (next === current) return;
-  #|     if (current) current.setStructureTreeEditCallback(null);
+  #|     uninstall();
   #|     current = next;
   #|     if (current) {
   #|       const installed = current;
   #|       current.setStructureTreeEditCallback(edit => {
   #|         if (!active || current !== installed) return;
-  #|         callback(JSON.stringify(edit));
+  #|         treeEditCallback(JSON.stringify(edit));
+  #|       });
+  #|       current.setStructureHistoryCallback(direction => {
+  #|         if (!active || current !== installed) return;
+  #|         historyCallback(direction === 'Redo');
   #|       });
   #|     }
   #|   };
@@ -31,7 +41,7 @@ extern "js" fn js_listen_structure_tree_edits(
   #|   return () => {
   #|     active = false;
   #|     observer.disconnect();
-  #|     if (current) current.setStructureTreeEditCallback(null);
+  #|     uninstall();
   #|     current = null;
   #|   };
   #| }
@@ -164,24 +174,32 @@ extern "js" fn js_warn_dom_event_subscription_error(message : String) -> Unit =
   #| }
 
 ///|
-priv suberror StructureTreeEditSub {
+priv suberror StructureInputSub {
   Listen(Int, @rabbita.Emit[Msg])
 }
 
 ///|
-fn structure_tree_edit_sub_loader(
+fn structure_input_sub_loader(
   payload : Error,
   scheduler : &@rabbita_cmd.Scheduler,
 ) -> @sub.RunningSub? {
   match payload {
     Listen(generation, tagger) => {
       let mut current_tagger = tagger
-      let dispose = js_listen_structure_tree_edits(json => {
-        let op = @lambda.parse_tree_edit_op(@json.parse(json)) catch {
-          _ => return
-        }
-        scheduler.add(current_tagger(StructureTreeEdit(generation~, op)))
-      })
+      let dispose = js_listen_structure_inputs(
+        json => {
+          let op = @lambda.parse_tree_edit_op(@json.parse(json)) catch {
+            _ => return
+          }
+          scheduler.add(current_tagger(StructureTreeEdit(generation~, op)))
+        },
+        is_redo => {
+          let direction = if is_redo { RedoHistory } else { UndoHistory }
+          scheduler.add(
+            current_tagger(StructureHistory(generation~, direction)),
+          )
+        },
+      )
       Some({
         unload: _ => dispose(),
         update_tagger: payload => {
@@ -195,15 +213,15 @@ fn structure_tree_edit_sub_loader(
 }
 
 ///|
-fn structure_tree_edit_subscription(
+fn structure_input_subscription(
   generation : Int,
   emit : @rabbita.Emit[Msg],
 ) -> @sub.Sub {
   @sub.custom_sub(
-    "ideal.structure_tree_edit(generation=\{generation})",
+    "ideal.structure_input(generation=\{generation})",
     @sub.Scope::Local,
     Listen(generation, emit),
-    @sub.SubLoader(structure_tree_edit_sub_loader),
+    @sub.SubLoader(structure_input_sub_loader),
   )
 }
 
@@ -213,7 +231,7 @@ fn editor_dom_event_subscriptions(
   model : Model,
 ) -> @sub.Sub {
   let structure_events = if model.mode == Structure {
-    structure_tree_edit_subscription(model.structure_generation, emit)
+    structure_input_subscription(model.structure_generation, emit)
   } else {
     @sub.none
   }

@@ -16,6 +16,12 @@ enum IncrCanvasMsg {
 }
 
 ///|
+enum HistoryDirection {
+  UndoHistory
+  RedoHistory
+}
+
+///|
 #warnings("-unused_constructor-unused_field")
 enum Msg {
   // Mode & layout
@@ -66,6 +72,7 @@ enum Msg {
   // Structure-mode Web Component communication.
   StructureNodeSelected(String)
   StructureTreeEdit(generation~ : Int, @lambda_edits.TreeEditOp)
+  StructureHistory(generation~ : Int, HistoryDirection)
   ExternalCrdtChanged
   CmMounted
   CmChanges(@cm.ChangeEvent)

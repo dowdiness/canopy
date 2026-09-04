@@ -289,25 +289,6 @@ function wireEditorEvents(el: CanopyEditor) {
       triggerAutosave();
     }
   }) as EventListener, { signal });
-  el.addEventListener(CanopyEvents.REQUEST_UNDO, () => {
-    if (!_crdt || _handle == null) return;
-    const didUndo = _crdt.handle_undo(_handle);
-    if (didUndo) {
-      el.syncAfterExternalChange();
-      el.notifyLocalChange();
-      dispatchExternalCrdtChanged(el);
-    }
-  }, { signal });
-  el.addEventListener(CanopyEvents.REQUEST_REDO, () => {
-    if (!_crdt || _handle == null) return;
-    const didRedo = _crdt.handle_redo(_handle);
-    if (didRedo) {
-      el.syncAfterExternalChange();
-      el.notifyLocalChange();
-      dispatchExternalCrdtChanged(el);
-    }
-  }, { signal });
-
   // When remote ephemeral data arrives, update text-mode peer cursor decorations.
   el.addEventListener('sync-cursors-updated', () => {
     updateCmPeerCursors();

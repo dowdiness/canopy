@@ -1,5 +1,9 @@
 import { CanopyEvents } from "./events";
-import type { CrdtModule, StructureTreeEditCallback } from './types';
+import type {
+  CrdtModule,
+  StructureHistoryCallback,
+  StructureTreeEditCallback,
+} from './types';
 // Single source of truth for shadow-root styles. `?inline` yields the
 // processed CSS as a string (no automatic <style> injection) so we can both
 // adopt it as a constructable stylesheet and fall back to a <style> element.
@@ -32,6 +36,7 @@ type StructureModeSession = {
   setBroadcast(fn: (() => void) | null): void;
   setReadonly(readonly: boolean): void;
   setSelectedNode(id: string | null): void;
+  setStructureHistoryCallback(callback: StructureHistoryCallback | null): void;
   setStructureTreeEditCallback(callback: StructureTreeEditCallback | null): void;
 };
 
@@ -56,6 +61,7 @@ export class CanopyEditor extends HTMLElement {
   private mountAbortController: AbortController | null = null;
   private broadcastFn: (() => void) | null = null;
   private pendingSelectedNode: string | null = null;
+  private structureHistoryCallback: StructureHistoryCallback | null = null;
   private structureTreeEditCallback: StructureTreeEditCallback | null = null;
 
   static get observedAttributes() {
@@ -194,6 +200,7 @@ export class CanopyEditor extends HTMLElement {
       this.structureSession = session;
       session.setReadonly(this.isReadonly());
       session.setBroadcast(this.broadcastFn);
+      session.setStructureHistoryCallback(this.structureHistoryCallback);
       session.setStructureTreeEditCallback(this.structureTreeEditCallback);
       session.setSelectedNode(this.pendingSelectedNode);
     } catch (error) {
@@ -257,6 +264,11 @@ export class CanopyEditor extends HTMLElement {
   setBroadcast(fn: (() => void) | null): void {
     this.broadcastFn = fn;
     this.structureSession?.setBroadcast(fn);
+  }
+
+  setStructureHistoryCallback(callback: StructureHistoryCallback | null): void {
+    this.structureHistoryCallback = callback;
+    this.structureSession?.setStructureHistoryCallback(callback);
   }
 
   setStructureTreeEditCallback(callback: StructureTreeEditCallback | null): void {

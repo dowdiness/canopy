@@ -28,6 +28,12 @@ fn handle_structure_mode(
           _ => Some((none, model))
         }
       }
+    StructureHistory(generation~, direction) =>
+      if model.mode != Structure || generation != model.structure_generation {
+        Some((none, model))
+      } else {
+        Some(apply_history(model, direction))
+      }
     ExternalCrdtChanged => {
       let new_model = refresh(model)
       Some((sync_after_external_crdt_change(new_model), new_model))

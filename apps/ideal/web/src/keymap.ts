@@ -1,12 +1,15 @@
 import { keymap } from "prosemirror-keymap";
 import { NodeSelection, Plugin } from "prosemirror-state";
 import { CanopyEvents } from "./events";
-import type { StructureTreeEditCallback } from "./types";
+import type {
+  StructureHistoryCallback,
+  StructureTreeEditCallback,
+} from "./types";
 
 /**
  * ProseMirror keymap plugin for structural operations on AST nodes.
  *
- * Persistent edits use a typed callback; selection, overlay, and history
+ * Persistent edits and history use typed callbacks; selection and overlay
  * interactions retain their existing host events until their own migrations.
  *
  * Keybindings:
@@ -15,16 +18,22 @@ import type { StructureTreeEditCallback } from "./types";
  *   Mod-z          — undo
  *   Mod-Shift-z    — redo
  */
-export function structuralKeymap(host: HTMLElement, onEdit: StructureTreeEditCallback) {
+export function structuralKeymap(
+  host: HTMLElement,
+  onEdit: StructureTreeEditCallback,
+  onHistory: StructureHistoryCallback,
+) {
   return keymap({
-    "Backspace": (state) => {
+    "Backspace": (state, _dispatch, view) => {
+      if (!view?.editable) return false;
       if (!(state.selection instanceof NodeSelection)) return false;
       const nodeId = state.selection.node.attrs.nodeId;
       if (nodeId == null) return false;
       onEdit({ type: 'Delete', node_id: Number(nodeId) });
       return true;
     },
-    "Mod-l": (state) => {
+    "Mod-l": (state, _dispatch, view) => {
+      if (!view?.editable) return false;
       if (!(state.selection instanceof NodeSelection)) return false;
       const nodeId = state.selection.node.attrs.nodeId;
       if (nodeId == null) return false;
@@ -41,16 +50,14 @@ export function structuralKeymap(host: HTMLElement, onEdit: StructureTreeEditCal
       }));
       return true;
     },
-    "Mod-z": () => {
-      host.dispatchEvent(new CustomEvent(CanopyEvents.REQUEST_UNDO, {
-        bubbles: true, composed: true,
-      }));
+    "Mod-z": (_state, _dispatch, view) => {
+      if (!view?.editable) return false;
+      onHistory('Undo');
       return true;
     },
-    "Mod-Shift-z": () => {
-      host.dispatchEvent(new CustomEvent(CanopyEvents.REQUEST_REDO, {
-        bubbles: true, composed: true,
-      }));
+    "Mod-Shift-z": (_state, _dispatch, view) => {
+      if (!view?.editable) return false;
+      onHistory('Redo');
       return true;
     },
   });
