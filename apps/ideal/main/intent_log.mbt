@@ -12,17 +12,7 @@ const MAX_PATCH_INSERTED_CHARS = 200
 
 ///|
 fn push_intent(model : Model, op : @lambda_edits.TreeEditOp) -> Unit {
-  push_intent_label(model, op.to_generic().to_string())
-}
-
-///|
-/// Fallback for structural intents arriving via the FFI path when the op
-/// cannot be rebuilt as a typed `TreeEditOp` from `(op, node_id)` alone —
-/// e.g. `"Drop"`, whose `source`/`position` payload is not recoverable.
-/// Ops in `structural_edit_op_to_tree_edit`'s domain go through
-/// `push_intent` instead so the Op Log row shape matches direct-apply paths.
-fn push_intent_label(model : Model, label : String) -> Unit {
-  model.intent_log.push(label)
+  model.intent_log.push(op.to_generic().to_string())
   while model.intent_log.length() > MAX_INTENT_LOG {
     model.intent_log.remove(0) |> ignore
   }

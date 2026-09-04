@@ -377,29 +377,6 @@ test "event_detail_status rejects unrelated detail" {
 }
 
 ///|
-test "event_detail_structural_edit extracts op and nodeId" {
-  let (op, node_id) = event_detail_structural_edit(
-    "{\"op\":\"Drop\",\"nodeId\":\"7\"}",
-  )
-  inspect(op, content="Drop")
-  inspect(node_id, content="7")
-}
-
-///|
-test "event_detail_structural_edit rejects incomplete detail" {
-  let (op, node_id) = event_detail_structural_edit("{\"op\":\"Drop\"}")
-  inspect(op, content="Drop")
-  inspect(node_id, content="")
-}
-
-///|
-test "event_detail_structural_edit rejects non-object detail" {
-  let (op, node_id) = event_detail_structural_edit("Drop")
-  inspect(op, content="")
-  inspect(node_id, content="")
-}
-
-///|
 test "event target selector is centralized" {
   inspect(EditorHost.selector(), content="#canopy-editor")
   inspect(TextEditor.selector(), content="#canopy-text-editor")
@@ -412,7 +389,6 @@ test "event names are centralized" {
   inspect(ExternalCrdtChange.event_type(), content="external-crdt-changed")
   inspect(LongPress.event_type(), content="long-press")
   inspect(NodeSelected.event_type(), content="node-selected")
-  inspect(StructuralEditApplied.event_type(), content="structural-edit-applied")
   inspect(SyncStatus.event_type(), content="sync-status")
 }
 
@@ -645,6 +621,134 @@ test "selection characterization: structure selection highlights and clears nav"
     }
     None => abort("StructureNodeSelected was not handled")
   }
+}
+
+///|
+struct StructureCommitEvidence {
+  text : String
+  timestamp : Int
+  intent_count : Int
+  patch_count : Int
+} derive(Eq, Debug)
+
+///|
+fn structure_commit_evidence(model : Model) -> StructureCommitEvidence {
+  {
+    text: model.editor.get_text(),
+    timestamp: model.next_timestamp,
+    intent_count: model.intent_log.length(),
+    patch_count: model.patch_log.length(),
+  }
+}
+
+///|
+fn apply_structure_edit_for_test(
+  model : Model,
+  generation : Int,
+  op : @lambda_edits.TreeEditOp,
+) -> Model raise {
+  match
+    handle_structure_mode(
+      test_parent_emit(),
+      StructureTreeEdit(generation~, op),
+      model,
+    ) {
+    Some((_, changed)) => changed
+    None => abort("StructureTreeEdit was not handled")
+  }
+}
+
+///|
+fn set_mode_for_test(model : Model, mode : EditorMode) -> Model raise {
+  match handle_workspace(test_parent_emit(), SetMode(mode), model) {
+    Some((_, changed)) => changed
+    None => abort("SetMode was not handled")
+  }
+}
+
+///|
+test "Structure activation generation advances only on entry" {
+  let first = set_mode_for_test(init_model(), Structure)
+  let repeated = set_mode_for_test(first, Structure)
+  let second = set_mode_for_test(set_mode_for_test(repeated, Text), Structure)
+  @debug.assert_eq(
+    [
+      first.structure_generation,
+      repeated.structure_generation,
+      second.structure_generation,
+    ],
+    [1, 1, 2],
+  )
+}
+
+///|
+test "Structure tree edit uses one canonical commit" {
+  let (base, node_id) = selected_test_model()
+  let model = { ..base, mode: Structure, structure_generation: 1 }
+  let before = structure_commit_evidence(model)
+  let changed = apply_structure_edit_for_test(
+    model,
+    1,
+    @lambda_edits.TreeEditOp::WrapInLambda(
+      node_id=parse_node_id(node_id).unwrap(),
+      var_name="x",
+    ),
+  )
+  let after = structure_commit_evidence(changed)
+  inspect(after.text != before.text, content="true")
+  @debug.assert_eq(
+    (
+      after.timestamp - before.timestamp,
+      after.intent_count - before.intent_count,
+      after.patch_count - before.patch_count,
+    ),
+    (1, 1, 1),
+  )
+}
+
+///|
+test "stale Structure tree edit does not commit" {
+  let (base, node_id) = selected_test_model()
+  let model = { ..base, mode: Structure, structure_generation: 2 }
+  let changed = apply_structure_edit_for_test(
+    model,
+    1,
+    @lambda_edits.TreeEditOp::Delete(node_id=parse_node_id(node_id).unwrap()),
+  )
+  @debug.assert_eq(
+    structure_commit_evidence(changed),
+    structure_commit_evidence(model),
+  )
+}
+
+///|
+test "unsupported Structure tree edit does not commit" {
+  let (base, node_id) = selected_test_model()
+  let model = { ..base, mode: Structure, structure_generation: 1 }
+  let changed = apply_structure_edit_for_test(
+    model,
+    1,
+    @lambda_edits.TreeEditOp::Select(node_id=parse_node_id(node_id).unwrap()),
+  )
+  @debug.assert_eq(
+    structure_commit_evidence(changed),
+    structure_commit_evidence(model),
+  )
+}
+
+///|
+test "invalid Structure node id does not commit" {
+  let base = init_model()
+  let model = { ..base, mode: Structure, structure_generation: 1 }
+  let changed = apply_structure_edit_for_test(
+    model,
+    1,
+    @lambda_edits.TreeEditOp::Delete(node_id=@canopy_core.NodeId::from_int(-1)),
+  )
+  @debug.assert_eq(
+    structure_commit_evidence(changed),
+    structure_commit_evidence(model),
+  )
 }
 
 ///|

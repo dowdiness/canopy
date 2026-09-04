@@ -7,20 +7,10 @@ import * as cmView from '@codemirror/view';
 import { tags as t } from '@lezer/highlight';
 import type { CanopyEditor } from './canopy-editor';
 import { peerCursors, updatePeerCursorsFromJson } from './cm6-peer-cursors';
-import { canopyEditTimestampMs } from './edit-clock';
 import { CanopyEvents } from './events';
 import { lambda } from './lang/lambda-language';
 import { SyncClient } from './sync';
 import type { CrdtModule } from './types';
-
-type StructuralEditDetail = {
-  op?: string;
-  nodeId?: string;
-  position?: string;
-  source?: string | number;
-  target?: string | number;
-  type?: string;
-};
 
 type ExternalCrdtChangedDetail = {
   autosave?: boolean;
@@ -287,16 +277,6 @@ function dispatchExternalCrdtChanged(el: CanopyEditor, detail?: ExternalCrdtChan
   }));
 }
 
-function dispatchStructuralEditApplied(el: CanopyEditor, detail: StructuralEditDetail) {
-  const op = detail.op ?? detail.type ?? "";
-  const nodeId = detail.nodeId ?? String(detail.target ?? "");
-  el.dispatchEvent(new CustomEvent(CanopyEvents.STRUCTURAL_EDIT_APPLIED, {
-    detail: { op, nodeId },
-    bubbles: true,
-    composed: true,
-  }));
-}
-
 function wireEditorEvents(el: CanopyEditor) {
   // Abort previous listeners if called again (prevents accumulation)
   if (editorEventsController) editorEventsController.abort();
@@ -308,40 +288,6 @@ function wireEditorEvents(el: CanopyEditor) {
     if (detail?.autosave !== false) {
       triggerAutosave();
     }
-  }) as EventListener, { signal });
-  el.addEventListener(CanopyEvents.STRUCTURAL_EDIT_REQUEST, ((event: Event) => {
-    const detail = (event as CustomEvent<StructuralEditDetail>).detail ?? {};
-    if (!_crdt || _handle == null) return;
-    const crdt = _crdt;
-    const handle = _handle;
-
-    let result: string;
-    if (detail.type === "Drop") {
-      // Drag-and-drop: source/target/position payload → apply_tree_edit_json
-      const opJson = JSON.stringify({
-        type: "Drop",
-        source: detail.source,
-        target: detail.target,
-        position: detail.position,
-      });
-      result = crdt.apply_tree_edit_json(handle, opJson, canopyEditTimestampMs());
-    } else {
-      // Standard structural edit: op/nodeId → handle_structural_intent
-      const { op, nodeId } = detail as StructuralEditDetail;
-      if (!op || !nodeId) return;
-      result = crdt.handle_structural_intent(handle, op, nodeId, canopyEditTimestampMs(), "");
-    }
-
-    if (result !== "ok") {
-      console.error("[protocol] structural edit failed:", result);
-      return;
-    }
-    // Sync CM6 from CRDT after structural edit
-    el.syncAfterExternalChange();
-    el.notifyLocalChange();
-    // Trigger Rabbita refresh
-    triggerAutosave();
-    dispatchStructuralEditApplied(el, detail);
   }) as EventListener, { signal });
   el.addEventListener(CanopyEvents.REQUEST_UNDO, () => {
     if (!_crdt || _handle == null) return;

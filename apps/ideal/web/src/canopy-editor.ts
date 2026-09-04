@@ -1,5 +1,5 @@
 import { CanopyEvents } from "./events";
-import type { CrdtModule } from './types';
+import type { CrdtModule, StructureTreeEditCallback } from './types';
 // Single source of truth for shadow-root styles. `?inline` yields the
 // processed CSS as a string (no automatic <style> injection) so we can both
 // adopt it as a constructable stylesheet and fall back to a <style> element.
@@ -32,6 +32,7 @@ type StructureModeSession = {
   setBroadcast(fn: (() => void) | null): void;
   setReadonly(readonly: boolean): void;
   setSelectedNode(id: string | null): void;
+  setStructureTreeEditCallback(callback: StructureTreeEditCallback | null): void;
 };
 
 type StructureModeModule = {
@@ -55,6 +56,7 @@ export class CanopyEditor extends HTMLElement {
   private mountAbortController: AbortController | null = null;
   private broadcastFn: (() => void) | null = null;
   private pendingSelectedNode: string | null = null;
+  private structureTreeEditCallback: StructureTreeEditCallback | null = null;
 
   static get observedAttributes() {
     return ['mode', 'readonly'];
@@ -192,6 +194,7 @@ export class CanopyEditor extends HTMLElement {
       this.structureSession = session;
       session.setReadonly(this.isReadonly());
       session.setBroadcast(this.broadcastFn);
+      session.setStructureTreeEditCallback(this.structureTreeEditCallback);
       session.setSelectedNode(this.pendingSelectedNode);
     } catch (error) {
       if (loadVersion === this.structureLoadVersion) {
@@ -254,6 +257,11 @@ export class CanopyEditor extends HTMLElement {
   setBroadcast(fn: (() => void) | null): void {
     this.broadcastFn = fn;
     this.structureSession?.setBroadcast(fn);
+  }
+
+  setStructureTreeEditCallback(callback: StructureTreeEditCallback | null): void {
+    this.structureTreeEditCallback = callback;
+    this.structureSession?.setStructureTreeEditCallback(callback);
   }
 
   notifyLocalChange(): void {

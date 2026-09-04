@@ -51,6 +51,7 @@ fn init_model() -> Model raise {
     cm_id: "canopy-text-editor",
     mounted: false,
     mode: Text,
+    structure_generation: 0,
     workspace: initial_workspace_layout(),
     selected_node: None,
     diagnostics_open: false,
@@ -73,7 +74,7 @@ fn init_model() -> Model raise {
 
 ///|
 fn subscriptions(model : Model, emit : Emit[Msg]) -> Sub {
-  let editor_events = editor_dom_event_subscriptions(emit)
+  let editor_events = editor_dom_event_subscriptions(emit, model)
   let cm_events = if model.mounted {
     @cm.listen(
       model.cm_id,

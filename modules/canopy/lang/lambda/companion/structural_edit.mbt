@@ -1,12 +1,8 @@
 ///|
-/// Map a standard structural-edit op string to a typed `TreeEditOp`. Used
-/// on both the direct-apply path (`apply_structural_edit_request`, from
-/// Inspector / Web Component `STRUCTURAL_EDIT_REQUEST`) and the FFI-applied
-/// path (`StructureStructuralEdit`, from `STRUCTURAL_EDIT_APPLIED`) so the
-/// Op Log row shape matches in both. Must stay in sync with the dispatch
-/// sites in `view_inspector.mbt` and `web/src/keymap.ts`. Returns `None`
-/// for ops outside the standard set — notably `"Drop"`, whose `source` /
-/// `position` payload is not recoverable from `(op, node_id)` alone.
+/// Map a standard Inspector operation string to a typed `TreeEditOp`.
+/// Keep this in sync with the dispatch sites in `view_inspector.mbt`.
+/// Returns `None` for operations whose complete payload cannot be represented
+/// by `(op, node_id)`; rich Structure input uses typed `TreeEditOp` values.
 pub fn structural_edit_op_to_tree_edit(
   op : String,
   node_id : @core.NodeId,

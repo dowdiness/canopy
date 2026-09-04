@@ -86,15 +86,6 @@ pub fn apply_sync_json(handle : Int, sync_json : String) -> String {
 }
 
 ///|
-pub fn apply_tree_edit_json(
-  handle : Int,
-  op_json : String,
-  ts : Int,
-) -> String raise {
-  @ffi.apply_tree_edit_json(handle, op_json, ts)
-}
-
-///|
 pub fn undo_manager_undo(handle : Int) -> Bool raise Failure {
   @ffi.undo_manager_undo(handle)
 }
@@ -233,18 +224,6 @@ pub fn handle_undo(handle : Int) -> Bool raise Failure {
 /// Redo on the MoonBit editor directly and return whether it succeeded.
 pub fn handle_redo(handle : Int) -> Bool raise Failure {
   @ffi.handle_redo(handle)
-}
-
-///|
-/// Apply a structural edit intent. Returns "ok" on success, error message on failure.
-pub fn handle_structural_intent(
-  handle : Int,
-  op : String,
-  node_id : String,
-  timestamp_ms : Int,
-  params_json : String,
-) -> String raise {
-  @ffi.handle_structural_intent(handle, op, node_id, timestamp_ms, params_json)
 }
 
 // ── File I/O ──────────────────────────────────────────────

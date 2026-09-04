@@ -17,8 +17,6 @@ import {
 // Values
 pub fn apply_sync_json(Int, String) -> String
 
-pub fn apply_tree_edit_json(Int, String, Int) -> String raise
-
 pub fn create_editor_with_undo(String, Int) -> Int raise
 
 pub fn delete_at(Int, Int, Int) -> Bool raise
@@ -54,8 +52,6 @@ pub fn get_text(Int) -> String
 pub fn get_version_json(Int) -> String raise
 
 pub fn handle_redo(Int) -> Bool raise Failure
-
-pub fn handle_structural_intent(Int, String, String, Int, String) -> String raise
 
 pub fn handle_text_intent(Int, Int, Int, String, Int) -> Unit raise
 
@@ -118,6 +114,7 @@ pub struct Model {
   cm_id : String
   mounted : Bool
   mode : EditorMode
+  structure_generation : Int
   workspace : WorkspaceLayout
   selected_node : String?
   diagnostics_open : Bool

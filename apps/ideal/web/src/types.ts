@@ -1,3 +1,11 @@
+/** Closed, immutable wire contract for Structure-mode mutations. */
+export type StructureTreeEdit =
+  | Readonly<{ type: 'Delete'; node_id: number }>
+  | Readonly<{ type: 'WrapInLambda'; node_id: number }>
+  | Readonly<{ type: 'Drop'; source: number; target: number; position: 'Before' | 'After' | 'Inside' }>;
+
+export type StructureTreeEditCallback = (edit: StructureTreeEdit) => void;
+
 export interface ProjNodeJson {
   node_id: number;
   kind: any[];
@@ -60,7 +68,6 @@ export interface CrdtModule {
   apply_sync_json(handle: number, json: string): string;
   export_all_json(handle: number): string;
   export_since_json(handle: number, peerVersionJson: string): string;
-  apply_tree_edit_json(handle: number, opJson: string, timestampMs: number): string;
   ephemeral_encode_all(handle: number): Uint8Array;
   ephemeral_apply(handle: number, data: Uint8Array): void;
   ephemeral_set_presence(handle: number, name: string, color: string): void;
@@ -73,6 +80,5 @@ export interface CrdtModule {
   handle_text_intent_checked(handle: number, from: number, deletedLen: number, insert: string, timestampMs: number): boolean;
   handle_undo(handle: number): boolean;
   handle_redo(handle: number): boolean;
-  handle_structural_intent(handle: number, op: string, nodeId: string, timestampMs: number, paramsJson: string): string;
   [key: string]: any;
 }
