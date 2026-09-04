@@ -21,6 +21,7 @@ fn test_editing() -> EditingState {
     mode: Text,
     compact: false,
     preview,
+    import_failed: false,
     new_preparation_request_id: 0,
   }
 }
@@ -34,6 +35,86 @@ fn test_update(model : Model, msg : Msg) -> (Model, @cmd.Cmd) {
     @text_area.TextArea::TextArea("loomark-test-text"),
     @preview.PreviewEngine::PreviewEngine(),
   )
+}
+
+///|
+test "Import strictly decodes UTF-8, consumes BOM, and normalizes line endings" {
+  assert_eq(
+    decode_import(b"\xef\xbb\xbfalpha\r\nbeta\rgamma\n  tail\t"),
+    Some("alpha\nbeta\ngamma\n  tail\t"),
+  )
+  assert_eq(decode_import(b""), Some(""))
+  assert_eq(decode_import(b"\x80"), None)
+}
+
+///|
+test "accepted Import immediately becomes the Editing Document" {
+  let initial = test_editing()
+  let text = "Imported\n"
+  let (model, _) = test_update(
+    Editing(initial),
+    ImportCreateCompleted(text, Created("imported")),
+  )
+  guard model is Editing(editing) else { fail("editing") }
+  assert_eq(editing.activation.document_id, "imported")
+  assert_eq(editing.documents.text("imported"), Some(text))
+}
+
+///|
+test "each completed Import is retained and the latest completion activates" {
+  let initial = test_editing()
+  let (model, _) = test_update(
+    Editing(initial),
+    ImportCreateCompleted("Newer completion", Created("newer")),
+  )
+  guard model is Editing(after_newer) else { fail("editing") }
+  let (model, _) = test_update(
+    Editing(after_newer),
+    ImportCreateCompleted("Older completion", Created("older")),
+  )
+  guard model is Editing(after_older) else { fail("editing") }
+  assert_eq(after_older.documents.text("newer"), Some("Newer completion"))
+  assert_eq(after_older.documents.text("older"), Some("Older completion"))
+  assert_eq(after_older.activation.document_id, "older")
+}
+
+///|
+test "accepted Import supersedes an unfinished New action" {
+  let initial = { ..test_editing(), creation: Creating }
+  let (model, _) = test_update(
+    Editing(initial),
+    ImportCreateCompleted("Imported", Created("imported")),
+  )
+  guard model is Editing(imported) && imported.creation == Idle else {
+    fail("Import should supersede New")
+  }
+
+  let (after_stale_new, _) = test_update(
+    Editing(imported),
+    CreateCompleted("one", Created("unused-new")),
+  )
+  assert_true(after_stale_new == Editing(imported))
+}
+
+///|
+test "export payload uses the Editing Document's current text and derived name" {
+  let initial = test_editing()
+  let text = "## Unsaved name\n\nCurrent text\n"
+  let (documents, _) = initial.documents.reduce(
+    DocumentsTextChanged("one", text, documents_test_order(1L)),
+  )
+  let (filename, exported) = export_payload({ ..initial, documents, })
+  assert_eq(filename, "Unsaved name.md")
+  assert_eq(exported, text)
+}
+
+///|
+test "export payload falls back for an empty Editing Document" {
+  let initial = test_editing()
+  let (documents, _) = initial.documents.reduce(
+    DocumentsTextChanged("one", "", documents_test_order(1L)),
+  )
+  assert_eq(export_payload({ ..initial, documents, }), ("untitled.md", ""))
 }
 
 ///|
@@ -265,6 +346,7 @@ test "final active delete falls back to a new document" {
     mode: Text,
     compact: false,
     preview,
+    import_failed: false,
     new_preparation_request_id: 0,
   }
   let (documents, decisions) = initial.documents.reduce(DeleteConfirmed("one"))

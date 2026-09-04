@@ -21,6 +21,8 @@ fn Documents::reduce(
       }
       ({ ..self, records: append_record(self.records, record) }, [])
     }
+    DocumentsImported(document_id, text, observed) =>
+      import_document(self, document_id, text, observed)
     DocumentsTextChanged(document_id, text, observed) =>
       apply_text(self, document_id, text, observed)
     DocumentsCompositionStarted(document_id) =>

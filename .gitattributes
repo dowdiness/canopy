@@ -15,6 +15,9 @@ modules/canvas-spatial/pkg.generated.mbti whitespace=-blank-at-eof
 modules/skyline/pkg.generated.mbti whitespace=-blank-at-eof
 modules/canvas-layout/skyline/pkg.generated.mbti whitespace=-blank-at-eof
 
+# Loomark import fixtures contain deliberately malformed and non-LF bytes.
+apps/loomark/examples/vanilla/tests/fixtures/* binary
+
 # Preserve the existing CRLF line endings in Ideal Playwright specs while
 # treating their line terminators as valid whitespace in diff checks.
 apps/ideal/web/e2e/*.ts whitespace=cr-at-eol

@@ -30,6 +30,7 @@ priv struct EditingState {
   mode : EditorMode
   compact : Bool
   preview : @preview.State
+  import_failed : Bool
   new_preparation_request_id : Int
 } derive(Eq)
 
@@ -63,6 +64,11 @@ priv enum Msg {
   CompositionStarted(Activation)
   CompositionEnded(Activation)
   ModeSelected(EditorMode)
+  ImportFilesSelected(FixedArray[@dom.File])
+  ImportReadCompleted(Result[Bytes, Error])
+  ImportCreateCompleted(String, @source_repository.CreateResult)
+  DismissImportFailure
+  ExportRequested
   PreviewEvent(@preview.Event)
   ViewportChanged(Int)
   DocumentsLifecycle(DocumentsFeedback)

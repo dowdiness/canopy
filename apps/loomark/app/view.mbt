@@ -261,11 +261,36 @@ fn mode_bar(
           ),
         ),
       ]),
-      examples_bar(
-        emit,
-        editing.activation,
-        disabled=editing.creation == Creating,
-      ),
+      @html.div(class="flex min-w-0 items-center gap-1", [
+        examples_bar(
+          emit,
+          editing.activation,
+          disabled=editing.creation == Creating,
+        ),
+        @html.label(
+          class="relative flex min-h-8 shrink-0 cursor-pointer items-center rounded-md border border-lm-rule bg-transparent px-2 py-1 text-xs text-lm-muted transition-colors duration-150 hover:bg-[oklch(0.955_0.003_255)] hover:text-lm-ink has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-lm-accent max-[641px]:min-h-11",
+          title="Import Markdown",
+          for_="loomark-import",
+          [
+            @html.text("Import"),
+            @html.input(
+              input_type=File,
+              id="loomark-import",
+              class="absolute inset-0 cursor-pointer opacity-0",
+              on_files=emit.map(files => ImportFilesSelected(files)),
+              attrs=@html.Attrs::build().aria_label("Import Markdown"),
+            ),
+          ],
+        ),
+        @html.button(
+          type_="button",
+          class="min-h-8 shrink-0 cursor-pointer rounded-md border border-lm-rule bg-transparent px-2 py-1 text-xs text-lm-muted transition-colors duration-150 hover:bg-[oklch(0.955_0.003_255)] hover:text-lm-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lm-accent max-[641px]:min-h-11",
+          title="Export Markdown",
+          attrs=@html.Attrs::build().aria_label("Export Markdown"),
+          on_click=emit(ExportRequested),
+          "Export",
+        ),
+      ]),
     ],
   )
 }
@@ -308,6 +333,13 @@ fn text_area_view(
 }
 
 ///|
+fn import_failure_view(emit : @rabbita.Emit[Msg]) -> @rabbita.Html {
+  failure_notice(
+    "The Markdown file could not be imported.",
+    "Dismiss",
+    emit(DismissImportFailure),
+  )
+}
 
 ///|
 fn creation_failure_view(
@@ -460,6 +492,11 @@ fn view(
                           )
                         _ => @html.nothing
                       }
+                  },
+                  if editing.import_failed {
+                    import_failure_view(emit)
+                  } else {
+                    @html.nothing
                   },
                 ],
               ),

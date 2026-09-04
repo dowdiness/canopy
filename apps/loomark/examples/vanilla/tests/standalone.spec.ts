@@ -495,6 +495,64 @@ async function readStoreMutationLog(page: Page): Promise<StoreMutationObservatio
   ))
 }
 
+test("Export downloads the current Document text with its Derived name", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  const source = "## Export name\n\nCurrent text\n"
+  await text.fill(source)
+
+  const downloadPromise = page.waitForEvent("download")
+  await page.getByRole("button", { name: "Export Markdown" }).click()
+  const download = await downloadPromise
+
+  expect(download.suggestedFilename()).toBe("Export name.md")
+  const stream = await download.createReadStream()
+  stream.setEncoding("utf8")
+  let downloaded = ""
+  for await (const chunk of stream) downloaded += chunk
+  expect(downloaded).toBe(source)
+})
+
+test("Import activates, saves, and reopens normalized text", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  const normalized = "Imported\ntext\n"
+
+  await page.getByLabel("Import Markdown")
+    .setInputFiles("tests/fixtures/import-bom-crlf.bin")
+
+  await expect(text).toHaveValue(normalized)
+  await expect.poll(() => readStoredDocuments(page)).toEqual([{
+    document_id: expect.any(String),
+    text: normalized,
+  }])
+  await page.reload()
+  await expect(text).toHaveValue(normalized)
+})
+
+test("importing the same file twice creates two Documents", async ({ page }) => {
+  await page.goto("/")
+  const file = page.getByLabel("Import Markdown")
+  const selected = "tests/fixtures/import-bom-crlf.bin"
+
+  await file.setInputFiles(selected)
+  await expect.poll(() => readStoredDocuments(page)).toHaveLength(1)
+  await file.setInputFiles(selected)
+  await expect.poll(() => readStoredDocuments(page)).toHaveLength(2)
+})
+
+test("Import rejects malformed UTF-8 without creating a Source", async ({ page }) => {
+  await page.goto("/")
+  await page.getByLabel("Import Markdown")
+    .setInputFiles("tests/fixtures/import-malformed-utf8.md")
+
+  await expect(page.getByRole("alert")).toContainText(
+    "The Markdown file could not be imported.",
+  )
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("")
+  expect(await readStoredDocuments(page)).toEqual([])
+})
+
 test("fresh production opens Text mode and preserves its textarea and undo history across modes", async ({ page }) => {
   const workerUrls: string[] = []
   page.on("worker", worker => workerUrls.push(worker.url()))
@@ -625,7 +683,7 @@ test("several Sources select the first lexical Document ID", async ({ page }) =>
     exact: true,
   })).toBeVisible()
   await expect(documents.getByRole("button", {
-    name: "Unnamed document",
+    name: "Body only",
     exact: true,
   }))
     .toBeVisible()
@@ -907,6 +965,22 @@ test("final Delete leaves an empty New with a live Split Preview", async ({ page
 // The browser's crypto.randomUUID property is non-configurable in the supported
 // Playwright runtime, so the obsolete identity-retry browser case is covered by
 // the pure repository tests instead of attempting to patch the platform API.
+test("Document control icons remain rendered", async ({ page }) => {
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  await page.getByRole("textbox", { name: "Text" }).fill("# Icon test\n")
+
+  const icons = [
+    page.getByRole("button", { name: "Documents", exact: true }).locator("span").first(),
+    page.getByRole("button", { name: "New document" }).locator("span").first(),
+    page.getByRole("button", { name: "Toggle documents" }).locator("span").first(),
+    page.getByRole("button", { name: 'Delete "Icon test"' }).locator("span").first(),
+  ]
+  for (const icon of icons) {
+    await expect(icon).not.toHaveCSS("mask-image", "none")
+  }
+})
+
 test("Document controls remain accessible without horizontal overflow at 390 px", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto("/")

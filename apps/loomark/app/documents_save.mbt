@@ -1,4 +1,44 @@
 ///|
+fn import_document(
+  documents : Documents,
+  document_id : String,
+  text : String,
+  observed : @source_repository.ChangeOrder,
+) -> (Documents, Array[DocumentsDecision]) {
+  guard find_record(documents.records, document_id) is None else {
+    return (documents, [])
+  }
+  match documents.change_order_floor.advance(observed) {
+    None => (documents, [])
+    Some(order) => {
+      guard @source_repository.SourceRecord::new(
+          document_id,
+          text,
+          change_order=order,
+        )
+        is Some(source) else {
+        return (documents, [])
+      }
+      let (record, decisions) = begin_save({
+        source,
+        origin: New,
+        composing: false,
+        save: Saved,
+        delete: Available,
+      })
+      (
+        {
+          ..documents,
+          records: append_record(documents.records, record),
+          change_order_floor: order,
+        },
+        decisions,
+      )
+    }
+  }
+}
+
+///|
 fn apply_text(
   documents : Documents,
   document_id : String,

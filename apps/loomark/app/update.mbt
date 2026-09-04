@@ -28,6 +28,37 @@ fn preview_input(editing : EditingState) -> @preview.Input {
 }
 
 ///|
+fn decode_import(bytes : Bytes) -> String? {
+  Some(
+    @utf8.decode(bytes.view(), ignore_bom=true)
+    .replace_all(old="\r\n", new="\n")
+    .replace_all(old="\r", new="\n"),
+  ) catch {
+    _ => None
+  }
+}
+
+///|
+fn export_payload(editing : EditingState) -> (String, String) {
+  let text = editing.documents
+    .text(editing.activation.document_id)
+    .unwrap_or("")
+  let filename = match @source_repository.derive_name(text) {
+    Ok(Some(name)) => name + ".md"
+    Ok(None) | Err(_) => "untitled.md"
+  }
+  (filename, text)
+}
+
+///|
+#warnings("-unused_async")
+async fn download_export(filename : String, text : String) -> Unit noraise {
+  @dom_boundary.download_text(filename, text) catch {
+    _ => ()
+  }
+}
+
+///|
 fn deletion_blocks_document_changes(editing : EditingState) -> Bool {
   let document_id = editing.activation.document_id
   let persistence_blocks = match editing.documents.delete_status(document_id) {
@@ -233,6 +264,7 @@ fn update(
               mode: Text,
               compact,
               preview,
+              import_failed: false,
               new_preparation_request_id: 0,
             }),
             command,
@@ -293,6 +325,7 @@ fn update(
                 mode: preparing.mode,
                 compact: preparing.compact,
                 preview,
+                import_failed: false,
                 new_preparation_request_id: preparing.request_id,
               }),
               command,
@@ -424,6 +457,64 @@ fn update(
       } else {
         (Editing(editing), @cmd.none)
       }
+    }
+    (Editing(editing), ImportFilesSelected(files)) =>
+      match files.get(0) {
+        None => (Editing(editing), @cmd.none)
+        Some(file) =>
+          (
+            Editing({ ..editing, import_failed: false }),
+            @cmd.attempt(result => emit(ImportReadCompleted(result)), async fn() {
+              file.as_blob().bytes()
+            }),
+          )
+      }
+    (Editing(editing), ImportReadCompleted(Err(_))) =>
+      (Editing({ ..editing, import_failed: true }), @cmd.none)
+    (Editing(editing), ImportReadCompleted(Ok(bytes))) =>
+      match decode_import(bytes) {
+        None => (Editing({ ..editing, import_failed: true }), @cmd.none)
+        Some(text) =>
+          (
+            Editing(editing),
+            @source_repository.create(
+              editing.documents.snapshot(),
+              result=emit.map(result => ImportCreateCompleted(text, result)),
+            ),
+          )
+      }
+    (Editing(editing), ImportCreateCompleted(_, Failed(_))) =>
+      (Editing({ ..editing, import_failed: true }), @cmd.none)
+    (Editing(editing), ImportCreateCompleted(text, Created(document_id))) => {
+      let observed = @source_repository.ChangeOrder::from_int64(
+        observed_change_order(),
+      ).unwrap()
+      let (next, persist) = reduce_documents(
+        editing,
+        DocumentsImported(document_id, text, observed),
+        emit,
+      )
+      if next.documents.text(document_id) is None {
+        (Editing({ ..editing, import_failed: true }), @cmd.none)
+      } else {
+        let (next, surface) = activate(
+          { ..next, creation: Idle, deletion: NoDeletion, import_failed: false },
+          document_id,
+          emit,
+          text_area,
+          preview_engine,
+        )
+        (Editing(next), @cmd.batch([persist, surface]))
+      }
+    }
+    (Editing(editing), DismissImportFailure) =>
+      (Editing({ ..editing, import_failed: false }), @cmd.none)
+    (Editing(editing), ExportRequested) => {
+      let (filename, text) = export_payload(editing)
+      (
+        Editing(editing),
+        @cmd.effect(async fn() noraise { download_export(filename, text) }),
+      )
     }
     (Editing(editing), PreviewEvent(event)) => {
       let (preview, command) = preview_engine.update(

@@ -72,6 +72,7 @@ priv enum DocumentsFeedback {
 ///|
 priv enum DocumentsEvent {
   DocumentsNew(String)
+  DocumentsImported(String, String, @source_repository.ChangeOrder)
   DocumentsTextChanged(String, String, @source_repository.ChangeOrder)
   DocumentsCompositionStarted(String)
   DocumentsCompositionEnded(String)

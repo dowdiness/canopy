@@ -29,7 +29,7 @@ test "Document sidebar labels disambiguate Source-derived identities" {
   let entries = snapshot.catalog().entries()
   assert_eq(document_option_label(entries, 0, entries[0]), "Untitled (1 of 2)")
   assert_eq(document_option_label(entries, 1, entries[1]), "Untitled (2 of 2)")
-  assert_eq(document_option_label(entries, 2, entries[2]), "Unnamed document")
+  assert_eq(document_option_label(entries, 2, entries[2]), "Body only")
 }
 
 ///|

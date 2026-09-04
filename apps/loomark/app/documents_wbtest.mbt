@@ -20,6 +20,46 @@ fn documents_test_current_order(
 }
 
 ///|
+test "Import accepts empty text and persists it immediately as New" {
+  let documents = initial_documents(documents_test_snapshot())
+  let (documents, decisions) = documents.reduce(
+    DocumentsImported("imported", "", documents_test_order(7L)),
+  )
+  assert_eq(documents.text("imported"), Some(""))
+  guard decisions is [DocumentsDecision::DocumentsPersist(operation)] &&
+    operation.origin == DocumentOrigin::New else {
+    fail("expected one New persistence decision")
+  }
+  assert_eq(
+    operation.source,
+    @source_repository.SourceRecord::new(
+      "imported",
+      "",
+      change_order=documents_test_order(7L),
+    ).unwrap(),
+  )
+}
+
+///|
+test "failed Import remains available through the existing Retry" {
+  let documents = initial_documents(documents_test_snapshot())
+  let (documents, decisions) = documents.reduce(
+    DocumentsImported("imported", "text", documents_test_order(7L)),
+  )
+  guard decisions is [DocumentsPersist(operation)] else { fail("persist") }
+  let (documents, _) = documents.reduce(
+    DocumentsFeedbackReceived(SaveCompleted(operation, Failed(WriteFailed))),
+  )
+  assert_eq(documents.text("imported"), Some("text"))
+  guard documents.save_status("imported") is Some(Failed(WriteFailed)) else {
+    fail("expected retryable failure")
+  }
+  let (_, decisions) = documents.reduce(DocumentsRetrySave("imported"))
+  guard decisions is [DocumentsPersist(retry)] else { fail("retry") }
+  assert_eq(retry.source, operation.source)
+}
+
+///|
 test "a second document persists while the first document is in flight" {
   let documents = initial_documents(documents_test_snapshot())
   let (documents, _) = documents.reduce(
@@ -628,4 +668,9 @@ test "change order exhaustion keeps authority unchanged and fails" {
     is Some(Failed(@source_repository.SaveFailure::ChangeOrderExhausted)) else {
     fail("exhaustion fails")
   }
+  let (documents, decisions) = documents.reduce(
+    DocumentsImported("imported", "text", max),
+  )
+  assert_eq(documents.text("imported"), None)
+  assert_true(decisions.is_empty())
 }
