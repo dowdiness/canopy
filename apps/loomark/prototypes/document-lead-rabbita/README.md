@@ -5,7 +5,9 @@ as expected in the actual Rabbita runtime:
 
 ```text
 Val[Vector[LeadSource]]
-  -> app-scoped assoc_by(DocumentId)        pure lead nodes
+  -> app-scoped assoc_by(DocumentId)
+       -> project content identity          pure lead nodes
+       -> combine lead + presentation state recent inputs
   -> visibility.switch_by
   -> visible assoc_by(DocumentId)           rendered row nodes
 ```
@@ -27,10 +29,13 @@ Then open the printed URL. Suggested walkthrough:
    visible branch appear.
 3. **Hide**: row and visible branches dispose; pure branches remain.
 4. **Show** again: row branches rebuild without another extraction.
-5. **Hide**, **Change A**, **Refresh counters**: extraction remains unchanged.
-6. **Show**: only A extracts again.
-7. **Hide**, **Delete B**, **Refresh counters**: B's pure branch remains.
-8. **Show**: B's pure branch disposes before only A is rendered.
+5. While visible, **Change A status only**: A's row rerenders, but extraction
+   remains unchanged.
+6. **Hide**, **Change A content**, **Refresh counters**: extraction remains
+   unchanged.
+7. **Show**: only A extracts again.
+8. **Hide**, **Delete B**, **Refresh counters**: B's pure branch remains.
+9. **Show**: B's pure branch disposes before only A is rendered.
 
 ## Verdict
 
@@ -42,13 +47,15 @@ Observed in the Rabbita browser runtime:
 - Hide disposed both row branches and the visible branch while disposing no pure
   branch.
 - An unchanged reopen rebuilt both rows without another extraction.
-- Changing A while hidden ran no extraction; the next Show extracted only A.
+- Changing only A's presentation status rerendered A without extracting it.
+- Changing A's content while hidden ran no extraction; the next Show extracted
+  only A.
 - Deleting B while hidden did not dispose its pure branch; the next Show disposed
   B before rendering only A.
 
 The observed behavior matches the proposed two-layer topology. It validates the
-Rabbita demand, reuse, and delayed keyed-reconciliation assumptions needed for
-an implementation plan.
+Rabbita demand, reuse, orthogonal-input suppression, and delayed
+keyed-reconciliation assumptions needed for an implementation plan.
 
 This probe deliberately excludes Markdown parsing, responsive layout, Autosave,
 and production Sidebar integration. It belongs only on

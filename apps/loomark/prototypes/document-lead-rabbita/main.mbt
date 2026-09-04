@@ -7,6 +7,14 @@ priv struct LeadSource {
   id : String
   revision : Int
   text : String
+  status : String
+} derive(Eq)
+
+///|
+priv struct LeadContent {
+  id : String
+  revision : Int
+  text : String
 } derive(Eq)
 
 ///|
@@ -14,6 +22,12 @@ priv struct Lead {
   id : String
   revision : Int
   text : String
+} derive(Eq)
+
+///|
+priv struct RecentInput {
+  lead : Lead
+  status : String
 } derive(Eq)
 
 ///|
@@ -28,6 +42,7 @@ priv struct Model {
 priv enum Msg {
   Toggle
   ChangeA
+  ChangeAStatus
   ChangeB
   DeleteB
   RestoreB
@@ -127,43 +142,50 @@ fn instrumented_anchor(kind : BranchKind, id : String) -> @rabbita.Val[Unit] {
 fn lead_component(
   id : String,
   source : @rabbita.Val[LeadSource],
-) -> @rabbita.Val[Lead] {
+) -> @rabbita.Val[RecentInput] {
   pure_branch_builds.val += 1
   record("build pure:\{id}")
   let anchor = instrumented_anchor(PureBranch, id)
-  source.map2(anchor, (source, _) => {
-    extraction_runs.val += 1
-    record("extract \{source.id}@\{source.revision}")
-    { id: source.id, revision: source.revision, text: source.text }
+  let content = source.map(source => LeadContent::{
+    id: source.id,
+    revision: source.revision,
+    text: source.text,
   })
+  let lead = content.map2(anchor, (content, _) => {
+    extraction_runs.val += 1
+    record("extract \{content.id}@\{content.revision}")
+    Lead::{ id: content.id, revision: content.revision, text: content.text }
+  })
+  source.map2(lead, (source, lead) => { lead, status: source.status })
 }
 
 ///|
 fn row_component(
   id : String,
-  lead : @rabbita.Val[Lead],
+  input : @rabbita.Val[RecentInput],
 ) -> @rabbita.Val[@html.Html] {
   row_branch_builds.val += 1
   record("build row:\{id}")
   let anchor = instrumented_anchor(RowBranch, id)
-  lead.map2(anchor, (lead, _) => {
+  input.map2(anchor, (input, _) => {
     row_render_runs.val += 1
-    record("render row \{lead.id}@\{lead.revision}")
+    record("render row \{input.lead.id}@\{input.lead.revision} \{input.status}")
     @html.li([
-      @html.strong("\{lead.id}@\{lead.revision}"),
-      @html.span(class="lead-text", lead.text),
+      @html.strong("\{input.lead.id}@\{input.lead.revision}"),
+      @html.span(class="lead-text", input.lead.text),
+      @html.span(class="lead-text", input.status),
     ])
   })
 }
 
 ///|
 fn visible_component(
-  leads : @rabbita.Val[Vector[Lead]],
+  leads : @rabbita.Val[Vector[RecentInput]],
 ) -> @rabbita.Val[@html.Html] {
   visible_branch_builds.val += 1
   record("build visible")
   let anchor = instrumented_anchor(VisibleBranch, "recent-documents")
-  let rows = leads.assoc_by(row_component, by=lead => lead.id)
+  let rows = leads.assoc_by(row_component, by=input => input.lead.id)
   rows.map2(anchor, (rows, _) => {
     @html.section(class="recent", [@html.h2("Visible rows"), @html.ul(rows)])
   })
@@ -197,6 +219,17 @@ fn update(model : Model, msg : Msg) -> Model {
   match msg {
     Toggle => { ..model, visible: !model.visible, refresh: model.refresh + 1 }
     ChangeA => update_source(model, "A")
+    ChangeAStatus => {
+      let sources = model.sources.map(source => {
+        if source.id == "A" {
+          let status = if source.status == "saved" { "saving" } else { "saved" }
+          { ..source, status, }
+        } else {
+          source
+        }
+      })
+      { ..model, sources, refresh: model.refresh + 1 }
+    }
     ChangeB => update_source(model, "B")
     DeleteB =>
       {
@@ -216,6 +249,7 @@ fn update(model : Model, msg : Msg) -> Model {
             id: "B",
             revision,
             text: "B restored at revision \{revision}",
+            status: "saved",
           }),
           next_revision: revision + 1,
           refresh: model.refresh + 1,
@@ -241,7 +275,9 @@ fn shell(
   content : @html.Html,
 ) -> @html.Html {
   let sources = model.sources.map(source => {
-    @html.li("\{source.id}@\{source.revision}: \{source.text}")
+    @html.li(
+      "\{source.id}@\{source.revision} [\{source.status}]: \{source.text}",
+    )
   })
   @html.div(class="probe-shell", [
     @html.header([
@@ -261,7 +297,8 @@ fn shell(
           "Show"
         },
       ),
-      @html.button(on_click=emit(ChangeA), "Change A"),
+      @html.button(on_click=emit(ChangeA), "Change A content"),
+      @html.button(on_click=emit(ChangeAStatus), "Change A status only"),
       @html.button(on_click=emit(ChangeB), "Change B"),
       @html.button(on_click=emit(DeleteB), "Delete B"),
       @html.button(on_click=emit(RestoreB), "Restore B"),
@@ -299,8 +336,8 @@ fn app() -> @rabbita.Val[@html.Html] {
     {
       visible: false,
       sources: @vector.Vector([
-        { id: "A", revision: 1, text: "# Alpha" },
-        { id: "B", revision: 2, text: "- [ ] Beta" },
+        { id: "A", revision: 1, text: "# Alpha", status: "saved" },
+        { id: "B", revision: 2, text: "- [ ] Beta", status: "saved" },
       ]),
       next_revision: 3,
       refresh: 0,
