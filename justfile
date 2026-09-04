@@ -142,6 +142,14 @@ ci: check-all test-all
 registry-refresh:
     @bash "{{ moon_update }}"
 
+# Run the throwaway Loomark Document-lead cache lifecycle prototype
+prototype-loomark-document-lead-cache viewport="narrow":
+    @node apps/loomark/prototypes/document-lead-cache/cli.mjs --{{ viewport }}
+
+# Run the throwaway Loomark Document-lead graph against the Rabbita browser runtime
+prototype-loomark-document-lead-rabbita:
+    @apps/loomark/prototypes/document-lead-rabbita/run.sh
+
 # Run benchmarks
 bench:
     @moon bench --release

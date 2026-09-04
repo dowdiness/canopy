@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PROTOTYPE — Loomark Document-lead Rabbita probe</title>
+    <link rel="icon" href="data:," />
+    <style>
+      :root { color-scheme: dark; font-family: ui-monospace, monospace; background: #111528; color: #e5e7f2; }
+      * { box-sizing: border-box; }
+      body { margin: 0; }
+      .probe-shell { width: min(72rem, 100%); margin: auto; padding: 2rem; }
+      .eyebrow { color: #a99cf4; letter-spacing: .12em; font-size: .75rem; }
+      h1, h2, p { margin-block: 0 1rem; }
+      button { border: 1px solid #515778; border-radius: .4rem; padding: .6rem .8rem; background: #242943; color: inherit; cursor: pointer; }
+      button:hover { background: #323958; }
+      .actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-block: 1.5rem; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .5rem; }
+      .metric { padding: .8rem; border: 1px solid #343956; background: #191e34; }
+      .metric-value, .metric-name { display: block; }
+      .metric-value { font-size: 1.4rem; color: #c5bcff; }
+      .metric-name { margin-top: .25rem; color: #9ba2bb; font-size: .75rem; }
+      .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
+      .columns > div, .recent, .hidden { border: 1px solid #343956; padding: 1rem; background: #151a2e; }
+      .recent, .hidden { margin-top: 1rem; }
+      li { margin-block: .45rem; }
+      .lead-text { margin-left: .75rem; color: #abb1c9; }
+      pre { min-height: 24rem; overflow: auto; white-space: pre-wrap; color: #bec4da; }
+      @media (max-width: 48rem) { .columns { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <div id="app">Loading prototype…</div>
+    <script src="/_build/js/debug/build/dowdiness/loomark/prototypes/document-lead-rabbita/document-lead-rabbita.js"></script>
+  </body>
+</html>
