@@ -51,13 +51,9 @@ pub fn get_text(Int) -> String
 
 pub fn get_version_json(Int) -> String raise
 
-pub fn handle_redo(Int) -> Bool raise Failure
-
 pub fn handle_text_intent(Int, Int, Int, String, Int) -> Unit raise
 
 pub fn handle_text_intent_checked(Int, Int, Int, String, Int) -> Bool raise
-
-pub fn handle_undo(Int) -> Bool raise Failure
 
 pub fn insert_at(Int, Int, String, Int) -> Unit raise
 
@@ -101,6 +97,8 @@ pub enum EditorMode {
   Text
   Structure
 } derive(Eq)
+
+type HistoryDirection
 
 type IncrCanvasMsg
 

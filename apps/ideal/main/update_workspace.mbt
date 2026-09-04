@@ -11,6 +11,22 @@ fn sync_after_history_change(model : Model) -> (Cmd, Model) raise {
 }
 
 ///|
+fn apply_history(
+  model : Model,
+  direction : HistoryDirection,
+) -> (Cmd, Model) raise {
+  let changed = match direction {
+    UndoHistory => model.editor.undo()
+    RedoHistory => model.editor.redo()
+  }
+  if changed {
+    sync_after_history_change(model)
+  } else {
+    (none, model)
+  }
+}
+
+///|
 fn handle_workspace(
   emit : Emit[Msg],
   msg : Msg,
@@ -64,24 +80,8 @@ fn handle_workspace(
       }
       Some((none, { ..model, sync_status, }))
     }
-    Undo => {
-      let did_undo = model.editor.undo()
-      if did_undo {
-        let (cmd, new_model) = sync_after_history_change(model)
-        Some((cmd, new_model))
-      } else {
-        Some((none, model))
-      }
-    }
-    Redo => {
-      let did_redo = model.editor.redo()
-      if did_redo {
-        let (cmd, new_model) = sync_after_history_change(model)
-        Some((cmd, new_model))
-      } else {
-        Some((none, model))
-      }
-    }
+    Undo => Some(apply_history(model, UndoHistory))
+    Redo => Some(apply_history(model, RedoHistory))
     _ => None
   }
 }

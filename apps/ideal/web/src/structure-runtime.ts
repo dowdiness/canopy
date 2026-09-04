@@ -12,7 +12,11 @@ import {
   errorDecoPlugin,
   evalGhostPlugin,
 } from "./decorations";
-import type { CrdtModule, StructureTreeEditCallback } from "./types";
+import type {
+  CrdtModule,
+  StructureHistoryCallback,
+  StructureTreeEditCallback,
+} from "./types";
 
 export type StructureModeSession = {
   applyRemote(syncJson: string): string;
@@ -22,6 +26,7 @@ export type StructureModeSession = {
   setBroadcast(fn: (() => void) | null): void;
   setReadonly(readonly: boolean): void;
   setSelectedNode(id: string | null): void;
+  setStructureHistoryCallback(callback: StructureHistoryCallback | null): void;
   setStructureTreeEditCallback(callback: StructureTreeEditCallback | null): void;
 };
 
@@ -114,14 +119,20 @@ export function createStructureModeSession(
   crdtHandle: number,
   crdt: CrdtModule,
   initialOnEdit: StructureTreeEditCallback = () => {},
+  initialOnHistory: StructureHistoryCallback = () => {},
 ): StructureModeSession {
   let onEdit = initialOnEdit;
+  let onHistory = initialOnHistory;
   const bridge = new CrdtBridge(crdtHandle, crdt);
   const pmView = new PmView(parent, {
     state: PmState.create({
       doc: buildDoc(crdtHandle, crdt),
       plugins: [
-        structuralKeymap(host, edit => onEdit(edit)),
+        structuralKeymap(
+          host,
+          edit => onEdit(edit),
+          direction => onHistory(direction),
+        ),
         actionKeyForwardPlugin(host),
         peerCursorPlugin(),
         errorDecoPlugin(),
@@ -203,6 +214,9 @@ export function createStructureModeSession(
     },
     setSelectedNode(id: string | null): void {
       setSelectedNode(pmView, id);
+    },
+    setStructureHistoryCallback(callback: StructureHistoryCallback | null): void {
+      onHistory = callback ?? (() => {});
     },
     setStructureTreeEditCallback(callback: StructureTreeEditCallback | null): void {
       onEdit = callback ?? (() => {});

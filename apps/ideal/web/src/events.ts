@@ -3,8 +3,6 @@ export const CanopyEvents = {
   EXTERNAL_CRDT_CHANGE: 'external-crdt-changed',
   NODE_SELECTED: 'node-selected',
   CURSOR_MOVE: 'cursor-move',
-  REQUEST_UNDO: 'request-undo',
-  REQUEST_REDO: 'request-redo',
   ACTION_OVERLAY_OPEN: 'action-overlay-open',
   ACTION_KEY: 'action-key',
   LONG_PRESS: 'long-press',

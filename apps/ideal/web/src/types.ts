@@ -6,6 +6,10 @@ export type StructureTreeEdit =
 
 export type StructureTreeEditCallback = (edit: StructureTreeEdit) => void;
 
+export type StructureHistoryDirection = 'Undo' | 'Redo';
+
+export type StructureHistoryCallback = (direction: StructureHistoryDirection) => void;
+
 export interface ProjNodeJson {
   node_id: number;
   kind: any[];
@@ -78,7 +82,5 @@ export interface CrdtModule {
   // Protocol-based intent handlers (Phase 4)
   handle_text_intent(handle: number, from: number, deletedLen: number, insert: string, timestampMs: number): void;
   handle_text_intent_checked(handle: number, from: number, deletedLen: number, insert: string, timestampMs: number): boolean;
-  handle_undo(handle: number): boolean;
-  handle_redo(handle: number): boolean;
   [key: string]: any;
 }
