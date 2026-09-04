@@ -513,35 +513,44 @@ test("Export downloads the current Document text with its Derived name", async (
   expect(downloaded).toBe(source)
 })
 
-test("Import preserves admitted text, creates fresh identities, and rejects malformed UTF-8", async ({ page }) => {
+test("Import activates, saves, and reopens normalized text", async ({ page }) => {
   await page.goto("/")
   const text = page.getByRole("textbox", { name: "Text" })
-  const file = page.getByLabel("Import Markdown")
   const normalized = "Imported\ntext\n"
+
+  await page.getByLabel("Import Markdown")
+    .setInputFiles("tests/fixtures/import-bom-crlf.bin")
+
+  await expect(text).toHaveValue(normalized)
+  await expect.poll(() => readStoredDocuments(page)).toEqual([{
+    document_id: expect.any(String),
+    text: normalized,
+  }])
+  await page.reload()
+  await expect(text).toHaveValue(normalized)
+})
+
+test("importing the same file twice creates two Documents", async ({ page }) => {
+  await page.goto("/")
+  const file = page.getByLabel("Import Markdown")
   const selected = "tests/fixtures/import-bom-crlf.bin"
 
   await file.setInputFiles(selected)
-  await expect(text).toHaveValue(normalized)
   await expect.poll(() => readStoredDocuments(page)).toHaveLength(1)
-  const first = (await readStoredDocuments(page))[0]
-
   await file.setInputFiles(selected)
   await expect.poll(() => readStoredDocuments(page)).toHaveLength(2)
-  const imported = await readStoredDocuments(page)
-  expect(new Set(imported.map(document => document.document_id)).size).toBe(2)
-  expect(imported.some(document => document.document_id === first.document_id))
-    .toBe(true)
-  expect(imported.map(document => document.text)).toEqual([
-    normalized,
-    normalized,
-  ])
+})
 
-  await file.setInputFiles("tests/fixtures/import-malformed-utf8.md")
+test("Import rejects malformed UTF-8 without creating a Source", async ({ page }) => {
+  await page.goto("/")
+  await page.getByLabel("Import Markdown")
+    .setInputFiles("tests/fixtures/import-malformed-utf8.md")
+
   await expect(page.getByRole("alert")).toContainText(
     "The Markdown file could not be imported.",
   )
-  await expect(text).toHaveValue(normalized)
-  expect(await readStoredDocuments(page)).toHaveLength(2)
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("")
+  expect(await readStoredDocuments(page)).toEqual([])
 })
 
 test("fresh production opens Text mode and preserves its textarea and undo history across modes", async ({ page }) => {

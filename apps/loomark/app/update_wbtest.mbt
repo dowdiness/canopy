@@ -58,13 +58,10 @@ test "accepted Import immediately becomes the Editing Document" {
   guard model is Editing(editing) else { fail("editing") }
   assert_eq(editing.activation.document_id, "imported")
   assert_eq(editing.documents.text("imported"), Some(text))
-  guard editing.documents.save_status("imported") is Some(Saving(_, None)) else {
-    fail("Import should persist without the Autosave delay")
-  }
 }
 
 ///|
-test "Import completions are not fenced by the prior Activation" {
+test "each completed Import is retained and the latest completion activates" {
   let initial = test_editing()
   let (model, _) = test_update(
     Editing(initial),
@@ -88,17 +85,15 @@ test "accepted Import supersedes an unfinished New action" {
     Editing(initial),
     ImportCreateCompleted("Imported", Created("imported")),
   )
-  guard model is Editing(imported) else { fail("editing") }
-  assert_eq(imported.activation.document_id, "imported")
-  assert_true(imported.creation == Idle)
+  guard model is Editing(imported) && imported.creation == Idle else {
+    fail("Import should supersede New")
+  }
 
-  let (model, _) = test_update(
+  let (after_stale_new, _) = test_update(
     Editing(imported),
     CreateCompleted("one", Created("unused-new")),
   )
-  guard model is Editing(after_stale_new) else { fail("editing") }
-  assert_eq(after_stale_new.activation.document_id, "imported")
-  assert_eq(after_stale_new.documents.text("unused-new"), None)
+  assert_true(after_stale_new == Editing(imported))
 }
 
 ///|

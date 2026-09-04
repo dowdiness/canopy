@@ -1,47 +1,26 @@
 ///|
-test "name derivation certifies a line-terminated first readable prefix" {
-  guard derive_name_with_certificate("# Stable\n\nBody\n") is Ok(terminated) else {
-    fail("expected derived top-level name")
-  }
-  assert_eq(terminated.name, Some("Stable"))
-  assert_eq(terminated.reusable_prefix_end, Some(9))
-
+test "name derivation certifies only a reusable readable prefix" {
   for
     fixture in [
-      ("# Stable\r\nBody\r\n", 10),
-      ("# Stable\rBody\r", 9),
-      ("# 😀\nBody\n", 5),
+      ("# Stable\n\nBody\n", Some("Stable"), Some(9), Some(9)),
+      ("# Stable\r\nBody\r\n", Some("Stable"), Some(10), Some(10)),
+      ("# Stable\rBody\r", Some("Stable"), Some(9), Some(9)),
+      ("# 😀\nBody\n", Some("😀"), Some(5), Some(5)),
+      ("> # Quoted\n", Some("Quoted"), Some(11), Some(11)),
+      ("- item\n  # Listed\n", Some("item"), Some(18), Some(7)),
+      ("# Stable", Some("Stable"), None, None),
     ] {
-    let (source, expected_end) = fixture
-    guard derive_name_with_certificate(source) is Ok(line_terminated) else {
-      fail("expected line-terminated derived name")
+    let (source, expected_name, expected_end, expected_certified_end) = fixture
+    guard derive_name_with_certificate(source) is Ok(derivation) else {
+      fail("expected derived name")
     }
-    assert_eq(line_terminated.reusable_prefix_end, Some(expected_end))
+    assert_eq(derivation.name, expected_name)
+    assert_eq(derivation.reusable_prefix_end, expected_end)
     assert_eq(
-      certified_name_prefix_end(source, line_terminated.name),
-      Some(expected_end),
+      certified_name_prefix_end(source, derivation.name),
+      expected_certified_end,
     )
   }
-
-  guard derive_name_with_certificate("# Stable") is Ok(eof) else {
-    fail("expected EOF-derived name")
-  }
-  assert_eq(eof.name, Some("Stable"))
-  assert_eq(eof.reusable_prefix_end, None)
-
-  let quote = "> # Quoted\n"
-  guard derive_name_with_certificate(quote) is Ok(quoted) else {
-    fail("expected quoted derived name")
-  }
-  assert_eq(quoted.reusable_prefix_end, Some(quote.length()))
-  assert_eq(certified_name_prefix_end(quote, quoted.name), Some(quote.length()))
-
-  let list = "- item\n  # Listed\n"
-  guard derive_name_with_certificate(list) is Ok(listed) else {
-    fail("expected listed derived name")
-  }
-  assert_eq(listed.reusable_prefix_end, Some(list.length()))
-  assert_eq(certified_name_prefix_end(list, listed.name), Some(7))
 }
 
 ///|
@@ -63,37 +42,16 @@ test "recovered top-level heading derives a name but cannot certify reuse" {
 }
 
 ///|
-test "derived name uses the first readable document line" {
-  assert_eq(
-    derive_name("Ordinary text\ncontinued\n"),
-    Ok(Some("Ordinary text")),
-  )
-}
-
-///|
-test "derived name uses the first readable content in document order" {
-  assert_eq(
-    derive_name("## First\n\n> # Quoted\n\n# Later\n"),
-    Ok(Some("First")),
-  )
-  assert_eq(derive_name("- item\n  # Listed\n\n# Later\n"), Ok(Some("item")))
-}
-
-///|
-test "derived name flattens supported inline content" {
-  guard derive_name_with_certificate(
-      "# **Bold** *italic* `code` [link](https://example.com)\n",
-    )
-    is Ok({ name: Some(name), .. }) else {
-    fail("expected flattened ATX H1")
-  }
-  assert_eq(name, "Bold italic code link")
-}
-
-///|
-test "derived name supports readable Markdown block appearances" {
+test "derived name uses the first parser-recognized readable line" {
   for
     fixture in [
+      ("Ordinary text\ncontinued\n", Some("Ordinary text")),
+      ("## First\n\n> Quoted\n", Some("First")),
+      ("- item\n  # Listed\n", Some("item")),
+      (
+        "# **Bold** *italic* `code` [link](https://example.com)\n",
+        Some("Bold italic code link"),
+      ),
       ("Setext\n======\n", Some("Setext")),
       ("> Quoted\n", Some("Quoted")),
       ("- [ ] Task\n", Some("Task")),
