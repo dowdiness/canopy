@@ -185,6 +185,32 @@ test "checkpoint quiet identity changes while maximum identity stays fresh" {
 }
 
 ///|
+test "maximum eligibility persists latest text during uninterrupted editing" {
+  let documents = initial_documents(documents_test_snapshot())
+  let (documents, decisions) = documents.reduce(
+    DocumentsTextChanged("one", "b", documents_test_order(0L)),
+  )
+  guard decisions
+    is [
+      DocumentsDecision::DocumentsArmQuiet(_, _),
+      DocumentsDecision::DocumentsArmMaximum(_, maximum),
+    ] else {
+    fail("initial timers")
+  }
+  let (documents, _) = documents.reduce(
+    DocumentsTextChanged("one", "c", documents_test_order(1L)),
+  )
+  let (_, decisions) = documents.reduce(
+    DocumentsFeedbackReceived(MaximumElapsed("one", maximum)),
+  )
+  guard decisions is [DocumentsDecision::DocumentsPersist(operation)] else {
+    fail("maximum persist")
+  }
+  assert_eq(operation.source.text(), "c")
+  assert_eq(operation.source.change_order().value(), 2L)
+}
+
+///|
 test "returning to operation text while saving preserves final fresh order" {
   let documents = initial_documents(documents_test_snapshot())
   let (documents, _) = documents.reduce(
@@ -199,9 +225,10 @@ test "returning to operation text while saving preserves final fresh order" {
   let (documents, _) = documents.reduce(
     DocumentsTextChanged("one", "one", documents_test_order(1L)),
   )
-  let (documents, _) = documents.reduce(
+  let (documents, decisions) = documents.reduce(
     DocumentsFeedbackReceived(QuietElapsed("one", documents_test_order(2L))),
   )
+  assert_true(decisions.is_empty())
   let (documents, decisions) = documents.reduce(
     DocumentsFeedbackReceived(
       SaveCompleted(
