@@ -62,7 +62,6 @@ export interface CrdtModule {
   set_text(handle: number, text: string): void;
   set_text_and_record?(handle: number, text: string, timestampMs: number): void;
   get_proj_node_json(handle: number): string;
-  get_source_map_json(handle: number): string;
   get_errors_json(handle: number): string;
   get_version_json(handle: number): string;
   insert_at(handle: number, pos: number, char: string, timestamp: number): void;
@@ -81,6 +80,5 @@ export interface CrdtModule {
   ephemeral_remove_outdated(handle: number): void;
   // Protocol-based intent handlers (Phase 4)
   handle_text_intent(handle: number, from: number, deletedLen: number, insert: string, timestampMs: number): void;
-  handle_text_intent_checked(handle: number, from: number, deletedLen: number, insert: string, timestampMs: number): boolean;
   [key: string]: any;
 }

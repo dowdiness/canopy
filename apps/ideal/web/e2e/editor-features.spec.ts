@@ -288,9 +288,7 @@ test.describe('External Sync', () => {
       if (b.crdt.apply_sync_json(remote, initial) !== 'ok') {
         throw new Error('failed to seed remote editor');
       }
-      if (!b.crdt.handle_text_intent_checked(remote, 0, 0, 'R', 1)) {
-        throw new Error('failed to create remote edit');
-      }
+      b.crdt.insert_at(remote, 0, 'R', 1);
       const remoteState = b.crdt.export_all_json(remote);
       if (b.crdt.apply_sync_json(primary, remoteState) !== 'ok') {
         throw new Error('failed to apply remote edit');

@@ -13,14 +13,12 @@ export const editorSchema = new Schema({
     let_def: {
       content: "term",
       attrs: { name: { default: "x" }, nodeId: { default: null } },
-      // Rendered by LetDefView NodeView — toDOM is fallback
       toDOM(node) { return ["div", { class: "pm-let-def" }, 0] as const; },
     },
     lambda: {
       content: "term",
       group: "term",
       attrs: { param: { default: "x" }, nodeId: { default: null } },
-      // Rendered by LambdaView NodeView — toDOM is fallback
       toDOM(node) { return ["span", { class: "pm-lambda" }, 0] as const; },
     },
     application: {
@@ -47,21 +45,18 @@ export const editorSchema = new Schema({
       group: "term",
       atom: true,
       attrs: { value: { default: 0 }, nodeId: { default: null } },
-      // Rendered by TermLeafView NodeView — toDOM is fallback
       toDOM(node) { return ["span", { class: "pm-int-literal" }, String(node.attrs.value)] as const; },
     },
     var_ref: {
       group: "term",
       atom: true,
       attrs: { name: { default: "x" }, nodeId: { default: null } },
-      // Rendered by TermLeafView NodeView — toDOM is fallback
       toDOM(node) { return ["span", { class: "pm-var-ref" }, node.attrs.name] as const; },
     },
     unbound_ref: {
       group: "term",
       atom: true,
       attrs: { name: { default: "x" }, nodeId: { default: null } },
-      // Rendered by TermLeafView NodeView — toDOM is fallback
       toDOM(node) { return ["span", { class: "pm-unbound-ref" }, node.attrs.name] as const; },
     },
     error_node: {

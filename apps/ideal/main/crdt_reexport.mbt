@@ -186,8 +186,8 @@ pub fn handle_text_intent(
 /// Bounds-checked variant of `handle_text_intent`. Returns false when the
 /// requested splice would have been silently clamped by the editor seam,
 /// leaving the CRDT untouched so the caller can resync without
-/// broadcasting a clamped delta to peers. Used by the structural-mode
-/// bridge in `apps/ideal/web/src/bridge.ts`.
+/// broadcasting a clamped delta to peers. Retained as a forwarding
+/// compatibility surface; Ideal's mounted Structure runtime does not use it.
 pub fn handle_text_intent_checked(
   handle : Int,
   from : Int,
