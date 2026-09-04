@@ -7,6 +7,8 @@
 @source "../internal/preview";
 @source not "../internal/preview/*test.mbt";
 @source not "../internal/preview/*benchmark*.mbt";
+@source "../internal/view";
+@source not "../internal/view/*test.mbt";
 
 @theme {
   --color-lm-foundation: oklch(0.97 0.003 255);

@@ -965,6 +965,22 @@ test("final Delete leaves an empty New with a live Split Preview", async ({ page
 // The browser's crypto.randomUUID property is non-configurable in the supported
 // Playwright runtime, so the obsolete identity-retry browser case is covered by
 // the pure repository tests instead of attempting to patch the platform API.
+test("Document control icons remain rendered", async ({ page }) => {
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  await page.getByRole("textbox", { name: "Text" }).fill("# Icon test\n")
+
+  const icons = [
+    page.getByRole("button", { name: "Documents", exact: true }).locator("span").first(),
+    page.getByRole("button", { name: "New document" }).locator("span").first(),
+    page.getByRole("button", { name: "Toggle documents" }).locator("span").first(),
+    page.getByRole("button", { name: 'Delete "Icon test"' }).locator("span").first(),
+  ]
+  for (const icon of icons) {
+    await expect(icon).not.toHaveCSS("mask-image", "none")
+  }
+})
+
 test("Document controls remain accessible without horizontal overflow at 390 px", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto("/")
