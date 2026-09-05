@@ -230,39 +230,17 @@ test "accepted suffix edit reuses certified Catalog name" {
   let original = RepositorySnapshot::from_sources([
     test_source("document-a", "# Stable\n\nOld body\n"),
   ]).unwrap()
-  assert_eq(
-    certified_name_prefix_end(
-      original.source("document-a").unwrap().text(),
-      original.catalog().entries()[0].name(),
-    ),
-    Some(9),
-  )
-
   let suffix = accepted_source(
     original,
     test_source("document-a", "# Stable\n\nNew body with # Later\n"),
   )
   assert_eq(suffix.catalog().entries()[0].name(), Some("Stable"))
-  assert_eq(
-    certified_name_prefix_end(
-      suffix.source("document-a").unwrap().text(),
-      suffix.catalog().entries()[0].name(),
-    ),
-    Some(9),
-  )
 
   let changed = accepted_source(
     suffix,
     test_source("document-a", "# Changed\n\nNew body\n"),
   )
   assert_eq(changed.catalog().entries()[0].name(), Some("Changed"))
-  assert_eq(
-    certified_name_prefix_end(
-      changed.source("document-a").unwrap().text(),
-      changed.catalog().entries()[0].name(),
-    ),
-    Some(10),
-  )
 }
 
 ///|
@@ -271,13 +249,6 @@ test "accepted recovered heading suffix edit cannot use certified reuse" {
     test_source("document-a", "# )bad\n\nOld body\n"),
   ]).unwrap()
   assert_eq(original.catalog().entries()[0].name(), Some(")bad"))
-  assert_eq(
-    certified_name_prefix_end(
-      original.source("document-a").unwrap().text(),
-      original.catalog().entries()[0].name(),
-    ),
-    None,
-  )
 
   let accepted = accepted_source(
     original,

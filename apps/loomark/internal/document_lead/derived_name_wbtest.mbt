@@ -42,6 +42,54 @@ test "recovered top-level heading derives a name but cannot certify reuse" {
 }
 
 ///|
+test "certified derived name survives only a matching prefix edit" {
+  // A certificate remains valid for the unchanged source as well as a suffix edit.
+  assert_true(
+    derived_name_survives_edit(
+      "# Stable\n\nOld body\n",
+      "# Stable\n\nOld body\n",
+      Some("Stable"),
+    ),
+  )
+  assert_true(
+    derived_name_survives_edit(
+      "# Stable\n\nOld body\n",
+      "# Stable\n\nNew body\n",
+      Some("Stable"),
+    ),
+  )
+  assert_false(
+    derived_name_survives_edit(
+      "# Stable\n\nOld body\n",
+      "# Changed\n\nNew body\n",
+      Some("Changed"),
+    ),
+  )
+  assert_true(
+    derived_name_survives_edit(
+      "# Changed\n\nNew body\n",
+      "# Changed\n\nNew body\n",
+      Some("Changed"),
+    ),
+  )
+  assert_false(
+    derived_name_survives_edit(
+      "# )bad\n\nOld body\n",
+      "# )bad\n\nNew body\n",
+      Some(")bad"),
+    ),
+  )
+  // Recovered headings derive a display name but have no reusable prefix certificate.
+  assert_false(
+    derived_name_survives_edit(
+      "# )bad\n\nOld body\n",
+      "# )bad\n\nOld body\n",
+      Some(")bad"),
+    ),
+  )
+}
+
+///|
 test "derived name uses the first parser-recognized readable line" {
   for
     fixture in [
