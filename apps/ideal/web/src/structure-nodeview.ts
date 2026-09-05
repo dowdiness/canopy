@@ -1,4 +1,4 @@
-import { EditorView as PmView, NodeView } from "prosemirror-view";
+import { EditorView as PmView, type NodeView, type ViewMutationRecord } from "prosemirror-view";
 import { Node as PmNode } from "prosemirror-model";
 import type { StructureTreeEditCallback } from "./types";
 
@@ -205,6 +205,12 @@ export class StructureCompoundView implements NodeView {
 
     this.node = node;
     return true;
+  }
+
+  ignoreMutation(mutation: ViewMutationRecord): boolean {
+    // Drag classes/draggable are view state, not document edits. Let PM observe
+    // child content and selection, but never reparse for our own surface attrs.
+    return mutation.type === 'attributes' && mutation.target === this.dom;
   }
 }
 

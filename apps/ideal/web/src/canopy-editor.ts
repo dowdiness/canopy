@@ -42,6 +42,9 @@ type StructureModeModule = {
     parent: HTMLDivElement,
     host: HTMLElement,
     initialSnapshot: string,
+    initialOnEdit?: StructureTreeEditCallback,
+    initialOnHistory?: StructureHistoryCallback,
+    initialSelectedNode?: string | null,
   ): StructureModeSession;
 };
 
@@ -202,6 +205,9 @@ export class CanopyEditor extends HTMLElement {
         this.editorContainer,
         this,
         this.latestProjNodeJson,
+        this.structureTreeEditCallback ?? undefined,
+        this.structureHistoryCallback ?? undefined,
+        this.getAttribute('data-selected-node') ?? this.pendingSelectedNode,
       );
       if (loadVersion !== this.structureLoadVersion || this.mode !== 'structure') {
         session.destroy();
@@ -209,9 +215,7 @@ export class CanopyEditor extends HTMLElement {
       }
       this.structureSession = session;
       session.setReadonly(this.isReadonly());
-      session.setStructureHistoryCallback(this.structureHistoryCallback);
-      session.setStructureTreeEditCallback(this.structureTreeEditCallback);
-      session.setSelectedNode(this.pendingSelectedNode);
+
     } catch (error) {
       if (loadVersion === this.structureLoadVersion) {
         console.error('[canopy-editor] Failed to load structure mode:', error);

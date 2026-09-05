@@ -1,4 +1,4 @@
-import { EditorState as PmState, NodeSelection } from "prosemirror-state";
+import { EditorState as PmState, NodeSelection, Selection, AllSelection } from "prosemirror-state";
 import { EditorView as PmView } from "prosemirror-view";
 import { Node as PmNode } from "prosemirror-model";
 import { editorSchema } from "./schema";
@@ -81,25 +81,26 @@ function createStructureNodeViews(onEdit: StructureTreeEditCallback) {
   };
 }
 
-function setSelectedNode(pmView: PmView, id: string | null): void {
-  if (!id) return;
+// Resolve semantic identity without dispatching, focusing, or scrolling. Shared
+// by intentional navigation and snapshot reconciliation's single transaction.
+function nodeSelectionForId(doc: PmNode, id: string | null): NodeSelection | null {
+  if (!id) return null;
   let targetPos: number | null = null;
-  pmView.state.doc.descendants((node, pos) => {
+  doc.descendants((node, pos) => {
     if (String(node.attrs.nodeId) === id && NodeSelection.isSelectable(node)) {
       targetPos = pos;
       return false;
     }
     return true;
   });
-  if (targetPos === null) return;
-  let selectionUnchanged = false;
-  const currentSelection = pmView.state.selection;
-  if (currentSelection instanceof NodeSelection) {
-    selectionUnchanged = currentSelection.from === targetPos;
-  }
-  if (selectionUnchanged) return;
+  return targetPos === null ? null : NodeSelection.create(doc, targetPos);
+}
+
+function setSelectedNode(pmView: PmView, id: string | null): void {
+  const selection = nodeSelectionForId(pmView.state.doc, id);
+  if (!selection || selection.eq(pmView.state.selection)) return;
   const tr = pmView.state.tr
-    .setSelection(NodeSelection.create(pmView.state.doc, targetPos))
+    .setSelection(selection)
     .scrollIntoView();
   tr.setMeta("fromExternal", true);
   pmView.dispatch(tr);
@@ -112,12 +113,15 @@ export function createStructureModeSession(
   initialSnapshot: string,
   initialOnEdit: StructureTreeEditCallback = () => {},
   initialOnHistory: StructureHistoryCallback = () => {},
+  initialSelectedNode: string | null = null,
 ): StructureModeSession {
   let onEdit = initialOnEdit;
   let onHistory = initialOnHistory;
+  const doc = buildStructureDoc(initialSnapshot);
   const pmView = new PmView(parent, {
     state: PmState.create({
-      doc: buildStructureDoc(initialSnapshot),
+      doc,
+      selection: new AllSelection(doc),
       plugins: [
         structuralKeymap(
           host,
@@ -133,22 +137,31 @@ export function createStructureModeSession(
     nodeViews: createStructureNodeViews(edit => onEdit(edit)),
     dispatchTransaction: (tr) => {
       pmView.updateState(pmView.state.apply(tr));
-      if (tr.getMeta("fromExternal")) return;
-      if (tr.selectionSet) {
-        const sel = tr.selection;
-        if (sel instanceof NodeSelection) {
-          host.dispatchEvent(new CustomEvent(CanopyEvents.NODE_SELECTED, {
-            detail: {
-              nodeId: String(sel.node.attrs.nodeId),
-              kind: sel.node.type.name,
-              label: sel.node.attrs.name ?? sel.node.attrs.param ?? String(sel.node.attrs.value ?? ""),
-            },
-            bubbles: true, composed: true,
-          }));
-        }
-      }
+      // Document reconciliation can change selection through mapping without
+      // selectionSet. Report the actual rendered target, including deselection;
+      // this event updates selection only and never publishes another snapshot.
+      if (tr.selectionSet || tr.docChanged) publishSelection();
     },
   });
+
+  function publishSelection(): void {
+    const sel = pmView.state.selection;
+    const node = sel instanceof NodeSelection ? sel.node : null;
+    host.dispatchEvent(new CustomEvent(CanopyEvents.NODE_SELECTED, {
+      detail: {
+        nodeId: node?.attrs.nodeId == null ? "" : String(node.attrs.nodeId),
+        kind: node?.type.name ?? "",
+        label: node?.attrs.name ?? node?.attrs.param ?? String(node?.attrs.value ?? ""),
+      },
+      bubbles: true, composed: true,
+    }));
+  }
+  // PM's constructor does not synchronize the node-selection DOM class. Apply
+  // initial selection through a normal transaction from the neutral state,
+  // without focusing the editor or scrolling away from the mode button.
+  pmView.dispatch(pmView.state.tr.setSelection(
+    nodeSelectionForId(doc, initialSelectedNode) ?? Selection.atStart(doc),
+  ).setMeta('fromExternal', true));
 
   // Long-press detection for touch devices
   let longPressTimer: ReturnType<typeof setTimeout> | null = null;
@@ -187,8 +200,16 @@ export function createStructureModeSession(
     },
     reconcile(snapshot: string): void {
       if (pmView.isDestroyed || !snapshot || snapshot === "null") return;
+      const selected = pmView.state.selection;
       const tr = reconcile(pmView.state, JSON.parse(snapshot) as ProjNodeJson);
-      if (tr) pmView.dispatch(tr);
+      if (!tr) return;
+      if (selected instanceof NodeSelection && selected.node.attrs.nodeId != null) {
+        const surviving = nodeSelectionForId(tr.doc, String(selected.node.attrs.nodeId));
+        if (surviving) tr.setSelection(surviving);
+      }
+      // If the node disappeared, retain PM's mapped fallback and report it.
+      // Never replay setSelectedNode here: it intentionally focuses/scrolls.
+      pmView.dispatch(tr);
     },
     setReadonly(readonly: boolean): void {
       pmView.setProps({ editable: () => !readonly });

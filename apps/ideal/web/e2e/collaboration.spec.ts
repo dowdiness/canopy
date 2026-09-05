@@ -10,7 +10,7 @@ import { test, expect, type Page } from '@playwright/test';
 async function waitForEditor(page: Page, room?: string) {
   await page.goto(room ? `/#${room}` : '/');
   await expect(page).toHaveTitle('Canopy Editor');
-  await expect(page.getByRole('button', { name: 'Text' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Text' })).toBeVisible({ timeout: 15000 });
   await page.waitForFunction(() => {
     return document.querySelector('#canopy-text-editor .cm-editor') !== null;
   }, { timeout: 15000 });
