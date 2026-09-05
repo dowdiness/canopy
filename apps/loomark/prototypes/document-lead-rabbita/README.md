@@ -1,20 +1,10 @@
-# PROTOTYPE: Rabbita Document-lead graph probe
+# PROTOTYPE: Rabbita document-lead measurement probe
 
-This throwaway browser probe asks whether the proposed two-layer graph behaves
-as expected in the actual Rabbita runtime:
-
-```text
-Val[Vector[LeadSource]]
-  -> app-scoped assoc_by(DocumentId)
-       -> project content identity          pure lead nodes
-       -> combine lead + presentation state recent inputs
-  -> visibility.switch_by
-  -> visible assoc_by(DocumentId)           rendered row nodes
-```
-
-Counters and a lifecycle log record component construction, lead extraction,
-row rendering, and scope disposal. Probe-only local subscriptions observe scope
-cleanup; production lead nodes remain pure and would not contain them.
+This throwaway browser probe measures the actual Rabbita demand path for the
+existing `@document_lead.extract` implementation. The extractor is called only
+by the pure `content.map` node in `lead_component`; the existing visibility
+switch is its consumer. This is not production UI or a production debounce
+protocol.
 
 Run from the repository root:
 
@@ -22,41 +12,34 @@ Run from the repository root:
 just prototype-loomark-document-lead-rabbita
 ```
 
-Then open the printed URL. Suggested walkthrough:
+## Scenarios
 
-1. Initial Hidden state: all counters remain zero.
-2. **Show**: two pure branches, two extractions, two row branches, and one
-   visible branch appear.
-3. **Hide**: row and visible branches dispose; pure branches remain.
-4. **Show** again: row branches rebuild without another extraction.
-5. While visible, **Change A status only**: A's row rerenders, but extraction
-   remains unchanged.
-6. **Hide**, **Change A content**, **Refresh counters**: extraction remains
-   unchanged.
-7. **Show**: only A extracts again.
-8. **Hide**, **Delete B**, **Refresh counters**: B's pure branch remains.
-9. **Show**: B's pure branch disposes before only A is rendered.
+- **Immediate acceptance**: native textarea input updates or creates only the
+  keyed `New` source immediately; source A is untouched.
+- **Quiet 250ms simulation**: textarea state updates immediately; `New` is
+  created or updated only after 250 ms, with no placeholder extraction.
+  Delayed events carry the input sequence, so stale events are ignored. This is
+  latest-single-input instrumentation, not production cancellation.
+- Use the existing **Show/Hide**, **Change A**, status, B, restore, and refresh
+  controls to observe the graph independently.
 
-## Verdict
+The corpus buttons remain deterministic: `"# ordinary 10KB\n\n" + "ordinary ".repeat(1100)` (about 10KB) and `"# heavy generated ~66KB\n\n" + "heavy ".repeat(11000)` (about 66KB actual bytes). Click a corpus button to
+replace textarea text; native input is required to accept it into `New`.
 
-Observed in the Rabbita browser runtime:
+## Browser evidence API
 
-- Hidden startup built no keyed branches and ran no extraction.
-- First Show built two pure branches, extracted A and B, built two row branches,
-  and built one visible branch.
-- Hide disposed both row branches and the visible branch while disposing no pure
-  branch.
-- An unchanged reopen rebuilt both rows without another extraction.
-- Changing only A's presentation status rerendered A without extracting it.
-- Changing A's content while hidden ran no extraction; the next Show extracted
-  only A.
-- Deleting B while hidden did not dispose its pure branch; the next Show disposed
-  B before rendering only A.
+After load, inspect `window.__documentLeadProbe`:
 
-The observed behavior matches the proposed two-layer topology. It validates the
-Rabbita demand, reuse, orthogonal-input suppression, and delayed
-keyed-reconciliation assumptions needed for an implementation plan.
+- `inputEvents`, `immediateAccepted`, `quietAccepted`, `extractions`, and
+  `pureExtractions`
+- `trace`: event/root-update boundaries, extraction timestamps with
+  `inDispatch`, row-render records, separate microtask/later-task markers, and
+  longtask records
+- `longtasks`: `PerformanceObserver` records when supported
 
-This probe deliberately excludes Markdown parsing, responsive layout, Autosave,
-and production Sidebar integration. It belongs only on
-`prototype/loomark-document-lead-cache` and must not be merged into main.
+Performance marks are `textarea-input-start/end`,
+`rabbita-root-update-start/end`, and `document-lead-extract-start/end`.
+Extraction counts and `pure extraction runs` distinguish the instrumented pure
+extraction path. `inDispatch` is true only during the native handler; task
+classification should use the microtask and longtask evidence rather than an
+asserted task label. No full input source is written to the lifecycle log.

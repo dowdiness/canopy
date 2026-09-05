@@ -4,6 +4,7 @@ import {
   "moonbit-community/rabbita/html",
   "moonbit-community/rabbita/sub",
   "moonbitlang/core/immut/vector",
+  "dowdiness/loomark/internal/document_lead",
 }
 
 supported_targets = "js"

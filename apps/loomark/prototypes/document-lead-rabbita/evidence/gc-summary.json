@@ -1,0 +1,10 @@
+{
+  "MinorGC": {
+    "events": 58,
+    "maximum_ms": 38.66
+  },
+  "MajorGC": {
+    "events": 6,
+    "maximum_ms": 272.722
+  }
+}
