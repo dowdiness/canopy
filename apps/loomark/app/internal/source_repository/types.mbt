@@ -220,7 +220,7 @@ fn snapshot_from_sources(
   guard identities.length() == ordered.length() else { return None }
   let issues = initial_issues.copy()
   let entries = ordered.map(source => {
-    let name = match derive_name(source.text()) {
+    let name = match @document_lead.derive_name(source.text()) {
       Ok(name) => name
       Err(_) => {
         let issue = NameDerivationFailed(source.document_id())

@@ -34,7 +34,8 @@ Command:
 
 ```bash
 cd apps/loomark
-NEW_MOON_MOD=0 moon bench internal/source_repository --target js --release
+NEW_MOON_MOD=0 moon bench --release --target js \
+  -p dowdiness/loomark/app/internal/source_repository
 ```
 
 | Operation | Workload | Mean |
@@ -105,7 +106,7 @@ Command:
 
 ```bash
 NEW_MOON_MOD=0 moon bench --release --target js \
-  -p dowdiness/loomark/internal/source_repository \
+  -p dowdiness/loomark/app/internal/source_repository \
   -f source_preparation_benchmark_wbtest.mbt --no-parallelize
 ```
 

@@ -184,3 +184,16 @@ fn certified_name_prefix_end(source : String, expected_name : String?) -> Int? {
   }
   Some(end)
 }
+
+///|
+pub fn derived_name_survives_edit(
+  previous_source : String,
+  source : String,
+  expected_name : String?,
+) -> Bool {
+  guard certified_name_prefix_end(previous_source, expected_name) is Some(end) else {
+    return false
+  }
+  end <= source.length() &&
+  previous_source.view(end_offset=end).equal(source.view(end_offset=end))
+}
