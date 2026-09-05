@@ -260,7 +260,21 @@ fn editor_dom_event_subscriptions(
     custom_event_sub(
       EditorHost,
       NodeSelected,
-      emit.map(detail => StructureNodeSelected(event_detail_node_id(detail))),
+      @rabbita_cmd.Emit(detail => {
+        let node_id = event_detail_node_id(detail)
+        if !node_id.is_empty() {
+          (emit.0)(StructureNodeSelected(node_id))
+        } else {
+          // Only an explicit empty nodeId means deselection. Malformed detail
+          // also decodes to "" in the legacy helper, but must remain a no-op.
+          let json = @json.parse(detail) catch { _ => Json::null() }
+          match json {
+            Json::Object(fields) if fields.get("nodeId")
+              is Some(Json::String("")) => (emit.0)(StructureNodeSelected(""))
+            _ => none
+          }
+        }
+      }),
     ),
     // The host dispatches "file-loaded" on #canopy-text-editor with the chosen
     // file's text as the (plain-string) event detail; deliver it as FileLoaded.

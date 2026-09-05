@@ -3,12 +3,17 @@ using @html {node, nothing}
 
 ///|
 fn view_editor(_dispatch : @rabbita.Emit[Msg], model : Model) -> @rabbita.Html {
-  let attrs = @html.Attrs::build().id("canopy-editor")
+  // Mount-only selection input; snapshot publications never replay focus.
+  let selected_node = model.selected_node.unwrap_or("")
+  let attrs = @html.Attrs::build()
+    .id("canopy-editor")
+    .data_set("selected-node", selected_node)
   let inactive_attrs = @html.Attrs::build()
     .id("canopy-editor")
     .class("inactive-pane")
     .aria_hidden("true")
     .tabindex(-1)
+    .data_set("selected-node", selected_node)
   let cm_attrs = @html.Attrs::build().id("canopy-text-editor")
   let inactive_cm_attrs = @html.Attrs::build()
     .id("canopy-text-editor")

@@ -7,11 +7,17 @@ fn handle_structure_mode(
   let _ = emit
   match msg {
     StructureNodeSelected(node_id) =>
-      if node_id == "" {
+      if model.mode != Structure {
         Some((none, model))
+      } else if node_id.is_empty() {
+        // The rendered PM selection has no semantic node (e.g. AllSelection).
+        Some((none, select_with_highlight(model, None, true)))
       } else {
-        let selected = select_with_highlight(model, Some(node_id), true)
-        Some((none, selected))
+        match parse_node_id(node_id) {
+          Some(id) if model.editor.get_node(id) is Some(_) =>
+            Some((none, select_with_highlight(model, Some(node_id), true)))
+          _ => Some((none, model))
+        }
       }
     StructureTreeEdit(generation~, tree_op) =>
       if model.mode != Structure || generation != model.structure_generation {

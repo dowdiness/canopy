@@ -541,9 +541,12 @@ test "commit_tree_edit returns the committed model" {
 }
 
 ///|
-test "selection characterization: refresh recomputes selected highlight" {
+test "refresh preserves selection but invalidates its projection-relative navigation path" {
   let (model, node_id) = selected_test_model()
+  model.nav_path = Some([0])
   let refreshed = refresh({ ..model, selected_node: Some(node_id) })
+  @debug.assert_eq(refreshed.selected_node, Some(node_id))
+  @debug.assert_eq(refreshed.nav_path, None)
   inspect(refreshed.highlight_set.is_empty(), content="false")
 }
 
@@ -606,7 +609,8 @@ test "selection characterization: outline structural edit refreshes selection" {
 
 ///|
 test "selection characterization: structure selection highlights and clears nav" {
-  let (model, node_id) = selected_test_model()
+  let (initial, node_id) = selected_test_model()
+  let model = { ..initial, mode: Structure }
   model.nav_path = Some([0])
   match
     handle_structure_mode(
@@ -620,6 +624,56 @@ test "selection characterization: structure selection highlights and clears nav"
       inspect(changed.nav_path is None, content="true")
     }
     None => abort("StructureNodeSelected was not handled")
+  }
+}
+
+///|
+test "Structure selection clearing removes Inspector and highlight state" {
+  let (model, node_id) = selected_test_model()
+  let selected = select_with_highlight(
+    { ..model, mode: Structure },
+    Some(node_id),
+    false,
+  )
+  match
+    handle_structure_mode(
+      test_parent_emit(),
+      StructureNodeSelected(""),
+      selected,
+    ) {
+    Some((_, changed)) => {
+      @debug.assert_eq(changed.selected_node, None)
+      @debug.assert_eq(changed.highlight_set.is_empty(), true)
+    }
+    None => abort("Structure selection clearing was not handled")
+  }
+}
+
+///|
+test "Structure selection ignores inactive and invalid node reports" {
+  let (initial, node_id) = selected_test_model()
+  let selected = select_with_highlight(initial, Some(node_id), false)
+  for
+    test_case in [
+      (Text, ""),
+      (Text, node_id),
+      (Structure, "not-an-id"),
+      (Structure, "-1"),
+    ] {
+    let (mode, reported_id) = test_case
+    let model = { ..selected, mode, }
+    match
+      handle_structure_mode(
+        test_parent_emit(),
+        StructureNodeSelected(reported_id),
+        model,
+      ) {
+      Some((_, changed)) => {
+        @debug.assert_eq(changed.selected_node, Some(node_id))
+        @debug.assert_eq(changed.highlight_set, selected.highlight_set)
+      }
+      None => abort("Structure selection report was not handled")
+    }
   }
 }
 
