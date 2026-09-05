@@ -370,6 +370,75 @@ fn fallback_lead(source : String, limits : DocumentLeadLimits) -> DocumentLead {
 }
 
 ///|
+/// Select the first block with readable text. Kept separate so the benchmark
+/// measures the exact selection operation used by `extract`.
+fn first_readable_index(
+  document : @markdown.MarkdownIR,
+  source : String,
+) -> Int? {
+  document
+  .children()
+  .search_by(child => {
+    match readable_text(child, source) {
+      Some(text) => !text.trim().is_empty()
+      None => false
+    }
+  })
+}
+
+///|
+/// Construct the unbounded description from the selected lead and siblings.
+fn description_for_lead(
+  lead : DocumentLead,
+  children : Array[@markdown.MarkdownIR],
+  index : Int,
+  source : String,
+) -> String {
+  let later = children[index + 1:]
+    .map(child => structured_description(child, source))
+    .filter(text => !text.is_empty())
+  if lead.description.is_empty() {
+    later.join("\n")
+  } else if later.is_empty() {
+    lead.description
+  } else {
+    lead.description + "\n" + later.join("\n")
+  }
+}
+
+///|
+/// Construct the final bounded result from the already selected lead.
+fn result_from_bounded_description(
+  lead : DocumentLead,
+  description : String,
+  description_truncated : Bool,
+) -> DocumentLead {
+  {
+    form: lead.form,
+    primary: lead.primary,
+    description,
+    primary_truncated: lead.primary_truncated,
+    description_truncated: lead.description_truncated || description_truncated,
+  }
+}
+
+///|
+fn finish_lead(
+  lead : DocumentLead,
+  children : Array[@markdown.MarkdownIR],
+  index : Int,
+  source : String,
+  limits : DocumentLeadLimits,
+) -> DocumentLead {
+  let combined = description_for_lead(lead, children, index, source)
+  let (description, description_truncated) = bound_text(
+    combined,
+    limits.description,
+  )
+  result_from_bounded_description(lead, description, description_truncated)
+}
+
+///|
 /// Extract a bounded, equality-bearing lead from the complete Markdown source.
 pub fn extract(source : String, limits~ : DocumentLeadLimits) -> DocumentLead {
   let parsed = @markdown.parse_cst(name_source_id, source) catch {
@@ -384,40 +453,11 @@ pub fn extract(source : String, limits~ : DocumentLeadLimits) -> DocumentLead {
     extensions=@markdown.MarkdownExtensions::task_list(),
   )
   let children = document.children()
-  let first_index = children.search_by(child => {
-    match readable_text(child, source) {
-      Some(text) => !text.trim().is_empty()
-      None => false
-    }
-  })
-  match first_index {
+  match first_readable_index(document, source) {
     Some(index) => {
       let first = children.get(index).unwrap()
       match lead_from_node(first, source, limits) {
-        Some(lead) => {
-          let later = children[index + 1:]
-            .map(child => structured_description(child, source))
-            .filter(text => !text.is_empty())
-          let combined = if lead.description.is_empty() {
-            later.join("\n")
-          } else if later.is_empty() {
-            lead.description
-          } else {
-            lead.description + "\n" + later.join("\n")
-          }
-          let (description, description_truncated) = bound_text(
-            combined,
-            limits.description,
-          )
-          {
-            form: lead.form,
-            primary: lead.primary,
-            description,
-            primary_truncated: lead.primary_truncated,
-            description_truncated: lead.description_truncated ||
-            description_truncated,
-          }
-        }
+        Some(lead) => finish_lead(lead, children, index, source, limits)
         None => fallback_lead(source, limits)
       }
     }
