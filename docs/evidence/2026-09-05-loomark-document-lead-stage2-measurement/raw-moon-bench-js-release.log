@@ -1,0 +1,100 @@
+[dowdiness/loomark] bench internal/document_lead/stage2_measurement_wbtest.mbt:161 ("bench stage2 parse_cst") ok
+time (mean ± σ)         range (min … max) 
+   7.03 ms ± 803.93 µs     6.43 ms …   8.92 ms  in 10 ×     12 runs
+[dowdiness/loomark] bench internal/document_lead/stage2_measurement_wbtest.mbt:175 ("bench stage2 CST to SyntaxNode conversion") ok
+time (mean ± σ)         range (min … max) 
+  20.62 ns ±   1.83 ns    18.29 ns …  22.97 ns  in 10 × 100000 runs
+[dowdiness/loomark] bench internal/document_lead/stage2_measurement_wbtest.mbt:186 ("bench stage2 SyntaxNode to MarkdownIR conversion") ok
+time (mean ± σ)         range (min … max) 
+   2.71 ms ±  80.94 µs     2.60 ms …   2.86 ms  in 10 ×     36 runs
+[dowdiness/loomark] bench internal/document_lead/stage2_measurement_wbtest.mbt:210 ("bench stage2 primary selection") ok
+time (mean ± σ)         range (min … max) 
+ 321.30 ns ±   6.05 ns   315.07 ns … 331.24 ns  in 10 × 100000 runs
+[dowdiness/loomark] bench internal/document_lead/stage2_measurement_wbtest.mbt:233 ("bench stage2 description construction") ok
+time (mean ± σ)         range (min … max) 
+ 171.05 µs ±   3.26 µs   166.96 µs … 175.26 µs  in 10 ×    529 runs
+[dowdiness/loomark] bench internal/document_lead/stage2_measurement_wbtest.mbt:272 ("bench stage2 bounded result construction") ok
+time (mean ± σ)         range (min … max) 
+ 219.81 µs ±   5.06 µs   212.76 µs … 226.49 µs  in 10 ×    435 runs
+[dowdiness/loomark] bench internal/document_lead/stage2_measurement_wbtest.mbt:311 ("bench stage2 whole extract same corpus") ok
+time (mean ± σ)         range (min … max) 
+   9.57 ms ±   1.20 ms     7.23 ms …  10.26 ms  in 10 ×     11 runs
+[dowdiness/loomark] bench internal/document_lead/stage2_measurement_wbtest.mbt:323 ("stage2 Eq max-primary outputs are equal with bounds") ok
+time (mean ± σ)         range (min … max) 
+ 100.00 ns ±  17.15 ns    88.29 ns … 137.88 ns  in 10 × 100000 runs
+[dowdiness/loomark] bench internal/document_lead/stage2_measurement_wbtest.mbt:342 ("stage2 Eq max-description outputs are equal with bounds") ok
+time (mean ± σ)         range (min … max) 
+  56.44 ns ±   6.10 ns    51.68 ns …  72.70 ns  in 10 × 100000 runs
+[dowdiness/loomark] bench internal/document_lead/stage2_measurement_wbtest.mbt:355 ("stage2 Eq final fields remain unequal") ok
+time (mean ± σ)         range (min … max) 
+  13.66 ns ±   2.16 ns    11.40 ns …  18.05 ns  in 10 × 100000 runs
+[dowdiness/loomark] bench internal/document_lead/stage2_measurement_wbtest.mbt:427 ("bench stage2 large mixed parse") ok
+time (mean ± σ)         range (min … max) 
+ 441.90 ms ±  27.01 ms   420.89 ms … 499.54 ms  in 10 ×      1 runs
+[dowdiness/loomark] bench internal/document_lead/stage2_measurement_wbtest.mbt:438 ("bench stage2 large distinct parse") ok
+time (mean ± σ)         range (min … max) 
+  58.29 ms ±   1.60 ms    55.79 ms …  60.68 ms  in 10 ×      2 runs
+[dowdiness/loomark] bench internal/document_lead/stage2_measurement_wbtest.mbt:449 ("bench stage2 large mixed CST") ok
+time (mean ± σ)         range (min … max) 
+  18.20 ns ±   3.77 ns    14.23 ns …  26.45 ns  in 10 × 100000 runs
+[dowdiness/loomark] bench internal/document_lead/stage2_measurement_wbtest.mbt:455 ("bench stage2 large distinct CST") ok
+time (mean ± σ)         range (min … max) 
+  18.08 ns ±   3.54 ns    14.41 ns …  23.55 ns  in 10 × 100000 runs
+[dowdiness/loomark] bench internal/document_lead/stage2_measurement_wbtest.mbt:461 ("bench stage2 large mixed IR") ok
+time (mean ± σ)         range (min … max) 
+ 243.87 ms ±  22.66 ms   228.19 ms … 305.22 ms  in 10 ×      1 runs
+[dowdiness/loomark] bench internal/document_lead/stage2_measurement_wbtest.mbt:476 ("bench stage2 large distinct IR") ok
+time (mean ± σ)         range (min … max) 
+ 144.94 ms ±  17.71 ms   125.44 ms … 169.55 ms  in 10 ×      1 runs
+[dowdiness/loomark] bench internal/document_lead/stage2_measurement_wbtest.mbt:491 ("bench stage2 large mixed primary selection") ok
+time (mean ± σ)         range (min … max) 
+ 130.07 µs ±   3.43 µs   126.91 µs … 138.52 µs  in 10 ×    801 runs
+[dowdiness/loomark] bench internal/document_lead/stage2_measurement_wbtest.mbt:497 ("bench stage2 large mixed primary construction") ok
+time (mean ± σ)         range (min … max) 
+ 139.45 µs ±  12.35 µs   115.76 µs … 152.49 µs  in 10 ×    751 runs
+[dowdiness/loomark] bench internal/document_lead/stage2_measurement_wbtest.mbt:512 ("bench stage2 large distinct primary selection") ok
+time (mean ± σ)         range (min … max) 
+ 148.15 ns ±  12.19 ns   134.04 ns … 171.59 ns  in 10 × 100000 runs
+[dowdiness/loomark] bench internal/document_lead/stage2_measurement_wbtest.mbt:518 ("bench stage2 large distinct primary construction") ok
+time (mean ± σ)         range (min … max) 
+   2.91 ms ± 122.14 µs     2.77 ms …   3.11 ms  in 10 ×     35 runs
+[dowdiness/loomark] bench internal/document_lead/stage2_measurement_wbtest.mbt:533 ("bench stage2 large mixed description") ok
+time (mean ± σ)         range (min … max) 
+  13.23 ms ± 401.99 µs    12.78 ms …  13.85 ms  in 10 ×      8 runs
+[dowdiness/loomark] bench internal/document_lead/stage2_measurement_wbtest.mbt:548 ("bench stage2 large distinct description") ok
+time (mean ± σ)         range (min … max) 
+  42.40 ns ±   5.21 ns    37.47 ns …  52.43 ns  in 10 × 100000 runs
+[dowdiness/loomark] bench internal/document_lead/stage2_measurement_wbtest.mbt:563 ("bench stage2 large mixed bound") ok
+time (mean ± σ)         range (min … max) 
+   2.95 ms ±  81.90 µs     2.85 ms …   3.12 ms  in 10 ×     33 runs
+[dowdiness/loomark] bench internal/document_lead/stage2_measurement_wbtest.mbt:569 ("bench stage2 large distinct bound") ok
+time (mean ± σ)         range (min … max) 
+  19.03 ns ±   3.14 ns    15.29 ns …  22.92 ns  in 10 × 100000 runs
+[dowdiness/loomark] bench internal/document_lead/stage2_measurement_wbtest.mbt:575 ("bench stage2 large mixed result") ok
+time (mean ± σ)         range (min … max) 
+  20.80 ns ±   3.89 ns    16.30 ns …  26.51 ns  in 10 × 100000 runs
+[dowdiness/loomark] bench internal/document_lead/stage2_measurement_wbtest.mbt:590 ("bench stage2 large distinct result") ok
+time (mean ± σ)         range (min … max) 
+  18.61 ns ±   3.24 ns    14.35 ns …  23.25 ns  in 10 × 100000 runs
+[dowdiness/loomark] bench internal/document_lead/stage2_measurement_wbtest.mbt:605 ("bench stage2 large mixed Eq") ok
+time (mean ± σ)         range (min … max) 
+  61.25 ns ±   3.25 ns    57.37 ns …  65.93 ns  in 10 × 100000 runs
+[dowdiness/loomark] bench internal/document_lead/stage2_measurement_wbtest.mbt:619 ("bench stage2 large distinct Eq") ok
+time (mean ± σ)         range (min … max) 
+  53.67 ns ±   6.83 ns    48.89 ns …  71.41 ns  in 10 × 100000 runs
+[dowdiness/loomark] bench internal/document_lead/stage2_measurement_wbtest.mbt:633 ("bench stage2 large mixed whole") ok
+time (mean ± σ)         range (min … max) 
+ 752.36 ms ±  39.09 ms   708.52 ms … 811.53 ms  in 10 ×      1 runs
+[dowdiness/loomark] bench internal/document_lead/stage2_measurement_wbtest.mbt:640 ("bench stage2 large distinct whole") ok
+time (mean ± σ)         range (min … max) 
+ 184.10 ms ±   2.93 ms   179.71 ms … 188.76 ms  in 10 ×      1 runs
+[dowdiness/loomark] bench internal/document_lead/lead_wbtest.mbt:188 ("bench: extract mixed large source in release JS") ok
+time (mean ± σ)         range (min … max) 
+ 725.51 ms ±  26.80 ms   690.49 ms … 766.63 ms  in 10 ×      1 runs
+[dowdiness/loomark] bench internal/document_lead/lead_wbtest.mbt:195 ("bench: extract distinct large source in release JS") ok
+time (mean ± σ)         range (min … max) 
+ 174.92 ms ±   4.82 ms   169.38 ms … 184.54 ms  in 10 ×      1 runs
+[dowdiness/loomark] bench internal/document_lead/lead_wbtest.mbt:202 ("bench: equality output cost is a separate named case") ok
+time (mean ± σ)         range (min … max) 
+  16.65 ns ±   1.70 ns    14.49 ns …  19.59 ns  in 10 × 100000 runs
+Total tests: 33, passed: 33, failed: 0.

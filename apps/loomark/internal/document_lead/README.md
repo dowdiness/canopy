@@ -17,19 +17,12 @@ parser-failure fallback is covered through its helper, not an induced failure of
 the full parser. The full product fixture and accessibility matrix remains an
 acceptance task. Recent documents does not consume this extractor yet.
 
-JS release measurements from the current fixtures in `lead_wbtest.mbt`:
-
-| Case | Mean | Standard deviation |
-|---|---:|---:|
-| Large mixed Markdown source | 879.70 ms | 67.66 ms |
-| Distinct large source | 165.13 ms | 7.67 ms |
-| Equality of short bounded results | 21.81 ns | 2.99 ns |
-
-These numbers are not a speedup claim or a maximum-latency guarantee. The equality
-case does not characterize maximum-budget comparisons. Cold extraction cost
-blocks stage acceptance and UI integration until evaluated. Output-size reporting,
-maximum-budget comparison cases, and a collection of separate mixed-size sources
-remain measurement work; the mixed-Markdown case above is one source.
+Stage 2 measurement evidence, including exact fixture identities, independently
+isolated phase timings, output sizes, and split equality cases, is recorded in
+[`docs/evidence/2026-09-05-loomark-document-lead-stage2-measurement/README.md`](../../../../docs/evidence/2026-09-05-loomark-document-lead-stage2-measurement/README.md).
+Those timings are not additive or a causal attribution of the whole extraction
+cost. The CST number measures only the cheap wrapper conversion, not deep
+conversion. Cold extraction cost still blocks stage acceptance and UI integration.
 
 Reproduce from `apps/loomark`:
 

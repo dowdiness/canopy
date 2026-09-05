@@ -2,6 +2,7 @@ import {
   "dowdiness/loom",
   "dowdiness/seam",
   "dowdiness/markdown",
+  "moonbitlang/core/encoding/utf8",
 }
 
 import {

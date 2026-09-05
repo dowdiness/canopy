@@ -410,6 +410,19 @@ Before accepting stage 2:
   prefix parsing without a separate correctness proof.
 - Do not infer an elapsed-time speedup from callback counts or name benchmarks.
 
+Measurement checkpoint: the [Stage 2 evidence](../evidence/2026-09-05-loomark-document-lead-stage2-measurement/README.md)
+records separate JS release parse, CST wrapper, IR, primary selection and
+construction, description, bounding, result, and Eq probes on the exact large
+fixtures. These warmed timings are not process-cold browser latency and are not
+additive. Stage 2 remains unaccepted: browser omission/budget comparison and New
+first-input-task extraction suppression still require evidence.
+
+For New, probe actual Rabbita propagation before treating the initial structured
+seed as immediately demandable. If extraction would run in the first input task,
+keep immediate entry creation with a generic accessible identity and delay
+structured LeadSource acceptance until the existing quiet event. Do not add a
+timer or asynchronous completion protocol to bypass this gate.
+
 ### 3. Sidebar visibility boundary
 
 - Add the opaque provider and one visibility value.
