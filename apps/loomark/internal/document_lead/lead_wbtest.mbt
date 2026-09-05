@@ -185,33 +185,15 @@ test "fallback excludes primary line and keeps following indentation" {
 }
 
 ///|
-test "bench: extract actual 1MiB mixed document in release JS" (b : @bench.T) {
-  let source = StringBuilder::StringBuilder()
-  for i in 0..<20000 {
-    if i % 4 == 0 {
-      source.write_string(
-        "# Heading \\{i} padding padding padding padding padding padding\n\n",
-      )
-    } else if i % 4 == 1 {
-      source.write_string(
-        "- [ ] task \\{i} padding padding padding padding padding\n",
-      )
-    } else if i % 4 == 2 {
-      source.write_string("```moonbit\n  let x = \\{i}\n    let y = x\n```\n\n")
-    } else {
-      source.write_string(
-        "paragraph \\{i} with **inline** text and a [link](https://example.com) padding padding\n\n",
-      )
-    }
-  }
-  let source = source.to_string()
+test "bench: extract mixed large source in release JS" (b : @bench.T) {
+  let source = stage2_large_sources()[0]
   let limits = test_limits(primary=80, description=160)
   b.bench(() => b.keep(extract(source, limits~)))
 }
 
 ///|
-test "bench: extract distinct 1MiB source in release JS" (b : @bench.T) {
-  let source = "paragraph with a distinct large source payload. ".repeat(22000)
+test "bench: extract distinct large source in release JS" (b : @bench.T) {
+  let source = stage2_large_sources()[1]
   let limits = test_limits(primary=80, description=160)
   b.bench(() => b.keep(extract(source, limits~)))
 }
