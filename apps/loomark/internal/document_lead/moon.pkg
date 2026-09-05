@@ -8,6 +8,8 @@ import {
 import {
   "moonbitlang/core/debug",
   "moonbitlang/core/bench",
+  "moonbitlang/core/env",
+  "moonbitlang/core/string",
 } for "wbtest"
 
 supported_targets = "js"
