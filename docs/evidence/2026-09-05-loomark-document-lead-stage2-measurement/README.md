@@ -14,7 +14,9 @@ NEW_MOON_MOD=0 moon test internal/document_lead --target js --release
 NEW_MOON_MOD=0 moon bench internal/document_lead --target js --release
 ```
 
-The complete final raw output is in [`raw-moon-bench-js-release.log`](raw-moon-bench-js-release.log).
+The complete final output is in [`raw-moon-bench-js-release.log`](raw-moon-bench-js-release.log).
+Only trailing whitespace was removed for repository whitespace checks; timing
+values and diagnostic lines are unchanged.
 The harness was formatted before this run. Its SHA-256 is
 `2f5807324a4b043732ad8282f2959fea294d18aa4e551b953763413891a3df34`.
 
@@ -113,4 +115,3 @@ of whole-pipeline cost.
 - Large-source fresh extraction remains expensive. This evidence alone does not
   authorize off-thread or asynchronous redesign. Such a change requires its own
   ADR decision after browser evidence.
-
