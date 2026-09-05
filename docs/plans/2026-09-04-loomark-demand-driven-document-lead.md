@@ -551,3 +551,25 @@ documents can switch to the feature-owned renderer only after behavioral parity.
 Remove a failed stage instead of preserving adapters, duplicate caches, or dual
 state paths. The throwaway prototype remains on its prototype branch and never
 becomes a production fallback.
+
+## Stage 2 scaling and browser checkpoint
+
+The [isolated scaling evidence](../evidence/2026-09-06-loomark-document-lead-stage2-scaling/README.md)
+records ordinary and structure-heavy Markdown at seven sizes, with separate
+fresh-process first-call and warm distributions. Metadata collection is outside
+the timed phases. Superseded instrumentation-inclusive samples are excluded.
+These synthetic workloads do not define the product's ordinary-document range.
+
+The [browser prototype evidence](https://github.com/dowdiness/canopy/blob/c40bb4e128b017b4a22a2304bce437e823e595e1/apps/loomark/prototypes/document-lead-rabbita/evidence/README.md)
+uses the actual pure extractor through Rabbita. Quiet moves extraction later but
+does not remove long main-thread tasks. Hidden and unchanged reopen suppress
+extraction in the observed scenarios. Synthetic event dispatch returning before
+extraction is not proof of the full production input-task contract; Preview is
+absent and trusted-input task traces remain outstanding.
+
+Semantic acceptance is pending numeric budgets, omission wording, grapheme
+policy, and the remaining fixtures. Execution acceptance is also withheld:
+browser evidence is exploratory, and production size/latency criteria remain
+unapproved. Keep Stage 3 blocked. Assess a separate execution ADR before adding
+an off-thread mechanism; do not treat quiet or idle scheduling as a solution to
+synchronous blocking. The bounded `DocumentLead` value remains unchanged.
