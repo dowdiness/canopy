@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "dowdiness/loomark/internal/source_repository"
+package "dowdiness/loomark/app/internal/source_repository"
 
 import {
   "moonbit-community/rabbita/cmd",
@@ -10,8 +10,6 @@ import {
 pub fn create(RepositorySnapshot, result~ : @cmd.Emit[CreateResult]) -> @cmd.Cmd
 
 pub fn delete(RepositorySnapshot, String, result~ : @cmd.Emit[DeleteResult]) -> @cmd.Cmd
-
-pub fn derive_name(String) -> Result[String?, Unit]
 
 pub fn open(result~ : @cmd.Emit[OpenResult]) -> @cmd.Cmd
 

@@ -30,32 +30,56 @@ _Avoid_: Editing Document, active document
 The current Markdown text. Text input updates it immediately.
 _Avoid_: canonical source, draft text, surface, surface text
 
+**Document lead**:
+The first readable content, together with a structured description of subsequent
+readable content, used to recognize a Loomark document without naming it.
+Normally extracted from parser-recognized Markdown, it falls back to non-empty
+source lines as Plain content rather than treating present text as empty.
+_Avoid_: summary, title, document name, Preview
+
+**Plain content**:
+A readable Document lead shown without the distinct form of a heading, task,
+quote, code, or list. Its readable text remains while its source block receives
+no other specialized presentation.
+_Avoid_: ordinary content, paragraph
+
 **Recent documents**:
 The place for choosing a Loomark document as one continuous, ungrouped list,
 with the most recently changed first. A Document text change moves its document
 first immediately, even before Autosave succeeds; reopening reflects only Saved
 text and its saved change order.
 On sufficiently wide screens it starts open as a fixed-width, collapsible pane
-beside the editor; it is not resizable. An 18rem pane and 64rem breakpoint are
-prototype starting values, not accepted dimensions. Closing the pane lasts only
-for the current page lifetime and is not persisted. An icon-only editor-toolbar
+beside the editor; it is not resizable. On narrow screens it starts closed. An
+18rem pane and 64rem breakpoint are prototype starting values, not accepted
+dimensions. One open-or-closed state continues across breakpoint changes for the
+current page lifetime and is not persisted. An icon-only editor-toolbar
 control opens or closes Recent documents and carries an accessible label and
 tooltip. The Recent documents action bar has no visible heading and owns a
 right-aligned, text-only `New` action without a plus icon; the editor toolbar
-does not duplicate the New action. On narrow screens it temporarily fills the screen, provides a
-back-arrow control to return without selection, and returns to the editor after
-selection. Each entry shows the first non-empty readable line from
-parser-recognized Markdown, using its heading, task, quote, or ordinary text
-appearance. The current parser has no frontmatter extension, so YAML-like text
-is ordinary Markdown rather than skipped metadata. An entry does not fetch or
-display an image thumbnail or change time. When the first
-content is an image with alt text, the alt text becomes ordinary primary content
-without loading the image. Inline Markdown is flattened to readable text; only
-the heading, task, quote, or ordinary block appearance remains, and links do not
-become separate actions. The primary content and following excerpt may each
-occupy up to two visual lines. Task checkboxes are
-read-only. An unsaved document has a small warning mark with an accessible `Not
-saved` label rather than visible status text. A document whose text is empty has
+does not duplicate the New action. On narrow screens it temporarily fills the
+screen, provides a back-arrow control to close it without selection, and closes
+after selection; selecting a document on a wide screen does not close the pane. Each entry shows the Document lead using its heading, task, quote,
+code, list, or Plain content form. Every heading level uses the same form; lists
+retain their bullets or numbering, and fenced and indented code use a restrained
+background and monospaced text without syntax highlighting. The current parser
+has no frontmatter extension, so YAML-like text is Plain content rather than
+skipped metadata. An entry does not fetch or display an image thumbnail or
+change time. When the first content is an image with alt text, the alt text
+becomes Plain content without loading the image. Inline Markdown is flattened to
+readable text, and links do not become separate actions. After the primary
+content, subsequent readable content becomes one description that preserves
+meaningful line breaks, indentation, list bullets or numbering, and code spacing
+without retaining a Markdown block tree. The primary content and description
+may each occupy up to two visual lines. Both also have finite text budgets
+independent of document size; visual clipping alone is not the limit. Omitted
+content is not retained in the lead or exposed in full through an accessible
+label or tooltip. Truncation preserves Unicode text boundaries and meaningful
+structure within the budget, and remains distinguishable from Empty content.
+Numeric budgets and the visible and accessible omission wording must be settled
+through browser comparison before accepting the production extractor API.
+Task checkboxes are read-only. An unsaved
+document has a small warning mark with an accessible `Not saved` label rather
+than visible status text. A document whose text is empty has
 no visible placeholder, while its selectable entry retains an accessible `Empty
 document` label. When no saved documents exist, the list shows `No documents
 yet` rather than unexplained blank space. The selected document uses an explicit
@@ -63,8 +87,9 @@ row highlight with a
 subtle background and slim edge accent; exact visual values remain provisional. A selected cold target
 shows a small loading indicator with an accessible `Loading document` label
 while the current document remains visible. Merely opening a document does not
-move it, and typing may update the entry after
-a short pause.
+move it. While typing, an entry keeps its previous Document lead until a lead
+from the newer text replaces it after a short pause; a document entering Recent
+documents for the first time uses its current text for its first lead.
 _Avoid_: Document list, catalog, title list, file browser
 
 **Document actions menu**:
@@ -175,7 +200,7 @@ _Avoid_: open file, replace, file sync
 **Export**:
 Downloading the current Document text exactly as shown, without waiting for
 browser saving to finish. Its suggested filename is derived at download time
-from the first content and is never a stored document name.
+from the Document lead and is never a stored document name.
 _Avoid_: backup, saved copy, publish
 
 **Delete document**:

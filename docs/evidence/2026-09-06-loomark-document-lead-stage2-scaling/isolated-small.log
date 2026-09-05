@@ -1,0 +1,774 @@
+PROCESS run=cold-0 corpus=ordinary target=1000 phase=parse exit=0
+FIXTURE run=cold-0 corpus=ordinary target=1000 phase=parse setup=none
+SAMPLE run=cold-0 corpus=ordinary target=1000 bytes=1002 phase=parse sample=0 us=81929.76800000003
+METADATA phase=parse bytes=1002 chars=1002 ir_nodes=111 top_level_blocks=22 output_chars=178
+SCALING_CHECKSUM run=cold-0 value=1002
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-1 corpus=ordinary target=1000 phase=parse exit=0
+FIXTURE run=cold-1 corpus=ordinary target=1000 phase=parse setup=none
+SAMPLE run=cold-1 corpus=ordinary target=1000 bytes=1002 phase=parse sample=0 us=81878.79000000004
+METADATA phase=parse bytes=1002 chars=1002 ir_nodes=111 top_level_blocks=22 output_chars=178
+SCALING_CHECKSUM run=cold-1 value=1002
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-2 corpus=ordinary target=1000 phase=parse exit=0
+FIXTURE run=cold-2 corpus=ordinary target=1000 phase=parse setup=none
+SAMPLE run=cold-2 corpus=ordinary target=1000 bytes=1002 phase=parse sample=0 us=59733.705999999984
+METADATA phase=parse bytes=1002 chars=1002 ir_nodes=111 top_level_blocks=22 output_chars=178
+SCALING_CHECKSUM run=cold-2 value=1002
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=warm corpus=ordinary target=1000 phase=parse exit=0
+FIXTURE run=warm corpus=ordinary target=1000 phase=parse setup=none
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=parse sample=0 us=2288.0949999999984
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=parse sample=1 us=5209.13900000005
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=parse sample=2 us=7522.383999999988
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=parse sample=3 us=5097.934000000009
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=parse sample=4 us=5978.2129999999825
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=parse sample=5 us=1977.030999999954
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=parse sample=6 us=1498.8179999999716
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=parse sample=7 us=3193.57500000001
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=parse sample=8 us=3387.358000000006
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=parse sample=9 us=2002.2319999999922
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=parse sample=10 us=1784.8660000000223
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=parse sample=11 us=3001.901000000032
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=parse sample=12 us=1965.4239999999845
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=parse sample=13 us=1736.1250000000155
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=parse sample=14 us=2988.061000000016
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=parse sample=15 us=2716.725999999994
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=parse sample=16 us=2793.537000000015
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=parse sample=17 us=3144.0020000000004
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=parse sample=18 us=2675.561000000016
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=parse sample=19 us=2991.9310000000223
+METADATA phase=parse bytes=1002 chars=1002 ir_nodes=111 top_level_blocks=22 output_chars=178
+SCALING_CHECKSUM run=warm value=40080
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-0 corpus=ordinary target=1000 phase=ir exit=0
+FIXTURE run=cold-0 corpus=ordinary target=1000 phase=ir setup=parser-prerequisite
+SAMPLE run=cold-0 corpus=ordinary target=1000 bytes=1002 phase=ir sample=0 us=22509.724000000006
+METADATA phase=ir bytes=1002 chars=1002 ir_nodes=111 top_level_blocks=22 output_chars=178
+SCALING_CHECKSUM run=cold-0 value=111
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-1 corpus=ordinary target=1000 phase=ir exit=0
+FIXTURE run=cold-1 corpus=ordinary target=1000 phase=ir setup=parser-prerequisite
+SAMPLE run=cold-1 corpus=ordinary target=1000 bytes=1002 phase=ir sample=0 us=26412.189000000013
+METADATA phase=ir bytes=1002 chars=1002 ir_nodes=111 top_level_blocks=22 output_chars=178
+SCALING_CHECKSUM run=cold-1 value=111
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-2 corpus=ordinary target=1000 phase=ir exit=0
+FIXTURE run=cold-2 corpus=ordinary target=1000 phase=ir setup=parser-prerequisite
+SAMPLE run=cold-2 corpus=ordinary target=1000 bytes=1002 phase=ir sample=0 us=29112.745000000017
+METADATA phase=ir bytes=1002 chars=1002 ir_nodes=111 top_level_blocks=22 output_chars=178
+SCALING_CHECKSUM run=cold-2 value=111
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=warm corpus=ordinary target=1000 phase=ir exit=0
+FIXTURE run=warm corpus=ordinary target=1000 phase=ir setup=parser-prerequisite
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=ir sample=0 us=1257.4339999999893
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=ir sample=1 us=1190.226999999993
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=ir sample=2 us=2354.1270000000054
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=ir sample=3 us=2034.337999999991
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=ir sample=4 us=1320.2679999999987
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=ir sample=5 us=2151.693000000023
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=ir sample=6 us=1515.1400000000308
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=ir sample=7 us=1098.936999999978
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=ir sample=8 us=777.4430000000052
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=ir sample=9 us=521.0549999999898
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=ir sample=10 us=724.332000000004
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=ir sample=11 us=1177.2869999999784
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=ir sample=12 us=617.2079999999482
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=ir sample=13 us=693.5189999999807
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=ir sample=14 us=904.3270000000234
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=ir sample=15 us=686.821000000009
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=ir sample=16 us=1662.2519999999668
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=ir sample=17 us=1575.853000000052
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=ir sample=18 us=639.2319999999927
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=ir sample=19 us=718.8910000000419
+METADATA phase=ir bytes=1002 chars=1002 ir_nodes=111 top_level_blocks=22 output_chars=178
+SCALING_CHECKSUM run=warm value=4440
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-0 corpus=ordinary target=1000 phase=extract exit=0
+FIXTURE run=cold-0 corpus=ordinary target=1000 phase=extract setup=none
+SAMPLE run=cold-0 corpus=ordinary target=1000 bytes=1002 phase=extract sample=0 us=78371.94799999997
+METADATA phase=extract bytes=1002 chars=1002 ir_nodes=111 top_level_blocks=22 output_chars=178
+SCALING_CHECKSUM run=cold-0 value=178
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-1 corpus=ordinary target=1000 phase=extract exit=0
+FIXTURE run=cold-1 corpus=ordinary target=1000 phase=extract setup=none
+SAMPLE run=cold-1 corpus=ordinary target=1000 bytes=1002 phase=extract sample=0 us=89127.36999999998
+METADATA phase=extract bytes=1002 chars=1002 ir_nodes=111 top_level_blocks=22 output_chars=178
+SCALING_CHECKSUM run=cold-1 value=178
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-2 corpus=ordinary target=1000 phase=extract exit=0
+FIXTURE run=cold-2 corpus=ordinary target=1000 phase=extract setup=none
+SAMPLE run=cold-2 corpus=ordinary target=1000 bytes=1002 phase=extract sample=0 us=93710.49299999999
+METADATA phase=extract bytes=1002 chars=1002 ir_nodes=111 top_level_blocks=22 output_chars=178
+SCALING_CHECKSUM run=cold-2 value=178
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=warm corpus=ordinary target=1000 phase=extract exit=0
+FIXTURE run=warm corpus=ordinary target=1000 phase=extract setup=none
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=extract sample=0 us=5297.790000000021
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=extract sample=1 us=6696.275000000014
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=extract sample=2 us=5473.593999999992
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=extract sample=3 us=5465.688
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=extract sample=4 us=8734.910000000014
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=extract sample=5 us=4289.656999999977
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=extract sample=6 us=1727.3250000000075
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=extract sample=7 us=3291.950999999983
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=extract sample=8 us=3891.96800000002
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=extract sample=9 us=2965.7209999999736
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=extract sample=10 us=3562.7470000000017
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=extract sample=11 us=2265.3399999999806
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=extract sample=12 us=2521.107000000029
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=extract sample=13 us=4399.8960000000125
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=extract sample=14 us=6072.330000000022
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=extract sample=15 us=5314.999
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=extract sample=16 us=3616.287
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=extract sample=17 us=5776.878999999952
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=extract sample=18 us=5060.320999999987
+SAMPLE run=warm corpus=ordinary target=1000 bytes=1002 phase=extract sample=19 us=5159.45499999998
+METADATA phase=extract bytes=1002 chars=1002 ir_nodes=111 top_level_blocks=22 output_chars=178
+SCALING_CHECKSUM run=warm value=7120
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-0 corpus=ordinary target=10000 phase=parse exit=0
+FIXTURE run=cold-0 corpus=ordinary target=10000 phase=parse setup=none
+SAMPLE run=cold-0 corpus=ordinary target=10000 bytes=10027 phase=parse sample=0 us=132710.53199999998
+METADATA phase=parse bytes=10027 chars=10027 ir_nodes=1091 top_level_blocks=218 output_chars=178
+SCALING_CHECKSUM run=cold-0 value=10027
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-1 corpus=ordinary target=10000 phase=parse exit=0
+FIXTURE run=cold-1 corpus=ordinary target=10000 phase=parse setup=none
+SAMPLE run=cold-1 corpus=ordinary target=10000 bytes=10027 phase=parse sample=0 us=132235.088
+METADATA phase=parse bytes=10027 chars=10027 ir_nodes=1091 top_level_blocks=218 output_chars=178
+SCALING_CHECKSUM run=cold-1 value=10027
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-2 corpus=ordinary target=10000 phase=parse exit=0
+FIXTURE run=cold-2 corpus=ordinary target=10000 phase=parse setup=none
+SAMPLE run=cold-2 corpus=ordinary target=10000 bytes=10027 phase=parse sample=0 us=146592.84600000002
+METADATA phase=parse bytes=10027 chars=10027 ir_nodes=1091 top_level_blocks=218 output_chars=178
+SCALING_CHECKSUM run=cold-2 value=10027
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=warm corpus=ordinary target=10000 phase=parse exit=0
+FIXTURE run=warm corpus=ordinary target=10000 phase=parse setup=none
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=parse sample=0 us=18624.10799999998
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=parse sample=1 us=11013.54600000002
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=parse sample=2 us=20098.154999999904
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=parse sample=3 us=17332.735999999953
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=parse sample=4 us=22490.594999999987
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=parse sample=5 us=22105.310999999914
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=parse sample=6 us=14684.290000000034
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=parse sample=7 us=21859.783000000105
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=parse sample=8 us=11621.744000000035
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=parse sample=9 us=12429.646999999932
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=parse sample=10 us=12006.096999999954
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=parse sample=11 us=15112.977
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=parse sample=12 us=19688.644000000066
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=parse sample=13 us=15088.110999999799
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=parse sample=14 us=22598.160000000007
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=parse sample=15 us=21757.566
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=parse sample=16 us=21812.966999999844
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=parse sample=17 us=23674.653000000035
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=parse sample=18 us=14182.917999999972
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=parse sample=19 us=14853.022999999894
+METADATA phase=parse bytes=10027 chars=10027 ir_nodes=1091 top_level_blocks=218 output_chars=178
+SCALING_CHECKSUM run=warm value=401080
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-0 corpus=ordinary target=10000 phase=ir exit=0
+FIXTURE run=cold-0 corpus=ordinary target=10000 phase=ir setup=parser-prerequisite
+SAMPLE run=cold-0 corpus=ordinary target=10000 bytes=10027 phase=ir sample=0 us=53808.08300000001
+METADATA phase=ir bytes=10027 chars=10027 ir_nodes=1091 top_level_blocks=218 output_chars=178
+SCALING_CHECKSUM run=cold-0 value=1091
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-1 corpus=ordinary target=10000 phase=ir exit=0
+FIXTURE run=cold-1 corpus=ordinary target=10000 phase=ir setup=parser-prerequisite
+SAMPLE run=cold-1 corpus=ordinary target=10000 bytes=10027 phase=ir sample=0 us=20828.32099999996
+METADATA phase=ir bytes=10027 chars=10027 ir_nodes=1091 top_level_blocks=218 output_chars=178
+SCALING_CHECKSUM run=cold-1 value=1091
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-2 corpus=ordinary target=10000 phase=ir exit=0
+FIXTURE run=cold-2 corpus=ordinary target=10000 phase=ir setup=parser-prerequisite
+SAMPLE run=cold-2 corpus=ordinary target=10000 bytes=10027 phase=ir sample=0 us=41716.78599999996
+METADATA phase=ir bytes=10027 chars=10027 ir_nodes=1091 top_level_blocks=218 output_chars=178
+SCALING_CHECKSUM run=cold-2 value=1091
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=warm corpus=ordinary target=10000 phase=ir exit=0
+FIXTURE run=warm corpus=ordinary target=10000 phase=ir setup=parser-prerequisite
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=ir sample=0 us=10181.600000000002
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=ir sample=1 us=7246.4350000000195
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=ir sample=2 us=8123.781000000008
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=ir sample=3 us=7197.629000000006
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=ir sample=4 us=5175.729000000047
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=ir sample=5 us=8304.724999999962
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=ir sample=6 us=4189.863999999943
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=ir sample=7 us=11711.121999999932
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=ir sample=8 us=8779.664000000026
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=ir sample=9 us=8071.197000000097
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=ir sample=10 us=4417.291999999975
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=ir sample=11 us=11268.049000000019
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=ir sample=12 us=4592.005999999969
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=ir sample=13 us=11094.71199999996
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=ir sample=14 us=2963.644000000045
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=ir sample=15 us=8545.638000000054
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=ir sample=16 us=3012.1270000000777
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=ir sample=17 us=6450.960000000009
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=ir sample=18 us=4328.902999999968
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=ir sample=19 us=10762.923999999999
+METADATA phase=ir bytes=10027 chars=10027 ir_nodes=1091 top_level_blocks=218 output_chars=178
+SCALING_CHECKSUM run=warm value=43640
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-0 corpus=ordinary target=10000 phase=extract exit=0
+FIXTURE run=cold-0 corpus=ordinary target=10000 phase=extract setup=none
+SAMPLE run=cold-0 corpus=ordinary target=10000 bytes=10027 phase=extract sample=0 us=193626.97600000002
+METADATA phase=extract bytes=10027 chars=10027 ir_nodes=1091 top_level_blocks=218 output_chars=178
+SCALING_CHECKSUM run=cold-0 value=178
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-1 corpus=ordinary target=10000 phase=extract exit=0
+FIXTURE run=cold-1 corpus=ordinary target=10000 phase=extract setup=none
+SAMPLE run=cold-1 corpus=ordinary target=10000 bytes=10027 phase=extract sample=0 us=192922.687
+METADATA phase=extract bytes=10027 chars=10027 ir_nodes=1091 top_level_blocks=218 output_chars=178
+SCALING_CHECKSUM run=cold-1 value=178
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-2 corpus=ordinary target=10000 phase=extract exit=0
+FIXTURE run=cold-2 corpus=ordinary target=10000 phase=extract setup=none
+SAMPLE run=cold-2 corpus=ordinary target=10000 bytes=10027 phase=extract sample=0 us=218339.28500000003
+METADATA phase=extract bytes=10027 chars=10027 ir_nodes=1091 top_level_blocks=218 output_chars=178
+SCALING_CHECKSUM run=cold-2 value=178
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=warm corpus=ordinary target=10000 phase=extract exit=0
+FIXTURE run=warm corpus=ordinary target=10000 phase=extract setup=none
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=extract sample=0 us=22653.5879999999
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=extract sample=1 us=24342.018000000055
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=extract sample=2 us=24205.657999999858
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=extract sample=3 us=21402.316999999814
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=extract sample=4 us=26105.790999999954
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=extract sample=5 us=19450.239999999896
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=extract sample=6 us=26690.25099999999
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=extract sample=7 us=24561.092000000142
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=extract sample=8 us=17326.497000000018
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=extract sample=9 us=20927.662000000055
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=extract sample=10 us=24891.589000000065
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=extract sample=11 us=21314.963000000032
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=extract sample=12 us=28093.290000000023
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=extract sample=13 us=15277.287999999999
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=extract sample=14 us=17874.315999999908
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=extract sample=15 us=21107.061999999816
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=extract sample=16 us=17853.352000000086
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=extract sample=17 us=20029.50699999997
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=extract sample=18 us=12029.671000000008
+SAMPLE run=warm corpus=ordinary target=10000 bytes=10027 phase=extract sample=19 us=19434.246999999916
+METADATA phase=extract bytes=10027 chars=10027 ir_nodes=1091 top_level_blocks=218 output_chars=178
+SCALING_CHECKSUM run=warm value=7120
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-0 corpus=ordinary target=50000 phase=parse exit=0
+FIXTURE run=cold-0 corpus=ordinary target=50000 phase=parse setup=none
+SAMPLE run=cold-0 corpus=ordinary target=50000 bytes=50017 phase=parse sample=0 us=208384.196
+METADATA phase=parse bytes=50017 chars=50017 ir_nodes=5391 top_level_blocks=1078 output_chars=178
+SCALING_CHECKSUM run=cold-0 value=50017
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-1 corpus=ordinary target=50000 phase=parse exit=0
+FIXTURE run=cold-1 corpus=ordinary target=50000 phase=parse setup=none
+SAMPLE run=cold-1 corpus=ordinary target=50000 bytes=50017 phase=parse sample=0 us=277220.61399999994
+METADATA phase=parse bytes=50017 chars=50017 ir_nodes=5391 top_level_blocks=1078 output_chars=178
+SCALING_CHECKSUM run=cold-1 value=50017
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-2 corpus=ordinary target=50000 phase=parse exit=0
+FIXTURE run=cold-2 corpus=ordinary target=50000 phase=parse setup=none
+SAMPLE run=cold-2 corpus=ordinary target=50000 bytes=50017 phase=parse sample=0 us=293921.478
+METADATA phase=parse bytes=50017 chars=50017 ir_nodes=5391 top_level_blocks=1078 output_chars=178
+SCALING_CHECKSUM run=cold-2 value=50017
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=warm corpus=ordinary target=50000 phase=parse exit=0
+FIXTURE run=warm corpus=ordinary target=50000 phase=parse setup=none
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=parse sample=0 us=62371.80899999976
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=parse sample=1 us=78116.29200000016
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=parse sample=2 us=71513.88899999984
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=parse sample=3 us=75996.23099999962
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=parse sample=4 us=73998.92600000021
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=parse sample=5 us=59714.58299999995
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=parse sample=6 us=71172.99000000002
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=parse sample=7 us=52837.97800000002
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=parse sample=8 us=55696.24900000008
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=parse sample=9 us=60710.69500000021
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=parse sample=10 us=78092.2660000001
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=parse sample=11 us=65402.73000000024
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=parse sample=12 us=63640.080000000125
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=parse sample=13 us=71321.21300000016
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=parse sample=14 us=63031.676999999945
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=parse sample=15 us=68794.8620000002
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=parse sample=16 us=79049.91599999994
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=parse sample=17 us=62902.1859999998
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=parse sample=18 us=71169.39400000001
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=parse sample=19 us=62384.57800000015
+METADATA phase=parse bytes=50017 chars=50017 ir_nodes=5391 top_level_blocks=1078 output_chars=178
+SCALING_CHECKSUM run=warm value=2000680
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-0 corpus=ordinary target=50000 phase=ir exit=0
+FIXTURE run=cold-0 corpus=ordinary target=50000 phase=ir setup=parser-prerequisite
+SAMPLE run=cold-0 corpus=ordinary target=50000 bytes=50017 phase=ir sample=0 us=134467.66300000006
+METADATA phase=ir bytes=50017 chars=50017 ir_nodes=5391 top_level_blocks=1078 output_chars=178
+SCALING_CHECKSUM run=cold-0 value=5391
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-1 corpus=ordinary target=50000 phase=ir exit=0
+FIXTURE run=cold-1 corpus=ordinary target=50000 phase=ir setup=parser-prerequisite
+SAMPLE run=cold-1 corpus=ordinary target=50000 bytes=50017 phase=ir sample=0 us=140152.62600000005
+METADATA phase=ir bytes=50017 chars=50017 ir_nodes=5391 top_level_blocks=1078 output_chars=178
+SCALING_CHECKSUM run=cold-1 value=5391
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-2 corpus=ordinary target=50000 phase=ir exit=0
+FIXTURE run=cold-2 corpus=ordinary target=50000 phase=ir setup=parser-prerequisite
+SAMPLE run=cold-2 corpus=ordinary target=50000 bytes=50017 phase=ir sample=0 us=52517.84100000001
+METADATA phase=ir bytes=50017 chars=50017 ir_nodes=5391 top_level_blocks=1078 output_chars=178
+SCALING_CHECKSUM run=cold-2 value=5391
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=warm corpus=ordinary target=50000 phase=ir exit=0
+FIXTURE run=warm corpus=ordinary target=50000 phase=ir setup=parser-prerequisite
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=ir sample=0 us=11884.626000000026
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=ir sample=1 us=10588.981000000103
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=ir sample=2 us=12119.439000000057
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=ir sample=3 us=10792.551000000003
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=ir sample=4 us=13563.656000000037
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=ir sample=5 us=25098.57399999987
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=ir sample=6 us=23937.92000000008
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=ir sample=7 us=25818.174999999883
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=ir sample=8 us=18195.140999999923
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=ir sample=9 us=15680.962000000136
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=ir sample=10 us=24504.3290000001
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=ir sample=11 us=20501.81499999985
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=ir sample=12 us=34589.698
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=ir sample=13 us=24944.881000000125
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=ir sample=14 us=52070.29399999988
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=ir sample=15 us=43638.228000000025
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=ir sample=16 us=22886.02100000003
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=ir sample=17 us=40282.307000000175
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=ir sample=18 us=53811.47799999985
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=ir sample=19 us=34737.07800000011
+METADATA phase=ir bytes=50017 chars=50017 ir_nodes=5391 top_level_blocks=1078 output_chars=178
+SCALING_CHECKSUM run=warm value=215640
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-0 corpus=ordinary target=50000 phase=extract exit=0
+FIXTURE run=cold-0 corpus=ordinary target=50000 phase=extract setup=none
+SAMPLE run=cold-0 corpus=ordinary target=50000 bytes=50017 phase=extract sample=0 us=420488.6869999999
+METADATA phase=extract bytes=50017 chars=50017 ir_nodes=5391 top_level_blocks=1078 output_chars=178
+SCALING_CHECKSUM run=cold-0 value=178
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-1 corpus=ordinary target=50000 phase=extract exit=0
+FIXTURE run=cold-1 corpus=ordinary target=50000 phase=extract setup=none
+SAMPLE run=cold-1 corpus=ordinary target=50000 bytes=50017 phase=extract sample=0 us=437780.63499999995
+METADATA phase=extract bytes=50017 chars=50017 ir_nodes=5391 top_level_blocks=1078 output_chars=178
+SCALING_CHECKSUM run=cold-1 value=178
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-2 corpus=ordinary target=50000 phase=extract exit=0
+FIXTURE run=cold-2 corpus=ordinary target=50000 phase=extract setup=none
+SAMPLE run=cold-2 corpus=ordinary target=50000 bytes=50017 phase=extract sample=0 us=455753.99700000003
+METADATA phase=extract bytes=50017 chars=50017 ir_nodes=5391 top_level_blocks=1078 output_chars=178
+SCALING_CHECKSUM run=cold-2 value=178
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=warm corpus=ordinary target=50000 phase=extract exit=0
+FIXTURE run=warm corpus=ordinary target=50000 phase=extract setup=none
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=extract sample=0 us=128786.63800000004
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=extract sample=1 us=104176.08199999995
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=extract sample=2 us=107105.05700000022
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=extract sample=3 us=117674.03100000002
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=extract sample=4 us=101852.6609999999
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=extract sample=5 us=82527.73200000002
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=extract sample=6 us=97267.6220000003
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=extract sample=7 us=111160.06599999992
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=extract sample=8 us=115728.09099999996
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=extract sample=9 us=79940.77300000026
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=extract sample=10 us=89596.20200000063
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=extract sample=11 us=117663.29600000063
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=extract sample=12 us=121907.92499999952
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=extract sample=13 us=118918.34000000017
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=extract sample=14 us=112534.79599999991
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=extract sample=15 us=83313.1910000002
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=extract sample=16 us=93310.04799999937
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=extract sample=17 us=115831.61400000063
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=extract sample=18 us=93927.19099999976
+SAMPLE run=warm corpus=ordinary target=50000 bytes=50017 phase=extract sample=19 us=105834.76500000051
+METADATA phase=extract bytes=50017 chars=50017 ir_nodes=5391 top_level_blocks=1078 output_chars=178
+SCALING_CHECKSUM run=warm value=7120
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-0 corpus=structure target=1000 phase=parse exit=0
+FIXTURE run=cold-0 corpus=structure target=1000 phase=parse setup=none
+SAMPLE run=cold-0 corpus=structure target=1000 bytes=1050 phase=parse sample=0 us=97845.57899999998
+METADATA phase=parse bytes=1050 chars=1050 ir_nodes=127 top_level_blocks=28 output_chars=179
+SCALING_CHECKSUM run=cold-0 value=1050
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-1 corpus=structure target=1000 phase=parse exit=0
+FIXTURE run=cold-1 corpus=structure target=1000 phase=parse setup=none
+SAMPLE run=cold-1 corpus=structure target=1000 bytes=1050 phase=parse sample=0 us=87201.79900000003
+METADATA phase=parse bytes=1050 chars=1050 ir_nodes=127 top_level_blocks=28 output_chars=179
+SCALING_CHECKSUM run=cold-1 value=1050
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-2 corpus=structure target=1000 phase=parse exit=0
+FIXTURE run=cold-2 corpus=structure target=1000 phase=parse setup=none
+SAMPLE run=cold-2 corpus=structure target=1000 bytes=1050 phase=parse sample=0 us=82561.115
+METADATA phase=parse bytes=1050 chars=1050 ir_nodes=127 top_level_blocks=28 output_chars=179
+SCALING_CHECKSUM run=cold-2 value=1050
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=warm corpus=structure target=1000 phase=parse exit=0
+FIXTURE run=warm corpus=structure target=1000 phase=parse setup=none
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=parse sample=0 us=5926.193000000012
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=parse sample=1 us=2884.552000000042
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=parse sample=2 us=1682.879000000014
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=parse sample=3 us=2280.947000000026
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=parse sample=4 us=2991.6979999999853
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=parse sample=5 us=2312.668999999971
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=parse sample=6 us=3727.967000000035
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=parse sample=7 us=5014.871000000028
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=parse sample=8 us=2434.782000000041
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=parse sample=9 us=9745.975999999984
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=parse sample=10 us=2414.783
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=parse sample=11 us=1591.6050000000155
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=parse sample=12 us=3907.0619999999963
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=parse sample=13 us=4787.586999999974
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=parse sample=14 us=2107.0459999999684
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=parse sample=15 us=2638.0459999999744
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=parse sample=16 us=2677.6539999999613
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=parse sample=17 us=2314.8929999999837
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=parse sample=18 us=2816.2979999999607
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=parse sample=19 us=6572.576000000026
+METADATA phase=parse bytes=1050 chars=1050 ir_nodes=127 top_level_blocks=28 output_chars=179
+SCALING_CHECKSUM run=warm value=42000
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-0 corpus=structure target=1000 phase=ir exit=0
+FIXTURE run=cold-0 corpus=structure target=1000 phase=ir setup=parser-prerequisite
+SAMPLE run=cold-0 corpus=structure target=1000 bytes=1050 phase=ir sample=0 us=28040.967000000022
+METADATA phase=ir bytes=1050 chars=1050 ir_nodes=127 top_level_blocks=28 output_chars=179
+SCALING_CHECKSUM run=cold-0 value=127
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-1 corpus=structure target=1000 phase=ir exit=0
+FIXTURE run=cold-1 corpus=structure target=1000 phase=ir setup=parser-prerequisite
+SAMPLE run=cold-1 corpus=structure target=1000 bytes=1050 phase=ir sample=0 us=27755.2
+METADATA phase=ir bytes=1050 chars=1050 ir_nodes=127 top_level_blocks=28 output_chars=179
+SCALING_CHECKSUM run=cold-1 value=127
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-2 corpus=structure target=1000 phase=ir exit=0
+FIXTURE run=cold-2 corpus=structure target=1000 phase=ir setup=parser-prerequisite
+SAMPLE run=cold-2 corpus=structure target=1000 bytes=1050 phase=ir sample=0 us=32654.898
+METADATA phase=ir bytes=1050 chars=1050 ir_nodes=127 top_level_blocks=28 output_chars=179
+SCALING_CHECKSUM run=cold-2 value=127
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=warm corpus=structure target=1000 phase=ir exit=0
+FIXTURE run=warm corpus=structure target=1000 phase=ir setup=parser-prerequisite
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=ir sample=0 us=2233.015000000023
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=ir sample=1 us=3040.368000000001
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=ir sample=2 us=2031.6399999999817
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=ir sample=3 us=4101.195000000018
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=ir sample=4 us=2150.020999999981
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=ir sample=5 us=3150.334999999984
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=ir sample=6 us=5473.010999999986
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=ir sample=7 us=1241.0750000000235
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=ir sample=8 us=1042.3640000000205
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=ir sample=9 us=3215.9749999999576
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=ir sample=10 us=3054.263999999989
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=ir sample=11 us=2358.0759999999827
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=ir sample=12 us=3161.606000000006
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=ir sample=13 us=768.6879999999974
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=ir sample=14 us=841.7530000000397
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=ir sample=15 us=2894.7839999999587
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=ir sample=16 us=2737.3360000000275
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=ir sample=17 us=3050.049999999999
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=ir sample=18 us=3663.6839999999893
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=ir sample=19 us=1372.0789999999852
+METADATA phase=ir bytes=1050 chars=1050 ir_nodes=127 top_level_blocks=28 output_chars=179
+SCALING_CHECKSUM run=warm value=5080
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-0 corpus=structure target=1000 phase=extract exit=0
+FIXTURE run=cold-0 corpus=structure target=1000 phase=extract setup=none
+SAMPLE run=cold-0 corpus=structure target=1000 bytes=1050 phase=extract sample=0 us=113841.22299999998
+METADATA phase=extract bytes=1050 chars=1050 ir_nodes=127 top_level_blocks=28 output_chars=179
+SCALING_CHECKSUM run=cold-0 value=179
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-1 corpus=structure target=1000 phase=extract exit=0
+FIXTURE run=cold-1 corpus=structure target=1000 phase=extract setup=none
+SAMPLE run=cold-1 corpus=structure target=1000 bytes=1050 phase=extract sample=0 us=83193.188
+METADATA phase=extract bytes=1050 chars=1050 ir_nodes=127 top_level_blocks=28 output_chars=179
+SCALING_CHECKSUM run=cold-1 value=179
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-2 corpus=structure target=1000 phase=extract exit=0
+FIXTURE run=cold-2 corpus=structure target=1000 phase=extract setup=none
+SAMPLE run=cold-2 corpus=structure target=1000 bytes=1050 phase=extract sample=0 us=101893.552
+METADATA phase=extract bytes=1050 chars=1050 ir_nodes=127 top_level_blocks=28 output_chars=179
+SCALING_CHECKSUM run=cold-2 value=179
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=warm corpus=structure target=1000 phase=extract exit=0
+FIXTURE run=warm corpus=structure target=1000 phase=extract setup=none
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=extract sample=0 us=5925.174000000084
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=extract sample=1 us=7700.98500000006
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=extract sample=2 us=6969.365999999923
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=extract sample=3 us=4159.591999999975
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=extract sample=4 us=10528.93599999993
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=extract sample=5 us=3983.9829999999665
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=extract sample=6 us=5426.120999999966
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=extract sample=7 us=7347.787999999923
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=extract sample=8 us=5511.491999999976
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=extract sample=9 us=4360.776999999985
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=extract sample=10 us=8531.601000000024
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=extract sample=11 us=4047.555999999986
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=extract sample=12 us=5254.925000000071
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=extract sample=13 us=7672.327999999993
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=extract sample=14 us=3982.7410000000327
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=extract sample=15 us=2440.870000000018
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=extract sample=16 us=9105.349000000046
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=extract sample=17 us=3536.611000000107
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=extract sample=18 us=3582.247000000052
+SAMPLE run=warm corpus=structure target=1000 bytes=1050 phase=extract sample=19 us=4364.494000000036
+METADATA phase=extract bytes=1050 chars=1050 ir_nodes=127 top_level_blocks=28 output_chars=179
+SCALING_CHECKSUM run=warm value=7160
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-0 corpus=structure target=10000 phase=parse exit=0
+FIXTURE run=cold-0 corpus=structure target=10000 phase=parse setup=none
+SAMPLE run=cold-0 corpus=structure target=10000 bytes=10025 phase=parse sample=0 us=174879.083
+METADATA phase=parse bytes=10025 chars=10025 ir_nodes=1171 top_level_blocks=260 output_chars=179
+SCALING_CHECKSUM run=cold-0 value=10025
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-1 corpus=structure target=10000 phase=parse exit=0
+FIXTURE run=cold-1 corpus=structure target=10000 phase=parse setup=none
+SAMPLE run=cold-1 corpus=structure target=10000 bytes=10025 phase=parse sample=0 us=316087.077
+METADATA phase=parse bytes=10025 chars=10025 ir_nodes=1171 top_level_blocks=260 output_chars=179
+SCALING_CHECKSUM run=cold-1 value=10025
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-2 corpus=structure target=10000 phase=parse exit=0
+FIXTURE run=cold-2 corpus=structure target=10000 phase=parse setup=none
+SAMPLE run=cold-2 corpus=structure target=10000 bytes=10025 phase=parse sample=0 us=174991.09000000003
+METADATA phase=parse bytes=10025 chars=10025 ir_nodes=1171 top_level_blocks=260 output_chars=179
+SCALING_CHECKSUM run=cold-2 value=10025
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=warm corpus=structure target=10000 phase=parse exit=0
+FIXTURE run=warm corpus=structure target=10000 phase=parse setup=none
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=parse sample=0 us=22443.341999999917
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=parse sample=1 us=14738.417000000027
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=parse sample=2 us=12844.177000000058
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=parse sample=3 us=32213.60399999992
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=parse sample=4 us=18479.95999999989
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=parse sample=5 us=20150.567000000137
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=parse sample=6 us=23904.25600000003
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=parse sample=7 us=19092.461000000185
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=parse sample=8 us=15169.546999999966
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=parse sample=9 us=15042.155999999977
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=parse sample=10 us=26405.40100000021
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=parse sample=11 us=17610.832999999955
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=parse sample=12 us=26896.07100000012
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=parse sample=13 us=26952.89899999989
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=parse sample=14 us=7140.747000000147
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=parse sample=15 us=30389.926999999945
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=parse sample=16 us=25094.057999999903
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=parse sample=17 us=18640.01099999996
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=parse sample=18 us=19836.393000000044
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=parse sample=19 us=11616.428000000042
+METADATA phase=parse bytes=10025 chars=10025 ir_nodes=1171 top_level_blocks=260 output_chars=179
+SCALING_CHECKSUM run=warm value=401000
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-0 corpus=structure target=10000 phase=ir exit=0
+FIXTURE run=cold-0 corpus=structure target=10000 phase=ir setup=parser-prerequisite
+SAMPLE run=cold-0 corpus=structure target=10000 bytes=10025 phase=ir sample=0 us=67960.09299999998
+METADATA phase=ir bytes=10025 chars=10025 ir_nodes=1171 top_level_blocks=260 output_chars=179
+SCALING_CHECKSUM run=cold-0 value=1171
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-1 corpus=structure target=10000 phase=ir exit=0
+FIXTURE run=cold-1 corpus=structure target=10000 phase=ir setup=parser-prerequisite
+SAMPLE run=cold-1 corpus=structure target=10000 bytes=10025 phase=ir sample=0 us=85378.22399999993
+METADATA phase=ir bytes=10025 chars=10025 ir_nodes=1171 top_level_blocks=260 output_chars=179
+SCALING_CHECKSUM run=cold-1 value=1171
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-2 corpus=structure target=10000 phase=ir exit=0
+FIXTURE run=cold-2 corpus=structure target=10000 phase=ir setup=parser-prerequisite
+SAMPLE run=cold-2 corpus=structure target=10000 bytes=10025 phase=ir sample=0 us=66202.08300000001
+METADATA phase=ir bytes=10025 chars=10025 ir_nodes=1171 top_level_blocks=260 output_chars=179
+SCALING_CHECKSUM run=cold-2 value=1171
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=warm corpus=structure target=10000 phase=ir exit=0
+FIXTURE run=warm corpus=structure target=10000 phase=ir setup=parser-prerequisite
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=ir sample=0 us=12678.686999999969
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=ir sample=1 us=26610.580000000027
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=ir sample=2 us=7076.18100000002
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=ir sample=3 us=23122.119999999995
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=ir sample=4 us=12500.095999999985
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=ir sample=5 us=11547.362000000021
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=ir sample=6 us=29153.660999999942
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=ir sample=7 us=9861.613000000034
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=ir sample=8 us=14936.967999999979
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=ir sample=9 us=14775.123000000007
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=ir sample=10 us=7276.023000000009
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=ir sample=11 us=8853.36499999994
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=ir sample=12 us=7696.105000000102
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=ir sample=13 us=13997.962000000029
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=ir sample=14 us=9512.23200000004
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=ir sample=15 us=8392.000000000053
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=ir sample=16 us=8644.574999999917
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=ir sample=17 us=12562.90100000001
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=ir sample=18 us=7781.860999999935
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=ir sample=19 us=14136.786999999913
+METADATA phase=ir bytes=10025 chars=10025 ir_nodes=1171 top_level_blocks=260 output_chars=179
+SCALING_CHECKSUM run=warm value=46840
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-0 corpus=structure target=10000 phase=extract exit=0
+FIXTURE run=cold-0 corpus=structure target=10000 phase=extract setup=none
+SAMPLE run=cold-0 corpus=structure target=10000 bytes=10025 phase=extract sample=0 us=274136.01600000006
+METADATA phase=extract bytes=10025 chars=10025 ir_nodes=1171 top_level_blocks=260 output_chars=179
+SCALING_CHECKSUM run=cold-0 value=179
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-1 corpus=structure target=10000 phase=extract exit=0
+FIXTURE run=cold-1 corpus=structure target=10000 phase=extract setup=none
+SAMPLE run=cold-1 corpus=structure target=10000 bytes=10025 phase=extract sample=0 us=303719.352
+METADATA phase=extract bytes=10025 chars=10025 ir_nodes=1171 top_level_blocks=260 output_chars=179
+SCALING_CHECKSUM run=cold-1 value=179
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-2 corpus=structure target=10000 phase=extract exit=0
+FIXTURE run=cold-2 corpus=structure target=10000 phase=extract setup=none
+SAMPLE run=cold-2 corpus=structure target=10000 bytes=10025 phase=extract sample=0 us=226160.35000000003
+METADATA phase=extract bytes=10025 chars=10025 ir_nodes=1171 top_level_blocks=260 output_chars=179
+SCALING_CHECKSUM run=cold-2 value=179
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=warm corpus=structure target=10000 phase=extract exit=0
+FIXTURE run=warm corpus=structure target=10000 phase=extract setup=none
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=extract sample=0 us=27707.083000000013
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=extract sample=1 us=27865.82700000008
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=extract sample=2 us=36060.00799999993
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=extract sample=3 us=53801.76999999981
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=extract sample=4 us=51599.429999999986
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=extract sample=5 us=32471.488000000136
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=extract sample=6 us=29897.36199999993
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=extract sample=7 us=40818.65100000004
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=extract sample=8 us=31952.32099999998
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=extract sample=9 us=39052.116999999955
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=extract sample=10 us=54337.95899999996
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=extract sample=11 us=32506.648999999925
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=extract sample=12 us=38432.45500000012
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=extract sample=13 us=24810.861000000157
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=extract sample=14 us=28344.229999999923
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=extract sample=15 us=24541.502000000037
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=extract sample=16 us=38186.84700000017
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=extract sample=17 us=27094.978000000083
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=extract sample=18 us=39006.67399999998
+SAMPLE run=warm corpus=structure target=10000 bytes=10025 phase=extract sample=19 us=34359.65499999998
+METADATA phase=extract bytes=10025 chars=10025 ir_nodes=1171 top_level_blocks=260 output_chars=179
+SCALING_CHECKSUM run=warm value=7160
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-0 corpus=structure target=50000 phase=parse exit=0
+FIXTURE run=cold-0 corpus=structure target=50000 phase=parse setup=none
+SAMPLE run=cold-0 corpus=structure target=50000 bytes=50010 phase=parse sample=0 us=397469.67399999994
+METADATA phase=parse bytes=50010 chars=50010 ir_nodes=5689 top_level_blocks=1264 output_chars=179
+SCALING_CHECKSUM run=cold-0 value=50010
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-1 corpus=structure target=50000 phase=parse exit=0
+FIXTURE run=cold-1 corpus=structure target=50000 phase=parse setup=none
+SAMPLE run=cold-1 corpus=structure target=50000 bytes=50010 phase=parse sample=0 us=350080.683
+METADATA phase=parse bytes=50010 chars=50010 ir_nodes=5689 top_level_blocks=1264 output_chars=179
+SCALING_CHECKSUM run=cold-1 value=50010
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-2 corpus=structure target=50000 phase=parse exit=0
+FIXTURE run=cold-2 corpus=structure target=50000 phase=parse setup=none
+SAMPLE run=cold-2 corpus=structure target=50000 bytes=50010 phase=parse sample=0 us=432517.152
+METADATA phase=parse bytes=50010 chars=50010 ir_nodes=5689 top_level_blocks=1264 output_chars=179
+SCALING_CHECKSUM run=cold-2 value=50010
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=warm corpus=structure target=50000 phase=parse exit=0
+FIXTURE run=warm corpus=structure target=50000 phase=parse setup=none
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=parse sample=0 us=77886.92900000024
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=parse sample=1 us=103634.84599999993
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=parse sample=2 us=85076.02599999972
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=parse sample=3 us=82931.02999999974
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=parse sample=4 us=81444.01300000027
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=parse sample=5 us=80971.5500000002
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=parse sample=6 us=69844.39499999963
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=parse sample=7 us=72499.014
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=parse sample=8 us=88641.37500000015
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=parse sample=9 us=97345.63799999977
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=parse sample=10 us=94473.43000000001
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=parse sample=11 us=95947.81899999999
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=parse sample=12 us=78978.93699999986
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=parse sample=13 us=93902.89699999994
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=parse sample=14 us=128867.25400000023
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=parse sample=15 us=95616.1750000001
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=parse sample=16 us=89683.3829999996
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=parse sample=17 us=83260.77199999963
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=parse sample=18 us=103936.46900000022
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=parse sample=19 us=86295.92000000048
+METADATA phase=parse bytes=50010 chars=50010 ir_nodes=5689 top_level_blocks=1264 output_chars=179
+SCALING_CHECKSUM run=warm value=2000400
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-0 corpus=structure target=50000 phase=ir exit=0
+FIXTURE run=cold-0 corpus=structure target=50000 phase=ir setup=parser-prerequisite
+SAMPLE run=cold-0 corpus=structure target=50000 bytes=50010 phase=ir sample=0 us=178859.33899999998
+METADATA phase=ir bytes=50010 chars=50010 ir_nodes=5689 top_level_blocks=1264 output_chars=179
+SCALING_CHECKSUM run=cold-0 value=5689
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-1 corpus=structure target=50000 phase=ir exit=0
+FIXTURE run=cold-1 corpus=structure target=50000 phase=ir setup=parser-prerequisite
+SAMPLE run=cold-1 corpus=structure target=50000 bytes=50010 phase=ir sample=0 us=181419.50700000007
+METADATA phase=ir bytes=50010 chars=50010 ir_nodes=5689 top_level_blocks=1264 output_chars=179
+SCALING_CHECKSUM run=cold-1 value=5689
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-2 corpus=structure target=50000 phase=ir exit=0
+FIXTURE run=cold-2 corpus=structure target=50000 phase=ir setup=parser-prerequisite
+SAMPLE run=cold-2 corpus=structure target=50000 bytes=50010 phase=ir sample=0 us=150156.56999999998
+METADATA phase=ir bytes=50010 chars=50010 ir_nodes=5689 top_level_blocks=1264 output_chars=179
+SCALING_CHECKSUM run=cold-2 value=5689
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=warm corpus=structure target=50000 phase=ir exit=0
+FIXTURE run=warm corpus=structure target=50000 phase=ir setup=parser-prerequisite
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=ir sample=0 us=90651.62499999997
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=ir sample=1 us=75522.81200000015
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=ir sample=2 us=66037.21600000017
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=ir sample=3 us=76810.8900000002
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=ir sample=4 us=50237.16400000012
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=ir sample=5 us=46508.61400000031
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=ir sample=6 us=50118.382999999994
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=ir sample=7 us=55061.9999999999
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=ir sample=8 us=44001.77099999973
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=ir sample=9 us=49396.69699999968
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=ir sample=10 us=41315.17399999984
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=ir sample=11 us=46639.760000000024
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=ir sample=12 us=38684.77800000028
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=ir sample=13 us=47471.59199999987
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=ir sample=14 us=45292.39400000006
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=ir sample=15 us=37505.61400000015
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=ir sample=16 us=54546.628000000055
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=ir sample=17 us=38527.99199999981
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=ir sample=18 us=46160.98000000011
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=ir sample=19 us=33681.790999999976
+METADATA phase=ir bytes=50010 chars=50010 ir_nodes=5689 top_level_blocks=1264 output_chars=179
+SCALING_CHECKSUM run=warm value=227560
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-0 corpus=structure target=50000 phase=extract exit=0
+FIXTURE run=cold-0 corpus=structure target=50000 phase=extract setup=none
+SAMPLE run=cold-0 corpus=structure target=50000 bytes=50010 phase=extract sample=0 us=524924.262
+METADATA phase=extract bytes=50010 chars=50010 ir_nodes=5689 top_level_blocks=1264 output_chars=179
+SCALING_CHECKSUM run=cold-0 value=179
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-1 corpus=structure target=50000 phase=extract exit=0
+FIXTURE run=cold-1 corpus=structure target=50000 phase=extract setup=none
+SAMPLE run=cold-1 corpus=structure target=50000 bytes=50010 phase=extract sample=0 us=510264.50899999996
+METADATA phase=extract bytes=50010 chars=50010 ir_nodes=5689 top_level_blocks=1264 output_chars=179
+SCALING_CHECKSUM run=cold-1 value=179
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=cold-2 corpus=structure target=50000 phase=extract exit=0
+FIXTURE run=cold-2 corpus=structure target=50000 phase=extract setup=none
+SAMPLE run=cold-2 corpus=structure target=50000 bytes=50010 phase=extract sample=0 us=515570.782
+METADATA phase=extract bytes=50010 chars=50010 ir_nodes=5689 top_level_blocks=1264 output_chars=179
+SCALING_CHECKSUM run=cold-2 value=179
+Total tests: 1, passed: 1, failed: 0.
+PROCESS run=warm corpus=structure target=50000 phase=extract exit=0
+FIXTURE run=warm corpus=structure target=50000 phase=extract setup=none
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=extract sample=0 us=141496.03499999922
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=extract sample=1 us=144727.96600000036
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=extract sample=2 us=146850.89700000026
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=extract sample=3 us=116088.59800000027
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=extract sample=4 us=138456.62100000028
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=extract sample=5 us=137909.75200000047
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=extract sample=6 us=127453.60199999959
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=extract sample=7 us=131694.89499999964
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=extract sample=8 us=135466.7209999998
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=extract sample=9 us=189710.9959999998
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=extract sample=10 us=144277.12400000019
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=extract sample=11 us=113478.31000000042
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=extract sample=12 us=148395.16100000037
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=extract sample=13 us=159445.26099999985
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=extract sample=14 us=135760.14599999963
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=extract sample=15 us=132181.43899999995
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=extract sample=16 us=99730.16000000006
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=extract sample=17 us=122027.19100000014
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=extract sample=18 us=154460.33400000032
+SAMPLE run=warm corpus=structure target=50000 bytes=50010 phase=extract sample=19 us=132538.31900000022
+METADATA phase=extract bytes=50010 chars=50010 ir_nodes=5689 top_level_blocks=1264 output_chars=179
+SCALING_CHECKSUM run=warm value=7160
+Total tests: 1, passed: 1, failed: 0.

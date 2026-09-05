@@ -12,9 +12,9 @@ pub fn app() -> @rabbita.Val[@rabbita.Html]
 ```
 
 `apps/loomark/main/main.mbt` mounts that application. Browser integration is
-split between `apps/loomark/internal/source_repository`, which reconciles
-versioned Source records and derives an in-memory Catalog through `open`,
-`save`, and `delete`, and `apps/loomark/internal/text_area`, which converts native textarea
+split between `apps/loomark/app/internal/source_repository`, which reconciles versioned Source
+records and derives an in-memory Catalog through `open`, `save`, and `delete`,
+and `apps/loomark/internal/text_area`, which converts native textarea
 input sequences into shared `TextChange` operations.
 
 See the [Standard Rabbita Text App plan](../../docs/plans/2026-08-24-loomark-standard-rabbita-text-app.md) and the accepted decisions:
