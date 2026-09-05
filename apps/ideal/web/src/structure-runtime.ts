@@ -5,25 +5,22 @@ import { editorSchema } from "./schema";
 import { StructureCompoundView, StructureLeafView } from "./structure-nodeview";
 import { structuralKeymap, actionKeyForwardPlugin } from "./keymap";
 import { CanopyEvents } from "./events";
-import { CrdtBridge } from "./bridge";
 import { projNodeToDoc } from "./convert";
+import { reconcile } from "./reconciler";
+import type { ProjNodeJson } from "./types";
 import {
   peerCursorPlugin,
   errorDecoPlugin,
   evalGhostPlugin,
 } from "./decorations";
 import type {
-  CrdtModule,
   StructureHistoryCallback,
   StructureTreeEditCallback,
 } from "./types";
 
 export type StructureModeSession = {
-  applyRemote(syncJson: string): string;
   destroy(): void;
-  notifyLocalChange(): void;
-  reconcile(): void;
-  setBroadcast(fn: (() => void) | null): void;
+  reconcile(snapshot: string): void;
   setReadonly(readonly: boolean): void;
   setSelectedNode(id: string | null): void;
   setStructureHistoryCallback(callback: StructureHistoryCallback | null): void;
@@ -41,8 +38,8 @@ export type StructureModeSession = {
  * `module | term` and `module` content is `let_def* term`, so an empty
  * `module` is invalid — it threw `RangeError: Invalid content for node
  * module: <>` (#428) and aborted the whole mount. A bare `unit` term is the
- * minimal valid empty document; the RAF / `set projNode` reconcile loop
- * replaces it as soon as a real projection arrives.
+ * minimal valid empty document; a later application-supplied snapshot
+ * replaces it. There is no renderer-side polling or CRDT read.
  *
  * Exported for regression testing of the fallback path.
  */
@@ -55,10 +52,6 @@ export function buildStructureDoc(projJsonStr: string): PmNode {
     }
   }
   return editorSchema.node("doc", null, [editorSchema.node("unit")]);
-}
-
-function buildDoc(crdtHandle: number, crdt: CrdtModule): PmNode {
-  return buildStructureDoc(crdt.get_proj_node_json(crdtHandle));
 }
 
 function createStructureNodeViews(onEdit: StructureTreeEditCallback) {
@@ -116,17 +109,15 @@ function setSelectedNode(pmView: PmView, id: string | null): void {
 export function createStructureModeSession(
   parent: HTMLDivElement,
   host: HTMLElement,
-  crdtHandle: number,
-  crdt: CrdtModule,
+  initialSnapshot: string,
   initialOnEdit: StructureTreeEditCallback = () => {},
   initialOnHistory: StructureHistoryCallback = () => {},
 ): StructureModeSession {
   let onEdit = initialOnEdit;
   let onHistory = initialOnHistory;
-  const bridge = new CrdtBridge(crdtHandle, crdt);
   const pmView = new PmView(parent, {
     state: PmState.create({
-      doc: buildDoc(crdtHandle, crdt),
+      doc: buildStructureDoc(initialSnapshot),
       plugins: [
         structuralKeymap(
           host,
@@ -159,8 +150,6 @@ export function createStructureModeSession(
     },
   });
 
-  bridge.setPmView(pmView);
-
   // Long-press detection for touch devices
   let longPressTimer: ReturnType<typeof setTimeout> | null = null;
   const gestureController = new AbortController();
@@ -192,22 +181,14 @@ export function createStructureModeSession(
   }, { passive: true, signal: gestureController.signal });
 
   return {
-    applyRemote(syncJson: string): string {
-      return bridge.applyRemote(syncJson);
-    },
     destroy(): void {
       gestureController.abort();
-      bridge.destroy();
       pmView.destroy();
     },
-    notifyLocalChange(): void {
-      bridge.notifyLocalChange();
-    },
-    reconcile(): void {
-      bridge.reconcile();
-    },
-    setBroadcast(fn: (() => void) | null): void {
-      bridge.setBroadcast(fn);
+    reconcile(snapshot: string): void {
+      if (pmView.isDestroyed || !snapshot || snapshot === "null") return;
+      const tr = reconcile(pmView.state, JSON.parse(snapshot) as ProjNodeJson);
+      if (tr) pmView.dispatch(tr);
     },
     setReadonly(readonly: boolean): void {
       pmView.setProps({ editable: () => !readonly });

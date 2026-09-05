@@ -40,12 +40,22 @@ fn handle_workspace(
         Structure => "structure"
       }
       let js_cmd = @rabbita.effect(fn() { js_set_editor_mode(mode_str) })
+      let publication_cmd = if mode == Structure && model.mode != Structure {
+        publish_proj_node_cmd(model)
+      } else {
+        none
+      }
       let structure_generation = if mode == Structure && model.mode != Structure {
         model.structure_generation + 1
       } else {
         model.structure_generation
       }
-      Some((js_cmd, { ..model, mode, structure_generation }))
+      Some(
+        (
+          @rabbita.batch([js_cmd, publication_cmd]),
+          { ..model, mode, structure_generation },
+        ),
+      )
     }
     TogglePanel(panel) => {
       let ws = model.workspace
