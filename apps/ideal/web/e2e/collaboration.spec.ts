@@ -138,6 +138,31 @@ test.describe('Collaboration - Two Peers', () => {
     }
   });
 
+  test('a mounted Structure view renders a remote text edit', async ({ browser }) => {
+    const contextA = await browser.newContext();
+    const contextB = await browser.newContext();
+    const pageA = await contextA.newPage();
+    const pageB = await contextB.newPage();
+    const room = testRoom('structure-snapshot');
+    try {
+      await Promise.all([waitForEditor(pageA, room), waitForEditor(pageB, room)]);
+      await expect(pageA.locator('.peer-dot.connected')).toBeVisible();
+      await expect(pageB.locator('.peer-dot.connected')).toBeVisible();
+      await pageB.getByRole('button', { name: 'Structure', exact: true }).click();
+      await expect(pageB.locator('canopy-editor .structure-module')).toBeVisible();
+      await pageA.locator('#canopy-text-editor .cm-content').click();
+      await pageA.keyboard.press('ControlOrMeta+A');
+      await pageA.keyboard.insertText('314159');
+      await expect(pageB.locator('canopy-editor .structure-int_literal')).toHaveText('INT314159');
+      await pageB.getByRole('button', { name: 'Text', exact: true }).click();
+      // Peer-cursor widgets also contribute text to the CodeMirror DOM.
+      await expect(pageB.locator('#canopy-text-editor .cm-content')).toContainText('314159');
+    } finally {
+      await contextA.close();
+      await contextB.close();
+    }
+  });
+
   test('peer cursors appear in remote editor', async ({ browser }) => {
     const contextA = await browser.newContext();
     const contextB = await browser.newContext();

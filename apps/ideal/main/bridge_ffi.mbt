@@ -108,6 +108,20 @@ fn js_make_ideal_cm_extension(cm : @js_value.Value) -> @cm_js.Extension raise {
 }
 
 ///|
+/// Deliver an immutable projection snapshot to the existing editor host.
+/// The after-render command calls this synchronously; the host either caches
+/// the value for a pending runtime import or reconciles an existing session.
+extern "js" fn js_publish_proj_node_json(snapshot : String) -> Unit =
+  #| function(snapshot) {
+  #|   var el = document.querySelector('canopy-editor');
+  #|   if (!el) {
+  #|     console.warn('[ideal] Projection host unavailable; Structure activation republishes current state');
+  #|     return;
+  #|   }
+  #|   el.projNode = snapshot;
+  #| }
+
+///|
 /// Broadcast and autosave after a local edit handled by MoonBit.
 extern "js" fn js_after_local_text_edit() -> Unit =
   #| function() {

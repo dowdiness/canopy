@@ -13,16 +13,14 @@ import {
   evalGhostPlugin,
 } from "./decorations";
 import type {
-  CrdtModule,
   StructureHistoryCallback,
   StructureTreeEditCallback,
 } from "./types";
 
 export type StructureModeSession = {
-  applyRemote(syncJson: string): string;
   destroy(): void;
   notifyLocalChange(): void;
-  reconcile(): void;
+  reconcile(snapshot: string): void;
   setBroadcast(fn: (() => void) | null): void;
   setReadonly(readonly: boolean): void;
   setSelectedNode(id: string | null): void;
@@ -41,8 +39,8 @@ export type StructureModeSession = {
  * `module | term` and `module` content is `let_def* term`, so an empty
  * `module` is invalid — it threw `RangeError: Invalid content for node
  * module: <>` (#428) and aborted the whole mount. A bare `unit` term is the
- * minimal valid empty document; the RAF / `set projNode` reconcile loop
- * replaces it as soon as a real projection arrives.
+ * minimal valid empty document; a later application-supplied snapshot
+ * replaces it. There is no renderer-side polling or CRDT read.
  *
  * Exported for regression testing of the fallback path.
  */
@@ -55,10 +53,6 @@ export function buildStructureDoc(projJsonStr: string): PmNode {
     }
   }
   return editorSchema.node("doc", null, [editorSchema.node("unit")]);
-}
-
-function buildDoc(crdtHandle: number, crdt: CrdtModule): PmNode {
-  return buildStructureDoc(crdt.get_proj_node_json(crdtHandle));
 }
 
 function createStructureNodeViews(onEdit: StructureTreeEditCallback) {
@@ -116,17 +110,16 @@ function setSelectedNode(pmView: PmView, id: string | null): void {
 export function createStructureModeSession(
   parent: HTMLDivElement,
   host: HTMLElement,
-  crdtHandle: number,
-  crdt: CrdtModule,
+  initialSnapshot: string,
   initialOnEdit: StructureTreeEditCallback = () => {},
   initialOnHistory: StructureHistoryCallback = () => {},
 ): StructureModeSession {
   let onEdit = initialOnEdit;
   let onHistory = initialOnHistory;
-  const bridge = new CrdtBridge(crdtHandle, crdt);
+  const bridge = new CrdtBridge();
   const pmView = new PmView(parent, {
     state: PmState.create({
-      doc: buildDoc(crdtHandle, crdt),
+      doc: buildStructureDoc(initialSnapshot),
       plugins: [
         structuralKeymap(
           host,
@@ -192,9 +185,6 @@ export function createStructureModeSession(
   }, { passive: true, signal: gestureController.signal });
 
   return {
-    applyRemote(syncJson: string): string {
-      return bridge.applyRemote(syncJson);
-    },
     destroy(): void {
       gestureController.abort();
       bridge.destroy();
@@ -203,8 +193,8 @@ export function createStructureModeSession(
     notifyLocalChange(): void {
       bridge.notifyLocalChange();
     },
-    reconcile(): void {
-      bridge.reconcile();
+    reconcile(snapshot: string): void {
+      bridge.reconcile(snapshot);
     },
     setBroadcast(fn: (() => void) | null): void {
       bridge.setBroadcast(fn);

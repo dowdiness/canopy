@@ -107,7 +107,11 @@ fn handle_codemirror(
         js_after_local_text_edit()
         js_perf_end("localPublicationEffect")
       })
-      let cmd = @rabbita.batch([sync_cmd, publication_effect])
+      let cmd = @rabbita.batch([
+        sync_cmd,
+        publish_proj_node_cmd(new_model),
+        publication_effect,
+      ])
       js_perf_end("publicationPrepare")
       js_perf_end("cmDocChangedHandler")
       Some((cmd, new_model))
