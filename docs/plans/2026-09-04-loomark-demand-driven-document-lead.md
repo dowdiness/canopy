@@ -98,6 +98,16 @@ pub fn derived_name_survives_edit(
 ) -> Bool
 ```
 
+Both primary and description have finite output budgets independent of source
+size. Finalize numeric limits, counting units, Unicode-safe cut boundaries, and
+visible/accessible omission wording through browser comparison before accepting
+the production extractor API. CSS line clamping alone does not satisfy this
+contract. Retain only bounded text and bounded omission information, never the
+omitted suffix or MarkdownIR; accessible labels and tooltips must not expose the
+full omitted content. An unchanged bounded result, including its omission state,
+compares equal even if only the omitted suffix changes. Truncation must not turn
+readable content into Empty.
+
 `DocumentLead` fields stay private. `description` is structured plain text: it
 may preserve meaningful newlines, indentation, list markers, and code spacing,
 but it is not a Markdown block tree. The form stores only distinctions that
@@ -356,7 +366,12 @@ lead fragment.
 
 ## Implementation stages
 
-Each stage is a reviewable commit or smaller series. Start from a dedicated
+Issue #1411 is the umbrella, not one implementation PR. Deliver each stage as
+an independently reviewed and revertible PR (or smaller PR series), keeping the
+Sidebar change separate from semantic and reducer changes. Close the umbrella
+only after the complete product slice meets its acceptance criteria.
+
+Start from a dedicated
 worktree whose HEAD contains current `origin/main`; do not continue from the
 prototype branch.
 
@@ -379,6 +394,20 @@ prototype branch.
   parsing, structured plain description, and total source fallback.
 - Review both generated `.mbti` files: parser details and reusable-prefix offsets
   remain private, and the Source repository interface shrinks.
+
+Before accepting stage 2:
+
+- Finalize the bounded-output contract above through browser comparison.
+- Add fixtures just below, at, and above each limit, including Unicode boundaries,
+  multiline indentation, omitted-suffix equality, accessible omission, and
+  truncated versus Empty output.
+- Benchmark the actual extractor in JS release mode on large sources and mixed
+  collections. Record cold extraction time, output sizes, and equality-comparison
+  cost for bounded results. Record the environment and fixtures for reproduction.
+- Review those measurements before feature wiring; output bounds do not bound
+  parser time. Preserve full-source parsing semantics, and do not substitute
+  prefix parsing without a separate correctness proof.
+- Do not infer an elapsed-time speedup from callback counts or name benchmarks.
 
 ### 3. Sidebar visibility boundary
 
@@ -497,7 +526,8 @@ after the affected loop is green and the candidate commit is current with
 - **Scope retention grows while permanently hidden:** Accept demand-time cleanup
   initially. Add eager eviction only after a demonstrated product or memory
   requirement.
-- **Feature handle becomes a framework:** Keep it specific to Recent documents
+- **Feature handle becomes a framework:** Do not generalize without a demonstrated
+  second consumer. Keep it specific to Recent documents
   and expose only the layout outputs that Loomark actually composes.
 
 Rollback by stage. The repository move can be reverted before semantic work;

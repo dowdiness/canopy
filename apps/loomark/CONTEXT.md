@@ -70,7 +70,14 @@ readable text, and links do not become separate actions. After the primary
 content, subsequent readable content becomes one description that preserves
 meaningful line breaks, indentation, list bullets or numbering, and code spacing
 without retaining a Markdown block tree. The primary content and description
-may each occupy up to two visual lines. Task checkboxes are read-only. An unsaved
+may each occupy up to two visual lines. Both also have finite text budgets
+independent of document size; visual clipping alone is not the limit. Omitted
+content is not retained in the lead or exposed in full through an accessible
+label or tooltip. Truncation preserves Unicode text boundaries and meaningful
+structure within the budget, and remains distinguishable from Empty content.
+Numeric budgets and the visible and accessible omission wording must be settled
+through browser comparison before accepting the production extractor API.
+Task checkboxes are read-only. An unsaved
 document has a small warning mark with an accessible `Not saved` label rather
 than visible status text. A document whose text is empty has
 no visible placeholder, while its selectable entry retains an accessible `Empty
