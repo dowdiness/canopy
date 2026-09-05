@@ -38,7 +38,24 @@ fn publish_proj_node_cmd(model : Model) -> Cmd raise {
     None => Json::null().stringify()
   }
   @rabbita_cmd.custom_cmd(
-    _ => js_publish_proj_node_json(snapshot),
+    _ => {
+      match @dom.document().get_element_by_id("canopy-editor").to_option() {
+        Some(element) =>
+          @dom.IsElement::set_property(
+            element,
+            "projNode",
+            @js_value.Value::cast_from(snapshot),
+          )
+        None => {
+          let console : @js_value.Value = @js_value.globalThis.get_with_string(
+            "console",
+          )
+          console.apply_with_string("warn", [
+            "[ideal] Projection host unavailable; Structure activation republishes current state",
+          ])
+        }
+      }
+    },
     kind=@rabbita_cmd.after_render,
   )
 }

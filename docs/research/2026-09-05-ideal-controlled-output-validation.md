@@ -63,7 +63,7 @@ One intermediate remote test assertion included peer-cursor labels in CodeMirror
 
 ## Reuse and remaining limitations
 
-Reused `ProjNode` ToJson, core `Json::null`/`Json::stringify`, Rabbita `custom_cmd`/after-render, existing application sync helpers, conversion/reconciliation and host load generation. The new MoonBit helper owns only snapshot capture and delivery. No serializer, output revision counter or selection model was added. DOM, callback and runtime lifecycle mutation remain in the imperative shell.
+Reused `ProjNode` ToJson, core `Json::null`/`Json::stringify`, Rabbita `custom_cmd`/after-render, `Document::get_element_by_id`, `IsElement::set_property`, `Value::cast_from`, existing application sync helpers, conversion/reconciliation and host load generation. The new MoonBit helper owns only snapshot capture and delivery. The DOM property setter is public even though VDOM `Attrs::property` is private; no custom JavaScript FFI or Rabbita API expansion is needed. No serializer, output revision counter or selection model was added. DOM, callback and runtime lifecycle mutation remain in the imperative shell.
 
 Unavailable-projection handling preserves the baseline: the visible last-good tree can be stale while projection is unavailable. This is not a newly validated product policy. Complete host replacement still requires the existing application/SyncClient owner to wire the new host; same-element reconnect is not equivalent to replacement. Missing-host publications warn rather than aborting the render queue; activation/reconnect requests current state again.
 
