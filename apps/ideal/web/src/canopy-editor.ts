@@ -29,11 +29,8 @@ function getShadowSheet(): CSSStyleSheet | null {
 }
 
 type StructureModeSession = {
-  applyRemote(syncJson: string): string;
   destroy(): void;
-  notifyLocalChange(): void;
-  reconcile(): void;
-  setBroadcast(fn: (() => void) | null): void;
+  reconcile(snapshot: string): void;
   setReadonly(readonly: boolean): void;
   setSelectedNode(id: string | null): void;
   setStructureHistoryCallback(callback: StructureHistoryCallback | null): void;
@@ -44,8 +41,7 @@ type StructureModeModule = {
   createStructureModeSession(
     parent: HTMLDivElement,
     host: HTMLElement,
-    crdtHandle: number,
-    crdt: CrdtModule,
+    initialSnapshot: string,
   ): StructureModeSession;
 };
 
@@ -58,6 +54,7 @@ export class CanopyEditor extends HTMLElement {
   private structureLoadVersion = 0;
   private crdtHandle: number | null = null;
   private crdt: CrdtModule | null = null;
+  private latestProjNodeJson = "null";
   private mountAbortController: AbortController | null = null;
   private broadcastFn: (() => void) | null = null;
   private pendingSelectedNode: string | null = null;
@@ -94,7 +91,18 @@ export class CanopyEditor extends HTMLElement {
     this.shadow.appendChild(this.editorContainer);
   }
 
-  connectedCallback() {}
+  connectedCallback() {
+    if (this.crdt && this.crdtHandle !== null) {
+      this.mount(this.crdtHandle, this.crdt);
+      // Allow DOM subscriptions to reattach, then request the application's
+      // current snapshot in case publications arrived while detached.
+      queueMicrotask(() => {
+        if (this.isConnected) this.dispatchEvent(new CustomEvent(CanopyEvents.EXTERNAL_CRDT_CHANGE, {
+          detail: { autosave: false }, bubbles: true, composed: true,
+        }));
+      });
+    }
+  }
 
   disconnectedCallback() {
     if (this.mountAbortController) {
@@ -102,6 +110,8 @@ export class CanopyEditor extends HTMLElement {
       this.mountAbortController = null;
     }
     this.destroyPm();
+    // A detached instance still belongs to the same document. Preserve its
+    // last supplied value; the load generation prevents an old mount completing.
   }
 
   attributeChangedCallback(name: string, _old: string | null, val: string | null) {
@@ -117,6 +127,9 @@ export class CanopyEditor extends HTMLElement {
   }
 
   mount(crdtHandle: number, crdt: CrdtModule): void {
+    if (this.crdt && (this.crdt !== crdt || this.crdtHandle !== crdtHandle)) {
+      this.latestProjNodeJson = "null";
+    }
     if (this.mountAbortController) this.mountAbortController.abort();
     this.mountAbortController = new AbortController();
 
@@ -129,9 +142,7 @@ export class CanopyEditor extends HTMLElement {
     const { signal } = this.mountAbortController;
     this.addEventListener('sync-received', ((e: CustomEvent) => {
       let result = "ok";
-      if (this.structureSession) {
-        result = this.structureSession.applyRemote(e.detail.data);
-      } else if (this.crdt && this.crdtHandle !== null) {
+      if (this.crdt && this.crdtHandle !== null) {
         result = this.crdt.apply_sync_json(this.crdtHandle, e.detail.data);
       }
       if (result !== "ok") {
@@ -190,8 +201,7 @@ export class CanopyEditor extends HTMLElement {
       const session = createStructureModeSession(
         this.editorContainer,
         this,
-        this.crdtHandle,
-        this.crdt,
+        this.latestProjNodeJson,
       );
       if (loadVersion !== this.structureLoadVersion || this.mode !== 'structure') {
         session.destroy();
@@ -199,7 +209,6 @@ export class CanopyEditor extends HTMLElement {
       }
       this.structureSession = session;
       session.setReadonly(this.isReadonly());
-      session.setBroadcast(this.broadcastFn);
       session.setStructureHistoryCallback(this.structureHistoryCallback);
       session.setStructureTreeEditCallback(this.structureTreeEditCallback);
       session.setSelectedNode(this.pendingSelectedNode);
@@ -232,13 +241,10 @@ export class CanopyEditor extends HTMLElement {
 
   // ── Properties (Rabbita → editor) ──────────────────────
 
-  set projNode(_json: string) {
-    if (this.structureSession) {
-      this.structureSession.reconcile();
-    }
+  set projNode(json: string) {
+    this.latestProjNodeJson = json;
+    this.structureSession?.reconcile(json);
   }
-
-  set sourceMap(_json: string) { /* bridge reads on demand */ }
 
   set peers(_json: string) { /* text-mode peer cursors are binding-owned */ }
   set errors(_json: string) { /* TODO: CM6 lint decorations */ }
@@ -263,7 +269,6 @@ export class CanopyEditor extends HTMLElement {
 
   setBroadcast(fn: (() => void) | null): void {
     this.broadcastFn = fn;
-    this.structureSession?.setBroadcast(fn);
   }
 
   setStructureHistoryCallback(callback: StructureHistoryCallback | null): void {
@@ -277,11 +282,7 @@ export class CanopyEditor extends HTMLElement {
   }
 
   notifyLocalChange(): void {
-    if (this.structureSession) {
-      this.structureSession.notifyLocalChange();
-      return;
-    }
-    if (this.broadcastFn) this.broadcastFn();
+    this.broadcastFn?.();
   }
 
   setAgentIdentity(name: string, color: string): void {
@@ -289,12 +290,6 @@ export class CanopyEditor extends HTMLElement {
     void color;
   }
 
-  /** Sync CM6 content from CRDT after an external change (undo, redo, structural edit). */
-  syncAfterExternalChange(): void {
-    if (this.structureSession) {
-      this.structureSession.reconcile();
-    }
-  }
 }
 
 customElements.define('canopy-editor', CanopyEditor);
