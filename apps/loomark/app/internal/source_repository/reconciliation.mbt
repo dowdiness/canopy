@@ -102,7 +102,7 @@ fn next_catalog(
   change_order? : ChangeOrder = ChangeOrder(0L),
 ) -> (Catalog, Array[RepositoryIssue]) {
   let issues : Array[RepositoryIssue] = []
-  let name = match derive_name(source) {
+  let name = match @document_lead.derive_name(source) {
     Ok(name) => name
     Err(_) => {
       issues.push(NameDerivationFailed(document_id))
@@ -130,10 +130,11 @@ fn next_catalog_after_source(
     return next_catalog(current, document_id, source, change_order~)
   }
   let current_entry = current.entries()[index]
-  guard certified_name_prefix_end(previous_source, current_entry.name())
-    is Some(end) &&
-    end <= source.length() &&
-    previous_source.view(end_offset=end).equal(source.view(end_offset=end)) else {
+  guard @document_lead.derived_name_survives_edit(
+    previous_source,
+    source,
+    current_entry.name(),
+  ) else {
     return next_catalog(current, document_id, source, change_order~)
   }
   let entries = current

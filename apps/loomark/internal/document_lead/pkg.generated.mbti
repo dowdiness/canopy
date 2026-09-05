@@ -1,0 +1,15 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/internal/document_lead"
+
+// Values
+pub fn derive_name(String) -> Result[String?, Unit]
+
+pub fn derived_name_survives_edit(String, String, String?) -> Bool
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
