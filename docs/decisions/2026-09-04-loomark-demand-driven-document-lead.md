@@ -156,6 +156,19 @@ negative dependency.
 
 ## Consequences
 
+Both primary text and structured description have finite output budgets
+independent of source size. CSS clipping is not that boundary. A Document lead
+retains neither omitted content nor MarkdownIR, and consumers must not expose
+the omitted text in full through accessible labels or tooltips. Truncation
+preserves Unicode boundaries and remains distinguishable from Empty content.
+Numeric budgets and omission presentation are implementation acceptance gates,
+to be settled through browser comparison before accepting the extractor API.
+
+Bounded output does not bound parsing time. Measure the actual Document-lead
+extractor on large sources and mixed collections before accepting that stage;
+name-analysis measurements and callback probes do not establish its cost. Keep
+full-source parsing semantics rather than truncating parser input as a shortcut.
+
 A deleted document's pure cached lead may remain unobserved until the next
 Recent-documents demand or feature disposal. On reopening, key reconciliation
 removes deleted entries before rendering. Prompt hidden eviction would require
