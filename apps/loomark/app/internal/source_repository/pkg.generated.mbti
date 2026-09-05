@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "dowdiness/loomark/internal/source_repository"
+package "dowdiness/loomark/app/internal/source_repository"
 
 import {
   "moonbit-community/rabbita/cmd",
