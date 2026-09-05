@@ -366,10 +366,11 @@ lead fragment.
 
 ## Implementation stages
 
-Issue #1411 is the umbrella, not one implementation PR. Deliver each stage as
-an independently reviewed and revertible PR (or smaller PR series), keeping the
-Sidebar change separate from semantic and reducer changes. Close the umbrella
-only after the complete product slice meets its acceptance criteria.
+Issue #1411 is the umbrella, implemented as independently validated and
+revertible commits in the same Draft PR #1412. Keep the Sidebar change separate
+from semantic and reducer changes, and preserve the stage gates below. Close
+the umbrella only after the complete product slice meets its acceptance
+criteria.
 
 Start from a dedicated
 worktree whose HEAD contains current `origin/main`; do not continue from the
