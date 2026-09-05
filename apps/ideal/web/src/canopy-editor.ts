@@ -60,7 +60,6 @@ export class CanopyEditor extends HTMLElement {
   private latestProjNodeJson = "null";
   private mountAbortController: AbortController | null = null;
   private broadcastFn: (() => void) | null = null;
-  private pendingSelectedNode: string | null = null;
   private structureHistoryCallback: StructureHistoryCallback | null = null;
   private structureTreeEditCallback: StructureTreeEditCallback | null = null;
 
@@ -207,7 +206,7 @@ export class CanopyEditor extends HTMLElement {
         this.latestProjNodeJson,
         this.structureTreeEditCallback ?? undefined,
         this.structureHistoryCallback ?? undefined,
-        this.getAttribute('data-selected-node') ?? this.pendingSelectedNode,
+        this.getAttribute('data-selected-node'),
       );
       if (loadVersion !== this.structureLoadVersion || this.mode !== 'structure') {
         session.destroy();
@@ -255,7 +254,6 @@ export class CanopyEditor extends HTMLElement {
   set evalResults(_json: string) { /* TODO: CM6 eval ghost decorations */ }
 
   set selectedNode(id: string | null) {
-    this.pendingSelectedNode = id;
     if (this.structureSession) {
       this.structureSession.setSelectedNode(id);
     }

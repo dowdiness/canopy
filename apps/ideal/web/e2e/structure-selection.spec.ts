@@ -1,9 +1,16 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
-// Boundary matrix: surviving selected node after reorder; removed selected node;
-// undo/redo without grouping a setup edit; incidental publication while unfocused.
-// Visible selection, Inspector, and the following Delete must agree.
-test('selection survives a definition exchange and isolated Undo/Redo', async ({ page }) => {
+function inspectorLabel(page: Page) {
+  return page.getByLabel('Node inspector').locator('.inspector-row')
+    .filter({ has: page.getByText('Label', { exact: true }) }).locator('.inspector-value');
+}
+
+async function expectSelectedLeaf(page: Page, value: string) {
+  await expect(page.locator('canopy-editor .ProseMirror-selectednode .structure-value')).toHaveText(value);
+  await expect(inspectorLabel(page)).toHaveText(value);
+}
+
+test('Drop and history keep the same selection and Delete edits that target', async ({ page }) => {
   test.setTimeout(60000);
   const room = `selection-${Date.now()}`;
   await page.goto(`/#${room}`);
@@ -12,13 +19,14 @@ test('selection survives a definition exchange and isolated Undo/Redo', async ({
   await page.keyboard.press('ControlOrMeta+A');
   await page.keyboard.insertText('let x = 1\nlet y = 2\nx + y');
   await expect.poll(() => page.evaluate(key => localStorage.getItem(key), `canopy-doc-${room}`)).not.toBeNull();
-  // Restore gives this test a fresh history, excluding the setup edit.
+  // Fresh history: the setup edit must not join the Drop's undo group.
   await page.reload();
   await expect(cm).toContainText('let y = 2', { timeout: 20000 });
   await page.getByRole('button', { name: 'Structure', exact: true }).click();
   await page.locator('canopy-editor .structure-int_literal').nth(1).click();
-  const inspector = page.getByLabel('Node inspector');
-  await expect(inspector.locator('.inspector-value').nth(1)).toHaveText('2');
+  await expectSelectedLeaf(page, '2');
+
+  // Exercise the real drag handlers, including their view-owned attributes.
   await page.evaluate(() => {
     const root = document.querySelector('canopy-editor')!.shadowRoot!;
     const [source, target] = root.querySelectorAll<HTMLElement>('.structure-let_def');
@@ -31,114 +39,89 @@ test('selection survives a definition exchange and isolated Undo/Redo', async ({
     }));
     source.dispatchEvent(new DragEvent('dragend', { dataTransfer, bubbles: true }));
   });
-  await expect(page.locator('canopy-editor .structure-let_def > .structure-header .structure-label').first()).toHaveText('y');
-  const selected = page.locator('canopy-editor .ProseMirror-selectednode');
-  await expect(selected).toHaveText('INT2');
-  await expect(inspector.locator('.inspector-value').nth(1)).toHaveText('2');
-  await page.getByRole('button', { name: 'Undo', exact: true }).click();
-  await expect(page.locator('canopy-editor .structure-let_def > .structure-header .structure-label').first()).toHaveText('x');
-  await expect(selected).toHaveText('INT2');
-  await expect(inspector.locator('.inspector-value').nth(1)).toHaveText('2');
-  await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeFocused();
-  await page.getByRole('button', { name: 'Redo', exact: true }).click();
-  await expect(page.locator('canopy-editor .structure-let_def > .structure-header .structure-label').first()).toHaveText('y');
-  await expect(selected).toHaveText('INT2');
-  await expect(inspector.locator('.inspector-value').nth(1)).toHaveText('2');
-  await expect(page.getByRole('button', { name: 'Redo', exact: true })).toBeFocused();
-  // Focus the editor without a new click that could repair a stale selection.
+  const firstDefinition = page.locator('canopy-editor .structure-let_def > .structure-header .structure-label').first();
+  await expect(firstDefinition).toHaveText('y');
+  await expectSelectedLeaf(page, '2');
+  for (const [operation, firstName] of [['Undo', 'x'], ['Redo', 'y']]) {
+    const button = page.getByRole('button', { name: operation, exact: true });
+    await button.click();
+    await expect(firstDefinition).toHaveText(firstName);
+    await expectSelectedLeaf(page, '2');
+    await expect(button).toBeFocused();
+  }
+  // Focus without clicking: a fresh click could hide stale selection.
   await page.locator('canopy-editor .ProseMirror').focus();
   await page.keyboard.press('Backspace');
-  await expect(page.locator('canopy-editor .structure-int_literal').first()).toHaveText('INT0');
-  await expect(selected).toHaveText('INT0');
-  await expect(inspector.locator('.inspector-value').nth(1)).toHaveText('0');
+  await expectSelectedLeaf(page, '0');
+  await expect(page.locator('canopy-editor .structure-int_literal').first().locator('.structure-value')).toHaveText('0');
 });
 
-test('mode reactivation preserves the application selection without stealing focus', async ({ page }) => {
-  await page.goto('/');
-  const structure = page.getByRole('button', { name: 'Structure', exact: true });
-  await structure.click();
-  await page.locator('canopy-editor .structure-int_literal').click();
-  const label = page.getByLabel('Node inspector').locator('.inspector-value').nth(1);
-  await expect(label).toHaveText('42');
-  await page.getByRole('button', { name: 'Text', exact: true }).click();
-  await structure.click();
-  await expect(page.locator('canopy-editor .ProseMirror-selectednode')).toHaveText('INT42');
-  await expect(label).toHaveText('42');
-  await expect(structure).toBeFocused();
-  // A Text-mode outline selection does not write the host's imperative cache.
-  // Reactivation must read the application's current declarative selection.
-  await page.getByRole('button', { name: 'Text', exact: true }).click();
-  await page.getByRole('treeitem', { name: 'x', exact: true }).first().click();
-  await expect(label).toHaveText('x');
-  await structure.click();
-  await expect(page.locator('canopy-editor .ProseMirror-selectednode')).toHaveText('VARx');
-  await expect(label).toHaveText('x');
-  await expect(structure).toBeFocused();
-});
+for (const origin of ['Structure click', 'Text outline'] as const) {
+  test(`mount restores ${origin} selection without taking focus`, async ({ page }) => {
+    await page.goto('/');
+    const structure = page.getByRole('button', { name: 'Structure', exact: true });
+    if (origin === 'Structure click') {
+      await structure.click();
+      await page.locator('canopy-editor .structure-int_literal').click();
+      await expectSelectedLeaf(page, '42');
+      await page.getByRole('button', { name: 'Text', exact: true }).click();
+    } else {
+      await page.getByRole('treeitem', { name: '42', exact: true }).click();
+    }
+    await expect(inspectorLabel(page)).toHaveText('42');
+    await structure.click();
+    await expectSelectedLeaf(page, '42');
+    await expect(structure).toBeFocused();
+  });
+}
 
-test('malformed selection events do not clear the current selection', async ({ page }) => {
+test('malformed selection detail is ignored, but explicit deselection is delivered', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Structure', exact: true }).click();
   await page.locator('canopy-editor .structure-int_literal').click();
-  const label = page.getByLabel('Node inspector').locator('.inspector-value').nth(1);
-  await expect(label).toHaveText('42');
+  await expectSelectedLeaf(page, '42');
   await page.locator('canopy-editor').evaluate(async host => {
     for (const detail of [{ other: '42' }, { nodeId: null }, { nodeId: 'not-an-id' }]) {
       host.dispatchEvent(new CustomEvent('node-selected', { detail, bubbles: true }));
     }
     await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
   });
-  await expect(label).toHaveText('42');
-  await page.getByRole('button', { name: 'Text', exact: true }).click();
-  await page.locator('canopy-editor').evaluate(async host => {
+  await expectSelectedLeaf(page, '42');
+  await page.locator('canopy-editor').evaluate(host => {
     host.dispatchEvent(new CustomEvent('node-selected', { detail: { nodeId: '' }, bubbles: true }));
-    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
   });
-  await expect(label).toHaveText('42');
+  await expect(page.getByLabel('Node inspector')).toContainText('Click a node');
+  // Inactive reports are tested at the application transition, not again here.
 });
 
-test('snapshot selection follows identity without stealing outside focus and reports removal', async ({ page }) => {
+test('only a changed selection identity is reported, without focus or scroll', async ({ page }) => {
   await page.goto('/');
   const result = await page.evaluate(async () => {
     const { createStructureModeSession } = await import('/src/structure-runtime.ts');
-    const host = document.createElement('div');
+    const host = document.body.appendChild(document.createElement('div'));
     const parent = host.appendChild(document.createElement('div'));
-    const outside = document.createElement('button');
-    outside.textContent = 'Outside editor';
-    // Isolate selection-driven scrolling from normal page-height/scroll-anchor
-    // changes when replacing the fixture's root with a smaller document.
-    host.style.cssText = 'position:fixed;top:0;left:0;width:300px;height:300px;overflow:auto';
-    outside.style.cssText = 'position:fixed;top:0;left:320px';
-    document.body.append(host, outside);
-    const selectedIds: string[] = [];
+    const outside = document.body.appendChild(document.createElement('button'));
+    const reported: string[] = [];
     host.addEventListener('node-selected', event => {
-      event.stopPropagation(); // Fixture events belong to this host, not the app.
-      selectedIds.push((event as CustomEvent).detail.nodeId);
+      event.stopPropagation(); // This session is independent of the application.
+      reported.push((event as CustomEvent).detail.nodeId);
     });
-    const left = { node_id: 2, kind: ['Int', 1], children: [], start: 0, end: 1 };
-    const right = { ...left, node_id: 3, kind: ['Int', 2] };
-    const root = { ...left, node_id: 1, kind: ['Bop', '+'], children: [left, right] };
-    const session = createStructureModeSession(parent, host, JSON.stringify(root));
+    const original = { node_id: 1, kind: ['Int', 1], children: [], start: 0, end: 1 };
+    const replacement = JSON.stringify({ ...original, node_id: 2, kind: ['Int', 2] });
+    const session = createStructureModeSession(parent, host, JSON.stringify(original));
     try {
-      session.setSelectedNode('3');
       outside.focus();
-      const scrollBefore = window.scrollY;
-      session.reconcile(JSON.stringify({ ...root, children: [right, left] }));
-      const moved = parent.querySelector('.ProseMirror-selectednode')?.textContent;
-      const movedId = selectedIds.at(-1);
-      // Replace the entire root: selected ID 3 is absent, so PM chooses a
-      // fallback. That actual target must be reported rather than retaining 3.
-      session.reconcile(JSON.stringify(left));
-      const removed = parent.querySelector('.ProseMirror-selectednode')?.textContent;
-      const removedId = selectedIds.at(-1);
-      const publications = selectedIds.length;
-      session.reconcile(JSON.stringify(left));
+      const scroll = window.scrollY;
+      // Content changed, but the selected identity is still 1: no new report.
+      session.reconcile(JSON.stringify({ ...original, kind: ['Int', 2] }));
+      session.reconcile(replacement); // ID 1 disappeared; PM selects ID 2.
+      session.reconcile(replacement);
       session.reconcile('null');
       return {
-        moved, movedId, removed, removedId,
-        sameValueSilent: publications === selectedIds.length,
-        outsideFocused: document.activeElement === outside,
-        scrollUnchanged: window.scrollY === scrollBefore,
+        value: parent.querySelector('.ProseMirror-selectednode .structure-value')?.textContent,
+        reported,
+        focusKept: document.activeElement === outside,
+        scrollKept: window.scrollY === scroll,
       };
     } finally {
       session.destroy();
@@ -146,8 +129,8 @@ test('snapshot selection follows identity without stealing outside focus and rep
       outside.remove();
     }
   });
-  expect(result).toEqual({
-    moved: 'INT2', movedId: '3', removed: 'INT1', removedId: '2',
-    sameValueSilent: true, outsideFocused: true, scrollUnchanged: true,
-  });
+  expect(result.value).toBe('2');
+  expect(result.reported).toEqual(['1', '2']);
+  expect(result.focusKept).toBe(true);
+  expect(result.scrollKept).toBe(true);
 });

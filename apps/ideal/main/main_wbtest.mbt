@@ -541,9 +541,12 @@ test "commit_tree_edit returns the committed model" {
 }
 
 ///|
-test "selection characterization: refresh recomputes selected highlight" {
+test "refresh preserves selection but invalidates its projection-relative navigation path" {
   let (model, node_id) = selected_test_model()
+  model.nav_path = Some([0])
   let refreshed = refresh({ ..model, selected_node: Some(node_id) })
+  @debug.assert_eq(refreshed.selected_node, Some(node_id))
+  @debug.assert_eq(refreshed.nav_path, None)
   inspect(refreshed.highlight_set.is_empty(), content="false")
 }
 

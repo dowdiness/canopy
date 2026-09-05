@@ -171,7 +171,9 @@ fn refresh(model : Model) -> Model raise {
   let highlight_set = highlight_set_for(model.selected_node, scope_map)
   js_perf_end("computeHighlightSet")
   js_perf_end("refreshTotal")
-  { ..model, outline_state, scope_map, highlight_set }
+  // Navigation paths belong to the old projection even if the selected ID
+  // survives. Invalidate here, not as a side effect of renderer notifications.
+  { ..model, outline_state, scope_map, highlight_set, nav_path: None }
 }
 
 ///|

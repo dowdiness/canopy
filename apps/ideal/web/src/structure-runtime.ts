@@ -81,6 +81,12 @@ function createStructureNodeViews(onEdit: StructureTreeEditCallback) {
   };
 }
 
+function selectedNodeId(selection: Selection): string | null {
+  return selection instanceof NodeSelection && selection.node.attrs.nodeId != null
+    ? String(selection.node.attrs.nodeId)
+    : null;
+}
+
 // Resolve semantic identity without dispatching, focusing, or scrolling. Shared
 // by intentional navigation and snapshot reconciliation's single transaction.
 function nodeSelectionForId(doc: PmNode, id: string | null): NodeSelection | null {
@@ -136,11 +142,10 @@ export function createStructureModeSession(
     }),
     nodeViews: createStructureNodeViews(edit => onEdit(edit)),
     dispatchTransaction: (tr) => {
+      const previousId = selectedNodeId(pmView.state.selection);
       pmView.updateState(pmView.state.apply(tr));
-      // Document reconciliation can change selection through mapping without
-      // selectionSet. Report the actual rendered target, including deselection;
-      // this event updates selection only and never publishes another snapshot.
-      if (tr.selectionSet || tr.docChanged) publishSelection();
+      // Report a changed semantic target, not a category of transaction.
+      if (previousId !== selectedNodeId(pmView.state.selection)) publishSelection();
     },
   });
 
@@ -149,19 +154,18 @@ export function createStructureModeSession(
     const node = sel instanceof NodeSelection ? sel.node : null;
     host.dispatchEvent(new CustomEvent(CanopyEvents.NODE_SELECTED, {
       detail: {
-        nodeId: node?.attrs.nodeId == null ? "" : String(node.attrs.nodeId),
+        nodeId: selectedNodeId(sel) ?? "",
         kind: node?.type.name ?? "",
         label: node?.attrs.name ?? node?.attrs.param ?? String(node?.attrs.value ?? ""),
       },
       bubbles: true, composed: true,
     }));
   }
-  // PM's constructor does not synchronize the node-selection DOM class. Apply
-  // initial selection through a normal transaction from the neutral state,
-  // without focusing the editor or scrolling away from the mode button.
-  pmView.dispatch(pmView.state.tr.setSelection(
-    nodeSelectionForId(doc, initialSelectedNode) ?? Selection.atStart(doc),
-  ).setMeta('fromExternal', true));
+  // Mount resolves the application's saved target, or PM's initial fallback.
+  // updateState installs the selection DOM class that PM's constructor omits.
+  const initialSelection = nodeSelectionForId(doc, initialSelectedNode) ?? Selection.atStart(doc);
+  pmView.updateState(pmView.state.apply(pmView.state.tr.setSelection(initialSelection)));
+  publishSelection();
 
   // Long-press detection for touch devices
   let longPressTimer: ReturnType<typeof setTimeout> | null = null;
@@ -200,15 +204,13 @@ export function createStructureModeSession(
     },
     reconcile(snapshot: string): void {
       if (pmView.isDestroyed || !snapshot || snapshot === "null") return;
-      const selected = pmView.state.selection;
       const tr = reconcile(pmView.state, JSON.parse(snapshot) as ProjNodeJson);
       if (!tr) return;
-      if (selected instanceof NodeSelection && selected.node.attrs.nodeId != null) {
-        const surviving = nodeSelectionForId(tr.doc, String(selected.node.attrs.nodeId));
-        if (surviving) tr.setSelection(surviving);
-      }
-      // If the node disappeared, retain PM's mapped fallback and report it.
-      // Never replay setSelectedNode here: it intentionally focuses/scrolls.
+      // Keep the current identity if it survives; otherwise adopt PM's mapped
+      // fallback. Focus/scroll belong to navigation, not document updates.
+      tr.setSelection(
+        nodeSelectionForId(tr.doc, selectedNodeId(pmView.state.selection)) ?? tr.selection,
+      );
       pmView.dispatch(tr);
     },
     setReadonly(readonly: boolean): void {
