@@ -30,9 +30,7 @@ function getShadowSheet(): CSSStyleSheet | null {
 
 type StructureModeSession = {
   destroy(): void;
-  notifyLocalChange(): void;
   reconcile(snapshot: string): void;
-  setBroadcast(fn: (() => void) | null): void;
   setReadonly(readonly: boolean): void;
   setSelectedNode(id: string | null): void;
   setStructureHistoryCallback(callback: StructureHistoryCallback | null): void;
@@ -211,7 +209,6 @@ export class CanopyEditor extends HTMLElement {
       }
       this.structureSession = session;
       session.setReadonly(this.isReadonly());
-      session.setBroadcast(this.broadcastFn);
       session.setStructureHistoryCallback(this.structureHistoryCallback);
       session.setStructureTreeEditCallback(this.structureTreeEditCallback);
       session.setSelectedNode(this.pendingSelectedNode);
@@ -249,8 +246,6 @@ export class CanopyEditor extends HTMLElement {
     this.structureSession?.reconcile(json);
   }
 
-  set sourceMap(_json: string) { /* bridge reads on demand */ }
-
   set peers(_json: string) { /* text-mode peer cursors are binding-owned */ }
   set errors(_json: string) { /* TODO: CM6 lint decorations */ }
   set evalResults(_json: string) { /* TODO: CM6 eval ghost decorations */ }
@@ -274,7 +269,6 @@ export class CanopyEditor extends HTMLElement {
 
   setBroadcast(fn: (() => void) | null): void {
     this.broadcastFn = fn;
-    this.structureSession?.setBroadcast(fn);
   }
 
   setStructureHistoryCallback(callback: StructureHistoryCallback | null): void {
@@ -288,11 +282,7 @@ export class CanopyEditor extends HTMLElement {
   }
 
   notifyLocalChange(): void {
-    if (this.structureSession) {
-      this.structureSession.notifyLocalChange();
-      return;
-    }
-    if (this.broadcastFn) this.broadcastFn();
+    this.broadcastFn?.();
   }
 
   setAgentIdentity(name: string, color: string): void {
@@ -300,10 +290,6 @@ export class CanopyEditor extends HTMLElement {
     void color;
   }
 
-  /** Sync CM6 content from CRDT after an external change (undo, redo, structural edit). */
-  syncAfterExternalChange(): void {
-    this.structureSession?.reconcile(this.latestProjNodeJson);
-  }
 }
 
 customElements.define('canopy-editor', CanopyEditor);

@@ -5,8 +5,9 @@ import { editorSchema } from "./schema";
 import { StructureCompoundView, StructureLeafView } from "./structure-nodeview";
 import { structuralKeymap, actionKeyForwardPlugin } from "./keymap";
 import { CanopyEvents } from "./events";
-import { CrdtBridge } from "./bridge";
 import { projNodeToDoc } from "./convert";
+import { reconcile } from "./reconciler";
+import type { ProjNodeJson } from "./types";
 import {
   peerCursorPlugin,
   errorDecoPlugin,
@@ -19,9 +20,7 @@ import type {
 
 export type StructureModeSession = {
   destroy(): void;
-  notifyLocalChange(): void;
   reconcile(snapshot: string): void;
-  setBroadcast(fn: (() => void) | null): void;
   setReadonly(readonly: boolean): void;
   setSelectedNode(id: string | null): void;
   setStructureHistoryCallback(callback: StructureHistoryCallback | null): void;
@@ -116,7 +115,6 @@ export function createStructureModeSession(
 ): StructureModeSession {
   let onEdit = initialOnEdit;
   let onHistory = initialOnHistory;
-  const bridge = new CrdtBridge();
   const pmView = new PmView(parent, {
     state: PmState.create({
       doc: buildStructureDoc(initialSnapshot),
@@ -152,8 +150,6 @@ export function createStructureModeSession(
     },
   });
 
-  bridge.setPmView(pmView);
-
   // Long-press detection for touch devices
   let longPressTimer: ReturnType<typeof setTimeout> | null = null;
   const gestureController = new AbortController();
@@ -187,17 +183,12 @@ export function createStructureModeSession(
   return {
     destroy(): void {
       gestureController.abort();
-      bridge.destroy();
       pmView.destroy();
     },
-    notifyLocalChange(): void {
-      bridge.notifyLocalChange();
-    },
     reconcile(snapshot: string): void {
-      bridge.reconcile(snapshot);
-    },
-    setBroadcast(fn: (() => void) | null): void {
-      bridge.setBroadcast(fn);
+      if (pmView.isDestroyed || !snapshot || snapshot === "null") return;
+      const tr = reconcile(pmView.state, JSON.parse(snapshot) as ProjNodeJson);
+      if (tr) pmView.dispatch(tr);
     },
     setReadonly(readonly: boolean): void {
       pmView.setProps({ editable: () => !readonly });

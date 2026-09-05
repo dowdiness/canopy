@@ -85,6 +85,72 @@ test.describe('Structure mode switch (#428)', () => {
     }
   });
 
+  test('reinserting the same editor element remounts the latest Structure snapshot', async ({ page }) => {
+    const room = `reinsert-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    await page.goto(`/#${room}`);
+    await expect(page.getByLabel('Code editor')).toBeVisible();
+
+    // Detach an active renderer, not just its inactive Text-mode host.
+    await page.getByRole('button', { name: 'Currying', exact: true }).click();
+    await page.getByRole('button', { name: 'Structure', exact: true }).click();
+    await expect(page.locator('canopy-editor .structure-module')).toContainText('add5');
+    await page.evaluate(() => {
+      const editor = document.querySelector('canopy-editor');
+      if (!editor?.parentNode) throw new Error('canopy-editor not mounted');
+      const parent = editor.parentNode;
+      const marker = editor.nextSibling;
+      parent.removeChild(editor);
+      parent.insertBefore(editor, marker);
+    });
+
+    await expect(page.locator('canopy-editor .structure-module')).toContainText('add5');
+  });
+
+  test('saved document reloads and renders in Structure mode', async ({ page }) => {
+    const room = `structure-restore-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const key = `canopy-doc-${room}`;
+    await page.goto(`/#${room}`);
+    await expect(page.getByLabel('Code editor')).toBeVisible();
+    await page.getByRole('button', { name: 'Currying', exact: true }).click();
+    await expect(page.getByLabel('AST outline')).toContainText('add5');
+    await expect.poll(
+      () => page.evaluate(storageKey => localStorage.getItem(storageKey), key),
+    ).not.toBeNull();
+
+    await page.reload();
+    await expect(page.getByLabel('Code editor')).toBeVisible();
+    await page.getByRole('button', { name: 'Structure', exact: true }).click();
+    await expect(page.locator('canopy-editor .structure-module')).toContainText('add5');
+  });
+
+  test('leaving Structure before runtime release does not mount a stale session', async ({ page }) => {
+    let release!: () => void;
+    let requested!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const loading = new Promise<void>(resolve => { requested = resolve; });
+    await page.route('**/src/structure-runtime.ts*', async route => {
+      requested();
+      await gate;
+      await route.continue();
+    });
+    try {
+      await page.goto('/');
+      await page.getByRole('button', { name: 'Structure', exact: true }).click();
+      await loading;
+      await page.getByRole('button', { name: 'Text', exact: true }).click();
+      release();
+      // Observe completion before asserting absence; checking before releasing
+      // the request would pass even if the stale continuation mounted later.
+      await page.evaluate(async () => { await import('/src/structure-runtime.ts'); });
+      await expect(page.locator('canopy-editor .structure-block')).toHaveCount(0);
+      await page.getByRole('button', { name: 'Currying', exact: true }).click();
+      await page.getByRole('button', { name: 'Structure', exact: true }).click();
+      await expect(page.locator('canopy-editor .structure-module')).toContainText('add5');
+    } finally {
+      release();
+    }
+  });
+
   test('Structure session renders the application-supplied snapshot without a CRDT getter', async ({
     page,
   }) => {
