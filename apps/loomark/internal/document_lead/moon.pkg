@@ -1,0 +1,16 @@
+import {
+  "dowdiness/loom",
+  "dowdiness/seam",
+  "dowdiness/markdown",
+}
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/core/bench",
+} for "wbtest"
+
+supported_targets = "js"
+
+options(
+  targets: { "*.mbt": [ "js" ] },
+)
