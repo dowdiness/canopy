@@ -569,6 +569,94 @@ absent and trusted-input task traces remain outstanding.
 Semantic acceptance is pending numeric budgets, omission wording, grapheme
 policy, and the remaining fixtures. Execution acceptance is also withheld:
 browser evidence is exploratory, and production size/latency criteria remain
-unapproved. Keep Stage 3 blocked. Assess a separate execution ADR before adding
-an off-thread mechanism; do not treat quiet or idle scheduling as a solution to
-synchronous blocking. The bounded `DocumentLead` value remains unchanged.
+unapproved. Keep Stage 3's provider migration and lead-dependent integration
+blocked. The user subsequently approved the presentation-only slice below using
+the existing provider. This does not accept Stage 2. Assess a separate execution
+ADR before adding an off-thread mechanism; do not treat quiet or idle scheduling
+as a solution to synchronous blocking. The bounded `DocumentLead` value remains
+unchanged.
+
+### Authorized early slice: flat document navigation
+
+Use the existing Sidebar and document commands to remove the folder-shaped
+parent and submenu. Put New in the sidebar header as a plus icon; retain its
+accessible name and tooltip. This icon-only decision supersedes the earlier
+text-only New presentation. The editor toolbar's existing sidebar icon is the
+single list toggle. Show the selected document with its active background and
+a thin edge accent, without dimming it as though it were unavailable.
+
+Keep existing labels (including duplicate-name disambiguation), ordering, save,
+selection, deletion, provider state and compact-screen close behavior. No
+extractor call, source seed, lifecycle rewrite or prototype storage code belongs
+in this slice. The collapsed list must not leave invisible focusable rows.
+
+Boundary matrix: expanded/collapsed; selected/other documents; duplicate labels;
+desktop/compact selection; icon-only New with accessible name and tooltip;
+existing creation, save/reload, switching and deletion contracts. The existing
+standalone browser test for multiple Sources first failed on the unwanted
+submenu, then passed with direct document rows. Targeted app release tests and
+standalone creation/switch/delete scenarios cover the unchanged behavior.
+
+Validation checkpoint: app JS release tests passed (59). Standalone E2E passed
+52 of 53 in the full run; the existing 1 MiB / 10 ms timing case measured a
+19.3 ms p95 and failed, then passed when rerun alone. Do not describe the full
+run as green or assume the cause is known. Independent review found two stale
+folder-button test locators; both were updated to the retained toolbar toggle
+or removed with the deleted folder icon. Desktop and 390 px browser checks
+confirmed flat rows, active styling, collapsed hidden rows and compact selection.
+
+Reuse: existing Sidebar header/menu/button, plus/panel icons and document
+commands; the existing `ArrayView::mapi` traversal is retained. Core
+`String::contains` was checked but not needed for this browser-tested change.
+No new MoonBit helper, type, parser call or imperative loop was introduced.
+
+### Product purpose: reduce the effort of reusing saved writing
+
+The product goal is to reduce the human effort required to consult or revise
+previously saved writing by showing the necessary information at the necessary
+time and in the necessary amount. It is not limited to returning to the most
+recent editing session. Updated-first ordering is a deliberate first-step
+compromise: it is simple to implement and unambiguous, not the ideal retrieval
+model or the product's defining goal.
+
+Document lead is a proposed means to that end, not an end in itself. Evaluate
+its contribution to recognizing relevant documents and deciding what to open,
+rather than treating richer Markdown presentation as inherently useful. This
+purpose does not itself authorize search, classification, recommendations, or
+other new mechanisms. Establish the user benefit before choosing additional
+implementation or failure-handling machinery; Worker and Retry design are
+currently deferred.
+
+### Product contract: large-document lead
+
+Accepted during the design interview: a large document admitted by Loomark
+retains the same Document lead extraction rules as a small document. Its first
+lead may arrive later, without blocking editing; size alone does not permit a
+permanent simplified lead or justify a new admission limit for this feature.
+This does not promise unlimited input sizes or a completion deadline. Failure
+behavior and the execution mechanism remain undecided. In particular, this
+decision does not authorize a Worker or a production asynchronous completion
+protocol.
+
+### Product contract: entry before its first lead
+
+Accepted during the design interview: Recent documents shows each entry before
+its first lead is ready, indicates that its content is being prepared, and
+allows selection while preparation continues. Lead readiness neither disables
+selection nor controls entry admission or list order. Selecting an entry still
+uses the existing Document switch readiness contract; it does not promise
+immediate activation. Entries awaiting their first lead may be difficult to
+distinguish. Exact visible and accessible wording remains a presentation gate;
+lead preparation must not be confused with Empty document or the existing
+Loading document state for a selected target.
+
+### Product contract: deletion before the first lead
+
+Accepted during the design interview: Delete remains unavailable while an
+entry's first lead is being prepared. Selection and editing remain available
+under their existing contracts. Do not open a deletion confirmation that waits
+for lead preparation, or permit confirmation using only a generic unidentified
+entry. This is a first-lead readiness rule, not a requirement to disable Delete
+on every subsequent text edit. A successfully prepared Empty document is not
+an entry still awaiting its first lead. Recovery when first-lead preparation
+fails remains to be decided.

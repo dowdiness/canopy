@@ -138,93 +138,92 @@ fn document_sidebar(
     collapsible=@sidebar.SidebarIcon,
     aria_label="Documents",
     class="[--rui-sidebar:var(--color-lm-foundation)] [--rui-sidebar-foreground:var(--color-lm-ink)] [--rui-sidebar-border:var(--color-lm-rule)] [--rui-sidebar-accent:var(--color-lm-accent-soft)] [--rui-sidebar-accent-foreground:var(--color-lm-accent)]",
-    @sidebar.sidebar_content(
-      @sidebar.sidebar_group(
-        @sidebar.sidebar_group_content(
-          @sidebar.sidebar_menu(
-            @sidebar.sidebar_menu_item([
-              @sidebar.sidebar_menu_button(
-                aria_label="Documents",
-                title="Documents",
-                class="hover:opacity-70 active:opacity-50",
-                on_click=if @sidebar.sidebar_is_collapsed(scope) {
-                  @sidebar.sidebar_expand(scope)
-                } else {
-                  @sidebar.sidebar_collapse(scope)
-                },
-                [folder_icon(), @html.span("Documents")],
-              ),
-              @sidebar.sidebar_menu_action(
-                disabled=!available,
-                aria_label="New document",
-                title="New document",
-                class="loomark-sidebar-action",
-                style=["width:2rem;height:2rem"],
-                on_click=@cmd.batch([emit(CreateRequested), close_after_action]),
-                plus_icon(),
-              ),
-              @sidebar.sidebar_menu_sub(
-                entries.mapi((index, entry) => {
-                  let document_id = entry.document_id()
-                  let selected = document_id == editing.activation.document_id
-                  let label = document_option_label(entries, index, entry)
-                  let (target_available, status) = match
-                    editing.documents.delete_status(document_id) {
-                    Some(Available) => (true, None)
-                    Some(Failed(_, _)) => (true, Some("Delete failed"))
-                    Some(Waiting(_)) | Some(Deleting(_)) | Some(Probing(_)) =>
-                      (false, Some("Deleting"))
-                    Some(Unknown(_)) =>
-                      (false, Some("Unknown deletion outcome"))
-                    None => (false, None)
-                  }
-                  @sidebar.sidebar_menu_sub_item([
-                    @sidebar.sidebar_menu_sub_button(
-                      is_active=selected,
-                      disabled=!can_select(editing, document_id),
-                      aria_label=label,
-                      title=label,
-                      class="pr-10 hover:opacity-70 active:opacity-50",
-                      on_click=@cmd.batch([
-                        emit(DocumentSelected(document_id)),
-                        close_after_action,
-                      ]),
-                      style=[
-                        "height:auto;min-height:2.5rem;align-items:flex-start;padding-block:0.5rem",
-                      ],
-                      @html.div(class="min-w-0", [
-                        @html.span(
-                          class="overflow-hidden text-ellipsis whitespace-normal [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]",
-                          label,
-                        ),
-                        match status {
-                          Some(status) =>
-                            @html.span(
-                              class="block text-xs text-lm-muted",
-                              attrs=@html.Attrs::build().role("status"),
-                              status,
-                            )
-                          None => @html.nothing
-                        },
-                      ]),
-                    ),
-                    @sidebar.sidebar_menu_action(
-                      disabled=!target_available,
-                      aria_label="Delete \"\{label}\"",
-                      title="Delete \"\{label}\"",
-                      class="loomark-sidebar-action loomark-delete-action",
-                      style=["width:2rem;height:2rem"],
-                      on_click=emit(DeleteRequested(document_id)),
-                      trash_icon(),
-                    ),
-                  ])
-                }),
-              ),
-            ]),
+    [
+      @sidebar.sidebar_header(
+        style=["align-items:flex-end"],
+        @sidebar.sidebar_menu_button(
+          disabled=!available,
+          aria_label="New document",
+          title="New document",
+          class="active:opacity-50",
+          style=["width:2rem;height:2rem;justify-content:center;padding:0"],
+          on_click=@cmd.batch([emit(CreateRequested), close_after_action]),
+          plus_icon(),
+        ),
+      ),
+      @sidebar.sidebar_content(
+        style=if @sidebar.sidebar_is_collapsed(scope) {
+          ["display:none"]
+        } else {
+          []
+        },
+        @sidebar.sidebar_group(
+          @sidebar.sidebar_group_content(
+            @sidebar.sidebar_menu(
+              entries.mapi((index, entry) => {
+                let document_id = entry.document_id()
+                let selected = document_id == editing.activation.document_id
+                let label = document_option_label(entries, index, entry)
+                let (target_available, status) = match
+                  editing.documents.delete_status(document_id) {
+                  Some(Available) => (true, None)
+                  Some(Failed(_, _)) => (true, Some("Delete failed"))
+                  Some(Waiting(_)) | Some(Deleting(_)) | Some(Probing(_)) =>
+                    (false, Some("Deleting"))
+                  Some(Unknown(_)) => (false, Some("Unknown deletion outcome"))
+                  None => (false, None)
+                }
+                @sidebar.sidebar_menu_item([
+                  @sidebar.sidebar_menu_button(
+                    is_active=selected,
+                    disabled=!can_select(editing, document_id),
+                    aria_label=label,
+                    title=label,
+                    class="loomark-document-row active:opacity-50",
+                    on_click=@cmd.batch([
+                      emit(DocumentSelected(document_id)),
+                      close_after_action,
+                    ]),
+                    style=[
+                      "height:auto;min-height:2.5rem;align-items:flex-start;padding-block:0.5rem;padding-inline-end:2.5rem",
+                      if selected {
+                        "opacity:1"
+                      } else {
+                        ""
+                      },
+                    ],
+                    @html.div(class="min-w-0", [
+                      @html.span(
+                        class="overflow-hidden text-ellipsis whitespace-normal [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]",
+                        label,
+                      ),
+                      match status {
+                        Some(status) =>
+                          @html.span(
+                            class="block text-xs text-lm-muted",
+                            attrs=@html.Attrs::build().role("status"),
+                            status,
+                          )
+                        None => @html.nothing
+                      },
+                    ]),
+                  ),
+                  @sidebar.sidebar_menu_action(
+                    disabled=!target_available,
+                    aria_label="Delete \"\{label}\"",
+                    title="Delete \"\{label}\"",
+                    class="loomark-sidebar-action loomark-delete-action",
+                    style=["width:2rem;height:2rem"],
+                    on_click=emit(DeleteRequested(document_id)),
+                    trash_icon(),
+                  ),
+                ])
+              }),
+            ),
           ),
         ),
       ),
-    ),
+    ],
   )
 }
 
@@ -243,6 +242,7 @@ fn mode_bar(
           mobile=false,
           controls="loomark-document-sidebar",
           aria_label="Toggle documents",
+          title="Toggle documents",
           class="active:opacity-50",
           panel_icon(),
         ),

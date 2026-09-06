@@ -668,6 +668,13 @@ test("several Sources select the first lexical Document ID", async ({ page }) =>
   await page.reload()
   await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(documentA.text)
   const documents = page.getByRole("complementary", { name: "Documents" })
+  await expect(documents.locator('[data-slot="sidebar-menu-sub"]')).toHaveCount(0)
+  await expect(documents.locator('[data-slot="sidebar-menu"] > [data-slot="sidebar-menu-item"]')).toHaveCount(3)
+  const create = documents.locator('[data-slot="sidebar-header"]').getByRole("button", { name: "New document" })
+  await expect(create).toBeVisible()
+  await expect(create).toHaveText("")
+  await expect(create).toHaveAttribute("title", "New document")
+  await expect(documents.getByRole("button", { name: "Documents", exact: true })).toHaveCount(0)
   await expect(documents.getByRole("button", {
     name: "Same (1 of 2)",
     exact: true,
@@ -684,6 +691,18 @@ test("several Sources select the first lexical Document ID", async ({ page }) =>
   expect(await readStoredDocumentRaw(page, CATALOG_KEY)).toBeUndefined()
   expect(await readStoredDocumentRaw(page, EDITING_DOCUMENT_KEY)).toBeUndefined()
   expect(await readStoredDocumentRaw(page, "source/v2/future")).toBe("future")
+  const current = documents.getByRole("button", { name: "Same (1 of 2)", exact: true })
+  await expect(current).toHaveAttribute("data-state", "active")
+  await expect(current).toHaveCSS("opacity", "1")
+  const toggle = page.getByRole("button", { name: "Toggle documents" })
+  await toggle.click()
+  await expect(current).toBeHidden()
+  await toggle.click()
+  await expect(current).toBeVisible()
+  await page.setViewportSize({ width: 390, height: 844 })
+  await documents.getByRole("button", { name: "Body only", exact: true }).click()
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(documentC.text)
+  await expect(current).toBeHidden()
 })
 
 test("startup is read-only and restores an accepted Editing Document", async ({ page }) => {
@@ -965,7 +984,6 @@ test("Document control icons remain rendered", async ({ page }) => {
   await page.getByRole("textbox", { name: "Text" }).fill("# Icon test\n")
 
   const icons = [
-    page.getByRole("button", { name: "Documents", exact: true }).locator("span").first(),
     page.getByRole("button", { name: "New document" }).locator("span").first(),
     page.getByRole("button", { name: "Toggle documents" }).locator("span").first(),
     page.getByRole("button", { name: 'Delete "Icon test"' }).locator("span").first(),
@@ -981,7 +999,7 @@ test("Document controls remain accessible without horizontal overflow at 390 px"
   await waitForRepositoryOpen(page)
   await expect(page.getByRole("button", { name: "Toggle documents" }))
     .toHaveAttribute("aria-expanded", "false")
-  await page.getByRole("button", { name: "Documents", exact: true }).click()
+  await page.getByRole("button", { name: "Toggle documents" }).click()
   await expect(page.getByRole("button", { name: "New document" })).toBeVisible()
   await expect(page.getByRole("tab", { name: "Text" })).toBeVisible()
   await expect(page.getByRole("tab", { name: "Preview" })).toBeVisible()

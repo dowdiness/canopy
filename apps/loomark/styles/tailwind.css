@@ -83,6 +83,19 @@
   margin-bottom: 0;
 }
 
+.loomark-document-row {
+  position: relative;
+}
+
+.loomark-document-row[data-state="active"]::before {
+  content: "";
+  position: absolute;
+  inset-block: 0.5rem;
+  inset-inline-start: 0;
+  width: 1px;
+  background: var(--color-lm-accent);
+}
+
 .loomark-delete-action {
   --rui-sidebar-action-fg: var(--color-lm-muted);
 }

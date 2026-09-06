@@ -55,7 +55,8 @@ dimensions. One open-or-closed state continues across breakpoint changes for the
 current page lifetime and is not persisted. An icon-only editor-toolbar
 control opens or closes Recent documents and carries an accessible label and
 tooltip. The Recent documents action bar has no visible heading and owns a
-right-aligned, text-only `New` action without a plus icon; the editor toolbar
+right-aligned, plus-icon `New` action with an accessible label and tooltip;
+the editor toolbar
 does not duplicate the New action. On narrow screens it temporarily fills the
 screen, provides a back-arrow control to close it without selection, and closes
 after selection; selecting a document on a wide screen does not close the pane. Each entry shows the Document lead using its heading, task, quote,
