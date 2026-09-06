@@ -11,8 +11,12 @@ _Avoid_: file, buffer, session
 
 **New document**:
 The temporary empty editor opened in the current Editor mode. It becomes a
-Loomark document when the user first changes its text; leaving it untouched does
-not add it to Recent documents.
+Loomark document when the user first changes its text. Until then, Recent
+documents shows a temporary selected entry at the top for the current New
+document, without saving it. First input replaces that temporary presentation
+with the document's content presentation. Leaving it untouched and choosing
+another document removes the temporary entry; it does not accumulate empty
+saved documents.
 _Avoid_: blank record, draft
 
 **Editing Document**:

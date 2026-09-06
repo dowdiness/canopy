@@ -33,6 +33,41 @@ test "Document sidebar labels disambiguate Source-derived identities" {
 }
 
 ///|
+test "Recent documents shows only the current untouched New before input" {
+  let initial = test_editing()
+  let (documents, _) = initial.documents.reduce(DocumentsNew("draft"))
+  let editing = {
+    ..initial,
+    documents,
+    activation: { ..initial.activation, document_id: "draft" },
+  }
+  let entries = recent_entries(editing)
+  assert_eq(entries.map(entry => entry.document_id()), ["draft", "one", "two"])
+  assert_eq(entries[0].name(), Some("New document"))
+  assert_eq(documents.snapshot(), initial.documents.snapshot())
+  assert_eq(
+    recent_entries({ ..initial, documents, }).map(entry => entry.document_id()),
+    ["one", "two"],
+  )
+  let (documents, _) = documents.reduce(DocumentsNew("another"))
+  assert_eq(
+    recent_entries({
+      ..editing,
+      documents,
+      activation: { ..editing.activation, document_id: "another" },
+    }).map(entry => entry.document_id()),
+    ["another", "one", "two"],
+  )
+  let (documents, _) = editing.documents.reduce(
+    DocumentsTextChanged("draft", "first text", documents_test_order(1L)),
+  )
+  assert_eq(
+    recent_entries({ ..editing, documents, }).map(entry => entry.document_id()),
+    ["draft", "one", "two"],
+  )
+}
+
+///|
 test "Recent documents includes promoted New and current Change order" {
   let initial = test_editing()
   let (documents, _) = initial.documents.reduce(

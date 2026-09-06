@@ -614,8 +614,8 @@ the flat-navigation slice.
 
 Follow-up: New now shows a quiet `New document` status in every Editor mode,
 plus `Start writing…` in the text field. Both derive from the existing untouched
-New record and disappear after its first edit. No empty list entry or saved
-record is created merely to provide this feedback. Stored empty documents,
+New record and disappear after its first edit. No saved record is created
+merely to provide this feedback. Stored empty documents,
 empty imports and documents erased after editing are not labelled New. The
 textarea node remains mounted when the indication disappears.
 
@@ -627,6 +627,24 @@ There is no new state, timer, parser call or imperative loop. A failing browser
 assertion first confirmed the missing New feedback; the new pure boundary test
 and browser checks cover first edit, empty records/imports, Preview visibility,
 textarea node identity and 390 px layout.
+
+Subsequent user feedback requires the current untouched New to appear as a
+temporary selected row at the top of Recent documents. This supersedes the
+previous no-entry-before-input rule. It is a presentation of the existing
+activation, not a new saved document or text authority. Repeated New replaces
+the temporary row rather than accumulating empty entries. Leaving New untouched
+and selecting a saved document removes the temporary row. First edit promotes
+the same identity into the ordinary content-labelled list; autosave remains
+unchanged. The temporary row has no Delete action because it is not a saved or
+edited document. Its accessible name distinguishes it from the plus action.
+
+Reuse: `Documents::is_untouched_new`, existing Catalog entry construction and
+sorting, and core `Array::append` for an owning presentation array. The only
+new mutation appends sorted entries to a newly allocated local array; it never
+mutates repository state. No new helper, persistence effect, timer or parser
+was introduced. A failing pure view test covered the missing row; unit and
+browser tests cover first edit, repeated New, abandonment, selection and
+unchanged storage.
 
 ### Product purpose: reduce the effort of reusing saved writing
 

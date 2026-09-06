@@ -670,7 +670,7 @@ test("several Sources select the first lexical Document ID", async ({ page }) =>
   const documents = page.getByRole("complementary", { name: "Documents" })
   await expect(documents.locator('[data-slot="sidebar-menu-sub"]')).toHaveCount(0)
   await expect(documents.locator('[data-slot="sidebar-menu"] > [data-slot="sidebar-menu-item"]')).toHaveCount(3)
-  const create = documents.locator('[data-slot="sidebar-header"]').getByRole("button", { name: "New document" })
+  const create = documents.locator('[data-slot="sidebar-header"]').getByRole("button", { name: "New document", exact: true })
   await expect(create).toBeVisible()
   await expect(create).toHaveText("")
   await expect(create).toHaveAttribute("title", "New document")
@@ -849,22 +849,30 @@ test("New stays ephemeral and its first Source save is not remembered", async ({
 
   const documents = page.getByRole("complementary", { name: "Documents" })
   await page.evaluate(installStoreMutationLog)
-  await page.getByRole("button", { name: "New document" }).click()
+  await page.getByRole("button", { name: "New document", exact: true }).click()
+  const temporaryRow = documents.getByRole("button", { name: "New document — not yet written", exact: true })
+  await expect(temporaryRow).toBeVisible()
+  await expect(temporaryRow).toHaveAttribute("data-state", "active")
+  await page.getByRole("button", { name: "New document", exact: true }).click()
+  await expect(temporaryRow).toHaveCount(1)
+  await expect(temporaryRow).toHaveAttribute("data-state", "active")
+  await expect(documents.getByRole("button", { name: 'Delete "New document"', exact: true })).toHaveCount(0)
   await expect.poll(() => readStoredDocuments(page).then(documents => documents.length)).toBe(1)
   expect(await readStoreMutationLog(page)).toEqual([])
   const after = await readStoredDocuments(page)
   expect(after).toEqual(before)
   await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("")
   const text = page.getByRole("textbox", { name: "Text" })
-  await expect(page.getByText("New document", { exact: true })).toBeVisible()
+  await expect(page.getByRole("status").filter({ hasText: /^New document$/ })).toBeVisible()
   await expect(text).toHaveAttribute("placeholder", "Start writing…")
   await page.getByRole("tab", { name: "Preview", exact: true }).click()
-  await expect(page.getByText("New document", { exact: true })).toBeVisible()
+  await expect(page.getByRole("status").filter({ hasText: /^New document$/ })).toBeVisible()
   await page.getByRole("tab", { name: "Text", exact: true }).click()
   const editorElement = await text.elementHandle()
   await text.fill("# Project notes\n")
-  await expect(page.getByText("New document", { exact: true })).toHaveCount(0)
+  await expect(page.getByRole("status").filter({ hasText: /^New document$/ })).toHaveCount(0)
   await expect(text).toHaveAttribute("placeholder", "")
+  await expect(temporaryRow).toHaveCount(0)
   expect(await editorElement!.evaluate(element => element.isConnected)).toBe(true)
   await expect.poll(() => readStoredDocuments(page).then(documents => documents.find(
     document => !before.some(previous => previous.document_id === document.document_id),
@@ -988,13 +996,31 @@ test("final Delete leaves an empty New with a live Split Preview", async ({ page
 // The browser's crypto.randomUUID property is non-configurable in the supported
 // Playwright runtime, so the obsolete identity-retry browser case is covered by
 // the pure repository tests instead of attempting to patch the platform API.
+test("leaving untouched New removes its temporary row without saving it", async ({ page }) => {
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const saved = { document_id: "saved", text: "# Saved reference\n" }
+  await replaceStoreRecords(page, [{ key: sourceKey(saved.document_id), value: encodeStoredDocument(saved) }])
+  await page.reload()
+  const documents = page.getByRole("complementary", { name: "Documents" })
+  await page.getByRole("button", { name: "New document", exact: true }).click()
+  const temporary = documents.getByRole("button", { name: "New document — not yet written", exact: true })
+  await expect(temporary).toBeVisible()
+  await documents.getByRole("button", { name: "Saved reference", exact: true }).click()
+  await expect(temporary).toHaveCount(0)
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(saved.text)
+  await expect.poll(() => readStoredDocuments(page)).toEqual([saved])
+  await page.reload()
+  await expect(temporary).toHaveCount(0)
+})
+
 test("Document control icons remain rendered", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
   await page.getByRole("textbox", { name: "Text" }).fill("# Icon test\n")
 
   const icons = [
-    page.getByRole("button", { name: "New document" }).locator("span").first(),
+    page.getByRole("button", { name: "New document", exact: true }).locator("span").first(),
     page.getByRole("button", { name: "Toggle documents" }).locator("span").first(),
     page.getByRole("button", { name: 'Delete "Icon test"' }).locator("span").first(),
   ]
@@ -1010,7 +1036,7 @@ test("Document controls remain accessible without horizontal overflow at 390 px"
   await expect(page.getByRole("button", { name: "Toggle documents" }))
     .toHaveAttribute("aria-expanded", "false")
   await page.getByRole("button", { name: "Toggle documents" }).click()
-  await expect(page.getByRole("button", { name: "New document" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "New document", exact: true })).toBeVisible()
   await expect(page.getByRole("tab", { name: "Text" })).toBeVisible()
   await expect(page.getByRole("tab", { name: "Preview" })).toBeVisible()
   await expect(page.getByRole("tab", { name: "Split" })).toBeVisible()
@@ -1548,7 +1574,7 @@ test("exact acknowledged revert gets a fresh persistence order", async ({ page }
     }
   })
 
-  await expect(page.getByRole("button", { name: "New document" })).toBeEnabled()
+  await expect(page.getByRole("button", { name: "New document", exact: true })).toBeEnabled()
   await page.waitForTimeout(2_250)
   await expect.poll(() => readDocumentPutLog(page)).toHaveLength(1)
   expect((await readStoredDocument(page))?.text).toBe("# Untitled\n")
@@ -1902,7 +1928,7 @@ test("failed attempt exact acknowledged revert restores truthful Saved", async (
 
   await text.fill("# Untitled\n")
   await expect(page.getByRole("alert")).toHaveCount(0)
-  await expect(page.getByRole("button", { name: "New document" })).toBeEnabled()
+  await expect(page.getByRole("button", { name: "New document", exact: true })).toBeEnabled()
   await page.waitForTimeout(300)
   const callsAfterRevert = await page.evaluate(() => (
     (globalThis as typeof globalThis & {
@@ -1937,7 +1963,7 @@ test("active failure after acknowledged revert restores truthful Saved", async (
   ))).toBe(true)
 
   await expect(page.getByRole("alert")).toHaveCount(0)
-  await expect(page.getByRole("button", { name: "New document" })).toBeEnabled()
+  await expect(page.getByRole("button", { name: "New document", exact: true })).toBeEnabled()
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
     .toBe("# Untitled\n")
 })
@@ -2203,7 +2229,7 @@ test("1 MiB exact Saved comparison stays within 10 ms", async ({ page }) => {
   const sorted = [...durations].sort((left, right) => left - right)
   expect(sorted[Math.ceil(sorted.length * 0.95) - 1]).toBeLessThanOrEqual(10)
   expect(sorted[sorted.length - 1]).toBeLessThanOrEqual(10)
-  await expect(page.getByRole("button", { name: "New document" })).toBeEnabled()
+  await expect(page.getByRole("button", { name: "New document", exact: true })).toBeEnabled()
   await page.waitForTimeout(350)
   await expect.poll(() => readDocumentPutLog(page)).toHaveLength(1)
 })

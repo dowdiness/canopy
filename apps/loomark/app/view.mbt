@@ -108,10 +108,21 @@ fn recent_entries(
         None
       }
     })
-  @source_repository.Catalog::from_entries(entries)
-  .unwrap()
-  .entries()
-  .to_owned()
+  let ordered = @source_repository.Catalog::from_entries(entries)
+    .unwrap()
+    .entries()
+    .to_owned()
+  let document_id = editing.activation.document_id
+  if editing.documents.is_untouched_new(document_id) {
+    // Local presentation builder only; neither Catalog nor saved text is changed.
+    let visible = [
+      @source_repository.CatalogEntry::new(document_id, Some("New document")).unwrap(),
+    ]
+    visible.append(ordered.view())
+    visible
+  } else {
+    ordered
+  }
 }
 
 ///|
@@ -163,6 +174,9 @@ fn document_sidebar(
               entries.mapi((index, entry) => {
                 let document_id = entry.document_id()
                 let selected = document_id == editing.activation.document_id
+                let untouched_new = editing.documents.is_untouched_new(
+                  document_id,
+                )
                 let label = document_option_label(entries, index, entry)
                 let (target_available, status) = match
                   editing.documents.delete_status(document_id) {
@@ -177,7 +191,11 @@ fn document_sidebar(
                   @sidebar.sidebar_menu_button(
                     is_active=selected,
                     disabled=!can_select(editing, document_id),
-                    aria_label=label,
+                    aria_label=if untouched_new {
+                      "\{label} — not yet written"
+                    } else {
+                      label
+                    },
                     title=label,
                     class="loomark-document-row active:opacity-50",
                     on_click=@cmd.batch([
@@ -208,15 +226,19 @@ fn document_sidebar(
                       },
                     ]),
                   ),
-                  @sidebar.sidebar_menu_action(
-                    disabled=!target_available,
-                    aria_label="Delete \"\{label}\"",
-                    title="Delete \"\{label}\"",
-                    class="loomark-sidebar-action loomark-delete-action",
-                    style=["width:2rem;height:2rem"],
-                    on_click=emit(DeleteRequested(document_id)),
-                    trash_icon(),
-                  ),
+                  if untouched_new {
+                    @html.nothing
+                  } else {
+                    @sidebar.sidebar_menu_action(
+                      disabled=!target_available,
+                      aria_label="Delete \"\{label}\"",
+                      title="Delete \"\{label}\"",
+                      class="loomark-sidebar-action loomark-delete-action",
+                      style=["width:2rem;height:2rem"],
+                      on_click=emit(DeleteRequested(document_id)),
+                      trash_icon(),
+                    )
+                  },
                 ])
               }),
             ),
