@@ -125,6 +125,9 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
                   emit,
                   text_area,
                   editing.activation,
+                  untouched_new=editing.documents.is_untouched_new(
+                    editing.activation.document_id,
+                  ),
                   disabled=editing.creation == Creating,
                   read_only=deletion_blocks_document_changes(editing),
                 ),

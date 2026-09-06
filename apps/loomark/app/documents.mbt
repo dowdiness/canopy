@@ -326,6 +326,18 @@ fn Documents::current_sources(
 }
 
 ///|
+fn Documents::is_untouched_new(self : Self, document_id : String) -> Bool {
+  find_record(self.records, document_id)
+  .map(record => {
+    record.origin == New &&
+    record.source.change_order().value() == 0L &&
+    record.source.text() == "" &&
+    acknowledged_source(self, document_id) is None
+  })
+  .unwrap_or(false)
+}
+
+///|
 fn Documents::text(self : Self, document_id : String) -> String? {
   find_record(self.records, document_id).map(r => r.source.text())
 }

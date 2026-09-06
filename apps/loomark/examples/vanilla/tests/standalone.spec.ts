@@ -855,7 +855,16 @@ test("New stays ephemeral and its first Source save is not remembered", async ({
   expect(after).toEqual(before)
   await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("")
   const text = page.getByRole("textbox", { name: "Text" })
+  await expect(page.getByText("New document", { exact: true })).toBeVisible()
+  await expect(text).toHaveAttribute("placeholder", "Start writing…")
+  await page.getByRole("tab", { name: "Preview", exact: true }).click()
+  await expect(page.getByText("New document", { exact: true })).toBeVisible()
+  await page.getByRole("tab", { name: "Text", exact: true }).click()
+  const editorElement = await text.elementHandle()
   await text.fill("# Project notes\n")
+  await expect(page.getByText("New document", { exact: true })).toHaveCount(0)
+  await expect(text).toHaveAttribute("placeholder", "")
+  expect(await editorElement!.evaluate(element => element.isConnected)).toBe(true)
   await expect.poll(() => readStoredDocuments(page).then(documents => documents.find(
     document => !before.some(previous => previous.document_id === document.document_id),
   ) ?? null)).not.toBeNull()

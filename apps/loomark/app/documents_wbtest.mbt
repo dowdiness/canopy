@@ -20,6 +20,31 @@ fn documents_test_current_order(
 }
 
 ///|
+test "untouched New hint excludes stored empty, imported and edited documents" {
+  let documents = initial_documents(
+    @source_repository.RepositorySnapshot::from_sources([
+      @source_repository.SourceRecord::new("stored", "").unwrap(),
+    ]).unwrap(),
+  )
+  assert_false(documents.is_untouched_new("stored"))
+  assert_false(documents.is_untouched_new("missing"))
+  let (documents, _) = documents.reduce(DocumentsNew("new"))
+  assert_true(documents.is_untouched_new("new"))
+  let (documents, _) = documents.reduce(
+    DocumentsTextChanged("new", "written", documents_test_order(1L)),
+  )
+  assert_false(documents.is_untouched_new("new"))
+  let (documents, _) = documents.reduce(
+    DocumentsTextChanged("new", "", documents_test_order(2L)),
+  )
+  assert_false(documents.is_untouched_new("new"))
+  let (documents, _) = documents.reduce(
+    DocumentsImported("imported", "", documents_test_order(3L)),
+  )
+  assert_false(documents.is_untouched_new("imported"))
+}
+
+///|
 test "Import accepts empty text and persists it immediately as New" {
   let documents = initial_documents(documents_test_snapshot())
   let (documents, decisions) = documents.reduce(

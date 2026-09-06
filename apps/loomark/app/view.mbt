@@ -260,6 +260,15 @@ fn mode_bar(
             ],
           ),
         ),
+        if editing.documents.is_untouched_new(editing.activation.document_id) {
+          @html.span(
+            class="text-xs text-lm-muted whitespace-nowrap",
+            attrs=@html.Attrs::build().role("status"),
+            "New document",
+          )
+        } else {
+          @html.nothing
+        },
       ]),
       @html.div(class="flex min-w-0 items-center gap-1", [
         examples_bar(
@@ -300,6 +309,7 @@ fn text_area_view(
   emit : @rabbita.Emit[Msg],
   text_area : @text_area.TextArea,
   activation : Activation,
+  untouched_new? : Bool = false,
   disabled? : Bool,
   read_only? : Bool,
 ) -> @rabbita.Html {
@@ -311,9 +321,10 @@ fn text_area_view(
         @html.textarea(
           rows=24,
           autofocus=true,
+          placeholder=if untouched_new { "Start writing…" } else { "" },
           disabled?,
           read_only?,
-          class="m-0 block h-full min-h-0 w-full min-w-0 resize-none rounded-none border-0 bg-transparent px-[max(3rem,calc((100%_-_44rem)_/_2))] pt-8 pb-16 font-lm-mono text-base leading-[1.65] text-lm-ink caret-lm-accent outline-0 [tab-size:2] max-[641px]:px-3 max-[641px]:pt-6 max-[641px]:pb-12",
+          class="m-0 block h-full min-h-0 w-full min-w-0 resize-none rounded-none border-0 bg-transparent px-[max(3rem,calc((100%_-_44rem)_/_2))] pt-8 pb-16 font-lm-mono text-base leading-[1.65] text-lm-ink placeholder:text-lm-muted caret-lm-accent outline-0 [tab-size:2] max-[641px]:px-3 max-[641px]:pt-6 max-[641px]:pb-12",
           attrs=text_area.attach(
             @html.Attrs::build().aria_label("Text"),
             change => emit(TextChanged(activation, change)),

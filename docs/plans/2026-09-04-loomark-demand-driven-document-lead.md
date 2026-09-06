@@ -608,7 +608,24 @@ confirmed flat rows, active styling, collapsed hidden rows and compact selection
 Reuse: existing Sidebar header/menu/button, plus/panel icons and document
 commands; the existing `ArrayView::mapi` traversal is retained. Core
 `String::contains` was checked but not needed for this browser-tested change.
-No new MoonBit helper, type, parser call or imperative loop was introduced.
+No new MoonBit helper, type, parser call or imperative loop was introduced in
+the flat-navigation slice.
+
+Follow-up: New now shows a quiet `New document` status in every Editor mode,
+plus `Start writing…` in the text field. Both derive from the existing untouched
+New record and disappear after its first edit. No empty list entry or saved
+record is created merely to provide this feedback. Stored empty documents,
+empty imports and documents erased after editing are not labelled New. The
+textarea node remains mounted when the indication disappears.
+
+Reuse for this follow-up: `find_record`, `acknowledged_source`, core
+`Option::map` / `Option::unwrap_or`, and native textarea placeholder. The private
+`Documents::is_untouched_new` predicate is shared by the toolbar and text view;
+`is_clean` alone was rejected because saved and edited records can also be clean.
+There is no new state, timer, parser call or imperative loop. A failing browser
+assertion first confirmed the missing New feedback; the new pure boundary test
+and browser checks cover first edit, empty records/imports, Preview visibility,
+textarea node identity and 390 px layout.
 
 ### Product purpose: reduce the effort of reusing saved writing
 
