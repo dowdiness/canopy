@@ -694,6 +694,7 @@ test("several Sources select the first lexical Document ID", async ({ page }) =>
   const current = documents.getByRole("button", { name: "Same (1 of 2)", exact: true })
   await expect(current).toHaveAttribute("data-state", "active")
   await expect(current).toHaveCSS("opacity", "1")
+  expect(await current.evaluate(element => getComputedStyle(element, "::before").content)).toBe("none")
   const toggle = page.getByRole("button", { name: "Toggle documents" })
   await toggle.click()
   await expect(current).toBeHidden()

@@ -582,8 +582,9 @@ Use the existing Sidebar and document commands to remove the folder-shaped
 parent and submenu. Put New in the sidebar header as a plus icon; retain its
 accessible name and tooltip. This icon-only decision supersedes the earlier
 text-only New presentation. The editor toolbar's existing sidebar icon is the
-single list toggle. Show the selected document with its active background and
-a thin edge accent, without dimming it as though it were unavailable.
+single list toggle. Show the selected document with its active background,
+without dimming it as though it were unavailable. Subsequent user feedback
+removed the thin edge accent; do not put a line beside the document label.
 
 Keep existing labels (including duplicate-name disambiguation), ordering, save,
 selection, deletion, provider state and compact-screen close behavior. No

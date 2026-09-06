@@ -84,8 +84,8 @@ than visible status text. A document whose text is empty has
 no visible placeholder, while its selectable entry retains an accessible `Empty
 document` label. When no saved documents exist, the list shows `No documents
 yet` rather than unexplained blank space. The selected document uses an explicit
-row highlight with a
-subtle background and slim edge accent; exact visual values remain provisional. A selected cold target
+row highlight with a subtle background, without an edge line;
+exact visual values remain provisional. A selected cold target
 shows a small loading indicator with an accessible `Loading document` label
 while the current document remains visible. Merely opening a document does not
 move it. While typing, an entry keeps its previous Document lead until a lead
