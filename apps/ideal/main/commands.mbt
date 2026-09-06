@@ -166,14 +166,32 @@ fn refresh(model : Model) -> Model raise {
   js_perf_begin("buildScopeMap")
   let scope_map = build_scope_map_from_editor(model.editor)
   js_perf_end("buildScopeMap")
-  // Recompute highlight_set if a node is selected
+  // Only a current projection can establish that a selected node disappeared.
+  let selected_node = match proj_node {
+    None => model.selected_node
+    Some(_) =>
+      model.selected_node.filter(node_id => {
+        match parse_node_id(node_id) {
+          Some(id) => model.editor.get_node(id) is Some(_)
+          None => false
+        }
+      })
+  }
+  // Recompute highlight_set from the surviving selection.
   js_perf_begin("computeHighlightSet")
-  let highlight_set = highlight_set_for(model.selected_node, scope_map)
+  let highlight_set = highlight_set_for(selected_node, scope_map)
   js_perf_end("computeHighlightSet")
   js_perf_end("refreshTotal")
   // Navigation paths belong to the old projection even if the selected ID
   // survives. Invalidate here, not as a side effect of renderer notifications.
-  { ..model, outline_state, scope_map, highlight_set, nav_path: None }
+  {
+    ..model,
+    selected_node,
+    outline_state,
+    scope_map,
+    highlight_set,
+    nav_path: None,
+  }
 }
 
 ///|

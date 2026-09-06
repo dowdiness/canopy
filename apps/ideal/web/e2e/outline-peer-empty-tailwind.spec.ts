@@ -75,22 +75,6 @@ async function readInspectorEmptyStyles(page: Page) {
   });
 }
 
-async function readNoTreeNoteStyles(page: Page) {
-  return page.evaluate(() => {
-    const note = document.querySelector<HTMLElement>('.inspector-panel .no-tree-note');
-    if (!note) return null;
-
-    const style = getComputedStyle(note);
-    return {
-      noteClassName: note.className,
-      noteFontSize: style.fontSize,
-      noteColor: style.color,
-      notePaddingTop: style.paddingTop,
-      notePaddingLeft: style.paddingLeft,
-    };
-  });
-}
-
 test.describe('Ideal Tailwind outline peer and empty-state class bundles', () => {
   test('Tailwind-owned peer item and status dot chrome styles connected/error states', async ({
     page,
@@ -134,7 +118,7 @@ test.describe('Ideal Tailwind outline peer and empty-state class bundles', () =>
     expect(error?.dotAnimationName).toBe('none');
   });
 
-  test('Tailwind-owned inspector empty and no-tree note chrome styles', async ({
+  test('Tailwind-owned inspector empty chrome styles', async ({
     page,
   }) => {
     await waitForEditorReady(page);
@@ -153,23 +137,5 @@ test.describe('Ideal Tailwind outline peer and empty-state class bundles', () =>
     expect(empty?.textColor).toBe('rgb(138, 138, 170)');
     expect(Number.parseFloat(empty?.textLineHeight ?? '0')).toBeCloseTo(23.1, 1);
 
-    // Reach the Text-mode stale-selection fallback through a real edit, not an
-    // invalid Structure event (which is now correctly rejected).
-    await page.getByRole('treeitem', { name: '42', exact: true }).click();
-    await page.locator('#canopy-text-editor .cm-content').click();
-    await page.keyboard.press('ControlOrMeta+A');
-    await page.keyboard.insertText('0');
-    await expect(page.locator('.inspector-panel .no-tree-note')).toHaveText(
-      'No matching node',
-    );
-
-    const noTree = await readNoTreeNoteStyles(page);
-
-    expect(noTree).not.toBeNull();
-    expect(noTree?.noteClassName).toMatch(/^no-tree-note\b/);
-    expect(noTree?.noteFontSize).toBe('14px');
-    expect(noTree?.noteColor).toBe('rgb(136, 136, 168)');
-    expect(noTree?.notePaddingTop).toBe('16px');
-    expect(noTree?.notePaddingLeft).toBe('16px');
   });
 });
