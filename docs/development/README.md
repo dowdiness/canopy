@@ -21,6 +21,10 @@ files inside `docs/development/`.
 ## Day-to-day contributor workflow
 
 - **[Workflow](workflow.md)** — development process and common commands.
+- **[API Reuse](api-reuse.md)** — API discovery, one reuse record per change,
+  and declarative MoonBit implementation conventions.
+- **[Agent Environments](agent-environments.md)** — pi delegation roles and
+  Cursor Cloud notes; read only for the applicable host.
 - **[Conventions](conventions.md)** — MoonBit coding standards.
 - **[MoonBit Conventions — Examples](moonbit-conventions-examples.md)** —
   concrete patterns referenced from `AGENTS.md`.

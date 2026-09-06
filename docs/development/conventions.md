@@ -53,7 +53,9 @@ git diff *.mbti    # Check for API changes
 
 ### 5. Format Before Committing
 
-Always run `moon info && moon fmt` before finalizing changes.
+Follow [Workflow: Validation Scope](workflow.md#validation-scope) for affected
+formatting and interface checks, required hooks, and CI. Documentation-only
+changes do not require MoonBit formatting or interface generation.
 
 ## Property-Based Testing
 

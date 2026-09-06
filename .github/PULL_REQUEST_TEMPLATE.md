@@ -14,7 +14,9 @@
 
 ## Reuse check
 
-<!-- Required when adding new functions, methods, helpers, or types. Skip only for pure docs/config changes. -->
+<!-- Follow docs/development/api-reuse.md. Record the decision once per logical
+     change here, or link the existing implementation note instead of copying it.
+     Pure docs/config changes may use N/A. -->
 <!-- Include project APIs and actual MoonBit core APIs for the data shape involved
      (Map/Set/String/StringView/Bytes/Buffer/Option/Result/cmp/math/Array/Iter, etc.).
      Do not satisfy this by listing only Iter/Array unless the change is purely collection iteration. -->
@@ -28,6 +30,10 @@ Existing APIs considered:
 New helpers added (if any):
 
 <!-- list any new helper names here and explain why each doesn't duplicate an existing API -->
+
+Necessary mutation (if any):
+
+<!-- Group uses with a shared reason; explain exceptional cases individually. -->
 
 ## Validation scope
 
@@ -59,5 +65,6 @@ git push
 - [ ] Any changed submodule commit is pushed and reachable from its remote.
 - [ ] The branch was pushed again after every commit, amend, rebase,
       cherry-pick, submodule-pointer, manifest, or generated-interface change.
-- [ ] Independent review findings were resolved before the final validation.
+- [ ] Review scope follows `docs/development/workflow.md#review-scope`;
+      any required independent review is complete and findings are resolved.
 - [ ] GitHub CI's `All Checks Passed` gate is green before merge.

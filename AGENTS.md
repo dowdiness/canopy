@@ -2,74 +2,27 @@
 
 Incremental projectional editor with CRDT collaboration, built in MoonBit.
 
-@~/.claude/moonbit-base.md
+For MoonBit work, read `~/.claude/moonbit-base.md` for shared language guidance.
+Other tasks do not need to load it.
 
-## Quick Commands
+## Instruction Scope
 
-### Setup (after clone)
-```bash
-git clone --recursive https://github.com/dowdiness/canopy.git
-# or if already cloned:
-git submodule update --init --recursive
-```
+Use the shared MoonBit guidance for MoonBit work. Canopy's validation workflow
+below overrides its per-file `moon check` and blanket workspace validation
+instructions. Validate a coherent change in the affected packages; do not run
+MoonBit checks for documentation-only edits. Complete the applicable hooks and
+required CI, and repeat checks when changes or failures invalidate the evidence.
 
-### Test & Build
-```bash
-# Workspace-root commands cover every in-repo module listed in `moon.work`
-# (canopy root + all modules/* and examples/* members). Read `moon.work` for the
-# current member list — do not maintain a copy here; it drifts.
-moon test                           # All workspace members
-moon check                          # Lint across workspace
+Tool-specific instructions apply only in their named host. Use the current
+host's available tools and agent roles when working outside that host.
 
-# Submodules are now workspace members (as of #740). Workspace-root
-# commands cover them alongside Canopy-owned modules. Vendored submodule
-# errors that Canopy cannot fix (pre-existing deprecations, trait API
-# mismatches) are suppressed by scripts/vendored-check-common.sh in CI.
-# See .github/workflows/ci.yml (Test Submodules matrix) for the full
-# tested set and ci-lenient mode details.
-moon info && moon fmt               # Format & update interfaces (NEW_MOON_MOD=0 for mixed manifests)
-```
+## Commands and Validation
 
-`.github/workflows/ci.yml` is the source of truth for the full fan-out — its
-`Test Submodules` and `Test MoonBit Examples` matrices list exactly what is
-checked and tested. Read it rather than trusting any list reproduced here.
-
-JS build artifacts are namespaced under the module path: `_build/js/release/build/dowdiness/canopy/ffi/{lambda,json,markdown}/...`. `waku.config.ts`, tsconfigs, `scripts/build-js.sh`, `scripts/package-release.sh`, and CI artifact uploads all reference this namespaced path.
-
-### Web Development
-```bash
-moon build --target js              # Build for web
-cd apps/web && npm run dev      # Waku dev server (localhost:3000)
-# Demo Hub:         http://localhost:3000/
-# Mini-ML:          http://localhost:3000/ml
-# JSON editor:      http://localhost:3000/json
-# Markdown editor:  http://localhost:3000/markdown
-# Canonical routes: /journey, /posts, /memo, /resume, /genui
-```
-
-TypeScript front-ends live alongside the MoonBit examples and have separate CI
-coverage outside `moon test`:
-
-- **TS typecheck** (`web-build`): `apps/web`, `examples/prosemirror`
-- **Playwright E2E** jobs: `apps/web`, `apps/ideal/web`,
-  `examples/demo-react`, `apps/canvas/web`
-
-JS artifacts must be built (`moon build --target js`) before these run. See the
-matching jobs in `.github/workflows/ci.yml` for the exact commands and the
-pinned Playwright container per suite.
-
-### Formal Verification
-```bash
-cd modules/semantic/proof && moon prove  # Requires Why3 + z3 on PATH
-```
-Proof packages are standalone modules with `"proof-enabled": true`. Run `moon prove` from within the proof package directory. Requires Why3 1.7.2 and z3 4.13.x on PATH (`eval $(opam env)`). See [docs/development/formal-verification.md](docs/development/formal-verification.md) for setup and decision guide.
-
-### Benchmarks
-```bash
-moon bench --release                # Always use --release
-cd deps/event-graph-walker && moon bench --release
-cd deps/loom/examples/lambda && moon bench --release
-```
+Use [Workflow](docs/development/workflow.md) for setup, build, web, proof, and
+benchmark commands. `moon.work` defines workspace membership; `lefthook.yml`
+and `.github/workflows/ci.yml` define the local and CI gates. Run the applicable
+checks for the affected packages and review generated interfaces for unintended
+API or trait-bound changes.
 
 ## Submodule Workflow
 
@@ -133,132 +86,47 @@ The base rule (microbenchmark before optimizing) applies. Additionally: stale pr
 
 Repository hooks run nothing after individual edits. Before commit, Lefthook runs targeted `moon fmt` and `moon info`; if either changes files, review and stage them before retrying the commit. Before push, Lefthook checks and tests affected packages and routes documentation, tooling, web, and submodule changes to their existing lightweight contracts. Workspace builds and browser E2E remain GitHub CI responsibilities. For packages with `"proof-enabled": true`, run `moon prove` from the proof package directory before push. After `moon info`, check `git diff *.mbti` for unintended trait bound changes — widening a bound is an API regression even if all current consumers satisfy it. See [docs/development/task-tracking.md](docs/development/task-tracking.md) for tracking workflow.
 
-**One file per edit call.** A single `edit` targeting lines from two different files with one snapshot hash will silently corrupt the second file. Always re-read for a fresh hash between edits, even within the same package.
-
 <!-- textlint-enable slopless/word-repetition -->
 
 ### Required Implementation Order
 
-For implementation PRs, use this order so validation evidence belongs to the
-exact commit that is reviewed:
+Before an implementation PR, read and follow
+[Workflow: Required Implementation PR Order](docs/development/workflow.md#required-implementation-pr-order).
+It owns the base/worktree, submodule, regression, review, and push sequence.
+For Markdown stabilization, also use its conditional boundary matrix.
 
-1. `git fetch origin main`, then create or update a dedicated worktree so its
-   HEAD contains the current `origin/main`.
-2. Initialize submodules recursively and verify their recorded commits,
-   configured-origin reachability, and dependency/version identity before
-   changing behavior. Push changed submodule commits before the parent PR.
-3. Write the behavioral boundary matrix, then add the first failing test. For
-   Markdown stabilization, cover syntax form (ATX, Setext, multiline,
-   indented), terminator (LF, CRLF, CR, EOF), operation (span projection,
-   commit, conversion), and ownership context (top level, container,
-   explicitly unsupported).
-4. Keep the edit loop scoped to affected packages: failing test, implementation,
-   targeted check, targeted release test.
-5. Run independent review in parallel after the targeted loop is green; resolve
-   findings before final validation.
-6. Fetch `origin/main` again. If HEAD no longer contains it, sync the branch and
-   repeat the affected targeted checks and review. Commit the candidate result,
-   then push normally; Lefthook runs the affected local gate before the push.
-7. Immediately before opening, updating, or merging the PR, fetch `origin/main`
-   once more. If the base moved, repeat step 6; otherwise verify that the current
-   HEAD is pushed and open or update the PR. GitHub CI validates the exact PR
-   commit and remains the merge authority.
-
-Do not open a PR until the normal push succeeds for the current HEAD. After a
-commit, amend, rebase, cherry-pick, submodule-pointer change, manifest change,
-or generated-interface change, push again so the pre-push gate checks that
-candidate. The local gate is a fast preflight and does not replace required
-GitHub CI, which remains the only full-workspace gate.
+The current candidate must pass the normal pre-push gate before opening or
+updating a PR; required GitHub CI remains the merge authority.
 
 ### Existing API First Rule
 
-Before defining any new function, method, helper, or type in this repository:
+Before introducing definitions or low-level data manipulation, search existing
+project APIs and the actual MoonBit core APIs for the data shape involved.
+Use [the API map](docs/api-map.md) as an index and confirm the owning APIs.
+Read [API Reuse](docs/development/api-reuse.md) for search tools and the record
+format. Reuse evidence across related edits; revisit it when contracts,
+dependencies, or requirements change.
 
-1. Search project APIs and the relevant MoonBit core APIs:
-   `NEW_MOON_MOD=0 moon ide doc "<keyword>"`,
-   `NEW_MOON_MOD=0 moon ide doc "<CoreType>::*"`,
-   `NEW_MOON_MOD=0 moon ide doc "@<core-package>"`,
-   `NEW_MOON_MOD=0 moon ide outline <pkg>`,
-   `NEW_MOON_MOD=0 moon ide peek-def <symbol>`,
-   `NEW_MOON_MOD=0 moon ide find-references <symbol>`.
-2. State at least 2 candidate existing APIs, or explain why fewer exist.
-   Include actual MoonBit core candidates for the data shape involved (for
-   example `Map`, `Set`, `String`/`StringView`, `Bytes`/`BytesView`,
-   `Buffer`/`StringBuilder`, `Option`/`Result`, `cmp`/`math` helpers,
-   `Array`, `Iter`) rather than listing only `Iter`/`Array` by default.
-3. For each candidate: where defined, what it covers, whether reused, and if not — why not.
-4. If a new helper is unavoidable, state its responsibility boundary explicitly.
-
-See `docs/api-map.md` for the task→existing-API index. Include a **Reuse check** section in your PR (PR template enforces this).
+Keep one concise reuse record per logical change in the PR or a linked note.
+The final response may reference it. Do not repeat unchanged candidate lists
+or require a fixed candidate count. Pure docs/config changes need no record.
+This reporting scope overrides broader reporting requirements in shared
+MoonBit guidance.
 
 ### MoonBit Implementation Policy
 
-Extends the Existing API First Rule above from *new definitions* to *all* code.
-
-Do not write new low-level loops, helpers, or data-manipulation code until you
-have searched for existing project APIs and the actual MoonBit core APIs that
-fit the data shape. Use `NEW_MOON_MOD=0 moon ide doc`, `peek-def`,
-`find-references`, and `outline` to discover existing functions and methods.
-
-**Prefer declarative code:**
-- `match` / `guard` / pattern matching
-- MoonBit core APIs for the concrete data shape: `Map`/`Set` lookups,
-  `Option`/`Result` handling, `String`/`StringView`/`Bytes`/`BytesView`
-  slicing, `Buffer`/`StringBuilder`, `cmp`/`math` helpers, plus `Array`/`Iter`
-  methods such as `map`, `filter`, `fold`, `collect`
-- arrow functions for higher-order callbacks (`x => expr`, `(a, b) => { ... }`);
-  reserve `fn(...) { ... }` for named/local function values, explicit
-  `raise`/`async` shape, or recursion
-- list comprehensions when clearer
-- `ArrayView` / `StringView` / `BytesView` instead of copying
-- owning-type methods and constructors
-- existing project functions over new helpers
-
-**Avoid incidental mutation:**
-- justify every `let mut`, push loop, manual index loop, and `while` loop
-- use mutation only for builders, true state machines, interop, or measured
-  performance reasons
-
-**Before finalizing, report:**
-1. existing project APIs reused
-2. MoonBit core APIs checked (not just `Iter`/`Array`) and whether reused
-3. existing APIs checked but not used
-4. any new helper introduced, and why
-5. remaining imperative code, and why it is necessary
-
-During implementation, run the failing targeted test and affected package check
-as needed for the red-green loop. Lefthook runs the required affected package
-check and release test before push.
+Prefer declarative decisions, existing core operations, views, owning-type
+methods/constructors, and arrow callbacks. Follow the detailed conventions in
+[API Reuse](docs/development/api-reuse.md#prefer-declarative-moonbit).
+Account for mutation in the same reuse record, grouping shared justifications;
+use it for builders, true state machines, interop, or measured performance.
 
 ### Functional Core / Imperative Shell
 
-The canonical cross-project rule is maintained in `~/.codex/AGENTS.md` and
-`~/.pi/agent/AGENTS.md`; the Canopy-specific interpretation is documented
-below.
-
-Use [Functional Core, Imperative Shell](https://github.com/kbilsted/Functional-core-imperative-shell) as the default architecture for stateful and integration-heavy work.
-
-- **Functional core:** keep domain transformations, validation, lowering, and
-  state-transition decisions deterministic. Pass inputs and capabilities
-  explicitly; return values, next state, commands, or structured diagnostics.
-  The core must not read or write the DOM, filesystem, network, clock, random
-  sources, provider clients, or mutable session/store state.
-- **Imperative shell:** own I/O, scheduling, cancellation, replay cursors,
-  lifecycle mutation, provider adapters, DOM/session adapters, and persistence.
-  Keep the shell thin: translate effects into core inputs, then execute the
-  core's returned decisions.
-- For state machines, prefer a reducer-shaped boundary such as
-  `State + Event -> (State, Decision)`. A mutable MoonBit façade is acceptable
-  only when it remains a shell around deterministic transition logic.
-- Do not expose internal mutable `Array` values from validated core results.
-  Return immutable views where possible, or defensive copies when an adapter
-  requires an owning array.
-- Local mutation used only to build a returned value is permitted in a pure
-  function, but it must have no observable external effect and still follow
-  the mutation-justification rule above.
-- Test the functional core with deterministic unit/property tests. Keep shell
-  tests focused on effect wiring, integration boundaries, and a small number
-  of end-to-end cases.
+Keep domain decisions deterministic and effect wiring in a thin shell. Do not
+expose internal mutable collections from validated results. Follow the
+[repository design principle](docs/architecture/functional-core-imperative-shell.md)
+when designing stateful or integration-heavy changes.
 
 ## Architecture Conventions
 
@@ -268,27 +136,12 @@ Use [Functional Core, Imperative Shell](https://github.com/kbilsted/Functional-c
 
 ## Model Routing
 
-Route by judgment complexity and context impact, not by perceived importance.
-Under ~50 lines / 1-3 files, implement inline when delegation overhead would
-outweigh isolation benefits.
+Delegate bounded, independent work when it improves quality or saves time.
+Choose review scope by risk, following
+[Workflow: Review Scope](docs/development/workflow.md#review-scope).
 
-Use pi subagents as follows:
-
-- `mechanic`: rote edits, renames, import/path migrations, and repeated
-  exact-pattern changes.
-- `scout`: broad non-MoonBit reconnaissance or unfamiliar non-MoonBit areas.
-- `moonbit-scout`: MoonBit/Canopy reconnaissance involving `.mbt`, `.mbti`,
-  `moon.pkg`, `moon.mod` (`moon.mod.json` in legacy submodules), package roots, or `moon ide`.
-- `planner`: non-MoonBit implementation planning after reconnaissance.
-- `moonbit-planner`: MoonBit implementation planning requiring Existing API
-  First, package-root validation, `.mbti` drift checks, proof/docs/TS/submodule
-  awareness.
-- `worker`: clear implementation tasks large enough to benefit from isolated
-  execution; review its patch before continuing.
-- `reviewer`: risky non-MoonBit changes, pre-merge review, or independent
-  validation.
-- `moonbit-reviewer`: MoonBit/Canopy API, package-boundary, validation, or
-  `.mbti` review.
+Use the active host's available roles. For pi delegation, read
+[Agent Environments: Pi Delegation Roles](docs/development/agent-environments.md#pi-delegation-roles).
 
 Delegation requires clear scope — if you can't list the files to touch, research
 first. Use the `/delegate` skill for the handoff format and task templates, and
@@ -299,23 +152,24 @@ edit/write access) in parallel in the same worktree. Parallel delegation is for
 read-only reconnaissance/review unless separate worktrees are explicitly
 arranged.
 
-For current model assignments, prefer the global pi guidance in
-`~/.pi/agent/AGENTS.md` rather than duplicating model names here.
-
 ## Code Review Expectations
 
-- Expect Codex/CodeRabbit reviews on every PR — proactively check for common issues before submitting: correct API usage (e.g., get_result() not read(), get() not peek()), missed callers when refactoring, variant semantics preserved
+- Verify API usage against actual definitions and check affected callers and
+  preserved semantics. Use the review scope in the development workflow.
 - Cite the repository file and section when claiming that a change violates a
   Canopy rule. Distinguish repository requirements, adopted external standards,
   reviewer recommendations, and personal preferences. Do not score a
   recommendation or preference as a repository violation; label it clearly.
-- Run format checks and full test suite before pushing
+- Run the affected format/check/test gates before pushing, as described in
+  Quality & Edit Workflow. GitHub CI owns full-workspace validation.
 
 ## Git & PR Workflow
 
 - After rebase operations, verify files are in the correct directories
 - When asked to 'commit remaining files', interpret generously even if phrasing is unclear
-- **NEVER merge PRs until the required CI gate is green.** Run `gh pr checks <NUMBER>` and show the raw output — do not summarize or paraphrase. STOP if any check is `pending` or `fail`, or, when the workflow defines it, if `All Checks Passed` is not `pass`. The sole failure exception is an external `CodeRabbit` status whose raw reason is exactly `Review rate limited`: treat it as non-gating only when every repository-owned required check is `pass`, no check is pending, and the PR is otherwise mergeable. This exception does not cover CodeRabbit analysis failures or review findings. A `skipped` job is acceptable only when it is listed in the `needs` of `.github/workflows/ci.yml`'s `All Checks Passed` job and that aggregate job passes; the aggregate intentionally accepts path-filtered jobs whose result is `success` or `skipped`. Do not treat an unaggregated skipped check as green, and do not claim CI is green without verifying the aggregate and raw statuses.
+- Never merge before required CI is complete and passing. Before merging,
+  follow [Workflow: Merge Gate](docs/development/workflow.md#merge-gate) for raw
+  status verification and the exact rules for skips and external statuses.
 - After rebasing or refactoring, verify file paths haven't shifted unexpectedly. Run `git diff --stat` to confirm only intended files changed.
 - Submodule push-order and PR rules: see [Submodule Workflow](#submodule-workflow).
 
@@ -337,28 +191,6 @@ UI/visual work; do not duplicate token values here (they drift).
 
 ## Cursor Cloud specific instructions
 
-The Cloud VM snapshot already has the toolchain installed and dependencies
-refreshed by the startup update script (`git submodule update --init
---recursive`, `scripts/moon-update.sh`, `npm --prefix examples/web ci`). Do not
-re-run the MoonBit installer; it is pinned in the snapshot.
-
-Non-obvious caveats for this environment:
-
-- **`NEW_MOON_MOD=0` is exported in `~/.bashrc`** (matches
-  `.github/actions/setup-moonbit`). Every `moon` command relies on it — without
-  it the `rr_moon_mod` TOML migration drops path fields from cross-repo deps.
-  Login shells already have it; a bare non-login shell may not.
-- **Two `node` versions exist.** Login shells resolve nvm's `v22.22.2` (needed —
-  `examples/web` requires `node ^22.15.0`). A non-login/daemon shell may fall
-  back to `v22.14.0`, which is below the web `engines` floor. Run web commands in
-  a login shell (`bash -l`) or `nvm use 22.22.2`.
-- **Web dev server:** standard commands are in `examples/web/package.json`
-  (`npm run dev` → Waku on `http://localhost:3000`) and the root `justfile`
-  (`just build-js`, `just web-dev`). The Waku dev server runs its own MoonBit
-  watcher and rebuilds the FFI (`ffi/{lambda,json,markdown,jsx}`) JS on change;
-  a separate `just build-js` is only needed for non-dev consumers.
-- `moon check` / `moon test` / `moon build` auto-download registry deps on first
-  run, so the pre-warm in the update script is an optimization, not a hard
-  prerequisite.
-- Verified working: `moon check`, `moon test` (1968 js + 70 native pass),
-  `just build-js`, and the `/ml` Mini-ML live editor at `localhost:3000`.
+Only when working in the provisioned Cursor Cloud VM, read
+[Agent Environments: Cursor Cloud](docs/development/agent-environments.md#cursor-cloud-specific-instructions)
+for snapshot setup, shell environment, and web development caveats.
