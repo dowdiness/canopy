@@ -541,13 +541,25 @@ test "commit_tree_edit returns the committed model" {
 }
 
 ///|
-test "refresh preserves selection but invalidates its projection-relative navigation path" {
-  let (model, node_id) = selected_test_model()
+test "refresh preserves surviving selection across text edits and invalidates navigation" {
+  let (initial, node_id) = selected_test_model()
+  let model = select_with_highlight(initial, Some(node_id), false)
   model.nav_path = Some([0])
-  let refreshed = refresh({ ..model, selected_node: Some(node_id) })
+  @debug.assert_eq(model.editor.apply_text_edit_exact(0, 0, "\n", 1), true)
+  let refreshed = refresh(model)
   @debug.assert_eq(refreshed.selected_node, Some(node_id))
   @debug.assert_eq(refreshed.nav_path, None)
   inspect(refreshed.highlight_set.is_empty(), content="false")
+}
+
+///|
+test "refresh clears selection when its node disappears" {
+  let (initial, node_id) = selected_test_model()
+  let model = select_with_highlight(initial, Some(node_id), false)
+  model.editor.set_text("0")
+  let refreshed = refresh(model)
+  @debug.assert_eq(refreshed.selected_node, None)
+  @debug.assert_eq(refreshed.highlight_set.is_empty(), true)
 }
 
 ///|
