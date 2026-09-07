@@ -10,6 +10,19 @@ async function expectSelectedLeaf(page: Page, value: string) {
   await expect(inspectorLabel(page)).toHaveText(value);
 }
 
+test('Structure click retains a native selection range', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Structure', exact: true }).click();
+  await page.locator('canopy-editor .structure-int_literal').click();
+  await expectSelectedLeaf(page, '42');
+  await expect(page.locator('canopy-editor .ProseMirror')).toBeFocused();
+  // NodeSelection may use a collapsed native range at the leaf boundary.
+  // An empty Selection lets a later browser caret override the selected ID.
+  await expect.poll(() => page.evaluate(() =>
+    document.getSelection()?.rangeCount ?? 0,
+  )).toBe(1);
+});
+
 test('Drop and history keep the same selection and Delete edits that target', async ({ page }) => {
   test.setTimeout(60000);
   const room = `selection-${Date.now()}`;

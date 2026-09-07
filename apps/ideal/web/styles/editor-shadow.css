@@ -84,7 +84,12 @@
   margin-top: 6px;
 }
 .structure-leaf {
-  display: flex;
+  /* Chromium drops native selection around noneditable block/flex nodes in
+     shadow DOM. Keep the outer box inline while retaining full-width rows. */
+  display: inline-flex;
+  width: 100%;
+  box-sizing: border-box;
+  vertical-align: top;
   align-items: center;
   gap: 6px;
   padding: 4px 8px;
