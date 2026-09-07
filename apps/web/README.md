@@ -38,7 +38,29 @@ The workspace contains:
 
 `vite`, `@tailwindcss/vite`, and the MoonBit artifact plugin remain because Waku uses Vite internally; `waku.config.ts` imports the Tailwind and MoonBit plugins directly.
 
+## Generated JavaScript
+
+When MoonBit changes affect web consumers, build the FFI artifacts from the
+repository root before running consumers that require them:
+
+```bash
+just build-js
+```
+
+Generated JavaScript is namespaced under
+`_build/js/release/build/dowdiness/canopy/ffi/{lambda,json,markdown}/...`.
+`waku.config.ts`, tsconfigs, `scripts/build-js.sh`, and
+`scripts/package-release.sh` consume these paths. See
+[CI/CD](../../docs/CI_CD.md#uploaded-artifacts-build-js) for CI artifact uploads.
+The dev-server artifact watcher is owned by this app; a standalone build also
+serves non-dev consumers.
+
 ## Validation
+
+Prepare generated JavaScript before typechecks or browser suites that depend
+on it. This app's commands are below; other frontends keep their commands in
+their own READMEs. `.github/workflows/ci.yml` owns the complete frontend matrix
+and pinned browser environments.
 
 ```bash
 cd apps/web

@@ -63,6 +63,38 @@ mv "$fixture/docs/plans/advisory/implemented.md" \
 git -C "$fixture" add -A
 "$repo_root/scripts/check-documentation-lifecycle.sh" "$fixture"
 
+# Common Markdown status forms must not bypass terminal-plan cleanup.
+for status_line in \
+  '- **Status:** Executed' \
+  '* **Status**: Completed' \
+  '+ Status: Shipped' \
+  '1. **Status:** Done' \
+  '  - **Status:** Abandoned' \
+  '**Status:** Cancelled' \
+  'Status: Canceled' \
+  'Status: Superseded'; do
+  printf '# Finished plan\n\n%s\n' "$status_line" > "$fixture/docs/plans/status-form.md"
+  if "$repo_root/scripts/check-documentation-lifecycle.sh" "$fixture" >"$fixture/output" 2>&1; then
+    printf 'expected terminal status form to fail: %s\n' "$status_line" >&2
+    exit 1
+  fi
+  grep -Fq 'docs/plans/status-form.md has terminal status' "$fixture/output"
+  grep -Fq 'delete it or move it to docs/archive/' "$fixture/output"
+  # Deletion is a supported completion path, including an untracked plan.
+  rm "$fixture/docs/plans/status-form.md"
+done
+
+for status_line in \
+  '- **Status:** In progress; first phase complete' \
+  '**Status:** Partially implemented; remaining scope pending' \
+  'Status: Draft' \
+  '**Status:** Deferred' \
+  '**Status:** Design spike complete; implementation deferred'; do
+  printf '# Unfinished plan\n\n%s\n' "$status_line" > "$fixture/docs/plans/partial.md"
+  "$repo_root/scripts/check-documentation-lifecycle.sh" "$fixture"
+done
+rm "$fixture/docs/plans/partial.md"
+
 printf '# Bad plan\n\n\377\376\n' > "$fixture/docs/plans/bad-utf8.md"
 git -C "$fixture" add docs/plans/bad-utf8.md
 if "$repo_root/scripts/check-documentation-lifecycle.sh" "$fixture" >"$fixture/output" 2>&1; then

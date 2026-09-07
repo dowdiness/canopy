@@ -54,8 +54,9 @@ for relative in listed:
         errors.append(f"{relative} references the retired backlog {legacy_backlog}")
 
 terminal_status = re.compile(
-    r"^\s*(?:\*\*)?Status:(?:\*\*)?\s*"
-    r"(Executed|Implemented|Complete|Completed|Done|Shipped|Superseded|Product framing superseded)\b",
+    r"^[ \t]*(?:(?:[-*+]|[0-9]+[.)])[ \t]+)?"
+    r"(?:\*\*)?Status(?:\*\*)?:(?:\*\*)?[ \t]*"
+    r"(Executed|Implemented|Complete|Completed|Done|Shipped|Superseded|Abandoned|Cancelled|Canceled|Product framing superseded)\b",
     re.IGNORECASE | re.MULTILINE,
 )
 plans_dir = root / "docs/plans"
@@ -71,7 +72,7 @@ if plans_dir.is_dir():
         if match:
             relative = path.relative_to(root).as_posix()
             errors.append(
-                f"{relative} has terminal status {match.group(1)}; move it to docs/archive/"
+                f"{relative} has terminal status {match.group(1)}; delete it or move it to docs/archive/"
             )
 
 if errors:

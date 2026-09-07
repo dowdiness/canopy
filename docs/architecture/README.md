@@ -1,8 +1,9 @@
 # Architecture
 
-Architecture notes for Canopy. For the overall reading order across all docs,
-see the main **[Documentation Index](../README.md)** — this page only indexes
-the files inside `docs/architecture/`.
+Principles, structure, and design background for Canopy. Start with the
+[Architecture Overview](../architecture.md) for orientation, or use the
+[Documentation Index](../README.md) to choose guidance for a change.
+Accepted decisions have a separate [ADR index](../decisions/README.md).
 
 ## Pipeline and structure
 
@@ -18,6 +19,8 @@ the files inside `docs/architecture/`.
 
 ## Theory and principles
 
+- **[Functional Core / Imperative Shell](functional-core-imperative-shell.md)** —
+  deterministic domain decisions and effect ownership.
 - **[Incremental Hylomorphism](Incremental-Hylomorphism.md)** — cata/ana
   asymmetry, structural independence, memoized algebras, hylomorphism chains.
 - **[Anamorphism Discipline](anamorphism-discipline.md)** — actionable design
@@ -56,9 +59,43 @@ the files inside `docs/architecture/`.
   survey (Trees That Grow, Cofree, Finally Tagless, MLIR, Attributed Grammars,
   Ornaments) and how it informs the semantic-model approach.
 
+## Design Explorations
+
+Long-range design explorations. Treat as **direction, not implemented
+behavior** — check the code before relying on any specific detail.
+
+- **[Grand Design](../design/GRAND_DESIGN.md)** — vision, principles, and
+  implementation order.
+  - [01 — Edit Bridge](../design/01-edit-bridge.md)
+  - [02 — Reactive Pipeline](../design/02-reactive-pipeline.md)
+  - [03 — Unified Editor](../design/03-unified-editor.md)
+  - [04 — Ephemeral Store](../design/04-ephemeral-store.md)
+  - [05 — Tree Edit Roundtrip](../design/05-tree-edit-roundtrip.md)
+- [Analysis Query Layer](../design/analysis-query-layer.md) — conservative design
+  for ast-grep-style syntax search, `moon ide`-style semantic queries, and
+  previewable refactors through snapshot-bound internal facts.
+- [Local-first Document Ownership](../design/local-first-document-ownership.md) —
+  direction for owning a document on the user's device: persisting operation
+  history rather than text, the archive envelope boundary, durability states,
+  and the requirements an editing path must meet before archives exist.
+- [Stable Document Entity Graph](../design/stable-document-entity-graph.md) —
+  direction for growing a stable editing-entity layer from the existing
+  projection identity pipeline.
+- [Incremental Generative UI document engine](../design/incremental-generative-ui-document-engine.md) —
+  semantic authority, operation, identity, and recovery direction for generated
+  documents.
+- [Typed spreadsheet room and join UX](../superpowers/specs/2026-07-22-typed-spreadsheet-room-join-ux.md)
+  — share-link, temporary-room, offline, reconnect, and local-draft behavior for
+  the collaboration product pilot.
+- [Design Concerns](../design/design-concerns.md) — open problems and future
+  considerations.
+- [Decisions Needed](../decisions-needed.md) — open architectural questions.
+
 ## References
 
 - [eg-walker paper](https://arxiv.org/abs/2409.14252) — the CRDT algorithm.
 - [event-graph-walker README](../../deps/event-graph-walker/README.md) — the CRDT
   implementation.
 - [loom README](../../deps/loom/README.md) — the incremental parser framework.
+
+- [FugueMax paper](https://arxiv.org/abs/2305.00583) — the sequence CRDT.

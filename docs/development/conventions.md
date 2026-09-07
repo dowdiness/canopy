@@ -1,5 +1,8 @@
 # MoonBit Coding Conventions
 
+This guide owns code structure, naming, error handling, and mutation rules.
+Use [API Reuse](api-reuse.md) to choose existing APIs before implementing.
+
 ## Code Organization
 
 ### 1. Block-Style Organization
@@ -26,59 +29,18 @@ fn another_function() -> Unit {
 
 Keep deprecated blocks in `deprecated.mbt` files within each package directory.
 
-### 3. Testing Philosophy
+### Related guides
 
-- **Use `inspect`** with snapshot testing (`moon test --update`)
-- **Only use `assert_eq`** in loops where snapshots vary
-- **Test file naming:**
-  - `*_test.mbt` - Blackbox tests
-  - `*_wbtest.mbt` - Whitebox tests
-
-**Example:**
-```moonbit
-test "my feature" {
-  let result = my_function(input)
-  inspect(result, content="expected output")  // Snapshot test
-}
-```
-
-### 4. Interface Changes
-
-After refactoring, check `.mbti` generated interface files. If nothing changes, your refactoring didn't affect the public API.
-
-```bash
-moon info          # Generate .mbti files
-git diff *.mbti    # Check for API changes
-```
-
-### 5. Format Before Committing
-
-Follow [Workflow: Validation Scope](workflow.md#validation-scope) for affected
-formatting and interface checks, required hooks, and CI. Documentation-only
-changes do not require MoonBit formatting or interface generation.
-
-## Property-Based Testing
-
-Use QuickCheck (`@qc`) for algebraic properties:
-
-```moonbit
-test "property: addition commutative" @qc(100) {
-  fn(x : Int, y : Int) -> Bool {
-    x + y == y + x
-  }
-}
-```
-
-**Implement Arbitrary and Shrink traits** for custom types:
-- See `causal_graph/version_vector.mbt` for examples
-- 25 property tests with 100 test cases each for version vectors
+Use [Testing](testing.md) for test design and naming, and
+[Workflow](workflow.md#validation-scope) for formatting, interface generation,
+and validation gates.
 
 ## File Organization
 
 ### Package Structure
 ```
 package_name/
-├── moon.pkg.json           # Package configuration
+├── moon.pkg                # Package configuration
 ├── main_feature.mbt        # Core implementation
 ├── main_feature_test.mbt   # Tests
 ├── main_feature_benchmark.mbt  # Benchmarks
@@ -92,7 +54,7 @@ package_name/
 - **Files**: snake_case (e.g., `version_vector.mbt`)
 - **Types**: PascalCase (e.g., `CausalGraph`)
 - **Functions**: snake_case (e.g., `get_frontier`)
-- **Test files**: `*_test.mbt` or `*_wbtest.mbt`
+- **Test files**: follow [Test File Naming](testing.md#test-file-naming)
 - **Benchmark files**: `*_benchmark.mbt`
 
 ## Documentation
@@ -122,7 +84,7 @@ pub fn my_function(param1 : Int) -> String {
 
 Each module should have:
 - `README.md` - User-facing documentation
-- `moon.pkg.json` - Package metadata
+- Package metadata in `moon.pkg`; read module ownership from `moon.mod`
 
 ### Project Documentation
 
@@ -200,13 +162,6 @@ match err {
 }
 ```
 
-## Performance Considerations
-
-- Use `Array` for index-based access
-- Use `HashMap` for key-value lookups
-- Profile with `moon bench --release` before optimizing
-- Benchmark files end in `_benchmark.mbt`
-
 ## Language-Specific Features
 
 ### Derive Traits
@@ -228,13 +183,34 @@ match value {
 }
 ```
 
-### Immutability
+## Declarative Code and Mutation
 
-Prefer immutable data structures unless mutation is necessary:
-```moonbit
-let items = []  // Immutable array
-items.push(1)   // Returns new array, original unchanged
-```
+- Use `match`, `guard`, and pattern matching to express decisions.
+- Use existing core APIs for the data shape for lookups, optional/error handling,
+  slicing, building, comparison, and transformation. Use `map`, `filter`,
+  `fold`, `collect`, or list comprehensions when they express the operation.
+- Use arrow functions for higher-order callbacks (`x => expr`,
+  `(a, b) => { ... }`). Reserve `fn(...) { ... }` for named/local function
+  values, explicit `raise`/`async` shape, or recursion.
+- Prefer `ArrayView`, `StringView`, and `BytesView` over unnecessary copying.
+  At validated core boundaries, do not expose internal mutable collections;
+  use immutable views or defensive copies as ownership requires.
+
+Account for every `let mut`, push loop, manual index loop, and `while` loop.
+Mutation is appropriate for builders, true state machines, interop, or
+measured performance needs. Local builder mutation may stay in a pure
+function only when it has no observable external effect.
+
+
+Record mutation reasons using [API Reuse](api-reuse.md#record-the-decision-once).
+For optimization evidence, follow [Workflow](workflow.md#performance-work).
+
+## Cross-package Construction
+
+Before cross-package struct migrations, verify construction and mutation
+access: `pub struct` fields are read-only outside their defining package;
+use a named constructor or `pub(all)` as the intended interface requires.
+
 
 ## References
 
