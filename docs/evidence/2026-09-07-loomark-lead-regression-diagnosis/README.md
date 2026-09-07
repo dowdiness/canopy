@@ -100,6 +100,8 @@ added to the production app. Stage 2 and execution acceptance remain open.
 
 ## Reproduction and environment
 
+Captured logs have trailing whitespace removed; observation values are unchanged.
+
 - Node v24.14.1; browser version is recorded in the JSON artifacts.
 - Moon 0.1.20260819 (`fc2a4ee`), moonc/core `v0.10.9+6e6c44045`.
   The shared installation had advanced to an incompatible September nightly.

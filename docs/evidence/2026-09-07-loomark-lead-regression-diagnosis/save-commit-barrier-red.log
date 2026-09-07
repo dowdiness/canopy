@@ -9,7 +9,7 @@ Running 1 test using 1 worker
   ✘  1 tests/standalone.spec.ts:2047:1 › active failure after acknowledged revert restores truthful Saved (6.7s)
 
 
-  1) tests/standalone.spec.ts:2047:1 › active failure after acknowledged revert restores truthful Saved 
+  1) tests/standalone.spec.ts:2047:1 › active failure after acknowledged revert restores truthful Saved
 
     Error: expect(received).toBe(expected) // Object.is equality
 
@@ -31,4 +31,4 @@ Running 1 test using 1 worker
     Error Context: test-results/standalone-active-failure--3ded2-ert-restores-truthful-Saved/error-context.md
 
   1 failed
-    tests/standalone.spec.ts:2047:1 › active failure after acknowledged revert restores truthful Saved 
+    tests/standalone.spec.ts:2047:1 › active failure after acknowledged revert restores truthful Saved
