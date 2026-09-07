@@ -1,6 +1,7 @@
 # MoonBit Conventions — Code Examples
 
-Referenced from AGENTS.md. These are concrete patterns for MoonBit code in this project.
+Concrete patterns for MoonBit code in this project. See [API Reuse](api-reuse.md)
+for API discovery and implementation guidance.
 
 ## Custom constructors for structs
 

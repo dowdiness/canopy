@@ -5,11 +5,16 @@ agent across sessions.
 
 Keep one plan file per task. Link the plan from the canonical GitHub issue and
 link the issue from the plan — the links are reciprocal and required in both
-directions. If the task is complete or superseded, move the plan to
-`docs/archive/` and record the outcome in the issue.
+directions. When implementation completes, delete or archive the plan in the
+same change and record the outcome in the issue. See
+[Completing a plan](../development/task-tracking.md#completing-a-plan) for the
+decision criteria, preserving requirements, and updating links. Superseded or
+abandoned plans also leave `docs/plans/`.
 
 ```md
 # <Task Title>
+
+**Status:** Draft
 
 ## GitHub Issue
 
@@ -55,6 +60,8 @@ Out:
 - [ ] Concrete observable behavior or invariant.
 - [ ] Required call sites migrated.
 - [ ] Docs updated if public behavior or workflow changed.
+- [ ] On completion, current requirements preserved, incoming links updated,
+      and this plan deleted or archived.
 
 ## Validation
 

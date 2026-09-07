@@ -1,5 +1,10 @@
 # Cognition Provider Boundary Design
 
+**Status:** Implemented
+
+Historical design and implementation record. Current provider ownership rules
+are maintained in [Cognition Runtime](../architecture/cognition-runtime.md#provider-boundary).
+
 ## Why
 
 PR #359 added deterministic synchronous `CognitionProvider` and `ContextRanker`

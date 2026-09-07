@@ -1,305 +1,70 @@
-# Documentation Index
+# Canopy Documentation
 
-Documentation for **Canopy** — an incremental projectional editor with CRDT
-collaboration, built in MoonBit.
+Canopy is an incremental projectional editor with CRDT collaboration, built in
+MoonBit. Choose an entry for your purpose; this index is not a required course.
 
-If this is your first time here, read the pages in order: **Start Here →
-Learning Path → API / Reference**. Contributor, deep-design, and historical
-material is grouped at the bottom and is not required reading.
+## Understand or Use Canopy
 
----
+- [Project overview and quick start](../README.md) — what Canopy does and how
+  to try it; also available as a [Japanese introduction](japanese-introduction.md).
+- [Architecture overview](architecture.md) — the pipeline and responsibilities.
+- [API and integration guides](development/README.md#api--integration-also-useful-for-users-of-the-library)
+  — use Canopy from MoonBit or JavaScript, or integrate a language.
 
-## Start Here
+## Before Making Changes
 
-- **[Project README](../README.md)** — what Canopy is, what it looks like, and
-  the Quick Start (clone, `moon test`, run the web demo).
-- **[Live demo](https://canopy-ideal.pages.dev)** — try the editor in your
-  browser before diving into internals.
-- **[日本語版紹介 (Japanese introduction)](japanese-introduction.md)** —
-  product overview in Japanese.
+Identify the expected result, owning component, relevant constraints, and
+validation for the task:
 
-## Learning Path
+1. Read the affected component's README and existing `CONTEXT.md`, where
+   present, plus relevant accepted decisions linked from them. For example,
+   [Loomark](../apps/loomark/README.md) links its product vocabulary and decisions.
+   If the owner is unclear, start with the
+   [Module / Package Map](development/module-package-map.md).
+2. Select all applicable rows below. Read a constraint before making the
+   decision it governs, and read an operational gate before performing that
+   action. Rows are conditional and may overlap.
+3. Choose the checks in [Validation Scope](development/workflow.md#validation-scope).
+   Start work when the expected result, owner, constraints, and validation are
+   clear. Read more when a concrete question remains; do not recursively load
+   every linked document.
 
-Read in order to build a mental model of the system.
+| When the task involves… | Read for that work |
+|---|---|
+| MoonBit implementation or API changes | [API reuse](development/api-reuse.md) and [coding conventions](development/conventions.md) |
+| State transitions, persistence, or integration | [Functional Core / Imperative Shell](architecture/functional-core-imperative-shell.md) and the owner's relevant decisions |
+| Product behaviour or UX | [Human-centered product principles](architecture/human-centered-product-principles.md); [product direction](architecture/personal-knowledge-environment-direction.md) when choosing product scope |
+| UI or performance | [UI workflow](development/workflow.md#ui-work) or [performance workflow](development/workflow.md#performance-work) |
+| A new language | [Adding a language](development/ADDING_A_LANGUAGE.md), using Markdown as the reference |
+| Submodule or Rabbita changes | [Submodule workflow](development/monorepo.md#editing-a-submodule); [Rabbita guidance](development/rabbita-fork.md#development-guidance) when applicable |
+| Documentation or task planning | [Documentation Doctrine](development/documentation-doctrine.md); [Task Tracking](development/task-tracking.md) for issues and plans |
+| Commit, push, review, or PR | [Development Workflow](development/workflow.md#git-commit-process), including its review scope, implementation PR order, and merge gate |
+| Pi or the provisioned Cursor Cloud VM | [Agent Environments](development/agent-environments.md), only for that host |
 
-1. **[Product Vision](architecture/product-vision.md)** — what Canopy is trying
-   to be: write, negotiate structure, and surface context.
-2. **[Personal Knowledge Environment Direction](architecture/personal-knowledge-environment-direction.md)**
-   — near-term primary product direction: human-centered personal knowledge
-   environment where past agent activity participates in present thinking
-   through Trace, Shape, and Meaning scales.
-3. **[Human-centered product principles](architecture/human-centered-product-principles.md)**
-   — canonical product behavior invariants: human authority, negotiable
-   structure, contestability, and product gates.
-4. **[The Projectional Bridge](architecture/vision-projectional-bridge.md)** —
-   why: syntax → semantics → intent → mental model.
-5. **[Architecture Overview](architecture.md)** — single-page summary of the
-   pipeline, package responsibilities, key invariants, and extension points.
-6. **[System Architecture Diagram](architecture/ARCHITECTURE_DIAGRAM.md)** —
-   high-level data flow: Text CRDT → Incremental Parse → Projection → Rendering.
-7. **[Module Structure](architecture/modules.md)** — how the seven repository
-   zones map onto the architecture and dependency direction.
-8. **[Responsibility Map](architecture/responsibility-map.md)** — ownership
-   boundaries, reuse-first APIs, and the current extension priority order.
-9. **[Incremental Hylomorphism](architecture/Incremental-Hylomorphism.md)** —
-   the compositional engine underneath.
-10. **[Multi-Representation System](architecture/multi-representation-system.md)**
-    — the `Printable` trait family (Show, Debug, Source, Pretty).
+## Interpret Documents
 
-> The earlier "Projectional Editing" deep-dive has been archived to
-> [`archive/PROJECTIONAL_EDITING.md`](archive/PROJECTIONAL_EDITING.md). It is
-> retained for historical context only and is known to disagree with the
-> current code in several places. Use the architecture overview above
-> instead.
+Accepted requirements and decisions describe intended behaviour. Code and
+manifests describe the current implementation; tests check specific properties.
+An implementation mismatch does not automatically invalidate a requirement.
+Read a decision's status and the scope of any supersession, not just its date.
+Resolve conflicting applicable requirements before relying on them; follow
+[the document-role rules](development/documentation-doctrine.md#document-roles-and-conflicts).
 
-Further architecture notes live in [docs/architecture/](architecture/).
+## Find a Document
 
-## API / Reference
+- [Development index](development/README.md) — commands, testing, integration,
+  ownership, and contribution guides.
+- [Architecture index](architecture/README.md) — principles, explanations, and
+  separately labelled design explorations.
+- [Decision index](decisions/README.md) — architectural decisions; inspect their
+  accepted or superseded scope before applying them.
+- [GitHub Issues](https://github.com/dowdiness/canopy/issues) — active backlog
+  and work status. [Plans](plans/) contain unfinished implementation specifications;
+  delete or archive each plan when implementation completes.
+- [Research](research/) — investigations and evidence, not automatic requirements.
+- [Performance reports](performance/) — measurements tied to dates and conditions.
+- [Archive](archive/) — historical material; read or search only when historical
+  context is requested.
 
-For users calling Canopy from MoonBit or JavaScript.
-
-- **[API Reference](development/API_REFERENCE.md)** — high-level MoonBit API
-  overview (`SyncEditor`, `ProjNode`, etc.).
-- **[JS Integration Guide](development/JS_INTEGRATION.md)** — using the editor
-  from JavaScript / the web.
-- **[Tree Editing Manual](development/TREE_EDIT_MANUAL.md)** — structural
-  projectional editing reference.
-- **[Adding a Language](development/ADDING_A_LANGUAGE.md)** — integrate a new
-  language into the framework (uses Markdown as the reference implementation).
-- **[Audio DSL Reactive Foundation](development/audio-dsl-reactive-foundation.md)**
-  — requirements and benchmark baselines for a Canopy-hosted audio DSL that
-  lowers into MoonDsp through `incr`.
-- **[GUI Layer Integration](development/gui-layer-integration.md)** —
-  existing UI surfaces, node-graph adapter direction, operation modeling, and
-  performance notes for synchronized source/structure editing.
-
-Per-module READMEs:
-
-- [event-graph-walker](../deps/event-graph-walker/README.md) — CRDT engine.
-- [loom](../deps/loom/README.md) — incremental parser framework.
-
----
-
-## Contributor / Development
-
-Only needed if you are modifying Canopy itself.
-
-- **[Workflow](development/workflow.md)** — development process and common commands.
-- **[Conventions](development/conventions.md)** — MoonBit coding standards.
-- **[Testing](development/testing.md)** — testing guide and best practices.
-- **[Module / Package Map](development/module-package-map.md)** — the seven-zone
-  layout, module/package/workspace/submodule identity, and command forms.
-- **[Monorepo & Submodules](development/monorepo.md)** — git submodule setup and
-  daily cheat sheet.
-- **[Task Tracking](development/task-tracking.md)** — rules for TODOs, plans,
-  and issues.
-- **[Technical Debt](development/technical-debt.md)** — where debt should be
-  fixed and how to retire old paths.
-- **[Formal Verification](development/formal-verification.md)** — Why3 / z3
-  proof workflow.
-- **[Documentation Doctrine](development/documentation-doctrine.md)** — how docs
-  in this repo are written and maintained.
-
-**Backlog and active work:**
-
-- [GitHub Issues](https://github.com/dowdiness/canopy/issues) — canonical active
-  backlog, prioritization, and status.
-- [docs/plans/](plans/) — implementation specifications linked from issues (use
-  [plans/TEMPLATE.md](plans/TEMPLATE.md) when adding a new one).
-- [Advisory plans](plans/advisory/) — dependency-ordered specifications for
-  [issue #1125](https://github.com/dowdiness/canopy/issues/1125).
-- [Loomark standard Rabbita Text app](plans/2026-08-24-loomark-standard-rabbita-text-app.md)
-  — the current Text editor, Autosave, Recovery, and production E2E contract.
-- [Legacy TODO snapshot](archive/TODO-snapshot-2026-08-03.md) — historical
-  candidates being triaged in
-  [issue #1124](https://github.com/dowdiness/canopy/issues/1124), not active
-  backlog.
-
-**Performance:**
-
-- [Canopy remote-admission authority transition](performance/2026-08-19-canopy-remote-admission-authority-transition.md)
-  — records the #1281 exact-effect cutover, correctness seam, native release
-  history/length matrix, and whole-call control.
-- [Canopy remote-admission phase attribution](performance/2026-08-18-canopy-remote-admission-phase-attribution.md)
-  — isolates materialized-text snapshot lifecycle work from authority admission and
-  parser/projection reconciliation, with an independent history/length matrix.
-- [Canopy post-admission version expansion characterization](performance/2026-08-18-canopy-post-admission-version-expansion.md)
-  — attributes the next remote-admission bottleneck to an H-bound maintained-version
-  rebuild after P3 and records the event-graph-walker prototype gate.
-- [Loomark projection placement promotion evidence](performance/2026-08-15-loomark-projection-placement.md)
-  — rejects Worker and in-process promotion after release-browser comparison and
-  records the presentation stop condition.
-- [Loomark presentation critical-path characterization](performance/2026-08-15-loomark-presentation-critical-path.md)
-  — separates the pre-frame JavaScript bottleneck from Rabbita view, DOM,
-  layout, and paint work at 2,000 lines.
-- [Loomark post-commit persistence preparation characterization](performance/2026-08-16-loomark-persistence-preparation.md)
-  — attributes the 2,000-line pre-frame delay to complete archive preparation
-  and records isolated archive scaling.
-- [Loomark Source reconciliation characterization](performance/2026-08-29-loomark-source-reconciliation.md)
-  — separates production IndexedDB cursor scans from Source decode, ATX H1 name
-  derivation, Catalog comparison, and complete reconciliation at 10–1,000
-  Sources.
-- [Real Browser Editor Response Baseline](performance/2026-05-13-real-browser-editor-response.md)
-- [Benchmark Redesign](performance/BENCHMARK_REDESIGN.md)
-- [Performance Analysis](performance/PERFORMANCE_ANALYSIS.md)
-- [Performance Results](performance/PERFORMANCE_RESULTS.md)
-
-**Infrastructure:**
-
-- [CI/CD](CI_CD.md)
-
-## Research
-
-- [Restore/readiness lifecycle interface patterns](research/2026-08-20-restore-lifecycle-interface-patterns.md) — primary-source comparison of Automerge Repo, VS Code, Elm, ports-and-adapters, and capability-oriented lifecycle interfaces for Loomark restore.
-- [EG-walker R0 restore architecture reassessment](research/2026-08-19-egwalker-r0-restore-architecture-reassessment.md)
-  — responsibility map and candidate restore seams for editable cold open.
-- [Canonical positional-event and Unicode contract](research/2026-08-20-r0-canonical-positional-event-unicode-contract.md)
-  — scalar authority events, UTF-16 adaptation, and receipt identity.
-- [Capture receipt reassessment](research/2026-08-20-r0-capture-receipt-reassessment.md)
-  — authenticated capture metadata and recoverable cold-state requirements.
-- [Cold event-graph capability boundary](research/2026-08-20-r0-cold-event-graph-capability-boundary.md)
-  — minimum provider capabilities for causal admission without hot history.
-- [Concurrency replay-base proof](research/2026-08-21-r0-concurrency-replay-base-proof.md)
-  — V2 rank sidecar and union-critical replay requirements.
-- [Undelete after paper-branch restore](research/2026-08-21-r0-undelete-after-paper-branch-restore.md)
-  — original-insert targeting and LWW visibility behavior after cold restore.
-- [Gate R0 evidence and performance decision contract](research/2026-08-21-r0-evidence-performance-decision-contract.md)
-  — operation matrix, trace morphologies, counters, budgets, measurements, and path-specific pass/negative rules.
-
-## Deep Design (Grand Design)
-
-Long-range design explorations. Treat as **direction, not implemented
-behavior** — check the code before relying on any specific detail.
-
-- **[Grand Design](design/GRAND_DESIGN.md)** — vision, principles, and
-  implementation order.
-  - [01 — Edit Bridge](design/01-edit-bridge.md)
-  - [02 — Reactive Pipeline](design/02-reactive-pipeline.md)
-  - [03 — Unified Editor](design/03-unified-editor.md)
-  - [04 — Ephemeral Store](design/04-ephemeral-store.md)
-  - [05 — Tree Edit Roundtrip](design/05-tree-edit-roundtrip.md)
-- [Analysis Query Layer](design/analysis-query-layer.md) — conservative design
-  for ast-grep-style syntax search, `moon ide`-style semantic queries, and
-  previewable refactors through snapshot-bound internal facts.
-- [Local-first Document Ownership](design/local-first-document-ownership.md) —
-  direction for owning a document on the user's device: persisting operation
-  history rather than text, the archive envelope boundary, durability states,
-  and the requirements an editing path must meet before archives exist.
-- [Stable Document Entity Graph](design/stable-document-entity-graph.md) —
-  direction for growing a stable editing-entity layer from the existing
-  projection identity pipeline.
-- [Incremental Generative UI document engine](design/incremental-generative-ui-document-engine.md) —
-  semantic authority, operation, identity, and recovery direction for generated
-  documents.
-- [Typed spreadsheet room and join UX](superpowers/specs/2026-07-22-typed-spreadsheet-room-join-ux.md)
-  — share-link, temporary-room, offline, reconnect, and local-draft behavior for
-  the collaboration product pilot.
-- [Design Concerns](design/design-concerns.md) — open problems and future
-  considerations.
-- [Decisions Needed](decisions-needed.md) — open architectural questions.
-
-**Architectural Decision Records (ADRs):**
-
-- [Framework Genericity Contract](decisions/2026-03-29-framework-genericity-contract.md)
-  — why `framework/` and `core/` must stay language-agnostic.
-- [Identity and Reuse Mechanisms](decisions/2026-06-01-identity-and-reuse-mechanisms.md)
-  — the three distinct parse/projection identity mechanisms, the #396 source-span
-  tension, and why the BAND 2b cliff fix (#449) is an optimization, not a refactor.
-- [Shared-substrate `incr` version lock](decisions/2026-06-10-shared-substrate-incr-version-lock.md)
-  — requires Canopy/Loom/moondsp consumption to remain aligned, defines the
-  bottom-up paired-bump protocol and drift guard, and defers cross-repo CI until
-  shared-runtime work needs it (closes #441).
-- [Lambda edit bridge boundary](decisions/2026-06-15-lambda-edit-bridge-boundary.md)
-  — keeps Lambda's typed-error, patch-trace, editor-coupled bridge outside
-  `LanguageSpec` after `ModuleProjection` removal (closes #634).
-- [loomgen RawKind vs content-hash identity (L1-A)](decisions/2026-06-23-loomgen-rawkind-content-hash-identity.md)
-  — severity of loomgen's sequential-renumber bug is MILD (nothing persisted/transmitted
-  keys off the seam content hash); constrain loomgen with an append-only kind→raw
-  registry (fork (i)), holding the seam hash-name migration (fork (ii)) as a documented
-  escalation (loom #427 / #729).
-- [EGW collaboration responsibility boundary](decisions/2026-07-21-egw-collaboration-responsibility-boundary.md)
-  — separates EGW core, its peer-sync companion, a payload-opaque collaboration
-  runtime, infrastructure providers, and application policy.
-- [Protocol v3 hard cutover](decisions/2026-07-22-protocol-v3-hard-cutover.md)
-  — rejects v2 frames at endpoints and the relay rather than bridging the
-  incompatible EGW 0.3 and 0.4 identity schemas.
-- [Markdown semantic Preview ownership](decisions/2026-08-04-markdown-semantic-preview-ownership.md)
-  — keeps the ordinary Markdown editor attachment-free while the private
-  single-mount Loomark host retains one same-parser semantic Preview read model.
-- [Generic language SPI deepening](decisions/2026-08-07-generic-language-spi-deepening.md)
-  — deepens the `lang/runtime` SPI to structured errors, patch traces, identity
-  hints, language-owned extras, and edit-port moves; partially supersedes the
-  Lambda edit bridge boundary.
-- [EGW staged publication responsibility boundary](decisions/2026-08-09-egw-staged-publication-responsibility-boundary.md)
-  — keeps EGW core unchanged while an EGW-versioned companion owns causal
-  sealing and publication outcomes; Loomark retains persistence and product
-  resolution policy.
-- [Markdown file-backed authority and external admission](decisions/2026-08-09-markdown-file-backed-authority-and-external-admission.md)
-  — separates File and Causal Authority, Archive-backed and File-backed
-  persistence, and bounded External admission for associated Markdown files.
-- [Causal Authority residency](decisions/2026-08-12-causal-authority-residency.md)
-  — preserves one causal authority while choosing warm or cold residency by
-  access path; retained state remains a validated accelerator.
-- [Authority-owned remote admission transition](decisions/2026-08-19-authority-owned-remote-admission-transition.md)
-  — consumes one opaque EGW admission transition, reconciles exact effects without a full authority snapshot, and bounds grapheme-safe snapshot fallback.
-- [Loomark Source repository](decisions/2026-08-29-loomark-source-repository.md)
-  — makes versioned Source records independently authoritative, derives the
-  Catalog in memory, atomically migrates `active`, and keeps normal saves to one
-  Source transaction; its Source shape, empty-repository behavior, ordering,
-  and completion policy are partially superseded by the following ADR.
-- [Loomark document deletion](decisions/2026-08-31-loomark-document-deletion.md)
-  — orders Recent documents by persisted Change order, permits empty repository
-  snapshots, and coordinates Delete through pure per-document persistence lanes
-  without blocking unrelated editing.
-
-## Historical / Archive
-
-> Do not treat files in this section as current guidance. They record decisions
-> and plans that have since shipped, been superseded, or been abandoned. Read
-> only when you need historical context.
-
-- [docs/archive/](archive/) — completed plans and superseded designs.
-- [Superseded WebSocket client integration plan](archive/2026-03-29-websocket-client-integration.md)
-- [Superseded sync recovery follow-up](archive/2026-03-29-sync-recovery-followup.md)
-- [Completed EGW peer-sync contract spike](archive/2026-07-22-egw-peer-sync-contract-spike.md)
-- [Completed EGW companion and Canopy compatibility migration](archive/2026-07-22-egw-companion-canopy-migration.md)
-  — records EGW v0.5 publication, dependency convergence, Tier 1 preservation,
-  and the protocol v3 hard cut; runtime extraction remains active follow-up.
-- [Completed agent PR-ready validation order](archive/2026-07-30-agent-pr-ready-validation.md)
-  — fixes the implementation sequence, fail-fast local gate, and current-HEAD
-  evidence contract used before opening or updating a PR.
-- [Investigation Index](archive/INVESTIGATION_INDEX.md) — earlier investigations.
-- [Branch Variance Investigations](archive/investigations/branch-variance/) —
-  historical perf investigations.
-
-Recently completed (for quick reference):
-
-- [Completed #1281 authority-transition implementation invariants](archive/completed-phases/2026-08-21-1281-authority-transition-implementation-invariants.md)
-  — records the implemented transition precedence, two-phase prepare/settle contract, Unicode coordinate seam, and compatibility constraints.
-- [Markdown List Payloads](archive/completed-phases/2026-06-20-markdown-list-payloads.md)
-- [Canvas Handles And Edges](archive/completed-phases/2026-05-14-canvas-handles-edges.md)
-- [Lambda Annotation Plumbing — Design](archive/completed-phases/2026-04-18-lambda-annotation-plumbing-design.md)
-- [Lambda Annotation Plumbing — Impl](archive/completed-phases/2026-04-18-lambda-annotation-plumbing-impl.md)
-- [Framework Extraction — Design](archive/2026-03-18-framework-extraction-design.md)
-  · [Impl](archive/2026-03-28-framework-extraction-impl.md)
-  · [Phase 4](archive/2026-03-28-framework-extraction-phase4.md)
-- [JSON Editor — Design](archive/2026-03-29-json-projectional-editor-design.md)
-  · [Impl](archive/2026-03-29-json-projectional-editor-impl.md)
-- [Block Editor 1b/1c/1d](archive/2026-03-28-block-editor-1b-document.md)
-  · [Markdown](archive/2026-03-28-block-editor-1c-markdown.md)
-  · [Web](archive/2026-03-28-block-editor-1d-web.md)
-- [AST Zipper — Design](archive/2026-03-28-ast-zipper-design.md)
-- [Ideal Editor — Impl](archive/completed-phases/2026-03-19-ideal-editor-impl.md)
-
-## External Resources
-
-- [eg-walker paper](https://arxiv.org/abs/2409.14252) — the CRDT algorithm.
-- [FugueMax CRDT](https://arxiv.org/abs/2305.00583) — the sequence CRDT underneath.
-- [MoonBit documentation](https://docs.moonbitlang.com).
-
----
-
-## For AI Agents
-
-`AGENTS.md` at the repo root is the canonical agent guidance file. `CLAUDE.md`
-is a compatibility symlink and should not be edited directly.
+`AGENTS.md` contains the general agent principles and points here. `CLAUDE.md`
+is its compatibility symlink and should not be edited directly.

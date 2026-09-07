@@ -11,6 +11,9 @@ systems are easy to confuse:
 Use this page to decide which manifest owns a directory, which commands cover
 it, and whether edits belong in this repository or in a submodule repository.
 
+Before modifying a package, inspect its public interface with `moon ide outline`
+and read the nearest `moon.mod` and `moon.pkg`.
+
 ## Zone overview
 
 | Zone | Path | Purpose |

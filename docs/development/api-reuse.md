@@ -1,4 +1,4 @@
-# API Reuse and MoonBit Implementation
+# API Reuse
 
 Read this guide when adding or changing code that selects APIs, introduces
 abstractions, or manipulates data. Documentation-only and configuration-only
@@ -49,23 +49,5 @@ Include any necessary mutation and its reason in the same record. Group uses
 that share a justification; explain exceptional cases individually. Repeat
 neither the search transcript nor the unchanged record in progress updates.
 
-## Prefer Declarative MoonBit
-
-- Use `match`, `guard`, and pattern matching to express decisions.
-- Use the concrete core APIs above for lookups, optional/error handling,
-  slicing, building, comparison, and transformation. Use `map`, `filter`,
-  `fold`, `collect`, or list comprehensions when they express the operation.
-- Use arrow functions for higher-order callbacks (`x => expr`,
-  `(a, b) => { ... }`). Reserve `fn(...) { ... }` for named/local function
-  values, explicit `raise`/`async` shape, or recursion.
-- Prefer `ArrayView`, `StringView`, and `BytesView` over unnecessary copying.
-  At validated core boundaries, do not expose internal mutable collections;
-  use immutable views or defensive copies as ownership requires.
-
-Account for every `let mut`, push loop, manual index loop, and `while` loop.
-Mutation is appropriate for builders, true state machines, interop, or
-measured performance needs. Local builder mutation may stay in a pure
-function only when it has no observable external effect.
-
-Use the affected-package validation loop in [Workflow](workflow.md), and
-review generated interfaces for unintended API or trait-bound changes.
+For code style and mutation rules, follow
+[Coding Conventions](conventions.md#declarative-code-and-mutation).

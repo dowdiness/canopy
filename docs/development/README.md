@@ -1,8 +1,8 @@
 # Development
 
-Guides for working on Canopy itself. For the overall docs reading order, see
-the main **[Documentation Index](../README.md)** — this page only indexes the
-files inside `docs/development/`.
+Guides for working on Canopy itself. Choose a task from the
+[Documentation Index](../README.md#before-making-changes), or browse the
+references here as needed.
 
 ## API / integration (also useful for users of the library)
 
@@ -18,16 +18,21 @@ files inside `docs/development/`.
   FFI accessors must route protected editor-state reads through
   `Coordinator::read_protected`.
 
+- **[Audio DSL Reactive Foundation](audio-dsl-reactive-foundation.md)** —
+  requirements and benchmark baselines for Canopy-hosted audio DSL work.
+- **[GUI Layer Integration](gui-layer-integration.md)** — UI integration and
+  synchronized source/structure editing.
+
 ## Day-to-day contributor workflow
 
 - **[Workflow](workflow.md)** — development process and common commands.
 - **[API Reuse](api-reuse.md)** — API discovery, one reuse record per change,
-  and declarative MoonBit implementation conventions.
+  and adoption decisions.
 - **[Agent Environments](agent-environments.md)** — pi delegation roles and
   Cursor Cloud notes; read only for the applicable host.
 - **[Conventions](conventions.md)** — MoonBit coding standards.
 - **[MoonBit Conventions — Examples](moonbit-conventions-examples.md)** —
-  concrete patterns referenced from `AGENTS.md`.
+  concrete MoonBit coding patterns.
 - **[Testing](testing.md)** — testing guide and best practices.
 - **[Ideal Tailwind Style Management](ideal-tailwind-style-management.md)** —
   Tailwind v4 recipe conventions for the Ideal editor.
@@ -55,3 +60,5 @@ files inside `docs/development/`.
 
 - **[Formal Verification](formal-verification.md)** — Why3 / z3 proof workflow
   for packages marked `"proof-enabled": true`.
+
+- **[CI/CD](../CI_CD.md)** — continuous integration and delivery.

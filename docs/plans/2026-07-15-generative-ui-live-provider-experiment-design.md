@@ -12,10 +12,10 @@ product discovery. It is not the active Generative UI workstream, does not
 authorize participant recruitment or provider implementation, and has produced
 no `FIXED`, `RULES`, or `GENERATE` campaign decision.
 
-The active engineering question is defined separately in
-[Generative UI local-LLM technical feasibility](2026-07-15-generative-ui-local-llm-technical-feasibility.md).
-That work tests implementation feasibility only. It neither depends on this
-value protocol nor supplies evidence for its gates.
+The separate engineering study is recorded in
+[Generative UI local-LLM technical feasibility](../archive/2026-07-15-generative-ui-local-llm-technical-feasibility.md).
+That completed study evaluated implementation feasibility only. Its negative
+result neither depends on this value protocol nor supplies evidence for its gates.
 
 ## Experiment-local claim
 
@@ -1027,7 +1027,7 @@ not tests and never run in CI, on page load, or in a production build.
 
 - [Generative UI direction](../architecture/generative-ui-direction.md)
 - [Generative UI input vertical slice](../archive/2026-07-12-generative-ui-input-vertical-slice.md)
-- [Cognition provider boundary design](2026-05-26-cognition-provider-boundary-design.md)
+- [Cognition provider boundary design](../archive/2026-05-26-cognition-provider-boundary-design.md)
 - [Gemini API overview](https://ai.google.dev/gemini-api/docs/api-overview)
 - [Gemini API key security](https://ai.google.dev/gemini-api/docs/generate-content/api-key)
 - [Gemini retries](https://ai.google.dev/gemini-api/docs/troubleshooting)

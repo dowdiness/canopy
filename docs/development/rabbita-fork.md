@@ -3,6 +3,13 @@
 Canopy uses a downstream fork of Rabbita for typed pointer-event, pointer-capture, coordinate hit-testing, and keyed accessible SVG boundaries.
 The fork is an owned dependency line, not an upstream release dependency.
 
+## Development Guidance
+
+Before designing Rabbita changes (`@sub`, `@cmd`, `@html`, `@dom`, `@http`,
+or bindings), read the repository's `.claude/skills/rabbita` skill. The vendored
+docs in `deps/rabbita/doc/` and `deps/rabbita/rabbita/*/README.mbt.md` and
+`design.md` are authoritative when they disagree with plans or pasted specs.
+
 ## Ownership
 
 - **Fork:** [`dowdiness/rabbita`](https://github.com/dowdiness/rabbita)

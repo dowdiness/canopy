@@ -1,19 +1,27 @@
 # Development Workflow
 
+This guide owns the sequence of implementation, validation, review, and submission.
+Use [Testing](testing.md) to design test cases and [Coding Conventions](conventions.md)
+to choose how code is written.
+
 ## Validation Scope
 
 Use the affected-package edit/check/test loop. Repository hooks run targeted
 formatting and interface generation before commit, then the affected checks
 and release tests before push. Documentation, tooling, web, and submodule
 changes use their applicable lightweight contracts. See
-[AGENTS.md](../../AGENTS.md#quality--edit-workflow), `lefthook.yml`, and the
+`lefthook.yml` and the
 `hook-*` recipes in `justfile` for the local gate.
 
 Do not run workspace checks after every file edit or run MoonBit tests for
 pure documentation changes. Repeat validation when changes or failures make
 previous evidence stale. Full workspace builds and browser E2E belong to
 GitHub CI. Run conditional proof checks from the proof package before push.
-Review generated `.mbti` changes for unintended API or trait-bound changes.
+If pre-commit `moon fmt` or `moon info` changes files, review and stage them
+before retrying the commit. Review generated `.mbti` changes for unintended
+API or trait-bound changes: widening a bound is an API regression even if
+current consumers satisfy it. For packages with `"proof-enabled": true`, run
+`moon prove` from that proof package directory before push.
 Update snapshots only for intentional behavior changes, after reviewing the
 new expected output.
 
@@ -28,7 +36,7 @@ exact commit that is reviewed:
    configured-origin reachability, and dependency/version identity before
    changing behavior. Push changed submodule commits before the parent PR.
 3. Write the behavioral boundary matrix, then add the first failing test.
-   For Markdown stabilization, use the conditional matrix below. Pure
+   For Markdown stabilization, use the [conditional matrix](testing.md#markdown-stabilization-boundary-matrix). Pure
    documentation/configuration changes use their applicable contracts;
    explain why no behavioral matrix or failing regression applies.
 4. Keep the edit loop scoped to affected packages: failing test, implementation,
@@ -66,20 +74,15 @@ Delegate when a bounded task can run independently and the result will improve
 quality or save time. Use parallel review for distinct questions, not as a
 fixed ceremony. Do not use line or file counts as a substitute for risk.
 
-### Markdown Stabilization Boundary Matrix
+Verify API usage against definitions, check affected callers, and confirm
+semantics are preserved. Cite the repository file and section for any claimed
+rule violation; distinguish requirements and adopted standards from reviewer
+recommendations or preferences.
 
-Use this matrix when stabilizing Markdown span projection, commit, or
-conversion behavior. It is not a checklist for unrelated changes.
-
-| Dimension | Cases |
-|-----------|-------|
-| Syntax form | ATX, Setext, multiline, indented |
-| Terminator | LF, CRLF, CR, EOF |
-| Operation | Span projection, commit, conversion |
-| Ownership context | Top level, container, explicitly unsupported |
-
-Record which combinations the affected behavior supports and test its
-boundaries, including how explicitly unsupported cases are handled.
+Establish scope and the files to touch before delegating; use the `delegate`
+skill for handoffs and the applicable review skill or role. Do not run agents
+with write access in parallel in the same worktree. Parallel editing requires
+separate worktrees; read-only reconnaissance and review may share a worktree.
 
 ## Working with Submodules
 
@@ -89,14 +92,6 @@ See [Monorepo & Submodules](monorepo.md) for the full guide on the git submodule
 
 Before patching around a design problem locally, check
 [Paying Technical Debt](technical-debt.md).
-
-The short version:
-
-- fix missing CRDT/parser APIs in the owning submodule,
-- keep only one active editor architecture,
-- centralize shared logic once,
-- isolate any unavoidable workaround in a single helper with a comment naming
-  the missing upstream API.
 
 ## Tracking Work
 
@@ -111,60 +106,52 @@ GitHub Issues is the canonical active backlog:
 
 ## Working with the Parser
 
-The parser lives in `deps/loom/examples/lambda/`. The framework is in
-`deps/loom/loom/`. When modifying:
-
-- Check error recovery behavior with malformed input
-- Test incremental parsing with loom's test suites
-- Benchmark performance with `cd deps/loom/examples/lambda && moon bench --release`
+Before changing parser behaviour, identify its owner through the
+[Module / Package Map](module-package-map.md) and the
+[Loom README](../../deps/loom/README.md). Follow the owning package's test
+instructions and [parser test guidance](testing.md#parser-specific-testing).
 
 ## Working with the CRDT
 
-The CRDT implementation is split across two modules:
+Before changing replicated-state behaviour, read the owning library's
+[event-graph-walker README](../../deps/event-graph-walker/README.md) and the
+[Canopy module README](../../modules/canopy/README.mbt.md) for the integration
+boundary. Use [CRDT test guidance](testing.md#crdt-specific-testing) when
+selecting the affected regression cases.
 
-**Core CRDT library (`deps/event-graph-walker/`):**
-Causal graph (graph ops, eg-walker traversal, version vectors), operation log,
-FugueMax sequence CRDT, branch system with merge, and document model.
-See `deps/event-graph-walker/README.md` for the full package map.
+## UI Work
 
-**Application layer (`modules/canopy`):**
-- `modules/canopy/editor/sync_editor*.mbt` - Active editor facade and parser/sync/undo orchestration
-- `modules/canopy/editor/text_diff.mbt` - Text diffing utilities
-- `deps/loom/text-change/` - Shared leaf contiguous text-change module
+Read [the design context](../../.impeccable.md) before UI or visual work. It
+owns the design principles and tokens; do not duplicate their values here.
+Prototype the smallest working change, test it in the browser, then iterate
+with user feedback before expanding the plan. Do not batch-build tightly
+coupled UI through subagents. If the user questions its value, stop expanding
+the implementation and validate the direction with them.
 
-The shared `text-change` module now lives in the `deps/loom` submodule so parser
-and editor packages resolve the same leaf dependency.
+## Performance Work
 
-When adding features, consult:
-- [event-graph-walker/README.md](../../deps/event-graph-walker/README.md)
+Before optimizing, reproduce the current bottleneck in a microbenchmark.
+Profiling data from before earlier optimizations is not current evidence.
+Check whether existing batching, caching, or lazy evaluation already addresses
+the issue before proposing another optimization.
 
 ## Web Development
 
-The web demo is a Waku application served through Cloudflare Workers.
-Canonical routes: `/`, `/ml`, `/json`, `/markdown`, `/journey`, `/posts`, `/memo`, `/resume`, `/genui`.
-Legacy `.html` URLs return permanent redirects to their canonical route (except `/index.html`, which renders the Hub without redirect).
-
-```bash
-# From the apps/web/ directory
-cd apps/web
-npm install
-npm run dev        # Start Waku dev server (http://localhost:3000)
-npm run build      # Build Waku for production
-npm run preview    # Preview production build
-```
-
-### Updating Web JavaScript
-
-After making changes to MoonBit code that affects the web interface:
-
-```bash
-# From the repo root
-just build-js
-```
+For changes affecting a web app, follow that app's README for build and
+validation steps. For `apps/web`, use its
+[validation instructions](../../apps/web/README.md#validation) and
+[generated JavaScript instructions](../../apps/web/README.md#generated-javascript).
+Prepare the generated artifacts before running consumers that require them.
+Other web applications own their own validation instructions. The required
+local/CI scope remains defined in [Validation Scope](#validation-scope).
 
 ## Git Commit Process
 
-Only create commits when requested by the user. When asked to commit:
+Only create commits when requested by the user.
+
+After a rebase or refactor, inspect `git diff --stat` and verify file paths
+before staging. When asked to commit remaining files, consider the full set
+of remaining changes within the user's authorized scope.
 
 1. Run `git status` and `git diff` to see changes
 2. Review changes and draft commit message
@@ -192,74 +179,16 @@ rules in [Merge Gate](#merge-gate).
 
 **NEVER merge PRs until the required CI gate is green.** Run `gh pr checks <NUMBER>` and show the raw output — do not summarize or paraphrase. STOP if any check is `pending` or `fail`, or, when the workflow defines it, if `All Checks Passed` is not `pass`. The sole failure exception is an external `CodeRabbit` status whose raw reason is exactly `Review rate limited`: treat it as non-gating only when every repository-owned required check is `pass`, no check is pending, and the PR is otherwise mergeable. This exception does not cover CodeRabbit analysis failures or review findings. A `skipped` job is acceptable only when it is listed in the `needs` of `.github/workflows/ci.yml`'s `All Checks Passed` job and that aggregate job passes; the aggregate intentionally accepts path-filtered jobs whose result is `success` or `skipped`. Do not treat an unaggregated skipped check as green, and do not claim CI is green without verifying the aggregate and raw statuses.
 
-## Common Commands
+## Execution Guides
 
-These are command references, not a mandatory checklist for every change.
-Run from the repository root unless a command changes directory. Choose the
-scope using [Validation Scope](#validation-scope). The workspace membership
-and CI matrices remain authoritative for which modules and suites are covered.
+Use these instructions when the corresponding step is needed; they are not a
+checklist to run for every change.
 
-### Setup (after clone)
-```bash
-git clone --recursive https://github.com/dowdiness/canopy.git
-# or if already cloned:
-git submodule update --init --recursive
-```
-
-### Test & Build
-```bash
-# Workspace-root commands cover every in-repo module listed in `moon.work`
-# (canopy root + all modules/* and examples/* members). Read `moon.work` for the
-# current member list — do not maintain a copy here; it drifts.
-moon test                           # All workspace members
-moon check                          # Lint across workspace
-
-# Submodules are now workspace members (as of #740). Workspace-root
-# commands cover them alongside Canopy-owned modules. Vendored submodule
-# errors that Canopy cannot fix (pre-existing deprecations, trait API
-# mismatches) are suppressed by scripts/vendored-check-common.sh in CI.
-# See .github/workflows/ci.yml (Test Submodules matrix) for the full
-# tested set and ci-lenient mode details.
-moon info && moon fmt               # Format & update interfaces (NEW_MOON_MOD=0 for mixed manifests)
-```
-
-`.github/workflows/ci.yml` is the source of truth for the full fan-out — its
-`Test Submodules` and `Test MoonBit Examples` matrices list exactly what is
-checked and tested. Read it rather than trusting any list reproduced here.
-
-JS build artifacts are namespaced under the module path: `_build/js/release/build/dowdiness/canopy/ffi/{lambda,json,markdown}/...`. `waku.config.ts`, tsconfigs, `scripts/build-js.sh`, `scripts/package-release.sh`, and CI artifact uploads all reference this namespaced path.
-
-### Web Development
-```bash
-moon build --target js              # Build for web
-cd apps/web && npm run dev      # Waku dev server (localhost:3000)
-# Demo Hub:         http://localhost:3000/
-# Mini-ML:          http://localhost:3000/ml
-# JSON editor:      http://localhost:3000/json
-# Markdown editor:  http://localhost:3000/markdown
-# Canonical routes: /journey, /posts, /memo, /resume, /genui
-```
-
-TypeScript front-ends live alongside the MoonBit examples and have separate CI
-coverage outside `moon test`:
-
-- **TS typecheck** (`web-build`): `apps/web`, `examples/prosemirror`
-- **Playwright E2E** jobs: `apps/web`, `apps/ideal/web`,
-  `examples/demo-react`, `apps/canvas/web`
-
-JS artifacts must be built (`moon build --target js`) before these run. See the
-matching jobs in `.github/workflows/ci.yml` for the exact commands and the
-pinned Playwright container per suite.
-
-### Formal Verification
-```bash
-cd modules/semantic/proof && moon prove  # Requires Why3 + z3 on PATH
-```
-Proof packages are standalone modules with `"proof-enabled": true`. Run `moon prove` from within the proof package directory. Requires Why3 1.7.2 and z3 4.13.x on PATH (`eval $(opam env)`). See [docs/development/formal-verification.md](formal-verification.md) for setup and decision guide.
-
-### Benchmarks
-```bash
-moon bench --release                # Always use --release
-cd deps/event-graph-walker && moon bench --release
-cd deps/loom/examples/lambda && moon bench --release
-```
+| Step | Owning guide |
+|---|---|
+| Clone or initialize submodules | [Monorepo setup](monorepo.md#setup) |
+| Run package or workspace tests | [Testing](testing.md#test-coverage) |
+| Build generated JavaScript or run the web app | [Web app README](../../apps/web/README.md#validation) |
+| Run benchmarks | [Testing: Benchmarking](testing.md#benchmarking) |
+| Run conditional proofs | [Formal Verification](formal-verification.md) |
+| Investigate CI jobs or artifacts | [CI/CD](../CI_CD.md) and the workflow files it references |

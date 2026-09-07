@@ -5,6 +5,9 @@
 - **Decision:** `NOT_YET_FEASIBLE`
 - **Scope owner:** Canopy maintainers
 
+Historical feasibility study; its result does not establish a production
+requirement or authorize another run. See the Result section for the outcome.
+
 ## Purpose
 
 Determine whether Canopy can accept an untrusted candidate from a frozen local

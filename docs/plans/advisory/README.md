@@ -8,7 +8,8 @@ parser-generation interpretation was unrelated and is not represented here.
 This subdirectory preserves the audit queue's ordering and implementation
 detail while placing every executable repository plan under `docs/plans/`.
 General plans remain direct children of `docs/plans/`; completed or superseded
-plans move to `docs/archive/`. GitHub
+plans are deleted or archived under the
+[completion policy](../../development/task-tracking.md#completing-a-plan). GitHub
 [issue #1125](https://github.com/dowdiness/canopy/issues/1125) is the canonical
 queue and status surface.
 
