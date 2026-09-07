@@ -35,7 +35,6 @@ pub(all) enum SidebarMenuButtonVariant {
 } derive(Debug, Eq)
 
 ///|
-#cfg(target="js")
 priv struct SidebarState {
   collapsed : Bool
   mobile_open : Bool
@@ -43,7 +42,6 @@ priv struct SidebarState {
 } derive(Eq)
 
 ///|
-#cfg(target="js")
 priv enum SidebarMessage {
   ToggleSidebarCollapsed
   SetSidebarCollapsed(Bool)
@@ -1489,7 +1487,6 @@ fn sidebar_emit_bool(emit : @cmd.Emit[Bool]?, value : Bool) -> @cmd.Cmd {
 }
 
 ///|
-#cfg(target="js")
 fn sidebar_scope(
   state : SidebarState,
   emit : @cmd.Emit[SidebarMessage],
@@ -1549,22 +1546,21 @@ fn sidebar_provider_view(
 }
 
 ///|
-/// Own desktop-collapse and mobile-open state while rendering content from one
-/// incremental parent input. Sidebar state stays local when the input changes.
+/// A reusable owner for sidebar state. Create it before constructing any
+/// dependent layout values, then use `view_with_input` for each render graph.
+struct SidebarProvider {
+  state : @rabbita.Val[SidebarState]
+  emit : @cmd.Emit[SidebarMessage]
+}
+
+///|
 #cfg(target="js")
-pub fn[T : Eq] sidebar_provider_with_input(
-  input~ : @rabbita.Val[T],
+pub fn SidebarProvider::new(
   default_collapsed? : Bool = false,
   default_mobile_open? : Bool = false,
   on_collapsed_change? : @cmd.Emit[Bool],
   on_mobile_open_change? : @cmd.Emit[Bool],
-  id? : String,
-  class? : String,
-  title? : String,
-  attrs? : @html.Attrs,
-  style? : Array[String] = [],
-  children : (SidebarScope, T) -> @html.Html,
-) -> @rabbita.Val[@html.Html] {
+) -> SidebarProvider {
   let initial : SidebarState = {
     collapsed: default_collapsed,
     mobile_open: default_mobile_open,
@@ -1647,9 +1643,51 @@ pub fn[T : Eq] sidebar_provider_with_input(
       }
     },
   )
-  state.view2(input, (state, input) => {
+  { state, emit }
+}
+
+///|
+#cfg(not(target="js"))
+pub fn SidebarProvider::new(
+  default_collapsed? : Bool = false,
+  default_mobile_open? : Bool = false,
+  on_collapsed_change? : @cmd.Emit[Bool],
+  on_mobile_open_change? : @cmd.Emit[Bool],
+) -> SidebarProvider {
+  ignore((on_collapsed_change, on_mobile_open_change))
+  let state : SidebarState = {
+    collapsed: default_collapsed,
+    mobile_open: default_mobile_open,
+    desktop_width: None,
+  }
+  { state: @rabbita.Val::constant(state), emit: _ => @cmd.none }
+}
+
+///|
+pub fn SidebarProvider::close(self : SidebarProvider) -> @cmd.Cmd {
+  (self.emit)(SetSidebarCollapsed(true))
+}
+
+///|
+pub fn SidebarProvider::visible(self : SidebarProvider) -> @rabbita.Val[Bool] {
+  self.state.map(state => !state.collapsed)
+}
+
+///|
+#cfg(target="js")
+pub fn[T : Eq] SidebarProvider::view_with_input(
+  self : SidebarProvider,
+  input~ : @rabbita.Val[T],
+  id? : String,
+  class? : String,
+  title? : String,
+  attrs? : @html.Attrs,
+  style? : Array[String] = [],
+  children : (SidebarScope, T) -> @html.Html,
+) -> @rabbita.Val[@html.Html] {
+  self.state.view2(input, (state, input) => {
     sidebar_provider_view(
-      sidebar_scope(state, emit),
+      sidebar_scope(state, self.emit),
       id,
       class,
       title,
@@ -1662,6 +1700,39 @@ pub fn[T : Eq] sidebar_provider_with_input(
 
 ///|
 #cfg(not(target="js"))
+pub fn[T : Eq] SidebarProvider::view_with_input(
+  self : SidebarProvider,
+  input~ : @rabbita.Val[T],
+  id? : String,
+  class? : String,
+  title? : String,
+  attrs? : @html.Attrs,
+  style? : Array[String] = [],
+  children : (SidebarScope, T) -> @html.Html,
+) -> @rabbita.Val[@html.Html] {
+  input.view(input => {
+    sidebar_provider_view(
+      sidebar_scope(
+        SidebarState::{
+          collapsed: false,
+          mobile_open: false,
+          desktop_width: None,
+        },
+        self.emit,
+      ),
+      id,
+      class,
+      title,
+      attrs,
+      style,
+      scope => children(scope, input),
+    )
+  })
+}
+
+///|
+/// Own desktop-collapse and mobile-open state while rendering content from one
+/// incremental parent input. Sidebar state stays local when the input changes.
 pub fn[T : Eq] sidebar_provider_with_input(
   input~ : @rabbita.Val[T],
   default_collapsed? : Bool = false,
@@ -1675,24 +1746,12 @@ pub fn[T : Eq] sidebar_provider_with_input(
   style? : Array[String] = [],
   children : (SidebarScope, T) -> @html.Html,
 ) -> @rabbita.Val[@html.Html] {
-  ignore((on_collapsed_change, on_mobile_open_change))
-  let scope : SidebarScope = {
-    collapsed: default_collapsed,
-    mobile_open: default_mobile_open,
-    desktop_width: None,
-    toggle_collapsed: @cmd.none,
-    expand: @cmd.none,
-    collapse: @cmd.none,
-    toggle_mobile: @cmd.none,
-    open_mobile: @cmd.none,
-    close_mobile: @cmd.none,
-    commit_width: @cmd.Emit(_ => @cmd.none),
-  }
-  input.view(input => {
-    sidebar_provider_view(scope, id, class, title, attrs, style, scope => {
-      children(scope, input)
-    })
-  })
+  SidebarProvider::new(
+    default_collapsed~,
+    default_mobile_open~,
+    on_collapsed_change?,
+    on_mobile_open_change?,
+  ).view_with_input(input~, id?, class?, title?, attrs?, style~, children)
 }
 
 ///|

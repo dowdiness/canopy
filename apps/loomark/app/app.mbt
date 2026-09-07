@@ -87,6 +87,10 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
       ])
     },
   )
+  // Own sidebar state before constructing any dependent layout graph.
+  let sidebar_provider = @sidebar.SidebarProvider::new(
+    default_collapsed=initial_compact,
+  )
 
   fn editor_panels(
     orientation : @rui.SeparatorOrientation,
@@ -189,18 +193,35 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
     by=compact => if compact { "compact" } else { "wide" },
   )
   let dialog = delete_dialog(model, emit)
-  let layout_input = model.map3(selected_panels, dialog, (
+  let recent_document_input = model.map(model => {
+    match model {
+      Editing(editing) => recent_document_seeds(editing)
+      Loading(_) | PreparingNew(_) | Recovery(_, _) => @vector.Vector([])
+    }
+  })
+  let recent_documents = @recent_documents.view(
+    input=recent_document_input,
+    visible=sidebar_provider.visible(),
+    on_intent=@cmd.Emit(intent => {
+      match intent {
+        @recent_documents.Intent::Select(docid) => emit(DocumentSelected(docid))
+        @recent_documents.Intent::Delete(docid) => emit(DeleteRequested(docid))
+      }
+    }),
+    close_after_action=sidebar_provider.close(),
+  )
+  let layout_input = model.map4(selected_panels, dialog, recent_documents, (
     model,
     editor_panels,
     dialog,
-  ) => (model, editor_panels, dialog))
-  @sidebar.sidebar_provider_with_input(
+    recent_documents,
+  ) => (model, editor_panels, dialog, recent_documents))
+  sidebar_provider.view_with_input(
     input=layout_input,
-    default_collapsed=initial_compact,
     class="h-dvh min-h-0 [--rui-sidebar-width:clamp(11rem,24vw,17rem)] [--rui-sidebar-width-icon:2.75rem]",
     (sidebar, layout) => {
-      let (model, editor_panels, dialog) = layout
-      view(sidebar, model, emit, editor_panels, dialog)
+      let (model, editor_panels, dialog, recent_documents) = layout
+      view(sidebar, model, emit, editor_panels, dialog, recent_documents)
     },
   )
 }

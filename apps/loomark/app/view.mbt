@@ -66,15 +66,32 @@ fn document_option_label(
   index : Int,
   entry : @source_repository.CatalogEntry,
 ) -> String {
+  let base = String::from_iter(document_base_label(entry).iter().take(80))
+  match document_option_ordinal(entries, index, entry) {
+    None => base
+    Some((ordinal, total)) => "\{base} (\{ordinal} of \{total})"
+  }
+}
+
+///|
+fn document_option_ordinal(
+  entries : ArrayView[@source_repository.CatalogEntry],
+  index : Int,
+  entry : @source_repository.CatalogEntry,
+) -> (Int, Int)? {
   let base = document_base_label(entry)
   let total = entries.count_if(other => document_base_label(other) == base)
   if total == 1 {
-    base
+    None
   } else {
-    let ordinal = entries
-      .view(end=index + 1)
-      .count_if(other => document_base_label(other) == base)
-    "\{base} (\{ordinal} of \{total})"
+    Some(
+      (
+        entries
+        .view(end=index + 1)
+        .count_if(other => document_base_label(other) == base),
+        total,
+      ),
+    )
   }
 }
 
@@ -126,14 +143,48 @@ fn recent_entries(
 }
 
 ///|
+fn recent_document_seeds(
+  editing : EditingState,
+) -> @vector.Vector[@recent_documents.Seed] {
+  let entries = recent_entries(editing)
+  @vector.Vector(
+    entries.mapi((index, entry) => {
+      let docid = entry.document_id()
+      let status = match editing.documents.delete_status(docid) {
+        Some(Available) => None
+        Some(Failed(_, _)) => Some("Delete failed")
+        Some(Waiting(_)) | Some(Deleting(_)) | Some(Probing(_)) =>
+          Some("Deleting")
+        Some(Unknown(_)) => Some("Unknown deletion outcome")
+        None => None
+      }
+      let can_delete = match editing.documents.delete_status(docid) {
+        Some(Available) | Some(Failed(_, _)) => true
+        _ => false
+      }
+      @recent_documents.Seed::Seed(
+        docid~,
+        ordinal=document_option_ordinal(entries.view(), index, entry),
+        lead_source=editing.documents.lead_source(docid),
+        selected=docid == editing.activation.document_id,
+        can_select=can_select(editing, docid),
+        can_delete~,
+        untouched_new=editing.documents.is_untouched_new(docid),
+        compact=editing.compact,
+        status~,
+      )
+    })[:],
+  )
+}
+
+///|
 fn document_sidebar(
   scope : @sidebar.SidebarScope,
   editing : EditingState,
   emit : @rabbita.Emit[Msg],
+  recent_documents : @rabbita.Html,
 ) -> @rabbita.Html {
   let available = can_activate(editing)
-  let entry_values = recent_entries(editing)
-  let entries = entry_values.view()
   let compact = editing.compact
   let close_after_action = if compact {
     @sidebar.sidebar_collapse(scope)
@@ -168,82 +219,7 @@ fn document_sidebar(
         } else {
           []
         },
-        @sidebar.sidebar_group(
-          @sidebar.sidebar_group_content(
-            @sidebar.sidebar_menu(
-              entries.mapi((index, entry) => {
-                let document_id = entry.document_id()
-                let selected = document_id == editing.activation.document_id
-                let untouched_new = editing.documents.is_untouched_new(
-                  document_id,
-                )
-                let label = document_option_label(entries, index, entry)
-                let (target_available, status) = match
-                  editing.documents.delete_status(document_id) {
-                  Some(Available) => (true, None)
-                  Some(Failed(_, _)) => (true, Some("Delete failed"))
-                  Some(Waiting(_)) | Some(Deleting(_)) | Some(Probing(_)) =>
-                    (false, Some("Deleting"))
-                  Some(Unknown(_)) => (false, Some("Unknown deletion outcome"))
-                  None => (false, None)
-                }
-                @sidebar.sidebar_menu_item([
-                  @sidebar.sidebar_menu_button(
-                    is_active=selected,
-                    disabled=!can_select(editing, document_id),
-                    aria_label=if untouched_new {
-                      "\{label} — not yet written"
-                    } else {
-                      label
-                    },
-                    title=label,
-                    class="loomark-document-row active:opacity-50",
-                    on_click=@cmd.batch([
-                      emit(DocumentSelected(document_id)),
-                      close_after_action,
-                    ]),
-                    style=[
-                      "height:auto;min-height:2.5rem;align-items:flex-start;padding-block:0.5rem;padding-inline-end:2.5rem",
-                      if selected {
-                        "opacity:1"
-                      } else {
-                        ""
-                      },
-                    ],
-                    @html.div(class="min-w-0", [
-                      @html.span(
-                        class="overflow-hidden text-ellipsis whitespace-normal [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]",
-                        label,
-                      ),
-                      match status {
-                        Some(status) =>
-                          @html.span(
-                            class="block text-xs text-lm-muted",
-                            attrs=@html.Attrs::build().role("status"),
-                            status,
-                          )
-                        None => @html.nothing
-                      },
-                    ]),
-                  ),
-                  if untouched_new {
-                    @html.nothing
-                  } else {
-                    @sidebar.sidebar_menu_action(
-                      disabled=!target_available,
-                      aria_label="Delete \"\{label}\"",
-                      title="Delete \"\{label}\"",
-                      class="loomark-sidebar-action loomark-delete-action",
-                      style=["width:2rem;height:2rem"],
-                      on_click=emit(DeleteRequested(document_id)),
-                      trash_icon(),
-                    )
-                  },
-                ])
-              }),
-            ),
-          ),
-        ),
+        @sidebar.sidebar_group(@sidebar.sidebar_group_content(recent_documents)),
       ),
     ],
   )
@@ -459,6 +435,7 @@ fn view(
   emit : @rabbita.Emit[Msg],
   editor_panels : @rabbita.Html,
   delete_dialog : @rabbita.Html,
+  recent_documents : @rabbita.Html,
 ) -> @rabbita.Html {
   @html.div(
     id="loomark-root",
@@ -495,7 +472,7 @@ fn view(
           @html.div(
             class="flex h-full min-h-0 min-w-0 flex-1 opacity-100 transition-opacity duration-[140ms] ease-[cubic-bezier(0.23,1,0.32,1)] starting:opacity-[0.92] motion-reduce:duration-[80ms] motion-reduce:ease-[ease]",
             [
-              document_sidebar(sidebar, editing, emit),
+              document_sidebar(sidebar, editing, emit, recent_documents),
               @html.div(
                 class="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-lm-paper",
                 [

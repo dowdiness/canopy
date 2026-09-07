@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test"
+import { readFile } from "node:fs/promises"
 
 const DOCUMENT_DATABASE_NAME = "loomark"
 const DOCUMENT_DATABASE_VERSION = 1
@@ -717,6 +718,92 @@ test("several Sources select the first lexical Document ID", async ({ page }) =>
   await documents.getByRole("button", { name: "Body only", exact: true }).click()
   await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(documentC.text)
   await expect(current).toBeHidden()
+})
+
+test("document leads distinguish matching headings and update after quiet", async ({ page }) => {
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const sources = [
+    { document_id: "lead-a", text: "# Same\n\n松本へ、美術館と街歩き。" },
+    { document_id: "lead-b", text: "# Same\n\n瀬戸内の島をめぐる。" },
+    { document_id: "lead-code", text: "# Checklist notation\n\n```text\n- [ ] literal example\n```\n\n- [ ] real task\n- [x] finished task" },
+  ]
+  await replaceStoreRecords(page, sources.map(source => ({ key: sourceKey(source.document_id), value: encodeStoredDocument(source) })))
+  await page.reload()
+  const documents = page.getByRole("complementary", { name: "Documents" })
+  await expect(documents.locator('#loomark-document-description-lead-a')).toHaveText('松本へ、美術館と街歩き。')
+  const description = documents.locator('#loomark-document-description-lead-b')
+  await expect(description).toHaveText('瀬戸内の島をめぐる。')
+  const literal = documents.locator('#loomark-document-description-lead-code')
+  await expect(literal).toContainText('- [ ] literal example')
+  await expect(literal.getByRole('img', { name: 'Incomplete task', exact: true })).toHaveCount(1)
+  await expect(literal.getByRole('img', { name: 'Completed task', exact: true })).toHaveCount(1)
+  await documents.locator('[aria-describedby="loomark-document-description-lead-b"]').click()
+  await expect(page.getByRole('textbox', { name: 'Text', exact: true })).toHaveValue(sources[1].text)
+  await page.getByRole('textbox', { name: 'Text', exact: true }).fill('# Same\n\n島への船の時刻を確認する。')
+  await expect(description).toHaveText('島への船の時刻を確認する。')
+  await page.getByRole('button', { name: 'Toggle documents', exact: true }).click()
+  await expect(description).toHaveCount(0)
+  await page.getByRole('textbox', { name: 'Text', exact: true }).fill('# Same\n\n帰りの船も予約する。')
+  await expectStoredDocument(page, { ...sources[1], text: '# Same\n\n帰りの船も予約する。' })
+  await expect(description).toHaveCount(0)
+  await page.getByRole('button', { name: 'Toggle documents', exact: true }).click()
+  await expect(description).toHaveText('帰りの船も予約する。')
+})
+
+test("instrumented compiled lead graph suppresses hidden and presentation-only extraction", async ({ page }) => {
+  // Test-only instrumentation of the same compiled MoonBit graph, before minification.
+  // No counter or hook is added to the production extractor or its public API.
+  const compiled = await readFile(new URL('../../../../../_build/js/release/build/dowdiness/loomark/main/main.js', import.meta.url), 'utf8')
+  const entry = /function (\w*document__lead\d+extract)\(source, limits\) \{/g
+  expect([...compiled.matchAll(entry)]).toHaveLength(1)
+  const instrumented = compiled.replace(entry, '$& globalThis.__leadProbe.calls.push({source, inDispatch: globalThis.__leadProbe.inDispatch});')
+  type Probe = { calls: Array<{source: string, inDispatch: boolean}>, inDispatch: boolean }
+  await page.addInitScript(() => {
+    const host = window as unknown as {__leadProbe: Probe}
+    host.__leadProbe = {calls: [], inDispatch: false}
+    document.addEventListener('input', () => {
+      host.__leadProbe.inDispatch = true
+      queueMicrotask(() => { host.__leadProbe.inDispatch = false })
+    }, {capture: true})
+  })
+  await page.route('**/index.js', route => route.fulfill({contentType: 'application/javascript', body: instrumented}))
+  await page.goto('/')
+  await waitForRepositoryOpen(page)
+  const first = {document_id: 'probe-a', text: '# Same\n\nFirst description'}
+  const second = {document_id: 'probe-b', text: '# Same\n\nSecond description'}
+  await replaceStoreRecords(page, [first, second].map(source => ({key: sourceKey(source.document_id), value: encodeStoredDocument(source)})))
+  await page.reload()
+  const calls = () => page.evaluate(() => (window as unknown as {__leadProbe: Probe}).__leadProbe.calls)
+  const documents = page.getByRole('complementary', {name: 'Documents'})
+  const text = page.getByRole('textbox', {name: 'Text', exact: true})
+  await expect(text).toHaveValue(first.text)
+  expect((await calls()).map(call => call.source).sort()).toEqual([first.text, second.text].sort())
+  await documents.locator('[aria-describedby="loomark-document-description-probe-b"]').click()
+  await expect(text).toHaveValue(second.text)
+  expect(await calls()).toHaveLength(2)
+  const toggle = page.getByRole('button', {name: 'Toggle documents', exact: true})
+  await toggle.click()
+  await expect(documents.locator('.loomark-document-row')).toHaveCount(0)
+  const edited = {...second, text: '# Same\n\nChanged while hidden'}
+  await text.fill(edited.text)
+  await expectStoredDocument(page, edited)
+  expect(await calls()).toHaveLength(2)
+  await toggle.click()
+  await expect(documents.locator('#loomark-document-description-probe-b')).toHaveText('Changed while hidden')
+  expect((await calls()).map(call => call.source)).toEqual([first.text, second.text, edited.text])
+  await toggle.click()
+  await toggle.click()
+  await expect(documents.locator('#loomark-document-description-probe-b')).toBeVisible()
+  expect(await calls()).toHaveLength(3)
+  await text.focus()
+  await text.press('ControlOrMeta+End')
+  await text.pressSequentially('!')
+  await expectStoredDocument(page, {...edited, text: edited.text + '!'})
+  expect(await calls()).toHaveLength(4)
+  expect((await calls()).every(call => !call.inDispatch)).toBe(true)
+  // inDispatch is a dispatch boundary, not proof of a separate event-loop task
+  // or an upper bound on synchronous extraction time.
 })
 
 test("startup is read-only and restores an accepted Editing Document", async ({ page }) => {

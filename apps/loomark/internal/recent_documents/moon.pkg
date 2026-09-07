@@ -1,0 +1,14 @@
+import {
+  "dowdiness/loomark/internal/document_lead",
+  "dowdiness/loomark/internal/sidebar",
+  "moonbit-community/rabbita",
+  "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/html",
+  "moonbitlang/core/immut/vector",
+}
+
+import {
+  "moonbit-community/rabbita/testing" @rabbita_testing,
+} for "wbtest"
+
+supported_targets = "js"

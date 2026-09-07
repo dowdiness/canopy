@@ -1,0 +1,27 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/internal/recent_documents"
+
+import {
+  "moonbit-community/rabbita",
+  "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/html",
+  "moonbitlang/core/immut/vector",
+}
+
+// Values
+pub fn view(input~ : @rabbita.Val[@vector.Vector[Seed]], visible~ : @rabbita.Val[Bool], on_intent~ : @cmd.Emit[Intent], close_after_action~ : @cmd.Cmd) -> @rabbita.Val[@html.Html]
+
+// Errors
+
+// Types and methods
+pub enum Intent {
+  Select(String)
+  Delete(String)
+}
+
+type Seed derive(Eq)
+pub fn Seed::Seed(docid~ : String, ordinal~ : (Int, Int)?, lead_source~ : String?, selected~ : Bool, can_select~ : Bool, can_delete~ : Bool, untouched_new~ : Bool, compact~ : Bool, status~ : String?) -> Self
+
+// Type aliases
+
+// Traits
