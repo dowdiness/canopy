@@ -20,6 +20,81 @@ fn documents_test_current_order(
 }
 
 ///|
+test "accepted lead source follows load, import, and quiet New lifecycles" {
+  let documents = initial_documents(documents_test_snapshot())
+  assert_eq(documents.lead_source("one"), Some("one"))
+  let (documents, _) = documents.reduce(DocumentsNew("new"))
+  assert_eq(documents.lead_source("new"), None)
+  let (documents, _) = documents.reduce(
+    DocumentsTextChanged("new", "first", documents_test_order(3L)),
+  )
+  assert_eq(documents.lead_source("new"), None)
+  let (documents, _) = documents.reduce(
+    DocumentsFeedbackReceived(QuietElapsed("new", documents_test_order(1L))),
+  )
+  assert_eq(documents.lead_source("new"), None)
+  let (documents, _) = documents.reduce(
+    DocumentsFeedbackReceived(QuietElapsed("new", documents_test_order(2L))),
+  )
+  assert_eq(documents.lead_source("new"), None)
+  let (documents, _) = documents.reduce(
+    DocumentsFeedbackReceived(QuietElapsed("new", documents_test_order(3L))),
+  )
+  assert_eq(documents.lead_source("new"), Some("first"))
+  let (documents, _) = documents.reduce(
+    DocumentsImported("imported", "loaded", documents_test_order(4L)),
+  )
+  assert_eq(documents.lead_source("imported"), Some("loaded"))
+}
+
+///|
+test "quiet accepts lead after save lane maximum and completion" {
+  let documents = initial_documents(documents_test_snapshot())
+  let (documents, _) = documents.reduce(
+    DocumentsTextChanged("one", "next", documents_test_order(0L)),
+  )
+  assert_eq(documents.lead_source("one"), Some("one"))
+  let (documents, decisions) = documents.reduce(
+    DocumentsFeedbackReceived(MaximumElapsed("one", 1)),
+  )
+  guard decisions is [DocumentsDecision::DocumentsPersist(operation)] else {
+    fail("maximum should save")
+  }
+  let (documents, _) = documents.reduce(
+    DocumentsFeedbackReceived(
+      SaveCompleted(operation, Stored(operation.source)),
+    ),
+  )
+  assert_eq(documents.lead_source("one"), Some("one"))
+  let (documents, _) = documents.reduce(
+    DocumentsFeedbackReceived(QuietElapsed("one", documents_test_order(1L))),
+  )
+  assert_eq(documents.lead_source("one"), Some("next"))
+}
+
+///|
+test "composition quiet is pending until composition ends and stale quiet is ignored" {
+  let documents = initial_documents(documents_test_snapshot())
+  let (documents, _) = documents.reduce(DocumentsCompositionStarted("one"))
+  let (documents, _) = documents.reduce(
+    DocumentsTextChanged("one", "composed", documents_test_order(0L)),
+  )
+  let (documents, _) = documents.reduce(
+    DocumentsFeedbackReceived(QuietElapsed("one", documents_test_order(1L))),
+  )
+  assert_eq(documents.lead_source("one"), Some("one"))
+  let (documents, _) = documents.reduce(
+    DocumentsTextChanged("one", "newer", documents_test_order(1L)),
+  )
+  let (documents, _) = documents.reduce(DocumentsCompositionEnded("one"))
+  assert_eq(documents.lead_source("one"), Some("one"))
+  let (documents, _) = documents.reduce(
+    DocumentsFeedbackReceived(QuietElapsed("one", documents_test_order(2L))),
+  )
+  assert_eq(documents.lead_source("one"), Some("newer"))
+}
+
+///|
 test "untouched New hint excludes stored empty, imported and edited documents" {
   let documents = initial_documents(
     @source_repository.RepositorySnapshot::from_sources([

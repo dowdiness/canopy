@@ -79,6 +79,8 @@ fn initial_documents(
       composing: false,
       save: Saved,
       delete: Available,
+      accepted_lead_source: Some(source.text()),
+      pending_lead_quiet: None,
     })
   {
     snapshot,
@@ -95,6 +97,55 @@ fn acknowledged_source(
   document_id : String,
 ) -> @source_repository.SourceRecord? {
   documents.snapshot.source(document_id)
+}
+
+///|
+fn accept_lead_quiet(
+  documents : Documents,
+  document_id : String,
+  order : @source_repository.ChangeOrder,
+) -> Documents {
+  match find_record(documents.records, document_id) {
+    Some(record) if !delete_is_active(record.delete) &&
+      record.source.change_order() == order =>
+      {
+        ..documents,
+        records: replace_record(documents.records, document_id, r => {
+          if r.composing {
+            { ..r, pending_lead_quiet: Some(order) }
+          } else {
+            {
+              ..r,
+              accepted_lead_source: Some(r.source.text()),
+              pending_lead_quiet: None,
+            }
+          }
+        }),
+      }
+    _ => documents
+  }
+}
+
+///|
+fn accept_pending_lead_quiet(record : DocumentRecord) -> DocumentRecord {
+  match record.pending_lead_quiet {
+    Some(order) if order == record.source.change_order() && !record.composing =>
+      {
+        ..record,
+        accepted_lead_source: Some(record.source.text()),
+        pending_lead_quiet: None,
+      }
+    Some(_) => { ..record, pending_lead_quiet: None }
+    None => record
+  }
+}
+
+///|
+fn Documents::lead_source(self : Self, document_id : String) -> String? {
+  match find_record(self.records, document_id) {
+    Some(record) => record.accepted_lead_source
+    None => None
+  }
 }
 
 ///|
