@@ -65,4 +65,3 @@ Exploratory proposals are listed separately in
   — orders Recent documents by persisted Change order, permits empty repository
   snapshots, and coordinates Delete through pure per-document persistence lanes
   without blocking unrelated editing.
-
