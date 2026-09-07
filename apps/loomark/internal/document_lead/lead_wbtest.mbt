@@ -57,6 +57,7 @@ test "preserves code spacing and structured list markers" {
   let nested_only = extract("-\n  - nested\n", limits=test_limits())
   assert_eq(nested_only.form(), List("-"))
   assert_eq(nested_only.primary(), "nested")
+  assert_eq(nested_only.description(), "")
   let later_task = extract("-\n- [x] done\n", limits=test_limits())
   assert_eq(later_task.form(), Task(true))
   assert_eq(later_task.primary(), "done")
@@ -65,6 +66,126 @@ test "preserves code spacing and structured list markers" {
     limits=test_limits(),
   )
   assert_eq(ordered_task.description(), "2. [x] checked\n3. [ ] open")
+}
+
+///|
+test "nested primary is omitted while remaining task items retain provenance" {
+  let lead = extract(
+    "-\n  - [x] nested\n  - [ ] remaining\n- [x] later\n",
+    limits=test_limits(),
+  )
+  assert_eq(lead.primary(), "nested")
+  assert_eq(lead.description(), "  - [ ] remaining\n- [x] later")
+  let ranges = lead.task_marker_ranges()
+  assert_eq(ranges.length(), 2)
+  assert_eq(lead.description()[ranges[0].start():ranges[0].end()], "- [ ] ")
+  assert_eq(lead.description()[ranges[1].start():ranges[1].end()], "- [x] ")
+  assert_eq((ranges[0].start(), ranges[0].end()), (2, 8))
+  assert_eq((ranges[1].start(), ranges[1].end()), (18, 24))
+}
+
+///|
+test "description task marker provenance is IR-backed and UTF16 indexed" {
+  let lead = extract(
+    "# Heading\n\n- [ ] open\n- [x] checked\n",
+    limits=test_limits(),
+  )
+  let ranges = lead.task_marker_ranges()
+  assert_eq(ranges.length(), 2)
+  assert_eq(
+    (ranges[0].start(), ranges[0].end(), ranges[0].checked()),
+    (0, 6, false),
+  )
+  assert_eq(
+    (ranges[1].start(), ranges[1].end(), ranges[1].checked()),
+    (11, 17, true),
+  )
+
+  let literal = extract(
+    "# Heading\n\n```\n- [ ] literal\n```\n\n- [x] actual\n",
+    limits=test_limits(),
+  )
+  assert_eq(literal.task_marker_ranges().length(), 1)
+  let literal_range = literal.task_marker_ranges()[0]
+  assert_eq(
+    literal.description()[literal_range.start():literal_range.end()],
+    "- [x] ",
+  )
+  assert_true(literal_range.start() < literal_range.end())
+  assert_true(literal_range.end() <= literal.description().length())
+  assert_true(literal_range.checked())
+
+  let nested = extract(
+    "- first\n  - [x] nested\n- [ ] later\n",
+    limits=test_limits(),
+  )
+  let nested_ranges = nested.task_marker_ranges()
+  assert_eq(nested_ranges.length(), 2)
+  assert_true(nested_ranges[0].checked())
+  assert_true(!nested_ranges[1].checked())
+}
+
+///|
+test "marker ranges slice exact retained prefixes across later items" {
+  let lead = extract(
+    "- first\n- second\n- [x] third\n- [ ] later\n",
+    limits=test_limits(),
+  )
+  let description = lead.description()
+  let ranges = lead.task_marker_ranges()
+  assert_eq(ranges.length(), 2)
+  assert_eq(description[ranges[0].start():ranges[0].end()], "- [x] ")
+  assert_eq(description[ranges[1].start():ranges[1].end()], "- [ ] ")
+  assert_true(ranges[0].start() < ranges[0].end())
+  assert_true(ranges[1].start() < ranges[1].end())
+  assert_true(ranges[1].end() <= description.length())
+
+  let nested = extract(
+    "- first\n  - [x] nested\n    continuation\n- [ ] later\n",
+    limits=test_limits(),
+  )
+  let nested_description = nested.description()
+  let nested_ranges = nested.task_marker_ranges()
+  assert_eq(nested_ranges.length(), 2)
+  assert_eq(
+    nested_description[nested_ranges[0].start():nested_ranges[0].end()],
+    "- [x] ",
+  )
+  assert_eq(
+    nested_description[nested_ranges[1].start():nested_ranges[1].end()],
+    "- [ ] ",
+  )
+
+  let copy = nested.task_marker_ranges()
+  copy[0] = { start: 99, end: 100, checked: false }
+  assert_eq(nested.task_marker_ranges()[0].start(), nested_ranges[0].start())
+}
+
+///|
+test "task marker provenance omits partial prefixes and handles Unicode" {
+  let unicode = extract(
+    "# 😀\n\n- [ ] task\n",
+    limits=test_limits(description=7),
+  )
+  assert_eq(unicode.task_marker_ranges().length(), 1)
+  assert_eq(unicode.task_marker_ranges()[0].start(), 0)
+  assert_eq(unicode.task_marker_ranges()[0].end(), 6)
+  let unicode_preceding = extract(
+    "# heading\n\n😀\n\n- first\n- [x] task\n",
+    limits=test_limits(),
+  )
+  let unicode_description = unicode_preceding.description()
+  let unicode_range = unicode_preceding.task_marker_ranges()[0]
+  assert_eq(
+    unicode_description[unicode_range.start():unicode_range.end()],
+    "- [x] ",
+  )
+  assert_true(unicode_range.end() <= unicode_description.length())
+  let cut = extract("# h\n\n- [ ] task\n", limits=test_limits(description=4))
+  assert_eq(cut.description(), "- [ ")
+  assert_eq(cut.task_marker_ranges().length(), 0)
+  let empty = extract("# h\n", limits=test_limits())
+  assert_eq(empty.task_marker_ranges().length(), 0)
 }
 
 ///|
@@ -100,6 +221,21 @@ test "forms and equality ignore presentation-only source" {
     extract("[same](https://one.example)\n", limits=test_limits()),
     extract("[same](https://two.example)\n", limits=test_limits()),
   )
+}
+
+///|
+test "deep nested primary retains later descendants with provenance" {
+  let lead = extract(
+    "-\n  -\n    - primary\n\n    - [x] retained\n",
+    limits=test_limits(),
+  )
+  assert_eq(lead.primary(), "primary")
+  assert_eq(lead.description(), "    - [x] retained")
+  let markers = lead.task_marker_ranges()
+  assert_eq(markers.length(), 1)
+  assert_eq(markers[0].start(), 4)
+  assert_eq(markers[0].end(), 10)
+  assert_true(markers[0].checked())
 }
 
 ///|
