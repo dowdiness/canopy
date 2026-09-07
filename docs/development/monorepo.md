@@ -128,19 +128,21 @@ hash. You always make two commits.
 
 ```sh
 cd deps/event-graph-walker
-git checkout main                  # avoid editing on detached HEAD
+git switch -c fix/submodule-change # work on a branch, not detached HEAD
 # … edit, moon check, moon test …
 git add -A
 git commit -m "feat: …"
-git push origin main               # always via PR if the submodule has one
+git push -u origin fix/submodule-change # then use the submodule PR workflow
 
 cd ../..
 git add deps/event-graph-walker     # records the new commit pointer
 git commit -m "chore: update event-graph-walker submodule"
 ```
 
-Always push the submodule's commit to its remote **before** pushing the parent
-or opening a parent PR. CI clones with `submodules: recursive`, so a parent
+Use PRs for submodule changes; never push to a submodule's main without
+asking. Commit and push the submodule's commit to its own remote **before**
+committing the parent pointer or opening a parent PR. Stage only the submodule
+pointers that actually moved. CI clones with `submodules: recursive`, so a parent
 commit referencing a submodule SHA that is not yet on `origin` will fail.
 
 ### Pulling

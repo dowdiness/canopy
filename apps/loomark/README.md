@@ -2,6 +2,10 @@
 
 Loomark is a browser Markdown Text editor built with [Rabbita](https://github.com/dowdiness/rabbita).
 
+Read [the product vocabulary and behaviour contract](CONTEXT.md) before
+changing Loomark. The accepted decisions below provide the related rationale
+and constraints.
+
 ## Architecture
 
 Loomark is one standard Rabbita application in `apps/loomark/app`. Its private

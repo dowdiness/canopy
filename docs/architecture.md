@@ -1,13 +1,15 @@
 # Canopy Architecture
 
-Single-page summary of Canopy's stable architectural principles and seams.
-Implementation inventory belongs in live manifests; the
-[module/package map](development/module-package-map.md) explains how to read
-them. Longer design reasoning lives under
-[docs/architecture/](architecture/).
+This document defines the responsibility boundaries and invariants Canopy
+should preserve. Consult code and manifests for current implementation
+placement; the [module/package map](development/module-package-map.md) explains
+how to find the owner of a change.
 
-> If a claim here disagrees with the code, the code wins. Update this file
-> rather than the code.
+If an implementation differs from a constraint here, determine whether it is
+an implementation defect or an unrecorded design change. Do not automatically
+change either side to match the other. Follow
+[Document roles and conflicts](development/documentation-doctrine.md#document-roles-and-conflicts).
+The pipeline below describes the architectural flow, not a file inventory.
 
 ## Pipeline
 

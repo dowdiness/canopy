@@ -1,31 +1,35 @@
 # Testing Guide
 
+This guide owns test design, test ownership, and focused test execution.
+[Workflow](workflow.md#validation-scope) decides when each validation gate runs.
+
 ## Test Coverage
 
-The root workspace includes Canopy-owned packages, examples, and the vendored
-workspace members listed in `moon.work`. Run the complete workspace suite from
-the repository root:
+Choose the validation scope in Workflow before selecting commands below.
+
+### Run Specific Package Tests
+
+Run from the owning module or select it explicitly from the repository root:
+
+```bash
+moon -C modules/canopy test --release
+moon -C deps/event-graph-walker test --release
+```
+
+For narrower package checks, use the affected package's path and its owning
+module's guidance. Consult [Module / Package Map](module-package-map.md) for
+ownership and workspace boundaries.
+
+### Whole Workspace Tests
+
+When investigating a workspace-wide regression, run from the repository root:
 
 ```bash
 moon test
 ```
 
-Use a filesystem path to narrow an investigation to one package or module.
-The root `moon test` remains the final regression check. See
-`.github/workflows/ci.yml` for frontend, example, and submodule-specific CI
-matrices that are not represented by one copied list here.
-
-### Run Specific Package Tests
-
-```bash
-# event-graph-walker packages
-cd event-graph-walker
-moon test causal_graph
-moon test branch
-moon test oplog
-moon test fugue
-moon test document
-```
+`moon.work` defines coverage. See `.github/workflows/ci.yml` for the full CI
+matrices; a root MoonBit test run does not cover every frontend or browser suite.
 
 ### Update Snapshots
 
@@ -40,6 +44,27 @@ moon test --update
 moon coverage analyze > uncovered.log
 ```
 
+## Test Ownership
+
+Each package tests its own logic. Rely on imported libraries' interface
+contracts; when moving code, remove tests that now belong to another
+package and track missing coverage in that package's backlog.
+
+## Markdown Stabilization Boundary Matrix
+
+Use this matrix when stabilizing Markdown span projection, commit, or
+conversion behavior. It is not a checklist for unrelated changes.
+
+| Dimension | Cases |
+|-----------|-------|
+| Syntax form | ATX, Setext, multiline, indented |
+| Terminator | LF, CRLF, CR, EOF |
+| Operation | Span projection, commit, conversion |
+| Ownership context | Top level, container, explicitly unsupported |
+
+Record which combinations the affected behavior supports and test its
+boundaries, including how explicitly unsupported cases are handled.
+
 ## Test Types
 
 ### 1. Snapshot Tests (Primary)
@@ -53,10 +78,7 @@ test "feature behavior" {
 }
 ```
 
-**Update snapshots:**
-```bash
-moon test --update
-```
+For intentional output changes, follow [Update Snapshots](#update-snapshots).
 
 ### 2. Property-Based Tests
 
@@ -71,8 +93,7 @@ test "property: commutativity" @qc(100) {
 ```
 
 **Examples in codebase:**
-- Version vectors have 25 property tests with 100 test cases each
-- See `event-graph-walker/` submodule for property test examples (e.g., version vector properties)
+- See `deps/event-graph-walker/` submodule for property test examples (e.g., version vector properties)
 
 ### 3. Unit Tests
 
@@ -259,7 +280,9 @@ test "error recovery: unclosed paren" {
 }
 ```
 
-See `loom/examples/lambda/` for comprehensive parser tests.
+Include malformed-input recovery and incremental parsing cases. Follow the
+owning [Loom package](../../deps/loom/README.md) for its test commands;
+`deps/loom/examples/lambda/` provides parser test examples.
 
 ## Benchmarking
 
@@ -267,17 +290,18 @@ Benchmarks are tests too! Run with `--release`:
 
 ```bash
 moon bench --release
-cd event-graph-walker && moon bench --release
+moon -C deps/event-graph-walker bench --release
+moon -C deps/loom/examples/lambda bench --release
 ```
 
 See [performance documentation](../performance/BENCHMARK_REDESIGN.md) for details.
 
 ## Continuous Integration
 
-Tests run automatically on:
-- Every commit (via git hooks if configured)
-- Pull requests
-- Before releases
+`lefthook.yml` defines the local affected-package gates, and
+`.github/workflows/ci.yml` defines repository CI. Follow
+[Development Workflow](workflow.md) for when to run each gate; do not infer
+that every commit runs the complete test suite.
 
 ## Debugging Failed Tests
 
@@ -314,5 +338,5 @@ git diff *.mbti
 ## References
 
 - [MoonBit Testing Guide](https://docs.moonbitlang.com/testing)
-- Parser edge cases: `loom/examples/lambda/`
-- QuickCheck properties: `event-graph-walker/` submodule (version vector properties, CRDT convergence)
+- Parser edge cases: `deps/loom/examples/lambda/`
+- QuickCheck properties: `deps/event-graph-walker/` submodule (version vector properties, CRDT convergence)

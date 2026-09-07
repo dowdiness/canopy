@@ -703,7 +703,7 @@ Codex-only requests.
 - [Codex App Server README](https://github.com/openai/codex/blob/rust-v0.144.4/codex-rs/app-server/README.md)
 - [Codex v0.144.4 configuration schema](https://github.com/openai/codex/blob/rust-v0.144.4/codex-rs/core/config.schema.json)
 - `codex app-server generate-json-schema --experimental`
-- `docs/plans/2026-07-15-generative-ui-local-llm-technical-feasibility.md`
+- `docs/archive/2026-07-15-generative-ui-local-llm-technical-feasibility.md`
 - `docs/plans/2026-07-15-generative-ui-live-provider-experiment-design.md`
 - `docs/evidence/2026-07-15-generative-ui-local-llm-feasibility-v2.json`
 - `docs/evidence/2026-07-16-generative-ui-local-llm-feasibility-v2-retention-incident.json`

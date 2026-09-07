@@ -1,7 +1,16 @@
 # Agent Environments
 
-Read only the section for the host running the task. Repository-wide
-validation and delegation constraints remain in [AGENTS.md](../../AGENTS.md).
+This guide owns host-specific configuration. Tool-specific instructions apply
+only in their named host; use the active host's available tools and roles.
+Repository validation and delegation rules live in [Workflow](workflow.md).
+
+## Local MoonBit Guidance
+
+If your environment provides `~/.claude/moonbit-base.md`, use it as supplementary
+MoonBit guidance. It is not a prerequisite for other contributors. Repository
+[validation scope](workflow.md#validation-scope) and
+[reuse reporting scope](api-reuse.md#record-the-decision-once) replace per-file
+checks, blanket workspace validation, and repeated reporting in that guidance.
 
 ## Pi Delegation Roles
 

@@ -44,9 +44,30 @@ is the canonical implementation spec for coding agents and should define:
 - acceptance criteria,
 - validation commands.
 
-Link the issue and plan in both directions. If a task is complete or no longer
-active, move its plan to `docs/archive/`; keep the issue as the durable status
-and discussion record.
+Link the issue and plan in both directions. `docs/plans/` holds unfinished
+plans only, including plans in subdirectories; the plan template is not a task.
+On implementation completion, delete or archive the plan in the same change
+that completes the work. Apply the same cleanup when a plan is abandoned or
+superseded. Keep the issue as the durable status and discussion record.
+
+### Completing a plan
+
+- Archive to `docs/archive/` when the plan contains useful rationale,
+  alternatives, validation evidence, or historical context. Prefer archiving
+  when uncertain whether that information will be needed.
+- Delete when the plan has no remaining value beyond information already
+  preserved in current documentation, the issue, or the PR. Git history retains
+  the old file; deletion must not discard the only record of a current contract.
+- Before either action, move any still-applicable requirements or operational
+  guidance to their canonical documents and update incoming repository links.
+  Update issue/PR links as applicable to point to the archive, current guidance,
+  or a historical commit permalink instead of a removed branch path.
+- Archived plans must clearly state their terminal status and outcome. Record
+  completion in the issue even when the plan is deleted. A completed plan must
+  not remain in `docs/plans/` merely because its checklist is marked done.
+- For partially completed work, retain the plan only while it still owns
+  unfinished scope. Clearly distinguish the completed and remaining work;
+  do not discard the remaining scope.
 
 ### Archived backlog snapshots
 
@@ -94,7 +115,8 @@ scope, and observable exit condition.
 2. Create `docs/plans/<date>-<slug>.md` from [TEMPLATE.md](../plans/TEMPLATE.md).
 3. Link the issue and plan in both directions.
 4. Execute against the plan and attach validation evidence to the pull request.
-5. Move the completed plan to `docs/archive/`. Close the issue through the pull
+5. Delete or archive the completed plan using [Completing a plan](#completing-a-plan).
+   Close the issue through the pull
    request only when the issue is wholly completed: the PR body then carries a
    literal `Closes #N`. A shared queue issue that covers more than the task
    just completed is not closed — update its checklist or status instead and

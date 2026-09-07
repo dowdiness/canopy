@@ -30,21 +30,65 @@ If an architecture doc needs to reference code, link to the file — don't inlin
 
 1. Written before implementation with concrete details
 2. Executed task by task
-3. Archived to `docs/archive/` on completion
-4. Marked with `**Status:** Complete` at the top
+3. Deleted or moved to `docs/archive/` when implementation is complete
+4. If retained in the archive, marked with a terminal status and outcome at the top
 
-Staleness is a non-issue because archived docs are explicitly historical. If someone reads an archived plan, they know it describes the state at implementation time, not the current state.
+Follow [Completing a plan](task-tracking.md#completing-a-plan) to choose deletion
+or archiving, preserve current requirements, and repair incoming links.
+Archived plans are historical: they describe the implementation at that time
+and must not be treated as current guidance.
 
-### Code is the source of truth
+### Code describes the current implementation
 
 For current implementation details, read the code:
 
 - **Struct definitions** → `.mbti` interface files or source
 - **API surface** → `pkg.generated.mbti`
 - **Performance** → `moon bench --release`
-- **Behavior** → tests
+- **Implemented behavior** → source and tests for the properties they cover
 
 Never duplicate this information in long-lived docs. It will diverge.
+
+### Document roles and conflicts
+
+Reading order does not establish authority. Use each source for the question
+it owns:
+
+- Accepted product requirements, component contracts, and architectural
+  decisions describe intended behaviour and constraints.
+- Code and manifests describe what is implemented and configured. Tests and
+  CI provide evidence for the properties and environments they check; passing
+  tests alone does not establish compliance with every product requirement.
+- Proposals and research provide options and evidence. They become requirements
+  only through an explicit decision; their presence in the repository is not
+  adoption.
+- Performance reports describe measurements at a particular date and under
+  stated conditions, not guarantees for the current implementation.
+- GitHub Issues own active work status, as defined in [Task Tracking](task-tracking.md).
+  Archived documents preserve history, not an execution queue.
+
+Read the status and scope of relevant decisions, including partial
+supersession. A newer date alone does not override an earlier requirement.
+When documentation misdescribes current implementation details, correct that
+description. When code differs from an accepted requirement, investigate the
+mismatch instead of declaring the requirement wrong. Resolve conflicting
+applicable requirements before basing a change on them; do not silently pick
+the newest file or the current implementation.
+
+### Navigation has one job
+
+Use references or symlinks for shared content instead of embedding copies.
+Identify duplication before adding another source of truth.
+
+The root documentation index routes readers by purpose and affected component.
+It should explain when a linked guide is needed, not repeat that guide's rules
+or commands. Detailed indexes belong with the material they describe. A useful
+cross-link may appear in more than one place; duplicated policy text creates
+competing sources of truth.
+
+Link existing component READMEs and context documents rather than copying their
+requirements into `docs/`. Keep accepted decisions separate from exploratory
+design in navigation, and identify research, measurements, and history as such.
 
 ### Performance docs — date and context
 
@@ -62,7 +106,7 @@ When a major optimization lands, old performance docs are not updated — they'r
 | Type | Location | Contains | Lifespan | Staleness risk |
 |------|----------|----------|----------|----------------|
 | Architecture | `docs/architecture/` | Principles, invariants, tradeoffs | Permanent | Low (no impl details) |
-| Plans | `docs/plans/` | Struct defs, code, file paths, perf targets | Until completion | None (archived) |
+| Plans | `docs/plans/` | Struct defs, code, file paths, perf targets | Until completion | Removed on completion |
 | Archive | `docs/archive/` | Completed plans, old measurements | Permanent (historical) | N/A (explicitly past) |
 | Performance | `docs/performance/` | Dated benchmark results | Permanent (snapshot) | Low (dated, not updated) |
 | Active backlog | GitHub Issues | Prioritized work and status | Until closure | Medium (re-validate claims) |
@@ -70,6 +114,9 @@ When a major optimization lands, old performance docs are not updated — they'r
 ## Rules
 
 1. **Architecture docs never reference specific types, fields, or line numbers.** Link to files instead.
-2. **Plans are archived on completion.** Same commit that marks the last task done.
+2. **Completed plans leave `docs/plans/`.** Delete or archive them in the same
+   change that completes implementation, following the task-tracking policy.
 3. **Performance claims in issues include when they were measured.** Stale numbers lead to wasted optimization effort.
-4. **Code is the source of truth.** If a doc and the code disagree, the doc is wrong.
+4. **Distinguish intended and implemented behaviour.** Code is authoritative for
+   current implementation details; use [document roles and conflicts](#document-roles-and-conflicts)
+   when a requirement and the implementation disagree.
