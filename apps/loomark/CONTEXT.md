@@ -92,9 +92,17 @@ row highlight with a subtle background, without an edge line;
 exact visual values remain provisional. A selected cold target
 shows a small loading indicator with an accessible `Loading document` label
 while the current document remains visible. Merely opening a document does not
-move it. While typing, an entry keeps its previous Document lead until a lead
-from the newer text replaces it after a short pause; a document entering Recent
-documents for the first time uses its current text for its first lead.
+move it. While typing, an entry with a known Document lead keeps it until a lead from
+the newer text replaces it after a short pause. Until a first lead is accepted,
+an entry uses the generic accessible identity `Document`, remains selectable,
+and has Delete disabled; this includes a newly promoted document. The current
+untouched New document remains a selected temporary entry and has no Delete
+action. The draft connection uses provisional 80-scalar primary and 160-scalar
+description budgets, each visually clamped to two lines; scalar-safe cuts are
+not a grapheme policy or production acceptance. Task decorations come only from
+parser/IR task-marker ranges, so code that merely looks like a checkbox remains
+literal. The accessible row label and tooltip use the bounded primary plus any
+ordinal, never full source text or a Catalog label.
 _Avoid_: Document list, catalog, title list, file browser
 
 **Document actions menu**:

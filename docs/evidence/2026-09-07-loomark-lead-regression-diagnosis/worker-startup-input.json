@@ -1,0 +1,114 @@
+{
+  "browser": "149.0.7827.55",
+  "input": [],
+  "large": [
+    {
+      "phase": "cold",
+      "leads": [
+        {
+          "bytes": 538890,
+          "start": 634.5,
+          "duration": 375.10000000009313
+        }
+      ],
+      "longTasks": [
+        {
+          "start": 152.60000000009313,
+          "duration": 481
+        },
+        {
+          "start": 634,
+          "duration": 665
+        },
+        {
+          "start": 1306.7999999998137,
+          "duration": 62
+        }
+      ]
+    },
+    {
+      "phase": "quiet",
+      "leads": [
+        {
+          "bytes": 538891,
+          "start": 1875.6000000000931,
+          "duration": 354.29999999981374
+        }
+      ],
+      "longTasks": [
+        {
+          "start": 1563,
+          "duration": 56
+        },
+        {
+          "start": 1875.1000000000931,
+          "duration": 360
+        }
+      ]
+    }
+  ],
+  "worker": {
+    "duration": 435.60000000009313,
+    "startAbsolute": 1788790748161.7,
+    "endAbsolute": 1788790748597.2998,
+    "lead": "{\"form\":{\"$tag\":0},\"primary\":\"Note 0\",\"description\":\"Paragraph content with some detail.\\nNote 1\\nParagraph content with some detail.\\nNote 2\\nParagraph content with some detail.\\nNote 3\\nParagraph content with some det\",\"primary_truncated\":false,\"description_truncated\":true,\"task_marker_ranges\":[]}",
+    "wall": 609.6000000000931,
+    "gaps": [
+      49.799999999813735,
+      10.300000000279397,
+      40.5,
+      73,
+      6.399999999906868,
+      10.5,
+      10.199999999720603,
+      10.200000000186265,
+      9.100000000093132,
+      10.199999999720603,
+      9.900000000372529,
+      10.099999999627471,
+      9.900000000372529,
+      10,
+      10.099999999627471,
+      10,
+      9.900000000372529,
+      10,
+      10.099999999627471,
+      9.900000000372529,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      17.09999999962747,
+      12.300000000279397,
+      0.6000000000931323,
+      10,
+      10.099999999627471,
+      10,
+      9.900000000372529,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10.099999999627471,
+      10,
+      9.900000000372529,
+      10,
+      10,
+      10
+    ],
+    "equal": true,
+    "editing": {
+      "replyPending": true,
+      "inputTimes": [
+        1788790748131
+      ],
+      "appended": true
+    }
+  }
+}

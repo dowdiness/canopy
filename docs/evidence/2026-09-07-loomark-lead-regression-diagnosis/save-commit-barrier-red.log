@@ -1,0 +1,34 @@
+
+> test
+> node ./run-standalone-tests.mjs --grep active failure after acknowledged revert --workers=1
+
+Loomark standalone output at http://127.0.0.1:4347
+
+Running 1 test using 1 worker
+
+  ✘  1 tests/standalone.spec.ts:2047:1 › active failure after acknowledged revert restores truthful Saved (6.7s)
+
+
+  1) tests/standalone.spec.ts:2047:1 › active failure after acknowledged revert restores truthful Saved 
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+
+      2068 |   ))).toBe(true)
+      2069 |
+    > 2070 |   await expect.poll(() => page.evaluate(() => (globalThis as any).__loomarkRecoveryCommitted)).toBe(true)
+           |                                                                                                ^
+      2071 |   try {
+      2072 |     await expect(page.getByRole("alert")).toHaveCount(0)
+      2073 |   } finally {
+        at /home/antisatori/ghq/github.com/dowdiness/canopy-loomark-document-lead-decision/apps/loomark/examples/vanilla/tests/standalone.spec.ts:2070:96
+
+    Error Context: test-results/standalone-active-failure--3ded2-ert-restores-truthful-Saved/error-context.md
+
+  1 failed
+    tests/standalone.spec.ts:2047:1 › active failure after acknowledged revert restores truthful Saved 

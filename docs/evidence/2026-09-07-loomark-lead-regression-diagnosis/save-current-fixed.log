@@ -1,0 +1,15 @@
+
+> test
+> node ./run-standalone-tests.mjs --grep active failure after acknowledged revert --repeat-each=5
+
+Loomark standalone output at http://127.0.0.1:4347
+
+Running 5 tests using 4 workers
+
+  ✓  2 tests/standalone.spec.ts:2049:1 › active failure after acknowledged revert restores truthful Saved (1.5s)
+  ✓  3 tests/standalone.spec.ts:2049:1 › active failure after acknowledged revert restores truthful Saved (1.5s)
+  ✓  1 tests/standalone.spec.ts:2049:1 › active failure after acknowledged revert restores truthful Saved (1.6s)
+  ✓  4 tests/standalone.spec.ts:2049:1 › active failure after acknowledged revert restores truthful Saved (1.5s)
+  ✓  5 tests/standalone.spec.ts:2049:1 › active failure after acknowledged revert restores truthful Saved (1.4s)
+
+  5 passed (4.4s)

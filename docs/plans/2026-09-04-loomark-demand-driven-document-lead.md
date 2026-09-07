@@ -646,6 +646,85 @@ was introduced. A failing pure view test covered the missing row; unit and
 browser tests cover first edit, repeated New, abandonment, selection and
 unchanged storage.
 
+### Current draft connection slice
+
+This is a partial migration, not completion of the implementation stages above.
+The existing app model and Documents reducer remain in place; no
+`internal/documents` package, timer, Worker, Preview change, runtime, or storage
+mechanism was added. `recent_documents` now owns document rows, its keyed graph,
+and Select/Delete intents. `app` still owns the New header action and the legacy
+Delete dialog.
+
+The app projects capability-resolved seeds. A feature-scoped outer
+`assoc_by(DocumentId)` projects the accepted lead source, extracts the lead, and
+then combines it with row metadata; an inner `assoc_by` builds HTML only in the
+visible `SidebarProvider::visible()` branch. The provider remains opaque to the
+app consumer, and this connection adds no second feature visibility value. Thus
+known leads survive ordinary typing until matching quiet acceptance, while a
+seed with no accepted source is a generic selectable `Document` and its Delete
+action is disabled. The current untouched New entry remains selected and
+temporary, with no Delete action.
+
+Rows use bounded primary text and a muted description, each clamped to two
+lines. The provisional limits are 80 and 160 Unicode scalar values respectively;
+they are not grapheme budgets or production acceptance criteria. Accessible row
+labels and tooltips use the bounded primary plus the seed ordinal. No Catalog
+label or full source is placed in row HTML. The app's remaining legacy Delete
+dialog still derives its label in `app` and caps its base label at 80 Unicode
+scalars before adding the ordinal.
+
+Task decoration is driven by `DocumentLead` IR task-marker ranges, not a regex;
+checkbox-looking text in code stays literal. Review tightened row ARIA and
+bounded tooltip/label handling. It also corrected recursive nested-list
+remainder handling: the nested primary is not repeated, but later descendants
+and their provenance remain. The narrow deep fixture originally lacked the
+blank line needed to make its apparent later item a nested remainder; without
+that blank line the parser retains it in the primary. The corrected fixture uses
+the blank line and asserts the actual nested case.
+
+The compiled, non-minified JS test instruments extraction without production
+hooks. Its observed sequence is two initial calls, two after selection, two
+while an edit is hidden, three after reopening with changed content, three after
+reopening unchanged content, and four after a visible edit. `inDispatch: false`
+proves only a dispatch boundary: it does not prove a distinct event-loop task or
+bounded synchronous extraction time. Targeted JS release tests pass: app 64 +
+document lead 23 + feature 3 = 90. TypeScript checking also passes. An earlier
+full browser run passed 56 tests, but the latest full run passed 54 of 56:
+`active failure after acknowledged revert restores truthful Saved` retained an
+alert, and `1 MiB exact Saved comparison stays within 10 ms` reported 14.8 ms
+at its p95 assertion. The latter also failed an earlier full run at 14.1 ms
+and a standalone rerun. A subsequent standalone minified run passed, as did
+one non-minified control and one test-only extraction-disabled diagnostic;
+these do not establish the cause or replace the failed full-suite result.
+Temporary diagnostic overrides were removed, and no timing assertion was
+relaxed. A separate build-plus-test invocation exceeded its 150-second command
+timeout; that incomplete run is not a pass.
+
+Follow-up [regression diagnosis](../evidence/2026-09-07-loomark-lead-regression-diagnosis/README.md)
+reproduced the save-test failure on `44d18fa4`: its helper also aborted the
+compensating write. The helper now aborts only the first transaction after the
+revert input and waits for recovery commit. Production save logic was not changed
+for this correction. The fixed test passed five runs on each implementation;
+the complete current suite then passed 56/56. A three-way input comparison found
+no connection-specific increase, but did not establish the cause of the earlier
+10 ms failures. No timing threshold was weakened. No latest HEAD CI result is
+claimed.
+
+Full-source extraction's cold and quiet-path cost remains unresolved. A
+cold initial extraction may delay first paint. The follow-up measured about
+378 ms cold and 369 ms quiet extraction for a 539 KB fixture. A throwaway Worker
+preserved its bounded result and allowed an input during computation, supporting
+off-main-thread placement as a candidate—not a production protocol or an
+absence-of-blocking guarantee. No Worker was added to the app. This is not a
+performance acceptance claim and does not complete Stage 2.
+
+Reuse for this logical slice: existing document-lead extraction and task ranges;
+existing Documents source lookup and quiet/save lifecycle; Rabbita `assoc_by`, `map`, `map2`, `switch_by`,
+and `view`; and the existing Sidebar provider factory. `String`, `StringView`,
+`StringBuilder`, `Option`, `Map`, and `Set` were considered; no manual cache was
+added. `String::from_iter` with `iter.take` is reused for the legacy dialog's
+scalar label cap.
+
 ### Product purpose: reduce the effort of reusing saved writing
 
 The product goal is to reduce the human effort required to consult or revise
