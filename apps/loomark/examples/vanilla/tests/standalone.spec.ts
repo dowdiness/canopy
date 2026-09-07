@@ -325,36 +325,49 @@ function installDelayedDocumentAbort(targetKey: string): void {
   const state = globalThis as typeof globalThis & {
     __loomarkDelayedAbortStarted?: boolean
     __loomarkDelayedAbortFinished?: boolean
-    __loomarkDelayedAbortOriginal?: typeof IDBObjectStore.prototype.put
+    __loomarkReleaseAbort?: () => void
+    __loomarkRecoveryCommitted?: boolean
   }
-  const prototype = IDBObjectStore.prototype as any
+  const prototype = IDBObjectStore.prototype
   const originalPut = prototype.put
-  state.__loomarkDelayedAbortOriginal = originalPut
   state.__loomarkDelayedAbortStarted = false
   state.__loomarkDelayedAbortFinished = false
+  state.__loomarkRecoveryCommitted = false
+  let releaseRequested = false
+  state.__loomarkReleaseAbort = () => { releaseRequested = true }
   prototype.put = function(
     this: IDBObjectStore,
     value: unknown,
     recordKey?: IDBValidKey,
   ) {
     const request = originalPut.call(this, value, recordKey)
-    if (recordKey === targetKey) {
-      state.__loomarkDelayedAbortStarted = true
-      const store = this
-      const transaction = this.transaction
-      const started = performance.now()
-      const keepAlive = () => {
-        if (performance.now() - started >= 500) {
-          transaction.abort()
-          state.__loomarkDelayedAbortFinished = true
-          return
-        }
-        const keepAliveRequest = store.get(recordKey)
-        keepAliveRequest.addEventListener("success", keepAlive)
-        keepAliveRequest.addEventListener("error", keepAlive)
-      }
-      keepAlive()
+    if (recordKey !== targetKey) return request
+    if (state.__loomarkDelayedAbortStarted) {
+      // A compensating write must be allowed to commit, not aborted again.
+      this.transaction.addEventListener("complete", () => {
+        state.__loomarkRecoveryCommitted = true
+      }, { once: true })
+      return request
     }
+    state.__loomarkDelayedAbortStarted = true
+    const store = this
+    const transaction = this.transaction
+    let aborting = false
+    transaction.addEventListener("abort", () => {
+      aborting = true
+      state.__loomarkDelayedAbortFinished = true
+    }, { once: true })
+    // Hold the transaction until the test has delivered the revert input.
+    const keepAlive = () => {
+      if (aborting) return
+      if (releaseRequested) {
+        aborting = true
+        transaction.abort()
+        return
+      }
+      store.get(recordKey).addEventListener("success", keepAlive, { once: true })
+    }
+    keepAlive()
     return request
   }
 }
@@ -1956,12 +1969,26 @@ test("active failure after acknowledged revert restores truthful Saved", async (
     }).__loomarkDelayedAbortStarted ?? false
   ))).toBe(true)
   await text.fill("# Untitled\n")
+  await page.evaluate(() => {
+    const state = globalThis as typeof globalThis & {
+      __loomarkDelayedAbortFinished?: boolean
+      __loomarkReleaseAbort?: () => void
+    }
+    if (state.__loomarkDelayedAbortFinished || !state.__loomarkReleaseAbort) {
+      throw new Error("first save must still be active before releasing its abort")
+    }
+    state.__loomarkReleaseAbort()
+  })
   await expect.poll(() => page.evaluate(() => (
     (globalThis as typeof globalThis & {
       __loomarkDelayedAbortFinished?: boolean
     }).__loomarkDelayedAbortFinished ?? false
   ))).toBe(true)
 
+  await expect.poll(() => page.evaluate(() => (
+    (globalThis as typeof globalThis & { __loomarkRecoveryCommitted?: boolean })
+      .__loomarkRecoveryCommitted ?? false
+  ))).toBe(true)
   await expect(page.getByRole("alert")).toHaveCount(0)
   await expect(page.getByRole("button", { name: "New document", exact: true })).toBeEnabled()
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
