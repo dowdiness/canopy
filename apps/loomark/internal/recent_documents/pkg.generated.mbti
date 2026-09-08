@@ -9,18 +9,27 @@ import {
 }
 
 // Values
-pub fn view(input~ : @rabbita.Val[@vector.Vector[Seed]], visible~ : @rabbita.Val[Bool], on_intent~ : @cmd.Emit[Intent], close_after_action~ : @cmd.Cmd) -> @rabbita.Val[@html.Html]
+pub fn build(input~ : @rabbita.Val[@vector.Vector[Seed]], visible~ : @rabbita.Val[Bool], can_create~ : @rabbita.Val[Bool], compact~ : @rabbita.Val[Bool], delete_target~ : @rabbita.Val[String?], on_intent~ : @cmd.Emit[Intent], close_after_action~ : @cmd.Cmd) -> RecentDocumentsFeature
 
 // Errors
 
 // Types and methods
 pub enum Intent {
+  Create
   Select(String)
-  Delete(String)
+  RequestDelete(String)
+  CancelDelete
+  ConfirmDelete(String)
 }
 
+pub struct RecentDocumentsFeature {
+  // private fields
+}
+pub fn RecentDocumentsFeature::dialog(Self) -> @rabbita.Val[@html.Html]
+pub fn RecentDocumentsFeature::navigation(Self) -> @rabbita.Val[@html.Html]
+
 type Seed derive(Eq)
-pub fn Seed::Seed(docid~ : String, ordinal~ : (Int, Int)?, lead_source~ : String?, selected~ : Bool, can_select~ : Bool, can_delete~ : Bool, untouched_new~ : Bool, compact~ : Bool, status~ : String?) -> Self
+pub fn Seed::Seed(docid~ : String, lead_source~ : String?, selected~ : Bool, can_select~ : Bool, can_delete~ : Bool, untouched_new~ : Bool, compact~ : Bool, status~ : String?) -> Self
 
 // Type aliases
 

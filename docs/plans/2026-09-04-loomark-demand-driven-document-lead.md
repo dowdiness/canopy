@@ -646,14 +646,14 @@ was introduced. A failing pure view test covered the missing row; unit and
 browser tests cover first edit, repeated New, abandonment, selection and
 unchanged storage.
 
-### Current draft connection slice
+### Current deep-module connection
 
-This is a partial migration, not completion of the implementation stages above.
-The existing app model and Documents reducer remain in place; no
-`internal/documents` package, timer, Worker, Preview change, runtime, or storage
-mechanism was added. `recent_documents` now owns document rows, its keyed graph,
-and Select/Delete intents. `app` still owns the New header action and the legacy
-Delete dialog.
+This connection deepens `recent_documents` without changing the existing app
+model or Documents reducer. No `internal/documents` package, timer, Worker,
+Preview change, runtime, or storage mechanism was added. `recent_documents`
+owns the navigation, New action, rows, Delete confirmation, keyed graph, bounded
+label disambiguation, and feature intents. `app` supplies resolved capabilities
+and maps those intents to its reducer.
 
 The app projects capability-resolved seeds. A feature-scoped outer
 `assoc_by(DocumentId)` projects the accepted lead source, extracts the lead, and
@@ -668,10 +668,9 @@ temporary, with no Delete action.
 Rows use bounded primary text and a muted description, each clamped to two
 lines. The provisional limits are 80 and 160 Unicode scalar values respectively;
 they are not grapheme budgets or production acceptance criteria. Accessible row
-labels and tooltips use the bounded primary plus the seed ordinal. No Catalog
-label or full source is placed in row HTML. The app's remaining legacy Delete
-dialog still derives its label in `app` and caps its base label at 80 Unicode
-scalars before adding the ordinal.
+labels and tooltips use the bounded primary. `recent_documents` derives
+ordinals from those bounded labels and uses the same label for Delete
+confirmation. No Catalog label or full source is placed in row or dialog HTML.
 
 Task decoration is driven by `DocumentLead` IR task-marker ranges, not a regex;
 checkbox-looking text in code stays literal. Review tightened row ARIA and

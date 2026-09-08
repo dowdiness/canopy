@@ -1,7 +1,6 @@
 ///|
 struct Seed {
   docid : String
-  ordinal : (Int, Int)?
   lead_source : String?
   selected : Bool
   can_select : Bool
@@ -14,7 +13,6 @@ struct Seed {
 ///|
 pub fn Seed::Seed(
   docid~ : String,
-  ordinal~ : (Int, Int)?,
   lead_source~ : String?,
   selected~ : Bool,
   can_select~ : Bool,
@@ -25,7 +23,6 @@ pub fn Seed::Seed(
 ) -> Seed {
   {
     docid,
-    ordinal,
     lead_source,
     selected,
     can_select,
@@ -38,14 +35,23 @@ pub fn Seed::Seed(
 
 ///|
 pub enum Intent {
+  Create
   Select(String)
-  Delete(String)
+  RequestDelete(String)
+  CancelDelete
+  ConfirmDelete(String)
 }
 
 ///|
 priv struct Row {
   seed : Seed
   lead : @document_lead.DocumentLead?
+} derive(Eq)
+
+///|
+priv struct PresentedRow {
+  row : Row
+  ordinal : (Int, Int)?
 } derive(Eq)
 
 ///|
@@ -103,14 +109,8 @@ fn description_view(
 }
 
 ///|
-fn render_row(
-  key : String,
-  row : Row,
-  on_intent : @cmd.Emit[Intent],
-  close : @cmd.Cmd,
-) -> @html.Html {
-  let seed = row.seed
-  let base = match row.lead {
+fn row_base_label(seed : Seed, lead : @document_lead.DocumentLead?) -> String {
+  match lead {
     Some(lead) =>
       if lead.primary() == "" {
         "Empty document"
@@ -122,10 +122,53 @@ fn render_row(
       }
     None => if seed.untouched_new { "New document" } else { "Document" }
   }
-  let label = match seed.ordinal {
+}
+
+///|
+fn present_rows(rows : @vector.Vector[Row]) -> @vector.Vector[PresentedRow] {
+  let values = rows.to_array()
+  @vector.Vector(
+    values.mapi((index, row) => {
+      let base = row_base_label(row.seed, row.lead)
+      let total = values.count_if(other => {
+        row_base_label(other.seed, other.lead) == base
+      })
+      let ordinal = if total == 1 {
+        None
+      } else {
+        Some(
+          (
+            values
+            .view(end=index + 1)
+            .count_if(other => row_base_label(other.seed, other.lead) == base),
+            total,
+          ),
+        )
+      }
+      PresentedRow::{ row, ordinal }
+    })[:],
+  )
+}
+
+///|
+fn row_label(row : PresentedRow) -> String {
+  let base = row_base_label(row.row.seed, row.row.lead)
+  match row.ordinal {
     Some((ordinal, total)) => "\{base} (\{ordinal} of \{total})"
     None => base
   }
+}
+
+///|
+fn render_row(
+  key : String,
+  presented : PresentedRow,
+  on_intent : @cmd.Emit[Intent],
+  close : @cmd.Cmd,
+) -> @html.Html {
+  let row = presented.row
+  let seed = row.seed
+  let label = row_label(presented)
   let description_id = "loomark-document-description-\{key}"
   let primary = match row.lead {
     Some(lead) => {
@@ -210,7 +253,7 @@ fn render_row(
         title="Delete \"\{label}\"",
         class="loomark-sidebar-action loomark-delete-action",
         style=["width:2rem;height:2rem"],
-        on_click=on_intent(Intent::Delete(key)),
+        on_click=on_intent(Intent::RequestDelete(key)),
         @html.span(
           class="i-lucide-trash-2",
           attrs=@html.Attrs::build().aria_hidden("true"),
@@ -222,13 +265,84 @@ fn render_row(
 }
 
 ///|
+fn can_open_delete_dialog(row : PresentedRow) -> Bool {
+  row.row.lead is Some(_) && row.row.seed.can_delete
+}
+
+///|
+fn delete_dialog_title(row : PresentedRow) -> String {
+  "Delete \"\{row_label(row)}\"?"
+}
+
+///|
+fn render_delete_dialog(
+  document_id : String,
+  row : PresentedRow,
+  on_intent : @cmd.Emit[Intent],
+) -> @rabbita.Val[@html.Html] {
+  @rui.alert_dialog(
+    id="loomark-delete-document",
+    default_open=true,
+    on_open_change=@cmd.Emit(open => {
+      if open {
+        @cmd.none
+      } else {
+        on_intent(Intent::CancelDelete)
+      }
+    }),
+    scope => {
+      @rui.alert_dialog_portal([
+        @rui.alert_dialog_content(scope, [
+          @rui.alert_dialog_header([
+            @rui.alert_dialog_title(scope, delete_dialog_title(row)),
+            @rui.alert_dialog_description(
+              scope, "This permanently removes the document from this browser.",
+            ),
+          ]),
+          @rui.alert_dialog_footer([
+            @rui.alert_dialog_cancel(scope, "Cancel"),
+            @rui.alert_dialog_action(
+              scope,
+              on_click=on_intent(Intent::ConfirmDelete(document_id)),
+              class="[--rui-button-bg:var(--color-lm-danger)] [--rui-button-fg:white]",
+              "Delete document",
+            ),
+          ]),
+        ]),
+      ])
+    },
+  )
+}
+
+///|
 /// Pure keyed lead projection outlives disposable visible HTML rows.
-pub fn view(
+pub struct RecentDocumentsFeature {
+  priv navigation : @rabbita.Val[@html.Html]
+  priv dialog : @rabbita.Val[@html.Html]
+}
+
+///|
+pub fn RecentDocumentsFeature::navigation(
+  self : Self,
+) -> @rabbita.Val[@html.Html] {
+  self.navigation
+}
+
+///|
+pub fn RecentDocumentsFeature::dialog(self : Self) -> @rabbita.Val[@html.Html] {
+  self.dialog
+}
+
+///|
+pub fn build(
   input~ : @rabbita.Val[@vector.Vector[Seed]],
   visible~ : @rabbita.Val[Bool],
+  can_create~ : @rabbita.Val[Bool],
+  compact~ : @rabbita.Val[Bool],
+  delete_target~ : @rabbita.Val[String?],
   on_intent~ : @cmd.Emit[Intent],
   close_after_action~ : @cmd.Cmd,
-) -> @rabbita.Val[@html.Html] {
+) -> RecentDocumentsFeature {
   let rows = input.assoc_by(
     (_, seed) => {
       let lead = seed.map(seed => seed.lead_source).map(lead_for)
@@ -236,15 +350,16 @@ pub fn view(
     },
     by=seed => seed.docid,
   )
-  visible.switch_by(
+  let presented_rows = rows.map(present_rows)
+  let content = visible.switch_by(
     visible => {
       if visible {
-        rows
+        presented_rows
         .assoc_by(
           (key, row) => {
             row.map(row => render_row(key, row, on_intent, close_after_action))
           },
-          by=row => row.seed.docid,
+          by=row => row.row.seed.docid,
         )
         .view(rows => @sidebar.sidebar_menu(rows.to_array()))
       } else {
@@ -253,4 +368,71 @@ pub fn view(
     },
     by=visible => if visible { "visible" } else { "hidden" },
   )
+  let navigation = can_create.map3(compact, content, (
+    can_create,
+    compact,
+    content,
+  ) => {
+    @html.div(class="contents", [
+      @sidebar.sidebar_header(
+        style=["align-items:flex-end"],
+        @sidebar.sidebar_menu_button(
+          disabled=!can_create,
+          aria_label="New document",
+          title="New document",
+          class="active:opacity-50",
+          style=["width:2rem;height:2rem;justify-content:center;padding:0"],
+          on_click=@cmd.batch([
+            on_intent(Intent::Create),
+            if compact {
+              close_after_action
+            } else {
+              @cmd.none
+            },
+          ]),
+          @view.plus_icon(),
+        ),
+      ),
+      @sidebar.sidebar_content(
+        style=[],
+        @sidebar.sidebar_group(@sidebar.sidebar_group_content(content)),
+      ),
+    ])
+  })
+  let dialog = delete_target.switch_by(
+    target => {
+      match target {
+        None => @rabbita.Val::constant(@html.nothing)
+        Some(document_id) => {
+          let candidate = presented_rows.map(rows => {
+            rows
+            .iter()
+            .find_first(row => row.row.seed.docid == document_id)
+            .filter(can_open_delete_dialog)
+          })
+          candidate.switch_by(
+            candidate => {
+              match candidate {
+                Some(row) => render_delete_dialog(document_id, row, on_intent)
+                None => @rabbita.Val::constant(@html.nothing)
+              }
+            },
+            by=candidate => {
+              match candidate {
+                Some(_) => "available"
+                None => "unavailable"
+              }
+            },
+          )
+        }
+      }
+    },
+    by=target => {
+      match target {
+        Some(document_id) => "confirm-\{document_id}"
+        None => "closed"
+      }
+    },
+  )
+  { navigation, dialog }
 }

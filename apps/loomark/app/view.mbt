@@ -56,141 +56,10 @@ fn mode_content(mode : EditorMode, content : @rabbita.Html) -> @rabbita.Html {
 }
 
 ///|
-fn document_base_label(entry : @source_repository.CatalogEntry) -> String {
-  entry.name().unwrap_or("Unnamed document")
-}
-
-///|
-fn document_option_label(
-  entries : ArrayView[@source_repository.CatalogEntry],
-  index : Int,
-  entry : @source_repository.CatalogEntry,
-) -> String {
-  let base = String::from_iter(document_base_label(entry).iter().take(80))
-  match document_option_ordinal(entries, index, entry) {
-    None => base
-    Some((ordinal, total)) => "\{base} (\{ordinal} of \{total})"
-  }
-}
-
-///|
-fn document_option_ordinal(
-  entries : ArrayView[@source_repository.CatalogEntry],
-  index : Int,
-  entry : @source_repository.CatalogEntry,
-) -> (Int, Int)? {
-  let base = document_base_label(entry)
-  let total = entries.count_if(other => document_base_label(other) == base)
-  if total == 1 {
-    None
-  } else {
-    Some(
-      (
-        entries
-        .view(end=index + 1)
-        .count_if(other => document_base_label(other) == base),
-        total,
-      ),
-    )
-  }
-}
-
-///|
-fn recent_entries(
-  editing : EditingState,
-) -> Array[@source_repository.CatalogEntry] {
-  let persisted = editing.documents.snapshot().catalog().entries()
-  let entries = editing.documents
-    .current_sources()
-    .filter_map(source => {
-      let document_id = source.document_id()
-      let persisted_entry = match
-        persisted.search_by(entry => entry.document_id() == document_id) {
-        Some(index) => persisted.get(index)
-        None => None
-      }
-      let visible = persisted_entry is Some(_) ||
-        source.text() != "" ||
-        source.change_order().value() > 0L
-      if visible {
-        @source_repository.CatalogEntry::new(
-          document_id,
-          match persisted_entry {
-            Some(entry) => entry.name()
-            None => None
-          },
-          change_order=source.change_order(),
-        )
-      } else {
-        None
-      }
-    })
-  let ordered = @source_repository.Catalog::from_entries(entries)
-    .unwrap()
-    .entries()
-    .to_owned()
-  let document_id = editing.activation.document_id
-  if editing.documents.is_untouched_new(document_id) {
-    // Local presentation builder only; neither Catalog nor saved text is changed.
-    let visible = [
-      @source_repository.CatalogEntry::new(document_id, Some("New document")).unwrap(),
-    ]
-    visible.append(ordered.view())
-    visible
-  } else {
-    ordered
-  }
-}
-
-///|
-fn recent_document_seeds(
-  editing : EditingState,
-) -> @vector.Vector[@recent_documents.Seed] {
-  let entries = recent_entries(editing)
-  @vector.Vector(
-    entries.mapi((index, entry) => {
-      let docid = entry.document_id()
-      let status = match editing.documents.delete_status(docid) {
-        Some(Available) => None
-        Some(Failed(_, _)) => Some("Delete failed")
-        Some(Waiting(_)) | Some(Deleting(_)) | Some(Probing(_)) =>
-          Some("Deleting")
-        Some(Unknown(_)) => Some("Unknown deletion outcome")
-        None => None
-      }
-      let can_delete = match editing.documents.delete_status(docid) {
-        Some(Available) | Some(Failed(_, _)) => true
-        _ => false
-      }
-      @recent_documents.Seed::Seed(
-        docid~,
-        ordinal=document_option_ordinal(entries.view(), index, entry),
-        lead_source=editing.documents.lead_source(docid),
-        selected=docid == editing.activation.document_id,
-        can_select=can_select(editing, docid),
-        can_delete~,
-        untouched_new=editing.documents.is_untouched_new(docid),
-        compact=editing.compact,
-        status~,
-      )
-    })[:],
-  )
-}
-
-///|
 fn document_sidebar(
   scope : @sidebar.SidebarScope,
-  editing : EditingState,
-  emit : @rabbita.Emit[Msg],
   recent_documents : @rabbita.Html,
 ) -> @rabbita.Html {
-  let available = can_activate(editing)
-  let compact = editing.compact
-  let close_after_action = if compact {
-    @sidebar.sidebar_collapse(scope)
-  } else {
-    @cmd.none
-  }
   @sidebar.sidebar(
     scope,
     id="loomark-document-sidebar",
@@ -200,28 +69,7 @@ fn document_sidebar(
     collapsible=@sidebar.SidebarIcon,
     aria_label="Documents",
     class="[--rui-sidebar:var(--color-lm-foundation)] [--rui-sidebar-foreground:var(--color-lm-ink)] [--rui-sidebar-border:var(--color-lm-rule)] [--rui-sidebar-accent:var(--color-lm-accent-soft)] [--rui-sidebar-accent-foreground:var(--color-lm-accent)]",
-    [
-      @sidebar.sidebar_header(
-        style=["align-items:flex-end"],
-        @sidebar.sidebar_menu_button(
-          disabled=!available,
-          aria_label="New document",
-          title="New document",
-          class="active:opacity-50",
-          style=["width:2rem;height:2rem;justify-content:center;padding:0"],
-          on_click=@cmd.batch([emit(CreateRequested), close_after_action]),
-          plus_icon(),
-        ),
-      ),
-      @sidebar.sidebar_content(
-        style=if @sidebar.sidebar_is_collapsed(scope) {
-          ["display:none"]
-        } else {
-          []
-        },
-        @sidebar.sidebar_group(@sidebar.sidebar_group_content(recent_documents)),
-      ),
-    ],
+    [recent_documents],
   )
 }
 
@@ -472,7 +320,7 @@ fn view(
           @html.div(
             class="flex h-full min-h-0 min-w-0 flex-1 opacity-100 transition-opacity duration-[140ms] ease-[cubic-bezier(0.23,1,0.32,1)] starting:opacity-[0.92] motion-reduce:duration-[80ms] motion-reduce:ease-[ease]",
             [
-              document_sidebar(sidebar, editing, emit, recent_documents),
+              document_sidebar(sidebar, recent_documents),
               @html.div(
                 class="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-lm-paper",
                 [
