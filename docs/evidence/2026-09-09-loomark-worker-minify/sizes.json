@@ -1,0 +1,51 @@
+{
+  "node": "v24.14.1",
+  "terser": "5.51.2",
+  "options": [
+    "-c",
+    "toplevel=true",
+    "-m",
+    "toplevel=true"
+  ],
+  "compression": "Offline encoded-size estimates: gzip level9, Brotli quality11; no server compression changed or network transfer measured.",
+  "files": {
+    "preview-worker.js": {
+      "before": {
+        "sha256": "28e80af8461226375570183cffe8ddfed24b762c18f547cb4462d6a9af701994",
+        "raw": 2993569,
+        "gzip9": 320819,
+        "brotli11": 221658
+      },
+      "after": {
+        "sha256": "2072139d6304bf13121c4194870fb7599385d4522b7fa7491217b30c789eb044",
+        "raw": 608646,
+        "gzip9": 146147,
+        "brotli11": 117696
+      },
+      "reductionPercent": {
+        "raw": 79.66821543114591,
+        "gzip9": 54.445653156452714,
+        "brotli11": 46.901984137725684
+      }
+    },
+    "index.html": {
+      "before": {
+        "sha256": "fd8228c0022bde6a006123489cc983774bbf0c42104ade874e7f47615d518842",
+        "raw": 3076700,
+        "gzip9": 323843,
+        "brotli11": 223029
+      },
+      "after": {
+        "sha256": "399076715840d31fa3b066fbbe70dc18092cd5ecfa41b17da48f9c1e57c95f79",
+        "raw": 627566,
+        "gzip9": 147394,
+        "brotli11": 118366
+      },
+      "reductionPercent": {
+        "raw": 79.60262619039881,
+        "gzip9": 54.48597005339006,
+        "brotli11": 46.92797797595828
+      }
+    }
+  }
+}

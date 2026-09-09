@@ -1,0 +1,33 @@
+{
+  "sources": {
+    "apps/loomark/app/app.mbt": "ceb5de597a34d190a03d3e4576ce15120be11a97550e3feb8e4921209fe40dd2",
+    "apps/loomark/internal/preview/engine.mbt": "c73a60c3a6b84de91e340ec24e87fb6dbf7f7b038f80f4f63b7f250d32162864",
+    "apps/loomark/internal/preview/worker_transport.mbt": "e84524f221bae1f1dd308e6c628b897d5bcedb6dc5d6f6ca25f100c55f773740",
+    "apps/loomark/internal/preview/dispose_wbtest.mbt": "33a97e411a5914fcfa4e6c25b36fe75426091a1dd64623d1e68bf05a3211771a",
+    "apps/loomark/internal/preview/pkg.generated.mbti": "5877b04075a59560aea38c78b1b285ebd93b379d34d21b69d84e06961b988248",
+    "apps/loomark/fixture/main.mbt": "3887beac2e6d7cdc57977a4ca890e85817a214392ecac7b5b94698b9f645bc98",
+    "apps/loomark/fixture/moon.pkg": "045d575a49d9f534bea459c738b4980b7d5668e2f1719d88b0d6e3f951f7b780",
+    "apps/loomark/examples/vanilla/tests/worker-preview.spec.ts": "e762faeee21e4cf30e294a75b3244f80bb0bcd94acaac9f1d9cdd2d474158fc5",
+    "apps/loomark/examples/vanilla/tests/worker-lifecycle.spec.ts": "8aed6f8f9532b0137987e631a73bc59720b93b7a48c02946914f43adbe7313ee",
+    "scripts/build-loomark-preview-worker.sh": "68db4f91499698d69a0dc23274265627c3075dbde4316eff34a675c5ef7aef97",
+    "scripts/test-loomark-preview-worker.mjs": "2c49cc578f04712ed3f01eacece3a709ed97ecb4c7a72cc5d6032768a5bd8962",
+    "scripts/test-loomark-preview-fixture.mjs": "3bd6acd5c1693e0f5a06c1044af216afec20b3d8cfed52c234ec41723fba7f86",
+    "scripts/loomark-preview-worker-offline-probe.mjs": "d0dd3b3241d4ed8786bab47e74a0b127ab4f5e8cd9cfb55650b109bbe459b000"
+  },
+  "bundles": {
+    "index.js": "a964649bfc3887a9c7b041d47836223dac285da765e39deb93057d26e3485fb6",
+    "index.html": "fd8228c0022bde6a006123489cc983774bbf0c42104ade874e7f47615d518842",
+    "preview-worker.js": "28e80af8461226375570183cffe8ddfed24b762c18f547cb4462d6a9af701994"
+  },
+  "bytes": {
+    "index.html": 3076700,
+    "preview-worker.js": 2993569
+  },
+  "notes": [
+    "10ms is now an effort goal by user instruction; no new performance campaign.",
+    "Offline coverage begins after application HTML/code is loaded, not cold offline navigation.",
+    "Cold RED runs archived pre-change main/Worker assets on an isolated temporary server; GREEN runs current bundled-code build.",
+    "Disposal RED omits only the app cleanup subscription from the fixture build (2 assertion failures); restored fixture passes 3 cases.",
+    "Earlier delegated RED attempts with a local-mode URL are not accepted as RED evidence."
+  ]
+}

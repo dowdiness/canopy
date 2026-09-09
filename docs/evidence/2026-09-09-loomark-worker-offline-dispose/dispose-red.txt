@@ -1,0 +1,67 @@
+Loomark standalone output at http://127.0.0.1:4326
+
+Running 3 tests using 1 worker
+
+  ✘  1 tests/worker-lifecycle.spec.ts:70:1 › switch_by unmount balances Worker and blob resources across repeated remounts (1.6s)
+  ✘  2 tests/worker-lifecycle.spec.ts:99:1 › unmount fences held callbacks and a remount remains live (827ms)
+  ✓  3 tests/worker-lifecycle.spec.ts:146:1 › unmount before deferred preparation cannot create a Worker later (700ms)
+
+
+  1) tests/worker-lifecycle.spec.ts:70:1 › switch_by unmount balances Worker and blob resources across repeated remounts 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 3
+    + Received  + 3
+
+      Object {
+    -   "balanced": true,
+    +   "balanced": false,
+        "created": 3,
+    -   "revoked": 3,
+    -   "terminated": 3,
+    +   "revoked": 0,
+    +   "terminated": 0,
+        "timers": 0,
+        "workers": 3,
+      }
+
+      94 |     }
+      95 |   })
+    > 96 |   expect(resources).toEqual({ workers: 3, terminated: 3, created: 3, revoked: 3, timers: 0, balanced: true })
+         |                     ^
+      97 | })
+      98 |
+      99 | test("unmount fences held callbacks and a remount remains live", async ({ page }) => {
+        at /home/antisatori/ghq/github.com/dowdiness/canopy-loomark-worker-preview/apps/loomark/examples/vanilla/tests/worker-lifecycle.spec.ts:96:21
+
+    Error Context: test-results/worker-lifecycle-switch-by-71388-es-across-repeated-remounts/error-context.md
+
+  2) tests/worker-lifecycle.spec.ts:99:1 › unmount fences held callbacks and a remount remains live 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 1
+
+      Array [
+    -   0,
+        1,
+    +   0,
+      ]
+
+      121 |     const p = (globalThis as typeof globalThis & { __loomarkFixtureProbe: Probe }).__loomarkFixtureProbe
+      122 |     return [p.timers.length, p.revokedUrls.length]
+    > 123 |   })).toEqual([0, 1])
+          |       ^
+      124 |   await toggle.click()
+      125 |   const freshText = page.getByRole("textbox", { name: "Text", exact: true })
+      126 |   await freshText.fill("# New owner")
+        at /home/antisatori/ghq/github.com/dowdiness/canopy-loomark-worker-preview/apps/loomark/examples/vanilla/tests/worker-lifecycle.spec.ts:123:7
+
+    Error Context: test-results/worker-lifecycle-unmount-f-93b1b--and-a-remount-remains-live/error-context.md
+
+  2 failed
+    tests/worker-lifecycle.spec.ts:70:1 › switch_by unmount balances Worker and blob resources across repeated remounts 
+    tests/worker-lifecycle.spec.ts:99:1 › unmount fences held callbacks and a remount remains live ─
+  1 passed (5.1s)

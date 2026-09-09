@@ -19,13 +19,16 @@ pub struct Event {
 pub struct Input {
   // private fields
 } derive(Eq)
-pub fn Input::Input(Int, String) -> Self
+pub fn Input::Input(Int, String, composing? : Bool) -> Self
 
 pub struct PreviewEngine {
   // private fields
 }
 pub fn PreviewEngine::PreviewEngine() -> Self
 pub fn PreviewEngine::activate(Self, Input) -> (State, @cmd.Cmd)
+pub fn PreviewEngine::composition_ended(Self, State, Input, @cmd.Emit[Event]) -> (State, @cmd.Cmd)
+pub fn PreviewEngine::composition_started(Self, State, Input) -> (State, @cmd.Cmd)
+pub fn PreviewEngine::dispose(Self) -> Unit
 pub fn PreviewEngine::document_changed(Self, State, Input, @text_change.TextChange, @cmd.Emit[Event]) -> (State, @cmd.Cmd)
 pub fn PreviewEngine::request(Self, State, Input, @cmd.Emit[Event]) -> (State, @cmd.Cmd)
 pub fn PreviewEngine::suspend(Self, State, Input) -> (State, @cmd.Cmd)
@@ -35,6 +38,12 @@ pub struct State {
   // private fields
 } derive(Eq)
 pub fn State::view(Self) -> @html.Html
+
+pub struct WorkerServer {
+  // private fields
+}
+pub fn WorkerServer::WorkerServer() -> Self
+pub fn WorkerServer::dispatch_text(Self, String) -> String
 
 // Type aliases
 

@@ -1,0 +1,1 @@
+Read-only moonbit-reviewer: no critical findings. Found that cold-offline test installed the HTTP abort route after navigation. Parent moved registration before navigation and reran the focused test successfully. No formal proof or performance approval is implied.

@@ -21,3 +21,9 @@ apps/loomark/examples/vanilla/tests/fixtures/* binary
 # Preserve the existing CRLF line endings in Ideal Playwright specs while
 # treating their line terminators as valid whitespace in diff checks.
 apps/ideal/web/e2e/*.ts whitespace=cr-at-eol
+
+# Loomark captured tool-output evidence preserves original trailing spaces/final blank lines and checksums.
+docs/evidence/2026-09-06-loomark-demand-preview/*.txt whitespace=-blank-at-eol,-blank-at-eof
+docs/evidence/2026-09-08-loomark-worker-preview/*.txt whitespace=-blank-at-eol,-blank-at-eof
+docs/evidence/2026-09-09-loomark-worker-offline-dispose/*.txt whitespace=-blank-at-eol,-blank-at-eof
+docs/evidence/2026-09-09-loomark-worker-minify/*.txt whitespace=-blank-at-eol,-blank-at-eof

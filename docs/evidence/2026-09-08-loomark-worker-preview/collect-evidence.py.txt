@@ -1,0 +1,39 @@
+from pathlib import Path
+import json,gzip,hashlib,shutil,subprocess
+R=Path('/home/antisatori/ghq/github.com/dowdiness/canopy-loomark-worker-preview')
+E=R/'docs/evidence/2026-09-08-loomark-worker-preview'
+E.mkdir(parents=True,exist_ok=True)
+def sha(b):return hashlib.sha256(b).hexdigest()
+cases=['investigation-text-12','first-split']+[f'abba-{v}' for v in ['A1','B1','B2','A2']]+['paced-worker','paced-local','browser-clock','headful-worker','headful-local','headful30-worker','headful30-local']+[f'final-{i}-{v}' for i in [30,100] for v in ['A1','B1','B2','A2']]
+rows=[]; outliers=[]
+for case in cases:
+ p=Path('/tmp/loomark-worker-'+case); dest=E/case;dest.mkdir(exist_ok=True)
+ results=json.loads((p/'results.json').read_text());shutil.copy2(p/'results.json',dest/'results.json')
+ log=Path(str(p)+'.log')
+ if log.exists():shutil.copy2(log,dest/'run.log')
+ for r in results:
+  trace=Path(r['trace']['path']); b=trace.read_bytes();assert sha(b)==r['trace']['sha256']
+  (dest/(trace.name+'.gz')).write_bytes(gzip.compress(b,mtime=0))
+  events=r['raw']['events']; q=[e['queue'] for e in events if e['name']=='keydown']
+  row={'case':case,'trial':r['repetition'],'mode':'headful-Xvfb' if case.startswith(('headful','final')) else 'headless','provenance':r['provenance'],'browser':r['browser'],'processing':r['processingMs'],'keydownDelayMax':max(q,default=None),'eventDurationMax':max([e['duration'] for e in events],default=None),'longTasks':r['longTasksMs'],'previewUpdates':len(r['raw']['previewUpdates']) if 'previewUpdates' in r['raw'] else None,'offlineSaved':r['offlineSaved'],'reloadRestored':r['reloadRestored'],'previewLatest':r['previewLatest'],'errors':r['errors']}
+  assert r['processingMs']['count']==50 and r['offlineSaved'] and r['reloadRestored'] and not r['errors']
+  rows.append(row)
+  if r['processingMs']['max']>10:
+   es=json.loads(b)['traceEvents']; xs=[e for e in es if e.get('ph')=='X']; ins=sorted([e for e in xs if e.get('name')=='EventDispatch' and e.get('args',{}).get('data',{}).get('type')=='input'],key=lambda e:e['ts']);assert len(ins)==50
+   index=max(range(50),key=lambda i:r['raw']['processing'][i]);t=ins[index];start=t['ts']-r['raw']['processing'][index]*1000-2000
+   spans=[e for e in xs if e['pid']==t['pid'] and e['tid']==t['tid'] and start<=e['ts']<=t['ts']+1000 and (e.get('dur',0)>500 or e.get('name')=='EventDispatch')]
+   outliers.append({'case':case,'trial':r['repetition'],'index':index,'proxyMs':r['raw']['processing'][index],'trace':f'{case}/{trace.name}.gz','spans':spans,'interpretation':'Wall and thread CPU durations differ; these spans alone do not identify the cause of waiting or establish the cause of the older untraced 83.9ms spike.'})
+(E/'summary.json').write_text(json.dumps(rows,indent=2)+'\n');(E/'outlier-spans.json').write_text(json.dumps(outliers,indent=2)+'\n')
+logs=['unit-final','check-final','fmt-final','info-final','build-cleanup','final-e2e','local-e2e','focused-final','typecheck','focused-typecheck','core-string','core-set','e2e-fixture-cwd-failure','all-e2e','e2e-60-precleanup']
+for name in logs:
+ p=Path('/tmp/loomark-worker-'+name+'.txt')
+ if p.exists():shutil.copy2(p,E/(name+'.txt'))
+for name,p in [('driver-final.mjs.txt',R/'scripts/loomark-preview-demand-diagnostic.mjs'),('driver-headful.mjs.txt',Path('/tmp/loomark-worker-headful.mjs')),('driver-browser-clock.mjs.txt',Path('/tmp/loomark-worker-browser-clock.mjs')),('collect-evidence.py.txt',Path(__file__))]:shutil.copy2(p,E/name)
+for f in ['index.js','preview-worker.js','styles.css']:
+ b=(R/'apps/loomark/dist'/f).read_bytes();(E/(f+'.gz')).write_bytes(gzip.compress(b,mtime=0))
+files=[p for base in ['apps/loomark/internal/preview','apps/loomark/worker'] for p in (R/base).iterdir() if p.is_file()]+[R/p for p in ['apps/loomark/app/update.mbt','apps/loomark/examples/vanilla/tests/standalone.spec.ts','apps/loomark/examples/vanilla/tests/worker-preview.spec.ts','scripts/build-loomark-preview-worker.sh','scripts/test-loomark-preview-worker.mjs','scripts/loomark-preview-demand-diagnostic.mjs']]
+manifest={'head':subprocess.check_output(['git','rev-parse','HEAD'],cwd=R,text=True).strip(),'branch':subprocess.check_output(['git','branch','--show-current'],cwd=R,text=True).strip(),'sources':{str(p.relative_to(R)):sha(p.read_bytes()) for p in sorted(files)},'bundles':{f:sha((R/'apps/loomark/dist'/f).read_bytes()) for f in ['index.js','preview-worker.js','styles.css']},'note':'Final ABBA cases bind these bundles. Earlier Worker b8e6 artifacts precede six unused JSON repr binding removals and private API cleanup; do not label those as measurements of the final Worker bytes.'}
+(E/'source-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+(E/'submodules.txt').write_text(subprocess.check_output(['git','submodule','status','--recursive'],cwd=R,text=True))
+(E/'dependency-diff.txt').write_text(subprocess.check_output(['git','diff','--','deps'],cwd=R,text=True))
+print(len(rows),'trials',len(outliers),'traced threshold failures',sum(p.stat().st_size for p in E.rglob('*') if p.is_file()),'bytes')

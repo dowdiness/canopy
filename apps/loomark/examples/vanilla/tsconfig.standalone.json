@@ -8,5 +8,11 @@
     "skipLibCheck": true,
     "allowJs": false
   },
-  "include": ["playwright.standalone.config.ts", "tests/standalone.spec.ts"]
+  "include": [
+    "playwright.standalone.config.ts",
+    "playwright.worker-fixture.config.ts",
+    "tests/standalone.spec.ts",
+    "tests/worker-preview.spec.ts",
+    "tests/worker-lifecycle.spec.ts"
+  ]
 }

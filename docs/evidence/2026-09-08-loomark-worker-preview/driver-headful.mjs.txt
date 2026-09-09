@@ -1,0 +1,146 @@
+// Trusted, independently scheduled input. No production hooks or EGW injection.
+// Processing, CDP acknowledgment and next-rAF opportunity are distinct metrics;
+// neither acknowledgments nor rAF callbacks are presentation/INP measurements.
+import { chromium } from '/home/antisatori/ghq/github.com/dowdiness/canopy-loomark-worker-preview/apps/loomark/examples/vanilla/node_modules/playwright-core/index.mjs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+const url = process.env.URLBASE ?? 'http://127.0.0.1:4324/';
+const mode = process.env.MODE ?? 'Split';
+const intervalMs = Number(process.env.INTERVAL_MS ?? 30);
+const lines = Number(process.env.LINES ?? 2000);
+const repetitions = Number(process.env.REPETITIONS ?? 3);
+const traceAll = process.env.TRACE_ALL === '1';
+const out = process.env.OUTDIR ?? '/tmp/loomark-demand-probe';
+if (!['Text', 'Split'].includes(mode) || ![intervalMs, lines, repetitions].every(n => Number.isInteger(n) && n > 0)) throw Error('invalid probe settings');
+const sha256 = data => createHash('sha256').update(data).digest('hex');
+const initial = '# Runtime validation\n' + Array.from({ length: lines }, (_, i) => i % 2 ? '' : `Paragraph ${i} with **bold** text.`).join('\n');
+const provenance = {
+  url, mode, intervalMs, lines, repetitions, traceAll,
+  driverSha256: sha256(readFileSync(new URL(import.meta.url))),
+  appSha256: sha256(Buffer.from(await (await fetch(new URL('index.js', url))).arrayBuffer())),
+  sourceSha256: sha256(initial),
+  workerSha256: new URL(url).searchParams.get('preview-worker') === '1'
+    ? sha256(Buffer.from(await (await fetch(new URL('preview-worker.js', url))).arrayBuffer())) : null,
+};
+const stats = xs => { const a = [...xs].sort((x, y) => x - y); return { count: a.length, p95: a[Math.ceil(a.length * .95) - 1] ?? null, max: a.at(-1) ?? null }; };
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+mkdirSync(out, { recursive: true });
+const browser = await chromium.launch({ executablePath: '/opt/google/chrome/chrome', headless: false });
+const reports = [];
+try {
+  for (let repetition = 1; repetition <= repetitions; repetition++) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', e => errors.push(String(e)));
+    await page.goto(url);
+    const text = page.getByRole('textbox', { name: 'Text', exact: true });
+    await text.fill(initial);
+    await page.getByRole('tab', { name: 'Preview', exact: true }).click();
+    await page.getByRole('heading', { name: 'Runtime validation', exact: true }).waitFor();
+    await page.getByRole('tab', { name: mode, exact: true }).click();
+    await text.focus();
+    await text.press('Control+End');
+    await sleep(400);
+    await context.setOffline(true);
+    await page.evaluate(() => {
+      const m = globalThis.__demandMetrics = { processing: [], rafOpportunity: [], events: [], longTasks: [], previewUpdates: [], trusted: 0, observers: [] };
+      const preview = document.querySelector('[aria-label="Markdown preview"]');
+      if (preview) {
+        let previous = 0;
+        m.previewObserver = new MutationObserver(() => {
+          const chars = preview.textContent.match(/x+$/)?.[0].length ?? 0;
+          if (chars !== previous) {
+            m.previewUpdates.push({at: performance.now(), chars, currentChars: document.querySelector('textarea').value.match(/x+$/)?.[0].length ?? 0});
+            previous = chars;
+          }
+        });
+        m.previewObserver.observe(preview, {subtree: true, childList: true, characterData: true});
+      }
+      let start = 0;
+      window.addEventListener('beforeinput', e => {
+        if (e.isTrusted && e.target instanceof HTMLTextAreaElement) start = performance.now();
+      }, true);
+      window.addEventListener('input', e => {
+        if (!e.isTrusted || !(e.target instanceof HTMLTextAreaElement)) return;
+        const began = start;
+        m.trusted++;
+        queueMicrotask(() => m.processing.push(performance.now() - began));
+        requestAnimationFrame(() => m.rafOpportunity.push(performance.now() - began));
+      });
+      m.eventTimingSupported = PerformanceObserver.supportedEntryTypes.includes('event');
+      for (const type of ['event', 'longtask']) {
+        if (!PerformanceObserver.supportedEntryTypes.includes(type)) continue;
+        const observer = new PerformanceObserver(list => {
+          for (const e of list.getEntries()) {
+            if (type === 'event') m.events.push({ name: e.name, startTime: e.startTime, processingStart: e.processingStart, processingEnd: e.processingEnd, duration: e.duration, queue: e.processingStart - e.startTime, processing: e.processingEnd - e.processingStart, interactionId: e.interactionId });
+            else m.longTasks.push({ startTime: e.startTime, duration: e.duration });
+          }
+        });
+        observer.observe(type === 'event' ? { type, durationThreshold: 16 } : { type });
+        m.observers.push(observer);
+      }
+    });
+    const cdp = await context.newCDPSession(page);
+    if (repetition === 1 || traceAll) await cdp.send('Tracing.start', { categories: 'devtools.timeline,blink.user_timing,latencyInfo,v8', transferMode: 'ReturnAsStream' });
+    const acknowledgments = [], dispatchTimes = [], pending = [];
+    for (let i = 0; i < 50; i++) {
+      const sent = performance.now();
+      dispatchTimes.push(sent);
+      pending.push(cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'x', code: 'KeyX', text: 'x', unmodifiedText: 'x', windowsVirtualKeyCode: 88, timestamp: Date.now() / 1000 }).then(() => acknowledgments.push(performance.now() - sent)));
+      pending.push(cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'x', code: 'KeyX', windowsVirtualKeyCode: 88, timestamp: Date.now() / 1000 }));
+      await sleep(intervalMs);
+    }
+    await Promise.all(pending);
+    await sleep(400);
+    const raw = await page.evaluate(() => {
+      const m = globalThis.__demandMetrics;
+      m.observers.forEach(o => o.disconnect());
+      m.previewObserver?.disconnect();
+      return { previewUpdates: m.previewUpdates, processing: m.processing, rafOpportunity: m.rafOpportunity, events: m.events, longTasks: m.longTasks, trusted: m.trusted, eventTimingSupported: m.eventTimingSupported, visibility: document.visibilityState, focused: document.hasFocus(), timeOrigin: performance.timeOrigin };
+    });
+    const expected = initial + 'x'.repeat(50);
+    if (raw.trusted !== 50 || await text.inputValue() !== expected) throw Error('lost/reordered input');
+    if (mode === 'Split') await page.getByText('x'.repeat(50), { exact: false }).first().waitFor();
+    await page.waitForFunction(expected => new Promise(resolve => {
+      const req = indexedDB.open('loomark', 1);
+      req.onerror = () => resolve(false);
+      req.onsuccess = () => {
+        const db = req.result;
+        const all = db.transaction('documents', 'readonly').objectStore('documents').getAll();
+        all.onsuccess = () => { const found = all.result.some(v => { try { return JSON.parse(v).text === expected; } catch { return false; } }); db.close(); resolve(found); };
+        all.onerror = () => { db.close(); resolve(false); };
+      };
+    }), expected, { timeout: 10000 });
+    let trace = null;
+    if (repetition === 1 || traceAll) {
+      const complete = new Promise(resolve => cdp.once('Tracing.tracingComplete', resolve));
+      await cdp.send('Tracing.end');
+      const { stream } = await complete;
+      let data = '';
+      for (;;) {
+        const part = await cdp.send('IO.read', { handle: stream });
+        data += part.base64Encoded ? Buffer.from(part.data, 'base64').toString() : part.data;
+        if (part.eof) break;
+      }
+      await cdp.send('IO.close', { handle: stream });
+      const path = `${out}/trial-${repetition}.trace.json`;
+      writeFileSync(path, data);
+      trace = { path, sha256: sha256(data) };
+    }
+    await context.setOffline(false);
+    await page.reload();
+    await page.waitForFunction(expected => document.querySelector('textarea')?.value === expected, expected);
+    const report = { provenance, browser: browser.version(), repetition, trace,
+      processingMs: stats(raw.processing), dispatchAckMs: stats(acknowledgments),
+      nextRafOpportunityMs: stats(raw.rafOpportunity), longTasksMs: stats(raw.longTasks.map(t => t.duration)),
+      eventTimingEntries: raw.events.length, offlineSaved: true, reloadRestored: true,
+      previewLatest: mode === 'Split' ? true : null, errors, raw: { ...raw, acknowledgments, dispatchTimes } };
+    reports.push(report);
+    writeFileSync(`${out}/results.json`, JSON.stringify(reports, null, 2));
+    console.log(JSON.stringify({ ...report, raw: undefined }));
+    if (errors.length) throw Error('browser errors');
+    await context.close();
+  }
+} finally { await browser.close(); }
+if (reports.some(r => r.processingMs.p95 > 10 || r.processingMs.max > 10)) process.exitCode = 1;

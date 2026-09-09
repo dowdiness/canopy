@@ -1,0 +1,7 @@
+Generated tests and retained results: /tmp/loomark-worker-e2e-cliQxN
+
+Running 1 test using 1 worker
+
+  ✓  1 ../../../../../../../../../../tmp/loomark-worker-e2e-cliQxN/worker-focused.spec.ts:59:1 › first Preview demand works offline while the HTTP Worker asset is aborted (533ms)
+
+  1 passed (1.5s)

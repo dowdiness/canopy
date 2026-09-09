@@ -1,0 +1,43 @@
+{
+  "head": "90afbc8f5825d78ba322d3f956a4574a3fae75e2",
+  "branch": "experiment/loomark-worker-preview",
+  "sources": {
+    "apps/loomark/app/update.mbt": "7b54de5aef5afb372f7e58703ed4052bedbdaeaf6d69ac468278d46614fe2d1a",
+    "apps/loomark/examples/vanilla/tests/standalone.spec.ts": "3b34b47fcfe73f30194b1b0eab9b59e61bb28300e92dd91526c3a15c83c97de4",
+    "apps/loomark/examples/vanilla/tests/worker-preview.spec.ts": "acdd90534f621bd2603c41c794302367495c95d6d0605113704ad4d42083b45c",
+    "apps/loomark/internal/preview/demand_commands_wbtest.mbt": "42ab5d801eaa5a65f98972987e35a378d166cf378b0e8bcec4cf7cd1ba7d126e",
+    "apps/loomark/internal/preview/demand_regression_wbtest.mbt": "5b260d90c61b6fffc5de0c90c32333355105300239fad015fc38837ac300a320",
+    "apps/loomark/internal/preview/engine.mbt": "bf61814e676df5191315183757d9775d32e5d2201798367796692c02768bc96c",
+    "apps/loomark/internal/preview/engine_wbtest.mbt": "d19f8759a6c338b6e9f0d359d784140e719f9213ea7eee1fa44bcdb2270933ed",
+    "apps/loomark/internal/preview/lifecycle.mbt": "6229520fbd0c6b6849f3e9f05ffd4cf8a2a36366f328046a0abf7ef771b4aff1",
+    "apps/loomark/internal/preview/lifecycle_wbtest.mbt": "72ae16dbb36c683d510a1813e28c14503686b8846bb3a71fd8a5ab2d9bfa3159",
+    "apps/loomark/internal/preview/moon.pkg": "a94e7f02d15232ed7f45032930de041b60fc82d964138db85bada2e5a5c15daf",
+    "apps/loomark/internal/preview/pkg.generated.mbti": "26dfc3c1165215680092b234aa2d3e2fc0402d4074e0b551f4b74e867a0ece50",
+    "apps/loomark/internal/preview/preview_cycle_benchmark_wbtest.mbt": "b925a8551227e8a1597c1ac57a7be6abc95fb1715afe887d54fc031551a4bc73",
+    "apps/loomark/internal/preview/preview_fallback_benchmark_wbtest.mbt": "687f052b0633b6a1b737aa6a14d30debd5d8d3dadd816d70a0755298bac3e282",
+    "apps/loomark/internal/preview/remote_node.mbt": "78bdd95b55a1efb5e73c5d463ff9901ec46662c776c42916c16522db0333648f",
+    "apps/loomark/internal/preview/remote_node_wbtest.mbt": "0661eaa9fa2a9c46108fcbad6fd9cf4759ddb6db9cb0a302c1b5d112008a83fa",
+    "apps/loomark/internal/preview/renderer.mbt": "51861985e7afb2101f097b28b9d7f85e5a5dc44423fe39fe44edd16f38fd4a98",
+    "apps/loomark/internal/preview/renderer_benchmark_wbtest.mbt": "36770e6bb00f9cf90ca96ab970772d4f60ea05cc98744431729935f059d67b1b",
+    "apps/loomark/internal/preview/renderer_wbtest.mbt": "6e2b13c238d238d22cfc6ac0e76fcbca2dfe2fba78864e65562d84d0b988eecb",
+    "apps/loomark/internal/preview/view.mbt": "2330eda833dab376d2506e75867191040ff3fc8cf0d591fba209342284733241",
+    "apps/loomark/internal/preview/worker_client.mbt": "4d99e9b1ba498fac04c2b00efbc13401c6f94bea2371a0b9b5656467157d5c38",
+    "apps/loomark/internal/preview/worker_regression_wbtest.mbt": "0d758fdc2b48d489fce0fce74427e070f4c57d5e03f40d45619d99a3e1969aa6",
+    "apps/loomark/internal/preview/worker_server.mbt": "d60938968f41c2a00c9aa0d959c3ae3c4961de9244e4bf015fd064dbad3a7b5d",
+    "apps/loomark/internal/preview/worker_server_wbtest.mbt": "f267b2a400d6711f8f9ec6229f3e892a4386c8dcc2e36298eda37f133a104fcf",
+    "apps/loomark/internal/preview/worker_transport.mbt": "f2c853bc66b990a58b8e76a9c8b922c4655c276cb90d6f42727ec65c7b1f067f",
+    "apps/loomark/worker/main.mbt": "547423f629cf12d0cc92014de4251a0abb0051400c9855c49aff118c9abf8095",
+    "apps/loomark/worker/moon.pkg": "6915d713129de4d0ad196825244aa413727c97bf6930aa6583d40e3949e44d09",
+    "apps/loomark/worker/pkg.generated.mbti": "4c6e7db299ede21a253115f13d9603d06fcee721665db5e70189748814295654",
+    "scripts/build-loomark-preview-worker.sh": "d6f0d90867d6275fc319dbd6528e452ee33cfe4593e8ed35e9bbbd59c2b35731",
+    "scripts/loomark-preview-demand-diagnostic.mjs": "d64bffde6bf7b16125fbcb8dd6e6c1d65e457a2e27a3d91a7f326c03ca2be897",
+    "scripts/test-loomark-preview-worker.mjs": "509a4d14b7a644d27083b9dac47af4cb380d7e958ae61d1151c34653ae60ffda",
+    "scripts/loomark-preview-worker-offline-probe.mjs": "ed1d13830460ecb1504456434f826872f5dda4801583e1b8f1f598e0828c4edf"
+  },
+  "bundles": {
+    "index.js": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+    "preview-worker.js": "811ab6832efe78194006e381f2437c2586afccd1bf1cccac8e7c84062d29b03d",
+    "styles.css": "ca23bcb655a866ee37030e33d9d42a13c63cb95b4caa30cff00a4fc7511d4e59"
+  },
+  "note": "Final ABBA cases bind these bundles. Earlier Worker b8e6 artifacts precede six unused JSON repr binding removals and private API cleanup; do not label those as measurements of the final Worker bytes."
+}

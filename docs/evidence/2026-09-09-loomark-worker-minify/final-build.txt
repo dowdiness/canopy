@@ -1,0 +1,22 @@
+
+added 45 packages, and audited 46 packages in 628ms
+
+8 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+
+> build:styles
+> tailwindcss -i ./styles/tailwind.css -o ./public/styles.css --minify
+
+≈ tailwindcss v4.3.3
+
+Done in 275ms
+[90m12:45[0m [32m  [build][0m: Running `moon run --build-only --target js --release main`
+[90m12:45[0m [32m  [build][0m: Minifying JS with npm exec terser
+[90m12:45[0m [32m  [build][0m: Build output written to /home/antisatori/ghq/github.com/dowdiness/canopy-loomark-worker-preview/apps/loomark/dist
+{"artifacts_path":["/home/antisatori/ghq/github.com/dowdiness/canopy-loomark-worker-preview/_build/js/release/build/dowdiness/loomark/worker/worker.js"]}
+{"artifacts_path":["/home/antisatori/ghq/github.com/dowdiness/canopy-loomark-worker-preview/_build/js/release/build/dowdiness/loomark/fixture/fixture.js"]}
+558c40e9d44808225b736ed97b3c7c1602e064daa66bd6489e23330eaa373473  /home/antisatori/ghq/github.com/dowdiness/canopy-loomark-worker-preview/_build/loomark-worker-fixture/fixture.js
+a964649bfc3887a9c7b041d47836223dac285da765e39deb93057d26e3485fb6  dist/index.js
+2072139d6304bf13121c4194870fb7599385d4522b7fa7491217b30c789eb044  dist/preview-worker.js

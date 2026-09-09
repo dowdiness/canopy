@@ -1,0 +1,7 @@
+Generated tests and retained results: /tmp/loomark-worker-e2e-ZbtEp6
+
+Running 1 test using 1 worker
+
+  ✓  1 ../../../../../../../../../../tmp/loomark-worker-e2e-ZbtEp6/worker-all.spec.ts:2126:1 › 1 MiB exact Saved comparison stays within 10 ms (2.1s)
+
+  1 passed (3.0s)

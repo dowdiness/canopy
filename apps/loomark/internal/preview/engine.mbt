@@ -9,8 +9,9 @@ priv enum PreviewFailure {
 
 ///|
 priv struct AcceptedMarkdownRender {
-  previous : @markdown.MarkdownPreviousUpdate
+  previous : @markdown.MarkdownPreviousUpdate?
   lazy_keys : Array[Int]
+  remote_blocks : Array[RemoteNode]
 }
 
 ///|
@@ -36,6 +37,7 @@ priv struct PendingMarkdownRender {
 priv struct PreviewOutput {
   html : @rabbita.Html
   empty : Bool
+  wire_blocks : Array[Json]
   acceptance : PreviewAcceptance
 } derive(Eq)
 
@@ -60,6 +62,11 @@ pub struct PreviewEngine {
   priv mut next_acceptance_sequence : Int
   priv mut next_lazy_key : Int
   priv mut owner_generation : Int?
+  priv worker_mode : Bool
+  priv mut disposed : Bool
+  priv mut worker_sequence : Int
+  priv worker_client : WorkerClient
+  priv mut worker_server : Bool
 }
 
 ///|
@@ -72,7 +79,23 @@ pub fn PreviewEngine::PreviewEngine() -> PreviewEngine {
     next_acceptance_sequence: 0,
     next_lazy_key: 0,
     owner_generation: None,
+    worker_mode: preview_worker_requested(),
+    disposed: false,
+    worker_sequence: 0,
+    worker_client: new_worker_client(),
+    worker_server: false,
   }
+}
+
+///|
+/// Dispose the engine-owned Worker and all pending transport callbacks.
+pub fn PreviewEngine::dispose(self : PreviewEngine) -> Unit {
+  self.disposed = true
+  if self.worker_mode {
+    dispose_worker_client(self.worker_client)
+  }
+  self.break_parser()
+  self.owner_generation = None
 }
 
 ///|
@@ -80,9 +103,13 @@ fn PreviewEngine::activate_generation(
   self : PreviewEngine,
   generation : Int,
 ) -> Bool {
+  guard !self.disposed else { return false }
   match self.owner_generation {
     Some(current) if generation <= current => false
     None | Some(_) => {
+      if self.worker_mode {
+        stop_worker_client(self.worker_client)
+      }
       self.owner_generation = Some(generation)
       self.state = NoPair
       self.accepted_render = None
@@ -94,7 +121,7 @@ fn PreviewEngine::activate_generation(
 
 ///|
 fn PreviewEngine::owns(self : PreviewEngine, generation : Int) -> Bool {
-  self.owner_generation == Some(generation)
+  !self.disposed && self.owner_generation == Some(generation)
 }
 
 ///|
@@ -116,6 +143,17 @@ fn create_parser_state(source : String) -> Result[EngineState, PreviewFailure] {
       Ok(Healthy(parser~, updates~, source~))
     }
   }
+}
+
+///|
+#cfg(target="js")
+extern "js" fn preview_worker_requested() -> Bool =
+  #|(() => typeof window !== "undefined" && new URL(window.location.href).searchParams.get("preview-worker") === "1")
+
+///|
+#cfg(not(target="js"))
+fn preview_worker_requested() -> Bool {
+  false
 }
 
 ///|
@@ -157,7 +195,10 @@ fn PreviewEngine::output(
   updates : @markdown.MarkdownDocumentUpdates,
 ) -> PreviewOutput {
   let update = updates.document_update()
-  let previous = self.accepted_render.map(state => state.previous)
+  let previous = match self.accepted_render {
+    Some(state) => state.previous
+    None => None
+  }
   let previous_keys = self.accepted_render.map_or([], state => state.lazy_keys)
   let blocks = update.top_level_blocks(previous~)
   let matches_valid = markdown_matches_are_valid(blocks, previous_keys.length())
@@ -172,10 +213,30 @@ fn PreviewEngine::output(
     sequence: self.next_acceptance_sequence,
   }
   self.next_acceptance_sequence += 1
-  let render = { previous: update.as_previous(), lazy_keys: keys }
+  let wire_blocks = if self.worker_server {
+    blocks.map(block => {
+      match (matches_valid, block.matched_previous_block_index()) {
+        (true, Some(index)) =>
+          Json::object({ "reuse": Json::number(index.to_double()) })
+        _ => Json::object({ "node": encode_node(block.node()) })
+      }
+    })
+  } else {
+    []
+  }
+  let render = {
+    previous: Some(update.as_previous()),
+    lazy_keys: keys,
+    remote_blocks: [],
+  }
   let output = {
-    html: render_top_level_blocks(blocks, keys),
+    html: if self.worker_server {
+      @html.fragment([])
+    } else {
+      render_top_level_blocks(blocks, keys)
+    },
     empty: blocks.is_empty(),
+    wire_blocks,
     acceptance,
   }
   self.pending_render = Some({
@@ -196,6 +257,25 @@ fn PreviewEngine::accept(self : PreviewEngine, output : PreviewOutput) -> Bool {
     return false
   }
   self.accepted_render = Some(pending.render)
+  self.pending_render = None
+  true
+}
+
+///|
+/// Accept or reject the single remote candidate by sequence.
+fn PreviewEngine::acknowledge(
+  self : PreviewEngine,
+  sequence : Int,
+  accepted : Bool,
+) -> Bool {
+  guard self.pending_render is Some(pending) else { return false }
+  guard pending.acceptance.sequence == sequence &&
+    pending.owner_generation == self.owner_generation else {
+    return false
+  }
+  if accepted {
+    self.accepted_render = Some(pending.render)
+  }
   self.pending_render = None
   true
 }
@@ -283,6 +363,30 @@ fn PreviewEngine::apply(
 /// Read and materialize the current semantic result. Broken Parsers are
 /// replaced here because callers invoke refresh only at an allowed retry
 /// boundary.
+fn PreviewEngine::catch_up(
+  self : PreviewEngine,
+  source : String,
+  change : @text_change.TextChange?,
+) -> Result[PreviewOutput, PreviewFailure] {
+  match self.state {
+    Healthy(source=known_source, ..) => {
+      if known_source == source {
+        return self.refresh(source)
+      }
+      let change = match change {
+        Some(change) if change.apply(known_source) == Some(source) => change
+        _ => @text_change.ReplaceAll(source)
+      }
+      match self.apply(change, source) {
+        Ok(_) => self.refresh(source)
+        Err(failure) => Err(failure)
+      }
+    }
+    NoPair | Broken => self.refresh(source)
+  }
+}
+
+///|
 fn PreviewEngine::refresh(
   self : PreviewEngine,
   source : String,
@@ -311,28 +415,20 @@ fn PreviewEngine::prepare_owned(
   source : String,
 ) -> Result[PreviewOutput, PreviewFailure]? {
   guard self.owns(generation) else { return None }
-  Some(self.prepare(source))
+  // A preparation result may have been rejected for stale input. Reuse that
+  // healthy cache, but synchronize it before producing the requested output.
+  Some(self.catch_up(source, None))
 }
 
 ///|
-fn PreviewEngine::apply_owned(
-  self : PreviewEngine,
-  generation : Int,
-  change : @text_change.TextChange,
-  source : String,
-) -> Result[Unit, PreviewFailure]? {
-  guard self.owns(generation) else { return None }
-  Some(self.apply(change, source))
-}
-
-///|
-fn PreviewEngine::refresh_owned(
+fn PreviewEngine::catch_up_owned(
   self : PreviewEngine,
   generation : Int,
   source : String,
+  change : @text_change.TextChange?,
 ) -> Result[PreviewOutput, PreviewFailure]? {
   guard self.owns(generation) else { return None }
-  Some(self.refresh(source))
+  Some(self.catch_up(source, change))
 }
 
 ///|

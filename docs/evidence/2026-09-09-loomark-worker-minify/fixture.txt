@@ -1,0 +1,59 @@
+Loomark standalone output at http://127.0.0.1:4326
+
+Running 3 tests using 1 worker
+
+  ✘  1 tests/worker-lifecycle.spec.ts:70:1 › switch_by unmount balances Worker and blob resources across repeated remounts (5.7s)
+  ✘  2 tests/worker-lifecycle.spec.ts:99:1 › unmount fences held callbacks and a remount remains live (5.4s)
+  ✓  3 tests/worker-lifecycle.spec.ts:146:1 › unmount before deferred preparation cannot create a Worker later (764ms)
+
+
+  1) tests/worker-lifecycle.spec.ts:70:1 › switch_by unmount balances Worker and blob resources across repeated remounts 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('heading', { name: 'Cycle 0', exact: true })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByRole('heading', { name: 'Cycle 0', exact: true })
+
+
+      76 |     await text.fill(`# Cycle ${cycle}`)
+      77 |     await page.getByRole("tab", { name: "Split", exact: true }).click()
+    > 78 |     await expect(page.getByRole("heading", { name: `Cycle ${cycle}`, exact: true })).toBeVisible()
+         |                                                                                      ^
+      79 |     await toggle.click()
+      80 |     await expect(text).toHaveCount(0)
+      81 |     await toggle.click()
+        at /home/antisatori/ghq/github.com/dowdiness/canopy-loomark-worker-preview/apps/loomark/examples/vanilla/tests/worker-lifecycle.spec.ts:78:86
+
+    Error Context: test-results/worker-lifecycle-switch-by-71388-es-across-repeated-remounts/error-context.md
+
+  2) tests/worker-lifecycle.spec.ts:99:1 › unmount fences held callbacks and a remount remains live 
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 1
+    Received: 0
+
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+
+      108 |   await expect.poll(() => page.evaluate(() => (
+      109 |     (globalThis as typeof globalThis & { __loomarkFixtureProbe: Probe }).__loomarkFixtureProbe.held.length
+    > 110 |   ))).toBe(1)
+          |       ^
+      111 |   await page.evaluate(() => {
+      112 |     const p = (globalThis as typeof globalThis & { __loomarkFixtureProbe: Probe }).__loomarkFixtureProbe
+      113 |     const held = p.held[0]
+        at /home/antisatori/ghq/github.com/dowdiness/canopy-loomark-worker-preview/apps/loomark/examples/vanilla/tests/worker-lifecycle.spec.ts:110:7
+
+    Error Context: test-results/worker-lifecycle-unmount-f-93b1b--and-a-remount-remains-live/error-context.md
+
+  2 failed
+    tests/worker-lifecycle.spec.ts:70:1 › switch_by unmount balances Worker and blob resources across repeated remounts 
+    tests/worker-lifecycle.spec.ts:99:1 › unmount fences held callbacks and a remount remains live ─
+  1 passed (14.5s)

@@ -1,0 +1,9 @@
+Loomark standalone output at http://127.0.0.1:4326
+
+Running 3 tests using 1 worker
+
+  ✓  1 tests/worker-lifecycle.spec.ts:70:1 › switch_by unmount balances Worker and blob resources across repeated remounts (1.5s)
+  ✓  2 tests/worker-lifecycle.spec.ts:99:1 › unmount fences held callbacks and a remount remains live (1.2s)
+  ✓  3 tests/worker-lifecycle.spec.ts:146:1 › unmount before deferred preparation cannot create a Worker later (672ms)
+
+  3 passed (4.1s)

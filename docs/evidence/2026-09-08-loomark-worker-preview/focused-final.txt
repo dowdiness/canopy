@@ -1,0 +1,10 @@
+
+Running 5 tests using 1 worker
+
+  ✓  1 tests/worker-preview.spec.ts:36:1 › Worker is the actual Preview source, coalesces latest input and ACKs rejection (819ms)
+  ✓  2 tests/worker-preview.spec.ts:57:1 › Worker failure releases busy state, retains display and restarts on next edit (694ms)
+  ✓  3 tests/worker-preview.spec.ts:77:1 › document activation discards old Worker completion while latest document stays current (904ms)
+  ✓  4 tests/worker-preview.spec.ts:98:1 › an inflight Worker result cannot publish during composition (790ms)
+  ✓  5 tests/worker-preview.spec.ts:117:1 › silent Worker timeout preserves text and allows a fresh request (10.8s)
+
+  5 passed (14.7s)

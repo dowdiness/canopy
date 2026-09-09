@@ -1,0 +1,4 @@
+{"phase":"cold-text","syncMs":{"count":30,"p95":3.800000011920929,"max":3.899999976158142},"microtaskMs":{"count":30,"p95":3.800000011920929,"max":3.899999976158142},"applyMs":null,"syntaxApplyMs":null,"commandsSkipped":0}
+{"phase":"after-preview","syncMs":{"count":30,"p95":3,"max":3.199999988079071},"microtaskMs":{"count":30,"p95":3,"max":3.199999988079071},"applyMs":null,"syntaxApplyMs":null,"commandsSkipped":0}
+{"phase":"after-reload","syncMs":{"count":30,"p95":4.800000011920929,"max":27.900000035762787},"microtaskMs":{"count":30,"p95":4.800000011920929,"max":27.900000035762787},"applyMs":null,"syntaxApplyMs":null,"commandsSkipped":0}
+PASS: after-preview input p95/max <=10ms

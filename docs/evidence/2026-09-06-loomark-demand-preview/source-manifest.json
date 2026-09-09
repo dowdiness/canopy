@@ -1,0 +1,19 @@
+{
+  "base": "90afbc8f5825d78ba322d3f956a4574a3fae75e2",
+  "branch": "fix/loomark-demand-preview",
+  "productionBundleSha256": "90612733b4a9c94efff8d239089eb9c3afe90208c70498081941b3b83b66f654",
+  "files": {
+    "apps/loomark/CONTEXT.md": "9d71fed17baa86a8187e1e82259aad47cb4f70da0c5e404453e72b12699b6617",
+    "apps/loomark/README.md": "e21c63e5937136e2770a7a766257b196e344c488bfa83ab6fddab4abf158fd71",
+    "apps/loomark/app/update.mbt": "7b54de5aef5afb372f7e58703ed4052bedbdaeaf6d69ac468278d46614fe2d1a",
+    "apps/loomark/examples/vanilla/tests/standalone.spec.ts": "3b34b47fcfe73f30194b1b0eab9b59e61bb28300e92dd91526c3a15c83c97de4",
+    "apps/loomark/internal/preview/engine.mbt": "af199c4d8d042ce1ebd1f33d301e68cab2f85ee4aac65ec9ccca3d1d4c7e5bc1",
+    "apps/loomark/internal/preview/engine_wbtest.mbt": "d19f8759a6c338b6e9f0d359d784140e719f9213ea7eee1fa44bcdb2270933ed",
+    "apps/loomark/internal/preview/lifecycle.mbt": "983ee61d80bebd7d403846ecbeba55368d1cfb7112e990aed7606ce459b46c93",
+    "apps/loomark/internal/preview/lifecycle_wbtest.mbt": "72ae16dbb36c683d510a1813e28c14503686b8846bb3a71fd8a5ab2d9bfa3159",
+    "apps/loomark/internal/preview/pkg.generated.mbti": "e577c4ac179026b4d39bd0d59354925fd0105eec65f0e21a92d1682999e06afe",
+    "apps/loomark/internal/preview/demand_commands_wbtest.mbt": "66fcee0589b529005cefdfc7e331139ba145940b7983bd3562bd6d17a4f80ecb",
+    "apps/loomark/internal/preview/demand_regression_wbtest.mbt": "5b260d90c61b6fffc5de0c90c32333355105300239fad015fc38837ac300a320",
+    "scripts/loomark-preview-demand-diagnostic.mjs": "6d5ab970de49e6efaab0cb954d38df93e8336ac908efbf3f61d2f8addf7d9f6c"
+  }
+}

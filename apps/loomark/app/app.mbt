@@ -70,6 +70,25 @@ fn delete_dialog(
 }
 
 ///|
+priv suberror PreviewEngineSubscription {
+  PreviewEngineSubscription
+}
+
+///|
+fn preview_engine_subscription(
+  preview_engine : @preview.PreviewEngine,
+) -> @sub.Sub {
+  @sub.custom_sub(
+    "loomark-preview-engine",
+    @sub.Scope::Local,
+    PreviewEngineSubscription,
+    @sub.SubLoader((_, _) => {
+      Some({ unload: _ => preview_engine.dispose(), update_tagger: _ => () })
+    }),
+  )
+}
+
+///|
 /// Prototype: manage and switch Loomark documents inside RUI Sidebar.
 pub fn app() -> @rabbita.Val[@rabbita.Html] {
   let text_area = @text_area.TextArea::TextArea("loomark-text")
@@ -84,6 +103,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
       @sub.batch([
         @sub.on_resize(viewport => emit(ViewportChanged(viewport.width))),
         @sub.on_visibility_change(hidden => emit(VisibilityChanged(hidden))),
+        preview_engine_subscription(preview_engine),
       ])
     },
   )

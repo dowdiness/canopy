@@ -5,8 +5,30 @@ priv enum RenderPosition {
 }
 
 ///|
-fn plain_text(node : @markdown.MarkdownNode) -> String {
-  match node.view() {
+priv enum RenderNode {
+  Local(@markdown.MarkdownNode)
+  Remote(RemoteNode)
+}
+
+///|
+fn render_view(node : RenderNode) -> @markdown.MarkdownNodeView {
+  match node {
+    Local(node) => node.view()
+    Remote(node) => node.view()
+  }
+}
+
+///|
+fn render_children_nodes(node : RenderNode) -> Array[RenderNode] {
+  match node {
+    Local(node) => node.children().map(child => Local(child))
+    Remote(node) => node.children().map(child => Remote(child))
+  }
+}
+
+///|
+fn plain_text(node : RenderNode) -> String {
+  match render_view(node) {
     @markdown.Text(value~)
     | @markdown.InlineHtml(value~)
     | @markdown.Raw(value~) => value
@@ -28,7 +50,8 @@ fn plain_text(node : @markdown.MarkdownNode) -> String {
     | @markdown.Strong
     | @markdown.Emphasis
     | @markdown.Link(..)
-    | @markdown.Image(..) => node.children().map(plain_text).join("")
+    | @markdown.Image(..) =>
+      render_children_nodes(node).map(plain_text).join("")
   }
 }
 
@@ -96,10 +119,10 @@ fn safe_destination(destination : String, image~ : Bool) -> String? {
 
 ///|
 fn render_children(
-  node : @markdown.MarkdownNode,
+  node : RenderNode,
   position : RenderPosition,
 ) -> Array[@rabbita.Html] {
-  node.children().map(child => render_node(child, position~))
+  render_children_nodes(node).map(child => render_node(child, position~))
 }
 
 ///|
@@ -116,13 +139,11 @@ fn render_opaque_source(
 
 ///|
 fn render_list_children(
-  node : @markdown.MarkdownNode,
+  node : RenderNode,
   parent_list_spread : Bool,
 ) -> Array[@rabbita.Html] {
-  node
-  .children()
-  .map(child => {
-    match child.view() {
+  render_children_nodes(node).map(child => {
+    match render_view(child) {
       @markdown.ListItem(..) | @markdown.OrderedListItem(..) =>
         render_node(child, position=Flow, list_parent_spread=parent_list_spread)
       _ => render_node(child, position=Flow)
@@ -132,7 +153,7 @@ fn render_list_children(
 
 ///|
 fn render_list_item_children(
-  node : @markdown.MarkdownNode,
+  node : RenderNode,
   render_paragraphs : Bool,
   task_checked : Bool?,
 ) -> Array[@rabbita.Html] {
@@ -153,10 +174,8 @@ fn render_list_item_children(
       ]
     None => []
   }
-  node
-  .children()
-  .mapi((index, child) => {
-    match child.view() {
+  render_children_nodes(node).mapi((index, child) => {
+    match render_view(child) {
       @markdown.Paragraph => {
         let children = render_children(child, Phrasing)
         let children = if index == 0 && task_checked is Some(_) {
@@ -194,12 +213,12 @@ fn render_heading(
 
 ///|
 fn render_node(
-  node : @markdown.MarkdownNode,
+  node : RenderNode,
   position? : RenderPosition = Flow,
   list_parent_spread? : Bool = false,
   unwrap_list_item_paragraph? : Bool = false,
 ) -> @rabbita.Html {
-  let node_view = node.view()
+  let node_view = render_view(node)
   let children = match node_view {
     @markdown.Document | @markdown.BlockQuote => render_children(node, Flow)
     @markdown.UnorderedList(spread~, ..) | @markdown.OrderedList(spread~, ..) =>
@@ -395,7 +414,7 @@ fn render_node(
 /// Render one opaque semantic Markdown root as typed Rabbita Html.
 #warnings("-unused_value")
 fn render(root : @markdown.MarkdownNode) -> @rabbita.Html {
-  render_node(root)
+  render_node(Local(root))
 }
 
 ///|
@@ -409,7 +428,7 @@ fn render_top_level_blocks(
   }
   @html.fragment(
     blocks.mapi((index, block) => {
-      let node = block.node()
+      let node = Local(block.node())
       @html.lazy(keys[index], () => render_node(node))
     }),
   )
@@ -419,5 +438,5 @@ fn render_top_level_blocks(
 /// Report whether a semantic root has no renderable top-level children.
 #warnings("-unused_value")
 fn is_empty(root : @markdown.MarkdownNode) -> Bool {
-  root.children().is_empty()
+  render_children_nodes(Local(root)).is_empty()
 }

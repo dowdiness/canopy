@@ -1,0 +1,1737 @@
+[
+  {
+    "case": "investigation-text-12",
+    "trial": 1,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4324/",
+      "mode": "Text",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 12,
+      "traceAll": true,
+      "driverSha256": "6d5ab970de49e6efaab0cb954d38df93e8336ac908efbf3f61d2f8addf7d9f6c",
+      "appSha256": "90612733b4a9c94efff8d239089eb9c3afe90208c70498081941b3b83b66f654",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 5.5,
+      "max": 10.699999999254942
+    },
+    "keydownDelayMax": null,
+    "eventDurationMax": null,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": null,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": null,
+    "errors": []
+  },
+  {
+    "case": "investigation-text-12",
+    "trial": 2,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4324/",
+      "mode": "Text",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 12,
+      "traceAll": true,
+      "driverSha256": "6d5ab970de49e6efaab0cb954d38df93e8336ac908efbf3f61d2f8addf7d9f6c",
+      "appSha256": "90612733b4a9c94efff8d239089eb9c3afe90208c70498081941b3b83b66f654",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.300000000745058,
+      "max": 5.399999998509884
+    },
+    "keydownDelayMax": null,
+    "eventDurationMax": null,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": null,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": null,
+    "errors": []
+  },
+  {
+    "case": "investigation-text-12",
+    "trial": 3,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4324/",
+      "mode": "Text",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 12,
+      "traceAll": true,
+      "driverSha256": "6d5ab970de49e6efaab0cb954d38df93e8336ac908efbf3f61d2f8addf7d9f6c",
+      "appSha256": "90612733b4a9c94efff8d239089eb9c3afe90208c70498081941b3b83b66f654",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.300000000745058,
+      "max": 4.900000002235174
+    },
+    "keydownDelayMax": null,
+    "eventDurationMax": null,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": null,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": null,
+    "errors": []
+  },
+  {
+    "case": "investigation-text-12",
+    "trial": 4,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4324/",
+      "mode": "Text",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 12,
+      "traceAll": true,
+      "driverSha256": "6d5ab970de49e6efaab0cb954d38df93e8336ac908efbf3f61d2f8addf7d9f6c",
+      "appSha256": "90612733b4a9c94efff8d239089eb9c3afe90208c70498081941b3b83b66f654",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.600000001490116,
+      "max": 4.899999998509884
+    },
+    "keydownDelayMax": null,
+    "eventDurationMax": null,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": null,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": null,
+    "errors": []
+  },
+  {
+    "case": "investigation-text-12",
+    "trial": 5,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4324/",
+      "mode": "Text",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 12,
+      "traceAll": true,
+      "driverSha256": "6d5ab970de49e6efaab0cb954d38df93e8336ac908efbf3f61d2f8addf7d9f6c",
+      "appSha256": "90612733b4a9c94efff8d239089eb9c3afe90208c70498081941b3b83b66f654",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.599999997764826,
+      "max": 5.800000000745058
+    },
+    "keydownDelayMax": null,
+    "eventDurationMax": null,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": null,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": null,
+    "errors": []
+  },
+  {
+    "case": "investigation-text-12",
+    "trial": 6,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4324/",
+      "mode": "Text",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 12,
+      "traceAll": true,
+      "driverSha256": "6d5ab970de49e6efaab0cb954d38df93e8336ac908efbf3f61d2f8addf7d9f6c",
+      "appSha256": "90612733b4a9c94efff8d239089eb9c3afe90208c70498081941b3b83b66f654",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.5,
+      "max": 4.699999999254942
+    },
+    "keydownDelayMax": null,
+    "eventDurationMax": null,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": null,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": null,
+    "errors": []
+  },
+  {
+    "case": "investigation-text-12",
+    "trial": 7,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4324/",
+      "mode": "Text",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 12,
+      "traceAll": true,
+      "driverSha256": "6d5ab970de49e6efaab0cb954d38df93e8336ac908efbf3f61d2f8addf7d9f6c",
+      "appSha256": "90612733b4a9c94efff8d239089eb9c3afe90208c70498081941b3b83b66f654",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.899999998509884,
+      "max": 5.600000001490116
+    },
+    "keydownDelayMax": null,
+    "eventDurationMax": null,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": null,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": null,
+    "errors": []
+  },
+  {
+    "case": "investigation-text-12",
+    "trial": 8,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4324/",
+      "mode": "Text",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 12,
+      "traceAll": true,
+      "driverSha256": "6d5ab970de49e6efaab0cb954d38df93e8336ac908efbf3f61d2f8addf7d9f6c",
+      "appSha256": "90612733b4a9c94efff8d239089eb9c3afe90208c70498081941b3b83b66f654",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.100000001490116,
+      "max": 4.800000000745058
+    },
+    "keydownDelayMax": null,
+    "eventDurationMax": null,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": null,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": null,
+    "errors": []
+  },
+  {
+    "case": "investigation-text-12",
+    "trial": 9,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4324/",
+      "mode": "Text",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 12,
+      "traceAll": true,
+      "driverSha256": "6d5ab970de49e6efaab0cb954d38df93e8336ac908efbf3f61d2f8addf7d9f6c",
+      "appSha256": "90612733b4a9c94efff8d239089eb9c3afe90208c70498081941b3b83b66f654",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 2.899999998509884,
+      "max": 4.399999998509884
+    },
+    "keydownDelayMax": null,
+    "eventDurationMax": null,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": null,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": null,
+    "errors": []
+  },
+  {
+    "case": "investigation-text-12",
+    "trial": 10,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4324/",
+      "mode": "Text",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 12,
+      "traceAll": true,
+      "driverSha256": "6d5ab970de49e6efaab0cb954d38df93e8336ac908efbf3f61d2f8addf7d9f6c",
+      "appSha256": "90612733b4a9c94efff8d239089eb9c3afe90208c70498081941b3b83b66f654",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.100000001490116,
+      "max": 4.700000002980232
+    },
+    "keydownDelayMax": null,
+    "eventDurationMax": null,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": null,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": null,
+    "errors": []
+  },
+  {
+    "case": "investigation-text-12",
+    "trial": 11,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4324/",
+      "mode": "Text",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 12,
+      "traceAll": true,
+      "driverSha256": "6d5ab970de49e6efaab0cb954d38df93e8336ac908efbf3f61d2f8addf7d9f6c",
+      "appSha256": "90612733b4a9c94efff8d239089eb9c3afe90208c70498081941b3b83b66f654",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.199999999254942,
+      "max": 6
+    },
+    "keydownDelayMax": null,
+    "eventDurationMax": null,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": null,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": null,
+    "errors": []
+  },
+  {
+    "case": "investigation-text-12",
+    "trial": 12,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4324/",
+      "mode": "Text",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 12,
+      "traceAll": true,
+      "driverSha256": "6d5ab970de49e6efaab0cb954d38df93e8336ac908efbf3f61d2f8addf7d9f6c",
+      "appSha256": "90612733b4a9c94efff8d239089eb9c3afe90208c70498081941b3b83b66f654",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.2000000029802322,
+      "max": 5.600000001490116
+    },
+    "keydownDelayMax": null,
+    "eventDurationMax": null,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": null,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": null,
+    "errors": []
+  },
+  {
+    "case": "first-split",
+    "trial": 1,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/?preview-worker=1",
+      "mode": "Split",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 3,
+      "traceAll": true,
+      "driverSha256": "6d5ab970de49e6efaab0cb954d38df93e8336ac908efbf3f61d2f8addf7d9f6c",
+      "appSha256": "6ea4f6e8b1f10dd38156e8635753f12b15132c55a05ed48e467317a82a31d1b2",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.2999999970197678,
+      "max": 5.100000001490116
+    },
+    "keydownDelayMax": 7.4000000059604645,
+    "eventDurationMax": 1296,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": null,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "first-split",
+    "trial": 2,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/?preview-worker=1",
+      "mode": "Split",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 3,
+      "traceAll": true,
+      "driverSha256": "6d5ab970de49e6efaab0cb954d38df93e8336ac908efbf3f61d2f8addf7d9f6c",
+      "appSha256": "6ea4f6e8b1f10dd38156e8635753f12b15132c55a05ed48e467317a82a31d1b2",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3,
+      "max": 6
+    },
+    "keydownDelayMax": 3.600000001490116,
+    "eventDurationMax": 1296,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": null,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "first-split",
+    "trial": 3,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/?preview-worker=1",
+      "mode": "Split",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 3,
+      "traceAll": true,
+      "driverSha256": "6d5ab970de49e6efaab0cb954d38df93e8336ac908efbf3f61d2f8addf7d9f6c",
+      "appSha256": "6ea4f6e8b1f10dd38156e8635753f12b15132c55a05ed48e467317a82a31d1b2",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.2999999970197678,
+      "max": 6.200000002980232
+    },
+    "keydownDelayMax": 5.300000004470348,
+    "eventDurationMax": 1296,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": null,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "abba-A1",
+    "trial": 1,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/",
+      "mode": "Split",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 3,
+      "traceAll": true,
+      "driverSha256": "d64bffde6bf7b16125fbcb8dd6e6c1d65e457a2e27a3d91a7f326c03ca2be897",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": null
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.2000000029802322,
+      "max": 5.600000001490116
+    },
+    "keydownDelayMax": 59.900000005960464,
+    "eventDurationMax": 1304,
+    "longTasks": {
+      "count": 2,
+      "p95": 58,
+      "max": 58
+    },
+    "previewUpdates": 5,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "abba-A1",
+    "trial": 2,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/",
+      "mode": "Split",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 3,
+      "traceAll": true,
+      "driverSha256": "d64bffde6bf7b16125fbcb8dd6e6c1d65e457a2e27a3d91a7f326c03ca2be897",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": null
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.2000000029802322,
+      "max": 5.100000001490116
+    },
+    "keydownDelayMax": 45.100000001490116,
+    "eventDurationMax": 1288,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": 2,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "abba-A1",
+    "trial": 3,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/",
+      "mode": "Split",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 3,
+      "traceAll": true,
+      "driverSha256": "d64bffde6bf7b16125fbcb8dd6e6c1d65e457a2e27a3d91a7f326c03ca2be897",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": null
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.3000000044703484,
+      "max": 5.199999995529652
+    },
+    "keydownDelayMax": 58,
+    "eventDurationMax": 1304,
+    "longTasks": {
+      "count": 3,
+      "p95": 56,
+      "max": 56
+    },
+    "previewUpdates": 4,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "abba-B1",
+    "trial": 1,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/?preview-worker=1",
+      "mode": "Split",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 3,
+      "traceAll": true,
+      "driverSha256": "d64bffde6bf7b16125fbcb8dd6e6c1d65e457a2e27a3d91a7f326c03ca2be897",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": "b8e6a9d7aa965a5e5a47b738bb35e58f5af599604872cd168c3c071d2b2258d9"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.1999999955296516,
+      "max": 5.0999999940395355
+    },
+    "keydownDelayMax": 2.7000000029802322,
+    "eventDurationMax": 1296,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": 1,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "abba-B1",
+    "trial": 2,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/?preview-worker=1",
+      "mode": "Split",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 3,
+      "traceAll": true,
+      "driverSha256": "d64bffde6bf7b16125fbcb8dd6e6c1d65e457a2e27a3d91a7f326c03ca2be897",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": "b8e6a9d7aa965a5e5a47b738bb35e58f5af599604872cd168c3c071d2b2258d9"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.399999998509884,
+      "max": 4.800000004470348
+    },
+    "keydownDelayMax": 3.4000000059604645,
+    "eventDurationMax": 1288,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": 1,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "abba-B1",
+    "trial": 3,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/?preview-worker=1",
+      "mode": "Split",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 3,
+      "traceAll": true,
+      "driverSha256": "d64bffde6bf7b16125fbcb8dd6e6c1d65e457a2e27a3d91a7f326c03ca2be897",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": "b8e6a9d7aa965a5e5a47b738bb35e58f5af599604872cd168c3c071d2b2258d9"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.100000001490116,
+      "max": 4.5
+    },
+    "keydownDelayMax": 3.9000000059604645,
+    "eventDurationMax": 1288,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": 1,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "abba-B2",
+    "trial": 1,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/?preview-worker=1",
+      "mode": "Split",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 3,
+      "traceAll": true,
+      "driverSha256": "d64bffde6bf7b16125fbcb8dd6e6c1d65e457a2e27a3d91a7f326c03ca2be897",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": "b8e6a9d7aa965a5e5a47b738bb35e58f5af599604872cd168c3c071d2b2258d9"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.100000001490116,
+      "max": 4.799999997019768
+    },
+    "keydownDelayMax": 3.3000000044703484,
+    "eventDurationMax": 1296,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": 1,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "abba-B2",
+    "trial": 2,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/?preview-worker=1",
+      "mode": "Split",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 3,
+      "traceAll": true,
+      "driverSha256": "d64bffde6bf7b16125fbcb8dd6e6c1d65e457a2e27a3d91a7f326c03ca2be897",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": "b8e6a9d7aa965a5e5a47b738bb35e58f5af599604872cd168c3c071d2b2258d9"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.399999998509884,
+      "max": 5.200000002980232
+    },
+    "keydownDelayMax": 3.600000001490116,
+    "eventDurationMax": 1304,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": 1,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "abba-B2",
+    "trial": 3,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/?preview-worker=1",
+      "mode": "Split",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 3,
+      "traceAll": true,
+      "driverSha256": "d64bffde6bf7b16125fbcb8dd6e6c1d65e457a2e27a3d91a7f326c03ca2be897",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": "b8e6a9d7aa965a5e5a47b738bb35e58f5af599604872cd168c3c071d2b2258d9"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.399999998509884,
+      "max": 4.700000002980232
+    },
+    "keydownDelayMax": 2.7000000029802322,
+    "eventDurationMax": 1304,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": 1,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "abba-A2",
+    "trial": 1,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/",
+      "mode": "Split",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 3,
+      "traceAll": true,
+      "driverSha256": "d64bffde6bf7b16125fbcb8dd6e6c1d65e457a2e27a3d91a7f326c03ca2be897",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": null
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.2000000029802322,
+      "max": 5.800000004470348
+    },
+    "keydownDelayMax": 47.80000000447035,
+    "eventDurationMax": 1304,
+    "longTasks": {
+      "count": 1,
+      "p95": 56,
+      "max": 56
+    },
+    "previewUpdates": 3,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "abba-A2",
+    "trial": 2,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/",
+      "mode": "Split",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 3,
+      "traceAll": true,
+      "driverSha256": "d64bffde6bf7b16125fbcb8dd6e6c1d65e457a2e27a3d91a7f326c03ca2be897",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": null
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.5,
+      "max": 5.199999995529652
+    },
+    "keydownDelayMax": 60.600000001490116,
+    "eventDurationMax": 1304,
+    "longTasks": {
+      "count": 2,
+      "p95": 59,
+      "max": 59
+    },
+    "previewUpdates": 4,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "abba-A2",
+    "trial": 3,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/",
+      "mode": "Split",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 3,
+      "traceAll": true,
+      "driverSha256": "d64bffde6bf7b16125fbcb8dd6e6c1d65e457a2e27a3d91a7f326c03ca2be897",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": null
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 2.9000000059604645,
+      "max": 4.899999998509884
+    },
+    "keydownDelayMax": 3.100000001490116,
+    "eventDurationMax": 1304,
+    "longTasks": {
+      "count": 1,
+      "p95": 59,
+      "max": 59
+    },
+    "previewUpdates": 1,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "paced-worker",
+    "trial": 1,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/?preview-worker=1",
+      "mode": "Split",
+      "intervalMs": 100,
+      "lines": 2000,
+      "repetitions": 3,
+      "traceAll": true,
+      "driverSha256": "d64bffde6bf7b16125fbcb8dd6e6c1d65e457a2e27a3d91a7f326c03ca2be897",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": "b8e6a9d7aa965a5e5a47b738bb35e58f5af599604872cd168c3c071d2b2258d9"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.5999999940395355,
+      "max": 5.100000001490116
+    },
+    "keydownDelayMax": 10.700000002980232,
+    "eventDurationMax": 4240,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": 48,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "paced-worker",
+    "trial": 2,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/?preview-worker=1",
+      "mode": "Split",
+      "intervalMs": 100,
+      "lines": 2000,
+      "repetitions": 3,
+      "traceAll": true,
+      "driverSha256": "d64bffde6bf7b16125fbcb8dd6e6c1d65e457a2e27a3d91a7f326c03ca2be897",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": "b8e6a9d7aa965a5e5a47b738bb35e58f5af599604872cd168c3c071d2b2258d9"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.2000000029802322,
+      "max": 4.5
+    },
+    "keydownDelayMax": 15.700000002980232,
+    "eventDurationMax": 4240,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": 48,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "paced-worker",
+    "trial": 3,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/?preview-worker=1",
+      "mode": "Split",
+      "intervalMs": 100,
+      "lines": 2000,
+      "repetitions": 3,
+      "traceAll": true,
+      "driverSha256": "d64bffde6bf7b16125fbcb8dd6e6c1d65e457a2e27a3d91a7f326c03ca2be897",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": "b8e6a9d7aa965a5e5a47b738bb35e58f5af599604872cd168c3c071d2b2258d9"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 6.5,
+      "max": 9.799999997019768
+    },
+    "keydownDelayMax": 7.5,
+    "eventDurationMax": 4240,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": 47,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "paced-local",
+    "trial": 1,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/",
+      "mode": "Split",
+      "intervalMs": 100,
+      "lines": 2000,
+      "repetitions": 3,
+      "traceAll": true,
+      "driverSha256": "d64bffde6bf7b16125fbcb8dd6e6c1d65e457a2e27a3d91a7f326c03ca2be897",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": null
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 4,
+      "max": 5.9000000059604645
+    },
+    "keydownDelayMax": 4.9000000059604645,
+    "eventDurationMax": 4240,
+    "longTasks": {
+      "count": 1,
+      "p95": 56,
+      "max": 56
+    },
+    "previewUpdates": 50,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "paced-local",
+    "trial": 2,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/",
+      "mode": "Split",
+      "intervalMs": 100,
+      "lines": 2000,
+      "repetitions": 3,
+      "traceAll": true,
+      "driverSha256": "d64bffde6bf7b16125fbcb8dd6e6c1d65e457a2e27a3d91a7f326c03ca2be897",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": null
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.399999998509884,
+      "max": 4.899999998509884
+    },
+    "keydownDelayMax": 3.100000001490116,
+    "eventDurationMax": 4232,
+    "longTasks": {
+      "count": 1,
+      "p95": 54,
+      "max": 54
+    },
+    "previewUpdates": 50,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "paced-local",
+    "trial": 3,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/",
+      "mode": "Split",
+      "intervalMs": 100,
+      "lines": 2000,
+      "repetitions": 3,
+      "traceAll": true,
+      "driverSha256": "d64bffde6bf7b16125fbcb8dd6e6c1d65e457a2e27a3d91a7f326c03ca2be897",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": null
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.100000001490116,
+      "max": 6.5
+    },
+    "keydownDelayMax": 30.700000002980232,
+    "eventDurationMax": 4248,
+    "longTasks": {
+      "count": 3,
+      "p95": 98,
+      "max": 98
+    },
+    "previewUpdates": 50,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "browser-clock",
+    "trial": 1,
+    "mode": "headless",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/?preview-worker=1",
+      "mode": "Split",
+      "intervalMs": 100,
+      "lines": 2000,
+      "repetitions": 1,
+      "traceAll": true,
+      "driverSha256": "94a89bee4b36494078a65d5936fe1413d840e286c17e4ecf3fd4ab4c4efa122b",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": "b8e6a9d7aa965a5e5a47b738bb35e58f5af599604872cd168c3c071d2b2258d9"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.3000000044703484,
+      "max": 4.399999998509884
+    },
+    "keydownDelayMax": 11.899999998509884,
+    "eventDurationMax": 4256,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": 50,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "headful-worker",
+    "trial": 1,
+    "mode": "headful-Xvfb",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/?preview-worker=1",
+      "mode": "Split",
+      "intervalMs": 100,
+      "lines": 2000,
+      "repetitions": 2,
+      "traceAll": true,
+      "driverSha256": "5914bbf6a4553dac084fb600bb41bbbd63ba52e8cc50348d9ad9cb903c56546a",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": "b8e6a9d7aa965a5e5a47b738bb35e58f5af599604872cd168c3c071d2b2258d9"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 5.300000004470348,
+      "max": 7
+    },
+    "keydownDelayMax": 32.30000000447035,
+    "eventDurationMax": 128,
+    "longTasks": {
+      "count": 3,
+      "p95": 96,
+      "max": 96
+    },
+    "previewUpdates": 36,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "headful-worker",
+    "trial": 2,
+    "mode": "headful-Xvfb",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/?preview-worker=1",
+      "mode": "Split",
+      "intervalMs": 100,
+      "lines": 2000,
+      "repetitions": 2,
+      "traceAll": true,
+      "driverSha256": "5914bbf6a4553dac084fb600bb41bbbd63ba52e8cc50348d9ad9cb903c56546a",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": "b8e6a9d7aa965a5e5a47b738bb35e58f5af599604872cd168c3c071d2b2258d9"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 4.600000001490116,
+      "max": 12.699999995529652
+    },
+    "keydownDelayMax": 17.80000000447035,
+    "eventDurationMax": 32,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": 43,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "headful-local",
+    "trial": 1,
+    "mode": "headful-Xvfb",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/",
+      "mode": "Split",
+      "intervalMs": 100,
+      "lines": 2000,
+      "repetitions": 2,
+      "traceAll": true,
+      "driverSha256": "5914bbf6a4553dac084fb600bb41bbbd63ba52e8cc50348d9ad9cb903c56546a",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": null
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3,
+      "max": 4.800000004470348
+    },
+    "keydownDelayMax": 6.200000002980232,
+    "eventDurationMax": 24,
+    "longTasks": {
+      "count": 3,
+      "p95": 67,
+      "max": 67
+    },
+    "previewUpdates": 50,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "headful-local",
+    "trial": 2,
+    "mode": "headful-Xvfb",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/",
+      "mode": "Split",
+      "intervalMs": 100,
+      "lines": 2000,
+      "repetitions": 2,
+      "traceAll": true,
+      "driverSha256": "5914bbf6a4553dac084fb600bb41bbbd63ba52e8cc50348d9ad9cb903c56546a",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": null
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.7999999970197678,
+      "max": 5.5
+    },
+    "keydownDelayMax": 2.600000001490116,
+    "eventDurationMax": 24,
+    "longTasks": {
+      "count": 1,
+      "p95": 53,
+      "max": 53
+    },
+    "previewUpdates": 50,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "headful30-worker",
+    "trial": 1,
+    "mode": "headful-Xvfb",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/?preview-worker=1",
+      "mode": "Split",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 2,
+      "traceAll": true,
+      "driverSha256": "5914bbf6a4553dac084fb600bb41bbbd63ba52e8cc50348d9ad9cb903c56546a",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": "b8e6a9d7aa965a5e5a47b738bb35e58f5af599604872cd168c3c071d2b2258d9"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.600000001490116,
+      "max": 6
+    },
+    "keydownDelayMax": 7.4000000059604645,
+    "eventDurationMax": 24,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": 1,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "headful30-worker",
+    "trial": 2,
+    "mode": "headful-Xvfb",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/?preview-worker=1",
+      "mode": "Split",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 2,
+      "traceAll": true,
+      "driverSha256": "5914bbf6a4553dac084fb600bb41bbbd63ba52e8cc50348d9ad9cb903c56546a",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": "b8e6a9d7aa965a5e5a47b738bb35e58f5af599604872cd168c3c071d2b2258d9"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 4,
+      "max": 5.600000001490116
+    },
+    "keydownDelayMax": 8.400000005960464,
+    "eventDurationMax": 24,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": 1,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "headful30-local",
+    "trial": 1,
+    "mode": "headful-Xvfb",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/",
+      "mode": "Split",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 2,
+      "traceAll": true,
+      "driverSha256": "5914bbf6a4553dac084fb600bb41bbbd63ba52e8cc50348d9ad9cb903c56546a",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": null
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.600000001490116,
+      "max": 5.299999997019768
+    },
+    "keydownDelayMax": 49.100000001490116,
+    "eventDurationMax": 72,
+    "longTasks": {
+      "count": 1,
+      "p95": 62,
+      "max": 62
+    },
+    "previewUpdates": 2,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "headful30-local",
+    "trial": 2,
+    "mode": "headful-Xvfb",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/",
+      "mode": "Split",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 2,
+      "traceAll": true,
+      "driverSha256": "5914bbf6a4553dac084fb600bb41bbbd63ba52e8cc50348d9ad9cb903c56546a",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": null
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.2999999970197678,
+      "max": 5.899999998509884
+    },
+    "keydownDelayMax": 45.400000005960464,
+    "eventDurationMax": 64,
+    "longTasks": {
+      "count": 1,
+      "p95": 60,
+      "max": 60
+    },
+    "previewUpdates": 2,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "final-30-A1",
+    "trial": 1,
+    "mode": "headful-Xvfb",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/",
+      "mode": "Split",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 1,
+      "traceAll": true,
+      "driverSha256": "5914bbf6a4553dac084fb600bb41bbbd63ba52e8cc50348d9ad9cb903c56546a",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": null
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.8000000044703484,
+      "max": 6
+    },
+    "keydownDelayMax": 48.80000000447035,
+    "eventDurationMax": 72,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": 2,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "final-30-B1",
+    "trial": 1,
+    "mode": "headful-Xvfb",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/?preview-worker=1",
+      "mode": "Split",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 1,
+      "traceAll": true,
+      "driverSha256": "5914bbf6a4553dac084fb600bb41bbbd63ba52e8cc50348d9ad9cb903c56546a",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": "811ab6832efe78194006e381f2437c2586afccd1bf1cccac8e7c84062d29b03d"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3,
+      "max": 4.899999998509884
+    },
+    "keydownDelayMax": 2.9000000059604645,
+    "eventDurationMax": 24,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": 1,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "final-30-B2",
+    "trial": 1,
+    "mode": "headful-Xvfb",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/?preview-worker=1",
+      "mode": "Split",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 1,
+      "traceAll": true,
+      "driverSha256": "5914bbf6a4553dac084fb600bb41bbbd63ba52e8cc50348d9ad9cb903c56546a",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": "811ab6832efe78194006e381f2437c2586afccd1bf1cccac8e7c84062d29b03d"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.399999998509884,
+      "max": 4.800000004470348
+    },
+    "keydownDelayMax": 2.7000000029802322,
+    "eventDurationMax": 24,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": 1,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "final-30-A2",
+    "trial": 1,
+    "mode": "headful-Xvfb",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/",
+      "mode": "Split",
+      "intervalMs": 30,
+      "lines": 2000,
+      "repetitions": 1,
+      "traceAll": true,
+      "driverSha256": "5914bbf6a4553dac084fb600bb41bbbd63ba52e8cc50348d9ad9cb903c56546a",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": null
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.3000000044703484,
+      "max": 5.299999997019768
+    },
+    "keydownDelayMax": 52,
+    "eventDurationMax": 72,
+    "longTasks": {
+      "count": 2,
+      "p95": 57,
+      "max": 57
+    },
+    "previewUpdates": 3,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "final-100-A1",
+    "trial": 1,
+    "mode": "headful-Xvfb",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/",
+      "mode": "Split",
+      "intervalMs": 100,
+      "lines": 2000,
+      "repetitions": 1,
+      "traceAll": true,
+      "driverSha256": "5914bbf6a4553dac084fb600bb41bbbd63ba52e8cc50348d9ad9cb903c56546a",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": null
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.2000000029802322,
+      "max": 5.299999997019768
+    },
+    "keydownDelayMax": 2.8000000044703484,
+    "eventDurationMax": 24,
+    "longTasks": {
+      "count": 1,
+      "p95": 55,
+      "max": 55
+    },
+    "previewUpdates": 50,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "final-100-B1",
+    "trial": 1,
+    "mode": "headful-Xvfb",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/?preview-worker=1",
+      "mode": "Split",
+      "intervalMs": 100,
+      "lines": 2000,
+      "repetitions": 1,
+      "traceAll": true,
+      "driverSha256": "5914bbf6a4553dac084fb600bb41bbbd63ba52e8cc50348d9ad9cb903c56546a",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": "811ab6832efe78194006e381f2437c2586afccd1bf1cccac8e7c84062d29b03d"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.399999998509884,
+      "max": 5.5999999940395355
+    },
+    "keydownDelayMax": 5,
+    "eventDurationMax": 24,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": 47,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "final-100-B2",
+    "trial": 1,
+    "mode": "headful-Xvfb",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/?preview-worker=1",
+      "mode": "Split",
+      "intervalMs": 100,
+      "lines": 2000,
+      "repetitions": 1,
+      "traceAll": true,
+      "driverSha256": "5914bbf6a4553dac084fb600bb41bbbd63ba52e8cc50348d9ad9cb903c56546a",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": "811ab6832efe78194006e381f2437c2586afccd1bf1cccac8e7c84062d29b03d"
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.399999998509884,
+      "max": 5.4000000059604645
+    },
+    "keydownDelayMax": 5.800000004470348,
+    "eventDurationMax": 24,
+    "longTasks": {
+      "count": 0,
+      "p95": null,
+      "max": null
+    },
+    "previewUpdates": 47,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  },
+  {
+    "case": "final-100-A2",
+    "trial": 1,
+    "mode": "headful-Xvfb",
+    "provenance": {
+      "url": "http://127.0.0.1:4325/",
+      "mode": "Split",
+      "intervalMs": 100,
+      "lines": 2000,
+      "repetitions": 1,
+      "traceAll": true,
+      "driverSha256": "5914bbf6a4553dac084fb600bb41bbbd63ba52e8cc50348d9ad9cb903c56546a",
+      "appSha256": "99122bd161957a6ce67a4b118ec0854ae5ee8629df3168bd96124f633db058ab",
+      "sourceSha256": "ef76a69f38aa778f2ce7ee133b3f5d3aa2992147c5c5cce78589399e546301b1",
+      "workerSha256": null
+    },
+    "browser": "148.0.7778.215",
+    "processing": {
+      "count": 50,
+      "p95": 3.600000001490116,
+      "max": 79.39999999850988
+    },
+    "keydownDelayMax": 3.3000000044703484,
+    "eventDurationMax": 88,
+    "longTasks": {
+      "count": 2,
+      "p95": 79,
+      "max": 79
+    },
+    "previewUpdates": 49,
+    "offlineSaved": true,
+    "reloadRestored": true,
+    "previewLatest": true,
+    "errors": []
+  }
+]

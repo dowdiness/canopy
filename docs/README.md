@@ -62,6 +62,8 @@ Resolve conflicting applicable requirements before relying on them; follow
   and work status. [Plans](plans/) contain unfinished implementation specifications;
   delete or archive each plan when implementation completes.
 - [Research](research/) — investigations and evidence, not automatic requirements.
+  - [Loomark Worker Preview prototype](research/2026-09-08-loomark-worker-preview-prototype.md) — opt-in comparator, offline payload, disposal, and minification evidence; not production adoption.
+  - [Loomark demand Preview implementation](research/2026-09-06-loomark-demand-preview-implementation.md) — historical hidden-Parser retention and input measurements.
 - [Performance reports](performance/) — measurements tied to dates and conditions.
 - [Archive](archive/) — historical material; read or search only when historical
   context is requested.
