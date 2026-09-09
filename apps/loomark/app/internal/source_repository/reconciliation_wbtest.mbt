@@ -39,7 +39,7 @@ test "reconciliation isolates corrupt and unsupported records" {
     "source/v1/broken", "source/v1/document-b", "source/v1/old", "source/v1/wrong-key",
   ])
   assert_eq(snapshot.catalog().entries().to_owned(), [
-    CatalogEntry::new("document-b", Some("Same")).unwrap(),
+    CatalogEntry::new("document-b", "Same").unwrap(),
   ])
   assert_eq(snapshot.issues().to_owned(), [
     RepositoryIssue::InvalidSource("source/v1/broken"),
@@ -175,8 +175,8 @@ test "snapshot source and accepted Source transition preserve repository state" 
     SourceRecord::new("document-b", "# New B\n").unwrap(),
   ])
   assert_eq(accepted.catalog().entries().to_owned(), [
-    CatalogEntry::new("document-a", Some("plain text")).unwrap(),
-    CatalogEntry::new("document-b", Some("New B")).unwrap(),
+    CatalogEntry::new("document-a", "plain text").unwrap(),
+    CatalogEntry::new("document-b", "New B").unwrap(),
   ])
   assert_eq(accepted.issues().to_owned(), [])
 }
@@ -234,13 +234,13 @@ test "accepted suffix edit reuses certified Catalog name" {
     original,
     test_source("document-a", "# Stable\n\nNew body with # Later\n"),
   )
-  assert_eq(suffix.catalog().entries()[0].name(), Some("Stable"))
+  assert_eq(suffix.catalog().entries()[0].name(), "Stable")
 
   let changed = accepted_source(
     suffix,
     test_source("document-a", "# Changed\n\nNew body\n"),
   )
-  assert_eq(changed.catalog().entries()[0].name(), Some("Changed"))
+  assert_eq(changed.catalog().entries()[0].name(), "Changed")
 }
 
 ///|
@@ -248,13 +248,13 @@ test "accepted recovered heading suffix edit cannot use certified reuse" {
   let original = RepositorySnapshot::from_sources([
     test_source("document-a", "# )bad\n\nOld body\n"),
   ]).unwrap()
-  assert_eq(original.catalog().entries()[0].name(), Some(")bad"))
+  assert_eq(original.catalog().entries()[0].name(), ")bad")
 
   let accepted = accepted_source(
     original,
     test_source("document-a", "# )bad\n\nNew body\n"),
   )
-  assert_eq(accepted.catalog().entries()[0].name(), Some(")bad"))
+  assert_eq(accepted.catalog().entries()[0].name(), ")bad")
 }
 
 ///|
@@ -294,9 +294,9 @@ test "snapshot orders equal Change orders lexically" {
     test_source("z", "# Z\n"),
   ])
   assert_eq(snapshot.catalog().entries().to_owned(), [
-    CatalogEntry::new("aa", Some("AA")).unwrap(),
-    CatalogEntry::new("m", Some("M")).unwrap(),
-    CatalogEntry::new("z", Some("Z")).unwrap(),
+    CatalogEntry::new("aa", "AA").unwrap(),
+    CatalogEntry::new("m", "M").unwrap(),
+    CatalogEntry::new("z", "Z").unwrap(),
   ])
 }
 
@@ -305,17 +305,17 @@ test "accepted sources preserve lexical catalog and unrelated issues" {
   let original = RepositorySnapshot::new(
     [test_source("b", "# B\n"), test_source("a", "# A\n")],
     Catalog::from_entries([
-      CatalogEntry::new("a", Some("A")).unwrap(),
-      CatalogEntry::new("b", Some("B")).unwrap(),
+      CatalogEntry::new("a", "A").unwrap(),
+      CatalogEntry::new("b", "B").unwrap(),
     ]).unwrap(),
     [RepositoryIssue::UnknownRecord("other"), NameDerivationFailed("b")],
     ["source/v1/a", "source/v1/b", "source/v1/corrupt"],
   )
   let with_c = accepted_source(original, test_source("c", "# C\n"))
   assert_eq(with_c.catalog().entries().to_owned(), [
-    CatalogEntry::new("a", Some("A")).unwrap(),
-    CatalogEntry::new("b", Some("B")).unwrap(),
-    CatalogEntry::new("c", Some("C")).unwrap(),
+    CatalogEntry::new("a", "A").unwrap(),
+    CatalogEntry::new("b", "B").unwrap(),
+    CatalogEntry::new("c", "C").unwrap(),
   ])
   assert_eq(with_c.issues().to_owned(), [
     RepositoryIssue::UnknownRecord("other"),
@@ -326,10 +326,10 @@ test "accepted sources preserve lexical catalog and unrelated issues" {
   ])
   let with_d = accepted_source(with_c, test_source("d", "# C\n"))
   assert_eq(with_d.catalog().entries().to_owned(), [
-    CatalogEntry::new("a", Some("A")).unwrap(),
-    CatalogEntry::new("b", Some("B")).unwrap(),
-    CatalogEntry::new("c", Some("C")).unwrap(),
-    CatalogEntry::new("d", Some("C")).unwrap(),
+    CatalogEntry::new("a", "A").unwrap(),
+    CatalogEntry::new("b", "B").unwrap(),
+    CatalogEntry::new("c", "C").unwrap(),
+    CatalogEntry::new("d", "C").unwrap(),
   ])
   let with_a = accepted_source(with_c, test_source("a", "# A2\n"))
   assert_eq(with_a.sources().to_owned(), [
@@ -343,27 +343,27 @@ test "accepted sources preserve lexical catalog and unrelated issues" {
 test "accepted source does not duplicate current name issues" {
   let original = RepositorySnapshot::new(
     [test_source("a", "# A\n")],
-    Catalog::from_entries([CatalogEntry::new("a", Some("A")).unwrap()]).unwrap(),
+    Catalog::from_entries([CatalogEntry::new("a", "A").unwrap()]).unwrap(),
     [NameDerivationFailed("a")],
     ["source/v1/a"],
   )
   let accepted = accepted_source(original, test_source("a", "# New\n"))
   assert_eq(accepted.issues().to_owned(), [])
   assert_eq(accepted.catalog().entries().to_owned(), [
-    CatalogEntry::new("a", Some("New")).unwrap(),
+    CatalogEntry::new("a", "New").unwrap(),
   ])
 }
 
 ///|
 test "next catalog replaces one identity and keeps lexical order" {
   let current = Catalog::from_entries([
-    CatalogEntry::new("document-b", Some("Old")).unwrap(),
-    CatalogEntry::new("document-a", None).unwrap(),
+    CatalogEntry::new("document-b", "Old").unwrap(),
+    CatalogEntry::new("document-a", "").unwrap(),
   ]).unwrap()
   let (next, issues) = next_catalog(current, "document-b", "# New\n")
   assert_eq(next.entries().to_owned(), [
-    CatalogEntry::new("document-a", None).unwrap(),
-    CatalogEntry::new("document-b", Some("New")).unwrap(),
+    CatalogEntry::new("document-a", "").unwrap(),
+    CatalogEntry::new("document-b", "New").unwrap(),
   ])
   assert_eq(issues, [])
 }

@@ -80,14 +80,14 @@ priv enum SourceDecodeFailure {
 /// One rebuildable display-name entry, identified only by Document ID.
 struct CatalogEntry {
   document_id : String
-  name : String?
+  name : String
   change_order : ChangeOrder
 } derive(Eq, Debug)
 
 ///|
 pub fn CatalogEntry::new(
   document_id : String,
-  name : String?,
+  name : String,
   change_order? : ChangeOrder = ChangeOrder(0L),
 ) -> Self? {
   guard document_id != "" else { return None }
@@ -100,7 +100,7 @@ pub fn CatalogEntry::document_id(self : Self) -> String {
 }
 
 ///|
-pub fn CatalogEntry::name(self : Self) -> String? {
+pub fn CatalogEntry::name(self : Self) -> String {
   self.name
 }
 
@@ -227,7 +227,7 @@ fn snapshot_from_sources(
         if !issues.contains(issue) {
           issues.push(issue)
         }
-        None
+        ""
       }
     }
     CatalogEntry::new(

@@ -5,7 +5,7 @@ let name_source_id : @loom.SourceId = @loom.SourceId(
 
 ///|
 priv struct NameDerivation {
-  name : String?
+  name : String
   reusable_prefix_end : Int?
 }
 
@@ -21,9 +21,9 @@ fn first_readable_line(text : String) -> String? {
 }
 
 ///|
-fn readable_name(node : @markdown.MarkdownIR) -> Result[String?, Unit] {
+fn readable_name(node : @markdown.MarkdownIR) -> Result[String, Unit] {
   match readable_text(node, None) {
-    Some(text) => Ok(first_readable_line(text))
+    Some(text) => Ok(first_readable_line(text).unwrap_or(""))
     None => Err(())
   }
 }
@@ -36,8 +36,8 @@ fn first_name_candidate(
   for child in document.children() {
     match readable_name(child) {
       Err(_) => return Err(())
-      Ok(Some(name)) => return Ok(Some((child, name)))
-      Ok(None) => ()
+      Ok(name) if !name.is_empty() => return Ok(Some((child, name)))
+      Ok(_) => ()
     }
   }
   Ok(None)
@@ -86,10 +86,10 @@ fn derive_name_with_certificate(
   )
   match first_name_candidate(document) {
     Err(_) => Err(())
-    Ok(None) => Ok({ name: None, reusable_prefix_end: None })
+    Ok(None) => Ok({ name: "", reusable_prefix_end: None })
     Ok(Some((candidate, name))) =>
       Ok({
-        name: Some(name),
+        name,
         reusable_prefix_end: certify_reusable_name_prefix(
           source, root, diagnostics, candidate,
         ),
@@ -98,7 +98,7 @@ fn derive_name_with_certificate(
 }
 
 ///|
-pub fn derive_name(source : String) -> Result[String?, Unit] {
+pub fn derive_name(source : String) -> Result[String, Unit] {
   derive_name_with_certificate(source).map(derivation => derivation.name)
 }
 
@@ -121,7 +121,7 @@ fn first_line_end(source : String) -> Int? {
 }
 
 ///|
-fn certified_name_prefix_end(source : String, expected_name : String?) -> Int? {
+fn certified_name_prefix_end(source : String, expected_name : String) -> Int? {
   guard first_line_end(source) is Some(end) else { return None }
   let prefix = source.view(end_offset=end).to_owned()
   guard derive_name_with_certificate(prefix) is Ok(derivation) &&
@@ -136,7 +136,7 @@ fn certified_name_prefix_end(source : String, expected_name : String?) -> Int? {
 pub fn derived_name_survives_edit(
   previous_source : String,
   source : String,
-  expected_name : String?,
+  expected_name : String,
 ) -> Bool {
   guard certified_name_prefix_end(previous_source, expected_name) is Some(end) else {
     return false

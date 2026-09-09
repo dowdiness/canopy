@@ -2,23 +2,22 @@
 test "derive_name uses the first parser-recognized readable line" {
   for
     fixture in [
-      ("Ordinary text\ncontinued\n", Some("Ordinary text")),
-      ("## First\n\n> Quoted\n", Some("First")),
-      ("- item\n  # Listed\n", Some("item")),
+      ("Ordinary text\ncontinued\n", "Ordinary text"),
+      ("## First\n\n> Quoted\n", "First"),
+      ("- item\n  # Listed\n", "item"),
       (
-        "# **Bold** *italic* `code` [link](https://example.com)\n",
-        Some("Bold italic code link"),
+        "# **Bold** *italic* `code` [link](https://example.com)\n", "Bold italic code link",
       ),
-      ("Setext\n======\n", Some("Setext")),
-      ("> Quoted\n", Some("Quoted")),
-      ("- [ ] Task\n", Some("Task")),
-      ("```md\n# Fenced\n```\n", Some("# Fenced")),
-      ("![Alt text](image.png)\n", Some("Alt text")),
-      ("---\n\nAfter rule\n", Some("After rule")),
-      ("<div>raw</div>\n\nAfter HTML\n", Some("After HTML")),
-      ("# 😀\nBody\n", Some("😀")),
-      ("# )bad\n", Some(")bad")),
-      ("#   \n", None),
+      ("Setext\n======\n", "Setext"),
+      ("> Quoted\n", "Quoted"),
+      ("- [ ] Task\n", "Task"),
+      ("```md\n# Fenced\n```\n", "# Fenced"),
+      ("![Alt text](image.png)\n", "Alt text"),
+      ("---\n\nAfter rule\n", "After rule"),
+      ("<div>raw</div>\n\nAfter HTML\n", "After HTML"),
+      ("# 😀\nBody\n", "😀"),
+      ("# )bad\n", ")bad"),
+      ("#   \n", ""),
     ] {
     let (source, expected) = fixture
     assert_eq(derive_name(source), Ok(expected))
@@ -29,23 +28,15 @@ test "derive_name uses the first parser-recognized readable line" {
 test "derived name reuse requires a certified unchanged prefix" {
   for
     fixture in [
-      ("# Stable\n\nOld body\n", "# Stable\n\nOld body\n", Some("Stable"), true),
-      ("# Stable\n\nOld body\n", "# Stable\n\nNew body\n", Some("Stable"), true),
-      (
-        "# Stable\r\nOld body\r\n",
-        "# Stable\r\nNew body\r\n",
-        Some("Stable"),
-        true,
-      ),
-      ("- item\n  # Listed\n", "- item\n  # Changed\n", Some("item"), true),
-      (
-        "# Stable\n\nOld body\n",
-        "# Changed\n\nNew body\n",
-        Some("Changed"),
-        false,
-      ),
-      ("# )bad\n\nOld body\n", "# )bad\n\nNew body\n", Some(")bad"), false),
-      ("# )bad\n\nOld body\n", "# )bad\n\nOld body\n", Some(")bad"), false),
+      ("# Stable\n\nOld body\n", "# Stable\n\nOld body\n", "Stable", true),
+      ("# Stable\n\nOld body\n", "# Stable\n\nNew body\n", "Stable", true),
+      ("# Stable\r\nOld body\r\n", "# Stable\r\nNew body\r\n", "Stable", true),
+      ("- item\n  # Listed\n", "- item\n  # Changed\n", "item", true),
+      ("# Stable\n\nOld body\n", "# Changed\n\nNew body\n", "Changed", false),
+      ("# )bad\n\nOld body\n", "# )bad\n\nNew body\n", ")bad", false),
+      ("# )bad\n\nOld body\n", "# )bad\n\nOld body\n", ")bad", false),
+      // An unchanged empty prefix cannot prove that later content stays unnamed.
+      ("\n", "\n# Later\n", "", false),
     ] {
     let (old_source, new_source, name, expected) = fixture
     assert_eq(

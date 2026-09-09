@@ -106,7 +106,7 @@ fn next_catalog(
     Ok(name) => name
     Err(_) => {
       issues.push(NameDerivationFailed(document_id))
-      None
+      ""
     }
   }
   let entries = current

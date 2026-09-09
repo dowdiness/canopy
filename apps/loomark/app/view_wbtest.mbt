@@ -33,6 +33,16 @@ test "Document sidebar labels disambiguate Source-derived identities" {
 }
 
 ///|
+test "Document sidebar presents a placeholder without naming an empty Catalog entry" {
+  let snapshot = @source_repository.RepositorySnapshot::from_sources([
+    @source_repository.SourceRecord::new("document-a", "").unwrap(),
+  ]).unwrap()
+  let entry = snapshot.catalog().entries()[0]
+  assert_eq(entry.name(), "")
+  assert_eq(document_base_label(entry), "Unnamed document")
+}
+
+///|
 test "Recent documents includes promoted New and current Change order" {
   let initial = test_editing()
   let (documents, _) = initial.documents.reduce(

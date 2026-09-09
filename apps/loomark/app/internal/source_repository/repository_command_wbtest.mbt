@@ -131,8 +131,8 @@ test "accepted deletion preserves unrelated repository observations" {
       SourceRecord::new("document-2", "# Two\n").unwrap(),
     ],
     Catalog::from_entries([
-      CatalogEntry::new("document-1", Some("One")).unwrap(),
-      CatalogEntry::new("document-2", Some("Two")).unwrap(),
+      CatalogEntry::new("document-1", "One").unwrap(),
+      CatalogEntry::new("document-2", "Two").unwrap(),
     ]).unwrap(),
     [
       RepositoryIssue::NameDerivationFailed("document-1"),
@@ -312,9 +312,7 @@ test "create rejects an observed occupied key before storage" {
   let source = SourceRecord::new("document-1", "# One\n").unwrap()
   let snapshot = RepositorySnapshot::new(
     [source],
-    Catalog::from_entries([
-      CatalogEntry::new("document-1", Some("One")).unwrap(),
-    ]).unwrap(),
+    Catalog::from_entries([CatalogEntry::new("document-1", "One").unwrap()]).unwrap(),
     [],
     ["source/v1/document-1", "source/v1/corrupt"],
   )

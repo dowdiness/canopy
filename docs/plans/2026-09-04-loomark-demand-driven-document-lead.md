@@ -90,11 +90,11 @@ pub fn extract(source : String) -> DocumentLead
 pub fn DocumentLead::form(Self) -> DocumentLeadForm
 pub fn DocumentLead::primary(Self) -> String
 pub fn DocumentLead::description(Self) -> String
-pub fn derive_name(source : String) -> Result[String?, Unit]
+pub fn derive_name(source : String) -> Result[String, Unit]
 pub fn derived_name_survives_edit(
   previous_source : String,
   source : String,
-  expected_name : String?,
+  expected_name : String,
 ) -> Bool
 ```
 
@@ -108,7 +108,9 @@ full omitted content. An unchanged bounded result, including its omission state,
 compares equal even if only the omitted suffix changes. Truncation must not turn
 readable content into Empty.
 
-`DocumentLead` fields stay private. `description` is structured plain text: it
+`DocumentLead` fields stay private. `derive_name` returns an in-app String: an
+empty String is a successful unnamed result, while `Err` preserves derivation
+failure observability. `description` is structured plain text: it
 may preserve meaningful newlines, indentation, list markers, and code spacing,
 but it is not a Markdown block tree. The form stores only distinctions that
 produce different presentation. Heading level is intentionally absent.

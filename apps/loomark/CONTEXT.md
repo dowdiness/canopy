@@ -37,6 +37,13 @@ Normally extracted from parser-recognized Markdown, it falls back to non-empty
 source lines as Plain content rather than treating present text as empty.
 _Avoid_: summary, title, document name, Preview
 
+**Derived name**:
+The in-app name derived from Document text. An empty string means that the
+Loomark document has no name. A presentation may show `Unnamed document` as a
+placeholder, but that placeholder is not the name. `Untitled` is reserved for
+the Export filename fallback. The Document lead remains recognition content,
+not a name.
+
 **Plain content**:
 A readable Document lead shown without the distinct form of a heading, task,
 quote, code, or list. Its readable text remains while its source block receives

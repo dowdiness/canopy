@@ -6,9 +6,9 @@ import {
 }
 
 // Values
-pub fn derive_name(String) -> Result[String?, Unit]
+pub fn derive_name(String) -> Result[String, Unit]
 
-pub fn derived_name_survives_edit(String, String, String?) -> Bool
+pub fn derived_name_survives_edit(String, String, String) -> Bool
 
 pub fn extract(String, limits~ : DocumentLeadLimits) -> DocumentLead
 

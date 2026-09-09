@@ -56,8 +56,13 @@ fn mode_content(mode : EditorMode, content : @rabbita.Html) -> @rabbita.Html {
 }
 
 ///|
+/// Presentation-only label for an unnamed document; this is not its Catalog name.
 fn document_base_label(entry : @source_repository.CatalogEntry) -> String {
-  entry.name().unwrap_or("Unnamed document")
+  if entry.name().is_empty() {
+    "Unnamed document"
+  } else {
+    entry.name()
+  }
 }
 
 ///|
@@ -100,7 +105,7 @@ fn recent_entries(
           document_id,
           match persisted_entry {
             Some(entry) => entry.name()
-            None => None
+            None => ""
           },
           change_order=source.change_order(),
         )
