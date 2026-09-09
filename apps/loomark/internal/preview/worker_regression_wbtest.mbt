@@ -99,9 +99,9 @@ test "zero-based ordered list DTO remains equivalent" {
   guard engine.state is Healthy(updates~, ..) else { fail("healthy") }
   let root = updates.document_update().document().root()
   let remote = decode_node(encode_node(root))
-  let local = @rabbita_testing.server_side_render(() => render(root))
+  let local_html = @rabbita_testing.server_side_render(() => render(root))
   let other = @rabbita_testing.server_side_render(() => {
     render_remote_node(remote)
   })
-  assert_eq(local, other)
+  assert_eq(local_html, other)
 }

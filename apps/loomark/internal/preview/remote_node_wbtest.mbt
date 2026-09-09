@@ -7,41 +7,59 @@ test "remote semantic tree renders like local tree" {
     extensions=@markdown.MarkdownExtensions::task_list(),
   )
   let root = document.root()
-  let local = @rabbita_testing.server_side_render(() => render(root))
+  let local_html = @rabbita_testing.server_side_render(() => render(root))
   let remote = @rabbita_testing.server_side_render(() => {
     render_remote_node(try! decode_node(encode_node(root)))
   })
-  assert_eq(local, remote)
-  assert_true(local.contains("data-loomark-task-checkbox"))
-  assert_true(!local.contains("javascript:alert"))
+  assert_eq(local_html, remote)
+  assert_true(local_html.contains("data-loomark-task-checkbox"))
+  assert_true(!local_html.contains("javascript:alert"))
 }
 
 ///|
 test "remote codec rejects malformed semantic payloads" {
-  let unknown = try? decode_node(
-    Json::object({
-      "kind": Json::string("future-node"),
-      "children": Json::array([]),
-    }),
-  )
-  let wrong_children = try? decode_node(
-    Json::object({
-      "kind": Json::string("paragraph"),
-      "children": Json::string("not-an-array"),
-    }),
-  )
-  let bad_marker = try? decode_node(
-    Json::object({
-      "kind": Json::string("ordered-list"),
-      "spread": Json::boolean(false),
-      "marker": Json::object({
-        "start": Json::number(0.5),
-        "delimiter": Json::string("."),
+  let unknown = try
+    decode_node(
+      Json::object({
+        "kind": Json::string("future-node"),
+        "children": Json::array([]),
       }),
-      "children": Json::array([]),
-    }),
-  )
-  assert_true(unknown is Err(_))
-  assert_true(wrong_children is Err(_))
-  assert_true(bad_marker is Err(_))
+    )
+  catch {
+    _ => true
+  } noraise {
+    _ => false
+  }
+  let wrong_children = try
+    decode_node(
+      Json::object({
+        "kind": Json::string("paragraph"),
+        "children": Json::string("not-an-array"),
+      }),
+    )
+  catch {
+    _ => true
+  } noraise {
+    _ => false
+  }
+  let bad_marker = try
+    decode_node(
+      Json::object({
+        "kind": Json::string("ordered-list"),
+        "spread": Json::boolean(false),
+        "marker": Json::object({
+          "start": Json::number(0.5),
+          "delimiter": Json::string("."),
+        }),
+        "children": Json::array([]),
+      }),
+    )
+  catch {
+    _ => true
+  } noraise {
+    _ => false
+  }
+  assert_true(unknown)
+  assert_true(wrong_children)
+  assert_true(bad_marker)
 }
