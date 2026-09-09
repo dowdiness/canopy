@@ -10,7 +10,7 @@ pub fn derive_name(String) -> String
 
 pub fn derived_name_survives_edit(String, String, String) -> Bool
 
-pub fn extract(String, limits~ : DocumentLeadLimits) -> DocumentLead
+pub fn extract(String) -> DocumentLead
 
 // Errors
 
@@ -31,9 +31,6 @@ pub enum DocumentLeadForm {
   Plain
   Empty
 } derive(Eq, @debug.Debug)
-
-type DocumentLeadLimits derive(Eq, @debug.Debug)
-pub fn DocumentLeadLimits::try_new(primary~ : Int, description~ : Int) -> Result[Self, Unit]
 
 // Type aliases
 

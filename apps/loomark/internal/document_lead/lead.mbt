@@ -1,24 +1,9 @@
 ///|
-/// Provisional, positive output budgets for a DocumentLead.
-///
-/// Budgets count Unicode scalar values. They bound the retained strings, not
-/// parser work: extraction still parses the complete source.
-struct DocumentLeadLimits {
-  primary : Int
-  description : Int
-} derive(Eq, Debug)
+/// Document leads retain bounded Unicode scalar-value prefixes.
+let primary_limit = 80
 
 ///|
-pub fn DocumentLeadLimits::try_new(
-  primary~ : Int,
-  description~ : Int,
-) -> Result[DocumentLeadLimits, Unit] {
-  if primary <= 0 || description <= 0 {
-    Err(())
-  } else {
-    Ok({ primary, description })
-  }
-}
+let description_limit = 160
 
 ///|
 pub enum DocumentLeadForm {
@@ -284,7 +269,7 @@ fn lead_from_node(
 }
 
 ///|
-fn fallback_lead(source : String, limits : DocumentLeadLimits) -> DocumentLead {
+fn fallback_lead(source : String) -> DocumentLead {
   let normalized = source
     .replace_all(old="\r\n", new="\n")
     .replace_all(old="\r", new="\n")
@@ -305,10 +290,9 @@ fn fallback_lead(source : String, limits : DocumentLeadLimits) -> DocumentLead {
     }
     None => ""
   }
-  let (primary, primary_truncated) = bound_text(primary_source, limits.primary)
+  let (primary, primary_truncated) = bound_text(primary_source, primary_limit)
   let (description, description_truncated) = bound_text(
-    description_source,
-    limits.description,
+    description_source, description_limit,
   )
   {
     form: if primary.is_empty() {
@@ -341,9 +325,9 @@ fn first_readable_index(
 
 ///|
 /// Extract a bounded, equality-bearing lead from the complete Markdown source.
-pub fn extract(source : String, limits~ : DocumentLeadLimits) -> DocumentLead {
+pub fn extract(source : String) -> DocumentLead {
   let parsed = @markdown.parse_cst(name_source_id, source) catch {
-    _ => return fallback_lead(source, limits)
+    _ => return fallback_lead(source)
   }
   let (cst, diagnostics) = parsed
   let root = @seam.SyntaxNode::from_cst(cst)
@@ -367,11 +351,10 @@ pub fn extract(source : String, limits~ : DocumentLeadLimits) -> DocumentLead {
             .join("\n")
           let (primary, primary_truncated) = bound_text(
             lead.primary,
-            limits.primary,
+            primary_limit,
           )
           let (description, description_truncated) = bound_text(
-            description_source,
-            limits.description,
+            description_source, description_limit,
           )
           {
             form: lead.form,
@@ -381,9 +364,9 @@ pub fn extract(source : String, limits~ : DocumentLeadLimits) -> DocumentLead {
             description_truncated,
           }
         }
-        None => fallback_lead(source, limits)
+        None => fallback_lead(source)
       }
     }
-    None => fallback_lead(source, limits)
+    None => fallback_lead(source)
   }
 }

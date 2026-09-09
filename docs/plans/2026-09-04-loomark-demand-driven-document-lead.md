@@ -99,14 +99,13 @@ pub fn derived_name_survives_edit(
 ```
 
 Both primary and description have finite output budgets independent of source
-size. Finalize numeric limits, counting units, Unicode-safe cut boundaries, and
-visible/accessible omission wording through browser comparison before accepting
-the production extractor API. CSS line clamping alone does not satisfy this
-contract. Retain only bounded text and bounded omission information, never the
-omitted suffix or MarkdownIR; accessible labels and tooltips must not expose the
-full omitted content. An unchanged bounded result, including its omission state,
-compares equal even if only the omitted suffix changes. Truncation must not turn
-readable content into Empty.
+size: 80 and 160 Unicode scalar values respectively. The extractor owns these
+fixed bounds; callers do not provide configuration. CSS line clamping alone does
+not satisfy this contract. Retain only bounded text and bounded omission
+information, never the omitted suffix or MarkdownIR; accessible labels and
+tooltips must not expose the full omitted content. An unchanged bounded result,
+including its omission state, compares equal even if only the omitted suffix
+changes. Truncation must not turn readable content into Empty.
 
 `DocumentLead` fields stay private. `derive_name` returns an in-app String: an
 empty String means unnamed or safely non-derivable. `description` is structured
@@ -399,10 +398,11 @@ prototype branch.
 
 Before accepting stage 2:
 
-- Finalize the bounded-output contract above through browser comparison.
-- Add fixtures just below, at, and above each limit, including Unicode boundaries,
-  multiline indentation, omitted-suffix equality, accessible omission, and
-  truncated versus Empty output.
+- Compare the fixed bounded output in the browser; if it is unsuitable, change
+  the extractor's private constants directly.
+- Keep fixtures just below, at, and above each fixed limit, including Unicode
+  boundaries, multiline indentation, omitted-suffix equality, accessible
+  omission, and truncated versus Empty output.
 - Benchmark the actual extractor in JS release mode on large sources and mixed
   collections. Record cold extraction time, output sizes, and equality-comparison
   cost for bounded results. Record the environment and fixtures for reproduction.
@@ -568,9 +568,11 @@ extraction in the observed scenarios. Synthetic event dispatch returning before
 extraction is not proof of the full production input-task contract; Preview is
 absent and trusted-input task traces remain outstanding.
 
-Semantic acceptance is pending numeric budgets, omission wording, grapheme
-policy, and the remaining fixtures. Execution acceptance is also withheld:
-browser evidence is exploratory, and production size/latency criteria remain
-unapproved. Keep Stage 3 blocked. Assess a separate execution ADR before adding
-an off-thread mechanism; do not treat quiet or idle scheduling as a solution to
-synchronous blocking. The bounded `DocumentLead` value remains unchanged.
+The semantic contract uses fixed numeric budgets; browser comparison may change
+the private constants directly. Omission wording, grapheme policy, and the
+remaining fixtures are still acceptance items. Execution acceptance is also
+withheld: browser evidence is exploratory, and production size/latency criteria
+remain unapproved. Keep Stage 3 blocked. Assess a separate execution ADR before
+adding an off-thread mechanism; do not treat quiet or idle scheduling as a
+solution to synchronous blocking. The bounded `DocumentLead` value remains
+unchanged.

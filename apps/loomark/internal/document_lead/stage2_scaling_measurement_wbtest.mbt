@@ -149,10 +149,7 @@ fn scaling_sample(
     }
     return
   } else {
-    let output = extract(
-      source,
-      limits=test_limits(primary=80, description=160),
-    )
+    let output = extract(source)
     retained_output.val = Some(output)
     let elapsed_us = @bench.monotonic_clock_end(started)
     checksum.val += output.primary().char_length() +
@@ -170,7 +167,7 @@ fn scaling_sample(
 fn scaling_metadata(source : String, phase : String) -> Unit {
   let (root, diagnostics) = scaling_parsed(source)
   let document = scaling_ir(root, diagnostics)
-  let output = extract(source, limits=test_limits(primary=80, description=160))
+  let output = extract(source)
   println(
     "METADATA phase=\{phase} bytes=\{@utf8.encode(source).length()} chars=\{source.char_length()} ir_nodes=\{scaling_node_count(document)} top_level_blocks=\{document.children().length()} output_chars=\{output.primary().char_length() + output.description().char_length()}",
   )

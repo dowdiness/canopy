@@ -1,22 +1,19 @@
 # Document lead interpretation
 
-This package owns the total derived-name analysis and a provisional bounded
-Document-lead extractor. An unnamed or safely non-derivable source returns an
-empty string. Catalog reconciliation and Export use `derive_name`; they do not
-yet use `extract`.
+This package owns the total derived-name analysis and a bounded Document-lead
+extractor. An unnamed or safely non-derivable source returns an empty string.
+Catalog reconciliation and Export use `derive_name`; they do not yet use
+`extract`.
 
-`extract` parses the complete source and returns normalized form, primary text,
-structured description, and omission flags. Explicit positive limits count Unicode
-scalar values. They bound retained output, not parser work or temporary allocations.
-No numeric defaults or visible/accessibility omission wording are accepted yet.
-Scalar-safe cuts do not guarantee preservation of complete grapheme clusters.
+`extract(source : String)` parses the complete source and returns normalized form,
+primary text, structured description, and omission flags. Primary text is bounded
+to 80 Unicode scalar values and the description to 160. These bounds apply to
+retained output, not parser work or temporary allocations. Scalar-safe cuts do
+not guarantee preservation of complete grapheme clusters.
 
-## Stage 2 checkpoint, not acceptance
-
-Numeric budgets and omission behavior still require browser comparison. Hard
-parser-failure fallback is covered through its helper, not an induced failure of
-the full parser. The full product fixture and accessibility matrix remains an
-acceptance task. Recent documents does not consume this extractor yet.
+Hard parser-failure fallback is covered through its helper, not an induced
+failure of the full parser. Recent documents does not consume this extractor
+yet.
 
 Contract tests exercise the package interface: lead extraction, bounded
 presentation, equality, derived names, and reuse across edits. The one white-box

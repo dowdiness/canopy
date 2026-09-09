@@ -1,19 +1,11 @@
 ///|
-fn test_limits(
-  primary? : Int = 32,
-  description? : Int = 64,
-) -> DocumentLeadLimits {
-  DocumentLeadLimits::try_new(primary~, description~).unwrap()
-}
-
-///|
 fn assert_lead(
   source : String,
   form : DocumentLeadForm,
   primary : String,
   description : String,
 ) -> Unit raise {
-  let lead = extract(source, limits=test_limits())
+  let lead = extract(source)
   assert_eq(lead.form(), form)
   assert_eq(lead.primary(), primary)
   assert_eq(lead.description(), description)
@@ -70,7 +62,7 @@ test "extract preserves readable structure in the description" {
       ),
     ] {
     let (source, primary, description) = fixture
-    let lead = extract(source, limits=test_limits())
+    let lead = extract(source)
     assert_eq(lead.primary(), primary)
     assert_eq(lead.description(), description)
   }
@@ -88,7 +80,7 @@ test "extract is total for empty and recovered Markdown" {
       ("# EOF", Heading, "EOF"),
     ] {
     let (source, form, primary) = fixture
-    let lead = extract(source, limits=test_limits())
+    let lead = extract(source)
     assert_eq(lead.form(), form)
     assert_eq(lead.primary(), primary)
   }
@@ -96,51 +88,40 @@ test "extract is total for empty and recovered Markdown" {
 
 ///|
 test "fallback keeps the first line separate from the description" {
-  let lead = fallback_lead(
-    "\u{0000} first\n\n    indented follow-up\n",
-    test_limits(),
-  )
+  let lead = fallback_lead("\u{0000} first\n\n    indented follow-up\n")
   assert_eq(lead.primary(), "\u{0000} first")
   assert_eq(lead.description(), "    indented follow-up")
 }
 
 ///|
-test "limits are positive and count Unicode characters" {
-  assert_true(DocumentLeadLimits::try_new(primary=0, description=1) is Err(_))
-  assert_true(DocumentLeadLimits::try_new(primary=1, description=-1) is Err(_))
-
-  let lead = extract(
-    "# 😀abcde\n\n😀😀😀\n",
-    limits=test_limits(primary=4, description=2),
-  )
-  assert_eq(lead.primary(), "😀abc")
-  assert_eq(lead.description(), "😀😀")
-  assert_true(lead.primary_truncated())
-  assert_true(lead.description_truncated())
-
-  let at_limit = extract(
-    "# abcd\n\nbc\n",
-    limits=test_limits(primary=4, description=2),
-  )
+test "fixed limits count Unicode scalars and preserve equality contracts" {
+  let primary_at_limit = "😀".repeat(80)
+  let description_at_limit = "😀".repeat(160)
+  let at_limit = extract("# \{primary_at_limit}\n\n\{description_at_limit}\n")
+  assert_eq(at_limit.primary(), primary_at_limit)
+  assert_eq(at_limit.description(), description_at_limit)
   assert_false(at_limit.primary_truncated())
   assert_false(at_limit.description_truncated())
-}
 
-///|
-test "equality depends only on the bounded presentation" {
-  let limits = test_limits(primary=3, description=3)
-  assert_eq(extract("# abcdef\n", limits~), extract("# abcxyz\n", limits~))
+  let above_primary = extract("# \{primary_at_limit}x\n")
+  assert_eq(above_primary.primary(), primary_at_limit)
+  assert_true(above_primary.primary_truncated())
+  let above_description = extract("# same\n\n\{description_at_limit}x\n")
+  assert_eq(above_description.description(), description_at_limit)
+  assert_true(above_description.description_truncated())
+
   assert_eq(
-    extract("# same\n\nabcdef\n", limits~),
-    extract("# same\n\nabcxyz\n", limits~),
+    extract("# \{"a".repeat(80)}x\n"),
+    extract("# \{"a".repeat(80)}y\n"),
   )
   assert_eq(
-    extract("[same](https://one.example)\n", limits=test_limits()),
-    extract("[same](https://two.example)\n", limits=test_limits()),
+    extract("# same\n\n\{"b".repeat(160)}x\n"),
+    extract("# same\n\n\{"b".repeat(160)}y\n"),
   )
-
-  let not_truncated = extract("# same\n\nabc\n", limits~)
-  let truncated = extract("# same\n\nabcd\n", limits~)
-  assert_eq(not_truncated.description(), truncated.description())
+  let not_truncated = extract("# same\n\nabc\n")
+  let truncated = extract("# same\n\nabc" + "d".repeat(160) + "\n")
+  assert_eq(not_truncated.description(), "abc")
+  assert_false(not_truncated.primary_truncated())
+  assert_false(not_truncated.description_truncated())
   assert_true(not_truncated != truncated)
 }
