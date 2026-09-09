@@ -21,26 +21,25 @@ fn first_readable_line(text : String) -> String? {
 }
 
 ///|
-fn readable_name(node : @markdown.MarkdownIR) -> Result[String, Unit] {
-  match readable_text(node, None) {
-    Some(text) => Ok(first_readable_line(text).unwrap_or(""))
-    None => Err(())
-  }
+fn readable_name(node : @markdown.MarkdownIR, source : String) -> String {
+  readable_text(node, Some(source))
+  .map(text => first_readable_line(text).unwrap_or(""))
+  .unwrap_or("")
 }
 
 ///|
 fn first_name_candidate(
   document : @markdown.MarkdownIR,
-) -> Result[(@markdown.MarkdownIR, String)?, Unit] {
-  guard document.view() is @markdown.Document else { return Err(()) }
+  source : String,
+) -> (@markdown.MarkdownIR, String)? {
+  guard document.view() is @markdown.Document else { return None }
   for child in document.children() {
-    match readable_name(child) {
-      Err(_) => return Err(())
-      Ok(name) if !name.is_empty() => return Ok(Some((child, name)))
-      Ok(_) => ()
+    let name = readable_name(child, source)
+    if !name.is_empty() {
+      return Some((child, name))
     }
   }
-  Ok(None)
+  None
 }
 
 ///|
@@ -71,11 +70,9 @@ fn certify_reusable_name_prefix(
 }
 
 ///|
-fn derive_name_with_certificate(
-  source : String,
-) -> Result[NameDerivation, Unit] {
+fn derive_name_with_certificate(source : String) -> NameDerivation {
   let (cst, diagnostics) = @markdown.parse_cst(name_source_id, source) catch {
-    _ => return Err(())
+    _ => return { name: "", reusable_prefix_end: None }
   }
   let root = @seam.SyntaxNode::from_cst(cst)
   let document = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
@@ -84,22 +81,21 @@ fn derive_name_with_certificate(
     diagnostics,
     extensions=@markdown.MarkdownExtensions::task_list(),
   )
-  match first_name_candidate(document) {
-    Err(_) => Err(())
-    Ok(None) => Ok({ name: "", reusable_prefix_end: None })
-    Ok(Some((candidate, name))) =>
-      Ok({
+  match first_name_candidate(document, source) {
+    None => { name: "", reusable_prefix_end: None }
+    Some((candidate, name)) =>
+      {
         name,
         reusable_prefix_end: certify_reusable_name_prefix(
           source, root, diagnostics, candidate,
         ),
-      })
+      }
   }
 }
 
 ///|
-pub fn derive_name(source : String) -> Result[String, Unit] {
-  derive_name_with_certificate(source).map(derivation => derivation.name)
+pub fn derive_name(source : String) -> String {
+  derive_name_with_certificate(source).name
 }
 
 ///|
@@ -124,8 +120,8 @@ fn first_line_end(source : String) -> Int? {
 fn certified_name_prefix_end(source : String, expected_name : String) -> Int? {
   guard first_line_end(source) is Some(end) else { return None }
   let prefix = source.view(end_offset=end).to_owned()
-  guard derive_name_with_certificate(prefix) is Ok(derivation) &&
-    derivation.name == expected_name &&
+  let derivation = derive_name_with_certificate(prefix)
+  guard derivation.name == expected_name &&
     derivation.reusable_prefix_end == Some(end) else {
     return None
   }

@@ -134,10 +134,7 @@ test "accepted deletion preserves unrelated repository observations" {
       CatalogEntry::new("document-1", "One").unwrap(),
       CatalogEntry::new("document-2", "Two").unwrap(),
     ]).unwrap(),
-    [
-      RepositoryIssue::NameDerivationFailed("document-1"),
-      RepositoryIssue::UnknownRecord("metadata/future"),
-    ],
+    [RepositoryIssue::UnknownRecord("metadata/future")],
     ["source/v1/document-1", "source/v1/document-2", "source/v1/corrupt"],
   )
   let next = accepted_deletion(snapshot, "document-1").unwrap()

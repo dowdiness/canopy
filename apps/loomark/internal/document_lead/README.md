@@ -1,9 +1,9 @@
 # Document lead interpretation
 
-This package owns the existing fail-closed derived-name analysis and a provisional
-bounded Document-lead extractor. A successful unnamed analysis returns an empty
-string; failure remains distinct. Catalog reconciliation and Export use
-`derive_name`; they do not yet use `extract`.
+This package owns the total derived-name analysis and a provisional bounded
+Document-lead extractor. An unnamed or safely non-derivable source returns an
+empty string. Catalog reconciliation and Export use `derive_name`; they do not
+yet use `extract`.
 
 `extract` parses the complete source and returns normalized form, primary text,
 structured description, and omission flags. Explicit positive limits count Unicode

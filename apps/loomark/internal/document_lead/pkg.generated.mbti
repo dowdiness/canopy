@@ -6,7 +6,7 @@ import {
 }
 
 // Values
-pub fn derive_name(String) -> Result[String, Unit]
+pub fn derive_name(String) -> String
 
 pub fn derived_name_survives_edit(String, String, String) -> Bool
 

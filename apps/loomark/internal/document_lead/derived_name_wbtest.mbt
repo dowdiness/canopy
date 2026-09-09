@@ -16,12 +16,19 @@ test "derive_name uses the first parser-recognized readable line" {
       ("---\n\nAfter rule\n", "After rule"),
       ("<div>raw</div>\n\nAfter HTML\n", "After HTML"),
       ("# 😀\nBody\n", "😀"),
+      ("", ""),
+      ("  \n\t\n", ""),
       ("# )bad\n", ")bad"),
       ("#   \n", ""),
     ] {
     let (source, expected) = fixture
-    assert_eq(derive_name(source), Ok(expected))
+    assert_eq(derive_name(source), expected)
   }
+}
+
+///|
+test "malformed and recovered sources remain total" {
+  assert_eq(derive_name("# [unterminated\n"), "[unterminated")
 }
 
 ///|

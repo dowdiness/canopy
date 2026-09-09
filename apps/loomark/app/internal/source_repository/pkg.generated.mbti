@@ -102,7 +102,6 @@ pub(all) enum RepositoryIssue {
   UnknownRecord(String)
   UnsupportedRecord(String)
   UnsupportedKey(Int)
-  NameDerivationFailed(String)
   InvalidLegacyRecord
   LegacyMigrationCollision(String)
 } derive(Eq, @debug.Debug)

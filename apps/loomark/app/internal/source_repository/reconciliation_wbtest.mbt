@@ -282,6 +282,16 @@ test "snapshot orders newest Change order first with lexical tie break" {
 }
 
 ///|
+test "snapshot reconstruction stores unnamed entries as empty names" {
+  let snapshot = RepositorySnapshot::from_sources([
+    test_source("blank", " \n\t\n"),
+  ]).unwrap()
+  assert_eq(snapshot.catalog().entries().to_owned(), [
+    CatalogEntry::new("blank", "").unwrap(),
+  ])
+}
+
+///|
 test "snapshot orders equal Change orders lexically" {
   let snapshot = RepositorySnapshot::from_sources([
     test_source("z", "# Z\n"),
@@ -308,7 +318,7 @@ test "accepted sources preserve lexical catalog and unrelated issues" {
       CatalogEntry::new("a", "A").unwrap(),
       CatalogEntry::new("b", "B").unwrap(),
     ]).unwrap(),
-    [RepositoryIssue::UnknownRecord("other"), NameDerivationFailed("b")],
+    [RepositoryIssue::UnknownRecord("other")],
     ["source/v1/a", "source/v1/b", "source/v1/corrupt"],
   )
   let with_c = accepted_source(original, test_source("c", "# C\n"))
@@ -319,7 +329,6 @@ test "accepted sources preserve lexical catalog and unrelated issues" {
   ])
   assert_eq(with_c.issues().to_owned(), [
     RepositoryIssue::UnknownRecord("other"),
-    NameDerivationFailed("b"),
   ])
   assert_eq(with_c.occupied_source_keys().to_owned(), [
     "source/v1/a", "source/v1/b", "source/v1/c", "source/v1/corrupt",
@@ -340,30 +349,15 @@ test "accepted sources preserve lexical catalog and unrelated issues" {
 }
 
 ///|
-test "accepted source does not duplicate current name issues" {
-  let original = RepositorySnapshot::new(
-    [test_source("a", "# A\n")],
-    Catalog::from_entries([CatalogEntry::new("a", "A").unwrap()]).unwrap(),
-    [NameDerivationFailed("a")],
-    ["source/v1/a"],
-  )
-  let accepted = accepted_source(original, test_source("a", "# New\n"))
-  assert_eq(accepted.issues().to_owned(), [])
-  assert_eq(accepted.catalog().entries().to_owned(), [
-    CatalogEntry::new("a", "New").unwrap(),
-  ])
-}
-
-///|
 test "next catalog replaces one identity and keeps lexical order" {
   let current = Catalog::from_entries([
     CatalogEntry::new("document-b", "Old").unwrap(),
     CatalogEntry::new("document-a", "").unwrap(),
   ]).unwrap()
-  let (next, issues) = next_catalog(current, "document-b", "# New\n")
+  let next = next_catalog(current, "document-b", "# New\n")
   assert_eq(next.entries().to_owned(), [
     CatalogEntry::new("document-a", "").unwrap(),
     CatalogEntry::new("document-b", "New").unwrap(),
   ])
-  assert_eq(issues, [])
+  assert_eq(next.entries()[1].name(), "New")
 }

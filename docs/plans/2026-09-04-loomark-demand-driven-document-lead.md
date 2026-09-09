@@ -90,7 +90,7 @@ pub fn extract(source : String) -> DocumentLead
 pub fn DocumentLead::form(Self) -> DocumentLeadForm
 pub fn DocumentLead::primary(Self) -> String
 pub fn DocumentLead::description(Self) -> String
-pub fn derive_name(source : String) -> Result[String, Unit]
+pub fn derive_name(source : String) -> String
 pub fn derived_name_survives_edit(
   previous_source : String,
   source : String,
@@ -109,15 +109,15 @@ compares equal even if only the omitted suffix changes. Truncation must not turn
 readable content into Empty.
 
 `DocumentLead` fields stay private. `derive_name` returns an in-app String: an
-empty String is a successful unnamed result, while `Err` preserves derivation
-failure observability. `description` is structured plain text: it
+empty String means unnamed or safely non-derivable. `description` is structured
+plain text: it
 may preserve meaningful newlines, indentation, list markers, and code spacing,
 but it is not a Markdown block tree. The form stores only distinctions that
 produce different presentation. Heading level is intentionally absent.
 
 The package imports the Markdown interpretation needed to extract a lead and
-enables `MarkdownExtensions::task_list()`. `derive_name` preserves the current
-fail-closed Catalog semantics; `extract` is the separate total product
+enables `MarkdownExtensions::task_list()`. `derive_name` is total and preserves
+the current Catalog semantics; `extract` is the separate total product
 projection. `derived_name_survives_edit` encapsulates the current certified
 prefix optimization without exposing offsets or parser nodes. The package
 imports no app, repository, Rabbita, RUI, DOM, storage, timer, or command
@@ -389,7 +389,7 @@ prototype branch.
 ### 2. Deepen `document_lead`
 
 - Create the package by moving the existing derived-name traversal and tests
-  from the Source repository; preserve fail-closed Catalog behavior first.
+  from the Source repository; preserve Catalog behavior first.
 - Replace the repository's public `derive_name` with imports of
   `document_lead.derive_name` and `derived_name_survives_edit`.
 - Add the opaque Document lead and the fixture matrix above, using task-list

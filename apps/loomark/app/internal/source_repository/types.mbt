@@ -170,7 +170,6 @@ pub(all) enum RepositoryIssue {
   UnknownRecord(String)
   UnsupportedRecord(String)
   UnsupportedKey(Int)
-  NameDerivationFailed(String)
   InvalidLegacyRecord
   LegacyMigrationCollision(String)
 } derive(Eq, Debug)
@@ -220,16 +219,7 @@ fn snapshot_from_sources(
   guard identities.length() == ordered.length() else { return None }
   let issues = initial_issues.copy()
   let entries = ordered.map(source => {
-    let name = match @document_lead.derive_name(source.text()) {
-      Ok(name) => name
-      Err(_) => {
-        let issue = NameDerivationFailed(source.document_id())
-        if !issues.contains(issue) {
-          issues.push(issue)
-        }
-        ""
-      }
-    }
+    let name = @document_lead.derive_name(source.text())
     CatalogEntry::new(
       source.document_id(),
       name,
@@ -309,31 +299,17 @@ fn accepted_source(
     )
   })
 
-  let issues = snapshot
-    .issues()
-    .to_owned()
-    .filter(issue => {
-      match issue {
-        RepositoryIssue::NameDerivationFailed(issue_id) =>
-          issue_id != document_id
-        _ => true
-      }
-    })
+  let issues = snapshot.issues().to_owned()
   let previous_source = snapshot
     .source(document_id)
     .map(source => source.text())
-  let (catalog, current_issues) = next_catalog_after_source(
+  let catalog = next_catalog_after_source(
     snapshot.catalog(),
     document_id,
     previous_source,
     source.text(),
     change_order=source.change_order(),
   )
-  for issue in current_issues {
-    if !issues.contains(issue) {
-      issues.push(issue)
-    }
-  }
   RepositorySnapshot::new(
     sources,
     catalog,
@@ -351,15 +327,7 @@ fn accepted_deletion(
   let sources = snapshot
     .sources()
     .filter(source => source.document_id() != document_id)
-  let issues = snapshot
-    .issues()
-    .filter(issue => {
-      match issue {
-        RepositoryIssue::NameDerivationFailed(issue_id) =>
-          issue_id != document_id
-        _ => true
-      }
-    })
+  let issues = snapshot.issues().to_owned()
   let deleted_key = source_key(document_id).unwrap()
   let occupied = snapshot
     .occupied_source_keys()
