@@ -3,7 +3,7 @@
 ///
 /// Budgets count Unicode scalar values. They bound the retained strings, not
 /// parser work: extraction still parses the complete source.
-pub struct DocumentLeadLimits {
+struct DocumentLeadLimits {
   primary : Int
   description : Int
 } derive(Eq, Debug)
@@ -32,7 +32,7 @@ pub enum DocumentLeadForm {
 } derive(Eq, Debug)
 
 ///|
-pub struct DocumentLead {
+struct DocumentLead {
   form : DocumentLeadForm
   primary : String
   description : String
@@ -66,7 +66,6 @@ pub fn DocumentLead::description_truncated(self : DocumentLead) -> Bool {
 }
 
 ///|
-/// private
 fn bound_text(text : String, limit : Int) -> (String, Bool) {
   let length = text.char_length()
   if length <= limit {
@@ -78,72 +77,6 @@ fn bound_text(text : String, limit : Int) -> (String, Bool) {
 }
 
 ///|
-/// private
-fn readable_text(node : @markdown.MarkdownIR, source : String) -> String? {
-  let builder = StringBuilder()
-  if append_lead_readable_text(node, builder, source) {
-    Some(builder.to_string())
-  } else {
-    None
-  }
-}
-
-///|
-/// Keep source-backed recovery nodes readable instead of silently dropping them.
-fn append_lead_readable_text(
-  node : @markdown.MarkdownIR,
-  builder : StringBuilder,
-  source : String,
-) -> Bool {
-  match node.view() {
-    @markdown.Text(value~)
-    | @markdown.InlineCode(value~)
-    | @markdown.Autolink(display=value, ..)
-    | @markdown.CodeBlock(value~, ..) => builder.write_string(value)
-    @markdown.SoftBreak | @markdown.HardBreak(..) => builder.write_char('\n')
-    @markdown.Unsupported(..) => {
-      let origin = node.origin()
-      builder.write_string(source[origin.start():origin.end()].to_owned())
-    }
-    @markdown.Document
-    | @markdown.BlockQuote
-    | @markdown.UnorderedList(..)
-    | @markdown.OrderedList(..)
-    | @markdown.ListItem(..)
-    | @markdown.OrderedListItem(..) => {
-      let mut first = true
-      for child in node.children() {
-        if !first {
-          builder.write_char('\n')
-        }
-        guard append_lead_readable_text(child, builder, source) else {
-          return false
-        }
-        first = false
-      }
-    }
-    @markdown.Heading(..)
-    | @markdown.Paragraph
-    | @markdown.Bold
-    | @markdown.Italic
-    | @markdown.Link(..)
-    | @markdown.Image(..) =>
-      for child in node.children() {
-        guard append_lead_readable_text(child, builder, source) else {
-          return false
-        }
-      }
-    @markdown.Raw(value~) | @markdown.Recovered(value~) =>
-      builder.write_string(value)
-    @markdown.ThematicBreak
-    | @markdown.HtmlBlock(..)
-    | @markdown.InlineHtml(..) => ()
-  }
-  true
-}
-
-///|
-/// private
 fn marker_text(node : @markdown.MarkdownIR) -> String {
   match node.view() {
     @markdown.UnorderedList(marker~, ..) | @markdown.ListItem(marker~, ..) =>
@@ -161,7 +94,6 @@ fn marker_text(node : @markdown.MarkdownIR) -> String {
 }
 
 ///|
-/// private
 fn structured_description(
   node : @markdown.MarkdownIR,
   source : String,
@@ -199,7 +131,7 @@ fn structured_description(
                 old="\n",
                 new="\n  ",
               )
-            _ => readable_text(child, source).unwrap_or("")
+            _ => readable_text(child, Some(source)).unwrap_or("")
           }
         })
         .join("\n")
@@ -210,8 +142,15 @@ fn structured_description(
         _ => text
       }
     }
-    _ => readable_text(node, source).unwrap_or("")
+    _ => readable_text(node, Some(source)).unwrap_or("")
   }
+}
+
+///|
+priv struct UnboundedLead {
+  form : DocumentLeadForm
+  primary : String
+  description : String
 }
 
 ///|
@@ -221,13 +160,18 @@ fn structured_description(
 fn list_lead_text(
   node : @markdown.MarkdownIR,
   source : String,
-) -> (String, String, DocumentLeadForm) {
+) -> UnboundedLead {
   let items = node.children()
   let first_readable = items.search_by(item => {
-    readable_text(item, source).unwrap_or("").trim().is_empty() == false
+    readable_text(item, Some(source)).unwrap_or("").trim().is_empty() == false
   })
   match first_readable {
-    None => ("", "", DocumentLeadForm::List(marker_text(node)))
+    None =>
+      {
+        form: DocumentLeadForm::List(marker_text(node)),
+        primary: "",
+        description: "",
+      }
     Some(index) => {
       let item = items.get(index).unwrap()
       let primary = item
@@ -239,7 +183,7 @@ fn list_lead_text(
             _ => true
           }
         })
-        .map(child => readable_text(child, source).unwrap_or(""))
+        .map(child => readable_text(child, Some(source)).unwrap_or(""))
         .join("\n")
         .trim()
         .to_owned()
@@ -253,13 +197,21 @@ fn list_lead_text(
           }
         })
       let (primary, primary_nested) = if primary.is_empty() {
-        let nested_primary = nested
-          .get(0)
-          .map(child => {
-            readable_text(child, source).unwrap_or("").trim().to_owned()
-          })
-          .unwrap_or("")
-        (nested_primary, "")
+        let nested_lead = match nested.get(0) {
+          Some(child) => lead_from_node(child, source)
+          None => None
+        }
+        match nested_lead {
+          Some(lead) => {
+            let description = if lead.description.is_empty() {
+              ""
+            } else {
+              "  " + lead.description.replace(old="\n", new="\n  ")
+            }
+            (lead.primary, description)
+          }
+          None => ("", "")
+        }
       } else {
         let nested_description = nested
           .map(child => {
@@ -289,47 +241,49 @@ fn list_lead_text(
           DocumentLeadForm::Task(task.checked())
         _ => DocumentLeadForm::List(marker_text(node))
       }
-      (primary, description, form)
+      { form, primary, description }
     }
   }
 }
 
 ///|
-/// private
 fn lead_from_node(
   node : @markdown.MarkdownIR,
   source : String,
-  limits : DocumentLeadLimits,
-) -> DocumentLead? {
-  let (primary_source, description_source, list_form) = match node.view() {
-    @markdown.UnorderedList(..) | @markdown.OrderedList(..) => {
-      let (primary, description, form) = list_lead_text(node, source)
-      (primary, description, Some(form))
-    }
-    @markdown.CodeBlock(..) =>
-      (readable_text(node, source).unwrap_or(""), "", None)
-    _ => (readable_text(node, source).unwrap_or("").trim().to_owned(), "", None)
-  }
-  guard !primary_source.is_empty() else { return None }
-  let (primary, primary_truncated) = bound_text(primary_source, limits.primary)
-  let description = description_source
-  let description_truncated = false
-  let form = match node.view() {
-    @markdown.Heading(..) => DocumentLeadForm::Heading
-    @markdown.BlockQuote => DocumentLeadForm::Quote
-    @markdown.CodeBlock(..) => DocumentLeadForm::Code
+) -> UnboundedLead? {
+  let lead = match node.view() {
     @markdown.UnorderedList(..) | @markdown.OrderedList(..) =>
-      list_form.unwrap()
-    @markdown.ListItem(task=Some(task), ..)
-    | @markdown.OrderedListItem(task=Some(task), ..) =>
-      DocumentLeadForm::Task(task.checked())
-    _ => DocumentLeadForm::Plain
+      list_lead_text(node, source)
+    @markdown.CodeBlock(..) =>
+      {
+        form: DocumentLeadForm::Code,
+        primary: readable_text(node, Some(source)).unwrap_or(""),
+        description: "",
+      }
+    view => {
+      let form = match view {
+        @markdown.Heading(..) => DocumentLeadForm::Heading
+        @markdown.BlockQuote => DocumentLeadForm::Quote
+        @markdown.ListItem(task=Some(task), ..)
+        | @markdown.OrderedListItem(task=Some(task), ..) =>
+          DocumentLeadForm::Task(task.checked())
+        _ => DocumentLeadForm::Plain
+      }
+      {
+        form,
+        primary: readable_text(node, Some(source))
+        .unwrap_or("")
+        .trim()
+        .to_owned(),
+        description: "",
+      }
+    }
   }
-  Some({ form, primary, description, primary_truncated, description_truncated })
+  guard !lead.primary.is_empty() else { return None }
+  Some(lead)
 }
 
 ///|
-/// private
 fn fallback_lead(source : String, limits : DocumentLeadLimits) -> DocumentLead {
   let normalized = source
     .replace_all(old="\r\n", new="\n")
@@ -370,8 +324,7 @@ fn fallback_lead(source : String, limits : DocumentLeadLimits) -> DocumentLead {
 }
 
 ///|
-/// Select the first block with readable text. Kept separate so the benchmark
-/// measures the exact selection operation used by `extract`.
+/// Select the first block with readable text.
 fn first_readable_index(
   document : @markdown.MarkdownIR,
   source : String,
@@ -379,63 +332,11 @@ fn first_readable_index(
   document
   .children()
   .search_by(child => {
-    match readable_text(child, source) {
+    match readable_text(child, Some(source)) {
       Some(text) => !text.trim().is_empty()
       None => false
     }
   })
-}
-
-///|
-/// Construct the unbounded description from the selected lead and siblings.
-fn description_for_lead(
-  lead : DocumentLead,
-  children : Array[@markdown.MarkdownIR],
-  index : Int,
-  source : String,
-) -> String {
-  let later = children[index + 1:]
-    .map(child => structured_description(child, source))
-    .filter(text => !text.is_empty())
-  if lead.description.is_empty() {
-    later.join("\n")
-  } else if later.is_empty() {
-    lead.description
-  } else {
-    lead.description + "\n" + later.join("\n")
-  }
-}
-
-///|
-/// Construct the final bounded result from the already selected lead.
-fn result_from_bounded_description(
-  lead : DocumentLead,
-  description : String,
-  description_truncated : Bool,
-) -> DocumentLead {
-  {
-    form: lead.form,
-    primary: lead.primary,
-    description,
-    primary_truncated: lead.primary_truncated,
-    description_truncated: lead.description_truncated || description_truncated,
-  }
-}
-
-///|
-fn finish_lead(
-  lead : DocumentLead,
-  children : Array[@markdown.MarkdownIR],
-  index : Int,
-  source : String,
-  limits : DocumentLeadLimits,
-) -> DocumentLead {
-  let combined = description_for_lead(lead, children, index, source)
-  let (description, description_truncated) = bound_text(
-    combined,
-    limits.description,
-  )
-  result_from_bounded_description(lead, description, description_truncated)
 }
 
 ///|
@@ -456,8 +357,30 @@ pub fn extract(source : String, limits~ : DocumentLeadLimits) -> DocumentLead {
   match first_readable_index(document, source) {
     Some(index) => {
       let first = children.get(index).unwrap()
-      match lead_from_node(first, source, limits) {
-        Some(lead) => finish_lead(lead, children, index, source, limits)
+      match lead_from_node(first, source) {
+        Some(lead) => {
+          let later = children[index + 1:]
+            .map(child => structured_description(child, source))
+            .filter(text => !text.is_empty())
+          let description_source = [lead.description, later.join("\n")]
+            .filter(text => !text.is_empty())
+            .join("\n")
+          let (primary, primary_truncated) = bound_text(
+            lead.primary,
+            limits.primary,
+          )
+          let (description, description_truncated) = bound_text(
+            description_source,
+            limits.description,
+          )
+          {
+            form: lead.form,
+            primary,
+            description,
+            primary_truncated,
+            description_truncated,
+          }
+        }
         None => fallback_lead(source, limits)
       }
     }

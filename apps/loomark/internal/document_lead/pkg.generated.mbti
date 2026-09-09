@@ -15,13 +15,7 @@ pub fn extract(String, limits~ : DocumentLeadLimits) -> DocumentLead
 // Errors
 
 // Types and methods
-pub struct DocumentLead {
-  form : DocumentLeadForm
-  primary : String
-  description : String
-  primary_truncated : Bool
-  description_truncated : Bool
-} derive(Eq, @debug.Debug)
+type DocumentLead derive(Eq, @debug.Debug)
 pub fn DocumentLead::description(Self) -> String
 pub fn DocumentLead::description_truncated(Self) -> Bool
 pub fn DocumentLead::form(Self) -> DocumentLeadForm
@@ -38,10 +32,7 @@ pub enum DocumentLeadForm {
   Empty
 } derive(Eq, @debug.Debug)
 
-pub struct DocumentLeadLimits {
-  primary : Int
-  description : Int
-} derive(Eq, @debug.Debug)
+type DocumentLeadLimits derive(Eq, @debug.Debug)
 pub fn DocumentLeadLimits::try_new(primary~ : Int, description~ : Int) -> Result[Self, Unit]
 
 // Type aliases

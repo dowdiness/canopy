@@ -21,64 +21,11 @@ fn first_readable_line(text : String) -> String? {
 }
 
 ///|
-fn append_readable_children(
-  node : @markdown.MarkdownIR,
-  builder : StringBuilder,
-  separate : Bool,
-) -> Bool {
-  let mut first = true
-  for child in node.children() {
-    if separate && !first {
-      builder.write_char('\n')
-    }
-    guard append_readable_text(child, builder) else { return false }
-    first = false
-  }
-  true
-}
-
-///|
-fn append_readable_text(
-  node : @markdown.MarkdownIR,
-  builder : StringBuilder,
-) -> Bool {
-  match node.view() {
-    @markdown.Text(value~)
-    | @markdown.InlineCode(value~)
-    | @markdown.Autolink(display=value, ..)
-    | @markdown.CodeBlock(value~, ..) => builder.write_string(value)
-    @markdown.SoftBreak | @markdown.HardBreak(..) => builder.write_char('\n')
-    @markdown.Document
-    | @markdown.BlockQuote
-    | @markdown.UnorderedList(..)
-    | @markdown.OrderedList(..)
-    | @markdown.ListItem(..)
-    | @markdown.OrderedListItem(..) => {
-      guard append_readable_children(node, builder, true) else { return false }
-    }
-    @markdown.Heading(..)
-    | @markdown.Paragraph
-    | @markdown.Bold
-    | @markdown.Italic
-    | @markdown.Link(..)
-    | @markdown.Image(..) => {
-      guard append_readable_children(node, builder, false) else { return false }
-    }
-    @markdown.ThematicBreak
-    | @markdown.HtmlBlock(..)
-    | @markdown.InlineHtml(..) => ()
-    @markdown.Raw(value~) | @markdown.Recovered(value~) =>
-      builder.write_string(value)
-    @markdown.Unsupported(..) => return false
-  }
-  true
-}
-
-///|
 fn readable_name(node : @markdown.MarkdownIR) -> Result[String?, Unit] {
-  let builder = StringBuilder()
-  guard append_readable_text(node, builder) else { return Err(()) }
-  Ok(first_readable_line(builder.to_string()))
+  match readable_text(node, None) {
+    Some(text) => Ok(first_readable_line(text))
+    None => Err(())
+  }
 }
 
 ///|

@@ -32,6 +32,10 @@ test "extract presents the first readable Markdown block" {
       ("single paragraph\n", Plain, "single paragraph", ""),
       ("plain **text**\n", Plain, "plain text", ""),
       ("![alt](image.png)\n", Plain, "alt", ""),
+      ("[text](url\n", Plain, "[text](url", ""),
+      ("# )bad\n", Heading, ")bad", ""),
+      ("<div>raw</div>\n\nAfter HTML\n", Plain, "After HTML", ""),
+      ("title: x\n", Plain, "title: x", ""),
       (
         "```\n  leading\n    interior\n```\n",
         Code,
@@ -40,6 +44,7 @@ test "extract presents the first readable Markdown block" {
       ),
       ("-\n- readable\n- later\n", List("-"), "readable", "- later"),
       ("-\n  - nested\n", List("-"), "nested", ""),
+      ("-\n  - one\n  - two\n", List("-"), "one", "  - two"),
       ("-\n- [x] done\n", Task(true), "done", ""),
     ] {
     let (source, form, primary, description) = fixture
