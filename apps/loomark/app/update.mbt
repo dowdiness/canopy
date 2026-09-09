@@ -24,6 +24,7 @@ fn preview_input(editing : EditingState) -> @preview.Input {
   @preview.Input(
     editing.activation.generation,
     editing.documents.text(editing.activation.document_id).unwrap_or(""),
+    composing=editing.documents.is_composing(editing.activation.document_id),
   )
 }
 
@@ -420,7 +421,14 @@ fn update(
           DocumentsCompositionStarted(owner.document_id),
           emit,
         )
-        (Editing(editing), command)
+        let (preview, preview_command) = preview_engine.composition_started(
+          editing.preview,
+          preview_input(editing),
+        )
+        (
+          Editing({ ..editing, preview, }),
+          @cmd.batch([command, preview_command]),
+        )
       }
     (Editing(editing), CompositionEnded(owner)) =>
       if owner != editing.activation {
@@ -431,11 +439,20 @@ fn update(
           DocumentsCompositionEnded(owner.document_id),
           emit,
         )
+        let (preview, preview_command) = preview_engine.composition_ended(
+          editing.preview,
+          preview_input(editing),
+          emit.map(event => PreviewEvent(event)),
+        )
+        let editing = { ..editing, preview, }
         let deletion = match editing.deletion {
           DeleteDeferred(document_id) => DeleteConfirmation(document_id)
           other => other
         }
-        (Editing({ ..editing, deletion, }), command)
+        (
+          Editing({ ..editing, deletion, }),
+          @cmd.batch([command, preview_command]),
+        )
       }
     (Editing(editing), ModeSelected(mode)) => {
       let entering_preview = editing.mode == Text && mode != Text

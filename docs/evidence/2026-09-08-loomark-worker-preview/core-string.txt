@@ -1,0 +1,91 @@
+package "moonbitlang/core/string"
+type String
+
+  pub fn String::add(String, String) -> String
+  pub fn String::after(String, StringView) -> StringView?
+  #alias(every)
+  pub fn String::all(String, (Char) -> Bool raise?) -> Bool raise?
+  #alias(exists)
+  pub fn String::any(String, (Char) -> Bool raise?) -> Bool raise?
+  #alias("_[_]")
+  #alias(code_unit_at)
+  pub fn String::at(String, Int) -> UInt16
+  pub fn String::before(String, StringView) -> StringView?
+  pub fn String::char_length(String, start_offset? : Int, end_offset? : Int) -> Int
+  pub fn String::char_length_eq(String, Int, start_offset? : Int, end_offset? : Int) -> Bool
+  pub fn String::char_length_ge(String, Int, start_offset? : Int, end_offset? : Int) -> Bool
+  pub fn String::clamped_view(String, start? : Int, end? : Int) -> StringView
+  pub fn String::code_units(String) -> ArrayView[UInt16]
+  pub fn String::compare(String, String) -> Int
+  pub fn String::compare_ignore_ascii_case(String, String) -> Int
+  pub fn String::contains(String, StringView) -> Bool
+  pub fn String::contains_any(String, chars~ : StringView) -> Bool
+  pub fn String::contains_char(String, Char) -> Bool
+  pub fn String::contains_code_unit(String, UInt16) -> Bool
+  pub fn String::equal(String, String) -> Bool
+  pub fn String::equal_ignore_ascii_case(String, String) -> Bool
+  pub fn String::escape(String, quote? : Bool) -> String
+  pub fn String::find(String, StringView) -> Int?
+  pub fn String::find_by(String, (Char) -> Bool) -> Int?
+  pub fn[A] String::fold(String, init~ : A, (A, Char) -> A raise?) -> A raise?
+  pub fn String::from_array(ArrayView[Char]) -> String
+  pub fn String::from_iter(Iter[Char]) -> String
+  pub fn String::get(String, Int) -> UInt16?
+  pub fn String::get_char(String, Int) -> Char?
+  pub fn String::get_view(String, start? : Int, end? : Int) -> StringView?
+  pub fn String::has_prefix(String, StringView) -> Bool
+  pub fn String::has_suffix(String, StringView) -> Bool
+  pub fn String::hash(String) -> Int
+  pub fn String::is_blank(String) -> Bool
+  pub fn String::is_empty(String) -> Bool
+  pub fn String::iter(String) -> Iter[Char]
+  pub fn String::iter2(String) -> Iter2[Int, Char]
+  pub fn String::length(String) -> Int
+  pub fn String::lexical_compare(String, String) -> Int
+  pub fn String::make(Int, Char) -> String
+  pub fn String::offset_of_nth_char(String, Int, start_offset? : Int, end_offset? : Int) -> Int?
+  pub fn String::pad_end(String, Int, Char) -> String
+  pub fn String::pad_start(String, Int, Char) -> String
+  pub fn String::repeat(String, Int) -> String
+  pub fn String::replace(String, old~ : StringView, new~ : StringView) -> String
+  pub fn String::replace_all(String, old~ : StringView, new~ : StringView) -> String
+  pub fn String::rev(String) -> String
+  pub fn String::rev_after(String, StringView) -> StringView?
+  pub fn String::rev_before(String, StringView) -> StringView?
+  pub fn String::rev_find(String, StringView) -> Int?
+  pub fn[A] String::rev_fold(String, init~ : A, (A, Char) -> A raise?) -> A raise?
+  pub fn String::rev_iter(String) -> Iter[Char]
+  pub fn String::rev_split_once(String, StringView) -> (StringView, StringView)?
+  pub fn String::split(String, StringView) -> Iter[StringView]
+  pub fn String::split_at(String, Int) -> (StringView, StringView)
+  pub fn String::split_once(String, StringView) -> (StringView, StringView)?
+  #alias(chop_prefix)
+  pub fn String::strip_prefix(String, StringView) -> StringView?
+  #alias(chop_suffix)
+  pub fn String::strip_suffix(String, StringView) -> StringView?
+  #alias("_[_:_]")
+  pub fn String::sub(String, start? : Int, end? : Int) -> StringView
+  pub fn String::suffixes(String, include_empty? : Bool) -> Iter[StringView]
+  pub fn String::to_array(String) -> Array[Char]
+  pub fn String::to_json(String) -> Json
+  pub fn String::to_lower(String) -> String
+  pub fn String::to_string(String) -> String
+  pub fn String::to_string_view(String) -> StringView
+  pub fn String::to_upper(String) -> String
+  pub fn String::trim(String, chars? : StringView) -> StringView
+  pub fn String::trim_end(String, chars? : StringView) -> StringView
+  pub fn String::trim_start(String, chars? : StringView) -> StringView
+  pub fn String::unsafe_substring(String, start~ : Int, end~ : Int) -> String
+  pub fn String::view(String, start_offset? : Int, end_offset? : Int) -> StringView
+  pub impl Add for String
+  pub impl Compare for String
+  pub impl Default for String
+  pub impl Eq for String
+  pub impl Hash for String
+  pub impl Show for String
+  pub impl ToJson for String
+  pub impl ToStringView for String
+  pub impl Debug for String
+  pub impl FromJson for String
+  pub impl Arbitrary for String
+  pub impl Shrink for String

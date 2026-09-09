@@ -1,0 +1,7 @@
+[dowdiness/loomark] test internal/preview/demand_regression_wbtest.mbt:2 ("demand regression: an edit during the quiet window postpones parsing") failed: internal/preview/demand_regression_wbtest.mbt:8:3-8:51@dowdiness/loomark FAILED: `false` is not true
+[dowdiness/loomark] test internal/preview/demand_regression_wbtest.mbt:12 ("demand regression: third edit cannot restore an exact delta") failed: internal/preview/demand_regression_wbtest.mbt:17:3-17:50@dowdiness/loomark FAILED: `false` is not true
+[dowdiness/loomark] test internal/preview/demand_regression_wbtest.mbt:21 ("demand regression: suspended preparation can be requested again") failed: internal/preview/demand_regression_wbtest.mbt:24:3-24:52@dowdiness/loomark FAILED: `false` is not true
+[dowdiness/loomark] test internal/preview/demand_regression_wbtest.mbt:30 ("demand regression: composition prevents initial preparation") failed: internal/preview/demand_regression_wbtest.mbt:33:3-33:47@dowdiness/loomark FAILED: `false` is not true
+[dowdiness/loomark] test internal/preview/demand_regression_wbtest.mbt:37 ("demand regression: stale preparation does not remain stuck preparing") failed: internal/preview/demand_regression_wbtest.mbt:40:3-40:47@dowdiness/loomark FAILED: `true` is not false
+[dowdiness/loomark] test internal/preview/demand_regression_wbtest.mbt:44 ("demand regression: failed output can retry equal text") failed: internal/preview/demand_regression_wbtest.mbt:47:3-47:52@dowdiness/loomark FAILED: `false` is not true
+Total tests: 6, passed: 0, failed: 6.

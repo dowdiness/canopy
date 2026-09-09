@@ -1,0 +1,115 @@
+Warning: [0035]
+    ╭─[ /home/antisatori/ghq/github.com/dowdiness/canopy-loomark-worker-preview/apps/loomark/internal/preview/remote_node_wbtest.mbt:10:7 ]
+    │
+ 10 │   let local = @rabbita_testing.server_side_render(() => render(root))
+    │       ──┬──  
+    │         ╰──── Warning (reserved_keyword): The word `local` is reserved for possible future use. Please consider using another name.
+────╯
+Warning: [0035]
+    ╭─[ /home/antisatori/ghq/github.com/dowdiness/canopy-loomark-worker-preview/apps/loomark/internal/preview/remote_node_wbtest.mbt:14:13 ]
+    │
+ 14 │   assert_eq(local, remote)
+    │             ──┬──  
+    │               ╰──── Warning (reserved_keyword): The word `local` is reserved for possible future use. Please consider using another name.
+────╯
+Warning: [0035]
+    ╭─[ /home/antisatori/ghq/github.com/dowdiness/canopy-loomark-worker-preview/apps/loomark/internal/preview/remote_node_wbtest.mbt:15:15 ]
+    │
+ 15 │   assert_true(local.contains("data-loomark-task-checkbox"))
+    │               ──┬──  
+    │                 ╰──── Warning (reserved_keyword): The word `local` is reserved for possible future use. Please consider using another name.
+────╯
+Warning: [0035]
+    ╭─[ /home/antisatori/ghq/github.com/dowdiness/canopy-loomark-worker-preview/apps/loomark/internal/preview/remote_node_wbtest.mbt:16:16 ]
+    │
+ 16 │   assert_true(!local.contains("javascript:alert"))
+    │                ──┬──  
+    │                  ╰──── Warning (reserved_keyword): The word `local` is reserved for possible future use. Please consider using another name.
+────╯
+Warning: [0020]
+    ╭─[ /home/antisatori/ghq/github.com/dowdiness/canopy-loomark-worker-preview/apps/loomark/internal/preview/remote_node_wbtest.mbt:21:17 ]
+    │
+ 21 │   let unknown = try? decode_node(
+    │                 ──┬─  
+    │                   ╰─── Warning (deprecated): `try?` is deprecated.
+
+  Do not mechanically replace this with `try expr |> Ok catch { e => Err(e) }`; that still creates a local `Result` wrapper and usually misses theintended migration.
+  Only create `Ok`/`Err` when the `Result` value must escape this local expression: stored, returned, passed to a Result-taking API, or kept for later comparison as data.
+
+  Migration in inspect-based tests:
+  1. If the expected behavior is success, remove `try?` and run the raising expression directly:
+
+    inspect(expr, content=...)
+
+  2. If the expected behavior is an error, replace `try?` with `try ... catch ... noraise`:
+
+    try expr catch {
+      e => inspect(e, content=...)
+    } noraise {
+      _ => fail("expected expr to raise")
+    }
+
+────╯
+Warning: [0020]
+    ╭─[ /home/antisatori/ghq/github.com/dowdiness/canopy-loomark-worker-preview/apps/loomark/internal/preview/remote_node_wbtest.mbt:27:24 ]
+    │
+ 27 │   let wrong_children = try? decode_node(
+    │                        ──┬─  
+    │                          ╰─── Warning (deprecated): `try?` is deprecated.
+
+  Do not mechanically replace this with `try expr |> Ok catch { e => Err(e) }`; that still creates a local `Result` wrapper and usually misses theintended migration.
+  Only create `Ok`/`Err` when the `Result` value must escape this local expression: stored, returned, passed to a Result-taking API, or kept for later comparison as data.
+
+  Migration in inspect-based tests:
+  1. If the expected behavior is success, remove `try?` and run the raising expression directly:
+
+    inspect(expr, content=...)
+
+  2. If the expected behavior is an error, replace `try?` with `try ... catch ... noraise`:
+
+    try expr catch {
+      e => inspect(e, content=...)
+    } noraise {
+      _ => fail("expected expr to raise")
+    }
+
+────╯
+Warning: [0020]
+    ╭─[ /home/antisatori/ghq/github.com/dowdiness/canopy-loomark-worker-preview/apps/loomark/internal/preview/remote_node_wbtest.mbt:33:20 ]
+    │
+ 33 │   let bad_marker = try? decode_node(
+    │                    ──┬─  
+    │                      ╰─── Warning (deprecated): `try?` is deprecated.
+
+  Do not mechanically replace this with `try expr |> Ok catch { e => Err(e) }`; that still creates a local `Result` wrapper and usually misses theintended migration.
+  Only create `Ok`/`Err` when the `Result` value must escape this local expression: stored, returned, passed to a Result-taking API, or kept for later comparison as data.
+
+  Migration in inspect-based tests:
+  1. If the expected behavior is success, remove `try?` and run the raising expression directly:
+
+    inspect(expr, content=...)
+
+  2. If the expected behavior is an error, replace `try?` with `try ... catch ... noraise`:
+
+    try expr catch {
+      e => inspect(e, content=...)
+    } noraise {
+      _ => fail("expected expr to raise")
+    }
+
+────╯
+Warning: [0035]
+     ╭─[ /home/antisatori/ghq/github.com/dowdiness/canopy-loomark-worker-preview/apps/loomark/internal/preview/worker_regression_wbtest.mbt:102:7 ]
+     │
+ 102 │   let local = @rabbita_testing.server_side_render(() => render(root))
+     │       ──┬──  
+     │         ╰──── Warning (reserved_keyword): The word `local` is reserved for possible future use. Please consider using another name.
+─────╯
+Warning: [0035]
+     ╭─[ /home/antisatori/ghq/github.com/dowdiness/canopy-loomark-worker-preview/apps/loomark/internal/preview/worker_regression_wbtest.mbt:106:13 ]
+     │
+ 106 │   assert_eq(local, other)
+     │             ──┬──  
+     │               ╰──── Warning (reserved_keyword): The word `local` is reserved for possible future use. Please consider using another name.
+─────╯
+Total tests: 108, passed: 108, failed: 0.

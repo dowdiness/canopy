@@ -1,0 +1,18 @@
+// Known failing gate: first Preview demand with the Worker asset unavailable.
+// Context offline emulation alone did not reliably block the Worker module;
+// explicitly abort that resource rather than claiming cold-offline coverage.
+import {chromium} from '../apps/loomark/examples/vanilla/node_modules/playwright-core/index.mjs';
+const url=process.env.URLBASE??'http://127.0.0.1:4325/?preview-worker=1';
+const browser=await chromium.launch({headless:true,executablePath:'/opt/google/chrome/chrome'});
+try {
+  const context=await browser.newContext();let blocked=0;
+  await context.route('**/preview-worker.js',async route=>{blocked++;await route.abort('internetdisconnected')});
+  const page=await context.newPage();await page.goto(url);
+  const text=page.getByRole('textbox',{name:'Text',exact:true});
+  await text.fill('# Offline first');await context.setOffline(true);
+  await page.getByRole('tab',{name:'Split',exact:true}).click();
+  await page.getByRole('heading',{name:'Offline first',exact:true}).waitFor({timeout:2000}).catch(()=>{});
+  const result={url,blocked,preview:await page.getByRole('heading',{name:'Offline first',exact:true}).count(),alerts:await page.getByRole('alert').allTextContents(),text:await text.inputValue()};
+  console.log(JSON.stringify(result));
+  process.exitCode=result.preview===1&&result.text==='# Offline first'?0:1;
+} finally {await browser.close()}

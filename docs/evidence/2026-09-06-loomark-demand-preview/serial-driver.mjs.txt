@@ -1,0 +1,78 @@
+// Diagnosis only: one page, fixed source, serial trusted keys; no EGW load.
+import { chromium } from '../apps/loomark/examples/vanilla/node_modules/playwright-core/index.mjs';
+import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+const url=process.env.URLBASE??'http://127.0.0.1:4317/';
+const out=process.env.OUTDIR??'/tmp/loomark-preview-diagnosis';mkdirSync(out,{recursive:true});
+const lines=Number(process.env.LINES??2000),samples=Number(process.env.SAMPLES??30),profile=process.env.PROFILE==='1';
+const hash=data=>createHash('sha256').update(data).digest('hex');
+const app=await(await fetch(new URL('index.js',url))).text();
+const probe=process.env.PROBE??'none';
+let servedApp=app;
+if(!['none','timing','skip-apply'].includes(probe))throw Error('unknown diagnostic probe');
+if(probe!=='none'){
+ if(hash(app)!=='2da5278611d902d5264941c9ec5dddde1df0cc2dd8b72f6bcf451a6c11413e7c')throw Error('bundle changed: re-inspect diagnostic function mappings');
+ // Pin the inspected minified functions to the recorded app hash. These are
+ // diagnostic interposers, not supported app APIs or production fixes.
+ for(const [name,metric] of [['tst','apply'],['F6','syntaxApply']]){
+  const token=`function ${name}(`;
+  if(servedApp.split(token).length!==2)throw Error(`non-unique probe target ${name}`);
+  servedApp=servedApp.replace(token,`function ${name}(...args){const d=globalThis.__previewDiagnostic;if(!d?.active)return __diag_${name}(...args);const start=performance.now();try{return __diag_${name}(...args)}finally{d.spans.${metric}.push(performance.now()-start)}}function __diag_${name}(`);
+ }
+ if(probe==='skip-apply'){
+  const token='function est(t,e,n,r,i){';
+  if(servedApp.split(token).length!==2)throw Error('non-unique apply-command target');
+  servedApp=servedApp.replace(token,token+'if(globalThis.__previewDiagnostic?.active){globalThis.__previewDiagnostic.commandsSkipped++;return dX(()=>{},void 0)}');
+ }
+}
+const provenance={driverSha256:hash(readFileSync(new URL(import.meta.url))),appSha256:hash(app),servedAppSha256:hash(servedApp),url,lines,samples,profile,probe};
+const browser=await chromium.launch({executablePath:'/opt/google/chrome/chrome',headless:true});
+const initial='# Runtime validation\n'+Array.from({length:lines},(_,i)=>i%2?'':`Paragraph ${i} with **bold** text.`).join('\n');
+const stats=values=>{const a=values.toSorted((x,y)=>x-y);return{count:a.length,p95:a[Math.ceil(a.length*.95)-1],max:a.at(-1)};};
+const phases=[];
+try {
+ const context=await browser.newContext({viewport:{width:1280,height:720}}),page=await context.newPage();
+ const errors=[];page.on('pageerror',e=>errors.push(String(e)));
+ if(probe!=='none')await page.route('**/index.js',route=>route.fulfill({contentType:'application/javascript',body:servedApp}));
+ await page.goto(url);
+ const text=page.getByRole('textbox',{name:'Text',exact:true});
+ const cdp=await context.newCDPSession(page);
+ if(profile)await cdp.send('Profiler.enable');
+ for(const phase of ['cold-text','after-preview','after-reload']){
+  if(phase==='after-reload'){await page.reload();await text.waitFor();}
+  await text.fill(initial);
+  if(phase==='after-preview'){
+   await page.getByRole('tab',{name:'Preview',exact:true}).click();
+   await page.getByRole('heading',{name:'Runtime validation',exact:true}).waitFor();
+   await page.getByRole('tab',{name:'Text',exact:true}).click();
+  }
+  await text.focus();await text.press('Control+End');
+  for(let i=0;i<5;i++)await text.press('x');
+  await page.waitForTimeout(350);
+  await page.evaluate(()=>{
+   const controller=new AbortController();let start=0;
+   const metrics=globalThis.__previewDiagnostic={active:true,sync:[],microtask:[],trusted:0,controller,spans:{apply:[],syntaxApply:[]},commandsSkipped:0};
+   window.addEventListener('beforeinput',e=>{if(e.isTrusted&&e.target instanceof HTMLTextAreaElement)start=performance.now();},{capture:true,signal:controller.signal});
+   window.addEventListener('input',e=>{
+    if(!e.isTrusted||!(e.target instanceof HTMLTextAreaElement)||!start)return;
+    const began=start;metrics.trusted++;metrics.sync.push(performance.now()-began);
+    queueMicrotask(()=>metrics.microtask.push(performance.now()-began));
+   },{signal:controller.signal});
+  });
+  if(profile)await cdp.send('Profiler.start');
+  for(let i=0;i<samples;i++){await text.press('x');await page.waitForTimeout(20);}
+  if(profile){const result=await cdp.send('Profiler.stop');writeFileSync(`${out}/${phase}.cpuprofile`,JSON.stringify(result.profile));}
+  await page.waitForTimeout(100);
+  const raw=await page.evaluate(()=>{const m=globalThis.__previewDiagnostic;m.active=false;m.controller.abort();return{sync:m.sync,microtask:m.microtask,trusted:m.trusted,spans:m.spans,commandsSkipped:m.commandsSkipped};});
+  if(raw.trusted!==samples||raw.sync.length!==samples||raw.microtask.length!==samples)throw Error('missing trusted input measurements');
+  if(await text.inputValue()!==initial+'x'.repeat(samples+5))throw Error('text mismatch');
+  const result={phase,syncMs:stats(raw.sync),microtaskMs:stats(raw.microtask),applyMs:probe==='none'?null:stats(raw.spans.apply),syntaxApplyMs:probe==='none'?null:stats(raw.spans.syntaxApply),commandsSkipped:raw.commandsSkipped,raw};phases.push(result);
+  console.log(JSON.stringify({...result,raw:undefined}));
+ }
+ const after=phases.find(x=>x.phase==='after-preview');
+ const report={provenance,browser:browser.version(),phases,errors,budgetMs:10,gatePassed:after.microtaskMs.p95<=10&&after.microtaskMs.max<=10};
+ writeFileSync(`${out}/results.json`,JSON.stringify(report,null,2));
+ if(errors.length)throw Error(errors.join('\n'));
+ console.log(report.gatePassed?'PASS: after-preview input p95/max <=10ms':'FAIL: after-preview input exceeds10ms');
+ if(!report.gatePassed)process.exitCode=1;
+} finally{await browser.close();}

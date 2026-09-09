@@ -1,0 +1,8 @@
+{
+  "equal": false,
+  "actualLength": 604770,
+  "expectedLength": 604775,
+  "firstDifference": 162241,
+  "actual": "{n=e}return w$(t,n)}function $(t,e){return w$(new In(t,0,t.length),e)}",
+  "expected": "{n=e}return w$(t,n)}function $$(t,e){return w$(new In(t,0,t.length),e)"
+}

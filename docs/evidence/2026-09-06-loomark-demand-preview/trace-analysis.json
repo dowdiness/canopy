@@ -1,0 +1,82 @@
+{
+  "limitation": "Paint gaps are same-thread trace gaps inside the input window, not presentation timestamps. CDP ACK includes transport. Raw EventTiming duration is not a calculated page INP. Outlier trials without traces remain unattributed.",
+  "scenarios": [
+    {
+      "scenario": "text",
+      "traceSha256": "d932430297083b10ea896d80c7ceafd98b9a69bcf807ec653c05bf4bfa521ab9",
+      "inputCount": 50,
+      "renderer": [
+        2232653,
+        2232653
+      ],
+      "inputWindowMs": 1489.631,
+      "paintTimestamps": 98,
+      "maxPaintGapMs": 43.148,
+      "longTimerTasks": [],
+      "eventTiming": [
+        {
+          "repetition": 1,
+          "entries": 0,
+          "keydownQueueMaxMs": null,
+          "rawEventDurationMaxMs": null
+        },
+        {
+          "repetition": 2,
+          "entries": 0,
+          "keydownQueueMaxMs": null,
+          "rawEventDurationMaxMs": null
+        },
+        {
+          "repetition": 3,
+          "entries": 0,
+          "keydownQueueMaxMs": null,
+          "rawEventDurationMaxMs": null
+        }
+      ]
+    },
+    {
+      "scenario": "split",
+      "traceSha256": "0a3b5e8724ebff05174b972b57bba89231f168c3bc8cd3a3d77d2864b06af486",
+      "inputCount": 50,
+      "renderer": [
+        2230994,
+        2230994
+      ],
+      "inputWindowMs": 1493.664,
+      "paintTimestamps": 92,
+      "maxPaintGapMs": 103.218,
+      "longTimerTasks": [
+        {
+          "timerId": 8,
+          "timeoutMs": 24.0,
+          "durationMs": 60.044
+        },
+        {
+          "timerId": 102,
+          "timeoutMs": 24.0,
+          "durationMs": 72.602
+        }
+      ],
+      "eventTiming": [
+        {
+          "repetition": 1,
+          "entries": 215,
+          "keydownQueueMaxMs": 62.09999996423721,
+          "rawEventDurationMaxMs": 1304
+        },
+        {
+          "repetition": 2,
+          "entries": 210,
+          "keydownQueueMaxMs": 62.89999997615814,
+          "rawEventDurationMaxMs": 1288
+        },
+        {
+          "repetition": 3,
+          "entries": 215,
+          "keydownQueueMaxMs": 63.09999996423721,
+          "rawEventDurationMaxMs": 1304
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+package "moonbitlang/core/option"
+pub fn[T, U] Option::bind(T?, (T) -> U? raise?) -> U? raise?
+pub fn[X : Compare] Option::compare(X?, X?) -> Int
+pub fn[X : Eq] Option::equal(X?, X?) -> Bool
+pub fn[T] Option::filter(T?, (T) -> Bool raise?) -> T? raise?
+pub fn[X : Hash] Option::hash(X?) -> Int
+#alias(iterator, deprecated)
+pub fn[T] Option::iter(T?) -> Iter[T]
+pub fn[T, U] Option::map(T?, (T) -> U raise?) -> U? raise?
+pub fn[T, U] Option::map_or(T?, U, (T) -> U raise?) -> U raise?
+pub fn[T, U] Option::map_or_else(T?, () -> U raise?, (T) -> U raise?) -> U raise?
+pub fn[T : ToJson] Option::to_json(T?) -> Json
+pub fn[X] Option::unwrap(X?) -> X
+#alias(or, deprecated)
+pub fn[T] Option::unwrap_or(T?, T) -> T
+#alias(or_default, deprecated)
+pub fn[T : Default] Option::unwrap_or_default(T?) -> T
+#alias(or_else, deprecated)
+pub fn[T] Option::unwrap_or_else(T?, () -> T raise?) -> T raise?
+#alias(or_error, deprecated)
+pub fn[T, Err : Error] Option::unwrap_or_error(T?, Err) -> T raise Err

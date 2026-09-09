@@ -1,0 +1,26 @@
+
+Running 1 test using 1 worker
+
+  ✘  1 ../../../canopy-loomark-demand-preview/apps/loomark/examples/vanilla/tests/standalone.spec.ts:2183:1 › large retained Preview stays off trusted Text input and catches up on demand (3.7s)
+
+
+  1) ../../../canopy-loomark-demand-preview/apps/loomark/examples/vanilla/tests/standalone.spec.ts:2183:1 › large retained Preview stays off trusted Text input and catches up on demand 
+
+    Error: expect(received).toBeLessThanOrEqual(expected)
+
+    Expected: <= 10
+    Received:    47.299999952316284
+
+      2216 |   expect(durations).toHaveLength(20)
+      2217 |   const sorted = [...durations].sort((a, b) => a - b)
+    > 2218 |   expect(sorted[Math.ceil(sorted.length * 0.95) - 1]).toBeLessThanOrEqual(10)
+           |                                                       ^
+      2219 |   expect(sorted.at(-1)).toBeLessThanOrEqual(10)
+      2220 |   const expected = source + "x".repeat(20)
+      2221 |   await expect(text).toHaveValue(expected)
+        at /home/antisatori/ghq/github.com/dowdiness/canopy-loomark-demand-preview/apps/loomark/examples/vanilla/tests/standalone.spec.ts:2218:55
+
+    Error Context: test-results/standalone-large-retained--c861c-ut-and-catches-up-on-demand/error-context.md
+
+  1 failed
+    ../../../canopy-loomark-demand-preview/apps/loomark/examples/vanilla/tests/standalone.spec.ts:2183:1 › large retained Preview stays off trusted Text input and catches up on demand 

@@ -1,0 +1,12 @@
+
+> test
+> node ./run-standalone-tests.mjs --grep large retained|composition cancels
+
+Loomark standalone output at http://127.0.0.1:4323
+
+Running 2 tests using 1 worker
+
+  ✓  1 tests/standalone.spec.ts:2183:1 › large retained Preview stays off trusted Text input and catches up on demand (3.7s)
+  ✓  2 tests/standalone.spec.ts:2229:1 › composition cancels an already pending Preview wake and resumes latest text (514ms)
+
+  2 passed (5.0s)

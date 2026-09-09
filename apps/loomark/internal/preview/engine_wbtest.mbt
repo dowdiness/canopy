@@ -26,7 +26,11 @@ test "PreviewEngine rejects an operation owned by an older activation" {
   }
   assert_true(engine.next_lazy_key > next_lazy_key_floor)
   assert_false(engine.discard_owned(1))
-  guard engine.apply_owned(1, @text_change.ReplaceAll("# Stale\n"), "# Stale\n")
+  guard engine.catch_up_owned(
+      1,
+      "# Stale\n",
+      Some(@text_change.TextChange::ReplaceAll("# Stale\n")),
+    )
     is None else {
     fail("stale activation should not apply")
   }
@@ -229,6 +233,28 @@ test "PreviewEngine publishes lazy task-list HTML after an edit" {
   assert_true(checked_html.contains("type=\"checkbox\""))
   assert_true(checked_html.contains("checked"))
   assert_true(!checked_html.contains("[x]"))
+}
+
+///|
+test "PreviewEngine catchup retains parser for arbitrary net changes" {
+  let engine = PreviewEngine::PreviewEngine()
+  guard engine.prepare("alpha") is Ok(initial) else { fail("prepare") }
+  assert_true(engine.accept(initial))
+  guard engine.state is Healthy(parser~, ..) else { fail("healthy") }
+  let change = @text_change.ReplaceRange(
+    start=0,
+    delete_len=5,
+    inserted="βeta 🧭",
+  )
+  guard engine.catch_up("βeta 🧭", Some(change)) is Ok(output) else {
+    fail("catchup")
+  }
+  assert_true(engine.accept(output))
+  guard engine.state is Healthy(parser=after_parser, source~, ..) else {
+    fail("healthy after")
+  }
+  assert_true(physical_equal(parser, after_parser))
+  assert_eq(source, "βeta 🧭")
 }
 
 ///|

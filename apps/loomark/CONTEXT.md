@@ -113,19 +113,29 @@ resizable divider.
 _Avoid_: dual editor, two-pane editor
 
 **Preview preparation**:
-Creating at most one syntax Parser for the selected document after Preview or
-Split is selected. A Document switch discards it; a target in Text mode does
-not create another Parser. Returning to Text retains a healthy Parser and keeps
-it current without producing hidden Preview output.
+Selecting Preview or Split records demand. Preparation waits for a render
+opportunity and a later task before creating at most one syntax Parser for the
+selected document. A Document switch discards it, and Text mode creates no Parser. The latest
+app-owned Document text is always authoritative; `preview.Input` is only a
+captured read of that text and composition state. Hidden Text mode retains a
+healthy Parser but does not advance it. Composition gates preparation and
+catch-up: starting composition cancels a pending wake, and ending it resumes
+needed work.
 _Avoid_: warm-up, preloading
 
 **Preview refresh**:
-Reading one coherent syntax snapshot, lowering it directly to MarkdownIR, and
-replacing Preview from the latest committed Document text while Preview or
-Split is requested. After the Parser transition, lowering waits for a 24 ms
-candidate-text quiet window so rapid changes normally produce one visible
-update. Returning from Text requests one refresh when the retained Preview is
-older than current Document text.
+While Preview or Split is visible, a Document text change debounces Parser
+catch-up and MarkdownIR lowering outside the input path. One logical,
+text-free wake is pending; separate lifecycle state retains at most one exact
+edit. After additional changes, catch-up uses the latest authoritative text
+with `ReplaceAll` when needed, rather than computing a generic diff. A revision-fenced wake whose pending interval
+observes edits reschedules a quiet interval. It waits at least 24 ms of quiet
+text, but browser delay and one extra 24 ms interval beyond the latest edit's
+deadline are possible; this is neither a strict latest-edit-plus-24-ms promise
+nor one physical timer per edit. Old physical timers may remain, but generation,
+input, and acceptance fences reject stale work. A failed Parser invalidates its
+private accepted render; the display retains only the last successful Preview,
+without promising a renderer baseline across a broken Parser.
 _Avoid_: projection refresh, render loop
 
 **Stale Preview**:

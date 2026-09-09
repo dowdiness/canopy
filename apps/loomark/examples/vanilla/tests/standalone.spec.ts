@@ -2046,7 +2046,7 @@ test("mismatched insertion facts recover from the current textarea value", async
     .toBe("after!")
 })
 
-test("Text input stays within 10 ms with per-edit Parser transitions", async ({ page }) => {
+test("Text input stays within 10 ms and retained Preview catches up", async ({ page }) => {
   await page.goto("/")
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill("# A")
@@ -2178,4 +2178,79 @@ test("1 MiB exact Saved comparison stays within 10 ms", async ({ page }) => {
   await expect(page.getByRole("button", { name: "New document" })).toBeEnabled()
   await page.waitForTimeout(350)
   await expect.poll(() => readDocumentPutLog(page)).toHaveLength(1)
+})
+
+test("large retained Preview stays off trusted Text input and catches up on demand", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text", exact: true })
+  const source = "# Large retained\n\n" + Array.from({ length: 1000 }, (_, i) => (
+    `Paragraph ${i} with **bold**.\n`
+  )).join("\n")
+  await text.fill(source)
+  await page.getByRole("tab", { name: "Preview", exact: true }).click()
+  await expect(page.getByRole("heading", { name: "Large retained", exact: true })).toBeVisible()
+  await page.getByRole("tab", { name: "Text", exact: true }).click()
+  await text.focus()
+  await text.press("Control+End")
+  await text.evaluate(element => {
+    const controller = new AbortController()
+    const metrics = { controller, start: 0, durations: [] as number[] }
+    ;(window as unknown as { inputProbe: typeof metrics }).inputProbe = metrics
+    window.addEventListener("beforeinput", event => {
+      if (event.target === element && event.isTrusted) metrics.start = performance.now()
+    }, { capture: true, signal: controller.signal })
+    window.addEventListener("input", event => {
+      if (event.target !== element || !event.isTrusted) return
+      const start = metrics.start
+      queueMicrotask(() => metrics.durations.push(performance.now() - start))
+    }, { signal: controller.signal })
+  })
+  for (let i = 0; i < 20; i += 1) await text.press("x")
+  const durations = await page.evaluate(() => {
+    const metrics = (window as unknown as {
+      inputProbe: { controller: AbortController; durations: number[] }
+    }).inputProbe
+    metrics.controller.abort()
+    return metrics.durations
+  })
+  expect(durations).toHaveLength(20)
+  const sorted = [...durations].sort((a, b) => a - b)
+  expect(sorted[Math.ceil(sorted.length * 0.95) - 1]).toBeLessThanOrEqual(10)
+  expect(sorted.at(-1)).toBeLessThanOrEqual(10)
+  const expected = source + "x".repeat(20)
+  await expect(text).toHaveValue(expected)
+  await page.getByRole("tab", { name: "Preview", exact: true }).click()
+  await expect(page.getByText("x".repeat(20), { exact: false }).first()).toBeVisible()
+  await expect.poll(async () => (await readStoredDocument(page))?.text).toBe(expected)
+  await page.reload()
+  await expect(text).toHaveValue(expected)
+})
+
+test("composition cancels an already pending Preview wake and resumes latest text", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text", exact: true })
+  await text.fill("# Before")
+  await page.getByRole("tab", { name: "Split", exact: true }).click()
+  await expect(page.getByRole("heading", { name: "Before", exact: true })).toBeVisible()
+  // One JS task prevents the 24ms wake from racing ahead of compositionstart.
+  await text.evaluate(element => {
+    const el = element as HTMLTextAreaElement
+    el.setSelectionRange(0, el.value.length)
+    el.dispatchEvent(new InputEvent("beforeinput", {
+      bubbles: true, cancelable: true, composed: true,
+      inputType: "insertReplacementText", data: "# During",
+    }))
+    el.value = "# During"
+    el.dispatchEvent(new InputEvent("input", {
+      bubbles: true, composed: true, inputType: "insertReplacementText", data: "# During",
+    }))
+    el.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true, composed: true }))
+  })
+  await page.waitForTimeout(100)
+  await expect(page.getByRole("heading", { name: "Before", exact: true })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "During", exact: true })).toHaveCount(0)
+  await text.evaluate(el => el.dispatchEvent(new CompositionEvent("compositionend", {
+    bubbles: true, composed: true, data: "",
+  })))
+  await expect(page.getByRole("heading", { name: "During", exact: true })).toBeVisible()
 })

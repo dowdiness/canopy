@@ -1,0 +1,91 @@
+
+Running 55 tests using 1 worker
+
+  ✓   1 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:501:1 › Export downloads the current Document text with its Derived name (246ms)
+  ✓   2 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:519:1 › Import activates, saves, and reopens normalized text (253ms)
+  ✓   3 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:536:1 › importing the same file twice creates two Documents (182ms)
+  ✓   4 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:547:1 › Import rejects malformed UTF-8 without creating a Source (184ms)
+  ✘   5 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:559:1 › fresh production opens Text mode and preserves its textarea and undo history across modes (1.3s)
+  ✓   6 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:632:1 › first edit reports quota full without creating a Source (492ms)
+  ✓   7 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:644:1 › opening and saving persist only authoritative Source records (992ms)
+  ✓   8 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:664:1 › several Sources select the first lexical Document ID (615ms)
+  ✓   9 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:698:1 › startup is read-only and restores an accepted Editing Document (599ms)
+  ✓  10 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:718:1 › a non-string Editing Document is equivalent to no Editing Document (614ms)
+  ✓  11 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:732:1 › Document Sidebar switches saved Sources A to B to A without cross-document undo (1.8s)
+  ✓  12 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:780:1 › Editing Document writes are last-invocation-wins (1.6s)
+  ✓  13 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:809:1 › remember failure cannot affect editing or Source recovery (751ms)
+  ✓  14 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:833:1 › New stays ephemeral and its first Source save is not remembered (1.1s)
+  ✓  15 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:875:1 › Delete document removes a non-active Source without moving the editor (769ms)
+  ✓  16 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:901:1 › Delete document activates and remembers the newest fallback (843ms)
+  ✓  17 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:929:1 › Delete document cancellation preserves the Source and editor (824ms)
+  ✓  18 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:952:1 › final Delete leaves an empty New with a live Split Preview (1.1s)
+  ✓  19 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:971:1 › Document control icons remain rendered (833ms)
+  ✓  20 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:987:1 › Document controls remain accessible without horizontal overflow at 390 px (579ms)
+  ✓  21 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:1004:1 › Document switch does not wait for the active Source to save (1.0s)
+  ✓  22 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:1027:1 › legacy active record migrates atomically and is removed (597ms)
+  ✓  23 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:1040:1 › legacy collision preserves both records and opens a fresh baseline (609ms)
+  ✓  24 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:1057:1 › legacy migration failure rolls back the Source put and preserves active (612ms)
+  ✓  25 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:1082:1 › unknown metadata is preserved and cannot override a Source (604ms)
+IndexedDB scan 10 Sources median: 1.300 ms
+IndexedDB scan 100 Sources median: 2.700 ms
+IndexedDB scan 1000 Sources median: 11.700 ms
+  ✓  26 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:1099:1 › IndexedDB cursor scan measures 10, 100, and 1000 Source records (731ms)
+IndexedDB put small Source median: 0.400 ms
+IndexedDB put 1 MiB Source median: 2.400 ms
+  ✓  27 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:1131:1 › IndexedDB Source put measures small and 1 MiB records (814ms)
+  ✓  28 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:1156:1 › Preview prepares after its status paints and refreshes typed Markdown (574ms)
+  ✓  29 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:1215:1 › Preview keeps incomplete Markdown literal without parser chrome (562ms)
+  ✓  30 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:1236:1 › Tailwind Typography and utilities preserve the Loomark shell and reading measure (765ms)
+  ✓  31 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:1305:1 › RUI mode tabs activate with roving keyboard focus (246ms)
+  ✓  32 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:1339:1 › Split uses RUI keyboard resizing and preserves textarea across orientation (375ms)
+  ✓  33 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:1398:1 › Example documents immediately replace the active Document (836ms)
+  ✓  34 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:1437:1 › Split keeps Text and Preview independently scrollable (549ms)
+  ✓  35 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:1489:1 › quiet Autosave restores exact Saved text after reload (978ms)
+  ✓  36 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:1509:1 › exact acknowledged revert gets a fresh persistence order (2.8s)
+  ✓  37 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:1539:1 › equal-text ABA still receives a fresh persistence order (1.1s)
+  ✓  38 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:1576:1 › large input during an active save coalesces to the latest text (2.6s)
+  ✓  39 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:1638:1 › hidden visibility makes pending text eligible before quiet (579ms)
+  ✓  40 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:1676:1 › rapid Text input writes only the latest text (915ms)
+  ✓  41 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:1711:1 › IME composition saves only after composition ends (1.2s)
+  ✓  42 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:1770:1 › no-op IME composition arms no Autosave checkpoint (2.8s)
+  ✓  43 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:1794:1 › Preview schedules no new work until IME composition commits (592ms)
+  ✓  44 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:1835:1 › save failure keeps Text editable and Retry saves the latest text (1.2s)
+  ✓  45 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:1865:1 › failed attempt exact acknowledged revert restores truthful Saved (1.2s)
+  ✓  46 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:1897:1 › active failure after acknowledged revert restores truthful Saved (1.8s)
+  ✓  47 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:1926:1 › saving one Source preserves unrelated Sources and unknown metadata (1.1s)
+  ✓  48 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:1959:1 › valid and corrupt Source records coexist without overwriting corruption (609ms)
+  ✓  49 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:1974:1 › native range edits avoid complete value access and native undo reads once (563ms)
+  ✓  50 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:2030:1 › mismatched insertion facts recover from the current textarea value (528ms)
+  ✓  51 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:2058:1 › Text input stays within 10 ms and retained Preview catches up (660ms)
+  ✓  52 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:2103:1 › Text input processing stays within 10 ms (157ms)
+  ✓  53 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:2131:1 › 1 MiB exact Saved comparison stays within 10 ms (2.2s)
+  ✓  54 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:2192:1 › large retained Preview stays off trusted Text input and catches up on demand (3.8s)
+  ✓  55 ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:2238:1 › composition cancels an already pending Preview wake and resumes latest text (603ms)
+
+
+  1) ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:559:1 › fresh production opens Text mode and preserves its textarea and undo history across modes 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 1
+    + Received  + 3
+
+    - Array []
+    + Array [
+    +   "http://127.0.0.1:4325/preview-worker.js",
+    + ]
+
+      627 |   }
+      628 |   await expect(text).toHaveValue("# Untitled\n")
+    > 629 |   expect(workerUrls).toEqual([])
+          |                      ^
+      630 | })
+      631 |
+      632 | test("first edit reports quota full without creating a Source", async ({ page }) => {
+        at /tmp/loomark-worker-all-tests/worker-all.spec.ts:629:22
+
+    Error Context: ../../../../../../../../../../tmp/loomark-worker-all-results/worker-all-fresh-productio-752ad-d-undo-history-across-modes/error-context.md
+
+  1 failed
+    ../../../../../../../../../../tmp/loomark-worker-all-tests/worker-all.spec.ts:559:1 › fresh production opens Text mode and preserves its textarea and undo history across modes 
+  54 passed (54.3s)

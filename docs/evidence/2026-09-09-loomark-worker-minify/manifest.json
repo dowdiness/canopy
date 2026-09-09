@@ -1,0 +1,12 @@
+{
+  "buildScriptSha256": "7f81ac0ce6af88988fad5c82816f134e7db9a09033474b1320b3a44ddc15a8fb",
+  "mainBundleSha256": "a964649bfc3887a9c7b041d47836223dac285da765e39deb93057d26e3485fb6",
+  "notes": [
+    "Unminified generated Worker input is byte-identical to before asset.",
+    "Main bundle unchanged. HTML outside payload unchanged.",
+    "Payload JSON decodes byte-for-byte to emitted minified Worker and its version matches SHA256.",
+    "Embedding replacement-string corruption ($$) detected and fixed with callback replacer plus verbatim insertion guard.",
+    "E2E: 62/63 initial run; 1 MiB Saved timing p95=10.300000000745058 failed unchanged <=10ms assertion; isolated rerun passed. Not a clean full-suite pass.",
+    "No compression server configuration or runtime timing measurement changed."
+  ]
+}

@@ -28,6 +28,32 @@ See the [Standard Rabbita Text App plan](../../docs/plans/2026-08-24-loomark-sta
 - [Textarea edit ownership](../../docs/decisions/2026-08-25-loomark-textarea-edit-boundary.md)
 - [Document deletion](../../docs/decisions/2026-08-31-loomark-document-deletion.md)
 
+## Preview
+
+Preview is derived from app-owned Document text and may temporarily lag it;
+`preview.Input` is a captured read, not another text authority. Text mode retains
+but does not advance a healthy Parser. Requesting Preview defers preparation
+through a render opportunity and a later task. While visible, input retains at
+most one exact edit; catch-up otherwise uses current text with `ReplaceAll` when
+needed. A revision-fenced wake waits at least 24 ms of quiet, sometimes adding
+one more quiet interval plus browser scheduling delay. Composition defers this
+work; generation, input, and acceptance fences reject stale results. A failed
+refresh retains the last successful display while invalidating its private
+renderer state.
+
+### Worker prototype (experimental)
+
+The opt-in `?preview-worker=1` Preview experiment and its 2026-09-09 offline
+payload/disposal follow-up are documented in the [prototype report](../../docs/research/2026-09-08-loomark-worker-preview-prototype.md). It works offline only after the application has loaded; it is not a cold-offline-load or production-CSP claim.
+
+```bash
+MOON_HOME=/tmp/loomark-toolchain-aug19 bash scripts/build-loomark-preview-worker.sh
+LOOMARK_STANDALONE_PORT=4325 node apps/loomark/examples/vanilla/serve-standalone-dist.mjs
+# Optional lifecycle fixture test:
+MOON_HOME=/tmp/loomark-toolchain-aug19 bash scripts/build-loomark-preview-worker.sh --fixture
+node scripts/test-loomark-preview-fixture.mjs
+```
+
 ## Autosave and Recovery
 
 Text input updates the Document text immediately. Autosave makes latest text

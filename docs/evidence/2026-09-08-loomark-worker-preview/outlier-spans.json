@@ -1,0 +1,636 @@
+[
+  {
+    "case": "investigation-text-12",
+    "trial": 1,
+    "index": 0,
+    "proxyMs": 10.699999999254942,
+    "trace": "investigation-text-12/trial-1.trace.json.gz",
+    "spans": [
+      {
+        "args": {
+          "chrome_latency_info": {
+            "step": "STEP_HANDLE_INPUT_EVENT_MAIN",
+            "trace_id": -1990930137363833007
+          },
+          "current_task": {
+            "event_offset_from_task_start_time_us": 35,
+            "task_queued_time_us": 31675442844,
+            "task_queueing_time_us": 76,
+            "task_start_time_us": 31675442885
+          }
+        },
+        "cat": "input,benchmark,latencyInfo",
+        "dur": 13492,
+        "name": "LatencyInfo.Flow",
+        "ph": "X",
+        "pid": 105150,
+        "tdur": 13523,
+        "tid": 105150,
+        "ts": 31675442913,
+        "tts": 3218549
+      },
+      {
+        "args": {
+          "data": {
+            "type": "keydown"
+          }
+        },
+        "cat": "devtools.timeline",
+        "dur": 766,
+        "name": "EventDispatch",
+        "ph": "X",
+        "pid": 105150,
+        "tdur": 770,
+        "tid": 105150,
+        "ts": 31675443071,
+        "tts": 3218707
+      },
+      {
+        "args": {
+          "data": {
+            "type": "keypress"
+          }
+        },
+        "cat": "devtools.timeline",
+        "dur": 12488,
+        "name": "EventDispatch",
+        "ph": "X",
+        "pid": 105150,
+        "tdur": 12520,
+        "tid": 105150,
+        "ts": 31675443860,
+        "tts": 3219497
+      },
+      {
+        "args": {
+          "data": {
+            "type": "beforeinput"
+          }
+        },
+        "cat": "devtools.timeline",
+        "dur": 2678,
+        "name": "EventDispatch",
+        "ph": "X",
+        "pid": 105150,
+        "tdur": 2681,
+        "tid": 105150,
+        "ts": 31675444427,
+        "tts": 3220067
+      },
+      {
+        "args": {},
+        "cat": "v8",
+        "dur": 1495,
+        "name": "v8.callFunction",
+        "ph": "X",
+        "pid": 105150,
+        "tdur": 1500,
+        "tid": 105150,
+        "ts": 31675444444,
+        "tts": 3220081
+      },
+      {
+        "args": {
+          "data": {
+            "columnNumber": 46,
+            "frame": "D51A8A175938A73883631C3AB6DF00FC",
+            "functionName": "",
+            "isolate": "2984032298773692643",
+            "lineNumber": 4,
+            "sampleTraceId": 4020238045288583,
+            "scriptId": "52",
+            "url": ""
+          }
+        },
+        "cat": "devtools.timeline",
+        "dur": 1478,
+        "name": "FunctionCall",
+        "ph": "X",
+        "pid": 105150,
+        "tdur": 1489,
+        "tid": 105150,
+        "ts": 31675444449,
+        "tts": 3220085
+      },
+      {
+        "args": {},
+        "cat": "v8",
+        "dur": 1137,
+        "name": "v8.callFunction",
+        "ph": "X",
+        "pid": 105150,
+        "tdur": 1139,
+        "tid": 105150,
+        "ts": 31675445957,
+        "tts": 3221598
+      },
+      {
+        "args": {
+          "data": {
+            "columnNumber": 401891,
+            "frame": "D51A8A175938A73883631C3AB6DF00FC",
+            "functionName": "",
+            "isolate": "2984032298773692643",
+            "lineNumber": 1,
+            "sampleTraceId": 4020238045288580,
+            "scriptId": "6",
+            "url": "http://127.0.0.1:4324/index.js"
+          }
+        },
+        "cat": "devtools.timeline",
+        "dur": 1050,
+        "name": "FunctionCall",
+        "ph": "X",
+        "pid": 105150,
+        "tdur": 1058,
+        "tid": 105150,
+        "ts": 31675445960,
+        "tts": 3221601
+      },
+      {
+        "args": {
+          "data": {
+            "type": "textInput"
+          }
+        },
+        "cat": "devtools.timeline",
+        "dur": 9229,
+        "name": "EventDispatch",
+        "ph": "X",
+        "pid": 105150,
+        "tdur": 9256,
+        "tid": 105150,
+        "ts": 31675447116,
+        "tts": 3222758
+      },
+      {
+        "args": {
+          "beginData": {
+            "dirtyObjects": 16,
+            "frame": "D51A8A175938A73883631C3AB6DF00FC",
+            "partialLayout": false,
+            "totalObjects": 5072
+          },
+          "endData": {
+            "layoutRoots": [
+              {
+                "depth": 1,
+                "nodeId": 2,
+                "nodeName": "#document",
+                "quads": [
+                  [
+                    0.0,
+                    0.0,
+                    1280.0,
+                    0.0,
+                    1280.0,
+                    720.0,
+                    0.0,
+                    720.0
+                  ]
+                ]
+              }
+            ]
+          }
+        },
+        "cat": "devtools.timeline",
+        "dur": 3843,
+        "name": "Layout",
+        "ph": "X",
+        "pid": 105150,
+        "tdur": 3866,
+        "tid": 105150,
+        "ts": 31675448461,
+        "tts": 3224108
+      },
+      {
+        "args": {
+          "data": {
+            "type": "input"
+          }
+        },
+        "cat": "devtools.timeline",
+        "dur": 1733,
+        "name": "EventDispatch",
+        "ph": "X",
+        "pid": 105150,
+        "tdur": 1728,
+        "tid": 105150,
+        "ts": 31675454538,
+        "tts": 3230211
+      },
+      {
+        "args": {},
+        "cat": "v8",
+        "dur": 1597,
+        "name": "v8.callFunction",
+        "ph": "X",
+        "pid": 105150,
+        "tdur": 1598,
+        "tid": 105150,
+        "ts": 31675454560,
+        "tts": 3230232
+      },
+      {
+        "args": {
+          "data": {
+            "columnNumber": 401891,
+            "frame": "D51A8A175938A73883631C3AB6DF00FC",
+            "functionName": "",
+            "isolate": "2984032298773692643",
+            "lineNumber": 1,
+            "sampleTraceId": 4020238045288638,
+            "scriptId": "6",
+            "url": "http://127.0.0.1:4324/index.js"
+          }
+        },
+        "cat": "devtools.timeline",
+        "dur": 1112,
+        "name": "FunctionCall",
+        "ph": "X",
+        "pid": 105150,
+        "tdur": 1117,
+        "tid": 105150,
+        "ts": 31675454564,
+        "tts": 3230235
+      }
+    ],
+    "interpretation": "Wall and thread CPU durations differ; these spans alone do not identify the cause of waiting or establish the cause of the older untraced 83.9ms spike."
+  },
+  {
+    "case": "headful-worker",
+    "trial": 2,
+    "index": 19,
+    "proxyMs": 12.699999995529652,
+    "trace": "headful-worker/trial-2.trace.json.gz",
+    "spans": [
+      {
+        "args": {
+          "chrome_latency_info": {
+            "step": "STEP_HANDLE_INPUT_EVENT_MAIN",
+            "trace_id": -4902859220678497418
+          },
+          "current_task": {
+            "event_offset_from_task_start_time_us": 10,
+            "task_queued_time_us": 38457688346,
+            "task_queueing_time_us": 40,
+            "task_start_time_us": 38457688376
+          }
+        },
+        "cat": "input,benchmark,latencyInfo",
+        "dur": 13100,
+        "name": "LatencyInfo.Flow",
+        "ph": "X",
+        "pid": 172973,
+        "tdur": 5281,
+        "tid": 172973,
+        "ts": 38457688379,
+        "tts": 3865926
+      },
+      {
+        "args": {
+          "data": {
+            "type": "keydown"
+          }
+        },
+        "cat": "devtools.timeline",
+        "dur": 24,
+        "name": "EventDispatch",
+        "ph": "X",
+        "pid": 172973,
+        "tdur": 23,
+        "tid": 172973,
+        "ts": 38457688453,
+        "tts": 3865998
+      },
+      {
+        "args": {
+          "data": {
+            "type": "keypress"
+          }
+        },
+        "cat": "devtools.timeline",
+        "dur": 12957,
+        "name": "EventDispatch",
+        "ph": "X",
+        "pid": 172973,
+        "tdur": 5142,
+        "tid": 172973,
+        "ts": 38457688484,
+        "tts": 3866028
+      },
+      {
+        "args": {
+          "data": {
+            "type": "beforeinput"
+          }
+        },
+        "cat": "devtools.timeline",
+        "dur": 354,
+        "name": "EventDispatch",
+        "ph": "X",
+        "pid": 172973,
+        "tdur": 349,
+        "tid": 172973,
+        "ts": 38457688501,
+        "tts": 3866044
+      },
+      {
+        "args": {
+          "data": {
+            "type": "textInput"
+          }
+        },
+        "cat": "devtools.timeline",
+        "dur": 12579,
+        "name": "EventDispatch",
+        "ph": "X",
+        "pid": 172973,
+        "tdur": 4772,
+        "tid": 172973,
+        "ts": 38457688859,
+        "tts": 3866396
+      },
+      {
+        "args": {
+          "beginData": {
+            "dirtyObjects": 16,
+            "frame": "B8FB82BD28FB83EE8FE8143AD9BD708D",
+            "partialLayout": false,
+            "totalObjects": 10087
+          },
+          "endData": {
+            "layoutRoots": [
+              {
+                "depth": 1,
+                "nodeId": 2,
+                "nodeName": "#document",
+                "quads": [
+                  [
+                    0.0,
+                    0.0,
+                    1280.0,
+                    0.0,
+                    1280.0,
+                    720.0,
+                    0.0,
+                    720.0
+                  ]
+                ]
+              }
+            ]
+          }
+        },
+        "cat": "devtools.timeline",
+        "dur": 964,
+        "name": "Layout",
+        "ph": "X",
+        "pid": 172973,
+        "tdur": 972,
+        "tid": 172973,
+        "ts": 38457689331,
+        "tts": 3866872
+      },
+      {
+        "args": {
+          "data": {
+            "type": "input"
+          }
+        },
+        "cat": "devtools.timeline",
+        "dur": 385,
+        "name": "EventDispatch",
+        "ph": "X",
+        "pid": 172973,
+        "tdur": 376,
+        "tid": 172973,
+        "ts": 38457701011,
+        "tts": 3870750
+      },
+      {
+        "args": {
+          "data": {
+            "type": "keyup"
+          }
+        },
+        "cat": "devtools.timeline",
+        "dur": 6,
+        "name": "EventDispatch",
+        "ph": "X",
+        "pid": 172973,
+        "tdur": 5,
+        "tid": 172973,
+        "ts": 38457701592,
+        "tts": 3871320
+      },
+      {
+        "args": {
+          "data": {
+            "frame": "B8FB82BD28FB83EE8FE8143AD9BD708D",
+            "isMainFrame": true,
+            "isOutermostMainFrame": true,
+            "page": "B8FB82BD28FB83EE8FE8143AD9BD708D"
+          }
+        },
+        "cat": "devtools.timeline",
+        "dur": 699,
+        "name": "PrePaint",
+        "ph": "X",
+        "pid": 172973,
+        "tdur": 705,
+        "tid": 172973,
+        "ts": 38457701665,
+        "tts": 3871391
+      }
+    ],
+    "interpretation": "Wall and thread CPU durations differ; these spans alone do not identify the cause of waiting or establish the cause of the older untraced 83.9ms spike."
+  },
+  {
+    "case": "final-100-A2",
+    "trial": 1,
+    "index": 41,
+    "proxyMs": 79.39999999850988,
+    "trace": "final-100-A2/trial-1.trace.json.gz",
+    "spans": [
+      {
+        "args": {
+          "chrome_latency_info": {
+            "step": "STEP_HANDLE_INPUT_EVENT_MAIN",
+            "trace_id": 4308254973570564689
+          },
+          "current_task": {
+            "event_offset_from_task_start_time_us": 22,
+            "task_queued_time_us": 39789869292,
+            "task_queueing_time_us": 69,
+            "task_start_time_us": 39789869339
+          }
+        },
+        "cat": "input,benchmark,latencyInfo",
+        "dur": 79772,
+        "name": "LatencyInfo.Flow",
+        "ph": "X",
+        "pid": 190490,
+        "tdur": 4256,
+        "tid": 190490,
+        "ts": 39789869344,
+        "tts": 4836520
+      },
+      {
+        "args": {
+          "data": {
+            "type": "keydown"
+          }
+        },
+        "cat": "devtools.timeline",
+        "dur": 28,
+        "name": "EventDispatch",
+        "ph": "X",
+        "pid": 190490,
+        "tdur": 26,
+        "tid": 190490,
+        "ts": 39789869461,
+        "tts": 4836628
+      },
+      {
+        "args": {
+          "data": {
+            "type": "keypress"
+          }
+        },
+        "cat": "devtools.timeline",
+        "dur": 79579,
+        "name": "EventDispatch",
+        "ph": "X",
+        "pid": 190490,
+        "tdur": 4076,
+        "tid": 190490,
+        "ts": 39789869496,
+        "tts": 4836660
+      },
+      {
+        "args": {
+          "data": {
+            "type": "beforeinput"
+          }
+        },
+        "cat": "devtools.timeline",
+        "dur": 214,
+        "name": "EventDispatch",
+        "ph": "X",
+        "pid": 190490,
+        "tdur": 207,
+        "tid": 190490,
+        "ts": 39789869508,
+        "tts": 4836672
+      },
+      {
+        "args": {
+          "data": {
+            "type": "textInput"
+          }
+        },
+        "cat": "devtools.timeline",
+        "dur": 79347,
+        "name": "EventDispatch",
+        "ph": "X",
+        "pid": 190490,
+        "tdur": 3853,
+        "tid": 190490,
+        "ts": 39789869726,
+        "tts": 4836882
+      },
+      {
+        "args": {
+          "beginData": {
+            "dirtyObjects": 16,
+            "frame": "3D853368359F29B365C14FD999ACA199",
+            "partialLayout": false,
+            "totalObjects": 10087
+          },
+          "endData": {
+            "layoutRoots": [
+              {
+                "depth": 1,
+                "nodeId": 2,
+                "nodeName": "#document",
+                "quads": [
+                  [
+                    0.0,
+                    0.0,
+                    1280.0,
+                    0.0,
+                    1280.0,
+                    720.0,
+                    0.0,
+                    720.0
+                  ]
+                ]
+              }
+            ]
+          }
+        },
+        "cat": "devtools.timeline",
+        "dur": 1563,
+        "name": "Layout",
+        "ph": "X",
+        "pid": 190490,
+        "tdur": 1559,
+        "tid": 190490,
+        "ts": 39789870214,
+        "tts": 4837372
+      },
+      {
+        "args": {
+          "data": {
+            "type": "input"
+          }
+        },
+        "cat": "devtools.timeline",
+        "dur": 311,
+        "name": "EventDispatch",
+        "ph": "X",
+        "pid": 190490,
+        "tdur": 303,
+        "tid": 190490,
+        "ts": 39789948726,
+        "tts": 4840397
+      },
+      {
+        "args": {
+          "data": {
+            "type": "keyup"
+          }
+        },
+        "cat": "devtools.timeline",
+        "dur": 5,
+        "name": "EventDispatch",
+        "ph": "X",
+        "pid": 190490,
+        "tdur": 4,
+        "tid": 190490,
+        "ts": 39789949242,
+        "tts": 4840901
+      },
+      {
+        "args": {
+          "data": {
+            "frame": "3D853368359F29B365C14FD999ACA199",
+            "isMainFrame": true,
+            "isOutermostMainFrame": true,
+            "page": "3D853368359F29B365C14FD999ACA199"
+          }
+        },
+        "cat": "devtools.timeline",
+        "dur": 832,
+        "name": "PrePaint",
+        "ph": "X",
+        "pid": 190490,
+        "tdur": 829,
+        "tid": 190490,
+        "ts": 39789949363,
+        "tts": 4841021
+      }
+    ],
+    "interpretation": "Wall and thread CPU durations differ; these spans alone do not identify the cause of waiting or establish the cause of the older untraced 83.9ms spike."
+  }
+]
