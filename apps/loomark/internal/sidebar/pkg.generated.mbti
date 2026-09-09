@@ -87,6 +87,12 @@ pub(all) enum SidebarMenuButtonVariant {
   SidebarMenuButtonOutline
 } derive(Eq, @debug.Debug)
 
+type SidebarProvider
+pub fn SidebarProvider::close(Self) -> @cmd.Cmd
+pub fn SidebarProvider::new(default_collapsed? : Bool, default_mobile_open? : Bool, on_collapsed_change? : @cmd.Emit[Bool], on_mobile_open_change? : @cmd.Emit[Bool]) -> Self
+pub fn[T : Eq] SidebarProvider::view_with_input(Self, input~ : @rabbita.Val[T], id? : String, class? : String, title? : String, attrs? : @html.Attrs, style? : Array[String], (SidebarScope, T) -> @html.Html) -> @rabbita.Val[@html.Html]
+pub fn SidebarProvider::visible(Self) -> @rabbita.Val[Bool]
+
 type SidebarScope
 
 pub(all) enum SidebarSide {

@@ -34,6 +34,8 @@ priv struct DocumentRecord {
   composing : Bool
   save : DocumentsSaveStatus
   delete : DocumentsDeletePhase
+  accepted_lead_source : String?
+  pending_lead_quiet : @source_repository.ChangeOrder?
 } derive(Eq)
 
 ///|

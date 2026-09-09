@@ -569,6 +569,208 @@ absent and trusted-input task traces remain outstanding.
 Semantic acceptance is pending numeric budgets, omission wording, grapheme
 policy, and the remaining fixtures. Execution acceptance is also withheld:
 browser evidence is exploratory, and production size/latency criteria remain
-unapproved. Keep Stage 3 blocked. Assess a separate execution ADR before adding
-an off-thread mechanism; do not treat quiet or idle scheduling as a solution to
-synchronous blocking. The bounded `DocumentLead` value remains unchanged.
+unapproved. Keep Stage 3's provider migration and lead-dependent integration
+blocked. The user subsequently approved the presentation-only slice below using
+the existing provider. This does not accept Stage 2. Assess a separate execution
+ADR before adding an off-thread mechanism; do not treat quiet or idle scheduling
+as a solution to synchronous blocking. The bounded `DocumentLead` value remains
+unchanged.
+
+### Authorized early slice: flat document navigation
+
+Use the existing Sidebar and document commands to remove the folder-shaped
+parent and submenu. Put New in the sidebar header as a plus icon; retain its
+accessible name and tooltip. This icon-only decision supersedes the earlier
+text-only New presentation. The editor toolbar's existing sidebar icon is the
+single list toggle. Show the selected document with its active background,
+without dimming it as though it were unavailable. Subsequent user feedback
+removed the thin edge accent; do not put a line beside the document label.
+
+Keep existing labels (including duplicate-name disambiguation), ordering, save,
+selection, deletion, provider state and compact-screen close behavior. No
+extractor call, source seed, lifecycle rewrite or prototype storage code belongs
+in this slice. The collapsed list must not leave invisible focusable rows.
+
+Boundary matrix: expanded/collapsed; selected/other documents; duplicate labels;
+desktop/compact selection; icon-only New with accessible name and tooltip;
+existing creation, save/reload, switching and deletion contracts. The existing
+standalone browser test for multiple Sources first failed on the unwanted
+submenu, then passed with direct document rows. Targeted app release tests and
+standalone creation/switch/delete scenarios cover the unchanged behavior.
+
+Validation checkpoint: app JS release tests passed (59). Standalone E2E passed
+52 of 53 in the full run; the existing 1 MiB / 10 ms timing case measured a
+19.3 ms p95 and failed, then passed when rerun alone. Do not describe the full
+run as green or assume the cause is known. Independent review found two stale
+folder-button test locators; both were updated to the retained toolbar toggle
+or removed with the deleted folder icon. Desktop and 390 px browser checks
+confirmed flat rows, active styling, collapsed hidden rows and compact selection.
+
+Reuse: existing Sidebar header/menu/button, plus/panel icons and document
+commands; the existing `ArrayView::mapi` traversal is retained. Core
+`String::contains` was checked but not needed for this browser-tested change.
+No new MoonBit helper, type, parser call or imperative loop was introduced in
+the flat-navigation slice.
+
+Follow-up: New now shows a quiet `New document` status in every Editor mode,
+plus `Start writing…` in the text field. Both derive from the existing untouched
+New record and disappear after its first edit. No saved record is created
+merely to provide this feedback. Stored empty documents,
+empty imports and documents erased after editing are not labelled New. The
+textarea node remains mounted when the indication disappears.
+
+Reuse for this follow-up: `find_record`, `acknowledged_source`, core
+`Option::map` / `Option::unwrap_or`, and native textarea placeholder. The private
+`Documents::is_untouched_new` predicate is shared by the toolbar and text view;
+`is_clean` alone was rejected because saved and edited records can also be clean.
+There is no new state, timer, parser call or imperative loop. A failing browser
+assertion first confirmed the missing New feedback; the new pure boundary test
+and browser checks cover first edit, empty records/imports, Preview visibility,
+textarea node identity and 390 px layout.
+
+Subsequent user feedback requires the current untouched New to appear as a
+temporary selected row at the top of Recent documents. This supersedes the
+previous no-entry-before-input rule. It is a presentation of the existing
+activation, not a new saved document or text authority. Repeated New replaces
+the temporary row rather than accumulating empty entries. Leaving New untouched
+and selecting a saved document removes the temporary row. First edit promotes
+the same identity into the ordinary content-labelled list; autosave remains
+unchanged. The temporary row has no Delete action because it is not a saved or
+edited document. Its accessible name distinguishes it from the plus action.
+
+Reuse: `Documents::is_untouched_new`, existing Catalog entry construction and
+sorting, and core `Array::append` for an owning presentation array. The only
+new mutation appends sorted entries to a newly allocated local array; it never
+mutates repository state. No new helper, persistence effect, timer or parser
+was introduced. A failing pure view test covered the missing row; unit and
+browser tests cover first edit, repeated New, abandonment, selection and
+unchanged storage.
+
+### Current deep-module connection
+
+This connection deepens `recent_documents` without changing the existing app
+model or Documents reducer. No `internal/documents` package, timer, Worker,
+Preview change, runtime, or storage mechanism was added. `recent_documents`
+owns the navigation, New action, rows, Delete confirmation, keyed graph, bounded
+label disambiguation, and feature intents. `app` supplies resolved capabilities
+and maps those intents to its reducer.
+
+The app projects capability-resolved seeds. A feature-scoped outer
+`assoc_by(DocumentId)` projects the accepted lead source, extracts the lead, and
+then combines it with row metadata; an inner `assoc_by` builds HTML only in the
+visible `SidebarProvider::visible()` branch. The provider remains opaque to the
+app consumer, and this connection adds no second feature visibility value. Thus
+known leads survive ordinary typing until matching quiet acceptance, while a
+seed with no accepted source is a generic selectable `Document` and its Delete
+action is disabled. The current untouched New entry remains selected and
+temporary, with no Delete action.
+
+Rows use bounded primary text and a muted description, each clamped to two
+lines. The provisional limits are 80 and 160 Unicode scalar values respectively;
+they are not grapheme budgets or production acceptance criteria. Accessible row
+labels and tooltips use the bounded primary. `recent_documents` derives
+ordinals from those bounded labels and uses the same label for Delete
+confirmation. No Catalog label or full source is placed in row or dialog HTML.
+
+Task decoration is driven by `DocumentLead` IR task-marker ranges, not a regex;
+checkbox-looking text in code stays literal. Review tightened row ARIA and
+bounded tooltip/label handling. It also corrected recursive nested-list
+remainder handling: the nested primary is not repeated, but later descendants
+and their provenance remain. The narrow deep fixture originally lacked the
+blank line needed to make its apparent later item a nested remainder; without
+that blank line the parser retains it in the primary. The corrected fixture uses
+the blank line and asserts the actual nested case.
+
+The compiled, non-minified JS test instruments extraction without production
+hooks. Its observed sequence is two initial calls, two after selection, two
+while an edit is hidden, three after reopening with changed content, three after
+reopening unchanged content, and four after a visible edit. `inDispatch: false`
+proves only a dispatch boundary: it does not prove a distinct event-loop task or
+bounded synchronous extraction time. Targeted JS release tests pass: app 64 +
+document lead 23 + feature 3 = 90. TypeScript checking also passes. An earlier
+full browser run passed 56 tests, but the latest full run passed 54 of 56:
+`active failure after acknowledged revert restores truthful Saved` retained an
+alert, and `1 MiB exact Saved comparison stays within 10 ms` reported 14.8 ms
+at its p95 assertion. The latter also failed an earlier full run at 14.1 ms
+and a standalone rerun. A subsequent standalone minified run passed, as did
+one non-minified control and one test-only extraction-disabled diagnostic;
+these do not establish the cause or replace the failed full-suite result.
+Temporary diagnostic overrides were removed, and no timing assertion was
+relaxed. A separate build-plus-test invocation exceeded its 150-second command
+timeout; that incomplete run is not a pass.
+
+Follow-up [regression diagnosis](../evidence/2026-09-07-loomark-lead-regression-diagnosis/README.md)
+reproduced the save-test failure on `44d18fa4`: its helper also aborted the
+compensating write. The helper now aborts only the first transaction after the
+revert input and waits for recovery commit. Production save logic was not changed
+for this correction. The fixed test passed five runs on each implementation;
+the complete current suite then passed 56/56. A three-way input comparison found
+no connection-specific increase, but did not establish the cause of the earlier
+10 ms failures. No timing threshold was weakened. No latest HEAD CI result is
+claimed.
+
+Full-source extraction's cold and quiet-path cost remains unresolved. A
+cold initial extraction may delay first paint. The follow-up measured about
+378 ms cold and 369 ms quiet extraction for a 539 KB fixture. A throwaway Worker
+preserved its bounded result and allowed an input during computation, supporting
+off-main-thread placement as a candidate—not a production protocol or an
+absence-of-blocking guarantee. No Worker was added to the app. This is not a
+performance acceptance claim and does not complete Stage 2.
+
+Reuse for this logical slice: existing document-lead extraction and task ranges;
+existing Documents source lookup and quiet/save lifecycle; Rabbita `assoc_by`, `map`, `map2`, `switch_by`,
+and `view`; and the existing Sidebar provider factory. `String`, `StringView`,
+`StringBuilder`, `Option`, `Map`, and `Set` were considered; no manual cache was
+added. `String::from_iter` with `iter.take` is reused for the legacy dialog's
+scalar label cap.
+
+### Product purpose: reduce the effort of reusing saved writing
+
+The product goal is to reduce the human effort required to consult or revise
+previously saved writing by showing the necessary information at the necessary
+time and in the necessary amount. It is not limited to returning to the most
+recent editing session. Updated-first ordering is a deliberate first-step
+compromise: it is simple to implement and unambiguous, not the ideal retrieval
+model or the product's defining goal.
+
+Document lead is a proposed means to that end, not an end in itself. Evaluate
+its contribution to recognizing relevant documents and deciding what to open,
+rather than treating richer Markdown presentation as inherently useful. This
+purpose does not itself authorize search, classification, recommendations, or
+other new mechanisms. Establish the user benefit before choosing additional
+implementation or failure-handling machinery; Worker and Retry design are
+currently deferred.
+
+### Product contract: large-document lead
+
+Accepted during the design interview: a large document admitted by Loomark
+retains the same Document lead extraction rules as a small document. Its first
+lead may arrive later, without blocking editing; size alone does not permit a
+permanent simplified lead or justify a new admission limit for this feature.
+This does not promise unlimited input sizes or a completion deadline. Failure
+behavior and the execution mechanism remain undecided. In particular, this
+decision does not authorize a Worker or a production asynchronous completion
+protocol.
+
+### Product contract: entry before its first lead
+
+Accepted during the design interview: Recent documents shows each entry before
+its first lead is ready, indicates that its content is being prepared, and
+allows selection while preparation continues. Lead readiness neither disables
+selection nor controls entry admission or list order. Selecting an entry still
+uses the existing Document switch readiness contract; it does not promise
+immediate activation. Entries awaiting their first lead may be difficult to
+distinguish. Exact visible and accessible wording remains a presentation gate;
+lead preparation must not be confused with Empty document or the existing
+Loading document state for a selected target.
+
+### Product contract: deletion before the first lead
+
+Accepted during the design interview: Delete remains unavailable while an
+entry's first lead is being prepared. Selection and editing remain available
+under their existing contracts. Do not open a deletion confirmation that waits
+for lead preparation, or permit confirmation using only a generic unidentified
+entry. This is a first-lead readiness rule, not a requirement to disable Delete
+on every subsequent text edit. A successfully prepared Empty document is not
+an entry still awaiting its first lead. Recovery when first-lead preparation
+fails remains to be decided.

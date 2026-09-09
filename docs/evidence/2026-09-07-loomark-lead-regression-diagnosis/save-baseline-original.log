@@ -1,0 +1,139 @@
+
+> test
+> node ./run-standalone-tests.mjs --grep active failure after acknowledged revert --repeat-each=5
+
+Loomark standalone output at http://127.0.0.1:4347
+
+Running 5 tests using 4 workers
+
+[DEBUG-lead-save-order] [
+  { event: 'input', at: 752.7000000001863, text: '# In flight\n' },
+  { event: 'input', at: 752.9000000001397, text: '# In flight\n' },
+  {
+    event: 'put',
+    at: 1003.8000000000466,
+    text: '{"document_id":"e088d479-0eb9-4a6b-974d-810880492d12","text":"# In flight\\n","change_order":1788788946020}'
+  },
+  { event: 'input', at: 1126.8000000000466, text: '# Untitled\n' },
+  { event: 'input', at: 1126.9000000001397, text: '# Untitled\n' },
+  { event: 'abort-call', at: 1503.8000000000466 },
+  {
+    event: 'put',
+    at: 1504.5,
+    text: '{"document_id":"e088d479-0eb9-4a6b-974d-810880492d12","text":"# Untitled\\n","change_order":1788788946394}'
+  },
+  { event: 'abort-event', at: 1504.5 }
+]
+  ✓  1 tests/standalone.spec.ts:2042:1 › active failure after acknowledged revert restores truthful Saved (2.1s)
+[DEBUG-lead-save-order] [
+  { event: 'input', at: 736.7000000001863, text: '# In flight\n' },
+  { event: 'input', at: 736.9000000001397, text: '# In flight\n' },
+  {
+    event: 'put',
+    at: 987.5,
+    text: '{"document_id":"fb7a0a73-2643-42ee-9812-05eb88fc46bf","text":"# In flight\\n","change_order":1788788946049}'
+  },
+  { event: 'input', at: 1113.6000000000931, text: '# Untitled\n' },
+  { event: 'input', at: 1113.7000000001863, text: '# Untitled\n' },
+  { event: 'abort-call', at: 1487.5 },
+  {
+    event: 'put',
+    at: 1488.2000000001863,
+    text: '{"document_id":"fb7a0a73-2643-42ee-9812-05eb88fc46bf","text":"# Untitled\\n","change_order":1788788946426}'
+  },
+  { event: 'abort-event', at: 1488.3000000000466 },
+  { event: 'abort-call', at: 1990.2000000001863 },
+  { event: 'abort-event', at: 1990.6000000000931 }
+]
+[DEBUG-lead-save-order] [
+  { event: 'input', at: 760.6999999999534, text: '# In flight\n' },
+  { event: 'input', at: 760.7999999998137, text: '# In flight\n' },
+  {
+    event: 'put',
+    at: 1011.3999999999069,
+    text: '{"document_id":"6c967161-18e0-4949-bb49-41c8d35d4898","text":"# In flight\\n","change_order":1788788946053}'
+  },
+  { event: 'input', at: 1137.0999999998603, text: '# Untitled\n' },
+  { event: 'input', at: 1137.2999999998137, text: '# Untitled\n' },
+  { event: 'abort-call', at: 1511.5 },
+  {
+    event: 'put',
+    at: 1512.1999999999534,
+    text: '{"document_id":"6c967161-18e0-4949-bb49-41c8d35d4898","text":"# Untitled\\n","change_order":1788788946429}'
+  },
+  { event: 'abort-event', at: 1512.2999999998137 }
+]
+  ✓  4 tests/standalone.spec.ts:2042:1 › active failure after acknowledged revert restores truthful Saved (2.1s)
+  ✓  2 tests/standalone.spec.ts:2042:1 › active failure after acknowledged revert restores truthful Saved (2.2s)
+[DEBUG-lead-save-order] [
+  { event: 'input', at: 651.3999999999069, text: '# In flight\n' },
+  { event: 'input', at: 651.5999999998603, text: '# In flight\n' },
+  {
+    event: 'put',
+    at: 902.3999999999069,
+    text: '{"document_id":"39a66de6-9e4f-49a6-ba74-c01af7e25a48","text":"# In flight\\n","change_order":1788788948598}'
+  },
+  { event: 'input', at: 1022.1999999999534, text: '# Untitled\n' },
+  { event: 'input', at: 1022.1999999999534, text: '# Untitled\n' },
+  { event: 'abort-call', at: 1402.5999999998603 },
+  {
+    event: 'put',
+    at: 1403.3000000000466,
+    text: '{"document_id":"39a66de6-9e4f-49a6-ba74-c01af7e25a48","text":"# Untitled\\n","change_order":1788788948968}'
+  },
+  { event: 'abort-event', at: 1403.3999999999069 }
+]
+  ✓  5 tests/standalone.spec.ts:2042:1 › active failure after acknowledged revert restores truthful Saved (2.0s)
+[DEBUG-lead-save-order] [
+  { event: 'input', at: 740.3999999999069, text: '# In flight\n' },
+  { event: 'input', at: 740.5, text: '# In flight\n' },
+  {
+    event: 'put',
+    at: 991.1999999999534,
+    text: '{"document_id":"d326c3cf-7377-462c-8467-9c10d3d0b40c","text":"# In flight\\n","change_order":1788788946044}'
+  },
+  { event: 'input', at: 1119.6999999999534, text: '# Untitled\n' },
+  { event: 'input', at: 1119.7999999998137, text: '# Untitled\n' },
+  { event: 'abort-call', at: 1491.3999999999069 },
+  {
+    event: 'put',
+    at: 1491.8999999999069,
+    text: '{"document_id":"d326c3cf-7377-462c-8467-9c10d3d0b40c","text":"# Untitled\\n","change_order":1788788946424}'
+  },
+  { event: 'abort-event', at: 1492.0999999998603 },
+  { event: 'abort-call', at: 1992.1999999999534 },
+  { event: 'abort-event', at: 1993 }
+]
+  ✘  3 tests/standalone.spec.ts:2042:1 › active failure after acknowledged revert restores truthful Saved (7.1s)
+
+
+  1) tests/standalone.spec.ts:2042:1 › active failure after acknowledged revert restores truthful Saved
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByRole('alert')
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveCount" with timeout 5000ms
+      - waiting for getByRole('alert')
+        14 × locator resolved to 1 element
+           - unexpected value "1"
+
+
+      2064 |
+      2065 |   try {
+    > 2066 |     await expect(page.getByRole("alert")).toHaveCount(0)
+           |                                           ^
+      2067 |   } finally {
+      2068 |     console.log('[DEBUG-lead-save-order]', await page.evaluate(() => (globalThis as any).__loomarkSaveTrace))
+      2069 |   }
+        at /home/antisatori/ghq/github.com/dowdiness/canopy-loomark-document-lead-decision/apps/loomark/examples/vanilla/tests/standalone.spec.ts:2066:43
+
+    Error Context: test-results/standalone-active-failure--3ded2-ert-restores-truthful-Saved/error-context.md
+
+  1 failed
+    tests/standalone.spec.ts:2042:1 › active failure after acknowledged revert restores truthful Saved
+  4 passed (7.9s)

@@ -25,6 +25,8 @@ fn import_document(
         composing: false,
         save: Saved,
         delete: Available,
+        accepted_lead_source: Some(text),
+        pending_lead_quiet: None,
       })
       (
         {
@@ -68,7 +70,7 @@ fn apply_text(
     text,
     change_order=order,
   ).unwrap()
-  let updated = { ..record, source, }
+  let updated = { ..record, source, pending_lead_quiet: None }
   let documents = { ..documents, change_order_floor: order }
   match record.save {
     Saving(operation, pending) => {

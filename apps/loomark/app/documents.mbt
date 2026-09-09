@@ -18,6 +18,8 @@ fn Documents::reduce(
         composing: false,
         save: Saved,
         delete: Available,
+        accepted_lead_source: None,
+        pending_lead_quiet: None,
       }
       ({ ..self, records: append_record(self.records, record) }, [])
     }
@@ -44,7 +46,7 @@ fn Documents::reduce(
         return (self, [])
       }
       guard !delete_is_active(record.delete) else { return (self, []) }
-      let record = { ..record, composing: false }
+      let record = accept_pending_lead_quiet({ ..record, composing: false })
       match record.save {
         Waiting(checkpoint) if checkpoint.eligibility == Eligible => {
           let (next, decisions) = begin_save(record)
@@ -84,8 +86,10 @@ fn Documents::reduce(
     }
     DocumentsFeedbackReceived(feedback) =>
       match feedback {
-        QuietElapsed(document_id, order) =>
-          eligible_quiet(self, document_id, order)
+        QuietElapsed(document_id, order) => {
+          let documents = accept_lead_quiet(self, document_id, order)
+          eligible_quiet(documents, document_id, order)
+        }
         MaximumElapsed(document_id, id) =>
           eligible_maximum(self, document_id, id)
         SaveCompleted(operation, result) =>
@@ -323,6 +327,18 @@ fn Documents::current_sources(
   self : Self,
 ) -> Array[@source_repository.SourceRecord] {
   self.records.map(record => record.source)
+}
+
+///|
+fn Documents::is_untouched_new(self : Self, document_id : String) -> Bool {
+  find_record(self.records, document_id)
+  .map(record => {
+    record.origin == New &&
+    record.source.change_order().value() == 0L &&
+    record.source.text() == "" &&
+    acknowledged_source(self, document_id) is None
+  })
+  .unwrap_or(false)
 }
 
 ///|

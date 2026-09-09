@@ -32,12 +32,50 @@ pub enum DocumentLeadForm {
 } derive(Eq, Debug)
 
 ///|
+/// A task checkbox marker displayed in `description`.
+///
+/// `start` is inclusive and `end` is exclusive. Both are UTF-16 code-unit
+/// offsets into `DocumentLead::description()`, matching MoonBit `String`
+/// slicing (and JavaScript string indices). The range covers the rendered
+/// list marker and checkbox prefix, not task content. Ranges are emitted only
+/// for task items represented by the Markdown IR; literal text and code are
+/// never inferred as tasks. A range is omitted when truncation would cut its
+/// prefix.
+pub struct DocumentLeadTaskMarkerRange {
+  start : Int
+  end : Int
+  checked : Bool
+} derive(Eq, Debug)
+
+///|
+pub fn DocumentLeadTaskMarkerRange::start(
+  self : DocumentLeadTaskMarkerRange,
+) -> Int {
+  self.start
+}
+
+///|
+pub fn DocumentLeadTaskMarkerRange::end(
+  self : DocumentLeadTaskMarkerRange,
+) -> Int {
+  self.end
+}
+
+///|
+pub fn DocumentLeadTaskMarkerRange::checked(
+  self : DocumentLeadTaskMarkerRange,
+) -> Bool {
+  self.checked
+}
+
+///|
 pub struct DocumentLead {
   form : DocumentLeadForm
   primary : String
   description : String
   primary_truncated : Bool
   description_truncated : Bool
+  priv task_marker_ranges : Array[DocumentLeadTaskMarkerRange]
 } derive(Eq, Debug)
 
 ///|
@@ -53,6 +91,17 @@ pub fn DocumentLead::primary(self : DocumentLead) -> String {
 ///|
 pub fn DocumentLead::description(self : DocumentLead) -> String {
   self.description
+}
+
+///|
+/// Return task-marker provenance for the retained description.
+///
+/// The returned array is a defensive copy and may be freely mutated by the
+/// caller without changing the lead.
+pub fn DocumentLead::task_marker_ranges(
+  self : DocumentLead,
+) -> Array[DocumentLeadTaskMarkerRange] {
+  self.task_marker_ranges.copy()
 }
 
 ///|
@@ -161,56 +210,94 @@ fn marker_text(node : @markdown.MarkdownIR) -> String {
 }
 
 ///|
-/// private
-fn structured_description(
+priv struct DescriptionRender {
+  text : String
+  markers : Array[DocumentLeadTaskMarkerRange]
+}
+
+///|
+fn render_description(
   node : @markdown.MarkdownIR,
   source : String,
-) -> String {
+) -> DescriptionRender {
+  let builder = StringBuilder::StringBuilder()
+  let markers = []
+  append_rendered_description(node, source, builder, markers, None)
+  { text: builder.to_string(), markers }
+}
+
+///|
+fn append_rendered_description(
+  node : @markdown.MarkdownIR,
+  source : String,
+  builder : StringBuilder,
+  markers : Array[DocumentLeadTaskMarkerRange],
+  marker_start : Int?,
+) -> Unit {
+  let write = text => builder.write_string(text)
   match node.view() {
     @markdown.BlockQuote =>
-      node
-      .children()
-      .map(child => structured_description(child, source))
-      .join("\n")
-      .split("\n")
-      .map(line => "> " + line.to_owned())
-      .join("\n")
-    @markdown.UnorderedList(..) | @markdown.OrderedList(..) =>
-      node
-      .children()
-      .map(child => {
-        let marker = marker_text(child)
-        let text = structured_description(child, source)
-        if text.is_empty() {
-          marker
-        } else {
-          marker + " " + text
+      for i, child in node.children() {
+        if i > 0 {
+          write("\n")
         }
-      })
-      .join("\n")
+        let rendered = render_description(child, source)
+        append_rendered_fragment(
+          builder,
+          markers,
+          rendered,
+          "> ",
+          builder.to_string().length(),
+        )
+      }
+    @markdown.UnorderedList(..) | @markdown.OrderedList(..) =>
+      for i, child in node.children() {
+        if i > 0 {
+          write("\n")
+        }
+        let start = builder.to_string().length()
+        write(marker_text(child) + " ")
+        append_rendered_description(
+          child,
+          source,
+          builder,
+          markers,
+          Some(start),
+        )
+      }
     @markdown.ListItem(..) | @markdown.OrderedListItem(..) => {
-      let text = node
-        .children()
-        .map(child => {
-          match child.view() {
-            @markdown.UnorderedList(..) | @markdown.OrderedList(..) =>
-              "  " +
-              structured_description(child, source).replace(
-                old="\n",
-                new="\n  ",
-              )
-            _ => readable_text(child, source).unwrap_or("")
-          }
-        })
-        .join("\n")
-      match node.view() {
+      let task_prefix = match node.view() {
         @markdown.ListItem(task=Some(task), ..)
         | @markdown.OrderedListItem(task=Some(task), ..) =>
-          (if task.checked() { "[x] " } else { "[ ] " }) + text
-        _ => text
+          Some((if task.checked() { "[x] " } else { "[ ] " }, task.checked()))
+        _ => None
+      }
+      match task_prefix {
+        Some((prefix, checked)) => {
+          let start = marker_start.unwrap_or(builder.to_string().length())
+          write(prefix)
+          markers.push({ start, end: builder.to_string().length(), checked })
+        }
+        None => ()
+      }
+      for i, child in node.children() {
+        if i > 0 {
+          write("\n")
+        }
+        match child.view() {
+          @markdown.UnorderedList(..) | @markdown.OrderedList(..) => {
+            let rendered = render_description(child, source)
+            let base = builder.to_string().length()
+            append_rendered_fragment(builder, markers, rendered, "  ", base)
+          }
+          _ => {
+            let rendered = render_description(child, source)
+            write(rendered.text)
+          }
+        }
       }
     }
-    _ => readable_text(node, source).unwrap_or("")
+    _ => write(readable_text(node, source).unwrap_or(""))
   }
 }
 
@@ -221,13 +308,13 @@ fn structured_description(
 fn list_lead_text(
   node : @markdown.MarkdownIR,
   source : String,
-) -> (String, String, DocumentLeadForm) {
+) -> (String, DocumentLeadForm) {
   let items = node.children()
   let first_readable = items.search_by(item => {
     readable_text(item, source).unwrap_or("").trim().is_empty() == false
   })
   match first_readable {
-    None => ("", "", DocumentLeadForm::List(marker_text(node)))
+    None => ("", DocumentLeadForm::List(marker_text(node)))
     Some(index) => {
       let item = items.get(index).unwrap()
       let primary = item
@@ -252,44 +339,21 @@ fn list_lead_text(
             _ => false
           }
         })
-      let (primary, primary_nested) = if primary.is_empty() {
-        let nested_primary = nested
-          .get(0)
-          .map(child => {
-            readable_text(child, source).unwrap_or("").trim().to_owned()
-          })
-          .unwrap_or("")
-        (nested_primary, "")
+      let primary = if primary.is_empty() {
+        nested
+        .get(0)
+        .map(child => list_lead_text(child, source).0)
+        .unwrap_or("")
       } else {
-        let nested_description = nested
-          .map(child => {
-            "  " +
-            structured_description(child, source).replace(old="\n", new="\n  ")
-          })
-          .join("\n")
-        (primary, nested_description)
+        primary
       }
-      let later = items[index + 1:]
-        .map(item => {
-          let marker = marker_text(item)
-          let text = structured_description(item, source)
-          if text.is_empty() {
-            marker
-          } else {
-            marker + " " + text
-          }
-        })
-        .join("\n")
-      let description = [primary_nested, later]
-        .filter(text => !text.is_empty())
-        .join("\n")
       let form = match item.view() {
         @markdown.MarkdownIRView::ListItem(task=Some(task), ..)
         | @markdown.MarkdownIRView::OrderedListItem(task=Some(task), ..) =>
           DocumentLeadForm::Task(task.checked())
         _ => DocumentLeadForm::List(marker_text(node))
       }
-      (primary, description, form)
+      (primary, form)
     }
   }
 }
@@ -303,8 +367,8 @@ fn lead_from_node(
 ) -> DocumentLead? {
   let (primary_source, description_source, list_form) = match node.view() {
     @markdown.UnorderedList(..) | @markdown.OrderedList(..) => {
-      let (primary, description, form) = list_lead_text(node, source)
-      (primary, description, Some(form))
+      let (primary, form) = list_lead_text(node, source)
+      (primary, "", Some(form))
     }
     @markdown.CodeBlock(..) =>
       (readable_text(node, source).unwrap_or(""), "", None)
@@ -325,7 +389,14 @@ fn lead_from_node(
       DocumentLeadForm::Task(task.checked())
     _ => DocumentLeadForm::Plain
   }
-  Some({ form, primary, description, primary_truncated, description_truncated })
+  Some({
+    form,
+    primary,
+    description,
+    primary_truncated,
+    description_truncated,
+    task_marker_ranges: [],
+  })
 }
 
 ///|
@@ -366,6 +437,7 @@ fn fallback_lead(source : String, limits : DocumentLeadLimits) -> DocumentLead {
     description,
     primary_truncated,
     description_truncated,
+    task_marker_ranges: [],
   }
 }
 
@@ -387,23 +459,181 @@ fn first_readable_index(
 }
 
 ///|
-/// Construct the unbounded description from the selected lead and siblings.
-fn description_for_lead(
+/// Find marker lines with one linear scan of the rendered text, rather than
+/// slicing and splitting once per marker.
+fn rendered_marker_line(text : String, offset : Int) -> Int {
+  let lines = text.split("\n")
+  let starts : Array[Int] = [0]
+  let mut position = 0
+  for i, line in lines {
+    position += line.length()
+    if i + 1 < lines.length() {
+      position += 1
+      starts.push(position)
+    }
+  }
+  starts
+  .search_by(start => start > offset)
+  .map(i => i - 1)
+  .unwrap_or(starts.length() - 1)
+}
+
+///|
+fn append_rendered_fragment(
+  builder : StringBuilder,
+  markers : Array[DocumentLeadTaskMarkerRange],
+  rendered : DescriptionRender,
+  prefix : String,
+  base : Int,
+) -> Unit {
+  let lines = rendered.text.split("\n")
+  for i, line in lines {
+    if i > 0 {
+      builder.write_char('\n')
+    }
+    builder.write_string(prefix)
+    builder.write_string(line.to_owned())
+  }
+  for marker in rendered.markers {
+    // `prefix` is written before every line, including the first one.
+    let line = rendered_marker_line(rendered.text, marker.start())
+    let shift = base + prefix.length() * (line + 1)
+    markers.push({
+      start: marker.start() + shift,
+      end: marker.end() + shift,
+      checked: marker.checked(),
+    })
+  }
+}
+
+///|
+/// Add a rendered item marker only to its first line. Continuation lines are
+/// already indented by the item renderer.
+fn append_rendered_first_line(
+  builder : StringBuilder,
+  markers : Array[DocumentLeadTaskMarkerRange],
+  rendered : DescriptionRender,
+  prefix : String,
+  base : Int,
+) -> Unit {
+  let lines = rendered.text.split("\n")
+  for i, line in lines {
+    if i > 0 {
+      builder.write_char('\n')
+    }
+    if i == 0 {
+      builder.write_string(prefix)
+    }
+    builder.write_string(line.to_owned())
+  }
+  for marker in rendered.markers {
+    let line = rendered_marker_line(rendered.text, marker.start())
+    let extra = if line == 0 && marker.start() != 0 {
+      prefix.length()
+    } else {
+      0
+    }
+    let shift = base + extra
+    let end_extra = if line == 0 && marker.start() == 0 {
+      prefix.length()
+    } else {
+      0
+    }
+    markers.push({
+      start: marker.start() + shift,
+      end: marker.end() + shift + end_extra,
+      checked: marker.checked(),
+    })
+  }
+}
+
+///|
+/// Render exactly the description retained for the selected lead. Text and
+/// marker ranges are assembled together, so no provenance reconstruction can
+/// drift from the displayed string.
+fn description_render_for_lead(
   lead : DocumentLead,
   children : Array[@markdown.MarkdownIR],
   index : Int,
   source : String,
-) -> String {
-  let later = children[index + 1:]
-    .map(child => structured_description(child, source))
-    .filter(text => !text.is_empty())
-  if lead.description.is_empty() {
-    later.join("\n")
-  } else if later.is_empty() {
-    lead.description
-  } else {
-    lead.description + "\n" + later.join("\n")
+) -> DescriptionRender {
+  ignore(lead)
+  let builder = StringBuilder::StringBuilder()
+  let markers : Array[DocumentLeadTaskMarkerRange] = []
+  let append = (rendered : DescriptionRender, prefix : String) => {
+    let base = builder.to_string().length()
+    append_rendered_fragment(builder, markers, rendered, prefix, base)
   }
+  match children[index].view() {
+    @markdown.UnorderedList(..) | @markdown.OrderedList(..) => {
+      let items = children[index].children()
+      let selected = items.search_by(item => {
+        readable_text(item, source).unwrap_or("").trim().is_empty() == false
+      })
+      match selected {
+        Some(selected_index) => {
+          let item = items[selected_index]
+          let item_has_primary = item
+            .children()
+            .any(child => {
+              match child.view() {
+                @markdown.UnorderedList(..) | @markdown.OrderedList(..) => false
+                _ =>
+                  !readable_text(child, source).unwrap_or("").trim().is_empty()
+              }
+            })
+          let mut skipped_primary_nested = false
+          for child in item.children() {
+            match child.view() {
+              @markdown.UnorderedList(..) | @markdown.OrderedList(..) =>
+                if !item_has_primary && !skipped_primary_nested {
+                  skipped_primary_nested = true
+                  let remaining = description_render_for_lead(
+                    lead,
+                    [child],
+                    0,
+                    source,
+                  )
+                  if !remaining.text.is_empty() {
+                    if !builder.is_empty() {
+                      builder.write_char('\n')
+                    }
+                    append(remaining, "  ")
+                  }
+                } else {
+                  if !builder.is_empty() {
+                    builder.write_char('\n')
+                  }
+                  append(render_description(child, source), "  ")
+                }
+              _ => ()
+            }
+          }
+          for item in items[selected_index + 1:] {
+            if !builder.is_empty() {
+              builder.write_char('\n')
+            }
+            append_rendered_first_line(
+              builder,
+              markers,
+              render_description(item, source),
+              marker_text(item) + " ",
+              builder.to_string().length(),
+            )
+          }
+        }
+        None => ()
+      }
+    }
+    _ =>
+      for child in children[index + 1:] {
+        if !builder.is_empty() {
+          builder.write_char('\n')
+        }
+        append(render_description(child, source), "")
+      }
+  }
+  { text: builder.to_string(), markers }
 }
 
 ///|
@@ -412,6 +642,7 @@ fn result_from_bounded_description(
   lead : DocumentLead,
   description : String,
   description_truncated : Bool,
+  task_marker_ranges : Array[DocumentLeadTaskMarkerRange],
 ) -> DocumentLead {
   {
     form: lead.form,
@@ -419,6 +650,7 @@ fn result_from_bounded_description(
     description,
     primary_truncated: lead.primary_truncated,
     description_truncated: lead.description_truncated || description_truncated,
+    task_marker_ranges,
   }
 }
 
@@ -430,12 +662,16 @@ fn finish_lead(
   source : String,
   limits : DocumentLeadLimits,
 ) -> DocumentLead {
-  let combined = description_for_lead(lead, children, index, source)
+  let rendered = description_render_for_lead(lead, children, index, source)
   let (description, description_truncated) = bound_text(
-    combined,
+    rendered.text,
     limits.description,
   )
-  result_from_bounded_description(lead, description, description_truncated)
+  let marker_end = description.length()
+  let markers = rendered.markers.filter(marker => marker.end() <= marker_end)
+  result_from_bounded_description(
+    lead, description, description_truncated, markers,
+  )
 }
 
 ///|

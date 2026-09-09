@@ -1,75 +1,4 @@
 ///|
-fn delete_dialog(
-  model : @rabbita.Val[Model],
-  emit : @rabbita.Emit[Msg],
-) -> @rabbita.Val[@rabbita.Html] {
-  let target = model.map(model => {
-    match model {
-      Editing(editing) if editing.deletion is DeleteConfirmation(document_id) => {
-        let entry_values = recent_entries(editing)
-        let entries = entry_values.view()
-        match entries.search_by(entry => entry.document_id() == document_id) {
-          Some(index) =>
-            entries
-            .get(index)
-            .map(entry => {
-              (document_id, document_option_label(entries, index, entry))
-            })
-          None => None
-        }
-      }
-      Loading(_) | PreparingNew(_) | Editing(_) | Recovery(_, _) => None
-    }
-  })
-  target.switch_by(
-    target => {
-      match target {
-        None => @rabbita.Val::constant(@html.nothing)
-        Some((document_id, label)) =>
-          @rui.alert_dialog(
-            id="loomark-delete-document",
-            default_open=true,
-            on_open_change=@cmd.Emit(open => {
-              if open {
-                @cmd.none
-              } else {
-                emit(DeleteCancelled)
-              }
-            }),
-            scope => {
-              @rui.alert_dialog_portal([
-                @rui.alert_dialog_content(scope, [
-                  @rui.alert_dialog_header([
-                    @rui.alert_dialog_title(scope, "Delete \"\{label}\"?"),
-                    @rui.alert_dialog_description(
-                      scope, "This permanently removes the document from this browser.",
-                    ),
-                  ]),
-                  @rui.alert_dialog_footer([
-                    @rui.alert_dialog_cancel(scope, "Cancel"),
-                    @rui.alert_dialog_action(
-                      scope,
-                      on_click=emit(DeleteConfirmed(document_id)),
-                      class="[--rui-button-bg:var(--color-lm-danger)] [--rui-button-fg:white]",
-                      "Delete document",
-                    ),
-                  ]),
-                ]),
-              ])
-            },
-          )
-      }
-    },
-    by=target => {
-      match target {
-        Some((document_id, _)) => "confirm-\{document_id}"
-        None => "closed"
-      }
-    },
-  )
-}
-
-///|
 /// Prototype: manage and switch Loomark documents inside RUI Sidebar.
 pub fn app() -> @rabbita.Val[@rabbita.Html] {
   let text_area = @text_area.TextArea::TextArea("loomark-text")
@@ -86,6 +15,10 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
         @sub.on_visibility_change(hidden => emit(VisibilityChanged(hidden))),
       ])
     },
+  )
+  // Own sidebar state before constructing any dependent layout graph.
+  let sidebar_provider = @sidebar.SidebarProvider::new(
+    default_collapsed=initial_compact,
   )
 
   fn editor_panels(
@@ -125,6 +58,9 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
                   emit,
                   text_area,
                   editing.activation,
+                  untouched_new=editing.documents.is_untouched_new(
+                    editing.activation.document_id,
+                  ),
                   disabled=editing.creation == Creating,
                   read_only=deletion_blocks_document_changes(editing),
                 ),
@@ -185,19 +121,58 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
     },
     by=compact => if compact { "compact" } else { "wide" },
   )
-  let dialog = delete_dialog(model, emit)
-  let layout_input = model.map3(selected_panels, dialog, (
+  let recent_document_input = model.map(model => {
+    match model {
+      Editing(editing) => recent_document_seeds(editing)
+      Loading(_) | PreparingNew(_) | Recovery(_, _) => @vector.Vector([])
+    }
+  })
+  let can_create = model.map(model => {
+    match model {
+      Editing(editing) => can_activate(editing)
+      Loading(_) | PreparingNew(_) | Recovery(_, _) => false
+    }
+  })
+  let delete_target = model.map(model => {
+    match model {
+      Editing(editing) if editing.deletion is DeleteConfirmation(document_id) =>
+        Some(document_id)
+      Loading(_) | PreparingNew(_) | Editing(_) | Recovery(_, _) => None
+    }
+  })
+  let recent_feature = @recent_documents.build(
+    input=recent_document_input,
+    visible=sidebar_provider.visible(),
+    can_create~,
+    compact~,
+    delete_target~,
+    on_intent=@cmd.Emit(intent => {
+      match intent {
+        @recent_documents.Intent::Create => emit(CreateRequested)
+        @recent_documents.Intent::Select(docid) => emit(DocumentSelected(docid))
+        @recent_documents.Intent::RequestDelete(docid) =>
+          emit(DeleteRequested(docid))
+        @recent_documents.Intent::CancelDelete => emit(DeleteCancelled)
+        @recent_documents.Intent::ConfirmDelete(docid) =>
+          emit(DeleteConfirmed(docid))
+      }
+    }),
+    close_after_action=sidebar_provider.close(),
+  )
+  let recent_documents = recent_feature.navigation()
+  let dialog = recent_feature.dialog()
+  let layout_input = model.map4(selected_panels, dialog, recent_documents, (
     model,
     editor_panels,
     dialog,
-  ) => (model, editor_panels, dialog))
-  @sidebar.sidebar_provider_with_input(
+    recent_documents,
+  ) => (model, editor_panels, dialog, recent_documents))
+  sidebar_provider.view_with_input(
     input=layout_input,
-    default_collapsed=initial_compact,
     class="h-dvh min-h-0 [--rui-sidebar-width:clamp(11rem,24vw,17rem)] [--rui-sidebar-width-icon:2.75rem]",
     (sidebar, layout) => {
-      let (model, editor_panels, dialog) = layout
-      view(sidebar, model, emit, editor_panels, dialog)
+      let (model, editor_panels, dialog, recent_documents) = layout
+      view(sidebar, model, emit, editor_panels, dialog, recent_documents)
     },
   )
 }

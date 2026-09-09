@@ -1,4 +1,15 @@
 ///|
+/// Benchmark adapter for the text field of the shared provenance renderer.
+fn description_for_lead(
+  lead : DocumentLead,
+  children : Array[@markdown.MarkdownIR],
+  index : Int,
+  source : String,
+) -> String {
+  description_render_for_lead(lead, children, index, source).text
+}
+
+///|
 /// Stage 2 uses one deterministic corpus for every phase. The setup is kept
 /// outside timed spans; only the named operation is measured.
 fn stage2_sources() -> Array[String] {
@@ -581,7 +592,7 @@ test "bench stage2 large mixed result" (b : @bench.T) {
   )
   b.bench(() => {
     b.keep(
-      result_from_bounded_description(fixture.lead, description, truncated),
+      result_from_bounded_description(fixture.lead, description, truncated, []),
     )
   })
 }
@@ -596,7 +607,7 @@ test "bench stage2 large distinct result" (b : @bench.T) {
   )
   b.bench(() => {
     b.keep(
-      result_from_bounded_description(fixture.lead, description, truncated),
+      result_from_bounded_description(fixture.lead, description, truncated, []),
     )
   })
 }

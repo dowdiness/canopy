@@ -1,0 +1,1108 @@
+{
+  "browser": "149.0.7827.55",
+  "input": [
+    {
+      "variant": "baseline",
+      "samples": [
+        {
+          "total": 3,
+          "select": 0,
+          "beforeinput": 0.09999999962747097,
+          "setRangeText": 2.900000000372529,
+          "input": 0
+        },
+        {
+          "total": 3.8999999999068677,
+          "select": 0.19999999972060323,
+          "beforeinput": 0,
+          "setRangeText": 3.6000000000931323,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.5,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.2999999998137355,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.3999999999068677,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.2999999998137355,
+          "input": 0
+        },
+        {
+          "total": 3.3999999999068677,
+          "select": 0.10000000009313226,
+          "beforeinput": 0.10000000009313226,
+          "setRangeText": 3.099999999627471,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3,
+          "select": 0,
+          "beforeinput": 0.10000000009313226,
+          "setRangeText": 2.8999999999068677,
+          "input": 0
+        },
+        {
+          "total": 3.7000000001862645,
+          "select": 0.20000000018626451,
+          "beforeinput": 0,
+          "setRangeText": 3.3999999999068677,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.6000000000931323,
+          "select": 0.19999999972060323,
+          "beforeinput": 0,
+          "setRangeText": 3.400000000372529,
+          "input": 0
+        },
+        {
+          "total": 3.1999999997206032,
+          "select": 0.19999999972060323,
+          "beforeinput": 0,
+          "setRangeText": 3,
+          "input": 0
+        },
+        {
+          "total": 3.2000000001862645,
+          "select": 0.20000000018626451,
+          "beforeinput": 0,
+          "setRangeText": 2.8999999999068677,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.1999999997206032,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3,
+          "input": 0.09999999962747097
+        },
+        {
+          "total": 3.2000000001862645,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.1000000000931323,
+          "input": 0
+        },
+        {
+          "total": 3.2000000001862645,
+          "select": 0.10000000009313226,
+          "beforeinput": 0.10000000009313226,
+          "setRangeText": 2.8999999999068677,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.1999999997206032,
+          "select": 0,
+          "beforeinput": 0,
+          "setRangeText": 3.099999999627471,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3,
+          "select": 0,
+          "beforeinput": 0,
+          "setRangeText": 3,
+          "input": 0
+        },
+        {
+          "total": 3.5,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.2999999998137355,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.8999999999068677,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.6000000000931323,
+          "input": 0.19999999972060323
+        },
+        {
+          "total": 3.3999999999068677,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.2999999998137355,
+          "input": 0
+        },
+        {
+          "total": 3.3000000002793968,
+          "select": 0.20000000018626451,
+          "beforeinput": 0,
+          "setRangeText": 3,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.2999999998137355,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.1999999997206032,
+          "input": 0
+        },
+        {
+          "total": 3.3000000002793968,
+          "select": 0.20000000018626451,
+          "beforeinput": 0,
+          "setRangeText": 3,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.3999999999068677,
+          "select": 0.19999999972060323,
+          "beforeinput": 0,
+          "setRangeText": 3.2000000001862645,
+          "input": 0
+        },
+        {
+          "total": 3.3999999999068677,
+          "select": 0.19999999972060323,
+          "beforeinput": 0,
+          "setRangeText": 3.2000000001862645,
+          "input": 0
+        },
+        {
+          "total": 3.3999999999068677,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.1999999997206032,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.3999999999068677,
+          "select": 0,
+          "beforeinput": 0.10000000009313226,
+          "setRangeText": 3.2999999998137355,
+          "input": 0
+        },
+        {
+          "total": 3.7000000001862645,
+          "select": 0.20000000018626451,
+          "beforeinput": 0,
+          "setRangeText": 3.2000000001862645,
+          "input": 0.2999999998137355
+        },
+        {
+          "total": 4,
+          "select": 0.20000000018626451,
+          "beforeinput": 0.19999999972060323,
+          "setRangeText": 3.6000000000931323,
+          "input": 0
+        },
+        {
+          "total": 3.6000000000931323,
+          "select": 0.20000000018626451,
+          "beforeinput": 0,
+          "setRangeText": 3.3999999999068677,
+          "input": 0
+        },
+        {
+          "total": 3.1999999997206032,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.099999999627471,
+          "input": 0
+        },
+        {
+          "total": 3,
+          "select": 0.20000000018626451,
+          "beforeinput": 0,
+          "setRangeText": 2.7999999998137355,
+          "input": 0
+        },
+        {
+          "total": 3.5,
+          "select": 0.10000000009313226,
+          "beforeinput": 0.10000000009313226,
+          "setRangeText": 3.2000000001862645,
+          "input": 0.09999999962747097
+        },
+        {
+          "total": 3.6000000000931323,
+          "select": 0,
+          "beforeinput": 0,
+          "setRangeText": 3.400000000372529,
+          "input": 0.19999999972060323
+        },
+        {
+          "total": 3.2000000001862645,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.1000000000931323,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3,
+          "input": 0
+        },
+        {
+          "total": 3.099999999627471,
+          "select": 0.19999999972060323,
+          "beforeinput": 0,
+          "setRangeText": 2.8000000002793968,
+          "input": 0.09999999962747097
+        },
+        {
+          "total": 3.7000000001862645,
+          "select": 0.10000000009313226,
+          "beforeinput": 0.10000000009313226,
+          "setRangeText": 3.3999999999068677,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.3999999999068677,
+          "select": 0.10000000009313226,
+          "beforeinput": 0.10000000009313226,
+          "setRangeText": 3.1999999997206032,
+          "input": 0
+        },
+        {
+          "total": 3.1000000000931323,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3,
+          "input": 0
+        },
+        {
+          "total": 3,
+          "select": 0.20000000018626451,
+          "beforeinput": 0,
+          "setRangeText": 2.7999999998137355,
+          "input": 0
+        },
+        {
+          "total": 3.1000000000931323,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 2.8999999999068677,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.1999999997206032,
+          "select": 0,
+          "beforeinput": 0,
+          "setRangeText": 3.1000000000931323,
+          "input": 0.09999999962747097
+        },
+        {
+          "total": 3.3000000002793968,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.1000000000931323,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3,
+          "select": 0,
+          "beforeinput": 0,
+          "setRangeText": 2.8999999999068677,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.1000000000931323,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3,
+          "input": 0
+        },
+        {
+          "total": 3,
+          "select": 0.09999999962747097,
+          "beforeinput": 0,
+          "setRangeText": 2.900000000372529,
+          "input": 0
+        },
+        {
+          "total": 3.5,
+          "select": 0.09999999962747097,
+          "beforeinput": 0.10000000009313226,
+          "setRangeText": 3.1000000000931323,
+          "input": 0.20000000018626451
+        },
+        {
+          "total": 3.5,
+          "select": 0.09999999962747097,
+          "beforeinput": 0,
+          "setRangeText": 3.2000000001862645,
+          "input": 0.20000000018626451
+        },
+        {
+          "total": 3.2999999998137355,
+          "select": 0,
+          "beforeinput": 0,
+          "setRangeText": 3.1999999997206032,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.2999999998137355,
+          "select": 0.10000000009313226,
+          "beforeinput": 0.10000000009313226,
+          "setRangeText": 3.099999999627471,
+          "input": 0
+        },
+        {
+          "total": 3.1000000000931323,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3,
+          "input": 0
+        }
+      ]
+    },
+    {
+      "variant": "current",
+      "samples": [
+        {
+          "total": 3.6000000000931323,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.3000000002793968,
+          "input": 0.19999999972060323
+        },
+        {
+          "total": 3.3999999999068677,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.2000000001862645,
+          "input": 0.09999999962747097
+        },
+        {
+          "total": 3.400000000372529,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.3000000002793968,
+          "input": 0
+        },
+        {
+          "total": 3.099999999627471,
+          "select": 0.09999999962747097,
+          "beforeinput": 0,
+          "setRangeText": 3,
+          "input": 0
+        },
+        {
+          "total": 3.2000000001862645,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.1000000000931323,
+          "input": 0
+        },
+        {
+          "total": 3.7000000001862645,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.3999999999068677,
+          "input": 0.20000000018626451
+        },
+        {
+          "total": 3.3999999999068677,
+          "select": 0.09999999962747097,
+          "beforeinput": 0,
+          "setRangeText": 3.2000000001862645,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3,
+          "select": 0,
+          "beforeinput": 0,
+          "setRangeText": 3,
+          "input": 0
+        },
+        {
+          "total": 3.1999999997206032,
+          "select": 0.19999999972060323,
+          "beforeinput": 0,
+          "setRangeText": 3,
+          "input": 0
+        },
+        {
+          "total": 3.400000000372529,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.2000000001862645,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.5,
+          "select": 0.09999999962747097,
+          "beforeinput": 0.10000000009313226,
+          "setRangeText": 3.2000000001862645,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.1999999997206032,
+          "select": 0.09999999962747097,
+          "beforeinput": 0,
+          "setRangeText": 3,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.3999999999068677,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.2000000001862645,
+          "input": 0.09999999962747097
+        },
+        {
+          "total": 3.3000000002793968,
+          "select": 0.20000000018626451,
+          "beforeinput": 0,
+          "setRangeText": 3,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.3999999999068677,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.1999999997206032,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.3999999999068677,
+          "select": 0.10000000009313226,
+          "beforeinput": 0.10000000009313226,
+          "setRangeText": 3.1999999997206032,
+          "input": 0
+        },
+        {
+          "total": 3.2000000001862645,
+          "select": 0.20000000018626451,
+          "beforeinput": 0,
+          "setRangeText": 3,
+          "input": 0
+        },
+        {
+          "total": 3.2999999998137355,
+          "select": 0.19999999972060323,
+          "beforeinput": 0,
+          "setRangeText": 3,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 2.8999999999068677,
+          "input": 0
+        },
+        {
+          "total": 3.3999999999068677,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.1000000000931323,
+          "input": 0.19999999972060323
+        },
+        {
+          "total": 3.3000000002793968,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.1000000000931323,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.1000000000931323,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 2.8999999999068677,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3,
+          "select": 0.09999999962747097,
+          "beforeinput": 0,
+          "setRangeText": 2.900000000372529,
+          "input": 0
+        },
+        {
+          "total": 3.2999999998137355,
+          "select": 0.19999999972060323,
+          "beforeinput": 0,
+          "setRangeText": 3,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.3999999999068677,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.2999999998137355,
+          "input": 0
+        },
+        {
+          "total": 3.6000000000931323,
+          "select": 0.10000000009313226,
+          "beforeinput": 0.10000000009313226,
+          "setRangeText": 3.1999999997206032,
+          "input": 0.20000000018626451
+        },
+        {
+          "total": 3.2999999998137355,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.1000000000931323,
+          "input": 0.09999999962747097
+        },
+        {
+          "total": 3.3000000002793968,
+          "select": 0,
+          "beforeinput": 0,
+          "setRangeText": 3.2000000001862645,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.6999999997206032,
+          "select": 0,
+          "beforeinput": 0,
+          "setRangeText": 3.6999999997206032,
+          "input": 0
+        },
+        {
+          "total": 3.8000000002793968,
+          "select": 0.10000000009313226,
+          "beforeinput": 0.10000000009313226,
+          "setRangeText": 3.5,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.3999999999068677,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.1999999997206032,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.1000000000931323,
+          "select": 0,
+          "beforeinput": 0,
+          "setRangeText": 3,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.6000000000931323,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.5,
+          "input": 0
+        },
+        {
+          "total": 3.7999999998137355,
+          "select": 0.19999999972060323,
+          "beforeinput": 0,
+          "setRangeText": 3.6000000000931323,
+          "input": 0
+        },
+        {
+          "total": 3.7000000001862645,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.5,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.5,
+          "select": 0.09999999962747097,
+          "beforeinput": 0,
+          "setRangeText": 3.3000000002793968,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.3999999999068677,
+          "select": 0.09999999962747097,
+          "beforeinput": 0,
+          "setRangeText": 3.3000000002793968,
+          "input": 0
+        },
+        {
+          "total": 3.5,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.2999999998137355,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.6999999997206032,
+          "select": 0.10000000009313226,
+          "beforeinput": 0.09999999962747097,
+          "setRangeText": 3.3000000002793968,
+          "input": 0.19999999972060323
+        },
+        {
+          "total": 3.7000000001862645,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.5,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.2000000001862645,
+          "select": 0,
+          "beforeinput": 0,
+          "setRangeText": 3.1000000000931323,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.099999999627471,
+          "select": 0,
+          "beforeinput": 0,
+          "setRangeText": 3.099999999627471,
+          "input": 0
+        },
+        {
+          "total": 3,
+          "select": 0,
+          "beforeinput": 0,
+          "setRangeText": 3,
+          "input": 0
+        },
+        {
+          "total": 3.2000000001862645,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.2000000001862645,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.1999999997206032,
+          "select": 0.19999999972060323,
+          "beforeinput": 0,
+          "setRangeText": 2.8999999999068677,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3,
+          "select": 0,
+          "beforeinput": 0,
+          "setRangeText": 3,
+          "input": 0
+        },
+        {
+          "total": 3,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 2.7999999998137355,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 2.8999999999068677,
+          "input": 0
+        },
+        {
+          "total": 3.3999999999068677,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.2999999998137355,
+          "input": 0
+        }
+      ]
+    },
+    {
+      "variant": "no-extraction",
+      "samples": [
+        {
+          "total": 3.3000000002793968,
+          "select": 0.20000000018626451,
+          "beforeinput": 0,
+          "setRangeText": 3.1000000000931323,
+          "input": 0
+        },
+        {
+          "total": 3.5,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.2999999998137355,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.5,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.2999999998137355,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.1999999997206032,
+          "select": 0,
+          "beforeinput": 0.10000000009313226,
+          "setRangeText": 3.099999999627471,
+          "input": 0
+        },
+        {
+          "total": 3.3000000002793968,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.2000000001862645,
+          "input": 0
+        },
+        {
+          "total": 3.6999999997206032,
+          "select": 0.10000000009313226,
+          "beforeinput": 0.09999999962747097,
+          "setRangeText": 3.400000000372529,
+          "input": 0.09999999962747097
+        },
+        {
+          "total": 4,
+          "select": 0.20000000018626451,
+          "beforeinput": 0,
+          "setRangeText": 3.6000000000931323,
+          "input": 0.19999999972060323
+        },
+        {
+          "total": 3.1000000000931323,
+          "select": 0,
+          "beforeinput": 0.10000000009313226,
+          "setRangeText": 2.8999999999068677,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.2000000001862645,
+          "select": 0.20000000018626451,
+          "beforeinput": 0,
+          "setRangeText": 3,
+          "input": 0
+        },
+        {
+          "total": 3.2999999998137355,
+          "select": 0.19999999972060323,
+          "beforeinput": 0,
+          "setRangeText": 3,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.2000000001862645,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.1000000000931323,
+          "input": 0
+        },
+        {
+          "total": 3.5,
+          "select": 0.19999999972060323,
+          "beforeinput": 0,
+          "setRangeText": 3.2000000001862645,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.2999999998137355,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.1999999997206032,
+          "input": 0
+        },
+        {
+          "total": 3.3000000002793968,
+          "select": 0.10000000009313226,
+          "beforeinput": 0.10000000009313226,
+          "setRangeText": 3.1000000000931323,
+          "input": 0
+        },
+        {
+          "total": 3.2999999998137355,
+          "select": 0.19999999972060323,
+          "beforeinput": 0,
+          "setRangeText": 3.1000000000931323,
+          "input": 0
+        },
+        {
+          "total": 3.5,
+          "select": 0.10000000009313226,
+          "beforeinput": 0.10000000009313226,
+          "setRangeText": 3.1999999997206032,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.7000000001862645,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.6000000000931323,
+          "input": 0
+        },
+        {
+          "total": 3.1999999997206032,
+          "select": 0.19999999972060323,
+          "beforeinput": 0,
+          "setRangeText": 2.8999999999068677,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.1000000000931323,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3,
+          "input": 0
+        },
+        {
+          "total": 3,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 2.8999999999068677,
+          "input": 0
+        },
+        {
+          "total": 3,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 2.8999999999068677,
+          "input": 0
+        },
+        {
+          "total": 3.5,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.3999999999068677,
+          "input": 0
+        },
+        {
+          "total": 3.5,
+          "select": 0.20000000018626451,
+          "beforeinput": 0,
+          "setRangeText": 3.1999999997206032,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.2999999998137355,
+          "select": 0.20000000018626451,
+          "beforeinput": 0,
+          "setRangeText": 3,
+          "input": 0.09999999962747097
+        },
+        {
+          "total": 3.1000000000931323,
+          "select": 0.20000000018626451,
+          "beforeinput": 0,
+          "setRangeText": 2.8999999999068677,
+          "input": 0
+        },
+        {
+          "total": 3,
+          "select": 0,
+          "beforeinput": 0,
+          "setRangeText": 2.8999999999068677,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.7000000001862645,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.2999999998137355,
+          "input": 0.3000000002793968
+        },
+        {
+          "total": 3.1999999997206032,
+          "select": 0.09999999962747097,
+          "beforeinput": 0,
+          "setRangeText": 3.1000000000931323,
+          "input": 0
+        },
+        {
+          "total": 3,
+          "select": 0.20000000018626451,
+          "beforeinput": 0,
+          "setRangeText": 2.6999999997206032,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 2.8999999999068677,
+          "select": 0.10000000009313226,
+          "beforeinput": 0.10000000009313226,
+          "setRangeText": 2.6999999997206032,
+          "input": 0
+        },
+        {
+          "total": 3.2000000001862645,
+          "select": 0.20000000018626451,
+          "beforeinput": 0,
+          "setRangeText": 2.8999999999068677,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.2000000001862645,
+          "select": 0,
+          "beforeinput": 0.10000000009313226,
+          "setRangeText": 3,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.1999999997206032,
+          "select": 0.09999999962747097,
+          "beforeinput": 0.10000000009313226,
+          "setRangeText": 3,
+          "input": 0
+        },
+        {
+          "total": 3.1000000000931323,
+          "select": 0.20000000018626451,
+          "beforeinput": 0,
+          "setRangeText": 2.8999999999068677,
+          "input": 0
+        },
+        {
+          "total": 3,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 2.8999999999068677,
+          "input": 0
+        },
+        {
+          "total": 3,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 2.8999999999068677,
+          "input": 0
+        },
+        {
+          "total": 3.1000000000931323,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 2.8999999999068677,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.1999999997206032,
+          "select": 0,
+          "beforeinput": 0.10000000009313226,
+          "setRangeText": 3.099999999627471,
+          "input": 0
+        },
+        {
+          "total": 3.2000000001862645,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.1000000000931323,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 2.8999999999068677,
+          "input": 0.10000000009313226
+        },
+        {
+          "total": 3.1000000000931323,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3,
+          "input": 0
+        },
+        {
+          "total": 3,
+          "select": 0.19999999972060323,
+          "beforeinput": 0,
+          "setRangeText": 2.8000000002793968,
+          "input": 0
+        },
+        {
+          "total": 3.599999999627471,
+          "select": 0.19999999972060323,
+          "beforeinput": 0,
+          "setRangeText": 3.3000000002793968,
+          "input": 0.09999999962747097
+        },
+        {
+          "total": 3.1000000000931323,
+          "select": 0.20000000018626451,
+          "beforeinput": 0,
+          "setRangeText": 2.8999999999068677,
+          "input": 0
+        },
+        {
+          "total": 3.1000000000931323,
+          "select": 0.20000000018626451,
+          "beforeinput": 0,
+          "setRangeText": 2.8999999999068677,
+          "input": 0
+        },
+        {
+          "total": 3.1000000000931323,
+          "select": 0.20000000018626451,
+          "beforeinput": 0,
+          "setRangeText": 2.8999999999068677,
+          "input": 0
+        },
+        {
+          "total": 3.1999999997206032,
+          "select": 0.10000000009313226,
+          "beforeinput": 0,
+          "setRangeText": 3.099999999627471,
+          "input": 0
+        },
+        {
+          "total": 3.400000000372529,
+          "select": 0.10000000009313226,
+          "beforeinput": 0.10000000009313226,
+          "setRangeText": 3.2000000001862645,
+          "input": 0
+        },
+        {
+          "total": 3.2999999998137355,
+          "select": 0.19999999972060323,
+          "beforeinput": 0,
+          "setRangeText": 3.1000000000931323,
+          "input": 0
+        },
+        {
+          "total": 3.2000000001862645,
+          "select": 0.20000000018626451,
+          "beforeinput": 0,
+          "setRangeText": 3,
+          "input": 0
+        }
+      ]
+    }
+  ],
+  "large": [
+    {
+      "phase": "cold",
+      "leads": [
+        {
+          "bytes": 52890,
+          "start": 253.29999999981374,
+          "duration": 56.200000000186265
+        }
+      ],
+      "longTasks": [
+        {
+          "start": 147.29999999981374,
+          "duration": 105
+        },
+        {
+          "start": 252.79999999981374,
+          "duration": 93
+        }
+      ]
+    },
+    {
+      "phase": "quiet",
+      "leads": [
+        {
+          "bytes": 52891,
+          "start": 770,
+          "duration": 55.59999999962747
+        }
+      ],
+      "longTasks": [
+        {
+          "start": 769.0999999996275,
+          "duration": 58
+        }
+      ]
+    }
+  ]
+}

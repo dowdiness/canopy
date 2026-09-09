@@ -3,6 +3,8 @@ import {
   "dowdiness/loomark/internal/document_lead",
   "dowdiness/loomark/internal/view",
   "dowdiness/loomark/internal/sidebar",
+  "dowdiness/loomark/internal/recent_documents",
+  "moonbitlang/core/immut/vector",
   "dowdiness/loomark/internal/preview",
   "dowdiness/loomark/internal/text_area",
   "dowdiness/text_change",

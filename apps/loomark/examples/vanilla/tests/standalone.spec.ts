@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test"
+import { readFile } from "node:fs/promises"
 
 const DOCUMENT_DATABASE_NAME = "loomark"
 const DOCUMENT_DATABASE_VERSION = 1
@@ -325,36 +326,49 @@ function installDelayedDocumentAbort(targetKey: string): void {
   const state = globalThis as typeof globalThis & {
     __loomarkDelayedAbortStarted?: boolean
     __loomarkDelayedAbortFinished?: boolean
-    __loomarkDelayedAbortOriginal?: typeof IDBObjectStore.prototype.put
+    __loomarkReleaseAbort?: () => void
+    __loomarkRecoveryCommitted?: boolean
   }
-  const prototype = IDBObjectStore.prototype as any
+  const prototype = IDBObjectStore.prototype
   const originalPut = prototype.put
-  state.__loomarkDelayedAbortOriginal = originalPut
   state.__loomarkDelayedAbortStarted = false
   state.__loomarkDelayedAbortFinished = false
+  state.__loomarkRecoveryCommitted = false
+  let releaseRequested = false
+  state.__loomarkReleaseAbort = () => { releaseRequested = true }
   prototype.put = function(
     this: IDBObjectStore,
     value: unknown,
     recordKey?: IDBValidKey,
   ) {
     const request = originalPut.call(this, value, recordKey)
-    if (recordKey === targetKey) {
-      state.__loomarkDelayedAbortStarted = true
-      const store = this
-      const transaction = this.transaction
-      const started = performance.now()
-      const keepAlive = () => {
-        if (performance.now() - started >= 500) {
-          transaction.abort()
-          state.__loomarkDelayedAbortFinished = true
-          return
-        }
-        const keepAliveRequest = store.get(recordKey)
-        keepAliveRequest.addEventListener("success", keepAlive)
-        keepAliveRequest.addEventListener("error", keepAlive)
-      }
-      keepAlive()
+    if (recordKey !== targetKey) return request
+    if (state.__loomarkDelayedAbortStarted) {
+      // A compensating write must be allowed to commit, not aborted again.
+      this.transaction.addEventListener("complete", () => {
+        state.__loomarkRecoveryCommitted = true
+      }, { once: true })
+      return request
     }
+    state.__loomarkDelayedAbortStarted = true
+    const store = this
+    const transaction = this.transaction
+    let aborting = false
+    transaction.addEventListener("abort", () => {
+      aborting = true
+      state.__loomarkDelayedAbortFinished = true
+    }, { once: true })
+    // Hold the transaction until the test has delivered the revert input.
+    const keepAlive = () => {
+      if (aborting) return
+      if (releaseRequested) {
+        aborting = true
+        transaction.abort()
+        return
+      }
+      store.get(recordKey).addEventListener("success", keepAlive, { once: true })
+    }
+    keepAlive()
     return request
   }
 }
@@ -668,6 +682,13 @@ test("several Sources select the first lexical Document ID", async ({ page }) =>
   await page.reload()
   await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(documentA.text)
   const documents = page.getByRole("complementary", { name: "Documents" })
+  await expect(documents.locator('[data-slot="sidebar-menu-sub"]')).toHaveCount(0)
+  await expect(documents.locator('[data-slot="sidebar-menu"] > [data-slot="sidebar-menu-item"]')).toHaveCount(3)
+  const create = documents.locator('[data-slot="sidebar-header"]').getByRole("button", { name: "New document", exact: true })
+  await expect(create).toBeVisible()
+  await expect(create).toHaveText("")
+  await expect(create).toHaveAttribute("title", "New document")
+  await expect(documents.getByRole("button", { name: "Documents", exact: true })).toHaveCount(0)
   await expect(documents.getByRole("button", {
     name: "Same (1 of 2)",
     exact: true,
@@ -684,6 +705,105 @@ test("several Sources select the first lexical Document ID", async ({ page }) =>
   expect(await readStoredDocumentRaw(page, CATALOG_KEY)).toBeUndefined()
   expect(await readStoredDocumentRaw(page, EDITING_DOCUMENT_KEY)).toBeUndefined()
   expect(await readStoredDocumentRaw(page, "source/v2/future")).toBe("future")
+  const current = documents.getByRole("button", { name: "Same (1 of 2)", exact: true })
+  await expect(current).toHaveAttribute("data-state", "active")
+  await expect(current).toHaveCSS("opacity", "1")
+  expect(await current.evaluate(element => getComputedStyle(element, "::before").content)).toBe("none")
+  const toggle = page.getByRole("button", { name: "Toggle documents" })
+  await toggle.click()
+  await expect(current).toBeHidden()
+  await toggle.click()
+  await expect(current).toBeVisible()
+  await page.setViewportSize({ width: 390, height: 844 })
+  await documents.getByRole("button", { name: "Body only", exact: true }).click()
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(documentC.text)
+  await expect(current).toBeHidden()
+})
+
+test("document leads distinguish matching headings and update after quiet", async ({ page }) => {
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const sources = [
+    { document_id: "lead-a", text: "# Same\n\n松本へ、美術館と街歩き。" },
+    { document_id: "lead-b", text: "# Same\n\n瀬戸内の島をめぐる。" },
+    { document_id: "lead-code", text: "# Checklist notation\n\n```text\n- [ ] literal example\n```\n\n- [ ] real task\n- [x] finished task" },
+  ]
+  await replaceStoreRecords(page, sources.map(source => ({ key: sourceKey(source.document_id), value: encodeStoredDocument(source) })))
+  await page.reload()
+  const documents = page.getByRole("complementary", { name: "Documents" })
+  await expect(documents.locator('#loomark-document-description-lead-a')).toHaveText('松本へ、美術館と街歩き。')
+  const description = documents.locator('#loomark-document-description-lead-b')
+  await expect(description).toHaveText('瀬戸内の島をめぐる。')
+  const literal = documents.locator('#loomark-document-description-lead-code')
+  await expect(literal).toContainText('- [ ] literal example')
+  await expect(literal.getByRole('img', { name: 'Incomplete task', exact: true })).toHaveCount(1)
+  await expect(literal.getByRole('img', { name: 'Completed task', exact: true })).toHaveCount(1)
+  await documents.locator('[aria-describedby="loomark-document-description-lead-b"]').click()
+  await expect(page.getByRole('textbox', { name: 'Text', exact: true })).toHaveValue(sources[1].text)
+  await page.getByRole('textbox', { name: 'Text', exact: true }).fill('# Same\n\n島への船の時刻を確認する。')
+  await expect(description).toHaveText('島への船の時刻を確認する。')
+  await page.getByRole('button', { name: 'Toggle documents', exact: true }).click()
+  await expect(description).toHaveCount(0)
+  await page.getByRole('textbox', { name: 'Text', exact: true }).fill('# Same\n\n帰りの船も予約する。')
+  await expectStoredDocument(page, { ...sources[1], text: '# Same\n\n帰りの船も予約する。' })
+  await expect(description).toHaveCount(0)
+  await page.getByRole('button', { name: 'Toggle documents', exact: true }).click()
+  await expect(description).toHaveText('帰りの船も予約する。')
+})
+
+test("instrumented compiled lead graph suppresses hidden and presentation-only extraction", async ({ page }) => {
+  // Test-only instrumentation of the same compiled MoonBit graph, before minification.
+  // No counter or hook is added to the production extractor or its public API.
+  const compiled = await readFile(new URL('../../../../../_build/js/release/build/dowdiness/loomark/main/main.js', import.meta.url), 'utf8')
+  const entry = /function (\w*document__lead\d+extract)\(source, limits\) \{/g
+  expect([...compiled.matchAll(entry)]).toHaveLength(1)
+  const instrumented = compiled.replace(entry, '$& globalThis.__leadProbe.calls.push({source, inDispatch: globalThis.__leadProbe.inDispatch});')
+  type Probe = { calls: Array<{source: string, inDispatch: boolean}>, inDispatch: boolean }
+  await page.addInitScript(() => {
+    const host = window as unknown as {__leadProbe: Probe}
+    host.__leadProbe = {calls: [], inDispatch: false}
+    document.addEventListener('input', () => {
+      host.__leadProbe.inDispatch = true
+      queueMicrotask(() => { host.__leadProbe.inDispatch = false })
+    }, {capture: true})
+  })
+  await page.route('**/index.js', route => route.fulfill({contentType: 'application/javascript', body: instrumented}))
+  await page.goto('/')
+  await waitForRepositoryOpen(page)
+  const first = {document_id: 'probe-a', text: '# Same\n\nFirst description'}
+  const second = {document_id: 'probe-b', text: '# Same\n\nSecond description'}
+  await replaceStoreRecords(page, [first, second].map(source => ({key: sourceKey(source.document_id), value: encodeStoredDocument(source)})))
+  await page.reload()
+  const calls = () => page.evaluate(() => (window as unknown as {__leadProbe: Probe}).__leadProbe.calls)
+  const documents = page.getByRole('complementary', {name: 'Documents'})
+  const text = page.getByRole('textbox', {name: 'Text', exact: true})
+  await expect(text).toHaveValue(first.text)
+  expect((await calls()).map(call => call.source).sort()).toEqual([first.text, second.text].sort())
+  await documents.locator('[aria-describedby="loomark-document-description-probe-b"]').click()
+  await expect(text).toHaveValue(second.text)
+  expect(await calls()).toHaveLength(2)
+  const toggle = page.getByRole('button', {name: 'Toggle documents', exact: true})
+  await toggle.click()
+  await expect(documents.locator('.loomark-document-row')).toHaveCount(0)
+  const edited = {...second, text: '# Same\n\nChanged while hidden'}
+  await text.fill(edited.text)
+  await expectStoredDocument(page, edited)
+  expect(await calls()).toHaveLength(2)
+  await toggle.click()
+  await expect(documents.locator('#loomark-document-description-probe-b')).toHaveText('Changed while hidden')
+  expect((await calls()).map(call => call.source)).toEqual([first.text, second.text, edited.text])
+  await toggle.click()
+  await toggle.click()
+  await expect(documents.locator('#loomark-document-description-probe-b')).toBeVisible()
+  expect(await calls()).toHaveLength(3)
+  await text.focus()
+  await text.press('ControlOrMeta+End')
+  await text.pressSequentially('!')
+  await expectStoredDocument(page, {...edited, text: edited.text + '!'})
+  expect(await calls()).toHaveLength(4)
+  expect((await calls()).every(call => !call.inDispatch)).toBe(true)
+  // inDispatch is a dispatch boundary, not proof of a separate event-loop task
+  // or an upper bound on synchronous extraction time.
 })
 
 test("startup is read-only and restores an accepted Editing Document", async ({ page }) => {
@@ -829,14 +949,31 @@ test("New stays ephemeral and its first Source save is not remembered", async ({
 
   const documents = page.getByRole("complementary", { name: "Documents" })
   await page.evaluate(installStoreMutationLog)
-  await page.getByRole("button", { name: "New document" }).click()
+  await page.getByRole("button", { name: "New document", exact: true }).click()
+  const temporaryRow = documents.getByRole("button", { name: "New document — not yet written", exact: true })
+  await expect(temporaryRow).toBeVisible()
+  await expect(temporaryRow).toHaveAttribute("data-state", "active")
+  await page.getByRole("button", { name: "New document", exact: true }).click()
+  await expect(temporaryRow).toHaveCount(1)
+  await expect(temporaryRow).toHaveAttribute("data-state", "active")
+  await expect(documents.getByRole("button", { name: 'Delete "New document"', exact: true })).toHaveCount(0)
   await expect.poll(() => readStoredDocuments(page).then(documents => documents.length)).toBe(1)
   expect(await readStoreMutationLog(page)).toEqual([])
   const after = await readStoredDocuments(page)
   expect(after).toEqual(before)
   await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("")
   const text = page.getByRole("textbox", { name: "Text" })
+  await expect(page.getByRole("status").filter({ hasText: /^New document$/ })).toBeVisible()
+  await expect(text).toHaveAttribute("placeholder", "Start writing…")
+  await page.getByRole("tab", { name: "Preview", exact: true }).click()
+  await expect(page.getByRole("status").filter({ hasText: /^New document$/ })).toBeVisible()
+  await page.getByRole("tab", { name: "Text", exact: true }).click()
+  const editorElement = await text.elementHandle()
   await text.fill("# Project notes\n")
+  await expect(page.getByRole("status").filter({ hasText: /^New document$/ })).toHaveCount(0)
+  await expect(text).toHaveAttribute("placeholder", "")
+  await expect(temporaryRow).toHaveCount(0)
+  expect(await editorElement!.evaluate(element => element.isConnected)).toBe(true)
   await expect.poll(() => readStoredDocuments(page).then(documents => documents.find(
     document => !before.some(previous => previous.document_id === document.document_id),
   ) ?? null)).not.toBeNull()
@@ -959,14 +1096,31 @@ test("final Delete leaves an empty New with a live Split Preview", async ({ page
 // The browser's crypto.randomUUID property is non-configurable in the supported
 // Playwright runtime, so the obsolete identity-retry browser case is covered by
 // the pure repository tests instead of attempting to patch the platform API.
+test("leaving untouched New removes its temporary row without saving it", async ({ page }) => {
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const saved = { document_id: "saved", text: "# Saved reference\n" }
+  await replaceStoreRecords(page, [{ key: sourceKey(saved.document_id), value: encodeStoredDocument(saved) }])
+  await page.reload()
+  const documents = page.getByRole("complementary", { name: "Documents" })
+  await page.getByRole("button", { name: "New document", exact: true }).click()
+  const temporary = documents.getByRole("button", { name: "New document — not yet written", exact: true })
+  await expect(temporary).toBeVisible()
+  await documents.getByRole("button", { name: "Saved reference", exact: true }).click()
+  await expect(temporary).toHaveCount(0)
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(saved.text)
+  await expect.poll(() => readStoredDocuments(page)).toEqual([saved])
+  await page.reload()
+  await expect(temporary).toHaveCount(0)
+})
+
 test("Document control icons remain rendered", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
   await page.getByRole("textbox", { name: "Text" }).fill("# Icon test\n")
 
   const icons = [
-    page.getByRole("button", { name: "Documents", exact: true }).locator("span").first(),
-    page.getByRole("button", { name: "New document" }).locator("span").first(),
+    page.getByRole("button", { name: "New document", exact: true }).locator("span").first(),
     page.getByRole("button", { name: "Toggle documents" }).locator("span").first(),
     page.getByRole("button", { name: 'Delete "Icon test"' }).locator("span").first(),
   ]
@@ -981,8 +1135,8 @@ test("Document controls remain accessible without horizontal overflow at 390 px"
   await waitForRepositoryOpen(page)
   await expect(page.getByRole("button", { name: "Toggle documents" }))
     .toHaveAttribute("aria-expanded", "false")
-  await page.getByRole("button", { name: "Documents", exact: true }).click()
-  await expect(page.getByRole("button", { name: "New document" })).toBeVisible()
+  await page.getByRole("button", { name: "Toggle documents" }).click()
+  await expect(page.getByRole("button", { name: "New document", exact: true })).toBeVisible()
   await expect(page.getByRole("tab", { name: "Text" })).toBeVisible()
   await expect(page.getByRole("tab", { name: "Preview" })).toBeVisible()
   await expect(page.getByRole("tab", { name: "Split" })).toBeVisible()
@@ -1520,7 +1674,7 @@ test("exact acknowledged revert gets a fresh persistence order", async ({ page }
     }
   })
 
-  await expect(page.getByRole("button", { name: "New document" })).toBeEnabled()
+  await expect(page.getByRole("button", { name: "New document", exact: true })).toBeEnabled()
   await page.waitForTimeout(2_250)
   await expect.poll(() => readDocumentPutLog(page)).toHaveLength(1)
   expect((await readStoredDocument(page))?.text).toBe("# Untitled\n")
@@ -1874,7 +2028,7 @@ test("failed attempt exact acknowledged revert restores truthful Saved", async (
 
   await text.fill("# Untitled\n")
   await expect(page.getByRole("alert")).toHaveCount(0)
-  await expect(page.getByRole("button", { name: "New document" })).toBeEnabled()
+  await expect(page.getByRole("button", { name: "New document", exact: true })).toBeEnabled()
   await page.waitForTimeout(300)
   const callsAfterRevert = await page.evaluate(() => (
     (globalThis as typeof globalThis & {
@@ -1902,14 +2056,28 @@ test("active failure after acknowledged revert restores truthful Saved", async (
     }).__loomarkDelayedAbortStarted ?? false
   ))).toBe(true)
   await text.fill("# Untitled\n")
+  await page.evaluate(() => {
+    const state = globalThis as typeof globalThis & {
+      __loomarkDelayedAbortFinished?: boolean
+      __loomarkReleaseAbort?: () => void
+    }
+    if (state.__loomarkDelayedAbortFinished || !state.__loomarkReleaseAbort) {
+      throw new Error("first save must still be active before releasing its abort")
+    }
+    state.__loomarkReleaseAbort()
+  })
   await expect.poll(() => page.evaluate(() => (
     (globalThis as typeof globalThis & {
       __loomarkDelayedAbortFinished?: boolean
     }).__loomarkDelayedAbortFinished ?? false
   ))).toBe(true)
 
+  await expect.poll(() => page.evaluate(() => (
+    (globalThis as typeof globalThis & { __loomarkRecoveryCommitted?: boolean })
+      .__loomarkRecoveryCommitted ?? false
+  ))).toBe(true)
   await expect(page.getByRole("alert")).toHaveCount(0)
-  await expect(page.getByRole("button", { name: "New document" })).toBeEnabled()
+  await expect(page.getByRole("button", { name: "New document", exact: true })).toBeEnabled()
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
     .toBe("# Untitled\n")
 })
@@ -2175,7 +2343,7 @@ test("1 MiB exact Saved comparison stays within 10 ms", async ({ page }) => {
   const sorted = [...durations].sort((left, right) => left - right)
   expect(sorted[Math.ceil(sorted.length * 0.95) - 1]).toBeLessThanOrEqual(10)
   expect(sorted[sorted.length - 1]).toBeLessThanOrEqual(10)
-  await expect(page.getByRole("button", { name: "New document" })).toBeEnabled()
+  await expect(page.getByRole("button", { name: "New document", exact: true })).toBeEnabled()
   await page.waitForTimeout(350)
   await expect.poll(() => readDocumentPutLog(page)).toHaveLength(1)
 })

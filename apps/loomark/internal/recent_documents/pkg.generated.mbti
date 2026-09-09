@@ -1,0 +1,36 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/internal/recent_documents"
+
+import {
+  "moonbit-community/rabbita",
+  "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/html",
+  "moonbitlang/core/immut/vector",
+}
+
+// Values
+pub fn build(input~ : @rabbita.Val[@vector.Vector[Seed]], visible~ : @rabbita.Val[Bool], can_create~ : @rabbita.Val[Bool], compact~ : @rabbita.Val[Bool], delete_target~ : @rabbita.Val[String?], on_intent~ : @cmd.Emit[Intent], close_after_action~ : @cmd.Cmd) -> RecentDocumentsFeature
+
+// Errors
+
+// Types and methods
+pub enum Intent {
+  Create
+  Select(String)
+  RequestDelete(String)
+  CancelDelete
+  ConfirmDelete(String)
+}
+
+pub struct RecentDocumentsFeature {
+  // private fields
+}
+pub fn RecentDocumentsFeature::dialog(Self) -> @rabbita.Val[@html.Html]
+pub fn RecentDocumentsFeature::navigation(Self) -> @rabbita.Val[@html.Html]
+
+type Seed derive(Eq)
+pub fn Seed::Seed(docid~ : String, lead_source~ : String?, selected~ : Bool, can_select~ : Bool, can_delete~ : Bool, untouched_new~ : Bool, compact~ : Bool, status~ : String?) -> Self
+
+// Type aliases
+
+// Traits

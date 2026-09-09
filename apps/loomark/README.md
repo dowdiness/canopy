@@ -8,8 +8,11 @@ and constraints.
 
 ## Architecture
 
-Loomark is one standard Rabbita application in `apps/loomark/app`. Its private
-`Model`, `Msg`, `update`, and `view` expose one public function:
+Loomark is one standard Rabbita application in `apps/loomark/app`. The deep
+`internal/recent_documents` module owns Recent-document navigation, bounded
+lead presentation, deletion confirmation, and feature intents; `app` resolves
+capabilities and maps those intents to its reducer. Its private `Model`, `Msg`,
+`update`, and `view` expose one public function:
 
 ```moonbit
 pub fn app() -> @rabbita.Val[@rabbita.Html]
@@ -27,6 +30,7 @@ See the [Standard Rabbita Text App plan](../../docs/plans/2026-08-24-loomark-sta
 - [Production E2E boundary](../../docs/decisions/2026-08-24-loomark-production-e2e-boundary.md)
 - [Textarea edit ownership](../../docs/decisions/2026-08-25-loomark-textarea-edit-boundary.md)
 - [Document deletion](../../docs/decisions/2026-08-31-loomark-document-deletion.md)
+- [Demand-driven Document lead](../../docs/decisions/2026-09-04-loomark-demand-driven-document-lead.md)
 
 ## Autosave and Recovery
 
