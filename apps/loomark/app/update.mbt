@@ -43,7 +43,7 @@ fn export_payload(editing : EditingState) -> (String, String) {
   let text = editing.documents
     .text(editing.activation.document_id)
     .unwrap_or("")
-  let name = @document_lead.derive_name(text)
+  let name = @document_lead.derive_name(text).text()
   let filename = if !name.is_empty() { name + ".md" } else { "untitled.md" }
   (filename, text)
 }

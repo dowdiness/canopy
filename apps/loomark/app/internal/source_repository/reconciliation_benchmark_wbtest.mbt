@@ -92,7 +92,9 @@ test "bench: encode 1000 Source records with large-document mix" (b : @bench.T) 
 test "bench: derive 1000 names with large-document mix" (b : @bench.T) {
   let sources = reconciliation_bench_sources(1000, true)
   b.bench(fn() {
-    b.keep(sources.map(source => @document_lead.derive_name(source.text())))
+    b.keep(
+      sources.map(source => @document_lead.derive_name(source.text()).text()),
+    )
   })
 }
 

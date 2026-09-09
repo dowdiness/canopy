@@ -90,12 +90,11 @@ pub fn extract(source : String) -> DocumentLead
 pub fn DocumentLead::form(Self) -> DocumentLeadForm
 pub fn DocumentLead::primary(Self) -> String
 pub fn DocumentLead::description(Self) -> String
-pub fn derive_name(source : String) -> String
-pub fn derived_name_survives_edit(
-  previous_source : String,
-  source : String,
-  expected_name : String,
-) -> Bool
+pub struct DerivedName { ... } derive(Eq, Debug)
+
+pub fn derive_name(source : String) -> DerivedName
+pub fn DerivedName::update(Self, source : String) -> DerivedName
+pub fn DerivedName::text(Self) -> String
 ```
 
 Both primary and description have finite output budgets independent of source
@@ -107,9 +106,16 @@ tooltips must not expose the full omitted content. An unchanged bounded result,
 including its omission state, compares equal even if only the omitted suffix
 changes. Truncation must not turn readable content into Empty.
 
-`DocumentLead` fields stay private. `derive_name` returns an in-app String: an
-empty String means unnamed or safely non-derivable. `description` is structured
-plain text: it
+`DocumentLead` fields stay private. `DerivedName` contains only its semantic
+text and an exact owned reusable prefix; both fields remain private. An empty
+String returned by `DerivedName::text` means unnamed or safely non-derivable.
+`derive_name` parses once and creates the text and certificate together.
+`DerivedName::update` reuses the value only when its exact certified prefix is
+still a prefix of the new source; otherwise it reparses. Empty names and
+prefixes containing reference syntax are never certified because later
+reference definitions can change their interpretation. Equality and debug
+output observe only semantic text, not the private certificate. `description`
+is structured plain text: it
 may preserve meaningful newlines, indentation, list markers, and code spacing,
 but it is not a Markdown block tree. The form stores only distinctions that
 produce different presentation. Heading level is intentionally absent.
@@ -117,8 +123,8 @@ produce different presentation. Heading level is intentionally absent.
 The package imports the Markdown interpretation needed to extract a lead and
 enables `MarkdownExtensions::task_list()`. `derive_name` is total and preserves
 the current Catalog semantics; `extract` is the separate total product
-projection. `derived_name_survives_edit` encapsulates the current certified
-prefix optimization without exposing offsets or parser nodes. The package
+projection. `DerivedName::update` encapsulates the current certified prefix
+optimization without exposing offsets, certificates, or parser nodes. The package
 imports no app, repository, Rabbita, RUI, DOM, storage, timer, or command
 package.
 
@@ -128,7 +134,8 @@ Move the existing `internal/source_repository` package under `app/internal`
 without changing persistence behavior. MoonBit then permits `app` to import it
 but rejects an import from sibling `internal/recent_documents`.
 
-The repository imports `document_lead` for `derive_name` and certified reuse.
+The repository imports `document_lead` for `DerivedName` derivation and
+certified pure reuse.
 Remove `derive_name` from the repository's generated public interface. Update
 module/package documentation and every import path in the same mechanical
 stage. Do not move `Model`, `Msg`, or Documents state with it.
@@ -389,8 +396,10 @@ prototype branch.
 
 - Create the package by moving the existing derived-name traversal and tests
   from the Source repository; preserve Catalog behavior first.
-- Replace the repository's public `derive_name` with imports of
-  `document_lead.derive_name` and `derived_name_survives_edit`.
+- Replace the repository's public String projection with stored
+  `document_lead.DerivedName` values. Update stored projections through
+  `DerivedName::update`; do not retain previous source text or expose a
+  validation predicate.
 - Add the opaque Document lead and the fixture matrix above, using task-list
   parsing, structured plain description, and total source fallback.
 - Review both generated `.mbti` files: parser details and reusable-prefix offsets

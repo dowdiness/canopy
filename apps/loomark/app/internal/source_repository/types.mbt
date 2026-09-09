@@ -80,18 +80,18 @@ priv enum SourceDecodeFailure {
 /// One rebuildable display-name entry, identified only by Document ID.
 struct CatalogEntry {
   document_id : String
-  name : String
+  derived_name : @document_lead.DerivedName
   change_order : ChangeOrder
 } derive(Eq, Debug)
 
 ///|
-pub fn CatalogEntry::new(
+fn CatalogEntry::from_derived_name(
   document_id : String,
-  name : String,
+  derived_name : @document_lead.DerivedName,
   change_order? : ChangeOrder = ChangeOrder(0L),
 ) -> Self? {
   guard document_id != "" else { return None }
-  Some({ document_id, name, change_order })
+  Some({ document_id, derived_name, change_order })
 }
 
 ///|
@@ -101,7 +101,7 @@ pub fn CatalogEntry::document_id(self : Self) -> String {
 
 ///|
 pub fn CatalogEntry::name(self : Self) -> String {
-  self.name
+  self.derived_name.text()
 }
 
 ///|
@@ -219,10 +219,9 @@ fn snapshot_from_sources(
   guard identities.length() == ordered.length() else { return None }
   let issues = initial_issues.copy()
   let entries = ordered.map(source => {
-    let name = @document_lead.derive_name(source.text())
-    CatalogEntry::new(
+    CatalogEntry::from_derived_name(
       source.document_id(),
-      name,
+      @document_lead.derive_name(source.text()),
       change_order=source.change_order(),
     ).unwrap()
   })
@@ -300,13 +299,9 @@ fn accepted_source(
   })
 
   let issues = snapshot.issues().to_owned()
-  let previous_source = snapshot
-    .source(document_id)
-    .map(source => source.text())
   let catalog = next_catalog_after_source(
     snapshot.catalog(),
     document_id,
-    previous_source,
     source.text(),
     change_order=source.change_order(),
   )

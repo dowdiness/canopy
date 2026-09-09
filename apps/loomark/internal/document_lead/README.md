@@ -2,8 +2,11 @@
 
 This package owns the total derived-name analysis and a bounded Document-lead
 extractor. An unnamed or safely non-derivable source returns an empty string.
-Catalog reconciliation and Export use `derive_name`; they do not yet use
-`extract`.
+Catalog reconciliation and Export use `derive_name(...).text()`; the opaque
+`DerivedName` also supports certified pure updates. Equality and debug output
+observe only its text, not its private reuse certificate. Prefixes containing
+`[` are not certified because later reference definitions can change their
+Markdown interpretation. These consumers do not yet use `extract`.
 
 `extract(source : String)` parses the complete source and returns normalized form,
 primary text, structured description, and omission flags. Primary text is bounded

@@ -101,11 +101,13 @@ fn next_catalog(
   source : String,
   change_order? : ChangeOrder = ChangeOrder(0L),
 ) -> Catalog {
-  let name = @document_lead.derive_name(source)
+  let derived_name = @document_lead.derive_name(source)
   let entries = current
     .entries()
     .filter(entry => entry.document_id() != document_id)
-  entries.push(CatalogEntry::new(document_id, name, change_order~).unwrap())
+  entries.push(
+    CatalogEntry::from_derived_name(document_id, derived_name, change_order~).unwrap(),
+  )
   Catalog::from_entries(entries).unwrap()
 }
 
@@ -113,28 +115,20 @@ fn next_catalog(
 fn next_catalog_after_source(
   current : Catalog,
   document_id : String,
-  previous_source : String?,
   source : String,
   change_order? : ChangeOrder = ChangeOrder(0L),
 ) -> Catalog {
-  guard previous_source is Some(previous_source) &&
-    current.entries().search_by(entry => entry.document_id() == document_id)
+  guard current.entries().search_by(entry => entry.document_id() == document_id)
     is Some(index) else {
     return next_catalog(current, document_id, source, change_order~)
   }
   let current_entry = current.entries()[index]
-  guard @document_lead.derived_name_survives_edit(
-    previous_source,
-    source,
-    current_entry.name(),
-  ) else {
-    return next_catalog(current, document_id, source, change_order~)
-  }
+  let derived_name = current_entry.derived_name.update(source)
   let entries = current
     .entries()
     .filter(entry => entry.document_id() != document_id)
   entries.push(
-    CatalogEntry::new(document_id, current_entry.name(), change_order~).unwrap(),
+    CatalogEntry::from_derived_name(document_id, derived_name, change_order~).unwrap(),
   )
   Catalog::from_entries(entries).unwrap()
 }

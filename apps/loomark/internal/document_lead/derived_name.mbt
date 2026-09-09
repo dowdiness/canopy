@@ -4,9 +4,19 @@ let name_source_id : @loom.SourceId = @loom.SourceId(
 )
 
 ///|
-priv struct NameDerivation {
-  name : String
-  reusable_prefix_end : Int?
+pub struct DerivedName {
+  priv text : String
+  priv reusable_prefix : String?
+}
+
+///|
+pub impl Eq for DerivedName with fn equal(self, other) -> Bool {
+  self.text == other.text
+}
+
+///|
+pub impl Debug for DerivedName with fn to_repr(self) {
+  @debug.Repr::string(self.text)
 }
 
 ///|
@@ -61,6 +71,8 @@ fn certify_reusable_name_prefix(
   let start = origin.start()
   let end = origin.end()
   guard start == 0 && end > 0 && end <= source.length() else { return None }
+  let prefix = source.view(end_offset=end).to_owned()
+  guard !prefix.contains("[") else { return None }
   let terminator = source.view(start_offset=end - 1, end_offset=end)
   if terminator.equal_to_string("\n") || terminator.equal_to_string("\r") {
     Some(end)
@@ -70,9 +82,9 @@ fn certify_reusable_name_prefix(
 }
 
 ///|
-fn derive_name_with_certificate(source : String) -> NameDerivation {
+fn derive_name_with_certificate(source : String) -> DerivedName {
   let (cst, diagnostics) = @markdown.parse_cst(name_source_id, source) catch {
-    _ => return { name: "", reusable_prefix_end: None }
+    _ => return { text: "", reusable_prefix: None }
   }
   let root = @seam.SyntaxNode::from_cst(cst)
   let document = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
@@ -82,61 +94,36 @@ fn derive_name_with_certificate(source : String) -> NameDerivation {
     extensions=@markdown.MarkdownExtensions::task_list(),
   )
   match first_name_candidate(document, source) {
-    None => { name: "", reusable_prefix_end: None }
+    None => { text: "", reusable_prefix: None }
     Some((candidate, name)) =>
       {
-        name,
-        reusable_prefix_end: certify_reusable_name_prefix(
-          source, root, diagnostics, candidate,
-        ),
+        text: name,
+        reusable_prefix: if name.is_empty() {
+          None
+        } else {
+          certify_reusable_name_prefix(source, root, diagnostics, candidate).map(end => {
+              source.view(end_offset=end).to_owned()
+            },
+          )
+        },
       }
   }
 }
 
 ///|
-pub fn derive_name(source : String) -> String {
-  derive_name_with_certificate(source).name
+pub fn derive_name(source : String) -> DerivedName {
+  derive_name_with_certificate(source)
 }
 
 ///|
-fn first_line_end(source : String) -> Int? {
-  let terminator_start = match (source.find("\n"), source.find("\r")) {
-    (None, None) => return None
-    (Some(lf), None) => lf
-    (None, Some(cr)) => cr
-    (Some(lf), Some(cr)) => lf.min(cr)
-  }
-  let after_cr = (terminator_start + 2).min(source.length())
-  if source
-    .view(start_offset=terminator_start, end_offset=after_cr)
-    .equal_to_string("\r\n") {
-    Some(terminator_start + 2)
-  } else {
-    Some(terminator_start + 1)
+pub fn DerivedName::update(self : Self, source : String) -> Self {
+  match self.reusable_prefix {
+    Some(prefix) if source.has_prefix(prefix.view()) => self
+    _ => derive_name(source)
   }
 }
 
 ///|
-fn certified_name_prefix_end(source : String, expected_name : String) -> Int? {
-  guard first_line_end(source) is Some(end) else { return None }
-  let prefix = source.view(end_offset=end).to_owned()
-  let derivation = derive_name_with_certificate(prefix)
-  guard derivation.name == expected_name &&
-    derivation.reusable_prefix_end == Some(end) else {
-    return None
-  }
-  Some(end)
-}
-
-///|
-pub fn derived_name_survives_edit(
-  previous_source : String,
-  source : String,
-  expected_name : String,
-) -> Bool {
-  guard certified_name_prefix_end(previous_source, expected_name) is Some(end) else {
-    return false
-  }
-  end <= source.length() &&
-  previous_source.view(end_offset=end).equal(source.view(end_offset=end))
+pub fn DerivedName::text(self : Self) -> String {
+  self.text
 }
