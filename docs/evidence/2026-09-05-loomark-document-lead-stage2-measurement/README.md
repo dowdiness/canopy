@@ -1,9 +1,10 @@
 # Loomark DocumentLead Stage 2 measurement gate
 
-Status: **not accepted**. This is measurement evidence only: no optimization,
-production behavior change, generated `.mbti` change, or browser work was
-performed. Private production seams were extracted without changing behavior;
-the harness checks recomposition parity with `extract`.
+Historical status at capture time: **not accepted**. Current acceptance is
+tracked by Issue #1411 and PR #1412. This snapshot is measurement evidence only:
+no optimization, production behavior change, generated `.mbti` change, or
+browser work was performed. Private production seams were extracted without
+changing behavior; the harness checks recomposition parity with `extract`.
 
 ## Reproduction
 

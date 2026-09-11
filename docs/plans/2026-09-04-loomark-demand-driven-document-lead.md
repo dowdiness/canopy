@@ -364,7 +364,6 @@ module and record the result in the implementation PR.
 | `String`/`StringView` | MoonBit core | Slice and normalize fallback source without unnecessary copying |
 | `Buffer`/`StringBuilder` | MoonBit core | Build structured descriptions only if existing Markdown text accessors cannot |
 | `Option`/`Result` and pattern matching | MoonBit core | Make parser and fallback cases explicit and total |
-| `cmp`/`math` helpers | MoonBit core | Clamp presentation-independent limits only if extraction requires them |
 | `Array`/`Iter` | MoonBit core | Traverse parser children declaratively when no owning accessor exists |
 
 Likely rejected candidates are a new cache map, an app-wide observer, a parser
@@ -405,7 +404,7 @@ prototype branch.
 - Review both generated `.mbti` files: parser details and reusable-prefix offsets
   remain private, and the Source repository interface shrinks.
 
-Before accepting stage 2:
+Stage 2 acceptance completed in PR #1412:
 
 - Compare the fixed bounded output in the browser; if it is unsuitable, change
   the extractor's private constants directly.
@@ -424,8 +423,9 @@ Measurement checkpoint: the [Stage 2 evidence](../evidence/2026-09-05-loomark-do
 records separate JS release parse, CST wrapper, IR, primary selection and
 construction, description, bounding, result, and Eq probes on the exact large
 fixtures. These warmed timings are not process-cold browser latency and are not
-additive. Stage 2 remains unaccepted: browser omission/budget comparison and New
-first-input-task extraction suppression still require evidence.
+additive. PR #1412 accepts the bounded semantic module; browser appearance,
+demand suppression, and first-input-task behavior remain product-integration
+acceptance work in PR #1419.
 
 For New, probe actual Rabbita propagation before treating the initial structured
 seed as immediately demandable. If extraction would run in the first input task,
@@ -577,11 +577,10 @@ extraction in the observed scenarios. Synthetic event dispatch returning before
 extraction is not proof of the full production input-task contract; Preview is
 absent and trusted-input task traces remain outstanding.
 
-The semantic contract uses fixed numeric budgets; browser comparison may change
-the private constants directly. Omission wording, grapheme policy, and the
-remaining fixtures are still acceptance items. Execution acceptance is also
-withheld: browser evidence is exploratory, and production size/latency criteria
-remain unapproved. Keep Stage 3 blocked. Assess a separate execution ADR before
-adding an off-thread mechanism; do not treat quiet or idle scheduling as a
-solution to synchronous blocking. The bounded `DocumentLead` value remains
-unchanged.
+PR #1412 accepts the semantic contract with fixed private numeric bounds and
+contract fixtures. PR #1419 contains the demand-driven product integration and
+still requires rebase, browser acceptance, and lifecycle validation. Production
+size and latency criteria remain separate execution concerns: assess a dedicated
+execution decision before adding an off-thread mechanism, and do not treat quiet
+or idle scheduling as a solution to synchronous blocking. The bounded
+`DocumentLead` value remains unchanged.

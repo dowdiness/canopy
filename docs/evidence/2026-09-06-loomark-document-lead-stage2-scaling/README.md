@@ -1,6 +1,9 @@
 # Loomark DocumentLead Stage 2 isolated scaling evidence
 
-**Final evidence.** This report contains 84 complete fixture-phase groups: 14 corpus/size cells × 3 phases × separate cold and warm runs. It is exploratory measurement, not an SLA and not browser acceptance evidence.
+**Historical final evidence.** This report contains 84 complete fixture-phase
+groups: 14 corpus/size cells × 3 phases × separate cold and warm runs. It is an
+immutable measurement snapshot, not an SLA or current browser acceptance status;
+current acceptance is tracked by Issue #1411 and PR #1412.
 
 ## Deterministic selection
 
@@ -10,6 +13,10 @@
 - No partial groups are pooled. Cold is three independent processes (`n=3`); warm is one process after 20 warmups (`n=20`). Statistics are median, linearly interpolated p95, and max, in milliseconds.
 
 ## Reproduction
+
+The one-off harness and scripts are retained in Git at
+`95ebcba628de5e750df440e351e511dd45eb1c16`; check out that commit before running
+the commands below. They are not maintained on the current product branch.
 
 Each group was run in an isolated JS release process: cold repetitions used `--cold-reps 3 --warmups 0 --samples 1`; warm used `--warmups 20 --samples 20`. Each process had a 300-second timeout. The bounded capture was stopped by a **1,200-second timeout around the whole command**, not a 300-second timeout per process; it stopped during structure 1.27M IR cold-2. The final file completed structure 1.27M IR and extract. The parser first call has no warm setup. IR calls explicitly report `setup=parser-prerequisite`; that prerequisite parse is outside the IR timer.
 

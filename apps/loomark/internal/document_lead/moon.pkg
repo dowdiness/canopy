@@ -3,14 +3,7 @@ import {
   "dowdiness/seam",
   "dowdiness/markdown",
   "moonbitlang/core/debug",
-  "moonbitlang/core/encoding/utf8",
 }
-
-import {
-  "moonbitlang/core/bench",
-  "moonbitlang/core/env",
-  "moonbitlang/core/string",
-} for "wbtest"
 
 supported_targets = "js"
 

@@ -23,21 +23,14 @@ presentation, equality, derived names, and reuse across edits. The one white-box
 case covers hard parser-failure fallback because the production parser has no
 stable public fixture that induces failure.
 
-Historical Stage 2 phase measurements are recorded in
-[`docs/evidence/2026-09-05-loomark-document-lead-stage2-measurement/README.md`](../../../../docs/evidence/2026-09-05-loomark-document-lead-stage2-measurement/README.md).
-The exploratory decomposition harness is not part of the maintained contract
-test suite. The isolated scaling runner remains reproducible from `apps/loomark`:
+Historical Stage 2 phase and scaling measurements are recorded under
+[`docs/evidence`](../../../../docs/evidence/). Their one-off measurement harnesses
+are available at the commits named by those records rather than maintained as
+part of this package. The timings are not additive or a causal attribution of
+the whole extraction cost.
 
-```sh
-NEW_MOON_MOD=0 moon test internal/document_lead --target js --release
-timeout 1200s python3 scripts/run-loomark-stage2-scaling.py \
-  --cold-reps 3 --warmups 20 --samples 20 --timeout 300 \
-  > /tmp/isolated-capture.log
-```
-
-Those timings are not additive or a causal attribution of the whole extraction
-cost. Cold extraction cost still blocks stage acceptance and UI integration.
-
+The semantic module is complete in PR #1412. Full-source parsing remains a known
+execution cost; demand-driven browser integration and its acceptance belong to
+PR #1419, while any off-thread execution mechanism requires a separate decision.
 Keep full-source parser semantics when investigating cost; do not silently parse
-only a prefix. See the implementation plan linked from Issue #1411 for acceptance
-gates.
+only a prefix.
