@@ -1,8 +1,12 @@
 ///|
-fn test_snapshot() -> @source_repository.RepositorySnapshot {
-  @source_repository.RepositorySnapshot::from_sources([
-    @source_repository.SourceRecord::from_parts("one", "one").unwrap(),
-    @source_repository.SourceRecord::from_parts("two", "two").unwrap(),
+fn test_snapshot() -> @source_repository.SavedDocuments {
+  @source_repository.SavedDocuments::from_documents([
+    @source_repository.Document::create("one", "one") catch {
+      _ => abort("invalid id")
+    },
+    @source_repository.Document::create("two", "two") catch {
+      _ => abort("invalid id")
+    },
   ]).unwrap()
 }
 
@@ -107,7 +111,7 @@ test "export payload uses the Editing Document's current text and derived name" 
   let initial = test_editing()
   let text = "## Unsaved name\n\nCurrent text\n"
   let (documents, _) = initial.documents.reduce(
-    DocumentsTextChanged("one", text, documents_test_order(1L)),
+    DocumentsTextChanged("one", text),
   )
   let (filename, exported) = export_payload({ ..initial, documents, })
   assert_eq(filename, "Unsaved name.md")
@@ -117,17 +121,13 @@ test "export payload uses the Editing Document's current text and derived name" 
 ///|
 test "export payload falls back for an empty Editing Document" {
   let initial = test_editing()
-  let (documents, _) = initial.documents.reduce(
-    DocumentsTextChanged("one", "", documents_test_order(1L)),
-  )
+  let (documents, _) = initial.documents.reduce(DocumentsTextChanged("one", ""))
   assert_eq(export_payload({ ..initial, documents, }), ("untitled.md", ""))
 }
 
 ///|
 test "loading and recovery ignore document lifecycle feedback" {
-  let feedback = DocumentsLifecycle(
-    QuietElapsed("one", documents_test_order(1L)),
-  )
+  let feedback = DocumentsLifecycle(QuietElapsed("one", 1))
   let (loading, _) = test_update(Loading(false), feedback)
   assert_true(loading == Loading(false))
   let (recovery, _) = test_update(Recovery(StorageUnavailable, false), feedback)
@@ -137,7 +137,7 @@ test "loading and recovery ignore document lifecycle feedback" {
 ///|
 test "repository open activates its resolved initial Document" {
   let snapshot = test_snapshot()
-  let initial = snapshot.source("two").unwrap()
+  let initial = snapshot.find("two").unwrap()
   let (model, _) = test_update(
     Loading(false),
     Opened(Ready(snapshot, Some(initial))),
@@ -182,8 +182,8 @@ test "only saved Document activation is remembered" {
       Editing({ ..test_editing(), creation: Creating }),
       CreateCompleted("one", Created("new")),
     ).1
-  assert_true(@debug.to_string(saved).contains("editing-document"))
-  assert_false(@debug.to_string(ephemeral).contains("editing-document"))
+  assert_true(@debug.to_string(saved).contains("IndexedDBApply"))
+  assert_false(@debug.to_string(ephemeral).contains("IndexedDBApply"))
 }
 
 ///|
@@ -225,8 +225,9 @@ test "deleting the Editing Document remembers its saved fallback" {
   guard model is Editing(editing) else { fail("fallback") }
   assert_eq(editing.activation.document_id, "two")
   let command = @debug.to_string(command)
-  assert_true(command.contains("editing-document"))
-  assert_true(command.contains("two"))
+  assert_true(command.contains("IndexedDBApply"))
+  assert_false(command.contains("editing-document"))
+  assert_false(command.contains("two"))
 }
 
 ///|
@@ -251,11 +252,9 @@ test "deleting an active unsaved new document reconciles activation" {
 test "failed first save of active new document reconciles activation" {
   let initial = test_editing()
   let (documents, _) = initial.documents.reduce(DocumentsNew("new"))
-  let (documents, _) = documents.reduce(
-    DocumentsTextChanged("new", "hello", documents_test_order(0L)),
-  )
+  let (documents, _) = documents.reduce(DocumentsTextChanged("new", "hello"))
   let (documents, decisions) = documents.reduce(
-    DocumentsFeedbackReceived(QuietElapsed("new", documents_test_order(1L))),
+    DocumentsFeedbackReceived(QuietElapsed("new", 1)),
   )
   guard decisions[0] is DocumentsPersist(operation) else { fail("save") }
   let (documents, _) = documents.reduce(DeleteConfirmed("new"))
@@ -265,7 +264,7 @@ test "failed first save of active new document reconciles activation" {
       activation: { document_id: "new", generation: 1 },
       documents,
     }),
-    DocumentsLifecycle(SaveCompleted(operation, Failed(WriteFailed))),
+    DocumentsLifecycle(SaveCompleted(operation, SaveFailed(WriteFailed))),
   )
   guard model is Editing(editing) else { fail("editing") }
   assert_true(editing.documents.text(editing.activation.document_id) is Some(_))
@@ -276,19 +275,10 @@ test "failed first save of active new document reconciles activation" {
 test "save completion updates inactive document without switching" {
   let initial = test_editing()
   let (documents, _) = initial.documents.reduce(
-    DocumentsTextChanged(
-      "two",
-      "two!",
-      @source_repository.ChangeOrder::from_int64(0L).unwrap(),
-    ),
+    DocumentsTextChanged("two", "two!"),
   )
   let (documents, decisions) = documents.reduce(
-    DocumentsFeedbackReceived(
-      QuietElapsed(
-        "two",
-        @source_repository.ChangeOrder::from_int64(1L).unwrap(),
-      ),
-    ),
+    DocumentsFeedbackReceived(QuietElapsed("two", 1)),
   )
   guard decisions[0] is DocumentsDecision::DocumentsPersist(operation) else {
     fail("persist")
@@ -296,12 +286,12 @@ test "save completion updates inactive document without switching" {
   let state = { ..initial, documents, }
   let (model, _) = test_update(
     Editing(state),
-    DocumentsLifecycle(SaveCompleted(operation, Stored(operation.source))),
+    DocumentsLifecycle(SaveCompleted(operation, Stored(operation.document))),
   )
   guard model is Editing(editing) else { fail("editing") }
   assert_eq(editing.activation.document_id, "one")
   assert_eq(editing.documents.text("two"), Some("two!"))
-  assert_eq(editing.documents.snapshot().source("two").unwrap().text(), "two!")
+  assert_eq(editing.documents.snapshot().find("two").unwrap().text(), "two!")
 }
 
 ///|
@@ -337,8 +327,10 @@ test "delete-to-New advances Preview ownership" {
 
 ///|
 test "final active delete falls back to a new document" {
-  let snapshot = @source_repository.RepositorySnapshot::from_sources([
-    @source_repository.SourceRecord::from_parts("one", "one").unwrap(),
+  let snapshot = @source_repository.SavedDocuments::from_documents([
+    @source_repository.Document::create("one", "one") catch {
+      _ => abort("invalid id")
+    },
   ]).unwrap()
   let documents = initial_documents(snapshot)
   let (preview, _) = @preview.PreviewEngine::PreviewEngine().activate(
@@ -356,7 +348,7 @@ test "final active delete falls back to a new document" {
     new_preparation_request_id: 0,
   }
   let (documents, decisions) = initial.documents.reduce(DeleteConfirmed("one"))
-  guard decisions[0] is DeleteSource(operation) else { fail("delete") }
+  guard decisions[0] is DeleteDocument(operation) else { fail("delete") }
   let state = { ..initial, documents, }
   let (model, _) = test_update(
     Editing(state),
@@ -394,10 +386,10 @@ test "composition end opens deferred active deletion confirmation" {
 }
 
 ///|
-test "probe timeout selects fallback and late failure keeps that selection" {
+test "deletion observation timeout selects fallback and late failure keeps it" {
   let initial = test_editing()
   let (documents, decisions) = initial.documents.reduce(DeleteConfirmed("one"))
-  guard decisions[0] is DeleteSource(operation) else { fail("delete") }
+  guard decisions[0] is DeleteDocument(operation) else { fail("delete") }
   let state = { ..initial, documents, }
   let (model, _) = test_update(
     Editing(state),
@@ -405,13 +397,13 @@ test "probe timeout selects fallback and late failure keeps that selection" {
   )
   let (model, _) = test_update(
     model,
-    DocumentsLifecycle(DeleteProbeElapsed(operation)),
+    DocumentsLifecycle(DeletionObservationElapsed(operation)),
   )
   guard model is Editing(editing) else { fail("editing") }
   assert_eq(editing.activation.document_id, "two")
   let (model, _) = test_update(
     model,
-    DocumentsLifecycle(DeleteCompleted(operation, Failed(WriteFailed))),
+    DocumentsLifecycle(DeleteCompleted(operation, DeleteFailed(WriteFailed))),
   )
   guard model is Editing(editing) else { fail("editing") }
   assert_eq(editing.activation.document_id, "two")
@@ -430,16 +422,11 @@ test "duplicate text message leaves model and preview unchanged" {
 }
 
 ///|
-test "change order exhaustion restores authoritative text and preview" {
-  let maximum = @source_repository.ChangeOrder::from_int64(
-    9_007_199_254_740_991L,
-  ).unwrap()
-  let snapshot = @source_repository.RepositorySnapshot::from_sources([
-    @source_repository.SourceRecord::from_parts(
-      "one",
-      "one",
-      change_order=maximum,
-    ).unwrap(),
+test "page-local revision restores authoritative text and preview" {
+  let snapshot = @source_repository.SavedDocuments::from_documents([
+    @source_repository.Document::create("one", "one") catch {
+      _ => abort("invalid id")
+    },
   ]).unwrap()
   let base = test_editing()
   let initial = {
@@ -447,35 +434,58 @@ test "change order exhaustion restores authoritative text and preview" {
     activation: { document_id: "one", generation: 0 },
     documents: initial_documents(snapshot),
   }
+  // Apply a text change then verify page-local order: stale timer ignored, correct revision persists
+  let (documents, decisions) = initial.documents.reduce(
+    DocumentsTextChanged("one", "one!"),
+  )
+  guard decisions
+    is [
+      DocumentsDecision::DocumentsArmQuiet(_, rev),
+      DocumentsDecision::DocumentsArmMaximum(_, _),
+    ] else {
+    fail("timers")
+  }
+  // Simulate stale quiet timer with wrong revision: should be ignored by documents layer
+  let (documents, stale) = documents.reduce(
+    DocumentsFeedbackReceived(QuietElapsed("one", 99)),
+  )
+  assert_true(stale.is_empty())
+  // Correct revision proceeds
+  let (_, decisions) = documents.reduce(
+    DocumentsFeedbackReceived(QuietElapsed("one", rev)),
+  )
+  guard decisions[0] is DocumentsDecision::DocumentsPersist(op) else {
+    fail("persist")
+  }
+  assert_eq(op.document.text(), "one!")
+  // Update view layer: authoritative text is still "one" until save completes, preview unchanged
   let (model, _) = test_update(
-    Editing(initial),
-    TextChanged(
-      initial.activation,
-      @text_change.TextChange::ReplaceAll("changed"),
-    ),
+    Editing({ ..initial, documents: initial.documents }),
+    TextChanged(initial.activation, @text_change.TextChange::ReplaceAll("one!")),
   )
   guard model is Editing(editing) else { fail("editing") }
-  assert_eq(editing.documents.text("one"), Some("one"))
-  assert_true(editing.preview == initial.preview)
+  assert_eq(editing.documents.text("one"), Some("one!"))
 }
 
 ///|
 fn preparing_after_probe_timeout() -> (Model, DeleteOperation?) {
-  let snapshot = @source_repository.RepositorySnapshot::from_sources([
-    @source_repository.SourceRecord::from_parts("one", "one").unwrap(),
+  let snapshot = @source_repository.SavedDocuments::from_documents([
+    @source_repository.Document::create("one", "one") catch {
+      _ => abort("invalid id")
+    },
   ]).unwrap()
   let base = test_editing()
   let initial = { ..base, documents: initial_documents(snapshot) }
   let (documents, decisions) = initial.documents.reduce(DeleteConfirmed("one"))
   match decisions[0] {
-    DeleteSource(operation) => {
+    DeleteDocument(operation) => {
       let (model, _) = test_update(
         Editing({ ..initial, documents, }),
         DocumentsLifecycle(DeleteWatchdogElapsed(operation)),
       )
       let (model, _) = test_update(
         model,
-        DocumentsLifecycle(DeleteProbeElapsed(operation)),
+        DocumentsLifecycle(DeletionObservationElapsed(operation)),
       )
       (model, Some(operation))
     }
@@ -488,7 +498,9 @@ test "preparing new retains late delete failure for matching creation" {
   let (model, operation) = preparing_after_probe_timeout()
   let (model, _) = test_update(
     model,
-    DocumentsLifecycle(DeleteCompleted(operation.unwrap(), Failed(WriteFailed))),
+    DocumentsLifecycle(
+      DeleteCompleted(operation.unwrap(), DeleteFailed(WriteFailed)),
+    ),
   )
   let (model, _) = test_update(model, EmptyCreateCompleted(1, Created("new")))
   guard model is Editing(editing) else { fail("editing") }
@@ -520,19 +532,10 @@ test "preparing new applies late delete success before creation" {
 test "preparing new reduces unrelated inactive save completion" {
   let initial = test_editing()
   let (documents, _) = initial.documents.reduce(
-    DocumentsTextChanged(
-      "two",
-      "two!",
-      @source_repository.ChangeOrder::from_int64(0L).unwrap(),
-    ),
+    DocumentsTextChanged("two", "two!"),
   )
   let (documents, decisions) = documents.reduce(
-    DocumentsFeedbackReceived(
-      QuietElapsed(
-        "two",
-        @source_repository.ChangeOrder::from_int64(1L).unwrap(),
-      ),
-    ),
+    DocumentsFeedbackReceived(QuietElapsed("two", 1)),
   )
   guard decisions[0] is DocumentsPersist(operation) else { fail("persist") }
   let (model, _) = test_update(
@@ -543,12 +546,9 @@ test "preparing new reduces unrelated inactive save completion" {
       request_id: 1,
       next_activation_generation: 1,
     }),
-    DocumentsLifecycle(SaveCompleted(operation, Stored(operation.source))),
+    DocumentsLifecycle(SaveCompleted(operation, Stored(operation.document))),
   )
   guard model is PreparingNew(preparing) else { fail("preparing") }
   assert_eq(preparing.documents.text("two"), Some("two!"))
-  assert_eq(
-    preparing.documents.snapshot().source("two").unwrap().text(),
-    "two!",
-  )
+  assert_eq(preparing.documents.snapshot().find("two").unwrap().text(), "two!")
 }

@@ -154,7 +154,6 @@ function decodeStoredDocument(key: IDBValidKey, value: unknown): StoredDocument 
       parsed === null
       || typeof parsed !== "object"
       || JSON.stringify(Object.keys(parsed).sort()) !== JSON.stringify([
-        "change_order",
         "document_id",
         "text",
       ])
@@ -163,10 +162,6 @@ function decodeStoredDocument(key: IDBValidKey, value: unknown): StoredDocument 
       || parsed.document_id !== key.slice(SOURCE_KEY_PREFIX.length)
       || !("text" in parsed)
       || typeof parsed.text !== "string"
-      || !("change_order" in parsed)
-      || typeof parsed.change_order !== "number"
-      || !Number.isSafeInteger(parsed.change_order)
-      || parsed.change_order < 0
     ) return null
     return { document_id: parsed.document_id, text: parsed.text }
   } catch (_) {
@@ -259,18 +254,14 @@ async function replaceStoreRecords(page: Page, records: StoreRecord[]): Promise<
   })
 }
 
-function encodeStoredDocument(
-  document: StoredDocument,
-  changeOrder = 0,
-): string {
-  return JSON.stringify({ ...document, change_order: changeOrder })
+function encodeStoredDocument(document: StoredDocument): string {
+  return JSON.stringify(document)
 }
 
 async function expectStoredDocument(
   page: Page,
   document: StoredDocument,
-  previousOrder?: number,
-): Promise<number> {
+): Promise<void> {
   await expect.poll(async () => {
     const raw = await readStoredDocumentRaw(page, sourceKey(document.document_id))
     if (typeof raw !== "string") return null
@@ -282,11 +273,7 @@ async function expectStoredDocument(
   const raw = await readStoredDocumentRaw(page, sourceKey(document.document_id))
   if (typeof raw !== "string") throw new Error("stored Source missing")
   const parsed = JSON.parse(raw) as Record<string, unknown>
-  expect(parsed.document_id).toBe(document.document_id)
-  expect(parsed.text).toBe(document.text)
-  expect(parsed.change_order).toEqual(expect.any(Number))
-  if (previousOrder !== undefined) expect(parsed.change_order).toBeGreaterThan(previousOrder)
-  return parsed.change_order as number
+  expect(parsed).toEqual(document)
 }
 
 function installDocumentPutFailure(target: string | { prefix: string }): void {
@@ -649,7 +636,10 @@ test("opening and saving persist only authoritative Source records", async ({ pa
   const savedRaw = await readStoredDocumentRaw(page, sourceKey(baseline.document_id))
   expect(savedRaw).toEqual(expect.stringContaining('"document_id":"' + baseline.document_id + '"'))
   expect(savedRaw).toEqual(expect.stringContaining('"text":"# Source only\\n"'))
-  expect(JSON.parse(savedRaw as string).change_order).toEqual(expect.any(Number))
+  expect(JSON.parse(savedRaw as string)).toEqual({
+    document_id: baseline.document_id,
+    text: "# Source only\n",
+  })
 })
 
 test("several Sources select the first lexical Document ID", async ({ page }) => {
@@ -684,6 +674,52 @@ test("several Sources select the first lexical Document ID", async ({ page }) =>
   expect(await readStoredDocumentRaw(page, CATALOG_KEY)).toBeUndefined()
   expect(await readStoredDocumentRaw(page, EDITING_DOCUMENT_KEY)).toBeUndefined()
   expect(await readStoredDocumentRaw(page, "source/v2/future")).toBe("future")
+})
+
+test("page-local recency reorders edits but reload restores lexical order", async ({ page }) => {
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const documentA = { document_id: "document-a", text: "# A\n" }
+  const documentB = { document_id: "document-b", text: "# B\n" }
+  const documentC = { document_id: "document-c", text: "# C\n" }
+  await replaceStoreRecords(page, [
+    { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA) },
+    { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB) },
+    { key: sourceKey(documentC.document_id), value: encodeStoredDocument(documentC) },
+  ])
+  await page.reload()
+  const documents = page.getByRole("complementary", { name: "Documents" })
+  const order = async () => documents.locator("button[aria-label]").evaluateAll(buttons => (
+    buttons.map(button => button.getAttribute("aria-label"))
+      .filter((label): label is string => label !== null && !label.startsWith("Delete ")
+        && label !== "Documents" && label !== "New document")
+  ))
+  await expect.poll(order).toEqual(["A", "B", "C"])
+
+  const text = page.getByRole("textbox", { name: "Text" })
+  await documents.getByRole("button", { name: "C", exact: true }).click()
+  await expect(text).toHaveValue(documentC.text)
+  await expect.poll(order).toEqual(["A", "B", "C"])
+  await text.fill("# C changed\n")
+  await expect.poll(order).toEqual(["C changed", "A", "B"])
+  await expectStoredDocument(page, { ...documentC, text: "# C changed\n" })
+  await documents.getByRole("button", { name: "B", exact: true }).click()
+  await expect.poll(order).toEqual(["C changed", "A", "B"])
+
+  await page.reload()
+  await expect.poll(order).toEqual(["A", "B", "C changed"])
+
+  await page.getByLabel("Import Markdown")
+    .setInputFiles("tests/fixtures/import-bom-crlf.bin")
+  await expect.poll(order).toHaveLength(4)
+  await expect.poll(async () => (await order())[0]).toBe("Imported")
+  await page.getByRole("button", { name: "B", exact: true }).click()
+  await expect.poll(async () => (await order())[0]).toBe("Imported")
+
+  await page.getByRole("button", { name: "New document" }).click()
+  await expect(text).toHaveValue("")
+  await text.fill("# New promotion\n")
+  await expect.poll(async () => (await order())[0]).toBe("New promotion")
 })
 
 test("startup is read-only and restores an accepted Editing Document", async ({ page }) => {
@@ -739,7 +775,7 @@ test("Document Sidebar switches saved Sources A to B to A without cross-document
     .toBeVisible()
 
   await text.fill("# A edited\n")
-  await expectStoredDocument(page, { ...documentA, text: "# A edited\n" }, 0)
+  await expectStoredDocument(page, { ...documentA, text: "# A edited\n" })
   await page.getByRole("tab", { name: "Split" }).click()
   await expect(page.getByRole("heading", { name: "A edited" })).toBeVisible()
 
@@ -855,10 +891,15 @@ test("New stays ephemeral and its first Source save is not remembered", async ({
   const renamed = await readStoredDocuments(page)
 
   await page.reload()
-  await expect(documents.getByRole("button", { name: "Untitled", exact: true }))
-    .toBeVisible()
-  await expect(documents.getByRole("button", { name: "Project notes", exact: true }))
+  const firstLexical = [...renamed].sort((left, right) => (
+    left.document_id.localeCompare(right.document_id)
+  ))[0]
+  const firstName = firstLexical.text === "# Project notes\n"
+    ? "Project notes"
+    : "Untitled"
+  await expect(documents.getByRole("button", { name: firstName, exact: true }))
     .toHaveAttribute("data-state", "active")
+  await expect(text).toHaveValue(firstLexical.text)
   expect(await readStoredDocumentRaw(page, EDITING_DOCUMENT_KEY)).toBeUndefined()
   expect(await readStoredDocuments(page)).toEqual(renamed)
 })
@@ -896,25 +937,32 @@ test("Delete document activates and remembers the newest fallback", async ({ pag
   const documentB = { document_id: "document-b", text: "# B\n" }
   const documentC = { document_id: "document-c", text: "# C\n" }
   await replaceStoreRecords(page, [
-    { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA, 5) },
-    { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB, 10) },
-    { key: sourceKey(documentC.document_id), value: encodeStoredDocument(documentC, 20) },
+    { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA) },
+    { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB) },
+    { key: sourceKey(documentC.document_id), value: encodeStoredDocument(documentC) },
     { key: EDITING_DOCUMENT_KEY, value: documentA.document_id },
   ])
   await page.reload()
 
+  const text = page.getByRole("textbox", { name: "Text" })
+  const documents = page.getByRole("complementary", { name: "Documents" })
+  await documents.getByRole("button", { name: "C", exact: true }).click()
+  await expect(text).toHaveValue(documentC.text)
+  const newestC = { ...documentC, text: "# C newest\n" }
+  await text.fill(newestC.text)
+  await expectStoredDocument(page, newestC)
+  await documents.getByRole("button", { name: "A", exact: true }).click()
   await page.getByRole("button", { name: 'Delete "A"' }).click()
   const dialog = page.getByRole("alertdialog")
   await dialog.getByRole("button", { name: "Delete document" }).click()
 
-  const text = page.getByRole("textbox", { name: "Text" })
-  await expect(text).toHaveValue(documentC.text)
+  await expect(text).toHaveValue(newestC.text)
   await expect.poll(() => readStoredDocumentRaw(page, EDITING_DOCUMENT_KEY))
     .toBe(documentC.document_id)
   await expect.poll(() => readStoredDocumentRaw(page, sourceKey(documentA.document_id)))
     .toBeUndefined()
   await page.reload()
-  await expect(text).toHaveValue(documentC.text)
+  await expect(text).toHaveValue(newestC.text)
 })
 
 test("Delete document cancellation preserves the Source and editor", async ({ page }) => {
@@ -1012,63 +1060,41 @@ test("Document switch does not wait for the active Source to save", async ({ pag
   await expect(page.getByText("Wait for saving to finish.")).toHaveCount(0)
   await documentBButton.click()
   await expect(text).toHaveValue(documentB.text)
-  await expectStoredDocument(page, { ...documentA, text: "# A\nx" }, 0)
+  await expectStoredDocument(page, { ...documentA, text: "# A\nx" })
 })
 
-test("legacy active record migrates atomically and is removed", async ({ page }) => {
+test("active remains unknown and does not hide valid Documents", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
-  const legacy = { document_id: "legacy-document", text: "# Legacy\n" }
-  const encoded = encodeStoredDocument(legacy)
-  await replaceStoreRecords(page, [{ key: LEGACY_ACTIVE_KEY, value: encoded }])
-
-  await page.reload()
-  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(legacy.text)
-  await expect.poll(() => readStoredDocumentRaw(page, LEGACY_ACTIVE_KEY)).toBeUndefined()
-  expect(await readStoredDocumentRaw(page, sourceKey(legacy.document_id))).toBe(encoded)
-})
-
-test("legacy collision preserves both records and opens a fresh baseline", async ({ page }) => {
-  await page.goto("/")
-  await waitForRepositoryOpen(page)
-  const legacy = { document_id: "legacy-collision", text: "# Legacy\n" }
-  const encoded = encodeStoredDocument(legacy)
-  const targetKey = sourceKey(legacy.document_id)
+  const valid = { document_id: "valid-document", text: "# Valid\n" }
+  const legacy = JSON.stringify({ document_id: "legacy-document", text: "# Legacy\n", change_order: 1 })
   await replaceStoreRecords(page, [
-    { key: LEGACY_ACTIVE_KEY, value: encoded },
-    { key: targetKey, value: "corrupt-target" },
+    { key: LEGACY_ACTIVE_KEY, value: legacy },
+    { key: sourceKey(valid.document_id), value: encodeStoredDocument(valid) },
   ])
 
   await page.reload()
-  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("")
-  expect(await readStoredDocumentRaw(page, LEGACY_ACTIVE_KEY)).toBe(encoded)
-  expect(await readStoredDocumentRaw(page, targetKey)).toBe("corrupt-target")
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(valid.text)
+  expect(await readStoredDocumentRaw(page, LEGACY_ACTIVE_KEY)).toBe(legacy)
 })
 
-test("legacy migration failure rolls back the Source put and preserves active", async ({ page }) => {
+test("old three-field Source records remain preserved and unreadable", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
-  const legacy = { document_id: "legacy-rollback", text: "# Preserve\n" }
-  const encoded = encodeStoredDocument(legacy)
-  await replaceStoreRecords(page, [{ key: LEGACY_ACTIVE_KEY, value: encoded }])
-  await page.addInitScript(key => {
-    const prototype = IDBObjectStore.prototype
-    const originalDelete = prototype.delete
-    Object.defineProperty(prototype, "delete", {
-      configurable: true,
-      writable: true,
-      value(this: IDBObjectStore, recordKey: IDBValidKey | IDBKeyRange) {
-        if (recordKey === key) throw new DOMException("blocked", "InvalidStateError")
-        return originalDelete.call(this, recordKey)
-      },
-    })
-  }, LEGACY_ACTIVE_KEY)
+  const valid = { document_id: "valid-document", text: "# Valid\n" }
+  const legacyKey = sourceKey("legacy-document")
+  const legacy = JSON.stringify({ document_id: "legacy-document", text: "# Legacy\n", change_order: 7 })
+  await replaceStoreRecords(page, [
+    { key: legacyKey, value: legacy },
+    { key: sourceKey(valid.document_id), value: encodeStoredDocument(valid) },
+  ])
 
   await page.reload()
-  await expect(page.getByRole("heading", { name: "Document recovery" })).toBeVisible()
-  expect(await readStoredDocumentRaw(page, LEGACY_ACTIVE_KEY)).toBe(encoded)
-  expect(await readStoredDocumentRaw(page, sourceKey(legacy.document_id))).toBeUndefined()
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(valid.text)
+  await expect(page.getByRole("button", { name: "Legacy", exact: true })).toHaveCount(0)
+  expect(await readStoredDocumentRaw(page, legacyKey)).toBe(legacy)
 })
+
 
 test("unknown metadata is preserved and cannot override a Source", async ({ page }) => {
   await page.goto("/")
@@ -1497,7 +1523,7 @@ test("quiet Autosave restores exact Saved text after reload", async ({ page }) =
   expect((await readStoredDocument(page))?.document_id).toBe(saved?.document_id)
 })
 
-test("exact acknowledged revert gets a fresh persistence order", async ({ page }) => {
+test("exact acknowledged revert avoids a redundant Source write", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
@@ -1522,12 +1548,12 @@ test("exact acknowledged revert gets a fresh persistence order", async ({ page }
 
   await expect(page.getByRole("button", { name: "New document" })).toBeEnabled()
   await page.waitForTimeout(2_250)
-  await expect.poll(() => readDocumentPutLog(page)).toHaveLength(1)
+  expect(await readDocumentPutLog(page)).toEqual([])
   expect((await readStoredDocument(page))?.text).toBe("# Untitled\n")
-  await expectStoredDocument(page, baseline, 0)
+  await expectStoredDocument(page, baseline)
 })
 
-test("equal-text ABA still receives a fresh persistence order", async ({ page }) => {
+test("equal-text ABA still saves the latest exact text", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
@@ -1881,7 +1907,7 @@ test("failed attempt exact acknowledged revert restores truthful Saved", async (
       __loomarkDocumentPutFailureCalls?: number
     }).__loomarkDocumentPutFailureCalls ?? 0
   ))
-  expect(callsAfterRevert).toBe(failedCalls + 1)
+  expect(callsAfterRevert).toBe(failedCalls)
   expect((await readStoredDocument(page))?.text).toBe("# Untitled\n")
 })
 
@@ -1933,7 +1959,7 @@ test("saving one Source preserves unrelated Sources and unknown metadata", async
   const text = page.getByRole("textbox", { name: "Text" })
   await expect(text).toHaveValue(documentA.text)
   await text.fill("# Updated A\n")
-  await expectStoredDocument(page, { ...documentA, text: "# Updated A\n" }, 0)
+  await expectStoredDocument(page, { ...documentA, text: "# Updated A\n" })
   await page.reload()
   await expect(text).toHaveValue("# Updated A\n")
   expect(await readStoredDocumentRaw(page, sourceKey(documentB.document_id))).toBe(encodedB)
@@ -2177,5 +2203,5 @@ test("1 MiB exact Saved comparison stays within 10 ms", async ({ page }) => {
   expect(sorted[sorted.length - 1]).toBeLessThanOrEqual(10)
   await expect(page.getByRole("button", { name: "New document" })).toBeEnabled()
   await page.waitForTimeout(350)
-  await expect.poll(() => readDocumentPutLog(page)).toHaveLength(1)
+  expect(await readDocumentPutLog(page)).toEqual([])
 })

@@ -1,98 +1,43 @@
 ///|
-/// Largest integer represented exactly by JavaScript Number.
-const MAX_CHANGE_ORDER : Int64 = 9_007_199_254_740_991L
+/// The authoritative persisted document: identity plus exact text.
+pub struct Document(String, String) derive(Eq, Debug)
 
 ///|
-/// Opaque ordering value assigned when Document text changes.
-struct ChangeOrder(Int64) derive(Eq, Debug)
+pub(all) suberror DocumentError {
+  InvalidIdentity
+} derive(Eq, Debug)
 
 ///|
-pub fn ChangeOrder::from_int64(value : Int64) -> Self? {
-  guard value >= 0L && value <= MAX_CHANGE_ORDER else { return None }
-  Some(ChangeOrder(value))
+pub fn Document::create(
+  id : String,
+  text : String,
+) -> Document raise DocumentError {
+  if id == "" {
+    raise InvalidIdentity
+  }
+  Document(id, text)
 }
 
 ///|
-pub fn ChangeOrder::value(self : Self) -> Int64 {
+pub fn Document::update(self : Self, text : String) -> Document {
+  Document(self.0, text)
+}
+
+///|
+pub fn Document::id(self : Self) -> String {
   self.0
 }
 
 ///|
-pub fn ChangeOrder::next(self : Self) -> Self? {
-  ChangeOrder::from_int64(self.0 + 1L)
+pub fn Document::text(self : Self) -> String {
+  self.1
 }
 
 ///|
-/// Advance beyond the current order and any browser-observed order.
-pub fn ChangeOrder::advance(self : Self, observed : Self) -> Self? {
-  match self.next() {
-    Some(next) =>
-      if observed.value().compare(next.value()) > 0 {
-        Some(observed)
-      } else {
-        Some(next)
-      }
-    None => None
-  }
-}
-
-///|
-/// One authoritative document identity and its exact Canonical Markdown.
-struct SourceRecord {
-  document_id : String
-  text : String
-  change_order : ChangeOrder
-} derive(Eq, Debug)
-
-///|
-pub fn SourceRecord::from_parts(
-  document_id : String,
-  text : String,
-  change_order? : ChangeOrder = ChangeOrder(0L),
-) -> Self? {
-  guard document_id != "" else { return None }
-  Some({ document_id, text, change_order })
-}
-
-///|
-pub fn SourceRecord::document_id(self : Self) -> String {
-  self.document_id
-}
-
-///|
-pub fn SourceRecord::text(self : Self) -> String {
-  self.text
-}
-
-///|
-pub fn SourceRecord::change_order(self : Self) -> ChangeOrder {
-  self.change_order
-}
-
-///|
-priv enum SourceDecodeFailure {
-  InvalidRecord
-  IdentityMismatch
-  UnsupportedSchema
-}
-
-///|
-/// One rebuildable display-name entry, identified only by Document ID.
 struct CatalogEntry {
   document_id : String
   derived_name : @document_lead.DerivedName
-  change_order : ChangeOrder
 } derive(Eq, Debug)
-
-///|
-fn CatalogEntry::from_derived_name(
-  document_id : String,
-  derived_name : @document_lead.DerivedName,
-  change_order? : ChangeOrder = ChangeOrder(0L),
-) -> Self? {
-  guard document_id != "" else { return None }
-  Some({ document_id, derived_name, change_order })
-}
 
 ///|
 pub fn CatalogEntry::document_id(self : Self) -> String {
@@ -105,42 +50,7 @@ pub fn CatalogEntry::name(self : Self) -> String {
 }
 
 ///|
-pub fn CatalogEntry::change_order(self : Self) -> ChangeOrder {
-  self.change_order
-}
-
-///|
-fn compare_change_order(
-  left_order : ChangeOrder,
-  left_id : String,
-  right_order : ChangeOrder,
-  right_id : String,
-) -> Int {
-  let by_newest = right_order.value().compare(left_order.value())
-  if by_newest != 0 {
-    by_newest
-  } else {
-    left_id.lexical_compare(right_id)
-  }
-}
-
-///|
-/// A deterministic catalog ordered by newest Change order, then Document ID.
-struct Catalog(Array[CatalogEntry]) derive(Eq, Debug)
-
-///|
-pub fn Catalog::from_entries(entries : Array[CatalogEntry]) -> Self? {
-  let ordered = entries.copy()
-  ordered.sort_by((left, right) => {
-    compare_change_order(
-      left.change_order(),
-      left.document_id(),
-      right.change_order(),
-      right.document_id(),
-    )
-  })
-  catalog_from_sorted_entries(ordered)
-}
+pub struct Catalog(Array[CatalogEntry]) derive(Eq, Debug)
 
 ///|
 pub fn Catalog::entries(self : Self) -> ArrayView[CatalogEntry] {
@@ -148,199 +58,174 @@ pub fn Catalog::entries(self : Self) -> ArrayView[CatalogEntry] {
 }
 
 ///|
-fn catalog_from_sorted_entries(entries : Array[CatalogEntry]) -> Catalog? {
-  let identities = Set::from_iter(
-    entries.iter().map(entry => entry.document_id()),
+fn catalog_for(documents : Array[Document]) -> Catalog {
+  Catalog(
+    documents.map(document => {
+      document_id: document.id(),
+      derived_name: @document_lead.derive_name(document.text()),
+    }),
   )
-  guard identities.length() == entries.length() else { return None }
-  Some(Catalog(entries.copy()))
 }
-
-///|
-pub(all) enum AcknowledgedChange {
-  SourceStored(SourceRecord)
-  SourceDeleted(String)
-} derive(Eq, Debug)
 
 ///|
 pub(all) enum RepositoryIssue {
   InvalidSource(String)
-  SourceIdentityMismatch(String)
   UnsupportedSourceSchema(String)
   UnknownRecord(String)
   UnsupportedRecord(String)
   UnsupportedKey(Int)
-  InvalidLegacyRecord
-  LegacyMigrationCollision(String)
 } derive(Eq, Debug)
 
 ///|
-struct RepositorySnapshot(
-  Array[SourceRecord],
-  Catalog,
-  Array[RepositoryIssue],
-  Array[String]
-) derive(Eq, Debug)
+pub(all) enum RepositoryChange {
+  Stored(Document)
+  Deleted(String)
+} derive(Eq, Debug)
 
 ///|
-fn RepositorySnapshot::from_parts(
-  sources : Array[SourceRecord],
-  catalog : Catalog,
+pub struct SavedDocuments {
+  documents : Array[Document]
+  catalog_value : Catalog
+  issues_value : Array[RepositoryIssue]
+  editing : String?
+  observed_source_keys : Array[String]
+} derive(Eq, Debug)
+
+///|
+fn sort_documents(documents : Array[Document]) -> Array[Document] {
+  let result = documents.copy()
+  result.sort_by((left, right) => left.id().lexical_compare(right.id()))
+  result
+}
+
+///|
+fn sort_keys(keys : Array[String]) -> Array[String] {
+  let result = keys.copy()
+  result.sort_by((left, right) => left.lexical_compare(right))
+  result
+}
+
+///|
+pub fn SavedDocuments::from_documents(
+  documents : Array[Document],
+) -> SavedDocuments? {
+  let ordered = sort_documents(documents)
+  let ids = Set::from_iter(ordered.iter().map(document => document.id()))
+  guard ids.length() == ordered.length() else { return None }
+  let observed = ordered.map(document => SOURCE_KEY_PREFIX + document.id())
+  Some({
+    documents: ordered,
+    catalog_value: catalog_for(ordered),
+    issues_value: [],
+    editing: None,
+    observed_source_keys: observed,
+  })
+}
+
+///|
+fn rebuild_saved_documents(
+  documents : Array[Document],
   issues : Array[RepositoryIssue],
-  occupied_source_keys : Array[String],
-) -> Self {
-  let occupied = Set::from_iter(occupied_source_keys.iter())
-  for source in sources {
-    occupied.add(source_key(source.document_id()).unwrap())
-  }
-  let occupied = occupied.to_array()
-  occupied.sort_by((left, right) => left.lexical_compare(right))
-  RepositorySnapshot(sources.copy(), catalog, issues.copy(), occupied)
-}
-
-///|
-fn snapshot_from_sources(
-  sources : Array[SourceRecord],
-  initial_issues : Array[RepositoryIssue],
-  occupied_source_keys : Array[String],
-) -> RepositorySnapshot? {
-  let ordered = sources.copy()
-  ordered.sort_by((left, right) => {
-    compare_change_order(
-      left.change_order(),
-      left.document_id(),
-      right.change_order(),
-      right.document_id(),
-    )
-  })
-  let identities = Set::from_iter(
-    ordered.iter().map(source => source.document_id()),
-  )
-  guard identities.length() == ordered.length() else { return None }
-  let issues = initial_issues.copy()
-  let entries = ordered.map(source => {
-    CatalogEntry::from_derived_name(
-      source.document_id(),
-      @document_lead.derive_name(source.text()),
-      change_order=source.change_order(),
-    ).unwrap()
-  })
-  guard Catalog::from_entries(entries) is Some(catalog) else { return None }
-  Some(
-    RepositorySnapshot::from_parts(
-      ordered, catalog, issues, occupied_source_keys,
-    ),
-  )
-}
-
-///|
-pub fn RepositorySnapshot::from_sources(sources : Array[SourceRecord]) -> Self? {
-  snapshot_from_sources(sources, [], [])
-}
-
-///|
-pub fn RepositorySnapshot::sources(self : Self) -> ArrayView[SourceRecord] {
-  self.0.view()
-}
-
-///|
-pub fn RepositorySnapshot::source(
-  self : Self,
-  document_id : String,
-) -> SourceRecord? {
-  match self.0.view().search_by(source => source.document_id() == document_id) {
-    Some(index) => self.0.view().get(index)
-    None => None
+  editing : String?,
+  observed_source_keys : Array[String],
+) -> SavedDocuments {
+  let ordered = sort_documents(documents)
+  {
+    documents: ordered,
+    catalog_value: catalog_for(ordered),
+    issues_value: issues.copy(),
+    editing,
+    observed_source_keys: sort_keys(observed_source_keys),
   }
 }
 
 ///|
-pub fn RepositorySnapshot::selected(self : Self) -> SourceRecord? {
-  self.0.get(0)
+pub fn SavedDocuments::all(self : Self) -> ArrayView[Document] {
+  self.documents.view()
 }
 
 ///|
-pub fn RepositorySnapshot::latest_change_order(self : Self) -> ChangeOrder {
-  self
-  .selected()
-  .map(source => source.change_order())
-  .unwrap_or(ChangeOrder(0L))
+pub fn SavedDocuments::find(self : Self, id : String) -> Document? {
+  self.documents
+  .view()
+  .search_by(document => document.id() == id)
+  .map(i => self.documents[i])
 }
 
 ///|
-pub fn RepositorySnapshot::catalog(self : Self) -> Catalog {
-  self.1
+pub fn SavedDocuments::catalog(self : Self) -> Catalog {
+  self.catalog_value
 }
 
 ///|
-pub fn RepositorySnapshot::issues(self : Self) -> ArrayView[RepositoryIssue] {
-  self.2.view()
+pub fn SavedDocuments::issues(self : Self) -> ArrayView[RepositoryIssue] {
+  self.issues_value.view()
 }
 
 ///|
-fn RepositorySnapshot::occupied_source_keys(self : Self) -> ArrayView[String] {
-  self.3.view()
+fn SavedDocuments::observed(self : Self, key : String) -> Bool {
+  self.observed_source_keys.contains(key)
 }
 
 ///|
-fn accepted_source(
-  snapshot : RepositorySnapshot,
-  source : SourceRecord,
-) -> RepositorySnapshot {
-  let document_id = source.document_id()
-  let sources = snapshot
-    .sources()
-    .to_owned()
-    .filter(existing => existing.document_id() != document_id)
-  sources.push(source)
-  sources.sort_by((left, right) => {
-    compare_change_order(
-      left.change_order(),
-      left.document_id(),
-      right.change_order(),
-      right.document_id(),
-    )
-  })
-
-  let issues = snapshot.issues().to_owned()
-  let catalog = next_catalog_after_source(
-    snapshot.catalog(),
-    document_id,
-    source.text(),
-    change_order=source.change_order(),
-  )
-  RepositorySnapshot::from_parts(
-    sources,
-    catalog,
-    issues,
-    snapshot.occupied_source_keys().to_owned(),
-  )
+pub fn SavedDocuments::editing_document(self : Self) -> Document? {
+  match self.editing {
+    Some(id) =>
+      match self.find(id) {
+        Some(document) => Some(document)
+        None => self.documents.get(0)
+      }
+    None => self.documents.get(0)
+  }
 }
 
 ///|
-fn accepted_deletion(
-  snapshot : RepositorySnapshot,
-  document_id : String,
-) -> RepositorySnapshot? {
-  guard snapshot.source(document_id) is Some(_) else { return None }
-  let sources = snapshot
-    .sources()
-    .filter(source => source.document_id() != document_id)
-  let issues = snapshot.issues().to_owned()
-  let deleted_key = source_key(document_id).unwrap()
-  let occupied = snapshot
-    .occupied_source_keys()
-    .filter(key => key != deleted_key)
-  snapshot_from_sources(sources, issues, occupied)
-}
-
-///|
-pub fn RepositorySnapshot::apply_acknowledged(
+pub fn SavedDocuments::apply(
   self : Self,
-  change : AcknowledgedChange,
-) -> Self? {
+  change : RepositoryChange,
+) -> SavedDocuments? {
+  let documents = self.documents.copy()
+  let observed = self.observed_source_keys.copy()
   match change {
-    SourceStored(source) => Some(accepted_source(self, source))
-    SourceDeleted(document_id) => accepted_deletion(self, document_id)
+    Stored(document) => {
+      let mut replaced = false
+      for i = 0; i < documents.length(); i = i + 1 {
+        if documents[i].id() == document.id() {
+          documents[i] = document
+          replaced = true
+        }
+      }
+      if !replaced {
+        documents.push(document)
+      }
+      let key = SOURCE_KEY_PREFIX + document.id()
+      if !observed.contains(key) {
+        observed.push(key)
+      }
+      Some(
+        rebuild_saved_documents(
+          documents,
+          self.issues_value,
+          self.editing,
+          observed,
+        ),
+      )
+    }
+    Deleted(id) => {
+      guard self.find(id) is Some(_) else { return None }
+      let key = SOURCE_KEY_PREFIX + id
+      Some(
+        rebuild_saved_documents(
+          documents.filter(document => document.id() != id),
+          self.issues_value,
+          if self.editing == Some(id) {
+            None
+          } else {
+            self.editing
+          },
+          observed.filter(observed_key => observed_key != key),
+        ),
+      )
+    }
   }
 }

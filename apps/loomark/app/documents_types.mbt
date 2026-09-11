@@ -1,9 +1,8 @@
 ///|
-/// Pure per-document save lanes. Commands are represented only as decisions;
-/// the application shell is responsible for executing them.
 priv enum DocumentOrigin {
+  EphemeralNew
+  ImportedNew
   Existing
-  New
 } derive(Eq)
 
 ///|
@@ -14,8 +13,9 @@ priv enum DocumentsCheckpointEligibility {
 
 ///|
 priv struct DocumentsCheckpoint {
-  id : Int
-  order : @source_repository.ChangeOrder
+  maximum_id : Int
+  quiet_revision : Int
+  maximum_armed : Bool
   eligibility : DocumentsCheckpointEligibility
 } derive(Eq)
 
@@ -29,7 +29,7 @@ priv enum DocumentsSaveStatus {
 
 ///|
 priv struct DocumentRecord {
-  source : @source_repository.SourceRecord
+  document : @source_repository.Document
   origin : DocumentOrigin
   composing : Bool
   save : DocumentsSaveStatus
@@ -38,7 +38,7 @@ priv struct DocumentRecord {
 
 ///|
 priv struct SaveOperation {
-  source : @source_repository.SourceRecord
+  document : @source_repository.Document
   origin : DocumentOrigin
 } derive(Eq)
 
@@ -53,27 +53,30 @@ priv enum DocumentsDeletePhase {
   Available
   Waiting(DeleteOperation)
   Deleting(DeleteOperation)
-  Probing(DeleteOperation)
+  Observing(DeleteOperation)
   Unknown(DeleteOperation)
   Failed(DeleteOperation, @source_repository.DeleteFailure)
 } derive(Eq)
 
 ///|
 priv enum DocumentsFeedback {
-  QuietElapsed(String, @source_repository.ChangeOrder)
+  QuietElapsed(String, Int)
   MaximumElapsed(String, Int)
   SaveCompleted(SaveOperation, @source_repository.SaveResult)
   DeleteCompleted(DeleteOperation, @source_repository.DeleteResult)
   DeleteWatchdogElapsed(DeleteOperation)
-  DeleteProbeCompleted(DeleteOperation, @source_repository.ProbeResult)
-  DeleteProbeElapsed(DeleteOperation)
+  DeletionObservationCompleted(
+    DeleteOperation,
+    @source_repository.DeletionObservationResult
+  )
+  DeletionObservationElapsed(DeleteOperation)
 }
 
 ///|
 priv enum DocumentsEvent {
   DocumentsNew(String)
-  DocumentsImported(String, String, @source_repository.ChangeOrder)
-  DocumentsTextChanged(String, String, @source_repository.ChangeOrder)
+  DocumentsImported(String, String)
+  DocumentsTextChanged(String, String)
   DocumentsCompositionStarted(String)
   DocumentsCompositionEnded(String)
   DocumentsFeedbackReceived(DocumentsFeedback)
@@ -86,20 +89,20 @@ priv enum DocumentsEvent {
 
 ///|
 priv enum DocumentsDecision {
-  DocumentsArmQuiet(String, @source_repository.ChangeOrder)
+  DocumentsArmQuiet(String, Int)
   DocumentsArmMaximum(String, Int)
   DocumentsPersist(SaveOperation)
-  DeleteSource(DeleteOperation)
+  DeleteDocument(DeleteOperation)
   ArmDeleteWatchdog(DeleteOperation)
-  ProbeDelete(DeleteOperation)
-  ArmProbeWatchdog(DeleteOperation)
+  ObserveDeletion(DeleteOperation)
+  ArmDeletionWatchdog(DeleteOperation)
 }
 
 ///|
 priv struct Documents {
-  snapshot : @source_repository.RepositorySnapshot
+  saved : @source_repository.SavedDocuments
   records : Array[DocumentRecord]
   last_checkpoint_id : Int
+  last_quiet_revision : Int
   last_delete_request : Int
-  change_order_floor : @source_repository.ChangeOrder
 } derive(Eq)

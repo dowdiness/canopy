@@ -8,23 +8,22 @@ fn Documents::reduce(
       guard find_record(self.records, document_id) is None else {
         return (self, [])
       }
-      guard @source_repository.SourceRecord::from_parts(document_id, "")
-        is Some(source) else {
-        return (self, [])
+      let document = @source_repository.Document::create(document_id, "") catch {
+        _ => abort("invalid generated document id")
       }
       let record = {
-        source,
-        origin: New,
+        document,
+        origin: EphemeralNew,
         composing: false,
         save: Saved,
         delete: Available,
       }
-      ({ ..self, records: append_record(self.records, record) }, [])
+      ({ ..self, records: prepend_record(self.records, record) }, [])
     }
-    DocumentsImported(document_id, text, observed) =>
-      import_document(self, document_id, text, observed)
-    DocumentsTextChanged(document_id, text, observed) =>
-      apply_text(self, document_id, text, observed)
+    DocumentsImported(document_id, text) =>
+      import_document(self, document_id, text)
+    DocumentsTextChanged(document_id, text) =>
+      apply_text(self, document_id, text)
     DocumentsCompositionStarted(document_id) =>
       (
         {
@@ -46,7 +45,8 @@ fn Documents::reduce(
       guard !delete_is_active(record.delete) else { return (self, []) }
       let record = { ..record, composing: false }
       match record.save {
-        Waiting(checkpoint) if checkpoint.eligibility == Eligible => {
+        Waiting(checkpoint) if checkpoint.eligibility ==
+          DocumentsCheckpointEligibility::Eligible => {
           let (next, decisions) = begin_save(record)
           (
             {
@@ -62,15 +62,20 @@ fn Documents::reduce(
               ..self,
               records: replace_record(self.records, document_id, _ => record),
             },
-            checkpoint_effect(document_id, checkpoint, true),
+            if checkpoint.maximum_armed {
+              [DocumentsArmQuiet(document_id, checkpoint.quiet_revision)]
+            } else {
+              checkpoint_effect(document_id, checkpoint, false)
+            },
           )
-        Saving(_, Some(checkpoint)) if checkpoint.eligibility == Deferred =>
+        Saving(_, Some(checkpoint)) if checkpoint.eligibility ==
+          DocumentsCheckpointEligibility::Deferred =>
           (
             {
               ..self,
               records: replace_record(self.records, document_id, _ => record),
             },
-            checkpoint_effect(document_id, checkpoint, true),
+            checkpoint_effect(document_id, checkpoint, false),
           )
         _ =>
           (
@@ -84,67 +89,56 @@ fn Documents::reduce(
     }
     DocumentsFeedbackReceived(feedback) =>
       match feedback {
-        QuietElapsed(document_id, order) =>
-          eligible_quiet(self, document_id, order)
-        MaximumElapsed(document_id, id) =>
-          eligible_maximum(self, document_id, id)
+        QuietElapsed(id, checkpoint) => eligible_quiet(self, id, checkpoint)
+        MaximumElapsed(id, checkpoint) => eligible_maximum(self, id, checkpoint)
         SaveCompleted(operation, result) =>
-          match find_record(self.records, operation.source.document_id()) {
+          match find_record(self.records, operation.document.id()) {
             Some(record) if record.delete is Waiting(delete_operation) &&
               record.save is Saving(current, _) &&
               current == operation =>
               match result {
-                Stored(source) if source == operation.source => {
-                  guard self.snapshot.apply_acknowledged(
-                      @source_repository.AcknowledgedChange::SourceStored(
-                        source,
-                      ),
-                    )
-                    is Some(snapshot) else {
-                    return (self, [])
-                  }
-                  let save = match record.save {
-                    Saving(_, Some(checkpoint)) =>
-                      DocumentsSaveStatus::Waiting(checkpoint)
-                    Saving(_, None) => DocumentsSaveStatus::Saved
-                    _ => record.save
-                  }
-                  issue_delete(
-                    {
-                      ..self,
-                      snapshot,
-                      records: replace_record(
-                        self.records,
-                        operation.source.document_id(),
-                        r => { ..r, origin: Existing, save },
-                      ),
-                    },
-                    delete_operation,
-                    save,
+                Stored(document) => {
+                  let (next, decisions) = complete(
+                    self,
+                    operation,
+                    Stored(document),
                   )
+                  let (next, delete_decisions) = issue_delete(
+                    next,
+                    delete_operation,
+                    find_record(next.records, operation.document.id()).unwrap().save,
+                  )
+                  (next, decisions + delete_decisions)
                 }
-                Failed(failure) =>
-                  if record.origin == New {
-                    (
-                      {
-                        ..self,
-                        records: remove_record(
-                          self.records,
-                          operation.source.document_id(),
-                        ),
-                      },
-                      [],
-                    )
-                  } else {
-                    let save = match record.save {
-                      Saving(_, Some(checkpoint)) =>
-                        DocumentsSaveStatus::Waiting(checkpoint)
-                      Saving(_, None) => DocumentsSaveStatus::Failed(failure)
-                      _ => record.save
+                SaveFailed(failure) =>
+                  match operation.origin {
+                    Existing => {
+                      let failed = DocumentsSaveStatus::Failed(failure)
+                      issue_delete(
+                        {
+                          ..self,
+                          records: replace_record(
+                            self.records,
+                            operation.document.id(),
+                            r => { ..r, save: failed },
+                          ),
+                        },
+                        delete_operation,
+                        failed,
+                      )
                     }
-                    issue_delete(self, delete_operation, save)
+                    EphemeralNew | ImportedNew =>
+                      (
+                        {
+                          ..self,
+                          records: remove_record(
+                            self.records,
+                            operation.document.id(),
+                          ),
+                        },
+                        [],
+                      )
                   }
-                _ => (self, [])
               }
             _ => complete(self, operation, result)
           }
@@ -162,27 +156,23 @@ fn Documents::reduce(
               ..self,
               records: replace_record(self.records, operation.document_id, r => {
                 ..r,
-                delete: Probing(operation),
+                delete: Observing(operation),
               }),
             },
-            [ProbeDelete(operation), ArmProbeWatchdog(operation)],
+            [ObserveDeletion(operation), ArmDeletionWatchdog(operation)],
           )
         }
-        DeleteProbeCompleted(operation, result) => {
+        DeletionObservationCompleted(operation, result) => {
           guard find_record(self.records, operation.document_id) is Some(record) else {
             return (self, [])
           }
-          guard record.delete is Probing(current) && current == operation else {
+          guard record.delete is Observing(current) && current == operation else {
             return (self, [])
           }
           match result {
-            Missing =>
-              finish_delete(
-                self,
-                operation,
-                @source_repository.DeleteResult::Deleted(operation.document_id),
-              )
-            Present(_) | Unsupported | Failed(_) =>
+            Observed(_, Confirmed) =>
+              finish_delete(self, operation, Deleted(operation.document_id))
+            Observed(_, Refuted) | Observed(_, Inconclusive) =>
               (
                 {
                   ..self,
@@ -195,11 +185,11 @@ fn Documents::reduce(
               )
           }
         }
-        DeleteProbeElapsed(operation) => {
+        DeletionObservationElapsed(operation) => {
           guard find_record(self.records, operation.document_id) is Some(record) else {
             return (self, [])
           }
-          guard record.delete is Probing(current) && current == operation else {
+          guard record.delete is Observing(current) && current == operation else {
             return (self, [])
           }
           (
@@ -214,135 +204,98 @@ fn Documents::reduce(
           )
         }
       }
-    DeleteConfirmed(document_id) => {
-      guard find_record(self.records, document_id) is Some(record) else {
-        return (self, [])
-      }
-      guard !delete_is_active(record.delete) else { return (self, []) }
-      confirm_or_retry_delete(self, document_id)
-    }
-    DismissDeleteFailure(document_id) => {
-      guard find_record(self.records, document_id) is Some(record) else {
-        return (self, [])
-      }
-      guard record.delete is Failed(_, _) else { return (self, []) }
+    DeleteConfirmed(id) => confirm_or_retry_delete(self, id)
+    RetryDelete(id) => confirm_or_retry_delete(self, id)
+    DismissDeleteFailure(id) =>
       (
         {
           ..self,
-          records: replace_record(self.records, document_id, r => {
-            ..r,
-            delete: Available,
+          records: replace_record(self.records, id, r => {
+            match r.delete {
+              Failed(_, _) => { ..r, delete: Available }
+              _ => r
+            }
           }),
         },
         [],
       )
-    }
-    RetryDelete(document_id) => {
-      guard find_record(self.records, document_id) is Some(record) else {
-        return (self, [])
-      }
-      guard record.delete is Failed(_, _) else { return (self, []) }
-      confirm_or_retry_delete(self, document_id)
-    }
-    DocumentsRetrySave(document_id) => {
-      guard find_record(self.records, document_id) is Some(record) else {
+    DocumentsRetrySave(id) => {
+      guard find_record(self.records, id) is Some(record) else {
         return (self, [])
       }
       match record.save {
         Failed(_) if !record.composing && !delete_is_active(record.delete) => {
           let (next, decisions) = begin_save(record)
           (
-            {
-              ..self,
-              records: replace_record(self.records, document_id, _ => next),
-            },
+            { ..self, records: replace_record(self.records, id, _ => next) },
             decisions,
           )
         }
         _ => (self, [])
       }
     }
-    DocumentsVisibilityFlush(document_id) => {
-      guard find_record(self.records, document_id) is Some(record) else {
+    DocumentsVisibilityFlush(id) => {
+      guard find_record(self.records, id) is Some(record) else {
         return (self, [])
       }
+      guard !delete_is_active(record.delete) else { return (self, []) }
       match record.save {
-        Waiting(_) if !record.composing && !delete_is_active(record.delete) => {
-          let (next, decisions) = begin_save(record)
-          (
-            {
-              ..self,
-              records: replace_record(self.records, document_id, _ => next),
-            },
-            decisions,
-          )
-        }
-        _ => (self, [])
+        Waiting(checkpoint) => mark_eligible(self, id, checkpoint)
+        Saving(_, Some(checkpoint)) => mark_eligible(self, id, checkpoint)
+        Saved | Saving(_, None) | Failed(_) => (self, [])
       }
     }
   }
 }
 
 ///|
-fn Documents::is_composing(self : Self, document_id : String) -> Bool {
-  find_record(self.records, document_id).map(r => r.composing).unwrap_or(false)
+fn Documents::is_composing(self : Self, id : String) -> Bool {
+  find_record(self.records, id).map(r => r.composing).unwrap_or(false)
 }
 
 ///|
 fn Documents::fallback_document(self : Self, excluding : String) -> String? {
-  let candidates = self.records.filter(record => {
-    let id = record.source.document_id()
-    let promoted_new = record.origin == New &&
-      (record.source.text() != "" || record.source.change_order().value() > 0L)
-    id != excluding &&
-    !delete_is_active(record.delete) &&
-    (record.origin == Existing || promoted_new)
+  self.records
+  .filter(r => {
+    r.document.id() != excluding &&
+    !delete_is_active(r.delete) &&
+    r.origin != EphemeralNew
   })
-  let ordered = candidates.copy()
-  ordered.sort_by((left, right) => {
-    let by_newest = right.source
-      .change_order()
-      .value()
-      .compare(left.source.change_order().value())
-    if by_newest != 0 {
-      by_newest
-    } else {
-      left.source.document_id().lexical_compare(right.source.document_id())
-    }
-  })
-  ordered.get(0).map(record => record.source.document_id())
+  .get(0)
+  .map(r => r.document.id())
 }
 
 ///|
-fn Documents::snapshot(self : Self) -> @source_repository.RepositorySnapshot {
-  self.snapshot
+fn Documents::snapshot(self : Self) -> @source_repository.SavedDocuments {
+  self.saved
 }
 
 ///|
-fn Documents::current_sources(
+fn Documents::current_documents(
   self : Self,
-) -> Array[@source_repository.SourceRecord] {
-  self.records.map(record => record.source)
+) -> Array[@source_repository.Document] {
+  self.records.map(r => r.document)
 }
 
 ///|
-fn Documents::text(self : Self, document_id : String) -> String? {
-  find_record(self.records, document_id).map(r => r.source.text())
+fn Documents::text(self : Self, id : String) -> String? {
+  find_record(self.records, id).map(r => r.document.text())
 }
 
 ///|
-fn Documents::save_status(
-  self : Self,
-  document_id : String,
-) -> DocumentsSaveStatus? {
-  find_record(self.records, document_id).map(r => r.save)
+fn Documents::save_status(self : Self, id : String) -> DocumentsSaveStatus? {
+  find_record(self.records, id).map(r => r.save)
 }
 
 ///|
-/// Deletion state for application wiring and status presentation.
-fn Documents::delete_status(
-  self : Self,
-  document_id : String,
-) -> DocumentsDeletePhase? {
-  find_record(self.records, document_id).map(r => r.delete)
+fn Documents::delete_status(self : Self, id : String) -> DocumentsDeletePhase? {
+  find_record(self.records, id).map(r => r.delete)
+}
+
+///|
+/// Check whether a generated New document has not yet been acknowledged.
+fn Documents::is_ephemeral_new(self : Self, id : String) -> Bool {
+  find_record(self.records, id)
+  .map(r => r.origin == EphemeralNew)
+  .unwrap_or(false)
 }

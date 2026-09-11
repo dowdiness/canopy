@@ -15,32 +15,28 @@ without allowing an older Autosave to recreate it in the same tab, and without
 blocking unrelated document editing. Deleting the open document also needs a
 deterministic fallback.
 
-The existing repository returns a precomputed complete
-`RepositorySnapshot` from each write, assumes one write in flight, orders the
-Catalog lexically by Document ID, and creates a persisted `# Untitled\n` Source
-when no valid Source exists. Those choices cannot represent concurrent
-per-document persistence, most-recently-changed fallback, or an ephemeral New
-document after deleting the final Source.
+The earlier repository returned a precomputed complete snapshot from each
+write, assumed one write in flight, and created a persisted `# Untitled\n`
+Source when no valid Source existed. Those choices could not represent
+concurrent per-document persistence, page-local recent fallback, or an
+ephemeral New document after deleting the final Source.
 
 ## Decision
 
 Source records remain the independently authoritative Saved-document records,
 and the Catalog remains a rebuildable in-memory view rather than a persisted
-aggregate. Before the first multi-document release, `source/v1` is redefined to
-contain Document ID, exact Saved text, and an opaque Change order. Earlier
-development-only two-field values are preserved as unsupported records rather
-than guessed or migrated. Change order is issued when Document text changes,
-using browser time with a per-tab monotonic floor seeded above the loaded
-maximum; ties are broken deterministically by Document ID. It orders Recent
-documents but is neither displayed nor treated as a trustworthy cross-tab
-clock.
+aggregate. A `source/v1` value contains only Document ID and exact Saved text.
+Earlier three-field values are preserved as unsupported records rather than
+guessed or migrated. Reload reconstructs `SavedDocuments` in lexical Document
+ID order; no persisted recency metadata exists. During a page lifetime, an
+accepted text change, Import, or promoted New moves that Document to the front.
+Selection and save acknowledgment do not reorder it.
 
-A repository with zero valid Sources is a normal `RepositorySnapshot`. It does
+A repository with zero valid Sources is a normal `SavedDocuments` value. It does
 not create a Source as a repair. The application opens an ephemeral New
-document, reserves its identity without writing Browser storage, and promotes it
-to a Loomark document on its first text change. Deleting the open document opens
-the most recently changed remaining document, or a New document when none
-remains, while preserving the current Editor mode.
+document and reserves its identity without writing Browser storage. Deleting
+the open document opens the first available Document in page-local recent order,
+or a New document when none remains, while preserving the current Editor mode.
 
 The Application Model owns pure per-document persistence lanes. Operations for
 different Document IDs may proceed independently; operations for one Document
@@ -50,9 +46,10 @@ operation for that target. It prevents later same-tab Autosaves from being
 issued.
 
 Repository effects return acknowledged document changes such as a stored Source
-or deleted Document ID, not a precomputed replacement Snapshot.
-The reducer applies each acknowledged change to the latest immutable Snapshot,
-so completion order cannot erase an unrelated document's acknowledged change.
+or deleted Document ID, not a precomputed replacement `SavedDocuments` value.
+The reducer applies each acknowledged change to the latest immutable
+`SavedDocuments`, so completion order cannot erase an unrelated document's
+acknowledged change.
 Delete requests carry an identity separate from the editor `Activation`.
 Unknown Document IDs fail before IndexedDB work.
 
@@ -68,14 +65,14 @@ modal.
 A non-open Pending deletion is shown on its Recent documents entry while the
 open document remains editable. If the target is open, it remains visible but
 cannot be edited or switched away from until the deletion settles. Failure
-preserves the Source, Snapshot, text, Preview, selection, and confirmation data
-needed for retry.
+preserves the Source, `SavedDocuments`, text, Preview, selection, and
+confirmation data needed for retry.
 
 A missing acknowledgment triggers an automatic Browser storage check after a
 bounded interval; elapsed time alone proves neither success nor failure. If the
 check also fails to settle within a bounded interval, the target enters Unknown
 deletion outcome. Loomark isolates that target from editing and Autosave, opens
-the most recently changed remaining document or a New document, and lets other
+the first available Document in page-local recent order or a New document, and lets other
 work continue. A late failure restores the target's availability without
 changing the currently open document; a later success or full scan resolves
 durable truth.
@@ -89,8 +86,8 @@ and remain preserved.
 
 - Delete does not require Trash, a durable tombstone, a persisted Catalog, or a
   mutable repository actor.
-- Empty repositories, New-document promotion, Change order, and acknowledged
-  document changes must land before Delete document can satisfy this contract.
+- Empty repositories, New-document promotion, page-local recency, and
+  acknowledged document changes are part of this contract.
 - The Raw input task updates text and in-memory order only; serialization,
   IndexedDB, and list-content preparation remain outside it.
 - Same-document persistence is serialized without serializing unrelated
@@ -105,7 +102,7 @@ and remain preserved.
 A persisted replacement Source for the final deletion was rejected because an
 unedited New document is not yet a Loomark document. Global write
 serialization was rejected because unrelated document saving and deletion are
-independent. Full-Snapshot completion was rejected because concurrent
+independent. Aggregate-state completion was rejected because concurrent
 acknowledgments can overwrite one another. Durable tombstones and tab locks were
 rejected because cross-tab coordination remains out of scope. Keeping an alert
 dialog open for the transaction lifetime was rejected because it blocks

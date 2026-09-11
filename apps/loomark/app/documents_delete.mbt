@@ -2,87 +2,84 @@
 fn delete_is_active(phase : DocumentsDeletePhase) -> Bool {
   match phase {
     Available | Failed(_, _) => false
-    Waiting(_) | Deleting(_) | Probing(_) | Unknown(_) => true
+    Waiting(_) | Deleting(_) | Observing(_) | Unknown(_) => true
   }
 }
 
 ///|
 fn remove_record(
   records : Array[DocumentRecord],
-  document_id : String,
+  id : String,
 ) -> Array[DocumentRecord] {
-  records.filter(record => record.source.document_id() != document_id)
+  records.filter(r => r.document.id() != id)
 }
 
 ///|
 fn issue_delete(
   documents : Documents,
   operation : DeleteOperation,
-  retained_save : DocumentsSaveStatus,
+  retained : DocumentsSaveStatus,
 ) -> (Documents, Array[DocumentsDecision]) {
-  let records = replace_record(documents.records, operation.document_id, record => {
-    ..record,
-    save: retained_save,
-    delete: Deleting(operation),
-  })
   (
-    { ..documents, records, },
-    [DeleteSource(operation), ArmDeleteWatchdog(operation)],
+    {
+      ..documents,
+      records: replace_record(documents.records, operation.document_id, r => {
+        ..r,
+        save: retained,
+        delete: Deleting(operation),
+      }),
+    },
+    [DeleteDocument(operation), ArmDeleteWatchdog(operation)],
   )
 }
 
 ///|
 fn begin_delete(
   documents : Documents,
-  document_id : String,
-  retained_save : DocumentsSaveStatus,
+  id : String,
+  retained : DocumentsSaveStatus,
 ) -> (Documents, Array[DocumentsDecision]) {
   let request_id = documents.last_delete_request + 1
   issue_delete(
     { ..documents, last_delete_request: request_id },
-    { document_id, request_id },
-    retained_save,
+    { document_id: id, request_id },
+    retained,
   )
 }
 
 ///|
-/// Start a confirmed or retried deletion, fencing an active save first.
 fn confirm_or_retry_delete(
   documents : Documents,
-  document_id : String,
+  id : String,
 ) -> (Documents, Array[DocumentsDecision]) {
-  guard find_record(documents.records, document_id) is Some(record) else {
+  guard find_record(documents.records, id) is Some(record) else {
     return (documents, [])
   }
   let request_id = documents.last_delete_request + 1
-  let operation = { document_id, request_id }
-  let save_is_active = match record.save {
-    Saving(_, _) => true
-    _ => false
-  }
-  if record.origin == New && !save_is_active {
-    (
-      {
-        ..documents,
-        last_delete_request: request_id,
-        records: remove_record(documents.records, document_id),
-      },
-      [],
-    )
-  } else if record.save is Saving(_, _) {
-    (
-      {
-        ..documents,
-        last_delete_request: request_id,
-        records: replace_record(documents.records, document_id, r => {
-          ..r,
-          delete: Waiting(operation),
-        }),
-      },
-      [],
-    )
-  } else {
-    begin_delete(documents, document_id, record.save)
+  let operation = { document_id: id, request_id }
+  match record.save {
+    Saving(_, _) =>
+      (
+        {
+          ..documents,
+          last_delete_request: request_id,
+          records: replace_record(documents.records, id, r => {
+            ..r,
+            delete: Waiting(operation),
+          }),
+        },
+        [],
+      )
+    _ if record.origin == EphemeralNew =>
+      (
+        {
+          ..documents,
+          last_delete_request: request_id,
+          records: remove_record(documents.records, id),
+        },
+        [],
+      )
+    _ => begin_delete(documents, id, record.save)
   }
 }
 
@@ -96,43 +93,32 @@ fn finish_delete(
     return (documents, [])
   }
   guard (match record.delete {
-    Deleting(current)
-    | Probing(current)
-    | Unknown(current)
-    | Failed(current, _) => current == operation
-    Available | Waiting(_) => false
+    Deleting(x) | Observing(x) | Unknown(x) | Failed(x, _) => x == operation
+    _ => false
   }) else {
     return (documents, [])
   }
   match result {
-    @source_repository.DeleteResult::Deleted(document_id) => {
-      guard document_id == operation.document_id else { return (documents, []) }
-      let snapshot = match documents.snapshot.source(document_id) {
-        Some(_) =>
-          match
-            documents.snapshot.apply_acknowledged(
-              @source_repository.AcknowledgedChange::SourceDeleted(document_id),
-            ) {
-            Some(snapshot) => snapshot
-            None => return (documents, [])
-          }
-        None => documents.snapshot
+    Deleted(id) => {
+      guard id == operation.document_id else { return (documents, []) }
+      guard documents.saved.apply(
+          @source_repository.RepositoryChange::Deleted(id),
+        )
+        is Some(saved) else {
+        return (documents, [])
       }
       (
-        {
-          ..documents,
-          snapshot,
-          records: remove_record(documents.records, document_id),
-        },
+        { ..documents, saved, records: remove_record(documents.records, id) },
         [],
       )
     }
-    @source_repository.DeleteResult::Failed(failure) => {
+    DeleteFailed(failure) => {
       let restored = { ..record, delete: Failed(operation, failure) }
       let (restored, decisions) = match record.save {
-        Waiting(checkpoint) if checkpoint.eligibility == Eligible &&
+        Waiting(checkpoint) if checkpoint.eligibility ==
+          DocumentsCheckpointEligibility::Eligible &&
           !record.composing => begin_save(restored)
-        Waiting(checkpoint) if checkpoint.eligibility == Deferred =>
+        Waiting(checkpoint) =>
           (restored, checkpoint_effect(operation.document_id, checkpoint, true))
         _ => (restored, [])
       }
@@ -142,7 +128,7 @@ fn finish_delete(
           records: replace_record(documents.records, operation.document_id, fn(
             _,
           ) {
-            restored
+            return restored
           }),
         },
         decisions,

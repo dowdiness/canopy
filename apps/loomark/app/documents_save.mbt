@@ -3,39 +3,25 @@ fn import_document(
   documents : Documents,
   document_id : String,
   text : String,
-  observed : @source_repository.ChangeOrder,
 ) -> (Documents, Array[DocumentsDecision]) {
   guard find_record(documents.records, document_id) is None else {
     return (documents, [])
   }
-  match documents.change_order_floor.advance(observed) {
-    None => (documents, [])
-    Some(order) => {
-      guard @source_repository.SourceRecord::from_parts(
-          document_id,
-          text,
-          change_order=order,
-        )
-        is Some(source) else {
-        return (documents, [])
-      }
-      let (record, decisions) = begin_save({
-        source,
-        origin: New,
-        composing: false,
-        save: Saved,
-        delete: Available,
-      })
-      (
-        {
-          ..documents,
-          records: append_record(documents.records, record),
-          change_order_floor: order,
-        },
-        decisions,
-      )
-    }
+  let document = @source_repository.Document::create(document_id, text) catch {
+    _ => abort("invalid generated document id")
   }
+  let record = {
+    document,
+    origin: ImportedNew,
+    composing: false,
+    save: Saved,
+    delete: Available,
+  }
+  let (record, decisions) = begin_save(record)
+  (
+    { ..documents, records: prepend_record(documents.records, record) },
+    decisions,
+  )
 }
 
 ///|
@@ -43,109 +29,73 @@ fn apply_text(
   documents : Documents,
   document_id : String,
   text : String,
-  observed : @source_repository.ChangeOrder,
 ) -> (Documents, Array[DocumentsDecision]) {
   guard find_record(documents.records, document_id) is Some(record) else {
     return (documents, [])
   }
-  guard !delete_is_active(record.delete) else { return (documents, []) }
-  guard record.source.text() != text else { return (documents, []) }
-  guard documents.change_order_floor.advance(observed) is Some(order) else {
-    let failed = {
-      ..record,
-      save: Failed(@source_repository.SaveFailure::ChangeOrderExhausted),
-    }
-    return (
-      {
-        ..documents,
-        records: replace_record(documents.records, document_id, _ => failed),
-      },
-      [],
-    )
+  guard !delete_is_active(record.delete) && record.document.text() != text else {
+    return (documents, [])
   }
-  let source = @source_repository.SourceRecord::from_parts(
-    document_id,
-    text,
-    change_order=order,
-  ).unwrap()
-  let updated = { ..record, source, }
-  let documents = { ..documents, change_order_floor: order }
-  match record.save {
-    Saving(operation, pending) => {
-      let (documents, checkpoint, new_checkpoint) = match pending {
-        Some(checkpoint) =>
-          (documents, update_checkpoint(checkpoint, order), false)
-        None => {
-          let (documents, checkpoint) = allocate_documents_checkpoint(
-            documents, order,
-          )
-          (documents, checkpoint, true)
-        }
-      }
-      (
-        {
-          ..documents,
-          records: replace_record(documents.records, document_id, _ => {
-            ..updated,
-            save: Saving(operation, Some(checkpoint)),
-          }),
-        },
-        if record.composing {
-          []
-        } else {
-          checkpoint_effect(document_id, checkpoint, new_checkpoint)
-        },
-      )
+  let document = record.document.update(text)
+  let updated = {
+    ..record,
+    document,
+    origin: if record.origin == EphemeralNew {
+      EphemeralNew
+    } else {
+      record.origin
+    },
+  }
+  let acknowledged = documents.saved.find(document_id)
+  let is_clean = acknowledged is Some(saved) && saved.text() == text
+  let (documents, checkpoint, new_checkpoint) = match record.save {
+    Saving(_, Some(checkpoint)) => {
+      let (d, c) = revise_checkpoint(documents, checkpoint)
+      (d, c, false)
+    }
+    Saving(_, None) => {
+      let (d, c) = allocate_checkpoint(documents)
+      (d, c, true)
     }
     Waiting(checkpoint) => {
-      let checkpoint = update_checkpoint(checkpoint, order)
-      (
-        {
-          ..documents,
-          records: replace_record(documents.records, document_id, _ => {
-            ..updated,
-            save: Waiting(checkpoint),
-          }),
-        },
-        if record.composing {
-          []
-        } else {
-          checkpoint_effect(document_id, checkpoint, false)
-        },
-      )
+      let (d, c) = revise_checkpoint(documents, checkpoint)
+      (d, c, false)
     }
-    Saved | Failed(_) =>
-      if is_clean(documents, updated) {
-        (
-          {
-            ..documents,
-            records: replace_record(documents.records, document_id, _ => {
-              ..updated,
-              save: Saved,
-            }),
-          },
-          [],
-        )
-      } else {
-        let (documents, checkpoint) = allocate_documents_checkpoint(
-          documents, order,
-        )
-        let decisions = if record.composing {
-          []
-        } else {
-          checkpoint_effect(document_id, checkpoint, true)
-        }
-        (
-          {
-            ..documents,
-            records: replace_record(documents.records, document_id, _ => {
-              ..updated,
-              save: Waiting(checkpoint),
-            }),
-          },
-          decisions,
-        )
-      }
+    Saved | Failed(_) => {
+      let (d, c) = allocate_checkpoint(documents)
+      (d, c, true)
+    }
+  }
+  let checkpoint = if updated.composing && new_checkpoint {
+    { ..checkpoint, maximum_armed: false }
+  } else {
+    checkpoint
+  }
+  let in_flight = match record.save {
+    Saving(_, _) => true
+    _ => false
+  }
+  let save = if is_clean && !in_flight {
+    Saved
+  } else {
+    match record.save {
+      Saving(operation, _) => Saving(operation, Some(checkpoint))
+      _ => Waiting(checkpoint)
+    }
+  }
+  let documents = {
+    ..documents,
+    records: prepend_record(remove_record(documents.records, document_id), {
+      ..updated,
+      save,
+    }),
+  }
+  if is_clean && !in_flight {
+    (documents, [])
+  } else if updated.composing {
+    (documents, [])
+  } else {
+    (documents, checkpoint_effect(document_id, checkpoint, new_checkpoint))
   }
 }
 
@@ -153,15 +103,15 @@ fn apply_text(
 fn eligible_quiet(
   documents : Documents,
   document_id : String,
-  order : @source_repository.ChangeOrder,
+  revision : Int,
 ) -> (Documents, Array[DocumentsDecision]) {
   match find_record(documents.records, document_id) {
     Some(record) if delete_is_active(record.delete) => (documents, [])
     Some(record) =>
       match record.save {
-        Waiting(checkpoint) if checkpoint.order == order =>
+        Waiting(checkpoint) if checkpoint.quiet_revision == revision =>
           mark_eligible(documents, document_id, checkpoint)
-        Saving(_, Some(checkpoint)) if checkpoint.order == order =>
+        Saving(_, Some(checkpoint)) if checkpoint.quiet_revision == revision =>
           mark_eligible(documents, document_id, checkpoint)
         _ => (documents, [])
       }
@@ -173,15 +123,14 @@ fn eligible_quiet(
 fn eligible_maximum(
   documents : Documents,
   document_id : String,
-  id : Int,
+  maximum_id : Int,
 ) -> (Documents, Array[DocumentsDecision]) {
   match find_record(documents.records, document_id) {
-    Some(record) if delete_is_active(record.delete) => (documents, [])
     Some(record) =>
       match record.save {
-        Waiting(checkpoint) if checkpoint.id == id =>
+        Waiting(checkpoint) if checkpoint.maximum_id == maximum_id =>
           mark_eligible(documents, document_id, checkpoint)
-        Saving(_, Some(checkpoint)) if checkpoint.id == id =>
+        Saving(_, Some(checkpoint)) if checkpoint.maximum_id == maximum_id =>
           mark_eligible(documents, document_id, checkpoint)
         _ => (documents, [])
       }
@@ -205,8 +154,8 @@ fn mark_eligible(
       (
         {
           ..documents,
-          records: replace_record(documents.records, document_id, _ => {
-            ..record,
+          records: replace_record(documents.records, document_id, r => {
+            ..r,
             save: Waiting(checkpoint),
           }),
         },
@@ -226,8 +175,8 @@ fn mark_eligible(
       (
         {
           ..documents,
-          records: replace_record(documents.records, document_id, _ => {
-            ..record,
+          records: replace_record(documents.records, document_id, r => {
+            ..r,
             save: Saving(operation, Some(checkpoint)),
           }),
         },
@@ -243,7 +192,7 @@ fn complete(
   operation : SaveOperation,
   result : @source_repository.SaveResult,
 ) -> (Documents, Array[DocumentsDecision]) {
-  let document_id = operation.source.document_id()
+  let document_id = operation.document.id()
   guard find_record(documents.records, document_id) is Some(record) else {
     return (documents, [])
   }
@@ -251,37 +200,71 @@ fn complete(
     return (documents, [])
   }
   match result {
-    Stored(source) => {
-      guard source == operation.source else { return (documents, []) }
-      guard documents.snapshot.apply_acknowledged(
-          @source_repository.AcknowledgedChange::SourceStored(source),
+    Stored(document) => {
+      guard document == operation.document else { return (documents, []) }
+      guard documents.saved.apply(
+          @source_repository.RepositoryChange::Stored(document),
         )
-        is Some(snapshot) else {
+        is Some(saved) else {
         return (documents, [])
       }
       let completed = { ..record, origin: Existing }
-      let (next_record, decisions) = match pending {
-        Some(checkpoint) if checkpoint.eligibility == Eligible &&
-          !record.composing => begin_save(completed)
-        Some(checkpoint) => ({ ..completed, save: Waiting(checkpoint) }, [])
-        None => ({ ..completed, source: operation.source, save: Saved }, [])
-      }
-      (
-        {
-          snapshot,
-          records: replace_record(documents.records, document_id, fn(_) {
-            next_record
-          }),
-          last_checkpoint_id: documents.last_checkpoint_id,
-          last_delete_request: documents.last_delete_request,
-          change_order_floor: documents.change_order_floor,
-        },
-        decisions,
-      )
-    }
-    Failed(failure) =>
       match pending {
-        Some(checkpoint) if checkpoint.eligibility == Eligible &&
+        Some(_) if saved.find(document_id) == Some(record.document) =>
+          (
+            {
+              ..documents,
+              saved,
+              records: replace_record(documents.records, document_id, _ => {
+                ..completed,
+                save: Saved,
+              }),
+            },
+            [],
+          )
+        Some(checkpoint) if checkpoint.eligibility ==
+          DocumentsCheckpointEligibility::Eligible &&
+          !record.composing => {
+          let (next, decisions) = begin_save(completed)
+          (
+            {
+              ..documents,
+              saved,
+              records: replace_record(documents.records, document_id, _ => next),
+            },
+            decisions,
+          )
+        }
+        Some(checkpoint) =>
+          (
+            {
+              ..documents,
+              saved,
+              records: replace_record(documents.records, document_id, _ => {
+                ..completed,
+                save: Waiting(checkpoint),
+              }),
+            },
+            [],
+          )
+        None =>
+          (
+            {
+              ..documents,
+              saved,
+              records: replace_record(documents.records, document_id, _ => {
+                ..completed,
+                save: Saved,
+              }),
+            },
+            [],
+          )
+      }
+    }
+    SaveFailed(failure) =>
+      match pending {
+        Some(checkpoint) if checkpoint.eligibility ==
+          DocumentsCheckpointEligibility::Eligible &&
           !record.composing => {
           let (next, decisions) = begin_save({
             ..record,

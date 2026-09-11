@@ -1,134 +1,43 @@
 ///|
-const LEGACY_ACTIVE_KEY : String = "active"
-
-///|
-const EDITING_DOCUMENT_KEY : String = "editing-document"
-
-///|
-priv enum Reconciliation {
-  Ready(RepositorySnapshot, SourceRecord?)
-  Migrate(Array[@indexed_db.Mutation])
-}
-
-///|
-fn reconcile_scan(entries : Array[@indexed_db.ScanEntry]) -> Reconciliation {
-  let sources : Array[SourceRecord] = []
+fn reconcile_scan(
+  entries : Array[@indexed_db.Entry],
+) -> (SavedDocuments, Document?) {
+  let documents : Array[Document] = []
   let issues : Array[RepositoryIssue] = []
-  let raw_source_keys : Set[String] = Set([])
-  let valid_source_ids : Set[String] = Set([])
-  let mut legacy : (String, SourceRecord)? = None
-  let mut editing_document_id : String? = None
+  let observed : Array[String] = []
+  let mut editing : String? = None
   for entry in entries {
     match entry {
-      StringRecord(key, encoded) =>
+      @indexed_db.Entry::StringRecord(key, encoded) =>
         if key == EDITING_DOCUMENT_KEY {
-          editing_document_id = Some(encoded)
-        } else if key == LEGACY_ACTIVE_KEY {
-          match decode_source_value(encoded) {
-            Ok(source) => legacy = Some((encoded, source))
-            Err(_) => issues.push(InvalidLegacyRecord)
-          }
+          editing = Some(encoded)
         } else if key.strip_prefix(SOURCE_KEY_PREFIX) is Some(_) {
-          raw_source_keys.add(key)
-          match decode_source(key, encoded) {
-            Ok(source) => {
-              valid_source_ids.add(source.document_id())
-              sources.push(source)
-            }
-            Err(InvalidRecord) => issues.push(InvalidSource(key))
-            Err(IdentityMismatch) => issues.push(SourceIdentityMismatch(key))
-            Err(UnsupportedSchema) => issues.push(UnsupportedRecord(key))
+          observed.push(key)
+          match decode_document(key, encoded) {
+            Some(document) if documents
+              .iter()
+              .all(existing => existing.id() != document.id()) =>
+              documents.push(document)
+            _ => issues.push(InvalidSource(key))
           }
         } else if key.strip_prefix("source/v") is Some(_) {
           issues.push(UnsupportedSourceSchema(key))
         } else {
           issues.push(UnknownRecord(key))
         }
-      UnsupportedValue(key) => {
+      @indexed_db.Entry::UnsupportedValue(key) =>
         if key.strip_prefix(SOURCE_KEY_PREFIX) is Some(_) {
-          raw_source_keys.add(key)
-        }
-        if key == EDITING_DOCUMENT_KEY {
+          observed.push(key)
+          issues.push(InvalidSource(key))
+        } else if key == EDITING_DOCUMENT_KEY {
           ()
-        } else if key == LEGACY_ACTIVE_KEY {
-          issues.push(InvalidLegacyRecord)
         } else {
           issues.push(UnsupportedRecord(key))
         }
-      }
-      UnsupportedKey(position) => issues.push(UnsupportedKey(position))
+      @indexed_db.Entry::UnsupportedKey(position) =>
+        issues.push(UnsupportedKey(position))
     }
   }
-  match legacy {
-    Some((encoded, source)) => {
-      let document_id = source.document_id()
-      let target_key = source_key(document_id).unwrap()
-      if valid_source_ids.contains(document_id) {
-        return Migrate([@indexed_db.Mutation::Delete(LEGACY_ACTIVE_KEY)])
-      }
-      if raw_source_keys.contains(target_key) {
-        issues.push(LegacyMigrationCollision(document_id))
-      } else {
-        return Migrate([
-          @indexed_db.Mutation::Put(target_key, encoded),
-          @indexed_db.Mutation::Delete(LEGACY_ACTIVE_KEY),
-        ])
-      }
-    }
-    None => ()
-  }
-  let snapshot = match
-    snapshot_from_sources(sources, issues, raw_source_keys.to_array()) {
-    Some(snapshot) => snapshot
-    None =>
-      snapshot_from_sources([], issues, raw_source_keys.to_array()).unwrap()
-  }
-  let initial = match editing_document_id {
-    Some(document_id) =>
-      match snapshot.source(document_id) {
-        Some(source) => Some(source)
-        None => snapshot.selected()
-      }
-    None => snapshot.selected()
-  }
-  Ready(snapshot, initial)
-}
-
-///|
-fn next_catalog(
-  current : Catalog,
-  document_id : String,
-  source : String,
-  change_order? : ChangeOrder = ChangeOrder(0L),
-) -> Catalog {
-  let derived_name = @document_lead.derive_name(source)
-  let entries = current
-    .entries()
-    .filter(entry => entry.document_id() != document_id)
-  entries.push(
-    CatalogEntry::from_derived_name(document_id, derived_name, change_order~).unwrap(),
-  )
-  Catalog::from_entries(entries).unwrap()
-}
-
-///|
-fn next_catalog_after_source(
-  current : Catalog,
-  document_id : String,
-  source : String,
-  change_order? : ChangeOrder = ChangeOrder(0L),
-) -> Catalog {
-  guard current.entries().search_by(entry => entry.document_id() == document_id)
-    is Some(index) else {
-    return next_catalog(current, document_id, source, change_order~)
-  }
-  let current_entry = current.entries()[index]
-  let derived_name = current_entry.derived_name.update(source)
-  let entries = current
-    .entries()
-    .filter(entry => entry.document_id() != document_id)
-  entries.push(
-    CatalogEntry::from_derived_name(document_id, derived_name, change_order~).unwrap(),
-  )
-  Catalog::from_entries(entries).unwrap()
+  let saved = rebuild_saved_documents(documents, issues, editing, observed)
+  (saved, saved.editing_document())
 }

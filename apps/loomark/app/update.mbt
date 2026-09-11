@@ -16,10 +16,6 @@ fn compact_viewport(width : Double) -> Bool {
 }
 
 ///|
-extern "js" fn observed_change_order() -> Int64 =
-  #| () => BigInt(Date.now())
-
-///|
 fn preview_input(editing : EditingState) -> @preview.Input {
   @preview.Input(
     editing.activation.generation,
@@ -63,7 +59,7 @@ fn deletion_blocks_document_changes(editing : EditingState) -> Bool {
     Some(Available) | Some(Failed(_, _)) | None => false
     Some(Waiting(_))
     | Some(Deleting(_))
-    | Some(Probing(_))
+    | Some(Observing(_))
     | Some(Unknown(_)) => true
   }
   let confirmation_blocks = match editing.deletion {
@@ -103,40 +99,29 @@ fn run_decision(
     DocumentsArmMaximum(document_id, id) =>
       @cmd.delay(emit(MaximumElapsed(document_id, id)), AUTOSAVE_MAXIMUM_MS)
     DocumentsPersist(operation) =>
-      match operation.origin {
-        New =>
-          @source_repository.store_new(
-            documents.snapshot(),
-            operation.source.document_id(),
-            operation.source.text(),
-            operation.source.change_order(),
-            result=emit.map(result => SaveCompleted(operation, result)),
-          )
-        Existing =>
-          @source_repository.save(
-            documents.snapshot(),
-            operation.source.document_id(),
-            operation.source.text(),
-            change_order=operation.source.change_order(),
-            result=emit.map(result => SaveCompleted(operation, result)),
-          )
-      }
-    DeleteSource(operation) =>
+      @source_repository.save(
+        documents.snapshot(),
+        operation.document,
+        emit.map(result => SaveCompleted(operation, result)),
+      )
+    DeleteDocument(operation) =>
       @source_repository.delete(
         documents.snapshot(),
         operation.document_id,
-        result=emit.map(result => DeleteCompleted(operation, result)),
+        emit.map(result => DeleteCompleted(operation, result)),
       )
     ArmDeleteWatchdog(operation) =>
       @cmd.delay(emit(DeleteWatchdogElapsed(operation)), DELETE_WATCHDOG_MS)
-    ProbeDelete(operation) =>
-      @source_repository.probe(
-        documents.snapshot(),
+    ObserveDeletion(operation) =>
+      @source_repository.observe_deletion(
         operation.document_id,
-        result=emit.map(result => DeleteProbeCompleted(operation, result)),
+        emit.map(result => DeletionObservationCompleted(operation, result)),
       )
-    ArmProbeWatchdog(operation) =>
-      @cmd.delay(emit(DeleteProbeElapsed(operation)), DELETE_WATCHDOG_MS)
+    ArmDeletionWatchdog(operation) =>
+      @cmd.delay(
+        emit(DeletionObservationElapsed(operation)),
+        DELETE_WATCHDOG_MS,
+      )
   }
 }
 
@@ -196,10 +181,14 @@ fn activate(
     text_area,
     preview_engine,
   )
-  let remember = @source_repository.remember_editing_document(
-    editing.documents.snapshot(),
-    document_id,
-  )
+  let remember = if editing.documents.is_ephemeral_new(document_id) {
+    @cmd.none
+  } else {
+    @source_repository.remember_editing_document(
+      editing.documents.snapshot(),
+      document_id,
+    )
+  }
   ({ ..editing, activation, preview }, @cmd.batch([surface, remember]))
 }
 
@@ -227,7 +216,7 @@ fn initial_state(
 ) -> (Model, @rabbita.Cmd) {
   (
     Loading(compact),
-    @source_repository.open(result=emit.map(result => Opened(result))),
+    @source_repository.open(emit.map(result => Opened(result))),
   )
 }
 
@@ -240,14 +229,14 @@ fn update(
   preview_engine : @preview.PreviewEngine,
 ) -> (Model, @rabbita.Cmd) {
   match (model, msg) {
-    (Loading(compact), Opened(Ready(snapshot, initial))) =>
+    (Loading(compact), Opened(Ready(saved, initial))) =>
       match initial {
-        Some(source) => {
-          let documents = initial_documents(snapshot)
-          let activation = { document_id: source.document_id(), generation: 0 }
+        Some(document) => {
+          let documents = initial_documents(saved)
+          let activation = { document_id: document.id(), generation: 0 }
           let (preview, command) = activate_surface(
             activation,
-            source.text(),
+            document.text(),
             Text,
             emit,
             text_area,
@@ -269,7 +258,7 @@ fn update(
           )
         }
         None => {
-          let documents = initial_documents(snapshot)
+          let documents = initial_documents(saved)
           let preparing : PreparingNewState = {
             documents,
             mode: Text,
@@ -280,20 +269,20 @@ fn update(
           (
             PreparingNew(preparing),
             @source_repository.create(
-              snapshot,
-              result=emit.map(result => EmptyCreateCompleted(1, result)),
+              saved,
+              emit.map(result => EmptyCreateCompleted(1, result)),
             ),
           )
         }
       }
-    (Loading(compact), Opened(Failed(failure))) =>
+    (Loading(compact), Opened(OpenFailed(failure))) =>
       (Recovery(failure, compact), @cmd.none)
     (PreparingNew(preparing), EmptyCreateCompleted(request_id, result)) =>
       if preparing.request_id != request_id {
         (model, @cmd.none)
       } else {
         match result {
-          Failed(failure) =>
+          CreateFailed(failure) =>
             (
               Recovery(creation_open_failure(failure), preparing.compact),
               @cmd.none,
@@ -377,12 +366,9 @@ fn update(
           Some(text) if editing.documents.text(owner.document_id) == Some(text) =>
             (Editing(editing), @cmd.none)
           Some(text) => {
-            let observed = @source_repository.ChangeOrder::from_int64(
-              observed_change_order(),
-            ).unwrap()
             let (editing, command) = reduce_documents(
               editing,
-              DocumentsTextChanged(owner.document_id, text, observed),
+              DocumentsTextChanged(owner.document_id, text),
               emit,
             )
             if editing.documents.text(owner.document_id) != Some(text) {
@@ -477,19 +463,16 @@ fn update(
             Editing(editing),
             @source_repository.create(
               editing.documents.snapshot(),
-              result=emit.map(result => ImportCreateCompleted(text, result)),
+              emit.map(result => ImportCreateCompleted(text, result)),
             ),
           )
       }
-    (Editing(editing), ImportCreateCompleted(_, Failed(_))) =>
+    (Editing(editing), ImportCreateCompleted(_, CreateFailed(_))) =>
       (Editing({ ..editing, import_failed: true }), @cmd.none)
     (Editing(editing), ImportCreateCompleted(text, Created(document_id))) => {
-      let observed = @source_repository.ChangeOrder::from_int64(
-        observed_change_order(),
-      ).unwrap()
       let (next, persist) = reduce_documents(
         editing,
-        DocumentsImported(document_id, text, observed),
+        DocumentsImported(document_id, text),
         emit,
       )
       if next.documents.text(document_id) is None {
@@ -547,7 +530,7 @@ fn update(
           Editing({ ..editing, creation: Creating }),
           @source_repository.create(
             editing.documents.snapshot(),
-            result=emit.map(result => CreateCompleted(owner, result)),
+            emit.map(result => CreateCompleted(owner, result)),
           ),
         )
       }
@@ -569,7 +552,7 @@ fn update(
         )
         (Editing(next), command)
       }
-    (Editing(editing), CreateCompleted(owner, Failed(failure))) =>
+    (Editing(editing), CreateCompleted(owner, CreateFailed(failure))) =>
       if editing.creation == Creating && owner == editing.activation.document_id {
         (Editing({ ..editing, creation: CreationFailed(failure) }), @cmd.none)
       } else {
@@ -732,7 +715,7 @@ fn reconcile_active(
             prior,
             @source_repository.create(
               editing.documents.snapshot(),
-              result=emit.map(result => EmptyCreateCompleted(request_id, result)),
+              emit.map(result => EmptyCreateCompleted(request_id, result)),
             ),
           ]),
         )
@@ -746,9 +729,6 @@ fn creation_open_failure(
   failure : @source_repository.CreateFailure,
 ) -> @source_repository.OpenFailure {
   match failure {
-    DocumentIdentityUnavailable => DocumentIdentityUnavailable
-    StorageUnavailable => StorageUnavailable
-    QuotaExceeded => QuotaExceeded
-    WriteFailed => WriteFailed
+    DocumentIdentityUnavailable => StorageUnavailable
   }
 }

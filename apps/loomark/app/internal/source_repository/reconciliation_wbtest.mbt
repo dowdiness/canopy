@@ -1,395 +1,85 @@
 ///|
-fn test_source(id : String, text : String) -> SourceRecord {
-  SourceRecord::from_parts(id, text).unwrap()
-}
-
-///|
-fn test_encoded_source(id : String, text : String) -> String {
-  encode_source(test_source(id, text))
-}
-
-///|
-fn CatalogEntry::from_parts(
-  document_id : String,
-  name : String,
-  change_order? : ChangeOrder = ChangeOrder(0L),
-) -> Self? {
-  guard document_id != "" else { return None }
-  Some({
-    document_id,
-    derived_name: @document_lead.derive_name(name),
-    change_order,
-  })
-}
-
-///|
-test "reconciliation isolates corrupt and unsupported records" {
-  let valid = test_source("document-b", "# Same\n")
-  let result = reconcile_scan([
-    @indexed_db.ScanEntry::StringRecord(
-      "source/v1/document-b",
-      encode_source(valid),
-    ),
-    @indexed_db.ScanEntry::StringRecord("source/v1/broken", "not-json"),
-    @indexed_db.ScanEntry::StringRecord(
-      "source/v1/old", "{\"document_id\":\"old\",\"text\":\"# Old\\n\"}",
-    ),
-    @indexed_db.ScanEntry::StringRecord(
-      "source/v1/wrong-key",
-      test_encoded_source("wrong-payload", "# Wrong\n"),
-    ),
-    @indexed_db.ScanEntry::StringRecord("source/v2/future", "future"),
-    @indexed_db.ScanEntry::StringRecord("catalog/v1", "obsolete"),
-    @indexed_db.ScanEntry::StringRecord("other", "value"),
-    @indexed_db.ScanEntry::UnsupportedValue("binary"),
-    @indexed_db.ScanEntry::UnsupportedKey(6),
-  ])
-  guard result is Reconciliation::Ready(snapshot, Some(initial)) else {
-    fail("expected ready snapshot")
+fn rdoc(id : String, text : String) -> Document {
+  Document::create(id, text) catch {
+    _ => abort("invalid test id")
   }
-  assert_eq(initial, valid)
-  assert_eq(snapshot.sources().to_owned(), [valid])
-  assert_eq(snapshot.occupied_source_keys().to_owned(), [
-    "source/v1/broken", "source/v1/document-b", "source/v1/old", "source/v1/wrong-key",
-  ])
-  assert_eq(
-    snapshot
-    .catalog()
-    .entries()
-    .map(entry => (entry.document_id(), entry.name())),
-    [("document-b", "Same")],
+}
+
+///|
+fn rentry(id : String, text : String) -> @indexed_db.Entry {
+  @indexed_db.Entry::StringRecord(
+    "source/v1/" + id,
+    encode_document(rdoc(id, text)),
   )
-  assert_eq(snapshot.issues().to_owned(), [
-    RepositoryIssue::InvalidSource("source/v1/broken"),
-    RepositoryIssue::UnsupportedRecord("source/v1/old"),
-    RepositoryIssue::SourceIdentityMismatch("source/v1/wrong-key"),
+}
+
+///|
+test "reconciliation derives catalog and preserves unrelated observations" {
+  let (saved, selected) = reconcile_scan([
+    rentry("b", "# B\n"),
+    rentry("a", "# A\n"),
+    @indexed_db.Entry::StringRecord("other", "x"),
+  ])
+  guard selected is Some(selected) else { fail("missing selection") }
+  assert_eq(selected.id(), "a")
+  assert_eq(saved.all().map(x => x.id()), ["a", "b"])
+  assert_eq(saved.issues(), [RepositoryIssue::UnknownRecord("other")])
+}
+
+///|
+test "reconciliation isolates malformed unknown and unsupported records" {
+  let (saved, selected) = reconcile_scan([
+    @indexed_db.Entry::StringRecord("source/v1/bad", "nope"),
+    @indexed_db.Entry::UnsupportedValue("source/v1/binary"),
+    @indexed_db.Entry::StringRecord("source/v2/future", "x"),
+    @indexed_db.Entry::UnsupportedValue("metadata"),
+    @indexed_db.Entry::UnsupportedKey(4),
+  ])
+  assert_eq(selected, None)
+  assert_eq(saved.all(), [])
+  assert_eq(saved.issues(), [
+    RepositoryIssue::InvalidSource("source/v1/bad"),
+    RepositoryIssue::InvalidSource("source/v1/binary"),
     RepositoryIssue::UnsupportedSourceSchema("source/v2/future"),
-    RepositoryIssue::UnknownRecord("catalog/v1"),
-    RepositoryIssue::UnknownRecord("other"),
-    RepositoryIssue::UnsupportedRecord("binary"),
-    RepositoryIssue::UnsupportedKey(6),
+    RepositoryIssue::UnsupportedRecord("metadata"),
+    RepositoryIssue::UnsupportedKey(4),
   ])
 }
 
 ///|
-test "initial Document is the accepted Editing Document or deterministic fallback" {
-  let selected = SourceRecord::from_parts(
-    "document-a",
-    "# A\n",
-    change_order=ChangeOrder::from_int64(20L).unwrap(),
-  ).unwrap()
-  let editing = SourceRecord::from_parts(
-    "document-b",
-    "# B\n",
-    change_order=ChangeOrder::from_int64(10L).unwrap(),
-  ).unwrap()
-  let sources = [
-    @indexed_db.ScanEntry::StringRecord(
-      source_key("document-a").unwrap(),
-      encode_source(selected),
-    ),
-    @indexed_db.ScanEntry::StringRecord(
-      source_key("document-b").unwrap(),
-      encode_source(editing),
-    ),
+test "only exact editing-document string selects a valid document" {
+  let entries = [
+    rentry("a", "a"),
+    rentry("b", "b"),
+    @indexed_db.Entry::StringRecord("editing-document", "b"),
   ]
-  let cases : Array[(Array[@indexed_db.ScanEntry], SourceRecord)] = [
-    ([], selected),
-    ([StringRecord(EDITING_DOCUMENT_KEY, "document-b")], editing),
-    ([StringRecord(EDITING_DOCUMENT_KEY, "")], selected),
-    ([StringRecord(EDITING_DOCUMENT_KEY, "missing")], selected),
-    ([UnsupportedValue(EDITING_DOCUMENT_KEY)], selected),
-  ]
-  for case in cases {
-    let (metadata, expected) = case
-    guard reconcile_scan(metadata + sources)
-      is Reconciliation::Ready(snapshot, Some(initial)) else {
-      fail("expected ready repository")
-    }
-    assert_eq(initial, expected)
-    assert_eq(snapshot.selected(), Some(selected))
-    assert_eq(snapshot.issues(), [])
-  }
-}
-
-///|
-test "legacy migration decisions preserve collision safety" {
-  let active = test_encoded_source("legacy-id", "# Legacy\n")
-  guard reconcile_scan([
-      @indexed_db.ScanEntry::StringRecord(LEGACY_ACTIVE_KEY, active),
-    ])
-    is Reconciliation::Migrate(mutations) else {
-    fail("expected atomic legacy move")
-  }
-  assert_eq(mutations, [
-    @indexed_db.Mutation::Put("source/v1/legacy-id", active),
-    @indexed_db.Mutation::Delete(LEGACY_ACTIVE_KEY),
+  let (_, selected) = reconcile_scan(entries)
+  guard selected is Some(selected) else { fail("missing selection") }
+  assert_eq(selected.id(), "b")
+  let (_, fallback) = reconcile_scan([
+    rentry("a", "a"),
+    @indexed_db.Entry::StringRecord("editing-document", "missing"),
   ])
-
-  guard reconcile_scan([
-      @indexed_db.ScanEntry::StringRecord(LEGACY_ACTIVE_KEY, active),
-      @indexed_db.ScanEntry::StringRecord(
-        "source/v1/legacy-id",
-        test_encoded_source("legacy-id", "# Authority\n"),
-      ),
-    ])
-    is Reconciliation::Migrate(mutations) else {
-    fail("expected stale active deletion")
-  }
-  assert_eq(mutations, [@indexed_db.Mutation::Delete(LEGACY_ACTIVE_KEY)])
-
-  guard reconcile_scan([
-      @indexed_db.ScanEntry::StringRecord(LEGACY_ACTIVE_KEY, active),
-      @indexed_db.ScanEntry::StringRecord("source/v1/legacy-id", "corrupt"),
-    ])
-    is Reconciliation::Ready(snapshot, _) else {
-    fail("expected ready collision snapshot without mutation")
-  }
-  assert_eq(snapshot.sources().length(), 0)
-  assert_eq(snapshot.occupied_source_keys().to_owned(), ["source/v1/legacy-id"])
-  assert_true(
-    snapshot
-    .issues()
-    .contains(RepositoryIssue::LegacyMigrationCollision("legacy-id")),
-  )
+  guard fallback is Some(fallback) else { fail("missing fallback") }
+  assert_eq(fallback.id(), "a")
 }
 
 ///|
-test "invalid legacy is preserved in a ready empty repository" {
-  guard reconcile_scan([
-      @indexed_db.ScanEntry::StringRecord(LEGACY_ACTIVE_KEY, "not-json"),
-    ])
-    is Reconciliation::Ready(snapshot, _) else {
-    fail("expected ready empty repository")
-  }
-  assert_eq(snapshot.sources().length(), 0)
-  assert_eq(snapshot.catalog().entries().length(), 0)
-  assert_eq(snapshot.issues().to_owned(), [RepositoryIssue::InvalidLegacyRecord])
-}
-
-///|
-test "empty scan is directly ready with an empty snapshot" {
-  guard reconcile_scan([]) is Reconciliation::Ready(snapshot, None) else {
-    fail("expected ready empty repository")
-  }
-  assert_eq(snapshot.sources(), [])
-  assert_eq(snapshot.catalog().entries(), [])
-}
-
-///|
-test "snapshot source and accepted Source transition preserve repository state" {
-  let original = RepositorySnapshot::from_sources([
-    SourceRecord::from_parts("document-b", "# B\n").unwrap(),
-    SourceRecord::from_parts("document-a", "plain text\n").unwrap(),
-  ]).unwrap()
-  let accepted = accepted_source(
-    original,
-    SourceRecord::from_parts("document-b", "# New B\n").unwrap(),
-  )
-  assert_eq(accepted.source("document-b").unwrap().text(), "# New B\n")
-  assert_eq(accepted.source("missing"), None)
-  assert_eq(accepted.sources().to_owned(), [
-    SourceRecord::from_parts("document-a", "plain text\n").unwrap(),
-    SourceRecord::from_parts("document-b", "# New B\n").unwrap(),
+test "duplicate valid payload ids are not admitted twice" {
+  let (saved, _) = reconcile_scan([
+    rentry("a", "a"),
+    @indexed_db.Entry::StringRecord(
+      "source/v1/b",
+      encode_document(rdoc("a", "other")),
+    ),
   ])
-  assert_eq(
-    accepted
-    .catalog()
-    .entries()
-    .map(entry => (entry.document_id(), entry.name())),
-    [("document-a", "plain text"), ("document-b", "New B")],
-  )
-  assert_eq(accepted.issues().to_owned(), [])
+  assert_eq(saved.all().map(x => x.id()), ["a"])
+  assert_eq(saved.issues(), [RepositoryIssue::InvalidSource("source/v1/b")])
 }
 
 ///|
-test "acknowledged deletion applies to the latest immutable Snapshot" {
-  let newer = SourceRecord::from_parts(
-    "document-b",
-    "# B\n",
-    change_order=ChangeOrder::from_int64(20L).unwrap(),
-  ).unwrap()
-  let older = SourceRecord::from_parts(
-    "document-a",
-    "# A\n",
-    change_order=ChangeOrder::from_int64(10L).unwrap(),
-  ).unwrap()
-  let snapshot = RepositorySnapshot::from_sources([older, newer]).unwrap()
-  let deleted = snapshot
-    .apply_acknowledged(SourceDeleted("document-b"))
-    .unwrap()
-  assert_eq(deleted.sources().to_owned(), [older])
-  assert_eq(deleted.selected(), Some(older))
-  assert_eq(deleted.apply_acknowledged(SourceDeleted("missing")), None)
-}
-
-///|
-test "acknowledged deltas update and can empty the snapshot" {
-  let snapshot = RepositorySnapshot::from_sources([
-    SourceRecord::from_parts("document-a", "# A\n").unwrap(),
-  ]).unwrap()
-  let stored = snapshot
-    .apply_acknowledged(
-      SourceStored(
-        SourceRecord::from_parts(
-          "document-a",
-          "# A newer\n",
-          change_order=ChangeOrder::from_int64(9L).unwrap(),
-        ).unwrap(),
-      ),
-    )
-    .unwrap()
-  assert_eq(stored.selected().unwrap().text(), "# A newer\n")
-  let deleted = stored.apply_acknowledged(SourceDeleted("document-a")).unwrap()
-  assert_eq(deleted.sources(), [])
-  assert_eq(deleted.catalog().entries(), [])
-  assert_eq(deleted.selected(), None)
-}
-
-///|
-test "accepted suffix edit reuses certified Catalog name" {
-  let original = RepositorySnapshot::from_sources([
-    test_source("document-a", "# Stable\n\nOld body\n"),
-  ]).unwrap()
-  let suffix = accepted_source(
-    original,
-    test_source("document-a", "# Stable\n\nNew body with # Later\n"),
-  )
-  assert_eq(suffix.catalog().entries()[0].name(), "Stable")
-
-  let changed = accepted_source(
-    suffix,
-    test_source("document-a", "# Changed\n\nNew body\n"),
-  )
-  assert_eq(changed.catalog().entries()[0].name(), "Changed")
-}
-
-///|
-test "accepted recovered heading suffix edit cannot use certified reuse" {
-  let original = RepositorySnapshot::from_sources([
-    test_source("document-a", "# )bad\n\nOld body\n"),
-  ]).unwrap()
-  assert_eq(original.catalog().entries()[0].name(), ")bad")
-
-  let accepted = accepted_source(
-    original,
-    test_source("document-a", "# )bad\n\nNew body\n"),
-  )
-  assert_eq(accepted.catalog().entries()[0].name(), ")bad")
-}
-
-///|
-test "accepted source reparses reference definitions" {
-  let original = RepositorySnapshot::from_sources([
-    test_source("document-a", "[Name]\n"),
-  ]).unwrap()
-  let accepted = accepted_source(
-    original,
-    test_source("document-a", "[Name]\n\n[Name]: /destination\n"),
-  )
-  assert_eq(accepted.catalog().entries()[0].name(), "Name")
-}
-
-///|
-test "snapshot orders newest Change order first with lexical tie break" {
-  let older = SourceRecord::from_parts(
-    "a",
-    "# Older\n",
-    change_order=ChangeOrder::from_int64(10L).unwrap(),
-  ).unwrap()
-  let tied_b = SourceRecord::from_parts(
-    "z",
-    "# Z\n",
-    change_order=ChangeOrder::from_int64(20L).unwrap(),
-  ).unwrap()
-  let tied_a = SourceRecord::from_parts(
-    "b",
-    "# B\n",
-    change_order=ChangeOrder::from_int64(20L).unwrap(),
-  ).unwrap()
-  let snapshot = RepositorySnapshot::from_sources([older, tied_b, tied_a]).unwrap()
-  assert_eq(snapshot.sources().to_owned(), [tied_a, tied_b, older])
-  assert_eq(snapshot.catalog().entries().map(entry => entry.document_id()), [
-    "b", "z", "a",
-  ])
-}
-
-///|
-test "snapshot reconstruction stores unnamed entries as empty names" {
-  let snapshot = RepositorySnapshot::from_sources([
-    test_source("blank", " \n\t\n"),
-  ]).unwrap()
-  assert_eq(snapshot.catalog().entries().to_owned(), [
-    CatalogEntry::from_parts("blank", "").unwrap(),
-  ])
-}
-
-///|
-test "snapshot orders equal Change orders lexically" {
-  let snapshot = RepositorySnapshot::from_sources([
-    test_source("z", "# Z\n"),
-    test_source("aa", "# AA\n"),
-    test_source("m", "# M\n"),
-  ]).unwrap()
-  assert_eq(snapshot.sources().to_owned(), [
-    test_source("aa", "# AA\n"),
-    test_source("m", "# M\n"),
-    test_source("z", "# Z\n"),
-  ])
-  assert_eq(
-    snapshot
-    .catalog()
-    .entries()
-    .map(entry => (entry.document_id(), entry.name())),
-    [("aa", "AA"), ("m", "M"), ("z", "Z")],
-  )
-}
-
-///|
-test "accepted sources preserve lexical catalog and unrelated issues" {
-  let original = RepositorySnapshot::from_parts(
-    [test_source("b", "# B\n"), test_source("a", "# A\n")],
-    Catalog::from_entries([
-      CatalogEntry::from_parts("a", "A").unwrap(),
-      CatalogEntry::from_parts("b", "B").unwrap(),
-    ]).unwrap(),
-    [RepositoryIssue::UnknownRecord("other")],
-    ["source/v1/a", "source/v1/b", "source/v1/corrupt"],
-  )
-  let with_c = accepted_source(original, test_source("c", "# C\n"))
-  assert_eq(
-    with_c.catalog().entries().map(entry => (entry.document_id(), entry.name())),
-    [("a", "A"), ("b", "B"), ("c", "C")],
-  )
-  assert_eq(with_c.issues().to_owned(), [
-    RepositoryIssue::UnknownRecord("other"),
-  ])
-  assert_eq(with_c.occupied_source_keys().to_owned(), [
-    "source/v1/a", "source/v1/b", "source/v1/c", "source/v1/corrupt",
-  ])
-  let with_d = accepted_source(with_c, test_source("d", "# C\n"))
-  assert_eq(
-    with_d.catalog().entries().map(entry => (entry.document_id(), entry.name())),
-    [("a", "A"), ("b", "B"), ("c", "C"), ("d", "C")],
-  )
-  let with_a = accepted_source(with_c, test_source("a", "# A2\n"))
-  assert_eq(with_a.sources().to_owned(), [
-    test_source("a", "# A2\n"),
-    test_source("b", "# B\n"),
-    test_source("c", "# C\n"),
-  ])
-}
-
-///|
-test "next catalog replaces one identity and keeps lexical order" {
-  let current = Catalog::from_entries([
-    CatalogEntry::from_parts("document-b", "Old").unwrap(),
-    CatalogEntry::from_parts("document-a", "").unwrap(),
-  ]).unwrap()
-  let next = next_catalog(current, "document-b", "# New\n")
-  assert_eq(next.entries().map(entry => (entry.document_id(), entry.name())), [
-    ("document-a", ""),
-    ("document-b", "New"),
-  ])
-  assert_eq(next.entries()[1].name(), "New")
+test "opening empty scan is ready without writing" {
+  let (saved, selected) = reconcile_scan([])
+  assert_eq(selected, None)
+  assert_eq(saved.catalog().entries(), [])
 }
