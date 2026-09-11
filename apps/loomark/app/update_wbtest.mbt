@@ -1,8 +1,8 @@
 ///|
 fn test_snapshot() -> @source_repository.RepositorySnapshot {
   @source_repository.RepositorySnapshot::from_sources([
-    @source_repository.SourceRecord::new("one", "one").unwrap(),
-    @source_repository.SourceRecord::new("two", "two").unwrap(),
+    @source_repository.SourceRecord::from_parts("one", "one").unwrap(),
+    @source_repository.SourceRecord::from_parts("two", "two").unwrap(),
   ]).unwrap()
 }
 
@@ -332,7 +332,7 @@ test "delete-to-New advances Preview ownership" {
 ///|
 test "final active delete falls back to a new document" {
   let snapshot = @source_repository.RepositorySnapshot::from_sources([
-    @source_repository.SourceRecord::new("one", "one").unwrap(),
+    @source_repository.SourceRecord::from_parts("one", "one").unwrap(),
   ]).unwrap()
   let documents = initial_documents(snapshot)
   let (preview, _) = @preview.PreviewEngine::PreviewEngine().activate(
@@ -429,7 +429,11 @@ test "change order exhaustion restores authoritative text and preview" {
     9_007_199_254_740_991L,
   ).unwrap()
   let snapshot = @source_repository.RepositorySnapshot::from_sources([
-    @source_repository.SourceRecord::new("one", "one", change_order=maximum).unwrap(),
+    @source_repository.SourceRecord::from_parts(
+      "one",
+      "one",
+      change_order=maximum,
+    ).unwrap(),
   ]).unwrap()
   let base = test_editing()
   let initial = {
@@ -452,7 +456,7 @@ test "change order exhaustion restores authoritative text and preview" {
 ///|
 fn preparing_after_probe_timeout() -> (Model, DeleteOperation?) {
   let snapshot = @source_repository.RepositorySnapshot::from_sources([
-    @source_repository.SourceRecord::new("one", "one").unwrap(),
+    @source_repository.SourceRecord::from_parts("one", "one").unwrap(),
   ]).unwrap()
   let base = test_editing()
   let initial = { ..base, documents: initial_documents(snapshot) }

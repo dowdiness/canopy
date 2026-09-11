@@ -1,8 +1,8 @@
 ///|
 fn documents_test_snapshot() -> @source_repository.RepositorySnapshot {
   @source_repository.RepositorySnapshot::from_sources([
-    @source_repository.SourceRecord::new("one", "one").unwrap(),
-    @source_repository.SourceRecord::new("two", "two").unwrap(),
+    @source_repository.SourceRecord::from_parts("one", "one").unwrap(),
+    @source_repository.SourceRecord::from_parts("two", "two").unwrap(),
   ]).unwrap()
 }
 
@@ -32,7 +32,7 @@ test "Import accepts empty text and persists it immediately as New" {
   }
   assert_eq(
     operation.source,
-    @source_repository.SourceRecord::new(
+    @source_repository.SourceRecord::from_parts(
       "imported",
       "",
       change_order=documents_test_order(7L),
@@ -320,7 +320,7 @@ test "stale timers and mismatched stored records are ignored" {
   guard decisions is [DocumentsDecision::DocumentsPersist(operation)] else {
     fail("latest quiet")
   }
-  let bogus = @source_repository.SourceRecord::new(
+  let bogus = @source_repository.SourceRecord::from_parts(
     "one",
     "c",
     change_order=documents_test_order(99L),
@@ -336,12 +336,12 @@ test "stale timers and mismatched stored records are ignored" {
 ///|
 test "the global floor orders edits across old documents" {
   let snapshot = @source_repository.RepositorySnapshot::from_sources([
-    @source_repository.SourceRecord::new(
+    @source_repository.SourceRecord::from_parts(
       "one",
       "one",
       change_order=documents_test_order(100L),
     ).unwrap(),
-    @source_repository.SourceRecord::new(
+    @source_repository.SourceRecord::from_parts(
       "two",
       "two",
       change_order=documents_test_order(5L),
@@ -683,7 +683,7 @@ test "late delete failure restores availability and late success empties snapsho
 test "change order exhaustion keeps authority unchanged and fails" {
   let max = documents_test_order(9_007_199_254_740_991L)
   let snapshot = @source_repository.RepositorySnapshot::from_sources([
-    @source_repository.SourceRecord::new("one", "one", change_order=max).unwrap(),
+    @source_repository.SourceRecord::from_parts("one", "one", change_order=max).unwrap(),
   ]).unwrap()
   let documents = initial_documents(snapshot)
   let (documents, _) = documents.reduce(

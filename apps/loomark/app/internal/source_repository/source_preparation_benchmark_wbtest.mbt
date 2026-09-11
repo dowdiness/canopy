@@ -1,7 +1,7 @@
 ///|
 fn source_preparation_bench_sources(size : Int) -> Array[SourceRecord] {
   Array::makei(8, index => {
-    SourceRecord::new(
+    SourceRecord::from_parts(
       "bench-document",
       "# Stable\n" + String::make(size - 1, 'x') + "\{index}",
     ).unwrap()
@@ -37,7 +37,7 @@ test "bench: encode Source 1 MiB" (b : @bench.T) {
 ///|
 test "bench: accept 1 MiB Source with unchanged certified title" (b : @bench.T) {
   let snapshot = RepositorySnapshot::from_sources([
-    SourceRecord::new(
+    SourceRecord::from_parts(
       "bench-document",
       "# Stable\n" + String::make(1024 * 1024, 'x'),
     ).unwrap(),
@@ -54,13 +54,13 @@ test "bench: accept 1 MiB Source with unchanged certified title" (b : @bench.T) 
 ///|
 test "bench: accept 1 MiB Source after title change" (b : @bench.T) {
   let snapshot = RepositorySnapshot::from_sources([
-    SourceRecord::new(
+    SourceRecord::from_parts(
       "bench-document",
       "# Stable\n" + String::make(1024 * 1024, 'x'),
     ).unwrap(),
   ]).unwrap()
   let sources = Array::makei(8, index => {
-    SourceRecord::new(
+    SourceRecord::from_parts(
       "bench-document",
       "# Changed \{index}\n" + String::make(1024 * 1024, 'x'),
     ).unwrap()

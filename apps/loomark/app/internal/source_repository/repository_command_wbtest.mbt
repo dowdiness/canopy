@@ -8,7 +8,7 @@ test "repository open begins with a complete store scan" {
 
 ///|
 test "repository open returns the accepted Snapshot and initial document without repair" {
-  let source = SourceRecord::new("document-1", "# One\n").unwrap()
+  let source = SourceRecord::from_parts("document-1", "# One\n").unwrap()
   let snapshot = RepositorySnapshot::from_sources([source]).unwrap()
   let emitted : Array[OpenResult] = []
   let command = continue_open(Reconciliation::Ready(snapshot, Some(source)), result => {
@@ -38,7 +38,7 @@ test "repository open routes legacy migration through one atomic mutation" {
 ///|
 test "repository remembers only an accepted Editing Document" {
   let snapshot = RepositorySnapshot::from_sources([
-    SourceRecord::new("document-1", "# One\n").unwrap(),
+    SourceRecord::from_parts("document-1", "# One\n").unwrap(),
   ]).unwrap()
   inspect(
     Repr(remember_editing_document(snapshot, "document-1")),
@@ -51,7 +51,7 @@ test "repository remembers only an accepted Editing Document" {
 ///|
 test "repository save commits one Source record" {
   let snapshot = RepositorySnapshot::from_sources([
-    SourceRecord::new("document-1", "# Old\n").unwrap(),
+    SourceRecord::from_parts("document-1", "# Old\n").unwrap(),
   ]).unwrap()
   inspect(
     Repr(save(snapshot, "document-1", "# Saved\n", result=_ => @cmd.none)),
@@ -68,7 +68,7 @@ test "repository save commits one Source record" {
 ///|
 test "repository save rejects missing identity before storage" {
   let snapshot = RepositorySnapshot::from_sources([
-    SourceRecord::new("document-1", "# Old\n").unwrap(),
+    SourceRecord::from_parts("document-1", "# Old\n").unwrap(),
   ]).unwrap()
   let emitted : Array[SaveResult] = []
   let command = save(snapshot, "missing", "# Invalid\n", result=result => {
@@ -82,10 +82,10 @@ test "repository save rejects missing identity before storage" {
 ///|
 test "save completion publishes the next snapshot after storage completes" {
   let snapshot = RepositorySnapshot::from_sources([
-    SourceRecord::new("document-1", "# Old\n").unwrap(),
-    SourceRecord::new("document-2", "# Other\n").unwrap(),
+    SourceRecord::from_parts("document-1", "# Old\n").unwrap(),
+    SourceRecord::from_parts("document-2", "# Other\n").unwrap(),
   ]).unwrap()
-  let source = SourceRecord::new("document-1", "# Saved\n").unwrap()
+  let source = SourceRecord::from_parts("document-1", "# Saved\n").unwrap()
   let next = accepted_source(snapshot, source)
   let emitted : Array[SaveResult] = []
   for
@@ -96,7 +96,7 @@ test "save completion publishes the next snapshot after storage completes" {
       @indexed_db.WriteResult::Failed,
     ] {
     let _ = finish_save(
-      SourceRecord::new("document-1", "# Saved\n").unwrap(),
+      SourceRecord::from_parts("document-1", "# Saved\n").unwrap(),
       stored,
       result => {
         emitted.push(result)
@@ -107,7 +107,9 @@ test "save completion publishes the next snapshot after storage completes" {
   assert_eq(
     emitted.get(0),
     Some(
-      SaveResult::Stored(SourceRecord::new("document-1", "# Saved\n").unwrap()),
+      SaveResult::Stored(
+        SourceRecord::from_parts("document-1", "# Saved\n").unwrap(),
+      ),
     ),
   )
   assert_eq(next.source("document-1").unwrap().text(), "# Saved\n")
@@ -125,19 +127,16 @@ test "save completion publishes the next snapshot after storage completes" {
 
 ///|
 test "accepted deletion preserves unrelated repository observations" {
-  let snapshot = RepositorySnapshot::new(
+  let snapshot = RepositorySnapshot::from_parts(
     [
-      SourceRecord::new("document-1", "# One\n").unwrap(),
-      SourceRecord::new("document-2", "# Two\n").unwrap(),
+      SourceRecord::from_parts("document-1", "# One\n").unwrap(),
+      SourceRecord::from_parts("document-2", "# Two\n").unwrap(),
     ],
     Catalog::from_entries([
-      CatalogEntry::new("document-1", Some("One")).unwrap(),
-      CatalogEntry::new("document-2", Some("Two")).unwrap(),
+      CatalogEntry::from_parts("document-1", "One").unwrap(),
+      CatalogEntry::from_parts("document-2", "Two").unwrap(),
     ]).unwrap(),
-    [
-      RepositoryIssue::NameDerivationFailed("document-1"),
-      RepositoryIssue::UnknownRecord("metadata/future"),
-    ],
+    [RepositoryIssue::UnknownRecord("metadata/future")],
     ["source/v1/document-1", "source/v1/document-2", "source/v1/corrupt"],
   )
   let next = accepted_deletion(snapshot, "document-1").unwrap()
@@ -150,7 +149,7 @@ test "accepted deletion preserves unrelated repository observations" {
 
 ///|
 test "probe maps storage outcomes and decoded records" {
-  let source = SourceRecord::new("document-1", "# One\n").unwrap()
+  let source = SourceRecord::from_parts("document-1", "# One\n").unwrap()
   let emitted : Array[ProbeResult] = []
   for
     read in [
@@ -184,7 +183,7 @@ test "probe maps storage outcomes and decoded records" {
 ///|
 test "probe rejects unknown and malformed identities before storage" {
   let snapshot = RepositorySnapshot::from_sources([
-    SourceRecord::new("document-1", "# One\n").unwrap(),
+    SourceRecord::from_parts("document-1", "# One\n").unwrap(),
   ]).unwrap()
   let emitted : Array[ProbeResult] = []
   let unknown = probe(snapshot, "missing", result=result => {
@@ -206,7 +205,7 @@ test "probe rejects unknown and malformed identities before storage" {
 ///|
 test "probe prepares one exact source read" {
   let snapshot = RepositorySnapshot::from_sources([
-    SourceRecord::new("document-1", "# One\n").unwrap(),
+    SourceRecord::from_parts("document-1", "# One\n").unwrap(),
   ]).unwrap()
   inspect(
     Repr(probe(snapshot, "document-1", result=_ => @cmd.none)),
@@ -217,8 +216,8 @@ test "probe prepares one exact source read" {
 ///|
 test "repository delete prepares one atomic Source deletion" {
   let snapshot = RepositorySnapshot::from_sources([
-    SourceRecord::new("document-1", "# One\n").unwrap(),
-    SourceRecord::new("document-2", "# Two\n").unwrap(),
+    SourceRecord::from_parts("document-1", "# One\n").unwrap(),
+    SourceRecord::from_parts("document-2", "# Two\n").unwrap(),
   ]).unwrap()
   inspect(
     Repr(delete(snapshot, "document-2", result=_ => @cmd.none)),
@@ -229,7 +228,7 @@ test "repository delete prepares one atomic Source deletion" {
 ///|
 test "repository delete rejects unknown and permits final identity" {
   let snapshot = RepositorySnapshot::from_sources([
-    SourceRecord::new("document-1", "# One\n").unwrap(),
+    SourceRecord::from_parts("document-1", "# One\n").unwrap(),
   ]).unwrap()
   let emitted : Array[DeleteResult] = []
   let unknown = delete(snapshot, "missing", result=result => {
@@ -248,8 +247,8 @@ test "repository delete rejects unknown and permits final identity" {
 ///|
 test "delete completion publishes acknowledged identity" {
   let original = RepositorySnapshot::from_sources([
-    SourceRecord::new("document-1", "# One\n").unwrap(),
-    SourceRecord::new("document-2", "# Two\n").unwrap(),
+    SourceRecord::from_parts("document-1", "# One\n").unwrap(),
+    SourceRecord::from_parts("document-2", "# Two\n").unwrap(),
   ]).unwrap()
   let next = accepted_deletion(original, "document-1").unwrap()
   let emitted : Array[DeleteResult] = []
@@ -309,11 +308,11 @@ test "open write completion rescans and preserves failure classifications" {
 
 ///|
 test "create rejects an observed occupied key before storage" {
-  let source = SourceRecord::new("document-1", "# One\n").unwrap()
-  let snapshot = RepositorySnapshot::new(
+  let source = SourceRecord::from_parts("document-1", "# One\n").unwrap()
+  let snapshot = RepositorySnapshot::from_parts(
     [source],
     Catalog::from_entries([
-      CatalogEntry::new("document-1", Some("One")).unwrap(),
+      CatalogEntry::from_parts("document-1", "One").unwrap(),
     ]).unwrap(),
     [],
     ["source/v1/document-1", "source/v1/corrupt"],
@@ -343,7 +342,7 @@ test "create rejects an observed occupied key before storage" {
 ///|
 test "create reserves identity without storage" {
   let snapshot = RepositorySnapshot::from_sources([
-    SourceRecord::new("document-1", "# One\n").unwrap(),
+    SourceRecord::from_parts("document-1", "# One\n").unwrap(),
   ]).unwrap()
   let emitted : Array[CreateResult] = []
   let command = create_with_document_id(snapshot, "document-2", result => {

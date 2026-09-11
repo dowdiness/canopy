@@ -45,7 +45,7 @@ struct SourceRecord {
 } derive(Eq, Debug)
 
 ///|
-pub fn SourceRecord::new(
+pub fn SourceRecord::from_parts(
   document_id : String,
   text : String,
   change_order? : ChangeOrder = ChangeOrder(0L),
@@ -80,18 +80,18 @@ priv enum SourceDecodeFailure {
 /// One rebuildable display-name entry, identified only by Document ID.
 struct CatalogEntry {
   document_id : String
-  name : String?
+  derived_name : @document_lead.DerivedName
   change_order : ChangeOrder
 } derive(Eq, Debug)
 
 ///|
-pub fn CatalogEntry::new(
+fn CatalogEntry::from_derived_name(
   document_id : String,
-  name : String?,
+  derived_name : @document_lead.DerivedName,
   change_order? : ChangeOrder = ChangeOrder(0L),
 ) -> Self? {
   guard document_id != "" else { return None }
-  Some({ document_id, name, change_order })
+  Some({ document_id, derived_name, change_order })
 }
 
 ///|
@@ -100,8 +100,8 @@ pub fn CatalogEntry::document_id(self : Self) -> String {
 }
 
 ///|
-pub fn CatalogEntry::name(self : Self) -> String? {
-  self.name
+pub fn CatalogEntry::name(self : Self) -> String {
+  self.derived_name.text()
 }
 
 ///|
@@ -170,7 +170,6 @@ pub(all) enum RepositoryIssue {
   UnknownRecord(String)
   UnsupportedRecord(String)
   UnsupportedKey(Int)
-  NameDerivationFailed(String)
   InvalidLegacyRecord
   LegacyMigrationCollision(String)
 } derive(Eq, Debug)
@@ -184,7 +183,7 @@ struct RepositorySnapshot(
 ) derive(Eq, Debug)
 
 ///|
-fn RepositorySnapshot::new(
+fn RepositorySnapshot::from_parts(
   sources : Array[SourceRecord],
   catalog : Catalog,
   issues : Array[RepositoryIssue],
@@ -220,24 +219,18 @@ fn snapshot_from_sources(
   guard identities.length() == ordered.length() else { return None }
   let issues = initial_issues.copy()
   let entries = ordered.map(source => {
-    let name = match derive_name(source.text()) {
-      Ok(name) => name
-      Err(_) => {
-        let issue = NameDerivationFailed(source.document_id())
-        if !issues.contains(issue) {
-          issues.push(issue)
-        }
-        None
-      }
-    }
-    CatalogEntry::new(
+    CatalogEntry::from_derived_name(
       source.document_id(),
-      name,
+      @document_lead.derive_name(source.text()),
       change_order=source.change_order(),
     ).unwrap()
   })
   guard Catalog::from_entries(entries) is Some(catalog) else { return None }
-  Some(RepositorySnapshot::new(ordered, catalog, issues, occupied_source_keys))
+  Some(
+    RepositorySnapshot::from_parts(
+      ordered, catalog, issues, occupied_source_keys,
+    ),
+  )
 }
 
 ///|
@@ -309,32 +302,14 @@ fn accepted_source(
     )
   })
 
-  let issues = snapshot
-    .issues()
-    .to_owned()
-    .filter(issue => {
-      match issue {
-        RepositoryIssue::NameDerivationFailed(issue_id) =>
-          issue_id != document_id
-        _ => true
-      }
-    })
-  let previous_source = snapshot
-    .source(document_id)
-    .map(source => source.text())
-  let (catalog, current_issues) = next_catalog_after_source(
+  let issues = snapshot.issues().to_owned()
+  let catalog = next_catalog_after_source(
     snapshot.catalog(),
     document_id,
-    previous_source,
     source.text(),
     change_order=source.change_order(),
   )
-  for issue in current_issues {
-    if !issues.contains(issue) {
-      issues.push(issue)
-    }
-  }
-  RepositorySnapshot::new(
+  RepositorySnapshot::from_parts(
     sources,
     catalog,
     issues,
@@ -351,15 +326,7 @@ fn accepted_deletion(
   let sources = snapshot
     .sources()
     .filter(source => source.document_id() != document_id)
-  let issues = snapshot
-    .issues()
-    .filter(issue => {
-      match issue {
-        RepositoryIssue::NameDerivationFailed(issue_id) =>
-          issue_id != document_id
-        _ => true
-      }
-    })
+  let issues = snapshot.issues().to_owned()
   let deleted_key = source_key(document_id).unwrap()
   let occupied = snapshot
     .occupied_source_keys()

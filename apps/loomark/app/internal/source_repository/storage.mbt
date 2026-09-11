@@ -166,7 +166,8 @@ pub fn save(
     return result(Failed(InvalidSource))
   }
   let change_order = change_order.unwrap_or(current.change_order())
-  guard SourceRecord::new(document_id, text, change_order~) is Some(source) &&
+  guard SourceRecord::from_parts(document_id, text, change_order~)
+    is Some(source) &&
     source_key(document_id) is Some(key) else {
     return result(Failed(InvalidSource))
   }
@@ -273,7 +274,7 @@ pub fn store_new(
   guard snapshot.source(document_id) is None &&
     source_key(document_id) is Some(key) &&
     !snapshot.occupied_source_keys().contains(key) &&
-    SourceRecord::new(document_id, text, change_order~) is Some(source) else {
+    SourceRecord::from_parts(document_id, text, change_order~) is Some(source) else {
     return result(Failed(InvalidSource))
   }
   @indexed_db.put(document_store, key, encode_source(source), result=stored => {

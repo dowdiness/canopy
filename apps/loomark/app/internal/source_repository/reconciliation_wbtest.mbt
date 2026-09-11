@@ -1,11 +1,25 @@
 ///|
 fn test_source(id : String, text : String) -> SourceRecord {
-  SourceRecord::new(id, text).unwrap()
+  SourceRecord::from_parts(id, text).unwrap()
 }
 
 ///|
 fn test_encoded_source(id : String, text : String) -> String {
   encode_source(test_source(id, text))
+}
+
+///|
+fn CatalogEntry::from_parts(
+  document_id : String,
+  name : String,
+  change_order? : ChangeOrder = ChangeOrder(0L),
+) -> Self? {
+  guard document_id != "" else { return None }
+  Some({
+    document_id,
+    derived_name: @document_lead.derive_name(name),
+    change_order,
+  })
 }
 
 ///|
@@ -38,9 +52,13 @@ test "reconciliation isolates corrupt and unsupported records" {
   assert_eq(snapshot.occupied_source_keys().to_owned(), [
     "source/v1/broken", "source/v1/document-b", "source/v1/old", "source/v1/wrong-key",
   ])
-  assert_eq(snapshot.catalog().entries().to_owned(), [
-    CatalogEntry::new("document-b", Some("Same")).unwrap(),
-  ])
+  assert_eq(
+    snapshot
+    .catalog()
+    .entries()
+    .map(entry => (entry.document_id(), entry.name())),
+    [("document-b", "Same")],
+  )
   assert_eq(snapshot.issues().to_owned(), [
     RepositoryIssue::InvalidSource("source/v1/broken"),
     RepositoryIssue::UnsupportedRecord("source/v1/old"),
@@ -55,12 +73,12 @@ test "reconciliation isolates corrupt and unsupported records" {
 
 ///|
 test "initial Document is the accepted Editing Document or deterministic fallback" {
-  let selected = SourceRecord::new(
+  let selected = SourceRecord::from_parts(
     "document-a",
     "# A\n",
     change_order=ChangeOrder::from_int64(20L).unwrap(),
   ).unwrap()
-  let editing = SourceRecord::new(
+  let editing = SourceRecord::from_parts(
     "document-b",
     "# B\n",
     change_order=ChangeOrder::from_int64(10L).unwrap(),
@@ -161,34 +179,37 @@ test "empty scan is directly ready with an empty snapshot" {
 ///|
 test "snapshot source and accepted Source transition preserve repository state" {
   let original = RepositorySnapshot::from_sources([
-    SourceRecord::new("document-b", "# B\n").unwrap(),
-    SourceRecord::new("document-a", "plain text\n").unwrap(),
+    SourceRecord::from_parts("document-b", "# B\n").unwrap(),
+    SourceRecord::from_parts("document-a", "plain text\n").unwrap(),
   ]).unwrap()
   let accepted = accepted_source(
     original,
-    SourceRecord::new("document-b", "# New B\n").unwrap(),
+    SourceRecord::from_parts("document-b", "# New B\n").unwrap(),
   )
   assert_eq(accepted.source("document-b").unwrap().text(), "# New B\n")
   assert_eq(accepted.source("missing"), None)
   assert_eq(accepted.sources().to_owned(), [
-    SourceRecord::new("document-a", "plain text\n").unwrap(),
-    SourceRecord::new("document-b", "# New B\n").unwrap(),
+    SourceRecord::from_parts("document-a", "plain text\n").unwrap(),
+    SourceRecord::from_parts("document-b", "# New B\n").unwrap(),
   ])
-  assert_eq(accepted.catalog().entries().to_owned(), [
-    CatalogEntry::new("document-a", Some("plain text")).unwrap(),
-    CatalogEntry::new("document-b", Some("New B")).unwrap(),
-  ])
+  assert_eq(
+    accepted
+    .catalog()
+    .entries()
+    .map(entry => (entry.document_id(), entry.name())),
+    [("document-a", "plain text"), ("document-b", "New B")],
+  )
   assert_eq(accepted.issues().to_owned(), [])
 }
 
 ///|
 test "acknowledged deletion applies to the latest immutable Snapshot" {
-  let newer = SourceRecord::new(
+  let newer = SourceRecord::from_parts(
     "document-b",
     "# B\n",
     change_order=ChangeOrder::from_int64(20L).unwrap(),
   ).unwrap()
-  let older = SourceRecord::new(
+  let older = SourceRecord::from_parts(
     "document-a",
     "# A\n",
     change_order=ChangeOrder::from_int64(10L).unwrap(),
@@ -205,12 +226,12 @@ test "acknowledged deletion applies to the latest immutable Snapshot" {
 ///|
 test "acknowledged deltas update and can empty the snapshot" {
   let snapshot = RepositorySnapshot::from_sources([
-    SourceRecord::new("document-a", "# A\n").unwrap(),
+    SourceRecord::from_parts("document-a", "# A\n").unwrap(),
   ]).unwrap()
   let stored = snapshot
     .apply_acknowledged(
       SourceStored(
-        SourceRecord::new(
+        SourceRecord::from_parts(
           "document-a",
           "# A newer\n",
           change_order=ChangeOrder::from_int64(9L).unwrap(),
@@ -230,39 +251,17 @@ test "accepted suffix edit reuses certified Catalog name" {
   let original = RepositorySnapshot::from_sources([
     test_source("document-a", "# Stable\n\nOld body\n"),
   ]).unwrap()
-  assert_eq(
-    certified_name_prefix_end(
-      original.source("document-a").unwrap().text(),
-      original.catalog().entries()[0].name(),
-    ),
-    Some(9),
-  )
-
   let suffix = accepted_source(
     original,
     test_source("document-a", "# Stable\n\nNew body with # Later\n"),
   )
-  assert_eq(suffix.catalog().entries()[0].name(), Some("Stable"))
-  assert_eq(
-    certified_name_prefix_end(
-      suffix.source("document-a").unwrap().text(),
-      suffix.catalog().entries()[0].name(),
-    ),
-    Some(9),
-  )
+  assert_eq(suffix.catalog().entries()[0].name(), "Stable")
 
   let changed = accepted_source(
     suffix,
     test_source("document-a", "# Changed\n\nNew body\n"),
   )
-  assert_eq(changed.catalog().entries()[0].name(), Some("Changed"))
-  assert_eq(
-    certified_name_prefix_end(
-      changed.source("document-a").unwrap().text(),
-      changed.catalog().entries()[0].name(),
-    ),
-    Some(10),
-  )
+  assert_eq(changed.catalog().entries()[0].name(), "Changed")
 }
 
 ///|
@@ -270,35 +269,40 @@ test "accepted recovered heading suffix edit cannot use certified reuse" {
   let original = RepositorySnapshot::from_sources([
     test_source("document-a", "# )bad\n\nOld body\n"),
   ]).unwrap()
-  assert_eq(original.catalog().entries()[0].name(), Some(")bad"))
-  assert_eq(
-    certified_name_prefix_end(
-      original.source("document-a").unwrap().text(),
-      original.catalog().entries()[0].name(),
-    ),
-    None,
-  )
+  assert_eq(original.catalog().entries()[0].name(), ")bad")
 
   let accepted = accepted_source(
     original,
     test_source("document-a", "# )bad\n\nNew body\n"),
   )
-  assert_eq(accepted.catalog().entries()[0].name(), Some(")bad"))
+  assert_eq(accepted.catalog().entries()[0].name(), ")bad")
+}
+
+///|
+test "accepted source reparses reference definitions" {
+  let original = RepositorySnapshot::from_sources([
+    test_source("document-a", "[Name]\n"),
+  ]).unwrap()
+  let accepted = accepted_source(
+    original,
+    test_source("document-a", "[Name]\n\n[Name]: /destination\n"),
+  )
+  assert_eq(accepted.catalog().entries()[0].name(), "Name")
 }
 
 ///|
 test "snapshot orders newest Change order first with lexical tie break" {
-  let older = SourceRecord::new(
+  let older = SourceRecord::from_parts(
     "a",
     "# Older\n",
     change_order=ChangeOrder::from_int64(10L).unwrap(),
   ).unwrap()
-  let tied_b = SourceRecord::new(
+  let tied_b = SourceRecord::from_parts(
     "z",
     "# Z\n",
     change_order=ChangeOrder::from_int64(20L).unwrap(),
   ).unwrap()
-  let tied_a = SourceRecord::new(
+  let tied_a = SourceRecord::from_parts(
     "b",
     "# B\n",
     change_order=ChangeOrder::from_int64(20L).unwrap(),
@@ -307,6 +311,16 @@ test "snapshot orders newest Change order first with lexical tie break" {
   assert_eq(snapshot.sources().to_owned(), [tied_a, tied_b, older])
   assert_eq(snapshot.catalog().entries().map(entry => entry.document_id()), [
     "b", "z", "a",
+  ])
+}
+
+///|
+test "snapshot reconstruction stores unnamed entries as empty names" {
+  let snapshot = RepositorySnapshot::from_sources([
+    test_source("blank", " \n\t\n"),
+  ]).unwrap()
+  assert_eq(snapshot.catalog().entries().to_owned(), [
+    CatalogEntry::from_parts("blank", "").unwrap(),
   ])
 }
 
@@ -322,44 +336,42 @@ test "snapshot orders equal Change orders lexically" {
     test_source("m", "# M\n"),
     test_source("z", "# Z\n"),
   ])
-  assert_eq(snapshot.catalog().entries().to_owned(), [
-    CatalogEntry::new("aa", Some("AA")).unwrap(),
-    CatalogEntry::new("m", Some("M")).unwrap(),
-    CatalogEntry::new("z", Some("Z")).unwrap(),
-  ])
+  assert_eq(
+    snapshot
+    .catalog()
+    .entries()
+    .map(entry => (entry.document_id(), entry.name())),
+    [("aa", "AA"), ("m", "M"), ("z", "Z")],
+  )
 }
 
 ///|
 test "accepted sources preserve lexical catalog and unrelated issues" {
-  let original = RepositorySnapshot::new(
+  let original = RepositorySnapshot::from_parts(
     [test_source("b", "# B\n"), test_source("a", "# A\n")],
     Catalog::from_entries([
-      CatalogEntry::new("a", Some("A")).unwrap(),
-      CatalogEntry::new("b", Some("B")).unwrap(),
+      CatalogEntry::from_parts("a", "A").unwrap(),
+      CatalogEntry::from_parts("b", "B").unwrap(),
     ]).unwrap(),
-    [RepositoryIssue::UnknownRecord("other"), NameDerivationFailed("b")],
+    [RepositoryIssue::UnknownRecord("other")],
     ["source/v1/a", "source/v1/b", "source/v1/corrupt"],
   )
   let with_c = accepted_source(original, test_source("c", "# C\n"))
-  assert_eq(with_c.catalog().entries().to_owned(), [
-    CatalogEntry::new("a", Some("A")).unwrap(),
-    CatalogEntry::new("b", Some("B")).unwrap(),
-    CatalogEntry::new("c", Some("C")).unwrap(),
-  ])
+  assert_eq(
+    with_c.catalog().entries().map(entry => (entry.document_id(), entry.name())),
+    [("a", "A"), ("b", "B"), ("c", "C")],
+  )
   assert_eq(with_c.issues().to_owned(), [
     RepositoryIssue::UnknownRecord("other"),
-    NameDerivationFailed("b"),
   ])
   assert_eq(with_c.occupied_source_keys().to_owned(), [
     "source/v1/a", "source/v1/b", "source/v1/c", "source/v1/corrupt",
   ])
   let with_d = accepted_source(with_c, test_source("d", "# C\n"))
-  assert_eq(with_d.catalog().entries().to_owned(), [
-    CatalogEntry::new("a", Some("A")).unwrap(),
-    CatalogEntry::new("b", Some("B")).unwrap(),
-    CatalogEntry::new("c", Some("C")).unwrap(),
-    CatalogEntry::new("d", Some("C")).unwrap(),
-  ])
+  assert_eq(
+    with_d.catalog().entries().map(entry => (entry.document_id(), entry.name())),
+    [("a", "A"), ("b", "B"), ("c", "C"), ("d", "C")],
+  )
   let with_a = accepted_source(with_c, test_source("a", "# A2\n"))
   assert_eq(with_a.sources().to_owned(), [
     test_source("a", "# A2\n"),
@@ -369,30 +381,15 @@ test "accepted sources preserve lexical catalog and unrelated issues" {
 }
 
 ///|
-test "accepted source does not duplicate current name issues" {
-  let original = RepositorySnapshot::new(
-    [test_source("a", "# A\n")],
-    Catalog::from_entries([CatalogEntry::new("a", Some("A")).unwrap()]).unwrap(),
-    [NameDerivationFailed("a")],
-    ["source/v1/a"],
-  )
-  let accepted = accepted_source(original, test_source("a", "# New\n"))
-  assert_eq(accepted.issues().to_owned(), [])
-  assert_eq(accepted.catalog().entries().to_owned(), [
-    CatalogEntry::new("a", Some("New")).unwrap(),
-  ])
-}
-
-///|
 test "next catalog replaces one identity and keeps lexical order" {
   let current = Catalog::from_entries([
-    CatalogEntry::new("document-b", Some("Old")).unwrap(),
-    CatalogEntry::new("document-a", None).unwrap(),
+    CatalogEntry::from_parts("document-b", "Old").unwrap(),
+    CatalogEntry::from_parts("document-a", "").unwrap(),
   ]).unwrap()
-  let (next, issues) = next_catalog(current, "document-b", "# New\n")
-  assert_eq(next.entries().to_owned(), [
-    CatalogEntry::new("document-a", None).unwrap(),
-    CatalogEntry::new("document-b", Some("New")).unwrap(),
+  let next = next_catalog(current, "document-b", "# New\n")
+  assert_eq(next.entries().map(entry => (entry.document_id(), entry.name())), [
+    ("document-a", ""),
+    ("document-b", "New"),
   ])
-  assert_eq(issues, [])
+  assert_eq(next.entries()[1].name(), "New")
 }

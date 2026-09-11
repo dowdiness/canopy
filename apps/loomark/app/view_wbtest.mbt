@@ -21,15 +21,56 @@ test "Mode tabs use the RUI Tabs trigger contract" {
 
 ///|
 test "Document sidebar labels disambiguate Source-derived identities" {
+  let entries : Array[PresentationRow] = [
+    {
+      document_id: "document-a",
+      name: "Untitled",
+      change_order: @source_repository.ChangeOrder::from_int64(0L).unwrap(),
+    },
+    {
+      document_id: "document-b",
+      name: "Untitled",
+      change_order: @source_repository.ChangeOrder::from_int64(0L).unwrap(),
+    },
+    {
+      document_id: "document-c",
+      name: "Body only",
+      change_order: @source_repository.ChangeOrder::from_int64(0L).unwrap(),
+    },
+  ]
+  assert_eq(
+    document_option_label(entries.view(), 0, entries[0]),
+    "Untitled (1 of 2)",
+  )
+  assert_eq(
+    document_option_label(entries.view(), 1, entries[1]),
+    "Untitled (2 of 2)",
+  )
+  assert_eq(document_option_label(entries.view(), 2, entries[2]), "Body only")
+}
+
+///|
+test "Document sidebar presents a placeholder without naming an empty Catalog entry" {
+  let entry = PresentationRow::{
+    document_id: "document-a",
+    name: "",
+    change_order: @source_repository.ChangeOrder::from_int64(0L).unwrap(),
+  }
+  assert_eq(entry.name(), "")
+  assert_eq(document_base_label(entry), "Unnamed document")
+}
+
+///|
+test "Recent documents orders equal Change orders lexically" {
+  let order = @source_repository.ChangeOrder::from_int64(7L).unwrap()
   let snapshot = @source_repository.RepositorySnapshot::from_sources([
-    @source_repository.SourceRecord::new("document-a", "# Untitled\n").unwrap(),
-    @source_repository.SourceRecord::new("document-b", "# Untitled\n").unwrap(),
-    @source_repository.SourceRecord::new("document-c", "Body only\n").unwrap(),
+    @source_repository.SourceRecord::from_parts("z", "z", change_order=order).unwrap(),
+    @source_repository.SourceRecord::from_parts("a", "a", change_order=order).unwrap(),
   ]).unwrap()
-  let entries = snapshot.catalog().entries()
-  assert_eq(document_option_label(entries, 0, entries[0]), "Untitled (1 of 2)")
-  assert_eq(document_option_label(entries, 1, entries[1]), "Untitled (2 of 2)")
-  assert_eq(document_option_label(entries, 2, entries[2]), "Body only")
+  let editing = { ..test_editing(), documents: initial_documents(snapshot) }
+  assert_eq(recent_entries(editing).map(entry => entry.document_id()), [
+    "a", "z",
+  ])
 }
 
 ///|

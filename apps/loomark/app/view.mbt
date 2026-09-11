@@ -56,15 +56,47 @@ fn mode_content(mode : EditorMode, content : @rabbita.Html) -> @rabbita.Html {
 }
 
 ///|
-fn document_base_label(entry : @source_repository.CatalogEntry) -> String {
-  entry.name().unwrap_or("Unnamed document")
+priv struct PresentationRow {
+  document_id : String
+  name : String
+  change_order : @source_repository.ChangeOrder
+}
+
+///|
+fn PresentationRow::document_id(self : Self) -> String {
+  self.document_id
+}
+
+///|
+fn PresentationRow::name(self : Self) -> String {
+  self.name
+}
+
+///|
+fn document_row_order(left : PresentationRow, right : PresentationRow) -> Int {
+  let by_newest = right.change_order.value().compare(left.change_order.value())
+  if by_newest != 0 {
+    by_newest
+  } else {
+    left.document_id.lexical_compare(right.document_id)
+  }
+}
+
+///|
+/// Presentation-only label for an unnamed document; this is not its Catalog name.
+fn document_base_label(entry : PresentationRow) -> String {
+  if entry.name().is_empty() {
+    "Unnamed document"
+  } else {
+    entry.name()
+  }
 }
 
 ///|
 fn document_option_label(
-  entries : ArrayView[@source_repository.CatalogEntry],
+  entries : ArrayView[PresentationRow],
   index : Int,
-  entry : @source_repository.CatalogEntry,
+  entry : PresentationRow,
 ) -> String {
   let base = document_base_label(entry)
   let total = entries.count_if(other => document_base_label(other) == base)
@@ -79,9 +111,7 @@ fn document_option_label(
 }
 
 ///|
-fn recent_entries(
-  editing : EditingState,
-) -> Array[@source_repository.CatalogEntry] {
+fn recent_entries(editing : EditingState) -> Array[PresentationRow] {
   let persisted = editing.documents.snapshot().catalog().entries()
   let entries = editing.documents
     .current_sources()
@@ -96,22 +126,20 @@ fn recent_entries(
         source.text() != "" ||
         source.change_order().value() > 0L
       if visible {
-        @source_repository.CatalogEntry::new(
+        Some({
           document_id,
-          match persisted_entry {
+          name: match persisted_entry {
             Some(entry) => entry.name()
-            None => None
+            None => ""
           },
-          change_order=source.change_order(),
-        )
+          change_order: source.change_order(),
+        })
       } else {
         None
       }
     })
-  @source_repository.Catalog::from_entries(entries)
-  .unwrap()
-  .entries()
-  .to_owned()
+  entries.sort_by(document_row_order)
+  entries
 }
 
 ///|

@@ -1,0 +1,43 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/internal/document_lead"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn derive_name(String) -> DerivedName
+
+pub fn extract(String) -> DocumentLead
+
+// Errors
+
+// Types and methods
+pub struct DerivedName {
+  // private fields
+}
+pub fn DerivedName::text(Self) -> String
+pub fn DerivedName::update(Self, String) -> Self
+pub impl Eq for DerivedName
+pub impl @debug.Debug for DerivedName
+
+type DocumentLead derive(Eq, @debug.Debug)
+pub fn DocumentLead::description(Self) -> String
+pub fn DocumentLead::description_truncated(Self) -> Bool
+pub fn DocumentLead::form(Self) -> DocumentLeadForm
+pub fn DocumentLead::primary(Self) -> String
+pub fn DocumentLead::primary_truncated(Self) -> Bool
+
+pub enum DocumentLeadForm {
+  Heading
+  Task(Bool)
+  Quote
+  Code
+  List(String)
+  Plain
+  Empty
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits

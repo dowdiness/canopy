@@ -1,0 +1,14 @@
+{
+  "format": "loomark-stage2-scaling-summary-v1",
+  "units": {"timings": "milliseconds", "source_bytes": "UTF-8 bytes"},
+  "group_key": ["corpus", "target", "bytes", "phase", "run"],
+  "runs": {"cold": {"n": 3, "processes": 3}, "warm": {"n": 20, "warmups": 20, "processes": 1}},
+  "statistics": ["median", "p95", "max"],
+  "p95": "linear interpolation at (n - 1) * 0.95",
+  "selection": {
+    "isolated-small.log": "all groups; targets 1000, 10000, 50000",
+    "isolated-large.log": "all groups except structure target 1270000 phases ir and extract",
+    "isolated-final.log": "structure target 1270000 phases ir and extract"
+  },
+  "columns": ["run", "corpus", "target", "bytes", "phase", "n", "median_ms", "p95_ms", "max_ms"]
+}

@@ -100,47 +100,35 @@ fn next_catalog(
   document_id : String,
   source : String,
   change_order? : ChangeOrder = ChangeOrder(0L),
-) -> (Catalog, Array[RepositoryIssue]) {
-  let issues : Array[RepositoryIssue] = []
-  let name = match derive_name(source) {
-    Ok(name) => name
-    Err(_) => {
-      issues.push(NameDerivationFailed(document_id))
-      None
-    }
-  }
+) -> Catalog {
+  let derived_name = @document_lead.derive_name(source)
   let entries = current
     .entries()
     .filter(entry => entry.document_id() != document_id)
-  entries.push(CatalogEntry::new(document_id, name, change_order~).unwrap())
-  (Catalog::from_entries(entries).unwrap(), issues)
+  entries.push(
+    CatalogEntry::from_derived_name(document_id, derived_name, change_order~).unwrap(),
+  )
+  Catalog::from_entries(entries).unwrap()
 }
 
 ///|
 fn next_catalog_after_source(
   current : Catalog,
   document_id : String,
-  previous_source : String?,
   source : String,
   change_order? : ChangeOrder = ChangeOrder(0L),
-) -> (Catalog, Array[RepositoryIssue]) {
-  guard previous_source is Some(previous_source) &&
-    current.entries().search_by(entry => entry.document_id() == document_id)
+) -> Catalog {
+  guard current.entries().search_by(entry => entry.document_id() == document_id)
     is Some(index) else {
     return next_catalog(current, document_id, source, change_order~)
   }
   let current_entry = current.entries()[index]
-  guard certified_name_prefix_end(previous_source, current_entry.name())
-    is Some(end) &&
-    end <= source.length() &&
-    previous_source.view(end_offset=end).equal(source.view(end_offset=end)) else {
-    return next_catalog(current, document_id, source, change_order~)
-  }
+  let derived_name = current_entry.derived_name.update(source)
   let entries = current
     .entries()
     .filter(entry => entry.document_id() != document_id)
   entries.push(
-    CatalogEntry::new(document_id, current_entry.name(), change_order~).unwrap(),
+    CatalogEntry::from_derived_name(document_id, derived_name, change_order~).unwrap(),
   )
-  (Catalog::from_entries(entries).unwrap(), [])
+  Catalog::from_entries(entries).unwrap()
 }

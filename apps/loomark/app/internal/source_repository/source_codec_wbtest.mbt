@@ -1,7 +1,11 @@
 ///|
 test "source key and strict codec preserve identity exact text and Change order" {
   let order = ChangeOrder::from_int64(1_700_000_000_123L).unwrap()
-  let source = SourceRecord::new("document-1", "# Text\r\n", change_order=order).unwrap()
+  let source = SourceRecord::from_parts(
+    "document-1",
+    "# Text\r\n",
+    change_order=order,
+  ).unwrap()
   assert_eq(source_key(source.document_id()), Some("source/v1/document-1"))
   guard decode_source("source/v1/document-1", encode_source(source))
     is Ok(decoded) else {
@@ -63,7 +67,7 @@ test "source encoder round-trips valid browser text through strict decoder" {
       "line endings: LF\nCRLF\r\nCR\r", "日本語 café e\u{0301} 😀 \u{2028} \u{2029}",
       "</script><script>alert(1)</script>",
     ] {
-    let source = SourceRecord::new("document-\"-日本語", text).unwrap()
+    let source = SourceRecord::from_parts("document-\"-日本語", text).unwrap()
     guard decode_source(
         source_key(source.document_id()).unwrap(),
         encode_source(source),
@@ -80,7 +84,7 @@ test "source encoder exactly round-trips a 1 MiB Source" {
   let prefix = "# Stable\r\n"
   let text = prefix + String::make(1024 * 1024 - prefix.length(), 'x')
   assert_eq(text.length(), 1024 * 1024)
-  let source = SourceRecord::new("document-1-mib", text).unwrap()
+  let source = SourceRecord::from_parts("document-1-mib", text).unwrap()
   guard decode_source(
       source_key(source.document_id()).unwrap(),
       encode_source(source),
@@ -93,7 +97,7 @@ test "source encoder exactly round-trips a 1 MiB Source" {
 
 ///|
 test "source key and payload identity must match" {
-  let source = SourceRecord::new("document-1", "# Text\n").unwrap()
+  let source = SourceRecord::from_parts("document-1", "# Text\n").unwrap()
   assert_eq(source_key(""), None)
   assert_true(
     decode_source("source/v1/document-2", encode_source(source))
