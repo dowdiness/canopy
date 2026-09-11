@@ -14,10 +14,10 @@ docs in `deps/rabbita/doc/` and `deps/rabbita/rabbita/*/README.mbt.md` and
 
 - **Fork:** [`dowdiness/rabbita`](https://github.com/dowdiness/rabbita)
 - **Upstream:** [`moonbit-community/rabbita`](https://github.com/moonbit-community/rabbita)
-- **Downstream branch:** `chore/canopy-rebase-upstream-20260908`
+- **Downstream branch:** `refactor/indexed-db-managed-store`
 - **Upstream base:** `0a5836a3d303b7390d7067894ba8471cbd4ffcdf` (`rabbita-v0.15.8`)
-- **Pinned commit:** `41768c3c0e5856dfea20a830b98caed303b2971a`
-- **Baseline tag:** `canopy-upstream-main-20260908`
+- **Pinned commit:** `c90489fdba7d3e06dec80d9f09aa54c18d4e14e3`
+- **Baseline tag:** `canopy-indexed-db-managed-store-20260911`
 - **Canopy submodule:** `deps/rabbita`
 
 The Canopy `.gitmodules` entry intentionally points at the fork. The
@@ -41,8 +41,9 @@ The pinned fork contains:
   accessibility attributes;
 - `svg.keyed_node`, which exposes keyed SVG children to Rabbita's keyed VDOM
   reconciliation so edge-path DOM identity survives reorder; and
-- concurrent IndexedDB transaction admission, so a later recovery probe is not
-  blocked by an earlier operation whose application acknowledgment is withheld.
+- managed IndexedDB String Store interface (`get`, `contains`, `entries`, `set`,
+  `delete`, atomic `apply`) with typed errors, blocked/stale lifecycle
+  recovery, and redacted debug values.
 
 Canopy needs a MoonBit-typed pointer-capture boundary for its Canvas hosts. This
 patch is intentionally maintained downstream rather than proposed as an
