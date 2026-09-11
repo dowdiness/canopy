@@ -1,13 +1,26 @@
 ///|
+fn finite(value : Double) -> Bool {
+  !value.is_nan() && !value.is_inf()
+}
+
+///|
 fn Constraints::is_valid(self : Constraints) -> Bool {
-  self.min_w >= 1 &&
+  finite(self.min_w) &&
+  finite(self.max_w) &&
+  finite(self.min_h) &&
+  finite(self.max_h) &&
+  self.min_w >= 1.0 &&
   self.min_w <= self.max_w &&
-  self.min_h >= 1 &&
+  self.min_h >= 1.0 &&
   self.min_h <= self.max_h
 }
 
 ///|
-fn clamp_size(w : Int, h : Int, constraints : Constraints) -> (Int, Int) {
+fn clamp_size(
+  w : Double,
+  h : Double,
+  constraints : Constraints,
+) -> (Double, Double) {
   (
     w.clamp(min=constraints.min_w, max=constraints.max_w),
     h.clamp(min=constraints.min_h, max=constraints.max_h),
@@ -15,13 +28,19 @@ fn clamp_size(w : Int, h : Int, constraints : Constraints) -> (Int, Int) {
 }
 
 ///|
-fn Model::with_clamped_size(self : Model, w : Int, h : Int) -> Model {
+fn Model::with_clamped_size(self : Model, w : Double, h : Double) -> Model {
+  guard finite(w) && finite(h) else { return self }
   let (w, h) = clamp_size(w, h, self.constraints)
   { ..self, w, h }
 }
 
 ///|
-fn Model::apply_drag(self : Model, drag : Drag, x : Int, y : Int) -> Model {
+fn Model::apply_drag(
+  self : Model,
+  drag : Drag,
+  x : Double,
+  y : Double,
+) -> Model {
   let delta_x = x - drag.origin_x
   let delta_y = y - drag.origin_y
   let raw_w = if drag.edge.resizes_width() {
@@ -40,23 +59,31 @@ fn Model::apply_drag(self : Model, drag : Drag, x : Int, y : Int) -> Model {
 ///|
 /// Create a resizable model.
 ///
-/// Preconditions: `1 <= min_w <= max_w` and `1 <= min_h <= max_h` for
-/// `constraints`. The initial size is clamped into those bounds.
-pub fn Model::new(w~ : Int, h~ : Int, constraints~ : Constraints) -> Model {
+/// Preconditions: the initial size and all constraint values are finite, with
+/// `1 <= min_w <= max_w` and `1 <= min_h <= max_h`. The initial size is
+/// clamped into those bounds.
+pub fn Model::new(
+  w~ : Double,
+  h~ : Double,
+  constraints~ : Constraints,
+) -> Model {
   guard constraints.is_valid() else {
-    abort("resizable constraints require 1 <= min <= max for width and height")
+    abort("resizable constraints must be finite and require 1 <= min <= max")
+  }
+  guard finite(w) && finite(h) else {
+    abort("resizable initial size must be finite")
   }
   let (w, h) = clamp_size(w, h, constraints)
   { w, h, constraints, drag: None }
 }
 
 ///|
-pub fn Model::width(self : Model) -> Int {
+pub fn Model::width(self : Model) -> Double {
   self.w
 }
 
 ///|
-pub fn Model::height(self : Model) -> Int {
+pub fn Model::height(self : Model) -> Double {
   self.h
 }
 

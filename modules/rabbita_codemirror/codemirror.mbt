@@ -219,7 +219,7 @@ fn line_numbers_extension(
   if enabled {
     let extension : @js_value.Value = cm_value.apply_with_string(
       "lineNumbers",
-      ([] : Array[@js_value.Value]),
+      ([] : FixedArray[@js_value.Value]),
     )
     @js_ffi.raw_extension(extension)
   } else {

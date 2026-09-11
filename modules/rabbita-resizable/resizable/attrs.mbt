@@ -1,9 +1,9 @@
 ///|
 #cfg(target="js")
-let keyboard_step : Int = 8
+let keyboard_step : Double = 8.0
 
 ///|
-fn px(value : Int) -> String {
+fn px(value : Double) -> String {
   "\{value}px"
 }
 
@@ -26,7 +26,7 @@ fn Edge::aria_label(self : Edge) -> String {
 }
 
 ///|
-fn Edge::value_min(self : Edge, constraints : Constraints) -> Int {
+fn Edge::value_min(self : Edge, constraints : Constraints) -> Double {
   match self {
     South => constraints.min_h
     East | SouthEast => constraints.min_w
@@ -34,7 +34,7 @@ fn Edge::value_min(self : Edge, constraints : Constraints) -> Int {
 }
 
 ///|
-fn Edge::value_max(self : Edge, constraints : Constraints) -> Int {
+fn Edge::value_max(self : Edge, constraints : Constraints) -> Double {
   match self {
     South => constraints.max_h
     East | SouthEast => constraints.max_w
@@ -42,7 +42,7 @@ fn Edge::value_max(self : Edge, constraints : Constraints) -> Int {
 }
 
 ///|
-fn Edge::value_now(self : Edge, model : Model) -> Int {
+fn Edge::value_now(self : Edge, model : Model) -> Double {
   match self {
     South => model.h
     East | SouthEast => model.w
@@ -133,13 +133,7 @@ pub fn Model::handle_attrs(
   .base_handle_attrs(edge)
   .on_mousedown(event => {
     event.prevent_default()
-    dispatch(
-      StartResize(
-        edge~,
-        x=event.get_client_x().to_int(),
-        y=event.get_client_y().to_int(),
-      ),
-    )
+    dispatch(StartResize(edge~, x=event.get_client_x(), y=event.get_client_y()))
   })
   .on_keydown(event => {
     match edge.keydown_nudge(event.key()) {

@@ -818,7 +818,9 @@ fn sidebar_element_is_visible(element : @dom.Element) -> Bool {
 fn sidebar_focusable_elements(root : @dom.Element) -> Array[@dom.Element] {
   root
   .query_selector_all(SidebarFocusableSelector)
+  .iter()
   .filter(sidebar_element_is_visible)
+  .collect()
 }
 
 ///|

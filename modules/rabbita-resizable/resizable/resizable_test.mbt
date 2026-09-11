@@ -33,8 +33,8 @@ fn assert_same_public_state(left : Model, right : Model) -> Unit raise {
 }
 
 ///|
-fn sample_coord(seed : Int) -> Int {
-  seed % 701 - 350
+fn sample_coord(seed : Int) -> Double {
+  (seed % 701 - 350).to_double()
 }
 
 ///|
@@ -153,4 +153,28 @@ test "East drag width change equals delta within bounds" {
     .update(PointerMove(x=45, y=105))
   assert_eq(moved.width(), model.width() + 35)
   assert_eq(moved.height(), model.height())
+}
+
+///|
+test "drag preserves fractional coordinate deltas" {
+  let model = test_model()
+  let moved = model
+    .update(StartResize(edge=SouthEast, x=10.25, y=20.25))
+    .update(PointerMove(x=45.75, y=55.5))
+  assert_eq(moved.width(), model.width() + 35.5)
+  assert_eq(moved.height(), model.height() + 35.25)
+}
+
+///|
+test "non-finite resize messages preserve the current size" {
+  let model = test_model()
+  let dragging = model.update(StartResize(edge=East, x=10.0, y=20.0))
+  assert_same_public_state(
+    dragging,
+    dragging.update(PointerMove(x=@double.infinity, y=20.0)),
+  )
+  assert_same_public_state(
+    model,
+    model.update(NudgeBy(dw=@double.not_a_number, dh=0.0)),
+  )
 }

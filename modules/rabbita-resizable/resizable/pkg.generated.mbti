@@ -13,10 +13,10 @@ import {
 
 // Types and methods
 pub(all) struct Constraints {
-  min_w : Int
-  max_w : Int
-  min_h : Int
-  max_h : Int
+  min_w : Double
+  max_w : Double
+  min_h : Double
+  max_h : Double
 }
 
 type Drag
@@ -32,18 +32,18 @@ pub struct Model {
 }
 pub fn Model::container_attrs(Self) -> @html.Attrs
 pub fn Model::handle_attrs(Self, Edge, (Msg) -> @cmd.Cmd) -> @html.Attrs
-pub fn Model::height(Self) -> Int
+pub fn Model::height(Self) -> Double
 pub fn Model::is_resizing(Self) -> Bool
-pub fn Model::new(w~ : Int, h~ : Int, constraints~ : Constraints) -> Self
+pub fn Model::new(w~ : Double, h~ : Double, constraints~ : Constraints) -> Self
 pub fn Model::subscriptions(Self, (Msg) -> @cmd.Cmd) -> @sub.Sub
 pub fn Model::update(Self, Msg) -> Self
-pub fn Model::width(Self) -> Int
+pub fn Model::width(Self) -> Double
 
 pub(all) enum Msg {
-  StartResize(edge~ : Edge, x~ : Int, y~ : Int)
-  PointerMove(x~ : Int, y~ : Int)
+  StartResize(edge~ : Edge, x~ : Double, y~ : Double)
+  PointerMove(x~ : Double, y~ : Double)
   EndResize
-  NudgeBy(dw~ : Int, dh~ : Int)
+  NudgeBy(dw~ : Double, dh~ : Double)
 }
 
 // Type aliases

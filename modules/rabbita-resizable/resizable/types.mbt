@@ -7,35 +7,35 @@ pub(all) enum Edge {
 
 ///|
 pub(all) struct Constraints {
-  min_w : Int
-  max_w : Int
-  min_h : Int
-  max_h : Int
+  min_w : Double
+  max_w : Double
+  min_h : Double
+  max_h : Double
 }
 
 ///|
 struct Drag {
   edge : Edge
-  origin_x : Int
-  origin_y : Int
-  base_w : Int
-  base_h : Int
+  origin_x : Double
+  origin_y : Double
+  base_w : Double
+  base_h : Double
 }
 
 ///|
 pub struct Model {
-  priv w : Int
-  priv h : Int
+  priv w : Double
+  priv h : Double
   priv constraints : Constraints
   priv drag : Drag?
 }
 
 ///|
 pub(all) enum Msg {
-  StartResize(edge~ : Edge, x~ : Int, y~ : Int)
-  PointerMove(x~ : Int, y~ : Int)
+  StartResize(edge~ : Edge, x~ : Double, y~ : Double)
+  PointerMove(x~ : Double, y~ : Double)
   EndResize
-  NudgeBy(dw~ : Int, dh~ : Int)
+  NudgeBy(dw~ : Double, dh~ : Double)
 }
 
 ///|
