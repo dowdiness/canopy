@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 RABBITA_ROOT="$PROJECT_ROOT/deps/rabbita"
 RABBITA_REMOTE="$(git -C "$PROJECT_ROOT" config -f .gitmodules --get submodule.rabbita.url)"
-EXPECTED_RABBITA="c90489fdba7d3e06dec80d9f09aa54c18d4e14e3"
+EXPECTED_RABBITA="e62b3d806fe737cf004ca506c3a64ed7fbae6443"
 BIN_DIR="${1:-$PROJECT_ROOT/_build/tools/bin}"
 
 actual_remote="$(git -C "$RABBITA_ROOT" remote get-url origin)"
