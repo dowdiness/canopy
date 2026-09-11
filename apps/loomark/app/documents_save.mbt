@@ -11,7 +11,7 @@ fn import_document(
   match documents.change_order_floor.advance(observed) {
     None => (documents, [])
     Some(order) => {
-      guard @source_repository.SourceRecord::new(
+      guard @source_repository.SourceRecord::from_parts(
           document_id,
           text,
           change_order=order,
@@ -63,7 +63,7 @@ fn apply_text(
       [],
     )
   }
-  let source = @source_repository.SourceRecord::new(
+  let source = @source_repository.SourceRecord::from_parts(
     document_id,
     text,
     change_order=order,

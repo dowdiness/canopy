@@ -131,7 +131,7 @@ pub(all) enum SaveResult {
 type SourceRecord derive(Eq, @debug.Debug)
 pub fn SourceRecord::change_order(Self) -> ChangeOrder
 pub fn SourceRecord::document_id(Self) -> String
-pub fn SourceRecord::new(String, String, change_order? : ChangeOrder) -> Self?
+pub fn SourceRecord::from_parts(String, String, change_order? : ChangeOrder) -> Self?
 pub fn SourceRecord::text(Self) -> String
 
 // Type aliases

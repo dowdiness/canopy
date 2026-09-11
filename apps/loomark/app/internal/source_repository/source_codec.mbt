@@ -83,7 +83,7 @@ fn decode_source_value(
       }
     _ => return Err(InvalidRecord)
   }
-  match SourceRecord::new(document_id, text, change_order~) {
+  match SourceRecord::from_parts(document_id, text, change_order~) {
     Some(source) => Ok(source)
     None => Err(InvalidRecord)
   }

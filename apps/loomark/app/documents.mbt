@@ -8,7 +8,7 @@ fn Documents::reduce(
       guard find_record(self.records, document_id) is None else {
         return (self, [])
       }
-      guard @source_repository.SourceRecord::new(document_id, "")
+      guard @source_repository.SourceRecord::from_parts(document_id, "")
         is Some(source) else {
         return (self, [])
       }

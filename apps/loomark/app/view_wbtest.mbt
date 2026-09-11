@@ -64,8 +64,8 @@ test "Document sidebar presents a placeholder without naming an empty Catalog en
 test "Recent documents orders equal Change orders lexically" {
   let order = @source_repository.ChangeOrder::from_int64(7L).unwrap()
   let snapshot = @source_repository.RepositorySnapshot::from_sources([
-    @source_repository.SourceRecord::new("z", "z", change_order=order).unwrap(),
-    @source_repository.SourceRecord::new("a", "a", change_order=order).unwrap(),
+    @source_repository.SourceRecord::from_parts("z", "z", change_order=order).unwrap(),
+    @source_repository.SourceRecord::from_parts("a", "a", change_order=order).unwrap(),
   ]).unwrap()
   let editing = { ..test_editing(), documents: initial_documents(snapshot) }
   assert_eq(recent_entries(editing).map(entry => entry.document_id()), [

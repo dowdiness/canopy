@@ -20,7 +20,7 @@ fn reconciliation_bench_sources(
 ) -> Array[SourceRecord] {
   Array::makei(count, index => {
     let document_id = "document-\{index}"
-    SourceRecord::new(
+    SourceRecord::from_parts(
       document_id,
       reconciliation_bench_text(index, large_mix && index % 100 == 0),
     ).unwrap()

@@ -45,7 +45,7 @@ struct SourceRecord {
 } derive(Eq, Debug)
 
 ///|
-pub fn SourceRecord::new(
+pub fn SourceRecord::from_parts(
   document_id : String,
   text : String,
   change_order? : ChangeOrder = ChangeOrder(0L),
@@ -183,7 +183,7 @@ struct RepositorySnapshot(
 ) derive(Eq, Debug)
 
 ///|
-fn RepositorySnapshot::new(
+fn RepositorySnapshot::from_parts(
   sources : Array[SourceRecord],
   catalog : Catalog,
   issues : Array[RepositoryIssue],
@@ -226,7 +226,11 @@ fn snapshot_from_sources(
     ).unwrap()
   })
   guard Catalog::from_entries(entries) is Some(catalog) else { return None }
-  Some(RepositorySnapshot::new(ordered, catalog, issues, occupied_source_keys))
+  Some(
+    RepositorySnapshot::from_parts(
+      ordered, catalog, issues, occupied_source_keys,
+    ),
+  )
 }
 
 ///|
@@ -305,7 +309,7 @@ fn accepted_source(
     source.text(),
     change_order=source.change_order(),
   )
-  RepositorySnapshot::new(
+  RepositorySnapshot::from_parts(
     sources,
     catalog,
     issues,
