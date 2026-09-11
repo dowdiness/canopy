@@ -38,6 +38,12 @@ fn test_update(model : Model, msg : Msg) -> (Model, @cmd.Cmd) {
 }
 
 ///|
+test "compact viewport preserves the fractional breakpoint boundary" {
+  assert_true(compact_viewport(640.0))
+  assert_true(!compact_viewport(640.5))
+}
+
+///|
 test "Import strictly decodes UTF-8, consumes BOM, and normalizes line endings" {
   assert_eq(
     decode_import(b"\xef\xbb\xbfalpha\r\nbeta\rgamma\n  tail\t"),

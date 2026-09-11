@@ -62,7 +62,7 @@ fn subscriptions(model : Model, emit : Emit[Msg]) -> @sub.Sub {
 }
 
 ///|
-fn size_badge(width : Int, height : Int) -> Html {
+fn size_badge(width : Double, height : Double) -> Html {
   span(class="size-badge", "\{width}px × \{height}px")
 }
 

@@ -70,7 +70,7 @@ priv enum Msg {
   DismissImportFailure
   ExportRequested
   PreviewEvent(@preview.Event)
-  ViewportChanged(Int)
+  ViewportChanged(Double)
   DocumentsLifecycle(DocumentsFeedback)
   VisibilityChanged(Bool)
   RetrySave

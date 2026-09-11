@@ -8,10 +8,10 @@ const AUTOSAVE_MAXIMUM_MS : Int = 2000
 const DELETE_WATCHDOG_MS : Int = 4000
 
 ///|
-const COMPACT_MAX_WIDTH : Int = 640
+const COMPACT_MAX_WIDTH : Double = 640.0
 
 ///|
-fn compact_viewport(width : Int) -> Bool {
+fn compact_viewport(width : Double) -> Bool {
   width <= COMPACT_MAX_WIDTH
 }
 

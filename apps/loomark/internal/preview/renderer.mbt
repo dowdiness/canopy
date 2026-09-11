@@ -410,7 +410,7 @@ fn render_top_level_blocks(
   @html.fragment(
     blocks.mapi((index, block) => {
       let node = block.node()
-      @html.lazy(keys[index], () => render_node(node))
+      @html.memo_by(node, node => render_node(node), by=_ => keys[index])
     }),
   )
 }
