@@ -70,7 +70,7 @@ fn confirm_or_retry_delete(
         },
         [],
       )
-    _ if record.origin == EphemeralNew =>
+    _ if documents.saved.find(id) is None =>
       (
         {
           ..documents,

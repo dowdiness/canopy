@@ -72,6 +72,23 @@ test "failed Import remains available through the existing Retry" {
 }
 
 ///|
+test "failed Import deletion is local because it was never saved" {
+  let documents = initial_documents(documents_test_snapshot())
+  let before = documents.snapshot()
+  let (documents, decisions) = documents.reduce(
+    DocumentsImported("imported", "text"),
+  )
+  guard decisions is [DocumentsPersist(operation)] else { fail("persist") }
+  let (documents, _) = documents.reduce(
+    DocumentsFeedbackReceived(SaveCompleted(operation, SaveFailed(WriteFailed))),
+  )
+  let (documents, decisions) = documents.reduce(DeleteConfirmed("imported"))
+  assert_true(decisions.is_empty())
+  assert_eq(documents.snapshot(), before)
+  assert_eq(documents.text("imported"), None)
+}
+
+///|
 test "a second document persists while the first document is in flight" {
   let documents = initial_documents(documents_test_snapshot())
   let (documents, decisions) = documents.reduce(
