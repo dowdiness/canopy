@@ -21,6 +21,24 @@ fn documents_test_document(
 }
 
 ///|
+test "activation target preserves current text and parsed resume eligibility" {
+  let documents = initial_documents(documents_test_snapshot())
+  let (documents, _) = documents.reduce(DocumentsTextChanged("one", "one!"))
+  guard documents.activation_target("one") is Some(saved) else {
+    fail("saved activation target")
+  }
+  assert_eq(saved.document.text(), "one!")
+  assert_true(saved.resume_hint is Some(_))
+  let (documents, _) = documents.reduce(DocumentsNew("new"))
+  guard documents.activation_target("new") is Some(ephemeral) else {
+    fail("ephemeral activation target")
+  }
+  assert_eq(ephemeral.document.text(), "")
+  assert_eq(ephemeral.resume_hint, None)
+  assert_true(documents.activation_target("missing") is None)
+}
+
+///|
 test "Import accepts empty text and persists it immediately as New" {
   let documents = initial_documents(documents_test_snapshot())
   let (documents, decisions) = documents.reduce(

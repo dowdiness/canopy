@@ -3,6 +3,10 @@
 pub struct Document(String, String) derive(Eq, Debug)
 
 ///|
+/// An advisory startup-selection hint parsed from accepted SavedDocuments.
+pub struct EditingDocumentHint(String) derive(Eq, Debug)
+
+///|
 pub(all) suberror DocumentError {
   InvalidIdentity
 } derive(Eq, Debug)
@@ -146,6 +150,14 @@ pub fn SavedDocuments::find(self : Self, id : String) -> Document? {
   .view()
   .search_by(document => document.id() == id)
   .map(i => self.documents[i])
+}
+
+///|
+pub fn SavedDocuments::editing_document_hint(
+  self : Self,
+  document_id : String,
+) -> EditingDocumentHint? {
+  self.find(document_id).map(document => EditingDocumentHint(document.id()))
 }
 
 ///|

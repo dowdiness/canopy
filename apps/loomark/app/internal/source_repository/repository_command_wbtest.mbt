@@ -13,13 +13,17 @@ test "open begins with complete Store entries scan" {
 }
 
 ///|
-test "remembering unknown document is a no-op" {
+test "saved membership parses an exact editing hint" {
   let saved = SavedDocuments::from_documents([command_doc("a")]).unwrap()
-  assert_false(
-    @debug.to_string(remember_editing_document(saved, "missing")).contains(
-      "IndexedDB",
-    ),
-  )
+  assert_eq(saved.editing_document_hint("a"), Some(EditingDocumentHint("a")))
+  assert_eq(saved.editing_document_hint("missing"), None)
+}
+
+///|
+test "remembering a parsed hint writes the advisory record" {
+  let saved = SavedDocuments::from_documents([command_doc("a")]).unwrap()
+  let hint = saved.editing_document_hint("a").unwrap()
+  assert_true(@debug.to_string(hint.remember()).contains("IndexedDBApply"))
 }
 
 ///|

@@ -18,7 +18,7 @@ fn test_editing() -> EditingState {
     @preview.Input(0, "one"),
   )
   {
-    activation: { document_id: "one", generation: 0 },
+    activation: { document_id: "one", generation: 0, },
     documents,
     creation: Idle,
     deletion: NoDeletion,
@@ -90,7 +90,7 @@ test "each completed Import is retained and the latest completion activates" {
 
 ///|
 test "accepted Import supersedes an unfinished New action" {
-  let initial = { ..test_editing(), creation: Creating }
+  let initial = { ..test_editing(), creation: Creating, }
   let (model, _) = test_update(
     Editing(initial),
     ImportCreateCompleted("Imported", Created("imported")),
@@ -176,10 +176,10 @@ test "same document selection is a no-op" {
 }
 
 ///|
-test "activating an unsaved New uses repository validation" {
+test "activating an unsaved New has no parsed resume hint" {
   let saved = test_update(Editing(test_editing()), DocumentSelected("two")).1
   let ephemeral = test_update(
-      Editing({ ..test_editing(), creation: Creating }),
+      Editing({ ..test_editing(), creation: Creating, }),
       CreateCompleted("one", Created("new")),
     ).1
   assert_true(@debug.to_string(saved).contains("IndexedDBApply"))
@@ -190,7 +190,7 @@ test "activating an unsaved New uses repository validation" {
 
 ///|
 test "stale create completion is ignored" {
-  let initial = { ..test_editing(), creation: Creating }
+  let initial = { ..test_editing(), creation: Creating, }
   let (model, _) = test_update(
     Editing(initial),
     CreateCompleted("other", Created("new")),
@@ -214,7 +214,7 @@ test "pending target cannot be selected" {
 
 ///|
 test "deleting the Editing Document remembers its saved fallback" {
-  let initial = { ..test_editing(), deletion: DeleteConfirmation("one") }
+  let initial = { ..test_editing(), deletion: DeleteConfirmation("one"), }
   let (model, _) = test_update(Editing(initial), DeleteConfirmed("one"))
   guard model is Editing(deleting) else { fail("deleting") }
   guard deleting.documents.delete_status("one") is Some(Deleting(operation)) else {
@@ -239,7 +239,7 @@ test "deleting an active unsaved new document reconciles activation" {
   let (model, _) = test_update(
     Editing({
       ..initial,
-      activation: { document_id: "new", generation: 1 },
+      activation: { document_id: "new", generation: 1, },
       documents,
       deletion: DeleteConfirmation("new"),
     }),
@@ -263,7 +263,7 @@ test "failed first save of active new document reconciles activation" {
   let (model, _) = test_update(
     Editing({
       ..initial,
-      activation: { document_id: "new", generation: 1 },
+      activation: { document_id: "new", generation: 1, },
       documents,
     }),
     DocumentsLifecycle(SaveCompleted(operation, SaveFailed(WriteFailed))),
@@ -323,7 +323,7 @@ fn preparing_after_active_delete() -> (Model, @cmd.Cmd) {
     },
   ]).unwrap()
   let base = test_editing()
-  let initial = { ..base, documents: initial_documents(snapshot) }
+  let initial = { ..base, documents: initial_documents(snapshot), }
   let (documents, decisions) = initial.documents.reduce(DeleteConfirmed("one"))
   match decisions[0] {
     DeleteDocument(operation) =>
@@ -340,7 +340,7 @@ test "delete-to-New advances Preview ownership" {
   let (model, _) = preparing_after_active_delete()
   guard model is PreparingNew(preparing) else { fail("preparing") }
   let (model, _) = test_update(
-    PreparingNew({ ..preparing, mode: Split }),
+    PreparingNew({ ..preparing, mode: Split, }),
     EmptyCreateCompleted(preparing.request_id, Created("new")),
   )
   guard model is Editing(editing) else { fail("editing") }
@@ -359,7 +359,7 @@ test "final active delete falls back to a new document" {
     @preview.Input(0, "one"),
   )
   let initial = {
-    activation: { document_id: "one", generation: 0 },
+    activation: { document_id: "one", generation: 0, },
     documents,
     creation: Idle,
     deletion: NoDeletion,
@@ -397,7 +397,7 @@ test "composition end opens deferred active deletion confirmation" {
   let (documents, _) = initial.documents.reduce(
     DocumentsCompositionStarted("one"),
   )
-  let state = { ..initial, documents, deletion: DeleteDeferred("one") }
+  let state = { ..initial, documents, deletion: DeleteDeferred("one"), }
   let (model, _) = test_update(
     Editing(state),
     CompositionEnded(initial.activation),
@@ -428,7 +428,7 @@ test "page-local revision restores authoritative text and preview" {
   let base = test_editing()
   let initial = {
     ..base,
-    activation: { document_id: "one", generation: 0 },
+    activation: { document_id: "one", generation: 0, },
     documents: initial_documents(snapshot),
   }
   // Apply a text change then verify page-local order: stale timer ignored, correct revision persists
@@ -457,7 +457,7 @@ test "page-local revision restores authoritative text and preview" {
   assert_eq(op.document.text(), "one!")
   // Update view layer: authoritative text is still "one" until save completes, preview unchanged
   let (model, _) = test_update(
-    Editing({ ..initial, documents: initial.documents }),
+    Editing({ ..initial, documents: initial.documents, }),
     TextChanged(initial.activation, @text_change.TextChange::ReplaceAll("one!")),
   )
   guard model is Editing(editing) else { fail("editing") }

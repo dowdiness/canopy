@@ -13,8 +13,6 @@ pub fn delete(SavedDocuments, String, @cmd.Emit[DeleteResult]) -> @cmd.Cmd
 
 pub fn open(@cmd.Emit[OpenResult]) -> @cmd.Cmd
 
-pub fn remember_editing_document(SavedDocuments, String) -> @cmd.Cmd
-
 pub fn save(SavedDocuments, Document, @cmd.Emit[SaveResult]) -> @cmd.Cmd
 
 // Errors
@@ -56,6 +54,9 @@ pub fn Document::create(String, String) -> Self raise DocumentError
 pub fn Document::id(Self) -> String
 pub fn Document::text(Self) -> String
 pub fn Document::update(Self, String) -> Self
+
+pub struct EditingDocumentHint(String) derive(Eq, @debug.Debug)
+pub fn EditingDocumentHint::remember(Self) -> @cmd.Cmd
 
 pub(all) enum OpenFailure {
   StorageUnavailable
@@ -101,6 +102,7 @@ pub struct SavedDocuments {
 pub fn SavedDocuments::all(Self) -> ArrayView[Document]
 pub fn SavedDocuments::apply(Self, RepositoryChange) -> Self?
 pub fn SavedDocuments::catalog(Self) -> Catalog
+pub fn SavedDocuments::editing_document_hint(Self, String) -> EditingDocumentHint?
 pub fn SavedDocuments::find(Self, String) -> Document?
 pub fn SavedDocuments::from_documents(Array[Document]) -> Self?
 pub fn SavedDocuments::issues(Self) -> ArrayView[RepositoryIssue]

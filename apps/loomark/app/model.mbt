@@ -22,6 +22,12 @@ priv struct Activation {
 } derive(Eq)
 
 ///|
+priv struct ActivationTarget {
+  document : @source_repository.Document
+  resume_hint : @source_repository.EditingDocumentHint?
+}
+
+///|
 priv struct EditingState {
   activation : Activation
   documents : Documents

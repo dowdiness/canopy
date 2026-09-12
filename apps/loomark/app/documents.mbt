@@ -18,7 +18,7 @@ fn Documents::reduce(
         save: Saved,
         delete: Available,
       }
-      ({ ..self, records: prepend_record(self.records, record) }, [])
+      ({ ..self, records: prepend_record(self.records, record), }, [])
     }
     DocumentsImported(document_id, text) =>
       import_document(self, document_id, text)
@@ -32,7 +32,7 @@ fn Documents::reduce(
             if delete_is_active(r.delete) {
               r
             } else {
-              { ..r, composing: true }
+              { ..r, composing: true, }
             }
           }),
         },
@@ -43,7 +43,7 @@ fn Documents::reduce(
         return (self, [])
       }
       guard !delete_is_active(record.delete) else { return (self, []) }
-      let record = { ..record, composing: false }
+      let record = { ..record, composing: false, }
       match record.save {
         Waiting(checkpoint) if checkpoint.eligibility ==
           DocumentsCheckpointEligibility::Eligible => {
@@ -120,7 +120,7 @@ fn Documents::reduce(
                           records: replace_record(
                             self.records,
                             operation.document.id(),
-                            r => { ..r, save: failed },
+                            r => { ..r, save: failed, },
                           ),
                         },
                         delete_operation,
@@ -153,7 +153,7 @@ fn Documents::reduce(
           ..self,
           records: replace_record(self.records, id, r => {
             match r.delete {
-              Failed(_, _) => { ..r, delete: Available }
+              Failed(_, _) => { ..r, delete: Available, }
               _ => r
             }
           }),
@@ -168,7 +168,7 @@ fn Documents::reduce(
         Failed(_) if !record.composing && !delete_is_active(record.delete) => {
           let (next, decisions) = begin_save(record)
           (
-            { ..self, records: replace_record(self.records, id, _ => next) },
+            { ..self, records: replace_record(self.records, id, _ => next), },
             decisions,
           )
         }
@@ -187,6 +187,17 @@ fn Documents::reduce(
       }
     }
   }
+}
+
+///|
+fn Documents::activation_target(
+  self : Self,
+  document_id : String,
+) -> ActivationTarget? {
+  find_record(self.records, document_id).map(record => {
+    document: record.document,
+    resume_hint: self.saved.editing_document_hint(document_id),
+  })
 }
 
 ///|

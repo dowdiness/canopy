@@ -78,12 +78,8 @@ pub fn open(msg : @cmd.Emit[OpenResult]) -> @cmd.Cmd {
 }
 
 ///|
-pub fn remember_editing_document(
-  saved : SavedDocuments,
-  id : String,
-) -> @cmd.Cmd {
-  guard saved.find(id) is Some(_) else { return @cmd.none }
-  document_store.set(EDITING_DOCUMENT_KEY, id, _ => @cmd.none)
+pub fn EditingDocumentHint::remember(self : Self) -> @cmd.Cmd {
+  document_store.set(EDITING_DOCUMENT_KEY, self.0, _ => @cmd.none)
 }
 
 ///|

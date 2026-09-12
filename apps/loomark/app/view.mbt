@@ -119,7 +119,7 @@ fn recent_entries(editing : EditingState) -> Array[PresentationRow] {
       @document_lead.derive_name(document.text()).text()
     }
     if entry is Some(_) || document.text() != "" {
-      Some({ document_id, name })
+      Some({ document_id, name, })
     } else {
       None
     }
@@ -132,7 +132,7 @@ fn document_sidebar(
   editing : EditingState,
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
-  let available = can_activate(editing)
+  let available = editing.can_activate()
   let entry_values = recent_entries(editing)
   let entries = entry_values.view()
   let compact = editing.compact
@@ -191,7 +191,7 @@ fn document_sidebar(
                   @sidebar.sidebar_menu_sub_item([
                     @sidebar.sidebar_menu_sub_button(
                       is_active=selected,
-                      disabled=!can_select(editing, document_id),
+                      disabled=!editing.can_select(document_id),
                       aria_label=label,
                       title=label,
                       class="pr-10 hover:opacity-70 active:opacity-50",
