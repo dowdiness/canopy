@@ -127,7 +127,7 @@ test "export payload falls back for an empty Editing Document" {
 
 ///|
 test "loading and recovery ignore document lifecycle feedback" {
-  let feedback = DocumentsLifecycle(QuietElapsed("one", 1))
+  let feedback = Msg::ApplyPendingEdit("one", 1)
   let (loading, _) = test_update(Loading(false), feedback)
   assert_true(loading == Loading(false))
   let (recovery, _) = test_update(Recovery(StorageUnavailable, false), feedback)
@@ -144,6 +144,25 @@ test "repository open activates its resolved initial Document" {
   )
   guard model is Editing(editing) else { fail("editing") }
   assert_eq(editing.activation.document_id, "two")
+}
+
+///|
+test "delete is rejected while creation is in flight and completion still activates" {
+  let initial = { ..test_editing(), creation: Creating, }
+  let (after_delete, delete_command) = test_update(
+    Editing(initial),
+    DeleteRequested("one"),
+  )
+  assert_true(after_delete == Editing(initial))
+  assert_eq(@debug.to_string(delete_command), "[]")
+  let (after_create, _) = test_update(
+    after_delete,
+    CreateCompleted("one", Created("new")),
+  )
+  guard after_create is Editing(editing) else { fail("editing") }
+  assert_eq(editing.activation.document_id, "new")
+  assert_true(editing.creation is Idle)
+  assert_true(editing.documents.delete_status("one") is Some(Available))
 }
 
 ///|
@@ -256,7 +275,7 @@ test "failed first save of active new document reconciles activation" {
   let (documents, _) = initial.documents.reduce(DocumentsNew("new"))
   let (documents, _) = documents.reduce(DocumentsTextChanged("new", "hello"))
   let (documents, decisions) = documents.reduce(
-    DocumentsFeedbackReceived(QuietElapsed("new", 1)),
+    DocumentsEvent::ApplyPendingEdit("new", 1),
   )
   guard decisions[0] is DocumentsPersist(operation) else { fail("save") }
   let (documents, _) = documents.reduce(DeleteConfirmed("new"))
@@ -280,7 +299,7 @@ test "save completion updates inactive document without switching" {
     DocumentsTextChanged("two", "two!"),
   )
   let (documents, decisions) = documents.reduce(
-    DocumentsFeedbackReceived(QuietElapsed("two", 1)),
+    DocumentsEvent::ApplyPendingEdit("two", 1),
   )
   guard decisions[0] is DocumentsDecision::DocumentsPersist(operation) else {
     fail("persist")
@@ -435,21 +454,17 @@ test "page-local revision restores authoritative text and preview" {
   let (documents, decisions) = initial.documents.reduce(
     DocumentsTextChanged("one", "one!"),
   )
-  guard decisions
-    is [
-      DocumentsDecision::DocumentsArmQuiet(_, rev),
-      DocumentsDecision::DocumentsArmMaximum(_, _),
-    ] else {
+  guard decisions is [DocumentsDecision::DocumentsArmMaximum(_, _)] else {
     fail("timers")
   }
-  // Simulate stale quiet timer with wrong revision: should be ignored by documents layer
+  // Simulate stale pending_revision(documents, "one") timer with wrong revision: should be ignored by documents layer
   let (documents, stale) = documents.reduce(
-    DocumentsFeedbackReceived(QuietElapsed("one", 99)),
+    DocumentsEvent::ApplyPendingEdit("one", 99),
   )
   assert_true(stale.is_empty())
   // Correct revision proceeds
   let (_, decisions) = documents.reduce(
-    DocumentsFeedbackReceived(QuietElapsed("one", rev)),
+    DocumentsEvent::ApplyPendingEdit("one", pending_revision(documents, "one")),
   )
   guard decisions[0] is DocumentsDecision::DocumentsPersist(op) else {
     fail("persist")
@@ -471,7 +486,7 @@ test "preparing new reduces unrelated inactive save completion" {
     DocumentsTextChanged("two", "two!"),
   )
   let (documents, decisions) = documents.reduce(
-    DocumentsFeedbackReceived(QuietElapsed("two", 1)),
+    DocumentsEvent::ApplyPendingEdit("two", 1),
   )
   guard decisions[0] is DocumentsPersist(operation) else { fail("persist") }
   let (model, _) = test_update(

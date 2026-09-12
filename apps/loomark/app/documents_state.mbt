@@ -35,6 +35,35 @@ fn prepend_record(
 }
 
 ///|
+fn is_composing(edit : EditState) -> Bool {
+  match edit {
+    ComposingIdle | ComposingWaiting(_) | ComposingReady => true
+    Idle | Waiting(_) => false
+  }
+}
+
+///|
+fn replace_checkpoint(
+  documents : Documents,
+  document_id : String,
+  checkpoint : DocumentsCheckpoint,
+) -> Documents {
+  {
+    ..documents,
+    records: replace_record(documents.records, document_id, r => {
+      let save = match r.save {
+        DocumentsSaveStatus::Waiting(_) =>
+          DocumentsSaveStatus::Waiting(checkpoint)
+        DocumentsSaveStatus::Saving(operation, _) =>
+          DocumentsSaveStatus::Saving(operation, Some(checkpoint))
+        Saved | Failed(_) => r.save
+      }
+      { ..r, save, }
+    }),
+  }
+}
+
+///|
 fn begin_save(
   record : DocumentRecord,
 ) -> (DocumentRecord, Array[DocumentsDecision]) {
@@ -53,15 +82,16 @@ fn initial_documents(saved : @source_repository.SavedDocuments) -> Documents {
     .map(document => {
       document,
       origin: Existing,
-      composing: false,
+      edit: Idle,
       save: Saved,
+      lead_source: Available(document.text()),
       delete: Available,
     })
   {
     saved,
     records,
     last_checkpoint_id: 0,
-    last_quiet_revision: 0,
+    last_pending_edit_revision: 0,
     last_delete_request: 0,
   }
 }
@@ -71,48 +101,40 @@ fn allocate_checkpoint(
   documents : Documents,
 ) -> (Documents, DocumentsCheckpoint) {
   let id = documents.last_checkpoint_id + 1
-  let revision = documents.last_quiet_revision + 1
   (
-    { ..documents, last_checkpoint_id: id, last_quiet_revision: revision, },
+    { ..documents, last_checkpoint_id: id, },
     {
       maximum_id: id,
-      quiet_revision: revision,
-      maximum_armed: true,
+      maximum_armed: false,
       eligibility: DocumentsCheckpointEligibility::Deferred,
     },
   )
 }
 
 ///|
-fn revise_checkpoint(
-  documents : Documents,
-  checkpoint : DocumentsCheckpoint,
-) -> (Documents, DocumentsCheckpoint) {
-  let revision = documents.last_quiet_revision + 1
-  (
-    { ..documents, last_quiet_revision: revision, },
-    {
-      ..checkpoint,
-      quiet_revision: revision,
-      eligibility: DocumentsCheckpointEligibility::Deferred,
-    },
-  )
+fn revise_checkpoint(checkpoint : DocumentsCheckpoint) -> DocumentsCheckpoint {
+  { ..checkpoint, eligibility: DocumentsCheckpointEligibility::Deferred, }
+}
+
+///|
+fn next_pending_edit(documents : Documents) -> (Documents, Int) {
+  let revision = documents.last_pending_edit_revision + 1
+  ({ ..documents, last_pending_edit_revision: revision, }, revision)
 }
 
 ///|
 fn checkpoint_effect(
   document_id : String,
   checkpoint : DocumentsCheckpoint,
-  new_checkpoint : Bool,
-) -> Array[DocumentsDecision] {
-  if checkpoint.eligibility == DocumentsCheckpointEligibility::Eligible {
-    []
-  } else if new_checkpoint || !checkpoint.maximum_armed {
-    [
-      DocumentsArmQuiet(document_id, checkpoint.quiet_revision),
-      DocumentsArmMaximum(document_id, checkpoint.maximum_id),
-    ]
+  rearm : Bool,
+) -> (DocumentsCheckpoint, Array[DocumentsDecision]) {
+  if checkpoint.eligibility == DocumentsCheckpointEligibility::Eligible ||
+    (!rearm && checkpoint.maximum_armed) {
+    (checkpoint, [])
   } else {
-    [DocumentsArmQuiet(document_id, checkpoint.quiet_revision)]
+    (
+      { ..checkpoint, maximum_armed: true, },
+      [DocumentsArmMaximum(document_id, checkpoint.maximum_id)],
+    )
   }
 }

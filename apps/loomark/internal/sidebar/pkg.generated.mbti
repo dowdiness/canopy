@@ -61,6 +61,8 @@ pub fn sidebar_provider(default_collapsed? : Bool, default_mobile_open? : Bool, 
 
 pub fn[T : Eq] sidebar_provider_with_input(input~ : @rabbita.Val[T], default_collapsed? : Bool, default_mobile_open? : Bool, on_collapsed_change? : @cmd.Emit[Bool], on_mobile_open_change? : @cmd.Emit[Bool], id? : String, class? : String, title? : String, attrs? : @html.Attrs, style? : Array[String], (SidebarScope, T) -> @html.Html) -> @rabbita.Val[@html.Html]
 
+pub fn[T : Eq] sidebar_provider_with_state(state~ : SidebarProviderState, input~ : @rabbita.Val[T], id? : String, class? : String, title? : String, attrs? : @html.Attrs, style? : Array[String], (SidebarScope, T) -> @html.Html) -> @rabbita.Val[@html.Html]
+
 pub fn sidebar_rail(SidebarScope, min_width? : Int, max_width? : Int, id? : String, class? : String, title? : String, aria_label? : String, on_click? : @cmd.Cmd, attrs? : @html.Attrs, style? : Array[String]) -> @html.Html
 
 pub fn sidebar_separator(id? : String, class? : String, title? : String, attrs? : @html.Attrs, style? : Array[String]) -> @html.Html
@@ -87,12 +89,45 @@ pub(all) enum SidebarMenuButtonVariant {
   SidebarMenuButtonOutline
 } derive(Eq, @debug.Debug)
 
-type SidebarScope
+pub enum SidebarMessage {
+  ToggleSidebarCollapsed
+  SetSidebarCollapsed(Bool)
+  ToggleSidebarMobile
+  SetSidebarMobile(Bool)
+  CommitSidebarWidth(Int)
+}
+
+pub struct SidebarProviderState {
+  state : @rabbita.Val[SidebarState]
+  emit : @cmd.Emit[SidebarMessage]
+}
+pub fn SidebarProviderState::SidebarProviderState(Bool) -> Self
+pub fn SidebarProviderState::collapse(Self) -> @cmd.Cmd
+pub fn SidebarProviderState::visible(Self) -> @rabbita.Val[Bool]
+
+pub struct SidebarScope {
+  collapsed : Bool
+  mobile_open : Bool
+  desktop_width : Int?
+  toggle_collapsed : @cmd.Cmd
+  expand : @cmd.Cmd
+  collapse : @cmd.Cmd
+  toggle_mobile : @cmd.Cmd
+  open_mobile : @cmd.Cmd
+  close_mobile : @cmd.Cmd
+  commit_width : @cmd.Emit[Int]
+}
 
 pub(all) enum SidebarSide {
   SidebarLeft
   SidebarRight
 } derive(Eq, @debug.Debug)
+
+pub struct SidebarState {
+  collapsed : Bool
+  mobile_open : Bool
+  desktop_width : Int?
+} derive(Eq)
 
 pub(all) enum SidebarVariant {
   SidebarDefault

@@ -56,189 +56,6 @@ fn mode_content(mode : EditorMode, content : @rabbita.Html) -> @rabbita.Html {
 }
 
 ///|
-priv struct PresentationRow {
-  document_id : String
-  name : String
-}
-
-///|
-fn PresentationRow::document_id(self : Self) -> String {
-  self.document_id
-}
-
-///|
-fn PresentationRow::name(self : Self) -> String {
-  self.name
-}
-
-///|
-/// Presentation-only label for an unnamed document; this is not its Catalog name.
-fn document_base_label(entry : PresentationRow) -> String {
-  if entry.name().is_empty() {
-    "Unnamed document"
-  } else {
-    entry.name()
-  }
-}
-
-///|
-fn document_option_label(
-  entries : ArrayView[PresentationRow],
-  index : Int,
-  entry : PresentationRow,
-) -> String {
-  let base = document_base_label(entry)
-  let total = entries.count_if(other => document_base_label(other) == base)
-  if total == 1 {
-    base
-  } else {
-    let ordinal = entries
-      .view(end=index + 1)
-      .count_if(other => document_base_label(other) == base)
-    "\{base} (\{ordinal} of \{total})"
-  }
-}
-
-///|
-fn recent_entries(editing : EditingState) -> Array[PresentationRow] {
-  let catalog = editing.documents.snapshot().catalog().entries()
-  editing.documents
-  .current_documents()
-  .filter_map(document => {
-    let document_id = document.id()
-    let entry = catalog
-      .search_by(e => e.document_id() == document_id)
-      .map(i => catalog[i])
-    let same = match editing.documents.snapshot().find(document_id) {
-      Some(saved) => saved.text() == document.text()
-      None => false
-    }
-    let name = if same {
-      entry.map(e => e.name()).unwrap_or("")
-    } else {
-      @document_lead.derive_name(document.text()).text()
-    }
-    if entry is Some(_) || document.text() != "" {
-      Some({ document_id, name, })
-    } else {
-      None
-    }
-  })
-}
-
-///|
-fn document_sidebar(
-  scope : @sidebar.SidebarScope,
-  editing : EditingState,
-  emit : @rabbita.Emit[Msg],
-) -> @rabbita.Html {
-  let available = editing.can_activate()
-  let entry_values = recent_entries(editing)
-  let entries = entry_values.view()
-  let compact = editing.compact
-  let close_after_action = if compact {
-    @sidebar.sidebar_collapse(scope)
-  } else {
-    @cmd.none
-  }
-  @sidebar.sidebar(
-    scope,
-    id="loomark-document-sidebar",
-    mobile=false,
-    side=@sidebar.SidebarLeft,
-    variant=@sidebar.SidebarDefault,
-    collapsible=@sidebar.SidebarIcon,
-    aria_label="Documents",
-    class="[--rui-sidebar:var(--color-lm-foundation)] [--rui-sidebar-foreground:var(--color-lm-ink)] [--rui-sidebar-border:var(--color-lm-rule)] [--rui-sidebar-accent:var(--color-lm-accent-soft)] [--rui-sidebar-accent-foreground:var(--color-lm-accent)]",
-    @sidebar.sidebar_content(
-      @sidebar.sidebar_group(
-        @sidebar.sidebar_group_content(
-          @sidebar.sidebar_menu(
-            @sidebar.sidebar_menu_item([
-              @sidebar.sidebar_menu_button(
-                aria_label="Documents",
-                title="Documents",
-                class="hover:opacity-70 active:opacity-50",
-                on_click=if @sidebar.sidebar_is_collapsed(scope) {
-                  @sidebar.sidebar_expand(scope)
-                } else {
-                  @sidebar.sidebar_collapse(scope)
-                },
-                [folder_icon(), @html.span("Documents")],
-              ),
-              @sidebar.sidebar_menu_action(
-                disabled=!available,
-                aria_label="New document",
-                title="New document",
-                class="loomark-sidebar-action",
-                style=["width:2rem;height:2rem"],
-                on_click=@cmd.batch([emit(CreateRequested), close_after_action]),
-                plus_icon(),
-              ),
-              @sidebar.sidebar_menu_sub(
-                entries.mapi((index, entry) => {
-                  let document_id = entry.document_id()
-                  let selected = document_id == editing.activation.document_id
-                  let label = document_option_label(entries, index, entry)
-                  let (target_available, status) = match
-                    editing.documents.delete_status(document_id) {
-                    Some(Available) => (true, None)
-                    Some(Failed(_, _)) => (true, Some("Delete failed"))
-                    Some(Waiting(_)) | Some(Deleting(_)) =>
-                      (false, Some("Deleting"))
-                    None => (false, None)
-                  }
-                  @sidebar.sidebar_menu_sub_item([
-                    @sidebar.sidebar_menu_sub_button(
-                      is_active=selected,
-                      disabled=!editing.can_select(document_id),
-                      aria_label=label,
-                      title=label,
-                      class="pr-10 hover:opacity-70 active:opacity-50",
-                      on_click=@cmd.batch([
-                        emit(DocumentSelected(document_id)),
-                        close_after_action,
-                      ]),
-                      style=[
-                        "height:auto;min-height:2.5rem;align-items:flex-start;padding-block:0.5rem",
-                      ],
-                      @html.div(class="min-w-0", [
-                        @html.span(
-                          class="overflow-hidden text-ellipsis whitespace-normal [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]",
-                          label,
-                        ),
-                        match status {
-                          Some(status) =>
-                            @html.span(
-                              class="block text-xs text-lm-muted",
-                              attrs=@html.Attrs::build().role("status"),
-                              status,
-                            )
-                          None => @html.nothing
-                        },
-                      ]),
-                    ),
-                    @sidebar.sidebar_menu_action(
-                      disabled=!target_available,
-                      aria_label="Delete \"\{label}\"",
-                      title="Delete \"\{label}\"",
-                      class="loomark-sidebar-action loomark-delete-action",
-                      style=["width:2rem;height:2rem"],
-                      on_click=emit(DeleteRequested(document_id)),
-                      trash_icon(),
-                    ),
-                  ])
-                }),
-              ),
-            ]),
-          ),
-        ),
-      ),
-    ),
-  )
-}
-
-///|
 fn mode_bar(
   scope : @sidebar.SidebarScope,
   editing : EditingState,
@@ -422,12 +239,37 @@ fn save_failure_view(
 }
 
 ///|
+fn feature_sidebar(
+  scope : @sidebar.SidebarScope,
+  content : @rabbita.Html,
+) -> @rabbita.Html {
+  @html.div(class="contents", [
+    @sidebar.sidebar_menu([
+      @sidebar.sidebar_menu_item([
+        @sidebar.sidebar_menu_button(
+          aria_label="Documents",
+          title="Documents",
+          on_click=if @sidebar.sidebar_is_collapsed(scope) {
+            @sidebar.sidebar_expand(scope)
+          } else {
+            @sidebar.sidebar_collapse(scope)
+          },
+          [@view.folder_icon(), @html.span("Documents")],
+        ),
+      ]),
+    ]),
+    content,
+  ])
+}
+
+///|
 fn view(
   sidebar : @sidebar.SidebarScope,
   model : Model,
   emit : @rabbita.Emit[Msg],
   editor_panels : @rabbita.Html,
   delete_dialog : @rabbita.Html,
+  recent_navigation : @rabbita.Html,
 ) -> @rabbita.Html {
   @html.div(
     id="loomark-root",
@@ -458,7 +300,17 @@ fn view(
           @html.div(
             class="flex h-full min-h-0 min-w-0 flex-1 opacity-100 transition-opacity duration-[140ms] ease-[cubic-bezier(0.23,1,0.32,1)] starting:opacity-[0.92] motion-reduce:duration-[80ms] motion-reduce:ease-[ease]",
             [
-              document_sidebar(sidebar, editing, emit),
+              @sidebar.sidebar(
+                sidebar,
+                id="loomark-document-sidebar",
+                mobile=false,
+                side=@sidebar.SidebarLeft,
+                variant=@sidebar.SidebarDefault,
+                collapsible=@sidebar.SidebarIcon,
+                aria_label="Documents",
+                class="[--rui-sidebar:var(--color-lm-foundation)] [--rui-sidebar-foreground:var(--color-lm-ink)] [--rui-sidebar-border:var(--color-lm-rule)] [--rui-sidebar-accent:var(--color-lm-accent-soft)] [--rui-sidebar-accent-foreground:var(--color-lm-accent)]",
+                feature_sidebar(sidebar, recent_navigation),
+              ),
               @html.div(
                 class="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-lm-paper",
                 [
