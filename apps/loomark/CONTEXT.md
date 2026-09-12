@@ -220,14 +220,8 @@ _Avoid_: deletion warning, delete prompt
 A confirmed Delete document awaiting Browser storage acknowledgment. A non-open
 target shows its progress in Recent documents while editing continues; an open
 target remains visible and permits neither editing nor Document switch.
+Failure restores the target to retryable availability.
 _Avoid_: loading document, optimistic deletion
-
-**Unknown deletion outcome**:
-A Pending deletion whose Browser storage acknowledgment and follow-up check did
-not arrive within bounded intervals. Loomark isolates that target from editing
-and Autosave while other work continues; a late failure restores its availability
-without changing the currently open document.
-_Avoid_: delete failure, timed-out deletion
 
 **Recovery**:
 The state shown for a Loomark document whose Browser storage record cannot be

@@ -503,7 +503,7 @@ test "visibility makes an in-flight save's latest checkpoint eligible" {
 test "delete success removes only the target record" {
   let documents = initial_documents(documents_test_snapshot())
   let (documents, decisions) = documents.reduce(DeleteConfirmed("one"))
-  guard decisions is [DeleteDocument(operation), ArmDeleteWatchdog(_)] else {
+  guard decisions is [DeleteDocument(operation)] else {
     fail("delete should issue immediately")
   }
   let (documents, _) = documents.reduce(
@@ -512,27 +512,6 @@ test "delete success removes only the target record" {
   assert_eq(documents.text("one"), None)
   assert_eq(documents.text("two"), Some("two"))
   assert_eq(documents.snapshot().find("one"), None)
-}
-
-///|
-test "delete watchdog probes and missing confirms deletion" {
-  let documents = initial_documents(documents_test_snapshot())
-  let (documents, decisions) = documents.reduce(DeleteConfirmed("one"))
-  guard decisions is [DeleteDocument(operation), ArmDeleteWatchdog(_)] else {
-    fail("delete should issue immediately")
-  }
-  let (documents, decisions) = documents.reduce(
-    DocumentsFeedbackReceived(DeleteWatchdogElapsed(operation)),
-  )
-  guard decisions is [ObserveDeletion(_), ArmDeletionWatchdog(_)] else {
-    fail("watchdog should observe deletion")
-  }
-  let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(
-      DeletionObservationCompleted(operation, Observed("one", Confirmed)),
-    ),
-  )
-  assert_eq(documents.text("one"), None)
 }
 
 ///|
@@ -562,7 +541,7 @@ test "confirmation waits for the matching save and then deletes" {
   let (documents, decisions) = documents.reduce(
     DocumentsFeedbackReceived(SaveCompleted(save, Stored(save.document))),
   )
-  guard decisions is [DeleteDocument(_), ArmDeleteWatchdog(_)] else {
+  guard decisions is [DeleteDocument(_)] else {
     fail("stored save must release delete")
   }
   guard documents.delete_status("one") is Some(Deleting(current)) &&
@@ -593,7 +572,7 @@ test "failed existing save still releases a waiting delete" {
   let (_, decisions) = documents.reduce(
     DocumentsFeedbackReceived(SaveCompleted(save, SaveFailed(WriteFailed))),
   )
-  guard decisions is [DeleteDocument(_), ArmDeleteWatchdog(_)] else {
+  guard decisions is [DeleteDocument(_)] else {
     fail("failed existing save must still delete")
   }
 }
@@ -672,6 +651,11 @@ test "retry allocates a fresh operation and fences an active save" {
   let (documents, _) = documents.reduce(
     DocumentsFeedbackReceived(DeleteCompleted(first, DeleteFailed(WriteFailed))),
   )
+  let (documents, stale) = documents.reduce(
+    DocumentsFeedbackReceived(DeleteCompleted(first, Deleted("one"))),
+  )
+  assert_true(stale.is_empty())
+  assert_eq(documents.text("one"), Some("one"))
   let (documents, decisions) = documents.reduce(
     DocumentsTextChanged("one", "edited"),
   )
@@ -697,97 +681,6 @@ test "retry allocates a fresh operation and fences an active save" {
   )
   guard decisions[0] is DeleteDocument(third) else { fail("release retry") }
   assert_true(third != first && third == second)
-}
-
-///|
-test "deletion observations become unknown while unrelated work proceeds" {
-  let documents = initial_documents(documents_test_snapshot())
-  let (documents, decisions) = documents.reduce(DeleteConfirmed("one"))
-  guard decisions[0] is DeleteDocument(operation) else { fail("delete") }
-  let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(DeleteWatchdogElapsed(operation)),
-  )
-  let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(
-      DeletionObservationCompleted(operation, Observed("one", Refuted)),
-    ),
-  )
-  guard documents.delete_status("one") is Some(Unknown(_)) else {
-    fail("refuted observation")
-  }
-  let (_, decisions) = documents.reduce(DocumentsTextChanged("two", "two!"))
-  assert_true(decisions.length() > 0)
-}
-
-///|
-test "unsupported failed and timed out probes become unknown" {
-  let documents = initial_documents(documents_test_snapshot())
-  let (documents, decisions) = documents.reduce(DeleteConfirmed("one"))
-  guard decisions[0] is DeleteDocument(operation) else { fail("delete") }
-  let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(DeleteWatchdogElapsed(operation)),
-  )
-  let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(
-      DeletionObservationCompleted(operation, Observed("one", Inconclusive)),
-    ),
-  )
-  guard documents.delete_status("one") is Some(Unknown(_)) else {
-    fail("inconclusive observation")
-  }
-  let documents = initial_documents(documents_test_snapshot())
-  let (documents, decisions) = documents.reduce(DeleteConfirmed("one"))
-  guard decisions[0] is DeleteDocument(operation) else { fail("delete") }
-  let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(DeleteWatchdogElapsed(operation)),
-  )
-  let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(
-      DeletionObservationCompleted(operation, Observed("one", Inconclusive)),
-    ),
-  )
-  guard documents.delete_status("one") is Some(Unknown(_)) else {
-    fail("failed observation")
-  }
-  let documents = initial_documents(documents_test_snapshot())
-  let (documents, decisions) = documents.reduce(DeleteConfirmed("one"))
-  guard decisions[0] is DeleteDocument(operation) else { fail("delete") }
-  let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(DeleteWatchdogElapsed(operation)),
-  )
-  let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(DeletionObservationElapsed(operation)),
-  )
-  guard documents.delete_status("one") is Some(Unknown(_)) else {
-    fail("observation timeout")
-  }
-}
-
-///|
-test "late delete failure restores availability and late success empties snapshot" {
-  let documents = initial_documents(documents_test_snapshot())
-  let (documents, decisions) = documents.reduce(DeleteConfirmed("one"))
-  guard decisions[0] is DeleteDocument(operation) else { fail("delete") }
-  let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(DeleteWatchdogElapsed(operation)),
-  )
-  let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(DeletionObservationElapsed(operation)),
-  )
-  let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(
-      DeleteCompleted(operation, DeleteFailed(WriteFailed)),
-    ),
-  )
-  guard documents.delete_status("one") is Some(Failed(_, _)) else {
-    fail("late failure restores")
-  }
-  let (documents, decisions) = documents.reduce(RetryDelete("one"))
-  guard decisions[0] is DeleteDocument(next) else { fail("retry") }
-  let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(DeleteCompleted(next, Deleted("one"))),
-  )
-  assert_eq(documents.snapshot().find("one"), None)
 }
 
 ///|

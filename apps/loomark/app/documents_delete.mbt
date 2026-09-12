@@ -2,7 +2,7 @@
 fn delete_is_active(phase : DocumentsDeletePhase) -> Bool {
   match phase {
     Available | Failed(_, _) => false
-    Waiting(_) | Deleting(_) | Observing(_) | Unknown(_) => true
+    Waiting(_) | Deleting(_) => true
   }
 }
 
@@ -29,7 +29,7 @@ fn issue_delete(
         delete: Deleting(operation),
       }),
     },
-    [DeleteDocument(operation), ArmDeleteWatchdog(operation)],
+    [DeleteDocument(operation)],
   )
 }
 
@@ -93,8 +93,8 @@ fn finish_delete(
     return (documents, [])
   }
   guard (match record.delete {
-    Deleting(x) | Observing(x) | Unknown(x) | Failed(x, _) => x == operation
-    _ => false
+    Deleting(x) => x == operation
+    Available | Waiting(_) | Failed(_, _) => false
   }) else {
     return (documents, [])
   }

@@ -74,38 +74,3 @@ test "delete and create commands use positional callbacks" {
     @debug.to_string(create(saved, _ => @cmd.none)).contains("IndexedDB"),
   )
 }
-
-///|
-test "deletion observation maps all typed outcomes" {
-  let emitted : Array[DeletionObservationResult] = []
-  let _ = finish_observation(Ok(false), "a", result => {
-    emitted.push(result)
-    @cmd.none
-  })
-  let _ = finish_observation(Ok(true), "a", result => {
-    emitted.push(result)
-    @cmd.none
-  })
-  let _ = finish_observation(Err(@indexed_db.ReadError::Unavailable), "a", result => {
-    emitted.push(result)
-    @cmd.none
-  })
-  assert_eq(emitted, [
-    DeletionObservationResult::Observed("a", DeletionObservation::Confirmed),
-    DeletionObservationResult::Observed("a", DeletionObservation::Refuted),
-    DeletionObservationResult::Observed("a", DeletionObservation::Inconclusive),
-  ])
-}
-
-///|
-fn finish_observation(
-  result : Result[Bool, @indexed_db.ReadError],
-  id : String,
-  msg : @cmd.Emit[DeletionObservationResult],
-) -> @cmd.Cmd {
-  match result {
-    Ok(false) => msg(Observed(id, Confirmed))
-    Ok(true) => msg(Observed(id, Refuted))
-    Err(_) => msg(Observed(id, Inconclusive))
-  }
-}

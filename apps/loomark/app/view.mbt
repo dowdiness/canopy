@@ -184,10 +184,8 @@ fn document_sidebar(
                     editing.documents.delete_status(document_id) {
                     Some(Available) => (true, None)
                     Some(Failed(_, _)) => (true, Some("Delete failed"))
-                    Some(Waiting(_)) | Some(Deleting(_)) | Some(Observing(_)) =>
+                    Some(Waiting(_)) | Some(Deleting(_)) =>
                       (false, Some("Deleting"))
-                    Some(Unknown(_)) =>
-                      (false, Some("Unknown deletion outcome"))
                     None => (false, None)
                   }
                   @sidebar.sidebar_menu_sub_item([

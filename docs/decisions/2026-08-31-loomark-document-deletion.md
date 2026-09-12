@@ -68,14 +68,12 @@ cannot be edited or switched away from until the deletion settles. Failure
 preserves the Source, `SavedDocuments`, text, Preview, selection, and
 confirmation data needed for retry.
 
-A missing acknowledgment triggers an automatic Browser storage check after a
-bounded interval; elapsed time alone proves neither success nor failure. If the
-check also fails to settle within a bounded interval, the target enters Unknown
-deletion outcome. Loomark isolates that target from editing and Autosave, opens
-the first available Document in page-local recent order or a New document, and lets other
-work continue. A late failure restores the target's availability without
-changing the currently open document; a later success or full scan resolves
-durable truth.
+Rabbita `Store::delete` reports exactly one typed outcome after transaction
+commit or failure. A successful completion applies the deletion to the latest
+in-memory snapshot and removes the record; a failure preserves the Source and
+restores the target to retryable availability. Loomark does not duplicate that
+lifecycle with a watchdog, probe, or Unknown outcome. A reload performs a full
+scan and reconstructs durable truth.
 
 Uncoordinated browser tabs remain outside this guarantee. A later write from
 another tab may recreate a document deleted in this tab. Malformed,
@@ -92,8 +90,8 @@ and remain preserved.
   IndexedDB, and list-content preparation remain outside it.
 - Same-document persistence is serialized without serializing unrelated
   documents.
-- Pending storage cannot make the entire application permanently unusable;
-  uncertain targets are isolated without inventing a success or failure.
+- A pending deletion blocks only its target; unrelated Documents remain
+  editable and retain independent persistence lanes.
 - Context-menu and overflow entry points reuse Rabbita's high-level components;
   Loomark does not add DOM or command escape hatches.
 
@@ -105,5 +103,5 @@ serialization was rejected because unrelated document saving and deletion are
 independent. Aggregate-state completion was rejected because concurrent
 acknowledgments can overwrite one another. Durable tombstones and tab locks were
 rejected because cross-tab coordination remains out of scope. Keeping an alert
-dialog open for the transaction lifetime was rejected because it blocks
-unrelated editing and can make a lost callback appear to freeze the app.
+dialog open for the transaction lifetime was rejected because it would
+unnecessarily block unrelated editing.

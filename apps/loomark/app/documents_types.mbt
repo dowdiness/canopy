@@ -53,8 +53,6 @@ priv enum DocumentsDeletePhase {
   Available
   Waiting(DeleteOperation)
   Deleting(DeleteOperation)
-  Observing(DeleteOperation)
-  Unknown(DeleteOperation)
   Failed(DeleteOperation, @source_repository.DeleteFailure)
 } derive(Eq)
 
@@ -64,12 +62,6 @@ priv enum DocumentsFeedback {
   MaximumElapsed(String, Int)
   SaveCompleted(SaveOperation, @source_repository.SaveResult)
   DeleteCompleted(DeleteOperation, @source_repository.DeleteResult)
-  DeleteWatchdogElapsed(DeleteOperation)
-  DeletionObservationCompleted(
-    DeleteOperation,
-    @source_repository.DeletionObservationResult
-  )
-  DeletionObservationElapsed(DeleteOperation)
 }
 
 ///|
@@ -93,9 +85,6 @@ priv enum DocumentsDecision {
   DocumentsArmMaximum(String, Int)
   DocumentsPersist(SaveOperation)
   DeleteDocument(DeleteOperation)
-  ArmDeleteWatchdog(DeleteOperation)
-  ObserveDeletion(DeleteOperation)
-  ArmDeletionWatchdog(DeleteOperation)
 }
 
 ///|

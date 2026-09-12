@@ -39,13 +39,6 @@ pub(all) enum DeleteFailure {
 } derive(Eq, Debug)
 
 ///|
-pub(all) enum DeletionObservation {
-  Confirmed
-  Refuted
-  Inconclusive
-} derive(Eq, Debug)
-
-///|
 pub(all) enum OpenResult {
   Ready(SavedDocuments, Document?)
   OpenFailed(OpenFailure)
@@ -67,11 +60,6 @@ pub(all) enum CreateResult {
 pub(all) enum DeleteResult {
   Deleted(String)
   DeleteFailed(DeleteFailure)
-} derive(Eq, Debug)
-
-///|
-pub(all) enum DeletionObservationResult {
-  Observed(String, DeletionObservation)
 } derive(Eq, Debug)
 
 ///|
@@ -146,23 +134,6 @@ pub fn delete(
       Some(@indexed_db.WriteError::QuotaExceeded) =>
         msg(DeleteFailed(DeleteFailure::QuotaExceeded))
       Some(Failed(_, _)) => msg(DeleteFailed(DeleteFailure::WriteFailed))
-    }
-  })
-}
-
-///|
-pub fn observe_deletion(
-  document_id : String,
-  msg : @cmd.Emit[DeletionObservationResult],
-) -> @cmd.Cmd {
-  guard source_key(document_id) is Some(key) else {
-    return msg(Observed(document_id, DeletionObservation::Inconclusive))
-  }
-  document_store.contains(key, read => {
-    match read {
-      Ok(false) => msg(Observed(document_id, DeletionObservation::Confirmed))
-      Ok(true) => msg(Observed(document_id, DeletionObservation::Refuted))
-      Err(_) => msg(Observed(document_id, DeletionObservation::Inconclusive))
     }
   })
 }

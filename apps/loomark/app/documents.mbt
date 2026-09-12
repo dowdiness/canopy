@@ -144,65 +144,6 @@ fn Documents::reduce(
           }
         DeleteCompleted(operation, result) =>
           finish_delete(self, operation, result)
-        DeleteWatchdogElapsed(operation) => {
-          guard find_record(self.records, operation.document_id) is Some(record) else {
-            return (self, [])
-          }
-          guard record.delete is Deleting(current) && current == operation else {
-            return (self, [])
-          }
-          (
-            {
-              ..self,
-              records: replace_record(self.records, operation.document_id, r => {
-                ..r,
-                delete: Observing(operation),
-              }),
-            },
-            [ObserveDeletion(operation), ArmDeletionWatchdog(operation)],
-          )
-        }
-        DeletionObservationCompleted(operation, result) => {
-          guard find_record(self.records, operation.document_id) is Some(record) else {
-            return (self, [])
-          }
-          guard record.delete is Observing(current) && current == operation else {
-            return (self, [])
-          }
-          match result {
-            Observed(_, Confirmed) =>
-              finish_delete(self, operation, Deleted(operation.document_id))
-            Observed(_, Refuted) | Observed(_, Inconclusive) =>
-              (
-                {
-                  ..self,
-                  records: replace_record(self.records, operation.document_id, r => {
-                    ..r,
-                    delete: Unknown(operation),
-                  }),
-                },
-                [],
-              )
-          }
-        }
-        DeletionObservationElapsed(operation) => {
-          guard find_record(self.records, operation.document_id) is Some(record) else {
-            return (self, [])
-          }
-          guard record.delete is Observing(current) && current == operation else {
-            return (self, [])
-          }
-          (
-            {
-              ..self,
-              records: replace_record(self.records, operation.document_id, r => {
-                ..r,
-                delete: Unknown(operation),
-              }),
-            },
-            [],
-          )
-        }
       }
     DeleteConfirmed(id) => confirm_or_retry_delete(self, id)
     RetryDelete(id) => confirm_or_retry_delete(self, id)

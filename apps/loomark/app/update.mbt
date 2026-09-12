@@ -5,9 +5,6 @@ const AUTOSAVE_QUIET_MS : Int = 250
 const AUTOSAVE_MAXIMUM_MS : Int = 2000
 
 ///|
-const DELETE_WATCHDOG_MS : Int = 4000
-
-///|
 const COMPACT_MAX_WIDTH : Double = 640.0
 
 ///|
@@ -57,10 +54,7 @@ fn deletion_blocks_document_changes(editing : EditingState) -> Bool {
   let document_id = editing.activation.document_id
   let persistence_blocks = match editing.documents.delete_status(document_id) {
     Some(Available) | Some(Failed(_, _)) | None => false
-    Some(Waiting(_))
-    | Some(Deleting(_))
-    | Some(Observing(_))
-    | Some(Unknown(_)) => true
+    Some(Waiting(_)) | Some(Deleting(_)) => true
   }
   let confirmation_blocks = match editing.deletion {
     DeleteDeferred(target) | DeleteConfirmation(target) => target == document_id
@@ -109,18 +103,6 @@ fn run_decision(
         documents.snapshot(),
         operation.document_id,
         emit.map(result => DeleteCompleted(operation, result)),
-      )
-    ArmDeleteWatchdog(operation) =>
-      @cmd.delay(emit(DeleteWatchdogElapsed(operation)), DELETE_WATCHDOG_MS)
-    ObserveDeletion(operation) =>
-      @source_repository.observe_deletion(
-        operation.document_id,
-        emit.map(result => DeletionObservationCompleted(operation, result)),
-      )
-    ArmDeletionWatchdog(operation) =>
-      @cmd.delay(
-        emit(DeletionObservationElapsed(operation)),
-        DELETE_WATCHDOG_MS,
       )
   }
 }
@@ -689,9 +671,7 @@ fn reconcile_active(
   prior : @rabbita.Cmd,
 ) -> (Model, @rabbita.Cmd) {
   let active_id = editing.activation.document_id
-  let active_unknown = editing.documents.delete_status(active_id)
-    is Some(Unknown(_))
-  if !active_unknown && editing.documents.text(active_id) is Some(_) {
+  if editing.documents.text(active_id) is Some(_) {
     (Editing(editing), prior)
   } else {
     match editing.documents.fallback_document(active_id) {

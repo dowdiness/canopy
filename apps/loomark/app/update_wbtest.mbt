@@ -314,8 +314,28 @@ test "preparing new preserves documents and mode" {
 }
 
 ///|
+fn preparing_after_active_delete() -> (Model, @cmd.Cmd) {
+  let snapshot = @source_repository.SavedDocuments::from_documents([
+    @source_repository.Document::create("one", "one") catch {
+      _ => abort("invalid id")
+    },
+  ]).unwrap()
+  let base = test_editing()
+  let initial = { ..base, documents: initial_documents(snapshot) }
+  let (documents, decisions) = initial.documents.reduce(DeleteConfirmed("one"))
+  match decisions[0] {
+    DeleteDocument(operation) =>
+      test_update(
+        Editing({ ..initial, documents, }),
+        DocumentsLifecycle(DeleteCompleted(operation, Deleted("one"))),
+      )
+    _ => abort("delete")
+  }
+}
+
+///|
 test "delete-to-New advances Preview ownership" {
-  let (model, _) = preparing_after_probe_timeout()
+  let (model, _) = preparing_after_active_delete()
   guard model is PreparingNew(preparing) else { fail("preparing") }
   let (model, _) = test_update(
     PreparingNew({ ..preparing, mode: Split }),
@@ -386,31 +406,6 @@ test "composition end opens deferred active deletion confirmation" {
 }
 
 ///|
-test "deletion observation timeout selects fallback and late failure keeps it" {
-  let initial = test_editing()
-  let (documents, decisions) = initial.documents.reduce(DeleteConfirmed("one"))
-  guard decisions[0] is DeleteDocument(operation) else { fail("delete") }
-  let state = { ..initial, documents, }
-  let (model, _) = test_update(
-    Editing(state),
-    DocumentsLifecycle(DeleteWatchdogElapsed(operation)),
-  )
-  let (model, _) = test_update(
-    model,
-    DocumentsLifecycle(DeletionObservationElapsed(operation)),
-  )
-  guard model is Editing(editing) else { fail("editing") }
-  assert_eq(editing.activation.document_id, "two")
-  let (model, _) = test_update(
-    model,
-    DocumentsLifecycle(DeleteCompleted(operation, DeleteFailed(WriteFailed))),
-  )
-  guard model is Editing(editing) else { fail("editing") }
-  assert_eq(editing.activation.document_id, "two")
-  assert_true(editing.documents.delete_status("one") is Some(Failed(_, _)))
-}
-
-///|
 test "duplicate text message leaves model and preview unchanged" {
   let initial = test_editing()
   let (model, command) = test_update(
@@ -465,67 +460,6 @@ test "page-local revision restores authoritative text and preview" {
   )
   guard model is Editing(editing) else { fail("editing") }
   assert_eq(editing.documents.text("one"), Some("one!"))
-}
-
-///|
-fn preparing_after_probe_timeout() -> (Model, DeleteOperation?) {
-  let snapshot = @source_repository.SavedDocuments::from_documents([
-    @source_repository.Document::create("one", "one") catch {
-      _ => abort("invalid id")
-    },
-  ]).unwrap()
-  let base = test_editing()
-  let initial = { ..base, documents: initial_documents(snapshot) }
-  let (documents, decisions) = initial.documents.reduce(DeleteConfirmed("one"))
-  match decisions[0] {
-    DeleteDocument(operation) => {
-      let (model, _) = test_update(
-        Editing({ ..initial, documents, }),
-        DocumentsLifecycle(DeleteWatchdogElapsed(operation)),
-      )
-      let (model, _) = test_update(
-        model,
-        DocumentsLifecycle(DeletionObservationElapsed(operation)),
-      )
-      (model, Some(operation))
-    }
-    _ => (Editing(initial), None)
-  }
-}
-
-///|
-test "preparing new retains late delete failure for matching creation" {
-  let (model, operation) = preparing_after_probe_timeout()
-  let (model, _) = test_update(
-    model,
-    DocumentsLifecycle(
-      DeleteCompleted(operation.unwrap(), DeleteFailed(WriteFailed)),
-    ),
-  )
-  let (model, _) = test_update(model, EmptyCreateCompleted(1, Created("new")))
-  guard model is Editing(editing) else { fail("editing") }
-  assert_eq(editing.activation.document_id, "new")
-  assert_true(editing.documents.delete_status("one") is Some(Failed(_, _)))
-}
-
-///|
-test "preparing new ignores stale empty creation completion" {
-  let (model, _) = preparing_after_probe_timeout()
-  let (model, _) = test_update(model, EmptyCreateCompleted(0, Created("old")))
-  guard model is PreparingNew({ request_id: 1, .. }) else { fail("preparing") }
-}
-
-///|
-test "preparing new applies late delete success before creation" {
-  let (model, operation) = preparing_after_probe_timeout()
-  let (model, _) = test_update(
-    model,
-    DocumentsLifecycle(DeleteCompleted(operation.unwrap(), Deleted("one"))),
-  )
-  let (model, _) = test_update(model, EmptyCreateCompleted(1, Created("new")))
-  guard model is Editing(editing) else { fail("editing") }
-  assert_eq(editing.activation.document_id, "new")
-  assert_eq(editing.documents.text("one"), None)
 }
 
 ///|
