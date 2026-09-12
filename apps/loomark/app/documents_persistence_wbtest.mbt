@@ -571,12 +571,12 @@ test "delete failure resumes the retained eligible latest checkpoint" {
     DocumentsFeedbackReceived(SaveCompleted(first, Stored(first.document))),
   )
   guard delete_decision is [DeleteDocument(delete)] else { fail("delete") }
-  let (_, resume) = documents.reduce(
+  let (_, latest_save) = documents.reduce(
     DocumentsFeedbackReceived(
       DeleteCompleted(delete, DeleteFailed(WriteFailed)),
     ),
   )
-  guard resume is [DocumentsPersist(latest)] else { fail("resume latest") }
+  guard latest_save is [DocumentsPersist(latest)] else { fail("latest save") }
   assert_eq(latest.document.text(), "latest")
 }
 

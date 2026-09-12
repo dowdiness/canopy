@@ -9,9 +9,7 @@ test "stale timers and mismatched stored records are ignored" {
   guard decisions is [DocumentsDecision::DocumentsArmMaximum(_, _)] else {
     fail("timers")
   }
-  let (documents, decisions) = documents.reduce(
-    DocumentsTextChanged("one", "c"),
-  )
+  let (documents, _) = documents.reduce(DocumentsTextChanged("one", "c"))
   let (documents, stale_max) = documents.reduce(
     DocumentsFeedbackReceived(MaximumElapsed("one", 99)),
   )
@@ -49,7 +47,7 @@ test "page-local revision orders edits across documents" {
   }
   assert_eq(pending_revision(documents, "one"), 2)
   assert_eq(max_one, 2)
-  guard find_record(documents.records, "two").unwrap().save is Waiting(cp_two) else {
+  guard find_record(documents.records, "two").unwrap().save is Waiting(_) else {
     fail("two waiting")
   }
   assert_eq(pending_revision(documents, "two"), 1)
@@ -158,7 +156,7 @@ test "matching maximum during waiting deletion of in-flight save is ignored" {
   )
   assert_true(documents == before)
   assert_true(decisions.is_empty())
-  let (documents, decisions) = documents.reduce(
+  let (_, decisions) = documents.reduce(
     DocumentsFeedbackReceived(SaveCompleted(save, Stored(save.document))),
   )
   guard decisions is [DeleteDocument(delete)] else {

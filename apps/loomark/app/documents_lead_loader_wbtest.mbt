@@ -13,11 +13,15 @@ priv struct LeadFakeScheduler {
 }
 
 ///|
+// The production loader needs a Scheduler. Only this test adapter implements
+// Rabbita's experimental Scheduler/Context interfaces; keep allowances local.
+#warnings("-alert_experimental")
 impl @cmd.Scheduler for LeadFakeScheduler with fn queue_command(self, cmd) {
   self.commands.push(cmd)
 }
 
 ///|
+#warnings("-alert_experimental")
 impl @cmd.Scheduler for LeadFakeScheduler with fn set_url_changed_injector(
   self,
   injector,
@@ -26,6 +30,7 @@ impl @cmd.Scheduler for LeadFakeScheduler with fn set_url_changed_injector(
 }
 
 ///|
+#warnings("-alert_experimental")
 impl @cmd.Scheduler for LeadFakeScheduler with fn set_url_request_injector(
   self,
   injector,
@@ -34,16 +39,19 @@ impl @cmd.Scheduler for LeadFakeScheduler with fn set_url_request_injector(
 }
 
 ///|
+#warnings("-alert_experimental")
 impl @cmd.Context for LeadFakeScheduler with fn get_origin(_self) {
   "test"
 }
 
 ///|
+#warnings("-alert_experimental")
 impl @cmd.Context for LeadFakeScheduler with fn inject_url_changed(_self, _url) {
   @cmd.none
 }
 
 ///|
+#warnings("-alert_experimental")
 impl @cmd.Context for LeadFakeScheduler with fn inject_url_request(_self, _url) {
   @cmd.none
 }

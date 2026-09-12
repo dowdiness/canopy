@@ -160,13 +160,6 @@ fn Documents::snapshot(self : Self) -> @source_repository.SavedDocuments {
 }
 
 ///|
-fn Documents::current_documents(
-  self : Self,
-) -> Array[@source_repository.Document] {
-  self.records.map(r => r.document)
-}
-
-///|
 fn Documents::text(self : Self, id : String) -> String? {
   find_record(self.records, id).map(r => r.document.text())
 }

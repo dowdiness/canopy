@@ -8,8 +8,7 @@ test "composition blocks persistence but keeps fresh revision" {
     DocumentsTextChanged("one", "one!"),
   )
   assert_true(decisions.is_empty())
-  guard find_record(documents.records, "one").unwrap().save
-    is Waiting(checkpoint) else {
+  guard find_record(documents.records, "one").unwrap().save is Waiting(_) else {
     fail("waiting checkpoint")
   }
   assert_eq(pending_revision(documents, "one"), 1)
