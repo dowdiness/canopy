@@ -81,7 +81,7 @@ test "apply inserts and deletes while retaining lexical order" {
 }
 
 ///|
-test "editing selection uses remembered valid id or lexical first" {
+test "from_documents keeps lexical order without startup selection state" {
   let saved = SavedDocuments::from_documents([doc("b", "b"), doc("a", "a")]).unwrap()
-  assert_eq(saved.editing_document().unwrap().id(), "a")
+  assert_eq(saved.all().map(document => document.id()), ["a", "b"])
 }

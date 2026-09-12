@@ -176,14 +176,16 @@ test "same document selection is a no-op" {
 }
 
 ///|
-test "only saved Document activation is remembered" {
+test "activating an unsaved New uses repository validation" {
   let saved = test_update(Editing(test_editing()), DocumentSelected("two")).1
   let ephemeral = test_update(
       Editing({ ..test_editing(), creation: Creating }),
       CreateCompleted("one", Created("new")),
     ).1
   assert_true(@debug.to_string(saved).contains("IndexedDBApply"))
-  assert_false(@debug.to_string(ephemeral).contains("IndexedDBApply"))
+  let ephemeral = @debug.to_string(ephemeral)
+  assert_false(ephemeral.contains("IndexedDBApply"))
+  assert_false(ephemeral.contains("editing-document"))
 }
 
 ///|

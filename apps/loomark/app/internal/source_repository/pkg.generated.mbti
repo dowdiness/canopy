@@ -96,13 +96,11 @@ pub struct SavedDocuments {
   documents : Array[Document]
   catalog_value : Catalog
   issues_value : Array[RepositoryIssue]
-  editing : String?
   observed_source_keys : Array[String]
 } derive(Eq, @debug.Debug)
 pub fn SavedDocuments::all(Self) -> ArrayView[Document]
 pub fn SavedDocuments::apply(Self, RepositoryChange) -> Self?
 pub fn SavedDocuments::catalog(Self) -> Catalog
-pub fn SavedDocuments::editing_document(Self) -> Document?
 pub fn SavedDocuments::find(Self, String) -> Document?
 pub fn SavedDocuments::from_documents(Array[Document]) -> Self?
 pub fn SavedDocuments::issues(Self) -> ArrayView[RepositoryIssue]

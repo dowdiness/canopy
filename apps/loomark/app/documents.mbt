@@ -232,11 +232,3 @@ fn Documents::save_status(self : Self, id : String) -> DocumentsSaveStatus? {
 fn Documents::delete_status(self : Self, id : String) -> DocumentsDeletePhase? {
   find_record(self.records, id).map(r => r.delete)
 }
-
-///|
-/// Check whether a generated New document has not yet been acknowledged.
-fn Documents::is_ephemeral_new(self : Self, id : String) -> Bool {
-  find_record(self.records, id)
-  .map(r => r.origin == EphemeralNew)
-  .unwrap_or(false)
-}

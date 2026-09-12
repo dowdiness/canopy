@@ -62,6 +62,14 @@ test "only exact editing-document string selects a valid document" {
   ])
   guard fallback is Some(fallback) else { fail("missing fallback") }
   assert_eq(fallback.id(), "a")
+  let (_, non_string_fallback) = reconcile_scan([
+    rentry("a", "a"),
+    @indexed_db.Entry::UnsupportedValue("editing-document"),
+  ])
+  guard non_string_fallback is Some(non_string_fallback) else {
+    fail("missing non-string fallback")
+  }
+  assert_eq(non_string_fallback.id(), "a")
 }
 
 ///|

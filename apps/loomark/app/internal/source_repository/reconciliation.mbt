@@ -38,6 +38,14 @@ fn reconcile_scan(
         issues.push(UnsupportedKey(position))
     }
   }
-  let saved = rebuild_saved_documents(documents, issues, editing, observed)
-  (saved, saved.editing_document())
+  let saved = rebuild_saved_documents(documents, issues, observed)
+  let selected = match editing {
+    Some(id) =>
+      match saved.find(id) {
+        Some(document) => Some(document)
+        None => saved.all().get(0)
+      }
+    None => saved.all().get(0)
+  }
+  (saved, selected)
 }

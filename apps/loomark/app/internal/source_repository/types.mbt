@@ -87,7 +87,6 @@ pub struct SavedDocuments {
   documents : Array[Document]
   catalog_value : Catalog
   issues_value : Array[RepositoryIssue]
-  editing : String?
   observed_source_keys : Array[String]
 } derive(Eq, Debug)
 
@@ -117,7 +116,6 @@ pub fn SavedDocuments::from_documents(
     documents: ordered,
     catalog_value: catalog_for(ordered),
     issues_value: [],
-    editing: None,
     observed_source_keys: observed,
   })
 }
@@ -126,7 +124,6 @@ pub fn SavedDocuments::from_documents(
 fn rebuild_saved_documents(
   documents : Array[Document],
   issues : Array[RepositoryIssue],
-  editing : String?,
   observed_source_keys : Array[String],
 ) -> SavedDocuments {
   let ordered = sort_documents(documents)
@@ -134,7 +131,6 @@ fn rebuild_saved_documents(
     documents: ordered,
     catalog_value: catalog_for(ordered),
     issues_value: issues.copy(),
-    editing,
     observed_source_keys: sort_keys(observed_source_keys),
   }
 }
@@ -168,18 +164,6 @@ fn SavedDocuments::observed(self : Self, key : String) -> Bool {
 }
 
 ///|
-pub fn SavedDocuments::editing_document(self : Self) -> Document? {
-  match self.editing {
-    Some(id) =>
-      match self.find(id) {
-        Some(document) => Some(document)
-        None => self.documents.get(0)
-      }
-    None => self.documents.get(0)
-  }
-}
-
-///|
 pub fn SavedDocuments::apply(
   self : Self,
   change : RepositoryChange,
@@ -202,14 +186,7 @@ pub fn SavedDocuments::apply(
       if !observed.contains(key) {
         observed.push(key)
       }
-      Some(
-        rebuild_saved_documents(
-          documents,
-          self.issues_value,
-          self.editing,
-          observed,
-        ),
-      )
+      Some(rebuild_saved_documents(documents, self.issues_value, observed))
     }
     Deleted(id) => {
       guard self.find(id) is Some(_) else { return None }
@@ -218,11 +195,6 @@ pub fn SavedDocuments::apply(
         rebuild_saved_documents(
           documents.filter(document => document.id() != id),
           self.issues_value,
-          if self.editing == Some(id) {
-            None
-          } else {
-            self.editing
-          },
           observed.filter(observed_key => observed_key != key),
         ),
       )

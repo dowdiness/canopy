@@ -163,14 +163,10 @@ fn activate(
     text_area,
     preview_engine,
   )
-  let remember = if editing.documents.is_ephemeral_new(document_id) {
-    @cmd.none
-  } else {
-    @source_repository.remember_editing_document(
-      editing.documents.snapshot(),
-      document_id,
-    )
-  }
+  let remember = @source_repository.remember_editing_document(
+    editing.documents.snapshot(),
+    document_id,
+  )
   ({ ..editing, activation, preview }, @cmd.batch([surface, remember]))
 }
 
