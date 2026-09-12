@@ -15,15 +15,11 @@ fn source_key(document_id : String) -> String? {
 
 ///|
 fn encode_document(document : Document) -> String {
-  encode_document_js(document.id(), document.text())
+  Json::object({
+    "document_id": document.id().to_json(),
+    "text": document.text().to_json(),
+  }).stringify()
 }
-
-///|
-extern "js" fn encode_document_js(
-  document_id : String,
-  text : String,
-) -> String =
-  #| (document_id, text) => JSON.stringify({ document_id, text })
 
 ///|
 fn decode_document(storage_key : String, encoded : String) -> Document? {

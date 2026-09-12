@@ -78,10 +78,10 @@ Document ID. The write has no application state, queue, retry, or completion
 message and makes no Source durability claim. Startup, ephemeral New document
 activation, and the first save of a New document do not write the record.
 
-The JS-only repository uses the browser's native JSON encoder for the fixed
-`document_id`/`text` Source object. The strict MoonBit decoder remains the schema
-and identity authority; serialized byte spelling is not a public or canonical
-hash contract.
+The JS-only repository uses MoonBit core Json construction/stringification for
+the fixed `document_id`/`text` Source object. The strict MoonBit decoder remains
+the schema and identity authority; serialized byte spelling is not a public or
+canonical hash contract.
 
 Name derivation uses only parser-recognized Markdown structure. It flattens
 readable heading, paragraph, quote, list, task, code, image-label, and supported
@@ -107,8 +107,8 @@ issues.
   authority path.
 - No missing, stale, malformed, or unwritable metadata record can hide a Source.
 - The open path still pays the essential complete-scan and name-derivation cost.
-- Fixed-schema Source encoding uses the deployment target's mature JSON escaping
-  while strict decode and exact text round trips remain covered in MoonBit.
+- Fixed-schema Source encoding uses MoonBit core JSON escaping while strict
+  decode and exact text round trips remain covered in MoonBit.
 - Unsupported legacy records cannot shadow a valid two-field Source and remain
   preserved for explicit future recovery.
 - Text input updates only page-local Document state; serialization and IndexedDB
