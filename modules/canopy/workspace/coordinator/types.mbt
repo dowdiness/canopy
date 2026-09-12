@@ -47,7 +47,7 @@ fn AbortReport::AbortReport(
   cell_label? : String,
   domain_tag? : String,
 ) -> AbortReport {
-  { kind, editor_id, agent_id, cell_id, cell_label, domain_tag }
+  { kind, editor_id, agent_id, cell_id, cell_label, domain_tag, }
 }
 
 ///|
@@ -65,7 +65,7 @@ fn ProtectedRead::ProtectedRead(
   is_disposed~ : () -> Bool,
   dispose~ : () -> Unit,
 ) -> ProtectedRead {
-  { cell_id, label, is_disposed, dispose }
+  { cell_id, label, is_disposed, dispose, }
 }
 
 ///|
@@ -85,7 +85,7 @@ fn[T] ProtectedCell::ProtectedCell(
   is_disposed~ : () -> Bool,
   dispose~ : () -> Unit,
 ) -> ProtectedCell[T] {
-  { cell_id, label, read, is_disposed, dispose }
+  { cell_id, label, read, is_disposed, dispose, }
 }
 
 ///|

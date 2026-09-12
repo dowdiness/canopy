@@ -313,12 +313,12 @@ fn incr_canvas_pointer_up(
   pointer_id : Int?,
 ) -> IncrCanvasState {
   guard state.active_pointer_id == pointer_id else { return state }
-  { ..state, panning: None, dragging: None, active_pointer_id: None }
+  { ..state, panning: None, dragging: None, active_pointer_id: None, }
 }
 
 ///|
 fn incr_canvas_capture_lost(state : IncrCanvasState) -> IncrCanvasState {
-  { ..state, panning: None, dragging: None, active_pointer_id: None }
+  { ..state, panning: None, dragging: None, active_pointer_id: None, }
 }
 
 ///|

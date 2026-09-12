@@ -11,7 +11,7 @@ pub fn snapshot_span_edits(
 ) -> Array[@core.SpanEdit] {
   edits.map(fn(e) {
     let inserted = if e.inserted.length() > max_chars {
-      let buf = StringBuilder::new(size_hint=max_chars)
+      let buf = StringBuilder(size_hint=max_chars)
       let mut count = 0
       for ch in e.inserted {
         if count >= max_chars {
@@ -25,6 +25,6 @@ pub fn snapshot_span_edits(
     } else {
       e.inserted
     }
-    { start: e.start, delete_len: e.delete_len, inserted }
+    { start: e.start, delete_len: e.delete_len, inserted, }
   })
 }

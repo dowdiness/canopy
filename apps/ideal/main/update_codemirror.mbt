@@ -15,17 +15,13 @@ fn apply_code_mirror_changes(
   let cursor = editor.get_cursor()
   guard changes.length() == 1 else { return false }
   let change = changes[0]
+  errdefer editor.move_cursor(cursor)
   let accepted = editor.apply_text_edit_exact(
     change.from,
     change.to - change.from,
     change.insert,
     timestamp_ms,
-  ) catch {
-    error => {
-      editor.move_cursor(cursor)
-      raise error
-    }
-  }
+  )
   editor.move_cursor(cursor)
   accepted
 }
@@ -39,7 +35,7 @@ fn handle_codemirror(
   let _ = emit
   match msg {
     CmMounted => {
-      let new_model = { ..model, mounted: true }
+      let new_model = { ..model, mounted: true, }
       Some((sync_after_external_crdt_change(new_model), new_model))
     }
     CmChanges(event) => {
@@ -52,7 +48,12 @@ fn handle_codemirror(
       js_perf_begin("cmDocChangedHandler")
       js_perf_begin("syncEditorApply")
       let timestamp_ms = js_now_ms()
-      let fallback_text = try {
+      let fallback_text = {
+        errdefer {
+          js_perf_end("incrementalTextApply")
+          js_perf_end("syncEditorApply")
+          js_perf_end("cmDocChangedHandler")
+        }
         js_perf_begin("incrementalTextApply")
         let applied = if code_mirror_source_version_matches(
             event.source_version,
@@ -69,26 +70,20 @@ fn handle_codemirror(
           model.editor.set_text_and_record(event.doc, timestamp_ms)
           Some(event.doc)
         }
-      } catch {
-        error => {
-          js_perf_end("incrementalTextApply")
-          js_perf_end("syncEditorApply")
-          js_perf_end("cmDocChangedHandler")
-          raise error
-        }
       }
       js_perf_end("syncEditorApply")
       js_perf_begin("projectionRefresh")
-      let new_model = try {
-        let next = refresh({ ..model, next_timestamp: model.next_timestamp + 1 })
-        js_perf_end("projectionRefresh")
-        next
-      } catch {
-        error => {
+      let new_model = {
+        errdefer {
           js_perf_end("projectionRefresh")
           js_perf_end("cmDocChangedHandler")
-          raise error
         }
+        let next = refresh({
+          ..model,
+          next_timestamp: model.next_timestamp + 1,
+        })
+        js_perf_end("projectionRefresh")
+        next
       }
       let actual_text = new_model.editor.get_text()
       let source_version = Hash::hash(model.editor.get_version()).to_string()

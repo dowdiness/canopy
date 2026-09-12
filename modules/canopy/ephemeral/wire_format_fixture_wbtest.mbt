@@ -30,7 +30,10 @@ test "wire fixture: ephemeral_value byte layout" {
 ///|
 test "wire fixture: encode_entries byte layout" {
   let entries : Array[(String, EphemeralRecord)] = [
-    ("1", { value: Some(EphemeralValue::I64(42L)), clock: 3L, updated_at: 0UL }),
+    (
+      "1",
+      { value: Some(EphemeralValue::I64(42L)), clock: 3L, updated_at: 0UL, },
+    ),
   ]
   inspect(
     encode_entries(entries),

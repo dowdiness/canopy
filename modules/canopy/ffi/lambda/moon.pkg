@@ -20,7 +20,6 @@ import {
   "dowdiness/analysis" @facts,
   "dowdiness/incr",
   "moonbitlang/async/js_async",
-  "moonbitlang/core/buffer",
   "moonbitlang/core/debug",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/json",

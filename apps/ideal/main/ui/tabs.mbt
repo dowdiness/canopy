@@ -65,7 +65,7 @@ pub(all) struct TabStyle {
 ///|
 /// Default Canopy underline style (used by the bottom panel).
 pub fn underline_tab_style() -> TabStyle {
-  { container_class: tabs_container_class(), tab_class }
+  { container_class: tabs_container_class(), tab_class, }
 }
 
 ///|

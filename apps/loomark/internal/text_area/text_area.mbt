@@ -45,7 +45,7 @@ pub struct TextArea {
 
 ///|
 pub fn TextArea::TextArea(id : String) -> TextArea {
-  { id, state: Idle }
+  { id, state: Idle, }
 }
 
 ///|

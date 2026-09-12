@@ -86,7 +86,7 @@ pub fn compute_move(
           delete_len: source_range.end - src_expr_start,
           inserted: placeholder,
         },
-        { start: tgt_insert, delete_len: 0, inserted: src_expr + separator },
+        { start: tgt_insert, delete_len: 0, inserted: src_expr + separator, },
       ]
     }
   }

@@ -96,7 +96,7 @@ pub fn[T] Coordinator::register_workspace_cell(
   for d in distinct {
     self.register_dep(cell_id, d.0, d.1)
   }
-  Ok({ coordinator: self, cell_id, watch: w, deps: distinct })
+  Ok({ coordinator: self, cell_id, watch: w, deps: distinct, })
 }
 
 ///|

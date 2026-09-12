@@ -72,7 +72,7 @@ pub fn ProviderOptionProvenance::new(
   model_id~ : String,
   option_identity~ : RedactedOptionIdentity,
 ) -> ProviderOptionProvenance {
-  { task_kind, provider_id, model_id, option_identity }
+  { task_kind, provider_id, model_id, option_identity, }
 }
 
 ///|
@@ -88,7 +88,7 @@ pub fn ProviderSourceSnapshot::new(
   key~ : CognitionKey,
   revision~ : Revision,
 ) -> ProviderSourceSnapshot {
-  { key, revision }
+  { key, revision, }
 }
 
 ///|
@@ -381,7 +381,7 @@ pub fn ProviderStatusDescriptor::new(
   target~ : CognitionKey,
   status~ : ProviderRequestStatus,
 ) -> ProviderStatusDescriptor {
-  { request_id, target, status }
+  { request_id, target, status, }
 }
 
 ///|

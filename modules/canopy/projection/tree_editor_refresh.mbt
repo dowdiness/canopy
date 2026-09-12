@@ -138,7 +138,7 @@ fn[T : TreeNode + Renderable] refresh_node_minimal(
       if can_skip_subtree(node, previous, source_map, ui_state) {
         // Carry over all loaded_nodes entries from reused subtree
         carry_over_loaded_nodes(previous, new_loaded_nodes)
-        return { node: previous, reused_previous: true }
+        return { node: previous, reused_previous: true, }
       }
     None => ()
   }
@@ -162,7 +162,7 @@ fn[T : TreeNode + Renderable] refresh_node_minimal(
       text_range,
     }
     new_loaded_nodes[node_id] = refreshed
-    { node: refreshed, reused_previous: false }
+    { node: refreshed, reused_previous: false, }
   } else {
     let children : Array[InteractiveTreeNode[T]] = []
     let child_ids : Array[NodeId] = []
@@ -214,7 +214,7 @@ fn[T : TreeNode + Renderable] refresh_node_minimal(
       Some(previous) =>
         if children_reused && interactive_node_stamp(previous) == stamp {
           new_loaded_nodes[node_id] = previous
-          { node: previous, reused_previous: true }
+          { node: previous, reused_previous: true, }
         } else {
           let refreshed : InteractiveTreeNode[T] = {
             id: node_id,
@@ -228,7 +228,7 @@ fn[T : TreeNode + Renderable] refresh_node_minimal(
             text_range,
           }
           new_loaded_nodes[node_id] = refreshed
-          { node: refreshed, reused_previous: false }
+          { node: refreshed, reused_previous: false, }
         }
       None => {
         let refreshed : InteractiveTreeNode[T] = {
@@ -243,7 +243,7 @@ fn[T : TreeNode + Renderable] refresh_node_minimal(
           text_range,
         }
         new_loaded_nodes[node_id] = refreshed
-        { node: refreshed, reused_previous: false }
+        { node: refreshed, reused_previous: false, }
       }
     }
   }
@@ -393,7 +393,7 @@ fn[T : TreeNode + Renderable] TreeEditorState::hydrate_subtree(
                 subtree_loaded_nodes,
                 changed_nodes,
               )
-              { ..self, tree: updated_tree, loaded_nodes }
+              { ..self, tree: updated_tree, loaded_nodes, }
             }
             None => self
           }

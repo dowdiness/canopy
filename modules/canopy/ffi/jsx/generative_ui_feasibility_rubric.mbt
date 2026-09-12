@@ -85,7 +85,7 @@ fn FeasibilityRubricResult::FeasibilityRubricResult(
   passed : Bool,
   reasons : Array[String],
 ) -> FeasibilityRubricResult {
-  { passed, reasons }
+  { passed, reasons, }
 }
 
 ///|

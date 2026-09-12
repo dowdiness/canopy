@@ -237,7 +237,7 @@ fn rename_lam_param(
   // Sort descending by position for reverse-order application
   var_ranges.sort_by(fn(a, b) { b.0.compare(a.0) })
   for vr in var_ranges {
-    edits.push({ start: vr.0, delete_len: vr.1 - vr.0, inserted: new_name })
+    edits.push({ start: vr.0, delete_len: vr.1 - vr.0, inserted: new_name, })
   }
   // Sort all edits by start position descending (param edit might be first)
   edits.sort_by(fn(a, b) { b.start.compare(a.start) })
@@ -371,7 +371,7 @@ fn rename_module_binding(
   // Sort descending by position
   ref_ranges.sort_by(fn(a, b) { b.0.compare(a.0) })
   for rr in ref_ranges {
-    edits.push({ start: rr.0, delete_len: rr.1 - rr.0, inserted: new_name })
+    edits.push({ start: rr.0, delete_len: rr.1 - rr.0, inserted: new_name, })
   }
   // Sort all edits descending
   edits.sort_by(fn(a, b) { b.start.compare(a.start) })

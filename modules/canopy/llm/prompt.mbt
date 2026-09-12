@@ -18,7 +18,7 @@ let structured_edit_system_prompt : String =
 
 ///|
 fn format_edit_user_message(text : String, instruction : String) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   buf.write_string("=== TEXT ===\n")
   let lines = split_lines(text)
   for i, line in lines {
@@ -37,7 +37,7 @@ fn format_edit_user_message(text : String, instruction : String) -> String {
 /// input so line numbers stay correct (e.g. "a\n" → ["a", ""], not ["a"]).
 fn split_lines(text : String) -> Array[String] {
   let result : Array[String] = []
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   for ch in text {
     match ch {
       '\n' => {

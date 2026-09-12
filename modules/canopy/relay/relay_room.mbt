@@ -15,7 +15,7 @@ pub struct RelayRoom {
 
 ///|
 pub fn RelayRoom::new() -> RelayRoom {
-  { peers: [] }
+  { peers: [], }
 }
 
 ///|
@@ -36,7 +36,7 @@ pub fn RelayRoom::on_connect(
   }
   let join_msg = encode_peer_joined(peer_id)
   self.broadcast(peer_id, join_msg)
-  self.peers.push({ peer_id, send_fn })
+  self.peers.push({ peer_id, send_fn, })
   true
 }
 

@@ -19,7 +19,7 @@ pub struct BlockDoc {
 pub fn BlockDoc::new(
   replica_id : String,
 ) -> BlockDoc raise @container.DocumentError {
-  { tree: @container.Document::new(replica_id) }
+  { tree: @container.Document::new(replica_id), }
 }
 
 ///|

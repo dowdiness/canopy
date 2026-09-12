@@ -28,12 +28,12 @@ fn DisclosureModel::new(
   content_id~ : String,
   open? : Bool = false,
 ) -> DisclosureModel {
-  { open, content_id }
+  { open, content_id, }
 }
 
 ///|
 fn DisclosureModel::toggle(self : DisclosureModel) -> DisclosureModel {
-  { ..self, open: !self.open }
+  { ..self, open: !self.open, }
 }
 
 ///|
@@ -71,12 +71,12 @@ fn Section::new(
   content_id~ : String,
   open? : Bool = false,
 ) -> Section {
-  { title, body, disclosure: DisclosureModel::new(content_id~, open~) }
+  { title, body, disclosure: DisclosureModel::new(content_id~, open~), }
 }
 
 ///|
 fn Section::toggle_disclosure(self : Section) -> Section {
-  { ..self, disclosure: self.disclosure.toggle() }
+  { ..self, disclosure: self.disclosure.toggle(), }
 }
 
 ///|

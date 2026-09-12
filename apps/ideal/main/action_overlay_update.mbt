@@ -42,7 +42,7 @@ fn handle_overlay_msg(
   match model.overlay.active_for_token(token) {
     Some((_, state, active_token)) => {
       let result = state.update(msg)
-      let updated = { ..model, overlay: model.overlay.set_state(result.state) }
+      let updated = { ..model, overlay: model.overlay.set_state(result.state), }
       let cmd = overlay_effect_to_cmd(
         parent_emit,
         active_token,

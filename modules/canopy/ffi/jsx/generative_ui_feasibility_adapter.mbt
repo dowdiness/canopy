@@ -9,7 +9,7 @@ fn FeasibilityPreparationError::FeasibilityPreparationError(
   classification : String,
   message : String,
 ) -> FeasibilityPreparationError {
-  { classification, message }
+  { classification, message, }
 }
 
 ///|
@@ -29,7 +29,7 @@ fn PreparedFeasibilityCandidate::PreparedFeasibilityCandidate(
   evidence_json : String,
   rubric : FeasibilityRubricResult,
 ) -> PreparedFeasibilityCandidate {
-  { candidate, safe_output_json, safe_output_sha256, evidence_json, rubric }
+  { candidate, safe_output_json, safe_output_sha256, evidence_json, rubric, }
 }
 
 ///|

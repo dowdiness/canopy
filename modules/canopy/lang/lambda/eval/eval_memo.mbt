@@ -133,13 +133,13 @@ fn eval_module_cached(
       let v = @lambda_eval.eval(env, expr)
       let display = Value(render_value(v))
       results.push(display)
-      new_cache.push({ name, term: expr, result: display, raw_value: Some(v) })
+      new_cache.push({ name, term: expr, result: display, raw_value: Some(v), })
       env = env.bind(name, v)
     } catch {
       reason => {
         let display = render_stuck(reason)
         results.push(display)
-        new_cache.push({ name, term: expr, result: display, raw_value: None })
+        new_cache.push({ name, term: expr, result: display, raw_value: None, })
         fill_suppressed(results, new_cache, defs, body, i + 1)
         return (results, new_cache)
       }
@@ -190,7 +190,7 @@ fn fill_suppressed(
     })
   }
   results.push(Suppressed)
-  cache.push({ name: "_body", term: body, result: Suppressed, raw_value: None })
+  cache.push({ name: "_body", term: body, result: Suppressed, raw_value: None, })
 }
 
 ///|

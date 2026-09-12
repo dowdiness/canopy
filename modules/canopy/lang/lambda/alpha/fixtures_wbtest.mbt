@@ -1,11 +1,11 @@
 ///|
 fn test_binder(id : Int, hint : String) -> Binder {
-  { id: BinderId(id), hint, origin: Generated(id) }
+  { id: BinderId(id), hint, origin: Generated(id), }
 }
 
 ///|
 fn test_free(name : String, origin : FreeOrigin) -> FreeName {
-  { name, origin }
+  { name, origin, }
 }
 
 ///|

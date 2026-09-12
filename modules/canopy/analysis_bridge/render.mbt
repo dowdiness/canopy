@@ -14,7 +14,7 @@ pub fn facts_to_match_list(
   facts
   .iter()
   .filter(fn(f) { f.is_current(snapshot) })
-  .map(fn(f) { { from: f.from, to: f.to, pattern_id: f.pattern_id } })
+  .map(fn(f) { { from: f.from, to: f.to, pattern_id: f.pattern_id, } })
   .collect()
 }
 

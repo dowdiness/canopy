@@ -70,7 +70,7 @@ pub fn ContextPackOptions::new(
   max_chars? : Int,
   truncate_items? : Bool = false,
 ) -> ContextPackOptions {
-  { max_items, max_chars, truncate_items }
+  { max_items, max_chars, truncate_items, }
 }
 
 ///|

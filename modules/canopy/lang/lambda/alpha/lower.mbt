@@ -27,7 +27,7 @@ fn source_binders(graph : @scope.ScopeGraph) -> Map[@core.NodeId, Binder] {
 
 ///|
 fn generated_binder(hint : String, salt : Int) -> Binder {
-  { id: BinderId(-1 - salt), hint, origin: Generated(salt) }
+  { id: BinderId(-1 - salt), hint, origin: Generated(salt), }
 }
 
 ///|
@@ -49,7 +49,7 @@ fn lower_ref(
   name : String,
 ) -> AlphaTerm {
   @scope.declaration(graph, node.id()).map_or(
-    Var(Free({ name, origin: SourceVar })),
+    Var(Free({ name, origin: SourceVar, })),
     decl => {
       binders
       .get(decl.node_id)
@@ -126,7 +126,7 @@ fn lower_node(
     // `Unbound` is an explicit unresolved editor term. Keep it free even if the
     // scope graph has a same-name declaration, so display reify can preserve the
     // diagnostic-oriented `Unbound` origin.
-    @ast.Term::Unbound(name) => Var(Free({ name, origin: SourceUnbound }))
+    @ast.Term::Unbound(name) => Var(Free({ name, origin: SourceUnbound, }))
     @ast.Term::Lam(name, _) => {
       let binder = binder_for_node(binders, node, name)
       Lam(binder, lower_child_or_error(node, graph, binders, 0, "lambda body"))

@@ -67,7 +67,7 @@ pub impl Show for SpanEdit with fn output(self, logger) {
 /// Other Unicode (BMP letters, emoji, non-BMP) passes through unchanged
 /// — this is a display escape, not a wire-format escape.
 fn escape_for_show(s : String) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   for ch in s {
     match ch {
       '\\' => buf.write_string("\\\\")

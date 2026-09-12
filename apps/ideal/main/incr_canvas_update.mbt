@@ -2,7 +2,7 @@
 fn sync_incr_canvas(model : Model) -> Model {
   let snapshot = model.incr_tap.snapshot()
   let canvas = sync_incr_canvas_state(model.incr_canvas, snapshot)
-  { ..model, incr_canvas: canvas }
+  { ..model, incr_canvas: canvas, }
 }
 
 ///|
@@ -40,7 +40,7 @@ fn handle_incr_canvas(
             y,
           )
       }
-      Some((none, { ..current, incr_canvas: state }))
+      Some((none, { ..current, incr_canvas: state, }))
     }
     _ => None
   }

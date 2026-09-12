@@ -25,7 +25,7 @@ fn SessionBaseline::SessionBaseline(
   dirty~ : Bool,
   revision~ : Int,
 ) -> SessionBaseline {
-  { mounted_origin, dirty, revision }
+  { mounted_origin, dirty, revision, }
 }
 
 ///|
@@ -58,7 +58,7 @@ fn RenderPlan::RenderPlan(
   kind~ : RenderKind,
   must_remount~ : Bool,
 ) -> RenderPlan {
-  { baseline, kind, must_remount }
+  { baseline, kind, must_remount, }
 }
 
 ///|

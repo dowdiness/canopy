@@ -42,7 +42,7 @@ pub fn Coordinator::register_editor(
   }
   let id = self.next_id.val
   self.next_id.val = id + 1
-  self.editors.set(id, { agent_id, protected_reads, alive: Ref(true) })
+  self.editors.set(id, { agent_id, protected_reads, alive: Ref(true), })
   EditorId(id)
 }
 

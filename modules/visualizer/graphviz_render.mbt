@@ -1,6 +1,6 @@
 ///|
 fn attr(key : String, value : String) -> @dot.Attribute {
-  { key, value }
+  { key, value, }
 }
 
 ///|
@@ -10,7 +10,7 @@ fn attrs(attributes : Array[@dot.Attribute]) -> @dot.AttributeList {
 
 ///|
 fn node_id(id : String) -> @dot.NodeId {
-  { id, port: None }
+  { id, port: None, }
 }
 
 ///|
@@ -95,7 +95,7 @@ fn VisualGraph::to_dot_graph(self : VisualGraph) -> @dot.Graph {
   for edge in self.edges {
     statements.push(edge_statement(edge))
   }
-  { strict: false, directed: true, id: self.id, statements }
+  { strict: false, directed: true, id: self.id, statements, }
 }
 
 ///|

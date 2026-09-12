@@ -39,7 +39,7 @@ priv struct HeadingStableRowId {
 
 ///|
 fn HeadingStableRowId::from_node(id : @core.NodeId) -> HeadingStableRowId {
-  { seed: id }
+  { seed: id, }
 }
 
 ///|
@@ -247,7 +247,7 @@ fn inline_text_to(
 
 ///|
 fn inline_text(inlines : Array[@markdown.Inline]) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   inline_text_to(inlines, buf)
   buf.to_string()
 }
@@ -420,7 +420,7 @@ fn heading_candidate(
   previous : HeadingObservation,
   current : HeadingObservation,
 ) -> HeadingMatchCandidate {
-  { id: current.id, evidence: heading_evidence(previous, current) }
+  { id: current.id, evidence: heading_evidence(previous, current), }
 }
 
 ///|
@@ -584,7 +584,7 @@ fn row_from_match(
 ) -> HeadingSideTableRow {
   let ids = candidate_ids(match_result)
   match row.status {
-    HeadingRetired => { ..row, current_id: None, candidates: [] }
+    HeadingRetired => { ..row, current_id: None, candidates: [], }
     _ =>
       match ids {
         [] =>
@@ -648,7 +648,7 @@ fn HeadingSideTable::advance(
         // Invalid snapshots supply no durable match evidence; keep `evidence` and
         // `last_live` as last trusted data while clearing current
         // anchors/candidates and preserving the valid-absence counter.
-        { ..row, current_id: None, status, candidates: [] }
+        { ..row, current_id: None, status, candidates: [], }
       })
       {
         rows,
@@ -675,7 +675,7 @@ fn HeadingSideTable::advance(
         .collect()
       let next_rows = self.rows.map(row => {
         match row.status {
-          HeadingRetired => { ..row, current_id: None, candidates: [] }
+          HeadingRetired => { ..row, current_id: None, candidates: [], }
           _ => {
             guard matches
               .iter()

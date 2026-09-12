@@ -19,7 +19,7 @@ fn import_document(
   }
   let (record, decisions) = begin_save(record)
   (
-    { ..documents, records: prepend_record(documents.records, record) },
+    { ..documents, records: prepend_record(documents.records, record), },
     decisions,
   )
 }
@@ -67,7 +67,7 @@ fn apply_text(
     }
   }
   let checkpoint = if updated.composing && new_checkpoint {
-    { ..checkpoint, maximum_armed: false }
+    { ..checkpoint, maximum_armed: false, }
   } else {
     checkpoint
   }
@@ -162,7 +162,10 @@ fn mark_eligible(
         [],
       )
     Waiting(_) => {
-      let (next, decisions) = begin_save({ ..record, save: Waiting(checkpoint) })
+      let (next, decisions) = begin_save({
+        ..record,
+        save: Waiting(checkpoint),
+      })
       (
         {
           ..documents,
@@ -208,7 +211,7 @@ fn complete(
         is Some(saved) else {
         return (documents, [])
       }
-      let completed = { ..record, origin: Existing }
+      let completed = { ..record, origin: Existing, }
       match pending {
         Some(_) if saved.find(document_id) == Some(record.document) =>
           (

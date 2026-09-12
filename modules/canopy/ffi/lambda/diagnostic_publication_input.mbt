@@ -13,7 +13,7 @@ fn DiagnosticPublicationDependencyInput::DiagnosticPublicationDependencyInput(
   dependency : @editor.DiagnosticDependencyId,
   identity : @incr.Input[String],
 ) -> DiagnosticPublicationDependencyInput {
-  { dependency, identity }
+  { dependency, identity, }
 }
 
 ///|

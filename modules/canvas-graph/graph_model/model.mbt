@@ -229,7 +229,7 @@ pub fn NodeSize::from_wh(
   }
   guard width >= 0.0 else { raise NodeSizeError::NegativeWidth }
   guard height >= 0.0 else { raise NodeSizeError::NegativeHeight }
-  { width, height }
+  { width, height, }
 }
 
 ///|
@@ -275,7 +275,7 @@ pub fn CanvasNode::from_parts(
   outputs~ : Array[PortDef],
   configured~ : Bool,
 ) -> CanvasNode {
-  { id, position, size, kind, title, subtitle, inputs, outputs, configured }
+  { id, position, size, kind, title, subtitle, inputs, outputs, configured, }
 }
 
 ///|
@@ -339,7 +339,7 @@ pub impl Show for GraphOperation with fn output(self, logger) {
 pub fn GraphOperation::GraphOperation(
   action : WorkflowAction,
 ) -> GraphOperation {
-  { version: GRAPH_OPERATION_VERSION, action }
+  { version: GRAPH_OPERATION_VERSION, action, }
 }
 
 ///|
@@ -569,7 +569,7 @@ pub impl @json.FromJson for GraphOperation with fn from_json(json, path) {
         (path.add_key("type"), "GraphOperation: unknown type '\{type_name}'"),
       )
   }
-  { version, action }
+  { version, action, }
 }
 
 ///|
@@ -602,7 +602,7 @@ pub fn ConnectState::from_parts(
   from_port~ : String,
   cursor~ : WorldPoint,
 ) -> ConnectState {
-  { from_node, from_port, cursor }
+  { from_node, from_port, cursor, }
 }
 
 ///|
@@ -658,7 +658,7 @@ pub fn port(
   port_type : PortType,
   allows_fan_in? : Bool = false,
 ) -> PortDef {
-  { id, label, port_type, allows_fan_in }
+  { id, label, port_type, allows_fan_in, }
 }
 
 ///|
@@ -963,7 +963,7 @@ fn delete_nodes_from_state(
     pointer_down: false,
     did_move: false,
   }
-  { ..state, nodes, edges, interaction }
+  { ..state, nodes, edges, interaction, }
 }
 
 ///|
@@ -974,7 +974,7 @@ fn set_selection(state : CanvasState, nodes : Array[NodeId]) -> CanvasState {
     selected,
     selected_nodes: nodes,
   }
-  { ..state, interaction: new_interaction }
+  { ..state, interaction: new_interaction, }
 }
 
 ///|
@@ -986,7 +986,7 @@ pub fn apply_action(
     AddNode(node) => {
       let nodes = state.nodes.copy()
       nodes.push(node)
-      { ..state, nodes, next_node_id: state.next_node_id + 1 }
+      { ..state, nodes, next_node_id: state.next_node_id + 1, }
     }
     MoveNodes(positions) => {
       let nodes = state.nodes.map(fn(node) {
@@ -1011,7 +1011,7 @@ pub fn apply_action(
     RenameNode(node_id, name) => {
       let nodes = state.nodes.map(fn(node) {
         if node.id == node_id {
-          { ..node, title: name }
+          { ..node, title: name, }
         } else {
           node
         }

@@ -38,7 +38,7 @@ pub fn GenerativeUiRawAttribute::GenerativeUiRawAttribute(
   name~ : String,
   value~ : String,
 ) -> GenerativeUiRawAttribute {
-  { name, value }
+  { name, value, }
 }
 
 ///|
@@ -136,7 +136,7 @@ pub fn GenerativeUiBindingCapabilities::GenerativeUiBindingCapabilities(
   fields~ : Array[String],
   selection_keys~ : Array[String],
 ) -> GenerativeUiBindingCapabilities {
-  { name, fields: fields.copy(), selection_keys: selection_keys.copy() }
+  { name, fields: fields.copy(), selection_keys: selection_keys.copy(), }
 }
 
 ///|
@@ -295,7 +295,7 @@ fn diagnostic(
   kind : GenerativeUiDiagnosticKind,
   detail : String,
 ) -> GenerativeUiDiagnostic {
-  { path, kind, detail }
+  { path, kind, detail, }
 }
 
 ///|

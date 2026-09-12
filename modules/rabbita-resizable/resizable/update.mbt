@@ -31,7 +31,7 @@ fn clamp_size(
 fn Model::with_clamped_size(self : Model, w : Double, h : Double) -> Model {
   guard finite(w) && finite(h) else { return self }
   let (w, h) = clamp_size(w, h, self.constraints)
-  { ..self, w, h }
+  { ..self, w, h, }
 }
 
 ///|
@@ -74,7 +74,7 @@ pub fn Model::new(
     abort("resizable initial size must be finite")
   }
   let (w, h) = clamp_size(w, h, constraints)
-  { w, h, constraints, drag: None }
+  { w, h, constraints, drag: None, }
 }
 
 ///|
@@ -107,7 +107,7 @@ pub fn Model::update(self : Model, msg : Msg) -> Model {
         base_w: self.w,
         base_h: self.h,
       }
-      { ..self, drag: Some(drag) }
+      { ..self, drag: Some(drag), }
     }
     PointerMove(x~, y~) =>
       match self.drag {
@@ -116,7 +116,7 @@ pub fn Model::update(self : Model, msg : Msg) -> Model {
       }
     EndResize =>
       match self.drag {
-        Some(_) => { ..self, drag: None }
+        Some(_) => { ..self, drag: None, }
         None => self
       }
     NudgeBy(dw~, dh~) => self.with_clamped_size(self.w + dw, self.h + dh)

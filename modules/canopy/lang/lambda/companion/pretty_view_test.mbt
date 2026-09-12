@@ -3,7 +3,7 @@
 fn prop_view_text_matches_render(term : @ast.Term) -> Bool {
   let layout = @pretty.Pretty::to_layout(term)
   let view = @protocol.layout_to_view_tree(layout)
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   for i, child in view.children {
     if i > 0 {
       buf.write_char('\n')

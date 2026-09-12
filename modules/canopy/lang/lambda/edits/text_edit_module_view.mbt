@@ -89,10 +89,10 @@ fn EditModuleView::from_root(root : ProjNode[@ast.Term]) -> EditModuleView {
       } else {
         None
       }
-      { defs: bindings, final_expr }
+      { defs: bindings, final_expr, }
     }
-    @ast.Term::Unit => { defs: [], final_expr: None }
-    _ => { defs: [], final_expr: Some(root) }
+    @ast.Term::Unit => { defs: [], final_expr: None, }
+    _ => { defs: [], final_expr: Some(root), }
   }
 }
 
@@ -100,6 +100,6 @@ fn EditModuleView::from_root(root : ProjNode[@ast.Term]) -> EditModuleView {
 fn edit_module_view(ctx : EditContext[@ast.Term]) -> EditModuleView {
   match edit_root_node(ctx.registry) {
     Some(root) => EditModuleView::from_root(root)
-    None => { defs: [], final_expr: None }
+    None => { defs: [], final_expr: None, }
   }
 }

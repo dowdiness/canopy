@@ -34,7 +34,7 @@ fn[T] FoldNode::FoldNode(
   start : Int,
   end : Int,
 ) -> FoldNode[T] {
-  { kind, node_id, start, end }
+  { kind, node_id, start, end, }
 }
 
 ///|
@@ -66,7 +66,7 @@ pub fn[T] ProjNode::ProjNode(
   node_id : Int,
   children : Array[ProjNode[T]],
 ) -> ProjNode[T] {
-  { node_id, kind, children, start, end }
+  { node_id, kind, children, start, end, }
 }
 
 ///|

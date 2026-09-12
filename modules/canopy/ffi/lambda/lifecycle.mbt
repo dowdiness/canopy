@@ -28,7 +28,7 @@ let coordinator : @workspace.Coordinator = @workspace.Coordinator::new()
 let lambda_registry : @host.HostRegistry[LambdaHandle] = @host.HostRegistry::HostRegistry()
 
 ///|
-let last_created_handle : Ref[Int?] = { val: None }
+let last_created_handle : Ref[Int?] = { val: None, }
 
 ///|
 /// Build a Lambda editor + companion on the shared runtime, then
@@ -60,7 +60,7 @@ fn assemble_lambda_handle(
     agent_id,
     cells.to_protected_reads(),
   )
-  lambda_registry.insert(editor_id.0, { editor, companion, editor_id, cells })
+  lambda_registry.insert(editor_id.0, { editor, companion, editor_id, cells, })
   last_created_handle.val = Some(editor_id.0)
   editor_id
 }

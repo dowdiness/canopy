@@ -288,7 +288,7 @@ fn eval_analysis() -> @egraph.Analysis[AlphaLang, EvalState] {
     merge: fn(left, right) {
       let val = merge_const(left.val, right.val)
       let has_incomplete = left.has_incomplete || right.has_incomplete
-      let result : EvalState = { val, has_incomplete }
+      let result : EvalState = { val, has_incomplete, }
       (
         result,
         {

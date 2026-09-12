@@ -69,7 +69,7 @@ struct ActionOverlayHost {
 
 ///|
 fn ActionOverlayHost::empty() -> ActionOverlayHost {
-  { active: None, next_token: 1 }
+  { active: None, next_token: 1, }
 }
 
 ///|
@@ -91,7 +91,7 @@ fn ActionOverlayHost::set_state(
 ) -> ActionOverlayHost {
   match self.active {
     Some((context, _, token)) =>
-      { ..self, active: Some((context, state, token)) }
+      { ..self, active: Some((context, state, token)), }
     None => self
   }
 }
@@ -114,7 +114,7 @@ fn ActionOverlayHost::active_for_token(
 
 ///|
 fn ActionOverlayHost::close(self : ActionOverlayHost) -> ActionOverlayHost {
-  { ..self, active: None }
+  { ..self, active: None, }
 }
 
 ///|

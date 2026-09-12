@@ -1,8 +1,8 @@
 ///|
 test "StoredPost JSON round-trip" {
   let posts : Array[StoredPost] = [
-    { text: "CRDTのmerge操作でバグ", ts: "2026-04-04T10:00:00Z" },
-    { text: "カレーを作った", ts: "2026-04-04T11:30:00Z" },
+    { text: "CRDTのmerge操作でバグ", ts: "2026-04-04T10:00:00Z", },
+    { text: "カレーを作った", ts: "2026-04-04T11:30:00Z", },
   ]
   let json = posts_to_json(posts)
   let (parsed, err) = posts_from_json(json)

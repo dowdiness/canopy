@@ -22,7 +22,7 @@ test "dependency edge snapshot is incr backed" {
   let _ = store.compute(FileSummary("a.mbt"))
   let edges = store.dependency_edges()
   assert_true(
-    edges.contains({ from: FileSummary("a.mbt"), input: FileText("a.mbt") }),
+    edges.contains({ from: FileSummary("a.mbt"), input: FileText("a.mbt"), }),
   )
 }
 

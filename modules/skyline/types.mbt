@@ -17,7 +17,7 @@ pub struct Size {
 ///|
 pub fn Size::Size(width~ : Int, height~ : Int) -> Size raise PackError {
   guard width > 0 && height > 0 else { raise InvalidSize(width, height) }
-  { width, height }
+  { width, height, }
 }
 
 ///|
@@ -35,7 +35,7 @@ fn Placement::Placement(
   width~ : Int,
   height~ : Int,
 ) -> Placement {
-  { x, y, width, height }
+  { x, y, width, height, }
 }
 
 ///|
@@ -49,7 +49,7 @@ fn PackResult::PackResult(
   placements~ : Array[Placement],
   height~ : Int,
 ) -> PackResult {
-  { placements, height }
+  { placements, height, }
 }
 
 ///|
@@ -61,7 +61,7 @@ priv struct Node {
 
 ///|
 fn Node::Node(x : Int, y : Int) -> Node {
-  { x, y }
+  { x, y, }
 }
 
 ///|
@@ -72,7 +72,7 @@ priv struct Candidate {
 
 ///|
 fn Candidate::Candidate(x : Int, y : Int) -> Candidate {
-  { x, y }
+  { x, y, }
 }
 
 ///|

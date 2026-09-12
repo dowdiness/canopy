@@ -25,7 +25,7 @@ pub fn block_doc_from_markdown(
     if line.has_prefix("```") {
       flush_paragraph(doc, para_buf)
       let lang = line[3:].to_owned()
-      let code_buf = StringBuilder::new()
+      let code_buf = StringBuilder()
       i = i + 1
       let mut first = true
       while i < len && !lines[i].has_prefix("```") {

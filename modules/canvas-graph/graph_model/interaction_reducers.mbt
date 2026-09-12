@@ -7,7 +7,7 @@ fn update_pan_start(state : CanvasState, pointer : ScreenPoint) -> CanvasState {
     pointer_down: true,
     did_move: false,
   }
-  { ..state, interaction: new_interaction }
+  { ..state, interaction: new_interaction, }
 }
 
 ///|
@@ -30,7 +30,7 @@ pub fn update_pan_move(
         ..state.interaction,
         did_move,
       }
-      { ..state, viewport: next_viewport, interaction: new_interaction }
+      { ..state, viewport: next_viewport, interaction: new_interaction, }
     }
   }
 }
@@ -54,7 +54,7 @@ pub fn update_viewport_scale_around(
     state
   } else {
     record_action(
-      { ..state, viewport: new_viewport },
+      { ..state, viewport: new_viewport, },
       SetViewport(new_viewport),
     )
   }
@@ -101,7 +101,7 @@ pub fn update_connect_start(
             pointer_down: true,
             did_move: false,
           }
-          { ..state, interaction: new_interaction }
+          { ..state, interaction: new_interaction, }
         }
       }
   }
@@ -125,7 +125,7 @@ pub fn update_connect_move(
         connecting: Some(new_conn),
         did_move: true,
       }
-      { ..state, interaction: new_interaction }
+      { ..state, interaction: new_interaction, }
     }
   }
 }
@@ -196,7 +196,7 @@ fn update_connect_end(
         pointer_down: false,
         did_move: false,
       }
-      { ..action_state, interaction: new_interaction }
+      { ..action_state, interaction: new_interaction, }
     }
   }
 }
@@ -211,7 +211,7 @@ pub fn drag_preview_from_move(
   let moved_positions = positions.map(item => {
     @spatial.ItemPosition::from_id_and_point(id=item.id, point=item.point)
   })
-  { positions: moved_positions }
+  { positions: moved_positions, }
 }
 
 ///|
@@ -254,7 +254,7 @@ fn update_node_drag_start(
         pointer_down: true,
         did_move: false,
       }
-      { ..state, interaction: new_interaction }
+      { ..state, interaction: new_interaction, }
     }
   }
 }
@@ -362,7 +362,7 @@ pub fn update_pointer_up(
     pointer_down: false,
     did_move: false,
   }
-  { ..selected_state, interaction: new_interaction }
+  { ..selected_state, interaction: new_interaction, }
 }
 
 ///|
@@ -383,5 +383,5 @@ pub fn update_pointer_interrupt(state : CanvasState) -> CanvasState {
     pointer_down: false,
     did_move: false,
   }
-  { ..action_state, interaction: new_interaction }
+  { ..action_state, interaction: new_interaction, }
 }

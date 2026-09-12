@@ -358,13 +358,15 @@ pub fn js_compartment_reconfigure(
 
 ///|
 extern "js" fn js_extension_combine_raw(
-  extensions : Array[@js_value.Value],
+  extensions : FixedArray[@js_value.Value],
 ) -> @js_value.Value =
   #| (extensions) => extensions
 
 ///|
 pub fn js_extension_combine(extensions : Array[Extension]) -> Extension {
-  js_extension_combine_raw(extensions.map(fn(extension) { extension.0 }))
+  js_extension_combine_raw(
+    FixedArray::from_array(extensions.map(fn(extension) { extension.0 })),
+  )
   |> Extension
 }
 
@@ -481,8 +483,8 @@ pub fn js_add_update_listener(
 extern "js" fn js_add_shortcuts_raw(
   view : @js_value.Value,
   compartment : @js_value.Value,
-  keys : Array[String],
-  has_shift : Array[Bool],
+  keys : FixedArray[String],
+  has_shift : FixedArray[Bool],
   on_shortcut : (Int, Bool) -> Unit,
 ) -> () -> Unit =
   #| (view, compartment, keys, hasShift, onShortcut) => {
@@ -531,6 +533,12 @@ pub fn js_add_shortcuts(
   on_shortcut : (Int, Bool) -> Unit,
 ) -> Disposable {
   Disposable(
-    js_add_shortcuts_raw(view.0, compartment.0, keys, has_shift, on_shortcut),
+    js_add_shortcuts_raw(
+      view.0,
+      compartment.0,
+      FixedArray::from_array(keys),
+      FixedArray::from_array(has_shift),
+      on_shortcut,
+    ),
   )
 }

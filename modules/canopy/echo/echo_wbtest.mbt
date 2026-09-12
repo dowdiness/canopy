@@ -24,7 +24,7 @@ test "term_freq - single token" {
 
 ///|
 test "to_sparse_vec - basic" {
-  let tf : TermFreq = { counts: { "ab": 2, "cd": 1 }, total: 3 }
+  let tf : TermFreq = { counts: { "ab": 2, "cd": 1 }, total: 3, }
   let doc_freq : Map[String, Int] = { "ab": 2, "cd": 1 }
   let vec = to_sparse_vec(tf, 4, doc_freq)
   // TF("ab") = 2/3, IDF("ab") = ln(4/2) ≈ 0.693
@@ -36,7 +36,7 @@ test "to_sparse_vec - basic" {
 
 ///|
 test "to_sparse_vec - zero total returns zero vector" {
-  let tf : TermFreq = { counts: Default::default(), total: 0 }
+  let tf : TermFreq = { counts: Default::default(), total: 0, }
   let vec = to_sparse_vec(tf, 1, Default::default())
   inspect(vec.entries.length(), content="0")
   inspect(vec.norm, content="0")
@@ -54,15 +54,15 @@ test "cosine_similarity - identical vectors" {
 
 ///|
 test "cosine_similarity - orthogonal vectors" {
-  let a : SparseVec = { entries: { "a": 1.0 }, norm: 1.0 }
-  let b : SparseVec = { entries: { "b": 1.0 }, norm: 1.0 }
+  let a : SparseVec = { entries: { "a": 1.0 }, norm: 1.0, }
+  let b : SparseVec = { entries: { "b": 1.0 }, norm: 1.0, }
   inspect(cosine_similarity(a, b), content="0")
 }
 
 ///|
 test "cosine_similarity - zero norm" {
-  let zero : SparseVec = { entries: Default::default(), norm: 0.0 }
-  let nonzero : SparseVec = { entries: { "a": 1.0 }, norm: 1.0 }
+  let zero : SparseVec = { entries: Default::default(), norm: 0.0, }
+  let nonzero : SparseVec = { entries: { "a": 1.0 }, norm: 1.0, }
   inspect(cosine_similarity(zero, nonzero), content="0")
   inspect(cosine_similarity(nonzero, zero), content="0")
 }

@@ -80,7 +80,7 @@ pub fn GenerativeUiInput::chunk(
   sequence~ : Int,
   payload~ : String,
 ) -> GenerativeUiInput {
-  { generation_id, base_revision, sequence, payload, kind: Chunk }
+  { generation_id, base_revision, sequence, payload, kind: Chunk, }
 }
 
 ///|
@@ -89,7 +89,7 @@ pub fn GenerativeUiInput::finalize(
   base_revision~ : GenerativeUiRevision,
   sequence~ : Int,
 ) -> GenerativeUiInput {
-  { generation_id, base_revision, sequence, payload: "", kind: Final }
+  { generation_id, base_revision, sequence, payload: "", kind: Final, }
 }
 
 ///|
@@ -98,7 +98,7 @@ pub fn GenerativeUiInput::cancel(
   base_revision~ : GenerativeUiRevision,
   sequence~ : Int,
 ) -> GenerativeUiInput {
-  { generation_id, base_revision, sequence, payload: "", kind: Cancel }
+  { generation_id, base_revision, sequence, payload: "", kind: Cancel, }
 }
 
 ///|

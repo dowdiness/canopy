@@ -80,7 +80,7 @@ fn make_portable_coordinate_map(
     Err(error) => return Err(error)
   }
   let portable = project_normalized_source(canonical, hidden)
-  Ok({ canonical, portable, hidden })
+  Ok({ canonical, portable, hidden, })
 }
 
 ///|

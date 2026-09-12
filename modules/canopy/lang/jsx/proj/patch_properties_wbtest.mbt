@@ -17,7 +17,7 @@ fn PatchTreePair::PatchTreePair(
   old~ : PatchTree,
   new~ : PatchTree,
 ) -> PatchTreePair {
-  { old, new }
+  { old, new, }
 }
 
 ///|

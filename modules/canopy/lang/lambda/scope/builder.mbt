@@ -52,7 +52,7 @@ fn Builder::add_scope(
   owner_node_id : @core.NodeId,
 ) -> ScopeId {
   let id = ScopeId(self.scopes.length())
-  self.scopes.push({ id, parent, decl_ids: [], ref_ids: [], owner_node_id })
+  self.scopes.push({ id, parent, decl_ids: [], ref_ids: [], owner_node_id, })
   id
 }
 
@@ -66,7 +66,7 @@ fn Builder::add_decl(
 ) -> DeclId {
   let ScopeId(si) = scope
   let id = DeclId(self.decls.length())
-  self.decls.push({ id, node_id, name, scope, kind })
+  self.decls.push({ id, node_id, name, scope, kind, })
   self.scopes[si].decl_ids.push(id)
   id
 }
@@ -214,7 +214,7 @@ fn Builder::add_ref(
 ) -> Unit {
   let ScopeId(si) = scope
   let id = RefId(self.refs.length())
-  self.refs.push({ id, node_id, name, scope, resolution })
+  self.refs.push({ id, node_id, name, scope, resolution, })
   self.scopes[si].ref_ids.push(id)
 }
 
@@ -254,11 +254,11 @@ fn Builder::resolve(
           LamParam(_) => true
         })
       })
-    guard hit is None else { return { decl: hit, visited_scopes: visited } }
+    guard hit is None else { return { decl: hit, visited_scopes: visited, } }
     visited.push(sid)
     cur = scope.parent
   }
-  { decl: None, visited_scopes: visited }
+  { decl: None, visited_scopes: visited, }
 }
 
 ///|

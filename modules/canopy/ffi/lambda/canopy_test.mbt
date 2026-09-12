@@ -44,7 +44,7 @@ test "schema-1 peer Version is rejected across the Lambda FFI" {
 ///|
 test "Web scenario: error persistence bug" {
   // Simulate web editor usage
-  let editor_ref : Ref[@editor.SyncEditor[@ast.Term]?] = { val: None }
+  let editor_ref : Ref[@editor.SyncEditor[@ast.Term]?] = { val: None, }
   editor_ref.val = Some(@lang_lambda.new_lambda_editor("web-user").0)
 
   // Type "x"

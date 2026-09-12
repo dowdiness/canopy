@@ -178,7 +178,7 @@ fn EditingState::activate(
     Some(hint) => hint.remember()
     None => @cmd.none
   }
-  ({ ..self, activation, preview }, @cmd.batch([surface, remember]))
+  ({ ..self, activation, preview, }, @cmd.batch([surface, remember]))
 }
 
 ///|
@@ -222,7 +222,7 @@ fn update(
       match initial {
         Some(document) => {
           let documents = initial_documents(saved)
-          let activation = { document_id: document.id(), generation: 0 }
+          let activation = { document_id: document.id(), generation: 0, }
           let (preview, command) = activate_surface(
             activation,
             document.text(),
@@ -436,17 +436,17 @@ fn update(
         None => (Editing(editing), @cmd.none)
         Some(file) =>
           (
-            Editing({ ..editing, import_failed: false }),
+            Editing({ ..editing, import_failed: false, }),
             @cmd.attempt(result => emit(ImportReadCompleted(result)), async fn() {
               file.as_blob().bytes()
             }),
           )
       }
     (Editing(editing), ImportReadCompleted(Err(_))) =>
-      (Editing({ ..editing, import_failed: true }), @cmd.none)
+      (Editing({ ..editing, import_failed: true, }), @cmd.none)
     (Editing(editing), ImportReadCompleted(Ok(bytes))) =>
       match decode_import(bytes) {
-        None => (Editing({ ..editing, import_failed: true }), @cmd.none)
+        None => (Editing({ ..editing, import_failed: true, }), @cmd.none)
         Some(text) =>
           (
             Editing(editing),
@@ -457,7 +457,7 @@ fn update(
           )
       }
     (Editing(editing), ImportCreateCompleted(_, CreateFailed(_))) =>
-      (Editing({ ..editing, import_failed: true }), @cmd.none)
+      (Editing({ ..editing, import_failed: true, }), @cmd.none)
     (Editing(editing), ImportCreateCompleted(text, Created(document_id))) => {
       let (next, persist) = reduce_documents(
         editing,
@@ -465,7 +465,7 @@ fn update(
         emit,
       )
       match next.documents.activation_target(document_id) {
-        None => (Editing({ ..editing, import_failed: true }), @cmd.none)
+        None => (Editing({ ..editing, import_failed: true, }), @cmd.none)
         Some(target) => {
           let ready = {
             ..next,
@@ -481,7 +481,7 @@ fn update(
       }
     }
     (Editing(editing), DismissImportFailure) =>
-      (Editing({ ..editing, import_failed: false }), @cmd.none)
+      (Editing({ ..editing, import_failed: false, }), @cmd.none)
     (Editing(editing), ExportRequested) => {
       let (filename, text) = export_payload(editing)
       (
@@ -506,20 +506,20 @@ fn update(
       )
     (PreparingNew(preparing), ViewportChanged(width)) =>
       (
-        PreparingNew({ ..preparing, compact: compact_viewport(width) }),
+        PreparingNew({ ..preparing, compact: compact_viewport(width), }),
         @cmd.none,
       )
     (Recovery(failure, _), ViewportChanged(width)) =>
       (Recovery(failure, compact_viewport(width)), @cmd.none)
     (Editing(editing), ViewportChanged(width)) =>
-      (Editing({ ..editing, compact: compact_viewport(width) }), @cmd.none)
+      (Editing({ ..editing, compact: compact_viewport(width), }), @cmd.none)
     (Editing(editing), CreateRequested) =>
       if !editing.can_activate() {
         (Editing(editing), @cmd.none)
       } else {
         let owner = editing.activation.document_id
         (
-          Editing({ ..editing, creation: Creating }),
+          Editing({ ..editing, creation: Creating, }),
           @source_repository.create(
             editing.documents.snapshot(),
             emit.map(result => CreateCompleted(owner, result)),
@@ -538,7 +538,7 @@ fn update(
         match editing.documents.activation_target(document_id) {
           None => (Editing(editing), @cmd.none)
           Some(target) => {
-            let ready = { ..editing, creation: Idle }
+            let ready = { ..editing, creation: Idle, }
             let (next, command) = ready.activate(
               target, emit, text_area, preview_engine,
             )
@@ -548,7 +548,7 @@ fn update(
       }
     (Editing(editing), CreateCompleted(owner, CreateFailed(failure))) =>
       if editing.creation == Creating && owner == editing.activation.document_id {
-        (Editing({ ..editing, creation: CreationFailed(failure) }), @cmd.none)
+        (Editing({ ..editing, creation: CreationFailed(failure), }), @cmd.none)
       } else {
         (Editing(editing), @cmd.none)
       }
@@ -590,7 +590,7 @@ fn update(
     (Editing(editing), DeleteCancelled) =>
       match editing.deletion {
         DeleteDeferred(_) | DeleteConfirmation(_) =>
-          (Editing({ ..editing, deletion: NoDeletion }), @cmd.none)
+          (Editing({ ..editing, deletion: NoDeletion, }), @cmd.none)
         _ => (Editing(editing), @cmd.none)
       }
     (Editing(editing), DeleteConfirmed(document_id)) =>
@@ -603,7 +603,7 @@ fn update(
           emit,
         )
         reconcile_active(
-          { ..next, deletion: NoDeletion },
+          { ..next, deletion: NoDeletion, },
           emit,
           text_area,
           preview_engine,

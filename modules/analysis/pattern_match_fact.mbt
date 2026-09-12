@@ -15,7 +15,7 @@ pub fn PatternMatchFact::PatternMatchFact(
   pattern_id~ : String,
   captures~ : Map[String, (Int, Int)],
 ) -> PatternMatchFact {
-  { snapshot, from, to, pattern_id, captures }
+  { snapshot, from, to, pattern_id, captures, }
 }
 
 ///|

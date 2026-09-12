@@ -12,7 +12,7 @@ fn ProviderPlanningIntent::ProviderPlanningIntent(
   options~ : ProviderOptionProvenance,
   snapshot~ : ProviderPlanningSnapshot,
 ) -> ProviderPlanningIntent {
-  { target, options, snapshot }
+  { target, options, snapshot, }
 }
 
 ///|
@@ -49,7 +49,7 @@ fn ProviderCancellationRecord::ProviderCancellationRecord(
   request_id~ : ProviderRequestId,
   cancelled_at_ms~ : Int,
 ) -> ProviderCancellationRecord {
-  { request_id, cancelled_at_ms, driver_acknowledged: false }
+  { request_id, cancelled_at_ms, driver_acknowledged: false, }
 }
 
 ///|
@@ -75,7 +75,7 @@ fn ProviderStartRecord::ProviderStartRecord(
   request_id~ : ProviderRequestId,
   started_at_ms~ : Int,
 ) -> ProviderStartRecord {
-  { request_id, started_at_ms }
+  { request_id, started_at_ms, }
 }
 
 ///|
@@ -90,7 +90,7 @@ fn ProviderCompletionRecord::ProviderCompletionRecord(
   completion~ : ProviderResultDescriptor,
   completed_at_ms~ : Int,
 ) -> ProviderCompletionRecord {
-  { completion, completed_at_ms }
+  { completion, completed_at_ms, }
 }
 
 ///|
@@ -109,7 +109,7 @@ fn ProviderRequestState::ProviderRequestState(
   cancellation~ : ProviderCancellationRecord?,
   completion~ : ProviderCompletionRecord?,
 ) -> ProviderRequestState {
-  { request, start, cancellation, completion }
+  { request, start, cancellation, completion, }
 }
 
 ///|

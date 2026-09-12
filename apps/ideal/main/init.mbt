@@ -111,7 +111,7 @@ fn root_update(
   emit : Emit[Msg],
 ) -> (RootState, Cmd) {
   let (cmd, model) = update(emit, msg, state.0) catch {
-    _ => (none, { ..state.0, sync_status: Error })
+    _ => (none, { ..state.0, sync_status: Error, })
   }
   let model = sync_incr_canvas(model)
   (RootState(model, next_root_revision(state.1)), cmd)

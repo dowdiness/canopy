@@ -25,12 +25,12 @@ enum Msg {
 
 ///|
 fn corner_constraints() -> @resizable.Constraints {
-  { min_w: 160, max_w: 520, min_h: 110, max_h: 360 }
+  { min_w: 160, max_w: 520, min_h: 110, max_h: 360, }
 }
 
 ///|
 fn split_constraints() -> @resizable.Constraints {
-  { min_w: 180, max_w: 560, min_h: 240, max_h: 240 }
+  { min_w: 180, max_w: 560, min_h: 240, max_h: 240, }
 }
 
 ///|

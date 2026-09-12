@@ -69,7 +69,7 @@ test "incr canvas wheel ignores active gestures and bounded no-ops" {
     incr_canvas_wheel(active, -100.0, 0, false, 10.0, 10.0),
     active,
   )
-  let idle = { ..active, active_pointer_id: None }
+  let idle = { ..active, active_pointer_id: None, }
   assert_incr_canvas_state_eq(
     incr_canvas_wheel(idle, -100.0, 0, false, 10.0, 10.0),
     idle,

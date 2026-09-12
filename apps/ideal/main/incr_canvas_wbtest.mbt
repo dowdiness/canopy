@@ -1,6 +1,6 @@
 ///|
 fn test_cell(runtime_id : Int, id : Int) -> @incr.CellId {
-  @incr.CellId::{ runtime_id: @incr.RuntimeId(runtime_id), id }
+  @incr.CellId::{ runtime_id: @incr.RuntimeId(runtime_id), id, }
 }
 
 ///|
@@ -232,7 +232,7 @@ test "incr canvas pointer admission rejects unknown and secondary pointers" {
   let empty = IncrCanvasState::empty()
   assert_true(incr_canvas_pointer_admitted(empty, Some(1)))
   assert_false(incr_canvas_pointer_admitted(empty, None))
-  let active = { ..empty, active_pointer_id: Some(1) }
+  let active = { ..empty, active_pointer_id: Some(1), }
   assert_false(incr_canvas_pointer_admitted(active, Some(2)))
   assert_false(incr_canvas_pointer_admitted(active, Some(1)))
 }

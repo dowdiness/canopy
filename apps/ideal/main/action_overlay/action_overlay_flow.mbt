@@ -35,7 +35,7 @@ fn overlay_update(
   state : OverlayState,
   effect : OverlayEffect,
 ) -> OverlayUpdate {
-  { state, effect }
+  { state, effect, }
 }
 
 ///|
@@ -182,7 +182,7 @@ fn OverlayState::handle_menu_msg(
     | @menu.FocusFirst
     | @menu.FocusLast
     | @menu.FocusItem(_) => {
-      let next = { ..self, menu: self.menu.update(menu_msg) }
+      let next = { ..self, menu: self.menu.update(menu_msg), }
       let effect = if menu_msg.requests_focus() {
         FocusMenu
       } else {
@@ -224,7 +224,7 @@ fn OverlayState::handle_name_submit(self : OverlayState) -> OverlayUpdate {
     NamePrompt(action, value~) => {
       let name = value.trim().to_owned()
       if name == "" {
-        overlay_update({ ..self, error: Some(EmptyName) }, NoOverlayEffect)
+        overlay_update({ ..self, error: Some(EmptyName), }, NoOverlayEffect)
       } else {
         overlay_update(self, ExecuteAction(action, choice="", name~))
       }
@@ -253,7 +253,7 @@ pub fn OverlayState::update(
     NameSubmit => self.handle_name_submit()
     NameCancel => overlay_update(self, CloseOverlay)
     SetError(err) =>
-      overlay_update({ ..self, error: Some(err) }, NoOverlayEffect)
+      overlay_update({ ..self, error: Some(err), }, NoOverlayEffect)
     ShowNamePrompt(action) => self.show_name_prompt(action)
   }
 }

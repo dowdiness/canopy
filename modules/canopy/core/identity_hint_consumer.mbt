@@ -18,7 +18,7 @@ pub struct IdentityHintConsumer {
 pub fn IdentityHintConsumer::IdentityHintConsumer(
   take_pending : () -> Array[IdentityTransform],
 ) -> IdentityHintConsumer {
-  { take_pending_impl: take_pending }
+  { take_pending_impl: take_pending, }
 }
 
 ///|

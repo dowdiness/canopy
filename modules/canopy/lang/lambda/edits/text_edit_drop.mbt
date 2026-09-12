@@ -58,8 +58,8 @@ fn compute_drop(
     Some(
       (
         [
-          { start: delete_start, delete_len, inserted: "" },
-          { start: insert_pos, delete_len: 0, inserted },
+          { start: delete_start, delete_len, inserted: "", },
+          { start: insert_pos, delete_len: 0, inserted, },
         ],
         RestoreCursor,
       ),

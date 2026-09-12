@@ -37,7 +37,7 @@ fn[T] build_preorder_from_tree(tree : InteractiveTreeNode[T]?) -> LazyPreorder {
     Some(root) => build_preorder_walk(root, ids, range_by_root)
     None => ()
   }
-  { ids, range_by_root }
+  { ids, range_by_root, }
 }
 
 ///|

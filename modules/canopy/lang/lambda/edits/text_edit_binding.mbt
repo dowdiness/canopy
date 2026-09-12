@@ -63,7 +63,7 @@ fn compute_delete_binding(
     source_text, let_start, binding_end,
   )
   Some(
-    ([{ start: del_start, delete_len: del_len, inserted: "" }], RestoreCursor),
+    ([{ start: del_start, delete_len: del_len, inserted: "", }], RestoreCursor),
   )
 }
 
@@ -160,7 +160,7 @@ fn compute_duplicate_binding(
   }
   Some(
     (
-      [{ start: insert_pos, delete_len: 0, inserted: insert_text }],
+      [{ start: insert_pos, delete_len: 0, inserted: insert_text, }],
       RestoreCursor,
     ),
   )

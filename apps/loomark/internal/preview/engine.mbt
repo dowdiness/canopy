@@ -172,7 +172,7 @@ fn PreviewEngine::output(
     sequence: self.next_acceptance_sequence,
   }
   self.next_acceptance_sequence += 1
-  let render = { previous: update.as_previous(), lazy_keys: keys }
+  let render = { previous: update.as_previous(), lazy_keys: keys, }
   let output = {
     html: render_top_level_blocks(blocks, keys),
     empty: blocks.is_empty(),

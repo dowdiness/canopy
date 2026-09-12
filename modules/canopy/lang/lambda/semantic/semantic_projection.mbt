@@ -12,7 +12,7 @@ pub struct SemanticProjection {
 
 ///|
 pub fn SemanticProjection::empty() -> SemanticProjection {
-  { annotations: Map([]), decorations: [] }
+  { annotations: Map([]), decorations: [], }
 }
 
 ///|

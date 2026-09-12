@@ -59,7 +59,7 @@ fn hex_digit(n : Int) -> String {
 /// Escape a string for use as a JSON key or value.
 /// Handles all control characters per RFC 8259 §7.
 fn json_escape_key(key : String) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   for ch in key {
     match ch {
       '"' => buf.write_string("\\\"")
@@ -119,7 +119,7 @@ fn compute_delete(
   let delete_len = delete_end - delete_start
   Some(
     (
-      [SpanEdit::{ start: delete_start, delete_len, inserted: "" }],
+      [SpanEdit::{ start: delete_start, delete_len, inserted: "", }],
       FocusHint::MoveCursor(position=delete_start),
     ),
   )
@@ -258,7 +258,7 @@ fn compute_add_member(
   let focus_pos = insert_pos + inserted.length()
   Some(
     (
-      [SpanEdit::{ start: insert_pos, delete_len: 0, inserted }],
+      [SpanEdit::{ start: insert_pos, delete_len: 0, inserted, }],
       FocusHint::MoveCursor(position=focus_pos),
     ),
   )
@@ -304,7 +304,7 @@ fn compute_add_element(
   let focus_pos = insert_pos + inserted.length()
   Some(
     (
-      [SpanEdit::{ start: insert_pos, delete_len: 0, inserted }],
+      [SpanEdit::{ start: insert_pos, delete_len: 0, inserted, }],
       FocusHint::MoveCursor(position=focus_pos),
     ),
   )

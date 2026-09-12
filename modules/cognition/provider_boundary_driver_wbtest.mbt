@@ -9,7 +9,7 @@ fn ScriptedProviderResponse::ScriptedProviderResponse(
   request_id~ : ProviderRequestId,
   result~ : ProviderResult,
 ) -> ScriptedProviderResponse {
-  { request_id, result: result.copy_result() }
+  { request_id, result: result.copy_result(), }
 }
 
 ///|

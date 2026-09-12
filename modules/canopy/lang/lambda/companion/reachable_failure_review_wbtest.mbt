@@ -6,14 +6,14 @@
 
 ///|
 fn review_attribution() -> ReachableFailureAttribution {
-  { producer: "agent", edit_id: "edit-42", summary: "rename a reference" }
+  { producer: "agent", edit_id: "edit-42", summary: "rename a reference", }
 }
 
 ///|
 fn failure(name : String, start : Int) -> @lambda_scope.ReachableFailure {
   {
     name,
-    location: Some({ start, end: start + 1 }),
+    location: Some({ start, end: start + 1, }),
     witness: [@lambda_scope.ScopeId(0)],
   }
 }
@@ -22,7 +22,7 @@ fn failure(name : String, start : Int) -> @lambda_scope.ReachableFailure {
 test "reachable failure review introduces a failure when a binder rename frees its reference" {
   let report = build_reachable_failure_review(
     review_attribution(),
-    [{ start: 1, delete_len: 1, inserted: "z" }],
+    [{ start: 1, delete_len: 1, inserted: "z", }],
     [],
     [failure("x", 7)],
   )
@@ -39,7 +39,7 @@ test "reachable failure review introduces a failure when a binder rename frees i
 test "reachable failure review resolves a renamed reference" {
   let report = build_reachable_failure_review(
     review_attribution(),
-    [{ start: 7, delete_len: 1, inserted: "x" }],
+    [{ start: 7, delete_len: 1, inserted: "x", }],
     [failure("y", 7)],
     [],
   )
@@ -53,7 +53,7 @@ test "reachable failure review resolves a renamed reference" {
 test "reachable failure review remaps a position-only shift to an empty diff" {
   let report = build_reachable_failure_review(
     review_attribution(),
-    [{ start: 0, delete_len: 0, inserted: "let w = 0\n" }],
+    [{ start: 0, delete_len: 0, inserted: "let w = 0\n", }],
     [failure("y", 3)],
     [failure("y", 13)],
   )
@@ -78,12 +78,12 @@ test "reachable failure review is empty for an identical rebuild" {
 ///|
 test "reachable failure review detaches input and accessor collections" {
   let edits : Array[@core.SpanEdit] = [
-    { start: 0, delete_len: 0, inserted: "a" },
+    { start: 0, delete_len: 0, inserted: "a", },
   ]
   let witness = [@lambda_scope.ScopeId(1)]
   let scoped_failure : @lambda_scope.ReachableFailure = {
     name: "x",
-    location: Some({ start: 2, end: 3 }),
+    location: Some({ start: 2, end: 3, }),
     witness,
   }
   let after = [scoped_failure]
@@ -93,10 +93,10 @@ test "reachable failure review detaches input and accessor collections" {
     [],
     after,
   )
-  edits.push({ start: 1, delete_len: 0, inserted: "b" })
+  edits.push({ start: 1, delete_len: 0, inserted: "b", })
   witness.push(@lambda_scope.ScopeId(2))
   let first_edits = report.edits()
-  first_edits.push({ start: 2, delete_len: 0, inserted: "c" })
+  first_edits.push({ start: 2, delete_len: 0, inserted: "c", })
   let first_diff = report.diff()
   first_diff.newly_reachable[0].witness.push(@lambda_scope.ScopeId(3))
   inspect(report.edits().length(), content="1")

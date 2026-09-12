@@ -14,7 +14,7 @@ pub struct Input {
 
 ///|
 pub fn Input::Input(generation : Int, document_text : String) -> Input {
-  { generation, document_text }
+  { generation, document_text, }
 }
 
 ///|
@@ -98,52 +98,52 @@ fn preview_transition(
   match event {
     Activated =>
       {
-        state: { phase: Unrequested, demanded: false },
+        state: { phase: Unrequested, demanded: false, },
         decision: ActivateGeneration(current.generation),
       }
     Requested => {
-      let demanded = { ..state, demanded: true }
+      let demanded = { ..state, demanded: true, }
       match state.phase {
         Unrequested =>
           {
-            state: { phase: Preparing, demanded: true },
+            state: { phase: Preparing, demanded: true, },
             decision: BeginPreparationAfterPaint(current.generation),
           }
-        Failed(_) => { state: demanded, decision: Refresh(current) }
-        Preparing => { state: demanded, decision: NoCommand }
+        Failed(_) => { state: demanded, decision: Refresh(current), }
+        Preparing => { state: demanded, decision: NoCommand, }
         Ready(preview) =>
           if preview.document_text == current.document_text {
-            { state: demanded, decision: NoCommand }
+            { state: demanded, decision: NoCommand, }
           } else {
-            { state: demanded, decision: Refresh(current) }
+            { state: demanded, decision: Refresh(current), }
           }
       }
     }
     Suspended =>
       if state.phase is Preparing {
         {
-          state: { phase: Unrequested, demanded: false },
+          state: { phase: Unrequested, demanded: false, },
           decision: Discard(current.generation),
         }
       } else {
-        { state: { ..state, demanded: false }, decision: NoCommand }
+        { state: { ..state, demanded: false, }, decision: NoCommand, }
       }
     DocumentChanged(change) =>
       match state.phase {
-        Unrequested | Preparing => { state, decision: NoCommand }
-        Ready(_) => { state, decision: Apply(current, change, false) }
-        Failed(_) => { state, decision: Apply(current, change, true) }
+        Unrequested | Preparing => { state, decision: NoCommand, }
+        Ready(_) => { state, decision: Apply(current, change, false), }
+        Failed(_) => { state, decision: Apply(current, change, true), }
       }
     Complete(completion) =>
       match completion {
         BeginPreparation(generation) if generation == current.generation &&
           state.demanded &&
-          state.phase is Preparing => { state, decision: Prepare(current) }
+          state.phase is Preparing => { state, decision: Prepare(current), }
         Prepared(input, _) if input.generation == current.generation &&
           state.phase is Preparing &&
           input.document_text != current.document_text =>
           {
-            state: { phase: Failed(None), demanded: state.demanded },
+            state: { phase: Failed(None), demanded: state.demanded, },
             decision: if state.demanded {
               DiscardAndScheduleRefresh(current)
             } else {
@@ -161,12 +161,12 @@ fn preview_transition(
                     phase: Ready(completed_preview(input, output)),
                     demanded: state.demanded,
                   },
-                  { phase: Failed(None), demanded: state.demanded },
+                  { phase: Failed(None), demanded: state.demanded, },
                 ),
               }
             Err(_) =>
               {
-                state: { phase: Failed(None), demanded: state.demanded },
+                state: { phase: Failed(None), demanded: state.demanded, },
                 decision: NoCommand,
               }
           }
@@ -196,8 +196,8 @@ fn preview_transition(
           }
         RefreshRequested(input) if input == current && state.demanded =>
           match state.phase {
-            Ready(_) | Failed(_) => { state, decision: Refresh(input) }
-            Unrequested | Preparing => { state, decision: NoCommand }
+            Ready(_) | Failed(_) => { state, decision: Refresh(input), }
+            Unrequested | Preparing => { state, decision: NoCommand, }
           }
         Refreshed(input, result) if input == current =>
           match result {
@@ -222,7 +222,7 @@ fn preview_transition(
                 decision: NoCommand,
               }
           }
-        _ => { state, decision: NoCommand }
+        _ => { state, decision: NoCommand, }
       }
   }
 }
@@ -254,7 +254,7 @@ fn PreviewEngine::prepare_command(
 ) -> @cmd.Cmd {
   @cmd.custom_cmd(scheduler => {
     if self.prepare_owned(input.generation, input.document_text) is Some(result) {
-      scheduler.add(emit({ kind: Prepared(input, result) }))
+      scheduler.add(emit({ kind: Prepared(input, result), }))
     }
   })
 }
@@ -270,7 +270,7 @@ fn PreviewEngine::apply_command(
   @cmd.custom_cmd(scheduler => {
     if self.apply_owned(input.generation, change, input.document_text)
       is Some(result) {
-      scheduler.add(emit({ kind: ParserAdvanced(input, retry, result) }))
+      scheduler.add(emit({ kind: ParserAdvanced(input, retry, result), }))
     }
   })
 }
@@ -283,7 +283,7 @@ fn PreviewEngine::refresh_command(
 ) -> @cmd.Cmd {
   @cmd.custom_cmd(scheduler => {
     if self.refresh_owned(input.generation, input.document_text) is Some(result) {
-      scheduler.add(emit({ kind: Refreshed(input, result) }))
+      scheduler.add(emit({ kind: Refreshed(input, result), }))
     }
   })
 }
@@ -310,7 +310,7 @@ fn PreviewEngine::execute(
     BeginPreparationAfterPaint(generation) =>
       (
         transition.state,
-        after_paint(emit({ kind: BeginPreparation(generation) })),
+        after_paint(emit({ kind: BeginPreparation(generation), })),
       )
     Prepare(input) => (transition.state, self.prepare_command(input, emit))
     Apply(input, change, retry) =>
@@ -321,13 +321,13 @@ fn PreviewEngine::execute(
         transition.state,
         @cmd.batch([
           self.discard_command(input.generation),
-          @cmd.delay(emit({ kind: RefreshRequested(input) }), PREVIEW_QUIET_MS),
+          @cmd.delay(emit({ kind: RefreshRequested(input), }), PREVIEW_QUIET_MS),
         ]),
       )
     ScheduleRefresh(input) =>
       (
         transition.state,
-        @cmd.delay(emit({ kind: RefreshRequested(input) }), PREVIEW_QUIET_MS),
+        @cmd.delay(emit({ kind: RefreshRequested(input), }), PREVIEW_QUIET_MS),
       )
     Refresh(input) => (transition.state, self.refresh_command(input, emit))
     Admit(output, accepted, rejected) =>
@@ -342,7 +342,7 @@ pub fn PreviewEngine::activate(
   input : Input,
 ) -> (State, @cmd.Cmd) {
   let transition = preview_transition(
-    { phase: Unrequested, demanded: false },
+    { phase: Unrequested, demanded: false, },
     input,
     Activated,
   )
@@ -403,7 +403,11 @@ pub fn PreviewEngine::update(
 
 ///|
 fn completed_preview(input : Input, output : PreviewOutput) -> RenderedPreview {
-  { document_text: input.document_text, html: output.html, empty: output.empty }
+  {
+    document_text: input.document_text,
+    html: output.html,
+    empty: output.empty,
+  }
 }
 
 ///|

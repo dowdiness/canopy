@@ -20,7 +20,7 @@ pub struct PeerCursorView {
 
 ///|
 pub fn PeerCursorView::new() -> PeerCursorView {
-  { cursors: Default::default(), wire_keys: Default::default() }
+  { cursors: Default::default(), wire_keys: Default::default(), }
 }
 
 ///|

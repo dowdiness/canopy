@@ -6,7 +6,7 @@ fn incr_legend_html() -> String {
     (Changed, "Changed"),
     (Failed, "Failed"),
   ]
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   buf.write_string(
     "<div class=\"incr-legend\" role=\"list\" aria-label=\"Incr graph status color legend\">",
   )

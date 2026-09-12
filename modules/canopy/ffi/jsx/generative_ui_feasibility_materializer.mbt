@@ -19,7 +19,7 @@ fn FeasibilityDatasetRow::FeasibilityDatasetRow(
   stable_key : String,
   values : Array[(String, FeasibilityScalar)],
 ) -> FeasibilityDatasetRow {
-  { stable_key, values }
+  { stable_key, values, }
 }
 
 ///|
@@ -292,7 +292,7 @@ fn FeasibilitySummary::FeasibilitySummary(
   aggregation : @cognition.GenerativeUiAggregation,
   value : FeasibilitySummaryValue,
 ) -> FeasibilitySummary {
-  { field, aggregation, value }
+  { field, aggregation, value, }
 }
 
 ///|

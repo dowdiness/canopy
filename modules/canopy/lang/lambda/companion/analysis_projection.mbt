@@ -17,7 +17,7 @@ priv struct AnalysisProjection {
 
 ///|
 fn AnalysisProjection::new() -> AnalysisProjection {
-  { pattern_analysis_ref: Ref(None) }
+  { pattern_analysis_ref: Ref(None), }
 }
 
 ///|
@@ -26,7 +26,7 @@ fn AnalysisProjection::set_pattern_analysis(
   facts : Array[@facts.PatternMatchFact],
   snapshot : @facts.SourceSnapshot,
 ) -> Unit {
-  self.pattern_analysis_ref.val = Some({ facts, snapshot })
+  self.pattern_analysis_ref.val = Some({ facts, snapshot, })
 }
 
 ///|

@@ -25,7 +25,7 @@ pub fn Decoration::Decoration(
   data? : String,
   widget? : Bool = false,
 ) -> Decoration {
-  { from, to, css_class, data, widget }
+  { from, to, css_class, data, widget, }
 }
 
 ///|
@@ -63,7 +63,7 @@ pub fn DiagnosticFixSummary::DiagnosticFixSummary(
   title~ : String,
   applicability~ : String,
 ) -> DiagnosticFixSummary {
-  { id, title, applicability }
+  { id, title, applicability, }
 }
 
 ///|

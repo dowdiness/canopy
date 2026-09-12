@@ -26,13 +26,13 @@ pub fn[T] TreeEditorState::apply_edit(
         Some(node) => node.label
         None => ""
       }
-      { ..self, editing_node: Some(node_id), edit_value }
+      { ..self, editing_node: Some(node_id), edit_value, }
     }
     CommitEdit(node_id~, new_value~) => {
       let _ = (node_id, new_value)
-      { ..self, editing_node: None, edit_value: "" }
+      { ..self, editing_node: None, edit_value: "", }
     }
-    CancelEdit => { ..self, editing_node: None, edit_value: "" }
+    CancelEdit => { ..self, editing_node: None, edit_value: "", }
     Delete(node_id~) => {
       // Collect all node IDs in subtree being deleted
       let subtree_ids = collect_subtree_ids(self, node_id)
@@ -76,10 +76,10 @@ pub fn[T] TreeEditorState::apply_edit(
     StructuralEditKeepSelected(node_id~) =>
       // Keep the target node selected, clear editing state.
       // Used for wrap-style ops where the wrapped node stays focused.
-      { ..self, selection: [node_id], editing_node: None, edit_value: "" }
+      { ..self, selection: [node_id], editing_node: None, edit_value: "", }
     InsertChild(parent~, ..) =>
       // Structural change is handled by SyncEditor::apply_tree_edit + refresh
-      { ..self, selection: [parent] }
+      { ..self, selection: [parent], }
     StartDrag(node_id~) =>
       // Clear any stale drop state when starting a new drag
       {
@@ -99,7 +99,11 @@ pub fn[T] TreeEditorState::apply_edit(
             // Can't drop on descendant
             self
           } else {
-            { ..self, drop_target: Some(target), drop_position: Some(position) }
+            {
+              ..self,
+              drop_target: Some(target),
+              drop_position: Some(position),
+            }
           }
         None => self // Ignore if not dragging
       }
@@ -121,7 +125,7 @@ pub fn[T] TreeEditorState::apply_edit(
             }
           } else {
             // Invalid drop, just clear drag state
-            { ..self, dragging: None, drop_target: None, drop_position: None }
+            { ..self, dragging: None, drop_target: None, drop_position: None, }
           }
         None =>
           // Not dragging, ignore
@@ -142,7 +146,7 @@ pub fn[T] TreeEditorState::apply_edit(
           self.loaded_nodes,
           changed_nodes,
         )
-        { ..self, tree, collapsed_nodes, loaded_nodes }
+        { ..self, tree, collapsed_nodes, loaded_nodes, }
       } else {
         self
       }
@@ -164,7 +168,7 @@ pub fn[T] TreeEditorState::apply_edit(
                 self.loaded_nodes,
                 changed_nodes,
               )
-              { ..self, tree, collapsed_nodes, loaded_nodes }
+              { ..self, tree, collapsed_nodes, loaded_nodes, }
             }
           }
         None => self
@@ -172,6 +176,6 @@ pub fn[T] TreeEditorState::apply_edit(
     StructuralEdit(..) =>
       // Generic structural op: clear editing state.
       // The actual text-level change is handled by the language's edit bridge.
-      { ..self, editing_node: None, edit_value: "" }
+      { ..self, editing_node: None, edit_value: "", }
   }
 }

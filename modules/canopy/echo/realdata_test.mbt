@@ -117,7 +117,7 @@ fn eval_commit_corpus(
   let mut total_p = 0.0
   let mut total_mrr = 0.0
   let mut count = 0
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   buf.write_string(
     "\n=== Commit Messages Eval (\{label}, 90 posts, 6 scopes) ===\n",
   )

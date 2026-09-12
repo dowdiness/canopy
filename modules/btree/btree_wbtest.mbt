@@ -31,7 +31,7 @@ impl @rle.Mergeable for TItem with fn can_merge(a : TItem, b : TItem) -> Bool {
 
 ///|
 impl @rle.Mergeable for TItem with fn merge(a : TItem, b : TItem) -> TItem {
-  { id: a.id, span: a.span + b.span }
+  { id: a.id, span: a.span + b.span, }
 }
 
 ///|
@@ -43,7 +43,7 @@ impl @rle.Sliceable for TItem with fn slice(
   if start < 0 || end > self.span || start >= end {
     Err(@rle.RleError::InvalidSlice(reason=@rle.SliceError::InvalidIndex))
   } else {
-    Ok({ id: self.id, span: end - start })
+    Ok({ id: self.id, span: end - start, })
   }
 }
 
@@ -73,12 +73,12 @@ impl @rle.Mergeable for MergeOnlyItem with fn can_merge(self, other) -> Bool {
 
 ///|
 impl @rle.Mergeable for MergeOnlyItem with fn merge(self, other) -> MergeOnlyItem {
-  { id: self.id, span: self.span + other.span }
+  { id: self.id, span: self.span + other.span, }
 }
 
 ///|
 fn make_item(id : Int, span : Int) -> TItem {
-  { id, span }
+  { id, span, }
 }
 
 ///|
@@ -214,7 +214,7 @@ test "delete single element empties tree" {
   let t = build_tree([(1, 3)])
   let deleted = t.mutate_for_delete(0, fn(ctx) {
     (
-      { start_idx: ctx.child_idx, end_idx: ctx.child_idx + 1, new_leaves: [] },
+      { start_idx: ctx.child_idx, end_idx: ctx.child_idx + 1, new_leaves: [], },
       ctx.elem,
     )
   })
@@ -406,7 +406,7 @@ test "reactive merge candidate stays isolated until publish" {
     counts=[@int.MAX_VALUE - 2, 2],
     total=@int.MAX_VALUE,
   )
-  let t : BTree[Int] = { root: Some(root), min_degree: 2, size: 4 }
+  let t : BTree[Int] = { root: Some(root), min_degree: 2, size: 4, }
   let before_debug = @debug.to_string(t)
   let cursor = descend(
     root,
@@ -472,7 +472,7 @@ test "insert split and root growth accept cumulative span at Int max" {
   })
   let t : BTree[Int] = BTree::from_sorted(items, min_degree=2)
   t.mutate_for_insert(0, fn(ctx) {
-    { start_idx: ctx.child_idx, end_idx: ctx.child_idx, new_leaves: [(16, 1)] }
+    { start_idx: ctx.child_idx, end_idx: ctx.child_idx, new_leaves: [(16, 1)], }
   })
   inspect(t.span(), content="2147483647")
   inspect(t.size(), content="17")
@@ -565,7 +565,7 @@ test "arbitrary delete-shaped insert repairs the zero-child underflow counterexa
     size: 7,
   }
   t.mutate_for_insert(0, fn(_ctx) {
-    { start_idx: 0, end_idx: 3, new_leaves: [] }
+    { start_idx: 0, end_idx: 3, new_leaves: [], }
   })
   let expected = Array::makei(4, fn(i) { make_item(i + 3, 1) })
   inspect(tree_matches_model(t, expected), content="true")
@@ -701,7 +701,7 @@ test "delete preparation merge accepts cumulative span at Int max" {
     counts=[@int.MAX_VALUE - 2, 2],
     total=@int.MAX_VALUE,
   )
-  let t : BTree[Int] = { root: Some(root), min_degree: 2, size: 4 }
+  let t : BTree[Int] = { root: Some(root), min_degree: 2, size: 4, }
   let before_items = t.to_array()
   let updated = t.mutate_for_delete(0, fn(ctx) {
     (
@@ -820,7 +820,11 @@ test "delete from multi-level tree triggers rebalancing" {
   for _ in 0..<5 {
     let deleted = t.mutate_for_delete(0, fn(ctx) {
       (
-        { start_idx: ctx.child_idx, end_idx: ctx.child_idx + 1, new_leaves: [] },
+        {
+          start_idx: ctx.child_idx,
+          end_idx: ctx.child_idx + 1,
+          new_leaves: [],
+        },
         ctx.elem,
       )
     })
@@ -840,7 +844,11 @@ test "delete all elements collapses tree to empty" {
   for _ in 0..<8 {
     let _ = t.mutate_for_delete(0, fn(ctx) {
       (
-        { start_idx: ctx.child_idx, end_idx: ctx.child_idx + 1, new_leaves: [] },
+        {
+          start_idx: ctx.child_idx,
+          end_idx: ctx.child_idx + 1,
+          new_leaves: [],
+        },
         ctx.elem,
       )
     })
@@ -897,7 +905,11 @@ test "insert then delete roundtrip" {
   for i in 14>=..0 {
     let _ = t.mutate_for_delete(i, fn(ctx) {
       (
-        { start_idx: ctx.child_idx, end_idx: ctx.child_idx + 1, new_leaves: [] },
+        {
+          start_idx: ctx.child_idx,
+          end_idx: ctx.child_idx + 1,
+          new_leaves: [],
+        },
         ctx.elem,
       )
     })
@@ -1802,15 +1814,15 @@ test "normalize_boundary_at ordinary no-op positions preserve the tree" {
 ///|
 test "normalize_boundary_at requires only spanning and mergeable" {
   let t : BTree[MergeOnlyItem] = BTree::from_sorted([
-    ({ id: 1, span: 1 }, 1),
-    ({ id: 1, span: 1 }, 1),
-    ({ id: 2, span: 1 }, 1),
+    ({ id: 1, span: 1, }, 1),
+    ({ id: 1, span: 1, }, 1),
+    ({ id: 2, span: 1, }, 1),
   ])
   t.normalize_boundary_at(1)
   inspect(t.size(), content="2")
   inspect(t.span(), content="3")
   inspect(
-    t.to_array() == [{ id: 1, span: 2 }, { id: 2, span: 1 }],
+    t.to_array() == [{ id: 1, span: 2, }, { id: 2, span: 1, }],
     content="true",
   )
 }
@@ -1818,8 +1830,8 @@ test "normalize_boundary_at requires only spanning and mergeable" {
 ///|
 test "normalize_boundary_at preserves cached spans independent of element span" {
   let t : BTree[MergeOnlyItem] = BTree::from_sorted([
-    ({ id: 1, span: 1 }, 2),
-    ({ id: 1, span: 1 }, 3),
+    ({ id: 1, span: 1, }, 2),
+    ({ id: 1, span: 1, }, 3),
   ])
   t.normalize_boundary_at(2)
   inspect(t.size(), content="1")
@@ -2333,7 +2345,7 @@ impl @quickcheck.Arbitrary for DeleteRangeCase with fn arbitrary(size, rs) {
     total_span = total_span + span
   }
   let range = generated_delete_range(total_span, rs.split())
-  { items, start: range.0, end_: range.1 }
+  { items, start: range.0, end_: range.1, }
 }
 
 ///|
@@ -2345,46 +2357,46 @@ fn push_delete_range_shrinks(
 ) -> Unit {
   let total = generated_items_span(items)
   if start != 0 || end_ != 0 {
-    results.push({ items, start: 0, end_: 0 })
+    results.push({ items, start: 0, end_: 0, })
   }
   if total > 0 {
     if start != 0 || end_ != total {
-      results.push({ items, start: 0, end_: total })
+      results.push({ items, start: 0, end_: total, })
     }
     if start != total || end_ != total {
-      results.push({ items, start: total, end_: total })
+      results.push({ items, start: total, end_: total, })
     }
     if start != total - 1 || end_ != total {
-      results.push({ items, start: total - 1, end_: total })
+      results.push({ items, start: total - 1, end_: total, })
     }
     let mid = total / 2
     if start != mid || end_ != mid {
-      results.push({ items, start: mid, end_: mid })
+      results.push({ items, start: mid, end_: mid, })
     }
     if start != 0 || end_ != mid {
-      results.push({ items, start: 0, end_: mid })
+      results.push({ items, start: 0, end_: mid, })
     }
   }
   if start < 0 && start != -1 {
-    results.push({ items, start: -1, end_ })
+    results.push({ items, start: -1, end_, })
   }
   if end_ < 0 && end_ != -1 {
-    results.push({ items, start, end_: -1 })
+    results.push({ items, start, end_: -1, })
   }
   if start > total && start != total + 1 {
-    results.push({ items, start: total + 1, end_ })
+    results.push({ items, start: total + 1, end_, })
   }
   if end_ > total && end_ != total + 1 {
-    results.push({ items, start, end_: total + 1 })
+    results.push({ items, start, end_: total + 1, })
   }
   if start > end_ {
-    results.push({ items, start: end_, end_: start })
+    results.push({ items, start: end_, end_: start, })
   }
   for next_start in @qc.Shrink::shrink(start) {
-    results.push({ items, start: next_start, end_ })
+    results.push({ items, start: next_start, end_, })
   }
   for next_end in @qc.Shrink::shrink(end_) {
-    results.push({ items, start, end_: next_end })
+    results.push({ items, start, end_: next_end, })
   }
 }
 
@@ -2393,7 +2405,7 @@ impl @qc.Shrink for DeleteRangeCase with fn shrink(case_) {
   let results : Array[DeleteRangeCase] = []
   push_delete_range_shrinks(results, case_.items, case_.start, case_.end_)
   for items in shrink_generated_items(case_.items) {
-    results.push({ items, start: case_.start, end_: case_.end_ })
+    results.push({ items, start: case_.start, end_: case_.end_, })
     push_delete_range_shrinks(results, items, case_.start, case_.end_)
   }
   results.iter()
@@ -3000,7 +3012,7 @@ impl @quickcheck.Arbitrary for FromSortedCase with fn arbitrary(size, rs) {
     let span = 1 + rs.split().next_positive_int() % 5
     items.push((id, span))
   }
-  { items, min_degree }
+  { items, min_degree, }
 }
 
 ///|
@@ -3010,20 +3022,20 @@ fn push_from_sorted_case_shrinks(
   min_degree : Int,
 ) -> Unit {
   if min_degree != 2 {
-    results.push({ items, min_degree: 2 })
+    results.push({ items, min_degree: 2, })
   }
   if min_degree != 3 {
-    results.push({ items, min_degree: 3 })
+    results.push({ items, min_degree: 3, })
   }
   if min_degree != 4 {
-    results.push({ items, min_degree: 4 })
+    results.push({ items, min_degree: 4, })
   }
   if min_degree != 5 {
-    results.push({ items, min_degree: 5 })
+    results.push({ items, min_degree: 5, })
   }
   for next_min_degree in @qc.Shrink::shrink(min_degree) {
     if next_min_degree < 2 || next_min_degree > 5 {
-      results.push({ items, min_degree: next_min_degree })
+      results.push({ items, min_degree: next_min_degree, })
     }
   }
 }
@@ -3033,7 +3045,7 @@ impl @qc.Shrink for FromSortedCase with fn shrink(case_) {
   let results : Array[FromSortedCase] = []
   push_from_sorted_case_shrinks(results, case_.items, case_.min_degree)
   for items in shrink_generated_items(case_.items) {
-    results.push({ items, min_degree: case_.min_degree })
+    results.push({ items, min_degree: case_.min_degree, })
     push_from_sorted_case_shrinks(results, items, case_.min_degree)
   }
   results.iter()

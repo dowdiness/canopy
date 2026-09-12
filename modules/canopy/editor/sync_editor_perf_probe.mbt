@@ -23,16 +23,13 @@ fn[T] editor_perf_scope(action : () -> T raise Failure) -> T raise Failure {
     return action()
   }
   editor_perf_profile_depth.val += 1
-  try {
-    let result = action()
+  errdefer {
     editor_perf_profile_depth.val -= 1
-    result
-  } catch {
-    error => {
-      editor_perf_profile_depth.val -= 1
-      raise error
-    }
+    ()
   }
+  let result = action()
+  editor_perf_profile_depth.val -= 1
+  result
 }
 
 ///|
@@ -44,14 +41,8 @@ fn[T] editor_perf_measure(
     return action()
   }
   editor_perf_begin(name)
-  try {
-    let result = action()
-    editor_perf_end(name)
-    result
-  } catch {
-    error => {
-      editor_perf_end(name)
-      raise error
-    }
-  }
+  errdefer editor_perf_end(name)
+  let result = action()
+  editor_perf_end(name)
+  result
 }

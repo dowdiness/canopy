@@ -249,7 +249,7 @@ test "pointer_up records a MoveNodes action after drag" {
   )
   let s1 = {
     ..state_with_preview_nodes(s0, preview),
-    interaction: { ..s0.interaction, did_move: true },
+    interaction: { ..s0.interaction, did_move: true, },
   }
   let s2 = update_pointer_up(s1, "1", "", false)
   assert_eq(s2.action_log.length(), 1)
@@ -330,7 +330,7 @@ test "pointer_interrupt drops drag without committing positions" {
   )
   let interrupted = update_pointer_interrupt({
     ..started,
-    interaction: { ..started.interaction, did_move: true },
+    interaction: { ..started.interaction, did_move: true, },
   })
   assert_eq(interrupted.nodes, state.nodes)
   assert_eq(interrupted.action_log, state.action_log)

@@ -16,7 +16,7 @@ pub fn Packer::Packer(
     Some(limit) if limit <= 0 => raise InvalidMaxHeight(limit)
     _ => ()
   }
-  { width, max_height, skyline: [Node(0, 0), Node(width, 0)], used_height: 0 }
+  { width, max_height, skyline: [Node(0, 0), Node(width, 0)], used_height: 0, }
 }
 
 ///|

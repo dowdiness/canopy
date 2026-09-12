@@ -101,7 +101,11 @@ test "source projection rejects malformed and overlapping ranges" {
 
 ///|
 test "edit projection handles hidden deletion and unmarked user ZWSP" {
-  let hidden_delete : @core.SpanEdit = { start: 1, delete_len: 1, inserted: "" }
+  let hidden_delete : @core.SpanEdit = {
+    start: 1,
+    delete_len: 1,
+    inserted: "",
+  }
   match
     project_markdown_edit(
       "aXb",
@@ -140,7 +144,7 @@ test "edit projection supports sequential synthetic one-edit steps" {
     @loom.Range::new(2, 3),
   ]).unwrap()
   let portable_after_first = apply_span_edit("a", first_projected)
-  let second : @core.SpanEdit = { start: 4, delete_len: 0, inserted: "!" }
+  let second : @core.SpanEdit = { start: 4, delete_len: 0, inserted: "!", }
   let second_after = "a\n\u{200B}\n!"
   let second_projected = project_markdown_edit(
     first_after,
@@ -212,7 +216,7 @@ test "edit projection handles non-BMP text and CRLF CR EOF" {
 
 ///|
 test "edit projection rejects invalid edit bounds and source mismatch" {
-  let invalid : @core.SpanEdit = { start: -1, delete_len: 0, inserted: "x" }
+  let invalid : @core.SpanEdit = { start: -1, delete_len: 0, inserted: "x", }
   expect_edit_error(
     project_markdown_edit("abc", [], invalid, "abcx", []),
     PortableProjectionError::InvalidEditRange,
@@ -235,7 +239,7 @@ test "edit projection rejects invalid edit bounds and source mismatch" {
     project_markdown_edit("abc", [], overflowing_delete, "abc", []),
     PortableProjectionError::InvalidEditRange,
   )
-  let mismatch : @core.SpanEdit = { start: 1, delete_len: 1, inserted: "x" }
+  let mismatch : @core.SpanEdit = { start: 1, delete_len: 1, inserted: "x", }
   expect_edit_error(
     project_markdown_edit("abc", [], mismatch, "abc", []),
     PortableProjectionError::CanonicalAfterSourceMismatch,
@@ -244,7 +248,7 @@ test "edit projection rejects invalid edit bounds and source mismatch" {
 
 ///|
 test "edit projection rejects a valid but non-representable metadata transition" {
-  let edit : @core.SpanEdit = { start: 1, delete_len: 0, inserted: "x" }
+  let edit : @core.SpanEdit = { start: 1, delete_len: 0, inserted: "x", }
   expect_edit_error(
     project_markdown_edit("ab", [], edit, "axb", [@loom.Range::new(0, 1)]),
     PortableProjectionError::NonRepresentable,

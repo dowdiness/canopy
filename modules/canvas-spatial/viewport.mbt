@@ -8,7 +8,7 @@ pub struct Viewport {
 ///|
 /// Construct a viewport from already-validated geometry.
 pub fn Viewport::from_scale(origin~ : ScreenPoint, scale~ : Scale) -> Viewport {
-  { origin, scale }
+  { origin, scale, }
 }
 
 ///|

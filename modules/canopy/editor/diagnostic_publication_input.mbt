@@ -11,7 +11,7 @@ pub fn DiagnosticPublicationSourceRevision::DiagnosticPublicationSourceRevision(
   source : @loom_core.SourceId,
   version : @text.Version,
 ) -> DiagnosticPublicationSourceRevision {
-  { source, version }
+  { source, version, }
 }
 
 ///|

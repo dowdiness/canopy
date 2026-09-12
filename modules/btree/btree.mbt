@@ -2,7 +2,7 @@
 /// Create an empty tree. `min_degree` is normalized to the inclusive interval
 /// `[2, @int.MAX_VALUE / 2]`.
 pub fn[T] BTree::new(min_degree? : Int = DEFAULT_MIN_DEGREE) -> BTree[T] {
-  { root: None, min_degree: clamp_min_degree(min_degree), size: 0 }
+  { root: None, min_degree: clamp_min_degree(min_degree), size: 0, }
 }
 
 ///|
@@ -252,7 +252,7 @@ pub fn[T] BTree::from_sorted(
   let min_degree = clamp_min_degree(min_degree)
   let max_degree = 2 * min_degree
   if items.is_empty() {
-    return { root: None, min_degree, size: 0 }
+    return { root: None, min_degree, size: 0, }
   }
   let mut nodes : Array[BTreeNode[T]] = items.map(fn(pair) {
     Leaf(elem=pair.0, span=pair.1)
@@ -261,7 +261,7 @@ pub fn[T] BTree::from_sorted(
     nodes = pack_level(nodes, min_degree)
   }
   let root = make_internal(nodes)
-  { root: Some(root), min_degree, size: items.length() }
+  { root: Some(root), min_degree, size: items.length(), }
 }
 
 ///|

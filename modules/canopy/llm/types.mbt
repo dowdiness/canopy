@@ -60,7 +60,7 @@ pub(all) struct Message {
 
 ///|
 pub fn Message::Message(role~ : Role, content~ : String) -> Message {
-  { role, content }
+  { role, content, }
 }
 
 ///|
@@ -78,7 +78,7 @@ pub fn GeminiConfig::GeminiConfig(
   temperature? : Double = 0.2,
   max_output_tokens? : Int = 1024,
 ) -> GeminiConfig {
-  { api_key, model, temperature, max_output_tokens }
+  { api_key, model, temperature, max_output_tokens, }
 }
 
 ///|

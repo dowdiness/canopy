@@ -179,7 +179,7 @@ fn EphemeralStore::set_state(
     Some(record) => record.clock + 1L
     None => 1L
   }
-  let record : EphemeralRecord = { value, clock: next_clock, updated_at: now }
+  let record : EphemeralRecord = { value, clock: next_clock, updated_at: now, }
   self.states[key] = record
   // Notify local subscribers with encoded bytes (skip encode if no subscribers)
   if self.local_subs.length() > 0 {
@@ -224,8 +224,8 @@ pub fn EphemeralStore::subscribe_local_updates(
   callback : (Bytes) -> Bool,
 ) -> EphemeralSubscription {
   let id = self.alloc_sub_id()
-  self.local_subs.push({ id, callback })
-  { store: self, id }
+  self.local_subs.push({ id, callback, })
+  { store: self, id, }
 }
 
 ///|
@@ -234,8 +234,8 @@ pub fn EphemeralStore::subscribe(
   callback : (EphemeralStoreEvent) -> Bool,
 ) -> EphemeralSubscription {
   let id = self.alloc_sub_id()
-  self.subs.push({ id, callback })
-  { store: self, id }
+  self.subs.push({ id, callback, })
+  { store: self, id, }
 }
 
 ///|

@@ -142,7 +142,10 @@ test "ephemeral value roundtrip: empty containers" {
 ///|
 test "encode_entries/decode_entries roundtrip" {
   let entries : Array[(String, EphemeralRecord)] = [
-    ("1", { value: Some(EphemeralValue::I64(42L)), clock: 3L, updated_at: 0UL }),
+    (
+      "1",
+      { value: Some(EphemeralValue::I64(42L)), clock: 3L, updated_at: 0UL, },
+    ),
     (
       "2",
       {
@@ -177,7 +180,7 @@ test "encode_entries/decode_entries: empty array" {
 ///|
 test "encode_entries/decode_entries: None value becomes Null" {
   let entries : Array[(String, EphemeralRecord)] = [
-    ("1", { value: None, clock: 1L, updated_at: 0UL }),
+    ("1", { value: None, clock: 1L, updated_at: 0UL, }),
   ]
   let bytes = encode_entries(entries)
   let decoded = try! decode_entries(bytes)

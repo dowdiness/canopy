@@ -62,7 +62,7 @@ pub fn EditModeState::from_ephemeral(value : EphemeralValue) -> EditModeState? {
   match value {
     EphemeralValue::Map(map) =>
       match map.get("node_id") {
-        Some(EphemeralValue::String(id)) => Some({ node_id: id })
+        Some(EphemeralValue::String(id)) => Some({ node_id: id, })
         _ => None
       }
     _ => None
@@ -116,7 +116,7 @@ pub fn DragState::from_ephemeral(value : EphemeralValue) -> DragState? {
               }
             _ => None
           }
-          Some({ source_id, target })
+          Some({ source_id, target, })
         }
         _ => None
       }
@@ -170,7 +170,7 @@ pub fn PeerPresence::from_ephemeral(value : EphemeralValue) -> PeerPresence? {
         Some(EphemeralValue::String(s)) => presence_status_from_string(s)
         _ => Active
       }
-      Some({ peer_id, display_name, color, status })
+      Some({ peer_id, display_name, color, status, })
     }
     _ => None
   }

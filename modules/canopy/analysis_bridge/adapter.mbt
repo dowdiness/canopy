@@ -14,7 +14,7 @@ pub fn AstGrepMatch::AstGrepMatch(
   byte_end~ : Int,
   pattern_id~ : String,
 ) -> AstGrepMatch {
-  { byte_start, byte_end, pattern_id }
+  { byte_start, byte_end, pattern_id, }
 }
 
 ///|

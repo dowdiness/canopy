@@ -88,7 +88,7 @@ fn sync_after_external_crdt_change(model : Model) -> Cmd raise {
 ///|
 fn apply_text_edit(model : Model, text : String) -> (String, Model) raise {
   model.editor.set_text_and_record(text, js_now_ms())
-  let changed = refresh({ ..model, next_timestamp: model.next_timestamp + 1 })
+  let changed = refresh({ ..model, next_timestamp: model.next_timestamp + 1, })
   (changed.editor.get_text(), changed)
 }
 
@@ -217,9 +217,9 @@ fn select_with_highlight(
 ) -> Model {
   let highlight_set = highlight_set_for(selected_node, model.scope_map)
   if reset_nav {
-    { ..model, selected_node, highlight_set, nav_path: None }
+    { ..model, selected_node, highlight_set, nav_path: None, }
   } else {
-    { ..model, selected_node, highlight_set }
+    { ..model, selected_node, highlight_set, }
   }
 }
 

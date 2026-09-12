@@ -156,7 +156,7 @@ fn compute_extract_to_let(
       return Some(
         (
           [
-            { start: block_start, delete_len: 0, inserted: let_text },
+            { start: block_start, delete_len: 0, inserted: let_text, },
             {
               start: range.start,
               delete_len: range.end - range.start,
@@ -272,7 +272,7 @@ fn compute_extract_to_let(
       Some(
         (
           [
-            { start: first_def_start, delete_len: 0, inserted: let_text },
+            { start: first_def_start, delete_len: 0, inserted: let_text, },
             {
               start: range.start,
               delete_len: range.end - range.start,
@@ -350,7 +350,7 @@ fn compute_inline_definition(
                   delete_len: range.end - range.start,
                   inserted: init_text,
                 },
-                { start: del_start, delete_len: del_len, inserted: "" },
+                { start: del_start, delete_len: del_len, inserted: "", },
               ],
               MoveCursor(position=range.start - del_len),
             ),
@@ -433,7 +433,7 @@ fn compute_inline_all_usages(
   }
   ref_ranges.sort_by(fn(a, b) { b.0.compare(a.0) })
   for rr in ref_ranges {
-    edits.push({ start: rr.0, delete_len: rr.1 - rr.0, inserted: init_text })
+    edits.push({ start: rr.0, delete_len: rr.1 - rr.0, inserted: init_text, })
   }
   // Delete the binding
   let (let_start, binding_end) = get_binding_text_range(
@@ -444,6 +444,6 @@ fn compute_inline_all_usages(
   let (del_start, del_len) = binding_delete_range(
     source_text, let_start, binding_end,
   )
-  edits.push({ start: del_start, delete_len: del_len, inserted: "" })
+  edits.push({ start: del_start, delete_len: del_len, inserted: "", })
   Some((edits, RestoreCursor))
 }

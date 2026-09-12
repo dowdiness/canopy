@@ -19,7 +19,7 @@ pub fn TokenSpan::TokenSpan(
   start~ : Int,
   end~ : Int,
 ) -> TokenSpan {
-  { role, start, end }
+  { role, start, end, }
 }
 
 ///|
@@ -35,7 +35,7 @@ pub fn ViewAnnotation::ViewAnnotation(
   label~ : String,
   severity? : String = "info",
 ) -> ViewAnnotation {
-  { kind, label, severity }
+  { kind, label, severity, }
 }
 
 ///|

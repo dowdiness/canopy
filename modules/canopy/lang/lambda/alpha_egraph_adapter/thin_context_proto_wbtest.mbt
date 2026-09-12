@@ -35,7 +35,7 @@ priv struct ContextSearchResult {
 
 ///|
 fn thin_egraph() -> ThinEGraph {
-  { eg: @egraph.AnalyzedEGraph::AnalyzedEGraph(eval_analysis()), entries: [] }
+  { eg: @egraph.AnalyzedEGraph::AnalyzedEGraph(eval_analysis()), entries: [], }
 }
 
 ///|
@@ -197,7 +197,7 @@ fn ThinEGraph::add_at(
   term : @alpha.AlphaTerm,
 ) -> ContextualId {
   let normalized = normalize_term(ctx, term)
-  let entry = { ctx, id: alpha_term_add(self.eg, normalized) }
+  let entry = { ctx, id: alpha_term_add(self.eg, normalized), }
   self.entries.push(entry)
   entry
 }
@@ -210,7 +210,7 @@ fn ThinEGraph::lift_to(
   thin : Thin,
 ) -> ContextualId? {
   if thin.valid(value.ctx, target) {
-    Some({ ctx: target, id: self.eg.find(value.id) })
+    Some({ ctx: target, id: self.eg.find(value.id), })
   } else {
     None
   }
@@ -274,12 +274,12 @@ fn ThinEGraph::search_at(
   } nobreak {
     count
   }
-  { candidates, matches }
+  { candidates, matches, }
 }
 
 ///|
 fn proto_binder(id : Int, hint : String) -> @alpha.Binder {
-  { id: @alpha.BinderId(id), hint, origin: @alpha.BinderOrigin::Generated(id) }
+  { id: @alpha.BinderId(id), hint, origin: @alpha.BinderOrigin::Generated(id), }
 }
 
 ///|
@@ -289,7 +289,7 @@ fn proto_bound(id : @alpha.BinderId) -> @alpha.AlphaTerm {
 
 ///|
 fn proto_free(name : String) -> @alpha.AlphaTerm {
-  @alpha.AlphaTerm::Var(Free({ name, origin: @alpha.FreeOrigin::SourceVar }))
+  @alpha.AlphaTerm::Var(Free({ name, origin: @alpha.FreeOrigin::SourceVar, }))
 }
 
 ///|
@@ -303,15 +303,15 @@ test "thin context prototype: open alpha bodies union only after context lift" {
   assert_true(raw.find(raw_left) != raw.find(raw_right))
 
   let proto = thin_egraph()
-  let left_ctx : LambdaContext = { binders: [left_binder.id] }
-  let right_ctx : LambdaContext = { binders: [right_binder.id] }
-  let target_ctx : LambdaContext = { binders: [@alpha.BinderId(0)] }
+  let left_ctx : LambdaContext = { binders: [left_binder.id], }
+  let right_ctx : LambdaContext = { binders: [right_binder.id], }
+  let target_ctx : LambdaContext = { binders: [@alpha.BinderId(0)], }
   let left = proto.add_at(left_ctx, proto_bound(left_binder.id))
   let right = proto.add_at(right_ctx, proto_bound(right_binder.id))
   assert_true(proto.union_at(target_ctx, left, right))
   proto.eg.rebuild()
   assert_true(proto.eg.find(left.id) == proto.eg.find(right.id))
-  guard proto.extract_at({ ctx: target_ctx, id: left.id })
+  guard proto.extract_at({ ctx: target_ctx, id: left.id, })
     is @alpha.AlphaTerm::Var(Bound(@alpha.BinderId(0))) else {
     fail("expected canonical one-binder body")
   }
@@ -325,17 +325,17 @@ test "thin context prototype: contextual search bounds thinning candidates" {
   let deep_outer = proto_binder(40, "outer")
   let deep_inner = proto_binder(41, "inner")
   let proto = thin_egraph()
-  let target_ctx : LambdaContext = { binders: [@alpha.BinderId(0)] }
+  let target_ctx : LambdaContext = { binders: [@alpha.BinderId(0)], }
   ignore(
-    proto.add_at({ binders: [left_binder.id] }, proto_bound(left_binder.id)),
+    proto.add_at({ binders: [left_binder.id], }, proto_bound(left_binder.id)),
   )
   ignore(
-    proto.add_at({ binders: [right_binder.id] }, proto_bound(right_binder.id)),
+    proto.add_at({ binders: [right_binder.id], }, proto_bound(right_binder.id)),
   )
-  ignore(proto.add_at({ binders: [free_ctx_binder.id] }, proto_free("z")))
+  ignore(proto.add_at({ binders: [free_ctx_binder.id], }, proto_free("z")))
   ignore(
     proto.add_at(
-      { binders: [deep_outer.id, deep_inner.id] },
+      { binders: [deep_outer.id, deep_inner.id], },
       proto_bound(deep_inner.id),
     ),
   )

@@ -56,7 +56,7 @@ fn Model::focus_item(self : Model, index : Int) -> Model {
 /// Create menu behavior state for a stable menu id and item count.
 pub fn Model::new(id~ : String, item_count~ : Int) -> Model {
   let item_count = normalized_count(item_count)
-  { id, item_count, focused: first_focus(item_count) }
+  { id, item_count, focused: first_focus(item_count), }
 }
 
 ///|

@@ -127,7 +127,7 @@ test "apply_edit hint policy: only resolved InvalidTarget taints pending hints" 
       match op {
         "seed" =>
           EditResult::Edits(
-            [{ start: 1, delete_len: 1, inserted: "3" }],
+            [{ start: 1, delete_len: 1, inserted: "3", }],
             @core.FocusHint::RestoreCursor,
             Some(@core.IdentityTransform::Wrap(inner=ctx.proj_node.id())),
           )
@@ -192,7 +192,7 @@ test "apply_edit hint policy: only resolved InvalidTarget taints pending hints" 
 test "apply_edit Edits path: applies spans, returns the patch trace, moves cursor" {
   let lang = stub_lang((_op, _ctx) => {
     EditResult::Edits(
-      [{ start: 0, delete_len: 1, inserted: "x" }],
+      [{ start: 0, delete_len: 1, inserted: "x", }],
       @core.FocusHint::MoveCursor(position=2),
       None,
     )

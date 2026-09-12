@@ -3,61 +3,61 @@
 
 ///|
 test "SpanEdit Show — pure insert" {
-  let e = SpanEdit::{ start: 25, delete_len: 0, inserted: "add" }
+  let e = SpanEdit::{ start: 25, delete_len: 0, inserted: "add", }
   inspect(e, content="@25 -0 +«add»")
 }
 
 ///|
 test "SpanEdit Show — pure delete" {
-  let e = SpanEdit::{ start: 25, delete_len: 3, inserted: "" }
+  let e = SpanEdit::{ start: 25, delete_len: 3, inserted: "", }
   inspect(e, content="@25 -3 +«»")
 }
 
 ///|
 test "SpanEdit Show — replace" {
-  let e = SpanEdit::{ start: 10, delete_len: 5, inserted: "abc" }
+  let e = SpanEdit::{ start: 10, delete_len: 5, inserted: "abc", }
   inspect(e, content="@10 -5 +«abc»")
 }
 
 ///|
 test "SpanEdit Show — inserted with closing guillemet" {
-  let e = SpanEdit::{ start: 0, delete_len: 0, inserted: "a»b" }
+  let e = SpanEdit::{ start: 0, delete_len: 0, inserted: "a»b", }
   inspect(e, content="@0 -0 +«a\\»b»")
 }
 
 ///|
 test "SpanEdit Show — inserted with backslash" {
-  let e = SpanEdit::{ start: 0, delete_len: 0, inserted: "a\\b" }
+  let e = SpanEdit::{ start: 0, delete_len: 0, inserted: "a\\b", }
   inspect(e, content="@0 -0 +«a\\\\b»")
 }
 
 ///|
 test "SpanEdit Show — inserted with newline" {
-  let e = SpanEdit::{ start: 0, delete_len: 0, inserted: "a\nb" }
+  let e = SpanEdit::{ start: 0, delete_len: 0, inserted: "a\nb", }
   inspect(e, content="@0 -0 +«a\\nb»")
 }
 
 ///|
 test "SpanEdit Show — inserted with NUL (U+0000)" {
-  let e = SpanEdit::{ start: 0, delete_len: 0, inserted: "a\u{00}b" }
+  let e = SpanEdit::{ start: 0, delete_len: 0, inserted: "a\u{00}b", }
   inspect(e, content="@0 -0 +«a\\u{00}b»")
 }
 
 ///|
 test "SpanEdit Show — inserted with DEL (U+007F)" {
-  let e = SpanEdit::{ start: 0, delete_len: 0, inserted: "a\u{7F}b" }
+  let e = SpanEdit::{ start: 0, delete_len: 0, inserted: "a\u{7F}b", }
   inspect(e, content="@0 -0 +«a\\u{7f}b»")
 }
 
 ///|
 test "SpanEdit Show — inserted with NEL (U+0085, C1 control)" {
-  let e = SpanEdit::{ start: 0, delete_len: 0, inserted: "a\u{85}b" }
+  let e = SpanEdit::{ start: 0, delete_len: 0, inserted: "a\u{85}b", }
   inspect(e, content="@0 -0 +«a\\u{85}b»")
 }
 
 ///|
 test "SpanEdit Show — inserted with U+2028 (line separator)" {
-  let e = SpanEdit::{ start: 0, delete_len: 0, inserted: "a\u{2028}b" }
+  let e = SpanEdit::{ start: 0, delete_len: 0, inserted: "a\u{2028}b", }
   inspect(e, content="@0 -0 +«a\\u{2028}b»")
 }
 

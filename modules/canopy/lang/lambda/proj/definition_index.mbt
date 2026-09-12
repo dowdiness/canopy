@@ -8,7 +8,7 @@ priv struct DefinitionIndexEntry {
 fn DefinitionIndexEntry::from_let_def(
   let_def : ProjNode[@ast.Term],
 ) -> DefinitionIndexEntry {
-  { init: let_def.children[0], binding_id: let_def.id() }
+  { init: let_def.children[0], binding_id: let_def.id(), }
 }
 
 ///|
@@ -35,7 +35,7 @@ pub fn DefinitionIndex::from_proj_node(
       ]
       { entries, }
     }
-    _ => { entries: [] }
+    _ => { entries: [], }
   }
 }
 

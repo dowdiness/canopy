@@ -455,7 +455,7 @@ test "sdeg phase1: defensive exact conflicts stay ambiguous" {
   let old_a1 = synthetic_heading(2, "A shadow", 4)
   let current_a = synthetic_heading(1, "A", 0)
   let row0 = heading_side_table_live_row(old_a0)
-  let row1 = { ..heading_side_table_live_row(old_a1), last_live: old_a0 }
+  let row1 = { ..heading_side_table_live_row(old_a1), last_live: old_a0, }
   let rows = [row0, row1]
   let table = {
     rows,

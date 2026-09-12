@@ -8,7 +8,7 @@ pub(all) struct Point {
 ///|
 /// Create a context-menu anchor point from client coordinates.
 pub fn Point::Point(x~ : Float, y~ : Float) -> Point {
-  { x, y }
+  { x, y, }
 }
 
 ///|
@@ -35,7 +35,7 @@ pub fn Positioning::Positioning(
   viewport_margin? : Float = 8.0F,
   collision? : CollisionStrategy = ClampToViewport,
 ) -> Positioning {
-  { offset_x, offset_y, viewport_margin, collision }
+  { offset_x, offset_y, viewport_margin, collision, }
 }
 
 ///|
@@ -129,7 +129,7 @@ pub fn Model::new(id~ : String) -> Model {
 ///|
 /// Return focus to `id` for close paths where the consumer requests it.
 pub fn Model::with_close_focus_id(self : Model, id : String) -> Model {
-  { ..self, close_focus_id: Some(id) }
+  { ..self, close_focus_id: Some(id), }
 }
 
 ///|
@@ -147,13 +147,13 @@ pub fn Model::anchor(self : Model) -> Point? {
 ///|
 /// Open the context menu at `anchor` and reset focus for `item_count` items.
 pub fn Model::open(self : Model, anchor~ : Point, item_count~ : Int) -> Model {
-  { ..self, anchor: Some(anchor), menu: self.menu.reset(item_count~) }
+  { ..self, anchor: Some(anchor), menu: self.menu.reset(item_count~), }
 }
 
 ///|
 /// Close the context menu and clear menu item focus state.
 pub fn Model::close(self : Model) -> Model {
-  { ..self, anchor: None, menu: self.menu.reset(item_count=0) }
+  { ..self, anchor: None, menu: self.menu.reset(item_count=0), }
 }
 
 ///|
@@ -167,7 +167,7 @@ pub fn Model::update(self : Model, msg : Msg) -> Model {
     Activate(_) | Close | Dismiss(_) => self.close()
     Key(_) => self
     FocusNext | FocusPrevious | FocusFirst | FocusLast | FocusItem(_) =>
-      { ..self, menu: self.menu.update(msg.to_menu_msg()) }
+      { ..self, menu: self.menu.update(msg.to_menu_msg()), }
   }
 }
 

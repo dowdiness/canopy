@@ -40,7 +40,7 @@ fn remote_admission_benchmark_fixture(
   try! target.sync_parser_from_coherent_seed()
   let target_version = target.get_version()
   try! source.insert(@text.Pos::at(visible_utf16_units), "q")
-  { source, target, incoming: try! source.sync().export_since(target_version) }
+  { source, target, incoming: try! source.sync().export_since(target_version), }
 }
 
 ///|

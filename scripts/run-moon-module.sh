@@ -33,9 +33,10 @@ export NEW_MOON_MOD="${NEW_MOON_MOD:-0}"
 
 DENY_WARN_FLAGS=(--deny-warn)
 
-# Vendored submodules built standalone still use deprecated `try?` ([0020]),
-# older compiler diagnostics ([0082]/[0083]), and the current compiler's
-# inexhaustive-guard diagnostic ([0087]); Canopy does not own their source.
+# Vendored submodules built standalone still use deprecated APIs ([0020]),
+# imports removed by newer core releases ([0029]), older compiler diagnostics
+# ([0082]/[0083]), inexhaustive guards ([0087]), and cleanup catches that need
+# `errdefer` ([0092]); Canopy does not own their source.
 # Keep Canopy-owned example modules on the narrower [0020] exemption.
 is_vendored_module=0
 for vendored_dir in $VENDORED_DIRS; do
@@ -46,7 +47,7 @@ for vendored_dir in $VENDORED_DIRS; do
     fi
 done
 if [ "$is_vendored_module" -eq 1 ]; then
-    LENIENT_WARN_FLAGS=(--deny-warn --warn-list=-20-82-83-87)
+    LENIENT_WARN_FLAGS=(--deny-warn --warn-list=-20-29-82-83-87-92)
 else
     LENIENT_WARN_FLAGS=(--deny-warn --warn-list=-20)
 fi

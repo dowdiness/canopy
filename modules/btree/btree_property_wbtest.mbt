@@ -99,7 +99,7 @@ fn model_find(items : Array[TItem], pos : Int) -> FindResult[TItem]? {
   for item in items {
     let next = offset + item.span
     if pos < next {
-      return Some({ elem: item, offset: pos - offset })
+      return Some({ elem: item, offset: pos - offset, })
     }
     offset = next
   }
@@ -219,7 +219,7 @@ fn tree_insert_item_at(t : BTree[TItem], pos : Int, item : TItem) -> Unit {
         let right = must_slice(ctx.elem, start=ctx.offset, end=ctx.span)
         new_leaves.push((right, right.span))
       }
-      { start_idx: ctx.child_idx, end_idx: ctx.child_idx + 1, new_leaves }
+      { start_idx: ctx.child_idx, end_idx: ctx.child_idx + 1, new_leaves, }
     })
   }
 }
@@ -266,7 +266,7 @@ fn delete_leaf_at(
   let (expected_model, expected_deleted) = model_delete_leaf_at(model, pos)
   let deleted = t.mutate_for_delete(pos, fn(ctx) {
     (
-      { start_idx: ctx.child_idx, end_idx: ctx.child_idx + 1, new_leaves: [] },
+      { start_idx: ctx.child_idx, end_idx: ctx.child_idx + 1, new_leaves: [], },
       ctx.elem,
     )
   })
@@ -315,54 +315,54 @@ fn push_query_case_shrinks(
 ) -> Unit {
   let total = generated_items_span(items)
   if start != 0 || end_ != 0 || pos != 0 {
-    results.push({ items, start: 0, end_: 0, pos: 0 })
+    results.push({ items, start: 0, end_: 0, pos: 0, })
   }
   if total > 0 {
     if start != 0 || end_ != total || pos != 0 {
-      results.push({ items, start: 0, end_: total, pos: 0 })
+      results.push({ items, start: 0, end_: total, pos: 0, })
     }
     if start != 0 || end_ != total || pos != total + 1 {
-      results.push({ items, start: 0, end_: total, pos: total + 1 })
+      results.push({ items, start: 0, end_: total, pos: total + 1, })
     }
     if start != total - 1 || end_ != total || pos != total {
-      results.push({ items, start: total - 1, end_: total, pos: total })
+      results.push({ items, start: total - 1, end_: total, pos: total, })
     }
     if start != 0 || end_ != total || pos != total - 1 {
-      results.push({ items, start: 0, end_: total, pos: total - 1 })
+      results.push({ items, start: 0, end_: total, pos: total - 1, })
     }
     if start != 0 || end_ != total || pos != total {
-      results.push({ items, start: 0, end_: total, pos: total })
+      results.push({ items, start: 0, end_: total, pos: total, })
     }
   }
   if start < 0 && start != -1 {
-    results.push({ items, start: -1, end_, pos })
+    results.push({ items, start: -1, end_, pos, })
   }
   if end_ < 0 && end_ != -1 {
-    results.push({ items, start, end_: -1, pos })
+    results.push({ items, start, end_: -1, pos, })
   }
   if pos < 0 && pos != -1 {
-    results.push({ items, start, end_, pos: -1 })
+    results.push({ items, start, end_, pos: -1, })
   }
   if start > total && start != total + 1 {
-    results.push({ items, start: total + 1, end_, pos })
+    results.push({ items, start: total + 1, end_, pos, })
   }
   if end_ > total && end_ != total + 1 {
-    results.push({ items, start, end_: total + 1, pos })
+    results.push({ items, start, end_: total + 1, pos, })
   }
   if pos > total && pos != total + 1 {
-    results.push({ items, start, end_, pos: total + 1 })
+    results.push({ items, start, end_, pos: total + 1, })
   }
   if start > end_ {
-    results.push({ items, start: end_, end_: start, pos })
+    results.push({ items, start: end_, end_: start, pos, })
   }
   for next_start in @qc.Shrink::shrink(start) {
-    results.push({ items, start: next_start, end_, pos })
+    results.push({ items, start: next_start, end_, pos, })
   }
   for next_end in @qc.Shrink::shrink(end_) {
-    results.push({ items, start, end_: next_end, pos })
+    results.push({ items, start, end_: next_end, pos, })
   }
   for next_pos in @qc.Shrink::shrink(pos) {
-    results.push({ items, start, end_, pos: next_pos })
+    results.push({ items, start, end_, pos: next_pos, })
   }
 }
 
@@ -439,7 +439,12 @@ impl @qc.Shrink for QueryCase with fn shrink(case_) {
     case_.pos,
   )
   for items in shrink_generated_items(case_.items) {
-    results.push({ items, start: case_.start, end_: case_.end_, pos: case_.pos })
+    results.push({
+      items,
+      start: case_.start,
+      end_: case_.end_,
+      pos: case_.pos,
+    })
     push_query_case_shrinks(results, items, case_.start, case_.end_, case_.pos)
   }
   results.iter()
@@ -516,7 +521,7 @@ impl @quickcheck.Arbitrary for ArbitrarySpliceCase with fn arbitrary(_size, rs) 
     2 => Merge
     _ => RepeatedMerge
   }
-  { min_degree, shape }
+  { min_degree, shape, }
 }
 
 ///|
@@ -681,20 +686,20 @@ impl @quickcheck.Arbitrary for NormalizeBoundaryCase with fn arbitrary(
     5 => InteriorNoOp
     _ => StableNoOp
   }
-  { min_degree, shape, seed: rs.split().next_positive_int() % 1_000 }
+  { min_degree, shape, seed: rs.split().next_positive_int() % 1_000, }
 }
 
 ///|
 impl @qc.Shrink for NormalizeBoundaryCase with fn shrink(case_) {
   let results : Array[NormalizeBoundaryCase] = []
   if case_.seed != 0 {
-    results.push({ ..case_, seed: 0 })
+    results.push({ ..case_, seed: 0, })
   }
   if case_.min_degree == DEFAULT_MIN_DEGREE {
-    results.push({ ..case_, min_degree: 3 })
-    results.push({ ..case_, min_degree: 2 })
+    results.push({ ..case_, min_degree: 3, })
+    results.push({ ..case_, min_degree: 2, })
   } else if case_.min_degree > 2 {
-    results.push({ ..case_, min_degree: 2 })
+    results.push({ ..case_, min_degree: 2, })
   }
   results.iter()
 }
@@ -768,7 +773,7 @@ fn normalization_case_input(
     }
     InteriorNoOp => {
       let items = normalization_items(4, 0, -1, case_.seed)
-      items[0] = { ..items[0], span: 3 }
+      items[0] = { ..items[0], span: 3, }
       (items, 1)
     }
     StableNoOp => {
@@ -1035,7 +1040,7 @@ impl @quickcheck.Arbitrary for OpSequenceCase with fn arbitrary(size, rs) {
     2 => 5
     _ => DEFAULT_MIN_DEGREE
   }
-  { ops, min_degree }
+  { ops, min_degree, }
 }
 
 ///|
@@ -1045,14 +1050,14 @@ fn push_min_degree_shrinks(
   min_degree : Int,
 ) -> Unit {
   if min_degree == DEFAULT_MIN_DEGREE {
-    results.push({ ops, min_degree: 5 })
-    results.push({ ops, min_degree: 3 })
-    results.push({ ops, min_degree: 2 })
+    results.push({ ops, min_degree: 5, })
+    results.push({ ops, min_degree: 3, })
+    results.push({ ops, min_degree: 2, })
   } else if min_degree > 3 {
-    results.push({ ops, min_degree: 3 })
-    results.push({ ops, min_degree: 2 })
+    results.push({ ops, min_degree: 3, })
+    results.push({ ops, min_degree: 2, })
   } else if min_degree > 2 {
-    results.push({ ops, min_degree: 2 })
+    results.push({ ops, min_degree: 2, })
   }
 }
 
@@ -1061,7 +1066,10 @@ impl @qc.Shrink for OpSequenceCase with fn shrink(case_) {
   let results : Array[OpSequenceCase] = []
   let len = case_.ops.length()
   if len > 0 {
-    results.push({ ops: case_.ops[:0].to_owned(), min_degree: case_.min_degree })
+    results.push({
+      ops: case_.ops[:0].to_owned(),
+      min_degree: case_.min_degree,
+    })
     let half = len / 2
     if half > 0 {
       results.push({
@@ -1180,7 +1188,7 @@ test "normalize_boundary_at degree and topology matrix matches closure model" {
         StableNoOp,
       ] {
       inspect(
-        prop_normalize_boundary_matches_model({ min_degree, shape, seed: 7 }),
+        prop_normalize_boundary_matches_model({ min_degree, shape, seed: 7, }),
         content="true",
       )
     }
@@ -1255,15 +1263,15 @@ test "arbitrary splice propagation cardinality and repair boundary matrix" {
       )
     }
     inspect(
-      arbitrary_splice_case_matches_model({ min_degree, shape: BulkBorrow }),
+      arbitrary_splice_case_matches_model({ min_degree, shape: BulkBorrow, }),
       content="true",
     )
     inspect(
-      arbitrary_splice_case_matches_model({ min_degree, shape: Merge }),
+      arbitrary_splice_case_matches_model({ min_degree, shape: Merge, }),
       content="true",
     )
     inspect(
-      arbitrary_splice_case_matches_model({ min_degree, shape: RepeatedMerge }),
+      arbitrary_splice_case_matches_model({ min_degree, shape: RepeatedMerge, }),
       content="true",
     )
   }
@@ -1346,7 +1354,7 @@ test "regression: QueryCase shrinker reaches stable minimal witness" {
   }
   let shrunk_once = seed.to_stable_witness()
   let shrunk_twice = shrunk_once.to_stable_witness()
-  let expected : QueryCase = { items: [(1, 1)], start: 0, end_: 0, pos: 0 }
+  let expected : QueryCase = { items: [(1, 1)], start: 0, end_: 0, pos: 0, }
   inspect(shrunk_once.items.length(), content="1")
   inspect(shrunk_once.start, content="0")
   inspect(shrunk_once.end_, content="0")

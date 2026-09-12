@@ -5,7 +5,7 @@
 ///| Provides interactive commands for editing and testing
 
 ///|
-let next_repl_source_identity : Ref[Int] = { val: 0 }
+let next_repl_source_identity : Ref[Int] = { val: 0, }
 
 ///|
 /// REPL state holding the editor

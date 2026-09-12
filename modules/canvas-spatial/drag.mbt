@@ -11,7 +11,7 @@ pub fn[Id] ItemPosition::from_id_and_point(
   id~ : Id,
   point~ : WorldPoint,
 ) -> ItemPosition[Id] {
-  { id, point }
+  { id, point, }
 }
 
 ///|
@@ -32,7 +32,7 @@ pub fn[Id] Drag::start(
       ItemPosition::from_id_and_point(id=item.id, point=item.point)
     }
   ]
-  { initial_positions: snapshot, initial_pointer: pointer }
+  { initial_positions: snapshot, initial_pointer: pointer, }
 }
 
 ///|

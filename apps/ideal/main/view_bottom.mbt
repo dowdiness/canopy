@@ -181,7 +181,7 @@ fn view_bottom_tabs(dispatch : Emit[Msg], model : Model) -> Html {
     @ui.tab_trigger_view(
       behavior,
       i,
-      { id: bottom_tab_slug(tab), label },
+      { id: bottom_tab_slug(tab), label, },
       panel_id=bottom_tab_panel_id(tab),
       model.bottom_tab == tab,
       j => dispatch(SelectBottomTab(bottom_tab_defs[j].0)),

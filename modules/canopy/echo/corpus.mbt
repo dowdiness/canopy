@@ -18,7 +18,7 @@ pub(all) struct Corpus {
 pub fn Corpus::new(
   tokenize? : (String) -> Array[String] = @tokenizer.bigram,
 ) -> Corpus {
-  { tokenize, next_id: 0, doc_freq: Default::default(), posts: [] }
+  { tokenize, next_id: 0, doc_freq: Default::default(), posts: [], }
 }
 
 ///|
@@ -43,7 +43,7 @@ pub fn Corpus::add_post(self : Corpus, text : String) -> Int {
   for term, _ in tf.counts {
     self.doc_freq[term] = self.doc_freq.get(term).unwrap_or(0) + 1
   }
-  let post : Post = { id, text, tf, vec: SparseVec::zero() }
+  let post : Post = { id, text, tf, vec: SparseVec::zero(), }
   self.posts.push(post)
   self.recompute_vectors()
   id
@@ -77,7 +77,7 @@ pub fn Corpus::query_text(
   if query_vec.norm == 0.0 {
     return []
   }
-  let scores : Array[(Int, Double)] = Array::new(capacity=self.posts.length())
+  let scores : Array[(Int, Double)] = Array(capacity=self.posts.length())
   for post in self.posts {
     let sim = cosine_similarity(query_vec, post.vec)
     if sim > 0.0 {
@@ -110,9 +110,7 @@ pub fn Corpus::query_similar(
       if vec.norm == 0.0 {
         return []
       }
-      let scores : Array[(Int, Double)] = Array::new(
-        capacity=self.posts.length(),
-      )
+      let scores : Array[(Int, Double)] = Array(capacity=self.posts.length())
       for post in self.posts {
         if post.id != post_id {
           let sim = cosine_similarity(vec, post.vec)

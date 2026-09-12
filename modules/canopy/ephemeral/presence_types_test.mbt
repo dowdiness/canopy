@@ -1,6 +1,6 @@
 ///|
 test "EditModeState roundtrip" {
-  let state : EditModeState = { node_id: "node-42" }
+  let state : EditModeState = { node_id: "node-42", }
   let ephemeral = state.to_ephemeral()
   @debug.debug_inspect(
     EditModeState::from_ephemeral(ephemeral),
@@ -20,7 +20,7 @@ test "EditModeState from_ephemeral rejects non-Map" {
 
 ///|
 test "DragState roundtrip with target" {
-  let state : DragState = { source_id: "src", target: Some(("tgt", Before)) }
+  let state : DragState = { source_id: "src", target: Some(("tgt", Before)), }
   let result = DragState::from_ephemeral(state.to_ephemeral())
   @debug.debug_inspect(
     result,
@@ -32,7 +32,7 @@ test "DragState roundtrip with target" {
 
 ///|
 test "DragState roundtrip without target" {
-  let state : DragState = { source_id: "src", target: None }
+  let state : DragState = { source_id: "src", target: None, }
   let result = DragState::from_ephemeral(state.to_ephemeral())
   @debug.debug_inspect(
     result,

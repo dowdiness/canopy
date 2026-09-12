@@ -13,7 +13,7 @@ pub struct Reader {
 
 ///|
 pub fn Reader::new(data : Bytes) -> Reader {
-  { data, pos: 0 }
+  { data, pos: 0, }
 }
 
 ///|
